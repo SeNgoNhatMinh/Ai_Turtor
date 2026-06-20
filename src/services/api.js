@@ -417,5 +417,65 @@ export const apiService = {
     async uploadCodeFileMentor(formData, queryParams) {
         const params = new URLSearchParams(queryParams);
         return await uploadRequest(`${API_BASE_URL}/code-mentor/upload?${params}`, formData);
+    },
+
+    // =============================================
+    // 19. Learning Dashboards
+    // =============================================
+    async getStudentDashboard(studentId, courseId = '') {
+        const params = new URLSearchParams();
+        if (courseId) params.append('courseId', courseId);
+        const qs = params.toString();
+        return await request(`${API_BASE_URL}/students/${studentId}/dashboard${qs ? `?${qs}` : ''}`);
+    },
+
+    async getTeacherDashboard(teacherId, courseId = '', classId = '') {
+        const params = new URLSearchParams();
+        if (courseId) params.append('courseId', courseId);
+        if (classId) params.append('classId', classId);
+        const qs = params.toString();
+        return await request(`${API_BASE_URL}/mentors/${teacherId}/dashboard${qs ? `?${qs}` : ''}`);
+    },
+
+    async getTeacherEscalationInbox(teacherId, filters = {}) {
+        const params = new URLSearchParams();
+        Object.entries(filters).forEach(([k, v]) => { if (v) params.append(k, v); });
+        const qs = params.toString();
+        return await request(`${API_BASE_URL}/tutor/escalations/teachers/${teacherId}${qs ? `?${qs}` : ''}`);
+    },
+
+    // =============================================
+    // 20. AI Answer Reviews
+    // =============================================
+    async getAnswerReviews(filters = {}) {
+        const params = new URLSearchParams();
+        Object.entries(filters).forEach(([k, v]) => { if (v) params.append(k, v); });
+        return asArray(await request(`${API_BASE_URL}/tutor/answer-reviews?${params}`), 'reviews', 'content');
+    },
+
+    async getMentorPendingAnswerReviews(courseId = '') {
+        const params = courseId ? `?courseId=${courseId}` : '';
+        return asArray(await request(`${API_BASE_URL}/tutor/answer-reviews/mentor-pending${params}`), 'reviews', 'content');
+    },
+
+    async getSeniorPendingAnswerReviews(courseId = '') {
+        const params = courseId ? `?courseId=${courseId}` : '';
+        return asArray(await request(`${API_BASE_URL}/tutor/answer-reviews/senior-pending${params}`), 'reviews', 'content');
+    },
+
+    async submitAnswerReview(payload) {
+        return await request(`${API_BASE_URL}/tutor/answer-reviews`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+    },
+
+    async seniorResolveAnswerReview(reviewId, payload) {
+        return await request(`${API_BASE_URL}/tutor/answer-reviews/${reviewId}/senior-resolve`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
     }
 };

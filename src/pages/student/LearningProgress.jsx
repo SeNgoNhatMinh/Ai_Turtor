@@ -1,16 +1,53 @@
 import React from 'react';
-import { Button, Card, Col, Empty, List, Row, Space, Tag, Typography } from 'antd';
-import { CheckCircleOutlined, InfoCircleOutlined, ThunderboltOutlined } from '@ant-design/icons';
+import { Button, Card, Col, Empty, List, Row, Space, Spin, Tag, Typography } from 'antd';
+import { CheckCircleOutlined, InfoCircleOutlined, ReloadOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import CanvasGraph from '../../components/CanvasGraph';
 import PageHeader from '../../components/common/PageHeader';
 import { uiCopy } from '../../constants/uiCopy';
 
-const { Title } = Typography;
+const { Title, Text } = Typography;
 
-function LearningProgress({ learnedTopics, weakTopics, suggestions, isSuggesting, refreshSuggestions }) {
+function LearningProgress({
+  learnedTopics,
+  weakTopics,
+  suggestions,
+  isSuggesting,
+  refreshSuggestions,
+  isLoading = false,
+  dashboardStats = {},
+  onRefreshDashboard,
+}) {
+  if (isLoading) {
+    return (
+      <div className="portal-section center-state">
+        <Spin size="large" tip="Loading learning dashboard..." />
+      </div>
+    );
+  }
+
+  const statEntries = Object.entries(dashboardStats).filter(([, v]) => v != null && v !== '');
+
   return (
     <div className="portal-section">
-      <PageHeader title={uiCopy.student.progress.title} description={uiCopy.student.progress.subtitle} />
+      <PageHeader
+        title={uiCopy.student.progress.title}
+        description={uiCopy.student.progress.subtitle}
+        actions={onRefreshDashboard ? (
+          <Button icon={<ReloadOutlined />} onClick={onRefreshDashboard}>Refresh dashboard</Button>
+        ) : null}
+      />
+      {statEntries.length > 0 && (
+        <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+          {statEntries.map(([key, value]) => (
+            <Col xs={12} sm={8} md={6} key={key}>
+              <Card size="small">
+                <Text type="secondary" style={{ fontSize: 12, textTransform: 'capitalize' }}>{key.replace(/([A-Z])/g, ' $1')}</Text>
+                <Title level={4} style={{ margin: '4px 0 0' }}>{String(value)}</Title>
+              </Card>
+            </Col>
+          ))}
+        </Row>
+      )}
       <Row gutter={[16, 16]}>
         <Col xs={24}>
           <Card title={uiCopy.student.progress.networkTitle}>

@@ -1,9 +1,10 @@
-export const API_BASE_URL = 'http://localhost:8085/api';
+export const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ?? "/api";
 
 export async function request(url, options = {}) {
   const res = await fetch(url, options);
   if (!res.ok) {
-    const errorBody = await res.text().catch(() => '');
+    const errorBody = await res.text().catch(() => "");
     let message = errorBody || res.statusText;
     try {
       const parsed = JSON.parse(errorBody);
@@ -16,9 +17,9 @@ export async function request(url, options = {}) {
   return await res.json();
 }
 
-export async function uploadRequest(url, formData, errorPrefix = 'Upload failed') {
+export async function uploadRequest(url, formData, errorPrefix = "Upload failed") {
   const res = await fetch(url, {
-    method: 'POST',
+    method: "POST",
     body: formData,
   });
   if (!res.ok) throw new Error(`${errorPrefix}: ${res.status}`);

@@ -13,8 +13,8 @@ import { uiCopy } from '../constants/uiCopy';
 import { normalizeEscalation } from '../services/normalizers';
 import { apiService } from '../services/api';
 
-const learnedTopics = ['MVC Flow', 'REST APIs', 'Spring Boot Config', 'Maven Dependencies'];
-const weakTopics = ['JPA Relations', 'Spring Security'];
+const defaultLearned = ['MVC Flow', 'REST APIs', 'Spring Boot Config', 'Maven Dependencies'];
+const defaultWeak = ['JPA Relations', 'Spring Security'];
 
 function StudentPortal({
   activeTab,
@@ -42,6 +42,12 @@ function StudentPortal({
   isSuggesting,
   refreshSuggestions,
   userId = 'student-a1',
+  studentDashboard,
+  isStudentDashboardLoading,
+  loadStudentDashboard,
+  onMarkChatRead,
+  onCloseChat,
+  onGetChatDetail,
 }) {
   const [chatInput, setChatInput] = useState('');
   const [codeLanguage, setCodeLanguage] = useState('java');
@@ -62,6 +68,8 @@ function StudentPortal({
   const [selectedMentorForEsc, setSelectedMentorForEsc] = useState(null);
   const [isEscalationsLoading, setIsEscalationsLoading] = useState(false);
   const [escalationsError, setEscalationsError] = useState('');
+  const [chatUnreadCount, setChatUnreadCount] = useState(0);
+  const [chatRoomDetail, setChatRoomDetail] = useState(null);
 
   const messagesEndRef = useRef(null);
   const escMessagesEndRef = useRef(null);
@@ -77,8 +85,24 @@ function StudentPortal({
   useEffect(() => {
     if (activeTab === 'student-escalation') {
       loadEscalations();
+      loadChatUnread();
     }
   }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab === 'student-memory') {
+      loadStudentDashboard?.();
+    }
+  }, [activeTab, courseId]);
+
+  const loadChatUnread = async () => {
+    try {
+      const data = await apiService.getChatUnread(userId);
+      setChatUnreadCount(data?.unreadCount ?? data?.count ?? (Array.isArray(data?.rooms) ? data.rooms.length : 0));
+    } catch {
+      setChatUnreadCount(0);
+    }
+  };
 
   const loadEscalations = async () => {
     setIsEscalationsLoading(true);
@@ -100,11 +124,39 @@ function StudentPortal({
 
   const handleSelectEscalation = async (escalation) => {
     setSelectedEscalation(escalation);
-    if (escalation.status === 'ASSIGNED') {
+    setChatRoomDetail(null);
+    if (escalation.status === 'ASSIGNED' && escalation.chatRoomId) {
+      try {
+        if (onMarkChatRead) await onMarkChatRead(escalation.chatRoomId);
+        if (onGetChatDetail) {
+          const detail = await onGetChatDetail(escalation.chatRoomId);
+          setChatRoomDetail(detail);
+        }
+        loadChatUnread();
+      } catch {
+        // Non-blocking — chat may still work via history
+      }
       const history = await apiService.getChatHistory(escalation.chatRoomId);
       setEscChatMessages(Array.isArray(history) ? history : []);
     } else {
       setEscChatMessages([]);
+    }
+  };
+
+  const handleCloseSupportChat = async () => {
+    if (!selectedEscalation?.chatRoomId || !onCloseChat) return;
+    try {
+      await onCloseChat({
+        chatRoomId: selectedEscalation.chatRoomId,
+        questionEscalationId: selectedEscalation.id,
+      });
+      message.success('Support chat closed.');
+      setEscChatMessages([]);
+      setChatRoomDetail(null);
+      loadEscalations();
+      loadChatUnread();
+    } catch (error) {
+      message.error(error.message || 'Unable to close chat.');
     }
   };
 
@@ -257,13 +309,18 @@ function StudentPortal({
   }
 
   if (activeTab === 'student-memory') {
+    const learned = studentDashboard?.learnedTopics?.length ? studentDashboard.learnedTopics : defaultLearned;
+    const weak = studentDashboard?.weakTopics?.length ? studentDashboard.weakTopics : defaultWeak;
     return (
       <LearningProgress
-        learnedTopics={learnedTopics}
-        weakTopics={weakTopics}
+        learnedTopics={learned}
+        weakTopics={weak}
         suggestions={suggestions}
         isSuggesting={isSuggesting}
         refreshSuggestions={refreshSuggestions}
+        isLoading={isStudentDashboardLoading}
+        dashboardStats={studentDashboard?.stats}
+        onRefreshDashboard={loadStudentDashboard}
       />
     );
   }
@@ -297,10 +354,13 @@ function StudentPortal({
           userId={userId}
           isEscalationsLoading={isEscalationsLoading}
           escalationsError={escalationsError}
+          chatUnreadCount={chatUnreadCount}
+          chatRoomDetail={chatRoomDetail}
           loadEscalations={loadEscalations}
           onSelectEscalation={handleSelectEscalation}
           onSendEscalationMsg={onSendEscalationMsg}
           onOpenMentorSelect={handleOpenMentorSelect}
+          onCloseSupportChat={handleCloseSupportChat}
         />
         <MentorSelectModal
           open={escModalVisible}

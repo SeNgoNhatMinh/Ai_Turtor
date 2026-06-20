@@ -8,7 +8,7 @@ import TeacherPortal from './pages/TeacherPortal';
 import AdminPortal from './pages/AdminPortal';
 import Login from './pages/Login';
 import { apiService } from './services/api';
-import { asArray, normalizeMessage, normalizeSession } from './services/normalizers';
+import { asArray, normalizeMessage, normalizeSession, normalizeTeacherInboxItem, normalizeAnswerReview, normalizeStudentDashboard, normalizeTeacherDashboard } from './services/normalizers';
 import { getFptTheme } from './theme/fptTheme';
 
 function App() {
@@ -33,14 +33,10 @@ function App() {
   const [selectedAssignment, setSelectedAssignment] = useState(null);
 
   // Teacher State
-  const [classesList] = useState([
-    { semester: 'SEM5', course: 'PRJ301', classCode: 'SE1840', name: 'Class PRJ301_SE1840', details: 'Java Web Application | 30 students' },
-    { semester: 'SEM5', course: 'PRO192', classCode: 'SE1841', name: 'Class PRO192_SE1841', details: 'Object-Oriented Programming | 28 students' }
-  ]);
-  const [teacherStudents] = useState([
-    { id: 'student-a1', name: 'Student A', email: 'a@student.fpt.edu.vn', status: 'ACTIVE', weakTopics: ['JPA Relations', 'Spring Security'] },
-    { id: 'student-a2', name: 'Student B', email: 'b@student.fpt.edu.vn', status: 'ACTIVE', weakTopics: ['None'] }
-  ]);
+  const [classesList, setClassesList] = useState([]);
+  const [teacherStudents, setTeacherStudents] = useState([]);
+  const [teacherTopicHeatmap, setTeacherTopicHeatmap] = useState([]);
+  const [teacherDashboardLoading, setTeacherDashboardLoading] = useState(false);
   const [teacherSubmissions, setTeacherSubmissions] = useState([]);
   const [selectedTeacherSub, setSelectedTeacherSub] = useState(null);
   
@@ -49,11 +45,17 @@ function App() {
   const [uploadProgressText, setUploadProgressText] = useState('');
 
   // Escalation & Candidate State
-  const [escalations, setEscalations] = useState([
-    { id: 'esc1', student: 'Student A1', title: 'JPA ManyToMany recursive mapping issue (StackOverflowError)', context: 'Course: PRJ301 | Class: SE1840', time: 'Waiting for 5 minutes', status: 'pending', question: 'JPA ManyToMany mapping causes StackOverflow.' }
-  ]);
+  const [escalations, setEscalations] = useState([]);
+  const [teacherChatInbox, setTeacherChatInbox] = useState([]);
+  const [isTeacherInboxLoading, setIsTeacherInboxLoading] = useState(false);
   const [selectedEscalation, setSelectedEscalation] = useState(null);
   const [candidates, setCandidates] = useState([]);
+  const [answerReviews, setAnswerReviews] = useState([]);
+  const [seniorAnswerReviews, setSeniorAnswerReviews] = useState([]);
+
+  // Student dashboard
+  const [studentDashboard, setStudentDashboard] = useState({ learnedTopics: [], weakTopics: [], stats: {} });
+  const [isStudentDashboardLoading, setIsStudentDashboardLoading] = useState(false);
 
   // Admin State
   const [adminStats, setAdminStats] = useState({});
@@ -79,7 +81,6 @@ function App() {
     loadChatSessions();
     loadAdminStats();
     loadSubscriptionPlans();
-    setSelectedEscalation(escalations[0]);
   }, []);
 
   useEffect(() => {
@@ -88,6 +89,9 @@ function App() {
     } else if (activeRole === 'teacher') {
       loadTeacherSubmissions();
       loadKnowledgeCandidates();
+      loadTeacherDashboard();
+      loadTeacherInbox();
+      loadAnswerReviews();
     }
   }, [activeRole, courseId, classId]);
 
@@ -120,6 +124,122 @@ function App() {
       }
     } catch (e) {
       setTeacherSubmissions([]);
+    }
+  };
+
+  const loadStudentDashboard = async () => {
+    setIsStudentDashboardLoading(true);
+    try {
+      const data = await apiService.getStudentDashboard(getStudentUserId(), courseId);
+      const normalized = normalizeStudentDashboard(data);
+      setStudentDashboard(normalized);
+      if (normalized.suggestions?.length) {
+        setSuggestions(normalized.suggestions);
+      }
+    } catch (e) {
+      try {
+        const memory = await apiService.getStudentMemory(getStudentUserId(), courseId);
+        setStudentDashboard({
+          learnedTopics: memory.learnedTopics || [],
+          weakTopics: memory.weakTopics || [],
+          stats: {},
+        });
+      } catch {
+        setStudentDashboard({ learnedTopics: [], weakTopics: [], stats: {} });
+      }
+    } finally {
+      setIsStudentDashboardLoading(false);
+    }
+  };
+
+  const loadTeacherDashboard = async () => {
+    setTeacherDashboardLoading(true);
+    try {
+      const data = await apiService.getTeacherDashboard(getTeacherUserId(), courseId, classId);
+      const normalized = normalizeTeacherDashboard(data);
+      setTeacherTopicHeatmap(normalized.topicHeatmap);
+
+      const sections = normalized.classSections;
+      if (sections.length) {
+        setClassesList(sections.map((s) => ({
+          semester: s.semesterId || s.semesterCode || '—',
+          course: s.courseId || courseId,
+          classCode: s.classId || s.id,
+          name: s.name || `Class ${s.courseId}_${s.classId}`,
+          details: s.description || `${s.studentCount ?? '—'} students`,
+        })));
+      } else {
+        const fallback = await apiService.getTeacherClassSections(getTeacherUserId());
+        const list = asArray(fallback, 'content', 'classSections');
+        setClassesList(list.map((s) => ({
+          semester: s.semesterId || '—',
+          course: s.courseId || courseId,
+          classCode: s.classId || s.id,
+          name: s.name || `Class ${s.courseId}_${s.classId}`,
+          details: `${s.studentCount ?? '—'} students`,
+        })));
+      }
+
+      if (normalized.students.length) {
+        setTeacherStudents(normalized.students.map((s) => ({
+          id: s.studentId || s.id || s.userId,
+          name: s.fullName || s.name || s.studentId,
+          email: s.email || '—',
+          status: s.status || 'ACTIVE',
+          weakTopics: s.weakTopics?.length ? s.weakTopics : ['None'],
+        })));
+      } else {
+        try {
+          const studentsData = await apiService.getClassStudents(courseId, classId);
+          const students = asArray(studentsData, 'students', 'content');
+          setTeacherStudents(students.map((s) => ({
+            id: s.studentId || s.id,
+            name: s.fullName || s.name || s.studentId,
+            email: s.email || '—',
+            status: s.status || 'ACTIVE',
+            weakTopics: s.weakTopics?.length ? s.weakTopics : ['None'],
+          })));
+        } catch {
+          setTeacherStudents([]);
+        }
+      }
+    } catch (e) {
+      setTeacherStudents([]);
+      setTeacherTopicHeatmap([]);
+    } finally {
+      setTeacherDashboardLoading(false);
+    }
+  };
+
+  const loadTeacherInbox = async () => {
+    setIsTeacherInboxLoading(true);
+    try {
+      const data = await apiService.getTeacherEscalationInbox(getTeacherUserId(), { courseId });
+      const items = asArray(data, 'escalations', 'inbox', 'content').map(normalizeTeacherInboxItem);
+      setEscalations(items);
+      setTeacherChatInbox(items.filter((e) => e.chatRoomId && ['assigned', 'active'].includes(e.status)));
+      if (items.length && !selectedEscalation) {
+        setSelectedEscalation(items[0]);
+      }
+    } catch (e) {
+      setEscalations([]);
+      setTeacherChatInbox([]);
+    } finally {
+      setIsTeacherInboxLoading(false);
+    }
+  };
+
+  const loadAnswerReviews = async () => {
+    try {
+      const [mentorPending, seniorPending] = await Promise.all([
+        apiService.getMentorPendingAnswerReviews(courseId),
+        apiService.getSeniorPendingAnswerReviews(courseId),
+      ]);
+      setAnswerReviews((Array.isArray(mentorPending) ? mentorPending : []).map(normalizeAnswerReview));
+      setSeniorAnswerReviews((Array.isArray(seniorPending) ? seniorPending : []).map(normalizeAnswerReview));
+    } catch (e) {
+      setAnswerReviews([]);
+      setSeniorAnswerReviews([]);
     }
   };
 
@@ -381,21 +501,57 @@ function App() {
     triggerToast('Sending answer and creating a knowledge candidate...');
 
     const payload = {
-      teacherId: 'teacher-a-mentor-id',
-      teacherName: 'Teacher B',
+      teacherId: getTeacherUserId(),
+      teacherName: currentUser?.fullName || currentUser?.name || 'Teacher',
       answer: reply
     };
 
     await apiService.answerEscalation(escalationId, payload);
     triggerToast('Answer sent successfully.');
 
-    // Update locally
     setEscalations(prev => prev.map(esc => {
       if (esc.id === escalationId) {
         return { ...esc, status: 'answered' };
       }
       return esc;
     }));
+    loadTeacherInbox();
+  };
+
+  const handleMentorReviewAnswer = async (review, accurate, feedback) => {
+    triggerToast('Submitting AI answer review...');
+    await apiService.submitAnswerReview({
+      studentId: review.studentId,
+      courseId: review.courseId || courseId,
+      classId: review.classId || classId,
+      conversationId: review.conversationId,
+      questionEscalationId: review.questionEscalationId,
+      mode: review.mode || 'RAG',
+      reviewType: review.reviewType || 'ANSWER_DISPUTE',
+      question: review.question,
+      answer: review.answer,
+      accurate,
+      helpful: accurate,
+      correctnessLevel: accurate ? 'HIGH' : 'INCORRECT',
+      feedback,
+      reviewedBy: getTeacherUserId(),
+      reviewerRole: 'MENTOR',
+    });
+    triggerToast(accurate ? 'Review submitted — AI answer confirmed.' : 'Review submitted — correction noted.');
+    loadAnswerReviews();
+  };
+
+  const handleSeniorResolveReview = async (reviewId, decision, notes) => {
+    triggerToast('Resolving senior review...');
+    await apiService.seniorResolveAnswerReview(reviewId, {
+      seniorReviewerId: getTeacherUserId(),
+      seniorReviewerName: currentUser?.fullName || currentUser?.name || 'Senior Mentor',
+      reviewerRole: 'SENIOR_MENTOR',
+      decision,
+      notes,
+    });
+    triggerToast('Senior review resolved.');
+    loadAnswerReviews();
   };
 
   const loadKnowledgeCandidates = async () => {
@@ -514,6 +670,12 @@ function App() {
                   refreshSuggestions={refreshSuggestions}
                   triggerToast={triggerToast}
                   userId={getStudentUserId()}
+                  studentDashboard={studentDashboard}
+                  isStudentDashboardLoading={isStudentDashboardLoading}
+                  loadStudentDashboard={loadStudentDashboard}
+                  onMarkChatRead={(chatRoomId) => apiService.markChatRead(chatRoomId, getStudentUserId())}
+                  onCloseChat={(payload) => apiService.closeChat({ ...payload, userId: getStudentUserId() })}
+                  onGetChatDetail={(chatRoomId) => apiService.getChatDetail(chatRoomId)}
                 />
               )}
 
@@ -535,11 +697,28 @@ function App() {
                   setSelectedEscalation={setSelectedEscalation}
                   candidates={candidates}
                   setCandidates={setCandidates}
+                  answerReviews={answerReviews}
+                  seniorAnswerReviews={seniorAnswerReviews}
+                  teacherChatInbox={teacherChatInbox}
+                  isTeacherInboxLoading={isTeacherInboxLoading}
+                  teacherTopicHeatmap={teacherTopicHeatmap}
+                  teacherDashboardLoading={teacherDashboardLoading}
+                  teacherUserId={getTeacherUserId()}
+                  loadTeacherInbox={loadTeacherInbox}
+                  loadTeacherDashboard={loadTeacherDashboard}
+                  loadAnswerReviews={loadAnswerReviews}
                   handleTeacherUploadMaterial={handleTeacherUploadMaterial}
                   handleTeacherGradeSubmit={handleTeacherGradeSubmit}
                   handleTeacherAnswerEsc={handleTeacherAnswerEsc}
                   handleApproveCandidate={handleApproveCandidate}
                   handleRejectCandidate={handleRejectCandidate}
+                  handleMentorReviewAnswer={handleMentorReviewAnswer}
+                  handleSeniorResolveReview={handleSeniorResolveReview}
+                  onMarkChatRead={(chatRoomId) => apiService.markChatRead(chatRoomId, getTeacherUserId())}
+                  onCloseChat={(payload) => apiService.closeChat({ ...payload, closedBy: getTeacherUserId() })}
+                  onGetChatDetail={(chatRoomId) => apiService.getChatDetail(chatRoomId)}
+                  onSendChatMessage={(payload) => apiService.sendChatMessage(payload)}
+                  onGetChatHistory={(chatRoomId) => apiService.getChatHistory(chatRoomId)}
                   triggerToast={triggerToast}
                 />
               )}
