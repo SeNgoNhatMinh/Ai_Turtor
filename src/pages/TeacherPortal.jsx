@@ -5,6 +5,8 @@ import {
   CheckCircle,
   RefreshCw,
   Send,
+  Trash2,
+  Database,
 } from 'lucide-react';
 import { apiService } from '../services/api';
 
@@ -57,6 +59,9 @@ function TeacherPortal({
   onSendChatMessage,
   onGetChatHistory,
   triggerToast,
+  courseMaterials = [],
+  handleTeacherDeleteMaterial,
+  handleTeacherReindexMaterial,
 }) {
   const [teacherMaterialTitle, setTeacherMaterialTitle] = useState('');
   const [teacherMaterialClass, setTeacherMaterialClass] = useState('');
@@ -67,6 +72,13 @@ function TeacherPortal({
   const [teacherGradeWeakTopics, setTeacherGradeWeakTopics] = useState([]);
 
   const [teacherEscReply, setTeacherEscReply] = useState('');
+  const [createKnowledgeCandidate, setCreateKnowledgeCandidate] = useState(true);
+  const [candidateType, setCandidateType] = useState('ACADEMIC_KNOWLEDGE');
+  const [candidateNotes, setCandidateNotes] = useState({});
+
+  const handleNoteChange = (candId, value) => {
+    setCandidateNotes(prev => ({ ...prev, [candId]: value }));
+  };
 
   const [newAssignmentTitle, setNewAssignmentTitle] = useState('');
   const [newAssignmentDesc, setNewAssignmentDesc] = useState('');
@@ -118,7 +130,12 @@ function TeacherPortal({
   const onAnswerEsc = (e) => {
     e.preventDefault();
     if (!teacherEscReply.trim()) return;
-    handleTeacherAnswerEsc(selectedEscalation.id, teacherEscReply).then(() => {
+    handleTeacherAnswerEsc(
+      selectedEscalation.id, 
+      teacherEscReply, 
+      createKnowledgeCandidate, 
+      candidateType
+    ).then(() => {
       setTeacherEscReply('');
     });
   };
@@ -387,6 +404,63 @@ function TeacherPortal({
               <button type="submit" className="btn-submit-form">Publish Assignment</button>
             </form>
           </div>
+
+          <div className="glass-card" style={{ gridColumn: 'span 2', marginTop: 12 }}>
+            <div className="card-header">
+              <h3>Uploaded Learning Materials (RAG Knowledge Base)</h3>
+            </div>
+            {courseMaterials.length === 0 ? (
+              <div className="no-data-text" style={{ padding: '24px 0' }}>No course materials uploaded yet.</div>
+            ) : (
+              <div style={{ overflowX: 'auto', padding: '0 8px 12px' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: 600 }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid rgba(243, 112, 33, 0.15)' }}>
+                      <th style={{ padding: '10px 8px', fontSize: 13, color: '#374151', fontWeight: 600 }}>Material Title</th>
+                      <th style={{ padding: '10px 8px', fontSize: 13, color: '#374151', fontWeight: 600 }}>File Path / Name</th>
+                      <th style={{ padding: '10px 8px', fontSize: 13, color: '#374151', fontWeight: 600 }}>Class Code</th>
+                      <th style={{ padding: '10px 8px', fontSize: 13, color: '#374151', fontWeight: 600 }}>Uploaded Date</th>
+                      <th style={{ padding: '10px 8px', fontSize: 13, color: '#374151', fontWeight: 600, textAlign: 'right' }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {courseMaterials.map((mat) => (
+                      <tr key={mat.id} style={{ borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
+                        <td style={{ padding: '12px 8px', fontSize: 13, fontWeight: 600, color: '#1F2937' }}>{mat.title || 'Untitled Material'}</td>
+                        <td style={{ padding: '12px 8px', fontSize: 12, color: '#6B7280', fontFamily: 'monospace' }}>{mat.filePath || mat.fileName || mat.id}</td>
+                        <td style={{ padding: '12px 8px', fontSize: 13 }}><span className="badge-cand" style={{ margin: 0, background: '#FFF7F0', color: '#F37021', border: '1px solid #F3D2BC' }}>{mat.classId || 'Course-wide'}</span></td>
+                        <td style={{ padding: '12px 8px', fontSize: 12, color: '#9CA3AF' }}>
+                          {mat.createdAt ? new Date(mat.createdAt).toLocaleString() : '—'}
+                        </td>
+                        <td style={{ padding: '12px 8px', textAlign: 'right' }}>
+                          <button
+                            type="button"
+                            className="btn-approve-cand"
+                            style={{ padding: '4px 8px', fontSize: 11, marginRight: 8, minWidth: 'auto', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                            onClick={() => handleTeacherReindexMaterial?.(mat.id)}
+                          >
+                            <Database style={{ width: 12, height: 12 }} /> Reindex RAG
+                          </button>
+                          <button
+                            type="button"
+                            className="btn-reject-cand"
+                            style={{ padding: '4px 8px', fontSize: 11, minWidth: 'auto', display: 'inline-flex', alignItems: 'center', gap: 4, background: '#EF4444', color: '#fff', border: 'none' }}
+                            onClick={() => {
+                              if (confirm('Are you sure you want to delete this learning material? This will remove it from the AI knowledge network.')) {
+                                handleTeacherDeleteMaterial?.(mat.id);
+                              }
+                            }}
+                          >
+                            <Trash2 style={{ width: 12, height: 12 }} /> Delete
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -480,6 +554,33 @@ function TeacherPortal({
                   <label>Enter your explanation:</label>
                   <textarea value={teacherEscReply} onChange={(e) => setTeacherEscReply(e.target.value)} required />
                 </div>
+
+                {/* Tùy chọn n8n Knowledge Candidate */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'center', marginTop: 12, marginBottom: 16, padding: '8px 12px', background: 'rgba(243, 112, 33, 0.03)', border: '1px solid rgba(243, 112, 33, 0.12)', borderRadius: 8 }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13, fontWeight: 500, margin: 0 }}>
+                    <input 
+                      type="checkbox" 
+                      checked={createKnowledgeCandidate} 
+                      onChange={(e) => setCreateKnowledgeCandidate(e.target.checked)}
+                      style={{ cursor: 'pointer', width: 15, height: 15 }}
+                    />
+                    Đề xuất AI học câu trả lời này
+                  </label>
+                  {createKnowledgeCandidate && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: 12, color: '#6B7280' }}>Loại tri thức:</span>
+                      <select 
+                        value={candidateType} 
+                        onChange={(e) => setCandidateType(e.target.value)}
+                        style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #d9d9d9', fontSize: 12, background: '#fff', cursor: 'pointer' }}
+                      >
+                        <option value="ACADEMIC_KNOWLEDGE">Kiến thức học thuật (Academic)</option>
+                        <option value="OPERATIONAL_POLICY">Chính sách lớp học (Policy)</option>
+                      </select>
+                    </div>
+                  )}
+                </div>
+
                 <button type="submit" className="btn-submit-form">Send Answer to Student</button>
               </form>
             )}
@@ -555,9 +656,38 @@ function TeacherPortal({
                       <div className="compare-qa"><strong>Question:</strong> {cand.question || '—'}</div>
                       <div className="compare-qa teacher-a"><strong>Suggested answer:</strong> {cand.content || cand.answer || '—'}</div>
                     </div>
+
+                    <div style={{ marginTop: 10, marginBottom: 10 }}>
+                      <input 
+                        type="text" 
+                        placeholder="Nhập ghi chú phê duyệt hoặc lý do từ chối (tùy chọn)..." 
+                        value={candidateNotes[cand.id] || ''}
+                        onChange={(e) => handleNoteChange(cand.id, e.target.value)}
+                        style={{ width: '100%', padding: '6px 10px', borderRadius: 6, border: '1px solid #d9d9d9', fontSize: 12 }}
+                      />
+                    </div>
+
                     <div className="candidate-actions">
-                      <button type="button" className="btn-approve-cand" onClick={() => handleApproveCandidate(cand.id)}>Approve for AI Tutor</button>
-                      <button type="button" className="btn-reject-cand" onClick={() => handleRejectCandidate(cand.id)}>Reject</button>
+                      <button 
+                        type="button" 
+                        className="btn-approve-cand" 
+                        onClick={() => {
+                          handleApproveCandidate(cand.id, candidateNotes[cand.id] || 'Approved');
+                          handleNoteChange(cand.id, '');
+                        }}
+                      >
+                        Approve for AI Tutor
+                      </button>
+                      <button 
+                        type="button" 
+                        className="btn-reject-cand" 
+                        onClick={() => {
+                          handleRejectCandidate(cand.id, candidateNotes[cand.id] || 'Rejected by mentor');
+                          handleNoteChange(cand.id, '');
+                        }}
+                      >
+                        Reject
+                      </button>
                     </div>
                   </div>
                 ))

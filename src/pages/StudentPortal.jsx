@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Card, message, Tabs } from 'antd';
+import { Card, message, Splitter, Tabs } from 'antd';
 import ChatSessionsPanel from './student/ChatSessionsPanel';
 import ChatWorkspace from './student/ChatWorkspace';
 import CodeReviewPanel from './student/CodeReviewPanel';
@@ -48,6 +48,10 @@ function StudentPortal({
   onMarkChatRead,
   onCloseChat,
   onGetChatDetail,
+  handleStudentReviewAnswer,
+  onUpdateMemory,
+  courseMaterials = [],
+  onDownloadMaterial,
 }) {
   const [chatInput, setChatInput] = useState('');
   const [codeLanguage, setCodeLanguage] = useState('java');
@@ -58,6 +62,7 @@ function StudentPortal({
   const [studentSubmissionNote, setStudentSubmissionNote] = useState('');
   const [editingSessionId, setEditingSessionId] = useState(null);
   const [editingSessionTitle, setEditingSessionTitle] = useState('');
+  const [isAiLoading, setIsAiLoading] = useState(false);
 
   const [escalations, setEscalations] = useState([]);
   const [selectedEscalation, setSelectedEscalation] = useState(null);
@@ -70,6 +75,13 @@ function StudentPortal({
   const [escalationsError, setEscalationsError] = useState('');
   const [chatUnreadCount, setChatUnreadCount] = useState(0);
   const [chatRoomDetail, setChatRoomDetail] = useState(null);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 1100);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 1100);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const messagesEndRef = useRef(null);
   const escMessagesEndRef = useRef(null);
@@ -81,19 +93,6 @@ function StudentPortal({
   useEffect(() => {
     escMessagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [escChatMessages]);
-
-  useEffect(() => {
-    if (activeTab === 'student-escalation') {
-      loadEscalations();
-      loadChatUnread();
-    }
-  }, [activeTab]);
-
-  useEffect(() => {
-    if (activeTab === 'student-memory') {
-      loadStudentDashboard?.();
-    }
-  }, [activeTab, courseId]);
 
   const loadChatUnread = async () => {
     try {
@@ -121,6 +120,20 @@ function StudentPortal({
       setIsEscalationsLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (activeTab === 'student-escalation') {
+      loadEscalations();
+      loadChatUnread();
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab === 'student-memory') {
+      loadStudentDashboard?.();
+    }
+  }, [activeTab, courseId]);
+
 
   const handleSelectEscalation = async (escalation) => {
     setSelectedEscalation(escalation);
@@ -201,11 +214,22 @@ function StudentPortal({
   };
 
   const onSendQuery = () => {
-    if (!chatInput.trim()) return;
+    if (!chatInput.trim() || isAiLoading) return;
+    const textToSend = chatInput.trim();
+    // Clear input immediately — don't wait for AI response
+    setChatInput('');
+    setIsAiLoading(true);
     setAvatarEmotion('thinking');
-    handleSendQuery(chatInput, codeSnippet, setAvatarEmotion).then(() => {
-      setChatInput('');
+    handleSendQuery(textToSend, codeSnippet, setAvatarEmotion).finally(() => {
+      setIsAiLoading(false);
     });
+  };
+
+  const onStopQuery = () => {
+    // Mark AI as done — the in-flight request will still complete but
+    // we stop blocking the UI so the user can type again immediately.
+    setIsAiLoading(false);
+    setAvatarEmotion('idle');
   };
 
   const onCodeReviewQuery = () => {
@@ -249,61 +273,151 @@ function StudentPortal({
     return (
       <div className="portal-section student-chat-section">
         <PageHeader title={uiCopy.student.chat.title} description={uiCopy.student.chat.subtitle} />
-        <div className="student-chat-layout">
-          <ChatSessionsPanel
-            sessions={sessions}
-            activeSessionId={activeSessionId}
-            onCreate={handleCreateSession}
-            onSelect={handleSelectSession}
-            onDelete={handleDeleteSession}
-            editingSessionId={editingSessionId}
-            editingSessionTitle={editingSessionTitle}
-            setEditingSessionId={setEditingSessionId}
-            setEditingSessionTitle={setEditingSessionTitle}
-            onSaveRename={onSaveRename}
-          />
-          <ChatWorkspace
-            activeSessionTitle={activeSessionTitle}
-            courseId={courseId}
-            setCourseId={setCourseId}
-            classId={classId}
-            setClassId={setClassId}
-            messages={messages}
-            chatInput={chatInput}
-            setChatInput={setChatInput}
-            onSendQuery={onSendQuery}
-            messagesEndRef={messagesEndRef}
-          />
-          <Card className="student-side-card" bodyStyle={{ padding: 0, flex: 1, display: 'flex', flexDirection: 'column' }}>
-            <Tabs
-              activeKey={activeSideTab}
-              onChange={setActiveSideTab}
-              centered
-              items={[
-                {
-                  key: 'tab-code-review',
-                  label: uiCopy.student.codeReview.title,
-                  children: (
-                    <CodeReviewPanel
-                      codeLanguage={codeLanguage}
-                      setCodeLanguage={setCodeLanguage}
-                      codeSnippet={codeSnippet}
-                      setCodeSnippet={setCodeSnippet}
-                      onCodeReviewQuery={onCodeReviewQuery}
-                      isCodeAnalyzing={isCodeAnalyzing}
-                      codeMentorDiagnostics={codeMentorDiagnostics}
-                    />
-                  ),
-                },
-                {
-                  key: 'tab-tutor-avatar',
-                  label: uiCopy.student.avatar.title,
-                  children: <TutorAvatarPanel avatarEmotion={avatarEmotion} setAvatarEmotion={setAvatarEmotion} />,
-                },
-              ]}
+        {!isMobile ? (
+          <Splitter className="student-chat-layout-splitter">
+            <Splitter.Panel defaultSize={300} min={200} max={400}>
+              <ChatSessionsPanel
+                sessions={sessions}
+                activeSessionId={activeSessionId}
+                onCreate={handleCreateSession}
+                onSelect={handleSelectSession}
+                onDelete={handleDeleteSession}
+                editingSessionId={editingSessionId}
+                editingSessionTitle={editingSessionTitle}
+                setEditingSessionId={setEditingSessionId}
+                setEditingSessionTitle={setEditingSessionTitle}
+                onSaveRename={onSaveRename}
+                style={{ height: '100%' }}
+              />
+            </Splitter.Panel>
+            <Splitter.Panel min={400}>
+              <ChatWorkspace
+                activeSessionTitle={activeSessionTitle}
+                courseId={courseId}
+                setCourseId={setCourseId}
+                classId={classId}
+                setClassId={setClassId}
+                messages={messages}
+                chatInput={chatInput}
+                setChatInput={setChatInput}
+                onSendQuery={onSendQuery}
+                onStopQuery={onStopQuery}
+                isAiLoading={isAiLoading}
+                messagesEndRef={messagesEndRef}
+                style={{ height: '100%' }}
+                handleStudentReviewAnswer={handleStudentReviewAnswer}
+                userId={userId}
+                activeSessionId={activeSessionId}
+              />
+            </Splitter.Panel>
+            <Splitter.Panel defaultSize={350} min={250} max={500}>
+              <Card className="student-side-card" style={{ height: '100%' }} bodyStyle={{ padding: 0, flex: 1, display: 'flex', flexDirection: 'column' }}>
+                <Tabs
+                  activeKey={activeSideTab}
+                  onChange={setActiveSideTab}
+                  centered
+                  items={[
+                    {
+                      key: 'tab-code-review',
+                      label: uiCopy.student.codeReview.title,
+                      children: (
+                        <CodeReviewPanel
+                          codeLanguage={codeLanguage}
+                          setCodeLanguage={setCodeLanguage}
+                          codeSnippet={codeSnippet}
+                          setCodeSnippet={setCodeSnippet}
+                          onCodeReviewQuery={onCodeReviewQuery}
+                          isCodeAnalyzing={isCodeAnalyzing}
+                          codeMentorDiagnostics={codeMentorDiagnostics}
+                        />
+                      ),
+                    },
+                    {
+                      key: 'tab-tutor-avatar',
+                      label: uiCopy.student.avatar.title,
+                      children: (
+                        <TutorAvatarPanel
+                          avatarEmotion={avatarEmotion}
+                          setAvatarEmotion={setAvatarEmotion}
+                          courseId={courseId}
+                          setChatInput={setChatInput}
+                        />
+                      ),
+                    },
+                  ]}
+                />
+              </Card>
+            </Splitter.Panel>
+          </Splitter>
+        ) : (
+          <div className="student-chat-layout">
+            <ChatSessionsPanel
+              sessions={sessions}
+              activeSessionId={activeSessionId}
+              onCreate={handleCreateSession}
+              onSelect={handleSelectSession}
+              onDelete={handleDeleteSession}
+              editingSessionId={editingSessionId}
+              editingSessionTitle={editingSessionTitle}
+              setEditingSessionId={setEditingSessionId}
+              setEditingSessionTitle={setEditingSessionTitle}
+              onSaveRename={onSaveRename}
             />
-          </Card>
-        </div>
+            <ChatWorkspace
+              activeSessionTitle={activeSessionTitle}
+              courseId={courseId}
+              setCourseId={setCourseId}
+              classId={classId}
+              setClassId={setClassId}
+              messages={messages}
+              chatInput={chatInput}
+              setChatInput={setChatInput}
+              onSendQuery={onSendQuery}
+              onStopQuery={onStopQuery}
+              isAiLoading={isAiLoading}
+              messagesEndRef={messagesEndRef}
+              handleStudentReviewAnswer={handleStudentReviewAnswer}
+              userId={userId}
+              activeSessionId={activeSessionId}
+            />
+            <Card className="student-side-card" bodyStyle={{ padding: 0, flex: 1, display: 'flex', flexDirection: 'column' }}>
+              <Tabs
+                activeKey={activeSideTab}
+                onChange={setActiveSideTab}
+                centered
+                items={[
+                  {
+                    key: 'tab-code-review',
+                    label: uiCopy.student.codeReview.title,
+                    children: (
+                      <CodeReviewPanel
+                        codeLanguage={codeLanguage}
+                        setCodeLanguage={setCodeLanguage}
+                        codeSnippet={codeSnippet}
+                        setCodeSnippet={setCodeSnippet}
+                        onCodeReviewQuery={onCodeReviewQuery}
+                        isCodeAnalyzing={isCodeAnalyzing}
+                        codeMentorDiagnostics={codeMentorDiagnostics}
+                      />
+                    ),
+                  },
+                  {
+                    key: 'tab-tutor-avatar',
+                    label: uiCopy.student.avatar.title,
+                    children: (
+                      <TutorAvatarPanel
+                        avatarEmotion={avatarEmotion}
+                        setAvatarEmotion={setAvatarEmotion}
+                        courseId={courseId}
+                        setChatInput={setChatInput}
+                      />
+                    ),
+                  },
+                ]}
+              />
+            </Card>
+          </div>
+        )}
       </div>
     );
   }
@@ -321,6 +435,7 @@ function StudentPortal({
         isLoading={isStudentDashboardLoading}
         dashboardStats={studentDashboard?.stats}
         onRefreshDashboard={loadStudentDashboard}
+        onUpdateMemory={onUpdateMemory}
       />
     );
   }
@@ -337,6 +452,8 @@ function StudentPortal({
         setStudentSubmissionNote={setStudentSubmissionNote}
         onStudentSubmit={onStudentSubmit}
         onDownloadAssignment={handleDownloadAssignment}
+        courseMaterials={courseMaterials}
+        onDownloadMaterial={onDownloadMaterial}
       />
     );
   }

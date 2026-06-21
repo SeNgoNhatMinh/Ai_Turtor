@@ -19,6 +19,54 @@ export const normalizeMessage = (message) => ({
   answer: message.answer || message.aiResponse || message.response || '',
 });
 
+export const pairMessages = (messages) => {
+  const arr = Array.isArray(messages) ? messages : [];
+  const paired = [];
+  
+  for (let i = 0; i < arr.length; i++) {
+    const msg = arr[i];
+    if (msg.role === 'USER') {
+      const nextMsg = arr[i + 1];
+      if (nextMsg && nextMsg.role === 'ASSISTANT') {
+        paired.push({
+          question: msg.content || msg.question || msg.message || '',
+          answer: nextMsg.content || nextMsg.answer || nextMsg.response || '',
+          confidence: nextMsg.confidence,
+          sources: nextMsg.sources || [],
+          questionEscalationId: nextMsg.questionEscalationId || null,
+          createdAt: msg.createdAt || nextMsg.createdAt
+        });
+        i++;
+      } else {
+        paired.push({
+          question: msg.content || msg.question || msg.message || '',
+          answer: '',
+          createdAt: msg.createdAt
+        });
+      }
+    } else if (msg.role === 'ASSISTANT') {
+      paired.push({
+        question: '',
+        answer: msg.content || msg.answer || msg.response || '',
+        confidence: msg.confidence,
+        sources: msg.sources || [],
+        questionEscalationId: msg.questionEscalationId || null,
+        createdAt: msg.createdAt
+      });
+    } else {
+      paired.push({
+        question: msg.question || msg.content || '',
+        answer: msg.answer || '',
+        confidence: msg.confidence,
+        sources: msg.sources || [],
+        questionEscalationId: msg.questionEscalationId || null,
+        createdAt: msg.createdAt
+      });
+    }
+  }
+  return paired;
+};
+
 export const normalizeEscalation = (escalation) => ({
   ...escalation,
   id: escalation.id || escalation.questionEscalationId,
@@ -48,17 +96,105 @@ export const normalizeAnswerReview = (review) => ({
   reviewType: review.reviewType || review.type || 'ANSWER_DISPUTE',
 });
 
+export const normalizeSuggestions = (data) => {
+  if (!data) return [];
+  const list = [];
+
+  // 1. Process ruleSuggestions
+  const ruleSuggestions = asArray(data?.ruleSuggestions || data?.suggestions);
+  ruleSuggestions.forEach(item => {
+    const isWeak = item.title?.toLowerCase().includes('weak') || item.reason?.toLowerCase().includes('weak');
+    list.push({
+      priority: isWeak ? 'high' : 'medium',
+      title: item.title || 'Study Suggestion',
+      content: (item.reason || '') + 
+        (item.nextSteps && item.nextSteps.length 
+          ? '\n\nSuggested steps:\n' + item.nextSteps.map(s => `• ${s}`).join('\n') 
+          : '')
+    });
+  });
+
+  // 2. Process aiSuggestion
+  if (data?.aiSuggestion) {
+    try {
+      const parsed = typeof data.aiSuggestion === 'string' 
+        ? JSON.parse(data.aiSuggestion) 
+        : data.aiSuggestion;
+      const aiItems = asArray(parsed?.suggestions);
+      aiItems.forEach(item => {
+        list.push({
+          priority: 'medium',
+          title: item.title || 'AI Suggestion',
+          content: (item.reason || item.content || '') + 
+            (item.nextSteps && item.nextSteps.length 
+              ? '\n\nSuggested steps:\n' + item.nextSteps.map(s => `• ${s}`).join('\n') 
+              : '')
+        });
+      });
+    } catch (e) {
+      // If it's not JSON, treat it as a single suggestion content
+      list.push({
+        priority: 'medium',
+        title: 'AI Learning Analysis',
+        content: String(data.aiSuggestion)
+      });
+    }
+  }
+
+  return list;
+};
+
 export const normalizeStudentDashboard = (data) => {
   const topics = (key, alt) => {
     const arr = asArray(data, key, alt, 'content');
     if (arr.length) return arr.map((t) => (typeof t === 'string' ? t : t.topic || t.name || t.label)).filter(Boolean);
     return [];
   };
+
+  const memoriesList = asArray(data?.memories || data?.memory);
+  const learnedTopics = memoriesList.flatMap(m => asArray(m?.learnedTopics || m?.strongTopics));
+  const weakTopics = memoriesList.flatMap(m => asArray(m?.weakTopics || m?.weakAreas));
+
+  const stats = data?.stats || data?.summary || {
+    activeCourses: asArray(data?.enrollments).length || 0,
+    totalAssignments: asArray(data?.assignments).length || 0,
+    submittedTasks: asArray(data?.submissions).length || 0,
+    supportRequests: asArray(data?.escalations).length || 0,
+  };
+
+  // Extract from improvePlans
+  const plansList = asArray(data?.improvePlans || data?.plans || data?.improvePlan);
+  const planSuggestions = plansList.map(plan => ({
+    priority: String(plan.riskLevel || '').toLowerCase() === 'high' ? 'high' : 'medium',
+    title: plan.weakTopics?.length 
+      ? `Improvement Plan: ${plan.weakTopics.join(', ')}` 
+      : 'AI Learning Improvement Plan',
+    content: asArray(plan.planItems).join('\n') || 'Practice and review focus areas.'
+  }));
+
+  // Extract from memory suggestions
+  const memorySuggestions = memoriesList.flatMap(m => asArray(m?.improveSuggestions || m?.suggestions)).map(s => {
+    if (typeof s === 'object' && s !== null) {
+      return {
+        priority: s.priority || 'medium',
+        title: s.title || 'Study Suggestion',
+        content: s.content || s.reason || ''
+      };
+    }
+    return {
+      priority: 'high',
+      title: 'Course Suggestion / Feedback',
+      content: String(s)
+    };
+  });
+
+  const suggestions = [...planSuggestions, ...memorySuggestions];
+
   return {
-    learnedTopics: topics('learnedTopics', 'strongTopics'),
-    weakTopics: topics('weakTopics', 'weakAreas'),
-    suggestions: data?.suggestions || data?.improveSuggestions || [],
-    stats: data?.stats || data?.summary || {},
+    learnedTopics: learnedTopics.length ? learnedTopics : topics('learnedTopics', 'strongTopics'),
+    weakTopics: weakTopics.length ? weakTopics : topics('weakTopics', 'weakAreas'),
+    suggestions: suggestions.length ? suggestions : (data?.suggestions || data?.improveSuggestions || []),
+    stats: stats,
   };
 };
 

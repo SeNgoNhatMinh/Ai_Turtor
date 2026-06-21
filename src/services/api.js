@@ -66,6 +66,25 @@ export const apiService = {
         return await uploadRequest(`${API_BASE_URL}/courses/${courseId}/materials/upload`, formData);
     },
 
+    async deleteMaterial(courseId, materialId) {
+        return await request(`${API_BASE_URL}/courses/${courseId}/materials/${materialId}`, {
+            method: 'DELETE'
+        });
+    },
+
+    async reindexMaterial(courseId, materialId) {
+        return await request(`${API_BASE_URL}/courses/${courseId}/materials/${materialId}/reindex`, {
+            method: 'POST'
+        });
+    },
+
+    async downloadMaterialPdf(courseId, materialId) {
+        const res = await fetch(`${API_BASE_URL}/courses/${courseId}/materials/${materialId}/pdf`);
+        if (!res.ok) throw new Error(`Download failed: ${res.status}`);
+        return await res.blob();
+    },
+
+
     // 4. Assignments & Submissions
     async submitAssignment(assignmentId, formData, studentId) {
         const note = formData.get('note');
