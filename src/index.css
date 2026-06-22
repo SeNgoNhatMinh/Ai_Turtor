@@ -3179,3 +3179,7 @@ textarea.ant-input:focus::placeholder {
     }
 }
 
+.ant-list-items, .ant-list-container {
+    padding-left: 10px;
+}
+

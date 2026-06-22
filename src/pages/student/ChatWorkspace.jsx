@@ -205,17 +205,18 @@ function ChatWorkspace({
 
                           {/* Feedback Form */}
                           {feedbackOpenIndex === index && (
-                            <div style={{
+                            <div className="feedback-form-box" style={{
                               marginTop: 12,
                               background: '#f9f9f9',
                               border: '1px solid #ececec',
                               padding: 12,
                               borderRadius: 12,
                             }}>
-                              <div style={{ marginBottom: 8, fontSize: 12, color: '#0d0d0d' }}>
+                              <div className="feedback-title" style={{ marginBottom: 8, fontSize: 12, color: '#0d0d0d' }}>
                                 {feedbackRating === 1 ? '⚠️ Báo cáo lỗi sai:' : '💬 Góp ý kiến:'}
                               </div>
                               <Input.TextArea
+                                className="feedback-textarea"
                                 rows={2}
                                 placeholder={feedbackRating === 1 ? 'Chỉ ra lỗi sai...' : 'Ý kiến của bạn...'}
                                 value={feedbackText}
@@ -225,6 +226,7 @@ function ChatWorkspace({
                               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
                                 <Button size="small" type="text" style={{ color: '#888' }} onClick={closeFeedbackForm}>Hủy</Button>
                                 <Button
+                                  className="btn-submit"
                                   size="small"
                                   type="primary"
                                   style={{ background: '#0d0d0d', color: '#ffffff', border: 'none' }}
