@@ -53,6 +53,14 @@ export const apiService = {
         });
     },
 
+    async classifyIntent(payload) {
+        return await request(`${API_BASE_URL}/tutor/intent-classify`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+    },
+
     async sendCodeMentorQuery(payload) {
         return await request(`${API_BASE_URL}/code-mentor/query`, {
             method: 'POST',
@@ -138,6 +146,14 @@ export const apiService = {
     },
 
     // 5. Support Requests & Suggested AI Answers
+    async createEscalation(payload) {
+        return await request(`${API_BASE_URL}/tutor/escalations`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+    },
+
     async answerEscalation(escalationId, payload) {
         return await request(`${API_BASE_URL}/tutor/escalations/${escalationId}/answer`, {
             method: 'POST',
@@ -180,6 +196,16 @@ export const apiService = {
 
     async importMentors(formData) {
         return await uploadRequest(`${API_BASE_URL}/mentors/import`, formData, 'Import failed');
+    },
+
+    async getMentorImportTemplateSpec() {
+        return await request(`${API_BASE_URL}/mentors/import/template`);
+    },
+
+    async downloadMentorImportTemplate() {
+        const res = await fetch(`${API_BASE_URL}/mentors/import/template/download`);
+        if (!res.ok) throw new Error(`Template download failed: ${res.status}`);
+        return await res.blob();
     },
 
     // =============================================
@@ -402,6 +428,12 @@ export const apiService = {
     async getUserProfile(userId) {
         return await request(`${API_BASE_URL}/users/profile?userId=${userId}`);
     },
+    async updateUserProfile(userId, payload) {
+        return await request(`${API_BASE_URL}/users/${userId}/profile`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+    },
     async getStudentMemory(studentId, courseId) {
         return await request(`${API_BASE_URL}/tutor/students/${studentId}/courses/${courseId}/memory`);
     },
@@ -414,6 +446,23 @@ export const apiService = {
     async getCourseMemories(courseId, classId = '') {
         const params = classId ? `?classId=${classId}` : '';
         return await request(`${API_BASE_URL}/tutor/courses/${courseId}/memories${params}`);
+    },
+
+    async getImprovePlans(studentId, courseId = '') {
+        const params = new URLSearchParams();
+        if (courseId) params.append('courseId', courseId);
+        const qs = params.toString();
+        return asArray(await request(`${API_BASE_URL}/students/${studentId}/improve-plans${qs ? `?${qs}` : ''}`), 'plans', 'content');
+    },
+
+    async getLatestImprovePlan(studentId, courseId) {
+        return await request(`${API_BASE_URL}/students/${studentId}/courses/${courseId}/improve-plan`);
+    },
+
+    async completeImprovePlan(planId) {
+        return await request(`${API_BASE_URL}/improve-plans/${planId}/complete`, {
+            method: 'PUT'
+        });
     },
 
     // =============================================
