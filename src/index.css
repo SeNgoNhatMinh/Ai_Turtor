@@ -3172,3 +3172,10 @@ textarea.ant-input:focus::placeholder {
     color: #F37021;
 }
 
+/* Mascot sidebar responsiveness */
+@media (max-width: 900px) {
+    .chat-mascot-sidebar {
+        display: none !important;
+    }
+}
+

@@ -4,7 +4,7 @@ import {
   Lightbulb, Keyboard, BookOpen, Zap, MessageSquare,
   Code, ThumbsUp, AlertCircle, Bot
 } from 'lucide-react';
-import SplineAvatar from '../../components/SplineAvatar';
+import RobotHeadMascot from '../../components/RobotHeadMascot';
 
 const { Text } = Typography;
 
@@ -107,8 +107,11 @@ function TutorAvatarPanel({
         borderRadius: 12,
         padding: 12,
         background: '#fff',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
       }}>
-        <SplineAvatar emotion={avatarEmotion} setEmotion={setAvatarEmotion} />
+        <RobotHeadMascot size={220} />
       </div>
 
       <div>
