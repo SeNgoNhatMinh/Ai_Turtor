@@ -1003,12 +1003,17 @@ spline-viewer {
 
 /* 3D Knowledge Graph Canvas */
 .graph-3d-container {
-    background: rgba(0,0,0,0.3);
+    background: #FFF9F5;
     border-radius: var(--border-radius-md);
     height: 320px;
     position: relative;
     border: 1px solid var(--color-card-border);
     overflow: hidden;
+}
+
+.app-container.dark .graph-3d-container {
+    background: #1C1917 !important;
+    border-color: #3F3F46 !important;
 }
 
 #knowledge-graph-canvas {
@@ -1021,7 +1026,7 @@ spline-viewer {
     position: absolute;
     bottom: 12px;
     right: 12px;
-    background: rgba(15, 23, 42, 0.85);
+    background: rgba(255, 255, 255, 0.9);
     backdrop-filter: blur(4px);
     border: 1px solid var(--color-card-border);
     border-radius: var(--border-radius-sm);
@@ -1029,14 +1034,25 @@ spline-viewer {
     display: flex;
     flex-direction: column;
     gap: 6px;
+    z-index: 10;
+}
+
+.app-container.dark .graph-legend {
+    background: rgba(28, 25, 23, 0.9) !important;
+    border-color: #3F3F46 !important;
 }
 
 .legend-item {
-    font-size: 0.7rem;
+    font-size: 0.75rem;
     display: flex;
     align-items: center;
     gap: 6px;
-    color: var(--color-text-muted);
+    color: #4B5563;
+    font-weight: 500;
+}
+
+.app-container.dark .legend-item {
+    color: #D1D5DB !important;
 }
 
 .color-dot {
@@ -1584,15 +1600,17 @@ spline-viewer {
     display: flex;
     flex-direction: column;
     gap: 16px;
-    height: 100%;
+    max-height: 320px;
+    overflow: hidden;
 }
 
 .heatmap-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 12px;
-    flex: 1;
-    min-height: 160px;
+    gap: 10px;
+    overflow-y: auto;
+    min-height: 120px;
+    max-height: 220px;
 }
 
 .heatmap-node {
@@ -1714,14 +1732,20 @@ spline-viewer {
     display: flex;
     align-items: center;
     gap: 4px;
-    background: rgba(255,255,255,0.04);
-    border: 1px solid var(--color-card-border);
+    background: rgba(243, 112, 33, 0.1);
+    border: 1px solid rgba(243, 112, 33, 0.35);
     border-radius: var(--border-radius-sm);
-    color: white;
-    padding: 4px 8px;
+    color: var(--color-primary);
+    padding: 4px 10px;
     cursor: pointer;
     font-size: 0.7rem;
     font-weight: 600;
+    transition: background 0.2s, border-color 0.2s;
+}
+
+.btn-small-chat:hover {
+    background: rgba(243, 112, 33, 0.18);
+    border-color: var(--color-primary);
 }
 
 /* Forms (Teacher upload/grading) */
@@ -2754,13 +2778,17 @@ a {
     color: var(--color-text-secondary);
 }
 
+.student-chat-layout,
+.student-chat-layout-splitter {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
 .student-chat-layout {
     display: grid;
     grid-template-columns: 300px minmax(0, 1fr) 350px;
     gap: 16px;
-    flex: 1;
-    min-height: 0;
-    overflow: hidden;
 }
 
 .chat-sessions-card,
@@ -2834,9 +2862,27 @@ a {
 }
 
 .chat-bubble.ai {
-    background: var(--color-surface);
+    background: #FFF5EC;
     border: 1px solid #F3D2BC;
     border-radius: 16px 16px 16px 0;
+    color: #1F2937;
+}
+
+.chat-bubble.ai,
+.chat-bubble.ai span,
+.chat-bubble.ai .ant-typography {
+    color: #1F2937 !important;
+}
+
+.app-container.dark .chat-bubble.ai {
+    background: #2D2520 !important;
+    border-color: #5C3D2E !important;
+}
+
+.app-container.dark .chat-bubble.ai,
+.app-container.dark .chat-bubble.ai span,
+.app-container.dark .chat-bubble.ai .ant-typography {
+    color: #F9FAFB !important;
 }
 
 .warning-note {
@@ -3046,3 +3092,83 @@ a {
         padding: 28px !important;
     }
 }
+
+/* ================================================
+   Ant Design Placeholder & Upload Override
+   (Materials & Assignments student page)
+   ================================================ */
+
+/* Placeholder text — readable warm-gray instead of default faded gray */
+.ant-input::placeholder,
+.ant-input-affix-wrapper input::placeholder,
+textarea.ant-input::placeholder,
+.ant-input-textarea textarea::placeholder {
+    color: #8A95A3 !important;
+    opacity: 1;
+    font-style: italic;
+}
+
+/* Focused placeholder stays visible */
+.ant-input:focus::placeholder,
+textarea.ant-input:focus::placeholder {
+    color: #A0A9B4 !important;
+}
+
+/* Upload drag area text */
+.ant-upload-text {
+    color: #374151 !important;
+    font-weight: 600 !important;
+    font-size: 14px !important;
+}
+
+.ant-upload-hint {
+    color: #6B7280 !important;
+    font-size: 12px !important;
+}
+
+/* Ant Dragger border matches FPT theme */
+.ant-upload-drag {
+    border-color: rgba(243, 112, 33, 0.35) !important;
+    border-radius: 10px !important;
+    background: rgba(243, 112, 33, 0.02) !important;
+    transition: border-color 0.2s, background 0.2s;
+}
+
+.ant-upload-drag:hover {
+    border-color: #F37021 !important;
+    background: rgba(243, 112, 33, 0.05) !important;
+}
+
+.ant-upload-drag-icon .anticon {
+    color: #F37021 !important;
+}
+
+/* Ant Table header in materials tab */
+.portal-section .ant-table-thead > tr > th {
+    background: rgba(243, 112, 33, 0.06) !important;
+    color: #374151 !important;
+    font-weight: 700 !important;
+    font-size: 13px !important;
+    border-bottom: 2px solid rgba(243, 112, 33, 0.2) !important;
+}
+
+/* Tab bar styling */
+.portal-section .ant-tabs-card > .ant-tabs-nav .ant-tabs-tab {
+    background: rgba(243, 112, 33, 0.05);
+    border-color: rgba(243, 112, 33, 0.2);
+    color: #6B7280;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.portal-section .ant-tabs-card > .ant-tabs-nav .ant-tabs-tab-active {
+    background: white;
+    border-bottom-color: white;
+    color: #F37021 !important;
+    font-weight: 700;
+}
+
+.portal-section .ant-tabs-card > .ant-tabs-nav .ant-tabs-tab:hover {
+    color: #F37021;
+}
+

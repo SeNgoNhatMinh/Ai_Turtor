@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Card, message, Tabs } from 'antd';
+import { Card, message, Splitter, Tabs } from 'antd';
 import ChatSessionsPanel from './student/ChatSessionsPanel';
 import ChatWorkspace from './student/ChatWorkspace';
 import CodeReviewPanel from './student/CodeReviewPanel';
@@ -13,8 +13,8 @@ import { uiCopy } from '../constants/uiCopy';
 import { normalizeEscalation } from '../services/normalizers';
 import { apiService } from '../services/api';
 
-const learnedTopics = ['MVC Flow', 'REST APIs', 'Spring Boot Config', 'Maven Dependencies'];
-const weakTopics = ['JPA Relations', 'Spring Security'];
+const defaultLearned = ['MVC Flow', 'REST APIs', 'Spring Boot Config', 'Maven Dependencies'];
+const defaultWeak = ['JPA Relations', 'Spring Security'];
 
 function StudentPortal({
   activeTab,
@@ -42,6 +42,16 @@ function StudentPortal({
   isSuggesting,
   refreshSuggestions,
   userId = 'student-a1',
+  studentDashboard,
+  isStudentDashboardLoading,
+  loadStudentDashboard,
+  onMarkChatRead,
+  onCloseChat,
+  onGetChatDetail,
+  handleStudentReviewAnswer,
+  onUpdateMemory,
+  courseMaterials = [],
+  onDownloadMaterial,
 }) {
   const [chatInput, setChatInput] = useState('');
   const [codeLanguage, setCodeLanguage] = useState('java');
@@ -52,6 +62,7 @@ function StudentPortal({
   const [studentSubmissionNote, setStudentSubmissionNote] = useState('');
   const [editingSessionId, setEditingSessionId] = useState(null);
   const [editingSessionTitle, setEditingSessionTitle] = useState('');
+  const [isAiLoading, setIsAiLoading] = useState(false);
 
   const [escalations, setEscalations] = useState([]);
   const [selectedEscalation, setSelectedEscalation] = useState(null);
@@ -62,6 +73,15 @@ function StudentPortal({
   const [selectedMentorForEsc, setSelectedMentorForEsc] = useState(null);
   const [isEscalationsLoading, setIsEscalationsLoading] = useState(false);
   const [escalationsError, setEscalationsError] = useState('');
+  const [chatUnreadCount, setChatUnreadCount] = useState(0);
+  const [chatRoomDetail, setChatRoomDetail] = useState(null);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 1100);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 1100);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const messagesEndRef = useRef(null);
   const escMessagesEndRef = useRef(null);
@@ -74,11 +94,14 @@ function StudentPortal({
     escMessagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [escChatMessages]);
 
-  useEffect(() => {
-    if (activeTab === 'student-escalation') {
-      loadEscalations();
+  const loadChatUnread = async () => {
+    try {
+      const data = await apiService.getChatUnread(userId);
+      setChatUnreadCount(data?.unreadCount ?? data?.count ?? (Array.isArray(data?.rooms) ? data.rooms.length : 0));
+    } catch {
+      setChatUnreadCount(0);
     }
-  }, [activeTab]);
+  };
 
   const loadEscalations = async () => {
     setIsEscalationsLoading(true);
@@ -98,13 +121,55 @@ function StudentPortal({
     }
   };
 
+  useEffect(() => {
+    if (activeTab === 'student-escalation') {
+      loadEscalations();
+      loadChatUnread();
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab === 'student-memory') {
+      loadStudentDashboard?.();
+    }
+  }, [activeTab, courseId]);
+
+
   const handleSelectEscalation = async (escalation) => {
     setSelectedEscalation(escalation);
-    if (escalation.status === 'ASSIGNED') {
+    setChatRoomDetail(null);
+    if (escalation.status === 'ASSIGNED' && escalation.chatRoomId) {
+      try {
+        if (onMarkChatRead) await onMarkChatRead(escalation.chatRoomId);
+        if (onGetChatDetail) {
+          const detail = await onGetChatDetail(escalation.chatRoomId);
+          setChatRoomDetail(detail);
+        }
+        loadChatUnread();
+      } catch {
+        // Non-blocking — chat may still work via history
+      }
       const history = await apiService.getChatHistory(escalation.chatRoomId);
       setEscChatMessages(Array.isArray(history) ? history : []);
     } else {
       setEscChatMessages([]);
+    }
+  };
+
+  const handleCloseSupportChat = async () => {
+    if (!selectedEscalation?.chatRoomId || !onCloseChat) return;
+    try {
+      await onCloseChat({
+        chatRoomId: selectedEscalation.chatRoomId,
+        questionEscalationId: selectedEscalation.id,
+      });
+      message.success('Support chat closed.');
+      setEscChatMessages([]);
+      setChatRoomDetail(null);
+      loadEscalations();
+      loadChatUnread();
+    } catch (error) {
+      message.error(error.message || 'Unable to close chat.');
     }
   };
 
@@ -149,11 +214,22 @@ function StudentPortal({
   };
 
   const onSendQuery = () => {
-    if (!chatInput.trim()) return;
+    if (!chatInput.trim() || isAiLoading) return;
+    const textToSend = chatInput.trim();
+    // Clear input immediately — don't wait for AI response
+    setChatInput('');
+    setIsAiLoading(true);
     setAvatarEmotion('thinking');
-    handleSendQuery(chatInput, codeSnippet, setAvatarEmotion).then(() => {
-      setChatInput('');
+    handleSendQuery(textToSend, codeSnippet, setAvatarEmotion).finally(() => {
+      setIsAiLoading(false);
     });
+  };
+
+  const onStopQuery = () => {
+    // Mark AI as done — the in-flight request will still complete but
+    // we stop blocking the UI so the user can type again immediately.
+    setIsAiLoading(false);
+    setAvatarEmotion('idle');
   };
 
   const onCodeReviewQuery = () => {
@@ -197,73 +273,169 @@ function StudentPortal({
     return (
       <div className="portal-section student-chat-section">
         <PageHeader title={uiCopy.student.chat.title} description={uiCopy.student.chat.subtitle} />
-        <div className="student-chat-layout">
-          <ChatSessionsPanel
-            sessions={sessions}
-            activeSessionId={activeSessionId}
-            onCreate={handleCreateSession}
-            onSelect={handleSelectSession}
-            onDelete={handleDeleteSession}
-            editingSessionId={editingSessionId}
-            editingSessionTitle={editingSessionTitle}
-            setEditingSessionId={setEditingSessionId}
-            setEditingSessionTitle={setEditingSessionTitle}
-            onSaveRename={onSaveRename}
-          />
-          <ChatWorkspace
-            activeSessionTitle={activeSessionTitle}
-            courseId={courseId}
-            setCourseId={setCourseId}
-            classId={classId}
-            setClassId={setClassId}
-            messages={messages}
-            chatInput={chatInput}
-            setChatInput={setChatInput}
-            onSendQuery={onSendQuery}
-            messagesEndRef={messagesEndRef}
-          />
-          <Card className="student-side-card" bodyStyle={{ padding: 0, flex: 1, display: 'flex', flexDirection: 'column' }}>
-            <Tabs
-              activeKey={activeSideTab}
-              onChange={setActiveSideTab}
-              centered
-              items={[
-                {
-                  key: 'tab-code-review',
-                  label: uiCopy.student.codeReview.title,
-                  children: (
-                    <CodeReviewPanel
-                      codeLanguage={codeLanguage}
-                      setCodeLanguage={setCodeLanguage}
-                      codeSnippet={codeSnippet}
-                      setCodeSnippet={setCodeSnippet}
-                      onCodeReviewQuery={onCodeReviewQuery}
-                      isCodeAnalyzing={isCodeAnalyzing}
-                      codeMentorDiagnostics={codeMentorDiagnostics}
-                    />
-                  ),
-                },
-                {
-                  key: 'tab-tutor-avatar',
-                  label: uiCopy.student.avatar.title,
-                  children: <TutorAvatarPanel avatarEmotion={avatarEmotion} setAvatarEmotion={setAvatarEmotion} />,
-                },
-              ]}
+        {!isMobile ? (
+          <Splitter className="student-chat-layout-splitter">
+            <Splitter.Panel defaultSize={300} min={200} max={400}>
+              <ChatSessionsPanel
+                sessions={sessions}
+                activeSessionId={activeSessionId}
+                onCreate={handleCreateSession}
+                onSelect={handleSelectSession}
+                onDelete={handleDeleteSession}
+                editingSessionId={editingSessionId}
+                editingSessionTitle={editingSessionTitle}
+                setEditingSessionId={setEditingSessionId}
+                setEditingSessionTitle={setEditingSessionTitle}
+                onSaveRename={onSaveRename}
+                style={{ height: '100%' }}
+              />
+            </Splitter.Panel>
+            <Splitter.Panel min={400}>
+              <ChatWorkspace
+                activeSessionTitle={activeSessionTitle}
+                courseId={courseId}
+                setCourseId={setCourseId}
+                classId={classId}
+                setClassId={setClassId}
+                messages={messages}
+                chatInput={chatInput}
+                setChatInput={setChatInput}
+                onSendQuery={onSendQuery}
+                onStopQuery={onStopQuery}
+                isAiLoading={isAiLoading}
+                messagesEndRef={messagesEndRef}
+                style={{ height: '100%' }}
+                handleStudentReviewAnswer={handleStudentReviewAnswer}
+                userId={userId}
+                activeSessionId={activeSessionId}
+              />
+            </Splitter.Panel>
+            <Splitter.Panel defaultSize={350} min={250} max={500}>
+              <Card className="student-side-card" style={{ height: '100%' }} bodyStyle={{ padding: 0, flex: 1, display: 'flex', flexDirection: 'column' }}>
+                <Tabs
+                  activeKey={activeSideTab}
+                  onChange={setActiveSideTab}
+                  centered
+                  items={[
+                    {
+                      key: 'tab-code-review',
+                      label: uiCopy.student.codeReview.title,
+                      children: (
+                        <CodeReviewPanel
+                          codeLanguage={codeLanguage}
+                          setCodeLanguage={setCodeLanguage}
+                          codeSnippet={codeSnippet}
+                          setCodeSnippet={setCodeSnippet}
+                          onCodeReviewQuery={onCodeReviewQuery}
+                          isCodeAnalyzing={isCodeAnalyzing}
+                          codeMentorDiagnostics={codeMentorDiagnostics}
+                        />
+                      ),
+                    },
+                    {
+                      key: 'tab-tutor-avatar',
+                      label: uiCopy.student.avatar.title,
+                      children: (
+                        <TutorAvatarPanel
+                          avatarEmotion={avatarEmotion}
+                          setAvatarEmotion={setAvatarEmotion}
+                          courseId={courseId}
+                          setChatInput={setChatInput}
+                        />
+                      ),
+                    },
+                  ]}
+                />
+              </Card>
+            </Splitter.Panel>
+          </Splitter>
+        ) : (
+          <div className="student-chat-layout">
+            <ChatSessionsPanel
+              sessions={sessions}
+              activeSessionId={activeSessionId}
+              onCreate={handleCreateSession}
+              onSelect={handleSelectSession}
+              onDelete={handleDeleteSession}
+              editingSessionId={editingSessionId}
+              editingSessionTitle={editingSessionTitle}
+              setEditingSessionId={setEditingSessionId}
+              setEditingSessionTitle={setEditingSessionTitle}
+              onSaveRename={onSaveRename}
             />
-          </Card>
-        </div>
+            <ChatWorkspace
+              activeSessionTitle={activeSessionTitle}
+              courseId={courseId}
+              setCourseId={setCourseId}
+              classId={classId}
+              setClassId={setClassId}
+              messages={messages}
+              chatInput={chatInput}
+              setChatInput={setChatInput}
+              onSendQuery={onSendQuery}
+              onStopQuery={onStopQuery}
+              isAiLoading={isAiLoading}
+              messagesEndRef={messagesEndRef}
+              handleStudentReviewAnswer={handleStudentReviewAnswer}
+              userId={userId}
+              activeSessionId={activeSessionId}
+            />
+            <Card className="student-side-card" bodyStyle={{ padding: 0, flex: 1, display: 'flex', flexDirection: 'column' }}>
+              <Tabs
+                activeKey={activeSideTab}
+                onChange={setActiveSideTab}
+                centered
+                items={[
+                  {
+                    key: 'tab-code-review',
+                    label: uiCopy.student.codeReview.title,
+                    children: (
+                      <CodeReviewPanel
+                        codeLanguage={codeLanguage}
+                        setCodeLanguage={setCodeLanguage}
+                        codeSnippet={codeSnippet}
+                        setCodeSnippet={setCodeSnippet}
+                        onCodeReviewQuery={onCodeReviewQuery}
+                        isCodeAnalyzing={isCodeAnalyzing}
+                        codeMentorDiagnostics={codeMentorDiagnostics}
+                      />
+                    ),
+                  },
+                  {
+                    key: 'tab-tutor-avatar',
+                    label: uiCopy.student.avatar.title,
+                    children: (
+                      <TutorAvatarPanel
+                        avatarEmotion={avatarEmotion}
+                        setAvatarEmotion={setAvatarEmotion}
+                        courseId={courseId}
+                        setChatInput={setChatInput}
+                      />
+                    ),
+                  },
+                ]}
+              />
+            </Card>
+          </div>
+        )}
       </div>
     );
   }
 
   if (activeTab === 'student-memory') {
+    const learned = studentDashboard?.learnedTopics?.length ? studentDashboard.learnedTopics : defaultLearned;
+    const weak = studentDashboard?.weakTopics?.length ? studentDashboard.weakTopics : defaultWeak;
     return (
       <LearningProgress
-        learnedTopics={learnedTopics}
-        weakTopics={weakTopics}
+        learnedTopics={learned}
+        weakTopics={weak}
         suggestions={suggestions}
         isSuggesting={isSuggesting}
         refreshSuggestions={refreshSuggestions}
+        isLoading={isStudentDashboardLoading}
+        dashboardStats={studentDashboard?.stats}
+        onRefreshDashboard={loadStudentDashboard}
+        onUpdateMemory={onUpdateMemory}
       />
     );
   }
@@ -280,6 +452,8 @@ function StudentPortal({
         setStudentSubmissionNote={setStudentSubmissionNote}
         onStudentSubmit={onStudentSubmit}
         onDownloadAssignment={handleDownloadAssignment}
+        courseMaterials={courseMaterials}
+        onDownloadMaterial={onDownloadMaterial}
       />
     );
   }
@@ -297,10 +471,13 @@ function StudentPortal({
           userId={userId}
           isEscalationsLoading={isEscalationsLoading}
           escalationsError={escalationsError}
+          chatUnreadCount={chatUnreadCount}
+          chatRoomDetail={chatRoomDetail}
           loadEscalations={loadEscalations}
           onSelectEscalation={handleSelectEscalation}
           onSendEscalationMsg={onSendEscalationMsg}
           onOpenMentorSelect={handleOpenMentorSelect}
+          onCloseSupportChat={handleCloseSupportChat}
         />
         <MentorSelectModal
           open={escModalVisible}

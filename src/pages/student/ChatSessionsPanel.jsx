@@ -15,12 +15,14 @@ function ChatSessionsPanel({
   setEditingSessionId,
   setEditingSessionTitle,
   onSaveRename,
+  style,
 }) {
   return (
     <Card
       title="Conversations"
       extra={<Button type="primary" size="small" icon={<MessageSquare size={14} />} onClick={onCreate}>New</Button>}
       className="chat-sessions-card"
+      style={style}
       bodyStyle={{ flex: 1, overflowY: 'auto', paddingLeft: 10 }}
     >
       <List

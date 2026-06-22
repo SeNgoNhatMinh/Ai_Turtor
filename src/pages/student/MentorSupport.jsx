@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert, Avatar, Button, Card, Empty, Input, List, Space, Spin, Typography } from 'antd';
+import { Alert, Avatar, Button, Card, Empty, Input, List, Space, Spin, Tag, Typography } from 'antd';
 import { RobotOutlined, SendOutlined, UserOutlined } from '@ant-design/icons';
 import PageHeader from '../../components/common/PageHeader';
 import StatusTag from '../../components/common/StatusTag';
@@ -17,10 +17,13 @@ function MentorSupport({
   userId = 'student-a1',
   isEscalationsLoading,
   escalationsError,
+  chatUnreadCount = 0,
+  chatRoomDetail,
   loadEscalations,
   onSelectEscalation,
   onSendEscalationMsg,
   onOpenMentorSelect,
+  onCloseSupportChat,
 }) {
   return (
     <div className="portal-section">
@@ -28,7 +31,12 @@ function MentorSupport({
       <div className="support-layout">
         <Card
           title={uiCopy.student.support.listTitle}
-          extra={<Button size="small" onClick={loadEscalations}>Refresh</Button>}
+          extra={
+            <Space>
+              {chatUnreadCount > 0 && <Tag color="orange">{chatUnreadCount} unread</Tag>}
+              <Button size="small" onClick={loadEscalations}>Refresh</Button>
+            </Space>
+          }
           className="support-list-card"
           bodyStyle={{ flex: 1, overflowY: 'auto', padding: 0 }}
         >
@@ -69,8 +77,12 @@ function MentorSupport({
           {selectedEscalation ? (
             selectedEscalation.status === 'ASSIGNED' ? (
               <>
-                <div className="workspace-toolbar">
+                <div className="workspace-toolbar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px' }}>
                   <Title level={5} style={{ margin: 0 }}>Live Chat: Support Mentor</Title>
+                  <Space>
+                    {chatRoomDetail?.status && <Tag>{chatRoomDetail.status}</Tag>}
+                    <Button size="small" danger onClick={onCloseSupportChat}>End chat</Button>
+                  </Space>
                 </div>
                 <div className="chat-message-list">
                   <List

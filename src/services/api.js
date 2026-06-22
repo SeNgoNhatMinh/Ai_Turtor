@@ -53,6 +53,14 @@ export const apiService = {
         });
     },
 
+    async classifyIntent(payload) {
+        return await request(`${API_BASE_URL}/tutor/intent-classify`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+    },
+
     async sendCodeMentorQuery(payload) {
         return await request(`${API_BASE_URL}/code-mentor/query`, {
             method: 'POST',
@@ -65,6 +73,25 @@ export const apiService = {
     async uploadMaterial(courseId, formData) {
         return await uploadRequest(`${API_BASE_URL}/courses/${courseId}/materials/upload`, formData);
     },
+
+    async deleteMaterial(courseId, materialId) {
+        return await request(`${API_BASE_URL}/courses/${courseId}/materials/${materialId}`, {
+            method: 'DELETE'
+        });
+    },
+
+    async reindexMaterial(courseId, materialId) {
+        return await request(`${API_BASE_URL}/courses/${courseId}/materials/${materialId}/reindex`, {
+            method: 'POST'
+        });
+    },
+
+    async downloadMaterialPdf(courseId, materialId) {
+        const res = await fetch(`${API_BASE_URL}/courses/${courseId}/materials/${materialId}/pdf`);
+        if (!res.ok) throw new Error(`Download failed: ${res.status}`);
+        return await res.blob();
+    },
+
 
     // 4. Assignments & Submissions
     async submitAssignment(assignmentId, formData, studentId) {
@@ -119,6 +146,14 @@ export const apiService = {
     },
 
     // 5. Support Requests & Suggested AI Answers
+    async createEscalation(payload) {
+        return await request(`${API_BASE_URL}/tutor/escalations`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+    },
+
     async answerEscalation(escalationId, payload) {
         return await request(`${API_BASE_URL}/tutor/escalations/${escalationId}/answer`, {
             method: 'POST',
@@ -161,6 +196,16 @@ export const apiService = {
 
     async importMentors(formData) {
         return await uploadRequest(`${API_BASE_URL}/mentors/import`, formData, 'Import failed');
+    },
+
+    async getMentorImportTemplateSpec() {
+        return await request(`${API_BASE_URL}/mentors/import/template`);
+    },
+
+    async downloadMentorImportTemplate() {
+        const res = await fetch(`${API_BASE_URL}/mentors/import/template/download`);
+        if (!res.ok) throw new Error(`Template download failed: ${res.status}`);
+        return await res.blob();
     },
 
     // =============================================
@@ -383,6 +428,12 @@ export const apiService = {
     async getUserProfile(userId) {
         return await request(`${API_BASE_URL}/users/profile?userId=${userId}`);
     },
+    async updateUserProfile(userId, payload) {
+        return await request(`${API_BASE_URL}/users/${userId}/profile`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+    },
     async getStudentMemory(studentId, courseId) {
         return await request(`${API_BASE_URL}/tutor/students/${studentId}/courses/${courseId}/memory`);
     },
@@ -395,6 +446,23 @@ export const apiService = {
     async getCourseMemories(courseId, classId = '') {
         const params = classId ? `?classId=${classId}` : '';
         return await request(`${API_BASE_URL}/tutor/courses/${courseId}/memories${params}`);
+    },
+
+    async getImprovePlans(studentId, courseId = '') {
+        const params = new URLSearchParams();
+        if (courseId) params.append('courseId', courseId);
+        const qs = params.toString();
+        return asArray(await request(`${API_BASE_URL}/students/${studentId}/improve-plans${qs ? `?${qs}` : ''}`), 'plans', 'content');
+    },
+
+    async getLatestImprovePlan(studentId, courseId) {
+        return await request(`${API_BASE_URL}/students/${studentId}/courses/${courseId}/improve-plan`);
+    },
+
+    async completeImprovePlan(planId) {
+        return await request(`${API_BASE_URL}/improve-plans/${planId}/complete`, {
+            method: 'PUT'
+        });
     },
 
     // =============================================
@@ -417,5 +485,65 @@ export const apiService = {
     async uploadCodeFileMentor(formData, queryParams) {
         const params = new URLSearchParams(queryParams);
         return await uploadRequest(`${API_BASE_URL}/code-mentor/upload?${params}`, formData);
+    },
+
+    // =============================================
+    // 19. Learning Dashboards
+    // =============================================
+    async getStudentDashboard(studentId, courseId = '') {
+        const params = new URLSearchParams();
+        if (courseId) params.append('courseId', courseId);
+        const qs = params.toString();
+        return await request(`${API_BASE_URL}/students/${studentId}/dashboard${qs ? `?${qs}` : ''}`);
+    },
+
+    async getTeacherDashboard(teacherId, courseId = '', classId = '') {
+        const params = new URLSearchParams();
+        if (courseId) params.append('courseId', courseId);
+        if (classId) params.append('classId', classId);
+        const qs = params.toString();
+        return await request(`${API_BASE_URL}/mentors/${teacherId}/dashboard${qs ? `?${qs}` : ''}`);
+    },
+
+    async getTeacherEscalationInbox(teacherId, filters = {}) {
+        const params = new URLSearchParams();
+        Object.entries(filters).forEach(([k, v]) => { if (v) params.append(k, v); });
+        const qs = params.toString();
+        return await request(`${API_BASE_URL}/tutor/escalations/teachers/${teacherId}${qs ? `?${qs}` : ''}`);
+    },
+
+    // =============================================
+    // 20. AI Answer Reviews
+    // =============================================
+    async getAnswerReviews(filters = {}) {
+        const params = new URLSearchParams();
+        Object.entries(filters).forEach(([k, v]) => { if (v) params.append(k, v); });
+        return asArray(await request(`${API_BASE_URL}/tutor/answer-reviews?${params}`), 'reviews', 'content');
+    },
+
+    async getMentorPendingAnswerReviews(courseId = '') {
+        const params = courseId ? `?courseId=${courseId}` : '';
+        return asArray(await request(`${API_BASE_URL}/tutor/answer-reviews/mentor-pending${params}`), 'reviews', 'content');
+    },
+
+    async getSeniorPendingAnswerReviews(courseId = '') {
+        const params = courseId ? `?courseId=${courseId}` : '';
+        return asArray(await request(`${API_BASE_URL}/tutor/answer-reviews/senior-pending${params}`), 'reviews', 'content');
+    },
+
+    async submitAnswerReview(payload) {
+        return await request(`${API_BASE_URL}/tutor/answer-reviews`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+    },
+
+    async seniorResolveAnswerReview(reviewId, payload) {
+        return await request(`${API_BASE_URL}/tutor/answer-reviews/${reviewId}/senior-resolve`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
     }
 };

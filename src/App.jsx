@@ -8,8 +8,10 @@ import TeacherPortal from './pages/TeacherPortal';
 import AdminPortal from './pages/AdminPortal';
 import Login from './pages/Login';
 import { apiService } from './services/api';
-import { asArray, normalizeMessage, normalizeSession } from './services/normalizers';
+import { asArray, normalizeMessage, pairMessages, normalizeSession, normalizeTeacherInboxItem, normalizeAnswerReview, normalizeStudentDashboard, normalizeTeacherDashboard, normalizeSuggestions } from './services/normalizers';
 import { getFptTheme } from './theme/fptTheme';
+import { n8nService } from './services/n8nService';
+import { N8N_ENABLED } from './services/n8nClient';
 
 function App() {
   // State management
@@ -31,16 +33,14 @@ function App() {
   // Materials & Submissions State
   const [assignments, setAssignments] = useState([]);
   const [selectedAssignment, setSelectedAssignment] = useState(null);
+  const [courseMaterials, setCourseMaterials] = useState([]);
+
 
   // Teacher State
-  const [classesList] = useState([
-    { semester: 'SEM5', course: 'PRJ301', classCode: 'SE1840', name: 'Class PRJ301_SE1840', details: 'Java Web Application | 30 students' },
-    { semester: 'SEM5', course: 'PRO192', classCode: 'SE1841', name: 'Class PRO192_SE1841', details: 'Object-Oriented Programming | 28 students' }
-  ]);
-  const [teacherStudents] = useState([
-    { id: 'student-a1', name: 'Student A', email: 'a@student.fpt.edu.vn', status: 'ACTIVE', weakTopics: ['JPA Relations', 'Spring Security'] },
-    { id: 'student-a2', name: 'Student B', email: 'b@student.fpt.edu.vn', status: 'ACTIVE', weakTopics: ['None'] }
-  ]);
+  const [classesList, setClassesList] = useState([]);
+  const [teacherStudents, setTeacherStudents] = useState([]);
+  const [teacherTopicHeatmap, setTeacherTopicHeatmap] = useState([]);
+  const [teacherDashboardLoading, setTeacherDashboardLoading] = useState(false);
   const [teacherSubmissions, setTeacherSubmissions] = useState([]);
   const [selectedTeacherSub, setSelectedTeacherSub] = useState(null);
   
@@ -49,11 +49,17 @@ function App() {
   const [uploadProgressText, setUploadProgressText] = useState('');
 
   // Escalation & Candidate State
-  const [escalations, setEscalations] = useState([
-    { id: 'esc1', student: 'Student A1', title: 'JPA ManyToMany recursive mapping issue (StackOverflowError)', context: 'Course: PRJ301 | Class: SE1840', time: 'Waiting for 5 minutes', status: 'pending', question: 'JPA ManyToMany mapping causes StackOverflow.' }
-  ]);
+  const [escalations, setEscalations] = useState([]);
+  const [teacherChatInbox, setTeacherChatInbox] = useState([]);
+  const [isTeacherInboxLoading, setIsTeacherInboxLoading] = useState(false);
   const [selectedEscalation, setSelectedEscalation] = useState(null);
   const [candidates, setCandidates] = useState([]);
+  const [answerReviews, setAnswerReviews] = useState([]);
+  const [seniorAnswerReviews, setSeniorAnswerReviews] = useState([]);
+
+  // Student dashboard
+  const [studentDashboard, setStudentDashboard] = useState({ learnedTopics: [], weakTopics: [], stats: {} });
+  const [isStudentDashboardLoading, setIsStudentDashboardLoading] = useState(false);
 
   // Admin State
   const [adminStats, setAdminStats] = useState({});
@@ -79,15 +85,19 @@ function App() {
     loadChatSessions();
     loadAdminStats();
     loadSubscriptionPlans();
-    setSelectedEscalation(escalations[0]);
   }, []);
 
   useEffect(() => {
     if (activeRole === 'student') {
       loadStudentAssignments();
+      loadCourseMaterials();
     } else if (activeRole === 'teacher') {
       loadTeacherSubmissions();
       loadKnowledgeCandidates();
+      loadTeacherDashboard();
+      loadTeacherInbox();
+      loadAnswerReviews();
+      loadCourseMaterials();
     }
   }, [activeRole, courseId, classId]);
 
@@ -110,6 +120,15 @@ function App() {
     }
   };
 
+  const loadCourseMaterials = async () => {
+    try {
+      const data = await apiService.getCourseMaterials(courseId);
+      setCourseMaterials(asArray(data, 'materials', 'content'));
+    } catch (e) {
+      setCourseMaterials([]);
+    }
+  };
+
   const loadTeacherSubmissions = async () => {
     try {
       const data = await apiService.getClassSubmissions(courseId, classId, getTeacherUserId());
@@ -120,6 +139,122 @@ function App() {
       }
     } catch (e) {
       setTeacherSubmissions([]);
+    }
+  };
+
+  const loadStudentDashboard = async () => {
+    setIsStudentDashboardLoading(true);
+    try {
+      const data = await apiService.getStudentDashboard(getStudentUserId(), courseId);
+      const normalized = normalizeStudentDashboard(data);
+      setStudentDashboard(normalized);
+      if (normalized.suggestions?.length) {
+        setSuggestions(normalized.suggestions);
+      }
+    } catch (e) {
+      try {
+        const memory = await apiService.getStudentMemory(getStudentUserId(), courseId);
+        setStudentDashboard({
+          learnedTopics: memory.learnedTopics || [],
+          weakTopics: memory.weakTopics || [],
+          stats: {},
+        });
+      } catch {
+        setStudentDashboard({ learnedTopics: [], weakTopics: [], stats: {} });
+      }
+    } finally {
+      setIsStudentDashboardLoading(false);
+    }
+  };
+
+  const loadTeacherDashboard = async () => {
+    setTeacherDashboardLoading(true);
+    try {
+      const data = await apiService.getTeacherDashboard(getTeacherUserId(), courseId, classId);
+      const normalized = normalizeTeacherDashboard(data);
+      setTeacherTopicHeatmap(normalized.topicHeatmap);
+
+      const sections = normalized.classSections;
+      if (sections.length) {
+        setClassesList(sections.map((s) => ({
+          semester: s.semesterId || s.semesterCode || '—',
+          course: s.courseId || courseId,
+          classCode: s.classId || s.id,
+          name: s.name || `Class ${s.courseId}_${s.classId}`,
+          details: s.description || `${s.studentCount ?? '—'} students`,
+        })));
+      } else {
+        const fallback = await apiService.getTeacherClassSections(getTeacherUserId());
+        const list = asArray(fallback, 'content', 'classSections');
+        setClassesList(list.map((s) => ({
+          semester: s.semesterId || '—',
+          course: s.courseId || courseId,
+          classCode: s.classId || s.id,
+          name: s.name || `Class ${s.courseId}_${s.classId}`,
+          details: `${s.studentCount ?? '—'} students`,
+        })));
+      }
+
+      if (normalized.students.length) {
+        setTeacherStudents(normalized.students.map((s) => ({
+          id: s.studentId || s.id || s.userId,
+          name: s.fullName || s.name || s.studentId,
+          email: s.email || '—',
+          status: s.status || 'ACTIVE',
+          weakTopics: s.weakTopics?.length ? s.weakTopics : ['None'],
+        })));
+      } else {
+        try {
+          const studentsData = await apiService.getClassStudents(courseId, classId);
+          const students = asArray(studentsData, 'students', 'content');
+          setTeacherStudents(students.map((s) => ({
+            id: s.studentId || s.id,
+            name: s.fullName || s.name || s.studentId,
+            email: s.email || '—',
+            status: s.status || 'ACTIVE',
+            weakTopics: s.weakTopics?.length ? s.weakTopics : ['None'],
+          })));
+        } catch {
+          setTeacherStudents([]);
+        }
+      }
+    } catch (e) {
+      setTeacherStudents([]);
+      setTeacherTopicHeatmap([]);
+    } finally {
+      setTeacherDashboardLoading(false);
+    }
+  };
+
+  const loadTeacherInbox = async () => {
+    setIsTeacherInboxLoading(true);
+    try {
+      const data = await apiService.getTeacherEscalationInbox(getTeacherUserId(), { courseId });
+      const items = asArray(data, 'escalations', 'inbox', 'content').map(normalizeTeacherInboxItem);
+      setEscalations(items);
+      setTeacherChatInbox(items.filter((e) => e.chatRoomId && ['assigned', 'active'].includes(e.status)));
+      if (items.length && !selectedEscalation) {
+        setSelectedEscalation(items[0]);
+      }
+    } catch (e) {
+      setEscalations([]);
+      setTeacherChatInbox([]);
+    } finally {
+      setIsTeacherInboxLoading(false);
+    }
+  };
+
+  const loadAnswerReviews = async () => {
+    try {
+      const [mentorPending, seniorPending] = await Promise.all([
+        apiService.getMentorPendingAnswerReviews(courseId),
+        apiService.getSeniorPendingAnswerReviews(courseId),
+      ]);
+      setAnswerReviews((Array.isArray(mentorPending) ? mentorPending : []).map(normalizeAnswerReview));
+      setSeniorAnswerReviews((Array.isArray(seniorPending) ? seniorPending : []).map(normalizeAnswerReview));
+    } catch (e) {
+      setAnswerReviews([]);
+      setSeniorAnswerReviews([]);
     }
   };
 
@@ -178,7 +313,7 @@ function App() {
     setActiveSessionTitle(title);
     setMessages([]);
     const chatMsgs = await apiService.getMessages(sessionId, getStudentUserId());
-    setMessages(asArray(chatMsgs, 'content', 'messages').map(normalizeMessage));
+    setMessages(pairMessages(asArray(chatMsgs, 'content', 'messages')));
   };
 
   const handleCreateSession = async () => {
@@ -212,22 +347,50 @@ function App() {
   };
 
   const handleSendQuery = async (chatInput, codeSnippet, setAvatarEmotion) => {
-    // Add user message immediately
+    // Add user message immediately with pending flag (no AI answer yet)
     const text = chatInput.trim();
-    const userMsg = { question: text, answer: 'AI Tutor is thinking...' };
+    const userMsg = { question: text, answer: null, pending: true };
     setMessages(prev => [...prev, userMsg]);
 
-    const payload = {
-      question: text,
-      message: text,
-      codeSnippet: codeSnippet || null,
-      courseId: courseId,
-      classId: classId,
-      conversationId: activeSessionId || null
-    };
-
     try {
-      const data = await apiService.sendAiQuery(payload, getStudentUserId());
+      let data;
+      if (N8N_ENABLED) {
+        try {
+          const n8nPayload = {
+            studentId: getStudentUserId(),
+            studentName: currentUser?.fullName || '',
+            studentEmail: currentUser?.email || '',
+            courseId: courseId,
+            classId: classId,
+            message: text,
+            codeSnippet: codeSnippet || '',
+            conversationId: activeSessionId || ''
+          };
+          data = await n8nService.sendStudentChat(n8nPayload);
+        } catch (n8nError) {
+          console.warn('n8n request failed, trying backend API fallback:', n8nError);
+          triggerToast('n8n offline. Falling back to local AI...');
+          const payload = {
+            question: text,
+            message: text,
+            codeSnippet: codeSnippet || null,
+            courseId: courseId,
+            classId: classId,
+            conversationId: activeSessionId || null
+          };
+          data = await apiService.sendAiQuery(payload, getStudentUserId());
+        }
+      } else {
+        const payload = {
+          question: text,
+          message: text,
+          codeSnippet: codeSnippet || null,
+          courseId: courseId,
+          classId: classId,
+          conversationId: activeSessionId || null
+        };
+        data = await apiService.sendAiQuery(payload, getStudentUserId());
+      }
 
       if (data.conversationId && !activeSessionId) {
         setActiveSessionId(data.conversationId);
@@ -241,7 +404,8 @@ function App() {
           answer: data.answer,
           confidence: data.confidence,
           sources: data.sources || [],
-          questionEscalationId: data.questionEscalationId || null
+          questionEscalationId: data.questionEscalationId || data.escalationId || null,
+          pending: false
         };
         return updated;
       });
@@ -249,7 +413,7 @@ function App() {
       if (data.mode === 'CODE_MENTOR') {
         setCodeMentorDiagnostics(data.answer);
         setAvatarEmotion('success');
-      } else if (data.escalated) {
+      } else if (data.escalated || data.mode === 'ESCALATE') {
         setAvatarEmotion('idle');
       } else {
         setAvatarEmotion('success');
@@ -261,7 +425,8 @@ function App() {
           question: text,
           answer: `AI Tutor could not answer right now. ${error.message || 'Please check the backend AI service.'}`,
           confidence: 0,
-          sources: []
+          sources: [],
+          pending: false
         };
         return updated;
       });
@@ -298,10 +463,17 @@ function App() {
     setIsSuggesting(true);
     triggerToast('AI is analyzing your learning memory...');
 
-    const data = await apiService.getSuggestions(getStudentUserId(), courseId);
-    setSuggestions(data.suggestions || []);
-    setIsSuggesting(false);
-    triggerToast('Study plan analysis completed.');
+    try {
+      const data = await apiService.getSuggestions(getStudentUserId(), courseId);
+      const normalized = normalizeSuggestions(data);
+      setSuggestions(normalized.length ? normalized : suggestions);
+      triggerToast('Study plan analysis completed.');
+    } catch (error) {
+      console.error('Error fetching suggestions:', error);
+      triggerToast('Failed to analyze learning suggestions.');
+    } finally {
+      setIsSuggesting(false);
+    }
   };
 
   // ==========================================
@@ -319,6 +491,42 @@ function App() {
     // Reload assignments state to update status
     loadStudentAssignments();
   };
+
+  const handleStudentUpdateMemory = async (learnedList, weakList) => {
+    triggerToast('Updating learning profiler...');
+    try {
+      const payload = {
+        learnedTopics: learnedList,
+        weakTopics: weakList,
+        summary: `Manually updated concepts: ${learnedList.join(', ')}. Focus areas: ${weakList.join(', ')}.`
+      };
+      await apiService.updateStudentMemory(getStudentUserId(), courseId, payload);
+      triggerToast('Profiler updated successfully.');
+      loadStudentDashboard();
+    } catch (e) {
+      console.error('Error updating memory:', e);
+      triggerToast('Failed to update profiler.');
+    }
+  };
+
+  const handleDownloadAssignment = async (assignmentId) => {
+    triggerToast('Downloading assignment file...');
+    try {
+      const blob = await apiService.downloadAssignmentFile(assignmentId);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `assignment-${assignmentId}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error('Error downloading assignment:', e);
+      triggerToast('Failed to download assignment file.');
+    }
+  };
+
 
   // ==========================================
   // TEACHER ACTION HANDLERS
@@ -351,14 +559,53 @@ function App() {
     } else {
       await apiService.uploadMaterial(courseId, formData);
       triggerToast('Course material uploaded.');
+      loadCourseMaterials();
     }
 
     clearInterval(interval);
     setUploadProgress(100);
     setUploadProgressText('Upload completed.');
-    
-    // Optionally reload teacher assignments here if there is UI for it
   };
+
+  const handleTeacherDeleteMaterial = async (materialId) => {
+    triggerToast('Deleting course material...');
+    try {
+      await apiService.deleteMaterial(courseId, materialId);
+      triggerToast('Material deleted successfully.');
+      loadCourseMaterials();
+    } catch (e) {
+      triggerToast('Failed to delete material.');
+    }
+  };
+
+  const handleTeacherReindexMaterial = async (materialId) => {
+    triggerToast('Reindexing course material...');
+    try {
+      await apiService.reindexMaterial(courseId, materialId);
+      triggerToast('Material reindexing triggered.');
+      loadCourseMaterials();
+    } catch (e) {
+      triggerToast('Failed to reindex material.');
+    }
+  };
+
+  const handleDownloadMaterial = async (materialId, title) => {
+    triggerToast('Downloading material...');
+    try {
+      const blob = await apiService.downloadMaterialPdf(courseId, materialId);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${title || 'material'}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      triggerToast('Failed to download material.');
+    }
+  };
+
 
   const handleTeacherGradeSubmit = async (submissionId, score, feedback, weakTopics) => {
     triggerToast('Saving grading results...');
@@ -377,25 +624,124 @@ function App() {
     loadTeacherSubmissions();
   };
 
-  const handleTeacherAnswerEsc = async (escalationId, reply) => {
-    triggerToast('Sending answer and creating a knowledge candidate...');
-
-    const payload = {
-      teacherId: 'teacher-a-mentor-id',
-      teacherName: 'Teacher B',
-      answer: reply
-    };
-
-    await apiService.answerEscalation(escalationId, payload);
-    triggerToast('Answer sent successfully.');
-
-    // Update locally
-    setEscalations(prev => prev.map(esc => {
-      if (esc.id === escalationId) {
-        return { ...esc, status: 'answered' };
+  const handleStudentReviewAnswer = async (reviewPayload) => {
+    triggerToast('Submitting your feedback...');
+    try {
+      if (N8N_ENABLED) {
+        try {
+          const response = await n8nService.submitAnswerReview(reviewPayload);
+          triggerToast(response.message || 'Thank you for your feedback.');
+        } catch (n8nErr) {
+          console.warn('n8n feedback failed, falling back to backend API:', n8nErr);
+          await apiService.submitAnswerReview(reviewPayload);
+          triggerToast('Thank you for your feedback (fallback).');
+        }
+      } else {
+        await apiService.submitAnswerReview(reviewPayload);
+        triggerToast('Thank you for your feedback.');
       }
-      return esc;
-    }));
+    } catch (error) {
+      console.error('Error submitting feedback:', error);
+      triggerToast('Failed to submit feedback.');
+    }
+  };
+
+  const handleTeacherAnswerEsc = async (escalationId, reply, createKnowledgeCandidate = true, candidateType = 'ACADEMIC_KNOWLEDGE') => {
+    triggerToast('Sending answer...');
+
+    try {
+      if (N8N_ENABLED) {
+        try {
+          const payload = {
+            questionEscalationId: escalationId,
+            teacherId: getTeacherUserId(),
+            teacherName: currentUser?.fullName || currentUser?.name || 'Teacher',
+            answer: reply,
+            createKnowledgeCandidate,
+            candidateType
+          };
+          const response = await n8nService.submitTeacherAnswer(payload);
+          triggerToast(response.message || 'Answer sent successfully.');
+        } catch (n8nErr) {
+          console.warn('n8n teacher answer failed, falling back to backend API:', n8nErr);
+          const payload = {
+            teacherId: getTeacherUserId(),
+            teacherName: currentUser?.fullName || currentUser?.name || 'Teacher',
+            answer: reply,
+            createKnowledgeCandidate,
+            candidateType
+          };
+          await apiService.answerEscalation(escalationId, payload);
+          triggerToast('Answer sent successfully (fallback).');
+        }
+      } else {
+        const payload = {
+          teacherId: getTeacherUserId(),
+          teacherName: currentUser?.fullName || currentUser?.name || 'Teacher',
+          answer: reply,
+          createKnowledgeCandidate,
+          candidateType
+        };
+        await apiService.answerEscalation(escalationId, payload);
+        triggerToast('Answer sent successfully.');
+      }
+
+      setEscalations(prev => prev.map(esc => {
+        if (esc.id === escalationId) {
+          return { ...esc, status: 'answered' };
+        }
+        return esc;
+      }));
+      loadTeacherInbox();
+    } catch (error) {
+      console.error('Error sending answer:', error);
+      triggerToast('Failed to send answer.');
+    }
+  };
+
+  const handleMentorReviewAnswer = async (review, accurate, feedback) => {
+    triggerToast('Submitting AI answer review...');
+    try {
+      await apiService.submitAnswerReview({
+        studentId: review.studentId,
+        courseId: review.courseId || courseId,
+        classId: review.classId || classId,
+        conversationId: review.conversationId,
+        questionEscalationId: review.questionEscalationId,
+        mode: review.mode || 'RAG',
+        reviewType: review.reviewType || 'ANSWER_DISPUTE',
+        question: review.question,
+        answer: review.answer,
+        accurate,
+        helpful: accurate,
+        correctnessLevel: accurate ? 'HIGH' : 'INCORRECT',
+        feedback,
+        reviewedBy: getTeacherUserId(),
+        reviewerRole: 'MENTOR',
+      });
+      triggerToast(accurate ? 'Review submitted — AI answer confirmed.' : 'Review submitted — correction noted.');
+      loadAnswerReviews();
+    } catch (error) {
+      console.error('Error submitting mentor review:', error);
+      triggerToast('Failed to submit review.');
+    }
+  };
+
+  const handleSeniorResolveReview = async (reviewId, decision, notes) => {
+    triggerToast('Resolving senior review...');
+    try {
+      await apiService.seniorResolveAnswerReview(reviewId, {
+        seniorReviewerId: getTeacherUserId(),
+        seniorReviewerName: currentUser?.fullName || currentUser?.name || 'Senior Mentor',
+        decision,
+        notes
+      });
+      triggerToast('Senior review resolved.');
+      loadAnswerReviews();
+    } catch (error) {
+      console.error('Error resolving senior review:', error);
+      triggerToast('Failed to resolve review.');
+    }
   };
 
   const loadKnowledgeCandidates = async () => {
@@ -408,21 +754,84 @@ function App() {
     }
   };
 
-  const handleApproveCandidate = async (id) => {
+  const handleApproveCandidate = async (id, reviewNote = 'Approved') => {
     triggerToast('Approving suggested AI answer...');
-    await apiService.approveCandidate(id, { reviewerId: getCurrentUserId() });
-    triggerToast('Approved. The answer is ready for AI Tutor knowledge.');
-    setCandidates(prev => prev.filter(c => c.id !== id));
+    try {
+      if (N8N_ENABLED) {
+        try {
+          const payload = {
+            decision: 'APPROVE',
+            candidateId: id,
+            reviewerId: getCurrentUserId(),
+            reviewerRole: activeRole === 'admin' ? 'ADMIN' : 'SENIOR_MENTOR',
+            reviewerName: currentUser?.fullName || currentUser?.name || 'Senior Mentor',
+            reviewNote
+          };
+          const response = await n8nService.submitSeniorApproval(payload);
+          triggerToast(response.message || 'Approved. The answer is ready for AI Tutor knowledge.');
+        } catch (n8nErr) {
+          console.warn('n8n approval failed, falling back to backend API:', n8nErr);
+          await apiService.approveCandidate(id, {
+            reviewerId: getCurrentUserId(),
+            reviewerRole: activeRole === 'admin' ? 'ADMIN' : 'SENIOR_MENTOR',
+            reviewerName: currentUser?.fullName || currentUser?.name || 'Senior Mentor',
+            reviewNote
+          });
+          triggerToast('Approved (fallback).');
+        }
+      } else {
+        await apiService.approveCandidate(id, {
+          reviewerId: getCurrentUserId(),
+          reviewerRole: activeRole === 'admin' ? 'ADMIN' : 'SENIOR_MENTOR',
+          reviewerName: currentUser?.fullName || currentUser?.name || 'Senior Mentor',
+          reviewNote
+        });
+        triggerToast('Approved. The answer is ready for AI Tutor knowledge.');
+      }
+      setCandidates(prev => prev.filter(c => c.id !== id));
+    } catch (error) {
+      console.error('Error approving candidate:', error);
+      triggerToast('Failed to approve candidate.');
+    }
   };
 
-  const handleRejectCandidate = async (id, rejectionReason = 'Rejected by teacher') => {
+  const handleRejectCandidate = async (id, rejectionReason = 'Rejected by mentor') => {
     triggerToast('Rejecting suggested AI answer...');
-    await apiService.rejectCandidate(id, {
-      reviewerId: getCurrentUserId(),
-      rejectionReason
-    });
-    triggerToast('Suggested AI answer rejected.');
-    setCandidates(prev => prev.filter(c => c.id !== id));
+    try {
+      if (N8N_ENABLED) {
+        try {
+          const payload = {
+            decision: 'REJECT',
+            candidateId: id,
+            reviewerId: getCurrentUserId(),
+            reviewerRole: activeRole === 'admin' ? 'ADMIN' : 'SENIOR_MENTOR',
+            reviewerName: currentUser?.fullName || currentUser?.name || 'Senior Mentor',
+            rejectionReason
+          };
+          const response = await n8nService.submitSeniorApproval(payload);
+          triggerToast(response.message || 'Suggested AI answer rejected.');
+        } catch (n8nErr) {
+          console.warn('n8n reject failed, falling back to backend API:', n8nErr);
+          await apiService.rejectCandidate(id, {
+            reviewerId: getCurrentUserId(),
+            reviewerRole: activeRole === 'admin' ? 'ADMIN' : 'SENIOR_MENTOR',
+            rejectionReason
+          });
+          triggerToast('Suggested AI answer rejected (fallback).');
+        }
+      } else {
+        await apiService.rejectCandidate(id, {
+          reviewerId: getCurrentUserId(),
+          reviewerRole: activeRole === 'admin' ? 'ADMIN' : 'SENIOR_MENTOR',
+          rejectionReason
+        });
+        triggerToast('Suggested AI answer rejected.');
+      }
+      setCandidates(prev => prev.filter(c => c.id !== id));
+    } catch (error) {
+      console.error('Error rejecting candidate:', error);
+      triggerToast('Failed to reject candidate.');
+    }
   };
 
   // ==========================================
@@ -514,6 +923,17 @@ function App() {
                   refreshSuggestions={refreshSuggestions}
                   triggerToast={triggerToast}
                   userId={getStudentUserId()}
+                  studentDashboard={studentDashboard}
+                  isStudentDashboardLoading={isStudentDashboardLoading}
+                  loadStudentDashboard={loadStudentDashboard}
+                  onMarkChatRead={(chatRoomId) => apiService.markChatRead(chatRoomId, getStudentUserId())}
+                  onCloseChat={(payload) => apiService.closeChat({ ...payload, userId: getStudentUserId() })}
+                  onGetChatDetail={(chatRoomId) => apiService.getChatDetail(chatRoomId)}
+                  handleStudentReviewAnswer={handleStudentReviewAnswer}
+                  onDownloadAssignment={handleDownloadAssignment}
+                  onUpdateMemory={handleStudentUpdateMemory}
+                  courseMaterials={courseMaterials}
+                  onDownloadMaterial={handleDownloadMaterial}
                 />
               )}
 
@@ -535,12 +955,32 @@ function App() {
                   setSelectedEscalation={setSelectedEscalation}
                   candidates={candidates}
                   setCandidates={setCandidates}
+                  answerReviews={answerReviews}
+                  seniorAnswerReviews={seniorAnswerReviews}
+                  teacherChatInbox={teacherChatInbox}
+                  isTeacherInboxLoading={isTeacherInboxLoading}
+                  teacherTopicHeatmap={teacherTopicHeatmap}
+                  teacherDashboardLoading={teacherDashboardLoading}
+                  teacherUserId={getTeacherUserId()}
+                  loadTeacherInbox={loadTeacherInbox}
+                  loadTeacherDashboard={loadTeacherDashboard}
+                  loadAnswerReviews={loadAnswerReviews}
                   handleTeacherUploadMaterial={handleTeacherUploadMaterial}
                   handleTeacherGradeSubmit={handleTeacherGradeSubmit}
                   handleTeacherAnswerEsc={handleTeacherAnswerEsc}
                   handleApproveCandidate={handleApproveCandidate}
                   handleRejectCandidate={handleRejectCandidate}
+                  handleMentorReviewAnswer={handleMentorReviewAnswer}
+                  handleSeniorResolveReview={handleSeniorResolveReview}
+                  onMarkChatRead={(chatRoomId) => apiService.markChatRead(chatRoomId, getTeacherUserId())}
+                  onCloseChat={(payload) => apiService.closeChat({ ...payload, closedBy: getTeacherUserId() })}
+                  onGetChatDetail={(chatRoomId) => apiService.getChatDetail(chatRoomId)}
+                  onSendChatMessage={(payload) => apiService.sendChatMessage(payload)}
+                  onGetChatHistory={(chatRoomId) => apiService.getChatHistory(chatRoomId)}
                   triggerToast={triggerToast}
+                  courseMaterials={courseMaterials}
+                  handleTeacherDeleteMaterial={handleTeacherDeleteMaterial}
+                  handleTeacherReindexMaterial={handleTeacherReindexMaterial}
                 />
               )}
 
