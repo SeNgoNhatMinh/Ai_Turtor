@@ -44,6 +44,7 @@ function MentorSupport({
             <Alert type="error" showIcon message="Unable to load support requests" description={escalationsError} style={{ margin: 16 }} />
           ) : (
             <List
+              style={{ paddingLeft: 10 }}
               loading={isEscalationsLoading}
               dataSource={escalations}
               renderItem={(escalation) => (

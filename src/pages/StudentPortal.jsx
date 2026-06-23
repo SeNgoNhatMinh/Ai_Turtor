@@ -1,9 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Card, message, Splitter, Tabs } from 'antd';
+import { Card, message, Splitter } from 'antd';
 import ChatSessionsPanel from './student/ChatSessionsPanel';
 import ChatWorkspace from './student/ChatWorkspace';
-import CodeReviewPanel from './student/CodeReviewPanel';
-import TutorAvatarPanel from './student/TutorAvatarPanel';
 import LearningProgress from './student/LearningProgress';
 import MaterialsAssignments from './student/MaterialsAssignments';
 import MentorSupport from './student/MentorSupport';
@@ -271,11 +269,11 @@ function StudentPortal({
 
   if (activeTab === 'student-chat') {
     return (
-      <div className="portal-section student-chat-section">
+      <div className="portal-section student-chat-section" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
         <PageHeader title={uiCopy.student.chat.title} description={uiCopy.student.chat.subtitle} />
-        {!isMobile ? (
-          <Splitter className="student-chat-layout-splitter">
-            <Splitter.Panel defaultSize={300} min={200} max={400}>
+        <div className="student-chat-layout" style={{ flex: 1, minHeight: 0, display: 'flex', gap: 0 }}>
+          <Splitter style={{ height: '100%' }}>
+            <Splitter.Panel defaultSize="22%" min="180px" max="35%">
               <ChatSessionsPanel
                 sessions={sessions}
                 activeSessionId={activeSessionId}
@@ -290,7 +288,7 @@ function StudentPortal({
                 style={{ height: '100%' }}
               />
             </Splitter.Panel>
-            <Splitter.Panel min={400}>
+            <Splitter.Panel>
               <ChatWorkspace
                 activeSessionTitle={activeSessionTitle}
                 courseId={courseId}
@@ -310,114 +308,8 @@ function StudentPortal({
                 activeSessionId={activeSessionId}
               />
             </Splitter.Panel>
-            <Splitter.Panel defaultSize={350} min={250} max={500}>
-              <Card className="student-side-card" style={{ height: '100%' }} bodyStyle={{ padding: 0, flex: 1, display: 'flex', flexDirection: 'column' }}>
-                <Tabs
-                  activeKey={activeSideTab}
-                  onChange={setActiveSideTab}
-                  centered
-                  items={[
-                    {
-                      key: 'tab-code-review',
-                      label: uiCopy.student.codeReview.title,
-                      children: (
-                        <CodeReviewPanel
-                          codeLanguage={codeLanguage}
-                          setCodeLanguage={setCodeLanguage}
-                          codeSnippet={codeSnippet}
-                          setCodeSnippet={setCodeSnippet}
-                          onCodeReviewQuery={onCodeReviewQuery}
-                          isCodeAnalyzing={isCodeAnalyzing}
-                          codeMentorDiagnostics={codeMentorDiagnostics}
-                        />
-                      ),
-                    },
-                    {
-                      key: 'tab-tutor-avatar',
-                      label: uiCopy.student.avatar.title,
-                      children: (
-                        <TutorAvatarPanel
-                          avatarEmotion={avatarEmotion}
-                          setAvatarEmotion={setAvatarEmotion}
-                          courseId={courseId}
-                          setChatInput={setChatInput}
-                        />
-                      ),
-                    },
-                  ]}
-                />
-              </Card>
-            </Splitter.Panel>
           </Splitter>
-        ) : (
-          <div className="student-chat-layout">
-            <ChatSessionsPanel
-              sessions={sessions}
-              activeSessionId={activeSessionId}
-              onCreate={handleCreateSession}
-              onSelect={handleSelectSession}
-              onDelete={handleDeleteSession}
-              editingSessionId={editingSessionId}
-              editingSessionTitle={editingSessionTitle}
-              setEditingSessionId={setEditingSessionId}
-              setEditingSessionTitle={setEditingSessionTitle}
-              onSaveRename={onSaveRename}
-            />
-            <ChatWorkspace
-              activeSessionTitle={activeSessionTitle}
-              courseId={courseId}
-              setCourseId={setCourseId}
-              classId={classId}
-              setClassId={setClassId}
-              messages={messages}
-              chatInput={chatInput}
-              setChatInput={setChatInput}
-              onSendQuery={onSendQuery}
-              onStopQuery={onStopQuery}
-              isAiLoading={isAiLoading}
-              messagesEndRef={messagesEndRef}
-              handleStudentReviewAnswer={handleStudentReviewAnswer}
-              userId={userId}
-              activeSessionId={activeSessionId}
-            />
-            <Card className="student-side-card" bodyStyle={{ padding: 0, flex: 1, display: 'flex', flexDirection: 'column' }}>
-              <Tabs
-                activeKey={activeSideTab}
-                onChange={setActiveSideTab}
-                centered
-                items={[
-                  {
-                    key: 'tab-code-review',
-                    label: uiCopy.student.codeReview.title,
-                    children: (
-                      <CodeReviewPanel
-                        codeLanguage={codeLanguage}
-                        setCodeLanguage={setCodeLanguage}
-                        codeSnippet={codeSnippet}
-                        setCodeSnippet={setCodeSnippet}
-                        onCodeReviewQuery={onCodeReviewQuery}
-                        isCodeAnalyzing={isCodeAnalyzing}
-                        codeMentorDiagnostics={codeMentorDiagnostics}
-                      />
-                    ),
-                  },
-                  {
-                    key: 'tab-tutor-avatar',
-                    label: uiCopy.student.avatar.title,
-                    children: (
-                      <TutorAvatarPanel
-                        avatarEmotion={avatarEmotion}
-                        setAvatarEmotion={setAvatarEmotion}
-                        courseId={courseId}
-                        setChatInput={setChatInput}
-                      />
-                    ),
-                  },
-                ]}
-              />
-            </Card>
-          </div>
-        )}
+        </div>
       </div>
     );
   }
