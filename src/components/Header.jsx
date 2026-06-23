@@ -1,8 +1,60 @@
-import React from 'react';
-import { GraduationCap, Presentation, ShieldCheck, Sun, Moon, LogOut } from 'lucide-react';
+import React, { useMemo } from 'react';
+import {
+  CloudRain,
+  Droplet,
+  Flower2,
+  GraduationCap,
+  Leaf,
+  LogOut,
+  Moon,
+  Presentation,
+  ShieldCheck,
+  Sprout,
+  Sun,
+  SunMedium,
+  Wind,
+} from 'lucide-react';
 import { Switch } from 'antd';
 
+const buildSeasonItems = (items) => Array.from({ length: 12 }, (_, index) => items[index % items.length]);
+
+const getSeasonalHeaderEffect = () => {
+  const month = new Date().getMonth() + 1;
+
+  if (month >= 1 && month <= 3) {
+    return {
+      key: 'spring',
+      label: 'Hoa mai, hoa đào bay',
+      items: buildSeasonItems([Flower2, Sprout]),
+    };
+  }
+
+  if (month >= 4 && month <= 6) {
+    return {
+      key: 'summer',
+      label: 'Nắng hè, lá xanh',
+      items: buildSeasonItems([SunMedium, Leaf]),
+    };
+  }
+
+  if (month >= 7 && month <= 10) {
+    return {
+      key: 'rain',
+      label: 'Mưa rơi',
+      items: buildSeasonItems([CloudRain, Droplet]),
+    };
+  }
+
+  return {
+    key: 'autumn',
+    label: 'Lá vàng, gió nhẹ',
+    items: buildSeasonItems([Leaf, Wind]),
+  };
+};
+
 function Header({ activeRole, handleRoleChange, isDarkMode, setIsDarkMode, currentUser, onLogout }) {
+  const seasonalEffect = useMemo(() => getSeasonalHeaderEffect(), []);
+
   const getProfileName = () => {
     if (currentUser?.fullName) return `${(currentUser.role || activeRole || 'student').toUpperCase()}: ${currentUser.fullName}`;
     if (activeRole === 'student') return 'Student: Student A';
@@ -19,6 +71,13 @@ function Header({ activeRole, handleRoleChange, isDarkMode, setIsDarkMode, curre
 
   return (
     <header className="top-nav">
+      <div className={`seasonal-header-effect seasonal-header-effect--${seasonalEffect.key}`} aria-label={seasonalEffect.label}>
+        {seasonalEffect.items.map((SeasonIcon, index) => (
+          <span key={`${seasonalEffect.key}-${index}`} style={{ '--season-item-index': index }}>
+            <SeasonIcon size={12} strokeWidth={2.2} />
+          </span>
+        ))}
+      </div>
       <div className="logo-area">
         <div className="fpt-text-mark">
           <span className="brand-fpt">FPT</span>
@@ -60,10 +119,10 @@ function Header({ activeRole, handleRoleChange, isDarkMode, setIsDarkMode, curre
       <div className="user-profile" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
         <Switch 
           checkedChildren={<Moon size={14} style={{ marginTop: '4px' }} />}
-          unCheckedChildren={<Sun size={14} style={{ marginTop: '4px' }} />}
+          unCheckedChildren={<Sun size={14} style={{ marginTop: '2px' }} />}
           checked={isDarkMode}
           onChange={(checked) => setIsDarkMode(checked)}
-          style={{ background: isDarkMode ? '#202020' : '#F37021' }}
+          style={{ background: isDarkMode ? '#000000' : '#F37021' }}
         />
         <span id="current-user-name">{getProfileName()}</span>
         <div className="avatar-circle">{getAvatarText()}</div>

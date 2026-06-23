@@ -1,6 +1,12 @@
 import { API_BASE_URL, request, uploadRequest } from './apiClient';
 import { asArray } from './normalizers';
 
+const normalizeAnswerReviewMode = (mode) => {
+    if (mode === 'CODE_MENTOR') return 'CODE';
+    if (['RAG', 'CODE', 'ESCALATE'].includes(mode)) return mode;
+    return 'RAG';
+};
+
 export const apiService = {
     // 0. User Authentication
     async login(email, password) {
@@ -532,10 +538,14 @@ export const apiService = {
     },
 
     async submitAnswerReview(payload) {
+        const normalizedPayload = {
+            ...payload,
+            mode: normalizeAnswerReviewMode(payload?.mode)
+        };
         return await request(`${API_BASE_URL}/tutor/answer-reviews`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
+            body: JSON.stringify(normalizedPayload)
         });
     },
 

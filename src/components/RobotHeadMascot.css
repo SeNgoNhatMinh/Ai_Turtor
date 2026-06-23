@@ -154,6 +154,24 @@
   border-bottom-width: 2px;
 }
 
+.robot-head-mascot--talking .robot-head-mascot__face {
+  box-shadow:
+    inset 0 0 0 1px rgba(84, 212, 230, 0.2),
+    0 7px 0 rgba(8, 145, 178, 0.2),
+    0 0 22px rgba(84, 212, 230, 0.22);
+}
+
+.robot-head-mascot--talking .robot-head-mascot__smile {
+  width: 22%;
+  height: 22%;
+  border-bottom-color: #c9ff46;
+  animation: robotTalkMouth 1.1s infinite ease-in-out;
+}
+
+.robot-head-mascot--talking .robot-head-mascot__glow {
+  animation: robotTalkGlow 1.5s infinite ease-in-out;
+}
+
 @media (max-width: 640px) {
   .robot-head-mascot:not(.robot-head-mascot--compact) {
     width: min(142px, 42vw) !important;
@@ -170,6 +188,11 @@
   .robot-head-mascot__eye {
     animation: none;
   }
+
+  .robot-head-mascot--talking .robot-head-mascot__smile,
+  .robot-head-mascot--talking .robot-head-mascot__glow {
+    animation: none;
+  }
 }
 
 @keyframes robotEyeBlink {
@@ -183,5 +206,33 @@
   5.5%,
   7.2% {
     transform: scaleY(0.08);
+  }
+}
+
+@keyframes robotTalkMouth {
+  0%,
+  100% {
+    transform: translateX(-50%) scaleX(0.9) scaleY(0.75);
+  }
+
+  35% {
+    transform: translateX(-50%) scaleX(1.25) scaleY(1.15);
+  }
+
+  64% {
+    transform: translateX(-50%) scaleX(0.72) scaleY(0.88);
+  }
+}
+
+@keyframes robotTalkGlow {
+  0%,
+  100% {
+    opacity: 0.78;
+    transform: rotate(-2deg) scaleX(1);
+  }
+
+  50% {
+    opacity: 1;
+    transform: rotate(-2deg) scaleX(1.12);
   }
 }

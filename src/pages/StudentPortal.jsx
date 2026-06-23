@@ -20,6 +20,7 @@ function StudentPortal({
   setCourseId,
   classId,
   setClassId,
+  isDarkMode = false,
   sessions,
   activeSessionId,
   activeSessionTitle,
@@ -29,6 +30,7 @@ function StudentPortal({
   handleDeleteSession,
   handleRenameSession,
   handleSendQuery,
+  handleStopAiGeneration,
   codeMentorDiagnostics,
   isCodeAnalyzing,
   handleCodeMentorQuery,
@@ -48,6 +50,7 @@ function StudentPortal({
   onGetChatDetail,
   handleStudentReviewAnswer,
   onUpdateMemory,
+  triggerToast,
   courseMaterials = [],
   onDownloadMaterial,
 }) {
@@ -211,9 +214,9 @@ function StudentPortal({
     setEditingSessionId(null);
   };
 
-  const onSendQuery = () => {
-    if (!chatInput.trim() || isAiLoading) return;
-    const textToSend = chatInput.trim();
+  const sendText = (text) => {
+    if (!text.trim() || isAiLoading) return;
+    const textToSend = text.trim();
     // Clear input immediately — don't wait for AI response
     setChatInput('');
     setIsAiLoading(true);
@@ -223,11 +226,40 @@ function StudentPortal({
     });
   };
 
+  const onSendQuery = () => {
+    sendText(chatInput);
+  };
+
   const onStopQuery = () => {
     // Mark AI as done — the in-flight request will still complete but
     // we stop blocking the UI so the user can type again immediately.
+    handleStopAiGeneration?.();
     setIsAiLoading(false);
     setAvatarEmotion('idle');
+  };
+
+  const handlePromptStarter = (prompt) => {
+    setChatInput(prompt);
+  };
+
+  const handleAnswerAction = async ({ prompt, type, message }) => {
+    if (type === 'mentor') {
+      try {
+        await apiService.createEscalation({
+          studentId: userId,
+          courseId,
+          classId,
+          question: message?.question || prompt,
+          aiAnswer: message?.answer || '',
+          source: 'STUDENT_ACTION_BAR',
+        });
+        triggerToast?.('Support request sent to mentor.');
+      } catch (error) {
+        triggerToast?.(error.message || 'Unable to create support request.');
+      }
+      return;
+    }
+    sendText(prompt);
   };
 
   const onCodeReviewQuery = () => {
@@ -295,11 +327,14 @@ function StudentPortal({
                 setCourseId={setCourseId}
                 classId={classId}
                 setClassId={setClassId}
+                isDarkMode={isDarkMode}
                 messages={messages}
                 chatInput={chatInput}
                 setChatInput={setChatInput}
                 onSendQuery={onSendQuery}
                 onStopQuery={onStopQuery}
+                onPromptStarter={handlePromptStarter}
+                onAnswerAction={handleAnswerAction}
                 isAiLoading={isAiLoading}
                 messagesEndRef={messagesEndRef}
                 style={{ height: '100%' }}
