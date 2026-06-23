@@ -15,7 +15,14 @@ function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
-export default function RobotHeadMascot({ size = 170, followMouse = true, compact = false, className = "" }) {
+export default function RobotHeadMascot({
+  size = 170,
+  followMouse = true,
+  compact = false,
+  talking = false,
+  ariaLabel,
+  className = "",
+}) {
   const headRef = useRef(null);
   const shouldReduceMotion = useReducedMotion();
   const [pose, setPose] = useState(RESET_POSE);
@@ -67,7 +74,7 @@ export default function RobotHeadMascot({ size = 170, followMouse = true, compac
   return (
     <motion.div
       ref={headRef}
-      className={`robot-head-mascot ${compact ? "robot-head-mascot--compact" : ""} ${className}`}
+      className={`robot-head-mascot ${compact ? "robot-head-mascot--compact" : ""} ${talking ? "robot-head-mascot--talking" : ""} ${className}`}
       style={{
         width: size,
         height: size * 0.82,
@@ -88,7 +95,9 @@ export default function RobotHeadMascot({ size = 170, followMouse = true, compac
         y: { duration: compact ? 3.2 : 3.8, repeat: Infinity, ease: "easeInOut" },
         rotate: { duration: compact ? 3.2 : 3.8, repeat: Infinity, ease: "easeInOut" },
       }}
-      aria-hidden="true"
+      aria-hidden={ariaLabel ? undefined : "true"}
+      aria-label={ariaLabel}
+      role={ariaLabel ? "img" : undefined}
     >
       <div className="robot-head-mascot__shadow" />
       <div className="robot-head-mascot__stage">

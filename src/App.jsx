@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ConfigProvider } from 'antd';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
@@ -23,8 +23,19 @@ function App() {
   const [activeSessionTitle, setActiveSessionTitle] = useState('AI Tutor Chat');
   const [sessions, setSessions] = useState([]);
   const [messages, setMessages] = useState([]);
+  const activeAiRequestIdRef = useRef(0);
+  const canceledAiRequestIdsRef = useRef(new Set());
   const [courseId, setCourseId] = useState('PRJ301');
   const [classId, setClassId] = useState('SE1840');
+
+  useEffect(() => {
+    document.body.classList.toggle('theme-dark', isDarkMode);
+    document.body.classList.toggle('theme-light', !isDarkMode);
+
+    return () => {
+      document.body.classList.remove('theme-dark', 'theme-light');
+    };
+  }, [isDarkMode]);
 
   // Code Review State
   const [codeMentorDiagnostics, setCodeMentorDiagnostics] = useState(null);
@@ -349,7 +360,9 @@ function App() {
   const handleSendQuery = async (chatInput, codeSnippet, setAvatarEmotion) => {
     // Add user message immediately with pending flag (no AI answer yet)
     const text = chatInput.trim();
-    const userMsg = { question: text, answer: null, pending: true };
+    const requestId = activeAiRequestIdRef.current + 1;
+    activeAiRequestIdRef.current = requestId;
+    const userMsg = { question: text, answer: null, pending: true, requestId };
     setMessages(prev => [...prev, userMsg]);
 
     try {
@@ -397,11 +410,17 @@ function App() {
         loadChatSessions();
       }
 
+      if (canceledAiRequestIdsRef.current.has(requestId)) {
+        canceledAiRequestIdsRef.current.delete(requestId);
+        return;
+      }
+
       setMessages(prev => {
         const updated = [...prev];
         updated[updated.length - 1] = {
           question: text,
           answer: data.answer,
+          mode: data.mode || 'RAG',
           confidence: data.confidence,
           sources: data.sources || [],
           questionEscalationId: data.questionEscalationId || data.escalationId || null,
@@ -410,7 +429,7 @@ function App() {
         return updated;
       });
 
-      if (data.mode === 'CODE_MENTOR') {
+      if (data.mode === 'CODE' || data.mode === 'CODE_MENTOR') {
         setCodeMentorDiagnostics(data.answer);
         setAvatarEmotion('success');
       } else if (data.escalated || data.mode === 'ESCALATE') {
@@ -419,6 +438,11 @@ function App() {
         setAvatarEmotion('success');
       }
     } catch (error) {
+      if (canceledAiRequestIdsRef.current.has(requestId)) {
+        canceledAiRequestIdsRef.current.delete(requestId);
+        return;
+      }
+
       setMessages(prev => {
         const updated = [...prev];
         updated[updated.length - 1] = {
@@ -433,6 +457,30 @@ function App() {
       setAvatarEmotion('idle');
       triggerToast('AI Tutor request failed. Check backend AI services.');
     }
+  };
+
+  const handleStopAiGeneration = () => {
+    const requestId = activeAiRequestIdRef.current;
+    if (requestId) canceledAiRequestIdsRef.current.add(requestId);
+    setMessages(prev => {
+      const updated = [...prev];
+      let index = -1;
+      for (let i = updated.length - 1; i >= 0; i -= 1) {
+        if (updated[i]?.pending) {
+          index = i;
+          break;
+        }
+      }
+      if (index >= 0) {
+        updated[index] = {
+          ...updated[index],
+          answer: 'Response generation was stopped. You can edit your question or try another prompt.',
+          pending: false,
+          canceled: true,
+        };
+      }
+      return updated;
+    });
   };
 
   const handleCodeMentorQuery = async (codeSnippet, codeLanguage, isAssignmentRelated) => {
@@ -902,6 +950,7 @@ function App() {
                   setCourseId={setCourseId}
                   classId={classId}
                   setClassId={setClassId}
+                  isDarkMode={isDarkMode}
                   sessions={sessions}
                   activeSessionId={activeSessionId}
                   activeSessionTitle={activeSessionTitle}
@@ -911,6 +960,7 @@ function App() {
                   handleDeleteSession={handleDeleteSession}
                   handleRenameSession={handleRenameSession}
                   handleSendQuery={handleSendQuery}
+                  handleStopAiGeneration={handleStopAiGeneration}
                   codeMentorDiagnostics={codeMentorDiagnostics}
                   isCodeAnalyzing={isCodeAnalyzing}
                   handleCodeMentorQuery={handleCodeMentorQuery}
