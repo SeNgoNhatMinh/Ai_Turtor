@@ -301,11 +301,10 @@ function StudentPortal({
 
   if (activeTab === 'student-chat') {
     return (
-      <div className="portal-section student-chat-section" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-        <PageHeader title={uiCopy.student.chat.title} description={uiCopy.student.chat.subtitle} />
-        <div className="student-chat-layout" style={{ flex: 1, minHeight: 0, display: 'flex', gap: 0 }}>
-          <Splitter style={{ height: '100%' }}>
-            <Splitter.Panel defaultSize="22%" min="180px" max="35%">
+      <div className="portal-section student-chat-section student-chat-section--minimal">
+        <div className="student-chat-layout student-chat-layout--chatgpt">
+          <Splitter className="student-chat-splitter" style={{ height: '100%' }}>
+            <Splitter.Panel defaultSize="260px" min="220px" max="340px">
               <ChatSessionsPanel
                 sessions={sessions}
                 activeSessionId={activeSessionId}
@@ -320,7 +319,7 @@ function StudentPortal({
                 style={{ height: '100%' }}
               />
             </Splitter.Panel>
-            <Splitter.Panel>
+            <Splitter.Panel min="520px">
               <ChatWorkspace
                 activeSessionTitle={activeSessionTitle}
                 courseId={courseId}

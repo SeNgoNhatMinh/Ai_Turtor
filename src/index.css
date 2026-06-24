@@ -3483,6 +3483,82 @@ a {
     gap: 16px;
 }
 
+.student-chat-section--minimal {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    padding: 0;
+}
+
+.student-chat-layout--chatgpt {
+    flex: 1;
+    min-height: 0;
+    display: flex !important;
+    gap: 0 !important;
+    overflow: hidden;
+    border: 1px solid rgba(243, 210, 188, 0.72);
+    border-radius: 18px;
+    background: #FFFFFF;
+    box-shadow: 0 12px 28px rgba(216, 95, 22, 0.06);
+}
+
+.student-chat-layout--chatgpt .ant-splitter {
+    width: 100%;
+}
+
+.student-chat-layout--chatgpt .ant-splitter-bar {
+    background: transparent;
+}
+
+.student-chat-layout--chatgpt .ant-splitter-bar-dragger::before {
+    background: rgba(243, 112, 33, 0.18);
+}
+
+.student-chat-layout--chatgpt .chat-sessions-card.ant-card,
+.student-chat-layout--chatgpt .chat-workspace-card.ant-card {
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+}
+
+.student-chat-layout--chatgpt .chat-sessions-card.ant-card {
+    background: #FAFAFA !important;
+    border-right: 1px solid #ECECEC !important;
+}
+
+.student-chat-layout--chatgpt .chat-sessions-card .ant-card-head {
+    min-height: 54px;
+    padding: 0 12px;
+    border-bottom: 0;
+}
+
+.student-chat-layout--chatgpt .chat-sessions-card .ant-card-head-title {
+    color: #111827;
+    font-size: 0.9rem;
+    font-weight: 800;
+}
+
+.student-chat-layout--chatgpt .chat-sessions-card .ant-card-extra .ant-btn {
+    border-radius: 999px;
+    font-weight: 800;
+}
+
+.app-container.dark .student-chat-layout--chatgpt {
+    background: #000000;
+    border-color: #1F1F1F;
+    box-shadow: none;
+}
+
+.app-container.dark .student-chat-layout--chatgpt .chat-sessions-card.ant-card {
+    background: #080808 !important;
+    border-right-color: #1F1F1F !important;
+}
+
+.app-container.dark .student-chat-layout--chatgpt .chat-sessions-card .ant-card-head-title {
+    color: #F9FAFB;
+}
+
 .chat-sessions-card,
 .chat-workspace-card,
 .student-side-card,
@@ -3716,6 +3792,20 @@ a {
         overflow: visible;
     }
 
+    .student-chat-section--minimal {
+        min-height: 720px;
+    }
+
+    .student-chat-layout--chatgpt {
+        height: 720px;
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    .student-chat-layout--chatgpt .ant-splitter {
+        display: flex;
+    }
+
     .workspace-toolbar,
     .page-header {
         flex-direction: column;
@@ -3794,6 +3884,39 @@ a {
     .main-layout {
         flex-direction: column;
         height: auto;
+    }
+
+    .student-chat-section--minimal {
+        min-height: 780px;
+    }
+
+    .student-chat-layout--chatgpt {
+        height: auto;
+        min-height: 780px;
+        border-radius: 0;
+        border-left: 0;
+        border-right: 0;
+    }
+
+    .student-chat-layout--chatgpt .ant-splitter {
+        flex-direction: column !important;
+    }
+
+    .student-chat-layout--chatgpt .ant-splitter-panel {
+        flex-basis: auto !important;
+        min-width: 0 !important;
+        width: 100% !important;
+    }
+
+    .student-chat-layout--chatgpt .chat-sessions-card.ant-card {
+        min-height: 260px;
+        max-height: 320px;
+        border-right: 0 !important;
+        border-bottom: 1px solid #ECECEC !important;
+    }
+
+    .app-container.dark .student-chat-layout--chatgpt .chat-sessions-card.ant-card {
+        border-bottom-color: #1F1F1F !important;
     }
 
     .main-sidebar {
