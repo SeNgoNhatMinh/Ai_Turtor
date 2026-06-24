@@ -1,28 +1,28 @@
 /* ==========================================
-   DESIGN SYSTEM - FPT ORANGE / WHITE
+   DESIGN SYSTEM - PROFESSIONAL NEUTRAL / FPT ACCENT
    ========================================== */
 
 :root {
     /* Color Tokens */
-    --color-bg-dark: #FFF7F0;
+    --color-bg-dark: #F7F7F5;
     --color-bg-deep: #FFFFFF;
     --color-card-bg: #FFFFFF;
-    --color-card-border: #F3D2BC;
-    --color-card-hover-bg: #FFF7F0;
-    --color-card-hover-border: #F37021;
+    --color-card-border: #E5E5E0;
+    --color-card-hover-bg: #F4F4F4;
+    --color-card-hover-border: #D1D5DB;
     
     --color-primary: #F37021;
-    --color-primary-glow: rgba(243, 112, 33, 0.24);
-    --color-primary-dark: #D85F16;
+    --color-primary-glow: rgba(243, 112, 33, 0.14);
+    --color-primary-dark: #C85A1B;
     
-    --color-secondary: #F37021;
-    --color-secondary-glow: rgba(243, 112, 33, 0.18);
+    --color-secondary: #202123;
+    --color-secondary-glow: rgba(32, 33, 35, 0.12);
     
     --color-danger: hsl(350, 75%, 55%);
     --color-danger-glow: rgba(239, 68, 68, 0.2);
     
-    --color-text-main: #1F2937;
-    --color-text-muted: #6B7280;
+    --color-text-main: #202123;
+    --color-text-muted: #6E6E73;
     --color-text-dark: #9CA3AF;
     
     /* Layout Tokens */
@@ -75,7 +75,7 @@ body {
     flex-direction: column;
     height: 100vh;
     width: 100vw;
-    background: linear-gradient(135deg, #FFF7F0 0%, #FFFFFF 48%, #FFE1CC 100%);
+    background: #F7F7F5;
 }
 
 /* ==========================================
@@ -270,6 +270,52 @@ body {
     flex-direction: column;
     justify-content: space-between;
     padding: 24px 16px;
+    transition: width 0.22s ease, padding 0.22s ease, background-color 0.22s ease;
+    overflow: hidden;
+}
+
+.main-sidebar--collapsed {
+    width: 72px;
+    padding: 14px 8px;
+}
+
+.sidebar-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex: 0 0 auto;
+    min-height: 38px;
+    margin-bottom: 8px;
+}
+
+.main-sidebar--collapsed .sidebar-topbar {
+    justify-content: center;
+}
+
+.sidebar-collapse-btn.ant-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    color: #4B5563;
+}
+
+.sidebar-collapse-btn.ant-btn:hover {
+    background: rgba(243, 112, 33, 0.08) !important;
+    color: #D85F16 !important;
+}
+
+.sidebar-menu-wrap {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 8px 0;
+}
+
+.main-sidebar--collapsed .sidebar-menu-wrap {
+    padding: 8px 0;
 }
 
 .sidebar-nav {
@@ -325,6 +371,7 @@ body {
     border-radius: var(--border-radius-md);
     padding: 12px 16px;
     border: 1px solid var(--color-card-border);
+    margin: 16px 0 0;
 }
 
 .status-row {
@@ -2746,11 +2793,11 @@ spline-viewer {
 }
 
 /* ==========================================
-   FPT ORANGE / WHITE OVERRIDES
+   PROFESSIONAL APP OVERRIDES
    ========================================== */
 body {
-    background: #FFF7F0;
-    color: #1F2937;
+    background: #F7F7F5;
+    color: #202123;
 }
 
 body.theme-dark {
@@ -2786,7 +2833,7 @@ body.theme-dark .ant-modal-title {
 }
 
 .app-container {
-    background: linear-gradient(135deg, #FFF7F0 0%, #FFFFFF 48%, #FFE1CC 100%);
+    background: #F7F7F5;
 }
 
 .app-container.dark {
@@ -2804,8 +2851,8 @@ body.theme-dark .ant-modal-title {
 
 .top-nav {
     background: rgba(255, 255, 255, 0.92);
-    border-bottom: 1px solid #F3D2BC;
-    box-shadow: 0 8px 24px rgba(216, 95, 22, 0.08);
+    border-bottom: 1px solid #E5E5E0;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
 }
 
 .app-container.dark .top-nav {
@@ -2863,7 +2910,7 @@ body.theme-dark .ant-modal-title {
     background:
         radial-gradient(circle at 12% 18%, rgba(243, 112, 33, 0.16), transparent 30%),
         radial-gradient(circle at 82% 12%, rgba(255, 184, 121, 0.22), transparent 26%),
-        linear-gradient(135deg, #FFF7F0 0%, #FFFFFF 52%, #FFE6D6 100%);
+        linear-gradient(135deg, #FFF7F0 0%, #FFFFFF 52%, #FFE1CC 100%);
     color: #1F2937;
 }
 
@@ -3277,9 +3324,9 @@ body.theme-dark .ant-modal-title {
 }
 
 .main-sidebar {
-    background: rgba(255, 255, 255, 0.9);
-    border-right: 1px solid #F3D2BC;
-    box-shadow: 8px 0 24px rgba(216, 95, 22, 0.06);
+    background: #F7F7F5;
+    border-right: 1px solid #E5E5E0;
+    box-shadow: none;
 }
 
 .app-container.dark .main-sidebar {
@@ -3288,9 +3335,18 @@ body.theme-dark .ant-modal-title {
     box-shadow: 8px 0 24px rgba(0, 0, 0, 0.34);
 }
 
+.app-container.dark .sidebar-collapse-btn.ant-btn {
+    color: #ECECEC;
+}
+
+.app-container.dark .sidebar-collapse-btn.ant-btn:hover {
+    background: rgba(255, 255, 255, 0.08) !important;
+    color: #FFFFFF !important;
+}
+
 .role-buttons {
-    background: #FFF7F0;
-    border-color: #F3D2BC;
+    background: #F4F4F4;
+    border-color: #E5E5E0;
 }
 
 .role-btn {
@@ -3298,19 +3354,24 @@ body.theme-dark .ant-modal-title {
 }
 
 .role-btn:hover {
-    color: #D85F16;
-    background: rgba(243, 112, 33, 0.08);
+    color: #202123;
+    background: rgba(32, 33, 35, 0.08);
 }
 
 .role-btn.active,
-.avatar-circle,
+.avatar-circle {
+    background: #202123 !important;
+    color: #FFFFFF !important;
+    box-shadow: none !important;
+}
+
 .btn-primary,
 .btn-submit-form,
 .emotion-btn.active,
 .btn-confirm-payment {
-    background: linear-gradient(135deg, #F37021 0%, #D85F16 100%) !important;
+    background: #F37021 !important;
     color: #FFFFFF !important;
-    box-shadow: 0 8px 18px rgba(243, 112, 33, 0.22) !important;
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.12) !important;
 }
 
 .glass-card,
@@ -3323,9 +3384,9 @@ body.theme-dark .ant-modal-title {
 .plan-item-card,
 .payment-item-card {
     background: #FFFFFF !important;
-    border-color: #F3D2BC !important;
-    color: #1F2937 !important;
-    box-shadow: 0 12px 28px rgba(216, 95, 22, 0.08);
+    border-color: #E5E5E0 !important;
+    color: #202123 !important;
+    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.05);
 }
 
 .app-container.dark .glass-card,
@@ -3355,26 +3416,74 @@ body.theme-dark .ant-modal-title {
     background: transparent !important;
 }
 
-.ant-menu-light .ant-menu-item {
+.main-sidebar .ant-menu-light .ant-menu-item {
     color: #4B5563;
     border-radius: 8px;
+    margin-inline: 0;
+    width: 100%;
+    font-weight: 650;
 }
 
-.ant-menu-light .ant-menu-item-selected {
-    background: rgba(243, 112, 33, 0.12) !important;
-    color: #D85F16 !important;
+.main-sidebar .ant-menu-light .ant-menu-item .ant-menu-title-content,
+.main-sidebar .ant-menu-light .ant-menu-item .ant-menu-item-icon {
+    color: inherit;
+}
+
+.main-sidebar .ant-menu-light .ant-menu-item-selected {
+    background: #ECECEC !important;
+    color: #202123 !important;
     font-weight: 700;
+    box-shadow: inset 3px 0 0 #F37021;
 }
 
-.ant-menu-light .ant-menu-item:hover {
-    color: #D85F16 !important;
-    background: rgba(243, 112, 33, 0.08) !important;
+.main-sidebar .ant-menu-light .ant-menu-item:hover {
+    color: #202123 !important;
+    background: #EFEFEC !important;
+}
+
+.main-sidebar--collapsed .ant-menu-inline-collapsed {
+    width: 56px;
+}
+
+.main-sidebar--collapsed .ant-menu-light .ant-menu-item {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding-inline: 0 !important;
+}
+
+.app-container.dark .main-sidebar .ant-menu-light .ant-menu-item {
+    color: #ECECEC !important;
+}
+
+.app-container.dark .main-sidebar .ant-menu-light .ant-menu-item .ant-menu-title-content,
+.app-container.dark .main-sidebar .ant-menu-light .ant-menu-item .ant-menu-item-icon {
+    color: inherit !important;
+}
+
+.app-container.dark .main-sidebar .ant-menu-light .ant-menu-item:hover {
+    background: #1F1F1F !important;
+    color: #FFFFFF !important;
+}
+
+.app-container.dark .main-sidebar .ant-menu-light .ant-menu-item-selected {
+    background: #1F1F1F !important;
+    color: #FFFFFF !important;
+}
+
+.app-container.dark .sidebar-status-card {
+    background: #0F0F0F !important;
+    border-color: #2A2A2A !important;
+}
+
+.app-container.dark .status-text {
+    color: #D1D5DB;
 }
 
 .ant-btn-primary {
     background: #F37021 !important;
     border-color: #F37021 !important;
-    box-shadow: 0 6px 14px rgba(243, 112, 33, 0.18);
+    box-shadow: 0 6px 14px rgba(15, 23, 42, 0.12);
 }
 
 .ant-btn-primary:hover {
@@ -3402,9 +3511,9 @@ a {
 
 .toast-notification {
     background: #FFFFFF;
-    color: #1F2937;
-    border-color: #F3D2BC;
-    box-shadow: 0 12px 30px rgba(216, 95, 22, 0.18);
+    color: #202123;
+    border-color: #E5E5E0;
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
 }
 
 .toast-icon,
@@ -3414,7 +3523,7 @@ a {
 }
 
 .content-wrapper {
-    color: #1F2937;
+    color: #202123;
 }
 
 .app-container.dark .content-wrapper,
@@ -3503,8 +3612,30 @@ a {
     box-shadow: 0 12px 28px rgba(216, 95, 22, 0.06);
 }
 
+.student-chat-history-pane {
+    flex: 0 0 260px;
+    width: 260px;
+    min-width: 260px;
+    max-width: 260px;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.student-chat-main-pane {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+}
+
 .student-chat-layout--chatgpt .ant-splitter {
     width: 100%;
+    min-width: 0;
+}
+
+.student-chat-layout--chatgpt .ant-splitter-panel {
+    min-width: 0 !important;
+    overflow: hidden;
 }
 
 .student-chat-layout--chatgpt .ant-splitter-bar {
@@ -3525,18 +3656,32 @@ a {
 .student-chat-layout--chatgpt .chat-sessions-card.ant-card {
     background: #FAFAFA !important;
     border-right: 1px solid #ECECEC !important;
+    width: 100%;
+    min-width: 0;
+    overflow: hidden;
 }
 
 .student-chat-layout--chatgpt .chat-sessions-card .ant-card-head {
     min-height: 54px;
     padding: 0 12px;
     border-bottom: 0;
+    min-width: 0;
+}
+
+.student-chat-layout--chatgpt .chat-sessions-card .ant-card-head-wrapper {
+    min-width: 0;
 }
 
 .student-chat-layout--chatgpt .chat-sessions-card .ant-card-head-title {
     color: #111827;
     font-size: 0.9rem;
     font-weight: 800;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.student-chat-layout--chatgpt .chat-sessions-card .ant-card-extra {
+    flex: 0 0 auto;
 }
 
 .student-chat-layout--chatgpt .chat-sessions-card .ant-card-extra .ant-btn {
@@ -3567,6 +3712,7 @@ a {
     display: flex;
     flex-direction: column;
     min-height: 0;
+    min-width: 0;
 }
 
 .chat-workspace-card,
@@ -3806,6 +3952,13 @@ a {
         display: flex;
     }
 
+    .student-chat-history-pane {
+        flex: 0 0 260px;
+        width: 260px;
+        min-width: 260px;
+        max-width: 260px;
+    }
+
     .workspace-toolbar,
     .page-header {
         flex-direction: column;
@@ -3908,6 +4061,23 @@ a {
         width: 100% !important;
     }
 
+    .student-chat-layout--chatgpt {
+        flex-direction: column;
+    }
+
+    .student-chat-history-pane {
+        flex: 0 0 auto;
+        width: 100%;
+        min-width: 0;
+        max-width: none;
+        height: 300px;
+    }
+
+    .student-chat-main-pane {
+        flex: 1 1 auto;
+        min-height: 480px;
+    }
+
     .student-chat-layout--chatgpt .chat-sessions-card.ant-card {
         min-height: 260px;
         max-height: 320px;
@@ -3927,6 +4097,15 @@ a {
         border-bottom: 1px solid #F3D2BC;
     }
 
+    .main-sidebar--collapsed {
+        width: 100%;
+        padding: 8px 12px;
+    }
+
+    .main-sidebar--collapsed .sidebar-topbar {
+        justify-content: flex-start;
+    }
+
     .main-sidebar .ant-menu {
         display: flex;
         overflow-x: auto;
@@ -3935,6 +4114,15 @@ a {
 
     .main-sidebar .ant-menu-item {
         min-width: max-content;
+    }
+
+    .main-sidebar--collapsed .ant-menu-inline-collapsed {
+        width: 100%;
+    }
+
+    .main-sidebar--collapsed .ant-menu-light .ant-menu-item {
+        width: 44px;
+        min-width: 44px;
     }
 
     .sidebar-status-card {
@@ -4143,4 +4331,93 @@ textarea.ant-input:focus::placeholder {
 
 .ant-list-items, .ant-list-container {
     padding-left: 10px;
+}
+
+.portal-loading {
+    min-height: 280px;
+    display: grid;
+    place-items: center;
+    color: var(--text-secondary);
+}
+
+/* App-only neutral polish. Login keeps its FPT orange hero treatment. */
+.app-container.light {
+    background: #F7F7F5 !important;
+}
+
+.app-container.light .top-nav,
+.app-container.light .main-sidebar,
+.app-container.light .content-wrapper {
+    background-color: #F7F7F5;
+}
+
+.app-container.light .top-nav,
+.app-container.light .main-sidebar,
+.app-container.light .ant-card,
+.app-container.light .glass-card,
+.app-container.light .panel-card,
+.app-container.light .stats-card,
+.app-container.light .sidebar-status-card {
+    border-color: #E5E5E0 !important;
+    box-shadow: none !important;
+}
+
+.app-container.light .ant-card,
+.app-container.light .glass-card,
+.app-container.light .panel-card,
+.app-container.light .stats-card,
+.app-container.light .sidebar-status-card {
+    background: #FFFFFF !important;
+}
+
+.app-container.light .main-sidebar .ant-menu-item-selected {
+    background: #ECECEC !important;
+    color: #202123 !important;
+    box-shadow: inset 3px 0 0 #F37021;
+}
+
+.app-container.light .main-sidebar .ant-menu-item:hover,
+.app-container.light .role-btn:hover {
+    background: #EFEFEC !important;
+    color: #202123 !important;
+}
+
+.app-container.light .role-buttons {
+    background: #EFEFEC !important;
+    border-color: #E5E5E0 !important;
+}
+
+.app-container.light .role-btn.active {
+    background: #202123 !important;
+    color: #FFFFFF !important;
+}
+
+.app-container.light .ant-table-thead > tr > th {
+    background: #F4F4F4 !important;
+    color: #202123 !important;
+    border-bottom-color: #E5E5E0 !important;
+}
+
+.app-container.light .ant-tabs-card > .ant-tabs-nav .ant-tabs-tab {
+    background: #F4F4F4 !important;
+    border-color: #E5E5E0 !important;
+    color: #565869 !important;
+}
+
+.app-container.light .ant-tabs-card > .ant-tabs-nav .ant-tabs-tab-active {
+    background: #FFFFFF !important;
+    color: #202123 !important;
+}
+
+.app-container.light .ant-upload-drag {
+    background: #FAFAFA !important;
+    border-color: #E5E5E0 !important;
+}
+
+.app-container.light .ant-upload-drag:hover,
+.app-container.light .ant-input:focus,
+.app-container.light .ant-input-focused,
+.app-container.light .ant-select-focused .ant-select-selector {
+    border-color: #BDBDB8 !important;
+    box-shadow: 0 0 0 2px rgba(32, 33, 35, 0.08) !important;
 }

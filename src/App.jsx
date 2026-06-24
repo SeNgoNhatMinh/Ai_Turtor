@@ -1,17 +1,18 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { ConfigProvider } from 'antd';
+import { Suspense, lazy, useState, useEffect, useRef } from 'react';
+import { ConfigProvider, Spin } from 'antd';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
 import Toast from './components/Toast';
-import StudentPortal from './pages/StudentPortal';
-import TeacherPortal from './pages/TeacherPortal';
-import AdminPortal from './pages/AdminPortal';
 import Login from './pages/Login';
 import { apiService } from './services/api';
-import { asArray, normalizeMessage, pairMessages, normalizeSession, normalizeTeacherInboxItem, normalizeAnswerReview, normalizeStudentDashboard, normalizeTeacherDashboard, normalizeSuggestions } from './services/normalizers';
+import { asArray, pairMessages, normalizeSession, normalizeTeacherInboxItem, normalizeAnswerReview, normalizeStudentDashboard, normalizeTeacherDashboard, normalizeSuggestions } from './services/normalizers';
 import { getFptTheme } from './theme/fptTheme';
 import { n8nService } from './services/n8nService';
 import { N8N_ENABLED } from './services/n8nClient';
+
+const StudentPortal = lazy(() => import('./pages/StudentPortal'));
+const TeacherPortal = lazy(() => import('./pages/TeacherPortal'));
+const AdminPortal = lazy(() => import('./pages/AdminPortal'));
 
 function App() {
   // State management
@@ -87,19 +88,14 @@ function App() {
 
   // UI state
   const [toastMessage, setToastMessage] = useState(null);
-  const getStudentUserId = () => currentUser?.userId || currentUser?.id || 'student-a1';
-  const getCurrentUserId = () => currentUser?.userId || currentUser?.id || 'teacher-a1';
-  const getTeacherUserId = () => currentUser?.userId || currentUser?.id || 'mentor-1';
-
-  // Initial loads
-  useEffect(() => {
-    loadChatSessions();
-    loadAdminStats();
-    loadSubscriptionPlans();
-  }, []);
+  const getStudentUserId = () => currentUser?.userId || currentUser?.id || '';
+  const getCurrentUserId = () => currentUser?.userId || currentUser?.id || '';
+  const getTeacherUserId = () => currentUser?.userId || currentUser?.id || '';
 
   useEffect(() => {
+    if (!currentUser) return;
     if (activeRole === 'student') {
+      loadChatSessions();
       loadStudentAssignments();
       loadCourseMaterials();
     } else if (activeRole === 'teacher') {
@@ -109,8 +105,11 @@ function App() {
       loadTeacherInbox();
       loadAnswerReviews();
       loadCourseMaterials();
+    } else if (activeRole === 'admin') {
+      loadAdminStats();
+      loadSubscriptionPlans();
     }
-  }, [activeRole, courseId, classId]);
+  }, [currentUser, activeRole, courseId, classId]);
 
   useEffect(() => {
     if (currentUser && activeRole === 'student') {
@@ -282,12 +281,10 @@ function App() {
     setActiveRole(role);
     if (role === 'student') {
       setActiveTab('student-chat');
-      loadChatSessions();
     } else if (role === 'teacher') {
       setActiveTab('teacher-classes');
     } else if (role === 'admin') {
       setActiveTab('admin-dashboard');
-      loadAdminStats();
     }
   };
 
@@ -311,8 +308,13 @@ function App() {
   // CHAT SESSIONS LOADING & SWITCHING (STUDENT)
   // ==========================================
   const loadChatSessions = async () => {
+    const userId = getStudentUserId();
+    if (!userId) {
+      setSessions([]);
+      return;
+    }
     try {
-      const data = await apiService.getConversations(getStudentUserId());
+      const data = await apiService.getConversations(userId);
       setSessions(asArray(data, 'content', 'conversations').map(normalizeSession));
     } catch (e) {
       setSessions([]);
@@ -320,15 +322,25 @@ function App() {
   };
 
   const handleSelectSession = async (sessionId, title) => {
+    const userId = getStudentUserId();
+    if (!userId) {
+      triggerToast('Please sign in before opening chat history.');
+      return;
+    }
     setActiveSessionId(sessionId);
     setActiveSessionTitle(title);
     setMessages([]);
-    const chatMsgs = await apiService.getMessages(sessionId, getStudentUserId());
+    const chatMsgs = await apiService.getMessages(sessionId, userId);
     setMessages(pairMessages(asArray(chatMsgs, 'content', 'messages')));
   };
 
   const handleCreateSession = async () => {
-    const data = await apiService.createConversation(getStudentUserId());
+    const userId = getStudentUserId();
+    if (!userId) {
+      triggerToast('Please sign in before creating a conversation.');
+      return;
+    }
+    const data = await apiService.createConversation(userId);
     const session = normalizeSession(data);
     setActiveSessionId(session.id);
     setActiveSessionTitle(session.title);
@@ -338,7 +350,12 @@ function App() {
   };
 
   const handleDeleteSession = async (sessionId) => {
-    await apiService.deleteConversation(sessionId, getStudentUserId());
+    const userId = getStudentUserId();
+    if (!userId) {
+      triggerToast('Please sign in before deleting a conversation.');
+      return;
+    }
+    await apiService.deleteConversation(sessionId, userId);
     triggerToast('Conversation deleted.');
     setSessions(prev => prev.filter(s => s.id !== sessionId));
     if (activeSessionId === sessionId) {
@@ -349,7 +366,12 @@ function App() {
   };
 
   const handleRenameSession = async (sessionId, newTitle) => {
-    await apiService.renameConversation(sessionId, newTitle, getStudentUserId());
+    const userId = getStudentUserId();
+    if (!userId) {
+      triggerToast('Please sign in before renaming a conversation.');
+      return;
+    }
+    await apiService.renameConversation(sessionId, newTitle, userId);
     triggerToast('Conversation renamed.');
     setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, title: newTitle } : s));
     if (activeSessionId === sessionId) {
@@ -360,6 +382,11 @@ function App() {
   const handleSendQuery = async (chatInput, codeSnippet, setAvatarEmotion) => {
     // Add user message immediately with pending flag (no AI answer yet)
     const text = chatInput.trim();
+    const userId = getStudentUserId();
+    if (!userId) {
+      triggerToast('Please sign in before sending a message.');
+      return;
+    }
     const requestId = activeAiRequestIdRef.current + 1;
     activeAiRequestIdRef.current = requestId;
     const userMsg = { question: text, answer: null, pending: true, requestId };
@@ -370,7 +397,7 @@ function App() {
       if (N8N_ENABLED) {
         try {
           const n8nPayload = {
-            studentId: getStudentUserId(),
+            studentId: userId,
             studentName: currentUser?.fullName || '',
             studentEmail: currentUser?.email || '',
             courseId: courseId,
@@ -391,7 +418,7 @@ function App() {
             classId: classId,
             conversationId: activeSessionId || null
           };
-          data = await apiService.sendAiQuery(payload, getStudentUserId());
+          data = await apiService.sendAiQuery(payload, userId);
         }
       } else {
         const payload = {
@@ -402,7 +429,7 @@ function App() {
           classId: classId,
           conversationId: activeSessionId || null
         };
-        data = await apiService.sendAiQuery(payload, getStudentUserId());
+        data = await apiService.sendAiQuery(payload, userId);
       }
 
       if (data.conversationId && !activeSessionId) {
@@ -943,6 +970,7 @@ function App() {
 
             {/* VIEW AREA */}
             <main className="content-wrapper">
+              <Suspense fallback={<div className="portal-loading"><Spin tip="Loading workspace..." /></div>}>
               {activeRole === 'student' && (
                 <StudentPortal
                   activeTab={activeTab}
@@ -1046,6 +1074,7 @@ function App() {
                   triggerToast={triggerToast}
                 />
               )}
+              </Suspense>
             </main>
           </div>
           {toastMessage && <Toast message={toastMessage} onClose={() => setToastMessage(null)} />}

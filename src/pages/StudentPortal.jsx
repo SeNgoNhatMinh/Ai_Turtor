@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Card, message, Splitter } from 'antd';
+import { Card, message } from 'antd';
 import ChatSessionsPanel from './student/ChatSessionsPanel';
 import ChatWorkspace from './student/ChatWorkspace';
 import LearningProgress from './student/LearningProgress';
@@ -10,6 +10,7 @@ import PageHeader from '../components/common/PageHeader';
 import { uiCopy } from '../constants/uiCopy';
 import { normalizeEscalation } from '../services/normalizers';
 import { apiService } from '../services/api';
+import { validateChatInput, validateUploadFile } from '../utils/validators';
 
 const defaultLearned = ['MVC Flow', 'REST APIs', 'Spring Boot Config', 'Maven Dependencies'];
 const defaultWeak = ['JPA Relations', 'Spring Security'];
@@ -41,7 +42,7 @@ function StudentPortal({
   suggestions,
   isSuggesting,
   refreshSuggestions,
-  userId = 'student-a1',
+  userId = '',
   studentDashboard,
   isStudentDashboardLoading,
   loadStudentDashboard,
@@ -215,8 +216,17 @@ function StudentPortal({
   };
 
   const sendText = (text) => {
-    if (!text.trim() || isAiLoading) return;
-    const textToSend = text.trim();
+    if (isAiLoading) return;
+    if (!userId) {
+      triggerToast?.('Please sign in before sending a message.');
+      return;
+    }
+    const validation = validateChatInput(text);
+    if (!validation.ok) {
+      triggerToast?.(validation.message);
+      return;
+    }
+    const textToSend = validation.value;
     // Clear input immediately — don't wait for AI response
     setChatInput('');
     setIsAiLoading(true);
@@ -271,8 +281,9 @@ function StudentPortal({
   };
 
   const onStudentSubmit = () => {
-    if (!studentSubmissionFile) {
-      message.error('Please choose a submission file first.');
+    const fileValidation = validateUploadFile(studentSubmissionFile);
+    if (!fileValidation.ok) {
+      message.error(fileValidation.message);
       return;
     }
     handleStudentSubmit(selectedAssignment.id, studentSubmissionFile, studentSubmissionNote).then(() => {
@@ -303,8 +314,7 @@ function StudentPortal({
     return (
       <div className="portal-section student-chat-section student-chat-section--minimal">
         <div className="student-chat-layout student-chat-layout--chatgpt">
-          <Splitter className="student-chat-splitter" style={{ height: '100%' }}>
-            <Splitter.Panel defaultSize="260px" min="220px" max="340px">
+          <div className="student-chat-history-pane">
               <ChatSessionsPanel
                 sessions={sessions}
                 activeSessionId={activeSessionId}
@@ -318,8 +328,8 @@ function StudentPortal({
                 onSaveRename={onSaveRename}
                 style={{ height: '100%' }}
               />
-            </Splitter.Panel>
-            <Splitter.Panel min="520px">
+          </div>
+          <div className="student-chat-main-pane">
               <ChatWorkspace
                 activeSessionTitle={activeSessionTitle}
                 courseId={courseId}
@@ -340,9 +350,9 @@ function StudentPortal({
                 handleStudentReviewAnswer={handleStudentReviewAnswer}
                 userId={userId}
                 activeSessionId={activeSessionId}
+                triggerToast={triggerToast}
               />
-            </Splitter.Panel>
-          </Splitter>
+          </div>
         </div>
       </div>
     );

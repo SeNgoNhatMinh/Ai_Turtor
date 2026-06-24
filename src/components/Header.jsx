@@ -122,12 +122,12 @@ function Header({ activeRole, handleRoleChange, isDarkMode, setIsDarkMode, curre
           unCheckedChildren={<Sun size={14} style={{ marginTop: '2px' }} />}
           checked={isDarkMode}
           onChange={(checked) => setIsDarkMode(checked)}
-          style={{ background: isDarkMode ? '#000000' : '#F37021' }}
+          style={{ background: isDarkMode ? '#000000' : '#202123' }}
         />
         <span id="current-user-name">{getProfileName()}</span>
         <div className="avatar-circle">{getAvatarText()}</div>
         {currentUser && (
-          <button onClick={onLogout} style={{ background: 'transparent', border: 'none', color: '#F37021', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 700 }}>
+          <button onClick={onLogout} style={{ background: 'transparent', border: 'none', color: isDarkMode ? '#F9FAFB' : '#202123', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 700 }}>
             <LogOut size={16} /> Sign out
           </button>
         )}

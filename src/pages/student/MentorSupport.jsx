@@ -1,4 +1,3 @@
-import React from 'react';
 import { Alert, Avatar, Button, Card, Empty, Input, List, Space, Spin, Tag, Typography } from 'antd';
 import { RobotOutlined, SendOutlined, UserOutlined } from '@ant-design/icons';
 import PageHeader from '../../components/common/PageHeader';
@@ -14,7 +13,7 @@ function MentorSupport({
   escChatInput,
   setEscChatInput,
   escMessagesEndRef,
-  userId = 'student-a1',
+  userId = '',
   isEscalationsLoading,
   escalationsError,
   chatUnreadCount = 0,
@@ -38,7 +37,7 @@ function MentorSupport({
             </Space>
           }
           className="support-list-card"
-          bodyStyle={{ flex: 1, overflowY: 'auto', padding: 0 }}
+          styles={{ body: { flex: 1, overflowY: 'auto', padding: 0 } }}
         >
           {escalationsError ? (
             <Alert type="error" showIcon message="Unable to load support requests" description={escalationsError} style={{ margin: 16 }} />
@@ -74,7 +73,7 @@ function MentorSupport({
           )}
         </Card>
 
-        <Card className="support-detail-card" bodyStyle={{ flex: 1, display: 'flex', flexDirection: 'column', padding: 0 }}>
+        <Card className="support-detail-card" styles={{ body: { flex: 1, display: 'flex', flexDirection: 'column', padding: 0 } }}>
           {selectedEscalation ? (
             selectedEscalation.status === 'ASSIGNED' ? (
               <>

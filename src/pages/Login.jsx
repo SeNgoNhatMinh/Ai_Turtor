@@ -1,7 +1,8 @@
-import React, { Suspense, lazy, useState } from 'react';
+import { Suspense, lazy, useState } from 'react';
 import { apiService } from '../services/api';
 import { User, Lock, Mail, ArrowRight, UserPlus, GraduationCap, BookOpen, Pencil } from 'lucide-react';
 import RobotHeadMascot from '../components/RobotHeadMascot';
+import { validateAuthForm } from '../utils/validators';
 import '../index.css';
 
 const LoginBabylonBackground = lazy(() => import('../components/LoginBabylonBackground'));
@@ -12,21 +13,27 @@ function Login({ onLoginSuccess, triggerToast }) {
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [lastSubmitAt, setLastSubmitAt] = useState(0);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!isLoginView && password.length < 6) {
-      triggerToast('Password must be at least 6 characters.');
+    const now = Date.now();
+    if (isLoading || now - lastSubmitAt < 900) return;
+
+    const validation = validateAuthForm({ email, password, fullName, isLoginView });
+    if (!validation.ok) {
+      triggerToast(validation.message);
       return;
     }
+    setLastSubmitAt(now);
     setIsLoading(true);
     try {
       if (isLoginView) {
-        const user = await apiService.login(email, password);
+        const user = await apiService.login(validation.value.email, validation.value.password);
         triggerToast('Signed in successfully.');
         onLoginSuccess(user);
       } else {
-        await apiService.register({ email, password, fullName });
+        await apiService.register(validation.value);
         triggerToast('Account created. Please sign in.');
         setIsLoginView(true);
       }
@@ -142,8 +149,9 @@ function Login({ onLoginSuccess, triggerToast }) {
                     type="text"
                     placeholder="Full name"
                     required
-                    value={fullName}
-                    onChange={e => setFullName(e.target.value)}
+                  value={fullName}
+                  maxLength={80}
+                  onChange={e => setFullName(e.target.value)}
                   />
                 </div>
               </label>
@@ -158,6 +166,7 @@ function Login({ onLoginSuccess, triggerToast }) {
                   placeholder="Email address"
                   required
                   value={email}
+                  maxLength={254}
                   onChange={e => setEmail(e.target.value)}
                 />
               </div>
@@ -172,6 +181,7 @@ function Login({ onLoginSuccess, triggerToast }) {
                   placeholder="Password"
                   required
                   value={password}
+                  maxLength={128}
                   onChange={e => setPassword(e.target.value)}
                 />
               </div>

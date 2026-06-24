@@ -1,7 +1,8 @@
-import React, { useMemo, useState } from 'react';
-import { Button, Card, Dropdown, Empty, Input, Modal, Typography } from 'antd';
+import { useMemo, useState } from 'react';
+import { Button, Card, Dropdown, Input, Modal, Typography } from 'antd';
 import { MessageSquare, MoreHorizontal } from 'lucide-react';
 import ConversationSearch from './ConversationSearch';
+import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 
 const { Text } = Typography;
 
@@ -19,12 +20,13 @@ function ChatSessionsPanel({
   style,
 }) {
   const [searchText, setSearchText] = useState('');
+  const debouncedSearchText = useDebouncedValue(searchText, 220);
   const filteredSessions = useMemo(() => {
-    const query = searchText.trim().toLowerCase();
+    const query = debouncedSearchText.trim().toLowerCase();
     const list = Array.isArray(sessions) ? sessions : [];
     if (!query) return list;
     return list.filter((session) => String(session.title || '').toLowerCase().includes(query));
-  }, [sessions, searchText]);
+  }, [sessions, debouncedSearchText]);
 
   const confirmDelete = (sessionId) => {
     Modal.confirm({
@@ -38,7 +40,7 @@ function ChatSessionsPanel({
     });
   };
 
-  const getSessionMenuItems = (session) => [
+  const getSessionMenuItems = () => [
     { key: 'rename', label: 'Rename' },
     { key: 'delete', label: 'Delete', danger: true },
   ];
@@ -66,10 +68,10 @@ function ChatSessionsPanel({
       <ConversationSearch value={searchText} onChange={setSearchText} />
       <div className="conversation-list">
         {filteredSessions.length === 0 ? (
-          <Empty
-            image={Empty.PRESENTED_IMAGE_SIMPLE}
-            description={searchText ? 'No conversations match your search.' : 'Start a new AI Tutor session.'}
-          />
+          <div className="conversation-empty-state">
+            <MessageSquare size={22} aria-hidden="true" />
+            <span>{searchText ? 'No conversations match your search.' : 'Start a new AI Tutor session.'}</span>
+          </div>
         ) : filteredSessions.map((session) => (
           <div
             key={session.id}
@@ -103,7 +105,7 @@ function ChatSessionsPanel({
               trigger={['click']}
               placement="bottomRight"
               menu={{
-                items: getSessionMenuItems(session),
+                items: getSessionMenuItems(),
                 onClick: ({ key, domEvent }) => {
                   domEvent.stopPropagation();
                   handleSessionMenuClick(key, session);
