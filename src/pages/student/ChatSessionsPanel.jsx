@@ -1,7 +1,8 @@
-import React, { useMemo, useState } from 'react';
-import { Button, Card, Empty, Input, Modal, Space, Typography } from 'antd';
-import { MessageSquare, Edit2, Trash2 } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Button, Card, Dropdown, Input, Modal, Typography } from 'antd';
+import { MessageSquare, MoreHorizontal } from 'lucide-react';
 import ConversationSearch from './ConversationSearch';
+import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 
 const { Text } = Typography;
 
@@ -19,12 +20,42 @@ function ChatSessionsPanel({
   style,
 }) {
   const [searchText, setSearchText] = useState('');
+  const debouncedSearchText = useDebouncedValue(searchText, 220);
   const filteredSessions = useMemo(() => {
-    const query = searchText.trim().toLowerCase();
+    const query = debouncedSearchText.trim().toLowerCase();
     const list = Array.isArray(sessions) ? sessions : [];
     if (!query) return list;
     return list.filter((session) => String(session.title || '').toLowerCase().includes(query));
-  }, [sessions, searchText]);
+  }, [sessions, debouncedSearchText]);
+
+  const confirmDelete = (sessionId) => {
+    Modal.confirm({
+      title: 'Delete conversation?',
+      content: 'This will remove the selected chat history.',
+      okText: 'Delete',
+      okType: 'danger',
+      cancelText: 'Cancel',
+      onOk: () => onDelete(sessionId),
+      onCancel: () => {},
+    });
+  };
+
+  const getSessionMenuItems = () => [
+    { key: 'rename', label: 'Rename' },
+    { key: 'delete', label: 'Delete', danger: true },
+  ];
+
+  const handleSessionMenuClick = (key, session) => {
+    if (key === 'rename') {
+      setEditingSessionId(session.id);
+      setEditingSessionTitle(session.title);
+      return;
+    }
+
+    if (key === 'delete') {
+      confirmDelete(session.id);
+    }
+  };
 
   return (
     <Card
@@ -32,15 +63,15 @@ function ChatSessionsPanel({
       extra={<Button type="primary" size="small" icon={<MessageSquare size={14} />} onClick={onCreate}>New</Button>}
       className="chat-sessions-card"
       style={style}
-      styles={{ body: { flex: 1, overflowY: 'auto', paddingLeft: 10 } }}
+      styles={{ body: { flex: 1, overflowY: 'auto', padding: 0 } }}
     >
       <ConversationSearch value={searchText} onChange={setSearchText} />
       <div className="conversation-list">
         {filteredSessions.length === 0 ? (
-          <Empty
-            image={Empty.PRESENTED_IMAGE_SIMPLE}
-            description={searchText ? 'No conversations match your search.' : 'Start a new AI Tutor session.'}
-          />
+          <div className="conversation-empty-state">
+            <MessageSquare size={22} aria-hidden="true" />
+            <span>{searchText ? 'No conversations match your search.' : 'Start a new AI Tutor session.'}</span>
+          </div>
         ) : filteredSessions.map((session) => (
           <div
             key={session.id}
@@ -70,29 +101,26 @@ function ChatSessionsPanel({
                 )}
               </div>
             </div>
-            <Space onClick={(event) => event.stopPropagation()}>
+            <Dropdown
+              trigger={['click']}
+              placement="bottomRight"
+              menu={{
+                items: getSessionMenuItems(),
+                onClick: ({ key, domEvent }) => {
+                  domEvent.stopPropagation();
+                  handleSessionMenuClick(key, session);
+                },
+              }}
+            >
               <Button
+                className="session-item-menu-btn"
                 type="text"
                 size="small"
-                icon={<Edit2 size={14} />}
-                onClick={() => {
-                  setEditingSessionId(session.id);
-                  setEditingSessionTitle(session.title);
-                }}
+                icon={<MoreHorizontal size={17} />}
+                onClick={(event) => event.stopPropagation()}
+                aria-label="Conversation actions"
               />
-              <Button
-                type="text"
-                size="small"
-                danger
-                icon={<Trash2 size={14} />}
-                onClick={() => {
-                  Modal.confirm({
-                    title: 'Delete conversation?',
-                    onConfirm: () => onDelete(session.id),
-                  });
-                }}
-              />
-            </Space>
+            </Dropdown>
           </div>
         ))}
       </div>

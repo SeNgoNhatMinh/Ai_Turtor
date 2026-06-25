@@ -1,7 +1,9 @@
-export const N8N_BASE_URL = import.meta.env.VITE_N8N_BASE_URL || 'http://localhost:5678';
-export const N8N_WEBHOOK_MODE = import.meta.env.VITE_N8N_WEBHOOK_MODE || 'production';
-export const N8N_ENABLED = import.meta.env.VITE_N8N_ENABLED === 'true';
-export const N8N_TIMEOUT_MS = Number(import.meta.env.VITE_N8N_TIMEOUT_MS || 2500);
+import { env } from '../config/env';
+
+export const N8N_BASE_URL = env.n8nBaseUrl;
+export const N8N_WEBHOOK_MODE = env.n8nWebhookMode;
+export const N8N_ENABLED = env.n8nEnabled;
+export const N8N_TIMEOUT_MS = env.n8nTimeoutMs;
 
 export function n8nUrl(path) {
   const prefix = N8N_WEBHOOK_MODE === 'test' ? '/webhook-test' : '/webhook';
@@ -9,6 +11,9 @@ export function n8nUrl(path) {
 }
 
 export async function postN8n(path, body) {
+  if (!N8N_ENABLED) {
+    throw new Error('n8n is disabled.');
+  }
   const url = n8nUrl(path);
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), N8N_TIMEOUT_MS);

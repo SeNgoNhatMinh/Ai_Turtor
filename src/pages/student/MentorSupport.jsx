@@ -1,4 +1,3 @@
-import React from 'react';
 import { Alert, Avatar, Button, Card, Empty, Input, List, Space, Spin, Tag, Typography } from 'antd';
 import { RobotOutlined, SendOutlined, UserOutlined } from '@ant-design/icons';
 import PageHeader from '../../components/common/PageHeader';
@@ -14,7 +13,7 @@ function MentorSupport({
   escChatInput,
   setEscChatInput,
   escMessagesEndRef,
-  userId = 'student-a1',
+  userId = '',
   isEscalationsLoading,
   escalationsError,
   chatUnreadCount = 0,
@@ -38,7 +37,7 @@ function MentorSupport({
             </Space>
           }
           className="support-list-card"
-          bodyStyle={{ flex: 1, overflowY: 'auto', padding: 0 }}
+          styles={{ body: { flex: 1, overflowY: 'auto', padding: 0 } }}
         >
           {escalationsError ? (
             <Alert type="error" showIcon message="Unable to load support requests" description={escalationsError} style={{ margin: 16 }} />
@@ -74,7 +73,7 @@ function MentorSupport({
           )}
         </Card>
 
-        <Card className="support-detail-card" bodyStyle={{ flex: 1, display: 'flex', flexDirection: 'column', padding: 0 }}>
+        <Card className="support-detail-card" styles={{ body: { flex: 1, display: 'flex', flexDirection: 'column', padding: 0 } }}>
           {selectedEscalation ? (
             selectedEscalation.status === 'ASSIGNED' ? (
               <>
@@ -110,15 +109,15 @@ function MentorSupport({
                   />
                 </div>
               </>
-            ) : selectedEscalation.status === 'OFFERED' ? (
+            ) : ['OFFERED', 'MENTOR_MATCHING'].includes(selectedEscalation.status) ? (
               <div className="center-state">
                 <RobotOutlined style={{ fontSize: 48, color: '#F37021', marginBottom: 16 }} />
                 <Title level={4}>A mentor is ready to help</Title>
                 <Paragraph style={{ textAlign: 'center' }}>
-                  Your question has been reviewed. Choose a mentor to start a 1-on-1 chat.
+                  Which mentor would you like to answer this question?
                 </Paragraph>
                 <Button type="primary" size="large" onClick={() => onOpenMentorSelect(selectedEscalation)}>
-                  View mentors
+                  Choose mentor
                 </Button>
               </div>
             ) : (

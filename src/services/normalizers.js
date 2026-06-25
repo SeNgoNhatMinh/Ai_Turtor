@@ -29,6 +29,9 @@ export const pairMessages = (messages) => {
       const nextMsg = arr[i + 1];
       if (nextMsg && nextMsg.role === 'ASSISTANT') {
         paired.push({
+          id: msg.id || msg.messageId || nextMsg.id || nextMsg.messageId,
+          userMessageId: msg.id || msg.messageId,
+          assistantMessageId: nextMsg.id || nextMsg.messageId,
           question: msg.content || msg.question || msg.message || '',
           answer: nextMsg.content || nextMsg.answer || nextMsg.response || '',
           confidence: nextMsg.confidence,
@@ -39,6 +42,7 @@ export const pairMessages = (messages) => {
         i++;
       } else {
         paired.push({
+          id: msg.id || msg.messageId,
           question: msg.content || msg.question || msg.message || '',
           answer: '',
           createdAt: msg.createdAt
@@ -46,6 +50,7 @@ export const pairMessages = (messages) => {
       }
     } else if (msg.role === 'ASSISTANT') {
       paired.push({
+        id: msg.id || msg.messageId,
         question: '',
         answer: msg.content || msg.answer || msg.response || '',
         confidence: msg.confidence,
@@ -55,6 +60,7 @@ export const pairMessages = (messages) => {
       });
     } else {
       paired.push({
+        id: msg.id || msg.messageId,
         question: msg.question || msg.content || '',
         answer: msg.answer || '',
         confidence: msg.confidence,
@@ -189,11 +195,16 @@ export const normalizeStudentDashboard = (data) => {
   });
 
   const suggestions = [...planSuggestions, ...memorySuggestions];
+  const pinnedImproveSuggestions = [
+    ...memoriesList.flatMap(m => asArray(m?.pinnedImproveSuggestions)),
+    ...asArray(data?.pinnedImproveSuggestions),
+  ].filter(Boolean);
 
   return {
     learnedTopics: learnedTopics.length ? learnedTopics : topics('learnedTopics', 'strongTopics'),
     weakTopics: weakTopics.length ? weakTopics : topics('weakTopics', 'weakAreas'),
     suggestions: suggestions.length ? suggestions : (data?.suggestions || data?.improveSuggestions || []),
+    pinnedImproveSuggestions: [...new Set(pinnedImproveSuggestions)],
     stats: stats,
   };
 };

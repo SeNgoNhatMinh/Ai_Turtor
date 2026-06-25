@@ -120,6 +120,9 @@ export const navigationItems = [
   },
 ];
 
-export const getNavigationForRole = (role) => navigationItems.filter((item) => item.role === role);
+export const getNavigationForRole = (role) => {
+  const normalizedRole = String(role || '').trim().toLowerCase();
+  return navigationItems.filter((item) => item.role === normalizedRole);
+};
 
 export const getNavigationItem = (key) => navigationItems.find((item) => item.key === key);

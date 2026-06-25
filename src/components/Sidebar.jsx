@@ -1,8 +1,11 @@
-import React from 'react';
-import { Menu, Tooltip } from 'antd';
+import React, { useState } from 'react';
+import { Button, Menu, Tooltip } from 'antd';
+import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { getNavigationForRole } from '../config/navigation';
 
 function Sidebar({ activeRole, activeTab, switchTab }) {
+  const [collapsed, setCollapsed] = useState(false);
+
   const items = getNavigationForRole(activeRole).map((item) => {
     const Icon = item.icon;
     return {
@@ -17,10 +20,23 @@ function Sidebar({ activeRole, activeTab, switchTab }) {
   });
 
   return (
-    <aside className="main-sidebar" style={{ display: 'flex', flexDirection: 'column' }}>
-      <div style={{ flex: 1, overflowY: 'auto', padding: '16px 0' }}>
+    <aside className={`main-sidebar ${collapsed ? 'main-sidebar--collapsed' : ''}`}>
+      <div className="sidebar-topbar">
+        <Tooltip title={collapsed ? 'Open sidebar' : 'Close sidebar'} placement="right">
+          <Button
+            className="sidebar-collapse-btn"
+            type="text"
+            icon={collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+            onClick={() => setCollapsed((value) => !value)}
+            aria-label={collapsed ? 'Open sidebar' : 'Close sidebar'}
+          />
+        </Tooltip>
+      </div>
+
+      <div className="sidebar-menu-wrap">
         <Menu
           mode="inline"
+          inlineCollapsed={collapsed}
           selectedKeys={[activeTab]}
           onClick={(e) => switchTab(e.key)}
           items={items}
@@ -29,7 +45,7 @@ function Sidebar({ activeRole, activeTab, switchTab }) {
         />
       </div>
       
-      <div className="sidebar-status-card" style={{ margin: '16px' }}>
+      {!collapsed && <div className="sidebar-status-card">
         <div className="status-row">
           <span className="status-dot green"></span>
           <span className="status-text">Backend API Connected</span>
@@ -42,7 +58,7 @@ function Sidebar({ activeRole, activeTab, switchTab }) {
           <span className="status-dot green"></span>
           <span className="status-text">Elasticsearch Ready</span>
         </div>
-      </div>
+      </div>}
     </aside>
   );
 }

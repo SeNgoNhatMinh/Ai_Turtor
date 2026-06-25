@@ -54,9 +54,10 @@ const getSeasonalHeaderEffect = () => {
 
 function Header({ activeRole, handleRoleChange, isDarkMode, setIsDarkMode, currentUser, onLogout }) {
   const seasonalEffect = useMemo(() => getSeasonalHeaderEffect(), []);
+  const userRole = String(currentUser?.role || activeRole || 'student').trim().toLowerCase();
 
   const getProfileName = () => {
-    if (currentUser?.fullName) return `${(currentUser.role || activeRole || 'student').toUpperCase()}: ${currentUser.fullName}`;
+    if (currentUser?.fullName) return `${userRole.toUpperCase()}: ${currentUser.fullName}`;
     if (activeRole === 'student') return 'Student: Student A';
     if (activeRole === 'teacher') return 'Teacher: Teacher B';
     return 'Admin: System Admin';
@@ -87,7 +88,7 @@ function Header({ activeRole, handleRoleChange, isDarkMode, setIsDarkMode, curre
       </div>
       
       <div className="role-switcher-container">
-        {(!currentUser || currentUser.role === 'admin') ? (
+        {(!currentUser || userRole === 'admin') ? (
           <>
             <span className="role-label">Select role:</span>
             <div className="role-buttons">
@@ -122,12 +123,12 @@ function Header({ activeRole, handleRoleChange, isDarkMode, setIsDarkMode, curre
           unCheckedChildren={<Sun size={14} style={{ marginTop: '2px' }} />}
           checked={isDarkMode}
           onChange={(checked) => setIsDarkMode(checked)}
-          style={{ background: isDarkMode ? '#000000' : '#F37021' }}
+          style={{ background: isDarkMode ? '#000000' : '#202123' }}
         />
         <span id="current-user-name">{getProfileName()}</span>
         <div className="avatar-circle">{getAvatarText()}</div>
         {currentUser && (
-          <button onClick={onLogout} style={{ background: 'transparent', border: 'none', color: '#F37021', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 700 }}>
+          <button onClick={onLogout} style={{ background: 'transparent', border: 'none', color: isDarkMode ? '#F9FAFB' : '#202123', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 700 }}>
             <LogOut size={16} /> Sign out
           </button>
         )}

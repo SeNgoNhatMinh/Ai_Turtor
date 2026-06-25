@@ -1,32 +1,105 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { ConfigProvider } from 'antd';
+import { Suspense, lazy, useState, useEffect, useRef } from 'react';
+import { ConfigProvider, Spin } from 'antd';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
 import Toast from './components/Toast';
-import StudentPortal from './pages/StudentPortal';
-import TeacherPortal from './pages/TeacherPortal';
-import AdminPortal from './pages/AdminPortal';
 import Login from './pages/Login';
 import { apiService } from './services/api';
-import { asArray, normalizeMessage, pairMessages, normalizeSession, normalizeTeacherInboxItem, normalizeAnswerReview, normalizeStudentDashboard, normalizeTeacherDashboard, normalizeSuggestions } from './services/normalizers';
+import { getUserFacingError } from './services/apiClient';
+import { asArray, pairMessages, normalizeSession, normalizeTeacherInboxItem, normalizeAnswerReview, normalizeStudentDashboard, normalizeTeacherDashboard, normalizeSuggestions } from './services/normalizers';
 import { getFptTheme } from './theme/fptTheme';
 import { n8nService } from './services/n8nService';
 import { N8N_ENABLED } from './services/n8nClient';
 
+const StudentPortal = lazy(() => import('./pages/StudentPortal'));
+const TeacherPortal = lazy(() => import('./pages/TeacherPortal'));
+const AdminPortal = lazy(() => import('./pages/AdminPortal'));
+
+const APP_SESSION_USER_KEY = 'ai-tutor:current-user';
+const APP_UI_STATE_KEY = 'ai-tutor:ui-state';
+
+const readJsonStorage = (key, fallback = null) => {
+  try {
+    const raw = window.sessionStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch {
+    return fallback;
+  }
+};
+
+const sanitizePersistedUser = (user) => {
+  if (!user || typeof user !== 'object') return null;
+  const { token, password, ...safeUser } = user;
+  return safeUser;
+};
+
+const getPinnedSuggestionsStorageKey = (studentId, courseId) => {
+  if (!studentId || !courseId) return '';
+  return `ai-tutor:pinned-suggestions:${studentId}:${courseId}`;
+};
+
+const readPinnedSuggestions = (studentId, courseId) => {
+  const key = getPinnedSuggestionsStorageKey(studentId, courseId);
+  if (!key) return [];
+  try {
+    const raw = window.localStorage.getItem(key);
+    const list = raw ? JSON.parse(raw) : [];
+    return Array.isArray(list) ? list.filter(Boolean) : [];
+  } catch {
+    return [];
+  }
+};
+
+const writePinnedSuggestions = (studentId, courseId, suggestions) => {
+  const key = getPinnedSuggestionsStorageKey(studentId, courseId);
+  if (!key) return;
+  const unique = [...new Set((suggestions || []).filter(Boolean))];
+  window.localStorage.setItem(key, JSON.stringify(unique));
+};
+
+const getSuggestionTextValue = (suggestion) => (
+  typeof suggestion === 'string'
+    ? suggestion
+    : suggestion?.title || suggestion?.content || ''
+);
+
+const suggestionMatchesText = (suggestion, text) => (
+  String(getSuggestionTextValue(suggestion)).trim().toLowerCase() === String(text || '').trim().toLowerCase()
+);
+
+const createRecoveredSuggestion = (text) => ({
+  priority: 'medium',
+  title: text,
+  content: 'Saved from pinned items. Keep reviewing this topic when you continue your study plan.',
+});
+
+const normalizeAppRole = (role, email = '') => {
+  const normalized = String(role || '').trim().toLowerCase();
+  if (normalized === 'admin') return 'admin';
+  if (normalized === 'teacher' || normalized === 'mentor') return 'teacher';
+  if (normalized === 'student') return 'student';
+
+  const safeEmail = String(email || '').toLowerCase();
+  if (safeEmail.includes('admin')) return 'admin';
+  if (safeEmail.includes('teacher') || safeEmail.includes('mentor')) return 'teacher';
+  return 'student';
+};
+
 function App() {
   // State management
-  const [currentUser, setCurrentUser] = useState(null);
-  const [activeRole, setActiveRole] = useState('student');
-  const [isDarkMode, setIsDarkMode] = useState(false);
-  const [activeTab, setActiveTab] = useState('student-chat');
+  const initialUiState = readJsonStorage(APP_UI_STATE_KEY, {});
+  const [currentUser, setCurrentUser] = useState(() => sanitizePersistedUser(readJsonStorage(APP_SESSION_USER_KEY, null)));
+  const [activeRole, setActiveRole] = useState(() => initialUiState.activeRole || 'student');
+  const [isDarkMode, setIsDarkMode] = useState(() => Boolean(initialUiState.isDarkMode));
+  const [activeTab, setActiveTab] = useState(() => initialUiState.activeTab || 'student-chat');
   const [activeSessionId, setActiveSessionId] = useState(null);
   const [activeSessionTitle, setActiveSessionTitle] = useState('AI Tutor Chat');
   const [sessions, setSessions] = useState([]);
   const [messages, setMessages] = useState([]);
   const activeAiRequestIdRef = useRef(0);
   const canceledAiRequestIdsRef = useRef(new Set());
-  const [courseId, setCourseId] = useState('PRJ301');
-  const [classId, setClassId] = useState('SE1840');
+  const [courseId, setCourseId] = useState(() => initialUiState.courseId || 'PRJ301');
+  const [classId, setClassId] = useState(() => initialUiState.classId || 'SE1840');
 
   useEffect(() => {
     document.body.classList.toggle('theme-dark', isDarkMode);
@@ -36,6 +109,24 @@ function App() {
       document.body.classList.remove('theme-dark', 'theme-light');
     };
   }, [isDarkMode]);
+
+  useEffect(() => {
+    if (!currentUser) {
+      window.sessionStorage.removeItem(APP_SESSION_USER_KEY);
+      return;
+    }
+    window.sessionStorage.setItem(APP_SESSION_USER_KEY, JSON.stringify(sanitizePersistedUser(currentUser)));
+  }, [currentUser]);
+
+  useEffect(() => {
+    window.sessionStorage.setItem(APP_UI_STATE_KEY, JSON.stringify({
+      activeRole,
+      activeTab,
+      courseId,
+      classId,
+      isDarkMode,
+    }));
+  }, [activeRole, activeTab, courseId, classId, isDarkMode]);
 
   // Code Review State
   const [codeMentorDiagnostics, setCodeMentorDiagnostics] = useState(null);
@@ -87,19 +178,14 @@ function App() {
 
   // UI state
   const [toastMessage, setToastMessage] = useState(null);
-  const getStudentUserId = () => currentUser?.userId || currentUser?.id || 'student-a1';
-  const getCurrentUserId = () => currentUser?.userId || currentUser?.id || 'teacher-a1';
-  const getTeacherUserId = () => currentUser?.userId || currentUser?.id || 'mentor-1';
-
-  // Initial loads
-  useEffect(() => {
-    loadChatSessions();
-    loadAdminStats();
-    loadSubscriptionPlans();
-  }, []);
+  const getStudentUserId = () => currentUser?.userId || currentUser?.id || '';
+  const getCurrentUserId = () => currentUser?.userId || currentUser?.id || '';
+  const getTeacherUserId = () => currentUser?.userId || currentUser?.id || '';
 
   useEffect(() => {
+    if (!currentUser) return;
     if (activeRole === 'student') {
+      loadChatSessions();
       loadStudentAssignments();
       loadCourseMaterials();
     } else if (activeRole === 'teacher') {
@@ -109,8 +195,11 @@ function App() {
       loadTeacherInbox();
       loadAnswerReviews();
       loadCourseMaterials();
+    } else if (activeRole === 'admin') {
+      loadAdminStats();
+      loadSubscriptionPlans();
     }
-  }, [activeRole, courseId, classId]);
+  }, [currentUser, activeRole, courseId, classId]);
 
   useEffect(() => {
     if (currentUser && activeRole === 'student') {
@@ -133,7 +222,7 @@ function App() {
 
   const loadCourseMaterials = async () => {
     try {
-      const data = await apiService.getCourseMaterials(courseId);
+      const data = await apiService.getCourseMaterials(courseId, classId);
       setCourseMaterials(asArray(data, 'materials', 'content'));
     } catch (e) {
       setCourseMaterials([]);
@@ -155,23 +244,46 @@ function App() {
 
   const loadStudentDashboard = async () => {
     setIsStudentDashboardLoading(true);
+    const studentId = getStudentUserId();
+    const localPinnedSuggestions = readPinnedSuggestions(studentId, courseId);
     try {
-      const data = await apiService.getStudentDashboard(getStudentUserId(), courseId);
+      const data = await apiService.getStudentDashboard(studentId, courseId);
       const normalized = normalizeStudentDashboard(data);
-      setStudentDashboard(normalized);
+      let memorySnapshot = null;
+      try {
+        memorySnapshot = await apiService.getStudentMemory(studentId, courseId);
+      } catch (memoryError) {
+        console.warn('Student memory lookup failed while loading dashboard:', memoryError);
+      }
+      const mergedPinnedSuggestions = [
+        ...(normalized.pinnedImproveSuggestions || []),
+        ...(memorySnapshot?.pinnedImproveSuggestions || []),
+        ...localPinnedSuggestions,
+      ];
+      setStudentDashboard({
+        ...normalized,
+        learnedTopics: memorySnapshot?.learnedTopics?.length ? memorySnapshot.learnedTopics : normalized.learnedTopics,
+        weakTopics: memorySnapshot?.weakTopics?.length ? memorySnapshot.weakTopics : normalized.weakTopics,
+        pinnedImproveSuggestions: [...new Set(mergedPinnedSuggestions)],
+      });
       if (normalized.suggestions?.length) {
         setSuggestions(normalized.suggestions);
       }
     } catch (e) {
       try {
-        const memory = await apiService.getStudentMemory(getStudentUserId(), courseId);
+        const memory = await apiService.getStudentMemory(studentId, courseId);
+        const mergedPinnedSuggestions = [
+          ...(memory.pinnedImproveSuggestions || []),
+          ...localPinnedSuggestions,
+        ];
         setStudentDashboard({
           learnedTopics: memory.learnedTopics || [],
           weakTopics: memory.weakTopics || [],
+          pinnedImproveSuggestions: [...new Set(mergedPinnedSuggestions)],
           stats: {},
         });
       } catch {
-        setStudentDashboard({ learnedTopics: [], weakTopics: [], stats: {} });
+        setStudentDashboard({ learnedTopics: [], weakTopics: [], pinnedImproveSuggestions: localPinnedSuggestions, stats: {} });
       }
     } finally {
       setIsStudentDashboardLoading(false);
@@ -279,40 +391,44 @@ function App() {
   // SIDEBAR NAVIGATION & PORTALS TAB SWITCHING
   // ==========================================
   const handleRoleChange = (role) => {
-    setActiveRole(role);
-    if (role === 'student') {
+    const normalizedRole = normalizeAppRole(role, currentUser?.email);
+    setActiveRole(normalizedRole);
+    if (normalizedRole === 'student') {
       setActiveTab('student-chat');
-      loadChatSessions();
-    } else if (role === 'teacher') {
+    } else if (normalizedRole === 'teacher') {
       setActiveTab('teacher-classes');
-    } else if (role === 'admin') {
+    } else if (normalizedRole === 'admin') {
       setActiveTab('admin-dashboard');
-      loadAdminStats();
     }
   };
 
   const handleLoginSuccess = (user) => {
-    let role = user.role;
-    if (!role && user.email) {
-      if (user.email.toLowerCase().includes('admin')) {
-        role = 'admin';
-      } else if (user.email.toLowerCase().includes('teacher') || user.email.toLowerCase().includes('mentor')) {
-        role = 'teacher';
-      } else {
-        role = 'student';
-      }
-    }
-    const updatedUser = { ...user, role: role || 'student' };
+    const role = normalizeAppRole(user?.role, user?.email);
+    const updatedUser = { ...user, role };
     setCurrentUser(updatedUser);
-    handleRoleChange(role || 'student');
+    handleRoleChange(role);
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+    setActiveSessionId(null);
+    setActiveSessionTitle('AI Tutor Chat');
+    setMessages([]);
+    setSessions([]);
+    window.sessionStorage.removeItem(APP_SESSION_USER_KEY);
   };
 
   // ==========================================
   // CHAT SESSIONS LOADING & SWITCHING (STUDENT)
   // ==========================================
   const loadChatSessions = async () => {
+    const userId = getStudentUserId();
+    if (!userId) {
+      setSessions([]);
+      return;
+    }
     try {
-      const data = await apiService.getConversations(getStudentUserId());
+      const data = await apiService.getConversations(userId);
       setSessions(asArray(data, 'content', 'conversations').map(normalizeSession));
     } catch (e) {
       setSessions([]);
@@ -320,15 +436,25 @@ function App() {
   };
 
   const handleSelectSession = async (sessionId, title) => {
+    const userId = getStudentUserId();
+    if (!userId) {
+      triggerToast('Please sign in before opening chat history.');
+      return;
+    }
     setActiveSessionId(sessionId);
     setActiveSessionTitle(title);
     setMessages([]);
-    const chatMsgs = await apiService.getMessages(sessionId, getStudentUserId());
+    const chatMsgs = await apiService.getMessages(sessionId, userId);
     setMessages(pairMessages(asArray(chatMsgs, 'content', 'messages')));
   };
 
   const handleCreateSession = async () => {
-    const data = await apiService.createConversation(getStudentUserId());
+    const userId = getStudentUserId();
+    if (!userId) {
+      triggerToast('Please sign in before creating a conversation.');
+      return;
+    }
+    const data = await apiService.createConversation(userId);
     const session = normalizeSession(data);
     setActiveSessionId(session.id);
     setActiveSessionTitle(session.title);
@@ -338,7 +464,12 @@ function App() {
   };
 
   const handleDeleteSession = async (sessionId) => {
-    await apiService.deleteConversation(sessionId, getStudentUserId());
+    const userId = getStudentUserId();
+    if (!userId) {
+      triggerToast('Please sign in before deleting a conversation.');
+      return;
+    }
+    await apiService.deleteConversation(sessionId, userId);
     triggerToast('Conversation deleted.');
     setSessions(prev => prev.filter(s => s.id !== sessionId));
     if (activeSessionId === sessionId) {
@@ -349,7 +480,12 @@ function App() {
   };
 
   const handleRenameSession = async (sessionId, newTitle) => {
-    await apiService.renameConversation(sessionId, newTitle, getStudentUserId());
+    const userId = getStudentUserId();
+    if (!userId) {
+      triggerToast('Please sign in before renaming a conversation.');
+      return;
+    }
+    await apiService.renameConversation(sessionId, newTitle, userId);
     triggerToast('Conversation renamed.');
     setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, title: newTitle } : s));
     if (activeSessionId === sessionId) {
@@ -360,6 +496,11 @@ function App() {
   const handleSendQuery = async (chatInput, codeSnippet, setAvatarEmotion) => {
     // Add user message immediately with pending flag (no AI answer yet)
     const text = chatInput.trim();
+    const userId = getStudentUserId();
+    if (!userId) {
+      triggerToast('Please sign in before sending a message.');
+      return;
+    }
     const requestId = activeAiRequestIdRef.current + 1;
     activeAiRequestIdRef.current = requestId;
     const userMsg = { question: text, answer: null, pending: true, requestId };
@@ -370,7 +511,7 @@ function App() {
       if (N8N_ENABLED) {
         try {
           const n8nPayload = {
-            studentId: getStudentUserId(),
+            studentId: userId,
             studentName: currentUser?.fullName || '',
             studentEmail: currentUser?.email || '',
             courseId: courseId,
@@ -391,7 +532,7 @@ function App() {
             classId: classId,
             conversationId: activeSessionId || null
           };
-          data = await apiService.sendAiQuery(payload, getStudentUserId());
+          data = await apiService.sendAiQuery(payload, userId);
         }
       } else {
         const payload = {
@@ -402,7 +543,7 @@ function App() {
           classId: classId,
           conversationId: activeSessionId || null
         };
-        data = await apiService.sendAiQuery(payload, getStudentUserId());
+        data = await apiService.sendAiQuery(payload, userId);
       }
 
       if (data.conversationId && !activeSessionId) {
@@ -447,7 +588,7 @@ function App() {
         const updated = [...prev];
         updated[updated.length - 1] = {
           question: text,
-          answer: `AI Tutor could not answer right now. ${error.message || 'Please check the backend AI service.'}`,
+          answer: getUserFacingError(error, 'AI Tutor could not answer right now. Please try again in a moment.'),
           confidence: 0,
           sources: [],
           pending: false
@@ -455,7 +596,7 @@ function App() {
         return updated;
       });
       setAvatarEmotion('idle');
-      triggerToast('AI Tutor request failed. Check backend AI services.');
+      triggerToast(getUserFacingError(error, 'AI Tutor request failed. Please try again in a moment.'));
     }
   };
 
@@ -544,6 +685,7 @@ function App() {
     triggerToast('Updating learning profiler...');
     try {
       const payload = {
+        classId,
         learnedTopics: learnedList,
         weakTopics: weakList,
         summary: `Manually updated concepts: ${learnedList.join(', ')}. Focus areas: ${weakList.join(', ')}.`
@@ -554,6 +696,59 @@ function App() {
     } catch (e) {
       console.error('Error updating memory:', e);
       triggerToast('Failed to update profiler.');
+    }
+  };
+
+  const handlePinImproveSuggestion = async (suggestion) => {
+    const studentId = getStudentUserId();
+    try {
+      const memory = await apiService.pinImproveSuggestion(studentId, courseId, suggestion);
+      const fallbackPinnedSuggestions = [
+        ...new Set([...(studentDashboard?.pinnedImproveSuggestions || []), suggestion]),
+      ];
+      const nextPinnedSuggestions = memory?.pinnedImproveSuggestions?.length
+        ? memory.pinnedImproveSuggestions
+        : fallbackPinnedSuggestions;
+      setStudentDashboard((prev) => ({
+        ...prev,
+        learnedTopics: memory?.learnedTopics || prev?.learnedTopics || [],
+        weakTopics: memory?.weakTopics || prev?.weakTopics || [],
+        pinnedImproveSuggestions: nextPinnedSuggestions,
+      }));
+      writePinnedSuggestions(studentId, courseId, nextPinnedSuggestions);
+      triggerToast('Suggestion pinned.');
+    } catch (error) {
+      triggerToast(getUserFacingError(error, 'Unable to pin suggestion.'));
+    }
+  };
+
+  const handleUnpinImproveSuggestion = async (suggestion) => {
+    const studentId = getStudentUserId();
+    try {
+      const memory = await apiService.unpinImproveSuggestion(studentId, courseId, suggestion);
+      const fallbackPinnedSuggestions = (studentDashboard?.pinnedImproveSuggestions || []).filter(
+        (item) => String(item).toLowerCase() !== String(suggestion).toLowerCase(),
+      );
+      const nextPinnedSuggestions = Array.isArray(memory?.pinnedImproveSuggestions)
+        ? memory.pinnedImproveSuggestions
+        : fallbackPinnedSuggestions;
+      setStudentDashboard((prev) => ({
+        ...prev,
+        learnedTopics: memory?.learnedTopics || prev?.learnedTopics || [],
+        weakTopics: memory?.weakTopics || prev?.weakTopics || [],
+        pinnedImproveSuggestions: nextPinnedSuggestions,
+      }));
+      setSuggestions((prev) => {
+        const list = Array.isArray(prev) ? prev : [];
+        if (list.some((item) => suggestionMatchesText(item, suggestion))) {
+          return list;
+        }
+        return [createRecoveredSuggestion(suggestion), ...list];
+      });
+      writePinnedSuggestions(studentId, courseId, nextPinnedSuggestions);
+      triggerToast('Suggestion unpinned.');
+    } catch (error) {
+      triggerToast(getUserFacingError(error, 'Unable to unpin suggestion.'));
     }
   };
 
@@ -622,7 +817,7 @@ function App() {
       triggerToast('Material deleted successfully.');
       loadCourseMaterials();
     } catch (e) {
-      triggerToast('Failed to delete material.');
+      triggerToast(getUserFacingError(e, 'Failed to delete material.'));
     }
   };
 
@@ -633,7 +828,7 @@ function App() {
       triggerToast('Material reindexing triggered.');
       loadCourseMaterials();
     } catch (e) {
-      triggerToast('Failed to reindex material.');
+      triggerToast(getUserFacingError(e, 'Failed to reindex material.'));
     }
   };
 
@@ -650,7 +845,7 @@ function App() {
       a.remove();
       window.URL.revokeObjectURL(url);
     } catch (e) {
-      triggerToast('Failed to download material.');
+      triggerToast(getUserFacingError(e, 'Failed to download material.'));
     }
   };
 
@@ -932,7 +1127,7 @@ function App() {
             isDarkMode={isDarkMode} 
             setIsDarkMode={setIsDarkMode} 
             currentUser={currentUser}
-            onLogout={() => setCurrentUser(null)}
+            onLogout={handleLogout}
           />
 
           {/* MAIN CONTAINER */}
@@ -943,6 +1138,7 @@ function App() {
 
             {/* VIEW AREA */}
             <main className="content-wrapper">
+              <Suspense fallback={<div className="portal-loading"><Spin tip="Loading workspace..." /></div>}>
               {activeRole === 'student' && (
                 <StudentPortal
                   activeTab={activeTab}
@@ -976,6 +1172,8 @@ function App() {
                   studentDashboard={studentDashboard}
                   isStudentDashboardLoading={isStudentDashboardLoading}
                   loadStudentDashboard={loadStudentDashboard}
+                  onPinSuggestion={handlePinImproveSuggestion}
+                  onUnpinSuggestion={handleUnpinImproveSuggestion}
                   onMarkChatRead={(chatRoomId) => apiService.markChatRead(chatRoomId, getStudentUserId())}
                   onCloseChat={(payload) => apiService.closeChat({ ...payload, userId: getStudentUserId() })}
                   onGetChatDetail={(chatRoomId) => apiService.getChatDetail(chatRoomId)}
@@ -1029,8 +1227,7 @@ function App() {
                   onGetChatHistory={(chatRoomId) => apiService.getChatHistory(chatRoomId)}
                   triggerToast={triggerToast}
                   courseMaterials={courseMaterials}
-                  handleTeacherDeleteMaterial={handleTeacherDeleteMaterial}
-                  handleTeacherReindexMaterial={handleTeacherReindexMaterial}
+                  onDownloadMaterial={handleDownloadMaterial}
                 />
               )}
 
@@ -1044,8 +1241,10 @@ function App() {
                   adminPlans={adminPlans}
                   handleAdminImport={handleAdminImport}
                   triggerToast={triggerToast}
+                  currentUser={currentUser}
                 />
               )}
+              </Suspense>
             </main>
           </div>
           {toastMessage && <Toast message={toastMessage} onClose={() => setToastMessage(null)} />}

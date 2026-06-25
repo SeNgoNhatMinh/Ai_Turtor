@@ -1,27 +1,47 @@
-export const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ?? "/api";
+import { env } from '../config/env';
+import { getUserFacingError, httpClient, httpRequest } from './httpClient';
+
+export const API_BASE_URL = env.apiBaseUrl;
+
+function stripBaseUrl(url) {
+  const value = String(url || '');
+  if (value.startsWith(API_BASE_URL)) {
+    return value.slice(API_BASE_URL.length) || '/';
+  }
+  return value;
+}
 
 export async function request(url, options = {}) {
-  const res = await fetch(url, options);
-  if (!res.ok) {
-    const errorBody = await res.text().catch(() => "");
-    let message = errorBody || res.statusText;
+  const { headers, body, method = 'GET', signal, responseType } = options;
+  let parsedBody = body;
+  if (typeof body === 'string' && headers?.['Content-Type']?.includes('application/json')) {
     try {
-      const parsed = JSON.parse(errorBody);
-      message = parsed.error || parsed.message || message;
+      parsedBody = JSON.parse(body);
     } catch {
-      // Keep the raw response text when the backend does not return JSON.
+      parsedBody = body;
     }
-    throw new Error(message);
   }
-  return await res.json();
+
+  return httpRequest(stripBaseUrl(url), {
+    method,
+    headers,
+    body: parsedBody,
+    signal,
+    responseType,
+  });
 }
 
 export async function uploadRequest(url, formData, errorPrefix = "Upload failed") {
-  const res = await fetch(url, {
-    method: "POST",
-    body: formData,
-  });
-  if (!res.ok) throw new Error(`${errorPrefix}: ${res.status}`);
-  return await res.json();
+  try {
+    return await httpClient.upload(stripBaseUrl(url), formData);
+  } catch (error) {
+    error.message = error.message || errorPrefix;
+    throw error;
+  }
 }
+
+export async function blobRequest(url) {
+  return httpClient.blob(stripBaseUrl(url));
+}
+
+export { getUserFacingError };

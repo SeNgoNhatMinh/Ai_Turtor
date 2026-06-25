@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Card, message, Splitter } from 'antd';
+import { Card, message } from 'antd';
 import ChatSessionsPanel from './student/ChatSessionsPanel';
 import ChatWorkspace from './student/ChatWorkspace';
 import LearningProgress from './student/LearningProgress';
@@ -10,6 +10,8 @@ import PageHeader from '../components/common/PageHeader';
 import { uiCopy } from '../constants/uiCopy';
 import { normalizeEscalation } from '../services/normalizers';
 import { apiService } from '../services/api';
+import { getUserFacingError } from '../services/apiClient';
+import { validateChatInput, validateUploadFile } from '../utils/validators';
 
 const defaultLearned = ['MVC Flow', 'REST APIs', 'Spring Boot Config', 'Maven Dependencies'];
 const defaultWeak = ['JPA Relations', 'Spring Security'];
@@ -41,10 +43,12 @@ function StudentPortal({
   suggestions,
   isSuggesting,
   refreshSuggestions,
-  userId = 'student-a1',
+  userId = '',
   studentDashboard,
   isStudentDashboardLoading,
   loadStudentDashboard,
+  onPinSuggestion,
+  onUnpinSuggestion,
   onMarkChatRead,
   onCloseChat,
   onGetChatDetail,
@@ -116,7 +120,7 @@ function StudentPortal({
       }
     } catch (error) {
       setEscalations([]);
-      setEscalationsError(error.message || 'Unable to load support requests.');
+      setEscalationsError(getUserFacingError(error, 'Unable to load support requests.'));
     } finally {
       setIsEscalationsLoading(false);
     }
@@ -170,7 +174,7 @@ function StudentPortal({
       loadEscalations();
       loadChatUnread();
     } catch (error) {
-      message.error(error.message || 'Unable to close chat.');
+      message.error(getUserFacingError(error, 'Unable to close chat.'));
     }
   };
 
@@ -193,7 +197,7 @@ function StudentPortal({
       userId,
       selectedMentorId: selectedMentorForEsc,
     });
-    message.success('Support mentor selected.');
+    message.success('Mentor selected. Starting support chat...');
     setEscModalVisible(false);
     setSelectedMentorForEsc(null);
     loadEscalations();
@@ -201,9 +205,22 @@ function StudentPortal({
 
   const handleOpenMentorSelect = async (escalation) => {
     setSelectedEscalation(escalation);
-    const mentors = await apiService.getMentors();
-    setEscMentors(Array.isArray(mentors) ? mentors : []);
-    setEscModalVisible(true);
+    try {
+      const offer = await apiService.offerEscalation(escalation.id);
+      const suggested = offer?.suggestedMentors || offer?.mentors || [];
+      if (Array.isArray(suggested) && suggested.length > 0) {
+        setEscMentors(suggested);
+      } else {
+        const mentors = await apiService.getMentors();
+        setEscMentors(Array.isArray(mentors) ? mentors : []);
+      }
+      setEscModalVisible(true);
+    } catch (error) {
+      const mentors = await apiService.getMentors();
+      setEscMentors(Array.isArray(mentors) ? mentors : []);
+      setEscModalVisible(true);
+      message.warning(getUserFacingError(error, 'Unable to load suggested mentors. Showing available mentors instead.'));
+    }
   };
 
   const onSaveRename = (event, sessionId) => {
@@ -215,8 +232,17 @@ function StudentPortal({
   };
 
   const sendText = (text) => {
-    if (!text.trim() || isAiLoading) return;
-    const textToSend = text.trim();
+    if (isAiLoading) return;
+    if (!userId) {
+      triggerToast?.('Please sign in before sending a message.');
+      return;
+    }
+    const validation = validateChatInput(text);
+    if (!validation.ok) {
+      triggerToast?.(validation.message);
+      return;
+    }
+    const textToSend = validation.value;
     // Clear input immediately — don't wait for AI response
     setChatInput('');
     setIsAiLoading(true);
@@ -255,7 +281,7 @@ function StudentPortal({
         });
         triggerToast?.('Support request sent to mentor.');
       } catch (error) {
-        triggerToast?.(error.message || 'Unable to create support request.');
+        triggerToast?.(getUserFacingError(error, 'Unable to create support request.'));
       }
       return;
     }
@@ -271,8 +297,9 @@ function StudentPortal({
   };
 
   const onStudentSubmit = () => {
-    if (!studentSubmissionFile) {
-      message.error('Please choose a submission file first.');
+    const fileValidation = validateUploadFile(studentSubmissionFile);
+    if (!fileValidation.ok) {
+      message.error(fileValidation.message);
       return;
     }
     handleStudentSubmit(selectedAssignment.id, studentSubmissionFile, studentSubmissionNote).then(() => {
@@ -301,11 +328,9 @@ function StudentPortal({
 
   if (activeTab === 'student-chat') {
     return (
-      <div className="portal-section student-chat-section" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-        <PageHeader title={uiCopy.student.chat.title} description={uiCopy.student.chat.subtitle} />
-        <div className="student-chat-layout" style={{ flex: 1, minHeight: 0, display: 'flex', gap: 0 }}>
-          <Splitter style={{ height: '100%' }}>
-            <Splitter.Panel defaultSize="22%" min="180px" max="35%">
+      <div className="portal-section student-chat-section student-chat-section--minimal">
+        <div className="student-chat-layout student-chat-layout--chatgpt">
+          <div className="student-chat-history-pane">
               <ChatSessionsPanel
                 sessions={sessions}
                 activeSessionId={activeSessionId}
@@ -319,8 +344,8 @@ function StudentPortal({
                 onSaveRename={onSaveRename}
                 style={{ height: '100%' }}
               />
-            </Splitter.Panel>
-            <Splitter.Panel>
+          </div>
+          <div className="student-chat-main-pane">
               <ChatWorkspace
                 activeSessionTitle={activeSessionTitle}
                 courseId={courseId}
@@ -341,9 +366,9 @@ function StudentPortal({
                 handleStudentReviewAnswer={handleStudentReviewAnswer}
                 userId={userId}
                 activeSessionId={activeSessionId}
+                triggerToast={triggerToast}
               />
-            </Splitter.Panel>
-          </Splitter>
+          </div>
         </div>
       </div>
     );
@@ -363,6 +388,9 @@ function StudentPortal({
         dashboardStats={studentDashboard?.stats}
         onRefreshDashboard={loadStudentDashboard}
         onUpdateMemory={onUpdateMemory}
+        pinnedSuggestions={studentDashboard?.pinnedImproveSuggestions || []}
+        onPinSuggestion={onPinSuggestion}
+        onUnpinSuggestion={onUnpinSuggestion}
       />
     );
   }

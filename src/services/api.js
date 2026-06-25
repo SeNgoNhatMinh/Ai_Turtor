@@ -1,10 +1,10 @@
-import { API_BASE_URL, request, uploadRequest } from './apiClient';
+import { API_BASE_URL, blobRequest, request, uploadRequest } from './apiClient';
 import { asArray } from './normalizers';
+import { encodePath } from '../config/env';
+import { normalizeReviewMode } from '../utils/validators';
 
 const normalizeAnswerReviewMode = (mode) => {
-    if (mode === 'CODE_MENTOR') return 'CODE';
-    if (['RAG', 'CODE', 'ESCALATE'].includes(mode)) return mode;
-    return 'RAG';
+    return normalizeReviewMode(mode);
 };
 
 export const apiService = {
@@ -27,23 +27,27 @@ export const apiService = {
 
     // 1. AI Conversations Sessions
     async getConversations(userId) {
-        return await request(`${API_BASE_URL}/ai/conversations?userId=${userId}`);
+        const params = new URLSearchParams({ userId });
+        return await request(`${API_BASE_URL}/ai/conversations?${params}`);
     },
 
     async createConversation(userId) {
-        return await request(`${API_BASE_URL}/ai/conversations?userId=${userId}`, { method: 'POST' });
+        const params = new URLSearchParams({ userId });
+        return await request(`${API_BASE_URL}/ai/conversations?${params}`, { method: 'POST' });
     },
 
     async getMessages(sessionId, userId) {
-        return await request(`${API_BASE_URL}/ai/conversations/${sessionId}/messages?userId=${userId}`);
+        const params = new URLSearchParams({ userId });
+        return await request(`${API_BASE_URL}/ai/conversations/${encodePath(sessionId)}/messages?${params}`);
     },
 
     async deleteConversation(sessionId, userId) {
-        return await request(`${API_BASE_URL}/ai/conversations/${sessionId}?userId=${userId}`, { method: 'DELETE' });
+        const params = new URLSearchParams({ userId });
+        return await request(`${API_BASE_URL}/ai/conversations/${encodePath(sessionId)}?${params}`, { method: 'DELETE' });
     },
 
     async renameConversation(sessionId, newTitle, userId) {
-        return await request(`${API_BASE_URL}/ai/conversations/${sessionId}`, {
+        return await request(`${API_BASE_URL}/ai/conversations/${encodePath(sessionId)}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ title: newTitle, userId })
@@ -52,7 +56,8 @@ export const apiService = {
 
     // 2. Query AI Tutor / Code Review
     async sendAiQuery(payload, userId) {
-        return await request(`${API_BASE_URL}/ai/query?userId=${userId}`, {
+        const params = new URLSearchParams({ userId });
+        return await request(`${API_BASE_URL}/ai/query?${params}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
@@ -77,25 +82,23 @@ export const apiService = {
 
     // 3. Materials Upload (Ingestion)
     async uploadMaterial(courseId, formData) {
-        return await uploadRequest(`${API_BASE_URL}/courses/${courseId}/materials/upload`, formData);
+        return await uploadRequest(`${API_BASE_URL}/courses/${encodePath(courseId)}/materials/upload`, formData);
     },
 
     async deleteMaterial(courseId, materialId) {
-        return await request(`${API_BASE_URL}/courses/${courseId}/materials/${materialId}`, {
+        return await request(`${API_BASE_URL}/courses/${encodePath(courseId)}/materials/${encodePath(materialId)}`, {
             method: 'DELETE'
         });
     },
 
     async reindexMaterial(courseId, materialId) {
-        return await request(`${API_BASE_URL}/courses/${courseId}/materials/${materialId}/reindex`, {
+        return await request(`${API_BASE_URL}/courses/${encodePath(courseId)}/materials/${encodePath(materialId)}/reindex`, {
             method: 'POST'
         });
     },
 
     async downloadMaterialPdf(courseId, materialId) {
-        const res = await fetch(`${API_BASE_URL}/courses/${courseId}/materials/${materialId}/pdf`);
-        if (!res.ok) throw new Error(`Download failed: ${res.status}`);
-        return await res.blob();
+        return await blobRequest(`${API_BASE_URL}/courses/${encodePath(courseId)}/materials/${encodePath(materialId)}/pdf`);
     },
 
 
@@ -104,7 +107,7 @@ export const apiService = {
         const note = formData.get('note');
         const params = new URLSearchParams({ studentId });
         if (note) params.append('note', note);
-        return await uploadRequest(`${API_BASE_URL}/students/assignments/${assignmentId}/submit?${params}`, formData, 'Submit failed');
+        return await uploadRequest(`${API_BASE_URL}/students/assignments/${encodePath(assignmentId)}/submit?${params}`, formData, 'Submit failed');
     },
 
     async gradeSubmission(submissionId, payload) {
@@ -116,13 +119,11 @@ export const apiService = {
     },
 
     async uploadAssignment(courseId, classId, formData) {
-        return await uploadRequest(`${API_BASE_URL}/mentor/courses/${courseId}/classes/${classId}/assignments/upload`, formData, 'Upload assignment failed');
+        return await uploadRequest(`${API_BASE_URL}/mentor/courses/${encodePath(courseId)}/classes/${encodePath(classId)}/assignments/upload`, formData, 'Upload assignment failed');
     },
 
     async downloadSubmissionFile(submissionId) {
-        const res = await fetch(`${API_BASE_URL}/submissions/${submissionId}/file`);
-        if (!res.ok) throw new Error(`Download failed: ${res.status}`);
-        return await res.blob();
+        return await blobRequest(`${API_BASE_URL}/submissions/${encodePath(submissionId)}/file`);
     },
 
     async getStudentSubmissions(studentId) {
@@ -146,9 +147,7 @@ export const apiService = {
     },
 
     async downloadAssignmentFile(assignmentId) {
-        const res = await fetch(`${API_BASE_URL}/assignments/${assignmentId}/file`);
-        if (!res.ok) throw new Error(`Download failed: ${res.status}`);
-        return await res.blob();
+        return await blobRequest(`${API_BASE_URL}/assignments/${encodePath(assignmentId)}/file`);
     },
 
     // 5. Support Requests & Suggested AI Answers
@@ -194,9 +193,7 @@ export const apiService = {
     },
 
     async runDiagnostics() {
-        const res = await fetch(`${API_BASE_URL}/health/llm-diagnostics`);
-        if (!res.ok) throw new Error(`Diagnostics failed: ${res.status}`);
-        const data = await res.json();
+        const data = await request(`${API_BASE_URL}/health/llm-diagnostics`);
         return data.diagnostics;
     },
 
@@ -209,9 +206,33 @@ export const apiService = {
     },
 
     async downloadMentorImportTemplate() {
-        const res = await fetch(`${API_BASE_URL}/mentors/import/template/download`);
-        if (!res.ok) throw new Error(`Template download failed: ${res.status}`);
-        return await res.blob();
+        return await blobRequest(`${API_BASE_URL}/mentors/import/template/download`);
+    },
+
+    async getStudentImportTemplateSpec() {
+        return await request(`${API_BASE_URL}/admin/class-sections/students/import/template`);
+    },
+
+    async downloadStudentImportTemplate() {
+        return await blobRequest(`${API_BASE_URL}/admin/class-sections/students/import/template.xlsx`);
+    },
+
+    async importClassStudents(courseId, classId, formData, options = {}) {
+        const params = new URLSearchParams();
+        if (options.semesterId) params.append('semesterId', options.semesterId);
+        if (options.courseName) params.append('courseName', options.courseName);
+        if (options.status) params.append('status', options.status);
+        if (options.dryRun !== undefined) params.append('dryRun', String(Boolean(options.dryRun)));
+        const qs = params.toString();
+        return await uploadRequest(`${API_BASE_URL}/admin/class-sections/${encodePath(courseId)}/${encodePath(classId)}/students/import${qs ? `?${qs}` : ''}`, formData, 'Student import failed');
+    },
+
+    async enrollStudents(courseId, classId, payload) {
+        return await request(`${API_BASE_URL}/admin/class-sections/${encodePath(courseId)}/${encodePath(classId)}/students`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
     },
 
     // =============================================
@@ -236,8 +257,10 @@ export const apiService = {
 
     // 9. Admin Mentors CRUD
     async getAdminMentors(q = '') {
-        const params = q ? `?q=${q}` : '';
-        return asArray(await request(`${API_BASE_URL}/admin/mentors${params}`), 'mentors', 'content');
+        const params = new URLSearchParams();
+        if (q) params.append('q', q);
+        const qs = params.toString();
+        return asArray(await request(`${API_BASE_URL}/admin/mentors${qs ? `?${qs}` : ''}`), 'mentors', 'content');
     },
     async updateAdminMentor(mentorId, payload) {
         return await request(`${API_BASE_URL}/admin/mentors/${mentorId}`, {
@@ -251,8 +274,10 @@ export const apiService = {
 
     // 10. Admin Support Requests
     async getAdminEscalations(status = '') {
-        const params = status ? `?status=${status}` : '';
-        return asArray(await request(`${API_BASE_URL}/admin/mentor-escalations${params}`), 'escalations', 'content');
+        const params = new URLSearchParams();
+        if (status) params.append('status', status);
+        const qs = params.toString();
+        return asArray(await request(`${API_BASE_URL}/admin/mentor-escalations${qs ? `?${qs}` : ''}`), 'escalations', 'content');
     },
     async deleteAdminEscalation(escalationId) {
         return await request(`${API_BASE_URL}/admin/mentor-escalations/${escalationId}`, { method: 'DELETE' });
@@ -304,8 +329,10 @@ export const apiService = {
         });
     },
     async getCourses(semesterId = '') {
-        const params = semesterId ? `?semesterId=${semesterId}` : '';
-        return asArray(await request(`${API_BASE_URL}/academic/courses${params}`), 'courses', 'content');
+        const params = new URLSearchParams();
+        if (semesterId) params.append('semesterId', semesterId);
+        const qs = params.toString();
+        return asArray(await request(`${API_BASE_URL}/academic/courses${qs ? `?${qs}` : ''}`), 'courses', 'content');
     },
     async createCourse(payload) {
         return await request(`${API_BASE_URL}/academic/courses`, {
@@ -373,13 +400,16 @@ export const apiService = {
         });
     },
     async getChatHistory(chatRoomId, page = 0) {
-        return asArray(await request(`${API_BASE_URL}/chat/history?chatRoomId=${chatRoomId}&page=${page}`), 'messages', 'content');
+        const params = new URLSearchParams({ chatRoomId, page });
+        return asArray(await request(`${API_BASE_URL}/chat/history?${params}`), 'messages', 'content');
     },
     async getChatDetail(chatRoomId) {
-        return await request(`${API_BASE_URL}/chat/detail?chatRoomId=${chatRoomId}`);
+        const params = new URLSearchParams({ chatRoomId });
+        return await request(`${API_BASE_URL}/chat/detail?${params}`);
     },
     async getChatUnread(userId) {
-        return await request(`${API_BASE_URL}/chat/unread?userId=${userId}`);
+        const params = new URLSearchParams({ userId });
+        return await request(`${API_BASE_URL}/chat/unread?${params}`);
     },
     async markChatRead(chatRoomId, userId) {
         return await request(`${API_BASE_URL}/chat/mark-read`, {
@@ -398,7 +428,8 @@ export const apiService = {
     // 16. Support Request Extended APIs
     // =============================================
     async getEscalationHistory(userId) {
-        return asArray(await request(`${API_BASE_URL}/tutor/escalations/history?userId=${userId}`), 'escalations', 'content');
+        const params = new URLSearchParams({ userId });
+        return asArray(await request(`${API_BASE_URL}/tutor/escalations/history?${params}`), 'escalations', 'content');
     },
     async cancelEscalation(payload) {
         return await request(`${API_BASE_URL}/tutor/escalations/cancel`, {
@@ -407,7 +438,8 @@ export const apiService = {
         });
     },
     async offerEscalation(questionEscalationId) {
-        return await request(`${API_BASE_URL}/tutor/escalations/offer?questionEscalationId=${questionEscalationId}`, { method: 'POST' });
+        const params = new URLSearchParams({ questionEscalationId });
+        return await request(`${API_BASE_URL}/tutor/escalations/offer?${params}`, { method: 'POST' });
     },
     async selectEscalationMentor(payload) {
         return await request(`${API_BASE_URL}/tutor/escalations/select`, {
@@ -432,7 +464,8 @@ export const apiService = {
     // 17. User Profile & Memory
     // =============================================
     async getUserProfile(userId) {
-        return await request(`${API_BASE_URL}/users/profile?userId=${userId}`);
+        const params = new URLSearchParams({ userId });
+        return await request(`${API_BASE_URL}/users/profile?${params}`);
     },
     async updateUserProfile(userId, payload) {
         return await request(`${API_BASE_URL}/users/${userId}/profile`, {
@@ -441,17 +474,32 @@ export const apiService = {
         });
     },
     async getStudentMemory(studentId, courseId) {
-        return await request(`${API_BASE_URL}/tutor/students/${studentId}/courses/${courseId}/memory`);
+        return await request(`${API_BASE_URL}/tutor/students/${encodePath(studentId)}/courses/${encodePath(courseId)}/memory`);
     },
     async updateStudentMemory(studentId, courseId, payload) {
-        return await request(`${API_BASE_URL}/tutor/students/${studentId}/courses/${courseId}/memory`, {
+        return await request(`${API_BASE_URL}/tutor/students/${encodePath(studentId)}/courses/${encodePath(courseId)}/memory`, {
             method: 'PUT', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
     },
+    async pinImproveSuggestion(studentId, courseId, suggestion) {
+        return await request(`${API_BASE_URL}/tutor/students/${encodePath(studentId)}/courses/${encodePath(courseId)}/memory/pinned-suggestions`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ suggestion })
+        });
+    },
+    async unpinImproveSuggestion(studentId, courseId, suggestion) {
+        const params = new URLSearchParams({ suggestion });
+        return await request(`${API_BASE_URL}/tutor/students/${encodePath(studentId)}/courses/${encodePath(courseId)}/memory/pinned-suggestions?${params}`, {
+            method: 'DELETE'
+        });
+    },
     async getCourseMemories(courseId, classId = '') {
-        const params = classId ? `?classId=${classId}` : '';
-        return await request(`${API_BASE_URL}/tutor/courses/${courseId}/memories${params}`);
+        const params = new URLSearchParams();
+        if (classId) params.append('classId', classId);
+        const qs = params.toString();
+        return await request(`${API_BASE_URL}/tutor/courses/${encodePath(courseId)}/memories${qs ? `?${qs}` : ''}`);
     },
 
     async getImprovePlans(studentId, courseId = '') {
@@ -474,12 +522,17 @@ export const apiService = {
     // =============================================
     // 18. Misc APIs
     // =============================================
-    async getCourseMaterials(courseId) {
-        return await request(`${API_BASE_URL}/courses/${courseId}/materials`);
+    async getCourseMaterials(courseId, classId = '') {
+        const params = new URLSearchParams();
+        if (classId) params.append('classId', classId);
+        const qs = params.toString();
+        return await request(`${API_BASE_URL}/courses/${encodePath(courseId)}/materials${qs ? `?${qs}` : ''}`);
     },
     async getMentors(category = '') {
-        const params = category ? `?category=${category}` : '';
-        return asArray(await request(`${API_BASE_URL}/mentors${params}`), 'mentors', 'content');
+        const params = new URLSearchParams();
+        if (category) params.append('category', category);
+        const qs = params.toString();
+        return asArray(await request(`${API_BASE_URL}/mentors${qs ? `?${qs}` : ''}`), 'mentors', 'content');
     },
     async getMentorDetail(id) {
         return await request(`${API_BASE_URL}/mentors/${id}`);

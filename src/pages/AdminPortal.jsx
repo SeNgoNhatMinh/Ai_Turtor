@@ -21,6 +21,7 @@ function AdminPortal({
   adminPlans,
   handleAdminImport,
   triggerToast,
+  currentUser,
 }) {
   return (
     <div style={{ padding: '0 24px 24px 24px' }}>
@@ -43,6 +44,7 @@ function AdminPortal({
       {activeTab === 'admin-academic' && (
         <AdminAcademic
           triggerToast={triggerToast}
+          currentUser={currentUser}
         />
       )}
 
