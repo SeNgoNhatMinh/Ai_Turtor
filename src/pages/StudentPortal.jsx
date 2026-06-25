@@ -10,6 +10,7 @@ import PageHeader from '../components/common/PageHeader';
 import { uiCopy } from '../constants/uiCopy';
 import { normalizeEscalation } from '../services/normalizers';
 import { apiService } from '../services/api';
+import { getUserFacingError } from '../services/apiClient';
 import { validateChatInput, validateUploadFile } from '../utils/validators';
 
 const defaultLearned = ['MVC Flow', 'REST APIs', 'Spring Boot Config', 'Maven Dependencies'];
@@ -46,6 +47,8 @@ function StudentPortal({
   studentDashboard,
   isStudentDashboardLoading,
   loadStudentDashboard,
+  onPinSuggestion,
+  onUnpinSuggestion,
   onMarkChatRead,
   onCloseChat,
   onGetChatDetail,
@@ -117,7 +120,7 @@ function StudentPortal({
       }
     } catch (error) {
       setEscalations([]);
-      setEscalationsError(error.message || 'Unable to load support requests.');
+      setEscalationsError(getUserFacingError(error, 'Unable to load support requests.'));
     } finally {
       setIsEscalationsLoading(false);
     }
@@ -171,7 +174,7 @@ function StudentPortal({
       loadEscalations();
       loadChatUnread();
     } catch (error) {
-      message.error(error.message || 'Unable to close chat.');
+      message.error(getUserFacingError(error, 'Unable to close chat.'));
     }
   };
 
@@ -194,7 +197,7 @@ function StudentPortal({
       userId,
       selectedMentorId: selectedMentorForEsc,
     });
-    message.success('Support mentor selected.');
+    message.success('Mentor selected. Starting support chat...');
     setEscModalVisible(false);
     setSelectedMentorForEsc(null);
     loadEscalations();
@@ -202,9 +205,22 @@ function StudentPortal({
 
   const handleOpenMentorSelect = async (escalation) => {
     setSelectedEscalation(escalation);
-    const mentors = await apiService.getMentors();
-    setEscMentors(Array.isArray(mentors) ? mentors : []);
-    setEscModalVisible(true);
+    try {
+      const offer = await apiService.offerEscalation(escalation.id);
+      const suggested = offer?.suggestedMentors || offer?.mentors || [];
+      if (Array.isArray(suggested) && suggested.length > 0) {
+        setEscMentors(suggested);
+      } else {
+        const mentors = await apiService.getMentors();
+        setEscMentors(Array.isArray(mentors) ? mentors : []);
+      }
+      setEscModalVisible(true);
+    } catch (error) {
+      const mentors = await apiService.getMentors();
+      setEscMentors(Array.isArray(mentors) ? mentors : []);
+      setEscModalVisible(true);
+      message.warning(getUserFacingError(error, 'Unable to load suggested mentors. Showing available mentors instead.'));
+    }
   };
 
   const onSaveRename = (event, sessionId) => {
@@ -265,7 +281,7 @@ function StudentPortal({
         });
         triggerToast?.('Support request sent to mentor.');
       } catch (error) {
-        triggerToast?.(error.message || 'Unable to create support request.');
+        triggerToast?.(getUserFacingError(error, 'Unable to create support request.'));
       }
       return;
     }
@@ -372,6 +388,9 @@ function StudentPortal({
         dashboardStats={studentDashboard?.stats}
         onRefreshDashboard={loadStudentDashboard}
         onUpdateMemory={onUpdateMemory}
+        pinnedSuggestions={studentDashboard?.pinnedImproveSuggestions || []}
+        onPinSuggestion={onPinSuggestion}
+        onUnpinSuggestion={onUnpinSuggestion}
       />
     );
   }

@@ -3433,7 +3433,7 @@ body.theme-dark .ant-modal-title {
     background: #ECECEC !important;
     color: #202123 !important;
     font-weight: 700;
-    box-shadow: inset 3px 0 0 #F37021;
+    box-shadow: none;
 }
 
 .main-sidebar .ant-menu-light .ant-menu-item:hover {
@@ -3499,6 +3499,10 @@ a {
 
 .ant-tabs-ink-bar {
     background: #F37021 !important;
+}
+
+.app-container .ant-tabs-ink-bar {
+    display: none !important;
 }
 
 .ant-input:focus,
@@ -4304,8 +4308,8 @@ textarea.ant-input:focus::placeholder {
 
 /* Tab bar styling */
 .portal-section .ant-tabs-card > .ant-tabs-nav .ant-tabs-tab {
-    background: rgba(243, 112, 33, 0.05);
-    border-color: rgba(243, 112, 33, 0.2);
+    background: #F4F4F4;
+    border-color: #E5E5E0;
     color: #6B7280;
     font-weight: 500;
     transition: all 0.2s;
@@ -4314,12 +4318,13 @@ textarea.ant-input:focus::placeholder {
 .portal-section .ant-tabs-card > .ant-tabs-nav .ant-tabs-tab-active {
     background: white;
     border-bottom-color: white;
-    color: #F37021 !important;
+    border-top-color: #E5E5E0 !important;
+    color: #202123 !important;
     font-weight: 700;
 }
 
 .portal-section .ant-tabs-card > .ant-tabs-nav .ant-tabs-tab:hover {
-    color: #F37021;
+    color: #202123;
 }
 
 /* Mascot sidebar responsiveness */
@@ -4373,7 +4378,7 @@ textarea.ant-input:focus::placeholder {
 .app-container.light .main-sidebar .ant-menu-item-selected {
     background: #ECECEC !important;
     color: #202123 !important;
-    box-shadow: inset 3px 0 0 #F37021;
+    box-shadow: none !important;
 }
 
 .app-container.light .main-sidebar .ant-menu-item:hover,
@@ -4406,6 +4411,7 @@ textarea.ant-input:focus::placeholder {
 
 .app-container.light .ant-tabs-card > .ant-tabs-nav .ant-tabs-tab-active {
     background: #FFFFFF !important;
+    border-top-color: #E5E5E0 !important;
     color: #202123 !important;
 }
 
@@ -4420,4 +4426,310 @@ textarea.ant-input:focus::placeholder {
 .app-container.light .ant-select-focused .ant-select-selector {
     border-color: #BDBDB8 !important;
     box-shadow: 0 0 0 2px rgba(32, 33, 35, 0.08) !important;
+}
+
+/* Learning progress dashboard - shadcn-inspired neutral dashboard */
+.learning-dashboard {
+    gap: 16px;
+}
+
+.learning-dashboard .ant-card.learning-card {
+    border: 1px solid #E5E7EB !important;
+    border-radius: 10px !important;
+    background: #FFFFFF !important;
+    box-shadow: none !important;
+}
+
+.learning-dashboard .ant-card-head {
+    min-height: 48px;
+    border-bottom-color: #EEF0F3;
+}
+
+.learning-dashboard .ant-card-head-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: #111827;
+}
+
+.learning-hero-grid,
+.learning-main-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.85fr);
+    gap: 16px;
+}
+
+.learning-card-kicker {
+    margin-bottom: 8px;
+    color: #6B7280;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.learning-card-title.ant-typography {
+    margin: 0 0 8px;
+    color: #111827;
+    font-weight: 750;
+}
+
+.learning-card-description {
+    display: block;
+    max-width: 680px;
+    color: #4B5563;
+    line-height: 1.6;
+}
+
+.learning-hero-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+}
+
+.learning-progress-ring {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+.learning-progress-value {
+    color: #111827;
+    font-size: 24px;
+    font-weight: 800;
+}
+
+.learning-status-tag {
+    margin: 0;
+    border-radius: 999px;
+    font-weight: 650;
+}
+
+.learning-focus-list,
+.learning-topic-cloud {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.learning-focus-chip.ant-tag,
+.learning-topic-cloud .ant-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+    padding: 5px 10px;
+    border-radius: 999px;
+    background: #F9FAFB;
+    border-color: #E5E7EB;
+    color: #111827;
+    font-weight: 600;
+}
+
+.learning-stat-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px;
+}
+
+.learning-stat-card .ant-card-body {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    padding: 16px !important;
+}
+
+.learning-stat-icon {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background: #F4F4F5;
+    color: #202123;
+    font-size: 18px;
+    flex-shrink: 0;
+}
+
+.learning-stat-label {
+    color: #6B7280;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.learning-stat-value {
+    margin-top: 2px;
+    color: #111827;
+    font-size: 24px;
+    font-weight: 800;
+    line-height: 1.15;
+}
+
+.learning-stat-description {
+    margin-top: 3px;
+    color: #6B7280;
+    font-size: 12px;
+}
+
+.learning-network-frame {
+    min-height: 360px;
+    border: 1px solid #EEF0F3;
+    background: #FAFAFA;
+}
+
+.learning-profiler-card .ant-card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.learning-topic-section {
+    padding: 14px;
+    border: 1px solid #EEF0F3;
+    border-radius: 10px;
+    background: #FCFCFD;
+}
+
+.learning-topic-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    color: #111827;
+}
+
+.learning-topic-header .ant-tag {
+    margin-left: auto;
+    margin-right: 0;
+    border-radius: 999px;
+}
+
+.learning-topic-cloud--learned .ant-tag {
+    background: #F0FDF4;
+    border-color: #BBF7D0;
+    color: #166534;
+}
+
+.learning-topic-cloud--weak .ant-tag {
+    background: #FFF7ED;
+    border-color: #FED7AA;
+    color: #9A3412;
+}
+
+.learning-plan-card .ant-list-items {
+    padding-left: 0;
+}
+
+.learning-suggestion-item.ant-list-item {
+    align-items: flex-start;
+    gap: 16px;
+    padding: 14px 0;
+}
+
+.learning-suggestion-item--pinned.ant-list-item {
+    margin: 0 0 8px;
+    padding: 14px 12px;
+    background: #FFF7ED;
+    border: 1px solid #FED7AA;
+    border-radius: 12px;
+}
+
+.learning-suggestion-copy {
+    display: grid;
+    gap: 7px;
+    min-width: 0;
+}
+
+.learning-suggestion-copy .ant-tag {
+    width: fit-content;
+    margin: 0;
+    border-radius: 999px;
+    font-weight: 650;
+}
+
+.learning-edit-form {
+    display: grid;
+    gap: 16px;
+    margin-top: 12px;
+}
+
+.learning-edit-form label {
+    display: grid;
+    gap: 6px;
+    color: #111827;
+    font-size: 13px;
+    font-weight: 650;
+}
+
+.app-container.dark .learning-dashboard .ant-card.learning-card {
+    background: #0F0F0F !important;
+    border-color: #2A2A2A !important;
+}
+
+.app-container.dark .learning-dashboard .ant-card-head {
+    border-bottom-color: #2A2A2A;
+}
+
+.app-container.dark .learning-dashboard .ant-card-head-title,
+.app-container.dark .learning-card-title.ant-typography,
+.app-container.dark .learning-progress-value,
+.app-container.dark .learning-stat-value,
+.app-container.dark .learning-topic-header,
+.app-container.dark .learning-edit-form label {
+    color: #F9FAFB;
+}
+
+.app-container.dark .learning-card-description,
+.app-container.dark .learning-stat-description,
+.app-container.dark .learning-stat-label,
+.app-container.dark .learning-card-kicker {
+    color: #A3A3A3;
+}
+
+.app-container.dark .learning-stat-icon,
+.app-container.dark .learning-topic-section,
+.app-container.dark .learning-network-frame {
+    background: #171717;
+    border-color: #2A2A2A;
+}
+
+.app-container.dark .learning-suggestion-item--pinned.ant-list-item {
+    background: #1C130B;
+    border-color: #4A2A12;
+}
+
+.app-container.dark .learning-focus-chip.ant-tag,
+.app-container.dark .learning-topic-cloud .ant-tag {
+    background: #171717;
+    border-color: #333333;
+    color: #F9FAFB;
+}
+
+@media (max-width: 1180px) {
+    .learning-hero-grid,
+    .learning-main-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .learning-stat-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 640px) {
+    .learning-hero-content {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .learning-stat-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .learning-suggestion-item.ant-list-item {
+        flex-direction: column;
+    }
 }

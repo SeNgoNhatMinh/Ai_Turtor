@@ -1,13 +1,20 @@
 import { buildUrl, env } from '../config/env';
 
 export class ApiError extends Error {
-  constructor({ message, status = 0, code = 'API_ERROR', details = null } = {}) {
-    super(message || 'Request failed');
+  constructor({ message, userMessage, rawMessage, status = 0, code = 'API_ERROR', details = null } = {}) {
+    super(userMessage || message || 'Request failed');
     this.name = 'ApiError';
+    this.userMessage = userMessage || message || 'Request failed';
+    this.rawMessage = rawMessage || message || null;
     this.status = status;
     this.code = code;
     this.details = details;
   }
+}
+
+export function getUserFacingError(error, fallback = 'Something went wrong. Please try again.') {
+  if (!error) return fallback;
+  return error.userMessage || error.message || fallback;
 }
 
 const requestInterceptors = [];
@@ -42,6 +49,7 @@ function normalizeError(error, response, body) {
   if (error?.name === 'AbortError') {
     return new ApiError({
       message: 'Request timed out. Please try again.',
+      userMessage: 'Request timed out. Please try again.',
       status: 0,
       code: 'TIMEOUT',
       details: error,
@@ -51,6 +59,7 @@ function normalizeError(error, response, body) {
   if (!response) {
     return new ApiError({
       message: error?.message || 'Network request failed.',
+      userMessage: 'Network request failed. Please check your connection and try again.',
       status: 0,
       code: 'NETWORK_ERROR',
       details: error,
@@ -64,8 +73,20 @@ function normalizeError(error, response, body) {
     response.statusText ||
     'Request failed';
 
+  const userMessage = (() => {
+    if (response.status === 500) {
+      return 'The server had trouble processing this request. Please try again later.';
+    }
+    if ([502, 503, 504].includes(response.status)) {
+      return 'The AI Tutor service is temporarily unavailable. Please try again in a moment.';
+    }
+    return message;
+  })();
+
   return new ApiError({
-    message,
+    message: userMessage,
+    rawMessage: message,
+    userMessage,
     status: response.status,
     code: body?.code || `HTTP_${response.status}`,
     details: body,

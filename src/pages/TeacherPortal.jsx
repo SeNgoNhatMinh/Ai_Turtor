@@ -5,8 +5,6 @@ import {
   CheckCircle,
   RefreshCw,
   Send,
-  Trash2,
-  Database,
 } from 'lucide-react';
 import { apiService } from '../services/api';
 
@@ -46,7 +44,6 @@ function TeacherPortal({
   loadTeacherInbox,
   loadTeacherDashboard,
   loadAnswerReviews,
-  handleTeacherUploadMaterial,
   handleTeacherGradeSubmit,
   handleTeacherAnswerEsc,
   handleApproveCandidate,
@@ -60,13 +57,8 @@ function TeacherPortal({
   onGetChatHistory,
   triggerToast,
   courseMaterials = [],
-  handleTeacherDeleteMaterial,
-  handleTeacherReindexMaterial,
+  onDownloadMaterial,
 }) {
-  const [teacherMaterialTitle, setTeacherMaterialTitle] = useState('');
-  const [teacherMaterialClass, setTeacherMaterialClass] = useState('');
-  const [teacherMaterialFile, setTeacherMaterialFile] = useState(null);
-
   const [teacherGradeScore, setTeacherGradeScore] = useState('');
   const [teacherGradeFeedback, setTeacherGradeFeedback] = useState('');
   const [teacherGradeWeakTopics, setTeacherGradeWeakTopics] = useState([]);
@@ -107,16 +99,6 @@ function TeacherPortal({
       loadTeacherInbox?.();
     }
   }, [activeTab, courseId]);
-
-  const onUploadMaterial = (e) => {
-    e.preventDefault();
-    if (!teacherMaterialFile) return;
-    handleTeacherUploadMaterial(teacherMaterialTitle, teacherMaterialClass, teacherMaterialFile).then(() => {
-      setTeacherMaterialTitle('');
-      setTeacherMaterialClass('');
-      setTeacherMaterialFile(null);
-    });
-  };
 
   const onGradeSubmit = (e) => {
     e.preventDefault();
@@ -320,53 +302,13 @@ function TeacherPortal({
         <div className="grid-2-cols portal-view">
           <div className="glass-card">
             <div className="card-header">
-              <h3>Upload Teaching PDF (Elasticsearch RAG)</h3>
+              <h3>Shared Course Materials</h3>
             </div>
-            <form className="portal-form" onSubmit={onUploadMaterial}>
-              <div className="input-group">
-                <label>Material title</label>
-                <input
-                  type="text"
-                  className="glass-input-field"
-                  value={teacherMaterialTitle}
-                  onChange={(e) => setTeacherMaterialTitle(e.target.value)}
-                  placeholder="Example: Advanced Spring Boot Data JPA lecture slides"
-                  required
-                />
-              </div>
-              <div className="grid-2-inputs">
-                <div className="input-group">
-                  <label>Course ID</label>
-                  <input type="text" className="glass-input-field" value={courseId} readOnly />
-                </div>
-                <div className="input-group">
-                  <label>Class ID (optional)</label>
-                  <input
-                    type="text"
-                    className="glass-input-field"
-                    value={teacherMaterialClass}
-                    onChange={(e) => setTeacherMaterialClass(e.target.value)}
-                    placeholder="Leave blank to apply to the whole course"
-                  />
-                </div>
-              </div>
-              <div className="input-group">
-                <label>Course material file (PDF only)</label>
-                <div className="file-upload-wrapper">
-                  <input type="file" accept=".pdf" onChange={(e) => setTeacherMaterialFile(e.target.files[0])} required />
-                </div>
-              </div>
-              <button type="submit" className="btn-submit-form">Start Upload</button>
-            </form>
-            {uploadProgress !== null && (
-              <div className="upload-progress-box">
-                <h5>AI Knowledge Upload Status:</h5>
-                <div className="progress-bar-container">
-                  <div className="progress-bar-fill" style={{ width: `${uploadProgress}%` }}></div>
-                </div>
-                <span className="progress-status-text">{uploadProgressText}</span>
-              </div>
-            )}
+            <div className="no-data-text" style={{ textAlign: 'left', padding: 16, lineHeight: 1.7 }}>
+              Course materials are managed by Admin because they are shared across classes.
+              <br />
+              You can still publish class assignments from this screen.
+            </div>
           </div>
 
           <div className="glass-card">
@@ -420,7 +362,7 @@ function TeacherPortal({
                       <th style={{ padding: '10px 8px', fontSize: 13, color: '#374151', fontWeight: 600 }}>File Path / Name</th>
                       <th style={{ padding: '10px 8px', fontSize: 13, color: '#374151', fontWeight: 600 }}>Class Code</th>
                       <th style={{ padding: '10px 8px', fontSize: 13, color: '#374151', fontWeight: 600 }}>Uploaded Date</th>
-                      <th style={{ padding: '10px 8px', fontSize: 13, color: '#374151', fontWeight: 600, textAlign: 'right' }}>Actions</th>
+                      <th style={{ padding: '10px 8px', fontSize: 13, color: '#374151', fontWeight: 600, textAlign: 'right' }}>Download</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -437,21 +379,9 @@ function TeacherPortal({
                             type="button"
                             className="btn-approve-cand"
                             style={{ padding: '4px 8px', fontSize: 11, marginRight: 8, minWidth: 'auto', display: 'inline-flex', alignItems: 'center', gap: 4 }}
-                            onClick={() => handleTeacherReindexMaterial?.(mat.id)}
+                            onClick={() => onDownloadMaterial?.(mat.id, mat.title)}
                           >
-                            <Database style={{ width: 12, height: 12 }} /> Reindex RAG
-                          </button>
-                          <button
-                            type="button"
-                            className="btn-reject-cand"
-                            style={{ padding: '4px 8px', fontSize: 11, minWidth: 'auto', display: 'inline-flex', alignItems: 'center', gap: 4, background: '#EF4444', color: '#fff', border: 'none' }}
-                            onClick={() => {
-                              if (confirm('Are you sure you want to delete this learning material? This will remove it from the AI knowledge network.')) {
-                                handleTeacherDeleteMaterial?.(mat.id);
-                              }
-                            }}
-                          >
-                            <Trash2 style={{ width: 12, height: 12 }} /> Delete
+                            <Download style={{ width: 12, height: 12 }} /> Download
                           </button>
                         </td>
                       </tr>

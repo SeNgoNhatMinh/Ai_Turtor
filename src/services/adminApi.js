@@ -21,4 +21,8 @@ export const adminApi = {
   importMentors: apiService.importMentors,
   getMentorImportTemplateSpec: apiService.getMentorImportTemplateSpec,
   downloadMentorImportTemplate: apiService.downloadMentorImportTemplate,
+  getStudentImportTemplateSpec: apiService.getStudentImportTemplateSpec,
+  downloadStudentImportTemplate: apiService.downloadStudentImportTemplate,
+  importClassStudents: apiService.importClassStudents,
+  enrollStudents: apiService.enrollStudents,
 };

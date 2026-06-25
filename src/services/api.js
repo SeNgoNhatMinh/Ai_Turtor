@@ -209,6 +209,32 @@ export const apiService = {
         return await blobRequest(`${API_BASE_URL}/mentors/import/template/download`);
     },
 
+    async getStudentImportTemplateSpec() {
+        return await request(`${API_BASE_URL}/admin/class-sections/students/import/template`);
+    },
+
+    async downloadStudentImportTemplate() {
+        return await blobRequest(`${API_BASE_URL}/admin/class-sections/students/import/template.xlsx`);
+    },
+
+    async importClassStudents(courseId, classId, formData, options = {}) {
+        const params = new URLSearchParams();
+        if (options.semesterId) params.append('semesterId', options.semesterId);
+        if (options.courseName) params.append('courseName', options.courseName);
+        if (options.status) params.append('status', options.status);
+        if (options.dryRun !== undefined) params.append('dryRun', String(Boolean(options.dryRun)));
+        const qs = params.toString();
+        return await uploadRequest(`${API_BASE_URL}/admin/class-sections/${encodePath(courseId)}/${encodePath(classId)}/students/import${qs ? `?${qs}` : ''}`, formData, 'Student import failed');
+    },
+
+    async enrollStudents(courseId, classId, payload) {
+        return await request(`${API_BASE_URL}/admin/class-sections/${encodePath(courseId)}/${encodePath(classId)}/students`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+    },
+
     // =============================================
     // 8. Admin Users CRUD
     // =============================================
@@ -448,12 +474,25 @@ export const apiService = {
         });
     },
     async getStudentMemory(studentId, courseId) {
-        return await request(`${API_BASE_URL}/tutor/students/${studentId}/courses/${courseId}/memory`);
+        return await request(`${API_BASE_URL}/tutor/students/${encodePath(studentId)}/courses/${encodePath(courseId)}/memory`);
     },
     async updateStudentMemory(studentId, courseId, payload) {
-        return await request(`${API_BASE_URL}/tutor/students/${studentId}/courses/${courseId}/memory`, {
+        return await request(`${API_BASE_URL}/tutor/students/${encodePath(studentId)}/courses/${encodePath(courseId)}/memory`, {
             method: 'PUT', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
+        });
+    },
+    async pinImproveSuggestion(studentId, courseId, suggestion) {
+        return await request(`${API_BASE_URL}/tutor/students/${encodePath(studentId)}/courses/${encodePath(courseId)}/memory/pinned-suggestions`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ suggestion })
+        });
+    },
+    async unpinImproveSuggestion(studentId, courseId, suggestion) {
+        const params = new URLSearchParams({ suggestion });
+        return await request(`${API_BASE_URL}/tutor/students/${encodePath(studentId)}/courses/${encodePath(courseId)}/memory/pinned-suggestions?${params}`, {
+            method: 'DELETE'
         });
     },
     async getCourseMemories(courseId, classId = '') {
@@ -483,8 +522,11 @@ export const apiService = {
     // =============================================
     // 18. Misc APIs
     // =============================================
-    async getCourseMaterials(courseId) {
-        return await request(`${API_BASE_URL}/courses/${courseId}/materials`);
+    async getCourseMaterials(courseId, classId = '') {
+        const params = new URLSearchParams();
+        if (classId) params.append('classId', classId);
+        const qs = params.toString();
+        return await request(`${API_BASE_URL}/courses/${encodePath(courseId)}/materials${qs ? `?${qs}` : ''}`);
     },
     async getMentors(category = '') {
         const params = new URLSearchParams();

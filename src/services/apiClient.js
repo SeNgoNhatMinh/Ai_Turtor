@@ -1,5 +1,5 @@
 import { env } from '../config/env';
-import { httpClient, httpRequest } from './httpClient';
+import { getUserFacingError, httpClient, httpRequest } from './httpClient';
 
 export const API_BASE_URL = env.apiBaseUrl;
 
@@ -43,3 +43,5 @@ export async function uploadRequest(url, formData, errorPrefix = "Upload failed"
 export async function blobRequest(url) {
   return httpClient.blob(stripBaseUrl(url));
 }
+
+export { getUserFacingError };

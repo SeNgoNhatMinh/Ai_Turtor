@@ -109,15 +109,15 @@ function MentorSupport({
                   />
                 </div>
               </>
-            ) : selectedEscalation.status === 'OFFERED' ? (
+            ) : ['OFFERED', 'MENTOR_MATCHING'].includes(selectedEscalation.status) ? (
               <div className="center-state">
                 <RobotOutlined style={{ fontSize: 48, color: '#F37021', marginBottom: 16 }} />
                 <Title level={4}>A mentor is ready to help</Title>
                 <Paragraph style={{ textAlign: 'center' }}>
-                  Your question has been reviewed. Choose a mentor to start a 1-on-1 chat.
+                  Which mentor would you like to answer this question?
                 </Paragraph>
                 <Button type="primary" size="large" onClick={() => onOpenMentorSelect(selectedEscalation)}>
-                  View mentors
+                  Choose mentor
                 </Button>
               </div>
             ) : (

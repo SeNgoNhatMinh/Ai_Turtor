@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Select, Space, Typography, Input, Button } from 'antd';
-import { SendOutlined, LikeOutlined, DislikeOutlined, CommentOutlined, StopOutlined } from '@ant-design/icons';
+import { SendOutlined, LikeOutlined, DislikeOutlined, CommentOutlined, StopOutlined, PushpinOutlined } from '@ant-design/icons';
 import RobotHeadMascot from '../../components/RobotHeadMascot';
 import AiAnswer from '../../components/AiAnswer';
 import AnswerActionBar from './AnswerActionBar';
@@ -17,12 +17,38 @@ const getReviewMode = (message) => {
   return normalizeReviewMode(message?.mode);
 };
 
-const getMessageKey = (message, index) => (
-  message?.id ||
-  message?.messageId ||
-  message?.requestId ||
-  `${message?.createdAt || 'message'}-${String(message?.question || '').slice(0, 24)}-${index}`
-);
+const hashText = (value) => {
+  const text = String(value || '');
+  let hash = 0;
+  for (let i = 0; i < text.length; i += 1) {
+    hash = ((hash << 5) - hash) + text.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash).toString(36);
+};
+
+const getMessageKey = (message, index) => {
+  if (message?.id || message?.messageId || message?.requestId) {
+    return String(message.id || message.messageId || message.requestId);
+  }
+  const question = String(message?.question || '').trim();
+  const answer = String(message?.answer || '').trim();
+  const stableContent = `${question.slice(0, 500)}|${answer.slice(0, 500)}`;
+  if (stableContent.trim()) {
+    return `content-${hashText(stableContent)}`;
+  }
+  return `message-${index}`;
+};
+
+const getPinnedStorageKey = (userId, sessionId) => {
+  if (!userId || !sessionId) return '';
+  return `ai-tutor:pinned-chat-messages:${userId}:${sessionId}`;
+};
+
+const getMessagePreview = (message) => {
+  const text = message?.question || message?.answer || '';
+  return text.length > 110 ? `${text.slice(0, 110)}...` : text;
+};
 
 function ChatWorkspace({
   activeSessionTitle,
@@ -50,8 +76,29 @@ function ChatWorkspace({
   const [feedbackRating, setFeedbackRating] = useState(null); // 1 or 3
   const [feedbackText, setFeedbackText] = useState('');
   const [isFeedbackSubmitting, setIsFeedbackSubmitting] = useState(false);
+  const [pinnedMessageKeys, setPinnedMessageKeys] = useState([]);
 
   const textareaRef = useRef(null);
+
+  useEffect(() => {
+    const storageKey = getPinnedStorageKey(userId, activeSessionId);
+    if (!storageKey) {
+      setPinnedMessageKeys([]);
+      return;
+    }
+    try {
+      const stored = JSON.parse(window.localStorage.getItem(storageKey) || '[]');
+      setPinnedMessageKeys(Array.isArray(stored) ? stored : []);
+    } catch {
+      setPinnedMessageKeys([]);
+    }
+  }, [userId, activeSessionId]);
+
+  useEffect(() => {
+    const storageKey = getPinnedStorageKey(userId, activeSessionId);
+    if (!storageKey) return;
+    window.localStorage.setItem(storageKey, JSON.stringify(pinnedMessageKeys));
+  }, [pinnedMessageKeys, userId, activeSessionId]);
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -70,6 +117,14 @@ function ChatWorkspace({
     setFeedbackOpenIndex(null);
     setFeedbackRating(null);
     setFeedbackText('');
+  };
+
+  const togglePinnedMessage = (messageKey) => {
+    setPinnedMessageKeys((current) => (
+      current.includes(messageKey)
+        ? current.filter((key) => key !== messageKey)
+        : [...current, messageKey]
+    ));
   };
 
   const buildFeedbackPayload = (message, rating, feedback) => {
@@ -148,6 +203,11 @@ function ChatWorkspace({
     }
   };
 
+  const safeMessages = Array.isArray(messages) ? messages : [];
+  const pinnedMessages = safeMessages
+    .map((message, index) => ({ message, index, key: getMessageKey(message, index) }))
+    .filter((item) => pinnedMessageKeys.includes(item.key));
+
   return (
     <div className="chat-workspace-dark" style={style}>
       {/* Header */}
@@ -181,19 +241,45 @@ function ChatWorkspace({
       {/* Messages Area */}
       <div className="chat-workspace-messages-container">
         <div className="chat-workspace-messages-inner">
-          {(Array.isArray(messages) ? messages : []).length === 0 ? (
+          {pinnedMessages.length > 0 && (
+            <div className="chat-pinned-panel">
+              <div className="chat-pinned-header">
+                <PushpinOutlined />
+                <span>Pinned messages</span>
+              </div>
+              <div className="chat-pinned-list">
+                {pinnedMessages.map(({ message, key }) => (
+                  <button
+                    key={key}
+                    type="button"
+                    className="chat-pinned-item"
+                    onClick={() => togglePinnedMessage(key)}
+                    title="Click to unpin"
+                  >
+                    <span>{getMessagePreview(message)}</span>
+                    <PushpinOutlined />
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {safeMessages.length === 0 ? (
             <div className="chat-empty-state">
               <RobotHeadMascot size={180} />
               <div className="chat-empty-title">How can I help you today?</div>
               <PromptStarters onSelect={onPromptStarter} />
             </div>
           ) : (
-            (Array.isArray(messages) ? messages : []).map((message, index) => {
+            safeMessages.map((message, index) => {
+              const messageKey = getMessageKey(message, index);
+              const isPinned = pinnedMessageKeys.includes(messageKey);
               return (
-                <div key={getMessageKey(message, index)} style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                <div key={messageKey} style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                   {/* User Message */}
                   <div className="chat-gpt-message-row user">
-                    <div className="chat-gpt-bubble-user">
+                    <div className={`chat-gpt-bubble-user ${isPinned ? 'chat-message-pinned' : ''}`}>
+                      {isPinned && <PushpinOutlined className="chat-message-pin-badge" />}
                       {message.question}
                     </div>
                   </div>
@@ -213,6 +299,14 @@ function ChatWorkspace({
 
                           {/* Feedback Actions */}
                           {!message.canceled && <div className="chat-gpt-feedback-row">
+                            <Button
+                              type="text"
+                              size="small"
+                              icon={<PushpinOutlined />}
+                              onClick={() => togglePinnedMessage(messageKey)}
+                            >
+                              {isPinned ? 'Unpin' : 'Pin'}
+                            </Button>
                             <Button
                               type="text"
                               size="small"
