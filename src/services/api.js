@@ -2,6 +2,7 @@ import { API_BASE_URL, blobRequest, request, uploadRequest } from './apiClient';
 import { asArray } from './normalizers';
 import { encodePath } from '../config/env';
 import { normalizeReviewMode } from '../utils/validators';
+import { authApi } from './authApi';
 
 const normalizeAnswerReviewMode = (mode) => {
     return normalizeReviewMode(mode);
@@ -9,21 +10,9 @@ const normalizeAnswerReviewMode = (mode) => {
 
 export const apiService = {
     // 0. User Authentication
-    async login(email, password) {
-        return await request(`${API_BASE_URL}/users/login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password })
-        });
-    },
+    login: authApi.login,
 
-    async register(userData) {
-        return await request(`${API_BASE_URL}/users/register`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(userData)
-        });
-    },
+    register: authApi.register,
 
     // 1. AI Conversations Sessions
     async getConversations(userId) {
@@ -82,7 +71,12 @@ export const apiService = {
 
     // 3. Materials Upload (Ingestion)
     async uploadMaterial(courseId, formData) {
-        return await uploadRequest(`${API_BASE_URL}/courses/${encodePath(courseId)}/materials/upload`, formData);
+        return await uploadRequest(
+            `${API_BASE_URL}/courses/${encodePath(courseId)}/materials/upload`,
+            formData,
+            'Upload material failed',
+            { timeoutMs: 60000 }
+        );
     },
 
     async deleteMaterial(courseId, materialId) {

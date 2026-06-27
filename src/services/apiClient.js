@@ -31,9 +31,9 @@ export async function request(url, options = {}) {
   });
 }
 
-export async function uploadRequest(url, formData, errorPrefix = "Upload failed") {
+export async function uploadRequest(url, formData, errorPrefix = "Upload failed", options = {}) {
   try {
-    return await httpClient.upload(stripBaseUrl(url), formData);
+    return await httpClient.upload(stripBaseUrl(url), formData, options);
   } catch (error) {
     error.message = error.message || errorPrefix;
     throw error;

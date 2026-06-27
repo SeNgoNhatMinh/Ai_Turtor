@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Select, Space, Typography, Input, Button } from 'antd';
-import { SendOutlined, LikeOutlined, DislikeOutlined, CommentOutlined, StopOutlined, PushpinOutlined } from '@ant-design/icons';
+import { SendOutlined, LikeOutlined, DislikeOutlined, CommentOutlined, StopOutlined, PushpinOutlined, CloseOutlined } from '@ant-design/icons';
 import RobotHeadMascot from '../../components/RobotHeadMascot';
 import AiAnswer from '../../components/AiAnswer';
 import AnswerActionBar from './AnswerActionBar';
@@ -47,7 +47,7 @@ const getPinnedStorageKey = (userId, sessionId) => {
 
 const getMessagePreview = (message) => {
   const text = message?.question || message?.answer || '';
-  return text.length > 110 ? `${text.slice(0, 110)}...` : text;
+  return text.length > 82 ? `${text.slice(0, 82)}...` : text;
 };
 
 function ChatWorkspace({
@@ -56,6 +56,8 @@ function ChatWorkspace({
   setCourseId,
   classId,
   setClassId,
+  courseOptions = [],
+  classOptions = [],
   messages,
   chatInput,
   setChatInput,
@@ -77,6 +79,7 @@ function ChatWorkspace({
   const [feedbackText, setFeedbackText] = useState('');
   const [isFeedbackSubmitting, setIsFeedbackSubmitting] = useState(false);
   const [pinnedMessageKeys, setPinnedMessageKeys] = useState([]);
+  const [highlightedMessageKey, setHighlightedMessageKey] = useState('');
 
   const textareaRef = useRef(null);
 
@@ -123,8 +126,19 @@ function ChatWorkspace({
     setPinnedMessageKeys((current) => (
       current.includes(messageKey)
         ? current.filter((key) => key !== messageKey)
-        : [...current, messageKey]
+        : current.length >= 3
+          ? (triggerToast?.('You can pin up to 3 messages.'), current)
+          : [...current, messageKey]
     ));
+  };
+
+  const jumpToPinnedMessage = (messageKey) => {
+    const target = document.querySelector(`[data-chat-message-key="${CSS.escape(messageKey)}"]`);
+    target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setHighlightedMessageKey(messageKey);
+    window.setTimeout(() => {
+      setHighlightedMessageKey((current) => (current === messageKey ? '' : current));
+    }, 1600);
   };
 
   const buildFeedbackPayload = (message, rating, feedback) => {
@@ -204,9 +218,34 @@ function ChatWorkspace({
   };
 
   const safeMessages = Array.isArray(messages) ? messages : [];
+  const safeCourseOptions = useMemo(() => {
+    const options = (Array.isArray(courseOptions) ? courseOptions : [])
+      .filter((item) => item?.value);
+    const hasCurrentCourse = options.some((item) => item.value === courseId);
+    if (courseId && !hasCurrentCourse) {
+      return [{ value: courseId, label: courseId }, ...options];
+    }
+    return options.length ? options : [
+      { value: 'PRJ301', label: 'PRJ301 - Java Web' },
+      { value: 'DBI202', label: 'DBI202 - Database' },
+    ];
+  }, [courseOptions, courseId]);
+  const safeClassOptions = useMemo(() => {
+    const options = (Array.isArray(classOptions) ? classOptions : [])
+      .filter((item) => item?.value);
+    const hasCurrentClass = options.some((item) => item.value === classId);
+    if (classId && !hasCurrentClass) {
+      return [{ value: classId, label: `Class ${classId}` }, ...options];
+    }
+    return options.length ? options : [
+      { value: 'SE1840', label: 'Class SE1840' },
+      { value: 'SE1841', label: 'Class SE1841' },
+    ];
+  }, [classOptions, classId]);
   const pinnedMessages = safeMessages
     .map((message, index) => ({ message, index, key: getMessageKey(message, index) }))
-    .filter((item) => pinnedMessageKeys.includes(item.key));
+    .filter((item) => pinnedMessageKeys.includes(item.key))
+    .slice(0, 3);
 
   return (
     <div className="chat-workspace-dark" style={style}>
@@ -223,8 +262,9 @@ function ChatWorkspace({
             style={{ width: 150 }}
             popupClassName={`chat-course-select-popup ${isDarkMode ? 'chat-course-select-popup--dark' : ''}`}
           >
-            <Option value="PRJ301">PRJ301 - Java Web</Option>
-            <Option value="DBI202">DBI202 - Database</Option>
+            {safeCourseOptions.map((item) => (
+              <Option key={item.value} value={item.value}>{item.label}</Option>
+            ))}
           </Select>
           <Select
             value={classId}
@@ -232,38 +272,47 @@ function ChatWorkspace({
             style={{ width: 120 }}
             popupClassName={`chat-course-select-popup ${isDarkMode ? 'chat-course-select-popup--dark' : ''}`}
           >
-            <Option value="SE1840">Class SE1840</Option>
-            <Option value="SE1841">Class SE1841</Option>
+            {safeClassOptions.map((item) => (
+              <Option key={item.value} value={item.value}>{item.label}</Option>
+            ))}
           </Select>
         </Space>
       </div>
 
+      {pinnedMessages.length > 0 && (
+        <div className="chat-pinned-topbar" aria-label="Pinned messages">
+          <div className="chat-pinned-topbar-label">
+            <PushpinOutlined />
+            <span>Pinned</span>
+            <em>{pinnedMessages.length}/3</em>
+          </div>
+          <div className="chat-pinned-topbar-list">
+            {pinnedMessages.map(({ message, key }) => (
+              <button
+                key={key}
+                type="button"
+                className="chat-pinned-topbar-item"
+                onClick={() => jumpToPinnedMessage(key)}
+                title="Jump to pinned message"
+              >
+                <span>{getMessagePreview(message) || 'Pinned message'}</span>
+                <CloseOutlined
+                  className="chat-pinned-unpin"
+                  title="Unpin message"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    togglePinnedMessage(key);
+                  }}
+                />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Messages Area */}
       <div className="chat-workspace-messages-container">
         <div className="chat-workspace-messages-inner">
-          {pinnedMessages.length > 0 && (
-            <div className="chat-pinned-panel">
-              <div className="chat-pinned-header">
-                <PushpinOutlined />
-                <span>Pinned messages</span>
-              </div>
-              <div className="chat-pinned-list">
-                {pinnedMessages.map(({ message, key }) => (
-                  <button
-                    key={key}
-                    type="button"
-                    className="chat-pinned-item"
-                    onClick={() => togglePinnedMessage(key)}
-                    title="Click to unpin"
-                  >
-                    <span>{getMessagePreview(message)}</span>
-                    <PushpinOutlined />
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
           {safeMessages.length === 0 ? (
             <div className="chat-empty-state">
               <RobotHeadMascot size={180} />
@@ -275,7 +324,11 @@ function ChatWorkspace({
               const messageKey = getMessageKey(message, index);
               const isPinned = pinnedMessageKeys.includes(messageKey);
               return (
-                <div key={messageKey} style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                <div
+                  key={messageKey}
+                  data-chat-message-key={messageKey}
+                  className={`chat-message-turn ${highlightedMessageKey === messageKey ? 'chat-message-turn--highlighted' : ''}`}
+                >
                   {/* User Message */}
                   <div className="chat-gpt-message-row user">
                     <div className={`chat-gpt-bubble-user ${isPinned ? 'chat-message-pinned' : ''}`}>

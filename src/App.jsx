@@ -1,4 +1,4 @@
-import { Suspense, lazy, useState, useEffect, useRef } from 'react';
+import { Suspense, lazy, useState, useEffect } from 'react';
 import { ConfigProvider, Spin } from 'antd';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
@@ -6,10 +6,21 @@ import Toast from './components/Toast';
 import Login from './pages/Login';
 import { apiService } from './services/api';
 import { getUserFacingError } from './services/apiClient';
-import { asArray, pairMessages, normalizeSession, normalizeTeacherInboxItem, normalizeAnswerReview, normalizeStudentDashboard, normalizeTeacherDashboard, normalizeSuggestions } from './services/normalizers';
+import { asArray, normalizeTeacherInboxItem, normalizeAnswerReview, normalizeStudentDashboard, normalizeTeacherDashboard, normalizeSuggestions } from './services/normalizers';
 import { getFptTheme } from './theme/fptTheme';
 import { n8nService } from './services/n8nService';
 import { N8N_ENABLED } from './services/n8nClient';
+import { useStudentEnrollmentOptions } from './hooks/useStudentEnrollmentOptions';
+import { useStudentChatController } from './hooks/useStudentChatController';
+import {
+  createRecoveredSuggestion,
+  readJsonStorage,
+  readPinnedSuggestions,
+  sanitizePersistedUser,
+  suggestionMatchesText,
+  writePinnedSuggestions,
+} from './utils/storage';
+import { normalizeAppRole } from './utils/formatters';
 
 const StudentPortal = lazy(() => import('./pages/StudentPortal'));
 const TeacherPortal = lazy(() => import('./pages/TeacherPortal'));
@@ -18,73 +29,6 @@ const AdminPortal = lazy(() => import('./pages/AdminPortal'));
 const APP_SESSION_USER_KEY = 'ai-tutor:current-user';
 const APP_UI_STATE_KEY = 'ai-tutor:ui-state';
 
-const readJsonStorage = (key, fallback = null) => {
-  try {
-    const raw = window.sessionStorage.getItem(key);
-    return raw ? JSON.parse(raw) : fallback;
-  } catch {
-    return fallback;
-  }
-};
-
-const sanitizePersistedUser = (user) => {
-  if (!user || typeof user !== 'object') return null;
-  const { token, password, ...safeUser } = user;
-  return safeUser;
-};
-
-const getPinnedSuggestionsStorageKey = (studentId, courseId) => {
-  if (!studentId || !courseId) return '';
-  return `ai-tutor:pinned-suggestions:${studentId}:${courseId}`;
-};
-
-const readPinnedSuggestions = (studentId, courseId) => {
-  const key = getPinnedSuggestionsStorageKey(studentId, courseId);
-  if (!key) return [];
-  try {
-    const raw = window.localStorage.getItem(key);
-    const list = raw ? JSON.parse(raw) : [];
-    return Array.isArray(list) ? list.filter(Boolean) : [];
-  } catch {
-    return [];
-  }
-};
-
-const writePinnedSuggestions = (studentId, courseId, suggestions) => {
-  const key = getPinnedSuggestionsStorageKey(studentId, courseId);
-  if (!key) return;
-  const unique = [...new Set((suggestions || []).filter(Boolean))];
-  window.localStorage.setItem(key, JSON.stringify(unique));
-};
-
-const getSuggestionTextValue = (suggestion) => (
-  typeof suggestion === 'string'
-    ? suggestion
-    : suggestion?.title || suggestion?.content || ''
-);
-
-const suggestionMatchesText = (suggestion, text) => (
-  String(getSuggestionTextValue(suggestion)).trim().toLowerCase() === String(text || '').trim().toLowerCase()
-);
-
-const createRecoveredSuggestion = (text) => ({
-  priority: 'medium',
-  title: text,
-  content: 'Saved from pinned items. Keep reviewing this topic when you continue your study plan.',
-});
-
-const normalizeAppRole = (role, email = '') => {
-  const normalized = String(role || '').trim().toLowerCase();
-  if (normalized === 'admin') return 'admin';
-  if (normalized === 'teacher' || normalized === 'mentor') return 'teacher';
-  if (normalized === 'student') return 'student';
-
-  const safeEmail = String(email || '').toLowerCase();
-  if (safeEmail.includes('admin')) return 'admin';
-  if (safeEmail.includes('teacher') || safeEmail.includes('mentor')) return 'teacher';
-  return 'student';
-};
-
 function App() {
   // State management
   const initialUiState = readJsonStorage(APP_UI_STATE_KEY, {});
@@ -92,14 +36,16 @@ function App() {
   const [activeRole, setActiveRole] = useState(() => initialUiState.activeRole || 'student');
   const [isDarkMode, setIsDarkMode] = useState(() => Boolean(initialUiState.isDarkMode));
   const [activeTab, setActiveTab] = useState(() => initialUiState.activeTab || 'student-chat');
-  const [activeSessionId, setActiveSessionId] = useState(null);
-  const [activeSessionTitle, setActiveSessionTitle] = useState('AI Tutor Chat');
-  const [sessions, setSessions] = useState([]);
-  const [messages, setMessages] = useState([]);
-  const activeAiRequestIdRef = useRef(0);
-  const canceledAiRequestIdsRef = useRef(new Set());
   const [courseId, setCourseId] = useState(() => initialUiState.courseId || 'PRJ301');
   const [classId, setClassId] = useState(() => initialUiState.classId || 'SE1840');
+  const currentUserId = currentUser?.userId || currentUser?.id || '';
+  const { courseOptions, classOptions, loadStudentEnrollments } = useStudentEnrollmentOptions({
+    studentId: currentUserId,
+    courseId,
+    classId,
+    setCourseId,
+    setClassId,
+  });
 
   useEffect(() => {
     document.body.classList.toggle('theme-dark', isDarkMode);
@@ -178,13 +124,38 @@ function App() {
 
   // UI state
   const [toastMessage, setToastMessage] = useState(null);
-  const getStudentUserId = () => currentUser?.userId || currentUser?.id || '';
-  const getCurrentUserId = () => currentUser?.userId || currentUser?.id || '';
-  const getTeacherUserId = () => currentUser?.userId || currentUser?.id || '';
+  const getStudentUserId = () => currentUserId;
+  const getCurrentUserId = () => currentUserId;
+  const getTeacherUserId = () => currentUserId;
+  const triggerToast = (msg) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3500);
+  };
+  const {
+    activeSessionId,
+    activeSessionTitle,
+    sessions,
+    messages,
+    resetChat,
+    loadChatSessions,
+    handleSelectSession,
+    handleCreateSession,
+    handleDeleteSession,
+    handleRenameSession,
+    handleSendQuery,
+    handleStopAiGeneration,
+  } = useStudentChatController({
+    currentUser,
+    courseId,
+    classId,
+    triggerToast,
+    setCodeMentorDiagnostics,
+  });
 
   useEffect(() => {
     if (!currentUser) return;
     if (activeRole === 'student') {
+      loadStudentEnrollments();
       loadChatSessions();
       loadStudentAssignments();
       loadCourseMaterials();
@@ -203,6 +174,7 @@ function App() {
 
   useEffect(() => {
     if (currentUser && activeRole === 'student') {
+      loadStudentEnrollments();
       loadChatSessions();
     }
   }, [currentUser, activeRole]);
@@ -381,12 +353,6 @@ function App() {
     }
   };
 
-  // Toast helper
-  const triggerToast = (msg) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3500);
-  };
-
   // ==========================================
   // SIDEBAR NAVIGATION & PORTALS TAB SWITCHING
   // ==========================================
@@ -411,217 +377,8 @@ function App() {
 
   const handleLogout = () => {
     setCurrentUser(null);
-    setActiveSessionId(null);
-    setActiveSessionTitle('AI Tutor Chat');
-    setMessages([]);
-    setSessions([]);
+    resetChat();
     window.sessionStorage.removeItem(APP_SESSION_USER_KEY);
-  };
-
-  // ==========================================
-  // CHAT SESSIONS LOADING & SWITCHING (STUDENT)
-  // ==========================================
-  const loadChatSessions = async () => {
-    const userId = getStudentUserId();
-    if (!userId) {
-      setSessions([]);
-      return;
-    }
-    try {
-      const data = await apiService.getConversations(userId);
-      setSessions(asArray(data, 'content', 'conversations').map(normalizeSession));
-    } catch (e) {
-      setSessions([]);
-    }
-  };
-
-  const handleSelectSession = async (sessionId, title) => {
-    const userId = getStudentUserId();
-    if (!userId) {
-      triggerToast('Please sign in before opening chat history.');
-      return;
-    }
-    setActiveSessionId(sessionId);
-    setActiveSessionTitle(title);
-    setMessages([]);
-    const chatMsgs = await apiService.getMessages(sessionId, userId);
-    setMessages(pairMessages(asArray(chatMsgs, 'content', 'messages')));
-  };
-
-  const handleCreateSession = async () => {
-    const userId = getStudentUserId();
-    if (!userId) {
-      triggerToast('Please sign in before creating a conversation.');
-      return;
-    }
-    const data = await apiService.createConversation(userId);
-    const session = normalizeSession(data);
-    setActiveSessionId(session.id);
-    setActiveSessionTitle(session.title);
-    setMessages([]);
-    triggerToast('New conversation created.');
-    loadChatSessions();
-  };
-
-  const handleDeleteSession = async (sessionId) => {
-    const userId = getStudentUserId();
-    if (!userId) {
-      triggerToast('Please sign in before deleting a conversation.');
-      return;
-    }
-    await apiService.deleteConversation(sessionId, userId);
-    triggerToast('Conversation deleted.');
-    setSessions(prev => prev.filter(s => s.id !== sessionId));
-    if (activeSessionId === sessionId) {
-      setActiveSessionId(null);
-      setActiveSessionTitle('AI Tutor Chat');
-      setMessages([]);
-    }
-  };
-
-  const handleRenameSession = async (sessionId, newTitle) => {
-    const userId = getStudentUserId();
-    if (!userId) {
-      triggerToast('Please sign in before renaming a conversation.');
-      return;
-    }
-    await apiService.renameConversation(sessionId, newTitle, userId);
-    triggerToast('Conversation renamed.');
-    setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, title: newTitle } : s));
-    if (activeSessionId === sessionId) {
-      setActiveSessionTitle(newTitle);
-    }
-  };
-
-  const handleSendQuery = async (chatInput, codeSnippet, setAvatarEmotion) => {
-    // Add user message immediately with pending flag (no AI answer yet)
-    const text = chatInput.trim();
-    const userId = getStudentUserId();
-    if (!userId) {
-      triggerToast('Please sign in before sending a message.');
-      return;
-    }
-    const requestId = activeAiRequestIdRef.current + 1;
-    activeAiRequestIdRef.current = requestId;
-    const userMsg = { question: text, answer: null, pending: true, requestId };
-    setMessages(prev => [...prev, userMsg]);
-
-    try {
-      let data;
-      if (N8N_ENABLED) {
-        try {
-          const n8nPayload = {
-            studentId: userId,
-            studentName: currentUser?.fullName || '',
-            studentEmail: currentUser?.email || '',
-            courseId: courseId,
-            classId: classId,
-            message: text,
-            codeSnippet: codeSnippet || '',
-            conversationId: activeSessionId || ''
-          };
-          data = await n8nService.sendStudentChat(n8nPayload);
-        } catch (n8nError) {
-          console.warn('n8n request failed, trying backend API fallback:', n8nError);
-          triggerToast('n8n offline. Falling back to local AI...');
-          const payload = {
-            question: text,
-            message: text,
-            codeSnippet: codeSnippet || null,
-            courseId: courseId,
-            classId: classId,
-            conversationId: activeSessionId || null
-          };
-          data = await apiService.sendAiQuery(payload, userId);
-        }
-      } else {
-        const payload = {
-          question: text,
-          message: text,
-          codeSnippet: codeSnippet || null,
-          courseId: courseId,
-          classId: classId,
-          conversationId: activeSessionId || null
-        };
-        data = await apiService.sendAiQuery(payload, userId);
-      }
-
-      if (data.conversationId && !activeSessionId) {
-        setActiveSessionId(data.conversationId);
-        loadChatSessions();
-      }
-
-      if (canceledAiRequestIdsRef.current.has(requestId)) {
-        canceledAiRequestIdsRef.current.delete(requestId);
-        return;
-      }
-
-      setMessages(prev => {
-        const updated = [...prev];
-        updated[updated.length - 1] = {
-          question: text,
-          answer: data.answer,
-          mode: data.mode || 'RAG',
-          confidence: data.confidence,
-          sources: data.sources || [],
-          questionEscalationId: data.questionEscalationId || data.escalationId || null,
-          pending: false
-        };
-        return updated;
-      });
-
-      if (data.mode === 'CODE' || data.mode === 'CODE_MENTOR') {
-        setCodeMentorDiagnostics(data.answer);
-        setAvatarEmotion('success');
-      } else if (data.escalated || data.mode === 'ESCALATE') {
-        setAvatarEmotion('idle');
-      } else {
-        setAvatarEmotion('success');
-      }
-    } catch (error) {
-      if (canceledAiRequestIdsRef.current.has(requestId)) {
-        canceledAiRequestIdsRef.current.delete(requestId);
-        return;
-      }
-
-      setMessages(prev => {
-        const updated = [...prev];
-        updated[updated.length - 1] = {
-          question: text,
-          answer: getUserFacingError(error, 'AI Tutor could not answer right now. Please try again in a moment.'),
-          confidence: 0,
-          sources: [],
-          pending: false
-        };
-        return updated;
-      });
-      setAvatarEmotion('idle');
-      triggerToast(getUserFacingError(error, 'AI Tutor request failed. Please try again in a moment.'));
-    }
-  };
-
-  const handleStopAiGeneration = () => {
-    const requestId = activeAiRequestIdRef.current;
-    if (requestId) canceledAiRequestIdsRef.current.add(requestId);
-    setMessages(prev => {
-      const updated = [...prev];
-      let index = -1;
-      for (let i = updated.length - 1; i >= 0; i -= 1) {
-        if (updated[i]?.pending) {
-          index = i;
-          break;
-        }
-      }
-      if (index >= 0) {
-        updated[index] = {
-          ...updated[index],
-          answer: 'Response generation was stopped. You can edit your question or try another prompt.',
-          pending: false,
-          canceled: true,
-        };
-      }
-      return updated;
-    });
   };
 
   const handleCodeMentorQuery = async (codeSnippet, codeLanguage, isAssignmentRelated) => {
@@ -1146,6 +903,8 @@ function App() {
                   setCourseId={setCourseId}
                   classId={classId}
                   setClassId={setClassId}
+                  courseOptions={courseOptions}
+                  classOptions={classOptions}
                   isDarkMode={isDarkMode}
                   sessions={sessions}
                   activeSessionId={activeSessionId}

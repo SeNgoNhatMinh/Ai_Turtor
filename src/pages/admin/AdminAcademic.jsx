@@ -1,13 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { Alert, Row, Col, Card, Table, Button, Form, Input, InputNumber, Select, Tag, Space, Tabs, Upload } from 'antd';
+import { Alert, Row, Col, Card, Table, Button, Dropdown, Form, Input, InputNumber, Select, Tag, Space, Tabs, Upload } from 'antd';
 import { DownloadOutlined, UploadOutlined } from '@ant-design/icons';
-import { Database, RefreshCw, Plus, Search, Trash2 } from 'lucide-react';
+import { Database, MoreHorizontal, RefreshCw, Plus, Search, Trash2 } from 'lucide-react';
 import { apiService } from '../../services/api';
 import { getUserFacingError } from '../../services/apiClient';
+import { closeActiveConfirm, confirmDanger } from '../../components/common/confirmDialog';
 
 const { Option } = Select;
 const { TabPane } = Tabs;
 const { Dragger } = Upload;
+
+const getRecordId = (record) => record?.id || record?._id || record?.materialId;
+
+const wait = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
 
 function AdminAcademic({ triggerToast, currentUser }) {
   const [semesters, setSemesters] = useState([]);
@@ -22,6 +27,7 @@ function AdminAcademic({ triggerToast, currentUser }) {
   const [materialCourseId, setMaterialCourseId] = useState('');
   const [courseMaterials, setCourseMaterials] = useState([]);
   const [materialsLoading, setMaterialsLoading] = useState(false);
+  const [materialUploadBusy, setMaterialUploadBusy] = useState(false);
   const [materialFile, setMaterialFile] = useState(null);
   const [studentImportCourseId, setStudentImportCourseId] = useState('');
   const [studentImportClassId, setStudentImportClassId] = useState('');
@@ -40,6 +46,7 @@ function AdminAcademic({ triggerToast, currentUser }) {
   useEffect(() => {
     loadSemesters();
     loadCourses();
+    return () => closeActiveConfirm();
   }, []);
 
   // ── Loaders ──────────────────────────────────────────────
@@ -57,15 +64,51 @@ function AdminAcademic({ triggerToast, currentUser }) {
     setClassSections(Array.isArray(data) ? data : []);
     setAcademicLoading(false);
   };
+  const resolveStudentSearchId = async (rawValue) => {
+    const value = String(rawValue || '').trim();
+    if (!value) return '';
+    const users = await apiService.getAdminUsers(value, 'STUDENT');
+    const normalized = String(value).toLowerCase();
+    const matchedUser = users.find((user) => {
+      const candidates = [
+        user.id,
+        user._id,
+        user.userId,
+        user.studentId,
+        user.studentCode,
+        user.email,
+        user.fullName,
+        user.name,
+      ].filter(Boolean).map((item) => String(item).toLowerCase());
+      return candidates.includes(normalized);
+    }) || users[0];
+    return matchedUser?.userId || matchedUser?.id || matchedUser?._id || value;
+  };
+
   const loadStudentEnrollments = async () => {
-    if (!enrollmentSearchId) { triggerToast('Please enter a student ID.'); return; }
+    const rawSearch = String(enrollmentSearchId || '').trim();
+    if (!rawSearch) { triggerToast('Please enter a student ID, email, or student code.'); return; }
     setEnrollmentsLoading(true);
     try {
-      const data = await apiService.getStudentEnrollments(enrollmentSearchId);
-      setStudentEnrollments(Array.isArray(data) ? data : []);
-    } catch {
+      let searchId = rawSearch;
+      let data = await apiService.getStudentEnrollments(searchId);
+      let items = Array.isArray(data) ? data : Array.isArray(data?.content) ? data.content : Array.isArray(data?.enrollments) ? data.enrollments : [];
+
+      if (items.length === 0) {
+        searchId = await resolveStudentSearchId(rawSearch);
+        if (searchId && searchId !== rawSearch) {
+          data = await apiService.getStudentEnrollments(searchId);
+          items = Array.isArray(data) ? data : Array.isArray(data?.content) ? data.content : Array.isArray(data?.enrollments) ? data.enrollments : [];
+        }
+      }
+
+      setStudentEnrollments(items);
+      if (items.length === 0) {
+        triggerToast('No enrollment records found for this student.');
+      }
+    } catch (error) {
       setStudentEnrollments([]);
-      triggerToast('Failed to load student enrollments.');
+      triggerToast(getUserFacingError(error, 'Failed to load student enrollments.'));
     } finally {
       setEnrollmentsLoading(false);
     }
@@ -85,6 +128,23 @@ function AdminAcademic({ triggerToast, currentUser }) {
     } finally {
       setMaterialsLoading(false);
     }
+  };
+  const refreshCourseMaterialsWithRetry = async (courseId, previousCount = 0) => {
+    const delays = [0, 1200, 2500, 4500];
+    for (const delay of delays) {
+      if (delay) await wait(delay);
+      try {
+        const data = await apiService.getCourseMaterials(courseId);
+        const items = Array.isArray(data?.materials) ? data.materials : Array.isArray(data?.content) ? data.content : Array.isArray(data) ? data : [];
+        setCourseMaterials(items);
+        if (items.length > previousCount) return true;
+      } catch (error) {
+        if (delay === delays[delays.length - 1]) {
+          triggerToast(getUserFacingError(error, 'Unable to refresh course materials.'));
+        }
+      }
+    }
+    return false;
   };
   const loadStudentImportClasses = async (courseId) => {
     setStudentImportCourseId(courseId);
@@ -134,6 +194,7 @@ function AdminAcademic({ triggerToast, currentUser }) {
     }
   };
   const handleUploadMaterial = async (values) => {
+    if (materialUploadBusy) return;
     if (!materialCourseId) {
       triggerToast('Please choose a course first.');
       return;
@@ -147,17 +208,27 @@ function AdminAcademic({ triggerToast, currentUser }) {
     formData.append('title', values.title);
     formData.append('teacherId', currentUser?.userId || currentUser?.id || 'ADMIN');
     formData.append('uploaderRole', 'ADMIN');
+    setMaterialUploadBusy(true);
+    const releaseUploadButton = () => window.setTimeout(() => setMaterialUploadBusy(false), 2500);
+    const previousCount = courseMaterials.length;
     try {
       await apiService.uploadMaterial(materialCourseId, formData);
       triggerToast('Course-wide material uploaded.');
       formMaterial.resetFields();
       setMaterialFile(null);
-      loadCourseMaterials(materialCourseId);
+      await refreshCourseMaterialsWithRetry(materialCourseId, previousCount);
     } catch (error) {
-      triggerToast(getUserFacingError(error, 'Unable to upload course material.'));
+      triggerToast(`${getUserFacingError(error, 'Upload is still processing.')} Refreshing materials...`);
+      refreshCourseMaterialsWithRetry(materialCourseId, previousCount);
+    } finally {
+      releaseUploadButton();
     }
   };
   const handleDownloadMaterial = async (materialId, title) => {
+    if (!materialId) {
+      triggerToast('This material is missing an ID. Please reload materials and try again.');
+      return;
+    }
     try {
       const blob = await apiService.downloadMaterialPdf(materialCourseId, materialId);
       const url = window.URL.createObjectURL(blob);
@@ -173,6 +244,10 @@ function AdminAcademic({ triggerToast, currentUser }) {
     }
   };
   const handleReindexMaterial = async (materialId) => {
+    if (!materialId) {
+      triggerToast('This material is missing an ID. Please reload materials and try again.');
+      return;
+    }
     try {
       await apiService.reindexMaterial(materialCourseId, materialId);
       triggerToast('Material reindexing triggered.');
@@ -181,14 +256,24 @@ function AdminAcademic({ triggerToast, currentUser }) {
     }
   };
   const handleDeleteMaterial = async (materialId) => {
-    if (!window.confirm('Delete this course material from the shared AI knowledge base?')) return;
-    try {
-      await apiService.deleteMaterial(materialCourseId, materialId);
-      triggerToast('Course material deleted.');
-      loadCourseMaterials(materialCourseId);
-    } catch (error) {
-      triggerToast(getUserFacingError(error, 'Unable to delete course material.'));
+    if (!materialId) {
+      triggerToast('This material is missing an ID. Please reload materials and try again.');
+      return;
     }
+    confirmDanger({
+      title: 'Delete course material?',
+      content: 'This removes the shared material from the course AI knowledge base.',
+      okText: 'Delete',
+      onOk: async () => {
+        try {
+          await apiService.deleteMaterial(materialCourseId, materialId);
+          triggerToast('Course material deleted.');
+          loadCourseMaterials(materialCourseId);
+        } catch (error) {
+          triggerToast(getUserFacingError(error, 'Unable to delete course material.'));
+        }
+      },
+    });
   };
   const handleDownloadStudentTemplate = async () => {
     try {
@@ -369,16 +454,24 @@ function AdminAcademic({ triggerToast, currentUser }) {
               <Card title="Student Enrollments Search" hoverable>
                 <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
                   <Input
-                    placeholder="Enter Student ID (e.g. student-a1)"
+                    placeholder="Enter user ID, email, or student code"
                     value={enrollmentSearchId}
                     onChange={(e) => setEnrollmentSearchId(e.target.value)}
                     onPressEnter={loadStudentEnrollments}
+                    allowClear
                   />
-                  <Button type="primary" icon={<Search size={14} />} onClick={loadStudentEnrollments}>Search</Button>
+                  <Button
+                    type="primary"
+                    icon={<Search size={14} />}
+                    onClick={loadStudentEnrollments}
+                    loading={enrollmentsLoading}
+                  >
+                    Search
+                  </Button>
                 </div>
                 <Table
                   dataSource={studentEnrollments}
-                  rowKey="id"
+                  rowKey={(record) => record.id || record._id || `${record.studentId}-${record.courseId}-${record.classId}`}
                   size="small"
                   loading={enrollmentsLoading}
                   pagination={false}
@@ -388,7 +481,7 @@ function AdminAcademic({ triggerToast, currentUser }) {
                     { title: 'Class Code', dataIndex: 'classId', key: 'class' },
                     { title: 'Status', dataIndex: 'status', key: 'status', render: v => <Tag color={v === 'ACTIVE' ? 'green' : 'default'}>{v || 'ACTIVE'}</Tag> }
                   ]}
-                  locale={{ emptyText: 'No enrollment records loaded. Enter a Student ID and click Search.' }}
+                  locale={{ emptyText: 'No enrollment records loaded. Enter a user ID, email, or student code and click Search.' }}
                 />
               </Card>
             </Col>
@@ -590,8 +683,15 @@ function AdminAcademic({ triggerToast, currentUser }) {
                     <p className="ant-upload-text">Choose a course material file</p>
                     <p className="ant-upload-hint">This upload is course-wide. Class ID is not sent.</p>
                   </Dragger>
-                  <Button type="primary" htmlType="submit" block icon={<UploadOutlined />} disabled={!materialCourseId || !materialFile}>
-                    Upload Course Material
+                  <Button
+                    type="primary"
+                    htmlType="submit"
+                    block
+                    icon={<UploadOutlined />}
+                    loading={materialUploadBusy}
+                    disabled={!materialCourseId || !materialFile || materialUploadBusy}
+                  >
+                    {materialUploadBusy ? 'Uploading...' : 'Upload Course Material'}
                   </Button>
                 </Form>
               </Card>
@@ -604,7 +704,7 @@ function AdminAcademic({ triggerToast, currentUser }) {
               >
                 <Table
                   dataSource={courseMaterials}
-                  rowKey="id"
+                  rowKey={(record) => getRecordId(record) || `${record.courseId}-${record.title}-${record.createdAt}`}
                   size="small"
                   loading={materialsLoading}
                   pagination={{ pageSize: 8 }}
@@ -616,14 +716,40 @@ function AdminAcademic({ triggerToast, currentUser }) {
                     {
                       title: 'Actions',
                       key: 'actions',
-                      width: 230,
-                      render: (_, record) => (
-                        <Space size="small" wrap>
-                          <Button size="small" icon={<DownloadOutlined />} onClick={() => handleDownloadMaterial(record.id, record.title)}>Download</Button>
-                          <Button size="small" icon={<Database size={13} />} onClick={() => handleReindexMaterial(record.id)}>Reindex</Button>
-                          <Button size="small" danger icon={<Trash2 size={13} />} onClick={() => handleDeleteMaterial(record.id)}>Delete</Button>
-                        </Space>
-                      )
+                      width: 86,
+                      align: 'center',
+                      render: (_, record) => {
+                        const materialId = getRecordId(record);
+                        return (
+                          <Dropdown
+                            trigger={['click']}
+                            placement="bottomRight"
+                            menu={{
+                              items: [
+                                { key: 'download', icon: <DownloadOutlined />, label: 'Download' },
+                                { key: 'reindex', icon: <Database size={14} />, label: 'Reindex' },
+                                { type: 'divider' },
+                                { key: 'delete', icon: <Trash2 size={14} />, label: 'Delete', danger: true },
+                              ],
+                              onClick: ({ key, domEvent }) => {
+                                domEvent.stopPropagation();
+                                if (key === 'download') handleDownloadMaterial(materialId, record.title);
+                                if (key === 'reindex') handleReindexMaterial(materialId);
+                                if (key === 'delete') handleDeleteMaterial(materialId);
+                              },
+                            }}
+                          >
+                            <Button
+                              type="text"
+                              size="small"
+                              className="conversation-more-button"
+                              icon={<MoreHorizontal size={17} />}
+                              onClick={(event) => event.stopPropagation()}
+                              aria-label="Material actions"
+                            />
+                          </Dropdown>
+                        );
+                      }
                     }
                   ]}
                   locale={{ emptyText: materialCourseId ? 'No course materials uploaded yet.' : 'Choose a course to load materials.' }}

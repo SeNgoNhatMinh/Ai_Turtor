@@ -22,6 +22,8 @@ function StudentPortal({
   setCourseId,
   classId,
   setClassId,
+  courseOptions = [],
+  classOptions = [],
   isDarkMode = false,
   sessions,
   activeSessionId,
@@ -352,6 +354,8 @@ function StudentPortal({
                 setCourseId={setCourseId}
                 classId={classId}
                 setClassId={setClassId}
+                courseOptions={courseOptions}
+                classOptions={classOptions}
                 isDarkMode={isDarkMode}
                 messages={messages}
                 chatInput={chatInput}
