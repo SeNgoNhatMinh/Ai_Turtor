@@ -18,12 +18,16 @@ function MentorSupport({
   escalationsError,
   chatUnreadCount = 0,
   chatRoomDetail,
+  isEscChatSending = false,
   loadEscalations,
   onSelectEscalation,
   onSendEscalationMsg,
   onOpenMentorSelect,
   onCloseSupportChat,
 }) {
+  const isLiveSupport = selectedEscalation && ['IN_CHAT', 'ASSIGNED', 'ACTIVE'].includes(String(selectedEscalation.status || '').toUpperCase());
+  const canSendMessage = isLiveSupport && Boolean(escChatInput.trim()) && !isEscChatSending;
+
   return (
     <div className="portal-section">
       <PageHeader title={uiCopy.student.support.title} description={uiCopy.student.support.subtitle} />
@@ -75,7 +79,7 @@ function MentorSupport({
 
         <Card className="support-detail-card" styles={{ body: { flex: 1, display: 'flex', flexDirection: 'column', padding: 0 } }}>
           {selectedEscalation ? (
-            selectedEscalation.status === 'ASSIGNED' ? (
+            isLiveSupport ? (
               <>
                 <div className="workspace-toolbar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px' }}>
                   <Title level={5} style={{ margin: 0 }}>Live Chat: Support Mentor</Title>
@@ -101,11 +105,12 @@ function MentorSupport({
                 <div className="chat-input-row">
                   <Input.Search
                     placeholder="Enter a message for your mentor..."
-                    enterButton={<Button type="primary" icon={<SendOutlined />}>Send</Button>}
+                    enterButton={<Button type="primary" icon={<SendOutlined />} loading={isEscChatSending} disabled={!canSendMessage}>Send</Button>}
                     size="large"
                     value={escChatInput}
                     onChange={(event) => setEscChatInput(event.target.value)}
                     onSearch={onSendEscalationMsg}
+                    disabled={isEscChatSending}
                   />
                 </div>
               </>
@@ -114,8 +119,14 @@ function MentorSupport({
                 <RobotOutlined style={{ fontSize: 48, color: '#F37021', marginBottom: 16 }} />
                 <Title level={4}>A mentor is ready to help</Title>
                 <Paragraph style={{ textAlign: 'center' }}>
-                  Which mentor would you like to answer this question?
+                  Which mentor would you like to answer this AI Tutor Chat question?
                 </Paragraph>
+                {(selectedEscalation.question || selectedEscalation.questionPreview || selectedEscalation.title) && (
+                  <div className="mentor-question-preview">
+                    <span>Question from AI Tutor Chat</span>
+                    <p>{selectedEscalation.question || selectedEscalation.questionPreview || selectedEscalation.title}</p>
+                  </div>
+                )}
                 <Button type="primary" size="large" onClick={() => onOpenMentorSelect(selectedEscalation)}>
                   Choose mentor
                 </Button>

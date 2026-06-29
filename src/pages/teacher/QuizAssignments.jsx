@@ -1,0 +1,222 @@
+import { useEffect, useState } from 'react';
+import { Button, Card, Empty, Form, Input, InputNumber, List, Modal, Select, Space, Tag, Typography } from 'antd';
+import { apiService } from '../../services/api';
+import { getUserFacingError } from '../../services/apiClient';
+import QuizDraftEditor from './QuizDraftEditor';
+import '../student/Quiz.css';
+
+const { Text, Title } = Typography;
+
+function QuizAssignments({ teacherId, courseId, classId, teacherStudents = [], triggerToast }) {
+  const [form] = Form.useForm();
+  const [assignments, setAssignments] = useState([]);
+  const [draft, setDraft] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [publishOpen, setPublishOpen] = useState(false);
+  const [publishTarget, setPublishTarget] = useState('CLASS');
+  const [selectedStudents, setSelectedStudents] = useState([]);
+  const [reviewSessionId, setReviewSessionId] = useState('');
+  const [reviewScore, setReviewScore] = useState(10);
+  const [reviewFeedback, setReviewFeedback] = useState('');
+
+  const loadAssignments = async () => {
+    if (!teacherId) return;
+    try {
+      setAssignments(await apiService.getTeacherQuizAssignments(teacherId));
+    } catch (error) {
+      triggerToast?.(getUserFacingError(error, 'Unable to load quiz assignments.'));
+    }
+  };
+
+  useEffect(() => {
+    loadAssignments();
+  }, [teacherId, courseId]);
+
+  const generateDraft = async (values) => {
+    setLoading(true);
+    try {
+      const nextDraft = await apiService.generateTeacherQuizDraft(teacherId, courseId, {
+        classId,
+        ...values,
+      });
+      setDraft(nextDraft);
+      await loadAssignments();
+    } catch (error) {
+      triggerToast?.(getUserFacingError(error, 'Not enough indexed course material to generate this quiz. Please upload or reindex materials first.'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const saveDraft = async (payload) => {
+    const assignmentId = draft?.assignmentId || draft?.id;
+    if (!assignmentId) return;
+    setSaving(true);
+    try {
+      const updated = await apiService.updateQuizAssignment(assignmentId, payload);
+      setDraft(updated);
+      await loadAssignments();
+      triggerToast?.('Quiz draft saved.');
+    } catch (error) {
+      triggerToast?.(getUserFacingError(error, 'Unable to save quiz draft.'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const deleteDraft = async (assignment) => {
+    const assignmentId = assignment?.assignmentId || assignment?.id;
+    if (!assignmentId) return;
+    try {
+      await apiService.deleteQuizAssignment(assignmentId);
+      if ((draft?.assignmentId || draft?.id) === assignmentId) setDraft(null);
+      await loadAssignments();
+      triggerToast?.('Quiz draft deleted.');
+    } catch (error) {
+      triggerToast?.(getUserFacingError(error, 'Unable to delete quiz draft.'));
+    }
+  };
+
+  const publishDraft = async () => {
+    const assignmentId = draft?.assignmentId || draft?.id;
+    if (!assignmentId) return;
+    try {
+      await apiService.publishQuizAssignment(assignmentId, {
+        targetType: publishTarget,
+        targetStudentIds: publishTarget === 'STUDENTS' ? selectedStudents : [],
+      });
+      setPublishOpen(false);
+      await loadAssignments();
+      triggerToast?.('Quiz assignment published.');
+    } catch (error) {
+      triggerToast?.(getUserFacingError(error, 'Unable to publish quiz assignment.'));
+    }
+  };
+
+  const submitTeacherReview = async () => {
+    if (!reviewSessionId.trim()) {
+      triggerToast?.('Enter a quiz session ID first.');
+      return;
+    }
+    try {
+      await apiService.teacherReviewQuiz(reviewSessionId.trim(), {
+        reviewedScore: Number(reviewScore),
+        feedback: reviewFeedback,
+      });
+      setReviewSessionId('');
+      setReviewFeedback('');
+      triggerToast?.('Teacher review saved.');
+    } catch (error) {
+      triggerToast?.(getUserFacingError(error, 'Unable to save teacher quiz review.'));
+    }
+  };
+
+  return (
+    <div className="portal-section quiz-page">
+      <div className="quiz-page-header">
+        <div>
+          <Title level={3} style={{ margin: 0 }}>Quiz Assignments</Title>
+          <Text type="secondary">Generate grounded quiz drafts from indexed materials, review them, then publish to a class or selected students.</Text>
+        </div>
+        <Tag color="orange">Course: {courseId}</Tag>
+      </div>
+
+      <div className="quiz-grid">
+        <Card className="quiz-card" title="Generate draft">
+          <Form form={form} layout="vertical" onFinish={generateDraft} initialValues={{ title: '', topic: '', suggestionText: '', questionCount: 5 }}>
+            <Form.Item name="title" label="Quiz title" rules={[{ required: true, message: 'Title is required' }]}>
+              <Input placeholder="Example: PRJ301 JPA review quiz" />
+            </Form.Item>
+            <Form.Item name="topic" label="Topic">
+              <Input placeholder="Example: JPA relationships" />
+            </Form.Item>
+            <Form.Item name="suggestionText" label="Learning goal / suggestion">
+              <Input.TextArea rows={2} />
+            </Form.Item>
+            <Form.Item name="questionCount" label="Question count">
+              <InputNumber min={3} max={20} />
+            </Form.Item>
+            <Button type="primary" htmlType="submit" loading={loading}>Generate draft quiz</Button>
+          </Form>
+        </Card>
+
+        <Card className="quiz-card" title="Teacher review final score">
+          <Space direction="vertical" style={{ width: '100%' }}>
+            <Input value={reviewSessionId} onChange={(event) => setReviewSessionId(event.target.value)} placeholder="Quiz session ID" />
+            <InputNumber min={0} max={100} value={reviewScore} onChange={(value) => setReviewScore(value || 0)} addonBefore="Final score" />
+            <Input.TextArea rows={3} value={reviewFeedback} onChange={(event) => setReviewFeedback(event.target.value)} placeholder="Teacher feedback" />
+            <Button onClick={submitTeacherReview}>Save teacher review</Button>
+          </Space>
+        </Card>
+      </div>
+
+      {draft && (
+        <Space direction="vertical" size={12} style={{ width: '100%' }}>
+          <QuizDraftEditor draft={draft} onSave={saveDraft} saving={saving} />
+          <Space>
+            <Button type="primary" onClick={() => setPublishOpen(true)}>Publish draft</Button>
+            <Button danger onClick={() => deleteDraft(draft)}>Delete draft</Button>
+          </Space>
+        </Space>
+      )}
+
+      <Card className="quiz-card" title="Teacher quiz assignments">
+        {assignments.length ? (
+          <List
+            dataSource={assignments}
+            renderItem={(item) => (
+              <List.Item
+                actions={[
+                  <Button key="edit" size="small" onClick={() => setDraft(item)}>Edit</Button>,
+                  <Button key="publish" size="small" type="primary" onClick={() => { setDraft(item); setPublishOpen(true); }}>Publish</Button>,
+                  <Button key="delete" size="small" danger onClick={() => deleteDraft(item)}>Delete</Button>,
+                ]}
+              >
+                <List.Item.Meta
+                  title={item.title || item.topic || 'Quiz assignment'}
+                  description={<span>{item.status || 'Draft'} {item.classId ? `- ${item.classId}` : ''}</span>}
+                />
+              </List.Item>
+            )}
+          />
+        ) : (
+          <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No quiz assignments yet" />
+        )}
+      </Card>
+
+      <Modal
+        title="Publish quiz assignment"
+        open={publishOpen}
+        onCancel={() => setPublishOpen(false)}
+        onOk={publishDraft}
+        okButtonProps={{ disabled: publishTarget === 'STUDENTS' && selectedStudents.length === 0 }}
+      >
+        <Space direction="vertical" style={{ width: '100%' }}>
+          <Select
+            value={publishTarget}
+            onChange={setPublishTarget}
+            options={[
+              { value: 'CLASS', label: 'Entire class' },
+              { value: 'STUDENTS', label: 'Selected students' },
+            ]}
+          />
+          {publishTarget === 'STUDENTS' && (
+            <Select
+              mode="multiple"
+              value={selectedStudents}
+              onChange={setSelectedStudents}
+              placeholder="Choose students"
+              options={(teacherStudents || []).map((student) => ({
+                value: student.id || student.studentId,
+                label: `${student.name || student.fullName || student.id} (${student.id || student.studentId})`,
+              }))}
+            />
+          )}
+        </Space>
+      </Modal>
+    </div>
+  );
+}
+
+export default QuizAssignments;

@@ -1,12 +1,16 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Button, Card, Empty, Input, List, Modal, Progress, Spin, Tag, Typography } from 'antd';
+import { Alert, Button, Card, Empty, Input, List, Modal, Progress, Space, Spin, Tag, Tooltip, Typography } from 'antd';
 import {
   BookOutlined,
+  BulbOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
   FileTextOutlined,
+  HistoryOutlined,
   InfoCircleOutlined,
+  PlayCircleOutlined,
   PushpinOutlined,
+  QuestionCircleOutlined,
   ReloadOutlined,
   ThunderboltOutlined,
 } from '@ant-design/icons';
@@ -43,6 +47,19 @@ const getSuggestionText = (suggestion) => suggestion?.title || suggestion?.conte
 
 const normalizeSuggestionKey = (value) => String(value || '').trim().toLowerCase();
 
+const formatDateTime = (value) => {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleString([], {
+    year: 'numeric',
+    month: 'short',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
+
 const makePinnedSuggestionItem = (text) => ({
   priority: 'pinned',
   title: text,
@@ -69,6 +86,13 @@ function LearningProgress({
   pinnedSuggestions = [],
   onPinSuggestion,
   onUnpinSuggestion,
+  onStudySuggestion,
+  onCreateQuizFromSuggestion,
+  memorySummary = '',
+  recentQuestions = [],
+  memoryUpdatedAt = '',
+  courseId = '',
+  classId = '',
 }) {
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [newLearnedText, setNewLearnedText] = useState(learnedTopics ? learnedTopics.join(', ') : '');
@@ -86,6 +110,8 @@ function LearningProgress({
   const safeWeakTopics = Array.isArray(weakTopics) ? weakTopics : [];
   const safeSuggestions = Array.isArray(suggestions) ? suggestions : [];
   const safePinnedSuggestions = Array.isArray(pinnedSuggestions) ? pinnedSuggestions : [];
+  const safeRecentQuestions = Array.isArray(recentQuestions) ? recentQuestions.filter(Boolean).slice(-5).reverse() : [];
+  const formattedMemoryTime = formatDateTime(memoryUpdatedAt);
 
   const totalTopics = safeLearnedTopics.length + safeWeakTopics.length;
   const masteryRate = totalTopics > 0 ? Math.round((safeLearnedTopics.length / totalTopics) * 100) : 0;
@@ -138,7 +164,7 @@ function LearningProgress({
   if (isLoading) {
     return (
       <div className="portal-section center-state">
-        <Spin size="large" tip="Loading learning dashboard..." />
+        <Spin size="large" description="Loading learning dashboard..." />
       </div>
     );
   }
@@ -164,6 +190,11 @@ function LearningProgress({
               <Text className="learning-card-description">
                 This dashboard uses your course memory, weak topics, assignments, and mentor support history to decide what to review next.
               </Text>
+              <div className="learning-scope-row">
+                {courseId && <Tag>Course: {courseId}</Tag>}
+                {classId && <Tag>Class: {classId}</Tag>}
+                {formattedMemoryTime && <Tag>Updated: {formattedMemoryTime}</Tag>}
+              </div>
             </div>
             <div className="learning-progress-ring">
               <Progress
@@ -200,6 +231,42 @@ function LearningProgress({
             </div>
           ) : (
             <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No focus items yet" />
+          )}
+        </Card>
+      </div>
+
+      <div className="learning-context-grid">
+        <Card className="learning-card learning-context-card" title="Why these suggestions?">
+          {memorySummary ? (
+            <Alert
+              type="info"
+              showIcon
+              icon={<BulbOutlined />}
+              message="Course memory summary"
+              description={memorySummary}
+            />
+          ) : (
+            <Alert
+              type="warning"
+              showIcon
+              message="No memory summary yet"
+              description="Ask AI Tutor questions or complete quizzes in this course so the dashboard has enough learning evidence."
+            />
+          )}
+        </Card>
+
+        <Card className="learning-card learning-context-card" title="Recent learning signals">
+          {safeRecentQuestions.length ? (
+            <div className="learning-recent-list">
+              {safeRecentQuestions.map((question, index) => (
+                <div key={`${question}-${index}`} className="learning-recent-item">
+                  <HistoryOutlined />
+                  <span>{question}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No recent questions recorded yet" />
           )}
         </Card>
       </div>
@@ -285,22 +352,47 @@ function LearningProgress({
                   <Text strong>{suggestion.title || 'Study suggestion'}</Text>
                   <Text type="secondary">{suggestion.content || 'Practice and review this topic.'}</Text>
                 </div>
-                {(onPinSuggestion || onUnpinSuggestion) && (
-                  <Button
-                    size="small"
-                    type={isPinned ? 'primary' : 'default'}
-                    icon={<PushpinOutlined />}
-                    onClick={() => {
-                      if (isPinned) {
-                        onUnpinSuggestion?.(suggestionText);
-                      } else {
-                        onPinSuggestion?.(suggestionText);
-                      }
-                    }}
-                  >
-                    {isPinned ? 'Pinned' : 'Pin'}
-                  </Button>
-                )}
+                <Space className="learning-suggestion-actions" size={8} wrap>
+                  {onStudySuggestion && (
+                    <Tooltip title="Open this topic in AI Tutor Chat">
+                      <Button
+                        size="small"
+                        type="primary"
+                        icon={<PlayCircleOutlined />}
+                        onClick={() => onStudySuggestion(suggestionText)}
+                      >
+                        Study now
+                      </Button>
+                    </Tooltip>
+                  )}
+                  {onCreateQuizFromSuggestion && (
+                    <Tooltip title="Create a self-study quiz from indexed course materials">
+                      <Button
+                        size="small"
+                        icon={<QuestionCircleOutlined />}
+                        onClick={() => onCreateQuizFromSuggestion(suggestionText)}
+                      >
+                        Create quiz
+                      </Button>
+                    </Tooltip>
+                  )}
+                  {(onPinSuggestion || onUnpinSuggestion) && (
+                    <Button
+                      size="small"
+                      type={isPinned ? 'default' : 'text'}
+                      icon={<PushpinOutlined />}
+                      onClick={() => {
+                        if (isPinned) {
+                          onUnpinSuggestion?.(suggestionText);
+                        } else {
+                          onPinSuggestion?.(suggestionText);
+                        }
+                      }}
+                    >
+                      {isPinned ? 'Unpin' : 'Pin'}
+                    </Button>
+                  )}
+                </Space>
               </List.Item>
             );
           }}

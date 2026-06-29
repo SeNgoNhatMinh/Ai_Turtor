@@ -1,11 +1,9 @@
-import { Suspense, lazy, useState } from 'react';
+import { useState } from 'react';
 import { apiService } from '../services/api';
 import { User, Lock, Mail, ArrowRight, UserPlus, GraduationCap, BookOpen, Pencil } from 'lucide-react';
 import RobotHeadMascot from '../components/RobotHeadMascot';
 import { validateAuthForm } from '../utils/validators';
 import '../index.css';
-
-const LoginBabylonBackground = lazy(() => import('../components/LoginBabylonBackground'));
 
 function Login({ onLoginSuccess, triggerToast }) {
   const [isLoginView, setIsLoginView] = useState(true);
@@ -64,9 +62,6 @@ function Login({ onLoginSuccess, triggerToast }) {
 
   return (
     <main className="login-page">
-      <Suspense fallback={null}>
-        <LoginBabylonBackground />
-      </Suspense>
       <div className="login-shell">
         <section className="login-brand-panel" aria-label="FPT University AI Tutor introduction">
           <div className="login-brand-kicker">AI-powered learning platform</div>

@@ -13,4 +13,9 @@ export const studentApi = {
   getImprovePlans: apiService.getImprovePlans,
   getLatestImprovePlan: apiService.getLatestImprovePlan,
   completeImprovePlan: apiService.completeImprovePlan,
+  generateSelfQuiz: apiService.generateSelfQuiz,
+  submitQuiz: apiService.submitQuiz,
+  getStudentQuizHistory: apiService.getStudentQuizHistory,
+  getAssignedQuizzes: apiService.getAssignedQuizzes,
+  startQuizAssignmentAttempt: apiService.startQuizAssignmentAttempt,
 };

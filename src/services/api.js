@@ -1,7 +1,8 @@
-import { API_BASE_URL, blobRequest, request, uploadRequest } from './apiClient';
+import { API_BASE_URL, API_TIMEOUTS, blobRequest, request, uploadRequest } from './apiClient';
 import { asArray } from './normalizers';
 import { encodePath } from '../config/env';
 import { normalizeReviewMode } from '../utils/validators';
+import { authApi } from './authApi';
 
 const normalizeAnswerReviewMode = (mode) => {
     return normalizeReviewMode(mode);
@@ -9,30 +10,26 @@ const normalizeAnswerReviewMode = (mode) => {
 
 export const apiService = {
     // 0. User Authentication
-    async login(email, password) {
-        return await request(`${API_BASE_URL}/users/login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password })
-        });
-    },
+    login: authApi.login,
 
-    async register(userData) {
-        return await request(`${API_BASE_URL}/users/register`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(userData)
-        });
-    },
+    register: authApi.register,
 
     // 1. AI Conversations Sessions
-    async getConversations(userId) {
+    async getConversations(userId, courseId) {
         const params = new URLSearchParams({ userId });
+        if (courseId) params.append('courseId', courseId);
         return await request(`${API_BASE_URL}/ai/conversations?${params}`);
     },
 
-    async createConversation(userId) {
+    async searchConversations(userId, keyword, courseId) {
+        const params = new URLSearchParams({ userId, keyword });
+        if (courseId) params.append('courseId', courseId);
+        return await request(`${API_BASE_URL}/ai/conversations/search?${params}`);
+    },
+
+    async createConversation(userId, courseId) {
         const params = new URLSearchParams({ userId });
+        if (courseId) params.append('courseId', courseId);
         return await request(`${API_BASE_URL}/ai/conversations?${params}`, { method: 'POST' });
     },
 
@@ -54,13 +51,33 @@ export const apiService = {
         });
     },
 
+    async pinChatMessage(sessionId, messageId, userId) {
+        const params = new URLSearchParams({ userId });
+        return await request(`${API_BASE_URL}/ai/conversations/${encodePath(sessionId)}/messages/${encodePath(messageId)}/pin?${params}`, {
+            method: 'PATCH'
+        });
+    },
+
+    async unpinChatMessage(sessionId, messageId, userId) {
+        const params = new URLSearchParams({ userId });
+        return await request(`${API_BASE_URL}/ai/conversations/${encodePath(sessionId)}/messages/${encodePath(messageId)}/pin?${params}`, {
+            method: 'DELETE'
+        });
+    },
+
+    async getPinnedMessages(sessionId, userId) {
+        const params = new URLSearchParams({ userId });
+        return await request(`${API_BASE_URL}/ai/conversations/${encodePath(sessionId)}/pinned-messages?${params}`);
+    },
+
     // 2. Query AI Tutor / Code Review
     async sendAiQuery(payload, userId) {
         const params = new URLSearchParams({ userId });
         return await request(`${API_BASE_URL}/ai/query?${params}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
+            body: JSON.stringify(payload),
+            timeoutMs: API_TIMEOUTS.ai
         });
     },
 
@@ -76,13 +93,31 @@ export const apiService = {
         return await request(`${API_BASE_URL}/code-mentor/query`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
+            body: JSON.stringify(payload),
+            timeoutMs: API_TIMEOUTS.ai
         });
     },
 
     // 3. Materials Upload (Ingestion)
     async uploadMaterial(courseId, formData) {
-        return await uploadRequest(`${API_BASE_URL}/courses/${encodePath(courseId)}/materials/upload`, formData);
+        return await uploadRequest(
+            `${API_BASE_URL}/courses/${encodePath(courseId)}/materials/upload`,
+            formData,
+            'Upload material failed',
+            { timeoutMs: API_TIMEOUTS.upload }
+        );
+    },
+
+    async getMaterial(courseId, materialId) {
+        return await request(`${API_BASE_URL}/courses/${encodePath(courseId)}/materials/${encodePath(materialId)}`);
+    },
+
+    async updateMaterialMetadata(courseId, materialId, payload) {
+        return await request(`${API_BASE_URL}/courses/${encodePath(courseId)}/materials/${encodePath(materialId)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
     },
 
     async deleteMaterial(courseId, materialId) {
@@ -144,6 +179,22 @@ export const apiService = {
 
     async getAssignmentSubmissions(assignmentId, teacherId) {
         return await request(`${API_BASE_URL}/mentor/assignments/${assignmentId}/submissions?teacherId=${teacherId}`);
+    },
+
+    async getAssignment(assignmentId) {
+        return await request(`${API_BASE_URL}/assignments/${encodePath(assignmentId)}`);
+    },
+
+    async updateAssignment(assignmentId, payload) {
+        return await request(`${API_BASE_URL}/mentor/assignments/${encodePath(assignmentId)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+    },
+
+    async deleteAssignment(assignmentId) {
+        return await request(`${API_BASE_URL}/mentor/assignments/${encodePath(assignmentId)}`, { method: 'DELETE' });
     },
 
     async downloadAssignmentFile(assignmentId) {
@@ -322,11 +373,23 @@ export const apiService = {
     async getSemesters() {
         return asArray(await request(`${API_BASE_URL}/academic/semesters`), 'semesters', 'content');
     },
+    async getSemester(semesterCode) {
+        return await request(`${API_BASE_URL}/admin/semesters/${encodePath(semesterCode)}`);
+    },
     async createSemester(payload) {
         return await request(`${API_BASE_URL}/academic/semesters`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
+    },
+    async updateSemester(semesterCode, payload) {
+        return await request(`${API_BASE_URL}/admin/semesters/${encodePath(semesterCode)}`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+    },
+    async deleteSemester(semesterCode) {
+        return await request(`${API_BASE_URL}/admin/semesters/${encodePath(semesterCode)}`, { method: 'DELETE' });
     },
     async getCourses(semesterId = '') {
         const params = new URLSearchParams();
@@ -334,14 +397,29 @@ export const apiService = {
         const qs = params.toString();
         return asArray(await request(`${API_BASE_URL}/academic/courses${qs ? `?${qs}` : ''}`), 'courses', 'content');
     },
+    async getCourse(courseId) {
+        return await request(`${API_BASE_URL}/courses/${encodePath(courseId)}`);
+    },
     async createCourse(payload) {
         return await request(`${API_BASE_URL}/academic/courses`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
     },
+    async updateCourse(courseId, payload) {
+        return await request(`${API_BASE_URL}/admin/courses/${encodePath(courseId)}`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+    },
+    async deleteCourse(courseId) {
+        return await request(`${API_BASE_URL}/admin/courses/${encodePath(courseId)}`, { method: 'DELETE' });
+    },
     async getClassSections(courseId) {
-        return asArray(await request(`${API_BASE_URL}/academic/courses/${courseId}/class-sections`), 'classSections', 'classes', 'content');
+        return asArray(await request(`${API_BASE_URL}/academic/courses/${encodePath(courseId)}/class-sections`), 'classSections', 'classes', 'content');
+    },
+    async getClassSection(courseId, classId) {
+        return await request(`${API_BASE_URL}/courses/${encodePath(courseId)}/class-sections/${encodePath(classId)}`);
     },
     async createClassSection(payload) {
         return await request(`${API_BASE_URL}/academic/class-sections`, {
@@ -349,13 +427,39 @@ export const apiService = {
             body: JSON.stringify(payload)
         });
     },
+    async updateClassSection(courseId, classId, payload) {
+        return await request(`${API_BASE_URL}/admin/courses/${encodePath(courseId)}/class-sections/${encodePath(classId)}`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+    },
+    async deleteClassSection(courseId, classId) {
+        return await request(`${API_BASE_URL}/admin/courses/${encodePath(courseId)}/class-sections/${encodePath(classId)}`, { method: 'DELETE' });
+    },
     async getClassStudents(courseId, classId) {
-        return await request(`${API_BASE_URL}/academic/courses/${courseId}/class-sections/${classId}/students`);
+        return await request(`${API_BASE_URL}/academic/courses/${encodePath(courseId)}/class-sections/${encodePath(classId)}/students`);
     },
     async createEnrollment(payload) {
         return await request(`${API_BASE_URL}/academic/enrollments`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
+        });
+    },
+    async getEnrollment(enrollmentId) {
+        return await request(`${API_BASE_URL}/admin/enrollments/${encodePath(enrollmentId)}`);
+    },
+    async updateEnrollment(enrollmentId, payload) {
+        return await request(`${API_BASE_URL}/admin/enrollments/${encodePath(enrollmentId)}`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+    },
+    async deleteEnrollment(enrollmentId) {
+        return await request(`${API_BASE_URL}/admin/enrollments/${encodePath(enrollmentId)}`, { method: 'DELETE' });
+    },
+    async removeStudentFromClass(courseId, classId, studentId) {
+        return await request(`${API_BASE_URL}/courses/${encodePath(courseId)}/class-sections/${encodePath(classId)}/students/${encodePath(studentId)}`, {
+            method: 'DELETE'
         });
     },
     async getTeacherClassSections(teacherId) {
@@ -495,6 +599,14 @@ export const apiService = {
             method: 'DELETE'
         });
     },
+    async learnSuggestion(studentId, courseId, payload) {
+        return await request(`${API_BASE_URL}/tutor/students/${encodePath(studentId)}/courses/${encodePath(courseId)}/suggestions/learn`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+            timeoutMs: API_TIMEOUTS.ai
+        });
+    },
     async getCourseMemories(courseId, classId = '') {
         const params = new URLSearchParams();
         if (classId) params.append('classId', classId);
@@ -520,7 +632,89 @@ export const apiService = {
     },
 
     // =============================================
-    // 18. Misc APIs
+    // 18. Practice Quiz APIs
+    // =============================================
+    async generateSelfQuiz(studentId, courseId, payload) {
+        return await request(`${API_BASE_URL}/tutor/students/${encodePath(studentId)}/courses/${encodePath(courseId)}/quizzes/generate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+            timeoutMs: API_TIMEOUTS.quizGeneration
+        });
+    },
+
+    async submitQuiz(quizSessionId, payload) {
+        return await request(`${API_BASE_URL}/tutor/quizzes/${encodePath(quizSessionId)}/submit`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+            timeoutMs: API_TIMEOUTS.ai
+        });
+    },
+
+    async getStudentQuizHistory(studentId, courseId) {
+        return asArray(await request(`${API_BASE_URL}/tutor/students/${encodePath(studentId)}/courses/${encodePath(courseId)}/quizzes`), 'quizzes', 'content');
+    },
+
+    async getAssignedQuizzes(studentId, courseId, classId = '') {
+        const params = new URLSearchParams();
+        if (classId) params.append('classId', classId);
+        const qs = params.toString();
+        return asArray(await request(`${API_BASE_URL}/tutor/students/${encodePath(studentId)}/courses/${encodePath(courseId)}/quiz-assignments${qs ? `?${qs}` : ''}`), 'assignments', 'content');
+    },
+
+    async startQuizAssignmentAttempt(assignmentId, studentId) {
+        const params = new URLSearchParams({ studentId });
+        return await request(`${API_BASE_URL}/tutor/quiz-assignments/${encodePath(assignmentId)}/attempts?${params}`, {
+            method: 'POST',
+            timeoutMs: API_TIMEOUTS.ai
+        });
+    },
+
+    async generateTeacherQuizDraft(teacherId, courseId, payload) {
+        return await request(`${API_BASE_URL}/tutor/teachers/${encodePath(teacherId)}/courses/${encodePath(courseId)}/quiz-assignments/generate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+            timeoutMs: API_TIMEOUTS.quizGeneration
+        });
+    },
+
+    async updateQuizAssignment(assignmentId, payload) {
+        return await request(`${API_BASE_URL}/tutor/quiz-assignments/${encodePath(assignmentId)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+    },
+
+    async deleteQuizAssignment(assignmentId) {
+        return await request(`${API_BASE_URL}/tutor/quiz-assignments/${encodePath(assignmentId)}`, { method: 'DELETE' });
+    },
+
+    async publishQuizAssignment(assignmentId, payload) {
+        return await request(`${API_BASE_URL}/tutor/quiz-assignments/${encodePath(assignmentId)}/publish`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+    },
+
+    async getTeacherQuizAssignments(teacherId) {
+        return asArray(await request(`${API_BASE_URL}/tutor/teachers/${encodePath(teacherId)}/quiz-assignments`), 'assignments', 'content');
+    },
+
+    async teacherReviewQuiz(quizSessionId, payload) {
+        return await request(`${API_BASE_URL}/tutor/quizzes/${encodePath(quizSessionId)}/teacher-review`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+            timeoutMs: API_TIMEOUTS.ai
+        });
+    },
+
+    // =============================================
+    // 19. Misc APIs
     // =============================================
     async getCourseMaterials(courseId, classId = '') {
         const params = new URLSearchParams();
@@ -539,15 +733,15 @@ export const apiService = {
     },
     async uploadCodeFileAI(formData, queryParams) {
         const params = new URLSearchParams(queryParams);
-        return await uploadRequest(`${API_BASE_URL}/ai/code/upload?${params}`, formData);
+        return await uploadRequest(`${API_BASE_URL}/ai/code/upload?${params}`, formData, 'Upload code file failed', { timeoutMs: API_TIMEOUTS.ai });
     },
     async uploadCodeFileMentor(formData, queryParams) {
         const params = new URLSearchParams(queryParams);
-        return await uploadRequest(`${API_BASE_URL}/code-mentor/upload?${params}`, formData);
+        return await uploadRequest(`${API_BASE_URL}/code-mentor/upload?${params}`, formData, 'Upload code file failed', { timeoutMs: API_TIMEOUTS.ai });
     },
 
     // =============================================
-    // 19. Learning Dashboards
+    // 20. Learning Dashboards
     // =============================================
     async getStudentDashboard(studentId, courseId = '') {
         const params = new URLSearchParams();
@@ -572,7 +766,7 @@ export const apiService = {
     },
 
     // =============================================
-    // 20. AI Answer Reviews
+    // 21. AI Answer Reviews
     // =============================================
     async getAnswerReviews(filters = {}) {
         const params = new URLSearchParams();
