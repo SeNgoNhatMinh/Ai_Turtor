@@ -18,6 +18,19 @@ const HEATMAP_CLASS = {
   strong: 'val-none',
 };
 
+const getSupportMessageTime = (message) => {
+  const value = message?.sentAt || message?.timestamp || message?.createdAt;
+  const time = new Date(value).getTime();
+  return Number.isFinite(time) ? time : null;
+};
+
+const normalizeSupportHistory = (history) => {
+  const list = Array.isArray(history) ? history : [];
+  const hasTimestamps = list.some((item) => getSupportMessageTime(item) !== null);
+  if (!hasTimestamps) return [...list].reverse();
+  return [...list].sort((a, b) => (getSupportMessageTime(a) ?? 0) - (getSupportMessageTime(b) ?? 0));
+};
+
 function TeacherPortal({
   activeTab,
   courseId,
@@ -81,6 +94,7 @@ function TeacherPortal({
   const [teacherChatMessages, setTeacherChatMessages] = useState([]);
   const [teacherChatInput, setTeacherChatInput] = useState('');
   const [chatRoomDetail, setChatRoomDetail] = useState(null);
+  const [isTeacherChatSending, setIsTeacherChatSending] = useState(false);
   const teacherChatEndRef = useRef(null);
 
   useEffect(() => {
@@ -157,22 +171,32 @@ function TeacherPortal({
       if (onMarkChatRead) await onMarkChatRead(esc.chatRoomId);
       if (onGetChatDetail) setChatRoomDetail(await onGetChatDetail(esc.chatRoomId));
       const history = onGetChatHistory ? await onGetChatHistory(esc.chatRoomId) : [];
-      setTeacherChatMessages(Array.isArray(history) ? history : []);
+      setTeacherChatMessages(normalizeSupportHistory(history));
     } catch {
       setTeacherChatMessages([]);
     }
   };
 
   const onSendTeacherChat = async () => {
-    if (!teacherChatInput.trim() || !selectedChatEsc?.chatRoomId) return;
+    if (!teacherChatInput.trim() || !selectedChatEsc?.chatRoomId || isTeacherChatSending) return;
+    const content = teacherChatInput.trim();
     const msgData = {
       chatRoomId: selectedChatEsc.chatRoomId,
       senderId: teacherUserId,
-      content: teacherChatInput,
+      senderName: teacherUserId,
+      senderRole: 'MENTOR',
+      content,
     };
-    await onSendChatMessage(msgData);
-    setTeacherChatMessages((prev) => [...prev, { ...msgData, timestamp: new Date().toISOString() }]);
-    setTeacherChatInput('');
+    setIsTeacherChatSending(true);
+    try {
+      await onSendChatMessage(msgData);
+      setTeacherChatMessages((prev) => [...prev, { ...msgData, timestamp: new Date().toISOString() }]);
+      setTeacherChatInput('');
+    } catch {
+      triggerToast('Unable to send mentor message.');
+    } finally {
+      setIsTeacherChatSending(false);
+    }
   };
 
   const onCloseTeacherChat = async () => {
@@ -680,16 +704,17 @@ function TeacherPortal({
                   onSubmit={(e) => { e.preventDefault(); onSendTeacherChat(); }}
                 >
                   <div className="input-group" style={{ display: 'flex', gap: 8 }}>
-                    <input
-                      type="text"
-                      className="glass-input-field"
-                      value={teacherChatInput}
-                      onChange={(e) => setTeacherChatInput(e.target.value)}
-                      placeholder="Reply to student..."
-                    />
-                    <button type="submit" className="btn-submit-form">
-                      <Send style={{ width: 14, height: 14, display: 'inline-block' }} /> Send
-                    </button>
+	                    <input
+	                      type="text"
+	                      className="glass-input-field"
+	                      value={teacherChatInput}
+	                      onChange={(e) => setTeacherChatInput(e.target.value)}
+	                      placeholder="Reply to student..."
+                        disabled={isTeacherChatSending}
+	                    />
+	                    <button type="submit" className="btn-submit-form" disabled={!teacherChatInput.trim() || isTeacherChatSending}>
+	                      <Send style={{ width: 14, height: 14, display: 'inline-block' }} /> {isTeacherChatSending ? 'Sending...' : 'Send'}
+	                    </button>
                   </div>
                 </form>
               </>

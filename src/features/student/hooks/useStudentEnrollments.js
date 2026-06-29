@@ -3,6 +3,18 @@ import { apiService } from '../../../services/api';
 import { useAuthStore } from '../../../app/store/authStore';
 import { useUiStore } from '../../../app/store/uiStore';
 
+const normalizeCourseCode = (value) => String(value || '').trim().toUpperCase();
+
+const findAliasEnrollment = (items, requestedCourseId) => {
+  const requested = normalizeCourseCode(requestedCourseId);
+  if (!requested) return null;
+  const candidates = items.filter((item) => item.courseId && item.classId);
+  return candidates.find((item) => {
+    const canonical = normalizeCourseCode(item.courseId);
+    return canonical !== requested && canonical.startsWith(requested);
+  }) || null;
+};
+
 export function useStudentEnrollments() {
   const getStudentUserId = useAuthStore(state => state.getStudentUserId);
   const courseId = useUiStore(state => state.courseId);
@@ -39,6 +51,13 @@ export function useStudentEnrollments() {
     const sameCourseEnrollment = studentEnrollments.find((item) => item.courseId === courseId && item.classId);
     if (sameCourseEnrollment) {
       setClassId(sameCourseEnrollment.classId);
+      return;
+    }
+
+    const aliasCourseEnrollment = findAliasEnrollment(studentEnrollments, courseId);
+    if (aliasCourseEnrollment) {
+      setCourseId(aliasCourseEnrollment.courseId);
+      setClassId(aliasCourseEnrollment.classId);
       return;
     }
 

@@ -2,6 +2,12 @@ import { env } from '../config/env';
 import { getUserFacingError, httpClient, httpRequest } from './httpClient';
 
 export const API_BASE_URL = env.apiBaseUrl;
+export const API_TIMEOUTS = {
+  default: env.apiTimeoutMs,
+  ai: 180000,
+  quizGeneration: 240000,
+  upload: 180000,
+};
 
 function stripBaseUrl(url) {
   const value = String(url || '');
@@ -12,7 +18,7 @@ function stripBaseUrl(url) {
 }
 
 export async function request(url, options = {}) {
-  const { headers, body, method = 'GET', signal, responseType } = options;
+  const { headers, body, method = 'GET', signal, responseType, ...restOptions } = options;
   let parsedBody = body;
   if (typeof body === 'string' && headers?.['Content-Type']?.includes('application/json')) {
     try {
@@ -28,6 +34,7 @@ export async function request(url, options = {}) {
     body: parsedBody,
     signal,
     responseType,
+    ...restOptions,
   });
 }
 

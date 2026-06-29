@@ -1,11 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Card, message } from 'antd';
+import { Button, Card, message } from 'antd';
+import { PanelLeft } from 'lucide-react';
 import ChatSessionsPanel from './student/ChatSessionsPanel';
 import ChatWorkspace from './student/ChatWorkspace';
 import LearningProgress from './student/LearningProgress';
 import MaterialsAssignments from './student/MaterialsAssignments';
 import MentorSupport from './student/MentorSupport';
 import MentorSelectModal from './student/MentorSelectModal';
+import PracticeQuizzes from './student/PracticeQuizzes';
 import PageHeader from '../components/common/PageHeader';
 import { uiCopy } from '../constants/uiCopy';
 import { normalizeEscalation } from '../services/normalizers';
@@ -13,11 +15,26 @@ import { apiService } from '../services/api';
 import { getUserFacingError } from '../services/apiClient';
 import { validateChatInput, validateUploadFile } from '../utils/validators';
 
-const defaultLearned = ['MVC Flow', 'REST APIs', 'Spring Boot Config', 'Maven Dependencies'];
-const defaultWeak = ['JPA Relations', 'Spring Security'];
+const LIVE_SUPPORT_STATUSES = new Set(['IN_CHAT', 'ASSIGNED', 'ACTIVE']);
+
+const isLiveSupportStatus = (status) => LIVE_SUPPORT_STATUSES.has(String(status || '').toUpperCase());
+
+const getSupportMessageTime = (message) => {
+  const value = message?.sentAt || message?.timestamp || message?.createdAt;
+  const time = new Date(value).getTime();
+  return Number.isFinite(time) ? time : null;
+};
+
+const normalizeSupportHistory = (history) => {
+  const list = Array.isArray(history) ? history : [];
+  const hasTimestamps = list.some((item) => getSupportMessageTime(item) !== null);
+  if (!hasTimestamps) return [...list].reverse();
+  return [...list].sort((a, b) => (getSupportMessageTime(a) ?? 0) - (getSupportMessageTime(b) ?? 0));
+};
 
 function StudentPortal({
   activeTab,
+  switchTab,
   courseId,
   setCourseId,
   classId,
@@ -26,6 +43,7 @@ function StudentPortal({
   classOptions = [],
   isDarkMode = false,
   sessions,
+  isSessionsLoading = false,
   activeSessionId,
   activeSessionTitle,
   messages,
@@ -79,16 +97,12 @@ function StudentPortal({
   const [escModalVisible, setEscModalVisible] = useState(false);
   const [selectedMentorForEsc, setSelectedMentorForEsc] = useState(null);
   const [isEscalationsLoading, setIsEscalationsLoading] = useState(false);
+  const [isEscChatSending, setIsEscChatSending] = useState(false);
   const [escalationsError, setEscalationsError] = useState('');
   const [chatUnreadCount, setChatUnreadCount] = useState(0);
   const [chatRoomDetail, setChatRoomDetail] = useState(null);
-  const [isMobile, setIsMobile] = useState(window.innerWidth <= 1100);
-
-  useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth <= 1100);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  const [isHistoryDrawerOpen, setIsHistoryDrawerOpen] = useState(false);
+  const [quizInitialSuggestion, setQuizInitialSuggestion] = useState('');
 
   const messagesEndRef = useRef(null);
   const escMessagesEndRef = useRef(null);
@@ -145,7 +159,7 @@ function StudentPortal({
   const handleSelectEscalation = async (escalation) => {
     setSelectedEscalation(escalation);
     setChatRoomDetail(null);
-    if (escalation.status === 'ASSIGNED' && escalation.chatRoomId) {
+    if (isLiveSupportStatus(escalation.status) && escalation.chatRoomId) {
       try {
         if (onMarkChatRead) await onMarkChatRead(escalation.chatRoomId);
         if (onGetChatDetail) {
@@ -157,7 +171,7 @@ function StudentPortal({
         // Non-blocking — chat may still work via history
       }
       const history = await apiService.getChatHistory(escalation.chatRoomId);
-      setEscChatMessages(Array.isArray(history) ? history : []);
+      setEscChatMessages(normalizeSupportHistory(history));
     } else {
       setEscChatMessages([]);
     }
@@ -181,20 +195,30 @@ function StudentPortal({
   };
 
   const onSendEscalationMsg = async () => {
-    if (!escChatInput.trim() || !selectedEscalation || selectedEscalation.status !== 'ASSIGNED') return;
+    if (!escChatInput.trim() || !selectedEscalation || !isLiveSupportStatus(selectedEscalation.status) || isEscChatSending) return;
+    const content = escChatInput.trim();
     const msgData = {
       chatRoomId: selectedEscalation.chatRoomId,
       senderId: userId,
-      content: escChatInput,
+      senderName: userId,
+      senderRole: 'USER',
+      content,
     };
-    await apiService.sendChatMessage(msgData);
-    setEscChatMessages((prev) => [...prev, { ...msgData, timestamp: new Date().toISOString() }]);
-    setEscChatInput('');
+    setIsEscChatSending(true);
+    try {
+      await apiService.sendChatMessage(msgData);
+      setEscChatMessages((prev) => [...prev, { ...msgData, timestamp: new Date().toISOString() }]);
+      setEscChatInput('');
+    } catch (error) {
+      message.error(getUserFacingError(error, 'Unable to send message.'));
+    } finally {
+      setIsEscChatSending(false);
+    }
   };
 
   const onSelectMentor = async () => {
     if (!selectedMentorForEsc || !selectedEscalation) return;
-    await apiService.selectEscalationMentor({
+    const result = await apiService.selectEscalationMentor({
       questionEscalationId: selectedEscalation.id,
       userId,
       selectedMentorId: selectedMentorForEsc,
@@ -202,6 +226,14 @@ function StudentPortal({
     message.success('Mentor selected. Starting support chat...');
     setEscModalVisible(false);
     setSelectedMentorForEsc(null);
+    const nextEscalation = {
+      ...selectedEscalation,
+      status: 'IN_CHAT',
+      chatRoomId: result?.chatRoomId || selectedEscalation.chatRoomId,
+      assignedMentorName: result?.mentorName || selectedEscalation.assignedMentorName,
+      assignedMentorEmail: result?.mentorEmail || selectedEscalation.assignedMentorEmail,
+    };
+    await handleSelectEscalation(nextEscalation);
     loadEscalations();
   };
 
@@ -239,6 +271,18 @@ function StudentPortal({
       triggerToast?.('Please sign in before sending a message.');
       return;
     }
+    const hasCourseOptions = Array.isArray(courseOptions) && courseOptions.length > 0;
+    const hasValidCourse = !hasCourseOptions || courseOptions.some((item) => item?.value === courseId);
+    if (!hasValidCourse) {
+      triggerToast?.('Please choose a valid enrolled course before asking AI Tutor.');
+      return;
+    }
+    const hasClassOptions = Array.isArray(classOptions) && classOptions.length > 0;
+    const hasValidClass = !hasClassOptions || classOptions.some((item) => item?.value === classId);
+    if (!hasValidClass) {
+      triggerToast?.('Please choose a valid enrolled class before asking AI Tutor.');
+      return;
+    }
     const validation = validateChatInput(text);
     if (!validation.ok) {
       triggerToast?.(validation.message);
@@ -252,6 +296,21 @@ function StudentPortal({
     handleSendQuery(textToSend, codeSnippet, setAvatarEmotion).finally(() => {
       setIsAiLoading(false);
     });
+  };
+
+  const handleStudySuggestion = (suggestionText) => {
+    const text = String(suggestionText || '').trim();
+    if (!text) return;
+    const prompt = `Help me learn this topic step by step from the course materials: ${text}`;
+    switchTab?.('student-chat');
+    sendText(prompt);
+  };
+
+  const handleCreateQuizFromSuggestion = (suggestionText) => {
+    const text = String(suggestionText || '').trim();
+    if (!text) return;
+    setQuizInitialSuggestion(text);
+    switchTab?.('student-quizzes');
   };
 
   const onSendQuery = () => {
@@ -332,12 +391,35 @@ function StudentPortal({
     return (
       <div className="portal-section student-chat-section student-chat-section--minimal">
         <div className="student-chat-layout student-chat-layout--chatgpt">
-          <div className="student-chat-history-pane">
+          <Button
+            type="text"
+            className="student-chat-history-toggle"
+            icon={<PanelLeft size={16} />}
+            onClick={() => setIsHistoryDrawerOpen(true)}
+          >
+            Chat history
+          </Button>
+          {isHistoryDrawerOpen && (
+            <button
+              type="button"
+              className="student-chat-history-backdrop"
+              aria-label="Close chat history"
+              onClick={() => setIsHistoryDrawerOpen(false)}
+            />
+          )}
+          <div className={`student-chat-history-pane ${isHistoryDrawerOpen ? 'is-open' : ''}`}>
               <ChatSessionsPanel
                 sessions={sessions}
+                isLoading={isSessionsLoading}
                 activeSessionId={activeSessionId}
-                onCreate={handleCreateSession}
-                onSelect={handleSelectSession}
+                onCreate={() => {
+                  handleCreateSession();
+                  setIsHistoryDrawerOpen(false);
+                }}
+                onSelect={(sessionId, title) => {
+                  handleSelectSession(sessionId, title);
+                  setIsHistoryDrawerOpen(false);
+                }}
                 onDelete={handleDeleteSession}
                 editingSessionId={editingSessionId}
                 editingSessionTitle={editingSessionTitle}
@@ -379,8 +461,8 @@ function StudentPortal({
   }
 
   if (activeTab === 'student-memory') {
-    const learned = studentDashboard?.learnedTopics?.length ? studentDashboard.learnedTopics : defaultLearned;
-    const weak = studentDashboard?.weakTopics?.length ? studentDashboard.weakTopics : defaultWeak;
+    const learned = Array.isArray(studentDashboard?.learnedTopics) ? studentDashboard.learnedTopics : [];
+    const weak = Array.isArray(studentDashboard?.weakTopics) ? studentDashboard.weakTopics : [];
     return (
       <LearningProgress
         learnedTopics={learned}
@@ -395,6 +477,27 @@ function StudentPortal({
         pinnedSuggestions={studentDashboard?.pinnedImproveSuggestions || []}
         onPinSuggestion={onPinSuggestion}
         onUnpinSuggestion={onUnpinSuggestion}
+        onStudySuggestion={handleStudySuggestion}
+        onCreateQuizFromSuggestion={handleCreateQuizFromSuggestion}
+        memorySummary={studentDashboard?.summary}
+        recentQuestions={studentDashboard?.recentQuestions || []}
+        memoryUpdatedAt={studentDashboard?.updatedAt}
+        courseId={courseId}
+        classId={studentDashboard?.classId || classId}
+      />
+    );
+  }
+
+  if (activeTab === 'student-quizzes') {
+    return (
+      <PracticeQuizzes
+        studentId={userId}
+        courseId={courseId}
+        classId={classId}
+        suggestions={suggestions}
+        initialSuggestion={quizInitialSuggestion}
+        triggerToast={triggerToast}
+        onAfterQuizSubmit={loadStudentDashboard}
       />
     );
   }
@@ -427,6 +530,7 @@ function StudentPortal({
           escChatInput={escChatInput}
           setEscChatInput={setEscChatInput}
           escMessagesEndRef={escMessagesEndRef}
+          isEscChatSending={isEscChatSending}
           userId={userId}
           isEscalationsLoading={isEscalationsLoading}
           escalationsError={escalationsError}
@@ -443,6 +547,7 @@ function StudentPortal({
           mentors={escMentors}
           selectedMentorId={selectedMentorForEsc}
           setSelectedMentorId={setSelectedMentorForEsc}
+          escalation={selectedEscalation}
           onCancel={() => setEscModalVisible(false)}
           onOk={onSelectMentor}
         />

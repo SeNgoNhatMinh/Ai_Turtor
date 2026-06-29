@@ -10,7 +10,9 @@ export const normalizeSession = (session) => ({
   ...session,
   id: session.id || session.conversationId,
   title: !session.title || session.title.includes('�') ? 'New conversation' : session.title,
-  createdAt: session.createdAt || session.lastMessageAt || new Date().toISOString(),
+  createdAt: session.createdAt || session.lastMessageAt || session.updatedAt || new Date().toISOString(),
+  lastMessageAt: session.lastMessageAt || session.updatedAt || session.lastMessageTime || session.createdAt || new Date().toISOString(),
+  messageCount: session.messageCount ?? session.messagesCount ?? session.totalMessages ?? 0,
 });
 
 export const normalizeMessage = (message) => ({
@@ -199,6 +201,7 @@ export const normalizeStudentDashboard = (data) => {
     ...memoriesList.flatMap(m => asArray(m?.pinnedImproveSuggestions)),
     ...asArray(data?.pinnedImproveSuggestions),
   ].filter(Boolean);
+  const primaryMemory = memoriesList[0] || data?.memory || data || {};
 
   return {
     learnedTopics: learnedTopics.length ? learnedTopics : topics('learnedTopics', 'strongTopics'),
@@ -206,6 +209,11 @@ export const normalizeStudentDashboard = (data) => {
     suggestions: suggestions.length ? suggestions : (data?.suggestions || data?.improveSuggestions || []),
     pinnedImproveSuggestions: [...new Set(pinnedImproveSuggestions)],
     stats: stats,
+    summary: primaryMemory?.summary || data?.memorySummary || '',
+    classId: primaryMemory?.classId || data?.classId || '',
+    recentQuestions: asArray(primaryMemory?.recentQuestions || data?.recentQuestions),
+    recentAnswers: asArray(primaryMemory?.recentAnswers || data?.recentAnswers),
+    updatedAt: primaryMemory?.updatedAt || data?.updatedAt || '',
   };
 };
 

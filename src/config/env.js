@@ -12,7 +12,7 @@ const trimTrailingSlash = (value) => String(value || '').replace(/\/+$/, '');
 
 export const env = {
   apiBaseUrl: trimTrailingSlash(import.meta.env.VITE_API_BASE_URL || '/api'),
-  apiTimeoutMs: parseNumber(import.meta.env.VITE_API_TIMEOUT_MS, 15000),
+  apiTimeoutMs: parseNumber(import.meta.env.VITE_API_TIMEOUT_MS, 60000),
   apiWithCredentials: parseBoolean(import.meta.env.VITE_API_WITH_CREDENTIALS, false),
   n8nEnabled: parseBoolean(import.meta.env.VITE_N8N_ENABLED, false),
   n8nBaseUrl: trimTrailingSlash(import.meta.env.VITE_N8N_BASE_URL || 'http://localhost:5678'),

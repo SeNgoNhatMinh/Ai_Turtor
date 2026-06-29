@@ -2,6 +2,7 @@ import {
   MessageSquare,
   TrendingUp,
   BookOpen,
+  ClipboardList,
   LayoutGrid,
   UploadCloud,
   CheckSquare,
@@ -29,6 +30,14 @@ export const navigationItems = [
     label: 'Learning Progress',
     description: 'See learned topics, weak areas, and study suggestions.',
     icon: TrendingUp,
+  },
+  {
+    key: 'student-quizzes',
+    role: 'student',
+    group: 'Learning',
+    label: 'Practice Quizzes',
+    description: 'Create self-study quizzes and complete assigned quizzes.',
+    icon: ClipboardList,
   },
   {
     key: 'student-materials',
@@ -59,7 +68,7 @@ export const navigationItems = [
     role: 'teacher',
     group: 'Teaching',
     label: 'Materials & Assignments',
-    description: 'Upload course materials and publish assignments.',
+    description: 'View course materials and publish class assignments.',
     icon: UploadCloud,
   },
   {

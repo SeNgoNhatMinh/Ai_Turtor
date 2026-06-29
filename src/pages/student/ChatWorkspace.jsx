@@ -221,31 +221,25 @@ function ChatWorkspace({
   const safeCourseOptions = useMemo(() => {
     const options = (Array.isArray(courseOptions) ? courseOptions : [])
       .filter((item) => item?.value);
-    const hasCurrentCourse = options.some((item) => item.value === courseId);
-    if (courseId && !hasCurrentCourse) {
-      return [{ value: courseId, label: courseId }, ...options];
-    }
     return options.length ? options : [
       { value: 'PRJ301', label: 'PRJ301 - Java Web' },
       { value: 'DBI202', label: 'DBI202 - Database' },
     ];
-  }, [courseOptions, courseId]);
+  }, [courseOptions]);
   const safeClassOptions = useMemo(() => {
     const options = (Array.isArray(classOptions) ? classOptions : [])
       .filter((item) => item?.value);
-    const hasCurrentClass = options.some((item) => item.value === classId);
-    if (classId && !hasCurrentClass) {
-      return [{ value: classId, label: `Class ${classId}` }, ...options];
-    }
     return options.length ? options : [
       { value: 'SE1840', label: 'Class SE1840' },
       { value: 'SE1841', label: 'Class SE1841' },
     ];
-  }, [classOptions, classId]);
+  }, [classOptions]);
   const pinnedMessages = safeMessages
     .map((message, index) => ({ message, index, key: getMessageKey(message, index) }))
     .filter((item) => pinnedMessageKeys.includes(item.key))
     .slice(0, 3);
+  const selectedCourseValue = safeCourseOptions.some((item) => item.value === courseId) ? courseId : undefined;
+  const selectedClassValue = safeClassOptions.some((item) => item.value === classId) ? classId : undefined;
 
   return (
     <div className="chat-workspace-dark" style={style}>
@@ -257,9 +251,10 @@ function ChatWorkspace({
         </div>
         <Space wrap>
           <Select
-            value={courseId}
+            value={selectedCourseValue}
             onChange={setCourseId}
             style={{ width: 150 }}
+            placeholder="Choose course"
             popupClassName={`chat-course-select-popup ${isDarkMode ? 'chat-course-select-popup--dark' : ''}`}
           >
             {safeCourseOptions.map((item) => (
@@ -267,13 +262,17 @@ function ChatWorkspace({
             ))}
           </Select>
           <Select
-            value={classId}
+            value={selectedClassValue}
             onChange={setClassId}
-            style={{ width: 120 }}
+            style={{ width: 168 }}
+            placeholder="Choose class"
+            optionLabelProp="label"
             popupClassName={`chat-course-select-popup ${isDarkMode ? 'chat-course-select-popup--dark' : ''}`}
           >
             {safeClassOptions.map((item) => (
-              <Option key={item.value} value={item.value}>{item.label}</Option>
+              <Option key={item.value} value={item.value} label={`Class ${item.value}`}>
+                {item.label}
+              </Option>
             ))}
           </Select>
         </Space>
@@ -355,11 +354,12 @@ function ChatWorkspace({
                             <Button
                               type="text"
                               size="small"
+                              className={`chat-pin-action ${isPinned ? 'chat-pin-action--active' : ''}`}
                               icon={<PushpinOutlined />}
                               onClick={() => togglePinnedMessage(messageKey)}
-                            >
-                              {isPinned ? 'Unpin' : 'Pin'}
-                            </Button>
+                              aria-label={isPinned ? 'Unpin message' : 'Pin message'}
+                              title={isPinned ? 'Unpin message' : 'Pin message'}
+                            />
                             <Button
                               type="text"
                               size="small"

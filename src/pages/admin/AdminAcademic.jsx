@@ -1,16 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { Alert, Row, Col, Card, Table, Button, Dropdown, Form, Input, InputNumber, Select, Tag, Space, Tabs, Upload } from 'antd';
+import { Alert, Row, Col, Card, Table, Button, Form, Input, InputNumber, Select, Tag, Space, Tabs, Upload, Modal } from 'antd';
 import { DownloadOutlined, UploadOutlined } from '@ant-design/icons';
-import { Database, MoreHorizontal, RefreshCw, Plus, Search, Trash2 } from 'lucide-react';
+import { Database, RefreshCw, Plus, Search, Trash2, Eye, Pencil, UserMinus } from 'lucide-react';
 import { apiService } from '../../services/api';
 import { getUserFacingError } from '../../services/apiClient';
 import { closeActiveConfirm, confirmDanger } from '../../components/common/confirmDialog';
+import EntityActionMenu from '../../components/common/EntityActionMenu';
 
 const { Option } = Select;
 const { TabPane } = Tabs;
 const { Dragger } = Upload;
 
 const getRecordId = (record) => record?.id || record?._id || record?.materialId;
+const getSemesterCode = (record) => record?.semesterCode || record?.code || record?.id;
+const getCourseCode = (record) => record?.courseId || record?.id;
+const getClassCode = (record) => record?.classId || record?.classCode || record?.id;
+const getEnrollmentId = (record) => record?.id || record?._id || record?.enrollmentId;
 
 const wait = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
 
@@ -35,6 +40,8 @@ function AdminAcademic({ triggerToast, currentUser }) {
   const [studentImportFile, setStudentImportFile] = useState(null);
   const [studentImportLoading, setStudentImportLoading] = useState(false);
   const [studentImportResult, setStudentImportResult] = useState(null);
+  const [entityModal, setEntityModal] = useState({ open: false, type: '', mode: 'view', record: null });
+  const [entitySaving, setEntitySaving] = useState(false);
 
   const [formSemester] = Form.useForm();
   const [formCourse] = Form.useForm();
@@ -42,6 +49,7 @@ function AdminAcademic({ triggerToast, currentUser }) {
   const [formEnroll] = Form.useForm();
   const [formMaterial] = Form.useForm();
   const [formStudentImport] = Form.useForm();
+  const [formEntity] = Form.useForm();
 
   useEffect(() => {
     loadSemesters();
@@ -129,22 +137,29 @@ function AdminAcademic({ triggerToast, currentUser }) {
       setMaterialsLoading(false);
     }
   };
-  const refreshCourseMaterialsWithRetry = async (courseId, previousCount = 0) => {
-    const delays = [0, 1200, 2500, 4500];
-    for (const delay of delays) {
-      if (delay) await wait(delay);
-      try {
-        const data = await apiService.getCourseMaterials(courseId);
-        const items = Array.isArray(data?.materials) ? data.materials : Array.isArray(data?.content) ? data.content : Array.isArray(data) ? data : [];
-        setCourseMaterials(items);
-        if (items.length > previousCount) return true;
-      } catch (error) {
-        if (delay === delays[delays.length - 1]) {
-          triggerToast(getUserFacingError(error, 'Unable to refresh course materials.'));
+  const refreshCourseMaterialsWithRetry = async (courseId, previousCount = 0, expectedTitle = '') => {
+    const delays = [0, 1200, 2500, 4500, 7000, 10000];
+    const normalizedTitle = String(expectedTitle || '').trim().toLowerCase();
+    setMaterialsLoading(true);
+    try {
+      for (const delay of delays) {
+        if (delay) await wait(delay);
+        try {
+          const data = await apiService.getCourseMaterials(courseId);
+          const items = Array.isArray(data?.materials) ? data.materials : Array.isArray(data?.content) ? data.content : Array.isArray(data) ? data : [];
+          setCourseMaterials(items);
+          const hasExpectedTitle = normalizedTitle && items.some((item) => String(item?.title || '').trim().toLowerCase() === normalizedTitle);
+          if (items.length > previousCount || hasExpectedTitle) return true;
+        } catch (error) {
+          if (delay === delays[delays.length - 1]) {
+            triggerToast(getUserFacingError(error, 'Unable to refresh course materials.'));
+          }
         }
       }
+      return false;
+    } finally {
+      setMaterialsLoading(false);
     }
-    return false;
   };
   const loadStudentImportClasses = async (courseId) => {
     setStudentImportCourseId(courseId);
@@ -162,6 +177,220 @@ function AdminAcademic({ triggerToast, currentUser }) {
       setStudentImportClasses([]);
       triggerToast(getUserFacingError(error, 'Unable to load class sections.'));
     }
+  };
+
+  const openEntityModal = (type, mode, record) => {
+    const nextRecord = record || {};
+    setEntityModal({ open: true, type, mode, record: nextRecord });
+    if (type === 'semester') {
+      formEntity.setFieldsValue({
+        semesterCode: getSemesterCode(nextRecord),
+        name: nextRecord.name,
+        status: nextRecord.status || 'ACTIVE',
+      });
+    }
+    if (type === 'course') {
+      formEntity.setFieldsValue({
+        courseId: getCourseCode(nextRecord),
+        courseName: nextRecord.courseName || nextRecord.name,
+        credits: nextRecord.credits || 3,
+        status: nextRecord.status || 'ACTIVE',
+      });
+    }
+    if (type === 'class') {
+      formEntity.setFieldsValue({
+        courseId: nextRecord.courseId || selectedCourseId,
+        classId: getClassCode(nextRecord),
+        teacherId: nextRecord.teacherId,
+        status: nextRecord.status || 'ACTIVE',
+      });
+    }
+    if (type === 'enrollment') {
+      formEntity.setFieldsValue({
+        studentId: nextRecord.studentId || nextRecord.userId,
+        courseId: nextRecord.courseId,
+        classId: nextRecord.classId,
+        status: nextRecord.status || 'ACTIVE',
+      });
+    }
+    if (type === 'material') {
+      formEntity.setFieldsValue({
+        title: nextRecord.title || 'Untitled Material',
+        category: nextRecord.category || nextRecord.materialCategory || '',
+      });
+    }
+  };
+
+  const closeEntityModal = () => {
+    setEntityModal({ open: false, type: '', mode: 'view', record: null });
+    formEntity.resetFields();
+  };
+
+  const handleEntitySave = async () => {
+    if (entityModal.mode === 'view') {
+      closeEntityModal();
+      return;
+    }
+    const values = await formEntity.validateFields();
+    const record = entityModal.record || {};
+    setEntitySaving(true);
+    try {
+      if (entityModal.type === 'semester') {
+        const semesterCode = getSemesterCode(record);
+        await apiService.updateSemester(semesterCode, {
+          ...record,
+          semesterCode,
+          name: values.name,
+          status: values.status,
+        });
+        triggerToast('Term updated.');
+        await loadSemesters();
+      }
+      if (entityModal.type === 'course') {
+        const courseId = getCourseCode(record);
+        await apiService.updateCourse(courseId, {
+          ...record,
+          courseId,
+          courseName: values.courseName,
+          credits: values.credits,
+          status: values.status,
+        });
+        triggerToast('Course updated.');
+        await loadCourses();
+      }
+      if (entityModal.type === 'class') {
+        const courseId = record.courseId || selectedCourseId || values.courseId;
+        const classId = getClassCode(record);
+        await apiService.updateClassSection(courseId, classId, {
+          ...record,
+          courseId,
+          classId,
+          teacherId: values.teacherId,
+          status: values.status,
+        });
+        triggerToast('Class section updated.');
+        await loadClassSections(courseId);
+      }
+      if (entityModal.type === 'enrollment') {
+        const enrollmentId = getEnrollmentId(record);
+        await apiService.updateEnrollment(enrollmentId, {
+          ...record,
+          studentId: values.studentId,
+          courseId: values.courseId,
+          classId: values.classId,
+          status: values.status,
+        });
+        triggerToast('Enrollment updated.');
+        await loadStudentEnrollments();
+      }
+      if (entityModal.type === 'material') {
+        const materialId = getRecordId(record);
+        const courseId = record.courseId || materialCourseId;
+        await apiService.updateMaterialMetadata(courseId, materialId, {
+          ...record,
+          title: values.title,
+          category: values.category,
+        });
+        triggerToast('Material metadata updated.');
+        await loadCourseMaterials(courseId);
+      }
+      closeEntityModal();
+    } catch (error) {
+      triggerToast(getUserFacingError(error, 'Unable to save changes.'));
+    } finally {
+      setEntitySaving(false);
+    }
+  };
+
+  const handleDeleteSemester = (record, anchorRect) => {
+    const semesterCode = getSemesterCode(record);
+    if (!semesterCode) return triggerToast('This term is missing a code.');
+    confirmDanger({
+      title: 'Delete term?',
+      content: `This removes term ${semesterCode}.`,
+      anchorRect,
+      onOk: async () => {
+        try {
+          await apiService.deleteSemester(semesterCode);
+          triggerToast('Term deleted.');
+          await loadSemesters();
+        } catch (error) {
+          triggerToast(getUserFacingError(error, 'Unable to delete term.'));
+        }
+      },
+    });
+  };
+
+  const handleDeleteCourse = (record, anchorRect) => {
+    const courseId = getCourseCode(record);
+    if (!courseId) return triggerToast('This course is missing an ID.');
+    confirmDanger({
+      title: 'Delete course?',
+      content: `This removes course ${courseId} and may affect class sections/enrollments.`,
+      anchorRect,
+      onOk: async () => {
+        try {
+          await apiService.deleteCourse(courseId);
+          triggerToast('Course deleted.');
+          await loadCourses();
+          if (selectedCourseId === courseId) {
+            setSelectedCourseId('');
+            setClassSections([]);
+          }
+        } catch (error) {
+          triggerToast(getUserFacingError(error, 'Unable to delete course.'));
+        }
+      },
+    });
+  };
+
+  const handleDeleteClassSection = (record, anchorRect) => {
+    const courseId = record.courseId || selectedCourseId;
+    const classId = getClassCode(record);
+    if (!courseId || !classId) return triggerToast('This class section is missing course or class ID.');
+    confirmDanger({
+      title: 'Delete class section?',
+      content: `This removes ${courseId}/${classId}.`,
+      anchorRect,
+      onOk: async () => {
+        try {
+          await apiService.deleteClassSection(courseId, classId);
+          triggerToast('Class section deleted.');
+          await loadClassSections(courseId);
+        } catch (error) {
+          triggerToast(getUserFacingError(error, 'Unable to delete class section.'));
+        }
+      },
+    });
+  };
+
+  const handleDeleteEnrollment = (record, anchorRect) => {
+    const enrollmentId = getEnrollmentId(record);
+    const courseId = record.courseId;
+    const classId = record.classId;
+    const studentId = record.studentId || record.userId;
+    if (!enrollmentId && (!courseId || !classId || !studentId)) {
+      return triggerToast('This enrollment is missing enough IDs to remove.');
+    }
+    confirmDanger({
+      title: 'Remove enrollment?',
+      content: 'This removes the student from the selected class section.',
+      okText: 'Remove',
+      anchorRect,
+      onOk: async () => {
+        try {
+          if (enrollmentId) {
+            await apiService.deleteEnrollment(enrollmentId);
+          } else {
+            await apiService.removeStudentFromClass(courseId, classId, studentId);
+          }
+          triggerToast('Enrollment removed.');
+          await loadStudentEnrollments();
+        } catch (error) {
+          triggerToast(getUserFacingError(error, 'Unable to remove enrollment.'));
+        }
+      },
+    });
   };
 
   // ── Handlers ─────────────────────────────────────────────
@@ -213,13 +442,20 @@ function AdminAcademic({ triggerToast, currentUser }) {
     const previousCount = courseMaterials.length;
     try {
       await apiService.uploadMaterial(materialCourseId, formData);
-      triggerToast('Course-wide material uploaded.');
+      const appeared = await refreshCourseMaterialsWithRetry(materialCourseId, previousCount, values.title);
       formMaterial.resetFields();
       setMaterialFile(null);
-      await refreshCourseMaterialsWithRetry(materialCourseId, previousCount);
+      triggerToast(appeared ? 'Course-wide material uploaded.' : 'Upload accepted. Material may appear after indexing finishes.');
     } catch (error) {
-      triggerToast(`${getUserFacingError(error, 'Upload is still processing.')} Refreshing materials...`);
-      refreshCourseMaterialsWithRetry(materialCourseId, previousCount);
+      triggerToast('Upload is processing. Checking material list...');
+      const appeared = await refreshCourseMaterialsWithRetry(materialCourseId, previousCount, values.title);
+      if (appeared) {
+        formMaterial.resetFields();
+        setMaterialFile(null);
+        triggerToast('Course-wide material uploaded.');
+      } else {
+        triggerToast(getUserFacingError(error, 'Unable to upload course material. Please try again.'));
+      }
     } finally {
       releaseUploadButton();
     }
@@ -255,7 +491,7 @@ function AdminAcademic({ triggerToast, currentUser }) {
       triggerToast(getUserFacingError(error, 'Unable to reindex course material.'));
     }
   };
-  const handleDeleteMaterial = async (materialId) => {
+  const handleDeleteMaterial = async (materialId, anchorRect) => {
     if (!materialId) {
       triggerToast('This material is missing an ID. Please reload materials and try again.');
       return;
@@ -264,6 +500,7 @@ function AdminAcademic({ triggerToast, currentUser }) {
       title: 'Delete course material?',
       content: 'This removes the shared material from the course AI knowledge base.',
       okText: 'Delete',
+      anchorRect,
       onOk: async () => {
         try {
           await apiService.deleteMaterial(materialCourseId, materialId);
@@ -318,6 +555,24 @@ function AdminAcademic({ triggerToast, currentUser }) {
     }
   };
 
+  const baseActionItems = [
+    { key: 'view', icon: <Eye size={14} />, label: 'View details' },
+    { key: 'edit', icon: <Pencil size={14} />, label: 'Edit' },
+    { type: 'divider' },
+    { key: 'delete', icon: <Trash2 size={14} />, label: 'Delete', danger: true },
+  ];
+
+  const handleAcademicAction = (type, record, key, meta) => {
+    if (key === 'view' || key === 'edit') {
+      openEntityModal(type, key, record);
+      return;
+    }
+    if (type === 'semester' && key === 'delete') handleDeleteSemester(record, meta?.anchorRect);
+    if (type === 'course' && key === 'delete') handleDeleteCourse(record, meta?.anchorRect);
+    if (type === 'class' && key === 'delete') handleDeleteClassSection(record, meta?.anchorRect);
+    if (type === 'enrollment' && (key === 'delete' || key === 'remove')) handleDeleteEnrollment(record, meta?.anchorRect);
+  };
+
   // ── Render ───────────────────────────────────────────────
   return (
     <div className="portal-view">
@@ -345,7 +600,20 @@ function AdminAcademic({ triggerToast, currentUser }) {
                   columns={[
                     { title: 'Code', dataIndex: 'semesterCode', key: 'code' },
                     { title: 'Name', dataIndex: 'name', key: 'name' },
-                    { title: 'Status', dataIndex: 'status', key: 'status', render: v => <Tag color={v === 'ACTIVE' ? 'green' : 'default'}>{v}</Tag> }
+                    { title: 'Status', dataIndex: 'status', key: 'status', render: v => <Tag color={v === 'ACTIVE' ? 'green' : 'default'}>{v}</Tag> },
+                    {
+                      title: '',
+                      key: 'actions',
+                      width: 54,
+                      align: 'center',
+                      render: (_, record) => (
+                        <EntityActionMenu
+                          items={baseActionItems}
+                          onAction={(key, meta) => handleAcademicAction('semester', record, key, meta)}
+                          ariaLabel="Term actions"
+                        />
+                      ),
+                    },
                   ]}
                 />
               </Card>
@@ -379,7 +647,20 @@ function AdminAcademic({ triggerToast, currentUser }) {
                     { title: 'Code', dataIndex: 'courseId', key: 'id' },
                     { title: 'Name', dataIndex: 'courseName', key: 'name' },
                     { title: 'Credits', dataIndex: 'credits', key: 'credits', width: 80 },
-                    { title: 'Status', dataIndex: 'status', key: 'status', render: v => <Tag color={v === 'ACTIVE' ? 'green' : 'default'}>{v}</Tag> }
+                    { title: 'Status', dataIndex: 'status', key: 'status', render: v => <Tag color={v === 'ACTIVE' ? 'green' : 'default'}>{v}</Tag> },
+                    {
+                      title: '',
+                      key: 'actions',
+                      width: 54,
+                      align: 'center',
+                      render: (_, record) => (
+                        <EntityActionMenu
+                          items={baseActionItems}
+                          onAction={(key, meta) => handleAcademicAction('course', record, key, meta)}
+                          ariaLabel="Course actions"
+                        />
+                      ),
+                    },
                   ]}
                 />
               </Card>
@@ -418,7 +699,20 @@ function AdminAcademic({ triggerToast, currentUser }) {
                   columns={[
                     { title: 'Class Code', dataIndex: 'classId', key: 'classId' },
                     { title: 'Mentor', dataIndex: 'teacherId', key: 'teacher' },
-                    { title: 'Status', dataIndex: 'status', key: 'status', render: v => <Tag color={v === 'ACTIVE' ? 'green' : 'default'}>{v || 'ACTIVE'}</Tag> }
+                    { title: 'Status', dataIndex: 'status', key: 'status', render: v => <Tag color={v === 'ACTIVE' ? 'green' : 'default'}>{v || 'ACTIVE'}</Tag> },
+                    {
+                      title: '',
+                      key: 'actions',
+                      width: 54,
+                      align: 'center',
+                      render: (_, record) => (
+                        <EntityActionMenu
+                          items={baseActionItems}
+                          onAction={(key, meta) => handleAcademicAction('class', record, key, meta)}
+                          ariaLabel="Class section actions"
+                        />
+                      ),
+                    },
                   ]}
                   locale={{ emptyText: selectedCourseId ? 'No classes yet' : 'Choose a course to view classes' }}
                 />
@@ -460,11 +754,12 @@ function AdminAcademic({ triggerToast, currentUser }) {
                     onPressEnter={loadStudentEnrollments}
                     allowClear
                   />
-                  <Button
+                    <Button
                     type="primary"
                     icon={<Search size={14} />}
                     onClick={loadStudentEnrollments}
                     loading={enrollmentsLoading}
+                    disabled={!enrollmentSearchId.trim() || enrollmentsLoading}
                   >
                     Search
                   </Button>
@@ -479,7 +774,25 @@ function AdminAcademic({ triggerToast, currentUser }) {
                     { title: 'Enrollment ID', dataIndex: 'id', key: 'id' },
                     { title: 'Course Code', dataIndex: 'courseId', key: 'course' },
                     { title: 'Class Code', dataIndex: 'classId', key: 'class' },
-                    { title: 'Status', dataIndex: 'status', key: 'status', render: v => <Tag color={v === 'ACTIVE' ? 'green' : 'default'}>{v || 'ACTIVE'}</Tag> }
+                    { title: 'Status', dataIndex: 'status', key: 'status', render: v => <Tag color={v === 'ACTIVE' ? 'green' : 'default'}>{v || 'ACTIVE'}</Tag> },
+                    {
+                      title: '',
+                      key: 'actions',
+                      width: 54,
+                      align: 'center',
+                      render: (_, record) => (
+                        <EntityActionMenu
+                          items={[
+                            { key: 'view', icon: <Eye size={14} />, label: 'View details' },
+                            { key: 'edit', icon: <Pencil size={14} />, label: 'Edit' },
+                            { type: 'divider' },
+                            { key: 'remove', icon: <UserMinus size={14} />, label: 'Remove from class', danger: true },
+                          ]}
+                          onAction={(key, meta) => handleAcademicAction('enrollment', record, key, meta)}
+                          ariaLabel="Enrollment actions"
+                        />
+                      ),
+                    },
                   ]}
                   locale={{ emptyText: 'No enrollment records loaded. Enter a user ID, email, or student code and click Search.' }}
                 />
@@ -721,33 +1034,23 @@ function AdminAcademic({ triggerToast, currentUser }) {
                       render: (_, record) => {
                         const materialId = getRecordId(record);
                         return (
-                          <Dropdown
-                            trigger={['click']}
-                            placement="bottomRight"
-                            menu={{
-                              items: [
-                                { key: 'download', icon: <DownloadOutlined />, label: 'Download' },
-                                { key: 'reindex', icon: <Database size={14} />, label: 'Reindex' },
-                                { type: 'divider' },
-                                { key: 'delete', icon: <Trash2 size={14} />, label: 'Delete', danger: true },
-                              ],
-                              onClick: ({ key, domEvent }) => {
-                                domEvent.stopPropagation();
-                                if (key === 'download') handleDownloadMaterial(materialId, record.title);
-                                if (key === 'reindex') handleReindexMaterial(materialId);
-                                if (key === 'delete') handleDeleteMaterial(materialId);
-                              },
+                          <EntityActionMenu
+                            items={[
+                              { key: 'view', icon: <Eye size={14} />, label: 'View details' },
+                              { key: 'edit', icon: <Pencil size={14} />, label: 'Edit metadata' },
+                              { key: 'download', icon: <DownloadOutlined />, label: 'Download' },
+                              { key: 'reindex', icon: <Database size={14} />, label: 'Reindex' },
+                              { type: 'divider' },
+                              { key: 'delete', icon: <Trash2 size={14} />, label: 'Delete', danger: true },
+                            ]}
+                            onAction={(key, meta) => {
+                              if (key === 'view' || key === 'edit') openEntityModal('material', key, record);
+                              if (key === 'download') handleDownloadMaterial(materialId, record.title);
+                              if (key === 'reindex') handleReindexMaterial(materialId);
+                              if (key === 'delete') handleDeleteMaterial(materialId, meta?.anchorRect);
                             }}
-                          >
-                            <Button
-                              type="text"
-                              size="small"
-                              className="conversation-more-button"
-                              icon={<MoreHorizontal size={17} />}
-                              onClick={(event) => event.stopPropagation()}
-                              aria-label="Material actions"
-                            />
-                          </Dropdown>
+                            ariaLabel="Material actions"
+                          />
                         );
                       }
                     }
@@ -759,6 +1062,119 @@ function AdminAcademic({ triggerToast, currentUser }) {
           </Row>
         </TabPane>
       </Tabs>
+      <Modal
+        open={entityModal.open}
+        title={`${entityModal.mode === 'view' ? 'View' : 'Edit'} ${({
+          semester: 'Term',
+          course: 'Course',
+          class: 'Class Section',
+          enrollment: 'Enrollment',
+          material: 'Course Material',
+        })[entityModal.type] || 'Record'}`}
+        onCancel={closeEntityModal}
+        onOk={handleEntitySave}
+        okText={entityModal.mode === 'view' ? 'Close' : 'Save changes'}
+        cancelButtonProps={{ style: entityModal.mode === 'view' ? { display: 'none' } : undefined }}
+        confirmLoading={entitySaving}
+        destroyOnClose
+      >
+        <Form form={formEntity} layout="vertical" disabled={entityModal.mode === 'view'}>
+          {entityModal.type === 'semester' && (
+            <>
+              <Form.Item name="semesterCode" label="Term Code">
+                <Input disabled />
+              </Form.Item>
+              <Form.Item name="name" label="Term Name" rules={[{ required: entityModal.mode === 'edit', message: 'Enter a term name' }]}>
+                <Input />
+              </Form.Item>
+              <Form.Item name="status" label="Status">
+                <Select>
+                  <Option value="ACTIVE">Active</Option>
+                  <Option value="INACTIVE">Inactive</Option>
+                  <Option value="COMPLETED">Completed</Option>
+                </Select>
+              </Form.Item>
+            </>
+          )}
+
+          {entityModal.type === 'course' && (
+            <>
+              <Form.Item name="courseId" label="Course ID">
+                <Input disabled />
+              </Form.Item>
+              <Form.Item name="courseName" label="Course Name" rules={[{ required: entityModal.mode === 'edit', message: 'Enter a course name' }]}>
+                <Input />
+              </Form.Item>
+              <Form.Item name="credits" label="Credits">
+                <InputNumber min={1} max={10} style={{ width: '100%' }} />
+              </Form.Item>
+              <Form.Item name="status" label="Status">
+                <Select>
+                  <Option value="ACTIVE">Active</Option>
+                  <Option value="INACTIVE">Inactive</Option>
+                  <Option value="ARCHIVED">Archived</Option>
+                </Select>
+              </Form.Item>
+            </>
+          )}
+
+          {entityModal.type === 'class' && (
+            <>
+              <Form.Item name="courseId" label="Course ID">
+                <Input disabled />
+              </Form.Item>
+              <Form.Item name="classId" label="Class ID">
+                <Input disabled />
+              </Form.Item>
+              <Form.Item name="teacherId" label="Mentor ID" rules={[{ required: entityModal.mode === 'edit', message: 'Enter mentor ID' }]}>
+                <Input />
+              </Form.Item>
+              <Form.Item name="status" label="Status">
+                <Select>
+                  <Option value="ACTIVE">Active</Option>
+                  <Option value="INACTIVE">Inactive</Option>
+                  <Option value="COMPLETED">Completed</Option>
+                </Select>
+              </Form.Item>
+            </>
+          )}
+
+          {entityModal.type === 'enrollment' && (
+            <>
+              <Form.Item name="studentId" label="Student ID">
+                <Input disabled />
+              </Form.Item>
+              <Form.Item name="courseId" label="Course ID">
+                <Input disabled />
+              </Form.Item>
+              <Form.Item name="classId" label="Class ID">
+                <Input disabled />
+              </Form.Item>
+              <Form.Item name="status" label="Status">
+                <Select>
+                  <Option value="ACTIVE">Active</Option>
+                  <Option value="INACTIVE">Inactive</Option>
+                  <Option value="COMPLETED">Completed</Option>
+                </Select>
+              </Form.Item>
+            </>
+          )}
+
+          {entityModal.type === 'material' && (
+            <>
+              <Form.Item label="Material ID">
+                <Input value={getRecordId(entityModal.record)} disabled />
+              </Form.Item>
+              <Form.Item name="title" label="Title" rules={[{ required: entityModal.mode === 'edit', message: 'Enter material title' }]}>
+                <Input />
+              </Form.Item>
+              <Form.Item name="category" label="Category">
+                <Input placeholder="Optional category" />
+              </Form.Item>
+            </>
+          )}
+        </Form>
+      </Modal>
     </div>
   );
 }

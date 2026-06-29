@@ -5,6 +5,16 @@ import { asArray, normalizeSession, pairMessages } from '../services/normalizers
 import { N8N_ENABLED } from '../services/n8nClient';
 import { n8nService } from '../services/n8nService';
 
+const getSessionActivityTime = (session) => {
+  const value = session?.lastMessageAt || session?.updatedAt || session?.createdAt;
+  const time = new Date(value).getTime();
+  return Number.isFinite(time) ? time : 0;
+};
+
+const sortSessionsByActivity = (items) => {
+  return [...(Array.isArray(items) ? items : [])].sort((a, b) => getSessionActivityTime(b) - getSessionActivityTime(a));
+};
+
 export function useStudentChatController({
   currentUser,
   courseId,
@@ -16,6 +26,7 @@ export function useStudentChatController({
   const [activeSessionTitle, setActiveSessionTitle] = useState('AI Tutor Chat');
   const [sessions, setSessions] = useState([]);
   const [messages, setMessages] = useState([]);
+  const [isSessionsLoading, setIsSessionsLoading] = useState(false);
   const activeAiRequestIdRef = useRef(0);
   const canceledAiRequestIdsRef = useRef(new Set());
 
@@ -34,12 +45,42 @@ export function useStudentChatController({
       setSessions([]);
       return;
     }
+    setIsSessionsLoading(true);
     try {
-      const data = await apiService.getConversations(userId);
-      setSessions(asArray(data, 'content', 'conversations').map(normalizeSession));
+      const data = await apiService.getConversations(userId, courseId);
+      setSessions(sortSessionsByActivity(asArray(data, 'content', 'conversations').map(normalizeSession)));
     } catch {
       setSessions([]);
+    } finally {
+      setIsSessionsLoading(false);
     }
+  };
+
+  const bumpConversationActivity = ({
+    conversationId,
+    title,
+    lastMessageAt = new Date().toISOString(),
+    messageCountIncrement = 1,
+  }) => {
+    if (!conversationId) return;
+
+    setSessions((prev) => {
+      const list = Array.isArray(prev) ? prev : [];
+      const existing = list.find((session) => session.id === conversationId);
+      const nextSession = {
+        ...(existing || {}),
+        id: conversationId,
+        conversationId,
+        title: title || existing?.title || activeSessionTitle || `AI Tutor Chat - ${courseId || 'Course'}`,
+        courseId: existing?.courseId || courseId,
+        classId: existing?.classId || classId,
+        createdAt: existing?.createdAt || lastMessageAt,
+        lastMessageAt,
+        messageCount: Math.max(0, Number(existing?.messageCount || 0) + messageCountIncrement),
+      };
+      const nextList = [nextSession, ...list.filter((session) => session.id !== conversationId)];
+      return sortSessionsByActivity(nextList);
+    });
   };
 
   const handleSelectSession = async (sessionId, title) => {
@@ -61,13 +102,13 @@ export function useStudentChatController({
       triggerToast('Please sign in before creating a conversation.');
       return;
     }
-    const data = await apiService.createConversation(userId);
+    const data = await apiService.createConversation(userId, courseId);
     const session = normalizeSession(data);
     setActiveSessionId(session.id);
     setActiveSessionTitle(session.title);
+    setSessions((prev) => sortSessionsByActivity([session, ...(Array.isArray(prev) ? prev.filter((item) => item.id !== session.id) : [])]));
     setMessages([]);
     triggerToast('New conversation created.');
-    loadChatSessions();
   };
 
   const handleDeleteSession = async (sessionId) => {
@@ -111,6 +152,13 @@ export function useStudentChatController({
     }
     const requestId = activeAiRequestIdRef.current + 1;
     activeAiRequestIdRef.current = requestId;
+    if (activeSessionId) {
+      bumpConversationActivity({
+        conversationId: activeSessionId,
+        title: activeSessionTitle,
+        messageCountIncrement: 1,
+      });
+    }
     setMessages((prev) => [...prev, { question: text, answer: null, pending: true, requestId }]);
 
     try {
@@ -150,10 +198,20 @@ export function useStudentChatController({
         }, userId);
       }
 
-      if (data.conversationId && !activeSessionId) {
-        setActiveSessionId(data.conversationId);
-        loadChatSessions();
+      const responseConversationId = data.conversationId || data.sessionId || activeSessionId;
+      const responseConversationTitle = data.conversationTitle || data.title || activeSessionTitle || `AI Tutor Chat - ${courseId || 'Course'}`;
+
+      if (responseConversationId && responseConversationId !== activeSessionId) {
+        setActiveSessionId(responseConversationId);
+        setActiveSessionTitle(responseConversationTitle);
       }
+
+      bumpConversationActivity({
+        conversationId: responseConversationId,
+        title: responseConversationTitle,
+        lastMessageAt: data.lastMessageAt || data.updatedAt || new Date().toISOString(),
+        messageCountIncrement: responseConversationId === activeSessionId ? 0 : 1,
+      });
 
       if (canceledAiRequestIdsRef.current.has(requestId)) {
         canceledAiRequestIdsRef.current.delete(requestId);
@@ -165,6 +223,11 @@ export function useStudentChatController({
         updated[updated.length - 1] = {
           question: text,
           answer: data.answer,
+          id: data.assistantMessageId || data.messageId || data.aiMessageId || data.responseMessageId,
+          messageId: data.assistantMessageId || data.messageId || data.aiMessageId || data.responseMessageId,
+          assistantMessageId: data.assistantMessageId || data.messageId || data.aiMessageId || data.responseMessageId,
+          userMessageId: data.userMessageId,
+          conversationId: responseConversationId,
           mode: data.mode || 'RAG',
           confidence: data.confidence,
           sources: data.sources || [],
@@ -232,6 +295,7 @@ export function useStudentChatController({
     activeSessionId,
     activeSessionTitle,
     sessions,
+    isSessionsLoading,
     messages,
     resetChat,
     loadChatSessions,

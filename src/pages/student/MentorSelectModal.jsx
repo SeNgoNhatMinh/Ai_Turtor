@@ -20,9 +20,12 @@ function MentorSelectModal({
   mentors,
   selectedMentorId,
   setSelectedMentorId,
+  escalation,
   onCancel,
   onOk,
 }) {
+  const questionText = escalation?.question || escalation?.questionPreview || escalation?.title || '';
+
   return (
     <Modal
       title="Choose a mentor to answer this question"
@@ -37,7 +40,13 @@ function MentorSelectModal({
         <Empty description="No mentors are currently available" />
       ) : (
         <>
-          <p>Which mentor would you like to answer this question?</p>
+          <p>Which mentor would you like to answer this AI Tutor Chat question?</p>
+          {questionText && (
+            <div className="mentor-question-preview">
+              <span>Question from AI Tutor Chat</span>
+              <p>{questionText}</p>
+            </div>
+          )}
           <Select style={{ width: '100%' }} placeholder="Select a mentor..." value={selectedMentorId} onChange={setSelectedMentorId}>
             {mentors.map((mentor) => (
               <Option key={getMentorId(mentor)} value={getMentorId(mentor)}>

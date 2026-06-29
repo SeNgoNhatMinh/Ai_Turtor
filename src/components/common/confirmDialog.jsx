@@ -18,6 +18,7 @@ function ConfirmCard({
   cancelText,
   danger = false,
   onOk,
+  anchorRect,
 }) {
   const [loading, setLoading] = useState(false);
 
@@ -41,12 +42,30 @@ function ConfirmCard({
     }
   };
 
+  const getAnchoredStyle = () => {
+    if (!anchorRect) return undefined;
+    const width = 320;
+    const margin = 12;
+    const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+    const left = Math.min(
+      Math.max(margin, anchorRect.right - width),
+      Math.max(margin, viewportWidth - width - margin),
+    );
+    const top = Math.min(
+      Math.max(margin, anchorRect.bottom + 8),
+      Math.max(margin, viewportHeight - 178 - margin),
+    );
+    return { left, top };
+  };
+
   return (
     <div className="app-confirm-overlay" onClick={closeActiveConfirm}>
       <div
-        className={`app-confirm-card ${danger ? 'app-confirm-card--danger' : ''}`}
+        className={`app-confirm-card ${anchorRect ? 'app-confirm-card--anchored' : ''} ${danger ? 'app-confirm-card--danger' : ''}`}
         role="dialog"
         aria-modal="true"
+        style={getAnchoredStyle()}
         onClick={(event) => event.stopPropagation()}
       >
         <div className="app-confirm-card__body">
@@ -78,6 +97,7 @@ const openConfirm = ({
   cancelText,
   onOk,
   danger = false,
+  anchorRect,
 }) => {
   closeActiveConfirm();
   const container = document.createElement('div');
@@ -93,6 +113,7 @@ const openConfirm = ({
       cancelText={cancelText}
       danger={danger}
       onOk={onOk}
+      anchorRect={anchorRect}
     />,
   );
 };
@@ -103,6 +124,7 @@ export const confirmDanger = ({
   okText = 'Delete',
   cancelText = 'Cancel',
   onOk,
+  anchorRect,
 }) => openConfirm({
   title,
   content,
@@ -110,6 +132,7 @@ export const confirmDanger = ({
   cancelText,
   danger: true,
   onOk,
+  anchorRect,
 });
 
 export const confirmAction = ({
@@ -118,6 +141,7 @@ export const confirmAction = ({
   okText = 'Confirm',
   cancelText = 'Cancel',
   onOk,
+  anchorRect,
 }) => openConfirm({
   title,
   content,
@@ -125,4 +149,5 @@ export const confirmAction = ({
   cancelText,
   danger: false,
   onOk,
+  anchorRect,
 });

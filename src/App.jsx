@@ -116,10 +116,7 @@ function App() {
   const [adminPlans, setAdminPlans] = useState([]);
 
   // Suggestions state
-  const [suggestions, setSuggestions] = useState([
-    { priority: 'high', title: 'Review JPA Mapping: One-to-Many & Many-to-Many', content: 'The system detected repeated questions about JPA mapping and a 6.5/10 score in PRJ_Lab3. Review chapter 4 slides and retry lab 3.' },
-    { priority: 'medium', title: 'Practice Spring Security authorization', content: 'A Code Review question reported a JWT filter chain 403 error. Review SecurityFilterChain concepts before fixing it.' }
-  ]);
+  const [suggestions, setSuggestions] = useState([]);
   const [isSuggesting, setIsSuggesting] = useState(false);
 
   // UI state
@@ -135,6 +132,7 @@ function App() {
     activeSessionId,
     activeSessionTitle,
     sessions,
+    isSessionsLoading,
     messages,
     resetChat,
     loadChatSessions,
@@ -237,6 +235,11 @@ function App() {
         learnedTopics: memorySnapshot?.learnedTopics?.length ? memorySnapshot.learnedTopics : normalized.learnedTopics,
         weakTopics: memorySnapshot?.weakTopics?.length ? memorySnapshot.weakTopics : normalized.weakTopics,
         pinnedImproveSuggestions: [...new Set(mergedPinnedSuggestions)],
+        summary: memorySnapshot?.summary || normalized.summary || '',
+        classId: memorySnapshot?.classId || normalized.classId || classId,
+        recentQuestions: memorySnapshot?.recentQuestions || normalized.recentQuestions || [],
+        recentAnswers: memorySnapshot?.recentAnswers || normalized.recentAnswers || [],
+        updatedAt: memorySnapshot?.updatedAt || normalized.updatedAt || '',
       });
       if (normalized.suggestions?.length) {
         setSuggestions(normalized.suggestions);
@@ -252,6 +255,11 @@ function App() {
           learnedTopics: memory.learnedTopics || [],
           weakTopics: memory.weakTopics || [],
           pinnedImproveSuggestions: [...new Set(mergedPinnedSuggestions)],
+          summary: memory.summary || '',
+          classId: memory.classId || classId,
+          recentQuestions: memory.recentQuestions || [],
+          recentAnswers: memory.recentAnswers || [],
+          updatedAt: memory.updatedAt || '',
           stats: {},
         });
       } catch {
@@ -327,7 +335,7 @@ function App() {
       const data = await apiService.getTeacherEscalationInbox(getTeacherUserId(), { courseId });
       const items = asArray(data, 'escalations', 'inbox', 'content').map(normalizeTeacherInboxItem);
       setEscalations(items);
-      setTeacherChatInbox(items.filter((e) => e.chatRoomId && ['assigned', 'active'].includes(e.status)));
+      setTeacherChatInbox(items.filter((e) => e.chatRoomId && ['assigned', 'active', 'in_chat'].includes(e.status)));
       if (items.length && !selectedEscalation) {
         setSelectedEscalation(items[0]);
       }
@@ -899,6 +907,7 @@ function App() {
               {activeRole === 'student' && (
                 <StudentPortal
                   activeTab={activeTab}
+                  switchTab={setActiveTab}
                   courseId={courseId}
                   setCourseId={setCourseId}
                   classId={classId}
@@ -907,6 +916,7 @@ function App() {
                   classOptions={classOptions}
                   isDarkMode={isDarkMode}
                   sessions={sessions}
+                  isSessionsLoading={isSessionsLoading}
                   activeSessionId={activeSessionId}
                   activeSessionTitle={activeSessionTitle}
                   messages={messages}
