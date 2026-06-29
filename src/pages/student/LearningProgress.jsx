@@ -13,9 +13,11 @@ import {
   QuestionCircleOutlined,
   ReloadOutlined,
   ThunderboltOutlined,
+  CheckOutlined,
 } from '@ant-design/icons';
 import CanvasGraph from '../../components/CanvasGraph';
 import PageHeader from '../../components/common/PageHeader';
+import { apiService } from '../../services/api';
 import { uiCopy } from '../../constants/uiCopy';
 
 const { Text, Title } = Typography;
@@ -97,6 +99,34 @@ function LearningProgress({
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [newLearnedText, setNewLearnedText] = useState(learnedTopics ? learnedTopics.join(', ') : '');
   const [newWeakText, setNewWeakText] = useState(weakTopics ? weakTopics.join(', ') : '');
+  const [improvePlans, setImprovePlans] = useState([]);
+  const [loadingPlans, setLoadingPlans] = useState(false);
+
+  const fetchImprovePlans = async () => {
+    if (!courseId) return;
+    setLoadingPlans(true);
+    try {
+      const plans = await apiService.getImprovePlans(undefined, courseId);
+      setImprovePlans(plans);
+    } catch (e) {
+      console.error('Failed to load improve plans', e);
+    } finally {
+      setLoadingPlans(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchImprovePlans();
+  }, [courseId]);
+
+  const handleMarkComplete = async (planId) => {
+    try {
+      await apiService.completeImprovePlan(planId);
+      fetchImprovePlans();
+    } catch (e) {
+      console.error('Failed to complete plan', e);
+    }
+  };
 
   useEffect(() => {
     setNewLearnedText(learnedTopics ? learnedTopics.join(', ') : '');
@@ -396,6 +426,60 @@ function LearningProgress({
               </List.Item>
             );
           }}
+        />
+      </Card>
+
+      <Card
+        className="learning-card learning-plan-card"
+        title="Improvement Plans"
+        style={{ marginTop: 24 }}
+        loading={loadingPlans}
+      >
+        <List
+          dataSource={improvePlans}
+          locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No active improvement plans." /> }}
+          renderItem={(plan) => (
+            <List.Item
+              actions={[
+                plan.status !== 'COMPLETED' && (
+                  <Button 
+                    key="complete" 
+                    type="primary" 
+                    size="small" 
+                    icon={<CheckOutlined />}
+                    onClick={() => handleMarkComplete(plan.id || plan.planId)}
+                  >
+                    Mark Complete
+                  </Button>
+                )
+              ].filter(Boolean)}
+            >
+              <List.Item.Meta
+                title={
+                  <Space>
+                    <span>Improvement Plan</span>
+                    <Tag color={plan.status === 'COMPLETED' ? 'success' : 'processing'}>
+                      {plan.status || 'ACTIVE'}
+                    </Tag>
+                  </Space>
+                }
+                description={
+                  <div style={{ marginTop: 8 }}>
+                    <Text strong type="secondary">Focus areas:</Text>
+                    <div>{(plan.weakTopics || []).map(t => <Tag key={t}>{t}</Tag>)}</div>
+                    <div style={{ marginTop: 8 }}>
+                      <Text strong type="secondary">Action items:</Text>
+                      <ul style={{ paddingLeft: 20, margin: '4px 0' }}>
+                        {(plan.planItems || []).map((item, i) => (
+                          <li key={i}><Text>{item}</Text></li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                }
+              />
+            </List.Item>
+          )}
         />
       </Card>
 

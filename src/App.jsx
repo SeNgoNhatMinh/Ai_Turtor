@@ -19,6 +19,9 @@ import {
   sanitizePersistedUser,
   suggestionMatchesText,
   writePinnedSuggestions,
+  readAnalyzedSuggestions,
+  writeAnalyzedSuggestions,
+  mergeSuggestionLists,
 } from './utils/storage';
 import { normalizeAppRole } from './utils/formatters';
 
@@ -241,8 +244,12 @@ function App() {
         recentAnswers: memorySnapshot?.recentAnswers || normalized.recentAnswers || [],
         updatedAt: memorySnapshot?.updatedAt || normalized.updatedAt || '',
       });
-      if (normalized.suggestions?.length) {
-        setSuggestions(normalized.suggestions);
+      const localSuggestions = readAnalyzedSuggestions(studentId, courseId);
+      const mergedSuggestions = mergeSuggestionLists(localSuggestions, normalized.suggestions || []);
+      
+      if (mergedSuggestions.length) {
+        setSuggestions(mergedSuggestions);
+        writeAnalyzedSuggestions(studentId, courseId, mergedSuggestions);
       }
     } catch (e) {
       try {
@@ -420,7 +427,9 @@ function App() {
     try {
       const data = await apiService.getSuggestions(getStudentUserId(), courseId);
       const normalized = normalizeSuggestions(data);
-      setSuggestions(normalized.length ? normalized : suggestions);
+      const finalSuggestions = normalized.length ? normalized : suggestions;
+      setSuggestions(finalSuggestions);
+      writeAnalyzedSuggestions(getStudentUserId(), courseId, finalSuggestions);
       triggerToast('Study plan analysis completed.');
     } catch (error) {
       console.error('Error fetching suggestions:', error);

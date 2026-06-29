@@ -577,6 +577,12 @@ export const apiService = {
             body: JSON.stringify(payload)
         });
     },
+    async changePassword(userId, payload) {
+        return await request(`${API_BASE_URL}/users/${userId}/password`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+    },
     async getStudentMemory(studentId, courseId) {
         return await request(`${API_BASE_URL}/tutor/students/${encodePath(studentId)}/courses/${encodePath(courseId)}/memory`);
     },
@@ -654,6 +660,10 @@ export const apiService = {
 
     async getStudentQuizHistory(studentId, courseId) {
         return asArray(await request(`${API_BASE_URL}/tutor/students/${encodePath(studentId)}/courses/${encodePath(courseId)}/quizzes`), 'quizzes', 'content');
+    },
+
+    async getQuiz(quizSessionId) {
+        return await request(`${API_BASE_URL}/tutor/quizzes/${encodePath(quizSessionId)}`);
     },
 
     async getAssignedQuizzes(studentId, courseId, classId = '') {
@@ -802,5 +812,26 @@ export const apiService = {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
+    },
+
+    // =============================================
+    // 22. Diagnostics
+    // =============================================
+    async getHarnessLogs(filters = {}) {
+        const params = new URLSearchParams();
+        Object.entries(filters).forEach(([k, v]) => { if (v) params.append(k, v); });
+        const qs = params.toString();
+        return await request(`${API_BASE_URL}/admin/harness/logs${qs ? `?${qs}` : ''}`);
+    },
+
+    async getHarnessErrorLogs(filters = {}) {
+        const params = new URLSearchParams();
+        Object.entries(filters).forEach(([k, v]) => { if (v) params.append(k, v); });
+        const qs = params.toString();
+        return await request(`${API_BASE_URL}/admin/harness/logs/errors${qs ? `?${qs}` : ''}`);
+    },
+    
+    async getTraceLogs(traceId) {
+        return await request(`${API_BASE_URL}/admin/harness/logs/traces/${encodePath(traceId)}`);
     }
 };

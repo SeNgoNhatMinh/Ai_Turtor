@@ -1,4 +1,5 @@
-import { Card, Progress, Space, Tag, Typography } from 'antd';
+import { Card, Progress, Space, Tag, Typography, List, Divider } from 'antd';
+import AiAnswer from '../../components/AiAnswer';
 
 const { Text, Title } = Typography;
 
@@ -34,6 +35,57 @@ function QuizResult({ result }) {
           <div>
             <Text type="secondary">Focus next: </Text>
             {result.weakTopics.map((topic) => <Tag key={topic}>{topic}</Tag>)}
+          </div>
+        )}
+
+        {Array.isArray(result.questions) && result.questions.length > 0 && (
+          <div className="quiz-result-questions" style={{ marginTop: 24 }}>
+            <Title level={5}>Detailed Review</Title>
+            <List
+              itemLayout="vertical"
+              dataSource={result.questions}
+              renderItem={(q, idx) => {
+                const isCorrect = q.isCorrect ?? (q.selectedOption === (q.correctOption || q.correctAnswer));
+                return (
+                  <List.Item>
+                    <div style={{ marginBottom: 12 }}>
+                      <Text strong>Q{idx + 1}. </Text>
+                      <AiAnswer markdown={q.questionText || q.question || ''} />
+                    </div>
+                    
+                    <div style={{ marginLeft: 16 }}>
+                      <Space direction="vertical" style={{ width: '100%' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <Text type="secondary">Your answer:</Text>
+                          <Tag color={isCorrect ? 'success' : 'error'}>
+                            {q.selectedOption || 'No answer'}
+                          </Tag>
+                          {isCorrect ? (
+                            <Text type="success">✓ Correct</Text>
+                          ) : (
+                            <Text type="danger">✗ Incorrect</Text>
+                          )}
+                        </div>
+                        
+                        {!isCorrect && (q.correctOption || q.correctAnswer) && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <Text type="secondary">Correct answer:</Text>
+                            <Tag color="processing">{q.correctOption || q.correctAnswer}</Tag>
+                          </div>
+                        )}
+
+                        {q.explanation && (
+                          <div style={{ marginTop: 8, padding: 12, background: '#f5f5f5', borderRadius: 6 }}>
+                            <Text strong type="secondary">Explanation: </Text>
+                            <AiAnswer markdown={q.explanation} />
+                          </div>
+                        )}
+                      </Space>
+                    </div>
+                  </List.Item>
+                );
+              }}
+            />
           </div>
         )}
       </Space>

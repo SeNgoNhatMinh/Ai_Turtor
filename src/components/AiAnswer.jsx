@@ -166,6 +166,10 @@ function normalizeLooseBlocks(text = '') {
 function normalizeAiMarkdown(markdown = '') {
   const compactText = String(markdown)
     .replace(/\r\n/g, '\n')
+    .replace(/\\\[/g, '$$$$')
+    .replace(/\\\]/g, '$$$$')
+    .replace(/\\\(/g, '$')
+    .replace(/\\\)/g, '$')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 

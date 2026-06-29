@@ -112,6 +112,25 @@ function PracticeQuizzes({
     }
   };
 
+  const viewQuizHistory = async (quizId, status) => {
+    setLoading(true);
+    setError('');
+    try {
+      const quiz = await apiService.getQuiz(quizId);
+      if (status === 'GENERATED' || quiz.status === 'GENERATED') {
+        setActiveQuiz(quiz);
+        setLastResult(null);
+      } else {
+        setLastResult(quiz);
+        setActiveQuiz(null);
+      }
+    } catch (err) {
+      setError(getUserFacingError(err, 'Unable to load quiz details.'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="portal-section quiz-page">
       <div className="quiz-page-header">
@@ -172,7 +191,18 @@ function PracticeQuizzes({
           <List
             dataSource={history}
             renderItem={(item) => (
-              <List.Item key={getQuizId(item)}>
+              <List.Item 
+                key={getQuizId(item)}
+                actions={[
+                  <Button 
+                    key="view" 
+                    size="small" 
+                    onClick={() => viewQuizHistory(getQuizId(item), item.status)}
+                  >
+                    {item.status === 'GENERATED' ? 'Continue' : 'Review'}
+                  </Button>
+                ]}
+              >
                 <List.Item.Meta
                   title={item.title || item.topic || 'Practice quiz'}
                   description={`Status: ${item.status || 'Submitted'}${item.score != null ? ` - Score: ${item.score}` : ''}`}

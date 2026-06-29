@@ -572,3 +572,7 @@ Copy template này lên đầu phần `History` sau mỗi lần cập nhật:
 
 **Notes**
 - Một số alias backend không nối riêng nếu đã có endpoint canonical tương đương trong FE.
+
+## [2026-06-30] FE API Coverage Phase 1
+- Tạo tài liệu `docs/FE_API_COVERAGE.md` liệt kê các API của Backend và trạng thái cover ở Frontend.
+- Chuẩn bị kế hoạch hoàn thiện các Phase cho Admin, Teacher, Student, loại bỏ hoàn toàn các phần thanh toán (Billing/Payment).

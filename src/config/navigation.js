@@ -64,6 +64,14 @@ export const navigationItems = [
     icon: LayoutGrid,
   },
   {
+    key: 'teacher-quizzes',
+    role: 'teacher',
+    group: 'Teaching',
+    label: 'Quiz Assignments',
+    description: 'Manage quiz assignments and review attempts.',
+    icon: ClipboardList,
+  },
+  {
     key: 'teacher-materials',
     role: 'teacher',
     group: 'Teaching',

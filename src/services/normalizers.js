@@ -233,3 +233,40 @@ export const normalizeTeacherDashboard = (data) => {
     stats: data?.stats || data?.summary || {},
   };
 };
+
+export const normalizeQuizSession = (quiz) => ({
+  ...quiz,
+  id: quiz.id || quiz.quizSessionId,
+  score: quiz.score ?? 0,
+  status: quiz.status || 'GENERATED',
+  createdAt: quiz.createdAt || new Date().toISOString(),
+});
+
+export const normalizeQuizAssignment = (assignment) => ({
+  ...assignment,
+  id: assignment.id || assignment.assignmentId,
+  title: assignment.title || assignment.name || 'Untitled Quiz',
+  status: assignment.status || 'DRAFT',
+});
+
+export const normalizeImprovePlan = (plan) => ({
+  ...plan,
+  id: plan.id || plan.planId,
+  riskLevel: plan.riskLevel || 'LOW',
+  status: plan.status || 'ACTIVE',
+  planItems: asArray(plan?.planItems || plan?.items),
+});
+
+export const normalizeEnrollment = (enrollment) => ({
+  ...enrollment,
+  id: enrollment.id || enrollment.enrollmentId,
+  status: enrollment.status || 'ACTIVE',
+  studentName: enrollment.studentName || enrollment.studentFullName || 'Student',
+});
+
+export const normalizeCourseMaterial = (material) => ({
+  ...material,
+  id: material.id || material.materialId,
+  title: material.title || material.name || 'Untitled Material',
+  status: material.status || material.indexStatus || 'INDEXED',
+});
