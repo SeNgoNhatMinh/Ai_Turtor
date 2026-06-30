@@ -7,6 +7,7 @@ import {
   Send,
 } from 'lucide-react';
 import { apiService } from '../services/api';
+import QuizAssignments from './teacher/QuizAssignments';
 
 const HEATMAP_CLASS = {
   high: 'val-high',
@@ -79,6 +80,7 @@ function TeacherPortal({
   const [teacherEscReply, setTeacherEscReply] = useState('');
   const [createKnowledgeCandidate, setCreateKnowledgeCandidate] = useState(true);
   const [candidateType, setCandidateType] = useState('ACADEMIC_KNOWLEDGE');
+  const [candidateClassId, setCandidateClassId] = useState(classId || '');
   const [candidateNotes, setCandidateNotes] = useState({});
 
   const handleNoteChange = (candId, value) => {
@@ -96,6 +98,10 @@ function TeacherPortal({
   const [chatRoomDetail, setChatRoomDetail] = useState(null);
   const [isTeacherChatSending, setIsTeacherChatSending] = useState(false);
   const teacherChatEndRef = useRef(null);
+
+  const [materialFile, setMaterialFile] = useState(null);
+  const [materialTitle, setMaterialTitle] = useState('');
+  const [isUploadingMaterial, setIsUploadingMaterial] = useState(false);
 
   useEffect(() => {
     teacherChatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -130,7 +136,8 @@ function TeacherPortal({
       selectedEscalation.id, 
       teacherEscReply, 
       createKnowledgeCandidate, 
-      candidateType
+      candidateType,
+      candidateType === 'OPERATIONAL_POLICY' ? candidateClassId : null
     ).then(() => {
       setTeacherEscReply('');
     });
@@ -212,6 +219,27 @@ function TeacherPortal({
       loadTeacherInbox?.();
     } catch {
       triggerToast('Unable to close chat.');
+    }
+  };
+
+  const handleTeacherUploadMaterial = async (e) => {
+    e.preventDefault();
+    if (!materialFile || !courseId) return;
+    setIsUploadingMaterial(true);
+    const formData = new FormData();
+    formData.append('file', materialFile);
+    formData.append('title', materialTitle || materialFile.name);
+    formData.append('uploaderRole', 'TEACHER');
+    if (classId) formData.append('classId', classId);
+    try {
+      await apiService.uploadMaterial(courseId, formData);
+      setMaterialFile(null);
+      setMaterialTitle('');
+      triggerToast('Class material uploaded successfully.');
+    } catch (err) {
+      triggerToast('Unable to upload material.');
+    } finally {
+      setIsUploadingMaterial(false);
     }
   };
 
@@ -322,17 +350,50 @@ function TeacherPortal({
         </div>
       )}
 
+      {activeTab === 'teacher-quizzes' && (
+        <QuizAssignments
+          teacherId={teacherUserId}
+          courseId={courseId}
+          classId={classId}
+          teacherStudents={teacherStudents}
+          triggerToast={triggerToast}
+        />
+      )}
+
       {activeTab === 'teacher-materials' && (
         <div className="grid-2-cols portal-view">
           <div className="glass-card">
             <div className="card-header">
-              <h3>Shared Course Materials</h3>
+              <h3>Upload Class Material</h3>
             </div>
-            <div className="no-data-text" style={{ textAlign: 'left', padding: 16, lineHeight: 1.7 }}>
-              Course materials are managed by Admin because they are shared across classes.
-              <br />
-              You can still publish class assignments from this screen.
-            </div>
+            <form className="portal-form" onSubmit={handleTeacherUploadMaterial}>
+              <div className="input-group">
+                <label>Material Title</label>
+                <input
+                  type="text"
+                  className="glass-input-field"
+                  value={materialTitle}
+                  onChange={(e) => setMaterialTitle(e.target.value)}
+                  placeholder="Leave empty to use file name"
+                />
+              </div>
+              <div className="input-group">
+                <label>File (PDF, DOCX, TXT)</label>
+                <input
+                  type="file"
+                  onChange={(e) => setMaterialFile(e.target.files[0])}
+                  required
+                />
+              </div>
+              {classId && (
+                <div style={{ marginBottom: 16 }}>
+                  <span className="badge-semester">Scoped to Class: {classId}</span>
+                </div>
+              )}
+              <button type="submit" className="btn-submit-form" disabled={isUploadingMaterial || !materialFile}>
+                {isUploadingMaterial ? 'Uploading...' : 'Upload Material'}
+              </button>
+            </form>
           </div>
 
           <div className="glass-card">
@@ -521,7 +582,7 @@ function TeacherPortal({
                     Đề xuất AI học câu trả lời này
                   </label>
                   {createKnowledgeCandidate && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                       <span style={{ fontSize: 12, color: '#6B7280' }}>Loại tri thức:</span>
                       <select 
                         value={candidateType} 
@@ -531,6 +592,19 @@ function TeacherPortal({
                         <option value="ACADEMIC_KNOWLEDGE">Kiến thức học thuật (Academic)</option>
                         <option value="OPERATIONAL_POLICY">Chính sách lớp học (Policy)</option>
                       </select>
+                      
+                      {candidateType === 'OPERATIONAL_POLICY' && (
+                        <>
+                          <span style={{ fontSize: 12, color: '#6B7280', marginLeft: 8 }}>Áp dụng cho lớp:</span>
+                          <input 
+                            type="text"
+                            value={candidateClassId}
+                            onChange={(e) => setCandidateClassId(e.target.value)}
+                            placeholder="Mã lớp (VD: SE1840)"
+                            style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #d9d9d9', fontSize: 12, background: '#fff' }}
+                          />
+                        </>
+                      )}
                     </div>
                   )}
                 </div>

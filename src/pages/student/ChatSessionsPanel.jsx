@@ -9,6 +9,18 @@ import { confirmDanger } from '../../components/common/confirmDialog';
 
 const { Text } = Typography;
 const PAGE_SIZE = 50;
+const CHAT_TURN_LIMIT = 10;
+
+const toFiniteNumber = (value, fallback = 0) => {
+  const numberValue = Number(value);
+  return Number.isFinite(numberValue) ? numberValue : fallback;
+};
+
+const getQuestionCount = (session) => {
+  if (session?.userQuestionCount != null) return Math.min(CHAT_TURN_LIMIT, Math.max(0, toFiniteNumber(session.userQuestionCount)));
+  if (session?.questionCount != null) return Math.min(CHAT_TURN_LIMIT, Math.max(0, toFiniteNumber(session.questionCount)));
+  return Math.min(CHAT_TURN_LIMIT, Math.max(0, Math.floor(toFiniteNumber(session?.messageCount) / 2)));
+};
 
 const getActivityDate = (session) => {
   const value = session?.lastMessageAt || session?.updatedAt || session?.createdAt;
@@ -75,7 +87,7 @@ function EmptyState({ isSearching }) {
   return (
     <div className="conversation-empty-state">
       <MessageSquare size={22} aria-hidden="true" />
-      <span>{isSearching ? 'No conversations match your search.' : 'Start a new AI Tutor session.'}</span>
+      <span>{isSearching ? 'No conversations match your search.' : 'No conversations for this course yet.'}</span>
     </div>
   );
 }
@@ -105,6 +117,9 @@ function ConversationItem({
   onSaveRename,
   onMenuAction,
 }) {
+  const questionCount = getQuestionCount(session);
+  const isFull = Boolean(session.maxTurnsReached || questionCount >= CHAT_TURN_LIMIT);
+
   return (
     <motion.div
       layout
@@ -133,7 +148,8 @@ function ConversationItem({
         </div>
         <div className="session-item-meta">
           <Text className="session-item-time">{formatSessionTime(session)}</Text>
-          {Number(session.messageCount) > 0 && <span>{session.messageCount} msgs</span>}
+          {questionCount > 0 && <span className="session-question-count">{questionCount}/{CHAT_TURN_LIMIT} questions</span>}
+          {isFull && <span className="session-full-badge">Full</span>}
           {(session.courseId || session.classId) && (
             <span>{[session.courseId, session.classId].filter(Boolean).join(' / ')}</span>
           )}

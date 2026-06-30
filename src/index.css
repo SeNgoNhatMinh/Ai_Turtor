@@ -4664,6 +4664,18 @@ textarea.ant-input:focus::placeholder {
     border-radius: 10px;
 }
 
+.learning-alert {
+    margin-bottom: 16px;
+    border-radius: 12px;
+}
+
+.learning-memory-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    margin-top: 16px;
+}
+
 .learning-recent-list {
     display: grid;
     gap: 8px;
@@ -4777,6 +4789,45 @@ textarea.ant-input:focus::placeholder {
     padding-left: 0;
 }
 
+.learning-latest-plan {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 14px;
+    padding: 14px;
+    border: 1px solid #E5E7EB;
+    border-radius: 12px;
+    background: #FAFAFA;
+}
+
+.learning-plan-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.learning-plan-item.ant-list-item {
+    align-items: flex-start;
+    padding: 16px 0;
+}
+
+.learning-plan-detail {
+    display: grid;
+    gap: 10px;
+    margin-top: 8px;
+}
+
+.learning-plan-detail ul {
+    margin: 6px 0 0;
+    padding-left: 20px;
+}
+
+.learning-plan-detail li + li {
+    margin-top: 4px;
+}
+
 .learning-suggestion-item.ant-list-item {
     align-items: flex-start;
     gap: 16px;
@@ -4856,7 +4907,8 @@ textarea.ant-input:focus::placeholder {
 .app-container.dark .learning-stat-icon,
 .app-container.dark .learning-topic-section,
 .app-container.dark .learning-network-frame,
-.app-container.dark .learning-recent-item {
+.app-container.dark .learning-recent-item,
+.app-container.dark .learning-latest-plan {
     background: #171717;
     border-color: #2A2A2A;
 }
@@ -4907,6 +4959,14 @@ textarea.ant-input:focus::placeholder {
 
     .learning-stat-grid {
         grid-template-columns: 1fr;
+    }
+
+    .learning-memory-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .learning-latest-plan {
+        flex-direction: column;
     }
 
     .learning-suggestion-item.ant-list-item {

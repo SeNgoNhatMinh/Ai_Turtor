@@ -19,6 +19,9 @@ import {
   sanitizePersistedUser,
   suggestionMatchesText,
   writePinnedSuggestions,
+  readAnalyzedSuggestions,
+  writeAnalyzedSuggestions,
+  mergeSuggestionLists,
 } from './utils/storage';
 import { normalizeAppRole } from './utils/formatters';
 
@@ -134,6 +137,10 @@ function App() {
     sessions,
     isSessionsLoading,
     messages,
+    activeSessionQuestionCount,
+    activeSessionMaxTurnsReached,
+    turnLimitNotice,
+    dismissTurnLimitNotice,
     resetChat,
     loadChatSessions,
     handleSelectSession,
@@ -241,8 +248,12 @@ function App() {
         recentAnswers: memorySnapshot?.recentAnswers || normalized.recentAnswers || [],
         updatedAt: memorySnapshot?.updatedAt || normalized.updatedAt || '',
       });
-      if (normalized.suggestions?.length) {
-        setSuggestions(normalized.suggestions);
+      const localSuggestions = readAnalyzedSuggestions(studentId, courseId);
+      const mergedSuggestions = mergeSuggestionLists(localSuggestions, normalized.suggestions || []);
+      
+      if (mergedSuggestions.length) {
+        setSuggestions(mergedSuggestions);
+        writeAnalyzedSuggestions(studentId, courseId, mergedSuggestions);
       }
     } catch (e) {
       try {
@@ -413,15 +424,22 @@ function App() {
   // ==========================================
   // SUGGESTIONS ENGINE (STUDENT PORTAL)
   // ==========================================
-  const refreshSuggestions = async () => {
+  const refreshSuggestions = async (question = '') => {
+    const questionText = String(question || '').trim();
     setIsSuggesting(true);
-    triggerToast('AI is analyzing your learning memory...');
+    triggerToast(questionText ? 'AI is analyzing this study tip...' : 'AI is analyzing your learning memory...');
 
     try {
-      const data = await apiService.getSuggestions(getStudentUserId(), courseId);
+      const data = await apiService.getSuggestions(getStudentUserId(), courseId, {
+        classId,
+        question: questionText || undefined,
+        includeAiSuggestion: Boolean(questionText),
+      });
       const normalized = normalizeSuggestions(data);
-      setSuggestions(normalized.length ? normalized : suggestions);
-      triggerToast('Study plan analysis completed.');
+      const finalSuggestions = normalized.length ? normalized : suggestions;
+      setSuggestions(finalSuggestions);
+      writeAnalyzedSuggestions(getStudentUserId(), courseId, finalSuggestions);
+      triggerToast(questionText ? 'Study tip analysis completed.' : 'Study plan analysis completed.');
     } catch (error) {
       console.error('Error fetching suggestions:', error);
       triggerToast('Failed to analyze learning suggestions.');
@@ -920,6 +938,11 @@ function App() {
                   activeSessionId={activeSessionId}
                   activeSessionTitle={activeSessionTitle}
                   messages={messages}
+                  activeSessionQuestionCount={activeSessionQuestionCount}
+                  activeSessionMaxTurnsReached={activeSessionMaxTurnsReached}
+                  turnLimitNotice={turnLimitNotice}
+                  dismissTurnLimitNotice={dismissTurnLimitNotice}
+                  resetChat={resetChat}
                   handleCreateSession={handleCreateSession}
                   handleSelectSession={handleSelectSession}
                   handleDeleteSession={handleDeleteSession}

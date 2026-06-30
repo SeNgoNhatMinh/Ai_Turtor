@@ -15,6 +15,28 @@ const sortSessionsByActivity = (items) => {
   return [...(Array.isArray(items) ? items : [])].sort((a, b) => getSessionActivityTime(b) - getSessionActivityTime(a));
 };
 
+const CHAT_TURN_LIMIT = 10;
+
+const toFiniteNumber = (value, fallback = 0) => {
+  const numberValue = Number(value);
+  return Number.isFinite(numberValue) ? numberValue : fallback;
+};
+
+const clampQuestionCount = (value) => Math.max(0, Math.min(CHAT_TURN_LIMIT, toFiniteNumber(value, 0)));
+
+const getSessionQuestionCount = (session) => {
+  if (!session) return 0;
+  if (session.userQuestionCount != null) return clampQuestionCount(session.userQuestionCount);
+  if (session.questionCount != null) return clampQuestionCount(session.questionCount);
+  return clampQuestionCount(Math.floor(toFiniteNumber(session.messageCount, 0) / 2));
+};
+
+const countQuestionsInMessages = (items) => (
+  Array.isArray(items)
+    ? items.filter((message) => String(message?.question || '').trim()).length
+    : 0
+);
+
 export function useStudentChatController({
   currentUser,
   courseId,
@@ -27,6 +49,7 @@ export function useStudentChatController({
   const [sessions, setSessions] = useState([]);
   const [messages, setMessages] = useState([]);
   const [isSessionsLoading, setIsSessionsLoading] = useState(false);
+  const [turnLimitNotice, setTurnLimitNotice] = useState(null);
   const activeAiRequestIdRef = useRef(0);
   const canceledAiRequestIdsRef = useRef(new Set());
 
@@ -37,6 +60,7 @@ export function useStudentChatController({
     setActiveSessionTitle('AI Tutor Chat');
     setMessages([]);
     setSessions([]);
+    setTurnLimitNotice(null);
   };
 
   const loadChatSessions = async () => {
@@ -61,12 +85,19 @@ export function useStudentChatController({
     title,
     lastMessageAt = new Date().toISOString(),
     messageCountIncrement = 1,
+    questionCountIncrement = 0,
+    questionCount,
+    maxTurnsReached,
   }) => {
     if (!conversationId) return;
 
     setSessions((prev) => {
       const list = Array.isArray(prev) ? prev : [];
       const existing = list.find((session) => session.id === conversationId);
+      const existingQuestionCount = getSessionQuestionCount(existing);
+      const nextQuestionCount = questionCount != null
+        ? clampQuestionCount(questionCount)
+        : clampQuestionCount(existingQuestionCount + questionCountIncrement);
       const nextSession = {
         ...(existing || {}),
         id: conversationId,
@@ -77,6 +108,8 @@ export function useStudentChatController({
         createdAt: existing?.createdAt || lastMessageAt,
         lastMessageAt,
         messageCount: Math.max(0, Number(existing?.messageCount || 0) + messageCountIncrement),
+        userQuestionCount: nextQuestionCount,
+        maxTurnsReached: Boolean(maxTurnsReached ?? existing?.maxTurnsReached ?? nextQuestionCount >= CHAT_TURN_LIMIT),
       };
       const nextList = [nextSession, ...list.filter((session) => session.id !== conversationId)];
       return sortSessionsByActivity(nextList);
@@ -91,6 +124,7 @@ export function useStudentChatController({
     }
     setActiveSessionId(sessionId);
     setActiveSessionTitle(title);
+    setTurnLimitNotice(null);
     setMessages([]);
     const chatMsgs = await apiService.getMessages(sessionId, userId);
     setMessages(pairMessages(asArray(chatMsgs, 'content', 'messages')));
@@ -106,6 +140,7 @@ export function useStudentChatController({
     const session = normalizeSession(data);
     setActiveSessionId(session.id);
     setActiveSessionTitle(session.title);
+    setTurnLimitNotice(null);
     setSessions((prev) => sortSessionsByActivity([session, ...(Array.isArray(prev) ? prev.filter((item) => item.id !== session.id) : [])]));
     setMessages([]);
     triggerToast('New conversation created.');
@@ -120,6 +155,9 @@ export function useStudentChatController({
     await apiService.deleteConversation(sessionId, userId);
     triggerToast('Conversation deleted.');
     setSessions((prev) => prev.filter((session) => session.id !== sessionId));
+    setTurnLimitNotice((current) => (
+      current?.previousSessionId === sessionId || current?.currentSessionId === sessionId ? null : current
+    ));
     if (activeSessionId === sessionId) {
       setActiveSessionId(null);
       setActiveSessionTitle('AI Tutor Chat');
@@ -150,13 +188,16 @@ export function useStudentChatController({
       triggerToast('Please sign in before sending a message.');
       return;
     }
+    const previousSessionId = activeSessionId;
+    const previousSessionTitle = activeSessionTitle;
     const requestId = activeAiRequestIdRef.current + 1;
     activeAiRequestIdRef.current = requestId;
-    if (activeSessionId) {
+    if (previousSessionId) {
       bumpConversationActivity({
-        conversationId: activeSessionId,
-        title: activeSessionTitle,
+        conversationId: previousSessionId,
+        title: previousSessionTitle,
         messageCountIncrement: 1,
+        questionCountIncrement: 1,
       });
     }
     setMessages((prev) => [...prev, { question: text, answer: null, pending: true, requestId }]);
@@ -173,7 +214,7 @@ export function useStudentChatController({
             classId,
             message: text,
             codeSnippet: codeSnippet || '',
-            conversationId: activeSessionId || ''
+            conversationId: previousSessionId || ''
           });
         } catch (n8nError) {
           console.warn('n8n request failed, trying backend API fallback:', n8nError);
@@ -184,7 +225,7 @@ export function useStudentChatController({
             codeSnippet: codeSnippet || null,
             courseId,
             classId,
-            conversationId: activeSessionId || null
+            conversationId: previousSessionId || null
           }, userId);
         }
       } else {
@@ -194,23 +235,36 @@ export function useStudentChatController({
           codeSnippet: codeSnippet || null,
           courseId,
           classId,
-          conversationId: activeSessionId || null
+          conversationId: previousSessionId || null
         }, userId);
       }
 
-      const responseConversationId = data.conversationId || data.sessionId || activeSessionId;
-      const responseConversationTitle = data.conversationTitle || data.title || activeSessionTitle || `AI Tutor Chat - ${courseId || 'Course'}`;
+      const responseConversationId = data.conversationId || data.sessionId || previousSessionId;
+      const responseConversationTitle = data.conversationTitle || data.title || previousSessionTitle || `AI Tutor Chat - ${courseId || 'Course'}`;
+      const didStartNewConversation = Boolean(previousSessionId && responseConversationId && responseConversationId !== previousSessionId);
 
-      if (responseConversationId && responseConversationId !== activeSessionId) {
+      if (responseConversationId && responseConversationId !== previousSessionId) {
         setActiveSessionId(responseConversationId);
         setActiveSessionTitle(responseConversationTitle);
+      }
+
+      if (didStartNewConversation) {
+        setTurnLimitNotice({
+          type: 'turn-limit',
+          previousSessionId,
+          currentSessionId: responseConversationId,
+          message: 'This chat reached 10 questions. AI Tutor started a new conversation to keep answers focused.',
+        });
       }
 
       bumpConversationActivity({
         conversationId: responseConversationId,
         title: responseConversationTitle,
         lastMessageAt: data.lastMessageAt || data.updatedAt || new Date().toISOString(),
-        messageCountIncrement: responseConversationId === activeSessionId ? 0 : 1,
+        messageCountIncrement: responseConversationId === previousSessionId ? 0 : 1,
+        questionCountIncrement: responseConversationId === previousSessionId ? 0 : 1,
+        questionCount: data.userQuestionCount ?? data.questionCount,
+        maxTurnsReached: data.maxTurnsReached,
       });
 
       if (canceledAiRequestIdsRef.current.has(requestId)) {
@@ -236,6 +290,18 @@ export function useStudentChatController({
         };
         return updated;
       });
+
+      if (didStartNewConversation) {
+        try {
+          const chatMsgs = await apiService.getMessages(responseConversationId, userId);
+          const historyPairs = pairMessages(asArray(chatMsgs, 'content', 'messages'));
+          if (historyPairs.length > 0) {
+            setMessages(historyPairs);
+          }
+        } catch {
+          // Keep the just-submitted exchange visible if history reload is not ready yet.
+        }
+      }
 
       if (data.mode === 'CODE' || data.mode === 'CODE_MENTOR') {
         setCodeMentorDiagnostics(data.answer);
@@ -291,12 +357,26 @@ export function useStudentChatController({
     });
   };
 
+  const activeSession = sessions.find((session) => session.id === activeSessionId);
+  const messageQuestionCount = countQuestionsInMessages(messages);
+  const activeSessionQuestionCount = clampQuestionCount(
+    activeSession ? getSessionQuestionCount(activeSession) : messageQuestionCount,
+  );
+  const activeSessionMaxTurnsReached = Boolean(
+    activeSessionId && (activeSession?.maxTurnsReached || activeSessionQuestionCount >= CHAT_TURN_LIMIT),
+  );
+  const dismissTurnLimitNotice = () => setTurnLimitNotice(null);
+
   return {
     activeSessionId,
     activeSessionTitle,
     sessions,
     isSessionsLoading,
     messages,
+    activeSessionQuestionCount,
+    activeSessionMaxTurnsReached,
+    turnLimitNotice,
+    dismissTurnLimitNotice,
     resetChat,
     loadChatSessions,
     handleSelectSession,

@@ -1,5 +1,5 @@
 import { API_BASE_URL, API_TIMEOUTS, blobRequest, request, uploadRequest } from './apiClient';
-import { asArray } from './normalizers';
+import { asArray, normalizeImprovePlan, normalizeQuizAssignment, normalizeQuizSession } from './normalizers';
 import { encodePath } from '../config/env';
 import { normalizeReviewMode } from '../utils/validators';
 import { authApi } from './authApi';
@@ -226,11 +226,19 @@ export const apiService = {
     },
 
     // 6. Suggestions
-    async getSuggestions(studentId, courseId) {
+    async getSuggestions(studentId, courseId, options = {}) {
+        const payload = {
+            studentId,
+            courseId,
+            ...(options.classId ? { classId: options.classId } : {}),
+            ...(options.question ? { question: options.question } : {}),
+            ...(options.includeAiSuggestion != null ? { includeAiSuggestion: options.includeAiSuggestion } : {}),
+        };
+
         return await request(`${API_BASE_URL}/tutor/improve-suggestions`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ studentId, courseId })
+            body: JSON.stringify(payload)
         });
     },
 
@@ -577,6 +585,12 @@ export const apiService = {
             body: JSON.stringify(payload)
         });
     },
+    async changePassword(userId, payload) {
+        return await request(`${API_BASE_URL}/users/${userId}/password`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+    },
     async getStudentMemory(studentId, courseId) {
         return await request(`${API_BASE_URL}/tutor/students/${encodePath(studentId)}/courses/${encodePath(courseId)}/memory`);
     },
@@ -618,57 +632,74 @@ export const apiService = {
         const params = new URLSearchParams();
         if (courseId) params.append('courseId', courseId);
         const qs = params.toString();
-        return asArray(await request(`${API_BASE_URL}/students/${studentId}/improve-plans${qs ? `?${qs}` : ''}`), 'plans', 'content');
+        return asArray(
+            await request(`${API_BASE_URL}/students/${encodePath(studentId)}/improve-plans${qs ? `?${qs}` : ''}`),
+            'plans',
+            'content',
+        ).map(normalizeImprovePlan);
     },
 
     async getLatestImprovePlan(studentId, courseId) {
-        return await request(`${API_BASE_URL}/students/${studentId}/courses/${courseId}/improve-plan`);
+        const data = await request(`${API_BASE_URL}/students/${encodePath(studentId)}/courses/${encodePath(courseId)}/improve-plan`);
+        return data?.plan === '' ? null : normalizeImprovePlan(data);
     },
 
     async completeImprovePlan(planId) {
-        return await request(`${API_BASE_URL}/improve-plans/${planId}/complete`, {
+        return normalizeImprovePlan(await request(`${API_BASE_URL}/improve-plans/${encodePath(planId)}/complete`, {
             method: 'PUT'
-        });
+        }));
     },
 
     // =============================================
     // 18. Practice Quiz APIs
     // =============================================
     async generateSelfQuiz(studentId, courseId, payload) {
-        return await request(`${API_BASE_URL}/tutor/students/${encodePath(studentId)}/courses/${encodePath(courseId)}/quizzes/generate`, {
+        return normalizeQuizSession(await request(`${API_BASE_URL}/tutor/students/${encodePath(studentId)}/courses/${encodePath(courseId)}/quizzes/generate`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
             timeoutMs: API_TIMEOUTS.quizGeneration
-        });
+        }));
     },
 
     async submitQuiz(quizSessionId, payload) {
-        return await request(`${API_BASE_URL}/tutor/quizzes/${encodePath(quizSessionId)}/submit`, {
+        return normalizeQuizSession(await request(`${API_BASE_URL}/tutor/quizzes/${encodePath(quizSessionId)}/submit`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
             timeoutMs: API_TIMEOUTS.ai
-        });
+        }));
     },
 
     async getStudentQuizHistory(studentId, courseId) {
-        return asArray(await request(`${API_BASE_URL}/tutor/students/${encodePath(studentId)}/courses/${encodePath(courseId)}/quizzes`), 'quizzes', 'content');
+        return asArray(
+            await request(`${API_BASE_URL}/tutor/students/${encodePath(studentId)}/courses/${encodePath(courseId)}/quizzes`),
+            'quizzes',
+            'content',
+        ).map(normalizeQuizSession);
+    },
+
+    async getQuiz(quizSessionId) {
+        return normalizeQuizSession(await request(`${API_BASE_URL}/tutor/quizzes/${encodePath(quizSessionId)}`));
     },
 
     async getAssignedQuizzes(studentId, courseId, classId = '') {
         const params = new URLSearchParams();
         if (classId) params.append('classId', classId);
         const qs = params.toString();
-        return asArray(await request(`${API_BASE_URL}/tutor/students/${encodePath(studentId)}/courses/${encodePath(courseId)}/quiz-assignments${qs ? `?${qs}` : ''}`), 'assignments', 'content');
+        return asArray(
+            await request(`${API_BASE_URL}/tutor/students/${encodePath(studentId)}/courses/${encodePath(courseId)}/quiz-assignments${qs ? `?${qs}` : ''}`),
+            'assignments',
+            'content',
+        ).map(normalizeQuizAssignment);
     },
 
     async startQuizAssignmentAttempt(assignmentId, studentId) {
         const params = new URLSearchParams({ studentId });
-        return await request(`${API_BASE_URL}/tutor/quiz-assignments/${encodePath(assignmentId)}/attempts?${params}`, {
+        return normalizeQuizSession(await request(`${API_BASE_URL}/tutor/quiz-assignments/${encodePath(assignmentId)}/attempts?${params}`, {
             method: 'POST',
             timeoutMs: API_TIMEOUTS.ai
-        });
+        }));
     },
 
     async generateTeacherQuizDraft(teacherId, courseId, payload) {
@@ -802,5 +833,26 @@ export const apiService = {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
+    },
+
+    // =============================================
+    // 22. Diagnostics
+    // =============================================
+    async getHarnessLogs(filters = {}) {
+        const params = new URLSearchParams();
+        Object.entries(filters).forEach(([k, v]) => { if (v) params.append(k, v); });
+        const qs = params.toString();
+        return await request(`${API_BASE_URL}/admin/harness/logs${qs ? `?${qs}` : ''}`);
+    },
+
+    async getHarnessErrorLogs(filters = {}) {
+        const params = new URLSearchParams();
+        Object.entries(filters).forEach(([k, v]) => { if (v) params.append(k, v); });
+        const qs = params.toString();
+        return await request(`${API_BASE_URL}/admin/harness/logs/errors${qs ? `?${qs}` : ''}`);
+    },
+    
+    async getTraceLogs(traceId) {
+        return await request(`${API_BASE_URL}/admin/harness/logs/traces/${encodePath(traceId)}`);
     }
 };

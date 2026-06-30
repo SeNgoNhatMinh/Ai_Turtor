@@ -8,10 +8,12 @@ import AnswerEvidence from './AnswerEvidence';
 import ChatLoadingSteps from './ChatLoadingSteps';
 import PromptStarters from './PromptStarters';
 import { normalizeReviewMode, validateChatInput, validateFeedbackText } from '../../utils/validators';
+import { buildMaterialSourceMap } from '../../utils/sourceLabels';
 import './ChatWorkspace.css';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
+const CHAT_TURN_LIMIT = 10;
 
 const getReviewMode = (message) => {
   return normalizeReviewMode(message?.mode);
@@ -53,7 +55,7 @@ const getMessagePreview = (message) => {
 function ChatWorkspace({
   activeSessionTitle,
   courseId,
-  setCourseId,
+  onCourseChange,
   classId,
   setClassId,
   courseOptions = [],
@@ -71,8 +73,15 @@ function ChatWorkspace({
   handleStudentReviewAnswer,
   userId,
   activeSessionId,
+  activeSessionQuestionCount = 0,
+  activeSessionMaxTurnsReached = false,
+  turnLimitNotice,
+  onTurnLimitBack,
+  onDismissTurnLimitNotice,
   isDarkMode = false,
   triggerToast,
+  courseMaterials = [],
+  onAnalyzeStudyTip,
 }) {
   const [feedbackOpenIndex, setFeedbackOpenIndex] = useState(null);
   const [feedbackRating, setFeedbackRating] = useState(null); // 1 or 3
@@ -82,6 +91,7 @@ function ChatWorkspace({
   const [highlightedMessageKey, setHighlightedMessageKey] = useState('');
 
   const textareaRef = useRef(null);
+  const materialSourceMap = useMemo(() => buildMaterialSourceMap(courseMaterials), [courseMaterials]);
 
   useEffect(() => {
     const storageKey = getPinnedStorageKey(userId, activeSessionId);
@@ -208,6 +218,10 @@ function ChatWorkspace({
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
+      if (activeSessionMaxTurnsReached) {
+        triggerToast?.('This chat is full. Start a new chat to continue.');
+        return;
+      }
       const validation = validateChatInput(chatInput);
       if (!validation.ok) {
         triggerToast?.(validation.message);
@@ -240,19 +254,37 @@ function ChatWorkspace({
     .slice(0, 3);
   const selectedCourseValue = safeCourseOptions.some((item) => item.value === courseId) ? courseId : undefined;
   const selectedClassValue = safeClassOptions.some((item) => item.value === classId) ? classId : undefined;
+  const questionCount = Math.max(0, Math.min(CHAT_TURN_LIMIT, Number(activeSessionQuestionCount) || 0));
+  const isNearTurnLimit = questionCount >= 8 && questionCount < CHAT_TURN_LIMIT && !activeSessionMaxTurnsReached;
+  const sendDisabled = !validateChatInput(chatInput).ok || activeSessionMaxTurnsReached;
 
   return (
     <div className="chat-workspace-dark" style={style}>
       {/* Header */}
       <div className="chat-workspace-header">
-        <div>
+        <div className="chat-header-main">
           <Title level={4} style={{ margin: 0, fontSize: '1.1rem' }}>{activeSessionTitle}</Title>
-          <Text type="secondary" style={{ fontSize: '0.8rem' }}>AI Tutor Session</Text>
+          <div className="chat-header-meta-row">
+            <Text type="secondary" style={{ fontSize: '0.8rem' }}>AI Tutor Session</Text>
+            <span className={`chat-turn-counter ${activeSessionMaxTurnsReached ? 'chat-turn-counter--full' : isNearTurnLimit ? 'chat-turn-counter--warning' : ''}`}>
+              Questions {questionCount}/{CHAT_TURN_LIMIT}
+            </span>
+          </div>
+          {isNearTurnLimit && (
+            <div className="chat-turn-helper">
+              This chat is almost full. AI Tutor will continue in a new chat after 10 questions.
+            </div>
+          )}
+          {activeSessionMaxTurnsReached && (
+            <div className="chat-turn-helper chat-turn-helper--full">
+              This chat is full. Start a new chat to continue.
+            </div>
+          )}
         </div>
         <Space wrap>
           <Select
             value={selectedCourseValue}
-            onChange={setCourseId}
+            onChange={onCourseChange}
             style={{ width: 150 }}
             placeholder="Choose course"
             popupClassName={`chat-course-select-popup ${isDarkMode ? 'chat-course-select-popup--dark' : ''}`}
@@ -277,6 +309,30 @@ function ChatWorkspace({
           </Select>
         </Space>
       </div>
+
+      {turnLimitNotice && (
+        <div className="chat-turn-limit-banner" role="status">
+          <div>
+            <strong>New conversation started</strong>
+            <span>{turnLimitNotice.message || 'This chat reached 10 questions. AI Tutor started a new conversation.'}</span>
+          </div>
+          <div className="chat-turn-limit-banner-actions">
+            {turnLimitNotice.previousSessionId && (
+              <button type="button" onClick={onTurnLimitBack}>
+                Back to previous chat
+              </button>
+            )}
+            <button
+              type="button"
+              className="chat-turn-limit-banner-close"
+              aria-label="Dismiss notice"
+              onClick={onDismissTurnLimitNotice}
+            >
+              <CloseOutlined />
+            </button>
+          </div>
+        </div>
+      )}
 
       {pinnedMessages.length > 0 && (
         <div className="chat-pinned-topbar" aria-label="Pinned messages">
@@ -344,9 +400,13 @@ function ChatWorkspace({
                           <RobotHeadMascot size={36} compact={true} followMouse={true} />
                         </div>
                         <div className="chat-gpt-ai-content">
-                          <AiAnswer markdown={message.answer || ''} />
+                          <AiAnswer
+                            markdown={message.answer || ''}
+                            sourceMap={materialSourceMap}
+                            onStudyTipAnalyze={onAnalyzeStudyTip}
+                          />
 
-                          <AnswerEvidence message={message} />
+                          <AnswerEvidence message={message} sourceMap={materialSourceMap} />
                           {!message.canceled && <AnswerActionBar message={message} onAction={onAnswerAction} />}
 
                           {/* Feedback Actions */}
@@ -452,10 +512,10 @@ function ChatWorkspace({
           <div className="chat-gpt-input-wrapper">
             <textarea
               ref={textareaRef}
-              placeholder={isAiLoading ? 'AI Tutor is responding...' : 'Message AI Tutor...'}
+              placeholder={activeSessionMaxTurnsReached ? 'This chat is full. Start a new chat to continue.' : isAiLoading ? 'AI Tutor is responding...' : 'Message AI Tutor...'}
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
-                onKeyDown={handleKeyDown}
+              onKeyDown={handleKeyDown}
               maxLength={8000}
               disabled={isAiLoading}
               rows={1}
@@ -468,7 +528,8 @@ function ChatWorkspace({
               <button
                 className="chat-gpt-send-btn"
                 onClick={onSendQuery}
-                disabled={!validateChatInput(chatInput).ok}
+                disabled={sendDisabled}
+                title={activeSessionMaxTurnsReached ? 'This chat is full. Start a new chat to continue.' : 'Send message'}
               >
                 <SendOutlined />
               </button>

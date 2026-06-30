@@ -6,14 +6,32 @@ export const asArray = (data, ...keys) => {
   return [];
 };
 
-export const normalizeSession = (session) => ({
-  ...session,
-  id: session.id || session.conversationId,
-  title: !session.title || session.title.includes('�') ? 'New conversation' : session.title,
-  createdAt: session.createdAt || session.lastMessageAt || session.updatedAt || new Date().toISOString(),
-  lastMessageAt: session.lastMessageAt || session.updatedAt || session.lastMessageTime || session.createdAt || new Date().toISOString(),
-  messageCount: session.messageCount ?? session.messagesCount ?? session.totalMessages ?? 0,
-});
+const CHAT_TURN_LIMIT = 10;
+
+const toFiniteNumber = (value, fallback = 0) => {
+  const numberValue = Number(value);
+  return Number.isFinite(numberValue) ? numberValue : fallback;
+};
+
+export const normalizeSession = (session = {}) => {
+  const messageCount = toFiniteNumber(session.messageCount ?? session.messagesCount ?? session.totalMessages, 0);
+  const userQuestionCount = toFiniteNumber(
+    session.userQuestionCount ?? session.questionCount ?? session.userTurnCount,
+    Math.floor(messageCount / 2),
+  );
+  const isFull = Boolean(session.maxTurnsReached ?? session.turnLimitReached ?? userQuestionCount >= CHAT_TURN_LIMIT);
+
+  return {
+    ...session,
+    id: session.id || session.conversationId,
+    title: !session.title || session.title.includes('�') ? 'New conversation' : session.title,
+    createdAt: session.createdAt || session.lastMessageAt || session.updatedAt || new Date().toISOString(),
+    lastMessageAt: session.lastMessageAt || session.updatedAt || session.lastMessageTime || session.createdAt || new Date().toISOString(),
+    messageCount,
+    userQuestionCount,
+    maxTurnsReached: isFull,
+  };
+};
 
 export const normalizeMessage = (message) => ({
   ...message,
@@ -233,3 +251,65 @@ export const normalizeTeacherDashboard = (data) => {
     stats: data?.stats || data?.summary || {},
   };
 };
+
+export const normalizeQuizSession = (quiz) => ({
+  ...(quiz || {}),
+  id: quiz?.id || quiz?.quizSessionId || quiz?.sessionId,
+  quizSessionId: quiz?.quizSessionId || quiz?.sessionId || quiz?.id,
+  title: quiz?.title || quiz?.topic || 'Practice quiz',
+  topic: quiz?.topic || quiz?.title || '',
+  status: quiz?.status || 'GENERATED',
+  quizType: quiz?.quizType || quiz?.type || 'SELF_PRACTICE',
+  score: quiz?.score ?? quiz?.autoScore ?? 0,
+  maxScore: quiz?.maxScore ?? quiz?.totalScore ?? asArray(quiz?.questions).length,
+  percentage: quiz?.percentage ?? null,
+  questions: asArray(quiz?.questions),
+  answers: asArray(quiz?.answers),
+  teacherReviewStatus: quiz?.teacherReviewStatus || quiz?.reviewStatus || '',
+  teacherReviewedScore: quiz?.teacherReviewedScore ?? quiz?.reviewedScore,
+  teacherFeedback: quiz?.teacherFeedback || quiz?.feedback || '',
+  createdAt: quiz?.createdAt || new Date().toISOString(),
+  submittedAt: quiz?.submittedAt || '',
+  updatedAt: quiz?.updatedAt || quiz?.submittedAt || quiz?.createdAt || new Date().toISOString(),
+});
+
+export const normalizeQuizAssignment = (assignment) => ({
+  ...(assignment || {}),
+  id: assignment?.id || assignment?.assignmentId,
+  assignmentId: assignment?.assignmentId || assignment?.id,
+  title: assignment?.title || assignment?.name || assignment?.topic || 'Untitled Quiz',
+  topic: assignment?.topic || assignment?.title || '',
+  status: assignment?.status || 'DRAFT',
+  targetType: assignment?.targetType || 'CLASS',
+  classId: assignment?.classId || '',
+  publishedAt: assignment?.publishedAt || '',
+  questionCount: assignment?.questionCount ?? asArray(assignment?.questions).length,
+  questions: asArray(assignment?.questions),
+});
+
+export const normalizeImprovePlan = (plan) => ({
+  ...(plan || {}),
+  id: plan?.id || plan?.planId,
+  planId: plan?.planId || plan?.id,
+  riskLevel: plan?.riskLevel || 'LOW',
+  status: plan?.status || 'ACTIVE',
+  weakTopics: asArray(plan?.weakTopics),
+  planItems: asArray(plan?.planItems || plan?.items),
+  evidence: asArray(plan?.evidence),
+  generatedAt: plan?.generatedAt || plan?.createdAt || '',
+  updatedAt: plan?.updatedAt || plan?.generatedAt || plan?.createdAt || '',
+});
+
+export const normalizeEnrollment = (enrollment) => ({
+  ...enrollment,
+  id: enrollment.id || enrollment.enrollmentId,
+  status: enrollment.status || 'ACTIVE',
+  studentName: enrollment.studentName || enrollment.studentFullName || 'Student',
+});
+
+export const normalizeCourseMaterial = (material) => ({
+  ...material,
+  id: material.id || material.materialId,
+  title: material.title || material.name || 'Untitled Material',
+  status: material.status || material.indexStatus || 'INDEXED',
+});

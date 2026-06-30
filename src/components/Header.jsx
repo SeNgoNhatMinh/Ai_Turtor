@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   CloudRain,
   Droplet,
@@ -15,6 +15,7 @@ import {
   Wind,
 } from 'lucide-react';
 import { Switch } from 'antd';
+import ProfileModal from './common/ProfileModal';
 
 const buildSeasonItems = (items) => Array.from({ length: 12 }, (_, index) => items[index % items.length]);
 
@@ -55,6 +56,7 @@ const getSeasonalHeaderEffect = () => {
 function Header({ activeRole, handleRoleChange, isDarkMode, setIsDarkMode, currentUser, onLogout }) {
   const seasonalEffect = useMemo(() => getSeasonalHeaderEffect(), []);
   const userRole = String(currentUser?.role || activeRole || 'student').trim().toLowerCase();
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
   const getProfileName = () => {
     if (currentUser?.fullName) return `${userRole.toUpperCase()}: ${currentUser.fullName}`;
@@ -125,14 +127,26 @@ function Header({ activeRole, handleRoleChange, isDarkMode, setIsDarkMode, curre
           onChange={(checked) => setIsDarkMode(checked)}
           style={{ background: isDarkMode ? '#000000' : '#202123' }}
         />
-        <span id="current-user-name">{getProfileName()}</span>
-        <div className="avatar-circle">{getAvatarText()}</div>
+        <div 
+          className="user-profile-info" 
+          onClick={() => currentUser && setIsProfileModalOpen(true)}
+          style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: currentUser ? 'pointer' : 'default' }}
+        >
+          <span id="current-user-name" style={{ borderBottom: currentUser ? '1px dashed currentColor' : 'none' }}>{getProfileName()}</span>
+          <div className="avatar-circle">{getAvatarText()}</div>
+        </div>
         {currentUser && (
           <button onClick={onLogout} style={{ background: 'transparent', border: 'none', color: isDarkMode ? '#F9FAFB' : '#202123', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 700 }}>
             <LogOut size={16} /> Sign out
           </button>
         )}
       </div>
+
+      <ProfileModal 
+        isOpen={isProfileModalOpen} 
+        onClose={() => setIsProfileModalOpen(false)} 
+        userId={currentUser?.id || currentUser?.userId} 
+      />
     </header>
   );
 }

@@ -572,3 +572,35 @@ Copy template này lên đầu phần `History` sau mỗi lần cập nhật:
 
 **Notes**
 - Một số alias backend không nối riêng nếu đã có endpoint canonical tương đương trong FE.
+
+## [2026-06-30] FE API Coverage Phase 1
+- Tạo tài liệu `docs/FE_API_COVERAGE.md` liệt kê các API của Backend và trạng thái cover ở Frontend.
+- Chuẩn bị kế hoạch hoàn thiện các Phase cho Admin, Teacher, Student, loại bỏ hoàn toàn các phần thanh toán (Billing/Payment).
+
+## [2026-06-30] Production AI Answer Renderer
+- Thay `src/components/AiAnswer.jsx` bằng wrapper mỏng dùng renderer mới để không vỡ import hiện tại.
+- Thêm `src/components/markdown/MarkdownRenderer.jsx` hỗ trợ Markdown, GFM table/task list, LaTeX KaTeX, heading anchor, safe links, image zoom, và fallback khi render lỗi.
+- Thêm component dùng chung: `CodeBlock`, `CopyButton`, `MarkdownTable`, `MarkdownImage`, `MarkdownErrorBoundary`.
+- Thêm `src/utils/markdownPreprocessor.js` để sửa các lỗi format AI hay gặp như bảng/list bị ngắt dòng, heading không có markdown, nhiều dòng trống, delimiter toán `\\[ \\]`.
+- Thêm `src/utils/markdownSecurity.js` để chặn URL nguy hiểm; renderer vẫn dùng `skipHtml` để tránh XSS từ raw HTML.
+- Thêm dependency `react-syntax-highlighter` và chỉ register các language phổ biến để tránh kéo toàn bộ bộ highlight vào build.
+- Cập nhật `ChatWorkspace.css` cho typography, code block, table, image, KaTeX, error fallback, loading skeleton, dark mode và reduced motion.
+- Cập nhật `ChatLoadingSteps.jsx` thêm markdown skeleton khi AI đang sinh câu trả lời.
+
+**Tested**
+- `npm run build`: pass.
+
+## [2026-06-30] AI Answer Source Filename And Study Tip Analyze
+- Map `materialId=...` từ AI answer/source evidence sang filename bằng danh sách `courseMaterials` đang load ở FE.
+- Thêm `src/utils/sourceLabels.js` để chuẩn hóa `materialId/documentId/sourceMaterialId -> fileName/sourceFileName/title`.
+- `AnswerEvidence` và `AiAnswer` dùng cùng source map nên không còn hiển thị raw material id nếu FE có metadata tài liệu.
+- Section `Lưu ý để học tốt hơn` trong AI answer được format thành các study-tip item có underline khi hover.
+- Click vào study-tip sẽ gọi lại `refreshSuggestions(tipText)`, gửi tip đó vào `POST /api/tutor/improve-suggestions` dưới field `question`.
+- Cập nhật `apiService.getSuggestions(studentId, courseId, options)` hỗ trợ `classId`, `question`, `includeAiSuggestion`.
+
+**BE Flow Note**
+- BE suggestion không tự đọc trực tiếp text đang hiển thị trong chat.
+- Khi FE gửi `question`, BE ghi nó vào `StudentCourseMemory.recentQuestions`, sau đó build suggestions từ course-scoped memory: `weakTopics`, `recentQuestions`, `improveSuggestions`; nếu `includeAiSuggestion=true` thì LLM dùng snapshot memory đó.
+
+**Tested**
+- `npm run build`: pass.
