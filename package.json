@@ -21,6 +21,7 @@
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "react-markdown": "^10.1.0",
+    "react-syntax-highlighter": "^16.1.1",
     "rehype-autolink-headings": "^7.1.0",
     "rehype-katex": "^7.0.1",
     "rehype-pretty-code": "^0.14.3",

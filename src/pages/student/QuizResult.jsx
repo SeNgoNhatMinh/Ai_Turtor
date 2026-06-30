@@ -1,86 +1,112 @@
-import { Card, Progress, Space, Tag, Typography, List, Divider } from 'antd';
+import { Button, Card, List, Progress, Space, Tag, Typography } from 'antd';
+import { RetweetOutlined } from '@ant-design/icons';
 import AiAnswer from '../../components/AiAnswer';
 
 const { Text, Title } = Typography;
 
-const getStatusLabel = (status) => {
-  const normalized = String(status || '').toUpperCase();
-  if (normalized.includes('TEACHER_REVIEWED') || normalized.includes('REVIEWED')) return 'Teacher reviewed';
-  if (normalized.includes('WAIT') || normalized.includes('PENDING')) return 'Waiting for teacher review';
-  return 'Auto graded';
+const normalizeStatus = (status) => String(status || '').toUpperCase();
+
+const getStatusLabel = (result) => {
+  const reviewStatus = normalizeStatus(result?.teacherReviewStatus || result?.reviewStatus);
+  if (reviewStatus.includes('REVIEWED')) return 'Teacher reviewed';
+  if (result?.quizType === 'ASSIGNED' && normalizeStatus(result?.status) === 'SUBMITTED') return 'Waiting for teacher review';
+  if (normalizeStatus(result?.status) === 'SUBMITTED') return 'Auto graded';
+  return result?.status || 'Generated';
 };
 
-function QuizResult({ result }) {
+const getQuestionId = (question, index) => question?.questionId || question?.id || `question-${index}`;
+
+const getAnswerMap = (answers) => {
+  const map = new Map();
+  (Array.isArray(answers) ? answers : []).forEach((answer) => {
+    const key = answer?.questionId || answer?.id;
+    if (key) map.set(key, answer);
+  });
+  return map;
+};
+
+function QuizResult({ result, onRetry, retryLoading = false }) {
   if (!result) return null;
-  const score = Number(result.score ?? result.autoScore ?? result.reviewedScore ?? 0);
-  const maxScore = Number(result.maxScore ?? result.totalScore ?? 10);
+
+  const score = Number(result.teacherReviewedScore ?? result.score ?? result.autoScore ?? 0);
+  const maxScore = Number(result.maxScore ?? result.totalScore ?? result.questions?.length ?? 0);
   const percent = maxScore > 0 ? Math.round((score / maxScore) * 100) : 0;
+  const questions = Array.isArray(result.questions) ? result.questions : [];
+  const answerMap = getAnswerMap(result.answers);
+  const status = getStatusLabel(result);
 
   return (
     <Card className="quiz-card quiz-result-card">
-      <Space direction="vertical" size={12} style={{ width: '100%' }}>
+      <Space direction="vertical" size={14} style={{ width: '100%' }}>
         <div className="quiz-result-header">
           <div>
             <Title level={4} style={{ margin: 0 }}>Quiz result</Title>
-            <Text type="secondary">{getStatusLabel(result.status || result.reviewStatus)}</Text>
+            <Text type="secondary">{result.topic || result.title || 'Practice quiz'}</Text>
           </div>
-          <Tag color={percent >= 70 ? 'success' : percent >= 45 ? 'warning' : 'error'}>
-            {getStatusLabel(result.status || result.reviewStatus)}
-          </Tag>
+          <Space wrap>
+            <Tag color={percent >= 70 ? 'success' : percent >= 45 ? 'warning' : 'error'}>{status}</Tag>
+            {result.quizType && <Tag>{result.quizType}</Tag>}
+          </Space>
         </div>
-        <Progress percent={percent} strokeColor={percent >= 70 ? '#16A34A' : percent >= 45 ? '#F59E0B' : '#EF4444'} />
-        <Text strong>Score: {score}/{maxScore}</Text>
-        {result.feedback && <Text>{result.feedback}</Text>}
-        {Array.isArray(result.weakTopics) && result.weakTopics.length > 0 && (
-          <div>
-            <Text type="secondary">Focus next: </Text>
-            {result.weakTopics.map((topic) => <Tag key={topic}>{topic}</Tag>)}
-          </div>
-        )}
 
-        {Array.isArray(result.questions) && result.questions.length > 0 && (
-          <div className="quiz-result-questions" style={{ marginTop: 24 }}>
+        <div className="quiz-score-panel">
+          <Progress percent={percent} strokeColor={percent >= 70 ? '#16A34A' : percent >= 45 ? '#F59E0B' : '#EF4444'} />
+          <Text strong>Score: {score}/{maxScore}</Text>
+          {result.teacherFeedback && <Text>{result.teacherFeedback}</Text>}
+          {result.feedback && !result.teacherFeedback && <Text>{result.feedback}</Text>}
+          {Array.isArray(result.weakTopics) && result.weakTopics.length > 0 && (
+            <div>
+              <Text type="secondary">Focus next: </Text>
+              {result.weakTopics.map((topic) => <Tag key={topic}>{topic}</Tag>)}
+            </div>
+          )}
+          {onRetry && (
+            <Button icon={<RetweetOutlined />} loading={retryLoading} onClick={onRetry}>
+              Retry from this topic
+            </Button>
+          )}
+        </div>
+
+        {questions.length > 0 && (
+          <div className="quiz-result-questions">
             <Title level={5}>Detailed Review</Title>
             <List
               itemLayout="vertical"
-              dataSource={result.questions}
-              renderItem={(q, idx) => {
-                const isCorrect = q.isCorrect ?? (q.selectedOption === (q.correctOption || q.correctAnswer));
-                return (
-                  <List.Item>
-                    <div style={{ marginBottom: 12 }}>
-                      <Text strong>Q{idx + 1}. </Text>
-                      <AiAnswer markdown={q.questionText || q.question || ''} />
-                    </div>
-                    
-                    <div style={{ marginLeft: 16 }}>
-                      <Space direction="vertical" style={{ width: '100%' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <Text type="secondary">Your answer:</Text>
-                          <Tag color={isCorrect ? 'success' : 'error'}>
-                            {q.selectedOption || 'No answer'}
-                          </Tag>
-                          {isCorrect ? (
-                            <Text type="success">✓ Correct</Text>
-                          ) : (
-                            <Text type="danger">✗ Incorrect</Text>
-                          )}
-                        </div>
-                        
-                        {!isCorrect && (q.correctOption || q.correctAnswer) && (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <Text type="secondary">Correct answer:</Text>
-                            <Tag color="processing">{q.correctOption || q.correctAnswer}</Tag>
-                          </div>
-                        )}
+              dataSource={questions}
+              renderItem={(question, index) => {
+                const answer = answerMap.get(getQuestionId(question, index)) || {};
+                const selectedAnswer = answer.selectedAnswer || question.selectedAnswer || question.selectedOption || '';
+                const correctAnswer = answer.correctAnswer || question.correctAnswer || question.correctOption || '';
+                const explanation = answer.explanation || question.explanation || '';
+                const isCorrect = answer.correct ?? question.isCorrect ?? (selectedAnswer && correctAnswer && selectedAnswer === correctAnswer);
 
-                        {q.explanation && (
-                          <div style={{ marginTop: 8, padding: 12, background: '#f5f5f5', borderRadius: 6 }}>
-                            <Text strong type="secondary">Explanation: </Text>
-                            <AiAnswer markdown={q.explanation} />
-                          </div>
-                        )}
-                      </Space>
+                return (
+                  <List.Item className="quiz-review-item">
+                    <div className="quiz-review-question">
+                      <Text strong>Q{index + 1}. </Text>
+                      <AiAnswer markdown={question.questionText || question.question || ''} />
+                    </div>
+
+                    <div className="quiz-review-answer-grid">
+                      <div className="quiz-review-answer-row">
+                        <Text type="secondary">Your answer</Text>
+                        <Tag color={isCorrect ? 'success' : 'error'}>{selectedAnswer || 'No answer'}</Tag>
+                        <Text type={isCorrect ? 'success' : 'danger'}>{isCorrect ? 'Correct' : 'Incorrect'}</Text>
+                      </div>
+
+                      {correctAnswer && (
+                        <div className="quiz-review-answer-row">
+                          <Text type="secondary">Correct answer</Text>
+                          <Tag color="processing">{correctAnswer}</Tag>
+                        </div>
+                      )}
+
+                      {explanation && (
+                        <div className="quiz-review-explanation">
+                          <Text strong type="secondary">Explanation</Text>
+                          <AiAnswer markdown={explanation} />
+                        </div>
+                      )}
                     </div>
                   </List.Item>
                 );

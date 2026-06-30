@@ -9,6 +9,7 @@ import MentorSupport from './student/MentorSupport';
 import MentorSelectModal from './student/MentorSelectModal';
 import PracticeQuizzes from './student/PracticeQuizzes';
 import PageHeader from '../components/common/PageHeader';
+import { confirmAction } from '../components/common/confirmDialog';
 import { uiCopy } from '../constants/uiCopy';
 import { normalizeEscalation } from '../services/normalizers';
 import { apiService } from '../services/api';
@@ -47,6 +48,11 @@ function StudentPortal({
   activeSessionId,
   activeSessionTitle,
   messages,
+  activeSessionQuestionCount = 0,
+  activeSessionMaxTurnsReached = false,
+  turnLimitNotice,
+  dismissTurnLimitNotice,
+  resetChat,
   handleCreateSession,
   handleSelectSession,
   handleDeleteSession,
@@ -265,6 +271,37 @@ function StudentPortal({
     setEditingSessionId(null);
   };
 
+  const applyCourseChange = (nextCourseId) => {
+    if (!nextCourseId || nextCourseId === courseId) return;
+    dismissTurnLimitNotice?.();
+    resetChat?.();
+    setCourseId(nextCourseId);
+  };
+
+  const handleCourseChange = (nextCourseId) => {
+    if (!nextCourseId || nextCourseId === courseId) return;
+    const hasActiveChat = Boolean(activeSessionId) || (Array.isArray(messages) && messages.length > 0);
+    if (!hasActiveChat) {
+      applyCourseChange(nextCourseId);
+      return;
+    }
+
+    confirmAction({
+      title: 'Switch course?',
+      content: "Each course has separate chat history. Switching course will open that course's conversations.",
+      okText: 'Switch course',
+      cancelText: 'Cancel',
+      onOk: () => applyCourseChange(nextCourseId),
+    });
+  };
+
+  const handleBackToPreviousChat = () => {
+    const previousSessionId = turnLimitNotice?.previousSessionId;
+    if (!previousSessionId) return;
+    const previousSession = sessions.find((session) => session.id === previousSessionId);
+    handleSelectSession(previousSessionId, previousSession?.title || 'Previous conversation');
+  };
+
   const sendText = (text) => {
     if (isAiLoading) return;
     if (!userId) {
@@ -283,6 +320,10 @@ function StudentPortal({
       triggerToast?.('Please choose a valid enrolled class before asking AI Tutor.');
       return;
     }
+    if (activeSessionMaxTurnsReached) {
+      triggerToast?.('This chat is full. Start a new chat to continue.');
+      return;
+    }
     const validation = validateChatInput(text);
     if (!validation.ok) {
       triggerToast?.(validation.message);
@@ -298,12 +339,31 @@ function StudentPortal({
     });
   };
 
-  const handleStudySuggestion = (suggestionText) => {
+  const handleStudySuggestion = async (suggestionText) => {
     const text = String(suggestionText || '').trim();
     if (!text) return;
     const prompt = `Help me learn this topic step by step from the course materials: ${text}`;
-    switchTab?.('student-chat');
-    sendText(prompt);
+    try {
+      triggerToast?.('Preparing a guided study response...');
+      const response = await apiService.learnSuggestion(userId, courseId, {
+        classId,
+        suggestionText: text,
+        topic: text,
+      });
+      switchTab?.('student-chat');
+      if (response?.answer) {
+        resetChat?.();
+        window.setTimeout(() => {
+          sendText(prompt);
+        }, 0);
+      } else {
+        sendText(prompt);
+      }
+    } catch (error) {
+      triggerToast?.(getUserFacingError(error, 'Unable to open this study suggestion. Using chat prompt instead.'));
+      switchTab?.('student-chat');
+      sendText(prompt);
+    }
   };
 
   const handleCreateQuizFromSuggestion = (suggestionText) => {
@@ -433,7 +493,7 @@ function StudentPortal({
               <ChatWorkspace
                 activeSessionTitle={activeSessionTitle}
                 courseId={courseId}
-                setCourseId={setCourseId}
+                onCourseChange={handleCourseChange}
                 classId={classId}
                 setClassId={setClassId}
                 courseOptions={courseOptions}
@@ -452,7 +512,14 @@ function StudentPortal({
                 handleStudentReviewAnswer={handleStudentReviewAnswer}
                 userId={userId}
                 activeSessionId={activeSessionId}
+                activeSessionQuestionCount={activeSessionQuestionCount}
+                activeSessionMaxTurnsReached={activeSessionMaxTurnsReached}
+                turnLimitNotice={turnLimitNotice}
+                onTurnLimitBack={handleBackToPreviousChat}
+                onDismissTurnLimitNotice={dismissTurnLimitNotice}
                 triggerToast={triggerToast}
+                courseMaterials={courseMaterials}
+                onAnalyzeStudyTip={refreshSuggestions}
               />
           </div>
         </div>
@@ -482,8 +549,10 @@ function StudentPortal({
         memorySummary={studentDashboard?.summary}
         recentQuestions={studentDashboard?.recentQuestions || []}
         memoryUpdatedAt={studentDashboard?.updatedAt}
+        studentId={userId}
         courseId={courseId}
         classId={studentDashboard?.classId || classId}
+        triggerToast={triggerToast}
       />
     );
   }
