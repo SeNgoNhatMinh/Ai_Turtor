@@ -416,10 +416,27 @@ function LearningProgress({
               const isHigh = suggestion.priority === 'high';
               const suggestionText = getSuggestionText(suggestion);
               const isPinned = pinnedSet.has(normalizeSuggestionKey(suggestionText));
+              const canStudySuggestion = Boolean(hasContext && onStudySuggestion);
+              const openSuggestion = () => {
+                if (canStudySuggestion) onStudySuggestion?.(suggestionText);
+              };
 
               return (
                 <List.Item className={`learning-suggestion-item ${isPinned ? 'learning-suggestion-item--pinned' : ''}`}>
-                  <div className="learning-suggestion-copy">
+                  <div
+                    className={`learning-suggestion-copy ${canStudySuggestion ? 'learning-suggestion-copy--clickable' : ''}`}
+                    role={canStudySuggestion ? 'button' : undefined}
+                    tabIndex={canStudySuggestion ? 0 : undefined}
+                    onClick={openSuggestion}
+                    onKeyDown={(event) => {
+                      if (!canStudySuggestion) return;
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        openSuggestion();
+                      }
+                    }}
+                    aria-label={canStudySuggestion ? `Study suggestion: ${suggestionText}` : undefined}
+                  >
                     <Tag color={isPinned ? 'orange' : isHigh ? 'error' : 'default'}>
                       {isPinned ? 'Pinned' : isHigh ? 'High priority' : 'Recommended'}
                     </Tag>

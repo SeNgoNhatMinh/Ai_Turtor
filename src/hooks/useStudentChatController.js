@@ -37,6 +37,30 @@ const countQuestionsInMessages = (items) => (
     : 0
 );
 
+const AI_SERVICE_ERROR_PATTERNS = [
+  /chưa thể gọi dịch vụ llm/i,
+  /llm call failed/i,
+  /request timed out/i,
+  /ai tutor service is temporarily unavailable/i,
+];
+
+const AI_SERVICE_ERROR_MESSAGE = [
+  'AI Tutor could not reach the language model right now.',
+  '',
+  'You can retry this question in a moment or ask a mentor for help.',
+].join('\n');
+
+const isAiServiceErrorText = (value) => {
+  const text = String(value || '');
+  return AI_SERVICE_ERROR_PATTERNS.some((pattern) => pattern.test(text));
+};
+
+const buildAiServiceErrorMessage = (fallback = '') => (
+  isAiServiceErrorText(fallback) || !fallback
+    ? AI_SERVICE_ERROR_MESSAGE
+    : fallback
+);
+
 export function useStudentChatController({
   currentUser,
   courseId,
@@ -274,9 +298,12 @@ export function useStudentChatController({
 
       setMessages((prev) => {
         const updated = [...prev];
+        const answerText = String(data.answer || '');
+        const isAiServiceError = isAiServiceErrorText(answerText);
         updated[updated.length - 1] = {
           question: text,
-          answer: data.answer,
+          answer: isAiServiceError ? AI_SERVICE_ERROR_MESSAGE : answerText,
+          rawAnswer: answerText,
           id: data.assistantMessageId || data.messageId || data.aiMessageId || data.responseMessageId,
           messageId: data.assistantMessageId || data.messageId || data.aiMessageId || data.responseMessageId,
           assistantMessageId: data.assistantMessageId || data.messageId || data.aiMessageId || data.responseMessageId,
@@ -286,6 +313,8 @@ export function useStudentChatController({
           confidence: data.confidence,
           sources: data.sources || [],
           questionEscalationId: data.questionEscalationId || data.escalationId || null,
+          aiServiceError: isAiServiceError,
+          retryable: isAiServiceError,
           pending: false
         };
         return updated;
@@ -319,11 +348,16 @@ export function useStudentChatController({
 
       setMessages((prev) => {
         const updated = [...prev];
+        const friendlyError = getUserFacingError(error, 'AI Tutor could not answer right now. Please try again in a moment.');
+        const isAiServiceError = isAiServiceErrorText(friendlyError);
         updated[updated.length - 1] = {
           question: text,
-          answer: getUserFacingError(error, 'AI Tutor could not answer right now. Please try again in a moment.'),
+          answer: buildAiServiceErrorMessage(friendlyError),
+          rawAnswer: friendlyError,
           confidence: 0,
           sources: [],
+          aiServiceError: isAiServiceError,
+          retryable: true,
           pending: false
         };
         return updated;
@@ -357,6 +391,75 @@ export function useStudentChatController({
     });
   };
 
+  const openLearnedSuggestionResponse = async (data = {}, fallbackSuggestionText = '') => {
+    const userId = getStudentUserId();
+    if (!userId) {
+      triggerToast('Please sign in before opening this study suggestion.');
+      return;
+    }
+
+    const responseConversationId = data.conversationId || data.sessionId || activeSessionId;
+    const responseConversationTitle = data.conversationTitle || data.title || activeSessionTitle || `AI Tutor Chat - ${courseId || 'Course'}`;
+    const clickedSuggestion = String(data.clickedSuggestion || fallbackSuggestionText || '').trim();
+    const fallbackQuestion = clickedSuggestion
+      ? `Study suggestion: ${clickedSuggestion}`
+      : 'Study this suggestion step by step.';
+    const answerText = String(data.answer || '').trim();
+    const isAiServiceError = isAiServiceErrorText(answerText);
+
+    if (responseConversationId) {
+      setActiveSessionId(responseConversationId);
+      setActiveSessionTitle(responseConversationTitle);
+      setTurnLimitNotice(null);
+      bumpConversationActivity({
+        conversationId: responseConversationId,
+        title: responseConversationTitle,
+        lastMessageAt: data.lastMessageAt || data.updatedAt || new Date().toISOString(),
+        messageCountIncrement: 2,
+        questionCountIncrement: 1,
+        questionCount: data.userQuestionCount ?? data.questionCount,
+        maxTurnsReached: data.maxTurnsReached,
+      });
+    }
+
+    if (responseConversationId) {
+      try {
+        const chatMsgs = await apiService.getMessages(responseConversationId, userId);
+        const historyPairs = pairMessages(asArray(chatMsgs, 'content', 'messages'));
+        if (historyPairs.length > 0) {
+          setMessages(historyPairs);
+          await loadChatSessions();
+          return;
+        }
+      } catch {
+        // The backend already saved the turn. Keep the returned answer visible if history is not ready yet.
+      }
+    }
+
+    setMessages([
+      {
+        question: fallbackQuestion,
+        answer: isAiServiceError ? AI_SERVICE_ERROR_MESSAGE : answerText,
+        rawAnswer: answerText,
+        id: data.assistantMessageId || data.messageId || data.aiMessageId || data.responseMessageId,
+        messageId: data.assistantMessageId || data.messageId || data.aiMessageId || data.responseMessageId,
+        assistantMessageId: data.assistantMessageId || data.messageId || data.aiMessageId || data.responseMessageId,
+        userMessageId: data.userMessageId,
+        conversationId: responseConversationId,
+        mode: data.mode || 'RAG',
+        confidence: data.confidence,
+        sources: data.sources || [],
+        questionEscalationId: data.questionEscalationId || data.escalationId || null,
+        clickedSuggestion,
+        suggestionConsumed: data.suggestionConsumed,
+        aiServiceError: isAiServiceError,
+        retryable: isAiServiceError,
+        pending: false,
+      },
+    ]);
+    await loadChatSessions();
+  };
+
   const activeSession = sessions.find((session) => session.id === activeSessionId);
   const messageQuestionCount = countQuestionsInMessages(messages);
   const activeSessionQuestionCount = clampQuestionCount(
@@ -385,5 +488,6 @@ export function useStudentChatController({
     handleRenameSession,
     handleSendQuery,
     handleStopAiGeneration,
+    openLearnedSuggestionResponse,
   };
 }

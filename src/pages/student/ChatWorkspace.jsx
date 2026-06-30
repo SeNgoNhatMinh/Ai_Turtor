@@ -400,6 +400,13 @@ function ChatWorkspace({
                           <RobotHeadMascot size={36} compact={true} followMouse={true} />
                         </div>
                         <div className="chat-gpt-ai-content">
+                          {message.aiServiceError && (
+                            <div className="chat-ai-service-error" role="alert">
+                              <strong>AI service is temporarily unavailable.</strong>
+                              <span>Retry this question in a moment, or ask a mentor for help.</span>
+                            </div>
+                          )}
+
                           <AiAnswer
                             markdown={message.answer || ''}
                             sourceMap={materialSourceMap}

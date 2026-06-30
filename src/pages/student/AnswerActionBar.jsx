@@ -1,26 +1,39 @@
 import React from 'react';
-import { Code2, HelpCircle, LifeBuoy, ListChecks, Wand2 } from 'lucide-react';
+import { LifeBuoy, RotateCcw, Wand2 } from 'lucide-react';
+
+const trimText = (value, maxLength = 420) => {
+  const text = String(value || '')
+    .replace(/[#*_`>|[\]()]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return text.length > maxLength ? `${text.slice(0, maxLength)}...` : text;
+};
+
+const getOriginalQuestion = (message) => trimText(message?.question || message?.prompt || '', 260);
+
+const buildGroundedFollowUpPrompt = (message, task) => {
+  const originalQuestion = getOriginalQuestion(message);
+  const answerContext = trimText(message?.answer || message?.rawAnswer || '', 420);
+  const topicContext = originalQuestion || answerContext;
+
+  return [
+    `Original student question: ${topicContext}`,
+    '',
+    `Task: ${task}`,
+    '',
+    'Use the same course material context. If the material is not enough, say exactly what is missing instead of inventing details.',
+    answerContext && originalQuestion ? `Previous answer context: ${answerContext}` : '',
+  ].filter(Boolean).join('\n');
+};
 
 const ACTIONS = [
   {
     label: 'Giải thích đơn giản hơn',
     icon: Wand2,
-    buildPrompt: (message) => `Explain this answer in simpler words:\n\n${message.answer || message.question || ''}`,
-  },
-  {
-    label: 'Cho ví dụ',
-    icon: HelpCircle,
-    buildPrompt: (message) => `Give me a practical example for this answer:\n\n${message.answer || message.question || ''}`,
-  },
-  {
-    label: 'Tạo câu hỏi luyện tập',
-    icon: ListChecks,
-    buildPrompt: (message) => `Create one practice question based on this topic and include the expected answer:\n\n${message.question || message.answer || ''}`,
-  },
-  {
-    label: 'Xem xét code của tôi',
-    icon: Code2,
-    buildPrompt: () => 'I want to review my code. Please tell me what code or error log I should paste.',
+    buildPrompt: (message) => buildGroundedFollowUpPrompt(
+      message,
+      'Explain the same topic in simpler words, step by step, for a beginner.',
+    ),
   },
   {
     label: 'Hỏi mentor',
@@ -30,7 +43,67 @@ const ACTIONS = [
   },
 ];
 
+const isInsufficientMaterialAnswer = (message) => {
+  const text = String(message?.answer || message?.rawAnswer || '').toLowerCase();
+  return (
+    text.includes('không có nội dung đủ phù hợp') ||
+    text.includes('chưa có tài liệu') ||
+    text.includes('not enough course material') ||
+    text.includes('not enough indexed course material')
+  );
+};
+
 function AnswerActionBar({ message, onAction }) {
+  if (message?.retryable || message?.aiServiceError) {
+    const retryPrompt = message?.question || '';
+    return (
+      <div className="answer-action-bar answer-action-bar--error" aria-label="Recovery actions">
+        <button
+          type="button"
+          onClick={() => onAction({ label: 'Retry', prompt: retryPrompt, type: 'retry', message })}
+          disabled={!retryPrompt.trim()}
+        >
+          <RotateCcw size={14} aria-hidden="true" />
+          <span>Retry</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => onAction({
+            label: 'Ask mentor',
+            prompt: `I need mentor support for this question:\n\n${retryPrompt}`,
+            type: 'mentor',
+            message,
+          })}
+          disabled={!retryPrompt.trim()}
+        >
+          <LifeBuoy size={14} aria-hidden="true" />
+          <span>Ask mentor</span>
+        </button>
+      </div>
+    );
+  }
+
+  if (isInsufficientMaterialAnswer(message)) {
+    const question = message?.question || '';
+    return (
+      <div className="answer-action-bar answer-action-bar--error" aria-label="Mentor support action">
+        <button
+          type="button"
+          onClick={() => onAction({
+            label: 'Ask mentor',
+            prompt: `I need mentor support for this question:\n\n${question}`,
+            type: 'mentor',
+            message,
+          })}
+          disabled={!question.trim()}
+        >
+          <LifeBuoy size={14} aria-hidden="true" />
+          <span>Ask mentor</span>
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="answer-action-bar" aria-label="Follow-up actions">
       {ACTIONS.map(({ label, icon: Icon, buildPrompt, type }) => (

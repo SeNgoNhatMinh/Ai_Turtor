@@ -59,6 +59,7 @@ function StudentPortal({
   handleRenameSession,
   handleSendQuery,
   handleStopAiGeneration,
+  openLearnedSuggestionResponse,
   codeMentorDiagnostics,
   isCodeAnalyzing,
   handleCodeMentorQuery,
@@ -347,19 +348,24 @@ function StudentPortal({
       triggerToast?.('Preparing a guided study response...');
       const response = await apiService.learnSuggestion(userId, courseId, {
         classId,
+        conversationId: activeSessionId || null,
         suggestionText: text,
         topic: text,
       });
       switchTab?.('student-chat');
-      if (response?.answer) {
-        resetChat?.();
-        window.setTimeout(() => {
-          sendText(prompt);
-        }, 0);
+      if (response?.conversationId || response?.answer) {
+        await openLearnedSuggestionResponse?.(response, text);
+        triggerToast?.('AI Tutor opened a guided study response for this suggestion.');
       } else {
         sendText(prompt);
       }
     } catch (error) {
+      const isAlreadyUsed = error?.status === 409 || error?.details?.error === 'SUGGESTION_ALREADY_USED';
+      if (isAlreadyUsed) {
+        triggerToast?.('This suggestion was already used in course chat. Choose another suggestion or ask a new question.');
+        switchTab?.('student-chat');
+        return;
+      }
       triggerToast?.(getUserFacingError(error, 'Unable to open this study suggestion. Using chat prompt instead.'));
       switchTab?.('student-chat');
       sendText(prompt);
@@ -390,17 +396,31 @@ function StudentPortal({
   };
 
   const handleAnswerAction = async ({ prompt, type, message }) => {
+    if (type === 'retry') {
+      const retryText = String(message?.question || prompt || '').trim();
+      if (!retryText) {
+        triggerToast?.('There is no question to retry.');
+        return;
+      }
+      sendText(retryText);
+      return;
+    }
+
     if (type === 'mentor') {
       try {
         await apiService.createEscalation({
           studentId: userId,
+          studentName: studentDashboard?.studentName || studentDashboard?.fullName || '',
+          studentEmail: studentDashboard?.studentEmail || '',
           courseId,
           classId,
           question: message?.question || prompt,
-          aiAnswer: message?.answer || '',
-          source: 'STUDENT_ACTION_BAR',
+          aiResponse: message?.rawAnswer || message?.answer || '',
+          reason: message?.aiServiceError ? 'AI Tutor could not reach the language model.' : 'Student requested mentor support from AI Tutor chat.',
         });
         triggerToast?.('Support request sent to mentor.');
+        loadEscalations();
+        switchTab?.('student-escalation');
       } catch (error) {
         triggerToast?.(getUserFacingError(error, 'Unable to create support request.'));
       }
