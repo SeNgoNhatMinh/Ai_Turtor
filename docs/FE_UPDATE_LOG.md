@@ -26,6 +26,113 @@ Copy template này lên đầu phần `History` sau mỗi lần cập nhật:
 
 ## History
 
+### 2026-06-30 - Import Website As PDF
+
+**Summary**
+- Thêm luồng Admin Course Materials import website documentation thành một PDF text thật rồi upload qua endpoint material PDF hiện có.
+
+**Changed**
+- Thêm modal `Import Website as PDF` với analyze URL, page selection, Markdown preview, progress 7 bước, PDF download và upload.
+- Thêm crawler/extractor/PDF/upload modules dùng `DOMParser`, `@mozilla/readability`, `turndown`, `markdown-it`, `@react-pdf/renderer`, `@fontsource/noto-sans`.
+- Gắn nút import vào Admin `Course Materials`; upload vẫn gọi `apiService.uploadMaterial(courseId, formData)`.
+- Thêm xử lý CORS/timeout/invalid URL/no pages rõ ràng; CORS-blocked sites được báo là unsupported trong frontend-only mode.
+- Giới hạn upload material thường thành PDF-only để khớp backend hiện tại.
+
+**Tested**
+- `npm run build`: pass.
+
+**Notes**
+- Không đổi backend. Website import chỉ chạy với website cho phép browser fetch/CORS.
+
+### 2026-06-30 - Simplified Answer Action Buttons
+
+**Summary**
+- Bỏ các nút follow-up dễ tạo prompt nhiễu và làm RAG trả `không có nội dung đủ phù hợp`.
+
+**Changed**
+- `src/pages/student/AnswerActionBar.jsx`: remove `Cho ví dụ`, `Tạo câu hỏi luyện tập`, `Xem xét code của tôi`.
+- Action bar câu trả lời thường chỉ giữ `Giải thích đơn giản hơn` và `Hỏi mentor`.
+- Trạng thái thiếu tài liệu/lỗi LLM vẫn chỉ hiển thị action phục hồi phù hợp như `Retry` hoặc `Ask mentor`.
+
+**Tested**
+- `npm run build`: pass.
+
+## [2026-06-30] Click-To-Learn Suggestions Open Real Chat Turn
+- `Learning Progress` suggestion text can now be clicked directly, not only through the `Study now` button.
+- `Study now` sends the clicked suggestion to `POST /api/tutor/students/{studentId}/courses/{courseId}/suggestions/learn` with the current `conversationId`.
+- FE opens the `conversationId` returned by BE and reloads chat history so students see the real AI learning turn saved by backend.
+- If chat history is not immediately available, FE renders the returned answer as a fallback message pair.
+- Duplicate `SUGGESTION_ALREADY_USED` responses are shown as a friendly state instead of bypassing the backend rule with a normal chat prompt.
+
+**Tested**
+- `npm run build`: pass.
+
+**Notes**
+- Nếu muốn tạo câu hỏi luyện tập nên dùng tab `Practice Quizzes`, vì flow quiz có API riêng và kiểm soát tài liệu tốt hơn chat follow-up.
+
+### 2026-06-30 - Grounded Follow-Up Chat Actions
+
+**Summary**
+- Sửa lỗi các nút follow-up dưới câu trả lời AI gửi prompt quá dài/nhiễu, làm backend RAG trả `Tài liệu hiện có... không có nội dung đủ phù hợp`.
+
+**Changed**
+- `src/pages/student/AnswerActionBar.jsx`: đổi prompt của `Explain simpler`, `Give example`, `Create practice question` để bám vào câu hỏi gốc/topic gốc, chỉ dùng answer cũ làm context phụ ngắn.
+- `src/pages/student/AnswerActionBar.jsx`: nếu câu trả lời đã là trạng thái thiếu tài liệu/không đủ context thì không hiện các nút follow-up nữa, chỉ hiện `Ask mentor`.
+
+**Tested**
+- `npm run build`: pass.
+
+**Notes**
+- Backend vẫn quyết định RAG có đủ tài liệu hay không; FE chỉ giảm prompt noise để retrieval đúng topic hơn.
+
+### 2026-06-30 - Friendly AI Service Error Recovery
+
+**Summary**
+- Cải thiện UX khi backend trả lỗi `AI Tutor chưa thể gọi dịch vụ LLM`: không để người dùng chỉ thấy lỗi thô, mà có hướng xử lý rõ ràng.
+
+**Changed**
+- `src/hooks/useStudentChatController.js`: nhận diện lỗi LLM/timeout trong response hoặc catch error, thay bằng message thân thiện và đánh dấu message `retryable`.
+- `src/pages/student/AnswerActionBar.jsx`: với message lỗi chỉ hiện `Retry` và `Ask mentor` để giảm rối.
+- `src/pages/StudentPortal.jsx`: nối `Retry` gửi lại câu hỏi cũ; `Ask mentor` tạo escalation bằng `aiResponse/reason` đúng payload backend rồi chuyển sang tab `1-on-1 Support`.
+- `src/pages/student/ChatWorkspace.jsx`, `src/pages/student/ChatWorkspace.css`: thêm banner lỗi AI service trong bubble, hỗ trợ dark mode.
+
+**Tested**
+- `npm run build`: pass.
+
+**Notes**
+- Lỗi gốc vẫn cần BE/provider xử lý nếu OpenRouter free model timeout hoặc fail. FE hiện chỉ giúp user retry/escalate rõ ràng hơn.
+
+### 2026-06-30 - Clickable Study Tips In AI Answers
+
+**Summary**
+- Khôi phục khả năng bấm vào các dòng trong section `Lưu ý để học tốt hơn` của câu trả lời AI để analyze/generate study suggestions.
+
+**Changed**
+- `src/utils/markdownPreprocessor.js`: tự nhận diện section heading `Lưu ý...`, chuyển bullet/plain lines trong section đó thành link nội bộ `#ai-study-tip-*`; renderer hiện có biến link này thành button clickable.
+- Giữ nguyên meaning của nội dung AI, không đụng code block, table, source material hoặc link đã có.
+
+**Tested**
+- `npm run build`: pass.
+
+**Notes**
+- Node import trực tiếp source file không chạy vì Vite dùng extensionless imports; app build/runtime vẫn OK.
+
+### 2026-06-30 - Stable Confirm Card Position
+
+**Summary**
+- Sửa lỗi confirm card xuất hiện sai vị trí hoặc nhảy lung tung khi mở từ menu ba chấm trong sidebar/table.
+
+**Changed**
+- `src/components/common/EntityActionMenu.jsx`: lấy vị trí anchor từ nút ba chấm thật thay vì item trong dropdown menu.
+- `src/components/common/confirmDialog.jsx`: clamp confirm card trong viewport, ưu tiên hiện dưới nút action và tự chuyển lên trên nếu không đủ chỗ; đóng confirm khi resize/scroll để tránh kẹt sai vị trí.
+- `src/index.css`: thêm wrapper style cho action trigger và reset `right/bottom` cho confirm card dạng anchored.
+
+**Tested**
+- `npm run build`: pass.
+
+**Notes**
+- Build vẫn còn warning chunk lớn từ markdown/quiz stack trước đó; không liên quan đến confirm dialog.
+
 ### 2026-06-30 - SurveyJS Quiz Renderer
 
 **Summary**
@@ -597,6 +704,7 @@ Copy template này lên đầu phần `History` sau mỗi lần cập nhật:
 - Section `Lưu ý để học tốt hơn` trong AI answer được format thành các study-tip item có underline khi hover.
 - Click vào study-tip sẽ gọi lại `refreshSuggestions(tipText)`, gửi tip đó vào `POST /api/tutor/improve-suggestions` dưới field `question`.
 - Cập nhật `apiService.getSuggestions(studentId, courseId, options)` hỗ trợ `classId`, `question`, `includeAiSuggestion`.
+- Giữ nội dung study-tip được click thành suggestion ưu tiên trong `Learning Progress`, mở tab progress sau khi phân tích, và lọc các suggestion lỗi LLM để người dùng không thấy raw failure text.
 
 **BE Flow Note**
 - BE suggestion không tự đọc trực tiếp text đang hiển thị trong chat.

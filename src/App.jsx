@@ -32,6 +32,18 @@ const AdminPortal = lazy(() => import('./pages/AdminPortal'));
 const APP_SESSION_USER_KEY = 'ai-tutor:current-user';
 const APP_UI_STATE_KEY = 'ai-tutor:ui-state';
 
+const createStudyTipSuggestion = (text) => ({
+  priority: 'high',
+  title: String(text || '').trim(),
+  content: 'Created from the study note you selected in AI Tutor Chat. Review it first, then use Study now or Create quiz when you are ready.',
+  source: 'CHAT_STUDY_TIP',
+});
+
+const isSuggestionServiceFailure = (suggestion) => {
+  const value = `${suggestion?.title || ''} ${suggestion?.content || ''}`.toLowerCase();
+  return value.includes('ai suggestion failed') || value.includes('llm') || value.includes('dịch vụ llm');
+};
+
 function App() {
   // State management
   const initialUiState = readJsonStorage(APP_UI_STATE_KEY, {});
@@ -149,6 +161,7 @@ function App() {
     handleRenameSession,
     handleSendQuery,
     handleStopAiGeneration,
+    openLearnedSuggestionResponse,
   } = useStudentChatController({
     currentUser,
     courseId,
@@ -426,20 +439,30 @@ function App() {
   // ==========================================
   const refreshSuggestions = async (question = '') => {
     const questionText = String(question || '').trim();
+    const studentId = getStudentUserId();
     setIsSuggesting(true);
     triggerToast(questionText ? 'AI is analyzing this study tip...' : 'AI is analyzing your learning memory...');
 
     try {
-      const data = await apiService.getSuggestions(getStudentUserId(), courseId, {
+      const data = await apiService.getSuggestions(studentId, courseId, {
         classId,
         question: questionText || undefined,
         includeAiSuggestion: Boolean(questionText),
       });
-      const normalized = normalizeSuggestions(data);
-      const finalSuggestions = normalized.length ? normalized : suggestions;
+      const normalized = normalizeSuggestions(data).filter((item) => !isSuggestionServiceFailure(item));
+      const focusedSuggestion = questionText ? createStudyTipSuggestion(questionText) : null;
+      const finalSuggestions = mergeSuggestionLists(
+        focusedSuggestion ? [focusedSuggestion] : [],
+        normalized,
+        suggestions,
+      );
       setSuggestions(finalSuggestions);
-      writeAnalyzedSuggestions(getStudentUserId(), courseId, finalSuggestions);
-      triggerToast(questionText ? 'Study tip analysis completed.' : 'Study plan analysis completed.');
+      writeAnalyzedSuggestions(studentId, courseId, finalSuggestions);
+      if (questionText) {
+        setActiveTab('student-memory');
+        loadStudentDashboard();
+      }
+      triggerToast(questionText ? 'Study tip added to Learning Progress.' : 'Study plan analysis completed.');
     } catch (error) {
       console.error('Error fetching suggestions:', error);
       triggerToast('Failed to analyze learning suggestions.');
@@ -949,6 +972,7 @@ function App() {
                   handleRenameSession={handleRenameSession}
                   handleSendQuery={handleSendQuery}
                   handleStopAiGeneration={handleStopAiGeneration}
+                  openLearnedSuggestionResponse={openLearnedSuggestionResponse}
                   codeMentorDiagnostics={codeMentorDiagnostics}
                   isCodeAnalyzing={isCodeAnalyzing}
                   handleCodeMentorQuery={handleCodeMentorQuery}

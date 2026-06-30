@@ -1,11 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { Suspense, lazy, useState, useEffect } from 'react';
 import { Alert, Row, Col, Card, Table, Button, Form, Input, InputNumber, Select, Tag, Space, Tabs, Upload, Modal } from 'antd';
-import { DownloadOutlined, UploadOutlined } from '@ant-design/icons';
+import { DownloadOutlined, GlobalOutlined, UploadOutlined } from '@ant-design/icons';
 import { Database, RefreshCw, Plus, Search, Trash2, Eye, Pencil, UserMinus } from 'lucide-react';
 import { apiService } from '../../services/api';
 import { getUserFacingError } from '../../services/apiClient';
 import { closeActiveConfirm, confirmDanger } from '../../components/common/confirmDialog';
 import EntityActionMenu from '../../components/common/EntityActionMenu';
+
+const ImportWebsiteModal = lazy(() => import('../../components/importWebsite/ImportWebsiteModal'));
 
 const { Option } = Select;
 const { TabPane } = Tabs;
@@ -34,6 +36,7 @@ function AdminAcademic({ triggerToast, currentUser }) {
   const [materialsLoading, setMaterialsLoading] = useState(false);
   const [materialUploadBusy, setMaterialUploadBusy] = useState(false);
   const [materialFile, setMaterialFile] = useState(null);
+  const [websiteImportOpen, setWebsiteImportOpen] = useState(false);
   const [studentImportCourseId, setStudentImportCourseId] = useState('');
   const [studentImportClassId, setStudentImportClassId] = useState('');
   const [studentImportClasses, setStudentImportClasses] = useState([]);
@@ -459,6 +462,9 @@ function AdminAcademic({ triggerToast, currentUser }) {
     } finally {
       releaseUploadButton();
     }
+  };
+  const handleWebsiteMaterialImported = async (expectedTitle) => {
+    await refreshCourseMaterialsWithRetry(materialCourseId, courseMaterials.length, expectedTitle);
   };
   const handleDownloadMaterial = async (materialId, title) => {
     if (!materialId) {
@@ -988,13 +994,13 @@ function AdminAcademic({ triggerToast, currentUser }) {
                     }}
                     fileList={materialFile ? [materialFile] : []}
                     onRemove={() => setMaterialFile(null)}
-                    accept=".pdf,.doc,.docx,.ppt,.pptx,.txt"
+                    accept=".pdf"
                     maxCount={1}
                     style={{ marginBottom: 16 }}
                   >
                     <p className="ant-upload-drag-icon"><UploadOutlined /></p>
                     <p className="ant-upload-text">Choose a course material file</p>
-                    <p className="ant-upload-hint">This upload is course-wide. Class ID is not sent.</p>
+                    <p className="ant-upload-hint">PDF only. This upload is course-wide. Class ID is not sent.</p>
                   </Dragger>
                   <Button
                     type="primary"
@@ -1005,6 +1011,15 @@ function AdminAcademic({ triggerToast, currentUser }) {
                     disabled={!materialCourseId || !materialFile || materialUploadBusy}
                   >
                     {materialUploadBusy ? 'Uploading...' : 'Upload Course Material'}
+                  </Button>
+                  <Button
+                    block
+                    icon={<GlobalOutlined />}
+                    style={{ marginTop: 10 }}
+                    disabled={!materialCourseId || materialUploadBusy}
+                    onClick={() => setWebsiteImportOpen(true)}
+                  >
+                    Import Website as PDF
                   </Button>
                 </Form>
               </Card>
@@ -1175,6 +1190,19 @@ function AdminAcademic({ triggerToast, currentUser }) {
           )}
         </Form>
       </Modal>
+      {websiteImportOpen && (
+        <Suspense fallback={null}>
+          <ImportWebsiteModal
+            open={websiteImportOpen}
+            onClose={() => setWebsiteImportOpen(false)}
+            courseId={materialCourseId}
+            currentUser={currentUser}
+            apiService={apiService}
+            triggerToast={triggerToast}
+            onUploaded={handleWebsiteMaterialImported}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

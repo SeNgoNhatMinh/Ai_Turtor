@@ -345,6 +345,36 @@ OSG202 -> 2118 chunks
 5. Response phải có `escalated=false`, `sources` không rỗng.
 6. Nếu cố gửi `courseId: "OSG"`, BE nên trả lỗi rõ hoặc resolve sang `OSG202`, không âm thầm nói “chưa có tài liệu” nếu `OSG` chỉ là alias hợp lệ.
 
+## 9. Cấu trúc Chunking PDF của Backend Không Tương Thích Với Markdown (jsPDF)
+
+**Hiện tượng**
+- FE đã crawl tài liệu thành công bằng Jina AI và tạo ra file PDF chứa toàn bộ nội dung Markdown (để giữ nguyên bảng biểu, code block cho RAG).
+- Upload thành công lên BE, status đổi thành `INDEXED`.
+- Tuy nhiên, khi hỏi AI Tutor (ví dụ môn PRJ301), AI luôn trả lời: 
+  - `Tài liệu hiện có của môn PRJ301 không có nội dung đủ phù hợp để trả lời chắc chắn. Câu hỏi sẽ được chuyển cho giáo viên/mentor phụ trách...`
+
+**Nguyên nhân (từ logic Chunking của BE)**
+- `CourseMaterialChunkingService.java` hiện đang dùng Regex để tìm Heading:
+  ```java
+  Pattern.compile("(?m)^(?=\\s*(chapter|section|unit|lesson|module|part|slide)\\s+\\d+|\\s*\\d+(\\.\\d+)*\\s+\\S)");
+  ```
+- File PDF do FE tạo ra chứa chuẩn **Markdown**, các Heading sẽ bắt đầu bằng dấu `#` (ví dụ: `# 1. Introduction`, `## Background`). Do đó, Regex của BE hoàn toàn **không bắt được bất kỳ Heading nào**.
+- Khi không bắt được Heading, BE fallback sang cắt theo đoạn văn (`splitByParagraphs` dùng `\R{2,}`). Tuy nhiên, do đặc thù của thư viện `jsPDF` khi vẽ text lên Canvas, `PDFTextStripper` của BE (Apache PDFBox) có thể không nhận diện được `\n\n`.
+- Cuối cùng, BE fallback sang phương án tệ nhất: **Cắt cứng mỗi 1000 ký tự** (`splitByLength`). Việc cắt mù này làm đứt gãy câu chữ, code block và bảng biểu, khiến Vector Search của Elasticsearch bị mất hoàn toàn ngữ nghĩa (Semantic), dẫn đến AI không tìm thấy context phù hợp.
+
+**Expected / BE Đề xuất**
+- Cập nhật `HEADING_PATTERN` trong `CourseMaterialChunkingService` để hỗ trợ thêm chuẩn Markdown (dấu `#`):
+  ```java
+  // Bổ sung thêm matching cho các dòng bắt đầu bằng 1 đến 6 dấu #
+  Pattern.compile("(?m)^(?=\\s*(#{1,6}\\s+)?(chapter|section|unit|lesson|module|part|slide)\\s+\\d+|\\s*(#{1,6}\\s+)?\\d+(\\.\\d+)*\\s+\\S|\\s*#{1,6}\\s+\\S)");
+  ```
+- Hoặc hỗ trợ thêm một `sourceType` mới là `MARKDOWN` để chunking chuẩn xác hơn bằng Markdown Parser thay vì xử lý nó như một file PDF thông thường.
+
+**Test**
+1. Upload file PDF được tạo từ FE (có chứa cú pháp `# Heading`).
+2. Xem log BE báo `Course material chunked into X chunks`. X phải lớn hơn số trang, và các chunk không bị cắt đứt giữa câu.
+3. Chat với AI Tutor, AI phải tìm thấy context và trả lời đúng nội dung trong PDF.
+
 ## Priority
 
 1. Protect/restore `admin@system.local`.
@@ -355,3 +385,4 @@ OSG202 -> 2118 chunks
 6. Conversation course scope + pin persistence.
 7. Fix mojibake/UTF-8 error messages for AI/LLM failures.
 8. Standard error response.
+9. Fix PDF chunking logic for Markdown documents to restore AI answering capabilities.

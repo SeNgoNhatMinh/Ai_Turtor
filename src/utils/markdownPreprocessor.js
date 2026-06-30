@@ -1,5 +1,6 @@
 import React from 'react';
 import { sanitizeLinkUrl } from './markdownSecurity';
+import { isMaterialSourceText } from './sourceLabels';
 
 /**
  * =========================================================
@@ -405,6 +406,87 @@ function inferHeadings(text) {
 }
 
 /* =========================================================
+ * 8B. STUDY TIP ACTION LINKS
+ * =========================================================
+ * Backend/LLM often emits a "Lưu ý để học tốt hơn" section
+ * as normal bullets or plain lines. The chat UI can analyze
+ * those study tips, so we convert only that section into safe
+ * internal markdown links. React markdown renders those links
+ * as buttons through LinkRenderer.
+ * ========================================================= */
+
+function escapeMarkdownLabel(text) {
+  return String(text || '').replace(/([\\[\]])/g, '\\$1');
+}
+
+function isStudyTipHeading(line) {
+  return /^#{1,6}\s*lưu ý\b/i.test(line.trim());
+}
+
+function isSectionHeading(line) {
+  return /^#{1,6}\s+\S/.test(line.trim());
+}
+
+function hasMarkdownLink(text) {
+  return /\[[^\]]+\]\([^)]+\)/.test(text);
+}
+
+function makeStudyTipLink(text, index) {
+  return `[${escapeMarkdownLabel(text)}](#ai-study-tip-${index})`;
+}
+
+function enhanceStudyTips(text) {
+  const lines = text.split('\n');
+  const output = [];
+  let inStudyTips = false;
+  let tipIndex = 1;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    if (isStudyTipHeading(line)) {
+      inStudyTips = true;
+      output.push(line);
+      continue;
+    }
+
+    if (inStudyTips && isSectionHeading(line)) {
+      inStudyTips = false;
+      output.push(line);
+      continue;
+    }
+
+    if (
+      !inStudyTips ||
+      !trimmed ||
+      isTableLine(line) ||
+      isFenceLine(line) ||
+      isMaterialSourceText(trimmed) ||
+      hasMarkdownLink(trimmed)
+    ) {
+      output.push(line);
+      continue;
+    }
+
+    const bullet = line.match(/^(\s*[-*+]\s+)(.+)$/);
+    if (bullet) {
+      output.push(`${bullet[1]}${makeStudyTipLink(bullet[2].trim(), tipIndex++)}`);
+      continue;
+    }
+
+    const ordered = line.match(/^(\s*\d+[.)]\s+)(.+)$/);
+    if (ordered) {
+      output.push(`${ordered[1]}${makeStudyTipLink(ordered[2].trim(), tipIndex++)}`);
+      continue;
+    }
+
+    output.push(`- ${makeStudyTipLink(trimmed, tipIndex++)}`);
+  }
+
+  return output.join('\n');
+}
+
+/* =========================================================
  * 9. BLOCKQUOTE CLEANUP
  * ========================================================= */
 
@@ -455,13 +537,14 @@ export function normalizeAiMarkdown(input = '') {
   /* 7 */  text = normalizeLists(text);
   /* 8 */  text = repairTables(text);
   /* 9 */  text = inferHeadings(text);
-  /* 10 */ text = normalizeBlockquotes(text);
-  /* 11 */ text = sanitizeLinks(text);
+  /* 10 */ text = enhanceStudyTips(text);
+  /* 11 */ text = normalizeBlockquotes(text);
+  /* 12 */ text = sanitizeLinks(text);
 
-  /* 12 Restore protected blocks */
+  /* 13 Restore protected blocks */
   text = restoreBlocks(text, vault);
 
-  /* 13 */ text = collapseBlankLines(text);
+  /* 14 */ text = collapseBlankLines(text);
 
   return text;
 }
