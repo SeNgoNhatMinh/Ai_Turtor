@@ -69,11 +69,11 @@ export function useChat() {
         } catch (n8nError) {
           triggerToast('n8n offline. Falling back to local AI...');
           const payload = { question: text, message: text, codeSnippet: codeSnippet || null, courseId, classId, conversationId: activeSessionId || null };
-          data = await apiService.sendAiQuery(payload, userId);
+          data = await apiService.sendAiQuery(payload, userId, currentUser?.fullName || '', currentUser?.email || '');
         }
       } else {
         const payload = { question: text, message: text, codeSnippet: codeSnippet || null, courseId, classId, conversationId: activeSessionId || null };
-        data = await apiService.sendAiQuery(payload, userId);
+        data = await apiService.sendAiQuery(payload, userId, currentUser?.fullName || '', currentUser?.email || '');
       }
 
       const responseConversationId = data.conversationId || data.sessionId || activeSessionId;

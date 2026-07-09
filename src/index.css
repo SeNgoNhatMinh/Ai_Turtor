@@ -1,3 +1,53 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 222.2 47.4% 11.2%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+  }
+}
 /* ==========================================
    DESIGN SYSTEM - PROFESSIONAL NEUTRAL / FPT ACCENT
    ========================================== */
@@ -5182,6 +5232,255 @@ body.theme-dark .app-confirm-card__btn--primary {
     color: #111827;
 }
 
+.admin-academic-page {
+    width: 100%;
+    max-width: 1240px;
+    margin: 0 auto;
+    padding-bottom: 24px;
+}
+
+.admin-academic-tabs > .ant-tabs-nav {
+    margin-bottom: 18px;
+}
+
+.admin-academic-tabs > .ant-tabs-nav .ant-tabs-nav-wrap {
+    overflow: auto hidden;
+}
+
+.admin-academic-tabs > .ant-tabs-nav .ant-tabs-tab {
+    min-height: 38px;
+    margin: 0 !important;
+    padding: 8px 14px;
+    border-radius: 10px !important;
+    white-space: nowrap;
+}
+
+.admin-academic-page .ant-row {
+    align-items: flex-start;
+}
+
+.admin-academic-page .ant-col {
+    min-width: 0;
+}
+
+.admin-academic-page .ant-card {
+    min-width: 0;
+    border-radius: 12px;
+}
+
+.admin-academic-page .ant-card-hoverable {
+    transition: border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.admin-academic-page .ant-card-hoverable:hover {
+    transform: none;
+}
+
+.admin-academic-page .ant-card-head {
+    min-height: 48px;
+    padding: 0 16px;
+}
+
+.admin-academic-page .ant-card-head-title {
+    overflow: hidden;
+    font-size: 0.98rem;
+    font-weight: 700;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.admin-academic-page .ant-card-extra {
+    margin-inline-start: 12px;
+}
+
+.admin-academic-page .ant-card-body {
+    padding: 16px;
+}
+
+.admin-academic-page .ant-form-item {
+    margin-bottom: 14px;
+}
+
+.admin-academic-page .ant-table-wrapper {
+    width: 100%;
+}
+
+.admin-academic-page .ant-table-container {
+    overflow-x: auto;
+}
+
+.admin-academic-page .ant-table {
+    min-width: 680px;
+}
+
+.admin-academic-page .ant-table-cell {
+    vertical-align: top;
+}
+
+.admin-academic-page .ant-table-thead > tr > th {
+    white-space: nowrap;
+}
+
+.admin-academic-search-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.admin-material-source-text {
+    display: block;
+    max-width: 280px;
+    overflow: hidden;
+    color: #475569;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    font-size: 0.75rem;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.admin-materials-table-card,
+.admin-materials-table-card .ant-card-body,
+.admin-materials-table {
+    max-width: 100%;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.admin-materials-table .ant-table-container,
+.admin-materials-table .ant-table-content {
+    max-width: 100%;
+    overflow-x: auto !important;
+}
+
+.admin-materials-table .ant-table {
+    min-width: 820px;
+}
+
+.admin-material-title-text {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    color: inherit;
+    font-weight: 600;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.admin-material-date-text {
+    display: block;
+    color: #64748b;
+    font-size: 0.78rem;
+    line-height: 1.35;
+    white-space: normal;
+}
+
+body.theme-dark .admin-material-source-text,
+.app-container.dark .admin-material-source-text,
+body.theme-dark .admin-material-date-text,
+.app-container.dark .admin-material-date-text {
+    color: #a3a3a3;
+}
+
+@media (max-width: 768px) {
+    .admin-academic-page {
+        padding-bottom: 16px;
+    }
+
+    .admin-academic-page .ant-card-body {
+        padding: 14px;
+    }
+
+    .admin-academic-search-row {
+        grid-template-columns: 1fr;
+    }
+
+    .admin-academic-search-row .ant-btn {
+        width: 100%;
+    }
+
+    .admin-material-source-text {
+        max-width: 220px;
+    }
+
+    .admin-materials-table .ant-table {
+        min-width: 760px;
+    }
+}
+
+.website-toc-list {
+    max-height: 360px;
+    overflow: auto;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    background: #ffffff;
+}
+
+.website-toc-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 9px 12px;
+    border-bottom: 1px solid #f1f5f9;
+    cursor: pointer;
+    transition: background 0.16s ease;
+}
+
+.website-toc-item:last-child {
+    border-bottom: 0;
+}
+
+.website-toc-item:hover {
+    background: #f8fafc;
+}
+
+.website-toc-copy {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.website-toc-title {
+    color: #111827;
+    font-size: 0.88rem;
+    font-weight: 650;
+    line-height: 1.35;
+}
+
+.website-toc-url {
+    overflow: hidden;
+    color: #64748b;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    font-size: 0.72rem;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+body.theme-dark .website-toc-list {
+    border-color: rgba(255, 255, 255, 0.12);
+    background: #111111;
+}
+
+body.theme-dark .website-toc-item {
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+body.theme-dark .website-toc-item:hover {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+body.theme-dark .website-toc-title {
+    color: #f5f5f5;
+}
+
+body.theme-dark .website-toc-url {
+    color: #a3a3a3;
+}
+
 @media (max-width: 640px) {
     .app-confirm-card {
         top: auto !important;
@@ -5199,4 +5498,25 @@ body.theme-dark .app-confirm-card__btn--primary {
         width: 100%;
         min-height: 46px;
     }
+}
+
+/* Fix Ant Design Table overflow inside Cards */
+.ant-card {
+  max-width: 100%;
+}
+.ant-card-body {
+  max-width: 100%;
+  overflow-x: auto;
+}
+.ant-table-wrapper {
+  max-width: 100%;
+}
+
+/* Force Ant Design tables to never break flex layouts */
+.ant-table-wrapper {
+  overflow-x: auto !important;
+  max-width: 100% !important;
+}
+.ant-card {
+  overflow: hidden !important;
 }

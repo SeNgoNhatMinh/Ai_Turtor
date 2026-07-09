@@ -10,10 +10,10 @@ export const n8nService = {
   },
 
   async submitTeacherAnswer(payload) {
-    return await postN8n('/teacher-answer', payload);
+    return await postN8n('/teacher-answer-escalation', payload);
   },
 
   async submitSeniorApproval(payload) {
-    return await postN8n('/senior-approval', payload);
+    return await postN8n('/senior-knowledge-approval', payload);
   }
 };

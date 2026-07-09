@@ -1,5 +1,5 @@
 import { env } from '../config/env';
-import { getUserFacingError, httpClient, httpRequest } from './httpClient';
+import { getUserFacingError, httpClient, httpRequest, addRequestInterceptor, ApiError } from './httpClient';
 
 export const API_BASE_URL = env.apiBaseUrl;
 export const API_TIMEOUTS = {
@@ -8,6 +8,15 @@ export const API_TIMEOUTS = {
   quizGeneration: 240000,
   upload: 180000,
 };
+
+addRequestInterceptor((config) => {
+  const token = window.localStorage.getItem('ai_tutor_jwt');
+  if (token) {
+    config.init.headers = config.init.headers || {};
+    config.init.headers['Authorization'] = `Bearer ${token}`;
+  }
+  return config;
+});
 
 function stripBaseUrl(url) {
   const value = String(url || '');
@@ -28,14 +37,23 @@ export async function request(url, options = {}) {
     }
   }
 
-  return httpRequest(stripBaseUrl(url), {
-    method,
-    headers,
-    body: parsedBody,
-    signal,
-    responseType,
-    ...restOptions,
-  });
+  try {
+    return await httpRequest(stripBaseUrl(url), {
+      method,
+      headers,
+      body: parsedBody,
+      signal,
+      responseType,
+      ...restOptions,
+    });
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) {
+      window.localStorage.removeItem('ai_tutor_jwt');
+      window.sessionStorage.removeItem('ai-tutor:current-user');
+      window.location.reload();
+    }
+    throw error;
+  }
 }
 
 export async function uploadRequest(url, formData, errorPrefix = "Upload failed", options = {}) {

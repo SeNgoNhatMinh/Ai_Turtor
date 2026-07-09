@@ -1,99 +1,128 @@
 # Kiến Trúc Crawler (Import Website Documentation)
 
-Tài liệu này mô tả chi tiết cách thức hoạt động, chiến thuật vượt tường lửa (WAF/CORS), và cấu trúc mã nguồn của hệ thống cào dữ liệu web (Web Crawler) được nhúng trực tiếp trên Frontend của dự án AI Tutor.
+Tài liệu này mô tả chi tiết cách thức hoạt động, cấu trúc mã nguồn, và luồng dữ liệu của hệ thống cào dữ liệu web (Web Crawler) trong dự án AI Tutor.
+
+> **Phiên bản hiện tại: Backend Crawl (Java/Jsoup)**
+> Toàn bộ quá trình cào dữ liệu được thực hiện 100% tại Backend (Spring Boot). Frontend chỉ đóng vai trò gửi URL và hiển thị kết quả.
 
 ---
 
 ## 1. Tổng Quan Quy Trình (Data Flow)
 
-Toàn bộ quy trình cào dữ liệu được thực thi 100% tại trình duyệt của người dùng (Frontend), không yêu cầu Backend phải chạy Puppeteer hay bất kỳ thư viện cào web chuyên dụng nào.
-
 ```mermaid
 sequenceDiagram
-    participant U as User (UI)
-    participant C as useCrawler (Hook)
-    participant P as Proxy Rotation
-    participant J as Jina AI Reader
-    participant PDF as jsPDF Generator
+    participant U as User (Admin UI)
+    participant FE as React Frontend
     participant BE as Spring Boot Backend
+    participant Web as Documentation Website
+    participant ES as Elasticsearch
 
-    U->>C: Nhập URL & Bấm "Analyze"
-    C->>P: Fetch HTML qua Proxy (Vượt CORS)
-    P-->>C: Trả về HTML
-    C->>C: Bóc tách Table of Contents (TOC)
-    C-->>U: Hiển thị danh sách trang (Tree)
+    U->>FE: Nhập URL + Bấm "Start Import Job"
+    FE->>BE: POST /api/courses/{courseId}/materials/import-url
     
-    U->>C: Chọn trang & Bấm "Import"
-    loop Mỗi trang (Delay 1.5s)
-        C->>J: Fetch r.jina.ai/[URL]
-        alt Thành công
-            J-->>C: Trả về Markdown sạch
-        else Jina lỗi/quá tải
-            C->>P: Fallback: Fetch HTML qua Proxy
-            P-->>C: Trả về HTML
-            C->>C: Dùng Readability + Turndown dịch sang Markdown
+    BE->>Web: Jsoup.connect(url).get() [Tải HTML]
+    Web-->>BE: Trả về HTML
+    BE->>BE: Bóc tách nội dung (Loại bỏ nav/header/footer/script)
+    
+    alt followNext = true
+        loop Tối đa maxPages trang (Mặc định 10)
+            BE->>Web: Tìm link "Next" trong HTML → Jsoup.connect(nextUrl)
+            Web-->>BE: HTML trang tiếp theo
+            BE->>BE: Gộp nội dung vào mergedContent
         end
     end
     
-    C->>PDF: Gửi mảng Markdown của 11 trang
-    PDF-->>C: Vẽ & Xuất ra 1 file PDF duy nhất
-    C->>BE: Multipart Upload file PDF lên Server
-    BE-->>U: Done! (Indexing in background)
+    BE->>BE: Lưu CourseMaterial vào MongoDB (sourceType: HTML_URL)
+    BE->>BE: ChunkingService cắt text thành các đoạn nhỏ
+    BE->>ES: indexChunk() → Lưu vector embedding vào Elasticsearch
+    BE-->>FE: 202 Accepted (materialId, indexingStatus)
+    FE-->>U: "Import job started! Indexing is running in the background."
 ```
 
 ---
 
 ## 2. Chiến Thuật Cào Dữ Liệu (Crawl Strategy)
 
-Vì Frontend bị giới hạn bởi chính sách bảo mật của trình duyệt (CORS) và dễ bị các trang bị chặn bởi WAF (như Akamai của Oracle, Cloudflare), Crawler sử dụng 3 chiến thuật cốt lõi:
+### 2.1. Jsoup — Thư viện cào web của Java
+Backend sử dụng **Jsoup** (`org.jsoup:jsoup:1.17.2`) để tải và phân tích HTML. Jsoup hoạt động như một HTTP client thuần túy (không chạy JavaScript), nhưng đủ mạnh để cào hầu hết các trang tài liệu tĩnh (Oracle Docs, MDN, Spring.io...).
 
-### 2.1. Vượt CORS & WAF bằng "Multi-Proxy Rotation" (Giai đoạn Analyze)
-Khi phân tích mục lục (Table of Contents), hệ thống cần tải HTML thô. Trình duyệt không thể gọi thẳng `fetch(oracle.com)` do CORS.
-- Hàm `fetchViaProxy` được thiết kế để tự động xoay tua (Fallback) qua 4 tầng Proxy khác nhau:
-  1. `VITE_CORS_PROXY_URL` (Cloudflare Worker tự build - ưu tiên 1).
-  2. `api.allorigins.win` (Máy chủ cực mạnh giúp vượt WAF).
-  3. `corsproxy.io`
-  4. `api.codetabs.com`
-- Nếu Proxy 1 bị Oracle chặn (trả về 403 Access Denied), code sẽ âm thầm nuốt lỗi và tự động thử Proxy 2. Điều này đảm bảo tỷ lệ lấy được HTML mục lục gần như 100%.
-
-### 2.2. Bóc tách nội dung cực mạnh bằng Jina AI Reader (Giai đoạn Extract)
-Thay vì tải HTML và tự lọc rác (Menu, Quảng cáo, Footer), Crawler ủy quyền việc này cho dịch vụ đám mây **Jina AI Reader**.
-- Gọi API: `https://r.jina.ai/[URL]`
-- **Lợi ích:** Jina tự động chạy một Headless Browser (Puppeteer ngầm) trên server của họ, tự đợi Javascript render xong, lách qua mọi Captcha, bóc tách đúng nội dung bài học và trả về thẳng định dạng **Markdown** (rất hoàn hảo cho RAG Vector Search).
-
-### 2.3. Nhịp nghỉ mô phỏng con người (Anti-Bot Delay)
-Trong vòng lặp tải hàng loạt trang web (ví dụ: 11 trang của Oracle), hệ thống được hard-code một khoảng trễ `await delay(1500)` (1.5 giây) giữa các lần fetch.
-- Việc này giúp Crawler "giả vờ" giống như một người dùng thật đang bấm chuyển trang từ từ.
-- Ngăn chặn triệt để việc bị hệ thống bảo mật của trang chủ đánh dấu là tấn công DDoS/Bot và chặn IP vĩnh viễn.
-
----
-
-## 3. Cấu Trúc Mã Nguồn (Directory Structure)
-
-Toàn bộ logic nằm trong thư mục `src/services/websiteImport/` và `src/hooks/useCrawler.js`.
-
-### Cấu trúc file
-```text
-src/
- ├─ hooks/
- │   └─ useCrawler.js           # Bộ não trung tâm: quản lý State (tiến độ, lỗi), điều phối vòng lặp tải trang và delay.
- └─ services/websiteImport/
-     ├─ crawler.js              # Xử lý Analyze: Chứa class WebsiteCrawler để tải HTML qua proxy và bóc tách cấu trúc Cây mục lục (TOC/Links). Có hỗ trợ override theo từng Domain (VD: OracleCrawler).
-     ├─ extractor.js            # Xử lý Extract: Nhận 1 URL, ưu tiên gọi Jina AI. Nếu rớt mạng thì Fallback gọi Proxy lấy HTML rồi chuyển cho markdown.js.
-     ├─ proxyApi.js             # Logic Multi-Proxy Rotation: Chứa danh sách các server CORS proxy dự phòng và xử lý timeout/error.
-     ├─ markdown.js             # Dùng thư viện Mozilla Readability (lọc rác HTML) + Turndown (biến HTML sạch thành Markdown). Chỉ dùng khi Fallback.
-     ├─ pdfGenerator.jsx        # Đóng gói PDF: Dùng thư viện jsPDF. Nhận mảng n trang Markdown, "in" từng dòng chữ lên Canvas PDF (để tránh lỗi crash Yoga Flexbox của thư viện React-PDF cũ).
-     └─ upload.js               # Đóng gói FormData và gọi API POST lên Spring Boot Backend.
+```java
+Document doc = Jsoup.connect(uri.toString())
+    .userAgent("AI-Tutor-Platform/1.0 (+course-material-import)")
+    .timeout(20_000)  // 20 giây timeout
+    .followRedirects(true)
+    .get();
 ```
 
+### 2.2. Bóc tách nội dung thông minh (Content Extraction)
+Sau khi tải HTML, BE tự động:
+1. **Loại bỏ rác**: Xóa các thẻ `<script>`, `<style>`, `<nav>`, `<header>`, `<footer>`, `.toc`, `.breadcrumbs`.
+2. **Tìm vùng nội dung chính**: Ưu tiên theo thứ tự: `<main>` → `<article>` → `.chapter` → `.section` → `<body>`.
+3. **Trích xuất title**: Ưu tiên: `<h1>` → `<title>` → URL.
+4. **Chuẩn hóa text**: Xóa khoảng trắng thừa, dòng trống liên tiếp.
+
+### 2.3. Tự động dò link "Next" (Auto-Follow)
+Khi người dùng bật tùy chọn **"Follow Next links"**, BE sẽ:
+1. Tìm thẻ `<a>` có thuộc tính `rel="next"`, `accesskey="n"`, hoặc text chứa từ "Next".
+2. Kiểm tra link đó có cùng domain (host) với URL gốc không (tránh nhảy sang trang ngoài).
+3. Lặp lại quá trình tải + bóc tách cho trang tiếp theo.
+4. Dừng lại khi đạt `maxPages` (mặc định 10, tối đa 10) hoặc không tìm thấy link "Next" nào nữa.
+
 ---
 
-## 4. Quá Trình Fallback (Graceful Degradation)
+## 3. Cấu Trúc Mã Nguồn (Code Structure)
 
-Điều làm nên độ bền bỉ của kiến trúc này là khả năng tự phục hồi khi gặp lỗi:
+### Backend (Java Spring Boot)
 
-1. **Khi Jina AI sập/hết lượt:** Hàm `extractPageMarkdown` trong `extractor.js` sẽ bắt lỗi `catch` -> Gọi lại `WebsiteCrawler.extractPage` -> Chạy qua Proxy Rotation -> Lấy HTML -> Chạy Readability -> Ra Markdown.
-2. **Khi Cloudflare Worker bị chặn (403):** Hàm `fetchViaProxy` trong `proxyApi.js` bắt lỗi -> Đổi sang dùng `allorigins.win`.
-3. **Khi gặp mã HTML dị dạng:** Sinh ra lỗi Yoga Crash ở `React-PDF` trước đây -> Hiện tại đã thay bằng `jsPDF`, in chữ thô lên tọa độ XY nên không bao giờ bị Crash Layout.
+```text
+ai-tutor-api/src/main/java/com/ragapi/
+ ├─ controller/
+ │   └─ CourseMaterialController.java     # API endpoint: POST /courses/{courseId}/materials/import-url
+ │                                         # Nhận request, gọi resolveUploadScope(), gọi htmlImportService
+ ├─ dto/
+ │   └─ ImportCourseMaterialUrlRequest.java # DTO: url, title, followNext, maxPages, classId, teacherId, uploaderRole
+ ├─ service/
+ │   ├─ CourseMaterialHtmlImportService.java # ★ Logic cào chính: Jsoup fetch, bóc tách HTML, dò link Next, gộp text
+ │   ├─ CourseMaterialIngestionService.java  # Lưu MongoDB + Gọi ChunkingService + Index Elasticsearch
+ │   ├─ CourseMaterialChunkingService.java   # Cắt text thành chunks (theo Heading hoặc đoạn văn, mỗi chunk ≤ 1000 ký tự)
+ │   └─ ElasticVectorService.java            # Gửi chunk lên Elasticsearch để tạo vector embedding
+ └─ entity/
+     └─ CourseMaterial.java                  # Entity MongoDB: sourceType="HTML_URL", content=merged text
+```
 
-Nhờ kiến trúc đa lớp này, chức năng Import Web hoàn toàn có thể hoạt động độc lập không cần phụ thuộc vào một máy chủ Node.js Crawler riêng biệt nào.
+### Frontend (React)
+
+```text
+ai-tutor-frontend/src/
+ ├─ components/importWebsite/
+ │   └─ ImportWebsiteModal.jsx   # Form đơn giản: URL input, Title input, Follow Next checkbox, Max Pages
+ │                                # Gọi apiService.importCourseMaterialUrl() → POST lên BE
+ └─ services/
+     └─ api.js                   # Hàm importCourseMaterialUrl(courseId, payload)
+```
+
+> **Lưu ý:** Toàn bộ logic cào web cũ ở Frontend (useCrawler.js, proxyApi.js, extractor.js, pdfGenerator.jsx, crawler.js, markdown.js) đã được **xóa hoàn toàn**. Frontend không còn thực hiện bất kỳ thao tác cào web nào.
+
+---
+
+## 4. So Sánh Kiến Trúc Cũ vs Mới
+
+| Tiêu chí | FE Crawl (Cũ) | BE Crawl (Hiện tại) |
+|---|---|---|
+| Nơi thực thi | Trình duyệt người dùng | Java Spring Boot Server |
+| Thư viện cào | fetch() + CORS Proxy + Jina AI | Jsoup (Java) |
+| Vượt CORS | Cần Cloudflare Worker + Multi-Proxy Rotation | Không cần (Server-side không bị CORS) |
+| Định dạng lưu trữ | Tạo file PDF (jsPDF) → Upload lên BE | Lưu trực tiếp text vào MongoDB |
+| Chunking | BE dùng PDFTextStripper moi text từ PDF (hay bị lỗi) | BE chunk trực tiếp từ text gốc (chuẩn xác) |
+| Tải file PDF | Có file PDF trong GridFS | Không có file PDF (sourceType: HTML_URL) |
+| Rủi ro bị chặn IP | Thấp (mỗi user = 1 IP khác nhau) | Cao hơn (tất cả request từ 1 IP server) |
+| Độ phức tạp FE | ~2000 dòng code (7 file) | ~150 dòng code (1 file + 1 API method) |
+
+---
+
+## 5. Giới Hạn Hiện Tại
+
+1. **Không chạy JavaScript**: Jsoup chỉ tải HTML tĩnh. Các trang SPA (Single Page App) render bằng React/Angular sẽ trả về trang trắng.
+2. **Giới hạn 10 trang/lần import**: `MAX_ALLOWED_PAGES = 10` được hard-code trong `CourseMaterialHtmlImportService`.
+3. **Không có file PDF**: Material loại `HTML_URL` không có file PDF để tải xuống. Nút Download trên FE sẽ hiện thông báo thay vì tải file.
+4. **Rủi ro bị chặn IP Server**: Nếu nhiều người dùng cùng import từ Oracle Docs, IP của server có thể bị chặn bởi WAF.

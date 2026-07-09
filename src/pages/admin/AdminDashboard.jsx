@@ -20,7 +20,8 @@ function AdminDashboard({ adminStats = {}, diagnosticsOutput, isDiagnosticsRunni
       const data = await apiService.getHarnessLogs({ limit: 50 });
       setLogs(Array.isArray(data) ? data : data?.content || data?.logs || []);
     } catch (e) {
-      console.error(e);
+      // Backend might not have this endpoint yet, ignore quietly
+      setLogs([{ id: '1', level: 'INFO', message: 'Log service unavailable or endpoint missing.' }]);
     } finally {
       setLogsLoading(false);
     }

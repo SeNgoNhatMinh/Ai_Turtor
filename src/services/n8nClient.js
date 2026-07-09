@@ -18,11 +18,17 @@ export async function postN8n(path, body) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), N8N_TIMEOUT_MS);
 
+  const headers = { 'Content-Type': 'application/json' };
+  const token = window.localStorage.getItem('ai_tutor_jwt');
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
   let res;
   try {
     res = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(body),
       signal: controller.signal,
     });

@@ -105,6 +105,7 @@ function App() {
   const [teacherTopicHeatmap, setTeacherTopicHeatmap] = useState([]);
   const [teacherDashboardLoading, setTeacherDashboardLoading] = useState(false);
   const [teacherSubmissions, setTeacherSubmissions] = useState([]);
+  const [quizSubmissions, setQuizSubmissions] = useState([]);
   const [selectedTeacherSub, setSelectedTeacherSub] = useState(null);
   
   // Upload progress simulation state
@@ -231,6 +232,37 @@ function App() {
       setTeacherSubmissions([]);
     }
   };
+
+  useEffect(() => {
+    if (activeRole === 'teacher' && teacherStudents.length > 0 && courseId) {
+      const loadQuizzes = async () => {
+        try {
+          const allQuizzes = await Promise.all(
+            teacherStudents.map(student => 
+              apiService.getStudentCourseQuizzes(student.id, courseId)
+                .catch(() => ({ quizzes: [] }))
+            )
+          );
+          const aggregated = allQuizzes.flatMap((res, index) => {
+            const studentQuizzes = res?.quizzes || [];
+            const studentInfo = teacherStudents[index];
+            return studentQuizzes.map(q => ({
+              ...q,
+              studentName: studentInfo.name,
+              studentEmail: studentInfo.email,
+            }));
+          });
+          const submittedQuizzes = aggregated.filter(q => q.status === 'SUBMITTED' || q.status === 'REVIEWED');
+          setQuizSubmissions(submittedQuizzes);
+        } catch (e) {
+          console.error("Failed to load quiz submissions for grading", e);
+        }
+      };
+      loadQuizzes();
+    } else {
+      setQuizSubmissions([]);
+    }
+  }, [teacherStudents, activeRole, courseId]);
 
   const loadStudentDashboard = async () => {
     setIsStudentDashboardLoading(true);
@@ -411,6 +443,7 @@ function App() {
     setCurrentUser(null);
     resetChat();
     window.sessionStorage.removeItem(APP_SESSION_USER_KEY);
+    window.localStorage.removeItem('ai_tutor_jwt');
   };
 
   const handleCodeMentorQuery = async (codeSnippet, codeLanguage, isAssignmentRelated) => {
@@ -626,6 +659,28 @@ function App() {
       triggerToast(getUserFacingError(e, 'Failed to delete material.'));
     }
   };
+
+  const handleTeacherQuizReview = async (quizSessionId, reviewedScore, feedback) => {
+    try {
+      await apiService.teacherReviewQuiz(quizSessionId, {
+        teacherId: getTeacherUserId(),
+        reviewedScore: Number(reviewedScore),
+        feedback
+      });
+      triggerToast('Success', 'Quiz review saved.', 'success');
+      setQuizSubmissions(prev => prev.map(q => 
+        q.id === quizSessionId 
+          ? { ...q, teacherReviewedScore: Number(reviewedScore), teacherFeedback: feedback, teacherReviewStatus: 'REVIEWED' } 
+          : q
+      ));
+    } catch (e) {
+      triggerToast('Error', e.message || 'Error saving quiz review', 'error');
+    }
+  };
+
+  // ==========================================
+  // HANDLERS: ADMIN
+  // ==========================================
 
   const handleTeacherReindexMaterial = async (materialId) => {
     triggerToast('Reindexing course material...');
@@ -1034,6 +1089,7 @@ function App() {
                   handleTeacherAnswerEsc={handleTeacherAnswerEsc}
                   handleApproveCandidate={handleApproveCandidate}
                   handleRejectCandidate={handleRejectCandidate}
+                  handleTeacherQuizReview={handleTeacherQuizReview}
                   handleMentorReviewAnswer={handleMentorReviewAnswer}
                   handleSeniorResolveReview={handleSeniorResolveReview}
                   onMarkChatRead={(chatRoomId) => apiService.markChatRead(chatRoomId, getTeacherUserId())}

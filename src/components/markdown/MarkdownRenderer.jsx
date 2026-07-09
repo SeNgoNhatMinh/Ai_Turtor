@@ -2,7 +2,6 @@ import React, { memo, useEffect, useMemo, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
-import rehypeAutolinkHeadings from 'rehype-autolink-headings';
 import rehypeKatex from 'rehype-katex';
 import rehypeSlug from 'rehype-slug';
 import 'katex/dist/katex.min.css';
@@ -14,18 +13,6 @@ import CopyButton from './CopyButton';
 import MarkdownErrorBoundary from './MarkdownErrorBoundary';
 import MarkdownImage from './MarkdownImage';
 import MarkdownTable from './MarkdownTable';
-
-const autolinkHeadingOptions = {
-  behavior: 'append',
-  properties: {
-    className: ['ai-answer-heading-anchor'],
-    ariaLabel: 'Link to section',
-  },
-  content: {
-    type: 'text',
-    value: '#',
-  },
-};
 
 const rehypeKatexOptions = {
   throwOnError: false,
@@ -193,7 +180,6 @@ function MarkdownRenderer({ markdown, streaming = false, sourceMap = {}, onStudy
           rehypePlugins={[
             [rehypeKatex, rehypeKatexOptions],
             rehypeSlug,
-            [rehypeAutolinkHeadings, autolinkHeadingOptions],
           ]}
           components={components}
           skipHtml

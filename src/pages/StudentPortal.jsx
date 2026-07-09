@@ -467,6 +467,24 @@ function StudentPortal({
     }
   };
 
+  const handleDownloadSource = async (materialId, title) => {
+    if (!courseId || !materialId) return;
+    message.loading({ content: 'Downloading file...', key: 'dl' });
+    try {
+      const blob = await apiService.downloadMaterialPdf(courseId, materialId);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${title || 'material'}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      window.URL.revokeObjectURL(url);
+      message.success({ content: 'Download completed.', key: 'dl' });
+    } catch {
+      message.error({ content: 'Unable to download the file (it might be a website material).', key: 'dl' });
+    }
+  };
+
   if (activeTab === 'student-chat') {
     return (
       <div className="portal-section student-chat-section student-chat-section--minimal">
@@ -540,6 +558,7 @@ function StudentPortal({
                 triggerToast={triggerToast}
                 courseMaterials={courseMaterials}
                 onAnalyzeStudyTip={refreshSuggestions}
+                onDownloadSource={handleDownloadSource}
               />
           </div>
         </div>

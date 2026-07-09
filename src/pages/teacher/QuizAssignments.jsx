@@ -84,7 +84,7 @@ function QuizAssignments({ teacherId, courseId, classId, teacherStudents = [], t
     try {
       await apiService.publishQuizAssignment(assignmentId, {
         targetType: publishTarget,
-        targetStudentIds: publishTarget === 'STUDENTS' ? selectedStudents : [],
+        targetStudentIds: publishTarget === 'SELECTED_STUDENTS' ? selectedStudents : [],
       });
       setPublishOpen(false);
       await loadAssignments();
@@ -190,7 +190,7 @@ function QuizAssignments({ teacherId, courseId, classId, teacherStudents = [], t
         open={publishOpen}
         onCancel={() => setPublishOpen(false)}
         onOk={publishDraft}
-        okButtonProps={{ disabled: publishTarget === 'STUDENTS' && selectedStudents.length === 0 }}
+        okButtonProps={{ disabled: publishTarget === 'SELECTED_STUDENTS' && selectedStudents.length === 0 }}
       >
         <Space direction="vertical" style={{ width: '100%' }}>
           <Select
@@ -198,10 +198,10 @@ function QuizAssignments({ teacherId, courseId, classId, teacherStudents = [], t
             onChange={setPublishTarget}
             options={[
               { value: 'CLASS', label: 'Entire class' },
-              { value: 'STUDENTS', label: 'Selected students' },
+              { value: 'SELECTED_STUDENTS', label: 'Selected students' },
             ]}
           />
-          {publishTarget === 'STUDENTS' && (
+          {publishTarget === 'SELECTED_STUDENTS' && (
             <Select
               mode="multiple"
               value={selectedStudents}

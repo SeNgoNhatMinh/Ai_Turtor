@@ -51,6 +51,54 @@ function collapseBlankLines(text) {
   return text.replace(/\n{3,}/g, '\n\n');
 }
 
+const VIETNAMESE_SECTION_REPLACEMENTS = [
+  [/^theo tai lieu mon hoc$/i, 'Theo tài liệu môn học'],
+  [/^vi du nho$/i, 'Ví dụ nhỏ'],
+  [/^luu y de hoc tot hon$/i, 'Lưu ý để học tốt hơn'],
+  [/^nguon tai lieu da dung$/i, 'Nguồn tài liệu đã dùng'],
+  [/^mo ta\b/i, 'Mô tả'],
+  [/^cau truc\b/i, 'Cấu trúc'],
+  [/^gia tri\b/i, 'Giá trị'],
+  [/^cac he thong\b/i, 'Các hệ thống'],
+  [/^thuat toan\b/i, 'Thuật toán'],
+  [/^cong thuc\b/i, 'Công thức'],
+  [/^dinh nghia\b/i, 'Định nghĩa'],
+  [/^khai niem\b/i, 'Khái niệm'],
+  [/^chuyen doi\b/i, 'Chuyển đổi'],
+  [/^co so\b/i, 'Cơ số'],
+  [/^phan\b/i, 'Phần'],
+  [/^tom tat\b/i, 'Tóm tắt'],
+  [/^ket luan\b/i, 'Kết luận'],
+  [/^ket qua\b/i, 'Kết quả'],
+  [/^buoc\b/i, 'Bước'],
+  [/^dac diem\b/i, 'Đặc điểm'],
+  [/^tinh chat\b/i, 'Tính chất'],
+  [/^so sanh\b/i, 'So sánh'],
+  [/^ung dung\b/i, 'Ứng dụng'],
+  [/^phuong phap\b/i, 'Phương pháp'],
+];
+
+function normalizeVietnameseSectionLine(line) {
+  const prefix = line.match(/^(\s*#{0,6}\s*)/)?.[1] || '';
+  const body = line.slice(prefix.length).trim();
+  if (!body || body.length > 90) return line;
+
+  for (const [pattern, replacement] of VIETNAMESE_SECTION_REPLACEMENTS) {
+    if (pattern.test(body)) {
+      return `${prefix}${body.replace(pattern, replacement)}`;
+    }
+  }
+
+  return line;
+}
+
+function normalizeVietnameseSectionLabels(text) {
+  return text
+    .split('\n')
+    .map(normalizeVietnameseSectionLine)
+    .join('\n');
+}
+
 /* =========================================================
  * 2. LINE DETECTORS
  * ========================================================= */
@@ -423,6 +471,10 @@ function isStudyTipHeading(line) {
   return /^#{1,6}\s*lưu ý\b/i.test(line.trim());
 }
 
+function isSourceHeading(line) {
+  return /^#{1,6}\s*nguồn tài liệu\b/i.test(line.trim());
+}
+
 function isSectionHeading(line) {
   return /^#{1,6}\s+\S/.test(line.trim());
 }
@@ -486,6 +538,37 @@ function enhanceStudyTips(text) {
   return output.join('\n');
 }
 
+function normalizeSourceSection(text) {
+  const lines = text.split('\n');
+  const output = [];
+  let inSources = false;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    if (isSourceHeading(line)) {
+      inSources = true;
+      output.push(line);
+      continue;
+    }
+
+    if (inSources && isSectionHeading(line)) {
+      inSources = false;
+      output.push(line);
+      continue;
+    }
+
+    if (inSources && isMaterialSourceText(trimmed) && !isListLine(line)) {
+      output.push(`- ${trimmed}`);
+      continue;
+    }
+
+    output.push(line);
+  }
+
+  return output.join('\n');
+}
+
 /* =========================================================
  * 9. BLOCKQUOTE CLEANUP
  * ========================================================= */
@@ -527,24 +610,26 @@ export function normalizeAiMarkdown(input = '') {
   /* 1 */ text = normalizeNewlines(text);
   /* 2 */ text = trimTrailingWhitespace(text);
   /* 3 */ text = collapseBlankLines(text);
-  /* 4 */ text = hardFixInlineTables(text);
-  /* 5 */ text = normalizeMath(text);
+  /* 4 */ text = normalizeVietnameseSectionLabels(text);
+  /* 5 */ text = hardFixInlineTables(text);
+  /* 6 */ text = normalizeMath(text);
 
-  /* 6  Protect code fences + math blocks from mutation */
+  /* 7  Protect code fences + math blocks from mutation */
   const { text: exposed, vault } = protectBlocks(text);
   text = exposed;
 
-  /* 7 */  text = normalizeLists(text);
-  /* 8 */  text = repairTables(text);
-  /* 9 */  text = inferHeadings(text);
-  /* 10 */ text = enhanceStudyTips(text);
-  /* 11 */ text = normalizeBlockquotes(text);
-  /* 12 */ text = sanitizeLinks(text);
+  /* 8 */  text = normalizeLists(text);
+  /* 9 */  text = repairTables(text);
+  /* 10 */ text = inferHeadings(text);
+  /* 11 */ text = normalizeSourceSection(text);
+  /* 12 */ text = enhanceStudyTips(text);
+  /* 13 */ text = normalizeBlockquotes(text);
+  /* 14 */ text = sanitizeLinks(text);
 
-  /* 13 Restore protected blocks */
+  /* 15 Restore protected blocks */
   text = restoreBlocks(text, vault);
 
-  /* 14 */ text = collapseBlankLines(text);
+  /* 16 */ text = collapseBlankLines(text);
 
   return text;
 }

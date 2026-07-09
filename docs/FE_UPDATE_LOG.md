@@ -26,6 +26,129 @@ Copy template này lên đầu phần `History` sau mỗi lần cập nhật:
 
 ## History
 
+### 2026-07-02 - Teacher Mentor Backend Flow Alignment
+
+**Summary**
+- Cập nhật FE teacher/mentor để khớp các API backend mới hơn cho class material, assignment, quiz publish target và live chat helper.
+
+**Changed**
+- `src/services/api.js`: 
+  - `deleteAssignment(assignmentId, teacherId)` gửi `teacherId` query theo BE.
+  - `getClassStudents(courseId, classId, teacherId?)` hỗ trợ guard teacher assigned class.
+  - `getChatUnread(userId, role)` hỗ trợ `role=MENTOR`.
+  - `deleteMaterial/reindexMaterial/reindexCourseMaterials` hỗ trợ `teacherId`.
+- `src/services/teacherApi.js`: expose thêm material/chat helpers cho teacher flow.
+- `src/pages/teacher/QuizAssignments.jsx`: sửa target publish selected students từ `STUDENTS` sang `SELECTED_STUDENTS`.
+- `src/pages/TeacherPortal.jsx`:
+  - Teacher class material upload chỉ nhận PDF, gửi đủ `uploaderRole=TEACHER`, `teacherId`, `classId`.
+  - Sau upload/reindex/delete material reload lại list course/class materials.
+  - Publish assignment gọi API thật `POST /mentor/courses/{courseId}/classes/{classId}/assignments/upload`.
+  - Assignment target dùng `ALL_CLASS` hoặc `SELECTED_STUDENTS` đúng BE.
+  - Thêm list class assignments, download assignment file, delete assignment trước khi có submission.
+
+**Tested**
+- `npm run build`: pass.
+
+### 2026-07-02 - Shared Course Materials Table Overflow Fix
+
+**Summary**
+- Sửa bảng `Shared Course Materials` bị tràn khỏi màn hình/card khi title, source URL hoặc filename quá dài.
+
+**Changed**
+- `src/pages/admin/academic/CourseMaterialsTab.jsx`: thêm `scroll.x`, `tableLayout="fixed"`, width rõ cho các cột và ellipsis cho title/source/date.
+- `src/index.css`: thêm style riêng cho `.admin-materials-table-card` và `.admin-materials-table` để scroll ngang nằm trong card, không kéo layout toàn trang.
+
+**Tested**
+- `npm run build`: pass.
+
+### 2026-07-02 - Admin Academic Layout De-overlap
+
+**Summary**
+- Giảm cảm giác chồng chéo trong Admin Academic bằng layout scope riêng, spacing rõ hơn và bảng tự scroll ngang.
+
+**Changed**
+- `src/pages/admin/AdminAcademic.jsx`: thêm class scope `admin-academic-page/admin-academic-tabs`, chuyển search row sang class reusable, chuẩn hóa source text material.
+- `src/index.css`: thêm style riêng cho Admin Academic card/tabs/table/form/search row, mobile responsive và dark mode.
+
+**Tested**
+- `npm run build`: pass.
+
+## [2026-07-02] Admin Academic Tab Split
+- Tách `src/pages/admin/AdminAcademic.jsx` theo từng tab để giảm chồng chéo UI và dễ scale thêm CRUD/API mới.
+- Thêm folder `src/pages/admin/academic/` gồm:
+  - `TermsTab.jsx`
+  - `CoursesTab.jsx`
+  - `ClassSectionsTab.jsx`
+  - `StudentEnrollmentsTab.jsx`
+  - `StudentImportTab.jsx`
+  - `CourseMaterialsTab.jsx`
+  - `EntityRecordModal.jsx`
+  - `adminAcademicUtils.js`
+- `AdminAcademic.jsx` giữ vai trò container/state/API orchestration, còn từng tab chỉ render UI và gọi callback được truyền xuống.
+- Tách modal View/Edit dùng chung cho Term/Course/Class/Enrollment/Material sang `EntityRecordModal.jsx`.
+- Tách state/API logic ra hook:
+  - `hooks/useAcademicRecords.js`: Terms/Courses/Class Sections/Student Enrollments loader/create/delete/search.
+  - `hooks/useCourseMaterials.js`: Course Materials upload, polling, download/reindex/delete, website import refresh.
+  - `hooks/useStudentImport.js`: Excel template, class lookup, dry-run/import result.
+- Gom helper lấy id/code và trạng thái indexing material vào `adminAcademicUtils.js` để tránh lặp logic trong bảng/action.
+- Giữ nguyên endpoint, behavior upload/import/action menu/confirm hiện tại; refactor theo hướng an toàn, không đổi route hoặc API contract.
+
+**Tested**
+- `npm run build`: pass.
+
+**Notes**
+- Không đổi API hoặc behavior CRUD/upload/import; chỉ chỉnh layout/UX để giảm đè cột và rối mắt.
+
+### 2026-07-02 - AI Answer Heading And Source Rendering Fix
+
+**Summary**
+- Sửa câu trả lời AI khi heading tiếng Việt thiếu dấu, source chỉ hiện material ID, và heading bị gắn `[#]` gây nhiễu.
+
+**Changed**
+- `src/utils/markdownPreprocessor.js`: normalize các heading tiếng Việt không dấu phổ biến, nhận diện `Lưu ý để học tốt hơn` để tạo suggestion link, và tách raw material IDs trong section nguồn thành list item.
+- `src/utils/sourceLabels.js`: nhận diện raw Mongo material id 24 ký tự để map sang tên material.
+- `src/components/markdown/MarkdownRenderer.jsx`: bỏ autolink heading `[#]`; vẫn giữ markdown heading sạch.
+
+**Tested**
+- `npm run build`: pass.
+
+**Notes**
+- FE chỉ normalize các section label quen thuộc để tránh tự thêm dấu sai vào nội dung chuyên môn.
+
+### 2026-07-02 - Auto Refresh Material Indexing Status
+
+**Summary**
+- Course Materials tự cập nhật status `PROCESSING` sang `INDEXED/FAILED` mà không cần refresh tay.
+
+**Changed**
+- `src/pages/admin/AdminAcademic.jsx`: thêm polling im lặng mỗi 2.5 giây khi có material đang indexing.
+- Tái sử dụng normalizer material list để tránh lệch shape response giữa load thường, polling và retry sau upload/import.
+
+**Tested**
+- `npm run build`: pass.
+
+**Notes**
+- Polling tự dừng khi không còn material ở trạng thái `PROCESSING/PENDING/INDEXING/QUEUED`.
+
+### 2026-07-02 - Website URL Material Import Uses Backend TOC
+
+**Summary**
+- Cập nhật Admin Course Materials theo BE flow mới: analyze URL bằng backend `url-toc`, chọn chapter/section, rồi import bằng `import-url`.
+
+**Changed**
+- `src/services/api.js`: thêm `previewMaterialUrlToc(courseId, payload)`.
+- `src/components/importWebsite/ImportWebsiteModal.jsx`: đổi thành flow `Analyze URL` → chọn tối đa 50 TOC items → `Import Selected`.
+- `src/pages/admin/AdminAcademic.jsx`: đổi nút thành `Import Website URL`, hiển thị badge `Website/PDF`, disable download cho `HTML_URL`.
+- `src/hooks/useDocumentationCrawler.js`: bỏ re-export tới crawler FE cũ đã bị xóa, giữ compatibility hook báo dùng backend URL import.
+- `src/index.css`: thêm style TOC list responsive và dark mode.
+
+**Tested**
+- `npm run build`: pass.
+
+**Notes**
+- BE trả TOC bằng field `items`, không phải `chapters`.
+- Website import không tạo PDF; backend lưu text HTML_URL và index nền.
+
 ### 2026-06-30 - Import Website As PDF
 
 **Summary**

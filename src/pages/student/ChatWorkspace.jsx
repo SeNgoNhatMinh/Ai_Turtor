@@ -37,7 +37,7 @@ const getMessageKey = (message, index) => {
   const answer = String(message?.answer || '').trim();
   const stableContent = `${question.slice(0, 500)}|${answer.slice(0, 500)}`;
   if (stableContent.trim()) {
-    return `content-${hashText(stableContent)}`;
+    return `content-${hashText(stableContent)}-${index}`;
   }
   return `message-${index}`;
 };
@@ -82,6 +82,7 @@ function ChatWorkspace({
   triggerToast,
   courseMaterials = [],
   onAnalyzeStudyTip,
+  onDownloadSource,
 }) {
   const [feedbackOpenIndex, setFeedbackOpenIndex] = useState(null);
   const [feedbackRating, setFeedbackRating] = useState(null); // 1 or 3
@@ -137,7 +138,7 @@ function ChatWorkspace({
       current.includes(messageKey)
         ? current.filter((key) => key !== messageKey)
         : current.length >= 3
-          ? (triggerToast?.('You can pin up to 3 messages.'), current)
+          ? (triggerToast?.('Bạn chỉ có thể ghim tối đa 3 tin nhắn.'), current)
           : [...current, messageKey]
     ));
   };
@@ -152,9 +153,9 @@ function ChatWorkspace({
   };
 
   const buildFeedbackPayload = (message, rating, feedback) => {
-    if (!userId) return { ok: false, message: 'Please sign in before submitting feedback.' };
-    if (!courseId || !classId) return { ok: false, message: 'Please choose a course and class first.' };
-    if (!message?.answer) return { ok: false, message: 'There is no AI answer to review.' };
+    if (!userId) return { ok: false, message: 'Vui lòng đăng nhập trước khi gửi phản hồi.' };
+    if (!courseId || !classId) return { ok: false, message: 'Vui lòng chọn khóa học và lớp học trước.' };
+    if (!message?.answer) return { ok: false, message: 'Không có câu trả lời nào của AI để đánh giá.' };
 
     return {
       ok: true,
@@ -219,7 +220,7 @@ function ChatWorkspace({
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       if (activeSessionMaxTurnsReached) {
-        triggerToast?.('This chat is full. Start a new chat to continue.');
+        triggerToast?.('Đoạn chat này đã đầy. Vui lòng bắt đầu đoạn chat mới để tiếp tục.');
         return;
       }
       const validation = validateChatInput(chatInput);
@@ -265,14 +266,14 @@ function ChatWorkspace({
         <div className="chat-header-main">
           <Title level={4} style={{ margin: 0, fontSize: '1.1rem' }}>{activeSessionTitle}</Title>
           <div className="chat-header-meta-row">
-            <Text type="secondary" style={{ fontSize: '0.8rem' }}>AI Tutor Session</Text>
+            <Text type="secondary" style={{ fontSize: '0.8rem' }}>Phiên Hỏi Đáp AI</Text>
             <span className={`chat-turn-counter ${activeSessionMaxTurnsReached ? 'chat-turn-counter--full' : isNearTurnLimit ? 'chat-turn-counter--warning' : ''}`}>
-              Questions {questionCount}/{CHAT_TURN_LIMIT}
+              Số câu hỏi {questionCount}/{CHAT_TURN_LIMIT}
             </span>
           </div>
           {isNearTurnLimit && (
             <div className="chat-turn-helper">
-              This chat is almost full. AI Tutor will continue in a new chat after 10 questions.
+              Đoạn chat này sắp đầy. AI Tutor sẽ tiếp tục trong một đoạn chat mới sau 10 câu hỏi.
             </div>
           )}
           {activeSessionMaxTurnsReached && (
@@ -286,7 +287,7 @@ function ChatWorkspace({
             value={selectedCourseValue}
             onChange={onCourseChange}
             style={{ width: 150 }}
-            placeholder="Choose course"
+            placeholder="Chọn khóa học"
             popupClassName={`chat-course-select-popup ${isDarkMode ? 'chat-course-select-popup--dark' : ''}`}
           >
             {safeCourseOptions.map((item) => (
@@ -297,7 +298,7 @@ function ChatWorkspace({
             value={selectedClassValue}
             onChange={setClassId}
             style={{ width: 168 }}
-            placeholder="Choose class"
+            placeholder="Chọn lớp học"
             optionLabelProp="label"
             popupClassName={`chat-course-select-popup ${isDarkMode ? 'chat-course-select-popup--dark' : ''}`}
           >
@@ -313,8 +314,8 @@ function ChatWorkspace({
       {turnLimitNotice && (
         <div className="chat-turn-limit-banner" role="status">
           <div>
-            <strong>New conversation started</strong>
-            <span>{turnLimitNotice.message || 'This chat reached 10 questions. AI Tutor started a new conversation.'}</span>
+            <strong>Đã bắt đầu cuộc trò chuyện mới</strong>
+            <span>{turnLimitNotice.message || 'Đoạn chat đã đạt 10 câu hỏi. AI Tutor đã bắt đầu một cuộc trò chuyện mới.'}</span>
           </div>
           <div className="chat-turn-limit-banner-actions">
             {turnLimitNotice.previousSessionId && (
@@ -325,7 +326,7 @@ function ChatWorkspace({
             <button
               type="button"
               className="chat-turn-limit-banner-close"
-              aria-label="Dismiss notice"
+              aria-label="Đóng thông báo"
               onClick={onDismissTurnLimitNotice}
             >
               <CloseOutlined />
@@ -338,7 +339,7 @@ function ChatWorkspace({
         <div className="chat-pinned-topbar" aria-label="Pinned messages">
           <div className="chat-pinned-topbar-label">
             <PushpinOutlined />
-            <span>Pinned</span>
+            <span>Đã ghim</span>
             <em>{pinnedMessages.length}/3</em>
           </div>
           <div className="chat-pinned-topbar-list">
@@ -348,12 +349,12 @@ function ChatWorkspace({
                 type="button"
                 className="chat-pinned-topbar-item"
                 onClick={() => jumpToPinnedMessage(key)}
-                title="Jump to pinned message"
+                title="Chuyển đến tin nhắn đã ghim"
               >
-                <span>{getMessagePreview(message) || 'Pinned message'}</span>
+                <span>{getMessagePreview(message) || 'Tin nhắn đã ghim'}</span>
                 <CloseOutlined
                   className="chat-pinned-unpin"
-                  title="Unpin message"
+                  title="Bỏ ghim tin nhắn"
                   onClick={(event) => {
                     event.stopPropagation();
                     togglePinnedMessage(key);
@@ -371,7 +372,7 @@ function ChatWorkspace({
           {safeMessages.length === 0 ? (
             <div className="chat-empty-state">
               <RobotHeadMascot size={180} />
-              <div className="chat-empty-title">How can I help you today?</div>
+              <div className="chat-empty-title">Tôi có thể giúp gì cho bạn hôm nay?</div>
               <PromptStarters onSelect={onPromptStarter} />
             </div>
           ) : (
@@ -402,8 +403,8 @@ function ChatWorkspace({
                         <div className="chat-gpt-ai-content">
                           {message.aiServiceError && (
                             <div className="chat-ai-service-error" role="alert">
-                              <strong>AI service is temporarily unavailable.</strong>
-                              <span>Retry this question in a moment, or ask a mentor for help.</span>
+                              <strong>Dịch vụ AI hiện đang tạm ngưng.</strong>
+                              <span>Vui lòng thử lại sau giây lát, hoặc nhờ Mentor hỗ trợ.</span>
                             </div>
                           )}
 
@@ -413,7 +414,7 @@ function ChatWorkspace({
                             onStudyTipAnalyze={onAnalyzeStudyTip}
                           />
 
-                          <AnswerEvidence message={message} sourceMap={materialSourceMap} />
+                          <AnswerEvidence message={message} sourceMap={materialSourceMap} onDownloadSource={onDownloadSource} />
                           {!message.canceled && <AnswerActionBar message={message} onAction={onAnswerAction} />}
 
                           {/* Feedback Actions */}
@@ -466,19 +467,19 @@ function ChatWorkspace({
                               borderRadius: 12,
                             }}>
                               <div className="feedback-title" style={{ marginBottom: 8, fontSize: 12, color: '#0d0d0d' }}>
-                                {feedbackRating === 1 ? 'What is not correct?' : 'What detail do you need?'}
+                                {feedbackRating === 1 ? 'Phần nào chưa chính xác?' : 'Bạn cần thêm chi tiết gì?'}
                               </div>
                               <Input.TextArea
                                 className="feedback-textarea"
                                 rows={2}
-                                placeholder={feedbackRating === 1 ? 'Point out the incorrect part...' : 'Tell us what needs more detail...'}
+                                placeholder={feedbackRating === 1 ? 'Chỉ ra phần chưa chính xác...' : 'Cho chúng tôi biết phần nào cần thêm chi tiết...'}
                                 value={feedbackText}
                                 maxLength={2000}
                                 onChange={(e) => setFeedbackText(e.target.value)}
                                 style={{ background: '#fff', border: '1px solid #ececec', color: '#0d0d0d', borderRadius: 8, marginBottom: 8 }}
                               />
                               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                                <Button size="small" type="text" style={{ color: '#888' }} onClick={closeFeedbackForm}>Cancel</Button>
+                                <Button size="small" type="text" style={{ color: '#888' }} onClick={closeFeedbackForm}>Hủy bỏ</Button>
                                 <Button
                                   className="btn-submit"
                                   size="small"
@@ -519,7 +520,7 @@ function ChatWorkspace({
           <div className="chat-gpt-input-wrapper">
             <textarea
               ref={textareaRef}
-              placeholder={activeSessionMaxTurnsReached ? 'This chat is full. Start a new chat to continue.' : isAiLoading ? 'AI Tutor is responding...' : 'Message AI Tutor...'}
+              placeholder={activeSessionMaxTurnsReached ? 'Đoạn chat này đã đầy. Vui lòng bắt đầu đoạn chat mới để tiếp tục.' : isAiLoading ? 'AI Tutor đang trả lời...' : 'Nhắn tin cho AI Tutor...'}
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
               onKeyDown={handleKeyDown}
@@ -528,7 +529,7 @@ function ChatWorkspace({
               rows={1}
             />
             {isAiLoading ? (
-              <button className="chat-gpt-send-btn" onClick={onStopQuery} title="Stop Generating">
+              <button className="chat-gpt-send-btn" onClick={onStopQuery} title="Dừng tạo câu trả lời">
                 <StopOutlined />
               </button>
             ) : (
@@ -536,7 +537,7 @@ function ChatWorkspace({
                 className="chat-gpt-send-btn"
                 onClick={onSendQuery}
                 disabled={sendDisabled}
-                title={activeSessionMaxTurnsReached ? 'This chat is full. Start a new chat to continue.' : 'Send message'}
+                title={activeSessionMaxTurnsReached ? 'Đoạn chat này đã đầy. Vui lòng bắt đầu đoạn chat mới để tiếp tục.' : 'Send message'}
               >
                 <SendOutlined />
               </button>

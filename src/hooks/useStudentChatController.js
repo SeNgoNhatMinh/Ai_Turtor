@@ -250,7 +250,7 @@ export function useStudentChatController({
             courseId,
             classId,
             conversationId: previousSessionId || null
-          }, userId);
+          }, userId, currentUser?.fullName || '', currentUser?.email || '');
         }
       } else {
         data = await apiService.sendAiQuery({
@@ -260,7 +260,7 @@ export function useStudentChatController({
           courseId,
           classId,
           conversationId: previousSessionId || null
-        }, userId);
+        }, userId, currentUser?.fullName || '', currentUser?.email || '');
       }
 
       const responseConversationId = data.conversationId || data.sessionId || previousSessionId;

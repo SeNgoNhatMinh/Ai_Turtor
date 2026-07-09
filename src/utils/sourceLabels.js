@@ -1,4 +1,5 @@
 const SOURCE_ID_RE = /(?:materialId|documentId|sourceMaterialId)\s*=\s*([^,\s;]+)/i;
+const RAW_MONGO_ID_RE = /^[a-f0-9]{24}$/i;
 
 const cleanLabel = (value) => String(value || '').trim();
 
@@ -10,6 +11,7 @@ export function getMaterialIdFromSource(source) {
 
   const text = cleanLabel(source);
   const match = text.match(SOURCE_ID_RE);
+  if (!match && RAW_MONGO_ID_RE.test(text)) return text;
   return match?.[1] || text;
 }
 
@@ -26,7 +28,7 @@ export function getMaterialDisplayName(material) {
 }
 
 export function buildMaterialSourceMap(materials = []) {
-  const map = {};
+  const map = { _reverse: {} };
 
   (Array.isArray(materials) ? materials : []).forEach((material) => {
     const materialId = getMaterialIdFromSource(material);
@@ -36,6 +38,8 @@ export function buildMaterialSourceMap(materials = []) {
     map[materialId] = displayName;
     map[`materialId=${materialId}`] = displayName;
     map[`documentId=${materialId}`] = displayName;
+    map._reverse[displayName] = materialId;
+    map._reverse[materialId] = materialId;
   });
 
   return map;
@@ -59,6 +63,36 @@ export function formatSourceLabels(sources, sourceMap = {}) {
   return [...new Set(list.map((source) => formatSourceLabel(source, sourceMap)).filter(Boolean))];
 }
 
+export function formatSourceItems(sources, sourceMap = {}) {
+  const list = Array.isArray(sources) ? sources : [sources];
+  const items = [];
+  const seenLabels = new Set();
+  
+  list.forEach((source) => {
+    const label = formatSourceLabel(source, sourceMap);
+    if (!label || seenLabels.has(label)) return;
+    seenLabels.add(label);
+    
+    let id = getMaterialIdFromSource(source);
+    // Try to get real MongoDB ID from reverse map if id is just a string filename
+    if (sourceMap._reverse && sourceMap._reverse[label]) {
+      id = sourceMap._reverse[label];
+    } else if (sourceMap._reverse && sourceMap._reverse[id]) {
+      id = sourceMap._reverse[id];
+    }
+    
+    // Fallback if source is an object
+    if (!id && typeof source === 'object' && source?.id) {
+      id = source.id;
+    }
+    
+    items.push({ id, label });
+  });
+  
+  return items;
+}
+
 export function isMaterialSourceText(value) {
-  return SOURCE_ID_RE.test(cleanLabel(value));
+  const text = cleanLabel(value);
+  return SOURCE_ID_RE.test(text) || RAW_MONGO_ID_RE.test(text);
 }
