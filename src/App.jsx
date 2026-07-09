@@ -12,6 +12,7 @@ import { n8nService } from './services/n8nService';
 import { N8N_ENABLED } from './services/n8nClient';
 import { useStudentEnrollmentOptions } from './hooks/useStudentEnrollmentOptions';
 import { useStudentChatController } from './hooks/useStudentChatController';
+import { FEEDBACK_RECORDED_MESSAGE } from './constants/answerReview';
 import {
   createRecoveredSuggestion,
   readJsonStorage,
@@ -433,8 +434,9 @@ function App() {
   };
 
   const handleLoginSuccess = (user) => {
-    const role = normalizeAppRole(user?.role, user?.email);
-    const updatedUser = { ...user, role };
+    const originalRole = user?.originalRole || user?.role || user?.roleKey || user?.authority || user?.userRole || '';
+    const role = normalizeAppRole(originalRole, user?.email);
+    const updatedUser = { ...user, originalRole, role };
     setCurrentUser(updatedUser);
     handleRoleChange(role);
   };
@@ -734,15 +736,15 @@ function App() {
       if (N8N_ENABLED) {
         try {
           const response = await n8nService.submitAnswerReview(reviewPayload);
-          triggerToast(response.message || 'Thank you for your feedback.');
+          triggerToast(response.message || FEEDBACK_RECORDED_MESSAGE);
         } catch (n8nErr) {
           console.warn('n8n feedback failed, falling back to backend API:', n8nErr);
           await apiService.submitAnswerReview(reviewPayload);
-          triggerToast('Thank you for your feedback (fallback).');
+          triggerToast(FEEDBACK_RECORDED_MESSAGE);
         }
       } else {
         await apiService.submitAnswerReview(reviewPayload);
-        triggerToast('Thank you for your feedback.');
+        triggerToast(FEEDBACK_RECORDED_MESSAGE);
       }
     } catch (error) {
       console.error('Error submitting feedback:', error);
@@ -750,7 +752,7 @@ function App() {
     }
   };
 
-  const handleTeacherAnswerEsc = async (escalationId, reply, createKnowledgeCandidate = true, candidateType = 'ACADEMIC_KNOWLEDGE') => {
+  const handleTeacherAnswerEsc = async (escalationId, reply, createKnowledgeCandidate = false, candidateType = 'ACADEMIC_KNOWLEDGE') => {
     triggerToast('Sending answer...');
 
     try {
@@ -776,7 +778,7 @@ function App() {
             candidateType
           };
           await apiService.answerEscalation(escalationId, payload);
-          triggerToast('Answer sent successfully (fallback).');
+          triggerToast('Answer sent successfully.');
         }
       } else {
         const payload = {
@@ -881,7 +883,7 @@ function App() {
             reviewerName: currentUser?.fullName || currentUser?.name || 'Senior Mentor',
             reviewNote
           });
-          triggerToast('Approved (fallback).');
+          triggerToast('Approved. The answer is ready for AI Tutor knowledge.');
         }
       } else {
         await apiService.approveCandidate(id, {
@@ -910,7 +912,8 @@ function App() {
             reviewerId: getCurrentUserId(),
             reviewerRole: activeRole === 'admin' ? 'ADMIN' : 'SENIOR_MENTOR',
             reviewerName: currentUser?.fullName || currentUser?.name || 'Senior Mentor',
-            rejectionReason
+            rejectionReason,
+            reviewNote: rejectionReason
           };
           const response = await n8nService.submitSeniorApproval(payload);
           triggerToast(response.message || 'Suggested AI answer rejected.');
@@ -919,15 +922,19 @@ function App() {
           await apiService.rejectCandidate(id, {
             reviewerId: getCurrentUserId(),
             reviewerRole: activeRole === 'admin' ? 'ADMIN' : 'SENIOR_MENTOR',
-            rejectionReason
+            reviewerName: currentUser?.fullName || currentUser?.name || 'Senior Mentor',
+            rejectionReason,
+            reviewNote: rejectionReason
           });
-          triggerToast('Suggested AI answer rejected (fallback).');
+          triggerToast('Suggested AI answer rejected.');
         }
       } else {
         await apiService.rejectCandidate(id, {
           reviewerId: getCurrentUserId(),
           reviewerRole: activeRole === 'admin' ? 'ADMIN' : 'SENIOR_MENTOR',
-          rejectionReason
+          reviewerName: currentUser?.fullName || currentUser?.name || 'Senior Mentor',
+          rejectionReason,
+          reviewNote: rejectionReason
         });
         triggerToast('Suggested AI answer rejected.');
       }
@@ -1100,6 +1107,8 @@ function App() {
                   triggerToast={triggerToast}
                   courseMaterials={courseMaterials}
                   onDownloadMaterial={handleDownloadMaterial}
+                  currentUserRole={currentUser?.originalRole || currentUser?.role || activeRole}
+                  currentUser={currentUser}
                 />
               )}
 

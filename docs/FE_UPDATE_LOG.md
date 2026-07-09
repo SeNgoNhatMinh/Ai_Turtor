@@ -26,6 +26,87 @@ Copy template này lên đầu phần `History` sau mỗi lần cập nhật:
 
 ## History
 
+## [2026-07-09] Inline Course Material Source Deduplication
+
+- Detected standalone source lines such as `Course material, filename.pdf` inside AI answers.
+- Moved scattered source-only lines into one normalized `Nguồn tài liệu đã dùng` section.
+- Deduplicated source labels by filename so repeated source mentions render once.
+- Filtered generic `Course material` labels when the same source list also contains a real filename.
+- Avoided treating filename text as a material download ID unless it can be mapped to a real material ID.
+
+**Tested**
+- `npm run build`: pass.
+
+## [2026-07-09] AI Answer Duplicate Source Display Fix
+
+- Prevented duplicate source display in student chat answers.
+- When backend response includes structured `message.sources`, the markdown `Nguồn tài liệu đã dùng` section is hidden and sources are shown only in the evidence block.
+- Kept source rendering available for answers that only include source IDs inside markdown text.
+
+**Tested**
+- `npm run build`: pass.
+
+## [2026-07-09] AI Answer Source Label And Vietnamese Heading Fix
+
+- Normalized common AI Tutor Vietnamese section headings when the AI returns no-diacritic text, e.g. `Tai lieu mon hoc`, `Luu y de hoc tot hon`, and `Nguon tai lieu da dung`.
+- Updated source parsing so comma-separated material IDs are detected in the `Nguồn tài liệu đã dùng` section.
+- Source pills now map each material ID to loaded material filename/title when available, instead of rendering raw Mongo IDs.
+- Unknown source IDs now fall back to a generic material label rather than exposing raw IDs in the chat answer.
+
+**Tested**
+- `npm run build`: pass.
+
+## [2026-07-09] Sidebar Tooltip Contrast Fix
+
+- Fixed unreadable sidebar hover descriptions in light mode.
+- Added a dedicated tooltip class for sidebar navigation tooltips rendered by Ant Design outside the sidebar DOM tree.
+- Set tooltip background/text/arrow colors explicitly for light and dark mode.
+- Kept selected sidebar menu text black/readable in light mode.
+
+**Tested**
+- `npm run build`: pass.
+
+## [2026-07-09] Teacher Knowledge Gap UX Refresh
+
+- Reworked `Class Knowledge Gap Heatmap` into a clearer `Knowledge Gap Overview`.
+- Added high-risk, needs-attention, and strong-topic summary counters.
+- Grouped topics into actionable columns: `Review first`, `Add practice`, and `Stable topics`.
+- Added guidance text explaining what each topic state means and a suggested next step for teachers.
+- Added empty state for classes with no knowledge gap data yet.
+- Improved class card keyboard accessibility and class ID fallback selection.
+- Added responsive CSS so the topic columns stack cleanly on smaller screens.
+
+**Tested**
+- `npm run build`: pass.
+
+## [2026-07-09] Portal Split Phase 2
+
+- Reduced portal file weight without changing routes, endpoints, or UI behavior.
+- Extracted student support state/API flow into `src/hooks/useStudentSupport.js`.
+- Extracted student chat layout into `src/pages/student/StudentChatTab.jsx`.
+- Extracted student support tab composition into `src/pages/student/StudentSupportTab.jsx`.
+- Extracted teacher live chat flow into `src/hooks/useTeacherLiveChat.js`.
+- Extracted teacher materials/assignments state and handlers into `src/hooks/useTeacherMaterialsAssignments.js`.
+- Fixed `TeacherPortal` runtime prop issue by passing `currentUser` from `App.jsx`.
+- `StudentPortal.jsx` is now smaller, and `TeacherPortal.jsx` dropped to under 300 lines.
+
+**Tested**
+- `npm run build`: pass.
+
+## [2026-07-09] Frontend Clean Architecture Split Phase 1
+
+- Added `docs/FE_ARCHITECTURE.md` with safe frontend split rules, folder responsibilities, API rules, and refactor checklist.
+- Moved student AI answer review config/copy into `src/constants/answerReview.js`.
+- Extracted `AnswerFeedbackControls` from `ChatWorkspace` so the chat workspace focuses on orchestration.
+- Moved KnowledgeCandidate options/status labels into `src/constants/knowledgeFlow.js`.
+- Added `src/utils/permissions.js` for role-based UI permissions.
+- Extracted teacher answer mode UI into `TeacherAnswerModeSelector`.
+- Extracted KnowledgeCandidate review list into `KnowledgeCandidateReviewList`.
+- Reduced `ChatWorkspace.jsx` and `TeacherSupportQueueTab.jsx` size without changing API endpoints or behavior.
+
+**Tested**
+- `npm run build`: pass.
+
 ### 2026-07-02 - Teacher Mentor Backend Flow Alignment
 
 **Summary**
@@ -45,6 +126,21 @@ Copy template này lên đầu phần `History` sau mỗi lần cập nhật:
   - Publish assignment gọi API thật `POST /mentor/courses/{courseId}/classes/{classId}/assignments/upload`.
   - Assignment target dùng `ALL_CLASS` hoặc `SELECTED_STUDENTS` đúng BE.
   - Thêm list class assignments, download assignment file, delete assignment trước khi có submission.
+
+**Tested**
+- `npm run build`: pass.
+
+## [2026-07-09] Backend Learning Flow UX Alignment
+
+- Student AI feedback now maps to backend review types: `QUALITY_FEEDBACK`, `ANSWER_DISPUTE`, `SOURCE_CONFLICT`, and `MISSING_MATERIAL`.
+- Feedback success copy now states that AI will not learn until mentor/senior review.
+- Teacher support answer flow defaults to `Reply to student only`.
+- `Propose reusable AI knowledge` is explicit and limited to academic candidate types: `ACADEMIC_KNOWLEDGE`, `MATERIAL_CORRECTION`, `FAQ_CLARIFICATION`.
+- Policy, grading, deadline, class-rule, and assignment-specific answers are shown as reply-only guidance, not reusable AI knowledge.
+- Knowledge Candidate labels now use backend-aligned wording: `Pending senior approval`, `Approved into AI knowledge`, `Rejected`.
+- Candidate approve/reject payloads include reviewer identity and note/reason fields.
+- Admin sidebar no longer exposes `Payments & Plans`; stale billing tab falls back to dashboard.
+- Admin diagnostics shows `Backend direct` or `n8n harness enabled` based on env.
 
 **Tested**
 - `npm run build`: pass.
@@ -832,6 +928,28 @@ Copy template này lên đầu phần `History` sau mỗi lần cập nhật:
 **BE Flow Note**
 - BE suggestion không tự đọc trực tiếp text đang hiển thị trong chat.
 - Khi FE gửi `question`, BE ghi nó vào `StudentCourseMemory.recentQuestions`, sau đó build suggestions từ course-scoped memory: `weakTopics`, `recentQuestions`, `improveSuggestions`; nếu `includeAiSuggestion=true` thì LLM dùng snapshot memory đó.
+
+**Tested**
+- `npm run build`: pass.
+
+## [2026-07-09] Chat Source Download Links In AI Answer
+
+- Nối `onDownloadSource` từ `ChatWorkspace` vào `AiAnswer` và `MarkdownRenderer`.
+- Các dòng nguồn trong phần markdown như `Nguồn tài liệu đã dùng` giờ render thành link/button tải tài liệu nếu FE có material id.
+- `sourceLabels` nhận thêm `_id` từ material metadata để map Mongo material id ổn định hơn.
+- Giữ nút copy trên source pill như cũ.
+
+**Tested**
+- `npm run build`: pass.
+
+## [2026-07-09] Optional n8n Harness Fallback Hardening
+
+- Đổi local default `VITE_N8N_ENABLED=false` để FE chạy ổn bằng Spring Boot backend khi không test n8n.
+- Tăng default n8n timeout lên `15000ms`.
+- `n8nClient` parse cả JSON trả về dạng text, bắt empty/malformed response để fallback backend thay vì làm UI crash.
+- `n8nService` normalize chat response `RAG_TUTOR/CODE/ESCALATE` về shape FE đang dùng.
+- Bỏ toast “n8n offline/fallback” cho user; chỉ log console và hiển thị kết quả cuối cùng từ backend fallback.
+- Quiz vẫn backend-direct, không nối `quiz-generate`/`quiz-submit` vì workflow n8n hiện còn response student quiz rỗng.
 
 **Tested**
 - `npm run build`: pass.

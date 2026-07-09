@@ -1,5 +1,8 @@
 import React from 'react';
 import { CheckCircle, RefreshCw } from 'lucide-react';
+import { canReviewKnowledge } from '../../utils/permissions';
+import KnowledgeCandidateReviewList from './KnowledgeCandidateReviewList';
+import TeacherAnswerModeSelector from './TeacherAnswerModeSelector';
 
 function TeacherSupportQueueTab({
   isTeacherInboxLoading,
@@ -14,8 +17,6 @@ function TeacherSupportQueueTab({
   setCreateKnowledgeCandidate,
   candidateType,
   setCandidateType,
-  candidateClassId,
-  setCandidateClassId,
   answerReviews = [],
   loadAnswerReviews,
   handleMentorReviewAnswer,
@@ -26,7 +27,10 @@ function TeacherSupportQueueTab({
   handleNoteChange,
   handleApproveCandidate,
   handleRejectCandidate,
+  currentUserRole,
 }) {
+  const canReviewKnowledgeCandidates = canReviewKnowledge(currentUserRole);
+
   return (
     <div className="grid-2-cols portal-view">
       <div className="glass-card">
@@ -67,43 +71,12 @@ function TeacherSupportQueueTab({
               <textarea value={teacherEscReply} onChange={(e) => setTeacherEscReply(e.target.value)} required />
             </div>
 
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'center', marginTop: 12, marginBottom: 16, padding: '8px 12px', background: 'rgba(243, 112, 33, 0.03)', border: '1px solid rgba(243, 112, 33, 0.12)', borderRadius: 8 }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13, fontWeight: 500, margin: 0 }}>
-                <input
-                  type="checkbox"
-                  checked={createKnowledgeCandidate}
-                  onChange={(e) => setCreateKnowledgeCandidate(e.target.checked)}
-                  style={{ cursor: 'pointer', width: 15, height: 15 }}
-                />
-                Propose this answer for AI knowledge review
-              </label>
-              {createKnowledgeCandidate && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: 12, color: '#6B7280' }}>Knowledge type:</span>
-                  <select
-                    value={candidateType}
-                    onChange={(e) => setCandidateType(e.target.value)}
-                    style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #d9d9d9', fontSize: 12, background: '#fff', cursor: 'pointer' }}
-                  >
-                    <option value="ACADEMIC_KNOWLEDGE">Academic knowledge</option>
-                    <option value="OPERATIONAL_POLICY">Class policy</option>
-                  </select>
-
-                  {candidateType === 'OPERATIONAL_POLICY' && (
-                    <>
-                      <span style={{ fontSize: 12, color: '#6B7280', marginLeft: 8 }}>Apply to class:</span>
-                      <input
-                        type="text"
-                        value={candidateClassId}
-                        onChange={(e) => setCandidateClassId(e.target.value)}
-                        placeholder="Class code"
-                        style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #d9d9d9', fontSize: 12, background: '#fff' }}
-                      />
-                    </>
-                  )}
-                </div>
-              )}
-            </div>
+            <TeacherAnswerModeSelector
+              createKnowledgeCandidate={createKnowledgeCandidate}
+              candidateType={candidateType}
+              setCreateKnowledgeCandidate={setCreateKnowledgeCandidate}
+              setCandidateType={setCandidateType}
+            />
 
             <button type="submit" className="btn-submit-form">Send Answer to Student</button>
           </form>
@@ -152,14 +125,18 @@ function TeacherSupportQueueTab({
                   <span className="badge-cand">Senior · {review.status}</span>
                   <div className="compare-qa"><strong>Q:</strong> {review.question}</div>
                   <div className="compare-qa"><strong>A:</strong> {review.answer}</div>
-                  <div className="candidate-actions">
-                    <button type="button" className="btn-approve-cand" onClick={() => handleSeniorResolveReview(review.id, 'APPROVE_FEEDBACK', 'Approved by senior mentor')}>
-                      Approve feedback
-                    </button>
-                    <button type="button" className="btn-reject-cand" onClick={() => handleSeniorResolveReview(review.id, 'CREATE_KNOWLEDGE_CANDIDATE', 'Create knowledge candidate from correction')}>
-                      Create knowledge
-                    </button>
-                  </div>
+                  {canReviewKnowledgeCandidates ? (
+                    <div className="candidate-actions">
+                      <button type="button" className="btn-approve-cand" onClick={() => handleSeniorResolveReview(review.id, 'APPROVE_FEEDBACK', 'Approved by senior mentor')}>
+                        Approve feedback
+                      </button>
+                      <button type="button" className="btn-reject-cand" onClick={() => handleSeniorResolveReview(review.id, 'CREATE_KNOWLEDGE_CANDIDATE', 'Create knowledge candidate from correction')}>
+                        Create knowledge
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="no-data-text" style={{ textAlign: 'left' }}>Senior/Admin permission is required to resolve this review.</div>
+                  )}
                 </div>
               ))}
             </div>
@@ -170,52 +147,14 @@ function TeacherSupportQueueTab({
           <h3>Review Suggested AI Answers</h3>
         </div>
         <div className="candidates-list">
-          {candidates.length === 0 ? (
-            <div className="no-data-text">No suggested AI answers are waiting for review.</div>
-          ) : (
-            candidates.map((cand) => (
-              <div key={cand.id} className="candidate-card-item">
-                <span className="badge-cand">Suggested AI answer: {cand.courseId || 'Course knowledge'}</span>
-                <div className="compare-box">
-                  <div className="compare-qa"><strong>Question:</strong> {cand.question || '-'}</div>
-                  <div className="compare-qa teacher-a"><strong>Suggested answer:</strong> {cand.content || cand.answer || '-'}</div>
-                </div>
-
-                <div style={{ marginTop: 10, marginBottom: 10 }}>
-                  <input
-                    type="text"
-                    placeholder="Optional approval note or rejection reason..."
-                    value={candidateNotes[cand.id] || ''}
-                    onChange={(e) => handleNoteChange(cand.id, e.target.value)}
-                    style={{ width: '100%', padding: '6px 10px', borderRadius: 6, border: '1px solid #d9d9d9', fontSize: 12 }}
-                  />
-                </div>
-
-                <div className="candidate-actions">
-                  <button
-                    type="button"
-                    className="btn-approve-cand"
-                    onClick={() => {
-                      handleApproveCandidate(cand.id, candidateNotes[cand.id] || 'Approved');
-                      handleNoteChange(cand.id, '');
-                    }}
-                  >
-                    Approve for AI Tutor
-                  </button>
-                  <button
-                    type="button"
-                    className="btn-reject-cand"
-                    onClick={() => {
-                      handleRejectCandidate(cand.id, candidateNotes[cand.id] || 'Rejected by mentor');
-                      handleNoteChange(cand.id, '');
-                    }}
-                  >
-                    Reject
-                  </button>
-                </div>
-              </div>
-            ))
-          )}
+          <KnowledgeCandidateReviewList
+            candidates={candidates}
+            candidateNotes={candidateNotes}
+            canReviewKnowledgeCandidates={canReviewKnowledgeCandidates}
+            handleNoteChange={handleNoteChange}
+            handleApproveCandidate={handleApproveCandidate}
+            handleRejectCandidate={handleRejectCandidate}
+          />
         </div>
       </div>
     </div>

@@ -874,6 +874,28 @@
   white-space: nowrap;
 }
 
+.ai-answer-source-download {
+  min-width: 0;
+  overflow: hidden;
+  border: 0;
+  background: transparent;
+  color: #2563eb;
+  cursor: pointer;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: left;
+  text-decoration: underline;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ai-answer-source-download:hover,
+.ai-answer-source-download:focus-visible {
+  color: #1d4ed8;
+  outline: none;
+}
+
 .ai-answer-source-pill .ai-answer-copy-btn {
   flex: 0 0 auto;
   width: 26px;
@@ -2071,6 +2093,15 @@
 
 .app-container.dark .ai-answer-source-pill code {
   color: #d1d5db;
+}
+
+.app-container.dark .ai-answer-source-download {
+  color: #93c5fd;
+}
+
+.app-container.dark .ai-answer-source-download:hover,
+.app-container.dark .ai-answer-source-download:focus-visible {
+  color: #bfdbfe;
 }
 
 .app-container.dark .chat-gpt-feedback-row .ant-btn-text:hover {

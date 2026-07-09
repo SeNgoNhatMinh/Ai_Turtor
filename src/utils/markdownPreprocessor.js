@@ -1,6 +1,6 @@
 import React from 'react';
 import { sanitizeLinkUrl } from './markdownSecurity';
-import { isMaterialSourceText } from './sourceLabels';
+import { extractSourceFileLabels, isMaterialSourceText } from './sourceLabels';
 
 /**
  * =========================================================
@@ -52,6 +52,7 @@ function collapseBlankLines(text) {
 }
 
 const VIETNAMESE_SECTION_REPLACEMENTS = [
+  [/^tai lieu mon hoc$/i, 'Tài liệu môn học'],
   [/^theo tai lieu mon hoc$/i, 'Theo tài liệu môn học'],
   [/^vi du nho$/i, 'Ví dụ nhỏ'],
   [/^luu y de hoc tot hon$/i, 'Lưu ý để học tốt hơn'],
@@ -78,10 +79,34 @@ const VIETNAMESE_SECTION_REPLACEMENTS = [
   [/^phuong phap\b/i, 'Phương pháp'],
 ];
 
+function toVietnameseSectionKey(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+const VIETNAMESE_EXACT_SECTION_LABELS = {
+  'tai lieu mon hoc': 'Tài liệu môn học',
+  'theo tai lieu mon hoc': 'Theo tài liệu môn học',
+  'vi du nho': 'Ví dụ nhỏ',
+  'luu y de hoc tot hon': 'Lưu ý để học tốt hơn',
+  'nguon tai lieu da dung': 'Nguồn tài liệu đã dùng',
+};
+
 function normalizeVietnameseSectionLine(line) {
   const prefix = line.match(/^(\s*#{0,6}\s*)/)?.[1] || '';
   const body = line.slice(prefix.length).trim();
   if (!body || body.length > 90) return line;
+
+  const exactLabel = VIETNAMESE_EXACT_SECTION_LABELS[toVietnameseSectionKey(body)];
+  if (exactLabel) {
+    return `${prefix}${exactLabel}`;
+  }
 
   for (const [pattern, replacement] of VIETNAMESE_SECTION_REPLACEMENTS) {
     if (pattern.test(body)) {
@@ -406,6 +431,7 @@ function repairTables(text) {
  * ========================================================= */
 
 const HEADING_PATTERNS = [
+  /^tài liệu môn học$/i,
   /^theo tài liệu môn học$/i,
   /^mô tả\b/i,
   /^cấu trúc\b/i,
@@ -479,6 +505,12 @@ function isSectionHeading(line) {
   return /^#{1,6}\s+\S/.test(line.trim());
 }
 
+function stripSourceListPrefix(line) {
+  return String(line || '')
+    .replace(/^\s*(?:[-*+]\s+|\d+[.)]\s+)/, '')
+    .trim();
+}
+
 function hasMarkdownLink(text) {
   return /\[[^\]]+\]\([^)]+\)/.test(text);
 }
@@ -542,29 +574,63 @@ function normalizeSourceSection(text) {
   const lines = text.split('\n');
   const output = [];
   let inSources = false;
+  let emittedSourceHeading = false;
+  let pendingSources = [];
+  const seenSources = new Set();
+
+  const addSource = (value) => {
+    const source = stripSourceListPrefix(value);
+    if (!isMaterialSourceText(source)) return false;
+    const sourceItems = extractSourceFileLabels(source);
+    const normalizedSources = sourceItems.length ? sourceItems : [source];
+    normalizedSources.forEach((item) => {
+      const key = item.toLowerCase();
+      if (!seenSources.has(key)) {
+        seenSources.add(key);
+        pendingSources.push(item);
+      }
+    });
+    return true;
+  };
+
+  const flushSources = () => {
+    if (!pendingSources.length) return;
+    if (!emittedSourceHeading) {
+      output.push('### Nguồn tài liệu đã dùng');
+      emittedSourceHeading = true;
+    }
+    pendingSources.forEach((source) => output.push(`- ${source}`));
+    pendingSources = [];
+  };
 
   for (const line of lines) {
     const trimmed = line.trim();
 
     if (isSourceHeading(line)) {
       inSources = true;
-      output.push(line);
+      if (!emittedSourceHeading) {
+        output.push(line);
+        emittedSourceHeading = true;
+      }
       continue;
     }
 
     if (inSources && isSectionHeading(line)) {
+      flushSources();
       inSources = false;
       output.push(line);
       continue;
     }
 
-    if (inSources && isMaterialSourceText(trimmed) && !isListLine(line)) {
-      output.push(`- ${trimmed}`);
+    if (isMaterialSourceText(stripSourceListPrefix(trimmed))) {
+      addSource(trimmed);
       continue;
     }
 
     output.push(line);
   }
+
+  flushSources();
 
   return output.join('\n');
 }
@@ -632,6 +698,31 @@ export function normalizeAiMarkdown(input = '') {
   /* 16 */ text = collapseBlankLines(text);
 
   return text;
+}
+
+export function stripSourceSection(input = '') {
+  const lines = String(input || '').split('\n');
+  const output = [];
+  let inSources = false;
+
+  for (const line of lines) {
+    if (isSourceHeading(line)) {
+      inSources = true;
+      continue;
+    }
+
+    if (inSources && isSectionHeading(line)) {
+      inSources = false;
+      output.push(line);
+      continue;
+    }
+
+    if (!inSources) {
+      output.push(line);
+    }
+  }
+
+  return output.join('\n').trim();
 }
 
 /* =========================================================

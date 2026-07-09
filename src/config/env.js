@@ -18,7 +18,7 @@ export const env = {
   n8nEnabled: parseBoolean(import.meta.env.VITE_N8N_ENABLED, false),
   n8nBaseUrl: trimTrailingSlash(import.meta.env.VITE_N8N_BASE_URL || 'http://localhost:5678'),
   n8nWebhookMode: import.meta.env.VITE_N8N_WEBHOOK_MODE || 'production',
-  n8nTimeoutMs: parseNumber(import.meta.env.VITE_N8N_TIMEOUT_MS, 2500),
+  n8nTimeoutMs: parseNumber(import.meta.env.VITE_N8N_TIMEOUT_MS, 15000),
 };
 
 export function buildUrl(path, query) {

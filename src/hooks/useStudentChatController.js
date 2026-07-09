@@ -237,12 +237,12 @@ export function useStudentChatController({
             courseId,
             classId,
             message: text,
+            question: text,
             codeSnippet: codeSnippet || '',
             conversationId: previousSessionId || ''
           });
         } catch (n8nError) {
           console.warn('n8n request failed, trying backend API fallback:', n8nError);
-          triggerToast('n8n offline. Falling back to local AI...');
           data = await apiService.sendAiQuery({
             question: text,
             message: text,

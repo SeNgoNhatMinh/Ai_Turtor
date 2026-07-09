@@ -36,17 +36,29 @@ export async function postN8n(path, body) {
     clearTimeout(timeoutId);
   }
 
-  if (!res.ok) {
-    const errorBody = await res.text().catch(() => '');
-    let message = errorBody || res.statusText;
+  const responseText = await res.text().catch(() => '');
+  let parsed = null;
+  if (responseText) {
     try {
-      const parsed = JSON.parse(errorBody);
-      message = parsed.error || parsed.message || message;
-    } catch {
-      // Keep fallback
+      parsed = JSON.parse(responseText);
+    } catch (error) {
+      if (res.ok) {
+        const malformed = new Error('n8n returned malformed JSON.');
+        malformed.cause = error;
+        malformed.responseText = responseText;
+        throw malformed;
+      }
     }
+  }
+
+  if (!res.ok) {
+    const message = parsed?.error || parsed?.message || responseText || res.statusText;
     throw new Error(`n8n request failed: ${message}`);
   }
 
-  return await res.json();
+  if (!parsed) {
+    throw new Error('n8n returned an empty response.');
+  }
+
+  return parsed;
 }

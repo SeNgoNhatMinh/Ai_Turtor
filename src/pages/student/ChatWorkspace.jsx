@@ -1,12 +1,14 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { Select, Space, Typography, Input, Button } from 'antd';
-import { SendOutlined, LikeOutlined, DislikeOutlined, CommentOutlined, StopOutlined, PushpinOutlined, CloseOutlined } from '@ant-design/icons';
+import { Select, Space, Typography, Button } from 'antd';
+import { SendOutlined, StopOutlined, PushpinOutlined, CloseOutlined } from '@ant-design/icons';
 import RobotHeadMascot from '../../components/RobotHeadMascot';
 import AiAnswer from '../../components/AiAnswer';
 import AnswerActionBar from './AnswerActionBar';
 import AnswerEvidence from './AnswerEvidence';
+import AnswerFeedbackControls from './AnswerFeedbackControls';
 import ChatLoadingSteps from './ChatLoadingSteps';
 import PromptStarters from './PromptStarters';
+import { FEEDBACK_ACTIONS, getFeedbackAction } from '../../constants/answerReview';
 import { normalizeReviewMode, validateChatInput, validateFeedbackText } from '../../utils/validators';
 import { buildMaterialSourceMap } from '../../utils/sourceLabels';
 import './ChatWorkspace.css';
@@ -85,7 +87,7 @@ function ChatWorkspace({
   onDownloadSource,
 }) {
   const [feedbackOpenIndex, setFeedbackOpenIndex] = useState(null);
-  const [feedbackRating, setFeedbackRating] = useState(null); // 1 or 3
+  const [feedbackAction, setFeedbackAction] = useState(null);
   const [feedbackText, setFeedbackText] = useState('');
   const [isFeedbackSubmitting, setIsFeedbackSubmitting] = useState(false);
   const [pinnedMessageKeys, setPinnedMessageKeys] = useState([]);
@@ -121,15 +123,15 @@ function ChatWorkspace({
     }
   }, [chatInput]);
 
-  const openFeedbackForm = (index, rating) => {
+  const openFeedbackForm = (index, actionKey) => {
     setFeedbackOpenIndex(index);
-    setFeedbackRating(rating);
+    setFeedbackAction(getFeedbackAction(actionKey));
     setFeedbackText('');
   };
 
   const closeFeedbackForm = () => {
     setFeedbackOpenIndex(null);
-    setFeedbackRating(null);
+    setFeedbackAction(null);
     setFeedbackText('');
   };
 
@@ -152,10 +154,13 @@ function ChatWorkspace({
     }, 1600);
   };
 
-  const buildFeedbackPayload = (message, rating, feedback) => {
+  const buildFeedbackPayload = (message, actionConfig, feedback) => {
     if (!userId) return { ok: false, message: 'Vui lòng đăng nhập trước khi gửi phản hồi.' };
     if (!courseId || !classId) return { ok: false, message: 'Vui lòng chọn khóa học và lớp học trước.' };
     if (!message?.answer) return { ok: false, message: 'Không có câu trả lời nào của AI để đánh giá.' };
+
+    const action = actionConfig || FEEDBACK_ACTIONS.needMoreDetail;
+    const cleanedFeedback = String(feedback || action.defaultFeedback || action.label).trim();
 
     return {
       ok: true,
@@ -165,24 +170,25 @@ function ChatWorkspace({
         classId,
         conversationId: activeSessionId || '',
         mode: getReviewMode(message),
-        reviewType: rating === 1 ? 'ANSWER_DISPUTE' : 'QUALITY_FEEDBACK',
+        reviewType: action.reviewType,
         question: message.question || '',
         answer: message.answer || '',
-        rating,
-        accurate: rating === 5,
-        helpful: rating === 5,
-        correctnessLevel: rating === 5 ? 'HIGH' : 'INCORRECT',
-        feedback,
-        suggestedCorrection: rating === 1 ? feedback : undefined,
+        rating: action.rating,
+        accurate: action.accurate,
+        helpful: action.helpful,
+        correctnessLevel: action.correctnessLevel,
+        feedback: cleanedFeedback,
+        suggestedCorrection: action.reviewType === 'ANSWER_DISPUTE' ? cleanedFeedback : undefined,
         reviewedBy: userId,
         reviewerRole: 'STUDENT'
       }
     };
   };
 
-  const submitQuickReview = async (message, rating, defaultFeedback) => {
+  const submitQuickReview = async (message, actionKey) => {
     if (!handleStudentReviewAnswer) return;
-    const payload = buildFeedbackPayload(message, rating, defaultFeedback);
+    const action = FEEDBACK_ACTIONS[actionKey] || FEEDBACK_ACTIONS.helpful;
+    const payload = buildFeedbackPayload(message, action, action.defaultFeedback);
     if (!payload.ok) {
       triggerToast?.(payload.message);
       return;
@@ -202,7 +208,8 @@ function ChatWorkspace({
       triggerToast?.(textValidation.message);
       return;
     }
-    const payload = buildFeedbackPayload(message, feedbackRating, textValidation.value);
+    const action = feedbackAction || FEEDBACK_ACTIONS.needMoreDetail;
+    const payload = buildFeedbackPayload(message, action, textValidation.value);
     if (!payload.ok) {
       triggerToast?.(payload.message);
       return;
@@ -412,87 +419,28 @@ function ChatWorkspace({
                             markdown={message.answer || ''}
                             sourceMap={materialSourceMap}
                             onStudyTipAnalyze={onAnalyzeStudyTip}
+                            onDownloadSource={onDownloadSource}
+                            hideSourceSection={Array.isArray(message.sources) && message.sources.length > 0}
                           />
 
                           <AnswerEvidence message={message} sourceMap={materialSourceMap} onDownloadSource={onDownloadSource} />
                           {!message.canceled && <AnswerActionBar message={message} onAction={onAnswerAction} />}
 
-                          {/* Feedback Actions */}
-                          {!message.canceled && <div className="chat-gpt-feedback-row">
-                            <Button
-                              type="text"
-                              size="small"
-                              className={`chat-pin-action ${isPinned ? 'chat-pin-action--active' : ''}`}
-                              icon={<PushpinOutlined />}
-                              onClick={() => togglePinnedMessage(messageKey)}
-                              aria-label={isPinned ? 'Unpin message' : 'Pin message'}
-                              title={isPinned ? 'Unpin message' : 'Pin message'}
+                          {!message.canceled && (
+                            <AnswerFeedbackControls
+                              index={index}
+                              isPinned={isPinned}
+                              isFeedbackSubmitting={isFeedbackSubmitting}
+                              feedbackOpenIndex={feedbackOpenIndex}
+                              feedbackAction={feedbackAction}
+                              feedbackText={feedbackText}
+                              setFeedbackText={setFeedbackText}
+                              onTogglePin={() => togglePinnedMessage(messageKey)}
+                              onHelpful={() => submitQuickReview(message, 'helpful')}
+                              onOpenFeedback={openFeedbackForm}
+                              onCloseFeedback={closeFeedbackForm}
+                              onSubmitFeedback={() => submitFeedback(message)}
                             />
-                            <Button
-                              type="text"
-                              size="small"
-                              icon={<LikeOutlined />}
-                              disabled={isFeedbackSubmitting}
-                              onClick={() => submitQuickReview(message, 5, 'Helpful')}
-                            >
-                              Helpful
-                            </Button>
-                            <Button
-                              type="text"
-                              size="small"
-                              icon={<DislikeOutlined />}
-                              disabled={isFeedbackSubmitting}
-                              onClick={() => openFeedbackForm(index, 1)}
-                            >
-                              Not correct
-                            </Button>
-                            <Button
-                              type="text"
-                              size="small"
-                              icon={<CommentOutlined />}
-                              disabled={isFeedbackSubmitting}
-                              onClick={() => openFeedbackForm(index, 3)}
-                            >
-                              Need more detail
-                            </Button>
-                          </div>}
-
-                          {/* Feedback Form */}
-                          {feedbackOpenIndex === index && (
-                            <div className="feedback-form-box" style={{
-                              marginTop: 12,
-                              background: '#f9f9f9',
-                              border: '1px solid #ececec',
-                              padding: 12,
-                              borderRadius: 12,
-                            }}>
-                              <div className="feedback-title" style={{ marginBottom: 8, fontSize: 12, color: '#0d0d0d' }}>
-                                {feedbackRating === 1 ? 'Phần nào chưa chính xác?' : 'Bạn cần thêm chi tiết gì?'}
-                              </div>
-                              <Input.TextArea
-                                className="feedback-textarea"
-                                rows={2}
-                                placeholder={feedbackRating === 1 ? 'Chỉ ra phần chưa chính xác...' : 'Cho chúng tôi biết phần nào cần thêm chi tiết...'}
-                                value={feedbackText}
-                                maxLength={2000}
-                                onChange={(e) => setFeedbackText(e.target.value)}
-                                style={{ background: '#fff', border: '1px solid #ececec', color: '#0d0d0d', borderRadius: 8, marginBottom: 8 }}
-                              />
-                              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                                <Button size="small" type="text" style={{ color: '#888' }} onClick={closeFeedbackForm}>Hủy bỏ</Button>
-                                <Button
-                                  className="btn-submit"
-                                  size="small"
-                                  type="primary"
-                                  style={{ background: '#0d0d0d', color: '#ffffff', border: 'none' }}
-                                  onClick={() => submitFeedback(message)}
-                                  loading={isFeedbackSubmitting}
-                                  disabled={!feedbackText.trim() || isFeedbackSubmitting}
-                                >
-                                  Submit
-                                </Button>
-                              </div>
-                            </div>
                           )}
                         </div>
                       </div>

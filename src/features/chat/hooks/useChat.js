@@ -62,12 +62,13 @@ export function useChat() {
             courseId: courseId,
             classId: classId,
             message: text,
+            question: text,
             codeSnippet: codeSnippet || '',
             conversationId: activeSessionId || ''
           };
           data = await n8nService.sendStudentChat(n8nPayload);
         } catch (n8nError) {
-          triggerToast('n8n offline. Falling back to local AI...');
+          console.warn('n8n request failed, trying backend API fallback:', n8nError);
           const payload = { question: text, message: text, codeSnippet: codeSnippet || null, courseId, classId, conversationId: activeSessionId || null };
           data = await apiService.sendAiQuery(payload, userId, currentUser?.fullName || '', currentUser?.email || '');
         }
