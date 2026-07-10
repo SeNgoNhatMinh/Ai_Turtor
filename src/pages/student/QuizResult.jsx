@@ -1,4 +1,4 @@
-import { Button, Card, List, Progress, Space, Tag, Typography } from 'antd';
+import { Button, Card, Progress, Space, Tag, Typography } from 'antd';
 import { RetweetOutlined } from '@ant-design/icons';
 import AiAnswer from '../../components/AiAnswer';
 
@@ -70,10 +70,8 @@ function QuizResult({ result, onRetry, retryLoading = false }) {
         {questions.length > 0 && (
           <div className="quiz-result-questions">
             <Title level={5}>Detailed Review</Title>
-            <List
-              itemLayout="vertical"
-              dataSource={questions}
-              renderItem={(question, index) => {
+            <div className="quiz-review-list">
+              {questions.map((question, index) => {
                 const answer = answerMap.get(getQuestionId(question, index)) || {};
                 const selectedAnswer = answer.selectedAnswer || question.selectedAnswer || question.selectedOption || '';
                 const correctAnswer = answer.correctAnswer || question.correctAnswer || question.correctOption || '';
@@ -81,7 +79,7 @@ function QuizResult({ result, onRetry, retryLoading = false }) {
                 const isCorrect = answer.correct ?? question.isCorrect ?? (selectedAnswer && correctAnswer && selectedAnswer === correctAnswer);
 
                 return (
-                  <List.Item className="quiz-review-item">
+                  <div key={getQuestionId(question, index)} className="quiz-review-item">
                     <div className="quiz-review-question">
                       <Text strong>Q{index + 1}. </Text>
                       <AiAnswer markdown={question.questionText || question.question || ''} />
@@ -108,10 +106,10 @@ function QuizResult({ result, onRetry, retryLoading = false }) {
                         </div>
                       )}
                     </div>
-                  </List.Item>
+                  </div>
                 );
-              }}
-            />
+              })}
+            </div>
           </div>
         )}
       </Space>

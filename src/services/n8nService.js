@@ -1,4 +1,4 @@
-import { postN8n } from './n8nClient';
+import { createN8nError, postN8n } from './n8nClient';
 
 const REVIEW_MODES = new Set(['RAG', 'CODE', 'ESCALATE']);
 
@@ -19,20 +19,34 @@ const asArray = (value) => {
 
 const ensureN8nSuccess = (response, fallbackMessage) => {
   if (!response || typeof response !== 'object') {
-    throw new Error(fallbackMessage || 'n8n returned an invalid response.');
+    throw createN8nError(fallbackMessage || 'AI workflow returned an invalid response.', {
+      code: 'N8N_INVALID_RESPONSE',
+      response,
+    });
   }
   if (response.success === false || response.ok === false || response.status === 'FAILED') {
-    throw new Error(response.message || response.error || fallbackMessage || 'n8n flow failed.');
+    throw createN8nError(fallbackMessage || 'AI workflow failed.', {
+      code: 'N8N_FLOW_FAILED',
+      rawMessage: response.message || response.error || null,
+      response,
+    });
   }
   return response;
 };
 
 export function normalizeN8nChatResponse(response = {}, fallbackContext = {}) {
   if (!response || typeof response !== 'object') {
-    throw new Error('n8n chat response is empty or invalid.');
+    throw createN8nError('AI chat workflow returned an invalid response.', {
+      code: 'N8N_CHAT_INVALID_RESPONSE',
+      response,
+    });
   }
   if (response.success === false || response.ok === false || response.status === 'FAILED') {
-    throw new Error(response.message || response.error || 'n8n chat flow failed.');
+    throw createN8nError('AI chat workflow failed.', {
+      code: 'N8N_CHAT_FLOW_FAILED',
+      rawMessage: response.message || response.error || null,
+      response,
+    });
   }
 
   const mode = normalizeMode(response.mode);

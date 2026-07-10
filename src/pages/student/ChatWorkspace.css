@@ -228,6 +228,16 @@
   border-color: #d1d5db;
 }
 
+.chat-pinned-topbar-item--disabled {
+  cursor: default;
+  opacity: 0.72;
+}
+
+.chat-pinned-topbar-item--disabled:hover {
+  background: #f7f7f7;
+  border-color: #e5e7eb;
+}
+
 .chat-pinned-topbar-item span {
   min-width: 0;
   overflow: hidden;

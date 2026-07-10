@@ -47,7 +47,8 @@
     "survey-react-ui": "^2.5.30",
     "tailwind-merge": "^3.6.0",
     "three": "^0.184.0",
-    "turndown": "^7.2.4"
+    "turndown": "^7.2.4",
+    "zustand": "^5.0.14"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Button, Card, Empty, Form, Input, InputNumber, List, Modal, Select, Space, Tag, Typography } from 'antd';
+import { Button, Card, Empty, Form, Input, InputNumber, Modal, Select, Space, Tag, Typography } from 'antd';
 import { apiService } from '../../services/api';
 import { getUserFacingError } from '../../services/apiClient';
 import QuizDraftEditor from './QuizDraftEditor';
@@ -163,23 +163,23 @@ function QuizAssignments({ teacherId, courseId, classId, teacherStudents = [], t
 
       <Card className="quiz-card" title="Teacher quiz assignments">
         {assignments.length ? (
-          <List
-            dataSource={assignments}
-            renderItem={(item) => (
-              <List.Item
-                actions={[
-                  <Button key="edit" size="small" onClick={() => setDraft(item)}>Edit</Button>,
-                  <Button key="publish" size="small" type="primary" onClick={() => { setDraft(item); setPublishOpen(true); }}>Publish</Button>,
-                  <Button key="delete" size="small" danger onClick={() => deleteDraft(item)}>Delete</Button>,
-                ]}
-              >
-                <List.Item.Meta
-                  title={item.title || item.topic || 'Quiz assignment'}
-                  description={<span>{item.status || 'Draft'} {item.classId ? `- ${item.classId}` : ''}</span>}
-                />
-              </List.Item>
-            )}
-          />
+          <div className="quiz-assignment-list">
+            {assignments.map((item) => (
+              <div key={item.assignmentId || item.id} className="quiz-assignment-row">
+                <div>
+                  <Text strong>{item.title || item.topic || 'Quiz assignment'}</Text>
+                  <div>
+                    <Text type="secondary">{item.status || 'Draft'} {item.classId ? `- ${item.classId}` : ''}</Text>
+                  </div>
+                </div>
+                <Space wrap>
+                  <Button size="small" onClick={() => setDraft(item)}>Edit</Button>
+                  <Button size="small" type="primary" onClick={() => { setDraft(item); setPublishOpen(true); }}>Publish</Button>
+                  <Button size="small" danger onClick={() => deleteDraft(item)}>Delete</Button>
+                </Space>
+              </div>
+            ))}
+          </div>
         ) : (
           <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No quiz assignments yet" />
         )}

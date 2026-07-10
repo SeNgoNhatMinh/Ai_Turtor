@@ -15,14 +15,16 @@ import {
 } from "./table";
 import { Button } from "./button";
 
-export function DataTable({ columns, data }) {
+export function DataTable({ columns, data = [], loading = false, emptyText = 'No results.' }) {
   const [pagination, setPagination] = useState({
     pageIndex: 0,
     pageSize: 8,
   });
 
+  const safeData = Array.isArray(data) ? data : [];
+
   const table = useReactTable({
-    data,
+    data: safeData,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
@@ -33,8 +35,8 @@ export function DataTable({ columns, data }) {
   });
 
   return (
-    <div>
-      <div className="rounded-md border bg-card">
+    <div className="data-table-root">
+      <div className="data-table-card rounded-md border bg-card">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
@@ -55,7 +57,13 @@ export function DataTable({ columns, data }) {
             ))}
           </TableHeader>
           <TableBody>
-            {table.getRowModel().rows?.length ? (
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={columns.length} className="h-24 text-center">
+                  Loading...
+                </TableCell>
+              </TableRow>
+            ) : table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => (
                 <TableRow
                   key={row.id}
@@ -71,7 +79,7 @@ export function DataTable({ columns, data }) {
             ) : (
               <TableRow>
                 <TableCell colSpan={columns.length} className="h-24 text-center">
-                  No results.
+                  {emptyText}
                 </TableCell>
               </TableRow>
             )}
@@ -80,7 +88,7 @@ export function DataTable({ columns, data }) {
       </div>
       <div className="flex items-center justify-between space-x-2 py-4">
         <div className="text-sm text-muted-foreground ml-2">
-          Page {table.getState().pagination.pageIndex + 1} of{" "}
+          Page {table.getPageCount() ? table.getState().pagination.pageIndex + 1 : 0} of{" "}
           {table.getPageCount()}
         </div>
         <div className="space-x-2">

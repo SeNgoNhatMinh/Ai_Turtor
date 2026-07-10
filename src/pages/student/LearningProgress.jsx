@@ -1,11 +1,10 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Button,
   Card,
   Empty,
   Input,
-  List,
   Modal,
   Progress,
   Skeleton,
@@ -409,10 +408,9 @@ function LearningProgress({
         {isSuggesting ? (
           <Skeleton active paragraph={{ rows: 3 }} />
         ) : (
-          <List
-            dataSource={orderedSuggestions}
-            locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No study suggestions yet. Analyze memory to generate next steps." /> }}
-            renderItem={(suggestion) => {
+          orderedSuggestions.length ? (
+            <div className="learning-suggestion-list">
+              {orderedSuggestions.map((suggestion) => {
               const isHigh = suggestion.priority === 'high';
               const suggestionText = getSuggestionText(suggestion);
               const isPinned = pinnedSet.has(normalizeSuggestionKey(suggestionText));
@@ -422,7 +420,7 @@ function LearningProgress({
               };
 
               return (
-                <List.Item className={`learning-suggestion-item ${isPinned ? 'learning-suggestion-item--pinned' : ''}`}>
+                <div key={normalizeSuggestionKey(suggestionText) || suggestion.title} className={`learning-suggestion-item ${isPinned ? 'learning-suggestion-item--pinned' : ''}`}>
                   <div
                     className={`learning-suggestion-copy ${canStudySuggestion ? 'learning-suggestion-copy--clickable' : ''}`}
                     role={canStudySuggestion ? 'button' : undefined}
@@ -464,10 +462,13 @@ function LearningProgress({
                       {isPinned ? 'Unpin' : 'Pin'}
                     </Button>
                   </Space>
-                </List.Item>
+                </div>
               );
-            }}
-          />
+              })}
+            </div>
+          ) : (
+            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No study suggestions yet. Analyze memory to generate next steps." />
+          )
         )}
       </Card>
 
@@ -505,18 +506,39 @@ function LearningProgress({
               </div>
             )}
 
-            <List
-              dataSource={improvePlans}
-              locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No active improvement plans." /> }}
-              renderItem={(plan) => {
+            {improvePlans.length ? (
+              <div className="learning-plan-list">
+                {improvePlans.map((plan) => {
                 const planId = getPlanId(plan);
                 return (
-                  <List.Item
+                  <div
+                    key={planId || `${plan.status}-${plan.generatedAt}`}
                     className="learning-plan-item"
-                    actions={[
-                      plan.status !== 'COMPLETED' && (
+                  >
+                    <div className="learning-plan-item-main">
+                      <Space wrap>
+                        <span>Improvement Plan</span>
+                        <Tag color={plan.status === 'COMPLETED' ? 'success' : 'processing'}>{plan.status || 'ACTIVE'}</Tag>
+                        <Tag color={getRiskColor(plan.riskLevel)}>{plan.riskLevel || 'LOW'} risk</Tag>
+                      </Space>
+                      <div className="learning-plan-detail">
+                        {plan.weakTopics?.length > 0 && (
+                          <div>
+                            <Text strong type="secondary">Focus areas:</Text>
+                            <div>{plan.weakTopics.map((topic) => <Tag key={topic}>{topic}</Tag>)}</div>
+                          </div>
+                        )}
+                        <div>
+                          <Text strong type="secondary">Action items:</Text>
+                          <ul>
+                            {(plan.planItems || []).map((item) => <li key={item}><Text>{item}</Text></li>)}
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                    {plan.status !== 'COMPLETED' && (
+                      <div className="learning-plan-item-actions">
                         <Button
-                          key="complete"
                           type="primary"
                           size="small"
                           icon={<CheckOutlined />}
@@ -525,38 +547,15 @@ function LearningProgress({
                         >
                           Mark complete
                         </Button>
-                      ),
-                    ].filter(Boolean)}
-                  >
-                    <List.Item.Meta
-                      title={(
-                        <Space wrap>
-                          <span>Improvement Plan</span>
-                          <Tag color={plan.status === 'COMPLETED' ? 'success' : 'processing'}>{plan.status || 'ACTIVE'}</Tag>
-                          <Tag color={getRiskColor(plan.riskLevel)}>{plan.riskLevel || 'LOW'} risk</Tag>
-                        </Space>
-                      )}
-                      description={(
-                        <div className="learning-plan-detail">
-                          {plan.weakTopics?.length > 0 && (
-                            <div>
-                              <Text strong type="secondary">Focus areas:</Text>
-                              <div>{plan.weakTopics.map((topic) => <Tag key={topic}>{topic}</Tag>)}</div>
-                            </div>
-                          )}
-                          <div>
-                            <Text strong type="secondary">Action items:</Text>
-                            <ul>
-                              {(plan.planItems || []).map((item) => <li key={item}><Text>{item}</Text></li>)}
-                            </ul>
-                          </div>
-                        </div>
-                      )}
-                    />
-                  </List.Item>
+                      </div>
+                    )}
+                  </div>
                 );
-              }}
-            />
+                })}
+              </div>
+            ) : (
+              <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No active improvement plans." />
+            )}
           </>
         )}
       </Card>

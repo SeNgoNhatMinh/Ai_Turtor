@@ -1,15 +1,12 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { message } from 'antd';
 import LearningProgress from './student/LearningProgress';
 import MaterialsAssignments from './student/MaterialsAssignments';
 import PracticeQuizzes from './student/PracticeQuizzes';
 import StudentChatTab from './student/StudentChatTab';
 import StudentSupportTab from './student/StudentSupportTab';
-import { confirmAction } from '../components/common/confirmDialog';
 import { useStudentSupport } from '../hooks/useStudentSupport';
-import { apiService } from '../services/api';
-import { getUserFacingError } from '../services/apiClient';
-import { validateChatInput, validateUploadFile } from '../utils/validators';
+import { useStudentChatTabController } from './student/hooks/useStudentChatTabController';
+import { useStudentLearningActions } from './student/hooks/useStudentLearningActions';
+import { useStudentMaterialsController } from './student/hooks/useStudentMaterialsController';
 
 function StudentPortal({
   activeTab,
@@ -38,13 +35,11 @@ function StudentPortal({
   handleSendQuery,
   handleStopAiGeneration,
   openLearnedSuggestionResponse,
-  codeMentorDiagnostics,
-  isCodeAnalyzing,
-  handleCodeMentorQuery,
   assignments,
   selectedAssignment,
   setSelectedAssignment,
   handleStudentSubmit,
+  onDownloadAssignment,
   suggestions,
   isSuggesting,
   refreshSuggestions,
@@ -63,21 +58,6 @@ function StudentPortal({
   courseMaterials = [],
   onDownloadMaterial,
 }) {
-  const [chatInput, setChatInput] = useState('');
-  const [codeLanguage, setCodeLanguage] = useState('java');
-  const [codeSnippet, setCodeSnippet] = useState('');
-  const [avatarEmotion, setAvatarEmotion] = useState('idle');
-  const [activeSideTab, setActiveSideTab] = useState('tab-code-review');
-  const [studentSubmissionFile, setStudentSubmissionFile] = useState(null);
-  const [studentSubmissionNote, setStudentSubmissionNote] = useState('');
-  const [editingSessionId, setEditingSessionId] = useState(null);
-  const [editingSessionTitle, setEditingSessionTitle] = useState('');
-  const [isAiLoading, setIsAiLoading] = useState(false);
-  const [isHistoryDrawerOpen, setIsHistoryDrawerOpen] = useState(false);
-  const [quizInitialSuggestion, setQuizInitialSuggestion] = useState('');
-
-  const messagesEndRef = useRef(null);
-
   const {
     escalations,
     selectedEscalation,
@@ -109,281 +89,97 @@ function StudentPortal({
     onGetChatDetail,
   });
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  const chatController = useStudentChatTabController({
+    courseId,
+    setCourseId,
+    classId,
+    courseOptions,
+    classOptions,
+    sessions,
+    activeSessionId,
+    messages,
+    activeSessionMaxTurnsReached,
+    turnLimitNotice,
+    dismissTurnLimitNotice,
+    resetChat,
+    handleSelectSession,
+    handleRenameSession,
+    handleSendQuery,
+    handleStopAiGeneration,
+    switchTab,
+    userId,
+    studentDashboard,
+    loadEscalations,
+    triggerToast,
+  });
 
-  useEffect(() => {
-    if (activeTab === 'student-memory') {
-      loadStudentDashboard?.();
-    }
-  }, [activeTab, courseId]);
+  const {
+    quizInitialSuggestion,
+    handleStudySuggestion,
+    handleCreateQuizFromSuggestion,
+  } = useStudentLearningActions({
+    activeTab,
+    userId,
+    courseId,
+    classId,
+    activeSessionId,
+    switchTab,
+    loadStudentDashboard,
+    openLearnedSuggestionResponse,
+    sendText: chatController.sendText,
+    triggerToast,
+  });
 
-  const onSaveRename = (event, sessionId) => {
-    event.stopPropagation();
-    if (editingSessionTitle.trim()) {
-      handleRenameSession(sessionId, editingSessionTitle.trim());
-    }
-    setEditingSessionId(null);
-  };
-
-  const applyCourseChange = (nextCourseId) => {
-    if (!nextCourseId || nextCourseId === courseId) return;
-    dismissTurnLimitNotice?.();
-    resetChat?.();
-    setCourseId(nextCourseId);
-  };
-
-  const handleCourseChange = (nextCourseId) => {
-    if (!nextCourseId || nextCourseId === courseId) return;
-    const hasActiveChat = Boolean(activeSessionId) || (Array.isArray(messages) && messages.length > 0);
-    if (!hasActiveChat) {
-      applyCourseChange(nextCourseId);
-      return;
-    }
-
-    confirmAction({
-      title: 'Switch course?',
-      content: "Each course has separate chat history. Switching course will open that course's conversations.",
-      okText: 'Switch course',
-      cancelText: 'Cancel',
-      onOk: () => applyCourseChange(nextCourseId),
-    });
-  };
-
-  const handleBackToPreviousChat = () => {
-    const previousSessionId = turnLimitNotice?.previousSessionId;
-    if (!previousSessionId) return;
-    const previousSession = sessions.find((session) => session.id === previousSessionId);
-    handleSelectSession(previousSessionId, previousSession?.title || 'Previous conversation');
-  };
-
-  const sendText = (text) => {
-    if (isAiLoading) return;
-    if (!userId) {
-      triggerToast?.('Please sign in before sending a message.');
-      return;
-    }
-    const hasCourseOptions = Array.isArray(courseOptions) && courseOptions.length > 0;
-    const hasValidCourse = !hasCourseOptions || courseOptions.some((item) => item?.value === courseId);
-    if (!hasValidCourse) {
-      triggerToast?.('Please choose a valid enrolled course before asking AI Tutor.');
-      return;
-    }
-    const hasClassOptions = Array.isArray(classOptions) && classOptions.length > 0;
-    const hasValidClass = !hasClassOptions || classOptions.some((item) => item?.value === classId);
-    if (!hasValidClass) {
-      triggerToast?.('Please choose a valid enrolled class before asking AI Tutor.');
-      return;
-    }
-    if (activeSessionMaxTurnsReached) {
-      triggerToast?.('This chat is full. Start a new chat to continue.');
-      return;
-    }
-    const validation = validateChatInput(text);
-    if (!validation.ok) {
-      triggerToast?.(validation.message);
-      return;
-    }
-    const textToSend = validation.value;
-    // Clear input immediately — don't wait for AI response
-    setChatInput('');
-    setIsAiLoading(true);
-    setAvatarEmotion('thinking');
-    handleSendQuery(textToSend, codeSnippet, setAvatarEmotion).finally(() => {
-      setIsAiLoading(false);
-    });
-  };
-
-  const handleStudySuggestion = async (suggestionText) => {
-    const text = String(suggestionText || '').trim();
-    if (!text) return;
-    const prompt = `Help me learn this topic step by step from the course materials: ${text}`;
-    try {
-      triggerToast?.('Preparing a guided study response...');
-      const response = await apiService.learnSuggestion(userId, courseId, {
-        classId,
-        conversationId: activeSessionId || null,
-        suggestionText: text,
-        topic: text,
-      });
-      switchTab?.('student-chat');
-      if (response?.conversationId || response?.answer) {
-        await openLearnedSuggestionResponse?.(response, text);
-        triggerToast?.('AI Tutor opened a guided study response for this suggestion.');
-      } else {
-        sendText(prompt);
-      }
-    } catch (error) {
-      const isAlreadyUsed = error?.status === 409 || error?.details?.error === 'SUGGESTION_ALREADY_USED';
-      if (isAlreadyUsed) {
-        triggerToast?.('This suggestion was already used in course chat. Choose another suggestion or ask a new question.');
-        switchTab?.('student-chat');
-        return;
-      }
-      triggerToast?.(getUserFacingError(error, 'Unable to open this study suggestion. Using chat prompt instead.'));
-      switchTab?.('student-chat');
-      sendText(prompt);
-    }
-  };
-
-  const handleCreateQuizFromSuggestion = (suggestionText) => {
-    const text = String(suggestionText || '').trim();
-    if (!text) return;
-    setQuizInitialSuggestion(text);
-    switchTab?.('student-quizzes');
-  };
-
-  const onSendQuery = () => {
-    sendText(chatInput);
-  };
-
-  const onStopQuery = () => {
-    // Mark AI as done — the in-flight request will still complete but
-    // we stop blocking the UI so the user can type again immediately.
-    handleStopAiGeneration?.();
-    setIsAiLoading(false);
-    setAvatarEmotion('idle');
-  };
-
-  const handlePromptStarter = (prompt) => {
-    setChatInput(prompt);
-  };
-
-  const handleAnswerAction = async ({ prompt, type, message }) => {
-    if (type === 'retry') {
-      const retryText = String(message?.question || prompt || '').trim();
-      if (!retryText) {
-        triggerToast?.('There is no question to retry.');
-        return;
-      }
-      sendText(retryText);
-      return;
-    }
-
-    if (type === 'mentor') {
-      try {
-        await apiService.createEscalation({
-          studentId: userId,
-          studentName: studentDashboard?.studentName || studentDashboard?.fullName || '',
-          studentEmail: studentDashboard?.studentEmail || '',
-          courseId,
-          classId,
-          question: message?.question || prompt,
-          aiResponse: message?.rawAnswer || message?.answer || '',
-          reason: message?.aiServiceError ? 'AI Tutor could not reach the language model.' : 'Student requested mentor support from AI Tutor chat.',
-        });
-        triggerToast?.('Support request sent to mentor.');
-        loadEscalations();
-        switchTab?.('student-escalation');
-      } catch (error) {
-        triggerToast?.(getUserFacingError(error, 'Unable to create support request.'));
-      }
-      return;
-    }
-    sendText(prompt);
-  };
-
-  const onCodeReviewQuery = () => {
-    if (!codeSnippet.trim()) {
-      message.error('Please enter source code or an error log to analyze.');
-      return;
-    }
-    handleCodeMentorQuery(codeSnippet, codeLanguage);
-  };
-
-  const onStudentSubmit = () => {
-    const fileValidation = validateUploadFile(studentSubmissionFile);
-    if (!fileValidation.ok) {
-      message.error(fileValidation.message);
-      return;
-    }
-    handleStudentSubmit(selectedAssignment.id, studentSubmissionFile, studentSubmissionNote).then(() => {
-      setStudentSubmissionFile(null);
-      setStudentSubmissionNote('');
-      message.success('Submission uploaded successfully.');
-    });
-  };
-
-  const handleDownloadAssignment = async (assignmentId) => {
-    message.loading({ content: 'Downloading file...', key: 'dl' });
-    try {
-      const blob = await apiService.downloadAssignmentFile(assignmentId);
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `Assignment_${assignmentId}_File`;
-      document.body.appendChild(link);
-      link.click();
-      window.URL.revokeObjectURL(url);
-      message.success({ content: 'Download completed.', key: 'dl' });
-    } catch {
-      message.error({ content: 'Unable to download the file.', key: 'dl' });
-    }
-  };
-
-  const handleDownloadSource = async (materialId, title) => {
-    if (!courseId || !materialId) return;
-    message.loading({ content: 'Downloading file...', key: 'dl' });
-    try {
-      const blob = await apiService.downloadMaterialPdf(courseId, materialId);
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${title || 'material'}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      window.URL.revokeObjectURL(url);
-      message.success({ content: 'Download completed.', key: 'dl' });
-    } catch {
-      message.error({ content: 'Unable to download the file (it might be a website material).', key: 'dl' });
-    }
-  };
+  const materialsController = useStudentMaterialsController({
+    selectedAssignment,
+    handleStudentSubmit,
+    onDownloadAssignment,
+  });
 
   if (activeTab === 'student-chat') {
     return (
       <StudentChatTab
-        isHistoryDrawerOpen={isHistoryDrawerOpen}
-        setIsHistoryDrawerOpen={setIsHistoryDrawerOpen}
+        isHistoryDrawerOpen={chatController.isHistoryDrawerOpen}
+        setIsHistoryDrawerOpen={chatController.setIsHistoryDrawerOpen}
         sessions={sessions}
         isSessionsLoading={isSessionsLoading}
         activeSessionId={activeSessionId}
         activeSessionTitle={activeSessionTitle}
-        editingSessionId={editingSessionId}
-        editingSessionTitle={editingSessionTitle}
-        setEditingSessionId={setEditingSessionId}
-        setEditingSessionTitle={setEditingSessionTitle}
+        editingSessionId={chatController.editingSessionId}
+        editingSessionTitle={chatController.editingSessionTitle}
+        setEditingSessionId={chatController.setEditingSessionId}
+        setEditingSessionTitle={chatController.setEditingSessionTitle}
         onCreateSession={handleCreateSession}
         onSelectSession={handleSelectSession}
         onDeleteSession={handleDeleteSession}
-        onSaveRename={onSaveRename}
+        onSaveRename={chatController.onSaveRename}
         courseId={courseId}
-        onCourseChange={handleCourseChange}
+        onCourseChange={chatController.handleCourseChange}
         classId={classId}
         setClassId={setClassId}
         courseOptions={courseOptions}
         classOptions={classOptions}
         isDarkMode={isDarkMode}
         messages={messages}
-        chatInput={chatInput}
-        setChatInput={setChatInput}
-        onSendQuery={onSendQuery}
-        onStopQuery={onStopQuery}
-        onPromptStarter={handlePromptStarter}
-        onAnswerAction={handleAnswerAction}
-        isAiLoading={isAiLoading}
-        messagesEndRef={messagesEndRef}
+        chatInput={chatController.chatInput}
+        setChatInput={chatController.setChatInput}
+        onSendQuery={chatController.onSendQuery}
+        onStopQuery={chatController.onStopQuery}
+        onPromptStarter={chatController.handlePromptStarter}
+        onAnswerAction={chatController.handleAnswerAction}
+        isAiLoading={chatController.isAiLoading}
+        messagesEndRef={chatController.messagesEndRef}
         handleStudentReviewAnswer={handleStudentReviewAnswer}
         userId={userId}
         activeSessionQuestionCount={activeSessionQuestionCount}
         activeSessionMaxTurnsReached={activeSessionMaxTurnsReached}
         turnLimitNotice={turnLimitNotice}
-        onTurnLimitBack={handleBackToPreviousChat}
+        onTurnLimitBack={chatController.handleBackToPreviousChat}
         onDismissTurnLimitNotice={dismissTurnLimitNotice}
         triggerToast={triggerToast}
         courseMaterials={courseMaterials}
         onAnalyzeStudyTip={refreshSuggestions}
-        onDownloadSource={handleDownloadSource}
+        onDownloadSource={chatController.handleDownloadSource}
       />
     );
   }
@@ -438,12 +234,12 @@ function StudentPortal({
         assignments={assignments}
         selectedAssignment={selectedAssignment}
         setSelectedAssignment={setSelectedAssignment}
-        studentSubmissionFile={studentSubmissionFile}
-        setStudentSubmissionFile={setStudentSubmissionFile}
-        studentSubmissionNote={studentSubmissionNote}
-        setStudentSubmissionNote={setStudentSubmissionNote}
-        onStudentSubmit={onStudentSubmit}
-        onDownloadAssignment={handleDownloadAssignment}
+        studentSubmissionFile={materialsController.studentSubmissionFile}
+        setStudentSubmissionFile={materialsController.setStudentSubmissionFile}
+        studentSubmissionNote={materialsController.studentSubmissionNote}
+        setStudentSubmissionNote={materialsController.setStudentSubmissionNote}
+        onStudentSubmit={materialsController.onStudentSubmit}
+        onDownloadAssignment={materialsController.handleDownloadAssignment}
         courseMaterials={courseMaterials}
         onDownloadMaterial={onDownloadMaterial}
       />

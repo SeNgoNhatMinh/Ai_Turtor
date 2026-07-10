@@ -30,6 +30,7 @@ function TermsTab({ form, semesters, onCreate, onReload, onAction }) {
         <Card title="Term List" hoverable extra={<Button size="small" onClick={onReload} icon={<RefreshCw size={14} />}>Reload</Button>}>
           <DataTable
             data={semesters || []}
+            emptyText="No terms yet."
             columns={[
               { accessorKey: 'semesterCode', header: 'Code' },
               { accessorKey: 'name', header: 'Name' },

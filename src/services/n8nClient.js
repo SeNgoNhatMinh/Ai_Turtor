@@ -5,6 +5,15 @@ export const N8N_WEBHOOK_MODE = env.n8nWebhookMode;
 export const N8N_ENABLED = env.n8nEnabled;
 export const N8N_TIMEOUT_MS = env.n8nTimeoutMs;
 
+export function createN8nError(userMessage = 'AI workflow is temporarily unavailable.', details = null) {
+  const error = new Error(userMessage);
+  error.name = 'N8nError';
+  error.userMessage = userMessage;
+  error.rawMessage = details?.rawMessage || details?.message || null;
+  error.details = details;
+  return error;
+}
+
 export function n8nUrl(path) {
   const prefix = N8N_WEBHOOK_MODE === 'test' ? '/webhook-test' : '/webhook';
   return `${N8N_BASE_URL}${prefix}${path}`;
@@ -12,7 +21,7 @@ export function n8nUrl(path) {
 
 export async function postN8n(path, body) {
   if (!N8N_ENABLED) {
-    throw new Error('n8n is disabled.');
+    throw createN8nError('AI workflow is disabled.', { code: 'N8N_DISABLED' });
   }
   const url = n8nUrl(path);
   const controller = new AbortController();
@@ -43,21 +52,27 @@ export async function postN8n(path, body) {
       parsed = JSON.parse(responseText);
     } catch (error) {
       if (res.ok) {
-        const malformed = new Error('n8n returned malformed JSON.');
-        malformed.cause = error;
-        malformed.responseText = responseText;
-        throw malformed;
+        throw createN8nError('AI workflow returned an invalid response.', {
+          code: 'N8N_MALFORMED_JSON',
+          rawMessage: responseText,
+          cause: error,
+        });
       }
     }
   }
 
   if (!res.ok) {
     const message = parsed?.error || parsed?.message || responseText || res.statusText;
-    throw new Error(`n8n request failed: ${message}`);
+    throw createN8nError('AI workflow request failed.', {
+      code: `N8N_HTTP_${res.status}`,
+      status: res.status,
+      rawMessage: message,
+      body: parsed || responseText,
+    });
   }
 
   if (!parsed) {
-    throw new Error('n8n returned an empty response.');
+    throw createN8nError('AI workflow returned an empty response.', { code: 'N8N_EMPTY_RESPONSE' });
   }
 
   return parsed;

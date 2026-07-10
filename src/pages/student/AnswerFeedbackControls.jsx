@@ -4,6 +4,7 @@ import { LikeOutlined, DislikeOutlined, CommentOutlined, PushpinOutlined } from 
 function AnswerFeedbackControls({
   index,
   isPinned,
+  isPinning = false,
   isFeedbackSubmitting,
   feedbackOpenIndex,
   feedbackAction,
@@ -24,6 +25,8 @@ function AnswerFeedbackControls({
           className={`chat-pin-action ${isPinned ? 'chat-pin-action--active' : ''}`}
           icon={<PushpinOutlined />}
           onClick={onTogglePin}
+          loading={isPinning}
+          disabled={isPinning}
           aria-label={isPinned ? 'Unpin message' : 'Pin message'}
           title={isPinned ? 'Unpin message' : 'Pin message'}
         />

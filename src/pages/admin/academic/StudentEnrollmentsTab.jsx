@@ -1,8 +1,16 @@
-import { Button, Card, Col, Form, Input, Row, Select, Table, Tag } from 'antd';
+import { Button, Card, Col, Form, Input, Row, Select, Tag } from 'antd';
 import { Eye, Pencil, Plus, Search, UserMinus } from 'lucide-react';
 import EntityActionMenu from '../../../components/common/EntityActionMenu';
+import { DataTable } from '../../../components/ui/data-table';
 
 const { Option } = Select;
+
+const enrollmentActionItems = [
+  { key: 'view', icon: <Eye size={14} />, label: 'View details' },
+  { key: 'edit', icon: <Pencil size={14} />, label: 'Edit' },
+  { type: 'divider' },
+  { key: 'remove', icon: <UserMinus size={14} />, label: 'Remove from class', danger: true },
+];
 
 function StudentEnrollmentsTab({
   form,
@@ -67,38 +75,38 @@ function StudentEnrollmentsTab({
               Search
             </Button>
           </div>
-          <Table
-            scroll={{ x: 600 }}
-            dataSource={studentEnrollments}
-            rowKey={(record) => record.id || record._id || `${record.studentId}-${record.courseId}-${record.classId}`}
-            size="small"
+          <DataTable
+            data={studentEnrollments || []}
             loading={enrollmentsLoading}
-            pagination={false}
+            emptyText="No enrollment records loaded. Enter a user ID, email, or student code and click Search."
             columns={[
-              { title: 'Enrollment ID', dataIndex: 'id', key: 'id' },
-              { title: 'Course Code', dataIndex: 'courseId', key: 'course' },
-              { title: 'Class Code', dataIndex: 'classId', key: 'class' },
-              { title: 'Status', dataIndex: 'status', key: 'status', render: (value) => <Tag color={value === 'ACTIVE' ? 'green' : 'default'}>{value || 'ACTIVE'}</Tag> },
               {
-                title: '',
-                key: 'actions',
-                width: 54,
-                align: 'center',
-                render: (_, record) => (
+                accessorKey: 'id',
+                header: 'Enrollment ID',
+                cell: ({ row }) => row.original.id || row.original._id || row.original.enrollmentId || '—',
+              },
+              { accessorKey: 'courseId', header: 'Course Code' },
+              { accessorKey: 'classId', header: 'Class Code' },
+              {
+                accessorKey: 'status',
+                header: 'Status',
+                cell: ({ row }) => {
+                  const value = row.getValue('status');
+                  return <Tag color={value === 'ACTIVE' ? 'green' : 'default'}>{value || 'ACTIVE'}</Tag>;
+                },
+              },
+              {
+                id: 'actions',
+                header: '',
+                cell: ({ row }) => (
                   <EntityActionMenu
-                    items={[
-                      { key: 'view', icon: <Eye size={14} />, label: 'View details' },
-                      { key: 'edit', icon: <Pencil size={14} />, label: 'Edit' },
-                      { type: 'divider' },
-                      { key: 'remove', icon: <UserMinus size={14} />, label: 'Remove from class', danger: true },
-                    ]}
-                    onAction={(key, meta) => onAction('enrollment', record, key, meta)}
+                    items={enrollmentActionItems}
+                    onAction={(key, meta) => onAction('enrollment', row.original, key, meta)}
                     ariaLabel="Enrollment actions"
                   />
                 ),
               },
             ]}
-            locale={{ emptyText: 'No enrollment records loaded. Enter a user ID, email, or student code and click Search.' }}
           />
         </Card>
       </Col>

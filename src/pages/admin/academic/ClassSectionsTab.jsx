@@ -1,12 +1,14 @@
-import { Button, Card, Col, Form, Input, Row, Select, Table, Tag } from 'antd';
-import { Eye, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Button, Card, Col, Form, Input, Row, Select, Tag } from 'antd';
+import { CheckCircle2, Eye, Pencil, Plus, Trash2 } from 'lucide-react';
 import EntityActionMenu from '../../../components/common/EntityActionMenu';
+import { DataTable } from '../../../components/ui/data-table';
 
 const { Option } = Select;
 
 const actionItems = [
   { key: 'view', icon: <Eye size={14} />, label: 'View details' },
   { key: 'edit', icon: <Pencil size={14} />, label: 'Edit' },
+  { key: 'complete', icon: <CheckCircle2 size={14} />, label: 'Mark class complete' },
   { type: 'divider' },
   { key: 'delete', icon: <Trash2 size={14} />, label: 'Delete', danger: true },
 ];
@@ -58,32 +60,33 @@ function ClassSectionsTab({
               </Option>
             ))}
           </Select>
-          <Table
-            scroll={{ x: 600 }}
-            dataSource={classSections}
-            rowKey="id"
-            size="small"
+          <DataTable
+            data={classSections || []}
             loading={academicLoading}
-            pagination={false}
+            emptyText={selectedCourseId ? 'No classes yet.' : 'Choose a course to view classes.'}
             columns={[
-              { title: 'Class Code', dataIndex: 'classId', key: 'classId' },
-              { title: 'Mentor', dataIndex: 'teacherId', key: 'teacher' },
-              { title: 'Status', dataIndex: 'status', key: 'status', render: (value) => <Tag color={value === 'ACTIVE' ? 'green' : 'default'}>{value || 'ACTIVE'}</Tag> },
+              { accessorKey: 'classId', header: 'Class Code' },
+              { accessorKey: 'teacherId', header: 'Mentor' },
               {
-                title: '',
-                key: 'actions',
-                width: 54,
-                align: 'center',
-                render: (_, record) => (
+                accessorKey: 'status',
+                header: 'Status',
+                cell: ({ row }) => {
+                  const value = row.getValue('status');
+                  return <Tag color={value === 'ACTIVE' ? 'green' : 'default'}>{value || 'ACTIVE'}</Tag>;
+                },
+              },
+              {
+                id: 'actions',
+                header: '',
+                cell: ({ row }) => (
                   <EntityActionMenu
                     items={actionItems}
-                    onAction={(key, meta) => onAction('class', record, key, meta)}
+                    onAction={(key, meta) => onAction('class', row.original, key, meta)}
                     ariaLabel="Class section actions"
                   />
                 ),
               },
             ]}
-            locale={{ emptyText: selectedCourseId ? 'No classes yet' : 'Choose a course to view classes' }}
           />
         </Card>
       </Col>

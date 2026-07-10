@@ -1878,6 +1878,34 @@ spline-viewer {
     color: #059669;
 }
 
+.teacher-course-memory-strip {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+    margin: 12px 0 14px;
+}
+
+.teacher-course-memory-strip > div {
+    display: grid;
+    gap: 2px;
+    padding: 10px 12px;
+    border: 1px solid var(--color-card-border);
+    border-radius: 10px;
+    background: var(--color-surface);
+}
+
+.teacher-course-memory-strip strong {
+    color: var(--color-text);
+    font-size: 0.98rem;
+    line-height: 1.2;
+}
+
+.teacher-course-memory-strip span {
+    color: var(--color-text-muted);
+    font-size: 0.74rem;
+    font-weight: 700;
+}
+
 .heatmap-container--teacher {
     max-height: none;
     overflow: visible;
@@ -2010,12 +2038,17 @@ spline-viewer {
 }
 
 @media (max-width: 1100px) {
+    .teacher-course-memory-strip {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
     .teacher-gap-columns {
         grid-template-columns: 1fr;
     }
 }
 
 @media (max-width: 720px) {
+    .teacher-course-memory-strip,
     .teacher-gap-summary {
         grid-template-columns: 1fr;
     }
@@ -5135,9 +5168,31 @@ body:has(.app-container.dark) .sidebar-nav-tooltip.ant-tooltip .ant-tooltip-arro
     margin-top: 8px;
 }
 
-.learning-plan-item.ant-list-item {
+.learning-plan-list,
+.learning-suggestion-list {
+    display: grid;
+}
+
+.learning-plan-item {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
     align-items: flex-start;
     padding: 16px 0;
+    border-bottom: 1px solid #F3F4F6;
+}
+
+.learning-plan-item:last-child {
+    border-bottom: 0;
+}
+
+.learning-plan-item-main {
+    min-width: 0;
+    flex: 1;
+}
+
+.learning-plan-item-actions {
+    flex: 0 0 auto;
 }
 
 .learning-plan-detail {
@@ -5155,13 +5210,19 @@ body:has(.app-container.dark) .sidebar-nav-tooltip.ant-tooltip .ant-tooltip-arro
     margin-top: 4px;
 }
 
-.learning-suggestion-item.ant-list-item {
+.learning-suggestion-item {
+    display: flex;
     align-items: flex-start;
     gap: 16px;
     padding: 14px 0;
+    border-bottom: 1px solid #F3F4F6;
 }
 
-.learning-suggestion-item--pinned.ant-list-item {
+.learning-suggestion-item:last-child {
+    border-bottom: 0;
+}
+
+.learning-suggestion-item--pinned {
     margin: 0 0 8px;
     padding: 14px 12px;
     background: #FFF7ED;
@@ -5269,7 +5330,7 @@ body:has(.app-container.dark) .sidebar-nav-tooltip.ant-tooltip .ant-tooltip-arro
     color: #A3A3A3;
 }
 
-.app-container.dark .learning-suggestion-item--pinned.ant-list-item {
+.app-container.dark .learning-suggestion-item--pinned {
     background: #1C130B;
     border-color: #4A2A12;
 }
@@ -5363,7 +5424,7 @@ body:has(.app-container.dark) .sidebar-nav-tooltip.ant-tooltip .ant-tooltip-arro
         flex-direction: column;
     }
 
-    .learning-suggestion-item.ant-list-item {
+    .learning-suggestion-item {
         flex-direction: column;
     }
 
@@ -5596,6 +5657,33 @@ body.theme-dark .app-confirm-card__btn--primary {
 
 .admin-academic-page .ant-table-thead > tr > th {
     white-space: nowrap;
+}
+
+.admin-academic-page .data-table-root {
+    width: 100%;
+    min-width: 0;
+}
+
+.admin-academic-page .data-table-card {
+    max-width: 100%;
+    overflow-x: auto;
+    border-color: #e5e7eb;
+    border-radius: 12px;
+    background: #ffffff;
+}
+
+.admin-academic-page .data-table-card table {
+    min-width: 640px;
+}
+
+.admin-academic-page .data-table-card th {
+    white-space: nowrap;
+}
+
+.app-container.dark .admin-academic-page .data-table-card,
+body.theme-dark .admin-academic-page .data-table-card {
+    border-color: #2a2a2a;
+    background: #0d0d0d;
 }
 
 .admin-academic-search-row {

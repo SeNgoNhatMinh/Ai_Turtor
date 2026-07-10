@@ -1,10 +1,12 @@
-import { Button, Card, Col, Form, Input, InputNumber, Row, Table, Tag } from 'antd';
-import { Eye, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import { Button, Card, Col, Form, Input, InputNumber, Row, Tag } from 'antd';
+import { CheckCircle2, Eye, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import EntityActionMenu from '../../../components/common/EntityActionMenu';
+import { DataTable } from '../../../components/ui/data-table';
 
 const actionItems = [
   { key: 'view', icon: <Eye size={14} />, label: 'View details' },
   { key: 'edit', icon: <Pencil size={14} />, label: 'Edit' },
+  { key: 'complete', icon: <CheckCircle2 size={14} />, label: 'Mark course complete' },
   { type: 'divider' },
   { key: 'delete', icon: <Trash2 size={14} />, label: 'Delete', danger: true },
 ];
@@ -30,26 +32,28 @@ function CoursesTab({ form, courses, onCreate, onReload, onAction }) {
       </Col>
       <Col xs={24} md={14} style={{ minWidth: 0 }}>
         <Card title="Course List" hoverable extra={<Button size="small" onClick={onReload} icon={<RefreshCw size={14} />}>Reload</Button>}>
-          <Table
-            scroll={{ x: 700 }}
-            dataSource={courses}
-            rowKey="id"
-            size="small"
-            pagination={false}
+          <DataTable
+            data={courses || []}
+            emptyText="No courses yet."
             columns={[
-              { title: 'Code', dataIndex: 'courseId', key: 'id' },
-              { title: 'Name', dataIndex: 'courseName', key: 'name' },
-              { title: 'Credits', dataIndex: 'credits', key: 'credits', width: 80 },
-              { title: 'Status', dataIndex: 'status', key: 'status', render: (value) => <Tag color={value === 'ACTIVE' ? 'green' : 'default'}>{value}</Tag> },
+              { accessorKey: 'courseId', header: 'Code' },
+              { accessorKey: 'courseName', header: 'Name' },
+              { accessorKey: 'credits', header: 'Credits' },
               {
-                title: '',
-                key: 'actions',
-                width: 54,
-                align: 'center',
-                render: (_, record) => (
+                accessorKey: 'status',
+                header: 'Status',
+                cell: ({ row }) => {
+                  const value = row.getValue('status');
+                  return <Tag color={value === 'ACTIVE' ? 'green' : 'default'}>{value || 'ACTIVE'}</Tag>;
+                },
+              },
+              {
+                id: 'actions',
+                header: '',
+                cell: ({ row }) => (
                   <EntityActionMenu
                     items={actionItems}
-                    onAction={(key, meta) => onAction('course', record, key, meta)}
+                    onAction={(key, meta) => onAction('course', row.original, key, meta)}
                     ariaLabel="Course actions"
                   />
                 ),

@@ -94,7 +94,7 @@ function CourseMaterialsTab({
           title="Shared Course Materials"
           hoverable
           style={{ overflow: 'hidden' }}
-          bodyStyle={{ overflowX: 'auto', padding: '16px' }}
+          styles={{ body: { overflowX: 'auto', padding: '16px' } }}
           extra={<Button size="small" onClick={onReload} icon={<RefreshCw size={14} />} disabled={!materialCourseId}>Reload</Button>}
         >
           {materialsLoading && courseMaterials.length === 0 ? (

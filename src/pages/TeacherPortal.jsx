@@ -163,6 +163,7 @@ function TeacherPortal({
     <>
       {activeTab === 'teacher-classes' && (
         <TeacherClassesTab
+          courseId={courseId}
           classId={classId}
           setClassId={setClassId}
           classesList={classesList}

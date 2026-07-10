@@ -4,6 +4,11 @@ import { getUserFacingError } from '../services/apiClient';
 import { asArray, normalizeSession, pairMessages } from '../services/normalizers';
 import { N8N_ENABLED } from '../services/n8nClient';
 import { n8nService } from '../services/n8nService';
+import {
+  AI_SERVICE_ERROR_MESSAGE,
+  buildAiServiceErrorMessage,
+  isAiServiceErrorText,
+} from '../utils/errorMessages';
 
 const getSessionActivityTime = (session) => {
   const value = session?.lastMessageAt || session?.updatedAt || session?.createdAt;
@@ -35,30 +40,6 @@ const countQuestionsInMessages = (items) => (
   Array.isArray(items)
     ? items.filter((message) => String(message?.question || '').trim()).length
     : 0
-);
-
-const AI_SERVICE_ERROR_PATTERNS = [
-  /chưa thể gọi dịch vụ llm/i,
-  /llm call failed/i,
-  /request timed out/i,
-  /ai tutor service is temporarily unavailable/i,
-];
-
-const AI_SERVICE_ERROR_MESSAGE = [
-  'AI Tutor could not reach the language model right now.',
-  '',
-  'You can retry this question in a moment or ask a mentor for help.',
-].join('\n');
-
-const isAiServiceErrorText = (value) => {
-  const text = String(value || '');
-  return AI_SERVICE_ERROR_PATTERNS.some((pattern) => pattern.test(text));
-};
-
-const buildAiServiceErrorMessage = (fallback = '') => (
-  isAiServiceErrorText(fallback) || !fallback
-    ? AI_SERVICE_ERROR_MESSAGE
-    : fallback
 );
 
 export function useStudentChatController({

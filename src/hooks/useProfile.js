@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiService } from '../services/api';
 import { message } from 'antd';
+import { getUserFacingError } from '../services/apiClient';
 
 export function useProfile(userId) {
   const queryClient = useQueryClient();
@@ -18,7 +19,7 @@ export function useProfile(userId) {
       queryClient.invalidateQueries({ queryKey: ['profile', userId] });
     },
     onError: (error) => {
-      message.error(error?.message || 'Failed to update profile');
+      message.error(getUserFacingError(error, 'Failed to update profile'));
     },
   });
 
@@ -28,7 +29,7 @@ export function useProfile(userId) {
       message.success('Password changed successfully');
     },
     onError: (error) => {
-      message.error(error?.message || 'Failed to change password');
+      message.error(getUserFacingError(error, 'Failed to change password'));
     },
   });
 

@@ -2,7 +2,7 @@ import React, { Suspense, lazy, useState, useEffect } from 'react';
 import { Form, Tabs } from 'antd';
 import { apiService } from '../../services/api';
 import { getUserFacingError } from '../../services/apiClient';
-import { closeActiveConfirm } from '../../components/common/confirmDialog';
+import { closeActiveConfirm, confirmAction } from '../../components/common/confirmDialog';
 import ClassSectionsTab from './academic/ClassSectionsTab';
 import CourseMaterialsTab from './academic/CourseMaterialsTab';
 import CoursesTab from './academic/CoursesTab';
@@ -236,11 +236,63 @@ function AdminAcademic({ triggerToast, currentUser }) {
     }
   };
 
+  const handleCompleteCourse = (record, anchorRect) => {
+    const courseId = getCourseCode(record);
+    if (!courseId) {
+      triggerToast('This course is missing an ID. Please reload and try again.');
+      return;
+    }
+    confirmAction({
+      title: 'Mark course complete?',
+      content: 'This marks the course, its classes, and enrollments as completed for routing and reporting.',
+      okText: 'Mark complete',
+      anchorRect,
+      onOk: async () => {
+        try {
+          await apiService.completeCourse(courseId);
+          triggerToast('Course marked complete.');
+          await loadCourses();
+          if (selectedCourseId === courseId) {
+            await loadClassSections(courseId);
+          }
+        } catch (error) {
+          triggerToast(getUserFacingError(error, 'Unable to mark course complete.'));
+        }
+      },
+    });
+  };
+
+  const handleCompleteClassSection = (record, anchorRect) => {
+    const courseId = record?.courseId || selectedCourseId;
+    const classId = getClassCode(record);
+    if (!courseId || !classId) {
+      triggerToast('This class section is missing course/class ID. Please reload and try again.');
+      return;
+    }
+    confirmAction({
+      title: 'Mark class complete?',
+      content: 'This marks the class section and its enrollments as completed.',
+      okText: 'Mark complete',
+      anchorRect,
+      onOk: async () => {
+        try {
+          await apiService.completeClassSection(courseId, classId);
+          triggerToast('Class section marked complete.');
+          await loadClassSections(courseId);
+        } catch (error) {
+          triggerToast(getUserFacingError(error, 'Unable to mark class complete.'));
+        }
+      },
+    });
+  };
+
   const handleAcademicAction = (type, record, key, meta) => {
     if (key === 'view' || key === 'edit') {
       openEntityModal(type, key, record);
       return;
     }
+    if (type === 'course' && key === 'complete') handleCompleteCourse(record, meta?.anchorRect);
+    if (type === 'class' && key === 'complete') handleCompleteClassSection(record, meta?.anchorRect);
     if (type === 'semester' && key === 'delete') handleDeleteSemester(record, meta?.anchorRect);
     if (type === 'course' && key === 'delete') handleDeleteCourse(record, meta?.anchorRect);
     if (type === 'class' && key === 'delete') handleDeleteClassSection(record, meta?.anchorRect);

@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
-import { Select, Space, Typography, Button } from 'antd';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { Select, Space, Typography } from 'antd';
 import { SendOutlined, StopOutlined, PushpinOutlined, CloseOutlined } from '@ant-design/icons';
 import RobotHeadMascot from '../../components/RobotHeadMascot';
 import AiAnswer from '../../components/AiAnswer';
@@ -11,6 +11,8 @@ import PromptStarters from './PromptStarters';
 import { FEEDBACK_ACTIONS, getFeedbackAction } from '../../constants/answerReview';
 import { normalizeReviewMode, validateChatInput, validateFeedbackText } from '../../utils/validators';
 import { buildMaterialSourceMap } from '../../utils/sourceLabels';
+import { apiService } from '../../services/api';
+import { getUserFacingError } from '../../services/apiClient';
 import './ChatWorkspace.css';
 
 const { Title, Text } = Typography;
@@ -44,14 +46,50 @@ const getMessageKey = (message, index) => {
   return `message-${index}`;
 };
 
-const getPinnedStorageKey = (userId, sessionId) => {
+const getMessagePreview = (message) => {
+  const text = message?.content || message?.question || message?.answer || '';
+  return text.length > 82 ? `${text.slice(0, 82)}...` : text;
+};
+
+const getLegacyPinnedStorageKey = (userId, sessionId) => {
   if (!userId || !sessionId) return '';
   return `ai-tutor:pinned-chat-messages:${userId}:${sessionId}`;
 };
 
-const getMessagePreview = (message) => {
-  const text = message?.question || message?.answer || '';
-  return text.length > 82 ? `${text.slice(0, 82)}...` : text;
+const getPinTargetId = (message) => (
+  message?.assistantMessageId
+  || message?.aiMessageId
+  || message?.responseMessageId
+  || message?.messageId
+  || message?.id
+  || ''
+);
+
+const getPinnedMessageId = (message) => (
+  message?.messageId
+  || message?.id
+  || message?._id
+  || ''
+);
+
+const normalizePinnedMessages = (data) => {
+  const list = Array.isArray(data)
+    ? data
+    : Array.isArray(data?.messages)
+      ? data.messages
+      : Array.isArray(data?.content)
+        ? data.content
+        : [];
+
+  return list
+    .map((item) => ({
+      ...item,
+      messageId: getPinnedMessageId(item),
+      content: item?.content || item?.answer || item?.question || item?.message || '',
+      role: item?.role || 'ASSISTANT',
+      pinnedAt: item?.pinnedAt || item?.updatedAt || item?.createdAt || '',
+    }))
+    .filter((item) => item.messageId);
 };
 
 function ChatWorkspace({
@@ -90,31 +128,30 @@ function ChatWorkspace({
   const [feedbackAction, setFeedbackAction] = useState(null);
   const [feedbackText, setFeedbackText] = useState('');
   const [isFeedbackSubmitting, setIsFeedbackSubmitting] = useState(false);
-  const [pinnedMessageKeys, setPinnedMessageKeys] = useState([]);
+  const [pinnedMessagesFromServer, setPinnedMessagesFromServer] = useState([]);
+  const [pinningMessageId, setPinningMessageId] = useState('');
   const [highlightedMessageKey, setHighlightedMessageKey] = useState('');
 
   const textareaRef = useRef(null);
   const materialSourceMap = useMemo(() => buildMaterialSourceMap(courseMaterials), [courseMaterials]);
 
-  useEffect(() => {
-    const storageKey = getPinnedStorageKey(userId, activeSessionId);
-    if (!storageKey) {
-      setPinnedMessageKeys([]);
+  const loadPinnedMessages = useCallback(async () => {
+    if (!userId || !activeSessionId) {
+      setPinnedMessagesFromServer([]);
       return;
     }
     try {
-      const stored = JSON.parse(window.localStorage.getItem(storageKey) || '[]');
-      setPinnedMessageKeys(Array.isArray(stored) ? stored : []);
-    } catch {
-      setPinnedMessageKeys([]);
+      const data = await apiService.getPinnedMessages(activeSessionId, userId);
+      setPinnedMessagesFromServer(normalizePinnedMessages(data));
+    } catch (error) {
+      console.warn('Failed to load pinned chat messages:', error);
+      setPinnedMessagesFromServer([]);
     }
-  }, [userId, activeSessionId]);
+  }, [activeSessionId, userId]);
 
   useEffect(() => {
-    const storageKey = getPinnedStorageKey(userId, activeSessionId);
-    if (!storageKey) return;
-    window.localStorage.setItem(storageKey, JSON.stringify(pinnedMessageKeys));
-  }, [pinnedMessageKeys, userId, activeSessionId]);
+    loadPinnedMessages();
+  }, [loadPinnedMessages]);
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -135,14 +172,40 @@ function ChatWorkspace({
     setFeedbackText('');
   };
 
-  const togglePinnedMessage = (messageKey) => {
-    setPinnedMessageKeys((current) => (
-      current.includes(messageKey)
-        ? current.filter((key) => key !== messageKey)
-        : current.length >= 3
-          ? (triggerToast?.('Bạn chỉ có thể ghim tối đa 3 tin nhắn.'), current)
-          : [...current, messageKey]
-    ));
+  const pinnedMessageIdSet = useMemo(
+    () => new Set(pinnedMessagesFromServer.map((item) => item.messageId).filter(Boolean)),
+    [pinnedMessagesFromServer],
+  );
+
+  const togglePinnedMessage = async (message) => {
+    if (!userId || !activeSessionId) {
+      triggerToast?.('Please open a saved chat before pinning messages.');
+      return;
+    }
+    const messageId = getPinTargetId(message);
+    if (!messageId) {
+      triggerToast?.('This message is not ready to pin yet. Please reload the chat and try again.');
+      return;
+    }
+    const isPinned = pinnedMessageIdSet.has(messageId);
+    if (!isPinned && pinnedMessagesFromServer.length >= 3) {
+      triggerToast?.('You can pin up to 3 messages.');
+      return;
+    }
+    setPinningMessageId(messageId);
+    try {
+      if (isPinned) {
+        await apiService.unpinChatMessage(activeSessionId, messageId, userId);
+      } else {
+        await apiService.pinChatMessage(activeSessionId, messageId, userId);
+      }
+      await loadPinnedMessages();
+      triggerToast?.(isPinned ? 'Message unpinned.' : 'Message pinned.');
+    } catch (error) {
+      triggerToast?.(getUserFacingError(error, isPinned ? 'Unable to unpin this message.' : 'Unable to pin this message.'));
+    } finally {
+      setPinningMessageId('');
+    }
   };
 
   const jumpToPinnedMessage = (messageKey) => {
@@ -256,10 +319,68 @@ function ChatWorkspace({
       { value: 'SE1841', label: 'Class SE1841' },
     ];
   }, [classOptions]);
-  const pinnedMessages = safeMessages
-    .map((message, index) => ({ message, index, key: getMessageKey(message, index) }))
-    .filter((item) => pinnedMessageKeys.includes(item.key))
-    .slice(0, 3);
+  const messageLookupById = useMemo(() => {
+    const lookup = new Map();
+    safeMessages.forEach((message, index) => {
+      const key = getMessageKey(message, index);
+      [
+        message?.assistantMessageId,
+        message?.userMessageId,
+        message?.messageId,
+        message?.id,
+      ].filter(Boolean).forEach((id) => {
+        lookup.set(String(id), { message, index, key });
+      });
+    });
+    return lookup;
+  }, [safeMessages]);
+  const pinnedMessages = pinnedMessagesFromServer
+    .slice(0, 3)
+    .map((pinned) => {
+      const matched = messageLookupById.get(String(pinned.messageId));
+      return {
+        pinned,
+        message: matched?.message || pinned,
+        key: matched?.key || `pinned-${pinned.messageId}`,
+        canJump: Boolean(matched?.key),
+      };
+    });
+
+  useEffect(() => {
+    if (!userId || !activeSessionId || safeMessages.length === 0) return;
+    const storageKey = getLegacyPinnedStorageKey(userId, activeSessionId);
+    if (!storageKey) return;
+
+    let legacyKeys = [];
+    try {
+      legacyKeys = JSON.parse(window.localStorage.getItem(storageKey) || '[]');
+    } catch {
+      legacyKeys = [];
+    }
+    if (!Array.isArray(legacyKeys) || legacyKeys.length === 0) return;
+
+    let cancelled = false;
+    const migrateLegacyPins = async () => {
+      try {
+        for (const legacyKey of legacyKeys.slice(0, 3)) {
+          const matched = safeMessages.find((message, index) => getMessageKey(message, index) === legacyKey);
+          const messageId = getPinTargetId(matched);
+          if (messageId && !pinnedMessageIdSet.has(messageId)) {
+            await apiService.pinChatMessage(activeSessionId, messageId, userId);
+          }
+        }
+        window.localStorage.removeItem(storageKey);
+        if (!cancelled) await loadPinnedMessages();
+      } catch (error) {
+        console.warn('Legacy pinned message migration failed:', error);
+      }
+    };
+
+    migrateLegacyPins();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeSessionId, loadPinnedMessages, pinnedMessageIdSet, safeMessages, userId]);
   const selectedCourseValue = safeCourseOptions.some((item) => item.value === courseId) ? courseId : undefined;
   const selectedClassValue = safeClassOptions.some((item) => item.value === classId) ? classId : undefined;
   const questionCount = Math.max(0, Math.min(CHAT_TURN_LIMIT, Number(activeSessionQuestionCount) || 0));
@@ -350,13 +471,13 @@ function ChatWorkspace({
             <em>{pinnedMessages.length}/3</em>
           </div>
           <div className="chat-pinned-topbar-list">
-            {pinnedMessages.map(({ message, key }) => (
+            {pinnedMessages.map(({ pinned, message, key, canJump }) => (
               <button
-                key={key}
+                key={pinned.messageId}
                 type="button"
-                className="chat-pinned-topbar-item"
-                onClick={() => jumpToPinnedMessage(key)}
-                title="Chuyển đến tin nhắn đã ghim"
+                className={`chat-pinned-topbar-item ${!canJump ? 'chat-pinned-topbar-item--disabled' : ''}`}
+                onClick={() => canJump && jumpToPinnedMessage(key)}
+                title={canJump ? 'Chuyển đến tin nhắn đã ghim' : 'Pinned message is not in the loaded message window'}
               >
                 <span>{getMessagePreview(message) || 'Tin nhắn đã ghim'}</span>
                 <CloseOutlined
@@ -364,7 +485,7 @@ function ChatWorkspace({
                   title="Bỏ ghim tin nhắn"
                   onClick={(event) => {
                     event.stopPropagation();
-                    togglePinnedMessage(key);
+                    togglePinnedMessage({ assistantMessageId: pinned.messageId });
                   }}
                 />
               </button>
@@ -385,7 +506,9 @@ function ChatWorkspace({
           ) : (
             safeMessages.map((message, index) => {
               const messageKey = getMessageKey(message, index);
-              const isPinned = pinnedMessageKeys.includes(messageKey);
+              const pinTargetId = getPinTargetId(message);
+              const isPinned = Boolean(pinTargetId && pinnedMessageIdSet.has(pinTargetId));
+              const isPinning = Boolean(pinTargetId && pinningMessageId === pinTargetId);
               return (
                 <div
                   key={messageKey}
@@ -435,7 +558,8 @@ function ChatWorkspace({
                               feedbackAction={feedbackAction}
                               feedbackText={feedbackText}
                               setFeedbackText={setFeedbackText}
-                              onTogglePin={() => togglePinnedMessage(messageKey)}
+                              onTogglePin={() => togglePinnedMessage(message)}
+                              isPinning={isPinning}
                               onHelpful={() => submitQuickReview(message, 'helpful')}
                               onOpenFeedback={openFeedbackForm}
                               onCloseFeedback={closeFeedbackForm}

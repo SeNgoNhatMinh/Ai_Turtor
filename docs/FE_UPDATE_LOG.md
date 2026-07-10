@@ -26,6 +26,95 @@ Copy template này lên đầu phần `History` sau mỗi lần cập nhật:
 
 ## History
 
+## [2026-07-10] Student Portal Runtime Refactor Phase 1
+
+- Reduced `src/pages/StudentPortal.jsx` from 486 lines to 282 lines.
+- Moved student chat tab behavior into `src/pages/student/hooks/useStudentChatTabController.js`:
+  - course switch confirmation
+  - chat input/send/stop state
+  - answer action handling
+  - chat history rename state
+  - source download handling
+- Moved Learning Progress actions into `src/pages/student/hooks/useStudentLearningActions.js`:
+  - auto dashboard refresh on Learning Progress tab
+  - `Study now`
+  - `Create quiz from suggestion`
+- Moved assignment submission local state into `src/pages/student/hooks/useStudentMaterialsController.js`.
+- Removed dead code review state/props from `StudentPortal.jsx`; Code Review is no longer exposed as a student navigation tab.
+- `StudentPortal.jsx` now passes lint in isolation.
+
+**Tested**
+- `npm run build`: pass.
+- `npx eslint src/pages/StudentPortal.jsx src/pages/student/hooks/*.js --quiet`: pass.
+- `npx eslint . --quiet --format json`: 83 legacy errors remain outside the refactored StudentPortal shell.
+
+## [2026-07-10] App Shell Runtime Refactor Phase 1
+
+- Reduced `src/App.jsx` from a large mixed controller into a thinner runtime shell.
+- Moved toast state, code mentor flow, student assignments, course material actions, admin runtime actions, and teacher runtime actions into dedicated hooks.
+- Added `src/hooks/useTeacherRuntimeController.js` for teacher dashboard, submissions, support inbox, answer reviews, quiz review, and knowledge candidate actions.
+- Removed duplicate teacher handlers from `App.jsx`; teacher portal now receives runtime state/actions from the hook.
+- Fixed a legacy toast call in teacher quiz review so it uses the shared one-message toast API correctly.
+- `App.jsx` now builds cleanly and no longer appears in the current ESLint error summary.
+
+**Tested**
+- `npm run build`: pass.
+- `npx eslint . --quiet --format json`: 92 legacy errors remain in portal/component files, but the refactored app shell/hooks are clean.
+
+## [2026-07-10] Admin Academic Table Standardization
+
+- Standardized Admin Academic management tables to use the shared `DataTable` component.
+- Converted Courses, Class Sections, and Student Enrollments from Ant Design `Table` to the shared table used by Terms and Course Materials.
+- Added `loading` and `emptyText` support to `DataTable` so management screens can share consistent loading and empty states.
+- Added Academic table overflow/dark-mode shell styling for consistent layout across Terms, Courses, Classes, Enrollments, and Materials.
+- Kept existing CRUD/action menu behavior unchanged.
+
+**Tested**
+- `npm run build`: pass.
+
+## [2026-07-10] Frontend Audit Cleanup
+
+- Removed remaining visible Ant Design deprecation warnings in active screens:
+  - `Spin tip` -> `Spin description`.
+  - Student material cards `bodyStyle` -> `styles.body`.
+  - Replaced Ant `List` rendering in student support, learning progress, quiz result, and teacher quiz assignment screens with local semantic markup.
+- Switched Admin Users destructive actions from `Popconfirm` to the shared anchored `confirmDanger` dialog.
+- Switched legacy Admin Billing destructive actions to the same shared anchored `confirmDanger` dialog.
+- Added missing `zustand` dependency because existing `src/app/store/*` files import it.
+- Re-ran deprecated API scan; no `bodyStyle`, `dropdownStyle`, `Spin tip`, Ant `List`, `Modal.confirm`, `Popconfirm`, or `dangerouslySetInnerHTML` matches remain in `src`.
+- Re-ran lint audit: build is clean, but lint still has legacy React Compiler errors mainly in `App.jsx` and large portal files.
+
+**Tested**
+- `npm run build`: pass.
+
+## [2026-07-10] Safe Error Wrapping For BE And n8n Flows
+
+- Stopped showing direct `response.message` from n8n success responses in user toasts for answer review, teacher answer, and senior approve/reject flows.
+- Updated old `App.jsx` catch blocks to use `getUserFacingError(...)` for quiz review, student feedback, teacher answer, mentor review, senior review, and knowledge candidate actions.
+- Updated login errors to use the same user-facing API error helper.
+- Added `N8nError` shaping in `n8nClient`/`n8nService` with safe `userMessage` plus debug-only `rawMessage/details`.
+- n8n workflow errors remain console-debuggable while UI sees stable friendly copy or backend fallback results.
+- Added `utils/errorMessages.js` to detect technical/LLM/mojibake error text and replace it with safe user copy.
+- Hardened student chat controllers so raw LLM service failure text returned as a successful answer is shown as a retryable friendly AI bubble instead.
+- Wrapped older code review, assignment submit/download, teacher upload/grade, diagnostics, mentor import, and profile/password flows with safe user-facing errors.
+
+**Tested**
+- `npm run build`: pass.
+
+## [2026-07-10] Practice Quizzes UI/UX Refresh
+
+- Reworked the student `Practice Quizzes` screen into a clearer dashboard layout.
+- Added a hero section with course/class context and refresh action.
+- Added overview stat cards for assigned quizzes, in-progress quizzes, submitted quizzes, and latest activity.
+- Redesigned quiz generation as a guided 3-step flow: choose topic, refine topic, choose question count.
+- Added suggested topic chips from learning suggestions.
+- Replaced flat Ant List rendering for assigned/history quizzes with scannable quiz cards.
+- Improved empty states and quick actions for assigned quizzes and quiz history.
+- Kept existing quiz APIs and behavior unchanged.
+
+**Tested**
+- `npm run build`: pass.
+
 ## [2026-07-09] Inline Course Material Source Deduplication
 
 - Detected standalone source lines such as `Course material, filename.pdf` inside AI answers.
@@ -950,6 +1039,25 @@ Copy template này lên đầu phần `History` sau mỗi lần cập nhật:
 - `n8nService` normalize chat response `RAG_TUTOR/CODE/ESCALATE` về shape FE đang dùng.
 - Bỏ toast “n8n offline/fallback” cho user; chỉ log console và hiển thị kết quả cuối cùng từ backend fallback.
 - Quiz vẫn backend-direct, không nối `quiz-generate`/`quiz-submit` vì workflow n8n hiện còn response student quiz rỗng.
+
+**Tested**
+- `npm run build`: pass.
+
+## [2026-07-10] Demo API Coverage And Backend Pinned Chat
+
+- Chuyển pinned message trong Student Chat từ localStorage sang backend endpoints:
+  - `GET /api/ai/conversations/{conversationId}/pinned-messages`
+  - `PATCH /api/ai/conversations/{conversationId}/messages/{messageId}/pin`
+  - `DELETE /api/ai/conversations/{conversationId}/messages/{messageId}/pin`
+- Giữ giới hạn 3 pinned messages theo BE và hiển thị loading trên icon pin khi đang gọi API.
+- Thêm migration một lần từ localStorage pin cũ sang BE để không làm mất pin đã tạo trước khi cập nhật.
+- Thêm Admin Academic actions:
+  - `Mark course complete`
+  - `Mark class complete`
+- Các action complete dùng confirm dialog chung và gọi API lifecycle của BE.
+- Teacher `Assigned Classes` hiển thị thêm `Course Memory Signals` từ `GET /api/tutor/courses/{courseId}/memories`.
+- Cập nhật `docs/FE_API_COVERAGE.md` theo trạng thái hiện tại để chuẩn bị demo.
+- Đổi `CourseMaterialsTab` từ `bodyStyle` deprecated sang `styles.body`.
 
 **Tested**
 - `npm run build`: pass.

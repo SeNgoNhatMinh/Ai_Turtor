@@ -1,5 +1,8 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, CheckCircle2, Lightbulb, MessageSquare, RefreshCw, Target } from 'lucide-react';
+import { apiService } from '../../services/api';
+import { getUserFacingError } from '../../services/apiClient';
+import { asArray } from '../../services/normalizers';
 import { HEATMAP_CLASS } from './teacherPortalUtils';
 
 const normalizeGapLevel = (level) => {
@@ -20,6 +23,7 @@ const getTopicDescription = (level) => {
 };
 
 function TeacherClassesTab({
+  courseId,
   classId,
   setClassId,
   classesList = [],
@@ -29,6 +33,39 @@ function TeacherClassesTab({
   heatmapNodes = [],
   triggerToast,
 }) {
+  const [courseMemories, setCourseMemories] = useState([]);
+  const [courseMemoriesLoading, setCourseMemoriesLoading] = useState(false);
+
+  useEffect(() => {
+    if (!courseId) {
+      setCourseMemories([]);
+      return;
+    }
+
+    let cancelled = false;
+    const loadCourseMemories = async () => {
+      setCourseMemoriesLoading(true);
+      try {
+        const data = await apiService.getCourseMemories(courseId, classId);
+        if (!cancelled) {
+          setCourseMemories(asArray(data, 'memories', 'content', 'items'));
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setCourseMemories([]);
+          triggerToast?.(getUserFacingError(error, 'Unable to load course memory signals.'));
+        }
+      } finally {
+        if (!cancelled) setCourseMemoriesLoading(false);
+      }
+    };
+
+    loadCourseMemories();
+    return () => {
+      cancelled = true;
+    };
+  }, [classId, courseId, triggerToast]);
+
   const currentClass = classesList.find((item) => item.classCode === classId || item.classId === classId || item.id === classId);
   const normalizedHeatmap = heatmapNodes.map((node) => ({
     ...node,
@@ -40,6 +77,25 @@ function TeacherClassesTab({
   const strongTopics = normalizedHeatmap.filter((node) => node.normalizedLevel === 'strong');
   const otherTopics = normalizedHeatmap.filter((node) => node.normalizedLevel === 'low');
   const hasHeatmapData = normalizedHeatmap.length > 0;
+  const memoryStats = useMemo(() => {
+    const learned = new Set();
+    const weak = new Set();
+    let latest = '';
+    courseMemories.forEach((memory) => {
+      asArray(memory?.learnedTopics || memory?.strongTopics).forEach((topic) => learned.add(String(topic)));
+      asArray(memory?.weakTopics || memory?.weakAreas).forEach((topic) => weak.add(String(topic)));
+      const updatedAt = memory?.updatedAt || memory?.lastUpdatedAt || memory?.createdAt;
+      if (updatedAt && (!latest || new Date(updatedAt) > new Date(latest))) {
+        latest = updatedAt;
+      }
+    });
+    return {
+      memoryCount: courseMemories.length,
+      learnedCount: learned.size,
+      weakCount: weak.size,
+      latest,
+    };
+  }, [courseMemories]);
 
   const renderTopicCard = (node, i) => (
     <div
@@ -127,6 +183,25 @@ function TeacherClassesTab({
               <strong>{strongTopics.length}</strong>
               <span>Strong</span>
             </div>
+          </div>
+        </div>
+
+        <div className="teacher-course-memory-strip">
+          <div>
+            <strong>{courseMemoriesLoading ? '...' : memoryStats.memoryCount}</strong>
+            <span>Memory records</span>
+          </div>
+          <div>
+            <strong>{courseMemoriesLoading ? '...' : memoryStats.learnedCount}</strong>
+            <span>Learned topics</span>
+          </div>
+          <div>
+            <strong>{courseMemoriesLoading ? '...' : memoryStats.weakCount}</strong>
+            <span>Weak topics</span>
+          </div>
+          <div>
+            <strong>{memoryStats.latest ? new Date(memoryStats.latest).toLocaleDateString('en-US') : '—'}</strong>
+            <span>Last memory update</span>
           </div>
         </div>
 

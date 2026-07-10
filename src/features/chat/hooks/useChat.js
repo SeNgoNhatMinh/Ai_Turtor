@@ -7,6 +7,10 @@ import { n8nService } from '../../../services/n8nService';
 import { N8N_ENABLED } from '../../../services/n8nClient';
 import { pairMessages, asArray } from '../../../services/normalizers';
 import { getUserFacingError } from '../../../services/apiClient';
+import {
+  buildAiServiceErrorMessage,
+  isAiServiceErrorText,
+} from '../../../utils/errorMessages';
 
 export function useChat() {
   const getStudentUserId = useAuthStore(state => state.getStudentUserId);
@@ -96,9 +100,12 @@ export function useChat() {
 
       setMessages(prev => {
         const updated = [...prev];
+        const answerText = String(data.answer || '');
+        const isAiServiceError = isAiServiceErrorText(answerText);
         updated[updated.length - 1] = {
           question: text,
-          answer: data.answer,
+          answer: isAiServiceError ? buildAiServiceErrorMessage(answerText) : answerText,
+          rawAnswer: answerText,
           id: data.assistantMessageId || data.messageId || data.aiMessageId || data.responseMessageId,
           messageId: data.assistantMessageId || data.messageId || data.aiMessageId || data.responseMessageId,
           assistantMessageId: data.assistantMessageId || data.messageId || data.aiMessageId || data.responseMessageId,
@@ -108,6 +115,8 @@ export function useChat() {
           confidence: data.confidence,
           sources: data.sources || [],
           questionEscalationId: data.questionEscalationId || data.escalationId || null,
+          aiServiceError: isAiServiceError,
+          retryable: isAiServiceError,
           pending: false
         };
         return updated;
