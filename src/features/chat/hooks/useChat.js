@@ -7,6 +7,10 @@ import { n8nService } from '../../../services/n8nService';
 import { N8N_ENABLED } from '../../../services/n8nClient';
 import { pairMessages, asArray } from '../../../services/normalizers';
 import { getUserFacingError } from '../../../services/apiClient';
+import {
+  buildAiServiceErrorMessage,
+  isAiServiceErrorText,
+} from '../../../utils/errorMessages';
 
 export function useChat() {
   const getStudentUserId = useAuthStore(state => state.getStudentUserId);
@@ -62,18 +66,19 @@ export function useChat() {
             courseId: courseId,
             classId: classId,
             message: text,
+            question: text,
             codeSnippet: codeSnippet || '',
             conversationId: activeSessionId || ''
           };
           data = await n8nService.sendStudentChat(n8nPayload);
         } catch (n8nError) {
-          triggerToast('n8n offline. Falling back to local AI...');
+          console.warn('n8n request failed, trying backend API fallback:', n8nError);
           const payload = { question: text, message: text, codeSnippet: codeSnippet || null, courseId, classId, conversationId: activeSessionId || null };
-          data = await apiService.sendAiQuery(payload, userId);
+          data = await apiService.sendAiQuery(payload, userId, currentUser?.fullName || '', currentUser?.email || '');
         }
       } else {
         const payload = { question: text, message: text, codeSnippet: codeSnippet || null, courseId, classId, conversationId: activeSessionId || null };
-        data = await apiService.sendAiQuery(payload, userId);
+        data = await apiService.sendAiQuery(payload, userId, currentUser?.fullName || '', currentUser?.email || '');
       }
 
       const responseConversationId = data.conversationId || data.sessionId || activeSessionId;
@@ -95,9 +100,12 @@ export function useChat() {
 
       setMessages(prev => {
         const updated = [...prev];
+        const answerText = String(data.answer || '');
+        const isAiServiceError = isAiServiceErrorText(answerText);
         updated[updated.length - 1] = {
           question: text,
-          answer: data.answer,
+          answer: isAiServiceError ? buildAiServiceErrorMessage(answerText) : answerText,
+          rawAnswer: answerText,
           id: data.assistantMessageId || data.messageId || data.aiMessageId || data.responseMessageId,
           messageId: data.assistantMessageId || data.messageId || data.aiMessageId || data.responseMessageId,
           assistantMessageId: data.assistantMessageId || data.messageId || data.aiMessageId || data.responseMessageId,
@@ -107,6 +115,8 @@ export function useChat() {
           confidence: data.confidence,
           sources: data.sources || [],
           questionEscalationId: data.questionEscalationId || data.escalationId || null,
+          aiServiceError: isAiServiceError,
+          retryable: isAiServiceError,
           pending: false
         };
         return updated;

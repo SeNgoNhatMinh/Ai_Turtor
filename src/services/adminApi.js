@@ -46,4 +46,9 @@ export const adminApi = {
   updateEnrollment: apiService.updateEnrollment,
   deleteEnrollment: apiService.deleteEnrollment,
   removeStudentFromClass: apiService.removeStudentFromClass,
+  completeClassSection: apiService.completeClassSection,
+  completeCourse: apiService.completeCourse,
+  getHarnessLogs: apiService.getHarnessLogs,
+  getHarnessErrorLogs: apiService.getHarnessErrorLogs,
+  getTraceLogs: apiService.getTraceLogs,
 };

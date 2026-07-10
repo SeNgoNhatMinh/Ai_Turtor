@@ -12,6 +12,9 @@ export function useAuth() {
     setIsAuthenticating(true);
     try {
       const nextUser = await authApi.login(validation.value.email, validation.value.password);
+      if (nextUser.token) {
+        window.localStorage.setItem('ai_tutor_jwt', nextUser.token);
+      }
       setUser(nextUser);
       return nextUser;
     } finally {
@@ -24,13 +27,20 @@ export function useAuth() {
     if (!validation.ok) throw new Error(validation.message);
     setIsAuthenticating(true);
     try {
-      return await authApi.register(validation.value);
+      const nextUser = await authApi.register(validation.value);
+      if (nextUser.token) {
+        window.localStorage.setItem('ai_tutor_jwt', nextUser.token);
+      }
+      return nextUser;
     } finally {
       setIsAuthenticating(false);
     }
   }, []);
 
-  const logout = useCallback(() => setUser(null), []);
+  const logout = useCallback(() => {
+    window.localStorage.removeItem('ai_tutor_jwt');
+    setUser(null);
+  }, []);
 
   return { user, setUser, login, register, logout, isAuthenticating };
 }

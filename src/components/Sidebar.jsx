@@ -12,7 +12,13 @@ function Sidebar({ activeRole, activeTab, switchTab }) {
       key: item.key,
       icon: <Icon size={18} />,
       label: (
-        <Tooltip placement="right" title={item.description}>
+        <Tooltip
+          placement="right"
+          title={<span className="sidebar-tooltip-text">{item.description}</span>}
+          color="#FFFFFF"
+          overlayClassName="sidebar-nav-tooltip"
+          rootClassName="sidebar-nav-tooltip"
+        >
           <span>{item.label}</span>
         </Tooltip>
       ),
@@ -22,7 +28,13 @@ function Sidebar({ activeRole, activeTab, switchTab }) {
   return (
     <aside className={`main-sidebar ${collapsed ? 'main-sidebar--collapsed' : ''}`}>
       <div className="sidebar-topbar">
-        <Tooltip title={collapsed ? 'Open sidebar' : 'Close sidebar'} placement="right">
+        <Tooltip
+          title={<span className="sidebar-tooltip-text">{collapsed ? 'Open sidebar' : 'Close sidebar'}</span>}
+          placement="right"
+          color="#FFFFFF"
+          overlayClassName="sidebar-nav-tooltip"
+          rootClassName="sidebar-nav-tooltip"
+        >
           <Button
             className="sidebar-collapse-btn"
             type="text"

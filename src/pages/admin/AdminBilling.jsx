@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { Card, Table, Button, Form, Input, Select, Modal, Popconfirm, Tag, Space, Tabs, Typography } from 'antd';
+import { useState, useEffect } from 'react';
+import { Card, Table, Button, Form, Input, Select, Modal, Tag, Space, Tabs, Typography } from 'antd';
 import { CreditCard, Zap, RefreshCw, Plus, Trash2 } from 'lucide-react';
 import { apiService } from '../../services/api';
+import { confirmDanger } from '../../components/common/confirmDialog';
 
 const { Text } = Typography;
 const { Option } = Select;
@@ -42,6 +43,15 @@ function AdminBilling({ adminPlans = [], triggerToast }) {
     triggerToast('Subscription deleted.');
     setSubscriptions(prev => prev.filter(s => s.id !== subId));
   };
+  const confirmDelete = (event, { title, content, onOk }) => {
+    event.stopPropagation();
+    confirmDanger({
+      title,
+      content,
+      anchorRect: event.currentTarget?.getBoundingClientRect?.(),
+      onOk,
+    });
+  };
 
   // ── Columns ──────────────────────────────────────────────
   const planColumns = [
@@ -55,9 +65,17 @@ function AdminBilling({ adminPlans = [], triggerToast }) {
     {
       title: '', key: 'action', width: 50,
       render: (_, record) => (
-        <Popconfirm title="Delete this plan?" onConfirm={() => handleDeletePlan(record.id || record.code)}>
-          <Button type="link" danger size="small" icon={<Trash2 size={14} />} />
-        </Popconfirm>
+        <Button
+          type="link"
+          danger
+          size="small"
+          icon={<Trash2 size={14} />}
+          onClick={(event) => confirmDelete(event, {
+            title: 'Delete this plan?',
+            content: 'This removes the subscription plan from billing setup.',
+            onOk: () => handleDeletePlan(record.id || record.code),
+          })}
+        />
       )
     }
   ];
@@ -70,9 +88,17 @@ function AdminBilling({ adminPlans = [], triggerToast }) {
     {
       title: '', key: 'action', width: 50,
       render: (_, record) => (
-        <Popconfirm title="Delete this subscription?" onConfirm={() => handleDeleteSub(record.id)}>
-          <Button type="link" danger size="small" icon={<Trash2 size={14} />} />
-        </Popconfirm>
+        <Button
+          type="link"
+          danger
+          size="small"
+          icon={<Trash2 size={14} />}
+          onClick={(event) => confirmDelete(event, {
+            title: 'Delete this subscription?',
+            content: 'This removes the subscription assignment from the user.',
+            onOk: () => handleDeleteSub(record.id),
+          })}
+        />
       )
     }
   ];

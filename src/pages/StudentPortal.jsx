@@ -1,37 +1,12 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Button, Card, message } from 'antd';
-import { PanelLeft } from 'lucide-react';
-import ChatSessionsPanel from './student/ChatSessionsPanel';
-import ChatWorkspace from './student/ChatWorkspace';
 import LearningProgress from './student/LearningProgress';
 import MaterialsAssignments from './student/MaterialsAssignments';
-import MentorSupport from './student/MentorSupport';
-import MentorSelectModal from './student/MentorSelectModal';
 import PracticeQuizzes from './student/PracticeQuizzes';
-import PageHeader from '../components/common/PageHeader';
-import { confirmAction } from '../components/common/confirmDialog';
-import { uiCopy } from '../constants/uiCopy';
-import { normalizeEscalation } from '../services/normalizers';
-import { apiService } from '../services/api';
-import { getUserFacingError } from '../services/apiClient';
-import { validateChatInput, validateUploadFile } from '../utils/validators';
-
-const LIVE_SUPPORT_STATUSES = new Set(['IN_CHAT', 'ASSIGNED', 'ACTIVE']);
-
-const isLiveSupportStatus = (status) => LIVE_SUPPORT_STATUSES.has(String(status || '').toUpperCase());
-
-const getSupportMessageTime = (message) => {
-  const value = message?.sentAt || message?.timestamp || message?.createdAt;
-  const time = new Date(value).getTime();
-  return Number.isFinite(time) ? time : null;
-};
-
-const normalizeSupportHistory = (history) => {
-  const list = Array.isArray(history) ? history : [];
-  const hasTimestamps = list.some((item) => getSupportMessageTime(item) !== null);
-  if (!hasTimestamps) return [...list].reverse();
-  return [...list].sort((a, b) => (getSupportMessageTime(a) ?? 0) - (getSupportMessageTime(b) ?? 0));
-};
+import StudentChatTab from './student/StudentChatTab';
+import StudentSupportTab from './student/StudentSupportTab';
+import { useStudentSupport } from '../hooks/useStudentSupport';
+import { useStudentChatTabController } from './student/hooks/useStudentChatTabController';
+import { useStudentLearningActions } from './student/hooks/useStudentLearningActions';
+import { useStudentMaterialsController } from './student/hooks/useStudentMaterialsController';
 
 function StudentPortal({
   activeTab,
@@ -59,13 +34,12 @@ function StudentPortal({
   handleRenameSession,
   handleSendQuery,
   handleStopAiGeneration,
-  codeMentorDiagnostics,
-  isCodeAnalyzing,
-  handleCodeMentorQuery,
+  openLearnedSuggestionResponse,
   assignments,
   selectedAssignment,
   setSelectedAssignment,
   handleStudentSubmit,
+  onDownloadAssignment,
   suggestions,
   isSuggesting,
   refreshSuggestions,
@@ -84,446 +58,129 @@ function StudentPortal({
   courseMaterials = [],
   onDownloadMaterial,
 }) {
-  const [chatInput, setChatInput] = useState('');
-  const [codeLanguage, setCodeLanguage] = useState('java');
-  const [codeSnippet, setCodeSnippet] = useState('');
-  const [avatarEmotion, setAvatarEmotion] = useState('idle');
-  const [activeSideTab, setActiveSideTab] = useState('tab-code-review');
-  const [studentSubmissionFile, setStudentSubmissionFile] = useState(null);
-  const [studentSubmissionNote, setStudentSubmissionNote] = useState('');
-  const [editingSessionId, setEditingSessionId] = useState(null);
-  const [editingSessionTitle, setEditingSessionTitle] = useState('');
-  const [isAiLoading, setIsAiLoading] = useState(false);
+  const {
+    escalations,
+    selectedEscalation,
+    escChatMessages,
+    escChatInput,
+    setEscChatInput,
+    escMentors,
+    escModalVisible,
+    setEscModalVisible,
+    selectedMentorForEsc,
+    setSelectedMentorForEsc,
+    isEscalationsLoading,
+    isEscChatSending,
+    escalationsError,
+    chatUnreadCount,
+    chatRoomDetail,
+    escMessagesEndRef,
+    loadEscalations,
+    handleSelectEscalation,
+    handleCloseSupportChat,
+    onSendEscalationMsg,
+    onSelectMentor,
+    handleOpenMentorSelect,
+  } = useStudentSupport({
+    activeTab,
+    userId,
+    onMarkChatRead,
+    onCloseChat,
+    onGetChatDetail,
+  });
 
-  const [escalations, setEscalations] = useState([]);
-  const [selectedEscalation, setSelectedEscalation] = useState(null);
-  const [escChatMessages, setEscChatMessages] = useState([]);
-  const [escChatInput, setEscChatInput] = useState('');
-  const [escMentors, setEscMentors] = useState([]);
-  const [escModalVisible, setEscModalVisible] = useState(false);
-  const [selectedMentorForEsc, setSelectedMentorForEsc] = useState(null);
-  const [isEscalationsLoading, setIsEscalationsLoading] = useState(false);
-  const [isEscChatSending, setIsEscChatSending] = useState(false);
-  const [escalationsError, setEscalationsError] = useState('');
-  const [chatUnreadCount, setChatUnreadCount] = useState(0);
-  const [chatRoomDetail, setChatRoomDetail] = useState(null);
-  const [isHistoryDrawerOpen, setIsHistoryDrawerOpen] = useState(false);
-  const [quizInitialSuggestion, setQuizInitialSuggestion] = useState('');
+  const chatController = useStudentChatTabController({
+    courseId,
+    setCourseId,
+    classId,
+    courseOptions,
+    classOptions,
+    sessions,
+    activeSessionId,
+    messages,
+    activeSessionMaxTurnsReached,
+    turnLimitNotice,
+    dismissTurnLimitNotice,
+    resetChat,
+    handleSelectSession,
+    handleRenameSession,
+    handleSendQuery,
+    handleStopAiGeneration,
+    switchTab,
+    userId,
+    studentDashboard,
+    loadEscalations,
+    triggerToast,
+  });
 
-  const messagesEndRef = useRef(null);
-  const escMessagesEndRef = useRef(null);
+  const {
+    quizInitialSuggestion,
+    handleStudySuggestion,
+    handleCreateQuizFromSuggestion,
+  } = useStudentLearningActions({
+    activeTab,
+    userId,
+    courseId,
+    classId,
+    activeSessionId,
+    switchTab,
+    loadStudentDashboard,
+    openLearnedSuggestionResponse,
+    sendText: chatController.sendText,
+    triggerToast,
+  });
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-
-  useEffect(() => {
-    escMessagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [escChatMessages]);
-
-  const loadChatUnread = async () => {
-    try {
-      const data = await apiService.getChatUnread(userId);
-      setChatUnreadCount(data?.unreadCount ?? data?.count ?? (Array.isArray(data?.rooms) ? data.rooms.length : 0));
-    } catch {
-      setChatUnreadCount(0);
-    }
-  };
-
-  const loadEscalations = async () => {
-    setIsEscalationsLoading(true);
-    setEscalationsError('');
-    try {
-      const data = await apiService.getEscalationHistory(userId);
-      const items = (Array.isArray(data) ? data : []).map(normalizeEscalation);
-      setEscalations(items);
-      if (selectedEscalation && !items.some((item) => item.id === selectedEscalation.id)) {
-        setSelectedEscalation(null);
-      }
-    } catch (error) {
-      setEscalations([]);
-      setEscalationsError(getUserFacingError(error, 'Unable to load support requests.'));
-    } finally {
-      setIsEscalationsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (activeTab === 'student-escalation') {
-      loadEscalations();
-      loadChatUnread();
-    }
-  }, [activeTab]);
-
-  useEffect(() => {
-    if (activeTab === 'student-memory') {
-      loadStudentDashboard?.();
-    }
-  }, [activeTab, courseId]);
-
-
-  const handleSelectEscalation = async (escalation) => {
-    setSelectedEscalation(escalation);
-    setChatRoomDetail(null);
-    if (isLiveSupportStatus(escalation.status) && escalation.chatRoomId) {
-      try {
-        if (onMarkChatRead) await onMarkChatRead(escalation.chatRoomId);
-        if (onGetChatDetail) {
-          const detail = await onGetChatDetail(escalation.chatRoomId);
-          setChatRoomDetail(detail);
-        }
-        loadChatUnread();
-      } catch {
-        // Non-blocking — chat may still work via history
-      }
-      const history = await apiService.getChatHistory(escalation.chatRoomId);
-      setEscChatMessages(normalizeSupportHistory(history));
-    } else {
-      setEscChatMessages([]);
-    }
-  };
-
-  const handleCloseSupportChat = async () => {
-    if (!selectedEscalation?.chatRoomId || !onCloseChat) return;
-    try {
-      await onCloseChat({
-        chatRoomId: selectedEscalation.chatRoomId,
-        questionEscalationId: selectedEscalation.id,
-      });
-      message.success('Support chat closed.');
-      setEscChatMessages([]);
-      setChatRoomDetail(null);
-      loadEscalations();
-      loadChatUnread();
-    } catch (error) {
-      message.error(getUserFacingError(error, 'Unable to close chat.'));
-    }
-  };
-
-  const onSendEscalationMsg = async () => {
-    if (!escChatInput.trim() || !selectedEscalation || !isLiveSupportStatus(selectedEscalation.status) || isEscChatSending) return;
-    const content = escChatInput.trim();
-    const msgData = {
-      chatRoomId: selectedEscalation.chatRoomId,
-      senderId: userId,
-      senderName: userId,
-      senderRole: 'USER',
-      content,
-    };
-    setIsEscChatSending(true);
-    try {
-      await apiService.sendChatMessage(msgData);
-      setEscChatMessages((prev) => [...prev, { ...msgData, timestamp: new Date().toISOString() }]);
-      setEscChatInput('');
-    } catch (error) {
-      message.error(getUserFacingError(error, 'Unable to send message.'));
-    } finally {
-      setIsEscChatSending(false);
-    }
-  };
-
-  const onSelectMentor = async () => {
-    if (!selectedMentorForEsc || !selectedEscalation) return;
-    const result = await apiService.selectEscalationMentor({
-      questionEscalationId: selectedEscalation.id,
-      userId,
-      selectedMentorId: selectedMentorForEsc,
-    });
-    message.success('Mentor selected. Starting support chat...');
-    setEscModalVisible(false);
-    setSelectedMentorForEsc(null);
-    const nextEscalation = {
-      ...selectedEscalation,
-      status: 'IN_CHAT',
-      chatRoomId: result?.chatRoomId || selectedEscalation.chatRoomId,
-      assignedMentorName: result?.mentorName || selectedEscalation.assignedMentorName,
-      assignedMentorEmail: result?.mentorEmail || selectedEscalation.assignedMentorEmail,
-    };
-    await handleSelectEscalation(nextEscalation);
-    loadEscalations();
-  };
-
-  const handleOpenMentorSelect = async (escalation) => {
-    setSelectedEscalation(escalation);
-    try {
-      const offer = await apiService.offerEscalation(escalation.id);
-      const suggested = offer?.suggestedMentors || offer?.mentors || [];
-      if (Array.isArray(suggested) && suggested.length > 0) {
-        setEscMentors(suggested);
-      } else {
-        const mentors = await apiService.getMentors();
-        setEscMentors(Array.isArray(mentors) ? mentors : []);
-      }
-      setEscModalVisible(true);
-    } catch (error) {
-      const mentors = await apiService.getMentors();
-      setEscMentors(Array.isArray(mentors) ? mentors : []);
-      setEscModalVisible(true);
-      message.warning(getUserFacingError(error, 'Unable to load suggested mentors. Showing available mentors instead.'));
-    }
-  };
-
-  const onSaveRename = (event, sessionId) => {
-    event.stopPropagation();
-    if (editingSessionTitle.trim()) {
-      handleRenameSession(sessionId, editingSessionTitle.trim());
-    }
-    setEditingSessionId(null);
-  };
-
-  const applyCourseChange = (nextCourseId) => {
-    if (!nextCourseId || nextCourseId === courseId) return;
-    dismissTurnLimitNotice?.();
-    resetChat?.();
-    setCourseId(nextCourseId);
-  };
-
-  const handleCourseChange = (nextCourseId) => {
-    if (!nextCourseId || nextCourseId === courseId) return;
-    const hasActiveChat = Boolean(activeSessionId) || (Array.isArray(messages) && messages.length > 0);
-    if (!hasActiveChat) {
-      applyCourseChange(nextCourseId);
-      return;
-    }
-
-    confirmAction({
-      title: 'Switch course?',
-      content: "Each course has separate chat history. Switching course will open that course's conversations.",
-      okText: 'Switch course',
-      cancelText: 'Cancel',
-      onOk: () => applyCourseChange(nextCourseId),
-    });
-  };
-
-  const handleBackToPreviousChat = () => {
-    const previousSessionId = turnLimitNotice?.previousSessionId;
-    if (!previousSessionId) return;
-    const previousSession = sessions.find((session) => session.id === previousSessionId);
-    handleSelectSession(previousSessionId, previousSession?.title || 'Previous conversation');
-  };
-
-  const sendText = (text) => {
-    if (isAiLoading) return;
-    if (!userId) {
-      triggerToast?.('Please sign in before sending a message.');
-      return;
-    }
-    const hasCourseOptions = Array.isArray(courseOptions) && courseOptions.length > 0;
-    const hasValidCourse = !hasCourseOptions || courseOptions.some((item) => item?.value === courseId);
-    if (!hasValidCourse) {
-      triggerToast?.('Please choose a valid enrolled course before asking AI Tutor.');
-      return;
-    }
-    const hasClassOptions = Array.isArray(classOptions) && classOptions.length > 0;
-    const hasValidClass = !hasClassOptions || classOptions.some((item) => item?.value === classId);
-    if (!hasValidClass) {
-      triggerToast?.('Please choose a valid enrolled class before asking AI Tutor.');
-      return;
-    }
-    if (activeSessionMaxTurnsReached) {
-      triggerToast?.('This chat is full. Start a new chat to continue.');
-      return;
-    }
-    const validation = validateChatInput(text);
-    if (!validation.ok) {
-      triggerToast?.(validation.message);
-      return;
-    }
-    const textToSend = validation.value;
-    // Clear input immediately — don't wait for AI response
-    setChatInput('');
-    setIsAiLoading(true);
-    setAvatarEmotion('thinking');
-    handleSendQuery(textToSend, codeSnippet, setAvatarEmotion).finally(() => {
-      setIsAiLoading(false);
-    });
-  };
-
-  const handleStudySuggestion = async (suggestionText) => {
-    const text = String(suggestionText || '').trim();
-    if (!text) return;
-    const prompt = `Help me learn this topic step by step from the course materials: ${text}`;
-    try {
-      triggerToast?.('Preparing a guided study response...');
-      const response = await apiService.learnSuggestion(userId, courseId, {
-        classId,
-        suggestionText: text,
-        topic: text,
-      });
-      switchTab?.('student-chat');
-      if (response?.answer) {
-        resetChat?.();
-        window.setTimeout(() => {
-          sendText(prompt);
-        }, 0);
-      } else {
-        sendText(prompt);
-      }
-    } catch (error) {
-      triggerToast?.(getUserFacingError(error, 'Unable to open this study suggestion. Using chat prompt instead.'));
-      switchTab?.('student-chat');
-      sendText(prompt);
-    }
-  };
-
-  const handleCreateQuizFromSuggestion = (suggestionText) => {
-    const text = String(suggestionText || '').trim();
-    if (!text) return;
-    setQuizInitialSuggestion(text);
-    switchTab?.('student-quizzes');
-  };
-
-  const onSendQuery = () => {
-    sendText(chatInput);
-  };
-
-  const onStopQuery = () => {
-    // Mark AI as done — the in-flight request will still complete but
-    // we stop blocking the UI so the user can type again immediately.
-    handleStopAiGeneration?.();
-    setIsAiLoading(false);
-    setAvatarEmotion('idle');
-  };
-
-  const handlePromptStarter = (prompt) => {
-    setChatInput(prompt);
-  };
-
-  const handleAnswerAction = async ({ prompt, type, message }) => {
-    if (type === 'mentor') {
-      try {
-        await apiService.createEscalation({
-          studentId: userId,
-          courseId,
-          classId,
-          question: message?.question || prompt,
-          aiAnswer: message?.answer || '',
-          source: 'STUDENT_ACTION_BAR',
-        });
-        triggerToast?.('Support request sent to mentor.');
-      } catch (error) {
-        triggerToast?.(getUserFacingError(error, 'Unable to create support request.'));
-      }
-      return;
-    }
-    sendText(prompt);
-  };
-
-  const onCodeReviewQuery = () => {
-    if (!codeSnippet.trim()) {
-      message.error('Please enter source code or an error log to analyze.');
-      return;
-    }
-    handleCodeMentorQuery(codeSnippet, codeLanguage);
-  };
-
-  const onStudentSubmit = () => {
-    const fileValidation = validateUploadFile(studentSubmissionFile);
-    if (!fileValidation.ok) {
-      message.error(fileValidation.message);
-      return;
-    }
-    handleStudentSubmit(selectedAssignment.id, studentSubmissionFile, studentSubmissionNote).then(() => {
-      setStudentSubmissionFile(null);
-      setStudentSubmissionNote('');
-      message.success('Submission uploaded successfully.');
-    });
-  };
-
-  const handleDownloadAssignment = async (assignmentId) => {
-    message.loading({ content: 'Downloading file...', key: 'dl' });
-    try {
-      const blob = await apiService.downloadAssignmentFile(assignmentId);
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `Assignment_${assignmentId}_File`;
-      document.body.appendChild(link);
-      link.click();
-      window.URL.revokeObjectURL(url);
-      message.success({ content: 'Download completed.', key: 'dl' });
-    } catch {
-      message.error({ content: 'Unable to download the file.', key: 'dl' });
-    }
-  };
+  const materialsController = useStudentMaterialsController({
+    selectedAssignment,
+    handleStudentSubmit,
+    onDownloadAssignment,
+  });
 
   if (activeTab === 'student-chat') {
     return (
-      <div className="portal-section student-chat-section student-chat-section--minimal">
-        <div className="student-chat-layout student-chat-layout--chatgpt">
-          <Button
-            type="text"
-            className="student-chat-history-toggle"
-            icon={<PanelLeft size={16} />}
-            onClick={() => setIsHistoryDrawerOpen(true)}
-          >
-            Chat history
-          </Button>
-          {isHistoryDrawerOpen && (
-            <button
-              type="button"
-              className="student-chat-history-backdrop"
-              aria-label="Close chat history"
-              onClick={() => setIsHistoryDrawerOpen(false)}
-            />
-          )}
-          <div className={`student-chat-history-pane ${isHistoryDrawerOpen ? 'is-open' : ''}`}>
-              <ChatSessionsPanel
-                sessions={sessions}
-                isLoading={isSessionsLoading}
-                activeSessionId={activeSessionId}
-                onCreate={() => {
-                  handleCreateSession();
-                  setIsHistoryDrawerOpen(false);
-                }}
-                onSelect={(sessionId, title) => {
-                  handleSelectSession(sessionId, title);
-                  setIsHistoryDrawerOpen(false);
-                }}
-                onDelete={handleDeleteSession}
-                editingSessionId={editingSessionId}
-                editingSessionTitle={editingSessionTitle}
-                setEditingSessionId={setEditingSessionId}
-                setEditingSessionTitle={setEditingSessionTitle}
-                onSaveRename={onSaveRename}
-                style={{ height: '100%' }}
-              />
-          </div>
-          <div className="student-chat-main-pane">
-              <ChatWorkspace
-                activeSessionTitle={activeSessionTitle}
-                courseId={courseId}
-                onCourseChange={handleCourseChange}
-                classId={classId}
-                setClassId={setClassId}
-                courseOptions={courseOptions}
-                classOptions={classOptions}
-                isDarkMode={isDarkMode}
-                messages={messages}
-                chatInput={chatInput}
-                setChatInput={setChatInput}
-                onSendQuery={onSendQuery}
-                onStopQuery={onStopQuery}
-                onPromptStarter={handlePromptStarter}
-                onAnswerAction={handleAnswerAction}
-                isAiLoading={isAiLoading}
-                messagesEndRef={messagesEndRef}
-                style={{ height: '100%' }}
-                handleStudentReviewAnswer={handleStudentReviewAnswer}
-                userId={userId}
-                activeSessionId={activeSessionId}
-                activeSessionQuestionCount={activeSessionQuestionCount}
-                activeSessionMaxTurnsReached={activeSessionMaxTurnsReached}
-                turnLimitNotice={turnLimitNotice}
-                onTurnLimitBack={handleBackToPreviousChat}
-                onDismissTurnLimitNotice={dismissTurnLimitNotice}
-                triggerToast={triggerToast}
-                courseMaterials={courseMaterials}
-                onAnalyzeStudyTip={refreshSuggestions}
-              />
-          </div>
-        </div>
-      </div>
+      <StudentChatTab
+        isHistoryDrawerOpen={chatController.isHistoryDrawerOpen}
+        setIsHistoryDrawerOpen={chatController.setIsHistoryDrawerOpen}
+        sessions={sessions}
+        isSessionsLoading={isSessionsLoading}
+        activeSessionId={activeSessionId}
+        activeSessionTitle={activeSessionTitle}
+        editingSessionId={chatController.editingSessionId}
+        editingSessionTitle={chatController.editingSessionTitle}
+        setEditingSessionId={chatController.setEditingSessionId}
+        setEditingSessionTitle={chatController.setEditingSessionTitle}
+        onCreateSession={handleCreateSession}
+        onSelectSession={handleSelectSession}
+        onDeleteSession={handleDeleteSession}
+        onSaveRename={chatController.onSaveRename}
+        courseId={courseId}
+        onCourseChange={chatController.handleCourseChange}
+        classId={classId}
+        setClassId={setClassId}
+        courseOptions={courseOptions}
+        classOptions={classOptions}
+        isDarkMode={isDarkMode}
+        messages={messages}
+        chatInput={chatController.chatInput}
+        setChatInput={chatController.setChatInput}
+        onSendQuery={chatController.onSendQuery}
+        onStopQuery={chatController.onStopQuery}
+        onPromptStarter={chatController.handlePromptStarter}
+        onAnswerAction={chatController.handleAnswerAction}
+        isAiLoading={chatController.isAiLoading}
+        messagesEndRef={chatController.messagesEndRef}
+        handleStudentReviewAnswer={handleStudentReviewAnswer}
+        userId={userId}
+        activeSessionQuestionCount={activeSessionQuestionCount}
+        activeSessionMaxTurnsReached={activeSessionMaxTurnsReached}
+        turnLimitNotice={turnLimitNotice}
+        onTurnLimitBack={chatController.handleBackToPreviousChat}
+        onDismissTurnLimitNotice={dismissTurnLimitNotice}
+        triggerToast={triggerToast}
+        courseMaterials={courseMaterials}
+        onAnalyzeStudyTip={refreshSuggestions}
+        onDownloadSource={chatController.handleDownloadSource}
+      />
     );
   }
 
@@ -577,12 +234,12 @@ function StudentPortal({
         assignments={assignments}
         selectedAssignment={selectedAssignment}
         setSelectedAssignment={setSelectedAssignment}
-        studentSubmissionFile={studentSubmissionFile}
-        setStudentSubmissionFile={setStudentSubmissionFile}
-        studentSubmissionNote={studentSubmissionNote}
-        setStudentSubmissionNote={setStudentSubmissionNote}
-        onStudentSubmit={onStudentSubmit}
-        onDownloadAssignment={handleDownloadAssignment}
+        studentSubmissionFile={materialsController.studentSubmissionFile}
+        setStudentSubmissionFile={materialsController.setStudentSubmissionFile}
+        studentSubmissionNote={materialsController.studentSubmissionNote}
+        setStudentSubmissionNote={materialsController.setStudentSubmissionNote}
+        onStudentSubmit={materialsController.onStudentSubmit}
+        onDownloadAssignment={materialsController.handleDownloadAssignment}
         courseMaterials={courseMaterials}
         onDownloadMaterial={onDownloadMaterial}
       />
@@ -591,36 +248,31 @@ function StudentPortal({
 
   if (activeTab === 'student-escalation') {
     return (
-      <>
-        <MentorSupport
-          escalations={escalations}
-          selectedEscalation={selectedEscalation}
-          escChatMessages={escChatMessages}
-          escChatInput={escChatInput}
-          setEscChatInput={setEscChatInput}
-          escMessagesEndRef={escMessagesEndRef}
-          isEscChatSending={isEscChatSending}
-          userId={userId}
-          isEscalationsLoading={isEscalationsLoading}
-          escalationsError={escalationsError}
-          chatUnreadCount={chatUnreadCount}
-          chatRoomDetail={chatRoomDetail}
-          loadEscalations={loadEscalations}
-          onSelectEscalation={handleSelectEscalation}
-          onSendEscalationMsg={onSendEscalationMsg}
-          onOpenMentorSelect={handleOpenMentorSelect}
-          onCloseSupportChat={handleCloseSupportChat}
-        />
-        <MentorSelectModal
-          open={escModalVisible}
-          mentors={escMentors}
-          selectedMentorId={selectedMentorForEsc}
-          setSelectedMentorId={setSelectedMentorForEsc}
-          escalation={selectedEscalation}
-          onCancel={() => setEscModalVisible(false)}
-          onOk={onSelectMentor}
-        />
-      </>
+      <StudentSupportTab
+        escalations={escalations}
+        selectedEscalation={selectedEscalation}
+        escChatMessages={escChatMessages}
+        escChatInput={escChatInput}
+        setEscChatInput={setEscChatInput}
+        escMessagesEndRef={escMessagesEndRef}
+        isEscChatSending={isEscChatSending}
+        userId={userId}
+        isEscalationsLoading={isEscalationsLoading}
+        escalationsError={escalationsError}
+        chatUnreadCount={chatUnreadCount}
+        chatRoomDetail={chatRoomDetail}
+        loadEscalations={loadEscalations}
+        onSelectEscalation={handleSelectEscalation}
+        onSendEscalationMsg={onSendEscalationMsg}
+        onOpenMentorSelect={handleOpenMentorSelect}
+        onCloseSupportChat={handleCloseSupportChat}
+        escModalVisible={escModalVisible}
+        escMentors={escMentors}
+        selectedMentorForEsc={selectedMentorForEsc}
+        setSelectedMentorForEsc={setSelectedMentorForEsc}
+        setEscModalVisible={setEscModalVisible}
+        onSelectMentor={onSelectMentor}
+      />
     );
   }
 

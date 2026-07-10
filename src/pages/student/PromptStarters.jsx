@@ -3,23 +3,23 @@ import { BookOpen, Code2, GraduationCap, MessagesSquare } from 'lucide-react';
 
 const PROMPTS = [
   {
-    title: 'Explain a concept',
-    prompt: 'Explain the most important concept in this lesson with a simple example.',
+    title: 'Giải thích khái niệm',
+    prompt: 'Hãy giải thích khái niệm quan trọng nhất trong bài học này kèm theo ví dụ đơn giản.',
     icon: BookOpen,
   },
   {
-    title: 'Review my code',
-    prompt: 'Help me review this code and explain what I should improve.',
+    title: 'Xem lại code',
+    prompt: 'Giúp tôi kiểm tra đoạn code này và giải thích những chỗ cần cải thiện.',
     icon: Code2,
   },
   {
-    title: 'Summarize lesson',
-    prompt: 'Summarize the key points I should remember for this course.',
+    title: 'Tóm tắt bài học',
+    prompt: 'Tóm tắt những điểm chính tôi cần ghi nhớ cho khóa học này.',
     icon: GraduationCap,
   },
   {
-    title: 'Ask mentor',
-    prompt: 'I need mentor support for this question. Please help me describe the issue clearly.',
+    title: 'Hỏi Mentor',
+    prompt: 'Tôi cần mentor hỗ trợ cho câu hỏi này. Hãy giúp tôi mô tả vấn đề rõ ràng hơn.',
     icon: MessagesSquare,
   },
 ];

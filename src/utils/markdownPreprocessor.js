@@ -1,5 +1,6 @@
 import React from 'react';
 import { sanitizeLinkUrl } from './markdownSecurity';
+import { extractSourceFileLabels, isMaterialSourceText } from './sourceLabels';
 
 /**
  * =========================================================
@@ -48,6 +49,79 @@ function trimTrailingWhitespace(text) {
  */
 function collapseBlankLines(text) {
   return text.replace(/\n{3,}/g, '\n\n');
+}
+
+const VIETNAMESE_SECTION_REPLACEMENTS = [
+  [/^tai lieu mon hoc$/i, 'Tài liệu môn học'],
+  [/^theo tai lieu mon hoc$/i, 'Theo tài liệu môn học'],
+  [/^vi du nho$/i, 'Ví dụ nhỏ'],
+  [/^luu y de hoc tot hon$/i, 'Lưu ý để học tốt hơn'],
+  [/^nguon tai lieu da dung$/i, 'Nguồn tài liệu đã dùng'],
+  [/^mo ta\b/i, 'Mô tả'],
+  [/^cau truc\b/i, 'Cấu trúc'],
+  [/^gia tri\b/i, 'Giá trị'],
+  [/^cac he thong\b/i, 'Các hệ thống'],
+  [/^thuat toan\b/i, 'Thuật toán'],
+  [/^cong thuc\b/i, 'Công thức'],
+  [/^dinh nghia\b/i, 'Định nghĩa'],
+  [/^khai niem\b/i, 'Khái niệm'],
+  [/^chuyen doi\b/i, 'Chuyển đổi'],
+  [/^co so\b/i, 'Cơ số'],
+  [/^phan\b/i, 'Phần'],
+  [/^tom tat\b/i, 'Tóm tắt'],
+  [/^ket luan\b/i, 'Kết luận'],
+  [/^ket qua\b/i, 'Kết quả'],
+  [/^buoc\b/i, 'Bước'],
+  [/^dac diem\b/i, 'Đặc điểm'],
+  [/^tinh chat\b/i, 'Tính chất'],
+  [/^so sanh\b/i, 'So sánh'],
+  [/^ung dung\b/i, 'Ứng dụng'],
+  [/^phuong phap\b/i, 'Phương pháp'],
+];
+
+function toVietnameseSectionKey(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+const VIETNAMESE_EXACT_SECTION_LABELS = {
+  'tai lieu mon hoc': 'Tài liệu môn học',
+  'theo tai lieu mon hoc': 'Theo tài liệu môn học',
+  'vi du nho': 'Ví dụ nhỏ',
+  'luu y de hoc tot hon': 'Lưu ý để học tốt hơn',
+  'nguon tai lieu da dung': 'Nguồn tài liệu đã dùng',
+};
+
+function normalizeVietnameseSectionLine(line) {
+  const prefix = line.match(/^(\s*#{0,6}\s*)/)?.[1] || '';
+  const body = line.slice(prefix.length).trim();
+  if (!body || body.length > 90) return line;
+
+  const exactLabel = VIETNAMESE_EXACT_SECTION_LABELS[toVietnameseSectionKey(body)];
+  if (exactLabel) {
+    return `${prefix}${exactLabel}`;
+  }
+
+  for (const [pattern, replacement] of VIETNAMESE_SECTION_REPLACEMENTS) {
+    if (pattern.test(body)) {
+      return `${prefix}${body.replace(pattern, replacement)}`;
+    }
+  }
+
+  return line;
+}
+
+function normalizeVietnameseSectionLabels(text) {
+  return text
+    .split('\n')
+    .map(normalizeVietnameseSectionLine)
+    .join('\n');
 }
 
 /* =========================================================
@@ -357,6 +431,7 @@ function repairTables(text) {
  * ========================================================= */
 
 const HEADING_PATTERNS = [
+  /^tài liệu môn học$/i,
   /^theo tài liệu môn học$/i,
   /^mô tả\b/i,
   /^cấu trúc\b/i,
@@ -405,6 +480,162 @@ function inferHeadings(text) {
 }
 
 /* =========================================================
+ * 8B. STUDY TIP ACTION LINKS
+ * =========================================================
+ * Backend/LLM often emits a "Lưu ý để học tốt hơn" section
+ * as normal bullets or plain lines. The chat UI can analyze
+ * those study tips, so we convert only that section into safe
+ * internal markdown links. React markdown renders those links
+ * as buttons through LinkRenderer.
+ * ========================================================= */
+
+function escapeMarkdownLabel(text) {
+  return String(text || '').replace(/([\\[\]])/g, '\\$1');
+}
+
+function isStudyTipHeading(line) {
+  return /^#{1,6}\s*lưu ý\b/i.test(line.trim());
+}
+
+function isSourceHeading(line) {
+  return /^#{1,6}\s*nguồn tài liệu\b/i.test(line.trim());
+}
+
+function isSectionHeading(line) {
+  return /^#{1,6}\s+\S/.test(line.trim());
+}
+
+function stripSourceListPrefix(line) {
+  return String(line || '')
+    .replace(/^\s*(?:[-*+]\s+|\d+[.)]\s+)/, '')
+    .trim();
+}
+
+function hasMarkdownLink(text) {
+  return /\[[^\]]+\]\([^)]+\)/.test(text);
+}
+
+function makeStudyTipLink(text, index) {
+  return `[${escapeMarkdownLabel(text)}](#ai-study-tip-${index})`;
+}
+
+function enhanceStudyTips(text) {
+  const lines = text.split('\n');
+  const output = [];
+  let inStudyTips = false;
+  let tipIndex = 1;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    if (isStudyTipHeading(line)) {
+      inStudyTips = true;
+      output.push(line);
+      continue;
+    }
+
+    if (inStudyTips && isSectionHeading(line)) {
+      inStudyTips = false;
+      output.push(line);
+      continue;
+    }
+
+    if (
+      !inStudyTips ||
+      !trimmed ||
+      isTableLine(line) ||
+      isFenceLine(line) ||
+      isMaterialSourceText(trimmed) ||
+      hasMarkdownLink(trimmed)
+    ) {
+      output.push(line);
+      continue;
+    }
+
+    const bullet = line.match(/^(\s*[-*+]\s+)(.+)$/);
+    if (bullet) {
+      output.push(`${bullet[1]}${makeStudyTipLink(bullet[2].trim(), tipIndex++)}`);
+      continue;
+    }
+
+    const ordered = line.match(/^(\s*\d+[.)]\s+)(.+)$/);
+    if (ordered) {
+      output.push(`${ordered[1]}${makeStudyTipLink(ordered[2].trim(), tipIndex++)}`);
+      continue;
+    }
+
+    output.push(`- ${makeStudyTipLink(trimmed, tipIndex++)}`);
+  }
+
+  return output.join('\n');
+}
+
+function normalizeSourceSection(text) {
+  const lines = text.split('\n');
+  const output = [];
+  let inSources = false;
+  let emittedSourceHeading = false;
+  let pendingSources = [];
+  const seenSources = new Set();
+
+  const addSource = (value) => {
+    const source = stripSourceListPrefix(value);
+    if (!isMaterialSourceText(source)) return false;
+    const sourceItems = extractSourceFileLabels(source);
+    const normalizedSources = sourceItems.length ? sourceItems : [source];
+    normalizedSources.forEach((item) => {
+      const key = item.toLowerCase();
+      if (!seenSources.has(key)) {
+        seenSources.add(key);
+        pendingSources.push(item);
+      }
+    });
+    return true;
+  };
+
+  const flushSources = () => {
+    if (!pendingSources.length) return;
+    if (!emittedSourceHeading) {
+      output.push('### Nguồn tài liệu đã dùng');
+      emittedSourceHeading = true;
+    }
+    pendingSources.forEach((source) => output.push(`- ${source}`));
+    pendingSources = [];
+  };
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    if (isSourceHeading(line)) {
+      inSources = true;
+      if (!emittedSourceHeading) {
+        output.push(line);
+        emittedSourceHeading = true;
+      }
+      continue;
+    }
+
+    if (inSources && isSectionHeading(line)) {
+      flushSources();
+      inSources = false;
+      output.push(line);
+      continue;
+    }
+
+    if (isMaterialSourceText(stripSourceListPrefix(trimmed))) {
+      addSource(trimmed);
+      continue;
+    }
+
+    output.push(line);
+  }
+
+  flushSources();
+
+  return output.join('\n');
+}
+
+/* =========================================================
  * 9. BLOCKQUOTE CLEANUP
  * ========================================================= */
 
@@ -445,25 +676,53 @@ export function normalizeAiMarkdown(input = '') {
   /* 1 */ text = normalizeNewlines(text);
   /* 2 */ text = trimTrailingWhitespace(text);
   /* 3 */ text = collapseBlankLines(text);
-  /* 4 */ text = hardFixInlineTables(text);
-  /* 5 */ text = normalizeMath(text);
+  /* 4 */ text = normalizeVietnameseSectionLabels(text);
+  /* 5 */ text = hardFixInlineTables(text);
+  /* 6 */ text = normalizeMath(text);
 
-  /* 6  Protect code fences + math blocks from mutation */
+  /* 7  Protect code fences + math blocks from mutation */
   const { text: exposed, vault } = protectBlocks(text);
   text = exposed;
 
-  /* 7 */  text = normalizeLists(text);
-  /* 8 */  text = repairTables(text);
-  /* 9 */  text = inferHeadings(text);
-  /* 10 */ text = normalizeBlockquotes(text);
-  /* 11 */ text = sanitizeLinks(text);
+  /* 8 */  text = normalizeLists(text);
+  /* 9 */  text = repairTables(text);
+  /* 10 */ text = inferHeadings(text);
+  /* 11 */ text = normalizeSourceSection(text);
+  /* 12 */ text = enhanceStudyTips(text);
+  /* 13 */ text = normalizeBlockquotes(text);
+  /* 14 */ text = sanitizeLinks(text);
 
-  /* 12 Restore protected blocks */
+  /* 15 Restore protected blocks */
   text = restoreBlocks(text, vault);
 
-  /* 13 */ text = collapseBlankLines(text);
+  /* 16 */ text = collapseBlankLines(text);
 
   return text;
+}
+
+export function stripSourceSection(input = '') {
+  const lines = String(input || '').split('\n');
+  const output = [];
+  let inSources = false;
+
+  for (const line of lines) {
+    if (isSourceHeading(line)) {
+      inSources = true;
+      continue;
+    }
+
+    if (inSources && isSectionHeading(line)) {
+      inSources = false;
+      output.push(line);
+      continue;
+    }
+
+    if (!inSources) {
+      output.push(line);
+    }
+  }
+
+  return output.join('\n').trim();
 }
 
 /* =========================================================

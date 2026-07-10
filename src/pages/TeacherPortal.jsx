@@ -1,36 +1,14 @@
-import React, { useEffect, useRef, useState } from 'react';
-import {
-  MessageSquare,
-  Download,
-  CheckCircle,
-  RefreshCw,
-  Send,
-} from 'lucide-react';
+import React, { useEffect, useState } from 'react';
 import { apiService } from '../services/api';
+import { useTeacherLiveChat } from '../hooks/useTeacherLiveChat';
+import { useTeacherMaterialsAssignments } from '../hooks/useTeacherMaterialsAssignments';
 import QuizAssignments from './teacher/QuizAssignments';
-
-const HEATMAP_CLASS = {
-  high: 'val-high',
-  medium: 'val-med',
-  med: 'val-med',
-  warning: 'val-med',
-  low: 'val-low',
-  none: 'val-none',
-  strong: 'val-none',
-};
-
-const getSupportMessageTime = (message) => {
-  const value = message?.sentAt || message?.timestamp || message?.createdAt;
-  const time = new Date(value).getTime();
-  return Number.isFinite(time) ? time : null;
-};
-
-const normalizeSupportHistory = (history) => {
-  const list = Array.isArray(history) ? history : [];
-  const hasTimestamps = list.some((item) => getSupportMessageTime(item) !== null);
-  if (!hasTimestamps) return [...list].reverse();
-  return [...list].sort((a, b) => (getSupportMessageTime(a) ?? 0) - (getSupportMessageTime(b) ?? 0));
-};
+import TeacherClassesTab from './teacher/TeacherClassesTab';
+import TeacherMaterialsAssignmentsTab from './teacher/TeacherMaterialsAssignmentsTab';
+import TeacherGradingTab from './teacher/TeacherGradingTab';
+import TeacherSupportQueueTab from './teacher/TeacherSupportQueueTab';
+import TeacherLiveChatTab from './teacher/TeacherLiveChatTab';
+import { ACADEMIC_CANDIDATE_TYPES } from '../constants/knowledgeFlow';
 
 function TeacherPortal({
   activeTab,
@@ -40,6 +18,8 @@ function TeacherPortal({
   classesList,
   teacherStudents,
   teacherSubmissions,
+  quizSubmissions,
+  setQuizSubmissions,
   selectedTeacherSub,
   setSelectedTeacherSub,
   uploadProgress,
@@ -62,6 +42,7 @@ function TeacherPortal({
   handleTeacherAnswerEsc,
   handleApproveCandidate,
   handleRejectCandidate,
+  handleTeacherQuizReview,
   handleMentorReviewAnswer,
   handleSeniorResolveReview,
   onMarkChatRead,
@@ -72,40 +53,58 @@ function TeacherPortal({
   triggerToast,
   courseMaterials = [],
   onDownloadMaterial,
+  onReloadCourseMaterials,
+  currentUserRole,
+  currentUser,
 }) {
   const [teacherGradeScore, setTeacherGradeScore] = useState('');
   const [teacherGradeFeedback, setTeacherGradeFeedback] = useState('');
   const [teacherGradeWeakTopics, setTeacherGradeWeakTopics] = useState([]);
 
   const [teacherEscReply, setTeacherEscReply] = useState('');
-  const [createKnowledgeCandidate, setCreateKnowledgeCandidate] = useState(true);
+  const [createKnowledgeCandidate, setCreateKnowledgeCandidate] = useState(false);
   const [candidateType, setCandidateType] = useState('ACADEMIC_KNOWLEDGE');
-  const [candidateClassId, setCandidateClassId] = useState(classId || '');
   const [candidateNotes, setCandidateNotes] = useState({});
 
+  const {
+    selectedChatEsc,
+    teacherChatMessages,
+    teacherChatInput,
+    setTeacherChatInput,
+    chatRoomDetail,
+    isTeacherChatSending,
+    teacherChatEndRef,
+    handleSelectTeacherChat,
+    onSendTeacherChat,
+    onCloseTeacherChat,
+  } = useTeacherLiveChat({
+    teacherUserId,
+    loadTeacherInbox,
+    onMarkChatRead,
+    onCloseChat,
+    onGetChatDetail,
+    onSendChatMessage,
+    onGetChatHistory,
+    triggerToast,
+  });
+
+  const materialsAssignments = useTeacherMaterialsAssignments({
+    courseId,
+    classId,
+    teacherUserId,
+    onReloadCourseMaterials,
+    triggerToast,
+  });
+
   const handleNoteChange = (candId, value) => {
-    setCandidateNotes(prev => ({ ...prev, [candId]: value }));
+    setCandidateNotes((prev) => ({ ...prev, [candId]: value }));
   };
 
-  const [newAssignmentTitle, setNewAssignmentTitle] = useState('');
-  const [newAssignmentDesc, setNewAssignmentDesc] = useState('');
-  const [newAssignmentClass, setNewAssignmentClass] = useState('SE1840');
-  const [newAssignmentDeadline, setNewAssignmentDeadline] = useState('');
-
-  const [selectedChatEsc, setSelectedChatEsc] = useState(null);
-  const [teacherChatMessages, setTeacherChatMessages] = useState([]);
-  const [teacherChatInput, setTeacherChatInput] = useState('');
-  const [chatRoomDetail, setChatRoomDetail] = useState(null);
-  const [isTeacherChatSending, setIsTeacherChatSending] = useState(false);
-  const teacherChatEndRef = useRef(null);
-
-  const [materialFile, setMaterialFile] = useState(null);
-  const [materialTitle, setMaterialTitle] = useState('');
-  const [isUploadingMaterial, setIsUploadingMaterial] = useState(false);
-
   useEffect(() => {
-    teacherChatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [teacherChatMessages]);
+    if (createKnowledgeCandidate && !ACADEMIC_CANDIDATE_TYPES.has(candidateType)) {
+      setCandidateType('ACADEMIC_KNOWLEDGE');
+    }
+  }, [createKnowledgeCandidate, candidateType]);
 
   useEffect(() => {
     if (activeTab === 'teacher-escalations') {
@@ -118,10 +117,13 @@ function TeacherPortal({
     if (activeTab === 'teacher-chat') {
       loadTeacherInbox?.();
     }
-  }, [activeTab, courseId]);
+    if (activeTab === 'teacher-materials') {
+      materialsAssignments.loadClassAssignments();
+    }
+  }, [activeTab, courseId, classId, teacherUserId]);
 
-  const onGradeSubmit = (e) => {
-    e.preventDefault();
+  const onGradeSubmit = (event) => {
+    event.preventDefault();
     handleTeacherGradeSubmit(selectedTeacherSub.id, teacherGradeScore, teacherGradeFeedback, teacherGradeWeakTopics).then(() => {
       setTeacherGradeScore('');
       setTeacherGradeFeedback('');
@@ -129,225 +131,48 @@ function TeacherPortal({
     });
   };
 
-  const onAnswerEsc = (e) => {
-    e.preventDefault();
+  const onAnswerEsc = (event) => {
+    event.preventDefault();
     if (!teacherEscReply.trim()) return;
+    const nextCandidateType = createKnowledgeCandidate && ACADEMIC_CANDIDATE_TYPES.has(candidateType)
+      ? candidateType
+      : 'ACADEMIC_KNOWLEDGE';
     handleTeacherAnswerEsc(
-      selectedEscalation.id, 
-      teacherEscReply, 
-      createKnowledgeCandidate, 
-      candidateType,
-      candidateType === 'OPERATIONAL_POLICY' ? candidateClassId : null
+      selectedEscalation.id,
+      teacherEscReply,
+      createKnowledgeCandidate,
+      nextCandidateType,
     ).then(() => {
       setTeacherEscReply('');
+      setCreateKnowledgeCandidate(false);
     });
   };
 
-  const onCreateAssignment = (e) => {
-    e.preventDefault();
-    triggerToast('New assignment published.');
-    setNewAssignmentTitle('');
-    setNewAssignmentDesc('');
-    setNewAssignmentDeadline('');
-  };
-
-  const handleDownloadSubmission = async (submissionId) => {
-    triggerToast('Downloading submission file...');
-    try {
-      const blob = await apiService.downloadSubmissionFile(submissionId);
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `Submission_${submissionId}_File`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-    } catch {
-      triggerToast('Unable to download the file right now.');
-    }
-  };
-
-  const handleSelectTeacherChat = async (esc) => {
-    setSelectedChatEsc(esc);
-    setChatRoomDetail(null);
-    if (!esc.chatRoomId) {
-      setTeacherChatMessages([]);
-      return;
-    }
-    try {
-      if (onMarkChatRead) await onMarkChatRead(esc.chatRoomId);
-      if (onGetChatDetail) setChatRoomDetail(await onGetChatDetail(esc.chatRoomId));
-      const history = onGetChatHistory ? await onGetChatHistory(esc.chatRoomId) : [];
-      setTeacherChatMessages(normalizeSupportHistory(history));
-    } catch {
-      setTeacherChatMessages([]);
-    }
-  };
-
-  const onSendTeacherChat = async () => {
-    if (!teacherChatInput.trim() || !selectedChatEsc?.chatRoomId || isTeacherChatSending) return;
-    const content = teacherChatInput.trim();
-    const msgData = {
-      chatRoomId: selectedChatEsc.chatRoomId,
-      senderId: teacherUserId,
-      senderName: teacherUserId,
-      senderRole: 'MENTOR',
-      content,
-    };
-    setIsTeacherChatSending(true);
-    try {
-      await onSendChatMessage(msgData);
-      setTeacherChatMessages((prev) => [...prev, { ...msgData, timestamp: new Date().toISOString() }]);
-      setTeacherChatInput('');
-    } catch {
-      triggerToast('Unable to send mentor message.');
-    } finally {
-      setIsTeacherChatSending(false);
-    }
-  };
-
-  const onCloseTeacherChat = async () => {
-    if (!selectedChatEsc?.chatRoomId || !onCloseChat) return;
-    try {
-      await onCloseChat({
-        chatRoomId: selectedChatEsc.chatRoomId,
-        questionEscalationId: selectedChatEsc.id,
-      });
-      triggerToast('Support chat closed.');
-      setTeacherChatMessages([]);
-      setSelectedChatEsc(null);
-      loadTeacherInbox?.();
-    } catch {
-      triggerToast('Unable to close chat.');
-    }
-  };
-
-  const handleTeacherUploadMaterial = async (e) => {
-    e.preventDefault();
-    if (!materialFile || !courseId) return;
-    setIsUploadingMaterial(true);
-    const formData = new FormData();
-    formData.append('file', materialFile);
-    formData.append('title', materialTitle || materialFile.name);
-    formData.append('uploaderRole', 'TEACHER');
-    if (classId) formData.append('classId', classId);
-    try {
-      await apiService.uploadMaterial(courseId, formData);
-      setMaterialFile(null);
-      setMaterialTitle('');
-      triggerToast('Class material uploaded successfully.');
-    } catch (err) {
-      triggerToast('Unable to upload material.');
-    } finally {
-      setIsUploadingMaterial(false);
-    }
-  };
-
-  const heatmapNodes = teacherTopicHeatmap.length
-    ? teacherTopicHeatmap
+  const dashboardHeatmap = teacherTopicHeatmap || [];
+  const heatmapNodes = dashboardHeatmap.length
+    ? dashboardHeatmap
     : [
         { label: 'JPA Relations (Weak)', level: 'high' },
         { label: 'Spring Security (Warning)', level: 'med' },
         { label: 'REST APIs (Strong)', level: 'none' },
       ];
 
-  const chatInbox = teacherChatInbox?.length ? teacherChatInbox : escalations.filter((e) => e.chatRoomId);
+  const chatInbox = teacherChatInbox?.length ? teacherChatInbox : (escalations || []).filter((item) => item.chatRoomId);
 
   return (
     <>
       {activeTab === 'teacher-classes' && (
-        <div className="grid-2x2 portal-view">
-          <div className="glass-card">
-            <div className="card-header">
-              <h3>Assigned Class Sections</h3>
-              <button type="button" className="btn-small-chat" onClick={() => loadTeacherDashboard?.()}>
-                <RefreshCw style={{ width: 12, height: 12 }} /> Refresh
-              </button>
-            </div>
-            {teacherDashboardLoading ? (
-              <p className="no-data-text">Loading dashboard...</p>
-            ) : classesList.length === 0 ? (
-              <p className="no-data-text">No class sections found.</p>
-            ) : (
-              <div className="teacher-classes-list">
-                {classesList.map((c, i) => (
-                  <div
-                    key={i}
-                    className={`class-card-item ${classId === c.classCode ? 'active-class' : ''}`}
-                    onClick={() => setClassId(c.classCode)}
-                  >
-                    <span className="badge-semester">Term: {c.semester}</span>
-                    <h4>{c.name}</h4>
-                    <p>{c.details}</p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="glass-card">
-            <div className="card-header">
-              <h3>Class Knowledge Gap Heatmap (Class {classId})</h3>
-              <span className="card-subtitle">From teacher dashboard API</span>
-            </div>
-            <div className="heatmap-container">
-              <div className="heatmap-grid">
-                {heatmapNodes.map((node, i) => (
-                  <div key={i} className={`heatmap-node ${HEATMAP_CLASS[node.level] || 'val-none'}`}>
-                    {node.label}
-                  </div>
-                ))}
-              </div>
-              <div className="heatmap-legend">
-                <span className="legend-box val-high"></span> High risk (Red)
-                <span className="legend-box val-med"></span> Needs attention (Yellow)
-                <span className="legend-box val-none"></span> Strong (Green)
-              </div>
-            </div>
-          </div>
-
-          <div className="glass-card span-2">
-            <div className="card-header">
-              <h3>Class Student List ({classId})</h3>
-            </div>
-            {teacherStudents.length === 0 ? (
-              <p className="no-data-text">No students loaded from dashboard.</p>
-            ) : (
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Student ID</th>
-                    <th>Full Name</th>
-                    <th>Email</th>
-                    <th>Learning Status</th>
-                    <th>Weak Topics</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {teacherStudents.map((s) => (
-                    <tr key={s.id}>
-                      <td><code>{s.id}</code></td>
-                      <td>{s.name}</td>
-                      <td>{s.email}</td>
-                      <td><span className="badge active-badge">{s.status}</span></td>
-                      <td>
-                        {s.weakTopics.map((wt, i) => (
-                          <span key={i} className={wt === 'None' ? 'tag-healthy' : 'tag-weak'}>{wt}</span>
-                        ))}
-                      </td>
-                      <td>
-                        <button type="button" className="btn-small-chat" onClick={() => triggerToast(`Opening support chat with ${s.name}...`)}>
-                          <MessageSquare style={{ width: 12, height: 12 }} /> Support
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-        </div>
+        <TeacherClassesTab
+          courseId={courseId}
+          classId={classId}
+          setClassId={setClassId}
+          classesList={classesList}
+          teacherStudents={teacherStudents}
+          teacherDashboardLoading={teacherDashboardLoading}
+          loadTeacherDashboard={loadTeacherDashboard}
+          heatmapNodes={heatmapNodes}
+          triggerToast={triggerToast}
+        />
       )}
 
       {activeTab === 'teacher-quizzes' && (
@@ -361,440 +186,83 @@ function TeacherPortal({
       )}
 
       {activeTab === 'teacher-materials' && (
-        <div className="grid-2-cols portal-view">
-          <div className="glass-card">
-            <div className="card-header">
-              <h3>Upload Class Material</h3>
-            </div>
-            <form className="portal-form" onSubmit={handleTeacherUploadMaterial}>
-              <div className="input-group">
-                <label>Material Title</label>
-                <input
-                  type="text"
-                  className="glass-input-field"
-                  value={materialTitle}
-                  onChange={(e) => setMaterialTitle(e.target.value)}
-                  placeholder="Leave empty to use file name"
-                />
-              </div>
-              <div className="input-group">
-                <label>File (PDF, DOCX, TXT)</label>
-                <input
-                  type="file"
-                  onChange={(e) => setMaterialFile(e.target.files[0])}
-                  required
-                />
-              </div>
-              {classId && (
-                <div style={{ marginBottom: 16 }}>
-                  <span className="badge-semester">Scoped to Class: {classId}</span>
-                </div>
-              )}
-              <button type="submit" className="btn-submit-form" disabled={isUploadingMaterial || !materialFile}>
-                {isUploadingMaterial ? 'Uploading...' : 'Upload Material'}
-              </button>
-            </form>
-          </div>
-
-          <div className="glass-card">
-            <div className="card-header">
-              <h3>Publish New Assignment</h3>
-            </div>
-            <form className="portal-form" onSubmit={onCreateAssignment}>
-              <div className="input-group">
-                <label>Assignment title</label>
-                <input
-                  type="text"
-                  className="glass-input-field"
-                  value={newAssignmentTitle}
-                  onChange={(e) => setNewAssignmentTitle(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="input-group">
-                <label>Assignment requirements</label>
-                <textarea value={newAssignmentDesc} onChange={(e) => setNewAssignmentDesc(e.target.value)} required />
-              </div>
-              <div className="grid-2-inputs">
-                <div className="input-group">
-                  <label>Apply to class</label>
-                  <select className="glass-select" value={newAssignmentClass} onChange={(e) => setNewAssignmentClass(e.target.value)}>
-                    <option value="SE1840">Class SE1840</option>
-                    <option value="SE1841">Class SE1841</option>
-                  </select>
-                </div>
-                <div className="input-group">
-                  <label>Submission deadline</label>
-                  <input type="datetime-local" className="glass-input-field" value={newAssignmentDeadline} onChange={(e) => setNewAssignmentDeadline(e.target.value)} required />
-                </div>
-              </div>
-              <button type="submit" className="btn-submit-form">Publish Assignment</button>
-            </form>
-          </div>
-
-          <div className="glass-card" style={{ gridColumn: 'span 2', marginTop: 12 }}>
-            <div className="card-header">
-              <h3>Uploaded Learning Materials (RAG Knowledge Base)</h3>
-            </div>
-            {courseMaterials.length === 0 ? (
-              <div className="no-data-text" style={{ padding: '24px 0' }}>No course materials uploaded yet.</div>
-            ) : (
-              <div style={{ overflowX: 'auto', padding: '0 8px 12px' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: 600 }}>
-                  <thead>
-                    <tr style={{ borderBottom: '1px solid rgba(243, 112, 33, 0.15)' }}>
-                      <th style={{ padding: '10px 8px', fontSize: 13, color: '#374151', fontWeight: 600 }}>Material Title</th>
-                      <th style={{ padding: '10px 8px', fontSize: 13, color: '#374151', fontWeight: 600 }}>File Path / Name</th>
-                      <th style={{ padding: '10px 8px', fontSize: 13, color: '#374151', fontWeight: 600 }}>Class Code</th>
-                      <th style={{ padding: '10px 8px', fontSize: 13, color: '#374151', fontWeight: 600 }}>Uploaded Date</th>
-                      <th style={{ padding: '10px 8px', fontSize: 13, color: '#374151', fontWeight: 600, textAlign: 'right' }}>Download</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {courseMaterials.map((mat) => (
-                      <tr key={mat.id} style={{ borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
-                        <td style={{ padding: '12px 8px', fontSize: 13, fontWeight: 600, color: '#1F2937' }}>{mat.title || 'Untitled Material'}</td>
-                        <td style={{ padding: '12px 8px', fontSize: 12, color: '#6B7280', fontFamily: 'monospace' }}>{mat.filePath || mat.fileName || mat.id}</td>
-                        <td style={{ padding: '12px 8px', fontSize: 13 }}><span className="badge-cand" style={{ margin: 0, background: '#FFF7F0', color: '#F37021', border: '1px solid #F3D2BC' }}>{mat.classId || 'Course-wide'}</span></td>
-                        <td style={{ padding: '12px 8px', fontSize: 12, color: '#9CA3AF' }}>
-                          {mat.createdAt ? new Date(mat.createdAt).toLocaleString() : '—'}
-                        </td>
-                        <td style={{ padding: '12px 8px', textAlign: 'right' }}>
-                          <button
-                            type="button"
-                            className="btn-approve-cand"
-                            style={{ padding: '4px 8px', fontSize: 11, marginRight: 8, minWidth: 'auto', display: 'inline-flex', alignItems: 'center', gap: 4 }}
-                            onClick={() => onDownloadMaterial?.(mat.id, mat.title)}
-                          >
-                            <Download style={{ width: 12, height: 12 }} /> Download
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </div>
+        <TeacherMaterialsAssignmentsTab
+          {...materialsAssignments}
+          classId={classId}
+          classesList={classesList}
+          courseMaterials={courseMaterials}
+          onReloadCourseMaterials={onReloadCourseMaterials}
+          onDownloadMaterial={onDownloadMaterial}
+          apiService={apiService}
+          triggerToast={triggerToast}
+          currentUser={currentUser}
+          courseId={courseId}
+        />
       )}
 
       {activeTab === 'teacher-grading' && (
-        <div className="grid-2-cols portal-view">
-          <div className="glass-card">
-            <div className="card-header"><h3>Student Submissions</h3></div>
-            <div className="submissions-list-container">
-              {teacherSubmissions.map((sub) => (
-                <div
-                  key={sub.id}
-                  className={`submission-item-row ${selectedTeacherSub?.id === sub.id ? 'selected' : ''}`}
-                  onClick={() => {
-                    setSelectedTeacherSub(sub);
-                    setTeacherGradeScore(sub.score || '');
-                  }}
-                >
-                  <div className="sub-meta">
-                    <span className="sub-student">{sub.student}</span>
-                    <span className="sub-time">{sub.time}</span>
-                  </div>
-                  <h5>{sub.title}</h5>
-                  <span className={`sub-status ${sub.status}`}>
-                    {sub.status === 'pending' ? 'Pending grading' : `Graded: ${sub.score}`}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {selectedTeacherSub && (
-            <div className="glass-card">
-              <div className="card-header"><h3>Grade Submission</h3></div>
-              <div className="grading-panel-body">
-                <form className="portal-form" onSubmit={onGradeSubmit}>
-                  <div className="input-group">
-                    <label>Score (10-point scale)</label>
-                    <input type="number" step="0.1" min="0" max="10" className="glass-input-field" value={teacherGradeScore} onChange={(e) => setTeacherGradeScore(e.target.value)} required />
-                  </div>
-                  <div className="input-group">
-                    <label>Detailed feedback</label>
-                    <textarea value={teacherGradeFeedback} onChange={(e) => setTeacherGradeFeedback(e.target.value)} required />
-                  </div>
-                  <button type="submit" className="btn-submit-form">Save Feedback</button>
-                  <button type="button" className="btn-small-chat" onClick={() => handleDownloadSubmission(selectedTeacherSub.id)}>
-                    <Download style={{ width: 12, height: 12 }} /> Download file
-                  </button>
-                </form>
-              </div>
-            </div>
-          )}
-        </div>
+        <TeacherGradingTab
+          teacherSubmissions={teacherSubmissions}
+          quizSubmissions={quizSubmissions}
+          setQuizSubmissions={setQuizSubmissions}
+          selectedTeacherSub={selectedTeacherSub}
+          setSelectedTeacherSub={setSelectedTeacherSub}
+          teacherGradeScore={teacherGradeScore}
+          setTeacherGradeScore={setTeacherGradeScore}
+          teacherGradeFeedback={teacherGradeFeedback}
+          setTeacherGradeFeedback={setTeacherGradeFeedback}
+          teacherGradeWeakTopics={teacherGradeWeakTopics}
+          setTeacherGradeWeakTopics={setTeacherGradeWeakTopics}
+          onGradeSubmit={onGradeSubmit}
+          handleTeacherQuizReview={handleTeacherQuizReview}
+          handleDownloadSubmission={(subId) => window.open(`${apiService.getApiBaseUrl()}/tutor/submissions/${subId}/file`, '_blank')}
+        />
       )}
 
       {activeTab === 'teacher-escalations' && (
-        <div className="grid-2-cols portal-view">
-          <div className="glass-card">
-            <div className="card-header">
-              <h3>Student Support Queue</h3>
-              <button type="button" className="btn-small-chat" onClick={() => loadTeacherInbox?.()}>
-                <RefreshCw style={{ width: 12, height: 12 }} /> Refresh
-              </button>
-            </div>
-            {isTeacherInboxLoading ? (
-              <p className="no-data-text">Loading teacher inbox...</p>
-            ) : escalations.length === 0 ? (
-              <p className="no-data-text">No support requests in inbox.</p>
-            ) : (
-              <div className="escalations-list">
-                {escalations.map((esc) => (
-                  <div
-                    key={esc.id}
-                    className={`escalation-card-item ${selectedEscalation?.id === esc.id ? 'active-escalation' : ''}`}
-                    onClick={() => setSelectedEscalation(esc)}
-                  >
-                    <span className="badge-esc pending">{String(esc.status).toUpperCase()}</span>
-                    <h5>{esc.student}: {esc.title}</h5>
-                    <p className="esc-context">{esc.context}</p>
-                    <span className="esc-time">{esc.time ? new Date(esc.time).toLocaleString() : '—'}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-            {selectedEscalation && (
-              <form className="escalation-chat-reply-box" onSubmit={onAnswerEsc}>
-                <h5>Difficult Question Response Thread:</h5>
-                <div className="escalation-meta-info">
-                  <strong>Question:</strong> {selectedEscalation.question}
-                </div>
-                <div className="input-group">
-                  <label>Enter your explanation:</label>
-                  <textarea value={teacherEscReply} onChange={(e) => setTeacherEscReply(e.target.value)} required />
-                </div>
-
-                {/* Tùy chọn n8n Knowledge Candidate */}
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'center', marginTop: 12, marginBottom: 16, padding: '8px 12px', background: 'rgba(243, 112, 33, 0.03)', border: '1px solid rgba(243, 112, 33, 0.12)', borderRadius: 8 }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13, fontWeight: 500, margin: 0 }}>
-                    <input 
-                      type="checkbox" 
-                      checked={createKnowledgeCandidate} 
-                      onChange={(e) => setCreateKnowledgeCandidate(e.target.checked)}
-                      style={{ cursor: 'pointer', width: 15, height: 15 }}
-                    />
-                    Đề xuất AI học câu trả lời này
-                  </label>
-                  {createKnowledgeCandidate && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: 12, color: '#6B7280' }}>Loại tri thức:</span>
-                      <select 
-                        value={candidateType} 
-                        onChange={(e) => setCandidateType(e.target.value)}
-                        style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #d9d9d9', fontSize: 12, background: '#fff', cursor: 'pointer' }}
-                      >
-                        <option value="ACADEMIC_KNOWLEDGE">Kiến thức học thuật (Academic)</option>
-                        <option value="OPERATIONAL_POLICY">Chính sách lớp học (Policy)</option>
-                      </select>
-                      
-                      {candidateType === 'OPERATIONAL_POLICY' && (
-                        <>
-                          <span style={{ fontSize: 12, color: '#6B7280', marginLeft: 8 }}>Áp dụng cho lớp:</span>
-                          <input 
-                            type="text"
-                            value={candidateClassId}
-                            onChange={(e) => setCandidateClassId(e.target.value)}
-                            placeholder="Mã lớp (VD: SE1840)"
-                            style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #d9d9d9', fontSize: 12, background: '#fff' }}
-                          />
-                        </>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                <button type="submit" className="btn-submit-form">Send Answer to Student</button>
-              </form>
-            )}
-          </div>
-
-          <div className="glass-card">
-            <div className="card-header">
-              <h3>AI Answer Reviews (Mentor Pending)</h3>
-              <button type="button" className="btn-small-chat" onClick={() => loadAnswerReviews?.()}>
-                <RefreshCw style={{ width: 12, height: 12 }} />
-              </button>
-            </div>
-            <div className="candidates-list">
-              {answerReviews.length === 0 ? (
-                <div className="no-data-text">No AI answer disputes waiting for mentor review.</div>
-              ) : (
-                answerReviews.map((review) => (
-                  <div key={review.id} className="candidate-card-item">
-                    <span className="badge-cand">{review.reviewType} · {review.status}</span>
-                    <div className="compare-box">
-                      <div className="compare-qa"><strong>Question:</strong> {review.question}</div>
-                      <div className="compare-qa teacher-a"><strong>AI Answer:</strong> {review.answer}</div>
-                    </div>
-                    <div className="candidate-actions">
-                      <button type="button" className="btn-approve-cand" onClick={() => handleMentorReviewAnswer(review, true, 'AI answer confirmed by mentor')}>
-                        <CheckCircle style={{ width: 12, height: 12, display: 'inline-block' }} /> Confirm AI answer
-                      </button>
-                      <button type="button" className="btn-reject-cand" onClick={() => handleMentorReviewAnswer(review, false, 'AI answer flagged as incorrect')}>
-                        AI was wrong
-                      </button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-
-            {seniorAnswerReviews.length > 0 && (
-              <>
-                <div className="card-header" style={{ marginTop: 24 }}>
-                  <h3>Senior Review Queue</h3>
-                </div>
-                <div className="candidates-list">
-                  {seniorAnswerReviews.map((review) => (
-                    <div key={review.id} className="candidate-card-item">
-                      <span className="badge-cand">Senior · {review.status}</span>
-                      <div className="compare-qa"><strong>Q:</strong> {review.question}</div>
-                      <div className="compare-qa"><strong>A:</strong> {review.answer}</div>
-                      <div className="candidate-actions">
-                        <button type="button" className="btn-approve-cand" onClick={() => handleSeniorResolveReview(review.id, 'APPROVE_FEEDBACK', 'Approved by senior mentor')}>
-                          Approve feedback
-                        </button>
-                        <button type="button" className="btn-reject-cand" onClick={() => handleSeniorResolveReview(review.id, 'CREATE_KNOWLEDGE_CANDIDATE', 'Create knowledge candidate from correction')}>
-                          Create knowledge
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
-
-            <div className="card-header" style={{ marginTop: 24 }}>
-              <h3>Review Suggested AI Answers</h3>
-            </div>
-            <div className="candidates-list">
-              {candidates.length === 0 ? (
-                <div className="no-data-text">No suggested AI answers are waiting for review.</div>
-              ) : (
-                candidates.map((cand) => (
-                  <div key={cand.id} className="candidate-card-item">
-                    <span className="badge-cand">Suggested AI answer: {cand.courseId || 'Course knowledge'}</span>
-                    <div className="compare-box">
-                      <div className="compare-qa"><strong>Question:</strong> {cand.question || '—'}</div>
-                      <div className="compare-qa teacher-a"><strong>Suggested answer:</strong> {cand.content || cand.answer || '—'}</div>
-                    </div>
-
-                    <div style={{ marginTop: 10, marginBottom: 10 }}>
-                      <input 
-                        type="text" 
-                        placeholder="Nhập ghi chú phê duyệt hoặc lý do từ chối (tùy chọn)..." 
-                        value={candidateNotes[cand.id] || ''}
-                        onChange={(e) => handleNoteChange(cand.id, e.target.value)}
-                        style={{ width: '100%', padding: '6px 10px', borderRadius: 6, border: '1px solid #d9d9d9', fontSize: 12 }}
-                      />
-                    </div>
-
-                    <div className="candidate-actions">
-                      <button 
-                        type="button" 
-                        className="btn-approve-cand" 
-                        onClick={() => {
-                          handleApproveCandidate(cand.id, candidateNotes[cand.id] || 'Approved');
-                          handleNoteChange(cand.id, '');
-                        }}
-                      >
-                        Approve for AI Tutor
-                      </button>
-                      <button 
-                        type="button" 
-                        className="btn-reject-cand" 
-                        onClick={() => {
-                          handleRejectCandidate(cand.id, candidateNotes[cand.id] || 'Rejected by mentor');
-                          handleNoteChange(cand.id, '');
-                        }}
-                      >
-                        Reject
-                      </button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
+        <TeacherSupportQueueTab
+          isTeacherInboxLoading={isTeacherInboxLoading}
+          escalations={escalations}
+          selectedEscalation={selectedEscalation}
+          setSelectedEscalation={setSelectedEscalation}
+          loadTeacherInbox={loadTeacherInbox}
+          teacherEscReply={teacherEscReply}
+          setTeacherEscReply={setTeacherEscReply}
+          onAnswerEsc={onAnswerEsc}
+          createKnowledgeCandidate={createKnowledgeCandidate}
+          setCreateKnowledgeCandidate={setCreateKnowledgeCandidate}
+          candidateType={candidateType}
+          setCandidateType={setCandidateType}
+          answerReviews={answerReviews}
+          loadAnswerReviews={loadAnswerReviews}
+          handleMentorReviewAnswer={handleMentorReviewAnswer}
+          seniorAnswerReviews={seniorAnswerReviews}
+          handleSeniorResolveReview={handleSeniorResolveReview}
+          candidates={candidates}
+          candidateNotes={candidateNotes}
+          handleNoteChange={handleNoteChange}
+          handleApproveCandidate={handleApproveCandidate}
+          handleRejectCandidate={handleRejectCandidate}
+          currentUserRole={currentUserRole}
+        />
       )}
 
       {activeTab === 'teacher-chat' && (
-        <div className="grid-2-cols portal-view">
-          <div className="glass-card">
-            <div className="card-header">
-              <h3>Active Support Chats</h3>
-              <button type="button" className="btn-small-chat" onClick={() => loadTeacherInbox?.()}>
-                <RefreshCw style={{ width: 12, height: 12 }} /> Refresh
-              </button>
-            </div>
-            {chatInbox.length === 0 ? (
-              <p className="no-data-text">No active 1-on-1 support chats.</p>
-            ) : (
-              <div className="escalations-list">
-                {chatInbox.map((esc) => (
-                  <div
-                    key={esc.id}
-                    className={`escalation-card-item ${selectedChatEsc?.id === esc.id ? 'active-escalation' : ''}`}
-                    onClick={() => handleSelectTeacherChat(esc)}
-                  >
-                    <span className="badge-esc pending">{String(esc.status).toUpperCase()}</span>
-                    <h5>{esc.student}</h5>
-                    <p className="esc-context">{esc.title}</p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="glass-card">
-            <div className="card-header">
-              <h3>Live Chat</h3>
-              {selectedChatEsc && (
-                <button type="button" className="btn-reject-cand" onClick={onCloseTeacherChat}>Close chat</button>
-              )}
-            </div>
-            {!selectedChatEsc ? (
-              <p className="no-data-text">Select a support chat from the inbox.</p>
-            ) : (
-              <>
-                {chatRoomDetail?.status && <p className="esc-context">Room status: {chatRoomDetail.status}</p>}
-                <div className="chat-message-list" style={{ minHeight: 280, maxHeight: 400, overflowY: 'auto', padding: 12 }}>
-                  {teacherChatMessages.map((msg, idx) => (
-                    <div key={idx} className={`support-message ${msg.senderId === teacherUserId ? 'mine' : ''}`}>
-                      <div className={`support-bubble ${msg.senderId === teacherUserId ? 'mine' : ''}`}>{msg.content}</div>
-                    </div>
-                  ))}
-                  <div ref={teacherChatEndRef} />
-                </div>
-                <form
-                  className="escalation-chat-reply-box"
-                  onSubmit={(e) => { e.preventDefault(); onSendTeacherChat(); }}
-                >
-                  <div className="input-group" style={{ display: 'flex', gap: 8 }}>
-	                    <input
-	                      type="text"
-	                      className="glass-input-field"
-	                      value={teacherChatInput}
-	                      onChange={(e) => setTeacherChatInput(e.target.value)}
-	                      placeholder="Reply to student..."
-                        disabled={isTeacherChatSending}
-	                    />
-	                    <button type="submit" className="btn-submit-form" disabled={!teacherChatInput.trim() || isTeacherChatSending}>
-	                      <Send style={{ width: 14, height: 14, display: 'inline-block' }} /> {isTeacherChatSending ? 'Sending...' : 'Send'}
-	                    </button>
-                  </div>
-                </form>
-              </>
-            )}
-          </div>
-        </div>
+        <TeacherLiveChatTab
+          chatInbox={chatInbox}
+          selectedChatEsc={selectedChatEsc}
+          handleSelectTeacherChat={handleSelectTeacherChat}
+          loadTeacherInbox={loadTeacherInbox}
+          chatRoomDetail={chatRoomDetail}
+          onCloseTeacherChat={onCloseTeacherChat}
+          teacherChatMessages={teacherChatMessages}
+          teacherUserId={teacherUserId}
+          teacherChatEndRef={teacherChatEndRef}
+          teacherChatInput={teacherChatInput}
+          setTeacherChatInput={setTeacherChatInput}
+          isTeacherChatSending={isTeacherChatSending}
+          onSendTeacherChat={onSendTeacherChat}
+        />
       )}
     </>
   );

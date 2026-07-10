@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { Button, Dropdown } from 'antd';
 import { MoreHorizontal } from 'lucide-react';
 
@@ -7,6 +8,8 @@ function EntityActionMenu({
   ariaLabel = 'Row actions',
   disabled = false,
 }) {
+  const triggerRef = useRef(null);
+
   return (
     <Dropdown
       trigger={['click']}
@@ -18,20 +21,27 @@ function EntityActionMenu({
           domEvent.stopPropagation();
           onAction?.(key, {
             domEvent,
-            anchorRect: domEvent?.currentTarget?.getBoundingClientRect?.(),
+            anchorRect:
+              triggerRef.current?.getBoundingClientRect?.()
+              || domEvent?.currentTarget?.getBoundingClientRect?.(),
           });
         },
       }}
     >
-      <Button
-        type="text"
-        size="small"
-        className="conversation-more-button entity-action-button"
-        icon={<MoreHorizontal size={17} />}
+      <span
+        ref={triggerRef}
+        className="entity-action-trigger"
         onClick={(event) => event.stopPropagation()}
-        aria-label={ariaLabel}
-        disabled={disabled}
-      />
+      >
+        <Button
+          type="text"
+          size="small"
+          className="conversation-more-button entity-action-button"
+          icon={<MoreHorizontal size={17} />}
+          aria-label={ariaLabel}
+          disabled={disabled}
+        />
+      </span>
     </Dropdown>
   );
 }

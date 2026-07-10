@@ -1,6 +1,6 @@
 import React from 'react';
 import { FileText, LifeBuoy, ShieldCheck, Sparkles } from 'lucide-react';
-import { formatSourceLabels } from '../../utils/sourceLabels';
+import { formatSourceItems } from '../../utils/sourceLabels';
 
 const getAnswerType = (mode) => {
   if (mode === 'CODE' || mode === 'CODE_MENTOR') return 'Đánh giá Code';
@@ -15,8 +15,8 @@ const getConfidenceClass = (confidence) => {
   return 'low';
 };
 
-function AnswerEvidence({ message, sourceMap = {} }) {
-  const sources = formatSourceLabels(Array.isArray(message?.sources) ? message.sources : [], sourceMap);
+function AnswerEvidence({ message, sourceMap = {}, onDownloadSource }) {
+  const sources = formatSourceItems(Array.isArray(message?.sources) ? message.sources : [], sourceMap);
   const confidenceClass = getConfidenceClass(message?.confidence);
   const confidenceText = message?.confidence == null ? 'Chưa xác định' : `${Math.round(message.confidence * 100)}%`;
 
@@ -33,7 +33,21 @@ function AnswerEvidence({ message, sourceMap = {} }) {
       {sources.length > 0 && (
         <div className="answer-evidence-sources">
           <FileText size={14} aria-hidden="true" />
-          {sources.map((source, index) => <span key={`${source}-${index}`}>{source}</span>)}
+          {sources.map((source, index) => {
+            if (source.id && onDownloadSource) {
+              return (
+                <a
+                  key={`${source.id}-${index}`}
+                  className="source-link"
+                  style={{ cursor: 'pointer', color: '#1677ff', textDecoration: 'underline' }}
+                  onClick={() => onDownloadSource(source.id, source.label)}
+                >
+                  {source.label}
+                </a>
+              );
+            }
+            return <span key={`${source.label}-${index}`}>{source.label}</span>;
+          })}
         </div>
       )}
       {message?.questionEscalationId && (

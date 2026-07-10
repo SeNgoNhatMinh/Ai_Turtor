@@ -1,4 +1,3 @@
-import React from 'react';
 import { Button, Card, Empty, Input, Space, Table, Tag, Typography, Upload, Tabs } from 'antd';
 import { DownloadOutlined, FileTextOutlined, UploadOutlined } from '@ant-design/icons';
 import PageHeader from '../../components/common/PageHeader';
@@ -40,7 +39,7 @@ function MaterialsAssignments({
       <Tabs defaultActiveKey="assignments" type="card" style={{ width: '100%' }}>
         <Tabs.TabPane tab="Assignments & Tasks" key="assignments">
           <div className="materials-layout">
-            <Card title="Assigned Materials & Assignments" className="materials-list-card" bodyStyle={{ flex: 1, padding: 0, overflowY: 'auto' }}>
+            <Card title="Assigned Materials & Assignments" className="materials-list-card" styles={{ body: { flex: 1, padding: 0, overflowY: 'auto' } }}>
               <Table
                 dataSource={Array.isArray(assignments) ? assignments : []}
                 columns={assignmentCols}
@@ -106,7 +105,7 @@ function MaterialsAssignments({
         </Tabs.TabPane>
 
         <Tabs.TabPane tab="Course Learning Materials" key="materials">
-          <Card bodyStyle={{ padding: 16 }}>
+          <Card styles={{ body: { padding: 16 } }}>
             {(!courseMaterials || courseMaterials.length === 0) ? (
               <Empty description="No learning materials uploaded yet for this course." />
             ) : (

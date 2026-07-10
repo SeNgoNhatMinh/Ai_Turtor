@@ -1,7 +1,7 @@
 export const normalizeAppRole = (role, email = '') => {
   const normalized = String(role || '').trim().toLowerCase();
   if (normalized === 'admin') return 'admin';
-  if (normalized === 'teacher' || normalized === 'mentor') return 'teacher';
+  if (['teacher', 'mentor', 'senior_mentor', 'senior-mentor', 'seniormentor'].includes(normalized)) return 'teacher';
   if (normalized === 'student') return 'student';
 
   const safeEmail = String(email || '').toLowerCase();

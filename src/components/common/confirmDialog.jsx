@@ -26,8 +26,15 @@ function ConfirmCard({
     const onKeyDown = (event) => {
       if (event.key === 'Escape') closeActiveConfirm();
     };
+    const onLayoutChange = () => closeActiveConfirm();
     window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
+    window.addEventListener('resize', onLayoutChange);
+    window.addEventListener('scroll', onLayoutChange, true);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('resize', onLayoutChange);
+      window.removeEventListener('scroll', onLayoutChange, true);
+    };
   }, []);
 
   const confirm = async () => {
@@ -44,19 +51,38 @@ function ConfirmCard({
 
   const getAnchoredStyle = () => {
     if (!anchorRect) return undefined;
-    const width = 320;
     const margin = 12;
+    const gap = 8;
+    const estimatedHeight = 164;
     const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
     const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+    const width = Math.min(320, viewportWidth - margin * 2);
+
     const left = Math.min(
       Math.max(margin, anchorRect.right - width),
       Math.max(margin, viewportWidth - width - margin),
     );
-    const top = Math.min(
-      Math.max(margin, anchorRect.bottom + 8),
-      Math.max(margin, viewportHeight - 178 - margin),
-    );
-    return { left, top };
+
+    const belowTop = anchorRect.bottom + gap;
+    const aboveTop = anchorRect.top - estimatedHeight - gap;
+    const hasRoomBelow = belowTop + estimatedHeight <= viewportHeight - margin;
+    const hasRoomAbove = aboveTop >= margin;
+    const top = hasRoomBelow
+      ? belowTop
+      : hasRoomAbove
+        ? aboveTop
+        : Math.min(
+            Math.max(margin, belowTop),
+            Math.max(margin, viewportHeight - estimatedHeight - margin),
+          );
+
+    return {
+      left,
+      top,
+      right: 'auto',
+      bottom: 'auto',
+      width,
+    };
   };
 
   return (

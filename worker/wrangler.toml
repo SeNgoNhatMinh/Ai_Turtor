@@ -1,0 +1,11 @@
+name = "docs-cors-proxy"
+main = "src/index.js"
+compatibility_date = "2025-06-01"
+
+# Uncomment and set your account_id for deployment:
+# account_id = "YOUR_CLOUDFLARE_ACCOUNT_ID"
+
+# Optional: custom route
+# [routes]
+# pattern = "docs-proxy.yourdomain.com/*"
+# zone_name = "yourdomain.com"

@@ -2,7 +2,7 @@ import { useCallback, useRef, useState } from 'react';
 import { chatApi } from '../services/chatApi';
 import { validateChatInput } from '../utils/validators';
 
-export function useAiChat({ userId, courseId, classId, conversationId }) {
+export function useAiChat({ userId, userName = '', userEmail = '', courseId, classId, conversationId }) {
   const [isAiLoading, setIsAiLoading] = useState(false);
   const requestIdRef = useRef(0);
 
@@ -22,12 +22,12 @@ export function useAiChat({ userId, courseId, classId, conversationId }) {
         courseId,
         classId,
         conversationId: conversationId || null,
-      }, userId);
+      }, userId, userName, userEmail);
       return { requestId, question: validation.value, data };
     } finally {
       setIsAiLoading(false);
     }
-  }, [classId, conversationId, courseId, userId]);
+  }, [classId, conversationId, courseId, userId, userName, userEmail]);
 
   return { sendMessage, isAiLoading };
 }

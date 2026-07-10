@@ -27,9 +27,10 @@ export const apiService = {
         return await request(`${API_BASE_URL}/ai/conversations/search?${params}`);
     },
 
-    async createConversation(userId, courseId) {
+    async createConversation(userId, courseId, classId = '') {
         const params = new URLSearchParams({ userId });
         if (courseId) params.append('courseId', courseId);
+        if (classId) params.append('classId', classId);
         return await request(`${API_BASE_URL}/ai/conversations?${params}`, { method: 'POST' });
     },
 
@@ -71,8 +72,10 @@ export const apiService = {
     },
 
     // 2. Query AI Tutor / Code Review
-    async sendAiQuery(payload, userId) {
+    async sendAiQuery(payload, userId, userName = '', userEmail = '') {
         const params = new URLSearchParams({ userId });
+        if (userName) params.append('userName', userName);
+        if (userEmail) params.append('userEmail', userEmail);
         return await request(`${API_BASE_URL}/ai/query?${params}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -108,6 +111,24 @@ export const apiService = {
         );
     },
 
+    async importCourseMaterialUrl(courseId, payload) {
+        return await request(`${API_BASE_URL}/courses/${encodePath(courseId)}/materials/import-url`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+            timeoutMs: API_TIMEOUTS.upload
+        });
+    },
+
+    async previewMaterialUrlToc(courseId, payload) {
+        return await request(`${API_BASE_URL}/courses/${encodePath(courseId)}/materials/url-toc`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+            timeoutMs: API_TIMEOUTS.upload
+        });
+    },
+
     async getMaterial(courseId, materialId) {
         return await request(`${API_BASE_URL}/courses/${encodePath(courseId)}/materials/${encodePath(materialId)}`);
     },
@@ -120,14 +141,29 @@ export const apiService = {
         });
     },
 
-    async deleteMaterial(courseId, materialId) {
-        return await request(`${API_BASE_URL}/courses/${encodePath(courseId)}/materials/${encodePath(materialId)}`, {
+    async deleteMaterial(courseId, materialId, teacherId = '') {
+        const params = new URLSearchParams();
+        if (teacherId) params.append('teacherId', teacherId);
+        const qs = params.toString();
+        return await request(`${API_BASE_URL}/courses/${encodePath(courseId)}/materials/${encodePath(materialId)}${qs ? `?${qs}` : ''}`, {
             method: 'DELETE'
         });
     },
 
-    async reindexMaterial(courseId, materialId) {
-        return await request(`${API_BASE_URL}/courses/${encodePath(courseId)}/materials/${encodePath(materialId)}/reindex`, {
+    async reindexCourseMaterials(courseId, teacherId = '') {
+        const params = new URLSearchParams();
+        if (teacherId) params.append('teacherId', teacherId);
+        const qs = params.toString();
+        return await request(`${API_BASE_URL}/courses/${encodePath(courseId)}/materials/reindex${qs ? `?${qs}` : ''}`, {
+            method: 'POST'
+        });
+    },
+
+    async reindexMaterial(courseId, materialId, teacherId = '') {
+        const params = new URLSearchParams();
+        if (teacherId) params.append('teacherId', teacherId);
+        const qs = params.toString();
+        return await request(`${API_BASE_URL}/courses/${encodePath(courseId)}/materials/${encodePath(materialId)}/reindex${qs ? `?${qs}` : ''}`, {
             method: 'POST'
         });
     },
@@ -193,8 +229,11 @@ export const apiService = {
         });
     },
 
-    async deleteAssignment(assignmentId) {
-        return await request(`${API_BASE_URL}/mentor/assignments/${encodePath(assignmentId)}`, { method: 'DELETE' });
+    async deleteAssignment(assignmentId, teacherId = '') {
+        const params = new URLSearchParams();
+        if (teacherId) params.append('teacherId', teacherId);
+        const qs = params.toString();
+        return await request(`${API_BASE_URL}/mentor/assignments/${encodePath(assignmentId)}${qs ? `?${qs}` : ''}`, { method: 'DELETE' });
     },
 
     async downloadAssignmentFile(assignmentId) {
@@ -444,8 +483,11 @@ export const apiService = {
     async deleteClassSection(courseId, classId) {
         return await request(`${API_BASE_URL}/admin/courses/${encodePath(courseId)}/class-sections/${encodePath(classId)}`, { method: 'DELETE' });
     },
-    async getClassStudents(courseId, classId) {
-        return await request(`${API_BASE_URL}/academic/courses/${encodePath(courseId)}/class-sections/${encodePath(classId)}/students`);
+    async getClassStudents(courseId, classId, teacherId = '') {
+        const params = new URLSearchParams();
+        if (teacherId) params.append('teacherId', teacherId);
+        const qs = params.toString();
+        return await request(`${API_BASE_URL}/academic/courses/${encodePath(courseId)}/class-sections/${encodePath(classId)}/students${qs ? `?${qs}` : ''}`);
     },
     async createEnrollment(payload) {
         return await request(`${API_BASE_URL}/academic/enrollments`, {
@@ -519,8 +561,8 @@ export const apiService = {
         const params = new URLSearchParams({ chatRoomId });
         return await request(`${API_BASE_URL}/chat/detail?${params}`);
     },
-    async getChatUnread(userId) {
-        const params = new URLSearchParams({ userId });
+    async getChatUnread(userId, role = 'USER') {
+        const params = new URLSearchParams({ userId, role });
         return await request(`${API_BASE_URL}/chat/unread?${params}`);
     },
     async markChatRead(chatRoomId, userId) {
@@ -764,7 +806,7 @@ export const apiService = {
     },
     async uploadCodeFileAI(formData, queryParams) {
         const params = new URLSearchParams(queryParams);
-        return await uploadRequest(`${API_BASE_URL}/ai/code/upload?${params}`, formData, 'Upload code file failed', { timeoutMs: API_TIMEOUTS.ai });
+        return await uploadRequest(`${API_BASE_URL}/code-mentor/upload?${params}`, formData, 'Upload code file failed', { timeoutMs: API_TIMEOUTS.ai });
     },
     async uploadCodeFileMentor(formData, queryParams) {
         const params = new URLSearchParams(queryParams);
@@ -774,17 +816,21 @@ export const apiService = {
     // =============================================
     // 20. Learning Dashboards
     // =============================================
-    async getStudentDashboard(studentId, courseId = '') {
+    async getStudentDashboard(studentId, courseId = '', requesterId = '', requesterRole = '') {
         const params = new URLSearchParams();
         if (courseId) params.append('courseId', courseId);
+        if (requesterId) params.append('requesterId', requesterId);
+        if (requesterRole) params.append('requesterRole', requesterRole);
         const qs = params.toString();
         return await request(`${API_BASE_URL}/students/${studentId}/dashboard${qs ? `?${qs}` : ''}`);
     },
 
-    async getTeacherDashboard(teacherId, courseId = '', classId = '') {
+    async getTeacherDashboard(teacherId, courseId = '', classId = '', requesterId = '', requesterRole = '') {
         const params = new URLSearchParams();
         if (courseId) params.append('courseId', courseId);
         if (classId) params.append('classId', classId);
+        if (requesterId) params.append('requesterId', requesterId);
+        if (requesterRole) params.append('requesterRole', requesterRole);
         const qs = params.toString();
         return await request(`${API_BASE_URL}/mentors/${teacherId}/dashboard${qs ? `?${qs}` : ''}`);
     },
@@ -842,17 +888,31 @@ export const apiService = {
         const params = new URLSearchParams();
         Object.entries(filters).forEach(([k, v]) => { if (v) params.append(k, v); });
         const qs = params.toString();
-        return await request(`${API_BASE_URL}/admin/harness/logs${qs ? `?${qs}` : ''}`);
+        return await request(`${API_BASE_URL}/harness/logs${qs ? `?${qs}` : ''}`);
     },
 
     async getHarnessErrorLogs(filters = {}) {
         const params = new URLSearchParams();
         Object.entries(filters).forEach(([k, v]) => { if (v) params.append(k, v); });
         const qs = params.toString();
-        return await request(`${API_BASE_URL}/admin/harness/logs/errors${qs ? `?${qs}` : ''}`);
+        return await request(`${API_BASE_URL}/harness/error-logs${qs ? `?${qs}` : ''}`);
     },
     
     async getTraceLogs(traceId) {
-        return await request(`${API_BASE_URL}/admin/harness/logs/traces/${encodePath(traceId)}`);
+        return await request(`${API_BASE_URL}/harness/traces/${encodePath(traceId)}`);
+    },
+
+    // =============================================
+    // 23. Academic Lifecycle
+    // =============================================
+    async completeClassSection(courseId, classId) {
+        return await request(`${API_BASE_URL}/admin/courses/${encodePath(courseId)}/class-sections/${encodePath(classId)}/complete`, {
+            method: 'PATCH'
+        });
+    },
+    async completeCourse(courseId) {
+        return await request(`${API_BASE_URL}/admin/courses/${encodePath(courseId)}/complete`, {
+            method: 'PATCH'
+        });
     }
 };

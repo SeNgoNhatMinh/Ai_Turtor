@@ -1,9 +1,10 @@
 import React from 'react';
 import { Row, Col, Card, Statistic, Space, Alert, Button, Typography, Tag, Tabs, Table, Input } from 'antd';
 import {
-  BarChart3, Users, GraduationCap, Zap, AlertTriangle, RefreshCw, Server, Bug, FileText
+  BarChart3, Users, GraduationCap, Zap, AlertTriangle, RefreshCw, Server, FileText
 } from 'lucide-react';
 import { apiService } from '../../services/api';
+import { env } from '../../config/env';
 
 const { Text, Title } = Typography;
 const { TabPane } = Tabs;
@@ -20,7 +21,8 @@ function AdminDashboard({ adminStats = {}, diagnosticsOutput, isDiagnosticsRunni
       const data = await apiService.getHarnessLogs({ limit: 50 });
       setLogs(Array.isArray(data) ? data : data?.content || data?.logs || []);
     } catch (e) {
-      console.error(e);
+      // Backend might not have this endpoint yet, ignore quietly
+      setLogs([{ id: '1', level: 'INFO', message: 'Log service unavailable or endpoint missing.' }]);
     } finally {
       setLogsLoading(false);
     }
@@ -42,6 +44,9 @@ function AdminDashboard({ adminStats = {}, diagnosticsOutput, isDiagnosticsRunni
   React.useEffect(() => {
     loadLogs();
   }, []);
+
+  const harnessLabel = env.n8nEnabled ? 'n8n harness enabled' : 'Backend direct';
+  const harnessColor = env.n8nEnabled ? 'processing' : 'default';
 
   return (
     <div className="portal-view">
@@ -109,14 +114,17 @@ function AdminDashboard({ adminStats = {}, diagnosticsOutput, isDiagnosticsRunni
               <Card
                 title="System Diagnostics"
                 extra={
-                  <Button
-                    type="primary"
-                    icon={<RefreshCw size={14} className={isDiagnosticsRunning ? 'spinning' : ''} />}
-                    onClick={runDiagnostics}
-                    loading={isDiagnosticsRunning}
-                  >
-                    Run Check
-                  </Button>
+                  <Space>
+                    <Tag color={harnessColor}>{harnessLabel}</Tag>
+                    <Button
+                      type="primary"
+                      icon={<RefreshCw size={14} className={isDiagnosticsRunning ? 'spinning' : ''} />}
+                      onClick={runDiagnostics}
+                      loading={isDiagnosticsRunning}
+                    >
+                      Run Check
+                    </Button>
+                  </Space>
                 }
                 hoverable
               >

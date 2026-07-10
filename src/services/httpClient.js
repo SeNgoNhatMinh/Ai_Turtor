@@ -1,4 +1,5 @@
 import { buildUrl, env } from '../config/env';
+import { getSafeUserMessage } from '../utils/errorMessages';
 
 export class ApiError extends Error {
   constructor({ message, userMessage, rawMessage, status = 0, code = 'API_ERROR', details = null } = {}) {
@@ -14,7 +15,7 @@ export class ApiError extends Error {
 
 export function getUserFacingError(error, fallback = 'Something went wrong. Please try again.') {
   if (!error) return fallback;
-  return error.userMessage || error.message || fallback;
+  return getSafeUserMessage(error.userMessage || error.message, fallback);
 }
 
 const requestInterceptors = [];
@@ -80,7 +81,7 @@ function normalizeError(error, response, body) {
     if ([502, 503, 504].includes(response.status)) {
       return 'The AI Tutor service is temporarily unavailable. Please try again in a moment.';
     }
-    return message;
+    return getSafeUserMessage(message, 'The request could not be completed. Please check your input and try again.');
   })();
 
   return new ApiError({

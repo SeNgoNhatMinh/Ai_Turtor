@@ -10,7 +10,6 @@ import {
   BarChart3,
   Users,
   Library,
-  Wallet,
   MessageCircle,
 } from 'lucide-react';
 
@@ -126,14 +125,6 @@ export const navigationItems = [
     label: 'Terms & Classes',
     description: 'Manage semesters, courses, and class sections.',
     icon: Library,
-  },
-  {
-    key: 'admin-billing',
-    role: 'admin',
-    group: 'Billing',
-    label: 'Payments & Plans',
-    description: 'Review subscriptions, plans, and payments.',
-    icon: Wallet,
   },
 ];
 

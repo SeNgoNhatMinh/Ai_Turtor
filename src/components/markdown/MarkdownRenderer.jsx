@@ -2,30 +2,17 @@ import React, { memo, useEffect, useMemo, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
-import rehypeAutolinkHeadings from 'rehype-autolink-headings';
 import rehypeKatex from 'rehype-katex';
 import rehypeSlug from 'rehype-slug';
 import 'katex/dist/katex.min.css';
-import { getNodeText, normalizeAiMarkdown } from '../../utils/markdownPreprocessor';
+import { getNodeText, normalizeAiMarkdown, stripSourceSection } from '../../utils/markdownPreprocessor';
 import { sanitizeLinkUrl } from '../../utils/markdownSecurity';
-import { formatSourceLabels, isMaterialSourceText } from '../../utils/sourceLabels';
+import { formatSourceItems, isMaterialSourceText } from '../../utils/sourceLabels';
 import CodeBlock from './CodeBlock';
 import CopyButton from './CopyButton';
 import MarkdownErrorBoundary from './MarkdownErrorBoundary';
 import MarkdownImage from './MarkdownImage';
 import MarkdownTable from './MarkdownTable';
-
-const autolinkHeadingOptions = {
-  behavior: 'append',
-  properties: {
-    className: ['ai-answer-heading-anchor'],
-    ariaLabel: 'Link to section',
-  },
-  content: {
-    type: 'text',
-    value: '#',
-  },
-};
 
 const rehypeKatexOptions = {
   throwOnError: false,
@@ -41,7 +28,31 @@ function HeadingRenderer({ Tag, children, ...props }) {
   );
 }
 
-function ParagraphRenderer({ children, sourceMap }) {
+function SourcePill({ sourceText, sourceMap, onDownloadSource }) {
+  const sources = formatSourceItems(sourceText, sourceMap);
+  const displayText = sources.map((source) => source.label).join(', ');
+  const firstDownloadable = sources.find((source) => source.id);
+
+  return (
+    <div className="ai-answer-source-pill">
+      {firstDownloadable && onDownloadSource ? (
+        <button
+          type="button"
+          className="ai-answer-source-download"
+          onClick={() => onDownloadSource(firstDownloadable.id, firstDownloadable.label)}
+          title="Download this source material"
+        >
+          {displayText}
+        </button>
+      ) : (
+        <code>{displayText}</code>
+      )}
+      <CopyButton text={displayText} />
+    </div>
+  );
+}
+
+function ParagraphRenderer({ children, sourceMap, onDownloadSource }) {
   const text = getNodeText(children).trim();
   const resultLine = text.match(/^(Kết quả|Result)\s*[:：]\s*(.+)$/i);
 
@@ -56,14 +67,7 @@ function ParagraphRenderer({ children, sourceMap }) {
   }
 
   if (isMaterialSourceText(text)) {
-    const labels = formatSourceLabels(text, sourceMap);
-    const displayText = labels.join(', ');
-    return (
-      <div className="ai-answer-source-pill">
-        <code>{displayText}</code>
-        <CopyButton text={displayText} />
-      </div>
-    );
+    return <SourcePill sourceText={text} sourceMap={sourceMap} onDownloadSource={onDownloadSource} />;
   }
 
   return <p className="ai-answer-paragraph">{children}</p>;
@@ -120,7 +124,7 @@ function LinkRenderer({ href, children, onStudyTipAnalyze, ...props }) {
   );
 }
 
-function createMarkdownComponents({ sourceMap, onStudyTipAnalyze }) {
+function createMarkdownComponents({ sourceMap, onStudyTipAnalyze, onDownloadSource }) {
   return {
     h1: (props) => <HeadingRenderer Tag="h2" {...props} />,
     h2: (props) => <HeadingRenderer Tag="h3" {...props} />,
@@ -128,7 +132,7 @@ function createMarkdownComponents({ sourceMap, onStudyTipAnalyze }) {
     h4: (props) => <HeadingRenderer Tag="h4" {...props} />,
     h5: (props) => <HeadingRenderer Tag="h4" {...props} />,
     h6: (props) => <HeadingRenderer Tag="h4" {...props} />,
-    p: (props) => <ParagraphRenderer {...props} sourceMap={sourceMap} />,
+    p: (props) => <ParagraphRenderer {...props} sourceMap={sourceMap} onDownloadSource={onDownloadSource} />,
     pre: ({ children }) => <>{children}</>,
     code: CodeRenderer,
     table: MarkdownTable,
@@ -138,14 +142,9 @@ function createMarkdownComponents({ sourceMap, onStudyTipAnalyze }) {
     li: ({ children }) => {
       const text = getNodeText(children).trim();
       if (isMaterialSourceText(text)) {
-        const labels = formatSourceLabels(text, sourceMap);
-        const displayText = labels.join(', ');
         return (
           <li className="ai-answer-source-list-item">
-            <span className="ai-answer-source-pill">
-              <code>{displayText}</code>
-              <CopyButton text={displayText} />
-            </span>
+            <SourcePill sourceText={text} sourceMap={sourceMap} onDownloadSource={onDownloadSource} />
           </li>
         );
       }
@@ -165,12 +164,15 @@ function createMarkdownComponents({ sourceMap, onStudyTipAnalyze }) {
   };
 }
 
-function MarkdownRenderer({ markdown, streaming = false, sourceMap = {}, onStudyTipAnalyze }) {
+function MarkdownRenderer({ markdown, streaming = false, sourceMap = {}, onStudyTipAnalyze, onDownloadSource, hideSourceSection = false }) {
   const rootRef = useRef(null);
-  const content = useMemo(() => normalizeAiMarkdown(markdown), [markdown]);
+  const content = useMemo(() => {
+    const normalized = normalizeAiMarkdown(markdown);
+    return hideSourceSection ? stripSourceSection(normalized) : normalized;
+  }, [markdown, hideSourceSection]);
   const components = useMemo(
-    () => createMarkdownComponents({ sourceMap, onStudyTipAnalyze }),
-    [sourceMap, onStudyTipAnalyze],
+    () => createMarkdownComponents({ sourceMap, onStudyTipAnalyze, onDownloadSource }),
+    [sourceMap, onStudyTipAnalyze, onDownloadSource],
   );
 
   useEffect(() => {
@@ -193,7 +195,6 @@ function MarkdownRenderer({ markdown, streaming = false, sourceMap = {}, onStudy
           rehypePlugins={[
             [rehypeKatex, rehypeKatexOptions],
             rehypeSlug,
-            [rehypeAutolinkHeadings, autolinkHeadingOptions],
           ]}
           components={components}
           skipHtml

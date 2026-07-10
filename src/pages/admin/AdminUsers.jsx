@@ -1,12 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { Card, Table, Button, Form, Input, Select, Upload, Typography, Tag, Space, Alert, Divider, Tabs, Modal, Popconfirm, Switch, message } from 'antd';
+import { useState, useEffect } from 'react';
+import { Card, Table, Button, Form, Input, Select, Upload, Typography, Tag, Space, Alert, Divider, Tabs, Modal, Switch } from 'antd';
 import {
   Users as UsersIcon, GraduationCap, AlertTriangle, RefreshCw,
-  Upload as UploadIcon, Inbox, Trash2, Edit, UserCheck
+  Inbox, Trash2, Edit, UserCheck
 } from 'lucide-react';
 import { apiService } from '../../services/api';
+import { confirmDanger } from '../../components/common/confirmDialog';
 
-const { Title, Text } = Typography;
+const { Title } = Typography;
 const { Dragger } = Upload;
 const { Option } = Select;
 const { TabPane } = Tabs;
@@ -89,6 +90,16 @@ function AdminUsers({ triggerToast, handleAdminImport }) {
     return false;
   };
 
+  const confirmDelete = (event, { title, content, onOk }) => {
+    event.stopPropagation();
+    confirmDanger({
+      title,
+      content,
+      anchorRect: event.currentTarget?.getBoundingClientRect?.(),
+      onOk,
+    });
+  };
+
   // ── Columns ──────────────────────────────────────────────
   const userColumns = [
     { title: 'Email', dataIndex: 'email', key: 'email', ellipsis: true },
@@ -112,9 +123,17 @@ function AdminUsers({ triggerToast, handleAdminImport }) {
             type="link" size="small" icon={<Edit size={14} />}
             onClick={() => { setEditUserModal(record); formEditUser.setFieldsValue({ role: record.role, isActive: record.isActive !== false }); }}
           />
-          <Popconfirm title="Delete this user?" onConfirm={() => handleDeleteUser(record.id)} okText="Delete" cancelText="Cancel">
-            <Button type="link" danger size="small" icon={<Trash2 size={14} />} />
-          </Popconfirm>
+          <Button
+            type="link"
+            danger
+            size="small"
+            icon={<Trash2 size={14} />}
+            onClick={(event) => confirmDelete(event, {
+              title: 'Delete this user?',
+              content: 'This removes the account from the platform.',
+              onOk: () => handleDeleteUser(record.id),
+            })}
+          />
         </Space>
       )
     }
@@ -135,9 +154,17 @@ function AdminUsers({ triggerToast, handleAdminImport }) {
     {
       title: '', key: 'action', width: 50,
       render: (_, record) => (
-        <Popconfirm title="Delete this mentor?" onConfirm={() => handleDeleteMentor(record.id)} okText="Delete" cancelText="Cancel">
-          <Button type="link" danger size="small" icon={<Trash2 size={14} />} />
-        </Popconfirm>
+        <Button
+          type="link"
+          danger
+          size="small"
+          icon={<Trash2 size={14} />}
+          onClick={(event) => confirmDelete(event, {
+            title: 'Delete this mentor?',
+            content: 'This removes the mentor profile and cannot be undone.',
+            onOk: () => handleDeleteMentor(record.id),
+          })}
+        />
       )
     }
   ];
@@ -153,9 +180,17 @@ function AdminUsers({ triggerToast, handleAdminImport }) {
     {
       title: '', key: 'action', width: 50,
       render: (_, record) => (
-        <Popconfirm title="Delete this support request?" onConfirm={() => handleDeleteEscalation(record.id)} okText="Delete" cancelText="Cancel">
-          <Button type="link" danger size="small" icon={<Trash2 size={14} />} />
-        </Popconfirm>
+        <Button
+          type="link"
+          danger
+          size="small"
+          icon={<Trash2 size={14} />}
+          onClick={(event) => confirmDelete(event, {
+            title: 'Delete this support request?',
+            content: 'This removes the support request from admin review.',
+            onOk: () => handleDeleteEscalation(record.id),
+          })}
+        />
       )
     }
   ];

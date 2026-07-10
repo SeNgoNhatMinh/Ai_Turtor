@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { apiService } from '../services/api';
+import { getUserFacingError } from '../services/apiClient';
 import { User, Lock, Mail, ArrowRight, UserPlus, GraduationCap, BookOpen, Pencil } from 'lucide-react';
 import RobotHeadMascot from '../components/RobotHeadMascot';
 import { validateAuthForm } from '../utils/validators';
@@ -36,7 +37,7 @@ function Login({ onLoginSuccess, triggerToast }) {
         setIsLoginView(true);
       }
     } catch (e) {
-      triggerToast(e.message || 'Something went wrong. Please try again.');
+      triggerToast(getUserFacingError(e, 'Something went wrong. Please try again.'));
     } finally {
       setIsLoading(false);
     }

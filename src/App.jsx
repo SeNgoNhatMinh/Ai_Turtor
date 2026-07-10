@@ -6,12 +6,19 @@ import Toast from './components/Toast';
 import Login from './pages/Login';
 import { apiService } from './services/api';
 import { getUserFacingError } from './services/apiClient';
-import { asArray, normalizeTeacherInboxItem, normalizeAnswerReview, normalizeStudentDashboard, normalizeTeacherDashboard, normalizeSuggestions } from './services/normalizers';
+import { normalizeStudentDashboard, normalizeSuggestions } from './services/normalizers';
 import { getFptTheme } from './theme/fptTheme';
 import { n8nService } from './services/n8nService';
 import { N8N_ENABLED } from './services/n8nClient';
 import { useStudentEnrollmentOptions } from './hooks/useStudentEnrollmentOptions';
 import { useStudentChatController } from './hooks/useStudentChatController';
+import { useToastMessage } from './hooks/useToastMessage';
+import { useCodeMentorController } from './hooks/useCodeMentorController';
+import { useStudentAssignmentsController } from './hooks/useStudentAssignmentsController';
+import { useCourseMaterialsController } from './hooks/useCourseMaterialsController';
+import { useAdminRuntimeController } from './hooks/useAdminRuntimeController';
+import { useTeacherRuntimeController } from './hooks/useTeacherRuntimeController';
+import { FEEDBACK_RECORDED_MESSAGE } from './constants/answerReview';
 import {
   createRecoveredSuggestion,
   readJsonStorage,
@@ -31,6 +38,18 @@ const AdminPortal = lazy(() => import('./pages/AdminPortal'));
 
 const APP_SESSION_USER_KEY = 'ai-tutor:current-user';
 const APP_UI_STATE_KEY = 'ai-tutor:ui-state';
+
+const createStudyTipSuggestion = (text) => ({
+  priority: 'high',
+  title: String(text || '').trim(),
+  content: 'Created from the study note you selected in AI Tutor Chat. Review it first, then use Study now or Create quiz when you are ready.',
+  source: 'CHAT_STUDY_TIP',
+});
+
+const isSuggestionServiceFailure = (suggestion) => {
+  const value = `${suggestion?.title || ''} ${suggestion?.content || ''}`.toLowerCase();
+  return value.includes('ai suggestion failed') || value.includes('llm') || value.includes('dịch vụ llm');
+};
 
 function App() {
   // State management
@@ -78,59 +97,65 @@ function App() {
   }, [activeRole, activeTab, courseId, classId, isDarkMode]);
 
   // Code Review State
-  const [codeMentorDiagnostics, setCodeMentorDiagnostics] = useState(null);
-  const [isCodeAnalyzing, setIsCodeAnalyzing] = useState(false);
-
-  // Materials & Submissions State
-  const [assignments, setAssignments] = useState([]);
-  const [selectedAssignment, setSelectedAssignment] = useState(null);
-  const [courseMaterials, setCourseMaterials] = useState([]);
-
-
-  // Teacher State
-  const [classesList, setClassesList] = useState([]);
-  const [teacherStudents, setTeacherStudents] = useState([]);
-  const [teacherTopicHeatmap, setTeacherTopicHeatmap] = useState([]);
-  const [teacherDashboardLoading, setTeacherDashboardLoading] = useState(false);
-  const [teacherSubmissions, setTeacherSubmissions] = useState([]);
-  const [selectedTeacherSub, setSelectedTeacherSub] = useState(null);
-  
-  // Upload progress simulation state
-  const [uploadProgress, setUploadProgress] = useState(null);
-  const [uploadProgressText, setUploadProgressText] = useState('');
-
-  // Escalation & Candidate State
-  const [escalations, setEscalations] = useState([]);
-  const [teacherChatInbox, setTeacherChatInbox] = useState([]);
-  const [isTeacherInboxLoading, setIsTeacherInboxLoading] = useState(false);
-  const [selectedEscalation, setSelectedEscalation] = useState(null);
-  const [candidates, setCandidates] = useState([]);
-  const [answerReviews, setAnswerReviews] = useState([]);
-  const [seniorAnswerReviews, setSeniorAnswerReviews] = useState([]);
+  const { toastMessage, setToastMessage, triggerToast } = useToastMessage();
 
   // Student dashboard
   const [studentDashboard, setStudentDashboard] = useState({ learnedTopics: [], weakTopics: [], stats: {} });
   const [isStudentDashboardLoading, setIsStudentDashboardLoading] = useState(false);
-
-  // Admin State
-  const [adminStats, setAdminStats] = useState({});
-  const [diagnosticsOutput, setDiagnosticsOutput] = useState(null);
-  const [isDiagnosticsRunning, setIsDiagnosticsRunning] = useState(false);
-  const [adminPlans, setAdminPlans] = useState([]);
 
   // Suggestions state
   const [suggestions, setSuggestions] = useState([]);
   const [isSuggesting, setIsSuggesting] = useState(false);
 
   // UI state
-  const [toastMessage, setToastMessage] = useState(null);
   const getStudentUserId = () => currentUserId;
-  const getCurrentUserId = () => currentUserId;
   const getTeacherUserId = () => currentUserId;
-  const triggerToast = (msg) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3500);
-  };
+  const {
+    classesList,
+    teacherStudents,
+    teacherTopicHeatmap,
+    teacherDashboardLoading,
+    teacherSubmissions,
+    quizSubmissions,
+    setQuizSubmissions,
+    selectedTeacherSub,
+    setSelectedTeacherSub,
+    escalations,
+    teacherChatInbox,
+    isTeacherInboxLoading,
+    selectedEscalation,
+    setSelectedEscalation,
+    candidates,
+    setCandidates,
+    answerReviews,
+    seniorAnswerReviews,
+    loadTeacherSubmissions,
+    loadKnowledgeCandidates,
+    loadTeacherDashboard,
+    loadTeacherInbox,
+    loadAnswerReviews,
+    handleTeacherQuizReview,
+    handleTeacherGradeSubmit,
+    handleTeacherAnswerEsc,
+    handleMentorReviewAnswer,
+    handleSeniorResolveReview,
+    handleApproveCandidate,
+    handleRejectCandidate,
+  } = useTeacherRuntimeController({
+    currentUser,
+    activeRole,
+    courseId,
+    classId,
+    triggerToast,
+  });
+  const {
+    setCodeMentorDiagnostics,
+  } = useCodeMentorController({
+    studentId: currentUserId,
+    courseId,
+    classId,
+    triggerToast,
+  });
   const {
     activeSessionId,
     activeSessionTitle,
@@ -149,6 +174,7 @@ function App() {
     handleRenameSession,
     handleSendQuery,
     handleStopAiGeneration,
+    openLearnedSuggestionResponse,
   } = useStudentChatController({
     currentUser,
     courseId,
@@ -156,6 +182,40 @@ function App() {
     triggerToast,
     setCodeMentorDiagnostics,
   });
+  const {
+    assignments,
+    selectedAssignment,
+    setSelectedAssignment,
+    loadStudentAssignments,
+    handleStudentSubmit,
+    handleDownloadAssignment,
+  } = useStudentAssignmentsController({
+    studentId: currentUserId,
+    triggerToast,
+  });
+  const {
+    courseMaterials,
+    uploadProgress,
+    uploadProgressText,
+    loadCourseMaterials,
+    handleTeacherUploadMaterial,
+    handleDownloadMaterial,
+  } = useCourseMaterialsController({
+    courseId,
+    classId,
+    teacherId: currentUserId,
+    triggerToast,
+  });
+  const {
+    adminStats,
+    diagnosticsOutput,
+    isDiagnosticsRunning,
+    adminPlans,
+    loadAdminStats,
+    loadSubscriptionPlans,
+    runDiagnostics,
+    handleAdminImport,
+  } = useAdminRuntimeController({ triggerToast });
 
   useEffect(() => {
     if (!currentUser) return;
@@ -183,41 +243,6 @@ function App() {
       loadChatSessions();
     }
   }, [currentUser, activeRole]);
-
-  const loadStudentAssignments = async () => {
-    try {
-      const data = await apiService.getStudentAssignments(getStudentUserId());
-      const assignList = asArray(data, 'content', 'assignments');
-      setAssignments(assignList);
-      if (assignList.length > 0 && !selectedAssignment) {
-        setSelectedAssignment(assignList[0]);
-      }
-    } catch (e) {
-      setAssignments([]);
-    }
-  };
-
-  const loadCourseMaterials = async () => {
-    try {
-      const data = await apiService.getCourseMaterials(courseId, classId);
-      setCourseMaterials(asArray(data, 'materials', 'content'));
-    } catch (e) {
-      setCourseMaterials([]);
-    }
-  };
-
-  const loadTeacherSubmissions = async () => {
-    try {
-      const data = await apiService.getClassSubmissions(courseId, classId, getTeacherUserId());
-      const subList = asArray(data, 'content', 'submissions');
-      setTeacherSubmissions(subList);
-      if (subList.length > 0 && !selectedTeacherSub) {
-        setSelectedTeacherSub(subList[0]);
-      }
-    } catch (e) {
-      setTeacherSubmissions([]);
-    }
-  };
 
   const loadStudentDashboard = async () => {
     setIsStudentDashboardLoading(true);
@@ -255,7 +280,7 @@ function App() {
         setSuggestions(mergedSuggestions);
         writeAnalyzedSuggestions(studentId, courseId, mergedSuggestions);
       }
-    } catch (e) {
+    } catch {
       try {
         const memory = await apiService.getStudentMemory(studentId, courseId);
         const mergedPinnedSuggestions = [
@@ -281,97 +306,6 @@ function App() {
     }
   };
 
-  const loadTeacherDashboard = async () => {
-    setTeacherDashboardLoading(true);
-    try {
-      const data = await apiService.getTeacherDashboard(getTeacherUserId(), courseId, classId);
-      const normalized = normalizeTeacherDashboard(data);
-      setTeacherTopicHeatmap(normalized.topicHeatmap);
-
-      const sections = normalized.classSections;
-      if (sections.length) {
-        setClassesList(sections.map((s) => ({
-          semester: s.semesterId || s.semesterCode || '—',
-          course: s.courseId || courseId,
-          classCode: s.classId || s.id,
-          name: s.name || `Class ${s.courseId}_${s.classId}`,
-          details: s.description || `${s.studentCount ?? '—'} students`,
-        })));
-      } else {
-        const fallback = await apiService.getTeacherClassSections(getTeacherUserId());
-        const list = asArray(fallback, 'content', 'classSections');
-        setClassesList(list.map((s) => ({
-          semester: s.semesterId || '—',
-          course: s.courseId || courseId,
-          classCode: s.classId || s.id,
-          name: s.name || `Class ${s.courseId}_${s.classId}`,
-          details: `${s.studentCount ?? '—'} students`,
-        })));
-      }
-
-      if (normalized.students.length) {
-        setTeacherStudents(normalized.students.map((s) => ({
-          id: s.studentId || s.id || s.userId,
-          name: s.fullName || s.name || s.studentId,
-          email: s.email || '—',
-          status: s.status || 'ACTIVE',
-          weakTopics: s.weakTopics?.length ? s.weakTopics : ['None'],
-        })));
-      } else {
-        try {
-          const studentsData = await apiService.getClassStudents(courseId, classId);
-          const students = asArray(studentsData, 'students', 'content');
-          setTeacherStudents(students.map((s) => ({
-            id: s.studentId || s.id,
-            name: s.fullName || s.name || s.studentId,
-            email: s.email || '—',
-            status: s.status || 'ACTIVE',
-            weakTopics: s.weakTopics?.length ? s.weakTopics : ['None'],
-          })));
-        } catch {
-          setTeacherStudents([]);
-        }
-      }
-    } catch (e) {
-      setTeacherStudents([]);
-      setTeacherTopicHeatmap([]);
-    } finally {
-      setTeacherDashboardLoading(false);
-    }
-  };
-
-  const loadTeacherInbox = async () => {
-    setIsTeacherInboxLoading(true);
-    try {
-      const data = await apiService.getTeacherEscalationInbox(getTeacherUserId(), { courseId });
-      const items = asArray(data, 'escalations', 'inbox', 'content').map(normalizeTeacherInboxItem);
-      setEscalations(items);
-      setTeacherChatInbox(items.filter((e) => e.chatRoomId && ['assigned', 'active', 'in_chat'].includes(e.status)));
-      if (items.length && !selectedEscalation) {
-        setSelectedEscalation(items[0]);
-      }
-    } catch (e) {
-      setEscalations([]);
-      setTeacherChatInbox([]);
-    } finally {
-      setIsTeacherInboxLoading(false);
-    }
-  };
-
-  const loadAnswerReviews = async () => {
-    try {
-      const [mentorPending, seniorPending] = await Promise.all([
-        apiService.getMentorPendingAnswerReviews(courseId),
-        apiService.getSeniorPendingAnswerReviews(courseId),
-      ]);
-      setAnswerReviews((Array.isArray(mentorPending) ? mentorPending : []).map(normalizeAnswerReview));
-      setSeniorAnswerReviews((Array.isArray(seniorPending) ? seniorPending : []).map(normalizeAnswerReview));
-    } catch (e) {
-      setAnswerReviews([]);
-      setSeniorAnswerReviews([]);
-    }
-  };
-
   // ==========================================
   // SIDEBAR NAVIGATION & PORTALS TAB SWITCHING
   // ==========================================
@@ -388,8 +322,9 @@ function App() {
   };
 
   const handleLoginSuccess = (user) => {
-    const role = normalizeAppRole(user?.role, user?.email);
-    const updatedUser = { ...user, role };
+    const originalRole = user?.originalRole || user?.role || user?.roleKey || user?.authority || user?.userRole || '';
+    const role = normalizeAppRole(originalRole, user?.email);
+    const updatedUser = { ...user, originalRole, role };
     setCurrentUser(updatedUser);
     handleRoleChange(role);
   };
@@ -398,27 +333,7 @@ function App() {
     setCurrentUser(null);
     resetChat();
     window.sessionStorage.removeItem(APP_SESSION_USER_KEY);
-  };
-
-  const handleCodeMentorQuery = async (codeSnippet, codeLanguage, isAssignmentRelated) => {
-    setIsCodeAnalyzing(true);
-    triggerToast('Analyzing source code...');
-
-    const payload = {
-      studentId: getStudentUserId(),
-      courseId: courseId,
-      classId: classId,
-      question: 'Analyze this code issue',
-      code: codeSnippet,
-      language: codeLanguage,
-      assignmentRelated: isAssignmentRelated,
-      conversationId: activeSessionId || null
-    };
-
-    const data = await apiService.sendCodeMentorQuery(payload);
-    setCodeMentorDiagnostics(data.answer);
-    setIsCodeAnalyzing(false);
-    triggerToast('Code analysis completed.');
+    window.localStorage.removeItem('ai_tutor_jwt');
   };
 
   // ==========================================
@@ -426,42 +341,36 @@ function App() {
   // ==========================================
   const refreshSuggestions = async (question = '') => {
     const questionText = String(question || '').trim();
+    const studentId = getStudentUserId();
     setIsSuggesting(true);
     triggerToast(questionText ? 'AI is analyzing this study tip...' : 'AI is analyzing your learning memory...');
 
     try {
-      const data = await apiService.getSuggestions(getStudentUserId(), courseId, {
+      const data = await apiService.getSuggestions(studentId, courseId, {
         classId,
         question: questionText || undefined,
         includeAiSuggestion: Boolean(questionText),
       });
-      const normalized = normalizeSuggestions(data);
-      const finalSuggestions = normalized.length ? normalized : suggestions;
+      const normalized = normalizeSuggestions(data).filter((item) => !isSuggestionServiceFailure(item));
+      const focusedSuggestion = questionText ? createStudyTipSuggestion(questionText) : null;
+      const finalSuggestions = mergeSuggestionLists(
+        focusedSuggestion ? [focusedSuggestion] : [],
+        normalized,
+        suggestions,
+      );
       setSuggestions(finalSuggestions);
-      writeAnalyzedSuggestions(getStudentUserId(), courseId, finalSuggestions);
-      triggerToast(questionText ? 'Study tip analysis completed.' : 'Study plan analysis completed.');
+      writeAnalyzedSuggestions(studentId, courseId, finalSuggestions);
+      if (questionText) {
+        setActiveTab('student-memory');
+        loadStudentDashboard();
+      }
+      triggerToast(questionText ? 'Study tip added to Learning Progress.' : 'Study plan analysis completed.');
     } catch (error) {
       console.error('Error fetching suggestions:', error);
-      triggerToast('Failed to analyze learning suggestions.');
+      triggerToast(getUserFacingError(error, 'Unable to analyze learning suggestions.'));
     } finally {
       setIsSuggesting(false);
     }
-  };
-
-  // ==========================================
-  // STUDENT SUBMIT ASSIGNMENT
-  // ==========================================
-  const handleStudentSubmit = async (assignmentId, file, note) => {
-    triggerToast('Submitting assignment...');
-
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('note', note);
-
-    await apiService.submitAssignment(assignmentId, formData, getStudentUserId());
-    triggerToast('Assignment submitted successfully.');
-    // Reload assignments state to update status
-    loadStudentAssignments();
   };
 
   const handleStudentUpdateMemory = async (learnedList, weakList) => {
@@ -478,7 +387,7 @@ function App() {
       loadStudentDashboard();
     } catch (e) {
       console.error('Error updating memory:', e);
-      triggerToast('Failed to update profiler.');
+      triggerToast(getUserFacingError(e, 'Unable to update learning profiler.'));
     }
   };
 
@@ -535,363 +444,26 @@ function App() {
     }
   };
 
-  const handleDownloadAssignment = async (assignmentId) => {
-    triggerToast('Downloading assignment file...');
-    try {
-      const blob = await apiService.downloadAssignmentFile(assignmentId);
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `assignment-${assignmentId}.zip`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
-    } catch (e) {
-      console.error('Error downloading assignment:', e);
-      triggerToast('Failed to download assignment file.');
-    }
-  };
-
-
-  // ==========================================
-  // TEACHER ACTION HANDLERS
-  // ==========================================
-  const handleTeacherUploadMaterial = async (title, classIdVal, file) => {
-    setUploadProgress(0);
-    setUploadProgressText('Loading file...');
-
-    let progress = 0;
-    const interval = setInterval(() => {
-      progress += 20;
-      if (progress > 90) {
-        clearInterval(interval);
-      } else {
-        setUploadProgress(progress);
-        setUploadProgressText(`Processing upload: ${progress}%`);
-      }
-    }, 200);
-
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('title', title);
-    formData.append('teacherId', getTeacherUserId());
-    if (classIdVal) formData.append('classId', classIdVal);
-
-    // If title starts with 'Assignment', use assignment API, otherwise material API
-    if (title.toLowerCase().includes('assignment')) {
-      await apiService.uploadAssignment(courseId, classIdVal || classId, formData);
-      triggerToast('New assignment published.');
-    } else {
-      await apiService.uploadMaterial(courseId, formData);
-      triggerToast('Course material uploaded.');
-      loadCourseMaterials();
-    }
-
-    clearInterval(interval);
-    setUploadProgress(100);
-    setUploadProgressText('Upload completed.');
-  };
-
-  const handleTeacherDeleteMaterial = async (materialId) => {
-    triggerToast('Deleting course material...');
-    try {
-      await apiService.deleteMaterial(courseId, materialId);
-      triggerToast('Material deleted successfully.');
-      loadCourseMaterials();
-    } catch (e) {
-      triggerToast(getUserFacingError(e, 'Failed to delete material.'));
-    }
-  };
-
-  const handleTeacherReindexMaterial = async (materialId) => {
-    triggerToast('Reindexing course material...');
-    try {
-      await apiService.reindexMaterial(courseId, materialId);
-      triggerToast('Material reindexing triggered.');
-      loadCourseMaterials();
-    } catch (e) {
-      triggerToast(getUserFacingError(e, 'Failed to reindex material.'));
-    }
-  };
-
-  const handleDownloadMaterial = async (materialId, title) => {
-    triggerToast('Downloading material...');
-    try {
-      const blob = await apiService.downloadMaterialPdf(courseId, materialId);
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${title || 'material'}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
-    } catch (e) {
-      triggerToast(getUserFacingError(e, 'Failed to download material.'));
-    }
-  };
-
-
-  const handleTeacherGradeSubmit = async (submissionId, score, feedback, weakTopics) => {
-    triggerToast('Saving grading results...');
-
-    const payload = {
-      teacherId: getTeacherUserId(),
-      score: parseFloat(score),
-      teacherFeedback: feedback,
-      weakTopics: weakTopics
-    };
-
-    await apiService.gradeSubmission(submissionId, payload);
-    triggerToast('Submission graded successfully.');
-
-    // Reload submissions
-    loadTeacherSubmissions();
-  };
-
   const handleStudentReviewAnswer = async (reviewPayload) => {
     triggerToast('Submitting your feedback...');
     try {
       if (N8N_ENABLED) {
         try {
-          const response = await n8nService.submitAnswerReview(reviewPayload);
-          triggerToast(response.message || 'Thank you for your feedback.');
+          await n8nService.submitAnswerReview(reviewPayload);
+          triggerToast(FEEDBACK_RECORDED_MESSAGE);
         } catch (n8nErr) {
           console.warn('n8n feedback failed, falling back to backend API:', n8nErr);
           await apiService.submitAnswerReview(reviewPayload);
-          triggerToast('Thank you for your feedback (fallback).');
+          triggerToast(FEEDBACK_RECORDED_MESSAGE);
         }
       } else {
         await apiService.submitAnswerReview(reviewPayload);
-        triggerToast('Thank you for your feedback.');
+        triggerToast(FEEDBACK_RECORDED_MESSAGE);
       }
     } catch (error) {
       console.error('Error submitting feedback:', error);
-      triggerToast('Failed to submit feedback.');
+      triggerToast(getUserFacingError(error, 'Unable to submit feedback. Please try again.'));
     }
-  };
-
-  const handleTeacherAnswerEsc = async (escalationId, reply, createKnowledgeCandidate = true, candidateType = 'ACADEMIC_KNOWLEDGE') => {
-    triggerToast('Sending answer...');
-
-    try {
-      if (N8N_ENABLED) {
-        try {
-          const payload = {
-            questionEscalationId: escalationId,
-            teacherId: getTeacherUserId(),
-            teacherName: currentUser?.fullName || currentUser?.name || 'Teacher',
-            answer: reply,
-            createKnowledgeCandidate,
-            candidateType
-          };
-          const response = await n8nService.submitTeacherAnswer(payload);
-          triggerToast(response.message || 'Answer sent successfully.');
-        } catch (n8nErr) {
-          console.warn('n8n teacher answer failed, falling back to backend API:', n8nErr);
-          const payload = {
-            teacherId: getTeacherUserId(),
-            teacherName: currentUser?.fullName || currentUser?.name || 'Teacher',
-            answer: reply,
-            createKnowledgeCandidate,
-            candidateType
-          };
-          await apiService.answerEscalation(escalationId, payload);
-          triggerToast('Answer sent successfully (fallback).');
-        }
-      } else {
-        const payload = {
-          teacherId: getTeacherUserId(),
-          teacherName: currentUser?.fullName || currentUser?.name || 'Teacher',
-          answer: reply,
-          createKnowledgeCandidate,
-          candidateType
-        };
-        await apiService.answerEscalation(escalationId, payload);
-        triggerToast('Answer sent successfully.');
-      }
-
-      setEscalations(prev => prev.map(esc => {
-        if (esc.id === escalationId) {
-          return { ...esc, status: 'answered' };
-        }
-        return esc;
-      }));
-      loadTeacherInbox();
-    } catch (error) {
-      console.error('Error sending answer:', error);
-      triggerToast('Failed to send answer.');
-    }
-  };
-
-  const handleMentorReviewAnswer = async (review, accurate, feedback) => {
-    triggerToast('Submitting AI answer review...');
-    try {
-      await apiService.submitAnswerReview({
-        studentId: review.studentId,
-        courseId: review.courseId || courseId,
-        classId: review.classId || classId,
-        conversationId: review.conversationId,
-        questionEscalationId: review.questionEscalationId,
-        mode: review.mode || 'RAG',
-        reviewType: review.reviewType || 'ANSWER_DISPUTE',
-        question: review.question,
-        answer: review.answer,
-        accurate,
-        helpful: accurate,
-        correctnessLevel: accurate ? 'HIGH' : 'INCORRECT',
-        feedback,
-        reviewedBy: getTeacherUserId(),
-        reviewerRole: 'MENTOR',
-      });
-      triggerToast(accurate ? 'Review submitted — AI answer confirmed.' : 'Review submitted — correction noted.');
-      loadAnswerReviews();
-    } catch (error) {
-      console.error('Error submitting mentor review:', error);
-      triggerToast('Failed to submit review.');
-    }
-  };
-
-  const handleSeniorResolveReview = async (reviewId, decision, notes) => {
-    triggerToast('Resolving senior review...');
-    try {
-      await apiService.seniorResolveAnswerReview(reviewId, {
-        seniorReviewerId: getTeacherUserId(),
-        seniorReviewerName: currentUser?.fullName || currentUser?.name || 'Senior Mentor',
-        decision,
-        notes
-      });
-      triggerToast('Senior review resolved.');
-      loadAnswerReviews();
-    } catch (error) {
-      console.error('Error resolving senior review:', error);
-      triggerToast('Failed to resolve review.');
-    }
-  };
-
-  const loadKnowledgeCandidates = async () => {
-    try {
-      const data = await apiService.getKnowledgeCandidates('PENDING_REVIEW', courseId);
-      setCandidates(asArray(data, 'candidates', 'content'));
-    } catch (e) {
-      setCandidates([]);
-      triggerToast('Unable to load suggested AI answers.');
-    }
-  };
-
-  const handleApproveCandidate = async (id, reviewNote = 'Approved') => {
-    triggerToast('Approving suggested AI answer...');
-    try {
-      if (N8N_ENABLED) {
-        try {
-          const payload = {
-            decision: 'APPROVE',
-            candidateId: id,
-            reviewerId: getCurrentUserId(),
-            reviewerRole: activeRole === 'admin' ? 'ADMIN' : 'SENIOR_MENTOR',
-            reviewerName: currentUser?.fullName || currentUser?.name || 'Senior Mentor',
-            reviewNote
-          };
-          const response = await n8nService.submitSeniorApproval(payload);
-          triggerToast(response.message || 'Approved. The answer is ready for AI Tutor knowledge.');
-        } catch (n8nErr) {
-          console.warn('n8n approval failed, falling back to backend API:', n8nErr);
-          await apiService.approveCandidate(id, {
-            reviewerId: getCurrentUserId(),
-            reviewerRole: activeRole === 'admin' ? 'ADMIN' : 'SENIOR_MENTOR',
-            reviewerName: currentUser?.fullName || currentUser?.name || 'Senior Mentor',
-            reviewNote
-          });
-          triggerToast('Approved (fallback).');
-        }
-      } else {
-        await apiService.approveCandidate(id, {
-          reviewerId: getCurrentUserId(),
-          reviewerRole: activeRole === 'admin' ? 'ADMIN' : 'SENIOR_MENTOR',
-          reviewerName: currentUser?.fullName || currentUser?.name || 'Senior Mentor',
-          reviewNote
-        });
-        triggerToast('Approved. The answer is ready for AI Tutor knowledge.');
-      }
-      setCandidates(prev => prev.filter(c => c.id !== id));
-    } catch (error) {
-      console.error('Error approving candidate:', error);
-      triggerToast('Failed to approve candidate.');
-    }
-  };
-
-  const handleRejectCandidate = async (id, rejectionReason = 'Rejected by mentor') => {
-    triggerToast('Rejecting suggested AI answer...');
-    try {
-      if (N8N_ENABLED) {
-        try {
-          const payload = {
-            decision: 'REJECT',
-            candidateId: id,
-            reviewerId: getCurrentUserId(),
-            reviewerRole: activeRole === 'admin' ? 'ADMIN' : 'SENIOR_MENTOR',
-            reviewerName: currentUser?.fullName || currentUser?.name || 'Senior Mentor',
-            rejectionReason
-          };
-          const response = await n8nService.submitSeniorApproval(payload);
-          triggerToast(response.message || 'Suggested AI answer rejected.');
-        } catch (n8nErr) {
-          console.warn('n8n reject failed, falling back to backend API:', n8nErr);
-          await apiService.rejectCandidate(id, {
-            reviewerId: getCurrentUserId(),
-            reviewerRole: activeRole === 'admin' ? 'ADMIN' : 'SENIOR_MENTOR',
-            rejectionReason
-          });
-          triggerToast('Suggested AI answer rejected (fallback).');
-        }
-      } else {
-        await apiService.rejectCandidate(id, {
-          reviewerId: getCurrentUserId(),
-          reviewerRole: activeRole === 'admin' ? 'ADMIN' : 'SENIOR_MENTOR',
-          rejectionReason
-        });
-        triggerToast('Suggested AI answer rejected.');
-      }
-      setCandidates(prev => prev.filter(c => c.id !== id));
-    } catch (error) {
-      console.error('Error rejecting candidate:', error);
-      triggerToast('Failed to reject candidate.');
-    }
-  };
-
-  // ==========================================
-  // ADMIN PORTAL LOGIC
-  // ==========================================
-  const loadAdminStats = async () => {
-    const stats = await apiService.getAdminStats();
-    setAdminStats(stats);
-  };
-
-  const loadSubscriptionPlans = async () => {
-    const plans = await apiService.getSubscriptionPlans();
-    setAdminPlans(Array.isArray(plans) ? plans : []);
-  };
-
-  const runDiagnostics = async () => {
-    setIsDiagnosticsRunning(true);
-    triggerToast('Checking system connectivity...');
-
-    const diag = await apiService.runDiagnostics();
-    setDiagnosticsOutput(diag);
-    setIsDiagnosticsRunning(false);
-    triggerToast('System diagnostics completed.');
-  };
-
-  const handleAdminImport = async (file) => {
-    triggerToast('Importing mentors from Excel...');
-
-    const formData = new FormData();
-    formData.append('file', file);
-
-    const res = await apiService.importMentors(formData);
-    triggerToast('Mentor import completed.');
-    return res.log;
   };
 
   return (
@@ -921,7 +493,7 @@ function App() {
 
             {/* VIEW AREA */}
             <main className="content-wrapper">
-              <Suspense fallback={<div className="portal-loading"><Spin tip="Loading workspace..." /></div>}>
+              <Suspense fallback={<div className="portal-loading"><Spin description="Loading workspace..." /></div>}>
               {activeRole === 'student' && (
                 <StudentPortal
                   activeTab={activeTab}
@@ -949,9 +521,7 @@ function App() {
                   handleRenameSession={handleRenameSession}
                   handleSendQuery={handleSendQuery}
                   handleStopAiGeneration={handleStopAiGeneration}
-                  codeMentorDiagnostics={codeMentorDiagnostics}
-                  isCodeAnalyzing={isCodeAnalyzing}
-                  handleCodeMentorQuery={handleCodeMentorQuery}
+                  openLearnedSuggestionResponse={openLearnedSuggestionResponse}
                   assignments={assignments}
                   selectedAssignment={selectedAssignment}
                   setSelectedAssignment={setSelectedAssignment}
@@ -986,6 +556,8 @@ function App() {
                   classesList={classesList}
                   teacherStudents={teacherStudents}
                   teacherSubmissions={teacherSubmissions}
+                  quizSubmissions={quizSubmissions}
+                  setQuizSubmissions={setQuizSubmissions}
                   selectedTeacherSub={selectedTeacherSub}
                   setSelectedTeacherSub={setSelectedTeacherSub}
                   uploadProgress={uploadProgress}
@@ -1010,6 +582,7 @@ function App() {
                   handleTeacherAnswerEsc={handleTeacherAnswerEsc}
                   handleApproveCandidate={handleApproveCandidate}
                   handleRejectCandidate={handleRejectCandidate}
+                  handleTeacherQuizReview={handleTeacherQuizReview}
                   handleMentorReviewAnswer={handleMentorReviewAnswer}
                   handleSeniorResolveReview={handleSeniorResolveReview}
                   onMarkChatRead={(chatRoomId) => apiService.markChatRead(chatRoomId, getTeacherUserId())}
@@ -1020,6 +593,8 @@ function App() {
                   triggerToast={triggerToast}
                   courseMaterials={courseMaterials}
                   onDownloadMaterial={handleDownloadMaterial}
+                  currentUserRole={currentUser?.originalRole || currentUser?.role || activeRole}
+                  currentUser={currentUser}
                 />
               )}
 

@@ -1,4 +1,4 @@
-import { Alert, Avatar, Button, Card, Empty, Input, List, Space, Spin, Tag, Typography } from 'antd';
+import { Alert, Avatar, Button, Card, Empty, Input, Space, Spin, Tag, Typography } from 'antd';
 import { RobotOutlined, SendOutlined, UserOutlined } from '@ant-design/icons';
 import PageHeader from '../../components/common/PageHeader';
 import StatusTag from '../../components/common/StatusTag';
@@ -46,34 +46,29 @@ function MentorSupport({
           {escalationsError ? (
             <Alert type="error" showIcon message="Unable to load support requests" description={escalationsError} style={{ margin: 16 }} />
           ) : (
-            <List
-              style={{ paddingLeft: 10 }}
-              loading={isEscalationsLoading}
-              dataSource={escalations}
-              renderItem={(escalation) => (
-                <List.Item
+            <div className="support-request-list" style={{ paddingLeft: 10 }}>
+              {isEscalationsLoading ? (
+                <div className="center-state" style={{ minHeight: 180 }}><Spin /></div>
+              ) : escalations?.length ? (
+                escalations.map((escalation) => (
+                  <div
+                    key={escalation.id}
                   className={`session-item ${selectedEscalation?.id === escalation.id ? 'ant-list-item-selected' : ''}`}
                   onClick={() => onSelectEscalation(escalation)}
                 >
-                  <List.Item.Meta
-                    title={<Text strong style={{ color: selectedEscalation?.id === escalation.id ? '#F37021' : 'inherit' }} ellipsis>{escalation.questionPreview}</Text>}
-                    description={
-                      <Space direction="vertical" size={0}>
-                        <Text type="secondary" style={{ fontSize: 12 }}>{new Date(escalation.createdAt).toLocaleString('en-US')}</Text>
-                        <StatusTag status={escalation.status} />
-                      </Space>
-                    }
-                  />
-                </List.Item>
+                    <Text strong style={{ color: selectedEscalation?.id === escalation.id ? '#F37021' : 'inherit' }} ellipsis>{escalation.questionPreview}</Text>
+                    <Space direction="vertical" size={0}>
+                      <Text type="secondary" style={{ fontSize: 12 }}>{new Date(escalation.createdAt).toLocaleString('en-US')}</Text>
+                      <StatusTag status={escalation.status} />
+                    </Space>
+                  </div>
+                ))
+              ) : (
+                <Empty description={uiCopy.student.support.emptyTitle} image={Empty.PRESENTED_IMAGE_SIMPLE}>
+                  <Text type="secondary">{uiCopy.student.support.emptyDescription}</Text>
+                </Empty>
               )}
-              locale={{
-                emptyText: (
-                  <Empty description={uiCopy.student.support.emptyTitle} image={Empty.PRESENTED_IMAGE_SIMPLE}>
-                    <Text type="secondary">{uiCopy.student.support.emptyDescription}</Text>
-                  </Empty>
-                ),
-              }}
-            />
+            </div>
           )}
         </Card>
 
@@ -89,17 +84,16 @@ function MentorSupport({
                   </Space>
                 </div>
                 <div className="chat-message-list">
-                  <List
-                    dataSource={escChatMessages}
-                    renderItem={(message, index) => (
+                  <div className="support-message-list">
+                    {(escChatMessages || []).map((message, index) => (
                       <div key={index} className={`support-message ${message.senderId === userId ? 'mine' : ''}`}>
                         <Avatar icon={<UserOutlined />} style={{ backgroundColor: message.senderId === userId ? '#F37021' : '#52c41a' }} />
                         <div className={`support-bubble ${message.senderId === userId ? 'mine' : ''}`}>
                           {message.content}
                         </div>
                       </div>
-                    )}
-                  />
+                    ))}
+                  </div>
                   <div ref={escMessagesEndRef} />
                 </div>
                 <div className="chat-input-row">
