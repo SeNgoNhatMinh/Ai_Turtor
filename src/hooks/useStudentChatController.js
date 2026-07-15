@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { aiTutorApi } from '../services/aiTutorApi';
 import { conversationApi } from '../services/conversationApi';
 import { getUserFacingError } from '../services/apiClient';
@@ -60,10 +60,20 @@ export function useStudentChatController({
   const activeAiRequestIdRef = useRef(0);
   const canceledAiRequestIdsRef = useRef(new Set());
   const activeAiAbortControllerRef = useRef(null);
+  const sessionsRequestRef = useRef(null);
+  const messagesRequestRef = useRef(null);
+
+  useEffect(() => () => {
+    activeAiAbortControllerRef.current?.abort();
+    sessionsRequestRef.current?.abort();
+    messagesRequestRef.current?.abort();
+  }, []);
 
   const getStudentUserId = () => studentId || currentUser?.userId || currentUser?.id || '';
 
   const resetChat = () => {
+    sessionsRequestRef.current?.abort();
+    messagesRequestRef.current?.abort();
     setActiveSessionId(null);
     setActiveSessionTitle('AI Tutor Chat');
     setMessages([]);
@@ -77,14 +87,26 @@ export function useStudentChatController({
       setSessions([]);
       return;
     }
+    sessionsRequestRef.current?.abort();
+    const controller = new AbortController();
+    sessionsRequestRef.current = controller;
     setIsSessionsLoading(true);
     try {
-      const data = await conversationApi.getConversations(userId, courseId);
+      const data = await conversationApi.getConversations(userId, courseId, {
+        signal: controller.signal,
+        force: true,
+      });
+      if (controller.signal.aborted) return;
       setSessions(sortSessionsByActivity(asArray(data, 'content', 'conversations').map(normalizeSession)));
-    } catch {
+    } catch (error) {
+      if (controller.signal.aborted) return;
+      console.warn('Unable to load chat sessions:', error);
       setSessions([]);
     } finally {
-      setIsSessionsLoading(false);
+      if (sessionsRequestRef.current === controller) {
+        sessionsRequestRef.current = null;
+        setIsSessionsLoading(false);
+      }
     }
   };
 
@@ -130,12 +152,25 @@ export function useStudentChatController({
       triggerToast('Please sign in before opening chat history.');
       return;
     }
+    messagesRequestRef.current?.abort();
+    const controller = new AbortController();
+    messagesRequestRef.current = controller;
     setActiveSessionId(sessionId);
     setActiveSessionTitle(title);
     setTurnLimitNotice(null);
     setMessages([]);
-    const chatMsgs = await conversationApi.getMessages(sessionId, userId);
-    setMessages(pairMessages(asArray(chatMsgs, 'content', 'messages')));
+    try {
+      const chatMsgs = await conversationApi.getMessages(sessionId, userId, { signal: controller.signal });
+      if (!controller.signal.aborted) {
+        setMessages(pairMessages(asArray(chatMsgs, 'content', 'messages')));
+      }
+    } catch (error) {
+      if (!controller.signal.aborted) {
+        triggerToast(getUserFacingError(error, 'Unable to open this conversation.'));
+      }
+    } finally {
+      if (messagesRequestRef.current === controller) messagesRequestRef.current = null;
+    }
   };
 
   const handleCreateSession = async () => {

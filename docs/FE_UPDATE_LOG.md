@@ -26,6 +26,78 @@ Copy template này lên đầu phần `History` sau mỗi lần cập nhật:
 
 ## History
 
+## [2026-07-16] FE Feature Modules, Lazy Chunks, And Regression Tests
+
+**Summary**
+- Completed the remaining frontend-only cleanup phase without changing backend endpoints or portal behavior.
+
+**Changed**
+- Moved Student chat, learning-action, and materials controllers from `pages` into domain-owned `features/student/*` modules.
+- Reduced `ChatSessionsPanel.jsx` to a small composition layer and extracted conversation grouping, states, item rendering, and utilities.
+- Reduced `AdminAcademic.jsx` to a tab orchestrator; extracted entity CRUD control and lazy-loaded academic tabs.
+- Reduced `TeacherMaterialsAssignmentsTab.jsx` to a composition layer; extracted columns, upload/publish cards, and resource tables.
+- Split Quiz, Learning Progress, and Admin Academic CSS by feature ownership; global CSS output dropped from about `121 KB` to `110 KB`.
+- Lazy-loaded quiz runner/result and Admin Academic tabs. `PracticeQuizzes` is about `19 KB`, while `AdminAcademic` is about `25 KB` before gzip.
+- Extracted the pure n8n response contract into `features/ai-harness/n8nResponse.js` while preserving the public `n8nService` interface.
+- Added dependency-free Node tests for n8n envelopes, chat rollover/session helpers, quiz normalizers, validators, and markdown URL security.
+
+**Tested**
+- `npm test`: pass, 20 tests.
+- `npm run lint`: pass with 0 errors and 0 warnings.
+- `npm run build`: pass.
+
+**Notes**
+- Browser-level responsive/dark-mode checks and live backend/n8n E2E remain environment-dependent; unit tests cover the deterministic FE contracts only.
+
+## [2026-07-16] Student Feature Decomposition And Live n8n Verification
+
+**Summary**
+- Completed the next maintainability phase for Student Chat, Learning Progress, and Practice Quizzes, then verified the active n8n workflows against the real local backend.
+
+**Changed**
+- Split the 2,901-line Student Chat stylesheet into layout, messages, markdown, message actions, history, support, dark-mode, and responsive feature styles.
+- Centralized remaining visible Student Chat copy in English while retaining Vietnamese phrases only for backend-response detection.
+- Reduced `LearningProgress.jsx` to a 247-line orchestrator with focused overview, memory, suggestions, improve-plan, modal, utility, and plan-controller modules.
+- Reduced `PracticeQuizzes.jsx` from 576 to 176 lines; moved quiz state/API actions to `usePracticeQuizzes` and extracted reusable generate, assigned, history, item, stat, and utility modules.
+- Added `docs/FE_N8N_E2E_REPORT.md` with a credential-free result matrix and required backend/n8n fixes.
+
+**Tested**
+- `npm run build`: pass.
+- `npm run lint`: pass with 0 errors and 0 warnings.
+- Live n8n: CODE, ESCALATE, senior approve and senior reject passed.
+- Quiz remained backend-direct with `VITE_N8N_QUIZ_ENABLED=false`.
+
+**Notes**
+- RAG is blocked by backend embedding generation.
+- Teacher final answer succeeds backend-direct but fails in its n8n workflow.
+- Rollover and pin persistence require persisted message IDs/exchanges from the backend workflow before they can be verified.
+- Final responsive/dark-mode visual QA remains manual because the local Codex browser harness could not initialize.
+
+## [2026-07-16] Chat Workspace Decomposition And Markdown Bundle Split
+
+**Summary**
+- Reduced Student Chat component complexity and stopped loading KaTeX for every ordinary AI answer.
+
+**Changed**
+- Reduced `ChatWorkspace.jsx` from 773 lines to 210 lines by extracting the header, pinned bar, message timeline, composer, pin controller, and answer-feedback controller.
+- Kept backend pin persistence, three-message limit, feedback payloads, mentor escalation cards, course-switch confirmation, and the 10-question counter unchanged.
+- Split `MarkdownDocument` from `MathMarkdownDocument`; KaTeX, `remark-math`, and `rehype-katex` now load only when normalized content contains math delimiters.
+- Kept malformed LaTeX fallback, safe `skipHtml` rendering, code-block lazy loading, tables, source links, and streaming cursor behavior.
+- Displayed the enrolled class label in the read-only chat context instead of preferring the internal option value.
+
+**Measured**
+- `AiAnswer` default chunk: approximately `451.67 KB` to `159.31 KB` (`137.16 KB` to `49.36 KB` gzip).
+- Optional math chunk: approximately `271.57 KB`, loaded only for answers containing formulas.
+- `ChatWorkspace.jsx`: 773 lines to 210 lines.
+
+**Tested**
+- `npm run lint`: pass.
+- `npm run build`: pass.
+- `git diff --check`: pass.
+
+**Notes**
+- `ChatWorkspace.css` remains large and should be split by chat layout, markdown, support, and responsive concerns in a separate low-risk CSS phase.
+
 ## [2026-07-16] AI Harness Contract And Learning Loop Hardening
 
 **Summary**

@@ -1,8 +1,8 @@
 import { lazy, Suspense } from 'react';
 import { useStudentSupport } from '../hooks/useStudentSupport';
-import { useStudentChatTabController } from './student/hooks/useStudentChatTabController';
-import { useStudentLearningActions } from './student/hooks/useStudentLearningActions';
-import { useStudentMaterialsController } from './student/hooks/useStudentMaterialsController';
+import { useStudentChatTabController } from '../features/student/chat/useStudentChatTabController';
+import { useStudentLearningActions } from '../features/student/learning/useStudentLearningActions';
+import { useStudentMaterialsController } from '../features/student/materials/useStudentMaterialsController';
 
 const LearningProgress = lazy(() => import('./student/LearningProgress'));
 const MaterialsAssignments = lazy(() => import('./student/MaterialsAssignments'));

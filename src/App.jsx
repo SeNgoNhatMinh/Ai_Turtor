@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { ConfigProvider, Spin } from 'antd';
+import { ConfigProvider } from 'antd';
 import AuthedLayout from './app/layouts/AuthedLayout';
 import { useAppNavigation } from './app/useAppNavigation';
 import Login from './pages/Login';
@@ -7,13 +7,14 @@ import Toast from './components/Toast';
 import { useAuthSession } from './features/auth/useAuthSession';
 import { useToastMessage } from './hooks/useToastMessage';
 import { getFptTheme } from './theme/fptTheme';
+import AsyncState from './components/common/AsyncState';
 
 const StudentWorkspace = lazy(() => import('./app/workspaces/StudentWorkspace'));
 const TeacherWorkspace = lazy(() => import('./app/workspaces/TeacherWorkspace'));
 const AdminWorkspace = lazy(() => import('./app/workspaces/AdminWorkspace'));
 
 function WorkspaceFallback() {
-  return <div className="portal-loading"><Spin description="Loading workspace..." /></div>;
+  return <AsyncState loading loadingLabel="Loading workspace..." loadingRows={6} />;
 }
 
 function App() {

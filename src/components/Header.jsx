@@ -75,7 +75,7 @@ function Header({ activeRole, handleRoleChange, isDarkMode, setIsDarkMode, curre
 
   return (
     <header className="top-nav">
-      <div className={`seasonal-header-effect seasonal-header-effect--${seasonalEffect.key}`} aria-label={seasonalEffect.label}>
+      <div className={`seasonal-header-effect seasonal-header-effect--${seasonalEffect.key}`} aria-hidden="true">
         {seasonalEffect.items.map((SeasonIcon, index) => (
           <span key={`${seasonalEffect.key}-${index}`} style={{ '--season-item-index': index }}>
             <SeasonIcon size={12} strokeWidth={2.2} />
@@ -96,18 +96,21 @@ function Header({ activeRole, handleRoleChange, isDarkMode, setIsDarkMode, curre
             <span className="role-label">Select role:</span>
             <div className="role-buttons">
               <button 
+                type="button"
                 className={`role-btn ${activeRole === 'student' ? 'active' : ''}`} 
                 onClick={() => handleRoleChange('student')}
               >
                 <GraduationCap /> Student
               </button>
               <button 
+                type="button"
                 className={`role-btn ${activeRole === 'teacher' ? 'active' : ''}`} 
                 onClick={() => handleRoleChange('teacher')}
               >
                 <Presentation /> Teacher Workspace
               </button>
               <button 
+                type="button"
                 className={`role-btn ${activeRole === 'admin' ? 'active' : ''}`} 
                 onClick={() => handleRoleChange('admin')}
               >
@@ -122,22 +125,26 @@ function Header({ activeRole, handleRoleChange, isDarkMode, setIsDarkMode, curre
 
       <div className="user-profile" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
         <Switch 
+          aria-label={isDarkMode ? 'Use light mode' : 'Use dark mode'}
           checkedChildren={<Moon size={14} style={{ marginTop: '4px' }} />}
           unCheckedChildren={<Sun size={14} style={{ marginTop: '2px' }} />}
           checked={isDarkMode}
           onChange={(checked) => setIsDarkMode(checked)}
           style={{ background: isDarkMode ? '#000000' : '#202123' }}
         />
-        <div 
+        <button
+          type="button"
           className="user-profile-info" 
           onClick={() => currentUser && setIsProfileModalOpen(true)}
-          style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: currentUser ? 'pointer' : 'default' }}
+          disabled={!currentUser}
+          aria-label={currentUser ? 'Open profile and security settings' : undefined}
+          style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: currentUser ? 'pointer' : 'default', border: 0, background: 'transparent', color: 'inherit' }}
         >
           <span id="current-user-name" style={{ borderBottom: currentUser ? '1px dashed currentColor' : 'none' }}>{getProfileName()}</span>
           <div className="avatar-circle">{getAvatarText()}</div>
-        </div>
+        </button>
         {currentUser && (
-          <button onClick={onLogout} style={{ background: 'transparent', border: 'none', color: isDarkMode ? '#F9FAFB' : '#202123', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 700 }}>
+          <button type="button" onClick={onLogout} style={{ background: 'transparent', border: 'none', color: isDarkMode ? '#F9FAFB' : '#202123', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 700 }}>
             <LogOut size={16} /> Sign out
           </button>
         )}

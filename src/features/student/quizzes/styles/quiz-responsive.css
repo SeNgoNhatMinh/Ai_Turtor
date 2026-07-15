@@ -1,0 +1,31 @@
+@media (max-width: 900px) {
+  .quiz-grid,
+  .quiz-generate-layout,
+  .quiz-stat-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .quiz-page-header,
+  .quiz-result-header,
+  .quiz-hero {
+    flex-direction: column;
+  }
+
+  .quiz-hero-actions {
+    align-items: flex-start;
+  }
+
+  .quiz-field-inline,
+  .quiz-item-card {
+    grid-template-columns: 1fr;
+  }
+
+  .quiz-item-action {
+    justify-content: flex-start;
+  }
+
+  .quiz-assignment-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

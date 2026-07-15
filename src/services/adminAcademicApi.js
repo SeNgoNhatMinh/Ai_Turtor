@@ -1,6 +1,7 @@
 import { API_BASE_URL, blobRequest, request, uploadRequest } from './apiClient';
 import { asArray } from './normalizers';
 import { encodePath } from '../config/env';
+import { getCachedResource, invalidateResourceCache } from './requestCache';
 
 export const adminAcademicApi = {
   async getSemesters() {
@@ -15,8 +16,10 @@ export const adminAcademicApi = {
     return asArray(await request(`${API_BASE_URL}/academic/courses/${encodePath(courseId)}/class-sections`), 'classSections', 'classes', 'content');
   },
 
-  async getStudentEnrollments(studentId) {
-    return request(`${API_BASE_URL}/students/${encodePath(studentId)}/enrollments`);
+  async getStudentEnrollments(studentId, options = {}) {
+    const loader = () => request(`${API_BASE_URL}/students/${encodePath(studentId)}/enrollments`, { signal: options.signal });
+    if (options.signal) return loader();
+    return getCachedResource(`enrollments:${studentId}`, loader, { force: options.force, ttlMs: 15000 });
   },
 
   async createSemester(payload) {
@@ -92,29 +95,37 @@ export const adminAcademicApi = {
   },
 
   async createEnrollment(payload) {
-    return request(`${API_BASE_URL}/academic/enrollments`, {
+    const response = await request(`${API_BASE_URL}/academic/enrollments`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
+    invalidateResourceCache('enrollments:');
+    return response;
   },
 
   async updateEnrollment(enrollmentId, payload) {
-    return request(`${API_BASE_URL}/admin/enrollments/${encodePath(enrollmentId)}`, {
+    const response = await request(`${API_BASE_URL}/admin/enrollments/${encodePath(enrollmentId)}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
+    invalidateResourceCache('enrollments:');
+    return response;
   },
 
   async deleteEnrollment(enrollmentId) {
-    return request(`${API_BASE_URL}/admin/enrollments/${encodePath(enrollmentId)}`, { method: 'DELETE' });
+    const response = await request(`${API_BASE_URL}/admin/enrollments/${encodePath(enrollmentId)}`, { method: 'DELETE' });
+    invalidateResourceCache('enrollments:');
+    return response;
   },
 
   async removeStudentFromClass(courseId, classId, studentId) {
-    return request(`${API_BASE_URL}/courses/${encodePath(courseId)}/class-sections/${encodePath(classId)}/students/${encodePath(studentId)}`, {
+    const response = await request(`${API_BASE_URL}/courses/${encodePath(courseId)}/class-sections/${encodePath(classId)}/students/${encodePath(studentId)}`, {
       method: 'DELETE',
     });
+    invalidateResourceCache('enrollments:');
+    return response;
   },
 
   async downloadStudentImportTemplate() {

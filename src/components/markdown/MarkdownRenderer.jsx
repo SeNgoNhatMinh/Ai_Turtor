@@ -1,24 +1,24 @@
-import { lazy, memo, Suspense, useEffect, useMemo, useRef } from 'react';
-import ReactMarkdown from 'react-markdown';
+import { lazy, memo, Suspense, useMemo } from 'react';
 import remarkGfm from 'remark-gfm';
-import remarkMath from 'remark-math';
-import rehypeKatex from 'rehype-katex';
 import rehypeSlug from 'rehype-slug';
-import 'katex/dist/katex.min.css';
 import { getNodeText, normalizeAiMarkdown, stripSourceSection } from '../../utils/markdownPreprocessor';
 import { sanitizeLinkUrl } from '../../utils/markdownSecurity';
 import { formatSourceItems, isMaterialSourceText } from '../../utils/sourceLabels';
 import CopyButton from './CopyButton';
 import MarkdownErrorBoundary from './MarkdownErrorBoundary';
 import MarkdownImage from './MarkdownImage';
+import MarkdownDocument from './MarkdownDocument';
 import MarkdownTable from './MarkdownTable';
 
-const rehypeKatexOptions = {
-  throwOnError: false,
-  strict: 'ignore',
-  output: 'htmlAndMathml',
-};
 const CodeBlock = lazy(() => import('./CodeBlock'));
+const MathMarkdownDocument = lazy(() => import('./MathMarkdownDocument'));
+const baseRemarkPlugins = [remarkGfm];
+const baseRehypePlugins = [rehypeSlug];
+
+const containsMath = (content) => (
+  /(^|[^\\])\$\$[\s\S]+?\$\$/m.test(content)
+  || /(^|[^\\])\$[^$\n]+\$/m.test(content)
+);
 
 function HeadingRenderer({ Tag, children, ...props }) {
   return (
@@ -169,7 +169,6 @@ function createMarkdownComponents({ sourceMap, onStudyTipAnalyze, onDownloadSour
 }
 
 function MarkdownRenderer({ markdown, streaming = false, sourceMap = {}, onStudyTipAnalyze, onDownloadSource, hideSourceSection = false }) {
-  const rootRef = useRef(null);
   const content = useMemo(() => {
     const normalized = normalizeAiMarkdown(markdown);
     return hideSourceSection ? stripSourceSection(normalized) : normalized;
@@ -178,33 +177,34 @@ function MarkdownRenderer({ markdown, streaming = false, sourceMap = {}, onStudy
     () => createMarkdownComponents({ sourceMap, onStudyTipAnalyze, onDownloadSource }),
     [sourceMap, onStudyTipAnalyze, onDownloadSource],
   );
-
-  useEffect(() => {
-    const errors = rootRef.current?.querySelectorAll('.katex-error');
-    if (errors?.length) {
-      console.warn(
-        'KaTeX could not parse part of the AI answer. Rendering raw formula text.',
-        Array.from(errors).map((node) => node.textContent),
-      );
-    }
-  }, [content]);
+  const hasMath = useMemo(() => containsMath(content), [content]);
 
   if (!content) return null;
 
   return (
     <MarkdownErrorBoundary contentKey={content} fallbackText={content}>
-      <div ref={rootRef} className={`ai-answer ai-answer-prose ${streaming ? 'is-streaming' : ''}`}>
-        <ReactMarkdown
-          remarkPlugins={[remarkGfm, remarkMath]}
-          rehypePlugins={[
-            [rehypeKatex, rehypeKatexOptions],
-            rehypeSlug,
-          ]}
-          components={components}
-          skipHtml
-        >
-          {content}
-        </ReactMarkdown>
+      <div className={`ai-answer ai-answer-prose ${streaming ? 'is-streaming' : ''}`}>
+        {hasMath ? (
+          <Suspense
+            fallback={(
+              <MarkdownDocument
+                content={content}
+                components={components}
+                remarkPlugins={baseRemarkPlugins}
+                rehypePlugins={baseRehypePlugins}
+              />
+            )}
+          >
+            <MathMarkdownDocument content={content} components={components} />
+          </Suspense>
+        ) : (
+          <MarkdownDocument
+            content={content}
+            components={components}
+            remarkPlugins={baseRemarkPlugins}
+            rehypePlugins={baseRehypePlugins}
+          />
+        )}
         {streaming && <span className="ai-answer-stream-cursor" aria-hidden="true" />}
       </div>
     </MarkdownErrorBoundary>

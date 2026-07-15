@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { adminAcademicApi } from '../services/adminAcademicApi';
 import { asArray } from '../services/normalizers';
 import { classIdMatches, getClassAliases, getClassCodeValue } from '../utils/academicIds';
@@ -54,6 +54,9 @@ export function useStudentEnrollmentOptions({
   const [resolvedStudentId, setResolvedStudentId] = useState('');
   const [isStudentEnrollmentsLoading, setIsStudentEnrollmentsLoading] = useState(false);
   const [hasLoadedStudentEnrollments, setHasLoadedStudentEnrollments] = useState(false);
+  const requestRef = useRef(null);
+
+  useEffect(() => () => requestRef.current?.abort(), []);
 
   const loadStudentEnrollments = useCallback(async () => {
     const baseCandidates = [studentId, ...lookupIds].map(normalizeLookupId).filter(Boolean);
@@ -68,19 +71,26 @@ export function useStudentEnrollmentOptions({
       return;
     }
 
+    requestRef.current?.abort();
+    const controller = new AbortController();
+    requestRef.current = controller;
     setIsStudentEnrollmentsLoading(true);
     try {
       let items = [];
       let matchedStudentId = '';
       for (const candidateId of candidates) {
         try {
-          const data = await adminAcademicApi.getStudentEnrollments(candidateId);
+          const data = await adminAcademicApi.getStudentEnrollments(candidateId, {
+            signal: controller.signal,
+            force: true,
+          });
           items = expandEnrollmentItems(data);
           if (items.length > 0) {
             matchedStudentId = candidateId;
             break;
           }
         } catch (error) {
+          if (controller.signal.aborted) return;
           if (candidateId === candidates[candidates.length - 1]) throw error;
         }
       }
@@ -125,12 +135,16 @@ export function useStudentEnrollmentOptions({
         setClassId(getEnrollmentClassId(firstEnrollment));
       }
     } catch (error) {
+      if (controller.signal.aborted) return;
       console.warn('Failed to load student enrollments:', error);
       setStudentEnrollments([]);
       setResolvedStudentId('');
       setHasLoadedStudentEnrollments(true);
     } finally {
-      setIsStudentEnrollmentsLoading(false);
+      if (requestRef.current === controller) {
+        requestRef.current = null;
+        setIsStudentEnrollmentsLoading(false);
+      }
     }
   }, [classId, courseId, lookupIds, setClassId, setCourseId, studentId]);
 

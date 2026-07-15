@@ -1,20 +1,27 @@
 import { API_BASE_URL, API_TIMEOUTS, blobRequest, request, uploadRequest } from './apiClient';
 import { encodePath } from '../config/env';
+import { getCachedResource, invalidateResourceCache } from './requestCache';
+
+const materialCachePrefix = (courseId) => `materials:${courseId}:`;
 
 export const materialsApi = {
   async uploadMaterial(courseId, formData) {
-    return uploadRequest(`${API_BASE_URL}/courses/${encodePath(courseId)}/materials/upload`, formData, 'Upload material failed', {
+    const response = await uploadRequest(`${API_BASE_URL}/courses/${encodePath(courseId)}/materials/upload`, formData, 'Upload material failed', {
       timeoutMs: API_TIMEOUTS.upload,
     });
+    invalidateResourceCache(materialCachePrefix(courseId));
+    return response;
   },
 
   async importCourseMaterialUrl(courseId, payload) {
-    return request(`${API_BASE_URL}/courses/${encodePath(courseId)}/materials/import-url`, {
+    const response = await request(`${API_BASE_URL}/courses/${encodePath(courseId)}/materials/import-url`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
       timeoutMs: API_TIMEOUTS.upload,
     });
+    invalidateResourceCache(materialCachePrefix(courseId));
+    return response;
   },
 
   async previewMaterialUrlToc(courseId, payload) {
@@ -26,46 +33,56 @@ export const materialsApi = {
     });
   },
 
-  async getCourseMaterials(courseId, classId = '') {
+  async getCourseMaterials(courseId, classId = '', options = {}) {
     const params = new URLSearchParams();
     if (classId) params.append('classId', classId);
     const qs = params.toString();
-    return request(`${API_BASE_URL}/courses/${encodePath(courseId)}/materials${qs ? `?${qs}` : ''}`);
+    const loader = () => request(`${API_BASE_URL}/courses/${encodePath(courseId)}/materials${qs ? `?${qs}` : ''}`, { signal: options.signal });
+    if (options.signal) return loader();
+    return getCachedResource(`${materialCachePrefix(courseId)}${classId || 'course'}`, loader, { force: options.force });
   },
 
   async updateMaterialMetadata(courseId, materialId, payload) {
-    return request(`${API_BASE_URL}/courses/${encodePath(courseId)}/materials/${encodePath(materialId)}`, {
+    const response = await request(`${API_BASE_URL}/courses/${encodePath(courseId)}/materials/${encodePath(materialId)}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
+    invalidateResourceCache(materialCachePrefix(courseId));
+    return response;
   },
 
   async deleteMaterial(courseId, materialId, teacherId = '') {
     const params = new URLSearchParams();
     if (teacherId) params.append('teacherId', teacherId);
     const qs = params.toString();
-    return request(`${API_BASE_URL}/courses/${encodePath(courseId)}/materials/${encodePath(materialId)}${qs ? `?${qs}` : ''}`, {
+    const response = await request(`${API_BASE_URL}/courses/${encodePath(courseId)}/materials/${encodePath(materialId)}${qs ? `?${qs}` : ''}`, {
       method: 'DELETE',
     });
+    invalidateResourceCache(materialCachePrefix(courseId));
+    return response;
   },
 
   async reindexCourseMaterials(courseId, teacherId = '') {
     const params = new URLSearchParams();
     if (teacherId) params.append('teacherId', teacherId);
     const qs = params.toString();
-    return request(`${API_BASE_URL}/courses/${encodePath(courseId)}/materials/reindex${qs ? `?${qs}` : ''}`, {
+    const response = await request(`${API_BASE_URL}/courses/${encodePath(courseId)}/materials/reindex${qs ? `?${qs}` : ''}`, {
       method: 'POST',
     });
+    invalidateResourceCache(materialCachePrefix(courseId));
+    return response;
   },
 
   async reindexMaterial(courseId, materialId, teacherId = '') {
     const params = new URLSearchParams();
     if (teacherId) params.append('teacherId', teacherId);
     const qs = params.toString();
-    return request(`${API_BASE_URL}/courses/${encodePath(courseId)}/materials/${encodePath(materialId)}/reindex${qs ? `?${qs}` : ''}`, {
+    const response = await request(`${API_BASE_URL}/courses/${encodePath(courseId)}/materials/${encodePath(materialId)}/reindex${qs ? `?${qs}` : ''}`, {
       method: 'POST',
     });
+    invalidateResourceCache(materialCachePrefix(courseId));
+    return response;
   },
 
   async downloadMaterialPdf(courseId, materialId) {

@@ -1,4 +1,11 @@
 export const uiCopy = {
+  common: {
+    refresh: 'Refresh',
+    retry: 'Retry',
+    cancel: 'Cancel',
+    loading: 'Loading...',
+    selectCourse: 'Select course',
+  },
   app: {
     brandTitle: 'FPT University',
     brandSubtitle: 'AI Tutor',
@@ -9,6 +16,16 @@ export const uiCopy = {
       subtitle: 'Ask course questions and keep each learning topic in a separate conversation.',
       empty: 'Ask your first question',
       inputPlaceholder: 'Enter your question...',
+      searchPlaceholder: 'Search conversations...',
+      sessionLabel: 'Course AI session',
+      questionCounter: (count) => `Questions ${count}/10`,
+      almostFull: 'This chat is almost full. AI Tutor will continue in a new chat after 10 questions.',
+      full: 'This chat is full. Start a new chat to continue.',
+      switchTitle: 'Switch course?',
+      switchDescription: 'Each course has separate chat history. Switching course opens that course\'s conversations.',
+      newConversationTitle: 'New conversation started',
+      rolloverMessage: 'This chat reached 10 questions. AI Tutor started a new conversation.',
+      previousConversation: 'Back to previous chat',
     },
     codeReview: {
       title: 'Code Review',
@@ -28,6 +45,15 @@ export const uiCopy = {
       learnedTitle: 'Learned',
       weakTitle: 'Needs improvement',
       suggestionsTitle: 'AI Study Suggestions',
+    },
+    quizzes: {
+      title: 'Practice with material-grounded quizzes',
+      subtitle: 'Generate focused self-study quizzes, complete teacher assignments, and review mistakes without exposing answers before submit.',
+      noActive: 'No active quiz. Generate or continue a quiz to start.',
+      noResult: 'No quiz result selected yet.',
+      contextRequired: 'Practice quizzes require a student and course context.',
+      activeReady: 'You have an active quiz ready',
+      preparing: 'Preparing quiz from indexed course materials...',
     },
     materials: {
       title: 'Materials & Assignments',

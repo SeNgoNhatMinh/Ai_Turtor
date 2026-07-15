@@ -1,0 +1,243 @@
+.admin-academic-page {
+    width: 100%;
+    max-width: 1240px;
+    margin: 0 auto;
+    padding-bottom: 24px;
+}
+
+.admin-academic-tabs > .ant-tabs-nav {
+    margin-bottom: 18px;
+}
+
+.admin-academic-tabs > .ant-tabs-nav .ant-tabs-nav-wrap {
+    overflow: auto hidden;
+}
+
+.admin-academic-tabs > .ant-tabs-nav .ant-tabs-tab {
+    min-height: 38px;
+    margin: 0 !important;
+    padding: 8px 14px;
+    border-radius: 10px !important;
+    white-space: nowrap;
+}
+
+.admin-academic-page .ant-row {
+    align-items: flex-start;
+}
+
+.admin-academic-page .ant-col {
+    min-width: 0;
+}
+
+.admin-academic-page .ant-card {
+    min-width: 0;
+    border-radius: 12px;
+}
+
+.admin-academic-page .ant-card-hoverable {
+    transition: border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.admin-academic-page .ant-card-hoverable:hover {
+    transform: none;
+}
+
+.admin-academic-page .ant-card-head {
+    min-height: 48px;
+    padding: 0 16px;
+}
+
+.admin-academic-page .ant-card-head-title {
+    overflow: hidden;
+    font-size: 0.98rem;
+    font-weight: 700;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.admin-academic-page .ant-card-extra {
+    margin-inline-start: 12px;
+}
+
+.admin-academic-page .ant-card-body {
+    padding: 16px;
+}
+
+.admin-academic-page .ant-form-item {
+    margin-bottom: 14px;
+}
+
+.admin-academic-page .ant-table-wrapper {
+    width: 100%;
+}
+
+.admin-academic-page .ant-table-container {
+    overflow-x: auto;
+}
+
+.admin-academic-page .ant-table {
+    min-width: 680px;
+}
+
+.admin-academic-page .ant-table-cell {
+    vertical-align: top;
+}
+
+.admin-academic-page .ant-table-thead > tr > th {
+    white-space: nowrap;
+}
+
+.admin-academic-page .data-table-root {
+    width: 100%;
+    min-width: 0;
+}
+
+.admin-academic-page .data-table-card {
+    max-width: 100%;
+    overflow-x: auto;
+    border-color: #e5e7eb;
+    border-radius: 12px;
+    background: #ffffff;
+}
+
+.admin-academic-page .data-table-card table {
+    min-width: 640px;
+}
+
+.admin-academic-page .data-table-card th {
+    white-space: nowrap;
+}
+
+.app-container.dark .admin-academic-page .data-table-card,
+body.theme-dark .admin-academic-page .data-table-card {
+    border-color: #2a2a2a;
+    background: #0d0d0d;
+}
+
+.admin-academic-search-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.admin-mentor-select-option,
+.admin-class-mentor-cell {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.admin-mentor-select-option strong,
+.admin-class-mentor-cell strong {
+    overflow: hidden;
+    color: var(--text-primary);
+    font-size: 13px;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.admin-mentor-select-option span,
+.admin-class-mentor-cell span {
+    overflow: hidden;
+    color: var(--text-muted);
+    font-size: 12px;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.app-container.dark .admin-mentor-select-option strong,
+.app-container.dark .admin-class-mentor-cell strong {
+    color: #ececec;
+}
+
+.app-container.dark .admin-mentor-select-option span,
+.app-container.dark .admin-class-mentor-cell span {
+    color: #b4b4b4;
+}
+
+.admin-material-source-text {
+    display: block;
+    max-width: 280px;
+    overflow: hidden;
+    color: #475569;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    font-size: 0.75rem;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.admin-materials-table-card,
+.admin-materials-table-card .ant-card-body,
+.admin-materials-table {
+    max-width: 100%;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.admin-materials-table .ant-table-container,
+.admin-materials-table .ant-table-content {
+    max-width: 100%;
+    overflow-x: auto !important;
+}
+
+.admin-materials-table .ant-table {
+    min-width: 820px;
+}
+
+.admin-material-title-text {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    color: inherit;
+    font-weight: 600;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.admin-material-date-text {
+    display: block;
+    color: #64748b;
+    font-size: 0.78rem;
+    line-height: 1.35;
+    white-space: normal;
+}
+
+body.theme-dark .admin-material-source-text,
+.app-container.dark .admin-material-source-text,
+body.theme-dark .admin-material-date-text,
+.app-container.dark .admin-material-date-text {
+    color: #a3a3a3;
+}
+
+@media (max-width: 768px) {
+    .admin-academic-page {
+        padding-bottom: 16px;
+    }
+
+    .admin-academic-page .ant-card-body {
+        padding: 14px;
+    }
+
+    .admin-academic-search-row {
+        grid-template-columns: 1fr;
+    }
+
+    .admin-academic-search-row .ant-btn {
+        width: 100%;
+    }
+
+    .admin-material-source-text {
+        max-width: 220px;
+    }
+
+    .admin-materials-table .ant-table {
+        min-width: 760px;
+    }
+}
+

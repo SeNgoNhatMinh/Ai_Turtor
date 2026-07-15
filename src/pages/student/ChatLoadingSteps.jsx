@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { LoadingOutlined } from '@ant-design/icons';
 
-const STEPS = ['Đang đọc câu hỏi của bạn', 'Đang tìm kiếm tài liệu môn học', 'Đang tạo câu trả lời'];
+const STEPS = ['Reading your question', 'Searching course materials', 'Generating an answer'];
 
 function ChatLoadingSteps() {
   const [stepIndex, setStepIndex] = useState(0);
@@ -18,7 +18,7 @@ function ChatLoadingSteps() {
       <LoadingOutlined spin aria-hidden="true" />
       <div>
         <span>{STEPS[stepIndex]}</span>
-        <small>AI Tutor đang chuẩn bị câu trả lời.</small>
+        <small>AI Tutor is preparing your answer.</small>
         <div className="markdown-skeleton" aria-hidden="true">
           <span className="markdown-skeleton-line wide" />
           <span className="markdown-skeleton-line medium" />

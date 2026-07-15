@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { assignmentApi } from '../services/assignmentApi';
 import { materialsApi } from '../services/materialsApi';
 import { getUserFacingError } from '../services/apiClient';
@@ -13,20 +13,34 @@ export function useCourseMaterialsController({
   const [courseMaterials, setCourseMaterials] = useState([]);
   const [uploadProgress, setUploadProgress] = useState(null);
   const [uploadProgressText, setUploadProgressText] = useState('');
+  const materialsRequestRef = useRef(null);
 
-  const loadCourseMaterials = async () => {
+  useEffect(() => () => materialsRequestRef.current?.abort(), []);
+
+  const loadCourseMaterials = useCallback(async () => {
     if (!courseId) {
       setCourseMaterials([]);
       return;
     }
+    materialsRequestRef.current?.abort();
+    const controller = new AbortController();
+    materialsRequestRef.current = controller;
     try {
-      const data = await materialsApi.getCourseMaterials(courseId, classId);
-      setCourseMaterials(asArray(data, 'materials', 'content').map(normalizeCourseMaterial));
+      const data = await materialsApi.getCourseMaterials(courseId, classId, {
+        signal: controller.signal,
+        force: true,
+      });
+      if (!controller.signal.aborted) {
+        setCourseMaterials(asArray(data, 'materials', 'content').map(normalizeCourseMaterial));
+      }
     } catch (error) {
+      if (controller.signal.aborted) return;
       console.warn('Failed to load course materials:', error);
       setCourseMaterials([]);
+    } finally {
+      if (materialsRequestRef.current === controller) materialsRequestRef.current = null;
     }
-  };
+  }, [classId, courseId]);
 
   const handleTeacherUploadMaterial = async (title, classIdVal, file) => {
     if (!courseId) {

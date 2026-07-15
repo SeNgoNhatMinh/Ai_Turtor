@@ -1,0 +1,48 @@
+.app-error-boundary {
+  min-height: 100vh;
+  display: grid;
+  place-content: center;
+  gap: 12px;
+  padding: 32px;
+  text-align: center;
+  color: #202123;
+  background: #f7f7f8;
+}
+
+.app-error-boundary h1,
+.app-error-boundary p {
+  margin: 0;
+}
+
+.app-error-boundary small {
+  color: #5f6368;
+}
+
+.app-error-boundary__actions {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.app-error-boundary button {
+  min-height: 40px;
+  padding: 0 16px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  color: #202123;
+  background: #fff;
+  cursor: pointer;
+}
+
+.app-error-boundary button:last-child {
+  border-color: #f37021;
+  color: #fff;
+  background: #f37021;
+}
+
+.app-error-boundary button:focus-visible,
+.app-error-boundary h1:focus-visible {
+  outline: 3px solid rgba(243, 112, 33, 0.35);
+  outline-offset: 3px;
+}

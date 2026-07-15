@@ -1,0 +1,101 @@
+.app-container.dark .quiz-question-block,
+.app-container.dark .quiz-card.ant-card,
+.app-container.dark .quiz-survey-shell,
+.app-container.dark .quiz-score-panel,
+.app-container.dark .quiz-review-answer-grid,
+.app-container.dark .quiz-hero,
+.app-container.dark .quiz-stat-card,
+.app-container.dark .quiz-item-card,
+.app-container.dark .quiz-step-list > div {
+  background: #0d0d0d;
+  border-color: #2a2a2a;
+}
+
+.app-container.dark .quiz-hero {
+  background:
+    linear-gradient(135deg, rgba(243, 112, 33, 0.13), rgba(13, 13, 13, 0) 42%),
+    #0d0d0d;
+}
+
+.app-container.dark .quiz-hero-copy .ant-typography,
+.app-container.dark .quiz-stat-card span,
+.app-container.dark .quiz-field label,
+.app-container.dark .quiz-card-title,
+.app-container.dark .quiz-step-list strong,
+.app-container.dark .quiz-item-title-row strong,
+.app-container.dark .quiz-stat-card strong {
+  color: #f9fafb;
+}
+
+.app-container.dark .quiz-stat-card small,
+.app-container.dark .quiz-step-list small,
+.app-container.dark .quiz-item-meta {
+  color: #a3a3a3;
+}
+
+.app-container.dark .quiz-stat-icon {
+  background: #202123;
+  color: #f9fafb;
+}
+
+.app-container.dark .quiz-tabs .ant-tabs-tab:hover,
+.app-container.dark .quiz-tabs .ant-tabs-tab-active {
+  background: #202123;
+}
+
+.app-container.dark .quiz-item-card:hover {
+  background: #171717;
+  border-color: rgba(243, 112, 33, 0.38);
+}
+
+.app-container.dark .quiz-suggestion-strip button {
+  border-color: rgba(243, 112, 33, 0.32);
+  background: rgba(243, 112, 33, 0.14);
+  color: #ffb077;
+}
+
+.app-container.dark .quiz-review-explanation {
+  background: #171717;
+}
+
+.app-container.dark .quiz-page .ant-tabs-tab {
+  color: #d4d4d4;
+}
+
+.app-container.dark .quiz-page .ant-tabs-tab-active .ant-tabs-tab-btn {
+  color: #ffb077;
+}
+
+.app-container.dark .quiz-survey-shell .sd-root-modern,
+.app-container.dark .quiz-survey-shell .sd-container-modern,
+.app-container.dark .quiz-survey-shell .sd-body {
+  background: transparent;
+  color: #f9fafb;
+}
+
+.app-container.dark .quiz-survey-shell .sd-title,
+.app-container.dark .quiz-survey-shell .sd-question__title,
+.app-container.dark .quiz-survey-shell .sd-item__control-label {
+  color: #f9fafb;
+}
+
+.app-container.dark .quiz-survey-shell .sd-description {
+  color: #a3a3a3;
+}
+
+.app-container.dark .quiz-survey-shell .sd-question,
+.app-container.dark .quiz-survey-shell .sd-item {
+  background: #171717;
+  border-color: #2a2a2a;
+}
+
+.app-container.dark .quiz-survey-shell .sd-item:hover,
+.app-container.dark .quiz-survey-shell .sd-item--checked {
+  border-color: rgba(243, 112, 33, 0.58);
+  background: rgba(243, 112, 33, 0.14);
+}
+
+.app-container.dark .quiz-options .ant-radio-wrapper:hover {
+  background: rgba(243, 112, 33, 0.14);
+}
+

@@ -1,0 +1,23 @@
+.quiz-assignment-list,
+.quiz-review-list {
+  display: grid;
+  gap: 10px;
+}
+
+.quiz-assignment-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.quiz-assignment-row:last-child {
+  border-bottom: 0;
+}
+
+.app-container.dark .quiz-assignment-row {
+  border-color: #2a2a2a;
+}
+

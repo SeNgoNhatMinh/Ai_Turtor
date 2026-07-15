@@ -1,0 +1,165 @@
+.answer-evidence {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.answer-evidence-pill,
+.answer-evidence-sources {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 6px 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #4b5563;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.answer-evidence-pill svg,
+.answer-evidence-sources svg {
+  color: #6b7280;
+}
+
+.answer-evidence-pill.confidence-high {
+  border-color: rgba(16, 185, 129, 0.25);
+  background: rgba(16, 185, 129, 0.08);
+  color: #047857;
+}
+
+.answer-evidence-pill.confidence-medium {
+  border-color: rgba(245, 158, 11, 0.26);
+  background: rgba(245, 158, 11, 0.1);
+  color: #b45309;
+}
+
+.answer-evidence-pill.confidence-low {
+  border-color: rgba(239, 68, 68, 0.24);
+  background: rgba(239, 68, 68, 0.08);
+  color: #b91c1c;
+}
+
+.answer-evidence-pill.support-recorded {
+  border-color: rgba(59, 130, 246, 0.22);
+  background: rgba(59, 130, 246, 0.08);
+  color: #1d4ed8;
+}
+
+.answer-evidence-sources {
+  border-radius: 14px;
+  max-width: 100%;
+}
+
+.answer-evidence-sources span {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.answer-action-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.answer-action-bar button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 6px 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #4b5563;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 800;
+  transition: border-color 0.18s ease, background-color 0.18s ease, color 0.18s ease;
+}
+
+.answer-action-bar button:hover {
+  border-color: #f37021;
+  background: #fff7f0;
+  color: #d85f16;
+}
+
+.answer-action-bar--error button {
+  border-color: #d1d5db;
+  background: #f9fafb;
+  color: #111827;
+}
+
+.answer-action-bar button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.chat-ai-service-error {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  border: 1px solid #fed7aa;
+  border-radius: 12px;
+  background: #fff7ed;
+  color: #7c2d12;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.chat-ai-service-error strong {
+  color: #7c2d12;
+  font-weight: 800;
+}
+
+.chat-ai-service-error span {
+  color: #9a3412;
+}
+
+/* Feedback Row */
+.chat-gpt-feedback-row {
+  margin-top: 12px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.chat-gpt-feedback-row .ant-btn-text {
+  color: #888;
+  font-weight: 700;
+}
+
+.chat-gpt-feedback-row .ant-btn-text:hover {
+  background: rgba(0,0,0,0.05);
+  color: #0d0d0d;
+}
+
+.chat-gpt-feedback-row .chat-pin-action.ant-btn {
+  width: 30px;
+  padding-inline: 0;
+  border-radius: 999px;
+}
+
+.chat-gpt-feedback-row .chat-pin-action--active.ant-btn {
+  color: #d85f16;
+  background: #fff1e7;
+}
+
+/* Warning Note */
+.warning-note {
+  margin-top: 12px;
+  padding: 10px;
+  background: rgba(245, 158, 11, 0.1);
+  border-radius: 8px;
+  border: 1px solid rgba(245, 158, 11, 0.2);
+}
+

@@ -1,5 +1,6 @@
 import { Input } from 'antd';
 import { Search, X } from 'lucide-react';
+import { uiCopy } from '../../constants/uiCopy';
 
 function ConversationSearch({ value, onChange }) {
   return (
@@ -8,7 +9,8 @@ function ConversationSearch({ value, onChange }) {
       <Input
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        placeholder="Search conversations..."
+        placeholder={uiCopy.student.chat.searchPlaceholder}
+        aria-label="Search conversations"
         variant="borderless"
       />
       <button

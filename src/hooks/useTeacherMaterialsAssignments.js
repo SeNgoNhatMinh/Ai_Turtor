@@ -3,6 +3,7 @@ import { assignmentApi } from '../services/assignmentApi';
 import { getUserFacingError } from '../services/apiClient';
 import { materialsApi } from '../services/materialsApi';
 import { getRecordId } from '../pages/teacher/teacherPortalUtils';
+import { useMutationLock } from './useMutationLock';
 
 export function useTeacherMaterialsAssignments({
   courseId,
@@ -26,6 +27,7 @@ export function useTeacherMaterialsAssignments({
   const [materialTitle, setMaterialTitle] = useState('');
   const [isUploadingMaterial, setIsUploadingMaterial] = useState(false);
   const [materialActionId, setMaterialActionId] = useState('');
+  const { runLocked } = useMutationLock();
 
   useEffect(() => {
     if (classId) {
@@ -76,35 +78,37 @@ export function useTeacherMaterialsAssignments({
       return;
     }
 
-    const formData = new FormData();
-    formData.append('file', newAssignmentFile);
-    formData.append('teacherId', teacherUserId);
-    formData.append('title', newAssignmentTitle.trim());
-    formData.append('description', newAssignmentDesc.trim());
-    formData.append('targetType', newAssignmentTargetType);
-    if (newAssignmentTargetType === 'SELECTED_STUDENTS') {
-      formData.append('targetStudentIds', newAssignmentTargetStudents.trim());
-    }
-    if (newAssignmentDeadline) {
-      formData.append('dueAt', new Date(newAssignmentDeadline).toISOString());
-    }
+    return runLocked('teacher:assignment:publish', async () => {
+      const formData = new FormData();
+      formData.append('file', newAssignmentFile);
+      formData.append('teacherId', teacherUserId);
+      formData.append('title', newAssignmentTitle.trim());
+      formData.append('description', newAssignmentDesc.trim());
+      formData.append('targetType', newAssignmentTargetType);
+      if (newAssignmentTargetType === 'SELECTED_STUDENTS') {
+        formData.append('targetStudentIds', newAssignmentTargetStudents.trim());
+      }
+      if (newAssignmentDeadline) {
+        formData.append('dueAt', new Date(newAssignmentDeadline).toISOString());
+      }
 
-    setIsPublishingAssignment(true);
-    try {
-      await assignmentApi.uploadAssignment(courseId, newAssignmentClass, formData);
-      triggerToast('Assignment published.');
-      setNewAssignmentTitle('');
-      setNewAssignmentDesc('');
-      setNewAssignmentDeadline('');
-      setNewAssignmentFile(null);
-      setNewAssignmentTargetType('ALL_CLASS');
-      setNewAssignmentTargetStudents('');
-      await loadClassAssignments();
-    } catch (error) {
-      triggerToast(getUserFacingError(error, 'Unable to publish assignment.'));
-    } finally {
-      setIsPublishingAssignment(false);
-    }
+      setIsPublishingAssignment(true);
+      try {
+        await assignmentApi.uploadAssignment(courseId, newAssignmentClass, formData);
+        triggerToast('Assignment published.');
+        setNewAssignmentTitle('');
+        setNewAssignmentDesc('');
+        setNewAssignmentDeadline('');
+        setNewAssignmentFile(null);
+        setNewAssignmentTargetType('ALL_CLASS');
+        setNewAssignmentTargetStudents('');
+        await loadClassAssignments();
+      } catch (error) {
+        triggerToast(getUserFacingError(error, 'Unable to publish assignment.'));
+      } finally {
+        setIsPublishingAssignment(false);
+      }
+    });
   };
 
   const handleTeacherUploadMaterial = async (event) => {
@@ -118,24 +122,26 @@ export function useTeacherMaterialsAssignments({
       triggerToast('Only PDF course materials are supported.');
       return;
     }
-    setIsUploadingMaterial(true);
-    const formData = new FormData();
-    formData.append('file', materialFile);
-    formData.append('title', materialTitle || materialFile.name);
-    formData.append('uploaderRole', 'TEACHER');
-    formData.append('teacherId', teacherUserId);
-    formData.append('classId', classId);
-    try {
-      await materialsApi.uploadMaterial(courseId, formData);
-      setMaterialFile(null);
-      setMaterialTitle('');
-      triggerToast('Class material upload accepted. Indexing is running in the background.');
-      await onReloadCourseMaterials?.();
-    } catch (error) {
-      triggerToast(getUserFacingError(error, 'Unable to upload class material.'));
-    } finally {
-      window.setTimeout(() => setIsUploadingMaterial(false), 2500);
-    }
+    return runLocked('teacher:material:upload', async () => {
+      setIsUploadingMaterial(true);
+      const formData = new FormData();
+      formData.append('file', materialFile);
+      formData.append('title', materialTitle || materialFile.name);
+      formData.append('uploaderRole', 'TEACHER');
+      formData.append('teacherId', teacherUserId);
+      formData.append('classId', classId);
+      try {
+        await materialsApi.uploadMaterial(courseId, formData);
+        setMaterialFile(null);
+        setMaterialTitle('');
+        triggerToast('Class material upload accepted. Indexing is running in the background.');
+        await onReloadCourseMaterials?.();
+      } catch (error) {
+        triggerToast(getUserFacingError(error, 'Unable to upload class material.'));
+      } finally {
+        window.setTimeout(() => setIsUploadingMaterial(false), 2500);
+      }
+    });
   };
 
   const handleTeacherMaterialAction = async (action, material) => {
@@ -144,22 +150,24 @@ export function useTeacherMaterialsAssignments({
       triggerToast('This material is missing an ID.');
       return;
     }
-    setMaterialActionId(`${action}:${materialId}`);
-    try {
-      if (action === 'reindex') {
-        await materialsApi.reindexMaterial(courseId, materialId, teacherUserId);
-        triggerToast('Material reindexing triggered.');
+    return runLocked(`teacher:material:${action}:${materialId}`, async () => {
+      setMaterialActionId(`${action}:${materialId}`);
+      try {
+        if (action === 'reindex') {
+          await materialsApi.reindexMaterial(courseId, materialId, teacherUserId);
+          triggerToast('Material reindexing triggered.');
+        }
+        if (action === 'delete') {
+          await materialsApi.deleteMaterial(courseId, materialId, teacherUserId);
+          triggerToast('Material deleted.');
+        }
+        await onReloadCourseMaterials?.();
+      } catch (error) {
+        triggerToast(getUserFacingError(error, action === 'delete' ? 'Unable to delete material.' : 'Unable to reindex material.'));
+      } finally {
+        setMaterialActionId('');
       }
-      if (action === 'delete') {
-        await materialsApi.deleteMaterial(courseId, materialId, teacherUserId);
-        triggerToast('Material deleted.');
-      }
-      await onReloadCourseMaterials?.();
-    } catch (error) {
-      triggerToast(getUserFacingError(error, action === 'delete' ? 'Unable to delete material.' : 'Unable to reindex material.'));
-    } finally {
-      setMaterialActionId('');
-    }
+    });
   };
 
   const handleDeleteAssignment = async (assignment) => {

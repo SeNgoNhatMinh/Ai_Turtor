@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { visualizer } from 'rollup-plugin-visualizer'
 import path from 'path'
 import { fileURLToPath } from 'node:url'
 
@@ -7,7 +8,15 @@ import { fileURLToPath } from 'node:url'
 // Force restart
 export default defineConfig({
   // Force config reload for newly installed packages
-  plugins: [react()],
+  plugins: [
+    react(),
+    globalThis.process?.env?.ANALYZE === 'true' && visualizer({
+      filename: 'dist/bundle-report.html',
+      gzipSize: true,
+      brotliSize: true,
+      open: false,
+    }),
+  ].filter(Boolean),
   resolve: {
     alias: {
       "@": path.resolve(fileURLToPath(new URL('.', import.meta.url)), "./src"),
@@ -25,5 +34,12 @@ export default defineConfig({
         changeOrigin: true,
       },
     },
+  },
+  test: {
+    environment: 'jsdom',
+    setupFiles: ['./tests/setup.js'],
+    include: ['tests/components/**/*.test.{js,jsx}'],
+    css: true,
+    restoreMocks: true,
   },
 })

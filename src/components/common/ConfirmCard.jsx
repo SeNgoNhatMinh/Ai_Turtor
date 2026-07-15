@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 
 function ConfirmCard({
   title,
@@ -11,10 +11,28 @@ function ConfirmCard({
   onClose,
 }) {
   const [loading, setLoading] = useState(false);
+  const titleId = useId();
+  const contentId = useId();
+  const cancelRef = useRef(null);
+  const confirmRef = useRef(null);
 
   useEffect(() => {
+    const previouslyFocused = document.activeElement;
+    cancelRef.current?.focus();
     const onKeyDown = (event) => {
       if (event.key === 'Escape') onClose?.();
+      if (event.key === 'Tab') {
+        const first = cancelRef.current;
+        const last = confirmRef.current;
+        if (!first || !last) return;
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      }
     };
     const onLayoutChange = () => onClose?.();
     window.addEventListener('keydown', onKeyDown);
@@ -24,6 +42,7 @@ function ConfirmCard({
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('resize', onLayoutChange);
       window.removeEventListener('scroll', onLayoutChange, true);
+      previouslyFocused?.focus?.();
     };
   }, [onClose]);
 
@@ -79,20 +98,23 @@ function ConfirmCard({
     <div className="app-confirm-overlay" onClick={onClose}>
       <div
         className={`app-confirm-card ${anchorRect ? 'app-confirm-card--anchored' : ''} ${danger ? 'app-confirm-card--danger' : ''}`}
-        role="dialog"
+        role={danger ? 'alertdialog' : 'dialog'}
         aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={content ? contentId : undefined}
         style={getAnchoredStyle()}
         onClick={(event) => event.stopPropagation()}
       >
         <div className="app-confirm-card__body">
-          <div className="app-confirm-card__title">{title}</div>
-          {content && <div className="app-confirm-card__content">{content}</div>}
+          <div className="app-confirm-card__title" id={titleId}>{title}</div>
+          {content && <div className="app-confirm-card__content" id={contentId}>{content}</div>}
         </div>
         <div className="app-confirm-card__actions">
-          <button type="button" className="app-confirm-card__btn" onClick={onClose} disabled={loading}>
+          <button ref={cancelRef} type="button" className="app-confirm-card__btn" onClick={onClose} disabled={loading}>
             {cancelText}
           </button>
           <button
+            ref={confirmRef}
             type="button"
             className="app-confirm-card__btn app-confirm-card__btn--primary"
             onClick={confirm}

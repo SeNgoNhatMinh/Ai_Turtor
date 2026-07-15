@@ -1,11 +1,19 @@
 import { API_BASE_URL, request } from './apiClient';
 import { encodePath } from '../config/env';
+import { getCachedResource, invalidateResourceCache } from './requestCache';
+
+const conversationCacheKey = (userId, courseId) => `conversations:${userId}:${courseId || 'all'}`;
 
 export const conversationApi = {
-  async getConversations(userId, courseId) {
+  async getConversations(userId, courseId, options = {}) {
     const params = new URLSearchParams({ userId });
     if (courseId) params.append('courseId', courseId);
-    return request(`${API_BASE_URL}/ai/conversations?${params}`);
+    const loader = () => request(`${API_BASE_URL}/ai/conversations?${params}`, { signal: options.signal });
+    if (options.signal) return loader();
+    return getCachedResource(conversationCacheKey(userId, courseId), loader, {
+      force: options.force,
+      ttlMs: 10000,
+    });
   },
 
   async searchConversations(userId, keyword, courseId) {
@@ -18,25 +26,33 @@ export const conversationApi = {
     const params = new URLSearchParams({ userId });
     if (courseId) params.append('courseId', courseId);
     if (classId) params.append('classId', classId);
-    return request(`${API_BASE_URL}/ai/conversations?${params}`, { method: 'POST' });
+    const response = await request(`${API_BASE_URL}/ai/conversations?${params}`, { method: 'POST' });
+    invalidateResourceCache('conversations:');
+    return response;
   },
 
-  async getMessages(conversationId, userId) {
+  async getMessages(conversationId, userId, options = {}) {
     const params = new URLSearchParams({ userId });
-    return request(`${API_BASE_URL}/ai/conversations/${encodePath(conversationId)}/messages?${params}`);
+    return request(`${API_BASE_URL}/ai/conversations/${encodePath(conversationId)}/messages?${params}`, {
+      signal: options.signal,
+    });
   },
 
   async deleteConversation(conversationId, userId) {
     const params = new URLSearchParams({ userId });
-    return request(`${API_BASE_URL}/ai/conversations/${encodePath(conversationId)}?${params}`, { method: 'DELETE' });
+    const response = await request(`${API_BASE_URL}/ai/conversations/${encodePath(conversationId)}?${params}`, { method: 'DELETE' });
+    invalidateResourceCache('conversations:');
+    return response;
   },
 
   async renameConversation(conversationId, title, userId) {
-    return request(`${API_BASE_URL}/ai/conversations/${encodePath(conversationId)}`, {
+    const response = await request(`${API_BASE_URL}/ai/conversations/${encodePath(conversationId)}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title, userId }),
     });
+    invalidateResourceCache('conversations:');
+    return response;
   },
 
   async pinChatMessage(conversationId, messageId, userId) {

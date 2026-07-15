@@ -27,7 +27,7 @@ const buildGroundedFollowUpPrompt = (message, task) => {
 
 const ACTIONS = [
   {
-    label: 'Giải thích đơn giản hơn',
+    label: 'Explain more simply',
     icon: Wand2,
     buildPrompt: (message) => buildGroundedFollowUpPrompt(
       message,
@@ -35,7 +35,7 @@ const ACTIONS = [
     ),
   },
   {
-    label: 'Gửi mentor review',
+    label: 'Send for mentor review',
     icon: LifeBuoy,
     type: 'mentor',
     buildPrompt: (message) => `I need mentor review for this question:\n\n${message.question || ''}`,

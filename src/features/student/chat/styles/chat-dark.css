@@ -1,0 +1,563 @@
+/* =========================================
+   DARK MODE OVERRIDES (when .app-container.dark)
+   ========================================= */
+.app-container.dark .chat-workspace-dark {
+  background-color: #000000 !important;
+  color: #ececec !important;
+}
+
+.app-container.dark .chat-workspace-header {
+  background-color: #000000 !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+.app-container.dark .chat-workspace-header .ant-typography {
+  color: #ececec !important;
+}
+
+.app-container.dark .chat-workspace-header .ant-select-selector {
+  background-color: #171717 !important;
+  border: 1px solid #2a2a2a !important;
+  color: #ececec !important;
+}
+
+.app-container.dark .chat-workspace-header .ant-select-selection-item,
+.app-container.dark .chat-workspace-header .ant-select-selection-placeholder,
+.app-container.dark .chat-workspace-header .ant-select-selection-search-input {
+  color: #ececec !important;
+}
+
+.app-container.dark .chat-workspace-header .ant-select-arrow {
+  color: #ececec !important;
+}
+
+.app-container.dark .chat-class-readonly-pill {
+  border-color: #2a2a2a;
+  background: #171717;
+  color: #ececec;
+}
+
+.app-container.dark .chat-class-readonly-pill span {
+  color: #a3a3a3;
+}
+
+.app-container.dark .chat-class-readonly-pill strong {
+  color: #f5f5f5;
+}
+
+.app-container.dark .chat-class-readonly-pill--empty {
+  border-color: rgba(255, 176, 119, 0.35);
+  background: rgba(243, 112, 33, 0.16);
+}
+
+.app-container.dark .chat-class-readonly-pill--empty strong {
+  color: #ffb077;
+}
+
+.app-container.dark .chat-turn-counter {
+  border-color: #2a2a2a;
+  background: #171717;
+  color: #d1d5db;
+}
+
+.app-container.dark .chat-turn-counter--warning {
+  border-color: rgba(255, 176, 119, 0.35);
+  background: rgba(243, 112, 33, 0.16);
+  color: #ffb077;
+}
+
+.app-container.dark .chat-turn-counter--full {
+  border-color: #3f3f46;
+  background: #1f1f1f;
+  color: #a3a3a3;
+}
+
+.app-container.dark .chat-turn-helper {
+  color: #ffb077;
+}
+
+.app-container.dark .chat-turn-helper--full {
+  color: #a3a3a3;
+}
+
+.app-container.dark .chat-turn-limit-banner {
+  border-bottom-color: #2a2a2a;
+  background: #111111;
+  color: #ececec;
+}
+
+.app-container.dark .chat-turn-limit-banner span {
+  color: #a3a3a3;
+}
+
+.app-container.dark .chat-turn-limit-banner-actions button {
+  background: #1f1f1f;
+  color: #ececec;
+}
+
+.app-container.dark .chat-turn-limit-banner-actions button:hover {
+  background: #2a2a2a;
+}
+
+.app-container.dark .chat-course-switch-banner {
+  border-bottom-color: #2a2a2a;
+  background: #111111;
+  color: #ececec;
+}
+
+.app-container.dark .chat-course-switch-banner span {
+  color: #d1d5db;
+}
+
+.app-container.dark .chat-course-switch-banner__actions button {
+  background: #1f1f1f;
+  color: #ececec;
+}
+
+.app-container.dark .chat-course-switch-banner__actions button:hover {
+  background: #2a2a2a;
+}
+
+.app-container.dark .chat-course-switch-banner__actions button.primary {
+  background: #f3f4f6;
+  color: #111827;
+}
+
+.app-container.dark .chat-context-blocker {
+  border-bottom-color: rgba(255, 176, 119, 0.22);
+  background: #15110d;
+  color: #ececec;
+}
+
+.app-container.dark .chat-context-blocker strong {
+  color: #ffb077;
+}
+
+.app-container.dark .chat-context-blocker span {
+  color: #d1d5db;
+}
+
+.chat-course-select-popup {
+  background: #ffffff !important;
+  border: 1px solid #ececec !important;
+  border-radius: 10px !important;
+}
+
+.chat-course-select-popup .ant-select-item {
+  color: #0d0d0d !important;
+}
+
+.chat-course-select-popup .ant-select-item-option-active,
+.chat-course-select-popup .ant-select-item-option-selected {
+  background: rgba(243, 112, 33, 0.12) !important;
+  color: #D85F16 !important;
+}
+
+.chat-course-select-popup--dark {
+  background: #171717 !important;
+  border-color: #2a2a2a !important;
+}
+
+.chat-course-select-popup--dark .ant-select-item {
+  color: #ececec !important;
+}
+
+.chat-course-select-popup--dark .ant-select-item-option-active,
+.chat-course-select-popup--dark .ant-select-item-option-selected {
+  background: rgba(243, 112, 33, 0.18) !important;
+  color: #ffb077 !important;
+}
+
+.app-container.dark .chat-empty-title {
+  color: #ececec !important;
+}
+
+.app-container.dark .prompt-starter-card,
+.app-container.dark .answer-action-bar button,
+.app-container.dark .answer-evidence-pill,
+.app-container.dark .answer-evidence-sources,
+.app-container.dark .conversation-search {
+  border-color: #3f3f46;
+  background: #171717;
+  color: #ececec;
+}
+
+.app-container.dark .prompt-starter-card:hover,
+.app-container.dark .answer-action-bar button:hover {
+  border-color: #ffb077;
+  background: rgba(243, 112, 33, 0.14);
+  color: #ffb077;
+}
+
+.app-container.dark .answer-action-bar--error button {
+  border-color: #52525b;
+  background: #202020;
+  color: #f4f4f5;
+}
+
+.app-container.dark .chat-ai-service-error {
+  border-color: rgba(251, 146, 60, 0.36);
+  background: rgba(251, 146, 60, 0.12);
+  color: #fed7aa;
+}
+
+.app-container.dark .chat-ai-service-error strong {
+  color: #ffedd5;
+}
+
+.app-container.dark .chat-ai-service-error span {
+  color: #fed7aa;
+}
+
+.app-container.dark .chat-loading-steps {
+  color: #ececec;
+}
+
+.app-container.dark .conversation-search .ant-input {
+  color: #ececec;
+}
+
+.app-container.dark .chat-history-title {
+  color: #f9fafb;
+}
+
+.app-container.dark .chat-history-subtitle,
+.app-container.dark .conversation-group-title {
+  color: #8e8e8e;
+}
+
+.app-container.dark .chat-history-new-button.ant-btn {
+  background: #ececec;
+  color: #000000;
+}
+
+.app-container.dark .chat-history-new-button.ant-btn:hover {
+  background: #ffffff !important;
+  color: #000000 !important;
+}
+
+.app-container.dark .conversation-skeleton-item {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.app-container.dark .conversation-load-more {
+  border-color: #2a2a2a;
+  background: #171717;
+  color: #d1d5db;
+}
+
+.app-container.dark .conversation-load-more:hover {
+  background: #1f1f1f;
+  color: #f9fafb;
+}
+
+.app-container.dark .session-item:hover,
+.app-container.dark .session-item.ant-list-item-selected {
+  background: #171717;
+}
+
+.app-container.dark .session-item.ant-list-item-selected {
+  border-color: #2a2a2a;
+}
+
+.app-container.dark .session-item-title .ant-typography {
+  color: #F9FAFB;
+}
+
+.app-container.dark .session-item-time.ant-typography {
+  color: #A3A3A3 !important;
+}
+
+.app-container.dark .session-item-meta span {
+  background: #1f1f1f;
+  color: #cfcfcf;
+}
+
+.app-container.dark .session-item-meta .session-question-count {
+  background: #171717;
+  color: #d1d5db;
+}
+
+.app-container.dark .session-item-meta .session-full-badge {
+  background: #262626;
+  color: #a3a3a3;
+}
+
+.app-container.dark .conversation-list .entity-action-button.ant-btn {
+  color: #a3a3a3;
+}
+
+.app-container.dark .conversation-list .entity-action-button.ant-btn:hover,
+.app-container.dark .conversation-list .entity-action-button.ant-btn.ant-dropdown-open {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #f9fafb !important;
+}
+
+.app-container.dark .chat-gpt-bubble-user {
+  background-color: #1F1F1F !important;
+  color: #ececec !important;
+}
+
+.app-container.dark .chat-gpt-ai-content {
+  color: #ececec !important;
+}
+
+.app-container.dark .chat-workspace-input-area {
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, #000000 20%) !important;
+}
+
+.app-container.dark .chat-gpt-input-wrapper {
+  background-color: #1F1F1F !important;
+  border: 1px solid rgba(255,255,255,0.1) !important;
+}
+
+.app-container.dark .chat-gpt-input-wrapper textarea {
+  color: #ececec !important;
+}
+
+.app-container.dark .chat-gpt-send-btn {
+  background: #ececec !important;
+  color: #000000 !important;
+}
+
+.app-container.dark .chat-gpt-send-btn:disabled {
+  background: #444 !important;
+  color: #888 !important;
+}
+
+.app-container.dark .chat-gpt-loading .anticon {
+  color: #ececec !important;
+}
+
+.app-container.dark .ai-answer,
+.app-container.dark .ai-answer-paragraph,
+.app-container.dark .ai-answer-list {
+  color: #ececec;
+}
+
+.app-container.dark .ai-answer-formatting {
+  color: #a3a3a3;
+}
+
+.app-container.dark .ai-answer-heading,
+.app-container.dark .ai-answer strong {
+  color: #ffffff;
+}
+
+.app-container.dark .ai-answer-heading .ai-answer-heading-anchor {
+  color: #737373;
+}
+
+.app-container.dark .ai-answer-heading .ai-answer-heading-anchor:hover {
+  color: #ffb077;
+}
+
+.app-container.dark .ai-answer em {
+  color: #d1d5db;
+}
+
+.app-container.dark .ai-answer-inline-code {
+  background: rgba(243, 112, 33, 0.2);
+  color: #ffb077;
+}
+
+.app-container.dark .ai-answer-inline-math {
+  border-color: #3f3f46;
+  background: rgba(255, 255, 255, 0.06);
+  color: #ffd7bd;
+}
+
+.app-container.dark .ai-answer-link {
+  color: #ffb077;
+}
+
+.app-container.dark .ai-answer-link:hover {
+  color: #ffd7bd;
+}
+
+.app-container.dark .ai-answer-study-tip:hover,
+.app-container.dark .ai-answer-study-tip:focus-visible {
+  color: #ffb077;
+}
+
+.app-container.dark .ai-answer-table-wrap,
+.app-container.dark .ai-answer-code-block,
+.app-container.dark .ai-answer-math-block {
+  border-color: #3f3f46;
+}
+
+.app-container.dark .ai-answer [data-rehype-pretty-code-title] {
+  border-color: #3f3f46;
+  background: rgba(255, 255, 255, 0.06);
+  color: #ffd7bd;
+}
+
+.app-container.dark .ai-answer-copy-btn {
+  border-color: rgba(255, 176, 119, 0.32);
+  background: rgba(31, 31, 31, 0.88);
+  color: #ffb077;
+}
+
+.app-container.dark .ai-answer-copy-btn:hover {
+  border-color: #ffb077;
+  background: rgba(243, 112, 33, 0.18);
+  color: #ffd7bd;
+}
+
+.app-container.dark .ai-answer-copy-btn.copied {
+  border-color: rgba(52, 211, 153, 0.38);
+  background: rgba(52, 211, 153, 0.14);
+  color: #6ee7b7;
+}
+
+.app-container.dark .ai-answer-table {
+  background: #171717;
+}
+
+.app-container.dark .ai-answer-math-block {
+  background: #171717;
+}
+
+.app-container.dark .ai-answer-math-block pre {
+  color: #ececec;
+}
+
+.app-container.dark .ai-answer .katex {
+  color: #ececec;
+}
+
+.app-container.dark .ai-answer .katex-display {
+  border-color: #3f3f46;
+  background: #171717;
+  color: #ececec;
+}
+
+.app-container.dark .ai-answer-format-toolbar {
+  border-bottom-color: #3f3f46;
+  background: rgba(243, 112, 33, 0.16);
+  color: #ffb077;
+}
+
+.app-container.dark .ai-answer-table th {
+  background: rgba(243, 112, 33, 0.16);
+  color: #ffb077;
+}
+
+.app-container.dark .ai-answer-table td {
+  border-bottom-color: #3f3f46;
+  color: #ececec;
+}
+
+.app-container.dark .ai-answer-hr {
+  border-top-color: #3f3f46;
+}
+
+.app-container.dark .ai-answer-link-disabled,
+.app-container.dark .ai-answer-image-error {
+  color: #fca5a5;
+}
+
+.app-container.dark .ai-answer-code-block {
+  background: #111827;
+  box-shadow: none;
+}
+
+.app-container.dark .ai-answer-code-block .linenumber {
+  color: #9ca3af !important;
+}
+
+.app-container.dark .ai-answer-table-wrap {
+  background: #171717;
+}
+
+.app-container.dark .ai-answer-table tbody tr:nth-child(even) {
+  background: #111111;
+}
+
+.app-container.dark .ai-answer-table tbody tr:hover {
+  background: #1f1f1f;
+}
+
+.app-container.dark .ai-answer-image-modal {
+  background: rgba(0, 0, 0, 0.88);
+}
+
+.app-container.dark .ai-answer-render-error {
+  border-color: rgba(248, 113, 113, 0.42);
+  background: rgba(127, 29, 29, 0.18);
+  color: #fecaca;
+}
+
+.app-container.dark .ai-answer-stream-cursor,
+.app-container.dark .chat-loading-cursor {
+  background: #ececec;
+}
+
+.app-container.dark .markdown-skeleton-line {
+  background: linear-gradient(90deg, #262626 0%, #3f3f46 50%, #262626 100%);
+  background-size: 220% 100%;
+}
+
+.app-container.dark .ai-answer-section-callout,
+.app-container.dark .ai-answer-quote {
+  background: rgba(243, 112, 33, 0.14);
+  color: #ececec;
+}
+
+.app-container.dark .ai-answer-section-callout--result {
+  border-left-color: #34d399;
+  background: rgba(16, 185, 129, 0.12);
+}
+
+.app-container.dark .ai-answer-section-callout--result span {
+  color: #6ee7b7;
+}
+
+.app-container.dark .ai-answer-section-callout p {
+  color: #ececec;
+}
+
+.app-container.dark .ai-answer-source-pill {
+  border-color: #3f3f46;
+  background: #171717;
+  color: #d1d5db;
+}
+
+.app-container.dark .ai-answer-source-pill code {
+  color: #d1d5db;
+}
+
+.app-container.dark .ai-answer-source-download {
+  color: #93c5fd;
+}
+
+.app-container.dark .ai-answer-source-download:hover,
+.app-container.dark .ai-answer-source-download:focus-visible {
+  color: #bfdbfe;
+}
+
+.app-container.dark .chat-gpt-feedback-row .ant-btn-text:hover {
+  background: rgba(255,255,255,0.05) !important;
+  color: #ececec !important;
+}
+
+.app-container.dark .feedback-form-box {
+  background: #171717 !important;
+  border-color: #2a2a2a !important;
+}
+
+.app-container.dark .feedback-title {
+  color: #ececec !important;
+}
+
+.app-container.dark .feedback-textarea {
+  background: #000000 !important;
+  border-color: #2a2a2a !important;
+  color: #ececec !important;
+}
+
+.app-container.dark .btn-submit {
+  background: #ececec !important;
+  color: #000000 !important;
+}
+

@@ -1,6 +1,9 @@
 import { API_BASE_URL, API_TIMEOUTS, request } from './apiClient';
 import { encodePath } from '../config/env';
 import { asArray, normalizeQuizAssignment, normalizeQuizSession } from './normalizers';
+import { getCachedResource, invalidateResourceCache } from './requestCache';
+
+const quizCachePrefix = (studentId, courseId) => `quizzes:${studentId}:${courseId}`;
 
 const normalizeListResponse = (data, keys, normalizer) => {
   const list = asArray(data, ...keys);
@@ -13,31 +16,37 @@ const normalizeListResponse = (data, keys, normalizer) => {
 
 export const quizApi = {
   async generateSelfQuiz(studentId, courseId, payload) {
-    return normalizeQuizSession(await request(`${API_BASE_URL}/tutor/students/${encodePath(studentId)}/courses/${encodePath(courseId)}/quizzes/generate`, {
+    const quiz = normalizeQuizSession(await request(`${API_BASE_URL}/tutor/students/${encodePath(studentId)}/courses/${encodePath(courseId)}/quizzes/generate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
       timeoutMs: API_TIMEOUTS.quizGeneration,
     }));
+    invalidateResourceCache(quizCachePrefix(studentId, courseId));
+    return quiz;
   },
 
-  async getStudentQuizHistory(studentId, courseId) {
-    return normalizeListResponse(
-      await request(`${API_BASE_URL}/tutor/students/${encodePath(studentId)}/courses/${encodePath(courseId)}/quizzes`),
+  async getStudentQuizHistory(studentId, courseId, options = {}) {
+    const loader = async () => normalizeListResponse(
+      await request(`${API_BASE_URL}/tutor/students/${encodePath(studentId)}/courses/${encodePath(courseId)}/quizzes`, { signal: options.signal }),
       ['quizzes', 'quizSessions', 'sessions', 'history', 'items', 'content', 'data', 'results'],
       normalizeQuizSession,
     );
+    if (options.signal) return loader();
+    return getCachedResource(`${quizCachePrefix(studentId, courseId)}:history`, loader, { force: options.force });
   },
 
-  async getAssignedQuizzes(studentId, courseId, classId = '') {
+  async getAssignedQuizzes(studentId, courseId, classId = '', options = {}) {
     const params = new URLSearchParams();
     if (classId) params.append('classId', classId);
     const qs = params.toString();
-    return normalizeListResponse(
-      await request(`${API_BASE_URL}/tutor/students/${encodePath(studentId)}/courses/${encodePath(courseId)}/quiz-assignments${qs ? `?${qs}` : ''}`),
+    const loader = async () => normalizeListResponse(
+      await request(`${API_BASE_URL}/tutor/students/${encodePath(studentId)}/courses/${encodePath(courseId)}/quiz-assignments${qs ? `?${qs}` : ''}`, { signal: options.signal }),
       ['assignments', 'quizAssignments', 'assignedQuizzes', 'items', 'content', 'data', 'results'],
       normalizeQuizAssignment,
     );
+    if (options.signal) return loader();
+    return getCachedResource(`${quizCachePrefix(studentId, courseId)}:assigned:${classId}`, loader, { force: options.force });
   },
 
   async getQuiz(quizSessionId) {
@@ -45,20 +54,24 @@ export const quizApi = {
   },
 
   async submitQuiz(quizSessionId, payload) {
-    return normalizeQuizSession(await request(`${API_BASE_URL}/tutor/quizzes/${encodePath(quizSessionId)}/submit`, {
+    const quiz = normalizeQuizSession(await request(`${API_BASE_URL}/tutor/quizzes/${encodePath(quizSessionId)}/submit`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
       timeoutMs: API_TIMEOUTS.ai,
     }));
+    invalidateResourceCache('quizzes:');
+    return quiz;
   },
 
   async startQuizAssignmentAttempt(assignmentId, studentId) {
     const params = new URLSearchParams({ studentId });
-    return normalizeQuizSession(await request(`${API_BASE_URL}/tutor/quiz-assignments/${encodePath(assignmentId)}/attempts?${params}`, {
+    const quiz = normalizeQuizSession(await request(`${API_BASE_URL}/tutor/quiz-assignments/${encodePath(assignmentId)}/attempts?${params}`, {
       method: 'POST',
       timeoutMs: API_TIMEOUTS.ai,
     }));
+    invalidateResourceCache(`quizzes:${studentId}:`);
+    return quiz;
   },
 
   async teacherReviewQuiz(quizSessionId, payload) {

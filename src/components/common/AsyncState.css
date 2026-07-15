@@ -1,0 +1,43 @@
+.async-state {
+  width: 100%;
+  padding: 24px;
+}
+
+.async-state--compact {
+  padding: 12px;
+}
+
+.async-state--loading {
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+.async-state__empty-copy {
+  display: grid;
+  gap: 4px;
+  color: var(--text-primary, #1f2937);
+}
+
+.async-state__empty-copy span {
+  color: var(--text-secondary, #5f6368);
+}
+
+.app-container.dark .async-state__empty-copy {
+  color: #f5f5f5;
+}
+
+.app-container.dark .async-state__empty-copy span {
+  color: #c7c7c7;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

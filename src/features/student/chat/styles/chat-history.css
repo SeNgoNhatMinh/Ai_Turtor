@@ -1,0 +1,328 @@
+.conversation-search {
+  position: relative;
+  width: calc(100% - 24px);
+  min-width: 0;
+  box-sizing: border-box;
+  margin: 0 12px 12px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #9ca3af;
+  overflow: hidden;
+}
+
+.conversation-search .ant-input {
+  background: transparent;
+  color: #1f2937;
+  height: 38px;
+  line-height: 38px;
+  padding: 0 34px 0 33px !important;
+  min-width: 0;
+  width: 100%;
+}
+
+.conversation-search .ant-input::placeholder {
+  color: #9ca3af;
+}
+
+.conversation-search .ant-input-affix-wrapper {
+  display: flex;
+  align-items: center;
+  height: 38px;
+  padding: 0;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  width: 100%;
+  min-width: 0;
+  pointer-events: none;
+}
+
+.conversation-search-icon {
+  position: absolute;
+  left: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #9ca3af;
+  width: 15px;
+  height: 15px;
+  flex: 0 0 15px;
+  pointer-events: none;
+  display: block;
+}
+
+.conversation-search-clear {
+  position: absolute;
+  right: 9px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #9ca3af;
+  cursor: pointer;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.15s ease, background-color 0.15s ease;
+}
+
+.conversation-search-clear.visible {
+  opacity: 1;
+  visibility: visible;
+}
+
+.conversation-search-clear:hover {
+  background: #f4f4f4;
+  color: #202123;
+}
+
+.conversation-list {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 8px;
+  padding: 0 8px 10px;
+  min-width: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 0;
+  scrollbar-width: thin;
+}
+
+.chat-history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 12px 10px;
+  min-width: 0;
+}
+
+.chat-history-title {
+  color: #111827;
+  font-size: 14px;
+  font-weight: 850;
+  line-height: 1.2;
+}
+
+.chat-history-subtitle {
+  margin-top: 2px;
+  color: #8e8e8e;
+  font-size: 11px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.chat-history-new-button.ant-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: 0 0 auto;
+  height: 32px;
+  padding-inline: 10px;
+  border: 0;
+  border-radius: 999px;
+  background: #202123;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 800;
+  box-shadow: none;
+}
+
+.chat-history-new-button.ant-btn:hover {
+  background: #343541 !important;
+  color: #ffffff !important;
+}
+
+.conversation-group {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.conversation-group-title {
+  padding: 7px 8px 4px;
+  color: #8e8e8e;
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.conversation-skeleton-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 4px 8px;
+}
+
+.conversation-skeleton-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 8px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.025);
+}
+
+.conversation-load-more {
+  width: calc(100% - 16px);
+  min-height: 34px;
+  margin: 6px 8px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #565869;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.conversation-load-more:hover {
+  background: #f4f4f4;
+  color: #202123;
+}
+
+.conversation-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  padding: 26px 12px;
+  color: #8e8e8e;
+  text-align: center;
+  font-size: 13px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.conversation-empty-state span {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  max-width: 180px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.conversation-empty-state svg {
+  color: #b8b8b8;
+  flex: 0 0 auto;
+}
+
+.session-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 8px 9px 11px;
+  border-radius: 12px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
+  min-width: 0;
+}
+
+.session-item:hover,
+.session-item.ant-list-item-selected {
+  background: #f4f4f4;
+}
+
+.session-item:hover {
+  transform: translateY(-1px);
+}
+
+.session-item.ant-list-item-selected {
+  border-color: #e5e7eb;
+  background: #ffffff;
+}
+
+.session-item-main {
+  min-width: 0;
+  flex: 1;
+}
+
+.session-item-title {
+  min-width: 0;
+}
+
+.session-item-title .ant-typography {
+  color: #202123;
+  font-size: 13px;
+  font-weight: 760;
+  line-height: 1.35;
+}
+
+.session-item.ant-list-item-selected .session-item-title .ant-typography {
+  color: #111827;
+}
+
+.session-item-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.session-item-time.ant-typography {
+  color: #6b7280;
+  font-size: 11px;
+}
+
+.session-item-meta span {
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border-radius: 999px;
+  background: #ececec;
+  color: #565869;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.session-item-meta .session-question-count {
+  max-width: 132px;
+  background: #f7f7f7;
+  color: #374151;
+}
+
+.session-item-meta .session-full-badge {
+  background: #eeeeee;
+  color: #6b7280;
+}
+
+.conversation-list .entity-action-button.ant-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  color: #6b7280;
+  opacity: 0;
+  transition: opacity 0.18s ease, background-color 0.18s ease, color 0.18s ease;
+}
+
+.session-item:hover .entity-action-button.ant-btn,
+.session-item.ant-list-item-selected .entity-action-button.ant-btn,
+.conversation-list .entity-action-button.ant-btn.ant-dropdown-open {
+  opacity: 1;
+}
+
+.conversation-list .entity-action-button.ant-btn:hover {
+  background: rgba(0, 0, 0, 0.06) !important;
+  color: #111827 !important;
+}
+
