@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, CheckCircle2, Lightbulb, MessageSquare, RefreshCw, Target } from 'lucide-react';
-import { apiService } from '../../services/api';
+import { teacherApi } from '../../services/teacherApi';
 import { getUserFacingError } from '../../services/apiClient';
 import { asArray } from '../../services/normalizers';
 import { HEATMAP_CLASS } from './teacherPortalUtils';
@@ -38,15 +38,15 @@ function TeacherClassesTab({
 
   useEffect(() => {
     if (!courseId) {
-      setCourseMemories([]);
-      return;
+      const resetTimer = window.setTimeout(() => setCourseMemories([]), 0);
+      return () => window.clearTimeout(resetTimer);
     }
 
     let cancelled = false;
     const loadCourseMemories = async () => {
       setCourseMemoriesLoading(true);
       try {
-        const data = await apiService.getCourseMemories(courseId, classId);
+        const data = await teacherApi.getCourseMemories(courseId, classId);
         if (!cancelled) {
           setCourseMemories(asArray(data, 'memories', 'content', 'items'));
         }
@@ -268,8 +268,7 @@ function TeacherClassesTab({
           <table className="data-table">
             <thead>
               <tr>
-                <th>Student ID</th>
-                <th>Full Name</th>
+                <th>Student</th>
                 <th>Email</th>
                 <th>Learning Status</th>
                 <th>Weak Topics</th>
@@ -279,8 +278,12 @@ function TeacherClassesTab({
             <tbody>
               {teacherStudents.map((s) => (
                 <tr key={s.id}>
-                  <td><code>{s.id || s.studentId}</code></td>
-                  <td>{s.name || s.studentName || s.fullName}</td>
+                  <td>
+                    <div className="entity-name-cell">
+                      <strong>{s.name || s.studentName || s.fullName || 'Student'}</strong>
+                      {(s.id || s.studentId) && <span>{s.id || s.studentId}</span>}
+                    </div>
+                  </td>
                   <td>{s.email || s.studentEmail || '-'}</td>
                   <td><span className="badge active-badge">{s.status || 'Enrolled'}</span></td>
                   <td>

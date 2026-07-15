@@ -40,7 +40,7 @@ export default function ImportWebsiteModal({
   onClose,
   courseId,
   currentUser,
-  apiService,
+  materialApi,
   triggerToast,
   onUploaded,
   isAdmin = false,
@@ -54,7 +54,7 @@ export default function ImportWebsiteModal({
   const [fallbackFollowNext, setFallbackFollowNext] = useState(false);
   const [fallbackMaxPages, setFallbackMaxPages] = useState(3);
 
-  const tocItems = toc?.items || [];
+  const tocItems = useMemo(() => toc?.items || [], [toc]);
   const hasToc = tocItems.length > 0;
   const visibleTocItems = useMemo(() => {
     const keyword = searchText.trim().toLowerCase();
@@ -66,15 +66,19 @@ export default function ImportWebsiteModal({
 
   useEffect(() => {
     if (open) {
-      form.resetFields();
-      setToc(null);
-      setSelectedUrls([]);
-      setSearchText('');
-      setFallbackFollowNext(false);
-      setFallbackMaxPages(3);
-      setIsAnalyzing(false);
-      setIsImporting(false);
+      const resetTimer = window.setTimeout(() => {
+        form.resetFields();
+        setToc(null);
+        setSelectedUrls([]);
+        setSearchText('');
+        setFallbackFollowNext(false);
+        setFallbackMaxPages(3);
+        setIsAnalyzing(false);
+        setIsImporting(false);
+      }, 0);
+      return () => window.clearTimeout(resetTimer);
     }
+    return undefined;
   }, [open, form]);
 
   const validateBaseForm = async () => {
@@ -96,7 +100,7 @@ export default function ImportWebsiteModal({
       setSelectedUrls([]);
       setSearchText('');
 
-      const data = await apiService.previewMaterialUrlToc(courseId, { url: values.url.trim() });
+      const data = await materialApi.previewMaterialUrlToc(courseId, { url: values.url.trim() });
       const normalized = normalizeTocResponse(data);
       setToc(normalized);
 
@@ -152,7 +156,7 @@ export default function ImportWebsiteModal({
       const title = String(values.title || toc?.title || '').trim();
       const teacherId = currentUser?.userId || currentUser?.id || currentUser?._id || 'ADMIN';
       const selected = selectedUrls.slice(0, MAX_SELECTED_URLS);
-      const uploaderRole = isAdmin ? 'ADMIN' : 'MENTOR';
+      const uploaderRole = isAdmin ? 'ADMIN' : 'TEACHER';
 
       if (!isAdmin) {
         if (!toc) {
@@ -188,7 +192,7 @@ export default function ImportWebsiteModal({
             selectedUrls: selected,
           };
 
-      const response = await apiService.importCourseMaterialUrl(courseId, payload);
+      const response = await materialApi.importCourseMaterialUrl(courseId, payload);
 
       triggerToast?.('Import started. Indexing is running in the background.');
       await onUploaded?.(response?.title || title || 'Website documentation');

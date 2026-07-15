@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { apiService } from '../../../../services/api';
+import { adminAcademicApi } from '../../../../services/adminAcademicApi';
+import { adminUsersApi } from '../../../../services/adminUsersApi';
 import { getUserFacingError } from '../../../../services/apiClient';
 import { confirmDanger } from '../../../../components/common/confirmDialog';
 import {
@@ -36,18 +37,18 @@ export function useAcademicRecords({
   const [enrollmentsLoading, setEnrollmentsLoading] = useState(false);
 
   const loadSemesters = async () => {
-    const data = await apiService.getSemesters();
+    const data = await adminAcademicApi.getSemesters();
     setSemesters(Array.isArray(data) ? data : []);
   };
 
   const loadCourses = async () => {
-    const data = await apiService.getCourses();
+    const data = await adminAcademicApi.getCourses();
     setCourses(Array.isArray(data) ? data : []);
   };
 
   const loadClassSections = async (courseId) => {
     setAcademicLoading(true);
-    const data = await apiService.getClassSections(courseId);
+    const data = await adminAcademicApi.getClassSections(courseId);
     setClassSections(Array.isArray(data) ? data : []);
     setAcademicLoading(false);
   };
@@ -60,7 +61,7 @@ export function useAcademicRecords({
   const resolveStudentSearchId = async (rawValue) => {
     const value = String(rawValue || '').trim();
     if (!value) return '';
-    const users = await apiService.getAdminUsers(value, 'STUDENT');
+    const users = await adminUsersApi.getAdminUsers(value, 'STUDENT');
     const normalized = String(value).toLowerCase();
     const matchedUser = users.find((user) => {
       const candidates = [
@@ -75,7 +76,7 @@ export function useAcademicRecords({
       ].filter(Boolean).map((item) => String(item).toLowerCase());
       return candidates.includes(normalized);
     }) || users[0];
-    return matchedUser?.userId || matchedUser?.id || matchedUser?._id || value;
+    return matchedUser?.studentId || matchedUser?.studentCode || matchedUser?.userId || matchedUser?.id || matchedUser?._id || value;
   };
 
   const loadStudentEnrollments = async () => {
@@ -87,13 +88,13 @@ export function useAcademicRecords({
     setEnrollmentsLoading(true);
     try {
       let searchId = rawSearch;
-      let data = await apiService.getStudentEnrollments(searchId);
+      let data = await adminAcademicApi.getStudentEnrollments(searchId);
       let items = normalizeEnrollments(data);
 
       if (items.length === 0) {
         searchId = await resolveStudentSearchId(rawSearch);
         if (searchId && searchId !== rawSearch) {
-          data = await apiService.getStudentEnrollments(searchId);
+          data = await adminAcademicApi.getStudentEnrollments(searchId);
           items = normalizeEnrollments(data);
         }
       }
@@ -111,21 +112,28 @@ export function useAcademicRecords({
   };
 
   const handleCreateSemester = async (values) => {
-    await apiService.createSemester({ semesterCode: values.semesterCode, name: values.name, status: 'ACTIVE' });
+    await adminAcademicApi.createSemester({ semesterCode: values.semesterCode, name: values.name, status: 'ACTIVE' });
     triggerToast('New term created.');
     formSemester.resetFields();
     loadSemesters();
   };
 
   const handleCreateCourse = async (values) => {
-    await apiService.createCourse({ courseId: values.courseId, courseName: values.courseName, credits: values.credits, status: 'ACTIVE' });
+    await adminAcademicApi.createCourse({ courseId: values.courseId, courseName: values.courseName, credits: values.credits, status: 'ACTIVE' });
     triggerToast('New course created.');
     formCourse.resetFields();
     loadCourses();
   };
 
   const handleCreateClass = async (values) => {
-    await apiService.createClassSection({ courseId: values.courseId, classId: values.classCode, teacherId: values.teacherId, status: 'ACTIVE' });
+    await adminAcademicApi.createClassSection({
+      courseId: values.courseId,
+      classId: values.classCode,
+      teacherId: values.teacherId,
+      teacherName: values.teacherName,
+      teacherEmail: values.teacherEmail,
+      status: 'ACTIVE',
+    });
     triggerToast('New class section created.');
     formClass.resetFields();
     if (selectedCourseId) loadClassSections(selectedCourseId);
@@ -133,10 +141,16 @@ export function useAcademicRecords({
 
   const handleCreateEnrollment = async (values) => {
     try {
-      await apiService.createEnrollment({ studentId: values.studentId, courseId: values.courseId, classId: values.classId, status: 'ACTIVE' });
+      const resolvedStudentId = await resolveStudentSearchId(values.studentId);
+      await adminAcademicApi.createEnrollment({
+        studentId: resolvedStudentId,
+        courseId: values.courseId,
+        classId: values.classId,
+        status: 'ACTIVE',
+      });
       triggerToast('Student enrolled successfully.');
       formEnroll.resetFields();
-      if (enrollmentSearchId === values.studentId) loadStudentEnrollments();
+      if (enrollmentSearchId === values.studentId || enrollmentSearchId === resolvedStudentId) loadStudentEnrollments();
     } catch {
       triggerToast('Failed to enroll student.');
     }
@@ -151,7 +165,7 @@ export function useAcademicRecords({
       anchorRect,
       onOk: async () => {
         try {
-          await apiService.deleteSemester(semesterCode);
+          await adminAcademicApi.deleteSemester(semesterCode);
           triggerToast('Term deleted.');
           await loadSemesters();
         } catch (error) {
@@ -170,7 +184,7 @@ export function useAcademicRecords({
       anchorRect,
       onOk: async () => {
         try {
-          await apiService.deleteCourse(courseId);
+          await adminAcademicApi.deleteCourse(courseId);
           triggerToast('Course deleted.');
           await loadCourses();
           if (selectedCourseId === courseId) {
@@ -194,7 +208,7 @@ export function useAcademicRecords({
       anchorRect,
       onOk: async () => {
         try {
-          await apiService.deleteClassSection(courseId, classId);
+          await adminAcademicApi.deleteClassSection(courseId, classId);
           triggerToast('Class section deleted.');
           await loadClassSections(courseId);
         } catch (error) {
@@ -220,9 +234,9 @@ export function useAcademicRecords({
       onOk: async () => {
         try {
           if (enrollmentId) {
-            await apiService.deleteEnrollment(enrollmentId);
+            await adminAcademicApi.deleteEnrollment(enrollmentId);
           } else {
-            await apiService.removeStudentFromClass(courseId, classId, studentId);
+            await adminAcademicApi.removeStudentFromClass(courseId, classId, studentId);
           }
           triggerToast('Enrollment removed.');
           await loadStudentEnrollments();

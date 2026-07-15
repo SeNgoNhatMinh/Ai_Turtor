@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { apiService } from '../../../../services/api';
 import { getUserFacingError } from '../../../../services/apiClient';
+import { materialsApi } from '../../../../services/materialsApi';
 import { confirmDanger } from '../../../../components/common/confirmDialog';
 import { isMaterialIndexing, normalizeMaterialsResponse } from '../adminAcademicUtils';
 
@@ -22,7 +22,7 @@ export function useCourseMaterials({ triggerToast, currentUser, formMaterial }) 
     let cancelled = false;
     const pollMaterials = async () => {
       try {
-        const data = await apiService.getCourseMaterials(materialCourseId);
+        const data = await materialsApi.getCourseMaterials(materialCourseId);
         if (!cancelled) {
           setCourseMaterials(normalizeMaterialsResponse(data));
         }
@@ -46,7 +46,7 @@ export function useCourseMaterials({ triggerToast, currentUser, formMaterial }) 
     }
     if (!silent) setMaterialsLoading(true);
     try {
-      const data = await apiService.getCourseMaterials(courseId);
+      const data = await materialsApi.getCourseMaterials(courseId);
       setCourseMaterials(normalizeMaterialsResponse(data));
     } catch (error) {
       if (!silent) setCourseMaterials([]);
@@ -64,7 +64,7 @@ export function useCourseMaterials({ triggerToast, currentUser, formMaterial }) 
       for (const delay of delays) {
         if (delay) await wait(delay);
         try {
-          const data = await apiService.getCourseMaterials(courseId);
+          const data = await materialsApi.getCourseMaterials(courseId);
           const items = normalizeMaterialsResponse(data);
           setCourseMaterials(items);
           const hasExpectedTitle = normalizedTitle && items.some((item) => String(item?.title || '').trim().toLowerCase() === normalizedTitle);
@@ -105,7 +105,7 @@ export function useCourseMaterials({ triggerToast, currentUser, formMaterial }) 
     const releaseUploadButton = () => window.setTimeout(() => setMaterialUploadBusy(false), 2500);
     const previousCount = courseMaterials.length;
     try {
-      await apiService.uploadMaterial(materialCourseId, formData);
+      await materialsApi.uploadMaterial(materialCourseId, formData);
       const appeared = await refreshCourseMaterialsWithRetry(materialCourseId, previousCount, values.title);
       formMaterial.resetFields();
       setMaterialFile(null);
@@ -139,7 +139,7 @@ export function useCourseMaterials({ triggerToast, currentUser, formMaterial }) 
       return;
     }
     try {
-      const blob = await apiService.downloadMaterialPdf(materialCourseId, materialId);
+      const blob = await materialsApi.downloadMaterialPdf(materialCourseId, materialId);
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -159,7 +159,7 @@ export function useCourseMaterials({ triggerToast, currentUser, formMaterial }) 
       return;
     }
     try {
-      await apiService.reindexMaterial(materialCourseId, materialId);
+      await materialsApi.reindexMaterial(materialCourseId, materialId);
       triggerToast('Material reindexing triggered.');
     } catch (error) {
       triggerToast(getUserFacingError(error, 'Unable to reindex course material.'));
@@ -178,7 +178,7 @@ export function useCourseMaterials({ triggerToast, currentUser, formMaterial }) 
       anchorRect,
       onOk: async () => {
         try {
-          await apiService.deleteMaterial(materialCourseId, materialId);
+          await materialsApi.deleteMaterial(materialCourseId, materialId);
           triggerToast('Course material deleted.');
           loadCourseMaterials(materialCourseId);
         } catch (error) {

@@ -17,37 +17,15 @@ export const writeJsonStorage = (key, value) => {
 
 export const sanitizePersistedUser = (user) => {
   if (!user || typeof user !== 'object') return null;
-  const { token, password, ...safeUser } = user;
+  const safeUser = { ...user };
+  delete safeUser.token;
+  delete safeUser.password;
   return safeUser;
-};
-
-export const getPinnedSuggestionsStorageKey = (studentId, courseId) => {
-  if (!studentId || !courseId) return '';
-  return `ai-tutor:pinned-suggestions:${studentId}:${courseId}`;
 };
 
 export const getSuggestionsStorageKey = (studentId, courseId) => {
   if (!studentId || !courseId) return '';
   return `ai-tutor:analyzed-suggestions:${studentId}:${courseId}`;
-};
-
-export const readPinnedSuggestions = (studentId, courseId) => {
-  const key = getPinnedSuggestionsStorageKey(studentId, courseId);
-  if (!key) return [];
-  try {
-    const raw = window.localStorage.getItem(key);
-    const list = raw ? JSON.parse(raw) : [];
-    return Array.isArray(list) ? list.filter(Boolean) : [];
-  } catch {
-    return [];
-  }
-};
-
-export const writePinnedSuggestions = (studentId, courseId, suggestions) => {
-  const key = getPinnedSuggestionsStorageKey(studentId, courseId);
-  if (!key) return;
-  const unique = [...new Set((suggestions || []).filter(Boolean))];
-  window.localStorage.setItem(key, JSON.stringify(unique));
 };
 
 export const readAnalyzedSuggestions = (studentId, courseId) => {
@@ -95,4 +73,3 @@ export const mergeSuggestionLists = (...lists) => {
   });
   return merged;
 };
-

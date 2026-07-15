@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   flexRender,
   getCoreRowModel,
@@ -23,6 +23,8 @@ export function DataTable({ columns, data = [], loading = false, emptyText = 'No
 
   const safeData = Array.isArray(data) ? data : [];
 
+  // TanStack Table intentionally exposes mutable table methods to its consumers.
+  // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
     data: safeData,
     columns,

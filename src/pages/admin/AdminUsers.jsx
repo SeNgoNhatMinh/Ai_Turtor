@@ -4,8 +4,9 @@ import {
   Users as UsersIcon, GraduationCap, AlertTriangle, RefreshCw,
   Inbox, Trash2, Edit, UserCheck
 } from 'lucide-react';
-import { apiService } from '../../services/api';
+import { adminUsersApi } from '../../services/adminUsersApi';
 import { confirmDanger } from '../../components/common/confirmDialog';
+import { ACCOUNT_ROLES } from '../../constants/roles';
 
 const { Title } = Typography;
 const { Dragger } = Upload;
@@ -32,56 +33,61 @@ function AdminUsers({ triggerToast, handleAdminImport }) {
 
   const [formEditUser] = Form.useForm();
 
-  useEffect(() => {
-    loadUsers();
-    loadMentors();
-    loadEscalations();
-  }, []);
-
   // ── Loaders ──────────────────────────────────────────────
   const loadUsers = async () => {
     setUsersLoading(true);
-    const data = await apiService.getAdminUsers(userSearchQ, userFilterRole);
+    const data = await adminUsersApi.getAdminUsers(userSearchQ, userFilterRole);
     setUsersList(Array.isArray(data) ? data : []);
     setUsersLoading(false);
   };
   const loadMentors = async () => {
     setMentorsLoading(true);
-    const data = await apiService.getAdminMentors();
+    const data = await adminUsersApi.getAdminMentors();
     setMentorsList(Array.isArray(data) ? data : []);
     setMentorsLoading(false);
   };
   const loadEscalations = async () => {
     setEscalationsLoading(true);
-    const data = await apiService.getAdminEscalations();
+    const data = await adminUsersApi.getAdminEscalations();
     setEscalationsList(Array.isArray(data) ? data : []);
     setEscalationsLoading(false);
   };
 
+  useEffect(() => {
+    const loadTimer = window.setTimeout(() => {
+      loadUsers();
+      loadMentors();
+      loadEscalations();
+    }, 0);
+    return () => window.clearTimeout(loadTimer);
+    // Initial lists are intentionally loaded once; filters are applied explicitly.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // ── Handlers ─────────────────────────────────────────────
   const handleDeleteUser = async (userId) => {
-    await apiService.deleteAdminUser(userId);
+    await adminUsersApi.deleteAdminUser(userId);
     triggerToast('User deleted.');
     setUsersList(prev => prev.filter(u => u.id !== userId));
   };
   const handleUpdateUser = async (values) => {
-    await apiService.updateAdminUser(editUserModal.id, values);
+    await adminUsersApi.updateAdminUser(editUserModal.id, values);
     triggerToast('User updated.');
     setEditUserModal(null);
     loadUsers();
   };
   const handleDeleteMentor = async (mentorId) => {
-    await apiService.deleteAdminMentor(mentorId);
+    await adminUsersApi.deleteAdminMentor(mentorId);
     triggerToast('Mentor deleted.');
     setMentorsList(prev => prev.filter(m => m.id !== mentorId));
   };
   const handleToggleMentor = async (mentorId, field, value) => {
-    await apiService.updateAdminMentor(mentorId, { [field]: value });
+    await adminUsersApi.updateAdminMentor(mentorId, { [field]: value });
     triggerToast('Mentor status updated.');
     setMentorsList(prev => prev.map(m => m.id === mentorId ? { ...m, [field]: value } : m));
   };
   const handleDeleteEscalation = async (escId) => {
-    await apiService.deleteAdminEscalation(escId);
+    await adminUsersApi.deleteAdminEscalation(escId);
     triggerToast('Support request deleted.');
     setEscalationsList(prev => prev.filter(e => e.id !== escId));
   };
@@ -107,8 +113,14 @@ function AdminUsers({ triggerToast, handleAdminImport }) {
     {
       title: 'Role', dataIndex: 'role', key: 'role', width: 120,
       render: (role) => {
-        const color = role === 'ADMIN' ? 'volcano' : role === 'TEACHER' ? 'geekblue' : 'green';
-        return <Tag color={color}>{role || 'STUDENT'}</Tag>;
+        const color = role === ACCOUNT_ROLES.ADMIN
+          ? 'volcano'
+          : role === ACCOUNT_ROLES.SENIOR_MENTOR
+            ? 'purple'
+            : role === ACCOUNT_ROLES.TEACHER
+              ? 'geekblue'
+              : 'green';
+        return <Tag color={color}>{role || ACCOUNT_ROLES.STUDENT}</Tag>;
       }
     },
     {
@@ -171,7 +183,17 @@ function AdminUsers({ triggerToast, handleAdminImport }) {
 
   const escalationColumns = [
     { title: 'ID', dataIndex: 'id', key: 'id', width: 100, ellipsis: true },
-    { title: 'Student', dataIndex: 'userId', key: 'userId', render: (v) => v || '—' },
+    {
+      title: 'Student',
+      dataIndex: 'userId',
+      key: 'userId',
+      render: (value, record) => (
+        <div className="entity-name-cell">
+          <strong>{record.studentName || record.userName || record.fullName || value || 'Student'}</strong>
+          {value && <span>{value}</span>}
+        </div>
+      ),
+    },
     { title: 'Question', dataIndex: 'question', key: 'question', ellipsis: true, render: (v) => v || '—' },
     {
       title: 'Status', dataIndex: 'status', key: 'status', width: 120,
@@ -211,6 +233,7 @@ function AdminUsers({ triggerToast, handleAdminImport }) {
                 <Select placeholder="Filter role" allowClear style={{ width: 150 }} value={userFilterRole || undefined} onChange={v => setUserFilterRole(v || '')}>
                   <Option value="STUDENT">Student</Option>
                   <Option value="TEACHER">Teacher</Option>
+                  <Option value="SENIOR_MENTOR">Senior Mentor</Option>
                   <Option value="ADMIN">Admin</Option>
                 </Select>
                 <Button onClick={loadUsers} icon={<RefreshCw size={14} />}>Reload</Button>
@@ -258,6 +281,7 @@ function AdminUsers({ triggerToast, handleAdminImport }) {
             <Select>
               <Option value="STUDENT">Student</Option>
               <Option value="TEACHER">Teacher</Option>
+              <Option value="SENIOR_MENTOR">Senior Mentor</Option>
               <Option value="ADMIN">Admin</Option>
             </Select>
           </Form.Item>

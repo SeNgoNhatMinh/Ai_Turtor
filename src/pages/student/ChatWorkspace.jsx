@@ -1,23 +1,36 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { lazy, Suspense, useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Select, Space, Typography } from 'antd';
 import { SendOutlined, StopOutlined, PushpinOutlined, CloseOutlined } from '@ant-design/icons';
-import RobotHeadMascot from '../../components/RobotHeadMascot';
-import AiAnswer from '../../components/AiAnswer';
 import AnswerActionBar from './AnswerActionBar';
 import AnswerEvidence from './AnswerEvidence';
 import AnswerFeedbackControls from './AnswerFeedbackControls';
+import AnswerImproveSuggestions from './AnswerImproveSuggestions';
 import ChatLoadingSteps from './ChatLoadingSteps';
+import InlineMentorSupport from './InlineMentorSupport';
 import PromptStarters from './PromptStarters';
 import { FEEDBACK_ACTIONS, getFeedbackAction } from '../../constants/answerReview';
 import { normalizeReviewMode, validateChatInput, validateFeedbackText } from '../../utils/validators';
 import { buildMaterialSourceMap } from '../../utils/sourceLabels';
-import { apiService } from '../../services/api';
+import { classIdMatches } from '../../utils/academicIds';
+import { conversationApi } from '../../services/conversationApi';
 import { getUserFacingError } from '../../services/apiClient';
 import './ChatWorkspace.css';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
 const CHAT_TURN_LIMIT = 10;
+const AiAnswer = lazy(() => import('../../components/AiAnswer'));
+const RobotHeadMascot = lazy(() => import('../../components/RobotHeadMascot'));
+
+function MascotFallback({ size = 36 }) {
+  return (
+    <div
+      className="chat-mascot-fallback"
+      style={{ width: size, height: size }}
+      aria-hidden="true"
+    />
+  );
+}
 
 const getReviewMode = (message) => {
   return normalizeReviewMode(message?.mode);
@@ -97,9 +110,11 @@ function ChatWorkspace({
   courseId,
   onCourseChange,
   classId,
-  setClassId,
   courseOptions = [],
   classOptions = [],
+  isStudentEnrollmentsLoading = false,
+  hasLoadedStudentEnrollments = true,
+  hasStudentEnrollments = true,
   messages,
   chatInput,
   setChatInput,
@@ -112,6 +127,8 @@ function ChatWorkspace({
   style,
   handleStudentReviewAnswer,
   userId,
+  studentName,
+  currentUser,
   activeSessionId,
   activeSessionQuestionCount = 0,
   activeSessionMaxTurnsReached = false,
@@ -122,7 +139,10 @@ function ChatWorkspace({
   triggerToast,
   courseMaterials = [],
   onAnalyzeStudyTip,
+  onStudySuggestion,
+  onCreateQuizFromSuggestion,
   onDownloadSource,
+  onOpenMentorReview,
 }) {
   const [feedbackOpenIndex, setFeedbackOpenIndex] = useState(null);
   const [feedbackAction, setFeedbackAction] = useState(null);
@@ -131,9 +151,15 @@ function ChatWorkspace({
   const [pinnedMessagesFromServer, setPinnedMessagesFromServer] = useState([]);
   const [pinningMessageId, setPinningMessageId] = useState('');
   const [highlightedMessageKey, setHighlightedMessageKey] = useState('');
+  const [pendingCourseId, setPendingCourseId] = useState('');
+  const [openSupportCards, setOpenSupportCards] = useState({});
+  const [localEscalationIds, setLocalEscalationIds] = useState({});
 
   const textareaRef = useRef(null);
   const materialSourceMap = useMemo(() => buildMaterialSourceMap(courseMaterials), [courseMaterials]);
+  const safeMessages = useMemo(() => (
+    Array.isArray(messages) ? [...messages] : []
+  ), [messages]);
 
   const loadPinnedMessages = useCallback(async () => {
     if (!userId || !activeSessionId) {
@@ -141,7 +167,7 @@ function ChatWorkspace({
       return;
     }
     try {
-      const data = await apiService.getPinnedMessages(activeSessionId, userId);
+      const data = await conversationApi.getPinnedMessages(activeSessionId, userId);
       setPinnedMessagesFromServer(normalizePinnedMessages(data));
     } catch (error) {
       console.warn('Failed to load pinned chat messages:', error);
@@ -150,7 +176,13 @@ function ChatWorkspace({
   }, [activeSessionId, userId]);
 
   useEffect(() => {
-    loadPinnedMessages();
+    let isCancelled = false;
+    Promise.resolve().then(() => {
+      if (!isCancelled) loadPinnedMessages();
+    });
+    return () => {
+      isCancelled = true;
+    };
   }, [loadPinnedMessages]);
 
   useEffect(() => {
@@ -195,9 +227,9 @@ function ChatWorkspace({
     setPinningMessageId(messageId);
     try {
       if (isPinned) {
-        await apiService.unpinChatMessage(activeSessionId, messageId, userId);
+        await conversationApi.unpinChatMessage(activeSessionId, messageId, userId);
       } else {
-        await apiService.pinChatMessage(activeSessionId, messageId, userId);
+        await conversationApi.pinChatMessage(activeSessionId, messageId, userId);
       }
       await loadPinnedMessages();
       triggerToast?.(isPinned ? 'Message unpinned.' : 'Message pinned.');
@@ -286,9 +318,35 @@ function ChatWorkspace({
     }
   };
 
+  const openInlineSupport = (messageKey) => {
+    setOpenSupportCards((prev) => ({ ...prev, [messageKey]: true }));
+  };
+
+  const closeInlineSupport = (messageKey) => {
+    setOpenSupportCards((prev) => ({ ...prev, [messageKey]: false }));
+  };
+
+  const handleAnswerAction = (action) => {
+    if (action?.type === 'mentor') {
+      const index = safeMessages.indexOf(action.message);
+      const messageKey = getMessageKey(action.message, index >= 0 ? index : 0);
+      openInlineSupport(messageKey);
+      return;
+    }
+    onAnswerAction?.(action);
+  };
+
+  const shouldShowMentorSupport = (message, messageKey) => (
+    Boolean(message?.questionEscalationId || localEscalationIds[messageKey] || openSupportCards[messageKey])
+  );
+
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
+      if (!canChatWithCurrentContext) {
+        triggerToast?.(chatContextMessage);
+        return;
+      }
       if (activeSessionMaxTurnsReached) {
         triggerToast?.('Đoạn chat này đã đầy. Vui lòng bắt đầu đoạn chat mới để tiếp tục.');
         return;
@@ -302,22 +360,15 @@ function ChatWorkspace({
     }
   };
 
-  const safeMessages = Array.isArray(messages) ? messages : [];
   const safeCourseOptions = useMemo(() => {
     const options = (Array.isArray(courseOptions) ? courseOptions : [])
       .filter((item) => item?.value);
-    return options.length ? options : [
-      { value: 'PRJ301', label: 'PRJ301 - Java Web' },
-      { value: 'DBI202', label: 'DBI202 - Database' },
-    ];
+    return options;
   }, [courseOptions]);
   const safeClassOptions = useMemo(() => {
     const options = (Array.isArray(classOptions) ? classOptions : [])
       .filter((item) => item?.value);
-    return options.length ? options : [
-      { value: 'SE1840', label: 'Class SE1840' },
-      { value: 'SE1841', label: 'Class SE1841' },
-    ];
+    return options;
   }, [classOptions]);
   const messageLookupById = useMemo(() => {
     const lookup = new Map();
@@ -366,7 +417,7 @@ function ChatWorkspace({
           const matched = safeMessages.find((message, index) => getMessageKey(message, index) === legacyKey);
           const messageId = getPinTargetId(matched);
           if (messageId && !pinnedMessageIdSet.has(messageId)) {
-            await apiService.pinChatMessage(activeSessionId, messageId, userId);
+            await conversationApi.pinChatMessage(activeSessionId, messageId, userId);
           }
         }
         window.localStorage.removeItem(storageKey);
@@ -382,10 +433,51 @@ function ChatWorkspace({
     };
   }, [activeSessionId, loadPinnedMessages, pinnedMessageIdSet, safeMessages, userId]);
   const selectedCourseValue = safeCourseOptions.some((item) => item.value === courseId) ? courseId : undefined;
-  const selectedClassValue = safeClassOptions.some((item) => item.value === classId) ? classId : undefined;
+  const selectedClassOption = safeClassOptions.find((item) => (
+    item.value === classId
+    || classIdMatches(item.value, classId)
+    || (Array.isArray(item.aliases) && item.aliases.some((alias) => classIdMatches(alias, classId)))
+  ));
+  const shouldShowCourseSwitchBanner = Boolean(pendingCourseId && pendingCourseId !== courseId);
+  const pendingCourseOption = safeCourseOptions.find((item) => item.value === pendingCourseId);
+  const selectedClassValue = selectedClassOption?.value;
+  const hasCourseSelection = Boolean(selectedCourseValue);
+  const hasClassSelection = Boolean(selectedClassValue);
+  const canChatWithCurrentContext = Boolean(
+    !isStudentEnrollmentsLoading
+    && hasLoadedStudentEnrollments
+    && hasStudentEnrollments
+    && hasCourseSelection
+    && hasClassSelection
+  );
+  const chatContextMessage = isStudentEnrollmentsLoading
+    ? 'Loading your enrolled classes. Please wait a moment.'
+    : !hasLoadedStudentEnrollments
+      ? 'Checking your enrolled classes. Please wait a moment.'
+      : !hasStudentEnrollments
+        ? 'Your student account is not enrolled in any class yet. Please contact Admin or your teacher before using AI Tutor Chat.'
+        : !hasCourseSelection
+          ? 'Please choose one of your enrolled courses before asking AI Tutor.'
+          : !hasClassSelection
+            ? 'Your class is assigned automatically from enrollment. Please switch to a course that has an active class.'
+            : '';
   const questionCount = Math.max(0, Math.min(CHAT_TURN_LIMIT, Number(activeSessionQuestionCount) || 0));
   const isNearTurnLimit = questionCount >= 8 && questionCount < CHAT_TURN_LIMIT && !activeSessionMaxTurnsReached;
-  const sendDisabled = !validateChatInput(chatInput).ok || activeSessionMaxTurnsReached;
+  const sendDisabled = !canChatWithCurrentContext || !validateChatInput(chatInput).ok || activeSessionMaxTurnsReached;
+  const handleCourseSelect = (nextCourseId) => {
+    if (!nextCourseId || nextCourseId === courseId) return;
+    if (!courseId) {
+      onCourseChange?.(nextCourseId, { confirmed: true });
+      return;
+    }
+    setPendingCourseId(nextCourseId);
+  };
+  const confirmCourseSwitch = () => {
+    if (!pendingCourseId) return;
+    const nextCourseId = pendingCourseId;
+    setPendingCourseId('');
+    onCourseChange?.(nextCourseId, { confirmed: true });
+  };
 
   return (
     <div className="chat-workspace-dark" style={style}>
@@ -413,31 +505,48 @@ function ChatWorkspace({
         <Space wrap>
           <Select
             value={selectedCourseValue}
-            onChange={onCourseChange}
+            onChange={handleCourseSelect}
             style={{ width: 150 }}
             placeholder="Chọn khóa học"
+            disabled={isStudentEnrollmentsLoading || safeCourseOptions.length === 0}
             popupClassName={`chat-course-select-popup ${isDarkMode ? 'chat-course-select-popup--dark' : ''}`}
           >
             {safeCourseOptions.map((item) => (
               <Option key={item.value} value={item.value}>{item.label}</Option>
             ))}
           </Select>
-          <Select
-            value={selectedClassValue}
-            onChange={setClassId}
-            style={{ width: 168 }}
-            placeholder="Chọn lớp học"
-            optionLabelProp="label"
-            popupClassName={`chat-course-select-popup ${isDarkMode ? 'chat-course-select-popup--dark' : ''}`}
+          <div
+            className={`chat-class-readonly-pill ${hasClassSelection ? '' : 'chat-class-readonly-pill--empty'}`}
+            title={selectedClassOption?.label || 'Class is assigned from your enrollment'}
+            aria-label="Assigned class section"
           >
-            {safeClassOptions.map((item) => (
-              <Option key={item.value} value={item.value} label={`Class ${item.value}`}>
-                {item.label}
-              </Option>
-            ))}
-          </Select>
+            <span>Class</span>
+            <strong>{selectedClassValue || 'Not assigned'}</strong>
+          </div>
         </Space>
       </div>
+
+      {shouldShowCourseSwitchBanner && (
+        <div className="chat-course-switch-banner" role="alert">
+          <div>
+            <strong>Switch course?</strong>
+            <span>
+              Each course has separate chat history. Switch to {pendingCourseOption?.label || pendingCourseId} and open that course&apos;s conversations.
+            </span>
+          </div>
+          <div className="chat-course-switch-banner__actions">
+            <button type="button" onClick={() => setPendingCourseId('')}>Cancel</button>
+            <button type="button" className="primary" onClick={confirmCourseSwitch}>Switch course</button>
+          </div>
+        </div>
+      )}
+
+      {!canChatWithCurrentContext && (
+        <div className="chat-context-blocker" role="status">
+          <strong>{!hasStudentEnrollments && hasLoadedStudentEnrollments ? 'Enrollment required' : 'Course context required'}</strong>
+          <span>{chatContextMessage}</span>
+        </div>
+      )}
 
       {turnLimitNotice && (
         <div className="chat-turn-limit-banner" role="status">
@@ -499,7 +608,9 @@ function ChatWorkspace({
         <div className="chat-workspace-messages-inner">
           {safeMessages.length === 0 ? (
             <div className="chat-empty-state">
-              <RobotHeadMascot size={180} />
+              <Suspense fallback={<MascotFallback size={180} />}>
+                <RobotHeadMascot size={180} />
+              </Suspense>
               <div className="chat-empty-title">Tôi có thể giúp gì cho bạn hôm nay?</div>
               <PromptStarters onSelect={onPromptStarter} />
             </div>
@@ -528,7 +639,9 @@ function ChatWorkspace({
                     <div className="chat-gpt-message-row ai">
                       <div className="chat-gpt-bubble-ai">
                         <div style={{ flexShrink: 0, marginTop: '-4px' }}>
-                          <RobotHeadMascot size={36} compact={true} followMouse={true} />
+                          <Suspense fallback={<MascotFallback size={36} />}>
+                            <RobotHeadMascot size={36} compact={true} followMouse={false} />
+                          </Suspense>
                         </div>
                         <div className="chat-gpt-ai-content">
                           {message.aiServiceError && (
@@ -538,16 +651,49 @@ function ChatWorkspace({
                             </div>
                           )}
 
-                          <AiAnswer
-                            markdown={message.answer || ''}
-                            sourceMap={materialSourceMap}
-                            onStudyTipAnalyze={onAnalyzeStudyTip}
-                            onDownloadSource={onDownloadSource}
-                            hideSourceSection={Array.isArray(message.sources) && message.sources.length > 0}
-                          />
+                          <Suspense fallback={<div className="chat-answer-loading">Formatting answer...</div>}>
+                            <AiAnswer
+                              markdown={message.answer || ''}
+                              sourceMap={materialSourceMap}
+                              onStudyTipAnalyze={onAnalyzeStudyTip}
+                              onDownloadSource={onDownloadSource}
+                              hideSourceSection={Array.isArray(message.sources) && message.sources.length > 0}
+                            />
+                          </Suspense>
 
                           <AnswerEvidence message={message} sourceMap={materialSourceMap} onDownloadSource={onDownloadSource} />
-                          {!message.canceled && <AnswerActionBar message={message} onAction={onAnswerAction} />}
+                          {!message.canceled && !message.aiServiceError && (
+                            <AnswerImproveSuggestions
+                              suggestions={message.nextImproveSuggestions}
+                              onStudy={onStudySuggestion}
+                              onCreateQuiz={onCreateQuizFromSuggestion}
+                            />
+                          )}
+                          {!message.canceled && <AnswerActionBar message={message} onAction={handleAnswerAction} />}
+
+                          {!message.canceled && shouldShowMentorSupport(message, messageKey) && (
+                            <InlineMentorSupport
+                              message={{
+                                ...message,
+                                questionEscalationId: message.questionEscalationId || localEscalationIds[messageKey],
+                              }}
+                              userId={userId}
+                              studentName={studentName}
+                              studentEmail={currentUser?.email}
+                              currentUser={currentUser}
+                              courseId={courseId}
+                              classId={classId}
+                              conversationId={activeSessionId}
+                              isOpen={Boolean(openSupportCards[messageKey])}
+                              onOpen={() => openInlineSupport(messageKey)}
+                              onClose={() => closeInlineSupport(messageKey)}
+                              onEscalationCreated={(nextId) => {
+                                setLocalEscalationIds((prev) => ({ ...prev, [messageKey]: nextId }));
+                              }}
+                              onOpenReviewTab={onOpenMentorReview}
+                              triggerToast={triggerToast}
+                            />
+                          )}
 
                           {!message.canceled && (
                             <AnswerFeedbackControls
@@ -577,7 +723,7 @@ function ChatWorkspace({
           {isAiLoading && (
             <div className="chat-gpt-loading">
               <div style={{ flexShrink: 0, marginLeft: '-42px' }}>
-                <RobotHeadMascot size={32} compact={true} followMouse={true} />
+                <RobotHeadMascot size={32} compact={true} followMouse={false} />
               </div>
               <ChatLoadingSteps />
             </div>
@@ -592,12 +738,12 @@ function ChatWorkspace({
           <div className="chat-gpt-input-wrapper">
             <textarea
               ref={textareaRef}
-              placeholder={activeSessionMaxTurnsReached ? 'Đoạn chat này đã đầy. Vui lòng bắt đầu đoạn chat mới để tiếp tục.' : isAiLoading ? 'AI Tutor đang trả lời...' : 'Nhắn tin cho AI Tutor...'}
+              placeholder={!canChatWithCurrentContext ? chatContextMessage : activeSessionMaxTurnsReached ? 'Đoạn chat này đã đầy. Vui lòng bắt đầu đoạn chat mới để tiếp tục.' : isAiLoading ? 'AI Tutor đang trả lời...' : 'Nhắn tin cho AI Tutor...'}
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
               onKeyDown={handleKeyDown}
               maxLength={8000}
-              disabled={isAiLoading}
+              disabled={isAiLoading || !canChatWithCurrentContext}
               rows={1}
             />
             {isAiLoading ? (
@@ -609,7 +755,7 @@ function ChatWorkspace({
                 className="chat-gpt-send-btn"
                 onClick={onSendQuery}
                 disabled={sendDisabled}
-                title={activeSessionMaxTurnsReached ? 'Đoạn chat này đã đầy. Vui lòng bắt đầu đoạn chat mới để tiếp tục.' : 'Send message'}
+                title={!canChatWithCurrentContext ? chatContextMessage : activeSessionMaxTurnsReached ? 'Đoạn chat này đã đầy. Vui lòng bắt đầu đoạn chat mới để tiếp tục.' : 'Send message'}
               >
                 <SendOutlined />
               </button>

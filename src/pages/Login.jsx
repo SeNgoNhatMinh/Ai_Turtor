@@ -1,10 +1,15 @@
-import { useState } from 'react';
-import { apiService } from '../services/api';
+import { lazy, Suspense, useState } from 'react';
+import { authApi } from '../services/authApi';
 import { getUserFacingError } from '../services/apiClient';
 import { User, Lock, Mail, ArrowRight, UserPlus, GraduationCap, BookOpen, Pencil } from 'lucide-react';
-import RobotHeadMascot from '../components/RobotHeadMascot';
 import { validateAuthForm } from '../utils/validators';
 import '../index.css';
+
+const RobotHeadMascot = lazy(() => import('../components/RobotHeadMascot'));
+
+function LoginMascotFallback() {
+  return <div className="login-robot-fallback" aria-hidden="true" />;
+}
 
 function Login({ onLoginSuccess, triggerToast }) {
   const [isLoginView, setIsLoginView] = useState(true);
@@ -28,11 +33,11 @@ function Login({ onLoginSuccess, triggerToast }) {
     setIsLoading(true);
     try {
       if (isLoginView) {
-        const user = await apiService.login(validation.value.email, validation.value.password);
+        const user = await authApi.login(validation.value.email, validation.value.password);
         triggerToast('Signed in successfully.');
         onLoginSuccess(user);
       } else {
-        await apiService.register(validation.value);
+        await authApi.register(validation.value);
         triggerToast('Account created. Please sign in.');
         setIsLoginView(true);
       }
@@ -68,12 +73,14 @@ function Login({ onLoginSuccess, triggerToast }) {
           <div className="login-brand-kicker">AI-powered learning platform</div>
           <div className="login-mascot-stage">
             <div className="login-robot-wrap">
-              <RobotHeadMascot
-                size={210}
-                talking={true}
-                ariaLabel="AI robot tutor saying the FPT learning slogan"
-                className="login-robot-head"
-              />
+              <Suspense fallback={<LoginMascotFallback />}>
+                <RobotHeadMascot
+                  size={210}
+                  talking={true}
+                  ariaLabel="AI robot tutor saying the FPT learning slogan"
+                  className="login-robot-head"
+                />
+              </Suspense>
               <div className="login-speech-bubble" aria-label="Learning slogan">
                 <span>Học tập chủ động</span>
                 <strong>Kiến tạo tương lai</strong>

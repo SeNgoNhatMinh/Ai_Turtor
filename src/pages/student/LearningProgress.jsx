@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Button,
@@ -31,7 +31,7 @@ import {
 } from '@ant-design/icons';
 import CanvasGraph from '../../components/CanvasGraph';
 import PageHeader from '../../components/common/PageHeader';
-import { apiService } from '../../services/api';
+import { studentLearningApi } from '../../services/studentLearningApi';
 import { getUserFacingError } from '../../services/apiClient';
 import { uiCopy } from '../../constants/uiCopy';
 
@@ -110,8 +110,14 @@ function LearningProgress({
 
   const safeLearnedTopics = Array.isArray(learnedTopics) ? learnedTopics : [];
   const safeWeakTopics = Array.isArray(weakTopics) ? weakTopics : [];
-  const safeSuggestions = Array.isArray(suggestions) ? suggestions : [];
-  const safePinnedSuggestions = Array.isArray(pinnedSuggestions) ? pinnedSuggestions : [];
+  const safeSuggestions = useMemo(
+    () => (Array.isArray(suggestions) ? suggestions : []),
+    [suggestions],
+  );
+  const safePinnedSuggestions = useMemo(
+    () => (Array.isArray(pinnedSuggestions) ? pinnedSuggestions : []),
+    [pinnedSuggestions],
+  );
   const safeRecentQuestions = Array.isArray(recentQuestions) ? recentQuestions.filter(Boolean).slice(-5).reverse() : [];
   const formattedMemoryTime = formatDateTime(memoryUpdatedAt);
   const hasContext = Boolean(studentId && courseId);
@@ -156,7 +162,7 @@ function LearningProgress({
 
   const topFocusItems = safePinnedSuggestions.length ? safePinnedSuggestions : safeWeakTopics.slice(0, 4);
 
-  const fetchImprovePlans = async () => {
+  const fetchImprovePlans = useCallback(async () => {
     if (!hasContext) {
       setImprovePlans([]);
       setLatestPlan(null);
@@ -166,8 +172,8 @@ function LearningProgress({
     setPlansError('');
     try {
       const [plans, latest] = await Promise.all([
-        apiService.getImprovePlans(studentId, courseId),
-        apiService.getLatestImprovePlan(studentId, courseId),
+        studentLearningApi.getImprovePlans(studentId, courseId),
+        studentLearningApi.getLatestImprovePlan(studentId, courseId),
       ]);
       setImprovePlans(plans);
       setLatestPlan(latest);
@@ -178,19 +184,12 @@ function LearningProgress({
     } finally {
       setLoadingPlans(false);
     }
-  };
+  }, [courseId, hasContext, studentId, triggerToast]);
 
   useEffect(() => {
-    fetchImprovePlans();
-  }, [studentId, courseId]);
-
-  useEffect(() => {
-    setNewLearnedText(safeLearnedTopics.join(', '));
-  }, [learnedTopics]);
-
-  useEffect(() => {
-    setNewWeakText(safeWeakTopics.join(', '));
-  }, [weakTopics]);
+    const loadTimer = window.setTimeout(fetchImprovePlans, 0);
+    return () => window.clearTimeout(loadTimer);
+  }, [fetchImprovePlans]);
 
   const handleAnalyzeMemory = async () => {
     if (!hasContext || isSuggesting) return;
@@ -203,7 +202,7 @@ function LearningProgress({
     if (!planId || completingPlanId) return;
     setCompletingPlanId(planId);
     try {
-      await apiService.completeImprovePlan(planId);
+      await studentLearningApi.completeImprovePlan(planId);
       triggerToast?.('Improvement plan completed.');
       await fetchImprovePlans();
       onRefreshDashboard?.();
@@ -349,7 +348,19 @@ function LearningProgress({
         <Card
           className="learning-card learning-context-card"
           title="Course Memory"
-          extra={<Button size="small" onClick={() => setEditModalVisible(true)} disabled={!hasContext}>Edit memory</Button>}
+          extra={(
+            <Button
+              size="small"
+              onClick={() => {
+                setNewLearnedText(safeLearnedTopics.join(', '));
+                setNewWeakText(safeWeakTopics.join(', '));
+                setEditModalVisible(true);
+              }}
+              disabled={!hasContext}
+            >
+              Edit memory
+            </Button>
+          )}
         >
           {memorySummary ? (
             <Alert type="info" showIcon icon={<BulbOutlined />} message="Memory summary" description={memorySummary} />

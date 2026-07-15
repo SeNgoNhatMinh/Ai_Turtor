@@ -1,7 +1,9 @@
-import React, { useMemo, useState, Suspense } from 'react';
-import { Database, Download, RefreshCw, Trash2, Upload, FileText, Send, Calendar, Globe } from 'lucide-react';
+import { lazy, useMemo, useState, Suspense } from 'react';
+import { Database, Download, RefreshCw, Trash2, Upload, FileText, Send, Globe } from 'lucide-react';
 import { getClassOptionLabel, getClassOptionValue, getRecordId } from './teacherPortalUtils';
-import ImportWebsiteModal from '../../components/importWebsite/ImportWebsiteModal';
+import { getMaterialDisplayName } from '../../utils/sourceLabels';
+
+const ImportWebsiteModal = lazy(() => import('../../components/importWebsite/ImportWebsiteModal'));
 
 // Shadcn UI components
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -54,7 +56,7 @@ function TeacherMaterialsAssignmentsTab({
   onDownloadMaterial,
   materialActionId,
   handleTeacherMaterialAction,
-  apiService,
+  materialApi,
   triggerToast,
   currentUser,
   courseId,
@@ -125,8 +127,7 @@ function TeacherMaterialsAssignmentsTab({
       header: 'File Path / Name',
       cell: ({ row }) => {
         const mat = row.original;
-        const id = getRecordId(mat);
-        const name = mat.filePath || mat.fileName || mat.sourceFileName || id;
+        const name = getMaterialDisplayName(mat) || 'Material file unavailable';
         return <span className="font-mono text-xs text-gray-500 truncate max-w-[200px] block" title={name}>{name}</span>;
       }
     },
@@ -381,7 +382,7 @@ function TeacherMaterialsAssignmentsTab({
             courseId={courseId}
             classId={classId}
             currentUser={currentUser}
-            apiService={apiService}
+            materialApi={materialApi}
             triggerToast={triggerToast}
             onUploaded={onReloadCourseMaterials}
             isAdmin={false}

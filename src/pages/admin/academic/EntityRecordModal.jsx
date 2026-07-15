@@ -1,4 +1,3 @@
-import React from 'react';
 import { Form, Input, InputNumber, Modal, Select } from 'antd';
 import { getRecordId } from './adminAcademicUtils';
 
@@ -12,15 +11,33 @@ const ENTITY_LABELS = {
   material: 'Course Material',
 };
 
+const getMentorId = (mentor) => mentor.id || mentor.mentorId || mentor.teacherId || mentor.userId || mentor.email;
+const getMentorName = (mentor) => mentor.mentorName || mentor.name || mentor.fullName || mentor.teacherName || mentor.email || 'Mentor';
+const getMentorEmail = (mentor) => mentor.email || mentor.teacherEmail || '';
+const getMentorMeta = (mentor) => [
+  getMentorEmail(mentor),
+  Array.isArray(mentor.specializations) ? mentor.specializations.join(', ') : mentor.specialization,
+  mentor.status || mentor.availability,
+].filter(Boolean).join(' | ');
+
 function EntityRecordModal({
   entityModal,
   entitySaving,
   form,
+  mentors = [],
   onCancel,
   onSave,
 }) {
   const isViewMode = entityModal.mode === 'view';
   const entityLabel = ENTITY_LABELS[entityModal.type] || 'Record';
+  const handleMentorChange = (mentorId) => {
+    const mentor = mentors.find((item) => getMentorId(item) === mentorId);
+    form.setFieldsValue({
+      teacherId: mentorId,
+      teacherName: mentor ? getMentorName(mentor) : '',
+      teacherEmail: mentor ? getMentorEmail(mentor) : '',
+    });
+  };
 
   return (
     <Modal
@@ -81,9 +98,32 @@ function EntityRecordModal({
             <Form.Item name="classId" label="Class ID">
               <Input disabled />
             </Form.Item>
-            <Form.Item name="teacherId" label="Mentor ID" rules={[{ required: !isViewMode, message: 'Enter mentor ID' }]}>
-              <Input />
+            <Form.Item name="teacherId" label="Class Teacher / Mentor" rules={[{ required: !isViewMode, message: 'Choose the class teacher or mentor' }]}>
+              <Select
+                showSearch
+                placeholder="Choose active mentor"
+                optionFilterProp="searchLabel"
+                onChange={handleMentorChange}
+                options={mentors.map((mentor) => {
+                  const id = getMentorId(mentor);
+                  const name = getMentorName(mentor);
+                  const meta = getMentorMeta(mentor);
+                  return {
+                    value: id,
+                    searchLabel: `${name} ${id} ${meta}`,
+                    disabled: !id || mentor.isActive === false,
+                    label: (
+                      <div className="admin-mentor-select-option">
+                        <strong>{name}</strong>
+                        <span>{id}{meta ? ` | ${meta}` : ''}</span>
+                      </div>
+                    ),
+                  };
+                })}
+              />
             </Form.Item>
+            <Form.Item name="teacherName" hidden><Input /></Form.Item>
+            <Form.Item name="teacherEmail" hidden><Input /></Form.Item>
             <Form.Item name="status" label="Status">
               <Select>
                 <Option value="ACTIVE">Active</Option>

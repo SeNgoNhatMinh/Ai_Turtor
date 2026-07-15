@@ -96,27 +96,29 @@ ai-tutor-api/src/main/java/com/ragapi/
 ai-tutor-frontend/src/
  ├─ components/importWebsite/
  │   └─ ImportWebsiteModal.jsx   # Form đơn giản: URL input, Title input, Follow Next checkbox, Max Pages
- │                                # Gọi apiService.importCourseMaterialUrl() → POST lên BE
+ │                                # Gọi materialsApi.importCourseMaterialUrl() → POST lên BE
  └─ services/
-     └─ api.js                   # Hàm importCourseMaterialUrl(courseId, payload)
+     └─ materialsApi.js          # Hàm importCourseMaterialUrl(courseId, payload)
 ```
 
 > **Lưu ý:** Toàn bộ logic cào web cũ ở Frontend (useCrawler.js, proxyApi.js, extractor.js, pdfGenerator.jsx, crawler.js, markdown.js) đã được **xóa hoàn toàn**. Frontend không còn thực hiện bất kỳ thao tác cào web nào.
 
 ---
 
-## 4. So Sánh Kiến Trúc Cũ vs Mới
+## 4. Lý Do Không Dùng Frontend Crawler
 
 | Tiêu chí | FE Crawl (Cũ) | BE Crawl (Hiện tại) |
 |---|---|---|
 | Nơi thực thi | Trình duyệt người dùng | Java Spring Boot Server |
 | Thư viện cào | fetch() + CORS Proxy + Jina AI | Jsoup (Java) |
-| Vượt CORS | Cần Cloudflare Worker + Multi-Proxy Rotation | Không cần (Server-side không bị CORS) |
+| CORS | Trình duyệt bị giới hạn bởi CORS | Không áp dụng cho server-side HTTP fetch |
 | Định dạng lưu trữ | Tạo file PDF (jsPDF) → Upload lên BE | Lưu trực tiếp text vào MongoDB |
 | Chunking | BE dùng PDFTextStripper moi text từ PDF (hay bị lỗi) | BE chunk trực tiếp từ text gốc (chuẩn xác) |
 | Tải file PDF | Có file PDF trong GridFS | Không có file PDF (sourceType: HTML_URL) |
 | Rủi ro bị chặn IP | Thấp (mỗi user = 1 IP khác nhau) | Cao hơn (tất cả request từ 1 IP server) |
 | Độ phức tạp FE | ~2000 dòng code (7 file) | ~150 dòng code (1 file + 1 API method) |
+
+Cloudflare proxy/worker không còn thuộc kiến trúc runtime. FE chỉ gửi URL và danh sách section đã chọn tới backend; backend chịu trách nhiệm tải, kiểm tra và xử lý nội dung website.
 
 ---
 

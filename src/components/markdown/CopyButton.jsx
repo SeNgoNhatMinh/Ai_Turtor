@@ -1,4 +1,4 @@
-import React, { memo, useState } from 'react';
+import { memo, useState } from 'react';
 import { Check, Copy } from 'lucide-react';
 
 function CopyButton({ text, className = '' }) {

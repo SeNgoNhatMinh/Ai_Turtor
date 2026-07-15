@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { apiService } from '../services/api';
+import { assignmentApi } from '../services/assignmentApi';
 import { getUserFacingError } from '../services/apiClient';
+import { materialsApi } from '../services/materialsApi';
 import { getRecordId } from '../pages/teacher/teacherPortalUtils';
 
 export function useTeacherMaterialsAssignments({
@@ -28,8 +29,12 @@ export function useTeacherMaterialsAssignments({
 
   useEffect(() => {
     if (classId) {
-      setNewAssignmentClass(classId);
+      const syncTimer = window.setTimeout(() => {
+        setNewAssignmentClass(classId);
+      }, 0);
+      return () => window.clearTimeout(syncTimer);
     }
+    return undefined;
   }, [classId]);
 
   const loadClassAssignments = async () => {
@@ -39,7 +44,7 @@ export function useTeacherMaterialsAssignments({
     }
     setAssignmentsLoading(true);
     try {
-      const data = await apiService.getClassAssignments(courseId, classId, teacherUserId);
+      const data = await assignmentApi.getClassAssignments(courseId, classId, teacherUserId);
       const items = Array.isArray(data)
         ? data
         : Array.isArray(data?.assignments)
@@ -86,7 +91,7 @@ export function useTeacherMaterialsAssignments({
 
     setIsPublishingAssignment(true);
     try {
-      await apiService.uploadAssignment(courseId, newAssignmentClass, formData);
+      await assignmentApi.uploadAssignment(courseId, newAssignmentClass, formData);
       triggerToast('Assignment published.');
       setNewAssignmentTitle('');
       setNewAssignmentDesc('');
@@ -121,7 +126,7 @@ export function useTeacherMaterialsAssignments({
     formData.append('teacherId', teacherUserId);
     formData.append('classId', classId);
     try {
-      await apiService.uploadMaterial(courseId, formData);
+      await materialsApi.uploadMaterial(courseId, formData);
       setMaterialFile(null);
       setMaterialTitle('');
       triggerToast('Class material upload accepted. Indexing is running in the background.');
@@ -142,11 +147,11 @@ export function useTeacherMaterialsAssignments({
     setMaterialActionId(`${action}:${materialId}`);
     try {
       if (action === 'reindex') {
-        await apiService.reindexMaterial(courseId, materialId, teacherUserId);
+        await materialsApi.reindexMaterial(courseId, materialId, teacherUserId);
         triggerToast('Material reindexing triggered.');
       }
       if (action === 'delete') {
-        await apiService.deleteMaterial(courseId, materialId, teacherUserId);
+        await materialsApi.deleteMaterial(courseId, materialId, teacherUserId);
         triggerToast('Material deleted.');
       }
       await onReloadCourseMaterials?.();
@@ -164,7 +169,7 @@ export function useTeacherMaterialsAssignments({
       return;
     }
     try {
-      await apiService.deleteAssignment(assignmentId, teacherUserId);
+      await assignmentApi.deleteAssignment(assignmentId, teacherUserId);
       triggerToast('Assignment deleted.');
       await loadClassAssignments();
     } catch (error) {
@@ -179,7 +184,7 @@ export function useTeacherMaterialsAssignments({
       return;
     }
     try {
-      const blob = await apiService.downloadAssignmentFile(assignmentId);
+      const blob = await assignmentApi.downloadAssignmentFile(assignmentId);
       const url = window.URL.createObjectURL(blob);
       const anchor = document.createElement('a');
       anchor.href = url;

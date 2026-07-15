@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { apiService } from '../services/api';
+import { assignmentApi } from '../services/assignmentApi';
+import { materialsApi } from '../services/materialsApi';
 import { getUserFacingError } from '../services/apiClient';
-import { asArray } from '../services/normalizers';
+import { asArray, normalizeCourseMaterial } from '../services/normalizers';
 
 export function useCourseMaterialsController({
   courseId,
@@ -14,9 +15,13 @@ export function useCourseMaterialsController({
   const [uploadProgressText, setUploadProgressText] = useState('');
 
   const loadCourseMaterials = async () => {
+    if (!courseId) {
+      setCourseMaterials([]);
+      return;
+    }
     try {
-      const data = await apiService.getCourseMaterials(courseId, classId);
-      setCourseMaterials(asArray(data, 'materials', 'content'));
+      const data = await materialsApi.getCourseMaterials(courseId, classId);
+      setCourseMaterials(asArray(data, 'materials', 'content').map(normalizeCourseMaterial));
     } catch (error) {
       console.warn('Failed to load course materials:', error);
       setCourseMaterials([]);
@@ -24,6 +29,10 @@ export function useCourseMaterialsController({
   };
 
   const handleTeacherUploadMaterial = async (title, classIdVal, file) => {
+    if (!courseId) {
+      triggerToast('Please choose a course before uploading material.');
+      return;
+    }
     setUploadProgress(0);
     setUploadProgressText('Loading file...');
 
@@ -46,10 +55,10 @@ export function useCourseMaterialsController({
 
     try {
       if (title.toLowerCase().includes('assignment')) {
-        await apiService.uploadAssignment(courseId, classIdVal || classId, formData);
+        await assignmentApi.uploadAssignment(courseId, classIdVal || classId, formData);
         triggerToast('New assignment published.');
       } else {
-        await apiService.uploadMaterial(courseId, formData);
+        await materialsApi.uploadMaterial(courseId, formData);
         triggerToast('Course material uploaded.');
         loadCourseMaterials();
       }
@@ -66,9 +75,13 @@ export function useCourseMaterialsController({
   };
 
   const handleTeacherDeleteMaterial = async (materialId) => {
+    if (!courseId) {
+      triggerToast('Please choose a course before deleting material.');
+      return;
+    }
     triggerToast('Deleting course material...');
     try {
-      await apiService.deleteMaterial(courseId, materialId);
+      await materialsApi.deleteMaterial(courseId, materialId);
       triggerToast('Material deleted successfully.');
       loadCourseMaterials();
     } catch (error) {
@@ -77,9 +90,13 @@ export function useCourseMaterialsController({
   };
 
   const handleTeacherReindexMaterial = async (materialId) => {
+    if (!courseId) {
+      triggerToast('Please choose a course before reindexing material.');
+      return;
+    }
     triggerToast('Reindexing course material...');
     try {
-      await apiService.reindexMaterial(courseId, materialId);
+      await materialsApi.reindexMaterial(courseId, materialId);
       triggerToast('Material reindexing triggered.');
       loadCourseMaterials();
     } catch (error) {
@@ -88,9 +105,13 @@ export function useCourseMaterialsController({
   };
 
   const handleDownloadMaterial = async (materialId, title) => {
+    if (!courseId) {
+      triggerToast('Please choose a course before downloading material.');
+      return;
+    }
     triggerToast('Downloading material...');
     try {
-      const blob = await apiService.downloadMaterialPdf(courseId, materialId);
+      const blob = await materialsApi.downloadMaterialPdf(courseId, materialId);
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;

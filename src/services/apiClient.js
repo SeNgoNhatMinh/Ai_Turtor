@@ -1,5 +1,6 @@
 import { env } from '../config/env';
 import { getUserFacingError, httpClient, httpRequest, addRequestInterceptor, ApiError } from './httpClient';
+import { clearAuthToken, getAuthToken } from '../features/auth/tokenStorage';
 
 export const API_BASE_URL = env.apiBaseUrl;
 export const API_TIMEOUTS = {
@@ -10,7 +11,7 @@ export const API_TIMEOUTS = {
 };
 
 addRequestInterceptor((config) => {
-  const token = window.localStorage.getItem('ai_tutor_jwt');
+  const token = getAuthToken();
   if (token) {
     config.init.headers = config.init.headers || {};
     config.init.headers['Authorization'] = `Bearer ${token}`;
@@ -48,7 +49,7 @@ export async function request(url, options = {}) {
     });
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) {
-      window.localStorage.removeItem('ai_tutor_jwt');
+      clearAuthToken();
       window.sessionStorage.removeItem('ai-tutor:current-user');
       window.location.reload();
     }

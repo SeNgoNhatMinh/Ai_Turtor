@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { apiService } from '../services/api';
+import { aiTutorApi } from '../services/aiTutorApi';
 import { getUserFacingError } from '../services/apiClient';
 
 export function useCodeMentorController({
@@ -27,7 +27,7 @@ export function useCodeMentorController({
     };
 
     try {
-      const data = await apiService.sendCodeMentorQuery(payload);
+      const data = await aiTutorApi.reviewCode(payload);
       setCodeMentorDiagnostics(data.answer);
       triggerToast('Code analysis completed.');
     } catch (error) {

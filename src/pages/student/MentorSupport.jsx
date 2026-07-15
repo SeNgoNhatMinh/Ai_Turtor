@@ -1,142 +1,252 @@
-import { Alert, Avatar, Button, Card, Empty, Input, Space, Spin, Tag, Typography } from 'antd';
-import { RobotOutlined, SendOutlined, UserOutlined } from '@ant-design/icons';
+import { Alert, Button, Card, Empty, Space, Spin, Tag, Typography } from 'antd';
+import {
+  ReloadOutlined,
+  RobotOutlined,
+} from '@ant-design/icons';
 import PageHeader from '../../components/common/PageHeader';
 import StatusTag from '../../components/common/StatusTag';
+import StudentMentorFlow from '../../components/support/StudentMentorFlow';
 import { uiCopy } from '../../constants/uiCopy';
 
 const { Paragraph, Text, Title } = Typography;
 
-function MentorSupport({
-  escalations,
-  selectedEscalation,
-  escChatMessages,
-  escChatInput,
-  setEscChatInput,
-  escMessagesEndRef,
-  userId = '',
-  isEscalationsLoading,
-  escalationsError,
-  chatUnreadCount = 0,
-  chatRoomDetail,
-  isEscChatSending = false,
-  loadEscalations,
-  onSelectEscalation,
-  onSendEscalationMsg,
-  onOpenMentorSelect,
-  onCloseSupportChat,
-}) {
-  const isLiveSupport = selectedEscalation && ['IN_CHAT', 'ASSIGNED', 'ACTIVE'].includes(String(selectedEscalation.status || '').toUpperCase());
-  const canSendMessage = isLiveSupport && Boolean(escChatInput.trim()) && !isEscChatSending;
+const getMentorAnswer = (ticket) => (
+  ticket?.mentorAnswer
+  || ticket?.answer
+  || ticket?.teacherAnswer
+  || ticket?.response
+  || ticket?.mentorResponse
+  || ''
+);
+
+const getAssignedMentor = (ticket) => (
+  ticket?.assignedMentorName
+  || ticket?.mentorName
+  || ticket?.teacherName
+  || ''
+);
+
+const getQuestionText = (ticket) => (
+  ticket?.originalQuestion
+  || ticket?.question
+  || ticket?.questionPreview
+  || ticket?.title
+  || 'No question text available.'
+);
+
+const getAiSnapshot = (ticket) => (
+  ticket?.aiResponse
+  || ticket?.aiAnswer
+  || ticket?.answerSnapshot
+  || ticket?.aiSnapshot
+  || ''
+);
+
+const formatDateTime = (value) => {
+  if (!value) return 'No timestamp';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'No timestamp';
+  return date.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
+
+const normalizeStatus = (status) => String(status || '').toUpperCase();
+
+const isAnsweredTicket = (ticket) => {
+  const status = normalizeStatus(ticket?.status);
+  return Boolean(getMentorAnswer(ticket))
+    || status.includes('ANSWERED')
+    || status.includes('COMPLETED')
+    || status.includes('CLOSED');
+};
+
+function TicketPreview({ ticket, isActive, onSelect }) {
+  const question = getQuestionText(ticket);
+  const preview = ticket?.questionPreview || ticket?.question || question;
+  const answered = isAnsweredTicket(ticket);
+  const meta = [
+    ticket?.courseId && `Course ${ticket.courseId}`,
+    ticket?.classId && `Class ${ticket.classId}`,
+  ].filter(Boolean);
 
   return (
-    <div className="portal-section">
+    <button
+      type="button"
+      className={`mentor-ticket-item ${isActive ? 'is-active' : ''}`}
+      onClick={() => onSelect(ticket)}
+    >
+      <div className="mentor-ticket-item__top">
+        <span className={`mentor-ticket-dot ${answered ? 'is-answered' : ''}`} />
+        <Text strong ellipsis className="mentor-ticket-title">
+          {preview}
+        </Text>
+      </div>
+      <Paragraph ellipsis={{ rows: 2 }} className="mentor-ticket-question">
+        {preview}
+      </Paragraph>
+      <div className="mentor-ticket-meta">
+        <span>{formatDateTime(ticket?.updatedAt || ticket?.createdAt)}</span>
+        {meta.map((item) => <span key={item}>{item}</span>)}
+      </div>
+      <div className="mentor-ticket-footer">
+        <StatusTag status={ticket?.status} />
+        {answered ? <Tag color="green">Answered</Tag> : <Tag color="orange">Waiting</Tag>}
+      </div>
+    </button>
+  );
+}
+
+function ReviewBlock({ label, children, tone = 'default' }) {
+  return (
+    <section className={`mentor-review-block mentor-review-block--${tone}`}>
+      <span>{label}</span>
+      <div>{children}</div>
+    </section>
+  );
+}
+
+function MentorSupport({
+  escalations = [],
+  selectedEscalation,
+  isEscalationsLoading,
+  isEscalationDetailLoading,
+  escalationsError,
+  escalationDetailError,
+  loadEscalations,
+  onSelectEscalation,
+  onEscalationChange,
+  currentUser,
+}) {
+  const safeTickets = Array.isArray(escalations) ? escalations : [];
+  const selectedTicket = selectedEscalation || safeTickets[0] || null;
+  const mentorAnswer = getMentorAnswer(selectedTicket);
+  const assignedMentor = getAssignedMentor(selectedTicket);
+
+  return (
+    <div className="portal-section mentor-review-page">
       <PageHeader title={uiCopy.student.support.title} description={uiCopy.student.support.subtitle} />
-      <div className="support-layout">
+
+      <div className="mentor-review-layout">
         <Card
           title={uiCopy.student.support.listTitle}
-          extra={
-            <Space>
-              {chatUnreadCount > 0 && <Tag color="orange">{chatUnreadCount} unread</Tag>}
-              <Button size="small" onClick={loadEscalations}>Refresh</Button>
-            </Space>
-          }
-          className="support-list-card"
-          styles={{ body: { flex: 1, overflowY: 'auto', padding: 0 } }}
+          extra={<Button size="small" icon={<ReloadOutlined />} onClick={loadEscalations} loading={isEscalationsLoading}>Refresh</Button>}
+          className="mentor-review-list-card"
+          styles={{ body: { padding: 0 } }}
         >
           {escalationsError ? (
-            <Alert type="error" showIcon message="Unable to load support requests" description={escalationsError} style={{ margin: 16 }} />
-          ) : (
-            <div className="support-request-list" style={{ paddingLeft: 10 }}>
-              {isEscalationsLoading ? (
-                <div className="center-state" style={{ minHeight: 180 }}><Spin /></div>
-              ) : escalations?.length ? (
-                escalations.map((escalation) => (
-                  <div
-                    key={escalation.id}
-                  className={`session-item ${selectedEscalation?.id === escalation.id ? 'ant-list-item-selected' : ''}`}
-                  onClick={() => onSelectEscalation(escalation)}
-                >
-                    <Text strong style={{ color: selectedEscalation?.id === escalation.id ? '#F37021' : 'inherit' }} ellipsis>{escalation.questionPreview}</Text>
-                    <Space direction="vertical" size={0}>
-                      <Text type="secondary" style={{ fontSize: 12 }}>{new Date(escalation.createdAt).toLocaleString('en-US')}</Text>
-                      <StatusTag status={escalation.status} />
-                    </Space>
-                  </div>
-                ))
-              ) : (
-                <Empty description={uiCopy.student.support.emptyTitle} image={Empty.PRESENTED_IMAGE_SIMPLE}>
-                  <Text type="secondary">{uiCopy.student.support.emptyDescription}</Text>
-                </Empty>
-              )}
+            <Alert
+              type="error"
+              showIcon
+              message="Unable to load mentor review tickets"
+              description={escalationsError}
+              className="mentor-review-inline-alert"
+            />
+          ) : isEscalationsLoading ? (
+            <div className="mentor-review-loading"><Spin description="Loading tickets..." /></div>
+          ) : safeTickets.length ? (
+            <div className="mentor-ticket-list">
+              {safeTickets.map((ticket) => (
+                <TicketPreview
+                  key={ticket.id}
+                  ticket={ticket}
+                  isActive={selectedTicket?.id === ticket.id}
+                  onSelect={onSelectEscalation}
+                />
+              ))}
             </div>
+          ) : (
+            <Empty description={uiCopy.student.support.emptyTitle} image={Empty.PRESENTED_IMAGE_SIMPLE} className="mentor-review-empty">
+              <Text type="secondary">{uiCopy.student.support.emptyDescription}</Text>
+            </Empty>
           )}
         </Card>
 
-        <Card className="support-detail-card" styles={{ body: { flex: 1, display: 'flex', flexDirection: 'column', padding: 0 } }}>
-          {selectedEscalation ? (
-            isLiveSupport ? (
-              <>
-                <div className="workspace-toolbar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px' }}>
-                  <Title level={5} style={{ margin: 0 }}>Live Chat: Support Mentor</Title>
-                  <Space>
-                    {chatRoomDetail?.status && <Tag>{chatRoomDetail.status}</Tag>}
-                    <Button size="small" danger onClick={onCloseSupportChat}>End chat</Button>
+        <Card className="mentor-review-detail-card" styles={{ body: { padding: 0 } }}>
+          {selectedTicket ? (
+            <div className="mentor-review-detail">
+              <div className="mentor-review-detail__header">
+                <div>
+                  <span className="mentor-review-eyebrow">Review ticket</span>
+                  <Title level={4}>{selectedTicket.questionPreview || 'Mentor Review Ticket'}</Title>
+                  <Space size={[8, 8]} wrap>
+                    {selectedTicket.id && <Tag>Ticket {selectedTicket.id}</Tag>}
+                    {selectedTicket.courseId && <Tag color="blue">Course {selectedTicket.courseId}</Tag>}
+                    {selectedTicket.classId && <Tag>Class {selectedTicket.classId}</Tag>}
+                    {assignedMentor && <Tag color="green">Mentor {assignedMentor}</Tag>}
                   </Space>
                 </div>
-                <div className="chat-message-list">
-                  <div className="support-message-list">
-                    {(escChatMessages || []).map((message, index) => (
-                      <div key={index} className={`support-message ${message.senderId === userId ? 'mine' : ''}`}>
-                        <Avatar icon={<UserOutlined />} style={{ backgroundColor: message.senderId === userId ? '#F37021' : '#52c41a' }} />
-                        <div className={`support-bubble ${message.senderId === userId ? 'mine' : ''}`}>
-                          {message.content}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <div ref={escMessagesEndRef} />
-                </div>
-                <div className="chat-input-row">
-                  <Input.Search
-                    placeholder="Enter a message for your mentor..."
-                    enterButton={<Button type="primary" icon={<SendOutlined />} loading={isEscChatSending} disabled={!canSendMessage}>Send</Button>}
-                    size="large"
-                    value={escChatInput}
-                    onChange={(event) => setEscChatInput(event.target.value)}
-                    onSearch={onSendEscalationMsg}
-                    disabled={isEscChatSending}
+                <StatusTag status={selectedTicket.status} />
+              </div>
+
+              <div className="mentor-review-content">
+                {escalationDetailError && (
+                  <Alert
+                    type="warning"
+                    showIcon
+                    message="The complete ticket could not be loaded"
+                    description={escalationDetailError}
                   />
-                </div>
-              </>
-            ) : ['OFFERED', 'MENTOR_MATCHING'].includes(selectedEscalation.status) ? (
-              <div className="center-state">
-                <RobotOutlined style={{ fontSize: 48, color: '#F37021', marginBottom: 16 }} />
-                <Title level={4}>A mentor is ready to help</Title>
-                <Paragraph style={{ textAlign: 'center' }}>
-                  Which mentor would you like to answer this AI Tutor Chat question?
-                </Paragraph>
-                {(selectedEscalation.question || selectedEscalation.questionPreview || selectedEscalation.title) && (
-                  <div className="mentor-question-preview">
-                    <span>Question from AI Tutor Chat</span>
-                    <p>{selectedEscalation.question || selectedEscalation.questionPreview || selectedEscalation.title}</p>
+                )}
+                {isEscalationDetailLoading && (
+                  <div className="mentor-review-detail-loading">
+                    <Spin size="small" />
+                    <Text type="secondary">Loading complete ticket...</Text>
                   </div>
                 )}
-                <Button type="primary" size="large" onClick={() => onOpenMentorSelect(selectedEscalation)}>
-                  Choose mentor
-                </Button>
+                <ReviewBlock label="Student question" tone="question">
+                  <Paragraph className="mentor-review-question-text">
+                    {getQuestionText(selectedTicket)}
+                  </Paragraph>
+                </ReviewBlock>
+
+                {getAiSnapshot(selectedTicket) && (
+                  <ReviewBlock label="AI answer snapshot">
+                    <Paragraph>{getAiSnapshot(selectedTicket)}</Paragraph>
+                  </ReviewBlock>
+                )}
+
+                {mentorAnswer ? (
+                  <ReviewBlock label={assignedMentor ? `Mentor answer from ${assignedMentor}` : 'Mentor answer'} tone="answer">
+                    <Paragraph>{mentorAnswer}</Paragraph>
+                  </ReviewBlock>
+                ) : (
+                  <>
+                    <StudentMentorFlow
+                      key={selectedTicket.id}
+                      escalation={selectedTicket}
+                      currentUser={currentUser}
+                      onEscalationChange={onEscalationChange}
+                    />
+                    {!['IN_CHAT', 'CHAT_ACTIVE', 'MENTOR_SELECTED'].includes(normalizeStatus(selectedTicket?.status)) && (
+                      <div className="mentor-review-waiting">
+                        <RobotOutlined />
+                        <div>
+                          <Title level={5}>Teacher support is waiting to start</Title>
+                          <Paragraph>
+                            Find the teacher assigned to this course and class, then select them to open the two-way support chat.
+                          </Paragraph>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                <Alert
+                  type="success"
+                  showIcon
+                  className="mentor-review-learning-note"
+                  message="AI learning is protected"
+                  description="Mentor answers are not added to AI knowledge automatically. Only senior/admin-approved Knowledge Candidates are indexed into the course RAG knowledge base."
+                />
               </div>
-            ) : (
-              <div className="center-state">
-                <Spin size="large" style={{ marginBottom: 16 }} />
-                <Title level={4}>Waiting for a mentor</Title>
-                <Paragraph style={{ textAlign: 'center' }}>
-                  Your question has been sent to mentors. Please wait until someone accepts the support request.
-                </Paragraph>
-              </div>
-            )
+            </div>
           ) : (
-            <Empty description={uiCopy.student.support.detailEmpty} style={{ marginTop: 100 }}>
-              <Text type="secondary">This panel shows mentor offers, live chat, and request status.</Text>
+            <Empty description={uiCopy.student.support.detailEmpty} className="mentor-review-detail-empty">
+              <Text type="secondary">Choose a ticket to see the question, AI snapshot, mentor answer, and learning-review status.</Text>
             </Empty>
           )}
         </Card>

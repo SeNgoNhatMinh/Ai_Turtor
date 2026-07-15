@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { apiService } from '../../../../services/api';
+import { adminAcademicApi } from '../../../../services/adminAcademicApi';
 import { getUserFacingError } from '../../../../services/apiClient';
 
 export function useStudentImport({
@@ -26,7 +26,7 @@ export function useStudentImport({
       return;
     }
     try {
-      const data = await apiService.getClassSections(courseId);
+      const data = await adminAcademicApi.getClassSections(courseId);
       setStudentImportClasses(Array.isArray(data) ? data : []);
     } catch (error) {
       setStudentImportClasses([]);
@@ -36,7 +36,7 @@ export function useStudentImport({
 
   const handleDownloadStudentTemplate = async () => {
     try {
-      const blob = await apiService.downloadStudentImportTemplate();
+      const blob = await adminAcademicApi.downloadStudentImportTemplate();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -61,7 +61,7 @@ export function useStudentImport({
     formData.append('file', studentImportFile);
     setStudentImportLoading(true);
     try {
-      const result = await apiService.importClassStudents(values.courseId, values.classId, formData, {
+      const result = await adminAcademicApi.importClassStudents(values.courseId, values.classId, formData, {
         semesterId: values.semesterId,
         courseName: values.courseName || selectedCourse?.courseName,
         status: values.status || 'ACTIVE',

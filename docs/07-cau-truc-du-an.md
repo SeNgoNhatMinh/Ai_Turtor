@@ -15,9 +15,9 @@ ai-tutor-frontend/
 ├── toad_mascot_3d/              ← 3D mascot assets (Spline)
 ├── src/                         ← Mã nguồn chính
 │   ├── main.jsx                 ← Entry point — mount React app
-│   ├── App.jsx                  ← Root component — state & handlers toàn cục
-│   ├── App.css                  ← CSS riêng của App (layout chính)
+│   ├── App.jsx                  ← Thin composition layer cho auth/layout/workspace
 │   ├── index.css                ← Design system toàn cục (tokens, utils, components)
+│   ├── app/                     ← Router, providers, layouts và role workspaces
 │   │
 │   ├── assets/                  ← Hình ảnh, icon tĩnh
 │   │
@@ -31,8 +31,8 @@ ai-tutor-frontend/
 │   │   └── fptTheme.js          ← Ant Design token override (màu FPT #F37021)
 │   │
 │   ├── services/
-│   │   ├── apiClient.js         ← fetch wrapper dùng chung (request, uploadRequest)
-│   │   ├── api.js               ← Tất cả API calls tới backend Spring Boot
+│   │   ├── apiClient.js         ← HTTP adapter dùng chung (request, uploadRequest)
+│   │   ├── *Api.js              ← API theo domain: quiz, materials, academic, review, v.v.
 │   │   ├── normalizers.js       ← Chuẩn hoá dữ liệu BE → FE (normalize*)
 │   │   ├── n8nClient.js         ← fetch wrapper cho n8n webhook
 │   │   └── n8nService.js        ← Các hàm gọi n8n flow (student chat, v.v.)
@@ -95,7 +95,7 @@ index.html
 | File | Trách nhiệm |
 |------|-------------|
 | `apiClient.js` | `request()` / `uploadRequest()` — base fetch wrapper, xử lý lỗi HTTP |
-| `api.js` | `apiService.*` — tất cả endpoint Spring Boot (auth, AI, materials, …) |
+| `*Api.js` | Endpoint Spring Boot được chia theo domain nghiệp vụ |
 | `normalizers.js` | Chuyển đổi response BE sang shape FE (`normalizeEscalation`, v.v.) |
 | `n8nClient.js` | Fetch wrapper riêng cho n8n webhook (timeout, error) |
 | `n8nService.js` | `n8nService.sendStudentChat()` — gọi n8n flow AI |

@@ -1,12 +1,18 @@
-import LearningProgress from './student/LearningProgress';
-import MaterialsAssignments from './student/MaterialsAssignments';
-import PracticeQuizzes from './student/PracticeQuizzes';
-import StudentChatTab from './student/StudentChatTab';
-import StudentSupportTab from './student/StudentSupportTab';
+import { lazy, Suspense } from 'react';
 import { useStudentSupport } from '../hooks/useStudentSupport';
 import { useStudentChatTabController } from './student/hooks/useStudentChatTabController';
 import { useStudentLearningActions } from './student/hooks/useStudentLearningActions';
 import { useStudentMaterialsController } from './student/hooks/useStudentMaterialsController';
+
+const LearningProgress = lazy(() => import('./student/LearningProgress'));
+const MaterialsAssignments = lazy(() => import('./student/MaterialsAssignments'));
+const PracticeQuizzes = lazy(() => import('./student/PracticeQuizzes'));
+const StudentChatTab = lazy(() => import('./student/StudentChatTab'));
+const StudentSupportTab = lazy(() => import('./student/StudentSupportTab'));
+
+function StudentTabFallback() {
+  return <div className="portal-loading">Loading student workspace...</div>;
+}
 
 function StudentPortal({
   activeTab,
@@ -14,9 +20,11 @@ function StudentPortal({
   courseId,
   setCourseId,
   classId,
-  setClassId,
   courseOptions = [],
   classOptions = [],
+  isStudentEnrollmentsLoading = false,
+  hasLoadedStudentEnrollments = false,
+  hasStudentEnrollments = false,
   isDarkMode = false,
   sessions,
   isSessionsLoading = false,
@@ -44,6 +52,7 @@ function StudentPortal({
   isSuggesting,
   refreshSuggestions,
   userId = '',
+  currentUser,
   studentDashboard,
   isStudentDashboardLoading,
   loadStudentDashboard,
@@ -58,35 +67,34 @@ function StudentPortal({
   courseMaterials = [],
   onDownloadMaterial,
 }) {
+  const studentDisplayName = studentDashboard?.studentName
+    || studentDashboard?.fullName
+    || studentDashboard?.name
+    || studentDashboard?.email
+    || userId;
+
   const {
     escalations,
     selectedEscalation,
-    escChatMessages,
-    escChatInput,
-    setEscChatInput,
-    escMentors,
-    escModalVisible,
-    setEscModalVisible,
-    selectedMentorForEsc,
-    setSelectedMentorForEsc,
     isEscalationsLoading,
-    isEscChatSending,
+    isEscalationDetailLoading,
     escalationsError,
-    chatUnreadCount,
-    chatRoomDetail,
-    escMessagesEndRef,
+    escalationDetailError,
     loadEscalations,
     handleSelectEscalation,
-    handleCloseSupportChat,
-    onSendEscalationMsg,
-    onSelectMentor,
-    handleOpenMentorSelect,
+    handleEscalationChange,
   } = useStudentSupport({
     activeTab,
-    userId,
+    userId: currentUser?.userId || currentUser?.id || userId,
+    studentName: studentDisplayName,
     onMarkChatRead,
     onCloseChat,
     onGetChatDetail,
+    onConversationResolved: (conversationId) => {
+      if (conversationId && conversationId === activeSessionId) {
+        handleSelectSession(conversationId, activeSessionTitle || 'AI Tutor Chat');
+      }
+    },
   });
 
   const chatController = useStudentChatTabController({
@@ -138,49 +146,58 @@ function StudentPortal({
 
   if (activeTab === 'student-chat') {
     return (
-      <StudentChatTab
-        isHistoryDrawerOpen={chatController.isHistoryDrawerOpen}
-        setIsHistoryDrawerOpen={chatController.setIsHistoryDrawerOpen}
-        sessions={sessions}
-        isSessionsLoading={isSessionsLoading}
-        activeSessionId={activeSessionId}
-        activeSessionTitle={activeSessionTitle}
-        editingSessionId={chatController.editingSessionId}
-        editingSessionTitle={chatController.editingSessionTitle}
-        setEditingSessionId={chatController.setEditingSessionId}
-        setEditingSessionTitle={chatController.setEditingSessionTitle}
-        onCreateSession={handleCreateSession}
-        onSelectSession={handleSelectSession}
-        onDeleteSession={handleDeleteSession}
-        onSaveRename={chatController.onSaveRename}
-        courseId={courseId}
-        onCourseChange={chatController.handleCourseChange}
-        classId={classId}
-        setClassId={setClassId}
-        courseOptions={courseOptions}
-        classOptions={classOptions}
-        isDarkMode={isDarkMode}
-        messages={messages}
-        chatInput={chatController.chatInput}
-        setChatInput={chatController.setChatInput}
-        onSendQuery={chatController.onSendQuery}
-        onStopQuery={chatController.onStopQuery}
-        onPromptStarter={chatController.handlePromptStarter}
-        onAnswerAction={chatController.handleAnswerAction}
-        isAiLoading={chatController.isAiLoading}
-        messagesEndRef={chatController.messagesEndRef}
-        handleStudentReviewAnswer={handleStudentReviewAnswer}
-        userId={userId}
-        activeSessionQuestionCount={activeSessionQuestionCount}
-        activeSessionMaxTurnsReached={activeSessionMaxTurnsReached}
-        turnLimitNotice={turnLimitNotice}
-        onTurnLimitBack={chatController.handleBackToPreviousChat}
-        onDismissTurnLimitNotice={dismissTurnLimitNotice}
-        triggerToast={triggerToast}
-        courseMaterials={courseMaterials}
-        onAnalyzeStudyTip={refreshSuggestions}
-        onDownloadSource={chatController.handleDownloadSource}
-      />
+      <Suspense fallback={<StudentTabFallback />}>
+        <StudentChatTab
+          isHistoryDrawerOpen={chatController.isHistoryDrawerOpen}
+          setIsHistoryDrawerOpen={chatController.setIsHistoryDrawerOpen}
+          sessions={sessions}
+          isSessionsLoading={isSessionsLoading}
+          activeSessionId={activeSessionId}
+          activeSessionTitle={activeSessionTitle}
+          editingSessionId={chatController.editingSessionId}
+          editingSessionTitle={chatController.editingSessionTitle}
+          setEditingSessionId={chatController.setEditingSessionId}
+          setEditingSessionTitle={chatController.setEditingSessionTitle}
+          onCreateSession={handleCreateSession}
+          onSelectSession={handleSelectSession}
+          onDeleteSession={handleDeleteSession}
+          onSaveRename={chatController.onSaveRename}
+          courseId={courseId}
+          onCourseChange={chatController.handleCourseChange}
+          classId={classId}
+          courseOptions={courseOptions}
+          classOptions={classOptions}
+          isStudentEnrollmentsLoading={isStudentEnrollmentsLoading}
+          hasLoadedStudentEnrollments={hasLoadedStudentEnrollments}
+          hasStudentEnrollments={hasStudentEnrollments}
+          isDarkMode={isDarkMode}
+          messages={messages}
+          chatInput={chatController.chatInput}
+          setChatInput={chatController.setChatInput}
+          onSendQuery={chatController.onSendQuery}
+          onStopQuery={chatController.onStopQuery}
+          onPromptStarter={chatController.handlePromptStarter}
+          onAnswerAction={chatController.handleAnswerAction}
+          isAiLoading={chatController.isAiLoading}
+          messagesEndRef={chatController.messagesEndRef}
+          handleStudentReviewAnswer={handleStudentReviewAnswer}
+          userId={userId}
+          studentName={studentDisplayName}
+          currentUser={currentUser}
+          activeSessionQuestionCount={activeSessionQuestionCount}
+          activeSessionMaxTurnsReached={activeSessionMaxTurnsReached}
+          turnLimitNotice={turnLimitNotice}
+          onTurnLimitBack={chatController.handleBackToPreviousChat}
+          onDismissTurnLimitNotice={dismissTurnLimitNotice}
+          triggerToast={triggerToast}
+          courseMaterials={courseMaterials}
+          onAnalyzeStudyTip={refreshSuggestions}
+          onStudySuggestion={handleStudySuggestion}
+          onCreateQuizFromSuggestion={handleCreateQuizFromSuggestion}
+          onDownloadSource={chatController.handleDownloadSource}
+          onOpenMentorReview={() => switchTab?.('student-escalation')}
+        />
+      </Suspense>
     );
   }
 
@@ -188,91 +205,86 @@ function StudentPortal({
     const learned = Array.isArray(studentDashboard?.learnedTopics) ? studentDashboard.learnedTopics : [];
     const weak = Array.isArray(studentDashboard?.weakTopics) ? studentDashboard.weakTopics : [];
     return (
-      <LearningProgress
-        learnedTopics={learned}
-        weakTopics={weak}
-        suggestions={suggestions}
-        isSuggesting={isSuggesting}
-        refreshSuggestions={refreshSuggestions}
-        isLoading={isStudentDashboardLoading}
-        dashboardStats={studentDashboard?.stats}
-        onRefreshDashboard={loadStudentDashboard}
-        onUpdateMemory={onUpdateMemory}
-        pinnedSuggestions={studentDashboard?.pinnedImproveSuggestions || []}
-        onPinSuggestion={onPinSuggestion}
-        onUnpinSuggestion={onUnpinSuggestion}
-        onStudySuggestion={handleStudySuggestion}
-        onCreateQuizFromSuggestion={handleCreateQuizFromSuggestion}
-        memorySummary={studentDashboard?.summary}
-        recentQuestions={studentDashboard?.recentQuestions || []}
-        memoryUpdatedAt={studentDashboard?.updatedAt}
-        studentId={userId}
-        courseId={courseId}
-        classId={studentDashboard?.classId || classId}
-        triggerToast={triggerToast}
-      />
+      <Suspense fallback={<StudentTabFallback />}>
+        <LearningProgress
+          learnedTopics={learned}
+          weakTopics={weak}
+          suggestions={suggestions}
+          isSuggesting={isSuggesting}
+          refreshSuggestions={refreshSuggestions}
+          isLoading={isStudentDashboardLoading}
+          dashboardStats={studentDashboard?.stats}
+          onRefreshDashboard={loadStudentDashboard}
+          onUpdateMemory={onUpdateMemory}
+          pinnedSuggestions={studentDashboard?.pinnedImproveSuggestions || []}
+          onPinSuggestion={onPinSuggestion}
+          onUnpinSuggestion={onUnpinSuggestion}
+          onStudySuggestion={handleStudySuggestion}
+          onCreateQuizFromSuggestion={handleCreateQuizFromSuggestion}
+          memorySummary={studentDashboard?.summary}
+          recentQuestions={studentDashboard?.recentQuestions || []}
+          memoryUpdatedAt={studentDashboard?.updatedAt}
+          studentId={userId}
+          courseId={courseId}
+          classId={studentDashboard?.classId || classId}
+          triggerToast={triggerToast}
+        />
+      </Suspense>
     );
   }
 
   if (activeTab === 'student-quizzes') {
     return (
-      <PracticeQuizzes
-        studentId={userId}
-        courseId={courseId}
-        classId={classId}
-        suggestions={suggestions}
-        initialSuggestion={quizInitialSuggestion}
-        triggerToast={triggerToast}
-        onAfterQuizSubmit={loadStudentDashboard}
-      />
+      <Suspense fallback={<StudentTabFallback />}>
+        <PracticeQuizzes
+          studentId={userId}
+          courseId={courseId}
+          classId={classId}
+          suggestions={suggestions}
+          initialSuggestion={quizInitialSuggestion}
+          triggerToast={triggerToast}
+          onAfterQuizSubmit={loadStudentDashboard}
+        />
+      </Suspense>
     );
   }
 
   if (activeTab === 'student-materials') {
     return (
-      <MaterialsAssignments
-        assignments={assignments}
-        selectedAssignment={selectedAssignment}
-        setSelectedAssignment={setSelectedAssignment}
-        studentSubmissionFile={materialsController.studentSubmissionFile}
-        setStudentSubmissionFile={materialsController.setStudentSubmissionFile}
-        studentSubmissionNote={materialsController.studentSubmissionNote}
-        setStudentSubmissionNote={materialsController.setStudentSubmissionNote}
-        onStudentSubmit={materialsController.onStudentSubmit}
-        onDownloadAssignment={materialsController.handleDownloadAssignment}
-        courseMaterials={courseMaterials}
-        onDownloadMaterial={onDownloadMaterial}
-      />
+      <Suspense fallback={<StudentTabFallback />}>
+        <MaterialsAssignments
+          assignments={assignments}
+          selectedAssignment={selectedAssignment}
+          setSelectedAssignment={setSelectedAssignment}
+          studentSubmissionFile={materialsController.studentSubmissionFile}
+          setStudentSubmissionFile={materialsController.setStudentSubmissionFile}
+          studentSubmissionNote={materialsController.studentSubmissionNote}
+          setStudentSubmissionNote={materialsController.setStudentSubmissionNote}
+          onStudentSubmit={materialsController.onStudentSubmit}
+          onDownloadAssignment={materialsController.handleDownloadAssignment}
+          courseMaterials={courseMaterials}
+          onDownloadMaterial={onDownloadMaterial}
+        />
+      </Suspense>
     );
   }
 
   if (activeTab === 'student-escalation') {
     return (
-      <StudentSupportTab
-        escalations={escalations}
-        selectedEscalation={selectedEscalation}
-        escChatMessages={escChatMessages}
-        escChatInput={escChatInput}
-        setEscChatInput={setEscChatInput}
-        escMessagesEndRef={escMessagesEndRef}
-        isEscChatSending={isEscChatSending}
-        userId={userId}
-        isEscalationsLoading={isEscalationsLoading}
-        escalationsError={escalationsError}
-        chatUnreadCount={chatUnreadCount}
-        chatRoomDetail={chatRoomDetail}
-        loadEscalations={loadEscalations}
-        onSelectEscalation={handleSelectEscalation}
-        onSendEscalationMsg={onSendEscalationMsg}
-        onOpenMentorSelect={handleOpenMentorSelect}
-        onCloseSupportChat={handleCloseSupportChat}
-        escModalVisible={escModalVisible}
-        escMentors={escMentors}
-        selectedMentorForEsc={selectedMentorForEsc}
-        setSelectedMentorForEsc={setSelectedMentorForEsc}
-        setEscModalVisible={setEscModalVisible}
-        onSelectMentor={onSelectMentor}
-      />
+      <Suspense fallback={<StudentTabFallback />}>
+        <StudentSupportTab
+          escalations={escalations}
+          selectedEscalation={selectedEscalation}
+          isEscalationsLoading={isEscalationsLoading}
+          isEscalationDetailLoading={isEscalationDetailLoading}
+          escalationsError={escalationsError}
+          escalationDetailError={escalationDetailError}
+          loadEscalations={loadEscalations}
+          onSelectEscalation={handleSelectEscalation}
+          onEscalationChange={handleEscalationChange}
+          currentUser={currentUser}
+        />
+      </Suspense>
     );
   }
 

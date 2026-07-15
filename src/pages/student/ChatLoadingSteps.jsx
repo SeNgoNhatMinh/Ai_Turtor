@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { LoadingOutlined } from '@ant-design/icons';
 
 const STEPS = ['Đang đọc câu hỏi của bạn', 'Đang tìm kiếm tài liệu môn học', 'Đang tạo câu trả lời'];

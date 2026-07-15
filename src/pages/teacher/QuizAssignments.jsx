@@ -1,13 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Button, Card, Empty, Form, Input, InputNumber, Modal, Select, Space, Tag, Typography } from 'antd';
-import { apiService } from '../../services/api';
 import { getUserFacingError } from '../../services/apiClient';
+import { quizApi } from '../../services/quizApi';
+import { quizGateway } from '../../features/ai-harness/quizGateway';
 import QuizDraftEditor from './QuizDraftEditor';
 import '../student/Quiz.css';
 
 const { Text, Title } = Typography;
 
-function QuizAssignments({ teacherId, courseId, classId, teacherStudents = [], triggerToast }) {
+function QuizAssignments({ teacherId, teacherName = '', courseId, classId, teacherStudents = [], triggerToast }) {
   const [form] = Form.useForm();
   const [assignments, setAssignments] = useState([]);
   const [draft, setDraft] = useState(null);
@@ -20,25 +21,29 @@ function QuizAssignments({ teacherId, courseId, classId, teacherStudents = [], t
   const [reviewScore, setReviewScore] = useState(10);
   const [reviewFeedback, setReviewFeedback] = useState('');
 
-  const loadAssignments = async () => {
+  const loadAssignments = useCallback(async () => {
     if (!teacherId) return;
     try {
-      setAssignments(await apiService.getTeacherQuizAssignments(teacherId));
+      setAssignments(await quizApi.getTeacherQuizAssignments(teacherId));
     } catch (error) {
       triggerToast?.(getUserFacingError(error, 'Unable to load quiz assignments.'));
     }
-  };
+  }, [teacherId, triggerToast]);
 
   useEffect(() => {
-    loadAssignments();
-  }, [teacherId, courseId]);
+    const loadTimer = window.setTimeout(loadAssignments, 0);
+    return () => window.clearTimeout(loadTimer);
+  }, [courseId, loadAssignments]);
 
   const generateDraft = async (values) => {
     setLoading(true);
     try {
-      const nextDraft = await apiService.generateTeacherQuizDraft(teacherId, courseId, {
+      const nextDraft = await quizGateway.generateTeacherDraft({
+        teacherId,
+        teacherName,
+        courseId,
         classId,
-        ...values,
+        payload: values,
       });
       setDraft(nextDraft);
       await loadAssignments();
@@ -54,7 +59,7 @@ function QuizAssignments({ teacherId, courseId, classId, teacherStudents = [], t
     if (!assignmentId) return;
     setSaving(true);
     try {
-      const updated = await apiService.updateQuizAssignment(assignmentId, payload);
+      const updated = await quizApi.updateQuizAssignment(assignmentId, payload);
       setDraft(updated);
       await loadAssignments();
       triggerToast?.('Quiz draft saved.');
@@ -69,7 +74,7 @@ function QuizAssignments({ teacherId, courseId, classId, teacherStudents = [], t
     const assignmentId = assignment?.assignmentId || assignment?.id;
     if (!assignmentId) return;
     try {
-      await apiService.deleteQuizAssignment(assignmentId);
+      await quizApi.deleteQuizAssignment(assignmentId);
       if ((draft?.assignmentId || draft?.id) === assignmentId) setDraft(null);
       await loadAssignments();
       triggerToast?.('Quiz draft deleted.');
@@ -82,7 +87,7 @@ function QuizAssignments({ teacherId, courseId, classId, teacherStudents = [], t
     const assignmentId = draft?.assignmentId || draft?.id;
     if (!assignmentId) return;
     try {
-      await apiService.publishQuizAssignment(assignmentId, {
+      await quizApi.publishQuizAssignment(assignmentId, {
         targetType: publishTarget,
         targetStudentIds: publishTarget === 'SELECTED_STUDENTS' ? selectedStudents : [],
       });
@@ -100,7 +105,7 @@ function QuizAssignments({ teacherId, courseId, classId, teacherStudents = [], t
       return;
     }
     try {
-      await apiService.teacherReviewQuiz(reviewSessionId.trim(), {
+      await quizApi.teacherReviewQuiz(reviewSessionId.trim(), {
         reviewedScore: Number(reviewScore),
         feedback: reviewFeedback,
       });
@@ -135,7 +140,7 @@ function QuizAssignments({ teacherId, courseId, classId, teacherStudents = [], t
               <Input.TextArea rows={2} />
             </Form.Item>
             <Form.Item name="questionCount" label="Question count">
-              <InputNumber min={3} max={20} />
+              <InputNumber min={3} max={10} />
             </Form.Item>
             <Button type="primary" htmlType="submit" loading={loading}>Generate draft quiz</Button>
           </Form>

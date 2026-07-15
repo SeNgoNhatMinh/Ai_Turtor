@@ -1,14 +1,18 @@
-import React, { useEffect, useState } from 'react';
-import { apiService } from '../services/api';
-import { useTeacherLiveChat } from '../hooks/useTeacherLiveChat';
+import { lazy, Suspense, useEffect, useState } from 'react';
+import { API_BASE_URL } from '../services/apiClient';
+import { materialsApi } from '../services/materialsApi';
 import { useTeacherMaterialsAssignments } from '../hooks/useTeacherMaterialsAssignments';
-import QuizAssignments from './teacher/QuizAssignments';
-import TeacherClassesTab from './teacher/TeacherClassesTab';
-import TeacherMaterialsAssignmentsTab from './teacher/TeacherMaterialsAssignmentsTab';
-import TeacherGradingTab from './teacher/TeacherGradingTab';
-import TeacherSupportQueueTab from './teacher/TeacherSupportQueueTab';
-import TeacherLiveChatTab from './teacher/TeacherLiveChatTab';
 import { ACADEMIC_CANDIDATE_TYPES } from '../constants/knowledgeFlow';
+
+const QuizAssignments = lazy(() => import('./teacher/QuizAssignments'));
+const TeacherClassesTab = lazy(() => import('./teacher/TeacherClassesTab'));
+const TeacherMaterialsAssignmentsTab = lazy(() => import('./teacher/TeacherMaterialsAssignmentsTab'));
+const TeacherGradingTab = lazy(() => import('./teacher/TeacherGradingTab'));
+const TeacherSupportQueueTab = lazy(() => import('./teacher/TeacherSupportQueueTab'));
+
+function TeacherTabFallback() {
+  return <div className="portal-loading" role="status">Loading workspace...</div>;
+}
 
 function TeacherPortal({
   activeTab,
@@ -22,15 +26,14 @@ function TeacherPortal({
   setQuizSubmissions,
   selectedTeacherSub,
   setSelectedTeacherSub,
-  uploadProgress,
-  uploadProgressText,
   escalations,
   selectedEscalation,
   setSelectedEscalation,
   candidates,
   answerReviews,
   seniorAnswerReviews,
-  teacherChatInbox,
+  pendingCandidateActionIds,
+  pendingSeniorReviewIds,
   isTeacherInboxLoading,
   teacherTopicHeatmap,
   teacherDashboardLoading,
@@ -45,11 +48,6 @@ function TeacherPortal({
   handleTeacherQuizReview,
   handleMentorReviewAnswer,
   handleSeniorResolveReview,
-  onMarkChatRead,
-  onCloseChat,
-  onGetChatDetail,
-  onSendChatMessage,
-  onGetChatHistory,
   triggerToast,
   courseMaterials = [],
   onDownloadMaterial,
@@ -66,28 +64,6 @@ function TeacherPortal({
   const [candidateType, setCandidateType] = useState('ACADEMIC_KNOWLEDGE');
   const [candidateNotes, setCandidateNotes] = useState({});
 
-  const {
-    selectedChatEsc,
-    teacherChatMessages,
-    teacherChatInput,
-    setTeacherChatInput,
-    chatRoomDetail,
-    isTeacherChatSending,
-    teacherChatEndRef,
-    handleSelectTeacherChat,
-    onSendTeacherChat,
-    onCloseTeacherChat,
-  } = useTeacherLiveChat({
-    teacherUserId,
-    loadTeacherInbox,
-    onMarkChatRead,
-    onCloseChat,
-    onGetChatDetail,
-    onSendChatMessage,
-    onGetChatHistory,
-    triggerToast,
-  });
-
   const materialsAssignments = useTeacherMaterialsAssignments({
     courseId,
     classId,
@@ -101,25 +77,11 @@ function TeacherPortal({
   };
 
   useEffect(() => {
-    if (createKnowledgeCandidate && !ACADEMIC_CANDIDATE_TYPES.has(candidateType)) {
-      setCandidateType('ACADEMIC_KNOWLEDGE');
-    }
-  }, [createKnowledgeCandidate, candidateType]);
-
-  useEffect(() => {
-    if (activeTab === 'teacher-escalations') {
-      loadTeacherInbox?.();
-      loadAnswerReviews?.();
-    }
-    if (activeTab === 'teacher-classes') {
-      loadTeacherDashboard?.();
-    }
-    if (activeTab === 'teacher-chat') {
-      loadTeacherInbox?.();
-    }
     if (activeTab === 'teacher-materials') {
       materialsAssignments.loadClassAssignments();
     }
+    // The workspace owns role-level loading; this portal only owns its local assignment hook.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, courseId, classId, teacherUserId]);
 
   const onGradeSubmit = (event) => {
@@ -157,10 +119,8 @@ function TeacherPortal({
         { label: 'REST APIs (Strong)', level: 'none' },
       ];
 
-  const chatInbox = teacherChatInbox?.length ? teacherChatInbox : (escalations || []).filter((item) => item.chatRoomId);
-
   return (
-    <>
+    <Suspense fallback={<TeacherTabFallback />}>
       {activeTab === 'teacher-classes' && (
         <TeacherClassesTab
           courseId={courseId}
@@ -178,6 +138,7 @@ function TeacherPortal({
       {activeTab === 'teacher-quizzes' && (
         <QuizAssignments
           teacherId={teacherUserId}
+          teacherName={currentUser?.fullName || currentUser?.name || ''}
           courseId={courseId}
           classId={classId}
           teacherStudents={teacherStudents}
@@ -193,7 +154,7 @@ function TeacherPortal({
           courseMaterials={courseMaterials}
           onReloadCourseMaterials={onReloadCourseMaterials}
           onDownloadMaterial={onDownloadMaterial}
-          apiService={apiService}
+          materialApi={materialsApi}
           triggerToast={triggerToast}
           currentUser={currentUser}
           courseId={courseId}
@@ -215,7 +176,7 @@ function TeacherPortal({
           setTeacherGradeWeakTopics={setTeacherGradeWeakTopics}
           onGradeSubmit={onGradeSubmit}
           handleTeacherQuizReview={handleTeacherQuizReview}
-          handleDownloadSubmission={(subId) => window.open(`${apiService.getApiBaseUrl()}/tutor/submissions/${subId}/file`, '_blank')}
+          handleDownloadSubmission={(subId) => window.open(`${API_BASE_URL}/tutor/submissions/${encodeURIComponent(subId)}/file`, '_blank')}
         />
       )}
 
@@ -237,6 +198,8 @@ function TeacherPortal({
           loadAnswerReviews={loadAnswerReviews}
           handleMentorReviewAnswer={handleMentorReviewAnswer}
           seniorAnswerReviews={seniorAnswerReviews}
+          pendingCandidateActionIds={pendingCandidateActionIds}
+          pendingSeniorReviewIds={pendingSeniorReviewIds}
           handleSeniorResolveReview={handleSeniorResolveReview}
           candidates={candidates}
           candidateNotes={candidateNotes}
@@ -244,27 +207,11 @@ function TeacherPortal({
           handleApproveCandidate={handleApproveCandidate}
           handleRejectCandidate={handleRejectCandidate}
           currentUserRole={currentUserRole}
+          currentUser={currentUser}
         />
       )}
 
-      {activeTab === 'teacher-chat' && (
-        <TeacherLiveChatTab
-          chatInbox={chatInbox}
-          selectedChatEsc={selectedChatEsc}
-          handleSelectTeacherChat={handleSelectTeacherChat}
-          loadTeacherInbox={loadTeacherInbox}
-          chatRoomDetail={chatRoomDetail}
-          onCloseTeacherChat={onCloseTeacherChat}
-          teacherChatMessages={teacherChatMessages}
-          teacherUserId={teacherUserId}
-          teacherChatEndRef={teacherChatEndRef}
-          teacherChatInput={teacherChatInput}
-          setTeacherChatInput={setTeacherChatInput}
-          isTeacherChatSending={isTeacherChatSending}
-          onSendTeacherChat={onSendTeacherChat}
-        />
-      )}
-    </>
+    </Suspense>
   );
 }
 

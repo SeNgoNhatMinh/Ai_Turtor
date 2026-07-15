@@ -18,12 +18,15 @@ function QuizDraftEditor({ draft, onSave, saving = false }) {
   const [questions, setQuestions] = useState([]);
 
   useEffect(() => {
-    form.setFieldsValue({
-      title: draft?.title || '',
-      topic: draft?.topic || '',
-      suggestionText: draft?.suggestionText || '',
-    });
-    setQuestions((draft?.questions || []).map(makeQuestion));
+    const syncTimer = window.setTimeout(() => {
+      form.setFieldsValue({
+        title: draft?.title || '',
+        topic: draft?.topic || '',
+        suggestionText: draft?.suggestionText || '',
+      });
+      setQuestions((draft?.questions || []).map(makeQuestion));
+    }, 0);
+    return () => window.clearTimeout(syncTimer);
   }, [draft, form]);
 
   const updateQuestion = (index, patch) => {

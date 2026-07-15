@@ -72,7 +72,7 @@ src/pages/teacher/TeacherSupportQueueTab.jsx
 ## API Rules
 
 - UI components should not build endpoint paths.
-- API calls go through `src/services/api.js` or domain service files.
+- API calls go through focused domain files in `src/services/`; UI components never build endpoint paths.
 - If backend returns multiple response shapes, normalize in `src/services/normalizers.js`.
 - Keep backend enums unchanged in payloads.
 - UI labels can be friendly, but payload values must stay backend-aligned.

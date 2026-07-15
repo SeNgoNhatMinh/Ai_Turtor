@@ -1,21 +1,16 @@
 import { useState } from 'react';
-import { apiService } from '../services/api';
+import { adminUsersApi } from '../services/adminUsersApi';
+import { diagnosticsApi } from '../services/diagnosticsApi';
 import { getUserFacingError } from '../services/apiClient';
 
 export function useAdminRuntimeController({ triggerToast }) {
   const [adminStats, setAdminStats] = useState({});
   const [diagnosticsOutput, setDiagnosticsOutput] = useState(null);
   const [isDiagnosticsRunning, setIsDiagnosticsRunning] = useState(false);
-  const [adminPlans, setAdminPlans] = useState([]);
 
   const loadAdminStats = async () => {
-    const stats = await apiService.getAdminStats();
+    const stats = await diagnosticsApi.getAdminStats();
     setAdminStats(stats);
-  };
-
-  const loadSubscriptionPlans = async () => {
-    const plans = await apiService.getSubscriptionPlans();
-    setAdminPlans(Array.isArray(plans) ? plans : []);
   };
 
   const runDiagnostics = async () => {
@@ -23,7 +18,7 @@ export function useAdminRuntimeController({ triggerToast }) {
     triggerToast('Checking system connectivity...');
 
     try {
-      const diag = await apiService.runDiagnostics();
+      const diag = await diagnosticsApi.runLlmDiagnostics();
       setDiagnosticsOutput(diag);
       triggerToast('System diagnostics completed.');
     } catch (error) {
@@ -41,7 +36,7 @@ export function useAdminRuntimeController({ triggerToast }) {
     formData.append('file', file);
 
     try {
-      const res = await apiService.importMentors(formData);
+      const res = await adminUsersApi.importMentors(formData);
       triggerToast('Mentor import completed.');
       return res.log;
     } catch (error) {
@@ -55,9 +50,7 @@ export function useAdminRuntimeController({ triggerToast }) {
     adminStats,
     diagnosticsOutput,
     isDiagnosticsRunning,
-    adminPlans,
     loadAdminStats,
-    loadSubscriptionPlans,
     runDiagnostics,
     handleAdminImport,
   };

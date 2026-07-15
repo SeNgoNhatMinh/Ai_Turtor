@@ -21,9 +21,11 @@ function StudentChatTab({
   courseId,
   onCourseChange,
   classId,
-  setClassId,
   courseOptions,
   classOptions,
+  isStudentEnrollmentsLoading,
+  hasLoadedStudentEnrollments,
+  hasStudentEnrollments,
   isDarkMode,
   messages,
   chatInput,
@@ -36,6 +38,8 @@ function StudentChatTab({
   messagesEndRef,
   handleStudentReviewAnswer,
   userId,
+  studentName,
+  currentUser,
   activeSessionQuestionCount,
   activeSessionMaxTurnsReached,
   turnLimitNotice,
@@ -44,7 +48,10 @@ function StudentChatTab({
   triggerToast,
   courseMaterials,
   onAnalyzeStudyTip,
+  onStudySuggestion,
+  onCreateQuizFromSuggestion,
   onDownloadSource,
+  onOpenMentorReview,
 }) {
   return (
     <div className="portal-section student-chat-section student-chat-section--minimal">
@@ -93,9 +100,11 @@ function StudentChatTab({
             courseId={courseId}
             onCourseChange={onCourseChange}
             classId={classId}
-            setClassId={setClassId}
             courseOptions={courseOptions}
             classOptions={classOptions}
+            isStudentEnrollmentsLoading={isStudentEnrollmentsLoading}
+            hasLoadedStudentEnrollments={hasLoadedStudentEnrollments}
+            hasStudentEnrollments={hasStudentEnrollments}
             isDarkMode={isDarkMode}
             messages={messages}
             chatInput={chatInput}
@@ -109,6 +118,8 @@ function StudentChatTab({
             style={{ height: '100%' }}
             handleStudentReviewAnswer={handleStudentReviewAnswer}
             userId={userId}
+            studentName={studentName}
+            currentUser={currentUser}
             activeSessionId={activeSessionId}
             activeSessionQuestionCount={activeSessionQuestionCount}
             activeSessionMaxTurnsReached={activeSessionMaxTurnsReached}
@@ -118,7 +129,10 @@ function StudentChatTab({
             triggerToast={triggerToast}
             courseMaterials={courseMaterials}
             onAnalyzeStudyTip={onAnalyzeStudyTip}
+            onStudySuggestion={onStudySuggestion}
+            onCreateQuizFromSuggestion={onCreateQuizFromSuggestion}
             onDownloadSource={onDownloadSource}
+            onOpenMentorReview={onOpenMentorReview}
           />
         </div>
       </div>

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { apiService } from '../../../services/api';
 import { getUserFacingError } from '../../../services/apiClient';
+import { studentLearningApi } from '../../../services/studentLearningApi';
 
 export function useStudentLearningActions({
   activeTab,
@@ -20,6 +20,8 @@ export function useStudentLearningActions({
     if (activeTab === 'student-memory') {
       loadStudentDashboard?.();
     }
+    // Dashboard refresh is driven by tab/course changes, not callback identity.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, courseId]);
 
   const handleStudySuggestion = async (suggestionText) => {
@@ -29,7 +31,7 @@ export function useStudentLearningActions({
     const prompt = `Help me learn this topic step by step from the course materials: ${text}`;
     try {
       triggerToast?.('Preparing a guided study response...');
-      const response = await apiService.learnSuggestion(userId, courseId, {
+      const response = await studentLearningApi.learnSuggestion(userId, courseId, {
         classId,
         conversationId: activeSessionId || null,
         suggestionText: text,

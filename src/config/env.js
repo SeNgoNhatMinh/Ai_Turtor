@@ -14,11 +14,15 @@ export const env = {
   apiBaseUrl: trimTrailingSlash(import.meta.env.VITE_API_BASE_URL || '/api'),
   apiTimeoutMs: parseNumber(import.meta.env.VITE_API_TIMEOUT_MS, 60000),
   apiWithCredentials: parseBoolean(import.meta.env.VITE_API_WITH_CREDENTIALS, false),
-  corsProxyUrl: trimTrailingSlash(import.meta.env.VITE_CORS_PROXY_URL || ''),
+  chatSocketUrl: trimTrailingSlash(import.meta.env.VITE_CHAT_SOCKET_URL || ''),
   n8nEnabled: parseBoolean(import.meta.env.VITE_N8N_ENABLED, false),
+  n8nStrict: parseBoolean(import.meta.env.VITE_N8N_STRICT, false),
   n8nBaseUrl: trimTrailingSlash(import.meta.env.VITE_N8N_BASE_URL || 'http://localhost:5678'),
   n8nWebhookMode: import.meta.env.VITE_N8N_WEBHOOK_MODE || 'production',
-  n8nTimeoutMs: parseNumber(import.meta.env.VITE_N8N_TIMEOUT_MS, 15000),
+  n8nTimeoutMs: parseNumber(import.meta.env.VITE_N8N_TIMEOUT_MS, 60000),
+  n8nChatTimeoutMs: parseNumber(import.meta.env.VITE_N8N_CHAT_TIMEOUT_MS, 180000),
+  n8nQuizTimeoutMs: parseNumber(import.meta.env.VITE_N8N_QUIZ_TIMEOUT_MS, 240000),
+  n8nQuizEnabled: parseBoolean(import.meta.env.VITE_N8N_QUIZ_ENABLED, false),
 };
 
 export function buildUrl(path, query) {

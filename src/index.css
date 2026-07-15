@@ -2481,6 +2481,32 @@ spline-viewer {
     gap: 10px;
 }
 
+.senior-review-note {
+    width: 100%;
+    min-height: 74px;
+    margin: 10px 0;
+    padding: 9px 10px;
+    resize: vertical;
+    border: 1px solid var(--color-card-border);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-surface, #ffffff);
+    color: var(--color-text, #1f2937);
+    font: inherit;
+    font-size: 0.78rem;
+    line-height: 1.45;
+}
+
+.senior-review-note:focus {
+    border-color: var(--color-primary);
+    outline: 2px solid rgba(243, 112, 33, 0.18);
+}
+
+.app-container.dark .senior-review-note {
+    border-color: #3f3f46;
+    background: #171717;
+    color: #f3f4f6;
+}
+
 .btn-approve-cand {
     display: flex;
     align-items: center;
@@ -2512,6 +2538,12 @@ spline-viewer {
 
 .btn-approve-cand:hover, .btn-reject-cand:hover {
     opacity: 0.9;
+}
+
+.btn-approve-cand:disabled, .btn-reject-cand:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+    box-shadow: none;
 }
 
 
@@ -2701,106 +2733,6 @@ spline-viewer {
     color: #cbd5e1;
     overflow-x: auto;
 }
-
-/* Subscriptions Plans card */
-.plans-list {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-.plan-item-card {
-    padding: 16px;
-    background: rgba(255,255,255,0.02);
-    border: 1px solid var(--color-card-border);
-    border-radius: var(--border-radius-md);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.plan-info h4 {
-    font-family: var(--font-heading);
-    font-size: 0.95rem;
-    font-weight: 700;
-}
-
-.plan-info p {
-    font-size: 0.75rem;
-    color: var(--color-text-muted);
-}
-
-.plan-price {
-    font-weight: 700;
-    font-size: 0.95rem;
-    color: var(--color-secondary);
-}
-
-/* Payments list admin */
-.payments-list {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-.payment-item-card {
-    padding: 16px;
-    background: rgba(255,255,255,0.02);
-    border: 1px solid var(--color-card-border);
-    border-radius: var(--border-radius-md);
-}
-
-.pay-user {
-    font-weight: 700;
-    font-size: 0.8rem;
-    margin-bottom: 4px;
-}
-
-.pay-details {
-    font-size: 0.75rem;
-    color: var(--color-text-muted);
-    margin-bottom: 10px;
-}
-
-.pay-proof {
-    background: rgba(0,0,0,0.2);
-    padding: 10px;
-    border-radius: var(--border-radius-sm);
-    font-size: 0.75rem;
-    margin-bottom: 12px;
-}
-
-.bill-preview-box {
-    margin-top: 6px;
-}
-
-.bill-preview-box a {
-    color: var(--color-primary);
-    text-decoration: none;
-    font-weight: 600;
-}
-
-.pay-actions {
-    display: flex;
-    justify-content: flex-end;
-}
-
-.btn-confirm-payment {
-    padding: 8px 16px;
-    background: var(--color-secondary);
-    border: none;
-    color: white;
-    font-weight: 600;
-    font-size: 0.75rem;
-    border-radius: var(--border-radius-sm);
-    cursor: pointer;
-    box-shadow: 0 4px 10px var(--color-secondary-glow);
-}
-
-.btn-confirm-payment:hover {
-    opacity: 0.9;
-}
-
 
 /* ==========================================
    TOAST NOTIFICATION COMPONENT
@@ -3305,6 +3237,17 @@ body.theme-dark .entity-action-button.ant-btn.ant-dropdown-open,
     z-index: 2;
 }
 
+.login-robot-fallback {
+    position: relative;
+    z-index: 2;
+    width: 210px;
+    height: 210px;
+    border-radius: 40%;
+    background:
+        radial-gradient(circle at 50% 34%, rgba(255, 255, 255, 0.9), transparent 30%),
+        linear-gradient(145deg, rgba(243, 112, 33, 0.18), rgba(31, 41, 55, 0.1));
+}
+
 .login-speech-bubble {
     position: absolute;
     top: 18px;
@@ -3666,8 +3609,7 @@ body.theme-dark .entity-action-button.ant-btn.ant-dropdown-open,
 
 .btn-primary,
 .btn-submit-form,
-.emotion-btn.active,
-.btn-confirm-payment {
+.emotion-btn.active {
     background: #F37021 !important;
     color: #FFFFFF !important;
     box-shadow: 0 8px 18px rgba(15, 23, 42, 0.12) !important;
@@ -3679,9 +3621,7 @@ body.theme-dark .entity-action-button.ant-btn.ant-dropdown-open,
 .panel-card,
 .chat-panel,
 .stats-card,
-.sidebar-status-card,
-.plan-item-card,
-.payment-item-card {
+.sidebar-status-card {
     background: #FFFFFF !important;
     border-color: #E5E5E0 !important;
     color: #202123 !important;
@@ -3694,9 +3634,7 @@ body.theme-dark .entity-action-button.ant-btn.ant-dropdown-open,
 .app-container.dark .panel-card,
 .app-container.dark .chat-panel,
 .app-container.dark .stats-card,
-.app-container.dark .sidebar-status-card,
-.app-container.dark .plan-item-card,
-.app-container.dark .payment-item-card {
+.app-container.dark .sidebar-status-card {
     background: #0F0F0F !important;
     border-color: #2A2A2A !important;
     color: #F9FAFB !important;
@@ -3820,7 +3758,6 @@ a {
 }
 
 .toast-icon,
-.plan-price,
 .logo-text {
     color: #F37021;
 }
@@ -3852,6 +3789,352 @@ a {
 .support-list-card .ant-card-body,
 .support-detail-card .ant-card-body {
     flex: 1;
+}
+
+.mentor-review-page {
+    gap: 14px;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.mentor-review-layout {
+    display: grid;
+    grid-template-columns: minmax(300px, 370px) minmax(0, 1fr);
+    gap: 16px;
+    min-height: 0;
+    flex: 1;
+    overflow: hidden;
+}
+
+.mentor-review-list-card,
+.mentor-review-detail-card {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+    border-radius: 14px;
+}
+
+.mentor-review-list-card .ant-card-body,
+.mentor-review-detail-card .ant-card-body {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.mentor-review-list-card .ant-card-head,
+.mentor-review-detail-card .ant-card-head {
+    border-bottom-color: #ECECEC;
+}
+
+.mentor-ticket-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
+    height: 100%;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.mentor-ticket-item {
+    width: 100%;
+    display: block;
+    padding: 12px;
+    border: 1px solid transparent;
+    border-radius: 12px;
+    background: #FAFAFA;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color 0.18s ease, background 0.18s ease, transform 0.18s ease;
+}
+
+.mentor-ticket-item:hover {
+    background: #FFFFFF;
+    border-color: #FED7AA;
+    transform: translateY(-1px);
+}
+
+.mentor-ticket-item.is-active {
+    background: #FFF7ED;
+    border-color: #F97316;
+}
+
+.mentor-ticket-item__top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.mentor-ticket-dot {
+    flex: 0 0 auto;
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: #F97316;
+}
+
+.mentor-ticket-dot.is-answered {
+    background: #10B981;
+}
+
+.mentor-ticket-title.ant-typography {
+    min-width: 0;
+    color: #18181B;
+}
+
+.mentor-ticket-question.ant-typography {
+    margin: 8px 0;
+    color: #52525B;
+    font-size: 0.86rem;
+    line-height: 1.45;
+}
+
+.mentor-ticket-meta,
+.mentor-ticket-footer {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.mentor-ticket-meta {
+    color: #71717A;
+    font-size: 0.76rem;
+}
+
+.mentor-ticket-meta span + span::before {
+    content: "•";
+    margin-right: 6px;
+    color: #A1A1AA;
+}
+
+.mentor-ticket-footer {
+    margin-top: 10px;
+}
+
+.mentor-review-loading,
+.mentor-review-empty,
+.mentor-review-detail-empty {
+    height: 100%;
+    min-height: 320px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+}
+
+.mentor-review-inline-alert {
+    margin: 12px;
+}
+
+.mentor-review-detail {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.mentor-review-detail__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 18px;
+    border-bottom: 1px solid #ECECEC;
+    background: #FFFFFF;
+}
+
+.mentor-review-detail__header > div:first-child {
+    flex: 1;
+    min-width: 0;
+}
+
+.mentor-review-detail__header > .ant-tag {
+    flex: 0 0 auto;
+    align-self: flex-start;
+    max-width: 220px;
+    height: auto;
+    padding: 5px 10px;
+    line-height: 1.4;
+    text-align: center;
+    white-space: normal;
+}
+
+.mentor-review-eyebrow {
+    display: block;
+    margin-bottom: 6px;
+    color: #EA580C;
+    font-size: 0.76rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.mentor-review-detail__header .ant-typography {
+    margin: 0 0 10px;
+}
+
+.mentor-review-content {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 18px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.mentor-review-content > * {
+    flex: 0 0 auto;
+}
+
+.mentor-review-detail-loading {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 28px;
+}
+
+.mentor-review-block {
+    flex: 0 0 auto;
+    border: 1px solid #E7E5E4;
+    border-radius: 14px;
+    background: #FFFFFF;
+    overflow: hidden;
+}
+
+.mentor-review-block > span {
+    display: block;
+    padding: 10px 14px;
+    border-bottom: 1px solid #E7E5E4;
+    color: #52525B;
+    font-size: 0.76rem;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+}
+
+.mentor-review-block > div {
+    min-height: 0;
+    padding: 14px;
+    overflow: visible;
+}
+
+.mentor-review-block .ant-typography {
+    margin: 0;
+    color: #27272A;
+    white-space: pre-wrap;
+    line-height: 1.6;
+}
+
+.mentor-review-block--question {
+    border-color: #FDBA74;
+    background: #FFF7ED;
+}
+
+.mentor-review-question-text.ant-typography {
+    display: block;
+    max-width: 100%;
+    max-height: none;
+    overflow: visible;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+.mentor-review-block--answer {
+    border-color: #BBF7D0;
+    background: #F0FDF4;
+}
+
+.mentor-review-waiting {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 16px;
+    border: 1px dashed #FDBA74;
+    border-radius: 14px;
+    background: #FFF7ED;
+}
+
+.mentor-review-waiting > .anticon {
+    color: #EA580C;
+    font-size: 28px;
+    margin-top: 2px;
+}
+
+.mentor-review-waiting .ant-typography {
+    margin-top: 0;
+    margin-bottom: 4px;
+}
+
+.mentor-review-learning-note.ant-alert {
+    border-radius: 12px;
+}
+
+.app-container.dark .mentor-review-detail__header,
+body.theme-dark .mentor-review-detail__header,
+.app-container.dark .mentor-review-block,
+body.theme-dark .mentor-review-block {
+    background: #0A0A0A;
+    border-color: #27272A;
+}
+
+.app-container.dark .mentor-ticket-title.ant-typography,
+body.theme-dark .mentor-ticket-title.ant-typography,
+.app-container.dark .mentor-review-block .ant-typography,
+body.theme-dark .mentor-review-block .ant-typography {
+    color: #F9FAFB;
+}
+
+.app-container.dark .mentor-ticket-question.ant-typography,
+body.theme-dark .mentor-ticket-question.ant-typography,
+.app-container.dark .mentor-ticket-meta,
+body.theme-dark .mentor-ticket-meta {
+    color: #D4D4D8;
+}
+
+.app-container.dark .mentor-ticket-item,
+body.theme-dark .mentor-ticket-item {
+    background: #111111;
+    border-color: #27272A;
+}
+
+.app-container.dark .mentor-ticket-item:hover,
+body.theme-dark .mentor-ticket-item:hover,
+.app-container.dark .mentor-ticket-item.is-active,
+body.theme-dark .mentor-ticket-item.is-active {
+    background: #181818;
+    border-color: #F97316;
+}
+
+.app-container.dark .mentor-review-block > span,
+body.theme-dark .mentor-review-block > span {
+    border-bottom-color: #27272A;
+    color: #E4E4E7;
+}
+
+.app-container.dark .mentor-review-block--question,
+body.theme-dark .mentor-review-block--question,
+.app-container.dark .mentor-review-waiting,
+body.theme-dark .mentor-review-waiting {
+    background: #1C120B;
+    border-color: rgba(249, 115, 22, 0.55);
+}
+
+.app-container.dark .mentor-review-block--answer,
+body.theme-dark .mentor-review-block--answer {
+    background: #07180F;
+    border-color: rgba(34, 197, 94, 0.45);
 }
 
 .portal-section {
@@ -4261,6 +4544,7 @@ body.theme-dark .mentor-question-preview p {
     .grid-2x2,
     .grid-2-cols,
     .support-layout,
+    .mentor-review-layout,
     .student-chat-layout,
     .materials-layout,
     .responsive-two-pane {
@@ -4274,9 +4558,35 @@ body.theme-dark .mentor-question-preview p {
 
     .support-list-card,
     .support-detail-card,
+    .mentor-review-list-card,
+    .mentor-review-detail-card,
     .student-side-card,
     .chat-sessions-card {
         min-height: 360px;
+    }
+
+    .mentor-review-page,
+    .mentor-review-layout {
+        height: auto;
+        overflow: visible;
+    }
+
+    .mentor-review-list-card,
+    .mentor-review-detail-card {
+        height: auto;
+    }
+
+    .mentor-ticket-list {
+        max-height: 420px;
+    }
+
+    .mentor-review-detail {
+        height: auto;
+        min-height: 360px;
+    }
+
+    .mentor-review-content {
+        max-height: 60vh;
     }
 
     .student-chat-section,
@@ -5691,6 +6001,44 @@ body.theme-dark .admin-academic-page .data-table-card {
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 8px;
     margin-bottom: 16px;
+}
+
+.admin-mentor-select-option,
+.admin-class-mentor-cell {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.admin-mentor-select-option strong,
+.admin-class-mentor-cell strong {
+    overflow: hidden;
+    color: var(--text-primary);
+    font-size: 13px;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.admin-mentor-select-option span,
+.admin-class-mentor-cell span {
+    overflow: hidden;
+    color: var(--text-muted);
+    font-size: 12px;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.app-container.dark .admin-mentor-select-option strong,
+.app-container.dark .admin-class-mentor-cell strong {
+    color: #ececec;
+}
+
+.app-container.dark .admin-mentor-select-option span,
+.app-container.dark .admin-class-mentor-cell span {
+    color: #b4b4b4;
 }
 
 .admin-material-source-text {

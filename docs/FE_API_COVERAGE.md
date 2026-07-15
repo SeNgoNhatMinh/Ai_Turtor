@@ -121,3 +121,14 @@ This document tracks backend API coverage in the React frontend.
 
 ## 7. Billing & Payment
 - Subscription/payment endpoints - `out of scope`
+
+## 8. Optional n8n Harness
+- `/webhook/student-chat` - `UI done`, controlled by `VITE_N8N_ENABLED`
+- `/webhook/answer-review` - `UI done`, controlled by `VITE_N8N_ENABLED`
+- `/webhook/teacher-answer-escalation` - `UI done`, controlled by `VITE_N8N_ENABLED`
+- `/webhook/senior-resolve-answer-review` - `UI done`, controlled by `VITE_N8N_ENABLED`
+- `/webhook/senior-knowledge-approval` - `UI done`, controlled by `VITE_N8N_ENABLED`
+- `/webhook/quiz-generate` - `feature flagged`, requires both `VITE_N8N_ENABLED=true` and `VITE_N8N_QUIZ_ENABLED=true`
+- `/webhook/quiz-submit` - `feature flagged`, requires both `VITE_N8N_ENABLED=true` and `VITE_N8N_QUIZ_ENABLED=true`
+
+n8n is an orchestration layer, not the canonical data store. FE refetches canonical backend resources after mutations and does not call an LLM provider directly.

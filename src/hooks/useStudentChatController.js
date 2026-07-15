@@ -1,8 +1,9 @@
 import { useRef, useState } from 'react';
-import { apiService } from '../services/api';
+import { aiTutorApi } from '../services/aiTutorApi';
+import { conversationApi } from '../services/conversationApi';
 import { getUserFacingError } from '../services/apiClient';
 import { asArray, normalizeSession, pairMessages } from '../services/normalizers';
-import { N8N_ENABLED } from '../services/n8nClient';
+import { N8N_ENABLED, N8N_STRICT } from '../services/n8nClient';
 import { n8nService } from '../services/n8nService';
 import {
   AI_SERVICE_ERROR_MESSAGE,
@@ -44,6 +45,7 @@ const countQuestionsInMessages = (items) => (
 
 export function useStudentChatController({
   currentUser,
+  studentId,
   courseId,
   classId,
   triggerToast,
@@ -57,8 +59,9 @@ export function useStudentChatController({
   const [turnLimitNotice, setTurnLimitNotice] = useState(null);
   const activeAiRequestIdRef = useRef(0);
   const canceledAiRequestIdsRef = useRef(new Set());
+  const activeAiAbortControllerRef = useRef(null);
 
-  const getStudentUserId = () => currentUser?.userId || currentUser?.id || '';
+  const getStudentUserId = () => studentId || currentUser?.userId || currentUser?.id || '';
 
   const resetChat = () => {
     setActiveSessionId(null);
@@ -70,13 +73,13 @@ export function useStudentChatController({
 
   const loadChatSessions = async () => {
     const userId = getStudentUserId();
-    if (!userId) {
+    if (!userId || !courseId) {
       setSessions([]);
       return;
     }
     setIsSessionsLoading(true);
     try {
-      const data = await apiService.getConversations(userId, courseId);
+      const data = await conversationApi.getConversations(userId, courseId);
       setSessions(sortSessionsByActivity(asArray(data, 'content', 'conversations').map(normalizeSession)));
     } catch {
       setSessions([]);
@@ -131,7 +134,7 @@ export function useStudentChatController({
     setActiveSessionTitle(title);
     setTurnLimitNotice(null);
     setMessages([]);
-    const chatMsgs = await apiService.getMessages(sessionId, userId);
+    const chatMsgs = await conversationApi.getMessages(sessionId, userId);
     setMessages(pairMessages(asArray(chatMsgs, 'content', 'messages')));
   };
 
@@ -141,7 +144,11 @@ export function useStudentChatController({
       triggerToast('Please sign in before creating a conversation.');
       return;
     }
-    const data = await apiService.createConversation(userId, courseId);
+    if (!courseId || !classId) {
+      triggerToast('Your account is not enrolled in a class yet. Please contact Admin or your teacher before using AI Tutor Chat.');
+      return;
+    }
+    const data = await conversationApi.createConversation(userId, courseId, classId);
     const session = normalizeSession(data);
     setActiveSessionId(session.id);
     setActiveSessionTitle(session.title);
@@ -157,7 +164,7 @@ export function useStudentChatController({
       triggerToast('Please sign in before deleting a conversation.');
       return;
     }
-    await apiService.deleteConversation(sessionId, userId);
+    await conversationApi.deleteConversation(sessionId, userId);
     triggerToast('Conversation deleted.');
     setSessions((prev) => prev.filter((session) => session.id !== sessionId));
     setTurnLimitNotice((current) => (
@@ -176,7 +183,7 @@ export function useStudentChatController({
       triggerToast('Please sign in before renaming a conversation.');
       return;
     }
-    await apiService.renameConversation(sessionId, newTitle, userId);
+    await conversationApi.renameConversation(sessionId, newTitle, userId);
     triggerToast('Conversation renamed.');
     setSessions((prev) => prev.map((session) => (
       session.id === sessionId ? { ...session, title: newTitle } : session
@@ -193,10 +200,17 @@ export function useStudentChatController({
       triggerToast('Please sign in before sending a message.');
       return;
     }
+    if (!courseId || !classId) {
+      triggerToast('Your account is not enrolled in a class yet. Please contact Admin or your teacher before using AI Tutor Chat.');
+      return;
+    }
     const previousSessionId = activeSessionId;
     const previousSessionTitle = activeSessionTitle;
     const requestId = activeAiRequestIdRef.current + 1;
     activeAiRequestIdRef.current = requestId;
+    activeAiAbortControllerRef.current?.abort();
+    const requestController = new AbortController();
+    activeAiAbortControllerRef.current = requestController;
     if (previousSessionId) {
       bumpConversationActivity({
         conversationId: previousSessionId,
@@ -221,27 +235,33 @@ export function useStudentChatController({
             question: text,
             codeSnippet: codeSnippet || '',
             conversationId: previousSessionId || ''
-          });
+          }, { signal: requestController.signal });
         } catch (n8nError) {
+          if (requestController.signal.aborted) throw n8nError;
+          if (N8N_STRICT) throw n8nError;
           console.warn('n8n request failed, trying backend API fallback:', n8nError);
-          data = await apiService.sendAiQuery({
+          data = await aiTutorApi.sendQuery({
             question: text,
             message: text,
             codeSnippet: codeSnippet || null,
             courseId,
             classId,
             conversationId: previousSessionId || null
-          }, userId, currentUser?.fullName || '', currentUser?.email || '');
+          }, userId, currentUser?.fullName || '', currentUser?.email || '', {
+            signal: requestController.signal,
+          });
         }
       } else {
-        data = await apiService.sendAiQuery({
+        data = await aiTutorApi.sendQuery({
           question: text,
           message: text,
           codeSnippet: codeSnippet || null,
           courseId,
           classId,
           conversationId: previousSessionId || null
-        }, userId, currentUser?.fullName || '', currentUser?.email || '');
+        }, userId, currentUser?.fullName || '', currentUser?.email || '', {
+          signal: requestController.signal,
+        });
       }
 
       const responseConversationId = data.conversationId || data.sessionId || previousSessionId;
@@ -293,6 +313,7 @@ export function useStudentChatController({
           mode: data.mode || 'RAG',
           confidence: data.confidence,
           sources: data.sources || [],
+          nextImproveSuggestions: data.nextImproveSuggestions || [],
           questionEscalationId: data.questionEscalationId || data.escalationId || null,
           aiServiceError: isAiServiceError,
           retryable: isAiServiceError,
@@ -303,7 +324,7 @@ export function useStudentChatController({
 
       if (didStartNewConversation) {
         try {
-          const chatMsgs = await apiService.getMessages(responseConversationId, userId);
+          const chatMsgs = await conversationApi.getMessages(responseConversationId, userId);
           const historyPairs = pairMessages(asArray(chatMsgs, 'content', 'messages'));
           if (historyPairs.length > 0) {
             setMessages(historyPairs);
@@ -345,12 +366,17 @@ export function useStudentChatController({
       });
       setAvatarEmotion('idle');
       triggerToast(getUserFacingError(error, 'AI Tutor request failed. Please try again in a moment.'));
+    } finally {
+      if (activeAiAbortControllerRef.current === requestController) {
+        activeAiAbortControllerRef.current = null;
+      }
     }
   };
 
   const handleStopAiGeneration = () => {
     const requestId = activeAiRequestIdRef.current;
     if (requestId) canceledAiRequestIdsRef.current.add(requestId);
+    activeAiAbortControllerRef.current?.abort();
     setMessages((prev) => {
       const updated = [...prev];
       let index = -1;
@@ -405,7 +431,7 @@ export function useStudentChatController({
 
     if (responseConversationId) {
       try {
-        const chatMsgs = await apiService.getMessages(responseConversationId, userId);
+        const chatMsgs = await conversationApi.getMessages(responseConversationId, userId);
         const historyPairs = pairMessages(asArray(chatMsgs, 'content', 'messages'));
         if (historyPairs.length > 0) {
           setMessages(historyPairs);
@@ -430,6 +456,7 @@ export function useStudentChatController({
         mode: data.mode || 'RAG',
         confidence: data.confidence,
         sources: data.sources || [],
+        nextImproveSuggestions: data.nextImproveSuggestions || [],
         questionEscalationId: data.questionEscalationId || data.escalationId || null,
         clickedSuggestion,
         suggestionConsumed: data.suggestionConsumed,

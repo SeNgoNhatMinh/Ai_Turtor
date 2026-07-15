@@ -1,8 +1,9 @@
-import React from 'react';
+import { useState } from 'react';
 import { CheckCircle, RefreshCw } from 'lucide-react';
 import { canReviewKnowledge } from '../../utils/permissions';
 import KnowledgeCandidateReviewList from './KnowledgeCandidateReviewList';
 import TeacherAnswerModeSelector from './TeacherAnswerModeSelector';
+import SupportChatRoom from '../../components/support/SupportChatRoom';
 
 function TeacherSupportQueueTab({
   isTeacherInboxLoading,
@@ -21,6 +22,8 @@ function TeacherSupportQueueTab({
   loadAnswerReviews,
   handleMentorReviewAnswer,
   seniorAnswerReviews = [],
+  pendingCandidateActionIds = [],
+  pendingSeniorReviewIds = [],
   handleSeniorResolveReview,
   candidates = [],
   candidateNotes = {},
@@ -28,8 +31,13 @@ function TeacherSupportQueueTab({
   handleApproveCandidate,
   handleRejectCandidate,
   currentUserRole,
+  currentUser,
 }) {
+  const [seniorResolutionNotes, setSeniorResolutionNotes] = useState({});
   const canReviewKnowledgeCandidates = canReviewKnowledge(currentUserRole);
+  const selectedStatus = String(selectedEscalation?.status || '').toUpperCase();
+  const isSelectedChatActive = ['IN_CHAT', 'CHAT_ACTIVE'].includes(selectedStatus);
+  const isSelectedAnswered = selectedStatus.includes('ANSWERED') || ['COMPLETED', 'CLOSED'].includes(selectedStatus);
 
   return (
     <div className="grid-2-cols portal-view">
@@ -60,14 +68,32 @@ function TeacherSupportQueueTab({
             ))}
           </div>
         )}
-        {selectedEscalation && (
+        {selectedEscalation?.chatRoomId && isSelectedChatActive && (
+          <div className="escalation-chat-reply-box">
+            <h5>Live support discussion</h5>
+            <SupportChatRoom
+              chatRoomId={selectedEscalation.chatRoomId}
+              currentUser={currentUser}
+              compact
+            />
+          </div>
+        )}
+        {selectedEscalation && !isSelectedChatActive && !isSelectedAnswered && (
+          <div className="escalation-chat-reply-box">
+            <h5>Waiting for student selection</h5>
+            <p className="no-data-text" style={{ textAlign: 'left' }}>
+              The student must choose the matched teacher before the backend creates a ChatRoom. The official answer becomes available after that discussion starts.
+            </p>
+          </div>
+        )}
+        {selectedEscalation && isSelectedChatActive && (
           <form className="escalation-chat-reply-box" onSubmit={onAnswerEsc}>
-            <h5>Difficult Question Response Thread:</h5>
+            <h5>Official final answer</h5>
             <div className="escalation-meta-info">
               <strong>Question:</strong> {selectedEscalation.question}
             </div>
             <div className="input-group">
-              <label>Enter your explanation:</label>
+              <label>Final answer after the support discussion:</label>
               <textarea value={teacherEscReply} onChange={(e) => setTeacherEscReply(e.target.value)} required />
             </div>
 
@@ -78,7 +104,7 @@ function TeacherSupportQueueTab({
               setCandidateType={setCandidateType}
             />
 
-            <button type="submit" className="btn-submit-form">Send Answer to Student</button>
+            <button type="submit" className="btn-submit-form">Submit official answer</button>
           </form>
         )}
       </div>
@@ -126,14 +152,49 @@ function TeacherSupportQueueTab({
                   <div className="compare-qa"><strong>Q:</strong> {review.question}</div>
                   <div className="compare-qa"><strong>A:</strong> {review.answer}</div>
                   {canReviewKnowledgeCandidates ? (
-                    <div className="candidate-actions">
-                      <button type="button" className="btn-approve-cand" onClick={() => handleSeniorResolveReview(review.id, 'APPROVE_FEEDBACK', 'Approved by senior mentor')}>
-                        Approve feedback
-                      </button>
-                      <button type="button" className="btn-reject-cand" onClick={() => handleSeniorResolveReview(review.id, 'CREATE_KNOWLEDGE_CANDIDATE', 'Create knowledge candidate from correction')}>
-                        Create knowledge
-                      </button>
-                    </div>
+                    <>
+                      <textarea
+                        className="senior-review-note"
+                        value={seniorResolutionNotes[review.id] || ''}
+                        onChange={(event) => setSeniorResolutionNotes((current) => ({
+                          ...current,
+                          [review.id]: event.target.value,
+                        }))}
+                        placeholder="Required review note. For reusable knowledge, enter the corrected academic answer."
+                        rows={3}
+                      />
+                      <div className="candidate-actions">
+                        <button
+                          type="button"
+                          className="btn-approve-cand"
+                          disabled={!String(seniorResolutionNotes[review.id] || '').trim() || pendingSeniorReviewIds.includes(review.id)}
+                          onClick={async () => {
+                            const note = String(seniorResolutionNotes[review.id] || '').trim();
+                            const succeeded = await handleSeniorResolveReview(review.id, 'APPROVE_FEEDBACK', note);
+                            if (succeeded) setSeniorResolutionNotes((current) => ({ ...current, [review.id]: '' }));
+                          }}
+                        >
+                          {pendingSeniorReviewIds.includes(review.id) ? 'Processing...' : 'Approve feedback'}
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-reject-cand"
+                          disabled={!String(seniorResolutionNotes[review.id] || '').trim() || pendingSeniorReviewIds.includes(review.id)}
+                          onClick={async () => {
+                            const correctedAnswer = String(seniorResolutionNotes[review.id] || '').trim();
+                            const succeeded = await handleSeniorResolveReview(
+                              review.id,
+                              'CREATE_KNOWLEDGE_CANDIDATE',
+                              'Create a reusable academic knowledge candidate from the corrected answer.',
+                              correctedAnswer,
+                            );
+                            if (succeeded) setSeniorResolutionNotes((current) => ({ ...current, [review.id]: '' }));
+                          }}
+                        >
+                          {pendingSeniorReviewIds.includes(review.id) ? 'Processing...' : 'Create knowledge'}
+                        </button>
+                      </div>
+                    </>
                   ) : (
                     <div className="no-data-text" style={{ textAlign: 'left' }}>Senior/Admin permission is required to resolve this review.</div>
                   )}
@@ -154,6 +215,7 @@ function TeacherSupportQueueTab({
             handleNoteChange={handleNoteChange}
             handleApproveCandidate={handleApproveCandidate}
             handleRejectCandidate={handleRejectCandidate}
+            pendingActionIds={pendingCandidateActionIds}
           />
         </div>
       </div>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Download, CheckCircle, XCircle } from 'lucide-react';
 
 function TeacherGradingTab({

@@ -1,14 +1,18 @@
 import { useEffect, useState } from 'react';
-import { apiService } from '../services/api';
+import { assignmentApi } from '../services/assignmentApi';
 import { getUserFacingError } from '../services/apiClient';
 import { n8nService } from '../services/n8nService';
-import { N8N_ENABLED } from '../services/n8nClient';
+import { N8N_ENABLED, N8N_STRICT } from '../services/n8nClient';
+import { quizApi } from '../services/quizApi';
+import { teacherApi } from '../services/teacherApi';
+import { teacherReviewApi } from '../services/teacherReviewApi';
 import {
   asArray,
   normalizeAnswerReview,
   normalizeTeacherDashboard,
   normalizeTeacherInboxItem,
 } from '../services/normalizers';
+import { normalizeAccountRole } from '../constants/roles';
 
 export function useTeacherRuntimeController({
   currentUser,
@@ -30,16 +34,22 @@ export function useTeacherRuntimeController({
   const [selectedTeacherSub, setSelectedTeacherSub] = useState(null);
 
   const [escalations, setEscalations] = useState([]);
-  const [teacherChatInbox, setTeacherChatInbox] = useState([]);
   const [isTeacherInboxLoading, setIsTeacherInboxLoading] = useState(false);
   const [selectedEscalation, setSelectedEscalation] = useState(null);
   const [candidates, setCandidates] = useState([]);
   const [answerReviews, setAnswerReviews] = useState([]);
   const [seniorAnswerReviews, setSeniorAnswerReviews] = useState([]);
+  const [pendingCandidateActionIds, setPendingCandidateActionIds] = useState([]);
+  const [pendingSeniorReviewIds, setPendingSeniorReviewIds] = useState([]);
 
   const loadTeacherSubmissions = async () => {
+    if (!courseId || !classId || !getTeacherUserId()) {
+      setTeacherSubmissions([]);
+      setSelectedTeacherSub(null);
+      return;
+    }
     try {
-      const data = await apiService.getClassSubmissions(courseId, classId, getTeacherUserId());
+      const data = await assignmentApi.getClassSubmissions(courseId, classId, getTeacherUserId());
       const subList = asArray(data, 'content', 'submissions');
       setTeacherSubmissions(subList);
       setSelectedTeacherSub((current) => current || subList[0] || null);
@@ -60,13 +70,13 @@ export function useTeacherRuntimeController({
       try {
         const allQuizzes = await Promise.all(
           teacherStudents.map((student) =>
-            apiService.getStudentCourseQuizzes(student.id, courseId)
+            quizApi.getStudentQuizHistory(student.id, courseId)
               .catch(() => ({ quizzes: [] }))
           )
         );
         if (isCancelled) return;
         const aggregated = allQuizzes.flatMap((res, index) => {
-          const studentQuizzes = res?.quizzes || [];
+          const studentQuizzes = Array.isArray(res) ? res : (res?.quizzes || []);
           const studentInfo = teacherStudents[index];
           return studentQuizzes.map((quiz) => ({
             ...quiz,
@@ -87,9 +97,15 @@ export function useTeacherRuntimeController({
   }, [teacherStudents, activeRole, courseId]);
 
   const loadTeacherDashboard = async () => {
+    if (!getTeacherUserId()) {
+      setClassesList([]);
+      setTeacherStudents([]);
+      setTeacherTopicHeatmap([]);
+      return;
+    }
     setTeacherDashboardLoading(true);
     try {
-      const data = await apiService.getTeacherDashboard(getTeacherUserId(), courseId, classId);
+      const data = await teacherApi.getDashboard(getTeacherUserId(), courseId, classId);
       const normalized = normalizeTeacherDashboard(data);
       setTeacherTopicHeatmap(normalized.topicHeatmap);
 
@@ -103,7 +119,7 @@ export function useTeacherRuntimeController({
           details: section.description || `${section.studentCount ?? '—'} students`,
         })));
       } else {
-        const fallback = await apiService.getTeacherClassSections(getTeacherUserId());
+        const fallback = await teacherApi.getClassSections(getTeacherUserId());
         const list = asArray(fallback, 'content', 'classSections');
         setClassesList(list.map((section) => ({
           semester: section.semesterId || '—',
@@ -124,7 +140,11 @@ export function useTeacherRuntimeController({
         })));
       } else {
         try {
-          const studentsData = await apiService.getClassStudents(courseId, classId);
+          if (!courseId || !classId) {
+            setTeacherStudents([]);
+            return;
+          }
+          const studentsData = await teacherApi.getClassStudents(courseId, classId);
           const students = asArray(studentsData, 'students', 'content');
           setTeacherStudents(students.map((student) => ({
             id: student.studentId || student.id,
@@ -148,14 +168,12 @@ export function useTeacherRuntimeController({
   const loadTeacherInbox = async () => {
     setIsTeacherInboxLoading(true);
     try {
-      const data = await apiService.getTeacherEscalationInbox(getTeacherUserId(), { courseId });
+      const data = await teacherReviewApi.getTeacherEscalations(getTeacherUserId(), { courseId });
       const items = asArray(data, 'escalations', 'inbox', 'content').map(normalizeTeacherInboxItem);
       setEscalations(items);
-      setTeacherChatInbox(items.filter((item) => item.chatRoomId && ['assigned', 'active', 'in_chat'].includes(item.status)));
       setSelectedEscalation((current) => current || items[0] || null);
     } catch {
       setEscalations([]);
-      setTeacherChatInbox([]);
     } finally {
       setIsTeacherInboxLoading(false);
     }
@@ -164,8 +182,8 @@ export function useTeacherRuntimeController({
   const loadAnswerReviews = async () => {
     try {
       const [mentorPending, seniorPending] = await Promise.all([
-        apiService.getMentorPendingAnswerReviews(courseId),
-        apiService.getSeniorPendingAnswerReviews(courseId),
+        teacherReviewApi.getMentorPendingAnswerReviews(courseId),
+        teacherReviewApi.getSeniorPendingAnswerReviews(courseId),
       ]);
       setAnswerReviews((Array.isArray(mentorPending) ? mentorPending : []).map(normalizeAnswerReview));
       setSeniorAnswerReviews((Array.isArray(seniorPending) ? seniorPending : []).map(normalizeAnswerReview));
@@ -177,7 +195,7 @@ export function useTeacherRuntimeController({
 
   const loadKnowledgeCandidates = async () => {
     try {
-      const data = await apiService.getKnowledgeCandidates('PENDING_REVIEW', courseId);
+      const data = await teacherReviewApi.getKnowledgeCandidates('PENDING_SENIOR_REVIEW', courseId);
       setCandidates(asArray(data, 'candidates', 'content'));
     } catch (error) {
       setCandidates([]);
@@ -187,7 +205,7 @@ export function useTeacherRuntimeController({
 
   const handleTeacherQuizReview = async (quizSessionId, reviewedScore, feedback) => {
     try {
-      await apiService.teacherReviewQuiz(quizSessionId, {
+      await quizApi.teacherReviewQuiz(quizSessionId, {
         teacherId: getTeacherUserId(),
         reviewedScore: Number(reviewedScore),
         feedback,
@@ -206,7 +224,7 @@ export function useTeacherRuntimeController({
   const handleTeacherGradeSubmit = async (submissionId, score, feedback, weakTopics) => {
     triggerToast('Saving grading results...');
     try {
-      await apiService.gradeSubmission(submissionId, {
+      await assignmentApi.gradeSubmission(submissionId, {
         teacherId: getTeacherUserId(),
         score: parseFloat(score),
         teacherFeedback: feedback,
@@ -235,8 +253,9 @@ export function useTeacherRuntimeController({
           });
           triggerToast('Answer sent successfully.');
         } catch (n8nErr) {
+          if (N8N_STRICT) throw n8nErr;
           console.warn('n8n teacher answer failed, falling back to backend API:', n8nErr);
-          await apiService.answerEscalation(escalationId, {
+          await teacherReviewApi.answerEscalation(escalationId, {
             teacherId: getTeacherUserId(),
             teacherName: currentUser?.fullName || currentUser?.name || 'Teacher',
             answer: reply,
@@ -246,7 +265,7 @@ export function useTeacherRuntimeController({
           triggerToast('Answer sent successfully.');
         }
       } else {
-        await apiService.answerEscalation(escalationId, {
+        await teacherReviewApi.answerEscalation(escalationId, {
           teacherId: getTeacherUserId(),
           teacherName: currentUser?.fullName || currentUser?.name || 'Teacher',
           answer: reply,
@@ -257,19 +276,33 @@ export function useTeacherRuntimeController({
       }
 
       setEscalations((prev) => prev.map((item) => (
-        item.id === escalationId ? { ...item, status: 'answered' } : item
+        item.id === escalationId
+          ? {
+              ...item,
+              status: createKnowledgeCandidate
+                ? 'ANSWERED_PENDING_SENIOR_REVIEW'
+                : 'ANSWERED_NO_KNOWLEDGE_CANDIDATE',
+            }
+          : item
       )));
-      loadTeacherInbox();
+      await Promise.all([
+        loadTeacherInbox(),
+        createKnowledgeCandidate ? loadKnowledgeCandidates() : Promise.resolve(),
+      ]);
     } catch (error) {
       console.error('Error sending answer:', error);
       triggerToast(getUserFacingError(error, 'Unable to send answer. Please try again.'));
+      await Promise.allSettled([
+        loadTeacherInbox(),
+        createKnowledgeCandidate ? loadKnowledgeCandidates() : Promise.resolve(),
+      ]);
     }
   };
 
   const handleMentorReviewAnswer = async (review, accurate, feedback) => {
     triggerToast('Submitting AI answer review...');
     try {
-      await apiService.submitAnswerReview({
+      await teacherReviewApi.submitAnswerReview({
         studentId: review.studentId,
         courseId: review.courseId || courseId,
         classId: review.classId || classId,
@@ -284,7 +317,7 @@ export function useTeacherRuntimeController({
         correctnessLevel: accurate ? 'HIGH' : 'INCORRECT',
         feedback,
         reviewedBy: getTeacherUserId(),
-        reviewerRole: 'MENTOR',
+        reviewerRole: normalizeAccountRole(currentUser?.originalRole || currentUser?.role || 'TEACHER'),
       });
       triggerToast(accurate ? 'Review submitted — AI answer confirmed.' : 'Review submitted — correction noted.');
       loadAnswerReviews();
@@ -294,72 +327,107 @@ export function useTeacherRuntimeController({
     }
   };
 
-  const handleSeniorResolveReview = async (reviewId, decision, notes) => {
+  const handleSeniorResolveReview = async (reviewId, decision, notes, correctedAnswer = '') => {
+    if (pendingSeniorReviewIds.includes(reviewId)) return false;
+    setPendingSeniorReviewIds((current) => [...current, reviewId]);
     triggerToast('Resolving senior review...');
     try {
-      await apiService.seniorResolveAnswerReview(reviewId, {
+      const reviewerRole = normalizeAccountRole(currentUser?.originalRole || currentUser?.role);
+      const payload = {
+        reviewId,
         seniorReviewerId: getTeacherUserId(),
         seniorReviewerName: currentUser?.fullName || currentUser?.name || 'Senior Mentor',
+        reviewerRole,
         decision,
         notes,
-      });
+        createKnowledgeCandidate: decision === 'CREATE_KNOWLEDGE_CANDIDATE',
+        candidateType: 'ACADEMIC_KNOWLEDGE',
+        ...(decision === 'CREATE_KNOWLEDGE_CANDIDATE' ? { correctedAnswer } : {}),
+      };
+      if (N8N_ENABLED) {
+        try {
+          await n8nService.submitSeniorReviewResolution(payload);
+        } catch (n8nError) {
+          if (N8N_STRICT) throw n8nError;
+          console.warn('n8n senior review resolution failed, falling back to backend API:', n8nError);
+          await teacherReviewApi.seniorResolveAnswerReview(reviewId, payload);
+        }
+      } else {
+        await teacherReviewApi.seniorResolveAnswerReview(reviewId, payload);
+      }
       triggerToast('Senior review resolved.');
-      loadAnswerReviews();
+      await Promise.all([loadAnswerReviews(), loadKnowledgeCandidates()]);
+      return true;
     } catch (error) {
       console.error('Error resolving senior review:', error);
       triggerToast(getUserFacingError(error, 'Unable to resolve senior review.'));
+      await Promise.allSettled([loadAnswerReviews(), loadKnowledgeCandidates()]);
+      return false;
+    } finally {
+      setPendingSeniorReviewIds((current) => current.filter((id) => id !== reviewId));
     }
   };
 
   const handleApproveCandidate = async (id, reviewNote = 'Approved') => {
+    if (pendingCandidateActionIds.includes(id)) return false;
+    setPendingCandidateActionIds((current) => [...current, id]);
     triggerToast('Approving suggested AI answer...');
     try {
       const payload = {
         decision: 'APPROVE',
         candidateId: id,
         reviewerId: getCurrentUserId(),
-        reviewerRole: activeRole === 'admin' ? 'ADMIN' : 'SENIOR_MENTOR',
+        reviewerRole: normalizeAccountRole(currentUser?.originalRole || currentUser?.role),
         reviewerName: currentUser?.fullName || currentUser?.name || 'Senior Mentor',
         reviewNote,
       };
       if (N8N_ENABLED) {
         try {
           await n8nService.submitSeniorApproval(payload);
-          triggerToast('Approved. The answer is ready for AI Tutor knowledge.');
+          triggerToast('Approved and indexed into AI Tutor knowledge.');
         } catch (n8nErr) {
+          if (N8N_STRICT) throw n8nErr;
           console.warn('n8n approval failed, falling back to backend API:', n8nErr);
-          await apiService.approveCandidate(id, {
+          await teacherReviewApi.approveCandidate(id, {
             reviewerId: payload.reviewerId,
             reviewerRole: payload.reviewerRole,
             reviewerName: payload.reviewerName,
             reviewNote,
           });
-          triggerToast('Approved. The answer is ready for AI Tutor knowledge.');
+          triggerToast('Approved and indexed into AI Tutor knowledge.');
         }
       } else {
-        await apiService.approveCandidate(id, {
+        await teacherReviewApi.approveCandidate(id, {
           reviewerId: payload.reviewerId,
           reviewerRole: payload.reviewerRole,
           reviewerName: payload.reviewerName,
           reviewNote,
         });
-        triggerToast('Approved. The answer is ready for AI Tutor knowledge.');
+        triggerToast('Approved and indexed into AI Tutor knowledge.');
       }
       setCandidates((prev) => prev.filter((candidate) => candidate.id !== id));
+      await loadKnowledgeCandidates();
+      return true;
     } catch (error) {
       console.error('Error approving candidate:', error);
       triggerToast(getUserFacingError(error, 'Unable to approve suggested AI answer.'));
+      await Promise.allSettled([loadKnowledgeCandidates()]);
+      return false;
+    } finally {
+      setPendingCandidateActionIds((current) => current.filter((candidateId) => candidateId !== id));
     }
   };
 
   const handleRejectCandidate = async (id, rejectionReason = 'Rejected by mentor') => {
+    if (pendingCandidateActionIds.includes(id)) return false;
+    setPendingCandidateActionIds((current) => [...current, id]);
     triggerToast('Rejecting suggested AI answer...');
     try {
       const payload = {
         decision: 'REJECT',
         candidateId: id,
         reviewerId: getCurrentUserId(),
-        reviewerRole: activeRole === 'admin' ? 'ADMIN' : 'SENIOR_MENTOR',
+        reviewerRole: normalizeAccountRole(currentUser?.originalRole || currentUser?.role),
         reviewerName: currentUser?.fullName || currentUser?.name || 'Senior Mentor',
         rejectionReason,
         reviewNote: rejectionReason,
@@ -369,8 +437,9 @@ export function useTeacherRuntimeController({
           await n8nService.submitSeniorApproval(payload);
           triggerToast('Suggested AI answer rejected.');
         } catch (n8nErr) {
+          if (N8N_STRICT) throw n8nErr;
           console.warn('n8n reject failed, falling back to backend API:', n8nErr);
-          await apiService.rejectCandidate(id, {
+          await teacherReviewApi.rejectCandidate(id, {
             reviewerId: payload.reviewerId,
             reviewerRole: payload.reviewerRole,
             reviewerName: payload.reviewerName,
@@ -380,7 +449,7 @@ export function useTeacherRuntimeController({
           triggerToast('Suggested AI answer rejected.');
         }
       } else {
-        await apiService.rejectCandidate(id, {
+        await teacherReviewApi.rejectCandidate(id, {
           reviewerId: payload.reviewerId,
           reviewerRole: payload.reviewerRole,
           reviewerName: payload.reviewerName,
@@ -390,9 +459,15 @@ export function useTeacherRuntimeController({
         triggerToast('Suggested AI answer rejected.');
       }
       setCandidates((prev) => prev.filter((candidate) => candidate.id !== id));
+      await loadKnowledgeCandidates();
+      return true;
     } catch (error) {
       console.error('Error rejecting candidate:', error);
       triggerToast(getUserFacingError(error, 'Unable to reject suggested AI answer.'));
+      await Promise.allSettled([loadKnowledgeCandidates()]);
+      return false;
+    } finally {
+      setPendingCandidateActionIds((current) => current.filter((candidateId) => candidateId !== id));
     }
   };
 
@@ -407,7 +482,6 @@ export function useTeacherRuntimeController({
     selectedTeacherSub,
     setSelectedTeacherSub,
     escalations,
-    teacherChatInbox,
     isTeacherInboxLoading,
     selectedEscalation,
     setSelectedEscalation,
@@ -415,6 +489,8 @@ export function useTeacherRuntimeController({
     setCandidates,
     answerReviews,
     seniorAnswerReviews,
+    pendingCandidateActionIds,
+    pendingSeniorReviewIds,
     loadTeacherSubmissions,
     loadKnowledgeCandidates,
     loadTeacherDashboard,

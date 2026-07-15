@@ -7,6 +7,7 @@ function KnowledgeCandidateReviewList({
   handleNoteChange,
   handleApproveCandidate,
   handleRejectCandidate,
+  pendingActionIds = [],
 }) {
   if (candidates.length === 0) {
     return <div className="no-data-text">No suggested AI answers are waiting for review.</div>;
@@ -14,7 +15,8 @@ function KnowledgeCandidateReviewList({
 
   return candidates.map((cand) => {
     const note = candidateNotes[cand.id] || '';
-    const isActionDisabled = !String(note).trim();
+    const isPending = pendingActionIds.includes(cand.id);
+    const isActionDisabled = !String(note).trim() || isPending;
 
     return (
       <div key={cand.id} className="candidate-card-item">
@@ -49,23 +51,23 @@ function KnowledgeCandidateReviewList({
                 type="button"
                 className="btn-approve-cand"
                 disabled={isActionDisabled}
-                onClick={() => {
-                  handleApproveCandidate(cand.id, note);
-                  handleNoteChange(cand.id, '');
+                onClick={async () => {
+                  const succeeded = await handleApproveCandidate(cand.id, note);
+                  if (succeeded) handleNoteChange(cand.id, '');
                 }}
               >
-                Approve into AI knowledge
+                {isPending ? 'Processing...' : 'Approve into AI knowledge'}
               </button>
               <button
                 type="button"
                 className="btn-reject-cand"
                 disabled={isActionDisabled}
-                onClick={() => {
-                  handleRejectCandidate(cand.id, note);
-                  handleNoteChange(cand.id, '');
+                onClick={async () => {
+                  const succeeded = await handleRejectCandidate(cand.id, note);
+                  if (succeeded) handleNoteChange(cand.id, '');
                 }}
               >
-                Reject
+                {isPending ? 'Processing...' : 'Reject'}
               </button>
             </div>
           </>

@@ -145,10 +145,6 @@ function isHeadingLine(line) {
   return /^#{1,6}\s+/.test(line.trim());
 }
 
-function isMathBlockDelimiter(line) {
-  return /^\s*\$\$\s*$/.test(line);
-}
-
 /* =========================================================
  * 3. INLINE TABLE HARD-FIX
  * =========================================================
@@ -313,7 +309,7 @@ function protectBlocks(text) {
 
   // --- Pass 2: protect inline math ($…$) on single lines ---
   result = result.replace(
-    /\$([^\$\n]+)\$/g,
+    /\$([^$\n]+)\$/g,
     (match) => store(match),
   );
 
@@ -750,14 +746,5 @@ export function getNodeText(node) {
  * @returns {string}     Normalized output
  */
 export function useNormalizedMarkdown(text) {
-  const [output, setOutput] = React.useState('');
-
-  React.useEffect(() => {
-    let active = true;
-    const result = normalizeAiMarkdown(text);
-    if (active) setOutput(result);
-    return () => { active = false; };
-  }, [text]);
-
-  return output;
+  return React.useMemo(() => normalizeAiMarkdown(text), [text]);
 }

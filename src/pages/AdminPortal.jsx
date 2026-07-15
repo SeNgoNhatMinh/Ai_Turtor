@@ -1,7 +1,12 @@
-import React from 'react';
-import AdminDashboard from './admin/AdminDashboard';
-import AdminUsers from './admin/AdminUsers';
-import AdminAcademic from './admin/AdminAcademic';
+import { lazy, Suspense } from 'react';
+
+const AdminDashboard = lazy(() => import('./admin/AdminDashboard'));
+const AdminUsers = lazy(() => import('./admin/AdminUsers'));
+const AdminAcademic = lazy(() => import('./admin/AdminAcademic'));
+
+function AdminTabFallback() {
+  return <div className="portal-loading" role="status">Loading workspace...</div>;
+}
 
 /**
  * AdminPortal — Router chính cho Admin.
@@ -24,28 +29,30 @@ function AdminPortal({
 
   return (
     <div style={{ padding: '0 24px 24px 24px' }}>
-      {visibleTab === 'admin-dashboard' && (
-        <AdminDashboard
-          adminStats={adminStats}
-          diagnosticsOutput={diagnosticsOutput}
-          isDiagnosticsRunning={isDiagnosticsRunning}
-          runDiagnostics={runDiagnostics}
-        />
-      )}
+      <Suspense fallback={<AdminTabFallback />}>
+        {visibleTab === 'admin-dashboard' && (
+          <AdminDashboard
+            adminStats={adminStats}
+            diagnosticsOutput={diagnosticsOutput}
+            isDiagnosticsRunning={isDiagnosticsRunning}
+            runDiagnostics={runDiagnostics}
+          />
+        )}
 
-      {visibleTab === 'admin-users' && (
-        <AdminUsers
-          triggerToast={triggerToast}
-          handleAdminImport={handleAdminImport}
-        />
-      )}
+        {visibleTab === 'admin-users' && (
+          <AdminUsers
+            triggerToast={triggerToast}
+            handleAdminImport={handleAdminImport}
+          />
+        )}
 
-      {visibleTab === 'admin-academic' && (
-        <AdminAcademic
-          triggerToast={triggerToast}
-          currentUser={currentUser}
-        />
-      )}
+        {visibleTab === 'admin-academic' && (
+          <AdminAcademic
+            triggerToast={triggerToast}
+            currentUser={currentUser}
+          />
+        )}
+      </Suspense>
     </div>
   );
 }

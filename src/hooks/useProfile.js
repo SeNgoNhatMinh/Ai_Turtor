@@ -1,43 +1,73 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiService } from '../services/api';
+import { useCallback, useEffect, useState } from 'react';
 import { message } from 'antd';
 import { getUserFacingError } from '../services/apiClient';
+import { profileApi } from '../services/profileApi';
 
 export function useProfile(userId) {
-  const queryClient = useQueryClient();
+  const [profile, setProfile] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
 
-  const profileQuery = useQuery({
-    queryKey: ['profile', userId],
-    queryFn: () => apiService.getUserProfile(userId),
-    enabled: !!userId,
-  });
+  const loadProfile = useCallback(async () => {
+    if (!userId) return;
+    setIsLoading(true);
+    setError(null);
+    try {
+      setProfile(await profileApi.get(userId));
+    } catch (nextError) {
+      setError(nextError);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [userId]);
 
-  const updateProfile = useMutation({
-    mutationFn: (payload) => apiService.updateUserProfile(userId, payload),
-    onSuccess: () => {
-      message.success('Profile updated successfully');
-      queryClient.invalidateQueries({ queryKey: ['profile', userId] });
-    },
-    onError: (error) => {
-      message.error(getUserFacingError(error, 'Failed to update profile'));
-    },
-  });
+  useEffect(() => {
+    const loadTimer = window.setTimeout(loadProfile, 0);
+    return () => window.clearTimeout(loadTimer);
+  }, [loadProfile]);
 
-  const changePassword = useMutation({
-    mutationFn: (payload) => apiService.changePassword(userId, payload),
-    onSuccess: () => {
-      message.success('Password changed successfully');
+  const updateProfile = {
+    isPending: isUpdating,
+    mutateAsync: async (payload) => {
+      setIsUpdating(true);
+      try {
+        const updated = await profileApi.update(userId, payload);
+        setProfile((current) => ({ ...current, ...updated, ...payload }));
+        message.success('Profile updated successfully');
+        return updated;
+      } catch (nextError) {
+        message.error(getUserFacingError(nextError, 'Failed to update profile'));
+        throw nextError;
+      } finally {
+        setIsUpdating(false);
+      }
     },
-    onError: (error) => {
-      message.error(getUserFacingError(error, 'Failed to change password'));
+  };
+
+  const changePassword = {
+    isPending: isChangingPassword,
+    mutateAsync: async (payload) => {
+      setIsChangingPassword(true);
+      try {
+        const result = await profileApi.changePassword(userId, payload);
+        message.success('Password changed successfully');
+        return result;
+      } catch (nextError) {
+        message.error(getUserFacingError(nextError, 'Failed to change password'));
+        throw nextError;
+      } finally {
+        setIsChangingPassword(false);
+      }
     },
-  });
+  };
 
   return {
-    profile: profileQuery.data,
-    isLoading: profileQuery.isLoading,
-    isError: profileQuery.isError,
-    error: profileQuery.error,
+    profile,
+    isLoading,
+    isError: Boolean(error),
+    error,
     updateProfile,
     changePassword,
   };

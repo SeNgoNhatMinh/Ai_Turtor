@@ -2,6 +2,7 @@ import { Button, Card, Empty, Input, Space, Table, Tag, Typography, Upload, Tabs
 import { DownloadOutlined, FileTextOutlined, UploadOutlined } from '@ant-design/icons';
 import PageHeader from '../../components/common/PageHeader';
 import { uiCopy } from '../../constants/uiCopy';
+import { getMaterialDisplayName } from '../../utils/sourceLabels';
 
 const { Paragraph, Text, Title } = Typography;
 const { TextArea } = Input;
@@ -20,6 +21,12 @@ function MaterialsAssignments({
   courseMaterials = [],
   onDownloadMaterial,
 }) {
+  const getAssignmentFileName = (assignment) => assignment?.attachmentFileName
+    || assignment?.fileName
+    || assignment?.originalFileName
+    || assignment?.title
+    || 'Assignment attachment';
+
   const assignmentCols = [
     { title: 'Assignment', dataIndex: 'title', key: 'title', render: (text) => <Text strong>{text}</Text> },
     {
@@ -66,7 +73,7 @@ function MaterialsAssignments({
                     <Space>
                       <FileTextOutlined style={{ fontSize: 24, color: '#F37021' }} />
                       <div>
-                        <Text strong>Attachment ({selectedAssignment.id})</Text>
+                        <Text strong>{getAssignmentFileName(selectedAssignment)}</Text>
                         <br />
                         <Button type="link" size="small" icon={<DownloadOutlined />} onClick={() => onDownloadAssignment(selectedAssignment.id)} style={{ padding: 0 }}>
                           Download assignment
@@ -124,7 +131,11 @@ function MaterialsAssignments({
                     title: 'File Name',
                     dataIndex: 'fileName',
                     key: 'fileName',
-                    render: (text, record) => <Text type="secondary" style={{ fontFamily: 'monospace' }}>{record.fileName || record.filePath || record.id}</Text>
+                    render: (_, record) => (
+                      <Text type="secondary">
+                        {getMaterialDisplayName(record) || 'Material file unavailable'}
+                      </Text>
+                    )
                   },
                   {
                     title: 'Scope',

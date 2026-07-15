@@ -1,209 +1,163 @@
-import { useEffect, useRef, useState } from 'react';
-import { message } from 'antd';
-import { apiService } from '../services/api';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { getUserFacingError } from '../services/apiClient';
 import { normalizeEscalation } from '../services/normalizers';
+import { supportChatApi } from '../services/supportChatApi';
 
-const LIVE_SUPPORT_STATUSES = new Set(['IN_CHAT', 'ASSIGNED', 'ACTIVE']);
+const TERMINAL_ESCALATION_STATES = new Set([
+  'ANSWERED',
+  'ANSWERED_NO_KNOWLEDGE_CANDIDATE',
+  'COMPLETED',
+  'CLOSED',
+  'CANCELLED',
+  'REJECTED',
+  'RESOLVED',
+  'RESOLVED_INDEXED',
+]);
 
-export const isLiveSupportStatus = (status) => LIVE_SUPPORT_STATUSES.has(String(status || '').toUpperCase());
+const normalizeStatus = (value) => String(value || '').trim().toUpperCase();
 
-const getSupportMessageTime = (item) => {
-  const value = item?.sentAt || item?.timestamp || item?.createdAt;
-  const time = new Date(value).getTime();
-  return Number.isFinite(time) ? time : null;
-};
-
-const normalizeSupportHistory = (history) => {
-  const list = Array.isArray(history) ? history : [];
-  const hasTimestamps = list.some((item) => getSupportMessageTime(item) !== null);
-  if (!hasTimestamps) return [...list].reverse();
-  return [...list].sort((a, b) => (getSupportMessageTime(a) ?? 0) - (getSupportMessageTime(b) ?? 0));
-};
-
-export function useStudentSupport({
-  activeTab,
-  userId,
-  onMarkChatRead,
-  onCloseChat,
-  onGetChatDetail,
-}) {
+export function useStudentSupport({ activeTab, userId, onConversationResolved }) {
   const [escalations, setEscalations] = useState([]);
   const [selectedEscalation, setSelectedEscalation] = useState(null);
-  const [escChatMessages, setEscChatMessages] = useState([]);
-  const [escChatInput, setEscChatInput] = useState('');
-  const [escMentors, setEscMentors] = useState([]);
-  const [escModalVisible, setEscModalVisible] = useState(false);
-  const [selectedMentorForEsc, setSelectedMentorForEsc] = useState(null);
   const [isEscalationsLoading, setIsEscalationsLoading] = useState(false);
-  const [isEscChatSending, setIsEscChatSending] = useState(false);
+  const [isEscalationDetailLoading, setIsEscalationDetailLoading] = useState(false);
   const [escalationsError, setEscalationsError] = useState('');
-  const [chatUnreadCount, setChatUnreadCount] = useState(0);
-  const [chatRoomDetail, setChatRoomDetail] = useState(null);
-  const escMessagesEndRef = useRef(null);
+  const [escalationDetailError, setEscalationDetailError] = useState('');
+  const handledResolvedConversationIdsRef = useRef(new Set());
+  const onConversationResolvedRef = useRef(onConversationResolved);
 
   useEffect(() => {
-    escMessagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [escChatMessages]);
+    onConversationResolvedRef.current = onConversationResolved;
+  }, [onConversationResolved]);
 
-  const loadChatUnread = async () => {
-    try {
-      const data = await apiService.getChatUnread(userId);
-      setChatUnreadCount(data?.unreadCount ?? data?.count ?? (Array.isArray(data?.rooms) ? data.rooms.length : 0));
-    } catch {
-      setChatUnreadCount(0);
+  const loadEscalations = useCallback(async () => {
+    if (!userId) {
+      setEscalations([]);
+      setSelectedEscalation(null);
+      return;
     }
-  };
 
-  const loadEscalations = async () => {
     setIsEscalationsLoading(true);
     setEscalationsError('');
     try {
-      const data = await apiService.getEscalationHistory(userId);
-      const items = (Array.isArray(data) ? data : []).map(normalizeEscalation);
+      const data = await supportChatApi.getEscalationHistory(userId);
+      const items = (Array.isArray(data) ? data : [])
+        .map(normalizeEscalation)
+        .sort((a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0));
       setEscalations(items);
       setSelectedEscalation((current) => {
         if (current && !items.some((item) => item.id === current.id)) return null;
-        return current;
+        return current || items[0] || null;
       });
     } catch (error) {
       setEscalations([]);
-      setEscalationsError(getUserFacingError(error, 'Unable to load support requests.'));
+      setSelectedEscalation(null);
+      setEscalationsError(getUserFacingError(error, 'Unable to load mentor review tickets.'));
     } finally {
       setIsEscalationsLoading(false);
     }
-  };
+  }, [userId]);
+
+  const loadEscalationDetail = useCallback(async (escalationId) => {
+    if (!escalationId) return;
+    setIsEscalationDetailLoading(true);
+    setEscalationDetailError('');
+    try {
+      const data = await supportChatApi.getEscalationDetail(escalationId);
+      const detail = data?.questionEscalation || data?.escalation || data || {};
+      const latestAnswer = data?.latestMentorAnswer;
+      const mentorAnswer = typeof latestAnswer === 'string'
+        ? latestAnswer
+        : latestAnswer?.answer || latestAnswer?.content || latestAnswer?.mentorAnswer || '';
+      const normalized = normalizeEscalation({
+        ...detail,
+        mentorAnswer: mentorAnswer || detail?.mentorAnswer,
+        studentVisibleStatus: data?.studentVisibleStatus,
+        knowledgeCandidates: data?.knowledgeCandidates || [],
+        aiBrainUpdated: Boolean(data?.aiBrainUpdated),
+      });
+      setSelectedEscalation((current) => (
+        current?.id === escalationId ? { ...current, ...normalized } : current
+      ));
+      setEscalations((current) => current.map((item) => (
+        item.id === escalationId ? { ...item, ...normalized } : item
+      )));
+      if (
+        normalizeStatus(normalized.status) === 'RESOLVED_INDEXED'
+        && normalized.conversationId
+        && !handledResolvedConversationIdsRef.current.has(normalized.conversationId)
+      ) {
+        handledResolvedConversationIdsRef.current.add(normalized.conversationId);
+        Promise.resolve(onConversationResolvedRef.current?.(normalized.conversationId)).catch(() => {});
+      }
+      return normalized;
+    } catch (error) {
+      setEscalationDetailError(getUserFacingError(error, 'Unable to load the complete review ticket.'));
+    } finally {
+      setIsEscalationDetailLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    if (activeTab === 'student-escalation') {
-      loadEscalations();
-      loadChatUnread();
-    }
-  }, [activeTab]);
+    if (activeTab !== 'student-escalation') return undefined;
+    const loadTimer = window.setTimeout(loadEscalations, 0);
+    return () => window.clearTimeout(loadTimer);
+  }, [activeTab, loadEscalations]);
 
-  const handleSelectEscalation = async (escalation) => {
-    setSelectedEscalation(escalation);
-    setChatRoomDetail(null);
-    if (isLiveSupportStatus(escalation.status) && escalation.chatRoomId) {
-      try {
-        if (onMarkChatRead) await onMarkChatRead(escalation.chatRoomId);
-        if (onGetChatDetail) {
-          const detail = await onGetChatDetail(escalation.chatRoomId);
-          setChatRoomDetail(detail);
-        }
-        loadChatUnread();
-      } catch {
-        // Chat history can still load even if read/detail helper fails.
-      }
-      const history = await apiService.getChatHistory(escalation.chatRoomId);
-      setEscChatMessages(normalizeSupportHistory(history));
-    } else {
-      setEscChatMessages([]);
-    }
-  };
+  useEffect(() => {
+    if (activeTab !== 'student-escalation' || !selectedEscalation?.id) return undefined;
+    const detailTimer = window.setTimeout(
+      () => loadEscalationDetail(selectedEscalation.id),
+      0,
+    );
+    return () => window.clearTimeout(detailTimer);
+  }, [activeTab, selectedEscalation?.id, loadEscalationDetail]);
 
-  const handleCloseSupportChat = async () => {
-    if (!selectedEscalation?.chatRoomId || !onCloseChat) return;
-    try {
-      await onCloseChat({
-        chatRoomId: selectedEscalation.chatRoomId,
-        questionEscalationId: selectedEscalation.id,
-      });
-      message.success('Support chat closed.');
-      setEscChatMessages([]);
-      setChatRoomDetail(null);
-      loadEscalations();
-      loadChatUnread();
-    } catch (error) {
-      message.error(getUserFacingError(error, 'Unable to close chat.'));
-    }
-  };
+  useEffect(() => {
+    if (activeTab !== 'student-escalation' || !selectedEscalation?.id) return undefined;
+    if (TERMINAL_ESCALATION_STATES.has(normalizeStatus(selectedEscalation.status))) return undefined;
 
-  const onSendEscalationMsg = async () => {
-    if (!escChatInput.trim() || !selectedEscalation || !isLiveSupportStatus(selectedEscalation.status) || isEscChatSending) return;
-    const content = escChatInput.trim();
-    const msgData = {
-      chatRoomId: selectedEscalation.chatRoomId,
-      senderId: userId,
-      senderName: userId,
-      senderRole: 'USER',
-      content,
+    let cancelled = false;
+    let timerId;
+    let attempt = 0;
+    const poll = async () => {
+      await loadEscalationDetail(selectedEscalation.id);
+      if (cancelled) return;
+      attempt += 1;
+      const delay = Math.min(5000 * (2 ** Math.min(attempt, 3)), 30000);
+      timerId = window.setTimeout(poll, delay);
     };
-    setIsEscChatSending(true);
-    try {
-      await apiService.sendChatMessage(msgData);
-      setEscChatMessages((prev) => [...prev, { ...msgData, timestamp: new Date().toISOString() }]);
-      setEscChatInput('');
-    } catch (error) {
-      message.error(getUserFacingError(error, 'Unable to send message.'));
-    } finally {
-      setIsEscChatSending(false);
-    }
-  };
+    timerId = window.setTimeout(poll, 5000);
 
-  const onSelectMentor = async () => {
-    if (!selectedMentorForEsc || !selectedEscalation) return;
-    const result = await apiService.selectEscalationMentor({
-      questionEscalationId: selectedEscalation.id,
-      userId,
-      selectedMentorId: selectedMentorForEsc,
-    });
-    message.success('Mentor selected. Starting support chat...');
-    setEscModalVisible(false);
-    setSelectedMentorForEsc(null);
-    const nextEscalation = {
-      ...selectedEscalation,
-      status: 'IN_CHAT',
-      chatRoomId: result?.chatRoomId || selectedEscalation.chatRoomId,
-      assignedMentorName: result?.mentorName || selectedEscalation.assignedMentorName,
-      assignedMentorEmail: result?.mentorEmail || selectedEscalation.assignedMentorEmail,
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timerId);
     };
-    await handleSelectEscalation(nextEscalation);
-    loadEscalations();
+  }, [activeTab, loadEscalationDetail, selectedEscalation?.id, selectedEscalation?.status]);
+
+  const handleSelectEscalation = (escalation) => {
+    setSelectedEscalation(escalation);
   };
 
-  const handleOpenMentorSelect = async (escalation) => {
-    setSelectedEscalation(escalation);
-    try {
-      const offer = await apiService.offerEscalation(escalation.id);
-      const suggested = offer?.suggestedMentors || offer?.mentors || [];
-      if (Array.isArray(suggested) && suggested.length > 0) {
-        setEscMentors(suggested);
-      } else {
-        const mentors = await apiService.getMentors();
-        setEscMentors(Array.isArray(mentors) ? mentors : []);
-      }
-      setEscModalVisible(true);
-    } catch (error) {
-      const mentors = await apiService.getMentors();
-      setEscMentors(Array.isArray(mentors) ? mentors : []);
-      setEscModalVisible(true);
-      message.warning(getUserFacingError(error, 'Unable to load suggested mentors. Showing available mentors instead.'));
-    }
-  };
+  const handleEscalationChange = useCallback((nextEscalation) => {
+    if (!nextEscalation?.id) return;
+    setSelectedEscalation((current) => (
+      current?.id === nextEscalation.id ? { ...current, ...nextEscalation } : current
+    ));
+    setEscalations((current) => current.map((item) => (
+      item.id === nextEscalation.id ? { ...item, ...nextEscalation } : item
+    )));
+  }, []);
 
   return {
     escalations,
     selectedEscalation,
-    escChatMessages,
-    escChatInput,
-    setEscChatInput,
-    escMentors,
-    escModalVisible,
-    setEscModalVisible,
-    selectedMentorForEsc,
-    setSelectedMentorForEsc,
     isEscalationsLoading,
-    isEscChatSending,
+    isEscalationDetailLoading,
     escalationsError,
-    chatUnreadCount,
-    chatRoomDetail,
-    escMessagesEndRef,
+    escalationDetailError,
     loadEscalations,
     handleSelectEscalation,
-    handleCloseSupportChat,
-    onSendEscalationMsg,
-    onSelectMentor,
-    handleOpenMentorSelect,
+    handleEscalationChange,
   };
 }

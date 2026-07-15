@@ -107,7 +107,9 @@ export async function httpRequest(path, options = {}) {
 
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
-  const mergedSignal = signal || controller.signal;
+  const abortFromCaller = () => controller.abort(signal?.reason);
+  if (signal?.aborted) abortFromCaller();
+  else signal?.addEventListener('abort', abortFromCaller, { once: true });
 
   let config = {
     url: buildUrl(path, query),
@@ -115,7 +117,7 @@ export async function httpRequest(path, options = {}) {
       method,
       credentials: env.apiWithCredentials ? 'include' : 'same-origin',
       headers: { ...headers },
-      signal: mergedSignal,
+      signal: controller.signal,
     },
   };
 
@@ -152,6 +154,7 @@ export async function httpRequest(path, options = {}) {
     throw normalizeError(error, response, parsedBody);
   } finally {
     window.clearTimeout(timeout);
+    signal?.removeEventListener('abort', abortFromCaller);
   }
 }
 

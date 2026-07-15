@@ -2,6 +2,7 @@ import { Button, Card, Col, Form, Input, Row, Select, Tag } from 'antd';
 import { Eye, Pencil, Plus, Search, UserMinus } from 'lucide-react';
 import EntityActionMenu from '../../../components/common/EntityActionMenu';
 import { DataTable } from '../../../components/ui/data-table';
+import { getClassCode } from './adminAcademicUtils';
 
 const { Option } = Select;
 
@@ -44,11 +45,14 @@ function StudentEnrollmentsTab({
             </Form.Item>
             <Form.Item name="classId" label="Class Section" rules={[{ required: true }]}>
               <Select placeholder="Choose a class section">
-                {classSections.map((classSection) => (
-                  <Option key={classSection.classId || classSection.id} value={classSection.classId}>
-                    {classSection.classId}
+                {classSections.map((classSection) => {
+                  const classCode = getClassCode(classSection);
+                  return (
+                  <Option key={classCode} value={classCode}>
+                    {classCode}
                   </Option>
-                ))}
+                  );
+                })}
               </Select>
             </Form.Item>
             <Button type="primary" htmlType="submit" block icon={<Plus size={14} />}>Enroll Student</Button>

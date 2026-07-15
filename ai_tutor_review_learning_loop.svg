@@ -1,0 +1,150 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="1900" viewBox="0 0 1280 1900">
+<defs>
+  <style>
+    .title{font:700 28px Arial,sans-serif;fill:#0f172a}
+    .sub{font:13px Arial,sans-serif;fill:#475569}
+    .section{font:700 18px Arial,sans-serif;fill:#1e3a8a}
+    .node{font:700 13px Arial,sans-serif;fill:#0f172a}
+    .desc{font:11px Arial,sans-serif;fill:#475569}
+    .label{font:700 10px Arial,sans-serif;fill:#475569}
+    .solid{stroke:#64748b;stroke-width:2;fill:none;marker-end:url(#a)}
+    .biz{stroke:#7c3aed;stroke-width:2.4;fill:none;stroke-dasharray:8 6;marker-end:url(#p)}
+    .feedback{stroke:#16a34a;stroke-width:2.4;fill:none;stroke-dasharray:8 6;marker-end:url(#g)}
+  </style>
+  <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#64748b"/></marker>
+  <marker id="p" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#7c3aed"/></marker>
+  <marker id="g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#16a34a"/></marker>
+</defs>
+
+<rect width="1280" height="1900" fill="#fff"/>
+<text x="640" y="45" text-anchor="middle" class="title">AI TUTOR — REVIEW &amp; LEARNING LOOP</text>
+<text x="640" y="72" text-anchor="middle" class="sub">Mũi tên liền: connection trong n8n · Nét đứt tím/xanh: liên kết nghiệp vụ giữa các webhook</text>
+
+<!-- FLOW 1 -->
+<rect x="70" y="105" width="1140" height="285" rx="22" fill="#fafafa" stroke="#cbd5e1" stroke-width="1.5"/>
+<text x="100" y="140" class="section">FLOW 1 — AI TRẢ LỜI HỌC SINH</text>
+
+<rect x="110" y="180" width="210" height="65" rx="12" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.6"/>
+<text x="215" y="207" text-anchor="middle" class="node">Student Chat Webhook</text>
+<text x="215" y="228" text-anchor="middle" class="desc">Nhận câu hỏi học sinh</text>
+
+<rect x="380" y="180" width="210" height="65" rx="12" fill="#dbeafe" stroke="#2563eb" stroke-width="1.6"/>
+<text x="485" y="207" text-anchor="middle" class="node">Normalize + Context</text>
+<text x="485" y="228" text-anchor="middle" class="desc">Trace, session, memory</text>
+
+<polygon points="760,170 850,212 760,254 670,212" fill="#ffedd5" stroke="#ea580c" stroke-width="1.6"/>
+<text x="760" y="208" text-anchor="middle" class="node">Intent Router</text>
+<text x="760" y="226" text-anchor="middle" class="desc">CODE / RAG / ESCALATE</text>
+
+<rect x="930" y="180" width="210" height="65" rx="12" fill="#ccfbf1" stroke="#0f766e" stroke-width="1.6"/>
+<text x="1035" y="207" text-anchor="middle" class="node">AI Answer</text>
+<text x="1035" y="228" text-anchor="middle" class="desc">Code Mentor hoặc Course RAG</text>
+
+<rect x="505" y="290" width="270" height="65" rx="12" fill="#dcfce7" stroke="#16a34a" stroke-width="1.7"/>
+<text x="640" y="317" text-anchor="middle" class="node">Respond to Student</text>
+<text x="640" y="338" text-anchor="middle" class="desc">answer + confidence + escalation status</text>
+
+<path d="M320 212H380" class="solid"/><path d="M590 212H670" class="solid"/><path d="M850 212H930" class="solid"/>
+<path d="M1035 245V270H640V290" class="solid"/>
+
+<!-- FLOW 2 -->
+<rect x="70" y="430" width="1140" height="500" rx="22" fill="#fafafa" stroke="#cbd5e1" stroke-width="1.5"/>
+<text x="100" y="466" class="section">FLOW 2 — HỌC SINH REVIEW CÂU TRẢ LỜI AI</text>
+
+<rect x="500" y="500" width="280" height="62" rx="12" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.6"/>
+<text x="640" y="526" text-anchor="middle" class="node">Answer Review Webhook</text>
+<text x="640" y="546" text-anchor="middle" class="desc">rating, accurate, helpful, correction</text>
+
+<rect x="500" y="605" width="280" height="62" rx="12" fill="#ccfbf1" stroke="#0f766e" stroke-width="1.6"/>
+<text x="640" y="631" text-anchor="middle" class="node">Create AI Answer Review</text>
+<text x="640" y="651" text-anchor="middle" class="desc">Lưu đánh giá và xác định trạng thái</text>
+
+<polygon points="640,710 745,758 640,806 535,758" fill="#ffedd5" stroke="#ea580c" stroke-width="1.6"/>
+<text x="640" y="748" text-anchor="middle" class="node">Review Routing</text>
+<text x="640" y="768" text-anchor="middle" class="desc">SUBMITTED / MENTOR / SENIOR</text>
+
+<rect x="120" y="835" width="265" height="65" rx="12" fill="#dcfce7" stroke="#16a34a" stroke-width="1.6"/>
+<text x="252" y="862" text-anchor="middle" class="node">SUBMITTED / GOOD</text>
+<text x="252" y="883" text-anchor="middle" class="desc">Lưu review, không cần human xử lý</text>
+
+<rect x="505" y="835" width="270" height="65" rx="12" fill="#fef3c7" stroke="#d97706" stroke-width="1.6"/>
+<text x="640" y="862" text-anchor="middle" class="node">NEEDS MENTOR REVIEW</text>
+<text x="640" y="883" text-anchor="middle" class="desc">Câu trả lời kém / cần mentor sửa</text>
+
+<rect x="895" y="835" width="265" height="65" rx="12" fill="#fee2e2" stroke="#dc2626" stroke-width="1.6"/>
+<text x="1027" y="862" text-anchor="middle" class="node">NEEDS SENIOR REVIEW</text>
+<text x="1027" y="883" text-anchor="middle" class="desc">Sai nghiêm trọng / cần senior kiểm tra</text>
+
+<path d="M640 562V605" class="solid"/><path d="M640 667V710" class="solid"/>
+<path d="M535 758H252V835" class="solid"/><text x="370" y="747" class="label">SUBMITTED</text>
+<path d="M640 806V835" class="solid"/><text x="655" y="823" class="label">MENTOR</text>
+<path d="M745 758H1027V835" class="solid"/><text x="888" y="747" class="label">SENIOR</text>
+
+<!-- FLOW 3 -->
+<rect x="70" y="975" width="1140" height="445" rx="22" fill="#fafafa" stroke="#cbd5e1" stroke-width="1.5"/>
+<text x="100" y="1012" class="section">FLOW 3 — MENTOR / TEACHER TRẢ LỜI LẠI</text>
+
+<rect x="500" y="1050" width="280" height="62" rx="12" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.6"/>
+<text x="640" y="1076" text-anchor="middle" class="node">Teacher Answer Webhook</text>
+<text x="640" y="1096" text-anchor="middle" class="desc">questionEscalationId + answer</text>
+
+<rect x="500" y="1150" width="280" height="62" rx="12" fill="#ccfbf1" stroke="#0f766e" stroke-width="1.6"/>
+<text x="640" y="1176" text-anchor="middle" class="node">Answer Escalation</text>
+<text x="640" y="1196" text-anchor="middle" class="desc">Lưu câu trả lời mentor và gửi học sinh</text>
+
+<polygon points="640,1250 750,1298 640,1346 530,1298" fill="#ffedd5" stroke="#ea580c" stroke-width="1.6"/>
+<text x="640" y="1288" text-anchor="middle" class="node">Create Knowledge</text>
+<text x="640" y="1308" text-anchor="middle" class="desc">Candidate?</text>
+
+<rect x="200" y="1355" width="250" height="48" rx="12" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5"/>
+<text x="325" y="1384" text-anchor="middle" class="node">Answer Only</text>
+
+<rect x="830" y="1355" width="250" height="48" rx="12" fill="#f5f3ff" stroke="#7c3aed" stroke-width="1.5"/>
+<text x="955" y="1384" text-anchor="middle" class="node">Knowledge Candidate Created</text>
+
+<path d="M640 1112V1150" class="solid"/><path d="M640 1212V1250" class="solid"/>
+<path d="M530 1298H325V1355" class="solid"/><text x="415" y="1287" class="label">NO</text>
+<path d="M750 1298H955V1355" class="solid"/><text x="858" y="1287" class="label">YES</text>
+
+<!-- FLOW 4 -->
+<rect x="70" y="1465" width="1140" height="330" rx="22" fill="#fafafa" stroke="#cbd5e1" stroke-width="1.5"/>
+<text x="100" y="1502" class="section">FLOW 4 — SENIOR DUYỆT KIẾN THỨC CHO AI</text>
+
+<rect x="500" y="1540" width="280" height="62" rx="12" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.6"/>
+<text x="640" y="1566" text-anchor="middle" class="node">Senior Approval Webhook</text>
+<text x="640" y="1586" text-anchor="middle" class="desc">candidateId + approve/reject</text>
+
+<polygon points="640,1640 745,1686 640,1732 535,1686" fill="#ffedd5" stroke="#ea580c" stroke-width="1.6"/>
+<text x="640" y="1691" text-anchor="middle" class="node">APPROVE / REJECT</text>
+
+<rect x="165" y="1740" width="250" height="48" rx="12" fill="#fee2e2" stroke="#dc2626" stroke-width="1.5"/>
+<text x="290" y="1769" text-anchor="middle" class="node">Reject — AI không học</text>
+
+<rect x="865" y="1740" width="250" height="48" rx="12" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5"/>
+<text x="990" y="1769" text-anchor="middle" class="node">Approve — Index RAG Brain</text>
+
+<path d="M640 1602V1640" class="solid"/>
+<path d="M535 1686H290V1740" class="solid"/><text x="410" y="1675" class="label">REJECT</text>
+<path d="M745 1686H990V1740" class="solid"/><text x="865" y="1675" class="label">APPROVE</text>
+
+<!-- Business/event links -->
+<path d="M640 355V500" class="biz"/>
+<text x="660" y="430" class="label" fill="#7c3aed">HỌC SINH REVIEW AI ANSWER</text>
+
+<path d="M640 900V1005H640V1050" class="biz"/>
+<text x="660" y="982" class="label" fill="#7c3aed">MENTOR NHẬN ESCALATION</text>
+
+<path d="M1027 900V965H790V1050" class="biz"/>
+<text x="985" y="950" class="label" fill="#7c3aed">SENIOR / MENTOR XỬ LÝ</text>
+
+<path d="M955 1403V1460H640V1540" class="biz"/>
+<text x="820" y="1448" class="label" fill="#7c3aed">CANDIDATE CHỜ DUYỆT</text>
+
+<path d="M1115 1764H1200V212H1140" class="feedback"/>
+<text x="1185" y="1020" transform="rotate(-90 1185 1020)" class="label" fill="#16a34a">APPROVED KNOWLEDGE → RAG BRAIN → DÙNG CHO CÂU TRẢ LỜI TIẾP THEO</text>
+
+<!-- Note -->
+<rect x="95" y="1825" width="1090" height="48" rx="12" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="640" y="1846" text-anchor="middle" class="desc">Flow 2 không gọi Flow 3 trực tiếp trong cùng execution. Nó tạo trạng thái review/escalation; mentor hoặc senior mở tác vụ rồi gọi webhook Flow 3.</text>
+<text x="640" y="1864" text-anchor="middle" class="desc">Flow 3 tạo Knowledge Candidate; Flow 4 duyệt candidate. Chỉ candidate được approve mới cập nhật RAG Brain.</text>
+</svg>

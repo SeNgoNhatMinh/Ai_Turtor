@@ -1,29 +1,30 @@
-import { apiService } from './api';
+import { API_BASE_URL, request } from './apiClient';
+import { encodePath } from '../config/env';
 
 export const teacherApi = {
-  getTeacherDashboard: apiService.getTeacherDashboard,
-  getTeacherClassSections: apiService.getTeacherClassSections,
-  getTeacherCourses: apiService.getTeacherCourses,
-  getTeacherEscalationInbox: apiService.getTeacherEscalationInbox,
-  getClassStudents: apiService.getClassStudents,
-  getClassAssignments: apiService.getClassAssignments,
-  getClassSubmissions: apiService.getClassSubmissions,
-  getAssignmentSubmissions: apiService.getAssignmentSubmissions,
-  getAssignment: apiService.getAssignment,
-  updateAssignment: apiService.updateAssignment,
-  deleteAssignment: apiService.deleteAssignment,
-  gradeSubmission: apiService.gradeSubmission,
-  uploadAssignment: apiService.uploadAssignment,
-  uploadMaterial: apiService.uploadMaterial,
-  getCourseMaterials: apiService.getCourseMaterials,
-  deleteMaterial: apiService.deleteMaterial,
-  reindexMaterial: apiService.reindexMaterial,
-  reindexCourseMaterials: apiService.reindexCourseMaterials,
-  generateTeacherQuizDraft: apiService.generateTeacherQuizDraft,
-  updateQuizAssignment: apiService.updateQuizAssignment,
-  deleteQuizAssignment: apiService.deleteQuizAssignment,
-  publishQuizAssignment: apiService.publishQuizAssignment,
-  getTeacherQuizAssignments: apiService.getTeacherQuizAssignments,
-  teacherReviewQuiz: apiService.teacherReviewQuiz,
-  getChatUnread: apiService.getChatUnread,
+  async getDashboard(teacherId, courseId = '', classId = '') {
+    const params = new URLSearchParams();
+    if (courseId) params.append('courseId', courseId);
+    if (classId) params.append('classId', classId);
+    const query = params.toString();
+    return request(`${API_BASE_URL}/mentors/${encodePath(teacherId)}/dashboard${query ? `?${query}` : ''}`);
+  },
+
+  async getClassSections(teacherId) {
+    return request(`${API_BASE_URL}/academic/mentors/${encodePath(teacherId)}/class-sections`);
+  },
+
+  async getClassStudents(courseId, classId, teacherId = '') {
+    const params = new URLSearchParams();
+    if (teacherId) params.append('teacherId', teacherId);
+    const query = params.toString();
+    return request(`${API_BASE_URL}/academic/courses/${encodePath(courseId)}/class-sections/${encodePath(classId)}/students${query ? `?${query}` : ''}`);
+  },
+
+  async getCourseMemories(courseId, classId = '') {
+    const params = new URLSearchParams();
+    if (classId) params.append('classId', classId);
+    const query = params.toString();
+    return request(`${API_BASE_URL}/tutor/courses/${encodePath(courseId)}/memories${query ? `?${query}` : ''}`);
+  },
 };

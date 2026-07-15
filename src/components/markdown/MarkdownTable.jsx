@@ -1,4 +1,4 @@
-import React, { memo } from 'react';
+import { memo } from 'react';
 import CopyButton from './CopyButton';
 import { getNodeText } from '../../utils/markdownPreprocessor';
 

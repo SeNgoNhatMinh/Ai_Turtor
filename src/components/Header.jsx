@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import { lazy, Suspense, useMemo, useState } from 'react';
 import {
   CloudRain,
   Droplet,
@@ -15,7 +15,8 @@ import {
   Wind,
 } from 'lucide-react';
 import { Switch } from 'antd';
-import ProfileModal from './common/ProfileModal';
+
+const ProfileModal = lazy(() => import('./common/ProfileModal'));
 
 const buildSeasonItems = (items) => Array.from({ length: 12 }, (_, index) => items[index % items.length]);
 
@@ -104,7 +105,7 @@ function Header({ activeRole, handleRoleChange, isDarkMode, setIsDarkMode, curre
                 className={`role-btn ${activeRole === 'teacher' ? 'active' : ''}`} 
                 onClick={() => handleRoleChange('teacher')}
               >
-                <Presentation /> Teacher / Mentor
+                <Presentation /> Teacher Workspace
               </button>
               <button 
                 className={`role-btn ${activeRole === 'admin' ? 'active' : ''}`} 
@@ -142,11 +143,15 @@ function Header({ activeRole, handleRoleChange, isDarkMode, setIsDarkMode, curre
         )}
       </div>
 
-      <ProfileModal 
-        isOpen={isProfileModalOpen} 
-        onClose={() => setIsProfileModalOpen(false)} 
-        userId={currentUser?.id || currentUser?.userId} 
-      />
+      {isProfileModalOpen && (
+        <Suspense fallback={null}>
+          <ProfileModal
+            isOpen
+            onClose={() => setIsProfileModalOpen(false)}
+            userId={currentUser?.id || currentUser?.userId}
+          />
+        </Suspense>
+      )}
     </header>
   );
 }

@@ -1,7 +1,9 @@
-import React, { Suspense, lazy, useState, useEffect } from 'react';
+import { Suspense, lazy, useState, useEffect } from 'react';
 import { Form, Tabs } from 'antd';
-import { apiService } from '../../services/api';
+import { adminAcademicApi } from '../../services/adminAcademicApi';
+import { adminUsersApi } from '../../services/adminUsersApi';
 import { getUserFacingError } from '../../services/apiClient';
+import { materialsApi } from '../../services/materialsApi';
 import { closeActiveConfirm, confirmAction } from '../../components/common/confirmDialog';
 import ClassSectionsTab from './academic/ClassSectionsTab';
 import CourseMaterialsTab from './academic/CourseMaterialsTab';
@@ -28,6 +30,7 @@ const { TabPane } = Tabs;
 function AdminAcademic({ triggerToast, currentUser }) {
   const [entityModal, setEntityModal] = useState({ open: false, type: '', mode: 'view', record: null });
   const [entitySaving, setEntitySaving] = useState(false);
+  const [mentorOptions, setMentorOptions] = useState([]);
 
   const [formSemester] = Form.useForm();
   const [formCourse] = Form.useForm();
@@ -71,7 +74,23 @@ function AdminAcademic({ triggerToast, currentUser }) {
   useEffect(() => {
     loadSemesters();
     loadCourses();
+    const loadMentorOptions = async () => {
+      try {
+        const mentors = await adminUsersApi.getMentors();
+        setMentorOptions(Array.isArray(mentors) ? mentors : []);
+      } catch {
+        try {
+          const mentors = await adminUsersApi.getAdminMentors();
+          setMentorOptions(Array.isArray(mentors) ? mentors.filter((mentor) => mentor.isActive !== false) : []);
+        } catch {
+          setMentorOptions([]);
+        }
+      }
+    };
+    loadMentorOptions();
     return () => closeActiveConfirm();
+    // Reference data is loaded once when the admin workspace mounts.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const {
@@ -136,6 +155,8 @@ function AdminAcademic({ triggerToast, currentUser }) {
         courseId: nextRecord.courseId || selectedCourseId,
         classId: getClassCode(nextRecord),
         teacherId: nextRecord.teacherId,
+        teacherName: nextRecord.teacherName || nextRecord.mentorName,
+        teacherEmail: nextRecord.teacherEmail || nextRecord.mentorEmail,
         status: nextRecord.status || 'ACTIVE',
       });
     }
@@ -171,7 +192,7 @@ function AdminAcademic({ triggerToast, currentUser }) {
     try {
       if (entityModal.type === 'semester') {
         const semesterCode = getSemesterCode(record);
-        await apiService.updateSemester(semesterCode, {
+        await adminAcademicApi.updateSemester(semesterCode, {
           ...record,
           semesterCode,
           name: values.name,
@@ -182,7 +203,7 @@ function AdminAcademic({ triggerToast, currentUser }) {
       }
       if (entityModal.type === 'course') {
         const courseId = getCourseCode(record);
-        await apiService.updateCourse(courseId, {
+        await adminAcademicApi.updateCourse(courseId, {
           ...record,
           courseId,
           courseName: values.courseName,
@@ -195,11 +216,13 @@ function AdminAcademic({ triggerToast, currentUser }) {
       if (entityModal.type === 'class') {
         const courseId = record.courseId || selectedCourseId || values.courseId;
         const classId = getClassCode(record);
-        await apiService.updateClassSection(courseId, classId, {
+        await adminAcademicApi.updateClassSection(courseId, classId, {
           ...record,
           courseId,
           classId,
           teacherId: values.teacherId,
+          teacherName: values.teacherName,
+          teacherEmail: values.teacherEmail,
           status: values.status,
         });
         triggerToast('Class section updated.');
@@ -207,7 +230,7 @@ function AdminAcademic({ triggerToast, currentUser }) {
       }
       if (entityModal.type === 'enrollment') {
         const enrollmentId = getEnrollmentId(record);
-        await apiService.updateEnrollment(enrollmentId, {
+        await adminAcademicApi.updateEnrollment(enrollmentId, {
           ...record,
           studentId: values.studentId,
           courseId: values.courseId,
@@ -220,7 +243,7 @@ function AdminAcademic({ triggerToast, currentUser }) {
       if (entityModal.type === 'material') {
         const materialId = getRecordId(record);
         const courseId = record.courseId || materialCourseId;
-        await apiService.updateMaterialMetadata(courseId, materialId, {
+        await materialsApi.updateMaterialMetadata(courseId, materialId, {
           ...record,
           title: values.title,
           category: values.category,
@@ -249,7 +272,7 @@ function AdminAcademic({ triggerToast, currentUser }) {
       anchorRect,
       onOk: async () => {
         try {
-          await apiService.completeCourse(courseId);
+          await adminAcademicApi.completeCourse(courseId);
           triggerToast('Course marked complete.');
           await loadCourses();
           if (selectedCourseId === courseId) {
@@ -276,7 +299,7 @@ function AdminAcademic({ triggerToast, currentUser }) {
       anchorRect,
       onOk: async () => {
         try {
-          await apiService.completeClassSection(courseId, classId);
+          await adminAcademicApi.completeClassSection(courseId, classId);
           triggerToast('Class section marked complete.');
           await loadClassSections(courseId);
         } catch (error) {
@@ -334,6 +357,7 @@ function AdminAcademic({ triggerToast, currentUser }) {
             classSections={classSections}
             selectedCourseId={selectedCourseId}
             academicLoading={academicLoading}
+            mentors={mentorOptions}
             onCreate={handleCreateClass}
             onCourseSelect={handleCourseSelect}
             onAction={handleAcademicAction}
@@ -407,6 +431,7 @@ function AdminAcademic({ triggerToast, currentUser }) {
         entityModal={entityModal}
         entitySaving={entitySaving}
         form={formEntity}
+        mentors={mentorOptions}
         onCancel={closeEntityModal}
         onSave={handleEntitySave}
       />
@@ -417,7 +442,7 @@ function AdminAcademic({ triggerToast, currentUser }) {
             onClose={() => setWebsiteImportOpen(false)}
             courseId={materialCourseId}
             currentUser={currentUser}
-            apiService={apiService}
+            materialApi={materialsApi}
             triggerToast={triggerToast}
             onUploaded={handleWebsiteMaterialImported}
             isAdmin={true}

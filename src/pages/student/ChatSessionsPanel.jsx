@@ -1,6 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Button, Card, Input, Skeleton, Typography } from 'antd';
-import { AnimatePresence, motion } from 'framer-motion';
 import { MessageSquare, Plus } from 'lucide-react';
 import ConversationSearch from './ConversationSearch';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
@@ -121,12 +120,7 @@ function ConversationItem({
   const isFull = Boolean(session.maxTurnsReached || questionCount >= CHAT_TURN_LIMIT);
 
   return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, y: 6 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -6 }}
-      transition={{ duration: 0.18 }}
+    <div
       className={`session-item ${isActive ? 'ant-list-item-selected' : ''}`}
       onClick={() => onSelect(session.id, session.title)}
     >
@@ -156,7 +150,7 @@ function ConversationItem({
         </div>
       </div>
       <ConversationMenu session={session} onAction={onMenuAction} />
-    </motion.div>
+    </div>
   );
 }
 
@@ -173,21 +167,19 @@ function ConversationGroup({
   return (
     <section className="conversation-group" aria-label={group.label}>
       <div className="conversation-group-title">{group.label}</div>
-      <AnimatePresence initial={false}>
-        {group.items.map((session) => (
-          <ConversationItem
-            key={session.id}
-            session={session}
-            isActive={activeSessionId === session.id}
-            isEditing={editingSessionId === session.id}
-            editingSessionTitle={editingSessionTitle}
-            setEditingSessionTitle={setEditingSessionTitle}
-            onSelect={onSelect}
-            onSaveRename={onSaveRename}
-            onMenuAction={onMenuAction}
-          />
-        ))}
-      </AnimatePresence>
+      {group.items.map((session) => (
+        <ConversationItem
+          key={session.id}
+          session={session}
+          isActive={activeSessionId === session.id}
+          isEditing={editingSessionId === session.id}
+          editingSessionTitle={editingSessionTitle}
+          setEditingSessionTitle={setEditingSessionTitle}
+          onSelect={onSelect}
+          onSaveRename={onSaveRename}
+          onMenuAction={onMenuAction}
+        />
+      ))}
     </section>
   );
 }
@@ -216,10 +208,6 @@ function ChatSessionsPanel({
     if (!query) return list;
     return list.filter((session) => String(session.title || '').toLowerCase().includes(query));
   }, [sessions, debouncedSearchText]);
-
-  useEffect(() => {
-    setVisibleCount(PAGE_SIZE);
-  }, [debouncedSearchText, sessions?.length]);
 
   const visibleSessions = filteredSessions.slice(0, visibleCount);
   const groupedSessions = useMemo(() => groupSessions(visibleSessions), [visibleSessions]);
@@ -278,7 +266,13 @@ function ChatSessionsPanel({
         </Button>
       </div>
 
-      <ConversationSearch value={searchText} onChange={setSearchText} />
+      <ConversationSearch
+        value={searchText}
+        onChange={(value) => {
+          setSearchText(value);
+          setVisibleCount(PAGE_SIZE);
+        }}
+      />
 
       <div className="conversation-list" onScroll={handleListScroll}>
         {isLoading ? (

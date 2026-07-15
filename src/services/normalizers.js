@@ -45,9 +45,10 @@ export const pairMessages = (messages) => {
   
   for (let i = 0; i < arr.length; i++) {
     const msg = arr[i];
-    if (msg.role === 'USER') {
+    const role = String(msg.role || '').toUpperCase();
+    if (role === 'USER' || role === 'STUDENT') {
       const nextMsg = arr[i + 1];
-      if (nextMsg && nextMsg.role === 'ASSISTANT') {
+      if (nextMsg && String(nextMsg.role || '').toUpperCase() === 'ASSISTANT') {
         paired.push({
           id: msg.id || msg.messageId || nextMsg.id || nextMsg.messageId,
           userMessageId: msg.id || msg.messageId,
@@ -55,7 +56,11 @@ export const pairMessages = (messages) => {
           question: msg.content || msg.question || msg.message || '',
           answer: nextMsg.content || nextMsg.answer || nextMsg.response || '',
           confidence: nextMsg.confidence,
+          mode: nextMsg.mode || nextMsg.answerMode || 'RAG',
           sources: nextMsg.sources || [],
+          nextImproveSuggestions: asArray(
+            nextMsg.nextImproveSuggestions || nextMsg.improveSuggestions || nextMsg.suggestions,
+          ),
           questionEscalationId: nextMsg.questionEscalationId || null,
           createdAt: msg.createdAt || nextMsg.createdAt
         });
@@ -68,13 +73,17 @@ export const pairMessages = (messages) => {
           createdAt: msg.createdAt
         });
       }
-    } else if (msg.role === 'ASSISTANT') {
+    } else if (role === 'ASSISTANT') {
       paired.push({
         id: msg.id || msg.messageId,
         question: '',
         answer: msg.content || msg.answer || msg.response || '',
         confidence: msg.confidence,
+        mode: msg.mode || msg.answerMode || 'RAG',
         sources: msg.sources || [],
+        nextImproveSuggestions: asArray(
+          msg.nextImproveSuggestions || msg.improveSuggestions || msg.suggestions,
+        ),
         questionEscalationId: msg.questionEscalationId || null,
         createdAt: msg.createdAt
       });
@@ -84,7 +93,11 @@ export const pairMessages = (messages) => {
         question: msg.question || msg.content || '',
         answer: msg.answer || '',
         confidence: msg.confidence,
+        mode: msg.mode || msg.answerMode || 'RAG',
         sources: msg.sources || [],
+        nextImproveSuggestions: asArray(
+          msg.nextImproveSuggestions || msg.improveSuggestions || msg.suggestions,
+        ),
         questionEscalationId: msg.questionEscalationId || null,
         createdAt: msg.createdAt
       });
@@ -96,9 +109,14 @@ export const pairMessages = (messages) => {
 export const normalizeEscalation = (escalation) => ({
   ...escalation,
   id: escalation.id || escalation.questionEscalationId,
-  questionPreview: escalation.questionPreview || escalation.question || escalation.title || 'Support request',
+  questionPreview: escalation.questionPreview || escalation.question || escalation.originalQuestion || escalation.title || 'Support request',
   createdAt: escalation.createdAt || escalation.updatedAt || new Date().toISOString(),
   status: escalation.status || 'PENDING',
+  originalQuestion: escalation.originalQuestion || escalation.question || escalation.questionPreview || '',
+  question: escalation.originalQuestion || escalation.question || escalation.questionPreview || '',
+  aiResponse: escalation.aiResponse || escalation.aiAnswer || escalation.answerSnapshot || '',
+  mentorAnswer: escalation.mentorAnswer || escalation.teacherAnswer || escalation.response || escalation.mentorResponse || '',
+  assignedMentorName: escalation.assignedMentorName || escalation.mentorName || escalation.teacherName || '',
 });
 
 export const normalizeTeacherInboxItem = (item) => ({
@@ -109,8 +127,8 @@ export const normalizeTeacherInboxItem = (item) => ({
   context: [item.courseId && `Course: ${item.courseId}`, item.classId && `Class: ${item.classId}`].filter(Boolean).join(' | ') || '—',
   time: item.waitingSince || item.waitingTime || item.createdAt || '',
   status: (item.status || 'PENDING').toLowerCase(),
-  question: item.question || item.questionPreview || '',
-  chatRoomId: item.chatRoomId,
+  originalQuestion: item.originalQuestion || item.question || item.questionPreview || '',
+  question: item.originalQuestion || item.question || item.questionPreview || '',
 });
 
 export const normalizeAnswerReview = (review) => ({
@@ -157,7 +175,7 @@ export const normalizeSuggestions = (data) => {
               : '')
         });
       });
-    } catch (e) {
+    } catch {
       // If it's not JSON, treat it as a single suggestion content
       list.push({
         priority: 'medium',
@@ -307,9 +325,20 @@ export const normalizeEnrollment = (enrollment) => ({
   studentName: enrollment.studentName || enrollment.studentFullName || 'Student',
 });
 
-export const normalizeCourseMaterial = (material) => ({
-  ...material,
-  id: material.id || material.materialId,
-  title: material.title || material.name || 'Untitled Material',
-  status: material.status || material.indexStatus || 'INDEXED',
-});
+export const normalizeCourseMaterial = (material = {}) => {
+  const title = material.title || material.name || 'Untitled Material';
+  const sourceFileName = material.sourceFileName
+    || material.fileName
+    || material.filename
+    || material.originalFileName
+    || '';
+
+  return {
+    ...material,
+    id: material.id || material.materialId,
+    title,
+    sourceFileName,
+    fileName: sourceFileName || title,
+    status: material.indexingStatus || material.status || material.indexStatus || 'INDEXED',
+  };
+};

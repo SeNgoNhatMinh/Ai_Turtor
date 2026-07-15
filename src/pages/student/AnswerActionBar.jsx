@@ -1,4 +1,3 @@
-import React from 'react';
 import { LifeBuoy, RotateCcw, Wand2 } from 'lucide-react';
 
 const trimText = (value, maxLength = 420) => {
@@ -36,10 +35,10 @@ const ACTIONS = [
     ),
   },
   {
-    label: 'Hỏi mentor',
+    label: 'Gửi mentor review',
     icon: LifeBuoy,
     type: 'mentor',
-    buildPrompt: (message) => `I need mentor support for this question:\n\n${message.question || ''}`,
+    buildPrompt: (message) => `I need mentor review for this question:\n\n${message.question || ''}`,
   },
 ];
 
@@ -69,15 +68,15 @@ function AnswerActionBar({ message, onAction }) {
         <button
           type="button"
           onClick={() => onAction({
-            label: 'Ask mentor',
-            prompt: `I need mentor support for this question:\n\n${retryPrompt}`,
+            label: 'Send for mentor review',
+            prompt: `I need mentor review for this question:\n\n${retryPrompt}`,
             type: 'mentor',
             message,
           })}
           disabled={!retryPrompt.trim()}
         >
           <LifeBuoy size={14} aria-hidden="true" />
-          <span>Ask mentor</span>
+          <span>Send for review</span>
         </button>
       </div>
     );
@@ -90,15 +89,15 @@ function AnswerActionBar({ message, onAction }) {
         <button
           type="button"
           onClick={() => onAction({
-            label: 'Ask mentor',
-            prompt: `I need mentor support for this question:\n\n${question}`,
+            label: 'Send for mentor review',
+            prompt: `I need mentor review for this question:\n\n${question}`,
             type: 'mentor',
             message,
           })}
           disabled={!question.trim()}
         >
           <LifeBuoy size={14} aria-hidden="true" />
-          <span>Ask mentor</span>
+          <span>Send for review</span>
         </button>
       </div>
     );

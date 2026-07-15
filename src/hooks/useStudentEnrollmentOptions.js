@@ -1,72 +1,143 @@
 import { useCallback, useMemo, useState } from 'react';
-import { apiService } from '../services/api';
+import { adminAcademicApi } from '../services/adminAcademicApi';
 import { asArray } from '../services/normalizers';
+import { classIdMatches, getClassAliases, getClassCodeValue } from '../utils/academicIds';
 
 const normalizeCourseCode = (value) => String(value || '').trim().toUpperCase();
+const normalizeLookupId = (value) => String(value || '').trim();
+
+const getEnrollmentStudentId = (item) => (
+  item?.studentId
+  || item?.userId
+  || item?.student?.studentId
+  || item?.student?.id
+  || ''
+);
+
+const getEnrollmentCourseId = (item) => item?.courseId || item?.courseCode || item?.course?.courseId || item?.course?.id || '';
+const getEnrollmentClassId = (item) => getClassCodeValue(item);
+
+const expandEnrollmentItems = (data) => {
+  const rawItems = asArray(data, 'enrollments', 'content', 'courses', 'students');
+  return rawItems.flatMap((item) => {
+    const nestedClasses = asArray(item?.classSections || item?.classes || item?.sections);
+    if (!nestedClasses.length) return item;
+    return nestedClasses.map((classSection) => ({
+      ...item,
+      ...classSection,
+      courseId: classSection.courseId || item.courseId || item.courseCode,
+      courseName: item.courseName || item.courseTitle || classSection.courseName,
+      classSection,
+    }));
+  });
+};
 
 const findAliasEnrollment = (items, requestedCourseId) => {
   const requested = normalizeCourseCode(requestedCourseId);
   if (!requested) return null;
-  const candidates = items.filter((item) => item.courseId && item.classId);
+  const candidates = items.filter((item) => getEnrollmentCourseId(item) && getEnrollmentClassId(item));
   return candidates.find((item) => {
-    const canonical = normalizeCourseCode(item.courseId);
+    const canonical = normalizeCourseCode(getEnrollmentCourseId(item));
     return canonical !== requested && canonical.startsWith(requested);
   }) || null;
 };
 
 export function useStudentEnrollmentOptions({
   studentId,
+  lookupIds = [],
   courseId,
   classId,
   setCourseId,
   setClassId,
 }) {
   const [studentEnrollments, setStudentEnrollments] = useState([]);
+  const [resolvedStudentId, setResolvedStudentId] = useState('');
+  const [isStudentEnrollmentsLoading, setIsStudentEnrollmentsLoading] = useState(false);
+  const [hasLoadedStudentEnrollments, setHasLoadedStudentEnrollments] = useState(false);
 
   const loadStudentEnrollments = useCallback(async () => {
-    if (!studentId) {
+    const baseCandidates = [studentId, ...lookupIds].map(normalizeLookupId).filter(Boolean);
+    const quotedCandidates = baseCandidates
+      .filter((item) => !item.startsWith('"') && !item.endsWith('"'))
+      .map((item) => `"${item}"`);
+    const candidates = [...new Set([...baseCandidates, ...quotedCandidates])];
+    if (candidates.length === 0) {
       setStudentEnrollments([]);
+      setResolvedStudentId('');
+      setHasLoadedStudentEnrollments(true);
       return;
     }
 
+    setIsStudentEnrollmentsLoading(true);
     try {
-      const data = await apiService.getStudentEnrollments(studentId);
-      const items = asArray(data, 'enrollments', 'content', 'courses');
+      let items = [];
+      let matchedStudentId = '';
+      for (const candidateId of candidates) {
+        try {
+          const data = await adminAcademicApi.getStudentEnrollments(candidateId);
+          items = expandEnrollmentItems(data);
+          if (items.length > 0) {
+            matchedStudentId = candidateId;
+            break;
+          }
+        } catch (error) {
+          if (candidateId === candidates[candidates.length - 1]) throw error;
+        }
+      }
       setStudentEnrollments(items);
+      setResolvedStudentId(matchedStudentId || getEnrollmentStudentId(items[0]) || studentId || '');
+      setHasLoadedStudentEnrollments(true);
 
-      const hasCurrentSelection = items.some(
-        (item) => item.courseId === courseId && item.classId === classId
+      const validEnrollments = items.filter((item) => getEnrollmentCourseId(item) && getEnrollmentClassId(item));
+      if (validEnrollments.length === 0) {
+        setCourseId('');
+        setClassId('');
+        return;
+      }
+
+      const currentEnrollment = validEnrollments.find(
+        (item) => getEnrollmentCourseId(item) === courseId && classIdMatches(getEnrollmentClassId(item), classId)
       );
-      if (hasCurrentSelection) return;
+      if (currentEnrollment) {
+        const canonicalClassId = getEnrollmentClassId(currentEnrollment);
+        if (canonicalClassId && canonicalClassId !== classId) {
+          setClassId(canonicalClassId);
+        }
+        return;
+      }
 
-      const sameCourseEnrollment = items.find((item) => item.courseId === courseId && item.classId);
+      const sameCourseEnrollment = validEnrollments.find((item) => getEnrollmentCourseId(item) === courseId);
       if (sameCourseEnrollment) {
-        setClassId(sameCourseEnrollment.classId);
+        setClassId(getEnrollmentClassId(sameCourseEnrollment));
         return;
       }
 
-      const aliasCourseEnrollment = findAliasEnrollment(items, courseId);
+      const aliasCourseEnrollment = findAliasEnrollment(validEnrollments, courseId);
       if (aliasCourseEnrollment) {
-        setCourseId(aliasCourseEnrollment.courseId);
-        setClassId(aliasCourseEnrollment.classId);
+        setCourseId(getEnrollmentCourseId(aliasCourseEnrollment));
+        setClassId(getEnrollmentClassId(aliasCourseEnrollment));
         return;
       }
 
-      const firstEnrollment = items.find((item) => item.courseId && item.classId);
+      const firstEnrollment = validEnrollments[0];
       if (firstEnrollment) {
-        setCourseId(firstEnrollment.courseId);
-        setClassId(firstEnrollment.classId);
+        setCourseId(getEnrollmentCourseId(firstEnrollment));
+        setClassId(getEnrollmentClassId(firstEnrollment));
       }
     } catch (error) {
       console.warn('Failed to load student enrollments:', error);
       setStudentEnrollments([]);
+      setResolvedStudentId('');
+      setHasLoadedStudentEnrollments(true);
+    } finally {
+      setIsStudentEnrollmentsLoading(false);
     }
-  }, [classId, courseId, setClassId, setCourseId, studentId]);
+  }, [classId, courseId, lookupIds, setClassId, setCourseId, studentId]);
 
   const courseOptions = useMemo(() => {
     const byCourse = new Map();
     studentEnrollments.forEach((item) => {
-      const nextCourseId = item.courseId || item.courseCode || item.id;
+      const nextCourseId = getEnrollmentCourseId(item);
       if (!nextCourseId || byCourse.has(nextCourseId)) return;
       byCourse.set(nextCourseId, {
         value: nextCourseId,
@@ -78,12 +149,13 @@ export function useStudentEnrollmentOptions({
 
   const classOptions = useMemo(() => (
     studentEnrollments
-      .filter((item) => !courseId || item.courseId === courseId)
+      .filter((item) => !courseId || getEnrollmentCourseId(item) === courseId)
       .map((item) => {
-        const nextClassId = item.classId || item.classCode || item.id;
+        const nextClassId = getEnrollmentClassId(item);
         return {
           value: nextClassId,
           label: item.className ? `${nextClassId} - ${item.className}` : `Class ${nextClassId}`,
+          aliases: getClassAliases(item),
           status: item.status,
         };
       })
@@ -94,6 +166,10 @@ export function useStudentEnrollmentOptions({
     studentEnrollments,
     courseOptions,
     classOptions,
+    resolvedStudentId,
+    isStudentEnrollmentsLoading,
+    hasLoadedStudentEnrollments,
+    hasStudentEnrollments: courseOptions.length > 0 && classOptions.length > 0,
     loadStudentEnrollments,
   };
 }

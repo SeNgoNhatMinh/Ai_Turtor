@@ -1,13 +1,16 @@
-import React from 'react';
 import { Tag } from 'antd';
 
 const statusMap = {
   PENDING: { color: 'orange', label: 'Pending' },
-  PENDING_OFFER: { color: 'orange', label: 'Waiting for mentor' },
-  OFFERED: { color: 'blue', label: 'Mentor offered' },
-  ASSIGNED: { color: 'green', label: 'Assigned' },
-  IN_CHAT: { color: 'green', label: 'Live chat' },
-  MENTOR_MATCHING: { color: 'blue', label: 'Choose mentor' },
+  PENDING_OFFER: { color: 'orange', label: 'Waiting for teacher matching' },
+  OFFERED: { color: 'blue', label: 'Teacher options ready' },
+  ASSIGNED: { color: 'green', label: 'Teacher selected' },
+  MENTOR_SELECTED: { color: 'green', label: 'Teacher selected' },
+  CHAT_ACTIVE: { color: 'green', label: 'Live support chat' },
+  IN_CHAT: { color: 'green', label: 'Live support chat' },
+  MENTOR_MATCHING: { color: 'blue', label: 'Finding a teacher' },
+  ANSWERED_NO_KNOWLEDGE_CANDIDATE: { color: 'green', label: 'Answered' },
+  ANSWERED_PENDING_SENIOR_REVIEW: { color: 'purple', label: 'Answered - senior review' },
   COMPLETED: { color: 'default', label: 'Completed' },
   CANCELLED: { color: 'default', label: 'Cancelled' },
   CLOSED: { color: 'default', label: 'Closed' },

@@ -1,5 +1,6 @@
 import { Alert, Button, Card, Col, Form, Input, Row, Select, Space, Table, Upload } from 'antd';
 import { DownloadOutlined, UploadOutlined } from '@ant-design/icons';
+import { getClassCode } from './adminAcademicUtils';
 
 const { Option } = Select;
 const { Dragger } = Upload;
@@ -52,11 +53,15 @@ function StudentImportTab({
                 disabled={!studentImportCourseId}
                 onChange={onClassChange}
               >
-                {studentImportClasses.map((classSection) => (
-                  <Option key={classSection.classId || classSection.id} value={classSection.classId}>
-                    {classSection.classId}{classSection.teacherId ? ` - ${classSection.teacherId}` : ''}
+                {studentImportClasses.map((classSection) => {
+                  const classCode = getClassCode(classSection);
+                  const teacherLabel = classSection.teacherName || classSection.mentorName || classSection.teacherEmail || classSection.teacherId;
+                  return (
+                  <Option key={classCode} value={classCode}>
+                    {classCode}{teacherLabel ? ` - ${teacherLabel}` : ''}
                   </Option>
-                ))}
+                  );
+                })}
               </Select>
             </Form.Item>
             <Row gutter={12}>

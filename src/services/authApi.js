@@ -1,4 +1,5 @@
 import { API_BASE_URL, request } from './apiClient';
+import { setAuthToken } from '../features/auth/tokenStorage';
 
 export const authApi = {
   async login(email, password) {
@@ -8,7 +9,7 @@ export const authApi = {
       body: JSON.stringify({ email, password })
     });
     if (res && res.token) {
-      window.localStorage.setItem('ai_tutor_jwt', res.token);
+      setAuthToken(res.token);
     }
     return res;
   },
@@ -20,7 +21,7 @@ export const authApi = {
       body: JSON.stringify(userData)
     });
     if (res && res.token) {
-      window.localStorage.setItem('ai_tutor_jwt', res.token);
+      setAuthToken(res.token);
     }
     return res;
   },

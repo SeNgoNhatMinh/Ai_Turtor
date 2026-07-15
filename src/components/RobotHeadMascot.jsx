@@ -1,5 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
-import { motion, useReducedMotion } from "framer-motion";
+import { useEffect, useRef, useState } from "react";
 import "./RobotHeadMascot.css";
 
 const RESET_POSE = {
@@ -24,14 +23,45 @@ export default function RobotHeadMascot({
   className = "",
 }) {
   const headRef = useRef(null);
-  const shouldReduceMotion = useReducedMotion();
-  const [pose, setPose] = useState(RESET_POSE);
+  const rafRef = useRef(0);
+  const nextPoseRef = useRef(RESET_POSE);
+  const [shouldReduceMotion, setShouldReduceMotion] = useState(false);
+
+  const applyPose = (nextPose) => {
+    const node = headRef.current;
+    if (!node) return;
+    node.style.setProperty("--robot-head-rotate-x", `${nextPose.rotateX}deg`);
+    node.style.setProperty("--robot-head-rotate-y", `${nextPose.rotateY}deg`);
+    node.style.setProperty("--robot-head-x", `${nextPose.translateX}px`);
+    node.style.setProperty("--robot-head-y", `${nextPose.translateY}px`);
+    node.style.setProperty("--robot-face-x", `${nextPose.faceX}px`);
+    node.style.setProperty("--robot-face-y", `${nextPose.faceY}px`);
+  };
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia?.("(prefers-reduced-motion: reduce)");
+    if (!mediaQuery) return undefined;
+
+    const handleChange = () => setShouldReduceMotion(mediaQuery.matches);
+    handleChange();
+    mediaQuery.addEventListener?.("change", handleChange);
+    return () => mediaQuery.removeEventListener?.("change", handleChange);
+  }, []);
 
   useEffect(() => {
     if (!followMouse || shouldReduceMotion) return undefined;
 
     const pointerIsCoarse = window.matchMedia?.("(pointer: coarse)")?.matches;
     if (pointerIsCoarse) return undefined;
+
+    const schedulePose = (nextPose) => {
+      nextPoseRef.current = nextPose;
+      if (rafRef.current) return;
+      rafRef.current = window.requestAnimationFrame(() => {
+        rafRef.current = 0;
+        applyPose(nextPoseRef.current);
+      });
+    };
 
     const handleMouseMove = (event) => {
       if (!headRef.current) return;
@@ -43,7 +73,7 @@ export default function RobotHeadMascot({
       const normalizedX = clamp((event.clientX - centerX) / (window.innerWidth / 2), -1, 1);
       const normalizedY = clamp((event.clientY - centerY) / (window.innerHeight / 2), -1, 1);
 
-      setPose({
+      schedulePose({
         rotateX: clamp(-normalizedY * 11, -11, 11),
         rotateY: clamp(normalizedX * 17, -17, 17),
         translateX: clamp(normalizedX * 7, -7, 7),
@@ -53,7 +83,7 @@ export default function RobotHeadMascot({
       });
     };
 
-    const handleMouseLeave = () => setPose(RESET_POSE);
+    const handleMouseLeave = () => schedulePose(RESET_POSE);
 
     window.addEventListener("mousemove", handleMouseMove);
     window.addEventListener("mouseleave", handleMouseLeave);
@@ -61,39 +91,26 @@ export default function RobotHeadMascot({
     return () => {
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseleave", handleMouseLeave);
+      if (rafRef.current) {
+        window.cancelAnimationFrame(rafRef.current);
+        rafRef.current = 0;
+      }
     };
   }, [followMouse, shouldReduceMotion]);
 
-  const idleAnimation = shouldReduceMotion
-    ? {}
-    : {
-        y: compact ? [0, -1.5, 0] : [0, -5, 0],
-        rotate: compact ? [0, 0.6, 0] : [0, 1.2, 0],
-      };
-
   return (
-    <motion.div
+    <div
       ref={headRef}
-      className={`robot-head-mascot ${compact ? "robot-head-mascot--compact" : ""} ${talking ? "robot-head-mascot--talking" : ""} ${className}`}
+      className={`robot-head-mascot ${compact ? "robot-head-mascot--compact" : ""} ${!shouldReduceMotion ? "robot-head-mascot--idle" : ""} ${talking ? "robot-head-mascot--talking" : ""} ${className}`}
       style={{
         width: size,
         height: size * 0.82,
-        "--robot-head-rotate-x": `${pose.rotateX}deg`,
-        "--robot-head-rotate-y": `${pose.rotateY}deg`,
-        "--robot-head-x": `${pose.translateX}px`,
-        "--robot-head-y": `${pose.translateY}px`,
-        "--robot-face-x": `${pose.faceX}px`,
-        "--robot-face-y": `${pose.faceY}px`,
-      }}
-      initial={shouldReduceMotion ? false : { opacity: 0, y: 8, scale: 0.94 }}
-      animate={{ opacity: 1, scale: 1, ...idleAnimation }}
-      whileHover={shouldReduceMotion ? undefined : { scale: compact ? 1.04 : 1.035 }}
-      whileTap={shouldReduceMotion ? undefined : { scale: 0.98 }}
-      transition={{
-        opacity: { duration: 0.22 },
-        scale: { duration: 0.22 },
-        y: { duration: compact ? 3.2 : 3.8, repeat: Infinity, ease: "easeInOut" },
-        rotate: { duration: compact ? 3.2 : 3.8, repeat: Infinity, ease: "easeInOut" },
+        "--robot-head-rotate-x": "0deg",
+        "--robot-head-rotate-y": "0deg",
+        "--robot-head-x": "0px",
+        "--robot-head-y": "0px",
+        "--robot-face-x": "0px",
+        "--robot-face-y": "0px",
       }}
       aria-hidden={ariaLabel ? undefined : "true"}
       aria-label={ariaLabel}
@@ -112,6 +129,6 @@ export default function RobotHeadMascot({
           </div>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 }

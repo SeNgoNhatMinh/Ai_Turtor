@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { apiService } from '../services/api';
+import { assignmentApi } from '../services/assignmentApi';
 import { getUserFacingError } from '../services/apiClient';
 import { asArray } from '../services/normalizers';
 
@@ -12,7 +12,7 @@ export function useStudentAssignmentsController({
 
   const loadStudentAssignments = async () => {
     try {
-      const data = await apiService.getStudentAssignments(studentId);
+      const data = await assignmentApi.getStudentAssignments(studentId);
       const assignList = asArray(data, 'content', 'assignments');
       setAssignments(assignList);
       setSelectedAssignment((current) => current || assignList[0] || null);
@@ -30,7 +30,7 @@ export function useStudentAssignmentsController({
     formData.append('note', note);
 
     try {
-      await apiService.submitAssignment(assignmentId, formData, studentId);
+      await assignmentApi.submitAssignment(assignmentId, formData, studentId);
       triggerToast('Assignment submitted successfully.');
       loadStudentAssignments();
     } catch (error) {
@@ -42,7 +42,7 @@ export function useStudentAssignmentsController({
   const handleDownloadAssignment = async (assignmentId) => {
     triggerToast('Downloading assignment file...');
     try {
-      const blob = await apiService.downloadAssignmentFile(assignmentId);
+      const blob = await assignmentApi.downloadAssignmentFile(assignmentId);
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;

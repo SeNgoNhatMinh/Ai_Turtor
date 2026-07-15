@@ -1,4 +1,3 @@
-import React from 'react';
 import { BookOpen, Code2, GraduationCap, MessagesSquare } from 'lucide-react';
 
 const PROMPTS = [

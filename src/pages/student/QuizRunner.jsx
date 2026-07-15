@@ -1,10 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import Lottie from "lottie-react";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
 
 // Utilities
@@ -48,7 +47,6 @@ const getQuestionChoices = (question) => {
 export default function QuizRunner({ quiz, onSubmit, submitting = false }) {
   const [answers, setAnswers] = useState({});
   const [showSuccess, setShowSuccess] = useState(false);
-  const [lottieData, setLottieData] = useState(null);
   
   const questions = getQuestions(quiz);
   const quizSessionId = getSessionId(quiz);
@@ -120,12 +118,8 @@ export default function QuizRunner({ quiz, onSubmit, submitting = false }) {
 
       {showSuccess ? (
         <Card className="flex flex-col items-center justify-center p-12 min-h-[400px] border-primary/20 bg-primary/5">
-          <div className="w-72 h-72">
-            {lottieData ? (
-              <Lottie animationData={lottieData} loop={false} />
-            ) : (
-              <CheckCircle2 className="w-32 h-32 text-primary animate-bounce mx-auto" />
-            )}
+          <div className="w-72 h-72 flex items-center justify-center">
+            <CheckCircle2 className="w-32 h-32 text-primary animate-bounce mx-auto" />
           </div>
           <h3 className="text-2xl font-bold mt-6 text-primary animate-pulse">Submitting your quiz...</h3>
           <p className="text-muted-foreground mt-2">Great job completing the practice!</p>

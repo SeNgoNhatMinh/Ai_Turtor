@@ -1,4 +1,4 @@
-import React, { memo, useEffect, useMemo, useRef } from 'react';
+import { lazy, memo, Suspense, useEffect, useMemo, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
@@ -8,7 +8,6 @@ import 'katex/dist/katex.min.css';
 import { getNodeText, normalizeAiMarkdown, stripSourceSection } from '../../utils/markdownPreprocessor';
 import { sanitizeLinkUrl } from '../../utils/markdownSecurity';
 import { formatSourceItems, isMaterialSourceText } from '../../utils/sourceLabels';
-import CodeBlock from './CodeBlock';
 import CopyButton from './CopyButton';
 import MarkdownErrorBoundary from './MarkdownErrorBoundary';
 import MarkdownImage from './MarkdownImage';
@@ -19,6 +18,7 @@ const rehypeKatexOptions = {
   strict: 'ignore',
   output: 'htmlAndMathml',
 };
+const CodeBlock = lazy(() => import('./CodeBlock'));
 
 function HeadingRenderer({ Tag, children, ...props }) {
   return (
@@ -86,7 +86,11 @@ function CodeRenderer({ inline, className = '', children, ...props }) {
     );
   }
 
-  return <CodeBlock className={className}>{code}</CodeBlock>;
+  return (
+    <Suspense fallback={<pre className="ai-answer-code-loading"><code>{code}</code></pre>}>
+      <CodeBlock className={className}>{code}</CodeBlock>
+    </Suspense>
+  );
 }
 
 function LinkRenderer({ href, children, onStudyTipAnalyze, ...props }) {

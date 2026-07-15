@@ -1,12 +1,12 @@
 import React from 'react';
 import { Row, Col, Card, Statistic, Space, Alert, Button, Typography, Tag, Tabs, Table, Input } from 'antd';
 import {
-  BarChart3, Users, GraduationCap, Zap, AlertTriangle, RefreshCw, Server, FileText
+  BarChart3, Users, GraduationCap, Library, AlertTriangle, RefreshCw, Server, FileText
 } from 'lucide-react';
-import { apiService } from '../../services/api';
+import { diagnosticsApi } from '../../services/diagnosticsApi';
 import { env } from '../../config/env';
 
-const { Text, Title } = Typography;
+const { Text } = Typography;
 const { TabPane } = Tabs;
 
 function AdminDashboard({ adminStats = {}, diagnosticsOutput, isDiagnosticsRunning, runDiagnostics }) {
@@ -18,9 +18,9 @@ function AdminDashboard({ adminStats = {}, diagnosticsOutput, isDiagnosticsRunni
   const loadLogs = async () => {
     setLogsLoading(true);
     try {
-      const data = await apiService.getHarnessLogs({ limit: 50 });
+      const data = await diagnosticsApi.getHarnessLogs({ limit: 50 });
       setLogs(Array.isArray(data) ? data : data?.content || data?.logs || []);
-    } catch (e) {
+    } catch {
       // Backend might not have this endpoint yet, ignore quietly
       setLogs([{ id: '1', level: 'INFO', message: 'Log service unavailable or endpoint missing.' }]);
     } finally {
@@ -32,7 +32,7 @@ function AdminDashboard({ adminStats = {}, diagnosticsOutput, isDiagnosticsRunni
     if (!traceId) return;
     setLogsLoading(true);
     try {
-      const data = await apiService.getTraceLogs(traceId);
+      const data = await diagnosticsApi.getTraceLogs(traceId);
       setTraceOutput(data);
     } catch (e) {
       console.error(e);
@@ -42,10 +42,13 @@ function AdminDashboard({ adminStats = {}, diagnosticsOutput, isDiagnosticsRunni
   };
 
   React.useEffect(() => {
-    loadLogs();
+    const loadTimer = window.setTimeout(loadLogs, 0);
+    return () => window.clearTimeout(loadTimer);
   }, []);
 
-  const harnessLabel = env.n8nEnabled ? 'n8n harness enabled' : 'Backend direct';
+  const harnessLabel = env.n8nEnabled
+    ? env.n8nStrict ? 'Full n8n strict' : 'n8n harness enabled'
+    : 'Backend direct';
   const harnessColor = env.n8nEnabled ? 'processing' : 'default';
 
   return (
@@ -74,10 +77,10 @@ function AdminDashboard({ adminStats = {}, diagnosticsOutput, isDiagnosticsRunni
         <Col xs={12} lg={6}>
           <Card hoverable className="glass-card" style={{ borderLeft: '3px solid #F37021' }}>
             <Statistic
-              title={<Text type="secondary">Subscriptions</Text>}
-              value={adminStats.subscriptions ?? 0}
+              title={<Text type="secondary">Courses</Text>}
+              value={adminStats.courses ?? adminStats.totalCourses ?? 0}
               valueStyle={{ color: '#F37021', fontWeight: 700 }}
-              prefix={<Zap size={20} />}
+              prefix={<Library size={20} />}
             />
           </Card>
         </Col>

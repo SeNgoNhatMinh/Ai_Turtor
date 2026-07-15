@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Button,
@@ -23,7 +23,8 @@ import {
   ReloadOutlined,
   TrophyOutlined,
 } from '@ant-design/icons';
-import { apiService } from '../../services/api';
+import { quizApi } from '../../services/quizApi';
+import { quizGateway } from '../../features/ai-harness/quizGateway';
 import { getUserFacingError } from '../../services/apiClient';
 import QuizRunner from './QuizRunner';
 import QuizResult from './QuizResult';
@@ -36,6 +37,7 @@ const getQuizId = (quiz) => quiz?.quizSessionId || quiz?.sessionId || quiz?.id;
 const getAssignmentId = (assignment) => assignment?.assignmentId || assignment?.id;
 
 const normalizeStatus = (status) => String(status || '').toUpperCase();
+const ensureArray = (value) => (Array.isArray(value) ? value : []);
 
 const statusColor = (status) => {
   const normalized = normalizeStatus(status);
@@ -118,9 +120,13 @@ function PracticeQuizzes({
 
   useEffect(() => {
     if (initialSuggestion) {
-      setTopic(initialSuggestion);
-      setActiveTab('generate');
+      const suggestionTimer = window.setTimeout(() => {
+        setTopic(initialSuggestion);
+        setActiveTab('generate');
+      }, 0);
+      return () => window.clearTimeout(suggestionTimer);
     }
+    return undefined;
   }, [initialSuggestion]);
 
   const suggestionOptions = useMemo(() => {
@@ -128,9 +134,12 @@ function PracticeQuizzes({
     return unique.map((value) => ({ value, label: value.length > 92 ? `${value.slice(0, 92)}...` : value }));
   }, [suggestions]);
 
+  const safeHistory = useMemo(() => ensureArray(history), [history]);
+  const safeAssigned = useMemo(() => ensureArray(assigned), [assigned]);
+
   const sortedHistory = useMemo(() => (
-    [...history].sort((a, b) => new Date(b.updatedAt || b.submittedAt || b.createdAt || 0) - new Date(a.updatedAt || a.submittedAt || a.createdAt || 0))
-  ), [history]);
+    [...safeHistory].sort((a, b) => new Date(b.updatedAt || b.submittedAt || b.createdAt || 0) - new Date(a.updatedAt || a.submittedAt || a.createdAt || 0))
+  ), [safeHistory]);
 
   const quizStats = useMemo(() => {
     const inProgress = sortedHistory.filter((item) => normalizeStatus(item.status) === 'GENERATED').length;
@@ -138,15 +147,15 @@ function PracticeQuizzes({
     const reviewed = sortedHistory.filter((item) => normalizeStatus(item.teacherReviewStatus || item.reviewStatus).includes('REVIEWED')).length;
     const latest = sortedHistory[0]?.updatedAt || sortedHistory[0]?.submittedAt || sortedHistory[0]?.createdAt;
     return {
-      assigned: assigned.length,
+      assigned: safeAssigned.length,
       inProgress,
       submitted,
       reviewed,
       latest,
     };
-  }, [assigned.length, sortedHistory]);
+  }, [safeAssigned.length, sortedHistory]);
 
-  const loadQuizzes = async () => {
+  const loadQuizzes = useCallback(async () => {
     if (!hasContext) {
       setHistory([]);
       setAssigned([]);
@@ -156,21 +165,22 @@ function PracticeQuizzes({
     setError('');
     try {
       const [historyData, assignedData] = await Promise.all([
-        apiService.getStudentQuizHistory(studentId, courseId),
-        apiService.getAssignedQuizzes(studentId, courseId, classId),
+        quizApi.getStudentQuizHistory(studentId, courseId),
+        quizApi.getAssignedQuizzes(studentId, courseId, classId),
       ]);
-      setHistory(historyData);
-      setAssigned(assignedData);
+      setHistory(ensureArray(historyData));
+      setAssigned(ensureArray(assignedData));
     } catch (err) {
       setError(getUserFacingError(err, 'Unable to load quizzes.'));
     } finally {
       setLoadingKey('');
     }
-  };
+  }, [classId, courseId, hasContext, studentId]);
 
   useEffect(() => {
-    loadQuizzes();
-  }, [studentId, courseId, classId]);
+    const loadTimer = window.setTimeout(loadQuizzes, 0);
+    return () => window.clearTimeout(loadTimer);
+  }, [loadQuizzes]);
 
   const generateQuiz = async (overrideTopic = '') => {
     const selectedTopic = String(overrideTopic || topic || '').trim();
@@ -187,11 +197,15 @@ function PracticeQuizzes({
     setError('');
     setLastResult(null);
     try {
-      const quiz = await apiService.generateSelfQuiz(studentId, courseId, {
+      const quiz = await quizGateway.generateStudentQuiz({
+        studentId,
+        courseId,
         classId,
-        topic: selectedTopic,
-        suggestionText: selectedTopic,
-        questionCount,
+        payload: {
+          topic: selectedTopic,
+          suggestionText: selectedTopic,
+          questionCount,
+        },
       });
       setTopic(selectedTopic);
       setActiveQuiz(quiz);
@@ -211,7 +225,7 @@ function PracticeQuizzes({
     setError('');
     setLastResult(null);
     try {
-      const quiz = await apiService.startQuizAssignmentAttempt(assignmentId, studentId);
+      const quiz = await quizApi.startQuizAssignmentAttempt(assignmentId, studentId);
       setActiveQuiz(quiz);
       setActiveTab('active');
     } catch (err) {
@@ -225,7 +239,13 @@ function PracticeQuizzes({
     setSubmitting(true);
     setError('');
     try {
-      const result = await apiService.submitQuiz(quizSessionId, payload);
+      const result = await quizGateway.submitStudentQuiz({
+        quizSessionId,
+        studentId,
+        courseId,
+        classId,
+        payload,
+      });
       setLastResult(result);
       setActiveQuiz(null);
       setActiveTab('result');
@@ -244,7 +264,7 @@ function PracticeQuizzes({
     setLoadingKey(`quiz:${quizId}`);
     setError('');
     try {
-      const quiz = await apiService.getQuiz(quizId);
+      const quiz = await quizApi.getQuiz(quizId);
       if (normalizeStatus(status) === 'GENERATED' || normalizeStatus(quiz.status) === 'GENERATED') {
         setActiveQuiz(quiz);
         setLastResult(null);
@@ -383,9 +403,9 @@ function PracticeQuizzes({
       title="Assigned Quizzes"
       extra={<Button size="small" icon={<ReloadOutlined />} onClick={loadQuizzes} loading={loadingKey === 'refresh'} disabled={!hasContext}>Refresh quizzes</Button>}
     >
-      {assigned.length ? (
+      {safeAssigned.length ? (
         <div className="quiz-item-list">
-          {assigned.map((item) => {
+          {safeAssigned.map((item) => {
             const assignmentId = getAssignmentId(item);
             return renderQuizItem(
               item,
@@ -530,7 +550,7 @@ function PracticeQuizzes({
         items={[
           { key: 'generate', label: 'Generate', children: generatePanel },
           { key: 'active', label: activeQuiz ? 'Active Quiz' : 'Active', children: activeQuiz ? <QuizRunner quiz={activeQuiz} onSubmit={submitQuiz} submitting={submitting} /> : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No active quiz. Generate or continue a quiz to start." /> },
-          { key: 'assigned', label: `Assigned${assigned.length ? ` (${assigned.length})` : ''}`, children: assignedPanel },
+          { key: 'assigned', label: `Assigned${safeAssigned.length ? ` (${safeAssigned.length})` : ''}`, children: assignedPanel },
           { key: 'history', label: `History${sortedHistory.length ? ` (${sortedHistory.length})` : ''}`, children: historyPanel },
           {
             key: 'result',

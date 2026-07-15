@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { message } from 'antd';
 import { confirmAction } from '../../../components/common/confirmDialog';
-import { apiService } from '../../../services/api';
+import { materialsApi } from '../../../services/materialsApi';
+import { supportChatApi } from '../../../services/supportChatApi';
 import { getUserFacingError } from '../../../services/apiClient';
+import { classIdMatches } from '../../../utils/academicIds';
 import { validateChatInput } from '../../../utils/validators';
 
 export function useStudentChatTabController({
@@ -54,8 +56,12 @@ export function useStudentChatTabController({
     setCourseId(nextCourseId);
   };
 
-  const handleCourseChange = (nextCourseId) => {
+  const handleCourseChange = (nextCourseId, options = {}) => {
     if (!nextCourseId || nextCourseId === courseId) return;
+    if (options.confirmed) {
+      applyCourseChange(nextCourseId);
+      return;
+    }
     const hasActiveChat = Boolean(activeSessionId) || (Array.isArray(messages) && messages.length > 0);
     if (!hasActiveChat) {
       applyCourseChange(nextCourseId);
@@ -86,16 +92,20 @@ export function useStudentChatTabController({
     }
 
     const hasCourseOptions = Array.isArray(courseOptions) && courseOptions.length > 0;
-    const hasValidCourse = !hasCourseOptions || courseOptions.some((item) => item?.value === courseId);
+    const hasValidCourse = hasCourseOptions && courseOptions.some((item) => item?.value === courseId);
     if (!hasValidCourse) {
-      triggerToast?.('Please choose a valid enrolled course before asking AI Tutor.');
+      triggerToast?.('Your account is not enrolled in any course yet. Please contact Admin or your teacher.');
       return;
     }
 
     const hasClassOptions = Array.isArray(classOptions) && classOptions.length > 0;
-    const hasValidClass = !hasClassOptions || classOptions.some((item) => item?.value === classId);
+    const hasValidClass = hasClassOptions && classOptions.some((item) => (
+      item?.value === classId
+      || classIdMatches(item?.value, classId)
+      || (Array.isArray(item?.aliases) && item.aliases.some((alias) => classIdMatches(alias, classId)))
+    ));
     if (!hasValidClass) {
-      triggerToast?.('Please choose a valid enrolled class before asking AI Tutor.');
+      triggerToast?.('Your account is not enrolled in a class for this course yet. Please contact Admin or your teacher.');
       return;
     }
 
@@ -135,7 +145,7 @@ export function useStudentChatTabController({
 
     if (type === 'mentor') {
       try {
-        await apiService.createEscalation({
+        await supportChatApi.createEscalation({
           studentId: userId,
           studentName: studentDashboard?.studentName || studentDashboard?.fullName || '',
           studentEmail: studentDashboard?.studentEmail || '',
@@ -172,7 +182,7 @@ export function useStudentChatTabController({
     if (!courseId || !materialId) return;
     message.loading({ content: 'Downloading file...', key: 'dl' });
     try {
-      const blob = await apiService.downloadMaterialPdf(courseId, materialId);
+      const blob = await materialsApi.downloadMaterialPdf(courseId, materialId);
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;

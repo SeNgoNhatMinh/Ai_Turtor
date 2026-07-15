@@ -1,7 +1,9 @@
+import { getClassCodeValue } from '../../../utils/academicIds';
+
 export const getRecordId = (record) => record?.id || record?._id || record?.materialId;
 export const getSemesterCode = (record) => record?.semesterCode || record?.code || record?.id;
 export const getCourseCode = (record) => record?.courseId || record?.id;
-export const getClassCode = (record) => record?.classId || record?.classCode || record?.id;
+export const getClassCode = (record) => getClassCodeValue(record);
 export const getEnrollmentId = (record) => record?.id || record?._id || record?.enrollmentId;
 
 export const MATERIAL_INDEXING_STATUSES = new Set(['PROCESSING', 'PENDING', 'INDEXING', 'QUEUED']);

@@ -18,6 +18,14 @@
   pointer-events: auto;
 }
 
+.robot-head-mascot--idle {
+  animation: robotHeadMascotIdle 3.8s infinite ease-in-out;
+}
+
+.robot-head-mascot--compact.robot-head-mascot--idle {
+  animation-duration: 3.2s;
+}
+
 .robot-head-mascot__stage {
   position: relative;
   width: 84%;
@@ -180,6 +188,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .robot-head-mascot--idle {
+    animation: none;
+  }
+
   .robot-head-mascot__stage,
   .robot-head-mascot__face {
     transition: none;
@@ -192,6 +204,17 @@
   .robot-head-mascot--talking .robot-head-mascot__smile,
   .robot-head-mascot--talking .robot-head-mascot__glow {
     animation: none;
+  }
+}
+
+@keyframes robotHeadMascotIdle {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+
+  50% {
+    transform: translateY(-4px) rotate(0.8deg);
   }
 }
 

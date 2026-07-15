@@ -1,4 +1,3 @@
-import React from 'react';
 import { FileText, LifeBuoy, ShieldCheck, Sparkles } from 'lucide-react';
 import { formatSourceItems } from '../../utils/sourceLabels';
 

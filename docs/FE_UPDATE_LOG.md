@@ -26,6 +26,207 @@ Copy template này lên đầu phần `History` sau mỗi lần cập nhật:
 
 ## History
 
+## [2026-07-16] AI Harness Contract And Learning Loop Hardening
+
+**Summary**
+- Completed the FE harness contract for student chat, answer review, teacher answer, senior review, candidate approval, and feature-flagged quiz workflows.
+
+**Changed**
+- Added a shared n8n request envelope with `traceId`, stable per-tab `sessionId`, and auth token propagation.
+- Added per-flow timeouts and real request cancellation; Stop now aborts the active chat request instead of only changing UI state.
+- Normalized n8n array/data wrappers, failed business responses, confidence, canonical IDs, sources, and improve suggestions.
+- Added senior review resolution and quiz gateway methods; quiz harness remains disabled by default behind `VITE_N8N_QUIZ_ENABLED`.
+- Fixed conversation history normalization for backend role `STUDENT` while retaining legacy `USER` compatibility.
+- Rendered backend `nextImproveSuggestions` with `Study now` and `Create quiz` actions.
+- Added mentor-review polling with exponential backoff and conversation refresh after `RESOLVED_INDEXED`.
+- Locked senior/candidate mutations against duplicate clicks and refetched canonical queues after both success and uncertain timeout/error states.
+- Added development warnings for legacy/unknown account roles; canonical roles remain `STUDENT`, `TEACHER`, `SENIOR_MENTOR`, and `ADMIN`.
+
+**Tested**
+- `npm run lint`: pass.
+- `npm run build`: pass.
+- `git diff --check`: pass.
+- Local runtime health: n8n `5678` returned `200`; backend OpenAPI `8085` returned `200`.
+
+**Notes**
+- Live workflow E2E still requires n8n running with active workflows and valid webhook responses.
+- Keep `VITE_N8N_QUIZ_ENABLED=false` until quiz workflow output has been verified against the canonical quiz session shape.
+
+## [2026-07-15] Student Mentor Review UI Refresh
+
+- Reworked Student `Mentor Review` into a clearer asynchronous review-ticket UI.
+- Simplified the screen back to a two-pane layout: ticket list on the left and ticket detail on the right.
+- Replaced chat-history-like ticket rows with dedicated ticket cards showing question preview, timestamp, course/class, status, and answered/waiting state.
+- Detail content is separated into Student question, AI answer snapshot, Mentor answer, and protected AI-learning note.
+- The first/latest ticket is selected automatically after loading so the panel is useful immediately.
+- Removed remaining live-chat assumptions from the student support hook and made ticket loading callback-stable.
+- Added responsive and dark-mode styles for the new Mentor Review layout.
+- Fixed Mentor Review scrolling so the ticket list and ticket detail body scroll independently instead of clipping long content.
+- Removed extra stats/policy/timeline sections after UX feedback that the screen only needs the two main panes.
+
+**Tested**
+- `npm run build`: pass.
+- `npm run lint`: pass with 11 remaining legacy warnings outside Mentor Review.
+
+## [2026-07-15] Practice Quiz History Response Normalization Fix
+
+- Fixed `TypeError: history is not iterable` in `PracticeQuizzes`.
+- Updated `quizApi` domain service to normalize quiz history and assigned quiz responses from common backend shapes such as `quizzes`, `quizSessions`, `assignments`, `items`, `content`, `data`, and `results`.
+- Normalized generate/get/submit/start quiz responses through `normalizeQuizSession`.
+- Added defensive array guards in `PracticeQuizzes` so raw object responses cannot crash the page render.
+- Wrapped quiz loading in `useCallback`, removing the Practice Quizzes hook dependency warning.
+
+**Tested**
+- `npm run build`: pass.
+- `npm run lint`: pass with 12 remaining legacy warnings outside Practice Quizzes.
+
+## [2026-07-15] App Session, Navigation, And Student Learning Controller Extraction
+
+- Continued the production structure refactor without moving large portal files.
+- Added `src/features/auth/useAuthSession.js` so login session persistence, role normalization, and token clearing are no longer owned by `App.jsx`.
+- Added `src/app/useAppNavigation.js` so URL route sync, role/tab navigation, theme class toggling, and persisted UI context are centralized.
+- Added `src/features/student/learning/useStudentLearningController.js` so Student Learning Progress state, improve suggestions, memory updates, pin/unpin suggestion actions, and answer feedback submission are out of `App.jsx`.
+- Switched `App.jsx` to use `src/app/layouts/AuthedLayout.jsx` for the shared header/sidebar/toast shell.
+- Reduced `src/App.jsx` from 665 lines at the start of the route-shell work to 370 lines; it now acts mainly as a compatibility wiring layer for the existing portals.
+- Removed the duplicate student bootstrap effect that loaded enrollments/chat sessions twice after login.
+- Kept existing portal props and backend API contracts unchanged.
+
+**Tested**
+- `npm run build`: pass.
+- `npm run lint`: pass with 13 remaining legacy warnings outside the new App extraction.
+
+## [2026-07-15] Production Route Shell And BRD Flow Cleanup
+
+- Added `react-router-dom` and a route shell under `src/app` with route mappings for Student, Teacher, and Admin workspaces.
+- `App.jsx` now syncs active role/tab from URL paths such as `/student/chat`, `/teacher/review-queue`, and `/admin/academic`.
+- Non-admin users can no longer switch role by URL; admin can still switch view modes for demo/admin workflows.
+- Added centralized token helpers in `src/features/auth/tokenStorage.js`; auth, backend API, and n8n clients now use the same token boundary.
+- Added domain API modules for conversations, materials, assignments, learning, quizzes, teacher review, admin academic/users, and diagnostics while keeping `apiService` as a compatibility facade.
+- Removed runtime live mentor chat flow and deleted `TeacherLiveChatTab`, `useTeacherLiveChat`, and realtime chat hook.
+- Removed payment/subscription runtime helpers and legacy payment CSS; Admin Dashboard now shows course count instead of subscriptions.
+- Improve suggestion pins now use backend memory as source of truth; localStorage pinned suggestion fallback was removed.
+- Deleted unused generated `src/output.css` to reduce source weight.
+- Added `docs/FE_STRUCTURE_GUIDE.md` with the new target structure and migration rules.
+
+**Tested**
+- `npm run build`: pass.
+- `npm run lint`: pass with existing hook dependency warnings only.
+
+## [2026-07-15] Robot Head Performance Fix
+
+- Tối ưu `RobotHeadMascot`: bỏ `setState` trên mỗi `mousemove`, chuyển sang cập nhật CSS variables bằng `requestAnimationFrame`.
+- Tắt `followMouse` cho các robot compact lặp lại trong Student Chat messages/loading để tránh nhiều window mouse listeners.
+- Giữ animation idle/talking và robot login/main vẫn hoạt động bình thường.
+
+**Tested**
+- `npm run lint -- --quiet`: pass.
+- `npm run build`: pass.
+
+## [2026-07-15] Full n8n Strict Mode
+
+- Thêm `VITE_N8N_STRICT=true` để AI/Human-in-the-loop không fallback backend khi workflow n8n lỗi.
+- Student chat, answer review, teacher answer, senior approve/reject giờ bắt buộc đi qua n8n khi strict bật.
+- Giữ webhook teacher answer theo workflow active hiện tại: `/teacher-answer-escalation`.
+- Test n8n production webhook cho thấy `student-chat` và `answer-review` đang trả body rỗng; FE strict sẽ yêu cầu n8n Respond JSON để render/confirm thành công.
+- Admin Dashboard hiển thị `Full n8n strict` để biết demo đang chạy qua n8n.
+- Giữ các CRUD nghiệp vụ thường như materials/classes/quizzes theo backend direct đúng guide.
+
+**Tested**
+- `npm run lint -- --quiet`: pass.
+- `npm run build`: pass.
+
+## [2026-07-15] Align Escalation UX With Review Learning Loop
+
+- Đọc lại `AI_TUTOR_PLATFORM_GUIDE.md` và `BACKEND_API_FE_HANDOFF.md`: escalation chuẩn là async review ticket, không phải student chat trực tiếp với mentor.
+- Đổi Student navigation từ `1-on-1 Support` thành `Mentor Review`.
+- Bỏ teacher `1-on-1 Support` khỏi navigation chính; teacher xử lý escalation trong `Support Queue & AI Knowledge`.
+- Inline action dưới AI answer đổi sang `Send for review`; không còn chọn mentor/start chat/gửi tin trực tiếp.
+- Student `Mentor Review` tab chỉ hiển thị ticket, câu hỏi, AI snapshot, trạng thái, và mentor answer nếu BE trả về.
+- Dọn `useStudentSupport` để chỉ load escalation history; không gọi chat history/unread/send message từ student side nữa.
+- Cập nhật status label: `IN_CHAT/ASSIGNED/OFFERED` được diễn giải thành review/routing status thay vì live chat.
+
+**Tested**
+- `npm run lint -- --quiet`: pass.
+- `npm run build`: pass.
+
+## [2026-07-14] Course Switch Inline Confirmation
+
+- Replaced the hard-to-notice global course-switch confirm with an inline banner inside Student Chat.
+- Selecting another course no longer immediately changes the dropdown value; the current course stays visible until the student clicks `Switch course`.
+- Added `Cancel` / `Switch course` actions in the chat area so switching course history is explicit and less visually jumpy.
+- Kept backend behavior unchanged: course switch still resets the active chat and loads that course's conversations only after confirmation.
+
+**Tested**
+- `npm run lint -- --quiet`: pass.
+- `npm run build`: pass.
+
+## [2026-07-14] Student Chat Read-Only Class Context
+
+- Student chat now lets students switch only between enrolled courses.
+- Class section is displayed as a read-only enrollment pill instead of a selectable dropdown.
+- The selected course still drives the class automatically through enrollment data, so students cannot accidentally chat with a wrong class context.
+- Updated the missing-class helper text to explain that class is assigned from enrollment.
+
+**Tested**
+- `npm run lint -- --quiet`: pass.
+- `npm run build`: pass.
+
+## [2026-07-14] Student Enrollment Identity Fix
+
+- Checked backend enrollment flow: `/api/academic/students/{studentId}/enrollments` returns `CourseEnrollment[]` and looks up records strictly by `CourseEnrollment.studentId`.
+- Switched the student enrollment service call from admin-only `/api/academic/students/{studentId}/enrollments` to student-safe `/api/students/{studentId}/enrollments`; the old path returned 403 for student accounts and made the chat UI think no class existed.
+- Updated student enrollment loading to try the login user ID plus fallback lookup IDs, then keep the actual matched `resolvedStudentId`.
+- Routed student chat, dashboard, code mentor, assignments, support, and quiz-facing props through the resolved enrollment student ID instead of guessing from login state every time.
+- Hardened enrollment parsing for direct arrays and nested course/class response shapes.
+- Kept class IDs canonical from backend, including existing `1833` and `SE1833` formats, while still allowing alias matching in selectors.
+- Fixed New Chat creation so it sends both `courseId` and `classId` to backend conversation creation.
+- Updated Admin enrollment resolver to prefer `studentId/studentCode` when available, then fall back to account UUID.
+
+**Tested**
+- `npm run lint -- --quiet`: pass.
+- `npm run build`: pass.
+
+## [2026-07-11] Frontend Bundle Lightening
+
+- Lazy-loaded student portal tabs so `StudentPortal` no longer pulls Chat, Learning Progress, Materials, Support, and Practice Quizzes into one large chunk.
+- Lazy-loaded `AiAnswer` from `ChatWorkspace`; markdown/math/code rendering now loads only when an AI answer is rendered.
+- Lazy-loaded `CodeBlock` inside the markdown renderer so syntax highlighting loads only for answers that contain fenced code blocks.
+- Lazy-loaded login/chat robot mascot and replaced `framer-motion` usage with CSS animation plus lightweight mouse tracking.
+- Removed `framer-motion` from chat history; conversation list now uses CSS/normal DOM instead of animation runtime.
+- Removed unused heavy dependencies:
+  - `@react-pdf/renderer`
+  - `@react-three/drei`
+  - `@react-three/fiber`
+  - `three`
+  - `jspdf`
+  - `@mozilla/readability`
+  - `turndown`
+  - `markdown-it`
+  - `rehype-autolink-headings`
+  - `rehype-pretty-code`
+  - `shiki`
+  - `@tailwindcss/typography`
+  - `lottie-react`
+  - `survey-core`
+  - `survey-react-ui`
+  - `zustand`
+  - `@fontsource/noto-sans`
+- Removed unused runtime preparation/dead-code files:
+  - unused `src/app/*` app-shell/store experiment
+  - unused `src/features/*` architecture hook scaffolding
+  - unused duplicate domain service files such as `studentApi`, `teacherApi`, `chatApi`, `conversationApi`
+  - stale `AdminBilling`, `SplineAvatar`, and unused common primitives
+- Replaced the unused Lottie quiz submit animation with an existing lightweight icon animation.
+- Runtime import graph now has `0` unreachable JS/JSX/TS/TSX files from `src/main.jsx`.
+- `node_modules` size dropped from about `414M` to about `346M`.
+- Production build no longer reports direct `eval` from `lottie-web`.
+- Production build no longer reports chunks larger than 500KB after minification.
+
+**Tested**
+- `npm run build`: pass.
+- Targeted ESLint for changed performance files: pass.
+- `npx eslint . --quiet --format json`: 57 legacy errors remain outside this bundle cleanup.
+
 ## [2026-07-10] Student Portal Runtime Refactor Phase 1
 
 - Reduced `src/pages/StudentPortal.jsx` from 486 lines to 282 lines.
@@ -1021,6 +1222,68 @@ Copy template này lên đầu phần `History` sau mỗi lần cập nhật:
 **Tested**
 - `npm run build`: pass.
 
+## [2026-07-14] Inline Mentor Support In Student Chat
+
+- Thêm `InlineMentorSupport` để chọn mentor ngay dưới câu trả lời AI có `questionEscalationId` hoặc khi student bấm `Hỏi mentor`.
+- Flow trong chat giờ khớp BE: tạo/nhận escalation -> `/api/tutor/escalations/offer` -> chọn mentor `/select` -> mở live chat bằng `/api/chat/history` và `/api/chat/send`.
+- Không tự chuyển student sang tab support khi bấm hỏi mentor; support gắn với đúng câu hỏi trong đoạn chat hiện tại.
+- Sau khi mentor chat bắt đầu, student có thể gửi tin nhắn inline, reload history, end chat, hoặc bấm `Continue with AI Tutor` để quay lại AI chat với prompt tiếp nối.
+- Thêm CSS light/dark cho card mentor support để UI gọn hơn, không dùng modal nặng.
+
+**Tested**
+- `npm run build`: pass.
+
+## [2026-07-15] Admin Class Teacher Assignment
+
+- Xác nhận BE đã có API tạo/sửa class section với field `teacherId`:
+  - `POST /api/admin/courses/{courseId}/class-sections`
+  - `PUT /api/admin/courses/{courseId}/class-sections/{classId}`
+- Cập nhật Admin Academic -> Class Sections để chọn `Class Teacher / Mentor` bằng dropdown active mentors thay vì nhập tay mentor id.
+- Khi chọn mentor, FE gửi kèm `teacherId`, `teacherName`, `teacherEmail` để class route mentor support rõ ràng hơn.
+- Edit class section modal cũng dùng dropdown mentor giống màn tạo mới.
+- Bảng class section hiển thị tên mentor và id để dễ kiểm tra mapping teacher của lớp.
+
+**Tested**
+- Pending.
+
+## [2026-07-15] Mentor Offer UX And BE Escalation History Note
+
+- Sửa bug inline mentor support tự mở khi AI answer có `questionEscalationId` nhưng chưa gọi `/api/tutor/escalations/offer`, dẫn tới list mentor rỗng.
+- Card mentor giờ hiển thị collapsed state trước; user bấm `Choose who should help` mới gọi `/offer` và render mentor/teacher đúng route.
+- Không bọc lỗi mất history bằng localStorage ở FE; backend conversation history phải là nguồn chuẩn.
+- Thêm tài liệu yêu cầu BE sửa `handleEscalationIntent` để lưu exchange vào AI conversation: `docs/BE_FIX_REQUEST_ESCALATION_CHAT_HISTORY.md`.
+
+**Tested**
+- Pending.
+
+## [2026-07-14] Student Chat Enrollment Guard
+
+- Bỏ fallback course/class mẫu trong Student Chat (`PRJ301`, `SE1840`) để student mới không thấy lớp ảo.
+- Bỏ default cứng `courseId='PRJ301'`, `classId='SE1840'` trong `App.jsx`; context ban đầu giờ là rỗng và phải đến từ enrollment/API thật.
+- Guard material/dashboard loaders khi chưa có course để không gọi API bằng course rỗng.
+- Chuẩn hóa enrollment mapping hỗ trợ cả `courseId/classId` và `courseCode/classCode`.
+- Admin enroll giờ resolve input student/email/code sang đúng `userId` trước khi tạo enrollment.
+- Student login load enrollment bằng nhiều định danh (`userId`, `studentId`, `studentCode`, `email`, `_id`) để tránh mismatch giữa account id và enrollment id.
+- Chuẩn hóa class code alias: `1833`, `SE1833`, `se1833` được xem là cùng lớp; FE ưu tiên dùng `classCode` đầy đủ nếu BE trả về.
+- Admin enroll/import class select ưu tiên `classCode` thay vì `classId` thô để tránh ghi enrollment bằng mã lớp ngắn.
+- Nếu student chưa được enroll lớp nào, chat input/send/new chat bị khóa và hiển thị banner `Enrollment required`.
+- Guard thêm ở controller để không gửi request AI/n8n/backend khi thiếu `courseId` hoặc `classId`.
+
+**Tested**
+- Pending.
+
+## [2026-07-11] ESLint Legacy Debt Cleanup
+
+- Xử lý toàn bộ 57 lỗi ESLint legacy còn sót sau refactor.
+- Dọn import/biến không dùng để giảm code chết trong component Student/Teacher/Admin.
+- Sửa các effect gọi `setState` đồng bộ bằng callback defer hoặc state cập nhật tại event handler.
+- Tách `ConfirmCard` khỏi `confirmDialog` để hết lỗi Fast Refresh `only-export-components`.
+- Sửa `vite.config.js` không dùng `__dirname` trong ESM.
+
+**Tested**
+- `npm run lint -- --quiet`: pass.
+- `npm run build`: pass.
+
 ## [2026-07-09] Chat Source Download Links In AI Answer
 
 - Nối `onDownloadSource` từ `ChatWorkspace` vào `AiAnswer` và `MarkdownRenderer`.
@@ -1061,3 +1324,89 @@ Copy template này lên đầu phần `History` sau mỗi lần cập nhật:
 
 **Tested**
 - `npm run build`: pass.
+# 2026-07-16 - Mentor Review full student question
+
+- Fixed Mentor Review details to prioritize the backend `originalQuestion` field instead of a shortened preview field.
+- Kept ticket-list previews compact while allowing the selected ticket question to wrap and display in full.
+- Selecting a ticket now calls `GET /api/tutor/escalations/{id}` and merges the complete escalation, latest mentor answer, and learning-review status into the detail panel.
+
+# 2026-07-16 - Frontend AI Harness BRD
+
+- Added `docs/FE_AI_HARNESS_BRD.md` as the implementation source for the frontend n8n AI Harness.
+- Documented backend-direct versus n8n responsibilities, all seven harness workflows, request/response contracts, role permissions, state mapping, retry safety, diagnostics, acceptance criteria, and implementation phases.
+- Recorded current integration gaps and source precedence so future Codex changes do not use stale webhook paths or outdated business flows.
+
+# 2026-07-16 - Remove Unused Cloudflare Worker
+
+- Removed the unused `worker` Cloudflare CORS proxy project and its obsolete setup README.
+- Removed `VITE_CORS_PROXY_URL` from frontend runtime and local environment configuration.
+- Kept website material import on the canonical backend flow: `url-toc` -> selected sections -> `import-url` using server-side Jsoup.
+- Updated crawler architecture documentation to state that no frontend proxy/worker is part of the runtime.
+
+# 2026-07-16 - Mentor Review Question Card Layout Fix
+
+- Prevented Student Question, AI snapshot, waiting state, and learning note sections from shrinking inside the scrollable Mentor Review detail column.
+- The detail container now owns vertical scrolling while each content block keeps its full natural height.
+- Fixed the ticket status tag being stretched vertically by the detail header flex layout.
+
+**Tested**
+- `npm run build`: pass.
+- `npm run lint`: pass with 11 existing warnings and 0 errors.
+
+# 2026-07-16 - Runtime Workspaces And Bundle Cleanup
+
+- Reduced `App.jsx` from a role-wide controller to a thin auth, navigation, layout, and workspace composition layer.
+- Added isolated lazy workspaces for Student, Teacher, and Admin so only the signed-in role initializes its controllers.
+- Lazy-loaded individual Teacher/Admin tabs and optional Profile/website import dialogs.
+- Migrated core runtime controllers from the 845-line `apiService` facade to focused domain services.
+- Added `aiTutorApi`, `teacherApi`, and `profileApi`; expanded quiz, review, diagnostics, admin user, and support domain APIs.
+- Fixed Teacher quiz grading history to use the existing normalized `getStudentQuizHistory` API instead of the missing legacy `getStudentCourseQuizzes` method.
+- Replaced the app-wide TanStack Query provider with a small profile hook and removed the unused global dependency.
+- Stabilized hook dependencies and documented the TanStack Table compiler exception locally.
+- Initial JavaScript entry chunk dropped from about `348 kB` to `148 kB`; Teacher workspace dropped from about `131 kB` to `20 kB`, and Admin workspace from about `59 kB` to `4 kB` before opening a tab.
+
+**Tested**
+- `npm run build`: pass.
+- `npm run lint`: pass with 0 errors and 0 warnings.
+
+# 2026-07-16 - Complete Domain API Migration
+
+- Migrated every Student, Teacher, and Admin page/hook away from the legacy global `apiService` facade.
+- Expanded focused services for improve plans, teacher quiz assignments, course memory, academic CRUD/lifecycle, mentor administration, escalation administration, and student import.
+- Changed website import to receive `materialsApi` explicitly instead of a generic service object.
+- Deleted the unused 845-line `src/services/api.js` compatibility facade after import-graph verification.
+- Removed unused starter assets and the unreferenced `App.css` file.
+- Updated structure and crawler documentation to use domain service ownership as the only supported API pattern.
+
+**Tested**
+- `npm run build`: pass.
+- `npm run lint`: pass with 0 errors and 0 warnings.
+- `rg` confirms there are no runtime imports or references to `apiService`.
+
+# 2026-07-16 - Material And Assignment Display Names
+
+- Normalized backend `sourceFileName` into the shared course-material model used by Student and Teacher screens.
+- Removed raw material ID fallbacks from Materials & Assignments file-name columns.
+- Assignment attachment details now show `attachmentFileName` or the assignment title instead of the assignment ID.
+- Material IDs remain internal and are only used for download/reindex/delete API calls.
+
+**Tested**
+- `npm run build`: pass.
+- `npm run lint`: pass with 11 existing warnings and 0 errors.
+
+# 2026-07-16 - Canonical Roles And Two-Way Teacher Support Chat
+
+- Standardized authenticated account roles to `STUDENT`, `TEACHER`, `SENIOR_MENTOR`, and `ADMIN` through `src/constants/roles.js`.
+- Separated canonical account role from lowercase workspace routing and ChatRoom sender labels.
+- Removed email-based role inference; persisted login sessions are normalized back to the canonical backend role.
+- Added `SENIOR_MENTOR` to Admin user filtering/editing and changed website material uploader role from legacy `MENTOR` to `TEACHER`.
+- Added `supportChatApi` for escalation offer/select and ChatRoom history/detail/send/read/close endpoints.
+- Added a shared support chat hook and UI with JWT WebSocket updates, REST fallback, polling, message deduplication, close/rating, responsive layout, and dark mode.
+- Student can create support from an exact AI answer, find the matched class teacher, select the teacher, and chat inline or in Teacher Support history.
+- Teacher Support Queue now shows the same ChatRoom before submitting the separate official final answer / optional KnowledgeCandidate proposal.
+- Updated status labels and docs to reflect `PENDING_OFFER -> OFFERED -> IN_CHAT -> COMPLETED`.
+- Corrected the transport contract: student ChatRoom sender role is `STUDENT`; `MENTOR` is only the teacher-side sender label and is not an account role.
+
+**Tested**
+- `npm run build`: pass.
+- `npm run lint`: pass with 11 existing warnings and 0 errors.

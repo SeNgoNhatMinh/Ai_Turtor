@@ -12,11 +12,12 @@ import {
   Library,
   MessageCircle,
 } from 'lucide-react';
+import { getWorkspaceRole } from '../constants/roles';
 
 export const navigationItems = [
   {
     key: 'student-chat',
-    role: 'student',
+    workspace: 'student',
     group: 'Learning',
     label: 'AI Tutor Chat',
     description: 'Ask course questions and review past conversations.',
@@ -24,7 +25,7 @@ export const navigationItems = [
   },
   {
     key: 'student-memory',
-    role: 'student',
+    workspace: 'student',
     group: 'Learning',
     label: 'Learning Progress',
     description: 'See learned topics, weak areas, and study suggestions.',
@@ -32,7 +33,7 @@ export const navigationItems = [
   },
   {
     key: 'student-quizzes',
-    role: 'student',
+    workspace: 'student',
     group: 'Learning',
     label: 'Practice Quizzes',
     description: 'Create self-study quizzes and complete assigned quizzes.',
@@ -40,7 +41,7 @@ export const navigationItems = [
   },
   {
     key: 'student-materials',
-    role: 'student',
+    workspace: 'student',
     group: 'Coursework',
     label: 'Materials & Assignments',
     description: 'Download assignments and submit your work.',
@@ -48,15 +49,15 @@ export const navigationItems = [
   },
   {
     key: 'student-escalation',
-    role: 'student',
+    workspace: 'student',
     group: 'Support',
-    label: '1-on-1 Support',
-    description: 'Continue mentor help for difficult questions.',
+    label: 'Teacher Support',
+    description: 'Choose a teacher, chat about difficult questions, and track final answers.',
     icon: MessageCircle,
   },
   {
     key: 'teacher-classes',
-    role: 'teacher',
+    workspace: 'teacher',
     group: 'Teaching',
     label: 'Assigned Classes',
     description: 'Review classes, students, and weak topics.',
@@ -64,7 +65,7 @@ export const navigationItems = [
   },
   {
     key: 'teacher-quizzes',
-    role: 'teacher',
+    workspace: 'teacher',
     group: 'Teaching',
     label: 'Quiz Assignments',
     description: 'Manage quiz assignments and review attempts.',
@@ -72,7 +73,7 @@ export const navigationItems = [
   },
   {
     key: 'teacher-materials',
-    role: 'teacher',
+    workspace: 'teacher',
     group: 'Teaching',
     label: 'Materials & Assignments',
     description: 'View course materials and publish class assignments.',
@@ -80,7 +81,7 @@ export const navigationItems = [
   },
   {
     key: 'teacher-grading',
-    role: 'teacher',
+    workspace: 'teacher',
     group: 'Teaching',
     label: 'Submission Grading',
     description: 'Review student submissions and publish feedback.',
@@ -88,23 +89,15 @@ export const navigationItems = [
   },
   {
     key: 'teacher-escalations',
-    role: 'teacher',
+    workspace: 'teacher',
     group: 'Support',
     label: 'Support Queue & AI Knowledge',
     description: 'Answer escalated questions and review suggested AI answers.',
     icon: Inbox,
   },
   {
-    key: 'teacher-chat',
-    role: 'teacher',
-    group: 'Support',
-    label: '1-on-1 Support',
-    description: 'Manage direct support conversations.',
-    icon: MessageCircle,
-  },
-  {
     key: 'admin-dashboard',
-    role: 'admin',
+    workspace: 'admin',
     group: 'System',
     label: 'Overview Dashboard',
     description: 'Monitor platform health and diagnostics.',
@@ -112,7 +105,7 @@ export const navigationItems = [
   },
   {
     key: 'admin-users',
-    role: 'admin',
+    workspace: 'admin',
     group: 'System',
     label: 'Users & Mentors',
     description: 'Manage accounts, mentors, and imports.',
@@ -120,7 +113,7 @@ export const navigationItems = [
   },
   {
     key: 'admin-academic',
-    role: 'admin',
+    workspace: 'admin',
     group: 'Academic',
     label: 'Terms & Classes',
     description: 'Manage semesters, courses, and class sections.',
@@ -129,8 +122,8 @@ export const navigationItems = [
 ];
 
 export const getNavigationForRole = (role) => {
-  const normalizedRole = String(role || '').trim().toLowerCase();
-  return navigationItems.filter((item) => item.role === normalizedRole);
+  const workspace = getWorkspaceRole(role);
+  return navigationItems.filter((item) => item.workspace === workspace);
 };
 
 export const getNavigationItem = (key) => navigationItems.find((item) => item.key === key);

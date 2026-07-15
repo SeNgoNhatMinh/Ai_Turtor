@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Modal, Tabs, Form, Input, Button } from 'antd';
 import { User, Lock } from 'lucide-react';
 import { useProfile } from '../../hooks/useProfile';
@@ -8,7 +8,7 @@ export default function ProfileModal({ isOpen, onClose, userId }) {
   const [profileForm] = Form.useForm();
   const [passwordForm] = Form.useForm();
   
-  const { profile, isLoading, updateProfile, changePassword } = useProfile(userId);
+  const { profile, updateProfile, changePassword } = useProfile(userId);
 
   useEffect(() => {
     if (profile && isOpen) {
