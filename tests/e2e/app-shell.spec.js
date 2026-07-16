@@ -6,16 +6,18 @@ async function mockBackend(page) {
     const url = new URL(request.url());
 
     if (url.pathname === '/api/users/login') {
+      const email = request.postDataJSON()?.email;
+      const isAdmin = email === 'admin@example.com';
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
           token: 'e2e-token',
-          id: 'student-1',
-          userId: 'student-1',
-          fullName: 'E2E Student',
-          email: 'student@example.com',
-          role: 'STUDENT',
+          id: isAdmin ? 'admin-1' : 'student-1',
+          userId: isAdmin ? 'admin-1' : 'student-1',
+          fullName: isAdmin ? 'E2E Admin' : 'E2E Student',
+          email,
+          role: isAdmin ? 'ADMIN' : 'STUDENT',
         }),
       });
       return;
@@ -56,14 +58,22 @@ async function signIn(page) {
   await expect(page).toHaveURL(/\/student\/chat$/);
 }
 
+async function signInAsAdmin(page) {
+  await page.goto('/login');
+  await page.getByLabel('Email address').fill('admin@example.com');
+  await page.getByLabel('Password').fill('secret1');
+  await page.locator('.login-submit').click();
+  await expect(page).toHaveURL(/\/admin\/dashboard$/);
+}
+
 test.beforeEach(async ({ page }) => {
   await mockBackend(page);
 });
 
 test('student login resolves enrollment context and supports dark mode', async ({ page }) => {
   await signIn(page);
-  await expect(page.getByText('AI Tutor Chat', { exact: true }).first()).toBeVisible();
-  await expect(page.getByLabel('Assigned class section')).toContainText('SE1833');
+  await expect(page.getByText('Trò chuyện với AI Tutor', { exact: true }).first()).toBeVisible();
+  await expect(page.getByLabel('Lớp đã ghi danh')).toContainText('SE1833');
 
   await page.getByRole('switch', { name: 'Use dark mode' }).click();
   await expect(page.locator('.app-container')).toHaveClass(/dark/);
@@ -79,4 +89,16 @@ test('main student workspace does not overflow the viewport', async ({ page }) =
 
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(1);
+});
+
+test('admin routes load their independent feature pages', async ({ page }) => {
+  await signInAsAdmin(page);
+  await expect(page.getByText('System Diagnostics', { exact: true })).toBeVisible();
+
+  await page.goto('/admin/users');
+  await expect(page.getByText(/Users \(0\)/)).toBeVisible();
+
+  await page.goto('/admin/academic');
+  await expect(page.getByRole('tab', { name: 'Terms' })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Course Materials' })).toBeVisible();
 });

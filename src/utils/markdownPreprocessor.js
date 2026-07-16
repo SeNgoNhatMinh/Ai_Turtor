@@ -737,14 +737,3 @@ export function getNodeText(node) {
   if (React.isValidElement(node)) return getNodeText(node.props.children);
   return '';
 }
-
-/**
- * React hook — normalizes markdown reactively.
- * Useful when consuming a streaming text value.
- *
- * @param {string} text  Raw markdown (may change on every chunk)
- * @returns {string}     Normalized output
- */
-export function useNormalizedMarkdown(text) {
-  return React.useMemo(() => normalizeAiMarkdown(text), [text]);
-}

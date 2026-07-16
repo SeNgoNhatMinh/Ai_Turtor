@@ -17,7 +17,9 @@ function MaterialsAssignments({
   studentSubmissionNote,
   setStudentSubmissionNote,
   onStudentSubmit,
+  isSubmitting = false,
   onDownloadAssignment,
+  onDownloadSubmission,
   courseMaterials = [],
   onDownloadMaterial,
 }) {
@@ -33,10 +35,21 @@ function MaterialsAssignments({
       title: 'Status',
       dataIndex: 'status',
       key: 'status',
-      render: (status) => <Tag color={status === 'pending' ? 'orange' : 'green'}>{status === 'pending' ? 'Pending' : 'Graded'}</Tag>,
+      render: (status, record) => {
+        const normalized = String(record.submission?.status || status || 'PENDING').toUpperCase();
+        const isSubmitted = Boolean(record.submission);
+        return <Tag color={normalized === 'REVIEWED' ? 'green' : isSubmitted ? 'blue' : 'orange'}>{normalized.replaceAll('_', ' ')}</Tag>;
+      },
     },
-    { title: 'Score', dataIndex: 'score', key: 'score', render: (score) => score || '-' },
-    { title: 'Deadline', dataIndex: 'deadline', key: 'deadline' },
+    { title: 'Score', dataIndex: 'score', key: 'score', render: (score) => score ?? '-' },
+    {
+      title: 'Deadline',
+      key: 'deadline',
+      render: (_, record) => {
+        const value = record.dueAt || record.deadline;
+        return value ? new Date(value).toLocaleString() : '-';
+      },
+    },
   ];
 
   return (
@@ -50,11 +63,16 @@ function MaterialsAssignments({
               <Table
                 dataSource={Array.isArray(assignments) ? assignments : []}
                 columns={assignmentCols}
-                rowKey="id"
+                rowKey={(record) => record.id || record.assignmentId}
                 pagination={false}
                 onRow={(record) => ({
                   onClick: () => setSelectedAssignment(record),
-                  style: { cursor: 'pointer', background: selectedAssignment?.id === record.id ? '#FFF0E6' : 'transparent' },
+                  style: {
+                    cursor: 'pointer',
+                    background: (selectedAssignment?.id || selectedAssignment?.assignmentId) === (record.id || record.assignmentId)
+                      ? 'var(--surface-selected, #fff4ec)'
+                      : 'transparent',
+                  },
                 })}
               />
             </Card>
@@ -68,19 +86,38 @@ function MaterialsAssignments({
                 <Empty description={uiCopy.student.materials.empty} />
               ) : (
                 <>
-                  <Paragraph>{selectedAssignment.desc}</Paragraph>
+                  <Paragraph>{selectedAssignment.description || selectedAssignment.desc || 'No assignment description.'}</Paragraph>
                   <div className="assignment-attachment">
                     <Space>
                       <FileTextOutlined style={{ fontSize: 24, color: '#F37021' }} />
                       <div>
                         <Text strong>{getAssignmentFileName(selectedAssignment)}</Text>
                         <br />
-                        <Button type="link" size="small" icon={<DownloadOutlined />} onClick={() => onDownloadAssignment(selectedAssignment.id)} style={{ padding: 0 }}>
+                        <Button type="link" size="small" icon={<DownloadOutlined />} onClick={() => onDownloadAssignment(selectedAssignment.id || selectedAssignment.assignmentId)} style={{ padding: 0 }}>
                           Download assignment
                         </Button>
                       </div>
                     </Space>
                   </div>
+
+                  {selectedAssignment.submission && (
+                    <Card size="small" title="Your submission" style={{ marginBottom: 16 }}>
+                      <Space direction="vertical" size={4}>
+                        <Text>Status: {String(selectedAssignment.submission.status || 'SUBMITTED').replaceAll('_', ' ')}</Text>
+                        {selectedAssignment.submission.score != null && <Text strong>Score: {selectedAssignment.submission.score}</Text>}
+                        {selectedAssignment.submission.teacherFeedback && (
+                          <Paragraph style={{ margin: 0 }}>Teacher feedback: {selectedAssignment.submission.teacherFeedback}</Paragraph>
+                        )}
+                        <Button
+                          size="small"
+                          icon={<DownloadOutlined />}
+                          onClick={() => onDownloadSubmission?.(selectedAssignment.submission)}
+                        >
+                          Download submitted file
+                        </Button>
+                      </Space>
+                    </Card>
+                  )}
 
                   <Title level={5}>Submit work</Title>
                   <Dragger
@@ -104,7 +141,9 @@ function MaterialsAssignments({
                     onChange={(event) => setStudentSubmissionNote(event.target.value)}
                     style={{ marginBottom: 16 }}
                   />
-                  <Button type="primary" block onClick={onStudentSubmit}>Submit</Button>
+                  <Button type="primary" block loading={isSubmitting} disabled={!studentSubmissionFile} onClick={onStudentSubmit}>
+                    {selectedAssignment.submission ? 'Submit a new version' : 'Submit assignment'}
+                  </Button>
                 </>
               )}
             </Card>

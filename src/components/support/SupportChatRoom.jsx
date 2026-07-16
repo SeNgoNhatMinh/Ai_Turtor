@@ -49,18 +49,18 @@ function SupportChatRoom({
   };
 
   return (
-    <section className={`support-chat-room ${compact ? 'is-compact' : ''}`} aria-label="Teacher support chat">
+    <section className={`support-chat-room ${compact ? 'is-compact' : ''}`} aria-label="Trò chuyện hỗ trợ với giáo viên">
       <div className="support-chat-room__header">
         <div>
-          <strong><MessageCircle size={16} /> {detail?.mentorName || detail?.userName || 'Support chat'}</strong>
-          <span>{senderRole === 'STUDENT' ? 'Chat with your teacher' : `Student: ${detail?.userName || 'Student'}`}</span>
+          <strong><MessageCircle size={16} /> {detail?.mentorName || detail?.userName || 'Trò chuyện hỗ trợ'}</strong>
+          <span>{senderRole === 'STUDENT' ? 'Trao đổi với giáo viên' : `Sinh viên: ${detail?.userName || 'Sinh viên'}`}</span>
         </div>
         <div className="support-chat-room__status">
-          <Tag color={isClosed ? 'default' : 'green'}>{isClosed ? 'Closed' : 'Active'}</Tag>
+          <Tag color={isClosed ? 'default' : 'green'}>{isClosed ? 'Đã đóng' : 'Đang hoạt động'}</Tag>
           <span className={`support-chat-socket is-${connectionState}`}>
-            {connectionState === 'connected' ? 'Live' : 'Auto refresh'}
+            {connectionState === 'connected' ? 'Trực tiếp' : 'Tự làm mới'}
           </span>
-          <Button type="text" size="small" icon={<RefreshCw size={14} />} onClick={() => loadRoom()} aria-label="Refresh support chat" />
+          <Button type="text" size="small" icon={<RefreshCw size={14} />} onClick={() => loadRoom()} aria-label="Làm mới trò chuyện hỗ trợ" />
         </div>
       </div>
 
@@ -68,14 +68,14 @@ function SupportChatRoom({
 
       <div className="support-chat-room__messages" aria-live="polite">
         {isLoading ? (
-          <div className="support-chat-room__loading"><Spin size="small" /> Loading messages...</div>
+          <div className="support-chat-room__loading"><Spin size="small" /> Đang tải tin nhắn...</div>
         ) : messages.length === 0 ? (
-          <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No messages yet. Start by explaining what you need help with." />
+          <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Chưa có tin nhắn. Hãy bắt đầu bằng cách mô tả nội dung bạn cần hỗ trợ." />
         ) : messages.map((message) => {
           const mine = String(message.senderRole || '').toUpperCase() === senderRole;
           return (
             <article key={message.messageId || `${message.senderId}-${message.sentAt}`} className={`support-chat-message ${mine ? 'is-mine' : ''}`}>
-              <span>{mine ? 'You' : message.senderName || (message.senderRole === 'MENTOR' ? 'Teacher' : 'Student')}</span>
+              <span>{mine ? 'Bạn' : message.senderName || (message.senderRole === 'MENTOR' ? 'Giáo viên' : 'Sinh viên')}</span>
               <p>{message.content}</p>
               <time>{message.sentAt ? new Date(message.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}</time>
             </article>
@@ -89,7 +89,7 @@ function SupportChatRoom({
           <Input.TextArea
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
-            placeholder={senderRole === 'STUDENT' ? 'Explain what you still need help with...' : 'Reply to the student...'}
+            placeholder={senderRole === 'STUDENT' ? 'Mô tả nội dung bạn vẫn cần hỗ trợ...' : 'Trả lời sinh viên...'}
             autoSize={{ minRows: 1, maxRows: 4 }}
             maxLength={10000}
             onPressEnter={(event) => {
@@ -100,21 +100,21 @@ function SupportChatRoom({
             }}
             disabled={isSending}
           />
-          <Button type="primary" icon={<Send size={15} />} loading={isSending} disabled={!draft.trim()} onClick={submitMessage} aria-label="Send support message" />
+          <Button type="primary" icon={<Send size={15} />} loading={isSending} disabled={!draft.trim()} onClick={submitMessage} aria-label="Gửi tin nhắn hỗ trợ" />
         </div>
       )}
 
       {allowClose && !isClosed && (
         <div className="support-chat-room__close">
           {!showCloseForm ? (
-            <Button type="text" danger icon={<XCircle size={15} />} onClick={() => setShowCloseForm(true)}>Close and rate chat</Button>
+            <Button type="text" danger icon={<XCircle size={15} />} onClick={() => setShowCloseForm(true)}>Đóng và đánh giá</Button>
           ) : (
             <div className="support-chat-close-form">
-              <div><span>How helpful was this support?</span><Rate value={rating} onChange={setRating} /></div>
-              <Input.TextArea value={feedback} onChange={(event) => setFeedback(event.target.value)} placeholder="Optional feedback" maxLength={1000} autoSize={{ minRows: 2, maxRows: 3 }} />
+              <div><span>Phần hỗ trợ này hữu ích ở mức nào?</span><Rate value={rating} onChange={setRating} /></div>
+              <Input.TextArea value={feedback} onChange={(event) => setFeedback(event.target.value)} placeholder="Góp ý thêm (không bắt buộc)" maxLength={1000} autoSize={{ minRows: 2, maxRows: 3 }} />
               <div>
-                <Button onClick={() => setShowCloseForm(false)}>Cancel</Button>
-                <Button type="primary" loading={isClosing} onClick={submitClose}>Close chat</Button>
+                <Button onClick={() => setShowCloseForm(false)}>Hủy</Button>
+                <Button type="primary" loading={isClosing} onClick={submitClose}>Đóng trò chuyện</Button>
               </div>
             </div>
           )}

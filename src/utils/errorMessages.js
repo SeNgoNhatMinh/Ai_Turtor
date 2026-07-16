@@ -43,7 +43,7 @@ export function isAiServiceErrorText(value) {
     || (MOJIBAKE_PATTERN.test(text) && /llm|dịch|dá»‹ch|máy|mÃ¡y|server/i.test(text));
 }
 
-export function isTechnicalErrorText(value) {
+function isTechnicalErrorText(value) {
   const text = String(value || '');
   if (!text) return false;
   return isAiServiceErrorText(text)

@@ -1,5 +1,5 @@
 import { API_BASE_URL, request } from './apiClient';
-import { setAuthToken } from '../features/auth/tokenStorage';
+import { setAuthToken } from '../features/auth/services/tokenStorage';
 
 export const authApi = {
   async login(email, password) {

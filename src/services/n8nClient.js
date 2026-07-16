@@ -1,17 +1,17 @@
 import { env } from '../config/env';
-import { getAuthToken } from '../features/auth/tokenStorage';
+import { getAuthToken } from '../features/auth/services/tokenStorage';
 import { createHarnessEnvelope } from '../features/ai-harness/trace';
 
-export const N8N_BASE_URL = env.n8nBaseUrl;
-export const N8N_WEBHOOK_MODE = env.n8nWebhookMode;
+const N8N_BASE_URL = env.n8nBaseUrl;
+const N8N_WEBHOOK_MODE = env.n8nWebhookMode;
 export const N8N_ENABLED = env.n8nEnabled;
 export const N8N_STRICT = env.n8nStrict;
-export const N8N_TIMEOUT_MS = env.n8nTimeoutMs;
+const N8N_TIMEOUT_MS = env.n8nTimeoutMs;
 export const N8N_CHAT_TIMEOUT_MS = env.n8nChatTimeoutMs;
 export const N8N_QUIZ_TIMEOUT_MS = env.n8nQuizTimeoutMs;
 export const N8N_QUIZ_ENABLED = env.n8nQuizEnabled;
 
-export function createN8nError(userMessage = 'AI workflow is temporarily unavailable.', details = null) {
+function createN8nError(userMessage = 'AI workflow is temporarily unavailable.', details = null) {
   const error = new Error(userMessage);
   error.name = 'N8nError';
   error.userMessage = userMessage;
@@ -20,7 +20,7 @@ export function createN8nError(userMessage = 'AI workflow is temporarily unavail
   return error;
 }
 
-export function n8nUrl(path) {
+function n8nUrl(path) {
   const prefix = N8N_WEBHOOK_MODE === 'test' ? '/webhook-test' : '/webhook';
   return `${N8N_BASE_URL}${prefix}${path}`;
 }

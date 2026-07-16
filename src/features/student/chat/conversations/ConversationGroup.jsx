@@ -5,8 +5,8 @@ import { CHAT_TURN_LIMIT, formatSessionTime, getSessionQuestionCount } from './s
 
 const { Text } = Typography;
 const MENU_ITEMS = [
-  { key: 'rename', label: 'Rename' },
-  { key: 'delete', label: 'Delete', danger: true },
+  { key: 'rename', label: 'Đổi tên' },
+  { key: 'delete', label: 'Xóa', danger: true },
 ];
 
 const ConversationItem = memo(function ConversationItem({
@@ -40,13 +40,13 @@ const ConversationItem = memo(function ConversationItem({
               size="small"
             />
           ) : (
-            <Text ellipsis>{session.title || 'New conversation'}</Text>
+            <Text ellipsis>{session.title || 'Cuộc trò chuyện mới'}</Text>
           )}
         </div>
         <div className="session-item-meta">
           <Text className="session-item-time">{formatSessionTime(session)}</Text>
-          {questionCount > 0 && <span className="session-question-count">{questionCount}/{CHAT_TURN_LIMIT} questions</span>}
-          {isFull && <span className="session-full-badge">Full</span>}
+          {questionCount > 0 && <span className="session-question-count">{questionCount}/{CHAT_TURN_LIMIT} câu hỏi</span>}
+          {isFull && <span className="session-full-badge">Đã đầy</span>}
           {(session.courseId || session.classId) && (
             <span>{[session.courseId, session.classId].filter(Boolean).join(' / ')}</span>
           )}
@@ -55,7 +55,7 @@ const ConversationItem = memo(function ConversationItem({
       <EntityActionMenu
         items={MENU_ITEMS}
         onAction={(key, meta) => onMenuAction(key, session, meta)}
-        ariaLabel="Conversation actions"
+        ariaLabel="Thao tác cuộc trò chuyện"
       />
     </div>
   );

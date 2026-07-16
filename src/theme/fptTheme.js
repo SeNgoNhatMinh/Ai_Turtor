@@ -1,6 +1,6 @@
 import { theme } from 'antd';
 
-export const fptColors = {
+const fptColors = {
   primary: '#F37021',
   primaryDark: '#C85A1B',
   link: '#374151',

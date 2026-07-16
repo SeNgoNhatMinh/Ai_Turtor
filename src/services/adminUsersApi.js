@@ -18,9 +18,17 @@ export const adminUsersApi = {
 
   async updateAdminUser(userId, payload) {
     return request(`${API_BASE_URL}/admin/users/${encodePath(userId)}`, {
-      method: 'PUT',
+      method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
+    });
+  },
+
+  async updateTeacherRole(teacherId, role) {
+    return request(`${API_BASE_URL}/admin/teachers/${encodePath(teacherId)}/role`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role }),
     });
   },
 

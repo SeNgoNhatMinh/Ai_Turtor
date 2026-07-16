@@ -5,7 +5,7 @@ import { teacherReviewApi } from '../../../services/teacherReviewApi';
 import { normalizeStudentDashboard, normalizeSuggestions } from '../../../services/normalizers';
 import { n8nService } from '../../../services/n8nService';
 import { N8N_ENABLED, N8N_STRICT } from '../../../services/n8nClient';
-import { FEEDBACK_RECORDED_MESSAGE } from '../../../constants/answerReview';
+import { getFeedbackRecordedMessage } from '../../../constants/answerReview';
 import {
   createRecoveredSuggestion,
   readAnalyzedSuggestions,
@@ -204,23 +204,24 @@ export function useStudentLearningController({
   const handleStudentReviewAnswer = async (reviewPayload) => {
     triggerToast('Submitting your feedback...');
     try {
+      let response;
       if (N8N_ENABLED) {
         try {
-          await n8nService.submitAnswerReview(reviewPayload);
-          triggerToast(FEEDBACK_RECORDED_MESSAGE);
+          response = await n8nService.submitAnswerReview(reviewPayload);
         } catch (n8nErr) {
           if (N8N_STRICT) throw n8nErr;
           console.warn('n8n feedback failed, falling back to backend API:', n8nErr);
-          await teacherReviewApi.submitAnswerReview(reviewPayload);
-          triggerToast(FEEDBACK_RECORDED_MESSAGE);
+          response = await teacherReviewApi.submitAnswerReview(reviewPayload);
         }
       } else {
-        await teacherReviewApi.submitAnswerReview(reviewPayload);
-        triggerToast(FEEDBACK_RECORDED_MESSAGE);
+        response = await teacherReviewApi.submitAnswerReview(reviewPayload);
       }
+      triggerToast(getFeedbackRecordedMessage(response));
+      return response;
     } catch (error) {
       console.error('Error submitting feedback:', error);
       triggerToast(getUserFacingError(error, 'Unable to submit feedback. Please try again.'));
+      return null;
     }
   };
 

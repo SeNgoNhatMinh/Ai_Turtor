@@ -1,0 +1,113 @@
+.website-import-tree-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.website-import-tree-wrap,
+.website-import-preview {
+  overflow: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.website-import-tree-wrap {
+  max-height: 320px;
+  padding: 8px;
+}
+
+.website-import-tree-item {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.website-import-tree-url {
+  display: block;
+  max-width: 720px;
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.website-import-preview {
+  max-height: 360px;
+  padding: 16px;
+  border-radius: 12px;
+}
+
+.website-toc-list {
+  max-height: 360px;
+  overflow: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.website-toc-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 9px 12px;
+  border-bottom: 1px solid #f1f5f9;
+  cursor: pointer;
+  transition: background 0.16s ease;
+}
+
+.website-toc-item:last-child {
+  border-bottom: 0;
+}
+
+.website-toc-item:hover {
+  background: #f8fafc;
+}
+
+.website-toc-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.website-toc-title {
+  color: #111827;
+  font-size: 0.88rem;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.website-toc-url {
+  overflow: hidden;
+  color: #64748b;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-container.dark .website-import-tree-wrap,
+.app-container.dark .website-import-preview,
+body.theme-dark .website-toc-list {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: #111;
+}
+
+body.theme-dark .website-toc-item {
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+body.theme-dark .website-toc-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+body.theme-dark .website-toc-title {
+  color: #f5f5f5;
+}
+
+body.theme-dark .website-toc-url {
+  color: #a3a3a3;
+}

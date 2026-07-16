@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { clearAuthToken } from './tokenStorage';
-import { readJsonStorage, sanitizePersistedUser } from '../../utils/storage';
-import { normalizeAppRole } from '../../utils/formatters';
-import { normalizeAccountRole } from '../../constants/roles';
+import { clearAuthToken } from '../services/tokenStorage';
+import { normalizeAccountRole } from '../../../constants/roles';
+import { normalizeAppRole } from '../../../utils/formatters';
+import { readJsonStorage, sanitizePersistedUser } from '../../../utils/storage';
 
 const APP_SESSION_USER_KEY = 'ai-tutor:current-user';
 

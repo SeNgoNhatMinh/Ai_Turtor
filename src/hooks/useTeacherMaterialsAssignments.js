@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { assignmentApi } from '../services/assignmentApi';
 import { getUserFacingError } from '../services/apiClient';
 import { materialsApi } from '../services/materialsApi';
-import { getRecordId } from '../pages/teacher/teacherPortalUtils';
+import { getRecordId } from '../features/teacher/shared/teacherUtils';
 import { useMutationLock } from './useMutationLock';
 
 export function useTeacherMaterialsAssignments({
@@ -22,6 +22,8 @@ export function useTeacherMaterialsAssignments({
   const [isPublishingAssignment, setIsPublishingAssignment] = useState(false);
   const [classAssignments, setClassAssignments] = useState([]);
   const [assignmentsLoading, setAssignmentsLoading] = useState(false);
+  const [editingAssignment, setEditingAssignment] = useState(null);
+  const [isUpdatingAssignment, setIsUpdatingAssignment] = useState(false);
 
   const [materialFile, setMaterialFile] = useState(null);
   const [materialTitle, setMaterialTitle] = useState('');
@@ -185,6 +187,39 @@ export function useTeacherMaterialsAssignments({
     }
   };
 
+  const handleEditAssignment = async (assignment) => {
+    const assignmentId = getRecordId(assignment);
+    if (!assignmentId) {
+      triggerToast('This assignment is missing an ID.');
+      return;
+    }
+    try {
+      const detail = await assignmentApi.getAssignmentDetail(assignmentId);
+      setEditingAssignment(detail || assignment);
+    } catch (error) {
+      triggerToast(getUserFacingError(error, 'Unable to load assignment details.'));
+    }
+  };
+
+  const handleUpdateAssignment = async (values) => {
+    const assignmentId = getRecordId(editingAssignment);
+    if (!assignmentId || isUpdatingAssignment) return;
+    setIsUpdatingAssignment(true);
+    try {
+      await assignmentApi.updateAssignment(assignmentId, {
+        ...values,
+        teacherId: teacherUserId,
+      });
+      setEditingAssignment(null);
+      triggerToast('Assignment updated.');
+      await loadClassAssignments();
+    } catch (error) {
+      triggerToast(getUserFacingError(error, 'Unable to update this assignment. Assignments with submissions cannot be edited.'));
+    } finally {
+      setIsUpdatingAssignment(false);
+    }
+  };
+
   const handleDownloadAssignmentFile = async (assignment) => {
     const assignmentId = getRecordId(assignment);
     if (!assignmentId) {
@@ -235,6 +270,11 @@ export function useTeacherMaterialsAssignments({
     loadClassAssignments,
     onCreateAssignment,
     handleDeleteAssignment,
+    editingAssignment,
+    setEditingAssignment,
+    isUpdatingAssignment,
+    handleEditAssignment,
+    handleUpdateAssignment,
     handleDownloadAssignmentFile,
   };
 }

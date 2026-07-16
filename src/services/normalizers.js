@@ -1,3 +1,6 @@
+import { getPersonDisplayName } from '../utils/displayNames.js';
+import { hasBrokenTextEncoding, repairMojibake } from '../utils/textEncoding.js';
+
 export const asArray = (data, ...keys) => {
   if (Array.isArray(data)) return data;
   for (const key of keys) {
@@ -20,11 +23,12 @@ export const normalizeSession = (session = {}) => {
     Math.floor(messageCount / 2),
   );
   const isFull = Boolean(session.maxTurnsReached ?? session.turnLimitReached ?? userQuestionCount >= CHAT_TURN_LIMIT);
+  const repairedTitle = repairMojibake(session.title).trim();
 
   return {
     ...session,
     id: session.id || session.conversationId,
-    title: !session.title || session.title.includes('�') ? 'New conversation' : session.title,
+    title: !repairedTitle || hasBrokenTextEncoding(repairedTitle) ? 'Cuộc trò chuyện mới' : repairedTitle,
     createdAt: session.createdAt || session.lastMessageAt || session.updatedAt || new Date().toISOString(),
     lastMessageAt: session.lastMessageAt || session.updatedAt || session.lastMessageTime || session.createdAt || new Date().toISOString(),
     messageCount,
@@ -32,12 +36,6 @@ export const normalizeSession = (session = {}) => {
     maxTurnsReached: isFull,
   };
 };
-
-export const normalizeMessage = (message) => ({
-  ...message,
-  question: message.question || message.userMessage || message.message || message.content || '',
-  answer: message.answer || message.aiResponse || message.response || '',
-});
 
 export const pairMessages = (messages) => {
   const arr = Array.isArray(messages) ? messages : [];
@@ -122,7 +120,7 @@ export const normalizeEscalation = (escalation) => ({
 export const normalizeTeacherInboxItem = (item) => ({
   ...item,
   id: item.id || item.questionEscalationId || item.escalationId,
-  student: item.studentName || item.studentFullName || item.studentId || 'Student',
+  student: getPersonDisplayName(item, 'Student'),
   title: item.questionPreview || item.question || item.title || 'Support request',
   context: [item.courseId && `Course: ${item.courseId}`, item.classId && `Class: ${item.classId}`].filter(Boolean).join(' | ') || '—',
   time: item.waitingSince || item.waitingTime || item.createdAt || '',
@@ -134,10 +132,21 @@ export const normalizeTeacherInboxItem = (item) => ({
 export const normalizeAnswerReview = (review) => ({
   ...review,
   id: review.id || review.reviewId,
+  studentId: review.studentId || review.userId || '',
+  studentName: getPersonDisplayName(review, 'Student'),
+  studentEmail: review.studentEmail || review.email || '',
+  courseId: review.courseId || '',
+  classId: review.classId || '',
   question: review.question || review.studentQuestion || '—',
   answer: review.answer || review.aiAnswer || review.mentorAnswer || '—',
   status: review.status || 'SUBMITTED',
   reviewType: review.reviewType || review.type || 'ANSWER_DISPUTE',
+  rating: Number.isFinite(Number(review.rating)) ? Number(review.rating) : null,
+  accurate: typeof review.accurate === 'boolean' ? review.accurate : null,
+  helpful: typeof review.helpful === 'boolean' ? review.helpful : null,
+  feedback: review.feedback || review.comment || review.reviewText || '',
+  suggestedCorrection: review.suggestedCorrection || review.correction || '',
+  createdAt: review.createdAt || review.submittedAt || review.updatedAt || '',
 });
 
 export const normalizeSuggestions = (data) => {
@@ -291,6 +300,36 @@ export const normalizeQuizSession = (quiz) => ({
   updatedAt: quiz?.updatedAt || quiz?.submittedAt || quiz?.createdAt || new Date().toISOString(),
 });
 
+export const normalizeTeacherQuizAttempt = (attempt) => ({
+  ...(attempt || {}),
+  id: attempt?.quizSessionId || attempt?.id || attempt?.sessionId,
+  quizSessionId: attempt?.quizSessionId || attempt?.id || attempt?.sessionId,
+  assignmentId: attempt?.assignmentId || '',
+  studentId: attempt?.studentId || '',
+  teacherId: attempt?.teacherId || '',
+  courseId: attempt?.courseId || '',
+  classId: attempt?.classId || '',
+  title: attempt?.title || attempt?.topic || 'Assigned quiz',
+  topic: attempt?.topic || attempt?.title || '',
+  quizType: attempt?.quizType || 'ASSIGNED',
+  status: attempt?.status || 'SUBMITTED',
+  teacherReviewStatus: attempt?.teacherReviewStatus || attempt?.reviewStatus || 'PENDING',
+  score: attempt?.autoScore ?? attempt?.score ?? 0,
+  autoScore: attempt?.autoScore ?? attempt?.score ?? 0,
+  teacherReviewedScore: attempt?.teacherReviewedScore ?? attempt?.reviewedScore ?? null,
+  finalScore: attempt?.finalScore ?? attempt?.teacherReviewedScore ?? attempt?.autoScore ?? attempt?.score ?? 0,
+  maxScore: attempt?.maxScore ?? 0,
+  percentage: attempt?.autoPercentage ?? attempt?.percentage ?? null,
+  autoPercentage: attempt?.autoPercentage ?? attempt?.percentage ?? null,
+  finalPercentage: attempt?.finalPercentage ?? attempt?.autoPercentage ?? attempt?.percentage ?? null,
+  teacherFeedback: attempt?.teacherFeedback || '',
+  createdAt: attempt?.createdAt || '',
+  submittedAt: attempt?.submittedAt || '',
+  teacherReviewedAt: attempt?.teacherReviewedAt || '',
+  questions: asArray(attempt?.questions),
+  answers: asArray(attempt?.answers),
+});
+
 export const normalizeQuizAssignment = (assignment) => ({
   ...(assignment || {}),
   id: assignment?.id || assignment?.assignmentId,
@@ -316,13 +355,6 @@ export const normalizeImprovePlan = (plan) => ({
   evidence: asArray(plan?.evidence),
   generatedAt: plan?.generatedAt || plan?.createdAt || '',
   updatedAt: plan?.updatedAt || plan?.generatedAt || plan?.createdAt || '',
-});
-
-export const normalizeEnrollment = (enrollment) => ({
-  ...enrollment,
-  id: enrollment.id || enrollment.enrollmentId,
-  status: enrollment.status || 'ACTIVE',
-  studentName: enrollment.studentName || enrollment.studentFullName || 'Student',
 });
 
 export const normalizeCourseMaterial = (material = {}) => {

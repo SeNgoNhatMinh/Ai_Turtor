@@ -32,7 +32,7 @@ function CourseMaterialsTab({
             type="info"
             showIcon
             style={{ marginBottom: 16 }}
-            message="Course materials are managed by Admin because they are shared across classes."
+            title="Course materials are managed by Admin because they are shared across classes."
           />
           <Form form={form} layout="vertical" onFinish={onUpload}>
             <Form.Item label="Course" required>

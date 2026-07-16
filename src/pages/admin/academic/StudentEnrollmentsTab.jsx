@@ -3,6 +3,7 @@ import { Eye, Pencil, Plus, Search, UserMinus } from 'lucide-react';
 import EntityActionMenu from '../../../components/common/EntityActionMenu';
 import { DataTable } from '../../../components/ui/data-table';
 import { getClassCode } from './adminAcademicUtils';
+import { getPersonDisplayName, getPersonEmail, getPersonId } from '../../../utils/displayNames';
 
 const { Option } = Select;
 
@@ -17,12 +18,15 @@ function StudentEnrollmentsTab({
   form,
   courses,
   classSections,
+  studentOptions = [],
+  studentsLoading = false,
   enrollmentSearchId,
   setEnrollmentSearchId,
   studentEnrollments,
   enrollmentsLoading,
   onCreate,
   onCourseSelect,
+  onStudentSearch,
   onSearch,
   onAction,
 }) {
@@ -31,8 +35,30 @@ function StudentEnrollmentsTab({
       <Col xs={24} md={10}>
         <Card title="Enroll Student in Class" hoverable>
           <Form form={form} layout="vertical" onFinish={onCreate}>
-            <Form.Item name="studentId" label="Student ID" rules={[{ required: true, message: 'Enter student ID' }]}>
-              <Input placeholder="Example: student-a1" />
+            <Form.Item name="studentId" label="Student" rules={[{ required: true, message: 'Choose a student' }]}>
+              <Select
+                showSearch
+                filterOption={false}
+                loading={studentsLoading}
+                placeholder="Search by student name or email"
+                notFoundContent={studentsLoading ? 'Searching students...' : 'Type at least 2 characters to search'}
+                onSearch={onStudentSearch}
+                options={studentOptions.map((student) => {
+                  const id = getPersonId(student);
+                  const email = getPersonEmail(student);
+                  return {
+                    value: id,
+                    disabled: !id,
+                    searchLabel: `${getPersonDisplayName(student, 'Student')} ${email}`,
+                    label: (
+                      <div className="admin-mentor-select-option">
+                        <strong>{getPersonDisplayName(student, 'Student')}</strong>
+                        {email && <span>{email}</span>}
+                      </div>
+                    ),
+                  };
+                })}
+              />
             </Form.Item>
             <Form.Item name="courseId" label="Course" rules={[{ required: true }]}>
               <Select placeholder="Choose a course" onChange={onCourseSelect}>
@@ -63,7 +89,7 @@ function StudentEnrollmentsTab({
         <Card title="Student Enrollments Search" hoverable>
           <div className="admin-academic-search-row">
             <Input
-              placeholder="Enter user ID, email, or student code"
+              placeholder="Search by student name, email, or student code"
               value={enrollmentSearchId}
               onChange={(event) => setEnrollmentSearchId(event.target.value)}
               onPressEnter={onSearch}
@@ -82,12 +108,21 @@ function StudentEnrollmentsTab({
           <DataTable
             data={studentEnrollments || []}
             loading={enrollmentsLoading}
-            emptyText="No enrollment records loaded. Enter a user ID, email, or student code and click Search."
+            emptyText="No enrollment records loaded. Search for a student by name, email, or student code."
             columns={[
               {
-                accessorKey: 'id',
-                header: 'Enrollment ID',
-                cell: ({ row }) => row.original.id || row.original._id || row.original.enrollmentId || '—',
+                accessorKey: 'studentName',
+                header: 'Student',
+                cell: ({ row }) => {
+                  const record = row.original;
+                  const email = getPersonEmail(record);
+                  return (
+                    <div className="entity-name-cell">
+                      <strong>{getPersonDisplayName(record, 'Student')}</strong>
+                      {email && <span>{email}</span>}
+                    </div>
+                  );
+                },
               },
               { accessorKey: 'courseId', header: 'Course Code' },
               { accessorKey: 'classId', header: 'Class Code' },

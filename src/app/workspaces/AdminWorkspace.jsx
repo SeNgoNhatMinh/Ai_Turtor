@@ -1,27 +1,24 @@
-import { useEffect } from 'react';
-import AdminPortal from '../../pages/AdminPortal';
-import { useAdminRuntimeController } from '../../hooks/useAdminRuntimeController';
+import { lazy, Suspense } from 'react';
+import AsyncState from '../../components/common/AsyncState';
+import '../../features/admin/admin-route.css';
+
+const adminPages = {
+  'admin-dashboard': lazy(() => import('../../features/admin/dashboard/AdminDashboardPage')),
+  'admin-users': lazy(() => import('../../features/admin/users/AdminUsersPage')),
+  'admin-academic': lazy(() => import('../../features/admin/academic/AdminAcademicPage')),
+};
+
+function AdminPageFallback() {
+  return <AsyncState loading loadingLabel="Loading admin page..." loadingRows={6} />;
+}
 
 export default function AdminWorkspace({ activeTab, currentUser, triggerToast }) {
-  const runtime = useAdminRuntimeController({ triggerToast });
-
-  useEffect(() => {
-    if (activeTab !== 'admin-dashboard') return;
-    runtime.loadAdminStats();
-    // Admin runtime loaders are intentionally scoped to the visible route.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab]);
+  const Page = adminPages[activeTab];
+  if (!Page) return null;
 
   return (
-    <AdminPortal
-      activeTab={activeTab}
-      adminStats={runtime.adminStats}
-      diagnosticsOutput={runtime.diagnosticsOutput}
-      isDiagnosticsRunning={runtime.isDiagnosticsRunning}
-      runDiagnostics={runtime.runDiagnostics}
-      handleAdminImport={runtime.handleAdminImport}
-      triggerToast={triggerToast}
-      currentUser={currentUser}
-    />
+    <Suspense fallback={<AdminPageFallback />}>
+      <Page currentUser={currentUser} triggerToast={triggerToast} />
+    </Suspense>
   );
 }

@@ -12,11 +12,12 @@ export function useAppNavigation({ currentUser, currentUserRole }) {
   const routeState = useMemo(() => getRouteState(location.pathname), [location.pathname]);
   const initialUiState = readJsonStorage(APP_UI_STATE_KEY, {});
 
-  const [activeRole, setActiveRole] = useState(() => routeState?.role || initialUiState.activeRole || 'student');
-  const [activeTab, setActiveTab] = useState(() => routeState?.tab || initialUiState.activeTab || 'student-chat');
+  const [preferredRole, setPreferredRole] = useState(() => routeState?.role || initialUiState.activeRole || 'student');
   const [courseId, setCourseId] = useState(() => initialUiState.courseId || '');
   const [classId, setClassId] = useState(() => initialUiState.classId || '');
   const [isDarkMode, setIsDarkMode] = useState(() => Boolean(initialUiState.isDarkMode));
+  const activeRole = routeState?.role || preferredRole;
+  const activeTab = routeState?.tab || `${activeRole}-dashboard`;
 
   useEffect(() => {
     document.body.classList.toggle('theme-dark', isDarkMode);
@@ -43,10 +44,6 @@ export function useAppNavigation({ currentUser, currentUserRole }) {
       navigate(getHomeRouteForRole(currentUserRole), { replace: true });
       return;
     }
-    window.queueMicrotask(() => {
-      setActiveRole(routeState.role);
-      setActiveTab(routeState.tab);
-    });
   }, [currentUser, currentUserRole, navigate, routeState]);
 
   useEffect(() => {
@@ -56,7 +53,6 @@ export function useAppNavigation({ currentUser, currentUserRole }) {
   }, [activeRole, currentUser, navigate, routeState]);
 
   const switchTab = (tab) => {
-    setActiveTab(tab);
     const route = getRouteForTab(tab);
     if (route && route !== location.pathname) {
       navigate(route);
@@ -69,7 +65,7 @@ export function useAppNavigation({ currentUser, currentUserRole }) {
       navigate(getHomeRouteForRole(currentUserRole), { replace: true });
       return;
     }
-    setActiveRole(normalizedRole);
+    setPreferredRole(normalizedRole);
     navigate(getHomeRouteForRole(normalizedRole));
   };
 

@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import Login from '../../src/pages/Login';
+import LoginPage from '../../src/features/auth/LoginPage';
 
 vi.mock('../../src/components/RobotHeadMascot', () => ({
   default: () => <div aria-label="AI robot tutor saying the FPT learning slogan" />,
@@ -9,7 +9,7 @@ vi.mock('../../src/components/RobotHeadMascot', () => ({
 describe('Login', () => {
   it('validates credentials before making a request', () => {
     const triggerToast = vi.fn();
-    render(<Login onLoginSuccess={vi.fn()} triggerToast={triggerToast} />);
+    render(<LoginPage onLoginSuccess={vi.fn()} triggerToast={triggerToast} />);
 
     fireEvent.change(screen.getByLabelText('Email address'), { target: { value: 'student@example.com' } });
     fireEvent.change(screen.getByLabelText('Password'), { target: { value: '1' } });
@@ -19,8 +19,8 @@ describe('Login', () => {
   });
 
   it('shows registration fields through the segmented control', () => {
-    render(<Login onLoginSuccess={vi.fn()} triggerToast={vi.fn()} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Create account' }));
+    render(<LoginPage onLoginSuccess={vi.fn()} triggerToast={vi.fn()} />);
+    fireEvent.click(screen.getByRole('tab', { name: 'Create account' }));
     expect(screen.getByLabelText('Full name')).toBeInTheDocument();
     expect(screen.getByText('Password must be at least 6 characters.')).toBeInTheDocument();
   });

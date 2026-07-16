@@ -5,10 +5,10 @@ function PinnedMessagesBar({ messages, onJump, onToggle }) {
   if (!messages.length) return null;
 
   return (
-    <div className="chat-pinned-topbar" aria-label="Pinned messages">
+    <div className="chat-pinned-topbar" aria-label="Tin nhắn đã ghim">
       <div className="chat-pinned-topbar-label">
         <PushpinOutlined />
-        <span>Pinned</span>
+        <span>Đã ghim</span>
         <em>{messages.length}/3</em>
       </div>
       <div className="chat-pinned-topbar-list">
@@ -18,12 +18,12 @@ function PinnedMessagesBar({ messages, onJump, onToggle }) {
             type="button"
             className={`chat-pinned-topbar-item ${!canJump ? 'chat-pinned-topbar-item--disabled' : ''}`}
             onClick={() => canJump && onJump(key)}
-            title={canJump ? 'Jump to pinned message' : 'Pinned message is not in the loaded message window'}
+            title={canJump ? 'Chuyển đến tin nhắn đã ghim' : 'Tin nhắn đã ghim chưa có trong phần lịch sử đang tải'}
           >
-            <span>{getMessagePreview(message) || 'Pinned message'}</span>
+            <span>{getMessagePreview(message) || 'Tin nhắn đã ghim'}</span>
             <CloseOutlined
               className="chat-pinned-unpin"
-              title="Unpin message"
+              title="Bỏ ghim tin nhắn"
               onClick={(event) => {
                 event.stopPropagation();
                 onToggle({ assistantMessageId: pinned.messageId });

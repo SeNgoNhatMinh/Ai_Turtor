@@ -1,11 +1,18 @@
-import { useEffect, useMemo } from 'react';
-import StudentPortal from '../../pages/StudentPortal';
-import { useStudentLearningController } from '../../features/student/learning/useStudentLearningController';
+import { lazy, Suspense, useEffect, useMemo } from 'react';
+import AsyncState from '../../components/common/AsyncState';
 import { useStudentEnrollmentOptions } from '../../hooks/useStudentEnrollmentOptions';
-import { useStudentChatController } from '../../hooks/useStudentChatController';
-import { useCodeMentorController } from '../../hooks/useCodeMentorController';
-import { useStudentAssignmentsController } from '../../hooks/useStudentAssignmentsController';
-import { useCourseMaterialsController } from '../../hooks/useCourseMaterialsController';
+
+const studentPages = {
+  'student-chat': lazy(() => import('../../features/student/chat/StudentChatPage')),
+  'student-memory': lazy(() => import('../../features/student/learning/LearningProgressPage')),
+  'student-quizzes': lazy(() => import('../../features/student/quizzes/PracticeQuizzesPage')),
+  'student-materials': lazy(() => import('../../features/student/materials/StudentMaterialsPage')),
+  'student-escalation': lazy(() => import('../../features/student/mentor-review/MentorReviewPage')),
+};
+
+function StudentPageFallback() {
+  return <AsyncState loading loadingLabel="Loading student page..." loadingRows={6} />;
+}
 
 export default function StudentWorkspace({
   currentUser,
@@ -25,8 +32,7 @@ export default function StudentWorkspace({
     currentUser?.email,
     currentUser?._id,
   ], [currentUser]);
-
-  const enrollments = useStudentEnrollmentOptions({
+  const enrollment = useStudentEnrollmentOptions({
     studentId: currentUserId,
     lookupIds: studentLookupIds,
     courseId,
@@ -34,97 +40,31 @@ export default function StudentWorkspace({
     setCourseId,
     setClassId,
   });
-  const studentId = enrollments.resolvedStudentId || currentUserId;
-
-  const learning = useStudentLearningController({
-    studentId,
-    courseId,
-    classId,
-    switchTab,
-    triggerToast,
-  });
-  const codeMentor = useCodeMentorController({
-    studentId,
-    courseId,
-    classId,
-    triggerToast,
-  });
-  const chat = useStudentChatController({
-    currentUser,
-    studentId,
-    courseId,
-    classId,
-    triggerToast,
-    setCodeMentorDiagnostics: codeMentor.setCodeMentorDiagnostics,
-  });
-  const assignments = useStudentAssignmentsController({ studentId, triggerToast });
-  const materials = useCourseMaterialsController({
-    courseId,
-    classId,
-    teacherId: currentUserId,
-    triggerToast,
-  });
+  const studentId = enrollment.resolvedStudentId || currentUserId;
+  const Page = studentPages[activeTab];
 
   useEffect(() => {
     if (!currentUserId) return;
-    enrollments.loadStudentEnrollments();
-    chat.loadChatSessions();
-    assignments.loadStudentAssignments();
-    materials.loadCourseMaterials();
-    // Legacy loaders are migrated one controller at a time and are not callback-stable yet.
+    enrollment.loadStudentEnrollments();
+    // Enrollment is identity-scoped; course selection is derived from this response.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUserId, courseId, classId, studentId]);
+  }, [currentUserId]);
+
+  if (!Page) return null;
 
   return (
-    <StudentPortal
-      activeTab={activeTab}
-      switchTab={switchTab}
-      courseId={courseId}
-      setCourseId={setCourseId}
-      classId={classId}
-      courseOptions={enrollments.courseOptions}
-      classOptions={enrollments.classOptions}
-      isStudentEnrollmentsLoading={enrollments.isStudentEnrollmentsLoading}
-      hasLoadedStudentEnrollments={enrollments.hasLoadedStudentEnrollments}
-      hasStudentEnrollments={enrollments.hasStudentEnrollments}
-      isDarkMode={isDarkMode}
-      sessions={chat.sessions}
-      isSessionsLoading={chat.isSessionsLoading}
-      activeSessionId={chat.activeSessionId}
-      activeSessionTitle={chat.activeSessionTitle}
-      messages={chat.messages}
-      activeSessionQuestionCount={chat.activeSessionQuestionCount}
-      activeSessionMaxTurnsReached={chat.activeSessionMaxTurnsReached}
-      turnLimitNotice={chat.turnLimitNotice}
-      dismissTurnLimitNotice={chat.dismissTurnLimitNotice}
-      resetChat={chat.resetChat}
-      handleCreateSession={chat.handleCreateSession}
-      handleSelectSession={chat.handleSelectSession}
-      handleDeleteSession={chat.handleDeleteSession}
-      handleRenameSession={chat.handleRenameSession}
-      handleSendQuery={chat.handleSendQuery}
-      handleStopAiGeneration={chat.handleStopAiGeneration}
-      openLearnedSuggestionResponse={chat.openLearnedSuggestionResponse}
-      assignments={assignments.assignments}
-      selectedAssignment={assignments.selectedAssignment}
-      setSelectedAssignment={assignments.setSelectedAssignment}
-      handleStudentSubmit={assignments.handleStudentSubmit}
-      onDownloadAssignment={assignments.handleDownloadAssignment}
-      suggestions={learning.suggestions}
-      isSuggesting={learning.isSuggesting}
-      refreshSuggestions={learning.refreshSuggestions}
-      triggerToast={triggerToast}
-      userId={studentId}
-      currentUser={currentUser}
-      studentDashboard={learning.studentDashboard}
-      isStudentDashboardLoading={learning.isStudentDashboardLoading}
-      loadStudentDashboard={learning.loadStudentDashboard}
-      onPinSuggestion={learning.handlePinImproveSuggestion}
-      onUnpinSuggestion={learning.handleUnpinImproveSuggestion}
-      handleStudentReviewAnswer={learning.handleStudentReviewAnswer}
-      onUpdateMemory={learning.handleStudentUpdateMemory}
-      courseMaterials={materials.courseMaterials}
-      onDownloadMaterial={materials.handleDownloadMaterial}
-    />
+    <Suspense fallback={<StudentPageFallback />}>
+      <Page
+        currentUser={currentUser}
+        studentId={studentId}
+        courseId={courseId}
+        setCourseId={setCourseId}
+        classId={classId}
+        isDarkMode={isDarkMode}
+        switchTab={switchTab}
+        triggerToast={triggerToast}
+        enrollment={enrollment}
+      />
+    </Suspense>
   );
 }

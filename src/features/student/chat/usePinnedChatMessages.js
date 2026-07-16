@@ -74,17 +74,17 @@ export function usePinnedChatMessages({ userId, sessionId, messages, triggerToas
 
   const togglePinnedMessage = useCallback(async (message) => {
     if (!userId || !sessionId) {
-      triggerToast?.('Please open a saved chat before pinning messages.');
+      triggerToast?.('Hãy mở một cuộc trò chuyện đã lưu trước khi ghim tin nhắn.');
       return;
     }
     const messageId = getPinTargetId(message);
     if (!messageId) {
-      triggerToast?.('This message is not ready to pin yet. Please reload the chat and try again.');
+      triggerToast?.('Tin nhắn chưa sẵn sàng để ghim. Hãy tải lại cuộc trò chuyện và thử lại.');
       return;
     }
     const isPinned = pinnedMessageIdSet.has(messageId);
     if (!isPinned && serverMessages.length >= MAX_PINNED_MESSAGES) {
-      triggerToast?.(`You can pin up to ${MAX_PINNED_MESSAGES} messages.`);
+      triggerToast?.(`Bạn chỉ có thể ghim tối đa ${MAX_PINNED_MESSAGES} tin nhắn.`);
       return;
     }
 
@@ -93,11 +93,11 @@ export function usePinnedChatMessages({ userId, sessionId, messages, triggerToas
       if (isPinned) await conversationApi.unpinChatMessage(sessionId, messageId, userId);
       else await conversationApi.pinChatMessage(sessionId, messageId, userId);
       await loadPinnedMessages();
-      triggerToast?.(isPinned ? 'Message unpinned.' : 'Message pinned.');
+      triggerToast?.(isPinned ? 'Đã bỏ ghim tin nhắn.' : 'Đã ghim tin nhắn.');
     } catch (error) {
       triggerToast?.(getUserFacingError(
         error,
-        isPinned ? 'Unable to unpin this message.' : 'Unable to pin this message.',
+        isPinned ? 'Không thể bỏ ghim tin nhắn.' : 'Không thể ghim tin nhắn.',
       ));
     } finally {
       setPinningMessageId('');

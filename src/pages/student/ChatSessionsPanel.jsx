@@ -52,10 +52,10 @@ function ChatSessionsPanel({
     }
     if (key === 'delete') {
       confirmDanger({
-        title: 'Delete conversation?',
-        content: 'This will remove the selected chat history.',
-        okText: 'Delete',
-        cancelText: 'Cancel',
+        title: 'Xóa cuộc trò chuyện?',
+        content: 'Lịch sử của cuộc trò chuyện này sẽ bị xóa.',
+        okText: 'Xóa',
+        cancelText: 'Hủy',
         anchorRect: meta?.anchorRect,
         onOk: () => onDelete(session.id),
       });
@@ -80,11 +80,11 @@ function ChatSessionsPanel({
     >
       <div className="chat-history-header">
         <div>
-          <div className="chat-history-title">Chat history</div>
-          <div className="chat-history-subtitle">Sorted by latest activity</div>
+          <div className="chat-history-title">Lịch sử trò chuyện</div>
+          <div className="chat-history-subtitle">Mới nhất trước</div>
         </div>
         <Button type="primary" size="small" icon={<Plus size={14} />} onClick={onCreate} className="chat-history-new-button">
-          New Chat
+          Cuộc trò chuyện mới
         </Button>
       </div>
 
@@ -116,7 +116,7 @@ function ChatSessionsPanel({
                 onMenuAction={handleSessionMenu}
               />
             ))}
-            {hasMore && <button type="button" className="conversation-load-more" onClick={loadMore}>Load more conversations</button>}
+            {hasMore && <button type="button" className="conversation-load-more" onClick={loadMore}>Xem thêm</button>}
           </>
         )}
       </div>

@@ -9,8 +9,6 @@ const StudentEnrollmentsTab = lazy(() => import('./StudentEnrollmentsTab'));
 const StudentImportTab = lazy(() => import('./StudentImportTab'));
 const TermsTab = lazy(() => import('./TermsTab'));
 
-const { TabPane } = Tabs;
-
 function TabFallback() {
   return <AsyncState loading compact loadingLabel="Loading academic records..." loadingRows={5} />;
 }
@@ -21,23 +19,36 @@ export default function AdminAcademicTabs({
   materials,
   studentImport,
   mentors,
+  studentOptions,
+  studentsLoading,
+  onStudentSearch,
   triggerToast,
   onAcademicAction,
   onOpenEntity,
 }) {
-  return (
-    <Tabs defaultActiveKey="semesters" type="card" className="admin-academic-tabs" tabBarGutter={6}>
-      <TabPane tab="Terms" key="semesters">
+  const items = [
+    {
+      key: 'semesters',
+      label: 'Terms',
+      children: (
         <Suspense fallback={<TabFallback />}>
           <TermsTab form={forms.semester} semesters={academic.semesters} onCreate={academic.handleCreateSemester} onReload={academic.loadSemesters} onAction={onAcademicAction} />
         </Suspense>
-      </TabPane>
-      <TabPane tab="Courses" key="courses">
+      ),
+    },
+    {
+      key: 'courses',
+      label: 'Courses',
+      children: (
         <Suspense fallback={<TabFallback />}>
           <CoursesTab form={forms.course} courses={academic.courses} onCreate={academic.handleCreateCourse} onReload={academic.loadCourses} onAction={onAcademicAction} />
         </Suspense>
-      </TabPane>
-      <TabPane tab="Class Sections" key="classes">
+      ),
+    },
+    {
+      key: 'classes',
+      label: 'Class Sections',
+      children: (
         <Suspense fallback={<TabFallback />}>
           <ClassSectionsTab
             form={forms.classSection}
@@ -51,25 +62,36 @@ export default function AdminAcademicTabs({
             onAction={onAcademicAction}
           />
         </Suspense>
-      </TabPane>
-      <TabPane tab="Student Enrollments" key="enrollments">
+      ),
+    },
+    {
+      key: 'enrollments',
+      label: 'Student Enrollments',
+      children: (
         <Suspense fallback={<TabFallback />}>
           <StudentEnrollmentsTab
             form={forms.enrollment}
             courses={academic.courses}
             classSections={academic.classSections}
+            studentOptions={studentOptions}
+            studentsLoading={studentsLoading}
             enrollmentSearchId={academic.enrollmentSearchId}
             setEnrollmentSearchId={academic.setEnrollmentSearchId}
             studentEnrollments={academic.studentEnrollments}
             enrollmentsLoading={academic.enrollmentsLoading}
             onCreate={academic.handleCreateEnrollment}
             onCourseSelect={academic.handleCourseSelect}
+            onStudentSearch={onStudentSearch}
             onSearch={academic.loadStudentEnrollments}
             onAction={onAcademicAction}
           />
         </Suspense>
-      </TabPane>
-      <TabPane tab="Import Students" key="student-import">
+      ),
+    },
+    {
+      key: 'student-import',
+      label: 'Import Students',
+      children: (
         <Suspense fallback={<TabFallback />}>
           <StudentImportTab
             form={forms.studentImport}
@@ -89,8 +111,12 @@ export default function AdminAcademicTabs({
             onImport={studentImport.handleStudentImport}
           />
         </Suspense>
-      </TabPane>
-      <TabPane tab="Course Materials" key="materials">
+      ),
+    },
+    {
+      key: 'materials',
+      label: 'Course Materials',
+      children: (
         <Suspense fallback={<TabFallback />}>
           <CourseMaterialsTab
             form={forms.material}
@@ -114,7 +140,17 @@ export default function AdminAcademicTabs({
             }}
           />
         </Suspense>
-      </TabPane>
-    </Tabs>
+      ),
+    },
+  ];
+
+  return (
+    <Tabs
+      defaultActiveKey="semesters"
+      type="card"
+      className="admin-academic-tabs"
+      tabBarGutter={6}
+      items={items}
+    />
   );
 }

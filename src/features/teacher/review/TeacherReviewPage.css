@@ -1,0 +1,217 @@
+.answer-review-section__subtitle {
+  max-width: 620px;
+  margin: 4px 0 0;
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+.answer-review-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-height: min(66vh, 760px);
+  padding-right: 4px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.answer-review-card {
+  padding: 16px;
+  border: 1px solid var(--color-card-border);
+  border-radius: var(--border-radius-md);
+  background: var(--color-card-bg);
+  color: var(--color-text-main);
+}
+
+.answer-review-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.answer-review-card__header h4 {
+  margin: 6px 0 2px;
+  color: var(--color-text-main);
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+
+.answer-review-card__header p,
+.answer-review-card__rating span {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.answer-review-card__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.answer-review-card__rating {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.answer-review-card__rating .ant-rate {
+  font-size: 13px;
+}
+
+.answer-review-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin-bottom: 12px;
+  padding: 9px 10px;
+  border-radius: 7px;
+  background: #f7f7f5;
+  color: var(--color-text-muted);
+  font-size: 0.72rem;
+}
+
+.answer-review-facts strong {
+  color: var(--color-text-main);
+}
+
+.answer-review-evidence {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.answer-review-text {
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--color-card-border);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.answer-review-text > span {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--color-text-muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.answer-review-text p {
+  max-height: 190px;
+  margin: 0;
+  overflow: auto;
+  color: var(--color-text-main);
+  font-size: 0.78rem;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.answer-review-text--answer {
+  background: #f8fafc;
+}
+
+.answer-review-text--feedback {
+  border-color: #fdba74;
+  background: #fff7ed;
+}
+
+.answer-review-text--correction {
+  border-color: #86efac;
+  background: #f0fdf4;
+}
+
+.answer-review-resolution {
+  display: grid;
+  gap: 10px;
+  padding-top: 2px;
+}
+
+.answer-review-resolution__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.answer-review-resolution__hint {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.7rem;
+  line-height: 1.45;
+  text-align: right;
+}
+
+.answer-review-candidate-header {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--color-card-border);
+}
+
+.app-container.dark .answer-review-card {
+  border-color: #2a2a2a;
+  background: #0f0f0f;
+  color: #f9fafb;
+}
+
+.app-container.dark .answer-review-facts,
+.app-container.dark .answer-review-text--answer {
+  background: #171717;
+}
+
+.app-container.dark .answer-review-text {
+  border-color: #303030;
+  background: #101010;
+}
+
+.app-container.dark .answer-review-text--feedback {
+  border-color: #9a4b16;
+  background: #25150b;
+}
+
+.app-container.dark .answer-review-text--correction {
+  border-color: #256d3b;
+  background: #0d2215;
+}
+
+.app-container.dark .answer-review-card__header h4,
+.app-container.dark .answer-review-facts strong,
+.app-container.dark .answer-review-text p {
+  color: #f9fafb;
+}
+
+@media (max-width: 780px) {
+  .answer-review-card__header {
+    flex-direction: column;
+  }
+
+  .answer-review-card__rating {
+    align-items: flex-start;
+  }
+
+  .answer-review-list {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .answer-review-resolution__actions .ant-btn {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .answer-review-card,
+  .answer-review-card * {
+    scroll-behavior: auto !important;
+  }
+}

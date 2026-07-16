@@ -1,5 +1,5 @@
 import { Form, Input, InputNumber, Modal, Select } from 'antd';
-import { getRecordId } from './adminAcademicUtils';
+import { getPersonDisplayName, getPersonEmail, getPersonId } from '../../../utils/displayNames';
 
 const { Option } = Select;
 
@@ -11,9 +11,9 @@ const ENTITY_LABELS = {
   material: 'Course Material',
 };
 
-const getMentorId = (mentor) => mentor.id || mentor.mentorId || mentor.teacherId || mentor.userId || mentor.email;
-const getMentorName = (mentor) => mentor.mentorName || mentor.name || mentor.fullName || mentor.teacherName || mentor.email || 'Mentor';
-const getMentorEmail = (mentor) => mentor.email || mentor.teacherEmail || '';
+const getMentorId = (mentor) => getPersonId(mentor) || mentor.email;
+const getMentorName = (mentor) => getPersonDisplayName(mentor, 'Mentor');
+const getMentorEmail = (mentor) => getPersonEmail(mentor);
 const getMentorMeta = (mentor) => [
   getMentorEmail(mentor),
   Array.isArray(mentor.specializations) ? mentor.specializations.join(', ') : mentor.specialization,
@@ -48,7 +48,7 @@ function EntityRecordModal({
       okText={isViewMode ? 'Close' : 'Save changes'}
       cancelButtonProps={{ style: isViewMode ? { display: 'none' } : undefined }}
       confirmLoading={entitySaving}
-      destroyOnClose
+      destroyOnHidden
     >
       <Form form={form} layout="vertical" disabled={isViewMode}>
         {entityModal.type === 'semester' && (
@@ -71,7 +71,7 @@ function EntityRecordModal({
 
         {entityModal.type === 'course' && (
           <>
-            <Form.Item name="courseId" label="Course ID">
+            <Form.Item name="courseId" label="Course Code">
               <Input disabled />
             </Form.Item>
             <Form.Item name="courseName" label="Course Name" rules={[{ required: !isViewMode, message: 'Enter a course name' }]}>
@@ -92,10 +92,10 @@ function EntityRecordModal({
 
         {entityModal.type === 'class' && (
           <>
-            <Form.Item name="courseId" label="Course ID">
+            <Form.Item name="courseId" label="Course Code">
               <Input disabled />
             </Form.Item>
-            <Form.Item name="classId" label="Class ID">
+            <Form.Item name="classId" label="Class Code">
               <Input disabled />
             </Form.Item>
             <Form.Item name="teacherId" label="Class Teacher / Mentor" rules={[{ required: !isViewMode, message: 'Choose the class teacher or mentor' }]}>
@@ -115,7 +115,7 @@ function EntityRecordModal({
                     label: (
                       <div className="admin-mentor-select-option">
                         <strong>{name}</strong>
-                        <span>{id}{meta ? ` | ${meta}` : ''}</span>
+                        {meta && <span>{meta}</span>}
                       </div>
                     ),
                   };
@@ -136,13 +136,21 @@ function EntityRecordModal({
 
         {entityModal.type === 'enrollment' && (
           <>
-            <Form.Item name="studentId" label="Student ID">
+            <Form.Item label="Student">
+              <Input value={getPersonDisplayName(entityModal.record, 'Student')} disabled />
+            </Form.Item>
+            {getPersonEmail(entityModal.record) && (
+              <Form.Item label="Email">
+                <Input value={getPersonEmail(entityModal.record)} disabled />
+              </Form.Item>
+            )}
+            <Form.Item name="studentId" hidden>
+              <Input />
+            </Form.Item>
+            <Form.Item name="courseId" label="Course Code">
               <Input disabled />
             </Form.Item>
-            <Form.Item name="courseId" label="Course ID">
-              <Input disabled />
-            </Form.Item>
-            <Form.Item name="classId" label="Class ID">
+            <Form.Item name="classId" label="Class Code">
               <Input disabled />
             </Form.Item>
             <Form.Item name="status" label="Status">
@@ -157,9 +165,6 @@ function EntityRecordModal({
 
         {entityModal.type === 'material' && (
           <>
-            <Form.Item label="Material ID">
-              <Input value={getRecordId(entityModal.record)} disabled />
-            </Form.Item>
             <Form.Item name="title" label="Title" rules={[{ required: !isViewMode, message: 'Enter material title' }]}>
               <Input />
             </Form.Item>

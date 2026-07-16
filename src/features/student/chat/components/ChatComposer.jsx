@@ -14,7 +14,7 @@ function ChatComposer({
   triggerToast,
 }) {
   const textareaRef = useRef(null);
-  const fullMessage = 'This chat is full. Start a new chat to continue.';
+  const fullMessage = 'Cuộc trò chuyện đã đủ 10 câu hỏi. Hãy tạo cuộc trò chuyện mới.';
   const sendDisabled = !canChat || !validateChatInput(chatInput).ok || activeSessionMaxTurnsReached;
 
   useEffect(() => {
@@ -47,8 +47,8 @@ function ChatComposer({
     : activeSessionMaxTurnsReached
       ? fullMessage
       : isAiLoading
-        ? 'AI Tutor is responding...'
-        : 'Message AI Tutor...';
+        ? 'AI Tutor đang trả lời...'
+        : 'Nhập câu hỏi cho AI Tutor...';
 
   return (
     <div className="chat-workspace-input-area">
@@ -65,7 +65,7 @@ function ChatComposer({
             rows={1}
           />
           {isAiLoading ? (
-            <button className="chat-gpt-send-btn" onClick={onStop} title="Stop generating" type="button">
+            <button className="chat-gpt-send-btn" onClick={onStop} title="Dừng tạo câu trả lời" type="button">
               <StopOutlined />
             </button>
           ) : (
@@ -73,7 +73,7 @@ function ChatComposer({
               className="chat-gpt-send-btn"
               onClick={onSend}
               disabled={sendDisabled}
-              title={!canChat ? chatContextMessage : activeSessionMaxTurnsReached ? fullMessage : 'Send message'}
+              title={!canChat ? chatContextMessage : activeSessionMaxTurnsReached ? fullMessage : 'Gửi tin nhắn'}
               type="button"
             >
               <SendOutlined />
@@ -81,7 +81,7 @@ function ChatComposer({
           )}
         </div>
         <div style={{ textAlign: 'center', marginTop: 8, fontSize: 11, color: '#888' }}>
-          AI Tutor can make mistakes. Consider verifying important information.
+          AI Tutor có thể trả lời sai. Hãy kiểm tra lại thông tin quan trọng.
         </div>
       </div>
     </div>

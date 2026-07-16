@@ -1,11 +1,21 @@
 import { useState } from 'react';
 import { Download, CheckCircle, XCircle } from 'lucide-react';
+import { Pagination, Select } from 'antd';
+import { getPersonDisplayName } from '../../utils/displayNames';
 
 function TeacherGradingTab({
   teacherSubmissions = [],
   quizSubmissions = [],
+  quizAttemptPage = {},
+  quizPage = 0,
+  onQuizPageChange,
+  quizReviewStatus = 'PENDING',
+  onQuizReviewStatusChange,
+  isQuizSubmissionsLoading = false,
+  loadingQuizDetailId = '',
   selectedTeacherSub,
   setSelectedTeacherSub,
+  onSelectSubmission,
   teacherGradeScore,
   setTeacherGradeScore,
   teacherGradeFeedback,
@@ -18,12 +28,9 @@ function TeacherGradingTab({
 }) {
   const [activeTab, setActiveTab] = useState('assignments'); // 'assignments' or 'quizzes'
 
-  const handleQuizGradeSubmit = (e) => {
+  const handleQuizGradeSubmit = async (e) => {
     e.preventDefault();
-    handleTeacherQuizReview(selectedTeacherSub.id, teacherGradeScore, teacherGradeFeedback).then(() => {
-      setTeacherGradeScore('');
-      setTeacherGradeFeedback('');
-    });
+    await handleTeacherQuizReview(selectedTeacherSub.id, teacherGradeScore, teacherGradeFeedback);
   };
 
   const currentList = activeTab === 'assignments' ? teacherSubmissions : quizSubmissions;
@@ -44,23 +51,33 @@ function TeacherGradingTab({
           >
             AI Quizzes
           </h3>
+          {activeTab === 'quizzes' && (
+            <Select
+              size="small"
+              value={quizReviewStatus}
+              aria-label="Filter quiz attempts by review status"
+              onChange={onQuizReviewStatusChange}
+              options={[
+                { value: 'PENDING', label: 'Pending review' },
+                { value: 'REVIEWED', label: 'Reviewed' },
+                { value: '', label: 'All attempts' },
+              ]}
+              style={{ minWidth: 140, marginLeft: 'auto' }}
+            />
+          )}
         </div>
         <div className="submissions-list-container">
-          {currentList.map((sub) => (
+          {activeTab === 'quizzes' && isQuizSubmissionsLoading && (
+            <p className="no-data-text">Loading quiz attempts...</p>
+          )}
+          {!isQuizSubmissionsLoading && currentList.map((sub) => (
             <div
               key={sub.id}
               className={`submission-item-row ${selectedTeacherSub?.id === sub.id ? 'selected' : ''}`}
-              onClick={() => {
-                setSelectedTeacherSub(sub);
-                setTeacherGradeScore(activeTab === 'assignments' ? (sub.score || '') : (sub.teacherReviewedScore ?? sub.score ?? ''));
-                setTeacherGradeFeedback(activeTab === 'assignments' ? (sub.teacherFeedback || '') : (sub.teacherFeedback || ''));
-                if (activeTab === 'assignments') {
-                  setTeacherGradeWeakTopics(sub.weakTopics || []);
-                }
-              }}
+              onClick={() => onSelectSubmission?.(sub, activeTab)}
             >
               <div className="sub-meta">
-                <span className="sub-student">{sub.studentName || sub.student || sub.studentId}</span>
+                <span className="sub-student">{getPersonDisplayName(sub, 'Student')}</span>
                 <span className="sub-time">
                   {new Date(sub.submittedAt).toLocaleDateString()}
                 </span>
@@ -69,12 +86,26 @@ function TeacherGradingTab({
               <span className={`sub-status ${activeTab === 'assignments' ? sub.status : sub.teacherReviewStatus || sub.status}`}>
                 {activeTab === 'assignments'
                   ? (sub.status === 'REVIEWED' ? `Graded: ${sub.score}` : 'Pending grading')
-                  : (sub.teacherReviewStatus === 'REVIEWED' ? `Teacher Graded: ${sub.teacherReviewedScore}` : `AI Graded: ${sub.score}/${sub.maxScore}`)}
+                  : (sub.teacherReviewStatus === 'REVIEWED'
+                    ? `Final score: ${sub.finalScore}/${sub.maxScore}`
+                    : `Auto score: ${sub.autoScore ?? sub.score}/${sub.maxScore}`)}
               </span>
             </div>
           ))}
-          {currentList.length === 0 && (
+          {!isQuizSubmissionsLoading && currentList.length === 0 && (
             <p style={{ padding: '1rem', opacity: 0.7 }}>No submissions found.</p>
+          )}
+          {activeTab === 'quizzes' && Number(quizAttemptPage.totalElements || 0) > 0 && (
+            <div style={{ padding: '12px 8px 4px', display: 'flex', justifyContent: 'center' }}>
+              <Pagination
+                simple
+                current={quizPage + 1}
+                pageSize={quizAttemptPage.size || 20}
+                total={quizAttemptPage.totalElements || 0}
+                showSizeChanger={false}
+                onChange={(page) => onQuizPageChange?.(page - 1)}
+              />
+            </div>
           )}
         </div>
       </div>
@@ -103,7 +134,7 @@ function TeacherGradingTab({
                 />
               </div>
               <button type="submit" className="btn-submit-form">Save Feedback</button>
-              <button type="button" className="btn-small-chat" onClick={() => handleDownloadSubmission(selectedTeacherSub.id)} style={{ marginTop: '0.5rem' }}>
+              <button type="button" className="btn-small-chat" onClick={() => handleDownloadSubmission(selectedTeacherSub)} style={{ marginTop: '0.5rem' }}>
                 <Download style={{ width: 12, height: 12 }} /> Download file
               </button>
             </form>
@@ -120,6 +151,12 @@ function TeacherGradingTab({
             </span>
           </div>
           <div className="grading-panel-body" style={{ flex: 1, overflowY: 'auto', marginBottom: '1rem' }}>
+            {loadingQuizDetailId === selectedTeacherSub.id && (
+              <p className="no-data-text">Loading quiz questions and answers...</p>
+            )}
+            {loadingQuizDetailId !== selectedTeacherSub.id && selectedTeacherSub.questions?.length === 0 && (
+              <p className="no-data-text">No question details are available for this attempt.</p>
+            )}
             {selectedTeacherSub.questions?.map((q, idx) => {
               const studentAnswer = selectedTeacherSub.answers?.find(a => a.questionId === q.questionId);
               const isCorrect = studentAnswer?.correct;

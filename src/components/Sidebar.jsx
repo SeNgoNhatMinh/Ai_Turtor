@@ -16,7 +16,7 @@ function Sidebar({ activeRole, activeTab, switchTab }) {
           placement="right"
           title={<span className="sidebar-tooltip-text">{item.description}</span>}
           color="#FFFFFF"
-          overlayClassName="sidebar-nav-tooltip"
+          classNames={{ root: 'sidebar-nav-tooltip' }}
           rootClassName="sidebar-nav-tooltip"
         >
           <span>{item.label}</span>
@@ -32,7 +32,7 @@ function Sidebar({ activeRole, activeTab, switchTab }) {
           title={<span className="sidebar-tooltip-text">{collapsed ? 'Open sidebar' : 'Close sidebar'}</span>}
           placement="right"
           color="#FFFFFF"
-          overlayClassName="sidebar-nav-tooltip"
+          classNames={{ root: 'sidebar-nav-tooltip' }}
           rootClassName="sidebar-nav-tooltip"
         >
           <Button

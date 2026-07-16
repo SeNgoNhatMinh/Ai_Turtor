@@ -5,11 +5,11 @@ export const ACCOUNT_ROLES = Object.freeze({
   ADMIN: 'ADMIN',
 });
 
-export const ACCOUNT_ROLE_VALUES = Object.freeze(Object.values(ACCOUNT_ROLES));
+const ACCOUNT_ROLE_VALUES = Object.freeze(Object.values(ACCOUNT_ROLES));
 const ACCOUNT_ROLE_SET = new Set(ACCOUNT_ROLE_VALUES);
 const warnedLegacyRoles = new Set();
 
-export const WORKSPACES = Object.freeze({
+const WORKSPACES = Object.freeze({
   STUDENT: 'student',
   TEACHER: 'teacher',
   ADMIN: 'admin',
@@ -48,15 +48,6 @@ export function normalizeAccountRole(role, fallback = ACCOUNT_ROLES.STUDENT) {
   return ROLE_ALIASES[normalized] || fallback;
 }
 
-export function isCanonicalAccountRole(role) {
-  const normalized = String(role || '')
-    .trim()
-    .toUpperCase()
-    .replace(/^ROLE_/, '')
-    .replace(/[\s-]+/g, '_');
-  return ACCOUNT_ROLE_SET.has(normalized);
-}
-
 export function getWorkspaceRole(role) {
   const accountRole = normalizeAccountRole(role);
   if (accountRole === ACCOUNT_ROLES.ADMIN) return WORKSPACES.ADMIN;
@@ -68,9 +59,4 @@ export function getWorkspaceRole(role) {
 export function getChatSenderRole(role) {
   const accountRole = normalizeAccountRole(role);
   return accountRole === ACCOUNT_ROLES.STUDENT ? 'STUDENT' : 'MENTOR';
-}
-
-export function isTeacherAccountRole(role) {
-  return [ACCOUNT_ROLES.TEACHER, ACCOUNT_ROLES.SENIOR_MENTOR]
-    .includes(normalizeAccountRole(role));
 }

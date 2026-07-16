@@ -17,7 +17,7 @@ function CoursesTab({ form, courses, onCreate, onReload, onAction }) {
       <Col xs={24} md={10}>
         <Card title="Create New Course" hoverable>
           <Form form={form} layout="vertical" onFinish={onCreate}>
-            <Form.Item name="courseId" label="Course ID" rules={[{ required: true }]}>
+            <Form.Item name="courseId" label="Course Code" rules={[{ required: true }]}>
               <Input placeholder="PRJ301" />
             </Form.Item>
             <Form.Item name="courseName" label="Course Name" rules={[{ required: true }]}>

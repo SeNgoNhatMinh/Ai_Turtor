@@ -1,21 +1,12 @@
-import { lazy, Suspense } from 'react';
+import { Outlet } from 'react-router-dom';
 import { ConfigProvider } from 'antd';
 import AuthedLayout from './app/layouts/AuthedLayout';
 import { useAppNavigation } from './app/useAppNavigation';
-import Login from './pages/Login';
+import LoginPage from './features/auth/LoginPage';
 import Toast from './components/Toast';
-import { useAuthSession } from './features/auth/useAuthSession';
+import { useAuthSession } from './features/auth/hooks/useAuthSession';
 import { useToastMessage } from './hooks/useToastMessage';
 import { getFptTheme } from './theme/fptTheme';
-import AsyncState from './components/common/AsyncState';
-
-const StudentWorkspace = lazy(() => import('./app/workspaces/StudentWorkspace'));
-const TeacherWorkspace = lazy(() => import('./app/workspaces/TeacherWorkspace'));
-const AdminWorkspace = lazy(() => import('./app/workspaces/AdminWorkspace'));
-
-function WorkspaceFallback() {
-  return <AsyncState loading loadingLabel="Loading workspace..." loadingRows={6} />;
-}
 
 function App() {
   const auth = useAuthSession();
@@ -35,9 +26,8 @@ function App() {
     navigation.navigate('/login', { replace: true });
   };
 
-  const sharedWorkspaceProps = {
+  const workspaceProps = {
     currentUser: auth.currentUser,
-    activeTab: navigation.activeTab,
     switchTab: navigation.switchTab,
     courseId: navigation.courseId,
     setCourseId: navigation.setCourseId,
@@ -51,7 +41,7 @@ function App() {
     <ConfigProvider theme={getFptTheme(navigation.isDarkMode)}>
       {!auth.currentUser ? (
         <>
-          <Login onLoginSuccess={handleLoginSuccess} triggerToast={toast.triggerToast} />
+          <LoginPage onLoginSuccess={handleLoginSuccess} triggerToast={toast.triggerToast} />
           {toast.toastMessage && <Toast message={toast.toastMessage} onClose={() => toast.setToastMessage(null)} />}
         </>
       ) : (
@@ -67,11 +57,11 @@ function App() {
           toastMessage={toast.toastMessage}
           onCloseToast={() => toast.setToastMessage(null)}
         >
-          <Suspense fallback={<WorkspaceFallback />}>
-            {navigation.activeRole === 'student' && <StudentWorkspace {...sharedWorkspaceProps} />}
-            {navigation.activeRole === 'teacher' && <TeacherWorkspace {...sharedWorkspaceProps} />}
-            {navigation.activeRole === 'admin' && <AdminWorkspace {...sharedWorkspaceProps} />}
-          </Suspense>
+          <Outlet context={{
+            activeRole: navigation.activeRole,
+            currentUserRole: auth.currentUserRole,
+            workspaceProps,
+          }} />
         </AuthedLayout>
       )}
     </ConfigProvider>

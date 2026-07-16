@@ -5,12 +5,21 @@ This document tracks backend API coverage in the React frontend.
 ## Legend
 - `UI done`: Exposed in a user-facing screen.
 - `service only`: Helper exists, but UI is not part of the current demo scope.
+- `partial`: The main flow exists, but one optional or scalable workflow is still limited.
+- `BE gap`: FE cannot complete a clean workflow because no canonical read/list endpoint exists.
 - `out of scope`: Intentionally hidden or not needed for demo.
+
+## Audit Basis
+- Re-audited on `2026-07-16` against the latest Java controllers, `FE_EDUCATION_FLOW_HANDOFF_VI.md`, `FE_API_BUSINESS_LOGIC_VI.md`, and the checked-in n8n workflow JSON.
+- Controller code and the checked-in n8n workflow take precedence over older handoff text when documents disagree.
+- “UI done” means the canonical endpoint is reachable from a visible flow; it does not mean every backend alias has a separate button.
 
 ## Demo Readiness
 - Core student, teacher, and admin learning flows are demo-ready.
+- The frontend covers all minimum screens listed in the current education handoff: AI chat/review, mentor selection and ChatRoom, quizzes, teacher review, senior candidate approval, academic administration, and materials.
 - Payment/subscription UI is intentionally out of scope.
 - n8n remains optional; backend direct is the stable local demo path.
+- The remaining items are non-blocking optional coverage or require a better backend list endpoint; see `Known Remaining Gaps`.
 
 ## 1. Auth & Profile
 - `POST /api/users/login` - `UI done`
@@ -32,6 +41,8 @@ This document tracks backend API coverage in the React frontend.
 - `DELETE /api/ai/conversations/{conversationId}/messages/{messageId}/pin` - `UI done`
 - `POST /api/ai/query` - `UI done`
 - `POST /api/tutor/intent-classify` - `service only`
+- `POST /api/code-mentor/query` - `UI done` through AI chat CODE routing
+- `POST /api/code-mentor/upload` - `out of scope`; chat accepts pasted code, but there is no separate code-file upload UI
 - `POST /api/tutor/escalations` - `UI done`
 - `POST /api/tutor/escalations/select` - `UI done`
 - `POST /api/tutor/escalations/cancel` - `UI done`
@@ -60,6 +71,11 @@ This document tracks backend API coverage in the React frontend.
 - `POST /api/tutor/quizzes/{quizSessionId}/submit` - `UI done`
 - `GET /api/tutor/students/{studentId}/courses/{courseId}/quiz-assignments` - `UI done`
 - `POST /api/tutor/quiz-assignments/{assignmentId}/attempts` - `UI done`
+- `GET /api/students/{studentId}/assignments` - `UI done`
+- `GET /api/students/{studentId}/submissions` - `UI done`; merged into assignment status/result
+- `POST /api/students/assignments/{assignmentId}/submit` - `UI done`
+- `GET /api/assignments/{assignmentId}/file` - `UI done`
+- `GET /api/submissions/{submissionId}/file` - `UI done`
 
 ## 4. Teacher
 - `GET /api/mentors/{teacherId}/dashboard` - `UI done`
@@ -72,11 +88,12 @@ This document tracks backend API coverage in the React frontend.
 - `GET /api/tutor/escalations/knowledge-candidates` - `UI done`
 - `POST /api/tutor/escalations/knowledge-candidates/{id}/approve` - `UI done`
 - `POST /api/tutor/escalations/knowledge-candidates/{id}/reject` - `UI done`
-- `POST /api/mentor/assignments/publish` - `UI done`
+- `POST /api/mentor/courses/{courseId}/classes/{classId}/assignments/upload` - `UI done`
 - `GET /api/mentor/courses/{courseId}/classes/{classId}/assignments` - `UI done`
 - `GET /api/assignments/{assignmentId}` - `UI done`
 - `PUT /api/mentor/assignments/{assignmentId}` - `UI done`
 - `DELETE /api/mentor/assignments/{assignmentId}` - `UI done`
+- `GET /api/mentor/assignments/{assignmentId}/submissions` - `service only`; class-wide submission list is the current grading UI
 - `GET /api/mentor/courses/{courseId}/classes/{classId}/submissions` - `UI done`
 - `PUT /api/mentor/submissions/{submissionId}/review` - `UI done`
 - `POST /api/tutor/teachers/{teacherId}/courses/{courseId}/quiz-assignments/generate` - `UI done`
@@ -94,6 +111,7 @@ This document tracks backend API coverage in the React frontend.
 - `POST /api/mentors/import` - `UI done`
 - `GET /api/mentors/import/template` - `UI done`
 - `GET /api/mentors/import/template.xlsx` - `UI done`
+- `PATCH /api/admin/teachers/{teacherId}/role` - `UI done`; promote/demote and relogin notice
 - `CRUD /api/admin/semesters` - `UI done`
 - `CRUD /api/admin/courses` - `UI done`
 - `PATCH /api/admin/courses/{courseId}/complete` - `UI done`
@@ -132,3 +150,11 @@ This document tracks backend API coverage in the React frontend.
 - `/webhook/quiz-submit` - `feature flagged`, requires both `VITE_N8N_ENABLED=true` and `VITE_N8N_QUIZ_ENABLED=true`
 
 n8n is an orchestration layer, not the canonical data store. FE refetches canonical backend resources after mutations and does not call an LLM provider directly.
+
+The older `BACKEND_API_FE_HANDOFF.md` still mentions `/teacher-answer` in two places. The checked-in workflow, current education handoff, and backend smoke scripts use `/teacher-answer-escalation`; FE intentionally follows the executable workflow.
+
+## 9. Known Remaining Gaps
+- Teacher quiz review is visible in `Submission Grading`, but FE currently builds that queue by reading each class student's quiz history. This is demo-ready but not scalable. A backend `GET teacher quiz attempts pending review` endpoint is needed before the FE can paginate a canonical queue (`BE gap`).
+- The generic `GET /api/tutor/answer-reviews` history endpoint has no standalone all-history screen. Mentor and senior pending queues, which are required by the BRD, are complete.
+- Code Mentor file upload has no separate UI. Pasted code and CODE routing work through Student Chat.
+- Backend aliases and legacy dashboard/payment endpoints are intentionally not duplicated in UI when a canonical endpoint already covers the same business action.

@@ -189,6 +189,17 @@
   color: #ffb077;
 }
 
+.app-container.dark .prompt-starter-card:disabled,
+.app-container.dark .prompt-starter-card:disabled:hover {
+  border-color: #2f2f35;
+  background: #141414;
+  color: #71717a;
+}
+
+.app-container.dark .prompt-starter-card:disabled svg {
+  color: #71717a;
+}
+
 .app-container.dark .answer-action-bar--error button {
   border-color: #52525b;
   background: #202020;
@@ -560,4 +571,3 @@
   background: #ececec !important;
   color: #000000 !important;
 }
-

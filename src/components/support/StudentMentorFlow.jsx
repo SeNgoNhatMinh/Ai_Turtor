@@ -6,6 +6,14 @@ import { getUserFacingError } from '../../services/apiClient';
 import SupportChatRoom from './SupportChatRoom';
 
 const normalizeStatus = (value) => String(value || '').trim().toUpperCase();
+const STATUS_LABELS = {
+  PENDING_OFFER: 'Đang tìm giáo viên',
+  WAITING_FOR_MENTOR: 'Đang chờ mentor',
+  OFFERED: 'Đã có giáo viên phù hợp',
+  MENTOR_SELECTED: 'Đã chọn giáo viên',
+  IN_CHAT: 'Đang trao đổi',
+  CHAT_ACTIVE: 'Đang trao đổi',
+};
 
 function StudentMentorFlow({ escalation, currentUser, compact = false, onEscalationChange }) {
   const [detail, setDetail] = useState(escalation || null);
@@ -61,12 +69,12 @@ function StudentMentorFlow({ escalation, currentUser, compact = false, onEscalat
       setHasLoadedOffer(true);
       setMentors(suggestions);
       setSelectedMentorId(suggestions.length === 1 ? suggestions[0].id : '');
-      setRouteMessage(offer?.message || 'Choose a teacher to continue this question.');
+      setRouteMessage(offer?.message || 'Hãy chọn một giáo viên để tiếp tục trao đổi câu hỏi này.');
       const next = { ...detail, status: 'OFFERED', escalationRoute: offer?.escalationRoute };
       setDetail(next);
       onEscalationChange?.(next);
     } catch (requestError) {
-      setError(getUserFacingError(requestError, 'Unable to find a teacher for this question.'));
+      setError(getUserFacingError(requestError, 'Không thể tìm giáo viên phù hợp cho câu hỏi này.'));
     } finally {
       setIsOffering(false);
     }
@@ -93,7 +101,7 @@ function StudentMentorFlow({ escalation, currentUser, compact = false, onEscalat
       setDetail(next);
       onEscalationChange?.(next);
     } catch (requestError) {
-      setError(getUserFacingError(requestError, 'Unable to connect this teacher.'));
+      setError(getUserFacingError(requestError, 'Không thể kết nối với giáo viên này.'));
     } finally {
       setIsSelecting(false);
     }
@@ -123,10 +131,10 @@ function StudentMentorFlow({ escalation, currentUser, compact = false, onEscalat
     <section className="mentor-selection-flow">
       <div className="mentor-selection-flow__heading">
         <div>
-          <strong>Choose a teacher for this question</strong>
-          <span>The backend matches the active class teacher first, then available mentors.</span>
+          <strong>Chọn giáo viên cho câu hỏi này</strong>
+          <span>Hệ thống ưu tiên giáo viên phụ trách lớp, sau đó đến các mentor đang sẵn sàng.</span>
         </div>
-        <Tag color={status === 'OFFERED' ? 'blue' : 'orange'}>{status || 'PENDING_OFFER'}</Tag>
+        <Tag color={status === 'OFFERED' ? 'blue' : 'orange'}>{STATUS_LABELS[status] || status || STATUS_LABELS.PENDING_OFFER}</Tag>
       </div>
 
       {error && <Alert type="error" showIcon message={error} />}
@@ -135,17 +143,17 @@ function StudentMentorFlow({ escalation, currentUser, compact = false, onEscalat
       {mentors.length === 0 ? (
         <div className="mentor-selection-flow__empty">
           {isOffering ? (
-            <><Spin size="small" /> Finding the teacher assigned to this course and class...</>
+            <><Spin size="small" /> Đang tìm giáo viên phụ trách môn và lớp này...</>
           ) : (
             <>
               <Empty
                 image={Empty.PRESENTED_IMAGE_SIMPLE}
                 description={hasLoadedOffer
-                  ? 'No active teacher is currently eligible for this course and class.'
-                  : 'Teacher suggestions have not been loaded yet.'}
+                  ? 'Hiện chưa có giáo viên hoạt động phù hợp với môn và lớp này.'
+                  : 'Danh sách giáo viên phù hợp chưa được tải.'}
               />
               <Button type="primary" icon={<Search size={15} />} onClick={findMentors}>
-                {hasLoadedOffer ? 'Check again' : 'Find available teacher'}
+                {hasLoadedOffer ? 'Kiểm tra lại' : 'Tìm giáo viên'}
               </Button>
             </>
           )}
@@ -157,18 +165,18 @@ function StudentMentorFlow({ escalation, currentUser, compact = false, onEscalat
               <Radio key={mentor.id} value={mentor.id} className="mentor-selection-option">
                 <Avatar src={mentor.avatarUrl} icon={<GraduationCap size={17} />} />
                 <span className="mentor-selection-option__copy">
-                  <strong>{mentor.mentorName || 'Teacher'}</strong>
-                  <span>{mentor.matchReason || mentor.description || 'Available to help with this course question.'}</span>
+                  <strong>{mentor.mentorName || 'Giáo viên'}</strong>
+                  <span>{mentor.matchReason || mentor.description || 'Sẵn sàng hỗ trợ câu hỏi của môn học này.'}</span>
                   <small>
                     {Number.isFinite(Number(mentor.averageRating)) && <><Star size={11} /> {Number(mentor.averageRating).toFixed(1)}</>}
-                    {mentor.responseTimeMinutes ? ` · replies in about ${mentor.responseTimeMinutes} min` : ''}
+                    {mentor.responseTimeMinutes ? ` · phản hồi khoảng ${mentor.responseTimeMinutes} phút` : ''}
                   </small>
                 </span>
               </Radio>
             ))}
           </Radio.Group>
           <Button type="primary" loading={isSelecting} disabled={!selectedMentorId} onClick={chooseMentor}>
-            Start chat with teacher
+            Bắt đầu trao đổi
           </Button>
         </>
       )}

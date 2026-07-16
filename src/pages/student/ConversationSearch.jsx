@@ -10,14 +10,14 @@ function ConversationSearch({ value, onChange }) {
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={uiCopy.student.chat.searchPlaceholder}
-        aria-label="Search conversations"
+        aria-label="Tìm cuộc trò chuyện"
         variant="borderless"
       />
       <button
         type="button"
         className={`conversation-search-clear ${value ? 'visible' : ''}`}
         onClick={() => onChange('')}
-        aria-label="Clear search"
+        aria-label="Xóa nội dung tìm kiếm"
         tabIndex={value ? 0 : -1}
       >
         <X size={14} aria-hidden="true" />

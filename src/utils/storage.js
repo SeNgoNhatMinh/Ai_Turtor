@@ -7,14 +7,6 @@ export const readJsonStorage = (key, fallback = null) => {
   }
 };
 
-export const writeJsonStorage = (key, value) => {
-  try {
-    window.sessionStorage.setItem(key, JSON.stringify(value));
-  } catch (error) {
-    console.error('Error writing to sessionStorage', error);
-  }
-};
-
 export const sanitizePersistedUser = (user) => {
   if (!user || typeof user !== 'object') return null;
   const safeUser = { ...user };
@@ -23,7 +15,7 @@ export const sanitizePersistedUser = (user) => {
   return safeUser;
 };
 
-export const getSuggestionsStorageKey = (studentId, courseId) => {
+const getSuggestionsStorageKey = (studentId, courseId) => {
   if (!studentId || !courseId) return '';
   return `ai-tutor:analyzed-suggestions:${studentId}:${courseId}`;
 };
@@ -46,7 +38,7 @@ export const writeAnalyzedSuggestions = (studentId, courseId, suggestions) => {
   window.localStorage.setItem(key, JSON.stringify((suggestions || []).filter(Boolean)));
 };
 
-export const getSuggestionTextValue = (suggestion) => (
+const getSuggestionTextValue = (suggestion) => (
   typeof suggestion === 'string'
     ? suggestion
     : suggestion?.title || suggestion?.content || ''

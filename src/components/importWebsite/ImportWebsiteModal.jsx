@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Alert, Button, Card, Checkbox, Divider, Form, Input, InputNumber, Modal, Space, Tag, Typography } from 'antd';
 import { GlobalOutlined, ImportOutlined, SearchOutlined } from '@ant-design/icons';
 import { getUserFacingError } from '../../services/apiClient';
+import './ImportWebsiteModal.css';
 
 const { Text } = Typography;
 const MAX_SELECTED_URLS = 50;

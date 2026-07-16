@@ -9,12 +9,7 @@ import {
   normalizeHarnessMode,
 } from '../features/ai-harness/n8nResponse';
 
-export const normalizeN8nChatResponse = normalizeHarnessChatResponse;
-export const normalizeReviewMode = normalizeHarnessMode;
-
-export function isN8nUsableError(error) {
-  return Boolean(error);
-}
+const normalizeN8nChatResponse = normalizeHarnessChatResponse;
 
 export const n8nService = {
   async sendStudentChat(payload, options = {}) {

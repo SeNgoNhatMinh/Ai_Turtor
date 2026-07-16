@@ -26,6 +26,136 @@ Copy template này lên đầu phần `History` sau mỗi lần cập nhật:
 
 ## History
 
+## [2026-07-16] Functional Student Chat Prompt Starters
+
+**Summary**
+- Fixed the four empty-chat prompt buttons so they send a real AI Tutor request instead of only filling the composer.
+
+**Changed**
+- Routed prompt starters through the same validated, request-locked `sendText()` flow as normal chat submissions.
+- Reworded each starter to include course-material context and a complete request that can be answered immediately.
+- Disabled starters while enrollment context is unavailable or AI is already responding.
+
+**Tested**
+- Verified prompt clicks reach the shared chat submit controller without changing backend payload contracts.
+
+## [2026-07-16] Vietnamese Chat UI And UTF-8 Title Repair
+
+**Summary**
+- Fixed mojibake conversation titles such as `Cuá»™c trÃ² chuyá»‡n má»›i` and standardized the Student Chat experience in Vietnamese.
+
+**Changed**
+- Added a safe Windows-1252/Latin-1 to UTF-8 repair utility and applied it to conversation list, active chat, backend, and n8n titles.
+- Added a Vietnamese fallback title, `Cuộc trò chuyện mới`, when a title is empty or still malformed.
+- Translated visible chat history, course switching, turn limit, composer, loading, pin, answer evidence, feedback, suggestion, and teacher-support copy.
+- Kept backend role, status, review type, and API payload enums unchanged.
+
+**Tested**
+- Added contract tests for malformed and valid Vietnamese text.
+- Verified conversation normalization repairs the reported title without changing valid Vietnamese.
+
+## [2026-07-16] Remove Explain More Simply Action
+
+**Summary**
+- Removed the `Explain more simply` follow-up action from AI answers.
+
+**Changed**
+- Deleted the action and its unused prompt-building helper from `AnswerActionBar`.
+- Kept retry and mentor-review recovery actions unchanged.
+
+**Tested**
+- Final lint/build verification completed after the change.
+
+## [2026-07-16] Demo-Friendly Entity Names
+
+**Summary**
+- Replaced visible internal user, mentor, enrollment, quiz-session, support-ticket, and material IDs with human-readable names or neutral workflow labels.
+
+**Changed**
+- Added a shared person-name resolver so IDs remain API values and React keys but are not rendered as display text.
+- Admin enrollment now searches and selects students by name/email, while still submitting the backend student ID.
+- Class teacher, student roster, grading, quiz publishing, answer review, and support screens now prefer names and email metadata.
+- Preserved course/class codes because they are academic identifiers used by users, not opaque database IDs.
+
+**Tested**
+- `npm run check`: pass (lint, 33 contract tests, 11 unit/component tests, production build).
+- `npm run dead-code`: pass.
+- `npm run test:e2e`: pass, 6/6 desktop/mobile route checks.
+- `git diff --check`: pass.
+
+**Notes**
+- If a backend response contains only an opaque person ID and no resolvable account metadata, FE shows a neutral `Student`, `Teacher`, or `Mentor` label instead of exposing the raw ID.
+
+## [2026-07-16] Admin Route-Level Feature Pages
+
+**Summary**
+- Applied the same route-level feature architecture to Admin and removed the final role-level portal switch.
+
+**Changed**
+- Added lazy Admin Dashboard, Users, and Academic page containers under `features/admin`.
+- Split the aggregate admin runtime into a Dashboard controller and a mutation-locked mentor import hook.
+- Reduced `AdminWorkspace` to route-page selection and removed `AdminPortal.jsx` plus `useAdminRuntimeController.js`.
+- Preserved the existing Admin page spacing in a feature-owned responsive stylesheet.
+- Replaced deprecated Admin `Tabs.TabPane`, `Statistic.valueStyle`, `Alert.message`, and `Modal.destroyOnClose` usage with current Ant Design APIs.
+- Fixed the diagnostics trace action to load the clicked trace ID immediately and replaced unstable random table keys.
+
+**Tested**
+- `npm run lint`: pass after route extraction.
+- `npm run build`: pass with separate Admin Dashboard, Users, and Academic chunks.
+- `npm run test:e2e`: pass, 6/6 including Admin Dashboard, Users, and Academic routes on desktop/mobile.
+
+**Notes**
+- Existing `pages/admin/*` files remain presentational/feature orchestrators; no backend endpoint or route changed.
+
+## [2026-07-16] Student And Teacher Route-Level Feature Pages
+
+**Summary**
+- Removed the remaining role-level Student/Teacher portal switches and isolated each main route into its own lazy feature page.
+
+**Changed**
+- Added five Student pages under `features/student`: Chat, Learning Progress, Practice Quizzes, Materials, and Mentor Review.
+- Added five Teacher pages under `features/teacher`: Classes, Quizzes, Materials, Grading, and Review.
+- Reduced `StudentWorkspace` to enrollment/identity composition and `TeacherWorkspace` to identity/page selection.
+- Removed unused `StudentPortal.jsx`, `TeacherPortal.jsx`, `useTeacherRuntimeController`, and `useCodeMentorController`.
+- Added a StrictMode-safe route handoff for `Study now` responses and `Create quiz` suggestion topics so navigation does not lose user context.
+- Each route now initializes only its own API hooks and data loaders.
+
+**Tested**
+- `npm run lint`: pass.
+- `npm test`: pass, 34 tests.
+- `npm run build`: pass with independent Student and Teacher page chunks.
+- `npm run dead-code`: pass.
+- `npm run test:e2e`: pass, 4/4 desktop/mobile tests.
+- `git diff --check`: pass.
+
+**Notes**
+- Presentational screens remain under `src/pages/student` and `src/pages/teacher`; they can be moved later without changing route/controller ownership.
+
+## [2026-07-16] Canonical Routing And Controller Boundaries
+
+**Summary**
+- Completed the next production refactor phase without changing backend endpoints, UI routes, or business behavior.
+
+**Changed**
+- Replaced the route-sync-only shell with a canonical React Router `Routes` tree and nested authenticated `Outlet`.
+- Added `WorkspaceRoute` so each URL mounts only its Student, Teacher, or Admin workspace and preserves role guards.
+- Removed duplicated `activeTab` state; the URL route is now the source of truth for selected navigation.
+- Grouped Student and Teacher portal inputs by navigation, identity, and feature controller ownership instead of flat prop lists.
+- Extracted Student conversation CRUD/history/turn-limit state into `useConversationSessions`; `useStudentChatController` now focuses on AI request handling.
+- Split the 507-line Teacher runtime into dashboard, grading, and review-queue feature hooks; the runtime composer is now 33 lines.
+- Moved Confirm Card and Website Import styles out of global `index.css` and removed the redundant Login import of the global stylesheet.
+
+**Tested**
+- `npm run lint`: pass.
+- `npm test`: pass, 34 tests including canonical route contracts.
+- `npm run build`: pass.
+- `npm run dead-code`: pass.
+- `npm run test:e2e`: pass, 4/4 desktop/mobile tests.
+- `git diff --check`: pass.
+
+**Notes**
+- `index.css` still contains older page-level rules. Continue moving only well-bounded feature blocks; avoid a bulk CSS rewrite.
+
 ## [2026-07-16] FE Feature Modules, Lazy Chunks, And Regression Tests
 
 **Summary**
@@ -1425,6 +1555,24 @@ Copy template này lên đầu phần `History` sau mỗi lần cập nhật:
 - `npm run build`: pass.
 - `npm run lint`: pass with 11 existing warnings and 0 errors.
 
+# 2026-07-16 - FE Reliability, Test Coverage, And Backend Contract Audit
+
+- Added Vitest, Testing Library, Playwright, bundle visualization, and Knip checks without changing backend contracts.
+- Added shared async loading/error/empty states, a recoverable application error boundary, accessible confirmation focus handling, request cache/deduplication, abort handling, and mutation locks.
+- Added desktop/mobile E2E coverage for login, enrollment-scoped Student Chat, route navigation, dark mode, and horizontal overflow.
+- Re-audited FE against the latest Java controllers and education handoff instead of relying only on the previous coverage document.
+- Fixed Admin user updates to use the backend `PATCH` contract and exposed `TEACHER` / `SENIOR_MENTOR` promote-demote actions.
+- Completed assignment metadata edit, student submission status/result loading, and authenticated submission downloads.
+- Fixed the Teacher submission download path and removed unauthenticated `window.open` downloads.
+- Added WebSocket reconnect with canonical REST history synchronization and a five-second REST fallback.
+- Locked published quiz assignments to read-only actions and moved teacher result review guidance to Submission Grading.
+- Documented remaining non-blocking gaps in `docs/FE_API_COVERAGE.md` instead of marking every endpoint as fully covered.
+
+**Tested**
+- `npm run check`: pass (`22` contract tests, `9` component/unit tests, lint, production build).
+- `npm run test:e2e`: pass (`4` desktop/mobile app-shell tests).
+- `npm run dead-code`: pass with no unused files, dependencies, or exports.
+
 # 2026-07-16 - Runtime Workspaces And Bundle Cleanup
 
 - Reduced `App.jsx` from a role-wide controller to a thin auth, navigation, layout, and workspace composition layer.
@@ -1482,3 +1630,40 @@ Copy template này lên đầu phần `History` sau mỗi lần cập nhật:
 **Tested**
 - `npm run build`: pass.
 - `npm run lint`: pass with 11 existing warnings and 0 errors.
+
+# 2026-07-16 - Auth Feature Structure Cleanup
+
+- Moved the login page from the generic `src/pages` folder to `src/features/auth/LoginPage.jsx`.
+- Split the login hero and authentication card into focused components under `src/features/auth/components`.
+- Moved login/register validation, request state, cooldown, and submit handling into `useAuthForm`.
+- Kept the existing login/register API contract, visual classes, lazy robot mascot, and user-facing behavior unchanged.
+- Updated application and component-test imports so no compatibility page or stale path remains.
+- Grouped auth state under `features/auth/hooks` and token persistence under `features/auth/services`.
+- Moved reusable Teacher record/class helpers from `pages/teacher` to `features/teacher/shared/teacherUtils.js`.
+- Confirmed that the old Student, Teacher, Admin portal files and legacy `teacherPortalUtils.js` no longer exist or have runtime references.
+
+**Tested**
+- Login component tests: pass, 2/2.
+- `npm run lint`: pass with 0 errors and 0 warnings.
+- `npm run build`: pass.
+- `npm run test:e2e`: pass, 6/6 desktop/mobile tests.
+- Full `npm test`: pass, 34/34 tests.
+- `npm run dead-code`: pass with no unused files, dependencies, or exports.
+# 2026-07-16 - AI Answer Review Severity And Review Queues
+
+- Aligned Student feedback severity with backend routing: moderate `Not correct` reviews now reach `NEEDS_MENTOR_REVIEW`; serious knowledge errors, source conflicts, and missing material reach `NEEDS_SENIOR_REVIEW`.
+- Prevented `Need more detail` quality feedback from entering the Teacher queue.
+- Added status-aware Student confirmation messages based on the backend/n8n review response.
+- Expanded answer review normalization and Teacher/Senior cards to show student context, course/class, rating, accurate/helpful flags, question, previous AI answer, feedback, suggested correction, and creation time.
+- Split queue visibility by canonical role: Teacher sees mentor-pending reviews; Senior Mentor/Admin sees senior-pending reviews and KnowledgeCandidates.
+- Added separate senior review notes, corrected answer, and candidate type inputs. Creating a candidate does not imply RAG indexing; final approve/reject remains a separate action.
+- Removed the incorrect Teacher action that created a duplicate `AiAnswerReview` instead of resolving the existing ticket.
+- Documented the missing backend mentor-resolution mutation in `docs/BE_FIX_REQUEST_ANSWER_REVIEW_MENTOR_RESOLUTION.md`.
+# 2026-07-16 - Teacher Quiz Attempt Aggregate API
+
+- Connected Teacher Grading to `GET /api/tutor/teachers/{teacherId}/quiz-attempts` with backend-supported course, class, status, review status, page, and size filters.
+- Removed the previous N-request aggregation that fetched quiz history once per student.
+- Added a normalized paginated attempt model for auto score, final score, review status, and submission timestamps.
+- Teacher Grading now loads full questions/answers only after selecting one attempt through `GET /api/tutor/quizzes/{quizSessionId}`.
+- Added Pending/Reviewed/All review filters, loading states, total count pagination, and automatic pending-list refresh after teacher review.
+- Student display names are enriched from the already loaded class roster; the quiz-attempt API remains the canonical source for attempt ownership and status.

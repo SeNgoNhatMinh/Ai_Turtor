@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react';
+import './ConfirmCard.css';
 
 function ConfirmCard({
   title,

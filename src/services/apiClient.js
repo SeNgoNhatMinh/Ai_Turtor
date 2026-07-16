@@ -1,6 +1,6 @@
 import { env } from '../config/env';
 import { getUserFacingError, httpClient, httpRequest, addRequestInterceptor, ApiError } from './httpClient';
-import { clearAuthToken, getAuthToken } from '../features/auth/tokenStorage';
+import { clearAuthToken, getAuthToken } from '../features/auth/services/tokenStorage';
 
 export const API_BASE_URL = env.apiBaseUrl;
 export const API_TIMEOUTS = {

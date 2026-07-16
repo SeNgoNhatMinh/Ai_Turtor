@@ -16,7 +16,7 @@ export function getSessionQuestionCount(session) {
   return Math.min(CHAT_TURN_LIMIT, Math.max(0, Math.floor(toFiniteNumber(session?.messageCount) / 2)));
 }
 
-export function getSessionActivityDate(session) {
+function getSessionActivityDate(session) {
   const value = session?.lastMessageAt || session?.updatedAt || session?.createdAt;
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? new Date(0) : date;
@@ -38,20 +38,20 @@ const getDayDiff = (date) => {
 
 const getTimeGroup = (session) => {
   const diff = getDayDiff(getSessionActivityDate(session));
-  if (diff <= 0) return 'Today';
-  if (diff === 1) return 'Yesterday';
-  if (diff <= 7) return 'Previous 7 Days';
-  if (diff <= 30) return 'Previous 30 Days';
-  return 'Older';
+  if (diff <= 0) return 'Hôm nay';
+  if (diff === 1) return 'Hôm qua';
+  if (diff <= 7) return '7 ngày trước';
+  if (diff <= 30) return '30 ngày trước';
+  return 'Cũ hơn';
 };
 
 export function formatSessionTime(session) {
   const date = getSessionActivityDate(session);
-  if (!date.getTime()) return 'No messages yet';
+  if (!date.getTime()) return 'Chưa có tin nhắn';
   const diff = getDayDiff(date);
-  if (diff <= 0) return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-  if (diff === 1) return 'Yesterday';
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  if (diff <= 0) return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+  if (diff === 1) return 'Hôm qua';
+  return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
 }
 
 export function groupSessionsByTime(sessions) {

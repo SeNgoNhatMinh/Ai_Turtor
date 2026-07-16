@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { aiTutorApi } from '../services/aiTutorApi';
 import { conversationApi } from '../services/conversationApi';
 import { getUserFacingError } from '../services/apiClient';
-import { asArray, normalizeSession, pairMessages } from '../services/normalizers';
+import { asArray, pairMessages } from '../services/normalizers';
 import { N8N_ENABLED, N8N_STRICT } from '../services/n8nClient';
 import { n8nService } from '../services/n8nService';
 import {
@@ -10,38 +10,16 @@ import {
   buildAiServiceErrorMessage,
   isAiServiceErrorText,
 } from '../utils/errorMessages';
+import { hasBrokenTextEncoding, repairMojibake } from '../utils/textEncoding';
+import { useConversationSessions } from '../features/student/chat/useConversationSessions';
 
-const getSessionActivityTime = (session) => {
-  const value = session?.lastMessageAt || session?.updatedAt || session?.createdAt;
-  const time = new Date(value).getTime();
-  return Number.isFinite(time) ? time : 0;
+const getSafeConversationTitle = (value, courseId) => {
+  const repairedTitle = repairMojibake(value).trim();
+  if (!repairedTitle || hasBrokenTextEncoding(repairedTitle)) {
+    return courseId ? `AI Tutor - ${courseId}` : 'Cuộc trò chuyện mới';
+  }
+  return repairedTitle;
 };
-
-const sortSessionsByActivity = (items) => {
-  return [...(Array.isArray(items) ? items : [])].sort((a, b) => getSessionActivityTime(b) - getSessionActivityTime(a));
-};
-
-const CHAT_TURN_LIMIT = 10;
-
-const toFiniteNumber = (value, fallback = 0) => {
-  const numberValue = Number(value);
-  return Number.isFinite(numberValue) ? numberValue : fallback;
-};
-
-const clampQuestionCount = (value) => Math.max(0, Math.min(CHAT_TURN_LIMIT, toFiniteNumber(value, 0)));
-
-const getSessionQuestionCount = (session) => {
-  if (!session) return 0;
-  if (session.userQuestionCount != null) return clampQuestionCount(session.userQuestionCount);
-  if (session.questionCount != null) return clampQuestionCount(session.questionCount);
-  return clampQuestionCount(Math.floor(toFiniteNumber(session.messageCount, 0) / 2));
-};
-
-const countQuestionsInMessages = (items) => (
-  Array.isArray(items)
-    ? items.filter((message) => String(message?.question || '').trim()).length
-    : 0
-);
 
 export function useStudentChatController({
   currentUser,
@@ -51,192 +29,54 @@ export function useStudentChatController({
   triggerToast,
   setCodeMentorDiagnostics,
 }) {
-  const [activeSessionId, setActiveSessionId] = useState(null);
-  const [activeSessionTitle, setActiveSessionTitle] = useState('AI Tutor Chat');
-  const [sessions, setSessions] = useState([]);
-  const [messages, setMessages] = useState([]);
-  const [isSessionsLoading, setIsSessionsLoading] = useState(false);
-  const [turnLimitNotice, setTurnLimitNotice] = useState(null);
+  const conversation = useConversationSessions({
+    currentUser,
+    studentId,
+    courseId,
+    classId,
+    triggerToast,
+  });
+  const {
+    userId,
+    activeSessionId,
+    activeSessionTitle,
+    sessions,
+    messages,
+    isSessionsLoading,
+    turnLimitNotice,
+    activeSessionQuestionCount,
+    activeSessionMaxTurnsReached,
+    setActiveSessionId,
+    setActiveSessionTitle,
+    setMessages,
+    setTurnLimitNotice,
+    bumpConversationActivity,
+    dismissTurnLimitNotice,
+    resetChat,
+    loadChatSessions,
+    handleSelectSession,
+    handleCreateSession,
+    handleDeleteSession,
+    handleRenameSession,
+  } = conversation;
   const activeAiRequestIdRef = useRef(0);
   const canceledAiRequestIdsRef = useRef(new Set());
   const activeAiAbortControllerRef = useRef(null);
-  const sessionsRequestRef = useRef(null);
-  const messagesRequestRef = useRef(null);
-
   useEffect(() => () => {
     activeAiAbortControllerRef.current?.abort();
-    sessionsRequestRef.current?.abort();
-    messagesRequestRef.current?.abort();
   }, []);
 
-  const getStudentUserId = () => studentId || currentUser?.userId || currentUser?.id || '';
-
-  const resetChat = () => {
-    sessionsRequestRef.current?.abort();
-    messagesRequestRef.current?.abort();
-    setActiveSessionId(null);
-    setActiveSessionTitle('AI Tutor Chat');
-    setMessages([]);
-    setSessions([]);
-    setTurnLimitNotice(null);
-  };
-
-  const loadChatSessions = async () => {
-    const userId = getStudentUserId();
-    if (!userId || !courseId) {
-      setSessions([]);
-      return;
-    }
-    sessionsRequestRef.current?.abort();
-    const controller = new AbortController();
-    sessionsRequestRef.current = controller;
-    setIsSessionsLoading(true);
-    try {
-      const data = await conversationApi.getConversations(userId, courseId, {
-        signal: controller.signal,
-        force: true,
-      });
-      if (controller.signal.aborted) return;
-      setSessions(sortSessionsByActivity(asArray(data, 'content', 'conversations').map(normalizeSession)));
-    } catch (error) {
-      if (controller.signal.aborted) return;
-      console.warn('Unable to load chat sessions:', error);
-      setSessions([]);
-    } finally {
-      if (sessionsRequestRef.current === controller) {
-        sessionsRequestRef.current = null;
-        setIsSessionsLoading(false);
-      }
-    }
-  };
-
-  const bumpConversationActivity = ({
-    conversationId,
-    title,
-    lastMessageAt = new Date().toISOString(),
-    messageCountIncrement = 1,
-    questionCountIncrement = 0,
-    questionCount,
-    maxTurnsReached,
-  }) => {
-    if (!conversationId) return;
-
-    setSessions((prev) => {
-      const list = Array.isArray(prev) ? prev : [];
-      const existing = list.find((session) => session.id === conversationId);
-      const existingQuestionCount = getSessionQuestionCount(existing);
-      const nextQuestionCount = questionCount != null
-        ? clampQuestionCount(questionCount)
-        : clampQuestionCount(existingQuestionCount + questionCountIncrement);
-      const nextSession = {
-        ...(existing || {}),
-        id: conversationId,
-        conversationId,
-        title: title || existing?.title || activeSessionTitle || `AI Tutor Chat - ${courseId || 'Course'}`,
-        courseId: existing?.courseId || courseId,
-        classId: existing?.classId || classId,
-        createdAt: existing?.createdAt || lastMessageAt,
-        lastMessageAt,
-        messageCount: Math.max(0, Number(existing?.messageCount || 0) + messageCountIncrement),
-        userQuestionCount: nextQuestionCount,
-        maxTurnsReached: Boolean(maxTurnsReached ?? existing?.maxTurnsReached ?? nextQuestionCount >= CHAT_TURN_LIMIT),
-      };
-      const nextList = [nextSession, ...list.filter((session) => session.id !== conversationId)];
-      return sortSessionsByActivity(nextList);
-    });
-  };
-
-  const handleSelectSession = async (sessionId, title) => {
-    const userId = getStudentUserId();
-    if (!userId) {
-      triggerToast('Please sign in before opening chat history.');
-      return;
-    }
-    messagesRequestRef.current?.abort();
-    const controller = new AbortController();
-    messagesRequestRef.current = controller;
-    setActiveSessionId(sessionId);
-    setActiveSessionTitle(title);
-    setTurnLimitNotice(null);
-    setMessages([]);
-    try {
-      const chatMsgs = await conversationApi.getMessages(sessionId, userId, { signal: controller.signal });
-      if (!controller.signal.aborted) {
-        setMessages(pairMessages(asArray(chatMsgs, 'content', 'messages')));
-      }
-    } catch (error) {
-      if (!controller.signal.aborted) {
-        triggerToast(getUserFacingError(error, 'Unable to open this conversation.'));
-      }
-    } finally {
-      if (messagesRequestRef.current === controller) messagesRequestRef.current = null;
-    }
-  };
-
-  const handleCreateSession = async () => {
-    const userId = getStudentUserId();
-    if (!userId) {
-      triggerToast('Please sign in before creating a conversation.');
-      return;
-    }
-    if (!courseId || !classId) {
-      triggerToast('Your account is not enrolled in a class yet. Please contact Admin or your teacher before using AI Tutor Chat.');
-      return;
-    }
-    const data = await conversationApi.createConversation(userId, courseId, classId);
-    const session = normalizeSession(data);
-    setActiveSessionId(session.id);
-    setActiveSessionTitle(session.title);
-    setTurnLimitNotice(null);
-    setSessions((prev) => sortSessionsByActivity([session, ...(Array.isArray(prev) ? prev.filter((item) => item.id !== session.id) : [])]));
-    setMessages([]);
-    triggerToast('New conversation created.');
-  };
-
-  const handleDeleteSession = async (sessionId) => {
-    const userId = getStudentUserId();
-    if (!userId) {
-      triggerToast('Please sign in before deleting a conversation.');
-      return;
-    }
-    await conversationApi.deleteConversation(sessionId, userId);
-    triggerToast('Conversation deleted.');
-    setSessions((prev) => prev.filter((session) => session.id !== sessionId));
-    setTurnLimitNotice((current) => (
-      current?.previousSessionId === sessionId || current?.currentSessionId === sessionId ? null : current
-    ));
-    if (activeSessionId === sessionId) {
-      setActiveSessionId(null);
-      setActiveSessionTitle('AI Tutor Chat');
-      setMessages([]);
-    }
-  };
-
-  const handleRenameSession = async (sessionId, newTitle) => {
-    const userId = getStudentUserId();
-    if (!userId) {
-      triggerToast('Please sign in before renaming a conversation.');
-      return;
-    }
-    await conversationApi.renameConversation(sessionId, newTitle, userId);
-    triggerToast('Conversation renamed.');
-    setSessions((prev) => prev.map((session) => (
-      session.id === sessionId ? { ...session, title: newTitle } : session
-    )));
-    if (activeSessionId === sessionId) {
-      setActiveSessionTitle(newTitle);
-    }
-  };
+  const getStudentUserId = () => userId;
 
   const handleSendQuery = async (chatInput, codeSnippet, setAvatarEmotion) => {
     const text = chatInput.trim();
     const userId = getStudentUserId();
     if (!userId) {
-      triggerToast('Please sign in before sending a message.');
+      triggerToast('Vui lòng đăng nhập trước khi gửi tin nhắn.');
       return;
     }
     if (!courseId || !classId) {
-      triggerToast('Your account is not enrolled in a class yet. Please contact Admin or your teacher before using AI Tutor Chat.');
+      triggerToast('Tài khoản chưa được ghi danh vào lớp. Vui lòng liên hệ Admin hoặc giáo viên.');
       return;
     }
     const previousSessionId = activeSessionId;
@@ -300,7 +140,10 @@ export function useStudentChatController({
       }
 
       const responseConversationId = data.conversationId || data.sessionId || previousSessionId;
-      const responseConversationTitle = data.conversationTitle || data.title || previousSessionTitle || `AI Tutor Chat - ${courseId || 'Course'}`;
+      const responseConversationTitle = getSafeConversationTitle(
+        data.conversationTitle || data.title || previousSessionTitle,
+        courseId,
+      );
       const didStartNewConversation = Boolean(previousSessionId && responseConversationId && responseConversationId !== previousSessionId);
 
       if (responseConversationId && responseConversationId !== previousSessionId) {
@@ -313,7 +156,7 @@ export function useStudentChatController({
           type: 'turn-limit',
           previousSessionId,
           currentSessionId: responseConversationId,
-          message: 'This chat reached 10 questions. AI Tutor started a new conversation to keep answers focused.',
+          message: 'Cuộc trò chuyện đã đủ 10 câu hỏi. AI Tutor đã tạo cuộc trò chuyện mới để giữ ngữ cảnh tập trung.',
         });
       }
 
@@ -370,7 +213,7 @@ export function useStudentChatController({
       }
 
       if (data.mode === 'CODE' || data.mode === 'CODE_MENTOR') {
-        setCodeMentorDiagnostics(data.answer);
+        setCodeMentorDiagnostics?.(data.answer);
         setAvatarEmotion('success');
       } else if (data.escalated || data.mode === 'ESCALATE') {
         setAvatarEmotion('idle');
@@ -385,7 +228,7 @@ export function useStudentChatController({
 
       setMessages((prev) => {
         const updated = [...prev];
-        const friendlyError = getUserFacingError(error, 'AI Tutor could not answer right now. Please try again in a moment.');
+        const friendlyError = getUserFacingError(error, 'AI Tutor chưa thể trả lời lúc này. Vui lòng thử lại sau.');
         const isAiServiceError = isAiServiceErrorText(friendlyError);
         updated[updated.length - 1] = {
           question: text,
@@ -400,7 +243,7 @@ export function useStudentChatController({
         return updated;
       });
       setAvatarEmotion('idle');
-      triggerToast(getUserFacingError(error, 'AI Tutor request failed. Please try again in a moment.'));
+      triggerToast(getUserFacingError(error, 'Yêu cầu AI Tutor thất bại. Vui lòng thử lại sau.'));
     } finally {
       if (activeAiAbortControllerRef.current === requestController) {
         activeAiAbortControllerRef.current = null;
@@ -424,7 +267,7 @@ export function useStudentChatController({
       if (index >= 0) {
         updated[index] = {
           ...updated[index],
-          answer: 'Response generation was stopped. You can edit your question or try another prompt.',
+          answer: 'Đã dừng tạo câu trả lời. Bạn có thể chỉnh sửa câu hỏi hoặc thử nội dung khác.',
           pending: false,
           canceled: true,
         };
@@ -436,16 +279,19 @@ export function useStudentChatController({
   const openLearnedSuggestionResponse = async (data = {}, fallbackSuggestionText = '') => {
     const userId = getStudentUserId();
     if (!userId) {
-      triggerToast('Please sign in before opening this study suggestion.');
+      triggerToast('Vui lòng đăng nhập trước khi mở gợi ý học tập.');
       return;
     }
 
     const responseConversationId = data.conversationId || data.sessionId || activeSessionId;
-    const responseConversationTitle = data.conversationTitle || data.title || activeSessionTitle || `AI Tutor Chat - ${courseId || 'Course'}`;
+    const responseConversationTitle = getSafeConversationTitle(
+      data.conversationTitle || data.title || activeSessionTitle,
+      courseId,
+    );
     const clickedSuggestion = String(data.clickedSuggestion || fallbackSuggestionText || '').trim();
     const fallbackQuestion = clickedSuggestion
-      ? `Study suggestion: ${clickedSuggestion}`
-      : 'Study this suggestion step by step.';
+      ? `Gợi ý học tập: ${clickedSuggestion}`
+      : 'Hãy hướng dẫn tôi học nội dung này từng bước.';
     const answerText = String(data.answer || '').trim();
     const isAiServiceError = isAiServiceErrorText(answerText);
 
@@ -502,16 +348,6 @@ export function useStudentChatController({
     ]);
     await loadChatSessions();
   };
-
-  const activeSession = sessions.find((session) => session.id === activeSessionId);
-  const messageQuestionCount = countQuestionsInMessages(messages);
-  const activeSessionQuestionCount = clampQuestionCount(
-    activeSession ? getSessionQuestionCount(activeSession) : messageQuestionCount,
-  );
-  const activeSessionMaxTurnsReached = Boolean(
-    activeSessionId && (activeSession?.maxTurnsReached || activeSessionQuestionCount >= CHAT_TURN_LIMIT),
-  );
-  const dismissTurnLimitNotice = () => setTurnLimitNotice(null);
 
   return {
     activeSessionId,

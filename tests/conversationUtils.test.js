@@ -21,6 +21,15 @@ test('normalizes conversation limits from backend fields', () => {
   assert.equal(getSessionQuestionCount(session), CHAT_TURN_LIMIT);
 });
 
+test('repairs mojibake conversation titles returned by the backend', () => {
+  const session = normalizeSession({
+    conversationId: 'conversation-encoding',
+    title: 'Cuá»™c trÃ² chuyá»‡n má»›i',
+  });
+
+  assert.equal(session.title, 'Cuộc trò chuyện mới');
+});
+
 test('falls back from message count and caps the UI counter at ten', () => {
   assert.equal(getSessionQuestionCount({ messageCount: 8 }), 4);
   assert.equal(getSessionQuestionCount({ messageCount: 50 }), CHAT_TURN_LIMIT);
@@ -36,7 +45,7 @@ test('sorts conversations by last activity and groups them', () => {
   ];
 
   assert.deepEqual(sortSessionsByActivity(sessions).map((item) => item.id), ['new', 'old']);
-  assert.deepEqual(groupSessionsByTime(sessions).map((group) => group.label), ['Today', 'Yesterday']);
+  assert.deepEqual(groupSessionsByTime(sessions).map((group) => group.label), ['Hôm nay', 'Hôm qua']);
 });
 
 test('pairs canonical student and assistant messages', () => {

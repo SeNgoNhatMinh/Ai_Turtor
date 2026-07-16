@@ -56,7 +56,7 @@ const isFailedResponse = (response) => (
   || String(response?.status || '').toUpperCase() === 'FAILED'
 );
 
-export function createHarnessResponseError(message, details = {}) {
+function createHarnessResponseError(message, details = {}) {
   const error = new Error(message);
   error.name = 'N8nError';
   error.code = details.code || 'N8N_FLOW_FAILED';

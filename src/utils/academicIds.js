@@ -1,6 +1,6 @@
-export const normalizeAcademicId = (value) => String(value || '').trim().toUpperCase();
+const normalizeAcademicId = (value) => String(value || '').trim().toUpperCase();
 
-export const normalizeClassLookupKey = (value) => {
+const normalizeClassLookupKey = (value) => {
   const normalized = normalizeAcademicId(value).replace(/[\s_-]/g, '');
   if (/^SE\d+$/.test(normalized)) return normalized.slice(2);
   return normalized;

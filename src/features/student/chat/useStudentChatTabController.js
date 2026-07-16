@@ -69,10 +69,10 @@ export function useStudentChatTabController({
     }
 
     confirmAction({
-      title: 'Switch course?',
-      content: "Each course has separate chat history. Switching course will open that course's conversations.",
-      okText: 'Switch course',
-      cancelText: 'Cancel',
+      title: 'Đổi môn học?',
+      content: 'Mỗi môn có lịch sử trò chuyện riêng. Hệ thống sẽ mở lịch sử của môn mới.',
+      okText: 'Đổi môn',
+      cancelText: 'Hủy',
       onOk: () => applyCourseChange(nextCourseId),
     });
   };
@@ -81,20 +81,20 @@ export function useStudentChatTabController({
     const previousSessionId = turnLimitNotice?.previousSessionId;
     if (!previousSessionId) return;
     const previousSession = sessions.find((session) => session.id === previousSessionId);
-    handleSelectSession(previousSessionId, previousSession?.title || 'Previous conversation');
+    handleSelectSession(previousSessionId, previousSession?.title || 'Cuộc trò chuyện trước');
   };
 
   const sendText = (text) => {
     if (isAiLoading) return;
     if (!userId) {
-      triggerToast?.('Please sign in before sending a message.');
+      triggerToast?.('Vui lòng đăng nhập trước khi gửi tin nhắn.');
       return;
     }
 
     const hasCourseOptions = Array.isArray(courseOptions) && courseOptions.length > 0;
     const hasValidCourse = hasCourseOptions && courseOptions.some((item) => item?.value === courseId);
     if (!hasValidCourse) {
-      triggerToast?.('Your account is not enrolled in any course yet. Please contact Admin or your teacher.');
+      triggerToast?.('Tài khoản chưa được ghi danh vào môn học. Vui lòng liên hệ Admin hoặc giáo viên.');
       return;
     }
 
@@ -105,12 +105,12 @@ export function useStudentChatTabController({
       || (Array.isArray(item?.aliases) && item.aliases.some((alias) => classIdMatches(alias, classId)))
     ));
     if (!hasValidClass) {
-      triggerToast?.('Your account is not enrolled in a class for this course yet. Please contact Admin or your teacher.');
+      triggerToast?.('Tài khoản chưa được xếp lớp cho môn này. Vui lòng liên hệ Admin hoặc giáo viên.');
       return;
     }
 
     if (activeSessionMaxTurnsReached) {
-      triggerToast?.('This chat is full. Start a new chat to continue.');
+      triggerToast?.('Cuộc trò chuyện đã đủ 10 câu hỏi. Hãy tạo cuộc trò chuyện mới.');
       return;
     }
 
@@ -129,14 +129,14 @@ export function useStudentChatTabController({
   };
 
   const handlePromptStarter = (prompt) => {
-    setChatInput(prompt);
+    sendText(prompt);
   };
 
   const handleAnswerAction = async ({ prompt, type, message: answerMessage }) => {
     if (type === 'retry') {
       const retryText = String(answerMessage?.question || prompt || '').trim();
       if (!retryText) {
-        triggerToast?.('There is no question to retry.');
+        triggerToast?.('Không có câu hỏi để thử lại.');
         return;
       }
       sendText(retryText);
@@ -157,11 +157,11 @@ export function useStudentChatTabController({
             ? 'AI Tutor could not reach the language model.'
             : 'Student requested mentor support from AI Tutor chat.',
         });
-        triggerToast?.('Support request sent to mentor.');
+        triggerToast?.('Đã gửi yêu cầu hỗ trợ cho mentor.');
         loadEscalations?.();
         switchTab?.('student-escalation');
       } catch (error) {
-        triggerToast?.(getUserFacingError(error, 'Unable to create support request.'));
+        triggerToast?.(getUserFacingError(error, 'Không thể tạo yêu cầu hỗ trợ.'));
       }
       return;
     }
@@ -180,7 +180,7 @@ export function useStudentChatTabController({
 
   const handleDownloadSource = async (materialId, title) => {
     if (!courseId || !materialId) return;
-    message.loading({ content: 'Downloading file...', key: 'dl' });
+    message.loading({ content: 'Đang tải tài liệu...', key: 'dl' });
     try {
       const blob = await materialsApi.downloadMaterialPdf(courseId, materialId);
       const url = window.URL.createObjectURL(blob);
@@ -190,9 +190,9 @@ export function useStudentChatTabController({
       document.body.appendChild(link);
       link.click();
       window.URL.revokeObjectURL(url);
-      message.success({ content: 'Download completed.', key: 'dl' });
+      message.success({ content: 'Đã tải tài liệu.', key: 'dl' });
     } catch {
-      message.error({ content: 'Unable to download the file (it might be a website material).', key: 'dl' });
+      message.error({ content: 'Không thể tải tệp. Tài liệu này có thể được nhập từ website.', key: 'dl' });
     }
   };
 

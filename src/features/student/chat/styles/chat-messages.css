@@ -69,6 +69,18 @@
   color: #202123;
 }
 
+.prompt-starter-card:disabled,
+.prompt-starter-card:disabled:hover {
+  border-color: #ececec;
+  background: #f7f7f7;
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.prompt-starter-card:disabled svg {
+  color: #9ca3af;
+}
+
 /* Message Rows */
 .chat-gpt-message-row {
   display: flex;
@@ -238,4 +250,3 @@
   color: #888;
   font-size: 12px;
 }
-

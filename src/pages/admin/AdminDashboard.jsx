@@ -7,7 +7,6 @@ import { diagnosticsApi } from '../../services/diagnosticsApi';
 import { env } from '../../config/env';
 
 const { Text } = Typography;
-const { TabPane } = Tabs;
 
 function AdminDashboard({ adminStats = {}, diagnosticsOutput, isDiagnosticsRunning, runDiagnostics }) {
   const [logs, setLogs] = React.useState([]);
@@ -28,11 +27,11 @@ function AdminDashboard({ adminStats = {}, diagnosticsOutput, isDiagnosticsRunni
     }
   };
 
-  const loadTrace = async () => {
-    if (!traceId) return;
+  const loadTrace = async (requestedTraceId = traceId) => {
+    if (!requestedTraceId) return;
     setLogsLoading(true);
     try {
-      const data = await diagnosticsApi.getTraceLogs(traceId);
+      const data = await diagnosticsApi.getTraceLogs(requestedTraceId);
       setTraceOutput(data);
     } catch (e) {
       console.error(e);
@@ -50,6 +49,120 @@ function AdminDashboard({ adminStats = {}, diagnosticsOutput, isDiagnosticsRunni
     ? env.n8nStrict ? 'Full n8n strict' : 'n8n harness enabled'
     : 'Backend direct';
   const harnessColor = env.n8nEnabled ? 'processing' : 'default';
+  const diagnosticsTabs = [
+    {
+      key: 'health',
+      label: <><Server size={14} style={{ marginRight: 6 }} />System Health</>,
+      children: (
+        <Card
+          title="System Diagnostics"
+          extra={(
+            <Space>
+              <Tag color={harnessColor}>{harnessLabel}</Tag>
+              <Button
+                type="primary"
+                icon={<RefreshCw size={14} className={isDiagnosticsRunning ? 'spinning' : ''} />}
+                onClick={runDiagnostics}
+                loading={isDiagnosticsRunning}
+              >
+                Run Check
+              </Button>
+            </Space>
+          )}
+          hoverable
+        >
+          {diagnosticsOutput ? (
+            <Space direction="vertical" style={{ width: '100%' }} size="middle">
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <Text>OpenRouter API Key:</Text>
+                <Tag color={diagnosticsOutput.apiKeyValid ? 'success' : 'error'}>
+                  {diagnosticsOutput.apiKeyValid ? 'Valid' : 'Error'}
+                </Tag>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <Text>OpenRouter Connection:</Text>
+                <Tag color={diagnosticsOutput.openRouterConnectivity ? 'success' : 'error'}>
+                  {diagnosticsOutput.openRouterConnectivity ? 'Connected' : 'Offline'}
+                </Tag>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <Text>Ollama (Embedding):</Text>
+                <Tag color={diagnosticsOutput.ollamaConnectivity ? 'success' : 'error'}>
+                  {diagnosticsOutput.ollamaConnectivity ? 'Online' : 'Offline'}
+                </Tag>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <Text>LLM Model:</Text>
+                <Text strong>{diagnosticsOutput.configDetails?.activeModel || 'N/A'}</Text>
+              </div>
+            </Space>
+          ) : (
+            <Alert title="Click 'Run Check' to verify AI and database connectivity." type="info" showIcon />
+          )}
+        </Card>
+      ),
+    },
+    {
+      key: 'logs',
+      label: <><FileText size={14} style={{ marginRight: 6 }} />Harness Logs & Traces</>,
+      children: (
+        <>
+          <Card
+            title="Harness Logs"
+            hoverable
+            extra={<Button size="small" onClick={loadLogs} icon={<RefreshCw size={14} />}>Reload</Button>}
+            style={{ marginBottom: 16 }}
+          >
+            <Table
+              dataSource={logs}
+              rowKey={(record, index) => record.id || record.timestamp || record.traceId || `log-${index}`}
+              size="small"
+              loading={logsLoading}
+              pagination={{ pageSize: 5 }}
+              columns={[
+                { title: 'Time', dataIndex: 'timestamp', key: 'time', render: (value) => value ? new Date(value).toLocaleString() : '—' },
+                { title: 'Level', dataIndex: 'level', key: 'level', render: (value) => <Tag color={value === 'ERROR' ? 'red' : value === 'WARN' ? 'orange' : 'blue'}>{value}</Tag> },
+                { title: 'Message', dataIndex: 'message', key: 'msg', ellipsis: true },
+                {
+                  title: 'Trace ID',
+                  dataIndex: 'traceId',
+                  key: 'traceId',
+                  render: (value) => value ? (
+                    <Button
+                      type="link"
+                      size="small"
+                      onClick={() => {
+                        setTraceId(value);
+                        loadTrace(value);
+                      }}
+                    >
+                      {value}
+                    </Button>
+                  ) : '—',
+                },
+              ]}
+            />
+          </Card>
+          <Card title="View Memory Trace" hoverable>
+            <Space style={{ width: '100%', marginBottom: 16 }}>
+              <Input
+                placeholder="Enter Trace ID"
+                value={traceId}
+                onChange={(event) => setTraceId(event.target.value)}
+                style={{ width: 300 }}
+              />
+              <Button type="primary" onClick={() => loadTrace()} loading={logsLoading}>Load Trace</Button>
+            </Space>
+            {traceOutput && (
+              <pre style={{ background: '#f5f5f5', padding: 12, borderRadius: 6, maxHeight: 300, overflow: 'auto', fontSize: 12 }}>
+                {JSON.stringify(traceOutput, null, 2)}
+              </pre>
+            )}
+          </Card>
+        </>
+      ),
+    },
+  ];
 
   return (
     <div className="portal-view">
@@ -59,7 +172,7 @@ function AdminDashboard({ adminStats = {}, diagnosticsOutput, isDiagnosticsRunni
             <Statistic
               title={<Text type="secondary">Total Users</Text>}
               value={adminStats.users ?? adminStats.totalUsers ?? 0}
-              valueStyle={{ color: '#F37021', fontWeight: 700 }}
+              styles={{ content: { color: '#F37021', fontWeight: 700 } }}
               prefix={<Users size={20} />}
             />
           </Card>
@@ -69,7 +182,7 @@ function AdminDashboard({ adminStats = {}, diagnosticsOutput, isDiagnosticsRunni
             <Statistic
               title={<Text type="secondary">Mentors</Text>}
               value={adminStats.mentors ?? 0}
-              valueStyle={{ color: '#52c41a', fontWeight: 700 }}
+              styles={{ content: { color: '#52c41a', fontWeight: 700 } }}
               prefix={<GraduationCap size={20} />}
             />
           </Card>
@@ -79,7 +192,7 @@ function AdminDashboard({ adminStats = {}, diagnosticsOutput, isDiagnosticsRunni
             <Statistic
               title={<Text type="secondary">Courses</Text>}
               value={adminStats.courses ?? adminStats.totalCourses ?? 0}
-              valueStyle={{ color: '#F37021', fontWeight: 700 }}
+              styles={{ content: { color: '#F37021', fontWeight: 700 } }}
               prefix={<Library size={20} />}
             />
           </Card>
@@ -89,7 +202,7 @@ function AdminDashboard({ adminStats = {}, diagnosticsOutput, isDiagnosticsRunni
             <Statistic
               title={<Text type="secondary">Support Requests</Text>}
               value={adminStats.escalations ?? 0}
-              valueStyle={{ color: '#fa8c16', fontWeight: 700 }}
+              styles={{ content: { color: '#fa8c16', fontWeight: 700 } }}
               prefix={<AlertTriangle size={20} />}
             />
           </Card>
@@ -112,94 +225,7 @@ function AdminDashboard({ adminStats = {}, diagnosticsOutput, isDiagnosticsRunni
           </Card>
         </Col>
         <Col xs={24} lg={12}>
-          <Tabs defaultActiveKey="health" type="card">
-            <TabPane tab={<><Server size={14} style={{ marginRight: 6 }}/>System Health</>} key="health">
-              <Card
-                title="System Diagnostics"
-                extra={
-                  <Space>
-                    <Tag color={harnessColor}>{harnessLabel}</Tag>
-                    <Button
-                      type="primary"
-                      icon={<RefreshCw size={14} className={isDiagnosticsRunning ? 'spinning' : ''} />}
-                      onClick={runDiagnostics}
-                      loading={isDiagnosticsRunning}
-                    >
-                      Run Check
-                    </Button>
-                  </Space>
-                }
-                hoverable
-              >
-                {diagnosticsOutput ? (
-                  <Space direction="vertical" style={{ width: '100%' }} size="middle">
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Text>OpenRouter API Key:</Text>
-                      <Tag color={diagnosticsOutput.apiKeyValid ? 'success' : 'error'}>
-                        {diagnosticsOutput.apiKeyValid ? 'Valid' : 'Error'}
-                      </Tag>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Text>OpenRouter Connection:</Text>
-                      <Tag color={diagnosticsOutput.openRouterConnectivity ? 'success' : 'error'}>
-                        {diagnosticsOutput.openRouterConnectivity ? 'Connected' : 'Offline'}
-                      </Tag>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Text>Ollama (Embedding):</Text>
-                      <Tag color={diagnosticsOutput.ollamaConnectivity ? 'success' : 'error'}>
-                        {diagnosticsOutput.ollamaConnectivity ? 'Online' : 'Offline'}
-                      </Tag>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Text>LLM Model:</Text>
-                      <Text strong>{diagnosticsOutput.configDetails?.activeModel || 'N/A'}</Text>
-                    </div>
-                  </Space>
-                ) : (
-                  <Alert message="Click 'Run Check' to verify AI and database connectivity." type="info" showIcon />
-                )}
-              </Card>
-            </TabPane>
-            <TabPane tab={<><FileText size={14} style={{ marginRight: 6 }}/>Harness Logs & Traces</>} key="logs">
-              <Card
-                title="Harness Logs"
-                hoverable
-                extra={<Button size="small" onClick={loadLogs} icon={<RefreshCw size={14} />}>Reload</Button>}
-                style={{ marginBottom: 16 }}
-              >
-                <Table
-                  dataSource={logs}
-                  rowKey={(record) => record.id || record.timestamp || Math.random()}
-                  size="small"
-                  loading={logsLoading}
-                  pagination={{ pageSize: 5 }}
-                  columns={[
-                    { title: 'Time', dataIndex: 'timestamp', key: 'time', render: v => v ? new Date(v).toLocaleString() : '—' },
-                    { title: 'Level', dataIndex: 'level', key: 'level', render: v => <Tag color={v === 'ERROR' ? 'red' : v === 'WARN' ? 'orange' : 'blue'}>{v}</Tag> },
-                    { title: 'Message', dataIndex: 'message', key: 'msg', ellipsis: true },
-                    { title: 'Trace ID', dataIndex: 'traceId', key: 'traceId', render: v => v ? <a onClick={() => { setTraceId(v); loadTrace(); }}>{v}</a> : '—' }
-                  ]}
-                />
-              </Card>
-              <Card title="View Memory Trace" hoverable>
-                <Space style={{ width: '100%', marginBottom: 16 }}>
-                  <Input 
-                    placeholder="Enter Trace ID" 
-                    value={traceId} 
-                    onChange={e => setTraceId(e.target.value)} 
-                    style={{ width: 300 }}
-                  />
-                  <Button type="primary" onClick={loadTrace} loading={logsLoading}>Load Trace</Button>
-                </Space>
-                {traceOutput && (
-                  <pre style={{ background: '#f5f5f5', padding: 12, borderRadius: 6, maxHeight: 300, overflow: 'auto', fontSize: 12 }}>
-                    {JSON.stringify(traceOutput, null, 2)}
-                  </pre>
-                )}
-              </Card>
-            </TabPane>
-          </Tabs>
+          <Tabs defaultActiveKey="health" type="card" items={diagnosticsTabs} />
         </Col>
       </Row>
     </div>

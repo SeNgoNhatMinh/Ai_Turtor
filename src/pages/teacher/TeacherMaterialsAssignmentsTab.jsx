@@ -3,6 +3,7 @@ import AssignmentPublishCard from '../../features/teacher/materials/AssignmentPu
 import TeacherMaterialUploadCard from '../../features/teacher/materials/TeacherMaterialUploadCard';
 import TeacherResourceTables from '../../features/teacher/materials/TeacherResourceTables';
 import { useTeacherResourceColumns } from '../../features/teacher/materials/useTeacherResourceColumns';
+import AssignmentEditModal from '../../features/teacher/materials/AssignmentEditModal';
 
 const ImportWebsiteModal = lazy(() => import('../../components/importWebsite/ImportWebsiteModal'));
 
@@ -39,7 +40,12 @@ function TeacherMaterialsAssignmentsTab(props) {
         onUpload={props.handleTeacherUploadMaterial}
         onOpenWebsiteImport={() => setWebsiteImportOpen(true)}
       />
-      <AssignmentPublishCard classesList={props.classesList || []} assignment={assignment} onCreate={props.onCreateAssignment} />
+      <AssignmentPublishCard
+        classesList={props.classesList || []}
+        teacherStudents={props.teacherStudents || []}
+        assignment={assignment}
+        onCreate={props.onCreateAssignment}
+      />
       <TeacherResourceTables
         classId={props.classId}
         assignments={props.classAssignments || []}
@@ -49,6 +55,13 @@ function TeacherMaterialsAssignmentsTab(props) {
         materials={props.courseMaterials || []}
         materialColumns={materialColumns}
         onReloadMaterials={() => props.onReloadCourseMaterials?.()}
+      />
+      <AssignmentEditModal
+        assignment={props.editingAssignment}
+        open={Boolean(props.editingAssignment)}
+        saving={props.isUpdatingAssignment}
+        onCancel={() => props.setEditingAssignment?.(null)}
+        onSave={props.handleUpdateAssignment}
       />
       {websiteImportOpen && (
         <Suspense fallback={null}>

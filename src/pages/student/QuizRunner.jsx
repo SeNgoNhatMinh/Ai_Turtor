@@ -91,7 +91,7 @@ export default function QuizRunner({ quiz, onSubmit, submitting = false }) {
             {quiz.title || 'Practice quiz'}
           </CardTitle>
           <p className="text-muted-foreground text-sm mt-2">
-            Answers are hidden until you submit. Quiz ID: {quizSessionId || 'new session'}
+            Answers remain hidden until you submit the quiz.
           </p>
         </CardHeader>
         <CardContent>

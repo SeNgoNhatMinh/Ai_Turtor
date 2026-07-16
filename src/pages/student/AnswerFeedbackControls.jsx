@@ -27,8 +27,8 @@ function AnswerFeedbackControls({
           onClick={onTogglePin}
           loading={isPinning}
           disabled={isPinning}
-          aria-label={isPinned ? 'Unpin message' : 'Pin message'}
-          title={isPinned ? 'Unpin message' : 'Pin message'}
+          aria-label={isPinned ? 'Bỏ ghim tin nhắn' : 'Ghim tin nhắn'}
+          title={isPinned ? 'Bỏ ghim tin nhắn' : 'Ghim tin nhắn'}
         />
         <Button
           type="text"
@@ -37,7 +37,7 @@ function AnswerFeedbackControls({
           disabled={isFeedbackSubmitting}
           onClick={onHelpful}
         >
-          Helpful
+          Hữu ích
         </Button>
         <Button
           type="text"
@@ -46,7 +46,7 @@ function AnswerFeedbackControls({
           disabled={isFeedbackSubmitting}
           onClick={() => onOpenFeedback(index, 'notCorrect')}
         >
-          Not correct
+          Chưa chính xác
         </Button>
         <Button
           type="text"
@@ -55,7 +55,7 @@ function AnswerFeedbackControls({
           disabled={isFeedbackSubmitting}
           onClick={() => onOpenFeedback(index, 'sourceConflict')}
         >
-          Source conflict
+          Mâu thuẫn nguồn
         </Button>
         <Button
           type="text"
@@ -64,7 +64,7 @@ function AnswerFeedbackControls({
           disabled={isFeedbackSubmitting}
           onClick={() => onOpenFeedback(index, 'missingMaterial')}
         >
-          Missing material
+          Thiếu tài liệu
         </Button>
         <Button
           type="text"
@@ -73,7 +73,17 @@ function AnswerFeedbackControls({
           disabled={isFeedbackSubmitting}
           onClick={() => onOpenFeedback(index, 'needMoreDetail')}
         >
-          Need more detail
+          Cần chi tiết hơn
+        </Button>
+        <Button
+          type="text"
+          size="small"
+          danger
+          icon={<DislikeOutlined />}
+          disabled={isFeedbackSubmitting}
+          onClick={() => onOpenFeedback(index, 'knowledgeError')}
+        >
+          Sai kiến thức nghiêm trọng
         </Button>
       </div>
 
@@ -89,12 +99,12 @@ function AnswerFeedbackControls({
           }}
         >
           <div className="feedback-title" style={{ marginBottom: 8, fontSize: 12, color: '#0d0d0d' }}>
-            {feedbackAction?.prompt || 'What feedback should we record?'}
+            {feedbackAction?.prompt || 'Bạn muốn góp ý điều gì?'}
           </div>
           <Input.TextArea
             className="feedback-textarea"
             rows={2}
-            placeholder={feedbackAction?.placeholder || 'Add feedback...'}
+            placeholder={feedbackAction?.placeholder || 'Nhập nội dung góp ý...'}
             value={feedbackText}
             maxLength={2000}
             onChange={(e) => setFeedbackText(e.target.value)}
@@ -108,7 +118,7 @@ function AnswerFeedbackControls({
           />
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
             <Button size="small" type="text" style={{ color: '#888' }} onClick={onCloseFeedback}>
-              Cancel
+              Hủy
             </Button>
             <Button
               className="btn-submit"
@@ -119,7 +129,7 @@ function AnswerFeedbackControls({
               loading={isFeedbackSubmitting}
               disabled={!feedbackText.trim() || isFeedbackSubmitting}
             >
-              Submit
+              Gửi góp ý
             </Button>
           </div>
         </div>

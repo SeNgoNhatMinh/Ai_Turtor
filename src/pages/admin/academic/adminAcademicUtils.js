@@ -6,7 +6,7 @@ export const getCourseCode = (record) => record?.courseId || record?.id;
 export const getClassCode = (record) => getClassCodeValue(record);
 export const getEnrollmentId = (record) => record?.id || record?._id || record?.enrollmentId;
 
-export const MATERIAL_INDEXING_STATUSES = new Set(['PROCESSING', 'PENDING', 'INDEXING', 'QUEUED']);
+const MATERIAL_INDEXING_STATUSES = new Set(['PROCESSING', 'PENDING', 'INDEXING', 'QUEUED']);
 
 export const normalizeMaterialsResponse = (data) => (
   Array.isArray(data?.materials)

@@ -14,13 +14,13 @@ import {
 } from 'lucide-react';
 import { getWorkspaceRole } from '../constants/roles';
 
-export const navigationItems = [
+const navigationItems = [
   {
     key: 'student-chat',
     workspace: 'student',
     group: 'Learning',
-    label: 'AI Tutor Chat',
-    description: 'Ask course questions and review past conversations.',
+    label: 'Trò chuyện AI Tutor',
+    description: 'Hỏi theo môn học và xem lại lịch sử trò chuyện.',
     icon: MessageSquare,
   },
   {
@@ -125,5 +125,3 @@ export const getNavigationForRole = (role) => {
   const workspace = getWorkspaceRole(role);
   return navigationItems.filter((item) => item.workspace === workspace);
 };
-
-export const getNavigationItem = (key) => navigationItems.find((item) => item.key === key);

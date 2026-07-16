@@ -11,7 +11,7 @@ export const LIMITS = {
   uploadMaxBytes: 25 * 1024 * 1024,
 };
 
-export function sanitizeText(value, maxLength = 1000) {
+function sanitizeText(value, maxLength = 1000) {
   return String(value ?? '').trim().slice(0, maxLength);
 }
 
@@ -22,14 +22,14 @@ export function validateEmail(email) {
   return { ok: true, value };
 }
 
-export function validatePassword(password) {
+function validatePassword(password) {
   const value = String(password ?? '');
   if (value.length < LIMITS.passwordMin) return { ok: false, message: 'Password must be at least 6 characters.' };
   if (value.length > LIMITS.passwordMax) return { ok: false, message: 'Password is too long.' };
   return { ok: true, value };
 }
 
-export function validateFullName(fullName) {
+function validateFullName(fullName) {
   const value = sanitizeText(fullName, LIMITS.nameMax);
   if (!value) return { ok: false, message: 'Full name is required.' };
   if (value.length < 2) return { ok: false, message: 'Full name must be at least 2 characters.' };
@@ -51,9 +51,9 @@ export function validateAuthForm({ email, password, fullName, isLoginView }) {
 
 export function validateChatInput(input) {
   const value = sanitizeText(input, LIMITS.chatMax);
-  if (!value) return { ok: false, message: 'Please enter a message before sending.' };
+  if (!value) return { ok: false, message: 'Hãy nhập nội dung trước khi gửi.' };
   if (String(input ?? '').trim().length > LIMITS.chatMax) {
-    return { ok: false, message: `Message is too long. Please keep it under ${LIMITS.chatMax} characters.` };
+    return { ok: false, message: `Tin nhắn quá dài. Vui lòng giới hạn trong ${LIMITS.chatMax} ký tự.` };
   }
   return { ok: true, value };
 }
@@ -65,7 +65,7 @@ export function normalizeReviewMode(mode) {
 
 export function validateFeedbackText(input) {
   const value = sanitizeText(input, LIMITS.feedbackMax);
-  if (!value) return { ok: false, message: 'Please add a short feedback note.' };
+  if (!value) return { ok: false, message: 'Hãy nhập một nội dung góp ý ngắn.' };
   return { ok: true, value };
 }
 

@@ -1,12 +1,13 @@
 import { useMemo } from 'react';
-import { Database, Download, Trash2 } from 'lucide-react';
+import { Database, Download, Pencil, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { getRecordId } from '../../../pages/teacher/teacherPortalUtils';
+import { getRecordId } from '../shared/teacherUtils';
 import { getMaterialDisplayName } from '../../../utils/sourceLabels';
 
 export function useTeacherResourceColumns({
   handleDownloadAssignmentFile,
+  handleEditAssignment,
   handleDeleteAssignment,
   onDownloadMaterial,
   materialActionId,
@@ -46,6 +47,9 @@ export function useTeacherResourceColumns({
       header: 'Actions',
       cell: ({ row }) => (
         <div className="flex justify-end gap-2">
+          <Button size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={() => handleEditAssignment(row.original)}>
+            <Pencil className="w-3 h-3 mr-1" /> Edit
+          </Button>
           <Button size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={() => handleDownloadAssignmentFile(row.original)}>
             <Download className="w-3 h-3 mr-1" /> Download
           </Button>
@@ -55,7 +59,7 @@ export function useTeacherResourceColumns({
         </div>
       ),
     },
-  ], [handleDeleteAssignment, handleDownloadAssignmentFile]);
+  ], [handleDeleteAssignment, handleDownloadAssignmentFile, handleEditAssignment]);
 
   const materialColumns = useMemo(() => [
     {

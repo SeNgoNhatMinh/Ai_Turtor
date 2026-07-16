@@ -1,6 +1,7 @@
 import { useRef } from 'react';
 import { Button, Dropdown } from 'antd';
 import { MoreHorizontal } from 'lucide-react';
+import './EntityActionMenu.css';
 
 function EntityActionMenu({
   items = [],

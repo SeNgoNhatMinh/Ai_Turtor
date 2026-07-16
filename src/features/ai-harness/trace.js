@@ -7,9 +7,9 @@ const createId = () => {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
 };
 
-export const createHarnessTraceId = () => createId();
+const createHarnessTraceId = () => createId();
 
-export function getHarnessSessionId() {
+function getHarnessSessionId() {
   if (typeof window === 'undefined') return createId();
   const current = window.sessionStorage.getItem(HARNESS_SESSION_KEY);
   if (current) return current;

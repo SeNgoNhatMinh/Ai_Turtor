@@ -5,9 +5,16 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { getClassOptionLabel, getClassOptionValue } from '../../../pages/teacher/teacherPortalUtils';
+import { Select as AntSelect } from 'antd';
+import { getClassOptionLabel, getClassOptionValue } from '../shared/teacherUtils';
+import { getPersonDisplayName, getPersonEmail, getPersonId } from '../../../utils/displayNames';
 
-export default function AssignmentPublishCard({ classesList, assignment, onCreate }) {
+export default function AssignmentPublishCard({ classesList, teacherStudents = [], assignment, onCreate }) {
+  const selectedStudentIds = String(assignment.targetStudents || '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+
   return (
     <Card className="shadow-sm border-gray-100">
       <CardHeader className="pb-4">
@@ -60,8 +67,27 @@ export default function AssignmentPublishCard({ classesList, assignment, onCreat
           </div>
           {assignment.targetType === 'SELECTED_STUDENTS' && (
             <div className="space-y-2">
-              <Label>Selected student IDs</Label>
-              <Input value={assignment.targetStudents} onChange={(event) => assignment.setTargetStudents(event.target.value)} placeholder="Example: SE1840001, SE1840002" className="bg-gray-50/50" />
+              <Label>Selected students</Label>
+              <AntSelect
+                mode="multiple"
+                showSearch
+                value={selectedStudentIds}
+                placeholder="Choose students by name"
+                optionFilterProp="searchLabel"
+                onChange={(values) => assignment.setTargetStudents(values.join(','))}
+                options={teacherStudents.map((student) => {
+                  const id = getPersonId(student);
+                  const name = getPersonDisplayName(student, 'Student');
+                  const email = getPersonEmail(student);
+                  return {
+                    value: id,
+                    disabled: !id,
+                    searchLabel: `${name} ${email}`,
+                    label: [name, email].filter(Boolean).join(' · '),
+                  };
+                })}
+                style={{ width: '100%' }}
+              />
             </div>
           )}
           <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 mt-2" disabled={assignment.isPublishing || !assignment.file || !assignment.classId}>

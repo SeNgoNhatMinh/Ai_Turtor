@@ -28,9 +28,9 @@ export function useAnswerFeedback({
   }, []);
 
   const buildPayload = useCallback((message, actionConfig, feedback) => {
-    if (!userId) return { ok: false, message: 'Please sign in before sending feedback.' };
-    if (!courseId || !classId) return { ok: false, message: 'Please select your enrolled course first.' };
-    if (!message?.answer) return { ok: false, message: 'There is no AI answer to review.' };
+    if (!userId) return { ok: false, message: 'Vui lòng đăng nhập trước khi gửi góp ý.' };
+    if (!courseId || !classId) return { ok: false, message: 'Hãy chọn môn học đã ghi danh trước.' };
+    if (!message?.answer) return { ok: false, message: 'Không có câu trả lời AI để đánh giá.' };
 
     const action = actionConfig || FEEDBACK_ACTIONS.needMoreDetail;
     const cleanedFeedback = String(feedback || action.defaultFeedback || action.label).trim();

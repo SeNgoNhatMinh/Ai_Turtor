@@ -19,21 +19,12 @@ export function getUserFacingError(error, fallback = 'Something went wrong. Plea
 }
 
 const requestInterceptors = [];
-const responseInterceptors = [];
 
 export function addRequestInterceptor(interceptor) {
   requestInterceptors.push(interceptor);
   return () => {
     const index = requestInterceptors.indexOf(interceptor);
     if (index >= 0) requestInterceptors.splice(index, 1);
-  };
-}
-
-export function addResponseInterceptor(interceptor) {
-  responseInterceptors.push(interceptor);
-  return () => {
-    const index = responseInterceptors.indexOf(interceptor);
-    if (index >= 0) responseInterceptors.splice(index, 1);
   };
 }
 
@@ -144,11 +135,7 @@ export async function httpRequest(path, options = {}) {
       throw normalizeError(null, response, parsedBody);
     }
 
-    let result = parsedBody;
-    for (const interceptor of responseInterceptors) {
-      result = (await interceptor(result, response)) ?? result;
-    }
-    return result;
+    return parsedBody;
   } catch (error) {
     if (error instanceof ApiError) throw error;
     throw normalizeError(error, response, parsedBody);

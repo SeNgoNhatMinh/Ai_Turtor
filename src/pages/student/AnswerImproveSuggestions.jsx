@@ -20,10 +20,10 @@ function AnswerImproveSuggestions({ suggestions = [], onStudy, onCreateQuiz }) {
   if (uniqueSuggestions.length === 0) return null;
 
   return (
-    <section className="answer-improve-suggestions" aria-label="Suggested next learning steps">
+    <section className="answer-improve-suggestions" aria-label="Gợi ý bước học tiếp theo">
       <div className="answer-improve-suggestions__header">
-        <strong>Continue learning</strong>
-        <span>Choose a focused next step from this answer.</span>
+        <strong>Tiếp tục học</strong>
+        <span>Chọn nội dung bạn muốn học tiếp từ câu trả lời này.</span>
       </div>
       <div className="answer-improve-suggestions__list">
         {uniqueSuggestions.map((suggestion) => {
@@ -33,10 +33,10 @@ function AnswerImproveSuggestions({ suggestions = [], onStudy, onCreateQuiz }) {
               <span>{text}</span>
               <div className="answer-improve-suggestion__actions">
                 <button type="button" onClick={() => onStudy?.(text)}>
-                  <BookOpenCheck size={14} aria-hidden="true" /> Study now
+                  <BookOpenCheck size={14} aria-hidden="true" /> Học ngay
                 </button>
                 <button type="button" onClick={() => onCreateQuiz?.(text)}>
-                  <ClipboardList size={14} aria-hidden="true" /> Create quiz
+                  <ClipboardList size={14} aria-hidden="true" /> Tạo quiz
                 </button>
               </div>
             </article>

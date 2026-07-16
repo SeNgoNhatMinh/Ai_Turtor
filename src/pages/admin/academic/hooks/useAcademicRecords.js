@@ -9,6 +9,7 @@ import {
   getEnrollmentId,
   getSemesterCode,
 } from '../adminAcademicUtils';
+import { getPersonDisplayName, getPersonEmail, getPersonId } from '../../../../utils/displayNames';
 
 const normalizeEnrollments = (data) => (
   Array.isArray(data)
@@ -58,25 +59,28 @@ export function useAcademicRecords({
     loadClassSections(courseId);
   };
 
-  const resolveStudentSearchId = async (rawValue) => {
+  const resolveStudentAccount = async (rawValue) => {
     const value = String(rawValue || '').trim();
-    if (!value) return '';
-    const users = await adminUsersApi.getAdminUsers(value, 'STUDENT');
-    const normalized = String(value).toLowerCase();
-    const matchedUser = users.find((user) => {
-      const candidates = [
-        user.id,
-        user._id,
-        user.userId,
-        user.studentId,
-        user.studentCode,
-        user.email,
-        user.fullName,
-        user.name,
-      ].filter(Boolean).map((item) => String(item).toLowerCase());
-      return candidates.includes(normalized);
-    }) || users[0];
-    return matchedUser?.studentId || matchedUser?.studentCode || matchedUser?.userId || matchedUser?.id || matchedUser?._id || value;
+    if (!value) return null;
+    try {
+      const users = await adminUsersApi.getAdminUsers(value, 'STUDENT');
+      const normalized = value.toLowerCase();
+      return users.find((user) => {
+        const candidates = [
+          user.id,
+          user._id,
+          user.userId,
+          user.studentId,
+          user.studentCode,
+          user.email,
+          user.fullName,
+          user.name,
+        ].filter(Boolean).map((item) => String(item).toLowerCase());
+        return candidates.includes(normalized);
+      }) || users[0] || null;
+    } catch {
+      return null;
+    }
   };
 
   const loadStudentEnrollments = async () => {
@@ -87,17 +91,14 @@ export function useAcademicRecords({
     }
     setEnrollmentsLoading(true);
     try {
-      let searchId = rawSearch;
-      let data = await adminAcademicApi.getStudentEnrollments(searchId);
-      let items = normalizeEnrollments(data);
-
-      if (items.length === 0) {
-        searchId = await resolveStudentSearchId(rawSearch);
-        if (searchId && searchId !== rawSearch) {
-          data = await adminAcademicApi.getStudentEnrollments(searchId);
-          items = normalizeEnrollments(data);
-        }
-      }
+      const student = await resolveStudentAccount(rawSearch);
+      const searchId = getPersonId(student) || rawSearch;
+      const data = await adminAcademicApi.getStudentEnrollments(searchId);
+      const items = normalizeEnrollments(data).map((enrollment) => ({
+        ...enrollment,
+        studentName: enrollment.studentName || getPersonDisplayName(student, 'Student'),
+        studentEmail: enrollment.studentEmail || getPersonEmail(student),
+      }));
 
       setStudentEnrollments(items);
       if (items.length === 0) {
@@ -141,7 +142,8 @@ export function useAcademicRecords({
 
   const handleCreateEnrollment = async (values) => {
     try {
-      const resolvedStudentId = await resolveStudentSearchId(values.studentId);
+      const student = await resolveStudentAccount(values.studentId);
+      const resolvedStudentId = getPersonId(student) || values.studentId;
       await adminAcademicApi.createEnrollment({
         studentId: resolvedStudentId,
         courseId: values.courseId,
@@ -150,6 +152,11 @@ export function useAcademicRecords({
       });
       triggerToast('Student enrolled successfully.');
       formEnroll.resetFields();
+      setStudentEnrollments((current) => current.map((enrollment) => ({
+        ...enrollment,
+        studentName: enrollment.studentName || getPersonDisplayName(student, 'Student'),
+        studentEmail: enrollment.studentEmail || getPersonEmail(student),
+      })));
       if (enrollmentSearchId === values.studentId || enrollmentSearchId === resolvedStudentId) loadStudentEnrollments();
     } catch {
       triggerToast('Failed to enroll student.');

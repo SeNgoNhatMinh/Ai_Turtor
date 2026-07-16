@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { getUserFacingError } from '../../../services/apiClient';
 import { studentLearningApi } from '../../../services/studentLearningApi';
 import { useMutationLock } from '../../../hooks/useMutationLock';
+import { writeQuizTopicHandoff, writeStudyChatHandoff } from '../studentRouteHandoff';
 
 export function useStudentLearningActions({
   activeTab,
@@ -15,7 +16,6 @@ export function useStudentLearningActions({
   sendText,
   triggerToast,
 }) {
-  const [quizInitialSuggestion, setQuizInitialSuggestion] = useState('');
   const { runLocked } = useMutationLock();
 
   useEffect(() => {
@@ -40,12 +40,14 @@ export function useStudentLearningActions({
           suggestionText: text,
           topic: text,
         });
-        switchTab?.('student-chat');
-        if (response?.conversationId || response?.answer) {
+        if (activeTab === 'student-chat' && (response?.conversationId || response?.answer)) {
           await openLearnedSuggestionResponse?.(response, text);
           triggerToast?.('AI Tutor opened a guided study response for this suggestion.');
+        } else if (activeTab === 'student-chat') {
+          sendText?.(prompt);
         } else {
-          sendText(prompt);
+          writeStudyChatHandoff({ response, suggestionText: text, prompt });
+          switchTab?.('student-chat');
         }
       } catch (error) {
         const isAlreadyUsed = error?.status === 409 || error?.details?.error === 'SUGGESTION_ALREADY_USED';
@@ -55,8 +57,12 @@ export function useStudentLearningActions({
           return;
         }
         triggerToast?.(getUserFacingError(error, 'Unable to open this study suggestion. Using chat prompt instead.'));
-        switchTab?.('student-chat');
-        sendText(prompt);
+        if (activeTab === 'student-chat') {
+          sendText?.(prompt);
+        } else {
+          writeStudyChatHandoff({ suggestionText: text, prompt });
+          switchTab?.('student-chat');
+        }
       }
     });
   };
@@ -64,12 +70,11 @@ export function useStudentLearningActions({
   const handleCreateQuizFromSuggestion = (suggestionText) => {
     const text = String(suggestionText || '').trim();
     if (!text) return;
-    setQuizInitialSuggestion(text);
+    writeQuizTopicHandoff(text);
     switchTab?.('student-quizzes');
   };
 
   return {
-    quizInitialSuggestion,
     handleStudySuggestion,
     handleCreateQuizFromSuggestion,
   };

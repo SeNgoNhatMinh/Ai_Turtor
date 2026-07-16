@@ -4,6 +4,7 @@ import { getUserFacingError } from '../../services/apiClient';
 import { quizApi } from '../../services/quizApi';
 import { quizGateway } from '../../features/ai-harness/quizGateway';
 import QuizDraftEditor from './QuizDraftEditor';
+import { getPersonDisplayName, getPersonEmail } from '../../utils/displayNames';
 import '../student/Quiz.css';
 
 const { Text, Title } = Typography;
@@ -17,9 +18,6 @@ function QuizAssignments({ teacherId, teacherName = '', courseId, classId, teach
   const [publishOpen, setPublishOpen] = useState(false);
   const [publishTarget, setPublishTarget] = useState('CLASS');
   const [selectedStudents, setSelectedStudents] = useState([]);
-  const [reviewSessionId, setReviewSessionId] = useState('');
-  const [reviewScore, setReviewScore] = useState(10);
-  const [reviewFeedback, setReviewFeedback] = useState('');
 
   const loadAssignments = useCallback(async () => {
     if (!teacherId) return;
@@ -92,28 +90,11 @@ function QuizAssignments({ teacherId, teacherName = '', courseId, classId, teach
         targetStudentIds: publishTarget === 'SELECTED_STUDENTS' ? selectedStudents : [],
       });
       setPublishOpen(false);
+      setDraft(null);
       await loadAssignments();
       triggerToast?.('Quiz assignment published.');
     } catch (error) {
       triggerToast?.(getUserFacingError(error, 'Unable to publish quiz assignment.'));
-    }
-  };
-
-  const submitTeacherReview = async () => {
-    if (!reviewSessionId.trim()) {
-      triggerToast?.('Enter a quiz session ID first.');
-      return;
-    }
-    try {
-      await quizApi.teacherReviewQuiz(reviewSessionId.trim(), {
-        reviewedScore: Number(reviewScore),
-        feedback: reviewFeedback,
-      });
-      setReviewSessionId('');
-      setReviewFeedback('');
-      triggerToast?.('Teacher review saved.');
-    } catch (error) {
-      triggerToast?.(getUserFacingError(error, 'Unable to save teacher quiz review.'));
     }
   };
 
@@ -146,13 +127,10 @@ function QuizAssignments({ teacherId, teacherName = '', courseId, classId, teach
           </Form>
         </Card>
 
-        <Card className="quiz-card" title="Teacher review final score">
-          <Space direction="vertical" style={{ width: '100%' }}>
-            <Input value={reviewSessionId} onChange={(event) => setReviewSessionId(event.target.value)} placeholder="Quiz session ID" />
-            <InputNumber min={0} max={100} value={reviewScore} onChange={(value) => setReviewScore(value || 0)} addonBefore="Final score" />
-            <Input.TextArea rows={3} value={reviewFeedback} onChange={(event) => setReviewFeedback(event.target.value)} placeholder="Teacher feedback" />
-            <Button onClick={submitTeacherReview}>Save teacher review</Button>
-          </Space>
+        <Card className="quiz-card" title="Review student attempts">
+          <Text type="secondary">
+            Open Submission Grading to review completed assigned quizzes. The student list there provides the quiz session automatically, so you do not need to enter technical IDs.
+          </Text>
         </Card>
       </div>
 
@@ -178,9 +156,15 @@ function QuizAssignments({ teacherId, teacherName = '', courseId, classId, teach
                   </div>
                 </div>
                 <Space wrap>
-                  <Button size="small" onClick={() => setDraft(item)}>Edit</Button>
-                  <Button size="small" type="primary" onClick={() => { setDraft(item); setPublishOpen(true); }}>Publish</Button>
-                  <Button size="small" danger onClick={() => deleteDraft(item)}>Delete</Button>
+                  {String(item.status || 'DRAFT').toUpperCase() === 'DRAFT' ? (
+                    <>
+                      <Button size="small" onClick={() => setDraft(item)}>Edit</Button>
+                      <Button size="small" type="primary" onClick={() => { setDraft(item); setPublishOpen(true); }}>Publish</Button>
+                      <Button size="small" danger onClick={() => deleteDraft(item)}>Delete</Button>
+                    </>
+                  ) : (
+                    <Tag color="green">Published - read only</Tag>
+                  )}
                 </Space>
               </div>
             ))}
@@ -214,7 +198,7 @@ function QuizAssignments({ teacherId, teacherName = '', courseId, classId, teach
               placeholder="Choose students"
               options={(teacherStudents || []).map((student) => ({
                 value: student.id || student.studentId,
-                label: `${student.name || student.fullName || student.id} (${student.id || student.studentId})`,
+                label: [getPersonDisplayName(student, 'Student'), getPersonEmail(student)].filter(Boolean).join(' · '),
               }))}
             />
           )}

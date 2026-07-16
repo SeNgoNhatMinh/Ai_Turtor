@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { env } from '../config/env';
-import { getAuthToken } from '../features/auth/tokenStorage';
+import { getAuthToken } from '../features/auth/services/tokenStorage';
 import { getChatSenderRole, normalizeAccountRole } from '../constants/roles';
 import { supportChatApi } from '../services/supportChatApi';
 import { getUserFacingError } from '../services/apiClient';
@@ -45,6 +45,7 @@ export function useSupportChatRoom({ chatRoomId, currentUser, enabled = true }) 
   const [isClosing, setIsClosing] = useState(false);
   const [error, setError] = useState('');
   const [connectionState, setConnectionState] = useState('idle');
+  const [socketRetry, setSocketRetry] = useState(0);
   const socketRef = useRef(null);
 
   const userId = currentUser?.userId || currentUser?.id || currentUser?._id || '';
@@ -88,7 +89,7 @@ export function useSupportChatRoom({ chatRoomId, currentUser, enabled = true }) 
 
   useEffect(() => {
     if (!chatRoomId || !enabled) return undefined;
-    const timer = window.setInterval(() => loadRoom({ silent: true }), 8000);
+    const timer = window.setInterval(() => loadRoom({ silent: true }), 5000);
     return () => window.clearInterval(timer);
   }, [chatRoomId, enabled, loadRoom]);
 
@@ -98,8 +99,13 @@ export function useSupportChatRoom({ chatRoomId, currentUser, enabled = true }) 
 
     const socket = new WebSocket(socketUrl);
     socketRef.current = socket;
+    let disposed = false;
+    let reconnectTimer;
     const connectingTimer = window.setTimeout(() => setConnectionState('connecting'), 0);
-    socket.onopen = () => setConnectionState('connected');
+    socket.onopen = () => {
+      setConnectionState('connected');
+      loadRoom({ silent: true });
+    };
     socket.onmessage = (event) => {
       try {
         const payload = JSON.parse(event.data);
@@ -116,14 +122,20 @@ export function useSupportChatRoom({ chatRoomId, currentUser, enabled = true }) 
       }
     };
     socket.onerror = () => setConnectionState('fallback');
-    socket.onclose = () => setConnectionState('fallback');
+    socket.onclose = () => {
+      if (disposed) return;
+      setConnectionState('fallback');
+      reconnectTimer = window.setTimeout(() => setSocketRetry((current) => current + 1), 3000);
+    };
 
     return () => {
+      disposed = true;
       socketRef.current = null;
       window.clearTimeout(connectingTimer);
+      window.clearTimeout(reconnectTimer);
       socket.close();
     };
-  }, [chatRoomId, enabled]);
+  }, [chatRoomId, enabled, loadRoom, socketRetry]);
 
   const sendMessage = useCallback(async (content) => {
     const trimmed = String(content || '').trim();

@@ -1,12 +1,5 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
-  "entry": [
-    "src/main.jsx",
-    "vite.config.js",
-    "playwright.config.js",
-    "tests/**/*.test.{js,jsx}"
-  ],
-  "project": ["src/**/*.{js,jsx}", "tests/**/*.{js,jsx}"],
-  "ignore": ["dist/**", "playwright-report/**", "test-results/**"],
-  "ignoreDependencies": ["autoprefixer", "postcss", "tailwindcss"]
+  "entry": ["tests/**/*.test.{js,jsx}"],
+  "project": ["src/**/*.{js,jsx,ts,tsx}", "tests/**/*.{js,jsx,ts,tsx}"]
 }

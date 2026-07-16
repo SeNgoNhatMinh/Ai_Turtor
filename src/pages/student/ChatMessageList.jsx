@@ -24,6 +24,7 @@ function MascotFallback({ size = 36 }) {
 
 function ChatMessageList({
   activeSessionId,
+  canChat,
   classId,
   courseId,
   currentUser,
@@ -71,8 +72,8 @@ function ChatMessageList({
             <Suspense fallback={<MascotFallback size={180} />}>
               <RobotHeadMascot size={180} />
             </Suspense>
-            <div className="chat-empty-title">How can I help you learn today?</div>
-            <PromptStarters onSelect={onPromptStarter} />
+            <div className="chat-empty-title">Hôm nay bạn muốn học gì?</div>
+            <PromptStarters disabled={!canChat || isAiLoading} onSelect={onPromptStarter} />
           </div>
         ) : (
           messages.map((message, index) => {
@@ -107,12 +108,12 @@ function ChatMessageList({
                       <div className="chat-gpt-ai-content">
                         {message.aiServiceError && (
                           <div className="chat-ai-service-error" role="alert">
-                            <strong>AI Tutor is temporarily unavailable.</strong>
-                            <span>Please try again in a moment or send the question for mentor review.</span>
+                            <strong>AI Tutor tạm thời không phản hồi.</strong>
+                            <span>Hãy thử lại sau hoặc gửi câu hỏi cho mentor xem xét.</span>
                           </div>
                         )}
 
-                        <Suspense fallback={<div className="chat-answer-loading">Formatting answer...</div>}>
+                        <Suspense fallback={<div className="chat-answer-loading">Đang định dạng câu trả lời...</div>}>
                           <AiAnswer
                             markdown={message.answer || ''}
                             sourceMap={materialSourceMap}

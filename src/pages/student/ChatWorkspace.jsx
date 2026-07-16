@@ -107,15 +107,15 @@ function ChatWorkspace({
     && hasClassSelection
   );
   const chatContextMessage = isStudentEnrollmentsLoading
-    ? 'Loading your enrolled classes. Please wait a moment.'
+    ? 'Đang tải danh sách lớp đã ghi danh...'
     : !hasLoadedStudentEnrollments
-      ? 'Checking your enrolled classes. Please wait a moment.'
+      ? 'Đang kiểm tra thông tin ghi danh...'
       : !hasStudentEnrollments
-        ? 'Your student account is not enrolled in any class yet. Please contact Admin or your teacher before using AI Tutor Chat.'
+        ? 'Tài khoản chưa được ghi danh vào lớp. Vui lòng liên hệ Admin hoặc giáo viên trước khi sử dụng AI Tutor.'
         : !hasCourseSelection
-          ? 'Please choose one of your enrolled courses before asking AI Tutor.'
+          ? 'Hãy chọn một môn học đã ghi danh trước khi hỏi AI Tutor.'
           : !hasClassSelection
-            ? 'Your class is assigned automatically from enrollment. Please switch to a course that has an active class.'
+            ? 'Lớp được xác định tự động từ thông tin ghi danh. Hãy chuyển sang môn có lớp đang hoạt động.'
             : '';
   const questionCount = Math.max(0, Math.min(CHAT_TURN_LIMIT, Number(activeSessionQuestionCount) || 0));
   const isNearTurnLimit = questionCount >= 8 && questionCount < CHAT_TURN_LIMIT && !activeSessionMaxTurnsReached;
@@ -168,6 +168,7 @@ function ChatWorkspace({
 
       <ChatMessageList
         activeSessionId={activeSessionId}
+        canChat={canChatWithCurrentContext}
         classId={classId}
         courseId={courseId}
         currentUser={currentUser}

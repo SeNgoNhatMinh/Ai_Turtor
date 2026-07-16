@@ -34,7 +34,7 @@ function StudentImportTab({
             type="info"
             showIcon
             style={{ marginBottom: 16 }}
-            message="Import students into one class section using the generated Excel template."
+            title="Import students into one class section using the generated Excel template."
             description="Run Validate only first to catch file or duplicate student errors before writing data."
           />
           <Form form={form} layout="vertical">
@@ -136,7 +136,7 @@ function StudentImportTab({
             <Alert
               type="success"
               showIcon
-              message="Ready to import"
+              title="Ready to import"
               description="Download the template, fill Student ID and Student Name, then validate the file before importing."
             />
           ) : (

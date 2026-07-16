@@ -1,6 +1,11 @@
 import { API_BASE_URL, API_TIMEOUTS, request } from './apiClient';
 import { encodePath } from '../config/env';
-import { asArray, normalizeQuizAssignment, normalizeQuizSession } from './normalizers';
+import {
+  asArray,
+  normalizeQuizAssignment,
+  normalizeQuizSession,
+  normalizeTeacherQuizAttempt,
+} from './normalizers';
 import { getCachedResource, invalidateResourceCache } from './requestCache';
 
 const quizCachePrefix = (studentId, courseId) => `quizzes:${studentId}:${courseId}`;
@@ -81,6 +86,27 @@ export const quizApi = {
       body: JSON.stringify(payload),
       timeoutMs: API_TIMEOUTS.ai,
     });
+  },
+
+  async getTeacherQuizAttempts(teacherId, filters = {}, options = {}) {
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        params.set(key, String(value));
+      }
+    });
+    const response = await request(
+      `${API_BASE_URL}/tutor/teachers/${encodePath(teacherId)}/quiz-attempts?${params}`,
+      { signal: options.signal },
+    );
+    return {
+      teacherId: response?.teacherId || teacherId,
+      page: Number(response?.page) || 0,
+      size: Number(response?.size) || Number(filters.size) || 20,
+      totalElements: Number(response?.totalElements) || 0,
+      totalPages: Number(response?.totalPages) || 0,
+      attempts: asArray(response, 'attempts', 'content', 'items').map(normalizeTeacherQuizAttempt),
+    };
   },
 
   async getTeacherQuizAssignments(teacherId) {

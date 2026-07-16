@@ -173,7 +173,6 @@ function MentorSupport({
                   <span className="mentor-review-eyebrow">Review ticket</span>
                   <Title level={4}>{selectedTicket.questionPreview || 'Mentor Review Ticket'}</Title>
                   <Space size={[8, 8]} wrap>
-                    {selectedTicket.id && <Tag>Ticket {selectedTicket.id}</Tag>}
                     {selectedTicket.courseId && <Tag color="blue">Course {selectedTicket.courseId}</Tag>}
                     {selectedTicket.classId && <Tag>Class {selectedTicket.classId}</Tag>}
                     {assignedMentor && <Tag color="green">Mentor {assignedMentor}</Tag>}

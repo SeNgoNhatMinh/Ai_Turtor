@@ -2,12 +2,13 @@ import { Button, Card, Col, Form, Input, Row, Select, Tag } from 'antd';
 import { CheckCircle2, Eye, Pencil, Plus, Trash2 } from 'lucide-react';
 import EntityActionMenu from '../../../components/common/EntityActionMenu';
 import { DataTable } from '../../../components/ui/data-table';
+import { findPersonById, getPersonDisplayName, getPersonEmail, getPersonId } from '../../../utils/displayNames';
 
 const { Option } = Select;
 
-const getMentorId = (mentor) => mentor.id || mentor.mentorId || mentor.teacherId || mentor.userId || mentor.email;
-const getMentorName = (mentor) => mentor.mentorName || mentor.name || mentor.fullName || mentor.teacherName || mentor.email || 'Mentor';
-const getMentorEmail = (mentor) => mentor.email || mentor.teacherEmail || '';
+const getMentorId = (mentor) => getPersonId(mentor) || mentor.email;
+const getMentorName = (mentor) => getPersonDisplayName(mentor, 'Mentor');
+const getMentorEmail = (mentor) => getPersonEmail(mentor);
 const getMentorMeta = (mentor) => [
   getMentorEmail(mentor),
   Array.isArray(mentor.specializations) ? mentor.specializations.join(', ') : mentor.specialization,
@@ -75,7 +76,7 @@ function ClassSectionsTab({
                     label: (
                       <div className="admin-mentor-select-option">
                         <strong>{name}</strong>
-                        <span>{id}{meta ? ` | ${meta}` : ''}</span>
+                        {meta && <span>{meta}</span>}
                       </div>
                     ),
                     disabled: !id || mentor.isActive === false,
@@ -113,10 +114,13 @@ function ClassSectionsTab({
                 header: 'Class Teacher / Mentor',
                 cell: ({ row }) => {
                   const record = row.original;
+                  const mentor = findPersonById(mentors, record.teacherId || record.mentorId);
+                  const displayRecord = { ...(mentor || {}), ...record };
+                  const email = getPersonEmail(displayRecord);
                   return (
                     <div className="admin-class-mentor-cell">
-                      <strong>{record.teacherName || record.mentorName || record.teacherId || 'Unassigned'}</strong>
-                      {record.teacherId && <span>{record.teacherId}</span>}
+                      <strong>{getPersonDisplayName(displayRecord, 'Unassigned')}</strong>
+                      {email && <span>{email}</span>}
                     </div>
                   );
                 },

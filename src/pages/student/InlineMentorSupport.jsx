@@ -45,7 +45,7 @@ function InlineMentorSupport({
       return;
     }
     if (!accountUserId || !courseId || !classId || !questionText) {
-      const friendly = 'Missing student, course, class, or question context.';
+      const friendly = 'Thiếu thông tin sinh viên, môn học, lớp hoặc câu hỏi.';
       setError(friendly);
       triggerToast?.(friendly);
       return;
@@ -81,9 +81,9 @@ function InlineMentorSupport({
       setEscalationState(nextEscalation);
       onEscalationCreated?.(nextId);
       onOpen?.();
-      triggerToast?.('Teacher support request created.');
+      triggerToast?.('Đã tạo yêu cầu hỗ trợ từ giáo viên.');
     } catch (requestError) {
-      const friendly = getUserFacingError(requestError, 'Unable to create teacher support request.');
+      const friendly = getUserFacingError(requestError, 'Không thể tạo yêu cầu hỗ trợ từ giáo viên.');
       setError(friendly);
       triggerToast?.(friendly);
     } finally {
@@ -97,12 +97,12 @@ function InlineMentorSupport({
         <div className="inline-mentor-card__summary">
           <LifeBuoy size={16} />
           <div>
-            <strong>{alreadySent ? 'This question has a teacher support request' : 'Need a teacher to explain this?'}</strong>
-            <span>Create a request, choose the matched teacher, then continue in a private two-way chat.</span>
+            <strong>{alreadySent ? 'Câu hỏi này đã có yêu cầu hỗ trợ' : 'Bạn cần giáo viên giải thích?'}</strong>
+            <span>Tạo yêu cầu, chọn giáo viên phù hợp và tiếp tục trao đổi riêng.</span>
           </div>
         </div>
         <Button size="small" loading={isSubmitting} onClick={createSupportRequest}>
-          {alreadySent ? 'Open support' : 'Ask a teacher'}
+          {alreadySent ? 'Mở hỗ trợ' : 'Hỏi giáo viên'}
         </Button>
       </div>
     );
@@ -112,10 +112,10 @@ function InlineMentorSupport({
     <div className="inline-mentor-card">
       <div className="inline-mentor-card__header">
         <div>
-          <strong>Teacher support for this answer</strong>
-          <span>Discuss this exact AI Tutor question before the teacher submits a final answer.</span>
+          <strong>Giáo viên hỗ trợ câu trả lời này</strong>
+          <span>Trao đổi về đúng câu hỏi này trước khi giáo viên gửi câu trả lời cuối cùng.</span>
         </div>
-        <button type="button" className="inline-mentor-card__close" onClick={onClose} aria-label="Hide teacher support">
+        <button type="button" className="inline-mentor-card__close" onClick={onClose} aria-label="Ẩn hỗ trợ từ giáo viên">
           <X size={16} />
         </button>
       </div>
@@ -123,23 +123,23 @@ function InlineMentorSupport({
       {error && <Alert type="error" showIcon message={error} />}
 
       <div className="inline-mentor-question">
-        <span>Question from AI Tutor Chat</span>
-        <p>{questionText || 'No question text available.'}</p>
+        <span>Câu hỏi trong AI Tutor</span>
+        <p>{questionText || 'Không có nội dung câu hỏi.'}</p>
       </div>
 
       {!alreadySent ? (
         <Alert
           type="info"
           showIcon
-          message="Create a support request with this question"
-          description="The backend stores the course, class, conversation, question, and previous AI answer before matching a teacher."
-          action={<Button size="small" type="primary" loading={isSubmitting} onClick={createSupportRequest}>Create request</Button>}
+          message="Tạo yêu cầu hỗ trợ cho câu hỏi này"
+          description="Hệ thống sẽ lưu môn học, lớp, cuộc trò chuyện, câu hỏi và câu trả lời AI trước khi tìm giáo viên phù hợp."
+          action={<Button size="small" type="primary" loading={isSubmitting} onClick={createSupportRequest}>Tạo yêu cầu</Button>}
         />
       ) : (
         <>
           <div className="inline-mentor-chat__toolbar">
-            <Tag color="blue">Ticket {escalationId}</Tag>
-            <Button size="small" onClick={onOpenReviewTab}>Open full support view</Button>
+            <Tag color="blue">Mentor hỗ trợ</Tag>
+            <Button size="small" onClick={onOpenReviewTab}>Mở trang hỗ trợ</Button>
           </div>
           <StudentMentorFlow
             key={escalationId}

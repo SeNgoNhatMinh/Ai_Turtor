@@ -1,41 +1,8 @@
-import { LifeBuoy, RotateCcw, Wand2 } from 'lucide-react';
-
-const trimText = (value, maxLength = 420) => {
-  const text = String(value || '')
-    .replace(/[#*_`>|[\]()]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-  return text.length > maxLength ? `${text.slice(0, maxLength)}...` : text;
-};
-
-const getOriginalQuestion = (message) => trimText(message?.question || message?.prompt || '', 260);
-
-const buildGroundedFollowUpPrompt = (message, task) => {
-  const originalQuestion = getOriginalQuestion(message);
-  const answerContext = trimText(message?.answer || message?.rawAnswer || '', 420);
-  const topicContext = originalQuestion || answerContext;
-
-  return [
-    `Original student question: ${topicContext}`,
-    '',
-    `Task: ${task}`,
-    '',
-    'Use the same course material context. If the material is not enough, say exactly what is missing instead of inventing details.',
-    answerContext && originalQuestion ? `Previous answer context: ${answerContext}` : '',
-  ].filter(Boolean).join('\n');
-};
+import { LifeBuoy, RotateCcw } from 'lucide-react';
 
 const ACTIONS = [
   {
-    label: 'Explain more simply',
-    icon: Wand2,
-    buildPrompt: (message) => buildGroundedFollowUpPrompt(
-      message,
-      'Explain the same topic in simpler words, step by step, for a beginner.',
-    ),
-  },
-  {
-    label: 'Send for mentor review',
+    label: 'Gửi mentor xem xét',
     icon: LifeBuoy,
     type: 'mentor',
     buildPrompt: (message) => `I need mentor review for this question:\n\n${message.question || ''}`,
@@ -56,19 +23,19 @@ function AnswerActionBar({ message, onAction }) {
   if (message?.retryable || message?.aiServiceError) {
     const retryPrompt = message?.question || '';
     return (
-      <div className="answer-action-bar answer-action-bar--error" aria-label="Recovery actions">
+      <div className="answer-action-bar answer-action-bar--error" aria-label="Thao tác khôi phục">
         <button
           type="button"
-          onClick={() => onAction({ label: 'Retry', prompt: retryPrompt, type: 'retry', message })}
+          onClick={() => onAction({ label: 'Thử lại', prompt: retryPrompt, type: 'retry', message })}
           disabled={!retryPrompt.trim()}
         >
           <RotateCcw size={14} aria-hidden="true" />
-          <span>Retry</span>
+          <span>Thử lại</span>
         </button>
         <button
           type="button"
           onClick={() => onAction({
-            label: 'Send for mentor review',
+            label: 'Gửi mentor xem xét',
             prompt: `I need mentor review for this question:\n\n${retryPrompt}`,
             type: 'mentor',
             message,
@@ -76,7 +43,7 @@ function AnswerActionBar({ message, onAction }) {
           disabled={!retryPrompt.trim()}
         >
           <LifeBuoy size={14} aria-hidden="true" />
-          <span>Send for review</span>
+          <span>Gửi xem xét</span>
         </button>
       </div>
     );
@@ -85,11 +52,11 @@ function AnswerActionBar({ message, onAction }) {
   if (isInsufficientMaterialAnswer(message)) {
     const question = message?.question || '';
     return (
-      <div className="answer-action-bar answer-action-bar--error" aria-label="Mentor support action">
+      <div className="answer-action-bar answer-action-bar--error" aria-label="Thao tác hỗ trợ từ mentor">
         <button
           type="button"
           onClick={() => onAction({
-            label: 'Send for mentor review',
+            label: 'Gửi mentor xem xét',
             prompt: `I need mentor review for this question:\n\n${question}`,
             type: 'mentor',
             message,
@@ -97,14 +64,14 @@ function AnswerActionBar({ message, onAction }) {
           disabled={!question.trim()}
         >
           <LifeBuoy size={14} aria-hidden="true" />
-          <span>Send for review</span>
+          <span>Gửi xem xét</span>
         </button>
       </div>
     );
   }
 
   return (
-    <div className="answer-action-bar" aria-label="Follow-up actions">
+    <div className="answer-action-bar" aria-label="Thao tác tiếp theo">
       {ACTIONS.map(({ label, icon: Icon, buildPrompt, type }) => (
         <button key={label} type="button" onClick={() => onAction({ label, prompt: buildPrompt(message), type, message })}>
           <Icon size={14} aria-hidden="true" />

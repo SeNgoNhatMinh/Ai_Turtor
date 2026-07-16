@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
 import { Form } from 'antd';
 import { closeActiveConfirm } from '../../components/common/confirmDialog';
 import { materialsApi } from '../../services/materialsApi';
@@ -15,6 +15,9 @@ const ImportWebsiteModal = lazy(() => import('../../components/importWebsite/Imp
 
 function AdminAcademic({ triggerToast, currentUser }) {
   const [mentorOptions, setMentorOptions] = useState([]);
+  const [studentOptions, setStudentOptions] = useState([]);
+  const [studentsLoading, setStudentsLoading] = useState(false);
+  const studentSearchTimerRef = useRef(null);
   const [formSemester] = Form.useForm();
   const [formCourse] = Form.useForm();
   const [formClass] = Form.useForm();
@@ -58,6 +61,27 @@ function AdminAcademic({ triggerToast, currentUser }) {
     },
   });
 
+  const searchStudents = useCallback((query) => {
+    window.clearTimeout(studentSearchTimerRef.current);
+    const normalized = String(query || '').trim();
+    if (normalized.length < 2) {
+      setStudentOptions([]);
+      setStudentsLoading(false);
+      return;
+    }
+    setStudentsLoading(true);
+    studentSearchTimerRef.current = window.setTimeout(async () => {
+      try {
+        const students = await adminUsersApi.getAdminUsers(normalized, 'STUDENT', true);
+        setStudentOptions(Array.isArray(students) ? students : []);
+      } catch {
+        setStudentOptions([]);
+      } finally {
+        setStudentsLoading(false);
+      }
+    }, 300);
+  }, []);
+
   useEffect(() => {
     academic.loadSemesters();
     academic.loadCourses();
@@ -75,7 +99,10 @@ function AdminAcademic({ triggerToast, currentUser }) {
       }
     };
     loadMentors();
-    return () => closeActiveConfirm();
+    return () => {
+      window.clearTimeout(studentSearchTimerRef.current);
+      closeActiveConfirm();
+    };
     // Reference data is loaded once when the admin workspace mounts.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -95,6 +122,9 @@ function AdminAcademic({ triggerToast, currentUser }) {
         materials={materials}
         studentImport={studentImport}
         mentors={mentorOptions}
+        studentOptions={studentOptions}
+        studentsLoading={studentsLoading}
+        onStudentSearch={searchStudents}
         triggerToast={triggerToast}
         onAcademicAction={entity.handleAcademicAction}
         onOpenEntity={entity.openEntityModal}

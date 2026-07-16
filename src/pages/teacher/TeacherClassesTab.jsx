@@ -3,7 +3,8 @@ import { AlertTriangle, CheckCircle2, Lightbulb, MessageSquare, RefreshCw, Targe
 import { teacherApi } from '../../services/teacherApi';
 import { getUserFacingError } from '../../services/apiClient';
 import { asArray } from '../../services/normalizers';
-import { HEATMAP_CLASS } from './teacherPortalUtils';
+import { HEATMAP_CLASS } from '../../features/teacher/shared/teacherUtils';
+import { getPersonDisplayName } from '../../utils/displayNames';
 
 const normalizeGapLevel = (level) => {
   const normalized = String(level || '').toLowerCase();
@@ -280,8 +281,7 @@ function TeacherClassesTab({
                 <tr key={s.id}>
                   <td>
                     <div className="entity-name-cell">
-                      <strong>{s.name || s.studentName || s.fullName || 'Student'}</strong>
-                      {(s.id || s.studentId) && <span>{s.id || s.studentId}</span>}
+                      <strong>{getPersonDisplayName(s, 'Student')}</strong>
                     </div>
                   </td>
                   <td>{s.email || s.studentEmail || '-'}</td>
@@ -292,7 +292,7 @@ function TeacherClassesTab({
                     ))}
                   </td>
                   <td>
-                    <button type="button" className="btn-small-chat" onClick={() => triggerToast?.(`Opening support chat with ${s.name}...`)}>
+                    <button type="button" className="btn-small-chat" onClick={() => triggerToast?.(`Opening support chat with ${getPersonDisplayName(s, 'this student')}...`)}>
                       <MessageSquare style={{ width: 12, height: 12 }} /> Support
                     </button>
                   </td>

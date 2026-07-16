@@ -32,7 +32,7 @@ export function extractSourceFileLabels(value) {
   )];
 }
 
-export function extractSourceIds(value) {
+function extractSourceIds(value) {
   if (!value) return [];
   if (Array.isArray(value)) return value.flatMap(extractSourceIds);
   if (typeof value === 'object') {
@@ -58,7 +58,7 @@ export function extractSourceIds(value) {
     .filter(Boolean);
 }
 
-export function getMaterialIdFromSource(source) {
+function getMaterialIdFromSource(source) {
   if (!source) return '';
   if (typeof source === 'object') {
     return cleanLabel(source.materialId || source.documentId || source.sourceMaterialId || source.id || source._id);
@@ -100,7 +100,7 @@ export function buildMaterialSourceMap(materials = []) {
   return map;
 }
 
-export function formatSourceLabel(source, sourceMap = {}) {
+function formatSourceLabel(source, sourceMap = {}) {
   if (!source) return '';
 
   if (typeof source === 'object') {
@@ -116,11 +116,6 @@ export function formatSourceLabel(source, sourceMap = {}) {
 
   const materialId = getMaterialIdFromSource(source);
   return sourceMap[raw] || sourceMap[materialId] || sourceMap[`materialId=${materialId}`] || 'Course material';
-}
-
-export function formatSourceLabels(sources, sourceMap = {}) {
-  const list = Array.isArray(sources) ? sources : [sources];
-  return [...new Set(list.map((source) => formatSourceLabel(source, sourceMap)).filter(Boolean))];
 }
 
 export function formatSourceItems(sources, sourceMap = {}) {
