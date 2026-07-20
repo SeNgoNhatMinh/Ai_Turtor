@@ -1,7 +1,7 @@
 export const ACADEMIC_CANDIDATE_OPTIONS = [
-  { value: 'ACADEMIC_KNOWLEDGE', label: 'Academic knowledge' },
-  { value: 'MATERIAL_CORRECTION', label: 'Material correction' },
-  { value: 'FAQ_CLARIFICATION', label: 'FAQ clarification' },
+  { value: 'ACADEMIC_KNOWLEDGE', label: 'Kiến thức học thuật' },
+  { value: 'MATERIAL_CORRECTION', label: 'Sửa nội dung tài liệu' },
+  { value: 'FAQ_CLARIFICATION', label: 'Làm rõ câu hỏi thường gặp' },
 ];
 
 export const ACADEMIC_CANDIDATE_TYPES = new Set(
@@ -11,8 +11,8 @@ export const ACADEMIC_CANDIDATE_TYPES = new Set(
 export const formatKnowledgeCandidateStatus = (status) => {
   const normalized = String(status || '').trim().toUpperCase();
   if (['APPROVED', 'APPROVED_INTO_AI_KNOWLEDGE', 'INDEXED'].includes(normalized)) {
-    return 'Approved into AI knowledge';
+    return 'Đã phê duyệt vào tri thức AI';
   }
-  if (['REJECTED', 'DECLINED'].includes(normalized)) return 'Rejected';
-  return 'Pending senior approval';
+  if (['REJECTED', 'DECLINED'].includes(normalized)) return 'Cần chỉnh sửa';
+  return 'Chờ Senior Mentor phê duyệt';
 };

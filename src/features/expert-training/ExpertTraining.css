@@ -41,6 +41,32 @@
   min-width: 0;
 }
 
+.expert-training__canonical-note {
+  min-width: min(100%, 260px);
+  font-size: 12px;
+}
+
+.expert-training__overview,
+.expert-training__work-layout {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.expert-training__workflow-card,
+.expert-training__attention-card {
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+.expert-training__table-row--selected > td {
+  background: rgba(243, 112, 33, 0.08) !important;
+}
+
+.expert-training__content-tabs > .ant-tabs-nav {
+  margin-bottom: 16px;
+}
+
 .expert-training__section {
   display: grid;
   gap: 16px;
@@ -172,6 +198,141 @@
   padding-right: 4px;
 }
 
+.expert-training__review-layout {
+  --master-width: 360px;
+  --master-detail-min-height: min(68vh, 720px);
+  height: min(68vh, 720px);
+}
+
+.expert-training__review-master {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: 12px;
+  height: 100%;
+  min-height: 0;
+  padding: 14px;
+}
+
+.expert-training__review-master-head,
+.expert-training__review-detail-head,
+.expert-training__review-actions {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.expert-training__review-master-head > div {
+  display: grid;
+  gap: 2px;
+}
+
+.expert-training__review-master-head span,
+.expert-training__review-list-item > span:not(.ant-tag),
+.expert-training__review-actions > span {
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.expert-training__review-list {
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 3px;
+}
+
+.expert-training__review-list-item {
+  display: grid;
+  justify-items: start;
+  gap: 5px;
+  width: 100%;
+  min-width: 0;
+  padding: 11px;
+  color: inherit;
+  text-align: left;
+  background: transparent;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.expert-training__review-list-item:hover,
+.expert-training__review-list-item:focus-visible {
+  background: #f7f7f5;
+  border-color: #d1d5db;
+}
+
+.expert-training__review-list-item.is-active {
+  background: rgba(243, 112, 33, 0.08);
+  border-color: rgba(243, 112, 33, 0.55);
+}
+
+.expert-training__review-list-title {
+  width: 100%;
+  color: #202123 !important;
+  font-size: 13px !important;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.expert-training__review-detail-panel {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+  padding: 18px;
+}
+
+.expert-training__review-detail-head h4 {
+  margin: 4px 0 0 !important;
+  overflow-wrap: anywhere;
+}
+
+.expert-training__eyebrow {
+  color: #c85a1b;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.expert-training__review-content-section {
+  min-width: 0;
+  padding: 14px;
+  background: #f7f7f5;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+.expert-training__review-content-section h3 {
+  margin: 0 0 8px;
+  font-size: 13px;
+}
+
+.expert-training__review-content-section p {
+  margin-bottom: 0;
+  overflow-wrap: anywhere;
+}
+
+.expert-training__review-form .ant-form-item {
+  margin-bottom: 0;
+}
+
+.expert-training__review-actions {
+  align-items: center;
+  padding-top: 14px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.expert-training__review-empty {
+  display: grid;
+  min-height: 100%;
+  place-items: center;
+  padding: 32px;
+}
+
 .expert-training__review-detail h5 {
   margin: 8px 0 0 !important;
 }
@@ -235,6 +396,45 @@
   border-color: #343434;
 }
 
+.app-container.dark .expert-training__table-row--selected > td {
+  background: rgba(243, 112, 33, 0.13) !important;
+}
+
+.app-container.dark .expert-training__review-master-head span,
+.app-container.dark .expert-training__review-list-item > span:not(.ant-tag),
+.app-container.dark .expert-training__review-actions > span {
+  color: #b9bec7;
+}
+
+.app-container.dark .expert-training__review-list-item {
+  background: #0f0f0f;
+  border-color: #2a2a2a;
+}
+
+.app-container.dark .expert-training__review-list-item:hover,
+.app-container.dark .expert-training__review-list-item:focus-visible {
+  background: #1f1f1f;
+  border-color: #454545;
+}
+
+.app-container.dark .expert-training__review-list-item.is-active {
+  background: rgba(243, 112, 33, 0.14);
+  border-color: rgba(243, 112, 33, 0.68);
+}
+
+.app-container.dark .expert-training__review-list-title {
+  color: #f9fafb !important;
+}
+
+.app-container.dark .expert-training__review-content-section {
+  background: #171717;
+  border-color: #343434;
+}
+
+.app-container.dark .expert-training__review-actions {
+  border-top-color: #343434;
+}
+
 @media (max-width: 820px) {
   .expert-training-page {
     padding: 18px 14px 40px;
@@ -261,6 +461,10 @@
 
   .expert-training__criteria-row {
     grid-template-columns: minmax(0, 1fr) 110px 36px;
+  }
+
+  .expert-training__review-layout {
+    height: auto;
   }
 }
 

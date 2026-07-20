@@ -46,6 +46,8 @@ export default function TeacherMaterialsView({
         materialFile={materials.file}
         setMaterialFile={materials.setFile}
         isUploading={materials.uploading}
+        pendingUpload={materials.pendingUpload}
+        onClearUpload={materials.clearUploadDraft}
         onUpload={materials.upload}
         onOpenWebsiteImport={() => setWebsiteImportOpen(true)}
       />

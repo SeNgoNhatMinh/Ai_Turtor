@@ -12,9 +12,9 @@ describe('AppErrorBoundary', () => {
     }
 
     render(<AppErrorBoundary><FlakyChild /></AppErrorBoundary>);
-    expect(screen.getByRole('alert')).toHaveTextContent(/Error reference: FE-/);
+    expect(screen.getByRole('alert')).toHaveTextContent(/Mã tham chiếu lỗi: FE-/);
     shouldThrow = false;
-    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Thử lại' }));
     expect(screen.getByText('Recovered content')).toBeInTheDocument();
     consoleSpy.mockRestore();
   });

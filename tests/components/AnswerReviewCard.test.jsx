@@ -34,7 +34,7 @@ describe('AnswerReviewCard', () => {
       <AnswerReviewCard review={review} queue="senior" draft={{ notes: '', correctedAnswer: '' }} />,
     );
 
-    expect(screen.getByRole('button', { name: 'Create knowledge candidate' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Tạo Knowledge Candidate' })).toBeDisabled();
 
     rerender(
       <AnswerReviewCard
@@ -49,7 +49,7 @@ describe('AnswerReviewCard', () => {
       />,
     );
 
-    expect(screen.getByRole('button', { name: 'Create knowledge candidate' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Tạo Knowledge Candidate' })).toBeEnabled();
   });
 
   it('keeps senior mutation controls disabled when handlers are missing', () => {
@@ -61,7 +61,28 @@ describe('AnswerReviewCard', () => {
       />,
     );
 
-    expect(screen.getByRole('button', { name: 'Resolve without AI update' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Create knowledge candidate' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Xử lý, không cập nhật AI' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Tạo Knowledge Candidate' })).toBeDisabled();
+  });
+
+  it('renders resolved reviews as read-only history', () => {
+    render(
+      <AnswerReviewCard
+        review={{
+          ...review,
+          status: 'RESOLVED',
+          correctedAnswer: 'Verified answer from the mentor.',
+          resolvedByName: 'Senior A',
+          resolutionNote: 'Checked against the indexed course material.',
+          linkedKnowledgeCandidateId: 'candidate-1',
+        }}
+        queue="history"
+      />,
+    );
+
+    expect(screen.getByText('Phản hồi đã được xử lý')).toBeVisible();
+    expect(screen.getByText('Verified answer from the mentor.')).toBeVisible();
+    expect(screen.getByText(/Người xử lý: Senior A/)).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Tạo Knowledge Candidate' })).not.toBeInTheDocument();
   });
 });

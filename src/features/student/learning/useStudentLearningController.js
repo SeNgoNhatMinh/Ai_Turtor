@@ -104,7 +104,7 @@ export function useStudentLearningController({
   const refreshSuggestions = async (question = '') => {
     const questionText = String(question || '').trim();
     setIsSuggesting(true);
-    triggerToast(questionText ? 'AI is analyzing this study tip...' : 'AI is analyzing your learning memory...');
+    triggerToast(questionText ? 'AI đang phân tích lưu ý học tập này...' : 'AI đang phân tích bộ nhớ học tập...');
 
     try {
       const data = await studentLearningApi.getSuggestions(studentId, courseId, {
@@ -125,30 +125,30 @@ export function useStudentLearningController({
         switchTab('student-memory');
         loadStudentDashboard();
       }
-      triggerToast(questionText ? 'Study tip added to Learning Progress.' : 'Study plan analysis completed.');
+      triggerToast(questionText ? 'Đã thêm lưu ý vào Tiến độ học tập.' : 'Đã hoàn tất phân tích kế hoạch học tập.');
     } catch (error) {
       console.error('Error fetching suggestions:', error);
-      triggerToast(getUserFacingError(error, 'Unable to analyze learning suggestions.'));
+      triggerToast(getUserFacingError(error, 'Không thể phân tích gợi ý học tập.'));
     } finally {
       setIsSuggesting(false);
     }
   };
 
   const handleStudentUpdateMemory = async (learnedList, weakList) => {
-    triggerToast('Updating learning profiler...');
+    triggerToast('Đang cập nhật hồ sơ học tập...');
     try {
       const payload = {
         classId,
         learnedTopics: learnedList,
         weakTopics: weakList,
-        summary: `Manually updated concepts: ${learnedList.join(', ')}. Focus areas: ${weakList.join(', ')}.`,
+        summary: `Nội dung cập nhật thủ công: ${learnedList.join(', ')}. Nội dung cần tập trung: ${weakList.join(', ')}.`,
       };
       await studentLearningApi.updateStudentMemory(studentId, courseId, payload);
-      triggerToast('Profiler updated successfully.');
+      triggerToast('Đã cập nhật hồ sơ học tập.');
       loadStudentDashboard();
     } catch (error) {
       console.error('Error updating memory:', error);
-      triggerToast(getUserFacingError(error, 'Unable to update learning profiler.'));
+      triggerToast(getUserFacingError(error, 'Không thể cập nhật hồ sơ học tập.'));
     }
   };
 
@@ -167,9 +167,9 @@ export function useStudentLearningController({
         weakTopics: memory?.weakTopics || prev?.weakTopics || [],
         pinnedImproveSuggestions: nextPinnedSuggestions,
       }));
-      triggerToast('Suggestion pinned.');
+      triggerToast('Đã ghim gợi ý.');
     } catch (error) {
-      triggerToast(getUserFacingError(error, 'Unable to pin suggestion.'));
+      triggerToast(getUserFacingError(error, 'Không thể ghim gợi ý.'));
     }
   };
 
@@ -195,14 +195,14 @@ export function useStudentLearningController({
         }
         return [createRecoveredSuggestion(suggestion), ...list];
       });
-      triggerToast('Suggestion unpinned.');
+      triggerToast('Đã bỏ ghim gợi ý.');
     } catch (error) {
-      triggerToast(getUserFacingError(error, 'Unable to unpin suggestion.'));
+      triggerToast(getUserFacingError(error, 'Không thể bỏ ghim gợi ý.'));
     }
   };
 
   const handleStudentReviewAnswer = async (reviewPayload) => {
-    triggerToast('Submitting your feedback...');
+    triggerToast('Đang gửi phản hồi...');
     try {
       let response;
       if (N8N_ENABLED) {
@@ -220,7 +220,7 @@ export function useStudentLearningController({
       return response;
     } catch (error) {
       console.error('Error submitting feedback:', error);
-      triggerToast(getUserFacingError(error, 'Unable to submit feedback. Please try again.'));
+      triggerToast(getUserFacingError(error, 'Không thể gửi phản hồi. Vui lòng thử lại.'));
       return null;
     }
   };

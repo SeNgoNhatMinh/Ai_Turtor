@@ -4,6 +4,7 @@ import { Database, Eye, Pencil, RefreshCw, Trash2 } from 'lucide-react';
 import EntityActionMenu from '../../../components/common/EntityActionMenu';
 import { DataTable } from '../../../components/ui/data-table';
 import { getRecordId, getWebsiteSourceLabel, isWebsiteMaterial } from './adminAcademicUtils';
+import StatusLabel from '../../../components/common/StatusLabel';
 
 const { Option } = Select;
 const { Dragger } = Upload;
@@ -27,17 +28,17 @@ function CourseMaterialsTab({
   return (
     <Row gutter={[16, 16]}>
       <Col xs={24} lg={9}>
-        <Card title="Upload Shared Course Material" hoverable>
+        <Card title="Tải học liệu dùng chung" hoverable>
           <Alert
             type="info"
             showIcon
             style={{ marginBottom: 16 }}
-            title="Course materials are managed by Admin because they are shared across classes."
+            title="Admin quản lý học liệu dùng chung cho tất cả lớp thuộc môn học."
           />
           <Form form={form} layout="vertical" onFinish={onUpload}>
-            <Form.Item label="Course" required>
+            <Form.Item label="Môn học" required>
               <Select
-                placeholder="Choose a course"
+                placeholder="Chọn môn học"
                 value={materialCourseId || undefined}
                 onChange={onCourseChange}
               >
@@ -48,7 +49,7 @@ function CourseMaterialsTab({
                 ))}
               </Select>
             </Form.Item>
-            <Form.Item name="title" label="Material title" rules={[{ required: true, message: 'Enter a material title' }]}>
+            <Form.Item name="title" label="Tên học liệu" rules={[{ required: true, message: 'Nhập tên học liệu' }]}>
               <Input placeholder="Lecture 01 - OOP" />
             </Form.Item>
             <Dragger
@@ -63,8 +64,8 @@ function CourseMaterialsTab({
               style={{ marginBottom: 16 }}
             >
               <p className="ant-upload-drag-icon"><UploadOutlined /></p>
-              <p className="ant-upload-text">Choose a course material file</p>
-              <p className="ant-upload-hint">PDF only. This upload is course-wide. Class ID is not sent.</p>
+              <p className="ant-upload-text">Chọn tệp học liệu môn học</p>
+              <p className="ant-upload-hint">Chỉ PDF. Học liệu áp dụng toàn môn và không gửi mã lớp.</p>
             </Dragger>
             <Button
               type="primary"
@@ -74,7 +75,7 @@ function CourseMaterialsTab({
               loading={materialUploadBusy}
               disabled={!materialCourseId || !materialFile || materialUploadBusy}
             >
-              {materialUploadBusy ? 'Uploading...' : 'Upload Course Material'}
+              {materialUploadBusy ? 'Đang tải lên...' : 'Tải học liệu'}
             </Button>
             <Button
               block
@@ -83,7 +84,7 @@ function CourseMaterialsTab({
               disabled={!materialCourseId || materialUploadBusy}
               onClick={onOpenWebsiteImport}
             >
-              Import Website URL
+              Import từ URL website
             </Button>
           </Form>
         </Card>
@@ -91,57 +92,57 @@ function CourseMaterialsTab({
       <Col xs={24} lg={15} style={{ minWidth: 0 }}>
         <Card
           className="admin-materials-table-card"
-          title="Shared Course Materials"
+          title="Học liệu dùng chung"
           hoverable
           style={{ overflow: 'hidden' }}
           styles={{ body: { overflowX: 'auto', padding: '16px' } }}
-          extra={<Button size="small" onClick={onReload} icon={<RefreshCw size={14} />} disabled={!materialCourseId}>Reload</Button>}
+          extra={<Button size="small" onClick={onReload} icon={<RefreshCw size={14} />} disabled={!materialCourseId}>Làm mới</Button>}
         >
           {materialsLoading && courseMaterials.length === 0 ? (
-            <div className="p-4 text-center text-gray-500">Loading...</div>
+            <div className="p-4 text-center text-gray-500">Đang tải...</div>
           ) : (
             <DataTable
               data={courseMaterials || []}
               columns={[
                 {
                   accessorKey: 'title',
-                  header: 'Title',
+                  header: 'Tên học liệu',
                   cell: ({ row }) => (
-                    <span className="admin-material-title-text font-semibold text-gray-800" title={row.getValue('title') || 'Untitled Material'}>
-                      {row.getValue('title') || 'Untitled Material'}
+                    <span className="admin-material-title-text font-semibold text-gray-800" title={row.getValue('title') || 'Học liệu chưa đặt tên'}>
+                      {row.getValue('title') || 'Học liệu chưa đặt tên'}
                     </span>
                   ),
                 },
                 {
                   accessorKey: 'fileName',
-                  header: 'Source',
+                  header: 'Nguồn',
                   cell: ({ row }) => (
                     <Space orientation="vertical" size={2}>
                       <Space size={6} wrap>
                         <Tag color={isWebsiteMaterial(row.original) ? 'blue' : 'default'}>
                           {isWebsiteMaterial(row.original) ? 'Website' : 'PDF'}
                         </Tag>
-                        {row.original.indexingStatus && <Tag>{row.original.indexingStatus}</Tag>}
+                        {row.original.indexingStatus && <StatusLabel status={row.original.indexingStatus} />}
                       </Space>
                       <span className="admin-material-source-text text-sm text-gray-500 font-mono">
                         {isWebsiteMaterial(row.original)
                           ? getWebsiteSourceLabel(row.original)
-                          : row.getValue('fileName') || row.original.sourceFileName || row.original.filePath || row.original.id}
+                          : row.getValue('fileName') || row.original.sourceFileName || row.original.filePath || 'Không có tên tệp'}
                       </span>
                     </Space>
                   ),
                 },
                 { 
                   accessorKey: 'classId', 
-                  header: 'Scope', 
-                  cell: ({ row }) => <Tag>{row.getValue('classId') || 'Course-wide'}</Tag> 
+                  header: 'Phạm vi',
+                  cell: ({ row }) => <Tag>{row.getValue('classId') || 'Toàn môn học'}</Tag>
                 },
                 {
                   accessorKey: 'createdAt',
-                  header: 'Uploaded',
+                  header: 'Ngày tải lên',
                   cell: ({ row }) => (
                     <span className="admin-material-date-text text-xs text-gray-500">
-                      {row.getValue('createdAt') ? new Date(row.getValue('createdAt')).toLocaleString('en-US') : '—'}
+                      {row.getValue('createdAt') ? new Date(row.getValue('createdAt')).toLocaleString('vi-VN') : '—'}
                     </span>
                   ),
                 },
@@ -153,20 +154,20 @@ function CourseMaterialsTab({
                     return (
                       <EntityActionMenu
                         items={[
-                          { key: 'view', icon: <Eye size={14} />, label: 'View details' },
-                          { key: 'edit', icon: <Pencil size={14} />, label: 'Edit metadata' },
+                          { key: 'view', icon: <Eye size={14} />, label: 'Xem chi tiết' },
+                          { key: 'edit', icon: <Pencil size={14} />, label: 'Sửa thông tin' },
                           {
                             key: 'download',
                             icon: <DownloadOutlined />,
-                            label: isWebsiteMaterial(row.original) ? 'No PDF download' : 'Download',
+                            label: isWebsiteMaterial(row.original) ? 'Không có tệp PDF' : 'Tải xuống',
                             disabled: isWebsiteMaterial(row.original),
                           },
-                          { key: 'reindex', icon: <Database size={14} />, label: 'Reindex' },
+                          { key: 'reindex', icon: <Database size={14} />, label: 'Lập chỉ mục lại' },
                           { type: 'divider' },
-                          { key: 'delete', icon: <Trash2 size={14} />, label: 'Delete', danger: true },
+                          { key: 'delete', icon: <Trash2 size={14} />, label: 'Xóa', danger: true },
                         ]}
                         onAction={(key, meta) => onMaterialAction(key, row.original, materialId, meta)}
-                        ariaLabel="Material actions"
+                        ariaLabel="Thao tác học liệu"
                       />
                     );
                   },

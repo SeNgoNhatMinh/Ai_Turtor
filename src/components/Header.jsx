@@ -12,6 +12,7 @@ import {
   Wind,
 } from 'lucide-react';
 import { Switch } from 'antd';
+import { getAccountRoleLabel, normalizeAccountRole } from '../constants/roles';
 
 const ProfileModal = lazy(() => import('./common/ProfileModal'));
 
@@ -53,17 +54,18 @@ const getSeasonalHeaderEffect = () => {
 
 function Header({ activeRole, isDarkMode, setIsDarkMode, currentUser, onLogout }) {
   const seasonalEffect = useMemo(() => getSeasonalHeaderEffect(), []);
-  const userRole = String(currentUser?.role || activeRole || 'student').trim().toLowerCase();
+  const accountRole = normalizeAccountRole(currentUser?.role || activeRole);
+  const roleLabel = getAccountRoleLabel(accountRole);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
   const getProfileName = () => {
-    if (currentUser?.fullName) return `${userRole.toUpperCase()}: ${currentUser.fullName}`;
-    return userRole.toUpperCase();
+    if (currentUser?.fullName) return `${roleLabel}: ${currentUser.fullName}`;
+    return roleLabel;
   };
 
   const getAvatarText = () => {
     if (currentUser?.fullName) return currentUser.fullName.substring(0, 2).toUpperCase();
-    return userRole.substring(0, 2).toUpperCase();
+    return roleLabel.substring(0, 2).toUpperCase();
   };
 
   return (
@@ -83,13 +85,13 @@ function Header({ activeRole, isDarkMode, setIsDarkMode, currentUser, onLogout }
         </div>
       </div>
       
-      <div className="role-switcher-container" aria-label="Current workspace">
-        <span className="role-label">Workspace: {(activeRole || 'student').toUpperCase()}</span>
+      <div className="role-switcher-container" aria-label="Không gian làm việc hiện tại">
+        <span className="role-label">Không gian: {roleLabel}</span>
       </div>
 
       <div className="user-profile" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
         <Switch 
-          aria-label={isDarkMode ? 'Use light mode' : 'Use dark mode'}
+          aria-label={isDarkMode ? 'Dùng giao diện sáng' : 'Dùng giao diện tối'}
           checkedChildren={<Moon size={14} style={{ marginTop: '4px' }} />}
           unCheckedChildren={<Sun size={14} style={{ marginTop: '2px' }} />}
           checked={isDarkMode}
@@ -101,7 +103,7 @@ function Header({ activeRole, isDarkMode, setIsDarkMode, currentUser, onLogout }
           className="user-profile-info" 
           onClick={() => currentUser && setIsProfileModalOpen(true)}
           disabled={!currentUser}
-          aria-label={currentUser ? 'Open profile and security settings' : undefined}
+          aria-label={currentUser ? 'Mở hồ sơ và cài đặt bảo mật' : undefined}
           style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: currentUser ? 'pointer' : 'default', border: 0, background: 'transparent', color: 'inherit' }}
         >
           <span id="current-user-name" style={{ borderBottom: currentUser ? '1px dashed currentColor' : 'none' }}>{getProfileName()}</span>
@@ -109,7 +111,7 @@ function Header({ activeRole, isDarkMode, setIsDarkMode, currentUser, onLogout }
         </button>
         {currentUser && (
           <button type="button" onClick={onLogout} style={{ background: 'transparent', border: 'none', color: isDarkMode ? '#F9FAFB' : '#202123', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 700 }}>
-            <LogOut size={16} /> Sign out
+            <LogOut size={16} /> Đăng xuất
           </button>
         )}
       </div>

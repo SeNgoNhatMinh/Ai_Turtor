@@ -26,18 +26,18 @@ const baseProps = {
 };
 
 describe('TeacherMaterialUploadCard', () => {
-  it('exposes the required class selector and keeps upload actionable without scope', async () => {
+  it('exposes the required class selector and blocks upload without scope', async () => {
     const onClassChange = vi.fn();
     const onUpload = vi.fn((event) => event.preventDefault());
     render(<TeacherMaterialUploadCard {...baseProps} onClassChange={onClassChange} onUpload={onUpload} />);
 
-    const classSelect = screen.getByRole('combobox', { name: 'Teaching class' });
+    const classSelect = screen.getByRole('combobox', { name: 'Lớp học phần' });
     expect(classSelect).toBeVisible();
-    const uploadButton = screen.getByRole('button', { name: 'Upload Material' });
-    expect(uploadButton).toBeEnabled();
-    expect(uploadButton).toHaveAttribute('title', 'Select a teaching class in the field above.');
+    const uploadButton = screen.getByRole('button', { name: 'Tải tài liệu' });
+    expect(uploadButton).toBeDisabled();
+    expect(uploadButton).toHaveAttribute('title', 'Chọn lớp học phần ở trường phía trên.');
     fireEvent.click(uploadButton);
-    expect(onUpload).toHaveBeenCalledTimes(1);
+    expect(onUpload).not.toHaveBeenCalled();
 
     fireEvent.mouseDown(classSelect);
     fireEvent.click(await screen.findByText('Class SE1833 · PRO192'));
@@ -55,8 +55,8 @@ describe('TeacherMaterialUploadCard', () => {
       />,
     );
 
-    expect(screen.getByText('PRO192 / SE1833')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Upload Material' })).toBeEnabled();
+    expect(screen.getByText(/PRO192 \/ SE1833/)).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Tải tài liệu' })).toBeEnabled();
   });
 
   it('clears the native file field when the uploaded file state is reset', () => {
@@ -69,7 +69,7 @@ describe('TeacherMaterialUploadCard', () => {
         materialFile={materialFile}
       />,
     );
-    const fileInput = screen.getByLabelText('File (PDF only)');
+    const fileInput = screen.getByLabelText('Tệp PDF');
     Object.defineProperty(fileInput, 'value', { configurable: true, writable: true, value: 'C:\\fakepath\\oop.pdf' });
 
     rerender(
@@ -82,8 +82,8 @@ describe('TeacherMaterialUploadCard', () => {
     );
 
     expect(fileInput.value).toBe('');
-    expect(screen.getByText('Choose a PDF file to enable upload.')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Upload Material' })).toBeEnabled();
+    expect(screen.getByText('Chọn tệp PDF để tải lên.')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Tải tài liệu' })).toBeDisabled();
   });
 
   it('automatically resolves the canonical class and course when only one class is assigned', async () => {
@@ -99,7 +99,7 @@ describe('TeacherMaterialUploadCard', () => {
       />,
     );
 
-    expect(screen.getByText('Choose the class for this material')).toBeVisible();
+    expect(screen.getByText('Chọn lớp học phần ở trường phía trên.')).toBeVisible();
   });
 
   it('uses the canonical backend classId when classCode is only a display alias', () => {
@@ -123,7 +123,29 @@ describe('TeacherMaterialUploadCard', () => {
   it('does not display a stale class id that is outside the assigned class list', () => {
     render(<TeacherMaterialUploadCard {...baseProps} classId="OLD-CLASS" courseId="" />);
 
-    expect(screen.getByText('Choose the class for this material')).toBeVisible();
+    expect(screen.getByText('Chọn lớp học phần ở trường phía trên.')).toBeVisible();
     expect(screen.queryByText('OLD-CLASS')).not.toBeInTheDocument();
+  });
+
+  it('keeps the backend receipt visible and blocks uploading the same processing file twice', () => {
+    const materialFile = new File(['pdf'], 'oop.pdf', { type: 'application/pdf' });
+    render(
+      <TeacherMaterialUploadCard
+        {...baseProps}
+        courseId="PRO192"
+        classId="SE1833"
+        materialFile={materialFile}
+        pendingUpload={{
+          id: 'material-1',
+          title: 'OOP Material',
+          fileName: 'oop.pdf',
+          status: 'PROCESSING',
+        }}
+      />,
+    );
+
+    expect(screen.getByText('Mã học liệu: material-1')).toBeVisible();
+    expect(screen.getByText('Đang xử lý')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Tải tài liệu' })).toBeDisabled();
   });
 });

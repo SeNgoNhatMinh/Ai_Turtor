@@ -13,20 +13,20 @@ export function useAdminDashboardController({ triggerToast }) {
       setAdminStats(stats || {});
     } catch (error) {
       setAdminStats({});
-      triggerToast?.(getUserFacingError(error, 'Unable to load admin dashboard statistics.'));
+      triggerToast?.(getUserFacingError(error, 'Không thể tải số liệu tổng quan.'));
     }
   }, [triggerToast]);
 
   const runDiagnostics = async () => {
     if (isDiagnosticsRunning) return;
     setIsDiagnosticsRunning(true);
-    triggerToast?.('Checking system connectivity...');
+    triggerToast?.('Đang kiểm tra kết nối hệ thống...');
     try {
       const diagnostics = await diagnosticsApi.runLlmDiagnostics();
       setDiagnosticsOutput(diagnostics);
-      triggerToast?.('System diagnostics completed.');
+      triggerToast?.('Đã hoàn tất kiểm tra hệ thống.');
     } catch (error) {
-      triggerToast?.(getUserFacingError(error, 'Unable to run diagnostics.'));
+      triggerToast?.(getUserFacingError(error, 'Không thể chạy kiểm tra hệ thống.'));
     } finally {
       setIsDiagnosticsRunning(false);
     }

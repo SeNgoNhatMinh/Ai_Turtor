@@ -15,7 +15,7 @@ export const N8N_ASSIGNMENT_GRADING_TIMEOUT_MS = env.n8nAssignmentGradingTimeout
 export const N8N_TUTOR_V2_ENABLED = env.n8nTutorV2Enabled;
 export const N8N_TUTOR_V2_TIMEOUT_MS = env.n8nTutorV2TimeoutMs;
 
-function createN8nError(userMessage = 'AI workflow is temporarily unavailable.', details = null) {
+function createN8nError(userMessage = 'Luồng AI đang tạm thời gián đoạn.', details = null) {
   const error = new Error(userMessage);
   error.name = 'N8nError';
   error.userMessage = userMessage;
@@ -35,7 +35,7 @@ export async function postN8n(path, body, {
   includeAuthTokenInBody = false,
 } = {}) {
   if (!N8N_ENABLED) {
-    throw createN8nError('AI workflow is disabled.', { code: 'N8N_DISABLED' });
+    throw createN8nError('Luồng AI hiện chưa được bật.', { code: 'N8N_DISABLED' });
   }
   const url = n8nUrl(path);
   const controller = new AbortController();
@@ -66,7 +66,7 @@ export async function postN8n(path, body, {
   } catch (error) {
     if (error?.name === 'AbortError') {
       throw createN8nError(
-        timedOut ? 'AI workflow is taking longer than usual.' : 'AI workflow request was canceled.',
+        timedOut ? 'Luồng AI đang xử lý lâu hơn bình thường.' : 'Yêu cầu tới luồng AI đã bị hủy.',
         {
           code: timedOut ? 'N8N_TIMEOUT' : 'N8N_ABORTED',
           traceId: envelope.traceId,
@@ -74,7 +74,7 @@ export async function postN8n(path, body, {
         },
       );
     }
-    throw createN8nError('AI workflow is temporarily unavailable.', {
+    throw createN8nError('Luồng AI đang tạm thời gián đoạn.', {
       code: 'N8N_NETWORK_ERROR',
       traceId: envelope.traceId,
       rawMessage: error?.message,
@@ -92,7 +92,7 @@ export async function postN8n(path, body, {
       parsed = JSON.parse(responseText);
     } catch (error) {
       if (res.ok) {
-        throw createN8nError('AI workflow returned an invalid response.', {
+        throw createN8nError('Luồng AI trả về dữ liệu không hợp lệ.', {
           code: 'N8N_MALFORMED_JSON',
           traceId: envelope.traceId,
           rawMessage: responseText,
@@ -104,7 +104,7 @@ export async function postN8n(path, body, {
 
   if (!res.ok) {
     const message = parsed?.error || parsed?.message || responseText || res.statusText;
-    throw createN8nError('AI workflow request failed.', {
+    throw createN8nError('Không thể hoàn tất yêu cầu tới luồng AI.', {
       code: `N8N_HTTP_${res.status}`,
       status: res.status,
       traceId: envelope.traceId,
@@ -114,7 +114,7 @@ export async function postN8n(path, body, {
   }
 
   if (!parsed) {
-    throw createN8nError('AI workflow returned an empty response.', {
+    throw createN8nError('Luồng AI không trả về dữ liệu.', {
       code: 'N8N_EMPTY_RESPONSE',
       traceId: envelope.traceId,
     });

@@ -8,8 +8,8 @@ function AssignedQuizzesPanel({ assignments, loadingKey, hasContext, isLoading, 
   return (
     <Card
       className="quiz-card"
-      title="Assigned Quizzes"
-      extra={<Button size="small" icon={<ReloadOutlined />} onClick={onRefresh} loading={loadingKey === 'refresh'} disabled={!hasContext}>Refresh quizzes</Button>}
+      title="Quiz giảng viên giao"
+      extra={<Button size="small" icon={<ReloadOutlined />} onClick={onRefresh} loading={loadingKey === 'refresh'} disabled={!hasContext}>Làm mới</Button>}
     >
       {assignments.length ? (
         <div className="quiz-item-list">
@@ -28,7 +28,7 @@ function AssignedQuizzesPanel({ assignments, loadingKey, hasContext, isLoading, 
                     disabled={!hasContext || isLoading}
                     onClick={() => onStart(item)}
                   >
-                    Start
+                    Bắt đầu
                   </Button>
                 )}
               />
@@ -36,8 +36,8 @@ function AssignedQuizzesPanel({ assignments, loadingKey, hasContext, isLoading, 
           })}
         </div>
       ) : (
-        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No assigned quizzes for this course">
-          <Button icon={<ReloadOutlined />} onClick={onRefresh} disabled={!hasContext} loading={loadingKey === 'refresh'}>Check again</Button>
+        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Môn học này chưa có quiz được giao">
+          <Button icon={<ReloadOutlined />} onClick={onRefresh} disabled={!hasContext} loading={loadingKey === 'refresh'}>Kiểm tra lại</Button>
         </Empty>
       )}
     </Card>

@@ -22,14 +22,14 @@ export const formatLearningDateTime = (value) => {
 export const makePinnedSuggestionItem = (text) => ({
   priority: 'pinned',
   title: text,
-  content: 'Pinned for focused review.',
+  content: 'Đã ghim để ưu tiên ôn tập.',
   pinnedOnly: true,
 });
 
 export const getMasteryStatus = (rate) => {
-  if (rate >= 75) return { label: 'Strong foundation', tone: 'success' };
-  if (rate >= 45) return { label: 'Building consistency', tone: 'warning' };
-  return { label: 'Needs focused practice', tone: 'error' };
+  if (rate >= 75) return { label: 'Nền tảng tốt', tone: 'success' };
+  if (rate >= 45) return { label: 'Đang củng cố', tone: 'warning' };
+  return { label: 'Cần luyện tập thêm', tone: 'error' };
 };
 
 export const getRiskColor = (riskLevel) => {

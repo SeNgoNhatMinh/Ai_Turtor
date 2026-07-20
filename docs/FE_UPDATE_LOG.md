@@ -1,5 +1,41 @@
 # Frontend Update Log
 
+# 2026-07-20 - Split Oversized Teacher And Admin Screens
+
+- Reduced `pages/teacher/QuizAssignments.jsx` from 579 lines to a thin composition facade; moved assignment loading, class scope, draft save/delete and publish mutations into `useQuizAssignmentsController`.
+- Split quiz generation, draft workspace, assignment list, class-switch confirmation and student publish picker into focused Teacher Quiz components.
+- Reduced `pages/teacher/TeacherGradingTab.jsx` from 403 lines to a grading-mode composition layer; separated submission navigation, file-assignment grading and online-quiz review.
+- Reduced `pages/admin/AdminUsers.jsx` from 417 lines to a tab composition facade; moved canonical API state/actions into `useAdminUsersController` and isolated account, mentor and escalation tables.
+- Preserved existing route imports, API endpoints, callback props and visible action labels; no mock-success or fallback data was added.
+
+**Tested**
+- `npm run check`: pass (`84` contract tests, `79` component/unit tests, ESLint và production build).
+- `npm run dead-code`: pass.
+- `npm run test:e2e -- --workers=2`: pass (`18/18`, desktop và mobile).
+- `git diff --check`: pass.
+
+# 2026-07-20 - Hoàn Tất Toàn Bộ Phase UI/UX Theo MentorFlow V2
+
+- Chuẩn hóa shell và các route Student, Teacher, Admin sang tiếng Việt, giữ nguyên thuật ngữ kỹ thuật RAG, Gold Q&A, Evaluation và Rubric.
+- Bổ sung các primitive dùng chung `ScopeBar`, `MetricStrip`, `WorkflowStepper`, `ActionQueue`, `MasterDetailLayout` và `StatusLabel`; trạng thái hiển thị dùng một map tiếng Việt duy nhất.
+- Tổ chức Tutor V2 thành bốn vùng nghiệp vụ: `Tổng quan`, `Công việc`, `Nội dung & kiểm duyệt`, `Evaluation`; role và trạng thái canonical quyết định action tiếp theo.
+- Chuẩn hóa Student Learning Progress, Practice Quizzes, Materials/Assignments và Mentor Support để mỗi action có context, loading, empty/error state và handler thật.
+- Chuẩn hóa Teacher Classes, Quiz, Materials/Assignments, Grading và Review Queue; action hàng dùng menu ba chấm, mutation có lock và điểm AI chỉ là gợi ý cho tới khi giảng viên xác nhận.
+- Chuẩn hóa Admin Dashboard, Users và Academic; loại bỏ biểu đồ hoạt động và log fallback giả, dùng action queue điều hướng tới route nghiệp vụ thật.
+- Chuẩn hóa copy đăng nhập, hồ sơ, validation, timeout và lỗi BE/n8n sang tiếng Việt; lỗi kỹ thuật vẫn được giữ trong `details`/console để debug nhưng không hiển thị thẳng cho người dùng.
+- Sửa luồng import website của cả Admin và Teacher thành `Phân tích URL -> chọn tối đa 50 mục -> Import`; FE dùng đúng `url-toc` và `import-url`, không tự crawl và không import ngầm trước khi người dùng chọn nội dung.
+- Loại bỏ race condition làm modal import URL tự reset trong lúc người dùng vừa thao tác; modal chỉ reset state sau khi đóng.
+- Tách CSS shell sang `src/app/layouts/AuthedLayout.css`; `index.css` chỉ giữ token/reset và các rule global còn dùng. Xóa stylesheet route Admin không còn cần thiết.
+- Không đổi endpoint/payload backend, không thêm dữ liệu mock hoặc fallback thành công.
+
+**Tested**
+- `npm run check`: pass (`81` contract tests, `75` component/unit tests, ESLint và production build).
+- `npm run dead-code`: pass.
+- `npm run test:e2e -- --workers=2`: pass (`18/18` trên desktop và mobile).
+- E2E bao phủ enrollment, dark mode, chat/markdown không tràn ngang, mascot viewport, Learning Progress, Practice Quiz, Admin routes và Tutor V2.
+- `git diff --check`: pass.
+- Các mutation cần BE/n8n/RAG/WebSocket thật vẫn phải chạy với fixture demo; FE không mô phỏng thành công cho các flow này.
+
 # 2026-07-20 - Teacher Materials And Assignments Controller Split
 
 - Removed the legacy `pages/teacher/TeacherMaterialsAssignmentsTab.jsx` composition layer and the mixed `hooks/useTeacherMaterialsAssignments.js` controller.
@@ -2095,3 +2131,40 @@ Copy template này lên đầu phần `History` sau mỗi lần cập nhật:
 - `npm run test:e2e`: pass (`10/10` desktop/mobile route and viewport checks, including Admin Tutor V2).
 - Live backend verification: Java `17.0.19`, `/actuator/health` returned `UP`, MongoDB/Elasticsearch/n8n containers were running, and the active process used the latest nested Tutor V2 project directory.
 - Anonymous `/v3/api-docs` returned `401` as expected under the current security policy; endpoint/socket coverage was therefore cross-checked against the Java controller and WebSocket configuration.
+
+# 2026-07-20 - Tutor V2 Workflow UX And Vietnamese App Shell
+
+- Replaced the previous five disconnected Tutor V2 tabs with four role-aware areas: `Tổng quan`, `Công việc`, `Nội dung & kiểm duyệt`, and `Evaluation`.
+- Added shared workflow UI primitives for scope selection, canonical metrics, workflow progress, next actions, master-detail review, and consistent status labels.
+- Added pure selectors for summary metrics, role-aware next-action priority, combined review queue, workflow progress, and Evaluation readiness. These selectors use only canonical API resources.
+- Combined task selection and Gold Q&A/Rubric contribution into one work flow; a coverage gap can open a prefilled create-task form.
+- Rebuilt Senior/Admin review as a two-column queue/detail layout with internal scrolling and a mobile Drawer. Approve/reject actions retain the existing global mutation lock.
+- Added a canonical content library from existing Gold Q&A and Rubric data instead of introducing a new Library API.
+- Disabled `Chạy Evaluation` with a visible reason until at least one approved Evaluation holdout exists; Teacher remains view-only.
+- Persisted Tutor V2 `view`, selected `task`, and selected `review` in URL query parameters without changing routes or backend contracts.
+- Standardized the shared app navigation, role labels, loading states, and Tutor V2 copy to Vietnamese while retaining technical terms such as RAG, Gold Q&A, Evaluation, and Rubric.
+- Added responsive and dark-mode styling for metrics, workflow steps, next actions, review queue/detail, and selected rows.
+
+**Tested**
+- `npm run test:contracts`: pass (`81/81`).
+- `npm run test:unit`: pass (`73/73`).
+- `npm run test:e2e`: pass (`18/18`, desktop and mobile).
+- `npm run build`: pass.
+
+# 2026-07-20 - Canonical Action Centers, Review History And Realtime Recovery
+
+- Unified `401` handling across JSON, multipart upload and blob download requests so expired sessions cannot remain partially authenticated.
+- Added connection version tracking to the app-level WebSocket and canonical refetch after reconnect for materials, Student assignments and Teacher grading; Tutor V2 reconnect behavior remains intact.
+- Reworked Teacher material upload around the backend `202` contract: retain `materialId`, keep the form, add an optimistic processing row, block duplicate upload of the same pending file and reconcile indexing status from events plus GET.
+- Added visible RAG status/error cells and retry access for Teacher materials.
+- Added a read-only `Đã xử lý` Answer Review history backed by `GET /api/tutor/answer-reviews?status=RESOLVED`.
+- Added `/admin/review-queue` so Admin can reach serious Answer Reviews and Knowledge Candidate decisions without entering a hidden Teacher URL.
+- Added a Teacher action center using canonical pending quiz attempts, file submissions, escalations, answer reviews and failed materials.
+- Added Student next steps using real assignment, quiz and escalation records; consumed suggestions are disabled instead of being sent twice.
+- No endpoint, payload contract, mock success or backend fallback behavior was added.
+
+**Tested**
+- `npm run check`: pass (`84` contract tests, `79` component/unit tests, ESLint và production build).
+- `npm run dead-code`: pass.
+- `npm run test:e2e`: pass (`18/18`, desktop và mobile).
+- `git diff --check`: pass.

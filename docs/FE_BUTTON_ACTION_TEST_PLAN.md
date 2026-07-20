@@ -7,7 +7,8 @@
 - Chat session mutations, Teacher official answers, assignment grading, and quiz final review now use pending locks.
 - Conversation rows and Teacher class/submission rows use keyboard-accessible action semantics.
 - E2E API mocking is strict: an unexpected request receives `501` and fails the test instead of receiving a generic success response.
-- Current verification: `70` contract tests, `58` component/unit tests, `10/10` desktop/mobile E2E checks, lint, dead-code analysis, and production build pass.
+- Student, Teacher, Admin và Tutor V2 đã dùng PageHeader/status/action pattern thống nhất; Admin Dashboard không còn biểu đồ hoặc log fallback giả.
+- Current verification: `81` contract tests, `75` component/unit tests, `18/18` desktop/mobile E2E checks, lint, dead-code analysis, diff check, and production build pass.
 - Summary and remaining live scenarios: `docs/FE_UI_ACTION_COVERAGE.md`.
 
 ## 1. Mục Tiêu
@@ -74,10 +75,10 @@ Chuẩn bị thêm một student không có enrollment để test guard.
 
 | ID | Priority | Button/action | Setup | Expected API/effect | Acceptance |
 |---|---|---|---|---|---|
-| AUTH-001 | P0 AUTO-E2E | `Sign in` | Email/password hợp lệ | `POST /api/users/login` | Gửi một request, lưu token, route theo role. Double click không gửi hai request. |
-| AUTH-002 | P0 AUTO-E2E | `Sign in` với form sai | Email sai/rỗng hoặc password rỗng | Không gọi API | Hiển thị validation ngay tại field. |
-| AUTH-003 | P1 AUTO-E2E | `Create account` tab | Login page | Local UI state | Form chuyển mode, không submit và không mất field không liên quan. |
-| AUTH-004 | P1 AUTO-E2E | `Create account` submit | Form hợp lệ | `POST /api/users/register` | Chỉ success khi BE xác nhận; role không được tự nâng quyền. |
+| AUTH-001 | P0 AUTO-E2E | `Đăng nhập` | Email/mật khẩu hợp lệ | `POST /api/users/login` | Gửi một request, lưu token, route theo role. Double click không gửi hai request. |
+| AUTH-002 | P0 AUTO-E2E | `Đăng nhập` với form sai | Email sai/rỗng hoặc mật khẩu rỗng | Không gọi API | Hiển thị validation ngay tại field. |
+| AUTH-003 | P1 AUTO-E2E | Tab `Tạo tài khoản` | Login page | Local UI state | Form chuyển mode, không submit và không mất field không liên quan. |
+| AUTH-004 | P1 AUTO-E2E | Submit `Tạo tài khoản` | Form hợp lệ | `POST /api/users/register` | Chỉ success khi BE xác nhận; role không được tự nâng quyền. |
 | NAV-001 | P0 AUTO-E2E | Sidebar route item | Đã login | Router navigation | URL và selected item khớp, không reload trang. |
 | NAV-002 | P1 AUTO-E2E | Collapse/expand sidebar | Desktop/tablet | Local UI state | Content không overflow; tooltip có thể đọc khi collapsed. |
 | NAV-003 | P1 AUTO-E2E | Dark/light switch | Đã login | Theme state/local persistence | Menu, dropdown, modal, table và markdown có contrast đủ. |
@@ -303,15 +304,15 @@ Chuẩn bị thêm một student không có enrollment để test guard.
 | ID | Mức/Test | Button/Action | Expected |
 |---|---|---|---|
 | V2-001 | P0 AUTO-UNIT | Normalize V2 records | Không biến `null` score thành success; giữ đúng `TRAINING/EVALUATION`, `INDEXED/APPROVED`. |
-| V2-002 | P0 MANUAL-LIVE | `Analyze coverage` | Chỉ Senior/Admin thấy action; gửi chapters và target counts; reload gaps/tasks từ GET canonical. |
+| V2-002 | P0 MANUAL-LIVE | `Phân tích độ phủ` | Chỉ Senior/Admin thấy action; gửi chapters và target counts; reload gaps/tasks từ GET canonical. |
 | V2-003 | P0 MANUAL-LIVE | Coverage `createTasks=true` | Không tạo row giả; task chỉ xuất hiện sau response/refetch BE. |
-| V2-004 | P0 MANUAL-LIVE | `Claim` task | Gửi current teacher ID, khóa double-click, task đổi thành `ASSIGNED` sau canonical refetch. |
-| V2-005 | P0 MANUAL-LIVE | `Submit for review` Gold Q&A | Gửi đúng course/chapter/sourceTaskId; task thành `SUBMITTED`, contribution `PENDING_REVIEW`. |
+| V2-004 | P0 MANUAL-LIVE | `Nhận việc` | Gửi current teacher ID, khóa double-click, task đổi thành `ASSIGNED` sau canonical refetch. |
+| V2-005 | P0 MANUAL-LIVE | `Gửi kiểm duyệt` Gold Q&A | Gửi đúng course/chapter/sourceTaskId; task thành `SUBMITTED`, contribution `PENDING_REVIEW`. |
 | V2-006 | P0 AUTO-UNIT | Rubric criteria | Không submit khi tên trùng, weight <= 0 hoặc tổng khác `1.0`. |
 | V2-007 | P0 MANUAL-LIVE | Approve TRAINING Gold Q&A | Chỉ Senior/Admin; kết quả canonical là `INDEXED`, task `COMPLETED`. |
 | V2-008 | P0 MANUAL-LIVE | Approve EVALUATION Gold Q&A | Kết quả là `APPROVED`, `indexedAt=null`; UI không nói đã vào RAG. |
 | V2-009 | P0 MANUAL-LIVE | Reject Gold Q&A/Rubric | Bắt buộc rejection reason; contribution `REJECTED`, task nguồn `IN_PROGRESS`. |
-| V2-010 | P0 MANUAL-LIVE | `Run evaluation` | Chỉ Senior/Admin; gửi field Java DTO `passThreshold`; reload runs và mở detail từng case. |
+| V2-010 | P0 MANUAL-LIVE | `Chạy Evaluation` | Chỉ Senior/Admin; chỉ bật khi có Evaluation Gold Q&A đã duyệt; gửi field Java DTO `passThreshold`; reload runs và mở detail từng case. |
 | V2-011 | P1 MANUAL-LIVE | Tutor V2 WebSocket events | Event task/contribution/eval debounce 350 ms và chỉ refetch widget liên quan. |
 | V2-012 | P0 AUTO-UNIT | Duplicate socket envelope | Cùng `type + entityId + status` trong 1.5 giây chỉ được xử lý một lần. |
 | V2-013 | P1 MANUAL-LIVE | Socket reconnect | Sau reconnect, active course reload từ HTTP mà không reload toàn trang. |
@@ -320,6 +321,10 @@ Chuẩn bị thêm một student không có enrollment để test guard.
 | V2-016 | P0 MANUAL-LIVE | n8n V2 timeout/error | Không replay mutation qua Backend; hiện friendly error rồi refetch canonical data. |
 | V2-017 | P1 AUTO-E2E | Role visibility | Teacher không thấy Analyze/Approve/Run; Senior/Admin thấy đúng action. Student không có route/nav V2. |
 | V2-018 | P1 AUTO-E2E | Responsive/dark mode | Tabs/table/modal scroll nội bộ, không tràn workspace và đủ contrast. |
+| V2-019 | P0 AUTO-UNIT | Next action selector | Teacher ưu tiên task của mình; Senior/Admin ưu tiên nội dung chờ duyệt; không dựng activity giả. |
+| V2-020 | P0 AUTO-UNIT | Evaluation readiness | Không có approved holdout thì CTA disabled và hiển thị lý do; Rubric thiếu chỉ là cảnh báo. |
+| V2-021 | P1 AUTO-E2E | URL context | `?view=work&task=...` và `?view=content&review=...` giữ đúng khu vực/bản ghi sau refresh. |
+| V2-022 | P0 MANUAL-LIVE | Coverage `Tạo task` | Mở `Công việc`, điền sẵn chapter thật từ gap; chỉ gửi POST khi user xác nhận form. |
 
 ## 19. Cross-Cutting Error, Lock, Realtime Và n8n
 
@@ -351,14 +356,18 @@ Chuẩn bị thêm một student không có enrollment để test guard.
 - Mutation quan trọng có loading/lock và canonical refetch.
 - Common `ConfirmCard`, `EntityActionMenu`, `AsyncState` đã có thể tái sử dụng.
 
-### Cần refactor tiếp, không chặn test plan
+### Đã hoàn tất trong đợt UI/UX này
 
-1. `AdminUsers.jsx` vẫn dùng icon action inline; nên chuyển sang `EntityActionMenu` để confirm/select behavior thống nhất.
-2. `TeacherSupportQueueTab`, `TeacherClassesTab`, `TeacherGradingTab` còn plain button và handler inline; nên tách action component/hook trước khi mở rộng flow.
-3. Một số label trộn Việt/Anh. Trước khi đóng băng E2E selector, phải chọn một ngôn ngữ và đưa copy vào constants/i18n.
-4. Action icon-only cần `aria-label` ổn định; Playwright không nên phụ thuộc class Ant Design sinh tự động.
-5. `AdminDashboard` đang biến diagnostics error thành row thông tin. Nên tách error state để test không nhầm là log thật.
-6. Mỗi mutation hook nên trả `{ run, isPending, error }` thống nhất, giúp test double-click và failure rollback bằng cùng contract.
+1. Các route chính đã dùng PageHeader, status/action pattern và primitive workflow chung thay cho layout rời rạc.
+2. Admin Dashboard đã tách diagnostics error khỏi dữ liệu log và không còn biểu đồ/log fallback giả.
+3. Copy chính, validation và lỗi kỹ thuật đã được chuẩn hóa sang tiếng Việt; E2E dùng accessible label thay vì class Ant Design sinh tự động.
+4. Các mutation quan trọng đã có pending lock và chỉ báo thành công sau API receipt hợp lệ.
+
+### Cải tiến không chặn demo
+
+1. Khi thêm icon-only action mới, bắt buộc khai báo `aria-label` ổn định.
+2. Hook mutation mới nên giữ contract `{ run, isPending, error }` để tiếp tục thống nhất test double-click và failure rollback.
+3. Các chuỗi mới nên đi qua copy/status constants; chưa cần thêm framework i18n khi sản phẩm chỉ dùng tiếng Việt.
 
 ## 21. Automation Roadmap
 
@@ -410,3 +419,20 @@ npm run dead-code
 | YYYY-MM-DD | commit SHA | local/staging | AUTH-* | 0 | 0 | 0 | screenshot, trace, request payload |
 
 Khi phát hiện lỗi, issue phải ghi: test ID, role, route, request/response status, payload đã che token, UI state trước/sau và bước reproduce tối thiểu.
+
+## 24. Canonical Action Centers, Review History Và Material Processing
+
+| ID | Priority | Button/Action | Expected |
+|---|---|---|---|
+| ACTION-001 | P0 AUTO-UNIT | Student `Việc cần làm tiếp theo` | Chỉ tạo action từ assignment chưa nộp, quiz đang dở/được giao và escalation đã có kết quả; không dựng activity giả. |
+| ACTION-002 | P1 AUTO-UNIT | Click Student next-step row | Chuyển đúng route Materials, Quiz hoặc Mentor Review; không gọi mutation. |
+| ACTION-003 | P0 AUTO-UNIT | Suggestion `Học ngay` đã consumed | Sau success hoặc `409 SUGGESTION_ALREADY_USED`, item hiện `Đã học` và action bị khóa trong scope hiện tại. |
+| ACTION-004 | P0 MANUAL-LIVE | Teacher Material `Tải tài liệu` nhận HTTP 202 | Giữ form và `materialId`, thêm processing row; không toast thành công giả nếu receipt thiếu ID. |
+| ACTION-005 | P0 AUTO-UNIT | Upload lại cùng PDF đang PROCESSING | Button bị khóa; không phát request upload thứ hai. |
+| ACTION-006 | P0 MANUAL-LIVE | `MATERIAL_INDEXED` | Badge đổi sau event rồi GET canonical; tài liệu sẵn sàng không cần F5. |
+| ACTION-007 | P0 MANUAL-LIVE | `MATERIAL_INDEXING_FAILED` | Hiện lỗi, menu `Lập chỉ mục lại` vẫn hoạt động và chỉ báo success sau API receipt. |
+| ACTION-008 | P1 MANUAL-LIVE | WebSocket reconnect | Material, Student Assignment, Teacher Grading và Tutor V2 đều refetch màn đang mở. |
+| ACTION-009 | P0 AUTO-E2E | Teacher `Việc cần xử lý` | Chỉ tải khi có course/class; từng row dẫn đúng Grading, Review Queue hoặc Materials. |
+| ACTION-010 | P0 MANUAL-LIVE | Review tab `Đã xử lý` | Gọi `GET /api/tutor/answer-reviews?status=RESOLVED&courseId=...`; card read-only, không có nút resolve/approve lại. |
+| ACTION-011 | P0 AUTO-E2E | Admin `Kiểm duyệt phản hồi AI` | Route `/admin/review-queue` hiển thị Senior queue, history và Knowledge Candidates theo quyền ADMIN. |
+| ACTION-012 | P0 AUTO-UNIT | Upload/download trả 401 | Xóa session/token và đưa về flow đăng nhập giống JSON request; không retry vô hạn. |

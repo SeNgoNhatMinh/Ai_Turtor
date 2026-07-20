@@ -29,12 +29,12 @@ class AppErrorBoundary extends Component {
     if (this.state.hasError) {
       return (
         <div className="app-error-boundary" role="alert">
-          <h1 ref={this.headingRef} tabIndex="-1">Something went wrong</h1>
-          <p>The page could not finish rendering. Try again before refreshing the whole application.</p>
-          <small>Error reference: {this.state.reference}</small>
+          <h1 ref={this.headingRef} tabIndex="-1">Trang gặp lỗi khi hiển thị</h1>
+          <p>Hãy thử tải lại khu vực này trước khi làm mới toàn bộ ứng dụng.</p>
+          <small>Mã tham chiếu lỗi: {this.state.reference}</small>
           <div className="app-error-boundary__actions">
-            <button type="button" onClick={this.resetBoundary}>Try again</button>
-            <button type="button" onClick={() => window.location.reload()}>Refresh page</button>
+            <button type="button" onClick={this.resetBoundary}>Thử lại</button>
+            <button type="button" onClick={() => window.location.reload()}>Làm mới trang</button>
           </div>
         </div>
       );

@@ -1,0 +1,67 @@
+.teacher-material-processing-card {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  background: #eff6ff;
+}
+
+.teacher-material-processing-card--failed {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.teacher-material-processing-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.teacher-material-processing-card__header > div {
+  min-width: 0;
+}
+
+.teacher-material-processing-card__header strong,
+.teacher-material-processing-card__header span {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.teacher-material-processing-card__header span,
+.teacher-material-processing-card p,
+.teacher-material-status-cell span {
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+}
+
+.teacher-material-processing-card p {
+  display: flex;
+  gap: 6px;
+  margin: 0;
+  color: #b91c1c;
+}
+
+.teacher-material-status-cell {
+  display: grid;
+  max-width: 190px;
+  gap: 4px;
+}
+
+.teacher-material-status-cell span {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.app-container.dark .teacher-material-processing-card {
+  border-color: #1e3a5f;
+  background: #0c1b2d;
+}
+
+.app-container.dark .teacher-material-processing-card--failed {
+  border-color: #7f1d1d;
+  background: #2a1010;
+}

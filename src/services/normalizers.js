@@ -147,6 +147,11 @@ export const normalizeAnswerReview = (review) => ({
   feedback: review.feedback || review.comment || review.reviewText || '',
   suggestedCorrection: review.suggestedCorrection || review.correction || '',
   createdAt: review.createdAt || review.submittedAt || review.updatedAt || '',
+  resolvedAt: review.resolvedAt || review.reviewedAt || review.updatedAt || '',
+  resolvedByName: review.resolvedByName || review.seniorReviewerName || review.reviewerName || review.teacherName || '',
+  resolutionNote: review.resolutionNote || review.reviewNote || review.notes || '',
+  correctedAnswer: review.correctedAnswer || review.correctedContent || '',
+  linkedKnowledgeCandidateId: review.linkedKnowledgeCandidateId || review.knowledgeCandidateId || '',
 });
 
 export const normalizeSuggestions = (data) => {

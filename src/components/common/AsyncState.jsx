@@ -7,8 +7,8 @@ function AsyncState({
   error = '',
   empty = false,
   loadingRows = 4,
-  loadingLabel = 'Loading content...',
-  emptyTitle = 'Nothing here yet',
+  loadingLabel = 'Đang tải nội dung...',
+  emptyTitle = 'Chưa có dữ liệu',
   emptyDescription = '',
   onRetry,
   compact = false,
@@ -29,10 +29,10 @@ function AsyncState({
         <Alert
           type="warning"
           showIcon
-          title="Unable to load this content"
+          title="Không thể tải nội dung"
           description={error}
           action={onRetry ? (
-            <Button size="small" icon={<ReloadOutlined />} aria-label="Retry" onClick={onRetry}>Retry</Button>
+            <Button size="small" icon={<ReloadOutlined />} aria-label="Thử lại" onClick={onRetry}>Thử lại</Button>
           ) : null}
         />
       </div>

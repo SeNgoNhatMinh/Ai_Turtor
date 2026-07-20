@@ -10,26 +10,26 @@ export default function MaterialsCourseContext({
   onCourseChange,
 }) {
   return (
-    <div className="student-materials-context" role="region" aria-label="Assignment course context">
+    <div className="student-materials-context" role="region" aria-label="Ngữ cảnh môn học của bài tập">
       <div className="student-materials-context__field">
-        <Text type="secondary">Course</Text>
+        <Text type="secondary">Môn học</Text>
         <Select
-          aria-label="Assignment course"
+          aria-label="Môn học của bài tập"
           value={courseId || undefined}
           options={courseOptions}
           loading={loading}
           disabled={loading || courseOptions.length === 0}
-          placeholder="Choose an enrolled course"
+          placeholder="Chọn môn học đã đăng ký"
           onChange={onCourseChange}
           style={{ minWidth: 260 }}
         />
       </div>
       <div className="student-materials-context__field student-materials-context__class">
-        <Text type="secondary">Enrolled class</Text>
-        <Tag color={classId ? 'blue' : 'default'}>{classId || 'No class assigned'}</Tag>
+        <Text type="secondary">Lớp đã đăng ký</Text>
+        <Tag color={classId ? 'blue' : 'default'}>{classId || 'Chưa được xếp lớp'}</Tag>
       </div>
       <Text type="secondary" className="student-materials-context__hint">
-        Assignments and materials below are filtered by this course.
+        Bài tập và tài liệu bên dưới được lọc theo môn học này.
       </Text>
     </div>
   );

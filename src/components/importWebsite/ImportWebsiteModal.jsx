@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Alert, Button, Card, Checkbox, Divider, Form, Input, InputNumber, Modal, Space, Tag, Typography } from 'antd';
 import { GlobalOutlined, ImportOutlined, SearchOutlined } from '@ant-design/icons';
 import { getUserFacingError } from '../../services/apiClient';
@@ -65,30 +65,25 @@ export default function ImportWebsiteModal({
     );
   }, [searchText, tocItems]);
 
-  useEffect(() => {
-    if (open) {
-      const resetTimer = window.setTimeout(() => {
-        form.resetFields();
-        setToc(null);
-        setSelectedUrls([]);
-        setSearchText('');
-        setFallbackFollowNext(false);
-        setFallbackMaxPages(3);
-        setIsAnalyzing(false);
-        setIsImporting(false);
-      }, 0);
-      return () => window.clearTimeout(resetTimer);
-    }
-    return undefined;
-  }, [open, form]);
+  const handleAfterOpenChange = (visible) => {
+    if (visible) return;
+    form.resetFields();
+    setToc(null);
+    setSelectedUrls([]);
+    setSearchText('');
+    setFallbackFollowNext(false);
+    setFallbackMaxPages(3);
+    setIsAnalyzing(false);
+    setIsImporting(false);
+  };
 
   const validateBaseForm = async () => {
     const values = await form.validateFields(['url', 'title']);
     if (!courseId) {
-      throw new Error('Choose a course before importing documentation.');
+      throw new Error('Hãy chọn môn học trước khi import tài liệu.');
     }
     if (!isValidHttpUrl(values.url)) {
-      throw new Error('Documentation URL must start with http or https.');
+      throw new Error('URL tài liệu phải bắt đầu bằng http hoặc https.');
     }
     return values;
   };
@@ -106,12 +101,12 @@ export default function ImportWebsiteModal({
       setToc(normalized);
 
       if (normalized.items.length === 0) {
-        triggerToast?.('No table of contents found. You can still import this URL directly.');
+        triggerToast?.('Không tìm thấy mục lục. Bạn vẫn có thể import trực tiếp URL này.');
       } else {
-        triggerToast?.(`Found ${normalized.items.length} chapters or sections.`);
+        triggerToast?.(`Đã tìm thấy ${normalized.items.length} chương hoặc mục.`);
       }
     } catch (error) {
-      triggerToast?.(getUserFacingError(error, error?.message || 'Unable to analyze documentation URL.'));
+      triggerToast?.(getUserFacingError(error, error?.message || 'Không thể phân tích URL tài liệu.'));
     } finally {
       setIsAnalyzing(false);
     }
@@ -122,7 +117,7 @@ export default function ImportWebsiteModal({
       if (!checked) return current.filter((item) => item !== url);
       if (current.includes(url)) return current;
       if (current.length >= MAX_SELECTED_URLS) {
-        triggerToast?.(`You can select up to ${MAX_SELECTED_URLS} sections per import.`);
+        triggerToast?.(`Mỗi lần import chỉ được chọn tối đa ${MAX_SELECTED_URLS} mục.`);
         return current;
       }
       return [...current, url];
@@ -142,7 +137,7 @@ export default function ImportWebsiteModal({
 
     setSelectedUrls(next);
     if (visibleTocItems.length > MAX_SELECTED_URLS || next.length === MAX_SELECTED_URLS) {
-      triggerToast?.(`Selected the first ${MAX_SELECTED_URLS} available sections.`);
+      triggerToast?.(`Đã chọn ${MAX_SELECTED_URLS} mục đầu tiên trong danh sách.`);
     }
   };
 
@@ -159,31 +154,29 @@ export default function ImportWebsiteModal({
       const selected = selectedUrls.slice(0, MAX_SELECTED_URLS);
       const uploaderRole = isAdmin ? 'ADMIN' : 'TEACHER';
 
-      if (!isAdmin) {
-        if (!toc) {
-          triggerToast?.('Analyze the URL before importing.');
-          return;
-        }
-        if (hasToc && selected.length === 0) {
-          triggerToast?.('Choose at least one chapter or section to import.');
-          return;
-        }
-        if (selectedUrls.length > MAX_SELECTED_URLS) {
-          triggerToast?.(`Choose ${MAX_SELECTED_URLS} sections or fewer.`);
-          return;
-        }
+      if (!toc) {
+        triggerToast?.('Hãy phân tích URL trước khi import.');
+        return;
+      }
+      if (hasToc && selected.length === 0) {
+        triggerToast?.('Hãy chọn ít nhất một chương hoặc mục để import.');
+        return;
+      }
+      if (selectedUrls.length > MAX_SELECTED_URLS) {
+        triggerToast?.(`Chỉ được chọn tối đa ${MAX_SELECTED_URLS} mục.`);
+        return;
       }
 
       setIsImporting(true);
 
-      const payload = (isAdmin || !hasToc)
+      const payload = !hasToc
         ? {
-            url: isAdmin ? values.url.trim() : values.url.trim(),
+            url: values.url.trim(),
             title,
             uploaderRole,
             teacherId,
-            followNext: isAdmin ? true : fallbackFollowNext,
-            maxPages: isAdmin ? 10 : (fallbackFollowNext ? Math.min(Math.max(Number(fallbackMaxPages) || 1, 1), 10) : 1),
+            followNext: fallbackFollowNext,
+            maxPages: fallbackFollowNext ? Math.min(Math.max(Number(fallbackMaxPages) || 1, 1), 10) : 1,
           }
         : {
             url: toc?.sourceUrl || values.url.trim(),
@@ -195,29 +188,32 @@ export default function ImportWebsiteModal({
 
       const response = await materialApi.importCourseMaterialUrl(courseId, payload);
 
-      triggerToast?.('Import started. Indexing is running in the background.');
-      await onUploaded?.(response?.title || title || 'Website documentation');
+      triggerToast?.('Đã bắt đầu import. Hệ thống đang lập chỉ mục trong nền.');
+      await onUploaded?.(response?.title || title || 'Tài liệu website');
       onClose();
     } catch (error) {
-      triggerToast?.(getUserFacingError(error, error?.message || 'Failed to start website import.'));
+      triggerToast?.(getUserFacingError(error, error?.message || 'Không thể bắt đầu import website.'));
     } finally {
       setIsImporting(false);
     }
   };
 
-  const importDisabled = isAdmin
-    ? (!courseId || isImporting)
-    : (!courseId || isAnalyzing || isImporting || !toc || (hasToc && (selectedUrls.length === 0 || selectedUrls.length > MAX_SELECTED_URLS)));
+  const importDisabled = !courseId
+    || isAnalyzing
+    || isImporting
+    || !toc
+    || (hasToc && (selectedUrls.length === 0 || selectedUrls.length > MAX_SELECTED_URLS));
 
   return (
     <Modal
       open={open}
-      title="Import Website URL"
+      title="Import tài liệu từ website"
       onCancel={onClose}
+      afterOpenChange={handleAfterOpenChange}
       width={820}
       footer={[
         <Button key="cancel" onClick={onClose} disabled={isAnalyzing || isImporting}>
-          Cancel
+          Hủy
         </Button>,
         <Button
           key="import"
@@ -227,25 +223,25 @@ export default function ImportWebsiteModal({
           loading={isImporting}
           disabled={importDisabled}
         >
-          {hasToc ? `Import Selected (${selectedUrls.length}/${MAX_SELECTED_URLS})` : 'Import URL'}
+          {hasToc ? `Import mục đã chọn (${selectedUrls.length}/${MAX_SELECTED_URLS})` : 'Import URL'}
         </Button>,
       ]}
-      destroyOnClose
+      destroyOnHidden
     >
       <Space orientation="vertical" size={16} style={{ width: '100%' }}>
         <Alert
           type="info"
           showIcon
-          title="Backend website import"
-          description="The backend analyzes HTML documentation, imports the selected chapters as course material, then indexes it in the background. Website imports do not create a downloadable PDF."
+          title="Import website qua backend"
+          description="Backend phân tích tài liệu HTML, import các chương đã chọn thành học liệu môn học và lập chỉ mục trong nền. Học liệu website không tạo tệp PDF để tải xuống."
         />
 
         {!courseId && (
           <Alert
             type="warning"
             showIcon
-            title="Choose a course first"
-            description="Website documentation will be imported as a shared course material."
+            title="Hãy chọn môn học trước"
+            description="Tài liệu website sẽ được import thành học liệu dùng chung của môn học."
           />
         )}
 
@@ -256,14 +252,14 @@ export default function ImportWebsiteModal({
           >
             <Form.Item
               name="url"
-              label={<Text strong>Documentation URL</Text>}
+              label={<Text strong>URL tài liệu</Text>}
               rules={[
-                { required: true, message: 'Please enter a documentation URL.' },
+                { required: true, message: 'Hãy nhập URL tài liệu.' },
                 {
                   validator: (_, value) => (
                     !value || isValidHttpUrl(value)
                       ? Promise.resolve()
-                      : Promise.reject(new Error('URL must start with http or https.'))
+                      : Promise.reject(new Error('URL phải bắt đầu bằng http hoặc https.'))
                   ),
                 },
               ]}
@@ -282,33 +278,31 @@ export default function ImportWebsiteModal({
 
             <Form.Item
               name="title"
-              label={<Text strong>Material title</Text>}
-              tooltip="If left blank, the backend HTML title will be used."
+              label={<Text strong>Tên học liệu</Text>}
+              tooltip="Nếu để trống, hệ thống sẽ dùng tiêu đề HTML do backend đọc được."
             >
               <Input placeholder="Java Virtual Machine Specification" disabled={isAnalyzing || isImporting} />
             </Form.Item>
 
-            {!isAdmin && (
-              <Button
-                icon={<SearchOutlined />}
-                onClick={handleAnalyze}
-                loading={isAnalyzing}
-                disabled={!courseId || isImporting}
-              >
-                Analyze URL
-              </Button>
-            )}
+            <Button
+              icon={<SearchOutlined />}
+              onClick={handleAnalyze}
+              loading={isAnalyzing}
+              disabled={!courseId || isImporting}
+            >
+              Phân tích URL
+            </Button>
           </Form>
         </Card>
 
-        {!isAdmin && toc && (
+        {toc && (
           <Card
             size="small"
             title={
               <Space wrap>
-                <span>{toc.title || 'Documentation sections'}</span>
-                <Tag color={hasToc ? 'blue' : 'default'}>{toc.itemCount || 0} items</Tag>
-                {hasToc && <Tag>{selectedUrls.length}/{MAX_SELECTED_URLS} selected</Tag>}
+                <span>{toc.title || 'Các mục tài liệu'}</span>
+                <Tag color={hasToc ? 'blue' : 'default'}>{toc.itemCount || 0} mục</Tag>
+                {hasToc && <Tag>Đã chọn {selectedUrls.length}/{MAX_SELECTED_URLS}</Tag>}
               </Space>
             }
           >
@@ -317,30 +311,30 @@ export default function ImportWebsiteModal({
                 <Input
                   allowClear
                   prefix={<SearchOutlined />}
-                  placeholder="Search chapters or sections"
+                  placeholder="Tìm chương hoặc mục"
                   value={searchText}
                   onChange={(event) => setSearchText(event.target.value)}
                   disabled={isImporting}
                 />
                 <Space wrap>
                   <Button size="small" onClick={selectVisibleUrls} disabled={isImporting || visibleTocItems.length === 0}>
-                    Select visible
+                    Chọn mục đang hiển thị
                   </Button>
                   <Button size="small" onClick={clearVisibleUrls} disabled={isImporting || visibleTocItems.length === 0}>
-                    Clear visible
+                    Bỏ chọn mục đang hiển thị
                   </Button>
                 </Space>
                 {selectedUrls.length >= MAX_SELECTED_URLS && (
                   <Alert
                     type="warning"
                     showIcon
-                    title={`Selection limit reached (${MAX_SELECTED_URLS})`}
-                    description="Backend accepts up to 50 selected chapter or section URLs per import."
+                    title={`Đã đạt giới hạn ${MAX_SELECTED_URLS} mục`}
+                    description="Backend nhận tối đa 50 URL chương hoặc mục trong mỗi lần import."
                   />
                 )}
                 <div className="website-toc-list">
                   {visibleTocItems.length === 0 ? (
-                    <Text type="secondary">No chapters or sections match your search.</Text>
+                    <Text type="secondary">Không có chương hoặc mục phù hợp từ khóa.</Text>
                   ) : (
                     visibleTocItems.map((item) => (
                       <label
@@ -367,8 +361,8 @@ export default function ImportWebsiteModal({
                 <Alert
                   type="warning"
                   showIcon
-                  title="No table of contents found"
-                  description="You can still import the current URL. Enable Follow Next only when this documentation has reliable Next links."
+                  title="Không tìm thấy mục lục"
+                  description="Bạn vẫn có thể import URL hiện tại. Chỉ bật theo liên kết tiếp theo khi website có liên kết Next đáng tin cậy."
                 />
                 <Divider style={{ margin: '4px 0' }} />
                 <Checkbox
@@ -376,11 +370,11 @@ export default function ImportWebsiteModal({
                   disabled={isImporting}
                   onChange={(event) => setFallbackFollowNext(event.target.checked)}
                 >
-                  Follow same-domain "Next" links
+                  Theo các liên kết "Next" cùng tên miền
                 </Checkbox>
                 {fallbackFollowNext && (
                   <Space orientation="vertical" size={4}>
-                    <Text strong>Maximum pages</Text>
+                    <Text strong>Số trang tối đa</Text>
                     <InputNumber
                       min={1}
                       max={10}

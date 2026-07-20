@@ -210,6 +210,15 @@
     gap: 18px;
 }
 
+.student-next-steps-card .ant-card-body {
+  display: grid;
+  gap: 12px;
+}
+
+.student-next-steps-error {
+  margin-bottom: 2px;
+}
+
 .learning-action-metrics {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));

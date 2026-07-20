@@ -14,13 +14,13 @@ const normalizeGapLevel = (level) => {
   return 'low';
 };
 
-const getTopicLabel = (node) => node?.label || node?.topic || node?.name || 'Untitled topic';
+const getTopicLabel = (node) => node?.label || node?.topic || node?.name || 'Chủ đề chưa đặt tên';
 
 const getTopicDescription = (level) => {
-  if (level === 'high') return 'Many students are struggling. Review this topic first.';
-  if (level === 'medium') return 'Some signals need attention. Add practice or examples.';
-  if (level === 'strong') return 'Students look stable here. Keep monitoring.';
-  return 'Low signal. Check again after more student activity.';
+  if (level === 'high') return 'Nhiều sinh viên đang gặp khó khăn. Cần ôn lại chủ đề này trước.';
+  if (level === 'medium') return 'Có tín hiệu cần lưu ý. Nên bổ sung bài luyện tập hoặc ví dụ.';
+  if (level === 'strong') return 'Sinh viên đang học ổn định. Tiếp tục theo dõi.';
+  return 'Chưa đủ dữ liệu. Kiểm tra lại sau khi có thêm hoạt động học tập.';
 };
 
 function TeacherClassesTab({
@@ -54,7 +54,7 @@ function TeacherClassesTab({
       } catch (error) {
         if (!cancelled) {
           setCourseMemories([]);
-          triggerToast?.(getUserFacingError(error, 'Unable to load course memory signals.'));
+          triggerToast?.(getUserFacingError(error, 'Không thể tải tín hiệu bộ nhớ học tập của môn.'));
         }
       } finally {
         if (!cancelled) setCourseMemoriesLoading(false);
@@ -113,21 +113,21 @@ function TeacherClassesTab({
     <div className="grid-2x2 portal-view">
       <div className="glass-card">
         <div className="card-header">
-          <h3>Assigned Class Sections</h3>
+          <h3>Danh sách lớp được phân công</h3>
           <button
             type="button"
             className="btn-small-chat"
             onClick={loadTeacherDashboard}
             disabled={teacherDashboardLoading || !loadTeacherDashboard}
-            aria-label="Refresh assigned classes and learning signals"
+            aria-label="Làm mới lớp được phân công và tín hiệu học tập"
           >
-            <RefreshCw style={{ width: 12, height: 12 }} /> Refresh
+            <RefreshCw style={{ width: 12, height: 12 }} /> Làm mới
           </button>
         </div>
         {teacherDashboardLoading ? (
-          <p className="no-data-text">Loading dashboard...</p>
+          <p className="no-data-text">Đang tải dữ liệu lớp...</p>
         ) : classesList.length === 0 ? (
-          <p className="no-data-text">No class sections found.</p>
+          <p className="no-data-text">Tài khoản chưa được phân công lớp học phần.</p>
         ) : (
           <div className="teacher-classes-list">
             {classesList.map((c, i) => {
@@ -141,7 +141,7 @@ function TeacherClassesTab({
                   disabled={!classValue || !setClassId}
                   aria-pressed={classId === classValue}
                 >
-                  <span className="badge-semester">Term: {c.semester}</span>
+                  <span className="badge-semester">Học kỳ: {c.semester}</span>
                   <h4>{c.name}</h4>
                   <p>{c.details}</p>
                 </button>
@@ -154,9 +154,9 @@ function TeacherClassesTab({
       <div className="glass-card">
         <div className="card-header">
           <div>
-            <h3>Knowledge Gap Overview</h3>
+            <h3>Chủ đề cần hỗ trợ của lớp</h3>
             <span className="card-subtitle">
-              {currentClass?.name || `Class ${classId}`} · prioritized from learning memory, submissions, and quiz signals
+              {currentClass?.name || `Lớp ${classId}`} · tổng hợp từ bộ nhớ học tập, bài nộp và kết quả quiz
             </span>
           </div>
         </div>
@@ -166,21 +166,21 @@ function TeacherClassesTab({
             <AlertTriangle size={16} />
             <div>
               <strong>{highRiskTopics.length}</strong>
-              <span>High risk</span>
+              <span>Cần ưu tiên</span>
             </div>
           </div>
           <div className="teacher-gap-metric teacher-gap-metric--attention">
             <Lightbulb size={16} />
             <div>
               <strong>{attentionTopics.length}</strong>
-              <span>Needs attention</span>
+              <span>Cần theo dõi</span>
             </div>
           </div>
           <div className="teacher-gap-metric teacher-gap-metric--strong">
             <CheckCircle2 size={16} />
             <div>
               <strong>{strongTopics.length}</strong>
-              <span>Strong</span>
+              <span>Ổn định</span>
             </div>
           </div>
         </div>
@@ -188,19 +188,19 @@ function TeacherClassesTab({
         <div className="teacher-course-memory-strip">
           <div>
             <strong>{courseMemoriesLoading ? '...' : memoryStats.memoryCount}</strong>
-            <span>Memory records</span>
+            <span>Bản ghi bộ nhớ</span>
           </div>
           <div>
             <strong>{courseMemoriesLoading ? '...' : memoryStats.learnedCount}</strong>
-            <span>Learned topics</span>
+            <span>Chủ đề đã nắm</span>
           </div>
           <div>
             <strong>{courseMemoriesLoading ? '...' : memoryStats.weakCount}</strong>
-            <span>Weak topics</span>
+            <span>Chủ đề còn yếu</span>
           </div>
           <div>
-            <strong>{memoryStats.latest ? new Date(memoryStats.latest).toLocaleDateString('en-US') : '—'}</strong>
-            <span>Last memory update</span>
+            <strong>{memoryStats.latest ? new Date(memoryStats.latest).toLocaleDateString('vi-VN') : '—'}</strong>
+            <span>Cập nhật gần nhất</span>
           </div>
         </div>
 
@@ -208,8 +208,8 @@ function TeacherClassesTab({
           {!hasHeatmapData ? (
             <div className="teacher-gap-empty">
               <Target size={22} />
-              <strong>No knowledge gap data yet</strong>
-              <span>Ask students to use AI Tutor, submit work, or complete quizzes. The dashboard will summarize class weak topics here.</span>
+              <strong>Chưa đủ dữ liệu để xác định chủ đề yếu</strong>
+              <span>Khi sinh viên hỏi AI Tutor, nộp bài hoặc hoàn thành quiz, hệ thống sẽ tổng hợp các chủ đề cần hỗ trợ tại đây.</span>
             </div>
           ) : (
             <>
@@ -217,60 +217,60 @@ function TeacherClassesTab({
                 <section className="teacher-gap-column teacher-gap-column--risk">
                   <div className="teacher-gap-column-header">
                     <AlertTriangle size={15} />
-                    <span>Review first</span>
+                    <span>Ôn lại trước</span>
                   </div>
-                  {highRiskTopics.length ? highRiskTopics.map(renderTopicCard) : <p className="teacher-gap-placeholder">No high-risk topic right now.</p>}
+                  {highRiskTopics.length ? highRiskTopics.map(renderTopicCard) : <p className="teacher-gap-placeholder">Hiện không có chủ đề cần ưu tiên cao.</p>}
                 </section>
 
                 <section className="teacher-gap-column teacher-gap-column--attention">
                   <div className="teacher-gap-column-header">
                     <Lightbulb size={15} />
-                    <span>Add practice</span>
+                    <span>Bổ sung luyện tập</span>
                   </div>
-                  {attentionTopics.length ? attentionTopics.map(renderTopicCard) : <p className="teacher-gap-placeholder">No medium-risk topic right now.</p>}
+                  {attentionTopics.length ? attentionTopics.map(renderTopicCard) : <p className="teacher-gap-placeholder">Hiện không có chủ đề cần theo dõi.</p>}
                 </section>
 
                 <section className="teacher-gap-column teacher-gap-column--strong">
                   <div className="teacher-gap-column-header">
                     <CheckCircle2 size={15} />
-                    <span>Stable topics</span>
+                    <span>Chủ đề ổn định</span>
                   </div>
                   {[...strongTopics, ...otherTopics].length
                     ? [...strongTopics, ...otherTopics].map(renderTopicCard)
-                    : <p className="teacher-gap-placeholder">No stable topic recorded yet.</p>}
+                    : <p className="teacher-gap-placeholder">Chưa ghi nhận chủ đề ổn định.</p>}
                 </section>
               </div>
 
               <div className="teacher-gap-next-step">
                 <Target size={15} />
                 <span>
-                  Suggested next step: start with <strong>{highRiskTopics[0]?.label || attentionTopics[0]?.label || 'the first weak topic'}</strong>, then publish a short practice quiz or review material for this class.
+                  Việc nên làm tiếp theo: bắt đầu với <strong>{highRiskTopics[0]?.label || attentionTopics[0]?.label || 'chủ đề yếu đầu tiên'}</strong>, sau đó giao một quiz ngắn hoặc bổ sung tài liệu cho lớp.
                 </span>
               </div>
             </>
           )}
           <div className="heatmap-legend teacher-gap-legend">
-            <span><span className="legend-box val-high"></span> High risk</span>
-            <span><span className="legend-box val-med"></span> Needs attention</span>
-            <span><span className="legend-box val-none"></span> Strong</span>
+            <span><span className="legend-box val-high"></span> Cần ưu tiên</span>
+            <span><span className="legend-box val-med"></span> Cần theo dõi</span>
+            <span><span className="legend-box val-none"></span> Ổn định</span>
           </div>
         </div>
       </div>
 
       <div className="glass-card span-2">
         <div className="card-header">
-          <h3>Class Student List ({classId})</h3>
+          <h3>Sinh viên trong lớp {classId}</h3>
         </div>
         {teacherStudents.length === 0 ? (
-          <p className="no-data-text">No students loaded from dashboard.</p>
+          <p className="no-data-text">Lớp chưa có sinh viên hoặc chưa tải được danh sách.</p>
         ) : (
           <table className="data-table">
             <thead>
               <tr>
-                <th>Student</th>
+                <th>Sinh viên</th>
                 <th>Email</th>
-                <th>Learning Status</th>
-                <th>Weak Topics</th>
+                <th>Trạng thái học</th>
+                <th>Chủ đề còn yếu</th>
               </tr>
             </thead>
             <tbody>
@@ -278,11 +278,11 @@ function TeacherClassesTab({
                 <tr key={s.id}>
                   <td>
                     <div className="entity-name-cell">
-                      <strong>{getPersonDisplayName(s, 'Student')}</strong>
+                      <strong>{getPersonDisplayName(s, 'Sinh viên')}</strong>
                     </div>
                   </td>
                   <td>{s.email || s.studentEmail || '-'}</td>
-                  <td><span className="badge active-badge">{s.status || 'Enrolled'}</span></td>
+                  <td><span className="badge active-badge">{s.status || 'Đang học'}</span></td>
                   <td>
                     {(s.weakTopics || []).map((wt, i) => (
                       <span key={`${wt}-${i}`} className={wt === 'None' ? 'tag-healthy' : 'tag-weak'}>{wt}</span>

@@ -30,7 +30,7 @@ export function useStudentImport({
       setStudentImportClasses(Array.isArray(data) ? data : []);
     } catch (error) {
       setStudentImportClasses([]);
-      triggerToast(getUserFacingError(error, 'Unable to load class sections.'));
+      triggerToast(getUserFacingError(error, 'Không thể tải danh sách lớp học phần.'));
     }
   };
 
@@ -46,14 +46,14 @@ export function useStudentImport({
       a.remove();
       window.URL.revokeObjectURL(url);
     } catch (error) {
-      triggerToast(getUserFacingError(error, 'Unable to download student import template.'));
+      triggerToast(getUserFacingError(error, 'Không thể tải tệp mẫu import sinh viên.'));
     }
   };
 
   const handleStudentImport = async (dryRun) => {
     const values = await formStudentImport.validateFields();
     if (!studentImportFile) {
-      triggerToast('Please choose an Excel file first.');
+      triggerToast('Hãy chọn tệp Excel trước.');
       return;
     }
     const selectedCourse = courses.find(c => c.courseId === values.courseId);
@@ -68,11 +68,11 @@ export function useStudentImport({
         dryRun,
       });
       setStudentImportResult(result);
-      triggerToast(dryRun ? 'Student import validation finished.' : 'Students imported successfully.');
+      triggerToast(dryRun ? 'Đã kiểm tra dữ liệu import.' : 'Đã import sinh viên thành công.');
       if (!dryRun && enrollmentSearchId) loadStudentEnrollments();
     } catch (error) {
       setStudentImportResult(error?.details || null);
-      triggerToast(getUserFacingError(error, 'Student import failed.'));
+      triggerToast(getUserFacingError(error, 'Import sinh viên thất bại.'));
     } finally {
       setStudentImportLoading(false);
     }

@@ -31,14 +31,14 @@ describe('QuizResult', () => {
   it('shows every option plus the student choice and correct answer after submission', () => {
     render(<QuizResult result={submittedResult} />);
 
-    const choices = screen.getByRole('list', { name: 'Answer choices for question 1' });
+    const choices = screen.getByRole('list', { name: 'Các lựa chọn của câu 1' });
     expect(within(choices).getAllByRole('listitem')).toHaveLength(4);
     expect(within(choices).getByText('Encapsulation')).toBeVisible();
     expect(within(choices).getByText('Inheritance')).toBeVisible();
     expect(within(choices).getByText('Polymorphism')).toBeVisible();
     expect(within(choices).getByText('Abstraction')).toBeVisible();
-    expect(within(choices).getByText('Your choice')).toBeVisible();
-    expect(within(choices).getByText('Correct answer')).toBeVisible();
-    expect(screen.getByText('Incorrect')).toBeVisible();
+    expect(within(choices).getByText('Bạn đã chọn')).toBeVisible();
+    expect(within(choices).getByText('Đáp án đúng')).toBeVisible();
+    expect(screen.getByText('Sai')).toBeVisible();
   });
 });

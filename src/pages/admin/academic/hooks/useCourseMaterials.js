@@ -3,6 +3,7 @@ import { getUserFacingError } from '../../../../services/apiClient';
 import { materialsApi } from '../../../../services/materialsApi';
 import { confirmDanger } from '../../../../components/common/confirmDialog';
 import { isMaterialIndexing, normalizeMaterialsResponse } from '../adminAcademicUtils';
+import { useRealtimeReconnect } from '../../../../features/realtime/realtimeContext';
 
 const wait = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
 
@@ -22,7 +23,7 @@ export function useCourseMaterials({ triggerToast, currentUser, formMaterial }) 
     let cancelled = false;
     const pollMaterials = async () => {
       try {
-        const data = await materialsApi.getCourseMaterials(materialCourseId);
+        const data = await materialsApi.getCourseMaterials(materialCourseId, '', { force: true });
         if (!cancelled) {
           setCourseMaterials(normalizeMaterialsResponse(data));
         }
@@ -46,15 +47,18 @@ export function useCourseMaterials({ triggerToast, currentUser, formMaterial }) 
     }
     if (!silent) setMaterialsLoading(true);
     try {
-      const data = await materialsApi.getCourseMaterials(courseId);
+      const data = await materialsApi.getCourseMaterials(courseId, '', { force: true });
       setCourseMaterials(normalizeMaterialsResponse(data));
     } catch (error) {
-      if (!silent) setCourseMaterials([]);
-      if (!suppressError) triggerToast(getUserFacingError(error, 'Unable to load course materials.'));
+      if (!suppressError) triggerToast(getUserFacingError(error, 'Không thể tải học liệu môn học.'));
     } finally {
       if (!silent) setMaterialsLoading(false);
     }
   };
+
+  useRealtimeReconnect(() => {
+    if (materialCourseId) loadCourseMaterials(materialCourseId, { silent: true, suppressError: true });
+  });
 
   const refreshCourseMaterialsWithRetry = async (courseId, previousCount = 0, expectedTitle = '') => {
     const delays = [0, 1200, 2500, 4500, 7000, 10000];
@@ -64,14 +68,14 @@ export function useCourseMaterials({ triggerToast, currentUser, formMaterial }) 
       for (const delay of delays) {
         if (delay) await wait(delay);
         try {
-          const data = await materialsApi.getCourseMaterials(courseId);
+          const data = await materialsApi.getCourseMaterials(courseId, '', { force: true });
           const items = normalizeMaterialsResponse(data);
           setCourseMaterials(items);
           const hasExpectedTitle = normalizedTitle && items.some((item) => String(item?.title || '').trim().toLowerCase() === normalizedTitle);
           if (items.length > previousCount || hasExpectedTitle) return true;
         } catch (error) {
           if (delay === delays[delays.length - 1]) {
-            triggerToast(getUserFacingError(error, 'Unable to refresh course materials.'));
+            triggerToast(getUserFacingError(error, 'Không thể cập nhật danh sách học liệu.'));
           }
         }
       }
@@ -82,6 +86,7 @@ export function useCourseMaterials({ triggerToast, currentUser, formMaterial }) 
   };
 
   const handleCourseChange = (courseId) => {
+    if (courseId !== materialCourseId) setCourseMaterials([]);
     setMaterialCourseId(courseId);
     loadCourseMaterials(courseId);
   };
@@ -89,11 +94,11 @@ export function useCourseMaterials({ triggerToast, currentUser, formMaterial }) 
   const handleUploadMaterial = async (values) => {
     if (materialUploadBusy) return;
     if (!materialCourseId) {
-      triggerToast('Please choose a course first.');
+      triggerToast('Hãy chọn môn học trước.');
       return;
     }
     if (!materialFile) {
-      triggerToast('Please choose a material file first.');
+      triggerToast('Hãy chọn tệp học liệu trước.');
       return;
     }
     const formData = new FormData();
@@ -109,16 +114,16 @@ export function useCourseMaterials({ triggerToast, currentUser, formMaterial }) 
       const appeared = await refreshCourseMaterialsWithRetry(materialCourseId, previousCount, values.title);
       formMaterial.resetFields();
       setMaterialFile(null);
-      triggerToast(appeared ? 'Course-wide material uploaded.' : 'Upload accepted. Material may appear after indexing finishes.');
+      triggerToast(appeared ? 'Đã tải học liệu dùng chung.' : 'Backend đã nhận tệp. Học liệu sẽ xuất hiện sau khi lập chỉ mục.');
     } catch (error) {
-      triggerToast('Upload is processing. Checking material list...');
+      triggerToast('Backend đang xử lý tệp. Hệ thống đang kiểm tra danh sách học liệu...');
       const appeared = await refreshCourseMaterialsWithRetry(materialCourseId, previousCount, values.title);
       if (appeared) {
         formMaterial.resetFields();
         setMaterialFile(null);
-        triggerToast('Course-wide material uploaded.');
+        triggerToast('Đã tải học liệu dùng chung.');
       } else {
-        triggerToast(getUserFacingError(error, 'Unable to upload course material. Please try again.'));
+        triggerToast(getUserFacingError(error, 'Không thể tải học liệu. Hãy thử lại.'));
       }
     } finally {
       releaseUploadButton();
@@ -131,11 +136,11 @@ export function useCourseMaterials({ triggerToast, currentUser, formMaterial }) 
 
   const handleDownloadMaterial = async (materialId, title, record) => {
     if (!materialId) {
-      triggerToast('This material is missing an ID. Please reload materials and try again.');
+      triggerToast('Học liệu thiếu mã định danh. Hãy làm mới danh sách và thử lại.');
       return;
     }
     if (record?.sourceType === 'HTML_URL') {
-      triggerToast('This material was imported from a website and has no downloadable PDF file.');
+      triggerToast('Học liệu được import từ website nên không có tệp PDF để tải.');
       return;
     }
     try {
@@ -149,40 +154,40 @@ export function useCourseMaterials({ triggerToast, currentUser, formMaterial }) 
       a.remove();
       window.URL.revokeObjectURL(url);
     } catch (error) {
-      triggerToast(getUserFacingError(error, 'Unable to download course material.'));
+      triggerToast(getUserFacingError(error, 'Không thể tải học liệu.'));
     }
   };
 
   const handleReindexMaterial = async (materialId) => {
     if (!materialId) {
-      triggerToast('This material is missing an ID. Please reload materials and try again.');
+      triggerToast('Học liệu thiếu mã định danh. Hãy làm mới danh sách và thử lại.');
       return;
     }
     try {
       await materialsApi.reindexMaterial(materialCourseId, materialId);
-      triggerToast('Material reindexing triggered.');
+      triggerToast('Đã yêu cầu lập chỉ mục lại học liệu.');
     } catch (error) {
-      triggerToast(getUserFacingError(error, 'Unable to reindex course material.'));
+      triggerToast(getUserFacingError(error, 'Không thể lập chỉ mục lại học liệu.'));
     }
   };
 
   const handleDeleteMaterial = async (materialId, anchorRect) => {
     if (!materialId) {
-      triggerToast('This material is missing an ID. Please reload materials and try again.');
+      triggerToast('Học liệu thiếu mã định danh. Hãy làm mới danh sách và thử lại.');
       return;
     }
     confirmDanger({
-      title: 'Delete course material?',
-      content: 'This removes the shared material from the course AI knowledge base.',
-      okText: 'Delete',
+      title: 'Xóa học liệu môn học?',
+      content: 'Học liệu dùng chung sẽ bị xóa khỏi kho tri thức AI của môn học.',
+      okText: 'Xóa',
       anchorRect,
       onOk: async () => {
         try {
           await materialsApi.deleteMaterial(materialCourseId, materialId);
-          triggerToast('Course material deleted.');
+          triggerToast('Đã xóa học liệu môn học.');
           loadCourseMaterials(materialCourseId);
         } catch (error) {
-          triggerToast(getUserFacingError(error, 'Unable to delete course material.'));
+          triggerToast(getUserFacingError(error, 'Không thể xóa học liệu môn học.'));
         }
       },
     });

@@ -73,6 +73,7 @@ async function mockBackend(page, unexpectedRequests) {
       '/api/tutor/students/student-1/courses/PRO192/memory': {},
       '/api/tutor/students/student-1/courses/PRO192/quizzes': { quizzes: [] },
       '/api/tutor/students/student-1/courses/PRO192/quiz-assignments': { assignments: [] },
+      '/api/tutor/escalations/history': { escalations: [] },
       '/api/students/student-1/improve-plans': { content: [] },
       '/api/students/student-1/courses/PRO192/improve-plan': {},
       '/api/admin/dashboard/stats': {},
@@ -80,6 +81,9 @@ async function mockBackend(page, unexpectedRequests) {
       '/api/admin/users': { users: [] },
       '/api/admin/mentors': { mentors: [] },
       '/api/admin/mentor-escalations': { escalations: [] },
+      '/api/tutor/answer-reviews': { reviews: [] },
+      '/api/tutor/answer-reviews/senior-pending': { reviews: [] },
+      '/api/tutor/escalations/knowledge-candidates': { candidates: [] },
       '/api/admin/semesters': { semesters: [] },
       '/api/mentors': { mentors: [] },
       '/api/v2/expert-training/coverage-gaps': { gaps: [] },
@@ -108,16 +112,16 @@ async function mockBackend(page, unexpectedRequests) {
 
 async function signIn(page) {
   await page.goto('/login');
-  await page.getByLabel('Email address').fill('student@example.com');
-  await page.getByLabel('Password').fill('secret1');
+  await page.getByLabel('Email').fill('student@example.com');
+  await page.getByLabel('Mật khẩu').fill('secret1');
   await page.locator('.login-submit').click();
   await expect(page).toHaveURL(/\/student\/chat$/);
 }
 
 async function signInAsAdmin(page) {
   await page.goto('/login');
-  await page.getByLabel('Email address').fill('admin@example.com');
-  await page.getByLabel('Password').fill('secret1');
+  await page.getByLabel('Email').fill('admin@example.com');
+  await page.getByLabel('Mật khẩu').fill('secret1');
   await page.locator('.login-submit').click();
   await expect(page).toHaveURL(/\/admin\/dashboard$/);
 }
@@ -137,9 +141,9 @@ test('student login resolves enrollment context and supports dark mode', async (
   await expect(page.getByText('Trò chuyện với AI Tutor', { exact: true }).first()).toBeVisible();
   await expect(page.getByLabel('Lớp đã ghi danh')).toContainText('SE1833');
 
-  await page.getByRole('switch', { name: 'Use dark mode' }).click();
+  await page.getByRole('switch', { name: 'Dùng giao diện tối' }).click();
   await expect(page.locator('.app-container')).toHaveClass(/dark/);
-  await expect(page.getByRole('switch', { name: 'Use light mode' })).toBeVisible();
+  await expect(page.getByRole('switch', { name: 'Dùng giao diện sáng' })).toBeVisible();
 });
 
 test('student materials remains readable in dark mode', async ({ page }) => {
@@ -147,11 +151,11 @@ test('student materials remains readable in dark mode', async ({ page }) => {
   await page.goto('/student/materials');
   await expect(page.getByRole('cell', { name: 'E2E Assignment', exact: true })).toBeVisible();
 
-  await page.getByRole('switch', { name: 'Use dark mode' }).click();
+  await page.getByRole('switch', { name: 'Dùng giao diện tối' }).click();
   await expect(page.locator('.student-materials-page')).toBeVisible();
   await expect(page.locator('.student-materials-context')).toHaveCSS('background-color', 'rgb(23, 23, 23)');
   await expect(page.locator('.student-materials-page .ant-table-thead th').first()).toHaveCSS('color', 'rgb(243, 244, 246)');
-  await expect(page.getByRole('tab', { name: 'Assignments & Tasks' })).toHaveCSS('color', 'rgb(251, 146, 60)');
+  await expect(page.getByRole('tab', { name: 'Bài tập được giao' })).toHaveCSS('color', 'rgb(251, 146, 60)');
 });
 
 test('main student workspace does not overflow the viewport', async ({ page }) => {
@@ -273,7 +277,7 @@ test('learning progress uses an actionable plan without canvas overflow', async 
   await page.goto('/student/progress');
 
   const actionPlan = page.locator('.learning-action-plan-card');
-  await expect(page.getByText('Course Action Plan', { exact: true })).toBeVisible();
+  await expect(page.getByText('Kế hoạch học theo môn', { exact: true })).toBeVisible();
   await actionPlan.scrollIntoViewIfNeeded();
   const planBounds = await actionPlan.boundingBox();
   expect(planBounds).not.toBeNull();
@@ -300,34 +304,45 @@ test('practice quiz tabs stay inside the viewport and remain navigable', async (
   const pageOverflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(pageOverflow).toBeLessThanOrEqual(1);
 
-  await quizTabs.getByRole('tab', { name: /^History/ }).click();
-  await expect(quizTabs.getByRole('tab', { name: /^History/ })).toHaveAttribute('aria-selected', 'true');
+  await quizTabs.getByRole('tab', { name: /^Lịch sử/ }).click();
+  await expect(quizTabs.getByRole('tab', { name: /^Lịch sử/ })).toHaveAttribute('aria-selected', 'true');
 });
 
 test('admin routes load their independent feature pages', async ({ page }) => {
   await signInAsAdmin(page);
-  await expect(page.getByText('System Diagnostics', { exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Tổng quan hệ thống' })).toBeVisible();
 
   await page.goto('/admin/users');
-  await expect(page.getByText(/Users \(0\)/)).toBeVisible();
+  await expect(page.getByText(/Tài khoản \(0\)/)).toBeVisible();
 
   await page.goto('/admin/academic');
-  await expect(page.getByRole('tab', { name: 'Terms' })).toBeVisible();
-  await expect(page.getByRole('tab', { name: 'Course Materials' })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Học kỳ' })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Học liệu môn học' })).toBeVisible();
+
+  await page.goto('/admin/review-queue');
+  await expect(page.getByRole('heading', { name: 'Kiểm duyệt phản hồi & tri thức AI' })).toBeVisible();
+  await expect(page.getByRole('tab', { name: /^Đã xử lý/ })).toBeVisible();
 });
 
 test('Tutor V2 admin route loads role-gated workflow without viewport overflow', async ({ page }) => {
   await signInAsAdmin(page);
   await page.goto('/admin/expert-training');
 
-  await expect(page.getByRole('heading', { name: 'AI Knowledge Training' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Huấn luyện tri thức AI' })).toBeVisible();
   await expect(
     page.getByText('PRO192 · Object-Oriented Programming', { exact: true }).first(),
   ).toBeVisible();
-  await expect(page.getByRole('tab', { name: 'Coverage' })).toBeVisible();
-  await expect(page.getByRole('tab', { name: 'Expert Tasks' })).toBeVisible();
-  await expect(page.getByRole('tab', { name: 'Review Queue' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Analyze coverage' })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Tổng quan' })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Công việc' })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Nội dung & kiểm duyệt' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Phân tích độ phủ' })).toBeVisible();
+  await page.getByRole('switch', { name: 'Dùng giao diện tối' }).click();
+  await expect(page.locator('.scope-bar')).toHaveCSS('background-color', 'rgb(15, 15, 15)');
+
+  await page.getByRole('tab', { name: 'Công việc' }).click();
+  await expect(page).toHaveURL(/\/admin\/expert-training\?view=work$/);
+  await page.reload();
+  await expect(page.getByRole('tab', { name: 'Công việc' })).toHaveAttribute('aria-selected', 'true');
 
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(1);

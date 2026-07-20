@@ -1,7 +1,5 @@
 import { ACCOUNT_ROLES, normalizeAccountRole } from '../../constants/roles.js';
 
-const normalizedStatus = (value) => String(value || '').trim().toUpperCase();
-
 export function parseChapterInput(value) {
   return [...new Set(String(value || '')
     .split(/[\n,;]+/)
@@ -28,15 +26,15 @@ export function criteriaRowsToWeights(rows = []) {
 
 export function validateCriteriaWeights(rows = []) {
   const names = rows.map((row) => String(row?.name || '').trim()).filter(Boolean);
-  if (!names.length) return 'Add at least one rubric criterion.';
+  if (!names.length) return 'Thêm ít nhất một tiêu chí Rubric.';
   if (new Set(names.map((name) => name.toLowerCase())).size !== names.length) {
-    return 'Rubric criterion names must be unique.';
+    return 'Tên các tiêu chí Rubric không được trùng nhau.';
   }
   if (rows.some((row) => !Number.isFinite(Number(row?.weight)) || Number(row.weight) <= 0)) {
-    return 'Every rubric weight must be greater than zero.';
+    return 'Mỗi trọng số Rubric phải lớn hơn 0.';
   }
   const sum = rows.reduce((total, row) => total + Number(row.weight || 0), 0);
-  if (Math.abs(sum - 1) > 0.001) return `Rubric weights must total 1.0 (current total: ${sum.toFixed(3)}).`;
+  if (Math.abs(sum - 1) > 0.001) return `Tổng trọng số Rubric phải bằng 1.0 (hiện tại: ${sum.toFixed(3)}).`;
   return '';
 }
 
@@ -49,16 +47,7 @@ export function getTutorV2Role(user) {
   return normalizeAccountRole(user?.originalRole || user?.role || user?.roleKey);
 }
 
-export function getEntityStatusColor(status) {
-  const value = normalizedStatus(status);
-  if (['COMPLETED', 'APPROVED', 'INDEXED', 'PASSED', 'RESOLVED'].includes(value)) return 'green';
-  if (['REJECTED', 'FAILED', 'ERROR', 'CRITICAL'].includes(value)) return 'red';
-  if (['PENDING_REVIEW', 'SUBMITTED', 'RUNNING', 'HIGH'].includes(value)) return 'orange';
-  if (['ASSIGNED', 'IN_PROGRESS', 'TASK_CREATED', 'MEDIUM'].includes(value)) return 'blue';
-  return 'default';
-}
-
 export function formatPercent(value) {
-  if (value == null || !Number.isFinite(Number(value))) return 'Not available';
+  if (value == null || !Number.isFinite(Number(value))) return 'Chưa có dữ liệu';
   return `${Math.round(Number(value) * 100)}%`;
 }

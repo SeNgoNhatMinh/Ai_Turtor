@@ -20,7 +20,7 @@ function FocusActions({ item, canStudy, canCreateQuiz, onStudy, onCreateQuiz, co
         disabled={!canStudy}
         onClick={() => onStudy?.(item.title)}
       >
-        Study
+        Học
       </Button>
       <Button
         size={compact ? 'small' : 'middle'}
@@ -43,12 +43,14 @@ function LearningActionPlan({
   hasContext,
   onStudy,
   onCreateQuiz,
+  consumedSuggestionKeys = [],
 }) {
   const plan = useMemo(() => buildLearningActionPlan({
     learnedTopics,
     weakTopics,
     suggestions,
-  }), [learnedTopics, suggestions, weakTopics]);
+    consumedSuggestionKeys,
+  }), [consumedSuggestionKeys, learnedTopics, suggestions, weakTopics]);
   const [primaryItem, ...remainingItems] = plan.focusItems;
   const canStudy = Boolean(hasContext && onStudy);
   const canCreateQuiz = Boolean(hasContext && onCreateQuiz);
@@ -56,26 +58,26 @@ function LearningActionPlan({
   return (
     <Card
       className="learning-card learning-action-plan-card"
-      title="Course Action Plan"
+      title="Kế hoạch học theo môn"
       extra={courseId ? <Tag>{courseId}</Tag> : null}
     >
-      <div className="learning-action-metrics" aria-label="Course action plan summary">
-        <div><strong>{plan.counts.focus}</strong><span>Focus items</span></div>
-        <div><strong>{plan.counts.weak}</strong><span>Weak topics</span></div>
-        <div><strong>{plan.counts.mastered}</strong><span>Mastered</span></div>
+      <div className="learning-action-metrics" aria-label="Tóm tắt kế hoạch học theo môn">
+        <div><strong>{plan.counts.focus}</strong><span>Nội dung ưu tiên</span></div>
+        <div><strong>{plan.counts.weak}</strong><span>Chủ đề còn yếu</span></div>
+        <div><strong>{plan.counts.mastered}</strong><span>Đã nắm vững</span></div>
       </div>
 
       {primaryItem ? (
         <>
           <section className="learning-primary-action" aria-labelledby="learning-next-step-title">
-            <div className="learning-card-kicker">Recommended next step</div>
+            <div className="learning-card-kicker">Bước tiếp theo được đề xuất</div>
             <div className="learning-primary-action-row">
               <div className="learning-primary-action-copy">
                 <div className="learning-action-tags">
                   <Tag color={primaryItem.status === 'weak' ? 'warning' : 'processing'}>
-                    {primaryItem.status === 'weak' ? 'Needs review' : 'Recommended'}
+                    {primaryItem.status === 'weak' ? 'Cần ôn lại' : 'Nên học'}
                   </Tag>
-                  {primaryItem.pinned && <Tag icon={<PushpinOutlined />}>Pinned</Tag>}
+                  {primaryItem.pinned && <Tag icon={<PushpinOutlined />}>Đã ghim</Tag>}
                 </div>
                 <Title id="learning-next-step-title" level={4}>{primaryItem.title}</Title>
                 <Text>{primaryItem.description}</Text>
@@ -94,8 +96,8 @@ function LearningActionPlan({
             <section className="learning-priority-queue" aria-labelledby="learning-priority-queue-title">
               <div className="learning-section-heading">
                 <div>
-                  <Text strong id="learning-priority-queue-title">Up next</Text>
-                  <Text type="secondary">Work through this queue in the order shown.</Text>
+                  <Text strong id="learning-priority-queue-title">Tiếp theo</Text>
+                  <Text type="secondary">Học lần lượt theo thứ tự ưu tiên bên dưới.</Text>
                 </div>
               </div>
               <ol>
@@ -104,7 +106,7 @@ function LearningActionPlan({
                     <span className="learning-priority-number">{index + 2}</span>
                     <div className="learning-priority-copy">
                       <Text strong>{item.title}</Text>
-                      <Text type="secondary">{item.status === 'weak' ? 'Focus area' : 'Recommended practice'}</Text>
+                      <Text type="secondary">{item.status === 'weak' ? 'Nội dung trọng tâm' : 'Bài luyện tập đề xuất'}</Text>
                     </div>
                     <FocusActions
                       compact
@@ -124,8 +126,8 @@ function LearningActionPlan({
         <Empty
           image={Empty.PRESENTED_IMAGE_SIMPLE}
           description={plan.counts.mastered
-            ? 'No current focus items. Analyze memory after your next chat or quiz to refresh recommendations.'
-            : 'No learning actions yet. Ask AI Tutor questions or complete a quiz to build your course plan.'}
+            ? 'Hiện không có nội dung cần ưu tiên. Hãy phân tích lại sau lần chat hoặc quiz tiếp theo.'
+            : 'Chưa có hành động học tập. Hãy hỏi AI Tutor hoặc hoàn thành quiz để xây dựng kế hoạch.'}
         />
       )}
 
@@ -133,11 +135,11 @@ function LearningActionPlan({
         <section className="learning-mastered-strip" aria-labelledby="learning-mastered-title">
           <div className="learning-section-heading learning-section-heading--inline">
             <CheckCircleOutlined />
-            <Text strong id="learning-mastered-title">Mastered foundation</Text>
+            <Text strong id="learning-mastered-title">Kiến thức nền đã nắm vững</Text>
           </div>
           <div className="learning-mastered-topics">
             {plan.masteredTopics.slice(0, 8).map((topic) => <Tag key={topic}>{topic}</Tag>)}
-            {plan.masteredTopics.length > 8 && <Tag>+{plan.masteredTopics.length - 8} more</Tag>}
+            {plan.masteredTopics.length > 8 && <Tag>+{plan.masteredTopics.length - 8} nội dung</Tag>}
           </div>
         </section>
       )}

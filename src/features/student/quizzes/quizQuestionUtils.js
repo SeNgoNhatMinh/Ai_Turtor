@@ -19,7 +19,7 @@ export const getQuestionId = (question, index) => (
 export const getQuestionName = (_question, index) => `q_${index + 1}`;
 
 export const getQuestionText = (question, index) => (
-  question?.questionText || question?.question || question?.text || question?.prompt || `Question ${index + 1}`
+  question?.questionText || question?.question || question?.text || question?.prompt || `Câu hỏi ${index + 1}`
 );
 
 const getOptionValue = (option) => {
@@ -45,7 +45,7 @@ export const getQuestionChoices = (question) => {
   const rawOptions = Array.isArray(question?.options) && question.options.length
     ? question.options
     : ['TRUE_FALSE', 'BOOLEAN'].includes(String(question?.type || question?.questionType || '').toUpperCase())
-      ? ['True', 'False']
+      ? ['Đúng', 'Sai']
       : [];
 
   return rawOptions

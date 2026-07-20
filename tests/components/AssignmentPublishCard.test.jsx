@@ -44,7 +44,7 @@ describe('AssignmentPublishCard', () => {
       />,
     );
 
-    fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Assignment teaching class' }));
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Lớp nhận bài tập' }));
     fireEvent.click(await screen.findByText('Software Engineering 1833 · PRO192'));
 
     await waitFor(() => expect(onClassChange).toHaveBeenCalledWith(
@@ -63,8 +63,8 @@ describe('AssignmentPublishCard', () => {
       />,
     );
 
-    expect(screen.getByText('Choose an assignment file.')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Publish Assignment' })).toBeDisabled();
+    expect(screen.getByText('Chọn tệp bài tập.')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Giao bài tập' })).toBeDisabled();
   });
 
   it('submits only when all required fields are valid', () => {
@@ -78,7 +78,7 @@ describe('AssignmentPublishCard', () => {
       />,
     );
 
-    const publishButton = screen.getByRole('button', { name: 'Publish Assignment' });
+    const publishButton = screen.getByRole('button', { name: 'Giao bài tập' });
     expect(publishButton).toBeEnabled();
     fireEvent.submit(publishButton.closest('form'));
     expect(onCreate).toHaveBeenCalledTimes(1);

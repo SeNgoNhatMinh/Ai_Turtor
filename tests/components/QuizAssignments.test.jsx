@@ -81,9 +81,9 @@ describe('QuizAssignments publish flow', () => {
       />,
     );
 
-    fireEvent.change(screen.getByLabelText('Quiz title'), { target: { value: 'OOP Review' } });
-    fireEvent.change(screen.getByLabelText('Topic'), { target: { value: 'OOP' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Generate draft quiz' }));
+    fireEvent.change(screen.getByLabelText('Tên quiz'), { target: { value: 'OOP Review' } });
+    fireEvent.change(screen.getByLabelText('Chủ đề'), { target: { value: 'OOP' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Tạo draft quiz' }));
 
     expect(await screen.findByText('Draft editor')).toBeInTheDocument();
     expect(quizGateway.generateTeacherDraft).toHaveBeenCalled();
@@ -93,7 +93,7 @@ describe('QuizAssignments publish flow', () => {
       'quiz-assignment-1',
       { title: 'Updated OOP Review', questions: draft.questions },
     ));
-    expect(triggerToast).toHaveBeenCalledWith('Quiz draft saved.');
+    expect(triggerToast).toHaveBeenCalledWith('Đã lưu draft quiz.');
   });
 
   it('shows the exact class roster by name and publishes to selected student IDs', async () => {
@@ -108,17 +108,17 @@ describe('QuizAssignments publish flow', () => {
       />,
     );
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Publish' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Xuất bản' }));
     const dialog = await screen.findByRole('dialog');
 
     expect(teacherApi.getClassStudents).toHaveBeenCalledWith('PRO192', 'SE1833', 'teacher-1');
     fireEvent.mouseDown(within(dialog).getByRole('combobox'));
-    fireEvent.click(await screen.findByText('Selected students'));
+    fireEvent.click(await screen.findByText('Sinh viên được chọn'));
 
     expect(await screen.findByText('Nguyen Van A')).toBeInTheDocument();
     expect(screen.getByText('student.a@fpt.edu.vn')).toBeInTheDocument();
     fireEvent.click(within(dialog).getByRole('checkbox'));
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Publish quiz' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Xuất bản' }));
 
     await waitFor(() => expect(quizApi.publishQuizAssignment).toHaveBeenCalledWith(
       'quiz-assignment-1',
@@ -140,10 +140,10 @@ describe('QuizAssignments publish flow', () => {
       />,
     );
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Edit' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Chỉnh sửa' }));
     fireEvent.click(screen.getByRole('button', { name: 'Mark draft dirty' }));
 
-    expect(screen.getAllByRole('button', { name: /Publish/ }).some((button) => button.disabled)).toBe(true);
+    expect(screen.getAllByRole('button', { name: /Xuất bản/ }).some((button) => button.disabled)).toBe(true);
   });
 
   it('switches the visible assignment list and saved draft with the teaching class', async () => {
@@ -183,11 +183,11 @@ describe('QuizAssignments publish flow', () => {
     expect(screen.queryByText('AI Foundations')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Mark draft dirty' }));
 
-    fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Teaching class' }));
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Lớp học phần' }));
     fireEvent.click(await screen.findByText('Class AI101-01 · AI101'));
 
-    expect(await screen.findByRole('dialog', { name: 'Switch teaching class?' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Switch class' }));
+    expect(await screen.findByRole('dialog', { name: 'Đổi lớp học phần?' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Đổi lớp' }));
 
     expect(await screen.findByText('AI Foundations')).toBeInTheDocument();
     expect(screen.queryByText('OOP Review')).not.toBeInTheDocument();

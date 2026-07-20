@@ -14,10 +14,10 @@ const normalizeStatus = (status) => String(status || '').toUpperCase();
 
 const getStatusLabel = (result) => {
   const reviewStatus = normalizeStatus(result?.teacherReviewStatus || result?.reviewStatus);
-  if (reviewStatus.includes('REVIEWED')) return 'Teacher reviewed';
-  if (result?.quizType === 'ASSIGNED' && normalizeStatus(result?.status) === 'SUBMITTED') return 'Waiting for teacher review';
-  if (normalizeStatus(result?.status) === 'SUBMITTED') return 'Auto graded';
-  return result?.status || 'Generated';
+  if (reviewStatus.includes('REVIEWED')) return 'Giảng viên đã duyệt';
+  if (result?.quizType === 'ASSIGNED' && normalizeStatus(result?.status) === 'SUBMITTED') return 'Chờ giảng viên duyệt';
+  if (normalizeStatus(result?.status) === 'SUBMITTED') return 'Backend đã chấm';
+  return result?.status || 'Đã tạo';
 };
 
 function QuizResult({ result, onRetry, retryLoading = false }) {
@@ -45,8 +45,8 @@ function QuizResult({ result, onRetry, retryLoading = false }) {
       <Space orientation="vertical" size={14} style={{ width: '100%' }}>
         <div className="quiz-result-header">
           <div>
-            <Title level={4} style={{ margin: 0 }}>Quiz result</Title>
-            <Text type="secondary">{result.topic || result.title || 'Practice quiz'}</Text>
+            <Title level={4} style={{ margin: 0 }}>Kết quả quiz</Title>
+            <Text type="secondary">{result.topic || result.title || 'Quiz luyện tập'}</Text>
           </div>
           <Space wrap>
             <Tag color={percent >= 70 ? 'success' : percent >= 45 ? 'warning' : 'error'}>{status}</Tag>
@@ -58,34 +58,34 @@ function QuizResult({ result, onRetry, retryLoading = false }) {
           <Progress percent={percent} strokeColor={percent >= 70 ? '#16A34A' : percent >= 45 ? '#F59E0B' : '#EF4444'} />
           <Text strong>
             {isTeacherOnlineQuiz && !isTeacherReviewed && !hasScore
-              ? 'Score pending teacher review'
-              : `Score: ${score}/${maxScore}`}
+              ? 'Điểm đang chờ giảng viên duyệt'
+              : `Điểm: ${score}/${maxScore}`}
           </Text>
           {isTeacherOnlineQuiz && !isTeacherReviewed && (
             <Text type="secondary">
               {gradingMode === 'TEACHER_MANUAL'
-                ? 'The teacher will enter the final score manually.'
-                : 'The backend score is a suggestion until the teacher confirms it.'}
+                ? 'Giảng viên sẽ nhập điểm cuối cùng sau khi xem bài.'
+                : 'Điểm backend tính chỉ là gợi ý cho đến khi giảng viên xác nhận.'}
             </Text>
           )}
           {result.teacherFeedback && <Text>{result.teacherFeedback}</Text>}
           {result.feedback && !result.teacherFeedback && <Text>{result.feedback}</Text>}
           {Array.isArray(result.weakTopics) && result.weakTopics.length > 0 && (
             <div>
-              <Text type="secondary">Focus next: </Text>
+              <Text type="secondary">Nên ôn tiếp: </Text>
               {result.weakTopics.map((topic) => <Tag key={topic}>{topic}</Tag>)}
             </div>
           )}
           {onRetry && (
             <Button icon={<RetweetOutlined />} loading={retryLoading} onClick={onRetry}>
-              Retry from this topic
+              Tạo lại quiz từ chủ đề này
             </Button>
           )}
         </div>
 
         {canRevealAnswers && questions.length > 0 && (
           <div className="quiz-result-questions">
-            <Title level={5}>Detailed Review</Title>
+            <Title level={5}>Xem chi tiết bài làm</Title>
             <div className="quiz-review-list">
               {questions.map((question, index) => {
                 const answer = getAnswerForQuestion(result.answers, question, index);
@@ -103,14 +103,14 @@ function QuizResult({ result, onRetry, retryLoading = false }) {
                           icon={review.isCorrect ? <CheckCircleFilled /> : <CloseCircleFilled />}
                           color={review.isCorrect ? 'success' : 'error'}
                         >
-                          {review.isCorrect ? 'Correct' : 'Incorrect'}
+                          {review.isCorrect ? 'Đúng' : 'Sai'}
                         </Tag>
                       )}
                     </div>
 
                     <div className="quiz-review-answer-grid">
-                      <Text className="quiz-review-options-label" strong>Answer choices</Text>
-                      <ul className="quiz-review-options" aria-label={`Answer choices for question ${index + 1}`}>
+                      <Text className="quiz-review-options-label" strong>Các lựa chọn</Text>
+                      <ul className="quiz-review-options" aria-label={`Các lựa chọn của câu ${index + 1}`}>
                         {review.choices.map((choice, choiceIndex) => {
                           const optionClass = canRevealAnswerKey && choice.isCorrectAnswer
                             ? 'quiz-review-option--correct'
@@ -127,8 +127,8 @@ function QuizResult({ result, onRetry, retryLoading = false }) {
                               </span>
                               <span className="quiz-review-option-text">{choice.text || choice.value}</span>
                               <span className="quiz-review-option-tags">
-                                {choice.isSelected && <Tag color={canRevealAnswerKey ? (review.isCorrect ? 'success' : 'error') : 'blue'}>Your choice</Tag>}
-                                {canRevealAnswerKey && choice.isCorrectAnswer && <Tag color="success">Correct answer</Tag>}
+                                {choice.isSelected && <Tag color={canRevealAnswerKey ? (review.isCorrect ? 'success' : 'error') : 'blue'}>Bạn đã chọn</Tag>}
+                                {canRevealAnswerKey && choice.isCorrectAnswer && <Tag color="success">Đáp án đúng</Tag>}
                               </span>
                             </li>
                           );
@@ -136,12 +136,12 @@ function QuizResult({ result, onRetry, retryLoading = false }) {
                       </ul>
 
                       {!review.selectedAnswer && (
-                        <Text type="danger" className="quiz-review-unanswered">You did not answer this question.</Text>
+                        <Text type="danger" className="quiz-review-unanswered">Bạn chưa trả lời câu này.</Text>
                       )}
 
                       {canRevealAnswerKey && review.explanation && (
                         <div className="quiz-review-explanation">
-                          <Text strong type="secondary">Explanation</Text>
+                          <Text strong type="secondary">Giải thích</Text>
                           <AiAnswer markdown={review.explanation} />
                         </div>
                       )}

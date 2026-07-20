@@ -19,14 +19,14 @@ describe('LearningActionPlan', () => {
       />,
     );
 
-    expect(screen.getByText('Course Action Plan')).toBeVisible();
-    expect(screen.getByText('Recommended next step')).toBeVisible();
+    expect(screen.getByText('Kế hoạch học theo môn')).toBeVisible();
+    expect(screen.getByText('Bước tiếp theo được đề xuất')).toBeVisible();
     expect(screen.getByRole('heading', { name: 'Interfaces' })).toBeVisible();
     expect(screen.getByText('Inheritance')).toBeVisible();
     expect(screen.getByText('Encapsulation')).toBeVisible();
 
-    fireEvent.click(screen.getAllByRole('button', { name: /Study/i })[0]);
-    fireEvent.click(screen.getAllByRole('button', { name: /Quiz/i })[0]);
+    fireEvent.click(screen.getAllByRole('button', { name: /Học$/i })[0]);
+    fireEvent.click(screen.getAllByRole('button', { name: /Quiz$/i })[0]);
     expect(onStudy).toHaveBeenCalledWith('Interfaces');
     expect(onCreateQuiz).toHaveBeenCalledWith('Interfaces');
   });
@@ -42,7 +42,7 @@ describe('LearningActionPlan', () => {
       />,
     );
 
-    expect(screen.getByRole('button', { name: /Study/i })).toBeDisabled();
-    expect(screen.getByRole('button', { name: /Quiz/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /Học$/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /Quiz$/i })).toBeDisabled();
   });
 });

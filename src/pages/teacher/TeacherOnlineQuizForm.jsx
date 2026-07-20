@@ -27,19 +27,19 @@ const readQuestions = (value) => {
   try {
     parsed = JSON.parse(value);
   } catch {
-    throw new Error('Questions must be valid JSON.');
+    throw new Error('Nội dung câu hỏi phải là JSON hợp lệ.');
   }
 
   const rawQuestions = Array.isArray(parsed) ? parsed : parsed?.questions;
   if (!Array.isArray(rawQuestions) || rawQuestions.length === 0) {
-    throw new Error('JSON must contain a non-empty questions array.');
+    throw new Error('JSON phải chứa mảng questions có ít nhất một câu hỏi.');
   }
 
   const questions = rawQuestions.map((question, index) => createDraftQuestion(question, index));
   const validation = validateQuizDraft(questions);
   if (!validation.valid) {
     const firstError = validation.questionErrors.find((errors) => errors.length)?.[0];
-    throw new Error(firstError || validation.generalError || 'Review the question data before creating the quiz.');
+    throw new Error(firstError || validation.generalError || 'Kiểm tra dữ liệu câu hỏi trước khi tạo quiz.');
   }
   return questions;
 };
@@ -59,8 +59,8 @@ export default function TeacherOnlineQuizForm({
   const gradingMode = Form.useWatch('gradingMode', form) || 'TEACHER_MANUAL';
   const modeDescription = useMemo(() => (
     gradingMode === 'AI_ASSISTED'
-      ? 'Backend will suggest a score from the answer key. The teacher confirms the final score.'
-      : 'Backend stores student choices only. The teacher enters the final score after submission.'
+      ? 'Backend đưa điểm gợi ý từ answer key. Giảng viên xác nhận điểm cuối cùng.'
+      : 'Backend chỉ lưu lựa chọn của sinh viên. Giảng viên nhập điểm sau khi sinh viên nộp.'
   ), [gradingMode]);
 
   const handleImport = async (file) => {
@@ -68,7 +68,7 @@ export default function TeacherOnlineQuizForm({
       setQuestionsJson(await file.text());
       setFormError('');
     } catch {
-      setFormError('Unable to read this JSON file.');
+      setFormError('Không thể đọc tệp JSON này.');
     }
     return false;
   };
@@ -76,7 +76,7 @@ export default function TeacherOnlineQuizForm({
   const createQuiz = async (values) => {
     setFormError('');
     if (!teacherId || !courseId || !classId) {
-      setFormError('Choose a teaching class before creating an online quiz.');
+      setFormError('Chọn lớp học phần trước khi tạo quiz trực tuyến.');
       return;
     }
 
@@ -101,7 +101,7 @@ export default function TeacherOnlineQuizForm({
       form.resetFields();
       setQuestionsJson(SAMPLE_QUESTIONS);
     } catch (error) {
-      const message = getUserFacingError(error, 'Unable to create teacher online quiz.');
+      const message = getUserFacingError(error, 'Không thể tạo quiz trực tuyến.');
       setFormError(message);
       triggerToast?.(message);
     } finally {
@@ -112,7 +112,7 @@ export default function TeacherOnlineQuizForm({
   return (
     <Space orientation="vertical" size={12} style={{ width: '100%' }}>
       <Text type="secondary">
-        Create a teacher-authored quiz directly. Import the JSON template, then edit the saved draft before publishing.
+        Tạo quiz do giảng viên biên soạn. Có thể nhập template JSON rồi chỉnh sửa draft trước khi xuất bản.
       </Text>
       {formError && <Alert type="error" showIcon title={formError} />}
       <Form
@@ -122,20 +122,20 @@ export default function TeacherOnlineQuizForm({
         onFinish={createQuiz}
         disabled={disabled || creating}
       >
-        <Form.Item name="title" label="Quiz title" rules={[{ required: true, message: 'Title is required' }]}>
-          <Input placeholder="Example: OOP midterm review" />
+        <Form.Item name="title" label="Tên quiz" rules={[{ required: true, message: 'Nhập tên quiz' }]}>
+          <Input placeholder="Ví dụ: Ôn tập giữa kỳ OOP" />
         </Form.Item>
-        <Form.Item name="topic" label="Topic">
-          <Input placeholder="Example: Constructors and inheritance" />
+        <Form.Item name="topic" label="Chủ đề">
+          <Input placeholder="Ví dụ: Constructor và kế thừa" />
         </Form.Item>
-        <Form.Item name="gradingMode" label="Grading mode">
+        <Form.Item name="gradingMode" label="Chế độ chấm">
           <Select options={[
-            { value: 'TEACHER_MANUAL', label: 'Teacher manual - teacher enters final score' },
-            { value: 'AI_ASSISTED', label: 'AI assisted - backend suggests a score' },
+            { value: 'TEACHER_MANUAL', label: 'Giảng viên chấm · Nhập điểm cuối cùng' },
+            { value: 'AI_ASSISTED', label: 'AI hỗ trợ · Backend đưa điểm gợi ý' },
           ]} />
         </Form.Item>
-        <Alert type="info" showIcon message={modeDescription} style={{ marginBottom: 12 }} />
-        <Form.Item label="Questions JSON" required>
+        <Alert type="info" showIcon title={modeDescription} style={{ marginBottom: 12 }} />
+        <Form.Item label="JSON câu hỏi" required>
           <Input.TextArea
             value={questionsJson}
             onChange={(event) => setQuestionsJson(event.target.value)}
@@ -150,14 +150,14 @@ export default function TeacherOnlineQuizForm({
             showUploadList={false}
             beforeUpload={handleImport}
           >
-            <Button icon={<UploadOutlined />} disabled={disabled || creating}>Import JSON</Button>
+            <Button icon={<UploadOutlined />} disabled={disabled || creating}>Nhập JSON</Button>
           </Upload>
           <Button type="primary" htmlType="submit" loading={creating} disabled={disabled || !courseId || !classId}>
-            Create online quiz draft
+            Tạo draft quiz trực tuyến
           </Button>
         </Space>
       </Form>
-      {disabled && <Text type="warning">Choose a teaching class to create a class-scoped quiz.</Text>}
+      {disabled && <Text type="warning">Chọn lớp học phần để tạo quiz đúng phạm vi.</Text>}
     </Space>
   );
 }

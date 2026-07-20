@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import PageHeader from '../../../components/common/PageHeader';
+import { uiCopy } from '../../../constants/uiCopy';
 import TeacherGradingTab from '../../../pages/teacher/TeacherGradingTab';
 import { assignmentApi } from '../../../services/assignmentApi';
 import { getUserFacingError } from '../../../services/apiClient';
@@ -77,38 +79,41 @@ export default function TeacherGradingPage({ teacherId, courseId, classId, trigg
       anchor.remove();
       window.URL.revokeObjectURL(url);
     } catch (error) {
-      triggerToast?.(getUserFacingError(error, 'Unable to download this submission.'));
+      triggerToast?.(getUserFacingError(error, 'Không thể tải bài nộp này.'));
     }
   };
 
   return (
-    <TeacherGradingTab
-      teacherSubmissions={grading.teacherSubmissions}
-      quizSubmissions={grading.quizSubmissions}
-      quizAttemptPage={grading.quizAttemptPage}
-      quizPage={grading.quizPage}
-      onQuizPageChange={grading.setQuizPage}
-      quizReviewStatus={grading.quizReviewStatus}
-      onQuizReviewStatusChange={grading.setQuizReviewStatus}
-      isQuizSubmissionsLoading={grading.isQuizSubmissionsLoading}
-      loadingQuizDetailId={grading.loadingQuizDetailId}
-      selectedTeacherSub={grading.selectedTeacherSub}
-      setSelectedTeacherSub={grading.setSelectedTeacherSub}
-      onSelectSubmission={handleSelectSubmission}
-      teacherGradeScore={score}
-      setTeacherGradeScore={setScore}
-      teacherGradeFeedback={feedback}
-      setTeacherGradeFeedback={setFeedback}
-      teacherGradeWeakTopics={weakTopics}
-      setTeacherGradeWeakTopics={setWeakTopics}
-      onGradeSubmit={handleGradeSubmit}
-      handleTeacherQuizReview={handleTeacherQuizReview}
-      handleDownloadSubmission={handleDownloadSubmission}
-      answerKeyUploadingId={grading.answerKeyUploadingId}
-      aiGradingSubmissionId={grading.aiGradingSubmissionId}
-      gradingMutationKeys={grading.gradingMutationKeys}
-      handleUploadAnswerKey={grading.handleUploadAnswerKey}
-      handleAiGradeSubmission={grading.handleAiGradeSubmission}
-    />
+    <div className="portal-section teacher-feature-page">
+      <PageHeader title={uiCopy.teacher.grading.title} description={uiCopy.teacher.grading.subtitle} />
+      <TeacherGradingTab
+        teacherSubmissions={grading.teacherSubmissions}
+        quizSubmissions={grading.quizSubmissions}
+        quizAttemptPage={grading.quizAttemptPage}
+        quizPage={grading.quizPage}
+        onQuizPageChange={grading.setQuizPage}
+        quizReviewStatus={grading.quizReviewStatus}
+        onQuizReviewStatusChange={grading.setQuizReviewStatus}
+        isQuizSubmissionsLoading={grading.isQuizSubmissionsLoading}
+        loadingQuizDetailId={grading.loadingQuizDetailId}
+        selectedTeacherSub={grading.selectedTeacherSub}
+        setSelectedTeacherSub={grading.setSelectedTeacherSub}
+        onSelectSubmission={handleSelectSubmission}
+        teacherGradeScore={score}
+        setTeacherGradeScore={setScore}
+        teacherGradeFeedback={feedback}
+        setTeacherGradeFeedback={setFeedback}
+        teacherGradeWeakTopics={weakTopics}
+        setTeacherGradeWeakTopics={setWeakTopics}
+        onGradeSubmit={handleGradeSubmit}
+        handleTeacherQuizReview={handleTeacherQuizReview}
+        handleDownloadSubmission={handleDownloadSubmission}
+        answerKeyUploadingId={grading.answerKeyUploadingId}
+        aiGradingSubmissionId={grading.aiGradingSubmissionId}
+        gradingMutationKeys={grading.gradingMutationKeys}
+        handleUploadAnswerKey={grading.handleUploadAnswerKey}
+        handleAiGradeSubmission={grading.handleAiGradeSubmission}
+      />
+    </div>
   );
 }

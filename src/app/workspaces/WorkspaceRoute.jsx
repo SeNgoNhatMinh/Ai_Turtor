@@ -16,7 +16,7 @@ function WorkspaceFallback() {
   return (
     <div className="workspace-route-loading" role="status" aria-live="polite">
       <span className="app-route-loading__spinner" aria-hidden="true" />
-      <span>Loading workspace...</span>
+      <span>Đang tải không gian làm việc...</span>
     </div>
   );
 }

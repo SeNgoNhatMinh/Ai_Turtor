@@ -31,7 +31,7 @@ const getQuestionText = (ticket) => (
   || ticket?.question
   || ticket?.questionPreview
   || ticket?.title
-  || 'No question text available.'
+  || 'Không có nội dung câu hỏi.'
 );
 
 const getAiSnapshot = (ticket) => (
@@ -43,10 +43,10 @@ const getAiSnapshot = (ticket) => (
 );
 
 const formatDateTime = (value) => {
-  if (!value) return 'No timestamp';
+  if (!value) return 'Chưa có thời gian';
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return 'No timestamp';
-  return date.toLocaleString('en-US', {
+  if (Number.isNaN(date.getTime())) return 'Chưa có thời gian';
+  return date.toLocaleString('vi-VN', {
     month: 'short',
     day: 'numeric',
     hour: '2-digit',
@@ -69,8 +69,8 @@ function TicketPreview({ ticket, isActive, onSelect }) {
   const preview = ticket?.questionPreview || ticket?.question || question;
   const answered = isAnsweredTicket(ticket);
   const meta = [
-    ticket?.courseId && `Course ${ticket.courseId}`,
-    ticket?.classId && `Class ${ticket.classId}`,
+    ticket?.courseId && `Môn ${ticket.courseId}`,
+    ticket?.classId && `Lớp ${ticket.classId}`,
   ].filter(Boolean);
 
   return (
@@ -94,7 +94,7 @@ function TicketPreview({ ticket, isActive, onSelect }) {
       </div>
       <div className="mentor-ticket-footer">
         <StatusTag status={ticket?.status} />
-        {answered ? <Tag color="green">Answered</Tag> : <Tag color="orange">Waiting</Tag>}
+        {answered ? <Tag color="green">Đã trả lời</Tag> : <Tag color="orange">Đang chờ</Tag>}
       </div>
     </button>
   );
@@ -133,7 +133,7 @@ function MentorSupport({
       <div className="mentor-review-layout">
         <Card
           title={uiCopy.student.support.listTitle}
-          extra={<Button size="small" icon={<ReloadOutlined />} onClick={loadEscalations} loading={isEscalationsLoading}>Refresh</Button>}
+          extra={<Button size="small" icon={<ReloadOutlined />} onClick={loadEscalations} loading={isEscalationsLoading}>Làm mới</Button>}
           className="mentor-review-list-card"
           styles={{ body: { padding: 0 } }}
         >
@@ -141,12 +141,12 @@ function MentorSupport({
             <Alert
               type="error"
               showIcon
-              title="Unable to load mentor review tickets"
+              title="Không thể tải yêu cầu hỗ trợ"
               description={escalationsError}
               className="mentor-review-inline-alert"
             />
           ) : isEscalationsLoading ? (
-            <div className="mentor-review-loading"><Spin description="Loading tickets..." /></div>
+            <div className="mentor-review-loading"><Spin description="Đang tải yêu cầu..." /></div>
           ) : safeTickets.length ? (
             <div className="mentor-ticket-list">
               {safeTickets.map((ticket) => (
@@ -170,12 +170,12 @@ function MentorSupport({
             <div className="mentor-review-detail">
               <div className="mentor-review-detail__header">
                 <div>
-                  <span className="mentor-review-eyebrow">Review ticket</span>
-                  <Title level={4}>{selectedTicket.questionPreview || 'Mentor Review Ticket'}</Title>
+                  <span className="mentor-review-eyebrow">Yêu cầu hỗ trợ</span>
+                  <Title level={4}>{selectedTicket.questionPreview || 'Chi tiết yêu cầu hỗ trợ'}</Title>
                   <Space size={[8, 8]} wrap>
-                    {selectedTicket.courseId && <Tag color="blue">Course {selectedTicket.courseId}</Tag>}
-                    {selectedTicket.classId && <Tag>Class {selectedTicket.classId}</Tag>}
-                    {assignedMentor && <Tag color="green">Mentor {assignedMentor}</Tag>}
+                    {selectedTicket.courseId && <Tag color="blue">Môn {selectedTicket.courseId}</Tag>}
+                    {selectedTicket.classId && <Tag>Lớp {selectedTicket.classId}</Tag>}
+                    {assignedMentor && <Tag color="green">Giảng viên {assignedMentor}</Tag>}
                   </Space>
                 </div>
                 <StatusTag status={selectedTicket.status} />
@@ -186,30 +186,30 @@ function MentorSupport({
                   <Alert
                     type="warning"
                     showIcon
-                    title="The complete ticket could not be loaded"
+                    title="Không thể tải đầy đủ yêu cầu"
                     description={escalationDetailError}
                   />
                 )}
                 {isEscalationDetailLoading && (
                   <div className="mentor-review-detail-loading">
                     <Spin size="small" />
-                    <Text type="secondary">Loading complete ticket...</Text>
+                    <Text type="secondary">Đang tải nội dung đầy đủ...</Text>
                   </div>
                 )}
-                <ReviewBlock label="Student question" tone="question">
+                <ReviewBlock label="Câu hỏi của sinh viên" tone="question">
                   <Paragraph className="mentor-review-question-text">
                     {getQuestionText(selectedTicket)}
                   </Paragraph>
                 </ReviewBlock>
 
                 {getAiSnapshot(selectedTicket) && (
-                  <ReviewBlock label="AI answer snapshot">
+                  <ReviewBlock label="Câu trả lời AI trước đó">
                     <Paragraph>{getAiSnapshot(selectedTicket)}</Paragraph>
                   </ReviewBlock>
                 )}
 
                 {mentorAnswer ? (
-                  <ReviewBlock label={assignedMentor ? `Mentor answer from ${assignedMentor}` : 'Mentor answer'} tone="answer">
+                  <ReviewBlock label={assignedMentor ? `Câu trả lời từ ${assignedMentor}` : 'Câu trả lời của giảng viên'} tone="answer">
                     <Paragraph>{mentorAnswer}</Paragraph>
                   </ReviewBlock>
                 ) : (
@@ -224,9 +224,9 @@ function MentorSupport({
                       <div className="mentor-review-waiting">
                         <RobotOutlined />
                         <div>
-                          <Title level={5}>Teacher support is waiting to start</Title>
+                          <Title level={5}>Đang chờ bắt đầu hỗ trợ</Title>
                           <Paragraph>
-                            Find the teacher assigned to this course and class, then select them to open the two-way support chat.
+                            Hệ thống cần tìm giảng viên phụ trách môn/lớp, sau đó bạn chọn giảng viên để mở cuộc trò chuyện hai chiều.
                           </Paragraph>
                         </div>
                       </div>
@@ -238,14 +238,14 @@ function MentorSupport({
                   type="success"
                   showIcon
                   className="mentor-review-learning-note"
-                  title="AI learning is protected"
-                  description="Mentor answers are not added to AI knowledge automatically. Only senior/admin-approved Knowledge Candidates are indexed into the course RAG knowledge base."
+                  title="Tri thức AI được kiểm soát"
+                  description="Câu trả lời của giảng viên không tự động được thêm vào AI. Chỉ Knowledge Candidate được Senior Mentor hoặc Admin phê duyệt mới được đưa vào RAG của môn học."
                 />
               </div>
             </div>
           ) : (
             <Empty description={uiCopy.student.support.detailEmpty} className="mentor-review-detail-empty">
-              <Text type="secondary">Choose a ticket to see the question, AI snapshot, mentor answer, and learning-review status.</Text>
+              <Text type="secondary">Chọn một yêu cầu để xem câu hỏi, câu trả lời AI trước đó, phản hồi của giảng viên và trạng thái kiểm duyệt.</Text>
             </Empty>
           )}
         </Card>

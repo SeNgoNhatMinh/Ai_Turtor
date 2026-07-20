@@ -58,7 +58,7 @@ export function useExpertTrainingController({
       onSuccess(result);
       return result;
     } catch (error) {
-      const message = getUserFacingError(error, 'Unable to load Tutor V2 data.');
+      const message = getUserFacingError(error, 'Không thể tải dữ liệu Tutor V2.');
       setErrors((current) => ({ ...current, [key]: message }));
       return null;
     } finally {
@@ -172,7 +172,7 @@ export function useExpertTrainingController({
       await refresh?.();
       return result;
     } catch (error) {
-      triggerToast?.(getUserFacingError(error, 'The action could not be completed.'));
+      triggerToast?.(getUserFacingError(error, 'Không thể hoàn tất thao tác.'));
       return null;
     } finally {
       pendingActionRef.current = '';
@@ -187,7 +187,7 @@ export function useExpertTrainingController({
       courseId,
       requestedBy: userId,
     }),
-    successMessage: 'Coverage analysis completed.',
+    successMessage: 'Đã hoàn tất phân tích độ phủ.',
     refresh: () => Promise.allSettled([loadGaps(), loadTasks()]),
   }), [courseId, loadGaps, loadTasks, runMutation, userId]);
 
@@ -198,7 +198,7 @@ export function useExpertTrainingController({
       courseId,
       createdBy: userId,
     }),
-    successMessage: 'Expert task created.',
+    successMessage: 'Đã tạo công việc chuyên gia.',
     refresh: loadTasks,
   }), [courseId, loadTasks, runMutation, userId]);
 
@@ -208,7 +208,7 @@ export function useExpertTrainingController({
       assigneeId: userId,
       assigneeTier: reviewerRole,
     }),
-    successMessage: 'Task assigned to you.',
+    successMessage: 'Bạn đã nhận công việc.',
     refresh: loadTasks,
   }), [loadTasks, reviewerRole, runMutation, userId]);
 
@@ -219,7 +219,7 @@ export function useExpertTrainingController({
       courseId,
       authorId: userId,
     }),
-    successMessage: 'Gold Q&A submitted for senior review.',
+    successMessage: 'Đã gửi Gold Q&A để Senior Mentor kiểm duyệt.',
     refresh: () => Promise.allSettled([loadTasks(), loadContributions()]),
   }), [courseId, loadContributions, loadTasks, runMutation, userId]);
 
@@ -230,7 +230,7 @@ export function useExpertTrainingController({
       courseId,
       authorId: userId,
     }),
-    successMessage: 'Rubric submitted for senior review.',
+    successMessage: 'Đã gửi Rubric để Senior Mentor kiểm duyệt.',
     refresh: () => Promise.allSettled([loadTasks(), loadContributions()]),
   }), [courseId, loadContributions, loadTasks, runMutation, userId]);
 
@@ -244,9 +244,9 @@ export function useExpertTrainingController({
     }),
     successMessage: decision === 'approve'
       ? item.usage === 'TRAINING'
-        ? 'Gold Q&A approved and indexed into course knowledge.'
-        : 'Evaluation holdout approved without indexing.'
-      : 'Gold Q&A rejected and returned for correction.',
+        ? 'Gold Q&A đã được duyệt và đưa vào tri thức môn học.'
+        : 'Evaluation holdout đã được duyệt và không được index.'
+      : 'Gold Q&A cần được chỉnh sửa trước khi duyệt.',
     refresh: () => Promise.allSettled([loadTasks(), loadContributions(), loadGaps()]),
   }), [loadContributions, loadGaps, loadTasks, reviewerRole, runMutation, userId]);
 
@@ -258,7 +258,7 @@ export function useExpertTrainingController({
       reviewNote: values.reviewNote || '',
       rejectionReason: decision === 'reject' ? values.rejectionReason : undefined,
     }),
-    successMessage: decision === 'approve' ? 'Rubric approved.' : 'Rubric rejected and returned for correction.',
+    successMessage: decision === 'approve' ? 'Rubric đã được phê duyệt.' : 'Rubric cần được chỉnh sửa trước khi duyệt.',
     refresh: () => Promise.allSettled([loadTasks(), loadContributions()]),
   }), [loadContributions, loadTasks, reviewerRole, runMutation, userId]);
 
@@ -269,7 +269,7 @@ export function useExpertTrainingController({
       courseId,
       triggeredBy: userId,
     }),
-    successMessage: 'Evaluation completed. Canonical results were reloaded.',
+    successMessage: 'Evaluation đã hoàn tất và kết quả canonical đã được tải lại.',
     refresh: loadEvaluation,
   }), [courseId, loadEvaluation, runMutation, userId]);
 
@@ -280,7 +280,7 @@ export function useExpertTrainingController({
       setEvaluationDetail(detail);
       return detail;
     } catch (error) {
-      triggerToast?.(getUserFacingError(error, 'Unable to load evaluation details.'));
+      triggerToast?.(getUserFacingError(error, 'Không thể tải chi tiết Evaluation.'));
       return null;
     } finally {
       setEvaluationDetailLoading(false);

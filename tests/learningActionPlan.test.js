@@ -34,3 +34,14 @@ test('does not recommend a mastered topic unless it is also a current weak topic
   assert.equal(plan.focusItems[0].description, 'Review entity relationships.');
   assert.deepEqual(plan.masteredTopics, ['Transactions']);
 });
+
+test('removes a consumed suggestion while retaining a matching weak topic', () => {
+  const plan = buildLearningActionPlan({
+    weakTopics: ['Inheritance'],
+    suggestions: [{ title: 'Interfaces' }, { title: 'Inheritance' }],
+    consumedSuggestionKeys: ['interfaces', 'inheritance'],
+  });
+
+  assert.deepEqual(plan.focusItems.map((item) => item.title), ['Inheritance']);
+  assert.equal(plan.focusItems[0].status, 'weak');
+});

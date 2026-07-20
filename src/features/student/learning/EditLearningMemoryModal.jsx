@@ -12,22 +12,22 @@ function EditLearningMemoryModal({
 }) {
   return (
     <Modal
-      title="Edit course memory"
+      title="Chỉnh sửa bộ nhớ học tập"
       open={open}
       onOk={onSave}
       confirmLoading={saving}
       onCancel={onCancel}
-      okText="Save memory"
-      cancelText="Cancel"
+      okText="Lưu thay đổi"
+      cancelText="Hủy"
     >
       <div className="learning-edit-form">
         <label>
-          <span>Learned topics</span>
-          <Input.TextArea rows={3} placeholder="Example: MVC Flow, JPA Repository, SQL Basics" value={learnedText} onChange={(event) => onLearnedChange(event.target.value)} />
+          <span>Chủ đề đã nắm</span>
+          <Input.TextArea rows={3} placeholder="Ví dụ: MVC Flow, JPA Repository, SQL Basics" value={learnedText} onChange={(event) => onLearnedChange(event.target.value)} />
         </label>
         <label>
-          <span>Weak topics</span>
-          <Input.TextArea rows={3} placeholder="Example: Binary conversion, CPU scheduling" value={weakText} onChange={(event) => onWeakChange(event.target.value)} />
+          <span>Chủ đề còn yếu</span>
+          <Input.TextArea rows={3} placeholder="Ví dụ: Chuyển đổi nhị phân, lập lịch CPU" value={weakText} onChange={(event) => onWeakChange(event.target.value)} />
         </label>
       </div>
     </Modal>

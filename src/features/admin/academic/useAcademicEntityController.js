@@ -66,7 +66,7 @@ export function useAcademicEntityController({
     }
     if (type === 'material') {
       form.setFieldsValue({
-        title: nextRecord.title || 'Untitled Material',
+        title: nextRecord.title || 'Học liệu chưa đặt tên',
         category: nextRecord.category || nextRecord.materialCategory || '',
       });
     }
@@ -89,13 +89,13 @@ export function useAcademicEntityController({
       if (entityModal.type === 'semester') {
         const semesterCode = getSemesterCode(record);
         await adminAcademicApi.updateSemester(semesterCode, { ...record, semesterCode, name: values.name, status: values.status });
-        triggerToast('Term updated.');
+        triggerToast('Đã cập nhật học kỳ.');
         await loadSemesters();
       }
       if (entityModal.type === 'course') {
         const courseId = getCourseCode(record);
         await adminAcademicApi.updateCourse(courseId, { ...record, courseId, courseName: values.courseName, credits: values.credits, status: values.status });
-        triggerToast('Course updated.');
+        triggerToast('Đã cập nhật môn học.');
         await loadCourses();
       }
       if (entityModal.type === 'class') {
@@ -110,7 +110,7 @@ export function useAcademicEntityController({
           teacherEmail: values.teacherEmail,
           status: values.status,
         });
-        triggerToast('Class section updated.');
+        triggerToast('Đã cập nhật lớp học phần.');
         await loadClassSections(courseId);
       }
       if (entityModal.type === 'enrollment') {
@@ -122,19 +122,19 @@ export function useAcademicEntityController({
           classId: values.classId,
           status: values.status,
         });
-        triggerToast('Enrollment updated.');
+        triggerToast('Đã cập nhật ghi danh.');
         await loadStudentEnrollments();
       }
       if (entityModal.type === 'material') {
         const materialId = getRecordId(record);
         const courseId = record.courseId || materialCourseId;
         await materialsApi.updateMaterialMetadata(courseId, materialId, { ...record, title: values.title, category: values.category });
-        triggerToast('Material metadata updated.');
+        triggerToast('Đã cập nhật thông tin học liệu.');
         await loadCourseMaterials(courseId);
       }
       closeEntityModal();
     } catch (error) {
-      triggerToast(getUserFacingError(error, 'Unable to save changes.'));
+      triggerToast(getUserFacingError(error, 'Không thể lưu thay đổi.'));
     } finally {
       setEntitySaving(false);
     }
@@ -142,20 +142,20 @@ export function useAcademicEntityController({
 
   const completeCourse = (record, anchorRect) => {
     const courseId = getCourseCode(record);
-    if (!courseId) return triggerToast('This course is missing an ID. Please reload and try again.');
+    if (!courseId) return triggerToast('Môn học thiếu mã định danh. Hãy tải lại và thử lại.');
     confirmAction({
-      title: 'Mark course complete?',
-      content: 'This marks the course, its classes, and enrollments as completed for routing and reporting.',
-      okText: 'Mark complete',
+      title: 'Đánh dấu môn học đã hoàn tất?',
+      content: 'Các lớp và ghi danh thuộc môn học cũng sẽ được đánh dấu hoàn tất để phục vụ điều phối và báo cáo.',
+      okText: 'Đánh dấu hoàn tất',
       anchorRect,
       onOk: async () => {
         try {
           await adminAcademicApi.completeCourse(courseId);
-          triggerToast('Course marked complete.');
+          triggerToast('Đã đánh dấu môn học hoàn tất.');
           await loadCourses();
           if (selectedCourseId === courseId) await loadClassSections(courseId);
         } catch (error) {
-          triggerToast(getUserFacingError(error, 'Unable to mark course complete.'));
+          triggerToast(getUserFacingError(error, 'Không thể đánh dấu môn học hoàn tất.'));
         }
       },
     });
@@ -164,19 +164,19 @@ export function useAcademicEntityController({
   const completeClass = (record, anchorRect) => {
     const courseId = record?.courseId || selectedCourseId;
     const classId = getClassCode(record);
-    if (!courseId || !classId) return triggerToast('This class section is missing course/class ID. Please reload and try again.');
+    if (!courseId || !classId) return triggerToast('Lớp học phần thiếu mã môn hoặc mã lớp. Hãy tải lại và thử lại.');
     confirmAction({
-      title: 'Mark class complete?',
-      content: 'This marks the class section and its enrollments as completed.',
-      okText: 'Mark complete',
+      title: 'Đánh dấu lớp đã hoàn tất?',
+      content: 'Lớp học phần và các ghi danh liên quan sẽ được đánh dấu hoàn tất.',
+      okText: 'Đánh dấu hoàn tất',
       anchorRect,
       onOk: async () => {
         try {
           await adminAcademicApi.completeClassSection(courseId, classId);
-          triggerToast('Class section marked complete.');
+          triggerToast('Đã đánh dấu lớp học phần hoàn tất.');
           await loadClassSections(courseId);
         } catch (error) {
-          triggerToast(getUserFacingError(error, 'Unable to mark class complete.'));
+          triggerToast(getUserFacingError(error, 'Không thể đánh dấu lớp học phần hoàn tất.'));
         }
       },
     });

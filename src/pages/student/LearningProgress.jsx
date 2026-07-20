@@ -16,6 +16,7 @@ import EditLearningMemoryModal from '../../features/student/learning/EditLearnin
 import ImprovePlansSection from '../../features/student/learning/ImprovePlansSection';
 import LearningOverview from '../../features/student/learning/LearningOverview';
 import LearningActionPlan from '../../features/student/learning/LearningActionPlan';
+import StudentNextSteps from '../../features/student/learning/StudentNextSteps';
 import StudySuggestionsSection from '../../features/student/learning/StudySuggestionsSection';
 import { useImprovePlans } from '../../features/student/learning/useImprovePlans';
 import {
@@ -28,10 +29,10 @@ import {
 import './LearningProgress.css';
 
 const STAT_META = {
-  activeCourses: { label: 'Active courses', description: 'Courses currently tracked', icon: <BookOutlined /> },
-  totalAssignments: { label: 'Assignments', description: 'Tasks in this course context', icon: <FileTextOutlined /> },
-  submittedTasks: { label: 'Submitted', description: 'Assignments already submitted', icon: <CheckCircleOutlined /> },
-  supportRequests: { label: 'Support requests', description: 'Questions escalated to mentors', icon: <InfoCircleOutlined /> },
+  activeCourses: { label: 'Môn đang học', description: 'Môn học đang được theo dõi', icon: <BookOutlined /> },
+  totalAssignments: { label: 'Bài tập', description: 'Bài tập trong môn học hiện tại', icon: <FileTextOutlined /> },
+  submittedTasks: { label: 'Đã nộp', description: 'Bài tập đã gửi cho giảng viên', icon: <CheckCircleOutlined /> },
+  supportRequests: { label: 'Yêu cầu hỗ trợ', description: 'Câu hỏi đã chuyển tới giảng viên', icon: <InfoCircleOutlined /> },
 };
 
 function LearningProgress({
@@ -49,6 +50,12 @@ function LearningProgress({
   onUnpinSuggestion,
   onStudySuggestion,
   onCreateQuizFromSuggestion,
+  consumedSuggestionKeys = [],
+  nextSteps = [],
+  nextStepsLoading = false,
+  nextStepsError = '',
+  onRefreshNextSteps,
+  onNavigateNextStep,
   memorySummary = '',
   recentQuestions = [],
   memoryUpdatedAt = '',
@@ -84,7 +91,7 @@ function LearningProgress({
         value,
         ...(STAT_META[key] || {
           label: key.replace(/([A-Z])/g, ' $1').trim(),
-          description: 'Learning metric',
+          description: 'Chỉ số học tập',
           icon: <ThunderboltOutlined />,
         }),
       }))
@@ -152,7 +159,7 @@ function LearningProgress({
   if (isLoading) {
     return (
       <div className="portal-section center-state">
-        <AsyncState loading loadingLabel="Loading learning dashboard..." loadingRows={7} />
+        <AsyncState loading loadingLabel="Đang tải tiến độ học tập..." loadingRows={7} />
       </div>
     );
   }
@@ -164,8 +171,8 @@ function LearningProgress({
         description={uiCopy.student.progress.subtitle}
         actions={(
           <Space wrap>
-            <Button icon={<ReloadOutlined />} onClick={onRefreshDashboard} disabled={!hasContext}>Refresh dashboard</Button>
-            <Button type="primary" icon={<ThunderboltOutlined />} onClick={handleAnalyzeMemory} loading={isSuggesting} disabled={!hasContext}>Analyze memory</Button>
+            <Button icon={<ReloadOutlined />} onClick={onRefreshDashboard} disabled={!hasContext}>Làm mới</Button>
+            <Button type="primary" icon={<ThunderboltOutlined />} onClick={handleAnalyzeMemory} loading={isSuggesting} disabled={!hasContext}>Phân tích tiến độ</Button>
           </Space>
         )}
       />
@@ -175,8 +182,8 @@ function LearningProgress({
           type="warning"
           showIcon
           className="learning-alert"
-          title="Choose a course first"
-          description="Learning progress is scoped by student and course. Select an enrolled course to load memory, suggestions, and quiz plans."
+          title="Hãy chọn môn học"
+          description="Tiến độ được lưu riêng theo từng sinh viên và môn học. Chọn môn đã đăng ký để xem bộ nhớ học tập, gợi ý và kế hoạch quiz."
         />
       )}
 
@@ -192,6 +199,14 @@ function LearningProgress({
         learnedCount={safeLearnedTopics.length}
         weakCount={safeWeakTopics.length}
         statEntries={statEntries}
+      />
+
+      <StudentNextSteps
+        items={nextSteps}
+        loading={nextStepsLoading}
+        error={nextStepsError}
+        onRefresh={onRefreshNextSteps}
+        onNavigate={onNavigateNextStep}
       />
 
       <CourseMemorySection
@@ -213,6 +228,7 @@ function LearningProgress({
         onCreateQuiz={onCreateQuizFromSuggestion}
         onPin={onPinSuggestion}
         onUnpin={onUnpinSuggestion}
+        consumedSet={new Set(consumedSuggestionKeys)}
       />
 
       <ImprovePlansSection
@@ -234,6 +250,7 @@ function LearningProgress({
         hasContext={hasContext}
         onStudy={onStudySuggestion}
         onCreateQuiz={onCreateQuizFromSuggestion}
+        consumedSuggestionKeys={consumedSuggestionKeys}
       />
 
       <EditLearningMemoryModal

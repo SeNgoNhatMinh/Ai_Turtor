@@ -31,16 +31,16 @@ export function useAuthForm({ onLoginSuccess, triggerToast }) {
     try {
       if (isLoginView) {
         const user = await authApi.login(validation.value.email, validation.value.password);
-        triggerToast?.('Signed in successfully.');
+        triggerToast?.('Đăng nhập thành công.');
         onLoginSuccess?.(user);
         return;
       }
 
       await authApi.register(validation.value);
-      triggerToast?.('Account created. Please sign in.');
+      triggerToast?.('Đã tạo tài khoản. Vui lòng đăng nhập.');
       setIsLoginView(true);
     } catch (error) {
-      triggerToast?.(getUserFacingError(error, 'Something went wrong. Please try again.'));
+      triggerToast?.(getUserFacingError(error, 'Đã xảy ra lỗi. Vui lòng thử lại.'));
     } finally {
       setIsLoading(false);
     }

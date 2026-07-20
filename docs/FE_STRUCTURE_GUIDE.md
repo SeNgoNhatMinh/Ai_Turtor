@@ -16,6 +16,7 @@ This guide records the production structure target after aligning the FE with th
 - `src/features/auth/services/tokenStorage.js` is the only owner of JWT browser storage.
 - `src/app/useAppNavigation.js` owns URL route sync, active role/tab, theme class toggling, and persisted UI context.
 - `src/app/layouts/AuthedLayout.jsx` owns the shared authenticated header/sidebar/toast shell.
+- `src/app/layouts/AuthedLayout.css` owns authenticated shell sizing, scroll boundaries and responsive layout. Do not move these rules back into `index.css`.
 - `src/features/student/learning/useStudentLearningController.js` owns Student Learning Progress, suggestions, memory updates, pinned suggestions, and answer review submission.
 - `src/features/student/learning/useImprovePlans.js` owns improve-plan loading and completion; the Learning Progress page composes focused overview, memory, suggestion, plan, and edit-modal components.
 - `src/features/student/chat/usePinnedChatMessages.js` owns backend-persisted message pins, the three-pin limit, legacy migration, and jump/highlight state.
@@ -35,12 +36,22 @@ This guide records the production structure target after aligning the FE with th
 - Teacher page containers live under `features/teacher/{classes,quizzes,materials,grading,review}`.
 - `src/features/teacher/materials/TeacherMaterialsPage.jsx` is the route controller, while `TeacherMaterialsView.jsx` only composes presentational cards, tables, and dialogs.
 - `useTeacherAssignmentsController.js` owns assignment draft/list/edit/publish state; `useTeacherMaterialController.js` owns material upload/reindex/delete state. Do not merge these concerns back into one route-level hook.
+- `src/pages/teacher/QuizAssignments.jsx` is a compatibility facade. Quiz assignment state and API mutations live in `features/teacher/quizzes/useQuizAssignmentsController.js`; generation, draft, list and publish UI live in focused `components/*` files.
+- `src/pages/teacher/TeacherGradingTab.jsx` only selects the active grading mode. Submission navigation, file-assignment grading and quiz-result review are separate components under `features/teacher/grading/components`.
+- `src/components/importWebsite/ImportWebsiteModal.jsx` is shared by Admin and Teacher. It must use the backend `url-toc -> selection -> import-url` flow; do not add browser crawling, direct import before analysis, or a mock-success path.
 - Admin page containers live under `features/admin/{dashboard,users,academic}`.
+- Admin account, mentor and support-request resources are owned by `features/admin/users/useAdminUsersController.js`; each Admin Users tab has an independent table component under `features/admin/users/components`.
 - Route pages compose focused hooks; presentational screens under `pages/student` and `pages/teacher` must remain API-agnostic.
 - URL routes are canonical for navigation:
   - Student: `/student/chat`, `/student/progress`, `/student/quizzes`, `/student/materials`, `/student/mentor-review`
   - Teacher: `/teacher/classes`, `/teacher/quizzes`, `/teacher/materials`, `/teacher/grading`, `/teacher/review-queue`
+  - Teacher Tutor V2: `/teacher/expert-training?view=overview|work|content|evaluation`
   - Admin: `/admin/dashboard`, `/admin/users`, `/admin/academic`
+  - Admin Tutor V2: `/admin/expert-training?view=overview|work|content|evaluation`
+- Tutor V2 keeps selected work and review context in query parameters (`task`, `review`) so refresh and deep links do not lose the active record.
+- Shared workflow primitives live under `src/components/common`: `ScopeBar`, `MetricStrip`, `WorkflowStepper`, `ActionQueue`, `MasterDetailLayout`, and `StatusLabel`.
+- Shared workflow primitive styles live in `src/components/common/WorkflowUI.css`; feature styles should extend semantic classes instead of duplicating inline status/layout CSS.
+- Canonical Vietnamese status metadata lives in `src/utils/statusLabels.js`; feature pages must not create competing status-label maps.
 
 ## Business Flow Rules
 
@@ -91,6 +102,7 @@ The legacy `src/services/api.js` facade has been removed. Do not recreate a glob
 ## Performance Rules
 
 - Keep role workspaces and route pages lazy; load only the active Student, Teacher, or Admin screen.
+- Keep `src/index.css` limited to tokens, reset and genuinely global compatibility rules; shell and feature layout rules belong beside their owners.
 - Lazy-load optional dialogs such as Profile and website import.
 - Do not add a global provider for a feature used by one dialog or one page.
 - Keep markdown, syntax highlighting, quiz runner, tables, and material tools in feature chunks.
@@ -110,6 +122,8 @@ The legacy `src/services/api.js` facade has been removed. Do not recreate a glob
 - `npm run lint` validates React hooks, imports, and JavaScript quality.
 - `npm run build` validates Vite module paths, lazy chunks, JSX, and production bundling.
 - `npm run check` runs lint, tests, and build in that order.
+- `npm run test:e2e -- --workers=2` verifies the desktop/mobile route shell, dark mode and overflow guards with strict API mocks.
+- `npm run dead-code` and `git diff --check` are required before delivery.
 - Add tests when changing n8n response envelopes, conversation limits, quiz normalizers, input validation, or markdown URL handling.
 - Live backend/n8n behavior and responsive/dark-mode visuals still require integration/manual testing; unit tests must not claim those flows passed.
 

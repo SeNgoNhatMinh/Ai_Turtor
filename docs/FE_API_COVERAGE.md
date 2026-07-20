@@ -12,7 +12,7 @@ Action-level QA cases for the visible UI are maintained in `docs/FE_BUTTON_ACTIO
 - `out of scope`: Intentionally hidden or not needed for demo.
 
 ## Audit Basis
-- Re-audited on `2026-07-19` against the latest Java controllers, `FE_WEBSOCKET_TEACHER_EXAM_GUIDE_VI.md`, and the checked-in n8n workflows.
+- Re-audited on `2026-07-20` against the latest Java controllers, `FE_WEBSOCKET_TEACHER_EXAM_GUIDE_VI.md`, and the checked-in n8n workflows.
 - Controller code and the checked-in n8n workflow take precedence over older handoff text when documents disagree.
 - “UI done” means the canonical endpoint is reachable from a visible flow; it does not mean every backend alias has a separate button.
 
@@ -21,6 +21,8 @@ Action-level QA cases for the visible UI are maintained in `docs/FE_BUTTON_ACTIO
 - The frontend covers all minimum screens listed in the current education handoff: AI chat/review, mentor selection and ChatRoom, quizzes, teacher review, senior candidate approval, academic administration, and materials.
 - Payment/subscription UI is intentionally out of scope.
 - n8n remains optional; backend direct is the stable local demo path.
+- Admin diagnostics render only canonical API data. Failed log/trace reads show an error state and never create placeholder success records.
+- Tutor V2, Student, Teacher and Admin routes share Vietnamese status/action conventions without changing backend enums or payloads.
 - The remaining items are non-blocking optional coverage or require a better backend list endpoint; see `Known Remaining Gaps`.
 
 ## 1. Auth & Profile
@@ -67,6 +69,8 @@ Action-level QA cases for the visible UI are maintained in `docs/FE_BUTTON_ACTIO
 - `GET /api/students/{studentId}/courses/{courseId}/improve-plan` - `UI done`
 - `PUT /api/improve-plans/{planId}/complete` - `UI done`
 - `POST /api/tutor/students/{studentId}/courses/{courseId}/suggestions/learn` - `UI done`
+- Course-scoped `Student Next Steps` combines canonical assignment, quiz and escalation reads; no activity or success record is invented in FE.
+- Suggestions confirmed by `/suggestions/learn` or `409 SUGGESTION_ALREADY_USED` are disabled for the current session/scope.
 - `POST /api/tutor/students/{studentId}/courses/{courseId}/quizzes/generate` - `UI done`
 - `GET /api/tutor/students/{studentId}/courses/{courseId}/quizzes` - `UI done`
 - `GET /api/tutor/quizzes/{quizSessionId}` - `UI done`
@@ -86,6 +90,7 @@ Action-level QA cases for the visible UI are maintained in `docs/FE_BUTTON_ACTIO
 - `POST /api/tutor/escalations/{id}/answer` - `UI done`
 - `GET /api/tutor/answer-reviews/mentor-pending` - `UI done`
 - `GET /api/tutor/answer-reviews/senior-pending` - `UI done`
+- `GET /api/tutor/answer-reviews?status=RESOLVED&courseId=...` - `UI done`; read-only history tab
 - `POST /api/tutor/answer-reviews/{id}/senior-resolve` - `UI done`
 - `GET /api/tutor/escalations/knowledge-candidates` - `UI done`
 - `POST /api/tutor/escalations/knowledge-candidates/{id}/approve` - `UI done`
@@ -109,6 +114,7 @@ Action-level QA cases for the visible UI are maintained in `docs/FE_BUTTON_ACTIO
 - `GET /api/tutor/teachers/{teacherId}/quiz-attempts` - `UI done`; paginated teacher quiz review list
 - `PUT /api/tutor/quizzes/{quizSessionId}/teacher-review` - `UI done`
 - `GET /api/tutor/courses/{courseId}/memories` - `UI done`
+- Teacher class page includes an API-backed action center for pending quiz attempts, file submissions, escalations, answer reviews and failed material indexing.
 
 ## 5. Admin Academic, Users, Materials
 - `GET /api/admin/dashboard/stats` - `UI done`
@@ -128,8 +134,8 @@ Action-level QA cases for the visible UI are maintained in `docs/FE_BUTTON_ACTIO
 - `GET /api/admin/class-sections/students/import/template` - `UI done`
 - `GET /api/admin/class-sections/students/import/template.xlsx` - `UI done`
 - `POST /api/courses/{courseId}/materials/upload` - `UI done`
-- `POST /api/courses/{courseId}/materials/url-toc` - `UI done`
-- `POST /api/courses/{courseId}/materials/import-url` - `UI done`
+- `POST /api/courses/{courseId}/materials/url-toc` - `UI done`; Admin/Teacher đều phải phân tích URL trước khi import
+- `POST /api/courses/{courseId}/materials/import-url` - `UI done`; chọn `1-50` mục từ TOC, chỉ fallback single URL khi TOC rỗng
 - `GET /api/courses/{courseId}/materials` - `UI done`
 - `GET /api/courses/{courseId}/materials/{materialId}` - `UI done`
 - `PUT /api/courses/{courseId}/materials/{materialId}` - `UI done`
@@ -137,6 +143,7 @@ Action-level QA cases for the visible UI are maintained in `docs/FE_BUTTON_ACTIO
 - `POST /api/courses/{courseId}/materials/reindex` - `UI done`
 - `POST /api/courses/{courseId}/materials/{materialId}/reindex` - `UI done`
 - `DELETE /api/courses/{courseId}/materials/{materialId}` - `UI done`
+- Admin exposes `/admin/review-queue` for serious Answer Reviews and Knowledge Candidate approval using the same canonical review services and role guards as Senior Mentor.
 
 ## 6. Tutor V2 Expert Co-Training
 - `POST /api/v2/expert-training/coverage/analyze` - `UI done`; Senior/Admin only
@@ -154,7 +161,7 @@ Action-level QA cases for the visible UI are maintained in `docs/FE_BUTTON_ACTIO
 - `GET /api/v2/expert-training/eval-runs` - `UI done`
 - `GET /api/v2/expert-training/eval-runs/{id}` - `UI done`; per-case comparison
 
-Tutor V2 is available at `/teacher/expert-training` and `/admin/expert-training`. The same lazy feature applies role-aware actions: Teacher contributes; Senior/Admin can analyze, approve/reject and run evaluation. `TRAINING` approval is rendered as `INDEXED`; `EVALUATION` approval is rendered as a private `APPROVED` holdout.
+Tutor V2 is available at `/teacher/expert-training` and `/admin/expert-training`. The shared lazy feature has four views: `Tổng quan`, `Công việc`, `Nội dung & kiểm duyệt`, and `Evaluation`. Teacher contributes and inspects results; Senior/Admin can analyze, approve/reject and run evaluation. `TRAINING` approval is rendered as `INDEXED`; `EVALUATION` approval is rendered as a private `APPROVED` holdout. Evaluation execution stays disabled until canonical GET data contains at least one approved Evaluation Gold Q&A.
 
 ## 7. Diagnostics
 - `GET /api/harness/logs` - `UI done`
@@ -189,7 +196,8 @@ Tutor V2 is available at `/teacher/expert-training` and `/admin/expert-training`
 - `GET ws(s)://{backend}/ws/events?token={JWT}` - `UI done`; one authenticated app-level connection
 - Material indexing, assignment assigned/submitted/reviewed, AI grading, and Tutor V2 task/contribution/evaluation events trigger canonical HTTP refetches.
 - Tutor V2 subscriptions cover `EXPERT_TASK_*`, `GOLD_QA_*`, `RUBRIC_*`, and `EVAL_RUN_*`; duplicate `type + entityId + status` envelopes are ignored briefly.
-- Reconnecting to `/ws/events` triggers a canonical refresh of the active Tutor V2 course.
+- Reconnecting to `/ws/events` triggers canonical refresh for active Tutor V2, material, Student assignment and Teacher grading screens.
+- Teacher material upload retains the backend `materialId`, mounts an optimistic processing row and reconciles `PROCESSING/INDEXED/INDEXING_FAILED` through WebSocket plus canonical GET.
 - WebSocket events never manufacture upload, submission, grading, or review success in frontend state.
 
 n8n is an orchestration layer, not the canonical data store. FE refetches canonical backend resources after mutations and does not call an LLM provider directly.
@@ -197,6 +205,5 @@ n8n is an orchestration layer, not the canonical data store. FE refetches canoni
 The older `BACKEND_API_FE_HANDOFF.md` still mentions `/teacher-answer` in two places. The checked-in workflow, current education handoff, and backend smoke scripts use `/teacher-answer-escalation`; FE intentionally follows the executable workflow.
 
 ## 11. Known Remaining Gaps
-- The generic `GET /api/tutor/answer-reviews` history endpoint has no standalone all-history screen. Mentor and senior pending queues, which are required by the BRD, are complete.
 - Code Mentor file upload has no separate UI. Pasted code and CODE routing work through Student Chat.
 - Backend aliases and legacy dashboard/payment endpoints are intentionally not duplicated in UI when a canonical endpoint already covers the same business action.

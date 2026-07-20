@@ -24,22 +24,22 @@ export default function AssignmentEditModal({ assignment, open, saving = false, 
 
   return (
     <Modal
-      title="Edit assignment"
+      title="Chỉnh sửa bài tập"
       open={open}
-      okText="Save changes"
+      okText="Lưu thay đổi"
       confirmLoading={saving}
       onCancel={onCancel}
       onOk={submit}
-      destroyOnClose
+      destroyOnHidden
     >
       <Form form={form} layout="vertical">
-        <Form.Item name="title" label="Assignment title" rules={[{ required: true, whitespace: true, message: 'Title is required.' }]}>
+        <Form.Item name="title" label="Tên bài tập" rules={[{ required: true, whitespace: true, message: 'Nhập tên bài tập.' }]}>
           <Input maxLength={200} />
         </Form.Item>
-        <Form.Item name="description" label="Requirements">
+        <Form.Item name="description" label="Yêu cầu">
           <Input.TextArea rows={4} maxLength={5000} showCount />
         </Form.Item>
-        <Form.Item name="dueAt" label="Deadline">
+        <Form.Item name="dueAt" label="Hạn nộp">
           <Input type="datetime-local" />
         </Form.Item>
       </Form>

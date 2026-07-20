@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getUserFacingError } from '../../../services/apiClient';
 import { materialsApi } from '../../../services/materialsApi';
 import { useMutationLock } from '../../../hooks/useMutationLock';
@@ -11,33 +11,60 @@ export function useTeacherMaterialController({
   classId,
   teacherUserId,
   onReload,
+  onAccepted,
+  courseMaterials = [],
   triggerToast,
 }) {
   const [file, setFile] = useState(null);
   const [title, setTitle] = useState('');
   const [uploading, setUploading] = useState(false);
   const [actionId, setActionId] = useState('');
+  const [pendingUpload, setPendingUpload] = useState(null);
   const cooldownTimerRef = useRef(null);
   const { runLocked } = useMutationLock();
 
   useEffect(() => () => window.clearTimeout(cooldownTimerRef.current), []);
 
+  const resolvedPendingUpload = useMemo(() => {
+    if (!pendingUpload?.id) return pendingUpload;
+    const current = courseMaterials.find((material) => (
+      String(material.id || material.materialId) === String(pendingUpload.id)
+    ));
+    if (!current) return pendingUpload;
+    return {
+      ...pendingUpload,
+      ...current,
+      status: current.indexingStatus || current.status || pendingUpload.status,
+      indexingError: current.indexingError || current.error || '',
+    };
+  }, [courseMaterials, pendingUpload]);
+
   const upload = useCallback(async (event) => {
     event.preventDefault();
     if (!courseId || !classId) {
-      triggerToast('Select a teaching class in the "Teaching class" field above.');
+      triggerToast('Hãy chọn lớp giảng dạy ở trường phía trên.');
       return;
     }
     if (!file) {
-      triggerToast('Choose a PDF file to upload.');
+      triggerToast('Hãy chọn tệp PDF để tải lên.');
       return;
     }
     if (!teacherUserId) {
-      triggerToast('Your teacher account could not be identified. Please sign in again.');
+      triggerToast('Không xác định được tài khoản giảng viên. Vui lòng đăng nhập lại.');
       return;
     }
     if (!String(file.name || '').toLowerCase().endsWith('.pdf')) {
-      triggerToast('Only PDF course materials are supported.');
+      triggerToast('Học liệu môn học chỉ hỗ trợ tệp PDF.');
+      return;
+    }
+
+    const uploadFingerprint = [courseId, classId, file.name, file.size].join(':');
+    const pendingStatus = String(resolvedPendingUpload?.status || '').toUpperCase();
+    if (
+      resolvedPendingUpload?.fingerprint === uploadFingerprint
+      && ['PENDING', 'QUEUED', 'PROCESSING', 'INDEXING'].includes(pendingStatus)
+    ) {
+      triggerToast('Tệp này đã được backend nhận và đang lập chỉ mục. Không cần tải lại.');
       return;
     }
 
@@ -53,25 +80,56 @@ export function useTeacherMaterialController({
       formData.append('classId', classId);
 
       try {
-        await materialsApi.uploadMaterial(courseId, formData);
-        setFile(null);
-        setTitle('');
-        triggerToast('Class material upload accepted. Indexing is running in the background.');
+        const receipt = await materialsApi.uploadMaterial(courseId, formData);
+        const optimisticMaterial = {
+          ...receipt,
+          id: receipt.materialId || receipt.documentId,
+          materialId: receipt.materialId || receipt.documentId,
+          courseId,
+          classId,
+          title: title || file.name,
+          fileName: file.name,
+          sourceFileName: file.name,
+          sourceType: receipt.sourceType || 'PDF',
+          indexingStatus: receipt.indexingStatus || receipt.status || 'PROCESSING',
+          status: receipt.indexingStatus || receipt.status || 'PROCESSING',
+        };
+        setPendingUpload({ ...optimisticMaterial, fingerprint: uploadFingerprint });
+        onAccepted?.(optimisticMaterial);
+        triggerToast('Backend đã nhận học liệu của lớp và đang lập chỉ mục trong nền.');
         await onReload?.();
       } catch (error) {
-        triggerToast(getUserFacingError(error, 'Unable to upload class material.'));
+        triggerToast(getUserFacingError(error, 'Không thể tải học liệu của lớp.'));
       } finally {
         cooldownTimerRef.current = window.setTimeout(() => {
           setUploading(false);
         }, UPLOAD_COOLDOWN_MS);
       }
     });
-  }, [classId, courseId, file, onReload, runLocked, teacherUserId, title, triggerToast]);
+  }, [
+    classId,
+    courseId,
+    file,
+    onAccepted,
+    onReload,
+    resolvedPendingUpload?.fingerprint,
+    resolvedPendingUpload?.status,
+    runLocked,
+    teacherUserId,
+    title,
+    triggerToast,
+  ]);
+
+  const clearUploadDraft = useCallback(() => {
+    setFile(null);
+    setTitle('');
+    setPendingUpload(null);
+  }, []);
 
   const runAction = useCallback(async (action, material) => {
     const materialId = getRecordId(material);
     if (!materialId) {
-      triggerToast('This material is missing an ID.');
+      triggerToast('Học liệu này thiếu mã định danh.');
       return;
     }
 
@@ -80,10 +138,10 @@ export function useTeacherMaterialController({
       try {
         if (action === 'reindex') {
           await materialsApi.reindexMaterial(courseId, materialId, teacherUserId);
-          triggerToast('Material reindexing triggered.');
+          triggerToast('Đã gửi yêu cầu lập chỉ mục lại học liệu.');
         } else if (action === 'delete') {
           await materialsApi.deleteMaterial(courseId, materialId, teacherUserId);
-          triggerToast('Material deleted.');
+          triggerToast('Đã xóa học liệu.');
         } else {
           throw new Error(`Unsupported material action: ${action}`);
         }
@@ -91,7 +149,7 @@ export function useTeacherMaterialController({
       } catch (error) {
         triggerToast(getUserFacingError(
           error,
-          action === 'delete' ? 'Unable to delete material.' : 'Unable to reindex material.',
+          action === 'delete' ? 'Không thể xóa học liệu.' : 'Không thể lập chỉ mục lại học liệu.',
         ));
       } finally {
         setActionId('');
@@ -106,6 +164,8 @@ export function useTeacherMaterialController({
     setTitle,
     uploading,
     actionId,
+    pendingUpload: resolvedPendingUpload,
+    clearUploadDraft,
     upload,
     runAction,
   };

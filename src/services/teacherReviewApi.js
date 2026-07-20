@@ -43,6 +43,22 @@ export const teacherReviewApi = {
     return asArray(await request(`${API_BASE_URL}/tutor/answer-reviews/senior-pending${params}`), 'reviews', 'content');
   },
 
+  async getAnswerReviews(filters = {}) {
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        params.set(key, String(value));
+      }
+    });
+    const query = params.toString();
+    return asArray(
+      await request(`${API_BASE_URL}/tutor/answer-reviews${query ? `?${query}` : ''}`),
+      'reviews',
+      'content',
+      'items',
+    );
+  },
+
   async seniorResolveAnswerReview(reviewId, payload) {
     return request(`${API_BASE_URL}/tutor/answer-reviews/${encodePath(reviewId)}/senior-resolve`, {
       method: 'POST',

@@ -27,6 +27,18 @@ function stripBaseUrl(url) {
   return value;
 }
 
+let unauthorizedRedirectStarted = false;
+
+function handleUnauthorized(error) {
+  if (!(error instanceof ApiError) || error.status !== 401 || unauthorizedRedirectStarted) return;
+  unauthorizedRedirectStarted = true;
+  clearAuthToken();
+  if (typeof window !== 'undefined') {
+    window.sessionStorage.removeItem('ai-tutor:current-user');
+    window.location.reload();
+  }
+}
+
 export async function request(url, options = {}) {
   const { headers, body, method = 'GET', signal, responseType, ...restOptions } = options;
   let parsedBody = body;
@@ -48,11 +60,7 @@ export async function request(url, options = {}) {
       ...restOptions,
     });
   } catch (error) {
-    if (error instanceof ApiError && error.status === 401) {
-      clearAuthToken();
-      window.sessionStorage.removeItem('ai-tutor:current-user');
-      window.location.reload();
-    }
+    handleUnauthorized(error);
     throw error;
   }
 }
@@ -61,13 +69,19 @@ export async function uploadRequest(url, formData, errorPrefix = "Upload failed"
   try {
     return await httpClient.upload(stripBaseUrl(url), formData, options);
   } catch (error) {
+    handleUnauthorized(error);
     error.message = error.message || errorPrefix;
     throw error;
   }
 }
 
-export async function blobRequest(url) {
-  return httpClient.blob(stripBaseUrl(url));
+export async function blobRequest(url, options = {}) {
+  try {
+    return await httpClient.blob(stripBaseUrl(url), options);
+  } catch (error) {
+    handleUnauthorized(error);
+    throw error;
+  }
 }
 
 export { getUserFacingError };

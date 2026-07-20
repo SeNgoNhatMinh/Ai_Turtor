@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
 import { Database, Download, Pencil, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import StatusLabel from '../../../components/common/StatusLabel';
+import EntityActionMenu from '../../../components/common/EntityActionMenu';
 import { getRecordId } from '../shared/teacherUtils';
 import { getMaterialDisplayName } from '../../../utils/sourceLabels';
 
@@ -23,22 +24,22 @@ export function useTeacherResourceColumns({
   const assignmentColumns = useMemo(() => [
     {
       accessorKey: 'title',
-      header: 'Title',
-      cell: ({ row }) => <span className="font-semibold text-gray-900">{row.getValue('title') || 'Untitled assignment'}</span>,
+      header: 'Tên bài tập',
+      cell: ({ row }) => <span className="font-semibold text-gray-900">{row.getValue('title') || 'Bài tập chưa đặt tên'}</span>,
     },
     {
       accessorKey: 'assignmentType',
-      header: 'Type',
-      cell: ({ row }) => <Badge variant="outline">{row.getValue('assignmentType') || 'ASSIGNMENT'}</Badge>,
+      header: 'Loại',
+      cell: ({ row }) => <Badge variant="outline">{String(row.getValue('assignmentType') || 'ASSIGNMENT').toUpperCase() === 'EXAM' ? 'Bài kiểm tra' : 'Bài tập'}</Badge>,
     },
     {
       accessorKey: 'maxScore',
-      header: 'Max score',
+      header: 'Điểm tối đa',
       cell: ({ row }) => <span>{row.getValue('maxScore') ?? 10}</span>,
     },
     {
       accessorKey: 'targetType',
-      header: 'Target',
+      header: 'Đối tượng',
       cell: ({ row }) => (
         <Badge
           variant={row.getValue('targetType') === 'SELECTED_STUDENTS' ? 'secondary' : 'outline'}
@@ -46,34 +47,37 @@ export function useTeacherResourceColumns({
             ? 'bg-orange-100 text-orange-600 hover:bg-orange-100 border-none'
             : 'bg-green-50 text-green-600 border-green-200'}
         >
-          {row.getValue('targetType') || 'ALL_CLASS'}
+          {row.getValue('targetType') === 'SELECTED_STUDENTS' ? 'Sinh viên được chọn' : 'Cả lớp'}
         </Badge>
       ),
     },
     {
       accessorKey: 'dueAt',
-      header: 'Due',
+      header: 'Hạn nộp',
       cell: ({ row }) => {
         const value = row.getValue('dueAt');
         return <span className="text-gray-500 text-sm">{value ? new Date(value).toLocaleString() : '-'}</span>;
       },
     },
-    { accessorKey: 'status', header: 'Status', cell: ({ row }) => <span>{row.getValue('status') || 'Published'}</span> },
+    { accessorKey: 'status', header: 'Trạng thái', cell: ({ row }) => <StatusLabel status={row.getValue('status') || 'PUBLISHED'} /> },
     {
       id: 'actions',
-      header: 'Actions',
+      header: '',
       cell: ({ row }) => (
-        <div className="flex justify-end gap-2">
-          <Button size="sm" variant="outline" className="h-7 px-2 text-xs" disabled={!onEditAssignment} onClick={() => onEditAssignment(row.original)}>
-            <Pencil className="w-3 h-3 mr-1" /> Edit
-          </Button>
-          <Button size="sm" variant="outline" className="h-7 px-2 text-xs" disabled={!onDownloadAssignment} onClick={() => onDownloadAssignment(row.original)}>
-            <Download className="w-3 h-3 mr-1" /> Download
-          </Button>
-          <Button size="sm" variant="destructive" className="h-7 px-2 text-xs" disabled={!onDeleteAssignment} onClick={() => onDeleteAssignment(row.original)}>
-            <Trash2 className="w-3 h-3 mr-1" /> Delete
-          </Button>
-        </div>
+        <EntityActionMenu
+          ariaLabel="Thao tác bài tập"
+          items={[
+            { key: 'edit', label: 'Chỉnh sửa', icon: <Pencil size={14} />, disabled: !onEditAssignment },
+            { key: 'download', label: 'Tải xuống', icon: <Download size={14} />, disabled: !onDownloadAssignment },
+            { type: 'divider' },
+            { key: 'delete', label: 'Xóa', icon: <Trash2 size={14} />, danger: true, disabled: !onDeleteAssignment },
+          ]}
+          onAction={(key) => {
+            if (key === 'edit') onEditAssignment?.(row.original);
+            if (key === 'download') onDownloadAssignment?.(row.original);
+            if (key === 'delete') onDeleteAssignment?.(row.original);
+          }}
+        />
       ),
     },
   ], [onDeleteAssignment, onDownloadAssignment, onEditAssignment]);
@@ -81,25 +85,39 @@ export function useTeacherResourceColumns({
   const materialColumns = useMemo(() => [
     {
       accessorKey: 'title',
-      header: 'Material Title',
-      cell: ({ row }) => <span className="font-semibold text-gray-900">{row.getValue('title') || 'Untitled Material'}</span>,
+      header: 'Tên tài liệu',
+      cell: ({ row }) => <span className="font-semibold text-gray-900">{row.getValue('title') || 'Tài liệu chưa đặt tên'}</span>,
     },
     {
       id: 'fileName',
-      header: 'File Path / Name',
+      header: 'Nguồn tài liệu',
       cell: ({ row }) => {
-        const name = getMaterialDisplayName(row.original) || 'Material file unavailable';
+        const name = getMaterialDisplayName(row.original) || 'Không có thông tin tệp';
         return <span className="font-mono text-xs text-gray-500 truncate max-w-[200px] block" title={name}>{name}</span>;
       },
     },
     {
       accessorKey: 'classId',
-      header: 'Class Code',
-      cell: ({ row }) => <Badge variant="outline" className="bg-orange-50 text-orange-600 border-orange-200">{row.getValue('classId') || 'Course-wide'}</Badge>,
+      header: 'Phạm vi',
+      cell: ({ row }) => <Badge variant="outline" className="bg-orange-50 text-orange-600 border-orange-200">{row.getValue('classId') ? `Lớp ${row.getValue('classId')}` : 'Toàn môn'}</Badge>,
+    },
+    {
+      id: 'indexingStatus',
+      header: 'Trạng thái RAG',
+      cell: ({ row }) => {
+        const status = row.original.indexingStatus || row.original.status || 'INDEXED';
+        const error = row.original.indexingError || row.original.error || '';
+        return (
+          <div className="teacher-material-status-cell">
+            <StatusLabel status={status} />
+            {error && <span title={error}>{error}</span>}
+          </div>
+        );
+      },
     },
     {
       accessorKey: 'createdAt',
-      header: 'Uploaded Date',
+      header: 'Ngày tải lên',
       cell: ({ row }) => {
         const value = row.getValue('createdAt');
         return <span className="text-gray-500 text-sm">{value ? new Date(value).toLocaleString() : '-'}</span>;
@@ -107,30 +125,26 @@ export function useTeacherResourceColumns({
     },
     {
       id: 'actions',
-      header: 'Actions',
+      header: '',
       cell: ({ row }) => {
         const material = row.original;
         const materialId = getRecordId(material);
         const isWebsite = material.sourceType === 'HTML_URL';
         return (
-          <div className="flex justify-end gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-7 px-2 text-xs"
-              disabled={isWebsite || !materialId || !onDownloadMaterial}
-              title={isWebsite ? 'Website imports do not have a PDF file' : undefined}
-              onClick={() => onDownloadMaterial(materialId, material.title, material)}
-            >
-              <Download className="w-3 h-3 mr-1" /> Download
-            </Button>
-            <Button size="sm" variant="outline" className="h-7 px-2 text-xs bg-blue-50 text-blue-600 hover:bg-blue-100 hover:text-blue-700 border-blue-200" disabled={!materialId || !onMaterialAction || materialActionId === `reindex:${materialId}`} onClick={() => onMaterialAction('reindex', material)}>
-              <Database className="w-3 h-3 mr-1" /> Reindex
-            </Button>
-            <Button size="sm" variant="destructive" className="h-7 px-2 text-xs" disabled={!materialId || !onMaterialAction || materialActionId === `delete:${materialId}`} onClick={() => onMaterialAction('delete', material)}>
-              <Trash2 className="w-3 h-3 mr-1" /> Delete
-            </Button>
-          </div>
+          <EntityActionMenu
+            ariaLabel="Thao tác tài liệu"
+            items={[
+              { key: 'download', label: isWebsite ? 'Website không có PDF' : 'Tải xuống', icon: <Download size={14} />, disabled: isWebsite || !materialId || !onDownloadMaterial },
+              { key: 'reindex', label: 'Lập chỉ mục lại', icon: <Database size={14} />, disabled: !materialId || !onMaterialAction || materialActionId === `reindex:${materialId}` },
+              { type: 'divider' },
+              { key: 'delete', label: 'Xóa', icon: <Trash2 size={14} />, danger: true, disabled: !materialId || !onMaterialAction || materialActionId === `delete:${materialId}` },
+            ]}
+            onAction={(key) => {
+              if (key === 'download') onDownloadMaterial?.(materialId, material.title, material);
+              if (key === 'reindex') onMaterialAction?.('reindex', material);
+              if (key === 'delete') onMaterialAction?.('delete', material);
+            }}
+          />
         );
       },
     },

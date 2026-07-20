@@ -43,10 +43,10 @@ test('normalizes quiz sessions and assignments from backend aliases', () => {
 });
 
 test('uses clear quiz status and score labels', () => {
-  assert.equal(getQuizStatusLabel({ status: 'GENERATED' }), 'In progress');
-  assert.equal(getQuizStatusLabel({ status: 'SUBMITTED', quizType: 'ASSIGNED' }), 'Submitted - waiting review');
-  assert.equal(getQuizStatusLabel({ teacherReviewStatus: 'REVIEWED' }), 'Teacher reviewed');
-  assert.equal(getQuizScoreText({ teacherReviewedScore: 8, maxScore: 10 }), 'Score 8/10');
+  assert.equal(getQuizStatusLabel({ status: 'GENERATED' }), 'Đang làm');
+  assert.equal(getQuizStatusLabel({ status: 'SUBMITTED', quizType: 'ASSIGNED' }), 'Đã nộp · Chờ duyệt');
+  assert.equal(getQuizStatusLabel({ teacherReviewStatus: 'REVIEWED' }), 'Giảng viên đã duyệt');
+  assert.equal(getQuizScoreText({ teacherReviewedScore: 8, maxScore: 10 }), 'Điểm 8/10');
 });
 
 test('normalizes teacher quiz attempt summaries without loading student histories', () => {

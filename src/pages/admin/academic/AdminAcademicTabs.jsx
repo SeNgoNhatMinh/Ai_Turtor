@@ -10,7 +10,7 @@ const StudentImportTab = lazy(() => import('./StudentImportTab'));
 const TermsTab = lazy(() => import('./TermsTab'));
 
 function TabFallback() {
-  return <AsyncState loading compact loadingLabel="Loading academic records..." loadingRows={5} />;
+  return <AsyncState loading compact loadingLabel="Đang tải dữ liệu học vụ..." loadingRows={5} />;
 }
 
 export default function AdminAcademicTabs({
@@ -29,7 +29,7 @@ export default function AdminAcademicTabs({
   const items = [
     {
       key: 'semesters',
-      label: 'Terms',
+      label: 'Học kỳ',
       children: (
         <Suspense fallback={<TabFallback />}>
           <TermsTab form={forms.semester} semesters={academic.semesters} onCreate={academic.handleCreateSemester} onReload={academic.loadSemesters} onAction={onAcademicAction} />
@@ -38,7 +38,7 @@ export default function AdminAcademicTabs({
     },
     {
       key: 'courses',
-      label: 'Courses',
+      label: 'Môn học',
       children: (
         <Suspense fallback={<TabFallback />}>
           <CoursesTab form={forms.course} courses={academic.courses} onCreate={academic.handleCreateCourse} onReload={academic.loadCourses} onAction={onAcademicAction} />
@@ -47,7 +47,7 @@ export default function AdminAcademicTabs({
     },
     {
       key: 'classes',
-      label: 'Class Sections',
+      label: 'Lớp học phần',
       children: (
         <Suspense fallback={<TabFallback />}>
           <ClassSectionsTab
@@ -66,7 +66,7 @@ export default function AdminAcademicTabs({
     },
     {
       key: 'enrollments',
-      label: 'Student Enrollments',
+      label: 'Ghi danh sinh viên',
       children: (
         <Suspense fallback={<TabFallback />}>
           <StudentEnrollmentsTab
@@ -90,7 +90,7 @@ export default function AdminAcademicTabs({
     },
     {
       key: 'student-import',
-      label: 'Import Students',
+      label: 'Import sinh viên',
       children: (
         <Suspense fallback={<TabFallback />}>
           <StudentImportTab
@@ -115,7 +115,7 @@ export default function AdminAcademicTabs({
     },
     {
       key: 'materials',
-      label: 'Course Materials',
+      label: 'Học liệu môn học',
       children: (
         <Suspense fallback={<TabFallback />}>
           <CourseMaterialsTab

@@ -13,7 +13,7 @@ function RouteLoadingFallback() {
   return (
     <div className="app-route-loading" role="status" aria-live="polite">
       <span className="app-route-loading__spinner" aria-hidden="true" />
-      <span>Loading...</span>
+      <span>Đang tải...</span>
     </div>
   );
 }

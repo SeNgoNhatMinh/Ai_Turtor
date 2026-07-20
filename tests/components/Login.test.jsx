@@ -11,17 +11,17 @@ describe('Login', () => {
     const triggerToast = vi.fn();
     render(<LoginPage onLoginSuccess={vi.fn()} triggerToast={triggerToast} />);
 
-    fireEvent.change(screen.getByLabelText('Email address'), { target: { value: 'student@example.com' } });
-    fireEvent.change(screen.getByLabelText('Password'), { target: { value: '1' } });
-    fireEvent.click(screen.getAllByRole('button', { name: /^Sign in/ }).at(-1));
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'student@example.com' } });
+    fireEvent.change(screen.getByLabelText('Mật khẩu'), { target: { value: '1' } });
+    fireEvent.click(screen.getAllByRole('button', { name: /^Đăng nhập/ }).at(-1));
 
-    expect(triggerToast).toHaveBeenCalledWith('Password must be at least 6 characters.');
+    expect(triggerToast).toHaveBeenCalledWith('Mật khẩu phải có ít nhất 6 ký tự.');
   });
 
   it('shows registration fields through the segmented control', () => {
     render(<LoginPage onLoginSuccess={vi.fn()} triggerToast={vi.fn()} />);
-    fireEvent.click(screen.getByRole('tab', { name: 'Create account' }));
-    expect(screen.getByLabelText('Full name')).toBeInTheDocument();
-    expect(screen.getByText('Password must be at least 6 characters.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('tab', { name: 'Tạo tài khoản' }));
+    expect(screen.getByLabelText('Họ và tên')).toBeInTheDocument();
+    expect(screen.getByText('Mật khẩu phải có ít nhất 6 ký tự.')).toBeInTheDocument();
   });
 });

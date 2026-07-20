@@ -47,16 +47,16 @@ export default function AssignmentPublishCard({
   const selectedClassValue = teachingClass ? String(getClassOptionValue(teachingClass)) : undefined;
   const maxScore = Number(assignment.maxScore);
   const publishBlockedReason = (() => {
-    if (classesLoading) return 'Loading your assigned classes...';
-    if (!classOptions.length) return 'No teaching class is assigned to this account.';
-    if (!selectedClassValue || !assignment.courseId) return 'Choose the teaching class for this assignment.';
-    if (!assignment.title.trim()) return 'Enter an assignment title.';
+    if (classesLoading) return 'Đang tải lớp được phân công...';
+    if (!classOptions.length) return 'Tài khoản chưa được phân công lớp học phần.';
+    if (!selectedClassValue || !assignment.courseId) return 'Chọn lớp nhận bài tập này.';
+    if (!assignment.title.trim()) return 'Nhập tên bài tập.';
     if (!Number.isFinite(maxScore) || maxScore <= 0 || maxScore > 1000) {
-      return 'Maximum score must be greater than 0 and at most 1000.';
+      return 'Điểm tối đa phải lớn hơn 0 và không vượt quá 1000.';
     }
-    if (!assignment.file) return 'Choose an assignment file.';
+    if (!assignment.file) return 'Chọn tệp bài tập.';
     if (assignment.targetType === 'SELECTED_STUDENTS' && selectedStudentIds.length === 0) {
-      return 'Choose at least one student.';
+      return 'Chọn ít nhất một sinh viên.';
     }
     return '';
   })();
@@ -68,56 +68,56 @@ export default function AssignmentPublishCard({
   return (
     <Card className="shadow-sm border-gray-100">
       <CardHeader className="pb-4">
-        <CardTitle className="flex items-center gap-2 text-lg text-gray-800"><Send className="w-5 h-5 text-blue-500" /> Publish New Assignment</CardTitle>
-        <CardDescription>Create and publish a new assignment for your students.</CardDescription>
+        <CardTitle className="flex items-center gap-2 text-lg text-gray-800"><Send className="w-5 h-5 text-blue-500" /> Giao bài tập mới</CardTitle>
+        <CardDescription>Gửi tệp bài tập cho cả lớp hoặc một nhóm sinh viên.</CardDescription>
       </CardHeader>
       <CardContent>
         <form className="space-y-4" onSubmit={onCreate}>
           <div className="space-y-2">
-            <Label htmlFor="assignmentTitle">Assignment title</Label>
+            <Label htmlFor="assignmentTitle">Tên bài tập</Label>
             <Input id="assignmentTitle" value={assignment.title} onChange={(event) => assignment.setTitle(event.target.value)} required className="bg-gray-50/50" />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="assignmentDesc">Assignment requirements</Label>
-            <Textarea id="assignmentDesc" value={assignment.description} onChange={(event) => assignment.setDescription(event.target.value)} className="bg-gray-50/50 min-h-[80px]" placeholder="Optional instructions for students" />
+            <Label htmlFor="assignmentDesc">Yêu cầu bài tập</Label>
+            <Textarea id="assignmentDesc" value={assignment.description} onChange={(event) => assignment.setDescription(event.target.value)} className="bg-gray-50/50 min-h-[80px]" placeholder="Hướng dẫn thêm cho sinh viên (không bắt buộc)" />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="assignmentClass">Teaching class</Label>
+              <Label htmlFor="assignmentClass">Lớp học phần</Label>
               <AntSelect
                 id="assignmentClass"
-                aria-label="Assignment teaching class"
+                aria-label="Lớp nhận bài tập"
                 showSearch
                 value={selectedClassValue}
-                placeholder="Choose the class receiving this assignment"
+                placeholder="Chọn lớp nhận bài tập"
                 optionFilterProp="searchLabel"
                 options={classOptions}
                 loading={classesLoading}
                 disabled={assignment.isPublishing || classesLoading || classOptions.length === 0}
-                notFoundContent={classesLoading ? 'Loading classes...' : 'No assigned classes found'}
+                notFoundContent={classesLoading ? 'Đang tải lớp...' : 'Không có lớp được phân công'}
                 onChange={(value, option) => onClassChange?.(value, option)}
                 style={{ width: '100%' }}
               />
-              <p className="text-xs text-gray-500">The selected class also determines the course and student list.</p>
+              <p className="text-xs text-gray-500">Lớp đã chọn quyết định mã môn và danh sách sinh viên.</p>
             </div>
             <div className="space-y-2">
-              <Label>Submission deadline</Label>
+              <Label>Hạn nộp</Label>
               <Input type="datetime-local" value={assignment.deadline} onChange={(event) => assignment.setDeadline(event.target.value)} className="bg-gray-50/50" />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Type</Label>
+              <Label>Loại</Label>
               <Select value={assignment.type} onValueChange={assignment.setType}>
-                <SelectTrigger className="bg-gray-50/50"><SelectValue placeholder="Assignment type" /></SelectTrigger>
+                <SelectTrigger className="bg-gray-50/50"><SelectValue placeholder="Loại bài tập" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="ASSIGNMENT">Assignment</SelectItem>
-                  <SelectItem value="EXAM">Exam</SelectItem>
+                  <SelectItem value="ASSIGNMENT">Bài tập</SelectItem>
+                  <SelectItem value="EXAM">Bài kiểm tra</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="assignmentMaxScore">Maximum score</Label>
+              <Label htmlFor="assignmentMaxScore">Điểm tối đa</Label>
               <Input
                 id="assignmentMaxScore"
                 type="number"
@@ -133,17 +133,17 @@ export default function AssignmentPublishCard({
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Target</Label>
+              <Label>Đối tượng nhận</Label>
               <Select value={assignment.targetType} onValueChange={assignment.setTargetType}>
-                <SelectTrigger className="bg-gray-50/50"><SelectValue placeholder="Target audience" /></SelectTrigger>
+                <SelectTrigger className="bg-gray-50/50"><SelectValue placeholder="Chọn đối tượng nhận" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="ALL_CLASS">Entire class</SelectItem>
-                  <SelectItem value="SELECTED_STUDENTS">Selected students</SelectItem>
+                  <SelectItem value="ALL_CLASS">Cả lớp</SelectItem>
+                  <SelectItem value="SELECTED_STUDENTS">Sinh viên được chọn</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Assignment file</Label>
+              <Label>Tệp bài tập</Label>
               <Input
                 ref={fileInputRef}
                 type="file"
@@ -155,22 +155,22 @@ export default function AssignmentPublishCard({
                 className="bg-gray-50/50 file:text-blue-600 file:bg-blue-50 file:border-0 file:mr-4 file:px-4 file:py-1 file:rounded-full file:text-xs file:font-semibold hover:file:bg-blue-100 transition-colors cursor-pointer"
                 required
               />
-              <p className="text-xs text-gray-500">Up to 50 MB. ZIP files are validated by the server and may contain DOCX files only.</p>
+              <p className="text-xs text-gray-500">Tối đa 50 MB. Backend sẽ kiểm tra nội dung và đường dẫn bên trong tệp ZIP.</p>
             </div>
           </div>
           {assignment.targetType === 'SELECTED_STUDENTS' && (
             <div className="space-y-2">
-              <Label>Selected students</Label>
+              <Label>Sinh viên được chọn</Label>
               <AntSelect
                 mode="multiple"
                 showSearch
                 value={selectedStudentIds}
-                placeholder="Choose students by name"
+                placeholder="Tìm và chọn theo tên hoặc email"
                 optionFilterProp="searchLabel"
                 onChange={(values) => assignment.setTargetStudents(values.join(','))}
                 options={teacherStudents.map((student) => {
                   const id = getPersonId(student);
-                  const name = getPersonDisplayName(student, 'Student');
+                  const name = getPersonDisplayName(student, 'Sinh viên');
                   const email = getPersonEmail(student);
                   return {
                     value: id,
@@ -184,15 +184,15 @@ export default function AssignmentPublishCard({
             </div>
           )}
           <p className={`text-xs ${publishBlockedReason ? 'text-amber-700' : 'text-emerald-700'}`} role="status">
-            {publishBlockedReason || `Ready to publish to ${getClassOptionLabel(teachingClass)}.`}
+            {publishBlockedReason || `Sẵn sàng giao cho ${getClassOptionLabel(teachingClass)}.`}
           </p>
           <Button
             type="submit"
             className="w-full bg-blue-600 hover:bg-blue-700 mt-2"
             disabled={assignment.isPublishing || Boolean(publishBlockedReason)}
-            title={publishBlockedReason || 'Publish this assignment'}
+            title={publishBlockedReason || 'Giao bài tập này'}
           >
-            {assignment.isPublishing ? <><RefreshCw className="w-4 h-4 mr-2 animate-spin" /> Publishing...</> : <><Send className="w-4 h-4 mr-2" /> Publish Assignment</>}
+            {assignment.isPublishing ? <><RefreshCw className="w-4 h-4 mr-2 animate-spin" /> Đang giao bài...</> : <><Send className="w-4 h-4 mr-2" /> Giao bài tập</>}
           </Button>
         </form>
       </CardContent>

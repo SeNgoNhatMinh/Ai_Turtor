@@ -8,8 +8,8 @@ function QuizHistoryPanel({ history, loadingKey, hasContext, isLoading, onRefres
   return (
     <Card
       className="quiz-card"
-      title="Quiz History"
-      extra={<Button size="small" icon={<ReloadOutlined />} onClick={onRefresh} loading={loadingKey === 'refresh'} disabled={!hasContext}>Refresh</Button>}
+      title="Lịch sử quiz"
+      extra={<Button size="small" icon={<ReloadOutlined />} onClick={onRefresh} loading={loadingKey === 'refresh'} disabled={!hasContext}>Làm mới</Button>}
     >
       {history.length ? (
         <div className="quiz-item-list">
@@ -28,7 +28,7 @@ function QuizHistoryPanel({ history, loadingKey, hasContext, isLoading, onRefres
                     disabled={!hasContext || isLoading}
                     onClick={() => onView(quizId, item.status)}
                   >
-                    {isGenerated ? 'Continue' : 'Review'}
+                    {isGenerated ? 'Tiếp tục' : 'Xem kết quả'}
                   </Button>
                 )}
               />
@@ -36,8 +36,8 @@ function QuizHistoryPanel({ history, loadingKey, hasContext, isLoading, onRefres
           })}
         </div>
       ) : (
-        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No self-study quizzes yet">
-          <Button type="primary" icon={<QuestionCircleOutlined />} onClick={onGenerateFirst}>Generate your first quiz</Button>
+        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Chưa có quiz tự ôn">
+          <Button type="primary" icon={<QuestionCircleOutlined />} onClick={onGenerateFirst}>Tạo quiz đầu tiên</Button>
         </Empty>
       )}
     </Card>

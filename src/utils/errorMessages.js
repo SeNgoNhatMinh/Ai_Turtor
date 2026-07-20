@@ -1,7 +1,7 @@
 export const AI_SERVICE_ERROR_MESSAGE = [
-  'AI Tutor could not reach the language model right now.',
+  'AI Tutor chưa thể kết nối tới mô hình ngôn ngữ lúc này.',
   '',
-  'You can retry this question in a moment or ask a mentor for help.',
+  'Bạn có thể thử lại sau ít phút hoặc gửi câu hỏi cho giảng viên hỗ trợ.',
 ].join('\n');
 
 const MOJIBAKE_PATTERN = /(LÃ|Lá»|Æ°|á»|áº|Ã²|Ã¡|Ãª|Ã´|Ä‘)/i;
@@ -52,7 +52,7 @@ function isTechnicalErrorText(value) {
     || TECHNICAL_ERROR_PATTERNS.some((pattern) => pattern.test(text));
 }
 
-export function getSafeUserMessage(value, fallback = 'Something went wrong. Please try again.') {
+export function getSafeUserMessage(value, fallback = 'Đã xảy ra lỗi. Vui lòng thử lại.') {
   const text = String(value || '').trim();
   if (!text) return fallback;
   return isTechnicalErrorText(text) ? fallback : text;

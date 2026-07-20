@@ -1,13 +1,14 @@
-import { Button, Card, Col, Form, Input, Row, Select, Tag } from 'antd';
+import { Button, Card, Col, Form, Input, Row, Select } from 'antd';
 import { CheckCircle2, Eye, Pencil, Plus, Trash2 } from 'lucide-react';
 import EntityActionMenu from '../../../components/common/EntityActionMenu';
 import { DataTable } from '../../../components/ui/data-table';
 import { findPersonById, getPersonDisplayName, getPersonEmail, getPersonId } from '../../../utils/displayNames';
+import StatusLabel from '../../../components/common/StatusLabel';
 
 const { Option } = Select;
 
 const getMentorId = (mentor) => getPersonId(mentor) || mentor.email;
-const getMentorName = (mentor) => getPersonDisplayName(mentor, 'Mentor');
+const getMentorName = (mentor) => getPersonDisplayName(mentor, 'Giảng viên');
 const getMentorEmail = (mentor) => getPersonEmail(mentor);
 const getMentorMeta = (mentor) => [
   getMentorEmail(mentor),
@@ -16,11 +17,11 @@ const getMentorMeta = (mentor) => [
 ].filter(Boolean).join(' | ');
 
 const actionItems = [
-  { key: 'view', icon: <Eye size={14} />, label: 'View details' },
-  { key: 'edit', icon: <Pencil size={14} />, label: 'Edit' },
-  { key: 'complete', icon: <CheckCircle2 size={14} />, label: 'Mark class complete' },
+  { key: 'view', icon: <Eye size={14} />, label: 'Xem chi tiết' },
+  { key: 'edit', icon: <Pencil size={14} />, label: 'Chỉnh sửa' },
+  { key: 'complete', icon: <CheckCircle2 size={14} />, label: 'Đánh dấu hoàn tất' },
   { type: 'divider' },
-  { key: 'delete', icon: <Trash2 size={14} />, label: 'Delete', danger: true },
+  { key: 'delete', icon: <Trash2 size={14} />, label: 'Xóa', danger: true },
 ];
 
 function ClassSectionsTab({
@@ -46,10 +47,10 @@ function ClassSectionsTab({
   return (
     <Row gutter={[16, 16]}>
       <Col xs={24} md={10}>
-        <Card title="Create Class Section" hoverable>
+        <Card title="Tạo lớp học phần" hoverable>
           <Form form={form} layout="vertical" onFinish={onCreate}>
-            <Form.Item name="courseId" label="Course" rules={[{ required: true }]}>
-              <Select placeholder="Choose a course">
+            <Form.Item name="courseId" label="Môn học" rules={[{ required: true }]}>
+              <Select placeholder="Chọn môn học">
                 {courses.map((course) => (
                   <Option key={course.courseId || course.id} value={course.courseId}>
                     {course.courseId} - {course.courseName}
@@ -57,13 +58,13 @@ function ClassSectionsTab({
                 ))}
               </Select>
             </Form.Item>
-            <Form.Item name="classCode" label="Class Code" rules={[{ required: true }]}>
+            <Form.Item name="classCode" label="Mã lớp" rules={[{ required: true }]}>
               <Input placeholder="SE1840" />
             </Form.Item>
-            <Form.Item name="teacherId" label="Class Teacher / Mentor" rules={[{ required: true, message: 'Choose the class teacher or mentor' }]}>
+            <Form.Item name="teacherId" label="Giảng viên phụ trách" rules={[{ required: true, message: 'Chọn giảng viên phụ trách lớp' }]}>
               <Select
                 showSearch
-                placeholder="Choose active mentor"
+                placeholder="Chọn giảng viên đang hoạt động"
                 optionFilterProp="searchLabel"
                 onChange={handleMentorChange}
                 options={mentors.map((mentor) => {
@@ -86,14 +87,14 @@ function ClassSectionsTab({
             </Form.Item>
             <Form.Item name="teacherName" hidden><Input /></Form.Item>
             <Form.Item name="teacherEmail" hidden><Input /></Form.Item>
-            <Button type="primary" htmlType="submit" block icon={<Plus size={14} />}>Create Class</Button>
+            <Button type="primary" htmlType="submit" block icon={<Plus size={14} />}>Tạo lớp học phần</Button>
           </Form>
         </Card>
       </Col>
       <Col xs={24} md={14} style={{ minWidth: 0 }}>
-        <Card title="View Classes by Course" hoverable>
+        <Card title="Danh sách lớp theo môn học" hoverable>
           <Select
-            placeholder="Choose a course to view classes"
+            placeholder="Chọn môn học để xem lớp"
             style={{ width: '100%', marginBottom: 16 }}
             onChange={onCourseSelect}
           >
@@ -106,12 +107,12 @@ function ClassSectionsTab({
           <DataTable
             data={classSections || []}
             loading={academicLoading}
-            emptyText={selectedCourseId ? 'No classes yet.' : 'Choose a course to view classes.'}
+            emptyText={selectedCourseId ? 'Môn học này chưa có lớp.' : 'Chọn môn học để xem danh sách lớp.'}
             columns={[
-              { accessorKey: 'classId', header: 'Class Code' },
+              { accessorKey: 'classId', header: 'Mã lớp' },
               {
                 accessorKey: 'teacherId',
-                header: 'Class Teacher / Mentor',
+                header: 'Giảng viên phụ trách',
                 cell: ({ row }) => {
                   const record = row.original;
                   const mentor = findPersonById(mentors, record.teacherId || record.mentorId);
@@ -119,7 +120,7 @@ function ClassSectionsTab({
                   const email = getPersonEmail(displayRecord);
                   return (
                     <div className="admin-class-mentor-cell">
-                      <strong>{getPersonDisplayName(displayRecord, 'Unassigned')}</strong>
+                      <strong>{getPersonDisplayName(displayRecord, 'Chưa phân công')}</strong>
                       {email && <span>{email}</span>}
                     </div>
                   );
@@ -127,10 +128,10 @@ function ClassSectionsTab({
               },
               {
                 accessorKey: 'status',
-                header: 'Status',
+                header: 'Trạng thái',
                 cell: ({ row }) => {
                   const value = row.getValue('status');
-                  return <Tag color={value === 'ACTIVE' ? 'green' : 'default'}>{value || 'ACTIVE'}</Tag>;
+                  return <StatusLabel status={value || 'ACTIVE'} />;
                 },
               },
               {
@@ -140,7 +141,7 @@ function ClassSectionsTab({
                   <EntityActionMenu
                     items={actionItems}
                     onAction={(key, meta) => onAction('class', row.original, key, meta)}
-                    ariaLabel="Class section actions"
+                    ariaLabel="Thao tác lớp học phần"
                   />
                 ),
               },

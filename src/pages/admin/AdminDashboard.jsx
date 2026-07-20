@@ -1,27 +1,39 @@
 import React from 'react';
 import { Row, Col, Card, Statistic, Space, Alert, Button, Typography, Tag, Tabs, Table, Input } from 'antd';
 import {
-  BarChart3, Users, GraduationCap, Library, AlertTriangle, RefreshCw, Server, FileText
+  Users, GraduationCap, Library, AlertTriangle, RefreshCw, Server, FileText,
+  BookOpenCheck, ShieldCheck,
 } from 'lucide-react';
 import { diagnosticsApi } from '../../services/diagnosticsApi';
 import { env } from '../../config/env';
+import { getUserFacingError } from '../../services/apiClient';
+import ActionQueue from '../../components/common/ActionQueue';
 
 const { Text } = Typography;
 
-function AdminDashboard({ adminStats = {}, diagnosticsOutput, isDiagnosticsRunning, runDiagnostics }) {
+function AdminDashboard({
+  adminStats = {},
+  diagnosticsOutput,
+  isDiagnosticsRunning,
+  runDiagnostics,
+  onNavigate,
+}) {
   const [logs, setLogs] = React.useState([]);
   const [logsLoading, setLogsLoading] = React.useState(false);
+  const [logsError, setLogsError] = React.useState('');
   const [traceId, setTraceId] = React.useState('');
   const [traceOutput, setTraceOutput] = React.useState(null);
+  const [traceError, setTraceError] = React.useState('');
 
   const loadLogs = async () => {
     setLogsLoading(true);
+    setLogsError('');
     try {
       const data = await diagnosticsApi.getHarnessLogs({ limit: 50 });
       setLogs(Array.isArray(data) ? data : data?.content || data?.logs || []);
-    } catch {
-      // Backend might not have this endpoint yet, ignore quietly
-      setLogs([{ id: '1', level: 'INFO', message: 'Log service unavailable or endpoint missing.' }]);
+    } catch (error) {
+      setLogs([]);
+      setLogsError(getUserFacingError(error, 'Không thể tải nhật ký AI Harness.'));
     } finally {
       setLogsLoading(false);
     }
@@ -30,11 +42,13 @@ function AdminDashboard({ adminStats = {}, diagnosticsOutput, isDiagnosticsRunni
   const loadTrace = async (requestedTraceId = traceId) => {
     if (!requestedTraceId) return;
     setLogsLoading(true);
+    setTraceError('');
+    setTraceOutput(null);
     try {
       const data = await diagnosticsApi.getTraceLogs(requestedTraceId);
       setTraceOutput(data);
-    } catch (e) {
-      console.error(e);
+    } catch (error) {
+      setTraceError(getUserFacingError(error, 'Không thể tải trace này.'));
     } finally {
       setLogsLoading(false);
     }
@@ -46,16 +60,16 @@ function AdminDashboard({ adminStats = {}, diagnosticsOutput, isDiagnosticsRunni
   }, []);
 
   const harnessLabel = env.n8nEnabled
-    ? env.n8nStrict ? 'Full n8n strict' : 'n8n harness enabled'
-    : 'Backend direct';
+    ? env.n8nStrict ? 'n8n strict' : 'Đã bật n8n harness'
+    : 'Gọi backend trực tiếp';
   const harnessColor = env.n8nEnabled ? 'processing' : 'default';
   const diagnosticsTabs = [
     {
       key: 'health',
-      label: <><Server size={14} style={{ marginRight: 6 }} />System Health</>,
+      label: <><Server size={14} style={{ marginRight: 6 }} />Trạng thái hệ thống</>,
       children: (
         <Card
-          title="System Diagnostics"
+          title="Kiểm tra kết nối dịch vụ"
           extra={(
             <Space>
               <Tag color={harnessColor}>{harnessLabel}</Tag>
@@ -65,7 +79,7 @@ function AdminDashboard({ adminStats = {}, diagnosticsOutput, isDiagnosticsRunni
                 onClick={runDiagnostics}
                 loading={isDiagnosticsRunning}
               >
-                Run Check
+                Kiểm tra
               </Button>
             </Space>
           )}
@@ -74,45 +88,54 @@ function AdminDashboard({ adminStats = {}, diagnosticsOutput, isDiagnosticsRunni
           {diagnosticsOutput ? (
             <Space orientation="vertical" style={{ width: '100%' }} size="middle">
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Text>OpenRouter API Key:</Text>
+                <Text>Khóa OpenRouter:</Text>
                 <Tag color={diagnosticsOutput.apiKeyValid ? 'success' : 'error'}>
-                  {diagnosticsOutput.apiKeyValid ? 'Valid' : 'Error'}
+                  {diagnosticsOutput.apiKeyValid ? 'Hợp lệ' : 'Có lỗi'}
                 </Tag>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Text>OpenRouter Connection:</Text>
+                <Text>Kết nối OpenRouter:</Text>
                 <Tag color={diagnosticsOutput.openRouterConnectivity ? 'success' : 'error'}>
-                  {diagnosticsOutput.openRouterConnectivity ? 'Connected' : 'Offline'}
+                  {diagnosticsOutput.openRouterConnectivity ? 'Đã kết nối' : 'Ngoại tuyến'}
                 </Tag>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <Text>Ollama (Embedding):</Text>
                 <Tag color={diagnosticsOutput.ollamaConnectivity ? 'success' : 'error'}>
-                  {diagnosticsOutput.ollamaConnectivity ? 'Online' : 'Offline'}
+                  {diagnosticsOutput.ollamaConnectivity ? 'Trực tuyến' : 'Ngoại tuyến'}
                 </Tag>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Text>LLM Model:</Text>
-                <Text strong>{diagnosticsOutput.configDetails?.activeModel || 'N/A'}</Text>
+                <Text>Mô hình LLM:</Text>
+                <Text strong>{diagnosticsOutput.configDetails?.activeModel || 'Chưa xác định'}</Text>
               </div>
             </Space>
           ) : (
-            <Alert title="Click 'Run Check' to verify AI and database connectivity." type="info" showIcon />
+            <Alert title="Bấm Kiểm tra để xác minh kết nối AI và cơ sở dữ liệu." type="info" showIcon />
           )}
         </Card>
       ),
     },
     {
       key: 'logs',
-      label: <><FileText size={14} style={{ marginRight: 6 }} />Harness Logs & Traces</>,
+      label: <><FileText size={14} style={{ marginRight: 6 }} />Nhật ký & trace</>,
       children: (
         <>
           <Card
-            title="Harness Logs"
+            title="Nhật ký AI Harness"
             hoverable
-            extra={<Button size="small" onClick={loadLogs} icon={<RefreshCw size={14} />}>Reload</Button>}
+            extra={<Button size="small" onClick={loadLogs} icon={<RefreshCw size={14} />}>Làm mới</Button>}
             style={{ marginBottom: 16 }}
           >
+            {logsError && (
+              <Alert
+                type="warning"
+                showIcon
+                title={logsError}
+                action={<Button size="small" onClick={loadLogs}>Thử lại</Button>}
+                style={{ marginBottom: 12 }}
+              />
+            )}
             <Table
               dataSource={logs}
               rowKey={(record, index) => record.id || record.timestamp || record.traceId || `log-${index}`}
@@ -120,11 +143,11 @@ function AdminDashboard({ adminStats = {}, diagnosticsOutput, isDiagnosticsRunni
               loading={logsLoading}
               pagination={{ pageSize: 5 }}
               columns={[
-                { title: 'Time', dataIndex: 'timestamp', key: 'time', render: (value) => value ? new Date(value).toLocaleString() : '—' },
-                { title: 'Level', dataIndex: 'level', key: 'level', render: (value) => <Tag color={value === 'ERROR' ? 'red' : value === 'WARN' ? 'orange' : 'blue'}>{value}</Tag> },
-                { title: 'Message', dataIndex: 'message', key: 'msg', ellipsis: true },
+                { title: 'Thời gian', dataIndex: 'timestamp', key: 'time', render: (value) => value ? new Date(value).toLocaleString('vi-VN') : '—' },
+                { title: 'Mức độ', dataIndex: 'level', key: 'level', render: (value) => <Tag color={value === 'ERROR' ? 'red' : value === 'WARN' ? 'orange' : 'blue'}>{value || 'INFO'}</Tag> },
+                { title: 'Nội dung', dataIndex: 'message', key: 'msg', ellipsis: true },
                 {
-                  title: 'Trace ID',
+                  title: 'Mã trace',
                   dataIndex: 'traceId',
                   key: 'traceId',
                   render: (value) => value ? (
@@ -143,16 +166,17 @@ function AdminDashboard({ adminStats = {}, diagnosticsOutput, isDiagnosticsRunni
               ]}
             />
           </Card>
-          <Card title="View Memory Trace" hoverable>
+          <Card title="Xem chi tiết trace" hoverable>
             <Space style={{ width: '100%', marginBottom: 16 }}>
               <Input
-                placeholder="Enter Trace ID"
+                placeholder="Nhập mã trace"
                 value={traceId}
                 onChange={(event) => setTraceId(event.target.value)}
                 style={{ width: 300 }}
               />
-              <Button type="primary" onClick={() => loadTrace()} loading={logsLoading}>Load Trace</Button>
+              <Button type="primary" onClick={() => loadTrace()} loading={logsLoading} disabled={!traceId.trim()}>Tải trace</Button>
             </Space>
+            {traceError && <Alert type="warning" showIcon title={traceError} style={{ marginBottom: 12 }} />}
             {traceOutput && (
               <pre style={{ background: '#f5f5f5', padding: 12, borderRadius: 6, maxHeight: 300, overflow: 'auto', fontSize: 12 }}>
                 {JSON.stringify(traceOutput, null, 2)}
@@ -170,7 +194,7 @@ function AdminDashboard({ adminStats = {}, diagnosticsOutput, isDiagnosticsRunni
         <Col xs={12} lg={6}>
           <Card hoverable className="glass-card" style={{ borderLeft: '3px solid #F37021' }}>
             <Statistic
-              title={<Text type="secondary">Total Users</Text>}
+              title={<Text type="secondary">Tổng tài khoản</Text>}
               value={adminStats.users ?? adminStats.totalUsers ?? 0}
               styles={{ content: { color: '#F37021', fontWeight: 700 } }}
               prefix={<Users size={20} />}
@@ -180,7 +204,7 @@ function AdminDashboard({ adminStats = {}, diagnosticsOutput, isDiagnosticsRunni
         <Col xs={12} lg={6}>
           <Card hoverable className="glass-card" style={{ borderLeft: '3px solid #52c41a' }}>
             <Statistic
-              title={<Text type="secondary">Mentors</Text>}
+              title={<Text type="secondary">Giảng viên</Text>}
               value={adminStats.mentors ?? 0}
               styles={{ content: { color: '#52c41a', fontWeight: 700 } }}
               prefix={<GraduationCap size={20} />}
@@ -190,7 +214,7 @@ function AdminDashboard({ adminStats = {}, diagnosticsOutput, isDiagnosticsRunni
         <Col xs={12} lg={6}>
           <Card hoverable className="glass-card" style={{ borderLeft: '3px solid #F37021' }}>
             <Statistic
-              title={<Text type="secondary">Courses</Text>}
+              title={<Text type="secondary">Môn học</Text>}
               value={adminStats.courses ?? adminStats.totalCourses ?? 0}
               styles={{ content: { color: '#F37021', fontWeight: 700 } }}
               prefix={<Library size={20} />}
@@ -200,7 +224,7 @@ function AdminDashboard({ adminStats = {}, diagnosticsOutput, isDiagnosticsRunni
         <Col xs={12} lg={6}>
           <Card hoverable className="glass-card" style={{ borderLeft: '3px solid #fa8c16' }}>
             <Statistic
-              title={<Text type="secondary">Support Requests</Text>}
+              title={<Text type="secondary">Yêu cầu hỗ trợ</Text>}
               value={adminStats.escalations ?? 0}
               styles={{ content: { color: '#fa8c16', fontWeight: 700 } }}
               prefix={<AlertTriangle size={20} />}
@@ -211,17 +235,32 @@ function AdminDashboard({ adminStats = {}, diagnosticsOutput, isDiagnosticsRunni
 
       <Row gutter={[16, 16]}>
         <Col xs={24} lg={12}>
-          <Card
-            title={<><BarChart3 size={16} style={{ verticalAlign: 'text-bottom', marginRight: 8 }} />Weekly Query Activity</>}
-            hoverable
-          >
-            <div style={{ display: 'flex', flexDirection: 'column', height: 200, justifyContent: 'flex-end', alignItems: 'center' }}>
-              <Text type="secondary">Chart is being updated...</Text>
-              <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'space-between', width: '100%', padding: '0 20px' }}>
-                <Text>Mon</Text><Text>Tue</Text><Text>Wed</Text>
-                <Text>Thu</Text><Text>Fri</Text><Text>Sat</Text><Text>Sun</Text>
-              </div>
-            </div>
+          <Card title="Việc quản trị cần xử lý" hoverable>
+            <ActionQueue
+              items={[
+                {
+                  key: 'users',
+                  title: 'Quản lý tài khoản và giảng viên',
+                  description: 'Kiểm tra vai trò, trạng thái tài khoản và dữ liệu import.',
+                  icon: Users,
+                  onClick: () => onNavigate?.('/admin/users'),
+                },
+                {
+                  key: 'academic',
+                  title: 'Quản lý học kỳ, lớp và học liệu',
+                  description: 'Cập nhật môn học, lớp học phần, ghi danh và tài liệu dùng chung.',
+                  icon: BookOpenCheck,
+                  onClick: () => onNavigate?.('/admin/academic'),
+                },
+                {
+                  key: 'knowledge',
+                  title: 'Kiểm duyệt tri thức AI',
+                  description: 'Xử lý nội dung chờ duyệt trước khi đưa vào RAG.',
+                  icon: ShieldCheck,
+                  onClick: () => onNavigate?.('/admin/expert-training'),
+                },
+              ]}
+            />
           </Card>
         </Col>
         <Col xs={24} lg={12}>

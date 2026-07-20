@@ -11,7 +11,7 @@ const getAssignmentFileName = (assignment) => assignment?.attachmentFileName
   || assignment?.fileName
   || assignment?.originalFileName
   || assignment?.title
-  || 'Assignment attachment';
+  || 'Tệp đính kèm bài tập';
 
 const hasAssignmentAttachment = (assignment) => Boolean(
   assignment?.attachmentFileName
@@ -36,7 +36,7 @@ export default function AssignmentDetailsPanel({
 
   return (
     <Card
-      title={assignment ? `Details: ${assignment.title}` : 'Assignment Details'}
+      title={assignment ? `Chi tiết: ${assignment.title}` : 'Chi tiết bài tập'}
       className="materials-detail-card"
       extra={deadline ? <Text type="secondary">{new Date(deadline).toLocaleString()}</Text> : null}
     >
@@ -44,7 +44,7 @@ export default function AssignmentDetailsPanel({
         <Empty description={uiCopy.student.materials.empty} />
       ) : (
         <>
-          <Paragraph>{assignment.description || assignment.desc || 'No assignment description.'}</Paragraph>
+          <Paragraph>{assignment.description || assignment.desc || 'Bài tập chưa có mô tả.'}</Paragraph>
           <div className="assignment-attachment">
             <Space>
               <FileTextOutlined style={{ fontSize: 24, color: '#F37021' }} />
@@ -59,25 +59,25 @@ export default function AssignmentDetailsPanel({
                     onClick={() => onDownloadAssignment(assignment)}
                     style={{ padding: 0 }}
                   >
-                    Download assignment
+                    Tải đề bài
                   </Button>
                 ) : (
-                  <Text type="secondary">No downloadable attachment</Text>
+                  <Text type="secondary">Không có tệp để tải xuống</Text>
                 )}
               </div>
             </Space>
           </div>
 
           {assignment.submission && (
-            <Card size="small" title="Your submission" style={{ marginBottom: 16 }}>
+            <Card size="small" title="Bài đã nộp" style={{ marginBottom: 16 }}>
               <Space orientation="vertical" size={4}>
-                <Text>Status: {String(assignment.submission.status || 'SUBMITTED').replaceAll('_', ' ')}</Text>
+                <Text>Trạng thái: {String(assignment.submission.status || 'SUBMITTED').replaceAll('_', ' ')}</Text>
                 {assignment.submission.score != null && (
-                  <Text strong>Score: {assignment.submission.score}/{assignment.maxScore ?? 10}</Text>
+                  <Text strong>Điểm: {assignment.submission.score}/{assignment.maxScore ?? 10}</Text>
                 )}
                 {assignment.submission.teacherFeedback && (
                   <Paragraph style={{ margin: 0 }}>
-                    Teacher feedback: {assignment.submission.teacherFeedback}
+                    Nhận xét của giảng viên: {assignment.submission.teacherFeedback}
                   </Paragraph>
                 )}
                 {onDownloadSubmission && (
@@ -86,14 +86,14 @@ export default function AssignmentDetailsPanel({
                     icon={<DownloadOutlined />}
                     onClick={() => onDownloadSubmission(assignment.submission)}
                   >
-                    Download submitted file
+                    Tải bài đã nộp
                   </Button>
                 )}
               </Space>
             </Card>
           )}
 
-          <Title level={5}>Submit work</Title>
+          <Title level={5}>Nộp bài</Title>
           <Dragger
             accept={ASSIGNMENT_FILE_ACCEPT}
             beforeUpload={(file) => {
@@ -116,7 +116,7 @@ export default function AssignmentDetailsPanel({
 
           <TextArea
             rows={3}
-            placeholder="Add a note for your teacher..."
+            placeholder="Thêm ghi chú cho giảng viên..."
             value={submissionNote}
             onChange={(event) => setSubmissionNote(event.target.value)}
             style={{ marginBottom: 16 }}
@@ -128,7 +128,7 @@ export default function AssignmentDetailsPanel({
             disabled={!submissionFile || isSubmitting || !onSubmit}
             onClick={onSubmit}
           >
-            {assignment.submission ? 'Submit a new version' : 'Submit assignment'}
+            {assignment.submission ? 'Nộp phiên bản mới' : 'Nộp bài tập'}
           </Button>
         </>
       )}

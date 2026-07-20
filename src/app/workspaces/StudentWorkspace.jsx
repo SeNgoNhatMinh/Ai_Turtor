@@ -11,7 +11,7 @@ const studentPages = {
 };
 
 function StudentPageFallback() {
-  return <AsyncState loading loadingLabel="Loading student page..." loadingRows={6} />;
+  return <AsyncState loading loadingLabel="Đang tải trang sinh viên..." loadingRows={6} />;
 }
 
 export default function StudentWorkspace({
