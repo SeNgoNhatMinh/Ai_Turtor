@@ -1,12 +1,22 @@
+import { lazy, Suspense } from 'react';
 import { Outlet } from 'react-router-dom';
-import { ConfigProvider } from 'antd';
-import AuthedLayout from './app/layouts/AuthedLayout';
 import { useAppNavigation } from './app/useAppNavigation';
-import LoginPage from './features/auth/LoginPage';
 import Toast from './components/Toast';
 import { useAuthSession } from './features/auth/hooks/useAuthSession';
 import { useToastMessage } from './hooks/useToastMessage';
-import { getFptTheme } from './theme/fptTheme';
+import RealtimeEventsProvider from './features/realtime/RealtimeEventsProvider';
+
+const LoginPage = lazy(() => import('./features/auth/LoginPage'));
+const ThemedAuthedLayout = lazy(() => import('./app/layouts/ThemedAuthedLayout'));
+
+function RouteLoadingFallback() {
+  return (
+    <div className="app-route-loading" role="status" aria-live="polite">
+      <span className="app-route-loading__spinner" aria-hidden="true" />
+      <span>Loading...</span>
+    </div>
+  );
+}
 
 function App() {
   const auth = useAuthSession();
@@ -18,10 +28,14 @@ function App() {
 
   const handleLoginSuccess = (user) => {
     const { role } = auth.completeLogin(user);
+    navigation.setCourseId('');
+    navigation.setClassId('');
     navigation.handleRoleChange(role);
   };
 
   const handleLogout = () => {
+    navigation.setCourseId('');
+    navigation.setClassId('');
     auth.logout();
     navigation.navigate('/login', { replace: true });
   };
@@ -37,19 +51,22 @@ function App() {
     triggerToast: toast.triggerToast,
   };
 
+  if (!auth.currentUser) {
+    return (
+      <Suspense fallback={<RouteLoadingFallback />}>
+        <LoginPage onLoginSuccess={handleLoginSuccess} triggerToast={toast.triggerToast} />
+        {toast.toastMessage && <Toast message={toast.toastMessage} onClose={() => toast.setToastMessage(null)} />}
+      </Suspense>
+    );
+  }
+
   return (
-    <ConfigProvider theme={getFptTheme(navigation.isDarkMode)}>
-      {!auth.currentUser ? (
-        <>
-          <LoginPage onLoginSuccess={handleLoginSuccess} triggerToast={toast.triggerToast} />
-          {toast.toastMessage && <Toast message={toast.toastMessage} onClose={() => toast.setToastMessage(null)} />}
-        </>
-      ) : (
-        <AuthedLayout
+    <Suspense fallback={<RouteLoadingFallback />}>
+      <RealtimeEventsProvider enabled sessionKey={auth.currentUserId}>
+        <ThemedAuthedLayout
           activeRole={navigation.activeRole}
           activeTab={navigation.activeTab}
           switchTab={navigation.switchTab}
-          handleRoleChange={navigation.handleRoleChange}
           isDarkMode={navigation.isDarkMode}
           setIsDarkMode={navigation.setIsDarkMode}
           currentUser={auth.currentUser}
@@ -62,9 +79,9 @@ function App() {
             currentUserRole: auth.currentUserRole,
             workspaceProps,
           }} />
-        </AuthedLayout>
-      )}
-    </ConfigProvider>
+        </ThemedAuthedLayout>
+      </RealtimeEventsProvider>
+    </Suspense>
   );
 }
 

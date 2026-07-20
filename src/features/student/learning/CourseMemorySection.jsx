@@ -24,7 +24,7 @@ function CourseMemorySection({
         extra={<Button size="small" onClick={onEdit} disabled={!hasContext}>Edit memory</Button>}
       >
         {memorySummary ? (
-          <Alert type="info" showIcon icon={<BulbOutlined />} message="Memory summary" description={memorySummary} />
+          <Alert type="info" showIcon icon={<BulbOutlined />} title="Memory summary" description={memorySummary} />
         ) : (
           <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No memory summary yet. Ask AI Tutor questions or submit quizzes to build course memory." />
         )}

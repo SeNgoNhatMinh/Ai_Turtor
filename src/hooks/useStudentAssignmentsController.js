@@ -1,10 +1,18 @@
 import { useState } from 'react';
 import { assignmentApi } from '../services/assignmentApi';
 import { getUserFacingError } from '../services/apiClient';
-import { asArray } from '../services/normalizers';
+import {
+  asArray,
+  normalizeAssignment,
+  normalizeAssignmentSubmission,
+} from '../services/normalizers';
+import { useRealtimeEvent } from '../features/realtime/realtimeContext';
+import { eventMatchesCourse, REALTIME_EVENT_TYPES } from '../features/realtime/realtimeEvents';
 
 export function useStudentAssignmentsController({
   studentId,
+  studentName = '',
+  studentEmail = '',
   courseId = '',
   triggerToast,
 }) {
@@ -22,8 +30,8 @@ export function useStudentAssignmentsController({
         assignmentApi.getStudentAssignments(studentId, courseId),
         assignmentApi.getStudentSubmissions(studentId, courseId),
       ]);
-      const assignList = asArray(assignmentData, 'content', 'assignments');
-      const submissionList = asArray(submissionData, 'content', 'submissions');
+      const assignList = asArray(assignmentData, 'content', 'assignments').map(normalizeAssignment);
+      const submissionList = asArray(submissionData, 'content', 'submissions').map(normalizeAssignmentSubmission);
       const submissionsByAssignment = new Map(submissionList.map((submission) => [
         submission.assignmentId || submission.assignment?.id,
         submission,
@@ -47,6 +55,10 @@ export function useStudentAssignmentsController({
     }
   };
 
+  useRealtimeEvent(REALTIME_EVENT_TYPES.studentAssignment, (event) => {
+    if (eventMatchesCourse(event, courseId)) loadStudentAssignments();
+  });
+
   const handleStudentSubmit = async (assignmentId, file, note) => {
     triggerToast('Submitting assignment...');
 
@@ -55,7 +67,11 @@ export function useStudentAssignmentsController({
     formData.append('note', note);
 
     try {
-      await assignmentApi.submitAssignment(assignmentId, formData, studentId);
+      await assignmentApi.submitAssignment(assignmentId, formData, {
+        studentId,
+        studentName,
+        studentEmail,
+      });
       triggerToast('Assignment submitted successfully.');
       await loadStudentAssignments();
       return true;
@@ -66,14 +82,21 @@ export function useStudentAssignmentsController({
     }
   };
 
-  const handleDownloadAssignment = async (assignmentId) => {
+  const handleDownloadAssignment = async (assignment) => {
+    const assignmentId = typeof assignment === 'string'
+      ? assignment
+      : assignment?.id || assignment?.assignmentId;
+    if (!assignmentId) {
+      triggerToast('This assignment does not have a downloadable file.');
+      return;
+    }
     triggerToast('Downloading assignment file...');
     try {
       const blob = await assignmentApi.downloadAssignmentFile(assignmentId);
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `assignment-${assignmentId}.zip`;
+      a.download = assignment?.attachmentFileName || assignment?.fileName || `assignment-${assignmentId}`;
       document.body.appendChild(a);
       a.click();
       a.remove();

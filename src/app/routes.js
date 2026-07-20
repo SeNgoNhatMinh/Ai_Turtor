@@ -15,9 +15,11 @@ export const appRoutes = [
   { role: 'teacher', tab: 'teacher-materials', path: '/teacher/materials' },
   { role: 'teacher', tab: 'teacher-grading', path: '/teacher/grading' },
   { role: 'teacher', tab: 'teacher-escalations', path: '/teacher/review-queue' },
+  { role: 'teacher', tab: 'teacher-expert-training', path: '/teacher/expert-training' },
   { role: 'admin', tab: 'admin-dashboard', path: '/admin/dashboard' },
   { role: 'admin', tab: 'admin-users', path: '/admin/users' },
   { role: 'admin', tab: 'admin-academic', path: '/admin/academic' },
+  { role: 'admin', tab: 'admin-expert-training', path: '/admin/expert-training' },
 ];
 
 const tabRoutes = Object.fromEntries(appRoutes.map(({ tab, path }) => [tab, path]));

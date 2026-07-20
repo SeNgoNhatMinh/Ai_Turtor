@@ -15,6 +15,7 @@ export function useTeacherReviewQueue({ currentUser, teacherId, courseId, trigge
   const [answerReviews, setAnswerReviews] = useState([]);
   const [seniorAnswerReviews, setSeniorAnswerReviews] = useState([]);
   const [isAnswerReviewsLoading, setIsAnswerReviewsLoading] = useState(false);
+  const [isTeacherAnswerSubmitting, setIsTeacherAnswerSubmitting] = useState(false);
   const [pendingCandidateActionIds, setPendingCandidateActionIds] = useState([]);
   const [pendingSeniorReviewIds, setPendingSeniorReviewIds] = useState([]);
   const reviewerName = currentUser?.fullName || currentUser?.name || 'Senior Mentor';
@@ -80,6 +81,8 @@ export function useTeacherReviewQueue({ currentUser, teacherId, courseId, trigge
     createKnowledgeCandidate = false,
     candidateType = 'ACADEMIC_KNOWLEDGE',
   ) => {
+    if (isTeacherAnswerSubmitting || !escalationId || !String(reply || '').trim()) return false;
+    setIsTeacherAnswerSubmitting(true);
     triggerToast('Sending answer...');
     const payload = {
       teacherId,
@@ -115,6 +118,7 @@ export function useTeacherReviewQueue({ currentUser, teacherId, courseId, trigge
         loadTeacherInbox(),
         createKnowledgeCandidate ? loadKnowledgeCandidates() : Promise.resolve(),
       ]);
+      return true;
     } catch (error) {
       console.error('Error sending answer:', error);
       triggerToast(getUserFacingError(error, 'Unable to send answer. Please try again.'));
@@ -122,6 +126,9 @@ export function useTeacherReviewQueue({ currentUser, teacherId, courseId, trigge
         loadTeacherInbox(),
         createKnowledgeCandidate ? loadKnowledgeCandidates() : Promise.resolve(),
       ]);
+      return false;
+    } finally {
+      setIsTeacherAnswerSubmitting(false);
     }
   };
 
@@ -244,6 +251,7 @@ export function useTeacherReviewQueue({ currentUser, teacherId, courseId, trigge
     answerReviews,
     seniorAnswerReviews,
     isAnswerReviewsLoading,
+    isTeacherAnswerSubmitting,
     pendingCandidateActionIds,
     pendingSeniorReviewIds,
     loadTeacherInbox,

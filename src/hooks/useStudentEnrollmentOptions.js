@@ -176,6 +176,16 @@ export function useStudentEnrollmentOptions({
       .filter((item) => item.value)
   ), [studentEnrollments, courseId]);
 
+  const selectCourse = useCallback((nextCourseId) => {
+    const normalizedCourseId = String(nextCourseId || '').trim();
+    const matchingEnrollment = studentEnrollments.find((item) => (
+      getEnrollmentCourseId(item) === normalizedCourseId && getEnrollmentClassId(item)
+    ));
+
+    setCourseId(normalizedCourseId);
+    setClassId(matchingEnrollment ? getEnrollmentClassId(matchingEnrollment) : '');
+  }, [setClassId, setCourseId, studentEnrollments]);
+
   return {
     studentEnrollments,
     courseOptions,
@@ -185,5 +195,6 @@ export function useStudentEnrollmentOptions({
     hasLoadedStudentEnrollments,
     hasStudentEnrollments: courseOptions.length > 0 && classOptions.length > 0,
     loadStudentEnrollments,
+    selectCourse,
   };
 }

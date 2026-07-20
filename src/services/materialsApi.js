@@ -1,14 +1,30 @@
 import { API_BASE_URL, API_TIMEOUTS, blobRequest, request, uploadRequest } from './apiClient';
 import { encodePath } from '../config/env';
+import { ApiError } from './httpClient';
 import { getCachedResource, invalidateResourceCache } from './requestCache';
 
 const materialCachePrefix = (courseId) => `materials:${courseId}:`;
+
+export function assertMaterialUploadReceipt(response) {
+  const materialId = String(response?.materialId || response?.documentId || '').trim();
+  if (!materialId) {
+    throw new ApiError({
+      message: 'The backend did not return a material identifier.',
+      userMessage: 'The server did not confirm this upload. Please check the material list before trying again.',
+      status: 502,
+      code: 'INVALID_MATERIAL_UPLOAD_RESPONSE',
+      details: response,
+    });
+  }
+  return response;
+}
 
 export const materialsApi = {
   async uploadMaterial(courseId, formData) {
     const response = await uploadRequest(`${API_BASE_URL}/courses/${encodePath(courseId)}/materials/upload`, formData, 'Upload material failed', {
       timeoutMs: API_TIMEOUTS.upload,
     });
+    assertMaterialUploadReceipt(response);
     invalidateResourceCache(materialCachePrefix(courseId));
     return response;
   },

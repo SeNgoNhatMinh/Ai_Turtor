@@ -89,7 +89,7 @@ export default function AnswerReviewCard({
             rows={2}
             value={notes}
             maxLength={2000}
-            disabled={isPending}
+            disabled={isPending || !onDraftChange}
             placeholder="Required review note..."
             onChange={(event) => onDraftChange?.({ notes: event.target.value })}
           />
@@ -97,20 +97,20 @@ export default function AnswerReviewCard({
             rows={4}
             value={correctedAnswer}
             maxLength={10000}
-            disabled={isPending}
+            disabled={isPending || !onDraftChange}
             placeholder="Correct academic answer (required only when creating reusable AI knowledge)..."
             onChange={(event) => onDraftChange?.({ correctedAnswer: event.target.value })}
           />
           <Select
             value={candidateType}
             options={CANDIDATE_TYPES}
-            disabled={isPending}
+            disabled={isPending || !onDraftChange}
             aria-label="Knowledge candidate type"
             onChange={(value) => onDraftChange?.({ candidateType: value })}
           />
           <div className="answer-review-resolution__actions">
             <Button
-              disabled={!notes.trim() || isPending}
+              disabled={!notes.trim() || isPending || !onResolve}
               loading={isPending}
               onClick={() => onResolve?.('APPROVE_FEEDBACK')}
             >
@@ -118,7 +118,7 @@ export default function AnswerReviewCard({
             </Button>
             <Button
               type="primary"
-              disabled={!notes.trim() || !correctedAnswer.trim() || isPending}
+              disabled={!notes.trim() || !correctedAnswer.trim() || isPending || !onResolve}
               loading={isPending}
               onClick={() => onResolve?.('CREATE_KNOWLEDGE_CANDIDATE')}
             >

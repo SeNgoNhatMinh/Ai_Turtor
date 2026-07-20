@@ -5,51 +5,23 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
-
-// Utilities
-const getSessionId = (quiz) => quiz?.quizSessionId || quiz?.sessionId || quiz?.id;
-const getQuestions = (quiz) => Array.isArray(quiz?.questions) ? quiz.questions : [];
-const getQuestionId = (question, index) => question?.questionId || question?.id || `question-${index}`;
-const getQuestionName = (_question, index) => `q_${index + 1}`;
-const getQuestionText = (question, index) => (
-  question?.questionText || question?.text || question?.prompt || `Question ${index + 1}`
-);
-
-const getOptionValue = (option) => {
-  if (typeof option === 'string' || typeof option === 'number' || typeof option === 'boolean') {
-    return String(option);
-  }
-  return String(option?.value ?? option?.id ?? option?.text ?? option?.label ?? '');
-};
-
-const getOptionLabel = (option) => {
-  if (typeof option === 'string' || typeof option === 'number' || typeof option === 'boolean') {
-    return String(option);
-  }
-  return String(option?.text ?? option?.label ?? option?.value ?? option?.id ?? '');
-};
-
-const getQuestionChoices = (question) => {
-  const rawOptions = Array.isArray(question?.options) && question.options.length
-    ? question.options
-    : ['TRUE_FALSE', 'BOOLEAN'].includes(String(question?.type || question?.questionType || '').toUpperCase())
-      ? ['True', 'False']
-      : [];
-
-  return rawOptions
-    .map((option) => ({
-      value: getOptionValue(option),
-      text: getOptionLabel(option),
-    }))
-    .filter((option) => option.value);
-};
+import {
+  getQuestionChoices,
+  getQuestionId,
+  getQuestionName,
+  getQuestionText,
+  getQuizQuestions,
+  getQuizSessionId,
+} from '../../features/student/quizzes/quizQuestionUtils';
 
 export default function QuizRunner({ quiz, onSubmit, submitting = false }) {
   const [answers, setAnswers] = useState({});
   const [showSuccess, setShowSuccess] = useState(false);
   
-  const questions = getQuestions(quiz);
-  const quizSessionId = getSessionId(quiz);
+  const questions = getQuizQuestions(quiz);
+  const quizSessionId = getQuizSessionId(quiz);
+  const gradingMode = String(quiz?.gradingMode || '').toUpperCase();
+  const isTeacherOnlineQuiz = gradingMode === 'TEACHER_MANUAL' || gradingMode === 'AI_ASSISTED';
 
   const answeredCount = Object.keys(answers).length;
   const progressPercent = questions.length > 0 ? (answeredCount / questions.length) * 100 : 0;
@@ -91,7 +63,11 @@ export default function QuizRunner({ quiz, onSubmit, submitting = false }) {
             {quiz.title || 'Practice quiz'}
           </CardTitle>
           <p className="text-muted-foreground text-sm mt-2">
-            Answers remain hidden until you submit the quiz.
+            {isTeacherOnlineQuiz
+              ? gradingMode === 'TEACHER_MANUAL'
+                ? 'Your choices will be saved. The teacher will review the final score.'
+                : 'Your choices will be checked by the backend. The teacher confirms the final score.'
+              : 'Answers remain hidden until you submit the quiz.'}
           </p>
         </CardHeader>
         <CardContent>

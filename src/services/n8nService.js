@@ -1,6 +1,8 @@
 import {
+  N8N_ASSIGNMENT_GRADING_TIMEOUT_MS,
   N8N_CHAT_TIMEOUT_MS,
   N8N_QUIZ_TIMEOUT_MS,
+  N8N_TUTOR_V2_TIMEOUT_MS,
   postN8n,
 } from './n8nClient';
 import {
@@ -59,5 +61,64 @@ export const n8nService = {
       ...options,
     });
     return ensureHarnessSuccess(response, 'n8n quiz submission flow failed.');
+  },
+
+  async gradeAssignmentSubmission(payload, options = {}) {
+    const response = await postN8n('/teacher-assignment-ai-grade', payload, {
+      timeoutMs: N8N_ASSIGNMENT_GRADING_TIMEOUT_MS,
+      ...options,
+    });
+    const result = ensureHarnessSuccess(response, 'n8n assignment grading flow failed.');
+    if (!(result.id || result.submissionId) || !result.aiGradingStatus) {
+      const error = new Error('n8n assignment grading returned an invalid receipt.');
+      error.name = 'N8nError';
+      error.userMessage = 'AI grading did not return a confirmed result. No final score was saved.';
+      error.details = result;
+      throw error;
+    }
+    return result;
+  },
+
+  async analyzeTutorV2Coverage(payload, options = {}) {
+    return ensureHarnessSuccess(await postN8n('/v2-coverage-analyze', payload, {
+      ...options,
+      includeAuthTokenInBody: false,
+    }), 'Tutor V2 coverage workflow failed.');
+  },
+
+  async submitTutorV2GoldQa(payload, options = {}) {
+    return ensureHarnessSuccess(await postN8n('/v2-gold-qa-submit', payload, {
+      ...options,
+      includeAuthTokenInBody: false,
+    }), 'Tutor V2 Gold Q&A workflow failed.');
+  },
+
+  async submitTutorV2Rubric(payload, options = {}) {
+    return ensureHarnessSuccess(await postN8n('/v2-rubric-submit', payload, {
+      ...options,
+      includeAuthTokenInBody: false,
+    }), 'Tutor V2 rubric workflow failed.');
+  },
+
+  async approveTutorV2GoldQa(payload, options = {}) {
+    return ensureHarnessSuccess(await postN8n('/v2-gold-qa-approve', payload, {
+      ...options,
+      includeAuthTokenInBody: false,
+    }), 'Tutor V2 Gold Q&A approval workflow failed.');
+  },
+
+  async approveTutorV2Rubric(payload, options = {}) {
+    return ensureHarnessSuccess(await postN8n('/v2-rubric-approve', payload, {
+      ...options,
+      includeAuthTokenInBody: false,
+    }), 'Tutor V2 rubric approval workflow failed.');
+  },
+
+  async runTutorV2Evaluation(payload, options = {}) {
+    return ensureHarnessSuccess(await postN8n('/v2-eval-run', payload, {
+      timeoutMs: N8N_TUTOR_V2_TIMEOUT_MS,
+      ...options,
+      includeAuthTokenInBody: false,
+    }), 'Tutor V2 evaluation workflow failed.');
   },
 };

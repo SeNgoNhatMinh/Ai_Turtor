@@ -114,7 +114,7 @@ export const quizApi = {
       await request(`${API_BASE_URL}/tutor/teachers/${encodePath(teacherId)}/quiz-assignments`),
       'assignments',
       'content',
-    );
+    ).map(normalizeQuizAssignment);
   },
 
   async generateTeacherQuizDraft(teacherId, courseId, payload) {
@@ -124,6 +124,20 @@ export const quizApi = {
       body: JSON.stringify(payload),
       timeoutMs: API_TIMEOUTS.quizGeneration,
     });
+  },
+
+  async createManualTeacherQuiz(teacherId, courseId, payload) {
+    const assignment = normalizeQuizAssignment(await request(
+      `${API_BASE_URL}/tutor/teachers/${encodePath(teacherId)}/courses/${encodePath(courseId)}/quiz-assignments/manual`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        timeoutMs: API_TIMEOUTS.quizGeneration,
+      },
+    ));
+    invalidateResourceCache(`teacher-quizzes:${teacherId}`);
+    return assignment;
   },
 
   async updateQuizAssignment(assignmentId, payload) {

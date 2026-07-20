@@ -232,11 +232,11 @@ export default function ImportWebsiteModal({
       ]}
       destroyOnClose
     >
-      <Space direction="vertical" size={16} style={{ width: '100%' }}>
+      <Space orientation="vertical" size={16} style={{ width: '100%' }}>
         <Alert
           type="info"
           showIcon
-          message="Backend website import"
+          title="Backend website import"
           description="The backend analyzes HTML documentation, imports the selected chapters as course material, then indexes it in the background. Website imports do not create a downloadable PDF."
         />
 
@@ -244,7 +244,7 @@ export default function ImportWebsiteModal({
           <Alert
             type="warning"
             showIcon
-            message="Choose a course first"
+            title="Choose a course first"
             description="Website documentation will be imported as a shared course material."
           />
         )}
@@ -313,7 +313,7 @@ export default function ImportWebsiteModal({
             }
           >
             {hasToc ? (
-              <Space direction="vertical" size={12} style={{ width: '100%' }}>
+              <Space orientation="vertical" size={12} style={{ width: '100%' }}>
                 <Input
                   allowClear
                   prefix={<SearchOutlined />}
@@ -334,7 +334,7 @@ export default function ImportWebsiteModal({
                   <Alert
                     type="warning"
                     showIcon
-                    message={`Selection limit reached (${MAX_SELECTED_URLS})`}
+                    title={`Selection limit reached (${MAX_SELECTED_URLS})`}
                     description="Backend accepts up to 50 selected chapter or section URLs per import."
                   />
                 )}
@@ -363,11 +363,11 @@ export default function ImportWebsiteModal({
                 </div>
               </Space>
             ) : (
-              <Space direction="vertical" size={12} style={{ width: '100%' }}>
+              <Space orientation="vertical" size={12} style={{ width: '100%' }}>
                 <Alert
                   type="warning"
                   showIcon
-                  message="No table of contents found"
+                  title="No table of contents found"
                   description="You can still import the current URL. Enable Follow Next only when this documentation has reliable Next links."
                 />
                 <Divider style={{ margin: '4px 0' }} />
@@ -379,7 +379,7 @@ export default function ImportWebsiteModal({
                   Follow same-domain "Next" links
                 </Checkbox>
                 {fallbackFollowNext && (
-                  <Space direction="vertical" size={4}>
+                  <Space orientation="vertical" size={4}>
                     <Text strong>Maximum pages</Text>
                     <InputNumber
                       min={1}

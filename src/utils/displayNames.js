@@ -27,12 +27,24 @@ const PERSON_ID_FIELDS = [
 ];
 
 const OPAQUE_ID_RE = /^(?:[a-f\d]{24}|[a-f\d]{8}-[a-f\d]{4}-[1-5][a-f\d]{3}-[89ab][a-f\d]{3}-[a-f\d]{12})$/i;
+const NESTED_PERSON_FIELDS = ['student', 'user', 'account', 'profile'];
+
+const getPersonRecords = (record) => {
+  if (!record || typeof record !== 'object') return [];
+  return [
+    record,
+    ...NESTED_PERSON_FIELDS
+      .map((field) => record[field])
+      .filter((value) => value && typeof value === 'object'),
+  ];
+};
 
 const getFirstText = (record, fields) => {
-  if (!record || typeof record !== 'object') return '';
-  for (const field of fields) {
-    const value = String(record[field] || '').trim();
-    if (value) return value;
+  for (const candidate of getPersonRecords(record)) {
+    for (const field of fields) {
+      const value = String(candidate[field] || '').trim();
+      if (value) return value;
+    }
   }
   return '';
 };
@@ -51,7 +63,7 @@ export const findPersonById = (people = [], id = '') => {
   const target = String(id || '').trim().toLowerCase();
   if (!target) return null;
   return people.find((person) => (
-    PERSON_ID_FIELDS.some((field) => String(person?.[field] || '').trim().toLowerCase() === target)
-    || PERSON_EMAIL_FIELDS.some((field) => String(person?.[field] || '').trim().toLowerCase() === target)
+    getPersonId(person).toLowerCase() === target
+    || getPersonEmail(person).toLowerCase() === target
   )) || null;
 };

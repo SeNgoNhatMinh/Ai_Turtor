@@ -29,21 +29,22 @@ export default function TeacherReviewPage({
     setCandidateNotes((current) => ({ ...current, [candidateId]: value }));
   };
 
-  const handleAnswerEscalation = (event) => {
+  const handleAnswerEscalation = async (event) => {
     event.preventDefault();
-    if (!reply.trim() || !review.selectedEscalation?.id) return;
+    if (!reply.trim() || !review.selectedEscalation?.id || review.isTeacherAnswerSubmitting) return;
     const safeCandidateType = createKnowledgeCandidate && ACADEMIC_CANDIDATE_TYPES.has(candidateType)
       ? candidateType
       : 'ACADEMIC_KNOWLEDGE';
-    review.handleTeacherAnswerEsc(
+    const succeeded = await review.handleTeacherAnswerEsc(
       review.selectedEscalation.id,
       reply,
       createKnowledgeCandidate,
       safeCandidateType,
-    ).then(() => {
+    );
+    if (succeeded) {
       setReply('');
       setCreateKnowledgeCandidate(false);
-    });
+    }
   };
 
   return (
@@ -56,6 +57,7 @@ export default function TeacherReviewPage({
       teacherEscReply={reply}
       setTeacherEscReply={setReply}
       onAnswerEsc={handleAnswerEscalation}
+      isTeacherAnswerSubmitting={review.isTeacherAnswerSubmitting}
       createKnowledgeCandidate={createKnowledgeCandidate}
       setCreateKnowledgeCandidate={setCreateKnowledgeCandidate}
       candidateType={candidateType}

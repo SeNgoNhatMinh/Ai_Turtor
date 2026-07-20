@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Alert, Button, Card, Space } from 'antd';
+import { Alert, Button, Space } from 'antd';
 import {
   BookOutlined,
   CheckCircleOutlined,
@@ -8,7 +8,6 @@ import {
   ReloadOutlined,
   ThunderboltOutlined,
 } from '@ant-design/icons';
-import CanvasGraph from '../../components/CanvasGraph';
 import PageHeader from '../../components/common/PageHeader';
 import AsyncState from '../../components/common/AsyncState';
 import { uiCopy } from '../../constants/uiCopy';
@@ -16,6 +15,7 @@ import CourseMemorySection from '../../features/student/learning/CourseMemorySec
 import EditLearningMemoryModal from '../../features/student/learning/EditLearningMemoryModal';
 import ImprovePlansSection from '../../features/student/learning/ImprovePlansSection';
 import LearningOverview from '../../features/student/learning/LearningOverview';
+import LearningActionPlan from '../../features/student/learning/LearningActionPlan';
 import StudySuggestionsSection from '../../features/student/learning/StudySuggestionsSection';
 import { useImprovePlans } from '../../features/student/learning/useImprovePlans';
 import {
@@ -175,7 +175,7 @@ function LearningProgress({
           type="warning"
           showIcon
           className="learning-alert"
-          message="Choose a course first"
+          title="Choose a course first"
           description="Learning progress is scoped by student and course. Select an enrolled course to load memory, suggestions, and quiz plans."
         />
       )}
@@ -226,11 +226,15 @@ function LearningProgress({
         onComplete={improvePlanController.completePlan}
       />
 
-      <div className="learning-main-grid">
-        <Card className="learning-card learning-map-card" title={uiCopy.student.progress.networkTitle}>
-          <div className="knowledge-network-frame learning-network-frame"><CanvasGraph /></div>
-        </Card>
-      </div>
+      <LearningActionPlan
+        courseId={courseId}
+        learnedTopics={safeLearnedTopics}
+        weakTopics={safeWeakTopics}
+        suggestions={orderedSuggestions}
+        hasContext={hasContext}
+        onStudy={onStudySuggestion}
+        onCreateQuiz={onCreateQuizFromSuggestion}
+      />
 
       <EditLearningMemoryModal
         open={editModalVisible}

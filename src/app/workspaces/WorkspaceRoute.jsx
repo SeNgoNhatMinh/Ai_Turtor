@@ -1,6 +1,5 @@
 import { lazy, Suspense } from 'react';
 import { Navigate, useOutletContext } from 'react-router-dom';
-import AsyncState from '../../components/common/AsyncState';
 import { getHomeRouteForRole } from '../routes';
 
 const StudentWorkspace = lazy(() => import('./StudentWorkspace'));
@@ -14,7 +13,12 @@ const workspaces = {
 };
 
 function WorkspaceFallback() {
-  return <AsyncState loading loadingLabel="Loading workspace..." loadingRows={6} />;
+  return (
+    <div className="workspace-route-loading" role="status" aria-live="polite">
+      <span className="app-route-loading__spinner" aria-hidden="true" />
+      <span>Loading workspace...</span>
+    </div>
+  );
 }
 
 export default function WorkspaceRoute({ role, activeTab }) {

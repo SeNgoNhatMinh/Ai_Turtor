@@ -1,11 +1,26 @@
 import { useEffect } from 'react';
-import MaterialsAssignments from '../../../pages/student/MaterialsAssignments';
 import { useCourseMaterialsController } from '../../../hooks/useCourseMaterialsController';
 import { useStudentAssignmentsController } from '../../../hooks/useStudentAssignmentsController';
+import MaterialsAssignmentsView from './MaterialsAssignmentsView';
 import { useStudentMaterialsController } from './useStudentMaterialsController';
+import './StudentMaterialsPage.css';
 
-export default function StudentMaterialsPage({ studentId, courseId, classId, triggerToast }) {
-  const assignments = useStudentAssignmentsController({ studentId, courseId, triggerToast });
+export default function StudentMaterialsPage({
+  currentUser,
+  studentId,
+  courseId,
+  setCourseId,
+  classId,
+  triggerToast,
+  enrollment,
+}) {
+  const assignments = useStudentAssignmentsController({
+    studentId,
+    studentName: currentUser?.fullName || currentUser?.name || '',
+    studentEmail: currentUser?.email || '',
+    courseId,
+    triggerToast,
+  });
   const materials = useCourseMaterialsController({
     courseId,
     classId,
@@ -19,6 +34,14 @@ export default function StudentMaterialsPage({ studentId, courseId, classId, tri
     onDownloadSubmission: assignments.handleDownloadSubmission,
   });
 
+  const handleCourseChange = (nextCourseId) => {
+    if (enrollment?.selectCourse) {
+      enrollment.selectCourse(nextCourseId);
+      return;
+    }
+    setCourseId?.(nextCourseId);
+  };
+
   useEffect(() => {
     assignments.loadStudentAssignments();
     materials.loadCourseMaterials();
@@ -27,7 +50,7 @@ export default function StudentMaterialsPage({ studentId, courseId, classId, tri
   }, [studentId, courseId, classId]);
 
   return (
-    <MaterialsAssignments
+    <MaterialsAssignmentsView
       assignments={assignments.assignments}
       selectedAssignment={assignments.selectedAssignment}
       setSelectedAssignment={assignments.setSelectedAssignment}
@@ -41,6 +64,11 @@ export default function StudentMaterialsPage({ studentId, courseId, classId, tri
       onDownloadSubmission={form.handleDownloadSubmission}
       courseMaterials={materials.courseMaterials}
       onDownloadMaterial={materials.handleDownloadMaterial}
+      courseId={courseId}
+      classId={classId}
+      courseOptions={enrollment?.courseOptions || []}
+      enrollmentsLoading={enrollment?.isStudentEnrollmentsLoading || false}
+      onCourseChange={handleCourseChange}
     />
   );
 }

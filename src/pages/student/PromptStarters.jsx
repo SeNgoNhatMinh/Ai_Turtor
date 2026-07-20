@@ -1,4 +1,4 @@
-import { BookOpen, Code2, GraduationCap, MessagesSquare } from 'lucide-react';
+import { BookOpen, Code2, GraduationCap } from 'lucide-react';
 
 const PROMPTS = [
   {
@@ -16,11 +16,6 @@ const PROMPTS = [
     prompt: 'Dựa trên tài liệu môn học, hãy tóm tắt những nội dung quan trọng tôi cần ghi nhớ và gợi ý thứ tự ôn tập.',
     icon: GraduationCap,
   },
-  {
-    title: 'Nhờ mentor hỗ trợ',
-    prompt: 'Tôi muốn nhờ mentor hỗ trợ để hiểu rõ nội dung quan trọng nhất của môn học này. Vui lòng tạo yêu cầu mentor xem xét.',
-    icon: MessagesSquare,
-  },
 ];
 
 function PromptStarters({ disabled = false, onSelect }) {
@@ -31,8 +26,8 @@ function PromptStarters({ disabled = false, onSelect }) {
           key={title}
           type="button"
           className="prompt-starter-card"
-          disabled={disabled}
-          onClick={() => onSelect?.(prompt)}
+          disabled={disabled || !onSelect}
+          onClick={() => onSelect(prompt)}
         >
           <Icon size={16} aria-hidden="true" />
           <span>{title}</span>

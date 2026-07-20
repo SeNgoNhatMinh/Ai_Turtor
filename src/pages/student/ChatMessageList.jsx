@@ -65,12 +65,12 @@ function ChatMessageList({
   };
 
   return (
-    <div className="chat-workspace-messages-container">
-      <div className="chat-workspace-messages-inner">
+    <div className={`chat-workspace-messages-container ${messages.length === 0 ? 'chat-workspace-messages-container--empty' : ''}`}>
+      <div className={`chat-workspace-messages-inner ${messages.length === 0 ? 'chat-workspace-messages-inner--empty' : ''}`}>
         {messages.length === 0 ? (
           <div className="chat-empty-state">
-            <Suspense fallback={<MascotFallback size={180} />}>
-              <RobotHeadMascot size={180} />
+            <Suspense fallback={<MascotFallback size={152} />}>
+              <RobotHeadMascot size={152} followMouse={false} className="chat-empty-mascot" />
             </Suspense>
             <div className="chat-empty-title">Hôm nay bạn muốn học gì?</div>
             <PromptStarters disabled={!canChat || isAiLoading} onSelect={onPromptStarter} />
@@ -188,7 +188,7 @@ function ChatMessageList({
 
         {isAiLoading && (
           <div className="chat-gpt-loading">
-            <div style={{ flexShrink: 0, marginLeft: '-42px' }}>
+            <div className="chat-gpt-loading-avatar">
               <Suspense fallback={<MascotFallback size={32} />}>
                 <RobotHeadMascot size={32} compact followMouse={false} />
               </Suspense>

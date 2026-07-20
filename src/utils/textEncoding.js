@@ -40,7 +40,7 @@ const decodeLegacyUtf8 = (value) => {
 
 /** Repairs UTF-8 text that was accidentally decoded as Windows-1252/Latin-1. */
 export function repairMojibake(value) {
-  const original = String(value ?? '');
+  const original = String(value ?? '').normalize('NFC');
   let current = original;
 
   for (let attempt = 0; attempt < 2; attempt += 1) {
@@ -52,7 +52,12 @@ export function repairMojibake(value) {
     current = candidate;
   }
 
-  return current;
+  return current.normalize('NFC');
+}
+
+/** Keeps valid Vietnamese text in the canonical Unicode form used by the UI. */
+export function normalizeUnicodeText(value) {
+  return repairMojibake(value);
 }
 
 export function hasBrokenTextEncoding(value) {

@@ -41,7 +41,7 @@ export default function StudentChatPage({
   });
   const chatController = useStudentChatTabController({
     courseId,
-    setCourseId,
+    setCourseId: enrollment.selectCourse || setCourseId,
     classId,
     courseOptions: enrollment.courseOptions,
     classOptions: enrollment.classOptions,
@@ -109,6 +109,8 @@ export default function StudentChatPage({
       setIsHistoryDrawerOpen={chatController.setIsHistoryDrawerOpen}
       sessions={chat.sessions}
       isSessionsLoading={chat.isSessionsLoading}
+      sessionMutationKey={chat.sessionMutationKey}
+      isCreatingSession={chat.isCreatingSession}
       activeSessionId={chat.activeSessionId}
       activeSessionTitle={chat.activeSessionTitle}
       editingSessionId={chatController.editingSessionId}

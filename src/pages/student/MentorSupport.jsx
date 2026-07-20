@@ -141,7 +141,7 @@ function MentorSupport({
             <Alert
               type="error"
               showIcon
-              message="Unable to load mentor review tickets"
+              title="Unable to load mentor review tickets"
               description={escalationsError}
               className="mentor-review-inline-alert"
             />
@@ -186,7 +186,7 @@ function MentorSupport({
                   <Alert
                     type="warning"
                     showIcon
-                    message="The complete ticket could not be loaded"
+                    title="The complete ticket could not be loaded"
                     description={escalationDetailError}
                   />
                 )}
@@ -238,7 +238,7 @@ function MentorSupport({
                   type="success"
                   showIcon
                   className="mentor-review-learning-note"
-                  message="AI learning is protected"
+                  title="AI learning is protected"
                   description="Mentor answers are not added to AI knowledge automatically. Only senior/admin-approved Knowledge Candidates are indexed into the course RAG knowledge base."
                 />
               </div>

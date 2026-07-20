@@ -137,8 +137,8 @@ function StudentMentorFlow({ escalation, currentUser, compact = false, onEscalat
         <Tag color={status === 'OFFERED' ? 'blue' : 'orange'}>{STATUS_LABELS[status] || status || STATUS_LABELS.PENDING_OFFER}</Tag>
       </div>
 
-      {error && <Alert type="error" showIcon message={error} />}
-      {routeMessage && <Alert type="info" showIcon message={routeMessage} />}
+      {error && <Alert type="error" showIcon title={error} />}
+      {routeMessage && <Alert type="info" showIcon title={routeMessage} />}
 
       {mentors.length === 0 ? (
         <div className="mentor-selection-flow__empty">

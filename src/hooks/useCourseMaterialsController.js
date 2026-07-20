@@ -3,6 +3,8 @@ import { assignmentApi } from '../services/assignmentApi';
 import { materialsApi } from '../services/materialsApi';
 import { getUserFacingError } from '../services/apiClient';
 import { asArray, normalizeCourseMaterial } from '../services/normalizers';
+import { useRealtimeEvent } from '../features/realtime/realtimeContext';
+import { eventMatchesCourse, REALTIME_EVENT_TYPES } from '../features/realtime/realtimeEvents';
 
 export function useCourseMaterialsController({
   courseId,
@@ -41,6 +43,10 @@ export function useCourseMaterialsController({
       if (materialsRequestRef.current === controller) materialsRequestRef.current = null;
     }
   }, [classId, courseId]);
+
+  useRealtimeEvent(REALTIME_EVENT_TYPES.material, (event) => {
+    if (eventMatchesCourse(event, courseId)) loadCourseMaterials();
+  });
 
   const handleTeacherUploadMaterial = async (title, classIdVal, file) => {
     if (!courseId) {

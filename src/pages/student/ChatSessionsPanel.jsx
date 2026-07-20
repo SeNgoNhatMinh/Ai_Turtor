@@ -18,6 +18,8 @@ import ConversationSearch from './ConversationSearch';
 function ChatSessionsPanel({
   sessions,
   isLoading = false,
+  sessionMutationKey = '',
+  isCreatingSession = false,
   activeSessionId,
   onCreate,
   onSelect,
@@ -83,7 +85,15 @@ function ChatSessionsPanel({
           <div className="chat-history-title">Lịch sử trò chuyện</div>
           <div className="chat-history-subtitle">Mới nhất trước</div>
         </div>
-        <Button type="primary" size="small" icon={<Plus size={14} />} onClick={onCreate} className="chat-history-new-button">
+        <Button
+          type="primary"
+          size="small"
+          icon={<Plus size={14} />}
+          onClick={onCreate}
+          loading={isCreatingSession}
+          disabled={!onCreate || Boolean(sessionMutationKey)}
+          className="chat-history-new-button"
+        >
           Cuộc trò chuyện mới
         </Button>
       </div>
@@ -114,6 +124,7 @@ function ChatSessionsPanel({
                 onSelect={onSelect}
                 onSaveRename={onSaveRename}
                 onMenuAction={handleSessionMenu}
+                sessionMutationKey={sessionMutationKey}
               />
             ))}
             {hasMore && <button type="button" className="conversation-load-more" onClick={loadMore}>Xem thêm</button>}

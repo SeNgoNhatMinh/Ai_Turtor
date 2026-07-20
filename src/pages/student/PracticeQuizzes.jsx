@@ -151,7 +151,7 @@ function PracticeQuizzes({
         <Alert
           type="warning"
           showIcon
-          message="Choose a course first"
+          title="Choose a course first"
           description={uiCopy.student.quizzes.contextRequired}
           className="quiz-alert"
         />
@@ -165,7 +165,7 @@ function PracticeQuizzes({
           type="success"
           showIcon
           className="quiz-alert"
-          message={uiCopy.student.quizzes.activeReady}
+          title={uiCopy.student.quizzes.activeReady}
           action={<Button size="small" type="primary" onClick={() => quiz.setActiveTab('active')}>Continue quiz</Button>}
         />
       )}

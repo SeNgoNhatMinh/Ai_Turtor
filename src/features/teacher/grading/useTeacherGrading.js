@@ -1,8 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { assignmentApi } from '../../../services/assignmentApi';
+import { assignmentGradingGateway } from '../../ai-harness/assignmentGradingGateway';
 import { quizApi } from '../../../services/quizApi';
 import { getUserFacingError } from '../../../services/apiClient';
-import { asArray, normalizeQuizSession } from '../../../services/normalizers';
+import {
+  asArray,
+  normalizeAssignment,
+  normalizeAssignmentSubmission,
+  normalizeQuizSession,
+} from '../../../services/normalizers';
+import { validateAnswerKeyFile } from '../../../utils/assignmentFiles';
+import { useMutationLock } from '../../../hooks/useMutationLock';
+import { useRealtimeEvent } from '../../realtime/realtimeContext';
+import { REALTIME_EVENT_TYPES } from '../../realtime/realtimeEvents';
 
 const EMPTY_ATTEMPT_PAGE = {
   page: 0,
@@ -20,7 +30,10 @@ export function useTeacherGrading({ teacherId, courseId, classId, teacherStudent
   const [isQuizSubmissionsLoading, setIsQuizSubmissionsLoading] = useState(false);
   const [loadingQuizDetailId, setLoadingQuizDetailId] = useState('');
   const [selectedTeacherSub, setSelectedTeacherSub] = useState(null);
+  const [answerKeyUploadingId, setAnswerKeyUploadingId] = useState('');
+  const [aiGradingSubmissionId, setAiGradingSubmissionId] = useState('');
   const studentLookupRef = useRef(new Map());
+  const { runLocked, lockedKeys } = useMutationLock();
 
   useEffect(() => {
     studentLookupRef.current = new Map(
@@ -43,21 +56,44 @@ export function useTeacherGrading({ teacherId, courseId, classId, teacherStudent
       return;
     }
     try {
-      const data = await assignmentApi.getClassSubmissions(courseId, classId, teacherId);
-      const submissions = asArray(data, 'content', 'submissions').map((submission) => {
+      const [submissionData, assignmentData] = await Promise.all([
+        assignmentApi.getClassSubmissions(courseId, classId, teacherId),
+        assignmentApi.getClassAssignments(courseId, classId, teacherId),
+      ]);
+      const assignments = asArray(assignmentData, 'content', 'assignments').map(normalizeAssignment);
+      const assignmentsById = new Map(assignments.map((assignment) => [assignment.id, assignment]));
+      const submissions = asArray(submissionData, 'content', 'submissions').map((rawSubmission) => {
+        const submission = normalizeAssignmentSubmission(rawSubmission);
+        const assignment = assignmentsById.get(submission.assignmentId) || normalizeAssignment(rawSubmission.assignment);
         const student = studentLookupRef.current.get(submission.studentId || submission.userId);
-        return student ? {
+        return {
+          ...assignment,
           ...submission,
-          studentName: student.name || student.fullName || submission.studentName,
-          studentEmail: student.email || submission.studentEmail,
-        } : submission;
+          id: submission.id,
+          submissionId: submission.id,
+          assignment,
+          studentName: student?.name || student?.fullName || submission.studentName,
+          studentEmail: student?.email || submission.studentEmail,
+        };
       });
       setTeacherSubmissions(submissions);
-      setSelectedTeacherSub((current) => current || submissions[0] || null);
+      setSelectedTeacherSub((current) => {
+        const currentId = current?.submissionId || current?.id;
+        return submissions.find((submission) => submission.id === currentId)
+          || submissions[0]
+          || null;
+      });
     } catch {
       setTeacherSubmissions([]);
     }
   };
+
+  useRealtimeEvent([
+    ...REALTIME_EVENT_TYPES.teacherAssignment,
+    ...REALTIME_EVENT_TYPES.assignmentAiGrading,
+  ], () => {
+    loadTeacherSubmissions();
+  });
 
   const loadQuizSubmissions = useCallback(async ({ signal } = {}) => {
     if (!teacherId || !courseId || !classId) {
@@ -138,59 +174,117 @@ export function useTeacherGrading({ teacherId, courseId, classId, teacherStudent
   };
 
   const handleTeacherQuizReview = async (quizSessionId, reviewedScore, feedback) => {
-    try {
-      await quizApi.teacherReviewQuiz(quizSessionId, {
-        teacherId,
-        reviewedScore: Number(reviewedScore),
-        feedback,
-      });
-      triggerToast('Quiz review saved.');
-      setQuizSubmissions((current) => current.map((quiz) => (
-        quiz.id === quizSessionId
-          ? {
-              ...quiz,
-              teacherReviewedScore: Number(reviewedScore),
-              finalScore: Number(reviewedScore),
-              finalPercentage: quiz.maxScore
-                ? Math.round((Number(reviewedScore) * 10000) / quiz.maxScore) / 100
-                : 0,
-              teacherFeedback: feedback,
-              teacherReviewStatus: 'REVIEWED',
-            }
-          : quiz
-      )));
-      setSelectedTeacherSub((current) => current?.id === quizSessionId ? {
-        ...current,
-        teacherReviewedScore: Number(reviewedScore),
-        finalScore: Number(reviewedScore),
-        teacherFeedback: feedback,
-        teacherReviewStatus: 'REVIEWED',
-      } : current);
-      if (quizReviewStatus === 'PENDING') {
-        await loadQuizSubmissions();
+    return runLocked(`quiz-review:${quizSessionId}`, async () => {
+      try {
+        await quizApi.teacherReviewQuiz(quizSessionId, {
+          teacherId,
+          reviewedScore: Number(reviewedScore),
+          feedback,
+        });
+        triggerToast('Quiz review saved.');
+        setQuizSubmissions((current) => current.map((quiz) => (
+          quiz.id === quizSessionId
+            ? {
+                ...quiz,
+                teacherReviewedScore: Number(reviewedScore),
+                finalScore: Number(reviewedScore),
+                finalPercentage: quiz.maxScore
+                  ? Math.round((Number(reviewedScore) * 10000) / quiz.maxScore) / 100
+                  : 0,
+                teacherFeedback: feedback,
+                teacherReviewStatus: 'REVIEWED',
+              }
+            : quiz
+        )));
+        setSelectedTeacherSub((current) => current?.id === quizSessionId ? {
+          ...current,
+          teacherReviewedScore: Number(reviewedScore),
+          finalScore: Number(reviewedScore),
+          teacherFeedback: feedback,
+          teacherReviewStatus: 'REVIEWED',
+        } : current);
+        if (quizReviewStatus === 'PENDING') {
+          await loadQuizSubmissions();
+        }
+        return true;
+      } catch (error) {
+        triggerToast(getUserFacingError(error, 'Unable to save quiz review.'));
+        return false;
       }
-      return true;
-    } catch (error) {
-      triggerToast(getUserFacingError(error, 'Unable to save quiz review.'));
-      return false;
-    }
+    });
   };
 
   const handleTeacherGradeSubmit = async (submissionId, score, feedback, weakTopics) => {
-    triggerToast('Saving grading results...');
-    try {
-      await assignmentApi.gradeSubmission(submissionId, {
-        teacherId,
-        score: parseFloat(score),
-        teacherFeedback: feedback,
-        weakTopics,
-      });
-      triggerToast('Submission graded successfully.');
-      await loadTeacherSubmissions();
-    } catch (error) {
-      console.error('Error grading submission:', error);
-      triggerToast(getUserFacingError(error, 'Unable to save grading results.'));
+    return runLocked(`assignment-review:${submissionId}`, async () => {
+      triggerToast('Saving grading results...');
+      try {
+        await assignmentApi.gradeSubmission(submissionId, {
+          teacherId,
+          score: parseFloat(score),
+          teacherFeedback: feedback,
+          weakTopics,
+        });
+        triggerToast('Submission graded successfully.');
+        await loadTeacherSubmissions();
+        return true;
+      } catch (error) {
+        console.error('Error grading submission:', error);
+        triggerToast(getUserFacingError(error, 'Unable to save grading results.'));
+        return false;
+      }
+    });
+  };
+
+  const handleUploadAnswerKey = async (assignmentId, file) => {
+    const validation = validateAnswerKeyFile(file);
+    if (!validation.ok) {
+      triggerToast(validation.message);
+      return false;
     }
+    if (!assignmentId || !teacherId) return false;
+
+    return runLocked(`assignment:answer-key:${assignmentId}`, async () => {
+      setAnswerKeyUploadingId(assignmentId);
+      try {
+        await assignmentApi.uploadAssignmentAnswerKey(assignmentId, teacherId, file);
+        triggerToast('Answer key uploaded. It remains private to the teacher and backend.');
+        await loadTeacherSubmissions();
+        return true;
+      } catch (error) {
+        triggerToast(getUserFacingError(error, 'Unable to upload the answer key.'));
+        return false;
+      } finally {
+        setAnswerKeyUploadingId('');
+      }
+    });
+  };
+
+  const handleAiGradeSubmission = async (submission) => {
+    const submissionId = submission?.submissionId || submission?.id;
+    if (!submissionId || !teacherId) return false;
+    if (!submission?.answerKeyUploaded) {
+      triggerToast('Upload an answer key before requesting AI-assisted grading.');
+      return false;
+    }
+
+    return runLocked(`assignment:ai-grade:${submissionId}`, async () => {
+      setAiGradingSubmissionId(submissionId);
+      try {
+        const response = await assignmentGradingGateway.gradeSubmission({ submissionId, teacherId });
+        const result = normalizeAssignmentSubmission(response?.submission || response?.result || response);
+        setSelectedTeacherSub((current) => current?.id === submissionId
+          ? { ...current, ...result, id: submissionId, submissionId }
+          : current);
+        triggerToast('AI grading suggestion is ready. Review it before saving the final score.');
+        await loadTeacherSubmissions();
+        return true;
+      } catch (error) {
+        triggerToast(getUserFacingError(error, 'AI-assisted grading could not be completed. No final score was saved.'));
+        return false;
+      } finally {
+        setAiGradingSubmissionId('');
+      }
+    });
   };
 
   return {
@@ -210,5 +304,10 @@ export function useTeacherGrading({ teacherId, courseId, classId, teacherStudent
     loadQuizSubmissions,
     handleTeacherQuizReview,
     handleTeacherGradeSubmit,
+    answerKeyUploadingId,
+    aiGradingSubmissionId,
+    gradingMutationKeys: lockedKeys,
+    handleUploadAnswerKey,
+    handleAiGradeSubmission,
   };
 }

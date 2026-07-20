@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import AnswerReviewCard from '../../src/features/teacher/review/AnswerReviewCard';
 
 const review = {
@@ -40,6 +40,8 @@ describe('AnswerReviewCard', () => {
       <AnswerReviewCard
         review={review}
         queue="senior"
+        onDraftChange={vi.fn()}
+        onResolve={vi.fn()}
         draft={{
           notes: 'Verified against course material.',
           correctedAnswer: 'Correct academic answer.',
@@ -48,5 +50,18 @@ describe('AnswerReviewCard', () => {
     );
 
     expect(screen.getByRole('button', { name: 'Create knowledge candidate' })).toBeEnabled();
+  });
+
+  it('keeps senior mutation controls disabled when handlers are missing', () => {
+    render(
+      <AnswerReviewCard
+        review={review}
+        queue="senior"
+        draft={{ notes: 'Verified.', correctedAnswer: 'Correct answer.' }}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: 'Resolve without AI update' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Create knowledge candidate' })).toBeDisabled();
   });
 });

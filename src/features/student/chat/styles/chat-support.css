@@ -12,18 +12,6 @@
   background: linear-gradient(135deg, rgba(243, 112, 33, 0.16), rgba(31, 41, 55, 0.08));
 }
 
-.ai-answer-code-loading {
-  margin: 12px 0;
-  padding: 14px;
-  overflow-x: auto;
-  border: 1px solid var(--border-soft);
-  border-radius: 10px;
-  background: var(--code-bg, #111827);
-  color: #f9fafb;
-  font-size: 13px;
-  line-height: 1.6;
-}
-
 .inline-mentor-card {
   width: 100%;
   margin: 14px 0 4px;

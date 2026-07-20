@@ -18,14 +18,31 @@ const ConversationItem = memo(function ConversationItem({
   onSelect,
   onSaveRename,
   onMenuAction,
+  sessionMutationKey,
 }) {
   const questionCount = getSessionQuestionCount(session);
   const isFull = Boolean(session.maxTurnsReached || questionCount >= CHAT_TURN_LIMIT);
+  const isMutating = String(sessionMutationKey || '').endsWith(`:${session.id}`);
+  const canSelect = typeof onSelect === 'function' && !isEditing && !sessionMutationKey;
+  const selectSession = () => {
+    if (canSelect) onSelect(session.id, session.title);
+  };
 
   return (
     <div
       className={`session-item ${isActive ? 'ant-list-item-selected' : ''}`}
-      onClick={() => onSelect(session.id, session.title)}
+      role="button"
+      tabIndex={canSelect ? 0 : -1}
+      aria-current={isActive ? 'true' : undefined}
+      aria-disabled={!canSelect}
+      onClick={selectSession}
+      onKeyDown={(event) => {
+        if (event.currentTarget !== event.target) return;
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          selectSession();
+        }
+      }}
     >
       <div className="session-item-main">
         <div className="session-item-title">
@@ -38,6 +55,7 @@ const ConversationItem = memo(function ConversationItem({
               onClick={(event) => event.stopPropagation()}
               autoFocus
               size="small"
+              disabled={isMutating}
             />
           ) : (
             <Text ellipsis>{session.title || 'Cuộc trò chuyện mới'}</Text>
@@ -56,6 +74,7 @@ const ConversationItem = memo(function ConversationItem({
         items={MENU_ITEMS}
         onAction={(key, meta) => onMenuAction(key, session, meta)}
         ariaLabel="Thao tác cuộc trò chuyện"
+        disabled={Boolean(sessionMutationKey)}
       />
     </div>
   );
@@ -70,6 +89,7 @@ function ConversationGroup({
   onSelect,
   onSaveRename,
   onMenuAction,
+  sessionMutationKey,
 }) {
   return (
     <section className="conversation-group" aria-label={group.label}>
@@ -85,6 +105,7 @@ function ConversationGroup({
           onSelect={onSelect}
           onSaveRename={onSaveRename}
           onMenuAction={onMenuAction}
+          sessionMutationKey={sessionMutationKey}
         />
       ))}
     </section>

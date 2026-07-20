@@ -7,6 +7,7 @@ const teacherPages = {
   'teacher-materials': lazy(() => import('../../features/teacher/materials/TeacherMaterialsPage')),
   'teacher-grading': lazy(() => import('../../features/teacher/grading/TeacherGradingPage')),
   'teacher-escalations': lazy(() => import('../../features/teacher/review/TeacherReviewPage')),
+  'teacher-expert-training': lazy(() => import('../../features/expert-training/ExpertTrainingPage')),
 };
 
 function TeacherPageFallback() {
@@ -17,6 +18,7 @@ export default function TeacherWorkspace({
   currentUser,
   activeTab,
   courseId,
+  setCourseId,
   classId,
   setClassId,
   triggerToast,
@@ -32,6 +34,7 @@ export default function TeacherWorkspace({
         currentUser={currentUser}
         teacherId={teacherId}
         courseId={courseId}
+        setCourseId={setCourseId}
         classId={classId}
         setClassId={setClassId}
         triggerToast={triggerToast}

@@ -11,6 +11,7 @@ import {
   Users,
   Library,
   MessageCircle,
+  BrainCircuit,
 } from 'lucide-react';
 import { getWorkspaceRole } from '../constants/roles';
 
@@ -96,6 +97,14 @@ const navigationItems = [
     icon: Inbox,
   },
   {
+    key: 'teacher-expert-training',
+    workspace: 'teacher',
+    group: 'AI Quality',
+    label: 'AI Knowledge Training',
+    description: 'Claim expert tasks, contribute trusted knowledge, and inspect Tutor V2 evaluation.',
+    icon: BrainCircuit,
+  },
+  {
     key: 'admin-dashboard',
     workspace: 'admin',
     group: 'System',
@@ -118,6 +127,14 @@ const navigationItems = [
     label: 'Terms & Classes',
     description: 'Manage semesters, courses, and class sections.',
     icon: Library,
+  },
+  {
+    key: 'admin-expert-training',
+    workspace: 'admin',
+    group: 'AI Quality',
+    label: 'AI Knowledge Training',
+    description: 'Analyze coverage, review expert knowledge, and evaluate Tutor V2 quality.',
+    icon: BrainCircuit,
   },
 ];
 

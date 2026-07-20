@@ -6,7 +6,6 @@ export default function AuthedLayout({
   activeRole,
   activeTab,
   switchTab,
-  handleRoleChange,
   isDarkMode,
   setIsDarkMode,
   currentUser,
@@ -19,7 +18,6 @@ export default function AuthedLayout({
     <div className={`app-container ${isDarkMode ? 'dark' : 'light'}`}>
       <Header
         activeRole={activeRole}
-        handleRoleChange={handleRoleChange}
         isDarkMode={isDarkMode}
         setIsDarkMode={setIsDarkMode}
         currentUser={currentUser}

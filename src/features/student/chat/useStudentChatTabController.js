@@ -36,15 +36,36 @@ export function useStudentChatTabController({
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [isHistoryDrawerOpen, setIsHistoryDrawerOpen] = useState(false);
   const messagesEndRef = useRef(null);
+  const previousMessageCountRef = useRef(0);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const marker = messagesEndRef.current;
+    const container = marker?.closest('.chat-workspace-messages-container');
+    const messageCount = Array.isArray(messages) ? messages.length : 0;
+    if (!container) return;
+    const scrollContainer = (top, behavior) => {
+      if (typeof container.scrollTo === 'function') container.scrollTo({ top, behavior });
+      else container.scrollTop = top;
+    };
+
+    if (messageCount === 0) {
+      scrollContainer(0, 'auto');
+      previousMessageCountRef.current = 0;
+      return;
+    }
+
+    scrollContainer(
+      container.scrollHeight,
+      previousMessageCountRef.current === 0 ? 'auto' : 'smooth',
+    );
+    previousMessageCountRef.current = messageCount;
   }, [messages]);
 
-  const onSaveRename = (event, sessionId) => {
+  const onSaveRename = async (event, sessionId) => {
     event.stopPropagation();
     if (editingSessionTitle.trim()) {
-      handleRenameSession(sessionId, editingSessionTitle.trim());
+      const succeeded = await handleRenameSession(sessionId, editingSessionTitle.trim());
+      if (!succeeded) return;
     }
     setEditingSessionId(null);
   };

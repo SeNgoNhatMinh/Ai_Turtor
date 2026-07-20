@@ -1,5 +1,6 @@
 import { lazy, Suspense } from 'react';
 import { BookOpen, GraduationCap, Pencil } from 'lucide-react';
+import FptWordmark from './FptWordmark';
 
 const RobotHeadMascot = lazy(() => import('../../../components/RobotHeadMascot'));
 
@@ -47,7 +48,7 @@ function LoginBrandPanel() {
         </div>
       </div>
 
-      <h1><span>FPT</span> University AI Tutor</h1>
+      <h1><FptWordmark /> University AI Tutor</h1>
       <p>
         Study smarter with course-aware AI support, guided code feedback, and mentor escalation in one workspace.
       </p>

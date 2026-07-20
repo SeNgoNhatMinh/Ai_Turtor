@@ -32,9 +32,11 @@ export function useConversationSessions({
   const [sessions, setSessions] = useState([]);
   const [messages, setMessages] = useState([]);
   const [isSessionsLoading, setIsSessionsLoading] = useState(false);
+  const [sessionMutationKey, setSessionMutationKey] = useState('');
   const [turnLimitNotice, setTurnLimitNotice] = useState(null);
   const sessionsRequestRef = useRef(null);
   const messagesRequestRef = useRef(null);
+  const sessionMutationRef = useRef('');
   const userId = studentId || currentUser?.userId || currentUser?.id || '';
 
   useEffect(() => () => {
@@ -50,6 +52,19 @@ export function useConversationSessions({
     setMessages([]);
     setSessions([]);
     setTurnLimitNotice(null);
+  };
+
+  const runSessionMutation = async (key, operation) => {
+    if (sessionMutationRef.current) return false;
+    sessionMutationRef.current = key;
+    setSessionMutationKey(key);
+    try {
+      await operation();
+      return true;
+    } finally {
+      sessionMutationRef.current = '';
+      setSessionMutationKey('');
+    }
   };
 
   const loadChatSessions = async () => {
@@ -148,54 +163,76 @@ export function useConversationSessions({
   const handleCreateSession = async () => {
     if (!userId) {
       triggerToast('Vui lòng đăng nhập trước khi tạo cuộc trò chuyện.');
-      return;
+      return false;
     }
     if (!courseId || !classId) {
       triggerToast('Tài khoản chưa được ghi danh vào lớp. Vui lòng liên hệ Admin hoặc giáo viên.');
-      return;
+      return false;
     }
-    const data = await conversationApi.createConversation(userId, courseId, classId);
-    const session = normalizeSession(data);
-    setActiveSessionId(session.id);
-    setActiveSessionTitle(session.title);
-    setTurnLimitNotice(null);
-    setSessions((current) => sortSessionsByActivity([
-      session,
-      ...(Array.isArray(current) ? current.filter((item) => item.id !== session.id) : []),
-    ]));
-    setMessages([]);
-    triggerToast('Đã tạo cuộc trò chuyện mới.');
+    try {
+      return await runSessionMutation('create', async () => {
+        const data = await conversationApi.createConversation(userId, courseId, classId);
+        const session = normalizeSession(data);
+        if (!session.id) throw new Error('Backend did not return a conversation ID.');
+        setActiveSessionId(session.id);
+        setActiveSessionTitle(session.title);
+        setTurnLimitNotice(null);
+        setSessions((current) => sortSessionsByActivity([
+          session,
+          ...(Array.isArray(current) ? current.filter((item) => item.id !== session.id) : []),
+        ]));
+        setMessages([]);
+        triggerToast('Đã tạo cuộc trò chuyện mới.');
+      });
+    } catch (error) {
+      triggerToast(getUserFacingError(error, 'Không thể tạo cuộc trò chuyện mới.'));
+      return false;
+    }
   };
 
   const handleDeleteSession = async (sessionId) => {
     if (!userId) {
       triggerToast('Vui lòng đăng nhập trước khi xóa cuộc trò chuyện.');
-      return;
+      return false;
     }
-    await conversationApi.deleteConversation(sessionId, userId);
-    triggerToast('Đã xóa cuộc trò chuyện.');
-    setSessions((current) => current.filter((session) => session.id !== sessionId));
-    setTurnLimitNotice((current) => (
-      current?.previousSessionId === sessionId || current?.currentSessionId === sessionId ? null : current
-    ));
-    if (activeSessionId === sessionId) {
-      setActiveSessionId(null);
-      setActiveSessionTitle('Trò chuyện với AI Tutor');
-      setMessages([]);
+    try {
+      return await runSessionMutation(`delete:${sessionId}`, async () => {
+        await conversationApi.deleteConversation(sessionId, userId);
+        triggerToast('Đã xóa cuộc trò chuyện.');
+        setSessions((current) => current.filter((session) => session.id !== sessionId));
+        setTurnLimitNotice((current) => (
+          current?.previousSessionId === sessionId || current?.currentSessionId === sessionId ? null : current
+        ));
+        if (activeSessionId === sessionId) {
+          setActiveSessionId(null);
+          setActiveSessionTitle('Trò chuyện với AI Tutor');
+          setMessages([]);
+        }
+      });
+    } catch (error) {
+      triggerToast(getUserFacingError(error, 'Không thể xóa cuộc trò chuyện.'));
+      return false;
     }
   };
 
   const handleRenameSession = async (sessionId, newTitle) => {
     if (!userId) {
       triggerToast('Vui lòng đăng nhập trước khi đổi tên cuộc trò chuyện.');
-      return;
+      return false;
     }
-    await conversationApi.renameConversation(sessionId, newTitle, userId);
-    triggerToast('Đã đổi tên cuộc trò chuyện.');
-    setSessions((current) => current.map((session) => (
-      session.id === sessionId ? { ...session, title: newTitle } : session
-    )));
-    if (activeSessionId === sessionId) setActiveSessionTitle(newTitle);
+    try {
+      return await runSessionMutation(`rename:${sessionId}`, async () => {
+        await conversationApi.renameConversation(sessionId, newTitle, userId);
+        triggerToast('Đã đổi tên cuộc trò chuyện.');
+        setSessions((current) => current.map((session) => (
+          session.id === sessionId ? { ...session, title: newTitle } : session
+        )));
+        if (activeSessionId === sessionId) setActiveSessionTitle(newTitle);
+      });
+    } catch (error) {
+      triggerToast(getUserFacingError(error, 'Không thể đổi tên cuộc trò chuyện.'));
+      return false;
+    }
   };
 
   const activeSession = sessions.find((session) => session.id === activeSessionId);
@@ -214,6 +251,8 @@ export function useConversationSessions({
     sessions,
     messages,
     isSessionsLoading,
+    sessionMutationKey,
+    isCreatingSession: sessionMutationKey === 'create',
     turnLimitNotice,
     activeSessionQuestionCount,
     activeSessionMaxTurnsReached,

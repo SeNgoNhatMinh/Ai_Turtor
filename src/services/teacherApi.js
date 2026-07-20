@@ -11,7 +11,7 @@ export const teacherApi = {
   },
 
   async getClassSections(teacherId) {
-    return request(`${API_BASE_URL}/academic/mentors/${encodePath(teacherId)}/class-sections`);
+    return request(`${API_BASE_URL}/teachers/${encodePath(teacherId)}/classes`);
   },
 
   async getClassStudents(courseId, classId, teacherId = '') {

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, CheckCircle2, Lightbulb, MessageSquare, RefreshCw, Target } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Lightbulb, RefreshCw, Target } from 'lucide-react';
 import { teacherApi } from '../../services/teacherApi';
 import { getUserFacingError } from '../../services/apiClient';
 import { asArray } from '../../services/normalizers';
@@ -114,7 +114,13 @@ function TeacherClassesTab({
       <div className="glass-card">
         <div className="card-header">
           <h3>Assigned Class Sections</h3>
-          <button type="button" className="btn-small-chat" onClick={() => loadTeacherDashboard?.()}>
+          <button
+            type="button"
+            className="btn-small-chat"
+            onClick={loadTeacherDashboard}
+            disabled={teacherDashboardLoading || !loadTeacherDashboard}
+            aria-label="Refresh assigned classes and learning signals"
+          >
             <RefreshCw style={{ width: 12, height: 12 }} /> Refresh
           </button>
         </div>
@@ -127,23 +133,18 @@ function TeacherClassesTab({
             {classesList.map((c, i) => {
               const classValue = c.classCode || c.classId || c.id;
               return (
-                <div
+                <button
+                  type="button"
                   key={classValue || i}
                   className={`class-card-item ${classId === classValue ? 'active-class' : ''}`}
                   onClick={() => setClassId(classValue)}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter' || event.key === ' ') {
-                      event.preventDefault();
-                      setClassId(classValue);
-                    }
-                  }}
+                  disabled={!classValue || !setClassId}
+                  aria-pressed={classId === classValue}
                 >
                   <span className="badge-semester">Term: {c.semester}</span>
                   <h4>{c.name}</h4>
                   <p>{c.details}</p>
-                </div>
+                </button>
               );
             })}
           </div>
@@ -158,9 +159,6 @@ function TeacherClassesTab({
               {currentClass?.name || `Class ${classId}`} · prioritized from learning memory, submissions, and quiz signals
             </span>
           </div>
-          <button type="button" className="btn-small-chat" onClick={() => loadTeacherDashboard?.()}>
-            <RefreshCw style={{ width: 12, height: 12 }} /> Update
-          </button>
         </div>
 
         <div className="teacher-gap-summary">
@@ -273,7 +271,6 @@ function TeacherClassesTab({
                 <th>Email</th>
                 <th>Learning Status</th>
                 <th>Weak Topics</th>
-                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -290,11 +287,6 @@ function TeacherClassesTab({
                     {(s.weakTopics || []).map((wt, i) => (
                       <span key={`${wt}-${i}`} className={wt === 'None' ? 'tag-healthy' : 'tag-weak'}>{wt}</span>
                     ))}
-                  </td>
-                  <td>
-                    <button type="button" className="btn-small-chat" onClick={() => triggerToast?.(`Opening support chat with ${getPersonDisplayName(s, 'this student')}...`)}>
-                      <MessageSquare style={{ width: 12, height: 12 }} /> Support
-                    </button>
                   </td>
                 </tr>
               ))}

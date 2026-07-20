@@ -56,21 +56,6 @@ function Sidebar({ activeRole, activeTab, switchTab }) {
           theme="light"
         />
       </div>
-      
-      {!collapsed && <div className="sidebar-status-card">
-        <div className="status-row">
-          <span className="status-dot green"></span>
-          <span className="status-text">Backend API Connected</span>
-        </div>
-        <div className="status-row">
-          <span className="status-dot green"></span>
-          <span className="status-text">MongoDB Running</span>
-        </div>
-        <div className="status-row">
-          <span className="status-dot green"></span>
-          <span className="status-text">Elasticsearch Ready</span>
-        </div>
-      </div>}
     </aside>
   );
 }

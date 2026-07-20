@@ -15,6 +15,7 @@ export const env = {
   apiTimeoutMs: parseNumber(import.meta.env.VITE_API_TIMEOUT_MS, 60000),
   apiWithCredentials: parseBoolean(import.meta.env.VITE_API_WITH_CREDENTIALS, false),
   chatSocketUrl: trimTrailingSlash(import.meta.env.VITE_CHAT_SOCKET_URL || ''),
+  realtimeSocketUrl: trimTrailingSlash(import.meta.env.VITE_REALTIME_SOCKET_URL || ''),
   n8nEnabled: parseBoolean(import.meta.env.VITE_N8N_ENABLED, false),
   n8nStrict: parseBoolean(import.meta.env.VITE_N8N_STRICT, false),
   n8nBaseUrl: trimTrailingSlash(import.meta.env.VITE_N8N_BASE_URL || 'http://localhost:5678'),
@@ -23,6 +24,10 @@ export const env = {
   n8nChatTimeoutMs: parseNumber(import.meta.env.VITE_N8N_CHAT_TIMEOUT_MS, 180000),
   n8nQuizTimeoutMs: parseNumber(import.meta.env.VITE_N8N_QUIZ_TIMEOUT_MS, 240000),
   n8nQuizEnabled: parseBoolean(import.meta.env.VITE_N8N_QUIZ_ENABLED, false),
+  n8nAssignmentGradingEnabled: parseBoolean(import.meta.env.VITE_N8N_ASSIGNMENT_GRADING_ENABLED, false),
+  n8nAssignmentGradingTimeoutMs: parseNumber(import.meta.env.VITE_N8N_ASSIGNMENT_GRADING_TIMEOUT_MS, 300000),
+  n8nTutorV2Enabled: parseBoolean(import.meta.env.VITE_N8N_TUTOR_V2_ENABLED, false),
+  n8nTutorV2TimeoutMs: parseNumber(import.meta.env.VITE_N8N_TUTOR_V2_TIMEOUT_MS, 300000),
 };
 
 export function buildUrl(path, query) {

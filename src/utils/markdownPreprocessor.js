@@ -1,6 +1,7 @@
 import React from 'react';
-import { sanitizeLinkUrl } from './markdownSecurity';
-import { extractSourceFileLabels, isMaterialSourceText } from './sourceLabels';
+import { sanitizeLinkUrl } from './markdownSecurity.js';
+import { extractSourceFileLabels, isMaterialSourceText } from './sourceLabels.js';
+import { normalizeUnicodeText } from './textEncoding.js';
 
 /**
  * =========================================================
@@ -8,19 +9,13 @@ import { extractSourceFileLabels, isMaterialSourceText } from './sourceLabels';
  * Production-grade — React Chat UI / AI Tutor
  *
  * Pipeline order:
- *   1. Normalize newlines
- *   2. Trim trailing whitespace per line
- *   3. Collapse excessive blank lines
- *   4. Hard-fix inline tables
- *   5. Normalize math delimiters
- *   6. PROTECT code fences + math blocks (placeholder swap)
- *   7. Normalize lists
- *   8. Repair tables (GFM)
- *   9. Infer headings
- *  10. Normalize blockquotes
- *  11. Sanitize links
- *  12. RESTORE protected blocks
- *  13. Final blank-line collapse
+ *   1. Repair encoding and normalize Unicode/newlines/spacing
+ *   2. Protect original code fences and math
+ *   3. Normalize math delimiters and protect converted math
+ *   4. Normalize known headings, lists, tables and blockquotes
+ *   5. Sanitize links
+ *   6. Restore protected blocks
+ *   7. Final blank-line collapse
  * =========================================================
  */
 
@@ -94,8 +89,14 @@ const VIETNAMESE_EXACT_SECTION_LABELS = {
   'tai lieu mon hoc': 'Tài liệu môn học',
   'theo tai lieu mon hoc': 'Theo tài liệu môn học',
   'vi du nho': 'Ví dụ nhỏ',
+  'vi du nho neu can': 'Ví dụ nhỏ nếu cần',
   'luu y de hoc tot hon': 'Lưu ý để học tốt hơn',
   'nguon tai lieu da dung': 'Nguồn tài liệu đã dùng',
+  'chan doan van de': 'Chẩn đoán vấn đề',
+  'nguyen nhan co the': 'Nguyên nhân có thể',
+  'cach debug tung buoc': 'Cách debug từng bước',
+  'goi y sua': 'Gợi ý sửa',
+  'chu de nen on lai': 'Chủ đề nên ôn lại',
 };
 
 function normalizeVietnameseSectionLine(line) {
@@ -300,9 +301,9 @@ function protectBlocks(text) {
     }
   }
 
-  // If a block was never closed, flush it as-is (streaming edge case)
+  // Protect partial blocks too so streaming output is never rewritten.
   if (blockLines.length > 0) {
-    output.push(...blockLines);
+    output.push(store(blockLines.join('\n')));
   }
 
   let result = output.join('\n');
@@ -426,32 +427,42 @@ function repairTables(text) {
  * promote to ### headings.
  * ========================================================= */
 
+// JavaScript's `\b` is ASCII-oriented and fails after Vietnamese characters
+// such as "ý", "ụ" and "ị". Use an explicit Unicode-safe suffix instead.
+const SECTION_BOUNDARY = '(?=\\s|:|$)';
+const sectionPattern = (label) => new RegExp(`^${label}${SECTION_BOUNDARY}`, 'iu');
+
 const HEADING_PATTERNS = [
   /^tài liệu môn học$/i,
   /^theo tài liệu môn học$/i,
-  /^mô tả\b/i,
-  /^cấu trúc\b/i,
-  /^giá trị\b/i,
+  sectionPattern('mô tả'),
+  sectionPattern('cấu trúc'),
+  sectionPattern('giá trị'),
   /^các .+ được đề cập$/i,
-  /^thuật toán\b/i,
-  /^ví dụ\b/i,
-  /^lưu ý\b/i,
-  /^nguồn tài liệu\b/i,
-  /^công thức\b/i,
-  /^định nghĩa\b/i,
-  /^khái niệm\b/i,
-  /^chuyển đổi\b/i,
-  /^cơ số\b/i,
-  /^phần\b/i,
-  /^tóm tắt\b/i,
-  /^kết luận\b/i,
-  /^kết quả\b/i,
-  /^bước\b/i,
-  /^đặc điểm\b/i,
-  /^tính chất\b/i,
-  /^so sánh\b/i,
-  /^ứng dụng\b/i,
-  /^phương pháp\b/i,
+  sectionPattern('thuật toán'),
+  sectionPattern('ví dụ'),
+  sectionPattern('lưu ý'),
+  sectionPattern('nguồn tài liệu'),
+  sectionPattern('công thức'),
+  sectionPattern('định nghĩa'),
+  sectionPattern('khái niệm'),
+  sectionPattern('chuyển đổi'),
+  sectionPattern('cơ số'),
+  sectionPattern('phần'),
+  sectionPattern('tóm tắt'),
+  sectionPattern('kết luận'),
+  sectionPattern('kết quả'),
+  sectionPattern('bước'),
+  sectionPattern('đặc điểm'),
+  sectionPattern('tính chất'),
+  sectionPattern('so sánh'),
+  sectionPattern('ứng dụng'),
+  sectionPattern('phương pháp'),
+  sectionPattern('chẩn đoán'),
+  sectionPattern('nguyên nhân'),
+  sectionPattern('cách debug'),
+  sectionPattern('gợi ý sửa'),
+  sectionPattern('chủ đề nên ôn'),
 ];
 
 function inferHeadings(text) {
@@ -490,7 +501,7 @@ function escapeMarkdownLabel(text) {
 }
 
 function isStudyTipHeading(line) {
-  return /^#{1,6}\s*lưu ý\b/i.test(line.trim());
+  return /^#{1,6}\s*lưu ý(?=\s|:|$)/iu.test(line.trim());
 }
 
 function isSourceHeading(line) {
@@ -666,20 +677,24 @@ function sanitizeLinks(text) {
  * @returns {string}      Cleaned GFM markdown
  */
 export function normalizeAiMarkdown(input = '') {
-  let text = String(input || '');
+  let text = normalizeUnicodeText(input);
   if (!text.trim()) return '';
 
   /* 1 */ text = normalizeNewlines(text);
   /* 2 */ text = trimTrailingWhitespace(text);
   /* 3 */ text = collapseBlankLines(text);
-  /* 4 */ text = normalizeVietnameseSectionLabels(text);
-  /* 5 */ text = hardFixInlineTables(text);
-  /* 6 */ text = normalizeMath(text);
+  // Protect original code/math before any structural repair can touch it.
+  const originalBlocks = protectBlocks(text);
+  text = originalBlocks.text;
 
-  /* 7  Protect code fences + math blocks from mutation */
-  const { text: exposed, vault } = protectBlocks(text);
-  text = exposed;
+  /* 5 */ text = normalizeMath(text);
 
+  // Protect math blocks created from \[...\] before list/table normalization.
+  const normalizedMathBlocks = protectBlocks(text);
+  text = normalizedMathBlocks.text;
+
+  /* 6 */  text = normalizeVietnameseSectionLabels(text);
+  /* 7 */  text = hardFixInlineTables(text);
   /* 8 */  text = normalizeLists(text);
   /* 9 */  text = repairTables(text);
   /* 10 */ text = inferHeadings(text);
@@ -688,8 +703,9 @@ export function normalizeAiMarkdown(input = '') {
   /* 13 */ text = normalizeBlockquotes(text);
   /* 14 */ text = sanitizeLinks(text);
 
-  /* 15 Restore protected blocks */
-  text = restoreBlocks(text, vault);
+  /* 15 Restore protected blocks in reverse nesting order. */
+  text = restoreBlocks(text, normalizedMathBlocks.vault);
+  text = restoreBlocks(text, originalBlocks.vault);
 
   /* 16 */ text = collapseBlankLines(text);
 

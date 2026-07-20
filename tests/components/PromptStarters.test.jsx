@@ -20,4 +20,14 @@ describe('PromptStarters', () => {
       expect(button).toBeDisabled();
     });
   });
+
+  it('does not offer a context-free mentor request and disables actions without a handler', () => {
+    render(<PromptStarters />);
+
+    expect(screen.queryByRole('button', { name: 'Nhờ mentor hỗ trợ' })).not.toBeInTheDocument();
+    expect(screen.getAllByRole('button')).toHaveLength(3);
+    screen.getAllByRole('button').forEach((button) => {
+      expect(button).toBeDisabled();
+    });
+  });
 });

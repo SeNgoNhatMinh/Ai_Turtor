@@ -1,5 +1,18 @@
 import { API_BASE_URL, blobRequest, request, uploadRequest } from './apiClient';
 import { encodePath } from '../config/env';
+import { ApiError } from './httpClient';
+
+export function assertAssignmentUploadReceipt(response) {
+  const assignmentId = response?.assignmentId || response?.id || response?._id;
+  if (assignmentId) return response;
+  throw new ApiError({
+    status: 502,
+    code: 'INVALID_ASSIGNMENT_UPLOAD_RESPONSE',
+    message: 'The server did not confirm the published assignment.',
+    userMessage: 'The server did not confirm the published assignment. Please check the assignment list before trying again.',
+    details: response,
+  });
+}
 
 export const assignmentApi = {
   async getStudentAssignments(studentId, courseId = '') {
@@ -28,15 +41,26 @@ export const assignmentApi = {
     });
   },
 
-  async submitAssignment(assignmentId, formData, studentId) {
+  async submitAssignment(assignmentId, formData, student) {
+    const identity = typeof student === 'object' && student !== null
+      ? student
+      : { studentId: student };
     const note = formData.get('note');
-    const params = new URLSearchParams({ studentId });
+    const params = new URLSearchParams({ studentId: String(identity.studentId || '') });
+    if (identity.studentName) params.append('studentName', identity.studentName);
+    if (identity.studentEmail) params.append('studentEmail', identity.studentEmail);
     if (note) params.append('note', note);
     return uploadRequest(`${API_BASE_URL}/students/assignments/${encodePath(assignmentId)}/submit?${params}`, formData, 'Submit failed');
   },
 
   async uploadAssignment(courseId, classId, formData) {
-    return uploadRequest(`${API_BASE_URL}/mentor/courses/${encodePath(courseId)}/classes/${encodePath(classId)}/assignments/upload`, formData, 'Upload assignment failed');
+    const response = await uploadRequest(
+      `${API_BASE_URL}/mentor/courses/${encodePath(courseId)}/classes/${encodePath(classId)}/assignments/upload`,
+      formData,
+      'Upload assignment failed',
+      { timeoutMs: 180000 },
+    );
+    return assertAssignmentUploadReceipt(response);
   },
 
   async getClassAssignments(courseId, classId, teacherId) {
@@ -57,6 +81,27 @@ export const assignmentApi = {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
+    });
+  },
+
+  async uploadAssignmentAnswerKey(assignmentId, teacherId, file) {
+    const params = new URLSearchParams({ teacherId });
+    const formData = new FormData();
+    formData.append('file', file);
+    return uploadRequest(
+      `${API_BASE_URL}/mentor/assignments/${encodePath(assignmentId)}/answer-key?${params}`,
+      formData,
+      'Answer key upload failed',
+      { timeoutMs: 180000 },
+    );
+  },
+
+  async aiGradeAssignmentSubmission(submissionId, teacherId, options = {}) {
+    const params = new URLSearchParams({ teacherId });
+    return request(`${API_BASE_URL}/mentor/assignment-submissions/${encodePath(submissionId)}/ai-grade?${params}`, {
+      method: 'POST',
+      timeoutMs: 300000,
+      ...options,
     });
   },
 

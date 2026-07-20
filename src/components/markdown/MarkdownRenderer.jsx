@@ -9,6 +9,7 @@ import MarkdownErrorBoundary from './MarkdownErrorBoundary';
 import MarkdownImage from './MarkdownImage';
 import MarkdownDocument from './MarkdownDocument';
 import MarkdownTable from './MarkdownTable';
+import './MarkdownRenderer.css';
 
 const CodeBlock = lazy(() => import('./CodeBlock'));
 const MathMarkdownDocument = lazy(() => import('./MathMarkdownDocument'));
@@ -96,11 +97,14 @@ function CodeRenderer({ inline, className = '', children, ...props }) {
 function LinkRenderer({ href, children, onStudyTipAnalyze, ...props }) {
   if (String(href || '').startsWith('#ai-study-tip-')) {
     const text = getNodeText(children).trim();
+    if (!onStudyTipAnalyze) {
+      return <span className="ai-answer-study-tip ai-answer-study-tip--disabled">{children}</span>;
+    }
     return (
       <button
         type="button"
         className="ai-answer-study-tip"
-        onClick={() => onStudyTipAnalyze?.(text)}
+        onClick={() => onStudyTipAnalyze(text)}
         title="Analyze this study suggestion"
       >
         {children}

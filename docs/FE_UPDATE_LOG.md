@@ -1,5 +1,161 @@
 # Frontend Update Log
 
+# 2026-07-20 - Teacher Materials And Assignments Controller Split
+
+- Removed the legacy `pages/teacher/TeacherMaterialsAssignmentsTab.jsx` composition layer and the mixed `hooks/useTeacherMaterialsAssignments.js` controller.
+- Moved the Teacher Materials route composition into `features/teacher/materials/TeacherMaterialsView.jsx`.
+- Split assignment draft/list/edit/publish behavior into `useTeacherAssignmentsController.js`.
+- Split course-material upload/reindex/delete behavior into `useTeacherMaterialController.js`.
+- Grouped view props by `scope`, `assignments`, and `materials` so the route page no longer forwards a large flat prop surface.
+- Preserved the existing backend endpoints, multipart fields, validation, upload cooldown, real-success checks, and user-facing behavior.
+- Kept website import lazy-loaded and retained the route-level feature chunk; no backend logic or mock-success fallback was added.
+
+**Tested**
+- Focused assignment/material tests: pass (`14/14`).
+- `npm run check`: pass (`78` contract tests, `70` component/unit tests, ESLint, production build).
+- `npm run dead-code`: pass.
+- `git diff --check`: pass.
+
+# 2026-07-20 - Tutor V2 Six-Webhook Contract Alignment
+
+- Rechecked the existing Tutor V2 UI against `Flow V2 hien co 6 webhook chinh..txt` and the current Java controller/service.
+- Confirmed the shared Teacher/Admin feature covers Coverage, Expert Tasks, Gold Q&A, Rubrics, Senior review and Evaluation without duplicating backend state in FE.
+- Aligned the Coverage defaults with the demo contract: `3` TRAINING Gold Q&A and `2` EVALUATION holdouts per chapter.
+- Added deterministic task-purpose detection for coverage-created Gold Q&A tasks.
+- Locked a coverage task to its required `TRAINING` or `EVALUATION` purpose so a teacher cannot accidentally submit holdout data into the training path or vice versa.
+- Kept manual Gold Q&A contributions flexible when the source task does not explicitly declare a purpose.
+- Preserved canonical behavior: n8n handles the six V2 mutations when enabled; task CRUD, list/detail reads and reject actions continue through Spring Boot.
+
+**Tested**
+- Tutor V2 contract tests: pass (`5/5`).
+- n8n client/service tests: pass (`8/8`).
+- All six production webhook CORS preflights on `localhost:5678`: `204`.
+- Tutor V2 route E2E: pass on desktop and mobile (`2/2`).
+- `npm run check`: pass (`78` contract tests, `70` component/unit tests, ESLint, production build).
+- `npm run dead-code`: pass.
+
+# 2026-07-20 - Student Materials Feature Refactor
+
+- Removed the 279-line legacy `pages/student/MaterialsAssignments.jsx` component.
+- Moved Student Materials UI ownership fully under `features/student/materials`.
+- Split course context, assignment list, assignment details/submission, and course materials into focused presentational components.
+- Kept `StudentMaterialsPage` as the route controller and `MaterialsAssignmentsView` as the view composer.
+- Replaced deprecated `Tabs.TabPane` usage with the current Ant Design `items` API.
+- Added keyboard selection for assignment rows without changing API calls or assignment behavior.
+
+**Tested**
+- Focused component tests: pass (`2/2`).
+- Dark-mode E2E after refactor: pass on desktop and mobile (`2/2`).
+- `npm run check`: pass (`77` contract tests, `70` component/unit tests, ESLint, production build).
+- `npm run dead-code`: pass.
+
+# 2026-07-20 - Student Materials Dark Mode Fix
+
+- Scoped `Materials & Assignments` with a feature class so legacy global light-mode overrides no longer win in dark mode.
+- Added dark surfaces and readable contrast for course context, tabs, table headers/rows, selected assignment, attachment panel, upload dropzone, placeholders, and empty states.
+- Replaced the selected-row inline background with a semantic class so both themes can style it consistently.
+- Added desktop/mobile E2E coverage that verifies the dark context background, table heading contrast, and active tab color.
+
+**Tested**
+- Dark-mode E2E: pass on desktop Chrome and mobile Chrome (`2/2`).
+- `npm run check`: pass (`77` contract tests, `70` component/unit tests, ESLint, production build).
+
+# 2026-07-20 - Student Assignment Course Visibility Fix
+
+- Confirmed `test 1` was successfully stored for `AI101 / AI101-01` with target `ALL_CLASS` and Student 1 is actively enrolled in the same course/class.
+- Confirmed the canonical Student Assignment API returns `test 1`; the missing UI record was caused by the Materials page silently retaining the first enrolled course (`OOP`).
+- Added a visible enrolled-course selector and read-only class context to Student Materials & Assignments.
+- Course changes now update both `courseId` and the enrollment-derived `classId`, then refetch assignments and materials for that scope.
+- Added a course-specific empty state so an empty list no longer looks like assignments disappeared globally.
+- Reused the same enrollment course switch logic in Student Chat to prevent stale class context after changing courses.
+
+**Tested**
+- Live API: `GET /api/students/{studentId}/assignments?courseId=AI101` returned assignment `test 1` for Student 1.
+- Focused Materials/Assignment tests: pass (`5/5`).
+- `npm run check`: pass (`77` contract tests, `70` component/unit tests, ESLint, production build).
+
+# 2026-07-20 - Teacher Assignment Publish Scope Fix
+
+- Fixed Teacher Assignment requests to use the backend `ClassSection.classId`; `classCode` is now display/search metadata only.
+- Preserved both `classId` and `classCode` when normalizing Teacher dashboard classes instead of overwriting one with the other.
+- Added a visible `Teaching class` selector directly to `Publish New Assignment` and synchronized the selected course/class scope.
+- Added an explicit disabled reason for missing class, title, score, file, or selected students.
+- Increased assignment upload timeout to 180 seconds.
+- Added a response receipt guard so FE only reports success when BE returns a real `assignmentId/id`.
+
+**Tested**
+- Focused Assignment/Class tests: pass (`24/24`).
+- `npm run check`: pass (`77` contract tests, `68` component/unit tests, ESLint, production build).
+- Live BE verification: `gv101@university.edu` resolves to `AI101 / AI101-01` and `PRO192 / SE1832`; a non-mutating empty-file probe reached backend file validation (`file is required`), confirming teacher ownership and canonical class scope passed.
+
+# 2026-07-20 - Markdown Vietnamese And Style Ownership Audit
+
+- Confirmed a single AI response pipeline: `AiAnswer -> MarkdownRenderer -> ReactMarkdown`; no duplicate renderer is changing Vietnamese text.
+- Moved all shared Markdown styles, including dark mode and lazy code fallback, into `components/markdown/MarkdownRenderer.css` so Chat and Quiz Result render consistently.
+- Centralized Unicode NFC normalization and deterministic mojibake repair in `utils/textEncoding.js`.
+- Fixed Unicode-unsafe Vietnamese heading boundaries that prevented headings such as `Ví dụ nhỏ` and `Lưu ý để học tốt hơn` from being recognized.
+- Protected complete and partial streaming code/math blocks before Markdown repairs, preventing content inside code fences from being rewritten.
+- Did not add automatic Vietnamese diacritic guessing; arbitrary unaccented content must be corrected by BE/n8n to avoid changing meaning.
+- Added `docs/BE_FIX_REQUEST_VIETNAMESE_MARKDOWN.md` with confirmed unaccented prompts and responses in Course RAG, Code Mentor, and n8n.
+
+**Tested**
+- `npm run check`: pass (`77` contract tests, `62` component/unit tests, ESLint, production build).
+- `npm run dead-code`: pass.
+- `npm run test:e2e`: pass (`16/16` desktop/mobile checks), including long Markdown overflow coverage.
+
+# 2026-07-20 - Student Chat Horizontal Overflow Fix
+
+- Prevented the Student AI Chat workspace and message viewport from scrolling horizontally.
+- Added flex-width containment and safe wrapping for long questions, URLs, markdown, and composer content.
+- Kept wide tables and code isolated inside their own responsive containers instead of widening the chat workspace.
+- Fixed the lazy code-renderer fallback that temporarily expanded the entire answer while syntax highlighting loaded.
+- Removed the negative loading-avatar offset and allowed feedback actions to wrap on narrow screens.
+
+**Tested**
+- `npm run check`: pass (`70` contract tests, `60` component/unit tests, ESLint, production build).
+- `npm run test:e2e`: pass (`16/16` desktop/mobile checks), including long URL, table, and code overflow coverage.
+
+# 2026-07-20 - Actionable Learning Plan And Robot Viewport Fix
+
+- Replaced the decorative `Course Learning Map` canvas with a data-driven `Course Action Plan`.
+- The new plan orders pinned suggestions, weak topics, and recommended practice, then exposes real `Study` and `Quiz` actions.
+- Added focus/weak/mastered metrics and a mastered-foundation summary without inventing topic relationships.
+- Removed the unused canvas renderer, graph helper, and legacy graph CSS from the production bundle.
+- Fixed empty Student Chat scrolling to the bottom on mount; scrolling is now contained within the message panel and resets to the top for an empty chat.
+- Reduced the empty-chat mascot footprint and disabled mouse following there to keep it stable in the initial viewport.
+- Reset Login scroll on mount and added short-viewport sizing so the robot, brand, and form remain within sight on laptop displays.
+
+**Tested**
+- Added action-plan data and component regression tests.
+- `npm run check`: pass (`70` contract tests, `60` component/unit tests, ESLint, production build).
+- `npm run dead-code`: pass.
+- `npm run test:e2e`: pass (`14/14` desktop/mobile checks), including action-plan overflow and empty-chat mascot viewport coverage.
+
+# 2026-07-20 - UI Action Safety And Meaningful Flow Cleanup
+
+- Audited the mounted Student, Teacher, Admin, and shared app controls against their handlers and API flows.
+- Removed hard-coded service health, the misleading account-role switch, the toast-only Teacher roster support action, duplicate refresh, and the context-free mentor starter.
+- Kept Mentor Support only where a real AI question/answer context can create an escalation.
+- Removed fake material downloads and disabled or hid actions that do not have a real handler or canonical record.
+- Added pending mutation locks for chat session CRUD, Teacher official answers, assignment grading, and quiz final review.
+- Added keyboard semantics to selectable conversation/class/submission rows and associated grading labels with their fields.
+- Changed Playwright API mocks to reject unexpected requests with `501`, preventing missing handlers from passing through a generic mock response.
+- Added `docs/FE_UI_ACTION_COVERAGE.md` and updated the button/action test matrix.
+
+**Tested**
+- `npm run check`: pass (`70` contract tests, `58` component/unit tests, ESLint, production build).
+- Focused action regression tests: `17/17` pass.
+- `npm run dead-code`: pass.
+- `npm run test:e2e`: pass (`10/10` desktop/mobile strict API checks).
+
+# 2026-07-19 - Button And Action Flow Test Matrix
+
+- Audited the runtime role routes, feature pages, visible controls, domain API services, n8n gateways, and realtime refetch behavior.
+- Added `docs/FE_BUTTON_ACTION_TEST_PLAN.md` with action-level test IDs for Auth, Student, Teacher, Senior, Admin, n8n, WebSocket, responsive, dark mode, error handling, confirms, and mutation locks.
+- Mapped each business button to its expected API or local-only effect so testers do not mistake a local UI action for a backend mutation.
+- Added P0/P1/P2 priorities, automation targets, required fixtures, execution acceptance rules, refactor findings, and a reusable test-run log.
+- Recorded remaining testability refactors: standardize Admin Users row actions, split legacy inline Teacher handlers, stabilize accessible action labels, unify language, and expose diagnostics errors honestly.
+
 File này dùng để ghi lại mọi thay đổi mới của frontend AI Tutor. Mỗi lần cập nhật UI, API integration, bug fix, refactor hoặc cấu hình FE, hãy thêm một entry mới ở đầu file.
 
 ## Cách Ghi Log
@@ -25,6 +181,63 @@ Copy template này lên đầu phần `History` sau mỗi lần cập nhật:
 ```
 
 ## History
+
+## [2026-07-19] Three-Workflow n8n Alignment And Verification
+
+**Summary**
+- Aligned FE with the three active n8n workflows: Education Core, Teacher AI-assisted Grading, and Tutor V2 Proactive Expert Co-Training.
+
+**Changed**
+- Enabled Tutor V2 n8n locally and added a dedicated `300000ms` timeout for long-running evaluation.
+- Changed the n8n client to keep JWT in the `Authorization` header by default instead of copying it into JSON request bodies.
+- Preserved an explicit legacy body-token option without using it in current runtime flows.
+- Added `docs/FE_N8N_THREE_WORKFLOW_VERIFICATION.md` with runtime webhook inventory, feature flags, security boundary, test evidence, and stale Backend documentation paths.
+
+**Tested**
+- Active n8n runtime export: `3/3` workflows Active and all webhook paths matched FE.
+- CORS preflight: `3/3` representative workflow webhooks returned `204` for FE origin `http://localhost:5173` with Authorization and JSON headers allowed.
+- Focused n8n tests: `13/13` pass.
+- `npm run check`: pass (`67` contract tests, `47` component/unit tests, ESLint, production build).
+- `npm run dead-code`: pass.
+- `npm run test:e2e`: pass (`10/10` desktop/mobile checks).
+- Backend and n8n health endpoints returned `200`; MongoDB and Elasticsearch containers were running.
+
+**Notes**
+- Live business mutations were not executed against shared MongoDB/RAG data without dedicated demo fixtures.
+- Restart Vite after changing `.env.local` so Tutor V2 requests use n8n.
+
+## [2026-07-18] Teacher Quiz Draft Course/Class Switching
+
+**Summary**
+- Made Teacher Quiz drafts follow the selected teaching class instead of keeping assignments from the previous course visible.
+
+**Changed**
+- Filtered the assignment list by the active `courseId + classId` scope.
+- Automatically opens the latest saved draft for the newly selected class, or shows a scoped empty state when none exists.
+- Added a switch confirmation when the current draft has unsaved local changes.
+- Switching class closes stale publish state and updates both course and class through the existing canonical class selector.
+
+**Tested**
+- `npm run check`: pass (`55` contract tests, `41` component/unit tests, ESLint, and production build).
+
+## [2026-07-18] Teacher Class Assignment Refresh Reliability
+
+**Summary**
+- Fixed assigned classes remaining hidden in Teacher Portal after Admin changed a class section.
+
+**Changed**
+- Teacher Dashboard now loads the complete teacher class scope without applying stale course/class filters from a previous session.
+- Changed the class-list fallback to the teacher-authorized `/api/teachers/{teacherId}/classes` endpoint.
+- Login and logout clear the previous account's academic context so it cannot filter another role's dashboard.
+- Removed duplicate course text from generated teaching-class labels, for example `Class PRO192 / SE1832 · PRO192` is now `Class SE1832 · PRO192`.
+- Kept class assignment HTTP-backed; the current `/ws/chat` socket only transports ChatRoom messages and does not emit ClassSection updates.
+
+**Notes**
+- Legacy `class_sections.teacherId` values such as `1`, `2`, or `TEACHER_A` must be reassigned to the canonical Teacher/Mentor UUID in Admin Academic.
+
+**Tested**
+- Verified the running backend returns `200` from `/api/teachers/{teacherId}/classes` for a real Teacher JWT while the old academic alias returns `403`.
+- `npm run check`: pass (`55` contract tests, `40` component/unit tests, ESLint, and production build).
 
 ## [2026-07-16] Functional Student Chat Prompt Starters
 
@@ -1667,3 +1880,218 @@ Copy template này lên đầu phần `History` sau mỗi lần cập nhật:
 - Teacher Grading now loads full questions/answers only after selecting one attempt through `GET /api/tutor/quizzes/{quizSessionId}`.
 - Added Pending/Reviewed/All review filters, loading states, total count pagination, and automatic pending-list refresh after teacher review.
 - Student display names are enriched from the already loaded class roster; the quiz-attempt API remains the canonical source for attempt ownership and status.
+
+# 2026-07-18 - Practice Quiz Tab Navigation Layout
+
+- Scoped the Practice Quizzes Ant Design tab navigation so its five tabs share the available width consistently on desktop.
+- Added a contained horizontal tab scroller on small screens, preventing `.ant-tabs-nav-list` from resizing or overflowing the whole page.
+- Added matching light/dark tab containers and kept the active tab readable without changing quiz behavior.
+- Added an E2E regression check for viewport overflow and tab navigation on desktop and mobile.
+
+# 2026-07-18 - Complete Student Quiz Result Review
+
+- Expanded submitted quiz results to show every answer choice for every question.
+- Highlighted the student's selected answer, the correct answer, and the overall correct/incorrect state without exposing answers before submission.
+- Added a shared quiz question utility so the runner and result screen handle option labels, values, question IDs, and true/false questions consistently.
+- Added responsive and dark-mode styles for correct, incorrect, neutral, and unanswered states.
+- Added contract tests for incorrect and correct student selections.
+
+# 2026-07-18 - Teacher Material Class Scope Selector
+
+- Added the missing teaching-class selector to the Teacher material upload card.
+- Selecting a class now updates both `classId` and its owning `courseId`, matching the backend `TEACHER` upload contract.
+- Displayed the resolved course/class scope before upload and disabled PDF/website imports until that scope is valid.
+- Replaced the combined hidden-field validation message with separate, actionable messages for class, PDF file, and teacher account context.
+- Fixed the native file field retaining an old PDF name after React had cleared the uploaded file state, which made the disabled upload button appear broken.
+- Added a selected-file summary and an explicit reason when upload is unavailable.
+- Verified the complete Teacher UI request against `AI101 / AI101-01`; the backend accepted the class-scoped material with HTTP `202` and the test record was removed afterward.
+- Changed Teacher class selection to prefer the backend canonical `ClassSection.classId` over display-only `classCode`, preventing a visible class label from producing an invalid upload scope.
+- Kept the upload action visible and clickable whenever no upload request is running; incomplete forms now use the existing submit validation/toast instead of an opaque disabled button.
+
+# 2026-07-18 - Teacher Quiz Publish Scope And Student Picker
+
+- Fixed teacher quiz drafts that could be generated without a visible class selection, causing published quizzes to be absent from the student's class-scoped API response.
+- Normalized Teacher class sections to prefer the canonical `classCode`, matching Student enrollment class identifiers such as `SE1833`.
+- Added a required teaching-class selector before quiz generation and preserved the resolved course/class on the draft.
+- Reloaded the exact selected class roster when opening Publish instead of relying on stale dashboard students.
+- Replaced the hard-to-read multi-select with a searchable, scrollable name/email checklist, selected count, and select/clear-visible actions.
+- Added publish validation and loading lock for missing scope, empty selected-student targets, and duplicate publish clicks.
+- Added a class-list fallback when the teacher dashboard request fails, so quiz creation can still use the canonical assigned classes.
+- Blocked legacy drafts whose stored class code differs from the canonical enrollment code because the backend update API cannot change a draft's class scope.
+
+**Tested**
+- `npm run lint`: pass.
+- `npm test`: pass (39 contract tests, 17 component tests).
+- `npm run build`: pass.
+
+# 2026-07-18 - Teacher Quiz Draft Generate, Display, And Save
+
+- Confirmed local AI harness and quiz harness flags are enabled with `VITE_N8N_ENABLED=true` and `VITE_N8N_QUIZ_ENABLED=true`.
+- Hydrated a successful n8n teacher-quiz receipt through the canonical teacher assignment list when the workflow returns only `assignmentId`.
+- Never repeats the generate mutation while hydrating, preventing duplicate quiz drafts.
+- Normalized teacher quiz assignment list responses before rendering.
+- Opened and scrolled to the Draft editor immediately after generation or when selecting Edit from the assignment list.
+- Kept Save draft backend-direct through `PUT /api/tutor/quiz-assignments/{assignmentId}` and reloaded the assignment list after save.
+- Added component coverage for n8n receipt hydration and the generate/show/save draft flow.
+
+**Tested**
+- `npm run check`: pass (46 contract tests, 31 unit/component tests, lint, and production build).
+
+# 2026-07-18 - Teacher Quiz Page Scrolling
+
+- Added a dedicated vertical scroll container to Teacher Quiz Assignments.
+- Prevented draft editor, generate cards, and assignment history from shrinking into the fixed-height workspace.
+- Kept horizontal overflow clipped while preserving keyboard and wheel scrolling through the full page.
+
+# 2026-07-18 - Lightweight Initial Runtime And Route Loading
+
+- Moved Ant Design `ConfigProvider`, Header, Sidebar, and the authenticated layout behind a lazy authenticated boundary.
+- Removed the Ant-based `AsyncState` dependency from the root workspace fallback so the login route no longer preloads the Ant runtime.
+- Lazy-loaded Login and authenticated layout branches independently without changing auth/session or route behavior.
+- Removed the unused external Spline viewer and Google Fonts requests from `index.html`; the app now uses the native system font stack.
+- Added a local 219-byte SVG favicon and kept the requested login mascot image with explicit dimensions and async decoding.
+- Replaced remaining deprecated Ant `Space.direction`, `Alert.message`, and `InputNumber.addonBefore` usage in active flows.
+
+**Bundle impact**
+- Initial module preloads no longer include the former Ant `compact-item` chunk (about 310 KB raw / 106 KB gzip).
+- Initial HTML and synchronous assets dropped from roughly 210 KB gzip to roughly 100 KB gzip based on the production build output.
+- Heavy markdown, KaTeX, code highlighting, table, quiz, and role workspaces remain route/component lazy chunks.
+
+**Tested**
+- `npm run check`: pass (lint, 39 contract tests, 17 component tests, production build).
+- `npm run test:e2e`: pass, 8/8 desktop/mobile route checks.
+- `npm run dead-code`: pass.
+
+# 2026-07-18 - Education Demo Harness Contract Tests
+
+- Read and aligned the FE harness contract with backend `EDUCATION_DEMO_RENDER_GUIDE_VI.md` and the active `AI-tutor-workflow-runtime-fixed.json` workflow.
+- Added automated coverage for `RAG_TUTOR`, `CODE`, `ESCALATE`, answer review routing, teacher answer, senior resolution, candidate approve/reject, quiz generation, and quiz submission statuses.
+- Verified the active senior resolution webhook is `/senior-resolve-answer-review`; this matches the imported workflow and the detailed BE handoff even though one render-guide table uses the alternate label `senior-review-resolution`.
+- Added request-level tests for JWT forwarding, `authToken`, `traceId`, `sessionId`, malformed HTTP 200 responses, and Vietnamese UTF-8 preservation.
+- Changed n8n JSON requests to explicitly send `Content-Type: application/json; charset=utf-8`.
+- Hydrated n8n quiz generate/submit summaries through `GET /api/tutor/quizzes/{quizSessionId}` so the runner and result UI receive canonical questions and answers.
+- Prevented duplicate quiz mutations when the n8n mutation succeeds but the follow-up canonical read is temporarily delayed.
+- Enabled `VITE_N8N_QUIZ_ENABLED=true` in local development now that the backend workflow guide reports the quiz harness as verified; the shared example remains disabled by default.
+
+**Tested**
+- `npm test`: pass (43 contract tests, 23 component/unit tests).
+- `npm run lint`: pass.
+- `npm run build`: pass.
+- `npm run test:e2e`: pass, 8/8 desktop/mobile tests.
+- Local services detected on FE `5173`, n8n `5678`, and backend `8085`.
+
+# 2026-07-18 - FPT Browser Favicon Refresh
+
+- Corrected the new FPT favicon asset from a JPEG file incorrectly named `.svg` to `public/fpt-favicon.jpg`.
+- Updated standard, shortcut, and Apple touch icon declarations to use the correct JPEG MIME type.
+- Added an explicit favicon version query so Chrome does not keep showing the previously cached icon.
+
+# 2026-07-18 - FPT Login Wordmark And Brand Background
+
+- Replaced the single-color login `FPT` text with a reusable blue/orange/green FPT wordmark on a clean white logo surface.
+- Applied the wordmark consistently to the login hero and authentication card.
+- Balanced the login background with subtle FPT blue, orange, and green light fields while preserving form contrast and readability.
+- Increased the FPT letter and wordmark size in both login placements so the white letterforms remain readable at desktop and compact card sizes.
+- Replaced the CSS-simulated FPT letter shapes with the supplied FPT logo image so the typography and brand geometry match the original mark exactly.
+- Removed the visible white logo rectangle with non-destructive blending, retained the original supplied logo pixels, and switched to the source aspect ratio plus `object-fit: contain` to prevent stretching.
+- Replaced the JPEG blending workaround with a transparent SVG wordmark, removing the remaining white rectangle beside `University AI Tutor` while preserving the logo's native `34:21` proportions.
+
+# 2026-07-18 - Real Material Upload Confirmation
+
+- Audited the production material upload path and confirmed it calls the configured Spring Boot API directly; no runtime mock or fallback can manufacture an upload success.
+- Added a response contract guard so a successful HTTP status without a backend `materialId` or legacy `documentId` is treated as an invalid response.
+- Material cache invalidation, form reset, and success feedback now remain downstream of a confirmed backend material receipt.
+- Confirmed route interception and mocked requests are isolated to test files and are not imported into the production application bundle.
+
+# 2026-07-18 - Teacher Material Class Selection Recovery
+
+- Prevented stale global class IDs from appearing as valid Teacher material scopes when they are not present in the assigned-class API response.
+- Kept the Teaching class selector visible and added an explicit inline state when the Teacher has no assigned classes.
+- Automatically resolves both canonical `classId` and owning `courseId` when the Teacher has exactly one assigned class.
+- Preserved nested backend course identifiers such as `classSection.course.courseId` instead of replacing them with an empty UI value.
+- Reworded upload validation to point to the visible Teaching class field instead of showing an action with no clear next step.
+
+# 2026-07-18 - Student Name And Email Display Normalization
+
+- Standardized Student display fields across Teacher class rosters, quiz publishing, grading, and Admin enrollment screens.
+- Added support for backend responses that nest account data under `student`, `user`, `account`, or `profile`.
+- Student names and emails are preferred for visible UI while technical IDs remain request values only.
+
+# 2026-07-18 - Real Course Learning Map
+
+- Removed the hard-coded Spring Boot/JPA demo nodes from the Student learning dashboard.
+- Replaced `Course Knowledge Network` with an honest `Course Learning Map` backed by the selected course's learned topics, weak topics, and current study suggestions.
+- The map now renders an explicit empty state when backend learning memory has no topics instead of displaying fabricated progress.
+- Removed continuous canvas animation; the data-driven map redraws only on data, theme, or viewport changes.
+
+# 2026-07-18 - Teacher Quiz Answer Key And Final Review UX
+
+- Replaced the free-text correct-answer field with an answer key selected directly from each question's options.
+- Added full draft editing for question type, question text, options, answer key, explanation, and question add/delete actions.
+- Added frontend validation for missing questions, duplicate or insufficient options, and answer keys that do not match an option.
+- Added unsaved-change tracking and blocked publish until the teacher saves a valid draft; published quizzes now open read-only.
+- Clarified that AI/n8n generates the draft, the teacher approves the answer key, and the backend performs automatic grading.
+- Updated Teacher Grading to show every option, the student's choice, the published correct answer, backend auto score, and teacher final score.
+- Made reviewed attempts read-only so the UI cannot submit the one-time teacher review endpoint twice.
+
+**Tested**
+- `npm run check`: pass (51 contract tests, 38 component/unit tests, lint, and production build).
+
+# 2026-07-18 - Generated Quiz Course/Class Context Guard
+
+- Verified that Student and Teacher quiz requests send the selected canonical `courseId` and `classId` through n8n to Spring Boot.
+- Added a response guard that blocks generated quizzes when the returned course or class differs from the selected academic context.
+- Added a friendly conflict error instead of opening a quiz associated with another course or class.
+- Documented the remaining backend retrieval gap: Mongo fallback currently chooses first available chunks when no topic-relevant content exists, and reranking has no minimum relevance threshold.
+
+**Tested**
+- `npm run check`: pass (`55` contract tests, `38` component/unit tests, ESLint, and production build).
+
+# 2026-07-19 - Teacher Online Quiz Flow
+
+- Added the backend-direct `POST /api/tutor/teachers/{teacherId}/courses/{courseId}/quiz-assignments/manual` integration.
+- Added a Teacher Online Quiz form that accepts the backend JSON question format, supports JSON file import, and requires a selected teaching class.
+- Added `TEACHER_MANUAL` and `AI_ASSISTED` grading-mode guidance in the draft editor and assignment list.
+- Kept the existing draft edit, save, publish, class/selected-student targeting, and read-only published flows unchanged.
+- Updated Student Quiz Runner and Result so Teacher Manual attempts show selected choices without fabricating correctness or answer keys before teacher review.
+- Updated Teacher Grading so manual attempts show `score pending` instead of a false auto score and only show correctness when an answer key is available.
+
+**Tested**
+- Targeted quiz component tests: `9 passed`.
+
+# 2026-07-19 - File Assignment Metadata, AI Grading And Realtime
+
+- Made the selected Teaching class the single source for File Assignment `courseId + classId`, removing the independent class state that could create mismatched requests.
+- Added `ASSIGNMENT/EXAM`, dynamic `maxScore`, optional description/deadline, named selected-student targeting, the complete backend file extension list, and the backend 50 MB limit.
+- Sent Student name/email with assignment submissions and preserved original attachment filenames during download.
+- Hydrated submission rows with canonical assignment metadata so Teacher grading uses the actual type, maximum score, and private answer-key status.
+- Added private answer-key upload and optional AI-assisted grading. AI suggestions remain non-final until Teacher saves the manual review.
+- Added `VITE_N8N_ASSIGNMENT_GRADING_ENABLED`; n8n grading mutations are never replayed through Spring Boot after an uncertain timeout.
+- Preserved `null` scores for ungraded `TEACHER_MANUAL` quizzes instead of displaying a fabricated zero.
+- Added one authenticated `/ws/events` connection with heartbeat and exponential reconnect. Assignment, AI grading, and material events trigger canonical REST refetches.
+- Updated API coverage to remove the obsolete Teacher quiz-attempt pagination gap.
+
+**Tested**
+- `npm run lint`: pass.
+- `npm test`: pass (`62` contract tests, `44` component/unit tests).
+- `npm run build`: pass.
+- `npm run test:e2e`: pass (`8/8` desktop/mobile app-shell checks).
+
+# 2026-07-19 - Tutor V2 Expert Co-Training UI And Realtime
+
+- Audited `TUTOR_V2_IMPLEMENTATION_AND_TEST_GUIDE_VI.md`, the latest education realtime guide, Java controller/DTO/service code, security rules, and emitted socket events.
+- Added lazy Teacher/Admin routes for one shared `AI Knowledge Training` feature; Student has no Tutor V2 route.
+- Added Coverage Dashboard, Expert Task Board, Gold Q&A/Rubric Contribution Editor, Senior Review Queue, and Evaluation Dashboard.
+- Enforced the backend split between approved `TRAINING -> INDEXED` knowledge and private `EVALUATION -> APPROVED` holdout data.
+- Added every `/api/v2/expert-training/**` read/mutation helper and kept canonical GET responses as UI source of truth.
+- Added optional V2 n8n mutation routing behind `VITE_N8N_TUTOR_V2_ENABLED`; JWT stays in the Authorization header and reject actions remain backend-direct because no reject webhook exists.
+- Extended the single app-level `/ws/events` connection for Tutor V2 task, contribution and evaluation events with focused 350 ms refetch, duplicate-envelope suppression, and reconnect recovery.
+- Added mutation locking, rubric weight validation, role-gated review/evaluation actions, friendly errors, responsive tables/modals and dark-mode styles.
+- Documented the Backend guide mismatch: the Java DTO accepts `passThreshold`, while one guide example still names unsupported evaluation fields.
+
+**Tested**
+- `npm run check`: pass (`67` contract tests, `46` component/unit tests, ESLint, and production build).
+- `npm run dead-code`: pass.
+- `npm run test:e2e`: pass (`10/10` desktop/mobile route and viewport checks, including Admin Tutor V2).
+- Live backend verification: Java `17.0.19`, `/actuator/health` returned `UP`, MongoDB/Elasticsearch/n8n containers were running, and the active process used the latest nested Tutor V2 project directory.
+- Anonymous `/v3/api-docs` returned `401` as expected under the current security policy; endpoint/socket coverage was therefore cross-checked against the Java controller and WebSocket configuration.

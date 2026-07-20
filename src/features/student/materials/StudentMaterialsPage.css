@@ -1,0 +1,127 @@
+.student-materials-context {
+  display: flex;
+  align-items: flex-end;
+  gap: 18px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: 8px;
+  background: var(--surface-elevated, #fff);
+}
+
+.student-materials-context__field {
+  display: grid;
+  gap: 6px;
+}
+
+.student-materials-context__class .ant-tag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  margin: 0;
+  padding-inline: 12px;
+}
+
+.student-materials-context__hint {
+  margin-left: auto;
+  padding-bottom: 5px;
+}
+
+.student-materials-page .student-assignment-row.is-selected > td {
+  background: var(--surface-selected, #fff4ec) !important;
+}
+
+[data-theme='dark'] .student-materials-context,
+.app-container.dark .student-materials-context {
+  border-color: #343434;
+  background: #171717;
+}
+
+.app-container.dark .student-materials-page {
+  --surface-selected: #27180f;
+}
+
+.app-container.dark .student-materials-page .ant-tabs-card > .ant-tabs-nav .ant-tabs-tab {
+  border-color: #343434 !important;
+  background: #171717 !important;
+  color: #d1d5db !important;
+}
+
+.app-container.dark .student-materials-page .ant-tabs-card > .ant-tabs-nav .ant-tabs-tab:hover {
+  color: #ffffff !important;
+}
+
+.app-container.dark .student-materials-page .ant-tabs-card > .ant-tabs-nav .ant-tabs-tab-active {
+  border-color: #343434 !important;
+  border-bottom-color: #0f0f0f !important;
+  background: #0f0f0f !important;
+}
+
+.app-container.dark .student-materials-page .ant-tabs-card > .ant-tabs-nav .ant-tabs-tab-active .ant-tabs-tab-btn {
+  color: #fb923c !important;
+}
+
+.app-container.dark .student-materials-page .ant-table-thead > tr > th {
+  border-bottom-color: #343434 !important;
+  background: #1c1c1c !important;
+  color: #f3f4f6 !important;
+}
+
+.app-container.dark .student-materials-page .ant-table-tbody > tr > td {
+  border-bottom-color: #2a2a2a;
+  background: #0f0f0f;
+  color: #f3f4f6;
+}
+
+.app-container.dark .student-materials-page .ant-table-tbody > tr.ant-table-row:hover > td {
+  background: #1c1c1c !important;
+}
+
+.app-container.dark .student-materials-page .student-assignment-row.is-selected > td,
+.app-container.dark .student-materials-page .student-assignment-row.is-selected:hover > td {
+  background: #27180f !important;
+}
+
+.app-container.dark .student-materials-page .assignment-attachment {
+  border-color: #4a3426;
+  background: #1c120b;
+}
+
+.app-container.dark .student-materials-page .ant-upload-drag {
+  border-color: #4a3426 !important;
+  background: #141414 !important;
+}
+
+.app-container.dark .student-materials-page .ant-upload-drag:hover {
+  border-color: #f37021 !important;
+  background: #1c120b !important;
+}
+
+.app-container.dark .student-materials-page .ant-upload-text,
+.app-container.dark .student-materials-page .ant-upload-hint,
+.app-container.dark .student-materials-page .ant-empty-description {
+  color: #d1d5db !important;
+}
+
+.app-container.dark .student-materials-page .ant-input::placeholder,
+.app-container.dark .student-materials-page textarea.ant-input::placeholder {
+  color: #9ca3af !important;
+}
+
+@media (max-width: 720px) {
+  .student-materials-context {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .student-materials-context .ant-select {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .student-materials-context__hint {
+    margin-left: 0;
+    padding-bottom: 0;
+  }
+}

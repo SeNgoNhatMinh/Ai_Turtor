@@ -38,3 +38,18 @@ test('findPersonById resolves role-specific IDs and emails', () => {
   assert.equal(findPersonById(people, 'teacher-a')?.fullName, 'Teacher A');
   assert.equal(findPersonById(people, 'TEACHER.A@SCHOOL.LOCAL')?.fullName, 'Teacher A');
 });
+
+test('person display helpers resolve nested student and user records', () => {
+  const enrollment = {
+    enrollmentId: 'enrollment-1',
+    student: {
+      studentId: 'student-1',
+      fullName: 'Nguyen Van A',
+      email: 'nguyenvana@gmail.com',
+    },
+  };
+
+  assert.equal(getPersonId(enrollment), 'student-1');
+  assert.equal(getPersonDisplayName(enrollment, 'Student'), 'Nguyen Van A');
+  assert.equal(getPersonEmail(enrollment), 'nguyenvana@gmail.com');
+});

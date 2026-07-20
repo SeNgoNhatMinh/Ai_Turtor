@@ -43,6 +43,11 @@
   background: #202123;
 }
 
+.app-container.dark .quiz-tabs > .ant-tabs-nav {
+  background: #0d0d0d;
+  border-color: #2a2a2a;
+}
+
 .app-container.dark .quiz-item-card:hover {
   background: #171717;
   border-color: rgba(243, 112, 33, 0.38);
@@ -56,6 +61,37 @@
 
 .app-container.dark .quiz-review-explanation {
   background: #171717;
+}
+
+.app-container.dark .quiz-final-review-form,
+.app-container.dark .quiz-final-review-summary {
+  border-color: #2a2a2a;
+}
+
+.app-container.dark .quiz-review-item,
+.app-container.dark .quiz-review-option {
+  background: #0d0d0d;
+  border-color: #2a2a2a;
+}
+
+.app-container.dark .quiz-review-option--correct {
+  background: rgba(22, 163, 74, 0.14);
+  border-color: #15803d;
+}
+
+.app-container.dark .quiz-review-option--incorrect {
+  background: rgba(220, 38, 38, 0.14);
+  border-color: #b91c1c;
+}
+
+.app-container.dark .quiz-review-options-label,
+.app-container.dark .quiz-review-option-text {
+  color: #f3f4f6;
+}
+
+.app-container.dark .quiz-review-option-marker {
+  border-color: #52525b;
+  color: #d4d4d8;
 }
 
 .app-container.dark .quiz-page .ant-tabs-tab {
@@ -98,4 +134,3 @@
 .app-container.dark .quiz-options .ant-radio-wrapper:hover {
   background: rgba(243, 112, 33, 0.14);
 }
-

@@ -5,6 +5,7 @@ import {
   normalizeHarnessChatResponse,
   normalizeHarnessMode,
 } from '../src/features/ai-harness/n8nResponse.js';
+import { createHarnessEnvelope } from '../src/features/ai-harness/trace.js';
 
 test('normalizes harness modes used by the frontend', () => {
   assert.equal(normalizeHarnessMode('RAG_TUTOR'), 'RAG');
@@ -81,4 +82,68 @@ test('validates non-chat harness responses', () => {
     () => ensureHarnessSuccess({ status: 'FAILED', message: 'Rejected' }, 'Review failed.'),
     (error) => error.code === 'N8N_FLOW_FAILED' && error.userMessage === 'Review failed.',
   );
+});
+
+test('accepts every successful education workflow status from the backend handoff', () => {
+  const successfulStatuses = [
+    'SUBMITTED',
+    'NEEDS_MENTOR_REVIEW',
+    'NEEDS_SENIOR_REVIEW',
+    'RESOLVED',
+    'GENERATED',
+    'DRAFT_CREATED',
+    'SUBMITTED_WAITING_TEACHER_REVIEW',
+  ];
+
+  successfulStatuses.forEach((status) => {
+    assert.equal(ensureHarnessSuccess({ success: true, status }).status, status);
+  });
+  assert.equal(ensureHarnessSuccess({ success: true, decision: 'APPROVE' }).decision, 'APPROVE');
+  assert.equal(ensureHarnessSuccess({ success: true, decision: 'REJECT' }).decision, 'REJECT');
+  assert.equal(
+    ensureHarnessSuccess({ success: true, knowledgeCandidateCreated: false }).knowledgeCandidateCreated,
+    false,
+  );
+});
+
+test('rejects workflow-level failures even when the HTTP request itself succeeded', () => {
+  for (const response of [
+    { success: false, status: 'FAILED', error: 'QUIZ_GENERATE_FAILED' },
+    { ok: false, status: 'SENIOR_RESOLVE_FAILED', error: 'Cannot resolve review' },
+  ]) {
+    assert.throws(
+      () => ensureHarnessSuccess(response, 'Workflow failed.'),
+      (error) => error.code === 'N8N_FLOW_FAILED' && error.userMessage === 'Workflow failed.',
+    );
+  }
+});
+
+test('preserves Vietnamese and exact quiz option text from n8n responses', () => {
+  const answer = 'Giải thích tính đóng gói và kế thừa trong OOP.';
+  const result = normalizeHarnessChatResponse({
+    success: true,
+    mode: 'RAG_TUTOR',
+    answer,
+    sources: [{ title: 'Lập trình hướng đối tượng.pdf' }],
+  });
+
+  assert.equal(result.answer, answer);
+  assert.equal(result.sources[0].title, 'Lập trình hướng đối tượng.pdf');
+});
+
+test('adds trace, session, and authentication context to every harness request', () => {
+  const envelope = createHarnessEnvelope({
+    studentId: 'student-1',
+    courseId: 'PRO192',
+    classId: 'SE1833',
+    message: 'Constructor là gì?',
+  }, 'jwt-token');
+
+  assert.equal(envelope.studentId, 'student-1');
+  assert.equal(envelope.courseId, 'PRO192');
+  assert.equal(envelope.classId, 'SE1833');
+  assert.equal(envelope.message, 'Constructor là gì?');
+  assert.equal(envelope.authToken, 'jwt-token');
+  assert.ok(envelope.traceId);
+  assert.ok(envelope.sessionId);
 });

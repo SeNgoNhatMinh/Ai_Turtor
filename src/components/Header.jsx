@@ -3,12 +3,9 @@ import {
   CloudRain,
   Droplet,
   Flower2,
-  GraduationCap,
   Leaf,
   LogOut,
   Moon,
-  Presentation,
-  ShieldCheck,
   Sprout,
   Sun,
   SunMedium,
@@ -54,23 +51,19 @@ const getSeasonalHeaderEffect = () => {
   };
 };
 
-function Header({ activeRole, handleRoleChange, isDarkMode, setIsDarkMode, currentUser, onLogout }) {
+function Header({ activeRole, isDarkMode, setIsDarkMode, currentUser, onLogout }) {
   const seasonalEffect = useMemo(() => getSeasonalHeaderEffect(), []);
   const userRole = String(currentUser?.role || activeRole || 'student').trim().toLowerCase();
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
   const getProfileName = () => {
     if (currentUser?.fullName) return `${userRole.toUpperCase()}: ${currentUser.fullName}`;
-    if (activeRole === 'student') return 'Student: Student A';
-    if (activeRole === 'teacher') return 'Teacher: Teacher B';
-    return 'Admin: System Admin';
+    return userRole.toUpperCase();
   };
 
   const getAvatarText = () => {
     if (currentUser?.fullName) return currentUser.fullName.substring(0, 2).toUpperCase();
-    if (activeRole === 'student') return 'ST';
-    if (activeRole === 'teacher') return 'TE';
-    return 'AD';
+    return userRole.substring(0, 2).toUpperCase();
   };
 
   return (
@@ -90,37 +83,8 @@ function Header({ activeRole, handleRoleChange, isDarkMode, setIsDarkMode, curre
         </div>
       </div>
       
-      <div className="role-switcher-container">
-        {(!currentUser || userRole === 'admin') ? (
-          <>
-            <span className="role-label">Select role:</span>
-            <div className="role-buttons">
-              <button 
-                type="button"
-                className={`role-btn ${activeRole === 'student' ? 'active' : ''}`} 
-                onClick={() => handleRoleChange('student')}
-              >
-                <GraduationCap /> Student
-              </button>
-              <button 
-                type="button"
-                className={`role-btn ${activeRole === 'teacher' ? 'active' : ''}`} 
-                onClick={() => handleRoleChange('teacher')}
-              >
-                <Presentation /> Teacher Workspace
-              </button>
-              <button 
-                type="button"
-                className={`role-btn ${activeRole === 'admin' ? 'active' : ''}`} 
-                onClick={() => handleRoleChange('admin')}
-              >
-                <ShieldCheck /> Admin System
-              </button>
-            </div>
-          </>
-        ) : (
-          <span className="role-label" style={{ opacity: 0.7 }}>View mode: {(activeRole || 'student').toUpperCase()}</span>
-        )}
+      <div className="role-switcher-container" aria-label="Current workspace">
+        <span className="role-label">Workspace: {(activeRole || 'student').toUpperCase()}</span>
       </div>
 
       <div className="user-profile" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>

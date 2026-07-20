@@ -21,8 +21,7 @@
     color: #111827;
 }
 
-.learning-hero-grid,
-.learning-main-grid {
+.learning-hero-grid {
     display: grid;
     grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.85fr);
     gap: 16px;
@@ -206,10 +205,161 @@
     font-size: 12px;
 }
 
-.learning-network-frame {
-    min-height: 360px;
-    border: 1px solid #EEF0F3;
+.learning-action-plan-card .ant-card-body {
+    display: grid;
+    gap: 18px;
+}
+
+.learning-action-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.learning-action-metrics > div {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    padding: 12px 14px;
+    border: 1px solid #E5E7EB;
+    border-radius: 10px;
     background: #FAFAFA;
+}
+
+.learning-action-metrics strong {
+    color: #111827;
+    font-size: 22px;
+    line-height: 1.1;
+}
+
+.learning-action-metrics span {
+    color: #6B7280;
+    font-size: 12px;
+    font-weight: 650;
+}
+
+.learning-primary-action {
+    padding: 18px;
+    border: 1px solid #FED7AA;
+    border-radius: 12px;
+    background: #FFF7ED;
+}
+
+.learning-primary-action-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+}
+
+.learning-primary-action-copy {
+    min-width: 0;
+}
+
+.learning-primary-action-copy .ant-typography {
+    display: block;
+}
+
+.learning-primary-action-copy h4.ant-typography {
+    margin: 8px 0 4px;
+    color: #111827;
+}
+
+.learning-primary-action-copy > .ant-typography:last-child {
+    color: #4B5563;
+    line-height: 1.55;
+}
+
+.learning-action-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.learning-action-tags .ant-tag,
+.learning-action-plan-card > .ant-card-head .ant-tag {
+    margin: 0;
+    border-radius: 999px;
+}
+
+.learning-priority-queue,
+.learning-mastered-strip {
+    padding-top: 16px;
+    border-top: 1px solid #EEF0F3;
+}
+
+.learning-section-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.learning-section-heading > div {
+    display: grid;
+    gap: 2px;
+}
+
+.learning-section-heading--inline {
+    justify-content: flex-start;
+    color: #15803D;
+}
+
+.learning-priority-queue ol {
+    display: grid;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.learning-priority-queue li {
+    display: grid;
+    grid-template-columns: 30px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 1px solid #EEF0F3;
+    border-radius: 10px;
+    background: #FCFCFD;
+}
+
+.learning-priority-number {
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 8px;
+    background: #F3F4F6;
+    color: #4B5563;
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.learning-priority-copy {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+}
+
+.learning-priority-copy .ant-typography {
+    overflow-wrap: anywhere;
+}
+
+.learning-mastered-topics {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+}
+
+.learning-mastered-topics .ant-tag {
+    margin: 0;
+    border-color: #BBF7D0;
+    border-radius: 999px;
+    background: #F0FDF4;
+    color: #166534;
 }
 
 .learning-profiler-card .ant-card-body {
@@ -415,11 +565,43 @@
 
 .app-container.dark .learning-stat-icon,
 .app-container.dark .learning-topic-section,
-.app-container.dark .learning-network-frame,
 .app-container.dark .learning-recent-item,
-.app-container.dark .learning-latest-plan {
+.app-container.dark .learning-latest-plan,
+.app-container.dark .learning-action-metrics > div,
+.app-container.dark .learning-priority-queue li {
     background: #171717;
     border-color: #2A2A2A;
+}
+
+.app-container.dark .learning-action-metrics strong,
+.app-container.dark .learning-primary-action-copy h4.ant-typography {
+    color: #F9FAFB;
+}
+
+.app-container.dark .learning-action-metrics span,
+.app-container.dark .learning-primary-action-copy > .ant-typography:last-child {
+    color: #D1D5DB;
+}
+
+.app-container.dark .learning-primary-action {
+    border-color: #6B3A18;
+    background: #1C130B;
+}
+
+.app-container.dark .learning-priority-queue,
+.app-container.dark .learning-mastered-strip {
+    border-top-color: #2A2A2A;
+}
+
+.app-container.dark .learning-priority-number {
+    background: #262626;
+    color: #D4D4D4;
+}
+
+.app-container.dark .learning-mastered-topics .ant-tag {
+    border-color: #166534;
+    background: #102116;
+    color: #BBF7D0;
 }
 
 .app-container.dark .learning-scope-row .ant-tag {
@@ -456,7 +638,6 @@
 
 @media (max-width: 1180px) {
     .learning-hero-grid,
-    .learning-main-grid,
     .learning-context-grid {
         grid-template-columns: 1fr;
     }
@@ -492,5 +673,22 @@
         justify-content: flex-start;
         min-width: 0;
     }
-}
 
+    .learning-action-metrics {
+        grid-template-columns: 1fr;
+    }
+
+    .learning-primary-action-row {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .learning-priority-queue li {
+        grid-template-columns: 30px minmax(0, 1fr);
+    }
+
+    .learning-priority-queue li > .ant-space {
+        grid-column: 2;
+        justify-content: flex-start;
+    }
+}

@@ -120,7 +120,7 @@ function InlineMentorSupport({
         </button>
       </div>
 
-      {error && <Alert type="error" showIcon message={error} />}
+      {error && <Alert type="error" showIcon title={error} />}
 
       <div className="inline-mentor-question">
         <span>Câu hỏi trong AI Tutor</span>
@@ -131,7 +131,7 @@ function InlineMentorSupport({
         <Alert
           type="info"
           showIcon
-          message="Tạo yêu cầu hỗ trợ cho câu hỏi này"
+          title="Tạo yêu cầu hỗ trợ cho câu hỏi này"
           description="Hệ thống sẽ lưu môn học, lớp, cuộc trò chuyện, câu hỏi và câu trả lời AI trước khi tìm giáo viên phù hợp."
           action={<Button size="small" type="primary" loading={isSubmitting} onClick={createSupportRequest}>Tạo yêu cầu</Button>}
         />

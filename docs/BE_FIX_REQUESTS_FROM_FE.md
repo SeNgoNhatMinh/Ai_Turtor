@@ -375,6 +375,45 @@ OSG202 -> 2118 chunks
 2. Xem log BE báo `Course material chunked into X chunks`. X phải lớn hơn số trang, và các chunk không bị cắt đứt giữa câu.
 3. Chat với AI Tutor, AI phải tìm thấy context và trả lời đúng nội dung trong PDF.
 
+## 10. Quiz Có Thể Dùng Context Không Liên Quan Khi Retrieval Không Có Kết Quả Phù Hợp
+
+**Hiện tượng**
+- Student hoặc Teacher chọn đúng course/class nhưng quiz được tạo ra có kiến thức của topic khác, thậm chí giống nội dung môn khác.
+
+**Nguyên nhân từ code BE hiện tại**
+- `QuizService.generateQuiz` tìm context theo `courseId`, `classId`, `topic` và `suggestionText`.
+- Elasticsearch có filter `courseId.keyword` và hậu kiểm class visibility.
+- Tuy nhiên `CourseMaterialFallbackSearchService` dùng `firstAvailable` khi không có chunk liên quan tới topic.
+- `RerankService` chỉ sắp xếp/cắt top K, không loại các chunk dưới ngưỡng relevance tối thiểu.
+- Vì vậy backend vẫn có thể gửi context không liên quan cho LLM thay vì từ chối tạo quiz.
+
+**Expected**
+- Không dùng `firstAvailable` để tạo quiz khi không có chunk liên quan.
+- Áp dụng minimum relevance threshold sau Elasticsearch/rerank.
+- Hậu kiểm mọi chunk phải có `courseId` đúng course request và class visibility hợp lệ.
+- Nếu không đủ context, trả `400/422` với code như `INSUFFICIENT_QUIZ_MATERIAL`.
+- Response quiz nên trả source metadata gồm `materialId`, `materialTitle`, `courseId`, `classId`, `score` để FE hiển thị và audit.
+
+**Test**
+1. Course OSG202 chỉ có tài liệu Operating Systems.
+2. Yêu cầu quiz topic không tồn tại như `Java servlet`.
+3. BE phải từ chối bằng `INSUFFICIENT_QUIZ_MATERIAL`, không lấy chunk đầu tiên để tạo quiz.
+4. Với topic hợp lệ, tất cả source chunks phải có `courseId=OSG202` và class scope hợp lệ.
+
+## 11. Tutor V2 Guide Dùng Sai Tên Field Evaluation So Với Java DTO
+
+**Hiện tượng**
+- `TUTOR_V2_IMPLEMENTATION_AND_TEST_GUIDE_VI.md` có ví dụ evaluation dùng `minimumPassScore` và `maximumHallucinationRate`.
+- Java DTO thực tế `StartEvalRunRequest` chỉ nhận `passThreshold`, không có hai field trên.
+
+**FE đang xử lý**
+- FE bám controller/DTO thực thi và gửi `passThreshold`.
+- UI không hiển thị `maximumHallucinationRate` vì Backend chưa có field/nghiệp vụ tương ứng.
+
+**Yêu cầu BE docs**
+- Sửa ví dụ request theo `StartEvalRunRequest`, hoặc bổ sung DTO/service nếu hai ngưỡng cũ là yêu cầu nghiệp vụ thật.
+- Swagger và guide phải dùng cùng một contract.
+
 ## Priority
 
 1. Protect/restore `admin@system.local`.
@@ -386,3 +425,5 @@ OSG202 -> 2118 chunks
 7. Fix mojibake/UTF-8 error messages for AI/LLM failures.
 8. Standard error response.
 9. Fix PDF chunking logic for Markdown documents to restore AI answering capabilities.
+10. Reject quiz generation when retrieval has no course/topic-relevant chunks.
+11. Align Tutor V2 evaluation guide fields with `StartEvalRunRequest`.

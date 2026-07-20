@@ -33,6 +33,7 @@ const TECHNICAL_ERROR_PATTERNS = [
   /mode must be one of/i,
   /cannot read properties/i,
   /undefined is not/i,
+  /backend did not return/i,
   /http\s?5\d\d/i,
 ];
 

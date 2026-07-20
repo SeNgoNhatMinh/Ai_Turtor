@@ -18,11 +18,11 @@ function QuizGeneratePanel({
   return (
     <div className="quiz-generate-layout">
       <Card className="quiz-card quiz-generate-card" title={<span className="quiz-card-title">Create a self-study quiz</span>}>
-        <Space direction="vertical" size={16} style={{ width: '100%' }}>
+        <Space orientation="vertical" size={16} style={{ width: '100%' }}>
           <Alert
             type="info"
             showIcon
-            message="Grounded in course materials"
+            title="Grounded in course materials"
             description="AI Tutor only creates a quiz when indexed material is available for the selected topic."
           />
           <div className="quiz-field">
@@ -57,7 +57,6 @@ function QuizGeneratePanel({
               max={10}
               value={questionCount}
               onChange={(value) => setQuestionCount(value || 5)}
-              addonBefore="Questions"
               disabled={!hasContext || isLoading}
             />
           </div>

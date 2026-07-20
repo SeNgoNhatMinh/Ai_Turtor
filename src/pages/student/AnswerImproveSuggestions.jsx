@@ -32,12 +32,16 @@ function AnswerImproveSuggestions({ suggestions = [], onStudy, onCreateQuiz }) {
             <article key={text.toLowerCase()} className="answer-improve-suggestion">
               <span>{text}</span>
               <div className="answer-improve-suggestion__actions">
-                <button type="button" onClick={() => onStudy?.(text)}>
-                  <BookOpenCheck size={14} aria-hidden="true" /> Học ngay
-                </button>
-                <button type="button" onClick={() => onCreateQuiz?.(text)}>
-                  <ClipboardList size={14} aria-hidden="true" /> Tạo quiz
-                </button>
+                {onStudy && (
+                  <button type="button" onClick={() => onStudy(text)}>
+                    <BookOpenCheck size={14} aria-hidden="true" /> Học ngay
+                  </button>
+                )}
+                {onCreateQuiz && (
+                  <button type="button" onClick={() => onCreateQuiz(text)}>
+                    <ClipboardList size={14} aria-hidden="true" /> Tạo quiz
+                  </button>
+                )}
               </div>
             </article>
           );

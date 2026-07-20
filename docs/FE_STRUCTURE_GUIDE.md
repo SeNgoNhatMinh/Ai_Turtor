@@ -23,7 +23,7 @@ This guide records the production structure target after aligning the FE with th
 - `src/features/student/chat/StudentChatPage.jsx` composes chat-only controllers and resources. `useStudentChatTabController.js` owns its local state and events.
 - `src/features/student/chat/useConversationSessions.js` owns conversation CRUD, history loading, activity ordering, and turn-limit state.
 - `src/features/student/chat/conversations/*` owns conversation grouping, row rendering, loading/empty states, and the 10-question display helpers.
-- `src/features/student/materials/StudentMaterialsPage.jsx` owns material/assignment loading; `useStudentMaterialsController.js` owns only the submission form state and actions.
+- `src/features/student/materials/StudentMaterialsPage.jsx` owns material/assignment loading; `MaterialsAssignmentsView.jsx` composes the route UI; `components/*` owns course context, assignment list/details, and course-material presentation; `useStudentMaterialsController.js` owns only submission form state and actions.
 - `src/hooks/useStudentAssignmentsController.js` joins assignment and submission resources so status, score, feedback, and submitted-file download stay consistent after refresh.
 - `src/features/student/learning/useStudentLearningActions.js` owns page-level suggestion/plan actions used by Learning Progress.
 - `src/features/student/quizzes/usePracticeQuizzes.js` owns self-study/assigned quiz loading, generation, start, submit, review, and retry state; quiz panels remain presentational.
@@ -33,6 +33,8 @@ This guide records the production structure target after aligning the FE with th
 - `StudentPortal.jsx`, `TeacherPortal.jsx`, and the aggregate teacher runtime controller have been removed. Do not recreate role-level switch components.
 - Student page containers live under `features/student/{chat,learning,quizzes,materials,mentor-review}`.
 - Teacher page containers live under `features/teacher/{classes,quizzes,materials,grading,review}`.
+- `src/features/teacher/materials/TeacherMaterialsPage.jsx` is the route controller, while `TeacherMaterialsView.jsx` only composes presentational cards, tables, and dialogs.
+- `useTeacherAssignmentsController.js` owns assignment draft/list/edit/publish state; `useTeacherMaterialController.js` owns material upload/reindex/delete state. Do not merge these concerns back into one route-level hook.
 - Admin page containers live under `features/admin/{dashboard,users,academic}`.
 - Route pages compose focused hooks; presentational screens under `pages/student` and `pages/teacher` must remain API-agnostic.
 - URL routes are canonical for navigation:
@@ -82,6 +84,7 @@ The legacy `src/services/api.js` facade has been removed. Do not recreate a glob
 - `src/features/ai-harness/n8nResponse.js` owns the pure response envelope validation and canonical RAG/CODE/ESCALATE normalization.
 - `src/services/n8nService.js` owns workflow transport methods and delegates response normalization to the pure harness module.
 - `src/features/ai-harness/quizGateway.js` owns the optional quiz harness feature flag and backend-direct fallback policy.
+- `src/features/ai-harness/expertTrainingGateway.js` owns the optional Tutor V2 harness flag. When enabled, V2 mutations stay on n8n and are never replayed through a second transport after an uncertain failure.
 - Chat/review/teacher/senior AI workflows may use n8n; academic CRUD, enrollment, material, and canonical read APIs stay backend-direct.
 - In production strict mode, never replay a timed-out mutation through another transport. Refetch the canonical backend resource instead.
 
@@ -97,6 +100,7 @@ The legacy `src/services/api.js` facade has been removed. Do not recreate a glob
 - Keep Quiz CSS under `src/features/student/quizzes/styles`; page-owned Learning Progress and Admin Academic CSS stay beside their page orchestrators.
 - Keep Admin Academic tab views under `src/pages/admin/academic` and their shared entity mutation controller under `src/features/admin/academic`.
 - Keep Teacher material columns/cards/tables and route orchestration under `src/features/teacher/materials`.
+- Keep Tutor V2 shared UI, controller, validation and styles under `src/features/expert-training`; Teacher and Admin routes must lazy-load the same feature instead of duplicating portal logic.
 - Keep shared Teacher display/record helpers under `src/features/teacher/shared`; `pages/teacher` must not own reusable logic.
 - Check production chunk output with `npm run build` after moving an import.
 

@@ -29,10 +29,12 @@ export default function TeacherGradingPage({ teacherId, courseId, classId, trigg
     event.preventDefault();
     const submissionId = grading.selectedTeacherSub?.id || grading.selectedTeacherSub?.submissionId;
     if (!submissionId) return;
-    grading.handleTeacherGradeSubmit(submissionId, score, feedback, weakTopics).then(() => {
-      setScore('');
-      setFeedback('');
-      setWeakTopics([]);
+    grading.handleTeacherGradeSubmit(submissionId, score, feedback, weakTopics).then((succeeded) => {
+      if (succeeded) {
+        setScore('');
+        setFeedback('');
+        setWeakTopics([]);
+      }
     });
   };
 
@@ -44,7 +46,7 @@ export default function TeacherGradingPage({ teacherId, courseId, classId, trigg
       grading.setSelectedTeacherSub(submission);
     }
     setScore(type === 'assignments'
-      ? (selected?.score || '')
+      ? (selected?.score ?? '')
       : (selected?.teacherReviewedScore ?? selected?.autoScore ?? selected?.score ?? ''));
     setFeedback(selected?.teacherFeedback || '');
     if (type === 'assignments') {
@@ -102,6 +104,11 @@ export default function TeacherGradingPage({ teacherId, courseId, classId, trigg
       onGradeSubmit={handleGradeSubmit}
       handleTeacherQuizReview={handleTeacherQuizReview}
       handleDownloadSubmission={handleDownloadSubmission}
+      answerKeyUploadingId={grading.answerKeyUploadingId}
+      aiGradingSubmissionId={grading.aiGradingSubmissionId}
+      gradingMutationKeys={grading.gradingMutationKeys}
+      handleUploadAnswerKey={grading.handleUploadAnswerKey}
+      handleAiGradeSubmission={grading.handleAiGradeSubmission}
     />
   );
 }

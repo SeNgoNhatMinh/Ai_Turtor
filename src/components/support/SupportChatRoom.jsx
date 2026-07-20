@@ -64,7 +64,7 @@ function SupportChatRoom({
         </div>
       </div>
 
-      {error && <Alert type="error" showIcon message={error} />}
+      {error && <Alert type="error" showIcon title={error} />}
 
       <div className="support-chat-room__messages" aria-live="polite">
         {isLoading ? (

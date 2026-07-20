@@ -5,6 +5,7 @@ function TeacherAnswerModeSelector({
   candidateType,
   setCreateKnowledgeCandidate,
   setCandidateType,
+  disabled = false,
 }) {
   const chooseReplyOnly = () => {
     setCreateKnowledgeCandidate(false);
@@ -36,6 +37,7 @@ function TeacherAnswerModeSelector({
           name="teacher-answer-mode"
           checked={!createKnowledgeCandidate}
           onChange={chooseReplyOnly}
+          disabled={disabled}
           style={{ cursor: 'pointer', width: 15, height: 15, marginTop: 2 }}
         />
         <span>
@@ -51,6 +53,7 @@ function TeacherAnswerModeSelector({
           name="teacher-answer-mode"
           checked={createKnowledgeCandidate}
           onChange={chooseProposeKnowledge}
+          disabled={disabled}
           style={{ cursor: 'pointer', width: 15, height: 15, marginTop: 2 }}
         />
         <span>
@@ -66,6 +69,7 @@ function TeacherAnswerModeSelector({
           <select
             value={candidateType}
             onChange={(e) => setCandidateType(e.target.value)}
+            disabled={disabled}
             style={{
               padding: '4px 8px',
               borderRadius: 6,

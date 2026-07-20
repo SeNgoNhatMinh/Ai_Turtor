@@ -41,7 +41,6 @@ export const uiCopy = {
     progress: {
       title: 'Learning Progress',
       subtitle: 'Review what you have learned, weak topics, and AI study suggestions.',
-      networkTitle: 'Course Knowledge Network',
       learnedTitle: 'Learned',
       weakTitle: 'Needs improvement',
       suggestionsTitle: 'AI Study Suggestions',

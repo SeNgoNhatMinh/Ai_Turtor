@@ -11,14 +11,26 @@
   margin-top: 10px;
 }
 
-.quiz-review-item.ant-list-item {
-  padding: 18px 0;
+.quiz-review-item {
+  padding: 18px;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  background: #ffffff;
+}
+
+.quiz-review-question-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
 }
 
 .quiz-review-question {
   display: grid;
+  flex: 1;
   gap: 8px;
-  margin-bottom: 12px;
+  min-width: 0;
 }
 
 .quiz-review-answer-grid {
@@ -30,11 +42,87 @@
   background: #fcfcfd;
 }
 
-.quiz-review-answer-row {
+.quiz-review-options-label {
+  color: #374151;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.quiz-review-options {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.quiz-review-option {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
+  padding: 11px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 11px;
+  background: #ffffff;
+}
+
+.quiz-review-option--correct {
+  border-color: #86efac;
+  background: #f0fdf4;
+}
+
+.quiz-review-option--incorrect {
+  border-color: #fca5a5;
+  background: #fef2f2;
+}
+
+.quiz-review-option-marker {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid #d1d5db;
+  border-radius: 50%;
+  color: #4b5563;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.quiz-review-option--correct .quiz-review-option-marker {
+  border-color: #16a34a;
+  background: #16a34a;
+  color: #ffffff;
+}
+
+.quiz-review-option--incorrect .quiz-review-option-marker {
+  border-color: #dc2626;
+  background: #dc2626;
+  color: #ffffff;
+}
+
+.quiz-review-option-text {
+  min-width: 0;
+  color: #1f2937;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.quiz-review-option-tags {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.quiz-review-option-tags .ant-tag {
+  margin-inline-end: 0;
+}
+
+.quiz-review-unanswered {
+  font-weight: 600;
 }
 
 .quiz-review-explanation {
@@ -46,3 +134,36 @@
   background: #f5f5f5;
 }
 
+.quiz-teacher-review-item {
+  margin-bottom: 14px;
+}
+
+.quiz-grading-score-summary {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.quiz-grading-score-summary .ant-tag {
+  margin-inline-end: 0;
+}
+
+.quiz-final-review-form,
+.quiz-final-review-summary {
+  border-top: 1px solid #e5e7eb;
+  padding-top: 16px;
+}
+
+.quiz-final-review-form {
+  display: grid;
+  gap: 14px;
+}
+
+.quiz-final-review-form .portal-form {
+  margin-top: 0;
+}
+
+.quiz-final-review-summary p {
+  margin: 3px 0;
+}

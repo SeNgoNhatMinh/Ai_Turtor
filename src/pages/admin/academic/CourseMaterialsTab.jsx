@@ -116,7 +116,7 @@ function CourseMaterialsTab({
                   accessorKey: 'fileName',
                   header: 'Source',
                   cell: ({ row }) => (
-                    <Space direction="vertical" size={2}>
+                    <Space orientation="vertical" size={2}>
                       <Space size={6} wrap>
                         <Tag color={isWebsiteMaterial(row.original) ? 'blue' : 'default'}>
                           {isWebsiteMaterial(row.original) ? 'Website' : 'PDF'}

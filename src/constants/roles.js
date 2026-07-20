@@ -33,7 +33,7 @@ export function normalizeAccountRole(role, fallback = ACCOUNT_ROLES.STUDENT) {
     .replace(/[\s-]+/g, '_');
 
   if (
-    import.meta.env.DEV
+    import.meta.env?.DEV
     && normalized
     && !ACCOUNT_ROLE_SET.has(normalized)
     && !warnedLegacyRoles.has(normalized)

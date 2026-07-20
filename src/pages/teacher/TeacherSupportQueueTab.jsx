@@ -15,6 +15,7 @@ function TeacherSupportQueueTab({
   teacherEscReply,
   setTeacherEscReply,
   onAnswerEsc,
+  isTeacherAnswerSubmitting = false,
   createKnowledgeCandidate,
   setCreateKnowledgeCandidate,
   candidateType,
@@ -78,7 +79,12 @@ function TeacherSupportQueueTab({
       <div className="glass-card">
         <div className="card-header">
           <h3>Student Support Queue</h3>
-          <button type="button" className="btn-small-chat" onClick={() => loadTeacherInbox?.()}>
+          <button
+            type="button"
+            className="btn-small-chat"
+            onClick={loadTeacherInbox}
+            disabled={isTeacherInboxLoading || !loadTeacherInbox}
+          >
             <RefreshCw style={{ width: 12, height: 12 }} /> Refresh
           </button>
         </div>
@@ -89,16 +95,19 @@ function TeacherSupportQueueTab({
         ) : (
           <div className="escalations-list">
             {escalations.map((esc) => (
-              <div
+              <button
+                type="button"
                 key={esc.id}
                 className={`escalation-card-item ${selectedEscalation?.id === esc.id ? 'active-escalation' : ''}`}
                 onClick={() => setSelectedEscalation(esc)}
+                disabled={!setSelectedEscalation}
+                aria-pressed={selectedEscalation?.id === esc.id}
               >
                 <span className="badge-esc pending">{String(esc.status).toUpperCase()}</span>
                 <h5>{esc.student}: {esc.title}</h5>
                 <p className="esc-context">{esc.context}</p>
                 <span className="esc-time">{esc.time ? new Date(esc.time).toLocaleString() : '-'}</span>
-              </div>
+              </button>
             ))}
           </div>
         )}
@@ -127,8 +136,14 @@ function TeacherSupportQueueTab({
               <strong>Question:</strong> {selectedEscalation.question}
             </div>
             <div className="input-group">
-              <label>Final answer after the support discussion:</label>
-              <textarea value={teacherEscReply} onChange={(e) => setTeacherEscReply(e.target.value)} required />
+              <label htmlFor="teacher-final-answer">Final answer after the support discussion:</label>
+              <textarea
+                id="teacher-final-answer"
+                value={teacherEscReply}
+                onChange={(e) => setTeacherEscReply(e.target.value)}
+                required
+                disabled={isTeacherAnswerSubmitting}
+              />
             </div>
 
             <TeacherAnswerModeSelector
@@ -136,9 +151,16 @@ function TeacherSupportQueueTab({
               candidateType={candidateType}
               setCreateKnowledgeCandidate={setCreateKnowledgeCandidate}
               setCandidateType={setCandidateType}
+              disabled={isTeacherAnswerSubmitting}
             />
 
-            <button type="submit" className="btn-submit-form">Submit official answer</button>
+            <button
+              type="submit"
+              className="btn-submit-form"
+              disabled={isTeacherAnswerSubmitting || !teacherEscReply.trim()}
+            >
+              {isTeacherAnswerSubmitting ? 'Sending official answer...' : 'Submit official answer'}
+            </button>
           </form>
         )}
       </div>
@@ -153,7 +175,13 @@ function TeacherSupportQueueTab({
                 : 'Moderate answer disputes submitted by students in your course.'}
             </p>
           </div>
-          <button type="button" className="btn-small-chat" onClick={() => loadAnswerReviews?.()}>
+          <button
+            type="button"
+            className="btn-small-chat"
+            onClick={loadAnswerReviews}
+            disabled={isAnswerReviewsLoading || !loadAnswerReviews}
+            aria-label="Refresh answer review queue"
+          >
             <RefreshCw style={{ width: 12, height: 12 }} />
           </button>
         </div>

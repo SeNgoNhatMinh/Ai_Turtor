@@ -36,7 +36,7 @@ function ImprovePlansSection({
       title="Improve Plans"
       extra={<Button size="small" icon={<ReloadOutlined />} onClick={onReload} loading={loading} disabled={!hasContext}>Reload plans</Button>}
     >
-      {error && <Alert className="learning-alert" type="warning" showIcon message={error} />}
+      {error && <Alert className="learning-alert" type="warning" showIcon title={error} />}
       {loading ? (
         <Skeleton active paragraph={{ rows: 4 }} />
       ) : (

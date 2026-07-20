@@ -10,6 +10,10 @@ const N8N_TIMEOUT_MS = env.n8nTimeoutMs;
 export const N8N_CHAT_TIMEOUT_MS = env.n8nChatTimeoutMs;
 export const N8N_QUIZ_TIMEOUT_MS = env.n8nQuizTimeoutMs;
 export const N8N_QUIZ_ENABLED = env.n8nQuizEnabled;
+export const N8N_ASSIGNMENT_GRADING_ENABLED = env.n8nAssignmentGradingEnabled;
+export const N8N_ASSIGNMENT_GRADING_TIMEOUT_MS = env.n8nAssignmentGradingTimeoutMs;
+export const N8N_TUTOR_V2_ENABLED = env.n8nTutorV2Enabled;
+export const N8N_TUTOR_V2_TIMEOUT_MS = env.n8nTutorV2TimeoutMs;
 
 function createN8nError(userMessage = 'AI workflow is temporarily unavailable.', details = null) {
   const error = new Error(userMessage);
@@ -25,7 +29,11 @@ function n8nUrl(path) {
   return `${N8N_BASE_URL}${prefix}${path}`;
 }
 
-export async function postN8n(path, body, { signal, timeoutMs = N8N_TIMEOUT_MS } = {}) {
+export async function postN8n(path, body, {
+  signal,
+  timeoutMs = N8N_TIMEOUT_MS,
+  includeAuthTokenInBody = false,
+} = {}) {
   if (!N8N_ENABLED) {
     throw createN8nError('AI workflow is disabled.', { code: 'N8N_DISABLED' });
   }
@@ -40,9 +48,9 @@ export async function postN8n(path, body, { signal, timeoutMs = N8N_TIMEOUT_MS }
     controller.abort();
   }, timeoutMs);
 
-  const headers = { 'Content-Type': 'application/json' };
+  const headers = { 'Content-Type': 'application/json; charset=utf-8' };
   const token = getAuthToken();
-  const envelope = createHarnessEnvelope(body, token);
+  const envelope = createHarnessEnvelope(body, includeAuthTokenInBody ? token : '');
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }

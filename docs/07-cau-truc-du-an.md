@@ -41,7 +41,7 @@ ai-tutor-frontend/
 │   │   ├── Header.jsx           ← Thanh header toàn cục (logo, user info, theme)
 │   │   ├── Sidebar.jsx          ← Sidebar navigation (Ant Design Menu)
 │   │   ├── Toast.jsx            ← Toast notification nhỏ (dùng trong dark mode)
-│   │   ├── CanvasGraph.jsx      ← Biểu đồ canvas (knowledge graph)
+│   │   ├── RobotHeadMascot.jsx  ← Mascot AI dùng ở login và Student Chat
 │   │   ├── SplineAvatar.jsx     ← 3D avatar Spline (AI Tutor mascot)
 │   │   └── common/
 │   │       ├── PageHeader.jsx   ← Header section tái sử dụng (title + description)

@@ -72,7 +72,7 @@ function AdminDashboard({ adminStats = {}, diagnosticsOutput, isDiagnosticsRunni
           hoverable
         >
           {diagnosticsOutput ? (
-            <Space direction="vertical" style={{ width: '100%' }} size="middle">
+            <Space orientation="vertical" style={{ width: '100%' }} size="middle">
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <Text>OpenRouter API Key:</Text>
                 <Tag color={diagnosticsOutput.apiKeyValid ? 'success' : 'error'}>

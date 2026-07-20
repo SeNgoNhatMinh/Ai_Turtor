@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { message } from 'antd';
-import { validateUploadFile } from '../../../utils/validators';
+import { validateAssignmentFile } from '../../../utils/assignmentFiles';
 
 export function useStudentMaterialsController({
   selectedAssignment,
@@ -14,7 +14,7 @@ export function useStudentMaterialsController({
 
   const onStudentSubmit = async () => {
     if (isSubmitting) return;
-    const fileValidation = validateUploadFile(studentSubmissionFile);
+    const fileValidation = validateAssignmentFile(studentSubmissionFile);
     if (!fileValidation.ok) {
       message.error(fileValidation.message);
       return;
@@ -38,8 +38,8 @@ export function useStudentMaterialsController({
     }
   };
 
-  const handleDownloadAssignment = (assignmentId) => {
-    onDownloadAssignment?.(assignmentId);
+  const handleDownloadAssignment = (assignment) => {
+    onDownloadAssignment?.(assignment);
   };
 
   return {

@@ -1,4 +1,5 @@
 import { ArrowRight, Lock, Mail, User, UserPlus } from 'lucide-react';
+import FptWordmark from './FptWordmark';
 
 function LoginAuthCard({
   email,
@@ -21,9 +22,16 @@ function LoginAuthCard({
     <section className="login-auth-card" aria-label={isLoginView ? 'Sign in form' : 'Create account form'}>
       <div className="login-card-header">
         <div className="login-auth-brand-row">
-          <img src="/favicon.jpg" alt="FPT University AI Tutor mascot" className="login-auth-mascot" />
+          <img
+            src="/favicon.jpg"
+            alt="FPT University AI Tutor mascot"
+            className="login-auth-mascot"
+            width="48"
+            height="48"
+            decoding="async"
+          />
           <div className="login-brand-mark">
-            <span className="brand-fpt">FPT</span>
+            <FptWordmark className="is-compact" />
             <span className="brand-university">University</span>
             <small>AI Tutor</small>
           </div>

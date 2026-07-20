@@ -107,7 +107,7 @@ function StudentImportTab({
               <p className="ant-upload-text">Choose student enrollment Excel file</p>
               <p className="ant-upload-hint">Template columns: Student ID, Student Name.</p>
             </Dragger>
-            <Space style={{ width: '100%' }} direction="vertical">
+            <Space style={{ width: '100%' }} orientation="vertical">
               <Button
                 block
                 onClick={() => onImport(true)}
@@ -140,11 +140,11 @@ function StudentImportTab({
               description="Download the template, fill Student ID and Student Name, then validate the file before importing."
             />
           ) : (
-            <Space direction="vertical" size={16} style={{ width: '100%' }}>
+            <Space orientation="vertical" size={16} style={{ width: '100%' }}>
               <Alert
                 type={studentImportResult.success === false ? 'error' : 'success'}
                 showIcon
-                message={studentImportResult.message || (studentImportResult.dryRun ? 'Validation completed.' : 'Import completed.')}
+                title={studentImportResult.message || (studentImportResult.dryRun ? 'Validation completed.' : 'Import completed.')}
                 description={`Rows: ${studentImportResult.totalRows ?? 0} | Success: ${studentImportResult.successCount ?? 0} | Errors: ${studentImportResult.errorCount ?? 0}`}
               />
               <Row gutter={[16, 16]}>

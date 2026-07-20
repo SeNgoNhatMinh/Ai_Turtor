@@ -6,18 +6,35 @@ import { getRecordId } from '../shared/teacherUtils';
 import { getMaterialDisplayName } from '../../../utils/sourceLabels';
 
 export function useTeacherResourceColumns({
-  handleDownloadAssignmentFile,
-  handleEditAssignment,
-  handleDeleteAssignment,
-  onDownloadMaterial,
-  materialActionId,
-  handleTeacherMaterialAction,
+  assignmentActions,
+  materialActions,
 }) {
+  const {
+    onDownload: onDownloadAssignment,
+    onEdit: onEditAssignment,
+    onDelete: onDeleteAssignment,
+  } = assignmentActions;
+  const {
+    onDownload: onDownloadMaterial,
+    pendingId: materialActionId,
+    onAction: onMaterialAction,
+  } = materialActions;
+
   const assignmentColumns = useMemo(() => [
     {
       accessorKey: 'title',
       header: 'Title',
       cell: ({ row }) => <span className="font-semibold text-gray-900">{row.getValue('title') || 'Untitled assignment'}</span>,
+    },
+    {
+      accessorKey: 'assignmentType',
+      header: 'Type',
+      cell: ({ row }) => <Badge variant="outline">{row.getValue('assignmentType') || 'ASSIGNMENT'}</Badge>,
+    },
+    {
+      accessorKey: 'maxScore',
+      header: 'Max score',
+      cell: ({ row }) => <span>{row.getValue('maxScore') ?? 10}</span>,
     },
     {
       accessorKey: 'targetType',
@@ -47,19 +64,19 @@ export function useTeacherResourceColumns({
       header: 'Actions',
       cell: ({ row }) => (
         <div className="flex justify-end gap-2">
-          <Button size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={() => handleEditAssignment(row.original)}>
+          <Button size="sm" variant="outline" className="h-7 px-2 text-xs" disabled={!onEditAssignment} onClick={() => onEditAssignment(row.original)}>
             <Pencil className="w-3 h-3 mr-1" /> Edit
           </Button>
-          <Button size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={() => handleDownloadAssignmentFile(row.original)}>
+          <Button size="sm" variant="outline" className="h-7 px-2 text-xs" disabled={!onDownloadAssignment} onClick={() => onDownloadAssignment(row.original)}>
             <Download className="w-3 h-3 mr-1" /> Download
           </Button>
-          <Button size="sm" variant="destructive" className="h-7 px-2 text-xs" onClick={() => handleDeleteAssignment(row.original)}>
+          <Button size="sm" variant="destructive" className="h-7 px-2 text-xs" disabled={!onDeleteAssignment} onClick={() => onDeleteAssignment(row.original)}>
             <Trash2 className="w-3 h-3 mr-1" /> Delete
           </Button>
         </div>
       ),
     },
-  ], [handleDeleteAssignment, handleDownloadAssignmentFile, handleEditAssignment]);
+  ], [onDeleteAssignment, onDownloadAssignment, onEditAssignment]);
 
   const materialColumns = useMemo(() => [
     {
@@ -97,20 +114,27 @@ export function useTeacherResourceColumns({
         const isWebsite = material.sourceType === 'HTML_URL';
         return (
           <div className="flex justify-end gap-2">
-            <Button size="sm" variant="outline" className="h-7 px-2 text-xs" disabled={isWebsite} onClick={() => onDownloadMaterial?.(materialId, material.title, material)}>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 px-2 text-xs"
+              disabled={isWebsite || !materialId || !onDownloadMaterial}
+              title={isWebsite ? 'Website imports do not have a PDF file' : undefined}
+              onClick={() => onDownloadMaterial(materialId, material.title, material)}
+            >
               <Download className="w-3 h-3 mr-1" /> Download
             </Button>
-            <Button size="sm" variant="outline" className="h-7 px-2 text-xs bg-blue-50 text-blue-600 hover:bg-blue-100 hover:text-blue-700 border-blue-200" disabled={materialActionId === `reindex:${materialId}`} onClick={() => handleTeacherMaterialAction('reindex', material)}>
+            <Button size="sm" variant="outline" className="h-7 px-2 text-xs bg-blue-50 text-blue-600 hover:bg-blue-100 hover:text-blue-700 border-blue-200" disabled={!materialId || !onMaterialAction || materialActionId === `reindex:${materialId}`} onClick={() => onMaterialAction('reindex', material)}>
               <Database className="w-3 h-3 mr-1" /> Reindex
             </Button>
-            <Button size="sm" variant="destructive" className="h-7 px-2 text-xs" disabled={materialActionId === `delete:${materialId}`} onClick={() => handleTeacherMaterialAction('delete', material)}>
+            <Button size="sm" variant="destructive" className="h-7 px-2 text-xs" disabled={!materialId || !onMaterialAction || materialActionId === `delete:${materialId}`} onClick={() => onMaterialAction('delete', material)}>
               <Trash2 className="w-3 h-3 mr-1" /> Delete
             </Button>
           </div>
         );
       },
     },
-  ], [handleTeacherMaterialAction, materialActionId, onDownloadMaterial]);
+  ], [materialActionId, onDownloadMaterial, onMaterialAction]);
 
   return { assignmentColumns, materialColumns };
 }

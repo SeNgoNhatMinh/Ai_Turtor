@@ -8,6 +8,8 @@ function StudentChatTab({
   setIsHistoryDrawerOpen,
   sessions,
   isSessionsLoading,
+  sessionMutationKey,
+  isCreatingSession,
   activeSessionId,
   activeSessionTitle,
   editingSessionId,
@@ -76,6 +78,8 @@ function StudentChatTab({
           <ChatSessionsPanel
             sessions={sessions}
             isLoading={isSessionsLoading}
+            sessionMutationKey={sessionMutationKey}
+            isCreatingSession={isCreatingSession}
             activeSessionId={activeSessionId}
             onCreate={() => {
               onCreateSession();
