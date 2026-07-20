@@ -1,20 +1,32 @@
-import { useCallback, useMemo, useState } from 'react';
-import { Alert, Button, Select, Space, Tabs, Tag } from 'antd';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { Button, Select, Space, Tabs, Tag, Typography } from 'antd';
 import { RefreshCw } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 import AsyncState from '../../components/common/AsyncState';
 import PageHeader from '../../components/common/PageHeader';
-import ContributionWorkspace from './components/ContributionWorkspace';
-import CoverageDashboard from './components/CoverageDashboard';
-import EvaluationDashboard from './components/EvaluationDashboard';
-import ExpertTaskBoard from './components/ExpertTaskBoard';
-import SeniorReviewQueue from './components/SeniorReviewQueue';
-import { useExpertTrainingController } from './useExpertTrainingController';
+import ScopeBar from '../../components/common/ScopeBar';
+import { getAccountRoleLabel } from '../../constants/roles';
 import { isTutorV2HarnessEnabled } from '../ai-harness/expertTrainingGateway';
+import ExpertTrainingOverview from './components/ExpertTrainingOverview';
+import {
+  getEvaluationReadiness,
+} from './expertTrainingSelectors';
+import { useExpertTrainingController } from './useExpertTrainingController';
 import './ExpertTraining.css';
 
+const ExpertWorkWorkspace = lazy(() => import('./components/ExpertWorkWorkspace'));
+const ExpertContentReviewWorkspace = lazy(() => import('./components/ExpertContentReviewWorkspace'));
+const EvaluationDashboard = lazy(() => import('./components/EvaluationDashboard'));
+
+const { Text } = Typography;
+const VALID_VIEWS = new Set(['overview', 'work', 'content', 'evaluation']);
 const courseLabel = (course) => (
   course.name && course.name !== course.id ? `${course.id} · ${course.name}` : course.id
 );
+
+function SectionFallback() {
+  return <AsyncState loading loadingLabel="Đang tải khu vực Tutor V2..." loadingRows={6} />;
+}
 
 export default function ExpertTrainingPage({
   currentUser,
@@ -23,12 +35,34 @@ export default function ExpertTrainingPage({
   triggerToast,
 }) {
   const [localCourseId, setLocalCourseId] = useState(externalCourseId);
-  const [activeTab, setActiveTab] = useState('coverage');
+  const [searchParams, setSearchParams] = useSearchParams();
   const courseId = externalCourseId || localCourseId;
+  const requestedView = searchParams.get('view');
+  const activeView = VALID_VIEWS.has(requestedView) ? requestedView : 'overview';
+  const selectedTaskId = searchParams.get('task') || '';
+  const selectedReviewId = searchParams.get('review') || '';
+  const draftChapter = searchParams.get('chapter') || '';
+
+  const setQueryState = useCallback((updates, replace = false) => {
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      Object.entries(updates).forEach(([key, value]) => {
+        if (value == null || value === '') next.delete(key);
+        else next.set(key, String(value));
+      });
+      return next;
+    }, { replace });
+  }, [setSearchParams]);
+
   const setCourseId = useCallback((nextCourseId) => {
     setLocalCourseId(nextCourseId);
     setExternalCourseId?.(nextCourseId);
   }, [setExternalCourseId]);
+
+  const changeCourse = useCallback((nextCourseId) => {
+    setCourseId(nextCourseId);
+    setQueryState({ view: 'overview', task: null, review: null, chapter: null });
+  }, [setCourseId, setQueryState]);
 
   const controller = useExpertTrainingController({
     currentUser,
@@ -36,106 +70,149 @@ export default function ExpertTrainingPage({
     setCourseId,
     triggerToast,
   });
+  const taskLoading = controller.loading.tasks;
+  const tasks = controller.resources.tasks;
+  const currentTaskId = controller.selectedTask?.id;
+  const setSelectedTask = controller.setSelectedTask;
 
-  const tabs = useMemo(() => {
-    const items = [
-      {
-        key: 'coverage',
-        label: 'Coverage',
-        children: (
-          <CoverageDashboard
-            gaps={controller.resources.gaps}
-            loading={controller.loading.gaps}
-            error={controller.errors.gaps}
-            canReview={controller.canReview}
-            pendingAction={controller.pendingAction}
-            onAnalyze={controller.analyzeCoverage}
-            onRefresh={controller.loadGaps}
-          />
-        ),
-      },
-      {
-        key: 'tasks',
-        label: 'Expert Tasks',
-        children: (
-          <ExpertTaskBoard
+  useEffect(() => {
+    if (!selectedTaskId) {
+      if (currentTaskId) setSelectedTask(null);
+      return;
+    }
+    if (taskLoading) return;
+    const selectedTask = tasks.find((task) => task.id === selectedTaskId);
+    if (selectedTask && selectedTask.id !== currentTaskId) {
+      setSelectedTask(selectedTask);
+    }
+    if (!selectedTask && tasks.length) {
+      setQueryState({ task: null }, true);
+    }
+  }, [
+    currentTaskId,
+    selectedTaskId,
+    setSelectedTask,
+    setQueryState,
+    taskLoading,
+    tasks,
+  ]);
+
+  const selectTask = useCallback((task) => {
+    controller.setSelectedTask(task);
+    setQueryState({ view: 'work', task: task?.id || null, chapter: null });
+  }, [controller, setQueryState]);
+
+  const navigateToAction = useCallback((action) => {
+    setQueryState({
+      view: action.view || 'overview',
+      task: action.taskId || null,
+      review: action.reviewId || null,
+    });
+  }, [setQueryState]);
+
+  const evaluationReadiness = useMemo(
+    () => getEvaluationReadiness(controller.resources),
+    [controller.resources],
+  );
+
+  const tabs = useMemo(() => [
+    {
+      key: 'overview',
+      label: 'Tổng quan',
+      children: (
+        <ExpertTrainingOverview
+          resources={controller.resources}
+          loading={controller.loading}
+          errors={controller.errors}
+          canReview={controller.canReview}
+          userId={controller.userId}
+          pendingAction={controller.pendingAction}
+          onAnalyzeCoverage={controller.analyzeCoverage}
+          onRefreshCoverage={controller.loadGaps}
+          onNavigateAction={navigateToAction}
+          onCreateTaskFromGap={(gap) => setQueryState({ view: 'work', chapter: gap.chapter })}
+        />
+      ),
+    },
+    {
+      key: 'work',
+      label: 'Công việc',
+      children: (
+        <Suspense fallback={<SectionFallback />}>
+          <ExpertWorkWorkspace
             tasks={controller.resources.tasks}
-            userId={controller.userId}
-            loading={controller.loading.tasks}
-            error={controller.errors.tasks}
-            pendingAction={controller.pendingAction}
-            onRefresh={controller.loadTasks}
-            onClaim={controller.claimTask}
-            onCreate={controller.createTask}
-            onContribute={(task) => {
-              controller.setSelectedTask(task);
-              setActiveTab('contributions');
-            }}
-          />
-        ),
-      },
-      {
-        key: 'contributions',
-        label: 'Contributions',
-        children: (
-          <ContributionWorkspace
             selectedTask={controller.selectedTask}
+            draftChapter={draftChapter}
             userId={controller.userId}
-            goldQa={controller.resources.goldQa}
-            rubrics={controller.resources.rubrics}
-            loading={controller.loading.contributions}
-            error={controller.errors.contributions}
+            canReview={controller.canReview}
+            loading={controller.loading}
+            errors={controller.errors}
             pendingAction={controller.pendingAction}
-            onRefresh={controller.loadContributions}
+            onRefreshTasks={controller.loadTasks}
+            onClaimTask={controller.claimTask}
+            onCreateTask={controller.createTask}
+            onSelectTask={selectTask}
+            onDraftConsumed={() => setQueryState({ chapter: null }, true)}
             onSubmitGoldQa={controller.submitGoldQa}
             onSubmitRubric={controller.submitRubric}
           />
-        ),
-      },
-    ];
-
-    if (controller.canReview) {
-      items.push({
-        key: 'review',
-        label: controller.pendingReviewCount
-          ? `Review Queue (${controller.pendingReviewCount})`
-          : 'Review Queue',
-        children: (
-          <SeniorReviewQueue
-            goldQa={controller.resources.goldQa}
-            rubrics={controller.resources.rubrics}
+        </Suspense>
+      ),
+    },
+    {
+      key: 'content',
+      label: controller.canReview && controller.pendingReviewCount
+        ? `Nội dung & kiểm duyệt (${controller.pendingReviewCount})`
+        : 'Nội dung & kiểm duyệt',
+      children: (
+        <Suspense fallback={<SectionFallback />}>
+          <ExpertContentReviewWorkspace
+            resources={controller.resources}
+            userId={controller.userId}
+            canReview={controller.canReview}
+            selectedReviewId={selectedReviewId}
             loading={controller.loading.contributions}
             error={controller.errors.contributions}
             pendingAction={controller.pendingAction}
+            onSelectReview={(id) => setQueryState({ review: id || null }, true)}
             onRefresh={controller.loadContributions}
             onReviewGoldQa={controller.reviewGoldQa}
             onReviewRubric={controller.reviewRubric}
           />
-        ),
-      });
-    }
-
-    items.push({
+        </Suspense>
+      ),
+    },
+    {
       key: 'evaluation',
       label: 'Evaluation',
       children: (
-        <EvaluationDashboard
-          runs={controller.resources.evalRuns}
-          canReview={controller.canReview}
-          loading={controller.loading.evaluation}
-          error={controller.errors.evaluation}
-          pendingAction={controller.pendingAction}
-          detail={controller.evaluationDetail}
-          detailLoading={controller.evaluationDetailLoading}
-          onRefresh={controller.loadEvaluation}
-          onStart={controller.startEvaluation}
-          onOpenDetail={controller.openEvaluationDetail}
-          onCloseDetail={() => controller.setEvaluationDetail(null)}
-        />
+        <Suspense fallback={<SectionFallback />}>
+          <EvaluationDashboard
+            runs={controller.resources.evalRuns}
+            readiness={evaluationReadiness}
+            canReview={controller.canReview}
+            loading={controller.loading.evaluation}
+            error={controller.errors.evaluation}
+            pendingAction={controller.pendingAction}
+            detail={controller.evaluationDetail}
+            detailLoading={controller.evaluationDetailLoading}
+            onRefresh={controller.loadEvaluation}
+            onStart={controller.startEvaluation}
+            onOpenDetail={controller.openEvaluationDetail}
+            onCloseDetail={() => controller.setEvaluationDetail(null)}
+          />
+        </Suspense>
       ),
-    });
-    return items;
-  }, [controller]);
+    },
+  ], [
+    controller,
+    draftChapter,
+    evaluationReadiness,
+    navigateToAction,
+    selectTask,
+    selectedReviewId,
+    setQueryState,
+  ]);
 
   const connectionColor = controller.connectionState === 'CONNECTED'
     ? 'green'
@@ -147,71 +224,71 @@ export default function ExpertTrainingPage({
   return (
     <div className="expert-training-page">
       <PageHeader
-        title="AI Knowledge Training"
-        description="Tutor V2 turns measured course gaps into reviewed expert knowledge and private evaluation benchmarks."
+        title="Huấn luyện tri thức AI"
+        description="Biến thiếu hụt tri thức của môn học thành nội dung đã được kiểm duyệt và bộ Evaluation độc lập."
+      />
+
+      <ScopeBar
         actions={(
-          <>
-            <Select
-              aria-label="Tutor V2 course"
-              showSearch
-              optionFilterProp="label"
-              value={courseId || undefined}
-              placeholder="Select course"
-              className="expert-training__course-select"
-              loading={controller.loading.courses}
-              onChange={setCourseId}
-              options={controller.courses.map((course) => ({
-                value: course.id,
-                label: courseLabel(course),
-              }))}
-            />
-            <Button
-              icon={<RefreshCw size={16} />}
-              onClick={controller.refreshAll}
-              disabled={!courseId}
-            >
-              Refresh all
-            </Button>
-          </>
+          <Button
+            icon={<RefreshCw size={16} />}
+            onClick={controller.refreshAll}
+            disabled={!courseId}
+            loading={Object.values(controller.loading).some(Boolean)}
+          >
+            Làm mới dữ liệu
+          </Button>
         )}
-      />
-
-      <div className="expert-training__status-bar">
-        <Space wrap>
-          <Tag color="blue">{controller.reviewerRole.replaceAll('_', ' ')}</Tag>
+      >
+        <Select
+          aria-label="Chọn môn học Tutor V2"
+          showSearch
+          optionFilterProp="label"
+          value={courseId || undefined}
+          placeholder="Chọn môn học"
+          className="expert-training__course-select"
+          loading={controller.loading.courses}
+          onChange={changeCourse}
+          options={controller.courses.map((course) => ({
+            value: course.id,
+            label: courseLabel(course),
+          }))}
+        />
+        <Space wrap size={[6, 6]}>
+          <Tag color="blue">{getAccountRoleLabel(controller.reviewerRole)}</Tag>
           <Tag color={harnessEnabled ? 'purple' : 'default'}>
-            {harnessEnabled ? 'n8n V2 mutations' : 'Backend direct'}
+            {harnessEnabled ? 'n8n Tutor V2' : 'Backend trực tiếp'}
           </Tag>
-          <Tag color={connectionColor}>Realtime {controller.connectionState.toLowerCase()}</Tag>
-          {controller.canReview && <Tag color="purple">Approval gate enabled</Tag>}
+          <Tag color={connectionColor}>
+            Realtime {controller.connectionState === 'CONNECTED' ? 'đã kết nối' : 'đang kết nối lại'}
+          </Tag>
         </Space>
-        <span>HTTP API is canonical; socket events only trigger focused refetches.</span>
-      </div>
-
-      <Alert
-        type="info"
-        showIcon
-        title="Tutor V2 is an additional quality loop"
-        description="It does not replace Student Chat, answer review, mentor escalation, quiz, or assignment flows. Teacher content cannot enter AI knowledge before Senior/Admin approval."
-      />
+        <Text type="secondary" className="expert-training__canonical-note">
+          REST API là nguồn dữ liệu chuẩn; WebSocket chỉ yêu cầu tải lại dữ liệu.
+        </Text>
+      </ScopeBar>
 
       <AsyncState
         loading={controller.loading.courses && !controller.courses.length}
         error={controller.errors.courses}
         empty={!controller.loading.courses && !controller.errors.courses && !controller.courses.length}
-        emptyTitle="No courses are available"
-        emptyDescription="Create or assign a course before opening the Tutor V2 knowledge workflow."
+        emptyTitle="Chưa có môn học khả dụng"
+        emptyDescription="Hãy tạo hoặc phân công môn học trước khi mở quy trình Tutor V2."
         onRetry={controller.loadCourses}
       >
         {courseId ? (
           <Tabs
-            activeKey={activeTab}
-            onChange={setActiveTab}
+            activeKey={activeView}
+            onChange={(view) => setQueryState({ view })}
             items={tabs}
             className="expert-training__tabs"
           />
         ) : (
-          <Alert type="warning" showIcon title="Select a course to load Tutor V2 data" />
+          <AsyncState
+            empty
+            emptyTitle="Chọn môn học để bắt đầu"
+            emptyDescription="Mỗi môn học có thiếu hụt, task, nội dung kiểm duyệt và Evaluation riêng."
+          />
         )}
       </AsyncState>
     </div>

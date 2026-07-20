@@ -43,7 +43,7 @@ describe('MaterialsAssignments course context', () => {
     expect(screen.getByText('test 1')).toBeVisible();
     expect(screen.getByText('AI101-01')).toBeVisible();
 
-    const courseSelect = screen.getByRole('combobox', { name: 'Assignment course' });
+    const courseSelect = screen.getByRole('combobox', { name: 'Môn học của bài tập' });
     fireEvent.mouseDown(courseSelect);
     fireEvent.click(await screen.findByText('OOP - Object-Oriented Programming'));
 
@@ -53,6 +53,6 @@ describe('MaterialsAssignments course context', () => {
   it('explains that an empty list is scoped to the selected course', () => {
     render(<MaterialsAssignments {...baseProps} />);
 
-    expect(screen.getByText('No assignments published for AI101. Choose another enrolled course above.')).toBeVisible();
+    expect(screen.getByText('Chưa có bài tập được xuất bản cho AI101.')).toBeVisible();
   });
 });

@@ -53,7 +53,7 @@ export function useTeacherAssignmentsController({
       return normalized;
     } catch (error) {
       setRecords([]);
-      triggerToast(getUserFacingError(error, 'Unable to load class assignments.'));
+      triggerToast(getUserFacingError(error, 'Không thể tải bài tập của lớp.'));
       return [];
     } finally {
       setLoading(false);
@@ -91,11 +91,11 @@ export function useTeacherAssignmentsController({
   const create = useCallback(async (event) => {
     event.preventDefault();
     if (!courseId || !classId || !teacherUserId) {
-      triggerToast('Please choose a course and class before publishing.');
+      triggerToast('Hãy chọn môn học và lớp trước khi xuất bản.');
       return;
     }
     if (!title.trim()) {
-      triggerToast('Please enter an assignment title.');
+      triggerToast('Hãy nhập tên bài tập.');
       return;
     }
 
@@ -107,11 +107,11 @@ export function useTeacherAssignmentsController({
 
     const normalizedMaxScore = Number(maxScore);
     if (!Number.isFinite(normalizedMaxScore) || normalizedMaxScore <= 0 || normalizedMaxScore > 1000) {
-      triggerToast('Maximum score must be greater than 0 and at most 1000.');
+      triggerToast('Điểm tối đa phải lớn hơn 0 và không vượt quá 1000.');
       return;
     }
     if (targetType === 'SELECTED_STUDENTS' && !targetStudents.trim()) {
-      triggerToast('Choose at least one student.');
+      triggerToast('Hãy chọn ít nhất một sinh viên.');
       return;
     }
 
@@ -132,11 +132,11 @@ export function useTeacherAssignmentsController({
       setPublishing(true);
       try {
         await assignmentApi.uploadAssignment(courseId, classId, formData);
-        triggerToast('Assignment published.');
+        triggerToast('Đã xuất bản bài tập.');
         resetDraft();
         await load();
       } catch (error) {
-        triggerToast(getUserFacingError(error, 'Unable to publish assignment.'));
+        triggerToast(getUserFacingError(error, 'Không thể xuất bản bài tập.'));
       } finally {
         setPublishing(false);
       }
@@ -162,18 +162,18 @@ export function useTeacherAssignmentsController({
   const remove = useCallback(async (assignment) => {
     const assignmentId = getRecordId(assignment);
     if (!assignmentId) {
-      triggerToast('This assignment is missing an ID.');
+      triggerToast('Bài tập này thiếu mã định danh.');
       return;
     }
 
     try {
       await assignmentApi.deleteAssignment(assignmentId, teacherUserId);
-      triggerToast('Assignment deleted.');
+      triggerToast('Đã xóa bài tập.');
       await load();
     } catch (error) {
       triggerToast(getUserFacingError(
         error,
-        'Unable to delete assignment. Delete is only allowed before submissions exist.',
+        'Không thể xóa bài tập. Chỉ được xóa khi chưa có bài nộp.',
       ));
     }
   }, [load, teacherUserId, triggerToast]);
@@ -181,7 +181,7 @@ export function useTeacherAssignmentsController({
   const edit = useCallback(async (assignment) => {
     const assignmentId = getRecordId(assignment);
     if (!assignmentId) {
-      triggerToast('This assignment is missing an ID.');
+      triggerToast('Bài tập này thiếu mã định danh.');
       return;
     }
 
@@ -189,7 +189,7 @@ export function useTeacherAssignmentsController({
       const detail = await assignmentApi.getAssignmentDetail(assignmentId);
       setEditing(detail || assignment);
     } catch (error) {
-      triggerToast(getUserFacingError(error, 'Unable to load assignment details.'));
+      triggerToast(getUserFacingError(error, 'Không thể tải chi tiết bài tập.'));
     }
   }, [triggerToast]);
 
@@ -204,12 +204,12 @@ export function useTeacherAssignmentsController({
         teacherId: teacherUserId,
       });
       setEditing(null);
-      triggerToast('Assignment updated.');
+      triggerToast('Đã cập nhật bài tập.');
       await load();
     } catch (error) {
       triggerToast(getUserFacingError(
         error,
-        'Unable to update this assignment. Assignments with submissions cannot be edited.',
+        'Không thể cập nhật bài tập này. Bài tập đã có bài nộp không thể chỉnh sửa.',
       ));
     } finally {
       setUpdating(false);
@@ -219,7 +219,7 @@ export function useTeacherAssignmentsController({
   const download = useCallback(async (assignment) => {
     const assignmentId = getRecordId(assignment);
     if (!assignmentId) {
-      triggerToast('This assignment is missing an ID.');
+      triggerToast('Bài tập này thiếu mã định danh.');
       return;
     }
 
@@ -234,7 +234,7 @@ export function useTeacherAssignmentsController({
       anchor.remove();
       window.URL.revokeObjectURL(url);
     } catch (error) {
-      triggerToast(getUserFacingError(error, 'Unable to download assignment file.'));
+      triggerToast(getUserFacingError(error, 'Không thể tải tệp bài tập.'));
     }
   }, [triggerToast]);
 

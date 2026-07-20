@@ -13,7 +13,7 @@ describe('AsyncState', () => {
     const onRetry = vi.fn();
     render(<AsyncState error="The service is unavailable." onRetry={onRetry} />);
     expect(screen.getByRole('alert')).toHaveTextContent('The service is unavailable.');
-    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Thử lại' }));
     expect(onRetry).toHaveBeenCalledOnce();
   });
 

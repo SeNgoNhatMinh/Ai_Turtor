@@ -25,12 +25,14 @@ export function buildLearningActionPlan({
   learnedTopics = [],
   weakTopics = [],
   suggestions = [],
+  consumedSuggestionKeys = [],
   maxFocusItems = 6,
 } = {}) {
   const learned = uniqueTopicNames(learnedTopics);
   const weak = uniqueTopicNames(weakTopics);
   const learnedKeys = new Set(learned.map(normalizeKey));
   const focusMap = new Map();
+  const consumedKeys = new Set((consumedSuggestionKeys || []).map(normalizeKey));
 
   weak.forEach((title) => {
     const key = normalizeKey(title);
@@ -40,7 +42,7 @@ export function buildLearningActionPlan({
       status: 'weak',
       priority: 1,
       pinned: false,
-      description: 'Recorded as a focus area from learning memory or quiz results.',
+      description: 'Được ghi nhận là nội dung cần tập trung từ bộ nhớ học tập hoặc kết quả quiz.',
     });
   });
 
@@ -48,6 +50,7 @@ export function buildLearningActionPlan({
     const title = getTopicText(suggestion);
     const key = normalizeKey(title);
     if (!key || (learnedKeys.has(key) && !focusMap.has(key))) return;
+    if (consumedKeys.has(key) && !focusMap.has(key)) return;
 
     const pinned = String(suggestion?.priority || '').toLowerCase() === 'pinned';
     const current = focusMap.get(key);
@@ -67,7 +70,7 @@ export function buildLearningActionPlan({
       status: 'recommended',
       priority: pinned ? 0 : String(suggestion?.priority || '').toLowerCase() === 'high' ? 2 : 3,
       pinned,
-      description: getSuggestionDescription(suggestion, title) || 'Recommended from your current learning activity.',
+      description: getSuggestionDescription(suggestion, title) || 'Được đề xuất từ hoạt động học tập gần đây của bạn.',
     });
   });
 

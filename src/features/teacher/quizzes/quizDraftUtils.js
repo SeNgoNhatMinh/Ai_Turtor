@@ -71,7 +71,7 @@ export const setDraftQuestionType = (question, type) => {
 
 export const validateQuizDraft = (questions = []) => {
   if (!questions.length) {
-    return { valid: false, generalError: 'Add at least one question before saving.', questionErrors: [] };
+    return { valid: false, generalError: 'Thêm ít nhất một câu hỏi trước khi lưu.', questionErrors: [] };
   }
 
   const questionErrors = questions.map((question) => {
@@ -81,13 +81,13 @@ export const validateQuizDraft = (questions = []) => {
       .filter(Boolean);
     const uniqueOptions = new Set(options.map(normalizeForComparison));
 
-    if (!String(question?.questionText || '').trim()) errors.push('Question text is required.');
-    if (options.length < 2) errors.push('Add at least two answer options.');
-    if (uniqueOptions.size !== options.length) errors.push('Answer options must be unique.');
+    if (!String(question?.questionText || '').trim()) errors.push('Nội dung câu hỏi là bắt buộc.');
+    if (options.length < 2) errors.push('Cần ít nhất hai lựa chọn.');
+    if (uniqueOptions.size !== options.length) errors.push('Các lựa chọn không được trùng nhau.');
     if (!String(question?.correctAnswer || '').trim()) {
-      errors.push('Choose the correct answer.');
+      errors.push('Chọn đáp án đúng.');
     } else if (!options.some((option) => normalizeForComparison(option) === normalizeForComparison(question.correctAnswer))) {
-      errors.push('The correct answer must match one of the answer options.');
+      errors.push('Đáp án đúng phải thuộc danh sách lựa chọn.');
     }
     return errors;
   });

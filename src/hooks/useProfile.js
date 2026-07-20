@@ -35,10 +35,10 @@ export function useProfile(userId) {
       try {
         const updated = await profileApi.update(userId, payload);
         setProfile((current) => ({ ...current, ...updated, ...payload }));
-        message.success('Profile updated successfully');
+        message.success('Đã cập nhật hồ sơ.');
         return updated;
       } catch (nextError) {
-        message.error(getUserFacingError(nextError, 'Failed to update profile'));
+        message.error(getUserFacingError(nextError, 'Không thể cập nhật hồ sơ.'));
         throw nextError;
       } finally {
         setIsUpdating(false);
@@ -52,10 +52,10 @@ export function useProfile(userId) {
       setIsChangingPassword(true);
       try {
         const result = await profileApi.changePassword(userId, payload);
-        message.success('Password changed successfully');
+        message.success('Đã đổi mật khẩu.');
         return result;
       } catch (nextError) {
-        message.error(getUserFacingError(nextError, 'Failed to change password'));
+        message.error(getUserFacingError(nextError, 'Không thể đổi mật khẩu.'));
         throw nextError;
       } finally {
         setIsChangingPassword(false);

@@ -41,9 +41,9 @@ function TeacherAnswerModeSelector({
           style={{ cursor: 'pointer', width: 15, height: 15, marginTop: 2 }}
         />
         <span>
-          Reply to student only
+          Chỉ trả lời sinh viên
           <small style={{ display: 'block', color: '#6B7280', fontWeight: 400, marginTop: 2 }}>
-            Class rules, grading, deadlines, and assignment-specific answers are not added to AI knowledge.
+            Quy định lớp, cách chấm, thời hạn và câu trả lời riêng cho bài tập không được thêm vào tri thức AI.
           </small>
         </span>
       </label>
@@ -57,15 +57,15 @@ function TeacherAnswerModeSelector({
           style={{ cursor: 'pointer', width: 15, height: 15, marginTop: 2 }}
         />
         <span>
-          Propose reusable AI knowledge
+          Đề xuất tri thức AI có thể dùng lại
           <small style={{ display: 'block', color: '#6B7280', fontWeight: 400, marginTop: 2 }}>
-            Senior/Admin approval is required before AI Tutor can learn from this answer.
+            AI Tutor chỉ học nội dung này sau khi Senior Mentor hoặc Admin phê duyệt.
           </small>
         </span>
       </label>
       {createKnowledgeCandidate && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 12, color: '#6B7280' }}>Knowledge type:</span>
+          <span style={{ fontSize: 12, color: '#6B7280' }}>Loại tri thức:</span>
           <select
             value={candidateType}
             onChange={(e) => setCandidateType(e.target.value)}

@@ -13,18 +13,18 @@ function LoginAuthCard({
   setIsLoginView,
   setPassword,
 }) {
-  const title = isLoginView ? 'Welcome back' : 'Create your account';
+  const title = isLoginView ? 'Chào mừng bạn quay lại' : 'Tạo tài khoản mới';
   const description = isLoginView
-    ? 'Sign in to continue your learning session.'
-    : 'Start using your AI learning workspace.';
+    ? 'Đăng nhập để tiếp tục phiên học của bạn.'
+    : 'Bắt đầu sử dụng không gian học tập cùng AI Tutor.';
 
   return (
-    <section className="login-auth-card" aria-label={isLoginView ? 'Sign in form' : 'Create account form'}>
+    <section className="login-auth-card" aria-label={isLoginView ? 'Biểu mẫu đăng nhập' : 'Biểu mẫu tạo tài khoản'}>
       <div className="login-card-header">
         <div className="login-auth-brand-row">
           <img
             src="/favicon.jpg"
-            alt="FPT University AI Tutor mascot"
+            alt="Biểu tượng FPT University AI Tutor"
             className="login-auth-mascot"
             width="48"
             height="48"
@@ -40,7 +40,7 @@ function LoginAuthCard({
         <p>{description}</p>
       </div>
 
-      <div className="login-segment" role="tablist" aria-label="Authentication mode">
+      <div className="login-segment" role="tablist" aria-label="Chế độ xác thực">
         <button
           type="button"
           role="tab"
@@ -48,7 +48,7 @@ function LoginAuthCard({
           onClick={() => setIsLoginView(true)}
           aria-selected={isLoginView}
         >
-          Sign in
+          Đăng nhập
         </button>
         <button
           type="button"
@@ -57,19 +57,19 @@ function LoginAuthCard({
           onClick={() => setIsLoginView(false)}
           aria-selected={!isLoginView}
         >
-          Create account
+          Tạo tài khoản
         </button>
       </div>
 
       <form onSubmit={handleSubmit} className="login-form">
         {!isLoginView && (
           <label className="login-field">
-            <span>Full name</span>
+            <span>Họ và tên</span>
             <div className="login-input-wrap">
               <User size={18} aria-hidden="true" />
               <input
                 type="text"
-                placeholder="Full name"
+                placeholder="Họ và tên"
                 required
                 value={fullName}
                 maxLength={80}
@@ -80,12 +80,12 @@ function LoginAuthCard({
         )}
 
         <label className="login-field">
-          <span>Email address</span>
+          <span>Email</span>
           <div className="login-input-wrap">
             <Mail size={18} aria-hidden="true" />
             <input
               type="email"
-              placeholder="Email address"
+              placeholder="Email"
               required
               value={email}
               maxLength={254}
@@ -95,27 +95,27 @@ function LoginAuthCard({
         </label>
 
         <label className="login-field">
-          <span>Password</span>
+          <span>Mật khẩu</span>
           <div className="login-input-wrap">
             <Lock size={18} aria-hidden="true" />
             <input
               type="password"
-              placeholder="Password"
+              placeholder="Mật khẩu"
               required
               value={password}
               maxLength={128}
               onChange={(event) => setPassword(event.target.value)}
             />
           </div>
-          {!isLoginView && <small>Password must be at least 6 characters.</small>}
+          {!isLoginView && <small>Mật khẩu phải có ít nhất 6 ký tự.</small>}
         </label>
 
         <button type="submit" className="login-submit btn btn-primary" disabled={isLoading}>
           {isLoading
-            ? 'Processing...'
+            ? 'Đang xử lý...'
             : isLoginView
-              ? <>Sign in <ArrowRight size={18} /></>
-              : <>Create account <UserPlus size={18} /></>}
+              ? <>Đăng nhập <ArrowRight size={18} /></>
+              : <>Tạo tài khoản <UserPlus size={18} /></>}
         </button>
       </form>
 
@@ -124,7 +124,7 @@ function LoginAuthCard({
         className="login-toggle-link"
         onClick={() => setIsLoginView(!isLoginView)}
       >
-        {isLoginView ? 'Need an account? Sign up' : 'Already have an account? Sign in'}
+        {isLoginView ? 'Chưa có tài khoản? Đăng ký' : 'Đã có tài khoản? Đăng nhập'}
       </button>
     </section>
   );

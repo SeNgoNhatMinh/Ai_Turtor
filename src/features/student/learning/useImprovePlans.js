@@ -28,7 +28,7 @@ export function useImprovePlans({ studentId, courseId, triggerToast, onRefreshDa
       setImprovePlans(Array.isArray(plans) ? plans : []);
       setLatestPlan(latest || null);
     } catch (error) {
-      const message = getUserFacingError(error, 'Unable to load improvement plans.');
+      const message = getUserFacingError(error, 'Không thể tải kế hoạch cải thiện.');
       setPlansError(message);
       triggerToast?.(message);
     } finally {
@@ -46,12 +46,12 @@ export function useImprovePlans({ studentId, courseId, triggerToast, onRefreshDa
     setCompletingPlanId(planId);
     try {
       await studentLearningApi.completeImprovePlan(planId);
-      triggerToast?.('Improvement plan completed.');
+      triggerToast?.('Đã hoàn thành kế hoạch cải thiện.');
       await fetchImprovePlans();
       onRefreshDashboard?.();
       return true;
     } catch (error) {
-      triggerToast?.(getUserFacingError(error, 'Unable to complete this improvement plan.'));
+      triggerToast?.(getUserFacingError(error, 'Không thể hoàn thành kế hoạch cải thiện này.'));
       return false;
     } finally {
       setCompletingPlanId('');

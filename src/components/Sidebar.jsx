@@ -29,7 +29,7 @@ function Sidebar({ activeRole, activeTab, switchTab }) {
     <aside className={`main-sidebar ${collapsed ? 'main-sidebar--collapsed' : ''}`}>
       <div className="sidebar-topbar">
         <Tooltip
-          title={<span className="sidebar-tooltip-text">{collapsed ? 'Open sidebar' : 'Close sidebar'}</span>}
+          title={<span className="sidebar-tooltip-text">{collapsed ? 'Mở thanh điều hướng' : 'Thu gọn thanh điều hướng'}</span>}
           placement="right"
           color="#FFFFFF"
           classNames={{ root: 'sidebar-nav-tooltip' }}
@@ -40,7 +40,7 @@ function Sidebar({ activeRole, activeTab, switchTab }) {
             type="text"
             icon={collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
             onClick={() => setCollapsed((value) => !value)}
-            aria-label={collapsed ? 'Open sidebar' : 'Close sidebar'}
+            aria-label={collapsed ? 'Mở thanh điều hướng' : 'Thu gọn thanh điều hướng'}
           />
         </Tooltip>
       </div>

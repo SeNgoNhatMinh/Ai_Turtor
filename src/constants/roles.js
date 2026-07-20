@@ -25,6 +25,13 @@ const ROLE_ALIASES = Object.freeze({
   ADMIN: ACCOUNT_ROLES.ADMIN,
 });
 
+const ACCOUNT_ROLE_LABELS = Object.freeze({
+  [ACCOUNT_ROLES.STUDENT]: 'Sinh viên',
+  [ACCOUNT_ROLES.TEACHER]: 'Giảng viên',
+  [ACCOUNT_ROLES.SENIOR_MENTOR]: 'Senior Mentor',
+  [ACCOUNT_ROLES.ADMIN]: 'Quản trị viên',
+});
+
 export function normalizeAccountRole(role, fallback = ACCOUNT_ROLES.STUDENT) {
   const normalized = String(role || '')
     .trim()
@@ -53,6 +60,10 @@ export function getWorkspaceRole(role) {
   if (accountRole === ACCOUNT_ROLES.ADMIN) return WORKSPACES.ADMIN;
   if ([ACCOUNT_ROLES.TEACHER, ACCOUNT_ROLES.SENIOR_MENTOR].includes(accountRole)) return WORKSPACES.TEACHER;
   return WORKSPACES.STUDENT;
+}
+
+export function getAccountRoleLabel(role) {
+  return ACCOUNT_ROLE_LABELS[normalizeAccountRole(role)] || 'Người dùng';
 }
 
 // ChatRoom senderRole is a transport label, not the authenticated account role.

@@ -17,40 +17,40 @@ function QuizGeneratePanel({
 }) {
   return (
     <div className="quiz-generate-layout">
-      <Card className="quiz-card quiz-generate-card" title={<span className="quiz-card-title">Create a self-study quiz</span>}>
+      <Card className="quiz-card quiz-generate-card" title={<span className="quiz-card-title">Tạo quiz tự ôn</span>}>
         <Space orientation="vertical" size={16} style={{ width: '100%' }}>
           <Alert
             type="info"
             showIcon
-            title="Grounded in course materials"
-            description="AI Tutor only creates a quiz when indexed material is available for the selected topic."
+            title="Dựa trên tài liệu môn học"
+            description="AI Tutor chỉ tạo quiz khi có tài liệu đã lập chỉ mục phù hợp với chủ đề được chọn."
           />
           <div className="quiz-field">
-            <label>1. Pick a suggestion or type a topic</label>
+            <label>1. Chọn gợi ý hoặc nhập chủ đề</label>
             <Select
               showSearch
               allowClear
               value={topic || undefined}
               onChange={(value) => setTopic(value || '')}
               onSearch={setTopic}
-              placeholder="Choose a weak topic or suggestion"
+              placeholder="Chọn chủ đề còn yếu hoặc gợi ý học tập"
               options={suggestionOptions}
               disabled={!hasContext || isLoading}
             />
           </div>
           <div className="quiz-field">
-            <label>2. Refine the topic</label>
+            <label>2. Làm rõ chủ đề</label>
             <Input
               value={topic}
               onChange={(event) => setTopic(event.target.value)}
-              placeholder="Example: Java constructors, servlet server config..."
+              placeholder="Ví dụ: constructor Java, cấu hình servlet server..."
               disabled={!hasContext || isLoading}
             />
           </div>
           <div className="quiz-field quiz-field-inline">
             <div>
-              <label>3. Choose quiz length</label>
-              <Text type="secondary">Short quizzes work best for focused revision.</Text>
+              <label>3. Chọn số câu hỏi</label>
+              <Text type="secondary">Quiz ngắn phù hợp hơn để ôn tập tập trung.</Text>
             </div>
             <InputNumber
               min={3}
@@ -69,20 +69,20 @@ function QuizGeneratePanel({
             disabled={!hasContext || !topic.trim() || isLoading}
             onClick={() => onGenerate()}
           >
-            Generate quiz from this topic
+            Tạo quiz từ chủ đề này
           </Button>
         </Space>
       </Card>
 
-      <Card className="quiz-card quiz-guide-card" title="How this flow works">
+      <Card className="quiz-card quiz-guide-card" title="Quy trình thực hiện">
         <div className="quiz-step-list">
-          <div><span>1</span><strong>Choose topic</strong><small>Use a weak topic, suggestion, or custom keyword.</small></div>
-          <div><span>2</span><strong>AI generates questions</strong><small>Answers stay hidden while you take the quiz.</small></div>
-          <div><span>3</span><strong>Submit and review</strong><small>Score updates your learning progress after submission.</small></div>
+          <div><span>1</span><strong>Chọn chủ đề</strong><small>Dùng chủ đề còn yếu, gợi ý hoặc từ khóa riêng.</small></div>
+          <div><span>2</span><strong>AI tạo câu hỏi</strong><small>Đáp án được ẩn trong lúc bạn làm bài.</small></div>
+          <div><span>3</span><strong>Nộp và xem lại</strong><small>Kết quả sẽ cập nhật tiến độ học tập sau khi nộp.</small></div>
         </div>
         {suggestionOptions.length > 0 && (
           <div className="quiz-suggestion-strip">
-            <Text strong>Suggested topics</Text>
+            <Text strong>Chủ đề được đề xuất</Text>
             <div>
               {suggestionOptions.slice(0, 4).map((item) => (
                 <button key={item.value} type="button" onClick={() => setTopic(item.value)}>{item.label}</button>

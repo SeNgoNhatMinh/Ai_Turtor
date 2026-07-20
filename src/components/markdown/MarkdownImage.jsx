@@ -7,7 +7,7 @@ function MarkdownImage({ src, alt = '', title }) {
   const safeSrc = sanitizeImageUrl(src);
 
   if (!safeSrc) {
-    return <span className="ai-answer-image-error">Image blocked for security.</span>;
+    return <span className="ai-answer-image-error">Ảnh đã bị chặn vì lý do bảo mật.</span>;
   }
 
   return (

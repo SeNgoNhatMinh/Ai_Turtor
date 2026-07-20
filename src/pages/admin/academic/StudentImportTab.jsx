@@ -26,20 +26,20 @@ function StudentImportTab({
     <Row gutter={[16, 16]}>
       <Col xs={24} lg={9}>
         <Card
-          title="Import Students from Excel"
+          title="Import sinh viên từ Excel"
           hoverable
-          extra={<Button size="small" icon={<DownloadOutlined />} onClick={onDownloadTemplate}>Template</Button>}
+          extra={<Button size="small" icon={<DownloadOutlined />} onClick={onDownloadTemplate}>Tải tệp mẫu</Button>}
         >
           <Alert
             type="info"
             showIcon
             style={{ marginBottom: 16 }}
-            title="Import students into one class section using the generated Excel template."
-            description="Run Validate only first to catch file or duplicate student errors before writing data."
+            title="Import sinh viên vào một lớp học phần bằng tệp Excel mẫu."
+            description="Hãy kiểm tra dữ liệu trước để phát hiện lỗi tệp hoặc sinh viên trùng trước khi ghi dữ liệu."
           />
           <Form form={form} layout="vertical">
-            <Form.Item name="courseId" label="Course" rules={[{ required: true, message: 'Choose a course' }]}>
-              <Select placeholder="Choose a course" onChange={onCourseChange}>
+            <Form.Item name="courseId" label="Môn học" rules={[{ required: true, message: 'Chọn môn học' }]}>
+              <Select placeholder="Chọn môn học" onChange={onCourseChange}>
                 {courses.map((course) => (
                   <Option key={course.courseId || course.id} value={course.courseId}>
                     {course.courseId} - {course.courseName}
@@ -47,9 +47,9 @@ function StudentImportTab({
                 ))}
               </Select>
             </Form.Item>
-            <Form.Item name="classId" label="Class Section" rules={[{ required: true, message: 'Choose a class section' }]}>
+            <Form.Item name="classId" label="Lớp học phần" rules={[{ required: true, message: 'Chọn lớp học phần' }]}>
               <Select
-                placeholder={studentImportCourseId ? 'Choose a class section' : 'Choose a course first'}
+                placeholder={studentImportCourseId ? 'Chọn lớp học phần' : 'Chọn môn học trước'}
                 disabled={!studentImportCourseId}
                 onChange={onClassChange}
               >
@@ -66,32 +66,32 @@ function StudentImportTab({
             </Form.Item>
             <Row gutter={12}>
               <Col xs={24} md={12}>
-                <Form.Item name="semesterId" label="Term Code">
-                  <Input placeholder="Optional, e.g. SEM5" />
+                <Form.Item name="semesterId" label="Mã học kỳ">
+                  <Input placeholder="Không bắt buộc, ví dụ: SEM5" />
                 </Form.Item>
               </Col>
               <Col xs={24} md={12}>
-                <Form.Item name="status" label="Status" initialValue="ACTIVE">
+                <Form.Item name="status" label="Trạng thái" initialValue="ACTIVE">
                   <Select>
-                    <Option value="ACTIVE">Active</Option>
-                    <Option value="COMPLETED">Completed</Option>
-                    <Option value="INACTIVE">Inactive</Option>
+                    <Option value="ACTIVE">Đang hoạt động</Option>
+                    <Option value="COMPLETED">Đã hoàn tất</Option>
+                    <Option value="INACTIVE">Ngừng hoạt động</Option>
                   </Select>
                 </Form.Item>
               </Col>
             </Row>
-            <Form.Item name="courseName" label="Course Name Override">
-              <Input placeholder="Optional. Uses selected course name by default." />
+            <Form.Item name="courseName" label="Tên môn học thay thế">
+              <Input placeholder="Không bắt buộc. Mặc định dùng tên môn đã chọn." />
             </Form.Item>
             <Dragger
               beforeUpload={(file) => {
                 const isExcel = /\.(xlsx|xls)$/i.test(file.name);
                 if (!isExcel) {
-                  triggerToast('Only Excel files are supported (.xlsx or .xls).');
+                  triggerToast('Chỉ hỗ trợ tệp Excel (.xlsx hoặc .xls).');
                   return Upload.LIST_IGNORE;
                 }
                 if (file.size > 5 * 1024 * 1024) {
-                  triggerToast('File is too large. Maximum size is 5MB.');
+                  triggerToast('Tệp quá lớn. Dung lượng tối đa là 5 MB.');
                   return Upload.LIST_IGNORE;
                 }
                 onFileChange(file);
@@ -104,8 +104,8 @@ function StudentImportTab({
               style={{ marginBottom: 16 }}
             >
               <p className="ant-upload-drag-icon"><UploadOutlined /></p>
-              <p className="ant-upload-text">Choose student enrollment Excel file</p>
-              <p className="ant-upload-hint">Template columns: Student ID, Student Name.</p>
+              <p className="ant-upload-text">Chọn tệp Excel ghi danh sinh viên</p>
+              <p className="ant-upload-hint">Các cột mẫu: Student ID, Student Name.</p>
             </Dragger>
             <Space style={{ width: '100%' }} orientation="vertical">
               <Button
@@ -114,7 +114,7 @@ function StudentImportTab({
                 disabled={!studentImportCourseId || !studentImportClassId || !studentImportFile}
                 loading={studentImportLoading}
               >
-                Validate Only
+                Kiểm tra dữ liệu
               </Button>
               <Button
                 type="primary"
@@ -124,53 +124,53 @@ function StudentImportTab({
                 disabled={!studentImportCourseId || !studentImportClassId || !studentImportFile}
                 loading={studentImportLoading}
               >
-                Import Students
+                Import sinh viên
               </Button>
             </Space>
           </Form>
         </Card>
       </Col>
       <Col xs={24} lg={15} style={{ minWidth: 0 }}>
-        <Card title="Import Result" hoverable>
+        <Card title="Kết quả import" hoverable>
           {!studentImportResult ? (
             <Alert
               type="success"
               showIcon
-              title="Ready to import"
-              description="Download the template, fill Student ID and Student Name, then validate the file before importing."
+              title="Sẵn sàng import"
+              description="Tải tệp mẫu, điền Student ID và Student Name, sau đó kiểm tra trước khi import."
             />
           ) : (
             <Space orientation="vertical" size={16} style={{ width: '100%' }}>
               <Alert
                 type={studentImportResult.success === false ? 'error' : 'success'}
                 showIcon
-                title={studentImportResult.message || (studentImportResult.dryRun ? 'Validation completed.' : 'Import completed.')}
-                description={`Rows: ${studentImportResult.totalRows ?? 0} | Success: ${studentImportResult.successCount ?? 0} | Errors: ${studentImportResult.errorCount ?? 0}`}
+                title={studentImportResult.message || (studentImportResult.dryRun ? 'Đã kiểm tra dữ liệu.' : 'Đã hoàn tất import.')}
+                description={`Tổng dòng: ${studentImportResult.totalRows ?? 0} | Thành công: ${studentImportResult.successCount ?? 0} | Lỗi: ${studentImportResult.errorCount ?? 0}`}
               />
               <Row gutter={[16, 16]}>
                 <Col xs={24} md={12} style={{ minWidth: 0 }}>
-                  <Card size="small" title="Success Messages">
+                  <Card size="small" title="Dòng thành công">
                     <Table
                       scroll={{ x: 300 }}
                       dataSource={(studentImportResult.successMessages || []).map((text, index) => ({ id: `success-${index}`, text }))}
                       rowKey="id"
                       size="small"
                       pagination={{ pageSize: 5 }}
-                      columns={[{ title: 'Message', dataIndex: 'text', key: 'text' }]}
-                      locale={{ emptyText: 'No success messages.' }}
+                      columns={[{ title: 'Nội dung', dataIndex: 'text', key: 'text' }]}
+                      locale={{ emptyText: 'Không có thông báo thành công.' }}
                     />
                   </Card>
                 </Col>
                 <Col xs={24} md={12} style={{ minWidth: 0 }}>
-                  <Card size="small" title="Error Messages">
+                  <Card size="small" title="Dòng có lỗi">
                     <Table
                       scroll={{ x: 300 }}
                       dataSource={(studentImportResult.errorMessages || []).map((text, index) => ({ id: `error-${index}`, text }))}
                       rowKey="id"
                       size="small"
                       pagination={{ pageSize: 5 }}
-                      columns={[{ title: 'Message', dataIndex: 'text', key: 'text' }]}
-                      locale={{ emptyText: 'No errors.' }}
+                      columns={[{ title: 'Nội dung', dataIndex: 'text', key: 'text' }]}
+                      locale={{ emptyText: 'Không có lỗi.' }}
                     />
                   </Card>
                 </Col>

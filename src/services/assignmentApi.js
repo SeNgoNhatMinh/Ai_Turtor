@@ -8,8 +8,8 @@ export function assertAssignmentUploadReceipt(response) {
   throw new ApiError({
     status: 502,
     code: 'INVALID_ASSIGNMENT_UPLOAD_RESPONSE',
-    message: 'The server did not confirm the published assignment.',
-    userMessage: 'The server did not confirm the published assignment. Please check the assignment list before trying again.',
+    message: 'Máy chủ không xác nhận bài tập đã xuất bản.',
+    userMessage: 'Máy chủ chưa xác nhận bài tập đã xuất bản. Hãy kiểm tra danh sách bài tập trước khi thử lại.',
     details: response,
   });
 }
@@ -50,14 +50,14 @@ export const assignmentApi = {
     if (identity.studentName) params.append('studentName', identity.studentName);
     if (identity.studentEmail) params.append('studentEmail', identity.studentEmail);
     if (note) params.append('note', note);
-    return uploadRequest(`${API_BASE_URL}/students/assignments/${encodePath(assignmentId)}/submit?${params}`, formData, 'Submit failed');
+    return uploadRequest(`${API_BASE_URL}/students/assignments/${encodePath(assignmentId)}/submit?${params}`, formData, 'Nộp bài thất bại');
   },
 
   async uploadAssignment(courseId, classId, formData) {
     const response = await uploadRequest(
       `${API_BASE_URL}/mentor/courses/${encodePath(courseId)}/classes/${encodePath(classId)}/assignments/upload`,
       formData,
-      'Upload assignment failed',
+      'Tải bài tập thất bại',
       { timeoutMs: 180000 },
     );
     return assertAssignmentUploadReceipt(response);
@@ -91,7 +91,7 @@ export const assignmentApi = {
     return uploadRequest(
       `${API_BASE_URL}/mentor/assignments/${encodePath(assignmentId)}/answer-key?${params}`,
       formData,
-      'Answer key upload failed',
+      'Tải đáp án thất bại',
       { timeoutMs: 180000 },
     );
   },

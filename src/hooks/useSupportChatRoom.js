@@ -70,7 +70,7 @@ export function useSupportChatRoom({ chatRoomId, currentUser, enabled = true }) 
       setError('');
       supportChatApi.markRead(chatRoomId).catch(() => {});
     } catch (requestError) {
-      if (!silent) setError(getUserFacingError(requestError, 'Unable to load this support chat.'));
+      if (!silent) setError(getUserFacingError(requestError, 'Không thể tải cuộc trao đổi hỗ trợ này.'));
     } finally {
       if (!silent) setIsLoading(false);
     }
@@ -110,7 +110,7 @@ export function useSupportChatRoom({ chatRoomId, currentUser, enabled = true }) 
       try {
         const payload = JSON.parse(event.data);
         if (payload?.type === 'ERROR') {
-          setError('The live support message could not be sent. Please try again.');
+          setError('Không thể gửi tin nhắn hỗ trợ trực tiếp. Vui lòng thử lại.');
           return;
         }
         const message = payload?.message || payload;
@@ -164,7 +164,7 @@ export function useSupportChatRoom({ chatRoomId, currentUser, enabled = true }) 
       setError('');
       return true;
     } catch (requestError) {
-      setError(getUserFacingError(requestError, 'Unable to send this message.'));
+      setError(getUserFacingError(requestError, 'Không thể gửi tin nhắn này.'));
       return false;
     } finally {
       setIsSending(false);
@@ -184,7 +184,7 @@ export function useSupportChatRoom({ chatRoomId, currentUser, enabled = true }) 
       setError('');
       return true;
     } catch (requestError) {
-      setError(getUserFacingError(requestError, 'Unable to close this support chat.'));
+      setError(getUserFacingError(requestError, 'Không thể đóng cuộc trao đổi hỗ trợ này.'));
       return false;
     } finally {
       setIsClosing(false);

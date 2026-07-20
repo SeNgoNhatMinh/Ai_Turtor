@@ -23,7 +23,7 @@ describe('QuizDraftEditor', () => {
     render(<QuizDraftEditor draft={draft} onSave={onSave} />);
 
     fireEvent.click(await screen.findByRole('radio', { name: 'Creating many classes' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Save draft' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu draft' }));
 
     await waitFor(() => expect(onSave).toHaveBeenCalled());
     expect(onSave.mock.calls[0][0].questions[0].correctAnswer).toBe('Creating many classes');
@@ -33,8 +33,8 @@ describe('QuizDraftEditor', () => {
     const onSave = vi.fn().mockResolvedValue({ ...draft });
     render(<QuizDraftEditor draft={draft} onSave={onSave} />);
 
-    fireEvent.change(await screen.findByPlaceholderText('Option 1'), { target: { value: 'Protecting internal state' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Save draft' }));
+    fireEvent.change(await screen.findByPlaceholderText('Lựa chọn 1'), { target: { value: 'Protecting internal state' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu draft' }));
 
     await waitFor(() => expect(onSave).toHaveBeenCalled());
     expect(onSave.mock.calls[0][0].questions[0].correctAnswer).toBe('Protecting internal state');
@@ -44,20 +44,20 @@ describe('QuizDraftEditor', () => {
     const onSave = vi.fn();
     render(<QuizDraftEditor draft={draft} onSave={onSave} />);
 
-    fireEvent.change(await screen.findByPlaceholderText('Option 2'), { target: { value: 'Hiding implementation details' } });
+    fireEvent.change(await screen.findByPlaceholderText('Lựa chọn 2'), { target: { value: 'Hiding implementation details' } });
 
-    expect(await screen.findByText(/Answer options must be unique/i)).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Save draft' })).toBeDisabled();
+    expect(await screen.findByText(/Các lựa chọn không được trùng nhau/i)).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Lưu draft' })).toBeDisabled();
     expect(onSave).not.toHaveBeenCalled();
   });
 
   it('adds and removes draft questions before publishing', async () => {
     render(<QuizDraftEditor draft={draft} onSave={vi.fn()} />);
 
-    expect(await screen.findByText('Question 1')).toBeVisible();
-    fireEvent.click(screen.getByRole('button', { name: 'Add question' }));
-    expect(await screen.findByText('Question 2')).toBeVisible();
-    fireEvent.click(screen.getByRole('button', { name: 'Delete question 2' }));
-    expect(screen.queryByText('Question 2')).not.toBeInTheDocument();
+    expect(await screen.findByText('Câu 1')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Thêm câu hỏi' }));
+    expect(await screen.findByText('Câu 2')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Xóa câu hỏi 2' }));
+    expect(screen.queryByText('Câu 2')).not.toBeInTheDocument();
   });
 });

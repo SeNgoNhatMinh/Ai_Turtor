@@ -19,10 +19,10 @@ export function getQuizStatusColor(status) {
 }
 
 export function formatQuizDateTime(value) {
-  if (!value) return 'No activity yet';
+  if (!value) return 'Chưa có hoạt động';
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return 'No activity yet';
-  return date.toLocaleString('en-US', {
+  if (Number.isNaN(date.getTime())) return 'Chưa có hoạt động';
+  return date.toLocaleString('vi-VN', {
     month: 'short',
     day: 'numeric',
     hour: '2-digit',
@@ -33,21 +33,21 @@ export function formatQuizDateTime(value) {
 export function getQuizStatusLabel(item) {
   const reviewStatus = normalizeQuizStatus(item?.teacherReviewStatus || item?.reviewStatus || item?.status);
   const status = normalizeQuizStatus(item?.status);
-  if (reviewStatus.includes('REVIEWED')) return 'Teacher reviewed';
-  if (reviewStatus.includes('PENDING') || reviewStatus.includes('WAIT')) return 'Waiting teacher review';
-  if (status === 'SUBMITTED') return item?.quizType === 'ASSIGNED' ? 'Submitted - waiting review' : 'Submitted';
-  if (status === 'GENERATED') return 'In progress';
-  if (status === 'PUBLISHED') return 'Published';
-  return item?.status || 'Available';
+  if (reviewStatus.includes('REVIEWED')) return 'Giảng viên đã duyệt';
+  if (reviewStatus.includes('PENDING') || reviewStatus.includes('WAIT')) return 'Chờ giảng viên duyệt';
+  if (status === 'SUBMITTED') return item?.quizType === 'ASSIGNED' ? 'Đã nộp · Chờ duyệt' : 'Đã nộp';
+  if (status === 'GENERATED') return 'Đang làm';
+  if (status === 'PUBLISHED') return 'Đã xuất bản';
+  return item?.status || 'Có thể làm';
 }
 
 export function getQuizScoreText(item) {
   if (item?.score == null && item?.autoScore == null && item?.teacherReviewedScore == null) {
-    return 'Not submitted yet';
+    return 'Chưa nộp';
   }
   const score = item.teacherReviewedScore ?? item.score ?? item.autoScore ?? 0;
   const maxScore = item.maxScore ?? item.totalScore ?? item.questionCount ?? '-';
-  return `Score ${score}/${maxScore}`;
+  return `Điểm ${score}/${maxScore}`;
 }
 
 export function getQuizQuestionCount(item) {

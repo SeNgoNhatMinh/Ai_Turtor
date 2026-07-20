@@ -4,15 +4,15 @@ import { getPersonDisplayName, getPersonEmail, getPersonId } from '../../../util
 const { Option } = Select;
 
 const ENTITY_LABELS = {
-  semester: 'Term',
-  course: 'Course',
-  class: 'Class Section',
-  enrollment: 'Enrollment',
-  material: 'Course Material',
+  semester: 'học kỳ',
+  course: 'môn học',
+  class: 'lớp học phần',
+  enrollment: 'ghi danh',
+  material: 'học liệu',
 };
 
 const getMentorId = (mentor) => getPersonId(mentor) || mentor.email;
-const getMentorName = (mentor) => getPersonDisplayName(mentor, 'Mentor');
+const getMentorName = (mentor) => getPersonDisplayName(mentor, 'Giảng viên');
 const getMentorEmail = (mentor) => getPersonEmail(mentor);
 const getMentorMeta = (mentor) => [
   getMentorEmail(mentor),
@@ -29,7 +29,7 @@ function EntityRecordModal({
   onSave,
 }) {
   const isViewMode = entityModal.mode === 'view';
-  const entityLabel = ENTITY_LABELS[entityModal.type] || 'Record';
+  const entityLabel = ENTITY_LABELS[entityModal.type] || 'bản ghi';
   const handleMentorChange = (mentorId) => {
     const mentor = mentors.find((item) => getMentorId(item) === mentorId);
     form.setFieldsValue({
@@ -42,10 +42,10 @@ function EntityRecordModal({
   return (
     <Modal
       open={entityModal.open}
-      title={`${isViewMode ? 'View' : 'Edit'} ${entityLabel}`}
+      title={`${isViewMode ? 'Xem' : 'Chỉnh sửa'} ${entityLabel}`}
       onCancel={onCancel}
       onOk={onSave}
-      okText={isViewMode ? 'Close' : 'Save changes'}
+      okText={isViewMode ? 'Đóng' : 'Lưu thay đổi'}
       cancelButtonProps={{ style: isViewMode ? { display: 'none' } : undefined }}
       confirmLoading={entitySaving}
       destroyOnHidden
@@ -53,17 +53,17 @@ function EntityRecordModal({
       <Form form={form} layout="vertical" disabled={isViewMode}>
         {entityModal.type === 'semester' && (
           <>
-            <Form.Item name="semesterCode" label="Term Code">
+            <Form.Item name="semesterCode" label="Mã học kỳ">
               <Input disabled />
             </Form.Item>
-            <Form.Item name="name" label="Term Name" rules={[{ required: !isViewMode, message: 'Enter a term name' }]}>
+            <Form.Item name="name" label="Tên học kỳ" rules={[{ required: !isViewMode, message: 'Nhập tên học kỳ' }]}>
               <Input />
             </Form.Item>
-            <Form.Item name="status" label="Status">
+            <Form.Item name="status" label="Trạng thái">
               <Select>
-                <Option value="ACTIVE">Active</Option>
-                <Option value="INACTIVE">Inactive</Option>
-                <Option value="COMPLETED">Completed</Option>
+                <Option value="ACTIVE">Đang hoạt động</Option>
+                <Option value="INACTIVE">Ngừng hoạt động</Option>
+                <Option value="COMPLETED">Đã hoàn tất</Option>
               </Select>
             </Form.Item>
           </>
@@ -71,20 +71,20 @@ function EntityRecordModal({
 
         {entityModal.type === 'course' && (
           <>
-            <Form.Item name="courseId" label="Course Code">
+            <Form.Item name="courseId" label="Mã môn học">
               <Input disabled />
             </Form.Item>
-            <Form.Item name="courseName" label="Course Name" rules={[{ required: !isViewMode, message: 'Enter a course name' }]}>
+            <Form.Item name="courseName" label="Tên môn học" rules={[{ required: !isViewMode, message: 'Nhập tên môn học' }]}>
               <Input />
             </Form.Item>
-            <Form.Item name="credits" label="Credits">
+            <Form.Item name="credits" label="Số tín chỉ">
               <InputNumber min={1} max={10} style={{ width: '100%' }} />
             </Form.Item>
-            <Form.Item name="status" label="Status">
+            <Form.Item name="status" label="Trạng thái">
               <Select>
-                <Option value="ACTIVE">Active</Option>
-                <Option value="INACTIVE">Inactive</Option>
-                <Option value="ARCHIVED">Archived</Option>
+                <Option value="ACTIVE">Đang hoạt động</Option>
+                <Option value="INACTIVE">Ngừng hoạt động</Option>
+                <Option value="ARCHIVED">Đã lưu trữ</Option>
               </Select>
             </Form.Item>
           </>
@@ -92,16 +92,16 @@ function EntityRecordModal({
 
         {entityModal.type === 'class' && (
           <>
-            <Form.Item name="courseId" label="Course Code">
+            <Form.Item name="courseId" label="Mã môn học">
               <Input disabled />
             </Form.Item>
-            <Form.Item name="classId" label="Class Code">
+            <Form.Item name="classId" label="Mã lớp">
               <Input disabled />
             </Form.Item>
-            <Form.Item name="teacherId" label="Class Teacher / Mentor" rules={[{ required: !isViewMode, message: 'Choose the class teacher or mentor' }]}>
+            <Form.Item name="teacherId" label="Giảng viên phụ trách" rules={[{ required: !isViewMode, message: 'Chọn giảng viên phụ trách lớp' }]}>
               <Select
                 showSearch
-                placeholder="Choose active mentor"
+                placeholder="Chọn giảng viên đang hoạt động"
                 optionFilterProp="searchLabel"
                 onChange={handleMentorChange}
                 options={mentors.map((mentor) => {
@@ -124,11 +124,11 @@ function EntityRecordModal({
             </Form.Item>
             <Form.Item name="teacherName" hidden><Input /></Form.Item>
             <Form.Item name="teacherEmail" hidden><Input /></Form.Item>
-            <Form.Item name="status" label="Status">
+            <Form.Item name="status" label="Trạng thái">
               <Select>
-                <Option value="ACTIVE">Active</Option>
-                <Option value="INACTIVE">Inactive</Option>
-                <Option value="COMPLETED">Completed</Option>
+                <Option value="ACTIVE">Đang hoạt động</Option>
+                <Option value="INACTIVE">Ngừng hoạt động</Option>
+                <Option value="COMPLETED">Đã hoàn tất</Option>
               </Select>
             </Form.Item>
           </>
@@ -136,8 +136,8 @@ function EntityRecordModal({
 
         {entityModal.type === 'enrollment' && (
           <>
-            <Form.Item label="Student">
-              <Input value={getPersonDisplayName(entityModal.record, 'Student')} disabled />
+            <Form.Item label="Sinh viên">
+              <Input value={getPersonDisplayName(entityModal.record, 'Sinh viên')} disabled />
             </Form.Item>
             {getPersonEmail(entityModal.record) && (
               <Form.Item label="Email">
@@ -147,17 +147,17 @@ function EntityRecordModal({
             <Form.Item name="studentId" hidden>
               <Input />
             </Form.Item>
-            <Form.Item name="courseId" label="Course Code">
+            <Form.Item name="courseId" label="Mã môn học">
               <Input disabled />
             </Form.Item>
-            <Form.Item name="classId" label="Class Code">
+            <Form.Item name="classId" label="Mã lớp">
               <Input disabled />
             </Form.Item>
-            <Form.Item name="status" label="Status">
+            <Form.Item name="status" label="Trạng thái">
               <Select>
-                <Option value="ACTIVE">Active</Option>
-                <Option value="INACTIVE">Inactive</Option>
-                <Option value="COMPLETED">Completed</Option>
+                <Option value="ACTIVE">Đang hoạt động</Option>
+                <Option value="INACTIVE">Ngừng hoạt động</Option>
+                <Option value="COMPLETED">Đã hoàn tất</Option>
               </Select>
             </Form.Item>
           </>
@@ -165,11 +165,11 @@ function EntityRecordModal({
 
         {entityModal.type === 'material' && (
           <>
-            <Form.Item name="title" label="Title" rules={[{ required: !isViewMode, message: 'Enter material title' }]}>
+            <Form.Item name="title" label="Tên học liệu" rules={[{ required: !isViewMode, message: 'Nhập tên học liệu' }]}>
               <Input />
             </Form.Item>
-            <Form.Item name="category" label="Category">
-              <Input placeholder="Optional category" />
+            <Form.Item name="category" label="Danh mục">
+              <Input placeholder="Không bắt buộc" />
             </Form.Item>
           </>
         )}

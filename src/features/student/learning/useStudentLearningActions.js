@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { getUserFacingError } from '../../../services/apiClient';
 import { studentLearningApi } from '../../../services/studentLearningApi';
 import { useMutationLock } from '../../../hooks/useMutationLock';
@@ -17,6 +17,31 @@ export function useStudentLearningActions({
   triggerToast,
 }) {
   const { runLocked } = useMutationLock();
+  const storageKey = useMemo(
+    () => `ai-tutor:consumed-suggestions:${userId || 'student'}:${courseId || 'course'}`,
+    [courseId, userId],
+  );
+  const [consumedByScope, setConsumedByScope] = useState({});
+  const consumedSuggestionKeys = useMemo(() => {
+    if (consumedByScope[storageKey]) return consumedByScope[storageKey];
+    try {
+      const stored = JSON.parse(window.sessionStorage.getItem(storageKey) || '[]');
+      return Array.isArray(stored) ? stored : [];
+    } catch {
+      return [];
+    }
+  }, [consumedByScope, storageKey]);
+
+  const markSuggestionConsumed = (text) => {
+    const key = String(text || '').trim().toLocaleLowerCase();
+    if (!key) return;
+    setConsumedByScope((current) => {
+      const scopeItems = current[storageKey] || consumedSuggestionKeys;
+      const next = scopeItems.includes(key) ? scopeItems : [...scopeItems, key];
+      window.sessionStorage.setItem(storageKey, JSON.stringify(next));
+      return { ...current, [storageKey]: next };
+    });
+  };
 
   useEffect(() => {
     if (activeTab === 'student-memory') {
@@ -31,18 +56,19 @@ export function useStudentLearningActions({
     if (!text) return;
 
     return runLocked(`suggestion:study:${text.toLowerCase()}`, async () => {
-      const prompt = `Help me learn this topic step by step from the course materials: ${text}`;
+      const prompt = `Hãy hướng dẫn tôi học từng bước dựa trên tài liệu môn học về chủ đề: ${text}`;
       try {
-        triggerToast?.('Preparing a guided study response...');
+        triggerToast?.('Đang chuẩn bị hướng dẫn học tập...');
         const response = await studentLearningApi.learnSuggestion(userId, courseId, {
           classId,
           conversationId: activeSessionId || null,
           suggestionText: text,
           topic: text,
         });
+        markSuggestionConsumed(text);
         if (activeTab === 'student-chat' && (response?.conversationId || response?.answer)) {
           await openLearnedSuggestionResponse?.(response, text);
-          triggerToast?.('AI Tutor opened a guided study response for this suggestion.');
+          triggerToast?.('AI Tutor đã mở hướng dẫn cho gợi ý này.');
         } else if (activeTab === 'student-chat') {
           sendText?.(prompt);
         } else {
@@ -52,11 +78,12 @@ export function useStudentLearningActions({
       } catch (error) {
         const isAlreadyUsed = error?.status === 409 || error?.details?.error === 'SUGGESTION_ALREADY_USED';
         if (isAlreadyUsed) {
-          triggerToast?.('This suggestion was already used in course chat. Choose another suggestion or ask a new question.');
+          markSuggestionConsumed(text);
+          triggerToast?.('Gợi ý này đã được dùng trong chat môn học. Hãy chọn gợi ý khác hoặc đặt câu hỏi mới.');
           switchTab?.('student-chat');
           return;
         }
-        triggerToast?.(getUserFacingError(error, 'Unable to open this study suggestion. Using chat prompt instead.'));
+        triggerToast?.(getUserFacingError(error, 'Không thể mở gợi ý này. Hệ thống sẽ chuyển nội dung sang khung chat.'));
         if (activeTab === 'student-chat') {
           sendText?.(prompt);
         } else {
@@ -77,5 +104,6 @@ export function useStudentLearningActions({
   return {
     handleStudySuggestion,
     handleCreateQuizFromSuggestion,
+    consumedSuggestionKeys,
   };
 }

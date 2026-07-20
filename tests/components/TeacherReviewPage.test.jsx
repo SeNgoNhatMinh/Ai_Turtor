@@ -45,9 +45,9 @@ describe('TeacherReviewPage official answer action', () => {
       />,
     );
 
-    const answer = screen.getByLabelText('Final answer after the support discussion:');
+    const answer = screen.getByLabelText('Câu trả lời cuối sau khi trao đổi:');
     fireEvent.change(answer, { target: { value: 'A verified explanation.' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Submit official answer' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Gửi câu trả lời chính thức' }));
 
     await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
     expect(answer).toHaveValue('A verified explanation.');
@@ -66,9 +66,9 @@ describe('TeacherReviewPage official answer action', () => {
       />,
     );
 
-    const answer = screen.getByLabelText('Final answer after the support discussion:');
+    const answer = screen.getByLabelText('Câu trả lời cuối sau khi trao đổi:');
     fireEvent.change(answer, { target: { value: 'A verified explanation.' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Submit official answer' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Gửi câu trả lời chính thức' }));
 
     await waitFor(() => expect(answer).toHaveValue(''));
   });
@@ -85,6 +85,6 @@ describe('TeacherReviewPage official answer action', () => {
       />,
     );
 
-    expect(screen.getByRole('button', { name: 'Sending official answer...' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Đang gửi câu trả lời...' })).toBeDisabled();
   });
 });

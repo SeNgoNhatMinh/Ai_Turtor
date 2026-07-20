@@ -22,13 +22,13 @@ test('quiz draft validation requires a correct answer from the options', () => {
   assert.equal(validateQuizDraft([validQuestion]).valid, true);
   const invalid = validateQuizDraft([{ ...validQuestion, correctAnswer: 'Unknown answer' }]);
   assert.equal(invalid.valid, false);
-  assert.match(invalid.questionErrors[0].join(' '), /must match one of the answer options/i);
+  assert.match(invalid.questionErrors[0].join(' '), /phải thuộc danh sách lựa chọn/i);
 });
 
 test('quiz draft validation rejects duplicate options', () => {
   const result = validateQuizDraft([{ ...validQuestion, options: ['Java', ' java '] }]);
   assert.equal(result.valid, false);
-  assert.match(result.questionErrors[0].join(' '), /must be unique/i);
+  assert.match(result.questionErrors[0].join(' '), /không được trùng nhau/i);
 });
 
 test('editing the selected option keeps the answer key synchronized', () => {

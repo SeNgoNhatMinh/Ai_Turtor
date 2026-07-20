@@ -50,13 +50,13 @@ const renderGrading = (selectedTeacherSub, overrides = {}) => render(
 describe('TeacherGradingTab quiz review', () => {
   it('shows the backend auto score, student choice, and published correct answer', () => {
     renderGrading(attempt);
-    fireEvent.click(screen.getByText('Online Quizzes'));
+    fireEvent.click(screen.getByText('Quiz trực tuyến'));
 
-    expect(screen.getByText('Auto score: 0 / 1')).toBeVisible();
+    expect(screen.getByText('Điểm backend: 0 / 1')).toBeVisible();
     expect(screen.getByText('Creating many classes')).toBeVisible();
-    expect(screen.getByText('Student choice')).toBeVisible();
-    expect(screen.getByText('Correct answer')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Submit Final Review' })).toBeVisible();
+    expect(screen.getByText('Sinh viên đã chọn')).toBeVisible();
+    expect(screen.getByText('Đáp án đúng')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Xác nhận điểm cuối' })).toBeVisible();
   });
 
   it('renders an already reviewed attempt as read only', () => {
@@ -68,22 +68,22 @@ describe('TeacherGradingTab quiz review', () => {
       teacherFeedback: 'Accepted after manual review.',
       teacherReviewedAt: '2026-07-18T09:00:00Z',
     });
-    fireEvent.click(screen.getByText('Online Quizzes'));
+    fireEvent.click(screen.getByText('Quiz trực tuyến'));
 
-    expect(screen.getByText('Final score: 1 / 1')).toBeVisible();
-    expect(screen.getByText('Teacher review completed')).toBeVisible();
+    expect(screen.getAllByText(/Điểm cuối: 1 \/ 1/).length).toBeGreaterThan(0);
+    expect(screen.getByText('Giảng viên đã hoàn tất duyệt điểm')).toBeVisible();
     expect(screen.getByText(/Accepted after manual review/)).toBeVisible();
-    expect(screen.queryByRole('button', { name: 'Submit Final Review' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Xác nhận điểm cuối' })).not.toBeInTheDocument();
   });
 
   it('locks the final review controls while the mutation is pending', () => {
     renderGrading(attempt, {
       gradingMutationKeys: ['quiz-review:session-1'],
     });
-    fireEvent.click(screen.getByText('Online Quizzes'));
+    fireEvent.click(screen.getByText('Quiz trực tuyến'));
 
-    expect(screen.getByRole('button', { name: 'Submitting final review...' })).toBeDisabled();
-    expect(screen.getByLabelText('Final score')).toBeDisabled();
-    expect(screen.getByLabelText('Teacher feedback')).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Đang lưu kết quả...' })).toBeDisabled();
+    expect(screen.getByLabelText('Điểm cuối')).toBeDisabled();
+    expect(screen.getByLabelText('Nhận xét của giảng viên')).toBeDisabled();
   });
 });

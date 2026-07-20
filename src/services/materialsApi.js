@@ -9,8 +9,8 @@ export function assertMaterialUploadReceipt(response) {
   const materialId = String(response?.materialId || response?.documentId || '').trim();
   if (!materialId) {
     throw new ApiError({
-      message: 'The backend did not return a material identifier.',
-      userMessage: 'The server did not confirm this upload. Please check the material list before trying again.',
+      message: 'Backend không trả về mã học liệu.',
+      userMessage: 'Máy chủ chưa xác nhận tệp đã tải lên. Hãy kiểm tra danh sách học liệu trước khi thử lại.',
       status: 502,
       code: 'INVALID_MATERIAL_UPLOAD_RESPONSE',
       details: response,
@@ -21,7 +21,7 @@ export function assertMaterialUploadReceipt(response) {
 
 export const materialsApi = {
   async uploadMaterial(courseId, formData) {
-    const response = await uploadRequest(`${API_BASE_URL}/courses/${encodePath(courseId)}/materials/upload`, formData, 'Upload material failed', {
+    const response = await uploadRequest(`${API_BASE_URL}/courses/${encodePath(courseId)}/materials/upload`, formData, 'Tải học liệu thất bại', {
       timeoutMs: API_TIMEOUTS.upload,
     });
     assertMaterialUploadReceipt(response);

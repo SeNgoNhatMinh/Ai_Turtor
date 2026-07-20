@@ -37,7 +37,7 @@ describe('UI action safety', () => {
       />,
     );
 
-    expect(screen.getByText('Workspace: ADMIN')).toBeInTheDocument();
+    expect(screen.getByText('Không gian: Quản trị viên')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Teacher Workspace/i })).not.toBeInTheDocument();
     expect(screen.queryByText('Select role:')).not.toBeInTheDocument();
   });
@@ -63,7 +63,7 @@ describe('UI action safety', () => {
 
     await waitFor(() => expect(teacherApi.getCourseMemories).toHaveBeenCalledWith('PRO192', 'SE1833'));
     expect(screen.queryByRole('button', { name: 'Support' })).not.toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: /Refresh/i })).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: /Làm mới/i })).toHaveLength(1);
 
     fireEvent.click(screen.getByRole('button', { name: /Class SE1840/i }));
     expect(setClassId).toHaveBeenCalledWith('SE1840');

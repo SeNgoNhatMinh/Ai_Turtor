@@ -52,7 +52,7 @@ export function useStudentSupport({ activeTab, userId, onConversationResolved })
     } catch (error) {
       setEscalations([]);
       setSelectedEscalation(null);
-      setEscalationsError(getUserFacingError(error, 'Unable to load mentor review tickets.'));
+      setEscalationsError(getUserFacingError(error, 'Không thể tải các yêu cầu hỗ trợ.'));
     } finally {
       setIsEscalationsLoading(false);
     }
@@ -92,7 +92,7 @@ export function useStudentSupport({ activeTab, userId, onConversationResolved })
       }
       return normalized;
     } catch (error) {
-      setEscalationDetailError(getUserFacingError(error, 'Unable to load the complete review ticket.'));
+      setEscalationDetailError(getUserFacingError(error, 'Không thể tải đầy đủ yêu cầu hỗ trợ này.'));
     } finally {
       setIsEscalationDetailLoading(false);
     }

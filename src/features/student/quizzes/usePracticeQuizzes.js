@@ -94,7 +94,7 @@ export function usePracticeQuizzes({
       setAssigned(asQuizArray(assignedData));
     } catch (requestError) {
       if (controller.signal.aborted || loadRequestRef.current.id !== requestId) return;
-      setError(getUserFacingError(requestError, 'Unable to load quizzes.'));
+      setError(getUserFacingError(requestError, 'Không thể tải danh sách quiz.'));
     } finally {
       if (loadRequestRef.current.id === requestId) {
         loadRequestRef.current.controller = null;
@@ -113,11 +113,11 @@ export function usePracticeQuizzes({
   const generateQuiz = useCallback(async (overrideTopic = '') => {
     const selectedTopic = String(overrideTopic || topic || '').trim();
     if (!hasContext) {
-      setError('Choose a course before generating a quiz.');
+      setError('Hãy chọn môn học trước khi tạo quiz.');
       return;
     }
     if (!selectedTopic) {
-      triggerToast?.('Choose a topic or suggestion first.');
+      triggerToast?.('Hãy chọn chủ đề hoặc gợi ý học tập trước.');
       return;
     }
 
@@ -139,7 +139,7 @@ export function usePracticeQuizzes({
       } catch (requestError) {
         setError(getUserFacingError(
           requestError,
-          'Not enough indexed course material to generate this quiz. Please upload or reindex materials first.',
+          'Chưa đủ học liệu đã lập chỉ mục để tạo quiz. Hãy tải lên hoặc lập chỉ mục lại học liệu trước.',
         ));
       } finally {
         setLoadingKey('');
@@ -159,7 +159,7 @@ export function usePracticeQuizzes({
         setActiveQuiz(quiz);
         setActiveTab('active');
       } catch (requestError) {
-        setError(getUserFacingError(requestError, 'Unable to start assigned quiz.'));
+        setError(getUserFacingError(requestError, 'Không thể bắt đầu quiz được giao.'));
       } finally {
         setLoadingKey('');
       }
@@ -183,9 +183,9 @@ export function usePracticeQuizzes({
         setActiveTab('result');
         await loadQuizzes();
         onAfterQuizSubmit?.();
-        triggerToast?.('Quiz submitted.');
+        triggerToast?.('Đã nộp quiz.');
       } catch (requestError) {
-        triggerToast?.(getUserFacingError(requestError, 'Unable to submit quiz.'));
+        triggerToast?.(getUserFacingError(requestError, 'Không thể nộp quiz.'));
       } finally {
         setSubmitting(false);
       }
@@ -208,7 +208,7 @@ export function usePracticeQuizzes({
         setActiveTab('result');
       }
     } catch (requestError) {
-      setError(getUserFacingError(requestError, 'Unable to load quiz details.'));
+      setError(getUserFacingError(requestError, 'Không thể tải chi tiết quiz.'));
     } finally {
       setLoadingKey('');
     }

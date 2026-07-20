@@ -12,45 +12,45 @@ export default function CourseMaterialsPanel({ materials, onDownload }) {
   if (!Array.isArray(materials) || materials.length === 0) {
     return (
       <Card styles={{ body: { padding: 16 } }}>
-        <Empty description="No learning materials uploaded yet for this course." />
+        <Empty description="Môn học này chưa có tài liệu." />
       </Card>
     );
   }
 
   const columns = [
     {
-      title: 'Material Title',
+      title: 'Tên tài liệu',
       dataIndex: 'title',
       key: 'title',
-      render: (title) => <Text strong>{title || 'Untitled Material'}</Text>,
+      render: (title) => <Text strong>{title || 'Tài liệu chưa đặt tên'}</Text>,
     },
     {
-      title: 'File Name',
+      title: 'Tên tệp',
       dataIndex: 'fileName',
       key: 'fileName',
       render: (_, record) => (
-        <Text type="secondary">{getMaterialDisplayName(record) || 'Material file unavailable'}</Text>
+        <Text type="secondary">{getMaterialDisplayName(record) || 'Không có thông tin tệp'}</Text>
       ),
     },
     {
-      title: 'Scope',
+      title: 'Phạm vi',
       dataIndex: 'classId',
       key: 'classId',
-      render: (value) => <Tag color="orange">{value || 'Course-wide'}</Tag>,
+      render: (value) => <Tag color="orange">{value ? `Lớp ${value}` : 'Toàn môn'}</Tag>,
     },
     {
-      title: 'Upload Date',
+      title: 'Ngày tải lên',
       dataIndex: 'createdAt',
       key: 'createdAt',
       render: (value) => <Text type="secondary">{value ? new Date(value).toLocaleDateString() : '-'}</Text>,
     },
     {
-      title: 'Download',
+      title: 'Tải xuống',
       key: 'action',
       width: 120,
       render: (_, record) => {
-        if (isWebsiteMaterial(record)) return <Tag>Website material</Tag>;
-        if (!onDownload || !record.id) return <Text type="secondary">Unavailable</Text>;
+        if (isWebsiteMaterial(record)) return <Tag>Tài liệu website</Tag>;
+        if (!onDownload || !record.id) return <Text type="secondary">Không khả dụng</Text>;
         return (
           <Button
             type="primary"
@@ -58,7 +58,7 @@ export default function CourseMaterialsPanel({ materials, onDownload }) {
             icon={<DownloadOutlined />}
             onClick={() => onDownload(record.id, record.title)}
           >
-            Download
+            Tải xuống
           </Button>
         );
       },
@@ -71,6 +71,7 @@ export default function CourseMaterialsPanel({ materials, onDownload }) {
         dataSource={materials}
         rowKey={(record) => record.id || record.materialId}
         pagination={{ pageSize: 8 }}
+        scroll={{ x: 760 }}
         columns={columns}
       />
     </Card>

@@ -29,7 +29,7 @@ export default function MaterialsAssignmentsView({
   const tabItems = [
     {
       key: 'assignments',
-      label: 'Assignments & Tasks',
+      label: 'Bài tập được giao',
       children: (
         <div className="materials-layout">
           <AssignmentListPanel
@@ -54,7 +54,7 @@ export default function MaterialsAssignmentsView({
     },
     {
       key: 'materials',
-      label: 'Course Learning Materials',
+      label: 'Tài liệu môn học',
       children: (
         <CourseMaterialsPanel materials={courseMaterials} onDownload={onDownloadMaterial} />
       ),

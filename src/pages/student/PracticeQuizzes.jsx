@@ -44,7 +44,7 @@ function PracticeQuizzes({
   const tabs = [
     {
       key: 'generate',
-      label: 'Generate',
+      label: 'Tạo quiz',
       children: (
         <QuizGeneratePanel
           topic={quiz.topic}
@@ -61,9 +61,9 @@ function PracticeQuizzes({
     },
     {
       key: 'active',
-      label: quiz.activeQuiz ? 'Active Quiz' : 'Active',
+      label: quiz.activeQuiz ? 'Quiz đang làm' : 'Đang làm',
       children: quiz.activeQuiz ? (
-        <Suspense fallback={<div className="portal-loading">Loading quiz...</div>}>
+        <Suspense fallback={<div className="portal-loading">Đang tải quiz...</div>}>
           <QuizRunner quiz={quiz.activeQuiz} onSubmit={quiz.submitQuiz} submitting={quiz.submitting} />
         </Suspense>
       ) : (
@@ -72,7 +72,7 @@ function PracticeQuizzes({
     },
     {
       key: 'assigned',
-      label: `Assigned${quiz.assigned.length ? ` (${quiz.assigned.length})` : ''}`,
+      label: `Được giao${quiz.assigned.length ? ` (${quiz.assigned.length})` : ''}`,
       children: (
         <AssignedQuizzesPanel
           assignments={quiz.assigned}
@@ -86,7 +86,7 @@ function PracticeQuizzes({
     },
     {
       key: 'history',
-      label: `History${quiz.history.length ? ` (${quiz.history.length})` : ''}`,
+      label: `Lịch sử${quiz.history.length ? ` (${quiz.history.length})` : ''}`,
       children: (
         <QuizHistoryPanel
           history={quiz.history}
@@ -101,9 +101,9 @@ function PracticeQuizzes({
     },
     {
       key: 'result',
-      label: 'Review',
+      label: 'Xem kết quả',
       children: quiz.lastResult ? (
-        <Suspense fallback={<div className="portal-loading">Loading quiz review...</div>}>
+        <Suspense fallback={<div className="portal-loading">Đang tải kết quả quiz...</div>}>
           <QuizResult
             result={quiz.lastResult}
             onRetry={quiz.retryFromResult}
@@ -120,14 +120,14 @@ function PracticeQuizzes({
     <div className="portal-section quiz-page">
       <div className="quiz-hero">
         <div className="quiz-hero-copy">
-          <span className="quiz-eyebrow">Practice Quizzes</span>
+          <span className="quiz-eyebrow">Quiz luyện tập</span>
           <Title level={3} style={{ margin: 0 }}>{uiCopy.student.quizzes.title}</Title>
           <Text>{uiCopy.student.quizzes.subtitle}</Text>
         </div>
         <div className="quiz-hero-actions">
           <Space wrap>
-            {courseId && <Tag color="orange">Course: {courseId}</Tag>}
-            {classId && <Tag>Class: {classId}</Tag>}
+            {courseId && <Tag color="orange">Môn: {courseId}</Tag>}
+            {classId && <Tag>Lớp: {classId}</Tag>}
           </Space>
           <Button icon={<ReloadOutlined />} onClick={quiz.loadQuizzes} loading={quiz.loadingKey === 'refresh'} disabled={!quiz.hasContext}>
             {uiCopy.common.refresh}
@@ -136,14 +136,14 @@ function PracticeQuizzes({
       </div>
 
       <div className="quiz-stat-grid">
-        <QuizStatCard icon={<BookOutlined />} label="Assigned" value={quiz.quizStats.assigned} description="From teacher" tone="blue" />
-        <QuizStatCard icon={<ClockCircleOutlined />} label="In progress" value={quiz.quizStats.inProgress} description="Can continue" tone="orange" />
-        <QuizStatCard icon={<CheckCircleOutlined />} label="Submitted" value={quiz.quizStats.submitted} description="Auto graded" tone="green" />
+        <QuizStatCard icon={<BookOutlined />} label="Được giao" value={quiz.quizStats.assigned} description="Từ giảng viên" tone="blue" />
+        <QuizStatCard icon={<ClockCircleOutlined />} label="Đang làm" value={quiz.quizStats.inProgress} description="Có thể tiếp tục" tone="orange" />
+        <QuizStatCard icon={<CheckCircleOutlined />} label="Đã nộp" value={quiz.quizStats.submitted} description="Đã gửi chấm" tone="green" />
         <QuizStatCard
           icon={<TrophyOutlined />}
-          label="Latest activity"
+          label="Hoạt động gần nhất"
           value={formatQuizDateTime(quiz.quizStats.latest)}
-          description={quiz.quizStats.reviewed ? `${quiz.quizStats.reviewed} reviewed by teacher` : 'No teacher review yet'}
+          description={quiz.quizStats.reviewed ? `${quiz.quizStats.reviewed} bài đã được giảng viên duyệt` : 'Chưa có bài được giảng viên duyệt'}
         />
       </div>
 
@@ -151,7 +151,7 @@ function PracticeQuizzes({
         <Alert
           type="warning"
           showIcon
-          title="Choose a course first"
+          title="Hãy chọn môn học"
           description={uiCopy.student.quizzes.contextRequired}
           className="quiz-alert"
         />
@@ -166,7 +166,7 @@ function PracticeQuizzes({
           showIcon
           className="quiz-alert"
           title={uiCopy.student.quizzes.activeReady}
-          action={<Button size="small" type="primary" onClick={() => quiz.setActiveTab('active')}>Continue quiz</Button>}
+          action={<Button size="small" type="primary" onClick={() => quiz.setActiveTab('active')}>Tiếp tục làm</Button>}
         />
       )}
 

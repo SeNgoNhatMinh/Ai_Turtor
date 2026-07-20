@@ -20,43 +20,43 @@ function CourseMemorySection({
     <div className="learning-context-grid">
       <Card
         className="learning-card learning-context-card"
-        title="Course Memory"
-        extra={<Button size="small" onClick={onEdit} disabled={!hasContext}>Edit memory</Button>}
+        title="Bộ nhớ học tập theo môn"
+        extra={<Button size="small" onClick={onEdit} disabled={!hasContext}>Chỉnh sửa</Button>}
       >
         {memorySummary ? (
-          <Alert type="info" showIcon icon={<BulbOutlined />} title="Memory summary" description={memorySummary} />
+          <Alert type="info" showIcon icon={<BulbOutlined />} title="Tóm tắt quá trình học" description={memorySummary} />
         ) : (
-          <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No memory summary yet. Ask AI Tutor questions or submit quizzes to build course memory." />
+          <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Chưa có tóm tắt. Hãy hỏi AI Tutor hoặc hoàn thành quiz để xây dựng bộ nhớ học tập." />
         )}
         <div className="learning-memory-grid">
           <div className="learning-topic-section">
             <div className="learning-topic-header">
               <CheckCircleOutlined />
-              <Text strong>Learned topics</Text>
+              <Text strong>Chủ đề đã nắm</Text>
               <Tag>{learnedTopics.length}</Tag>
             </div>
             <div className="learning-topic-cloud learning-topic-cloud--learned">
               {learnedTopics.length
                 ? learnedTopics.map((topic) => <Tag key={topic}>{topic}</Tag>)
-                : <Text type="secondary">No learned topics recorded yet.</Text>}
+                : <Text type="secondary">Chưa ghi nhận chủ đề đã nắm.</Text>}
             </div>
           </div>
           <div className="learning-topic-section">
             <div className="learning-topic-header">
               <CloseCircleOutlined />
-              <Text strong>Focus areas</Text>
+              <Text strong>Nội dung cần tập trung</Text>
               <Tag color={weakTopics.length ? 'warning' : 'success'}>{weakTopics.length}</Tag>
             </div>
             <div className="learning-topic-cloud learning-topic-cloud--weak">
               {weakTopics.length
                 ? weakTopics.map((topic) => <Tag key={topic}>{topic}</Tag>)
-                : <Text type="secondary">No weak concepts currently.</Text>}
+                : <Text type="secondary">Hiện chưa có chủ đề yếu.</Text>}
             </div>
           </div>
         </div>
       </Card>
 
-      <Card className="learning-card learning-context-card" title="Recent learning signals">
+      <Card className="learning-card learning-context-card" title="Hoạt động học gần đây">
         {recentQuestions.length ? (
           <div className="learning-recent-list">
             {recentQuestions.map((question, index) => (
@@ -67,7 +67,7 @@ function CourseMemorySection({
             ))}
           </div>
         ) : (
-          <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No recent questions recorded yet" />
+          <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Chưa ghi nhận câu hỏi gần đây" />
         )}
       </Card>
     </div>

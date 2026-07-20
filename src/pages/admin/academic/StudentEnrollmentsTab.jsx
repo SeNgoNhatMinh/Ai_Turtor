@@ -1,17 +1,18 @@
-import { Button, Card, Col, Form, Input, Row, Select, Tag } from 'antd';
+import { Button, Card, Col, Form, Input, Row, Select } from 'antd';
 import { Eye, Pencil, Plus, Search, UserMinus } from 'lucide-react';
 import EntityActionMenu from '../../../components/common/EntityActionMenu';
 import { DataTable } from '../../../components/ui/data-table';
 import { getClassCode } from './adminAcademicUtils';
 import { getPersonDisplayName, getPersonEmail, getPersonId } from '../../../utils/displayNames';
+import StatusLabel from '../../../components/common/StatusLabel';
 
 const { Option } = Select;
 
 const enrollmentActionItems = [
-  { key: 'view', icon: <Eye size={14} />, label: 'View details' },
-  { key: 'edit', icon: <Pencil size={14} />, label: 'Edit' },
+  { key: 'view', icon: <Eye size={14} />, label: 'Xem chi tiết' },
+  { key: 'edit', icon: <Pencil size={14} />, label: 'Chỉnh sửa' },
   { type: 'divider' },
-  { key: 'remove', icon: <UserMinus size={14} />, label: 'Remove from class', danger: true },
+  { key: 'remove', icon: <UserMinus size={14} />, label: 'Xóa khỏi lớp', danger: true },
 ];
 
 function StudentEnrollmentsTab({
@@ -33,15 +34,15 @@ function StudentEnrollmentsTab({
   return (
     <Row gutter={[16, 16]}>
       <Col xs={24} md={10}>
-        <Card title="Enroll Student in Class" hoverable>
+        <Card title="Ghi danh sinh viên vào lớp" hoverable>
           <Form form={form} layout="vertical" onFinish={onCreate}>
-            <Form.Item name="studentId" label="Student" rules={[{ required: true, message: 'Choose a student' }]}>
+            <Form.Item name="studentId" label="Sinh viên" rules={[{ required: true, message: 'Chọn sinh viên' }]}>
               <Select
                 showSearch
                 filterOption={false}
                 loading={studentsLoading}
-                placeholder="Search by student name or email"
-                notFoundContent={studentsLoading ? 'Searching students...' : 'Type at least 2 characters to search'}
+                placeholder="Tìm theo họ tên hoặc email"
+                notFoundContent={studentsLoading ? 'Đang tìm sinh viên...' : 'Nhập ít nhất 2 ký tự để tìm'}
                 onSearch={onStudentSearch}
                 options={studentOptions.map((student) => {
                   const id = getPersonId(student);
@@ -49,10 +50,10 @@ function StudentEnrollmentsTab({
                   return {
                     value: id,
                     disabled: !id,
-                    searchLabel: `${getPersonDisplayName(student, 'Student')} ${email}`,
+                    searchLabel: `${getPersonDisplayName(student, 'Sinh viên')} ${email}`,
                     label: (
                       <div className="admin-mentor-select-option">
-                        <strong>{getPersonDisplayName(student, 'Student')}</strong>
+                        <strong>{getPersonDisplayName(student, 'Sinh viên')}</strong>
                         {email && <span>{email}</span>}
                       </div>
                     ),
@@ -60,8 +61,8 @@ function StudentEnrollmentsTab({
                 })}
               />
             </Form.Item>
-            <Form.Item name="courseId" label="Course" rules={[{ required: true }]}>
-              <Select placeholder="Choose a course" onChange={onCourseSelect}>
+            <Form.Item name="courseId" label="Môn học" rules={[{ required: true }]}>
+              <Select placeholder="Chọn môn học" onChange={onCourseSelect}>
                 {courses.map((course) => (
                   <Option key={course.courseId || course.id} value={course.courseId}>
                     {course.courseId} - {course.courseName}
@@ -69,8 +70,8 @@ function StudentEnrollmentsTab({
                 ))}
               </Select>
             </Form.Item>
-            <Form.Item name="classId" label="Class Section" rules={[{ required: true }]}>
-              <Select placeholder="Choose a class section">
+            <Form.Item name="classId" label="Lớp học phần" rules={[{ required: true }]}>
+              <Select placeholder="Chọn lớp học phần">
                 {classSections.map((classSection) => {
                   const classCode = getClassCode(classSection);
                   return (
@@ -81,15 +82,15 @@ function StudentEnrollmentsTab({
                 })}
               </Select>
             </Form.Item>
-            <Button type="primary" htmlType="submit" block icon={<Plus size={14} />}>Enroll Student</Button>
+            <Button type="primary" htmlType="submit" block icon={<Plus size={14} />}>Ghi danh sinh viên</Button>
           </Form>
         </Card>
       </Col>
       <Col xs={24} md={14} style={{ minWidth: 0 }}>
-        <Card title="Student Enrollments Search" hoverable>
+        <Card title="Tra cứu ghi danh" hoverable>
           <div className="admin-academic-search-row">
             <Input
-              placeholder="Search by student name, email, or student code"
+              placeholder="Tìm theo họ tên, email hoặc mã sinh viên"
               value={enrollmentSearchId}
               onChange={(event) => setEnrollmentSearchId(event.target.value)}
               onPressEnter={onSearch}
@@ -102,36 +103,36 @@ function StudentEnrollmentsTab({
               loading={enrollmentsLoading}
               disabled={!enrollmentSearchId.trim() || enrollmentsLoading}
             >
-              Search
+              Tìm kiếm
             </Button>
           </div>
           <DataTable
             data={studentEnrollments || []}
             loading={enrollmentsLoading}
-            emptyText="No enrollment records loaded. Search for a student by name, email, or student code."
+            emptyText="Chưa có dữ liệu. Hãy tìm sinh viên theo họ tên, email hoặc mã sinh viên."
             columns={[
               {
                 accessorKey: 'studentName',
-                header: 'Student',
+                header: 'Sinh viên',
                 cell: ({ row }) => {
                   const record = row.original;
                   const email = getPersonEmail(record);
                   return (
                     <div className="entity-name-cell">
-                      <strong>{getPersonDisplayName(record, 'Student')}</strong>
+                      <strong>{getPersonDisplayName(record, 'Sinh viên')}</strong>
                       {email && <span>{email}</span>}
                     </div>
                   );
                 },
               },
-              { accessorKey: 'courseId', header: 'Course Code' },
-              { accessorKey: 'classId', header: 'Class Code' },
+              { accessorKey: 'courseId', header: 'Mã môn' },
+              { accessorKey: 'classId', header: 'Mã lớp' },
               {
                 accessorKey: 'status',
-                header: 'Status',
+                header: 'Trạng thái',
                 cell: ({ row }) => {
                   const value = row.getValue('status');
-                  return <Tag color={value === 'ACTIVE' ? 'green' : 'default'}>{value || 'ACTIVE'}</Tag>;
+                  return <StatusLabel status={value || 'ACTIVE'} />;
                 },
               },
               {
@@ -141,7 +142,7 @@ function StudentEnrollmentsTab({
                   <EntityActionMenu
                     items={enrollmentActionItems}
                     onAction={(key, meta) => onAction('enrollment', row.original, key, meta)}
-                    ariaLabel="Enrollment actions"
+                    ariaLabel="Thao tác ghi danh"
                   />
                 ),
               },

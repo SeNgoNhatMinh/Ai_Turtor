@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Alert,
   Button,
@@ -10,16 +10,13 @@ import {
   Row,
   Select,
   Space,
-  Table,
   Tabs,
-  Tag,
   Typography,
 } from 'antd';
-import { Plus, RefreshCw, Send, Trash2 } from 'lucide-react';
-import AsyncState from '../../../components/common/AsyncState';
+import { Plus, Send, Trash2 } from 'lucide-react';
+import { getStatusLabel } from '../../../utils/statusLabels';
 import {
   criteriaRowsToWeights,
-  getEntityStatusColor,
   getTaskGoldUsage,
   validateCriteriaWeights,
 } from '../expertTrainingUtils';
@@ -35,12 +32,7 @@ const defaultCriteria = [
 export default function ContributionWorkspace({
   selectedTask,
   userId,
-  goldQa,
-  rubrics,
-  loading,
-  error,
   pendingAction,
-  onRefresh,
   onSubmitGoldQa,
   onSubmitRubric,
 }) {
@@ -68,19 +60,11 @@ export default function ContributionWorkspace({
     }
   }, [goldForm, rubricForm, selectedTask, taskGoldUsage]);
 
-  const myGoldQa = useMemo(
-    () => goldQa.filter((item) => item.authorId === userId),
-    [goldQa, userId],
-  );
-  const myRubrics = useMemo(
-    () => rubrics.filter((item) => item.authorId === userId),
-    [rubrics, userId],
-  );
   const canSubmitSelectedTask = !selectedTask || ['ASSIGNED', 'IN_PROGRESS'].includes(selectedTask.status);
 
   const submitGold = async (values) => {
     if (taskGoldUsage && values.usage !== taskGoldUsage) {
-      goldForm.setFields([{ name: 'usage', errors: [`This task requires ${taskGoldUsage} usage.`] }]);
+      goldForm.setFields([{ name: 'usage', errors: [`Công việc này yêu cầu mục đích ${taskGoldUsage}.`] }]);
       return;
     }
     const result = await onSubmitGoldQa({
@@ -112,38 +96,6 @@ export default function ContributionWorkspace({
     }
   };
 
-  const historyColumns = [
-    {
-      title: 'Contribution',
-      key: 'contribution',
-      render: (_, item) => (
-        <div className="expert-training__primary-cell">
-          <strong>{item.question || item.name}</strong>
-          <span>{item.chapter}</span>
-        </div>
-      ),
-    },
-    {
-      title: 'Purpose',
-      key: 'purpose',
-      width: 130,
-      render: (_, item) => item.usage ? <Tag>{item.usage}</Tag> : <Tag>RUBRIC</Tag>,
-    },
-    {
-      title: 'Status',
-      dataIndex: 'status',
-      key: 'status',
-      width: 150,
-      render: (value) => <Tag color={getEntityStatusColor(value)}>{value.replaceAll('_', ' ')}</Tag>,
-    },
-    {
-      title: 'Reviewed',
-      key: 'reviewed',
-      width: 140,
-      render: (_, item) => item.reviewedAt ? new Date(item.reviewedAt).toLocaleDateString() : 'Not yet',
-    },
-  ];
-
   const editorItems = [
     {
       key: 'GOLD_QA',
@@ -158,17 +110,21 @@ export default function ContributionWorkspace({
         >
           <Row gutter={12}>
             <Col xs={24} md={14}>
-              <Form.Item label="Chapter" name="chapter" rules={[{ required: true, whitespace: true }]}>
+              <Form.Item label="Chương" name="chapter" rules={[{ required: true, whitespace: true }]}>
                 <Input maxLength={255} />
               </Form.Item>
             </Col>
             <Col xs={12} md={5}>
-              <Form.Item label="Difficulty" name="difficulty" rules={[{ required: true }]}>
-                <Select options={['EASY', 'MEDIUM', 'HARD'].map((value) => ({ value, label: value }))} />
+              <Form.Item label="Độ khó" name="difficulty" rules={[{ required: true }]}>
+                <Select options={[
+                  { value: 'EASY', label: 'Dễ' },
+                  { value: 'MEDIUM', label: 'Trung bình' },
+                  { value: 'HARD', label: 'Khó' },
+                ]} />
               </Form.Item>
             </Col>
             <Col xs={12} md={5}>
-              <Form.Item label="Purpose" name="usage" rules={[{ required: true }]}>
+              <Form.Item label="Mục đích" name="usage" rules={[{ required: true }]}>
                 <Select disabled={Boolean(taskGoldUsage)} options={[
                   { value: 'TRAINING', label: 'Training' },
                   { value: 'EVALUATION', label: 'Evaluation holdout' },
@@ -176,19 +132,19 @@ export default function ContributionWorkspace({
               </Form.Item>
             </Col>
           </Row>
-          <Form.Item label="Canonical question" name="question" rules={[{ required: true, whitespace: true }]}>
+          <Form.Item label="Câu hỏi chuẩn" name="question" rules={[{ required: true, whitespace: true }]}>
             <Input.TextArea rows={3} maxLength={5000} />
           </Form.Item>
-          <Form.Item label="Gold answer" name="goldAnswer" rules={[{ required: true, whitespace: true }]}>
+          <Form.Item label="Gold Answer" name="goldAnswer" rules={[{ required: true, whitespace: true }]}>
             <Input.TextArea rows={7} maxLength={5000} />
           </Form.Item>
           <Alert
             type="info"
             showIcon
-            title="Training and evaluation data are intentionally separated"
+            title="Training và Evaluation được tách biệt"
             description={taskGoldUsage
-              ? `This coverage task requires ${taskGoldUsage}. Approved TRAINING content is indexed into course RAG; approved EVALUATION content remains a private holdout.`
-              : 'Approved TRAINING content is indexed into course RAG. Approved EVALUATION content remains a private holdout and is never indexed.'}
+              ? `Task này yêu cầu ${taskGoldUsage}. TRAINING đã duyệt được index vào RAG; EVALUATION được giữ riêng làm holdout.`
+              : 'TRAINING đã duyệt được index vào RAG. EVALUATION được giữ riêng làm holdout và không bao giờ được index.'}
           />
           <div className="expert-training__form-actions">
             <Button
@@ -198,7 +154,7 @@ export default function ContributionWorkspace({
               loading={pendingAction === 'submit-gold-qa'}
               disabled={Boolean(pendingAction) || !userId}
             >
-              Submit for review
+              Gửi kiểm duyệt
             </Button>
           </div>
         </Form>
@@ -217,36 +173,36 @@ export default function ContributionWorkspace({
         >
           <Row gutter={12}>
             <Col xs={24} md={10}>
-              <Form.Item label="Chapter" name="chapter" rules={[{ required: true, whitespace: true }]}>
+              <Form.Item label="Chương" name="chapter" rules={[{ required: true, whitespace: true }]}>
                 <Input maxLength={255} />
               </Form.Item>
             </Col>
             <Col xs={24} md={14}>
-              <Form.Item label="Rubric name" name="name" rules={[{ required: true, whitespace: true }]}>
+              <Form.Item label="Tên Rubric" name="name" rules={[{ required: true, whitespace: true }]}>
                 <Input maxLength={255} />
               </Form.Item>
             </Col>
           </Row>
-          <Form.Item label="Description" name="description">
+          <Form.Item label="Mô tả" name="description">
             <Input.TextArea rows={3} maxLength={5000} />
           </Form.Item>
           <Form.List name="criteria">
             {(fields, { add, remove }) => (
-              <Form.Item label="Criteria weights" required>
+              <Form.Item label="Trọng số tiêu chí" required>
                 <div className="expert-training__criteria-list">
                   {fields.map((field) => (
                     <Space key={field.key} align="start" className="expert-training__criteria-row">
                       <Form.Item
                         {...field}
                         name={[field.name, 'name']}
-                        rules={[{ required: true, whitespace: true, message: 'Criterion name is required.' }]}
+                        rules={[{ required: true, whitespace: true, message: 'Tên tiêu chí là bắt buộc.' }]}
                       >
                         <Input placeholder="accuracy" maxLength={80} />
                       </Form.Item>
                       <Form.Item
                         {...field}
                         name={[field.name, 'weight']}
-                        rules={[{ required: true, message: 'Weight is required.' }]}
+                        rules={[{ required: true, message: 'Trọng số là bắt buộc.' }]}
                       >
                         <InputNumber min={0.001} max={1} step={0.05} precision={3} placeholder="0.6" />
                       </Form.Item>
@@ -254,20 +210,20 @@ export default function ContributionWorkspace({
                         type="text"
                         danger
                         icon={<Trash2 size={16} />}
-                        aria-label="Remove criterion"
+                        aria-label="Xóa tiêu chí"
                         onClick={() => remove(field.name)}
                         disabled={fields.length <= 1}
                       />
                     </Space>
                   ))}
                   <Button icon={<Plus size={16} />} onClick={() => add({ name: '', weight: 0.1 })}>
-                    Add criterion
+                    Thêm tiêu chí
                   </Button>
                 </div>
               </Form.Item>
             )}
           </Form.List>
-          <Text type="secondary">Backend accepts the rubric only when all weights total exactly 1.0.</Text>
+          <Text type="secondary">Backend chỉ chấp nhận Rubric khi tổng trọng số bằng đúng 1.0.</Text>
           <div className="expert-training__form-actions">
             <Button
               type="primary"
@@ -276,7 +232,7 @@ export default function ContributionWorkspace({
               loading={pendingAction === 'submit-rubric'}
               disabled={Boolean(pendingAction) || !userId}
             >
-              Submit for review
+              Gửi kiểm duyệt
             </Button>
           </div>
         </Form>
@@ -288,22 +244,21 @@ export default function ContributionWorkspace({
     <section className="expert-training__section" aria-labelledby="contributions-heading">
       <div className="expert-training__section-heading">
         <div>
-          <h2 id="contributions-heading">Contribution Editor</h2>
-          <p>Teacher contributions stay pending until a Senior Mentor or Admin reviews them.</p>
+          <h2 id="contributions-heading">Soạn nội dung đóng góp</h2>
+          <p>Nội dung chỉ được sử dụng sau khi Senior Mentor hoặc Admin kiểm duyệt.</p>
         </div>
-        <Button icon={<RefreshCw size={16} />} onClick={onRefresh} loading={loading}>Refresh</Button>
       </div>
 
       {selectedTask && (
         <Alert
           type={selectedTask.status === 'SUBMITTED' ? 'success' : 'info'}
           showIcon
-          title={`Working from task: ${selectedTask.title}`}
-          description={`${selectedTask.chapter} · ${selectedTask.status.replaceAll('_', ' ')}${selectedTask.instructions ? ` · ${selectedTask.instructions}` : ''}`}
+          title={`Đang thực hiện: ${selectedTask.title}`}
+          description={`${selectedTask.chapter} · ${getStatusLabel(selectedTask.status)}${selectedTask.instructions ? ` · ${selectedTask.instructions}` : ''}`}
         />
       )}
 
-      <Card className="expert-training__editor-card" title="Prepare contribution">
+      <Card className="expert-training__editor-card" title="Chuẩn bị nội dung">
         <Tabs
           activeKey={selectedTask ? (selectedTask.type === 'RUBRIC' ? 'RUBRIC' : 'GOLD_QA') : editorType}
           onChange={setEditorType}
@@ -311,34 +266,8 @@ export default function ContributionWorkspace({
         />
       </Card>
 
-      <Card
-        className="expert-training__history-card"
-        title="My contribution history"
-        extra={<Text type="secondary">{myGoldQa.length + myRubrics.length} items</Text>}
-      >
-        <AsyncState
-          loading={loading && !myGoldQa.length && !myRubrics.length}
-          error={error}
-          empty={!loading && !error && !myGoldQa.length && !myRubrics.length}
-          emptyTitle="No contributions yet"
-          emptyDescription="Claim a task or create a standalone Gold Q&A or rubric."
-          onRetry={onRefresh}
-        >
-          <Table
-            rowKey={(item) => `${item.usage ? 'gold' : 'rubric'}:${item.id}`}
-            columns={historyColumns}
-            dataSource={[...myGoldQa, ...myRubrics].sort((a, b) => (
-              new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
-            ))}
-            pagination={{ pageSize: 6, hideOnSinglePage: true }}
-            scroll={{ x: 720 }}
-            size="middle"
-          />
-        </AsyncState>
-      </Card>
-
       <Paragraph type="secondary" className="expert-training__policy-note">
-        A submitted answer is not AI knowledge yet. Only approved TRAINING Gold Q&A becomes indexed course knowledge.
+        Nội dung đã nộp chưa phải tri thức AI. Chỉ TRAINING Gold Q&A được phê duyệt mới được index vào RAG của môn học.
       </Paragraph>
     </section>
   );

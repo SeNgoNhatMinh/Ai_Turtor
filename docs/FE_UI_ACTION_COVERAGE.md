@@ -4,13 +4,13 @@
 
 Audit date: `2026-07-20`.
 
-- Canonical runtime routes: `15`.
-- JSX files containing button controls: `64`.
+- Canonical runtime routes: `16`.
+- JSX files containing button controls: `69`.
 - Static button nodes: `182`.
 - Static `onClick` bindings: `172`.
-- Contract tests: `70` passing.
-- Component/unit tests: `58` passing.
-- Desktop/mobile app-shell E2E checks: `10` passing.
+- Contract tests: `84` passing.
+- Component/unit tests: `79` passing.
+- Desktop/mobile app-shell E2E checks: `18` passing.
 
 Static counts are inventory signals, not proof that every live backend mutation succeeds. n8n, RAG, indexing, WebSocket, and permission-sensitive actions still require the live scenarios listed below.
 
@@ -38,6 +38,7 @@ Every mounted action must follow these rules:
 | Student materials | Removed/disabled downloads without a real file; website materials show a type label | Prevents fake PDF actions for `HTML_URL` records. |
 | Suggestions/markdown tips | Hide or disable controls when their callback/context is unavailable | Prevents clickable no-op UI. |
 | Account display | Removed invented fallback person names | UI must not present fake identities. |
+| Admin dashboard | Removed fake weekly-activity chart and fallback log row | Diagnostics now show API data or an explicit error state only. |
 
 The real Mentor Support action remains under an AI answer because it carries question, conversation, course, and class context required by the backend.
 
@@ -52,6 +53,12 @@ The real Mentor Support action remains under an AI answer because it carries que
 | Teacher official answer | Pending lock; failed request keeps typed answer | `tests/components/TeacherReviewPage.test.jsx` |
 | Answer review | Missing callbacks disable controls | `tests/components/AnswerReviewCard.test.jsx` |
 | Teacher grading | Reviewed state is read-only; pending final review is locked | `tests/components/TeacherGradingTab.test.jsx` |
+| Admin dashboard | Real action navigation and no fabricated activity/log state | `tests/components/AdminDashboard.test.jsx` |
+| Website material import | Admin/Teacher must analyze backend TOC and select entries before import | `tests/components/ImportWebsiteModal.test.jsx` |
+| Material processing | Accepted upload keeps `materialId`, blocks duplicate processing upload and exposes indexing state | `tests/components/TeacherMaterialUploadCard.test.jsx`, `tests/components/materialsApi.test.js` |
+| Student next steps | Only pending canonical assignment/quiz/support records become actions | `tests/studentNextSteps.test.js` |
+| Teacher action center | Queue item routes to its owning feature and remains disabled without class scope | `tests/components/TeacherActionCenter.test.jsx` |
+| Review history | Resolved Answer Review is read-only and cannot submit another decision | `tests/components/AnswerReviewCard.test.jsx` |
 | Runtime routes | Unexpected API requests return `501` and fail E2E | `tests/e2e/app-shell.spec.js` |
 
 The detailed per-button acceptance matrix is maintained in `docs/FE_BUTTON_ACTION_TEST_PLAN.md`.

@@ -6,7 +6,7 @@ import {
   normalizeAssignment,
   normalizeAssignmentSubmission,
 } from '../services/normalizers';
-import { useRealtimeEvent } from '../features/realtime/realtimeContext';
+import { useRealtimeEvent, useRealtimeReconnect } from '../features/realtime/realtimeContext';
 import { eventMatchesCourse, REALTIME_EVENT_TYPES } from '../features/realtime/realtimeEvents';
 
 export function useStudentAssignmentsController({
@@ -59,8 +59,12 @@ export function useStudentAssignmentsController({
     if (eventMatchesCourse(event, courseId)) loadStudentAssignments();
   });
 
+  useRealtimeReconnect(() => {
+    if (studentId) loadStudentAssignments();
+  });
+
   const handleStudentSubmit = async (assignmentId, file, note) => {
-    triggerToast('Submitting assignment...');
+    triggerToast('Đang nộp bài...');
 
     const formData = new FormData();
     formData.append('file', file);
@@ -72,12 +76,12 @@ export function useStudentAssignmentsController({
         studentName,
         studentEmail,
       });
-      triggerToast('Assignment submitted successfully.');
+      triggerToast('Đã nộp bài thành công.');
       await loadStudentAssignments();
       return true;
     } catch (error) {
       console.error('Error submitting assignment:', error);
-      triggerToast(getUserFacingError(error, 'Unable to submit assignment.'));
+      triggerToast(getUserFacingError(error, 'Không thể nộp bài.'));
       return false;
     }
   };
@@ -87,10 +91,10 @@ export function useStudentAssignmentsController({
       ? assignment
       : assignment?.id || assignment?.assignmentId;
     if (!assignmentId) {
-      triggerToast('This assignment does not have a downloadable file.');
+      triggerToast('Bài tập này không có tệp để tải xuống.');
       return;
     }
-    triggerToast('Downloading assignment file...');
+    triggerToast('Đang tải tệp bài tập...');
     try {
       const blob = await assignmentApi.downloadAssignmentFile(assignmentId);
       const url = window.URL.createObjectURL(blob);
@@ -103,7 +107,7 @@ export function useStudentAssignmentsController({
       window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Error downloading assignment:', error);
-      triggerToast(getUserFacingError(error, 'Unable to download assignment file.'));
+      triggerToast(getUserFacingError(error, 'Không thể tải tệp bài tập.'));
     }
   };
 
@@ -112,7 +116,7 @@ export function useStudentAssignmentsController({
       ? submission
       : submission?.id || submission?.submissionId;
     if (!submissionId) {
-      triggerToast('This submission does not have a downloadable file.');
+      triggerToast('Bài đã nộp không có tệp để tải xuống.');
       return;
     }
     try {
@@ -126,7 +130,7 @@ export function useStudentAssignmentsController({
       anchor.remove();
       window.URL.revokeObjectURL(url);
     } catch (error) {
-      triggerToast(getUserFacingError(error, 'Unable to download your submitted file.'));
+      triggerToast(getUserFacingError(error, 'Không thể tải tệp bạn đã nộp.'));
     }
   };
 

@@ -33,11 +33,11 @@ export default function ProfileModal({ isOpen, onClose, userId }) {
 
   return (
     <Modal
-      title="User Profile & Security"
+      title="Hồ sơ & bảo mật"
       open={isOpen}
       onCancel={onClose}
       footer={null}
-      destroyOnClose
+      destroyOnHidden
       width={500}
     >
       <Tabs
@@ -49,7 +49,7 @@ export default function ProfileModal({ isOpen, onClose, userId }) {
             label: (
               <span>
                 <User size={16} style={{ marginRight: 8 }} />
-                Profile
+                Hồ sơ
               </span>
             ),
             children: (
@@ -61,8 +61,8 @@ export default function ProfileModal({ isOpen, onClose, userId }) {
               >
                 <Form.Item
                   name="fullName"
-                  label="Full Name"
-                  rules={[{ required: true, message: 'Please enter your full name' }]}
+                  label="Họ và tên"
+                  rules={[{ required: true, message: 'Hãy nhập họ và tên' }]}
                 >
                   <Input placeholder="John Doe" />
                 </Form.Item>
@@ -70,15 +70,15 @@ export default function ProfileModal({ isOpen, onClose, userId }) {
                   name="email"
                   label="Email"
                   rules={[
-                    { required: true, message: 'Please enter your email' },
-                    { type: 'email', message: 'Please enter a valid email' }
+                    { required: true, message: 'Hãy nhập email' },
+                    { type: 'email', message: 'Email không hợp lệ' }
                   ]}
                 >
                   <Input placeholder="john@example.com" disabled />
                 </Form.Item>
                 <Form.Item>
                   <Button type="primary" htmlType="submit" loading={updateProfile.isPending}>
-                    Save Changes
+                    Lưu thay đổi
                   </Button>
                 </Form.Item>
               </Form>
@@ -89,7 +89,7 @@ export default function ProfileModal({ isOpen, onClose, userId }) {
             label: (
               <span>
                 <Lock size={16} style={{ marginRight: 8 }} />
-                Security
+                Bảo mật
               </span>
             ),
             children: (
@@ -101,33 +101,33 @@ export default function ProfileModal({ isOpen, onClose, userId }) {
               >
                 <Form.Item
                   name="oldPassword"
-                  label="Current Password"
-                  rules={[{ required: true, message: 'Please enter your current password' }]}
+                  label="Mật khẩu hiện tại"
+                  rules={[{ required: true, message: 'Hãy nhập mật khẩu hiện tại' }]}
                 >
                   <Input.Password placeholder="••••••••" />
                 </Form.Item>
                 <Form.Item
                   name="newPassword"
-                  label="New Password"
+                  label="Mật khẩu mới"
                   rules={[
-                    { required: true, message: 'Please enter a new password' },
-                    { min: 6, message: 'Password must be at least 6 characters' }
+                    { required: true, message: 'Hãy nhập mật khẩu mới' },
+                    { min: 6, message: 'Mật khẩu phải có ít nhất 6 ký tự' }
                   ]}
                 >
                   <Input.Password placeholder="••••••••" />
                 </Form.Item>
                 <Form.Item
                   name="confirmPassword"
-                  label="Confirm New Password"
+                  label="Xác nhận mật khẩu mới"
                   dependencies={['newPassword']}
                   rules={[
-                    { required: true, message: 'Please confirm your new password' },
+                    { required: true, message: 'Hãy xác nhận mật khẩu mới' },
                     ({ getFieldValue }) => ({
                       validator(_, value) {
                         if (!value || getFieldValue('newPassword') === value) {
                           return Promise.resolve();
                         }
-                        return Promise.reject(new Error('The two passwords do not match'));
+                        return Promise.reject(new Error('Mật khẩu xác nhận không khớp'));
                       },
                     }),
                   ]}
@@ -136,7 +136,7 @@ export default function ProfileModal({ isOpen, onClose, userId }) {
                 </Form.Item>
                 <Form.Item>
                   <Button type="primary" htmlType="submit" loading={changePassword.isPending}>
-                    Change Password
+                    Đổi mật khẩu
                   </Button>
                 </Form.Item>
               </Form>

@@ -1,4 +1,5 @@
 import { Card, Table, Tag, Typography } from 'antd';
+import StatusLabel from '../../../../components/common/StatusLabel';
 
 const { Text } = Typography;
 
@@ -6,35 +7,34 @@ const getAssignmentId = (assignment) => assignment?.id || assignment?.assignment
 
 const assignmentColumns = [
   {
-    title: 'Assignment',
+    title: 'Bài tập',
     dataIndex: 'title',
     key: 'title',
     render: (title) => <Text strong>{title}</Text>,
   },
   {
-    title: 'Type',
+    title: 'Loại',
     dataIndex: 'assignmentType',
     key: 'assignmentType',
-    render: (type) => <Tag>{type || 'ASSIGNMENT'}</Tag>,
+    render: (type) => <Tag>{String(type || 'ASSIGNMENT').toUpperCase() === 'EXAM' ? 'Bài kiểm tra' : 'Bài tập'}</Tag>,
   },
   {
-    title: 'Status',
+    title: 'Trạng thái',
     dataIndex: 'status',
     key: 'status',
     render: (status, record) => {
       const normalized = String(record.submission?.status || status || 'PENDING').toUpperCase();
-      const color = normalized === 'REVIEWED' ? 'green' : record.submission ? 'blue' : 'orange';
-      return <Tag color={color}>{normalized.replaceAll('_', ' ')}</Tag>;
+      return <StatusLabel status={normalized} />;
     },
   },
   {
-    title: 'Score',
+    title: 'Điểm',
     dataIndex: 'score',
     key: 'score',
     render: (score, record) => score == null ? '-' : `${score}/${record.maxScore ?? 10}`,
   },
   {
-    title: 'Deadline',
+    title: 'Hạn nộp',
     key: 'deadline',
     render: (_, record) => {
       const value = record.dueAt || record.deadline;
@@ -53,7 +53,7 @@ export default function AssignmentListPanel({
 
   return (
     <Card
-      title="Assigned Materials & Assignments"
+      title="Bài tập được giao"
       className="materials-list-card"
       styles={{ body: { flex: 1, padding: 0, overflowY: 'auto' } }}
     >
@@ -82,8 +82,8 @@ export default function AssignmentListPanel({
         }}
         locale={{
           emptyText: courseId
-            ? `No assignments published for ${courseId}. Choose another enrolled course above.`
-            : 'Choose an enrolled course to view assignments.',
+            ? `Chưa có bài tập được xuất bản cho ${courseId}.`
+            : 'Chọn môn học đã đăng ký để xem bài tập.',
         }}
       />
     </Card>

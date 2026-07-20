@@ -6,15 +6,15 @@ import {
 import { getPersonDisplayName } from '../../../utils/displayNames';
 
 const CANDIDATE_TYPES = [
-  { value: 'ACADEMIC_KNOWLEDGE', label: 'Academic knowledge' },
-  { value: 'MATERIAL_CORRECTION', label: 'Material correction' },
-  { value: 'FAQ_CLARIFICATION', label: 'FAQ clarification' },
+  { value: 'ACADEMIC_KNOWLEDGE', label: 'Kiến thức học thuật' },
+  { value: 'MATERIAL_CORRECTION', label: 'Sửa nội dung tài liệu' },
+  { value: 'FAQ_CLARIFICATION', label: 'Làm rõ câu hỏi thường gặp' },
 ];
 
 const formatBoolean = (value) => {
-  if (value === true) return 'Yes';
-  if (value === false) return 'No';
-  return 'Not provided';
+  if (value === true) return 'Có';
+  if (value === false) return 'Không';
+  return 'Chưa cung cấp';
 };
 
 const formatDate = (value) => {
@@ -27,7 +27,7 @@ function ReviewTextBlock({ label, value, tone = 'default' }) {
   return (
     <section className={`answer-review-text answer-review-text--${tone}`}>
       <span>{label}</span>
-      <p>{value || 'Not provided'}</p>
+      <p>{value || 'Chưa cung cấp'}</p>
     </section>
   );
 }
@@ -41,10 +41,11 @@ export default function AnswerReviewCard({
   onResolve,
 }) {
   const isSeniorQueue = queue === 'senior';
+  const isHistory = queue === 'history';
   const notes = String(draft.notes || '');
   const correctedAnswer = String(draft.correctedAnswer || '');
   const candidateType = draft.candidateType || 'ACADEMIC_KNOWLEDGE';
-  const studentLabel = getPersonDisplayName(review, 'Student');
+  const studentLabel = getPersonDisplayName(review, 'Sinh viên');
   const createdAt = formatDate(review.createdAt);
 
   return (
@@ -57,40 +58,58 @@ export default function AnswerReviewCard({
           </div>
           <h4>{studentLabel}</h4>
           <p>
-            {[review.courseId && `Course ${review.courseId}`, review.classId && `Class ${review.classId}`, createdAt]
+            {[review.courseId && `Môn ${review.courseId}`, review.classId && `Lớp ${review.classId}`, createdAt]
               .filter(Boolean)
-              .join(' · ') || 'Course context unavailable'}
+              .join(' · ') || 'Không có ngữ cảnh môn học'}
           </p>
         </div>
-        <div className="answer-review-card__rating" aria-label={`Rating ${review.rating || 0} out of 5`}>
+        <div className="answer-review-card__rating" aria-label={`Đánh giá ${review.rating || 0} trên 5`}>
           <Rate disabled value={review.rating || 0} count={5} />
-          <span>{review.rating ? `${review.rating}/5` : 'No rating'}</span>
+          <span>{review.rating ? `${review.rating}/5` : 'Chưa đánh giá'}</span>
         </div>
       </header>
 
       <div className="answer-review-facts">
-        <span>Accurate: <strong>{formatBoolean(review.accurate)}</strong></span>
-        <span>Helpful: <strong>{formatBoolean(review.helpful)}</strong></span>
-        {review.mode && <span>Mode: <strong>{review.mode}</strong></span>}
+        <span>Chính xác: <strong>{formatBoolean(review.accurate)}</strong></span>
+        <span>Hữu ích: <strong>{formatBoolean(review.helpful)}</strong></span>
+        {review.mode && <span>Chế độ: <strong>{review.mode}</strong></span>}
       </div>
 
       <div className="answer-review-evidence">
-        <ReviewTextBlock label="Student question" value={review.question} />
-        <ReviewTextBlock label="Previous AI answer" value={review.answer} tone="answer" />
-        <ReviewTextBlock label="Student feedback" value={review.feedback} tone="feedback" />
+        <ReviewTextBlock label="Câu hỏi của sinh viên" value={review.question} />
+        <ReviewTextBlock label="Câu trả lời AI trước đó" value={review.answer} tone="answer" />
+        <ReviewTextBlock label="Phản hồi của sinh viên" value={review.feedback} tone="feedback" />
         {review.suggestedCorrection && (
-          <ReviewTextBlock label="Suggested correction" value={review.suggestedCorrection} tone="correction" />
+          <ReviewTextBlock label="Nội dung sửa được đề xuất" value={review.suggestedCorrection} tone="correction" />
         )}
       </div>
 
-      {isSeniorQueue ? (
+      {isHistory ? (
+        <Alert
+          type="success"
+          showIcon
+          title="Phản hồi đã được xử lý"
+          description={(
+            <div className="answer-review-history-detail">
+              {review.correctedAnswer && <ReviewTextBlock label="Câu trả lời đã hiệu chỉnh" value={review.correctedAnswer} tone="correction" />}
+              <span>
+                {[review.resolvedByName && `Người xử lý: ${review.resolvedByName}`, review.resolvedAt && `Thời gian: ${formatDate(review.resolvedAt)}`]
+                  .filter(Boolean)
+                  .join(' · ') || 'Backend đã ghi nhận kết quả xử lý.'}
+              </span>
+              {review.resolutionNote && <span>Ghi chú: {review.resolutionNote}</span>}
+              {review.linkedKnowledgeCandidateId && <Tag color="purple">Có Knowledge Candidate liên kết</Tag>}
+            </div>
+          )}
+        />
+      ) : isSeniorQueue ? (
         <div className="answer-review-resolution">
           <Input.TextArea
             rows={2}
             value={notes}
             maxLength={2000}
             disabled={isPending || !onDraftChange}
-            placeholder="Required review note..."
+            placeholder="Ghi chú kiểm tra (bắt buộc)..."
             onChange={(event) => onDraftChange?.({ notes: event.target.value })}
           />
           <Input.TextArea
@@ -98,14 +117,14 @@ export default function AnswerReviewCard({
             value={correctedAnswer}
             maxLength={10000}
             disabled={isPending || !onDraftChange}
-            placeholder="Correct academic answer (required only when creating reusable AI knowledge)..."
+            placeholder="Câu trả lời học thuật đúng (bắt buộc khi tạo tri thức dùng lại)..."
             onChange={(event) => onDraftChange?.({ correctedAnswer: event.target.value })}
           />
           <Select
             value={candidateType}
             options={CANDIDATE_TYPES}
             disabled={isPending || !onDraftChange}
-            aria-label="Knowledge candidate type"
+            aria-label="Loại Knowledge Candidate"
             onChange={(value) => onDraftChange?.({ candidateType: value })}
           />
           <div className="answer-review-resolution__actions">
@@ -114,7 +133,7 @@ export default function AnswerReviewCard({
               loading={isPending}
               onClick={() => onResolve?.('APPROVE_FEEDBACK')}
             >
-              Resolve without AI update
+              Xử lý, không cập nhật AI
             </Button>
             <Button
               type="primary"
@@ -122,19 +141,19 @@ export default function AnswerReviewCard({
               loading={isPending}
               onClick={() => onResolve?.('CREATE_KNOWLEDGE_CANDIDATE')}
             >
-              Create knowledge candidate
+              Tạo Knowledge Candidate
             </Button>
           </div>
           <p className="answer-review-resolution__hint">
-            Creating a candidate does not update AI yet. Senior/Admin approval is still required below.
+            Tạo candidate chưa làm AI học ngay. Vẫn cần Senior Mentor hoặc Admin phê duyệt.
           </p>
         </div>
       ) : (
         <Alert
           type="warning"
           showIcon
-          title="Teacher verification required"
-          description="The backend currently exposes this teacher queue as read-only. A mentor-resolution endpoint is required to persist a correction and remove the ticket from this queue."
+          title="Cần giảng viên xác minh"
+          description="Backend hiện chỉ cho đọc hàng chờ này. Cần endpoint mentor-resolution để lưu nội dung sửa và hoàn tất phản hồi."
         />
       )}
     </article>

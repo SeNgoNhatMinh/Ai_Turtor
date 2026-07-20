@@ -25,7 +25,7 @@ function ImprovePlansSection({
         loading={completingPlanId === planId}
         onClick={() => onComplete(planId)}
       >
-        Mark complete
+        Đánh dấu hoàn tất
       </Button>
     );
   };
@@ -33,8 +33,8 @@ function ImprovePlansSection({
   return (
     <Card
       className="learning-card learning-plan-card"
-      title="Improve Plans"
-      extra={<Button size="small" icon={<ReloadOutlined />} onClick={onReload} loading={loading} disabled={!hasContext}>Reload plans</Button>}
+      title="Kế hoạch cải thiện"
+      extra={<Button size="small" icon={<ReloadOutlined />} onClick={onReload} loading={loading} disabled={!hasContext}>Tải lại</Button>}
     >
       {error && <Alert className="learning-alert" type="warning" showIcon title={error} />}
       {loading ? (
@@ -44,11 +44,11 @@ function ImprovePlansSection({
           {latestPlan && (
             <div className="learning-latest-plan">
               <div>
-                <Text strong>Latest active plan</Text>
+                <Text strong>Kế hoạch đang thực hiện gần nhất</Text>
                 <div className="learning-plan-meta">
-                  <Tag color={getRiskColor(latestPlan.riskLevel)}>{latestPlan.riskLevel || 'LOW'} risk</Tag>
+                  <Tag color={getRiskColor(latestPlan.riskLevel)}>Mức rủi ro: {latestPlan.riskLevel || 'LOW'}</Tag>
                   <Tag>{latestPlan.status || 'ACTIVE'}</Tag>
-                  {latestPlan.generatedAt && <Tag>Generated: {formatLearningDateTime(latestPlan.generatedAt)}</Tag>}
+                  {latestPlan.generatedAt && <Tag>Tạo lúc: {formatLearningDateTime(latestPlan.generatedAt)}</Tag>}
                 </div>
               </div>
               {completeButton(latestPlan)}
@@ -63,19 +63,19 @@ function ImprovePlansSection({
                   <div key={planId || `${plan.status}-${plan.generatedAt}`} className="learning-plan-item">
                     <div className="learning-plan-item-main">
                       <Space wrap>
-                        <span>Improvement Plan</span>
+                        <span>Kế hoạch cải thiện</span>
                         <Tag color={plan.status === 'COMPLETED' ? 'success' : 'processing'}>{plan.status || 'ACTIVE'}</Tag>
-                        <Tag color={getRiskColor(plan.riskLevel)}>{plan.riskLevel || 'LOW'} risk</Tag>
+                        <Tag color={getRiskColor(plan.riskLevel)}>Rủi ro: {plan.riskLevel || 'LOW'}</Tag>
                       </Space>
                       <div className="learning-plan-detail">
                         {plan.weakTopics?.length > 0 && (
                           <div>
-                            <Text strong type="secondary">Focus areas:</Text>
+                            <Text strong type="secondary">Nội dung trọng tâm:</Text>
                             <div>{plan.weakTopics.map((topic) => <Tag key={topic}>{topic}</Tag>)}</div>
                           </div>
                         )}
                         <div>
-                          <Text strong type="secondary">Action items:</Text>
+                          <Text strong type="secondary">Việc cần làm:</Text>
                           <ul>{(plan.planItems || []).map((item) => <li key={item}><Text>{item}</Text></li>)}</ul>
                         </div>
                       </div>
@@ -86,7 +86,7 @@ function ImprovePlansSection({
               })}
             </div>
           ) : (
-            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No active improvement plans." />
+            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Chưa có kế hoạch cải thiện đang hoạt động." />
           )}
         </>
       )}

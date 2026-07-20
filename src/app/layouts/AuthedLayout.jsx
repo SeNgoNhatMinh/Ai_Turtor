@@ -1,6 +1,7 @@
 import Header from '../../components/Header';
 import Sidebar from '../../components/Sidebar';
 import Toast from '../../components/Toast';
+import './AuthedLayout.css';
 
 export default function AuthedLayout({
   activeRole,

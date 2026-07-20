@@ -3,9 +3,9 @@ import { getSafeUserMessage } from '../utils/errorMessages';
 
 export class ApiError extends Error {
   constructor({ message, userMessage, rawMessage, status = 0, code = 'API_ERROR', details = null } = {}) {
-    super(userMessage || message || 'Request failed');
+    super(userMessage || message || 'Yêu cầu thất bại');
     this.name = 'ApiError';
-    this.userMessage = userMessage || message || 'Request failed';
+    this.userMessage = userMessage || message || 'Yêu cầu thất bại';
     this.rawMessage = rawMessage || message || null;
     this.status = status;
     this.code = code;
@@ -13,7 +13,7 @@ export class ApiError extends Error {
   }
 }
 
-export function getUserFacingError(error, fallback = 'Something went wrong. Please try again.') {
+export function getUserFacingError(error, fallback = 'Đã xảy ra lỗi. Vui lòng thử lại.') {
   if (!error) return fallback;
   return getSafeUserMessage(error.userMessage || error.message, fallback);
 }
@@ -40,8 +40,8 @@ async function parseResponse(response, responseType) {
 function normalizeError(error, response, body) {
   if (error?.name === 'AbortError') {
     return new ApiError({
-      message: 'Request timed out. Please try again.',
-      userMessage: 'Request timed out. Please try again.',
+      message: 'Yêu cầu đã hết thời gian chờ. Vui lòng thử lại.',
+      userMessage: 'Yêu cầu đã hết thời gian chờ. Vui lòng thử lại.',
       status: 0,
       code: 'TIMEOUT',
       details: error,
@@ -51,7 +51,7 @@ function normalizeError(error, response, body) {
   if (!response) {
     return new ApiError({
       message: error?.message || 'Network request failed.',
-      userMessage: 'Network request failed. Please check your connection and try again.',
+      userMessage: 'Không thể kết nối tới máy chủ. Hãy kiểm tra mạng và thử lại.',
       status: 0,
       code: 'NETWORK_ERROR',
       details: error,
@@ -67,12 +67,12 @@ function normalizeError(error, response, body) {
 
   const userMessage = (() => {
     if (response.status === 500) {
-      return 'The server had trouble processing this request. Please try again later.';
+      return 'Máy chủ gặp lỗi khi xử lý yêu cầu. Vui lòng thử lại sau.';
     }
     if ([502, 503, 504].includes(response.status)) {
-      return 'The AI Tutor service is temporarily unavailable. Please try again in a moment.';
+      return 'Dịch vụ AI Tutor đang tạm thời gián đoạn. Vui lòng thử lại sau ít phút.';
     }
-    return getSafeUserMessage(message, 'The request could not be completed. Please check your input and try again.');
+    return getSafeUserMessage(message, 'Không thể hoàn tất yêu cầu. Hãy kiểm tra dữ liệu và thử lại.');
   })();
 
   return new ApiError({

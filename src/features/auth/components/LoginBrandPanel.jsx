@@ -7,18 +7,18 @@ const RobotHeadMascot = lazy(() => import('../../../components/RobotHeadMascot')
 const BENEFITS = [
   {
     icon: BookOpen,
-    title: 'Course AI Answers',
-    description: 'Ask questions with course-aware context.',
+    title: 'Hỏi đáp theo môn học',
+    description: 'Đặt câu hỏi với ngữ cảnh từ học liệu của môn.',
   },
   {
     icon: Pencil,
-    title: 'Code Review',
-    description: 'Get guided feedback on programming tasks.',
+    title: 'Kiểm tra mã nguồn',
+    description: 'Nhận hướng dẫn cải thiện bài tập lập trình.',
   },
   {
     icon: GraduationCap,
-    title: '1-on-1 Support',
-    description: 'Escalate complex questions to mentors.',
+    title: 'Hỗ trợ từ giảng viên',
+    description: 'Chuyển câu hỏi phức tạp tới giảng viên phù hợp.',
   },
 ];
 
@@ -28,8 +28,8 @@ function LoginMascotFallback() {
 
 function LoginBrandPanel() {
   return (
-    <section className="login-brand-panel" aria-label="FPT University AI Tutor introduction">
-      <div className="login-brand-kicker">AI-powered learning platform</div>
+    <section className="login-brand-panel" aria-label="Giới thiệu FPT University AI Tutor">
+      <div className="login-brand-kicker">Nền tảng học tập hỗ trợ bởi AI</div>
 
       <div className="login-mascot-stage">
         <div className="login-robot-wrap">
@@ -37,11 +37,11 @@ function LoginBrandPanel() {
             <RobotHeadMascot
               size={210}
               talking
-              ariaLabel="AI robot tutor saying the FPT learning slogan"
+              ariaLabel="Robot AI Tutor giới thiệu thông điệp học tập FPT"
               className="login-robot-head"
             />
           </Suspense>
-          <div className="login-speech-bubble" aria-label="Learning slogan">
+          <div className="login-speech-bubble" aria-label="Thông điệp học tập">
             <span>Học tập chủ động</span>
             <strong>Kiến tạo tương lai</strong>
           </div>
@@ -50,7 +50,7 @@ function LoginBrandPanel() {
 
       <h1><FptWordmark /> University AI Tutor</h1>
       <p>
-        Study smarter with course-aware AI support, guided code feedback, and mentor escalation in one workspace.
+        Học hiệu quả hơn với AI theo môn học, hướng dẫn mã nguồn và hỗ trợ từ giảng viên trong cùng một không gian.
       </p>
 
       <div className="login-benefit-grid">

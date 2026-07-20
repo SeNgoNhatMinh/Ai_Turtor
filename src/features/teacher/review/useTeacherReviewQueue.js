@@ -7,7 +7,13 @@ import { asArray, normalizeAnswerReview, normalizeTeacherInboxItem } from '../..
 import { normalizeAccountRole } from '../../../constants/roles';
 import { canReviewKnowledge } from '../../../utils/permissions';
 
-export function useTeacherReviewQueue({ currentUser, teacherId, courseId, triggerToast }) {
+export function useTeacherReviewQueue({
+  currentUser,
+  teacherId,
+  courseId,
+  triggerToast,
+  includeTeacherInbox = true,
+}) {
   const [escalations, setEscalations] = useState([]);
   const [isTeacherInboxLoading, setIsTeacherInboxLoading] = useState(false);
   const [selectedEscalation, setSelectedEscalation] = useState(null);
@@ -15,6 +21,8 @@ export function useTeacherReviewQueue({ currentUser, teacherId, courseId, trigge
   const [answerReviews, setAnswerReviews] = useState([]);
   const [seniorAnswerReviews, setSeniorAnswerReviews] = useState([]);
   const [isAnswerReviewsLoading, setIsAnswerReviewsLoading] = useState(false);
+  const [resolvedAnswerReviews, setResolvedAnswerReviews] = useState([]);
+  const [isResolvedReviewsLoading, setIsResolvedReviewsLoading] = useState(false);
   const [isTeacherAnswerSubmitting, setIsTeacherAnswerSubmitting] = useState(false);
   const [pendingCandidateActionIds, setPendingCandidateActionIds] = useState([]);
   const [pendingSeniorReviewIds, setPendingSeniorReviewIds] = useState([]);
@@ -23,6 +31,11 @@ export function useTeacherReviewQueue({ currentUser, teacherId, courseId, trigge
   const isSeniorReviewer = canReviewKnowledge(reviewerRole);
 
   const loadTeacherInbox = async () => {
+    if (!includeTeacherInbox) {
+      setEscalations([]);
+      setSelectedEscalation(null);
+      return;
+    }
     setIsTeacherInboxLoading(true);
     try {
       const data = await teacherReviewApi.getTeacherEscalations(teacherId, { courseId });
@@ -33,6 +46,19 @@ export function useTeacherReviewQueue({ currentUser, teacherId, courseId, trigge
       setEscalations([]);
     } finally {
       setIsTeacherInboxLoading(false);
+    }
+  };
+
+  const loadResolvedAnswerReviews = async () => {
+    setIsResolvedReviewsLoading(true);
+    try {
+      const reviews = await teacherReviewApi.getAnswerReviews({ status: 'RESOLVED', courseId });
+      setResolvedAnswerReviews(reviews.map(normalizeAnswerReview));
+    } catch (error) {
+      setResolvedAnswerReviews([]);
+      triggerToast(getUserFacingError(error, 'Không thể tải lịch sử phản hồi đã xử lý.'));
+    } finally {
+      setIsResolvedReviewsLoading(false);
     }
   };
 
@@ -51,7 +77,7 @@ export function useTeacherReviewQueue({ currentUser, teacherId, courseId, trigge
     } catch (error) {
       setAnswerReviews([]);
       setSeniorAnswerReviews([]);
-      triggerToast(getUserFacingError(error, 'Unable to load AI answer reviews.'));
+      triggerToast(getUserFacingError(error, 'Không thể tải phản hồi cần kiểm tra.'));
     } finally {
       setIsAnswerReviewsLoading(false);
     }
@@ -67,7 +93,7 @@ export function useTeacherReviewQueue({ currentUser, teacherId, courseId, trigge
       setCandidates(asArray(data, 'candidates', 'content'));
     } catch (error) {
       setCandidates([]);
-      triggerToast(getUserFacingError(error, 'Unable to load suggested AI answers.'));
+      triggerToast(getUserFacingError(error, 'Không thể tải tri thức được đề xuất.'));
     }
   };
 
@@ -83,7 +109,7 @@ export function useTeacherReviewQueue({ currentUser, teacherId, courseId, trigge
   ) => {
     if (isTeacherAnswerSubmitting || !escalationId || !String(reply || '').trim()) return false;
     setIsTeacherAnswerSubmitting(true);
-    triggerToast('Sending answer...');
+    triggerToast('Đang gửi câu trả lời...');
     const payload = {
       teacherId,
       teacherName: currentUser?.fullName || currentUser?.name || 'Teacher',
@@ -103,7 +129,7 @@ export function useTeacherReviewQueue({ currentUser, teacherId, courseId, trigge
       } else {
         await answerEscalationThroughBackend(escalationId, payload);
       }
-      triggerToast('Answer sent successfully.');
+      triggerToast('Đã gửi câu trả lời chính thức.');
       setEscalations((current) => current.map((item) => (
         item.id === escalationId
           ? {
@@ -121,7 +147,7 @@ export function useTeacherReviewQueue({ currentUser, teacherId, courseId, trigge
       return true;
     } catch (error) {
       console.error('Error sending answer:', error);
-      triggerToast(getUserFacingError(error, 'Unable to send answer. Please try again.'));
+      triggerToast(getUserFacingError(error, 'Không thể gửi câu trả lời. Vui lòng thử lại.'));
       await Promise.allSettled([
         loadTeacherInbox(),
         createKnowledgeCandidate ? loadKnowledgeCandidates() : Promise.resolve(),
@@ -141,7 +167,7 @@ export function useTeacherReviewQueue({ currentUser, teacherId, courseId, trigge
   ) => {
     if (pendingSeniorReviewIds.includes(reviewId)) return false;
     setPendingSeniorReviewIds((current) => [...current, reviewId]);
-    triggerToast('Resolving senior review...');
+    triggerToast('Đang xử lý kiểm duyệt cấp cao...');
     const payload = {
       reviewId,
       seniorReviewerId: teacherId,
@@ -165,12 +191,13 @@ export function useTeacherReviewQueue({ currentUser, teacherId, courseId, trigge
       } else {
         await teacherReviewApi.seniorResolveAnswerReview(reviewId, payload);
       }
-      triggerToast('Senior review resolved.');
+      triggerToast('Đã hoàn tất kiểm duyệt cấp cao.');
       await Promise.all([loadAnswerReviews(), loadKnowledgeCandidates()]);
+      loadResolvedAnswerReviews();
       return true;
     } catch (error) {
       console.error('Error resolving senior review:', error);
-      triggerToast(getUserFacingError(error, 'Unable to resolve senior review.'));
+      triggerToast(getUserFacingError(error, 'Không thể hoàn tất kiểm duyệt cấp cao.'));
       await Promise.allSettled([loadAnswerReviews(), loadKnowledgeCandidates()]);
       return false;
     } finally {
@@ -218,12 +245,12 @@ export function useTeacherReviewQueue({ currentUser, teacherId, courseId, trigge
   const handleCandidateDecision = async (id, decision, note) => {
     if (pendingCandidateActionIds.includes(id)) return false;
     setPendingCandidateActionIds((current) => [...current, id]);
-    triggerToast(decision === 'APPROVE' ? 'Approving suggested AI answer...' : 'Rejecting suggested AI answer...');
+    triggerToast(decision === 'APPROVE' ? 'Đang phê duyệt tri thức đề xuất...' : 'Đang từ chối tri thức đề xuất...');
     try {
       await submitCandidateDecision(id, decision, note);
       triggerToast(decision === 'APPROVE'
-        ? 'Approved and indexed into AI Tutor knowledge.'
-        : 'Suggested AI answer rejected.');
+        ? 'Đã phê duyệt và đưa vào tri thức AI Tutor.'
+        : 'Đã từ chối tri thức đề xuất.');
       setCandidates((current) => current.filter((candidate) => candidate.id !== id));
       await loadKnowledgeCandidates();
       return true;
@@ -231,8 +258,8 @@ export function useTeacherReviewQueue({ currentUser, teacherId, courseId, trigge
       triggerToast(getUserFacingError(
         error,
         decision === 'APPROVE'
-          ? 'Unable to approve suggested AI answer.'
-          : 'Unable to reject suggested AI answer.',
+          ? 'Không thể phê duyệt tri thức đề xuất.'
+          : 'Không thể từ chối tri thức đề xuất.',
       ));
       await Promise.allSettled([loadKnowledgeCandidates()]);
       return false;
@@ -250,16 +277,19 @@ export function useTeacherReviewQueue({ currentUser, teacherId, courseId, trigge
     setCandidates,
     answerReviews,
     seniorAnswerReviews,
+    resolvedAnswerReviews,
     isAnswerReviewsLoading,
+    isResolvedReviewsLoading,
     isTeacherAnswerSubmitting,
     pendingCandidateActionIds,
     pendingSeniorReviewIds,
     loadTeacherInbox,
     loadAnswerReviews,
+    loadResolvedAnswerReviews,
     loadKnowledgeCandidates,
     handleTeacherAnswerEsc,
     handleSeniorResolveReview,
-    handleApproveCandidate: (id, note = 'Approved') => handleCandidateDecision(id, 'APPROVE', note),
-    handleRejectCandidate: (id, reason = 'Rejected by mentor') => handleCandidateDecision(id, 'REJECT', reason),
+    handleApproveCandidate: (id, note = 'Đã phê duyệt') => handleCandidateDecision(id, 'APPROVE', note),
+    handleRejectCandidate: (id, reason = 'Giảng viên đã từ chối') => handleCandidateDecision(id, 'REJECT', reason),
   };
 }

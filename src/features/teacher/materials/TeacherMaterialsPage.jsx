@@ -1,4 +1,6 @@
 import { useEffect } from 'react';
+import PageHeader from '../../../components/common/PageHeader';
+import { uiCopy } from '../../../constants/uiCopy';
 import { useCourseMaterialsController } from '../../../hooks/useCourseMaterialsController';
 import { materialsApi } from '../../../services/materialsApi';
 import { useTeacherDashboard } from '../dashboard/useTeacherDashboard';
@@ -6,6 +8,7 @@ import { findTeacherClass, getClassCourseId, getClassOptionValue } from '../shar
 import TeacherMaterialsView from './TeacherMaterialsView';
 import { useTeacherAssignmentsController } from './useTeacherAssignmentsController';
 import { useTeacherMaterialController } from './useTeacherMaterialController';
+import './TeacherMaterialsPage.css';
 
 export default function TeacherMaterialsPage({
   currentUser,
@@ -29,6 +32,8 @@ export default function TeacherMaterialsPage({
     classId,
     teacherUserId: teacherId,
     onReload: courseMaterialData.loadCourseMaterials,
+    onAccepted: courseMaterialData.upsertCourseMaterial,
+    courseMaterials: courseMaterialData.courseMaterials,
     triggerToast,
   });
 
@@ -75,23 +80,26 @@ export default function TeacherMaterialsPage({
   };
 
   return (
-    <TeacherMaterialsView
-      scope={{
-        courseId,
-        classId,
-        classesList: dashboard.classesList,
-        classesLoading: dashboard.teacherDashboardLoading,
-        onClassChange: handleMaterialClassChange,
-      }}
-      assignments={assignments}
-      materials={materials}
-      teacherStudents={dashboard.teacherStudents}
-      courseMaterials={courseMaterialData.courseMaterials}
-      onReloadCourseMaterials={courseMaterialData.loadCourseMaterials}
-      onDownloadMaterial={courseMaterialData.handleDownloadMaterial}
-      materialApi={materialsApi}
-      triggerToast={triggerToast}
-      currentUser={currentUser}
-    />
+    <div className="portal-section teacher-feature-page">
+      <PageHeader title={uiCopy.teacher.materials.title} description={uiCopy.teacher.materials.subtitle} />
+      <TeacherMaterialsView
+        scope={{
+          courseId,
+          classId,
+          classesList: dashboard.classesList,
+          classesLoading: dashboard.teacherDashboardLoading,
+          onClassChange: handleMaterialClassChange,
+        }}
+        assignments={assignments}
+        materials={materials}
+        teacherStudents={dashboard.teacherStudents}
+        courseMaterials={courseMaterialData.courseMaterials}
+        onReloadCourseMaterials={courseMaterialData.loadCourseMaterials}
+        onDownloadMaterial={courseMaterialData.handleDownloadMaterial}
+        materialApi={materialsApi}
+        triggerToast={triggerToast}
+        currentUser={currentUser}
+      />
+    </div>
   );
 }

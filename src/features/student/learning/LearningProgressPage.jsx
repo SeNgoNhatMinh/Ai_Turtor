@@ -1,6 +1,7 @@
 import LearningProgress from '../../../pages/student/LearningProgress';
 import { useStudentLearningActions } from './useStudentLearningActions';
 import { useStudentLearningController } from './useStudentLearningController';
+import { useStudentNextSteps } from './useStudentNextSteps';
 
 export default function LearningProgressPage({
   studentId,
@@ -26,6 +27,7 @@ export default function LearningProgressPage({
     triggerToast,
   });
   const dashboard = learning.studentDashboard || {};
+  const nextSteps = useStudentNextSteps({ studentId, courseId, classId });
 
   return (
     <LearningProgress
@@ -43,6 +45,12 @@ export default function LearningProgressPage({
       onUnpinSuggestion={learning.handleUnpinImproveSuggestion}
       onStudySuggestion={actions.handleStudySuggestion}
       onCreateQuizFromSuggestion={actions.handleCreateQuizFromSuggestion}
+      consumedSuggestionKeys={actions.consumedSuggestionKeys}
+      nextSteps={nextSteps.items}
+      nextStepsLoading={nextSteps.loading}
+      nextStepsError={nextSteps.error}
+      onRefreshNextSteps={nextSteps.load}
+      onNavigateNextStep={switchTab}
       memorySummary={dashboard.summary}
       recentQuestions={dashboard.recentQuestions || []}
       memoryUpdatedAt={dashboard.updatedAt}

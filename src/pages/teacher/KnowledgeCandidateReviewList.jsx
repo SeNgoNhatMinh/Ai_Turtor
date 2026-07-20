@@ -10,7 +10,7 @@ function KnowledgeCandidateReviewList({
   pendingActionIds = [],
 }) {
   if (candidates.length === 0) {
-    return <div className="no-data-text">No suggested AI answers are waiting for review.</div>;
+    return <div className="no-data-text">Không có tri thức đề xuất đang chờ phê duyệt.</div>;
   }
 
   return candidates.map((cand) => {
@@ -21,11 +21,11 @@ function KnowledgeCandidateReviewList({
     return (
       <div key={cand.id} className="candidate-card-item">
         <span className="badge-cand">
-          {formatKnowledgeCandidateStatus(cand.status)} · {cand.courseId || 'Course knowledge'}
+          {formatKnowledgeCandidateStatus(cand.status)} · {cand.courseId || 'Tri thức môn học'}
         </span>
         <div className="compare-box">
-          <div className="compare-qa"><strong>Question:</strong> {cand.question || '-'}</div>
-          <div className="compare-qa teacher-a"><strong>Suggested answer:</strong> {cand.content || cand.answer || '-'}</div>
+          <div className="compare-qa"><strong>Câu hỏi:</strong> {cand.question || '-'}</div>
+          <div className="compare-qa teacher-a"><strong>Câu trả lời đề xuất:</strong> {cand.content || cand.answer || '-'}</div>
         </div>
 
         {canReviewKnowledgeCandidates ? (
@@ -33,7 +33,7 @@ function KnowledgeCandidateReviewList({
             <div style={{ marginTop: 10, marginBottom: 10 }}>
               <input
                 type="text"
-                placeholder="Required approval note or rejection reason..."
+                placeholder="Ghi chú phê duyệt hoặc lý do từ chối (bắt buộc)..."
                 value={note}
                 onChange={(e) => handleNoteChange(cand.id, e.target.value)}
                 style={{
@@ -56,7 +56,7 @@ function KnowledgeCandidateReviewList({
                   if (succeeded) handleNoteChange(cand.id, '');
                 }}
               >
-                {isPending ? 'Processing...' : 'Approve into AI knowledge'}
+                {isPending ? 'Đang xử lý...' : 'Phê duyệt vào tri thức AI'}
               </button>
               <button
                 type="button"
@@ -67,13 +67,13 @@ function KnowledgeCandidateReviewList({
                   if (succeeded) handleNoteChange(cand.id, '');
                 }}
               >
-                {isPending ? 'Processing...' : 'Reject'}
+                {isPending ? 'Đang xử lý...' : 'Yêu cầu chỉnh sửa'}
               </button>
             </div>
           </>
         ) : (
           <div className="no-data-text" style={{ textAlign: 'left' }}>
-            You can review this suggested answer, but only Admin or Senior Mentor can approve it into AI knowledge.
+            Bạn có thể xem nội dung này, nhưng chỉ Admin hoặc Senior Mentor được phép phê duyệt vào tri thức AI.
           </div>
         )}
       </div>

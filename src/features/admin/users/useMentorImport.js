@@ -7,15 +7,15 @@ export function useMentorImport({ triggerToast }) {
 
   const importMentors = (file) => runLocked('admin:mentor-import', async () => {
     if (!file) return null;
-    triggerToast?.('Importing mentors from Excel...');
+    triggerToast?.('Đang import giảng viên từ Excel...');
     const formData = new FormData();
     formData.append('file', file);
     try {
       const response = await adminUsersApi.importMentors(formData);
-      triggerToast?.('Mentor import completed.');
+      triggerToast?.('Đã hoàn tất import giảng viên.');
       return response?.log || response?.message || null;
     } catch (error) {
-      triggerToast?.(getUserFacingError(error, 'Unable to import mentors.'));
+      triggerToast?.(getUserFacingError(error, 'Không thể import giảng viên.'));
       return null;
     }
   });

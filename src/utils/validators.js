@@ -17,22 +17,22 @@ function sanitizeText(value, maxLength = 1000) {
 
 export function validateEmail(email) {
   const value = sanitizeText(email, LIMITS.emailMax).toLowerCase();
-  if (!value) return { ok: false, message: 'Email address is required.' };
-  if (!EMAIL_RE.test(value)) return { ok: false, message: 'Please enter a valid email address.' };
+  if (!value) return { ok: false, message: 'Email là bắt buộc.' };
+  if (!EMAIL_RE.test(value)) return { ok: false, message: 'Hãy nhập địa chỉ email hợp lệ.' };
   return { ok: true, value };
 }
 
 function validatePassword(password) {
   const value = String(password ?? '');
-  if (value.length < LIMITS.passwordMin) return { ok: false, message: 'Password must be at least 6 characters.' };
-  if (value.length > LIMITS.passwordMax) return { ok: false, message: 'Password is too long.' };
+  if (value.length < LIMITS.passwordMin) return { ok: false, message: 'Mật khẩu phải có ít nhất 6 ký tự.' };
+  if (value.length > LIMITS.passwordMax) return { ok: false, message: 'Mật khẩu quá dài.' };
   return { ok: true, value };
 }
 
 function validateFullName(fullName) {
   const value = sanitizeText(fullName, LIMITS.nameMax);
-  if (!value) return { ok: false, message: 'Full name is required.' };
-  if (value.length < 2) return { ok: false, message: 'Full name must be at least 2 characters.' };
+  if (!value) return { ok: false, message: 'Họ và tên là bắt buộc.' };
+  if (value.length < 2) return { ok: false, message: 'Họ và tên phải có ít nhất 2 ký tự.' };
   return { ok: true, value };
 }
 
@@ -70,10 +70,10 @@ export function validateFeedbackText(input) {
 }
 
 export function validateUploadFile(file, allowedTypes = []) {
-  if (!file) return { ok: false, message: 'Please choose a file first.' };
-  if (file.size > LIMITS.uploadMaxBytes) return { ok: false, message: 'File is too large. Maximum size is 25MB.' };
+  if (!file) return { ok: false, message: 'Hãy chọn tệp trước.' };
+  if (file.size > LIMITS.uploadMaxBytes) return { ok: false, message: 'Tệp quá lớn. Dung lượng tối đa là 25 MB.' };
   if (allowedTypes.length && !allowedTypes.includes(file.type)) {
-    return { ok: false, message: 'This file type is not supported.' };
+    return { ok: false, message: 'Định dạng tệp này không được hỗ trợ.' };
   }
   return { ok: true, value: file };
 }

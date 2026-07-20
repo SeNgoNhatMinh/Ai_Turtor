@@ -158,6 +158,47 @@
   border-top: 1px solid var(--color-card-border);
 }
 
+.teacher-review-single-column {
+  display: block;
+}
+
+.answer-review-view-switch {
+  display: inline-flex;
+  gap: 2px;
+  margin-bottom: 14px;
+  padding: 3px;
+  border: 1px solid var(--color-card-border);
+  border-radius: 8px;
+  background: #f5f5f4;
+}
+
+.answer-review-view-switch button {
+  padding: 6px 11px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.answer-review-view-switch button.active {
+  background: #ffffff;
+  color: var(--color-text-main);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 8%);
+}
+
+.answer-review-history-detail {
+  display: grid;
+  gap: 8px;
+}
+
+.answer-review-history-detail > span {
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
 .app-container.dark .answer-review-card {
   border-color: #2a2a2a;
   background: #0f0f0f;
@@ -182,6 +223,16 @@
 .app-container.dark .answer-review-text--correction {
   border-color: #256d3b;
   background: #0d2215;
+}
+
+.app-container.dark .answer-review-view-switch {
+  border-color: #303030;
+  background: #171717;
+}
+
+.app-container.dark .answer-review-view-switch button.active {
+  background: #2a2a2a;
+  color: #ffffff;
 }
 
 .app-container.dark .answer-review-card__header h4,

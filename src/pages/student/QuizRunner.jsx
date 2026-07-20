@@ -30,10 +30,8 @@ export default function QuizRunner({ quiz, onSubmit, submitting = false }) {
     return Boolean(quizSessionId && questions.length && questions.every((q, index) => answers[getQuestionName(q, index)]));
   }, [answers, questions, quizSessionId]);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!canSubmit) return;
-    
-    // Show Lottie success animation shortly before passing upstream
     setShowSuccess(true);
     
     const payload = {
@@ -43,10 +41,11 @@ export default function QuizRunner({ quiz, onSubmit, submitting = false }) {
       })),
     };
 
-    // Small delay to let the animation play
-    setTimeout(() => {
-      onSubmit?.(quizSessionId, payload);
-    }, 1800);
+    try {
+      await onSubmit?.(quizSessionId, payload);
+    } finally {
+      setShowSuccess(false);
+    }
   };
 
   const handleAnswerChange = (questionName, value) => {
@@ -60,19 +59,19 @@ export default function QuizRunner({ quiz, onSubmit, submitting = false }) {
       <Card className="bg-card text-card-foreground shadow-sm border-b-4 border-b-primary/20">
         <CardHeader>
           <CardTitle className="text-3xl font-bold tracking-tight text-primary">
-            {quiz.title || 'Practice quiz'}
+            {quiz.title || 'Quiz luyện tập'}
           </CardTitle>
           <p className="text-muted-foreground text-sm mt-2">
             {isTeacherOnlineQuiz
               ? gradingMode === 'TEACHER_MANUAL'
-                ? 'Your choices will be saved. The teacher will review the final score.'
-                : 'Your choices will be checked by the backend. The teacher confirms the final score.'
-              : 'Answers remain hidden until you submit the quiz.'}
+                ? 'Lựa chọn của bạn sẽ được lưu. Giảng viên sẽ chấm và xác nhận điểm cuối cùng.'
+                : 'Backend sẽ đối chiếu đáp án và đưa điểm gợi ý. Giảng viên xác nhận điểm cuối cùng.'
+              : 'Đáp án được ẩn cho đến khi bạn nộp quiz.'}
           </p>
         </CardHeader>
         <CardContent>
           <div className="flex items-center space-x-4 mt-2">
-            <span className="text-sm font-semibold text-primary">{answeredCount} of {questions.length} answered</span>
+            <span className="text-sm font-semibold text-primary">Đã trả lời {answeredCount}/{questions.length} câu</span>
             <Progress value={progressPercent} className="flex-1 h-2" />
           </div>
         </CardContent>
@@ -83,9 +82,9 @@ export default function QuizRunner({ quiz, onSubmit, submitting = false }) {
           <CardContent className="flex items-start space-x-3 pt-6">
             <AlertCircle className="w-6 h-6 text-amber-600" />
             <div>
-              <h4 className="font-semibold text-amber-700 dark:text-amber-500">No quiz questions returned</h4>
+              <h4 className="font-semibold text-amber-700 dark:text-amber-500">Backend chưa trả câu hỏi quiz</h4>
               <p className="text-sm text-amber-600/80 dark:text-amber-500/80 mt-1">
-                Not enough indexed course material may be available to generate this quiz.
+                Có thể chưa đủ tài liệu môn học đã lập chỉ mục để tạo quiz này.
               </p>
             </div>
           </CardContent>
@@ -97,8 +96,8 @@ export default function QuizRunner({ quiz, onSubmit, submitting = false }) {
           <div className="w-72 h-72 flex items-center justify-center">
             <CheckCircle2 className="w-32 h-32 text-primary animate-bounce mx-auto" />
           </div>
-          <h3 className="text-2xl font-bold mt-6 text-primary animate-pulse">Submitting your quiz...</h3>
-          <p className="text-muted-foreground mt-2">Great job completing the practice!</p>
+          <h3 className="text-2xl font-bold mt-6 text-primary animate-pulse">Đang nộp quiz...</h3>
+          <p className="text-muted-foreground mt-2">Bài làm đang được gửi tới backend.</p>
         </Card>
       ) : (
         <div className="space-y-6">
@@ -142,7 +141,7 @@ export default function QuizRunner({ quiz, onSubmit, submitting = false }) {
                 disabled={!canSubmit || submitting}
                 className="w-full sm:w-auto px-10 py-6 text-lg rounded-full shadow-lg hover:shadow-xl transition-all"
               >
-                {submitting ? "Submitting..." : "Submit Quiz"}
+                {submitting ? 'Đang nộp...' : 'Nộp quiz'}
               </Button>
             </div>
           )}

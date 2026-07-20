@@ -29,22 +29,22 @@ export const n8nService = {
       ...payload,
       mode: normalizeHarnessMode(payload?.mode),
     }, options);
-    return ensureHarnessSuccess(response, 'n8n answer review flow failed.');
+    return ensureHarnessSuccess(response, 'Không thể hoàn tất luồng kiểm tra câu trả lời.');
   },
 
   async submitTeacherAnswer(payload, options = {}) {
     const response = await postN8n('/teacher-answer-escalation', payload, options);
-    return ensureHarnessSuccess(response, 'n8n teacher answer flow failed.');
+    return ensureHarnessSuccess(response, 'Không thể hoàn tất luồng trả lời của giảng viên.');
   },
 
   async submitSeniorReviewResolution(payload, options = {}) {
     const response = await postN8n('/senior-resolve-answer-review', payload, options);
-    return ensureHarnessSuccess(response, 'n8n senior review resolution flow failed.');
+    return ensureHarnessSuccess(response, 'Không thể hoàn tất luồng kiểm duyệt cấp cao.');
   },
 
   async submitSeniorApproval(payload, options = {}) {
     const response = await postN8n('/senior-knowledge-approval', payload, options);
-    return ensureHarnessSuccess(response, 'n8n senior approval flow failed.');
+    return ensureHarnessSuccess(response, 'Không thể hoàn tất luồng phê duyệt tri thức.');
   },
 
   async generateQuiz(payload, options = {}) {
@@ -52,7 +52,7 @@ export const n8nService = {
       timeoutMs: N8N_QUIZ_TIMEOUT_MS,
       ...options,
     });
-    return ensureHarnessSuccess(response, 'n8n quiz generation flow failed.');
+    return ensureHarnessSuccess(response, 'Không thể hoàn tất luồng tạo quiz.');
   },
 
   async submitQuiz(payload, options = {}) {
@@ -60,7 +60,7 @@ export const n8nService = {
       timeoutMs: N8N_QUIZ_TIMEOUT_MS,
       ...options,
     });
-    return ensureHarnessSuccess(response, 'n8n quiz submission flow failed.');
+    return ensureHarnessSuccess(response, 'Không thể hoàn tất luồng nộp quiz.');
   },
 
   async gradeAssignmentSubmission(payload, options = {}) {
@@ -68,11 +68,11 @@ export const n8nService = {
       timeoutMs: N8N_ASSIGNMENT_GRADING_TIMEOUT_MS,
       ...options,
     });
-    const result = ensureHarnessSuccess(response, 'n8n assignment grading flow failed.');
+    const result = ensureHarnessSuccess(response, 'Không thể hoàn tất luồng AI hỗ trợ chấm bài.');
     if (!(result.id || result.submissionId) || !result.aiGradingStatus) {
       const error = new Error('n8n assignment grading returned an invalid receipt.');
       error.name = 'N8nError';
-      error.userMessage = 'AI grading did not return a confirmed result. No final score was saved.';
+      error.userMessage = 'AI không trả về kết quả chấm đã xác nhận. Chưa có điểm cuối nào được lưu.';
       error.details = result;
       throw error;
     }
@@ -83,35 +83,35 @@ export const n8nService = {
     return ensureHarnessSuccess(await postN8n('/v2-coverage-analyze', payload, {
       ...options,
       includeAuthTokenInBody: false,
-    }), 'Tutor V2 coverage workflow failed.');
+    }), 'Không thể hoàn tất phân tích độ phủ Tutor V2.');
   },
 
   async submitTutorV2GoldQa(payload, options = {}) {
     return ensureHarnessSuccess(await postN8n('/v2-gold-qa-submit', payload, {
       ...options,
       includeAuthTokenInBody: false,
-    }), 'Tutor V2 Gold Q&A workflow failed.');
+    }), 'Không thể hoàn tất luồng Gold Q&A của Tutor V2.');
   },
 
   async submitTutorV2Rubric(payload, options = {}) {
     return ensureHarnessSuccess(await postN8n('/v2-rubric-submit', payload, {
       ...options,
       includeAuthTokenInBody: false,
-    }), 'Tutor V2 rubric workflow failed.');
+    }), 'Không thể hoàn tất luồng Rubric của Tutor V2.');
   },
 
   async approveTutorV2GoldQa(payload, options = {}) {
     return ensureHarnessSuccess(await postN8n('/v2-gold-qa-approve', payload, {
       ...options,
       includeAuthTokenInBody: false,
-    }), 'Tutor V2 Gold Q&A approval workflow failed.');
+    }), 'Không thể phê duyệt Gold Q&A của Tutor V2.');
   },
 
   async approveTutorV2Rubric(payload, options = {}) {
     return ensureHarnessSuccess(await postN8n('/v2-rubric-approve', payload, {
       ...options,
       includeAuthTokenInBody: false,
-    }), 'Tutor V2 rubric approval workflow failed.');
+    }), 'Không thể phê duyệt Rubric của Tutor V2.');
   },
 
   async runTutorV2Evaluation(payload, options = {}) {
@@ -119,6 +119,6 @@ export const n8nService = {
       timeoutMs: N8N_TUTOR_V2_TIMEOUT_MS,
       ...options,
       includeAuthTokenInBody: false,
-    }), 'Tutor V2 evaluation workflow failed.');
+    }), 'Không thể chạy Evaluation của Tutor V2.');
   },
 };

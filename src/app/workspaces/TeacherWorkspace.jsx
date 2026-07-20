@@ -11,7 +11,7 @@ const teacherPages = {
 };
 
 function TeacherPageFallback() {
-  return <AsyncState loading loadingLabel="Loading teacher page..." loadingRows={6} />;
+  return <AsyncState loading loadingLabel="Đang tải trang giảng viên..." loadingRows={6} />;
 }
 
 export default function TeacherWorkspace({
@@ -22,6 +22,7 @@ export default function TeacherWorkspace({
   classId,
   setClassId,
   triggerToast,
+  switchTab,
 }) {
   const Page = teacherPages[activeTab];
   const teacherId = currentUser?.userId || currentUser?.id || '';
@@ -38,6 +39,7 @@ export default function TeacherWorkspace({
         classId={classId}
         setClassId={setClassId}
         triggerToast={triggerToast}
+        switchTab={switchTab}
       />
     </Suspense>
   );

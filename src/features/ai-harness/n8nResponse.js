@@ -66,7 +66,7 @@ function createHarnessResponseError(message, details = {}) {
   return error;
 }
 
-export function ensureHarnessSuccess(response, fallbackMessage = 'AI workflow failed.') {
+export function ensureHarnessSuccess(response, fallbackMessage = 'Luồng AI thất bại.') {
   const normalized = unwrapResponse(response);
   if (!normalized || typeof normalized !== 'object') {
     throw createHarnessResponseError(fallbackMessage, {
@@ -87,13 +87,13 @@ export function ensureHarnessSuccess(response, fallbackMessage = 'AI workflow fa
 export function normalizeHarnessChatResponse(response = {}, fallbackContext = {}) {
   const normalized = unwrapResponse(response);
   if (!normalized || typeof normalized !== 'object') {
-    throw createHarnessResponseError('AI chat workflow returned an invalid response.', {
+    throw createHarnessResponseError('Luồng chat AI trả về dữ liệu không hợp lệ.', {
       code: 'N8N_CHAT_INVALID_RESPONSE',
       response: normalized,
     });
   }
   if (isFailedResponse(normalized)) {
-    throw createHarnessResponseError('AI chat workflow failed.', {
+    throw createHarnessResponseError('Luồng chat AI thất bại.', {
       code: 'N8N_CHAT_FLOW_FAILED',
       rawMessage: normalized.message || normalized.error || null,
       response: normalized,

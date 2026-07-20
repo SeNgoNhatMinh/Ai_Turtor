@@ -15,6 +15,7 @@ const EVENT_DEDUPE_WINDOW_MS = 1500;
 export default function RealtimeEventsProvider({ enabled, sessionKey = '', children }) {
   const subscribersRef = useRef(new Set());
   const [connectionState, setConnectionState] = useState('DISCONNECTED');
+  const [connectionVersion, setConnectionVersion] = useState(0);
 
   const subscribe = useCallback((handler) => {
     subscribersRef.current.add(handler);
@@ -68,6 +69,7 @@ export default function RealtimeEventsProvider({ enabled, sessionKey = '', child
       socket.onopen = () => {
         reconnectAttempt = 0;
         setConnectionState('CONNECTED');
+        setConnectionVersion((current) => current + 1);
         window.clearInterval(pingTimer);
         pingTimer = window.setInterval(() => {
           if (socket?.readyState === WebSocket.OPEN) {
@@ -126,7 +128,10 @@ export default function RealtimeEventsProvider({ enabled, sessionKey = '', child
     };
   }, [enabled, sessionKey]);
 
-  const value = useMemo(() => ({ connectionState, subscribe }), [connectionState, subscribe]);
+  const value = useMemo(
+    () => ({ connectionState, connectionVersion, subscribe }),
+    [connectionState, connectionVersion, subscribe],
+  );
   return (
     <RealtimeEventsContext.Provider value={value}>
       {children}

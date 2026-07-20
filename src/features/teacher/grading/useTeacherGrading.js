@@ -11,7 +11,7 @@ import {
 } from '../../../services/normalizers';
 import { validateAnswerKeyFile } from '../../../utils/assignmentFiles';
 import { useMutationLock } from '../../../hooks/useMutationLock';
-import { useRealtimeEvent } from '../../realtime/realtimeContext';
+import { useRealtimeEvent, useRealtimeReconnect } from '../../realtime/realtimeContext';
 import { REALTIME_EVENT_TYPES } from '../../realtime/realtimeEvents';
 
 const EMPTY_ATTEMPT_PAGE = {
@@ -135,18 +135,26 @@ export function useTeacherGrading({ teacherId, courseId, classId, teacherStudent
       console.error('Failed to load teacher quiz attempts', error);
       setQuizSubmissions([]);
       setQuizAttemptPage(EMPTY_ATTEMPT_PAGE);
-      triggerToast(getUserFacingError(error, 'Unable to load quiz attempts for review.'));
+      triggerToast(getUserFacingError(error, 'Không thể tải danh sách lượt làm quiz cần duyệt.'));
     } finally {
       setIsQuizSubmissionsLoading(false);
     }
   }, [classId, courseId, quizPage, quizReviewStatus, teacherId, triggerToast]);
 
+  useRealtimeReconnect(() => {
+    if (teacherId && courseId && classId) {
+      loadTeacherSubmissions();
+      loadQuizSubmissions();
+    }
+  });
+
   useEffect(() => {
     const controller = new AbortController();
-    // This effect owns the lifecycle of the remote attempt-list request.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    loadQuizSubmissions({ signal: controller.signal });
-    return () => controller.abort();
+    const timer = window.setTimeout(() => loadQuizSubmissions({ signal: controller.signal }), 0);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
   }, [loadQuizSubmissions]);
 
   const setQuizReviewStatus = (status) => {
@@ -166,7 +174,7 @@ export function useTeacherGrading({ teacherId, courseId, classId, teacherStudent
       setSelectedTeacherSub(merged);
       return merged;
     } catch (error) {
-      triggerToast(getUserFacingError(error, 'Unable to load this quiz attempt.'));
+      triggerToast(getUserFacingError(error, 'Không thể tải lượt làm quiz này.'));
       return attempt;
     } finally {
       setLoadingQuizDetailId('');
@@ -181,7 +189,7 @@ export function useTeacherGrading({ teacherId, courseId, classId, teacherStudent
           reviewedScore: Number(reviewedScore),
           feedback,
         });
-        triggerToast('Quiz review saved.');
+        triggerToast('Đã lưu kết quả duyệt quiz.');
         setQuizSubmissions((current) => current.map((quiz) => (
           quiz.id === quizSessionId
             ? {
@@ -208,7 +216,7 @@ export function useTeacherGrading({ teacherId, courseId, classId, teacherStudent
         }
         return true;
       } catch (error) {
-        triggerToast(getUserFacingError(error, 'Unable to save quiz review.'));
+        triggerToast(getUserFacingError(error, 'Không thể lưu kết quả duyệt quiz.'));
         return false;
       }
     });
@@ -216,7 +224,7 @@ export function useTeacherGrading({ teacherId, courseId, classId, teacherStudent
 
   const handleTeacherGradeSubmit = async (submissionId, score, feedback, weakTopics) => {
     return runLocked(`assignment-review:${submissionId}`, async () => {
-      triggerToast('Saving grading results...');
+      triggerToast('Đang lưu kết quả chấm bài...');
       try {
         await assignmentApi.gradeSubmission(submissionId, {
           teacherId,
@@ -224,12 +232,12 @@ export function useTeacherGrading({ teacherId, courseId, classId, teacherStudent
           teacherFeedback: feedback,
           weakTopics,
         });
-        triggerToast('Submission graded successfully.');
+        triggerToast('Đã lưu điểm bài nộp.');
         await loadTeacherSubmissions();
         return true;
       } catch (error) {
         console.error('Error grading submission:', error);
-        triggerToast(getUserFacingError(error, 'Unable to save grading results.'));
+        triggerToast(getUserFacingError(error, 'Không thể lưu kết quả chấm bài.'));
         return false;
       }
     });
@@ -247,11 +255,11 @@ export function useTeacherGrading({ teacherId, courseId, classId, teacherStudent
       setAnswerKeyUploadingId(assignmentId);
       try {
         await assignmentApi.uploadAssignmentAnswerKey(assignmentId, teacherId, file);
-        triggerToast('Answer key uploaded. It remains private to the teacher and backend.');
+        triggerToast('Đã tải đáp án. Tệp này chỉ giảng viên và backend được truy cập.');
         await loadTeacherSubmissions();
         return true;
       } catch (error) {
-        triggerToast(getUserFacingError(error, 'Unable to upload the answer key.'));
+        triggerToast(getUserFacingError(error, 'Không thể tải đáp án.'));
         return false;
       } finally {
         setAnswerKeyUploadingId('');
@@ -263,7 +271,7 @@ export function useTeacherGrading({ teacherId, courseId, classId, teacherStudent
     const submissionId = submission?.submissionId || submission?.id;
     if (!submissionId || !teacherId) return false;
     if (!submission?.answerKeyUploaded) {
-      triggerToast('Upload an answer key before requesting AI-assisted grading.');
+      triggerToast('Hãy tải đáp án trước khi yêu cầu AI hỗ trợ chấm.');
       return false;
     }
 
@@ -275,11 +283,11 @@ export function useTeacherGrading({ teacherId, courseId, classId, teacherStudent
         setSelectedTeacherSub((current) => current?.id === submissionId
           ? { ...current, ...result, id: submissionId, submissionId }
           : current);
-        triggerToast('AI grading suggestion is ready. Review it before saving the final score.');
+        triggerToast('Điểm gợi ý của AI đã sẵn sàng. Hãy kiểm tra trước khi lưu điểm cuối.');
         await loadTeacherSubmissions();
         return true;
       } catch (error) {
-        triggerToast(getUserFacingError(error, 'AI-assisted grading could not be completed. No final score was saved.'));
+        triggerToast(getUserFacingError(error, 'AI không thể hoàn tất gợi ý chấm bài. Chưa có điểm cuối nào được lưu.'));
         return false;
       } finally {
         setAiGradingSubmissionId('');
