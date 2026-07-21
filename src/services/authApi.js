@@ -1,5 +1,6 @@
 import { API_BASE_URL, request } from './apiClient';
 import { setAuthToken } from '../features/auth/services/tokenStorage';
+import { normalizeLoginResponse } from '../features/auth/services/authResponse';
 
 export const authApi = {
   async login(email, password) {
@@ -8,10 +9,9 @@ export const authApi = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password })
     });
-    if (res && res.token) {
-      setAuthToken(res.token);
-    }
-    return res;
+    const normalized = normalizeLoginResponse(res);
+    if (normalized.token) setAuthToken(normalized.token);
+    return normalized.user;
   },
 
   async register(userData) {

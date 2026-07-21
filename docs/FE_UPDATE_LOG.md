@@ -1,5 +1,19 @@
 # Frontend Update Log
 
+# 2026-07-21 - Fix Deployed Login Role Routing
+
+- Fixed the production login bug where an absent or wrapped role was silently normalized to `STUDENT`, causing every account to enter the Student portal.
+- Added a dedicated auth response adapter for flat and wrapped response shapes, including `data`, `result`, `payload`, `user`, and `account` envelopes.
+- Resolve the canonical account role from the JWT when available and support `STUDENT`, `TEACHER`, `SENIOR_MENTOR`, and `ADMIN` only.
+- Removed the unsafe missing-role fallback. An unsupported login response now fails closed with a friendly error instead of granting Student UI access.
+- Repair stale persisted sessions from the signed JWT; discard unverified legacy sessions that have no trustworthy role.
+- Added regression coverage for wrapped responses, JWT-only roles, conflicting body/JWT roles, missing roles, and stale session restoration.
+
+**Tested**
+- `npm run check`: pass (`89` contract tests, `82` component/unit tests, ESLint and production build).
+- `npm run dead-code`: pass.
+- `npm run test:e2e -- --workers=2`: pass (`18/18`, desktop and mobile).
+
 # 2026-07-20 - Split Oversized Teacher And Admin Screens
 
 - Reduced `pages/teacher/QuizAssignments.jsx` from 579 lines to a thin composition facade; moved assignment loading, class scope, draft save/delete and publish mutations into `useQuizAssignmentsController`.
