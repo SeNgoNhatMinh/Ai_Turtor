@@ -28,6 +28,43 @@ export function sortSessionsByActivity(items) {
   ));
 }
 
+const hasSessionChanged = (before, after) => (
+  before?.lastMessageAt !== after?.lastMessageAt
+  || before?.updatedAt !== after?.updatedAt
+  || Number(before?.messageCount || 0) !== Number(after?.messageCount || 0)
+  || getSessionQuestionCount(before) !== getSessionQuestionCount(after)
+);
+
+export function resolveCanonicalConversation({
+  responseConversationId,
+  previousSessionId,
+  sessionsBefore = [],
+  sessionsAfter = [],
+}) {
+  const before = Array.isArray(sessionsBefore) ? sessionsBefore : [];
+  const after = sortSessionsByActivity(sessionsAfter);
+  if (after.length === 0) return null;
+
+  const directMatch = after.find((session) => session.id === responseConversationId);
+  if (directMatch) return directMatch;
+
+  const beforeById = new Map(before.map((session) => [session.id, session]));
+  const newlyCreated = after.find((session) => !beforeById.has(session.id));
+  if (newlyCreated) return newlyCreated;
+
+  const updated = after.find((session) => {
+    const previous = beforeById.get(session.id);
+    return previous && hasSessionChanged(previous, session);
+  });
+  if (updated) return updated;
+
+  if (previousSessionId && responseConversationId === previousSessionId) {
+    return after.find((session) => session.id === previousSessionId) || null;
+  }
+
+  return null;
+}
+
 const startOfDay = (date) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
 
 const getDayDiff = (date) => {

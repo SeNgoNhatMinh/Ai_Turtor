@@ -1,0 +1,268 @@
+/* ================================================
+   Ant Design Placeholder & Upload Override
+   (Materials & Assignments student page)
+   ================================================ */
+
+/* Placeholder text — readable warm-gray instead of default faded gray */
+.ant-input::placeholder,
+.ant-input-affix-wrapper input::placeholder,
+textarea.ant-input::placeholder,
+.ant-input-textarea textarea::placeholder {
+    color: #8A95A3 !important;
+    opacity: 1;
+    font-style: italic;
+}
+
+/* Focused placeholder stays visible */
+.ant-input:focus::placeholder,
+textarea.ant-input:focus::placeholder {
+    color: #A0A9B4 !important;
+}
+
+/* Upload drag area text */
+.ant-upload-text {
+    color: #374151 !important;
+    font-weight: 600 !important;
+    font-size: 14px !important;
+}
+
+.ant-upload-hint {
+    color: #6B7280 !important;
+    font-size: 12px !important;
+}
+
+/* Ant Dragger border matches FPT theme */
+.ant-upload-drag {
+    border-color: rgba(243, 112, 33, 0.35) !important;
+    border-radius: 10px !important;
+    background: rgba(243, 112, 33, 0.02) !important;
+    transition: border-color 0.2s, background 0.2s;
+}
+
+.ant-upload-drag:hover {
+    border-color: #F37021 !important;
+    background: rgba(243, 112, 33, 0.05) !important;
+}
+
+.ant-upload-drag-icon .anticon {
+    color: #F37021 !important;
+}
+
+/* Ant Table header in materials tab */
+.portal-section .ant-table-thead > tr > th {
+    background: rgba(243, 112, 33, 0.06) !important;
+    color: #374151 !important;
+    font-weight: 700 !important;
+    font-size: 13px !important;
+    border-bottom: 2px solid rgba(243, 112, 33, 0.2) !important;
+}
+
+/* Tab bar styling */
+.portal-section .ant-tabs-card > .ant-tabs-nav .ant-tabs-tab {
+    background: #F4F4F4;
+    border-color: #E5E5E0;
+    color: #6B7280;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.portal-section .ant-tabs-card > .ant-tabs-nav .ant-tabs-tab-active {
+    background: white;
+    border-bottom-color: white;
+    border-top-color: #E5E5E0 !important;
+    color: #202123 !important;
+    font-weight: 700;
+}
+
+.portal-section .ant-tabs-card > .ant-tabs-nav .ant-tabs-tab:hover {
+    color: #202123;
+}
+
+/* Mascot sidebar responsiveness */
+@media (max-width: 900px) {
+    .chat-mascot-sidebar {
+        display: none !important;
+    }
+}
+
+.ant-list-items, .ant-list-container {
+    padding-left: 10px;
+}
+
+.portal-loading {
+    min-height: 280px;
+    display: grid;
+    place-items: center;
+    color: var(--text-secondary);
+}
+
+/* App-only neutral polish. Login keeps its FPT orange hero treatment. */
+.app-container.light {
+    background: #F7F7F5 !important;
+}
+
+.app-container.light .top-nav,
+.app-container.light .main-sidebar,
+.app-container.light .content-wrapper {
+    background-color: #F7F7F5;
+}
+
+.app-container.light .top-nav,
+.app-container.light .main-sidebar,
+.app-container.light .ant-card,
+.app-container.light .glass-card,
+.app-container.light .panel-card,
+.app-container.light .stats-card {
+    border-color: #E5E5E0 !important;
+    box-shadow: none !important;
+}
+
+.app-container.light .ant-card,
+.app-container.light .glass-card,
+.app-container.light .panel-card,
+.app-container.light .stats-card {
+    background: #FFFFFF !important;
+}
+
+.app-container.light .main-sidebar .ant-menu-item-selected {
+    background: #ECECEC !important;
+    color: #202123 !important;
+    box-shadow: none !important;
+}
+
+.app-container.light .main-sidebar .ant-menu-item-selected,
+.app-container.light .main-sidebar .ant-menu-item-selected *,
+.app-container.light .main-sidebar .ant-menu-item-selected .ant-menu-title-content,
+.app-container.light .main-sidebar .ant-menu-item-selected .ant-menu-title-content *,
+.app-container.light .main-sidebar .ant-menu-item-selected .ant-menu-item-icon,
+.app-container.light .main-sidebar .ant-menu-item-selected svg {
+    color: #202123 !important;
+    fill: none;
+    stroke: currentColor !important;
+}
+
+.app-container.light .main-sidebar .ant-menu-light .ant-menu-item,
+.app-container.light .main-sidebar .ant-menu-light .ant-menu-item .ant-menu-title-content,
+.app-container.light .main-sidebar .ant-menu-light .ant-menu-item .ant-menu-item-icon,
+.app-container.light .main-sidebar .ant-menu-light .ant-menu-item svg {
+    color: #374151 !important;
+}
+
+.app-container.light .main-sidebar .ant-menu-light .ant-menu-item-selected,
+.app-container.light .main-sidebar .ant-menu-light .ant-menu-item-selected .ant-menu-title-content,
+.app-container.light .main-sidebar .ant-menu-light .ant-menu-item-selected .ant-menu-item-icon,
+.app-container.light .main-sidebar .ant-menu-light .ant-menu-item-selected svg {
+    color: #202123 !important;
+}
+
+.app-container.light .main-sidebar .ant-menu-item:hover {
+    background: #EFEFEC !important;
+    color: #202123 !important;
+}
+
+.sidebar-nav-tooltip .ant-tooltip-inner,
+.sidebar-nav-tooltip.ant-tooltip .ant-tooltip-inner,
+.sidebar-nav-tooltip .ant-tooltip-content .ant-tooltip-inner {
+    background: #FFFFFF !important;
+    color: #374151 !important;
+    border: 1px solid #E5E7EB;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12);
+    font-weight: 600;
+}
+
+.sidebar-tooltip-text,
+.sidebar-nav-tooltip .sidebar-tooltip-text,
+.sidebar-nav-tooltip.ant-tooltip .sidebar-tooltip-text {
+    color: #202123 !important;
+    font-weight: 700;
+    line-height: 1.35;
+}
+
+.sidebar-nav-tooltip .ant-tooltip-inner *,
+.sidebar-nav-tooltip.ant-tooltip .ant-tooltip-inner * {
+    color: #374151 !important;
+}
+
+.sidebar-nav-tooltip .ant-tooltip-inner .sidebar-tooltip-text,
+.sidebar-nav-tooltip.ant-tooltip .ant-tooltip-inner .sidebar-tooltip-text {
+    color: #202123 !important;
+}
+
+.sidebar-nav-tooltip .ant-tooltip-arrow::before,
+.sidebar-nav-tooltip.ant-tooltip .ant-tooltip-arrow::before {
+    background: #FFFFFF !important;
+    border: 1px solid #E5E7EB;
+}
+
+.app-container.dark .sidebar-nav-tooltip .ant-tooltip-inner,
+body:has(.app-container.dark) .sidebar-nav-tooltip .ant-tooltip-inner,
+body:has(.app-container.dark) .sidebar-nav-tooltip.ant-tooltip .ant-tooltip-inner {
+    background: #202123 !important;
+    color: #F9FAFB !important;
+    border-color: #3F3F46;
+}
+
+.app-container.dark .sidebar-nav-tooltip .ant-tooltip-inner *,
+body:has(.app-container.dark) .sidebar-nav-tooltip .ant-tooltip-inner *,
+body:has(.app-container.dark) .sidebar-nav-tooltip.ant-tooltip .ant-tooltip-inner * {
+    color: #F9FAFB !important;
+}
+
+.app-container.dark .sidebar-nav-tooltip .ant-tooltip-arrow::before,
+body:has(.app-container.dark) .sidebar-nav-tooltip .ant-tooltip-arrow::before,
+body:has(.app-container.dark) .sidebar-nav-tooltip.ant-tooltip .ant-tooltip-arrow::before {
+    background: #202123 !important;
+    border-color: #3F3F46;
+}
+
+.app-container.light .ant-table-thead > tr > th {
+    background: #F4F4F4 !important;
+    color: #202123 !important;
+    border-bottom-color: #E5E5E0 !important;
+}
+
+.app-container.light .ant-tabs-card > .ant-tabs-nav .ant-tabs-tab {
+    background: #F4F4F4 !important;
+    border-color: #E5E5E0 !important;
+    color: #565869 !important;
+}
+
+.app-container.light .ant-tabs-card > .ant-tabs-nav .ant-tabs-tab-active {
+    background: #FFFFFF !important;
+    border-top-color: #E5E5E0 !important;
+    color: #202123 !important;
+}
+
+.app-container.light .ant-upload-drag {
+    background: #FAFAFA !important;
+    border-color: #E5E5E0 !important;
+}
+
+.app-container.light .ant-upload-drag:hover,
+.app-container.light .ant-input:focus,
+.app-container.light .ant-input-focused,
+.app-container.light .ant-select-focused .ant-select-selector {
+    border-color: #BDBDB8 !important;
+    box-shadow: 0 0 0 2px rgba(32, 33, 35, 0.08) !important;
+}
+
+/* Fix Ant Design Table overflow inside Cards */
+.ant-card {
+  max-width: 100%;
+}
+.ant-card-body {
+  max-width: 100%;
+  overflow-x: auto;
+}
+.ant-table-wrapper {
+  max-width: 100%;
+}
+
+/* Force Ant Design tables to never break flex layouts */
+.ant-table-wrapper {
+  overflow-x: auto !important;
+  max-width: 100% !important;
+}
+.ant-card {
+  overflow: hidden !important;
+}

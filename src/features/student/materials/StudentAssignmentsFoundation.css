@@ -1,0 +1,229 @@
+/* Assignments layout */
+.assignments-grid {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: 20px;
+    height: 100%;
+}
+
+.assignments-list h4, .assignment-details-panel h4 {
+    font-family: var(--font-heading);
+    font-size: 0.95rem;
+    font-weight: 700;
+    margin-bottom: 16px;
+}
+
+.assignment-items-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow-y: auto;
+    height: calc(100% - 36px);
+}
+
+.assignment-item {
+    padding: 14px;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid var(--color-card-border);
+    border-radius: var(--border-radius-md);
+    cursor: pointer;
+    transition: all var(--transition-speed) ease;
+}
+
+.assignment-item:hover {
+    background-color: rgba(255,255,255,0.05);
+}
+
+.assignment-item.active-item {
+    background-color: rgba(243, 112, 33, 0.08);
+    border-color: var(--color-primary);
+}
+
+.assign-status {
+    display: inline-block;
+    padding: 2px 6px;
+    font-size: 0.6rem;
+    font-weight: 700;
+    border-radius: var(--border-radius-sm);
+    margin-bottom: 6px;
+}
+
+.assign-status.pending {
+    background: rgba(239, 68, 68, 0.15);
+    color: var(--color-danger);
+}
+
+.assign-status.graded {
+    background: rgba(20, 184, 166, 0.15);
+    color: var(--color-secondary);
+}
+
+.assignment-item h5 {
+    font-size: 0.8rem;
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.assign-deadline {
+    font-size: 0.7rem;
+    color: var(--color-text-dark);
+}
+
+/* Details Panel */
+.assignment-details-panel {
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+}
+
+.details-header {
+    border-bottom: 1px solid var(--color-card-border);
+    padding-bottom: 12px;
+    margin-bottom: 16px;
+}
+
+.details-meta {
+    font-size: 0.75rem;
+    color: var(--color-text-dark);
+}
+
+.details-body {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.details-body h5 {
+    font-size: 0.85rem;
+    font-weight: 700;
+}
+
+.details-body p {
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+    line-height: 1.6;
+}
+
+.attachment-file-box {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--color-card-border);
+    border-radius: var(--border-radius-md);
+    font-size: 0.8rem;
+}
+
+.attachment-file-box svg {
+    color: var(--color-primary);
+}
+
+.btn-text-only {
+    margin-left: auto;
+    background: transparent;
+    border: none;
+    color: var(--color-primary);
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* Submission Form and Drag Zone */
+.submission-form-container {
+    border-top: 1px solid var(--color-card-border);
+    padding-top: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.file-dropzone {
+    background: rgba(0,0,0,0.3);
+    border: 2px dashed var(--color-card-border);
+    border-radius: var(--border-radius-lg);
+    padding: 24px 16px;
+    text-align: center;
+    cursor: pointer;
+    transition: all var(--transition-speed) ease;
+}
+
+.file-dropzone:hover {
+    border-color: var(--color-primary);
+    background: rgba(243, 112, 33, 0.05);
+}
+
+.icon-upload {
+    width: 36px;
+    height: 36px;
+    color: var(--color-text-dark);
+    margin-bottom: 12px;
+    transition: color var(--transition-speed) ease;
+}
+
+.file-dropzone:hover .icon-upload {
+    color: var(--color-primary);
+}
+
+.file-dropzone p {
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+}
+
+.selected-file-label {
+    display: inline-block;
+    margin-top: 8px;
+    font-size: 0.7rem;
+    color: var(--color-secondary);
+    font-weight: 600;
+}
+
+.portal-form .input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.portal-form label {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    font-weight: 500;
+}
+
+.portal-form textarea {
+    background: rgba(0,0,0,0.4);
+    border: 1px solid var(--color-card-border);
+    border-radius: var(--border-radius-md);
+    color: white;
+    padding: 10px;
+    font-family: var(--font-sans);
+    font-size: 0.8rem;
+    resize: vertical;
+    min-height: 80px;
+    outline: none;
+}
+
+.portal-form textarea:focus {
+    border-color: var(--color-primary);
+}
+
+.btn-submit-assignment {
+    padding: 12px;
+    background: linear-gradient(135deg, var(--color-secondary) 0%, var(--color-primary) 100%);
+    border: none;
+    border-radius: var(--border-radius-md);
+    color: white;
+    font-weight: 600;
+    font-size: 0.85rem;
+    cursor: pointer;
+    box-shadow: 0 4px 15px var(--color-secondary-glow);
+    transition: opacity var(--transition-speed) ease;
+}
+
+.btn-submit-assignment:hover {
+    opacity: 0.9;
+}
+

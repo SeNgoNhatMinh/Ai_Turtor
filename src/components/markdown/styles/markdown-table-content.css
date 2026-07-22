@@ -1,0 +1,178 @@
+.ai-answer-table-wrap {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  margin: 4px 0;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.ai-answer-format-toolbar {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f4f4f4;
+  color: #202123;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.ai-answer-table {
+  width: 100%;
+  border-collapse: collapse;
+  border-spacing: 0;
+  min-width: 420px;
+  background: #ffffff;
+}
+
+.ai-answer-table th,
+.ai-answer-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #edf2f7;
+  text-align: left;
+  vertical-align: top;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.ai-answer-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #f4f4f4;
+  color: #202123;
+  font-weight: 800;
+}
+
+.ai-answer-section-callout,
+.ai-answer-quote {
+  position: relative;
+  border-left: 3px solid #9ca3af;
+  border-radius: 10px;
+  background: #f7f7f5;
+  padding: 10px 68px 10px 12px;
+  color: #374151;
+}
+
+.ai-answer-section-callout .ai-answer-copy-btn,
+.ai-answer-quote .ai-answer-copy-btn {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+}
+
+.ai-answer-section-callout span {
+  display: block;
+  margin-bottom: 4px;
+  color: #202123;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.ai-answer-section-callout p {
+  margin: 0;
+  color: #1f2937;
+  line-height: 1.65;
+}
+
+.ai-answer-section-callout--result {
+  border-left-color: #10b981;
+  background: #ecfdf5;
+}
+
+.ai-answer-section-callout--result span {
+  color: #047857;
+}
+
+.ai-answer-source-pill {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  max-width: 100%;
+  padding: 8px 10px 8px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #4b5563;
+}
+
+.ai-answer-source-pill code {
+  overflow: hidden;
+  color: #374151;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ai-answer-source-download {
+  min-width: 0;
+  overflow: hidden;
+  border: 0;
+  background: transparent;
+  color: #2563eb;
+  cursor: pointer;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: left;
+  text-decoration: underline;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ai-answer-source-download:hover,
+.ai-answer-source-download:focus-visible {
+  color: #1d4ed8;
+  outline: none;
+}
+
+.ai-answer-source-pill .ai-answer-copy-btn {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+}
+
+.ai-answer-source-list-item {
+  list-style: none;
+  margin-left: -22px;
+}
+
+.ai-answer-source-list-item .ai-answer-source-pill {
+  display: inline-flex;
+}
+
+.ai-answer-quote {
+  margin: 0;
+  font-style: italic;
+}
+
+.ai-answer-prose > * + * {
+  margin-top: 10px;
+}
+
+.ai-answer-prose p,
+.ai-answer-prose li {
+  max-width: 74ch;
+}
+
+.ai-answer-hr {
+  width: 100%;
+  margin: 14px 0;
+  border: 0;
+  border-top: 1px solid #e5e7eb;
+}

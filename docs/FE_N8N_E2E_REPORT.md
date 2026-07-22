@@ -1,5 +1,18 @@
 # Frontend n8n End-to-End Verification
 
+## Follow-Up - 2026-07-22
+
+Báo cáo 2026-07-16 bên dưới là baseline lịch sử. Live retest mới nhất có các thay đổi sau:
+
+- Student `ESCALATE`: pass qua FE+n8n thật; canonical conversation/messages đã persist trong REST.
+- Pin persistence: pass qua logout/login; canonical message ID được pin và load lại từ BE.
+- Answer Review `MISSING_MATERIAL`: pass; review đi vào `NEEDS_SENIOR_REVIEW` và hiển thị trong Admin queue.
+- n8n `student-chat` vẫn trả ID tạm `conversation-*` khác UUID REST. FE đã reconcile sang session canonical ngay sau response, không còn pinned `404` hoặc cần reload.
+- Tutor V2 Gold Q&A submit/approve, Rubric submit/approve và reject/resubmit đã pass qua UI thật.
+- Evaluation run được BE tạo và hoàn tất, nhưng `/webhook/v2-evaluation-run` không trả response cho FE trước timeout. FE không replay mutation và canonical reload hiển thị đúng run.
+
+Chi tiết dataset và ID: `docs/FE_TUTOR_V2_LIVE_TEST_REPORT_2026-07-22.md`.
+
 ## Scope
 
 - Verification date: 2026-07-16.
@@ -11,7 +24,7 @@
 
 No access token, password, or credential is recorded in this report.
 
-## Result Matrix
+## Historical Result Matrix - 2026-07-16
 
 | Flow | Result | Evidence / blocker |
 |---|---|---|
@@ -43,6 +56,6 @@ No access token, password, or credential is recorded in this report.
 - Teacher/senior mutations are locked against duplicate clicks and refetch canonical backend state after completion or uncertain failure.
 - Quiz remains backend-direct while the quiz harness feature flag is off.
 
-## Visual Verification
+## Historical Visual Verification - 2026-07-16
 
 Build and static responsive/dark-mode CSS checks passed. Automated browser visual verification could not run in the current Codex browser environment because the local browser harness failed to initialize. Student Chat, Learning Progress, Practice Quizzes, Teacher Review and Admin Academic still require a final manual viewport pass in Chrome at desktop, tablet and mobile widths.

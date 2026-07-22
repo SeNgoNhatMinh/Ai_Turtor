@@ -35,14 +35,9 @@ function ConfirmCard({
         }
       }
     };
-    const onLayoutChange = () => onClose?.();
     window.addEventListener('keydown', onKeyDown);
-    window.addEventListener('resize', onLayoutChange);
-    window.addEventListener('scroll', onLayoutChange, true);
     return () => {
       window.removeEventListener('keydown', onKeyDown);
-      window.removeEventListener('resize', onLayoutChange);
-      window.removeEventListener('scroll', onLayoutChange, true);
       previouslyFocused?.focus?.();
     };
   }, [onClose]);

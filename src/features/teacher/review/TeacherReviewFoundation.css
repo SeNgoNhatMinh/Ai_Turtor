@@ -1,0 +1,199 @@
+/* Escalation item list */
+.escalations-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
+.escalation-card-item {
+    width: 100%;
+    padding: 14px;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid var(--color-card-border);
+    border-radius: var(--border-radius-md);
+    cursor: pointer;
+    transition: all var(--transition-speed) ease;
+    position: relative;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+}
+
+.escalation-card-item:hover {
+    background: rgba(255,255,255,0.06);
+}
+
+.escalation-card-item.active-escalation {
+    background: rgba(239, 68, 68, 0.05);
+    border-color: var(--color-danger);
+}
+
+.badge-esc {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    font-size: 0.6rem;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: var(--border-radius-sm);
+}
+
+.badge-esc.pending {
+    background: rgba(239, 68, 68, 0.15);
+    color: var(--color-danger);
+}
+
+.escalation-card-item h5 {
+    font-size: 0.8rem;
+    font-weight: 700;
+    padding-right: 60px;
+    margin-bottom: 4px;
+}
+
+.esc-context {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+}
+
+.esc-time {
+    font-size: 0.65rem;
+    color: var(--color-text-dark);
+}
+
+.escalation-chat-reply-box {
+    border-top: 1px solid var(--color-card-border);
+    padding-top: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.escalation-chat-reply-box h5 {
+    font-size: 0.85rem;
+    color: var(--color-secondary);
+}
+
+.escalation-meta-info {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    background: rgba(0,0,0,0.15);
+    padding: 8px;
+    border-radius: var(--border-radius-sm);
+}
+
+/* Knowledge candidate */
+.candidates-list {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.candidate-card-item {
+    padding: 16px;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid var(--color-card-border);
+    border-radius: var(--border-radius-md);
+}
+
+.badge-cand {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--color-secondary);
+    display: inline-block;
+    margin-bottom: 10px;
+}
+
+.compare-box {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: rgba(0,0,0,0.3);
+    padding: 12px;
+    border-radius: var(--border-radius-md);
+    margin-bottom: 12px;
+    border: 1px solid var(--color-card-border);
+}
+
+.compare-qa {
+    font-size: 0.75rem;
+    line-height: 1.5;
+}
+
+.compare-qa.teacher-a {
+    color: #e2e8f0;
+    border-top: 1px solid var(--color-card-border);
+    padding-top: 6px;
+}
+
+.candidate-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.senior-review-note {
+    width: 100%;
+    min-height: 74px;
+    margin: 10px 0;
+    padding: 9px 10px;
+    resize: vertical;
+    border: 1px solid var(--color-card-border);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-surface, #ffffff);
+    color: var(--color-text, #1f2937);
+    font: inherit;
+    font-size: 0.78rem;
+    line-height: 1.45;
+}
+
+.senior-review-note:focus {
+    border-color: var(--color-primary);
+    outline: 2px solid rgba(243, 112, 33, 0.18);
+}
+
+.app-container.dark .senior-review-note {
+    border-color: #3f3f46;
+    background: #171717;
+    color: #f3f4f6;
+}
+
+.btn-approve-cand {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 12px;
+    background: var(--color-secondary);
+    border: none;
+    border-radius: var(--border-radius-sm);
+    color: white;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 4px 10px var(--color-secondary-glow);
+}
+
+.btn-reject-cand {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 12px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--color-card-border);
+    border-radius: var(--border-radius-sm);
+    color: var(--color-text-muted);
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.btn-approve-cand:hover, .btn-reject-cand:hover {
+    opacity: 0.9;
+}
+
+.btn-approve-cand:disabled, .btn-reject-cand:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+    box-shadow: none;
+}
+
+

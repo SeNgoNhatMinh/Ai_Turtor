@@ -102,7 +102,9 @@ The legacy `src/services/api.js` facade has been removed. Do not recreate a glob
 ## Performance Rules
 
 - Keep role workspaces and route pages lazy; load only the active Student, Teacher, or Admin screen.
-- Keep `src/index.css` limited to tokens, reset and genuinely global compatibility rules; shell and feature layout rules belong beside their owners.
+- Keep `src/index.css` as the small ordered stylesheet entry; tokens, reset, shell, feature, Ant Design, responsive and accessibility rules live in owned modules documented by `src/styles/README.md`.
+- Preserve the import order in `src/index.css` until visual regression checks confirm that a rule can move into a lazy route chunk; dark-mode and responsive overrides depend on cascade order.
+- Keep individual CSS modules focused and preferably below 500 lines. Split by sub-feature instead of creating another portal-wide stylesheet.
 - Lazy-load optional dialogs such as Profile and website import.
 - Do not add a global provider for a feature used by one dialog or one page.
 - Keep markdown, syntax highlighting, quiz runner, tables, and material tools in feature chunks.

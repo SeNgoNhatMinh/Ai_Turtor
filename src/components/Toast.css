@@ -1,0 +1,32 @@
+/* ==========================================
+   TOAST NOTIFICATION COMPONENT
+   ========================================== */
+.toast-notification {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: rgba(15, 23, 42, 0.9);
+    border: 1px solid var(--color-card-border);
+    backdrop-filter: blur(8px);
+    border-radius: var(--border-radius-md);
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    z-index: 999;
+    animation: slideInToast 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.toast-icon {
+    width: 20px;
+    height: 20px;
+    color: var(--color-secondary);
+}
+
+.toast-text {
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+

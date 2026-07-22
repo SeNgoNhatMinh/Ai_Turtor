@@ -1,0 +1,366 @@
+/* ==========================================
+   TEACHER PORTAL STYLING
+   ========================================== */
+.teacher-classes-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.class-card-item {
+    width: 100%;
+    padding: 16px;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid var(--color-card-border);
+    border-radius: var(--border-radius-md);
+    cursor: pointer;
+    transition: all var(--transition-speed) ease;
+    position: relative;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+}
+
+.class-card-item:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.class-card-item:hover {
+    background: rgba(255,255,255,0.06);
+}
+
+.class-card-item.active-class {
+    background: rgba(20, 184, 166, 0.08);
+    border-color: var(--color-secondary);
+}
+
+.badge-semester {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    background: rgba(255,255,255,0.08);
+    padding: 2px 8px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    border-radius: var(--border-radius-sm);
+    color: var(--color-text-muted);
+}
+
+.class-card-item h4 {
+    font-size: 0.9rem;
+    font-weight: 700;
+    margin-bottom: 6px;
+}
+
+.class-card-item p {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+}
+
+/* Heatmap */
+.heatmap-container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    max-height: 320px;
+    overflow: hidden;
+}
+
+.heatmap-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    overflow-y: auto;
+    min-height: 120px;
+    max-height: 220px;
+}
+
+.heatmap-node {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    border-radius: var(--border-radius-md);
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 16px;
+    border: 1px solid var(--color-card-border);
+}
+
+.heatmap-node.val-high {
+    background: rgba(239, 68, 68, 0.2);
+    border-color: var(--color-danger);
+    color: #fca5a5;
+    box-shadow: 0 0 15px rgba(239, 68, 68, 0.15);
+}
+
+.heatmap-node.val-med {
+    background: rgba(234, 179, 8, 0.2);
+    border-color: #eab308;
+    color: #fde047;
+}
+
+.heatmap-node.val-low {
+    background: rgba(244, 63, 94, 0.08);
+    border-color: var(--color-text-dark);
+    color: var(--color-text-muted);
+}
+
+.heatmap-node.val-none {
+    background: rgba(20, 184, 166, 0.15);
+    border-color: var(--color-secondary);
+    color: #99f6e4;
+}
+
+.heatmap-legend {
+    display: flex;
+    gap: 16px;
+    font-size: 0.7rem;
+    color: var(--color-text-muted);
+}
+
+.legend-box {
+    width: 12px;
+    height: 12px;
+    display: inline-block;
+    border-radius: 3px;
+    margin-right: 4px;
+    vertical-align: middle;
+}
+
+.legend-box.val-high { background-color: var(--color-danger); }
+.legend-box.val-med { background-color: #eab308; }
+.legend-box.val-low { background-color: var(--color-text-dark); }
+.legend-box.val-none { background-color: var(--color-secondary); }
+
+.teacher-gap-summary {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    margin: 14px 0 16px;
+}
+
+.teacher-gap-metric {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px;
+    border: 1px solid var(--color-card-border);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.teacher-gap-metric svg {
+    flex-shrink: 0;
+}
+
+.teacher-gap-metric strong {
+    display: block;
+    font-size: 1.25rem;
+    line-height: 1;
+    color: var(--color-text);
+}
+
+.teacher-gap-metric span {
+    display: block;
+    margin-top: 3px;
+    font-size: 0.7rem;
+    color: var(--color-text-muted);
+    white-space: nowrap;
+}
+
+.teacher-gap-metric--risk {
+    border-color: rgba(239, 68, 68, 0.35);
+    background: rgba(239, 68, 68, 0.08);
+    color: #ef4444;
+}
+
+.teacher-gap-metric--attention {
+    border-color: rgba(245, 158, 11, 0.35);
+    background: rgba(245, 158, 11, 0.08);
+    color: #d97706;
+}
+
+.teacher-gap-metric--strong {
+    border-color: rgba(16, 185, 129, 0.35);
+    background: rgba(16, 185, 129, 0.08);
+    color: #059669;
+}
+
+.teacher-course-memory-strip {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+    margin: 12px 0 14px;
+}
+
+.teacher-course-memory-strip > div {
+    display: grid;
+    gap: 2px;
+    padding: 10px 12px;
+    border: 1px solid var(--color-card-border);
+    border-radius: 10px;
+    background: var(--color-surface);
+}
+
+.teacher-course-memory-strip strong {
+    color: var(--color-text);
+    font-size: 0.98rem;
+    line-height: 1.2;
+}
+
+.teacher-course-memory-strip span {
+    color: var(--color-text-muted);
+    font-size: 0.74rem;
+    font-weight: 700;
+}
+
+.heatmap-container--teacher {
+    max-height: none;
+    overflow: visible;
+}
+
+.teacher-gap-columns {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.teacher-gap-column {
+    min-height: 210px;
+    padding: 12px;
+    border: 1px solid var(--color-card-border);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.035);
+}
+
+.teacher-gap-column-header {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin-bottom: 10px;
+    color: var(--color-text);
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+}
+
+.teacher-gap-column--risk .teacher-gap-column-header {
+    color: #ef4444;
+}
+
+.teacher-gap-column--attention .teacher-gap-column-header {
+    color: #d97706;
+}
+
+.teacher-gap-column--strong .teacher-gap-column-header {
+    color: #059669;
+}
+
+.heatmap-topic-card {
+    display: grid;
+    gap: 5px;
+    padding: 10px;
+    margin-bottom: 8px;
+    border: 1px solid var(--color-card-border);
+    border-radius: 10px;
+    background: var(--color-surface);
+    color: var(--color-text);
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.05);
+}
+
+.heatmap-topic-card.val-high {
+    border-color: rgba(239, 68, 68, 0.35);
+    background: rgba(239, 68, 68, 0.08);
+}
+
+.heatmap-topic-card.val-med {
+    border-color: rgba(245, 158, 11, 0.35);
+    background: rgba(245, 158, 11, 0.08);
+}
+
+.heatmap-topic-card.val-low {
+    border-color: rgba(100, 116, 139, 0.3);
+    background: rgba(100, 116, 139, 0.08);
+}
+
+.heatmap-topic-card.val-none {
+    border-color: rgba(16, 185, 129, 0.35);
+    background: rgba(16, 185, 129, 0.08);
+}
+
+.heatmap-topic-name {
+    color: var(--color-text);
+    font-size: 0.82rem;
+    font-weight: 750;
+    line-height: 1.35;
+}
+
+.heatmap-topic-hint {
+    color: var(--color-text-muted);
+    font-size: 0.7rem;
+    line-height: 1.35;
+}
+
+.teacher-gap-placeholder {
+    margin: 0;
+    color: var(--color-text-muted);
+    font-size: 0.75rem;
+    line-height: 1.45;
+}
+
+.teacher-gap-next-step,
+.teacher-gap-empty {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px;
+    border: 1px solid rgba(59, 130, 246, 0.22);
+    border-radius: 12px;
+    background: rgba(59, 130, 246, 0.07);
+    color: var(--color-text);
+    font-size: 0.78rem;
+    line-height: 1.45;
+}
+
+.teacher-gap-empty {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 24px;
+}
+
+.teacher-gap-empty span {
+    max-width: 420px;
+    color: var(--color-text-muted);
+}
+
+.teacher-gap-legend {
+    flex-wrap: wrap;
+    gap: 10px 16px;
+}
+
+.teacher-gap-legend span {
+    display: inline-flex;
+    align-items: center;
+}
+
+@media (max-width: 1100px) {
+    .teacher-course-memory-strip {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .teacher-gap-columns {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 720px) {
+    .teacher-course-memory-strip,
+    .teacher-gap-summary {
+        grid-template-columns: 1fr;
+    }
+}
+

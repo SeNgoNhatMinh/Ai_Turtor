@@ -15,6 +15,7 @@ import {
 } from 'antd';
 import { Check, RefreshCw, X } from 'lucide-react';
 import AsyncState from '../../../components/common/AsyncState';
+import { confirmAction, confirmDanger } from '../../../components/common/confirmDialog';
 import MasterDetailLayout from '../../../components/common/MasterDetailLayout';
 import StatusLabel from '../../../components/common/StatusLabel';
 import { groupReviewQueue } from '../expertTrainingSelectors';
@@ -51,7 +52,7 @@ export default function SeniorReviewQueue({
   }, [filteredQueue, isMobile, onSelectReview, selectedReviewId]);
 
   useEffect(() => {
-    form.resetFields();
+    if (selectedReviewId) form.resetFields();
   }, [form, selectedReviewId]);
 
   const setFilter = (value) => {
@@ -59,20 +60,45 @@ export default function SeniorReviewQueue({
     if (selectedEntry && value !== 'ALL' && selectedEntry.kind !== value) onSelectReview(null);
   };
 
-  const submitReview = async (decision) => {
-    if (!selectedEntry) return;
+  const submitReview = (decision, anchorRect) => {
+    if (!selectedEntry || pendingAction) return;
     const values = form.getFieldsValue();
     const note = String(values.reviewNote || '').trim();
     if (decision === 'reject' && !note) {
       form.setFields([{ name: 'reviewNote', errors: ['Nêu rõ nội dung cần chỉnh sửa.'] }]);
       return;
     }
-    const handler = selectedEntry.kind === 'GOLD_QA' ? onReviewGoldQa : onReviewRubric;
-    const result = await handler(selectedEntry.item, decision, {
-      reviewNote: decision === 'approve' ? note : '',
-      rejectionReason: decision === 'reject' ? note : '',
+    const execute = async () => {
+      const handler = selectedEntry.kind === 'GOLD_QA' ? onReviewGoldQa : onReviewRubric;
+      const result = await handler(selectedEntry.item, decision, {
+        reviewNote: decision === 'approve' ? note : '',
+        rejectionReason: decision === 'reject' ? note : '',
+      });
+      if (result) onSelectReview(null);
+    };
+    const common = {
+      anchorRect,
+      onOk: execute,
+      cancelText: 'Hủy',
+    };
+    if (decision === 'approve') {
+      const isTraining = selectedEntry.kind === 'GOLD_QA' && selectedEntry.item.usage === 'TRAINING';
+      confirmAction({
+        ...common,
+        title: 'Phê duyệt nội dung?',
+        content: isTraining
+          ? 'TRAINING Gold Q&A sẽ được backend index vào RAG sau khi phê duyệt.'
+          : 'Nội dung sẽ được phê duyệt nhưng không được index vào RAG.',
+        okText: 'Phê duyệt',
+      });
+      return;
+    }
+    confirmDanger({
+      ...common,
+      title: 'Yêu cầu giảng viên chỉnh sửa?',
+      content: 'Task sẽ trở lại trạng thái Đang thực hiện và hiển thị ghi chú này cho giảng viên.',
+      okText: 'Yêu cầu chỉnh sửa',
     });
-    if (result) onSelectReview(null);
   };
 
   const master = (
@@ -137,8 +163,8 @@ export default function SeniorReviewQueue({
       entry={selectedEntry}
       form={form}
       pendingAction={pendingAction}
-      onApprove={() => submitReview('approve')}
-      onReject={() => submitReview('reject')}
+      onApprove={(event) => submitReview('approve', event.currentTarget.getBoundingClientRect())}
+      onReject={(event) => submitReview('reject', event.currentTarget.getBoundingClientRect())}
     />
   ) : (
     <div className="expert-training__review-empty">
@@ -162,7 +188,8 @@ export default function SeniorReviewQueue({
             title="Chi tiết kiểm duyệt"
             open={Boolean(selectedEntry)}
             onClose={() => onSelectReview(null)}
-            width="min(100%, 620px)"
+            size="large"
+            rootClassName="expert-training__drawer"
           >
             {detail}
           </Drawer>

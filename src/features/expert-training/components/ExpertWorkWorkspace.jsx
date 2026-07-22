@@ -18,6 +18,9 @@ export default function ExpertWorkWorkspace({
   onDraftConsumed,
   onSubmitGoldQa,
   onSubmitRubric,
+  taskMaterialPreview,
+  selectedTaskRejection,
+  onOpenMaterial,
 }) {
   return (
     <div className="expert-training__work-layout">
@@ -44,6 +47,11 @@ export default function ExpertWorkWorkspace({
           pendingAction={pendingAction}
           onSubmitGoldQa={onSubmitGoldQa}
           onSubmitRubric={onSubmitRubric}
+          materialPreview={taskMaterialPreview}
+          materialLoading={loading.taskMaterial}
+          materialError={errors.taskMaterial}
+          rejection={selectedTaskRejection}
+          onOpenMaterial={onOpenMaterial}
         />
       ) : (
         <Alert

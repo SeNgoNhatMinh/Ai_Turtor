@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import {
   Alert,
   Button,
@@ -20,6 +20,7 @@ import {
   getTaskGoldUsage,
   validateCriteriaWeights,
 } from '../expertTrainingUtils';
+import TaskMaterialContext from './TaskMaterialContext';
 
 const { Paragraph, Text } = Typography;
 
@@ -35,8 +36,12 @@ export default function ContributionWorkspace({
   pendingAction,
   onSubmitGoldQa,
   onSubmitRubric,
+  materialPreview,
+  materialLoading,
+  materialError,
+  rejection,
+  onOpenMaterial,
 }) {
-  const [editorType, setEditorType] = useState(selectedTask?.type === 'RUBRIC' ? 'RUBRIC' : 'GOLD_QA');
   const [goldForm] = Form.useForm();
   const [rubricForm] = Form.useForm();
   const taskGoldUsage = getTaskGoldUsage(selectedTask);
@@ -45,22 +50,31 @@ export default function ContributionWorkspace({
     if (!selectedTask) return;
     const nextType = selectedTask.type === 'RUBRIC' ? 'RUBRIC' : 'GOLD_QA';
     if (nextType === 'GOLD_QA') {
+      goldForm.resetFields();
       goldForm.setFieldsValue({
         chapter: selectedTask.chapter,
-        usage: taskGoldUsage || 'TRAINING',
-        difficulty: 'MEDIUM',
+        usage: taskGoldUsage || rejection?.usage || 'TRAINING',
+        difficulty: rejection?.difficulty || 'MEDIUM',
+        question: rejection?.question || '',
+        goldAnswer: rejection?.goldAnswer || '',
       });
     } else {
+      rubricForm.resetFields();
       rubricForm.setFieldsValue({
         chapter: selectedTask.chapter,
-        name: selectedTask.title,
-        description: selectedTask.instructions,
-        criteria: defaultCriteria,
+        name: rejection?.name || selectedTask.title,
+        description: rejection?.description || selectedTask.instructions,
+        criteria: rejection?.criteriaWeights
+          ? Object.entries(rejection.criteriaWeights).map(([name, weight]) => ({ name, weight }))
+          : defaultCriteria,
       });
     }
-  }, [goldForm, rubricForm, selectedTask, taskGoldUsage]);
+  }, [goldForm, rejection, rubricForm, selectedTask, taskGoldUsage]);
 
-  const canSubmitSelectedTask = !selectedTask || ['ASSIGNED', 'IN_PROGRESS'].includes(selectedTask.status);
+  const isTaskOwner = Boolean(selectedTask && selectedTask.assigneeId === userId);
+  const canSubmitSelectedTask = Boolean(
+    isTaskOwner && ['ASSIGNED', 'IN_PROGRESS'].includes(selectedTask.status),
+  );
 
   const submitGold = async (values) => {
     if (taskGoldUsage && values.usage !== taskGoldUsage) {
@@ -152,7 +166,7 @@ export default function ContributionWorkspace({
               htmlType="submit"
               icon={<Send size={16} />}
               loading={pendingAction === 'submit-gold-qa'}
-              disabled={Boolean(pendingAction) || !userId}
+              disabled={Boolean(pendingAction) || !userId || !canSubmitSelectedTask}
             >
               Gửi kiểm duyệt
             </Button>
@@ -190,8 +204,8 @@ export default function ContributionWorkspace({
             {(fields, { add, remove }) => (
               <Form.Item label="Trọng số tiêu chí" required>
                 <div className="expert-training__criteria-list">
-                  {fields.map((field) => (
-                    <Space key={field.key} align="start" className="expert-training__criteria-row">
+                  {fields.map(({ key, ...field }) => (
+                    <Space key={key} align="start" className="expert-training__criteria-row">
                       <Form.Item
                         {...field}
                         name={[field.name, 'name']}
@@ -230,7 +244,7 @@ export default function ContributionWorkspace({
               htmlType="submit"
               icon={<Send size={16} />}
               loading={pendingAction === 'submit-rubric'}
-              disabled={Boolean(pendingAction) || !userId}
+              disabled={Boolean(pendingAction) || !userId || !canSubmitSelectedTask}
             >
               Gửi kiểm duyệt
             </Button>
@@ -258,11 +272,46 @@ export default function ContributionWorkspace({
         />
       )}
 
+      {!isTaskOwner && (
+        <Alert
+          type="warning"
+          showIcon
+          title="Task này không thuộc về bạn"
+          description="Chỉ giảng viên đã nhận task mới có thể soạn và gửi nội dung."
+        />
+      )}
+
+      {isTaskOwner && !canSubmitSelectedTask && (
+        <Alert
+          type="info"
+          showIcon
+          title={selectedTask.status === 'SUBMITTED' ? 'Nội dung đã gửi kiểm duyệt' : 'Task hiện không thể chỉnh sửa'}
+          description="Editor chỉ mở khi task ở trạng thái Đã giao hoặc Đang thực hiện."
+        />
+      )}
+
+      {rejection && selectedTask.status === 'IN_PROGRESS' && (
+        <Alert
+          type="error"
+          showIcon
+          title="Nội dung cần được chỉnh sửa"
+          description={rejection.rejectionReason || rejection.reviewNote || 'Senior Mentor chưa cung cấp ghi chú chi tiết.'}
+        />
+      )}
+
+      <TaskMaterialContext
+        preview={materialPreview}
+        loading={materialLoading}
+        error={materialError}
+        onOpenMaterial={onOpenMaterial}
+      />
+
       <Card className="expert-training__editor-card" title="Chuẩn bị nội dung">
         <Tabs
-          activeKey={selectedTask ? (selectedTask.type === 'RUBRIC' ? 'RUBRIC' : 'GOLD_QA') : editorType}
-          onChange={setEditorType}
-          items={editorItems}
+          activeKey={selectedTask.type === 'RUBRIC' ? 'RUBRIC' : 'GOLD_QA'}
+          items={selectedTask
+            ? editorItems.filter((item) => item.key === (selectedTask.type === 'RUBRIC' ? 'RUBRIC' : 'GOLD_QA'))
+            : editorItems}
         />
       </Card>
 

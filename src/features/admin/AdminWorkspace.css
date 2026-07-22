@@ -1,0 +1,187 @@
+/* ==========================================
+   ADMIN PORTAL STYLING
+   ========================================== */
+.admin-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+}
+
+.stat-card {
+    padding: 24px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.stat-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: var(--border-radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 12px;
+}
+
+.stat-icon.purple {
+    background: rgba(243, 112, 33, 0.1);
+    color: var(--color-primary);
+}
+
+.stat-icon.green {
+    background: rgba(20, 184, 166, 0.1);
+    color: var(--color-secondary);
+}
+
+.stat-icon.teal {
+    background: rgba(20, 184, 166, 0.1);
+    color: var(--color-secondary);
+}
+
+.stat-icon.yellow {
+    background: rgba(234, 179, 8, 0.1);
+    color: #eab308;
+}
+
+.stat-number {
+    font-family: var(--font-heading);
+    font-size: 1.8rem;
+    font-weight: 800;
+    margin-bottom: 4px;
+}
+
+.stat-label {
+    font-size: 0.75rem;
+    color: var(--color-text-dark);
+}
+
+/* Dummy chart line */
+.dummy-chart-box {
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--color-card-border);
+    border-radius: var(--border-radius-md);
+    height: 180px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.chart-line-graphic {
+    flex: 1;
+    background: linear-gradient(90deg, transparent 0%, rgba(139,92,246,0.1) 50%, rgba(20,184,166,0.15) 100%);
+    position: relative;
+    margin-bottom: 12px;
+}
+
+.chart-line-graphic::after {
+    content: '';
+    position: absolute;
+    bottom: 30%;
+    left: 0;
+    width: 100%;
+    height: 4px;
+    background: linear-gradient(90deg, var(--color-primary) 0%, var(--color-secondary) 100%);
+    box-shadow: 0 0 10px var(--color-primary);
+    border-radius: 2px;
+}
+
+.chart-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.65rem;
+    color: var(--color-text-dark);
+}
+
+.diagnostics-panel-body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.diagnostic-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.8rem;
+    padding: 8px 12px;
+    background: rgba(0,0,0,0.15);
+    border-radius: var(--border-radius-sm);
+    border: 1px solid var(--color-card-border);
+}
+
+.status-badge {
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.65rem;
+    font-weight: 700;
+}
+
+.status-badge.green {
+    background: rgba(20, 184, 166, 0.15);
+    color: var(--color-secondary);
+}
+
+.status-badge.red {
+    background: rgba(239, 68, 68, 0.15);
+    color: var(--color-danger);
+}
+
+.value-text {
+    font-family: monospace;
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+}
+
+/* User management Table actions */
+.table-actions {
+    margin-bottom: 16px;
+    gap: 12px;
+}
+
+.table-actions input {
+    flex: 1;
+}
+
+/* Import Excel page */
+.import-form-body {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.import-form-body p {
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+    line-height: 1.5;
+}
+
+.icon-upload.green {
+    color: var(--color-secondary);
+}
+
+.import-result-log {
+    margin-top: 14px;
+    background: rgb(21, 27, 43);
+    border-radius: var(--border-radius-md);
+    padding: 12px;
+    border: 1px solid var(--color-card-border);
+}
+
+.import-result-log h5 {
+    font-size: 0.8rem;
+    color: var(--color-secondary);
+    margin-bottom: 6px;
+}
+
+.import-result-log pre {
+    font-family: monospace;
+    font-size: 0.75rem;
+    color: #cbd5e1;
+    overflow-x: auto;
+}
+

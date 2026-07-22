@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { adminAcademicApi } from '../../services/adminAcademicApi';
 import { expertTrainingApi } from '../../services/expertTrainingApi';
+import { materialsApi } from '../../services/materialsApi';
 import { normalizeCourseOption } from '../../services/expertTrainingNormalizers';
 import { getUserFacingError } from '../../services/httpClient';
 import { useRealtimeConnectionState, useRealtimeEvent } from '../realtime/realtimeContext';
 import { eventMatchesCourse, REALTIME_EVENT_TYPES } from '../realtime/realtimeEvents';
-import { getTutorV2Role, isTutorV2Reviewer } from './expertTrainingUtils';
+import { getTutorV2Role, isPdfMaterialSource, isTutorV2Reviewer } from './expertTrainingUtils';
 import { expertTrainingGateway } from '../ai-harness/expertTrainingGateway';
 
 const EMPTY_RESOURCES = {
+  chapters: [],
   gaps: [],
   tasks: [],
   goldQa: [],
@@ -18,6 +20,9 @@ const EMPTY_RESOURCES = {
 
 const EMPTY_LOADING = {
   courses: false,
+  chapters: false,
+  chapterPreview: false,
+  taskMaterial: false,
   gaps: false,
   tasks: false,
   contributions: false,
@@ -27,6 +32,7 @@ const EMPTY_LOADING = {
 export function useExpertTrainingController({
   currentUser,
   courseId,
+  selectedTaskId = '',
   setCourseId,
   triggerToast,
 }) {
@@ -38,11 +44,13 @@ export function useExpertTrainingController({
   const [loading, setLoading] = useState(EMPTY_LOADING);
   const [errors, setErrors] = useState({});
   const [pendingAction, setPendingAction] = useState('');
-  const [selectedTask, setSelectedTask] = useState(null);
+  const [chapterPreview, setChapterPreview] = useState(null);
+  const [taskMaterialPreview, setTaskMaterialPreview] = useState(null);
   const [evaluationDetail, setEvaluationDetail] = useState(null);
   const [evaluationDetailLoading, setEvaluationDetailLoading] = useState(false);
   const connectionState = useRealtimeConnectionState();
   const realtimeTimerRef = useRef(null);
+  const materialTimerRef = useRef(null);
   const hasConnectedRef = useRef(false);
   const pendingActionRef = useRef('');
 
@@ -83,15 +91,31 @@ export function useExpertTrainingController({
     });
   }, [courseId, loadWithState, updateResource]);
 
+  const loadChapters = useCallback(() => {
+    if (!courseId) return Promise.resolve([]);
+    return loadWithState('chapters', () => expertTrainingApi.getSuggestedChapters(courseId), (items) => {
+      updateResource('chapters', items);
+    });
+  }, [courseId, loadWithState, updateResource]);
+
   const loadTasks = useCallback(() => {
     if (!courseId) return Promise.resolve([]);
     return loadWithState('tasks', () => expertTrainingApi.getTasks({ courseId }), (items) => {
       updateResource('tasks', items);
-      setSelectedTask((current) => current
-        ? items.find((item) => item.id === current.id) || current
-        : current);
     });
   }, [courseId, loadWithState, updateResource]);
+
+  const selectedTask = useMemo(
+    () => resources.tasks.find((task) => task.id === selectedTaskId) || null,
+    [resources.tasks, selectedTaskId],
+  );
+
+  const selectedTaskRejection = useMemo(() => {
+    if (!selectedTask) return null;
+    return [...resources.goldQa, ...resources.rubrics]
+      .filter((item) => item.sourceTaskId === selectedTask.id && item.status === 'REJECTED')
+      .sort((left, right) => new Date(right.updatedAt || right.reviewedAt || 0) - new Date(left.updatedAt || left.reviewedAt || 0))[0] || null;
+  }, [resources.goldQa, resources.rubrics, selectedTask]);
 
   const loadContributions = useCallback(() => {
     if (!courseId) return Promise.resolve([]);
@@ -115,8 +139,8 @@ export function useExpertTrainingController({
 
   const refreshAll = useCallback(async () => {
     if (!courseId) return;
-    await Promise.allSettled([loadGaps(), loadTasks(), loadContributions(), loadEvaluation()]);
-  }, [courseId, loadContributions, loadEvaluation, loadGaps, loadTasks]);
+    await Promise.allSettled([loadChapters(), loadGaps(), loadTasks(), loadContributions(), loadEvaluation()]);
+  }, [courseId, loadChapters, loadContributions, loadEvaluation, loadGaps, loadTasks]);
 
   useEffect(() => {
     const timer = window.setTimeout(loadCourses, 0);
@@ -129,7 +153,8 @@ export function useExpertTrainingController({
         setResources(EMPTY_RESOURCES);
         return;
       }
-      setSelectedTask(null);
+      setChapterPreview(null);
+      setTaskMaterialPreview(null);
       setEvaluationDetail(null);
       refreshAll();
     }, 0);
@@ -160,7 +185,21 @@ export function useExpertTrainingController({
 
   useRealtimeEvent(REALTIME_EVENT_TYPES.tutorV2, scheduleRealtimeRefresh);
 
-  useEffect(() => () => window.clearTimeout(realtimeTimerRef.current), []);
+  const scheduleMaterialRefresh = useCallback((event) => {
+    if (!eventMatchesCourse(event, courseId)) return;
+    window.clearTimeout(materialTimerRef.current);
+    materialTimerRef.current = window.setTimeout(() => {
+      loadChapters();
+      loadGaps();
+    }, 350);
+  }, [courseId, loadChapters, loadGaps]);
+
+  useRealtimeEvent(REALTIME_EVENT_TYPES.material, scheduleMaterialRefresh);
+
+  useEffect(() => () => {
+    window.clearTimeout(realtimeTimerRef.current);
+    window.clearTimeout(materialTimerRef.current);
+  }, []);
 
   const runMutation = useCallback(async ({ key, action, successMessage, refresh }) => {
     if (pendingActionRef.current) return null;
@@ -190,6 +229,106 @@ export function useExpertTrainingController({
     successMessage: 'Đã hoàn tất phân tích độ phủ.',
     refresh: () => Promise.allSettled([loadGaps(), loadTasks()]),
   }), [courseId, loadGaps, loadTasks, runMutation, userId]);
+
+  const confirmChapterSelection = useCallback((chapterKeys) => runMutation({
+    key: 'confirm-chapters',
+    action: () => expertTrainingApi.confirmChapters({
+      courseId,
+      confirmedBy: userId,
+      chapterKeys,
+    }),
+    successMessage: 'Đã xác nhận danh sách chương dùng cho Coverage.',
+    refresh: () => Promise.allSettled([loadChapters(), loadGaps()]),
+  }), [courseId, loadChapters, loadGaps, runMutation, userId]);
+
+  const addManualChapter = useCallback((title) => runMutation({
+    key: 'add-manual-chapter',
+    action: () => expertTrainingApi.addManualChapter({
+      courseId,
+      title,
+      createdBy: userId,
+      confirmImmediately: true,
+    }),
+    successMessage: 'Đã thêm và xác nhận chương thủ công.',
+    refresh: loadChapters,
+  }), [courseId, loadChapters, runMutation, userId]);
+
+  const createTasksForChapter = useCallback((chapter, options) => runMutation({
+    key: `create-chapter-tasks:${chapter}`,
+    action: () => expertTrainingApi.createChapterTasks({
+      courseId,
+      chapter,
+      createdBy: userId,
+      includeTrainingGoldTask: Boolean(options?.includeTrainingGoldTask),
+      includeEvaluationGoldTask: Boolean(options?.includeEvaluationGoldTask),
+    }),
+    successMessage: 'Đã tạo task mở cho chương đã chọn.',
+    refresh: () => Promise.allSettled([loadTasks(), loadGaps(), loadChapters()]),
+  }), [courseId, loadChapters, loadGaps, loadTasks, runMutation, userId]);
+
+  const openChapterPreview = useCallback(async (chapter, expanded = true) => {
+    const chapterKey = chapter?.chapterKey || chapter?.id || '';
+    const title = chapter?.title || chapter?.chapter || '';
+    if (!courseId || (!chapterKey && !title)) return null;
+    setLoading((current) => ({ ...current, chapterPreview: true }));
+    setErrors((current) => ({ ...current, chapterPreview: '' }));
+    try {
+      const preview = chapterKey
+        ? await expertTrainingApi.getChapterPreview(chapterKey, courseId, expanded)
+        : await expertTrainingApi.getChapterPreviewByTitle(courseId, title, expanded);
+      setChapterPreview(preview);
+      return preview;
+    } catch (error) {
+      const message = getUserFacingError(error, 'Không thể tải nội dung chương.');
+      setErrors((current) => ({ ...current, chapterPreview: message }));
+      return null;
+    } finally {
+      setLoading((current) => ({ ...current, chapterPreview: false }));
+    }
+  }, [courseId]);
+
+  const loadTaskMaterialPreview = useCallback(async (chapter) => {
+    if (!courseId || !chapter) {
+      setTaskMaterialPreview(null);
+      return null;
+    }
+    setLoading((current) => ({ ...current, taskMaterial: true }));
+    setErrors((current) => ({ ...current, taskMaterial: '' }));
+    try {
+      const preview = await expertTrainingApi.getChapterPreviewByTitle(courseId, chapter, true);
+      setTaskMaterialPreview(preview);
+      return preview;
+    } catch (error) {
+      const message = getUserFacingError(error, 'Không thể tải tài liệu chương.');
+      setErrors((current) => ({ ...current, taskMaterial: message }));
+      setTaskMaterialPreview(null);
+      return null;
+    } finally {
+      setLoading((current) => ({ ...current, taskMaterial: false }));
+    }
+  }, [courseId]);
+
+  const openSourceMaterial = useCallback(async (source) => {
+    if (!source?.id) return;
+    if (!isPdfMaterialSource(source)) {
+      triggerToast?.('Chỉ học liệu PDF có thể mở bằng thao tác này.');
+      return;
+    }
+    try {
+      const blob = await materialsApi.downloadMaterialPdf(courseId, source.id);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => window.URL.revokeObjectURL(url), 60000);
+    } catch (error) {
+      triggerToast?.(getUserFacingError(error, 'Không thể mở tài liệu nguồn.'));
+    }
+  }, [courseId, triggerToast]);
 
   const createTask = useCallback((payload) => runMutation({
     key: 'create-task',
@@ -304,7 +443,10 @@ export function useExpertTrainingController({
     errors,
     pendingAction,
     selectedTask,
-    setSelectedTask,
+    selectedTaskRejection,
+    chapterPreview,
+    setChapterPreview,
+    taskMaterialPreview,
     evaluationDetail,
     setEvaluationDetail,
     evaluationDetailLoading,
@@ -312,11 +454,18 @@ export function useExpertTrainingController({
     pendingReviewCount,
     loadCourses,
     loadGaps,
+    loadChapters,
     loadTasks,
     loadContributions,
     loadEvaluation,
     refreshAll,
     analyzeCoverage,
+    confirmChapterSelection,
+    addManualChapter,
+    createTasksForChapter,
+    openChapterPreview,
+    loadTaskMaterialPreview,
+    openSourceMaterial,
     createTask,
     claimTask,
     submitGoldQa,

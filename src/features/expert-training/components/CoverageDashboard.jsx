@@ -6,7 +6,6 @@ import {
   Checkbox,
   Col,
   Form,
-  Input,
   InputNumber,
   Modal,
   Row,
@@ -18,12 +17,12 @@ import {
 import { Radar, RefreshCw } from 'lucide-react';
 import AsyncState from '../../../components/common/AsyncState';
 import StatusLabel from '../../../components/common/StatusLabel';
-import { parseChapterInput } from '../expertTrainingUtils';
 
 const { Paragraph, Text } = Typography;
 
 export default function CoverageDashboard({
   gaps,
+  chapters = [],
   compact = false,
   loading,
   error,
@@ -41,10 +40,16 @@ export default function CoverageDashboard({
 
   const submit = async (values) => {
     const result = await onAnalyze({
-      chapters: parseChapterInput(values.chapters),
+      chapters: chapters
+        .filter((chapter) => chapter.status === 'CONFIRMED')
+        .map((chapter) => chapter.title),
       minimumTrainingGoldPerChapter: values.minimumTrainingGoldPerChapter,
       minimumEvaluationGoldPerChapter: values.minimumEvaluationGoldPerChapter,
       createTasks: values.createTasks,
+      useSuggestedOrConfirmedChapters: true,
+      smartTaskPolicy: true,
+      includeTrainingGoldTasks: true,
+      includeBenchmarkTasks: true,
     });
     if (result) {
       setOpen(false);
@@ -123,7 +128,15 @@ export default function CoverageDashboard({
         <Space wrap>
           <Button icon={<RefreshCw size={16} />} onClick={onRefresh} loading={loading}>Làm mới</Button>
           {canReview && (
-            <Button type="primary" icon={<Radar size={16} />} onClick={() => setOpen(true)}>
+            <Button
+              type="primary"
+              icon={<Radar size={16} />}
+              onClick={() => setOpen(true)}
+              disabled={!chapters.some((chapter) => chapter.status === 'CONFIRMED')}
+              title={chapters.some((chapter) => chapter.status === 'CONFIRMED')
+                ? 'Phân tích chapter đã xác nhận'
+                : 'Xác nhận ít nhất một chapter trước'}
+            >
               Phân tích độ phủ
             </Button>
           )}
@@ -187,26 +200,17 @@ export default function CoverageDashboard({
           initialValues={{
             minimumTrainingGoldPerChapter: 3,
             minimumEvaluationGoldPerChapter: 2,
-            createTasks: true,
+            createTasks: false,
           }}
           onFinish={submit}
           className="expert-training__modal-form"
         >
-          <Form.Item
-            label="Các chương"
-            name="chapters"
-            rules={[
-              { required: true, message: 'Nhập ít nhất một chương.' },
-              {
-                validator: (_, value) => parseChapterInput(value).length
-                  ? Promise.resolve()
-                  : Promise.reject(new Error('Nhập ít nhất một chương.')),
-              },
-            ]}
-            extra="Mỗi dòng một chương hoặc phân tách bằng dấu phẩy."
-          >
-            <Input.TextArea rows={5} maxLength={2000} placeholder={'Spring Boot Basics\nDependency Injection'} />
-          </Form.Item>
+          <Alert
+            type="info"
+            showIcon
+            title={`${chapters.filter((chapter) => chapter.status === 'CONFIRMED').length} chapter đã xác nhận`}
+            description="Phân tích sử dụng danh sách chapter canonical từ học liệu, không dùng text nhập tự do."
+          />
           <Row gutter={12}>
             <Col span={12}>
               <Form.Item label="Mục tiêu Training Gold Q&A" name="minimumTrainingGoldPerChapter">

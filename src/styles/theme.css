@@ -1,0 +1,69 @@
+/* ==========================================
+   PROFESSIONAL APP OVERRIDES
+   ========================================== */
+body {
+    background: #F7F7F5;
+    color: #202123;
+}
+
+body.theme-dark {
+    background: #000000 !important;
+    color: #F9FAFB;
+}
+
+body.theme-dark .ant-app,
+body.theme-dark .ant-modal-root,
+body.theme-dark .ant-drawer,
+body.theme-dark .ant-dropdown,
+body.theme-dark .ant-select-dropdown,
+body.theme-dark .ant-picker-dropdown,
+body.theme-dark .ant-tooltip {
+    color: #F9FAFB;
+}
+
+body.theme-dark .ant-select-dropdown,
+body.theme-dark .ant-dropdown-menu,
+body.theme-dark .ant-picker-panel-container,
+body.theme-dark .ant-modal-content,
+body.theme-dark .ant-popover-inner,
+body.theme-dark .ant-tooltip-inner {
+    background: #0F0F0F !important;
+    border-color: #2A2A2A !important;
+}
+
+body.theme-dark .ant-select-item,
+body.theme-dark .ant-dropdown-menu-item,
+body.theme-dark .ant-picker-cell,
+body.theme-dark .ant-modal-title {
+    color: #F9FAFB !important;
+}
+
+.entity-action-button.ant-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 9px;
+    color: #6b7280;
+}
+
+.entity-action-button.ant-btn:hover,
+.entity-action-button.ant-btn.ant-dropdown-open {
+    background: rgba(15, 23, 42, 0.06) !important;
+    color: #111827 !important;
+}
+
+body.theme-dark .entity-action-button.ant-btn,
+.app-container.dark .entity-action-button.ant-btn {
+    color: #a3a3a3;
+}
+
+body.theme-dark .entity-action-button.ant-btn:hover,
+body.theme-dark .entity-action-button.ant-btn.ant-dropdown-open,
+.app-container.dark .entity-action-button.ant-btn:hover,
+.app-container.dark .entity-action-button.ant-btn.ant-dropdown-open {
+    background: rgba(255, 255, 255, 0.08) !important;
+    color: #f9fafb !important;
+}
+

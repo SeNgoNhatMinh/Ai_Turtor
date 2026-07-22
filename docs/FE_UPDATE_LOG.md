@@ -1,5 +1,56 @@
 # Frontend Update Log
 
+## 2026-07-23 - CSS Ownership Refactor
+
+- Reduced `src/index.css` from 5,207 lines to a small ordered import entry.
+- Split global tokens, reset, animations, theme, Ant Design overrides, accessibility and cross-feature responsive rules into `src/styles` modules.
+- Moved app-shell, login, toast and shared surface styles beside their owning layout or component.
+- Split Student Chat, Learning Progress, Materials/Assignments, Mentor Review, Teacher Classes/Materials/Grading/Review, and Admin workspace styles into feature-owned files.
+- Further divided the largest Teacher, Chat, Learning Progress, Markdown, Expert Training and application-theme blocks so no stylesheet exceeds 500 lines.
+- Preserved the original cascade order and declarations; this refactor changes ownership only, not visual values or API behavior.
+- Added `src/styles/README.md` with CSS ownership and safe-migration rules.
+
+**Verification**
+- Mechanical reconstruction check confirmed the split modules reproduce the original 5,207-line stylesheet exactly.
+- Every CSS module parses independently with PostCSS.
+- `npm run check`: pass (`92` contract tests, `86` component/unit tests, ESLint and production build).
+- `npm run dead-code`: pass.
+- `npm run test:e2e`: pass (`18/18` on desktop and mobile).
+
+# 2026-07-22 - Live Full Flow Tutor V2 And Canonical Chat Reconciliation
+
+- Chạy full flow UI thật Senior/Admin tạo chapter/task -> Teacher claim/submit -> Senior approve/reject -> Teacher sửa và resubmit -> Evaluation.
+- Giữ dataset `FE DEMO 20260722-2235` trong course `PRJ301`, bao gồm 3 chapter, 7 task, 8 contribution/rubric và 1 Evaluation run để demo/rà soát.
+- Kiểm tra Student qua FE+n8n thật: enrollment `OOP/OOP-01`, ESCALATE, conversation persistence, pin persistence sau logout/login và answer review `NEEDS_SENIOR_REVIEW`.
+- Sửa n8n/REST conversation ID mismatch: FE reconcile ID tạm `conversation-*` sang UUID canonical trước khi tải message/pinned state, loại bỏ `404` ngay sau lần gửi đầu.
+- Sửa duplicate React keys trong Rubric editor và confirm card tự đóng khi scroll/resize.
+- Ghi báo cáo ID, trạng thái, webhook và cách rà soát tại `docs/FE_TUTOR_V2_LIVE_TEST_REPORT_2026-07-22.md`.
+- Ghi nhận blocker n8n còn lại: `/webhook/v2-evaluation-run` tạo và hoàn tất canonical run nhưng Respond node không trả response trước timeout FE.
+
+**Tested**
+- `npm run check`: pass (`92` contract tests, `86` component/unit tests, ESLint và production build).
+- Live Playwright qua UI thật: Admin, Teacher, Student, Tutor V2, n8n, conversation persistence, pin persistence và Senior review queue.
+
+# 2026-07-22 - Hoàn Thiện Senior Task Và Teacher Knowledge Contribution
+
+- Bổ sung toàn bộ sáu API chapter coverage của Tutor V2 và normalizer cho outline, preview, material health và nguồn học liệu.
+- Senior/Admin có thể tải chapter gợi ý, xác nhận nhiều chapter, thêm chapter thủ công, xem preview và tạo task TRAINING/EVALUATION ở trạng thái `OPEN`.
+- Bỏ textarea chapter tự do khỏi Coverage; phân tích dùng danh sách chapter canonical đã xác nhận.
+- Teacher tự nhận task, chỉ được submit task thuộc chính mình trong `ASSIGNED/IN_PROGRESS`, và xem excerpt/nguồn PDF ngay cạnh editor.
+- Task được chọn chỉ lưu ID trong URL; detail luôn derive từ danh sách REST canonical sau refetch, tránh object stale.
+- Reject hiển thị reason và nội dung cũ để Teacher chỉnh sửa; submit thành công chuyển editor sang read-only theo task `SUBMITTED`.
+- Senior/Admin approve/reject qua confirm dùng chung và mutation lock. TRAINING approve được mô tả rõ là index RAG; EVALUATION/Rubric không được mô tả là đã index.
+- WebSocket vẫn chỉ trigger canonical refetch; material event tải lại chapter/coverage, không tạo success giả.
+- Chuẩn hóa locale Ant Design ở app shell sang tiếng Việt để modal và DatePicker dùng `Hủy`/`Chọn thời điểm` nhất quán.
+- Không gọi `resetFields` khi form kiểm duyệt chưa được mount, loại bỏ cảnh báo `useForm is not connected` ở hàng chờ rỗng.
+
+**Tested**
+- `npm run check`: pass (`90` contract tests, `84` component/unit tests, ESLint và production build).
+- `npm run dead-code`: pass.
+- `npm run test:e2e -- --workers=2`: pass (`18/18` trên desktop và mobile).
+- `git diff --check`: pass.
+- Smoke test trực tiếp tại `localhost:5173` với API thật: đăng nhập Admin/Teacher, kiểm tra bốn vùng Tutor V2, role visibility, URL state, task editor, Evaluation detail, dark mode và viewport mobile 390 px.
+
 # 2026-07-21 - Fix Deployed Login Role Routing
 
 - Fixed the production login bug where an absent or wrapped role was silently normalized to `STUDENT`, causing every account to enter the Student portal.

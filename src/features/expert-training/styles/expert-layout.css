@@ -1,0 +1,192 @@
+.expert-training-page {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 28px clamp(18px, 3vw, 40px) 56px;
+  color: #202123;
+}
+
+.expert-training__course-select {
+  width: min(320px, 42vw);
+}
+
+.expert-training__status-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0 0 16px;
+  padding: 10px 14px;
+  color: #565869;
+  background: #f7f7f5;
+  border: 1px solid #e5e5e0;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.expert-training__tabs {
+  min-width: 0;
+  margin-top: 18px;
+}
+
+.expert-training__tabs > .ant-tabs-nav {
+  margin-bottom: 18px;
+}
+
+.expert-training__tabs .ant-tabs-content-holder,
+.expert-training__tabs .ant-tabs-content,
+.expert-training__tabs .ant-tabs-tabpane {
+  min-width: 0;
+}
+
+.expert-training__canonical-note {
+  min-width: min(100%, 260px);
+  font-size: 12px;
+}
+
+.expert-training__overview,
+.expert-training__work-layout {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.expert-training__workflow-card,
+.expert-training__attention-card {
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+.expert-training__table-row--selected > td {
+  background: rgba(243, 112, 33, 0.08) !important;
+}
+
+.expert-training__content-tabs > .ant-tabs-nav {
+  margin-bottom: 16px;
+}
+
+.expert-training__section {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.expert-training__section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.expert-training__section-heading h2 {
+  margin: 0 0 4px;
+  color: inherit;
+  font-size: 20px;
+  line-height: 1.35;
+}
+
+.expert-training__section-heading p {
+  max-width: 760px;
+  margin: 0;
+  color: #6b7280;
+  line-height: 1.55;
+}
+
+.expert-training__stats .ant-card,
+.expert-training__metric {
+  height: 100%;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+.expert-training__metric {
+  padding: 15px 18px;
+}
+
+.expert-training__primary-cell {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.expert-training__primary-cell strong {
+  color: #202123;
+  overflow-wrap: anywhere;
+}
+
+.expert-training__primary-cell span {
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.expert-training__clamp-two {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.expert-training__filters {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.expert-training__filter-control {
+  width: 220px;
+}
+
+.expert-training__filter-count {
+  margin-left: auto;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.expert-training__full-width {
+  width: 100%;
+}
+
+.expert-training__modal-form {
+  margin-top: 18px;
+}
+
+.expert-training__editor-card,
+.expert-training__history-card {
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+.expert-training__form-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 18px;
+}
+
+.expert-training__criteria-list {
+  display: grid;
+  gap: 8px;
+}
+
+.expert-training__criteria-row {
+  display: grid !important;
+  grid-template-columns: minmax(180px, 1fr) 140px 36px;
+  width: 100%;
+}
+
+.expert-training__criteria-row .ant-form-item {
+  margin-bottom: 0;
+}
+
+.expert-training__policy-note {
+  margin: 0 !important;
+  padding: 12px 14px;
+  border-left: 3px solid #6b7280;
+}
+

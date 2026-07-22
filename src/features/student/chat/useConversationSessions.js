@@ -70,7 +70,7 @@ export function useConversationSessions({
   const loadChatSessions = async () => {
     if (!userId || !courseId) {
       setSessions([]);
-      return;
+      return [];
     }
     sessionsRequestRef.current?.abort();
     const controller = new AbortController();
@@ -82,7 +82,11 @@ export function useConversationSessions({
         force: true,
       });
       if (!controller.signal.aborted) {
-        setSessions(sortSessionsByActivity(asArray(data, 'content', 'conversations').map(normalizeSession)));
+        const normalizedSessions = sortSessionsByActivity(
+          asArray(data, 'content', 'conversations').map(normalizeSession),
+        );
+        setSessions(normalizedSessions);
+        return normalizedSessions;
       }
     } catch (error) {
       if (!controller.signal.aborted) {
@@ -95,6 +99,7 @@ export function useConversationSessions({
         setIsSessionsLoading(false);
       }
     }
+    return [];
   };
 
   const bumpConversationActivity = ({

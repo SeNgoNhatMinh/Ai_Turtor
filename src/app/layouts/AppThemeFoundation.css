@@ -1,0 +1,29 @@
+.app-container {
+    background: #F7F7F5;
+}
+
+.app-container.dark {
+    background: #000000;
+}
+
+.app-container.dark,
+.app-container.dark .main-layout,
+.app-container.dark .content-wrapper,
+.app-container.dark .portal-view,
+.app-container.dark .ant-layout,
+.app-container.dark .ant-layout-content {
+    background: #000000 !important;
+}
+
+.top-nav {
+    background: rgba(255, 255, 255, 0.92);
+    border-bottom: 1px solid #E5E5E0;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+}
+
+.app-container.dark .top-nav {
+    background: rgba(0, 0, 0, 0.94);
+    border-bottom-color: #1F1F1F;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.42);
+}
+

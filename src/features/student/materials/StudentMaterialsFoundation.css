@@ -1,0 +1,140 @@
+/* ==========================================
+   MATERIALS & ASSIGNMENTS LIST TABS
+   ========================================== */
+.tabs-materials-assignments {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    height: 100%;
+}
+
+.tab-selectors-row {
+    display: flex;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--color-card-border);
+    border-radius: var(--border-radius-md);
+    padding: 4px;
+    align-self: flex-start;
+}
+
+.sub-tab-btn {
+    padding: 8px 20px;
+    background: transparent;
+    border: none;
+    border-radius: calc(var(--border-radius-md) - 2px);
+    color: var(--color-text-muted);
+    font-family: var(--font-sans);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition-speed) ease;
+}
+
+.sub-tab-btn.active {
+    background: rgba(255,255,255,0.08);
+    color: white;
+}
+
+.sub-tab-content {
+    display: none;
+    height: calc(100% - 60px);
+}
+
+.sub-tab-content.active {
+    display: block;
+}
+
+/* Materials filter list */
+.materials-flex-layout {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    gap: 20px;
+    height: 100%;
+}
+
+.materials-filter-panel h4 {
+    font-family: var(--font-heading);
+    font-size: 0.95rem;
+    font-weight: 700;
+    margin-bottom: 16px;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.filter-group label {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+}
+
+.select-full-width {
+    width: 100%;
+}
+
+.materials-list-container {
+    overflow-y: auto;
+    height: 100%;
+}
+
+.materials-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.material-card {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px;
+}
+
+.material-icon {
+    width: 40px;
+    height: 40px;
+    background: rgba(243, 112, 33, 0.1);
+    border: 1px solid rgba(243, 112, 33, 0.2);
+    border-radius: var(--border-radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-primary);
+}
+
+.material-info {
+    flex: 1;
+}
+
+.material-info h5 {
+    font-size: 0.85rem;
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.material-meta {
+    font-size: 0.7rem;
+    color: var(--color-text-dark);
+}
+
+.btn-download-material {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--color-card-border);
+    border-radius: var(--border-radius-sm);
+    color: white;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background var(--transition-speed) ease;
+}
+
+.btn-download-material:hover {
+    background: rgba(255,255,255,0.08);
+}
+

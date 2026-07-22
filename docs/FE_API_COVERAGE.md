@@ -12,7 +12,7 @@ Action-level QA cases for the visible UI are maintained in `docs/FE_BUTTON_ACTIO
 - `out of scope`: Intentionally hidden or not needed for demo.
 
 ## Audit Basis
-- Re-audited on `2026-07-20` against the latest Java controllers, `FE_WEBSOCKET_TEACHER_EXAM_GUIDE_VI.md`, and the checked-in n8n workflows.
+- Re-audited on `2026-07-22` against the latest Java controllers, chapter coverage DTOs, `FE_WEBSOCKET_TEACHER_EXAM_GUIDE_VI.md`, and the checked-in n8n workflows.
 - Controller code and the checked-in n8n workflow take precedence over older handoff text when documents disagree.
 - “UI done” means the canonical endpoint is reachable from a visible flow; it does not mean every backend alias has a separate button.
 
@@ -146,6 +146,12 @@ Action-level QA cases for the visible UI are maintained in `docs/FE_BUTTON_ACTIO
 - Admin exposes `/admin/review-queue` for serious Answer Reviews and Knowledge Candidate approval using the same canonical review services and role guards as Senior Mentor.
 
 ## 6. Tutor V2 Expert Co-Training
+- `GET /api/v2/expert-training/chapters/suggested` - `UI done`; tree từ học liệu đã index
+- `POST /api/v2/expert-training/chapters/confirm` - `UI done`; chỉ Senior/Admin, gửi canonical `chapterKeys`
+- `POST /api/v2/expert-training/chapters/manual` - `UI done`; fallback khi học liệu không có mục lục phù hợp
+- `GET /api/v2/expert-training/chapters/{chapterKey}/preview` - `UI done`; hiển thị excerpt, material health và nguồn
+- `GET /api/v2/expert-training/chapters/preview` - `UI done`; Teacher xem context của task theo tên chapter
+- `POST /api/v2/expert-training/chapters/tasks` - `UI done`; tạo task `OPEN` cho TRAINING, EVALUATION hoặc cả hai
 - `POST /api/v2/expert-training/coverage/analyze` - `UI done`; Senior/Admin only
 - `GET /api/v2/expert-training/coverage-gaps` - `UI done`
 - `POST /api/v2/expert-training/tasks` - `UI done`
@@ -161,7 +167,7 @@ Action-level QA cases for the visible UI are maintained in `docs/FE_BUTTON_ACTIO
 - `GET /api/v2/expert-training/eval-runs` - `UI done`
 - `GET /api/v2/expert-training/eval-runs/{id}` - `UI done`; per-case comparison
 
-Tutor V2 is available at `/teacher/expert-training` and `/admin/expert-training`. The shared lazy feature has four views: `Tổng quan`, `Công việc`, `Nội dung & kiểm duyệt`, and `Evaluation`. Teacher contributes and inspects results; Senior/Admin can analyze, approve/reject and run evaluation. `TRAINING` approval is rendered as `INDEXED`; `EVALUATION` approval is rendered as a private `APPROVED` holdout. Evaluation execution stays disabled until canonical GET data contains at least one approved Evaluation Gold Q&A.
+Tutor V2 is available at `/teacher/expert-training` and `/admin/expert-training`. The shared lazy feature has four views: `Tổng quan`, `Công việc`, `Nội dung & kiểm duyệt`, and `Evaluation`. Senior/Admin xác nhận chapter và tạo task `OPEN`; Teacher tự nhận task, xem tài liệu chương và chỉ được gửi task thuộc về mình. Submit chuyển task sang `SUBMITTED`; reject trả task về `IN_PROGRESS` kèm ghi chú. `TRAINING` approval is rendered as `INDEXED`; `EVALUATION` approval is rendered as a private `APPROVED` holdout. Evaluation execution stays disabled until canonical GET data contains at least one approved Evaluation Gold Q&A.
 
 ## 7. Diagnostics
 - `GET /api/harness/logs` - `UI done`
@@ -194,7 +200,7 @@ Tutor V2 is available at `/teacher/expert-training` and `/admin/expert-training`
 
 ## 10. Realtime Events
 - `GET ws(s)://{backend}/ws/events?token={JWT}` - `UI done`; one authenticated app-level connection
-- Material indexing, assignment assigned/submitted/reviewed, AI grading, and Tutor V2 task/contribution/evaluation events trigger canonical HTTP refetches.
+- Material indexing, assignment assigned/submitted/reviewed, AI grading, and Tutor V2 task/contribution/evaluation events trigger canonical HTTP refetches. Material events also refresh chapter outlines and coverage gaps for the active course.
 - Tutor V2 subscriptions cover `EXPERT_TASK_*`, `GOLD_QA_*`, `RUBRIC_*`, and `EVAL_RUN_*`; duplicate `type + entityId + status` envelopes are ignored briefly.
 - Reconnecting to `/ws/events` triggers canonical refresh for active Tutor V2, material, Student assignment and Teacher grading screens.
 - Teacher material upload retains the backend `materialId`, mounts an optimistic processing row and reconciles `PROCESSING/INDEXED/INDEXING_FAILED` through WebSocket plus canonical GET.

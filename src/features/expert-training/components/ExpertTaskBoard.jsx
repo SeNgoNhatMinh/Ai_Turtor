@@ -44,6 +44,7 @@ export default function ExpertTaskBoard({
   const [scope, setScope] = useState('AVAILABLE');
   const [createOpen, setCreateOpen] = useState(false);
   const [form] = Form.useForm();
+  const createTaskType = Form.useWatch('type', form);
   const createModalOpen = createOpen || Boolean(draftChapter);
 
   const filteredTasks = useMemo(() => tasks.filter((task) => {
@@ -54,8 +55,15 @@ export default function ExpertTaskBoard({
   }), [scope, status, tasks, userId]);
 
   const submitCreate = async (values) => {
+    const { usage, instructions, ...taskValues } = values;
+    const usageInstruction = taskValues.type === 'GOLD_QA'
+      ? usage === 'EVALUATION'
+        ? 'Mục đích bắt buộc: EVALUATION holdout, không index RAG.'
+        : 'Mục đích bắt buộc: TRAINING, chỉ index RAG sau khi được duyệt.'
+      : '';
     const result = await onCreate({
-      ...values,
+      ...taskValues,
+      instructions: [usageInstruction, String(instructions || '').trim()].filter(Boolean).join('\n'),
       dueAt: values.dueAt?.toISOString?.() || null,
     });
     if (result) {
@@ -150,6 +158,13 @@ export default function ExpertTaskBoard({
             </Button>
           );
         }
+        if (
+          task.assigneeId === userId
+          && CONTRIBUTION_TYPES.has(task.type)
+          && ['SUBMITTED', 'COMPLETED'].includes(task.status)
+        ) {
+          return <Button size="small" onClick={() => onContribute(task)}>Xem</Button>;
+        }
         return null;
       },
     },
@@ -230,6 +245,7 @@ export default function ExpertTaskBoard({
           key={draftChapter || 'manual-task'}
           initialValues={{
             type: 'GOLD_QA',
+            usage: 'TRAINING',
             priority: 50,
             chapter: draftChapter || undefined,
             title: draftChapter ? `Bổ sung tri thức cho ${draftChapter}` : undefined,
@@ -248,6 +264,18 @@ export default function ExpertTaskBoard({
               { value: 'RUBRIC', label: 'Rubric' },
             ]} />
           </Form.Item>
+          {createTaskType === 'GOLD_QA' && (
+            <Form.Item
+              label="Mục đích Gold Q&A"
+              name="usage"
+              rules={[{ required: true, message: 'Chọn mục đích của Gold Q&A.' }]}
+            >
+              <Select options={[
+                { value: 'TRAINING', label: 'TRAINING — đưa vào RAG sau khi duyệt' },
+                { value: 'EVALUATION', label: 'EVALUATION — holdout, không index RAG' },
+              ]} />
+            </Form.Item>
+          )}
           <Form.Item label="Mức ưu tiên" name="priority">
             <InputNumber min={1} max={100} precision={0} className="expert-training__full-width" />
           </Form.Item>

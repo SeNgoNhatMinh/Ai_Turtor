@@ -1,5 +1,14 @@
 # FE Button And Action Flow Test Plan
 
+## Live Execution Update - 2026-07-22
+
+- `V2-004` -> `V2-010`, `V2-022`, `V2-025`, `V2-027`, `V2-028`: PASS qua Admin/Teacher UI và API/n8n thật với dataset `FE DEMO 20260722-2235`.
+- `SCHAT-010`: PASS cho nhánh `ESCALATE`; FE reconcile ID n8n tạm sang conversation UUID canonical.
+- `SCHAT-015`: PASS; pin `PATCH 200`, counter `1/3`, tồn tại sau logout/login.
+- `SCHAT-023`: PASS; Missing Material review vào `NEEDS_SENIOR_REVIEW` và hiển thị trong Admin queue.
+- `V2-010`: mutation đã tạo canonical Evaluation run và UI refetch hiển thị đúng. n8n Respond node vẫn timeout dù BE đã hoàn tất, nên response-path chưa PASS hoàn toàn.
+- Báo cáo chi tiết: `docs/FE_TUTOR_V2_LIVE_TEST_REPORT_2026-07-22.md`.
+
 ## 0. Execution Update - 2026-07-20
 
 - Removed static service-health claims, the account-role switch, the toast-only Teacher roster `Support` action, the duplicate class refresh, and the context-free mentor prompt starter.
@@ -325,6 +334,13 @@ Chuẩn bị thêm một student không có enrollment để test guard.
 | V2-020 | P0 AUTO-UNIT | Evaluation readiness | Không có approved holdout thì CTA disabled và hiển thị lý do; Rubric thiếu chỉ là cảnh báo. |
 | V2-021 | P1 AUTO-E2E | URL context | `?view=work&task=...` và `?view=content&review=...` giữ đúng khu vực/bản ghi sau refresh. |
 | V2-022 | P0 MANUAL-LIVE | Coverage `Tạo task` | Mở `Công việc`, điền sẵn chapter thật từ gap; chỉ gửi POST khi user xác nhận form. |
+| V2-023 | P0 AUTO-UNIT | Chapter role visibility | Teacher chỉ xem tree/preview; không thấy Xác nhận, Thêm chapter hoặc Tạo task. Senior/Admin thấy các action này. |
+| V2-024 | P0 MANUAL-LIVE | `Xác nhận chapter` | Gửi đúng `chapterKeys`; uncheck chapter đã confirm sẽ trở lại `SUGGESTED`; canonical GET được refetch. |
+| V2-025 | P0 MANUAL-LIVE | `Tạo task mở` từ preview | TRAINING/EVALUATION checkbox map đúng payload; task mới là `OPEN`, không chỉ định Teacher. |
+| V2-026 | P0 AUTO-UNIT | Teacher submit ownership | Task của giảng viên khác hoặc task `SUBMITTED/COMPLETED` phải read-only; không gọi mutation. |
+| V2-027 | P0 MANUAL-LIVE | Task material context | Preview đúng course/chapter; chỉ nguồn PDF có `Mở PDF`; website/DOCX không gọi PDF endpoint. |
+| V2-028 | P0 MANUAL-LIVE | Reject và resubmit | Reject bắt buộc note, task về `IN_PROGRESS`; Teacher thấy reason và nội dung cũ để chỉnh sửa/gửi lại. |
+| V2-029 | P0 AUTO-E2E | Canonical selected task | URL chỉ lưu task ID; sau REST/WebSocket refetch detail lấy object mới, không giữ status stale. |
 
 ## 19. Cross-Cutting Error, Lock, Realtime Và n8n
 

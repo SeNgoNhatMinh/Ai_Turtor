@@ -1,0 +1,214 @@
+/* Dark mode belongs to the shared renderer so every route is consistent. */
+.app-container.dark .ai-answer,
+.app-container.dark .ai-answer-paragraph,
+.app-container.dark .ai-answer-list {
+  color: #ececec;
+}
+
+.app-container.dark .ai-answer-formatting {
+  color: #a3a3a3;
+}
+
+.app-container.dark .ai-answer-heading,
+.app-container.dark .ai-answer strong {
+  color: #ffffff;
+}
+
+.app-container.dark .ai-answer-heading .ai-answer-heading-anchor {
+  color: #737373;
+}
+
+.app-container.dark .ai-answer-heading .ai-answer-heading-anchor:hover {
+  color: #ffb077;
+}
+
+.app-container.dark .ai-answer em {
+  color: #d1d5db;
+}
+
+.app-container.dark .ai-answer-inline-code {
+  background: rgba(243, 112, 33, 0.2);
+  color: #ffb077;
+}
+
+.app-container.dark .ai-answer-inline-math {
+  border-color: #3f3f46;
+  background: rgba(255, 255, 255, 0.06);
+  color: #ffd7bd;
+}
+
+.app-container.dark .ai-answer-link {
+  color: #ffb077;
+}
+
+.app-container.dark .ai-answer-link:hover {
+  color: #ffd7bd;
+}
+
+.app-container.dark .ai-answer-study-tip:hover,
+.app-container.dark .ai-answer-study-tip:focus-visible {
+  color: #ffb077;
+}
+
+.app-container.dark .ai-answer-table-wrap,
+.app-container.dark .ai-answer-code-block,
+.app-container.dark .ai-answer-math-block {
+  border-color: #3f3f46;
+}
+
+.app-container.dark .ai-answer [data-rehype-pretty-code-title] {
+  border-color: #3f3f46;
+  background: rgba(255, 255, 255, 0.06);
+  color: #ffd7bd;
+}
+
+.app-container.dark .ai-answer-copy-btn {
+  border-color: rgba(255, 176, 119, 0.32);
+  background: rgba(31, 31, 31, 0.88);
+  color: #ffb077;
+}
+
+.app-container.dark .ai-answer-copy-btn:hover {
+  border-color: #ffb077;
+  background: rgba(243, 112, 33, 0.18);
+  color: #ffd7bd;
+}
+
+.app-container.dark .ai-answer-copy-btn.copied {
+  border-color: rgba(52, 211, 153, 0.38);
+  background: rgba(52, 211, 153, 0.14);
+  color: #6ee7b7;
+}
+
+.app-container.dark .ai-answer-table,
+.app-container.dark .ai-answer-math-block,
+.app-container.dark .ai-answer-table-wrap {
+  background: #171717;
+}
+
+.app-container.dark .ai-answer-math-block pre,
+.app-container.dark .ai-answer .katex {
+  color: #ececec;
+}
+
+.app-container.dark .ai-answer .katex-display {
+  border-color: #3f3f46;
+  background: #171717;
+  color: #ececec;
+}
+
+.app-container.dark .ai-answer-format-toolbar {
+  border-bottom-color: #3f3f46;
+  background: rgba(243, 112, 33, 0.16);
+  color: #ffb077;
+}
+
+.app-container.dark .ai-answer-table th {
+  background: rgba(243, 112, 33, 0.16);
+  color: #ffb077;
+}
+
+.app-container.dark .ai-answer-table td {
+  border-bottom-color: #3f3f46;
+  color: #ececec;
+}
+
+.app-container.dark .ai-answer-hr {
+  border-top-color: #3f3f46;
+}
+
+.app-container.dark .ai-answer-link-disabled,
+.app-container.dark .ai-answer-image-error {
+  color: #fca5a5;
+}
+
+.app-container.dark .ai-answer-code-block,
+.app-container.dark .ai-answer-code-loading {
+  background: #111827;
+  box-shadow: none;
+}
+
+.app-container.dark .ai-answer-code-block .linenumber {
+  color: #9ca3af !important;
+}
+
+.app-container.dark .ai-answer-table tbody tr:nth-child(even) {
+  background: #111111;
+}
+
+.app-container.dark .ai-answer-table tbody tr:hover {
+  background: #1f1f1f;
+}
+
+.app-container.dark .ai-answer-image-modal {
+  background: rgba(0, 0, 0, 0.88);
+}
+
+.app-container.dark .ai-answer-render-error {
+  border-color: rgba(248, 113, 113, 0.42);
+  background: rgba(127, 29, 29, 0.18);
+  color: #fecaca;
+}
+
+.app-container.dark .ai-answer-stream-cursor {
+  background: #ececec;
+}
+
+.app-container.dark .markdown-skeleton-line {
+  background: linear-gradient(90deg, #262626 0%, #3f3f46 50%, #262626 100%);
+  background-size: 220% 100%;
+}
+
+.app-container.dark .ai-answer-section-callout,
+.app-container.dark .ai-answer-quote {
+  background: rgba(243, 112, 33, 0.14);
+  color: #ececec;
+}
+
+.app-container.dark .ai-answer-section-callout--result {
+  border-left-color: #34d399;
+  background: rgba(16, 185, 129, 0.12);
+}
+
+.app-container.dark .ai-answer-section-callout--result span {
+  color: #6ee7b7;
+}
+
+.app-container.dark .ai-answer-section-callout p {
+  color: #ececec;
+}
+
+.app-container.dark .ai-answer-source-pill {
+  border-color: #3f3f46;
+  background: #171717;
+  color: #d1d5db;
+}
+
+.app-container.dark .ai-answer-source-pill code {
+  color: #d1d5db;
+}
+
+.app-container.dark .ai-answer-source-download {
+  color: #93c5fd;
+}
+
+.app-container.dark .ai-answer-source-download:hover,
+.app-container.dark .ai-answer-source-download:focus-visible {
+  color: #bfdbfe;
+}
+
+@keyframes ai-answer-cursor-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+@keyframes markdown-skeleton-shimmer {
+  0% {
+    background-position: 120% 0;
+  }
+
+  100% {
+    background-position: -120% 0;
+  }
+}

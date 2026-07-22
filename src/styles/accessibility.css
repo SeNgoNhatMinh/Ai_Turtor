@@ -1,0 +1,75 @@
+/* Shared accessibility and responsive guarantees for production workspaces. */
+:where(button, a, input, textarea, select, [role="button"], [tabindex]):focus-visible {
+  outline: 3px solid rgba(243, 112, 33, 0.38);
+  outline-offset: 2px;
+}
+
+:where(button, [role="button"]):disabled {
+  cursor: not-allowed;
+}
+
+@media (max-width: 768px) {
+  .ant-table-wrapper {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  .ant-modal {
+    max-width: calc(100vw - 24px);
+    margin: 12px auto;
+  }
+}
+
+@media (min-width: 901px) and (max-height: 820px) {
+  .login-shell {
+    min-height: 100dvh;
+    gap: 32px;
+    padding: 20px 0;
+  }
+
+  .login-brand-panel {
+    gap: 12px;
+  }
+
+  .login-mascot-stage {
+    width: min(360px, 100%);
+  }
+
+  .login-robot-wrap {
+    min-height: clamp(158px, 25vh, 190px);
+    border-radius: 26px;
+  }
+
+  .login-brand-panel h1 {
+    font-size: clamp(2.3rem, 5.6vh, 4rem);
+  }
+
+  .login-brand-panel > p {
+    font-size: 0.96rem;
+    line-height: 1.5;
+  }
+
+  .login-benefit-grid {
+    gap: 10px;
+    margin-top: 0;
+  }
+
+  .login-benefit-card {
+    padding: 10px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:focus-within {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

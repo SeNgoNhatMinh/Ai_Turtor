@@ -67,40 +67,34 @@ export default function ExpertTrainingPage({
   const controller = useExpertTrainingController({
     currentUser,
     courseId,
+    selectedTaskId,
     setCourseId,
     triggerToast,
   });
   const taskLoading = controller.loading.tasks;
   const tasks = controller.resources.tasks;
-  const currentTaskId = controller.selectedTask?.id;
-  const setSelectedTask = controller.setSelectedTask;
+  const selectedTaskChapter = controller.selectedTask?.chapter || '';
+  const loadTaskMaterialPreview = controller.loadTaskMaterialPreview;
 
   useEffect(() => {
-    if (!selectedTaskId) {
-      if (currentTaskId) setSelectedTask(null);
-      return;
-    }
-    if (taskLoading) return;
-    const selectedTask = tasks.find((task) => task.id === selectedTaskId);
-    if (selectedTask && selectedTask.id !== currentTaskId) {
-      setSelectedTask(selectedTask);
-    }
-    if (!selectedTask && tasks.length) {
+    if (selectedTaskId && !taskLoading && tasks.length && !controller.selectedTask) {
       setQueryState({ task: null }, true);
     }
   }, [
-    currentTaskId,
+    controller.selectedTask,
     selectedTaskId,
-    setSelectedTask,
     setQueryState,
     taskLoading,
     tasks,
   ]);
 
+  useEffect(() => {
+    loadTaskMaterialPreview(selectedTaskChapter);
+  }, [loadTaskMaterialPreview, selectedTaskChapter]);
+
   const selectTask = useCallback((task) => {
-    controller.setSelectedTask(task);
     setQueryState({ view: 'work', task: task?.id || null, chapter: null });
-  }, [controller, setQueryState]);
+  }, [setQueryState]);
 
   const navigateToAction = useCallback((action) => {
     setQueryState({
@@ -129,6 +123,14 @@ export default function ExpertTrainingPage({
           pendingAction={controller.pendingAction}
           onAnalyzeCoverage={controller.analyzeCoverage}
           onRefreshCoverage={controller.loadGaps}
+          chapterPreview={controller.chapterPreview}
+          onRefreshChapters={controller.loadChapters}
+          onConfirmChapters={controller.confirmChapterSelection}
+          onAddManualChapter={controller.addManualChapter}
+          onPreviewChapter={controller.openChapterPreview}
+          onCloseChapterPreview={() => controller.setChapterPreview(null)}
+          onCreateChapterTasks={controller.createTasksForChapter}
+          onOpenMaterial={controller.openSourceMaterial}
           onNavigateAction={navigateToAction}
           onCreateTaskFromGap={(gap) => setQueryState({ view: 'work', chapter: gap.chapter })}
         />
@@ -155,6 +157,9 @@ export default function ExpertTrainingPage({
             onDraftConsumed={() => setQueryState({ chapter: null }, true)}
             onSubmitGoldQa={controller.submitGoldQa}
             onSubmitRubric={controller.submitRubric}
+            taskMaterialPreview={controller.taskMaterialPreview}
+            selectedTaskRejection={controller.selectedTaskRejection}
+            onOpenMaterial={controller.openSourceMaterial}
           />
         </Suspense>
       ),

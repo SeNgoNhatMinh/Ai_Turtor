@@ -1,0 +1,77 @@
+/* Datatables */
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8rem;
+    text-align: left;
+}
+
+.data-table th, .data-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--color-card-border);
+}
+
+.data-table th {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    color: var(--color-text-muted);
+    background: rgba(0,0,0,0.15);
+}
+
+.data-table tbody tr:hover {
+    background: rgba(255,255,255,0.01);
+}
+
+.badge {
+    display: inline-block;
+    padding: 2px 6px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    border-radius: var(--border-radius-sm);
+}
+
+.badge.active-badge {
+    background: rgba(20, 184, 166, 0.15);
+    color: var(--color-secondary);
+}
+
+.badge.admin-badge {
+    background: rgba(243, 112, 33, 0.15);
+    color: var(--color-primary);
+}
+
+.tag-weak {
+    display: inline-block;
+    background: rgba(239, 68, 68, 0.08);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    color: var(--color-danger);
+    padding: 2px 6px;
+    border-radius: var(--border-radius-sm);
+    font-size: 0.65rem;
+    margin-right: 4px;
+}
+
+.tag-healthy {
+    color: var(--color-text-dark);
+}
+
+.btn-small-chat {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(243, 112, 33, 0.1);
+    border: 1px solid rgba(243, 112, 33, 0.35);
+    border-radius: var(--border-radius-sm);
+    color: var(--color-primary);
+    padding: 4px 10px;
+    cursor: pointer;
+    font-size: 0.7rem;
+    font-weight: 600;
+    transition: background 0.2s, border-color 0.2s;
+}
+
+.btn-small-chat:hover {
+    background: rgba(243, 112, 33, 0.18);
+    border-color: var(--color-primary);
+}
+

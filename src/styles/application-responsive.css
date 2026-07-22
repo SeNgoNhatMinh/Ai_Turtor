@@ -1,0 +1,424 @@
+@media (max-width: 1100px) {
+    :root {
+        --sidebar-width: 220px;
+    }
+
+    .top-nav {
+        height: auto;
+        min-height: var(--header-height);
+        gap: 12px;
+        flex-wrap: wrap;
+        padding: 12px 16px;
+    }
+
+    .role-switcher-container {
+        order: 3;
+        width: 100%;
+        justify-content: flex-start;
+        overflow-x: auto;
+    }
+
+    .main-layout {
+        height: calc(100vh - 98px);
+    }
+
+    .content-wrapper {
+        padding: 16px;
+    }
+
+    .grid-2x2,
+    .grid-2-cols,
+    .support-layout,
+    .mentor-review-layout,
+    .student-chat-layout,
+    .materials-layout,
+    .responsive-two-pane {
+        grid-template-columns: 1fr !important;
+        height: auto;
+    }
+
+    .span-2 {
+        grid-column: auto;
+    }
+
+    .support-list-card,
+    .support-detail-card,
+    .mentor-review-list-card,
+    .mentor-review-detail-card,
+    .student-side-card,
+    .chat-sessions-card {
+        min-height: 360px;
+    }
+
+    .mentor-review-page,
+    .mentor-review-layout {
+        height: auto;
+        overflow: visible;
+    }
+
+    .mentor-review-list-card,
+    .mentor-review-detail-card {
+        height: auto;
+    }
+
+    .mentor-ticket-list {
+        max-height: 420px;
+    }
+
+    .mentor-review-detail {
+        height: auto;
+        min-height: 360px;
+    }
+
+    .mentor-review-content {
+        max-height: 60vh;
+    }
+
+    .student-chat-section,
+    .student-chat-layout {
+        overflow: visible;
+    }
+
+    .student-chat-section--minimal {
+        min-height: 720px;
+    }
+
+    .student-chat-layout--chatgpt {
+        height: 720px;
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    .student-chat-layout--chatgpt .ant-splitter {
+        display: flex;
+    }
+
+    .student-chat-history-pane {
+        flex: 0 0 86px;
+        width: 86px;
+        min-width: 86px;
+        max-width: 86px;
+    }
+
+    .workspace-toolbar,
+    .page-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .login-shell {
+        grid-template-columns: 1fr;
+        align-items: start;
+        gap: 28px;
+        width: min(680px, calc(100% - 32px));
+        padding: 32px 0;
+    }
+
+    .login-brand-panel {
+        align-items: center;
+        text-align: center;
+    }
+
+    .login-mascot-stage {
+        width: min(420px, 100%);
+    }
+
+    .login-robot-wrap {
+        width: 100%;
+        min-height: 218px;
+    }
+
+    .login-speech-bubble {
+        top: 14px;
+        right: 14px;
+        max-width: min(225px, calc(100% - 26px));
+    }
+
+    .login-brand-panel h1 {
+        font-size: clamp(2.25rem, 9vw, 3.6rem);
+    }
+
+    .login-brand-panel > p {
+        max-width: 560px;
+    }
+
+    .login-benefit-grid {
+        grid-template-columns: 1fr;
+        max-width: 520px;
+    }
+
+    .login-benefit-card {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        text-align: left;
+    }
+
+    .login-benefit-icon {
+        flex: 0 0 auto;
+        margin-bottom: 0;
+    }
+
+    .login-auth-card {
+        justify-self: center;
+        max-width: 520px;
+    }
+}
+
+@media (max-width: 760px) {
+    body {
+        overflow: auto;
+    }
+
+    .app-container {
+        min-height: 100vh;
+        height: auto;
+    }
+
+    .main-layout {
+        flex-direction: column;
+        height: auto;
+    }
+
+    .student-chat-section--minimal {
+        min-height: 780px;
+    }
+
+    .student-chat-layout--chatgpt {
+        height: auto;
+        min-height: 780px;
+        border-radius: 0;
+        border-left: 0;
+        border-right: 0;
+    }
+
+    .student-chat-layout--chatgpt .ant-splitter {
+        flex-direction: column !important;
+    }
+
+    .student-chat-layout--chatgpt .ant-splitter-panel {
+        flex-basis: auto !important;
+        min-width: 0 !important;
+        width: 100% !important;
+    }
+
+    .student-chat-layout--chatgpt {
+        flex-direction: column;
+    }
+
+    .student-chat-history-toggle.ant-btn {
+        display: inline-flex;
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        z-index: 22;
+        align-items: center;
+        gap: 6px;
+        height: 34px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.92);
+        border: 1px solid #e5e7eb;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+        color: #202123;
+        font-size: 12px;
+        font-weight: 800;
+    }
+
+    .app-container.dark .student-chat-history-toggle.ant-btn {
+        background: rgba(23, 23, 23, 0.92);
+        border-color: #2a2a2a;
+        color: #ececec;
+    }
+
+    .student-chat-history-backdrop {
+        display: block;
+        position: fixed;
+        inset: 0;
+        z-index: 30;
+        border: 0;
+        background: rgba(0, 0, 0, 0.38);
+        cursor: pointer;
+    }
+
+    .student-chat-history-pane {
+        position: fixed;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        z-index: 31;
+        flex: 0 0 auto;
+        width: min(320px, 86vw);
+        min-width: 0;
+        max-width: min(320px, 86vw);
+        height: 100vh;
+        transform: translateX(-104%);
+        transition: transform 0.22s ease;
+        box-shadow: 18px 0 40px rgba(0, 0, 0, 0.22);
+    }
+
+    .student-chat-history-pane.is-open {
+        transform: translateX(0);
+    }
+
+    .student-chat-main-pane {
+        flex: 1 1 auto;
+        min-height: 480px;
+    }
+
+    .student-chat-layout--chatgpt .chat-sessions-card.ant-card {
+        min-height: 100vh;
+        max-height: none;
+        border-right: 0 !important;
+        border-bottom: 0 !important;
+    }
+
+    .app-container.dark .student-chat-layout--chatgpt .chat-sessions-card.ant-card {
+        border-bottom-color: #1F1F1F !important;
+    }
+
+    .main-sidebar {
+        width: 100%;
+        min-height: auto;
+        padding: 8px 12px;
+        border-right: none;
+        border-bottom: 1px solid #F3D2BC;
+    }
+
+    .main-sidebar--collapsed {
+        width: 100%;
+        padding: 8px 12px;
+    }
+
+    .main-sidebar--collapsed .sidebar-topbar {
+        justify-content: flex-start;
+    }
+
+    .main-sidebar .ant-menu {
+        display: flex;
+        overflow-x: auto;
+        gap: 4px;
+    }
+
+    .main-sidebar .ant-menu-item {
+        min-width: max-content;
+    }
+
+    .main-sidebar--collapsed .ant-menu-inline-collapsed {
+        width: 100%;
+    }
+
+    .main-sidebar--collapsed .ant-menu-light .ant-menu-item {
+        width: 44px;
+        min-width: 44px;
+    }
+
+    .content-wrapper {
+        height: auto;
+        min-height: calc(100vh - 170px);
+        padding: 12px;
+    }
+
+    .portal-view {
+        height: auto;
+    }
+
+    .role-label,
+    #current-user-name {
+        display: none;
+    }
+
+    .user-profile {
+        margin-left: auto;
+    }
+
+    .login-page {
+        position: fixed;
+    }
+
+    .login-shell {
+        width: min(100% - 24px, 460px);
+        gap: 20px;
+        padding: 24px 0;
+    }
+
+    .login-brand-kicker,
+    .login-benefit-grid {
+        display: none;
+    }
+
+    .login-mascot-stage {
+        width: 100%;
+    }
+
+    .login-robot-wrap {
+        min-height: 166px;
+        border-radius: 24px;
+    }
+
+    .login-robot-head {
+        width: min(150px, 44vw) !important;
+        height: min(123px, 36vw) !important;
+    }
+
+    .login-speech-bubble {
+        top: auto;
+        right: 50%;
+        bottom: -18px;
+        max-width: min(290px, calc(100% - 30px));
+        transform: translateX(50%);
+        border-radius: 16px;
+        text-align: center;
+        font-size: 0.82rem;
+    }
+
+    .login-speech-bubble::before {
+        left: 50%;
+        top: -8px;
+        bottom: auto;
+        transform: translateX(-50%) rotate(135deg);
+    }
+
+    .login-speech-bubble strong {
+        font-size: 0.94rem;
+    }
+
+    .login-brand-panel {
+        gap: 24px;
+    }
+
+    .login-brand-panel h1 {
+        font-size: 2.2rem;
+        line-height: 1.02;
+    }
+
+    .login-brand-panel > p {
+        font-size: 0.95rem;
+        line-height: 1.55;
+    }
+
+    .login-auth-card {
+        padding: 22px;
+        border-radius: 20px;
+    }
+
+    .login-card-header h2 {
+        font-size: 1.5rem;
+    }
+
+    .login-auth-brand-row {
+        gap: 10px;
+        margin-bottom: 14px;
+    }
+
+    .login-auth-mascot {
+        width: 48px;
+        height: 48px;
+        border-radius: 15px;
+    }
+
+    .login-segment button {
+        min-height: 40px;
+        font-size: 0.86rem;
+    }
+}
+

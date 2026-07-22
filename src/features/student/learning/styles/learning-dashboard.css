@@ -1,0 +1,217 @@
+/* Learning progress dashboard - shadcn-inspired neutral dashboard */
+.learning-dashboard {
+    gap: 16px;
+}
+
+.learning-dashboard .ant-card.learning-card {
+    border: 1px solid #E5E7EB !important;
+    border-radius: 10px !important;
+    background: #FFFFFF !important;
+    box-shadow: none !important;
+}
+
+.learning-dashboard .ant-card-head {
+    min-height: 48px;
+    border-bottom-color: #EEF0F3;
+}
+
+.learning-dashboard .ant-card-head-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: #111827;
+}
+
+.learning-hero-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.85fr);
+    gap: 16px;
+}
+
+.learning-card-kicker {
+    margin-bottom: 8px;
+    color: #6B7280;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.learning-card-title.ant-typography {
+    margin: 0 0 8px;
+    color: #111827;
+    font-weight: 750;
+}
+
+.learning-card-description {
+    display: block;
+    max-width: 680px;
+    color: #4B5563;
+    line-height: 1.6;
+}
+
+.learning-scope-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 14px;
+}
+
+.learning-scope-row .ant-tag {
+    margin: 0;
+    border-radius: 999px;
+    background: #F9FAFB;
+    border-color: #E5E7EB;
+    color: #374151;
+    font-weight: 600;
+}
+
+.learning-hero-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+}
+
+.learning-progress-ring {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+.learning-progress-value {
+    color: #111827;
+    font-size: 24px;
+    font-weight: 800;
+}
+
+.learning-status-tag {
+    margin: 0;
+    border-radius: 999px;
+    font-weight: 650;
+}
+
+.learning-focus-list,
+.learning-topic-cloud {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.learning-focus-chip.ant-tag,
+.learning-topic-cloud .ant-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+    padding: 5px 10px;
+    border-radius: 999px;
+    background: #F9FAFB;
+    border-color: #E5E7EB;
+    color: #111827;
+    font-weight: 600;
+}
+
+.learning-stat-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px;
+}
+
+.learning-context-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 0.85fr);
+    gap: 16px;
+}
+
+.learning-context-card .ant-alert {
+    border-radius: 10px;
+}
+
+.learning-alert {
+    margin-bottom: 16px;
+    border-radius: 12px;
+}
+
+.learning-memory-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    margin-top: 16px;
+}
+
+.learning-recent-list {
+    display: grid;
+    gap: 8px;
+}
+
+.learning-recent-item {
+    display: grid;
+    grid-template-columns: 18px minmax(0, 1fr);
+    gap: 8px;
+    align-items: start;
+    padding: 9px 10px;
+    border: 1px solid #EEF0F3;
+    border-radius: 9px;
+    background: #FCFCFD;
+    color: #374151;
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.learning-recent-item .anticon {
+    margin-top: 2px;
+    color: #6B7280;
+}
+
+.learning-stat-card .ant-card-body {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    padding: 16px !important;
+}
+
+.learning-stat-icon {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background: #F4F4F5;
+    color: #202123;
+    font-size: 18px;
+    flex-shrink: 0;
+}
+
+.learning-stat-label {
+    color: #6B7280;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.learning-stat-value {
+    margin-top: 2px;
+    color: #111827;
+    font-size: 24px;
+    font-weight: 800;
+    line-height: 1.15;
+}
+
+.learning-stat-description {
+    margin-top: 3px;
+    color: #6B7280;
+    font-size: 12px;
+}
+
+.learning-action-plan-card .ant-card-body {
+    display: grid;
+    gap: 18px;
+}
+
+.student-next-steps-card .ant-card-body {
+  display: grid;
+  gap: 12px;
+}
+

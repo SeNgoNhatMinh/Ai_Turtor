@@ -11,6 +11,56 @@ export const normalizeCourseOption = (course = {}) => ({
   name: course.courseName || course.name || course.title || course.courseId || course.id || 'Môn học',
 });
 
+const normalizeStringArray = (value) => (
+  Array.isArray(value) ? [...new Set(value.map((item) => String(item || '').trim()).filter(Boolean))] : []
+);
+
+export const normalizeChapterOutline = (chapter = {}) => ({
+  ...chapter,
+  id: chapter.id || chapter.chapterKey || '',
+  courseId: chapter.courseId || '',
+  chapterKey: chapter.chapterKey || chapter.id || '',
+  title: chapter.title || chapter.chapter || 'Chưa xác định chương',
+  status: normalizedStatus(chapter.status, 'SUGGESTED'),
+  detectedFrom: normalizedStatus(chapter.detectedFrom, 'UNKNOWN'),
+  sourceMaterialIds: normalizeStringArray(chapter.sourceMaterialIds),
+  chunkCount: finiteNumber(chapter.chunkCount),
+  approxChars: finiteNumber(chapter.approxChars),
+  materialHealth: normalizedStatus(chapter.materialHealth, 'NO_MATERIAL'),
+  trainingGoldCount: finiteNumber(chapter.trainingGoldCount),
+  evaluationGoldCount: finiteNumber(chapter.evaluationGoldCount),
+  tocLevel: finiteNumber(chapter.tocLevel),
+  pageStart: finiteNumber(chapter.pageStart),
+  pageEnd: finiteNumber(chapter.pageEnd),
+});
+
+const normalizeChapterSourceMaterial = (material = {}) => ({
+  ...material,
+  id: material.id || material.materialId || '',
+  title: material.title || material.fileName || 'Học liệu chưa đặt tên',
+  sourceType: normalizedStatus(material.sourceType, 'PDF'),
+  indexingStatus: normalizedStatus(material.indexingStatus, 'UNKNOWN'),
+});
+
+export const normalizeChapterPreview = (preview = {}) => ({
+  ...preview,
+  courseId: preview.courseId || '',
+  chapterKey: preview.chapterKey || '',
+  title: preview.title || preview.chapter || 'Chưa xác định chương',
+  status: normalizedStatus(preview.status, 'SUGGESTED'),
+  detectedFrom: normalizedStatus(preview.detectedFrom, 'UNKNOWN'),
+  materialHealth: normalizedStatus(preview.materialHealth, 'NO_MATERIAL'),
+  chunkCount: finiteNumber(preview.chunkCount),
+  approxChars: finiteNumber(preview.approxChars),
+  excerpt: preview.excerpt || '',
+  excerptTruncated: Boolean(preview.excerptTruncated),
+  excerptTotalChars: finiteNumber(preview.excerptTotalChars),
+  hasMaterialContent: Boolean(preview.hasMaterialContent),
+  sourceMaterials: Array.isArray(preview.sourceMaterials)
+    ? preview.sourceMaterials.map(normalizeChapterSourceMaterial).filter((item) => item.id)
+    : [],
+});
+
 export const normalizeCoverageGap = (gap = {}) => ({
   ...gap,
   id: gap.id || gap.gapId || '',
@@ -34,6 +84,8 @@ export const normalizeExpertTask = (task = {}) => ({
   status: normalizedStatus(task.status, 'OPEN'),
   priority: Math.max(1, Math.min(100, finiteNumber(task.priority, 50))),
   assigneeId: task.assigneeId || '',
+  assigneeTier: task.assigneeTier || '',
+  requiredUsage: normalizedStatus(task.requiredUsage || task.usage, ''),
   instructions: task.instructions || '',
 });
 
@@ -49,6 +101,9 @@ export const normalizeGoldQa = (item = {}) => ({
   holdout: Boolean(item.holdout ?? normalizedStatus(item.usage) === 'EVALUATION'),
   status: normalizedStatus(item.status, 'PENDING_REVIEW'),
   authorId: item.authorId || '',
+  sourceTaskId: item.sourceTaskId || item.taskId || '',
+  reviewNote: item.reviewNote || '',
+  rejectionReason: item.rejectionReason || '',
 });
 
 export const normalizeRubric = (item = {}) => ({
@@ -59,6 +114,9 @@ export const normalizeRubric = (item = {}) => ({
   name: item.name || 'Rubric chuyên gia',
   status: normalizedStatus(item.status, 'PENDING_REVIEW'),
   authorId: item.authorId || '',
+  sourceTaskId: item.sourceTaskId || item.taskId || '',
+  reviewNote: item.reviewNote || '',
+  rejectionReason: item.rejectionReason || '',
   criteriaWeights: item.criteriaWeights && typeof item.criteriaWeights === 'object'
     ? item.criteriaWeights
     : {},

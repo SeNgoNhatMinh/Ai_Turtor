@@ -1,0 +1,133 @@
+/* ==========================================
+   PORTAL VIEWS FOR PANELS (2x2 GRID & TABLES)
+   ========================================== */
+.grid-2x2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.grid-2-cols {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.span-2 {
+    grid-column: span 2;
+}
+
+.margin-top {
+    margin-top: 20px;
+}
+
+/* Memory Topics */
+.memory-details-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    height: 100%;
+}
+
+.topics-column h4 {
+    font-size: 0.85rem;
+    font-weight: 700;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.topics-column.learned h4 { color: var(--color-secondary); }
+.topics-column.weak h4 { color: var(--color-danger); }
+
+.topics-column ul {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.topics-column li {
+    font-size: 0.8rem;
+    padding: 8px 12px;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid var(--color-card-border);
+    border-radius: var(--border-radius-sm);
+    color: var(--color-text-muted);
+}
+
+/* Suggestions plan */
+.btn-refresh-suggestions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid var(--color-card-border);
+    border-radius: var(--border-radius-sm);
+    padding: 6px 12px;
+    color: white;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background var(--transition-speed) ease;
+}
+
+.btn-refresh-suggestions:hover {
+    background: rgba(255,255,255,0.12);
+}
+
+.suggestions-container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.suggest-item {
+    padding: 14px;
+    border-radius: var(--border-radius-md);
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--color-card-border);
+    border-left: 4px solid var(--color-text-dark);
+}
+
+.suggest-item.high-priority {
+    border-left-color: var(--color-danger);
+    background: rgba(239, 68, 68, 0.02);
+}
+
+.suggest-item.medium-priority {
+    border-left-color: #eab308;
+}
+
+.suggest-badge {
+    display: inline-block;
+    padding: 2px 6px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    border-radius: var(--border-radius-sm);
+    margin-bottom: 6px;
+}
+
+.high-priority .suggest-badge {
+    background: rgba(239, 68, 68, 0.15);
+    color: var(--color-danger);
+}
+
+.medium-priority .suggest-badge {
+    background: rgba(234, 179, 8, 0.15);
+    color: #eab308;
+}
+
+.suggest-item h5 {
+    font-size: 0.85rem;
+    font-weight: 700;
+    margin-bottom: 6px;
+}
+
+.suggest-item p {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    line-height: 1.5;
+}
+

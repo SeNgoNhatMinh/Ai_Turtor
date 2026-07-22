@@ -1,12 +1,15 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  normalizeChapterOutline,
+  normalizeChapterPreview,
   normalizeCoverageGap,
   normalizeEvalRun,
   normalizeGoldQa,
 } from '../src/services/expertTrainingNormalizers.js';
 import {
   criteriaRowsToWeights,
+  getChapterStatusMeta,
   getTaskGoldUsage,
   isTutorV2Reviewer,
   parseChapterInput,
@@ -30,6 +33,27 @@ test('normalizes Tutor V2 coverage and evaluation records without inventing succ
   assert.equal(run.status, 'FAILED');
   assert.equal(run.averageScore, null);
   assert.equal(run.hallucinationRate, 0.25);
+});
+
+test('normalizes canonical chapter coverage and source material metadata', () => {
+  const chapter = normalizeChapterOutline({
+    chapterKey: 'jvm-memory',
+    title: 'JVM Memory',
+    status: 'confirmed',
+    chunkCount: '4',
+    sourceMaterialIds: ['pdf-1', 'pdf-1', ''],
+  });
+  const preview = normalizeChapterPreview({
+    chapterKey: 'jvm-memory',
+    hasMaterialContent: true,
+    sourceMaterials: [{ materialId: 'pdf-1', fileName: 'JVM.pdf', sourceType: 'pdf' }],
+  });
+
+  assert.equal(chapter.status, 'CONFIRMED');
+  assert.equal(chapter.chunkCount, 4);
+  assert.deepEqual(chapter.sourceMaterialIds, ['pdf-1']);
+  assert.equal(preview.sourceMaterials[0].title, 'JVM.pdf');
+  assert.equal(getChapterStatusMeta(chapter.status).label, 'Đã xác nhận');
 });
 
 test('keeps evaluation Gold Q&A as a holdout instead of training knowledge', () => {
@@ -127,6 +151,11 @@ test('allows Tutor V2 approval only for canonical senior and admin roles', () =>
 });
 
 test('keeps coverage-created Gold Q&A tasks on their required training purpose', () => {
+  assert.equal(getTaskGoldUsage({
+    type: 'GOLD_QA',
+    requiredUsage: 'evaluation',
+    instructions: 'TRAINING should not override the explicit purpose.',
+  }), 'EVALUATION');
   assert.equal(getTaskGoldUsage({
     type: 'GOLD_QA',
     title: 'Soan Gold Q&A training',

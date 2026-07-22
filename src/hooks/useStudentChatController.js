@@ -12,6 +12,7 @@ import {
 } from '../utils/errorMessages';
 import { hasBrokenTextEncoding, repairMojibake } from '../utils/textEncoding';
 import { useConversationSessions } from '../features/student/chat/useConversationSessions';
+import { resolveCanonicalConversation } from '../features/student/chat/conversations/sessionUtils';
 
 const getSafeConversationTitle = (value, courseId) => {
   const repairedTitle = repairMojibake(value).trim();
@@ -20,6 +21,10 @@ const getSafeConversationTitle = (value, courseId) => {
   }
   return repairedTitle;
 };
+
+const waitForConversationPersistence = () => new Promise((resolve) => {
+  globalThis.setTimeout(resolve, 450);
+});
 
 export function useStudentChatController({
   currentUser,
@@ -81,6 +86,7 @@ export function useStudentChatController({
     }
     const previousSessionId = activeSessionId;
     const previousSessionTitle = activeSessionTitle;
+    const sessionsBeforeRequest = Array.isArray(sessions) ? sessions : [];
     const requestId = activeAiRequestIdRef.current + 1;
     activeAiRequestIdRef.current = requestId;
     activeAiAbortControllerRef.current?.abort();
@@ -144,31 +150,61 @@ export function useStudentChatController({
         data.conversationTitle || data.title || previousSessionTitle,
         courseId,
       );
-      const didStartNewConversation = Boolean(previousSessionId && responseConversationId && responseConversationId !== previousSessionId);
+      let refreshedSessions = await loadChatSessions();
+      let canonicalSession = resolveCanonicalConversation({
+        responseConversationId,
+        previousSessionId,
+        sessionsBefore: sessionsBeforeRequest,
+        sessionsAfter: refreshedSessions,
+      });
 
-      if (responseConversationId && responseConversationId !== previousSessionId) {
-        setActiveSessionId(responseConversationId);
-        setActiveSessionTitle(responseConversationTitle);
+      if (!canonicalSession && responseConversationId) {
+        await waitForConversationPersistence();
+        refreshedSessions = await loadChatSessions();
+        canonicalSession = resolveCanonicalConversation({
+          responseConversationId,
+          previousSessionId,
+          sessionsBefore: sessionsBeforeRequest,
+          sessionsAfter: refreshedSessions,
+        });
+      }
+
+      const canonicalConversationId = canonicalSession?.id || responseConversationId;
+      const canonicalConversationTitle = getSafeConversationTitle(
+        canonicalSession?.title || responseConversationTitle,
+        courseId,
+      );
+      const didStartNewConversation = Boolean(
+        previousSessionId
+        && canonicalConversationId
+        && canonicalConversationId !== previousSessionId
+      );
+
+      if (canonicalConversationId && canonicalConversationId !== previousSessionId) {
+        setActiveSessionId(canonicalConversationId);
+        setActiveSessionTitle(canonicalConversationTitle);
       }
 
       if (didStartNewConversation) {
         setTurnLimitNotice({
           type: 'turn-limit',
           previousSessionId,
-          currentSessionId: responseConversationId,
+          currentSessionId: canonicalConversationId,
           message: 'Cuộc trò chuyện đã đủ 10 câu hỏi. AI Tutor đã tạo cuộc trò chuyện mới để giữ ngữ cảnh tập trung.',
         });
       }
 
-      bumpConversationActivity({
-        conversationId: responseConversationId,
-        title: responseConversationTitle,
-        lastMessageAt: data.lastMessageAt || data.updatedAt || new Date().toISOString(),
-        messageCountIncrement: responseConversationId === previousSessionId ? 0 : 1,
-        questionCountIncrement: responseConversationId === previousSessionId ? 0 : 1,
-        questionCount: data.userQuestionCount ?? data.questionCount,
-        maxTurnsReached: data.maxTurnsReached,
-      });
+      if (!canonicalSession) {
+        bumpConversationActivity({
+          conversationId: canonicalConversationId,
+          title: canonicalConversationTitle,
+          lastMessageAt: data.lastMessageAt || data.updatedAt || new Date().toISOString(),
+          messageCountIncrement: canonicalConversationId === previousSessionId ? 0 : 1,
+          questionCountIncrement: canonicalConversationId === previousSessionId ? 0 : 1,
+          questionCount: data.userQuestionCount ?? data.questionCount,
+          maxTurnsReached: data.maxTurnsReached,
+        });
+      }
 
       if (canceledAiRequestIdsRef.current.has(requestId)) {
         canceledAiRequestIdsRef.current.delete(requestId);
@@ -187,7 +223,7 @@ export function useStudentChatController({
           messageId: data.assistantMessageId || data.messageId || data.aiMessageId || data.responseMessageId,
           assistantMessageId: data.assistantMessageId || data.messageId || data.aiMessageId || data.responseMessageId,
           userMessageId: data.userMessageId,
-          conversationId: responseConversationId,
+          conversationId: canonicalConversationId,
           mode: data.mode || 'RAG',
           confidence: data.confidence,
           sources: data.sources || [],
@@ -200,9 +236,12 @@ export function useStudentChatController({
         return updated;
       });
 
-      if (didStartNewConversation) {
+      if (canonicalConversationId && (
+        didStartNewConversation
+        || canonicalConversationId !== responseConversationId
+      )) {
         try {
-          const chatMsgs = await conversationApi.getMessages(responseConversationId, userId);
+          const chatMsgs = await conversationApi.getMessages(canonicalConversationId, userId);
           const historyPairs = pairMessages(asArray(chatMsgs, 'content', 'messages'));
           if (historyPairs.length > 0) {
             setMessages(historyPairs);

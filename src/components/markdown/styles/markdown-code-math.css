@@ -1,0 +1,168 @@
+.ai-answer-code-block {
+  min-width: 0;
+  max-width: 100%;
+  margin: 4px 0;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  overflow: hidden;
+}
+
+.ai-answer [data-rehype-pretty-code-figure] {
+  margin: 2px 0;
+}
+
+.ai-answer [data-rehype-pretty-code-title] {
+  margin: 0;
+  padding: 8px 12px;
+  border: 1px solid #e5e7eb;
+  border-bottom: 0;
+  border-radius: 12px 12px 0 0;
+  background: #f4f4f4;
+  color: #202123;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.ai-answer [data-rehype-pretty-code-title] + .ai-answer-code-block {
+  border-radius: 0 0 12px 12px;
+}
+
+.ai-answer-code-block figcaption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  color: #f9fafb;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.ai-answer-copy-btn {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  border: 1px solid #e5e7eb;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.82);
+  color: #565869;
+  cursor: pointer;
+  padding: 0;
+  transition: background-color 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+}
+
+.ai-answer-copy-btn:hover {
+  border-color: #c7c7c3;
+  background: #f4f4f4;
+  color: #202123;
+}
+
+.ai-answer-copy-btn.copied {
+  border-color: rgba(16, 185, 129, 0.35);
+  background: rgba(16, 185, 129, 0.12);
+  color: #059669;
+}
+
+.ai-answer-code-block pre {
+  margin: 0;
+  padding: 14px;
+  max-width: 100%;
+  overflow-x: auto !important;
+  overscroll-behavior-inline: contain;
+  white-space: pre-wrap !important;
+}
+
+.ai-answer-code-block code,
+.ai-answer-code {
+  display: block;
+  min-width: 100%;
+  color: inherit;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.ai-answer-code-block [data-line] {
+  display: block;
+  min-height: 1.65em;
+}
+
+.ai-answer-code-block [data-highlighted-line] {
+  margin-inline: -14px;
+  padding-inline: 14px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.ai-answer-code-loading {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  margin: 12px 0;
+  padding: 14px;
+  overflow-x: hidden;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #111827;
+  color: #f9fafb;
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.ai-answer-code-loading code {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  white-space: inherit;
+  overflow-wrap: inherit;
+}
+
+.ai-answer-math-block {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.ai-answer-math-block pre {
+  margin: 0;
+  padding: 14px;
+  overflow-x: auto;
+  color: #111827;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.75;
+  white-space: pre-wrap;
+}
+
+.ai-answer .math {
+  max-width: 100%;
+}
+
+.ai-answer .katex {
+  font-size: 1.02em;
+}
+
+.ai-answer .katex-display {
+  overflow-x: auto;
+  margin: 2px 0;
+  padding: 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #111827;
+}
+

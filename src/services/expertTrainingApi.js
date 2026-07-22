@@ -3,6 +3,8 @@ import { encodePath } from '../config/env';
 import { asArray } from './normalizers';
 import {
   normalizeCoverageGap,
+  normalizeChapterOutline,
+  normalizeChapterPreview,
   normalizeEvalRun,
   normalizeExpertTask,
   normalizeGoldQa,
@@ -23,6 +25,56 @@ const createQuery = (values = {}) => {
 };
 
 export const expertTrainingApi = {
+  async getSuggestedChapters(courseId, options = {}) {
+    const response = await request(`${BASE_PATH}/chapters/suggested${createQuery({ courseId })}`, {
+      signal: options.signal,
+    });
+    return asArray(response, 'chapters', 'content').map(normalizeChapterOutline);
+  },
+
+  async confirmChapters(payload) {
+    const response = await request(`${BASE_PATH}/chapters/confirm`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    return asArray(response, 'chapters', 'content').map(normalizeChapterOutline);
+  },
+
+  async addManualChapter(payload) {
+    const response = await request(`${BASE_PATH}/chapters/manual`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    return normalizeChapterOutline(response?.chapter || response);
+  },
+
+  async getChapterPreview(chapterKey, courseId, expanded = true, options = {}) {
+    const response = await request(
+      `${BASE_PATH}/chapters/${encodePath(chapterKey)}/preview${createQuery({ courseId, expanded })}`,
+      { signal: options.signal },
+    );
+    return normalizeChapterPreview(response);
+  },
+
+  async getChapterPreviewByTitle(courseId, chapter, expanded = true, options = {}) {
+    const response = await request(
+      `${BASE_PATH}/chapters/preview${createQuery({ courseId, chapter, expanded })}`,
+      { signal: options.signal },
+    );
+    return normalizeChapterPreview(response);
+  },
+
+  async createChapterTasks(payload) {
+    const response = await request(`${BASE_PATH}/chapters/tasks`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    return asArray(response, 'tasks', 'content').map(normalizeExpertTask);
+  },
+
   async analyzeCoverage(payload) {
     const response = await request(`${BASE_PATH}/coverage/analyze`, {
       method: 'POST',

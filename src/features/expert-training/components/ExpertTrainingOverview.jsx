@@ -9,6 +9,7 @@ import {
   buildWorkflowSteps,
   getExpertTrainingNextAction,
 } from '../expertTrainingSelectors';
+import ChapterCoveragePanel from './ChapterCoveragePanel';
 import CoverageDashboard from './CoverageDashboard';
 
 export default function ExpertTrainingOverview({
@@ -20,6 +21,14 @@ export default function ExpertTrainingOverview({
   pendingAction,
   onAnalyzeCoverage,
   onRefreshCoverage,
+  chapterPreview,
+  onRefreshChapters,
+  onConfirmChapters,
+  onAddManualChapter,
+  onPreviewChapter,
+  onCloseChapterPreview,
+  onCreateChapterTasks,
+  onOpenMaterial,
   onNavigateAction,
   onCreateTaskFromGap,
 }) {
@@ -82,9 +91,28 @@ export default function ExpertTrainingOverview({
         />
       </Card>
 
+      <ChapterCoveragePanel
+        chapters={resources.chapters}
+        loading={loading.chapters}
+        error={errors.chapters}
+        canReview={canReview}
+        pendingAction={pendingAction}
+        preview={chapterPreview}
+        previewLoading={loading.chapterPreview}
+        previewError={errors.chapterPreview}
+        onRefresh={onRefreshChapters}
+        onConfirm={onConfirmChapters}
+        onAddManual={onAddManualChapter}
+        onPreview={onPreviewChapter}
+        onClosePreview={onCloseChapterPreview}
+        onCreateTasks={onCreateChapterTasks}
+        onOpenMaterial={onOpenMaterial}
+      />
+
       <CoverageDashboard
         compact
         gaps={resources.gaps}
+        chapters={resources.chapters}
         loading={loading.gaps}
         error={errors.gaps}
         canReview={canReview}

@@ -1,0 +1,31 @@
+.expert-training__preserve-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.expert-training__eval-answer {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.expert-training__eval-answer > * {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.expert-training__result-tags {
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+}
+
+.expert-training__evaluation-detail {
+  display: grid;
+  gap: 16px;
+}
+
+.expert-training__detail-progress {
+  margin-top: 4px;
+}
+

@@ -1,0 +1,284 @@
+/* Col 2: Active Chat */
+.chat-main-area {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.chat-messages-container {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+/* Welcome overlay */
+.ai-welcome-box {
+    margin: auto;
+    max-width: 480px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    animation: fadeInUp 0.5s ease;
+}
+
+.ai-avatar-glow {
+    width: 60px;
+    height: 60px;
+    background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary) 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 1.25rem;
+    box-shadow: 0 0 20px var(--color-primary-glow);
+}
+
+.ai-welcome-box h4 {
+    font-family: var(--font-heading);
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+
+.ai-welcome-box p {
+    font-size: 0.85rem;
+    color: var(--color-text-muted);
+    line-height: 1.5;
+}
+
+.suggested-queries {
+    margin-top: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+}
+
+.suggest-chip {
+    padding: 10px 14px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--color-card-border);
+    border-radius: var(--border-radius-md);
+    color: var(--color-text-muted);
+    font-size: 0.8rem;
+    text-align: left;
+    cursor: pointer;
+    transition: all var(--transition-speed) ease;
+}
+
+.suggest-chip:hover {
+    background: rgba(255,255,255,0.08);
+    color: white;
+    border-color: var(--color-primary);
+}
+
+/* Message Bubbles */
+.message-bubble {
+    display: flex;
+    gap: 12px;
+    max-width: 80%;
+    animation: slideInMsg var(--transition-speed) ease;
+}
+
+.message-bubble.student {
+    align-self: flex-end;
+    flex-direction: row-reverse;
+}
+
+.message-bubble.ai {
+    align-self: flex-start;
+}
+
+.msg-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.message-bubble.student .msg-avatar {
+    background: linear-gradient(135deg, var(--color-primary-dark) 0%, var(--color-primary) 100%);
+}
+
+.message-bubble.ai .msg-avatar {
+    background: linear-gradient(135deg, var(--color-secondary) 0%, var(--color-primary) 100%);
+}
+
+.msg-content-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.msg-text-box {
+    padding: 14px 18px;
+    border-radius: var(--border-radius-lg);
+    font-size: 0.85rem;
+    line-height: 1.6;
+}
+
+.message-bubble.student .msg-text-box {
+    background: var(--color-primary);
+    border-bottom-right-radius: 4px;
+    color: white;
+}
+
+.message-bubble.ai .msg-text-box {
+    background: rgba(255,255,255,0.05);
+    border-bottom-left-radius: 4px;
+    border: 1px solid var(--color-card-border);
+}
+
+.msg-confidence-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    margin-top: 4px;
+}
+
+.conf-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.conf-dot.green { background-color: var(--color-secondary); }
+.conf-dot.yellow { background-color: #eab308; }
+.conf-dot.red { background-color: var(--color-danger); }
+
+.msg-sources-list {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--color-card-border);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.source-tag {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    background: rgba(20, 184, 166, 0.08);
+    border: 1px solid rgba(20, 184, 166, 0.2);
+    color: var(--color-secondary);
+    border-radius: var(--border-radius-sm);
+    font-size: 0.7rem;
+    text-decoration: none;
+    transition: background var(--transition-speed) ease;
+}
+
+.source-tag:hover {
+    background: rgba(20, 184, 166, 0.18);
+}
+
+.msg-escalation-banner {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 14px 18px;
+    background: rgba(239, 68, 68, 0.06);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    border-radius: var(--border-radius-lg);
+    font-size: 0.85rem;
+    margin-top: 4px;
+}
+
+.btn-escalation-chat {
+    align-self: flex-start;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: var(--color-danger);
+    border: none;
+    border-radius: var(--border-radius-sm);
+    color: white;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity var(--transition-speed) ease;
+}
+
+.btn-escalation-chat:hover {
+    opacity: 0.9;
+}
+
+/* Chat Input Bar */
+.chat-input-area {
+    padding: 16px 24px;
+    border-top: 1px solid var(--color-card-border);
+    background: rgba(10, 15, 30, 0.3);
+}
+
+.input-form-row {
+    display: flex;
+    gap: 12px;
+    align-items: flex-end;
+}
+
+.chat-input-area textarea {
+    flex: 1;
+    background: rgba(0,0,0,0.4);
+    border: 1px solid var(--color-card-border);
+    border-radius: var(--border-radius-md);
+    color: white;
+    padding: 12px;
+    font-family: var(--font-sans);
+    font-size: 0.85rem;
+    resize: none;
+    height: 48px;
+    outline: none;
+    transition: border-color var(--transition-speed) ease;
+}
+
+.chat-input-area textarea:focus {
+    border-color: var(--color-primary);
+}
+
+.btn-send-message {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 12px 20px;
+    background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+    border: none;
+    border-radius: var(--border-radius-md);
+    color: white;
+    font-weight: 600;
+    font-size: 0.85rem;
+    cursor: pointer;
+    box-shadow: 0 4px 15px var(--color-primary-glow);
+    transition: opacity var(--transition-speed) ease;
+}
+
+.btn-send-message:hover {
+    opacity: 0.9;
+}
+
+.input-actions-row {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 8px;
+}
+
+.helper-text {
+    font-size: 0.7rem;
+    color: var(--color-text-dark);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+

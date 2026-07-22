@@ -1,0 +1,119 @@
+.learning-latest-plan {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 14px;
+    padding: 14px;
+    border: 1px solid #E5E7EB;
+    border-radius: 12px;
+    background: #FAFAFA;
+}
+
+.learning-plan-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.learning-plan-list,
+.learning-suggestion-list {
+    display: grid;
+}
+
+.learning-plan-item {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: flex-start;
+    padding: 16px 0;
+    border-bottom: 1px solid #F3F4F6;
+}
+
+.learning-plan-item:last-child {
+    border-bottom: 0;
+}
+
+.learning-plan-item-main {
+    min-width: 0;
+    flex: 1;
+}
+
+.learning-plan-item-actions {
+    flex: 0 0 auto;
+}
+
+.learning-plan-detail {
+    display: grid;
+    gap: 10px;
+    margin-top: 8px;
+}
+
+.learning-plan-detail ul {
+    margin: 6px 0 0;
+    padding-left: 20px;
+}
+
+.learning-plan-detail li + li {
+    margin-top: 4px;
+}
+
+.learning-suggestion-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 14px 0;
+    border-bottom: 1px solid #F3F4F6;
+}
+
+.learning-suggestion-item:last-child {
+    border-bottom: 0;
+}
+
+.learning-suggestion-item--pinned {
+    margin: 0 0 8px;
+    padding: 14px 12px;
+    background: #FFF7ED;
+    border: 1px solid #FED7AA;
+    border-radius: 12px;
+}
+
+.learning-suggestion-copy {
+    display: grid;
+    gap: 7px;
+    min-width: 0;
+    flex: 1;
+}
+
+.learning-suggestion-copy--clickable {
+    cursor: pointer;
+    border-radius: 10px;
+    padding: 6px 8px;
+    margin: -6px -8px;
+    transition: background 0.16s ease, box-shadow 0.16s ease;
+}
+
+.learning-suggestion-copy--clickable:hover,
+.learning-suggestion-copy--clickable:focus-visible {
+    background: #FFF7ED;
+    box-shadow: inset 0 0 0 1px #FED7AA;
+    outline: none;
+}
+
+.learning-suggestion-copy .ant-tag {
+    width: fit-content;
+    margin: 0;
+    border-radius: 999px;
+    font-weight: 650;
+}
+
+.learning-suggestion-actions {
+    justify-content: flex-end;
+    min-width: 250px;
+}
+
+.learning-suggestion-actions .ant-btn {
+    border-radius: 8px;
+}
+
