@@ -2935,16 +2935,6 @@ spline-viewer {
     }
 }
 
-@media (prefers-reduced-motion: reduce) {
-    .seasonal-header-effect span,
-    .login-speech-bubble,
-    .login-speech-bubble::after,
-    .login-speech-bubble span,
-    .login-speech-bubble strong {
-        animation: none;
-    }
-}
-
 .suggest-loading, .chat-loading, .diagnostics-loading {
     display: flex;
     align-items: center;
@@ -5194,14 +5184,5 @@ body:has(.app-container.dark) .sidebar-nav-tooltip.ant-tooltip .ant-tooltip-arro
 @media (prefers-reduced-motion: reduce) {
   html:focus-within {
     scroll-behavior: auto;
-  }
-
-  *,
-  *::before,
-  *::after {
-    scroll-behavior: auto !important;
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
   }
 }

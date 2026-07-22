@@ -188,25 +188,6 @@
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .robot-head-mascot--idle {
-    animation: none;
-  }
-
-  .robot-head-mascot__stage,
-  .robot-head-mascot__face {
-    transition: none;
-  }
-
-  .robot-head-mascot__eye {
-    animation: none;
-  }
-
-  .robot-head-mascot--talking .robot-head-mascot__smile,
-  .robot-head-mascot--talking .robot-head-mascot__glow {
-    animation: none;
-  }
-}
 
 @keyframes robotHeadMascotIdle {
   0%,

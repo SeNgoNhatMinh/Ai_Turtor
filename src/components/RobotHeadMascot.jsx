@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import "./RobotHeadMascot.css";
 
 const RESET_POSE = {
@@ -25,7 +25,6 @@ export default function RobotHeadMascot({
   const headRef = useRef(null);
   const rafRef = useRef(0);
   const nextPoseRef = useRef(RESET_POSE);
-  const [shouldReduceMotion, setShouldReduceMotion] = useState(false);
 
   const applyPose = (nextPose) => {
     const node = headRef.current;
@@ -39,17 +38,7 @@ export default function RobotHeadMascot({
   };
 
   useEffect(() => {
-    const mediaQuery = window.matchMedia?.("(prefers-reduced-motion: reduce)");
-    if (!mediaQuery) return undefined;
-
-    const handleChange = () => setShouldReduceMotion(mediaQuery.matches);
-    handleChange();
-    mediaQuery.addEventListener?.("change", handleChange);
-    return () => mediaQuery.removeEventListener?.("change", handleChange);
-  }, []);
-
-  useEffect(() => {
-    if (!followMouse || shouldReduceMotion) return undefined;
+    if (!followMouse) return undefined;
 
     const pointerIsCoarse = window.matchMedia?.("(pointer: coarse)")?.matches;
     if (pointerIsCoarse) return undefined;
@@ -96,12 +85,12 @@ export default function RobotHeadMascot({
         rafRef.current = 0;
       }
     };
-  }, [followMouse, shouldReduceMotion]);
+  }, [followMouse]);
 
   return (
     <div
       ref={headRef}
-      className={`robot-head-mascot ${compact ? "robot-head-mascot--compact" : ""} ${!shouldReduceMotion ? "robot-head-mascot--idle" : ""} ${talking ? "robot-head-mascot--talking" : ""} ${className}`}
+      className={`robot-head-mascot ${compact ? "robot-head-mascot--compact" : ""} robot-head-mascot--idle ${talking ? "robot-head-mascot--talking" : ""} ${className}`}
       style={{
         width: size,
         height: size * 0.82,
