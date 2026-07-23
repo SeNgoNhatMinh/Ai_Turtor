@@ -13,7 +13,7 @@ import {
   MessageCircle,
   BrainCircuit,
 } from 'lucide-react';
-import { getWorkspaceRole } from '../constants/roles';
+import { ACCOUNT_ROLES, getWorkspaceRole, normalizeAccountRole } from '../constants/roles';
 
 const navigationItems = [
   {
@@ -99,9 +99,19 @@ const navigationItems = [
   {
     key: 'teacher-expert-training',
     workspace: 'teacher',
+    allowedAccountRoles: [ACCOUNT_ROLES.TEACHER],
     group: 'Chất lượng AI',
-    label: 'Huấn luyện tri thức AI',
-    description: 'Nhận task, đóng góp tri thức tin cậy và xem Evaluation Tutor V2.',
+    label: 'Công việc tri thức AI',
+    description: 'Nhận task và đóng góp Gold Q&A hoặc Rubric theo học liệu.',
+    icon: BrainCircuit,
+  },
+  {
+    key: 'senior-v2',
+    workspace: 'teacher',
+    allowedAccountRoles: [ACCOUNT_ROLES.SENIOR_MENTOR],
+    group: 'Chất lượng AI',
+    label: 'Expert Co-Training V2',
+    description: 'Xác nhận độ phủ, kiểm duyệt tri thức và chạy Evaluation.',
     icon: BrainCircuit,
   },
   {
@@ -131,6 +141,7 @@ const navigationItems = [
   {
     key: 'admin-expert-training',
     workspace: 'admin',
+    allowedAccountRoles: [ACCOUNT_ROLES.ADMIN],
     group: 'Chất lượng AI',
     label: 'Huấn luyện tri thức AI',
     description: 'Phân tích độ phủ, duyệt tri thức và đánh giá chất lượng Tutor V2.',
@@ -147,6 +158,10 @@ const navigationItems = [
 ];
 
 export const getNavigationForRole = (role) => {
-  const workspace = getWorkspaceRole(role);
-  return navigationItems.filter((item) => item.workspace === workspace);
+  const accountRole = normalizeAccountRole(role);
+  const workspace = getWorkspaceRole(accountRole);
+  return navigationItems.filter((item) => (
+    item.workspace === workspace
+    && (!item.allowedAccountRoles || item.allowedAccountRoles.includes(accountRole))
+  ));
 };

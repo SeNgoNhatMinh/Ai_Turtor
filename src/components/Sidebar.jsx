@@ -3,10 +3,10 @@ import { Button, Menu, Tooltip } from 'antd';
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { getNavigationForRole } from '../config/navigation';
 
-function Sidebar({ activeRole, activeTab, switchTab }) {
+function Sidebar({ accountRole, activeRole, activeTab, switchTab }) {
   const [collapsed, setCollapsed] = useState(false);
 
-  const items = getNavigationForRole(activeRole).map((item) => {
+  const items = getNavigationForRole(accountRole || activeRole).map((item) => {
     const Icon = item.icon;
     return {
       key: item.key,

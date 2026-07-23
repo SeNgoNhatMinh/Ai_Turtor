@@ -167,7 +167,14 @@ Action-level QA cases for the visible UI are maintained in `docs/FE_BUTTON_ACTIO
 - `GET /api/v2/expert-training/eval-runs` - `UI done`
 - `GET /api/v2/expert-training/eval-runs/{id}` - `UI done`; per-case comparison
 
-Tutor V2 is available at `/teacher/expert-training` and `/admin/expert-training`. The shared lazy feature has four views: `Tổng quan`, `Công việc`, `Nội dung & kiểm duyệt`, and `Evaluation`. Senior/Admin xác nhận chapter và tạo task `OPEN`; Teacher tự nhận task, xem tài liệu chương và chỉ được gửi task thuộc về mình. Submit chuyển task sang `SUBMITTED`; reject trả task về `IN_PROGRESS` kèm ghi chú. `TRAINING` approval is rendered as `INDEXED`; `EVALUATION` approval is rendered as a private `APPROVED` holdout. Evaluation execution stays disabled until canonical GET data contains at least one approved Evaluation Gold Q&A.
+Tutor V2 is split by the authenticated account role:
+
+- `TEACHER`: `/teacher/expert-tasks` and `/teacher/expert-tasks/{taskId}/contribute`.
+- `SENIOR_MENTOR`: `/senior/v2?courseId=&tab=coverage`.
+- `ADMIN`: `/admin/v2?courseId=&tab=coverage`.
+- Legacy `/teacher/expert-training` and `/admin/expert-training` URLs redirect to the matching canonical route.
+
+Teacher only receives the `Cần làm/Đã xong` Task Board and the dedicated two-column Contribution screen. Senior/Admin only receive `Coverage`, `Duyệt`, and `Evaluation`; they cannot claim or submit Teacher tasks. Senior/Admin confirm chapters and create `OPEN` tasks from canonical chapter/gap data. Teacher self-claims a task, reads expanded chapter material, and cannot change its required usage. Submit moves the task to `SUBMITTED`; reject returns it to `IN_PROGRESS` with the review note. `TRAINING` approval is rendered as `INDEXED`; `EVALUATION` approval is rendered as a private `APPROVED` holdout. Evaluation remains disabled until canonical GET data contains at least one approved Evaluation Gold Q&A.
 
 ## 7. Diagnostics
 - `GET /api/harness/logs` - `UI done`
@@ -195,7 +202,11 @@ Tutor V2 is available at `/teacher/expert-training` and `/admin/expert-training`
   - `/webhook/v2-eval-run`
 - Tutor V2 rejects remain backend-direct because the checked-in n8n workflow has no reject webhook.
 - All current n8n workflows receive JWT through `Authorization`; FE no longer copies the token into JSON bodies by default.
-- Tutor V2 evaluation uses `VITE_N8N_TUTOR_V2_TIMEOUT_MS` with a `300000ms` default to match the long-running workflow node.
+- Tutor V2 timeouts are flow-specific:
+  - `VITE_N8N_TUTOR_V2_FLOW_TIMEOUT_MS=120000` for Coverage and contribution submit.
+  - `VITE_N8N_TUTOR_V2_APPROVAL_TIMEOUT_MS=240000` for Gold Q&A/Rubric approval.
+  - `VITE_N8N_TUTOR_V2_EVALUATION_TIMEOUT_MS=300000` for Evaluation.
+  - `VITE_N8N_TUTOR_V2_TIMEOUT_MS` remains the compatibility fallback.
 - Runtime verification and the three-workflow mapping are recorded in `docs/FE_N8N_THREE_WORKFLOW_VERIFICATION.md`.
 
 ## 10. Realtime Events
@@ -205,6 +216,7 @@ Tutor V2 is available at `/teacher/expert-training` and `/admin/expert-training`
 - Reconnecting to `/ws/events` triggers canonical refresh for active Tutor V2, material, Student assignment and Teacher grading screens.
 - Teacher material upload retains the backend `materialId`, mounts an optimistic processing row and reconciles `PROCESSING/INDEXED/INDEXING_FAILED` through WebSocket plus canonical GET.
 - WebSocket events never manufacture upload, submission, grading, or review success in frontend state.
+- Tutor V2 also performs a canonical REST refetch after reconnect, when the browser tab regains focus, and every 30 seconds while no mutation is active.
 
 n8n is an orchestration layer, not the canonical data store. FE refetches canonical backend resources after mutations and does not call an LLM provider directly.
 

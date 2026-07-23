@@ -29,3 +29,15 @@
   margin-top: 4px;
 }
 
+.expert-training__evaluation-progress {
+  display: grid;
+  justify-items: center;
+  gap: 16px;
+  padding: 28px 12px 14px;
+  text-align: center;
+}
+
+.expert-training__evaluation-progress p {
+  max-width: 480px;
+  margin: 0;
+}

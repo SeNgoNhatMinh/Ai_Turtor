@@ -21,9 +21,15 @@
 }
 
 .app-container.dark .expert-training__editor-card,
-.app-container.dark .expert-training__history-card {
+.app-container.dark .expert-training__history-card,
+.app-container.dark .expert-training__task-card {
   background: #171717;
   border-color: #343434;
+}
+
+.app-container.dark .expert-training__task-instructions,
+.app-container.dark .expert-training__task-card-meta {
+  color: #c5c7ce;
 }
 
 .app-container.dark .expert-training__table-row--selected > td {
@@ -126,6 +132,16 @@
     height: auto;
   }
 
+  .expert-training__task-grid,
+  .expert-training__contribution-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .expert-training__material-aside {
+    position: static;
+    grid-row: 1;
+  }
+
   .expert-training__chapter-node,
   .expert-training__chapter-preview-head,
   .expert-training__chapter-source,
@@ -136,6 +152,17 @@
 
   .expert-training__chapter-node > .ant-space {
     width: 100%;
+  }
+}
+
+@media (min-width: 821px) and (max-width: 1180px) {
+  .expert-training__contribution-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .expert-training__material-aside {
+    position: static;
+    grid-row: 1;
   }
 }
 

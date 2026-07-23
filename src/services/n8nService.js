@@ -2,7 +2,9 @@ import {
   N8N_ASSIGNMENT_GRADING_TIMEOUT_MS,
   N8N_CHAT_TIMEOUT_MS,
   N8N_QUIZ_TIMEOUT_MS,
-  N8N_TUTOR_V2_TIMEOUT_MS,
+  N8N_TUTOR_V2_APPROVAL_TIMEOUT_MS,
+  N8N_TUTOR_V2_EVALUATION_TIMEOUT_MS,
+  N8N_TUTOR_V2_FLOW_TIMEOUT_MS,
   postN8n,
 } from './n8nClient';
 import {
@@ -81,6 +83,7 @@ export const n8nService = {
 
   async analyzeTutorV2Coverage(payload, options = {}) {
     return ensureHarnessSuccess(await postN8n('/v2-coverage-analyze', payload, {
+      timeoutMs: N8N_TUTOR_V2_FLOW_TIMEOUT_MS,
       ...options,
       includeAuthTokenInBody: false,
     }), 'Không thể hoàn tất phân tích độ phủ Tutor V2.');
@@ -88,6 +91,7 @@ export const n8nService = {
 
   async submitTutorV2GoldQa(payload, options = {}) {
     return ensureHarnessSuccess(await postN8n('/v2-gold-qa-submit', payload, {
+      timeoutMs: N8N_TUTOR_V2_FLOW_TIMEOUT_MS,
       ...options,
       includeAuthTokenInBody: false,
     }), 'Không thể hoàn tất luồng Gold Q&A của Tutor V2.');
@@ -95,6 +99,7 @@ export const n8nService = {
 
   async submitTutorV2Rubric(payload, options = {}) {
     return ensureHarnessSuccess(await postN8n('/v2-rubric-submit', payload, {
+      timeoutMs: N8N_TUTOR_V2_FLOW_TIMEOUT_MS,
       ...options,
       includeAuthTokenInBody: false,
     }), 'Không thể hoàn tất luồng Rubric của Tutor V2.');
@@ -102,6 +107,7 @@ export const n8nService = {
 
   async approveTutorV2GoldQa(payload, options = {}) {
     return ensureHarnessSuccess(await postN8n('/v2-gold-qa-approve', payload, {
+      timeoutMs: N8N_TUTOR_V2_APPROVAL_TIMEOUT_MS,
       ...options,
       includeAuthTokenInBody: false,
     }), 'Không thể phê duyệt Gold Q&A của Tutor V2.');
@@ -109,6 +115,7 @@ export const n8nService = {
 
   async approveTutorV2Rubric(payload, options = {}) {
     return ensureHarnessSuccess(await postN8n('/v2-rubric-approve', payload, {
+      timeoutMs: N8N_TUTOR_V2_APPROVAL_TIMEOUT_MS,
       ...options,
       includeAuthTokenInBody: false,
     }), 'Không thể phê duyệt Rubric của Tutor V2.');
@@ -116,7 +123,7 @@ export const n8nService = {
 
   async runTutorV2Evaluation(payload, options = {}) {
     return ensureHarnessSuccess(await postN8n('/v2-eval-run', payload, {
-      timeoutMs: N8N_TUTOR_V2_TIMEOUT_MS,
+      timeoutMs: N8N_TUTOR_V2_EVALUATION_TIMEOUT_MS,
       ...options,
       includeAuthTokenInBody: false,
     }), 'Không thể chạy Evaluation của Tutor V2.');

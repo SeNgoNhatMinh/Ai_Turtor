@@ -2,6 +2,10 @@ import { API_BASE_URL, request } from './apiClient';
 import { encodePath } from '../config/env';
 
 export const teacherApi = {
+  async getCourses(teacherId) {
+    return request(`${API_BASE_URL}/mentors/${encodePath(teacherId)}/courses`);
+  },
+
   async getDashboard(teacherId, courseId = '', classId = '') {
     const params = new URLSearchParams();
     if (courseId) params.append('courseId', courseId);

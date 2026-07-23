@@ -1,3 +1,5 @@
+import { matchPath } from 'react-router-dom';
+
 const roleHomeRoutes = {
   student: '/student/chat',
   teacher: '/teacher/classes',
@@ -15,17 +17,48 @@ export const appRoutes = [
   { role: 'teacher', tab: 'teacher-materials', path: '/teacher/materials' },
   { role: 'teacher', tab: 'teacher-grading', path: '/teacher/grading' },
   { role: 'teacher', tab: 'teacher-escalations', path: '/teacher/review-queue' },
-  { role: 'teacher', tab: 'teacher-expert-training', path: '/teacher/expert-training' },
+  {
+    role: 'teacher',
+    tab: 'teacher-expert-training',
+    path: '/teacher/expert-tasks',
+    allowedAccountRoles: ['TEACHER'],
+    navigationPath: true,
+  },
+  {
+    role: 'teacher',
+    tab: 'teacher-expert-training',
+    path: '/teacher/expert-tasks/:taskId/contribute',
+    allowedAccountRoles: ['TEACHER'],
+  },
+  {
+    role: 'teacher',
+    tab: 'senior-v2',
+    path: '/senior/v2',
+    allowedAccountRoles: ['SENIOR_MENTOR'],
+    navigationPath: true,
+  },
   { role: 'admin', tab: 'admin-dashboard', path: '/admin/dashboard' },
   { role: 'admin', tab: 'admin-users', path: '/admin/users' },
   { role: 'admin', tab: 'admin-academic', path: '/admin/academic' },
   { role: 'admin', tab: 'admin-review', path: '/admin/review-queue' },
-  { role: 'admin', tab: 'admin-expert-training', path: '/admin/expert-training' },
+  {
+    role: 'admin',
+    tab: 'admin-expert-training',
+    path: '/admin/v2',
+    allowedAccountRoles: ['ADMIN'],
+    navigationPath: true,
+  },
 ];
 
-const tabRoutes = Object.fromEntries(appRoutes.map(({ tab, path }) => [tab, path]));
+const tabRoutes = appRoutes.reduce((routes, route) => {
+  if (route.navigationPath || !routes[route.tab]) routes[route.tab] = route.path;
+  return routes;
+}, {});
 
-const routeEntries = appRoutes.map(({ path, tab, role }) => [path, tab, role]);
+const legacyRouteStates = {
+  '/teacher/expert-training': { role: 'teacher', tab: 'teacher-expert-training' },
+  '/admin/expert-training': { role: 'admin', tab: 'admin-expert-training' },
+};
 
 export function getRouteForTab(tab) {
   return tabRoutes[tab] || '';
@@ -35,13 +68,19 @@ export function getHomeRouteForRole(role) {
   return roleHomeRoutes[String(role || '').toLowerCase()] || roleHomeRoutes.student;
 }
 
-export function getRouteState(pathname) {
+export function getRouteConfig(pathname) {
   const normalizedPath = String(pathname || '').replace(/\/+$/, '') || '/';
-  const match = routeEntries.find(([path]) => normalizedPath === path);
-  if (!match) return null;
-  const [, tab, role] = match;
+  if (legacyRouteStates[normalizedPath]) {
+    return { ...legacyRouteStates[normalizedPath], path: normalizedPath, legacy: true };
+  }
+  return appRoutes.find(({ path }) => matchPath({ path, end: true }, normalizedPath)) || null;
+}
+
+export function getRouteState(pathname) {
+  const route = getRouteConfig(pathname);
+  if (!route) return null;
   return {
-    tab,
-    role,
+    tab: route.tab,
+    role: route.role,
   };
 }

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, Button, Checkbox, Drawer, Empty, Skeleton, Space, Tag, Typography } from 'antd';
+import { Alert, Button, Checkbox, Drawer, Empty, Skeleton, Space, Tag, Tooltip, Typography } from 'antd';
 import { ExternalLink, ListChecks } from 'lucide-react';
 import StatusLabel from '../../../components/common/StatusLabel';
 import {
@@ -26,11 +26,14 @@ export default function ChapterPreviewDrawer({
   const [includeEvaluation, setIncludeEvaluation] = useState(false);
   const title = preview?.title || chapter?.title || 'Chi tiết chương';
   const health = getMaterialHealthMeta(preview?.materialHealth || chapter?.materialHealth);
+  const detectedFromLabel = getDetectedFromLabel(preview?.detectedFrom || chapter?.detectedFrom);
   const chapterStatus = getChapterStatusMeta(preview?.status || chapter?.status);
   const createKey = `create-chapter-tasks:${title}`;
+  const isConfirmed = String(preview?.status || chapter?.status || '').toUpperCase() === 'CONFIRMED';
+  const canCreateTasks = isConfirmed && Boolean(preview?.hasMaterialContent);
 
   const createTasks = async () => {
-    if (!title || (!includeTraining && !includeEvaluation)) return;
+    if (!title || !canCreateTasks || (!includeTraining && !includeEvaluation)) return;
     await onCreateTasks?.(title, {
       includeTrainingGoldTask: includeTraining,
       includeEvaluationGoldTask: includeEvaluation,
@@ -60,7 +63,7 @@ export default function ChapterPreviewDrawer({
               <Space wrap size={[6, 6]}>
                 <Tag color={chapterStatus.color}>{chapterStatus.label}</Tag>
                 <Tag color={health.color}>{health.label}</Tag>
-                <Tag>{getDetectedFromLabel(preview.detectedFrom)}</Tag>
+                {detectedFromLabel && <Tag>{detectedFromLabel}</Tag>}
               </Space>
             </div>
             <Text type="secondary">{preview.chunkCount} chunks · {preview.approxChars.toLocaleString('vi-VN')} ký tự</Text>
@@ -121,15 +124,39 @@ export default function ChapterPreviewDrawer({
                   Evaluation holdout — chỉ dùng kiểm thử
                 </Checkbox>
               </Space>
-              <Button
-                type="primary"
-                icon={<ListChecks size={16} />}
-                disabled={(!includeTraining && !includeEvaluation) || Boolean(pendingAction)}
-                loading={pendingAction === createKey}
-                onClick={createTasks}
-              >
-                Tạo task mở
-              </Button>
+              {!isConfirmed && (
+                <Alert
+                  type="warning"
+                  showIcon
+                  title="Xác nhận chapter trước khi tạo task"
+                  description="Task phải tham chiếu chapter canonical đã được Senior/Admin xác nhận."
+                />
+              )}
+              {isConfirmed && !preview.hasMaterialContent && (
+                <Alert
+                  type="warning"
+                  showIcon
+                  title="Chapter chưa có nội dung index"
+                  description="Hãy upload hoặc reindex học liệu trước khi yêu cầu Teacher soạn nội dung."
+                />
+              )}
+              <Tooltip title={!isConfirmed
+                ? 'Chapter chưa được xác nhận'
+                : !preview.hasMaterialContent
+                  ? 'Chapter chưa có nội dung index'
+                  : ''}>
+                <span>
+                  <Button
+                    type="primary"
+                    icon={<ListChecks size={16} />}
+                    disabled={!canCreateTasks || (!includeTraining && !includeEvaluation) || Boolean(pendingAction)}
+                    loading={pendingAction === createKey}
+                    onClick={createTasks}
+                  >
+                    Tạo task mở
+                  </Button>
+                </span>
+              </Tooltip>
             </section>
           )}
         </div>

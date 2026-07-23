@@ -25,7 +25,12 @@ export default function AuthedLayout({
         onLogout={onLogout}
       />
       <div className="main-layout">
-        <Sidebar activeRole={activeRole} activeTab={activeTab} switchTab={switchTab} />
+        <Sidebar
+          accountRole={currentUser?.originalRole || currentUser?.role}
+          activeRole={activeRole}
+          activeTab={activeTab}
+          switchTab={switchTab}
+        />
         <main className="content-wrapper">
           {children}
         </main>

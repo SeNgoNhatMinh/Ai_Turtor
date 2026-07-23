@@ -50,6 +50,13 @@ describe('quiz n8n gateway', () => {
       payload: { topic: 'OOP', questionCount: 3 },
     });
 
+    expect(n8nService.generateQuiz).toHaveBeenCalledWith(expect.objectContaining({
+      route: 'STUDENT',
+      studentId: 'student-1',
+      courseId: 'PRO192',
+      classId: 'SE1833',
+      questionCount: 3,
+    }));
     expect(quizApi.getQuiz).toHaveBeenCalledWith('quiz-1');
     expect(quiz.questions).toHaveLength(1);
     expect(quizApi.generateSelfQuiz).not.toHaveBeenCalled();

@@ -22,15 +22,15 @@ const DETECTED_FROM_LABELS = {
   PDF_TOC: 'Mục lục PDF',
   MATERIAL: 'Học liệu đã index',
   MATERIAL_TITLE: 'Tiêu đề học liệu',
-  HEADING: 'Tiêu đề tài liệu',
+  HEADING: '',
   MANUAL: 'Thêm thủ công',
   UNKNOWN: 'Chưa xác định',
 };
 
 const MATERIAL_HEALTH_META = {
-  MATERIAL_OK: { label: 'Đủ tài liệu', color: 'green' },
-  MATERIAL_THIN: { label: 'Tài liệu còn mỏng', color: 'gold' },
-  NO_MATERIAL: { label: 'Chưa có tài liệu', color: 'red' },
+  MATERIAL_OK: { label: 'Material OK', color: 'green' },
+  MATERIAL_THIN: { label: 'Material mỏng', color: 'gold' },
+  NO_MATERIAL: { label: 'Chưa có material', color: 'default' },
 };
 
 const CHAPTER_STATUS_META = {

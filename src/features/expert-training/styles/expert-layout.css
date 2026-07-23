@@ -46,10 +46,103 @@
   font-size: 12px;
 }
 
+.expert-training__role-guide {
+  margin-top: 14px;
+}
+
 .expert-training__overview,
-.expert-training__work-layout {
+.expert-training__work-layout,
+.expert-training__hub-stack {
   display: grid;
   gap: 16px;
+  min-width: 0;
+}
+
+.expert-training__task-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  min-width: 0;
+}
+
+.expert-training__task-card {
+  min-width: 0;
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+.expert-training__task-card .ant-card-body {
+  display: grid;
+  gap: 13px;
+  height: 100%;
+}
+
+.expert-training__task-card-head,
+.expert-training__task-card-meta,
+.expert-training__task-card-action {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.expert-training__task-card-title {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.expert-training__task-card-title > span {
+  color: #f37021;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.expert-training__task-card-title > strong {
+  overflow-wrap: anywhere;
+  font-size: 16px;
+}
+
+.expert-training__task-instructions {
+  min-height: 64px;
+  margin: 0 !important;
+  color: #4b5563;
+  white-space: pre-wrap;
+}
+
+.expert-training__task-card-meta {
+  align-items: stretch;
+  flex-direction: column;
+  gap: 6px;
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.expert-training__task-card-meta > span {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.expert-training__task-card-action {
+  align-items: center;
+  min-height: 32px;
+  margin-top: auto;
+}
+
+.expert-training__contribution-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(340px, 0.78fr);
+  align-items: start;
+  gap: 18px;
+  min-width: 0;
+}
+
+.expert-training__material-aside {
+  position: sticky;
+  top: 16px;
   min-width: 0;
 }
 
@@ -189,4 +282,3 @@
   padding: 12px 14px;
   border-left: 3px solid #6b7280;
 }
-

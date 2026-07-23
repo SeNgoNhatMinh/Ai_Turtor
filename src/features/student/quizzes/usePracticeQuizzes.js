@@ -6,6 +6,7 @@ import {
   asQuizArray,
   getAssignmentId,
   getSuggestionText,
+  normalizeQuizQuestionCount,
   normalizeQuizStatus,
   sortQuizHistory,
 } from './practiceQuizUtils';
@@ -122,6 +123,8 @@ export function usePracticeQuizzes({
     }
 
     return runLocked('quiz:generate', async () => {
+      const requestedQuestionCount = normalizeQuizQuestionCount(questionCount);
+      setQuestionCount(requestedQuestionCount);
       setLoadingKey('generate');
       setError('');
       setLastResult(null);
@@ -130,8 +133,19 @@ export function usePracticeQuizzes({
           studentId,
           courseId,
           classId,
-          payload: { topic: selectedTopic, suggestionText: selectedTopic, questionCount },
+          payload: {
+            topic: selectedTopic,
+            suggestionText: selectedTopic,
+            questionCount: requestedQuestionCount,
+          },
         });
+        const generatedQuestionCount = Array.isArray(quiz?.questions) ? quiz.questions.length : 0;
+        if (generatedQuestionCount > 0 && generatedQuestionCount !== requestedQuestionCount) {
+          triggerToast?.(
+            `Quiz chỉ có ${generatedQuestionCount}/${requestedQuestionCount} câu hợp lệ. `
+            + 'Hệ thống đã loại câu không đạt yêu cầu.',
+          );
+        }
         setTopic(selectedTopic);
         setActiveQuiz(quiz);
         setActiveTab('active');

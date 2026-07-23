@@ -2,13 +2,14 @@ import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { normalizeAppRole } from '../utils/formatters';
 import { readJsonStorage } from '../utils/storage';
-import { getHomeRouteForRole, getRouteForTab, getRouteState } from './routes';
+import { getHomeRouteForRole, getRouteConfig, getRouteForTab, getRouteState } from './routes';
 
 const APP_UI_STATE_KEY = 'ai-tutor:ui-state';
 
 export function useAppNavigation({ currentUser, currentUserRole }) {
   const location = useLocation();
   const navigate = useNavigate();
+  const routeConfig = useMemo(() => getRouteConfig(location.pathname), [location.pathname]);
   const routeState = useMemo(() => getRouteState(location.pathname), [location.pathname]);
   const initialUiState = readJsonStorage(APP_UI_STATE_KEY, {});
 
@@ -41,10 +42,11 @@ export function useAppNavigation({ currentUser, currentUserRole }) {
   useEffect(() => {
     if (!routeState) return;
     if (currentUser && currentUserRole !== 'admin' && routeState.role !== currentUserRole) {
+      if (routeConfig?.allowedAccountRoles?.length) return;
       navigate(getHomeRouteForRole(currentUserRole), { replace: true });
       return;
     }
-  }, [currentUser, currentUserRole, navigate, routeState]);
+  }, [currentUser, currentUserRole, navigate, routeConfig, routeState]);
 
   useEffect(() => {
     if (!currentUser) return;

@@ -46,6 +46,7 @@ export default function ChapterCoveragePanel({
   onClosePreview,
   onCreateTasks,
   onOpenMaterial,
+  onSelectionChange,
 }) {
   const [keyword, setKeyword] = useState('');
   const [checkedKeys, setCheckedKeys] = useState([]);
@@ -54,10 +55,12 @@ export default function ChapterCoveragePanel({
   const [manualForm] = Form.useForm();
 
   useEffect(() => {
-    setCheckedKeys(chapters
+    const nextKeys = chapters
       .filter((chapter) => chapter.status === 'CONFIRMED')
-      .map((chapter) => chapter.chapterKey || chapter.id));
-  }, [chapters]);
+      .map((chapter) => chapter.chapterKey || chapter.id);
+    setCheckedKeys(nextKeys);
+    onSelectionChange?.(nextKeys);
+  }, [chapters, onSelectionChange]);
 
   const visibleChapters = useMemo(() => {
     const query = keyword.trim().toLocaleLowerCase('vi-VN');
@@ -69,24 +72,31 @@ export default function ChapterCoveragePanel({
     const chapter = node.chapter;
     const health = getMaterialHealthMeta(chapter.materialHealth);
     const status = getChapterStatusMeta(chapter.status);
+    const detectedFromLabel = getDetectedFromLabel(chapter.detectedFrom);
     return {
       key: node.key,
       title: (
         <div className="expert-training__chapter-node">
           <div>
             <strong>{chapter.title}</strong>
-            <span>{formatChapterPages(chapter)} · {chapter.chunkCount} chunks</span>
+            <span>
+              {formatChapterPages(chapter)} · {chapter.chunkCount} chunks · Gold T/E: {chapter.trainingGoldCount}/{chapter.evaluationGoldCount}
+            </span>
           </div>
           <Space wrap size={[4, 4]}>
             <Tag color={status.color}>{status.label}</Tag>
             <Tag color={health.color}>{health.label}</Tag>
-            <Tag>{getDetectedFromLabel(chapter.detectedFrom)}</Tag>
+            {detectedFromLabel && <Tag>{detectedFromLabel}</Tag>}
           </Space>
         </div>
       ),
       children: node.children.map(mapNode),
     };
   }), [visibleChapters]);
+  const visibleChapterKeys = useMemo(
+    () => new Set(visibleChapters.map((chapter) => chapter.chapterKey || chapter.id)),
+    [visibleChapters],
+  );
 
   const openPreview = async (key) => {
     const chapter = chapters.find((item) => (item.chapterKey || item.id) === key);
@@ -166,7 +176,17 @@ export default function ChapterCoveragePanel({
             blockNode
             checkable={canReview}
             checkedKeys={checkedKeys}
-            onCheck={(keys) => setCheckedKeys(Array.isArray(keys) ? keys : keys.checked)}
+            onCheck={(keys) => {
+              const nextVisibleKeys = Array.isArray(keys) ? keys : keys.checked;
+              setCheckedKeys((current) => {
+                const nextKeys = [...new Set([
+                  ...current.filter((key) => !visibleChapterKeys.has(key)),
+                  ...nextVisibleKeys,
+                ])];
+                onSelectionChange?.(nextKeys);
+                return nextKeys;
+              });
+            }}
             onSelect={(keys) => keys[0] && openPreview(keys[0])}
             treeData={treeData}
             defaultExpandAll

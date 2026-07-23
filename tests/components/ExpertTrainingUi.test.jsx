@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import EvaluationDashboard from '../../src/features/expert-training/components/EvaluationDashboard';
 import StatusLabel from '../../src/components/common/StatusLabel';
 import ChapterCoveragePanel from '../../src/features/expert-training/components/ChapterCoveragePanel';
+import ChapterPreviewDrawer from '../../src/features/expert-training/components/ChapterPreviewDrawer';
 import ContributionWorkspace from '../../src/features/expert-training/components/ContributionWorkspace';
 import ConfirmCard from '../../src/components/common/ConfirmCard';
 
@@ -131,7 +132,35 @@ describe('Tutor V2 UI rules', () => {
     );
 
     expect(screen.getByText('Task này không thuộc về bạn')).toBeInTheDocument();
+    expect(screen.getByLabelText('Chương')).toHaveAttribute('readonly');
     expect(screen.getByRole('button', { name: 'Gửi kiểm duyệt' })).toBeDisabled();
+  });
+
+  it('requires a confirmed chapter with indexed content before creating tasks', () => {
+    render(
+      <ChapterPreviewDrawer
+        chapter={{ chapterKey: 'oop', title: 'OOP', status: 'SUGGESTED' }}
+        preview={{
+          title: 'OOP',
+          status: 'SUGGESTED',
+          hasMaterialContent: true,
+          materialHealth: 'MATERIAL_OK',
+          sourceMaterials: [],
+          chunkCount: 4,
+          approxChars: 1200,
+        }}
+        loading={false}
+        error=""
+        canReview
+        pendingAction=""
+        onClose={vi.fn()}
+        onCreateTasks={vi.fn()}
+        onOpenMaterial={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('Xác nhận chapter trước khi tạo task')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Tạo task mở' })).toBeDisabled();
   });
 
   it('renders Rubric criteria without leaking duplicate React keys', () => {

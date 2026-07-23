@@ -9,6 +9,7 @@ const parseNumber = (value, fallback) => {
 };
 
 const trimTrailingSlash = (value) => String(value || '').replace(/\/+$/, '');
+const tutorV2TimeoutFallback = parseNumber(import.meta.env.VITE_N8N_TUTOR_V2_TIMEOUT_MS, 300000);
 
 export const env = {
   apiBaseUrl: trimTrailingSlash(import.meta.env.VITE_API_BASE_URL || '/api'),
@@ -27,7 +28,19 @@ export const env = {
   n8nAssignmentGradingEnabled: parseBoolean(import.meta.env.VITE_N8N_ASSIGNMENT_GRADING_ENABLED, false),
   n8nAssignmentGradingTimeoutMs: parseNumber(import.meta.env.VITE_N8N_ASSIGNMENT_GRADING_TIMEOUT_MS, 300000),
   n8nTutorV2Enabled: parseBoolean(import.meta.env.VITE_N8N_TUTOR_V2_ENABLED, false),
-  n8nTutorV2TimeoutMs: parseNumber(import.meta.env.VITE_N8N_TUTOR_V2_TIMEOUT_MS, 300000),
+  n8nTutorV2TimeoutMs: tutorV2TimeoutFallback,
+  n8nTutorV2FlowTimeoutMs: parseNumber(
+    import.meta.env.VITE_N8N_TUTOR_V2_FLOW_TIMEOUT_MS,
+    tutorV2TimeoutFallback,
+  ),
+  n8nTutorV2ApprovalTimeoutMs: parseNumber(
+    import.meta.env.VITE_N8N_TUTOR_V2_APPROVAL_TIMEOUT_MS,
+    tutorV2TimeoutFallback,
+  ),
+  n8nTutorV2EvaluationTimeoutMs: parseNumber(
+    import.meta.env.VITE_N8N_TUTOR_V2_EVALUATION_TIMEOUT_MS,
+    tutorV2TimeoutFallback,
+  ),
 };
 
 export function buildUrl(path, query) {

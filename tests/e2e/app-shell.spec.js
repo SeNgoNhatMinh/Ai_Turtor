@@ -9,17 +9,37 @@ async function mockBackend(page, unexpectedRequests) {
 
     if (url.pathname === '/api/users/login') {
       const email = request.postDataJSON()?.email;
-      const isAdmin = email === 'admin@example.com';
+      const account = {
+        'admin@example.com': {
+          id: 'admin-1',
+          fullName: 'E2E Admin',
+          role: 'ADMIN',
+        },
+        'senior@example.com': {
+          id: 'senior-1',
+          fullName: 'E2E Senior',
+          role: 'SENIOR_MENTOR',
+        },
+        'teacher@example.com': {
+          id: 'teacher-1',
+          fullName: 'E2E Teacher',
+          role: 'TEACHER',
+        },
+      }[email] || {
+        id: 'student-1',
+        fullName: 'E2E Student',
+        role: 'STUDENT',
+      };
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
           token: 'e2e-token',
-          id: isAdmin ? 'admin-1' : 'student-1',
-          userId: isAdmin ? 'admin-1' : 'student-1',
-          fullName: isAdmin ? 'E2E Admin' : 'E2E Student',
+          id: account.id,
+          userId: account.id,
+          fullName: account.fullName,
           email,
-          role: isAdmin ? 'ADMIN' : 'STUDENT',
+          role: account.role,
         }),
       });
       return;
@@ -45,6 +65,17 @@ async function mockBackend(page, unexpectedRequests) {
     }
 
     if (url.pathname === '/api/courses' && request.method() === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          courses: [{ courseId: 'PRO192', courseName: 'Object-Oriented Programming' }],
+        }),
+      });
+      return;
+    }
+
+    if (url.pathname === '/api/mentors/teacher-1/courses' && request.method() === 'GET') {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -84,6 +115,8 @@ async function mockBackend(page, unexpectedRequests) {
       '/api/tutor/answer-reviews': { reviews: [] },
       '/api/tutor/answer-reviews/senior-pending': { reviews: [] },
       '/api/tutor/escalations/knowledge-candidates': { candidates: [] },
+      '/api/mentors/teacher-1/dashboard': {},
+      '/api/teachers/teacher-1/classes': { classes: [] },
       '/api/admin/semesters': { semesters: [] },
       '/api/mentors': { mentors: [] },
       '/api/v2/expert-training/chapters/suggested': {
@@ -137,6 +170,14 @@ async function signInAsAdmin(page) {
   await page.getByLabel('Mật khẩu').fill('secret1');
   await page.locator('.login-submit').click();
   await expect(page).toHaveURL(/\/admin\/dashboard$/);
+}
+
+async function signInAsTeacher(page) {
+  await page.goto('/login');
+  await page.getByLabel('Email').fill('teacher@example.com');
+  await page.getByLabel('Mật khẩu').fill('secret1');
+  await page.locator('.login-submit').click();
+  await expect(page).toHaveURL(/\/teacher\/classes$/);
 }
 
 test.beforeEach(async ({ page }) => {
@@ -341,22 +382,43 @@ test('Tutor V2 admin route loads role-gated workflow without viewport overflow',
   await signInAsAdmin(page);
   await page.goto('/admin/expert-training');
 
-  await expect(page.getByRole('heading', { name: 'Huấn luyện tri thức AI' })).toBeVisible();
+  await expect(page).toHaveURL(/\/admin\/v2\?.*tab=coverage/);
+  await expect(page.getByRole('heading', { name: 'Expert Co-Training V2' })).toBeVisible();
   await expect(
     page.getByText('PRO192 · Object-Oriented Programming', { exact: true }).first(),
   ).toBeVisible();
-  await expect(page.getByRole('tab', { name: 'Tổng quan' })).toBeVisible();
-  await expect(page.getByRole('tab', { name: 'Công việc' })).toBeVisible();
-  await expect(page.getByRole('tab', { name: 'Nội dung & kiểm duyệt' })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Coverage' })).toBeVisible();
+  await expect(page.getByRole('tab', { name: /^Duyệt/ })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Evaluation' })).toBeVisible();
+  await expect(page.getByRole('tab')).toHaveCount(3);
   await expect(page.getByRole('button', { name: 'Phân tích độ phủ' })).toBeVisible();
   await page.getByRole('switch', { name: 'Dùng giao diện tối' }).click();
   await expect(page.locator('.scope-bar')).toHaveCSS('background-color', 'rgb(15, 15, 15)');
 
-  await page.getByRole('tab', { name: 'Công việc' }).click();
-  await expect(page).toHaveURL(/\/admin\/expert-training\?view=work$/);
+  await page.getByRole('tab', { name: /^Duyệt/ }).click();
+  await expect(page).toHaveURL(/\/admin\/v2\?.*tab=review/);
   await page.reload();
-  await expect(page.getByRole('tab', { name: 'Công việc' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('tab', { name: /^Duyệt/ })).toHaveAttribute('aria-selected', 'true');
 
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(1);
+});
+
+test('Teacher sees only the task board and Student is denied Tutor V2 routes', async ({ page }) => {
+  await signInAsTeacher(page);
+  await page.goto('/teacher/expert-training');
+  await expect(page).toHaveURL(/\/teacher\/expert-tasks/);
+  await expect(page.getByRole('heading', { name: 'Công việc tri thức AI' }).first()).toBeVisible();
+  await expect(page.getByText('Cần làm (0)', { exact: true })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Coverage' })).toHaveCount(0);
+  await expect(page.getByRole('tab', { name: 'Evaluation' })).toHaveCount(0);
+
+  await page.evaluate(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+  });
+  await page.reload();
+  await signIn(page);
+  await page.goto('/senior/v2');
+  await expect(page.getByText('Không có quyền truy cập', { exact: true })).toBeVisible();
 });

@@ -38,6 +38,7 @@ export default function TaskMaterialContext({
 
   const health = getMaterialHealthMeta(preview.materialHealth);
   const chapterStatus = getChapterStatusMeta(preview.status);
+  const detectedFromLabel = getDetectedFromLabel(preview.detectedFrom);
 
   return (
     <Card
@@ -51,7 +52,7 @@ export default function TaskMaterialContext({
           <strong>{preview.title}</strong>
           <Space wrap size={[6, 4]}>
             <Tag color={chapterStatus.color}>{chapterStatus.label}</Tag>
-            <Tag>{getDetectedFromLabel(preview.detectedFrom)}</Tag>
+            {detectedFromLabel && <Tag>{detectedFromLabel}</Tag>}
             <Text type="secondary">{preview.chunkCount} chunks</Text>
           </Space>
         </div>
@@ -68,7 +69,10 @@ export default function TaskMaterialContext({
         <div className="expert-training__task-material-excerpt">
           <Paragraph>{preview.excerpt || 'Backend chưa trả trích đoạn cho chapter này.'}</Paragraph>
           {preview.excerptTruncated && (
-            <Text type="secondary">Nội dung xem trước đã được rút gọn.</Text>
+            <Text type="secondary">
+              Đang hiển thị bản rút gọn ({String(preview.excerpt || '').length}/{preview.excerptTotalChars || '—'} ký tự).
+              {' '}Mở PDF để xem đầy đủ.
+            </Text>
           )}
         </div>
 

@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
-import { Button, Select, Space, Tabs, Tag, Typography } from 'antd';
+import { Alert, Button, Select, Space, Tabs, Tag, Typography } from 'antd';
 import { RefreshCw } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import AsyncState from '../../components/common/AsyncState';
@@ -7,26 +7,24 @@ import PageHeader from '../../components/common/PageHeader';
 import ScopeBar from '../../components/common/ScopeBar';
 import { getAccountRoleLabel } from '../../constants/roles';
 import { isTutorV2HarnessEnabled } from '../ai-harness/expertTrainingGateway';
-import ExpertTrainingOverview from './components/ExpertTrainingOverview';
-import {
-  getEvaluationReadiness,
-} from './expertTrainingSelectors';
+import ChapterCoveragePanel from './components/ChapterCoveragePanel';
+import CoverageDashboard from './components/CoverageDashboard';
+import { getEvaluationReadiness } from './expertTrainingSelectors';
 import { useExpertTrainingController } from './useExpertTrainingController';
 import './ExpertTraining.css';
 
-const ExpertWorkWorkspace = lazy(() => import('./components/ExpertWorkWorkspace'));
-const ExpertContentReviewWorkspace = lazy(() => import('./components/ExpertContentReviewWorkspace'));
+const SeniorReviewQueue = lazy(() => import('./components/SeniorReviewQueue'));
 const EvaluationDashboard = lazy(() => import('./components/EvaluationDashboard'));
-
 const { Text } = Typography;
-const VALID_VIEWS = new Set(['overview', 'work', 'content', 'evaluation']);
-const courseLabel = (course) => (
-  course.name && course.name !== course.id ? `${course.id} · ${course.name}` : course.id
-);
+const VALID_TABS = new Set(['coverage', 'review', 'evaluation']);
 
 function SectionFallback() {
   return <AsyncState loading loadingLabel="Đang tải khu vực Tutor V2..." loadingRows={6} />;
 }
+
+const courseLabel = (course) => (
+  course.name && course.name !== course.id ? `${course.id} · ${course.name}` : course.id
+);
 
 export default function ExpertTrainingPage({
   currentUser,
@@ -35,13 +33,20 @@ export default function ExpertTrainingPage({
   triggerToast,
 }) {
   const [localCourseId, setLocalCourseId] = useState(externalCourseId);
+  const [selectedChapterKeys, setSelectedChapterKeys] = useState([]);
   const [searchParams, setSearchParams] = useSearchParams();
-  const courseId = externalCourseId || localCourseId;
-  const requestedView = searchParams.get('view');
-  const activeView = VALID_VIEWS.has(requestedView) ? requestedView : 'overview';
-  const selectedTaskId = searchParams.get('task') || '';
+  const queryCourseId = searchParams.get('courseId') || '';
+  const courseId = queryCourseId || externalCourseId || localCourseId;
+  const requestedTab = searchParams.get('tab');
+  const legacyView = searchParams.get('view');
   const selectedReviewId = searchParams.get('review') || '';
-  const draftChapter = searchParams.get('chapter') || '';
+  const activeTab = VALID_TABS.has(requestedTab)
+    ? requestedTab
+    : legacyView === 'content'
+      ? 'review'
+      : legacyView === 'evaluation'
+        ? 'evaluation'
+        : 'coverage';
 
   const setQueryState = useCallback((updates, replace = false) => {
     setSearchParams((current) => {
@@ -57,124 +62,90 @@ export default function ExpertTrainingPage({
   const setCourseId = useCallback((nextCourseId) => {
     setLocalCourseId(nextCourseId);
     setExternalCourseId?.(nextCourseId);
-  }, [setExternalCourseId]);
-
-  const changeCourse = useCallback((nextCourseId) => {
-    setCourseId(nextCourseId);
-    setQueryState({ view: 'overview', task: null, review: null, chapter: null });
-  }, [setCourseId, setQueryState]);
+    setSelectedChapterKeys([]);
+    setQueryState({ courseId: nextCourseId || null, review: null, view: null }, true);
+  }, [setExternalCourseId, setQueryState]);
 
   const controller = useExpertTrainingController({
     currentUser,
     courseId,
-    selectedTaskId,
     setCourseId,
     triggerToast,
+    mode: 'reviewer',
   });
-  const taskLoading = controller.loading.tasks;
-  const tasks = controller.resources.tasks;
-  const selectedTaskChapter = controller.selectedTask?.chapter || '';
-  const loadTaskMaterialPreview = controller.loadTaskMaterialPreview;
 
   useEffect(() => {
-    if (selectedTaskId && !taskLoading && tasks.length && !controller.selectedTask) {
-      setQueryState({ task: null }, true);
+    if (!VALID_TABS.has(requestedTab) || legacyView) {
+      setQueryState({ tab: activeTab, view: null }, true);
     }
-  }, [
-    controller.selectedTask,
-    selectedTaskId,
-    setQueryState,
-    taskLoading,
-    tasks,
-  ]);
+  }, [activeTab, legacyView, requestedTab, setQueryState]);
 
-  useEffect(() => {
-    loadTaskMaterialPreview(selectedTaskChapter);
-  }, [loadTaskMaterialPreview, selectedTaskChapter]);
-
-  const selectTask = useCallback((task) => {
-    setQueryState({ view: 'work', task: task?.id || null, chapter: null });
-  }, [setQueryState]);
-
-  const navigateToAction = useCallback((action) => {
-    setQueryState({
-      view: action.view || 'overview',
-      task: action.taskId || null,
-      review: action.reviewId || null,
-    });
-  }, [setQueryState]);
+  const selectedChapterTitles = useMemo(() => {
+    const selected = new Set(selectedChapterKeys);
+    return controller.resources.chapters
+      .filter((chapter) => selected.has(chapter.chapterKey || chapter.id))
+      .map((chapter) => chapter.title);
+  }, [controller.resources.chapters, selectedChapterKeys]);
 
   const evaluationReadiness = useMemo(
     () => getEvaluationReadiness(controller.resources),
     [controller.resources],
   );
 
-  const tabs = useMemo(() => [
+  const createTasksFromGap = useCallback((gap) => controller.createTasksForChapter(gap.chapter, {
+    includeTrainingGoldTask: true,
+    includeEvaluationGoldTask: true,
+  }), [controller]);
+
+  const tabs = [
     {
-      key: 'overview',
-      label: 'Tổng quan',
+      key: 'coverage',
+      label: 'Coverage',
       children: (
-        <ExpertTrainingOverview
-          resources={controller.resources}
-          loading={controller.loading}
-          errors={controller.errors}
-          canReview={controller.canReview}
-          userId={controller.userId}
-          pendingAction={controller.pendingAction}
-          onAnalyzeCoverage={controller.analyzeCoverage}
-          onRefreshCoverage={controller.loadGaps}
-          chapterPreview={controller.chapterPreview}
-          onRefreshChapters={controller.loadChapters}
-          onConfirmChapters={controller.confirmChapterSelection}
-          onAddManualChapter={controller.addManualChapter}
-          onPreviewChapter={controller.openChapterPreview}
-          onCloseChapterPreview={() => controller.setChapterPreview(null)}
-          onCreateChapterTasks={controller.createTasksForChapter}
-          onOpenMaterial={controller.openSourceMaterial}
-          onNavigateAction={navigateToAction}
-          onCreateTaskFromGap={(gap) => setQueryState({ view: 'work', chapter: gap.chapter })}
-        />
-      ),
-    },
-    {
-      key: 'work',
-      label: 'Công việc',
-      children: (
-        <Suspense fallback={<SectionFallback />}>
-          <ExpertWorkWorkspace
-            tasks={controller.resources.tasks}
-            selectedTask={controller.selectedTask}
-            draftChapter={draftChapter}
-            userId={controller.userId}
-            canReview={controller.canReview}
-            loading={controller.loading}
-            errors={controller.errors}
+        <div className="expert-training__hub-stack">
+          <ChapterCoveragePanel
+            chapters={controller.resources.chapters}
+            loading={controller.loading.chapters}
+            error={controller.errors.chapters}
+            canReview
             pendingAction={controller.pendingAction}
-            onRefreshTasks={controller.loadTasks}
-            onClaimTask={controller.claimTask}
-            onCreateTask={controller.createTask}
-            onSelectTask={selectTask}
-            onDraftConsumed={() => setQueryState({ chapter: null }, true)}
-            onSubmitGoldQa={controller.submitGoldQa}
-            onSubmitRubric={controller.submitRubric}
-            taskMaterialPreview={controller.taskMaterialPreview}
-            selectedTaskRejection={controller.selectedTaskRejection}
+            preview={controller.chapterPreview}
+            previewLoading={controller.loading.chapterPreview}
+            previewError={controller.errors.chapterPreview}
+            onRefresh={controller.loadChapters}
+            onConfirm={controller.confirmChapterSelection}
+            onAddManual={controller.addManualChapter}
+            onPreview={controller.openChapterPreview}
+            onClosePreview={() => controller.setChapterPreview(null)}
+            onCreateTasks={controller.createTasksForChapter}
             onOpenMaterial={controller.openSourceMaterial}
+            onSelectionChange={setSelectedChapterKeys}
           />
-        </Suspense>
+          <CoverageDashboard
+            gaps={controller.resources.gaps}
+            chapters={controller.resources.chapters}
+            selectedChapters={selectedChapterTitles}
+            loading={controller.loading.gaps}
+            error={controller.errors.gaps}
+            canReview
+            pendingAction={controller.pendingAction}
+            onAnalyze={controller.analyzeCoverage}
+            onRefresh={controller.loadGaps}
+            onCreateTaskFromGap={createTasksFromGap}
+          />
+        </div>
       ),
     },
     {
-      key: 'content',
-      label: controller.canReview && controller.pendingReviewCount
-        ? `Nội dung & kiểm duyệt (${controller.pendingReviewCount})`
-        : 'Nội dung & kiểm duyệt',
+      key: 'review',
+      label: controller.pendingReviewCount
+        ? `Duyệt (${controller.pendingReviewCount})`
+        : 'Duyệt',
       children: (
         <Suspense fallback={<SectionFallback />}>
-          <ExpertContentReviewWorkspace
-            resources={controller.resources}
-            userId={controller.userId}
-            canReview={controller.canReview}
+          <SeniorReviewQueue
+            goldQa={controller.resources.goldQa}
+            rubrics={controller.resources.rubrics}
             selectedReviewId={selectedReviewId}
             loading={controller.loading.contributions}
             error={controller.errors.contributions}
@@ -195,7 +166,7 @@ export default function ExpertTrainingPage({
           <EvaluationDashboard
             runs={controller.resources.evalRuns}
             readiness={evaluationReadiness}
-            canReview={controller.canReview}
+            canReview
             loading={controller.loading.evaluation}
             error={controller.errors.evaluation}
             pendingAction={controller.pendingAction}
@@ -209,28 +180,16 @@ export default function ExpertTrainingPage({
         </Suspense>
       ),
     },
-  ], [
-    controller,
-    draftChapter,
-    evaluationReadiness,
-    navigateToAction,
-    selectTask,
-    selectedReviewId,
-    setQueryState,
-  ]);
+  ];
 
-  const connectionColor = controller.connectionState === 'CONNECTED'
-    ? 'green'
-    : controller.connectionState === 'RECONNECTING'
-      ? 'orange'
-      : 'default';
+  const connectionColor = controller.connectionState === 'CONNECTED' ? 'green' : 'orange';
   const harnessEnabled = isTutorV2HarnessEnabled();
 
   return (
     <div className="expert-training-page">
       <PageHeader
-        title="Huấn luyện tri thức AI"
-        description="Biến thiếu hụt tri thức của môn học thành nội dung đã được kiểm duyệt và bộ Evaluation độc lập."
+        title="Expert Co-Training V2"
+        description="Xác nhận độ phủ học liệu, kiểm duyệt tri thức và đánh giá AI Tutor bằng holdout độc lập."
       />
 
       <ScopeBar
@@ -241,7 +200,7 @@ export default function ExpertTrainingPage({
             disabled={!courseId}
             loading={Object.values(controller.loading).some(Boolean)}
           >
-            Làm mới dữ liệu
+            Làm mới
           </Button>
         )}
       >
@@ -253,7 +212,7 @@ export default function ExpertTrainingPage({
           placeholder="Chọn môn học"
           className="expert-training__course-select"
           loading={controller.loading.courses}
-          onChange={changeCourse}
+          onChange={setCourseId}
           options={controller.courses.map((course) => ({
             value: course.id,
             label: courseLabel(course),
@@ -269,22 +228,30 @@ export default function ExpertTrainingPage({
           </Tag>
         </Space>
         <Text type="secondary" className="expert-training__canonical-note">
-          REST API là nguồn dữ liệu chuẩn; WebSocket chỉ yêu cầu tải lại dữ liệu.
+          REST API là nguồn dữ liệu chuẩn; WebSocket chỉ yêu cầu tải lại đúng khu vực.
         </Text>
       </ScopeBar>
+
+      <Alert
+        className="expert-training__role-guide"
+        type="warning"
+        showIcon
+        title="Coverage → giao task mở → kiểm duyệt → Evaluation"
+        description="TRAINING Gold Q&A được duyệt mới vào RAG. EVALUATION luôn là holdout và không được index."
+      />
 
       <AsyncState
         loading={controller.loading.courses && !controller.courses.length}
         error={controller.errors.courses}
         empty={!controller.loading.courses && !controller.errors.courses && !controller.courses.length}
         emptyTitle="Chưa có môn học khả dụng"
-        emptyDescription="Hãy tạo hoặc phân công môn học trước khi mở quy trình Tutor V2."
+        emptyDescription="Tạo môn học và index học liệu trước khi chạy Expert Co-Training V2."
         onRetry={controller.loadCourses}
       >
         {courseId ? (
           <Tabs
-            activeKey={activeView}
-            onChange={(view) => setQueryState({ view })}
+            activeKey={activeTab}
+            onChange={(tab) => setQueryState({ tab, review: null })}
             items={tabs}
             className="expert-training__tabs"
           />
@@ -292,7 +259,7 @@ export default function ExpertTrainingPage({
           <AsyncState
             empty
             emptyTitle="Chọn môn học để bắt đầu"
-            emptyDescription="Mỗi môn học có thiếu hụt, task, nội dung kiểm duyệt và Evaluation riêng."
+            emptyDescription="Coverage, hàng chờ duyệt và Evaluation được tách riêng theo từng môn."
           />
         )}
       </AsyncState>

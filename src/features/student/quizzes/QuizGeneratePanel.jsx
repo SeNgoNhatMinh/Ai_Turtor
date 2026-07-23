@@ -1,6 +1,11 @@
 import { memo } from 'react';
 import { Alert, Button, Card, Input, InputNumber, Select, Space, Typography } from 'antd';
 import { QuestionCircleOutlined } from '@ant-design/icons';
+import {
+  MAX_QUIZ_QUESTION_COUNT,
+  MIN_QUIZ_QUESTION_COUNT,
+  normalizeQuizQuestionCount,
+} from './practiceQuizUtils';
 
 const { Text } = Typography;
 
@@ -53,10 +58,12 @@ function QuizGeneratePanel({
               <Text type="secondary">Quiz ngắn phù hợp hơn để ôn tập tập trung.</Text>
             </div>
             <InputNumber
-              min={3}
-              max={10}
+              min={MIN_QUIZ_QUESTION_COUNT}
+              max={MAX_QUIZ_QUESTION_COUNT}
+              precision={0}
+              step={1}
               value={questionCount}
-              onChange={(value) => setQuestionCount(value || 5)}
+              onChange={(value) => setQuestionCount(normalizeQuizQuestionCount(value, questionCount))}
               disabled={!hasContext || isLoading}
             />
           </div>
@@ -69,7 +76,7 @@ function QuizGeneratePanel({
             disabled={!hasContext || !topic.trim() || isLoading}
             onClick={() => onGenerate()}
           >
-            Tạo quiz từ chủ đề này
+            Tạo quiz {questionCount} câu
           </Button>
         </Space>
       </Card>

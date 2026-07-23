@@ -45,10 +45,12 @@ This guide records the production structure target after aligning the FE with th
 - URL routes are canonical for navigation:
   - Student: `/student/chat`, `/student/progress`, `/student/quizzes`, `/student/materials`, `/student/mentor-review`
   - Teacher: `/teacher/classes`, `/teacher/quizzes`, `/teacher/materials`, `/teacher/grading`, `/teacher/review-queue`
-  - Teacher Tutor V2: `/teacher/expert-training?view=overview|work|content|evaluation`
+  - Teacher Tutor V2: `/teacher/expert-tasks` and `/teacher/expert-tasks/:taskId/contribute`
+  - Senior Tutor V2: `/senior/v2?courseId=&tab=coverage|review|evaluation`
   - Admin: `/admin/dashboard`, `/admin/users`, `/admin/academic`
-  - Admin Tutor V2: `/admin/expert-training?view=overview|work|content|evaluation`
-- Tutor V2 keeps selected work and review context in query parameters (`task`, `review`) so refresh and deep links do not lose the active record.
+  - Admin Tutor V2: `/admin/v2?courseId=&tab=coverage|review|evaluation`
+- Legacy `/teacher/expert-training` and `/admin/expert-training` URLs redirect to their canonical role-specific routes.
+- Tutor V2 keeps course, active hub tab, and selected review context in URL query parameters; Teacher contribution uses the canonical task ID route parameter.
 - Shared workflow primitives live under `src/components/common`: `ScopeBar`, `MetricStrip`, `WorkflowStepper`, `ActionQueue`, `MasterDetailLayout`, and `StatusLabel`.
 - Shared workflow primitive styles live in `src/components/common/WorkflowUI.css`; feature styles should extend semantic classes instead of duplicating inline status/layout CSS.
 - Canonical Vietnamese status metadata lives in `src/utils/statusLabels.js`; feature pages must not create competing status-label maps.
@@ -114,7 +116,12 @@ The legacy `src/services/api.js` facade has been removed. Do not recreate a glob
 - Keep Quiz CSS under `src/features/student/quizzes/styles`; page-owned Learning Progress and Admin Academic CSS stay beside their page orchestrators.
 - Keep Admin Academic tab views under `src/pages/admin/academic` and their shared entity mutation controller under `src/features/admin/academic`.
 - Keep Teacher material columns/cards/tables and route orchestration under `src/features/teacher/materials`.
-- Keep Tutor V2 shared UI, controller, validation and styles under `src/features/expert-training`; Teacher and Admin routes must lazy-load the same feature instead of duplicating portal logic.
+- Keep Tutor V2 shared UI, controller, validation and styles under `src/features/expert-training`.
+- `useExpertTrainingController.js` owns only mutations and the global mutation lock.
+- `hooks/useExpertTrainingResources.js` owns canonical REST resources, loading/error state, previews, and derived selected records.
+- `hooks/useExpertTrainingRealtimeRefresh.js` owns WebSocket subscriptions, debounce, reconnect recovery, focus recovery, and canonical polling.
+- Teacher Task Board/Contribution and Senior/Admin Coverage/Review/Evaluation pages reuse the same domain services but remain role-specific route experiences.
+- Keep extracted subviews under `components/{coverage,contribution,evaluation,review}`; do not merge form, modal, table, and transport state back into one page component.
 - Keep shared Teacher display/record helpers under `src/features/teacher/shared`; `pages/teacher` must not own reusable logic.
 - Check production chunk output with `npm run build` after moving an import.
 

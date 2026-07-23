@@ -13,7 +13,9 @@ export const N8N_QUIZ_ENABLED = env.n8nQuizEnabled;
 export const N8N_ASSIGNMENT_GRADING_ENABLED = env.n8nAssignmentGradingEnabled;
 export const N8N_ASSIGNMENT_GRADING_TIMEOUT_MS = env.n8nAssignmentGradingTimeoutMs;
 export const N8N_TUTOR_V2_ENABLED = env.n8nTutorV2Enabled;
-export const N8N_TUTOR_V2_TIMEOUT_MS = env.n8nTutorV2TimeoutMs;
+export const N8N_TUTOR_V2_FLOW_TIMEOUT_MS = env.n8nTutorV2FlowTimeoutMs;
+export const N8N_TUTOR_V2_APPROVAL_TIMEOUT_MS = env.n8nTutorV2ApprovalTimeoutMs;
+export const N8N_TUTOR_V2_EVALUATION_TIMEOUT_MS = env.n8nTutorV2EvaluationTimeoutMs;
 
 function createN8nError(userMessage = 'Luồng AI đang tạm thời gián đoạn.', details = null) {
   const error = new Error(userMessage);

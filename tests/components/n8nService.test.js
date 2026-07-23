@@ -4,7 +4,9 @@ vi.mock('../../src/services/n8nClient', () => ({
   N8N_CHAT_TIMEOUT_MS: 180_000,
   N8N_QUIZ_TIMEOUT_MS: 240_000,
   N8N_ASSIGNMENT_GRADING_TIMEOUT_MS: 300_000,
-  N8N_TUTOR_V2_TIMEOUT_MS: 300_000,
+  N8N_TUTOR_V2_FLOW_TIMEOUT_MS: 120_000,
+  N8N_TUTOR_V2_APPROVAL_TIMEOUT_MS: 240_000,
+  N8N_TUTOR_V2_EVALUATION_TIMEOUT_MS: 300_000,
   postN8n: vi.fn(),
 }));
 
@@ -113,13 +115,19 @@ describe('n8n education workflow service', () => {
     expect(postN8n).toHaveBeenLastCalledWith('/v2-coverage-analyze', {
       courseId: 'PRO192',
       chapters: ['OOP'],
-    }, { includeAuthTokenInBody: false });
+    }, {
+      timeoutMs: 120_000,
+      includeAuthTokenInBody: false,
+    });
 
     postN8n.mockResolvedValue({ id: 'gold-1', status: 'PENDING_REVIEW' });
     await n8nService.submitTutorV2GoldQa({ question: 'What is OOP?' });
     expect(postN8n).toHaveBeenLastCalledWith('/v2-gold-qa-submit', {
       question: 'What is OOP?',
-    }, { includeAuthTokenInBody: false });
+    }, {
+      timeoutMs: 120_000,
+      includeAuthTokenInBody: false,
+    });
 
     postN8n.mockResolvedValue({ id: 'run-1', status: 'PASSED' });
     await n8nService.runTutorV2Evaluation({ courseId: 'PRO192' });

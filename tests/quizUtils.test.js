@@ -4,6 +4,7 @@ import {
   getQuizId,
   getQuizScoreText,
   getQuizStatusLabel,
+  normalizeQuizQuestionCount,
   sortQuizHistory,
 } from '../src/features/student/quizzes/practiceQuizUtils.js';
 import {
@@ -47,6 +48,14 @@ test('uses clear quiz status and score labels', () => {
   assert.equal(getQuizStatusLabel({ status: 'SUBMITTED', quizType: 'ASSIGNED' }), 'Đã nộp · Chờ duyệt');
   assert.equal(getQuizStatusLabel({ teacherReviewStatus: 'REVIEWED' }), 'Giảng viên đã duyệt');
   assert.equal(getQuizScoreText({ teacherReviewedScore: 8, maxScore: 10 }), 'Điểm 8/10');
+});
+
+test('normalizes requested quiz question count as an integer between 3 and 10', () => {
+  assert.equal(normalizeQuizQuestionCount('10'), 10);
+  assert.equal(normalizeQuizQuestionCount(6.6), 7);
+  assert.equal(normalizeQuizQuestionCount(1), 3);
+  assert.equal(normalizeQuizQuestionCount(99), 10);
+  assert.equal(normalizeQuizQuestionCount(null), 5);
 });
 
 test('normalizes teacher quiz attempt summaries without loading student histories', () => {

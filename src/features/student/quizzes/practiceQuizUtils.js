@@ -10,6 +10,19 @@ export const normalizeQuizStatus = (status) => String(status || '').toUpperCase(
 
 export const asQuizArray = (value) => (Array.isArray(value) ? value : []);
 
+export const MIN_QUIZ_QUESTION_COUNT = 3;
+export const MAX_QUIZ_QUESTION_COUNT = 10;
+const DEFAULT_QUIZ_QUESTION_COUNT = 5;
+
+export function normalizeQuizQuestionCount(value, fallback = DEFAULT_QUIZ_QUESTION_COUNT) {
+  const safeFallback = Number.isFinite(Number(fallback))
+    ? Math.round(Number(fallback))
+    : DEFAULT_QUIZ_QUESTION_COUNT;
+  const parsed = value == null || value === '' ? Number.NaN : Number(value);
+  const integer = Number.isFinite(parsed) ? Math.round(parsed) : safeFallback;
+  return Math.min(MAX_QUIZ_QUESTION_COUNT, Math.max(MIN_QUIZ_QUESTION_COUNT, integer));
+}
+
 export function getQuizStatusColor(status) {
   const normalized = normalizeQuizStatus(status);
   if (normalized.includes('SUBMITTED') || normalized.includes('REVIEWED')) return 'success';

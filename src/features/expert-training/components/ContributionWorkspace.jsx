@@ -1,19 +1,5 @@
 import { useEffect } from 'react';
-import {
-  Alert,
-  Button,
-  Card,
-  Col,
-  Form,
-  Input,
-  InputNumber,
-  Row,
-  Select,
-  Space,
-  Tabs,
-  Typography,
-} from 'antd';
-import { Plus, Send, Trash2 } from 'lucide-react';
+import { Alert, Card, Form, Tabs, Typography } from 'antd';
 import { getStatusLabel } from '../../../utils/statusLabels';
 import {
   criteriaRowsToWeights,
@@ -21,14 +7,11 @@ import {
   validateCriteriaWeights,
 } from '../expertTrainingUtils';
 import TaskMaterialContext from './TaskMaterialContext';
+import { DEFAULT_RUBRIC_CRITERIA } from './contribution/contributionDefaults';
+import GoldQaContributionForm from './contribution/GoldQaContributionForm';
+import RubricContributionForm from './contribution/RubricContributionForm';
 
-const { Paragraph, Text } = Typography;
-
-const defaultCriteria = [
-  { name: 'accuracy', weight: 0.6 },
-  { name: 'groundedness', weight: 0.3 },
-  { name: 'guidance', weight: 0.1 },
-];
+const { Paragraph } = Typography;
 
 export default function ContributionWorkspace({
   selectedTask,
@@ -41,6 +24,7 @@ export default function ContributionWorkspace({
   materialError,
   rejection,
   onOpenMaterial,
+  onSubmitted,
 }) {
   const [goldForm] = Form.useForm();
   const [rubricForm] = Form.useForm();
@@ -53,7 +37,7 @@ export default function ContributionWorkspace({
       goldForm.resetFields();
       goldForm.setFieldsValue({
         chapter: selectedTask.chapter,
-        usage: taskGoldUsage || rejection?.usage || 'TRAINING',
+        usage: taskGoldUsage || rejection?.usage || '',
         difficulty: rejection?.difficulty || 'MEDIUM',
         question: rejection?.question || '',
         goldAnswer: rejection?.goldAnswer || '',
@@ -66,17 +50,23 @@ export default function ContributionWorkspace({
         description: rejection?.description || selectedTask.instructions,
         criteria: rejection?.criteriaWeights
           ? Object.entries(rejection.criteriaWeights).map(([name, weight]) => ({ name, weight }))
-          : defaultCriteria,
+          : DEFAULT_RUBRIC_CRITERIA.map((criterion) => ({ ...criterion })),
       });
     }
   }, [goldForm, rejection, rubricForm, selectedTask, taskGoldUsage]);
 
   const isTaskOwner = Boolean(selectedTask && selectedTask.assigneeId === userId);
   const canSubmitSelectedTask = Boolean(
-    isTaskOwner && ['ASSIGNED', 'IN_PROGRESS'].includes(selectedTask.status),
+    isTaskOwner
+    && ['ASSIGNED', 'IN_PROGRESS'].includes(selectedTask.status)
+    && (selectedTask.type !== 'GOLD_QA' || Boolean(taskGoldUsage || rejection?.usage)),
   );
 
   const submitGold = async (values) => {
+    if (!taskGoldUsage && !rejection?.usage) {
+      goldForm.setFields([{ name: 'usage', errors: ['Task chưa xác định TRAINING hoặc EVALUATION.'] }]);
+      return;
+    }
     if (taskGoldUsage && values.usage !== taskGoldUsage) {
       goldForm.setFields([{ name: 'usage', errors: [`Công việc này yêu cầu mục đích ${taskGoldUsage}.`] }]);
       return;
@@ -86,8 +76,7 @@ export default function ContributionWorkspace({
       sourceTaskId: selectedTask?.type === 'GOLD_QA' ? selectedTask.id : undefined,
     });
     if (result) {
-      goldForm.resetFields();
-      goldForm.setFieldsValue({ difficulty: 'MEDIUM', usage: 'TRAINING' });
+      onSubmitted?.(result);
     }
   };
 
@@ -105,8 +94,7 @@ export default function ContributionWorkspace({
       sourceTaskId: selectedTask?.type === 'RUBRIC' ? selectedTask.id : undefined,
     });
     if (result) {
-      rubricForm.resetFields();
-      rubricForm.setFieldsValue({ criteria: defaultCriteria });
+      onSubmitted?.(result);
     }
   };
 
@@ -115,141 +103,27 @@ export default function ContributionWorkspace({
       key: 'GOLD_QA',
       label: 'Gold Q&A',
       children: (
-        <Form
+        <GoldQaContributionForm
           form={goldForm}
-          layout="vertical"
           disabled={!canSubmitSelectedTask}
-          initialValues={{ difficulty: 'MEDIUM', usage: 'TRAINING' }}
+          taskUsage={taskGoldUsage}
+          pendingAction={pendingAction}
+          userId={userId}
           onFinish={submitGold}
-        >
-          <Row gutter={12}>
-            <Col xs={24} md={14}>
-              <Form.Item label="Chương" name="chapter" rules={[{ required: true, whitespace: true }]}>
-                <Input maxLength={255} />
-              </Form.Item>
-            </Col>
-            <Col xs={12} md={5}>
-              <Form.Item label="Độ khó" name="difficulty" rules={[{ required: true }]}>
-                <Select options={[
-                  { value: 'EASY', label: 'Dễ' },
-                  { value: 'MEDIUM', label: 'Trung bình' },
-                  { value: 'HARD', label: 'Khó' },
-                ]} />
-              </Form.Item>
-            </Col>
-            <Col xs={12} md={5}>
-              <Form.Item label="Mục đích" name="usage" rules={[{ required: true }]}>
-                <Select disabled={Boolean(taskGoldUsage)} options={[
-                  { value: 'TRAINING', label: 'Training' },
-                  { value: 'EVALUATION', label: 'Evaluation holdout' },
-                ]} />
-              </Form.Item>
-            </Col>
-          </Row>
-          <Form.Item label="Câu hỏi chuẩn" name="question" rules={[{ required: true, whitespace: true }]}>
-            <Input.TextArea rows={3} maxLength={5000} />
-          </Form.Item>
-          <Form.Item label="Gold Answer" name="goldAnswer" rules={[{ required: true, whitespace: true }]}>
-            <Input.TextArea rows={7} maxLength={5000} />
-          </Form.Item>
-          <Alert
-            type="info"
-            showIcon
-            title="Training và Evaluation được tách biệt"
-            description={taskGoldUsage
-              ? `Task này yêu cầu ${taskGoldUsage}. TRAINING đã duyệt được index vào RAG; EVALUATION được giữ riêng làm holdout.`
-              : 'TRAINING đã duyệt được index vào RAG. EVALUATION được giữ riêng làm holdout và không bao giờ được index.'}
-          />
-          <div className="expert-training__form-actions">
-            <Button
-              type="primary"
-              htmlType="submit"
-              icon={<Send size={16} />}
-              loading={pendingAction === 'submit-gold-qa'}
-              disabled={Boolean(pendingAction) || !userId || !canSubmitSelectedTask}
-            >
-              Gửi kiểm duyệt
-            </Button>
-          </div>
-        </Form>
+        />
       ),
     },
     {
       key: 'RUBRIC',
       label: 'Rubric',
       children: (
-        <Form
+        <RubricContributionForm
           form={rubricForm}
-          layout="vertical"
           disabled={!canSubmitSelectedTask}
-          initialValues={{ criteria: defaultCriteria }}
+          pendingAction={pendingAction}
+          userId={userId}
           onFinish={submitRubric}
-        >
-          <Row gutter={12}>
-            <Col xs={24} md={10}>
-              <Form.Item label="Chương" name="chapter" rules={[{ required: true, whitespace: true }]}>
-                <Input maxLength={255} />
-              </Form.Item>
-            </Col>
-            <Col xs={24} md={14}>
-              <Form.Item label="Tên Rubric" name="name" rules={[{ required: true, whitespace: true }]}>
-                <Input maxLength={255} />
-              </Form.Item>
-            </Col>
-          </Row>
-          <Form.Item label="Mô tả" name="description">
-            <Input.TextArea rows={3} maxLength={5000} />
-          </Form.Item>
-          <Form.List name="criteria">
-            {(fields, { add, remove }) => (
-              <Form.Item label="Trọng số tiêu chí" required>
-                <div className="expert-training__criteria-list">
-                  {fields.map(({ key, ...field }) => (
-                    <Space key={key} align="start" className="expert-training__criteria-row">
-                      <Form.Item
-                        {...field}
-                        name={[field.name, 'name']}
-                        rules={[{ required: true, whitespace: true, message: 'Tên tiêu chí là bắt buộc.' }]}
-                      >
-                        <Input placeholder="accuracy" maxLength={80} />
-                      </Form.Item>
-                      <Form.Item
-                        {...field}
-                        name={[field.name, 'weight']}
-                        rules={[{ required: true, message: 'Trọng số là bắt buộc.' }]}
-                      >
-                        <InputNumber min={0.001} max={1} step={0.05} precision={3} placeholder="0.6" />
-                      </Form.Item>
-                      <Button
-                        type="text"
-                        danger
-                        icon={<Trash2 size={16} />}
-                        aria-label="Xóa tiêu chí"
-                        onClick={() => remove(field.name)}
-                        disabled={fields.length <= 1}
-                      />
-                    </Space>
-                  ))}
-                  <Button icon={<Plus size={16} />} onClick={() => add({ name: '', weight: 0.1 })}>
-                    Thêm tiêu chí
-                  </Button>
-                </div>
-              </Form.Item>
-            )}
-          </Form.List>
-          <Text type="secondary">Backend chỉ chấp nhận Rubric khi tổng trọng số bằng đúng 1.0.</Text>
-          <div className="expert-training__form-actions">
-            <Button
-              type="primary"
-              htmlType="submit"
-              icon={<Send size={16} />}
-              loading={pendingAction === 'submit-rubric'}
-              disabled={Boolean(pendingAction) || !userId || !canSubmitSelectedTask}
-            >
-              Gửi kiểm duyệt
-            </Button>
-          </div>
-        </Form>
+        />
       ),
     },
   ];
@@ -299,21 +173,34 @@ export default function ContributionWorkspace({
         />
       )}
 
-      <TaskMaterialContext
-        preview={materialPreview}
-        loading={materialLoading}
-        error={materialError}
-        onOpenMaterial={onOpenMaterial}
-      />
-
-      <Card className="expert-training__editor-card" title="Chuẩn bị nội dung">
-        <Tabs
-          activeKey={selectedTask.type === 'RUBRIC' ? 'RUBRIC' : 'GOLD_QA'}
-          items={selectedTask
-            ? editorItems.filter((item) => item.key === (selectedTask.type === 'RUBRIC' ? 'RUBRIC' : 'GOLD_QA'))
-            : editorItems}
+      {selectedTask.type === 'GOLD_QA' && !taskGoldUsage && !rejection?.usage && (
+        <Alert
+          type="error"
+          showIcon
+          title="Task chưa xác định mục đích sử dụng"
+          description="Task phải có requiredUsage là TRAINING hoặc EVALUATION trước khi giảng viên đóng góp."
         />
-      </Card>
+      )}
+
+      <div className="expert-training__contribution-layout">
+        <Card className="expert-training__editor-card" title="Chuẩn bị nội dung">
+          <Tabs
+            activeKey={selectedTask.type === 'RUBRIC' ? 'RUBRIC' : 'GOLD_QA'}
+            items={selectedTask
+              ? editorItems.filter((item) => item.key === (selectedTask.type === 'RUBRIC' ? 'RUBRIC' : 'GOLD_QA'))
+              : editorItems}
+          />
+        </Card>
+
+        <aside className="expert-training__material-aside" aria-label="Tài liệu chương">
+          <TaskMaterialContext
+            preview={materialPreview}
+            loading={materialLoading}
+            error={materialError}
+            onOpenMaterial={onOpenMaterial}
+          />
+        </aside>
+      </div>
 
       <Paragraph type="secondary" className="expert-training__policy-note">
         Nội dung đã nộp chưa phải tri thức AI. Chỉ TRAINING Gold Q&A được phê duyệt mới được index vào RAG của môn học.

@@ -1,5 +1,61 @@
 # Frontend Update Log
 
+# 2026-07-24 - Role-Specific Expert Co-Training V2
+
+- Split Tutor V2 by authenticated account role instead of sharing one four-tab page.
+- Added the canonical Teacher routes `/teacher/expert-tasks` and `/teacher/expert-tasks/:taskId/contribute`.
+- Rebuilt Teacher tasks as responsive `Cần làm/Đã xong` cards with priority ordering and status-specific actions.
+- Added a dedicated two-column contribution page with a locked task usage and expanded sticky chapter material.
+- Added role-exact `/senior/v2` and `/admin/v2` hubs with only `Coverage`, `Duyệt`, and `Evaluation`.
+- Preserved old Tutor V2 bookmarks through deterministic redirects and fixed the app-shell redirect race for legacy URLs.
+- Added explicit 403 rendering when Student or an incorrect account role opens a protected V2 route.
+- Coverage Analyze now uses selected canonical chapter titles and the backend smart-task policy; resolved/task-created gaps cannot create duplicate tasks.
+- Standardized review defaults, mandatory rejection reasons, Training-versus-Evaluation status copy, material-health metadata, and legacy heading visibility.
+- Split n8n timeouts into 120-second flow, 240-second approval, and 300-second Evaluation budgets.
+- Added canonical REST recovery on WebSocket reconnect, browser focus, and periodic polling without manufacturing success in FE state.
+- Removed five unused components from the obsolete shared four-tab experience.
+
+**Tested**
+- `npm run lint`: pass.
+- `npm test`: pass (`93` contract tests, `87` unit/component tests).
+- `npm run build`: pass.
+- `npm run dead-code`: pass.
+- `npm run test:e2e`: pass (`20/20`, desktop and mobile), including legacy redirects, exact role guards and Tutor V2 viewport checks.
+
+# 2026-07-24 - Expert Co-Training V2 Internal Refactor
+
+- Split the V2 controller into mutation orchestration, canonical REST resources, and focused realtime refresh hooks.
+- Extracted Coverage analyze/gap views, Evaluation progress/start/history/detail views, Gold Q&A/Rubric forms, and review detail into responsibility-based components.
+- Kept page containers responsible only for route/query state and feature composition.
+- Preserved every endpoint, payload, role rule, timeout, mutation lock, and canonical refetch behavior.
+- Removed no user-facing capability and introduced no mock/fallback success.
+
+**Tested**
+- `npm run lint`: pass.
+- `npm test`: pass (`93` contract tests, `87` unit/component tests).
+- `npm run build`: pass.
+- `npm run dead-code`: pass.
+- `npm run test:e2e`: pass (`20/20`, desktop and mobile).
+- `git diff --check`: pass.
+
+# 2026-07-24 - Tutor V2 Canonical Workflow UX
+
+- Re-audited `TUTOR_V2_IMPLEMENTATION_AND_TEST_GUIDE_VI.md`, the V2 controller, service state transitions, chapter coverage guide and active n8n webhook paths.
+- Made the default Tutor V2 view role-aware: Teacher opens `Công việc của tôi`; Senior/Admin opens `Tổng quan & Coverage`.
+- Added a concise role workflow banner so users can distinguish Teacher contribution from Senior/Admin approval and Evaluation responsibilities.
+- Replaced free-text task chapter entry with confirmed canonical chapter options.
+- Locked contribution chapter and task-required `TRAINING/EVALUATION` purpose so Teacher cannot submit content outside the accepted task scope.
+- Blocked chapter task creation until the chapter is confirmed and has indexed material content.
+- Added Training/Evaluation Gold counts to the chapter tree and preserved hidden chapter selections while searching.
+- Replaced free-text Evaluation chapter input with approved holdout chapter options from canonical API data.
+- Kept REST as the source of truth; no mock success, local state-only status transition or backend contract change was introduced.
+- Normalized Student quiz question count to an integer from 3 to 10 and explicitly reports when Backend/n8n returns fewer valid questions than requested.
+
+**Tested**
+- `npm run check`: pass (`93` contract tests, `87` component/unit tests, ESLint and production build).
+- `npm run dead-code`: pass.
+- `npm run test:e2e`: pass (`18/18`, desktop and mobile, including Tutor V2 viewport coverage).
+
 ## 2026-07-23 - CSS Ownership Refactor
 
 - Reduced `src/index.css` from 5,207 lines to a small ordered import entry.
