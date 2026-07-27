@@ -4,6 +4,8 @@ import { uiCopy } from '../../../constants/uiCopy';
 import TeacherSupportQueueTab from '../../../pages/teacher/TeacherSupportQueueTab';
 import { ACADEMIC_CANDIDATE_TYPES } from '../../../constants/knowledgeFlow';
 import { useTeacherReviewQueue } from './useTeacherReviewQueue';
+import { useRealtimeEvent, useRealtimeReconnect } from '../../realtime/realtimeContext';
+import { eventMatchesCourse, REALTIME_EVENT_TYPES } from '../../realtime/realtimeEvents';
 import './TeacherReviewPage.css';
 
 export default function TeacherReviewPage({
@@ -35,6 +37,15 @@ export default function TeacherReviewPage({
     // Review resources are fetched only while this route is mounted.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [teacherId, courseId, classId, isAdminReview]);
+
+  useRealtimeEvent(REALTIME_EVENT_TYPES.answerReview, (event) => {
+    if (!eventMatchesCourse(event, courseId)) return;
+    review.loadAnswerReviews();
+  });
+  useRealtimeReconnect(() => {
+    review.loadAnswerReviews();
+    review.loadResolvedAnswerReviews?.();
+  });
 
   const handleNoteChange = (candidateId, value) => {
     setCandidateNotes((current) => ({ ...current, [candidateId]: value }));
@@ -82,9 +93,11 @@ export default function TeacherReviewPage({
         candidateType={candidateType}
         setCandidateType={setCandidateType}
         answerReviews={review.answerReviews}
+        answerReviewGroups={review.answerReviewGroups}
         isAnswerReviewsLoading={review.isAnswerReviewsLoading}
         loadAnswerReviews={review.loadAnswerReviews}
         seniorAnswerReviews={review.seniorAnswerReviews}
+        seniorAnswerReviewGroups={review.seniorAnswerReviewGroups}
         resolvedAnswerReviews={review.resolvedAnswerReviews}
         isResolvedReviewsLoading={review.isResolvedReviewsLoading}
         loadResolvedAnswerReviews={review.loadResolvedAnswerReviews}

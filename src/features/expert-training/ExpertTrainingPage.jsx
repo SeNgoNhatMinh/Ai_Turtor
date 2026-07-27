@@ -10,6 +10,7 @@ import { isTutorV2HarnessEnabled } from '../ai-harness/expertTrainingGateway';
 import ChapterCoveragePanel from './components/ChapterCoveragePanel';
 import CoverageDashboard from './components/CoverageDashboard';
 import { getEvaluationReadiness } from './expertTrainingSelectors';
+import { defaultExpertTaskDueAt } from './expertTrainingUtils';
 import { useExpertTrainingController } from './useExpertTrainingController';
 import './ExpertTraining.css';
 
@@ -95,6 +96,7 @@ export default function ExpertTrainingPage({
   const createTasksFromGap = useCallback((gap) => controller.createTasksForChapter(gap.chapter, {
     includeTrainingGoldTask: true,
     includeEvaluationGoldTask: true,
+    dueAt: defaultExpertTaskDueAt(7),
   }), [controller]);
 
   const tabs = [

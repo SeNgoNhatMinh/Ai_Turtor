@@ -129,6 +129,52 @@ export const normalizeTeacherInboxItem = (item) => ({
   question: item.originalQuestion || item.question || item.questionPreview || '',
 });
 
+export const normalizeAnswerReviewEvidence = (item) => ({
+  reviewId: item?.reviewId || item?.id || '',
+  studentId: item?.studentId || '',
+  rating: Number.isFinite(Number(item?.rating)) ? Number(item.rating) : null,
+  accurate: typeof item?.accurate === 'boolean' ? item.accurate : null,
+  helpful: typeof item?.helpful === 'boolean' ? item.helpful : null,
+  reviewType: item?.reviewType || '',
+  feedback: item?.feedback || '',
+  suggestedCorrection: item?.suggestedCorrection || '',
+  createdAt: item?.createdAt || '',
+});
+
+export const normalizeGroupedAnswerReview = (group) => {
+  const evidence = asArray(group?.reviews).map(normalizeAnswerReviewEvidence);
+  const representative = normalizeAnswerReview({
+    id: group?.representativeReviewId || evidence[0]?.reviewId,
+    courseId: group?.courseId,
+    classId: group?.classId,
+    question: group?.question,
+    answer: group?.answer,
+    mode: group?.mode,
+    status: group?.queueStatus || group?.status,
+    reviewType: evidence[0]?.reviewType,
+    rating: group?.averageRating != null ? Math.round(Number(group.averageRating)) : evidence[0]?.rating,
+    aiConfidence: group?.aiConfidence,
+    escalationTier: group?.escalationTier,
+    answerFingerprint: group?.answerFingerprint,
+    createdAt: group?.lastReportedAt || group?.firstReportedAt,
+  });
+  return {
+    ...representative,
+    answerFingerprint: group?.answerFingerprint || '',
+    escalationTier: group?.escalationTier || '',
+    queueStatus: group?.queueStatus || group?.status || representative.status,
+    distinctStudentCount: Number(group?.distinctStudentCount) || 0,
+    reviewCount: Number(group?.reviewCount) || evidence.length,
+    averageRating: Number.isFinite(Number(group?.averageRating))
+      ? Number(group.averageRating)
+      : null,
+    firstReportedAt: group?.firstReportedAt || '',
+    lastReportedAt: group?.lastReportedAt || '',
+    representativeReviewId: group?.representativeReviewId || representative.id,
+    evidence,
+  };
+};
+
 export const normalizeAnswerReview = (review) => ({
   ...review,
   id: review.id || review.reviewId,

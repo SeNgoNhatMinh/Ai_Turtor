@@ -33,14 +33,38 @@ export const teacherReviewApi = {
     });
   },
 
-  async getMentorPendingAnswerReviews(courseId = '') {
+  async getMentorPendingAnswerReviewQueue(courseId = '') {
     const params = courseId ? `?courseId=${encodeURIComponent(courseId)}` : '';
-    return asArray(await request(`${API_BASE_URL}/tutor/answer-reviews/mentor-pending${params}`), 'reviews', 'content');
+    const data = await request(`${API_BASE_URL}/tutor/answer-reviews/mentor-pending${params}`);
+    return {
+      groups: asArray(data, 'groups'),
+      reviews: asArray(data, 'reviews', 'content'),
+      groupCount: Number(data?.groupCount ?? asArray(data, 'groups').length) || 0,
+      count: Number(data?.count ?? asArray(data, 'reviews', 'content').length) || 0,
+    };
   },
 
-  async getSeniorPendingAnswerReviews(courseId = '') {
+  async getSeniorPendingAnswerReviewQueue(courseId = '') {
     const params = courseId ? `?courseId=${encodeURIComponent(courseId)}` : '';
-    return asArray(await request(`${API_BASE_URL}/tutor/answer-reviews/senior-pending${params}`), 'reviews', 'content');
+    const data = await request(`${API_BASE_URL}/tutor/answer-reviews/senior-pending${params}`);
+    return {
+      groups: asArray(data, 'groups'),
+      reviews: asArray(data, 'reviews', 'content'),
+      groupCount: Number(data?.groupCount ?? asArray(data, 'groups').length) || 0,
+      count: Number(data?.count ?? asArray(data, 'reviews', 'content').length) || 0,
+    };
+  },
+
+  /** @deprecated Use getMentorPendingAnswerReviewQueue */
+  async getMentorPendingAnswerReviews(courseId = '') {
+    const queue = await this.getMentorPendingAnswerReviewQueue(courseId);
+    return queue.reviews;
+  },
+
+  /** @deprecated Use getSeniorPendingAnswerReviewQueue */
+  async getSeniorPendingAnswerReviews(courseId = '') {
+    const queue = await this.getSeniorPendingAnswerReviewQueue(courseId);
+    return queue.reviews;
   },
 
   async getAnswerReviews(filters = {}) {

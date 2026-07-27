@@ -150,10 +150,10 @@ export default function AnswerReviewCard({
         </div>
       ) : (
         <Alert
-          type="warning"
+          type="info"
           showIcon
-          title="Cần giảng viên xác minh"
-          description="Backend hiện chỉ cho đọc hàng chờ này. Cần endpoint mentor-resolution để lưu nội dung sửa và hoàn tất phản hồi."
+          title="Hàng chờ giảng viên (Flow 2)"
+          description="Mỗi thẻ là một nhóm sinh viên đã phản hồi tiêu cực (2–3 sao) về cùng câu trả lời AI sau khi đủ ngưỡng crowd trên backend. Đối chiếu tài liệu và phản hồi lớp; chưa có mentor-resolve API — không tạo thêm review tại đây."
         />
       )}
     </article>

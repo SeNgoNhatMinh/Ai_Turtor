@@ -86,6 +86,33 @@
   border-color: #343434;
 }
 
+.app-container.dark .expert-training__excerpt-scroll {
+  background: #0f0f0f;
+  border-color: #343434;
+}
+
+.app-container.dark .expert-training__excerpt-heading {
+  color: #f3f4f6;
+}
+
+.app-container.dark .expert-training__excerpt-paragraph,
+.app-container.dark .expert-training__excerpt-list-item,
+.app-container.dark .expert-training__excerpt-empty {
+  color: #d1d5db;
+}
+
+.app-container.dark .expert-training__excerpt-list-item {
+  background: #21170f;
+  border-left-color: #ea580c;
+}
+
+.app-container.dark .expert-training__excerpt-sample-code {
+  background: #111827;
+  border-color: #334155;
+  border-left-color: #94a3b8;
+  color: #e2e8f0;
+}
+
 .app-container.dark .expert-training__chapter-task-builder {
   background: #21170f;
   border-color: #7c3d12;

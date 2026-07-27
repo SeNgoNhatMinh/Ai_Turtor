@@ -354,6 +354,20 @@
   border-color: #2a2a2a !important;
 }
 
+.app-container.dark .chat-feedback-rating-panel {
+  background: #171717 !important;
+  border-color: #2a2a2a !important;
+}
+
+.app-container.dark .chat-feedback-rating-label {
+  color: #a3a3a3 !important;
+}
+
+.app-container.dark .chat-gpt-feedback-row .chat-feedback-toggle--active.ant-btn {
+  color: #fbbf24 !important;
+  background: rgba(251, 191, 36, 0.12) !important;
+}
+
 .app-container.dark .feedback-title {
   color: #ececec !important;
 }

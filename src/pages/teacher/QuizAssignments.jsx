@@ -4,7 +4,9 @@ import QuizDraftWorkspace from '../../features/teacher/quizzes/components/QuizDr
 import QuizAssignmentList from '../../features/teacher/quizzes/components/QuizAssignmentList';
 import QuizClassSwitchModal from '../../features/teacher/quizzes/components/QuizClassSwitchModal';
 import QuizPublishModal from '../../features/teacher/quizzes/components/QuizPublishModal';
+import QuizScoreboardDrawer from '../../features/teacher/quizzes/components/QuizScoreboardDrawer';
 import { useQuizAssignmentsController } from '../../features/teacher/quizzes/useQuizAssignmentsController';
+import { useQuizScoreboard } from '../../features/teacher/quizzes/useQuizScoreboard';
 import '../student/Quiz.css';
 
 const { Text, Title } = Typography;
@@ -27,6 +29,14 @@ function QuizAssignments({
     classId,
     classesList,
     onClassChange,
+    teacherStudents,
+    triggerToast,
+  });
+
+  const scoreboard = useQuizScoreboard({
+    teacherId,
+    courseId,
+    classId,
     teacherStudents,
     triggerToast,
   });
@@ -78,6 +88,17 @@ function QuizAssignments({
         onEdit={controller.showDraftEditor}
         onPublish={controller.openPublishDialog}
         onDelete={controller.deleteDraft}
+        onViewScoreboard={scoreboard.openScoreboard}
+      />
+
+      <QuizScoreboardDrawer
+        open={scoreboard.open}
+        assignment={scoreboard.assignment}
+        loading={scoreboard.loading}
+        error={scoreboard.error}
+        rows={scoreboard.rows}
+        summary={scoreboard.summary}
+        onClose={scoreboard.closeScoreboard}
       />
 
       <QuizClassSwitchModal

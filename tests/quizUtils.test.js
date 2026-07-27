@@ -22,6 +22,10 @@ import {
   getClassCourseId,
   getClassOptionValue,
 } from '../src/features/teacher/shared/teacherUtils.js';
+import {
+  buildQuizScoreboardRows,
+  summarizeQuizScoreboard,
+} from '../src/features/teacher/quizzes/quizScoreboardUtils.js';
 
 test('normalizes quiz sessions and assignments from backend aliases', () => {
   const quiz = normalizeQuizSession({
@@ -165,4 +169,36 @@ test('resolves the canonical teacher class used by student enrollment', () => {
 
   assert.equal(getClassOptionValue(matchedClass), '1833');
   assert.equal(getClassCourseId(matchedClass), 'PRO192');
+});
+
+test('builds quiz scoreboard rows for class roster and attempts', () => {
+  const assignment = {
+    id: 'qa-1',
+    targetType: 'CLASS',
+    classId: 'SE1833',
+  };
+  const students = [
+    { id: 's1', fullName: 'An' },
+    { id: 's2', fullName: 'Bình' },
+  ];
+  const attempts = [
+    {
+      studentId: 's1',
+      status: 'SUBMITTED',
+      teacherReviewStatus: 'REVIEWED',
+      finalScore: 8,
+      maxScore: 10,
+      finalPercentage: 80,
+      submittedAt: '2026-07-01T10:00:00Z',
+    },
+  ];
+
+  const rows = buildQuizScoreboardRows(assignment, attempts, students);
+  const summary = summarizeQuizScoreboard(rows);
+
+  assert.equal(rows.length, 2);
+  assert.equal(rows.find((row) => row.studentId === 's1').scoreLabel, '8 / 10');
+  assert.equal(rows.find((row) => row.studentId === 's2').statusLabel, 'Chưa làm');
+  assert.equal(summary.submitted, 1);
+  assert.equal(summary.notStarted, 1);
 });

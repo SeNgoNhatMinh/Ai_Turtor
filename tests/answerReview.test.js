@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   FEEDBACK_ACTIONS,
   getAnswerReviewStatus,
+  getFeedbackActionKeyForStar,
   getFeedbackRecordedMessage,
 } from '../src/constants/answerReview.js';
 
@@ -21,6 +22,13 @@ test('serious answer problems route to senior-review severity', () => {
 test('requesting more detail remains normal quality feedback', () => {
   assert.equal(FEEDBACK_ACTIONS.needMoreDetail.reviewType, 'QUALITY_FEEDBACK');
   assert.equal(FEEDBACK_ACTIONS.needMoreDetail.rating, 4);
+});
+
+test('star rating maps to Flow 2 feedback actions', () => {
+  assert.equal(getFeedbackActionKeyForStar(5), 'helpful');
+  assert.equal(FEEDBACK_ACTIONS[getFeedbackActionKeyForStar(3)].rating, 3);
+  assert.equal(FEEDBACK_ACTIONS[getFeedbackActionKeyForStar(1)].rating, 1);
+  assert.equal(FEEDBACK_ACTIONS[getFeedbackActionKeyForStar(2)].reviewType, 'ANSWER_DISPUTE');
 });
 
 test('review status is read from backend and n8n response envelopes', () => {

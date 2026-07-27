@@ -1,4 +1,5 @@
-const FEEDBACK_RECORDED_MESSAGE = 'Đã ghi nhận góp ý. AI chỉ học từ nội dung sau khi mentor hoặc senior xem xét.';
+const FEEDBACK_RECORDED_MESSAGE =
+  'Cảm ơn phản hồi! Hệ thống đã ghi nhận. Chỉ khi nhiều sinh viên phản hồi tương tự về cùng câu trả lời AI, giảng viên hoặc senior mới được thông báo xử lý.';
 
 const ANSWER_REVIEW_STATUS = Object.freeze({
   SUBMITTED: 'SUBMITTED',
@@ -55,6 +56,16 @@ export const formatAnswerReviewType = (reviewType) => (
   ANSWER_REVIEW_TYPE_LABELS[String(reviewType || '').toUpperCase()] || 'Góp ý câu trả lời'
 );
 
+const ESCALATION_TIER_LABELS = Object.freeze({
+  MODERATE: 'Phản hồi tiêu cực vừa (2–3 sao)',
+  SEVERE: 'Phản hồi rất tiêu cực (1 sao)',
+  IMMEDIATE: 'Báo lỗi nguồn / tài liệu (ưu tiên)',
+});
+
+export const formatEscalationTier = (tier) => (
+  ESCALATION_TIER_LABELS[String(tier || '').toUpperCase()] || 'Nhóm phản hồi AI'
+);
+
 export const FEEDBACK_ACTIONS = {
   helpful: {
     key: 'helpful',
@@ -74,13 +85,23 @@ export const FEEDBACK_ACTIONS = {
     prompt: 'Phần nào chưa chính xác?',
     placeholder: 'Hãy chỉ ra nội dung chưa đúng...',
     reviewType: 'ANSWER_DISPUTE',
-    // A moderate dispute belongs in the course teacher queue. Rating 1 is
-    // reserved for severe knowledge errors and is routed to senior review.
     rating: 2,
     accurate: false,
     helpful: false,
     correctnessLevel: 'INCORRECT',
     defaultFeedback: 'Sinh viên cho rằng câu trả lời AI chưa chính xác.',
+  },
+  moderateDispute: {
+    key: 'moderateDispute',
+    label: 'Chưa đủ rõ / hơi sai',
+    prompt: 'Phần nào cần làm rõ hoặc chưa đúng?',
+    placeholder: 'Mô tả ngắn (2–3 sao)...',
+    reviewType: 'QUALITY_FEEDBACK',
+    rating: 3,
+    accurate: false,
+    helpful: false,
+    correctnessLevel: 'LOW',
+    defaultFeedback: 'Sinh viên đánh giá câu trả lời chưa đủ tốt.',
   },
   knowledgeError: {
     key: 'knowledgeError',
@@ -135,4 +156,18 @@ export const FEEDBACK_ACTIONS = {
 
 export const getFeedbackAction = (key, fallback = 'needMoreDetail') => {
   return FEEDBACK_ACTIONS[key] || FEEDBACK_ACTIONS[fallback];
+};
+
+/** Maps 1–5 star UI to existing Flow 2 feedback actions (BE crowd tiers unchanged). */
+export const STAR_TO_FEEDBACK_ACTION_KEY = {
+  5: 'helpful',
+  4: 'needMoreDetail',
+  3: 'moderateDispute',
+  2: 'notCorrect',
+  1: 'knowledgeError',
+};
+
+export const getFeedbackActionKeyForStar = (star) => {
+  const n = Number(star);
+  return STAR_TO_FEEDBACK_ACTION_KEY[n] || STAR_TO_FEEDBACK_ACTION_KEY[3];
 };

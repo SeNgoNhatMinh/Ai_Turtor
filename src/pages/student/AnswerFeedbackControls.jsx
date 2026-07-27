@@ -1,21 +1,52 @@
-import { Button, Input } from 'antd';
-import { LikeOutlined, DislikeOutlined, CommentOutlined, PushpinOutlined } from '@ant-design/icons';
+import { Button, Dropdown, Input, Rate } from 'antd';
+import {
+  LikeOutlined,
+  PushpinOutlined,
+  StarOutlined,
+  DownOutlined,
+  WarningOutlined,
+} from '@ant-design/icons';
+
+const STAR_TOOLTIPS = ['Sai nghiêm trọng (1 sao)', 'Chưa chính xác', 'Chưa đủ tốt', 'Cần chi tiết hơn', 'Hữu ích'];
 
 function AnswerFeedbackControls({
   index,
+  message,
   isPinned,
   isPinning = false,
   isFeedbackSubmitting,
   feedbackOpenIndex,
+  feedbackPanelMode,
   feedbackAction,
   feedbackText,
   setFeedbackText,
   onTogglePin,
   onHelpful,
+  onToggleRatingPanel,
+  onSelectStar,
   onOpenFeedback,
   onCloseFeedback,
   onSubmitFeedback,
 }) {
+  const panelOpen = feedbackOpenIndex === index;
+  const starsOpen = panelOpen && feedbackPanelMode === 'stars';
+  const formOpen = panelOpen && feedbackPanelMode === 'form';
+
+  const reportMenu = {
+    items: [
+      {
+        key: 'sourceConflict',
+        label: 'Mâu thuẫn nguồn',
+        onClick: () => onOpenFeedback(index, 'sourceConflict'),
+      },
+      {
+        key: 'missingMaterial',
+        label: 'Thiếu tài liệu',
+        onClick: () => onOpenFeedback(index, 'missingMaterial'),
+      },
+    ],
+  };
+
   return (
     <>
       <div className="chat-gpt-feedback-row">
@@ -42,63 +73,34 @@ function AnswerFeedbackControls({
         <Button
           type="text"
           size="small"
-          icon={<DislikeOutlined />}
+          className={starsOpen ? 'chat-feedback-toggle--active' : ''}
+          icon={<StarOutlined />}
           disabled={isFeedbackSubmitting}
-          onClick={() => onOpenFeedback(index, 'notCorrect')}
+          onClick={() => onToggleRatingPanel(index)}
         >
-          Chưa chính xác
+          Đánh giá
         </Button>
-        <Button
-          type="text"
-          size="small"
-          icon={<CommentOutlined />}
-          disabled={isFeedbackSubmitting}
-          onClick={() => onOpenFeedback(index, 'sourceConflict')}
-        >
-          Mâu thuẫn nguồn
-        </Button>
-        <Button
-          type="text"
-          size="small"
-          icon={<CommentOutlined />}
-          disabled={isFeedbackSubmitting}
-          onClick={() => onOpenFeedback(index, 'missingMaterial')}
-        >
-          Thiếu tài liệu
-        </Button>
-        <Button
-          type="text"
-          size="small"
-          icon={<CommentOutlined />}
-          disabled={isFeedbackSubmitting}
-          onClick={() => onOpenFeedback(index, 'needMoreDetail')}
-        >
-          Cần chi tiết hơn
-        </Button>
-        <Button
-          type="text"
-          size="small"
-          danger
-          icon={<DislikeOutlined />}
-          disabled={isFeedbackSubmitting}
-          onClick={() => onOpenFeedback(index, 'knowledgeError')}
-        >
-          Sai kiến thức nghiêm trọng
-        </Button>
+        <Dropdown menu={reportMenu} trigger={['click']} disabled={isFeedbackSubmitting}>
+          <Button type="text" size="small" icon={<WarningOutlined />} disabled={isFeedbackSubmitting}>
+            Báo lỗi <DownOutlined style={{ fontSize: 10, marginInlineStart: 2 }} />
+          </Button>
+        </Dropdown>
       </div>
 
-      {feedbackOpenIndex === index && (
-        <div
-          className="feedback-form-box"
-          style={{
-            marginTop: 12,
-            background: '#f9f9f9',
-            border: '1px solid #ececec',
-            padding: 12,
-            borderRadius: 12,
-          }}
-        >
-          <div className="feedback-title" style={{ marginBottom: 8, fontSize: 12, color: '#0d0d0d' }}>
+      {starsOpen && (
+        <div className="chat-feedback-rating-panel">
+          <span className="chat-feedback-rating-label">Chọn số sao (1–5)</span>
+          <Rate
+            disabled={isFeedbackSubmitting}
+            tooltips={STAR_TOOLTIPS}
+            onChange={(value) => onSelectStar(message, index, value)}
+          />
+        </div>
+      )}
+
+      {formOpen && (
+        <div className="feedback-form-box chat-feedback-form-box">
+          <div className="feedback-title chat-feedback-form-title">
             {feedbackAction?.prompt || 'Bạn muốn góp ý điều gì?'}
           </div>
           <Input.TextArea
@@ -108,23 +110,15 @@ function AnswerFeedbackControls({
             value={feedbackText}
             maxLength={2000}
             onChange={(e) => setFeedbackText(e.target.value)}
-            style={{
-              background: '#fff',
-              border: '1px solid #ececec',
-              color: '#0d0d0d',
-              borderRadius: 8,
-              marginBottom: 8,
-            }}
           />
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-            <Button size="small" type="text" style={{ color: '#888' }} onClick={onCloseFeedback}>
+          <div className="chat-feedback-form-actions">
+            <Button size="small" type="text" className="chat-feedback-form-cancel" onClick={onCloseFeedback}>
               Hủy
             </Button>
             <Button
-              className="btn-submit"
+              className="btn-submit chat-feedback-form-submit"
               size="small"
               type="primary"
-              style={{ background: '#0d0d0d', color: '#ffffff', border: 'none' }}
               onClick={onSubmitFeedback}
               loading={isFeedbackSubmitting}
               disabled={!feedbackText.trim() || isFeedbackSubmitting}

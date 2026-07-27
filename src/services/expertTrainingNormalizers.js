@@ -56,6 +56,9 @@ export const normalizeChapterPreview = (preview = {}) => ({
   excerptTruncated: Boolean(preview.excerptTruncated),
   excerptTotalChars: finiteNumber(preview.excerptTotalChars),
   hasMaterialContent: Boolean(preview.hasMaterialContent),
+  pageStart: finiteNumber(preview.pageStart),
+  pageEnd: finiteNumber(preview.pageEnd),
+  primarySourceMaterialId: preview.primarySourceMaterialId || '',
   sourceMaterials: Array.isArray(preview.sourceMaterials)
     ? preview.sourceMaterials.map(normalizeChapterSourceMaterial).filter((item) => item.id)
     : [],
@@ -90,6 +93,10 @@ export const normalizeExpertTask = (task = {}) => ({
   assigneeTier: task.assigneeTier || '',
   requiredUsage: normalizedStatus(task.requiredUsage || task.usage, ''),
   instructions: task.instructions || '',
+  dueAt: task.dueAt || task.dueDate || null,
+  createdAt: task.createdAt || null,
+  updatedAt: task.updatedAt || null,
+  completedAt: task.completedAt || null,
 });
 
 export const normalizeGoldQa = (item = {}) => ({

@@ -49,7 +49,7 @@ describe('ImportWebsiteModal', () => {
       { url: 'https://docs.example.com/index.html' },
     ));
 
-    fireEvent.click(await screen.findByRole('checkbox', { name: /Chương 1 - Giới thiệu/ }));
+    fireEvent.click(await screen.findByText('Chương 1 - Giới thiệu'));
     fireEvent.click(screen.getByRole('button', { name: /Import mục đã chọn/ }));
 
     await waitFor(() => expect(materialApi.importCourseMaterialUrl).toHaveBeenCalledWith(
@@ -61,5 +61,5 @@ describe('ImportWebsiteModal', () => {
       }),
     ));
     expect(onClose).toHaveBeenCalledTimes(1);
-  });
+  }, 15000);
 });

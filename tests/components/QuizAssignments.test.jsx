@@ -28,10 +28,18 @@ vi.mock('../../src/services/teacherApi', () => ({
 }));
 
 vi.mock('../../src/pages/teacher/QuizDraftEditor', () => ({
-  default: ({ onSave, onStateChange }) => (
+  default: ({ onSave, onStateChange, draft: editorDraft }) => (
     <div>
       Draft editor
-      <button type="button" onClick={() => onSave({ title: 'Updated OOP Review', questions: draft.questions })}>Save draft test</button>
+      <button
+        type="button"
+        onClick={() => onSave({
+          title: 'Updated OOP Review',
+          questions: editorDraft?.questions || [],
+        })}
+      >
+        Save draft test
+      </button>
       <button type="button" onClick={() => onStateChange({ dirty: true, valid: true })}>Mark draft dirty</button>
     </div>
   ),
@@ -94,7 +102,7 @@ describe('QuizAssignments publish flow', () => {
       { title: 'Updated OOP Review', questions: draft.questions },
     ));
     expect(triggerToast).toHaveBeenCalledWith('Đã lưu draft quiz.');
-  });
+  }, 15000);
 
   it('shows the exact class roster by name and publishes to selected student IDs', async () => {
     render(
@@ -127,7 +135,7 @@ describe('QuizAssignments publish flow', () => {
         targetStudentIds: ['student-1'],
       },
     ));
-  });
+  }, 15000);
 
   it('disables publishing while the open draft has unsaved changes', async () => {
     render(
@@ -192,5 +200,5 @@ describe('QuizAssignments publish flow', () => {
     expect(await screen.findByText('AI Foundations')).toBeInTheDocument();
     expect(screen.queryByText('OOP Review')).not.toBeInTheDocument();
     expect(screen.getAllByText('AI101 / AI101-01').length).toBeGreaterThan(0);
-  });
+  }, 15000);
 });

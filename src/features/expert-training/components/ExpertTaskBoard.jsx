@@ -1,69 +1,56 @@
 import { useMemo, useState } from 'react';
 import { Button, Card, Segmented, Space, Tag, Typography } from 'antd';
-import { BookOpenCheck, CheckCircle2, Clock3, RefreshCw } from 'lucide-react';
+import { BookOpenCheck, CheckCircle2, Clock3, Eye, Loader2, RefreshCw } from 'lucide-react';
 import AsyncState from '../../../components/common/AsyncState';
 import StatusLabel from '../../../components/common/StatusLabel';
-import { getTaskGoldUsage } from '../expertTrainingUtils';
+import {
+  formatExpertTaskDateTime,
+  getExpertTaskDueMeta,
+  getTaskGoldUsage,
+} from '../expertTrainingUtils';
+import { groupTeacherExpertTasks } from '../expertTaskBoardUtils';
 
 const { Paragraph, Text } = Typography;
-const ACTIVE_STATUSES = new Set(['OPEN', 'ASSIGNED', 'IN_PROGRESS', 'SUBMITTED']);
 const FINISHED_STATUSES = new Set(['COMPLETED', 'DONE', 'CANCELLED']);
 const CONTRIBUTION_TYPES = new Set(['GOLD_QA', 'RUBRIC']);
 
-const asTimestamp = (value) => {
-  const timestamp = new Date(value || 0).getTime();
-  return Number.isFinite(timestamp) ? timestamp : 0;
-};
-
-const sortTasks = (left, right) => (
-  Number(right.priority || 0) - Number(left.priority || 0)
-  || asTimestamp(right.updatedAt || right.createdAt) - asTimestamp(left.updatedAt || left.createdAt)
-);
-
-const formatDate = (value) => {
-  if (!value) return 'Không có hạn';
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? 'Không có hạn' : date.toLocaleString('vi-VN');
-};
-
-function TaskAction({ task, userId, pendingAction, onClaim, onContribute }) {
+function TaskAction({ task, userId, pendingAction, onClaim, onContribute, onPreview }) {
   const isOwner = task.assigneeId === userId;
   const isContributionTask = CONTRIBUTION_TYPES.has(task.type);
+  const canPreview = Boolean(onPreview);
 
-  if (task.status === 'OPEN' && !task.assigneeId) {
-    return (
-      <Button
-        type="primary"
-        loading={pendingAction === `claim-task:${task.id}`}
-        disabled={Boolean(pendingAction) || !userId}
-        onClick={() => onClaim(task)}
-      >
-        Nhận task
-      </Button>
-    );
-  }
-
-  if (isOwner && isContributionTask && ['ASSIGNED', 'IN_PROGRESS'].includes(task.status)) {
-    return <Button type="primary" onClick={() => onContribute(task)}>Đóng góp</Button>;
-  }
-
-  if (isOwner && isContributionTask && FINISHED_STATUSES.has(task.status)) {
-    return <Button onClick={() => onContribute(task)}>Xem nội dung</Button>;
-  }
-
-  if (task.status === 'SUBMITTED' && isOwner) {
-    return <Text type="secondary">Đang chờ Senior duyệt</Text>;
-  }
-
-  if (task.assigneeId && !isOwner) {
-    return <Text type="secondary">Giảng viên khác đang xử lý</Text>;
-  }
-
-  return null;
+  return (
+    <Space wrap size={[8, 8]}>
+      {canPreview && (
+        <Button icon={<Eye size={15} />} onClick={() => onPreview(task)}>
+          Xem trước
+        </Button>
+      )}
+      {task.status === 'OPEN' && !task.assigneeId ? (
+        <Button
+          type="primary"
+          loading={pendingAction === `claim-task:${task.id}`}
+          disabled={Boolean(pendingAction) || !userId}
+          onClick={() => onClaim(task)}
+        >
+          Nhận task
+        </Button>
+      ) : isOwner && isContributionTask && ['ASSIGNED', 'IN_PROGRESS'].includes(task.status) ? (
+        <Button type="primary" onClick={() => onContribute(task)}>Đóng góp</Button>
+      ) : isOwner && isContributionTask && FINISHED_STATUSES.has(task.status) ? (
+        <Button onClick={() => onContribute(task)}>Xem nội dung</Button>
+      ) : task.status === 'SUBMITTED' && isOwner ? (
+        <Text type="secondary">Đang chờ Senior duyệt</Text>
+      ) : task.assigneeId && !isOwner ? (
+        <Text type="secondary">Giảng viên khác đang xử lý</Text>
+      ) : null}
+    </Space>
+  );
 }
 
-function TaskCard({ task, userId, pendingAction, onClaim, onContribute }) {
+function TaskCard({ task, userId, pendingAction, onClaim, onContribute, onPreview }) {
   const usage = getTaskGoldUsage(task);
+  const dueMeta = getExpertTaskDueMeta(task);
   return (
     <Card className="expert-training__task-card" size="small">
       <div className="expert-training__task-card-head">
@@ -98,7 +85,11 @@ function TaskCard({ task, userId, pendingAction, onClaim, onContribute }) {
         </span>
         <span>
           <Clock3 size={15} aria-hidden="true" />
-          {formatDate(task.dueAt)}
+          Giao: {formatExpertTaskDateTime(task.createdAt, '—')}
+        </span>
+        <span className={`expert-training__task-due expert-training__task-due--${dueMeta.tone}`}>
+          <Clock3 size={15} aria-hidden="true" />
+          {dueMeta.label}
         </span>
       </div>
 
@@ -109,6 +100,7 @@ function TaskCard({ task, userId, pendingAction, onClaim, onContribute }) {
           pendingAction={pendingAction}
           onClaim={onClaim}
           onContribute={onContribute}
+          onPreview={onPreview}
         />
       </div>
     </Card>
@@ -124,19 +116,13 @@ export default function ExpertTaskBoard({
   onRefresh,
   onClaim,
   onContribute,
+  onPreviewTask,
 }) {
   const [activeTab, setActiveTab] = useState('TODO');
-  const taskGroups = useMemo(() => {
-    const visible = tasks.filter((task) => (
-      task.status === 'OPEN'
-      || task.assigneeId === userId
-      || (!task.assigneeId && ACTIVE_STATUSES.has(task.status))
-    ));
-    return {
-      TODO: visible.filter((task) => ACTIVE_STATUSES.has(task.status)).sort(sortTasks),
-      DONE: visible.filter((task) => FINISHED_STATUSES.has(task.status)).sort(sortTasks),
-    };
-  }, [tasks, userId]);
+  const taskGroups = useMemo(
+    () => groupTeacherExpertTasks(tasks, userId),
+    [tasks, userId],
+  );
   const visibleTasks = taskGroups[activeTab];
 
   return (
@@ -144,7 +130,7 @@ export default function ExpertTaskBoard({
       <div className="expert-training__section-heading">
         <div>
           <h2 id="tasks-heading">Công việc tri thức AI</h2>
-          <p>Nhận task mở, đọc học liệu chương và gửi Gold Q&A hoặc Rubric để Senior kiểm duyệt.</p>
+          <p>Xem trước tài liệu chương, kiểm tra hạn Senior giao, rồi nhận task và đóng góp Gold Q&A hoặc Rubric.</p>
         </div>
         <Button icon={<RefreshCw size={16} />} onClick={onRefresh} loading={loading}>
           Làm mới
@@ -152,10 +138,12 @@ export default function ExpertTaskBoard({
       </div>
 
       <Segmented
+        className="expert-training__task-tabs"
         value={activeTab}
         onChange={setActiveTab}
         options={[
           { value: 'TODO', label: `Cần làm (${taskGroups.TODO.length})`, icon: <Clock3 size={15} /> },
+          { value: 'DOING', label: `Đang làm (${taskGroups.DOING.length})`, icon: <Loader2 size={15} /> },
           { value: 'DONE', label: `Đã xong (${taskGroups.DONE.length})`, icon: <CheckCircle2 size={15} /> },
         ]}
       />
@@ -164,10 +152,20 @@ export default function ExpertTaskBoard({
         loading={loading && !tasks.length}
         error={error}
         empty={!loading && !error && !visibleTasks.length}
-        emptyTitle={activeTab === 'TODO' ? 'Không có task đang mở' : 'Chưa có task hoàn thành'}
-        emptyDescription={activeTab === 'TODO'
-          ? 'Senior chạy Coverage Analyze để tạo task Training hoặc Evaluation.'
-          : 'Task được Senior duyệt hoàn tất sẽ xuất hiện tại đây.'}
+        emptyTitle={
+          activeTab === 'TODO'
+            ? 'Không có task đang mở'
+            : activeTab === 'DOING'
+              ? 'Chưa có công việc đang làm'
+              : 'Chưa có task hoàn thành'
+        }
+        emptyDescription={
+          activeTab === 'TODO'
+            ? 'Senior chạy Coverage Analyze hoặc tạo task theo chương.'
+            : activeTab === 'DOING'
+              ? 'Task bạn đã nhận (đang soạn, chỉnh sửa hoặc chờ Senior duyệt) sẽ hiện tại đây.'
+              : 'Task được Senior duyệt hoàn tất sẽ xuất hiện tại đây.'
+        }
         onRetry={onRefresh}
       >
         <div className="expert-training__task-grid">
@@ -179,6 +177,7 @@ export default function ExpertTaskBoard({
               pendingAction={pendingAction}
               onClaim={onClaim}
               onContribute={onContribute}
+              onPreview={onPreviewTask}
             />
           ))}
         </div>

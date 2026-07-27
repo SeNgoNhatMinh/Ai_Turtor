@@ -98,6 +98,7 @@ export function useExpertTrainingController({
       createdBy: userId,
       includeTrainingGoldTask: Boolean(options?.includeTrainingGoldTask),
       includeEvaluationGoldTask: Boolean(options?.includeEvaluationGoldTask),
+      dueAt: options?.dueAt,
     }),
     successMessage: 'Đã tạo task mở cho chương đã chọn.',
     refresh: () => Promise.allSettled([loadTasks(), loadGaps(), loadChapters()]),

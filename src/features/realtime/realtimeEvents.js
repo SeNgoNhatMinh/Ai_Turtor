@@ -18,6 +18,7 @@ export const REALTIME_EVENT_TYPES = Object.freeze({
     'RUBRIC_REJECTED',
   ],
   expertEvaluation: ['EVAL_RUN_COMPLETED', 'EVAL_RUN_FAILED'],
+  answerReview: ['ANSWER_REVIEW_NEEDS_MENTOR', 'ANSWER_REVIEW_NEEDS_SENIOR'],
   tutorV2: [
     'EXPERT_TASK_CREATED',
     'EXPERT_TASK_ASSIGNED',

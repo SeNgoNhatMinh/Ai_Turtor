@@ -9,12 +9,22 @@ import {
 } from '../src/services/expertTrainingNormalizers.js';
 import {
   criteriaRowsToWeights,
+  defaultExpertTaskDueAt,
   getChapterStatusMeta,
+  getExpertTaskDueMeta,
   getTaskGoldUsage,
   isTutorV2Reviewer,
   parseChapterInput,
+  toExpertTaskDueAtPayload,
   validateCriteriaWeights,
 } from '../src/features/expert-training/expertTrainingUtils.js';
+import {
+  cleanChapterExcerptRaw,
+  inferExcerptLanguage,
+  looksLikeCodeText,
+  normalizeCodeNewlines,
+  parseChapterExcerptBlocks,
+} from '../src/features/expert-training/chapterExcerptFormat.js';
 import {
   buildExpertTrainingSummary,
   buildWorkflowSteps,
@@ -54,6 +64,51 @@ test('normalizes canonical chapter coverage and source material metadata', () =>
   assert.deepEqual(chapter.sourceMaterialIds, ['pdf-1']);
   assert.equal(preview.sourceMaterials[0].title, 'JVM.pdf');
   assert.equal(getChapterStatusMeta(chapter.status).label, 'Đã xác nhận');
+});
+
+test('formats chapter excerpts for readable teacher and senior review', () => {
+  const raw = '2 Using Web Containers In This Chapter >> Choosing a web container >> Installing Tomcat c02.indd 19 24-02-2014 13:02:52 20 | CHapTer 2 on your machine.';
+  const cleaned = cleanChapterExcerptRaw(raw);
+  assert.ok(!cleaned.includes('c02.indd'));
+  assert.ok(!cleaned.includes('| CHapTer'));
+
+  const blocks = parseChapterExcerptBlocks(raw);
+  assert.ok(blocks.some((block) => block.type === 'list-item' && block.text.includes('Choosing a web container')));
+  assert.ok(blocks.some((block) => block.type === 'list-item' && block.text.includes('Installing Tomcat')));
+});
+
+test('splits JSP excerpts into highlighted code blocks', () => {
+  const raw = 'A Note about JSP Documents (JSPX) <%@ page contentType="text/html" %> <%! int x = 1; %> <% out.print(x); %>';
+  assert.equal(looksLikeCodeText(raw), true);
+  assert.equal(looksLikeCodeText('A Note about JSP Documents (JSPX) only prose here.'), false);
+  const formatted = normalizeCodeNewlines(raw);
+  assert.ok(formatted.includes('\n<%@'));
+  assert.equal(inferExcerptLanguage('<%@ page %>'), 'markup');
+
+  const blocks = parseChapterExcerptBlocks(raw);
+  assert.ok(blocks.some((block) => block.type === 'heading' && block.text.includes('JSP Documents')));
+  const codeBlock = blocks.find((block) => block.type === 'code');
+  assert.ok(codeBlock);
+  assert.ok(codeBlock.text.includes('<%@ page'));
+  assert.ok(codeBlock.text.includes('\n'));
+});
+
+test('formats JSPX listing with readable code block inside excerpt scroll', () => {
+  const raw = '<?xml version="1.0"?><jsp:root xmlns:jsp="test"><jsp:directive.page contentType="text/html"/></jsp:root>';
+  const blocks = parseChapterExcerptBlocks(raw);
+  assert.equal(blocks[0]?.type, 'code');
+  assert.ok(blocks[0]?.text.includes('<jsp:directive'));
+});
+
+test('expert task due helpers format schedule for teachers', () => {
+  const dueAt = defaultExpertTaskDueAt(3);
+  assert.ok(toExpertTaskDueAtPayload(dueAt));
+  const overdue = getExpertTaskDueMeta({
+    status: 'ASSIGNED',
+    dueAt: '2020-01-01T12:00:00.000Z',
+  });
+  assert.equal(overdue.overdue, true);
+  assert.match(overdue.label, /Quá hạn/);
 });
 
 test('keeps evaluation Gold Q&A as a holdout instead of training knowledge', () => {

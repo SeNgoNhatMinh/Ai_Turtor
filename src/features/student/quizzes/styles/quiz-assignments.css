@@ -254,6 +254,34 @@ body.theme-dark .quiz-student-picker-empty {
   color: #d4d4d8;
 }
 
+.quiz-scoreboard {
+  display: grid;
+  gap: 16px;
+}
+
+.quiz-scoreboard__head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.quiz-scoreboard__stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #fafafa;
+}
+
+.quiz-scoreboard__table .ant-table {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
 @media (max-width: 640px) {
   .quiz-publish-scope,
   .quiz-student-picker-header {

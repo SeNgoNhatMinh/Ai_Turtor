@@ -5,7 +5,10 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import AsyncState from '../../components/common/AsyncState';
 import PageHeader from '../../components/common/PageHeader';
 import ScopeBar from '../../components/common/ScopeBar';
+import { expertTrainingApi } from '../../services/expertTrainingApi';
+import { getUserFacingError } from '../../services/httpClient';
 import ExpertTaskBoard from './components/ExpertTaskBoard';
+import TaskPreviewDrawer from './components/TaskPreviewDrawer';
 import { useExpertTrainingController } from './useExpertTrainingController';
 import './ExpertTraining.css';
 
@@ -20,6 +23,10 @@ export default function TeacherExpertTasksPage({
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [localCourseId, setLocalCourseId] = useState(externalCourseId);
+  const [previewTask, setPreviewTask] = useState(null);
+  const [taskPreview, setTaskPreview] = useState(null);
+  const [taskPreviewLoading, setTaskPreviewLoading] = useState(false);
+  const [taskPreviewError, setTaskPreviewError] = useState('');
   const queryCourseId = searchParams.get('courseId') || '';
   const courseId = queryCourseId || externalCourseId || localCourseId;
 
@@ -46,13 +53,38 @@ export default function TeacherExpertTasksPage({
     navigate(`/teacher/expert-tasks/${encodeURIComponent(task.id)}/contribute?courseId=${encodeURIComponent(courseId)}`);
   }, [courseId, navigate]);
 
+  const closeTaskPreview = useCallback(() => {
+    setPreviewTask(null);
+    setTaskPreview(null);
+    setTaskPreviewError('');
+  }, []);
+
+  const openTaskPreview = useCallback(async (task) => {
+    if (!courseId || !task?.chapter) {
+      triggerToast?.('Chọn môn học trước khi xem trước task.');
+      return;
+    }
+    setPreviewTask(task);
+    setTaskPreview(null);
+    setTaskPreviewError('');
+    setTaskPreviewLoading(true);
+    try {
+      const preview = await expertTrainingApi.getChapterPreviewByTitle(courseId, task.chapter, true);
+      setTaskPreview(preview);
+    } catch (error) {
+      setTaskPreviewError(getUserFacingError(error, 'Không thể tải tài liệu chương.'));
+    } finally {
+      setTaskPreviewLoading(false);
+    }
+  }, [courseId, triggerToast]);
+
   const connectionColor = controller.connectionState === 'CONNECTED' ? 'green' : 'orange';
 
   return (
     <div className="expert-training-page">
       <PageHeader
         title="Công việc tri thức AI"
-        description="Nhận task từ Senior, đối chiếu với học liệu môn học và đóng góp nội dung có kiểm soát."
+        description="Xem trước học liệu, kiểm tra hạn Senior giao, nhận task và đóng góp nội dung có kiểm soát."
       />
 
       <ScopeBar
@@ -94,8 +126,8 @@ export default function TeacherExpertTasksPage({
         className="expert-training__role-guide"
         type="info"
         showIcon
-        title="Nhận task → đọc tài liệu → đóng góp → chờ Senior duyệt"
-        description="Nội dung vừa gửi chưa được đưa vào AI. Chỉ TRAINING Gold Q&A được phê duyệt mới được index vào RAG."
+        title="Xem trước → nhận task → đọc tài liệu → đóng góp → chờ Senior duyệt"
+        description="Bạn có thể mở Xem trước để đọc học liệu chương và hạn hoàn thành trước khi nhận task. Nội vừa gửi chưa vào AI cho đến khi được duyệt."
       />
 
       <AsyncState
@@ -116,9 +148,20 @@ export default function TeacherExpertTasksPage({
             onRefresh={controller.loadTasks}
             onClaim={controller.claimTask}
             onContribute={openContribution}
+            onPreviewTask={openTaskPreview}
           />
         )}
       </AsyncState>
+
+      <TaskPreviewDrawer
+        task={previewTask}
+        preview={taskPreview}
+        loading={taskPreviewLoading}
+        error={taskPreviewError}
+        open={Boolean(previewTask)}
+        onClose={closeTaskPreview}
+        onOpenMaterial={controller.openSourceMaterial}
+      />
     </div>
   );
 }

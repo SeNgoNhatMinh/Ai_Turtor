@@ -237,7 +237,7 @@ export function useExpertTrainingResources({
     }
   }, [courseId]);
 
-  const openSourceMaterial = useCallback(async (source) => {
+  const openSourceMaterial = useCallback(async (source, options = {}) => {
     if (!source?.id) return;
     if (!isPdfMaterialSource(source)) {
       triggerToast?.('Chỉ học liệu PDF có thể mở bằng thao tác này.');
@@ -246,14 +246,13 @@ export function useExpertTrainingResources({
     try {
       const blob = await materialsApi.downloadMaterialPdf(courseId, source.id);
       const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.target = '_blank';
-      link.rel = 'noopener noreferrer';
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.setTimeout(() => window.URL.revokeObjectURL(url), 60000);
+      const pageStart = Number(options.pageStart);
+      const hash = Number.isFinite(pageStart) && pageStart > 0 ? `#page=${Math.floor(pageStart)}` : '';
+      const opened = window.open(`${url}${hash}`, '_blank', 'noopener,noreferrer');
+      if (!opened) {
+        triggerToast?.('Trình duyệt chặn cửa sổ mới. Cho phép popup rồi thử lại.');
+      }
+      window.setTimeout(() => window.URL.revokeObjectURL(url), 120000);
     } catch (error) {
       triggerToast?.(getUserFacingError(error, 'Không thể mở tài liệu nguồn.'));
     }

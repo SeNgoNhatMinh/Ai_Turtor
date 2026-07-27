@@ -1,6 +1,7 @@
 import { Alert, Button, Card, Empty, Skeleton, Space, Tag, Typography } from 'antd';
 import { ExternalLink } from 'lucide-react';
 import StatusLabel from '../../../components/common/StatusLabel';
+import ChapterExcerptView from './ChapterExcerptView';
 import {
   getDetectedFromLabel,
   getChapterStatusMeta,
@@ -8,7 +9,7 @@ import {
   isPdfMaterialSource,
 } from '../expertTrainingUtils';
 
-const { Paragraph, Text } = Typography;
+const { Text } = Typography;
 
 export default function TaskMaterialContext({
   preview,
@@ -67,13 +68,13 @@ export default function TaskMaterialContext({
         )}
 
         <div className="expert-training__task-material-excerpt">
-          <Paragraph>{preview.excerpt || 'Backend chưa trả trích đoạn cho chapter này.'}</Paragraph>
-          {preview.excerptTruncated && (
-            <Text type="secondary">
-              Đang hiển thị bản rút gọn ({String(preview.excerpt || '').length}/{preview.excerptTotalChars || '—'} ký tự).
-              {' '}Mở PDF để xem đầy đủ.
-            </Text>
-          )}
+          <strong className="expert-training__task-material-excerpt-label">Nội dung tham khảo</strong>
+          <ChapterExcerptView
+            excerpt={preview.excerpt}
+            emptyMessage="Backend chưa trả trích đoạn cho chapter này."
+            truncated={preview.excerptTruncated}
+            totalChars={preview.excerptTotalChars}
+          />
         </div>
 
         <div className="expert-training__task-material-sources">
