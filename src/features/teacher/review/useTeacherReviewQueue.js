@@ -3,7 +3,7 @@ import { getUserFacingError } from '../../../services/apiClient';
 import { n8nService } from '../../../services/n8nService';
 import { N8N_ENABLED, N8N_STRICT } from '../../../services/n8nClient';
 import { teacherReviewApi } from '../../../services/teacherReviewApi';
-import { asArray, normalizeAnswerReview, normalizeTeacherInboxItem } from '../../../services/normalizers';
+import { asArray, normalizeAnswerReview, normalizeGroupedAnswerReview, normalizeTeacherInboxItem } from '../../../services/normalizers';
 import { normalizeAccountRole } from '../../../constants/roles';
 import { canReviewKnowledge } from '../../../utils/permissions';
 
@@ -19,7 +19,9 @@ export function useTeacherReviewQueue({
   const [selectedEscalation, setSelectedEscalation] = useState(null);
   const [candidates, setCandidates] = useState([]);
   const [answerReviews, setAnswerReviews] = useState([]);
+  const [answerReviewGroups, setAnswerReviewGroups] = useState([]);
   const [seniorAnswerReviews, setSeniorAnswerReviews] = useState([]);
+  const [seniorAnswerReviewGroups, setSeniorAnswerReviewGroups] = useState([]);
   const [isAnswerReviewsLoading, setIsAnswerReviewsLoading] = useState(false);
   const [resolvedAnswerReviews, setResolvedAnswerReviews] = useState([]);
   const [isResolvedReviewsLoading, setIsResolvedReviewsLoading] = useState(false);
@@ -66,17 +68,23 @@ export function useTeacherReviewQueue({
     setIsAnswerReviewsLoading(true);
     try {
       if (isSeniorReviewer) {
-        const seniorPending = await teacherReviewApi.getSeniorPendingAnswerReviews(courseId);
+        const queue = await teacherReviewApi.getSeniorPendingAnswerReviewQueue(courseId);
         setAnswerReviews([]);
-        setSeniorAnswerReviews((Array.isArray(seniorPending) ? seniorPending : []).map(normalizeAnswerReview));
+        setAnswerReviewGroups([]);
+        setSeniorAnswerReviews((queue.reviews || []).map(normalizeAnswerReview));
+        setSeniorAnswerReviewGroups((queue.groups || []).map(normalizeGroupedAnswerReview));
       } else {
-        const mentorPending = await teacherReviewApi.getMentorPendingAnswerReviews(courseId);
-        setAnswerReviews((Array.isArray(mentorPending) ? mentorPending : []).map(normalizeAnswerReview));
+        const queue = await teacherReviewApi.getMentorPendingAnswerReviewQueue(courseId);
+        setAnswerReviews((queue.reviews || []).map(normalizeAnswerReview));
+        setAnswerReviewGroups((queue.groups || []).map(normalizeGroupedAnswerReview));
         setSeniorAnswerReviews([]);
+        setSeniorAnswerReviewGroups([]);
       }
     } catch (error) {
       setAnswerReviews([]);
+      setAnswerReviewGroups([]);
       setSeniorAnswerReviews([]);
+      setSeniorAnswerReviewGroups([]);
       triggerToast(getUserFacingError(error, 'Không thể tải phản hồi cần kiểm tra.'));
     } finally {
       setIsAnswerReviewsLoading(false);
@@ -276,7 +284,9 @@ export function useTeacherReviewQueue({
     candidates,
     setCandidates,
     answerReviews,
+    answerReviewGroups,
     seniorAnswerReviews,
+    seniorAnswerReviewGroups,
     resolvedAnswerReviews,
     isAnswerReviewsLoading,
     isResolvedReviewsLoading,

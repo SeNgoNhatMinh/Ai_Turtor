@@ -62,32 +62,52 @@ function getLanguage(className, explicitLanguage, code) {
   return LANGUAGE_ALIASES[raw] || raw || 'text';
 }
 
-function CodeBlock({ className = '', children, language: explicitLanguage }) {
+function getDisplayLanguage(language, code) {
+  if (language === 'markup') {
+    if (/<jsp:|jsp:root/i.test(code)) return 'jspx';
+    if (/<%[@!=!]?|<%[^@]/i.test(code)) return 'jsp';
+    if (/^\s*<\?xml/i.test(code)) return 'xml';
+    return 'html';
+  }
+  return language === 'text' ? 'text' : language;
+}
+
+function CodeBlock({
+  className = '',
+  children,
+  language: explicitLanguage,
+  appearance = 'default',
+}) {
   const code = useMemo(() => String(children || '').replace(/\n$/, ''), [children]);
   const language = useMemo(
     () => getLanguage(className, explicitLanguage, code),
     [className, explicitLanguage, code],
   );
+  const displayLanguage = useMemo(
+    () => getDisplayLanguage(language, code),
+    [language, code],
+  );
   const themeMode = useThemeMode();
-  const theme = themeMode === 'dark' ? vscDarkPlus : oneLight;
+  const chatgpt = appearance === 'chatgpt';
+  const theme = chatgpt || themeMode === 'dark' ? vscDarkPlus : oneLight;
 
   return (
-    <div className="ai-answer-code-block">
+    <div className={`ai-answer-code-block ${chatgpt ? 'ai-answer-code-block--chatgpt' : ''}`.trim()}>
       <div className="ai-answer-format-toolbar">
-        <span>{language === 'text' ? 'Code' : language}</span>
+        <span>{displayLanguage}</span>
         <CopyButton text={code} />
       </div>
       <SyntaxHighlighter
         language={language === 'text' ? undefined : language}
         style={theme}
-        showLineNumbers={code.includes('\n')}
+        showLineNumbers={!chatgpt && code.includes('\n')}
         wrapLongLines
         customStyle={{
           margin: 0,
-          padding: '14px',
+          padding: chatgpt ? '16px 18px' : '14px',
           background: 'transparent',
-          fontSize: 13,
-          lineHeight: 1.65,
+          fontSize: chatgpt ? 13.5 : 13,
+          lineHeight: 1.6,
         }}
         codeTagProps={{
           className: 'ai-answer-code',
@@ -95,7 +115,7 @@ function CodeBlock({ className = '', children, language: explicitLanguage }) {
         lineNumberStyle={{
           minWidth: '2.4em',
           paddingRight: '1em',
-          color: themeMode === 'dark' ? '#9ca3af' : '#6b7280',
+          color: chatgpt || themeMode === 'dark' ? '#9ca3af' : '#6b7280',
           userSelect: 'none',
         }}
       >

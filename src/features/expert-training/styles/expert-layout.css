@@ -132,6 +132,56 @@
   margin-top: auto;
 }
 
+.expert-training__task-due-field {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  color: #374151;
+}
+
+.expert-training__task-due-field input[type='datetime-local'] {
+  width: min(100%, 280px);
+  padding: 6px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font: inherit;
+}
+
+.expert-training__task-due--danger {
+  color: #b91c1c;
+  font-weight: 700;
+}
+
+.expert-training__task-due--warning {
+  color: #b45309;
+  font-weight: 600;
+}
+
+.expert-training__task-tabs {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.expert-training__task-tabs.ant-segmented {
+  flex-wrap: nowrap;
+}
+
+.expert-training__task-preview {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.expert-training__task-preview-schedule {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #fafafa;
+}
+
 .expert-training__contribution-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(340px, 0.78fr);

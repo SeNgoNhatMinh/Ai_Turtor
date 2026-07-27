@@ -1,5 +1,9 @@
 import { useCallback, useState } from 'react';
-import { FEEDBACK_ACTIONS, getFeedbackAction } from '../../../constants/answerReview';
+import {
+  FEEDBACK_ACTIONS,
+  getFeedbackAction,
+  getFeedbackActionKeyForStar,
+} from '../../../constants/answerReview';
 import { normalizeReviewMode, validateFeedbackText } from '../../../utils/validators';
 
 export function useAnswerFeedback({
@@ -11,18 +15,36 @@ export function useAnswerFeedback({
   userId,
 }) {
   const [feedbackOpenIndex, setFeedbackOpenIndex] = useState(null);
+  const [feedbackPanelMode, setFeedbackPanelMode] = useState(null);
   const [feedbackAction, setFeedbackAction] = useState(null);
   const [feedbackText, setFeedbackText] = useState('');
   const [isFeedbackSubmitting, setIsFeedbackSubmitting] = useState(false);
 
   const closeFeedbackForm = useCallback(() => {
     setFeedbackOpenIndex(null);
+    setFeedbackPanelMode(null);
     setFeedbackAction(null);
     setFeedbackText('');
   }, []);
 
+  const openRatingPanel = useCallback((index) => {
+    setFeedbackOpenIndex(index);
+    setFeedbackPanelMode('stars');
+    setFeedbackAction(null);
+    setFeedbackText('');
+  }, []);
+
+  const toggleRatingPanel = useCallback((index) => {
+    if (feedbackOpenIndex === index && feedbackPanelMode === 'stars') {
+      closeFeedbackForm();
+      return;
+    }
+    openRatingPanel(index);
+  }, [closeFeedbackForm, feedbackOpenIndex, feedbackPanelMode, openRatingPanel]);
+
   const openFeedbackForm = useCallback((index, actionKey) => {
     setFeedbackOpenIndex(index);
+    setFeedbackPanelMode('form');
     setFeedbackAction(getFeedbackAction(actionKey));
     setFeedbackText('');
   }, []);
@@ -68,10 +90,21 @@ export function useAnswerFeedback({
     setIsFeedbackSubmitting(true);
     try {
       await onSubmitReview(payload.value);
+      closeFeedbackForm();
     } finally {
       setIsFeedbackSubmitting(false);
     }
-  }, [buildPayload, isFeedbackSubmitting, onSubmitReview, triggerToast]);
+  }, [buildPayload, closeFeedbackForm, isFeedbackSubmitting, onSubmitReview, triggerToast]);
+
+  const selectStarRating = useCallback(async (message, index, star) => {
+    if (isFeedbackSubmitting) return;
+    const actionKey = getFeedbackActionKeyForStar(star);
+    if (star === 5) {
+      await submitQuickReview(message, actionKey);
+      return;
+    }
+    openFeedbackForm(index, actionKey);
+  }, [isFeedbackSubmitting, openFeedbackForm, submitQuickReview]);
 
   const submitFeedback = useCallback(async (message) => {
     if (!onSubmitReview || isFeedbackSubmitting) return;
@@ -102,11 +135,15 @@ export function useAnswerFeedback({
     closeFeedbackForm,
     feedbackAction,
     feedbackOpenIndex,
+    feedbackPanelMode,
     feedbackText,
     isFeedbackSubmitting,
     openFeedbackForm,
+    openRatingPanel,
+    selectStarRating,
     setFeedbackText,
     submitFeedback,
     submitQuickReview,
+    toggleRatingPanel,
   };
 }

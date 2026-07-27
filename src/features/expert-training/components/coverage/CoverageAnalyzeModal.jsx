@@ -3,11 +3,13 @@ import {
   Checkbox,
   Col,
   Form,
+  Input,
   InputNumber,
   Modal,
   Row,
   Typography,
 } from 'antd';
+import { defaultExpertTaskDueAt, toDateTimeLocalValue, toExpertTaskDueAtPayload } from '../../expertTrainingUtils';
 
 const { Paragraph, Text } = Typography;
 
@@ -35,6 +37,7 @@ export default function CoverageAnalyzeModal({
       smartTaskPolicy: true,
       includeTrainingGoldTasks: false,
       includeBenchmarkTasks: false,
+      taskDueAt: toExpertTaskDueAtPayload(values.taskDueAtLocal),
     });
     if (result) {
       form.resetFields();
@@ -64,6 +67,7 @@ export default function CoverageAnalyzeModal({
         initialValues={{
           minimumTrainingGoldPerChapter: 0,
           minimumEvaluationGoldPerChapter: 0,
+          taskDueAtLocal: toDateTimeLocalValue(defaultExpertTaskDueAt(14)),
         }}
         onFinish={submit}
         className="expert-training__modal-form"
@@ -88,6 +92,13 @@ export default function CoverageAnalyzeModal({
             </Form.Item>
           </Col>
         </Row>
+        <Form.Item
+          label="Hạn task tự tạo (nếu có)"
+          name="taskDueAtLocal"
+          tooltip="Áp dụng cho task Training/Evaluation được tạo khi phân tích phát hiện thiếu hụt."
+        >
+          <Input type="datetime-local" />
+        </Form.Item>
         <Checkbox checked disabled>Smart policy tự tạo đúng task còn thiếu</Checkbox>
         <Paragraph type="secondary">
           TRAINING chỉ vào RAG sau khi được duyệt. EVALUATION luôn là dữ liệu holdout riêng tư.

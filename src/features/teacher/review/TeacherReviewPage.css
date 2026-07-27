@@ -241,6 +241,47 @@
   color: #f9fafb;
 }
 
+.grouped-answer-review__header {
+  align-items: flex-start;
+}
+
+.grouped-answer-review__stats {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.85rem;
+  color: var(--text-secondary, #64748b);
+  text-align: right;
+  min-width: 120px;
+}
+
+.grouped-answer-review__collapse {
+  margin: 12px 0;
+  background: transparent;
+}
+
+.grouped-answer-review__evidence-row {
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+.grouped-answer-review__evidence-row:last-child {
+  border-bottom: none;
+}
+
+.grouped-answer-review__evidence-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: center;
+  margin-bottom: 6px;
+  font-size: 0.85rem;
+}
+
+.grouped-answer-review__evidence-meta .ant-rate {
+  font-size: 14px;
+}
+
 @media (max-width: 780px) {
   .answer-review-card__header {
     flex-direction: column;

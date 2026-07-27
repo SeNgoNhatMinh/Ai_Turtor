@@ -1,4 +1,5 @@
 import { Button, Card, Empty, Space, Tag, Tooltip, Typography } from 'antd';
+import { BarChart3 } from 'lucide-react';
 import {
   getQuizAssignmentId,
   getQuizGradingModeLabel,
@@ -16,6 +17,7 @@ export default function QuizAssignmentList({
   onEdit,
   onPublish,
   onDelete,
+  onViewScoreboard,
 }) {
   return (
     <Card
@@ -66,6 +68,9 @@ export default function QuizAssignmentList({
                           ? `${item.targetStudentIds?.length || 0} sinh viên được chọn`
                           : 'Cả lớp'}
                       </Text>
+                      <Button size="small" icon={<BarChart3 size={14} />} onClick={() => onViewScoreboard?.(item)}>
+                        Bảng điểm
+                      </Button>
                       <Button size="small" onClick={() => onEdit(item)}>Xem</Button>
                     </Space>
                   )}

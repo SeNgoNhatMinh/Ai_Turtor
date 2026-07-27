@@ -1,15 +1,12 @@
 import { useState } from 'react';
-import { Alert, Button, Checkbox, Drawer, Empty, Skeleton, Space, Tag, Tooltip, Typography } from 'antd';
-import { ExternalLink, ListChecks } from 'lucide-react';
-import StatusLabel from '../../../components/common/StatusLabel';
+import { Alert, Button, Checkbox, Drawer, Empty, Skeleton, Space, Tooltip } from 'antd';
+import { ListChecks } from 'lucide-react';
+import ChapterMaterialPreviewContent from './ChapterMaterialPreviewContent';
 import {
-  getChapterStatusMeta,
-  getDetectedFromLabel,
-  getMaterialHealthMeta,
-  isPdfMaterialSource,
+  defaultExpertTaskDueAt,
+  toDateTimeLocalValue,
+  toExpertTaskDueAtPayload,
 } from '../expertTrainingUtils';
-
-const { Paragraph, Text, Title } = Typography;
 
 export default function ChapterPreviewDrawer({
   chapter,
@@ -24,10 +21,8 @@ export default function ChapterPreviewDrawer({
 }) {
   const [includeTraining, setIncludeTraining] = useState(true);
   const [includeEvaluation, setIncludeEvaluation] = useState(false);
+  const [dueAtLocal, setDueAtLocal] = useState(() => toDateTimeLocalValue(defaultExpertTaskDueAt(7)));
   const title = preview?.title || chapter?.title || 'Chi tiết chương';
-  const health = getMaterialHealthMeta(preview?.materialHealth || chapter?.materialHealth);
-  const detectedFromLabel = getDetectedFromLabel(preview?.detectedFrom || chapter?.detectedFrom);
-  const chapterStatus = getChapterStatusMeta(preview?.status || chapter?.status);
   const createKey = `create-chapter-tasks:${title}`;
   const isConfirmed = String(preview?.status || chapter?.status || '').toUpperCase() === 'CONFIRMED';
   const canCreateTasks = isConfirmed && Boolean(preview?.hasMaterialContent);
@@ -37,6 +32,7 @@ export default function ChapterPreviewDrawer({
     await onCreateTasks?.(title, {
       includeTrainingGoldTask: includeTraining,
       includeEvaluationGoldTask: includeEvaluation,
+      dueAt: toExpertTaskDueAtPayload(dueAtLocal),
     });
   };
 
@@ -56,59 +52,8 @@ export default function ChapterPreviewDrawer({
       ) : !preview ? (
         <Empty description="Chưa có dữ liệu preview cho chương này." />
       ) : (
-        <div className="expert-training__chapter-preview">
-          <div className="expert-training__chapter-preview-head">
-            <div>
-              <Title level={4}>{title}</Title>
-              <Space wrap size={[6, 6]}>
-                <Tag color={chapterStatus.color}>{chapterStatus.label}</Tag>
-                <Tag color={health.color}>{health.label}</Tag>
-                {detectedFromLabel && <Tag>{detectedFromLabel}</Tag>}
-              </Space>
-            </div>
-            <Text type="secondary">{preview.chunkCount} chunks · {preview.approxChars.toLocaleString('vi-VN')} ký tự</Text>
-          </div>
-
-          {!preview.hasMaterialContent && (
-            <Alert
-              type="warning"
-              showIcon
-              title="Chương chưa có nội dung đã index"
-              description="Hãy bổ sung hoặc reindex học liệu trước khi yêu cầu giảng viên soạn tri thức."
-            />
-          )}
-
-          <section className="expert-training__chapter-excerpt" aria-labelledby="chapter-excerpt-heading">
-            <h3 id="chapter-excerpt-heading">Nội dung tham khảo</h3>
-            <Paragraph>{preview.excerpt || 'Backend chưa trả về trích đoạn cho chương này.'}</Paragraph>
-            {preview.excerptTruncated && (
-              <Text type="secondary">Bản xem trước đã rút gọn từ {preview.excerptTotalChars.toLocaleString('vi-VN')} ký tự.</Text>
-            )}
-          </section>
-
-          <section className="expert-training__chapter-sources" aria-labelledby="chapter-sources-heading">
-            <h3 id="chapter-sources-heading">Nguồn học liệu</h3>
-            {preview.sourceMaterials.length ? preview.sourceMaterials.map((source) => (
-              <div key={source.id} className="expert-training__chapter-source">
-                <div>
-                  <strong>{source.title}</strong>
-                  <Space wrap size={[6, 4]}>
-                    <Tag>{source.sourceType}</Tag>
-                    <StatusLabel status={source.indexingStatus} />
-                  </Space>
-                </div>
-                <Button
-                  size="small"
-                  icon={<ExternalLink size={14} />}
-                  disabled={!isPdfMaterialSource(source)}
-                  title={isPdfMaterialSource(source) ? 'Mở PDF nguồn' : 'Chỉ nguồn PDF có thể mở bằng thao tác này'}
-                  onClick={() => onOpenMaterial?.(source)}
-                >
-                  Mở PDF
-                </Button>
-              </div>
-            )) : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Không có học liệu nguồn." />}
-          </section>
+        <>
+          <ChapterMaterialPreviewContent preview={preview} onOpenMaterial={onOpenMaterial} />
 
           {canReview && (
             <section className="expert-training__chapter-task-builder" aria-labelledby="chapter-task-heading">
@@ -123,6 +68,14 @@ export default function ChapterPreviewDrawer({
                 <Checkbox checked={includeEvaluation} onChange={(event) => setIncludeEvaluation(event.target.checked)}>
                   Evaluation holdout — chỉ dùng kiểm thử
                 </Checkbox>
+                <label className="expert-training__task-due-field">
+                  <span>Hạn hoàn thành (giáo viên sẽ thấy trên task)</span>
+                  <input
+                    type="datetime-local"
+                    value={dueAtLocal}
+                    onChange={(event) => setDueAtLocal(event.target.value)}
+                  />
+                </label>
               </Space>
               {!isConfirmed && (
                 <Alert
@@ -159,7 +112,7 @@ export default function ChapterPreviewDrawer({
               </Tooltip>
             </section>
           )}
-        </div>
+        </>
       )}
     </Drawer>
   );

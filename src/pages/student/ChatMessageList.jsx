@@ -163,15 +163,19 @@ function ChatMessageList({
                         {!message.canceled && (
                           <AnswerFeedbackControls
                             index={index}
+                            message={message}
                             isPinned={isPinned}
                             isFeedbackSubmitting={feedback.isFeedbackSubmitting}
                             feedbackOpenIndex={feedback.feedbackOpenIndex}
+                            feedbackPanelMode={feedback.feedbackPanelMode}
                             feedbackAction={feedback.feedbackAction}
                             feedbackText={feedback.feedbackText}
                             setFeedbackText={feedback.setFeedbackText}
                             onTogglePin={() => togglePinnedMessage(message)}
                             isPinning={isPinning}
                             onHelpful={() => feedback.submitQuickReview(message, 'helpful')}
+                            onToggleRatingPanel={feedback.toggleRatingPanel}
+                            onSelectStar={feedback.selectStarRating}
                             onOpenFeedback={feedback.openFeedbackForm}
                             onCloseFeedback={feedback.closeFeedbackForm}
                             onSubmitFeedback={() => feedback.submitFeedback(message)}

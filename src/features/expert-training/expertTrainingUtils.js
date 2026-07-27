@@ -67,6 +67,21 @@ export function formatChapterPages(chapter) {
   return `Trang ${start}–${end}`;
 }
 
+export function formatChapterPreviewPages(preview) {
+  return formatChapterPages(preview);
+}
+
+export function getChapterPrimaryPdfSource(preview) {
+  if (!preview) return null;
+  const primaryId = String(preview.primarySourceMaterialId || '').trim();
+  const sources = Array.isArray(preview.sourceMaterials) ? preview.sourceMaterials : [];
+  if (primaryId) {
+    const primary = sources.find((source) => source.id === primaryId);
+    if (primary && isPdfMaterialSource(primary)) return primary;
+  }
+  return sources.find(isPdfMaterialSource) || null;
+}
+
 export function criteriaRowsToWeights(rows = []) {
   return rows.reduce((result, row) => {
     const name = String(row?.name || '').trim();
@@ -102,4 +117,57 @@ export function getTutorV2Role(user) {
 export function formatPercent(value) {
   if (value == null || !Number.isFinite(Number(value))) return 'Chưa có dữ liệu';
   return `${Math.round(Number(value) * 100)}%`;
+}
+
+const parseDate = (value) => {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+export function formatExpertTaskDateTime(value, fallback = '—') {
+  const date = parseDate(value);
+  return date ? date.toLocaleString('vi-VN') : fallback;
+}
+
+export function defaultExpertTaskDueAt(daysFromNow = 7) {
+  const date = new Date();
+  date.setDate(date.getDate() + Math.max(1, daysFromNow));
+  date.setHours(23, 59, 0, 0);
+  return date.toISOString();
+}
+
+export function toExpertTaskDueAtPayload(value) {
+  if (!value) return undefined;
+  const date = parseDate(value);
+  return date ? date.toISOString() : undefined;
+}
+
+export function toDateTimeLocalValue(isoValue) {
+  const date = parseDate(isoValue);
+  if (!date) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+export function getExpertTaskDueMeta(task) {
+  const dueDate = parseDate(task?.dueAt);
+  if (!dueDate) {
+    return { label: 'Chưa có hạn', tone: 'default', overdue: false };
+  }
+  const now = Date.now();
+  const overdue = dueDate.getTime() < now && !['COMPLETED', 'DONE', 'CANCELLED'].includes(String(task?.status || '').toUpperCase());
+  const msLeft = dueDate.getTime() - now;
+  const daysLeft = Math.ceil(msLeft / (24 * 60 * 60 * 1000));
+  let label = formatExpertTaskDateTime(task.dueAt);
+  if (overdue) {
+    label = `Quá hạn · ${label}`;
+  } else if (daysLeft <= 3) {
+    label = `Còn ${Math.max(daysLeft, 0)} ngày · ${label}`;
+  }
+  return {
+    label,
+    tone: overdue ? 'danger' : daysLeft <= 3 ? 'warning' : 'default',
+    overdue,
+  };
 }

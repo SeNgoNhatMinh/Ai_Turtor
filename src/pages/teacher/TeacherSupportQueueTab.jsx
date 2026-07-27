@@ -5,6 +5,7 @@ import { canReviewKnowledge } from '../../utils/permissions';
 import KnowledgeCandidateReviewList from './KnowledgeCandidateReviewList';
 import TeacherAnswerModeSelector from './TeacherAnswerModeSelector';
 import SupportChatRoom from '../../components/support/SupportChatRoom';
+import GroupedAnswerReviewCard from '../../features/teacher/review/GroupedAnswerReviewCard';
 import AnswerReviewCard from '../../features/teacher/review/AnswerReviewCard';
 
 function TeacherSupportQueueTab({
@@ -23,9 +24,11 @@ function TeacherSupportQueueTab({
   candidateType,
   setCandidateType,
   answerReviews = [],
+  answerReviewGroups = [],
   isAnswerReviewsLoading = false,
   loadAnswerReviews,
   seniorAnswerReviews = [],
+  seniorAnswerReviewGroups = [],
   resolvedAnswerReviews = [],
   isResolvedReviewsLoading = false,
   loadResolvedAnswerReviews,
@@ -47,7 +50,9 @@ function TeacherSupportQueueTab({
   const isSelectedChatActive = ['IN_CHAT', 'CHAT_ACTIVE'].includes(selectedStatus);
   const isSelectedAnswered = selectedStatus.includes('ANSWERED') || ['COMPLETED', 'CLOSED'].includes(selectedStatus);
   const activeReviewQueue = canReviewKnowledgeCandidates ? seniorAnswerReviews : answerReviews;
+  const activeReviewGroups = canReviewKnowledgeCandidates ? seniorAnswerReviewGroups : answerReviewGroups;
   const activeQueueType = canReviewKnowledgeCandidates ? 'senior' : 'mentor';
+  const pendingGroupCount = activeReviewGroups.length;
 
   const updateSeniorDraft = (reviewId, patch) => {
     setSeniorResolutionDrafts((current) => ({
@@ -177,8 +182,8 @@ function TeacherSupportQueueTab({
             <h3>{canReviewKnowledgeCandidates ? 'Hàng chờ Senior Mentor kiểm tra' : 'Phản hồi AI cần giảng viên kiểm tra'}</h3>
             <p className="answer-review-section__subtitle">
               {canReviewKnowledgeCandidates
-                ? 'Các lỗi nghiêm trọng về kiến thức, nguồn hoặc tài liệu cần Senior Mentor xác minh.'
-                : 'Các phản hồi về câu trả lời AI trong môn học cần giảng viên xem xét.'}
+                ? 'Nhóm phản hồi rất tiêu cực (1 sao) hoặc báo lỗi nguồn — chỉ hiện khi đủ số sinh viên độc lập (hoặc lỗi nguồn ngay). Senior xử lý qua Flow 3.'
+                : 'Nhóm phản hồi 2–3 sao về cùng câu trả lời AI — chỉ hiện khi đủ số sinh viên độc lập báo tiêu cực.'}
             </p>
           </div>
           <button
@@ -201,7 +206,7 @@ function TeacherSupportQueueTab({
             className={reviewView === 'pending' ? 'active' : ''}
             onClick={() => setReviewView('pending')}
           >
-            Đang chờ ({activeReviewQueue.length})
+            Đang chờ ({pendingGroupCount || activeReviewQueue.length})
           </button>
           <button
             type="button"
@@ -216,26 +221,37 @@ function TeacherSupportQueueTab({
         <div className="answer-review-list">
           {(reviewView === 'resolved' ? isResolvedReviewsLoading : isAnswerReviewsLoading) ? (
             <div className="no-data-text">Đang tải phản hồi câu trả lời...</div>
-          ) : (reviewView === 'resolved' ? resolvedAnswerReviews : activeReviewQueue).length === 0 ? (
+          ) : (reviewView === 'resolved' ? resolvedAnswerReviews : activeReviewGroups).length === 0 ? (
             <div className="no-data-text">
               {reviewView === 'resolved'
                 ? 'Chưa có phản hồi nào đã xử lý trong phạm vi môn học này.'
                 : canReviewKnowledgeCandidates
-                ? 'Không có lỗi nghiêm trọng đang chờ Senior Mentor.'
-                : 'Không có phản hồi AI đang chờ giảng viên kiểm tra.'}
+                ? 'Không có nhóm phản hồi nghiêm trọng đang chờ Senior Mentor.'
+                : 'Không có nhóm phản hồi AI đang chờ giảng viên kiểm tra.'}
             </div>
-          ) : (
-            (reviewView === 'resolved' ? resolvedAnswerReviews : activeReviewQueue).map((review) => (
+          ) : reviewView === 'resolved' ? (
+            resolvedAnswerReviews.map((review) => (
               <AnswerReviewCard
                 key={review.id}
                 review={review}
-                queue={reviewView === 'resolved' ? 'history' : activeQueueType}
-                draft={seniorResolutionDrafts[review.id]}
-                isPending={pendingSeniorReviewIds.includes(review.id)}
-                onDraftChange={(patch) => updateSeniorDraft(review.id, patch)}
-                onResolve={(decision) => resolveSeniorReview(review.id, decision)}
+                queue="history"
               />
             ))
+          ) : (
+            activeReviewGroups.map((group) => {
+              const reviewId = group.representativeReviewId || group.id;
+              return (
+                <GroupedAnswerReviewCard
+                  key={group.answerFingerprint || reviewId}
+                  group={group}
+                  queue={activeQueueType}
+                  draft={seniorResolutionDrafts[reviewId]}
+                  isPending={pendingSeniorReviewIds.includes(reviewId)}
+                  onDraftChange={(patch) => updateSeniorDraft(reviewId, patch)}
+                  onResolve={(decision) => resolveSeniorReview(reviewId, decision)}
+                />
+              );
+            })
           )}
         </div>
 
