@@ -3,7 +3,7 @@ import { Button, Empty, Segmented } from 'antd';
 import { RefreshCw } from 'lucide-react';
 import AnswerReviewCard from './AnswerReviewCard';
 import GroupedAnswerReviewCard from './GroupedAnswerReviewCard';
-import KnowledgeCandidateReviewList from '../../../pages/teacher/KnowledgeCandidateReviewList';
+import KnowledgeCandidateReviewList from './KnowledgeCandidateReviewList';
 import './ReviewWorkspace.css';
 import './AnswerReviewWorkspace.css';
 

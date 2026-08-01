@@ -1,5 +1,5 @@
 import { Button, Space, Tooltip } from 'antd';
-import QuizDraftEditor from '../../../../pages/teacher/QuizDraftEditor';
+import QuizDraftEditor from '../QuizDraftEditor';
 import { isQuizDraft } from '../quizAssignmentUtils';
 
 export default function QuizDraftWorkspace({

@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import QuizDraftEditor from '../../src/pages/teacher/QuizDraftEditor';
+import QuizDraftEditor from '../../src/features/teacher/quizzes/QuizDraftEditor';
 
 const draft = {
   id: 'draft-1',

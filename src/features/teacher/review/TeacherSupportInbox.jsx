@@ -3,7 +3,7 @@ import { Button, Empty, Segmented, Tag } from 'antd';
 import { Clock3, MessageCircle, RefreshCw } from 'lucide-react';
 import StatusLabel from '../../../components/common/StatusLabel';
 import SupportChatRoom from '../../../components/support/SupportChatRoom';
-import TeacherAnswerModeSelector from '../../../pages/teacher/TeacherAnswerModeSelector';
+import TeacherAnswerModeSelector from './TeacherAnswerModeSelector';
 import './ReviewWorkspace.css';
 import './TeacherSupportInbox.css';
 

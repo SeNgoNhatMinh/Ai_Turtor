@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import TeacherGradingTab from '../../src/pages/teacher/TeacherGradingTab';
+import TeacherGradingTab from '../../src/features/teacher/grading/TeacherGradingTab';
 
 const attempt = {
   id: 'session-1',

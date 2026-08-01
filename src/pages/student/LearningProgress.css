@@ -1,5 +1,0 @@
-/* Ordered stylesheet facade. Keep feature rules in ./styles. */
-@import "../../features/student/learning/styles/learning-dashboard.css";
-@import "../../features/student/learning/styles/learning-action-plan.css";
-@import "../../features/student/learning/styles/learning-suggestions.css";
-@import "../../features/student/learning/styles/learning-theme-responsive.css";

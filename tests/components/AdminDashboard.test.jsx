@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import AdminDashboard from '../../src/pages/admin/AdminDashboard';
+import AdminDashboard from '../../src/features/admin/dashboard/AdminDashboard';
 import { diagnosticsApi } from '../../src/services/diagnosticsApi';
 
 vi.mock('../../src/services/diagnosticsApi', () => ({

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { getCourseSelectOptions } from '../src/pages/admin/academic/adminAcademicUtils.js';
+import { getCourseSelectOptions } from '../src/features/admin/academic/adminAcademicUtils.js';
 
 test('builds stable Ant Design course options from either courseId or id', () => {
   assert.deepEqual(

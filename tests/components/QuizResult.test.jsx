@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import QuizResult from '../../src/pages/student/QuizResult';
+import QuizResult from '../../src/features/student/quizzes/QuizResult';
 
 vi.mock('../../src/components/AiAnswer', () => ({
   default: ({ markdown }) => <div>{markdown}</div>,

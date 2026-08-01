@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import PracticeQuizzes from '../../../pages/student/PracticeQuizzes';
+import PracticeQuizzesView from './PracticeQuizzesView';
 import { useStudentLearningController } from '../learning/useStudentLearningController';
 import { clearQuizTopicHandoff, readQuizTopicHandoff } from '../studentRouteHandoff';
 
@@ -27,7 +27,7 @@ export default function PracticeQuizzesPage({
   }, [studentId, courseId]);
 
   return (
-    <PracticeQuizzes
+    <PracticeQuizzesView
       studentId={studentId}
       courseId={courseId}
       classId={classId}

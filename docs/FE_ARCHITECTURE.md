@@ -4,30 +4,36 @@
 
 Keep the frontend easy to read, safe to change, and scalable as backend flows grow.
 
-The current runtime remains:
+The current runtime is route-based and feature-owned:
 
 ```text
-src/main.jsx -> src/App.jsx -> role portals -> tab components
+src/main.jsx -> src/app/AppProviders.jsx -> src/app/AppRouter.jsx
+             -> role workspace -> feature route page
 ```
 
-Do not move large portal files in one commit. Split by stable business boundaries first.
+`src/App.jsx` is the authenticated composition shell. Business UI and state belong to the owning feature, not to `App.jsx` or a generic `pages` folder.
 
 ## Folder Rules
 
 ```text
 src/components/common       Shared UI primitives used by many roles
 src/components/markdown     AI answer rendering components
-src/config                  Runtime configuration and navigation config
+src/app                     Providers, router, layouts, role workspaces
+src/config                  Runtime configuration
 src/constants               Cross-feature enums, labels, options, copy maps
-src/hooks                   App-level hooks used by current runtime
-src/pages/student           Student portal tab components
-src/pages/teacher           Teacher portal tab components
-src/pages/admin             Admin portal tab components
+src/features/auth           Login and persisted auth session
+src/features/student        Student route pages, controllers, views
+src/features/teacher        Teacher route pages, controllers, views
+src/features/senior         Senior-only route pages
+src/features/admin          Admin route pages, controllers, views
+src/features/quality-review Shared Senior/Admin review domain UI
+src/features/expert-training Shared Tutor V2 domain UI and data access
+src/hooks                   Cross-feature application hooks
 src/services                API layer and normalizers
 src/utils                   Pure utilities, permissions, formatting, validation
 ```
 
-`src/features/*` is reserved for a later architecture phase. Do not wire it into runtime unless dependencies and imports are verified.
+`src/pages` is intentionally removed. Do not recreate role portals or duplicate route views outside `src/features/*`.
 
 ## Component Splitting Rules
 
@@ -42,8 +48,8 @@ Split a component when it has one of these smells:
 Prefer:
 
 ```text
-ParentPortal.jsx          owns state and API orchestration
-TabComponent.jsx          owns one screen/tab
+FeaturePage.jsx           composes focused controllers for one route
+FeatureView.jsx           owns one screen without endpoint construction
 SmallPanel.jsx            renders one visual block
 constants/*.js            owns backend-aligned options/status labels
 utils/*.js                owns pure permission/format/validation logic
@@ -55,8 +61,8 @@ Student answer review:
 
 ```text
 src/constants/answerReview.js
-src/pages/student/AnswerFeedbackControls.jsx
-src/pages/student/ChatWorkspace.jsx
+src/features/student/chat/components/AnswerFeedbackControls.jsx
+src/features/student/chat/components/ChatWorkspace.jsx
 ```
 
 Teacher support and AI learning:
@@ -64,9 +70,9 @@ Teacher support and AI learning:
 ```text
 src/constants/knowledgeFlow.js
 src/utils/permissions.js
-src/pages/teacher/TeacherAnswerModeSelector.jsx
-src/pages/teacher/KnowledgeCandidateReviewList.jsx
-src/pages/teacher/TeacherSupportQueueTab.jsx
+src/features/teacher/review/TeacherAnswerModeSelector.jsx
+src/features/teacher/review/KnowledgeCandidateReviewList.jsx
+src/features/teacher/review/TeacherSupportInbox.jsx
 ```
 
 ## API Rules
@@ -89,11 +95,12 @@ src/pages/teacher/TeacherSupportQueueTab.jsx
 2. Extract pure child component.
 3. Replace JSX in parent with the child component.
 4. Run `npm run build`.
-5. Update `docs/FE_UPDATE_LOG.md`.
+5. Search for stale imports with `rg "src/pages|pages/" src tests`.
+6. Update `docs/FE_UPDATE_LOG.md`.
 
 ## Do Not Do In A Routine Refactor
 
-- Do not move `main.jsx` or replace `App.jsx` runtime without a dedicated phase.
+- Do not move `main.jsx` or replace the app shell without a dedicated phase.
 - Do not introduce a new dependency unless the task needs it.
 - Do not change endpoint paths while splitting files.
-- Do not delete legacy files just because they are hidden from navigation.
+- Do not add compatibility facades unless an external import contract requires one.

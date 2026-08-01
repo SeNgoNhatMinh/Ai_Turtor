@@ -1,4 +1,4 @@
-import AdminUsers from '../../../pages/admin/AdminUsers';
+import AdminUsers from './AdminUsers';
 import { useMentorImport } from './useMentorImport';
 import PageHeader from '../../../components/common/PageHeader';
 import { uiCopy } from '../../../constants/uiCopy';

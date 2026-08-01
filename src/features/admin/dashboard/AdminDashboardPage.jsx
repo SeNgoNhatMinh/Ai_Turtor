@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import AdminDashboard from '../../../pages/admin/AdminDashboard';
+import AdminDashboard from './AdminDashboard';
 import { useAdminDashboardController } from './useAdminDashboardController';
 import PageHeader from '../../../components/common/PageHeader';
 import { uiCopy } from '../../../constants/uiCopy';

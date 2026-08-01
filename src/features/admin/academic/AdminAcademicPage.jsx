@@ -1,4 +1,4 @@
-import AdminAcademic from '../../../pages/admin/AdminAcademic';
+import AdminAcademic from './AdminAcademicView';
 import PageHeader from '../../../components/common/PageHeader';
 import { uiCopy } from '../../../constants/uiCopy';
 

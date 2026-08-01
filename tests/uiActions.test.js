@@ -12,13 +12,13 @@ test('app chrome does not claim hardcoded service health', async () => {
 });
 
 test('mounted teacher roster has no toast-only Support command', async () => {
-  const teacherClasses = await readSource('pages/teacher/TeacherClassesTab.jsx');
+  const teacherClasses = await readSource('features/teacher/classes/TeacherClassesTab.jsx');
   assert.equal(teacherClasses.includes('Opening support chat with'), false);
   assert.doesNotMatch(teacherClasses, /onClick=\{\(\) => triggerToast\?\./);
 });
 
 test('prompt starters do not create mentor tickets without question context', async () => {
-  const promptStarters = await readSource('pages/student/PromptStarters.jsx');
+  const promptStarters = await readSource('features/student/chat/components/PromptStarters.jsx');
   assert.equal(promptStarters.includes('Nhờ mentor hỗ trợ'), false);
   assert.equal(promptStarters.includes('Vui lòng tạo yêu cầu mentor'), false);
 });

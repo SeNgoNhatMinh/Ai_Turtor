@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import StudentChatTab from '../../../pages/student/StudentChatTab';
+import StudentChatView from './StudentChatView';
 import { useCourseMaterialsController } from '../../../hooks/useCourseMaterialsController';
 import { useStudentChatController } from '../../../hooks/useStudentChatController';
 import { useStudentLearningController } from '../learning/useStudentLearningController';
@@ -104,7 +104,7 @@ export default function StudentChatPage({
     || studentId;
 
   return (
-    <StudentChatTab
+    <StudentChatView
       isHistoryDrawerOpen={chatController.isHistoryDrawerOpen}
       setIsHistoryDrawerOpen={chatController.setIsHistoryDrawerOpen}
       sessions={chat.sessions}

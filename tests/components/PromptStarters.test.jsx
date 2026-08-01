@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import PromptStarters from '../../src/pages/student/PromptStarters';
+import PromptStarters from '../../src/features/student/chat/components/PromptStarters';
 
 describe('PromptStarters', () => {
   it('submits a complete prompt when a starter is clicked', () => {

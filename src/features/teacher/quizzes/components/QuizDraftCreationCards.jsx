@@ -1,5 +1,5 @@
 import { Button, Card, Form, Input, InputNumber, Select } from 'antd';
-import TeacherOnlineQuizForm from '../../../../pages/teacher/TeacherOnlineQuizForm';
+import TeacherOnlineQuizForm from '../TeacherOnlineQuizForm';
 
 export default function QuizDraftCreationCards({
   form,

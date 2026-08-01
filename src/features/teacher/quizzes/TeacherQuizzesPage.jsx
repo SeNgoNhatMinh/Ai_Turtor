@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import QuizAssignments from '../../../pages/teacher/QuizAssignments';
+import QuizAssignments from './QuizAssignments';
 import { useTeacherDashboard } from '../dashboard/useTeacherDashboard';
 import { findTeacherClass, getClassCourseId } from '../shared/teacherUtils';
 

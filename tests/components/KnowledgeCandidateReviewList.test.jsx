@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import KnowledgeCandidateReviewList from '../../src/pages/teacher/KnowledgeCandidateReviewList';
+import KnowledgeCandidateReviewList from '../../src/features/teacher/review/KnowledgeCandidateReviewList';
 
 const candidate = {
   id: 'candidate-1',

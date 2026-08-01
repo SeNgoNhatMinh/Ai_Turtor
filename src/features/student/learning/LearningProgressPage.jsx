@@ -1,4 +1,4 @@
-import LearningProgress from '../../../pages/student/LearningProgress';
+import LearningProgressView from './LearningProgressView';
 import { useStudentLearningActions } from './useStudentLearningActions';
 import { useStudentLearningController } from './useStudentLearningController';
 import { useStudentNextSteps } from './useStudentNextSteps';
@@ -30,7 +30,7 @@ export default function LearningProgressPage({
   const nextSteps = useStudentNextSteps({ studentId, courseId, classId });
 
   return (
-    <LearningProgress
+    <LearningProgressView
       learnedTopics={Array.isArray(dashboard.learnedTopics) ? dashboard.learnedTopics : []}
       weakTopics={Array.isArray(dashboard.weakTopics) ? dashboard.weakTopics : []}
       suggestions={learning.suggestions}

@@ -1,0 +1,49 @@
+import { AlertTriangle, GraduationCap, Users as UsersIcon } from 'lucide-react';
+import AppTabs from '../../../components/common/AppTabs';
+import { useAdminUsersController } from './useAdminUsersController';
+import UserAccountsTab from './components/UserAccountsTab';
+import MentorsTab from './components/MentorsTab';
+import AdminEscalationsTab from './components/AdminEscalationsTab';
+
+function TabLabel({ icon: Icon, children }) {
+  return (
+    <span>
+      <Icon size={14} style={{ marginRight: 6, verticalAlign: 'text-bottom' }} />
+      {children}
+    </span>
+  );
+}
+
+function AdminUsers({ triggerToast, handleAdminImport }) {
+  const controller = useAdminUsersController({ triggerToast, handleAdminImport });
+  const items = [
+    {
+      key: 'users',
+      label: <TabLabel icon={UsersIcon}>Tài khoản ({controller.users.list.length})</TabLabel>,
+      children: <UserAccountsTab users={controller.users} />,
+    },
+    {
+      key: 'mentors',
+      label: <TabLabel icon={GraduationCap}>Giảng viên ({controller.mentors.list.length})</TabLabel>,
+      children: <MentorsTab mentors={controller.mentors} />,
+    },
+    {
+      key: 'escalations',
+      label: <TabLabel icon={AlertTriangle}>Yêu cầu hỗ trợ ({controller.escalations.list.length})</TabLabel>,
+      children: (
+        <AdminEscalationsTab
+          escalations={controller.escalations}
+          users={controller.users.list}
+        />
+      ),
+    },
+  ];
+
+  return (
+    <div className="portal-view">
+      <AppTabs defaultActiveKey="users" items={items} />
+    </div>
+  );
+}
+
+export default AdminUsers;

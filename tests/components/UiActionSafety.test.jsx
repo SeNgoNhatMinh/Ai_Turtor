@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import Header from '../../src/components/Header';
 import Sidebar from '../../src/components/Sidebar';
 import ConversationGroup from '../../src/features/student/chat/conversations/ConversationGroup';
-import TeacherClassesTab from '../../src/pages/teacher/TeacherClassesTab';
+import TeacherClassesTab from '../../src/features/teacher/classes/TeacherClassesTab';
 import { teacherApi } from '../../src/services/teacherApi';
 
 vi.mock('../../src/services/teacherApi', () => ({

@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import PageHeader from '../../../components/common/PageHeader';
 import { uiCopy } from '../../../constants/uiCopy';
-import TeacherClassesTab from '../../../pages/teacher/TeacherClassesTab';
+import TeacherClassesTab from './TeacherClassesTab';
 import { useTeacherDashboard } from '../dashboard/useTeacherDashboard';
 import TeacherActionCenter from './TeacherActionCenter';
 import { useTeacherActionCenter } from './useTeacherActionCenter';

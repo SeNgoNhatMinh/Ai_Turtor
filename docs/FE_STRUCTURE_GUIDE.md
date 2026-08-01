@@ -28,8 +28,8 @@ This guide records the production structure target after aligning the FE with th
 - `src/hooks/useStudentAssignmentsController.js` joins assignment and submission resources so status, score, feedback, and submitted-file download stay consistent after refresh.
 - `src/features/student/learning/useStudentLearningActions.js` owns page-level suggestion/plan actions used by Learning Progress.
 - `src/features/student/quizzes/usePracticeQuizzes.js` owns self-study/assigned quiz loading, generation, start, submit, review, and retry state; quiz panels remain presentational.
-- `src/pages/student/ChatWorkspace.jsx` only composes chat context, header, pinned bar, message timeline, and composer.
-- `src/pages/student/ChatMessageList.jsx` renders message turns and owns per-message mentor support presentation state.
+- `src/features/student/chat/components/ChatWorkspace.jsx` only composes chat context, header, pinned bar, message timeline, and composer.
+- `src/features/student/chat/components/ChatMessageList.jsx` renders message turns and owns per-message mentor support presentation state.
 - `App.jsx` is a thin shell and must not receive feature business logic.
 - `StudentPortal.jsx`, `TeacherPortal.jsx`, and the aggregate teacher runtime controller have been removed. Do not recreate role-level switch components.
 - Student page containers live under `features/student/{chat,learning,quizzes,materials,mentor-review}`.
@@ -39,12 +39,12 @@ This guide records the production structure target after aligning the FE with th
 - `TeacherSupportInbox.jsx` owns the active/history master-detail view. Any escalation with a canonical `chatRoomId` remains reviewable after completion through authenticated `/api/chat/history`; terminal rooms are read-only.
 - `src/features/teacher/materials/TeacherMaterialsPage.jsx` is the route controller, while `TeacherMaterialsView.jsx` only composes presentational cards, tables, and dialogs.
 - `useTeacherAssignmentsController.js` owns assignment draft/list/edit/publish state; `useTeacherMaterialController.js` owns material upload/reindex/delete state. Do not merge these concerns back into one route-level hook.
-- `src/pages/teacher/QuizAssignments.jsx` is a compatibility facade. Quiz assignment state and API mutations live in `features/teacher/quizzes/useQuizAssignmentsController.js`; generation, draft, list and publish UI live in focused `components/*` files.
-- `src/pages/teacher/TeacherGradingTab.jsx` only selects the active grading mode. Submission navigation, file-assignment grading and quiz-result review are separate components under `features/teacher/grading/components`.
+- `src/features/teacher/quizzes/QuizAssignments.jsx` is the quiz-assignment composition view. State and API mutations live in `useQuizAssignmentsController.js`; generation, draft, list and publish UI live in focused `components/*` files.
+- `src/features/teacher/grading/TeacherGradingTab.jsx` only selects the active grading mode. Submission navigation, file-assignment grading and quiz-result review are separate components under `features/teacher/grading/components`.
 - `src/components/importWebsite/ImportWebsiteModal.jsx` is shared by Admin and Teacher. It must use the backend `url-toc -> selection -> import-url` flow; do not add browser crawling, direct import before analysis, or a mock-success path.
 - Admin page containers live under `features/admin/{dashboard,users,academic}`.
 - Admin account, mentor and support-request resources are owned by `features/admin/users/useAdminUsersController.js`; each Admin Users tab has an independent table component under `features/admin/users/components`.
-- Route pages compose focused hooks; presentational screens under `pages/student` and `pages/teacher` must remain API-agnostic.
+- Route pages and their presentational views live together inside the owning feature. `src/pages` has been removed from runtime; do not recreate a parallel page hierarchy.
 - URL routes are canonical for navigation:
   - Student: `/student/chat`, `/student/progress`, `/student/quizzes`, `/student/materials`, `/student/mentor-review`
   - Teacher: `/teacher/classes`, `/teacher/quizzes`, `/teacher/materials`, `/teacher/grading`, `/teacher/review-queue`
@@ -117,7 +117,7 @@ The legacy `src/services/api.js` facade has been removed. Do not recreate a glob
 - Keep Student Chat CSS separated by layout, messages, markdown, message actions, history, support, dark mode, and responsive ownership under `src/features/student/chat/styles`.
 - Keep confirm-card and website-import styles beside their components instead of adding them back to `index.css`.
 - Keep Quiz CSS under `src/features/student/quizzes/styles`; page-owned Learning Progress and Admin Academic CSS stay beside their page orchestrators.
-- Keep Admin Academic tab views under `src/pages/admin/academic` and their shared entity mutation controller under `src/features/admin/academic`.
+- Keep Admin Academic route, tab views, hooks, styles and entity mutation controller together under `src/features/admin/academic`.
 - Keep Teacher material columns/cards/tables and route orchestration under `src/features/teacher/materials`.
 - Keep Tutor V2 shared UI, controller, validation and styles under `src/features/expert-training`.
 - `useExpertTrainingController.js` owns only mutations and the global mutation lock.
@@ -125,7 +125,7 @@ The legacy `src/services/api.js` facade has been removed. Do not recreate a glob
 - `hooks/useExpertTrainingRealtimeRefresh.js` owns WebSocket subscriptions, debounce, reconnect recovery, focus recovery, and canonical polling.
 - Teacher Task Board/Contribution and Senior/Admin Coverage/Review/Evaluation pages reuse the same domain services but remain role-specific route experiences.
 - Keep extracted subviews under `components/{coverage,contribution,evaluation,review}`; do not merge form, modal, table, and transport state back into one page component.
-- Keep shared Teacher display/record helpers under `src/features/teacher/shared`; `pages/teacher` must not own reusable logic.
+- Keep shared Teacher display/record helpers under `src/features/teacher/shared`; route-specific UI belongs to its owning `src/features/teacher/*` folder.
 - Check production chunk output with `npm run build` after moving an import.
 
 ## Frontend Verification

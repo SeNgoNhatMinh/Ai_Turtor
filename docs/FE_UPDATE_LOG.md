@@ -1,5 +1,19 @@
 # Frontend Update Log
 
+## 2026-08-02 - Feature-Owned Route Migration
+
+- Removed the obsolete `src/pages` hierarchy after migrating all remaining Student, Teacher and Admin route views into their owning `src/features/*` domains.
+- Moved Student chat composition and message controls into `features/student/chat`, Learning Progress into `features/student/learning`, Practice Quiz into `features/student/quizzes`, and Mentor Review into `features/student/mentor-review`.
+- Moved Teacher classes, quizzes, grading and review views into their existing role features without changing route behavior, API payloads or permissions.
+- Moved Admin Dashboard, Users and the complete Academic workflow into `features/admin/{dashboard,users,academic}`; Academic tabs, hooks, styles and entity utilities now share one ownership boundary.
+- Updated unit-test imports and architecture documentation so new code cannot depend on the removed legacy paths.
+- Kept Senior as an explicit production role under `features/senior`; no fake `pages/senior` layer was introduced.
+
+**Tested**
+- `npm run check`: pass (`108` contract tests, `96` component/unit tests, ESLint and production build).
+- `npm run dead-code` and `git diff --check`: pass.
+- Full desktop/mobile Playwright E2E: `28/28` pass.
+
 ## 2026-08-02 - Tutor V2 Layout Alignment
 
 - Aligned the Admin/Senior `Giám sát Tutor V2` page with the shared authenticated page grid instead of stacking feature padding on top of the app shell.

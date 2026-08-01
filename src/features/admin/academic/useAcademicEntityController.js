@@ -9,7 +9,7 @@ import {
   getEnrollmentId,
   getRecordId,
   getSemesterCode,
-} from '../../../pages/admin/academic/adminAcademicUtils';
+} from './adminAcademicUtils';
 
 const EMPTY_MODAL = { open: false, type: '', mode: 'view', record: null };
 

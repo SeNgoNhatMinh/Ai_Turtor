@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import ConversationSearch from '../../src/pages/student/ConversationSearch';
+import ConversationSearch from '../../src/features/student/chat/components/ConversationSearch';
 
 describe('ConversationSearch', () => {
   it('keeps a stable accessible search input and clears the query', () => {

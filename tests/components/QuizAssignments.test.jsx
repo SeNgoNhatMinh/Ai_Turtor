@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import QuizAssignments from '../../src/pages/teacher/QuizAssignments';
+import QuizAssignments from '../../src/features/teacher/quizzes/QuizAssignments';
 import { quizApi } from '../../src/services/quizApi';
 import { teacherApi } from '../../src/services/teacherApi';
 import { quizGateway } from '../../src/features/ai-harness/quizGateway';
@@ -27,7 +27,7 @@ vi.mock('../../src/services/teacherApi', () => ({
   },
 }));
 
-vi.mock('../../src/pages/teacher/QuizDraftEditor', () => ({
+vi.mock('../../src/features/teacher/quizzes/QuizDraftEditor', () => ({
   default: ({ onSave, onStateChange, draft: editorDraft }) => (
     <div>
       Draft editor

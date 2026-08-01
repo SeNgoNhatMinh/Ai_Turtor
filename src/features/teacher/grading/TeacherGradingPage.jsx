@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import PageHeader from '../../../components/common/PageHeader';
 import { uiCopy } from '../../../constants/uiCopy';
-import TeacherGradingTab from '../../../pages/teacher/TeacherGradingTab';
+import TeacherGradingTab from './TeacherGradingTab';
 import { assignmentApi } from '../../../services/assignmentApi';
 import { getUserFacingError } from '../../../services/apiClient';
 import { useTeacherDashboard } from '../dashboard/useTeacherDashboard';
