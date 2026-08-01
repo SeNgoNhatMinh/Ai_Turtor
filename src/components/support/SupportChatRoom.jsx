@@ -10,6 +10,7 @@ function SupportChatRoom({
   allowClose = false,
   onClosed,
   compact = false,
+  readOnly = false,
 }) {
   const [draft, setDraft] = useState('');
   const [showCloseForm, setShowCloseForm] = useState(false);
@@ -28,9 +29,10 @@ function SupportChatRoom({
     loadRoom,
     sendMessage,
     closeRoom,
-  } = useSupportChatRoom({ chatRoomId, currentUser });
+  } = useSupportChatRoom({ chatRoomId, currentUser, realtimeEnabled: !readOnly });
 
   const isClosed = String(detail?.status || '').toUpperCase() === 'CLOSED';
+  const canCompose = !readOnly && !isClosed;
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -56,7 +58,9 @@ function SupportChatRoom({
           <span>{senderRole === 'STUDENT' ? 'Trao đổi với giáo viên' : `Sinh viên: ${detail?.userName || 'Sinh viên'}`}</span>
         </div>
         <div className="support-chat-room__status">
-          <Tag color={isClosed ? 'default' : 'green'}>{isClosed ? 'Đã đóng' : 'Đang hoạt động'}</Tag>
+          <Tag color={isClosed || readOnly ? 'default' : 'green'}>
+            {isClosed || readOnly ? 'Lịch sử trao đổi' : 'Đang hoạt động'}
+          </Tag>
           <span className={`support-chat-socket is-${connectionState}`}>
             {connectionState === 'connected' ? 'Trực tiếp' : 'Tự làm mới'}
           </span>
@@ -84,7 +88,7 @@ function SupportChatRoom({
         <div ref={endRef} />
       </div>
 
-      {!isClosed && (
+      {canCompose && (
         <div className="support-chat-room__composer">
           <Input.TextArea
             value={draft}
@@ -104,7 +108,7 @@ function SupportChatRoom({
         </div>
       )}
 
-      {allowClose && !isClosed && (
+      {allowClose && canCompose && (
         <div className="support-chat-room__close">
           {!showCloseForm ? (
             <Button type="text" danger icon={<XCircle size={15} />} onClick={() => setShowCloseForm(true)}>Đóng và đánh giá</Button>

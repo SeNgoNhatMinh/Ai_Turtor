@@ -1,4 +1,4 @@
-import { Tabs } from 'antd';
+import AppTabs from '../../../components/common/AppTabs';
 import PageHeader from '../../../components/common/PageHeader';
 import { uiCopy } from '../../../constants/uiCopy';
 import AssignmentDetailsPanel from './components/AssignmentDetailsPanel';
@@ -63,7 +63,7 @@ export default function MaterialsAssignmentsView({
 
   return (
     <div className="portal-section student-materials-page">
-      <PageHeader title={uiCopy.student.materials.title} description={uiCopy.student.materials.subtitle} />
+      <PageHeader eyebrow="Học liệu & bài tập" title={uiCopy.student.materials.title} description={uiCopy.student.materials.subtitle} />
       <MaterialsCourseContext
         courseId={courseId}
         classId={classId}
@@ -71,7 +71,7 @@ export default function MaterialsAssignmentsView({
         loading={enrollmentsLoading}
         onCourseChange={onCourseChange}
       />
-      <Tabs defaultActiveKey="assignments" type="card" items={tabItems} style={{ width: '100%' }} />
+      <AppTabs defaultActiveKey="assignments" items={tabItems} />
     </div>
   );
 }

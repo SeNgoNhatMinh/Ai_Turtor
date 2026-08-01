@@ -8,6 +8,15 @@
   color: #202123;
 }
 
+/* Reviewer pages share the same content grid as the other Admin/Senior routes. */
+.expert-training-page--reviewer {
+  padding: 0 24px 24px;
+}
+
+.expert-training-page--reviewer .expert-training__tabs {
+  margin-top: 0;
+}
+
 .expert-training__course-select {
   width: min(320px, 42vw);
 }
@@ -31,23 +40,39 @@
   margin-top: 18px;
 }
 
-.expert-training__tabs > .ant-tabs-nav {
-  margin-bottom: 18px;
-}
-
 .expert-training__tabs .ant-tabs-content-holder,
 .expert-training__tabs .ant-tabs-content,
 .expert-training__tabs .ant-tabs-tabpane {
   min-width: 0;
 }
 
-.expert-training__canonical-note {
-  min-width: min(100%, 260px);
-  font-size: 12px;
+.expert-training__workflow-guide {
+  display: grid;
+  grid-template-columns: minmax(190px, 0.34fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 22px;
+  margin-top: 4px;
+  padding: 14px 16px;
+  border: 1px solid #e5e5e0;
+  border-radius: 8px;
+  background: #fafafa;
 }
 
-.expert-training__role-guide {
-  margin-top: 14px;
+.expert-training__workflow-guide > div > strong,
+.expert-training__workflow-guide > div > span {
+  display: block;
+}
+
+.expert-training__workflow-guide > div > strong {
+  color: #202123;
+  font-size: 14px;
+}
+
+.expert-training__workflow-guide > div > span {
+  margin-top: 4px;
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .expert-training__overview,
@@ -204,10 +229,6 @@
 
 .expert-training__table-row--selected > td {
   background: rgba(243, 112, 33, 0.08) !important;
-}
-
-.expert-training__content-tabs > .ant-tabs-nav {
-  margin-bottom: 16px;
 }
 
 .expert-training__section {

@@ -1,6 +1,7 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect, useRef } from 'react';
 import { Outlet } from 'react-router-dom';
 import { useAppNavigation } from './app/useAppNavigation';
+import { getHomeRouteForRole } from './app/routes';
 import Toast from './components/Toast';
 import { useAuthSession } from './features/auth/hooks/useAuthSession';
 import { useToastMessage } from './hooks/useToastMessage';
@@ -24,20 +25,41 @@ function App() {
     currentUser: auth.currentUser,
     currentUserRole: auth.currentUserRole,
   });
+  const { navigate } = navigation;
   const toast = useToastMessage();
+  const authIdentityRef = useRef('');
+  const hasInitializedAuthIdentityRef = useRef(false);
+
+  useEffect(() => {
+    const accountRole = auth.currentUser?.originalRole || auth.currentUser?.role || '';
+    const identity = auth.currentUserId && accountRole
+      ? `${auth.currentUserId}:${accountRole}`
+      : '';
+
+    if (!hasInitializedAuthIdentityRef.current) {
+      hasInitializedAuthIdentityRef.current = true;
+      authIdentityRef.current = identity;
+      return;
+    }
+
+    if (identity && identity !== authIdentityRef.current) {
+      navigate(getHomeRouteForRole(accountRole), { replace: true });
+    }
+    authIdentityRef.current = identity;
+  }, [auth.currentUser, auth.currentUserId, navigate]);
 
   const handleLoginSuccess = (user) => {
-    const { role } = auth.completeLogin(user);
+    const { accountRole } = auth.completeLogin(user);
     navigation.setCourseId('');
     navigation.setClassId('');
-    navigation.handleRoleChange(role);
+    navigate(getHomeRouteForRole(accountRole), { replace: true });
   };
 
   const handleLogout = () => {
     navigation.setCourseId('');
     navigation.setClassId('');
     auth.logout();
-    navigation.navigate('/login', { replace: true });
+    navigate('/login', { replace: true });
   };
 
   const workspaceProps = {

@@ -1,5 +1,114 @@
 # Frontend Update Log
 
+## 2026-08-02 - Tutor V2 Layout Alignment
+
+- Aligned the Admin/Senior `Giám sát Tutor V2` page with the shared authenticated page grid instead of stacking feature padding on top of the app shell.
+- Aligned `Giám sát chất lượng AI` and its review workspace to the same Admin/Senior page grid with a dedicated responsive feature stylesheet.
+- Standardized spacing between the page header, course scope bar, and workflow tabs while leaving Teacher task and contribution layouts unchanged.
+- Added desktop/mobile E2E geometry assertions so the Tutor V2 header, scope bar, and tabs keep the same horizontal edges without page overflow.
+- Split the 615-line Teacher Review stylesheet into component-owned shared workspace, Answer Review, and Teacher Support stylesheets. Admin/Senior Quality Review no longer downloads Teacher ChatRoom layout rules.
+- Removed obsolete Answer Review selectors left by the replaced button-based view switch and legacy single-column layout.
+
+**Measured**
+- Quality Review route CSS: about `9.94 KB` to about `5 KB` across its route and shared Answer Review chunks.
+- Teacher support-only CSS is now a separate `4.07 KB` route chunk.
+
+**Tested**
+- Targeted review unit tests: `9/9` pass.
+- Desktop/mobile Admin Quality Review and Teacher ChatRoom E2E: `4/4` pass.
+- ESLint, production build and dead-code audit: pass.
+
+## 2026-08-01 - Runtime UI Stack Cleanup
+
+- Removed the parallel shadcn/Radix/Tailwind UI stack and standardized the remaining Quiz Runner and Teacher Materials screens on Ant Design.
+- Replaced TanStack Table with a focused shared `DataTable` that preserves the existing column contract, loading/empty states, responsive scrolling and local pagination without a table engine dependency.
+- Moved the shared table from the obsolete `components/ui` folder into `components/common` and removed all unused shadcn components and helpers.
+- Removed Tailwind/PostCSS configuration and runtime CSS directives after a source-wide scan confirmed that no feature still relies on Tailwind utilities.
+- Removed 110 installed packages, including Radix primitives, TanStack Table, Tailwind, class-variance-authority and Tailwind merge helpers.
+- Simplified Quiz Runner submitting feedback and removed large decorative animations while preserving question selection and canonical submit payloads.
+- Rebuilt Teacher material upload, assignment publication and resource tables with semantic feature CSS while preserving class scope, validation, file constraints and backend-only success handling.
+- Enabled `destroyOnHidden` for Admin Academic tabs so inactive large forms/tables release their DOM without losing controller-owned canonical data.
+- No backend endpoint, payload, role permission, mock state or success fallback changed.
+
+**Measured**
+- `TeacherMaterialsPage` JavaScript: about `100.5 KB` to `27.9 KB`.
+- Shared `DataTable` JavaScript: about `49.4 KB` to `2.1 KB`.
+- Initial CSS: about `104.6 KB` to `79.6 KB`.
+- Installed dependencies: about `426 MB` to `402 MB`; production `dist`: about `4.7 MB` to `4.5 MB`.
+
+**Tested**
+- `npm run check`: pass (`108` contract tests, `96` component/unit tests, ESLint and production build).
+- `npm run dead-code`: pass.
+- Full desktop/mobile Playwright E2E: `28/28` pass, including Admin Academic actions and anchored confirms.
+
+## 2026-08-01 - Portal Readability Refactor
+
+- Fixed Practice Quiz guide and suggested-topic overflow by allowing grid/card children to shrink and wrapping long suggestion text inside the card on desktop and mobile.
+- Fixed dark-mode page header contrast by defining shared primary, secondary and muted text tokens for the dark app shell; `Tiến độ học tập` and other shared page titles now remain readable.
+- Standardized Student, Teacher, Senior and Admin feature headers on the Practice Quiz hierarchy: contextual eyebrow, bordered hero surface, readable title/subtitle, right-aligned actions, responsive stacking and matching dark mode.
+- Migrated Student Practice Quiz and Teacher Quiz away from duplicate local header markup so future header changes remain centralized in `PageHeader`.
+- Simplified shared page typography, subtitle measure, scope bars, action queues and surfaces for a flatter ChatGPT-style visual hierarchy.
+- Removed technical n8n, WebSocket and REST implementation badges from Teacher/Senior primary workflows; operational state remains available through diagnostics and canonical refetch behavior is unchanged.
+- Removed the redundant Senior workflow stepper because the shared Coverage, Review and Evaluation tabs already represent the same navigation sequence.
+- Kept the Teacher knowledge workflow guide, but reduced its visual weight and retained only information needed to complete a task safely.
+- Flattened Teacher assigned-class rows, replaced the teal selection treatment with a neutral selected state and FPT accent, and removed decorative shadows from learning-signal cards.
+- Removed hover styling from non-interactive cards and fixed the disconnected Ant Design review form warning.
+- Updated E2E assertions to match the unified dark-mode tab style and Vietnamese `Lịch sử chat` label.
+- No API endpoint, payload, role permission or canonical state behavior changed.
+
+**Tested**
+- `npm run check`: pass (`108` contract tests, `96` component/unit tests, ESLint and production build).
+- `npm run dead-code`: pass.
+- Full desktop/mobile E2E: `28/28` pass; targeted Tutor V2 rerun after the form-warning fix: `2/2` pass.
+- Practice Quiz overflow regression test: `2/2` pass on desktop and mobile Chrome.
+- Real Teacher, Senior and Admin sessions were visually checked at 1440 px with no page-level horizontal overflow.
+
+## 2026-08-01 - Minimal App UI, Speech Input And Consistent Ant Tabs
+
+- Simplified the authenticated app shell with neutral surfaces, smaller radii, lighter shadows, no seasonal animation, and no decorative card movement. FPT orange remains reserved for primary actions.
+- Refined Student Chat to a flatter ChatGPT-style layout and standardized Vietnamese history labels.
+- Added browser-native Vietnamese speech-to-text to the chat composer without a new dependency. Speech only updates the draft; the Student still controls when the message is sent.
+- Added permission, unsupported-browser, missing-microphone, no-speech, and network error states for voice input.
+- Kept the native Ant Design `Tabs` structure and standardized every runtime tab group through the shared `AppTabs` component. Admin Academic, Practice Quizzes, Materials & Assignments, Teacher Review, Expert Co-Training, Admin Dashboard, Admin Users, and Profile now share the same `ant-tabs-nav-list` layout, responsive behavior, and light/dark styling.
+- Removed obsolete per-page `ant-tabs-card`, quiz-tab, Teacher Review, and Expert Training overrides that previously made each tab bar look different.
+- Fixed the Class Section form structure that caused the Ant Design multiple-child `Form.Item` warning.
+
+**Tested**
+- `npm run check`: pass (`108` contract tests, `96` component/unit tests, ESLint and production build).
+- `npm run dead-code`: pass.
+- Targeted desktop/mobile E2E for Practice Quizzes, Admin routes, Admin Academic controls, reduced motion, and Teacher history: `10/10` pass.
+
+## 2026-08-01 - Separate Teacher/Senior Workflows And Support Chat History
+
+- Split Teacher support, Senior quality review, Admin quality review, Senior Tutor V2, and Admin Tutor V2 into role-owned route pages instead of branching one shared role page at runtime.
+- Rebuilt Teacher review as a two-column support inbox with independent scrolling, clear pending/history filters, full question wrapping, and responsive dark-mode styles.
+- Allowed Teacher and Student to reopen canonical ChatRoom history after an escalation is answered or completed. Closed rooms are read-only and never create fake realtime state.
+- Kept Senior/Admin focused on answer review and Knowledge Candidate decisions; class support chat is not rendered in those workspaces.
+- Added concise workflow steppers to Teacher tasks and Senior/Admin Tutor V2 so the next business action is visible without long instructional alerts.
+- Fixed account-role navigation after switching identities so a Senior login cannot remain on a stale Teacher URL.
+- Removed the unused legacy Teacher support tab and unused exports reported by the dead-code audit.
+
+**Tested**
+- `npm run check`: pass (`108` contract tests, `93` component/unit tests, ESLint and production build).
+- `npm run dead-code`: pass.
+- `npm run test:e2e -- --workers=2`: pass (`26/26`, desktop and mobile).
+
+# 2026-08-01 - Teacher/Senior UX Separation And Support Chat History
+
+- Tách page theo account role: Teacher, Senior Mentor và Admin không còn mount chung `TeacherReviewPage`.
+- Teacher Review dùng hai khu vực rõ ràng: `Hỗ trợ sinh viên` và `Phản hồi AI`.
+- Senior/Admin có page kiểm duyệt chất lượng riêng; không nhìn thấy ChatRoom của lớp.
+- Bổ sung master-detail cho Teacher support, danh sách và chi tiết cuộn độc lập, câu hỏi dài không bị cắt.
+- Ticket `COMPLETED/CLOSED/ANSWERED` có `chatRoomId` nay mở lại được toàn bộ `/api/chat/history` ở chế độ chỉ đọc.
+- Student cũng xem lại được ChatRoom đã hoàn tất trong Mentor Review.
+- Tách route page Tutor V2 cho Senior/Admin; component domain vẫn dùng chung để không duplicate logic.
+- Thay banner V2 dài bằng workflow stepper theo vai trò; đổi nhãn `Coverage` và `Evaluation` sang tiếng Việt dễ hiểu hơn.
+- Xóa `TeacherSupportQueueTab.jsx` cũ sau khi dead-code scan xác nhận không còn runtime import.
+
+**Tested**
+- `npm run check`: pass (`108` contract tests, `93` component/unit tests, ESLint và production build).
+- `npm run dead-code`: pass.
+
 # 2026-07-24 - Role-Specific Expert Co-Training V2
 
 - Split Tutor V2 by authenticated account role instead of sharing one four-tab page.

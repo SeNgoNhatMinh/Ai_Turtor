@@ -129,7 +129,7 @@ export const normalizeTeacherInboxItem = (item) => ({
   question: item.originalQuestion || item.question || item.questionPreview || '',
 });
 
-export const normalizeAnswerReviewEvidence = (item) => ({
+const normalizeAnswerReviewEvidence = (item) => ({
   reviewId: item?.reviewId || item?.id || '',
   studentId: item?.studentId || '',
   rating: Number.isFinite(Number(item?.rating)) ? Number(item.rating) : null,

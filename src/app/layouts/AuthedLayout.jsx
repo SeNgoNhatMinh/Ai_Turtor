@@ -1,6 +1,8 @@
+import { useEffect } from 'react';
 import Header from '../../components/Header';
 import Sidebar from '../../components/Sidebar';
 import Toast from '../../components/Toast';
+import { closeActiveConfirm } from '../../components/common/confirmDialog';
 import './AuthedLayout.css';
 
 export default function AuthedLayout({
@@ -15,6 +17,12 @@ export default function AuthedLayout({
   onCloseToast,
   children,
 }) {
+  useEffect(() => {
+    // A confirm portal must never survive a page/tab change and cover the app.
+    closeActiveConfirm();
+    return closeActiveConfirm;
+  }, [activeTab]);
+
   return (
     <div className={`app-container ${isDarkMode ? 'dark' : 'light'}`}>
       <Header

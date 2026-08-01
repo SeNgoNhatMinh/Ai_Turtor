@@ -1,7 +1,7 @@
 import { Button, Card, Col, Form, Input, InputNumber, Row } from 'antd';
 import { CheckCircle2, Eye, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import EntityActionMenu from '../../../components/common/EntityActionMenu';
-import { DataTable } from '../../../components/ui/data-table';
+import { DataTable } from '../../../components/common/DataTable';
 import StatusLabel from '../../../components/common/StatusLabel';
 
 const actionItems = [
@@ -15,7 +15,7 @@ const actionItems = [
 function CoursesTab({ form, courses, onCreate, onReload, onAction }) {
   return (
     <Row gutter={[16, 16]}>
-      <Col xs={24} md={10}>
+      <Col xs={24} xl={10}>
         <Card title="Tạo môn học mới" hoverable>
           <Form form={form} layout="vertical" onFinish={onCreate}>
             <Form.Item name="courseId" label="Mã môn học" rules={[{ required: true }]}>
@@ -31,7 +31,7 @@ function CoursesTab({ form, courses, onCreate, onReload, onAction }) {
           </Form>
         </Card>
       </Col>
-      <Col xs={24} md={14} style={{ minWidth: 0 }}>
+      <Col xs={24} xl={14} style={{ minWidth: 0 }}>
         <Card title="Danh sách môn học" hoverable extra={<Button size="small" onClick={onReload} icon={<RefreshCw size={14} />}>Làm mới</Button>}>
           <DataTable
             data={courses || []}

@@ -49,9 +49,15 @@ export function useAcademicRecords({
 
   const loadClassSections = async (courseId) => {
     setAcademicLoading(true);
-    const data = await adminAcademicApi.getClassSections(courseId);
-    setClassSections(Array.isArray(data) ? data : []);
-    setAcademicLoading(false);
+    try {
+      const data = await adminAcademicApi.getClassSections(courseId);
+      setClassSections(Array.isArray(data) ? data : []);
+    } catch (error) {
+      setClassSections([]);
+      triggerToast(getUserFacingError(error, 'Không thể tải danh sách lớp học phần.'));
+    } finally {
+      setAcademicLoading(false);
+    }
   };
 
   const handleCourseSelect = (courseId) => {

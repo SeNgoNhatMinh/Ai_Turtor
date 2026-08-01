@@ -36,7 +36,7 @@ describe('useTeacherDashboard class assignment loading', () => {
       expect.objectContaining({
         courseId: 'AI101',
         classId: 'AI101-01',
-        name: 'Class AI101-01',
+        name: 'Lớp AI101-01',
       }),
     ]));
   });

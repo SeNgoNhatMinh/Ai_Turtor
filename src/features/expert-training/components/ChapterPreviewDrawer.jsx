@@ -17,6 +17,7 @@ export default function ChapterPreviewDrawer({
   pendingAction,
   onClose,
   onCreateTasks,
+  onConfirmChapter,
   onOpenMaterial,
 }) {
   const [includeTraining, setIncludeTraining] = useState(true);
@@ -34,6 +35,12 @@ export default function ChapterPreviewDrawer({
       includeEvaluationGoldTask: includeEvaluation,
       dueAt: toExpertTaskDueAtPayload(dueAtLocal),
     });
+  };
+
+  const confirmChapter = async () => {
+    const chapterKey = chapter?.chapterKey || chapter?.id;
+    if (!chapterKey || !preview?.hasMaterialContent) return;
+    await onConfirmChapter?.(chapter);
   };
 
   return (
@@ -78,12 +85,21 @@ export default function ChapterPreviewDrawer({
                 </label>
               </Space>
               {!isConfirmed && (
-                <Alert
-                  type="warning"
-                  showIcon
-                  title="Xác nhận chapter trước khi tạo task"
-                  description="Task phải tham chiếu chapter canonical đã được Senior/Admin xác nhận."
-                />
+                <Space orientation="vertical" className="expert-training__full-width">
+                  <Alert
+                    type="warning"
+                    showIcon
+                    title="Xác nhận chapter trước khi tạo task"
+                    description="Kiểm tra nội dung nguồn bên trên, sau đó xác nhận chapter này."
+                  />
+                  <Button
+                    onClick={confirmChapter}
+                    disabled={!preview.hasMaterialContent || Boolean(pendingAction)}
+                    loading={pendingAction === 'confirm-chapters'}
+                  >
+                    Xác nhận chapter này
+                  </Button>
+                </Space>
               )}
               {isConfirmed && !preview.hasMaterialContent && (
                 <Alert

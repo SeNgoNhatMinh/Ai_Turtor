@@ -34,7 +34,7 @@ export default function TeacherMaterialsView({
   });
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-1">
+    <div className="teacher-materials-grid">
       <TeacherMaterialUploadCard
         courseId={scope.courseId}
         classId={scope.classId}

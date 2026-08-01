@@ -1,10 +1,11 @@
 import { useCallback, useState } from 'react';
-import { Alert, Button, Select, Space, Tag, Typography } from 'antd';
+import { Button, Select } from 'antd';
 import { RefreshCw } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import AsyncState from '../../components/common/AsyncState';
 import PageHeader from '../../components/common/PageHeader';
 import ScopeBar from '../../components/common/ScopeBar';
+import WorkflowStepper from '../../components/common/WorkflowStepper';
 import { expertTrainingApi } from '../../services/expertTrainingApi';
 import { getUserFacingError } from '../../services/httpClient';
 import ExpertTaskBoard from './components/ExpertTaskBoard';
@@ -12,7 +13,12 @@ import TaskPreviewDrawer from './components/TaskPreviewDrawer';
 import { useExpertTrainingController } from './useExpertTrainingController';
 import './ExpertTraining.css';
 
-const { Text } = Typography;
+const TEACHER_STEPS = [
+  { key: 'open', title: 'Chọn task', description: 'Đọc yêu cầu và học liệu' },
+  { key: 'assigned', title: 'Nhận việc', description: 'Khóa task cho tài khoản của bạn' },
+  { key: 'contribute', title: 'Đóng góp', description: 'Soạn Gold Q&A hoặc Rubric' },
+  { key: 'review', title: 'Chờ duyệt', description: 'Senior đối chiếu trước khi dùng' },
+];
 
 export default function TeacherExpertTasksPage({
   currentUser,
@@ -78,11 +84,15 @@ export default function TeacherExpertTasksPage({
     }
   }, [courseId, triggerToast]);
 
-  const connectionColor = controller.connectionState === 'CONNECTED' ? 'green' : 'orange';
+  const taskStatuses = new Set(controller.resources.tasks.map((task) => String(task.status || '').toUpperCase()));
+  const activeStep = taskStatuses.has('SUBMITTED') ? 3
+    : taskStatuses.has('ASSIGNED') || taskStatuses.has('IN_PROGRESS') ? 2
+      : taskStatuses.has('OPEN') ? 0 : 0;
 
   return (
     <div className="expert-training-page">
       <PageHeader
+        eyebrow="Chất lượng AI"
         title="Công việc tri thức AI"
         description="Xem trước học liệu, kiểm tra hạn Senior giao, nhận task và đóng góp nội dung có kiểm soát."
       />
@@ -113,22 +123,15 @@ export default function TeacherExpertTasksPage({
             label: course.name && course.name !== course.id ? `${course.id} · ${course.name}` : course.id,
           }))}
         />
-        <Space wrap size={[6, 6]}>
-          <Tag color="blue">Giảng viên</Tag>
-          <Tag color={connectionColor}>Realtime {controller.connectionState === 'CONNECTED' ? 'đã kết nối' : 'đang kết nối lại'}</Tag>
-        </Space>
-        <Text type="secondary" className="expert-training__canonical-note">
-          Chỉ task của môn được phân công mới xuất hiện tại đây.
-        </Text>
       </ScopeBar>
 
-      <Alert
-        className="expert-training__role-guide"
-        type="info"
-        showIcon
-        title="Xem trước → nhận task → đọc tài liệu → đóng góp → chờ Senior duyệt"
-        description="Bạn có thể mở Xem trước để đọc học liệu chương và hạn hoàn thành trước khi nhận task. Nội vừa gửi chưa vào AI cho đến khi được duyệt."
-      />
+      <section className="expert-training__workflow-guide" aria-label="Quy trình đóng góp tri thức">
+        <div>
+          <strong>Việc bạn cần làm</strong>
+          <span>Nội dung vừa gửi chưa vào AI cho đến khi Senior phê duyệt.</span>
+        </div>
+        <WorkflowStepper steps={TEACHER_STEPS} activeIndex={activeStep} />
+      </section>
 
       <AsyncState
         loading={controller.loading.courses && !controller.courses.length}

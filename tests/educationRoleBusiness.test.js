@@ -24,6 +24,7 @@ const roles = ['STUDENT', 'TEACHER', 'SENIOR_MENTOR', 'ADMIN'];
 test('education routes: each role has a home and student cannot open expert-training shells', () => {
   assert.equal(getHomeRouteForRole('STUDENT'), '/student/chat');
   assert.equal(getHomeRouteForRole('TEACHER'), '/teacher/classes');
+  assert.equal(getHomeRouteForRole('SENIOR_MENTOR'), '/senior/review');
   assert.equal(getHomeRouteForRole('ADMIN'), '/admin/dashboard');
 
   const studentPaths = appRoutes.filter((route) => route.role === 'student').map((route) => route.path);
@@ -40,6 +41,7 @@ test('education navigation tabs stay within each workspace role', () => {
   );
   const studentTabs = tabsForRole('student');
   const teacherTabs = tabsForRole('teacher');
+  const seniorTabs = tabsForRole('senior');
   const adminTabs = tabsForRole('admin');
 
   assert.ok(studentTabs.has('student-quizzes'));
@@ -48,7 +50,12 @@ test('education navigation tabs stay within each workspace role', () => {
   assert.ok(teacherTabs.has('teacher-quizzes'));
   assert.ok(teacherTabs.has('teacher-grading'));
   assert.ok(teacherTabs.has('teacher-expert-training'));
+  assert.ok(!teacherTabs.has('senior-review'));
+  assert.ok(seniorTabs.has('senior-review'));
+  assert.ok(seniorTabs.has('senior-v2'));
+  assert.ok(!seniorTabs.has('admin-users'));
   assert.ok(adminTabs.has('admin-expert-training'));
+  assert.ok(!adminTabs.has('senior-review'));
 });
 
 test('student next steps surface pending quizzes and assignments without completed noise', () => {

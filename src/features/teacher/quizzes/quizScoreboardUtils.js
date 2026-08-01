@@ -6,7 +6,7 @@ const asTime = (value) => {
   return Number.isFinite(time) ? time : 0;
 };
 
-export function getQuizAssignmentTargetStudents(assignment, classStudents = []) {
+function getQuizAssignmentTargetStudents(assignment, classStudents = []) {
   const targetType = String(assignment?.targetType || 'CLASS').toUpperCase();
   const roster = Array.isArray(classStudents) ? classStudents : [];
   if (targetType === 'SELECTED_STUDENTS') {
@@ -38,7 +38,7 @@ export function getTeacherQuizAttemptRowStatus(attempt) {
   return { label: status || '—', tone: 'default' };
 }
 
-export function formatQuizScoreboardScore(attempt) {
+function formatQuizScoreboardScore(attempt) {
   if (!attempt) return '—';
   const maxScore = Number(attempt.maxScore);
   const finalScore = attempt.finalScore ?? attempt.teacherReviewedScore ?? attempt.score ?? attempt.autoScore;
@@ -50,7 +50,7 @@ export function formatQuizScoreboardScore(attempt) {
     : String(finalScore);
 }
 
-export function formatQuizScoreboardPercent(attempt) {
+function formatQuizScoreboardPercent(attempt) {
   if (!attempt) return '—';
   const value = attempt.finalPercentage ?? attempt.percentage ?? attempt.autoPercentage;
   if (value == null || Number.isNaN(Number(value))) return '—';

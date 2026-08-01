@@ -85,7 +85,7 @@ export default function TeacherGradingPage({ teacherId, courseId, classId, trigg
 
   return (
     <div className="portal-section teacher-feature-page">
-      <PageHeader title={uiCopy.teacher.grading.title} description={uiCopy.teacher.grading.subtitle} />
+      <PageHeader eyebrow="Giảng dạy" title={uiCopy.teacher.grading.title} description={uiCopy.teacher.grading.subtitle} />
       <TeacherGradingTab
         teacherSubmissions={grading.teacherSubmissions}
         quizSubmissions={grading.quizSubmissions}

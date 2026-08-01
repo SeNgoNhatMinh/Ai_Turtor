@@ -6,11 +6,13 @@ import { getHomeRouteForRole } from '../routes';
 
 const StudentWorkspace = lazy(() => import('./StudentWorkspace'));
 const TeacherWorkspace = lazy(() => import('./TeacherWorkspace'));
+const SeniorWorkspace = lazy(() => import('./SeniorWorkspace'));
 const AdminWorkspace = lazy(() => import('./AdminWorkspace'));
 
 const workspaces = {
   student: StudentWorkspace,
   teacher: TeacherWorkspace,
+  senior: SeniorWorkspace,
   admin: AdminWorkspace,
 };
 
@@ -45,7 +47,7 @@ export default function WorkspaceRoute({ role, activeTab, allowedAccountRoles = 
 
   if (!Workspace) return null;
   if (allowedAccountRoles?.length && !allowedAccountRoles.includes(accountRole)) {
-    return <ForbiddenPage homeRoute={getHomeRouteForRole(context.currentUserRole)} />;
+    return <ForbiddenPage homeRoute={getHomeRouteForRole(accountRole)} />;
   }
   if (context.currentUserRole !== 'admin' && context.currentUserRole !== role) {
     return <Navigate to={getHomeRouteForRole(context.currentUserRole)} replace />;

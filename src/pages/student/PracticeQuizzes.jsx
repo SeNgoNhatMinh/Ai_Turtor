@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { Alert, Button, Empty, Space, Spin, Tabs, Tag, Typography } from 'antd';
+import { Alert, Button, Empty, Space, Spin, Tag } from 'antd';
 import {
   BookOutlined,
   CheckCircleOutlined,
@@ -14,13 +14,13 @@ import QuizStatCard from '../../features/student/quizzes/QuizStatCard';
 import { formatQuizDateTime } from '../../features/student/quizzes/practiceQuizUtils';
 import { usePracticeQuizzes } from '../../features/student/quizzes/usePracticeQuizzes';
 import AsyncState from '../../components/common/AsyncState';
+import AppTabs from '../../components/common/AppTabs';
+import PageHeader from '../../components/common/PageHeader';
 import { uiCopy } from '../../constants/uiCopy';
 import './Quiz.css';
 
 const QuizRunner = lazy(() => import('./QuizRunner'));
 const QuizResult = lazy(() => import('./QuizResult'));
-
-const { Text, Title } = Typography;
 
 function PracticeQuizzes({
   studentId,
@@ -118,22 +118,22 @@ function PracticeQuizzes({
 
   return (
     <div className="portal-section quiz-page">
-      <div className="quiz-hero">
-        <div className="quiz-hero-copy">
-          <span className="quiz-eyebrow">Quiz luyện tập</span>
-          <Title level={3} style={{ margin: 0 }}>{uiCopy.student.quizzes.title}</Title>
-          <Text>{uiCopy.student.quizzes.subtitle}</Text>
-        </div>
-        <div className="quiz-hero-actions">
-          <Space wrap>
-            {courseId && <Tag color="orange">Môn: {courseId}</Tag>}
-            {classId && <Tag>Lớp: {classId}</Tag>}
-          </Space>
-          <Button icon={<ReloadOutlined />} onClick={quiz.loadQuizzes} loading={quiz.loadingKey === 'refresh'} disabled={!quiz.hasContext}>
-            {uiCopy.common.refresh}
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="Quiz luyện tập"
+        title={uiCopy.student.quizzes.title}
+        description={uiCopy.student.quizzes.subtitle}
+        actions={(
+          <>
+            <Space wrap>
+              {courseId && <Tag color="orange">Môn: {courseId}</Tag>}
+              {classId && <Tag>Lớp: {classId}</Tag>}
+            </Space>
+            <Button icon={<ReloadOutlined />} onClick={quiz.loadQuizzes} loading={quiz.loadingKey === 'refresh'} disabled={!quiz.hasContext}>
+              {uiCopy.common.refresh}
+            </Button>
+          </>
+        )}
+      />
 
       <div className="quiz-stat-grid">
         <QuizStatCard icon={<BookOutlined />} label="Được giao" value={quiz.quizStats.assigned} description="Từ giảng viên" tone="blue" />
@@ -170,7 +170,7 @@ function PracticeQuizzes({
         />
       )}
 
-      <Tabs activeKey={quiz.activeTab} onChange={quiz.setActiveTab} className="quiz-tabs" items={tabs} />
+      <AppTabs activeKey={quiz.activeTab} onChange={quiz.setActiveTab} className="quiz-tabs" items={tabs} />
 
       {quiz.loadingKey === 'generate' && (
         <div className="quiz-loading-inline">

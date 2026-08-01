@@ -6,13 +6,8 @@
   }
 
   .quiz-page-header,
-  .quiz-result-header,
-  .quiz-hero {
+  .quiz-result-header {
     flex-direction: column;
-  }
-
-  .quiz-hero-actions {
-    align-items: flex-start;
   }
 
   .quiz-field-inline,
@@ -49,32 +44,4 @@
     justify-content: flex-start;
   }
 
-  .quiz-tabs > .ant-tabs-nav {
-    overflow: visible;
-  }
-
-  .quiz-tabs > .ant-tabs-nav .ant-tabs-nav-wrap {
-    overflow-x: auto;
-    overflow-y: hidden;
-    overscroll-behavior-x: contain;
-    scrollbar-width: none;
-  }
-
-  .quiz-tabs > .ant-tabs-nav .ant-tabs-nav-wrap::-webkit-scrollbar {
-    display: none;
-  }
-
-  .quiz-tabs > .ant-tabs-nav .ant-tabs-nav-list {
-    width: max-content;
-    min-width: 100%;
-  }
-
-  .quiz-tabs > .ant-tabs-nav .ant-tabs-tab {
-    flex: 0 0 auto;
-    min-width: 88px;
-  }
-
-  .quiz-tabs > .ant-tabs-nav .ant-tabs-nav-operations {
-    display: none;
-  }
 }

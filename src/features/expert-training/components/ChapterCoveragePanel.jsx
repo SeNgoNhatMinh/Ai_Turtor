@@ -110,6 +110,17 @@ export default function ChapterCoveragePanel({
     await onConfirm?.(checkedKeys);
   };
 
+  const confirmCurrentChapter = async (chapter) => {
+    const key = chapter?.chapterKey || chapter?.id;
+    if (!key) return;
+    const nextKeys = [...new Set([...checkedKeys, key])];
+    const result = await onConfirm?.(nextKeys);
+    if (!result) return;
+    setCheckedKeys(nextKeys);
+    onSelectionChange?.(nextKeys);
+    await onPreview?.(chapter);
+  };
+
   const submitManual = async ({ title }) => {
     const result = await onAddManual?.(title.trim());
     if (result) {
@@ -240,6 +251,7 @@ export default function ChapterCoveragePanel({
           onClosePreview?.();
         }}
         onCreateTasks={onCreateTasks}
+        onConfirmChapter={confirmCurrentChapter}
         onOpenMaterial={onOpenMaterial}
       />
     </section>

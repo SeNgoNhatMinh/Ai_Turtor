@@ -12,6 +12,7 @@ const warnedLegacyRoles = new Set();
 const WORKSPACES = Object.freeze({
   STUDENT: 'student',
   TEACHER: 'teacher',
+  SENIOR: 'senior',
   ADMIN: 'admin',
 });
 
@@ -56,9 +57,12 @@ export function normalizeAccountRole(role, fallback = ACCOUNT_ROLES.STUDENT) {
 }
 
 export function getWorkspaceRole(role) {
+  const workspaceRole = String(role || '').trim().toLowerCase();
+  if (Object.values(WORKSPACES).includes(workspaceRole)) return workspaceRole;
   const accountRole = normalizeAccountRole(role);
   if (accountRole === ACCOUNT_ROLES.ADMIN) return WORKSPACES.ADMIN;
-  if ([ACCOUNT_ROLES.TEACHER, ACCOUNT_ROLES.SENIOR_MENTOR].includes(accountRole)) return WORKSPACES.TEACHER;
+  if (accountRole === ACCOUNT_ROLES.SENIOR_MENTOR) return WORKSPACES.SENIOR;
+  if (accountRole === ACCOUNT_ROLES.TEACHER) return WORKSPACES.TEACHER;
   return WORKSPACES.STUDENT;
 }
 

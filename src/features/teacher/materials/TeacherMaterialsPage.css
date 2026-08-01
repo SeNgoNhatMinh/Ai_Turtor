@@ -65,3 +65,183 @@
   border-color: #7f1d1d;
   background: #2a1010;
 }
+
+.teacher-materials-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  min-width: 0;
+}
+
+.teacher-resource-form-card,
+.teacher-resource-table-card {
+  min-width: 0;
+  border-color: var(--color-card-border, #e5e7eb);
+  box-shadow: none;
+}
+
+.teacher-resource-table-card {
+  grid-column: 1 / -1;
+}
+
+.teacher-card-title {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  gap: 8px;
+  color: var(--color-text, #1f2937);
+  font-size: 0.98rem;
+}
+
+.teacher-card-title > svg {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  color: var(--color-primary, #f37021);
+}
+
+.teacher-card-description {
+  margin: -4px 0 16px;
+  color: var(--color-text-muted, #64748b);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.teacher-resource-form {
+  display: grid;
+  gap: 14px;
+}
+
+.teacher-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.teacher-form-field {
+  display: grid;
+  min-width: 0;
+  gap: 7px;
+  color: var(--color-text, #1f2937);
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.teacher-form-field > small,
+.teacher-form-help {
+  margin: 0;
+  color: var(--color-text-muted, #64748b);
+  font-size: 0.7rem;
+  font-weight: 400;
+  line-height: 1.45;
+}
+
+.teacher-form-help--warning,
+.teacher-form-status.is-warning {
+  color: #a16207;
+}
+
+.teacher-form-status {
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.teacher-form-status.is-ready {
+  color: #15803d;
+}
+
+.teacher-file-input {
+  width: 100%;
+  min-width: 0;
+  padding: 7px 9px;
+  border: 1px solid var(--color-card-border, #d9d9d9);
+  border-radius: 6px;
+  background: var(--color-card-bg, #ffffff);
+  color: var(--color-text, #1f2937);
+  font: inherit;
+  font-weight: 400;
+  cursor: pointer;
+}
+
+.teacher-file-input::file-selector-button {
+  margin-right: 10px;
+  padding: 5px 9px;
+  border: 0;
+  border-radius: 5px;
+  background: #fff2e8;
+  color: #c2410c;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.teacher-resource-title {
+  display: block;
+  max-width: 260px;
+  overflow-wrap: anywhere;
+  color: var(--color-text, #1f2937);
+  font-weight: 650;
+}
+
+.teacher-resource-meta {
+  color: var(--color-text-muted, #64748b);
+  font-size: 0.76rem;
+  white-space: nowrap;
+}
+
+.teacher-resource-source {
+  display: block;
+  max-width: 220px;
+  overflow: hidden;
+  color: var(--color-text-muted, #64748b);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.7rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.teacher-resource-table-card .ant-card-body {
+  min-width: 0;
+}
+
+.app-container.dark .teacher-form-help--warning,
+.app-container.dark .teacher-form-status.is-warning,
+body.theme-dark .teacher-form-help--warning,
+body.theme-dark .teacher-form-status.is-warning {
+  color: #facc15;
+}
+
+.app-container.dark .teacher-form-status.is-ready,
+body.theme-dark .teacher-form-status.is-ready {
+  color: #86efac;
+}
+
+.app-container.dark .teacher-file-input,
+body.theme-dark .teacher-file-input {
+  border-color: #3f3f46;
+  background: #141414;
+  color: #f4f4f5;
+}
+
+@media (max-width: 900px) {
+  .teacher-materials-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .teacher-resource-table-card {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 560px) {
+  .teacher-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .teacher-resource-table-card .ant-card-head-wrapper {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+}

@@ -64,9 +64,16 @@
     scroll-behavior: auto;
   }
 
-  *,
-  *::before,
-  *::after {
+  /*
+   * Keep the reduced-motion reset inside the React application. AntD renders
+   * Select/Dropdown/Popover portals directly under <body> and needs to finish
+   * its own placement lifecycle. A document-wide 0.01ms transition sends those
+   * popups off-screen on affected machines.
+   */
+  #root,
+  #root *,
+  #root *::before,
+  #root *::after {
     scroll-behavior: auto !important;
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;

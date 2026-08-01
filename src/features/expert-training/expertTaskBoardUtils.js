@@ -7,13 +7,13 @@ const asTimestamp = (value) => {
   return Number.isFinite(timestamp) ? timestamp : 0;
 };
 
-export const sortExpertTasks = (left, right) => (
+const sortExpertTasks = (left, right) => (
   Number(right.priority || 0) - Number(left.priority || 0)
   || asTimestamp(left.dueAt) - asTimestamp(right.dueAt)
   || asTimestamp(right.updatedAt || right.createdAt) - asTimestamp(left.updatedAt || left.createdAt)
 );
 
-export function isExpertTaskVisibleToTeacher(task, userId) {
+function isExpertTaskVisibleToTeacher(task, userId) {
   return task.status === 'OPEN'
     || task.assigneeId === userId
     || (!task.assigneeId && ACTIVE_STATUSES.has(task.status));

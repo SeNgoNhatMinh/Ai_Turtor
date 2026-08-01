@@ -156,7 +156,7 @@ function TeacherClassesTab({
           <div>
             <h3>Chủ đề cần hỗ trợ của lớp</h3>
             <span className="card-subtitle">
-              {currentClass?.name || `Lớp ${classId}`} · tổng hợp từ bộ nhớ học tập, bài nộp và kết quả quiz
+              {currentClass?.name || (classId ? `Lớp ${classId}` : 'Chưa chọn lớp')} · tổng hợp từ bộ nhớ học tập, bài nộp và kết quả quiz
             </span>
           </div>
         </div>
@@ -259,7 +259,7 @@ function TeacherClassesTab({
 
       <div className="glass-card span-2">
         <div className="card-header">
-          <h3>Sinh viên trong lớp {classId}</h3>
+          <h3>{classId ? `Sinh viên trong lớp ${classId}` : 'Sinh viên trong lớp'}</h3>
         </div>
         {teacherStudents.length === 0 ? (
           <p className="no-data-text">Lớp chưa có sinh viên hoặc chưa tải được danh sách.</p>
@@ -284,9 +284,9 @@ function TeacherClassesTab({
                   <td>{s.email || s.studentEmail || '-'}</td>
                   <td><span className="badge active-badge">{s.status || 'Đang học'}</span></td>
                   <td>
-                    {(s.weakTopics || []).map((wt, i) => (
-                      <span key={`${wt}-${i}`} className={wt === 'None' ? 'tag-healthy' : 'tag-weak'}>{wt}</span>
-                    ))}
+                    {(s.weakTopics || []).length
+                      ? (s.weakTopics || []).map((wt, i) => <span key={`${wt}-${i}`} className="tag-weak">{wt}</span>)
+                      : <span className="tag-healthy">Chưa ghi nhận điểm yếu</span>}
                   </td>
                 </tr>
               ))}

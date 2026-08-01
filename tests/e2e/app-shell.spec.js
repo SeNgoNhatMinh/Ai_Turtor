@@ -87,7 +87,13 @@ async function mockBackend(page, unexpectedRequests) {
     }
 
     const explicitGetContracts = {
-      '/api/students/student-1/dashboard': { studentId: 'student-1', courseId: 'PRO192' },
+      '/api/students/student-1/dashboard': {
+        studentId: 'student-1',
+        courseId: 'PRO192',
+        suggestions: [
+          'Vì tài liệu không cung cấp thông tin về hướng đi của môn PRJ, hãy ôn lại các chủ đề còn yếu trước khi tạo quiz tự ôn.',
+        ],
+      },
       '/api/ai/conversations': { conversations: [] },
       '/api/courses/PRO192/materials': { materials: [] },
       '/api/students/student-1/assignments': {
@@ -118,6 +124,16 @@ async function mockBackend(page, unexpectedRequests) {
       '/api/mentors/teacher-1/dashboard': {},
       '/api/teachers/teacher-1/classes': { classes: [] },
       '/api/admin/semesters': { semesters: [] },
+      '/api/academic/courses/PRO192/class-sections': {
+        classSections: [{
+          classId: 'SE1840',
+          courseId: 'PRO192',
+          teacherId: 'teacher-1',
+          teacherName: 'E2E Teacher',
+          teacherEmail: 'teacher@example.com',
+          status: 'ACTIVE',
+        }],
+      },
       '/api/mentors': { mentors: [] },
       '/api/v2/expert-training/chapters/suggested': {
         chapters: [{
@@ -180,6 +196,14 @@ async function signInAsTeacher(page) {
   await expect(page).toHaveURL(/\/teacher\/classes$/);
 }
 
+async function signInAsSenior(page) {
+  await page.goto('/login');
+  await page.getByLabel('Email').fill('senior@example.com');
+  await page.getByLabel('Mật khẩu').fill('secret1');
+  await page.locator('.login-submit').click();
+  await expect(page).toHaveURL(/\/senior\/review$/);
+}
+
 test.beforeEach(async ({ page }) => {
   const unexpectedRequests = [];
   unexpectedApiRequests.set(page, unexpectedRequests);
@@ -198,6 +222,10 @@ test('student login resolves enrollment context and supports dark mode', async (
   await page.getByRole('switch', { name: 'Dùng giao diện tối' }).click();
   await expect(page.locator('.app-container')).toHaveClass(/dark/);
   await expect(page.getByRole('switch', { name: 'Dùng giao diện sáng' })).toBeVisible();
+
+  await page.goto('/student/progress');
+  await expect(page.getByRole('heading', { name: 'Tiến độ học tập' })).toHaveCSS('color', 'rgb(249, 250, 251)');
+  await expect(page.locator('.page-subtitle')).toHaveCSS('color', 'rgb(209, 213, 219)');
 });
 
 test('student materials remains readable in dark mode', async ({ page }) => {
@@ -209,7 +237,7 @@ test('student materials remains readable in dark mode', async ({ page }) => {
   await expect(page.locator('.student-materials-page')).toBeVisible();
   await expect(page.locator('.student-materials-context')).toHaveCSS('background-color', 'rgb(23, 23, 23)');
   await expect(page.locator('.student-materials-page .ant-table-thead th').first()).toHaveCSS('color', 'rgb(243, 244, 246)');
-  await expect(page.getByRole('tab', { name: 'Bài tập được giao' })).toHaveCSS('color', 'rgb(251, 146, 60)');
+  await expect(page.getByRole('tab', { name: 'Bài tập được giao' })).toHaveCSS('color', 'rgb(255, 255, 255)');
 });
 
 test('main student workspace does not overflow the viewport', async ({ page }) => {
@@ -274,7 +302,7 @@ test('long AI markdown does not add horizontal scrolling to the chat viewport', 
   await signIn(page);
   const conversationTitle = page.getByText('Wide markdown answer', { exact: true });
   if (page.viewportSize().width <= 760) {
-    await page.getByRole('button', { name: 'Chat history' }).click();
+    await page.getByRole('button', { name: 'Lịch sử chat' }).click();
   }
   await expect(conversationTitle).toBeVisible();
   await conversationTitle.click();
@@ -342,6 +370,34 @@ test('learning progress uses an actionable plan without canvas overflow', async 
   expect(overflow).toBeLessThanOrEqual(1);
 });
 
+test('student feature pages share the Practice Quiz header hierarchy', async ({ page }) => {
+  await signIn(page);
+
+  const pages = [
+    ['/student/progress', 'Tiến độ học tập', 'Học tập cá nhân'],
+    ['/student/quizzes', 'Luyện tập bằng quiz theo tài liệu môn học', 'Quiz luyện tập'],
+    ['/student/materials', 'Tài liệu & bài tập', 'Học liệu & bài tập'],
+    ['/student/mentor-review', 'Hỗ trợ từ giảng viên', 'Hỗ trợ học tập'],
+  ];
+
+  for (const [path, title, eyebrow] of pages) {
+    await page.goto(path);
+    const header = page.locator('.page-header');
+    await expect(header).toBeVisible();
+    await expect(header.getByRole('heading', { name: title })).toBeVisible();
+    await expect(header.getByText(eyebrow, { exact: true })).toBeVisible();
+    await expect(header).toHaveCSS('border-radius', '18px');
+
+    const bounds = await header.boundingBox();
+    expect(bounds).not.toBeNull();
+    expect(bounds.x).toBeGreaterThanOrEqual(0);
+    expect(bounds.x + bounds.width).toBeLessThanOrEqual(page.viewportSize().width + 1);
+  }
+
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  expect(overflow).toBeLessThanOrEqual(1);
+});
+
 test('practice quiz tabs stay inside the viewport and remain navigable', async ({ page }) => {
   await signIn(page);
   await page.goto('/student/quizzes');
@@ -358,6 +414,17 @@ test('practice quiz tabs stay inside the viewport and remain navigable', async (
   const pageOverflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(pageOverflow).toBeLessThanOrEqual(1);
 
+  const guideCard = page.locator('.quiz-guide-card');
+  await expect(guideCard).toBeVisible();
+  const guideBounds = await guideCard.boundingBox();
+  expect(guideBounds).not.toBeNull();
+  for (const child of await guideCard.locator('.quiz-step-list > div, .quiz-suggestion-strip button').all()) {
+    const childBounds = await child.boundingBox();
+    expect(childBounds).not.toBeNull();
+    expect(childBounds.x).toBeGreaterThanOrEqual(guideBounds.x - 1);
+    expect(childBounds.x + childBounds.width).toBeLessThanOrEqual(guideBounds.x + guideBounds.width + 1);
+  }
+
   await quizTabs.getByRole('tab', { name: /^Lịch sử/ }).click();
   await expect(quizTabs.getByRole('tab', { name: /^Lịch sử/ })).toHaveAttribute('aria-selected', 'true');
 });
@@ -365,17 +432,111 @@ test('practice quiz tabs stay inside the viewport and remain navigable', async (
 test('admin routes load their independent feature pages', async ({ page }) => {
   await signInAsAdmin(page);
   await expect(page.getByRole('heading', { name: 'Tổng quan hệ thống' })).toBeVisible();
+  await expect(page.locator('.page-header')).toHaveCSS('border-radius', '18px');
 
   await page.goto('/admin/users');
   await expect(page.getByText(/Tài khoản \(0\)/)).toBeVisible();
+  await expect(page.locator('.page-header')).toHaveCSS('border-radius', '18px');
 
   await page.goto('/admin/academic');
   await expect(page.getByRole('tab', { name: 'Học kỳ' })).toBeVisible();
   await expect(page.getByRole('tab', { name: 'Học liệu môn học' })).toBeVisible();
+  await expect(page.locator('.page-header')).toHaveCSS('border-radius', '18px');
 
   await page.goto('/admin/review-queue');
-  await expect(page.getByRole('heading', { name: 'Kiểm duyệt phản hồi & tri thức AI' })).toBeVisible();
-  await expect(page.getByRole('tab', { name: /^Đã xử lý/ })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Giám sát chất lượng AI' })).toBeVisible();
+  await expect(page.getByText(/^Đã xử lý \(0\)$/)).toBeVisible();
+
+  const qualityPageBounds = await page.locator('.quality-review-page').boundingBox();
+  const qualityHeaderBounds = await page.locator('.quality-review-page > .page-header').boundingBox();
+  const qualityWorkspaceBounds = await page.locator(
+    '.quality-review-page > .answer-review-workspace',
+  ).boundingBox();
+  const expectedInset = page.viewportSize().width <= 768 ? 0 : 24;
+
+  expect(qualityPageBounds).not.toBeNull();
+  expect(qualityHeaderBounds).not.toBeNull();
+  expect(qualityWorkspaceBounds).not.toBeNull();
+  expect(Math.abs(qualityHeaderBounds.x - (qualityPageBounds.x + expectedInset)))
+    .toBeLessThanOrEqual(1);
+  expect(Math.abs(qualityWorkspaceBounds.x - qualityHeaderBounds.x)).toBeLessThanOrEqual(1);
+  expect(Math.abs(qualityWorkspaceBounds.width - qualityHeaderBounds.width)).toBeLessThanOrEqual(1);
+});
+
+test('Ant Design academic controls remain clickable around cards and anchored confirms', async ({ page }) => {
+  await signInAsAdmin(page);
+  await page.goto('/admin/academic');
+
+  const academicTabs = page.locator('.admin-academic-tabs .ant-tabs-tab');
+  await expect(academicTabs).toHaveCount(6);
+
+  await academicTabs.nth(2).click();
+  const courseSelect = page.locator('.ant-tabs-tabpane-active .ant-select').last();
+  await courseSelect.click();
+  await expect(
+    page.locator('.ant-select-dropdown:visible .ant-select-item-option').filter({ hasText: 'PRO192' }),
+  ).toBeVisible();
+  await page.locator('.ant-select-dropdown:visible .ant-select-item-option').first().click();
+  await expect(page.getByText('Loading...', { exact: true })).toHaveCount(0);
+
+  const classActionButton = page.locator(
+    '.ant-tabs-tabpane-active .entity-action-button',
+  ).first();
+  await expect(classActionButton).toBeVisible();
+  await classActionButton.scrollIntoViewIfNeeded();
+  const classActionReceivesHit = await classActionButton.evaluate((button) => {
+    const rect = button.getBoundingClientRect();
+    const top = document.elementFromPoint(
+      rect.left + rect.width / 2,
+      rect.top + rect.height / 2,
+    );
+    return top === button || button.contains(top);
+  });
+  expect(classActionReceivesHit).toBe(true);
+  await classActionButton.click();
+  await expect(page.locator('.ant-dropdown:visible')).toBeVisible();
+  await page.keyboard.press('Escape');
+
+  await academicTabs.nth(1).click();
+  await page.locator('.entity-action-button').first().click();
+  await page.locator('.ant-dropdown-menu-item-danger').click();
+
+  const confirmOverlay = page.locator('.app-confirm-overlay');
+  await expect(confirmOverlay).toHaveClass(/app-confirm-overlay--anchored/);
+  await expect(confirmOverlay).toHaveCSS('pointer-events', 'none');
+
+  // This click used to be intercepted by the transparent full-screen overlay.
+  await page.locator('.ant-tabs-tabpane-active .ant-card-extra .ant-btn').click();
+  await expect(page.locator('.app-confirm-card')).toBeVisible();
+  await page.locator('.app-confirm-card__btn').first().click();
+  await expect(page.locator('.app-confirm-host')).toHaveCount(0);
+});
+
+test('Ant Design academic popups remain usable with reduced motion enabled', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await signInAsAdmin(page);
+  await page.goto('/admin/academic');
+
+  const academicTabs = page.locator('.admin-academic-tabs .ant-tabs-tab');
+  await academicTabs.nth(2).click();
+
+  const courseSelect = page.locator('.ant-tabs-tabpane-active .ant-select').last();
+  await courseSelect.click();
+
+  const dropdown = page.locator('.ant-select-dropdown:visible');
+  await expect(dropdown).toBeVisible();
+  const dropdownBounds = await dropdown.boundingBox();
+  expect(dropdownBounds).not.toBeNull();
+  expect(dropdownBounds.x).toBeGreaterThanOrEqual(0);
+  expect(dropdownBounds.y).toBeGreaterThanOrEqual(0);
+  expect(dropdownBounds.x + dropdownBounds.width).toBeLessThanOrEqual(page.viewportSize().width + 1);
+  expect(dropdownBounds.y + dropdownBounds.height).toBeLessThanOrEqual(page.viewportSize().height + 1);
+
+  await dropdown.locator('.ant-select-item-option').first().click();
+  await expect(page.getByText('Loading...', { exact: true })).toHaveCount(0);
+  const classActionButton = page.locator('.ant-tabs-tabpane-active .entity-action-button').first();
+  await classActionButton.click();
+  await expect(page.locator('.ant-dropdown:visible')).toBeVisible();
 });
 
 test('Tutor V2 admin route loads role-gated workflow without viewport overflow', async ({ page }) => {
@@ -383,15 +544,32 @@ test('Tutor V2 admin route loads role-gated workflow without viewport overflow',
   await page.goto('/admin/expert-training');
 
   await expect(page).toHaveURL(/\/admin\/v2\?.*tab=coverage/);
-  await expect(page.getByRole('heading', { name: 'Expert Co-Training V2' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Giám sát Tutor V2' })).toBeVisible();
   await expect(
     page.getByText('PRO192 · Object-Oriented Programming', { exact: true }).first(),
   ).toBeVisible();
-  await expect(page.getByRole('tab', { name: 'Coverage' })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Phủ kiến thức' })).toBeVisible();
   await expect(page.getByRole('tab', { name: /^Duyệt/ })).toBeVisible();
-  await expect(page.getByRole('tab', { name: 'Evaluation' })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Đánh giá AI' })).toBeVisible();
   await expect(page.getByRole('tab')).toHaveCount(3);
   await expect(page.getByRole('button', { name: 'Phân tích độ phủ' })).toBeVisible();
+
+  const pageBounds = await page.locator('.expert-training-page--reviewer').boundingBox();
+  const headerBounds = await page.locator('.expert-training-page--reviewer > .page-header').boundingBox();
+  const scopeBounds = await page.locator('.expert-training-page--reviewer > .scope-bar').boundingBox();
+  const tabsBounds = await page.locator('.expert-training-page--reviewer > .expert-training__tabs').boundingBox();
+  const expectedInset = page.viewportSize().width <= 820 ? 0 : 24;
+
+  expect(pageBounds).not.toBeNull();
+  expect(headerBounds).not.toBeNull();
+  expect(scopeBounds).not.toBeNull();
+  expect(tabsBounds).not.toBeNull();
+  expect(Math.abs(headerBounds.x - (pageBounds.x + expectedInset))).toBeLessThanOrEqual(1);
+  expect(Math.abs(scopeBounds.x - headerBounds.x)).toBeLessThanOrEqual(1);
+  expect(Math.abs(tabsBounds.x - headerBounds.x)).toBeLessThanOrEqual(1);
+  expect(Math.abs(scopeBounds.width - headerBounds.width)).toBeLessThanOrEqual(1);
+  expect(Math.abs(tabsBounds.width - headerBounds.width)).toBeLessThanOrEqual(1);
+
   await page.getByRole('switch', { name: 'Dùng giao diện tối' }).click();
   await expect(page.locator('.scope-bar')).toHaveCSS('background-color', 'rgb(15, 15, 15)');
 
@@ -409,9 +587,10 @@ test('Teacher sees only the task board and Student is denied Tutor V2 routes', a
   await page.goto('/teacher/expert-training');
   await expect(page).toHaveURL(/\/teacher\/expert-tasks/);
   await expect(page.getByRole('heading', { name: 'Công việc tri thức AI' }).first()).toBeVisible();
+  await expect(page.locator('.page-header')).toHaveCSS('border-radius', '18px');
   await expect(page.getByText('Cần làm (0)', { exact: true })).toBeVisible();
-  await expect(page.getByRole('tab', { name: 'Coverage' })).toHaveCount(0);
-  await expect(page.getByRole('tab', { name: 'Evaluation' })).toHaveCount(0);
+  await expect(page.getByRole('tab', { name: 'Phủ kiến thức' })).toHaveCount(0);
+  await expect(page.getByRole('tab', { name: 'Đánh giá AI' })).toHaveCount(0);
 
   await page.evaluate(() => {
     localStorage.clear();
@@ -421,4 +600,67 @@ test('Teacher sees only the task board and Student is denied Tutor V2 routes', a
   await signIn(page);
   await page.goto('/senior/v2');
   await expect(page.getByText('Không có quyền truy cập', { exact: true })).toBeVisible();
+});
+
+test('Teacher can reopen completed student ChatRoom history while Senior has no class chat', async ({ page }) => {
+  await page.route('**/api/tutor/escalations/teachers/teacher-1*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        escalations: [{
+          id: 'esc-completed',
+          userId: 'student-1',
+          studentName: 'E2E Student',
+          question: 'Em cần xem lại phần giải thích Servlet và JSP.',
+          courseId: 'PRO192',
+          classId: 'SE1833',
+          status: 'COMPLETED',
+          chatRoomId: 'room-completed',
+          createdAt: '2026-07-24T08:00:00Z',
+        }],
+      }),
+    });
+  });
+  await page.route('**/api/tutor/answer-reviews/mentor-pending*', async (route) => {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ groups: [], reviews: [] }) });
+  });
+  await page.route('**/api/chat/history*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        content: [
+          { id: 'message-2', senderId: 'teacher-1', senderName: 'E2E Teacher', senderRole: 'MENTOR', content: 'Thầy đã giải thích phần này.', sentAt: '2026-07-24T08:02:00Z' },
+          { id: 'message-1', senderId: 'student-1', senderName: 'E2E Student', senderRole: 'USER', content: 'Em chưa hiểu Servlet.', sentAt: '2026-07-24T08:01:00Z' },
+        ],
+      }),
+    });
+  });
+  await page.route('**/api/chat/detail*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ chatRoomId: 'room-completed', status: 'CLOSED', userName: 'E2E Student' }),
+    });
+  });
+  await page.route('**/api/chat/mark-read', async (route) => {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'SUCCESS' }) });
+  });
+
+  await signInAsTeacher(page);
+  await page.goto('/teacher/review-queue');
+  await expect(page.getByText('Lịch sử (1)', { exact: true })).toBeVisible();
+  await expect(page.getByText('Em chưa hiểu Servlet.', { exact: true })).toBeVisible();
+  await expect(page.getByText('Thầy đã giải thích phần này.', { exact: true })).toBeVisible();
+  await expect(page.getByLabel('Gửi tin nhắn hỗ trợ')).toHaveCount(0);
+
+  await page.evaluate(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+  });
+  await page.reload();
+  await signInAsSenior(page);
+  await expect(page.getByRole('heading', { name: 'Trung tâm kiểm duyệt chuyên môn' })).toBeVisible();
+  await expect(page.getByText('Trao đổi với sinh viên', { exact: true })).toHaveCount(0);
 });

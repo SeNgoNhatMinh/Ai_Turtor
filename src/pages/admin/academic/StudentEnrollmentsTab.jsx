@@ -1,8 +1,8 @@
 import { Button, Card, Col, Form, Input, Row, Select } from 'antd';
 import { Eye, Pencil, Plus, Search, UserMinus } from 'lucide-react';
 import EntityActionMenu from '../../../components/common/EntityActionMenu';
-import { DataTable } from '../../../components/ui/data-table';
-import { getClassCode } from './adminAcademicUtils';
+import { DataTable } from '../../../components/common/DataTable';
+import { getClassCode, getCourseSelectOptions } from './adminAcademicUtils';
 import { getPersonDisplayName, getPersonEmail, getPersonId } from '../../../utils/displayNames';
 import StatusLabel from '../../../components/common/StatusLabel';
 
@@ -31,9 +31,11 @@ function StudentEnrollmentsTab({
   onSearch,
   onAction,
 }) {
+  const courseOptions = getCourseSelectOptions(courses);
+
   return (
     <Row gutter={[16, 16]}>
-      <Col xs={24} md={10}>
+      <Col xs={24} xl={10}>
         <Card title="Ghi danh sinh viên vào lớp" hoverable>
           <Form form={form} layout="vertical" onFinish={onCreate}>
             <Form.Item name="studentId" label="Sinh viên" rules={[{ required: true, message: 'Chọn sinh viên' }]}>
@@ -62,13 +64,11 @@ function StudentEnrollmentsTab({
               />
             </Form.Item>
             <Form.Item name="courseId" label="Môn học" rules={[{ required: true }]}>
-              <Select placeholder="Chọn môn học" onChange={onCourseSelect}>
-                {courses.map((course) => (
-                  <Option key={course.courseId || course.id} value={course.courseId}>
-                    {course.courseId} - {course.courseName}
-                  </Option>
-                ))}
-              </Select>
+              <Select
+                placeholder="Chọn môn học"
+                onChange={onCourseSelect}
+                options={courseOptions}
+              />
             </Form.Item>
             <Form.Item name="classId" label="Lớp học phần" rules={[{ required: true }]}>
               <Select placeholder="Chọn lớp học phần">
@@ -86,7 +86,7 @@ function StudentEnrollmentsTab({
           </Form>
         </Card>
       </Col>
-      <Col xs={24} md={14} style={{ minWidth: 0 }}>
+      <Col xs={24} xl={14} style={{ minWidth: 0 }}>
         <Card title="Tra cứu ghi danh" hoverable>
           <div className="admin-academic-search-row">
             <Input

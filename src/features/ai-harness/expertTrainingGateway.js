@@ -9,7 +9,7 @@ import { expertTrainingApi } from '../../services/expertTrainingApi';
 import { N8N_ENABLED, N8N_TUTOR_V2_ENABLED } from '../../services/n8nClient';
 import { n8nService } from '../../services/n8nService';
 
-export const isTutorV2HarnessEnabled = () => N8N_ENABLED && N8N_TUTOR_V2_ENABLED;
+const isTutorV2HarnessEnabled = () => N8N_ENABLED && N8N_TUTOR_V2_ENABLED;
 
 export const expertTrainingGateway = {
   async analyzeCoverage(payload) {

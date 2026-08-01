@@ -81,7 +81,7 @@ export default function TeacherMaterialsPage({
 
   return (
     <div className="portal-section teacher-feature-page">
-      <PageHeader title={uiCopy.teacher.materials.title} description={uiCopy.teacher.materials.subtitle} />
+      <PageHeader eyebrow="Giảng dạy" title={uiCopy.teacher.materials.title} description={uiCopy.teacher.materials.subtitle} />
       <TeacherMaterialsView
         scope={{
           courseId,

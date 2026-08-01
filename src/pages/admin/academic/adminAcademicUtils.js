@@ -1,10 +1,23 @@
-import { getClassCodeValue } from '../../../utils/academicIds';
+import { getClassCodeValue } from '../../../utils/academicIds.js';
 
 export const getRecordId = (record) => record?.id || record?._id || record?.materialId;
 export const getSemesterCode = (record) => record?.semesterCode || record?.code || record?.id;
 export const getCourseCode = (record) => record?.courseId || record?.id;
 export const getClassCode = (record) => getClassCodeValue(record);
 export const getEnrollmentId = (record) => record?.id || record?._id || record?.enrollmentId;
+
+export const getCourseSelectOptions = (courses = []) => (
+  (Array.isArray(courses) ? courses : [])
+    .map((course) => {
+      const value = getCourseCode(course);
+      if (!value) return null;
+      return {
+        value,
+        label: course.courseName ? `${value} - ${course.courseName}` : String(value),
+      };
+    })
+    .filter(Boolean)
+);
 
 const MATERIAL_INDEXING_STATUSES = new Set(['PROCESSING', 'PENDING', 'INDEXING', 'QUEUED']);
 

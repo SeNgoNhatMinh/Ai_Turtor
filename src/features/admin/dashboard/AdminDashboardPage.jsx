@@ -16,7 +16,7 @@ export default function AdminDashboardPage({ triggerToast }) {
 
   return (
     <div className="portal-section admin-route-page">
-      <PageHeader {...uiCopy.admin.dashboard} />
+      <PageHeader {...uiCopy.admin.dashboard} eyebrow="Quản trị hệ thống" />
       <AdminDashboard
         adminStats={dashboard.adminStats}
         diagnosticsOutput={dashboard.diagnosticsOutput}

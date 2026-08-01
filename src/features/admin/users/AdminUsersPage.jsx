@@ -8,7 +8,7 @@ export default function AdminUsersPage({ triggerToast }) {
 
   return (
     <div className="portal-section admin-route-page">
-      <PageHeader {...uiCopy.admin.users} />
+      <PageHeader {...uiCopy.admin.users} eyebrow="Quản trị hệ thống" />
       <AdminUsers
         triggerToast={triggerToast}
         handleAdminImport={mentorImport.importMentors}

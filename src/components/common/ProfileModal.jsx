@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Modal, Tabs, Form, Input, Button } from 'antd';
+import { Modal, Form, Input, Button } from 'antd';
 import { User, Lock } from 'lucide-react';
 import { useProfile } from '../../hooks/useProfile';
+import AppTabs from './AppTabs';
 
 export default function ProfileModal({ isOpen, onClose, userId }) {
   const [activeTab, setActiveTab] = useState('profile');
@@ -40,7 +41,7 @@ export default function ProfileModal({ isOpen, onClose, userId }) {
       destroyOnHidden
       width={500}
     >
-      <Tabs
+      <AppTabs
         activeKey={activeTab}
         onChange={setActiveTab}
         items={[

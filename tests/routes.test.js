@@ -34,6 +34,8 @@ test('maps route paths and navigation tabs in both directions', () => {
 test('uses stable role home routes and rejects unknown routes', () => {
   assert.equal(getHomeRouteForRole('STUDENT'), '/student/chat');
   assert.equal(getHomeRouteForRole('TEACHER'), '/teacher/classes');
+  assert.equal(getHomeRouteForRole('senior'), '/senior/review');
+  assert.equal(getHomeRouteForRole('SENIOR_MENTOR'), '/senior/review');
   assert.equal(getHomeRouteForRole('ADMIN'), '/admin/dashboard');
   assert.equal(getRouteState('/unknown'), null);
 });

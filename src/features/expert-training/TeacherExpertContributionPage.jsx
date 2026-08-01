@@ -47,6 +47,7 @@ export default function TeacherExpertContributionPage({
   return (
     <div className="expert-training-page">
       <PageHeader
+        eyebrow="Chất lượng AI"
         title="Đóng góp tri thức"
         description="Soạn nội dung dựa trên học liệu chương và gửi Senior kiểm duyệt."
         actions={<Button icon={<ArrowLeft size={16} />} onClick={goBack}>Về Task Board</Button>}

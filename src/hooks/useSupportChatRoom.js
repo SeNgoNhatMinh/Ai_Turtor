@@ -37,7 +37,12 @@ const getSocketUrl = (chatRoomId) => {
   return `${endpoint}${separator}${new URLSearchParams({ chatRoomId, token })}`;
 };
 
-export function useSupportChatRoom({ chatRoomId, currentUser, enabled = true }) {
+export function useSupportChatRoom({
+  chatRoomId,
+  currentUser,
+  enabled = true,
+  realtimeEnabled = true,
+}) {
   const [messages, setMessages] = useState([]);
   const [detail, setDetail] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -88,14 +93,14 @@ export function useSupportChatRoom({ chatRoomId, currentUser, enabled = true }) 
   }, [chatRoomId, enabled, loadRoom]);
 
   useEffect(() => {
-    if (!chatRoomId || !enabled) return undefined;
+    if (!chatRoomId || !enabled || !realtimeEnabled) return undefined;
     const timer = window.setInterval(() => loadRoom({ silent: true }), 5000);
     return () => window.clearInterval(timer);
-  }, [chatRoomId, enabled, loadRoom]);
+  }, [chatRoomId, enabled, loadRoom, realtimeEnabled]);
 
   useEffect(() => {
     const socketUrl = getSocketUrl(chatRoomId);
-    if (!socketUrl || !enabled) return undefined;
+    if (!socketUrl || !enabled || !realtimeEnabled) return undefined;
 
     const socket = new WebSocket(socketUrl);
     socketRef.current = socket;
@@ -135,7 +140,7 @@ export function useSupportChatRoom({ chatRoomId, currentUser, enabled = true }) 
       window.clearTimeout(reconnectTimer);
       socket.close();
     };
-  }, [chatRoomId, enabled, loadRoom, socketRetry]);
+  }, [chatRoomId, enabled, loadRoom, realtimeEnabled, socketRetry]);
 
   const sendMessage = useCallback(async (content) => {
     const trimmed = String(content || '').trim();

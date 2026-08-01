@@ -28,18 +28,18 @@ const mapClassSection = (section, courseId) => {
     courseId: resolvedCourseId,
     classCode: resolvedClassCode,
     classId: resolvedClassId,
-    name: section.name || section.className || `Class ${resolvedClassId || 'section'}`,
-    details: section.description || `${section.studentCount ?? '—'} students`,
+    name: section.name || section.className || `Lớp ${resolvedClassCode || 'chưa đặt mã'}`,
+    details: section.description || `${section.studentCount ?? 0} sinh viên`,
   };
 };
 
 const mapStudent = (student) => ({
   ...student,
   id: getPersonId(student),
-  name: getPersonDisplayName(student, 'Student'),
+  name: getPersonDisplayName(student, 'Sinh viên'),
   email: getPersonEmail(student) || '—',
   status: student.status || 'ACTIVE',
-  weakTopics: student.weakTopics?.length ? student.weakTopics : ['None'],
+  weakTopics: student.weakTopics?.length ? student.weakTopics : [],
 });
 
 const belongsToScope = (record, courseId, classId) => {

@@ -1,6 +1,8 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { SendOutlined, StopOutlined } from '@ant-design/icons';
+import { Mic, MicOff } from 'lucide-react';
 import { validateChatInput } from '../../../../utils/validators';
+import { useSpeechToText } from '../useSpeechToText';
 
 function ChatComposer({
   activeSessionMaxTurnsReached,
@@ -14,8 +16,28 @@ function ChatComposer({
   triggerToast,
 }) {
   const textareaRef = useRef(null);
+  const speechBaseTextRef = useRef('');
   const fullMessage = 'Cuộc trò chuyện đã đủ 10 câu hỏi. Hãy tạo cuộc trò chuyện mới.';
   const sendDisabled = !canChat || !validateChatInput(chatInput).ok || activeSessionMaxTurnsReached;
+  const speechDisabled = isAiLoading || !canChat || activeSessionMaxTurnsReached;
+
+  const handleSpeechTranscript = useCallback((transcript) => {
+    const baseText = speechBaseTextRef.current.trim();
+    const nextText = [baseText, transcript].filter(Boolean).join(' ').slice(0, 8000);
+    setChatInput(nextText);
+  }, [setChatInput]);
+
+  const {
+    isListening,
+    isSupported: isSpeechSupported,
+    startListening,
+    stopListening,
+  } = useSpeechToText({
+    disabled: speechDisabled,
+    language: 'vi-VN',
+    onError: triggerToast,
+    onTranscript: handleSpeechTranscript,
+  });
 
   useEffect(() => {
     if (!textareaRef.current) return;
@@ -39,6 +61,26 @@ function ChatComposer({
       triggerToast?.(validation.message);
       return;
     }
+    if (isListening) stopListening();
+    onSend?.();
+  };
+
+  const handleSpeechToggle = () => {
+    if (isListening) {
+      stopListening();
+      return;
+    }
+    speechBaseTextRef.current = chatInput.trimEnd();
+    startListening();
+  };
+
+  const handleInputChange = (event) => {
+    if (isListening) stopListening();
+    setChatInput(event.target.value);
+  };
+
+  const handleSend = () => {
+    if (isListening) stopListening();
     onSend?.();
   };
 
@@ -58,12 +100,28 @@ function ChatComposer({
             ref={textareaRef}
             placeholder={placeholder}
             value={chatInput}
-            onChange={(event) => setChatInput(event.target.value)}
+            onChange={handleInputChange}
             onKeyDown={handleKeyDown}
             maxLength={8000}
             disabled={isAiLoading || !canChat}
             rows={1}
+            aria-label="Câu hỏi cho AI Tutor"
           />
+          <button
+            className={`chat-gpt-tool-btn ${isListening ? 'is-listening' : ''}`}
+            onClick={handleSpeechToggle}
+            disabled={speechDisabled || !isSpeechSupported}
+            title={isSpeechSupported
+              ? (isListening ? 'Dừng nhập bằng giọng nói' : 'Nhập bằng giọng nói')
+              : 'Trình duyệt không hỗ trợ nhập bằng giọng nói'}
+            aria-label={isSpeechSupported
+              ? (isListening ? 'Dừng nhập bằng giọng nói' : 'Bắt đầu nhập bằng giọng nói')
+              : 'Trình duyệt không hỗ trợ nhập bằng giọng nói'}
+            aria-pressed={isListening}
+            type="button"
+          >
+            {isListening ? <MicOff size={17} /> : <Mic size={17} />}
+          </button>
           {isAiLoading ? (
             <button className="chat-gpt-send-btn" onClick={onStop} title="Dừng tạo câu trả lời" type="button">
               <StopOutlined />
@@ -71,7 +129,7 @@ function ChatComposer({
           ) : (
             <button
               className="chat-gpt-send-btn"
-              onClick={onSend}
+              onClick={handleSend}
               disabled={sendDisabled}
               title={!canChat ? chatContextMessage : activeSessionMaxTurnsReached ? fullMessage : 'Gửi tin nhắn'}
               type="button"
@@ -80,8 +138,9 @@ function ChatComposer({
             </button>
           )}
         </div>
-        <div style={{ textAlign: 'center', marginTop: 8, fontSize: 11, color: '#888' }}>
-          AI Tutor có thể trả lời sai. Hãy kiểm tra lại thông tin quan trọng.
+        <div className="chat-composer-meta" aria-live="polite">
+          {isListening && <span className="chat-speech-status">Đang nghe...</span>}
+          <span>AI Tutor có thể trả lời sai. Hãy kiểm tra lại thông tin quan trọng.</span>
         </div>
       </div>
     </div>

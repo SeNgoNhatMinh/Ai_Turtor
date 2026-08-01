@@ -91,7 +91,10 @@ function ConfirmCard({
   };
 
   return (
-    <div className="app-confirm-overlay" onClick={onClose}>
+    <div
+      className={`app-confirm-overlay ${anchorRect ? 'app-confirm-overlay--anchored' : ''}`}
+      onClick={anchorRect ? undefined : onClose}
+    >
       <div
         className={`app-confirm-card ${anchorRect ? 'app-confirm-card--anchored' : ''} ${danger ? 'app-confirm-card--danger' : ''}`}
         role={danger ? 'alertdialog' : 'dialog'}

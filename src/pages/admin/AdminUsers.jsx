@@ -1,5 +1,5 @@
 import { AlertTriangle, GraduationCap, Users as UsersIcon } from 'lucide-react';
-import { Tabs } from 'antd';
+import AppTabs from '../../components/common/AppTabs';
 import { useAdminUsersController } from '../../features/admin/users/useAdminUsersController';
 import UserAccountsTab from '../../features/admin/users/components/UserAccountsTab';
 import MentorsTab from '../../features/admin/users/components/MentorsTab';
@@ -41,7 +41,7 @@ function AdminUsers({ triggerToast, handleAdminImport }) {
 
   return (
     <div className="portal-view">
-      <Tabs defaultActiveKey="users" type="card" style={{ marginBottom: 0 }} items={items} />
+      <AppTabs defaultActiveKey="users" items={items} />
     </div>
   );
 }

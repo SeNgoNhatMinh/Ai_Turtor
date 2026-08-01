@@ -48,8 +48,6 @@ export default function SeniorReviewQueue({
   useEffect(() => {
     if (selectedReviewId) {
       form.setFieldsValue({ reviewNote: DEFAULT_APPROVAL_NOTE });
-    } else {
-      form.resetFields();
     }
   }, [form, selectedReviewId]);
 

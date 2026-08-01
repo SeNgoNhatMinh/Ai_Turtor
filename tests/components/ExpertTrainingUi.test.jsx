@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import EvaluationDashboard from '../../src/features/expert-training/components/EvaluationDashboard';
 import StatusLabel from '../../src/components/common/StatusLabel';
@@ -136,7 +136,8 @@ describe('Tutor V2 UI rules', () => {
     expect(screen.getByRole('button', { name: 'Gửi kiểm duyệt' })).toBeDisabled();
   });
 
-  it('requires a confirmed chapter with indexed content before creating tasks', () => {
+  it('lets Senior confirm an indexed chapter before creating tasks', () => {
+    const onConfirmChapter = vi.fn();
     render(
       <ChapterPreviewDrawer
         chapter={{ chapterKey: 'oop', title: 'OOP', status: 'SUGGESTED' }}
@@ -155,11 +156,14 @@ describe('Tutor V2 UI rules', () => {
         pendingAction=""
         onClose={vi.fn()}
         onCreateTasks={vi.fn()}
+        onConfirmChapter={onConfirmChapter}
         onOpenMaterial={vi.fn()}
       />,
     );
 
     expect(screen.getByText('Xác nhận chapter trước khi tạo task')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Xác nhận chapter này' }));
+    expect(onConfirmChapter).toHaveBeenCalledWith(expect.objectContaining({ chapterKey: 'oop' }));
     expect(screen.getByRole('button', { name: 'Tạo task mở' })).toBeDisabled();
   });
 

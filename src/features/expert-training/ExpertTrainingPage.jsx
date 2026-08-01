@@ -1,12 +1,11 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Button, Select, Space, Tabs, Tag, Typography } from 'antd';
+import { Button, Select } from 'antd';
 import { RefreshCw } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import AsyncState from '../../components/common/AsyncState';
 import PageHeader from '../../components/common/PageHeader';
 import ScopeBar from '../../components/common/ScopeBar';
-import { getAccountRoleLabel } from '../../constants/roles';
-import { isTutorV2HarnessEnabled } from '../ai-harness/expertTrainingGateway';
+import AppTabs from '../../components/common/AppTabs';
 import ChapterCoveragePanel from './components/ChapterCoveragePanel';
 import CoverageDashboard from './components/CoverageDashboard';
 import { getEvaluationReadiness } from './expertTrainingSelectors';
@@ -16,7 +15,6 @@ import './ExpertTraining.css';
 
 const SeniorReviewQueue = lazy(() => import('./components/SeniorReviewQueue'));
 const EvaluationDashboard = lazy(() => import('./components/EvaluationDashboard'));
-const { Text } = Typography;
 const VALID_TABS = new Set(['coverage', 'review', 'evaluation']);
 
 function SectionFallback() {
@@ -32,6 +30,7 @@ export default function ExpertTrainingPage({
   courseId: externalCourseId = '',
   setCourseId: setExternalCourseId,
   triggerToast,
+  workspaceMode = 'senior',
 }) {
   const [localCourseId, setLocalCourseId] = useState(externalCourseId);
   const [selectedChapterKeys, setSelectedChapterKeys] = useState([]);
@@ -102,7 +101,7 @@ export default function ExpertTrainingPage({
   const tabs = [
     {
       key: 'coverage',
-      label: 'Coverage',
+      label: 'Phủ kiến thức',
       children: (
         <div className="expert-training__hub-stack">
           <ChapterCoveragePanel
@@ -162,7 +161,7 @@ export default function ExpertTrainingPage({
     },
     {
       key: 'evaluation',
-      label: 'Evaluation',
+      label: 'Đánh giá AI',
       children: (
         <Suspense fallback={<SectionFallback />}>
           <EvaluationDashboard
@@ -184,14 +183,14 @@ export default function ExpertTrainingPage({
     },
   ];
 
-  const connectionColor = controller.connectionState === 'CONNECTED' ? 'green' : 'orange';
-  const harnessEnabled = isTutorV2HarnessEnabled();
-
   return (
-    <div className="expert-training-page">
+    <div className="portal-section expert-training-page expert-training-page--reviewer">
       <PageHeader
-        title="Expert Co-Training V2"
-        description="Xác nhận độ phủ học liệu, kiểm duyệt tri thức và đánh giá AI Tutor bằng holdout độc lập."
+        eyebrow={workspaceMode === 'admin' ? 'Giám sát AI' : 'Kiểm duyệt chuyên môn'}
+        title={workspaceMode === 'admin' ? 'Giám sát Tutor V2' : 'Expert Co-Training V2'}
+        description={workspaceMode === 'admin'
+          ? 'Theo dõi độ phủ toàn hệ thống, audit hoạt động kiểm duyệt và thực hiện quyền quản trị khi cần.'
+          : 'Xác nhận chapter, giao task chuyên môn, kiểm duyệt tri thức và đánh giá AI Tutor bằng holdout độc lập.'}
       />
 
       <ScopeBar
@@ -220,27 +219,7 @@ export default function ExpertTrainingPage({
             label: courseLabel(course),
           }))}
         />
-        <Space wrap size={[6, 6]}>
-          <Tag color="blue">{getAccountRoleLabel(controller.reviewerRole)}</Tag>
-          <Tag color={harnessEnabled ? 'purple' : 'default'}>
-            {harnessEnabled ? 'n8n Tutor V2' : 'Backend trực tiếp'}
-          </Tag>
-          <Tag color={connectionColor}>
-            Realtime {controller.connectionState === 'CONNECTED' ? 'đã kết nối' : 'đang kết nối lại'}
-          </Tag>
-        </Space>
-        <Text type="secondary" className="expert-training__canonical-note">
-          REST API là nguồn dữ liệu chuẩn; WebSocket chỉ yêu cầu tải lại đúng khu vực.
-        </Text>
       </ScopeBar>
-
-      <Alert
-        className="expert-training__role-guide"
-        type="warning"
-        showIcon
-        title="Coverage → giao task mở → kiểm duyệt → Evaluation"
-        description="TRAINING Gold Q&A được duyệt mới vào RAG. EVALUATION luôn là holdout và không được index."
-      />
 
       <AsyncState
         loading={controller.loading.courses && !controller.courses.length}
@@ -251,7 +230,7 @@ export default function ExpertTrainingPage({
         onRetry={controller.loadCourses}
       >
         {courseId ? (
-          <Tabs
+          <AppTabs
             activeKey={activeTab}
             onChange={(tab) => setQueryState({ tab, review: null })}
             items={tabs}

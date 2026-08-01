@@ -1,6 +1,6 @@
 import { lazy, Suspense } from 'react';
 import AsyncState from '../../../components/common/AsyncState';
-import { Tabs } from 'antd';
+import AppTabs from '../../../components/common/AppTabs';
 
 const ClassSectionsTab = lazy(() => import('./ClassSectionsTab'));
 const CourseMaterialsTab = lazy(() => import('./CourseMaterialsTab'));
@@ -145,11 +145,10 @@ export default function AdminAcademicTabs({
   ];
 
   return (
-    <Tabs
+    <AppTabs
       defaultActiveKey="semesters"
-      type="card"
       className="admin-academic-tabs"
-      tabBarGutter={6}
+      destroyOnHidden
       items={items}
     />
   );

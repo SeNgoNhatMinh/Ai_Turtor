@@ -59,6 +59,7 @@ const navigationItems = [
   {
     key: 'teacher-classes',
     workspace: 'teacher',
+    allowedAccountRoles: [ACCOUNT_ROLES.TEACHER],
     group: 'Giảng dạy',
     label: 'Lớp được phân công',
     description: 'Xem lớp, sinh viên và các chủ đề còn yếu.',
@@ -67,6 +68,7 @@ const navigationItems = [
   {
     key: 'teacher-quizzes',
     workspace: 'teacher',
+    allowedAccountRoles: [ACCOUNT_ROLES.TEACHER],
     group: 'Giảng dạy',
     label: 'Quiz được giao',
     description: 'Tạo, xuất bản quiz và duyệt bài làm của sinh viên.',
@@ -75,6 +77,7 @@ const navigationItems = [
   {
     key: 'teacher-materials',
     workspace: 'teacher',
+    allowedAccountRoles: [ACCOUNT_ROLES.TEACHER],
     group: 'Giảng dạy',
     label: 'Tài liệu & bài tập',
     description: 'Xem học liệu và giao bài tập cho lớp.',
@@ -83,6 +86,7 @@ const navigationItems = [
   {
     key: 'teacher-grading',
     workspace: 'teacher',
+    allowedAccountRoles: [ACCOUNT_ROLES.TEACHER],
     group: 'Giảng dạy',
     label: 'Chấm bài nộp',
     description: 'Chấm bài sinh viên và công bố nhận xét.',
@@ -91,6 +95,7 @@ const navigationItems = [
   {
     key: 'teacher-escalations',
     workspace: 'teacher',
+    allowedAccountRoles: [ACCOUNT_ROLES.TEACHER],
     group: 'Hỗ trợ',
     label: 'Hàng chờ hỗ trợ & tri thức AI',
     description: 'Xử lý câu hỏi được chuyển lên và kiểm tra phản hồi AI.',
@@ -107,12 +112,21 @@ const navigationItems = [
   },
   {
     key: 'senior-v2',
-    workspace: 'teacher',
+    workspace: 'senior',
     allowedAccountRoles: [ACCOUNT_ROLES.SENIOR_MENTOR],
-    group: 'Chất lượng AI',
+    group: 'Kiểm duyệt chuyên môn',
     label: 'Expert Co-Training V2',
     description: 'Xác nhận độ phủ, kiểm duyệt tri thức và chạy Evaluation.',
     icon: BrainCircuit,
+  },
+  {
+    key: 'senior-review',
+    workspace: 'senior',
+    allowedAccountRoles: [ACCOUNT_ROLES.SENIOR_MENTOR],
+    group: 'Kiểm duyệt chuyên môn',
+    label: 'Kiểm duyệt phản hồi & tri thức',
+    description: 'Xử lý phản hồi nghiêm trọng và Knowledge Candidate, không can thiệp chat lớp.',
+    icon: Inbox,
   },
   {
     key: 'admin-dashboard',
@@ -142,17 +156,17 @@ const navigationItems = [
     key: 'admin-expert-training',
     workspace: 'admin',
     allowedAccountRoles: [ACCOUNT_ROLES.ADMIN],
-    group: 'Chất lượng AI',
-    label: 'Huấn luyện tri thức AI',
-    description: 'Phân tích độ phủ, duyệt tri thức và đánh giá chất lượng Tutor V2.',
+    group: 'Giám sát AI',
+    label: 'Giám sát Tutor V2',
+    description: 'Audit độ phủ, kiểm duyệt và hoạt động đánh giá Tutor V2 toàn hệ thống.',
     icon: BrainCircuit,
   },
   {
     key: 'admin-review',
     workspace: 'admin',
-    group: 'Chất lượng AI',
-    label: 'Kiểm duyệt phản hồi AI',
-    description: 'Xử lý phản hồi nghiêm trọng và Knowledge Candidate đang chờ duyệt.',
+    group: 'Giám sát AI',
+    label: 'Giám sát chất lượng AI',
+    description: 'Theo dõi hàng chờ phản hồi và can thiệp quản trị khi quy trình bị tồn đọng.',
     icon: Inbox,
   },
 ];

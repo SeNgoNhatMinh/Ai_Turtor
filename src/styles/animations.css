@@ -213,7 +213,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .seasonal-header-effect span,
     .login-speech-bubble,
     .login-speech-bubble::after,
     .login-speech-bubble span,

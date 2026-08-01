@@ -64,13 +64,13 @@ function StudentChatTab({
           icon={<PanelLeft size={16} />}
           onClick={() => setIsHistoryDrawerOpen(true)}
         >
-          Chat history
+          Lịch sử chat
         </Button>
         {isHistoryDrawerOpen && (
           <button
             type="button"
             className="student-chat-history-backdrop"
-            aria-label="Close chat history"
+            aria-label="Đóng lịch sử chat"
             onClick={() => setIsHistoryDrawerOpen(false)}
           />
         )}

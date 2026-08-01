@@ -6,7 +6,11 @@ import { appRoutes, getHomeRouteForRole } from './routes';
 
 function HomeRedirect() {
   const context = useOutletContext();
-  return <Navigate to={getHomeRouteForRole(context.activeRole || context.currentUserRole)} replace />;
+  const accountRole = normalizeAccountRole(
+    context.workspaceProps?.currentUser?.originalRole
+      || context.workspaceProps?.currentUser?.role,
+  );
+  return <Navigate to={getHomeRouteForRole(accountRole || context.activeRole || context.currentUserRole)} replace />;
 }
 
 function LegacyExpertTrainingRedirect({ admin = false }) {

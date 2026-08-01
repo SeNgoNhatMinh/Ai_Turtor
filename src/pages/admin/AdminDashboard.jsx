@@ -1,5 +1,5 @@
 import React from 'react';
-import { Row, Col, Card, Statistic, Space, Alert, Button, Typography, Tag, Tabs, Table, Input } from 'antd';
+import { Row, Col, Card, Statistic, Space, Alert, Button, Typography, Tag, Table, Input } from 'antd';
 import {
   Users, GraduationCap, Library, AlertTriangle, RefreshCw, Server, FileText,
   BookOpenCheck, ShieldCheck,
@@ -8,6 +8,7 @@ import { diagnosticsApi } from '../../services/diagnosticsApi';
 import { env } from '../../config/env';
 import { getUserFacingError } from '../../services/apiClient';
 import ActionQueue from '../../components/common/ActionQueue';
+import AppTabs from '../../components/common/AppTabs';
 
 const { Text } = Typography;
 
@@ -224,7 +225,7 @@ function AdminDashboard({
         <Col xs={12} lg={6}>
           <Card hoverable className="glass-card" style={{ borderLeft: '3px solid #fa8c16' }}>
             <Statistic
-              title={<Text type="secondary">Yêu cầu hỗ trợ</Text>}
+              title={<Text type="secondary">Tổng yêu cầu hỗ trợ</Text>}
               value={adminStats.escalations ?? 0}
               styles={{ content: { color: '#fa8c16', fontWeight: 700 } }}
               prefix={<AlertTriangle size={20} />}
@@ -257,14 +258,14 @@ function AdminDashboard({
                   title: 'Kiểm duyệt tri thức AI',
                   description: 'Xử lý nội dung chờ duyệt trước khi đưa vào RAG.',
                   icon: ShieldCheck,
-                  onClick: () => onNavigate?.('/admin/expert-training'),
+                  onClick: () => onNavigate?.('/admin/v2'),
                 },
               ]}
             />
           </Card>
         </Col>
         <Col xs={24} lg={12}>
-          <Tabs defaultActiveKey="health" type="card" items={diagnosticsTabs} />
+          <AppTabs defaultActiveKey="health" items={diagnosticsTabs} />
         </Col>
       </Row>
     </div>

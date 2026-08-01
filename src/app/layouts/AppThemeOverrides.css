@@ -7,7 +7,7 @@
 .app-container.dark .main-sidebar {
     background: rgba(0, 0, 0, 0.94);
     border-right-color: #1F1F1F;
-    box-shadow: 8px 0 24px rgba(0, 0, 0, 0.34);
+    box-shadow: none;
 }
 
 .app-container.dark .sidebar-collapse-btn.ant-btn {
@@ -30,7 +30,7 @@
 .emotion-btn.active {
     background: #F37021 !important;
     color: #FFFFFF !important;
-    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.12) !important;
+    box-shadow: none !important;
 }
 
 .glass-card,
@@ -42,7 +42,7 @@
     background: #FFFFFF !important;
     border-color: #E5E5E0 !important;
     color: #202123 !important;
-    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.05);
+    box-shadow: none;
 }
 
 .app-container.dark .glass-card,

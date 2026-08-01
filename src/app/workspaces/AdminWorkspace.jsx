@@ -5,8 +5,8 @@ const adminPages = {
   'admin-dashboard': lazy(() => import('../../features/admin/dashboard/AdminDashboardPage')),
   'admin-users': lazy(() => import('../../features/admin/users/AdminUsersPage')),
   'admin-academic': lazy(() => import('../../features/admin/academic/AdminAcademicPage')),
-  'admin-review': lazy(() => import('../../features/teacher/review/TeacherReviewPage')),
-  'admin-expert-training': lazy(() => import('../../features/expert-training/ExpertTrainingPage')),
+  'admin-review': lazy(() => import('../../features/admin/review/AdminReviewPage')),
+  'admin-expert-training': lazy(() => import('../../features/admin/expert-training/AdminExpertTrainingPage')),
 };
 
 function AdminPageFallback() {
@@ -31,7 +31,6 @@ export default function AdminWorkspace({
         courseId={courseId}
         setCourseId={setCourseId}
         triggerToast={triggerToast}
-        reviewScope={activeTab === 'admin-review' ? 'admin' : undefined}
       />
     </Suspense>
   );

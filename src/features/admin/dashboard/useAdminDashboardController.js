@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { diagnosticsApi } from '../../../services/diagnosticsApi';
+import { adminAcademicApi } from '../../../services/adminAcademicApi';
 import { getUserFacingError } from '../../../services/apiClient';
 
 export function useAdminDashboardController({ triggerToast }) {
@@ -9,8 +10,11 @@ export function useAdminDashboardController({ triggerToast }) {
 
   const loadAdminStats = useCallback(async () => {
     try {
-      const stats = await diagnosticsApi.getAdminStats();
-      setAdminStats(stats || {});
+      const [stats, courses] = await Promise.all([
+        diagnosticsApi.getAdminStats(),
+        adminAcademicApi.getCourses(),
+      ]);
+      setAdminStats({ ...(stats || {}), courses: Array.isArray(courses) ? courses.length : 0 });
     } catch (error) {
       setAdminStats({});
       triggerToast?.(getUserFacingError(error, 'Không thể tải số liệu tổng quan.'));

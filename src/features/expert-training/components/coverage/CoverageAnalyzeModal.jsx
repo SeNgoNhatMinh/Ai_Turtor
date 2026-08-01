@@ -3,14 +3,11 @@ import {
   Checkbox,
   Col,
   Form,
-  Input,
   InputNumber,
   Modal,
   Row,
   Typography,
 } from 'antd';
-import { defaultExpertTaskDueAt, toDateTimeLocalValue, toExpertTaskDueAtPayload } from '../../expertTrainingUtils';
-
 const { Paragraph, Text } = Typography;
 
 export default function CoverageAnalyzeModal({
@@ -32,12 +29,13 @@ export default function CoverageAnalyzeModal({
         : confirmedChapters.map((chapter) => chapter.title),
       minimumTrainingGoldPerChapter: values.minimumTrainingGoldPerChapter,
       minimumEvaluationGoldPerChapter: values.minimumEvaluationGoldPerChapter,
-      createTasks: true,
+      // Chỉ ghi nhận coverage gap. Senior sẽ chủ động tạo task sau khi
+      // kiểm tra và xác nhận chapter, tránh task xuất hiện ngoài ý muốn.
+      createTasks: false,
       useSuggestedOrConfirmedChapters: true,
       smartTaskPolicy: true,
       includeTrainingGoldTasks: false,
       includeBenchmarkTasks: false,
-      taskDueAt: toExpertTaskDueAtPayload(values.taskDueAtLocal),
     });
     if (result) {
       form.resetFields();
@@ -67,7 +65,6 @@ export default function CoverageAnalyzeModal({
         initialValues={{
           minimumTrainingGoldPerChapter: 0,
           minimumEvaluationGoldPerChapter: 0,
-          taskDueAtLocal: toDateTimeLocalValue(defaultExpertTaskDueAt(14)),
         }}
         onFinish={submit}
         className="expert-training__modal-form"
@@ -92,16 +89,9 @@ export default function CoverageAnalyzeModal({
             </Form.Item>
           </Col>
         </Row>
-        <Form.Item
-          label="Hạn task tự tạo (nếu có)"
-          name="taskDueAtLocal"
-          tooltip="Áp dụng cho task Training/Evaluation được tạo khi phân tích phát hiện thiếu hụt."
-        >
-          <Input type="datetime-local" />
-        </Form.Item>
-        <Checkbox checked disabled>Smart policy tự tạo đúng task còn thiếu</Checkbox>
+        <Checkbox checked disabled>Chỉ phân tích, không tự tạo task</Checkbox>
         <Paragraph type="secondary">
-          TRAINING chỉ vào RAG sau khi được duyệt. EVALUATION luôn là dữ liệu holdout riêng tư.
+          Sau khi xem kết quả, Senior xác nhận chapter và chủ động bấm Tạo task. TRAINING chỉ vào RAG sau khi được duyệt.
         </Paragraph>
         <Text type="secondary">Thao tác có thể lâu hơn khi môn học có nhiều tài liệu đã index.</Text>
       </Form>

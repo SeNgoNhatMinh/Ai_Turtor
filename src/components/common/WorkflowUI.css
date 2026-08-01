@@ -4,8 +4,8 @@
   justify-content: space-between;
   gap: 16px;
   min-width: 0;
-  padding: 12px 14px;
-  background: var(--color-card-bg, #fff);
+  padding: 10px 12px;
+  background: var(--color-surface-subtle, #fafafa);
   border: 1px solid var(--color-card-border, #e5e5e0);
   border-radius: 8px;
 }
@@ -147,7 +147,10 @@
 
 .action-queue {
   display: grid;
-  gap: 8px;
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid var(--color-card-border, #e5e5e0);
+  border-radius: 8px;
 }
 
 .action-queue__empty {
@@ -164,28 +167,34 @@
   align-items: center;
   gap: 12px;
   width: 100%;
-  padding: 11px 12px;
+  min-height: 58px;
+  padding: 10px 12px;
   color: inherit;
   text-align: left;
   background: transparent;
-  border: 1px solid var(--color-card-border, #e5e5e0);
-  border-radius: 8px;
+  border: 0;
+  border-bottom: 1px solid var(--color-card-border, #e5e5e0);
+  border-radius: 0;
+}
+
+.action-queue__item:last-child {
+  border-bottom: 0;
 }
 
 .action-queue__item:hover:not(:disabled),
 .action-queue__item:focus-visible {
   background: var(--color-card-hover-bg, #f4f4f4);
-  border-color: var(--color-card-hover-border, #d1d5db);
+  outline: none;
 }
 
 .action-queue__icon {
   display: grid;
   place-items: center;
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   color: var(--color-primary, #f37021);
-  background: var(--color-primary-glow, rgba(243, 112, 33, 0.12));
-  border-radius: 8px;
+  background: transparent;
+  border-radius: 6px;
 }
 
 .action-queue__copy {
@@ -251,6 +260,10 @@
 }
 
 .app-container.dark .action-queue__item {
+  border-bottom-color: #2a2a2a;
+}
+
+.app-container.dark .action-queue {
   border-color: #2a2a2a;
 }
 

@@ -8,23 +8,15 @@
     background: var(--color-card-bg);
     border-radius: var(--border-radius-lg);
     border: 1px solid var(--color-card-border);
-    backdrop-filter: blur(16px);
-    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    box-shadow: none;
 }
 
 .glass-card {
     background: var(--color-card-bg);
     border-radius: var(--border-radius-lg);
     border: 1px solid var(--color-card-border);
-    backdrop-filter: blur(16px);
     padding: 20px;
-    transition: transform 0.3s ease, border-color 0.3s ease, background-color 0.3s ease;
-}
-
-.glass-card:hover {
-    background-color: var(--color-card-hover-bg);
-    border-color: var(--color-card-hover-border);
-    transform: translateY(-2px);
+    transition: border-color 0.18s ease, background-color 0.18s ease;
 }
 
 .card-header, .panel-header {

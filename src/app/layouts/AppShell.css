@@ -8,65 +8,15 @@
     height: var(--header-height);
     padding: 0 24px;
     background: rgba(15, 23, 42, 0.5);
-    backdrop-filter: blur(12px);
     border-bottom: 1px solid var(--color-card-border);
     z-index: 10;
     position: relative;
     overflow: hidden;
 }
 
-.top-nav > *:not(.seasonal-header-effect) {
+.top-nav > * {
     position: relative;
     z-index: 1;
-}
-
-.seasonal-header-effect {
-    position: absolute;
-    inset: 0;
-    z-index: 0;
-    pointer-events: none;
-    overflow: hidden;
-}
-
-.seasonal-header-effect span {
-    position: absolute;
-    top: -16px;
-    left: calc(3% + (var(--season-item-index) * 8%));
-    display: grid;
-    place-items: center;
-    width: 16px;
-    height: 16px;
-    opacity: 0.62;
-    filter: drop-shadow(0 4px 8px rgba(216, 95, 22, 0.1));
-    animation-duration: 6.8s;
-    animation-delay: calc(var(--season-item-index) * -0.62s);
-    animation-iteration-count: infinite;
-    animation-timing-function: linear;
-}
-
-.seasonal-header-effect--spring span {
-    animation-name: seasonPetalFall;
-    color: #ec4899;
-}
-
-.seasonal-header-effect--summer span {
-    top: -14px;
-    animation-name: seasonSummerDrift;
-    animation-duration: 7.4s;
-    color: #16a34a;
-}
-
-.seasonal-header-effect--rain span {
-    animation-name: seasonRainFall;
-    animation-duration: 3.6s;
-    opacity: 0.54;
-    color: #38bdf8;
-}
-
-.seasonal-header-effect--autumn span {
-    animation-name: seasonLeafDrift;
-    animation-duration: 8.2s;
-    color: #d97706;
 }
 
 .logo-area {
@@ -109,7 +59,54 @@
 .user-profile {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 14px;
+}
+
+.theme-mode-switch.ant-switch {
+    background: #202123;
+}
+
+.app-container.dark .theme-mode-switch.ant-switch {
+    background: #404040;
+}
+
+.user-profile-info,
+.header-logout-button {
+    display: inline-flex;
+    align-items: center;
+    border: 0;
+    background: transparent;
+    color: #202123;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.user-profile-info {
+    gap: 8px;
+}
+
+.user-profile-info:disabled {
+    cursor: default;
+}
+
+.header-logout-button {
+    gap: 5px;
+    font-weight: 700;
+}
+
+.user-profile-info:hover #current-user-name,
+.header-logout-button:hover {
+    color: #000000;
+}
+
+.app-container.dark .user-profile-info,
+.app-container.dark .header-logout-button {
+    color: #f9fafb;
+}
+
+.app-container.dark .user-profile-info:hover #current-user-name,
+.app-container.dark .header-logout-button:hover {
+    color: #ffffff;
 }
 
 #current-user-name {
@@ -138,7 +135,6 @@
 .main-sidebar {
     width: var(--sidebar-width);
     background: rgba(10, 15, 30, 0.4);
-    backdrop-filter: blur(12px);
     border-right: 1px solid var(--color-card-border);
     display: flex;
     flex-direction: column;

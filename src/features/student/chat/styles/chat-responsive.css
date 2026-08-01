@@ -191,5 +191,19 @@
   .prompt-starters {
     grid-template-columns: 1fr;
   }
+
+  .chat-composer-meta {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 2px;
+    padding-inline: 4px;
+    text-align: left;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-speech-status::before {
+    animation: none;
+  }
 }
 

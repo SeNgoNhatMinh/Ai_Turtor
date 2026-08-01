@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import PageHeader from '../../../components/common/PageHeader';
+import AppTabs from '../../../components/common/AppTabs';
 import { uiCopy } from '../../../constants/uiCopy';
-import TeacherSupportQueueTab from '../../../pages/teacher/TeacherSupportQueueTab';
 import { ACADEMIC_CANDIDATE_TYPES } from '../../../constants/knowledgeFlow';
 import { useTeacherReviewQueue } from './useTeacherReviewQueue';
 import { useRealtimeEvent, useRealtimeReconnect } from '../../realtime/realtimeContext';
 import { eventMatchesCourse, REALTIME_EVENT_TYPES } from '../../realtime/realtimeEvents';
-import './TeacherReviewPage.css';
+import AnswerReviewWorkspace from './AnswerReviewWorkspace';
+import TeacherSupportInbox from './TeacherSupportInbox';
 
 export default function TeacherReviewPage({
   currentUser,
@@ -14,29 +15,25 @@ export default function TeacherReviewPage({
   courseId,
   classId,
   triggerToast,
-  reviewScope = 'teacher',
 }) {
-  const isAdminReview = reviewScope === 'admin';
   const review = useTeacherReviewQueue({
     currentUser,
     teacherId,
     courseId,
     triggerToast,
-    includeTeacherInbox: !isAdminReview,
+    includeTeacherInbox: true,
   });
   const [reply, setReply] = useState('');
   const [createKnowledgeCandidate, setCreateKnowledgeCandidate] = useState(false);
   const [candidateType, setCandidateType] = useState('ACADEMIC_KNOWLEDGE');
-  const [candidateNotes, setCandidateNotes] = useState({});
 
   useEffect(() => {
-    if (!isAdminReview) review.loadTeacherInbox();
+    review.loadTeacherInbox();
     review.loadAnswerReviews();
-    review.loadKnowledgeCandidates();
     review.loadResolvedAnswerReviews?.();
     // Review resources are fetched only while this route is mounted.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [teacherId, courseId, classId, isAdminReview]);
+  }, [teacherId, courseId, classId]);
 
   useRealtimeEvent(REALTIME_EVENT_TYPES.answerReview, (event) => {
     if (!eventMatchesCourse(event, courseId)) return;
@@ -46,10 +43,6 @@ export default function TeacherReviewPage({
     review.loadAnswerReviews();
     review.loadResolvedAnswerReviews?.();
   });
-
-  const handleNoteChange = (candidateId, value) => {
-    setCandidateNotes((current) => ({ ...current, [candidateId]: value }));
-  };
 
   const handleAnswerEscalation = async (event) => {
     event.preventDefault();
@@ -72,45 +65,53 @@ export default function TeacherReviewPage({
   return (
     <div className="portal-section teacher-feature-page teacher-review-feature-page">
       <PageHeader
-        title={isAdminReview ? 'Kiểm duyệt phản hồi & tri thức AI' : uiCopy.teacher.review.title}
-        description={isAdminReview
-          ? 'Theo dõi phản hồi nghiêm trọng, xử lý Knowledge Candidate và kiểm tra lịch sử quyết định.'
-          : uiCopy.teacher.review.subtitle}
+        eyebrow="Hỗ trợ & chất lượng AI"
+        title={uiCopy.teacher.review.title}
+        description="Hỗ trợ sinh viên theo lớp phụ trách và xác minh phản hồi AI ở mức Teacher. Lịch sử ChatRoom vẫn xem lại được sau khi đóng."
       />
-      <TeacherSupportQueueTab
-        showEscalations={!isAdminReview}
-        isTeacherInboxLoading={review.isTeacherInboxLoading}
-        escalations={review.escalations}
-        selectedEscalation={review.selectedEscalation}
-        setSelectedEscalation={review.setSelectedEscalation}
-        loadTeacherInbox={review.loadTeacherInbox}
-        teacherEscReply={reply}
-        setTeacherEscReply={setReply}
-        onAnswerEsc={handleAnswerEscalation}
-        isTeacherAnswerSubmitting={review.isTeacherAnswerSubmitting}
-        createKnowledgeCandidate={createKnowledgeCandidate}
-        setCreateKnowledgeCandidate={setCreateKnowledgeCandidate}
-        candidateType={candidateType}
-        setCandidateType={setCandidateType}
-        answerReviews={review.answerReviews}
-        answerReviewGroups={review.answerReviewGroups}
-        isAnswerReviewsLoading={review.isAnswerReviewsLoading}
-        loadAnswerReviews={review.loadAnswerReviews}
-        seniorAnswerReviews={review.seniorAnswerReviews}
-        seniorAnswerReviewGroups={review.seniorAnswerReviewGroups}
-        resolvedAnswerReviews={review.resolvedAnswerReviews}
-        isResolvedReviewsLoading={review.isResolvedReviewsLoading}
-        loadResolvedAnswerReviews={review.loadResolvedAnswerReviews}
-        pendingCandidateActionIds={review.pendingCandidateActionIds}
-        pendingSeniorReviewIds={review.pendingSeniorReviewIds}
-        handleSeniorResolveReview={review.handleSeniorResolveReview}
-        candidates={review.candidates}
-        candidateNotes={candidateNotes}
-        handleNoteChange={handleNoteChange}
-        handleApproveCandidate={review.handleApproveCandidate}
-        handleRejectCandidate={review.handleRejectCandidate}
-        currentUserRole={currentUser?.originalRole || currentUser?.role}
-        currentUser={currentUser}
+      <AppTabs
+        className="teacher-review-tabs"
+        destroyOnHidden={false}
+        items={[
+          {
+            key: 'support',
+            label: `Hỗ trợ sinh viên (${review.escalations.length})`,
+            children: (
+              <TeacherSupportInbox
+                currentUser={currentUser}
+                loading={review.isTeacherInboxLoading}
+                escalations={review.escalations}
+                selectedEscalation={review.selectedEscalation}
+                onSelectEscalation={review.setSelectedEscalation}
+                onRefresh={review.loadTeacherInbox}
+                reply={reply}
+                onReplyChange={setReply}
+                onSubmitAnswer={handleAnswerEscalation}
+                isSubmitting={review.isTeacherAnswerSubmitting}
+                createKnowledgeCandidate={createKnowledgeCandidate}
+                onCreateKnowledgeCandidateChange={setCreateKnowledgeCandidate}
+                candidateType={candidateType}
+                onCandidateTypeChange={setCandidateType}
+              />
+            ),
+          },
+          {
+            key: 'answer-reviews',
+            label: `Phản hồi AI (${review.answerReviewGroups?.length || review.answerReviews?.length || 0})`,
+            children: (
+              <AnswerReviewWorkspace
+                mode="mentor"
+                loading={review.isAnswerReviewsLoading}
+                resolvedLoading={review.isResolvedReviewsLoading}
+                groups={review.answerReviewGroups || []}
+                reviews={review.answerReviews || []}
+                resolvedReviews={review.resolvedAnswerReviews || []}
+                onRefresh={review.loadAnswerReviews}
+                onRefreshResolved={review.loadResolvedAnswerReviews}
+              />
+            ),
+          },
+        ]}
       />
     </div>
   );

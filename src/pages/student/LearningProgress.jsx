@@ -167,6 +167,7 @@ function LearningProgress({
   return (
     <div className="portal-section learning-dashboard">
       <PageHeader
+        eyebrow="Học tập cá nhân"
         title={uiCopy.student.progress.title}
         description={uiCopy.student.progress.subtitle}
         actions={(

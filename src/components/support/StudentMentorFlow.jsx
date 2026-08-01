@@ -109,12 +109,15 @@ function StudentMentorFlow({ escalation, currentUser, compact = false, onEscalat
 
   if (!escalationId) return null;
 
-  if (chatRoomId && ['IN_CHAT', 'CHAT_ACTIVE', 'MENTOR_SELECTED', 'COMPLETED'].includes(status)) {
+  if (chatRoomId) {
+    const isConversationClosed = status.includes('ANSWERED')
+      || ['COMPLETED', 'CLOSED', 'CANCELLED'].includes(status);
     return (
       <SupportChatRoom
         chatRoomId={chatRoomId}
         currentUser={currentUser}
-        allowClose={status !== 'COMPLETED'}
+        allowClose={!isConversationClosed}
+        readOnly={isConversationClosed}
         compact={compact}
         onClosed={() => {
           const next = { ...detail, status: 'COMPLETED' };

@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
-import { Alert, Card, Form, Tabs, Typography } from 'antd';
+import { Alert, Card, Form, Typography } from 'antd';
+import AppTabs from '../../../components/common/AppTabs';
 import { getStatusLabel } from '../../../utils/statusLabels';
 import {
   criteriaRowsToWeights,
@@ -184,7 +185,7 @@ export default function ContributionWorkspace({
 
       <div className="expert-training__contribution-layout">
         <Card className="expert-training__editor-card" title="Chuẩn bị nội dung">
-          <Tabs
+          <AppTabs
             activeKey={selectedTask.type === 'RUBRIC' ? 'RUBRIC' : 'GOLD_QA'}
             items={selectedTask
               ? editorItems.filter((item) => item.key === (selectedTask.type === 'RUBRIC' ? 'RUBRIC' : 'GOLD_QA'))

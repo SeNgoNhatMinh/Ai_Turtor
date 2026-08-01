@@ -33,10 +33,10 @@
     display: flex !important;
     gap: 0 !important;
     overflow: hidden;
-    border: 1px solid rgba(243, 210, 188, 0.72);
-    border-radius: 18px;
+    border: 1px solid #e5e5e0;
+    border-radius: 12px;
     background: #FFFFFF;
-    box-shadow: 0 12px 28px rgba(216, 95, 22, 0.06);
+    box-shadow: none;
 }
 
 .student-chat-history-pane {
@@ -75,7 +75,7 @@
 }
 
 .student-chat-layout--chatgpt .ant-splitter-bar-dragger::before {
-    background: rgba(243, 112, 33, 0.18);
+    background: #d1d5db;
 }
 
 .student-chat-layout--chatgpt .chat-sessions-card.ant-card,

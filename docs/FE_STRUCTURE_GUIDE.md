@@ -10,7 +10,7 @@ This guide records the production structure target after aligning the FE with th
 - `src/App.jsx` owns the authenticated shell and exposes shared runtime values through `Outlet` context.
 - `src/App.jsx` is a thin authenticated composition layer; it must not own role business logic.
 - `src/app/workspaces/StudentWorkspace.jsx` owns student identity/enrollment context. Teacher and Admin workspaces own only identity/context forwarding and route-page selection.
-- Student, Teacher, and Admin route pages are lazy-loaded independently so opening one tab does not initialize API controllers for the other tabs.
+- Student, Teacher, Senior, and Admin route pages are lazy-loaded independently so opening one tab does not initialize API controllers for the other tabs.
 - `src/features/auth/LoginPage.jsx` is the public auth-page entry; its visual parts live under `components`.
 - `src/features/auth/hooks` owns login-form and persisted-session state.
 - `src/features/auth/services/tokenStorage.js` is the only owner of JWT browser storage.
@@ -34,6 +34,9 @@ This guide records the production structure target after aligning the FE with th
 - `StudentPortal.jsx`, `TeacherPortal.jsx`, and the aggregate teacher runtime controller have been removed. Do not recreate role-level switch components.
 - Student page containers live under `features/student/{chat,learning,quizzes,materials,mentor-review}`.
 - Teacher page containers live under `features/teacher/{classes,quizzes,materials,grading,review}`.
+- Senior route pages live under `features/senior/{review,expert-training}`. They may reuse pure quality-review or Tutor V2 components, but must not mount a Teacher route page.
+- `TeacherReviewPage` owns Teacher classroom support and moderate answer-review queues only. Senior/Admin quality review is composed through their own route pages and `features/quality-review/QualityReviewPage.jsx`.
+- `TeacherSupportInbox.jsx` owns the active/history master-detail view. Any escalation with a canonical `chatRoomId` remains reviewable after completion through authenticated `/api/chat/history`; terminal rooms are read-only.
 - `src/features/teacher/materials/TeacherMaterialsPage.jsx` is the route controller, while `TeacherMaterialsView.jsx` only composes presentational cards, tables, and dialogs.
 - `useTeacherAssignmentsController.js` owns assignment draft/list/edit/publish state; `useTeacherMaterialController.js` owns material upload/reindex/delete state. Do not merge these concerns back into one route-level hook.
 - `src/pages/teacher/QuizAssignments.jsx` is a compatibility facade. Quiz assignment state and API mutations live in `features/teacher/quizzes/useQuizAssignmentsController.js`; generation, draft, list and publish UI live in focused `components/*` files.

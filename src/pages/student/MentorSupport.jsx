@@ -128,7 +128,7 @@ function MentorSupport({
 
   return (
     <div className="portal-section mentor-review-page">
-      <PageHeader title={uiCopy.student.support.title} description={uiCopy.student.support.subtitle} />
+      <PageHeader eyebrow="Hỗ trợ học tập" title={uiCopy.student.support.title} description={uiCopy.student.support.subtitle} />
 
       <div className="mentor-review-layout">
         <Card

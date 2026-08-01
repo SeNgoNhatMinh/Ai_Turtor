@@ -3,12 +3,26 @@ import ConfirmCard from './ConfirmCard';
 
 let activeConfirm = null;
 
+const removeConfirmHosts = (exceptContainer = null) => {
+  if (typeof document === 'undefined') return;
+  document.querySelectorAll('.app-confirm-host').forEach((container) => {
+    if (container !== exceptContainer) container.remove();
+  });
+};
+
 export const closeActiveConfirm = () => {
-  if (!activeConfirm) return;
-  const { root, container } = activeConfirm;
-  root.unmount();
-  container.remove();
+  const currentConfirm = activeConfirm;
   activeConfirm = null;
+
+  if (currentConfirm) {
+    const { root, container } = currentConfirm;
+    root.unmount();
+    container.remove();
+  }
+
+  // Vite HMR can recreate this module and reset activeConfirm while the old
+  // portal is still mounted. Always remove those transparent full-screen hosts.
+  removeConfirmHosts();
 };
 
 const openConfirm = ({
@@ -39,6 +53,9 @@ const openConfirm = ({
     />,
   );
 };
+
+// Clean up a portal left behind by a previous hot-reloaded module.
+removeConfirmHosts(activeConfirm?.container);
 
 export const confirmDanger = ({
   title = 'Delete item?',

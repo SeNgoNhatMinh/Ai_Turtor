@@ -1,11 +1,10 @@
 import { Button, Card, Col, Form, Input, Row, Select } from 'antd';
 import { CheckCircle2, Eye, Pencil, Plus, Trash2 } from 'lucide-react';
 import EntityActionMenu from '../../../components/common/EntityActionMenu';
-import { DataTable } from '../../../components/ui/data-table';
+import { DataTable } from '../../../components/common/DataTable';
 import { findPersonById, getPersonDisplayName, getPersonEmail, getPersonId } from '../../../utils/displayNames';
 import StatusLabel from '../../../components/common/StatusLabel';
-
-const { Option } = Select;
+import { getCourseSelectOptions } from './adminAcademicUtils';
 
 const getMentorId = (mentor) => getPersonId(mentor) || mentor.email;
 const getMentorName = (mentor) => getPersonDisplayName(mentor, 'Giảng viên');
@@ -35,6 +34,16 @@ function ClassSectionsTab({
   onCourseSelect,
   onAction,
 }) {
+  const courseOptions = getCourseSelectOptions(courses);
+
+  const handleCourseChange = (courseId) => {
+    const currentCode = form.getFieldValue('classCode');
+    const prefix = String(courseId || 'CLASS').replace(/[^a-z0-9]/gi, '').toUpperCase();
+    if (!currentCode) {
+      form.setFieldsValue({ classCode: `${prefix}-${String((classSections?.length || 0) + 1).padStart(2, '0')}` });
+    }
+  };
+
   const handleMentorChange = (mentorId) => {
     const mentor = mentors.find((item) => getMentorId(item) === mentorId);
     form.setFieldsValue({
@@ -46,21 +55,18 @@ function ClassSectionsTab({
 
   return (
     <Row gutter={[16, 16]}>
-      <Col xs={24} md={10}>
+      <Col xs={24} xl={10}>
         <Card title="Tạo lớp học phần" hoverable>
           <Form form={form} layout="vertical" onFinish={onCreate}>
             <Form.Item name="courseId" label="Môn học" rules={[{ required: true }]}>
-              <Select placeholder="Chọn môn học">
-                {courses.map((course) => (
-                  <Option key={course.courseId || course.id} value={course.courseId}>
-                    {course.courseId} - {course.courseName}
-                  </Option>
-                ))}
-              </Select>
+              <Select placeholder="Chọn môn học" options={courseOptions} onChange={handleCourseChange} />
             </Form.Item>
             <Form.Item name="classCode" label="Mã lớp" rules={[{ required: true }]}>
-              <Input placeholder="SE1840" />
+              <Input placeholder="Ví dụ: SE1840" />
             </Form.Item>
+            <div className="admin-field-hint admin-field-hint--after-control">
+              Hệ thống tự gợi ý mã theo môn; Admin có thể sửa trước khi tạo.
+            </div>
             <Form.Item name="teacherId" label="Giảng viên phụ trách" rules={[{ required: true, message: 'Chọn giảng viên phụ trách lớp' }]}>
               <Select
                 showSearch
@@ -91,19 +97,15 @@ function ClassSectionsTab({
           </Form>
         </Card>
       </Col>
-      <Col xs={24} md={14} style={{ minWidth: 0 }}>
+      <Col xs={24} xl={14} style={{ minWidth: 0 }}>
         <Card title="Danh sách lớp theo môn học" hoverable>
           <Select
             placeholder="Chọn môn học để xem lớp"
+            value={selectedCourseId || undefined}
             style={{ width: '100%', marginBottom: 16 }}
             onChange={onCourseSelect}
-          >
-            {courses.map((course) => (
-              <Option key={course.courseId || course.id} value={course.courseId}>
-                {course.courseId} - {course.courseName}
-              </Option>
-            ))}
-          </Select>
+            options={courseOptions}
+          />
           <DataTable
             data={classSections || []}
             loading={academicLoading}

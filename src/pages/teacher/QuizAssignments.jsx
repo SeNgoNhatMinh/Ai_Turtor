@@ -1,4 +1,5 @@
-import { Space, Tag, Typography } from 'antd';
+import { Space, Tag } from 'antd';
+import PageHeader from '../../components/common/PageHeader';
 import QuizDraftCreationCards from '../../features/teacher/quizzes/components/QuizDraftCreationCards';
 import QuizDraftWorkspace from '../../features/teacher/quizzes/components/QuizDraftWorkspace';
 import QuizAssignmentList from '../../features/teacher/quizzes/components/QuizAssignmentList';
@@ -8,8 +9,6 @@ import QuizScoreboardDrawer from '../../features/teacher/quizzes/components/Quiz
 import { useQuizAssignmentsController } from '../../features/teacher/quizzes/useQuizAssignmentsController';
 import { useQuizScoreboard } from '../../features/teacher/quizzes/useQuizScoreboard';
 import '../student/Quiz.css';
-
-const { Text, Title } = Typography;
 
 function QuizAssignments({
   teacherId,
@@ -43,16 +42,17 @@ function QuizAssignments({
 
   return (
     <div className="portal-section quiz-page teacher-quiz-page">
-      <div className="quiz-page-header">
-        <div>
-          <Title level={3} style={{ margin: 0 }}>Quiz được giao</Title>
-          <Text type="secondary">Tạo draft từ tài liệu đã lập chỉ mục, kiểm tra đáp án rồi xuất bản cho cả lớp hoặc sinh viên được chọn.</Text>
-        </div>
-        <Space wrap>
-          {courseId && <Tag color="orange">Môn: {courseId}</Tag>}
-          {classId && <Tag>Lớp: {classId}</Tag>}
-        </Space>
-      </div>
+      <PageHeader
+        eyebrow="Giảng dạy"
+        title="Quiz được giao"
+        description="Tạo draft từ tài liệu đã lập chỉ mục, kiểm tra đáp án rồi xuất bản cho cả lớp hoặc sinh viên được chọn."
+        actions={(
+          <Space wrap>
+            {courseId && <Tag color="orange">Môn: {courseId}</Tag>}
+            {classId && <Tag>Lớp: {classId}</Tag>}
+          </Space>
+        )}
+      />
 
       <QuizDraftCreationCards
         form={controller.form}

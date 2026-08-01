@@ -2,11 +2,15 @@ import { Alert, Button, Card, Col, Form, Input, Row, Select, Space, Tag, Upload 
 import { DownloadOutlined, GlobalOutlined, UploadOutlined } from '@ant-design/icons';
 import { Database, Eye, Pencil, RefreshCw, Trash2 } from 'lucide-react';
 import EntityActionMenu from '../../../components/common/EntityActionMenu';
-import { DataTable } from '../../../components/ui/data-table';
-import { getRecordId, getWebsiteSourceLabel, isWebsiteMaterial } from './adminAcademicUtils';
+import { DataTable } from '../../../components/common/DataTable';
+import {
+  getCourseSelectOptions,
+  getRecordId,
+  getWebsiteSourceLabel,
+  isWebsiteMaterial,
+} from './adminAcademicUtils';
 import StatusLabel from '../../../components/common/StatusLabel';
 
-const { Option } = Select;
 const { Dragger } = Upload;
 
 function CourseMaterialsTab({
@@ -25,6 +29,8 @@ function CourseMaterialsTab({
   onReload,
   onMaterialAction,
 }) {
+  const courseOptions = getCourseSelectOptions(courses);
+
   return (
     <Row gutter={[16, 16]}>
       <Col xs={24} lg={9}>
@@ -41,13 +47,8 @@ function CourseMaterialsTab({
                 placeholder="Chọn môn học"
                 value={materialCourseId || undefined}
                 onChange={onCourseChange}
-              >
-                {courses.map((course) => (
-                  <Option key={course.courseId || course.id} value={course.courseId}>
-                    {course.courseId} - {course.courseName}
-                  </Option>
-                ))}
-              </Select>
+                options={courseOptions}
+              />
             </Form.Item>
             <Form.Item name="title" label="Tên học liệu" rules={[{ required: true, message: 'Nhập tên học liệu' }]}>
               <Input placeholder="Lecture 01 - OOP" />
@@ -99,7 +100,7 @@ function CourseMaterialsTab({
           extra={<Button size="small" onClick={onReload} icon={<RefreshCw size={14} />} disabled={!materialCourseId}>Làm mới</Button>}
         >
           {materialsLoading && courseMaterials.length === 0 ? (
-            <div className="p-4 text-center text-gray-500">Đang tải...</div>
+            <div className="admin-material-loading">Đang tải...</div>
           ) : (
             <DataTable
               data={courseMaterials || []}
@@ -108,7 +109,7 @@ function CourseMaterialsTab({
                   accessorKey: 'title',
                   header: 'Tên học liệu',
                   cell: ({ row }) => (
-                    <span className="admin-material-title-text font-semibold text-gray-800" title={row.getValue('title') || 'Học liệu chưa đặt tên'}>
+                    <span className="admin-material-title-text" title={row.getValue('title') || 'Học liệu chưa đặt tên'}>
                       {row.getValue('title') || 'Học liệu chưa đặt tên'}
                     </span>
                   ),
@@ -124,7 +125,7 @@ function CourseMaterialsTab({
                         </Tag>
                         {row.original.indexingStatus && <StatusLabel status={row.original.indexingStatus} />}
                       </Space>
-                      <span className="admin-material-source-text text-sm text-gray-500 font-mono">
+                      <span className="admin-material-source-text">
                         {isWebsiteMaterial(row.original)
                           ? getWebsiteSourceLabel(row.original)
                           : row.getValue('fileName') || row.original.sourceFileName || row.original.filePath || 'Không có tên tệp'}
@@ -141,7 +142,7 @@ function CourseMaterialsTab({
                   accessorKey: 'createdAt',
                   header: 'Ngày tải lên',
                   cell: ({ row }) => (
-                    <span className="admin-material-date-text text-xs text-gray-500">
+                    <span className="admin-material-date-text">
                       {row.getValue('createdAt') ? new Date(row.getValue('createdAt')).toLocaleString('vi-VN') : '—'}
                     </span>
                   ),

@@ -326,6 +326,28 @@
   color: #ececec !important;
 }
 
+.app-container.dark .chat-gpt-tool-btn {
+  color: #b4b4b4;
+}
+
+.app-container.dark .chat-gpt-tool-btn:hover:not(:disabled) {
+  background: #2a2a2a;
+  color: #ffffff;
+}
+
+.app-container.dark .chat-gpt-tool-btn.is-listening {
+  background: rgba(220, 38, 38, 0.2);
+  color: #fca5a5;
+}
+
+.app-container.dark .chat-composer-meta {
+  color: #a3a3a3;
+}
+
+.app-container.dark .chat-speech-status {
+  color: #fca5a5;
+}
+
 .app-container.dark .chat-gpt-send-btn {
   background: #ececec !important;
   color: #000000 !important;

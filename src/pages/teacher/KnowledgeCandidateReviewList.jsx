@@ -8,6 +8,7 @@ function KnowledgeCandidateReviewList({
   handleApproveCandidate,
   handleRejectCandidate,
   pendingActionIds = [],
+  currentReviewerId = '',
 }) {
   if (candidates.length === 0) {
     return <div className="no-data-text">Không có tri thức đề xuất đang chờ phê duyệt.</div>;
@@ -16,7 +17,13 @@ function KnowledgeCandidateReviewList({
   return candidates.map((cand) => {
     const note = candidateNotes[cand.id] || '';
     const isPending = pendingActionIds.includes(cand.id);
-    const isActionDisabled = !String(note).trim() || isPending;
+    const candidateAuthorId = cand.teacherId || cand.createdBy || cand.authorId || '';
+    const isOwnCandidate = Boolean(
+      currentReviewerId
+      && candidateAuthorId
+      && String(currentReviewerId) === String(candidateAuthorId),
+    );
+    const isActionDisabled = !String(note).trim() || isPending || isOwnCandidate;
 
     return (
       <div key={cand.id} className="candidate-card-item">
@@ -30,11 +37,19 @@ function KnowledgeCandidateReviewList({
 
         {canReviewKnowledgeCandidates ? (
           <>
+            {isOwnCandidate && (
+              <div className="no-data-text" style={{ textAlign: 'left', marginTop: 10 }}>
+                Bạn đã tạo Candidate này ở Flow 3.5. Một Senior Mentor khác hoặc Admin phải thực hiện Flow 4.
+              </div>
+            )}
             <div style={{ marginTop: 10, marginBottom: 10 }}>
               <input
                 type="text"
-                placeholder="Ghi chú phê duyệt hoặc lý do từ chối (bắt buộc)..."
+                placeholder={isOwnCandidate
+                  ? 'Chờ người kiểm duyệt độc lập...'
+                  : 'Ghi chú phê duyệt hoặc lý do từ chối (bắt buộc)...'}
                 value={note}
+                disabled={isOwnCandidate}
                 onChange={(e) => handleNoteChange(cand.id, e.target.value)}
                 style={{
                   width: '100%',

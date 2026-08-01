@@ -1,0 +1,13 @@
+.quality-review-page {
+  padding: 0 24px 24px;
+}
+
+.quality-review-page .answer-review-workspace {
+  min-height: min(720px, calc(100vh - 260px));
+}
+
+@media (max-width: 768px) {
+  .quality-review-page {
+    padding: 0 0 16px;
+  }
+}

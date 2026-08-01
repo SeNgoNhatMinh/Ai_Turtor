@@ -3,6 +3,8 @@ import { matchPath } from 'react-router-dom';
 const roleHomeRoutes = {
   student: '/student/chat',
   teacher: '/teacher/classes',
+  senior: '/senior/review',
+  senior_mentor: '/senior/review',
   admin: '/admin/dashboard',
 };
 
@@ -12,11 +14,18 @@ export const appRoutes = [
   { role: 'student', tab: 'student-quizzes', path: '/student/quizzes' },
   { role: 'student', tab: 'student-materials', path: '/student/materials' },
   { role: 'student', tab: 'student-escalation', path: '/student/mentor-review' },
-  { role: 'teacher', tab: 'teacher-classes', path: '/teacher/classes' },
-  { role: 'teacher', tab: 'teacher-quizzes', path: '/teacher/quizzes' },
-  { role: 'teacher', tab: 'teacher-materials', path: '/teacher/materials' },
-  { role: 'teacher', tab: 'teacher-grading', path: '/teacher/grading' },
-  { role: 'teacher', tab: 'teacher-escalations', path: '/teacher/review-queue' },
+  { role: 'teacher', tab: 'teacher-classes', path: '/teacher/classes', allowedAccountRoles: ['TEACHER'] },
+  { role: 'teacher', tab: 'teacher-quizzes', path: '/teacher/quizzes', allowedAccountRoles: ['TEACHER'] },
+  { role: 'teacher', tab: 'teacher-materials', path: '/teacher/materials', allowedAccountRoles: ['TEACHER'] },
+  { role: 'teacher', tab: 'teacher-grading', path: '/teacher/grading', allowedAccountRoles: ['TEACHER'] },
+  { role: 'teacher', tab: 'teacher-escalations', path: '/teacher/review-queue', allowedAccountRoles: ['TEACHER'] },
+  {
+    role: 'senior',
+    tab: 'senior-review',
+    path: '/senior/review',
+    allowedAccountRoles: ['SENIOR_MENTOR'],
+    navigationPath: true,
+  },
   {
     role: 'teacher',
     tab: 'teacher-expert-training',
@@ -31,7 +40,7 @@ export const appRoutes = [
     allowedAccountRoles: ['TEACHER'],
   },
   {
-    role: 'teacher',
+    role: 'senior',
     tab: 'senior-v2',
     path: '/senior/v2',
     allowedAccountRoles: ['SENIOR_MENTOR'],

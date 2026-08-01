@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Database, Download, Pencil, Trash2 } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import { Tag } from 'antd';
 import StatusLabel from '../../../components/common/StatusLabel';
 import EntityActionMenu from '../../../components/common/EntityActionMenu';
 import { getRecordId } from '../shared/teacherUtils';
@@ -25,12 +25,12 @@ export function useTeacherResourceColumns({
     {
       accessorKey: 'title',
       header: 'Tên bài tập',
-      cell: ({ row }) => <span className="font-semibold text-gray-900">{row.getValue('title') || 'Bài tập chưa đặt tên'}</span>,
+      cell: ({ row }) => <span className="teacher-resource-title">{row.getValue('title') || 'Bài tập chưa đặt tên'}</span>,
     },
     {
       accessorKey: 'assignmentType',
       header: 'Loại',
-      cell: ({ row }) => <Badge variant="outline">{String(row.getValue('assignmentType') || 'ASSIGNMENT').toUpperCase() === 'EXAM' ? 'Bài kiểm tra' : 'Bài tập'}</Badge>,
+      cell: ({ row }) => <Tag>{String(row.getValue('assignmentType') || 'ASSIGNMENT').toUpperCase() === 'EXAM' ? 'Bài kiểm tra' : 'Bài tập'}</Tag>,
     },
     {
       accessorKey: 'maxScore',
@@ -41,14 +41,9 @@ export function useTeacherResourceColumns({
       accessorKey: 'targetType',
       header: 'Đối tượng',
       cell: ({ row }) => (
-        <Badge
-          variant={row.getValue('targetType') === 'SELECTED_STUDENTS' ? 'secondary' : 'outline'}
-          className={row.getValue('targetType') === 'SELECTED_STUDENTS'
-            ? 'bg-orange-100 text-orange-600 hover:bg-orange-100 border-none'
-            : 'bg-green-50 text-green-600 border-green-200'}
-        >
+        <Tag color={row.getValue('targetType') === 'SELECTED_STUDENTS' ? 'orange' : 'green'}>
           {row.getValue('targetType') === 'SELECTED_STUDENTS' ? 'Sinh viên được chọn' : 'Cả lớp'}
-        </Badge>
+        </Tag>
       ),
     },
     {
@@ -56,7 +51,7 @@ export function useTeacherResourceColumns({
       header: 'Hạn nộp',
       cell: ({ row }) => {
         const value = row.getValue('dueAt');
-        return <span className="text-gray-500 text-sm">{value ? new Date(value).toLocaleString() : '-'}</span>;
+        return <span className="teacher-resource-meta">{value ? new Date(value).toLocaleString() : '-'}</span>;
       },
     },
     { accessorKey: 'status', header: 'Trạng thái', cell: ({ row }) => <StatusLabel status={row.getValue('status') || 'PUBLISHED'} /> },
@@ -86,20 +81,20 @@ export function useTeacherResourceColumns({
     {
       accessorKey: 'title',
       header: 'Tên tài liệu',
-      cell: ({ row }) => <span className="font-semibold text-gray-900">{row.getValue('title') || 'Tài liệu chưa đặt tên'}</span>,
+      cell: ({ row }) => <span className="teacher-resource-title">{row.getValue('title') || 'Tài liệu chưa đặt tên'}</span>,
     },
     {
       id: 'fileName',
       header: 'Nguồn tài liệu',
       cell: ({ row }) => {
         const name = getMaterialDisplayName(row.original) || 'Không có thông tin tệp';
-        return <span className="font-mono text-xs text-gray-500 truncate max-w-[200px] block" title={name}>{name}</span>;
+        return <span className="teacher-resource-source" title={name}>{name}</span>;
       },
     },
     {
       accessorKey: 'classId',
       header: 'Phạm vi',
-      cell: ({ row }) => <Badge variant="outline" className="bg-orange-50 text-orange-600 border-orange-200">{row.getValue('classId') ? `Lớp ${row.getValue('classId')}` : 'Toàn môn'}</Badge>,
+      cell: ({ row }) => <Tag color="orange">{row.getValue('classId') ? `Lớp ${row.getValue('classId')}` : 'Toàn môn'}</Tag>,
     },
     {
       id: 'indexingStatus',
@@ -120,7 +115,7 @@ export function useTeacherResourceColumns({
       header: 'Ngày tải lên',
       cell: ({ row }) => {
         const value = row.getValue('createdAt');
-        return <span className="text-gray-500 text-sm">{value ? new Date(value).toLocaleString() : '-'}</span>;
+        return <span className="teacher-resource-meta">{value ? new Date(value).toLocaleString() : '-'}</span>;
       },
     },
     {

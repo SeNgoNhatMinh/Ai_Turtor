@@ -159,7 +159,7 @@ export const getFeedbackAction = (key, fallback = 'needMoreDetail') => {
 };
 
 /** Maps 1–5 star UI to existing Flow 2 feedback actions (BE crowd tiers unchanged). */
-export const STAR_TO_FEEDBACK_ACTION_KEY = {
+const STAR_TO_FEEDBACK_ACTION_KEY = {
   5: 'helpful',
   4: 'needMoreDetail',
   3: 'moderateDispute',

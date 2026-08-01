@@ -10,6 +10,7 @@ export default function TeacherClassesPage({
   currentUser,
   teacherId,
   courseId,
+  setCourseId,
   classId,
   setClassId,
   switchTab,
@@ -29,9 +30,22 @@ export default function TeacherClassesPage({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [teacherId, courseId, classId]);
 
+  useEffect(() => {
+    if (dashboard.teacherDashboardLoading || !dashboard.classesList.length) return;
+    const selectedExists = dashboard.classesList.some((item) => (
+      (item.classCode || item.classId || item.id) === classId
+    ));
+    if (selectedExists) return;
+    const firstClass = dashboard.classesList[0];
+    const nextClassId = firstClass.classCode || firstClass.classId || firstClass.id || '';
+    const nextCourseId = firstClass.courseId || firstClass.course || '';
+    if (nextCourseId && nextCourseId !== courseId) setCourseId?.(nextCourseId);
+    if (nextClassId) setClassId?.(nextClassId);
+  }, [classId, courseId, dashboard.classesList, dashboard.teacherDashboardLoading, setClassId, setCourseId]);
+
   return (
     <div className="portal-section teacher-feature-page">
-      <PageHeader title={uiCopy.teacher.classes.title} description={uiCopy.teacher.classes.subtitle} />
+      <PageHeader eyebrow="Giảng dạy" title={uiCopy.teacher.classes.title} description={uiCopy.teacher.classes.subtitle} />
       <TeacherActionCenter
         items={actionCenter.items}
         loading={actionCenter.loading}

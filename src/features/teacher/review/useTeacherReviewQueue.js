@@ -43,7 +43,9 @@ export function useTeacherReviewQueue({
       const data = await teacherReviewApi.getTeacherEscalations(teacherId, { courseId });
       const items = asArray(data, 'escalations', 'inbox', 'content').map(normalizeTeacherInboxItem);
       setEscalations(items);
-      setSelectedEscalation((current) => current || items[0] || null);
+      setSelectedEscalation((current) => (
+        items.find((item) => item.id === current?.id) || items[0] || null
+      ));
     } catch {
       setEscalations([]);
     } finally {

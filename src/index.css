@@ -1,5 +1,4 @@
 /* Global stylesheet entry. Feature ownership lives in the imported modules below. */
-@import "./styles/tailwind.css";
 @import "./styles/tokens.css";
 @import "./styles/base.css";
 @import "./app/layouts/AppShell.css";

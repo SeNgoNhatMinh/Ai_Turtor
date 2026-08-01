@@ -6,7 +6,6 @@ verification.
 
 ## Global styles
 
-- `tailwind.css`: Tailwind directives and shadcn-compatible variables.
 - `tokens.css`: application color, spacing, radius, and typography tokens.
 - `base.css`: reset, document defaults, global scrollbars, and route loading.
 - `theme.css`: global light/dark surface overrides.
@@ -20,6 +19,7 @@ verification.
 
 - App header, sidebar, and authenticated layout styles belong in `src/app/layouts`.
 - Reusable component styles belong beside the component under `src/components`.
+- Ant Design is the single runtime UI system; do not add a parallel utility/component stack for one feature.
 - Student, Teacher, Admin, and Expert Training styles belong in their matching
   `src/features` directory.
 - Responsive rules for one feature stay in that feature. Only truly shared viewport

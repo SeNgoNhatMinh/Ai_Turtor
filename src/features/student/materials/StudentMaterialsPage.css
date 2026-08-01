@@ -41,26 +41,6 @@
   --surface-selected: #27180f;
 }
 
-.app-container.dark .student-materials-page .ant-tabs-card > .ant-tabs-nav .ant-tabs-tab {
-  border-color: #343434 !important;
-  background: #171717 !important;
-  color: #d1d5db !important;
-}
-
-.app-container.dark .student-materials-page .ant-tabs-card > .ant-tabs-nav .ant-tabs-tab:hover {
-  color: #ffffff !important;
-}
-
-.app-container.dark .student-materials-page .ant-tabs-card > .ant-tabs-nav .ant-tabs-tab-active {
-  border-color: #343434 !important;
-  border-bottom-color: #0f0f0f !important;
-  background: #0f0f0f !important;
-}
-
-.app-container.dark .student-materials-page .ant-tabs-card > .ant-tabs-nav .ant-tabs-tab-active .ant-tabs-tab-btn {
-  color: #fb923c !important;
-}
-
 .app-container.dark .student-materials-page .ant-table-thead > tr > th {
   border-bottom-color: #343434 !important;
   background: #1c1c1c !important;

@@ -20,7 +20,7 @@ function EvidenceRow({ item }) {
   return (
     <div className="grouped-answer-review__evidence-row">
       <div className="grouped-answer-review__evidence-meta">
-        <strong>{item.studentId || 'Sinh viên'}</strong>
+        <strong>{item.studentName || item.studentEmail || 'Sinh viên phản hồi'}</strong>
         <Rate disabled value={item.rating || 0} count={5} />
         <span>{item.createdAt ? formatDate(item.createdAt) : ''}</span>
       </div>
@@ -38,7 +38,6 @@ export default function GroupedAnswerReviewCard({
   onResolve,
 }) {
   const isSeniorQueue = queue === 'senior';
-  const reviewId = group.representativeReviewId || group.id;
   const notes = String(draft.notes || '');
   const correctedAnswer = String(draft.correctedAnswer || '');
   const candidateType = draft.candidateType || 'ACADEMIC_KNOWLEDGE';
@@ -91,7 +90,7 @@ export default function GroupedAnswerReviewCard({
         items={[
           {
             key: 'evidence',
-            label: `Chi tiết từng sinh viên (${group.evidence?.length || 0})`,
+            label: `Chi tiết theo sinh viên (${group.evidence?.length || 0})`,
             children: (group.evidence || []).map((item) => (
               <EvidenceRow key={item.reviewId || `${item.studentId}-${item.createdAt}`} item={item} />
             )),
@@ -138,7 +137,7 @@ export default function GroupedAnswerReviewCard({
               loading={isPending}
               onClick={() => onResolve?.('CREATE_KNOWLEDGE_CANDIDATE')}
             >
-              Tạo Knowledge Candidate (Flow 3)
+              Tạo Candidate chờ duyệt (Flow 3.5)
             </Button>
           </div>
           <p className="answer-review-resolution__hint">
@@ -146,7 +145,7 @@ export default function GroupedAnswerReviewCard({
             {' '}
             <code>representativeReviewId</code>
             {' '}
-            của nhóm để senior-resolve. AI chưa học cho đến khi candidate được duyệt.
+            của nhóm để kết thúc Flow 3. Candidate được tạo ở Flow 3.5 và AI chưa học cho đến khi Flow 4 duyệt.
           </p>
         </div>
       ) : (
@@ -154,7 +153,7 @@ export default function GroupedAnswerReviewCard({
           type="info"
           showIcon
           title="Giảng viên xác minh trước khi leo thang kiến thức"
-          description="Nhóm này chỉ xuất hiện khi đủ số sinh viên độc lập đánh giá tiêu cực (2–3 sao) về cùng câu trả lời AI. Hãy đối chiếu tài liệu và trả lời lại sinh viên qua lớp hoặc chat. Nếu xác nhận lỗi kiến thức nghiêm trọng, hướng senior xử lý qua Flow 3."
+          description="Nhóm này chỉ xuất hiện khi đủ số sinh viên độc lập đánh giá tiêu cực (2–3 sao) về cùng câu trả lời AI. Teacher xác minh ở Flow 3; nếu cần cập nhật tri thức, Senior tạo Candidate ở Flow 3.5 và duyệt index riêng tại Flow 4."
         />
       )}
     </article>

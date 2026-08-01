@@ -1,6 +1,6 @@
 import { Alert, Button, Card, Col, Form, Input, Row, Select, Space, Table, Upload } from 'antd';
 import { DownloadOutlined, UploadOutlined } from '@ant-design/icons';
-import { getClassCode } from './adminAcademicUtils';
+import { getClassCode, getCourseSelectOptions } from './adminAcademicUtils';
 
 const { Option } = Select;
 const { Dragger } = Upload;
@@ -22,6 +22,8 @@ function StudentImportTab({
   onFileRemove,
   onImport,
 }) {
+  const courseOptions = getCourseSelectOptions(courses);
+
   return (
     <Row gutter={[16, 16]}>
       <Col xs={24} lg={9}>
@@ -39,13 +41,11 @@ function StudentImportTab({
           />
           <Form form={form} layout="vertical">
             <Form.Item name="courseId" label="Môn học" rules={[{ required: true, message: 'Chọn môn học' }]}>
-              <Select placeholder="Chọn môn học" onChange={onCourseChange}>
-                {courses.map((course) => (
-                  <Option key={course.courseId || course.id} value={course.courseId}>
-                    {course.courseId} - {course.courseName}
-                  </Option>
-                ))}
-              </Select>
+              <Select
+                placeholder="Chọn môn học"
+                onChange={onCourseChange}
+                options={courseOptions}
+              />
             </Form.Item>
             <Form.Item name="classId" label="Lớp học phần" rules={[{ required: true, message: 'Chọn lớp học phần' }]}>
               <Select

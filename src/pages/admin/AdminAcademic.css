@@ -5,22 +5,6 @@
     padding-bottom: 24px;
 }
 
-.admin-academic-tabs > .ant-tabs-nav {
-    margin-bottom: 18px;
-}
-
-.admin-academic-tabs > .ant-tabs-nav .ant-tabs-nav-wrap {
-    overflow: auto hidden;
-}
-
-.admin-academic-tabs > .ant-tabs-nav .ant-tabs-tab {
-    min-height: 38px;
-    margin: 0 !important;
-    padding: 8px 14px;
-    border-radius: 10px !important;
-    white-space: nowrap;
-}
-
 .admin-academic-page .ant-row {
     align-items: flex-start;
 }
@@ -94,14 +78,42 @@
 
 .admin-academic-page .data-table-card {
     max-width: 100%;
-    overflow-x: auto;
+    overflow: visible;
     border-color: #e5e7eb;
     border-radius: 12px;
     background: #ffffff;
 }
 
+.admin-academic-page .data-table-scroll {
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+}
+
 .admin-academic-page .data-table-card table {
     min-width: 640px;
+}
+
+.admin-academic-page .data-table-card th:last-child,
+.admin-academic-page .data-table-card td:last-child {
+    position: sticky;
+    right: 0;
+    z-index: 2;
+    width: 48px;
+    min-width: 48px;
+    max-width: 48px;
+    padding-right: 8px;
+    padding-left: 8px;
+    background: #ffffff;
+    box-shadow: -8px 0 12px -12px rgba(15, 23, 42, 0.45);
+}
+
+.admin-academic-page .data-table-card th:last-child {
+    z-index: 3;
+}
+
+.admin-academic-page .data-table-card tr:hover td:last-child {
+    background: #f8fafc;
 }
 
 .admin-academic-page .data-table-card th {
@@ -112,6 +124,18 @@
 body.theme-dark .admin-academic-page .data-table-card {
     border-color: #2a2a2a;
     background: #0d0d0d;
+}
+
+.app-container.dark .admin-academic-page .data-table-card th:last-child,
+.app-container.dark .admin-academic-page .data-table-card td:last-child,
+body.theme-dark .admin-academic-page .data-table-card th:last-child,
+body.theme-dark .admin-academic-page .data-table-card td:last-child {
+    background: #0d0d0d;
+}
+
+.app-container.dark .admin-academic-page .data-table-card tr:hover td:last-child,
+body.theme-dark .admin-academic-page .data-table-card tr:hover td:last-child {
+    background: #171717;
 }
 
 .admin-academic-search-row {
@@ -241,3 +265,25 @@ body.theme-dark .admin-material-date-text,
     }
 }
 
+.admin-field-hint {
+  margin-top: 6px;
+  color: var(--text-secondary, #667085);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.admin-material-loading {
+    padding: 16px;
+    color: #64748b;
+    text-align: center;
+}
+
+body.theme-dark .admin-material-loading,
+.app-container.dark .admin-material-loading {
+    color: #a3a3a3;
+}
+
+.admin-field-hint--after-control {
+  margin-top: -8px;
+  margin-bottom: 14px;
+}

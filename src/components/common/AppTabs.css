@@ -1,0 +1,131 @@
+.app-section-tabs {
+  width: 100%;
+  min-width: 0;
+}
+
+.app-section-tabs > .ant-tabs-nav {
+  width: 100%;
+  min-width: 0;
+  margin: 0 0 16px;
+  padding: 4px;
+  overflow: hidden;
+  border: 1px solid #e5e5e0;
+  border-radius: 10px;
+  background: #f4f4f2;
+}
+
+.app-section-tabs > .ant-tabs-nav::before {
+  display: none;
+}
+
+.app-section-tabs > .ant-tabs-nav .ant-tabs-nav-wrap {
+  min-width: 0;
+}
+
+.app-section-tabs > .ant-tabs-nav .ant-tabs-nav-list {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  gap: 3px;
+}
+
+.app-section-tabs > .ant-tabs-nav .ant-tabs-tab {
+  display: flex;
+  flex: 1 1 0;
+  justify-content: center;
+  min-width: 0;
+  min-height: 36px;
+  margin: 0 !important;
+  padding: 8px 11px;
+  border: 0;
+  border-radius: 7px;
+  color: #5f6368;
+  font-weight: 650;
+  transition: background-color 0.16s ease, color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.app-section-tabs > .ant-tabs-nav .ant-tabs-tab-btn {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-section-tabs > .ant-tabs-nav .ant-tabs-tab:hover {
+  background: rgba(255, 255, 255, 0.55);
+  color: #202123;
+}
+
+.app-section-tabs > .ant-tabs-nav .ant-tabs-tab-active {
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+}
+
+.app-section-tabs > .ant-tabs-nav .ant-tabs-tab-active .ant-tabs-tab-btn {
+  color: #202123 !important;
+}
+
+.app-section-tabs > .ant-tabs-content-holder,
+.app-section-tabs .ant-tabs-tabpane {
+  min-width: 0;
+}
+
+.app-container.dark .app-section-tabs > .ant-tabs-nav,
+body.theme-dark .app-section-tabs > .ant-tabs-nav {
+  border-color: #2a2a2a;
+  background: #171717;
+}
+
+.app-container.dark .app-section-tabs > .ant-tabs-nav .ant-tabs-tab,
+body.theme-dark .app-section-tabs > .ant-tabs-nav .ant-tabs-tab {
+  color: #b4b4b4;
+}
+
+.app-container.dark .app-section-tabs > .ant-tabs-nav .ant-tabs-tab:hover,
+body.theme-dark .app-section-tabs > .ant-tabs-nav .ant-tabs-tab:hover {
+  background: #202020;
+  color: #ffffff;
+}
+
+.app-container.dark .app-section-tabs > .ant-tabs-nav .ant-tabs-tab-active,
+body.theme-dark .app-section-tabs > .ant-tabs-nav .ant-tabs-tab-active {
+  background: #2a2a2a;
+  box-shadow: none;
+}
+
+.app-container.dark .app-section-tabs > .ant-tabs-nav .ant-tabs-tab-active .ant-tabs-tab-btn,
+body.theme-dark .app-section-tabs > .ant-tabs-nav .ant-tabs-tab-active .ant-tabs-tab-btn {
+  color: #ffffff !important;
+}
+
+@media (max-width: 760px) {
+  .app-section-tabs > .ant-tabs-nav {
+    overflow: visible;
+  }
+
+  .app-section-tabs > .ant-tabs-nav .ant-tabs-nav-wrap {
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+
+  .app-section-tabs > .ant-tabs-nav .ant-tabs-nav-wrap::-webkit-scrollbar {
+    display: none;
+  }
+
+  .app-section-tabs > .ant-tabs-nav .ant-tabs-nav-list {
+    width: max-content;
+    min-width: 100%;
+  }
+
+  .app-section-tabs > .ant-tabs-nav .ant-tabs-tab {
+    flex: 0 0 auto;
+    min-width: 100px;
+  }
+
+  .app-section-tabs > .ant-tabs-nav .ant-tabs-nav-operations {
+    display: none;
+  }
+}
+
