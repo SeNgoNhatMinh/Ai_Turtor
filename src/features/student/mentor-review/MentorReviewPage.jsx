@@ -1,4 +1,4 @@
-import StudentSupportView from './StudentSupportView';
+import MentorSupport from './MentorSupport';
 import { useStudentSupport } from '../../../hooks/useStudentSupport';
 
 export default function MentorReviewPage({ currentUser, studentId, switchTab }) {
@@ -9,7 +9,7 @@ export default function MentorReviewPage({ currentUser, studentId, switchTab }) 
   });
 
   return (
-    <StudentSupportView
+    <MentorSupport
       escalations={support.escalations}
       selectedEscalation={support.selectedEscalation}
       isEscalationsLoading={support.isEscalationsLoading}

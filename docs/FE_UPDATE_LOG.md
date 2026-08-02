@@ -1,5 +1,18 @@
 # Frontend Update Log
 
+## 2026-08-02 - Student Mentor Support Structure Refactor
+
+- Split the Student Mentor Support screen into focused ticket-list and conversation-detail components while keeping the current UI, CSS classes, route and API behavior unchanged.
+- Centralized backend ticket field aliases and status helpers in a pure utility module so response normalization is no longer duplicated inside the view.
+- Removed the redundant `StudentSupportView` passthrough component; `MentorReviewPage` now renders the feature component directly.
+- Added contract tests for question, AI snapshot, mentor identity, mentor answer and answered-state normalization.
+
+**Tested**
+- ESLint and production build: pass.
+- Contract tests: `110/110` pass; component/unit tests: `96/96` pass.
+- Dead-code audit and `git diff --check`: pass.
+- Targeted Student desktop/mobile E2E: `4/4` pass.
+
 ## 2026-08-02 - Feature-Owned Route Migration
 
 - Removed the obsolete `src/pages` hierarchy after migrating all remaining Student, Teacher and Admin route views into their owning `src/features/*` domains.
