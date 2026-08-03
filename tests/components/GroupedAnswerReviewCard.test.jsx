@@ -41,6 +41,6 @@ describe('GroupedAnswerReviewCard', () => {
       />,
     );
 
-    expect(screen.getByRole('button', { name: 'Tạo Candidate chờ duyệt (Flow 3.5)' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Đề xuất tri thức đúng' })).toBeEnabled();
   });
 });

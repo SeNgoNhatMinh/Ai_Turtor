@@ -19,7 +19,7 @@ const isInsufficientMaterialAnswer = (message) => {
   );
 };
 
-function AnswerActionBar({ message, onAction }) {
+function AnswerActionBar({ message, mentorRequestInProgress = false, onAction }) {
   if (message?.retryable || message?.aiServiceError) {
     const retryPrompt = message?.question || '';
     return (
@@ -32,24 +32,27 @@ function AnswerActionBar({ message, onAction }) {
           <RotateCcw size={14} aria-hidden="true" />
           <span>Thử lại</span>
         </button>
-        <button
-          type="button"
-          onClick={() => onAction({
-            label: 'Gửi mentor xem xét',
-            prompt: `I need mentor review for this question:\n\n${retryPrompt}`,
-            type: 'mentor',
-            message,
-          })}
-          disabled={!retryPrompt.trim()}
-        >
-          <LifeBuoy size={14} aria-hidden="true" />
-          <span>Gửi xem xét</span>
-        </button>
+        {!mentorRequestInProgress && (
+          <button
+            type="button"
+            onClick={() => onAction({
+              label: 'Gửi mentor xem xét',
+              prompt: `I need mentor review for this question:\n\n${retryPrompt}`,
+              type: 'mentor',
+              message,
+            })}
+            disabled={!retryPrompt.trim()}
+          >
+            <LifeBuoy size={14} aria-hidden="true" />
+            <span>Gửi xem xét</span>
+          </button>
+        )}
       </div>
     );
   }
 
   if (isInsufficientMaterialAnswer(message)) {
+    if (mentorRequestInProgress) return null;
     const question = message?.question || '';
     return (
       <div className="answer-action-bar answer-action-bar--error" aria-label="Thao tác hỗ trợ từ mentor">
@@ -69,6 +72,8 @@ function AnswerActionBar({ message, onAction }) {
       </div>
     );
   }
+
+  if (mentorRequestInProgress) return null;
 
   return (
     <div className="answer-action-bar" aria-label="Thao tác tiếp theo">

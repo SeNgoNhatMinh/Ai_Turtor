@@ -18,6 +18,9 @@ export function useTeacherReviewQueue({
   const [isTeacherInboxLoading, setIsTeacherInboxLoading] = useState(false);
   const [selectedEscalation, setSelectedEscalation] = useState(null);
   const [candidates, setCandidates] = useState([]);
+  const [isCandidatesLoading, setIsCandidatesLoading] = useState(false);
+  const [reviewedCandidates, setReviewedCandidates] = useState([]);
+  const [isCandidateHistoryLoading, setIsCandidateHistoryLoading] = useState(false);
   const [answerReviews, setAnswerReviews] = useState([]);
   const [answerReviewGroups, setAnswerReviewGroups] = useState([]);
   const [seniorAnswerReviews, setSeniorAnswerReviews] = useState([]);
@@ -98,14 +101,48 @@ export function useTeacherReviewQueue({
       setCandidates([]);
       return;
     }
+    setIsCandidatesLoading(true);
     try {
       const data = await teacherReviewApi.getKnowledgeCandidates('PENDING_SENIOR_REVIEW', courseId);
       setCandidates(asArray(data, 'candidates', 'content'));
     } catch (error) {
       setCandidates([]);
       triggerToast(getUserFacingError(error, 'Không thể tải tri thức được đề xuất.'));
+    } finally {
+      setIsCandidatesLoading(false);
     }
   };
+
+  const loadCandidateHistory = async () => {
+    if (!isSeniorReviewer) {
+      setReviewedCandidates([]);
+      return;
+    }
+    setIsCandidateHistoryLoading(true);
+    try {
+      const items = await teacherReviewApi.getKnowledgeCandidates('', courseId);
+      setReviewedCandidates(items
+        .filter((candidate) => {
+          const status = String(candidate?.status || '').trim().toUpperCase();
+          return status && !['PENDING_SENIOR_REVIEW', 'PENDING_REVIEW'].includes(status);
+        })
+        .sort((left, right) => {
+          const leftTime = new Date(left.reviewedAt || left.updatedAt || left.indexedAt || 0).getTime();
+          const rightTime = new Date(right.reviewedAt || right.updatedAt || right.indexedAt || 0).getTime();
+          return rightTime - leftTime;
+        }));
+    } catch (error) {
+      setReviewedCandidates([]);
+      triggerToast(getUserFacingError(error, 'Không thể tải lịch sử phê duyệt tri thức.'));
+    } finally {
+      setIsCandidateHistoryLoading(false);
+    }
+  };
+
+  const loadReviewHistory = () => Promise.all([
+    loadResolvedAnswerReviews(),
+    loadCandidateHistory(),
+  ]);
 
   const answerEscalationThroughBackend = (escalationId, payload) => (
     teacherReviewApi.answerEscalation(escalationId, payload)
@@ -262,7 +299,7 @@ export function useTeacherReviewQueue({
         ? 'Đã phê duyệt và đưa vào tri thức AI Tutor.'
         : 'Đã từ chối tri thức đề xuất.');
       setCandidates((current) => current.filter((candidate) => candidate.id !== id));
-      await loadKnowledgeCandidates();
+      await Promise.all([loadKnowledgeCandidates(), loadCandidateHistory()]);
       return true;
     } catch (error) {
       triggerToast(getUserFacingError(
@@ -271,7 +308,7 @@ export function useTeacherReviewQueue({
           ? 'Không thể phê duyệt tri thức đề xuất.'
           : 'Không thể từ chối tri thức đề xuất.',
       ));
-      await Promise.allSettled([loadKnowledgeCandidates()]);
+      await Promise.allSettled([loadKnowledgeCandidates(), loadCandidateHistory()]);
       return false;
     } finally {
       setPendingCandidateActionIds((current) => current.filter((candidateId) => candidateId !== id));
@@ -285,6 +322,9 @@ export function useTeacherReviewQueue({
     setSelectedEscalation,
     candidates,
     setCandidates,
+    isCandidatesLoading,
+    reviewedCandidates,
+    isCandidateHistoryLoading,
     answerReviews,
     answerReviewGroups,
     seniorAnswerReviews,
@@ -299,6 +339,8 @@ export function useTeacherReviewQueue({
     loadAnswerReviews,
     loadResolvedAnswerReviews,
     loadKnowledgeCandidates,
+    loadCandidateHistory,
+    loadReviewHistory,
     handleTeacherAnswerEsc,
     handleSeniorResolveReview,
     handleApproveCandidate: (id, note = 'Đã phê duyệt') => handleCandidateDecision(id, 'APPROVE', note),

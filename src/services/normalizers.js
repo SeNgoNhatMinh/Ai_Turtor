@@ -1,4 +1,5 @@
 import { getPersonDisplayName } from '../utils/displayNames.js';
+import { extractAnswerSourceLabels } from '../utils/sourceLabels.js';
 import { hasBrokenTextEncoding, repairMojibake } from '../utils/textEncoding.js';
 
 export const asArray = (data, ...keys) => {
@@ -14,6 +15,22 @@ const CHAT_TURN_LIMIT = 10;
 const toFiniteNumber = (value, fallback = 0) => {
   const numberValue = Number(value);
   return Number.isFinite(numberValue) ? numberValue : fallback;
+};
+
+const getMessageContent = (message = {}) => (
+  message.content || message.answer || message.response || ''
+);
+
+const getMessageSources = (message = {}) => {
+  const explicitSources = [
+    ...asArray(message.sources),
+    ...asArray(message.sourceMaterials),
+    ...asArray(message.materialSources),
+    ...asArray(message.metadata?.sources),
+  ];
+  const sourceIds = asArray(message.sourceMaterialIds || message.materialIds);
+  const recoveredLabels = extractAnswerSourceLabels(getMessageContent(message));
+  return [...explicitSources, ...sourceIds, ...recoveredLabels];
 };
 
 export const normalizeSession = (session = {}) => {
@@ -52,10 +69,10 @@ export const pairMessages = (messages) => {
           userMessageId: msg.id || msg.messageId,
           assistantMessageId: nextMsg.id || nextMsg.messageId,
           question: msg.content || msg.question || msg.message || '',
-          answer: nextMsg.content || nextMsg.answer || nextMsg.response || '',
+          answer: getMessageContent(nextMsg),
           confidence: nextMsg.confidence,
           mode: nextMsg.mode || nextMsg.answerMode || 'RAG',
-          sources: nextMsg.sources || [],
+          sources: getMessageSources(nextMsg),
           nextImproveSuggestions: asArray(
             nextMsg.nextImproveSuggestions || nextMsg.improveSuggestions || nextMsg.suggestions,
           ),
@@ -75,10 +92,10 @@ export const pairMessages = (messages) => {
       paired.push({
         id: msg.id || msg.messageId,
         question: '',
-        answer: msg.content || msg.answer || msg.response || '',
+        answer: getMessageContent(msg),
         confidence: msg.confidence,
         mode: msg.mode || msg.answerMode || 'RAG',
-        sources: msg.sources || [],
+        sources: getMessageSources(msg),
         nextImproveSuggestions: asArray(
           msg.nextImproveSuggestions || msg.improveSuggestions || msg.suggestions,
         ),
@@ -92,7 +109,7 @@ export const pairMessages = (messages) => {
         answer: msg.answer || '',
         confidence: msg.confidence,
         mode: msg.mode || msg.answerMode || 'RAG',
-        sources: msg.sources || [],
+        sources: getMessageSources(msg),
         nextImproveSuggestions: asArray(
           msg.nextImproveSuggestions || msg.improveSuggestions || msg.suggestions,
         ),
@@ -200,52 +217,169 @@ export const normalizeAnswerReview = (review) => ({
   linkedKnowledgeCandidateId: review.linkedKnowledgeCandidateId || review.knowledgeCandidateId || '',
 });
 
+const parseSuggestionJson = (value) => {
+  if (!value || typeof value !== 'string') return null;
+  const text = value
+    .trim()
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/\s*```$/, '')
+    .trim();
+  if (!text) return null;
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    const firstObjectIndex = text.indexOf('{');
+    const lastObjectIndex = text.lastIndexOf('}');
+    if (firstObjectIndex < 0 || lastObjectIndex <= firstObjectIndex) return null;
+    try {
+      return JSON.parse(text.slice(firstObjectIndex, lastObjectIndex + 1));
+    } catch {
+      return null;
+    }
+  }
+};
+
+const isSuggestionEnvelope = (value) => Boolean(
+  value
+  && typeof value === 'object'
+  && !Array.isArray(value)
+  && (
+    value.ruleSuggestions != null
+    || value.suggestions != null
+    || value.aiSuggestion != null
+    || value.notes != null
+  )
+);
+
+const findEmbeddedSuggestionEnvelope = (value) => {
+  if (!value) return null;
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const nested = findEmbeddedSuggestionEnvelope(item);
+      if (nested) return nested;
+    }
+    return null;
+  }
+  if (typeof value === 'string') {
+    const parsed = parseSuggestionJson(value);
+    if (!parsed) return null;
+    if (isSuggestionEnvelope(parsed)) return parsed;
+    return findEmbeddedSuggestionEnvelope(parsed);
+  }
+  if (typeof value !== 'object') return null;
+  if (isSuggestionEnvelope(value)) return value;
+
+  return findEmbeddedSuggestionEnvelope([
+    value.content,
+    value.reason,
+    value.description,
+    value.nextSteps,
+    value.steps,
+    value.actions,
+  ]);
+};
+
+const normalizeSuggestionItem = (item, defaultPriority = 'medium') => {
+  if (typeof item === 'string') {
+    return {
+      priority: defaultPriority,
+      title: 'Gợi ý học tập',
+      content: item.trim(),
+      reason: item.trim(),
+      nextSteps: [],
+    };
+  }
+
+  if (!item || typeof item !== 'object') return null;
+  const title = String(item.title || item.topic || 'Gợi ý học tập').trim();
+  const reason = String(item.reason || item.content || item.description || '').trim();
+  const nextSteps = asArray(item.nextSteps || item.steps || item.actions)
+    .map((step) => String(step || '').trim())
+    .filter(Boolean);
+  const isWeakTopic = `${title} ${reason}`.toLowerCase().includes('weak');
+
+  return {
+    ...item,
+    priority: item.priority || (isWeakTopic ? 'high' : defaultPriority),
+    title,
+    content: reason,
+    reason,
+    nextSteps: [...new Set(nextSteps)],
+  };
+};
+
 export const normalizeSuggestions = (data) => {
   if (!data) return [];
   const list = [];
+  const notes = new Set();
 
-  // 1. Process ruleSuggestions
-  const ruleSuggestions = asArray(data?.ruleSuggestions || data?.suggestions);
-  ruleSuggestions.forEach(item => {
-    const isWeak = item.title?.toLowerCase().includes('weak') || item.reason?.toLowerCase().includes('weak');
+  const collect = (value, defaultPriority = 'medium') => {
+    if (!value) return;
+    if (Array.isArray(value)) {
+      value.forEach((item) => collect(item, defaultPriority));
+      return;
+    }
+
+    if (typeof value === 'string') {
+      const parsed = parseSuggestionJson(value);
+      if (parsed) {
+        collect(parsed, defaultPriority);
+        return;
+      }
+      const item = normalizeSuggestionItem(value, defaultPriority);
+      if (item?.content) list.push(item);
+      return;
+    }
+
+    if (typeof value !== 'object') return;
+    const hasEnvelope = isSuggestionEnvelope(value);
+
+    if (hasEnvelope) {
+      collect(value.ruleSuggestions, 'medium');
+      collect(value.suggestions, defaultPriority);
+      collect(value.aiSuggestion, 'medium');
+      if (value.notes) notes.add(String(value.notes).trim());
+      return;
+    }
+
+    const embeddedEnvelope = findEmbeddedSuggestionEnvelope([
+      value.content,
+      value.reason,
+      value.description,
+      value.nextSteps,
+      value.steps,
+      value.actions,
+    ]);
+    if (embeddedEnvelope) {
+      collect(embeddedEnvelope, defaultPriority);
+      return;
+    }
+
+    const item = normalizeSuggestionItem(value, defaultPriority);
+    if (item) list.push(item);
+  };
+
+  collect(data);
+  notes.forEach((note) => {
+    if (!note) return;
     list.push({
-      priority: isWeak ? 'high' : 'medium',
-      title: item.title || 'Study Suggestion',
-      content: (item.reason || '') + 
-        (item.nextSteps && item.nextSteps.length 
-          ? '\n\nSuggested steps:\n' + item.nextSteps.map(s => `• ${s}`).join('\n') 
-          : '')
+      kind: 'note',
+      priority: 'info',
+      title: 'Lưu ý từ AI Tutor',
+      content: note,
+      reason: note,
+      nextSteps: [],
     });
   });
 
-  // 2. Process aiSuggestion
-  if (data?.aiSuggestion) {
-    try {
-      const parsed = typeof data.aiSuggestion === 'string' 
-        ? JSON.parse(data.aiSuggestion) 
-        : data.aiSuggestion;
-      const aiItems = asArray(parsed?.suggestions);
-      aiItems.forEach(item => {
-        list.push({
-          priority: 'medium',
-          title: item.title || 'AI Suggestion',
-          content: (item.reason || item.content || '') + 
-            (item.nextSteps && item.nextSteps.length 
-              ? '\n\nSuggested steps:\n' + item.nextSteps.map(s => `• ${s}`).join('\n') 
-              : '')
-        });
-      });
-    } catch {
-      // If it's not JSON, treat it as a single suggestion content
-      list.push({
-        priority: 'medium',
-        title: 'AI Learning Analysis',
-        content: String(data.aiSuggestion)
-      });
-    }
-  }
-
-  return list;
+  const seen = new Set();
+  return list.filter((item) => {
+    const key = `${item.kind || 'suggestion'}:${item.title}:${item.content}`.trim().toLowerCase();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 };
 
 export const normalizeStudentDashboard = (data) => {
@@ -268,29 +402,22 @@ export const normalizeStudentDashboard = (data) => {
 
   // Extract from improvePlans
   const plansList = asArray(data?.improvePlans || data?.plans || data?.improvePlan);
-  const planSuggestions = plansList.map(plan => ({
-    priority: String(plan.riskLevel || '').toLowerCase() === 'high' ? 'high' : 'medium',
-    title: plan.weakTopics?.length 
-      ? `Improvement Plan: ${plan.weakTopics.join(', ')}` 
-      : 'AI Learning Improvement Plan',
-    content: asArray(plan.planItems).join('\n') || 'Practice and review focus areas.'
-  }));
+  const planSuggestions = plansList.flatMap((plan) => {
+    const embeddedEnvelope = findEmbeddedSuggestionEnvelope(plan.planItems);
+    if (embeddedEnvelope) return normalizeSuggestions(embeddedEnvelope);
+    return [{
+      priority: String(plan.riskLevel || '').toLowerCase() === 'high' ? 'high' : 'medium',
+      title: plan.weakTopics?.length
+        ? `Improvement Plan: ${plan.weakTopics.join(', ')}`
+        : 'AI Learning Improvement Plan',
+      content: asArray(plan.planItems).join('\n') || 'Practice and review focus areas.',
+    }];
+  });
 
   // Extract from memory suggestions
-  const memorySuggestions = memoriesList.flatMap(m => asArray(m?.improveSuggestions || m?.suggestions)).map(s => {
-    if (typeof s === 'object' && s !== null) {
-      return {
-        priority: s.priority || 'medium',
-        title: s.title || 'Study Suggestion',
-        content: s.content || s.reason || ''
-      };
-    }
-    return {
-      priority: 'high',
-      title: 'Course Suggestion / Feedback',
-      content: String(s)
-    };
-  });
+  const memorySuggestions = normalizeSuggestions(
+    memoriesList.flatMap((memory) => asArray(memory?.improveSuggestions || memory?.suggestions)),
+  );
 
   const suggestions = [...planSuggestions, ...memorySuggestions];
   const pinnedImproveSuggestions = [
@@ -302,7 +429,9 @@ export const normalizeStudentDashboard = (data) => {
   return {
     learnedTopics: learnedTopics.length ? learnedTopics : topics('learnedTopics', 'strongTopics'),
     weakTopics: weakTopics.length ? weakTopics : topics('weakTopics', 'weakAreas'),
-    suggestions: suggestions.length ? suggestions : (data?.suggestions || data?.improveSuggestions || []),
+    suggestions: suggestions.length
+      ? suggestions
+      : normalizeSuggestions(data?.suggestions || data?.improveSuggestions || []),
     pinnedImproveSuggestions: [...new Set(pinnedImproveSuggestions)],
     stats: stats,
     summary: primaryMemory?.summary || data?.memorySummary || '',
@@ -426,18 +555,24 @@ export const normalizeQuizAssignment = (assignment) => ({
   questions: asArray(assignment?.questions),
 });
 
-export const normalizeImprovePlan = (plan) => ({
-  ...(plan || {}),
-  id: plan?.id || plan?.planId,
-  planId: plan?.planId || plan?.id,
-  riskLevel: plan?.riskLevel || 'LOW',
-  status: plan?.status || 'ACTIVE',
-  weakTopics: asArray(plan?.weakTopics),
-  planItems: asArray(plan?.planItems || plan?.items),
-  evidence: asArray(plan?.evidence),
-  generatedAt: plan?.generatedAt || plan?.createdAt || '',
-  updatedAt: plan?.updatedAt || plan?.generatedAt || plan?.createdAt || '',
-});
+export const normalizeImprovePlan = (plan) => {
+  const planItems = asArray(plan?.planItems || plan?.items);
+  const embeddedEnvelope = findEmbeddedSuggestionEnvelope(planItems);
+
+  return {
+    ...(plan || {}),
+    id: plan?.id || plan?.planId,
+    planId: plan?.planId || plan?.id,
+    riskLevel: plan?.riskLevel || 'LOW',
+    status: plan?.status || 'ACTIVE',
+    weakTopics: asArray(plan?.weakTopics),
+    planItems,
+    structuredSuggestions: embeddedEnvelope ? normalizeSuggestions(embeddedEnvelope) : [],
+    evidence: asArray(plan?.evidence),
+    generatedAt: plan?.generatedAt || plan?.createdAt || '',
+    updatedAt: plan?.updatedAt || plan?.generatedAt || plan?.createdAt || '',
+  };
+};
 
 export const normalizeCourseMaterial = (material = {}) => {
   const title = material.title || material.name || 'Untitled Material';

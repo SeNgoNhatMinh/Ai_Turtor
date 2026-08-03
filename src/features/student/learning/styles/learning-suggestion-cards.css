@@ -1,0 +1,215 @@
+.learning-section-title {
+    display: grid;
+    gap: 3px;
+    white-space: normal;
+}
+
+.learning-section-title > span {
+    color: #18181B;
+    font-size: 16px;
+    font-weight: 750;
+    line-height: 1.35;
+}
+
+.learning-section-title > small {
+    color: #71717A;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.45;
+}
+
+.learning-suggestion-list {
+    display: grid;
+    gap: 10px;
+}
+
+.learning-suggestion-note.ant-alert {
+    border: 1px solid #BFDBFE;
+    border-radius: 10px;
+    background: #EFF6FF;
+}
+
+.learning-suggestion-note .ant-alert-message {
+    color: #1E3A8A;
+    font-weight: 700;
+}
+
+.learning-suggestion-note .ant-alert-description {
+    color: #1E3A5F;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+}
+
+.learning-suggestion-item,
+.learning-suggestion-item:last-child {
+    padding: 14px;
+    border: 1px solid #E4E4E7;
+    border-radius: 12px;
+    background: #FFFFFF;
+}
+
+.learning-suggestion-item--pinned,
+.learning-suggestion-item--pinned:last-child {
+    margin: 0;
+    background: #FFF7ED;
+    border-color: #FED7AA;
+}
+
+.learning-suggestion-copy {
+    gap: 8px;
+}
+
+.learning-suggestion-heading {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    min-width: 0;
+}
+
+.learning-suggestion-title.ant-typography {
+    min-width: 0;
+    color: #18181B;
+    font-size: 15px;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+}
+
+.learning-suggestion-title--clamped.ant-typography,
+.learning-suggestion-summary--clamped.ant-typography {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+}
+
+.learning-suggestion-title--clamped.ant-typography {
+    -webkit-line-clamp: 2;
+}
+
+.learning-suggestion-summary.ant-typography {
+    margin: 0;
+    color: #52525B;
+    font-size: 13px;
+    line-height: 1.65;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.learning-suggestion-summary--clamped.ant-typography {
+    -webkit-line-clamp: 3;
+}
+
+.learning-suggestion-steps {
+    display: grid;
+    gap: 6px;
+    padding: 10px 12px;
+    border-left: 3px solid #FDBA74;
+    border-radius: 0 8px 8px 0;
+    background: #FAFAFA;
+}
+
+.learning-suggestion-steps > span {
+    color: #52525B;
+    font-size: 11px;
+    font-weight: 750;
+    letter-spacing: 0.035em;
+    text-transform: uppercase;
+}
+
+.learning-suggestion-steps ul {
+    margin: 0;
+    padding-left: 18px;
+    color: #3F3F46;
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.learning-suggestion-steps li + li {
+    margin-top: 3px;
+}
+
+.learning-suggestion-step-count.ant-typography {
+    color: #71717A;
+    font-size: 12px;
+}
+
+.learning-suggestion-more.ant-btn {
+    justify-self: start;
+    height: auto;
+    padding: 0;
+    font-weight: 650;
+}
+
+.learning-suggestion-actions {
+    min-width: 0;
+    flex: 0 0 auto;
+}
+
+.learning-suggestion-detail {
+    display: grid;
+    gap: 14px;
+    min-width: 0;
+}
+
+.learning-suggestion-detail-modal .ant-modal-body {
+    max-height: min(68vh, 680px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.learning-suggestion-detail .ant-typography {
+    overflow-wrap: anywhere;
+}
+
+.learning-suggestion-detail h4.ant-typography,
+.learning-suggestion-detail-summary.ant-typography {
+    margin: 0;
+}
+
+.learning-suggestion-detail-summary.ant-typography {
+    color: #3F3F46;
+    line-height: 1.7;
+    white-space: pre-wrap;
+}
+
+.learning-suggestion-detail-steps {
+    display: grid;
+    gap: 8px;
+    padding: 14px 16px;
+    border: 1px solid #E4E4E7;
+    border-radius: 10px;
+    background: #FAFAFA;
+}
+
+.learning-suggestion-detail-steps ol {
+    margin: 0;
+    padding-left: 22px;
+    color: #3F3F46;
+    line-height: 1.7;
+}
+
+.learning-suggestion-detail-steps li + li {
+    margin-top: 6px;
+}
+
+.app-container.dark .learning-suggestion-note.ant-alert {
+    border-color: #1E40AF;
+    background: #0F1F3D;
+}
+
+.app-container.dark .learning-suggestion-note .ant-alert-message,
+.app-container.dark .learning-suggestion-note .ant-alert-description {
+    color: #DBEAFE;
+}
+
+@media (max-width: 640px) {
+    .learning-suggestion-detail-modal {
+        max-width: calc(100vw - 24px);
+        margin: 12px auto;
+    }
+
+    .learning-suggestion-detail-modal .ant-modal-footer .ant-space {
+        justify-content: flex-end;
+        width: 100%;
+    }
+}

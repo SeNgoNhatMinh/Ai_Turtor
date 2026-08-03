@@ -1,6 +1,11 @@
 import { lazy, Suspense, useState } from 'react';
 import { PushpinOutlined } from '@ant-design/icons';
-import { getMessageKey, getPinTargetId } from '../chatMessageUtils';
+import {
+  findMentorRequestForMessage,
+  getCanonicalMessageSources,
+  getMessageKey,
+  getPinTargetId,
+} from '../chatMessageUtils';
 import AnswerActionBar from './AnswerActionBar';
 import AnswerEvidence from './AnswerEvidence';
 import AnswerFeedbackControls from './AnswerFeedbackControls';
@@ -32,6 +37,7 @@ function ChatMessageList({
   highlightedMessageKey,
   isAiLoading,
   materialSourceMap,
+  mentorRequests = [],
   messages,
   messagesEndRef,
   onAnalyzeStudyTip,
@@ -39,6 +45,7 @@ function ChatMessageList({
   onCreateQuizFromSuggestion,
   onDownloadSource,
   onOpenMentorReview,
+  onMentorRequestCreated,
   onPromptStarter,
   onStudySuggestion,
   pinnedMessageIdSet,
@@ -78,10 +85,24 @@ function ChatMessageList({
         ) : (
           messages.map((message, index) => {
             const messageKey = getMessageKey(message, index);
+            const evidenceMessage = {
+              ...message,
+              sources: getCanonicalMessageSources(message, materialSourceMap),
+            };
             const pinTargetId = getPinTargetId(message);
             const isPinned = Boolean(pinTargetId && pinnedMessageIdSet.has(pinTargetId));
             const isPinning = Boolean(pinTargetId && pinningMessageId === pinTargetId);
-            const escalationId = message.questionEscalationId || localEscalationIds[messageKey];
+            const existingMentorRequest = findMentorRequestForMessage({
+              requests: mentorRequests,
+              message,
+              conversationId: activeSessionId,
+              courseId,
+              classId,
+            });
+            const escalationId = message.questionEscalationId
+              || localEscalationIds[messageKey]
+              || existingMentorRequest?.id
+              || existingMentorRequest?.questionEscalationId;
             const showMentorSupport = Boolean(escalationId || openSupportCards[messageKey]);
 
             return (
@@ -119,12 +140,12 @@ function ChatMessageList({
                             sourceMap={materialSourceMap}
                             onStudyTipAnalyze={onAnalyzeStudyTip}
                             onDownloadSource={onDownloadSource}
-                            hideSourceSection={Array.isArray(message.sources) && message.sources.length > 0}
+                            hideSourceSection
                           />
                         </Suspense>
 
                         <AnswerEvidence
-                          message={message}
+                          message={evidenceMessage}
                           sourceMap={materialSourceMap}
                           onDownloadSource={onDownloadSource}
                         />
@@ -136,7 +157,11 @@ function ChatMessageList({
                           />
                         )}
                         {!message.canceled && (
-                          <AnswerActionBar message={message} onAction={handleAnswerAction} />
+                          <AnswerActionBar
+                            message={message}
+                            mentorRequestInProgress={showMentorSupport}
+                            onAction={handleAnswerAction}
+                          />
                         )}
 
                         {!message.canceled && showMentorSupport && (
@@ -154,6 +179,7 @@ function ChatMessageList({
                             onClose={() => setOpenSupportCards((current) => ({ ...current, [messageKey]: false }))}
                             onEscalationCreated={(nextId) => {
                               setLocalEscalationIds((current) => ({ ...current, [messageKey]: nextId }));
+                              onMentorRequestCreated?.();
                             }}
                             onOpenReviewTab={onOpenMentorReview}
                             triggerToast={triggerToast}

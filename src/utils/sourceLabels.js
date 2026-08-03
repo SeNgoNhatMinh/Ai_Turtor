@@ -3,16 +3,38 @@ const SOURCE_ID_GLOBAL_RE = /(?:materialId|documentId|sourceMaterialId)\s*=\s*([
 const RAW_MONGO_ID_RE = /^[a-f0-9]{24}$/i;
 const RAW_MONGO_ID_GLOBAL_RE = /\b[a-f0-9]{24}\b/gi;
 const SOURCE_FILE_EXT_RE = /\.(?:pdf|docx?|pptx?|xlsx?|html?|md|txt)\b/i;
+const REPEATED_SOURCE_FILE_EXT_RE = /(\.(?:pdf|docx?|pptx?|xlsx?|html?|md|txt))(?:\1)+$/i;
 const GENERIC_SOURCE_LABEL_RE = /^(?:course material|source materials?|sources?|tài liệu môn học|nguồn tài liệu(?: đã dùng)?)$/i;
 
 const cleanLabel = (value) => String(value || '').trim();
 
+export function normalizeSourceDisplayName(value) {
+  let label = cleanLabel(value);
+  const wrappers = [
+    [/^\*\*([\s\S]+)\*\*$/, '$1'],
+    [/^__([\s\S]+)__$/, '$1'],
+    [/^`([\s\S]+)`$/, '$1'],
+  ];
+
+  wrappers.forEach(([pattern, replacement]) => {
+    label = label.replace(pattern, replacement).trim();
+  });
+
+  return label
+    .replace(/\\([_*`])/g, '$1')
+    .replace(/^[*_`]+/, '')
+    .replace(/[*_`]+$/, '')
+    .replace(REPEATED_SOURCE_FILE_EXT_RE, '$1')
+    .trim();
+}
+
 function stripSourcePrefix(value) {
-  return cleanLabel(value)
+  return normalizeSourceDisplayName(value)
     .replace(/^\s*(?:[-*+]\s+|\d+[.)]\s+)/, '')
     .replace(/^(?:course material|source materials?|sources?|tài liệu môn học|nguồn tài liệu(?: đã dùng)?)\s*[:,;-]?\s*/i, '')
     .replace(/^[,;:\-\s]+/, '')
-    .trim();
+    .trim()
+    .replace(REPEATED_SOURCE_FILE_EXT_RE, '$1');
 }
 
 export function extractSourceFileLabels(value) {
@@ -23,13 +45,60 @@ export function extractSourceFileLabels(value) {
     return label ? [label] : [];
   }
 
-  return [...new Set(
-    String(value || '')
-      .split(/[\n;]/)
-      .flatMap((chunk) => chunk.split(/,\s+(?=[^,]+\.(?:pdf|docx?|pptx?|xlsx?|html?|md|txt)\b)/i))
-      .map(stripSourcePrefix)
-      .filter((item) => SOURCE_FILE_EXT_RE.test(item)),
-  )];
+  const labels = String(value || '')
+    .split(/[\n;]/)
+    .flatMap((chunk) => chunk.split(/,\s+(?=[^,]+\.(?:pdf|docx?|pptx?|xlsx?|html?|md|txt)\b)/i))
+    .map(stripSourcePrefix)
+    .filter((item) => SOURCE_FILE_EXT_RE.test(item));
+
+  return [...new Map(labels.map((label) => [label.toLowerCase(), label])).values()];
+}
+
+const toSourceSectionKey = (value) => normalizeSourceDisplayName(value)
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .replace(/đ/g, 'd')
+  .replace(/Đ/g, 'D')
+  .replace(/\s+/g, ' ')
+  .trim()
+  .toLowerCase();
+
+const getSourceSectionLineBody = (line) => String(line || '')
+  .trim()
+  .replace(/^#{1,6}\s*/, '')
+  .replace(/^\s*(?:[-*+]\s+|\d+[.)]\s+)/, '')
+  .trim();
+
+const isSourceSectionHeading = (line) => {
+  const key = toSourceSectionKey(getSourceSectionLineBody(line)).replace(/\s*[:：]\s*$/, '');
+  return key === 'nguon tai lieu' || key === 'nguon tai lieu da dung';
+};
+
+const isSourceSectionBoundary = (line) => {
+  const trimmed = String(line || '').trim();
+  if (/^#{1,6}\s+/.test(trimmed)) return true;
+  const key = toSourceSectionKey(getSourceSectionLineBody(line));
+  return key.startsWith('loai cau tra loi')
+    || key.startsWith('do tin cay')
+    || key.startsWith('luu y de hoc tot hon');
+};
+
+export function extractAnswerSourceLabels(answer) {
+  const lines = String(answer || '').replace(/\r\n?/g, '\n').split('\n');
+  const labels = [];
+  let inSourceSection = false;
+
+  for (const line of lines) {
+    if (isSourceSectionHeading(line)) {
+      inSourceSection = true;
+      continue;
+    }
+    if (!inSourceSection) continue;
+    if (isSourceSectionBoundary(line)) break;
+    labels.push(...extractSourceFileLabels(line));
+  }
+
+  return [...new Map(labels.map((label) => [label.toLowerCase(), label])).values()];
 }
 
 function extractSourceIds(value) {
@@ -72,13 +141,14 @@ function getMaterialIdFromSource(source) {
 
 export function getMaterialDisplayName(material) {
   if (!material) return '';
-  return cleanLabel(
+  return normalizeSourceDisplayName(
     material.fileName ||
     material.filename ||
     material.sourceFileName ||
     material.originalFileName ||
     material.title ||
-    material.name,
+    material.name ||
+    material.label,
   );
 }
 
@@ -88,12 +158,24 @@ export function buildMaterialSourceMap(materials = []) {
   (Array.isArray(materials) ? materials : []).forEach((material) => {
     const materialId = getMaterialIdFromSource(material);
     const displayName = getMaterialDisplayName(material);
+    const rawDisplayName = cleanLabel(
+      material.fileName
+      || material.filename
+      || material.sourceFileName
+      || material.originalFileName
+      || material.title
+      || material.name,
+    );
     if (!materialId || !displayName) return;
 
     map[materialId] = displayName;
     map[`materialId=${materialId}`] = displayName;
     map[`documentId=${materialId}`] = displayName;
     map._reverse[displayName] = materialId;
+    if (rawDisplayName) {
+      map[rawDisplayName] = displayName;
+      map._reverse[rawDisplayName] = materialId;
+    }
     map._reverse[materialId] = materialId;
   });
 
@@ -126,13 +208,12 @@ export function formatSourceItems(sources, sourceMap = {}) {
         : source
     ));
   const items = [];
-  const seenLabels = new Set();
-  
+  const itemIndexes = new Map();
+
   list.forEach((source) => {
-    const label = formatSourceLabel(source, sourceMap);
-    if (!label || seenLabels.has(label)) return;
-    seenLabels.add(label);
-    
+    const label = normalizeSourceDisplayName(formatSourceLabel(source, sourceMap));
+    if (!label) return;
+
     const rawId = getMaterialIdFromSource(source);
     let id = RAW_MONGO_ID_RE.test(rawId) ? rawId : '';
     // Try to get real MongoDB ID from reverse map if id is just a string filename
@@ -146,7 +227,15 @@ export function formatSourceItems(sources, sourceMap = {}) {
     if (!id && typeof source === 'object' && source?.id) {
       id = source.id;
     }
-    
+
+    const labelKey = label.toLowerCase();
+    const existingIndex = itemIndexes.get(labelKey);
+    if (existingIndex != null) {
+      if (!items[existingIndex].id && id) items[existingIndex].id = id;
+      return;
+    }
+
+    itemIndexes.set(labelKey, items.length);
     items.push({ id, label });
   });
   

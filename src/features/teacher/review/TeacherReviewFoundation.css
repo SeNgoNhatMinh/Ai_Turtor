@@ -83,52 +83,141 @@
 }
 
 /* Knowledge candidate */
-.candidates-list {
+.candidates-list,
+.knowledge-candidate-list {
     display: flex;
     flex-direction: column;
     gap: 14px;
 }
 
 .candidate-card-item {
+    display: grid;
+    gap: 14px;
+    min-width: 0;
     padding: 16px;
-    background: rgba(255,255,255,0.02);
     border: 1px solid var(--color-card-border);
-    border-radius: var(--border-radius-md);
+    border-radius: 8px;
+    background: var(--color-card-bg);
+    color: var(--color-text-main);
 }
 
-.badge-cand {
+.candidate-card-item__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.candidate-card-item__tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.candidate-card-item__author {
+    flex: 0 0 auto;
+    max-width: 260px;
+    overflow: hidden;
+    color: var(--color-text-muted);
     font-size: 0.7rem;
-    font-weight: 700;
-    color: var(--color-secondary);
-    display: inline-block;
-    margin-bottom: 10px;
+    line-height: 1.4;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .compare-box {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    background: rgba(0,0,0,0.3);
-    padding: 12px;
-    border-radius: var(--border-radius-md);
-    margin-bottom: 12px;
+    display: grid;
+    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+    min-width: 0;
+    overflow: hidden;
     border: 1px solid var(--color-card-border);
+    border-radius: 8px;
+    background: #ffffff;
 }
 
 .compare-qa {
-    font-size: 0.75rem;
-    line-height: 1.5;
+    min-width: 0;
+    padding: 13px 14px;
 }
 
 .compare-qa.teacher-a {
-    color: #e2e8f0;
-    border-top: 1px solid var(--color-card-border);
-    padding-top: 6px;
+    border-left: 1px solid var(--color-card-border);
+    background: #f8fafc;
+}
+
+.compare-qa > span {
+    display: block;
+    margin-bottom: 5px;
+    color: var(--color-text-muted);
+    font-size: 0.67rem;
+    font-weight: 750;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+}
+
+.compare-qa p {
+    margin: 0;
+    overflow-wrap: anywhere;
+    color: var(--color-text-main);
+    font-size: 0.78rem;
+    line-height: 1.58;
+    white-space: pre-wrap;
+}
+
+.candidate-card-item__review {
+    display: grid;
+    gap: 6px;
+}
+
+.candidate-card-item__review label {
+    color: var(--color-text-main);
+    font-size: 0.72rem;
+    font-weight: 700;
 }
 
 .candidate-actions {
     display: flex;
+    justify-content: flex-end;
+    flex-wrap: wrap;
     gap: 10px;
+}
+
+.candidate-history-meta {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    padding: 12px 14px;
+    border: 1px solid var(--color-card-border);
+    border-radius: 8px;
+    background: #fafaf8;
+}
+
+.candidate-history-meta > div {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+}
+
+.candidate-history-meta__note {
+    grid-column: 1 / -1;
+    padding-top: 10px;
+    border-top: 1px solid var(--color-card-border);
+}
+
+.candidate-history-meta span {
+    color: var(--color-text-muted);
+    font-size: 0.67rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+}
+
+.candidate-history-meta strong {
+    overflow-wrap: anywhere;
+    color: var(--color-text-main);
+    font-size: 0.76rem;
+    font-weight: 600;
+    line-height: 1.5;
 }
 
 .senior-review-note {
@@ -157,43 +246,56 @@
     color: #f3f4f6;
 }
 
-.btn-approve-cand {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    padding: 6px 12px;
-    background: var(--color-secondary);
-    border: none;
-    border-radius: var(--border-radius-sm);
-    color: white;
-    font-size: 0.75rem;
-    font-weight: 600;
-    cursor: pointer;
-    box-shadow: 0 4px 10px var(--color-secondary-glow);
+.app-container.dark .candidate-card-item,
+.app-container.dark .compare-box {
+    border-color: #303030;
+    background: #101010;
 }
 
-.btn-reject-cand {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    padding: 6px 12px;
-    background: rgba(255,255,255,0.04);
-    border: 1px solid var(--color-card-border);
-    border-radius: var(--border-radius-sm);
-    color: var(--color-text-muted);
-    font-size: 0.75rem;
-    font-weight: 600;
-    cursor: pointer;
+.app-container.dark .compare-qa.teacher-a {
+    border-color: #303030;
+    background: #171717;
 }
 
-.btn-approve-cand:hover, .btn-reject-cand:hover {
-    opacity: 0.9;
+.app-container.dark .candidate-history-meta {
+    border-color: #303030;
+    background: #171717;
 }
 
-.btn-approve-cand:disabled, .btn-reject-cand:disabled {
-    cursor: not-allowed;
-    opacity: 0.5;
-    box-shadow: none;
+@media (max-width: 700px) {
+    .candidate-card-item__header {
+        flex-direction: column;
+    }
+
+    .candidate-card-item__author {
+        max-width: 100%;
+        white-space: normal;
+    }
+
+    .compare-box {
+        grid-template-columns: 1fr;
+    }
+
+    .compare-qa.teacher-a {
+        border-top: 1px solid var(--color-card-border);
+        border-left: 0;
+    }
+
+    .candidate-actions {
+        flex-direction: column;
+    }
+
+    .candidate-actions .ant-btn {
+        width: 100%;
+    }
+
+    .candidate-history-meta {
+        grid-template-columns: 1fr;
+    }
+
+    .candidate-history-meta__note {
+        grid-column: auto;
+    }
 }
 
 

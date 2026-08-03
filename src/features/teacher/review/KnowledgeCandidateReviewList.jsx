@@ -1,4 +1,19 @@
+import { Alert, Button, Empty, Input, Tag } from 'antd';
+import { Check, X } from 'lucide-react';
+import { confirmAction, confirmDanger } from '../../../components/common/confirmDialog';
 import { formatKnowledgeCandidateStatus } from '../../../constants/knowledgeFlow';
+
+const CANDIDATE_TYPE_LABELS = {
+  ACADEMIC_KNOWLEDGE: 'Kiến thức học thuật',
+  MATERIAL_CORRECTION: 'Sửa nội dung tài liệu',
+  FAQ_CLARIFICATION: 'Làm rõ câu hỏi thường gặp',
+};
+
+const formatDate = (value) => {
+  if (!value) return '';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? '' : date.toLocaleString('vi-VN');
+};
 
 function KnowledgeCandidateReviewList({
   candidates = [],
@@ -9,12 +24,18 @@ function KnowledgeCandidateReviewList({
   handleRejectCandidate,
   pendingActionIds = [],
   currentReviewerId = '',
+  history = false,
 }) {
   if (candidates.length === 0) {
-    return <div className="no-data-text">Không có tri thức đề xuất đang chờ phê duyệt.</div>;
+    return (
+      <Empty
+        image={Empty.PRESENTED_IMAGE_SIMPLE}
+        description="Không có tri thức nào đang chờ phê duyệt."
+      />
+    );
   }
 
-  return candidates.map((cand) => {
+  return <div className="knowledge-candidate-list">{candidates.map((cand) => {
     const note = candidateNotes[cand.id] || '';
     const isPending = pendingActionIds.includes(cand.id);
     const candidateAuthorId = cand.teacherId || cand.createdBy || cand.authorId || '';
@@ -24,76 +45,131 @@ function KnowledgeCandidateReviewList({
       && String(currentReviewerId) === String(candidateAuthorId),
     );
     const isActionDisabled = !String(note).trim() || isPending || isOwnCandidate;
+    const normalizedStatus = String(cand.status || '').trim().toUpperCase();
+    const isIndexed = ['INDEXED', 'APPROVED', 'APPROVED_INTO_AI_KNOWLEDGE'].includes(normalizedStatus);
+
+    const submitDecision = async (decision) => {
+      const handler = decision === 'APPROVE' ? handleApproveCandidate : handleRejectCandidate;
+      const succeeded = await handler?.(cand.id, note);
+      if (succeeded) handleNoteChange?.(cand.id, '');
+    };
+
+    const requestDecision = (event, decision) => {
+      const approving = decision === 'APPROVE';
+      const openConfirm = approving ? confirmAction : confirmDanger;
+      openConfirm({
+        title: approving ? 'Phê duyệt tri thức này?' : 'Từ chối tri thức này?',
+        content: approving
+          ? 'Nội dung sẽ được đưa vào RAG và có thể được AI Tutor sử dụng để trả lời.'
+          : 'Candidate sẽ bị từ chối, không được đưa vào RAG. Lý do từ chối sẽ được lưu lại.',
+        okText: approving ? 'Phê duyệt' : 'Từ chối',
+        cancelText: 'Hủy',
+        anchorRect: event.currentTarget.getBoundingClientRect(),
+        onOk: () => submitDecision(decision),
+      });
+    };
 
     return (
-      <div key={cand.id} className="candidate-card-item">
-        <span className="badge-cand">
-          {formatKnowledgeCandidateStatus(cand.status)} · {cand.courseId || 'Tri thức môn học'}
-        </span>
+      <article key={cand.id} className="candidate-card-item">
+        <header className="candidate-card-item__header">
+          <div className="candidate-card-item__tags">
+            <Tag color={history ? (isIndexed ? 'green' : 'red') : 'gold'}>
+              {formatKnowledgeCandidateStatus(cand.status)}
+            </Tag>
+            <Tag>{cand.courseId || 'Tri thức môn học'}</Tag>
+            {cand.candidateType && (
+              <Tag>{CANDIDATE_TYPE_LABELS[cand.candidateType] || cand.candidateType}</Tag>
+            )}
+          </div>
+          {(cand.teacherName || cand.createdByName || cand.authorName) && (
+            <span className="candidate-card-item__author">
+              Đề xuất bởi {cand.teacherName || cand.createdByName || cand.authorName}
+            </span>
+          )}
+        </header>
         <div className="compare-box">
-          <div className="compare-qa"><strong>Câu hỏi:</strong> {cand.question || '-'}</div>
-          <div className="compare-qa teacher-a"><strong>Câu trả lời đề xuất:</strong> {cand.content || cand.answer || '-'}</div>
+          <div className="compare-qa">
+            <span>Câu hỏi</span>
+            <p>{cand.question || '—'}</p>
+          </div>
+          <div className="compare-qa teacher-a">
+            <span>Tri thức đề xuất</span>
+            <p>{cand.content || cand.answer || '—'}</p>
+          </div>
         </div>
 
-        {canReviewKnowledgeCandidates ? (
+        {history ? (
+          <div className="candidate-history-meta">
+            <div>
+              <span>Người kiểm duyệt</span>
+              <strong>{cand.reviewerName || 'Senior Mentor / Admin'}</strong>
+            </div>
+            <div>
+              <span>Thời gian</span>
+              <strong>{formatDate(cand.reviewedAt || cand.updatedAt || cand.indexedAt) || 'Backend chưa cung cấp'}</strong>
+            </div>
+            <div className="candidate-history-meta__note">
+              <span>{isIndexed ? 'Ghi chú phê duyệt' : 'Lý do từ chối'}</span>
+              <strong>{cand.rejectionReason || cand.reviewNote || 'Không có ghi chú.'}</strong>
+            </div>
+          </div>
+        ) : canReviewKnowledgeCandidates ? (
           <>
             {isOwnCandidate && (
-              <div className="no-data-text" style={{ textAlign: 'left', marginTop: 10 }}>
-                Bạn đã tạo Candidate này ở Flow 3.5. Một Senior Mentor khác hoặc Admin phải thực hiện Flow 4.
-              </div>
+              <Alert
+                type="info"
+                showIcon
+                title="Cần người kiểm duyệt độc lập"
+                description="Bạn là người tạo đề xuất này. Senior Mentor khác hoặc Admin phải đưa ra quyết định."
+              />
             )}
-            <div style={{ marginTop: 10, marginBottom: 10 }}>
-              <input
-                type="text"
+            <div className="candidate-card-item__review">
+              <label htmlFor={`candidate-note-${cand.id}`}>Ghi chú kiểm duyệt</label>
+              <Input.TextArea
+                id={`candidate-note-${cand.id}`}
+                rows={3}
+                maxLength={2000}
+                showCount
                 placeholder={isOwnCandidate
                   ? 'Chờ người kiểm duyệt độc lập...'
-                  : 'Ghi chú phê duyệt hoặc lý do từ chối (bắt buộc)...'}
+                  : 'Nêu căn cứ phê duyệt hoặc nội dung cần chỉnh sửa...'}
                 value={note}
-                disabled={isOwnCandidate}
-                onChange={(e) => handleNoteChange(cand.id, e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '6px 10px',
-                  borderRadius: 6,
-                  border: '1px solid #d9d9d9',
-                  fontSize: 12,
-                }}
+                disabled={isOwnCandidate || isPending}
+                onChange={(event) => handleNoteChange?.(cand.id, event.target.value)}
               />
             </div>
 
             <div className="candidate-actions">
-              <button
-                type="button"
-                className="btn-approve-cand"
+              <Button
+                type="primary"
+                icon={<Check size={15} />}
                 disabled={isActionDisabled}
-                onClick={async () => {
-                  const succeeded = await handleApproveCandidate(cand.id, note);
-                  if (succeeded) handleNoteChange(cand.id, '');
-                }}
+                loading={isPending}
+                onClick={(event) => requestDecision(event, 'APPROVE')}
               >
-                {isPending ? 'Đang xử lý...' : 'Phê duyệt vào tri thức AI'}
-              </button>
-              <button
-                type="button"
-                className="btn-reject-cand"
+                Phê duyệt vào tri thức AI
+              </Button>
+              <Button
+                danger
+                icon={<X size={15} />}
                 disabled={isActionDisabled}
-                onClick={async () => {
-                  const succeeded = await handleRejectCandidate(cand.id, note);
-                  if (succeeded) handleNoteChange(cand.id, '');
-                }}
+                loading={isPending}
+                onClick={(event) => requestDecision(event, 'REJECT')}
               >
-                {isPending ? 'Đang xử lý...' : 'Yêu cầu chỉnh sửa'}
-              </button>
+                Từ chối
+              </Button>
             </div>
           </>
         ) : (
-          <div className="no-data-text" style={{ textAlign: 'left' }}>
-            Bạn có thể xem nội dung này, nhưng chỉ Admin hoặc Senior Mentor được phép phê duyệt vào tri thức AI.
-          </div>
+          <Alert
+            type="info"
+            showIcon
+            title="Chỉ Senior Mentor hoặc Admin được phê duyệt"
+          />
         )}
-      </div>
+      </article>
     );
-  });
+  })}</div>;
 }
 
 export default KnowledgeCandidateReviewList;

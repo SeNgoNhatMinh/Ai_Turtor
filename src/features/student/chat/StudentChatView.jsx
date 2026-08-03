@@ -49,11 +49,13 @@ function StudentChatView({
   onDismissTurnLimitNotice,
   triggerToast,
   courseMaterials,
+  mentorRequests,
   onAnalyzeStudyTip,
   onStudySuggestion,
   onCreateQuizFromSuggestion,
   onDownloadSource,
   onOpenMentorReview,
+  onMentorRequestCreated,
 }) {
   return (
     <div className="portal-section student-chat-section student-chat-section--minimal">
@@ -132,11 +134,13 @@ function StudentChatView({
             onDismissTurnLimitNotice={onDismissTurnLimitNotice}
             triggerToast={triggerToast}
             courseMaterials={courseMaterials}
+            mentorRequests={mentorRequests}
             onAnalyzeStudyTip={onAnalyzeStudyTip}
             onStudySuggestion={onStudySuggestion}
             onCreateQuizFromSuggestion={onCreateQuizFromSuggestion}
             onDownloadSource={onDownloadSource}
             onOpenMentorReview={onOpenMentorReview}
+            onMentorRequestCreated={onMentorRequestCreated}
           />
         </div>
       </div>

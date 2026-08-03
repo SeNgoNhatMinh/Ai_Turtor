@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Button, Empty, Segmented } from 'antd';
-import { RefreshCw } from 'lucide-react';
+import { CheckCheck, History, RefreshCw, ShieldCheck } from 'lucide-react';
 import AnswerReviewCard from './AnswerReviewCard';
 import GroupedAnswerReviewCard from './GroupedAnswerReviewCard';
 import KnowledgeCandidateReviewList from './KnowledgeCandidateReviewList';
@@ -19,14 +19,20 @@ export default function AnswerReviewWorkspace({
   pendingReviewIds = [],
   onResolveReview,
   candidates = [],
+  candidatesLoading = false,
+  reviewedCandidates = [],
+  candidateHistoryLoading = false,
   candidateNotes = {},
   onCandidateNoteChange,
   onApproveCandidate,
   onRejectCandidate,
   pendingCandidateIds = [],
   currentReviewerId = '',
+  onRefreshCandidates,
+  onRefreshHistory,
 }) {
   const [view, setView] = useState('pending');
+  const [seniorSection, setSeniorSection] = useState('feedback');
   const [seniorDrafts, setSeniorDrafts] = useState({});
   const isSenior = mode === 'senior' || mode === 'admin';
 
@@ -63,85 +69,207 @@ export default function AnswerReviewWorkspace({
 
   const pendingCount = groups.length || reviews.length;
   const visibleItems = view === 'resolved' ? resolvedReviews : groups;
+  const activeSection = isSenior ? seniorSection : view;
+  const isHistoryView = isSenior ? activeSection === 'history' : view === 'resolved';
+  const historyLoading = resolvedLoading || candidateHistoryLoading;
+  const activeLoading = activeSection === 'candidates'
+    ? candidatesLoading
+    : isHistoryView
+      ? historyLoading
+      : loading;
+  const refreshActiveSection = activeSection === 'candidates'
+    ? onRefreshCandidates
+    : isHistoryView
+      ? onRefreshHistory || onRefreshResolved
+      : onRefresh;
+
+  const renderReviewList = (items, resolved = false) => (
+    <div className="answer-review-list">
+      {activeLoading ? (
+        <div className="no-data-text">Đang tải dữ liệu kiểm duyệt...</div>
+      ) : items.length === 0 ? (
+        <Empty
+          image={Empty.PRESENTED_IMAGE_SIMPLE}
+          description={resolved
+            ? 'Chưa có phản hồi nào đã xử lý.'
+            : 'Không có phản hồi nào đang chờ kiểm tra.'}
+        />
+      ) : resolved ? (
+        items.map((review) => (
+          <AnswerReviewCard key={review.id} review={review} queue="history" />
+        ))
+      ) : (
+        items.map((group) => {
+          const reviewId = group.representativeReviewId || group.id;
+          return (
+            <GroupedAnswerReviewCard
+              key={group.answerFingerprint || reviewId}
+              group={group}
+              queue={isSenior ? 'senior' : 'mentor'}
+              draft={seniorDrafts[reviewId]}
+              isPending={pendingReviewIds.includes(reviewId)}
+              onDraftChange={(patch) => updateSeniorDraft(reviewId, patch)}
+              onResolve={(decision) => resolveSeniorReview(reviewId, decision)}
+            />
+          );
+        })
+      )}
+    </div>
+  );
 
   return (
-    <section className="answer-review-workspace" aria-labelledby="answer-review-heading">
+    <section
+      className={`answer-review-workspace ${isSenior ? 'answer-review-workspace--senior' : ''}`}
+      aria-labelledby="answer-review-heading"
+    >
       <div className="teacher-support-workspace__heading">
         <div>
           <span className="teacher-review-eyebrow">{isSenior ? 'Kiểm duyệt cấp cao' : 'Xác minh chuyên môn'}</span>
-          <h2 id="answer-review-heading">{isSenior ? 'Phản hồi AI nghiêm trọng' : 'Phản hồi AI cần giảng viên kiểm tra'}</h2>
+          <h2 id="answer-review-heading">{isSenior ? 'Hàng đợi kiểm duyệt' : 'Phản hồi AI cần giảng viên kiểm tra'}</h2>
           <p>{isSenior
-            ? 'Xác minh phản hồi 1 sao, xung đột nguồn hoặc sai kiến thức trước khi đề xuất tri thức tái sử dụng.'
+            ? 'Xử lý phản hồi nghiêm trọng trước, sau đó phê duyệt riêng tri thức đủ tin cậy để đưa vào RAG.'
             : 'Kiểm tra các nhóm phản hồi 2–3 sao có đủ bằng chứng từ sinh viên.'}</p>
         </div>
         <Button
           icon={<RefreshCw size={15} />}
-          loading={view === 'resolved' ? resolvedLoading : loading}
-          onClick={view === 'resolved' ? onRefreshResolved : onRefresh}
+          loading={activeLoading}
+          onClick={refreshActiveSection}
         >
           Làm mới
         </Button>
       </div>
 
-      <Segmented
-        value={view}
-        onChange={setView}
-        options={[
-          { label: `Đang chờ (${pendingCount})`, value: 'pending' },
-          { label: `Đã xử lý (${resolvedReviews.length})`, value: 'resolved' },
-        ]}
-      />
+      {isSenior ? (
+        <>
+          <nav className="senior-review-sections" aria-label="Các bước kiểm duyệt">
+            <button
+              type="button"
+              className={`senior-review-section ${seniorSection === 'feedback' ? 'is-active' : ''}`}
+              aria-pressed={seniorSection === 'feedback'}
+              onClick={() => setSeniorSection('feedback')}
+            >
+              <ShieldCheck size={18} />
+              <span><strong>Phản hồi cần xử lý</strong><small>Xác minh sai sót và đề xuất nội dung đúng</small></span>
+              <b>{pendingCount}</b>
+            </button>
+            <button
+              type="button"
+              className={`senior-review-section ${seniorSection === 'candidates' ? 'is-active' : ''}`}
+              aria-pressed={seniorSection === 'candidates'}
+              onClick={() => setSeniorSection('candidates')}
+            >
+              <CheckCheck size={18} />
+              <span><strong>Tri thức chờ duyệt</strong><small>Quyết định nội dung được đưa vào RAG</small></span>
+              <b>{candidates.length}</b>
+            </button>
+            <button
+              type="button"
+              className={`senior-review-section ${seniorSection === 'history' ? 'is-active' : ''}`}
+              aria-pressed={seniorSection === 'history'}
+              onClick={() => setSeniorSection('history')}
+            >
+              <History size={18} />
+              <span><strong>Lịch sử</strong><small>Xem lại các phản hồi đã xử lý</small></span>
+              <b>{resolvedReviews.length + reviewedCandidates.length}</b>
+            </button>
+          </nav>
 
-      <div className="answer-review-list">
-        {(view === 'resolved' ? resolvedLoading : loading) ? (
-          <div className="no-data-text">Đang tải phản hồi...</div>
-        ) : visibleItems.length === 0 ? (
-          <Empty
-            image={Empty.PRESENTED_IMAGE_SIMPLE}
-            description={view === 'resolved'
-              ? 'Chưa có phản hồi nào đã xử lý.'
-              : 'Không có phản hồi nào đang chờ kiểm tra.'}
-          />
-        ) : view === 'resolved' ? (
-          resolvedReviews.map((review) => (
-            <AnswerReviewCard key={review.id} review={review} queue="history" />
-          ))
-        ) : (
-          groups.map((group) => {
-            const reviewId = group.representativeReviewId || group.id;
-            return (
-              <GroupedAnswerReviewCard
-                key={group.answerFingerprint || reviewId}
-                group={group}
-                queue={isSenior ? 'senior' : 'mentor'}
-                draft={seniorDrafts[reviewId]}
-                isPending={pendingReviewIds.includes(reviewId)}
-                onDraftChange={(patch) => updateSeniorDraft(reviewId, patch)}
-                onResolve={(decision) => resolveSeniorReview(reviewId, decision)}
-              />
-            );
-          })
-        )}
-      </div>
+          {seniorSection === 'feedback' && (
+            <section className="review-stage" aria-labelledby="senior-feedback-heading">
+              <div className="review-stage__heading">
+                <span className="review-stage__step">Bước 1</span>
+                <div>
+                  <h3 id="senior-feedback-heading">Xác minh phản hồi nghiêm trọng</h3>
+                  <p>Đối chiếu câu hỏi, câu trả lời AI và bằng chứng từ sinh viên. Bước này chưa cập nhật RAG.</p>
+                </div>
+              </div>
+              {renderReviewList(groups)}
+            </section>
+          )}
 
-      {isSenior && (
-        <section className="knowledge-review-section" aria-labelledby="knowledge-candidate-heading">
-          <div>
-            <span className="teacher-review-eyebrow">Cửa kiểm soát RAG</span>
-            <h2 id="knowledge-candidate-heading">Tri thức đề xuất</h2>
-            <p>Chỉ candidate được phê duyệt ở bước này mới được đưa vào RAG.</p>
-          </div>
-          <KnowledgeCandidateReviewList
-            candidates={candidates}
-            candidateNotes={candidateNotes}
-            canReviewKnowledgeCandidates
-            handleNoteChange={onCandidateNoteChange}
-            handleApproveCandidate={onApproveCandidate}
-            handleRejectCandidate={onRejectCandidate}
-            pendingActionIds={pendingCandidateIds}
-            currentReviewerId={currentReviewerId}
+          {seniorSection === 'candidates' && (
+            <section className="review-stage" aria-labelledby="knowledge-candidate-heading">
+              <div className="review-stage__heading">
+                <span className="review-stage__step">Bước 2</span>
+                <div>
+                  <h3 id="knowledge-candidate-heading">Phê duyệt tri thức cho RAG</h3>
+                  <p>Chỉ nội dung đã đối chiếu và được phê duyệt ở đây mới trở thành tri thức của AI Tutor.</p>
+                </div>
+              </div>
+              {candidatesLoading ? (
+                <div className="no-data-text">Đang tải tri thức chờ duyệt...</div>
+              ) : (
+                <KnowledgeCandidateReviewList
+                  candidates={candidates}
+                  candidateNotes={candidateNotes}
+                  canReviewKnowledgeCandidates
+                  handleNoteChange={onCandidateNoteChange}
+                  handleApproveCandidate={onApproveCandidate}
+                  handleRejectCandidate={onRejectCandidate}
+                  pendingActionIds={pendingCandidateIds}
+                  currentReviewerId={currentReviewerId}
+                />
+              )}
+            </section>
+          )}
+
+          {seniorSection === 'history' && (
+            <section className="review-stage" aria-labelledby="senior-history-heading">
+              <div className="review-stage__heading">
+                <span className="review-stage__step review-stage__step--neutral">Lịch sử</span>
+                <div>
+                  <h3 id="senior-history-heading">Phản hồi đã xử lý</h3>
+                  <p>Dùng để đối chiếu quyết định trước đó; không thực hiện lại thao tác phê duyệt.</p>
+                </div>
+              </div>
+              {historyLoading ? (
+                <div className="no-data-text">Đang tải lịch sử kiểm duyệt...</div>
+              ) : resolvedReviews.length === 0 && reviewedCandidates.length === 0 ? (
+                <Empty
+                  image={Empty.PRESENTED_IMAGE_SIMPLE}
+                  description="Chưa có hoạt động kiểm duyệt nào."
+                />
+              ) : (
+                <div className="review-history-sections">
+                  {reviewedCandidates.length > 0 && (
+                    <section className="review-history-group" aria-labelledby="candidate-history-heading">
+                      <div className="review-history-group__heading">
+                        <h4 id="candidate-history-heading">Lịch sử tri thức RAG</h4>
+                        <span>{reviewedCandidates.length} hoạt động</span>
+                      </div>
+                      <KnowledgeCandidateReviewList
+                        candidates={reviewedCandidates}
+                        history
+                        currentReviewerId={currentReviewerId}
+                      />
+                    </section>
+                  )}
+                  {resolvedReviews.length > 0 && (
+                    <section className="review-history-group" aria-labelledby="feedback-history-heading">
+                      <div className="review-history-group__heading">
+                        <h4 id="feedback-history-heading">Phản hồi AI đã xử lý</h4>
+                        <span>{resolvedReviews.length} phản hồi</span>
+                      </div>
+                      {renderReviewList(resolvedReviews, true)}
+                    </section>
+                  )}
+                </div>
+              )}
+            </section>
+          )}
+        </>
+      ) : (
+        <>
+          <Segmented
+            value={view}
+            onChange={setView}
+            options={[
+              { label: `Đang chờ (${pendingCount})`, value: 'pending' },
+              { label: `Đã xử lý (${resolvedReviews.length})`, value: 'resolved' },
+            ]}
           />
-        </section>
+          {renderReviewList(visibleItems, view === 'resolved')}
+        </>
       )}
     </section>
   );

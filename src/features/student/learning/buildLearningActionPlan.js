@@ -47,6 +47,7 @@ export function buildLearningActionPlan({
   });
 
   (Array.isArray(suggestions) ? suggestions : []).forEach((suggestion) => {
+    if (suggestion?.kind === 'note') return;
     const title = getTopicText(suggestion);
     const key = normalizeKey(title);
     if (!key || (learnedKeys.has(key) && !focusMap.has(key))) return;

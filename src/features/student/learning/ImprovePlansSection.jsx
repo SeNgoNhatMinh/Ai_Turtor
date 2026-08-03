@@ -14,6 +14,27 @@ function ImprovePlansSection({
   onReload,
   onComplete,
 }) {
+  const getDisplayPlanItems = (plan) => {
+    const structured = Array.isArray(plan?.structuredSuggestions) ? plan.structuredSuggestions : [];
+    if (!structured.length) return plan?.planItems || [];
+
+    return structured
+      .filter((suggestion) => suggestion.kind !== 'note')
+      .flatMap((suggestion) => (
+        suggestion.nextSteps?.length
+          ? suggestion.nextSteps
+          : [suggestion.reason || suggestion.content || suggestion.title]
+      ))
+      .filter(Boolean);
+  };
+
+  const getPlanNotes = (plan) => (
+    (Array.isArray(plan?.structuredSuggestions) ? plan.structuredSuggestions : [])
+      .filter((suggestion) => suggestion.kind === 'note')
+      .map((suggestion) => suggestion.content)
+      .filter(Boolean)
+  );
+
   const completeButton = (plan) => {
     const planId = getPlanId(plan);
     if (plan.status === 'COMPLETED') return null;
@@ -59,6 +80,8 @@ function ImprovePlansSection({
             <div className="learning-plan-list">
               {plans.map((plan) => {
                 const planId = getPlanId(plan);
+                const displayPlanItems = getDisplayPlanItems(plan);
+                const planNotes = getPlanNotes(plan);
                 return (
                   <div key={planId || `${plan.status}-${plan.generatedAt}`} className="learning-plan-item">
                     <div className="learning-plan-item-main">
@@ -76,8 +99,11 @@ function ImprovePlansSection({
                         )}
                         <div>
                           <Text strong type="secondary">Việc cần làm:</Text>
-                          <ul>{(plan.planItems || []).map((item) => <li key={item}><Text>{item}</Text></li>)}</ul>
+                          <ul>{displayPlanItems.map((item) => <li key={item}><Text>{item}</Text></li>)}</ul>
                         </div>
+                        {planNotes.map((note) => (
+                          <Alert key={note} type="info" showIcon title="Lưu ý từ AI Tutor" description={note} />
+                        ))}
                       </div>
                     </div>
                     {plan.status !== 'COMPLETED' && <div className="learning-plan-item-actions">{completeButton(plan)}</div>}

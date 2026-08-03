@@ -1,5 +1,83 @@
 # Frontend Update Log
 
+## 2026-08-03 - Suggestion JSON Formatting And Senior History Spacing
+
+- Normalized direct, stringified, and fenced JSON suggestion payloads into readable learning cards instead of exposing raw JSON.
+- Unwrapped legacy suggestion JSON nested inside `content`, `nextSteps`, and Improve Plan `planItems`; Improve Plan now renders the extracted actions and note instead of the stored JSON blob.
+- Preserved each suggestion's title, reason, and `nextSteps`; rendered response-level `notes` as a separate informational message without unrelated Study, Quiz, or Pin actions.
+- Migrated cached and dashboard suggestions through the same normalizer so older stored JSON is repaired on the next load.
+- Excluded informational notes from the Learning Action Plan because they are context, not study tasks.
+- Standardized the Senior Review section-button margin and navigation spacing, including the History action.
+- Added contract and component coverage for structured suggestions, fenced JSON, notes, and action visibility.
+
+**Tested**
+- `npm run check`: pass (`126` contract tests, `109` component/unit tests, ESLint and production build).
+
+## 2026-08-03 - Chat Source Deduplication
+
+- Recognized source headings wrapped in Markdown emphasis, including `**Nguồn tài liệu đã dùng**`, so repeated headings are merged into one canonical section.
+- Normalized accidental repeated file suffixes such as `.pdf.pdf` and `.pdf.pdf.pdf` to one readable `.pdf` suffix.
+- Deduplicated sources by their normalized display name while preserving the real `materialId` required by the download action.
+- Kept the chat behavior where answer-body sources are hidden when canonical source metadata is rendered by `AnswerEvidence`.
+- Recovered source metadata from the persisted assistant Markdown when conversation history omits `sources`, making a newly received answer and the same answer reopened from history render identically.
+- Made `AnswerEvidence` the single source renderer in Student Chat: the raw Markdown source section is always removed, while canonical sources are merged from metadata and persisted answer content immediately before rendering.
+- Added contract and component regression coverage using the duplicated source response reported from Student Chat.
+
+**Tested**
+- `npm run check`: pass (`121` contract tests, `107` component/unit tests, ESLint and production build).
+- `npm run dead-code` and `git diff --check`: pass.
+
+## 2026-08-03 - Learning Progress Categories And Long Suggestion Preview
+
+- Split Student Learning Progress into three consistent sections: `Tổng quan`, `Kiến thức & gợi ý`, and `Kế hoạch ôn tập`.
+- Reused the shared responsive `AppTabs` component so the page matches the rest of the application in light and dark mode.
+- Collapsed long learning suggestions to a readable title, three-line summary and at most three suggested steps.
+- Added `Xem đầy đủ`, which opens a scrollable detail modal containing the complete memory summary and every recommended step.
+- Kept `Học ngay`, `Tạo quiz`, `Ghim/Bỏ ghim` as explicit actions and preserved their existing backend flow.
+- Added pure and component tests for suggestion parsing, long-content detection, modal actions and Learning Progress category navigation.
+
+**Tested**
+- `npm run check`: pass (`114` contract tests, `105` component/unit tests, ESLint and production build).
+- `npm run dead-code` and `git diff --check`: pass.
+
+## 2026-08-03 - Student Learning Suggestions And Mentor AI Answer Formatting
+
+- Rebuilt Learning Progress suggestions as readable cards with a localized title, summary and real step list instead of one collapsed text line.
+- Improved responsive and dark-mode styling for suggestion content and actions.
+- Rendered the previous AI answer in Student Mentor Review through the production Markdown renderer, including headings, lists, tables, code and safe links.
+- Added focused component coverage for both formatted sections.
+
+**Tested**
+- `npm run check`: pass (`112` contract tests, `103` component/unit tests, ESLint and production build).
+
+## 2026-08-03 - Prevent Duplicate Mentor Review Requests
+
+- Hid only the `Gửi mentor xem xét` action as soon as its inline support flow opens or its request is being submitted.
+- Reconciled chat messages with canonical Student escalation history by conversation, course/class and exact normalized question so refresh/login does not expose a duplicate request action.
+- Kept `Thử lại` available for recoverable AI errors even when mentor review is already in progress.
+- Kept the existing inline support card as the single place to reopen and track an existing request.
+
+**Tested**
+- Added focused component coverage for hidden mentor actions and preserved retry behavior.
+- Added contract coverage for request matching and cross-conversation isolation.
+- `npm run check`: pass (`112` contract tests, `101` component/unit tests, ESLint and production build).
+- `npm run dead-code` and `git diff --check`: pass.
+
+## 2026-08-03 - Teacher And Senior Review Queue Scroll Fix
+
+- Converted the Teacher Review route into a bounded inbox layout so the support ticket list and ticket detail scroll independently on desktop.
+- Prevented large escalation queues from expanding the route to several thousand pixels and trapping wheel input inside a non-scrollable child.
+- Converted Senior/Admin Quality Review to one canonical content scroller so severe feedback and the Knowledge Candidate queue remain reachable with the pointer over review cards.
+- Reorganized Senior/Admin Quality Review into three explicit work modes: severe feedback verification, RAG knowledge approval, and resolved history.
+- Replaced internal Flow 3.5 and representative-review copy with decision-oriented Vietnamese instructions.
+- Rebuilt Knowledge Candidate cards with a question/answer comparison, reviewer notes, independent-review guard, and the shared anchored confirmation UI.
+- Exposed an explicit red `Từ chối` action for Knowledge Candidates; rejection requires a reason, sends the canonical `REJECT` decision, and never indexes the candidate into RAG.
+- Fixed Senior Review history so it combines resolved AI feedback with canonical Knowledge Candidates whose status is `INDEXED` or `REJECTED`.
+- Candidate history now survives reload and shows the decision, reviewer, review time, approval note or rejection reason from the backend instead of relying on transient frontend state.
+- Added a dedicated loading state for Knowledge Candidates and made Refresh follow the currently selected review mode.
+- Preserved natural page scrolling and the stacked support layout on tablet/mobile.
+- Added desktop/mobile E2E coverage for long ticket lists, long question details, Senior review queues, Knowledge Candidates and horizontal overflow.
+
 ## 2026-08-02 - Student Mentor Support Structure Refactor
 
 - Split the Student Mentor Support screen into focused ticket-list and conversation-detail components while keeping the current UI, CSS classes, route and API behavior unchanged.

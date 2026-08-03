@@ -664,3 +664,146 @@ test('Teacher can reopen completed student ChatRoom history while Senior has no 
   await expect(page.getByRole('heading', { name: 'Trung tâm kiểm duyệt chuyên môn' })).toBeVisible();
   await expect(page.getByText('Trao đổi với sinh viên', { exact: true })).toHaveCount(0);
 });
+
+test('Teacher review queue keeps long ticket lists independently scrollable', async ({ page }) => {
+  const escalations = Array.from({ length: 36 }, (_, index) => ({
+    id: `esc-scroll-${index + 1}`,
+    userId: `student-${index + 1}`,
+    studentName: `Student ${index + 1}`,
+    question: index === 0
+      ? `Câu hỏi dài cần giảng viên giải thích ${'Servlet JSP '.repeat(45)}`
+      : `Câu hỏi hỗ trợ số ${index + 1}`,
+    courseId: 'PRO192',
+    classId: 'SE1833',
+    status: index === 0 ? 'CHAT_ACTIVE' : 'OFFERED',
+    createdAt: `2026-07-24T08:${String(index % 60).padStart(2, '0')}:00Z`,
+  }));
+
+  await page.route('**/api/tutor/escalations/teachers/teacher-1*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ escalations }),
+    });
+  });
+  await page.route('**/api/tutor/answer-reviews/mentor-pending*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ groups: [], reviews: [] }),
+    });
+  });
+
+  await signInAsTeacher(page);
+  await page.goto('/teacher/review-queue');
+  await expect(page.getByText('Cần xử lý (36)', { exact: true })).toBeVisible();
+
+  const ticketList = page.locator('.teacher-support-ticket-list');
+  await expect.poll(() => ticketList.evaluate((node) => node.scrollHeight > node.clientHeight)).toBe(true);
+  await ticketList.hover();
+  await page.mouse.wheel(0, 600);
+  await expect.poll(() => ticketList.evaluate((node) => node.scrollTop)).toBeGreaterThan(0);
+
+  if (page.viewportSize().width > 900) {
+    const detail = page.locator('.teacher-support-detail');
+    await expect.poll(() => detail.evaluate((node) => node.scrollHeight > node.clientHeight)).toBe(true);
+    await detail.hover();
+    await page.mouse.wheel(0, 500);
+    await expect.poll(() => detail.evaluate((node) => node.scrollTop)).toBeGreaterThan(0);
+  }
+
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  expect(overflow).toBeLessThanOrEqual(1);
+});
+
+test('Senior review separates severe feedback, knowledge approval, and history clearly', async ({ page }) => {
+  const groups = Array.from({ length: 12 }, (_, index) => ({
+    answerFingerprint: `fingerprint-${index + 1}`,
+    representativeReviewId: `review-${index + 1}`,
+    courseId: 'PRO192',
+    classId: 'SE1833',
+    question: `Câu hỏi cần Senior kiểm tra số ${index + 1}`,
+    answer: `Câu trả lời AI cần đối chiếu số ${index + 1}`,
+    queueStatus: 'NEEDS_SENIOR_REVIEW',
+    escalationTier: 'SEVERE',
+    reviewCount: 2,
+    distinctStudentCount: 2,
+    averageRating: 1,
+    reviews: [],
+  }));
+  const candidates = Array.from({ length: 3 }, (_, index) => ({
+    id: `candidate-${index + 1}`,
+    courseId: 'PRO192',
+    question: `Candidate question ${index + 1}`,
+    content: `Candidate answer ${index + 1}`,
+    status: 'PENDING_SENIOR_REVIEW',
+    teacherId: `teacher-${index + 1}`,
+  }));
+  const reviewedCandidates = [
+    {
+      id: 'candidate-indexed',
+      courseId: 'PRO192',
+      question: 'Indexed candidate question',
+      content: 'Indexed candidate answer',
+      status: 'INDEXED',
+      reviewerName: 'Senior Reviewer',
+      reviewNote: 'Đã đối chiếu giáo trình.',
+      reviewedAt: '2026-08-03T08:00:00Z',
+    },
+    {
+      id: 'candidate-rejected',
+      courseId: 'PRO192',
+      question: 'Rejected candidate question',
+      content: 'Rejected candidate answer',
+      status: 'REJECTED',
+      reviewerName: 'Senior Reviewer',
+      rejectionReason: 'Nội dung chưa chính xác.',
+      reviewedAt: '2026-08-03T09:00:00Z',
+    },
+  ];
+
+  await page.route('**/api/tutor/answer-reviews/senior-pending*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ groups, reviews: [] }),
+    });
+  });
+  await page.route('**/api/tutor/escalations/knowledge-candidates?*', async (route) => {
+    const url = new URL(route.request().url());
+    const responseItems = url.searchParams.get('status') ? candidates : reviewedCandidates;
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ candidates: responseItems }),
+    });
+  });
+
+  await signInAsSenior(page);
+  await expect(page.getByRole('heading', { name: 'Trung tâm kiểm duyệt chuyên môn' })).toBeVisible();
+  await expect(page.getByText('2 sinh viên phản hồi về cùng câu trả lời AI')).toHaveCount(12);
+
+  const scrollContainer = page.viewportSize().width > 768
+    ? page.locator('.quality-review-page > .answer-review-workspace')
+    : page.locator('.quality-review-page');
+  await expect.poll(() => scrollContainer.evaluate((node) => node.scrollHeight > node.clientHeight)).toBe(true);
+
+  await page.locator('.quality-review-page .answer-review-list').hover();
+  await page.mouse.wheel(0, 1800);
+  await expect.poll(() => scrollContainer.evaluate((node) => node.scrollTop)).toBeGreaterThan(0);
+
+  await scrollContainer.evaluate((node) => { node.scrollTop = 0; });
+  await page.getByRole('button', { name: /Tri thức chờ duyệt/ }).click();
+  await expect(page.getByRole('heading', { name: 'Phê duyệt tri thức cho RAG' })).toBeVisible();
+  await expect(page.getByText(/Candidate question 3/)).toBeVisible();
+  await expect(page.getByText('2 sinh viên phản hồi về cùng câu trả lời AI')).toHaveCount(0);
+
+  await page.getByRole('button', { name: /Lịch sử/ }).click();
+  await expect(page.getByRole('heading', { name: 'Lịch sử tri thức RAG' })).toBeVisible();
+  await expect(page.getByText('Indexed candidate question')).toBeVisible();
+  await expect(page.getByText('Rejected candidate question')).toBeVisible();
+  await expect(page.getByText('Nội dung chưa chính xác.')).toBeVisible();
+
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  expect(overflow).toBeLessThanOrEqual(1);
+});

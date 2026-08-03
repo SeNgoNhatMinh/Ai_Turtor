@@ -9,6 +9,7 @@ import {
   ThunderboltOutlined,
 } from '@ant-design/icons';
 import PageHeader from '../../../components/common/PageHeader';
+import AppTabs from '../../../components/common/AppTabs';
 import AsyncState from '../../../components/common/AsyncState';
 import { uiCopy } from '../../../constants/uiCopy';
 import CourseMemorySection from './CourseMemorySection';
@@ -68,6 +69,7 @@ function LearningProgress({
   const [newLearnedText, setNewLearnedText] = useState('');
   const [newWeakText, setNewWeakText] = useState('');
   const [savingMemory, setSavingMemory] = useState(false);
+  const [activeProgressSection, setActiveProgressSection] = useState('overview');
 
   const safeLearnedTopics = useMemo(() => (Array.isArray(learnedTopics) ? learnedTopics : []), [learnedTopics]);
   const safeWeakTopics = useMemo(() => (Array.isArray(weakTopics) ? weakTopics : []), [weakTopics]);
@@ -100,6 +102,9 @@ function LearningProgress({
   const pinnedSet = useMemo(() => (
     new Set(safePinnedSuggestions.map((item) => normalizeSuggestionKey(item)))
   ), [safePinnedSuggestions]);
+  const consumedSet = useMemo(() => (
+    new Set(consumedSuggestionKeys.map((item) => normalizeSuggestionKey(item)))
+  ), [consumedSuggestionKeys]);
 
   const orderedSuggestions = useMemo(() => {
     const suggestionMap = new Map();
@@ -124,18 +129,105 @@ function LearningProgress({
     onRefreshDashboard,
   });
 
-  const handleAnalyzeMemory = async () => {
+  const progressSections = [
+    {
+      key: 'overview',
+      label: 'Tổng quan',
+      children: (
+        <div className="learning-progress-tab-panel">
+          <LearningOverview
+            courseId={courseId}
+            classId={classId}
+            formattedMemoryTime={formattedMemoryTime}
+            masteryRate={masteryRate}
+            masteryStatus={masteryStatus}
+            topFocusItems={topFocusItems}
+            pinnedSuggestions={safePinnedSuggestions}
+            onUnpinSuggestion={onUnpinSuggestion}
+            learnedCount={safeLearnedTopics.length}
+            weakCount={safeWeakTopics.length}
+            statEntries={statEntries}
+          />
+          <StudentNextSteps
+            items={nextSteps}
+            loading={nextStepsLoading}
+            error={nextStepsError}
+            onRefresh={onRefreshNextSteps}
+            onNavigate={onNavigateNextStep}
+          />
+        </div>
+      ),
+    },
+    {
+      key: 'knowledge',
+      label: 'Kiến thức & gợi ý',
+      children: (
+        <div className="learning-progress-tab-panel">
+          <CourseMemorySection
+            learnedTopics={safeLearnedTopics}
+            weakTopics={safeWeakTopics}
+            memorySummary={memorySummary}
+            recentQuestions={safeRecentQuestions}
+            hasContext={hasContext}
+            onEdit={openEditMemory}
+          />
+          <StudySuggestionsSection
+            suggestions={orderedSuggestions}
+            pinnedSet={pinnedSet}
+            hasContext={hasContext}
+            isSuggesting={isSuggesting}
+            onAnalyze={handleAnalyzeMemory}
+            onStudy={onStudySuggestion}
+            onCreateQuiz={onCreateQuizFromSuggestion}
+            onPin={onPinSuggestion}
+            onUnpin={onUnpinSuggestion}
+            consumedSet={consumedSet}
+          />
+        </div>
+      ),
+    },
+    {
+      key: 'plans',
+      label: 'Kế hoạch ôn tập',
+      children: (
+        <div className="learning-progress-tab-panel">
+          <ImprovePlansSection
+            plans={improvePlanController.improvePlans}
+            latestPlan={improvePlanController.latestPlan}
+            loading={improvePlanController.loadingPlans}
+            error={improvePlanController.plansError}
+            completingPlanId={improvePlanController.completingPlanId}
+            hasContext={hasContext}
+            onReload={improvePlanController.fetchImprovePlans}
+            onComplete={improvePlanController.completePlan}
+          />
+          <LearningActionPlan
+            courseId={courseId}
+            learnedTopics={safeLearnedTopics}
+            weakTopics={safeWeakTopics}
+            suggestions={orderedSuggestions}
+            hasContext={hasContext}
+            onStudy={onStudySuggestion}
+            onCreateQuiz={onCreateQuizFromSuggestion}
+            consumedSuggestionKeys={consumedSuggestionKeys}
+          />
+        </div>
+      ),
+    },
+  ];
+
+  async function handleAnalyzeMemory() {
     if (!hasContext || isSuggesting) return;
     await refreshSuggestions?.();
     await improvePlanController.fetchImprovePlans();
     onRefreshDashboard?.();
-  };
+  }
 
-  const openEditMemory = () => {
+  function openEditMemory() {
     setNewLearnedText(safeLearnedTopics.join(', '));
     setNewWeakText(safeWeakTopics.join(', '));
     setEditModalVisible(true);
-  };
+  }
 
   const closeEditMemory = () => {
     setEditModalVisible(false);
@@ -188,70 +280,12 @@ function LearningProgress({
         />
       )}
 
-      <LearningOverview
-        courseId={courseId}
-        classId={classId}
-        formattedMemoryTime={formattedMemoryTime}
-        masteryRate={masteryRate}
-        masteryStatus={masteryStatus}
-        topFocusItems={topFocusItems}
-        pinnedSuggestions={safePinnedSuggestions}
-        onUnpinSuggestion={onUnpinSuggestion}
-        learnedCount={safeLearnedTopics.length}
-        weakCount={safeWeakTopics.length}
-        statEntries={statEntries}
-      />
-
-      <StudentNextSteps
-        items={nextSteps}
-        loading={nextStepsLoading}
-        error={nextStepsError}
-        onRefresh={onRefreshNextSteps}
-        onNavigate={onNavigateNextStep}
-      />
-
-      <CourseMemorySection
-        learnedTopics={safeLearnedTopics}
-        weakTopics={safeWeakTopics}
-        memorySummary={memorySummary}
-        recentQuestions={safeRecentQuestions}
-        hasContext={hasContext}
-        onEdit={openEditMemory}
-      />
-
-      <StudySuggestionsSection
-        suggestions={orderedSuggestions}
-        pinnedSet={pinnedSet}
-        hasContext={hasContext}
-        isSuggesting={isSuggesting}
-        onAnalyze={handleAnalyzeMemory}
-        onStudy={onStudySuggestion}
-        onCreateQuiz={onCreateQuizFromSuggestion}
-        onPin={onPinSuggestion}
-        onUnpin={onUnpinSuggestion}
-        consumedSet={new Set(consumedSuggestionKeys)}
-      />
-
-      <ImprovePlansSection
-        plans={improvePlanController.improvePlans}
-        latestPlan={improvePlanController.latestPlan}
-        loading={improvePlanController.loadingPlans}
-        error={improvePlanController.plansError}
-        completingPlanId={improvePlanController.completingPlanId}
-        hasContext={hasContext}
-        onReload={improvePlanController.fetchImprovePlans}
-        onComplete={improvePlanController.completePlan}
-      />
-
-      <LearningActionPlan
-        courseId={courseId}
-        learnedTopics={safeLearnedTopics}
-        weakTopics={safeWeakTopics}
-        suggestions={orderedSuggestions}
-        hasContext={hasContext}
-        onStudy={onStudySuggestion}
-        onCreateQuiz={onCreateQuizFromSuggestion}
-        consumedSuggestionKeys={consumedSuggestionKeys}
+      <AppTabs
+        className="learning-progress-tabs"
+        activeKey={activeProgressSection}
+        onChange={setActiveProgressSection}
+        items={progressSections}
+        destroyOnHidden={false}
       />
 
       <EditLearningMemoryModal

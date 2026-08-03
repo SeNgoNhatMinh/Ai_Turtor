@@ -8,6 +8,7 @@ import { useRealtimeEvent, useRealtimeReconnect } from '../../realtime/realtimeC
 import { eventMatchesCourse, REALTIME_EVENT_TYPES } from '../../realtime/realtimeEvents';
 import AnswerReviewWorkspace from './AnswerReviewWorkspace';
 import TeacherSupportInbox from './TeacherSupportInbox';
+import './TeacherReviewPage.css';
 
 export default function TeacherReviewPage({
   currentUser,

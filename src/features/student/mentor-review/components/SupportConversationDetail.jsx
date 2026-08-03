@@ -1,6 +1,7 @@
 import { Alert, Card, Empty, Space, Spin, Tag, Typography } from 'antd';
 import { RobotOutlined } from '@ant-design/icons';
 import StatusTag from '../../../../components/common/StatusTag';
+import MarkdownRenderer from '../../../../components/markdown/MarkdownRenderer';
 import StudentMentorFlow from '../../../../components/support/StudentMentorFlow';
 import { uiCopy } from '../../../../constants/uiCopy';
 import {
@@ -84,8 +85,10 @@ function SupportConversationDetail({
           </ReviewBlock>
 
           {aiSnapshot && (
-            <ReviewBlock label="Câu trả lời AI trước đó">
-              <Paragraph>{aiSnapshot}</Paragraph>
+            <ReviewBlock label="Câu trả lời AI trước đó" tone="ai">
+              <div className="mentor-review-markdown">
+                <MarkdownRenderer markdown={aiSnapshot} />
+              </div>
             </ReviewBlock>
           )}
 

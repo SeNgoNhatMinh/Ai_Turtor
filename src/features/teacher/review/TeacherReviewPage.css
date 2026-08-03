@@ -1,0 +1,83 @@
+.teacher-review-feature-page {
+  overflow: hidden;
+}
+
+.teacher-review-tabs {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.teacher-review-tabs > .ant-tabs-nav {
+  flex: 0 0 auto;
+}
+
+.teacher-review-tabs > .ant-tabs-content-holder {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.teacher-review-tabs > .ant-tabs-content-holder > .ant-tabs-content,
+.teacher-review-tabs > .ant-tabs-content-holder > .ant-tabs-content > .ant-tabs-tabpane-active {
+  height: 100%;
+  min-height: 0;
+}
+
+.teacher-review-tabs > .ant-tabs-content-holder > .ant-tabs-content > .ant-tabs-tabpane-active {
+  overflow: hidden;
+}
+
+.teacher-review-tabs .teacher-support-workspace,
+.teacher-review-tabs .answer-review-workspace {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.teacher-review-tabs .teacher-support-workspace {
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.teacher-review-tabs .teacher-support-layout {
+  grid-template-rows: minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
+}
+
+.teacher-review-tabs .answer-review-workspace {
+  grid-template-rows: auto auto minmax(0, 1fr);
+}
+
+.teacher-review-tabs .answer-review-list {
+  min-height: 0;
+  max-height: none;
+}
+
+@media (max-width: 900px) {
+  .teacher-review-feature-page {
+    overflow-y: auto;
+  }
+
+  .teacher-review-tabs {
+    display: block;
+    flex: 0 0 auto;
+    min-height: auto;
+  }
+
+  .teacher-review-tabs > .ant-tabs-content-holder,
+  .teacher-review-tabs > .ant-tabs-content-holder > .ant-tabs-content,
+  .teacher-review-tabs > .ant-tabs-content-holder > .ant-tabs-content > .ant-tabs-tabpane-active,
+  .teacher-review-tabs .teacher-support-workspace,
+  .teacher-review-tabs .answer-review-workspace,
+  .teacher-review-tabs .teacher-support-layout {
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+  }
+
+  .teacher-review-tabs .teacher-support-layout {
+    grid-template-rows: auto auto;
+  }
+}

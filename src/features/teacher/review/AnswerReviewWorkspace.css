@@ -201,6 +201,164 @@
   background: var(--color-card-bg);
 }
 
+.answer-review-workspace--senior {
+  align-content: start;
+}
+
+.senior-review-sections {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 2px 0 4px;
+}
+
+.senior-review-section {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  min-height: 76px;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid #e2e2dc;
+  border-radius: 8px;
+  background: var(--color-card-bg);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  transition: border-color 0.16s ease, background-color 0.16s ease, color 0.16s ease;
+}
+
+.senior-review-section:hover {
+  border-color: #b8b8b2;
+  background: #fafaf8;
+  color: var(--color-text-main);
+}
+
+.senior-review-section.is-active {
+  border-color: #f37021;
+  background: #fff8f3;
+  color: #9a3412;
+  box-shadow: inset 3px 0 0 #f37021;
+}
+
+.senior-review-section span {
+  min-width: 0;
+}
+
+.senior-review-section strong,
+.senior-review-section small {
+  display: block;
+}
+
+.senior-review-section strong {
+  color: var(--color-text-main);
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.senior-review-section small {
+  margin-top: 3px;
+  color: var(--color-text-muted);
+  font-size: 0.68rem;
+  line-height: 1.35;
+}
+
+.senior-review-section b {
+  display: grid;
+  place-items: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: #f1f1ee;
+  color: #3f3f46;
+  font-size: 0.72rem;
+}
+
+.senior-review-section.is-active b {
+  background: #f37021;
+  color: #ffffff;
+}
+
+.review-stage {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.review-stage__heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--color-card-border);
+  border-radius: 8px;
+  background: #fafaf8;
+}
+
+.review-stage__step {
+  flex: 0 0 auto;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: #fff0e5;
+  color: #9a3412;
+  font-size: 0.68rem;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.review-stage__step--neutral {
+  background: #eeeeeb;
+  color: #52525b;
+}
+
+.review-stage__heading h3 {
+  margin: 0;
+  color: var(--color-text-main);
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
+.review-stage__heading p {
+  margin: 3px 0 0;
+  color: var(--color-text-muted);
+  font-size: 0.72rem;
+  line-height: 1.5;
+}
+
+.review-history-sections,
+.review-history-group {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.review-history-group + .review-history-group {
+  padding-top: 18px;
+  border-top: 1px solid var(--color-card-border);
+}
+
+.review-history-group__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.review-history-group__heading h4 {
+  margin: 0;
+  color: var(--color-text-main);
+  font-size: 0.82rem;
+}
+
+.review-history-group__heading span {
+  color: var(--color-text-muted);
+  font-size: 0.7rem;
+}
+
 .knowledge-review-section {
   display: grid;
   gap: 14px;
@@ -213,6 +371,34 @@
   border-color: #2a2a2a;
   background: #0f0f0f;
   color: #f9fafb;
+}
+
+.app-container.dark .senior-review-section,
+.app-container.dark .review-stage__heading {
+  border-color: #303030;
+  background: #121212;
+}
+
+.app-container.dark .senior-review-section:hover {
+  border-color: #525252;
+  background: #181818;
+}
+
+.app-container.dark .senior-review-section.is-active {
+  border-color: #fb923c;
+  background: #21140d;
+  color: #fdba74;
+}
+
+.app-container.dark .senior-review-section b,
+.app-container.dark .review-stage__step--neutral {
+  background: #292929;
+  color: #e5e7eb;
+}
+
+.app-container.dark .senior-review-section.is-active b {
+  background: #f37021;
+  color: #ffffff;
 }
 
 .app-container.dark .answer-review-facts,
@@ -242,6 +428,19 @@
 }
 
 @media (max-width: 780px) {
+  .senior-review-sections {
+    grid-template-columns: 1fr;
+  }
+
+  .senior-review-section {
+    min-height: 66px;
+  }
+
+  .senior-review-section strong,
+  .senior-review-section small {
+    white-space: normal;
+  }
+
   .answer-review-card__header {
     flex-direction: column;
   }
@@ -263,6 +462,10 @@
 @media (max-width: 640px) {
   .answer-review-workspace {
     padding: 14px;
+  }
+
+  .review-stage__heading {
+    padding: 11px;
   }
 }
 

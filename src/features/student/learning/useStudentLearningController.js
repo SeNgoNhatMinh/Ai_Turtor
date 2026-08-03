@@ -72,7 +72,7 @@ export function useStudentLearningController({
         recentAnswers: memorySnapshot?.recentAnswers || normalized.recentAnswers || [],
         updatedAt: memorySnapshot?.updatedAt || normalized.updatedAt || '',
       });
-      const localSuggestions = readAnalyzedSuggestions(studentId, courseId);
+      const localSuggestions = normalizeSuggestions(readAnalyzedSuggestions(studentId, courseId));
       const mergedSuggestions = mergeSuggestionLists(localSuggestions, normalized.suggestions || []);
 
       if (mergedSuggestions.length) {

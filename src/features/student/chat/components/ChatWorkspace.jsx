@@ -44,11 +44,13 @@ function ChatWorkspace({
   isDarkMode = false,
   triggerToast,
   courseMaterials = [],
+  mentorRequests = [],
   onAnalyzeStudyTip,
   onStudySuggestion,
   onCreateQuizFromSuggestion,
   onDownloadSource,
   onOpenMentorReview,
+  onMentorRequestCreated,
 }) {
   const [pendingCourseId, setPendingCourseId] = useState('');
 
@@ -176,6 +178,7 @@ function ChatWorkspace({
         highlightedMessageKey={highlightedMessageKey}
         isAiLoading={isAiLoading}
         materialSourceMap={materialSourceMap}
+        mentorRequests={mentorRequests}
         messages={safeMessages}
         messagesEndRef={messagesEndRef}
         onAnalyzeStudyTip={onAnalyzeStudyTip}
@@ -183,6 +186,7 @@ function ChatWorkspace({
         onCreateQuizFromSuggestion={onCreateQuizFromSuggestion}
         onDownloadSource={onDownloadSource}
         onOpenMentorReview={onOpenMentorReview}
+        onMentorRequestCreated={onMentorRequestCreated}
         onPromptStarter={onPromptStarter}
         onStudySuggestion={onStudySuggestion}
         pinnedMessageIdSet={pinnedMessageIdSet}

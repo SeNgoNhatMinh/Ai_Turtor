@@ -1,3 +1,47 @@
+import { classIdMatches } from '../../../utils/academicIds.js';
+import { extractAnswerSourceLabels, formatSourceItems } from '../../../utils/sourceLabels.js';
+
+const normalizeComparableText = (value) => String(value || '')
+  .normalize('NFC')
+  .trim()
+  .replace(/\s+/g, ' ')
+  .toLocaleLowerCase('vi');
+
+const getEscalationId = (request) => (
+  request?.id || request?.questionEscalationId || request?.escalationId || ''
+);
+
+export const findMentorRequestForMessage = ({
+  requests = [],
+  message,
+  conversationId,
+  courseId,
+  classId,
+}) => {
+  const question = normalizeComparableText(message?.question);
+  if (!question) return null;
+
+  return requests.find((request) => {
+    if (!getEscalationId(request)) return false;
+
+    const requestQuestion = normalizeComparableText(
+      request?.originalQuestion || request?.question || request?.questionPreview,
+    );
+    if (requestQuestion !== question) return false;
+
+    const requestConversationId = String(request?.conversationId || '').trim();
+    const currentConversationId = String(conversationId || message?.conversationId || '').trim();
+    if (requestConversationId && requestConversationId !== currentConversationId) return false;
+
+    const requestCourseId = String(request?.courseId || '').trim().toUpperCase();
+    const currentCourseId = String(courseId || '').trim().toUpperCase();
+    if (requestCourseId && currentCourseId && requestCourseId !== currentCourseId) return false;
+
+    if (request?.classId && classId && !classIdMatches(request.classId, classId)) return false;
+    return true;
+  }) || null;
+};
+
 export const getMessageKey = (message, index) => {
   if (message?.id || message?.messageId || message?.requestId) {
     return String(message.id || message.messageId || message.requestId);
@@ -29,6 +73,27 @@ export const getPinTargetId = (message) => (
   || message?.id
   || ''
 );
+
+const toSourceArray = (value) => {
+  if (Array.isArray(value)) return value;
+  return value ? [value] : [];
+};
+
+export const getCanonicalMessageSources = (message = {}, sourceMap = {}) => {
+  const explicitSources = [
+    ...toSourceArray(message.sources),
+    ...toSourceArray(message.sourceMaterials),
+    ...toSourceArray(message.materialSources),
+    ...toSourceArray(message.sourceMaterialIds),
+    ...toSourceArray(message.materialIds),
+    ...toSourceArray(message.metadata?.sources),
+  ];
+  const persistedAnswerSources = extractAnswerSourceLabels(
+    message.answer || message.response || message.content || '',
+  );
+
+  return formatSourceItems([...explicitSources, ...persistedAnswerSources], sourceMap);
+};
 
 const getPinnedMessageId = (message) => (
   message?.messageId

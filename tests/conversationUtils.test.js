@@ -101,3 +101,25 @@ test('pairs canonical student and assistant messages', () => {
   assert.equal(pairs[0].answer, 'OOP is object-oriented programming.');
   assert.deepEqual(pairs[0].nextImproveSuggestions, ['Review classes']);
 });
+
+test('recovers and deduplicates source metadata from persisted assistant content', () => {
+  const fileName = 'Professional_Java_for_Web_Applications_Nicholas_S_Williams(www.ebook-dl.com).pdf';
+  const answer = [
+    'Servlet là một Java component chạy trên web server.',
+    '',
+    '**Nguồn tài liệu đã dùng**',
+    '',
+    `**${fileName.replaceAll('_', '\\_')}**`,
+    '',
+    `**${fileName.replaceAll('_', '\\_')}**`,
+  ].join('\n');
+
+  const pairs = pairMessages([
+    { id: 'user-history-1', role: 'STUDENT', content: 'Servlet là gì?' },
+    { id: 'assistant-history-1', role: 'ASSISTANT', content: answer },
+  ]);
+
+  assert.equal(pairs.length, 1);
+  assert.equal(pairs[0].answer, answer);
+  assert.deepEqual(pairs[0].sources, [fileName]);
+});

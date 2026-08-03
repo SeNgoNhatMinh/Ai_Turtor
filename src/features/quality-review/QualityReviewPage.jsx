@@ -26,7 +26,7 @@ export default function QualityReviewPage({
   useEffect(() => {
     review.loadAnswerReviews();
     review.loadKnowledgeCandidates();
-    review.loadResolvedAnswerReviews();
+    review.loadReviewHistory();
     // Resources are loaded only while this role-specific route is mounted.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reviewerId, courseId]);
@@ -35,11 +35,12 @@ export default function QualityReviewPage({
     if (!eventMatchesCourse(event, courseId)) return;
     review.loadAnswerReviews();
     review.loadKnowledgeCandidates();
+    review.loadReviewHistory();
   });
   useRealtimeReconnect(() => {
     review.loadAnswerReviews();
     review.loadKnowledgeCandidates();
-    review.loadResolvedAnswerReviews();
+    review.loadReviewHistory();
   });
 
   const handleNoteChange = (candidateId, value) => {
@@ -67,12 +68,17 @@ export default function QualityReviewPage({
         pendingReviewIds={review.pendingSeniorReviewIds || []}
         onResolveReview={review.handleSeniorResolveReview}
         candidates={review.candidates || []}
+        candidatesLoading={review.isCandidatesLoading}
+        reviewedCandidates={review.reviewedCandidates || []}
+        candidateHistoryLoading={review.isCandidateHistoryLoading}
         candidateNotes={candidateNotes}
         onCandidateNoteChange={handleNoteChange}
         onApproveCandidate={review.handleApproveCandidate}
         onRejectCandidate={review.handleRejectCandidate}
         pendingCandidateIds={review.pendingCandidateActionIds || []}
         currentReviewerId={reviewerId}
+        onRefreshCandidates={review.loadKnowledgeCandidates}
+        onRefreshHistory={review.loadReviewHistory}
       />
     </div>
   );

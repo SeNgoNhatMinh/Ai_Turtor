@@ -5,6 +5,7 @@ import { useStudentChatController } from '../../../hooks/useStudentChatControlle
 import { useStudentLearningController } from '../learning/useStudentLearningController';
 import { useStudentLearningActions } from '../learning/useStudentLearningActions';
 import { clearStudyChatHandoff, readStudyChatHandoff } from '../studentRouteHandoff';
+import { useChatMentorRequests } from './useChatMentorRequests';
 import { useStudentChatTabController } from './useStudentChatTabController';
 
 export default function StudentChatPage({
@@ -38,6 +39,10 @@ export default function StudentChatPage({
     classId,
     teacherId: studentId,
     triggerToast,
+  });
+  const mentorRequests = useChatMentorRequests({
+    userId: studentId,
+    courseId,
   });
   const chatController = useStudentChatTabController({
     courseId,
@@ -150,11 +155,13 @@ export default function StudentChatPage({
       onDismissTurnLimitNotice={chat.dismissTurnLimitNotice}
       triggerToast={triggerToast}
       courseMaterials={materials.courseMaterials}
+      mentorRequests={mentorRequests.mentorRequests}
       onAnalyzeStudyTip={learning.refreshSuggestions}
       onStudySuggestion={learningActions.handleStudySuggestion}
       onCreateQuizFromSuggestion={learningActions.handleCreateQuizFromSuggestion}
       onDownloadSource={chatController.handleDownloadSource}
       onOpenMentorReview={() => switchTab?.('student-escalation')}
+      onMentorRequestCreated={mentorRequests.refreshMentorRequests}
     />
   );
 }

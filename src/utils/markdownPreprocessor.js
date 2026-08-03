@@ -85,6 +85,21 @@ function toVietnameseSectionKey(value) {
     .toLowerCase();
 }
 
+function unwrapSimpleMarkdownDecoration(value) {
+  let text = String(value || '').trim();
+  const wrappers = [
+    [/^\*\*([\s\S]+)\*\*$/, '$1'],
+    [/^__([\s\S]+)__$/, '$1'],
+    [/^`([\s\S]+)`$/, '$1'],
+  ];
+
+  wrappers.forEach(([pattern, replacement]) => {
+    text = text.replace(pattern, replacement).trim();
+  });
+
+  return text.replace(/\s*[:：]\s*$/, '').trim();
+}
+
 const VIETNAMESE_EXACT_SECTION_LABELS = {
   'tai lieu mon hoc': 'Tài liệu môn học',
   'theo tai lieu mon hoc': 'Theo tài liệu môn học',
@@ -104,7 +119,8 @@ function normalizeVietnameseSectionLine(line) {
   const body = line.slice(prefix.length).trim();
   if (!body || body.length > 90) return line;
 
-  const exactLabel = VIETNAMESE_EXACT_SECTION_LABELS[toVietnameseSectionKey(body)];
+  const unwrappedBody = unwrapSimpleMarkdownDecoration(body);
+  const exactLabel = VIETNAMESE_EXACT_SECTION_LABELS[toVietnameseSectionKey(unwrappedBody)];
   if (exactLabel) {
     return `${prefix}${exactLabel}`;
   }
@@ -505,7 +521,8 @@ function isStudyTipHeading(line) {
 }
 
 function isSourceHeading(line) {
-  return /^#{1,6}\s*nguồn tài liệu\b/i.test(line.trim());
+  const body = String(line || '').trim().replace(/^#{1,6}\s*/, '');
+  return /^nguồn tài liệu(?: đã dùng)?$/i.test(unwrapSimpleMarkdownDecoration(body));
 }
 
 function isSectionHeading(line) {

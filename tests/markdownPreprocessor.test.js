@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { normalizeAiMarkdown } from '../src/utils/markdownPreprocessor.js';
+import { normalizeAiMarkdown, stripSourceSection } from '../src/utils/markdownPreprocessor.js';
 
 test('preserves valid Vietnamese diacritics and normalizes Unicode to NFC', () => {
   const decomposed = 'Ví dụ nhỏ'.normalize('NFD');
@@ -77,4 +77,23 @@ test('never rewrites fenced code, including partial streaming fences', () => {
 test('markdown normalization is idempotent', () => {
   const once = normalizeAiMarkdown('Theo tai lieu mon hoc\n\n- Constructor là gì?');
   assert.equal(normalizeAiMarkdown(once), once);
+});
+
+test('merges duplicate bold source sections and repeated PDF suffixes', () => {
+  const input = [
+    'Nội dung trả lời.',
+    '',
+    '**Nguồn tài liệu đã dùng**',
+    '**Nguồn tài liệu đã dùng**',
+    '**Professional\\_Java\\_for\\_Web\\_Applications.pdf.pdf.pdf**',
+    '**Professional\\_Java\\_for\\_Web\\_Applications.pdf.pdf**',
+    '**Professional\\_Java\\_for\\_Web\\_Applications.pdf.pdf.pdf**',
+  ].join('\n\n');
+
+  const output = normalizeAiMarkdown(input);
+
+  assert.equal((output.match(/Nguồn tài liệu đã dùng/g) || []).length, 1);
+  assert.equal((output.match(/Professional_Java_for_Web_Applications\.pdf/g) || []).length, 1);
+  assert.doesNotMatch(output, /\.pdf\.pdf/i);
+  assert.equal(stripSourceSection(output), 'Nội dung trả lời.');
 });

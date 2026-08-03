@@ -129,7 +129,7 @@ export default function GroupedAnswerReviewCard({
               loading={isPending}
               onClick={() => onResolve?.('APPROVE_FEEDBACK')}
             >
-              Xử lý, không cập nhật AI
+              Đóng phản hồi
             </Button>
             <Button
               type="primary"
@@ -137,15 +137,11 @@ export default function GroupedAnswerReviewCard({
               loading={isPending}
               onClick={() => onResolve?.('CREATE_KNOWLEDGE_CANDIDATE')}
             >
-              Tạo Candidate chờ duyệt (Flow 3.5)
+              Đề xuất tri thức đúng
             </Button>
           </div>
           <p className="answer-review-resolution__hint">
-            Dùng
-            {' '}
-            <code>representativeReviewId</code>
-            {' '}
-            của nhóm để kết thúc Flow 3. Candidate được tạo ở Flow 3.5 và AI chưa học cho đến khi Flow 4 duyệt.
+            Đóng phản hồi nếu không cần cập nhật tri thức. Nếu câu trả lời AI sai, hãy đề xuất nội dung đúng để một người khác phê duyệt trước khi đưa vào RAG.
           </p>
         </div>
       ) : (

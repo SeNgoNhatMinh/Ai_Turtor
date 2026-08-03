@@ -1,13 +1,30 @@
 .quality-review-page {
   padding: 0 24px 24px;
+  overflow: hidden;
 }
 
-.quality-review-page .answer-review-workspace {
-  min-height: min(720px, calc(100vh - 260px));
+.quality-review-page > .answer-review-workspace {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.quality-review-page .answer-review-list {
+  max-height: none;
+  padding-right: 0;
+  overflow: visible;
 }
 
 @media (max-width: 768px) {
   .quality-review-page {
     padding: 0 0 16px;
+    overflow-y: auto;
+  }
+
+  .quality-review-page > .answer-review-workspace {
+    flex: 0 0 auto;
+    overflow: visible;
   }
 }
