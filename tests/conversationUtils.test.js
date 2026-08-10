@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   CHAT_TURN_LIMIT,
+  findCanonicalExchange,
   getSessionQuestionCount,
   groupSessionsByTime,
   resolveCanonicalConversation,
@@ -80,6 +81,22 @@ test('keeps the existing canonical session when n8n responds with that id', () =
     sessionsBefore: [{ ...session, messageCount: 2 }],
     sessionsAfter: [session],
   })?.id, session.id);
+});
+
+test('recovers the persisted answer for the exact submitted question', () => {
+  const exchange = findCanonicalExchange([
+    { question: 'Servlet là gì?', answer: 'Servlet chạy trên web container.' },
+    { question: 'JSP là gì?', answer: 'JSP dùng để tạo view.' },
+  ], '  Servlet   là gì? ');
+
+  assert.equal(exchange?.answer, 'Servlet chạy trên web container.');
+});
+
+test('does not recover an unrelated or empty persisted answer', () => {
+  assert.equal(findCanonicalExchange([
+    { question: 'Servlet là gì?', answer: '' },
+    { question: 'JSP là gì?', answer: 'JSP dùng để tạo view.' },
+  ], 'Servlet là gì?'), null);
 });
 
 test('pairs canonical student and assistant messages', () => {

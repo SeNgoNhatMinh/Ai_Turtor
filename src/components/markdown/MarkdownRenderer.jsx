@@ -80,9 +80,15 @@ function CodeRenderer({ inline, className = '', children, ...props }) {
   const isBlock = !inline && (hasBlockLanguage || code.includes('\n'));
 
   if (!isBlock) {
+    const inlineText = code.replace(/\s+/g, ' ').trim();
+    const hasShortcutKey = /(?:^|[\s+])(?:ctrl|control|alt|shift|cmd|command|option|meta|enter|return|escape|esc|tab|backspace|delete|space|f\d{1,2})(?=$|[\s+])/i.test(inlineText);
+    const isKeyboardShortcut = hasShortcutKey && /^[\p{L}\p{N}+\s⌘⌥⇧-]+$/u.test(inlineText);
     return (
-      <code {...props} className="ai-answer-inline-code">
-        {children}
+      <code
+        {...props}
+        className={`ai-answer-inline-code ${isKeyboardShortcut ? 'ai-answer-inline-code--shortcut' : ''}`.trim()}
+      >
+        {inlineText}
       </code>
     );
   }

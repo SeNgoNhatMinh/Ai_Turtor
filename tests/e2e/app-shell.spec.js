@@ -177,6 +177,8 @@ async function signIn(page) {
   await page.getByLabel('Email').fill('student@example.com');
   await page.getByLabel('Mật khẩu').fill('secret1');
   await page.locator('.login-submit').click();
+  await expect(page).toHaveURL(/\/student\/dashboard$/);
+  await page.goto('/student/chat');
   await expect(page).toHaveURL(/\/student\/chat$/);
 }
 
@@ -242,6 +244,8 @@ test('student materials remains readable in dark mode', async ({ page }) => {
 
 test('main student workspace does not overflow the viewport', async ({ page }) => {
   await signIn(page);
+  await expect(page.locator('.main-sidebar')).not.toHaveClass(/main-sidebar--collapsed/);
+  await expect(page.getByText('Trò chuyện AI Tutor', { exact: true })).toBeVisible();
   await expect.poll(async () => page.evaluate(() => ({
     scrollWidth: document.documentElement.scrollWidth,
     width: window.innerWidth,
@@ -249,6 +253,19 @@ test('main student workspace does not overflow the viewport', async ({ page }) =
 
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(1);
+
+  const historyPane = page.locator('.student-chat-history-pane');
+  if (page.viewportSize().width > 760) {
+    await page.getByRole('button', { name: 'Ẩn lịch sử trò chuyện' }).first().click();
+    await expect.poll(() => historyPane.evaluate((node) => node.getBoundingClientRect().width)).toBeLessThanOrEqual(1);
+    await page.getByRole('button', { name: 'Hiện lịch sử trò chuyện' }).click();
+    await expect.poll(() => historyPane.evaluate((node) => node.getBoundingClientRect().width)).toBeGreaterThan(250);
+  } else {
+    await page.getByRole('button', { name: 'Hiện lịch sử trò chuyện' }).click();
+    await expect(historyPane).toHaveClass(/is-open/);
+    await historyPane.getByRole('button', { name: 'Ẩn lịch sử trò chuyện' }).click();
+    await expect(historyPane).not.toHaveClass(/is-open/);
+  }
 });
 
 test('long AI markdown does not add horizontal scrolling to the chat viewport', async ({ page }) => {
@@ -302,7 +319,7 @@ test('long AI markdown does not add horizontal scrolling to the chat viewport', 
   await signIn(page);
   const conversationTitle = page.getByText('Wide markdown answer', { exact: true });
   if (page.viewportSize().width <= 760) {
-    await page.getByRole('button', { name: 'Lịch sử chat' }).click();
+    await page.getByRole('button', { name: 'Hiện lịch sử trò chuyện' }).click();
   }
   await expect(conversationTitle).toBeVisible();
   await conversationTitle.click();
@@ -354,10 +371,94 @@ test('empty chat keeps the robot inside the visible message viewport', async ({ 
   expect(mascotBounds.y + mascotBounds.height).toBeLessThanOrEqual(panelBounds.y + panelBounds.height + 1);
 });
 
+test('student chat recovers a persisted backend answer when n8n returns memory only', async ({ page }) => {
+  const question = 'Servlet container hoạt động như thế nào?';
+  const answer = 'Servlet container quản lý vòng đời servlet và xử lý HTTP request.';
+  let exchangePersisted = false;
+
+  await page.route('**/api/ai/conversations?*', async (route) => {
+    if (route.request().method() !== 'GET') {
+      await route.fallback();
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        conversations: exchangePersisted ? [{
+          conversationId: 'conversation-canonical-answer',
+          title: 'Servlet container',
+          courseId: 'PRO192',
+          classId: 'SE1833',
+          messageCount: 2,
+          userQuestionCount: 1,
+          lastMessageAt: '2026-08-10T15:30:00Z',
+        }] : [],
+      }),
+    });
+  });
+  await page.route('**/webhook/student-chat', async (route) => {
+    exchangePersisted = true;
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        studentId: 'student-1',
+        summary: 'Student memory returned by the incorrect Respond RAG node.',
+        weakTopics: ['Servlet'],
+      }),
+    });
+  });
+  await page.route('**/api/ai/conversations/conversation-canonical-answer/messages?*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        messages: [
+          { id: 'user-canonical-answer', role: 'USER', content: question },
+          {
+            id: 'assistant-canonical-answer',
+            role: 'ASSISTANT',
+            content: answer,
+            mode: 'RAG',
+            groundingType: 'COURSE_MATERIAL',
+            sources: ['materialId=material-java-core'],
+            sourceEvidence: [{
+              courseId: 'PRO192',
+              materialId: 'material-java-core',
+              materialTitle: 'Java Core',
+              chapter: 'Servlet lifecycle',
+              pageStart: 55,
+              excerpt: 'The servlet container manages the servlet lifecycle.',
+            }],
+          },
+        ],
+      }),
+    });
+  });
+  await page.route('**/api/ai/conversations/conversation-canonical-answer/pinned-messages?*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ messages: [] }),
+    });
+  });
+
+  await signIn(page);
+  await page.getByLabel('Câu hỏi cho AI Tutor').fill(question);
+  await page.getByLabel('Câu hỏi cho AI Tutor').press('Enter');
+
+  await expect(page.getByText(answer, { exact: true })).toBeVisible({ timeout: 15000 });
+  await expect(page.getByRole('button', { name: /bằng chứng tài liệu \(1\)/i })).toBeVisible();
+  await expect(page.getByText('Java Core · Servlet lifecycle · Trang 55')).toBeVisible();
+  await expect(page.getByText('Student memory returned by the incorrect Respond RAG node.')).toHaveCount(0);
+});
+
 test('learning progress uses an actionable plan without canvas overflow', async ({ page }) => {
   await signIn(page);
   await page.goto('/student/progress');
 
+  await page.getByRole('tab', { name: 'Kế hoạch ôn tập' }).click();
   const actionPlan = page.locator('.learning-action-plan-card');
   await expect(page.getByText('Kế hoạch học theo môn', { exact: true })).toBeVisible();
   await actionPlan.scrollIntoViewIfNeeded();
@@ -370,14 +471,13 @@ test('learning progress uses an actionable plan without canvas overflow', async 
   expect(overflow).toBeLessThanOrEqual(1);
 });
 
-test('student feature pages share the Practice Quiz header hierarchy', async ({ page }) => {
+test('student feature pages use readable page headers', async ({ page }) => {
   await signIn(page);
 
   const pages = [
     ['/student/progress', 'Tiến độ học tập', 'Học tập cá nhân'],
     ['/student/quizzes', 'Luyện tập bằng quiz theo tài liệu môn học', 'Quiz luyện tập'],
     ['/student/materials', 'Tài liệu & bài tập', 'Học liệu & bài tập'],
-    ['/student/mentor-review', 'Hỗ trợ từ giảng viên', 'Hỗ trợ học tập'],
   ];
 
   for (const [path, title, eyebrow] of pages) {
@@ -386,7 +486,7 @@ test('student feature pages share the Practice Quiz header hierarchy', async ({ 
     await expect(header).toBeVisible();
     await expect(header.getByRole('heading', { name: title })).toBeVisible();
     await expect(header.getByText(eyebrow, { exact: true })).toBeVisible();
-    await expect(header).toHaveCSS('border-radius', '18px');
+    await expect(header).toHaveCSS('border-radius', '20px');
 
     const bounds = await header.boundingBox();
     expect(bounds).not.toBeNull();
@@ -394,8 +494,14 @@ test('student feature pages share the Practice Quiz header hierarchy', async ({ 
     expect(bounds.x + bounds.width).toBeLessThanOrEqual(page.viewportSize().width + 1);
   }
 
+  await page.goto('/student/mentor-review');
+  const mentorHeader = page.locator('.mentor-review-page-header');
+  await expect(mentorHeader.getByRole('heading', { name: 'Hỗ trợ từ giảng viên' })).toBeVisible();
+  await expect(mentorHeader).toContainText('Theo dõi câu hỏi khó');
+
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(1);
+
 });
 
 test('practice quiz tabs stay inside the viewport and remain navigable', async ({ page }) => {
@@ -432,20 +538,20 @@ test('practice quiz tabs stay inside the viewport and remain navigable', async (
 test('admin routes load their independent feature pages', async ({ page }) => {
   await signInAsAdmin(page);
   await expect(page.getByRole('heading', { name: 'Tổng quan hệ thống' })).toBeVisible();
-  await expect(page.locator('.page-header')).toHaveCSS('border-radius', '18px');
+  await expect(page.locator('.page-header')).toHaveCSS('border-radius', '20px');
 
   await page.goto('/admin/users');
   await expect(page.getByText(/Tài khoản \(0\)/)).toBeVisible();
-  await expect(page.locator('.page-header')).toHaveCSS('border-radius', '18px');
+  await expect(page.locator('.page-header')).toHaveCSS('border-radius', '20px');
 
   await page.goto('/admin/academic');
   await expect(page.getByRole('tab', { name: 'Học kỳ' })).toBeVisible();
   await expect(page.getByRole('tab', { name: 'Học liệu môn học' })).toBeVisible();
-  await expect(page.locator('.page-header')).toHaveCSS('border-radius', '18px');
+  await expect(page.locator('.page-header')).toHaveCSS('border-radius', '20px');
 
   await page.goto('/admin/review-queue');
   await expect(page.getByRole('heading', { name: 'Giám sát chất lượng AI' })).toBeVisible();
-  await expect(page.getByText(/^Đã xử lý \(0\)$/)).toBeVisible();
+  await expect(page.getByRole('button', { name: /Lịch sử/ })).toBeVisible();
 
   const qualityPageBounds = await page.locator('.quality-review-page').boundingBox();
   const qualityHeaderBounds = await page.locator('.quality-review-page > .page-header').boundingBox();
@@ -470,7 +576,9 @@ test('Ant Design academic controls remain clickable around cards and anchored co
   const academicTabs = page.locator('.admin-academic-tabs .ant-tabs-tab');
   await expect(academicTabs).toHaveCount(6);
 
-  await academicTabs.nth(2).click();
+  const classSectionsTab = page.getByRole('tab', { name: 'Lớp học phần' });
+  await classSectionsTab.click();
+  await expect(classSectionsTab).toHaveAttribute('aria-selected', 'true');
   const courseSelect = page.locator('.ant-tabs-tabpane-active .ant-select').last();
   await courseSelect.click();
   await expect(
@@ -497,7 +605,7 @@ test('Ant Design academic controls remain clickable around cards and anchored co
   await expect(page.locator('.ant-dropdown:visible')).toBeVisible();
   await page.keyboard.press('Escape');
 
-  await academicTabs.nth(1).click();
+  await page.getByRole('tab', { name: 'Môn học', exact: true }).click();
   await page.locator('.entity-action-button').first().click();
   await page.locator('.ant-dropdown-menu-item-danger').click();
 
@@ -517,8 +625,9 @@ test('Ant Design academic popups remain usable with reduced motion enabled', asy
   await signInAsAdmin(page);
   await page.goto('/admin/academic');
 
-  const academicTabs = page.locator('.admin-academic-tabs .ant-tabs-tab');
-  await academicTabs.nth(2).click();
+  const classSectionsTab = page.getByRole('tab', { name: 'Lớp học phần' });
+  await classSectionsTab.click();
+  await expect(classSectionsTab).toHaveAttribute('aria-selected', 'true');
 
   const courseSelect = page.locator('.ant-tabs-tabpane-active .ant-select').last();
   await courseSelect.click();
@@ -539,44 +648,12 @@ test('Ant Design academic popups remain usable with reduced motion enabled', asy
   await expect(page.locator('.ant-dropdown:visible')).toBeVisible();
 });
 
-test('Tutor V2 admin route loads role-gated workflow without viewport overflow', async ({ page }) => {
+test('legacy Admin Tutor V2 route redirects to the canonical reindex workspace', async ({ page }) => {
   await signInAsAdmin(page);
   await page.goto('/admin/expert-training');
 
-  await expect(page).toHaveURL(/\/admin\/v2\?.*tab=coverage/);
-  await expect(page.getByRole('heading', { name: 'Giám sát Tutor V2' })).toBeVisible();
-  await expect(
-    page.getByText('PRO192 · Object-Oriented Programming', { exact: true }).first(),
-  ).toBeVisible();
-  await expect(page.getByRole('tab', { name: 'Phủ kiến thức' })).toBeVisible();
-  await expect(page.getByRole('tab', { name: /^Duyệt/ })).toBeVisible();
-  await expect(page.getByRole('tab', { name: 'Đánh giá AI' })).toBeVisible();
-  await expect(page.getByRole('tab')).toHaveCount(3);
-  await expect(page.getByRole('button', { name: 'Phân tích độ phủ' })).toBeVisible();
-
-  const pageBounds = await page.locator('.expert-training-page--reviewer').boundingBox();
-  const headerBounds = await page.locator('.expert-training-page--reviewer > .page-header').boundingBox();
-  const scopeBounds = await page.locator('.expert-training-page--reviewer > .scope-bar').boundingBox();
-  const tabsBounds = await page.locator('.expert-training-page--reviewer > .expert-training__tabs').boundingBox();
-  const expectedInset = page.viewportSize().width <= 820 ? 0 : 24;
-
-  expect(pageBounds).not.toBeNull();
-  expect(headerBounds).not.toBeNull();
-  expect(scopeBounds).not.toBeNull();
-  expect(tabsBounds).not.toBeNull();
-  expect(Math.abs(headerBounds.x - (pageBounds.x + expectedInset))).toBeLessThanOrEqual(1);
-  expect(Math.abs(scopeBounds.x - headerBounds.x)).toBeLessThanOrEqual(1);
-  expect(Math.abs(tabsBounds.x - headerBounds.x)).toBeLessThanOrEqual(1);
-  expect(Math.abs(scopeBounds.width - headerBounds.width)).toBeLessThanOrEqual(1);
-  expect(Math.abs(tabsBounds.width - headerBounds.width)).toBeLessThanOrEqual(1);
-
-  await page.getByRole('switch', { name: 'Dùng giao diện tối' }).click();
-  await expect(page.locator('.scope-bar')).toHaveCSS('background-color', 'rgb(15, 15, 15)');
-
-  await page.getByRole('tab', { name: /^Duyệt/ }).click();
-  await expect(page).toHaveURL(/\/admin\/v2\?.*tab=review/);
-  await page.reload();
-  await expect(page.getByRole('tab', { name: /^Duyệt/ })).toHaveAttribute('aria-selected', 'true');
+  await expect(page).toHaveURL(/\/admin\/reindex$/);
+  await expect(page.getByRole('heading', { name: 'Reindex toàn bộ tài liệu' })).toBeVisible();
 
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(1);
@@ -587,7 +664,7 @@ test('Teacher sees only the task board and Student is denied Tutor V2 routes', a
   await page.goto('/teacher/expert-training');
   await expect(page).toHaveURL(/\/teacher\/expert-tasks/);
   await expect(page.getByRole('heading', { name: 'Công việc tri thức AI' }).first()).toBeVisible();
-  await expect(page.locator('.page-header')).toHaveCSS('border-radius', '18px');
+  await expect(page.locator('.page-header')).toHaveCSS('border-radius', '20px');
   await expect(page.getByText('Cần làm (0)', { exact: true })).toBeVisible();
   await expect(page.getByRole('tab', { name: 'Phủ kiến thức' })).toHaveCount(0);
   await expect(page.getByRole('tab', { name: 'Đánh giá AI' })).toHaveCount(0);
@@ -714,6 +791,19 @@ test('Teacher review queue keeps long ticket lists independently scrollable', as
 
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(1);
+
+  const historyPane = page.locator('.student-chat-history-pane');
+  if (page.viewportSize().width > 760) {
+    await page.getByRole('button', { name: 'Ẩn lịch sử trò chuyện' }).first().click();
+    await expect.poll(() => historyPane.evaluate((node) => node.getBoundingClientRect().width)).toBeLessThanOrEqual(1);
+    await page.getByRole('button', { name: 'Hiện lịch sử trò chuyện' }).click();
+    await expect.poll(() => historyPane.evaluate((node) => node.getBoundingClientRect().width)).toBeGreaterThan(250);
+  } else {
+    await page.getByRole('button', { name: 'Hiện lịch sử trò chuyện' }).click();
+    await expect(historyPane).toHaveClass(/is-open/);
+    await historyPane.getByRole('button', { name: 'Ẩn lịch sử trò chuyện' }).click();
+    await expect(historyPane).not.toHaveClass(/is-open/);
+  }
 });
 
 test('Senior review separates severe feedback, knowledge approval, and history clearly', async ({ page }) => {
@@ -781,7 +871,12 @@ test('Senior review separates severe feedback, knowledge approval, and history c
 
   await signInAsSenior(page);
   await expect(page.getByRole('heading', { name: 'Trung tâm kiểm duyệt chuyên môn' })).toBeVisible();
-  await expect(page.getByText('2 sinh viên phản hồi về cùng câu trả lời AI')).toHaveCount(12);
+  await expect(page.getByText('2 sinh viên phản hồi về cùng câu trả lời AI')).toHaveCount(10);
+  await expect(page.getByText('1–10 / 12')).toBeVisible();
+  await page.getByRole('button', { name: 'Trang sau' }).click();
+  await expect(page.getByText('2 sinh viên phản hồi về cùng câu trả lời AI')).toHaveCount(2);
+  await expect(page.getByText('11–12 / 12')).toBeVisible();
+  await page.getByRole('button', { name: 'Trang trước' }).click();
 
   const scrollContainer = page.viewportSize().width > 768
     ? page.locator('.quality-review-page > .answer-review-workspace')
@@ -797,6 +892,13 @@ test('Senior review separates severe feedback, knowledge approval, and history c
   await expect(page.getByRole('heading', { name: 'Phê duyệt tri thức cho RAG' })).toBeVisible();
   await expect(page.getByText(/Candidate question 3/)).toBeVisible();
   await expect(page.getByText('2 sinh viên phản hồi về cùng câu trả lời AI')).toHaveCount(0);
+
+  const characterCounterBounds = await page.locator('.candidate-card-item .ant-input-data-count').first().boundingBox();
+  const candidateActionsBounds = await page.locator('.candidate-card-item .candidate-actions').first().boundingBox();
+  expect(characterCounterBounds).not.toBeNull();
+  expect(candidateActionsBounds).not.toBeNull();
+  expect(characterCounterBounds.y + characterCounterBounds.height)
+    .toBeLessThanOrEqual(candidateActionsBounds.y);
 
   await page.getByRole('button', { name: /Lịch sử/ }).click();
   await expect(page.getByRole('heading', { name: 'Lịch sử tri thức RAG' })).toBeVisible();

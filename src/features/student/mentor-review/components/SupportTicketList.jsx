@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Empty, Spin, Tag, Typography } from 'antd';
+import { Alert, Button, Card, Empty, Spin, Typography } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
 import StatusTag from '../../../../components/common/StatusTag';
 import { uiCopy } from '../../../../constants/uiCopy';
@@ -8,7 +8,7 @@ import {
   isAnsweredTicket,
 } from '../mentorSupportUtils';
 
-const { Paragraph, Text } = Typography;
+const { Text } = Typography;
 
 function TicketPreview({ ticket, isActive, onSelect }) {
   const question = getQuestionText(ticket);
@@ -29,14 +29,12 @@ function TicketPreview({ ticket, isActive, onSelect }) {
         <span className={`mentor-ticket-dot ${answered ? 'is-answered' : ''}`} />
         <Text strong ellipsis className="mentor-ticket-title">{preview}</Text>
       </div>
-      <Paragraph ellipsis={{ rows: 2 }} className="mentor-ticket-question">{preview}</Paragraph>
       <div className="mentor-ticket-meta">
         <span>{formatSupportDateTime(ticket?.updatedAt || ticket?.createdAt)}</span>
         {meta.map((item) => <span key={item}>{item}</span>)}
       </div>
       <div className="mentor-ticket-footer">
         <StatusTag status={ticket?.status} />
-        {answered ? <Tag color="green">Đã trả lời</Tag> : <Tag color="orange">Đang chờ</Tag>}
       </div>
     </button>
   );

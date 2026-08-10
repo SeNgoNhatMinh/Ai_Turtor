@@ -74,6 +74,15 @@ test('never rewrites fenced code, including partial streaming fences', () => {
   assert.equal(normalizeAiMarkdown(partial), partial);
 });
 
+test('does not turn plus signs inside inline code into list items', () => {
+  const input = '- Mở **Settings** (`File ➪ Settings` hoặc `Ctrl + Alt + S`).';
+  const output = normalizeAiMarkdown(input);
+
+  assert.equal(output, input);
+  assert.match(output, /`Ctrl \+ Alt \+ S`/);
+  assert.doesNotMatch(output, /Ctrl\n\+ Alt/);
+});
+
 test('markdown normalization is idempotent', () => {
   const once = normalizeAiMarkdown('Theo tai lieu mon hoc\n\n- Constructor là gì?');
   assert.equal(normalizeAiMarkdown(once), once);

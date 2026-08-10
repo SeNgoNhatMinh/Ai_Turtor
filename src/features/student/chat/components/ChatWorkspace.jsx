@@ -13,6 +13,8 @@ const CHAT_TURN_LIMIT = 10;
 
 function ChatWorkspace({
   activeSessionTitle,
+  isHistoryOpen = false,
+  onToggleHistory,
   courseId,
   onCourseChange,
   classId,
@@ -25,6 +27,7 @@ function ChatWorkspace({
   chatInput,
   setChatInput,
   onSendQuery,
+  onResendMessage,
   onStopQuery,
   onPromptStarter,
   onAnswerAction,
@@ -141,6 +144,7 @@ function ChatWorkspace({
       <ChatWorkspaceHeader
         activeSessionMaxTurnsReached={activeSessionMaxTurnsReached}
         activeSessionTitle={activeSessionTitle}
+        isHistoryOpen={isHistoryOpen}
         canChat={canChatWithCurrentContext}
         chatContextMessage={chatContextMessage}
         courseOptions={safeCourseOptions}
@@ -152,6 +156,7 @@ function ChatWorkspace({
         onCancelCourseSwitch={() => setPendingCourseId('')}
         onConfirmCourseSwitch={confirmCourseSwitch}
         onCourseSelect={handleCourseSelect}
+        onToggleHistory={onToggleHistory}
         onDismissTurnLimitNotice={onDismissTurnLimitNotice}
         onTurnLimitBack={onTurnLimitBack}
         pendingCourseId={shouldShowCourseSwitchBanner ? pendingCourseId : ''}
@@ -170,6 +175,7 @@ function ChatWorkspace({
 
       <ChatMessageList
         activeSessionId={activeSessionId}
+        activeSessionMaxTurnsReached={activeSessionMaxTurnsReached}
         canChat={canChatWithCurrentContext}
         classId={classId}
         courseId={courseId}
@@ -188,6 +194,7 @@ function ChatWorkspace({
         onOpenMentorReview={onOpenMentorReview}
         onMentorRequestCreated={onMentorRequestCreated}
         onPromptStarter={onPromptStarter}
+        onResendMessage={onResendMessage}
         onStudySuggestion={onStudySuggestion}
         pinnedMessageIdSet={pinnedMessageIdSet}
         pinningMessageId={pinningMessageId}

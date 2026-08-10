@@ -17,6 +17,17 @@
   overscroll-behavior-x: contain;
 }
 
+.data-table-scroll--bounded {
+  overflow: auto;
+  scrollbar-gutter: stable;
+}
+
+.data-table-scroll--bounded .data-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+}
+
 .data-table {
   width: 100%;
   border-collapse: collapse;
@@ -53,21 +64,6 @@
   height: 96px;
   color: var(--color-text-muted, #64748b);
   text-align: center !important;
-}
-
-.data-table-pagination {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px 2px 0;
-  color: var(--color-text-muted, #64748b);
-  font-size: 0.78rem;
-}
-
-.data-table-pagination > div {
-  display: flex;
-  gap: 8px;
 }
 
 .app-container.dark .data-table-card,

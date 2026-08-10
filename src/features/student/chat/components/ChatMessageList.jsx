@@ -1,5 +1,4 @@
 import { lazy, Suspense, useState } from 'react';
-import { PushpinOutlined } from '@ant-design/icons';
 import {
   findMentorRequestForMessage,
   getCanonicalMessageSources,
@@ -8,11 +7,20 @@ import {
 } from '../chatMessageUtils';
 import AnswerActionBar from './AnswerActionBar';
 import AnswerEvidence from './AnswerEvidence';
+
+const withoutLegacyEvidenceAppendix = (answer, evidenceMessage) => {
+  const value = String(answer || '');
+  const hasEvidenceMetadata = (Array.isArray(evidenceMessage?.sourceEvidence) && evidenceMessage.sourceEvidence.length > 0)
+    || (Array.isArray(evidenceMessage?.sources) && evidenceMessage.sources.length > 0);
+  if (!hasEvidenceMetadata) return value;
+  return value.replace(/\n{1,3}#{1,3}\s*Bằng chứng trích từ tài liệu[\s\S]*$/iu, '').trim();
+};
 import AnswerFeedbackControls from './AnswerFeedbackControls';
 import AnswerImproveSuggestions from './AnswerImproveSuggestions';
 import ChatLoadingSteps from './ChatLoadingSteps';
 import InlineMentorSupport from './InlineMentorSupport';
 import PromptStarters from './PromptStarters';
+import StudentMessageBubble from './StudentMessageBubble';
 
 const AiAnswer = lazy(() => import('../../../../components/AiAnswer'));
 function TutorMascot({ size, className = '' }) {
@@ -21,6 +29,7 @@ function TutorMascot({ size, className = '' }) {
 
 function ChatMessageList({
   activeSessionId,
+  activeSessionMaxTurnsReached,
   canChat,
   classId,
   courseId,
@@ -39,6 +48,7 @@ function ChatMessageList({
   onOpenMentorReview,
   onMentorRequestCreated,
   onPromptStarter,
+  onResendMessage,
   onStudySuggestion,
   pinnedMessageIdSet,
   pinningMessageId,
@@ -102,10 +112,13 @@ function ChatMessageList({
                 className={`chat-message-turn ${highlightedMessageKey === messageKey ? 'chat-message-turn--highlighted' : ''}`}
               >
                 <div className="chat-gpt-message-row user">
-                  <div className={`chat-gpt-bubble-user ${isPinned ? 'chat-message-pinned' : ''}`}>
-                    {isPinned && <PushpinOutlined className="chat-message-pin-badge" />}
-                    {message.question}
-                  </div>
+                  <StudentMessageBubble
+                    canResend={canChat && !isAiLoading && !activeSessionMaxTurnsReached}
+                    isPinned={isPinned}
+                    onResend={onResendMessage}
+                    question={message.question}
+                    triggerToast={triggerToast}
+                  />
                 </div>
 
                 {!message.pending && (
@@ -124,7 +137,7 @@ function ChatMessageList({
 
                         <Suspense fallback={<div className="chat-answer-loading">Đang định dạng câu trả lời...</div>}>
                           <AiAnswer
-                            markdown={message.answer || ''}
+                            markdown={withoutLegacyEvidenceAppendix(message.answer, evidenceMessage)}
                             sourceMap={materialSourceMap}
                             onStudyTipAnalyze={onAnalyzeStudyTip}
                             onDownloadSource={onDownloadSource}

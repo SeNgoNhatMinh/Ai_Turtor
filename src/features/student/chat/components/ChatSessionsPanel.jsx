@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
-import { Button, Card } from 'antd';
-import { Plus } from 'lucide-react';
+import { Button, Card, Tooltip } from 'antd';
+import { PanelLeftClose, Plus } from 'lucide-react';
 import { useDebouncedValue } from '../../../../hooks/useDebouncedValue';
 import { confirmDanger } from '../../../../components/common/confirmDialog';
 import ConversationGroup from '../conversations/ConversationGroup';
@@ -29,6 +29,7 @@ function ChatSessionsPanel({
   setEditingSessionId,
   setEditingSessionTitle,
   onSaveRename,
+  onClose,
   style,
 }) {
   const [searchText, setSearchText] = useState('');
@@ -81,21 +82,34 @@ function ChatSessionsPanel({
       styles={{ body: { flex: 1, overflow: 'hidden', padding: 0, display: 'flex', flexDirection: 'column' } }}
     >
       <div className="chat-history-header">
-        <div>
+        <div className="chat-history-heading">
           <div className="chat-history-title">Lịch sử trò chuyện</div>
           <div className="chat-history-subtitle">Mới nhất trước</div>
         </div>
-        <Button
-          type="primary"
-          size="small"
-          icon={<Plus size={14} />}
-          onClick={onCreate}
-          loading={isCreatingSession}
-          disabled={!onCreate || Boolean(sessionMutationKey)}
-          className="chat-history-new-button"
-        >
-          Cuộc trò chuyện mới
-        </Button>
+        <div className="chat-history-actions">
+          <Tooltip title="Tạo cuộc trò chuyện mới">
+            <Button
+              type="text"
+              size="small"
+              icon={<Plus size={17} />}
+              onClick={onCreate}
+              loading={isCreatingSession}
+              disabled={!onCreate || Boolean(sessionMutationKey)}
+              className="chat-history-icon-button"
+              aria-label="Tạo cuộc trò chuyện mới"
+            />
+          </Tooltip>
+          <Tooltip title="Ẩn lịch sử trò chuyện">
+            <Button
+              type="text"
+              size="small"
+              icon={<PanelLeftClose size={17} />}
+              onClick={onClose}
+              className="chat-history-icon-button"
+              aria-label="Ẩn lịch sử trò chuyện"
+            />
+          </Tooltip>
+        </div>
       </div>
 
       <ConversationSearch

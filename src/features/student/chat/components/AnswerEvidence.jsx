@@ -16,6 +16,45 @@ const getConfidenceClass = (confidence) => {
   return 'low';
 };
 
+const normalizeEvidenceText = (value) => String(value || '')
+  .normalize('NFKC')
+  .toLocaleLowerCase('vi')
+  .replace(/\s+/g, ' ')
+  .trim()
+  .slice(0, 320);
+
+const mergeVisualEvidence = (current = [], incoming = []) => {
+  const merged = new Map();
+  [...current, ...incoming].forEach((visual) => {
+    if (!visual) return;
+    const key = visual.imageUrl || `${visual.documentUrl || ''}|${visual.pageNumber || ''}`;
+    if (key && !merged.has(key)) merged.set(key, visual);
+  });
+  return [...merged.values()];
+};
+
+const deduplicateEvidence = (items = []) => {
+  const merged = new Map();
+  items.forEach((item) => {
+    if (!item) return;
+    const excerpt = normalizeEvidenceText(item.excerpt);
+    const key = excerpt
+      ? `${item.courseId || item.courseName || ''}|text:${excerpt}`
+      : `${item.courseId || item.courseName || ''}|${item.materialId || item.materialTitle || ''}|${item.pageStart || ''}`;
+    const existing = merged.get(key);
+    if (!existing) {
+      merged.set(key, item);
+      return;
+    }
+    const visuals = mergeVisualEvidence(existing.visualEvidence, item.visualEvidence);
+    const preferred = visuals.length > 0 && (!existing.visualEvidence || existing.visualEvidence.length === 0)
+      ? item
+      : existing;
+    merged.set(key, { ...preferred, visualEvidence: visuals });
+  });
+  return [...merged.values()];
+};
+
 function AnswerEvidence({ message, sourceMap = {}, onDownloadSource }) {
   const [expanded, setExpanded] = useState(false);
   const sources = formatSourceItems(Array.isArray(message?.sources) ? message.sources : [], sourceMap);
@@ -24,8 +63,16 @@ function AnswerEvidence({ message, sourceMap = {}, onDownloadSource }) {
   const grounding = message?.groundingType || (sources.length > 0 ? 'COURSE_MATERIAL' : 'AI_GENERAL_KNOWLEDGE');
   const groundingLabel = grounding === 'COURSE_MATERIAL' ? 'Nguồn: Tài liệu khóa học' : 'Nguồn: Kiến thức AI chung';
   const isCodeMode = message?.mode === 'CODE' || message?.mode === 'CODE_MENTOR';
-  const evidence = Array.isArray(message?.sourceEvidence) ? message.sourceEvidence : [];
+  const evidence = deduplicateEvidence(Array.isArray(message?.sourceEvidence) ? message.sourceEvidence : []);
   const hasEvidence = sources.length > 0 || evidence.length > 0 || isCodeMode || message?.questionEscalationId;
+  const primaryEvidence = evidence[0] || null;
+  const evidenceLocation = primaryEvidence
+    ? [
+        primaryEvidence.materialTitle,
+        primaryEvidence.chapter,
+        primaryEvidence.pageStart != null ? `Trang ${primaryEvidence.pageStart}` : null,
+      ].filter(Boolean).join(' · ')
+    : '';
 
   if (!hasEvidence) return null;
 
@@ -38,9 +85,18 @@ function AnswerEvidence({ message, sourceMap = {}, onDownloadSource }) {
         onClick={() => setExpanded((value) => !value)}
       >
         <FileText size={15} aria-hidden="true" />
-        <span>{expanded ? 'Ẩn nguồn tài liệu' : 'Xem nguồn tài liệu'}</span>
+        <span>{expanded
+          ? 'Ẩn bằng chứng tài liệu'
+          : evidence.length > 0
+            ? `Bằng chứng tài liệu (${evidence.length})`
+            : 'Xem nguồn tài liệu'}</span>
         <ChevronDown size={15} aria-hidden="true" />
       </button>
+      {!expanded && evidenceLocation && (
+        <span className="answer-evidence-preview" title={evidenceLocation}>
+          {evidenceLocation}
+        </span>
+      )}
       {expanded && <div className="answer-evidence-content">
       <div className="answer-evidence-pill">
         <Sparkles size={14} aria-hidden="true" />
@@ -78,18 +134,25 @@ function AnswerEvidence({ message, sourceMap = {}, onDownloadSource }) {
         <div className="answer-evidence-details" aria-label="Bằng chứng từ tài liệu môn học">
           {evidence.map((item, index) => (
             <div className="answer-evidence-detail" key={`${item.materialId || item.materialTitle}-${index}`}>
-              <strong>{item.courseName || item.courseId || 'Môn học'}</strong>
-              <span>{item.materialTitle || item.materialId || 'Tài liệu môn học'}</span>
+              <strong>Bằng chứng {index + 1}</strong>
+              <span><b>Môn học:</b> {item.courseName || item.courseId || 'Chưa xác định'}</span>
+              <span><b>Tài liệu:</b> {item.materialTitle || item.materialId || 'Chưa xác định'}</span>
               {item.chapter && <span>Chương/phần: {item.chapter}</span>}
               {item.pageStart != null && (
                 <span>
-                  Trang {item.pageStart}{item.pageEnd && item.pageEnd !== item.pageStart ? `–${item.pageEnd}` : ''}
-                  {item.pageEstimated ? ' (ước tính)' : ''}
+                  <b>Trang trích dẫn:</b> {item.pageStart}
+                  {item.pageEnd && item.pageEnd !== item.pageStart ? `–${item.pageEnd}` : ''}
+                  {item.pageEstimated ? ' (số trang được ước tính từ vị trí đoạn văn)' : ' (số trang xác định)'}
                 </span>
               )}
-              {item.excerpt && <blockquote>{item.excerpt}</blockquote>}
+              {item.excerpt && (
+                <div className="answer-evidence-quote">
+                  <b>Đoạn nội dung chứng minh:</b>
+                  <blockquote>{item.excerpt}</blockquote>
+                </div>
+              )}
               {Array.isArray(item.visualEvidence) && item.visualEvidence.length > 0 && (
-                <div className="visual-evidence-grid" aria-label="Hình minh họa trích từ tài liệu">
+                <div className="visual-evidence-grid" aria-label="Ảnh của trang tài liệu được trích dẫn">
                   {item.visualEvidence.map((visual, visualIndex) => (
                     <AuthenticatedEvidenceImage
                       key={`${visual.imageUrl || visual.pageNumber}-${visualIndex}`}

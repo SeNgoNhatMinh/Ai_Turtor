@@ -1,12 +1,14 @@
 import { CloseOutlined } from '@ant-design/icons';
-import { Select, Space, Typography } from 'antd';
+import { Button, Select, Space, Tooltip, Typography } from 'antd';
+import { PanelLeft } from 'lucide-react';
 import { uiCopy } from '../../../../constants/uiCopy';
 
-const { Title, Text } = Typography;
+const { Title } = Typography;
 
 function ChatWorkspaceHeader({
   activeSessionMaxTurnsReached,
   activeSessionTitle,
+  isHistoryOpen,
   canChat,
   chatContextMessage,
   courseOptions,
@@ -18,6 +20,7 @@ function ChatWorkspaceHeader({
   onCancelCourseSwitch,
   onConfirmCourseSwitch,
   onCourseSelect,
+  onToggleHistory,
   onDismissTurnLimitNotice,
   onTurnLimitBack,
   pendingCourseId,
@@ -30,24 +33,24 @@ function ChatWorkspaceHeader({
   return (
     <>
       <div className="chat-workspace-header">
-        <div className="chat-header-main">
-          <Title level={4} style={{ margin: 0, fontSize: '1.1rem' }}>{activeSessionTitle}</Title>
-          <div className="chat-header-meta-row">
-            <Text type="secondary" style={{ fontSize: '0.8rem' }}>{uiCopy.student.chat.sessionLabel}</Text>
-            <span className={`chat-turn-counter ${activeSessionMaxTurnsReached ? 'chat-turn-counter--full' : isNearTurnLimit ? 'chat-turn-counter--warning' : ''}`}>
-              {uiCopy.student.chat.questionCounter(questionCount)}
-            </span>
+        <div className="chat-header-leading">
+          <Tooltip title={isHistoryOpen ? 'Ẩn lịch sử trò chuyện' : 'Hiện lịch sử trò chuyện'}>
+            <Button
+              type="text"
+              className="chat-header-history-button"
+              icon={<PanelLeft size={18} />}
+              onClick={onToggleHistory}
+              aria-label={isHistoryOpen ? 'Ẩn lịch sử trò chuyện' : 'Hiện lịch sử trò chuyện'}
+            />
+          </Tooltip>
+          <div className="chat-header-main">
+            <Title level={4} title={activeSessionTitle}>{activeSessionTitle}</Title>
+            <Tooltip title={activeSessionMaxTurnsReached ? uiCopy.student.chat.full : isNearTurnLimit ? uiCopy.student.chat.almostFull : ''}>
+              <span className={`chat-turn-counter ${activeSessionMaxTurnsReached ? 'chat-turn-counter--full' : isNearTurnLimit ? 'chat-turn-counter--warning' : ''}`}>
+                {uiCopy.student.chat.questionCounter(questionCount)}
+              </span>
+            </Tooltip>
           </div>
-          {isNearTurnLimit && (
-            <div className="chat-turn-helper">
-              {uiCopy.student.chat.almostFull}
-            </div>
-          )}
-          {activeSessionMaxTurnsReached && (
-            <div className="chat-turn-helper chat-turn-helper--full">
-              {uiCopy.student.chat.full}
-            </div>
-          )}
         </div>
         <Space wrap>
           <Select

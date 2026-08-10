@@ -94,10 +94,16 @@
     }
 
     .student-chat-history-pane {
-        flex: 0 0 86px;
-        width: 86px;
-        min-width: 86px;
-        max-width: 86px;
+        flex-basis: 0;
+        width: 0;
+        min-width: 0;
+        max-width: 0;
+    }
+
+    .student-chat-history-pane.is-open {
+        flex-basis: 260px;
+        width: 260px;
+        max-width: 260px;
     }
 
     .workspace-toolbar,
@@ -204,30 +210,6 @@
 
     .student-chat-layout--chatgpt {
         flex-direction: column;
-    }
-
-    .student-chat-history-toggle.ant-btn {
-        display: inline-flex;
-        position: absolute;
-        top: 10px;
-        left: 10px;
-        z-index: 22;
-        align-items: center;
-        gap: 6px;
-        height: 34px;
-        border-radius: 999px;
-        background: rgba(255, 255, 255, 0.92);
-        border: 1px solid #e5e7eb;
-        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
-        color: #202123;
-        font-size: 12px;
-        font-weight: 800;
-    }
-
-    .app-container.dark .student-chat-history-toggle.ant-btn {
-        background: rgba(23, 23, 23, 0.92);
-        border-color: #2a2a2a;
-        color: #ececec;
     }
 
     .student-chat-history-backdrop {

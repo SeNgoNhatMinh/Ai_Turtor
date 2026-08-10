@@ -18,6 +18,7 @@ This guide records the production structure target after aligning the FE with th
 - `src/app/layouts/AuthedLayout.jsx` owns the shared authenticated header/sidebar/toast shell.
 - `src/app/layouts/AuthedLayout.css` owns authenticated shell sizing, scroll boundaries and responsive layout. Do not move these rules back into `index.css`.
 - `src/features/student/learning/useStudentLearningController.js` owns Student Learning Progress, suggestions, memory updates, pinned suggestions, and answer review submission.
+- `src/features/student/learning/studentSuggestionState.js` owns pure suggestion normalization, deletion identity, and cache filtering. Keep these transformations out of the controller so they remain independently testable.
 - `src/features/student/learning/useImprovePlans.js` owns improve-plan loading and completion; the Learning Progress page composes focused overview, memory, suggestion, plan, and edit-modal components.
 - `src/features/student/chat/usePinnedChatMessages.js` owns backend-persisted message pins, the three-pin limit, legacy migration, and jump/highlight state.
 - `src/features/student/chat/useAnswerFeedback.js` owns answer-review validation, payload mapping, form state, and duplicate-submit lock.
@@ -43,6 +44,7 @@ This guide records the production structure target after aligning the FE with th
 - `src/features/teacher/grading/TeacherGradingTab.jsx` only selects the active grading mode. Submission navigation, file-assignment grading and quiz-result review are separate components under `features/teacher/grading/components`.
 - `src/components/importWebsite/ImportWebsiteModal.jsx` is shared by Admin and Teacher. It must use the backend `url-toc -> selection -> import-url` flow; do not add browser crawling, direct import before analysis, or a mock-success path.
 - Admin page containers live under `features/admin/{dashboard,users,academic}`.
+- `features/admin/ai-logs/AdminAiLogsPage.jsx` is a route composition component; `hooks/useAdminAiLogs.js` owns canonical API/filter state and `components/*` owns filters, metrics, provider health, and log-table rendering.
 - Admin account, mentor and support-request resources are owned by `features/admin/users/useAdminUsersController.js`; each Admin Users tab has an independent table component under `features/admin/users/components`.
 - Route pages and their presentational views live together inside the owning feature. `src/pages` has been removed from runtime; do not recreate a parallel page hierarchy.
 - URL routes are canonical for navigation:
@@ -107,6 +109,9 @@ The legacy `src/services/api.js` facade has been removed. Do not recreate a glob
 ## Performance Rules
 
 - Keep role workspaces and route pages lazy; load only the active Student, Teacher, or Admin screen.
+- Collection pages must use `useCollectionView` with `CollectionSearch` and `CollectionPagination`, or the shared `DataTable`; do not render an unbounded API array directly with `.map()`.
+- Client pagination limits mounted DOM only. Collections expected to exceed a few hundred records require backend `page`, `size`, `q`, filters and `totalElements`; see `docs/BE_FIX_REQUEST_ADMIN_COLLECTION_PAGINATION.md`.
+- Admin tables default to 20 rows, offer 10/20/50 rows per page, and use a bounded scroll body with a sticky header where the table is the primary page content.
 - Keep `src/index.css` as the small ordered stylesheet entry; tokens, reset, shell, feature, Ant Design, responsive and accessibility rules live in owned modules documented by `src/styles/README.md`.
 - Preserve the import order in `src/index.css` until visual regression checks confirm that a rule can move into a lazy route chunk; dark-mode and responsive overrides depend on cascade order.
 - Keep individual CSS modules focused and preferably below 500 lines. Split by sub-feature instead of creating another portal-wide stylesheet.

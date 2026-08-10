@@ -1,4 +1,3 @@
-import PageHeader from '../../../components/common/PageHeader';
 import { uiCopy } from '../../../constants/uiCopy';
 import SupportConversationDetail from './components/SupportConversationDetail';
 import SupportTicketList from './components/SupportTicketList';
@@ -20,7 +19,10 @@ function MentorSupport({
 
   return (
     <div className="portal-section mentor-review-page">
-      <PageHeader eyebrow="Hỗ trợ học tập" title={uiCopy.student.support.title} description={uiCopy.student.support.subtitle} />
+      <header className="mentor-review-page-header">
+        <h1>{uiCopy.student.support.title}</h1>
+        <p>{uiCopy.student.support.subtitle}</p>
+      </header>
 
       <div className="mentor-review-layout">
         <SupportTicketList

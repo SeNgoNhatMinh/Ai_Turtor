@@ -22,7 +22,7 @@ import { isQuizDraft } from '../src/features/teacher/quizzes/quizAssignmentUtils
 const roles = ['STUDENT', 'TEACHER', 'SENIOR_MENTOR', 'ADMIN'];
 
 test('education routes: each role has a home and student cannot open expert-training shells', () => {
-  assert.equal(getHomeRouteForRole('STUDENT'), '/student/chat');
+  assert.equal(getHomeRouteForRole('STUDENT'), '/student/dashboard');
   assert.equal(getHomeRouteForRole('TEACHER'), '/teacher/classes');
   assert.equal(getHomeRouteForRole('SENIOR_MENTOR'), '/senior/review');
   assert.equal(getHomeRouteForRole('ADMIN'), '/admin/dashboard');
@@ -32,7 +32,7 @@ test('education routes: each role has a home and student cannot open expert-trai
   assert.ok(studentPaths.every((path) => path.startsWith('/student/')));
   assert.ok(teacherExpert.every((route) => route.allowedAccountRoles?.includes('TEACHER')));
   assert.equal(getRouteState('/student/chat')?.role, 'student');
-  assert.equal(getRouteState('/admin/v2')?.tab, 'admin-expert-training');
+  assert.equal(getRouteState('/admin/v2'), null);
 });
 
 test('education navigation tabs stay within each workspace role', () => {
@@ -54,7 +54,9 @@ test('education navigation tabs stay within each workspace role', () => {
   assert.ok(seniorTabs.has('senior-review'));
   assert.ok(seniorTabs.has('senior-v2'));
   assert.ok(!seniorTabs.has('admin-users'));
-  assert.ok(adminTabs.has('admin-expert-training'));
+  assert.ok(adminTabs.has('admin-review'));
+  assert.ok(adminTabs.has('admin-ai-logs'));
+  assert.ok(!adminTabs.has('admin-expert-training'));
   assert.ok(!adminTabs.has('senior-review'));
 });
 

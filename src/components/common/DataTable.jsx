@@ -1,8 +1,8 @@
-import { useState } from 'react';
-import { Button } from 'antd';
+import { CollectionPagination, CollectionSearch } from './CollectionControls';
+import { useCollectionView } from '../../hooks/useCollectionView';
 import './DataTable.css';
 
-const DEFAULT_PAGE_SIZE = 8;
+const DEFAULT_PAGE_SIZE = 20;
 
 function getColumnId(column, index) {
   return column.id || column.accessorKey || `column-${index}`;
@@ -51,22 +51,37 @@ export function DataTable({
   loading = false,
   emptyText = 'Không có dữ liệu.',
   pageSize = DEFAULT_PAGE_SIZE,
+  pageSizeOptions = [10, 20, 50],
+  searchable = false,
+  searchKeys = [],
+  searchPlaceholder = 'Tìm trong danh sách',
+  maxBodyHeight,
 }) {
-  const [pageIndex, setPageIndex] = useState(0);
   const safeData = Array.isArray(data) ? data : [];
   const safeColumns = Array.isArray(columns) ? columns : [];
-  const safePageSize = Math.max(1, Number(pageSize) || DEFAULT_PAGE_SIZE);
-  const pageCount = Math.ceil(safeData.length / safePageSize);
-  const resolvedPageIndex = Math.min(pageIndex, Math.max(pageCount - 1, 0));
-  const visibleRows = safeData.slice(
-    resolvedPageIndex * safePageSize,
-    (resolvedPageIndex + 1) * safePageSize,
-  );
+  const collection = useCollectionView(safeData, {
+    initialPageSize: pageSize,
+    pageSizeOptions,
+    searchKeys,
+  });
+  const visibleRows = collection.visibleItems;
 
   return (
     <div className="data-table-root">
+      {searchable && (
+        <CollectionSearch
+          query={collection.query}
+          onQueryChange={collection.setQuery}
+          filteredCount={collection.filteredCount}
+          totalCount={collection.totalCount}
+          placeholder={searchPlaceholder}
+        />
+      )}
       <div className="data-table-card">
-        <div className="data-table-scroll">
+        <div
+          className={`data-table-scroll ${maxBodyHeight ? 'data-table-scroll--bounded' : ''}`}
+          style={maxBodyHeight ? { maxHeight: maxBodyHeight } : undefined}
+        >
           <table className="data-table" role="table">
             <thead>
               <tr>
@@ -86,7 +101,7 @@ export function DataTable({
                 </tr>
               ) : visibleRows.length ? (
                 visibleRows.map((record, rowIndex) => (
-                  <tr key={getRowKey(record, resolvedPageIndex * safePageSize + rowIndex)}>
+                  <tr key={getRowKey(record, collection.pageIndex * collection.pageSize + rowIndex)}>
                     {safeColumns.map((column, columnIndex) => (
                       <td key={getColumnId(column, columnIndex)}>
                         {renderCell(column, record)}
@@ -106,27 +121,7 @@ export function DataTable({
         </div>
       </div>
 
-      {pageCount > 1 && (
-        <nav className="data-table-pagination" aria-label="Phân trang bảng dữ liệu">
-          <span>Trang {resolvedPageIndex + 1}/{pageCount}</span>
-          <div>
-            <Button
-              size="small"
-              onClick={() => setPageIndex(Math.max(0, resolvedPageIndex - 1))}
-              disabled={resolvedPageIndex === 0}
-            >
-              Trước
-            </Button>
-            <Button
-              size="small"
-              onClick={() => setPageIndex(Math.min(pageCount - 1, resolvedPageIndex + 1))}
-              disabled={resolvedPageIndex >= pageCount - 1}
-            >
-              Sau
-            </Button>
-          </div>
-        </nav>
-      )}
+      <CollectionPagination collection={collection} />
     </div>
   );
 }

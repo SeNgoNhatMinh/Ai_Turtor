@@ -10,7 +10,7 @@ function AuthenticatedEvidenceImage({ evidence }) {
     const [url] = String(evidence.documentUrl || '').split('#');
     if (!url) return;
     try {
-      const pdf = await blobRequest(url);
+      const pdf = await blobRequest(url, { skipUnauthorizedRedirect: true });
       const objectUrl = URL.createObjectURL(pdf);
       window.open(`${objectUrl}#page=${evidence.pageNumber || 1}`, '_blank', 'noopener,noreferrer');
       window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
@@ -23,7 +23,7 @@ function AuthenticatedEvidenceImage({ evidence }) {
     let objectUrl = '';
     let active = true;
     if (!evidence?.imageUrl) return undefined;
-    blobRequest(evidence.imageUrl)
+    blobRequest(evidence.imageUrl, { skipUnauthorizedRedirect: true })
       .then((blob) => {
         if (!active) return;
         objectUrl = URL.createObjectURL(blob);

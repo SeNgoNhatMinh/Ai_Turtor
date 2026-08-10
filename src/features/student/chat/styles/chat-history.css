@@ -1,9 +1,9 @@
 .conversation-search {
   position: relative;
-  width: calc(100% - 24px);
+  width: calc(100% - 16px);
   min-width: 0;
   box-sizing: border-box;
-  margin: 0 12px 12px;
+  margin: 0 8px 8px;
   padding: 0;
   border: 1px solid transparent;
   border-radius: 12px;
@@ -86,8 +86,8 @@
   display: flex;
   flex-direction: column;
   flex: 1;
-  gap: 8px;
-  padding: 0 8px 10px;
+  gap: 4px;
+  padding: 0 6px 10px;
   min-width: 0;
   overflow-y: auto;
   overflow-x: hidden;
@@ -100,23 +100,47 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 12px 12px 10px;
+  min-height: 48px;
+  padding: 8px 8px 6px 10px;
   min-width: 0;
+}
+
+.chat-history-heading {
+  min-width: 0;
+}
+
+.chat-history-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 2px;
+}
+
+.chat-history-icon-button.ant-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 8px;
+  color: #565869;
+}
+
+.chat-history-icon-button.ant-btn:hover {
+  background: #ececec !important;
+  color: #202123 !important;
 }
 
 .chat-history-title {
   color: #111827;
-  font-size: 14px;
-  font-weight: 850;
+  font-size: 13px;
+  font-weight: 750;
   line-height: 1.2;
 }
 
 .chat-history-subtitle {
-  margin-top: 2px;
-  color: #8e8e8e;
-  font-size: 11px;
-  font-weight: 650;
-  white-space: nowrap;
+  display: none;
 }
 
 .chat-history-new-button.ant-btn {
@@ -148,10 +172,10 @@
 }
 
 .conversation-group-title {
-  padding: 7px 8px 4px;
+  padding: 9px 8px 3px;
   color: #8e8e8e;
-  font-size: 11px;
-  font-weight: 850;
+  font-size: 10px;
+  font-weight: 750;
   letter-spacing: 0.02em;
   text-transform: uppercase;
 }
@@ -225,8 +249,8 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 9px 8px 9px 11px;
-  border-radius: 12px;
+  padding: 9px 7px 9px 10px;
+  border-radius: 8px;
   cursor: pointer;
   border: 1px solid transparent;
   transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease;
@@ -235,12 +259,12 @@
 
 .session-item:hover,
 .session-item.ant-list-item-selected {
-  background: #f4f4f4;
+  background: #ececec;
 }
 
 .session-item.ant-list-item-selected {
-  border-color: #e5e7eb;
-  background: #ffffff;
+  border-color: transparent;
+  background: #e7e7e7;
 }
 
 .session-item-main {
@@ -255,7 +279,7 @@
 .session-item-title .ant-typography {
   color: #202123;
   font-size: 13px;
-  font-weight: 760;
+  font-weight: 650;
   line-height: 1.35;
 }
 
@@ -267,7 +291,7 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 5px;
   margin-top: 4px;
 }
 
@@ -277,27 +301,33 @@
 }
 
 .session-item-meta span {
-  max-width: 110px;
+  max-width: 92px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  border-radius: 999px;
-  background: #ececec;
-  color: #565869;
-  padding: 2px 6px;
-  font-size: 11px;
-  font-weight: 800;
+  border-radius: 0;
+  background: transparent;
+  color: #71717a;
+  padding: 0;
+  font-size: 10px;
+  font-weight: 550;
 }
 
 .session-item-meta .session-question-count {
-  max-width: 132px;
-  background: #f7f7f7;
-  color: #374151;
+  max-width: 50px;
+  background: transparent;
+  color: #71717a;
 }
 
 .session-item-meta .session-full-badge {
-  background: #eeeeee;
-  color: #6b7280;
+  background: transparent;
+  color: #71717a;
+}
+
+.session-item-meta span + span::before {
+  content: "\2022";
+  margin-right: 5px;
+  color: #a1a1aa;
 }
 
 .conversation-list .entity-action-button.ant-btn {

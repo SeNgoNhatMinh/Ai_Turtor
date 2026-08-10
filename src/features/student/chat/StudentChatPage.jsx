@@ -139,6 +139,7 @@ export default function StudentChatPage({
       chatInput={chatController.chatInput}
       setChatInput={chatController.setChatInput}
       onSendQuery={chatController.onSendQuery}
+      onResendMessage={chatController.sendText}
       onStopQuery={chatController.onStopQuery}
       onPromptStarter={chatController.handlePromptStarter}
       onAnswerAction={chatController.handleAnswerAction}

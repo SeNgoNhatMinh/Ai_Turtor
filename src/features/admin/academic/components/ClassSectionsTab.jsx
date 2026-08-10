@@ -109,6 +109,10 @@ function ClassSectionsTab({
           <DataTable
             data={classSections || []}
             loading={academicLoading}
+            searchable
+            searchKeys={['classId', 'classCode', 'teacherName', 'teacherEmail', 'status']}
+            searchPlaceholder="Tìm lớp hoặc giảng viên phụ trách"
+            maxBodyHeight={560}
             emptyText={selectedCourseId ? 'Môn học này chưa có lớp.' : 'Chọn môn học để xem danh sách lớp.'}
             columns={[
               { accessorKey: 'classId', header: 'Mã lớp' },

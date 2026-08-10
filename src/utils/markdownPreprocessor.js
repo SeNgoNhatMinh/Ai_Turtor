@@ -324,7 +324,13 @@ function protectBlocks(text) {
 
   let result = output.join('\n');
 
-  // --- Pass 2: protect inline math ($…$) on single lines ---
+  // --- Pass 2: protect inline code before list repair sees shortcut '+' keys ---
+  result = result.replace(
+    /(`+)([^`\n]+?)\1/g,
+    (match) => store(match),
+  );
+
+  // --- Pass 3: protect inline math ($…$) on single lines ---
   result = result.replace(
     /\$([^$\n]+)\$/g,
     (match) => store(match),

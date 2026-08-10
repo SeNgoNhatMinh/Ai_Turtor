@@ -104,6 +104,10 @@ function CourseMaterialsTab({
           ) : (
             <DataTable
               data={courseMaterials || []}
+              searchable
+              searchKeys={['title', 'fileName', 'sourceFileName', 'sourceUrl', 'classId', 'indexingStatus']}
+              searchPlaceholder="Tìm tên, nguồn hoặc trạng thái học liệu"
+              maxBodyHeight={560}
               columns={[
                 {
                   accessorKey: 'title',

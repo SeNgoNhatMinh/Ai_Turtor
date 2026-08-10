@@ -2,42 +2,28 @@ import { useState } from 'react';
 import { getUserFacingError } from '../../../services/apiClient';
 import { studentLearningApi } from '../../../services/studentLearningApi';
 import { teacherReviewApi } from '../../../services/teacherReviewApi';
-import { normalizeStudentDashboard, normalizeSuggestions } from '../../../services/normalizers';
+import { normalizeStudentDashboard } from '../../../services/normalizers';
 import { n8nService } from '../../../services/n8nService';
 import { N8N_ENABLED, N8N_STRICT } from '../../../services/n8nClient';
 import { getFeedbackRecordedMessage } from '../../../constants/answerReview';
 import {
   createRecoveredSuggestion,
   readAnalyzedSuggestions,
-  removeAnalyzedSuggestion,
   suggestionMatchesText,
   writeAnalyzedSuggestions,
   mergeSuggestionLists,
 } from '../../../utils/storage';
+import {
+  backendStillContainsSuggestion,
+  createStudyTipSuggestion,
+  filterDeletedSuggestions,
+  getSuggestionDeleteContext,
+  normalizeAnalyzedSuggestions,
+  normalizeCachedSuggestionList,
+} from './studentSuggestionState';
 
-const createStudyTipSuggestion = (text) => ({
-  priority: 'high',
-  title: String(text || '').trim(),
-  content: 'Created from the study note you selected in AI Tutor Chat. Review it first, then use Study now or Create quiz when you are ready.',
-  source: 'CHAT_STUDY_TIP',
-  persistence: 'LOCAL_ANALYSIS',
-  deletable: true,
-});
-
-const isSuggestionServiceFailure = (suggestion) => {
-  const value = `${suggestion?.title || ''} ${suggestion?.content || ''}`.toLowerCase();
-  return value.includes('ai suggestion failed') || value.includes('llm') || value.includes('dịch vụ llm');
-};
-
-const normalizeCachedSuggestions = (studentId, courseId) => (
-  normalizeSuggestions(readAnalyzedSuggestions(studentId, courseId)).map((item) => {
-    if (item.persistence) return item;
-    return {
-      ...item,
-      persistence: 'LOCAL_ANALYSIS',
-      deletable: item.kind !== 'note' && String(item.source || '').toUpperCase() !== 'RULE',
-    };
-  })
+const readCachedSuggestions = (studentId, courseId) => (
+  normalizeCachedSuggestionList(readAnalyzedSuggestions(studentId, courseId))
 );
 
 const emptyDashboard = { learnedTopics: [], weakTopics: [], pinnedImproveSuggestions: [], stats: {} };
@@ -86,7 +72,7 @@ export function useStudentLearningController({
         recentAnswers: memorySnapshot?.recentAnswers || normalized.recentAnswers || [],
         updatedAt: memorySnapshot?.updatedAt || normalized.updatedAt || '',
       });
-      const localSuggestions = normalizeCachedSuggestions(studentId, courseId);
+      const localSuggestions = readCachedSuggestions(studentId, courseId);
       // Canonical backend items come first so their delete metadata is not
       // overwritten by an older browser cache entry with the same title.
       const mergedSuggestions = mergeSuggestionLists(normalized.suggestions || [], localSuggestions);
@@ -109,13 +95,13 @@ export function useStudentLearningController({
         });
         const mergedSuggestions = mergeSuggestionLists(
           normalizedMemory.suggestions || [],
-          normalizeCachedSuggestions(studentId, courseId),
+          readCachedSuggestions(studentId, courseId),
         );
         setSuggestions(mergedSuggestions);
         writeAnalyzedSuggestions(studentId, courseId, mergedSuggestions);
       } catch {
         setStudentDashboard(emptyDashboard);
-        setSuggestions(normalizeCachedSuggestions(studentId, courseId));
+        setSuggestions(readCachedSuggestions(studentId, courseId));
       }
     } finally {
       setIsStudentDashboardLoading(false);
@@ -133,13 +119,7 @@ export function useStudentLearningController({
         question: questionText || undefined,
         includeAiSuggestion: Boolean(questionText),
       });
-      const normalized = normalizeSuggestions(data)
-        .filter((item) => !isSuggestionServiceFailure(item))
-        .map((item) => ({
-          ...item,
-          persistence: 'LOCAL_ANALYSIS',
-          deletable: item.kind !== 'note' && String(item.source || '').toUpperCase() !== 'RULE',
-        }));
+      const normalized = normalizeAnalyzedSuggestions(data);
       const focusedSuggestion = questionText ? createStudyTipSuggestion(questionText) : null;
       const finalSuggestions = mergeSuggestionLists(
         focusedSuggestion ? [focusedSuggestion] : [],
@@ -230,20 +210,13 @@ export function useStudentLearningController({
 
   const handleDeleteImproveSuggestion = async (suggestion) => {
     try {
-      const displayText = String(suggestion?.actionText || suggestion?.title || suggestion?.content || suggestion || '').trim();
-      const deleteValue = String(suggestion?.deleteValue || displayText).trim();
-      const shouldDeleteFromBackend = suggestion?.persistence !== 'LOCAL_ANALYSIS';
+      const { displayText, deleteValue, shouldDeleteFromBackend } = getSuggestionDeleteContext(suggestion);
       const response = shouldDeleteFromBackend
         ? await studentLearningApi.deleteImproveSuggestion(studentId, courseId, deleteValue)
         : null;
 
-      if (shouldDeleteFromBackend && Array.isArray(response?.improveSuggestions)) {
-        const stillExists = response.improveSuggestions.some(
-          (item) => String(item).trim().toLowerCase() === deleteValue.toLowerCase(),
-        );
-        if (stillExists) {
-          throw new Error('Backend did not remove the requested suggestion.');
-        }
+      if (shouldDeleteFromBackend && backendStillContainsSuggestion(response, deleteValue)) {
+        throw new Error('Backend did not remove the requested suggestion.');
       }
 
       // Update dashboard pinned list conservatively from response or local fallback
@@ -256,11 +229,8 @@ export function useStudentLearningController({
         ...prev,
         pinnedImproveSuggestions: nextPinnedSuggestions,
       }));
-      removeAnalyzedSuggestion(studentId, courseId, suggestion);
       setSuggestions((prev) => {
-        const next = Array.isArray(prev)
-          ? prev.filter((item) => !suggestionMatchesText(item, suggestion))
-          : [];
+        const next = filterDeletedSuggestions(prev, suggestion);
         writeAnalyzedSuggestions(studentId, courseId, next);
         return next;
       });

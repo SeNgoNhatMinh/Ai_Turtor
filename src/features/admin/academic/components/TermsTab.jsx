@@ -31,6 +31,10 @@ function TermsTab({ form, semesters, onCreate, onReload, onAction }) {
         <Card title="Danh sách học kỳ" hoverable extra={<Button size="small" onClick={onReload} icon={<RefreshCw size={14} />}>Làm mới</Button>}>
           <DataTable
             data={semesters || []}
+            searchable
+            searchKeys={['semesterCode', 'name', 'status']}
+            searchPlaceholder="Tìm mã, tên hoặc trạng thái học kỳ"
+            maxBodyHeight={560}
             emptyText="Chưa có học kỳ."
             columns={[
               { accessorKey: 'semesterCode', header: 'Mã' },

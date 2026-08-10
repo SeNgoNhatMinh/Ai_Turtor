@@ -66,13 +66,6 @@ export const suggestionMatchesText = (suggestion, target) => {
   ));
 };
 
-export const removeAnalyzedSuggestion = (studentId, courseId, target) => {
-  const next = readAnalyzedSuggestions(studentId, courseId)
-    .filter((suggestion) => !suggestionMatchesText(suggestion, target));
-  writeAnalyzedSuggestions(studentId, courseId, next);
-  return next;
-};
-
 export const createRecoveredSuggestion = (text) => ({
   priority: 'medium',
   title: text,

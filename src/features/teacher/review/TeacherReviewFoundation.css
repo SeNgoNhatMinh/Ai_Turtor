@@ -167,6 +167,9 @@
 .candidate-card-item__review {
     display: grid;
     gap: 6px;
+    min-width: 0;
+    /* Ant Design positions the character counter below the textarea. */
+    padding-bottom: 22px;
 }
 
 .candidate-card-item__review label {
@@ -180,6 +183,25 @@
     justify-content: flex-end;
     flex-wrap: wrap;
     gap: 10px;
+}
+
+.candidate-card-item__review .ant-input-textarea-show-count {
+    min-width: 0;
+}
+
+.candidate-card-item__review .ant-input-data-count {
+    bottom: -21px;
+    color: var(--color-text-muted);
+    font-size: 0.7rem;
+    line-height: 18px;
+}
+
+.candidate-actions .ant-btn {
+    min-height: 36px;
+    height: auto;
+    padding-block: 7px;
+    line-height: 1.35;
+    white-space: normal;
 }
 
 .candidate-history-meta {
@@ -260,6 +282,11 @@
 .app-container.dark .candidate-history-meta {
     border-color: #303030;
     background: #171717;
+}
+
+.app-container.dark .candidate-card-item__review .ant-input-data-count,
+body.theme-dark .candidate-card-item__review .ant-input-data-count {
+    color: #b8b8b8;
 }
 
 @media (max-width: 700px) {

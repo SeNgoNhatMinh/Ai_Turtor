@@ -25,6 +25,14 @@ function stripBaseUrl(url) {
   if (value.startsWith(API_BASE_URL)) {
     return value.slice(API_BASE_URL.length) || '/';
   }
+  try {
+    const apiPath = new URL(API_BASE_URL, window.location.origin).pathname.replace(/\/$/, '');
+    if (apiPath && apiPath !== '/' && (value === apiPath || value.startsWith(`${apiPath}/`))) {
+      return value.slice(apiPath.length) || '/';
+    }
+  } catch {
+    // Keep the original relative URL when the configured base cannot be parsed.
+  }
   return value;
 }
 
@@ -85,10 +93,11 @@ export async function uploadRequest(url, formData, errorPrefix = "Upload failed"
 }
 
 export async function blobRequest(url, options = {}) {
+  const { skipUnauthorizedRedirect = false, ...requestOptions } = options;
   try {
-    return await httpClient.blob(stripBaseUrl(url), options);
+    return await httpClient.blob(stripBaseUrl(url), requestOptions);
   } catch (error) {
-    handleUnauthorized(error);
+    if (!skipUnauthorizedRedirect) handleUnauthorized(error);
     throw error;
   }
 }

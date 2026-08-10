@@ -15,10 +15,13 @@ export default function AuthedLayout({
   courseId,
   classId,
   onLogout,
+  onProfileUpdated,
   toastMessage,
   onCloseToast,
   children,
 }) {
+  const isFocusedStudentChat = activeRole === 'student' && activeTab === 'student-chat';
+
   useEffect(() => {
     // A confirm portal must never survive a page/tab change and cover the app.
     closeActiveConfirm();
@@ -26,13 +29,14 @@ export default function AuthedLayout({
   }, [activeTab]);
 
   return (
-    <div className={`app-container role-${activeRole} ${isDarkMode ? 'dark' : 'light'}`}>
+    <div className={`app-container role-${activeRole} ${isDarkMode ? 'dark' : 'light'} ${isFocusedStudentChat ? 'app-container--focused-chat' : ''}`}>
       <Header
         activeRole={activeRole}
         isDarkMode={isDarkMode}
         setIsDarkMode={setIsDarkMode}
         currentUser={currentUser}
         onLogout={onLogout}
+        onProfileUpdated={onProfileUpdated}
       />
       <div className="main-layout">
         <Sidebar

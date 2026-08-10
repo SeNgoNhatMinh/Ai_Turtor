@@ -31,3 +31,80 @@
     overflow: visible;
   }
 }
+
+/* Shared Admin/Senior quality review dark theme. Keep these rules last so the
+   route-level palette does not override the review component's dark surfaces. */
+.app-container.dark .quality-review-page > .senior-review-hero {
+  border-color: #3b3037;
+  background: linear-gradient(120deg, #171315 0%, #21171c 58%, #271923 100%);
+  box-shadow: none;
+}
+
+.app-container.dark .senior-review-hero__stats > div {
+  border-color: #45323c;
+  background: #1b1719;
+  box-shadow: none;
+}
+
+.app-container.dark .senior-review-hero__stats span {
+  background: #38222d;
+  color: #f2a9ca;
+}
+
+.app-container.dark .senior-review-hero__stats strong {
+  color: #f8edf2;
+}
+
+.app-container.dark .senior-review-hero__stats small {
+  color: #c7adb9;
+}
+
+.app-container.dark .quality-review-page > .answer-review-workspace {
+  border-color: #303030;
+  background: #101010;
+  box-shadow: none;
+}
+
+.app-container.dark .quality-review-page .senior-review-section {
+  border-color: #303030;
+  background: #171717;
+  color: #b8b8b8;
+}
+
+.app-container.dark .quality-review-page .senior-review-section:hover {
+  border-color: #525252;
+  background: #1e1e1e;
+  color: #f5f5f5;
+}
+
+.app-container.dark .quality-review-page .senior-review-section.is-active {
+  border-color: #d16a91;
+  background: #2b1821;
+  color: #f0a8c4;
+  box-shadow: inset 4px 0 0 #d16a91;
+}
+
+.app-container.dark .quality-review-page .senior-review-section.is-active b {
+  background: #b33c72;
+  color: #ffffff;
+}
+
+.app-container.dark .quality-review-page .review-stage__heading {
+  border-color: #303030;
+  background: #171717;
+}
+
+.app-container.dark .quality-review-page .review-stage__step {
+  background: #38222d;
+  color: #f0a8c4;
+}
+
+.app-container.dark .quality-review-page .review-stage__step--neutral {
+  background: #292929;
+  color: #d4d4d4;
+}
+
+.app-container.dark .quality-review-page .ant-empty-description,
+.app-container.dark .quality-review-page .no-data-text {
+  color: #b8b8b8;
+}

@@ -9,6 +9,7 @@
 .answer-evidence-toggle:hover { border-color: rgba(11,95,198,.48); background: rgba(22,119,255,.1); }
 .answer-evidence-toggle svg:last-child { transition: transform .2s ease; }
 .answer-evidence-toggle.is-expanded svg:last-child { transform: rotate(180deg); }
+.answer-evidence-preview { min-width: 0; max-width: min(100%, 520px); overflow: hidden; color: #4b5563; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .answer-evidence-content { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; }
 
 .answer-evidence-pill,

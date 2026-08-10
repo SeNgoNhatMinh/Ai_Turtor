@@ -1,5 +1,4 @@
 import { Alert, Card, Empty, Space, Spin, Tag, Typography } from 'antd';
-import { RobotOutlined } from '@ant-design/icons';
 import StatusTag from '../../../../components/common/StatusTag';
 import MarkdownRenderer from '../../../../components/markdown/MarkdownRenderer';
 import StudentMentorFlow from '../../../../components/support/StudentMentorFlow';
@@ -53,12 +52,11 @@ function SupportConversationDetail({
       <div className="mentor-review-detail">
         <div className="mentor-review-detail__header">
           <div>
-            <span className="mentor-review-eyebrow">Yêu cầu hỗ trợ</span>
             <Title level={4}>{ticket.questionPreview || 'Chi tiết yêu cầu hỗ trợ'}</Title>
             <Space size={[8, 8]} wrap>
-              {ticket.courseId && <Tag color="blue">Môn {ticket.courseId}</Tag>}
+              {ticket.courseId && <Tag>Môn {ticket.courseId}</Tag>}
               {ticket.classId && <Tag>Lớp {ticket.classId}</Tag>}
-              {assignedMentor && <Tag color="green">Giảng viên {assignedMentor}</Tag>}
+              {assignedMentor && <Tag>Giảng viên {assignedMentor}</Tag>}
             </Space>
           </div>
           <StatusTag status={ticket.status} />
@@ -109,7 +107,6 @@ function SupportConversationDetail({
               />
               {!isChatActive && (
                 <div className="mentor-review-waiting">
-                  <RobotOutlined />
                   <div>
                     <Title level={5}>Đang chờ bắt đầu hỗ trợ</Title>
                     <Paragraph>
@@ -121,13 +118,10 @@ function SupportConversationDetail({
             </>
           )}
 
-          <Alert
-            type="success"
-            showIcon
-            className="mentor-review-learning-note"
-            title="Tri thức AI được kiểm soát"
-            description="Câu trả lời của giảng viên không tự động được thêm vào AI. Chỉ Knowledge Candidate được Senior Mentor hoặc Admin phê duyệt mới được đưa vào RAG của môn học."
-          />
+          <div className="mentor-review-learning-note" role="note">
+            <strong>Về tri thức AI</strong>
+            <span>Câu trả lời của giảng viên chỉ được đưa vào RAG sau khi Senior Mentor hoặc Admin phê duyệt.</span>
+          </div>
         </div>
       </div>
     </Card>

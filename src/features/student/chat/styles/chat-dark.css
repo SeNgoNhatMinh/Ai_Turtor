@@ -31,6 +31,17 @@
   color: #ececec !important;
 }
 
+.app-container.dark .chat-header-history-button.ant-btn,
+.app-container.dark .chat-history-icon-button.ant-btn {
+  color: #b4b4b4;
+}
+
+.app-container.dark .chat-header-history-button.ant-btn:hover,
+.app-container.dark .chat-history-icon-button.ant-btn:hover {
+  background: #212121 !important;
+  color: #ffffff !important;
+}
+
 .app-container.dark .chat-class-readonly-pill {
   border-color: #2a2a2a;
   background: #171717;
@@ -206,6 +217,10 @@
   color: #f4f4f5;
 }
 
+.app-container.dark .answer-evidence-preview {
+  color: #d1d5db;
+}
+
 .app-container.dark .chat-ai-service-error {
   border-color: rgba(251, 146, 60, 0.36);
   background: rgba(251, 146, 60, 0.12);
@@ -280,17 +295,17 @@
 }
 
 .app-container.dark .session-item-meta span {
-  background: #1f1f1f;
-  color: #cfcfcf;
+  background: transparent;
+  color: #a3a3a3;
 }
 
 .app-container.dark .session-item-meta .session-question-count {
-  background: #171717;
-  color: #d1d5db;
+  background: transparent;
+  color: #a3a3a3;
 }
 
 .app-container.dark .session-item-meta .session-full-badge {
-  background: #262626;
+  background: transparent;
   color: #a3a3a3;
 }
 
@@ -307,6 +322,44 @@
 .app-container.dark .chat-gpt-bubble-user {
   background-color: #1F1F1F !important;
   color: #ececec !important;
+}
+
+.app-container.dark .student-message-actions button {
+  color: #a3a3a3;
+}
+
+.app-container.dark .student-message-actions button:hover:not(:disabled),
+.app-container.dark .student-message-actions button:focus-visible {
+  background: #2a2a2a;
+  color: #f5f5f5;
+}
+
+.app-container.dark .student-message-editor {
+  border-color: #343434;
+  background: #1f1f1f;
+  box-shadow: none;
+}
+
+.app-container.dark .student-message-editor textarea {
+  border-color: #454545;
+  background: #171717;
+  color: #f5f5f5;
+}
+
+.app-container.dark .student-message-editor__cancel {
+  border-color: #454545;
+  background: #262626;
+  color: #e5e7eb;
+}
+
+.app-container.dark .student-message-editor__submit {
+  border-color: #f5f5f5 !important;
+  background: #f5f5f5;
+  color: #111111;
+}
+
+.app-container.dark .student-message-editor small {
+  color: #a3a3a3;
 }
 
 .app-container.dark .chat-gpt-ai-content {

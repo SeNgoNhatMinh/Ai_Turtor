@@ -146,6 +146,134 @@
   word-break: break-word;
 }
 
+.student-message-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  min-width: 0;
+  max-width: min(72%, 620px);
+}
+
+.student-message-group .chat-gpt-bubble-user {
+  max-width: 100%;
+}
+
+.student-message-actions {
+  display: flex;
+  gap: 2px;
+  min-height: 30px;
+  padding: 4px 5px 0;
+  opacity: 0;
+  transform: translateY(-2px);
+  transition: opacity 0.16s ease, transform 0.16s ease;
+}
+
+.student-message-group:hover .student-message-actions,
+.student-message-group:focus-within .student-message-actions {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.student-message-actions button {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #6b7280;
+  cursor: pointer;
+}
+
+.student-message-actions button:hover:not(:disabled),
+.student-message-actions button:focus-visible {
+  background: #ececec;
+  color: #111827;
+  outline: none;
+}
+
+.student-message-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.student-message-editor {
+  display: grid;
+  gap: 10px;
+  width: min(620px, 82vw);
+  max-width: 100%;
+  padding: 12px;
+  border: 1px solid #dedede;
+  border-radius: 18px;
+  background: #f7f7f7;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+}
+
+.student-message-editor textarea {
+  width: 100%;
+  min-height: 88px;
+  max-height: 220px;
+  padding: 10px 12px;
+  resize: vertical;
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #111827;
+  font: inherit;
+  line-height: 1.55;
+  outline: none;
+}
+
+.student-message-editor textarea:focus {
+  border-color: #9ca3af;
+  box-shadow: 0 0 0 3px rgba(17, 24, 39, 0.08);
+}
+
+.student-message-editor__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.student-message-editor__actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 7px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.student-message-editor__cancel {
+  background: #ffffff;
+  color: #374151;
+}
+
+.student-message-editor__submit {
+  border-color: #111827 !important;
+  background: #111827;
+  color: #ffffff;
+}
+
+.student-message-editor__actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.student-message-editor small {
+  color: #6b7280;
+  font-size: 11px;
+  text-align: right;
+}
+
 .chat-message-pinned {
   box-shadow: inset 0 0 0 1px rgba(243, 112, 33, 0.22);
 }

@@ -84,7 +84,11 @@ function App() {
 
   return (
     <Suspense fallback={<RouteLoadingFallback />}>
-      <RealtimeEventsProvider enabled sessionKey={auth.currentUserId}>
+      <RealtimeEventsProvider
+        enabled
+        sessionKey={auth.currentUserId}
+        onProfileUpdated={auth.updateCurrentUser}
+      >
         <ThemedAuthedLayout
           activeRole={navigation.activeRole}
           activeTab={navigation.activeTab}
@@ -95,6 +99,7 @@ function App() {
           courseId={navigation.courseId}
           classId={navigation.classId}
           onLogout={handleLogout}
+          onProfileUpdated={auth.updateCurrentUser}
           toastMessage={toast.toastMessage}
           onCloseToast={() => toast.setToastMessage(null)}
         >

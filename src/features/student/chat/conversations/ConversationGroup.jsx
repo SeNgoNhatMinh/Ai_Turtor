@@ -63,11 +63,8 @@ const ConversationItem = memo(function ConversationItem({
         </div>
         <div className="session-item-meta">
           <Text className="session-item-time">{formatSessionTime(session)}</Text>
-          {questionCount > 0 && <span className="session-question-count">{questionCount}/{CHAT_TURN_LIMIT} câu hỏi</span>}
+          {questionCount > 0 && <span className="session-question-count">{questionCount}/{CHAT_TURN_LIMIT}</span>}
           {isFull && <span className="session-full-badge">Đã đầy</span>}
-          {(session.courseId || session.classId) && (
-            <span>{[session.courseId, session.classId].filter(Boolean).join(' / ')}</span>
-          )}
         </div>
       </div>
       <EntityActionMenu

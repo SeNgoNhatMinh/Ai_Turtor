@@ -34,7 +34,11 @@ export function useStudentChatTabController({
   const [editingSessionId, setEditingSessionId] = useState(null);
   const [editingSessionTitle, setEditingSessionTitle] = useState('');
   const [isAiLoading, setIsAiLoading] = useState(false);
-  const [isHistoryDrawerOpen, setIsHistoryDrawerOpen] = useState(false);
+  const [isHistoryDrawerOpen, setIsHistoryDrawerOpen] = useState(() => (
+    typeof window !== 'undefined'
+    && typeof window.matchMedia === 'function'
+    && window.matchMedia('(min-width: 761px)').matches
+  ));
   const messagesEndRef = useRef(null);
   const previousMessageCountRef = useRef(0);
 

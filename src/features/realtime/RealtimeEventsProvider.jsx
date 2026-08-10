@@ -12,7 +12,7 @@ const PING_INTERVAL_MS = 25000;
 const MAX_RECONNECT_DELAY_MS = 30000;
 const EVENT_DEDUPE_WINDOW_MS = 1500;
 
-export default function RealtimeEventsProvider({ enabled, sessionKey = '', children }) {
+export default function RealtimeEventsProvider({ enabled, sessionKey = '', onProfileUpdated, children }) {
   const subscribersRef = useRef(new Set());
   const [connectionState, setConnectionState] = useState('DISCONNECTED');
   const [connectionVersion, setConnectionVersion] = useState(0);
@@ -81,6 +81,10 @@ export default function RealtimeEventsProvider({ enabled, sessionKey = '', child
       socket.onmessage = ({ data }) => {
         const event = normalizeRealtimeEvent(data);
         if (!event || event.type === 'PONG') return;
+        if (event.type === 'PROFILE_UPDATED'
+          && (!event.entityId || String(event.entityId) === String(sessionKey))) {
+          onProfileUpdated?.(event.data);
+        }
         const dedupeKey = getRealtimeEventDedupeKey(event);
         const receivedAt = Date.now();
         if (dedupeKey && receivedAt - (recentEventKeys.get(dedupeKey) || 0) < EVENT_DEDUPE_WINDOW_MS) {
@@ -126,7 +130,7 @@ export default function RealtimeEventsProvider({ enabled, sessionKey = '', child
         socket.close();
       }
     };
-  }, [enabled, sessionKey]);
+  }, [enabled, onProfileUpdated, sessionKey]);
 
   const value = useMemo(
     () => ({ connectionState, connectionVersion, subscribe }),

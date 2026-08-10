@@ -65,6 +65,21 @@ export function resolveCanonicalConversation({
   return null;
 }
 
+const normalizeExchangeText = (value) => String(value || '')
+  .replace(/\s+/g, ' ')
+  .trim();
+
+export function findCanonicalExchange(messagePairs, question) {
+  const expectedQuestion = normalizeExchangeText(question);
+  if (!expectedQuestion) return null;
+
+  const pairs = Array.isArray(messagePairs) ? messagePairs : [];
+  return [...pairs].reverse().find((pair) => (
+    normalizeExchangeText(pair?.question) === expectedQuestion
+    && Boolean(normalizeExchangeText(pair?.answer))
+  )) || null;
+}
+
 const startOfDay = (date) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
 
 const getDayDiff = (date) => {

@@ -29,6 +29,7 @@ describe('AnswerEvidence', () => {
       />,
     );
 
+    fireEvent.click(screen.getByRole('button', { name: /xem nguồn tài liệu/i }));
     const source = screen.getByText('Professional_Java.pdf');
     expect(source).toBeVisible();
     expect(screen.getAllByText('Professional_Java.pdf')).toHaveLength(1);
@@ -66,6 +67,32 @@ describe('AnswerEvidence', () => {
 
     expect(screen.getByText('Nội dung trả lời.')).toBeVisible();
     expect(screen.queryByText('Nguồn tài liệu đã dùng')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /xem nguồn tài liệu/i }));
     expect(screen.getAllByText('Professional_Java.pdf')).toHaveLength(1);
+  });
+
+  it('shows the evidence count and chapter location before expanding details', () => {
+    render(
+      <AnswerEvidence
+        message={{
+          mode: 'RAG',
+          groundingType: 'COURSE_MATERIAL',
+          sourceEvidence: [{
+            courseId: 'PRJ301',
+            materialTitle: 'Java Core',
+            chapter: 'Choosing a Web Container',
+            pageStart: 55,
+            excerpt: 'Starting an Application and Hitting Breakpoints',
+          }],
+        }}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: /bằng chứng tài liệu \(1\)/i })).toBeVisible();
+    expect(screen.getByText('Java Core · Choosing a Web Container · Trang 55')).toBeVisible();
+
+    fireEvent.click(screen.getByRole('button', { name: /bằng chứng tài liệu \(1\)/i }));
+    expect(screen.getByText('Bằng chứng 1')).toBeVisible();
+    expect(screen.getByText('Starting an Application and Hitting Breakpoints')).toBeVisible();
   });
 });

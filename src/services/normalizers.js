@@ -33,6 +33,20 @@ const getMessageSources = (message = {}) => {
   return [...explicitSources, ...sourceIds, ...recoveredLabels];
 };
 
+const getMessageSourceEvidence = (message = {}) => asArray(
+  message.sourceEvidence
+  || message.source_evidence
+  || message.evidence
+  || message.metadata?.sourceEvidence,
+);
+
+const getMessageGroundingType = (message = {}) => (
+  message.groundingType
+  || message.grounding_type
+  || message.metadata?.groundingType
+  || null
+);
+
 export const normalizeSession = (session = {}) => {
   const messageCount = toFiniteNumber(session.messageCount ?? session.messagesCount ?? session.totalMessages, 0);
   const userQuestionCount = toFiniteNumber(
@@ -73,8 +87,8 @@ export const pairMessages = (messages) => {
           confidence: nextMsg.confidence,
           mode: nextMsg.mode || nextMsg.answerMode || 'RAG',
           sources: getMessageSources(nextMsg),
-          sourceEvidence: asArray(nextMsg.sourceEvidence),
-          groundingType: nextMsg.groundingType || null,
+          sourceEvidence: getMessageSourceEvidence(nextMsg),
+          groundingType: getMessageGroundingType(nextMsg),
           nextImproveSuggestions: asArray(
             nextMsg.nextImproveSuggestions || nextMsg.improveSuggestions || nextMsg.suggestions,
           ),
@@ -98,8 +112,8 @@ export const pairMessages = (messages) => {
         confidence: msg.confidence,
         mode: msg.mode || msg.answerMode || 'RAG',
         sources: getMessageSources(msg),
-        sourceEvidence: asArray(msg.sourceEvidence),
-        groundingType: msg.groundingType || null,
+        sourceEvidence: getMessageSourceEvidence(msg),
+        groundingType: getMessageGroundingType(msg),
         nextImproveSuggestions: asArray(
           msg.nextImproveSuggestions || msg.improveSuggestions || msg.suggestions,
         ),
@@ -114,8 +128,8 @@ export const pairMessages = (messages) => {
         confidence: msg.confidence,
         mode: msg.mode || msg.answerMode || 'RAG',
         sources: getMessageSources(msg),
-        sourceEvidence: asArray(msg.sourceEvidence),
-        groundingType: msg.groundingType || null,
+        sourceEvidence: getMessageSourceEvidence(msg),
+        groundingType: getMessageGroundingType(msg),
         nextImproveSuggestions: asArray(
           msg.nextImproveSuggestions || msg.improveSuggestions || msg.suggestions,
         ),

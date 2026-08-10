@@ -109,6 +109,8 @@ function StudentEnrollmentsTab({
           <DataTable
             data={studentEnrollments || []}
             loading={enrollmentsLoading}
+            pageSize={10}
+            maxBodyHeight={560}
             emptyText="Chưa có dữ liệu. Hãy tìm sinh viên theo họ tên, email hoặc mã sinh viên."
             columns={[
               {

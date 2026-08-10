@@ -1,5 +1,3 @@
-import { Button } from 'antd';
-import { PanelLeft } from 'lucide-react';
 import ChatSessionsPanel from './components/ChatSessionsPanel';
 import ChatWorkspace from './components/ChatWorkspace';
 
@@ -33,6 +31,7 @@ function StudentChatView({
   chatInput,
   setChatInput,
   onSendQuery,
+  onResendMessage,
   onStopQuery,
   onPromptStarter,
   onAnswerAction,
@@ -57,17 +56,19 @@ function StudentChatView({
   onOpenMentorReview,
   onMentorRequestCreated,
 }) {
+  const closeHistoryOnMobile = () => {
+    if (
+      typeof window !== 'undefined'
+      && typeof window.matchMedia === 'function'
+      && window.matchMedia('(max-width: 760px)').matches
+    ) {
+      setIsHistoryDrawerOpen(false);
+    }
+  };
+
   return (
     <div className="portal-section student-chat-section student-chat-section--minimal">
       <div className="student-chat-layout student-chat-layout--chatgpt">
-        <Button
-          type="text"
-          className="student-chat-history-toggle"
-          icon={<PanelLeft size={16} />}
-          onClick={() => setIsHistoryDrawerOpen(true)}
-        >
-          Lịch sử chat
-        </Button>
         {isHistoryDrawerOpen && (
           <button
             type="button"
@@ -85,12 +86,13 @@ function StudentChatView({
             activeSessionId={activeSessionId}
             onCreate={() => {
               onCreateSession();
-              setIsHistoryDrawerOpen(false);
+              closeHistoryOnMobile();
             }}
             onSelect={(sessionId, title) => {
               onSelectSession(sessionId, title);
-              setIsHistoryDrawerOpen(false);
+              closeHistoryOnMobile();
             }}
+            onClose={() => setIsHistoryDrawerOpen(false)}
             onDelete={onDeleteSession}
             editingSessionId={editingSessionId}
             editingSessionTitle={editingSessionTitle}
@@ -103,6 +105,8 @@ function StudentChatView({
         <div className="student-chat-main-pane">
           <ChatWorkspace
             activeSessionTitle={activeSessionTitle}
+            isHistoryOpen={isHistoryDrawerOpen}
+            onToggleHistory={() => setIsHistoryDrawerOpen((open) => !open)}
             courseId={courseId}
             onCourseChange={onCourseChange}
             classId={classId}
@@ -116,6 +120,7 @@ function StudentChatView({
             chatInput={chatInput}
             setChatInput={setChatInput}
             onSendQuery={onSendQuery}
+            onResendMessage={onResendMessage}
             onStopQuery={onStopQuery}
             onPromptStarter={onPromptStarter}
             onAnswerAction={onAnswerAction}

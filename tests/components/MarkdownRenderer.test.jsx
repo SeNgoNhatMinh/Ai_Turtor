@@ -17,4 +17,21 @@ describe('MarkdownRenderer Vietnamese text', () => {
     render(<MarkdownRenderer markdown="Cuá»™c trÃ² chuyá»‡n má»›i" />);
     expect(screen.getByText('Cuộc trò chuyện mới')).toBeInTheDocument();
   });
+  it('keeps keyboard shortcuts together as one inline code token', () => {
+    render(<MarkdownRenderer markdown={'Mở Settings (hoặc nhấn `Ctrl\nAlt\nS`).'} />);
+
+    const shortcut = screen.getByText('Ctrl Alt S');
+    expect(shortcut.tagName).toBe('CODE');
+    expect(shortcut).toHaveClass('ai-answer-inline-code--shortcut');
+  });
+
+  it('does not split a plus-separated keyboard shortcut into bullet lines', () => {
+    render(<MarkdownRenderer markdown={'- Mở **Settings** (`File ➪ Settings` hoặc `Ctrl + Alt + S`).'} />);
+
+    const shortcut = screen.getByText('Ctrl + Alt + S');
+    expect(shortcut.tagName).toBe('CODE');
+    expect(shortcut).toHaveClass('ai-answer-inline-code--shortcut');
+    expect(screen.queryByText('Alt')).not.toBeInTheDocument();
+    expect(screen.queryByText('S')).not.toBeInTheDocument();
+  });
 });

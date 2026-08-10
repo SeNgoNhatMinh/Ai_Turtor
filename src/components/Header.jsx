@@ -9,7 +9,7 @@ import { getAccountRoleLabel, normalizeAccountRole } from '../constants/roles';
 
 const ProfileModal = lazy(() => import('./common/ProfileModal'));
 
-function Header({ activeRole, isDarkMode, setIsDarkMode, currentUser, onLogout }) {
+function Header({ activeRole, isDarkMode, setIsDarkMode, currentUser, onLogout, onProfileUpdated }) {
   const accountRole = normalizeAccountRole(currentUser?.role || activeRole);
   const roleLabel = getAccountRoleLabel(accountRole);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
@@ -70,6 +70,7 @@ function Header({ activeRole, isDarkMode, setIsDarkMode, currentUser, onLogout }
             isOpen
             onClose={() => setIsProfileModalOpen(false)}
             userId={currentUser?.id || currentUser?.userId}
+            onProfileUpdated={onProfileUpdated}
           />
         </Suspense>
       )}

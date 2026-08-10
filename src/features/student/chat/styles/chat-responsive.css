@@ -180,6 +180,19 @@
     max-width: 86%;
   }
 
+  .student-message-group {
+    max-width: 86%;
+  }
+
+  .student-message-actions {
+    opacity: 1;
+    transform: none;
+  }
+
+  .student-message-editor {
+    width: min(620px, 86vw);
+  }
+
   .chat-gpt-bubble-ai {
     gap: 10px;
   }

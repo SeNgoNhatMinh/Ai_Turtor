@@ -72,6 +72,23 @@ export function useAuthSession() {
     return { user: updatedUser, role: workspaceRole, accountRole };
   }, []);
 
+  const updateCurrentUser = useCallback((profile) => {
+    if (!profile || typeof profile !== 'object') return;
+    setCurrentUser((current) => {
+      if (!current) return current;
+      return {
+        ...current,
+        ...profile,
+        id: current.id || profile.id || profile.userId,
+        userId: current.userId || profile.userId || profile.id,
+        originalRole: current.originalRole,
+        role: current.role,
+        workspaceRole: current.workspaceRole,
+        authRoleVerified: true,
+      };
+    });
+  }, []);
+
   const logout = useCallback(() => {
     setCurrentUser(null);
     window.sessionStorage.removeItem(APP_SESSION_USER_KEY);
@@ -83,6 +100,7 @@ export function useAuthSession() {
     currentUserId,
     currentUserRole,
     completeLogin,
+    updateCurrentUser,
     logout,
   };
 }

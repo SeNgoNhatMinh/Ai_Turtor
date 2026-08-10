@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Button, Empty, Segmented } from 'antd';
 import { CheckCheck, History, RefreshCw, ShieldCheck } from 'lucide-react';
+import { CollectionPagination, CollectionSearch } from '../../../components/common/CollectionControls';
+import { useCollectionView } from '../../../hooks/useCollectionView';
 import AnswerReviewCard from './AnswerReviewCard';
 import GroupedAnswerReviewCard from './GroupedAnswerReviewCard';
 import KnowledgeCandidateReviewList from './KnowledgeCandidateReviewList';
@@ -68,7 +70,7 @@ export default function AnswerReviewWorkspace({
   };
 
   const pendingCount = groups.length || reviews.length;
-  const visibleItems = view === 'resolved' ? resolvedReviews : groups;
+  const pendingItems = groups.length ? groups : reviews;
   const activeSection = isSenior ? seniorSection : view;
   const isHistoryView = isSenior ? activeSection === 'history' : view === 'resolved';
   const historyLoading = resolvedLoading || candidateHistoryLoading;
@@ -82,6 +84,41 @@ export default function AnswerReviewWorkspace({
     : isHistoryView
       ? onRefreshHistory || onRefreshResolved
       : onRefresh;
+
+  const historyItems = useMemo(() => [
+    ...reviewedCandidates.map((record) => ({ kind: 'candidate', record })),
+    ...resolvedReviews.map((record) => ({ kind: 'review', record })),
+  ], [reviewedCandidates, resolvedReviews]);
+  const activeCollectionItems = useMemo(() => {
+    if (activeSection === 'candidates') return candidates;
+    if (activeSection === 'history' || activeSection === 'resolved') return historyItems;
+    return pendingItems;
+  }, [activeSection, candidates, historyItems, pendingItems]);
+  const collection = useCollectionView(activeCollectionItems, {
+    initialPageSize: 10,
+    pageSizeOptions: [10, 20, 50],
+  });
+  const visibleHistoryCandidates = collection.visibleItems
+    .filter((item) => item.kind === 'candidate')
+    .map((item) => item.record);
+  const visibleHistoryReviews = collection.visibleItems
+    .filter((item) => item.kind === 'review')
+    .map((item) => item.record);
+  const searchPlaceholder = activeSection === 'candidates'
+    ? 'Tìm câu hỏi, câu trả lời hoặc môn học'
+    : isHistoryView
+      ? 'Tìm trong lịch sử kiểm duyệt'
+      : 'Tìm sinh viên, câu hỏi hoặc môn học';
+
+  const selectSeniorSection = (section) => {
+    setSeniorSection(section);
+    collection.setQuery('');
+  };
+
+  const selectMentorView = (nextView) => {
+    setView(nextView);
+    collection.setQuery('');
+  };
 
   const renderReviewList = (items, resolved = false) => (
     <div className="answer-review-list">
@@ -146,7 +183,7 @@ export default function AnswerReviewWorkspace({
               type="button"
               className={`senior-review-section ${seniorSection === 'feedback' ? 'is-active' : ''}`}
               aria-pressed={seniorSection === 'feedback'}
-              onClick={() => setSeniorSection('feedback')}
+              onClick={() => selectSeniorSection('feedback')}
             >
               <ShieldCheck size={18} />
               <span><strong>Phản hồi cần xử lý</strong><small>Xác minh sai sót và đề xuất nội dung đúng</small></span>
@@ -156,7 +193,7 @@ export default function AnswerReviewWorkspace({
               type="button"
               className={`senior-review-section ${seniorSection === 'candidates' ? 'is-active' : ''}`}
               aria-pressed={seniorSection === 'candidates'}
-              onClick={() => setSeniorSection('candidates')}
+              onClick={() => selectSeniorSection('candidates')}
             >
               <CheckCheck size={18} />
               <span><strong>Tri thức chờ duyệt</strong><small>Quyết định nội dung được đưa vào RAG</small></span>
@@ -166,13 +203,21 @@ export default function AnswerReviewWorkspace({
               type="button"
               className={`senior-review-section ${seniorSection === 'history' ? 'is-active' : ''}`}
               aria-pressed={seniorSection === 'history'}
-              onClick={() => setSeniorSection('history')}
+              onClick={() => selectSeniorSection('history')}
             >
               <History size={18} />
               <span><strong>Lịch sử</strong><small>Xem lại các phản hồi đã xử lý</small></span>
               <b>{resolvedReviews.length + reviewedCandidates.length}</b>
             </button>
           </nav>
+
+          <CollectionSearch
+            query={collection.query}
+            onQueryChange={collection.setQuery}
+            filteredCount={collection.filteredCount}
+            totalCount={collection.totalCount}
+            placeholder={searchPlaceholder}
+          />
 
           {seniorSection === 'feedback' && (
             <section className="review-stage" aria-labelledby="senior-feedback-heading">
@@ -183,7 +228,7 @@ export default function AnswerReviewWorkspace({
                   <p>Đối chiếu câu hỏi, câu trả lời AI và bằng chứng từ sinh viên. Bước này chưa cập nhật RAG.</p>
                 </div>
               </div>
-              {renderReviewList(groups)}
+              {renderReviewList(collection.visibleItems)}
             </section>
           )}
 
@@ -200,7 +245,7 @@ export default function AnswerReviewWorkspace({
                 <div className="no-data-text">Đang tải tri thức chờ duyệt...</div>
               ) : (
                 <KnowledgeCandidateReviewList
-                  candidates={candidates}
+                  candidates={collection.visibleItems}
                   candidateNotes={candidateNotes}
                   canReviewKnowledgeCandidates
                   handleNoteChange={onCandidateNoteChange}
@@ -224,51 +269,62 @@ export default function AnswerReviewWorkspace({
               </div>
               {historyLoading ? (
                 <div className="no-data-text">Đang tải lịch sử kiểm duyệt...</div>
-              ) : resolvedReviews.length === 0 && reviewedCandidates.length === 0 ? (
+                  ) : collection.filteredCount === 0 ? (
                 <Empty
                   image={Empty.PRESENTED_IMAGE_SIMPLE}
-                  description="Chưa có hoạt động kiểm duyệt nào."
+                  description={collection.query ? 'Không có lịch sử khớp từ khóa.' : 'Chưa có hoạt động kiểm duyệt nào.'}
                 />
               ) : (
                 <div className="review-history-sections">
-                  {reviewedCandidates.length > 0 && (
+                  {visibleHistoryCandidates.length > 0 && (
                     <section className="review-history-group" aria-labelledby="candidate-history-heading">
                       <div className="review-history-group__heading">
                         <h4 id="candidate-history-heading">Lịch sử tri thức RAG</h4>
-                        <span>{reviewedCandidates.length} hoạt động</span>
+                        <span>{visibleHistoryCandidates.length} trên trang này</span>
                       </div>
                       <KnowledgeCandidateReviewList
-                        candidates={reviewedCandidates}
+                        candidates={visibleHistoryCandidates}
                         history
                         currentReviewerId={currentReviewerId}
                       />
                     </section>
                   )}
-                  {resolvedReviews.length > 0 && (
+                  {visibleHistoryReviews.length > 0 && (
                     <section className="review-history-group" aria-labelledby="feedback-history-heading">
                       <div className="review-history-group__heading">
                         <h4 id="feedback-history-heading">Phản hồi AI đã xử lý</h4>
-                        <span>{resolvedReviews.length} phản hồi</span>
+                        <span>{visibleHistoryReviews.length} trên trang này</span>
                       </div>
-                      {renderReviewList(resolvedReviews, true)}
+                      {renderReviewList(visibleHistoryReviews, true)}
                     </section>
                   )}
                 </div>
               )}
             </section>
           )}
+          {!activeLoading && <CollectionPagination collection={collection} />}
         </>
       ) : (
         <>
           <Segmented
             value={view}
-            onChange={setView}
+            onChange={selectMentorView}
             options={[
               { label: `Đang chờ (${pendingCount})`, value: 'pending' },
               { label: `Đã xử lý (${resolvedReviews.length})`, value: 'resolved' },
             ]}
           />
-          {renderReviewList(visibleItems, view === 'resolved')}
+          <CollectionSearch
+            query={collection.query}
+            onQueryChange={collection.setQuery}
+            filteredCount={collection.filteredCount}
+            totalCount={collection.totalCount}
+            placeholder={searchPlaceholder}
+          />
+          {view === 'resolved'
+            ? renderReviewList(visibleHistoryReviews, true)
+            : renderReviewList(collection.visibleItems)}
+          {!activeLoading && <CollectionPagination collection={collection} />}
         </>
       )}
     </section>

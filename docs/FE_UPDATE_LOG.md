@@ -2518,3 +2518,126 @@ Copy template này lên đầu phần `History` sau mỗi lần cập nhật:
 - Suggestion normalization tests: pass.
 - `npm run build`: pass.
 - Full contract suite: `124/127` pass; three existing route/navigation assertions still expect `/student/chat` and the old Admin expert-training tab after unrelated route changes.
+
+# 2026-08-10 - Admin AI Logs Filter Layout
+
+- Replaced the cramped inline filter form with a labeled responsive grid.
+- Moved refresh and submit actions into a dedicated action bar with consistent spacing and button sizing.
+- Improved metric cards and table section spacing across desktop, tablet, and mobile widths.
+
+# 2026-08-10 - Feature Module Refactor
+
+- Reduced `AdminAiLogsPage` to a route composition component. Request/filter state now lives in `useAdminAiLogs`, while filters, metrics, provider status, and request logs are independent presentational components.
+- Split Student suggestion normalization, deletion matching, cache filtering, and study-tip construction into the pure `studentSuggestionState` module.
+- Removed the unused Admin Tutor V2 wrapper page while preserving the legacy URL redirect.
+- Simplified Knip configuration to use its Vite, Vitest, and Playwright auto-discovery without redundant glob warnings.
+- Updated route and collapsed-source tests to match the canonical route shell and current evidence disclosure UX.
+
+**Tested**
+- `npm run lint`: pass.
+- `npm test`: pass (`132` contract tests and `109` component/unit tests).
+- `npm run build`: pass.
+- `npm run dead-code`: pass.
+
+# 2026-08-10 - Student Message Copy And Edit
+
+- Added ChatGPT-style icon actions to every Student question: copy and edit/resend.
+- Editing happens inline with keyboard support: `Enter` resends, `Shift+Enter` adds a line, and `Escape` cancels.
+- Resending uses the existing canonical chat controller, including enrollment checks, the 10-question limit, request locking, and the real AI API flow.
+- Preserved the original question in conversation history because the backend does not expose a message-edit or conversation-branch endpoint.
+- Disabled editing while AI is responding or when the current conversation has reached its question limit.
+- Added responsive, dark-mode, focus, and accessible-label styling for message actions and the inline editor.
+
+**Tested**
+- Student message action component tests: `3/3` pass.
+
+# 2026-08-10 - Student Dashboard Dark Mode
+
+- Added complete dark-mode coverage for `/student/dashboard` instead of relying on fixed light colors.
+- Updated page background, statistics, course cards, quick actions, empty states, icons, links, hover states, and secondary text with readable dark-theme contrast.
+- Kept the existing FPT blue hero and orange primary action while reducing shadows against the dark shell.
+
+# 2026-08-10 - Admin And Senior Review Dark Mode
+
+- Fixed route-level light styles overriding dark cards on `/admin/review-queue` and `/senior/review`.
+- Added dark surfaces for the quality header, summary metrics, review workspace, workflow sections, active state, stage headings, empty states, and history labels.
+- Kept the shared component behavior unchanged; the fix applies consistently to Admin and Senior review routes.
+
+# 2026-08-10 - Scalable Admin Collections
+
+- Added shared collection search and pagination controls with accent-insensitive Vietnamese search, page-size selection, direct page entry, and first/previous/next/last navigation.
+- Upgraded the shared `DataTable` to mount only the current 10/20/50-row page, optionally search declared business fields, and support a bounded body with a sticky header.
+- Applied the scalable table behavior to semesters, courses, class sections, enrollments, and course materials in Admin Academic.
+- Added independent search and pagination to pending Answer Reviews, Knowledge Candidates, and combined review history on Admin/Senior Review Queue.
+- Documented the required backend server-side pagination contract in `docs/BE_FIX_REQUEST_ADMIN_COLLECTION_PAGINATION.md`; current APIs still return complete arrays, so frontend pagination only limits rendered DOM and does not claim backend-level scalability.
+
+**Tested**
+- Targeted ESLint: pass.
+- Collection helper tests: `2/2` pass.
+- Shared DataTable component tests: `2/2` pass.
+- Admin Academic and Admin/Senior Review Queue E2E checks: pass on desktop and mobile, including pagination, overflow, tabs, dropdown actions, and anchored confirmation.
+
+# 2026-08-10 - Knowledge Review Counter Spacing
+
+- Reserved layout space for the Ant Design textarea character counter so `0 / 2000` no longer overlaps the approve/reject action row.
+- Allowed long action labels to wrap cleanly and kept the counter readable in dark mode.
+# 2026-08-10 - Focused Student Chat Layout
+
+- Added a real hide/show control for conversation history. Desktop history now releases its full width when hidden, while mobile keeps the accessible drawer behavior.
+- Kept the active conversation and message state unchanged when opening or closing history.
+- Simplified the chat header to one compact row with conversation title, question limit, course, and read-only enrolled class context.
+- Replaced the large global header on Student Chat with a 48px utility bar that keeps dark mode, profile, and sign-out available.
+- Removed the outer chat card frame and route padding so messages and the composer use the available workspace like a focused AI chat application.
+
+**Tested**
+- ESLint: pass.
+- Unit/component tests: `114/114` pass.
+- Production build: pass.
+- Student Chat E2E: desktop and mobile layout, history toggle, long Markdown overflow, empty state, and dark mode pass.
+
+# 2026-08-10 - Minimal Student Mentor Review
+
+- Replaced the decorative gradient header with a compact title and description.
+- Simplified ticket rows to one canonical status instead of duplicated waiting/answered tags.
+- Unified question, previous AI answer, and teacher answer surfaces with neutral backgrounds and subtle left-edge hierarchy.
+- Replaced the large green AI-learning alert and illustrated waiting panel with compact neutral notes.
+- Reduced card radius, spacing, colored borders, hover motion, and mentor-selection colors while preserving all support actions and independent scrolling.
+
+# 2026-08-10 - ChatGPT-Style Student Chat Sidebars
+
+- Reduced conversation history from 300px to 260px and kept its existing hide/show control.
+- Removed redundant course/class pills from each course-scoped conversation row.
+- Replaced metadata chips with compact time and question-count text, tightened group spacing, and simplified active/hover states.
+- Kept the application navigation state consistent across all Student tabs: entering AI Tutor Chat no longer collapses the navigation automatically.
+- Restored the complete application header and standard sidebar transitions after UI review.
+
+# 2026-08-10 - Keyboard Shortcut Markdown Wrapping
+
+- Prevented short keyboard shortcuts such as `Ctrl + Alt + S` from wrapping across multiple lines inside AI answers.
+- Kept normal inline code wrappable so long identifiers and commands do not create horizontal page overflow.
+- Confirmed MongoDB stores the affected Tomcat answer with valid inline Markdown; the issue was presentation-only in FE.
+
+# 2026-08-10 - Recover Missing n8n Chat Answers
+
+- Fixed blank AI messages when n8n completed successfully but returned Student Memory instead of the RAG chat response.
+- When the harness response has no `answer`, Student Chat now reloads the canonical conversation history and recovers only the persisted exchange matching the exact submitted question.
+- Added short persistence retries for asynchronous workflow timing and a friendly failure state when neither n8n nor canonical REST history contains an answer.
+- No mock answer or fake success is created; Spring Boot conversation history remains the source of truth.
+- Added `docs/BE_FIX_REQUEST_N8N_RAG_RESPONSE.md` documenting the incorrect `Respond RAG` node contract.
+
+**Tested**
+- Full `npm run check`: pass (`136` contract tests, `115` component/unit tests, production build).
+- Student Chat browser test for the exact memory-only n8n response: pass.
+
+# 2026-08-10 - Visible Canonical RAG Evidence
+
+- Confirmed the latest persisted RAG messages contain structured course, material, chapter, page, excerpt, and PDF page-image evidence.
+- Kept this metadata when recovering a missing n8n answer from canonical conversation history, including legacy nested/underscore response aliases.
+- Replaced the generic collapsed source control with a visible evidence count and compact material/chapter/page preview.
+- Full excerpts and authenticated PDF page previews remain available by expanding the evidence control.
+
+# 2026-08-10 - Preserve Plus Signs In Inline Code
+
+- Fixed the Markdown list normalizer interpreting `+` inside inline code such as `Ctrl + Alt + S` as new bullet markers.
+- Inline code is now protected before list/table/heading repair and restored unchanged afterward.
+- Confirmed the backend and MongoDB already store the affected shortcut correctly on one line; this was a frontend preprocessing bug.

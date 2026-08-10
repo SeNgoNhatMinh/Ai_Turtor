@@ -35,6 +35,10 @@ function CoursesTab({ form, courses, onCreate, onReload, onAction }) {
         <Card title="Danh sách môn học" hoverable extra={<Button size="small" onClick={onReload} icon={<RefreshCw size={14} />}>Làm mới</Button>}>
           <DataTable
             data={courses || []}
+            searchable
+            searchKeys={['courseId', 'courseName', 'semesterId', 'status']}
+            searchPlaceholder="Tìm mã hoặc tên môn học"
+            maxBodyHeight={560}
             emptyText="Chưa có môn học."
             columns={[
               { accessorKey: 'courseId', header: 'Mã môn' },

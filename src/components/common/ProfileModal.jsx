@@ -4,7 +4,7 @@ import { User, Lock } from 'lucide-react';
 import { useProfile } from '../../hooks/useProfile';
 import AppTabs from './AppTabs';
 
-export default function ProfileModal({ isOpen, onClose, userId }) {
+export default function ProfileModal({ isOpen, onClose, userId, onProfileUpdated }) {
   const [activeTab, setActiveTab] = useState('profile');
   const [profileForm] = Form.useForm();
   const [passwordForm] = Form.useForm();
@@ -21,7 +21,8 @@ export default function ProfileModal({ isOpen, onClose, userId }) {
   }, [profile, isOpen, profileForm]);
 
   const handleUpdateProfile = async (values) => {
-    await updateProfile.mutateAsync(values);
+    const updated = await updateProfile.mutateAsync(values);
+    onProfileUpdated?.({ ...updated, ...values });
   };
 
   const handleChangePassword = async (values) => {

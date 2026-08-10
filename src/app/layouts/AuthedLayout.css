@@ -56,6 +56,12 @@
   box-shadow: 0 16px 40px rgba(15, 23, 42, 0.06);
 }
 
+.app-container--focused-chat .content-wrapper {
+  padding: 0;
+  overflow: hidden;
+}
+
+
 .page-header__copy {
   display: grid;
   align-content: start;
