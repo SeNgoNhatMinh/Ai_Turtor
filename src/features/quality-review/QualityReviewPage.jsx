@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { DatabaseZap, History, ShieldAlert } from 'lucide-react';
 import PageHeader from '../../components/common/PageHeader';
 import AnswerReviewWorkspace from '../teacher/review/AnswerReviewWorkspace';
 import { useTeacherReviewQueue } from '../teacher/review/useTeacherReviewQueue';
@@ -22,6 +23,9 @@ export default function QualityReviewPage({
   });
   const [candidateNotes, setCandidateNotes] = useState({});
   const isAdmin = mode === 'admin';
+  const pendingReviewCount = review.seniorAnswerReviewGroups?.length || review.seniorAnswerReviews?.length || 0;
+  const pendingCandidateCount = review.candidates?.length || 0;
+  const historyCount = (review.resolvedAnswerReviews?.length || 0) + (review.reviewedCandidates?.length || 0);
 
   useEffect(() => {
     review.loadAnswerReviews();
@@ -50,11 +54,19 @@ export default function QualityReviewPage({
   return (
     <div className="portal-section teacher-feature-page teacher-review-feature-page quality-review-page">
       <PageHeader
+        className="senior-review-hero"
         eyebrow={isAdmin ? 'Giám sát AI' : 'Kiểm duyệt chuyên môn'}
         title={isAdmin ? 'Giám sát chất lượng AI' : 'Trung tâm kiểm duyệt chuyên môn'}
         description={isAdmin
           ? 'Theo dõi phản hồi nghiêm trọng và tri thức đề xuất. Admin không tham gia ChatRoom của lớp.'
           : 'Xử lý phản hồi nghiêm trọng, tạo tri thức đúng và chỉ phê duyệt vào RAG sau khi đã đối chiếu.'}
+        actions={!isAdmin && (
+          <div className="senior-review-hero__stats" aria-label="Tổng quan hàng đợi kiểm duyệt">
+            <div><span><ShieldAlert size={18} /></span><strong>{pendingReviewCount}</strong><small>Phản hồi nghiêm trọng</small></div>
+            <div><span><DatabaseZap size={18} /></span><strong>{pendingCandidateCount}</strong><small>Tri thức chờ duyệt</small></div>
+            <div><span><History size={18} /></span><strong>{historyCount}</strong><small>Quyết định đã lưu</small></div>
+          </div>
+        )}
       />
       <AnswerReviewWorkspace
         mode={mode}

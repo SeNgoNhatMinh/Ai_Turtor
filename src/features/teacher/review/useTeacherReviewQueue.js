@@ -35,7 +35,7 @@ export function useTeacherReviewQueue({
   const reviewerRole = normalizeAccountRole(currentUser?.originalRole || currentUser?.role);
   const isSeniorReviewer = canReviewKnowledge(reviewerRole);
 
-  const loadTeacherInbox = async () => {
+  const loadTeacherInbox = async (filters = {}) => {
     if (!includeTeacherInbox) {
       setEscalations([]);
       setSelectedEscalation(null);
@@ -43,7 +43,8 @@ export function useTeacherReviewQueue({
     }
     setIsTeacherInboxLoading(true);
     try {
-      const data = await teacherReviewApi.getTeacherEscalations(teacherId, { courseId });
+      const params = { ...(courseId ? { courseId } : {}), ...filters };
+      const data = await teacherReviewApi.getTeacherEscalations(teacherId, params);
       const items = asArray(data, 'escalations', 'inbox', 'content').map(normalizeTeacherInboxItem);
       setEscalations(items);
       setSelectedEscalation((current) => (

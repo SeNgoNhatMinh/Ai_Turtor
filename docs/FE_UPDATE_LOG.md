@@ -2503,3 +2503,18 @@ Copy template này lên đầu phần `History` sau mỗi lần cập nhật:
 - `npm run dead-code`: pass.
 - `npm run test:e2e`: pass (`18/18`, desktop và mobile).
 - `git diff --check`: pass.
+
+# 2026-08-10 - Persistent Improve Suggestion Deletion
+
+- Fixed Student Learning Progress deletion so a removed suggestion is also removed from the course-scoped browser cache and does not return after reload.
+- Preserved the exact backend memory value through suggestion normalization; DELETE now sends the value stored by Spring Boot instead of a formatted card title.
+- Added a real-API compatibility path for oversized legacy JSON suggestions: FE reads canonical memory and updates the two suggestion arrays through `PUT /memory`, avoiding Tomcat's request-line limit without reporting mock success.
+- Backend memory suggestions are treated as canonical before legacy local cache entries with the same title.
+- Hidden the delete action for derived rule/improve-plan cards that are not independently removable by the backend memory endpoint.
+- Added contract coverage for legacy JSON suggestion envelopes stored as one backend memory entry.
+
+**Tested**
+- Targeted ESLint: pass.
+- Suggestion normalization tests: pass.
+- `npm run build`: pass.
+- Full contract suite: `124/127` pass; three existing route/navigation assertions still expect `/student/chat` and the old Admin expert-training tab after unrelated route changes.

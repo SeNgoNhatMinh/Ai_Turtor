@@ -1,7 +1,7 @@
 import { matchPath } from 'react-router-dom';
 
 const roleHomeRoutes = {
-  student: '/student/chat',
+  student: '/student/dashboard',
   teacher: '/teacher/classes',
   senior: '/senior/review',
   senior_mentor: '/senior/review',
@@ -9,6 +9,7 @@ const roleHomeRoutes = {
 };
 
 export const appRoutes = [
+  { role: 'student', tab: 'student-dashboard', path: '/student/dashboard' },
   { role: 'student', tab: 'student-chat', path: '/student/chat' },
   { role: 'student', tab: 'student-memory', path: '/student/progress' },
   { role: 'student', tab: 'student-quizzes', path: '/student/quizzes' },
@@ -50,10 +51,11 @@ export const appRoutes = [
   { role: 'admin', tab: 'admin-users', path: '/admin/users' },
   { role: 'admin', tab: 'admin-academic', path: '/admin/academic' },
   { role: 'admin', tab: 'admin-review', path: '/admin/review-queue' },
+  { role: 'admin', tab: 'admin-ai-logs', path: '/admin/ai-logs' },
   {
     role: 'admin',
-    tab: 'admin-expert-training',
-    path: '/admin/v2',
+    tab: 'admin-reindex',
+    path: '/admin/reindex',
     allowedAccountRoles: ['ADMIN'],
     navigationPath: true,
   },

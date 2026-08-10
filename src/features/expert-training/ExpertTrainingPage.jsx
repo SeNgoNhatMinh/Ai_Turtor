@@ -101,7 +101,7 @@ export default function ExpertTrainingPage({
   const tabs = [
     {
       key: 'coverage',
-      label: 'Phủ kiến thức',
+      label: <span className="senior-workflow-tab"><b>01</b><span>Phủ học liệu<small>Xác nhận chapter và khoảng trống</small></span></span>,
       children: (
         <div className="expert-training__hub-stack">
           <ChapterCoveragePanel
@@ -139,9 +139,7 @@ export default function ExpertTrainingPage({
     },
     {
       key: 'review',
-      label: controller.pendingReviewCount
-        ? `Duyệt (${controller.pendingReviewCount})`
-        : 'Duyệt',
+      label: <span className="senior-workflow-tab"><b>02</b><span>Duyệt tri thức{controller.pendingReviewCount ? ` (${controller.pendingReviewCount})` : ''}<small>Kiểm tra Gold Q&amp;A và Rubric</small></span></span>,
       children: (
         <Suspense fallback={<SectionFallback />}>
           <SeniorReviewQueue
@@ -161,7 +159,7 @@ export default function ExpertTrainingPage({
     },
     {
       key: 'evaluation',
-      label: 'Đánh giá AI',
+      label: <span className="senior-workflow-tab"><b>03</b><span>Đánh giá AI<small>Chạy holdout độc lập</small></span></span>,
       children: (
         <Suspense fallback={<SectionFallback />}>
           <EvaluationDashboard
@@ -187,10 +185,10 @@ export default function ExpertTrainingPage({
     <div className="portal-section expert-training-page expert-training-page--reviewer">
       <PageHeader
         eyebrow={workspaceMode === 'admin' ? 'Giám sát AI' : 'Kiểm duyệt chuyên môn'}
-        title={workspaceMode === 'admin' ? 'Giám sát Tutor V2' : 'Expert Co-Training V2'}
+        title={workspaceMode === 'admin' ? 'Giám sát Tutor V2' : 'Quản trị tri thức & đánh giá AI'}
         description={workspaceMode === 'admin'
           ? 'Theo dõi độ phủ toàn hệ thống, audit hoạt động kiểm duyệt và thực hiện quyền quản trị khi cần.'
-          : 'Xác nhận chapter, giao task chuyên môn, kiểm duyệt tri thức và đánh giá AI Tutor bằng holdout độc lập.'}
+          : 'Kiểm soát chuỗi chất lượng từ độ phủ học liệu, nội dung chuyên gia đến đánh giá AI Tutor bằng holdout độc lập.'}
       />
 
       <ScopeBar

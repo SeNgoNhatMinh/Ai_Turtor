@@ -8,6 +8,7 @@ export const API_TIMEOUTS = {
   ai: 180000,
   quizGeneration: 240000,
   upload: 180000,
+  reindex: 900000,
 };
 
 addRequestInterceptor((config) => {
@@ -40,7 +41,15 @@ function handleUnauthorized(error) {
 }
 
 export async function request(url, options = {}) {
-  const { headers, body, method = 'GET', signal, responseType, ...restOptions } = options;
+  const {
+    headers,
+    body,
+    method = 'GET',
+    signal,
+    responseType,
+    skipUnauthorizedRedirect = false,
+    ...restOptions
+  } = options;
   let parsedBody = body;
   if (typeof body === 'string' && headers?.['Content-Type']?.includes('application/json')) {
     try {
@@ -60,7 +69,7 @@ export async function request(url, options = {}) {
       ...restOptions,
     });
   } catch (error) {
-    handleUnauthorized(error);
+    if (!skipUnauthorizedRedirect) handleUnauthorized(error);
     throw error;
   }
 }

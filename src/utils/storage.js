@@ -41,12 +41,37 @@ export const writeAnalyzedSuggestions = (studentId, courseId, suggestions) => {
 const getSuggestionTextValue = (suggestion) => (
   typeof suggestion === 'string'
     ? suggestion
-    : suggestion?.title || suggestion?.content || ''
+    : suggestion?.actionText || suggestion?.title || suggestion?.content || ''
 );
 
-export const suggestionMatchesText = (suggestion, text) => (
-  String(getSuggestionTextValue(suggestion)).trim().toLowerCase() === String(text || '').trim().toLowerCase()
-);
+const normalizeSuggestionValue = (value) => String(value || '').trim().toLowerCase();
+
+export const suggestionMatchesText = (suggestion, target) => {
+  const targetDeleteValue = typeof target === 'object' ? target?.deleteValue : '';
+  if (
+    targetDeleteValue
+    && suggestion?.deleteValue
+    && normalizeSuggestionValue(suggestion.deleteValue) === normalizeSuggestionValue(targetDeleteValue)
+  ) {
+    return true;
+  }
+
+  const targetText = getSuggestionTextValue(target);
+  const candidates = typeof suggestion === 'string'
+    ? [suggestion]
+    : [suggestion?.actionText, suggestion?.title, suggestion?.content];
+
+  return candidates.some((candidate) => (
+    normalizeSuggestionValue(candidate) === normalizeSuggestionValue(targetText)
+  ));
+};
+
+export const removeAnalyzedSuggestion = (studentId, courseId, target) => {
+  const next = readAnalyzedSuggestions(studentId, courseId)
+    .filter((suggestion) => !suggestionMatchesText(suggestion, target));
+  writeAnalyzedSuggestions(studentId, courseId, next);
+  return next;
+};
 
 export const createRecoveredSuggestion = (text) => ({
   priority: 'medium',

@@ -44,3 +44,44 @@
     color: #FFB077;
 }
 
+/* Academic Portal 2026 */
+.app-container:not(.dark) .top-nav { background: rgba(255,255,255,.96); border-bottom: 1px solid #e4eaf2; box-shadow: 0 8px 28px rgba(0,27,61,.06); backdrop-filter: blur(18px); }
+.app-container:not(.dark) .main-sidebar { background: linear-gradient(180deg,#001b3d 0%,#082d62 100%); border-right: 0; box-shadow: 14px 0 36px rgba(0,27,61,.12); }
+.app-container:not(.dark) .main-sidebar .nav-item,
+.app-container:not(.dark) .main-sidebar .nav-group-title,
+.app-container:not(.dark) .main-sidebar .sidebar-collapse-btn.ant-btn { color: rgba(255,255,255,.72); }
+.app-container:not(.dark) .main-sidebar .nav-item:hover { color: #fff; background: rgba(255,255,255,.09); }
+.app-container:not(.dark) .main-sidebar .nav-item.active { color: #001b3d; background: #fff; box-shadow: 0 10px 24px rgba(0,0,0,.16); }
+.app-container:not(.dark) .main-sidebar .nav-item.active svg { color: #ff8a00; }
+.app-container:not(.dark) .main-sidebar .ant-menu,
+.app-container:not(.dark) .main-sidebar .ant-menu-light { background: transparent !important; color: #fff !important; }
+.app-container:not(.dark) .main-sidebar .ant-menu-item {
+    color: #f7fbff !important;
+    font-weight: 650;
+    opacity: 1 !important;
+    border-radius: 11px;
+    margin-block: 5px;
+}
+.app-container:not(.dark) .main-sidebar .ant-menu-item .ant-menu-title-content,
+.app-container:not(.dark) .main-sidebar .ant-menu-item .anticon,
+.app-container:not(.dark) .main-sidebar .ant-menu-item svg { color: inherit !important; opacity: 1 !important; }
+.app-container:not(.dark) .main-sidebar .ant-menu-item:hover { color: #fff !important; background: rgba(255,255,255,.12) !important; }
+.app-container:not(.dark) .main-sidebar .ant-menu-item-selected {
+    color: #001b3d !important;
+    background: #fff !important;
+    box-shadow: 0 9px 22px rgba(0,0,0,.16);
+}
+.app-container:not(.dark) .main-sidebar .ant-menu-item-selected svg { color: #ff8a00 !important; }
+.app-container:not(.dark) .main-sidebar .sidebar-collapse-btn.ant-btn { color: #fff !important; opacity: 1; }
+.app-container:not(.dark) .content-wrapper,
+.app-container:not(.dark) .portal-view,
+.app-container:not(.dark) .ant-layout,
+.app-container:not(.dark) .ant-layout-content { background: #f4f7fc; }
+.app-container:not(.dark) .page-header { border: 1px solid #e4eaf2; border-radius: 20px; background: linear-gradient(120deg,#fff 0%,#f4f8ff 68%,#fff8ed 100%); box-shadow: 0 14px 34px rgba(0,27,61,.07); }
+.app-container:not(.dark) .page-header__eyebrow { color: #0b3b82; border-color: rgba(11,59,130,.16); background: rgba(11,59,130,.07); }
+.app-container:not(.dark) .ant-card { border-color: #e4eaf2; border-radius: 16px; box-shadow: 0 10px 26px rgba(0,27,61,.055); }
+.app-container:not(.dark) .ant-btn-primary { background: #0b3b82; border-color: #0b3b82; box-shadow: 0 7px 18px rgba(11,59,130,.2); }
+.app-container:not(.dark) .ant-btn-primary:hover { background: #001b3d !important; border-color: #001b3d !important; }
+.app-container:not(.dark) .ant-tabs-tab-active .ant-tabs-tab-btn { color: #0b3b82 !important; }
+.app-container:not(.dark) .ant-tabs-ink-bar { background: #ff8a00; }
+

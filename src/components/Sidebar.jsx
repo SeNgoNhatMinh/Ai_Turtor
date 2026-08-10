@@ -1,10 +1,16 @@
 import { useState } from 'react';
 import { Button, Menu, Tooltip } from 'antd';
-import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { ArrowRight, BookOpen, MessageSquareText, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { getNavigationForRole } from '../config/navigation';
 
-function Sidebar({ accountRole, activeRole, activeTab, switchTab }) {
+function Sidebar({ accountRole, activeRole, activeTab, switchTab, courseId, classId }) {
   const [collapsed, setCollapsed] = useState(false);
+  const workspaceCards = {
+    teacher: { eyebrow: 'Không gian giảng dạy', title: 'Quản lý lớp học', detail: 'Theo dõi lớp, quiz và bài nộp', button: 'Xem lớp học', tab: 'teacher-classes' },
+    senior: { eyebrow: 'Kiểm duyệt chuyên môn', title: 'Senior Mentor', detail: 'Rà soát phản hồi và tri thức AI', button: 'Mở hàng đợi', tab: 'senior-review' },
+    admin: { eyebrow: 'Điều hành hệ thống', title: 'Administrator', detail: 'Quản trị người dùng và AI Tutor', button: 'Xem tổng quan', tab: 'admin-dashboard' },
+  };
+  const workspaceCard = workspaceCards[activeRole];
 
   const items = getNavigationForRole(accountRole || activeRole).map((item) => {
     const Icon = item.icon;
@@ -56,6 +62,32 @@ function Sidebar({ accountRole, activeRole, activeTab, switchTab }) {
           theme="light"
         />
       </div>
+      {activeRole === 'student' && (
+        <div className="sidebar-learning-card">
+          <div className="sidebar-learning-card__icon"><BookOpen size={19} /></div>
+          <div className="sidebar-learning-card__content">
+            <small>Môn học hiện tại</small>
+            <strong>{courseId || 'Chưa chọn môn'}</strong>
+            <span>{classId ? `Lớp ${classId}` : 'Chọn môn để bắt đầu học'}</span>
+          </div>
+          <button type="button" onClick={() => switchTab('student-chat')} aria-label="Mở trò chuyện AI Tutor">
+            <MessageSquareText size={16} /><span>Hỏi AI Tutor</span><ArrowRight size={15} />
+          </button>
+        </div>
+      )}
+      {workspaceCard && (
+        <div className={`sidebar-learning-card sidebar-role-card sidebar-role-card--${activeRole}`}>
+          <div className="sidebar-learning-card__icon"><BookOpen size={19} /></div>
+          <div className="sidebar-learning-card__content">
+            <small>{workspaceCard.eyebrow}</small>
+            <strong>{workspaceCard.title}</strong>
+            <span>{workspaceCard.detail}</span>
+          </div>
+          <button type="button" onClick={() => switchTab(workspaceCard.tab)}>
+            <span>{workspaceCard.button}</span><ArrowRight size={15} />
+          </button>
+        </div>
+      )}
     </aside>
   );
 }

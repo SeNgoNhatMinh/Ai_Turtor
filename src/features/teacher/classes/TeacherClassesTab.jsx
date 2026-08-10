@@ -132,18 +132,22 @@ function TeacherClassesTab({
           <div className="teacher-classes-list">
             {classesList.map((c, i) => {
               const classValue = c.classCode || c.classId || c.id;
+              const isCurrentClass = classId === classValue;
+              const classDetails = isCurrentClass
+                ? `${teacherStudents.length} sinh viên`
+                : c.details;
               return (
                 <button
                   type="button"
                   key={classValue || i}
-                  className={`class-card-item ${classId === classValue ? 'active-class' : ''}`}
+                  className={`class-card-item ${isCurrentClass ? 'active-class' : ''}`}
                   onClick={() => setClassId(classValue)}
                   disabled={!classValue || !setClassId}
-                  aria-pressed={classId === classValue}
+                  aria-pressed={isCurrentClass}
                 >
                   <span className="badge-semester">Học kỳ: {c.semester}</span>
                   <h4>{c.name}</h4>
-                  <p>{c.details}</p>
+                  <p>{classDetails}</p>
                 </button>
               );
             })}

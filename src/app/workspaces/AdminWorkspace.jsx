@@ -6,7 +6,8 @@ const adminPages = {
   'admin-users': lazy(() => import('../../features/admin/users/AdminUsersPage')),
   'admin-academic': lazy(() => import('../../features/admin/academic/AdminAcademicPage')),
   'admin-review': lazy(() => import('../../features/admin/review/AdminReviewPage')),
-  'admin-expert-training': lazy(() => import('../../features/admin/expert-training/AdminExpertTrainingPage')),
+  'admin-ai-logs': lazy(() => import('../../features/admin/ai-logs/AdminAiLogsPage')),
+  'admin-reindex': lazy(() => import('../../features/admin/reindex/AdminReindexPage')),
 };
 
 function AdminPageFallback() {

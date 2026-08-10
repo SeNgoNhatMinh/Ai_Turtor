@@ -19,7 +19,7 @@ function LegacyExpertTrainingRedirect({ admin = false }) {
     context.workspaceProps?.currentUser?.originalRole
       || context.workspaceProps?.currentUser?.role,
   );
-  if (admin || accountRole === 'ADMIN') return <Navigate to="/admin/v2" replace />;
+  if (admin || accountRole === 'ADMIN') return <Navigate to="/admin/reindex" replace />;
   if (accountRole === 'SENIOR_MENTOR') return <Navigate to="/senior/v2" replace />;
   return <Navigate to="/teacher/expert-tasks" replace />;
 }
@@ -44,6 +44,7 @@ export default function AppRouter() {
           ))}
           <Route path="/teacher/expert-training" element={<LegacyExpertTrainingRedirect />} />
           <Route path="/admin/expert-training" element={<LegacyExpertTrainingRedirect admin />} />
+          <Route path="/admin/v2" element={<LegacyExpertTrainingRedirect admin />} />
           <Route path="/" element={<HomeRedirect />} />
           <Route path="/login" element={<HomeRedirect />} />
           <Route path="*" element={<HomeRedirect />} />

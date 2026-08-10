@@ -43,6 +43,7 @@ export default function LearningProgressPage({
       pinnedSuggestions={dashboard.pinnedImproveSuggestions || []}
       onPinSuggestion={learning.handlePinImproveSuggestion}
       onUnpinSuggestion={learning.handleUnpinImproveSuggestion}
+      onDeleteSuggestion={learning.handleDeleteImproveSuggestion}
       onStudySuggestion={actions.handleStudySuggestion}
       onCreateQuizFromSuggestion={actions.handleCreateQuizFromSuggestion}
       consumedSuggestionKeys={actions.consumedSuggestionKeys}

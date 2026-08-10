@@ -261,6 +261,17 @@
   opacity: 0.8;
 }
 
+.chat-fpt-mascot {
+  display: block;
+  flex: 0 0 auto;
+  border: 1px solid #dce8f5;
+  border-radius: 24%;
+  background: #fff;
+  object-fit: contain;
+  padding: 5px;
+  box-shadow: 0 12px 34px rgba(0, 43, 91, 0.12);
+}
+
 .chat-gpt-tool-btn {
   display: inline-flex;
   align-items: center;

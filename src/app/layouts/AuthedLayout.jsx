@@ -12,6 +12,8 @@ export default function AuthedLayout({
   isDarkMode,
   setIsDarkMode,
   currentUser,
+  courseId,
+  classId,
   onLogout,
   toastMessage,
   onCloseToast,
@@ -24,7 +26,7 @@ export default function AuthedLayout({
   }, [activeTab]);
 
   return (
-    <div className={`app-container ${isDarkMode ? 'dark' : 'light'}`}>
+    <div className={`app-container role-${activeRole} ${isDarkMode ? 'dark' : 'light'}`}>
       <Header
         activeRole={activeRole}
         isDarkMode={isDarkMode}
@@ -38,6 +40,8 @@ export default function AuthedLayout({
           activeRole={activeRole}
           activeTab={activeTab}
           switchTab={switchTab}
+          courseId={courseId}
+          classId={classId}
         />
         <main className="content-wrapper">
           {children}

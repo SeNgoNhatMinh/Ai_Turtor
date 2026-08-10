@@ -15,16 +15,8 @@ import InlineMentorSupport from './InlineMentorSupport';
 import PromptStarters from './PromptStarters';
 
 const AiAnswer = lazy(() => import('../../../../components/AiAnswer'));
-const RobotHeadMascot = lazy(() => import('../../../../components/RobotHeadMascot'));
-
-function MascotFallback({ size = 36 }) {
-  return (
-    <div
-      className="chat-mascot-fallback"
-      style={{ width: size, height: size }}
-      aria-hidden="true"
-    />
-  );
+function TutorMascot({ size, className = '' }) {
+  return <img src="/favicon.jpg" alt="Linh vật AI Tutor" className={`chat-fpt-mascot ${className}`} style={{ width: size, height: size }} />;
 }
 
 function ChatMessageList({
@@ -76,9 +68,7 @@ function ChatMessageList({
       <div className={`chat-workspace-messages-inner ${messages.length === 0 ? 'chat-workspace-messages-inner--empty' : ''}`}>
         {messages.length === 0 ? (
           <div className="chat-empty-state">
-            <Suspense fallback={<MascotFallback size={152} />}>
-              <RobotHeadMascot size={152} followMouse={false} className="chat-empty-mascot" />
-            </Suspense>
+            <TutorMascot size={152} className="chat-empty-mascot" />
             <div className="chat-empty-title">Hôm nay bạn muốn học gì?</div>
             <PromptStarters disabled={!canChat || isAiLoading} onSelect={onPromptStarter} />
           </div>
@@ -122,9 +112,7 @@ function ChatMessageList({
                   <div className="chat-gpt-message-row ai">
                     <div className="chat-gpt-bubble-ai">
                       <div style={{ flexShrink: 0, marginTop: '-4px' }}>
-                        <Suspense fallback={<MascotFallback size={36} />}>
-                          <RobotHeadMascot size={36} compact followMouse={false} />
-                        </Suspense>
+                        <TutorMascot size={36} />
                       </div>
                       <div className="chat-gpt-ai-content">
                         {message.aiServiceError && (
@@ -219,9 +207,7 @@ function ChatMessageList({
         {isAiLoading && (
           <div className="chat-gpt-loading">
             <div className="chat-gpt-loading-avatar">
-              <Suspense fallback={<MascotFallback size={32} />}>
-                <RobotHeadMascot size={32} compact followMouse={false} />
-              </Suspense>
+              <TutorMascot size={32} />
             </div>
             <ChatLoadingSteps />
           </div>

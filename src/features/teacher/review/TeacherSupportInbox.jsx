@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
-import { Button, Empty, Segmented, Tag } from 'antd';
-import { Clock3, MessageCircle, RefreshCw } from 'lucide-react';
+import { Button, Empty, Segmented, Tag, Input } from 'antd';
+import { CheckCircle2, Clock3, MessageCircle, RefreshCw } from 'lucide-react';
 import StatusLabel from '../../../components/common/StatusLabel';
 import SupportChatRoom from '../../../components/support/SupportChatRoom';
 import TeacherAnswerModeSelector from './TeacherAnswerModeSelector';
@@ -43,6 +43,7 @@ export default function TeacherSupportInbox({
   selectedEscalation,
   onSelectEscalation,
   onRefresh,
+  onSearch,
   reply,
   onReplyChange,
   onSubmitAnswer,
@@ -63,6 +64,7 @@ export default function TeacherSupportInbox({
     : view;
   const visibleTickets = grouped[effectiveView];
   const selectedStatus = getStatus(selectedEscalation);
+  const isHistorySelection = Boolean(selectedEscalation && isHistoryItem(selectedEscalation));
   const isChatActive = ['IN_CHAT', 'CHAT_ACTIVE', 'MENTOR_SELECTED'].includes(selectedStatus);
   const hasChatHistory = Boolean(selectedEscalation?.chatRoomId);
 
@@ -81,9 +83,17 @@ export default function TeacherSupportInbox({
           <h2 id="teacher-support-heading">Trao đổi với sinh viên</h2>
           <p>Tiếp nhận yêu cầu, trao đổi trong ChatRoom và xem lại toàn bộ lịch sử sau khi đóng.</p>
         </div>
-        <Button icon={<RefreshCw size={15} />} loading={loading} onClick={onRefresh}>
-          Làm mới
-        </Button>
+        <div className="teacher-support-toolbar">
+          <Input.Search
+            placeholder="Tìm kiếm yêu cầu (tên sinh viên hoặc nội dung)..."
+            allowClear
+            onSearch={(value) => onSearch?.(String(value || '').trim())}
+            className="teacher-support-search"
+          />
+          <Button icon={<RefreshCw size={15} />} loading={loading} onClick={onRefresh}>
+            Làm mới
+          </Button>
+        </div>
       </div>
 
       <div className="teacher-support-layout">
@@ -137,6 +147,35 @@ export default function TeacherSupportInbox({
                   compact
                   readOnly={!isChatActive}
                 />
+              ) : isHistorySelection ? (
+                <div className="teacher-support-history">
+                  <div className="teacher-support-history__summary">
+                    <CheckCircle2 size={20} />
+                    <div>
+                      <strong>Yêu cầu đã được xử lý</strong>
+                      <p>
+                        {selectedEscalation.resolvedAt
+                          ? `Hoàn tất lúc ${new Date(selectedEscalation.resolvedAt).toLocaleString('vi-VN')}`
+                          : 'Bạn đang xem lại một yêu cầu trong lịch sử.'}
+                      </p>
+                    </div>
+                  </div>
+                  <section>
+                    <span className="teacher-review-eyebrow">Câu hỏi ban đầu</span>
+                    <p>{selectedEscalation.originalQuestion || selectedEscalation.question || 'Không có nội dung câu hỏi.'}</p>
+                  </section>
+                  {selectedEscalation.aiResponse && (
+                    <section>
+                      <span className="teacher-review-eyebrow">Phản hồi AI trước khi chuyển hỗ trợ</span>
+                      <p>{selectedEscalation.aiResponse}</p>
+                    </section>
+                  )}
+                  <section className="teacher-support-history__answer">
+                    <span className="teacher-review-eyebrow">Câu trả lời chính thức</span>
+                    <p>{selectedEscalation.mentorAnswer || 'Backend chưa trả nội dung câu trả lời chính thức cho bản ghi này.'}</p>
+                    {selectedEscalation.assignedMentorName && <small>Giảng viên: {selectedEscalation.assignedMentorName}</small>}
+                  </section>
+                </div>
               ) : (
                 <div className="teacher-support-detail__notice">
                   <strong>Đang chờ sinh viên chọn giảng viên</strong>

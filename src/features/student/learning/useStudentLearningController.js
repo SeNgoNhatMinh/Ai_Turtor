@@ -9,6 +9,7 @@ import { getFeedbackRecordedMessage } from '../../../constants/answerReview';
 import {
   createRecoveredSuggestion,
   readAnalyzedSuggestions,
+  removeAnalyzedSuggestion,
   suggestionMatchesText,
   writeAnalyzedSuggestions,
   mergeSuggestionLists,
@@ -19,12 +20,25 @@ const createStudyTipSuggestion = (text) => ({
   title: String(text || '').trim(),
   content: 'Created from the study note you selected in AI Tutor Chat. Review it first, then use Study now or Create quiz when you are ready.',
   source: 'CHAT_STUDY_TIP',
+  persistence: 'LOCAL_ANALYSIS',
+  deletable: true,
 });
 
 const isSuggestionServiceFailure = (suggestion) => {
   const value = `${suggestion?.title || ''} ${suggestion?.content || ''}`.toLowerCase();
   return value.includes('ai suggestion failed') || value.includes('llm') || value.includes('dịch vụ llm');
 };
+
+const normalizeCachedSuggestions = (studentId, courseId) => (
+  normalizeSuggestions(readAnalyzedSuggestions(studentId, courseId)).map((item) => {
+    if (item.persistence) return item;
+    return {
+      ...item,
+      persistence: 'LOCAL_ANALYSIS',
+      deletable: item.kind !== 'note' && String(item.source || '').toUpperCase() !== 'RULE',
+    };
+  })
+);
 
 const emptyDashboard = { learnedTopics: [], weakTopics: [], pinnedImproveSuggestions: [], stats: {} };
 
@@ -72,16 +86,16 @@ export function useStudentLearningController({
         recentAnswers: memorySnapshot?.recentAnswers || normalized.recentAnswers || [],
         updatedAt: memorySnapshot?.updatedAt || normalized.updatedAt || '',
       });
-      const localSuggestions = normalizeSuggestions(readAnalyzedSuggestions(studentId, courseId));
-      const mergedSuggestions = mergeSuggestionLists(localSuggestions, normalized.suggestions || []);
-
-      if (mergedSuggestions.length) {
-        setSuggestions(mergedSuggestions);
-        writeAnalyzedSuggestions(studentId, courseId, mergedSuggestions);
-      }
+      const localSuggestions = normalizeCachedSuggestions(studentId, courseId);
+      // Canonical backend items come first so their delete metadata is not
+      // overwritten by an older browser cache entry with the same title.
+      const mergedSuggestions = mergeSuggestionLists(normalized.suggestions || [], localSuggestions);
+      setSuggestions(mergedSuggestions);
+      writeAnalyzedSuggestions(studentId, courseId, mergedSuggestions);
     } catch {
       try {
         const memory = await studentLearningApi.getStudentMemory(studentId, courseId);
+        const normalizedMemory = normalizeStudentDashboard(memory);
         setStudentDashboard({
           learnedTopics: memory.learnedTopics || [],
           weakTopics: memory.weakTopics || [],
@@ -93,8 +107,15 @@ export function useStudentLearningController({
           updatedAt: memory.updatedAt || '',
           stats: {},
         });
+        const mergedSuggestions = mergeSuggestionLists(
+          normalizedMemory.suggestions || [],
+          normalizeCachedSuggestions(studentId, courseId),
+        );
+        setSuggestions(mergedSuggestions);
+        writeAnalyzedSuggestions(studentId, courseId, mergedSuggestions);
       } catch {
         setStudentDashboard(emptyDashboard);
+        setSuggestions(normalizeCachedSuggestions(studentId, courseId));
       }
     } finally {
       setIsStudentDashboardLoading(false);
@@ -112,7 +133,13 @@ export function useStudentLearningController({
         question: questionText || undefined,
         includeAiSuggestion: Boolean(questionText),
       });
-      const normalized = normalizeSuggestions(data).filter((item) => !isSuggestionServiceFailure(item));
+      const normalized = normalizeSuggestions(data)
+        .filter((item) => !isSuggestionServiceFailure(item))
+        .map((item) => ({
+          ...item,
+          persistence: 'LOCAL_ANALYSIS',
+          deletable: item.kind !== 'note' && String(item.source || '').toUpperCase() !== 'RULE',
+        }));
       const focusedSuggestion = questionText ? createStudyTipSuggestion(questionText) : null;
       const finalSuggestions = mergeSuggestionLists(
         focusedSuggestion ? [focusedSuggestion] : [],
@@ -201,6 +228,48 @@ export function useStudentLearningController({
     }
   };
 
+  const handleDeleteImproveSuggestion = async (suggestion) => {
+    try {
+      const displayText = String(suggestion?.actionText || suggestion?.title || suggestion?.content || suggestion || '').trim();
+      const deleteValue = String(suggestion?.deleteValue || displayText).trim();
+      const shouldDeleteFromBackend = suggestion?.persistence !== 'LOCAL_ANALYSIS';
+      const response = shouldDeleteFromBackend
+        ? await studentLearningApi.deleteImproveSuggestion(studentId, courseId, deleteValue)
+        : null;
+
+      if (shouldDeleteFromBackend && Array.isArray(response?.improveSuggestions)) {
+        const stillExists = response.improveSuggestions.some(
+          (item) => String(item).trim().toLowerCase() === deleteValue.toLowerCase(),
+        );
+        if (stillExists) {
+          throw new Error('Backend did not remove the requested suggestion.');
+        }
+      }
+
+      // Update dashboard pinned list conservatively from response or local fallback
+      const nextPinnedSuggestions = Array.isArray(response?.pinnedImproveSuggestions)
+        ? response.pinnedImproveSuggestions
+        : (studentDashboard?.pinnedImproveSuggestions || []).filter(
+          (item) => String(item).trim().toLowerCase() !== displayText.toLowerCase(),
+        );
+      setStudentDashboard((prev) => ({
+        ...prev,
+        pinnedImproveSuggestions: nextPinnedSuggestions,
+      }));
+      removeAnalyzedSuggestion(studentId, courseId, suggestion);
+      setSuggestions((prev) => {
+        const next = Array.isArray(prev)
+          ? prev.filter((item) => !suggestionMatchesText(item, suggestion))
+          : [];
+        writeAnalyzedSuggestions(studentId, courseId, next);
+        return next;
+      });
+      triggerToast('Đã xóa gợi ý.');
+    } catch (error) {
+      triggerToast(getUserFacingError(error, 'Không thể xóa gợi ý.'));
+    }
+  };
+
   const handleStudentReviewAnswer = async (reviewPayload) => {
     triggerToast('Đang gửi phản hồi...');
     try {
@@ -235,6 +304,7 @@ export function useStudentLearningController({
     handleStudentUpdateMemory,
     handlePinImproveSuggestion,
     handleUnpinImproveSuggestion,
+    handleDeleteImproveSuggestion,
     handleStudentReviewAnswer,
   };
 }

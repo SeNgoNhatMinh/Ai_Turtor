@@ -2,6 +2,18 @@ import { API_BASE_URL, request } from './apiClient';
 import { encodePath } from '../config/env';
 import { asArray, normalizeImprovePlan } from './normalizers';
 
+// Tomcat rejects oversized request lines before Spring Security/CORS can run.
+// Keep enough room for the path and headers when the legacy suggestion itself
+// is a large JSON envelope.
+const MAX_SAFE_SUGGESTION_QUERY_LENGTH = 3500;
+
+const removeExactSuggestion = (items, suggestion) => {
+  const normalized = String(suggestion || '').trim().toLowerCase();
+  return (Array.isArray(items) ? items : []).filter(
+    (item) => String(item || '').trim().toLowerCase() !== normalized,
+  );
+};
+
 export const studentLearningApi = {
   async getStudentDashboard(studentId, courseId = '') {
     const params = new URLSearchParams();
@@ -44,9 +56,33 @@ export const studentLearningApi = {
     });
   },
 
+  async deleteImproveSuggestion(studentId, courseId, suggestion) {
+    const params = new URLSearchParams({ suggestion });
+    const memoryUrl = `${API_BASE_URL}/tutor/students/${encodePath(studentId)}/courses/${encodePath(courseId)}/memory`;
+    const deleteUrl = `${memoryUrl}/improve-suggestions?${params.toString()}`;
+
+    if (deleteUrl.length > MAX_SAFE_SUGGESTION_QUERY_LENGTH) {
+      const memory = await request(memoryUrl);
+      return request(memoryUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          improveSuggestions: removeExactSuggestion(memory?.improveSuggestions, suggestion),
+          pinnedImproveSuggestions: removeExactSuggestion(memory?.pinnedImproveSuggestions, suggestion),
+        }),
+      });
+    }
+
+    return request(deleteUrl, {
+      method: 'DELETE',
+      // A failed item deletion must not invalidate an otherwise valid login session.
+      skipUnauthorizedRedirect: true,
+    });
+  },
+
   async unpinImproveSuggestion(studentId, courseId, suggestion) {
     const params = new URLSearchParams({ suggestion });
-    return request(`${API_BASE_URL}/tutor/students/${encodePath(studentId)}/courses/${encodePath(courseId)}/memory/pinned-suggestions?${params}`, {
+    return request(`${API_BASE_URL}/tutor/students/${encodePath(studentId)}/courses/${encodePath(courseId)}/memory/pinned-suggestions?${params.toString()}`, {
       method: 'DELETE',
     });
   },

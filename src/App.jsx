@@ -92,6 +92,8 @@ function App() {
           isDarkMode={navigation.isDarkMode}
           setIsDarkMode={navigation.setIsDarkMode}
           currentUser={auth.currentUser}
+          courseId={navigation.courseId}
+          classId={navigation.classId}
           onLogout={handleLogout}
           toastMessage={toast.toastMessage}
           onCloseToast={() => toast.setToastMessage(null)}

@@ -85,6 +85,7 @@ export const materialsApi = {
     const qs = params.toString();
     const response = await request(`${API_BASE_URL}/courses/${encodePath(courseId)}/materials/reindex${qs ? `?${qs}` : ''}`, {
       method: 'POST',
+      timeoutMs: API_TIMEOUTS.reindex,
     });
     invalidateResourceCache(materialCachePrefix(courseId));
     return response;
@@ -96,6 +97,7 @@ export const materialsApi = {
     const qs = params.toString();
     const response = await request(`${API_BASE_URL}/courses/${encodePath(courseId)}/materials/${encodePath(materialId)}/reindex${qs ? `?${qs}` : ''}`, {
       method: 'POST',
+      timeoutMs: API_TIMEOUTS.reindex,
     });
     invalidateResourceCache(materialCachePrefix(courseId));
     return response;

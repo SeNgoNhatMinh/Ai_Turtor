@@ -1,0 +1,202 @@
+/* Global typography layer — consistent, readable hierarchy across every role. */
+:root {
+  --font-sans: Inter, "Segoe UI Variable Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-heading: var(--font-sans);
+  --type-strong: #172033;
+  --type-body: #354052;
+  --type-muted: #667085;
+  --type-faint: #7d899b;
+}
+
+html {
+  font-size: 16px;
+  text-size-adjust: 100%;
+  -webkit-text-size-adjust: 100%;
+}
+
+body,
+button,
+input,
+textarea,
+select,
+.ant-app,
+.ant-typography,
+.ant-btn,
+.ant-input,
+.ant-select,
+.ant-table,
+.ant-menu,
+.ant-modal,
+.ant-drawer,
+.ant-dropdown-menu {
+  font-family: var(--font-sans) !important;
+  font-feature-settings: "kern" 1, "liga" 1;
+}
+
+body {
+  color: var(--type-body);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.55;
+  letter-spacing: -0.005em;
+}
+
+h1, h2, h3, h4, h5, h6,
+.ant-typography h1,
+.ant-typography h2,
+.ant-typography h3,
+.ant-typography h4,
+.ant-typography h5 {
+  color: var(--type-strong);
+  font-family: var(--font-heading) !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.025em;
+  text-wrap: balance;
+}
+
+h1 { font-size: clamp(1.75rem, 2.4vw, 2.25rem); line-height: 1.15; }
+h2 { font-size: clamp(1.4rem, 1.8vw, 1.75rem); line-height: 1.2; }
+h3 { font-size: clamp(1.15rem, 1.4vw, 1.35rem); line-height: 1.25; }
+h4 { font-size: 1rem; line-height: 1.35; }
+
+p,
+.ant-typography,
+.page-header__description,
+.portal-subtitle,
+.section-description {
+  line-height: 1.6;
+}
+
+small,
+.text-muted,
+.muted,
+.ant-typography-secondary,
+.ant-form-item-extra,
+.ant-form-item-explain,
+.ant-empty-description {
+  color: var(--type-muted) !important;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+strong, b {
+  color: inherit;
+  font-weight: 650;
+}
+
+label,
+.ant-form-item-label > label,
+.ant-descriptions-item-label {
+  color: #344054 !important;
+  font-size: 0.8125rem !important;
+  font-weight: 600 !important;
+  line-height: 1.4;
+}
+
+.ant-btn {
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+}
+
+.ant-input,
+.ant-input-affix-wrapper,
+.ant-select-selector,
+.ant-picker,
+.ant-input-number {
+  color: var(--type-body) !important;
+  font-size: 0.875rem !important;
+}
+
+.ant-input::placeholder,
+.ant-input-affix-wrapper input::placeholder,
+textarea.ant-input::placeholder {
+  color: #8490a2 !important;
+  font-style: normal !important;
+}
+
+.ant-menu-title-content {
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.ant-table {
+  color: var(--type-body);
+  font-size: 0.84375rem;
+  line-height: 1.5;
+}
+
+.ant-table-thead > tr > th {
+  color: #475467 !important;
+  font-size: 0.75rem !important;
+  font-weight: 650 !important;
+  letter-spacing: 0.025em;
+  text-transform: uppercase;
+}
+
+.ant-tabs-tab-btn,
+.ant-segmented-item-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.ant-tag,
+.ant-badge-status-text {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.005em;
+}
+
+.page-header__eyebrow {
+  font-size: 0.72rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.055em !important;
+  text-transform: uppercase;
+}
+
+.page-header__title {
+  font-size: clamp(1.55rem, 2vw, 1.9rem) !important;
+  font-weight: 700 !important;
+  line-height: 1.18 !important;
+}
+
+.page-header__description {
+  color: var(--type-muted) !important;
+  font-size: 0.9rem !important;
+}
+
+.brand-university,
+.app-logo-text,
+.logo-text {
+  font-weight: 700 !important;
+  letter-spacing: -0.02em;
+}
+
+.app-container:not(.dark) .content-wrapper,
+.app-container:not(.dark) .ant-card,
+.app-container:not(.dark) .ant-modal-content {
+  color: var(--type-body);
+}
+
+.app-container:not(.dark) .ant-card-head-title,
+.app-container:not(.dark) .ant-modal-title,
+.app-container:not(.dark) .ant-drawer-title {
+  color: var(--type-strong);
+  font-weight: 650;
+  letter-spacing: -0.015em;
+}
+
+/* Preserve readable hierarchy in dark mode. */
+.app-container.dark {
+  --type-strong: #f7f8fa;
+  --type-body: #e4e7ec;
+  --type-muted: #aeb7c5;
+  --type-faint: #909aaa;
+}
+
+@media (max-width: 768px) {
+  body { font-size: 13.5px; }
+  .page-header__title { font-size: 1.4rem !important; }
+  .ant-table { font-size: 0.8125rem; }
+}

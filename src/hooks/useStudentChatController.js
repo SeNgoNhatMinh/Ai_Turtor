@@ -227,6 +227,8 @@ export function useStudentChatController({
           mode: data.mode || 'RAG',
           confidence: data.confidence,
           sources: data.sources || [],
+          sourceEvidence: asArray(data.sourceEvidence),
+          groundingType: data.groundingType || null,
           nextImproveSuggestions: data.nextImproveSuggestions || [],
           questionEscalationId: data.questionEscalationId || data.escalationId || null,
           aiServiceError: isAiServiceError,
@@ -354,7 +356,16 @@ export function useStudentChatController({
         const chatMsgs = await conversationApi.getMessages(responseConversationId, userId);
         const historyPairs = pairMessages(asArray(chatMsgs, 'content', 'messages'));
         if (historyPairs.length > 0) {
-          setMessages(historyPairs);
+          const lastIndex = historyPairs.length - 1;
+          setMessages(historyPairs.map((item, index) => index === lastIndex ? {
+            ...item,
+            mode: data.mode || item.mode,
+            confidence: data.confidence ?? item.confidence,
+            sources: data.sources || item.sources || [],
+            sourceEvidence: data.sourceEvidence || item.sourceEvidence || [],
+            groundingType: data.groundingType || item.groundingType || null,
+            questionEscalationId: data.questionEscalationId || item.questionEscalationId || null,
+          } : item));
           await loadChatSessions();
           return;
         }
@@ -376,6 +387,8 @@ export function useStudentChatController({
         mode: data.mode || 'RAG',
         confidence: data.confidence,
         sources: data.sources || [],
+        sourceEvidence: data.sourceEvidence || [],
+        groundingType: data.groundingType || null,
         nextImproveSuggestions: data.nextImproveSuggestions || [],
         questionEscalationId: data.questionEscalationId || data.escalationId || null,
         clickedSuggestion,

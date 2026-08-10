@@ -51,6 +51,7 @@ function LearningProgress({
   onUnpinSuggestion,
   onStudySuggestion,
   onCreateQuizFromSuggestion,
+  onDeleteSuggestion,
   consumedSuggestionKeys = [],
   nextSteps = [],
   nextStepsLoading = false,
@@ -181,6 +182,7 @@ function LearningProgress({
             onCreateQuiz={onCreateQuizFromSuggestion}
             onPin={onPinSuggestion}
             onUnpin={onUnpinSuggestion}
+            onDelete={onDeleteSuggestion}
             consumedSet={consumedSet}
           />
         </div>

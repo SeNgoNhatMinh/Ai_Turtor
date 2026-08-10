@@ -73,6 +73,8 @@ export const pairMessages = (messages) => {
           confidence: nextMsg.confidence,
           mode: nextMsg.mode || nextMsg.answerMode || 'RAG',
           sources: getMessageSources(nextMsg),
+          sourceEvidence: asArray(nextMsg.sourceEvidence),
+          groundingType: nextMsg.groundingType || null,
           nextImproveSuggestions: asArray(
             nextMsg.nextImproveSuggestions || nextMsg.improveSuggestions || nextMsg.suggestions,
           ),
@@ -96,6 +98,8 @@ export const pairMessages = (messages) => {
         confidence: msg.confidence,
         mode: msg.mode || msg.answerMode || 'RAG',
         sources: getMessageSources(msg),
+        sourceEvidence: asArray(msg.sourceEvidence),
+        groundingType: msg.groundingType || null,
         nextImproveSuggestions: asArray(
           msg.nextImproveSuggestions || msg.improveSuggestions || msg.suggestions,
         ),
@@ -110,6 +114,8 @@ export const pairMessages = (messages) => {
         confidence: msg.confidence,
         mode: msg.mode || msg.answerMode || 'RAG',
         sources: getMessageSources(msg),
+        sourceEvidence: asArray(msg.sourceEvidence),
+        groundingType: msg.groundingType || null,
         nextImproveSuggestions: asArray(
           msg.nextImproveSuggestions || msg.improveSuggestions || msg.suggestions,
         ),
@@ -144,6 +150,10 @@ export const normalizeTeacherInboxItem = (item) => ({
   status: (item.status || 'PENDING').toLowerCase(),
   originalQuestion: item.originalQuestion || item.question || item.questionPreview || '',
   question: item.originalQuestion || item.question || item.questionPreview || '',
+  aiResponse: item.aiResponse || item.aiAnswer || item.answerSnapshot || '',
+  mentorAnswer: item.mentorAnswer || item.teacherAnswer || item.officialAnswer || item.response || item.mentorResponse || '',
+  assignedMentorName: item.assignedMentorName || item.mentorName || item.teacherName || '',
+  resolvedAt: item.resolvedAt || item.answeredAt || item.updatedAt || '',
 });
 
 const normalizeAnswerReviewEvidence = (item) => ({
@@ -382,6 +392,21 @@ export const normalizeSuggestions = (data) => {
   });
 };
 
+const normalizeMemorySuggestions = (values) => asArray(values).flatMap((storedValue) => {
+  const deleteValue = typeof storedValue === 'string'
+    ? storedValue.trim()
+    : JSON.stringify(storedValue);
+
+  if (!deleteValue) return [];
+
+  return normalizeSuggestions(storedValue).map((suggestion) => ({
+    ...suggestion,
+    persistence: 'BACKEND_MEMORY',
+    deleteValue,
+    deletable: suggestion.kind !== 'note',
+  }));
+});
+
 export const normalizeStudentDashboard = (data) => {
   const topics = (key, alt) => {
     const arr = asArray(data, key, alt, 'content');
@@ -389,7 +414,14 @@ export const normalizeStudentDashboard = (data) => {
     return [];
   };
 
-  const memoriesList = asArray(data?.memories || data?.memory);
+  const rawMemories = data?.memories || data?.memory;
+  const memoriesList = Array.isArray(rawMemories)
+    ? rawMemories
+    : rawMemories && typeof rawMemories === 'object'
+      ? [rawMemories]
+      : data?.studentId && data?.courseId
+        ? [data]
+        : [];
   const learnedTopics = memoriesList.flatMap(m => asArray(m?.learnedTopics || m?.strongTopics));
   const weakTopics = memoriesList.flatMap(m => asArray(m?.weakTopics || m?.weakAreas));
 
@@ -404,18 +436,26 @@ export const normalizeStudentDashboard = (data) => {
   const plansList = asArray(data?.improvePlans || data?.plans || data?.improvePlan);
   const planSuggestions = plansList.flatMap((plan) => {
     const embeddedEnvelope = findEmbeddedSuggestionEnvelope(plan.planItems);
-    if (embeddedEnvelope) return normalizeSuggestions(embeddedEnvelope);
+    if (embeddedEnvelope) {
+      return normalizeSuggestions(embeddedEnvelope).map((suggestion) => ({
+        ...suggestion,
+        persistence: 'IMPROVE_PLAN',
+        deletable: false,
+      }));
+    }
     return [{
       priority: String(plan.riskLevel || '').toLowerCase() === 'high' ? 'high' : 'medium',
       title: plan.weakTopics?.length
         ? `Improvement Plan: ${plan.weakTopics.join(', ')}`
         : 'AI Learning Improvement Plan',
       content: asArray(plan.planItems).join('\n') || 'Practice and review focus areas.',
+      persistence: 'IMPROVE_PLAN',
+      deletable: false,
     }];
   });
 
   // Extract from memory suggestions
-  const memorySuggestions = normalizeSuggestions(
+  const memorySuggestions = normalizeMemorySuggestions(
     memoriesList.flatMap((memory) => asArray(memory?.improveSuggestions || memory?.suggestions)),
   );
 

@@ -1,5 +1,9 @@
 export const getSuggestionText = (suggestion) => (
-  suggestion?.title || suggestion?.content || String(suggestion || '')
+  suggestion?.actionText || suggestion?.title || suggestion?.content || String(suggestion || '')
+);
+
+export const canDeleteSuggestion = (suggestion) => (
+  suggestion?.kind !== 'note' && suggestion?.deletable !== false
 );
 
 export const normalizeSuggestionKey = (value) => String(value || '').trim().toLowerCase();

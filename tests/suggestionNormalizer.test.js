@@ -76,4 +76,27 @@ test('unwraps suggestion JSON stored inside improve plan items', () => {
   ]);
   assert.equal(dashboard.suggestions[0].title, 'Ôn lại các chủ đề yếu');
   assert.equal(dashboard.suggestions.some((item) => item.content.includes('"suggestions"')), false);
+  assert.equal(dashboard.suggestions[0].deletable, false);
+});
+
+test('keeps the exact backend memory value needed to delete a normalized suggestion', () => {
+  const dashboard = normalizeStudentDashboard({
+    memories: [{ improveSuggestions: [rawSuggestionPayload] }],
+  });
+
+  assert.equal(dashboard.suggestions[0].title, 'Ôn lại các chủ đề yếu');
+  assert.equal(dashboard.suggestions[0].deleteValue, rawSuggestionPayload);
+  assert.equal(dashboard.suggestions[0].persistence, 'BACKEND_MEMORY');
+  assert.equal(dashboard.suggestions[0].deletable, true);
+});
+
+test('normalizes a direct memory response used when the dashboard request fails', () => {
+  const dashboard = normalizeStudentDashboard({
+    studentId: 'student-1',
+    courseId: 'PRJ301',
+    improveSuggestions: ['Practice servlet lifecycle'],
+  });
+
+  assert.equal(dashboard.suggestions[0].deleteValue, 'Practice servlet lifecycle');
+  assert.equal(dashboard.suggestions[0].persistence, 'BACKEND_MEMORY');
 });

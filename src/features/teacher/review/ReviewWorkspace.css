@@ -12,6 +12,22 @@
   gap: 20px;
 }
 
+.teacher-support-toolbar {
+  display: flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.teacher-support-search { width: min(390px, 32vw); }
+
+@media (max-width: 1100px) {
+  .teacher-support-workspace__heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
 .teacher-support-workspace__heading h2,
 .knowledge-review-section h2 {
   margin: 3px 0 5px;

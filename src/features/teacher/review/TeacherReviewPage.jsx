@@ -29,7 +29,7 @@ export default function TeacherReviewPage({
   const [candidateType, setCandidateType] = useState('ACADEMIC_KNOWLEDGE');
 
   useEffect(() => {
-    review.loadTeacherInbox();
+    review.loadTeacherInbox({ courseId });
     review.loadAnswerReviews();
     review.loadResolvedAnswerReviews?.();
     // Review resources are fetched only while this route is mounted.
@@ -84,7 +84,8 @@ export default function TeacherReviewPage({
                 escalations={review.escalations}
                 selectedEscalation={review.selectedEscalation}
                 onSelectEscalation={review.setSelectedEscalation}
-                onRefresh={review.loadTeacherInbox}
+                  onRefresh={() => review.loadTeacherInbox({})}
+                  onSearch={(q) => review.loadTeacherInbox({ q })}
                 reply={reply}
                 onReplyChange={setReply}
                 onSubmitAnswer={handleAnswerEscalation}

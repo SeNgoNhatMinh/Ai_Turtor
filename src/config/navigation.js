@@ -12,10 +12,21 @@ import {
   Library,
   MessageCircle,
   BrainCircuit,
+  FileText,
+  House,
+  RefreshCw,
 } from 'lucide-react';
 import { ACCOUNT_ROLES, getWorkspaceRole, normalizeAccountRole } from '../constants/roles';
 
 const navigationItems = [
+  {
+    key: 'student-dashboard',
+    workspace: 'student',
+    group: 'Học tập',
+    label: 'Tổng quan',
+    description: 'Xem nhanh các môn đang học, lớp tham gia và lối tắt học tập.',
+    icon: House,
+  },
   {
     key: 'student-chat',
     workspace: 'student',
@@ -115,7 +126,7 @@ const navigationItems = [
     workspace: 'senior',
     allowedAccountRoles: [ACCOUNT_ROLES.SENIOR_MENTOR],
     group: 'Kiểm duyệt chuyên môn',
-    label: 'Expert Co-Training V2',
+    label: 'Quản trị tri thức AI',
     description: 'Xác nhận độ phủ, kiểm duyệt tri thức và chạy Evaluation.',
     icon: BrainCircuit,
   },
@@ -124,7 +135,7 @@ const navigationItems = [
     workspace: 'senior',
     allowedAccountRoles: [ACCOUNT_ROLES.SENIOR_MENTOR],
     group: 'Kiểm duyệt chuyên môn',
-    label: 'Kiểm duyệt phản hồi & tri thức',
+    label: 'Trung tâm kiểm duyệt',
     description: 'Xử lý phản hồi nghiêm trọng và Knowledge Candidate, không can thiệp chat lớp.',
     icon: Inbox,
   },
@@ -153,13 +164,13 @@ const navigationItems = [
     icon: Library,
   },
   {
-    key: 'admin-expert-training',
+    key: 'admin-reindex',
     workspace: 'admin',
     allowedAccountRoles: [ACCOUNT_ROLES.ADMIN],
     group: 'Giám sát AI',
-    label: 'Giám sát Tutor V2',
-    description: 'Audit độ phủ, kiểm duyệt và hoạt động đánh giá Tutor V2 toàn hệ thống.',
-    icon: BrainCircuit,
+    label: 'Reindex tài liệu',
+    description: 'Tạo lại chỉ mục chữ và hình ảnh cho toàn bộ học liệu trong hệ thống.',
+    icon: RefreshCw,
   },
   {
     key: 'admin-review',
@@ -169,13 +180,26 @@ const navigationItems = [
     description: 'Theo dõi hàng chờ phản hồi và can thiệp quản trị khi quy trình bị tồn đọng.',
     icon: Inbox,
   },
+  {
+    key: 'admin-ai-logs',
+    workspace: 'admin',
+    group: 'Giám sát AI',
+    label: 'Nhật ký hỏi đáp AI',
+    description: 'Theo dõi câu hỏi, câu trả lời, tiến trình và token ước tính.',
+    icon: FileText,
+  },
 ];
 
 export const getNavigationForRole = (role) => {
   const accountRole = normalizeAccountRole(role);
   const workspace = getWorkspaceRole(accountRole);
-  return navigationItems.filter((item) => (
+  const items = navigationItems.filter((item) => (
     item.workspace === workspace
     && (!item.allowedAccountRoles || item.allowedAccountRoles.includes(accountRole))
   ));
+  if (workspace === 'senior') {
+    const order = { 'senior-review': 0, 'senior-v2': 1 };
+    return items.sort((left, right) => (order[left.key] ?? 99) - (order[right.key] ?? 99));
+  }
+  return items;
 };

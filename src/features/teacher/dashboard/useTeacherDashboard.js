@@ -45,8 +45,27 @@ const mapStudent = (student) => ({
 const belongsToScope = (record, courseId, classId) => {
   const recordCourseId = String(record?.courseId || record?.courseCode || '').trim();
   const courseMatches = !courseId || recordCourseId.toUpperCase() === String(courseId).trim().toUpperCase();
-  const classMatches = !classId || classIdMatches(record?.classId || record?.classCode, classId);
+  const classMatches = !classId || classIdMatches(getClassCodeValue(record), classId);
   return courseMatches && classMatches;
+};
+
+const attachStudentCounts = (sections, students) => {
+  const hasScopedStudents = students.some((student) => (
+    student?.classId || student?.classCode || student?.classSectionId || student?.classSectionCode
+  ));
+
+  return sections.map((section) => {
+    const mapped = mapClassSection(section, '');
+    if (!hasScopedStudents) return mapped;
+    const count = students.filter((student) => (
+      belongsToScope(student, mapped.courseId, mapped.classCode || mapped.classId)
+    )).length;
+    return {
+      ...mapped,
+      studentCount: count,
+      details: `${count} sinh viên`,
+    };
+  });
 };
 
 export function useTeacherDashboard({ teacherId, courseId, classId }) {
@@ -75,7 +94,7 @@ export function useTeacherDashboard({ teacherId, courseId, classId }) {
         const fallback = await teacherApi.getClassSections(teacherId);
         assignedClasses = asArray(fallback, 'content', 'classSections', 'classes');
       }
-      setClassesList(assignedClasses.map((section) => mapClassSection(section, '')));
+      setClassesList(attachStudentCounts(assignedClasses, normalized.students));
 
       const scopedStudents = normalized.students.filter((student) => belongsToScope(student, courseId, classId));
       if (scopedStudents.length || (!courseId && !classId)) {
@@ -83,7 +102,16 @@ export function useTeacherDashboard({ teacherId, courseId, classId }) {
       } else if (courseId && classId && assignedClasses.some((section) => belongsToScope(section, courseId, classId))) {
         try {
           const studentsData = await teacherApi.getClassStudents(courseId, classId, teacherId);
-          setTeacherStudents(asArray(studentsData, 'students', 'content').map(mapStudent));
+          const classStudents = asArray(studentsData, 'students', 'content').map(mapStudent);
+          setTeacherStudents(classStudents);
+          setClassesList((current) => current.map((item) => {
+            if (!belongsToScope(item, courseId, classId)) return item;
+            return {
+              ...item,
+              studentCount: classStudents.length,
+              details: `${classStudents.length} sinh viên`,
+            };
+          }));
         } catch {
           setTeacherStudents([]);
         }

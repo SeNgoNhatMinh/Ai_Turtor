@@ -1,5 +1,21 @@
 .teacher-review-feature-page {
   overflow: hidden;
+  gap: 14px;
+}
+
+.teacher-review-feature-page > .page-header {
+  min-height: 0;
+  padding: 18px 22px;
+  border-color: rgba(102, 83, 199, 0.2);
+  background: linear-gradient(120deg, #ffffff 0%, #f4f1ff 72%, #ebe7ff 100%);
+}
+
+.teacher-review-feature-page > .page-header .page-title.ant-typography {
+  font-size: clamp(1.45rem, 1.8vw, 1.8rem);
+}
+
+.teacher-review-feature-page > .page-header .page-subtitle {
+  max-width: 90ch;
 }
 
 .teacher-review-tabs {
@@ -11,7 +27,30 @@
 
 .teacher-review-tabs > .ant-tabs-nav {
   flex: 0 0 auto;
+  margin: 0;
+  padding: 4px;
+  border: 1px solid #e3def7;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.72);
 }
+
+.teacher-review-tabs > .ant-tabs-nav::before { display: none; }
+.teacher-review-tabs > .ant-tabs-nav .ant-tabs-nav-list { width: 100%; }
+.teacher-review-tabs > .ant-tabs-nav .ant-tabs-tab {
+  display: flex;
+  flex: 1 1 0;
+  justify-content: center;
+  margin: 0 !important;
+  padding: 9px 14px;
+  border-radius: 10px;
+  color: #665d78;
+  font-weight: 750;
+}
+.teacher-review-tabs > .ant-tabs-nav .ant-tabs-tab-active {
+  background: #ffffff;
+  box-shadow: 0 5px 16px rgba(57, 43, 131, 0.09);
+}
+.teacher-review-tabs > .ant-tabs-nav .ant-tabs-ink-bar { display: none; }
 
 .teacher-review-tabs > .ant-tabs-content-holder {
   flex: 1 1 auto;

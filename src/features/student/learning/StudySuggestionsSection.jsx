@@ -5,9 +5,10 @@ import {
   ThunderboltOutlined,
 } from '@ant-design/icons';
 import { useState } from 'react';
-import { Alert, Button, Card, Empty, Skeleton, Space, Tag, Tooltip, Typography } from 'antd';
+import { Alert, Button, Card, Empty, Skeleton, Space, Tag, Tooltip, Typography, Popconfirm } from 'antd';
 import SuggestionDetailModal from './SuggestionDetailModal';
 import {
+  canDeleteSuggestion,
   formatStudySuggestion,
   getSuggestionText,
   isLongStudySuggestion,
@@ -26,6 +27,7 @@ function StudySuggestionsSection({
   onCreateQuiz,
   onPin,
   onUnpin,
+  onDelete,
   consumedSet = new Set(),
 }) {
   const [detailSuggestion, setDetailSuggestion] = useState(null);
@@ -150,6 +152,19 @@ function StudySuggestionsSection({
                     >
                       {isPinned ? 'Bỏ ghim' : 'Ghim'}
                     </Button>
+                    {onDelete && canDeleteSuggestion(suggestion) && (
+                      <Popconfirm
+                        title="Xóa gợi ý khỏi bộ nhớ?"
+                        description="Gợi ý sẽ bị xóa khỏi bộ nhớ học tập của bạn và không xuất hiện trong danh sách ghim."
+                        onConfirm={() => onDelete?.(suggestion)}
+                        okText="Xóa"
+                        cancelText="Hủy"
+                      >
+                        <Button size="small" danger>
+                          Xóa
+                        </Button>
+                      </Popconfirm>
+                    )}
                   </Space>
                 </div>
               );

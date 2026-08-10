@@ -40,6 +40,8 @@
   margin-top: 18px;
 }
 
+.expert-training-page--reviewer .expert-training__tabs>.ant-tabs-nav{padding:5px;border:1px solid #eadde5;border-radius:16px;background:rgba(255,255,255,.78)}.expert-training-page--reviewer .expert-training__tabs>.ant-tabs-nav:before{display:none}.expert-training-page--reviewer .expert-training__tabs .ant-tabs-nav-list{width:100%}.expert-training-page--reviewer .expert-training__tabs .ant-tabs-tab{flex:1 1 0;justify-content:center;margin:0!important;padding:8px 12px;border-radius:12px}.expert-training-page--reviewer .expert-training__tabs .ant-tabs-tab-active{background:#fff;box-shadow:0 7px 20px rgba(93,28,61,.08)}.expert-training-page--reviewer .expert-training__tabs .ant-tabs-ink-bar{display:none}.senior-workflow-tab{display:grid;grid-template-columns:auto 1fr;align-items:center;gap:9px;min-width:170px;text-align:left}.senior-workflow-tab>b{display:grid;place-items:center;width:30px;height:30px;border-radius:9px;background:#f6eaf0;color:#9d3264;font-size:.7rem}.senior-workflow-tab>span,.senior-workflow-tab small{display:block}.senior-workflow-tab>span{color:#3c2732;font-weight:800;font-size:.79rem}.senior-workflow-tab small{margin-top:2px;color:#8a7480;font-size:.62rem;font-weight:500}.ant-tabs-tab-active .senior-workflow-tab>b{background:#b33c72;color:#fff}@media(max-width:900px){.senior-workflow-tab small{display:none}.senior-workflow-tab{min-width:0}.expert-training-page--reviewer .expert-training__tabs .ant-tabs-tab{padding:8px}}
+
 .expert-training__tabs .ant-tabs-content-holder,
 .expert-training__tabs .ant-tabs-content,
 .expert-training__tabs .ant-tabs-tabpane {

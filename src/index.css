@@ -26,3 +26,4 @@
 @import "./styles/application-responsive.css";
 @import "./styles/antd-overrides.css";
 @import "./styles/accessibility.css";
+@import "/src/styles/typography.css";

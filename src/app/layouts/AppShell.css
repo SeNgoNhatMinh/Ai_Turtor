@@ -184,6 +184,53 @@
     padding: 8px 0;
 }
 
+.sidebar-learning-card {
+    flex: 0 0 auto;
+    margin-top: 18px;
+    padding: 15px;
+    border: 1px solid rgba(255, 255, 255, 0.13);
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.08);
+    color: #FFFFFF;
+    box-shadow: 0 14px 30px rgba(0, 16, 42, 0.18);
+}
+
+.sidebar-learning-card__icon {
+    display: grid;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    margin-bottom: 12px;
+    border-radius: 11px;
+    background: rgba(255, 255, 255, 0.14);
+    color: #9FD5FF;
+}
+
+.sidebar-learning-card__content small,
+.sidebar-learning-card__content strong,
+.sidebar-learning-card__content span { display: block; }
+.sidebar-learning-card__content small { color: #AEC8E8; font-size: 0.7rem; font-weight: 750; text-transform: uppercase; letter-spacing: 0.04em; }
+.sidebar-learning-card__content strong { overflow: hidden; margin-top: 5px; color: #FFFFFF; font-size: 1rem; text-overflow: ellipsis; white-space: nowrap; }
+.sidebar-learning-card__content span { overflow: hidden; margin-top: 3px; color: #C7D9EE; font-size: 0.78rem; text-overflow: ellipsis; white-space: nowrap; }
+.sidebar-learning-card button {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 7px;
+    width: 100%;
+    margin-top: 14px;
+    padding: 10px 11px;
+    border: 0;
+    border-radius: 10px;
+    background: #FF7A1A;
+    color: #FFFFFF;
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 800;
+    cursor: pointer;
+}
+.main-sidebar--collapsed .sidebar-learning-card { display: none; }
+
 .main-sidebar--collapsed .sidebar-menu-wrap {
     padding: 8px 0;
 }
