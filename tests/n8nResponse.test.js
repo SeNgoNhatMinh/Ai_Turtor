@@ -57,6 +57,21 @@ test('normalizes escalation response and keeps fallback conversation', () => {
   assert.equal(result.conversationId, 'conversation-1');
 });
 
+test('unwraps a JSON-stringified n8n body so the answer remains visible', () => {
+  const result = normalizeHarnessChatResponse({
+    body: JSON.stringify({
+      success: true,
+      mode: 'RAG_TUTOR',
+      answer: 'Visible answer from an imported workflow',
+      sourceEvidence: [{ materialId: 'material-1', pageStart: 12 }],
+    }),
+  });
+
+  assert.equal(result.answer, 'Visible answer from an imported workflow');
+  assert.equal(result.mode, 'RAG');
+  assert.equal(result.sourceEvidence.length, 1);
+});
+
 test('rejects malformed or failed harness envelopes', () => {
   assert.throws(
     () => normalizeHarnessChatResponse(null),

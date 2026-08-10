@@ -2610,7 +2610,6 @@ Copy template này lên đầu phần `History` sau mỗi lần cập nhật:
 - Replaced metadata chips with compact time and question-count text, tightened group spacing, and simplified active/hover states.
 - Kept the application navigation state consistent across all Student tabs: entering AI Tutor Chat no longer collapses the navigation automatically.
 - Restored the complete application header and standard sidebar transitions after UI review.
-
 # 2026-08-10 - Keyboard Shortcut Markdown Wrapping
 
 - Prevented short keyboard shortcuts such as `Ctrl + Alt + S` from wrapping across multiple lines inside AI answers.

@@ -63,6 +63,19 @@ describe('n8n HTTP client education contract', () => {
     });
   });
 
+  it('parses responses that older n8n versions JSON-stringify twice', async () => {
+    fetch.mockResolvedValue(new Response(JSON.stringify(JSON.stringify({
+      success: true,
+      mode: 'RAG_TUTOR',
+      answer: 'Answer survives the imported workflow response',
+    })), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+
+    await expect(postN8n('/student-chat', {})).resolves.toMatchObject({
+      success: true,
+      answer: 'Answer survives the imported workflow response',
+    });
+  });
+
   it('keeps Tutor V2 JWT in the Authorization header instead of the request body', async () => {
     fetch.mockResolvedValue(new Response(JSON.stringify({ gaps: [] }), {
       status: 200,

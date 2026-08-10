@@ -62,4 +62,3 @@ Search Review Queue cần hỗ trợ tối thiểu: câu hỏi, câu trả lời
 - Admin Academic có table body giới hạn chiều cao và sticky header.
 - Admin Review Queue có phân trang riêng cho feedback, Knowledge Candidate và history.
 - FE không giả lập server pagination và không báo thành công giả.
-

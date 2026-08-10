@@ -31,6 +31,20 @@ function n8nUrl(path) {
   return `${N8N_BASE_URL}${prefix}${path}`;
 }
 
+function parseNestedJson(value, maxDepth = 3) {
+  let current = value;
+  for (let depth = 0; depth < maxDepth && typeof current === 'string'; depth += 1) {
+    const text = current.trim();
+    if (!text || (!text.startsWith('{') && !text.startsWith('[') && !text.startsWith('"'))) break;
+    try {
+      current = JSON.parse(text);
+    } catch {
+      break;
+    }
+  }
+  return current;
+}
+
 export async function postN8n(path, body, {
   signal,
   timeoutMs = N8N_TIMEOUT_MS,
@@ -91,7 +105,7 @@ export async function postN8n(path, body, {
   let parsed = null;
   if (responseText) {
     try {
-      parsed = JSON.parse(responseText);
+      parsed = parseNestedJson(JSON.parse(responseText));
     } catch (error) {
       if (res.ok) {
         throw createN8nError('Luồng AI trả về dữ liệu không hợp lệ.', {
@@ -128,6 +142,15 @@ export async function postN8n(path, body, {
         ? { ...item, traceId: item.traceId || envelope.traceId }
         : item
     ));
+  }
+
+
+  if (typeof parsed !== 'object') {
+    throw createN8nError('Luồng AI trả về dữ liệu không hợp lệ.', {
+      code: 'N8N_INVALID_RESPONSE_SHAPE',
+      traceId: envelope.traceId,
+      rawMessage: responseText,
+    });
   }
 
   return { ...parsed, traceId: parsed.traceId || envelope.traceId };

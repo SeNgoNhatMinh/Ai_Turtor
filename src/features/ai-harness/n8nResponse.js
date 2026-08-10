@@ -15,10 +15,24 @@ const asArray = (value) => {
   return [];
 };
 
+const parseJsonObject = (value) => {
+  if (typeof value !== 'string') return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+};
+
 const unwrapResponse = (response) => {
-  const root = Array.isArray(response) ? response[0] : response;
-  if (root?.data && typeof root.data === 'object' && !Array.isArray(root.data)) {
-    return { ...root, ...root.data };
+  let root = parseJsonObject(Array.isArray(response) ? response[0] : response);
+  let cursor = root;
+  for (let depth = 0; depth < 4 && cursor && typeof cursor === 'object'; depth += 1) {
+    const nested = cursor.data ?? cursor.body ?? cursor.json ?? cursor.output;
+    const parsedNested = parseJsonObject(nested);
+    if (!parsedNested || typeof parsedNested !== 'object' || Array.isArray(parsedNested)) break;
+    root = { ...root, ...parsedNested };
+    cursor = parsedNested;
   }
   return root;
 };
