@@ -49,7 +49,6 @@ function StudentChatView({
   triggerToast,
   courseMaterials,
   mentorRequests,
-  onAnalyzeStudyTip,
   onStudySuggestion,
   onCreateQuizFromSuggestion,
   onDownloadSource,
@@ -140,7 +139,6 @@ function StudentChatView({
             triggerToast={triggerToast}
             courseMaterials={courseMaterials}
             mentorRequests={mentorRequests}
-            onAnalyzeStudyTip={onAnalyzeStudyTip}
             onStudySuggestion={onStudySuggestion}
             onCreateQuizFromSuggestion={onCreateQuizFromSuggestion}
             onDownloadSource={onDownloadSource}

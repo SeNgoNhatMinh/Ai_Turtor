@@ -94,7 +94,11 @@ export default function StudentChatPage({
     pendingStudyHandoffRef.current = null;
     clearStudyChatHandoff();
     if (handoff.response?.conversationId || handoff.response?.answer) {
-      chat.openLearnedSuggestionResponse(handoff.response, handoff.suggestionText);
+      chat.openLearnedSuggestionResponse(
+        handoff.response,
+        handoff.suggestionText,
+        handoff.prompt,
+      );
       return;
     }
     if (handoff.prompt) chatController.sendText(handoff.prompt);
@@ -157,7 +161,6 @@ export default function StudentChatPage({
       triggerToast={triggerToast}
       courseMaterials={materials.courseMaterials}
       mentorRequests={mentorRequests.mentorRequests}
-      onAnalyzeStudyTip={learning.refreshSuggestions}
       onStudySuggestion={learningActions.handleStudySuggestion}
       onCreateQuizFromSuggestion={learningActions.handleCreateQuizFromSuggestion}
       onDownloadSource={chatController.handleDownloadSource}

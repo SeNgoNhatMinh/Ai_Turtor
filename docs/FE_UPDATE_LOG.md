@@ -1,5 +1,12 @@
 # Frontend Update Log
 
+## 2026-08-13 - Click-To-Learn Chat Message
+
+- Made every clicked study suggestion appear as a real student message in AI Tutor Chat before the AI response.
+- Matched the backend learning prompt so the bubble explains the selected Improve Plan topic and requests a step-by-step explanation, a small example, and a self-check.
+- Preserved the same visible message when navigating from Learning Progress to Chat and when conversation history is briefly unavailable.
+- Avoided a second AI request: FE continues to call the canonical `suggestions/learn` endpoint once and renders its saved response.
+
 ## 2026-08-12 - AI Markdown Response Envelope
 
 - Confirmed the shared renderer already supports GFM, task lists, tables, KaTeX, responsive images, secure links, highlighted code, copy actions, streaming state, dark mode, and render-error fallback.
@@ -2680,3 +2687,9 @@ Copy template này lên đầu phần `History` sau mỗi lần cập nhật:
 - Fixed the Markdown list normalizer interpreting `+` inside inline code such as `Ctrl + Alt + S` as new bullet markers.
 - Inline code is now protected before list/table/heading repair and restored unchanged afterward.
 - Confirmed the backend and MongoDB already store the affected shortcut correctly on one line; this was a frontend preprocessing bug.
+# 2026-08-13 - Continue Learning From AI Study Tips
+
+- Clicking an item under `Lưu ý để học tốt hơn` now sends that exact item into the course-scoped AI Tutor learning flow.
+- The existing `learnSuggestion` backend API remains the primary path; when it does not return an answer, FE submits a contextual learning prompt in the current chat.
+- Removed the previous detour that only analyzed the selected tip and navigated to Learning Progress.
+- Added a renderer interaction test to ensure the selected tip text is preserved exactly.

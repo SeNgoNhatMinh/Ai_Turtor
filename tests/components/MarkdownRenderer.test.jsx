@@ -1,5 +1,5 @@
-import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
 import MarkdownRenderer from '../../src/components/markdown/MarkdownRenderer';
 
 describe('MarkdownRenderer Vietnamese text', () => {
@@ -33,5 +33,18 @@ describe('MarkdownRenderer Vietnamese text', () => {
     expect(shortcut).toHaveClass('ai-answer-inline-code--shortcut');
     expect(screen.queryByText('Alt')).not.toBeInTheDocument();
     expect(screen.queryByText('S')).not.toBeInTheDocument();
+  });
+
+  it('sends the exact selected study tip into the continue-learning flow', () => {
+    const onStudyTipStudy = vi.fn();
+    render(
+      <MarkdownRenderer
+        markdown={'## Lưu ý để học tốt hơn\n\n- Ôn lại vòng đời Servlet'}
+        onStudyTipStudy={onStudyTipStudy}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Ôn lại vòng đời Servlet' }));
+    expect(onStudyTipStudy).toHaveBeenCalledWith('Ôn lại vòng đời Servlet');
   });
 });

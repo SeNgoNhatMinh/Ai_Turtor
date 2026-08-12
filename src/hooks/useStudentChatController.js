@@ -16,6 +16,7 @@ import {
   findCanonicalExchange,
   resolveCanonicalConversation,
 } from '../features/student/chat/conversations/sessionUtils';
+import { buildStudySuggestionPrompt } from '../features/student/learning/studySuggestionPrompt';
 
 const getSafeConversationTitle = (value, courseId) => {
   const repairedTitle = repairMojibake(value).trim();
@@ -375,7 +376,11 @@ export function useStudentChatController({
     });
   };
 
-  const openLearnedSuggestionResponse = async (data = {}, fallbackSuggestionText = '') => {
+  const openLearnedSuggestionResponse = async (
+    data = {},
+    fallbackSuggestionText = '',
+    requestedQuestion = '',
+  ) => {
     const userId = getStudentUserId();
     if (!userId) {
       triggerToast('Vui lòng đăng nhập trước khi mở gợi ý học tập.');
@@ -388,9 +393,12 @@ export function useStudentChatController({
       courseId,
     );
     const clickedSuggestion = String(data.clickedSuggestion || fallbackSuggestionText || '').trim();
-    const fallbackQuestion = clickedSuggestion
-      ? `Gợi ý học tập: ${clickedSuggestion}`
-      : 'Hãy hướng dẫn tôi học nội dung này từng bước.';
+    const fallbackQuestion = String(
+      requestedQuestion
+      || data.question
+      || buildStudySuggestionPrompt(clickedSuggestion)
+      || 'Hãy hướng dẫn em học nội dung này từng bước.',
+    ).trim();
     const answerText = String(data.answer || '').trim();
     const isAiServiceError = isAiServiceErrorText(answerText);
 
@@ -413,9 +421,10 @@ export function useStudentChatController({
       try {
         const chatMsgs = await conversationApi.getMessages(responseConversationId, userId);
         const historyPairs = pairMessages(asArray(chatMsgs, 'content', 'messages'));
-        if (historyPairs.length > 0) {
-          const lastIndex = historyPairs.length - 1;
-          setMessages(historyPairs.map((item, index) => index === lastIndex ? {
+        const learnedExchange = findCanonicalExchange(historyPairs, fallbackQuestion);
+        if (learnedExchange) {
+          const learnedExchangeIndex = historyPairs.indexOf(learnedExchange);
+          setMessages(historyPairs.map((item, index) => index === learnedExchangeIndex ? {
             ...item,
             mode: data.mode || item.mode,
             confidence: data.confidence ?? item.confidence,
@@ -432,8 +441,7 @@ export function useStudentChatController({
       }
     }
 
-    setMessages([
-      {
+    const learnedExchange = {
         question: fallbackQuestion,
         answer: isAiServiceError ? AI_SERVICE_ERROR_MESSAGE : answerText,
         rawAnswer: answerText,
@@ -454,8 +462,25 @@ export function useStudentChatController({
         aiServiceError: isAiServiceError,
         retryable: isAiServiceError,
         pending: false,
-      },
-    ]);
+      };
+    setMessages((currentMessages) => {
+      const isCurrentConversation = Boolean(responseConversationId)
+        && responseConversationId === activeSessionId;
+      const messagesForConversation = isCurrentConversation ? currentMessages : [];
+      const alreadyVisible = messagesForConversation.some((item) => (
+        (
+          Boolean(learnedExchange.userMessageId)
+          && item?.userMessageId === learnedExchange.userMessageId
+        )
+        || (
+          String(item?.question || '').trim() === fallbackQuestion
+          && String(item?.answer || '').trim() === answerText
+        )
+      ));
+      return alreadyVisible
+        ? messagesForConversation
+        : [...messagesForConversation, learnedExchange];
+    });
     await loadChatSessions();
   };
 

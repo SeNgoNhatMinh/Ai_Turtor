@@ -100,18 +100,18 @@ function CodeRenderer({ inline, className = '', children, ...props }) {
   );
 }
 
-function LinkRenderer({ href, children, onStudyTipAnalyze, ...props }) {
+function LinkRenderer({ href, children, onStudyTipStudy, ...props }) {
   if (String(href || '').startsWith('#ai-study-tip-')) {
     const text = getNodeText(children).trim();
-    if (!onStudyTipAnalyze) {
+    if (!onStudyTipStudy) {
       return <span className="ai-answer-study-tip ai-answer-study-tip--disabled">{children}</span>;
     }
     return (
       <button
         type="button"
         className="ai-answer-study-tip"
-        onClick={() => onStudyTipAnalyze(text)}
-        title="Analyze this study suggestion"
+        onClick={() => onStudyTipStudy(text)}
+        title="Học tiếp nội dung này với AI Tutor"
       >
         {children}
       </button>
@@ -138,7 +138,7 @@ function LinkRenderer({ href, children, onStudyTipAnalyze, ...props }) {
   );
 }
 
-function createMarkdownComponents({ sourceMap, onStudyTipAnalyze, onDownloadSource }) {
+function createMarkdownComponents({ sourceMap, onStudyTipStudy, onDownloadSource }) {
   return {
     h1: (props) => <HeadingRenderer Tag="h2" {...props} />,
     h2: (props) => <HeadingRenderer Tag="h3" {...props} />,
@@ -170,7 +170,7 @@ function createMarkdownComponents({ sourceMap, onStudyTipAnalyze, onDownloadSour
         {children}
       </blockquote>
     ),
-    a: (props) => <LinkRenderer {...props} onStudyTipAnalyze={onStudyTipAnalyze} />,
+    a: (props) => <LinkRenderer {...props} onStudyTipStudy={onStudyTipStudy} />,
     input: ({ checked, ...props }) => (
       <input {...props} checked={checked} className="ai-answer-task-checkbox" readOnly />
     ),
@@ -178,14 +178,14 @@ function createMarkdownComponents({ sourceMap, onStudyTipAnalyze, onDownloadSour
   };
 }
 
-function MarkdownRenderer({ markdown, streaming = false, sourceMap = {}, onStudyTipAnalyze, onDownloadSource, hideSourceSection = false }) {
+function MarkdownRenderer({ markdown, streaming = false, sourceMap = {}, onStudyTipStudy, onDownloadSource, hideSourceSection = false }) {
   const content = useMemo(() => {
     const normalized = normalizeAiMarkdown(markdown);
     return hideSourceSection ? stripSourceSection(normalized) : normalized;
   }, [markdown, hideSourceSection]);
   const components = useMemo(
-    () => createMarkdownComponents({ sourceMap, onStudyTipAnalyze, onDownloadSource }),
-    [sourceMap, onStudyTipAnalyze, onDownloadSource],
+    () => createMarkdownComponents({ sourceMap, onStudyTipStudy, onDownloadSource }),
+    [sourceMap, onStudyTipStudy, onDownloadSource],
   );
   const hasMath = useMemo(() => containsMath(content), [content]);
 

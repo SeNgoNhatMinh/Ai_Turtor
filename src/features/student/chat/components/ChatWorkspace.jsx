@@ -48,7 +48,6 @@ function ChatWorkspace({
   triggerToast,
   courseMaterials = [],
   mentorRequests = [],
-  onAnalyzeStudyTip,
   onStudySuggestion,
   onCreateQuizFromSuggestion,
   onDownloadSource,
@@ -187,7 +186,6 @@ function ChatWorkspace({
         mentorRequests={mentorRequests}
         messages={safeMessages}
         messagesEndRef={messagesEndRef}
-        onAnalyzeStudyTip={onAnalyzeStudyTip}
         onAnswerAction={onAnswerAction}
         onCreateQuizFromSuggestion={onCreateQuizFromSuggestion}
         onDownloadSource={onDownloadSource}

@@ -41,7 +41,6 @@ function ChatMessageList({
   mentorRequests = [],
   messages,
   messagesEndRef,
-  onAnalyzeStudyTip,
   onAnswerAction,
   onCreateQuizFromSuggestion,
   onDownloadSource,
@@ -139,7 +138,7 @@ function ChatMessageList({
                           <AiAnswer
                             markdown={withoutLegacyEvidenceAppendix(message.answer, evidenceMessage)}
                             sourceMap={materialSourceMap}
-                            onStudyTipAnalyze={onAnalyzeStudyTip}
+                            onStudyTipStudy={onStudySuggestion}
                             onDownloadSource={onDownloadSource}
                             hideSourceSection
                           />

@@ -3,6 +3,7 @@ import { getUserFacingError } from '../../../services/apiClient';
 import { studentLearningApi } from '../../../services/studentLearningApi';
 import { useMutationLock } from '../../../hooks/useMutationLock';
 import { writeQuizTopicHandoff, writeStudyChatHandoff } from '../studentRouteHandoff';
+import { buildStudySuggestionPrompt } from './studySuggestionPrompt';
 
 export function useStudentLearningActions({
   activeTab,
@@ -56,7 +57,7 @@ export function useStudentLearningActions({
     if (!text) return;
 
     return runLocked(`suggestion:study:${text.toLowerCase()}`, async () => {
-      const prompt = `Hãy hướng dẫn tôi học từng bước dựa trên tài liệu môn học về chủ đề: ${text}`;
+      const prompt = buildStudySuggestionPrompt(text);
       try {
         triggerToast?.('Đang chuẩn bị hướng dẫn học tập...');
         const response = await studentLearningApi.learnSuggestion(userId, courseId, {
@@ -67,7 +68,7 @@ export function useStudentLearningActions({
         });
         markSuggestionConsumed(text);
         if (activeTab === 'student-chat' && (response?.conversationId || response?.answer)) {
-          await openLearnedSuggestionResponse?.(response, text);
+          await openLearnedSuggestionResponse?.(response, text, prompt);
           triggerToast?.('AI Tutor đã mở hướng dẫn cho gợi ý này.');
         } else if (activeTab === 'student-chat') {
           sendText?.(prompt);

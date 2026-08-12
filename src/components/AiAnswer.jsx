@@ -1,13 +1,13 @@
 import { memo } from 'react';
 import MarkdownRenderer from './markdown/MarkdownRenderer';
 
-function AiAnswer({ markdown, streaming = false, sourceMap = {}, onStudyTipAnalyze, onDownloadSource, hideSourceSection = false }) {
+function AiAnswer({ markdown, streaming = false, sourceMap = {}, onStudyTipStudy, onDownloadSource, hideSourceSection = false }) {
   return (
     <MarkdownRenderer
       markdown={markdown}
       streaming={streaming}
       sourceMap={sourceMap}
-      onStudyTipAnalyze={onStudyTipAnalyze}
+      onStudyTipStudy={onStudyTipStudy}
       onDownloadSource={onDownloadSource}
       hideSourceSection={hideSourceSection}
     />
