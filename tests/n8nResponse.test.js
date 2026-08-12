@@ -71,6 +71,19 @@ test('unwraps a JSON-stringified n8n body so the answer remains visible', () => 
   assert.equal(result.mode, 'RAG');
   assert.equal(result.sourceEvidence.length, 1);
 });
+test('uses the dedicated Markdown content field from the backend envelope', () => {
+  const result = normalizeHarnessChatResponse({
+    success: true,
+    message: 'Request completed',
+    content: '## Kết quả\n\n- **Coverage:** 85%\n- Exception: cần bổ sung',
+    mode: 'RAG_TUTOR',
+  });
+
+  assert.equal(
+    result.answer,
+    '## Kết quả\n\n- **Coverage:** 85%\n- Exception: cần bổ sung',
+  );
+});
 
 test('rejects malformed or failed harness envelopes', () => {
   assert.throws(
@@ -83,6 +96,25 @@ test('rejects malformed or failed harness envelopes', () => {
       error.name === 'N8nError'
       && error.code === 'N8N_CHAT_FLOW_FAILED'
       && error.rawMessage === 'Node failed'
+    ),
+  );
+});
+
+test('shows the per-course daily quota message returned by the student chat flow', () => {
+  assert.throws(
+    () => normalizeHarnessChatResponse({
+      success: false,
+      status: 'QUOTA_EXCEEDED',
+      code: 'DAILY_COURSE_QUESTION_LIMIT_REACHED',
+      message: 'Bạn đã dùng hết 10 câu hỏi của môn PRJ301 hôm nay.',
+      courseId: 'PRJ301',
+      dailyLimit: 10,
+      remaining: 0,
+    }),
+    (error) => (
+      error.code === 'DAILY_COURSE_QUESTION_LIMIT_REACHED'
+      && error.userMessage === 'Bạn đã dùng hết 10 câu hỏi của môn PRJ301 hôm nay.'
+      && error.details.response.courseId === 'PRJ301'
     ),
   );
 });

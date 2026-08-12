@@ -1,17 +1,30 @@
 import { API_BASE_URL, API_TIMEOUTS, request } from './apiClient';
+import { getAiMarkdownContent } from '../utils/aiResponseContent.js';
+
+const normalizeAiQueryResponse = (response) => {
+  if (!response || typeof response !== 'object') {
+    return { answer: getAiMarkdownContent(response) };
+  }
+
+  return {
+    ...response,
+    answer: getAiMarkdownContent(response),
+  };
+};
 
 export const aiTutorApi = {
   async sendQuery(payload, userId, userName = '', userEmail = '', options = {}) {
     const params = new URLSearchParams({ userId });
     if (userName) params.append('userName', userName);
     if (userEmail) params.append('userEmail', userEmail);
-    return request(`${API_BASE_URL}/ai/query?${params}`, {
+    const response = await request(`${API_BASE_URL}/ai/query?${params}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
       timeoutMs: API_TIMEOUTS.ai,
       signal: options.signal,
     });
+    return normalizeAiQueryResponse(response);
   },
 
   async reviewCode(payload) {

@@ -17,6 +17,7 @@ export const env = {
   apiWithCredentials: parseBoolean(import.meta.env.VITE_API_WITH_CREDENTIALS, false),
   chatSocketUrl: trimTrailingSlash(import.meta.env.VITE_CHAT_SOCKET_URL || ''),
   realtimeSocketUrl: trimTrailingSlash(import.meta.env.VITE_REALTIME_SOCKET_URL || ''),
+  realtimeEnabled: parseBoolean(import.meta.env.VITE_REALTIME_ENABLED, true),
   n8nEnabled: parseBoolean(import.meta.env.VITE_N8N_ENABLED, false),
   n8nStrict: parseBoolean(import.meta.env.VITE_N8N_STRICT, false),
   n8nBaseUrl: trimTrailingSlash(import.meta.env.VITE_N8N_BASE_URL || 'http://localhost:5678'),

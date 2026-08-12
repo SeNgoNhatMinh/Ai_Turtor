@@ -10,7 +10,7 @@
 .answer-evidence-toggle svg:last-child { transition: transform .2s ease; }
 .answer-evidence-toggle.is-expanded svg:last-child { transform: rotate(180deg); }
 .answer-evidence-preview { min-width: 0; max-width: min(100%, 520px); overflow: hidden; color: #4b5563; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
-.answer-evidence-content { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; }
+.answer-evidence-content { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; padding: 12px; border: 1px solid #e5e7eb; border-radius: 14px; background: #fafafa; }
 
 .answer-evidence-pill,
 .answer-evidence-sources {
@@ -68,9 +68,25 @@
   white-space: nowrap;
 }
 
+.answer-evidence-sources .source-link {
+  max-width: min(420px, 68vw);
+  overflow: hidden;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #0b5fc6;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  text-decoration: underline;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .answer-evidence-details { display: grid; gap: 8px; width: 100%; }
-.answer-evidence-detail { display: grid; gap: 3px; padding: 10px 12px; border: 1px solid rgba(22,119,255,.2); border-radius: 10px; background: rgba(22,119,255,.04); font-size: 12px; }
-.answer-evidence-detail blockquote { margin: 4px 0 0; padding-left: 10px; border-left: 3px solid #1677ff; color: var(--color-text-secondary, #595959); }
+.answer-evidence-detail { display: grid; gap: 6px; padding: 14px; border: 1px solid rgba(22,119,255,.2); border-radius: 12px; background: #fff; color: #374151; font-size: 12px; line-height: 1.55; }
+.answer-evidence-detail > strong { color: #0b5fc6; font-size: 13px; }
+.answer-evidence-detail blockquote { margin: 6px 0 0; padding: 9px 11px; border-left: 3px solid #1677ff; border-radius: 0 8px 8px 0; background: #f6f9ff; color: var(--color-text-secondary, #475467); line-height: 1.6; }
 
 .visual-evidence-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 340px)); gap: 10px; margin-top: 8px; }
 .visual-evidence-card { overflow: hidden; margin: 0; border: 1px solid #dbe4f0; border-radius: 12px; background: #fff; }

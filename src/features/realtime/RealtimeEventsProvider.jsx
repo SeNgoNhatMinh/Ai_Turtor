@@ -23,7 +23,7 @@ export default function RealtimeEventsProvider({ enabled, sessionKey = '', onPro
   }, []);
 
   useEffect(() => {
-    if (!enabled || typeof WebSocket === 'undefined') return undefined;
+    if (!enabled || !env.realtimeEnabled || typeof WebSocket === 'undefined') return undefined;
     const token = getAuthToken();
     if (!token) return undefined;
 

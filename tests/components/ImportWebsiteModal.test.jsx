@@ -62,4 +62,53 @@ describe('ImportWebsiteModal', () => {
     ));
     expect(onClose).toHaveBeenCalledTimes(1);
   }, 15000);
+
+  it('selects and imports every TOC item without a fixed 50-item cap', async () => {
+    const items = Array.from({ length: 169 }, (_, index) => ({
+      title: `Mục ${index + 1}`,
+      url: `https://docs.example.com/chapter.html#section-${index + 1}`,
+      level: 2,
+    }));
+    const materialApi = {
+      previewMaterialUrlToc: vi.fn().mockResolvedValue({
+        title: 'The Java Virtual Machine Specification',
+        sourceUrl: 'https://docs.example.com/index.html',
+        itemCount: items.length,
+        items,
+      }),
+      importCourseMaterialUrl: vi.fn().mockResolvedValue({
+        materialId: 'material-all',
+        title: 'JVM Specification',
+      }),
+    };
+
+    render(
+      <ImportWebsiteModal
+        open
+        onClose={vi.fn()}
+        courseId="OOP"
+        currentUser={{ id: 'admin-1' }}
+        materialApi={materialApi}
+        triggerToast={vi.fn()}
+        onUploaded={vi.fn()}
+        isAdmin
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText('URL tài liệu'), {
+      target: { value: 'https://docs.example.com/index.html' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Phân tích URL/ }));
+    await screen.findByText('Mục 169');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Chọn tất cả 169 mục đang hiển thị' }));
+    expect(screen.getByText('Đã chọn 169 mục')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Import mục đã chọn \(169\)/ }));
+
+    await waitFor(() => expect(materialApi.importCourseMaterialUrl).toHaveBeenCalledWith(
+      'OOP',
+      expect.objectContaining({ selectedUrls: expect.arrayContaining(items.map((item) => item.url)) }),
+    ));
+    expect(materialApi.importCourseMaterialUrl.mock.calls[0][1].selectedUrls).toHaveLength(169);
+  }, 15000);
 });

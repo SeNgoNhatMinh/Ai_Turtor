@@ -41,5 +41,6 @@ export default defineConfig({
     include: ['tests/components/**/*.test.{js,jsx}'],
     css: true,
     restoreMocks: true,
+    testTimeout: 10000,
   },
 })

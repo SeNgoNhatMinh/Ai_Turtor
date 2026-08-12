@@ -58,8 +58,9 @@ export const adminAcademicApi = {
     });
   },
 
-  async deleteCourse(courseId) {
-    return request(`${API_BASE_URL}/admin/courses/${encodePath(courseId)}`, { method: 'DELETE' });
+  async deleteCourse(courseId, { cascade = false } = {}) {
+    const query = cascade ? '?cascade=true' : '';
+    return request(`${API_BASE_URL}/admin/courses/${encodePath(courseId)}${query}`, { method: 'DELETE' });
   },
 
   async completeCourse(courseId) {

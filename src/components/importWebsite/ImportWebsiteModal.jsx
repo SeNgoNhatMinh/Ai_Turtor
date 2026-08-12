@@ -5,7 +5,6 @@ import { getUserFacingError } from '../../services/apiClient';
 import './ImportWebsiteModal.css';
 
 const { Text } = Typography;
-const MAX_SELECTED_URLS = 50;
 
 function isValidHttpUrl(value) {
   try {
@@ -64,6 +63,7 @@ export default function ImportWebsiteModal({
       item.title.toLowerCase().includes(keyword) || item.url.toLowerCase().includes(keyword)
     );
   }, [searchText, tocItems]);
+  const selectedUrlSet = useMemo(() => new Set(selectedUrls), [selectedUrls]);
 
   const handleAfterOpenChange = (visible) => {
     if (visible) return;
@@ -116,29 +116,14 @@ export default function ImportWebsiteModal({
     setSelectedUrls((current) => {
       if (!checked) return current.filter((item) => item !== url);
       if (current.includes(url)) return current;
-      if (current.length >= MAX_SELECTED_URLS) {
-        triggerToast?.(`Mỗi lần import chỉ được chọn tối đa ${MAX_SELECTED_URLS} mục.`);
-        return current;
-      }
       return [...current, url];
     });
   };
 
   const selectVisibleUrls = () => {
-    const next = [];
-    const seen = new Set();
-
-    [...selectedUrls, ...visibleTocItems.map((item) => item.url)].forEach((url) => {
-      if (url && !seen.has(url) && next.length < MAX_SELECTED_URLS) {
-        seen.add(url);
-        next.push(url);
-      }
-    });
-
-    setSelectedUrls(next);
-    if (visibleTocItems.length > MAX_SELECTED_URLS || next.length === MAX_SELECTED_URLS) {
-      triggerToast?.(`Đã chọn ${MAX_SELECTED_URLS} mục đầu tiên trong danh sách.`);
-    }
+    setSelectedUrls((current) => [
+      ...new Set([...current, ...visibleTocItems.map((item) => item.url).filter(Boolean)]),
+    ]);
   };
 
   const clearVisibleUrls = () => {
@@ -151,7 +136,7 @@ export default function ImportWebsiteModal({
       const values = await validateBaseForm();
       const title = String(values.title || toc?.title || '').trim();
       const teacherId = currentUser?.userId || currentUser?.id || currentUser?._id || 'ADMIN';
-      const selected = selectedUrls.slice(0, MAX_SELECTED_URLS);
+      const selected = selectedUrls;
       const uploaderRole = isAdmin ? 'ADMIN' : 'TEACHER';
 
       if (!toc) {
@@ -162,11 +147,6 @@ export default function ImportWebsiteModal({
         triggerToast?.('Hãy chọn ít nhất một chương hoặc mục để import.');
         return;
       }
-      if (selectedUrls.length > MAX_SELECTED_URLS) {
-        triggerToast?.(`Chỉ được chọn tối đa ${MAX_SELECTED_URLS} mục.`);
-        return;
-      }
-
       setIsImporting(true);
 
       const payload = !hasToc
@@ -176,7 +156,7 @@ export default function ImportWebsiteModal({
             uploaderRole,
             teacherId,
             followNext: fallbackFollowNext,
-            maxPages: fallbackFollowNext ? Math.min(Math.max(Number(fallbackMaxPages) || 1, 1), 10) : 1,
+            maxPages: fallbackFollowNext ? Math.max(Number(fallbackMaxPages) || 1, 1) : 1,
           }
         : {
             url: toc?.sourceUrl || values.url.trim(),
@@ -202,7 +182,7 @@ export default function ImportWebsiteModal({
     || isAnalyzing
     || isImporting
     || !toc
-    || (hasToc && (selectedUrls.length === 0 || selectedUrls.length > MAX_SELECTED_URLS));
+    || (hasToc && selectedUrls.length === 0);
 
   return (
     <Modal
@@ -223,7 +203,7 @@ export default function ImportWebsiteModal({
           loading={isImporting}
           disabled={importDisabled}
         >
-          {hasToc ? `Import mục đã chọn (${selectedUrls.length}/${MAX_SELECTED_URLS})` : 'Import URL'}
+          {hasToc ? `Import mục đã chọn (${selectedUrls.length})` : 'Import URL'}
         </Button>,
       ]}
       destroyOnHidden
@@ -302,7 +282,7 @@ export default function ImportWebsiteModal({
               <Space wrap>
                 <span>{toc.title || 'Các mục tài liệu'}</span>
                 <Tag color={hasToc ? 'blue' : 'default'}>{toc.itemCount || 0} mục</Tag>
-                {hasToc && <Tag>Đã chọn {selectedUrls.length}/{MAX_SELECTED_URLS}</Tag>}
+                {hasToc && <Tag>Đã chọn {selectedUrls.length} mục</Tag>}
               </Space>
             }
           >
@@ -318,20 +298,12 @@ export default function ImportWebsiteModal({
                 />
                 <Space wrap>
                   <Button size="small" onClick={selectVisibleUrls} disabled={isImporting || visibleTocItems.length === 0}>
-                    Chọn mục đang hiển thị
+                    Chọn tất cả {visibleTocItems.length} mục đang hiển thị
                   </Button>
                   <Button size="small" onClick={clearVisibleUrls} disabled={isImporting || visibleTocItems.length === 0}>
                     Bỏ chọn mục đang hiển thị
                   </Button>
                 </Space>
-                {selectedUrls.length >= MAX_SELECTED_URLS && (
-                  <Alert
-                    type="warning"
-                    showIcon
-                    title={`Đã đạt giới hạn ${MAX_SELECTED_URLS} mục`}
-                    description="Backend nhận tối đa 50 URL chương hoặc mục trong mỗi lần import."
-                  />
-                )}
                 <div className="website-toc-list">
                   {visibleTocItems.length === 0 ? (
                     <Text type="secondary">Không có chương hoặc mục phù hợp từ khóa.</Text>
@@ -343,7 +315,7 @@ export default function ImportWebsiteModal({
                         style={{ paddingLeft: Math.min(item.level - 1, 5) * 18 + 10 }}
                       >
                         <Checkbox
-                          checked={selectedUrls.includes(item.url)}
+                          checked={selectedUrlSet.has(item.url)}
                           onChange={(event) => toggleUrl(item.url, event.target.checked)}
                           disabled={isImporting}
                         />
@@ -377,7 +349,6 @@ export default function ImportWebsiteModal({
                     <Text strong>Số trang tối đa</Text>
                     <InputNumber
                       min={1}
-                      max={10}
                       value={fallbackMaxPages}
                       disabled={isImporting}
                       onChange={(value) => setFallbackMaxPages(value || 1)}

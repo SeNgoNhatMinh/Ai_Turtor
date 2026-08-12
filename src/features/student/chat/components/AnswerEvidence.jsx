@@ -61,7 +61,7 @@ function AnswerEvidence({ message, sourceMap = {}, onDownloadSource }) {
   const confidenceClass = getConfidenceClass(message?.confidence);
   const confidenceText = message?.confidence == null ? 'Chưa xác định' : `${Math.round(message.confidence * 100)}%`;
   const grounding = message?.groundingType || (sources.length > 0 ? 'COURSE_MATERIAL' : 'AI_GENERAL_KNOWLEDGE');
-  const groundingLabel = grounding === 'COURSE_MATERIAL' ? 'Nguồn: Tài liệu khóa học' : 'Nguồn: Kiến thức AI chung';
+  const groundingLabel = grounding === 'COURSE_MATERIAL' ? 'Dựa trên tài liệu môn học' : 'AI tự phân tích bằng kiến thức chung';
   const isCodeMode = message?.mode === 'CODE' || message?.mode === 'CODE_MENTOR';
   const evidence = deduplicateEvidence(Array.isArray(message?.sourceEvidence) ? message.sourceEvidence : []);
   const hasEvidence = sources.length > 0 || evidence.length > 0 || isCodeMode || message?.questionEscalationId;
@@ -100,7 +100,7 @@ function AnswerEvidence({ message, sourceMap = {}, onDownloadSource }) {
       {expanded && <div className="answer-evidence-content">
       <div className="answer-evidence-pill">
         <Sparkles size={14} aria-hidden="true" />
-        <span>Loại câu trả lời: {getAnswerType(message?.mode)}</span>
+        <span>{getAnswerType(message?.mode)}</span>
       </div>
       <div className={`answer-evidence-pill grounding-${String(grounding).toLowerCase()}`}>
         <FileText size={14} aria-hidden="true" />
@@ -108,7 +108,7 @@ function AnswerEvidence({ message, sourceMap = {}, onDownloadSource }) {
       </div>
       <div className={`answer-evidence-pill confidence-${confidenceClass}`}>
         <ShieldCheck size={14} aria-hidden="true" />
-        <span>Độ tin cậy: {confidenceText}</span>
+        <span>Mức độ phù hợp với tài liệu: {confidenceText}</span>
       </div>
       {sources.length > 0 && (
         <div className="answer-evidence-sources">
@@ -116,14 +116,14 @@ function AnswerEvidence({ message, sourceMap = {}, onDownloadSource }) {
           {sources.map((source, index) => {
             if (source.id && onDownloadSource) {
               return (
-                <a
+                <button
+                  type="button"
                   key={`${source.id}-${index}`}
                   className="source-link"
-                  style={{ cursor: 'pointer', color: '#1677ff', textDecoration: 'underline' }}
                   onClick={() => onDownloadSource(source.id, source.label)}
                 >
                   {source.label}
-                </a>
+                </button>
               );
             }
             return <span key={`${source.label}-${index}`}>{source.label}</span>;
@@ -137,12 +137,12 @@ function AnswerEvidence({ message, sourceMap = {}, onDownloadSource }) {
               <strong>Bằng chứng {index + 1}</strong>
               <span><b>Môn học:</b> {item.courseName || item.courseId || 'Chưa xác định'}</span>
               <span><b>Tài liệu:</b> {item.materialTitle || item.materialId || 'Chưa xác định'}</span>
-              {item.chapter && <span>Chương/phần: {item.chapter}</span>}
+              {item.chapter && <span><b>Chương/phần:</b> {item.chapter}</span>}
               {item.pageStart != null && (
                 <span>
                   <b>Trang trích dẫn:</b> {item.pageStart}
                   {item.pageEnd && item.pageEnd !== item.pageStart ? `–${item.pageEnd}` : ''}
-                  {item.pageEstimated ? ' (số trang được ước tính từ vị trí đoạn văn)' : ' (số trang xác định)'}
+                  {item.pageEstimated ? ' · Trang được hệ thống ước tính' : ' · Trang xác định từ tài liệu'}
                 </span>
               )}
               {item.excerpt && (
@@ -168,7 +168,7 @@ function AnswerEvidence({ message, sourceMap = {}, onDownloadSource }) {
       {isCodeMode && (
         <div className="answer-evidence-pill code-disclaimer">
           <FileText size={14} aria-hidden="true" />
-          <span>Lưu ý: Câu trả lời mã được sinh bởi AI (không phải nội dung khóa học).</span>
+          <span>Câu trả lời này do AI tự phân tích bằng kiến thức lập trình chung, không trích từ tài liệu môn học.</span>
         </div>
       )}
       {message?.questionEscalationId && (

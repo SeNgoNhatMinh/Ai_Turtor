@@ -66,6 +66,15 @@ function normalizeError(error, response, body) {
     'Request failed';
 
   const userMessage = (() => {
+    if (response.status === 429) {
+      if (body?.code === 'DAILY_COURSE_QUESTION_LIMIT_REACHED') {
+        return getSafeUserMessage(
+          body?.message || body?.error,
+          'Bạn đã dùng hết 10 câu hỏi hôm nay cho môn học này. Hạn mức sẽ tự làm mới vào ngày mai.',
+        );
+      }
+      return 'AI Tutor đang nhận quá nhiều yêu cầu. Hệ thống sẽ tự thử mô hình dự phòng khi có thể; vui lòng đợi một chút rồi gửi lại.';
+    }
     if (response.status === 500) {
       return 'Máy chủ gặp lỗi khi xử lý yêu cầu. Vui lòng thử lại sau.';
     }

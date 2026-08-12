@@ -34,7 +34,7 @@ export const materialsApi = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
-      timeoutMs: API_TIMEOUTS.upload,
+      timeoutMs: API_TIMEOUTS.websiteImport,
     });
     invalidateResourceCache(materialCachePrefix(courseId));
     return response;

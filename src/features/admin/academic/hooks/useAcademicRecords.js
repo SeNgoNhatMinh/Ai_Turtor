@@ -192,13 +192,14 @@ export function useAcademicRecords({
     const courseId = getCourseCode(record);
     if (!courseId) return triggerToast('Môn học này thiếu mã định danh.');
     confirmDanger({
-      title: 'Xóa môn học?',
-      content: `Môn ${courseId} sẽ bị xóa và có thể ảnh hưởng tới lớp học phần, ghi danh liên quan.`,
+      title: `Xóa toàn bộ môn ${courseId}?`,
+      content: 'Tất cả lớp học phần, ghi danh, học liệu, bài tập, quiz và lịch sử học thuộc môn này sẽ bị xóa vĩnh viễn.',
+      okText: 'Xóa toàn bộ',
       anchorRect,
       onOk: async () => {
         try {
-          await adminAcademicApi.deleteCourse(courseId);
-          triggerToast('Đã xóa môn học.');
+          await adminAcademicApi.deleteCourse(courseId, { cascade: true });
+          triggerToast('Đã xóa môn học và toàn bộ dữ liệu liên quan.');
           await loadCourses();
           if (selectedCourseId === courseId) {
             setSelectedCourseId('');

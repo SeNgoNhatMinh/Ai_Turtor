@@ -1,3 +1,5 @@
+import { getAiMarkdownContent } from '../../utils/aiResponseContent.js';
+
 const REVIEW_MODES = new Set(['RAG', 'CODE', 'ESCALATE']);
 
 export function normalizeHarnessMode(mode) {
@@ -107,8 +109,12 @@ export function normalizeHarnessChatResponse(response = {}, fallbackContext = {}
     });
   }
   if (isFailedResponse(normalized)) {
-    throw createHarnessResponseError('Luồng chat AI thất bại.', {
-      code: 'N8N_CHAT_FLOW_FAILED',
+    const quotaReached = normalized.code === 'DAILY_COURSE_QUESTION_LIMIT_REACHED';
+    throw createHarnessResponseError(
+      quotaReached
+        ? normalized.message
+        : 'Luồng chat AI thất bại.', {
+      code: quotaReached ? normalized.code : 'N8N_CHAT_FLOW_FAILED',
       rawMessage: normalized.message || normalized.error || null,
       response: normalized,
     });
@@ -118,7 +124,7 @@ export function normalizeHarnessChatResponse(response = {}, fallbackContext = {}
   const escalated = Boolean(normalized.escalated || mode === 'ESCALATE');
   return {
     ...normalized,
-    answer: normalized.answer || normalized.message || '',
+    answer: getAiMarkdownContent(normalized),
     mode,
     confidence: toNumberOrNull(normalized.confidence) ?? (escalated ? 0 : null),
     sources: dedupeByIdentity(asArray(normalized.sources)),

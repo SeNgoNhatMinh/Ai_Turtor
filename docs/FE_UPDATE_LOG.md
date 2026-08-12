@@ -1,5 +1,45 @@
 # Frontend Update Log
 
+## 2026-08-12 - AI Markdown Response Envelope
+
+- Confirmed the shared renderer already supports GFM, task lists, tables, KaTeX, responsive images, secure links, highlighted code, copy actions, streaming state, dark mode, and render-error fallback.
+- Kept `react-syntax-highlighter` instead of adding `rehype-highlight`, avoiding a second syntax-highlighting pipeline and duplicated bundle weight.
+- Added a shared response-content adapter for backend/n8n envelopes using `answer`, `content`, or `message` in that priority order.
+- Structured JSON is never serialized directly into Markdown; only an explicit string content field reaches the renderer.
+
+## 2026-08-12 - Login Artwork Background
+
+- Made `academic-ai-hero.png` the full-screen Login background with stable `cover` positioning.
+- Removed the duplicated runtime mascot panel and floating speech card because the artwork already contains the academic mascot and learning symbols.
+- Kept the authentication card on the bright right side with a restrained contrast layer for readability.
+- Added responsive background positioning and a light mobile overlay so the form remains readable without hiding the artwork completely.
+
+## 2026-08-12 - Unlimited Website TOC Selection
+
+- Removed the fixed 50-item cap from Admin and Teacher website material imports.
+- The TOC selector now supports selecting and submitting every discovered item, including all 169 JVM Specification sections.
+- Updated selection feedback to show only the selected count, avoiding an `x/y` label that can be mistaken for a platform limit.
+- Removed the legacy 10-page upper cap from optional `followNext` imports in both FE and BE.
+- Added a dedicated 15-minute website-import timeout while keeping normal PDF uploads unchanged.
+- Backend now caches each physical HTML page during one import, avoiding repeated downloads when many selected sections use anchors on the same page.
+
+**Tested**
+- `npm run check`: pass (`136` contract tests, `116` component/unit tests, ESLint and production build).
+- FE regression test selects and submits all `169` TOC items.
+- BE Java 17 tests accept `169` selected URLs and deduplicate exact duplicates.
+- Docker Java 17 backend rebuild: pass; health endpoint reports `UP`.
+
+## 2026-08-12 - Safe Course Cascade Deletion
+
+- Updated the Admin Academic course deletion action to explicitly confirm permanent removal of the course and all course-scoped data.
+- Added `cascade=true` support to the academic API client; the UI no longer repeatedly calls a protected delete operation that can never remove an in-use course.
+- Kept the backend's normal delete mode protected and reserved destructive cascade deletion for the Admin-confirmed action.
+
+**Tested**
+- `npm run check`: pass (`136` contract tests, `115` component/unit tests, ESLint and production build).
+- Docker Java 17 backend build: pass.
+- End-to-end temporary course: protected delete `409`, cascade delete `200`, lookup after delete `404`.
+
 ## 2026-08-03 - Suggestion JSON Formatting And Senior History Spacing
 
 - Normalized direct, stringified, and fenced JSON suggestion payloads into readable learning cards instead of exposing raw JSON.

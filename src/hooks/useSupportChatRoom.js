@@ -93,14 +93,14 @@ export function useSupportChatRoom({
   }, [chatRoomId, enabled, loadRoom]);
 
   useEffect(() => {
-    if (!chatRoomId || !enabled || !realtimeEnabled) return undefined;
+    if (!chatRoomId || !enabled || !realtimeEnabled || !env.realtimeEnabled) return undefined;
     const timer = window.setInterval(() => loadRoom({ silent: true }), 5000);
     return () => window.clearInterval(timer);
   }, [chatRoomId, enabled, loadRoom, realtimeEnabled]);
 
   useEffect(() => {
     const socketUrl = getSocketUrl(chatRoomId);
-    if (!socketUrl || !enabled || !realtimeEnabled) return undefined;
+    if (!socketUrl || !enabled || !realtimeEnabled || !env.realtimeEnabled) return undefined;
 
     const socket = new WebSocket(socketUrl);
     socketRef.current = socket;
