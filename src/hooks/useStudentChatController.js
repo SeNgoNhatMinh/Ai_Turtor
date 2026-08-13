@@ -16,7 +16,6 @@ import {
   findCanonicalExchange,
   resolveCanonicalConversation,
 } from '../features/student/chat/conversations/sessionUtils';
-import { buildStudySuggestionPrompt } from '../features/student/learning/studySuggestionPrompt';
 
 const getSafeConversationTitle = (value, courseId) => {
   const repairedTitle = repairMojibake(value).trim();
@@ -376,114 +375,6 @@ export function useStudentChatController({
     });
   };
 
-  const openLearnedSuggestionResponse = async (
-    data = {},
-    fallbackSuggestionText = '',
-    requestedQuestion = '',
-  ) => {
-    const userId = getStudentUserId();
-    if (!userId) {
-      triggerToast('Vui lòng đăng nhập trước khi mở gợi ý học tập.');
-      return;
-    }
-
-    const responseConversationId = data.conversationId || data.sessionId || activeSessionId;
-    const responseConversationTitle = getSafeConversationTitle(
-      data.conversationTitle || data.title || activeSessionTitle,
-      courseId,
-    );
-    const clickedSuggestion = String(data.clickedSuggestion || fallbackSuggestionText || '').trim();
-    const fallbackQuestion = String(
-      requestedQuestion
-      || data.question
-      || buildStudySuggestionPrompt(clickedSuggestion)
-      || 'Hãy hướng dẫn em học nội dung này từng bước.',
-    ).trim();
-    const answerText = String(data.answer || '').trim();
-    const isAiServiceError = isAiServiceErrorText(answerText);
-
-    if (responseConversationId) {
-      setActiveSessionId(responseConversationId);
-      setActiveSessionTitle(responseConversationTitle);
-      setTurnLimitNotice(null);
-      bumpConversationActivity({
-        conversationId: responseConversationId,
-        title: responseConversationTitle,
-        lastMessageAt: data.lastMessageAt || data.updatedAt || new Date().toISOString(),
-        messageCountIncrement: 2,
-        questionCountIncrement: 1,
-        questionCount: data.userQuestionCount ?? data.questionCount,
-        maxTurnsReached: data.maxTurnsReached,
-      });
-    }
-
-    if (responseConversationId) {
-      try {
-        const chatMsgs = await conversationApi.getMessages(responseConversationId, userId);
-        const historyPairs = pairMessages(asArray(chatMsgs, 'content', 'messages'));
-        const learnedExchange = findCanonicalExchange(historyPairs, fallbackQuestion);
-        if (learnedExchange) {
-          const learnedExchangeIndex = historyPairs.indexOf(learnedExchange);
-          setMessages(historyPairs.map((item, index) => index === learnedExchangeIndex ? {
-            ...item,
-            mode: data.mode || item.mode,
-            confidence: data.confidence ?? item.confidence,
-            sources: data.sources || item.sources || [],
-            sourceEvidence: data.sourceEvidence || item.sourceEvidence || [],
-            groundingType: data.groundingType || item.groundingType || null,
-            questionEscalationId: data.questionEscalationId || item.questionEscalationId || null,
-          } : item));
-          await loadChatSessions();
-          return;
-        }
-      } catch {
-        // The backend already saved the turn. Keep the returned answer visible if history is not ready yet.
-      }
-    }
-
-    const learnedExchange = {
-        question: fallbackQuestion,
-        answer: isAiServiceError ? AI_SERVICE_ERROR_MESSAGE : answerText,
-        rawAnswer: answerText,
-        id: data.assistantMessageId || data.messageId || data.aiMessageId || data.responseMessageId,
-        messageId: data.assistantMessageId || data.messageId || data.aiMessageId || data.responseMessageId,
-        assistantMessageId: data.assistantMessageId || data.messageId || data.aiMessageId || data.responseMessageId,
-        userMessageId: data.userMessageId,
-        conversationId: responseConversationId,
-        mode: data.mode || 'RAG',
-        confidence: data.confidence,
-        sources: data.sources || [],
-        sourceEvidence: data.sourceEvidence || [],
-        groundingType: data.groundingType || null,
-        nextImproveSuggestions: data.nextImproveSuggestions || [],
-        questionEscalationId: data.questionEscalationId || data.escalationId || null,
-        clickedSuggestion,
-        suggestionConsumed: data.suggestionConsumed,
-        aiServiceError: isAiServiceError,
-        retryable: isAiServiceError,
-        pending: false,
-      };
-    setMessages((currentMessages) => {
-      const isCurrentConversation = Boolean(responseConversationId)
-        && responseConversationId === activeSessionId;
-      const messagesForConversation = isCurrentConversation ? currentMessages : [];
-      const alreadyVisible = messagesForConversation.some((item) => (
-        (
-          Boolean(learnedExchange.userMessageId)
-          && item?.userMessageId === learnedExchange.userMessageId
-        )
-        || (
-          String(item?.question || '').trim() === fallbackQuestion
-          && String(item?.answer || '').trim() === answerText
-        )
-      ));
-      return alreadyVisible
-        ? messagesForConversation
-        : [...messagesForConversation, learnedExchange];
-    });
-    await loadChatSessions();
-  };
-
   return {
     activeSessionId,
     activeSessionTitle,
@@ -502,6 +393,5 @@ export function useStudentChatController({
     handleRenameSession,
     handleSendQuery,
     handleStopAiGeneration,
-    openLearnedSuggestionResponse,
   };
 }

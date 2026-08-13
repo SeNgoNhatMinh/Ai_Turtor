@@ -157,6 +157,13 @@ export function useStudentChatTabController({
     sendText(prompt);
   };
 
+  const setChatDraft = (text) => {
+    setChatInput(String(text || '').slice(0, 8000));
+    globalThis.requestAnimationFrame?.(() => {
+      document.querySelector('[data-chat-composer-input="true"]')?.focus();
+    });
+  };
+
   const handleAnswerAction = async ({ prompt, type, message: answerMessage }) => {
     if (type === 'retry') {
       const retryText = String(answerMessage?.question || prompt || '').trim();
@@ -236,6 +243,7 @@ export function useStudentChatTabController({
     handleCourseChange,
     handleBackToPreviousChat,
     sendText,
+    setChatDraft,
     onSendQuery,
     onStopQuery,
     handlePromptStarter,

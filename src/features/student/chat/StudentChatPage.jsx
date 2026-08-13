@@ -68,14 +68,10 @@ export default function StudentChatPage({
   });
   const learningActions = useStudentLearningActions({
     activeTab: 'student-chat',
-    userId: studentId,
     courseId,
-    classId,
-    activeSessionId: chat.activeSessionId,
     switchTab,
     loadStudentDashboard: learning.loadStudentDashboard,
-    openLearnedSuggestionResponse: chat.openLearnedSuggestionResponse,
-    sendText: chatController.sendText,
+    setChatDraft: chatController.setChatDraft,
     triggerToast,
   });
 
@@ -93,15 +89,10 @@ export default function StudentChatPage({
     if (!handoff || !studentId || !courseId || !classId) return;
     pendingStudyHandoffRef.current = null;
     clearStudyChatHandoff();
-    if (handoff.response?.conversationId || handoff.response?.answer) {
-      chat.openLearnedSuggestionResponse(
-        handoff.response,
-        handoff.suggestionText,
-        handoff.prompt,
-      );
-      return;
+    if (handoff.prompt) {
+      chatController.setChatDraft(handoff.prompt);
+      triggerToast?.('Đã đưa gợi ý vào khung chat. Bạn có thể chỉnh sửa trước khi gửi.');
     }
-    if (handoff.prompt) chatController.sendText(handoff.prompt);
     // Consume a route handoff once after enrollment context is available.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [studentId, courseId, classId]);

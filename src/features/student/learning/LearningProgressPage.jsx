@@ -19,9 +19,7 @@ export default function LearningProgressPage({
   });
   const actions = useStudentLearningActions({
     activeTab: 'student-memory',
-    userId: studentId,
     courseId,
-    classId,
     switchTab,
     loadStudentDashboard: learning.loadStudentDashboard,
     triggerToast,

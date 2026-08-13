@@ -98,6 +98,7 @@ function ChatComposer({
         <div className="chat-gpt-input-wrapper">
           <textarea
             ref={textareaRef}
+            data-chat-composer-input="true"
             placeholder={placeholder}
             value={chatInput}
             onChange={handleInputChange}

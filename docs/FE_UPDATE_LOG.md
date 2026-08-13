@@ -1,11 +1,18 @@
 # Frontend Update Log
 
+## 2026-08-13 - Multi-Path Documentation Website Import
+
+- Extended backend TOC discovery to documentation pages with extensionless paths as well as `.html` and `.htm` pages.
+- Added Docusaurus-aware article discovery and extraction for sites such as `intro2c.sdds.ca`.
+- Kept website imports HTML-only by filtering downloads, archives, media, scripts, styles, search, login, and static asset paths.
+- Clarified the Admin/Teacher import dialog without changing its existing multi-select URL payload.
+
 ## 2026-08-13 - Click-To-Learn Chat Message
 
-- Made every clicked study suggestion appear as a real student message in AI Tutor Chat before the AI response.
-- Matched the backend learning prompt so the bubble explains the selected Improve Plan topic and requests a step-by-step explanation, a small example, and a self-check.
-- Preserved the same visible message when navigating from Learning Progress to Chat and when conversation history is briefly unavailable.
-- Avoided a second AI request: FE continues to call the canonical `suggestions/learn` endpoint once and renders its saved response.
+- Clicking a study suggestion now fills the AI Tutor composer instead of submitting immediately.
+- Students can edit or cancel the generated Improve Plan prompt before pressing Send.
+- Preserved the same editable draft when navigating from Learning Progress to Chat.
+- No AI API, quota, conversation turn, or consumed-suggestion state changes occur until the student explicitly sends the message.
 
 ## 2026-08-12 - AI Markdown Response Envelope
 
@@ -2687,9 +2694,9 @@ Copy template này lên đầu phần `History` sau mỗi lần cập nhật:
 - Fixed the Markdown list normalizer interpreting `+` inside inline code such as `Ctrl + Alt + S` as new bullet markers.
 - Inline code is now protected before list/table/heading repair and restored unchanged afterward.
 - Confirmed the backend and MongoDB already store the affected shortcut correctly on one line; this was a frontend preprocessing bug.
-# 2026-08-13 - Continue Learning From AI Study Tips
+## 2026-08-13 - Continue Learning From AI Study Tips
 
-- Clicking an item under `Lưu ý để học tốt hơn` now sends that exact item into the course-scoped AI Tutor learning flow.
-- The existing `learnSuggestion` backend API remains the primary path; when it does not return an answer, FE submits a contextual learning prompt in the current chat.
+- Clicking an item under `Lưu ý để học tốt hơn` now places that exact item into an editable course-chat prompt.
+- FE waits for the student to press Send before calling the normal course-scoped chat flow.
 - Removed the previous detour that only analyzed the selected tip and navigated to Learning Progress.
 - Added a renderer interaction test to ensure the selected tip text is preserved exactly.

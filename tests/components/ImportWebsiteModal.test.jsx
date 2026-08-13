@@ -111,4 +111,61 @@ describe('ImportWebsiteModal', () => {
     ));
     expect(materialApi.importCourseMaterialUrl.mock.calls[0][1].selectedUrls).toHaveLength(169);
   }, 15000);
+
+  it('adds multiple same-site extensionless paths to the import selection', async () => {
+    const materialApi = {
+      previewMaterialUrlToc: vi.fn().mockResolvedValue({
+        title: 'Introduction to C',
+        sourceUrl: 'https://intro2c.sdds.ca/',
+        itemCount: 1,
+        items: [{
+          title: 'Computers',
+          url: 'https://intro2c.sdds.ca/A-Introduction/computers',
+          level: 1,
+        }],
+      }),
+      importCourseMaterialUrl: vi.fn().mockResolvedValue({ materialId: 'intro-c' }),
+    };
+
+    render(
+      <ImportWebsiteModal
+        open
+        onClose={vi.fn()}
+        courseId="PRF192"
+        currentUser={{ id: 'admin-1' }}
+        materialApi={materialApi}
+        triggerToast={vi.fn()}
+        onUploaded={vi.fn()}
+        isAdmin
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText('URL tài liệu'), {
+      target: { value: 'https://intro2c.sdds.ca/' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Phân tích URL/ }));
+    await screen.findByText('Computers');
+
+    fireEvent.change(screen.getByPlaceholderText(/A-Introduction\/computers/), {
+      target: {
+        value: '/B-Computations/logic\nhttps://intro2c.sdds.ca/D-Modularity/functions',
+      },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Thêm và chọn' }));
+
+    expect(await screen.findByText('logic')).toBeInTheDocument();
+    expect(screen.getByText('functions')).toBeInTheDocument();
+    expect(screen.getAllByText('Thêm thủ công')).toHaveLength(2);
+    fireEvent.click(screen.getByRole('button', { name: /Import mục đã chọn \(2\)/ }));
+
+    await waitFor(() => expect(materialApi.importCourseMaterialUrl).toHaveBeenCalledWith(
+      'PRF192',
+      expect.objectContaining({
+        selectedUrls: [
+          'https://intro2c.sdds.ca/B-Computations/logic',
+          'https://intro2c.sdds.ca/D-Modularity/functions',
+        ],
+      }),
+    ));
+  }, 15000);
 });

@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react';
 import { Alert, Button, Card, Checkbox, Divider, Form, Input, InputNumber, Modal, Space, Tag, Typography } from 'antd';
-import { GlobalOutlined, ImportOutlined, SearchOutlined } from '@ant-design/icons';
+import { FolderOpenOutlined, GlobalOutlined, ImportOutlined, LinkOutlined, SearchOutlined } from '@ant-design/icons';
 import { getUserFacingError } from '../../services/apiClient';
 import './ImportWebsiteModal.css';
 
 const { Text } = Typography;
+
+const NON_HTML_FILE_PATTERN = /\.(?:pdf|zip|rar|7z|docx?|pptx?|xlsx?|txt|md|json|xml|css|js|mjs|map|png|jpe?g|gif|svg|webp|ico|mp3|mp4|webm|woff2?|ttf|eot)$/i;
 
 function isValidHttpUrl(value) {
   try {
@@ -35,6 +37,52 @@ function normalizeTocResponse(data) {
   };
 }
 
+function getPathType(url) {
+  try {
+    const path = new URL(url).pathname.toLowerCase();
+    if (/\.html?$/.test(path)) return 'HTML';
+    return 'Không đuôi';
+  } catch {
+    return 'Trang web';
+  }
+}
+
+function getGroupKey(item, sourceUrl) {
+  try {
+    const itemUrl = new URL(item.url);
+    const source = new URL(sourceUrl || item.url);
+    const sourceSegments = source.pathname.split('/').filter(Boolean);
+    if (sourceSegments.at(-1)?.includes('.')) sourceSegments.pop();
+    const itemSegments = itemUrl.pathname.split('/').filter(Boolean);
+    const relative = itemSegments.slice(sourceSegments.length);
+    return relative.length > 1 ? relative[0] : 'other';
+  } catch {
+    return 'other';
+  }
+}
+
+function formatGroupLabel(key) {
+  if (key === 'other') return 'Trang tài liệu';
+  return decodeURIComponent(key)
+    .replace(/^[A-Z0-9]+[-_]/i, '')
+    .replace(/[-_]+/g, ' ')
+    .replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function buildPathGroups(items, sourceUrl) {
+  const groups = new Map();
+  items.forEach((item) => {
+    const key = getGroupKey(item, sourceUrl);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(item);
+  });
+  return Array.from(groups, ([key, groupItems]) => ({
+    key,
+    label: formatGroupLabel(key),
+    items: groupItems,
+  }));
+}
+
 export default function ImportWebsiteModal({
   open,
   onClose,
@@ -53,8 +101,15 @@ export default function ImportWebsiteModal({
   const [searchText, setSearchText] = useState('');
   const [fallbackFollowNext, setFallbackFollowNext] = useState(false);
   const [fallbackMaxPages, setFallbackMaxPages] = useState(3);
+  const [manualPaths, setManualPaths] = useState('');
+  const [manualItems, setManualItems] = useState([]);
+  const [manualPathError, setManualPathError] = useState('');
 
-  const tocItems = useMemo(() => toc?.items || [], [toc]);
+  const tocItems = useMemo(() => {
+    const byUrl = new Map();
+    [...(toc?.items || []), ...manualItems].forEach((item) => byUrl.set(item.url, item));
+    return Array.from(byUrl.values());
+  }, [manualItems, toc]);
   const hasToc = tocItems.length > 0;
   const visibleTocItems = useMemo(() => {
     const keyword = searchText.trim().toLowerCase();
@@ -64,6 +119,14 @@ export default function ImportWebsiteModal({
     );
   }, [searchText, tocItems]);
   const selectedUrlSet = useMemo(() => new Set(selectedUrls), [selectedUrls]);
+  const pathGroups = useMemo(
+    () => buildPathGroups(visibleTocItems, toc?.sourceUrl),
+    [toc?.sourceUrl, visibleTocItems],
+  );
+  const pathTypeSummary = useMemo(
+    () => [...new Set(tocItems.map((item) => getPathType(item.url)))],
+    [tocItems],
+  );
 
   const handleAfterOpenChange = (visible) => {
     if (visible) return;
@@ -73,6 +136,9 @@ export default function ImportWebsiteModal({
     setSearchText('');
     setFallbackFollowNext(false);
     setFallbackMaxPages(3);
+    setManualPaths('');
+    setManualItems([]);
+    setManualPathError('');
     setIsAnalyzing(false);
     setIsImporting(false);
   };
@@ -95,6 +161,9 @@ export default function ImportWebsiteModal({
       setToc(null);
       setSelectedUrls([]);
       setSearchText('');
+      setManualPaths('');
+      setManualItems([]);
+      setManualPathError('');
 
       const data = await materialApi.previewMaterialUrlToc(courseId, { url: values.url.trim() });
       const normalized = normalizeTocResponse(data);
@@ -129,6 +198,64 @@ export default function ImportWebsiteModal({
   const clearVisibleUrls = () => {
     const visibleSet = new Set(visibleTocItems.map((item) => item.url));
     setSelectedUrls((current) => current.filter((url) => !visibleSet.has(url)));
+  };
+
+  const selectGroup = (items) => {
+    setSelectedUrls((current) => [
+      ...new Set([...current, ...items.map((item) => item.url)]),
+    ]);
+  };
+
+  const clearGroup = (items) => {
+    const groupUrls = new Set(items.map((item) => item.url));
+    setSelectedUrls((current) => current.filter((url) => !groupUrls.has(url)));
+  };
+
+  const addManualPaths = async () => {
+    try {
+      const values = await validateBaseForm();
+      const sourceUrl = new URL(toc?.sourceUrl || values.url.trim());
+      const candidates = manualPaths
+        .split(/[\n,]+/)
+        .map((value) => value.trim())
+        .filter(Boolean);
+      if (candidates.length === 0) {
+        setManualPathError('Nhập ít nhất một URL hoặc đường dẫn, mỗi dòng một mục.');
+        return;
+      }
+
+      const nextItems = candidates.map((value) => {
+        const resolved = new URL(value, sourceUrl);
+        if (!['http:', 'https:'].includes(resolved.protocol) || resolved.origin !== sourceUrl.origin) {
+          throw new Error(`Đường dẫn phải cùng website: ${value}`);
+        }
+        if (NON_HTML_FILE_PATTERN.test(resolved.pathname)) {
+          throw new Error(`Không thể import như trang HTML: ${value}`);
+        }
+        const lastSegment = resolved.pathname.split('/').filter(Boolean).at(-1) || resolved.hostname;
+        return {
+          title: decodeURIComponent(lastSegment).replace(/\.html?$/i, '').replace(/[-_]+/g, ' '),
+          url: resolved.toString(),
+          level: 1,
+          anchor: resolved.hash ? resolved.hash.slice(1) : null,
+          manual: true,
+        };
+      });
+
+      setManualItems((current) => {
+        const byUrl = new Map(current.map((item) => [item.url, item]));
+        nextItems.forEach((item) => byUrl.set(item.url, item));
+        return Array.from(byUrl.values());
+      });
+      setSelectedUrls((current) => [
+        ...new Set([...current, ...nextItems.map((item) => item.url)]),
+      ]);
+      setManualPaths('');
+      setManualPathError('');
+      triggerToast?.(`Đã thêm ${nextItems.length} đường dẫn vào danh sách import.`);
+    } catch (error) {
+      setManualPathError(error?.message || 'Có đường dẫn không hợp lệ.');
+    }
   };
 
   const handleImport = async () => {
@@ -190,7 +317,7 @@ export default function ImportWebsiteModal({
       title="Import tài liệu từ website"
       onCancel={onClose}
       afterOpenChange={handleAfterOpenChange}
-      width={820}
+      width={920}
       footer={[
         <Button key="cancel" onClick={onClose} disabled={isAnalyzing || isImporting}>
           Hủy
@@ -213,7 +340,7 @@ export default function ImportWebsiteModal({
           type="info"
           showIcon
           title="Import website qua backend"
-          description="Backend phân tích tài liệu HTML, import các chương đã chọn thành học liệu môn học và lập chỉ mục trong nền. Học liệu website không tạo tệp PDF để tải xuống."
+          description="Backend phân tích các trang HTML nội bộ cùng website, kể cả đường dẫn không có đuôi hoặc có đuôi .html/.htm. Các file PDF, ZIP và tài nguyên tĩnh không được trộn vào lần import website."
         />
 
         {!courseId && (
@@ -283,6 +410,7 @@ export default function ImportWebsiteModal({
                 <span>{toc.title || 'Các mục tài liệu'}</span>
                 <Tag color={hasToc ? 'blue' : 'default'}>{toc.itemCount || 0} mục</Tag>
                 {hasToc && <Tag>Đã chọn {selectedUrls.length} mục</Tag>}
+                {hasToc && <Tag>{pathGroups.length} nhóm</Tag>}
               </Space>
             }
           >
@@ -303,28 +431,78 @@ export default function ImportWebsiteModal({
                   <Button size="small" onClick={clearVisibleUrls} disabled={isImporting || visibleTocItems.length === 0}>
                     Bỏ chọn mục đang hiển thị
                   </Button>
+                  {pathTypeSummary.map((type) => <Tag key={type}>{type}</Tag>)}
                 </Space>
-                <div className="website-toc-list">
+                <div className="website-manual-paths">
+                  <div className="website-manual-paths-heading">
+                    <span>
+                      <LinkOutlined /> Thêm nhiều đường dẫn
+                    </span>
+                    <Text type="secondary">Chỉ URL cùng website, mỗi dòng một trang.</Text>
+                  </div>
+                  <Input.TextArea
+                    value={manualPaths}
+                    onChange={(event) => {
+                      setManualPaths(event.target.value);
+                      setManualPathError('');
+                    }}
+                    placeholder={'/A-Introduction/computers\n/B-Computations/logic\nhttps://intro2c.sdds.ca/D-Modularity/functions'}
+                    autoSize={{ minRows: 2, maxRows: 5 }}
+                    disabled={isImporting}
+                    status={manualPathError ? 'error' : undefined}
+                  />
+                  <div className="website-manual-paths-action">
+                    {manualPathError ? <Text type="danger">{manualPathError}</Text> : <span />}
+                    <Button size="small" onClick={addManualPaths} disabled={isImporting || !manualPaths.trim()}>
+                      Thêm và chọn
+                    </Button>
+                  </div>
+                </div>
+                <div className="website-toc-list" aria-label="Danh sách trang tài liệu">
                   {visibleTocItems.length === 0 ? (
                     <Text type="secondary">Không có chương hoặc mục phù hợp từ khóa.</Text>
                   ) : (
-                    visibleTocItems.map((item) => (
-                      <label
-                        key={item.url}
-                        className="website-toc-item"
-                        style={{ paddingLeft: Math.min(item.level - 1, 5) * 18 + 10 }}
-                      >
-                        <Checkbox
-                          checked={selectedUrlSet.has(item.url)}
-                          onChange={(event) => toggleUrl(item.url, event.target.checked)}
-                          disabled={isImporting}
-                        />
-                        <span className="website-toc-copy">
-                          <span className="website-toc-title">{item.title}</span>
-                          <span className="website-toc-url">{item.url}</span>
-                        </span>
-                      </label>
-                    ))
+                    pathGroups.map((group) => {
+                      const selectedInGroup = group.items.filter((item) => selectedUrlSet.has(item.url)).length;
+                      return (
+                        <section className="website-path-group" key={group.key}>
+                          <div className="website-path-group-header">
+                            <span className="website-path-group-title">
+                              <FolderOpenOutlined /> {group.label}
+                              <Tag>{selectedInGroup}/{group.items.length}</Tag>
+                            </span>
+                            <Space size={4}>
+                              <Button type="text" size="small" onClick={() => selectGroup(group.items)} disabled={isImporting}>
+                                Chọn nhóm
+                              </Button>
+                              <Button type="text" size="small" onClick={() => clearGroup(group.items)} disabled={isImporting}>
+                                Bỏ chọn
+                              </Button>
+                            </Space>
+                          </div>
+                          {group.items.map((item) => (
+                            <label
+                              key={item.url}
+                              className="website-toc-item"
+                              style={{ paddingLeft: Math.min(item.level - 1, 5) * 18 + 12 }}
+                            >
+                              <Checkbox
+                                checked={selectedUrlSet.has(item.url)}
+                                onChange={(event) => toggleUrl(item.url, event.target.checked)}
+                                disabled={isImporting}
+                              />
+                              <span className="website-toc-copy">
+                                <span className="website-toc-title-row">
+                                  <span className="website-toc-title">{item.title}</span>
+                                  <Tag bordered={false}>{item.manual ? 'Thêm thủ công' : getPathType(item.url)}</Tag>
+                                </span>
+                                <span className="website-toc-url">{item.url}</span>
+                              </span>
+                            </label>
+                          ))}
+                        </section>
+                      );
+                    })
                   )}
                 </div>
               </Space>
