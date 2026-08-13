@@ -1,12 +1,15 @@
 .DS_Store
 .idea/
 .vscode/
+MainMaterial/
 *.log
 .env
 .env.*
+!.env.example
+!.env.*.example
 node_modules/
+target/
 dist/
 .vite/
 playwright-report/
 test-results/
-

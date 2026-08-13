@@ -4,12 +4,12 @@ on:
   push:
     branches: [main]
     paths:
-      - "AI_Turtor_FE/**"
+      - "Ai_Turtor_FE/**"
       - ".github/workflows/frontend-ci.yml"
   pull_request:
     branches: [main]
     paths:
-      - "AI_Turtor_FE/**"
+      - "Ai_Turtor_FE/**"
       - ".github/workflows/frontend-ci.yml"
 
 jobs:
@@ -17,14 +17,13 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: AI_Turtor_FE
+        working-directory: Ai_Turtor_FE
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: AI_Turtor_FE/package-lock.json
+          cache-dependency-path: Ai_Turtor_FE/package-lock.json
       - run: npm ci
       - run: npm run check
-

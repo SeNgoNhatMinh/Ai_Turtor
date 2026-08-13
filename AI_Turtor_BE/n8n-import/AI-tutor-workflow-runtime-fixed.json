@@ -1,0 +1,4264 @@
+{
+  "name": "AI tutor - Flow 2 linked to Flow 3",
+  "nodes": [
+    {
+      "parameters": {
+        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/tutor/students/{{$node[\"Set - Trace Context\"].json.studentId}}/courses/{{$node[\"Set - Trace Context\"].json.courseId}}/memory",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{$node[\"Set - Trace Context\"].json.authorization}}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -912,
+        464
+      ],
+      "id": "f8d1fd6a-65e0-4b22-8ac1-3f4e8ccf448e",
+      "name": "Get Student Score Memory",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/ai/query?userId={{$node[\"Set - Trace Context\"].json.studentId}}&userName={{$node[\"Set - Trace Context\"].json.studentName}}&userEmail={{$node[\"Set - Trace Context\"].json.studentEmail}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{$node[\"Set - Trace Context\"].json.authorization}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"message\": \"{{$node['Set - Trace Context'].json.message}}\",\n  \"courseId\": \"{{$node['Set - Trace Context'].json.courseId}}\",\n  \"classId\": \"{{$node['Set - Trace Context'].json.classId}}\",\n  \"conversationId\": \"{{$node['Set - Trace Context'].json.conversationId}}\",\n  \"quotaConsumed\": true\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        128,
+        560
+      ],
+      "id": "6f28811f-529c-4db5-ab37-77ae7652c5b6",
+      "name": "Course RAG Query",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "httpMethod": "=POST",
+        "path": "=student-chat",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -1792,
+        464
+      ],
+      "id": "7e222164-65f3-4229-ae71-2d9e444f801c",
+      "name": "Student Chat Webhook",
+      "webhookId": "6d662d00-2fee-457e-a843-6114eea80161"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/tutor/intent-classify",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{$node[\"Set - Trace Context\"].json.authorization}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "=json",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "studentId",
+              "value": "={{$node[\"Set - Trace Context\"].json.studentId}}"
+            },
+            {
+              "name": "courseId",
+              "value": "={{$node[\"Set - Trace Context\"].json.courseId}}"
+            },
+            {
+              "name": "classId",
+              "value": "={{$node[\"Set - Trace Context\"].json.classId}}"
+            },
+            {
+              "name": "message",
+              "value": "={{$node[\"Set - Trace Context\"].json.message}}"
+            },
+            {
+              "name": "question",
+              "value": "={{$node[\"Set - Trace Context\"].json.question}}"
+            },
+            {
+              "name": "codeSnippet",
+              "value": "={{$node[\"Set - Trace Context\"].json.codeSnippet}}"
+            },
+            {
+              "name": "traceId",
+              "value": "={{$node[\"Set - Trace Context\"].json.traceId}}"
+            },
+            {
+              "name": "sessionId",
+              "value": "={{$node[\"Set - Trace Context\"].json.sessionId}}"
+            },
+            {
+              "name": "conversationId",
+              "value": "={{$node[\"Set - Trace Context\"].json.conversationId}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -672,
+        464
+      ],
+      "id": "c3d92235-94ba-46ec-83f7-d8a3ac7b5641",
+      "name": "Intent Classifier",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "d6014137-4558-4f84-8469-a89d0ddeb441",
+              "leftValue": "={{$node[\"Course RAG Query\"].json.escalated}}",
+              "rightValue": "false",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        784,
+        832
+      ],
+      "id": "588a87ea-0272-4720-a847-4f13a97bf63b",
+      "name": "IF Confidence Check"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/tutor/improve-suggestions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{$node[\"Set - Trace Context\"].json.authorization}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "studentId",
+              "value": "={{$node[\"Set - Trace Context\"].json.studentId}}"
+            },
+            {
+              "name": "courseId",
+              "value": "={{$node[\"Set - Trace Context\"].json.courseId}}"
+            },
+            {
+              "name": "classId",
+              "value": "={{$node[\"Set - Trace Context\"].json.classId}}"
+            },
+            {
+              "name": "question",
+              "value": "={{$node[\"Set - Trace Context\"].json.message}}"
+            },
+            {
+              "name": "answer",
+              "value": "={{$node[\"Course RAG Query\"].json.answer}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1152,
+        704
+      ],
+      "id": "215e116e-6921-4199-9d06-7d88eece2ee3",
+      "name": "Improve Suggestions"
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/tutor/students/{{$node[\"Set - Trace Context\"].json.studentId}}/courses/{{$node[\"Set - Trace Context\"].json.courseId}}/memory",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "=Authorization",
+              "value": "={{$node[\"Set - Trace Context\"].json.authorization}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "classId",
+              "value": "={{$node[\"Set - Trace Context\"].json.classId}}"
+            },
+            {
+              "name": "recentQuestion",
+              "value": "={{$node[\"Set - Trace Context\"].json.message}}"
+            },
+            {
+              "name": "=recentAnswer",
+              "value": "={{$node[\"Course RAG Query\"].json.answer}}"
+            },
+            {
+              "name": "improveSuggestions",
+              "value": "={{[$node[\"Improve Suggestions\"].json.aiSuggestion || JSON.stringify($node[\"Improve Suggestions\"].json.ruleSuggestions || [])]}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1424,
+        704
+      ],
+      "id": "99f92ca6-8cee-4f72-8d62-77f5423bdc38",
+      "name": "Update Memory RAG"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ ({\r\n  success: true,\r\n  mode: \"RAG_TUTOR\",\r\n  answer: $node[\"Course RAG Query\"].json.answer,\r\n  confidence: $node[\"Course RAG Query\"].json.confidence || null,\r\n  escalated: $node[\"Course RAG Query\"].json.escalated || false,\r\n  questionEscalationId: $node[\"Course RAG Query\"].json.questionEscalationId || null,\r\n  conversationId: $node[\"Course RAG Query\"].json.conversationId || $node[\"Set - Trace Context\"].json.conversationId,\r\n  traceId: $node[\"Set - Trace Context\"].json.traceId,\r\n  sources: $node[\"Course RAG Query\"].json.sources || [],\r\n  sourceEvidence: $node[\"Course RAG Query\"].json.sourceEvidence || [],\r\n  groundingType: $node[\"Course RAG Query\"].json.groundingType || \"COURSE_MATERIAL\"\r\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1648,
+        704
+      ],
+      "id": "da64863f-4d3a-48f8-83ae-eecbb19649d2",
+      "name": "Respond RAG"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/tutor/escalations",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{$node[\"Set - Trace Context\"].json.authorization}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "studentId",
+              "value": "={{$node[\"Set - Trace Context\"].json.studentId}}"
+            },
+            {
+              "name": "studentName",
+              "value": "={{$node[\"Set - Trace Context\"].json.studentName}}"
+            },
+            {
+              "name": "courseId",
+              "value": "={{$node[\"Set - Trace Context\"].json.courseId}}"
+            },
+            {
+              "name": "classId",
+              "value": "={{$node[\"Set - Trace Context\"].json.classId}}"
+            },
+            {
+              "name": "question",
+              "value": "={{$node[\"Set - Trace Context\"].json.message}}"
+            },
+            {
+              "name": "reason",
+              "value": "={{$node[\"Intent Classifier\"].json.reason || \"Intent classifier routed this question to teacher escalation\"}}"
+            },
+            {
+              "name": "conversationId",
+              "value": "={{$node[\"Set - Trace Context\"].json.conversationId}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1136,
+        288
+      ],
+      "id": "ee131011-4ca6-4bb7-a450-dca8e77cbdc1",
+      "name": "Create Escalation"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ ({\r\n  success: true,\r\n  mode: \"ESCALATE\",\r\n  escalated: true,\r\n  answer: \"Câu hỏi đã được gửi cho giáo viên/mentor phụ trách.\",\r\n  questionEscalationId: $node[\"Create Escalation\"].json.questionEscalationId,\r\n  conversationId: $node[\"Set - Trace Context\"].json.conversationId,\r\n  traceId: $node[\"Set - Trace Context\"].json.traceId\r\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1408,
+        336
+      ],
+      "id": "f2d8270b-9f95-4a16-b015-f02ac504c669",
+      "name": "Respond ESCALATE"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/code-mentor/query",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "=Authorization",
+              "value": "={{$node[\"Set - Trace Context\"].json.authorization}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "studentId",
+              "value": "={{$node[\"Set - Trace Context\"].json.studentId}}"
+            },
+            {
+              "name": "courseId",
+              "value": "={{$node[\"Set - Trace Context\"].json.courseId}}"
+            },
+            {
+              "name": "classId",
+              "value": "={{$node[\"Set - Trace Context\"].json.classId}}"
+            },
+            {
+              "name": "question",
+              "value": "={{$node[\"Set - Trace Context\"].json.message}}"
+            },
+            {
+              "name": "code",
+              "value": "={{$node[\"Set - Trace Context\"].json.codeSnippet}}"
+            },
+            {
+              "name": "conversationId",
+              "value": "={{$node[\"Set - Trace Context\"].json.conversationId}}"
+            },
+            {
+              "name": "traceId",
+              "value": "={{$node[\"Set - Trace Context\"].json.traceId}}"
+            },
+            {
+              "name": "sessionId",
+              "value": "={{$node[\"Set - Trace Context\"].json.sessionId}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        128,
+        224
+      ],
+      "id": "bc381681-05c8-44d1-a0f9-8e740a50971f",
+      "name": "Code Mentor Query",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/tutor/students/{{$node[\"Set - Trace Context\"].json.studentId}}/courses/{{$node[\"Set - Trace Context\"].json.courseId}}/memory",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{$node[\"Set - Trace Context\"].json.authorization}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "classId",
+              "value": "={{$node[\"Set - Trace Context\"].json.classId}}"
+            },
+            {
+              "name": "recentQuestion",
+              "value": "={{$node[\"Set - Trace Context\"].json.message || $node[\"Set - Trace Context\"].json.codeSnippet}}"
+            },
+            {
+              "name": "recentAnswer",
+              "value": "={{$node[\"Code Mentor Query\"].json.answer}}"
+            },
+            {
+              "name": "summary",
+              "value": "=Student is practicing code in course {{$node[\"Set - Trace Context\"].json.courseId}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        528,
+        144
+      ],
+      "id": "a14fc824-fadf-4cd4-bc95-8108a7ec795d",
+      "name": "Update Memory CODE"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ ({\r\n  success: true,\r\n  mode: \"CODE\",\r\n  answer: $node[\"Code Mentor Query\"].json.answer,\r\n  confidence: $node[\"Code Mentor Query\"].json.confidence || 0.95,\r\n  escalated: false,\r\n  conversationId: $node[\"Code Mentor Query\"].json.conversationId || $node[\"Set - Trace Context\"].json.conversationId,\r\n  traceId: $node[\"Set - Trace Context\"].json.traceId,\r\n  sources: $node[\"Code Mentor Query\"].json.sources || [\"CODE\"]\r\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1008,
+        64
+      ],
+      "id": "2c47bfb5-d647-40c5-9fec-72c1d183d06d",
+      "name": "Respond CODE"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "answer-review",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -1744,
+        992
+      ],
+      "id": "3d74c577-6a38-4f70-9b21-2965534bf44f",
+      "name": "Answer Review Webhook",
+      "webhookId": "b719f6ee-0e3b-4548-b6e6-c254ece62dd4"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({\r\n  ok: true,\r\n  success: true,\r\n  status: \"SUBMITTED\",\r\n  reviewId: $node[\"Create AiAnswerReview\"].json.id,\r\n  message: \"Feedback đã được ghi nhận để phân tích chất lượng câu trả lời.\"\r\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        240,
+        1392
+      ],
+      "id": "60a44375-db91-4713-b264-3490b969953d",
+      "name": "Respond Review Saved"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "=={{\n  {\n    traceId: $json.body.traceId || 'review-' + Date.now(),\n    sessionId: $json.body.sessionId || '',\n    conversationId: $json.body.conversationId || '',\n    authToken: $json.body.authToken || (($json.headers.authorization || '').replace('Bearer ', '')) || '',\n    studentId: $json.body.studentId,\n    courseId: $json.body.courseId,\n    classId: $json.body.classId || '',\n    questionEscalationId: $json.body.questionEscalationId || '',\n    mode: $json.body.mode || 'RAG',\n    reviewType: $json.body.reviewType || ((Number($json.body.rating) <= 3 || $json.body.accurate === false) ? 'ANSWER_DISPUTE' : 'QUALITY_FEEDBACK'),\n    question: $json.body.question || '',\n    answer: $json.body.answer || '',\n    aiConfidence: $json.body.aiConfidence ?? '',\n    rating: $json.body.rating,\n    accurate: $json.body.accurate,\n    helpful: $json.body.helpful,\n    correctnessLevel: $json.body.correctnessLevel || '',\n    feedback: $json.body.feedback || '',\n    suggestedCorrection: $json.body.suggestedCorrection || '',\n    reviewedBy: $json.body.reviewedBy || $json.body.studentId,\n    reviewerRole: $json.body.reviewerRole || 'STUDENT'\n  }\n}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1488,
+        992
+      ],
+      "id": "0b97f212-78ba-418f-a0d4-a91ea5e59513",
+      "name": "Set Normalize Review Input"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/tutor/answer-reviews",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$node[\"Set Normalize Review Input\"].json.authToken}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "studentId",
+              "value": "={{$node[\"Set Normalize Review Input\"].json.studentId}}"
+            },
+            {
+              "name": "courseId",
+              "value": "={{$node[\"Set Normalize Review Input\"].json.courseId}}"
+            },
+            {
+              "name": "classId",
+              "value": "={{$node[\"Set Normalize Review Input\"].json.classId}}"
+            },
+            {
+              "name": "conversationId",
+              "value": "={{$node[\"Set Normalize Review Input\"].json.conversationId}}"
+            },
+            {
+              "name": "questionEscalationId",
+              "value": "={{$node[\"Set Normalize Review Input\"].json.questionEscalationId}}"
+            },
+            {
+              "name": "mode",
+              "value": "={{$node[\"Set Normalize Review Input\"].json.mode}}"
+            },
+            {
+              "name": "reviewType",
+              "value": "={{$node[\"Set Normalize Review Input\"].json.reviewType}}"
+            },
+            {
+              "name": "question",
+              "value": "={{$node[\"Set Normalize Review Input\"].json.question}}"
+            },
+            {
+              "name": "answer",
+              "value": "={{$node[\"Set Normalize Review Input\"].json.answer}}"
+            },
+            {
+              "name": "aiConfidence",
+              "value": "={{$node[\"Set Normalize Review Input\"].json.aiConfidence}}"
+            },
+            {
+              "name": "rating",
+              "value": "={{$node[\"Set Normalize Review Input\"].json.rating}}"
+            },
+            {
+              "name": "accurate",
+              "value": "={{$node[\"Set Normalize Review Input\"].json.accurate}}"
+            },
+            {
+              "name": "helpful",
+              "value": "={{$node[\"Set Normalize Review Input\"].json.helpful}}"
+            },
+            {
+              "name": "correctnessLevel",
+              "value": "={{$node[\"Set Normalize Review Input\"].json.correctnessLevel}}"
+            },
+            {
+              "name": "feedback",
+              "value": "={{$node[\"Set Normalize Review Input\"].json.feedback}}"
+            },
+            {
+              "name": "suggestedCorrection",
+              "value": "={{$node[\"Set Normalize Review Input\"].json.suggestedCorrection}}"
+            },
+            {
+              "name": "reviewedBy",
+              "value": "={{$node[\"Set Normalize Review Input\"].json.reviewedBy}}"
+            },
+            {
+              "name": "reviewerRole",
+              "value": "={{$node[\"Set Normalize Review Input\"].json.reviewerRole}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -976,
+        992
+      ],
+      "id": "6ebf683f-57ef-463f-a4a3-6c73abd132d2",
+      "name": "Create AiAnswerReview",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({\r\n  ok: true,\r\n  success: true,\r\n  status: \"NEEDS_MENTOR_REVIEW\",\r\n  reviewId: $node[\"Create AiAnswerReview\"].json.id,\r\n  message: \"Feedback đã được gửi cho mentor kiểm tra. AI chưa học từ feedback này.\"\r\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        240,
+        1040
+      ],
+      "id": "83a52be8-98d5-4e80-a327-1c4980954357",
+      "name": "Respond Sent To Mentor"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({\r\n  ok: true,\r\n  success: true,\r\n  status: \"NEEDS_SENIOR_REVIEW\",\r\n  reviewId: $node[\"Create AiAnswerReview\"].json.id,\r\n  message: \"Feedback cần senior mentor xác nhận trước khi AI được học.\"\r\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        240,
+        1216
+      ],
+      "id": "8764a76a-2b79-43b2-926f-b013781477ed",
+      "name": "Respond Sent To Senior"
+    },
+    {
+      "parameters": {
+        "httpMethod": "=POST",
+        "path": "=teacher-answer-escalation",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -1840,
+        1488
+      ],
+      "id": "dad396b8-8371-463c-a95b-333412f0ea4f",
+      "name": "Teacher Answer Webhook",
+      "webhookId": "471b4b98-91e4-4f44-b41d-8c8aefad1567"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "=={{\n  {\n    traceId: $json.body.traceId || 'teacher-answer-' + Date.now(),\n    sessionId: $json.body.sessionId || '',\n    conversationId: $json.body.conversationId || '',\n    authToken: $json.body.authToken || (($json.headers.authorization || '').replace('Bearer ', '')) || '',\n    questionEscalationId: $json.body.questionEscalationId,\n    teacherId: $json.body.teacherId,\n    teacherName: $json.body.teacherName || '',\n    answer: $json.body.answer || '',\n    createKnowledgeCandidate: $json.body.createKnowledgeCandidate,\n    candidateType: $json.body.candidateType || 'ACADEMIC_KNOWLEDGE'\n  }\n}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1600,
+        1488
+      ],
+      "id": "77db40e2-4b51-4efb-8071-35824b31b145",
+      "name": "Set Teacher Answer Input"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/tutor/escalations/{{$node[\"Set Teacher Answer Input\"].json.questionEscalationId}}/answer",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$node[\"Set Teacher Answer Input\"].json.authToken}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "teacherId",
+              "value": "={{$node[\"Set Teacher Answer Input\"].json.teacherId}}"
+            },
+            {
+              "name": "answer",
+              "value": "={{$node[\"Set Teacher Answer Input\"].json.answer}}"
+            },
+            {
+              "name": "candidateType",
+              "value": "={{$node[\"Set Teacher Answer Input\"].json.candidateType}}"
+            },
+            {
+              "name": "createKnowledgeCandidate",
+              "value": "={{$node[\"Set Teacher Answer Input\"].json.createKnowledgeCandidate}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -1216,
+        1488
+      ],
+      "id": "bbf5f5f3-9570-4c5b-ad02-6460ef5b9cdb",
+      "name": "Answer Escalation",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "httpMethod": "=POST",
+        "path": "=senior-knowledge-approval",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -1904,
+        2016
+      ],
+      "id": "149d5a6c-a757-4687-9971-06c68d2493ef",
+      "name": "Senior Approval Webhook",
+      "webhookId": "c2118422-aeb5-4a8d-9bff-35a4127513fc"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "=={{\n  {\n    traceId: $json.body.traceId || 'senior-approval-' + Date.now(),\n    sessionId: $json.body.sessionId || '',\n    conversationId: $json.body.conversationId || '',\n    authToken: $json.body.authToken || (($json.headers.authorization || '').replace('Bearer ', '')) || '',\n    authorization: $json.headers.authorization || ('Bearer ' + ($json.body.authToken || '')),\n    candidateId: $json.body.candidateId,\n    decision: $json.body.decision,\n    reviewerId: $json.body.reviewerId,\n    reviewerRole: $json.body.reviewerRole || 'SENIOR_MENTOR',\n    reviewerName: $json.body.reviewerName || '',\n    reviewNote: $json.body.reviewNote || '',\n    rejectionReason: $json.body.rejectionReason || ''\n  }\n}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1664,
+        2016
+      ],
+      "id": "22849522-c918-4721-a710-ba19f22d5e5b",
+      "name": "Set Approval Input"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{$node[\"Set Approval Input\"].json.decision}}",
+                    "rightValue": "APPROVE",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "76ea41d8-1fe9-46e1-9846-55fa635c8f1c"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "APPROVE"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "4a13a822-8e7c-4788-a4d5-56a7d2b6b036",
+                    "leftValue": "={{$node[\"Set Approval Input\"].json.decision}}",
+                    "rightValue": "REJECT",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "REJECT"
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -1232,
+        2016
+      ],
+      "id": "e360ca9e-6845-46ca-a3e4-5dba0d72634c",
+      "name": "Switch1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/tutor/knowledge-candidates/{{$node[\"Set Approval Input\"].json.candidateId}}/approve",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$node[\"Set Approval Input\"].json.authToken}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "reviewerId",
+              "value": "={{$node[\"Set Approval Input\"].json.reviewerId}}"
+            },
+            {
+              "name": "reviewerRole",
+              "value": "={{$node[\"Set Approval Input\"].json.reviewerRole}}"
+            },
+            {
+              "name": "reviewerName",
+              "value": "={{$node[\"Set Approval Input\"].json.reviewerName}}"
+            },
+            {
+              "name": "reviewNote",
+              "value": "={{$node[\"Set Approval Input\"].json.reviewNote}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -880,
+        2000
+      ],
+      "id": "b9276aac-0fc2-48b8-b1bb-61c95114956d",
+      "name": " Approve Candidate",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({\r\n  ok: true,\r\n  success: true,\r\n  decision: \"APPROVE\",\r\n  candidateId: $node[\"Set Approval Input\"].json.candidateId,\r\n  message: \"KnowledgeCandidate đã được approve và index vào RAG Brain.\"\r\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -368,
+        2000
+      ],
+      "id": "c0d3bae4-7409-45ea-8db1-b45cdcf526be",
+      "name": " Respond Approved"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "edf934a6-809a-4e30-8b6e-da69bc981c2e",
+              "leftValue": "={{$node[\"Answer Escalation\"].json.knowledgeCandidateCreated}}",
+              "rightValue": "true",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -784,
+        1552
+      ],
+      "id": "941fae42-4a6d-4e37-9393-a9909c3996c3",
+      "name": "IF Candidate Created"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({\r\n  ok: true,\r\n  success: true,\r\n  knowledgeCandidateCreated: true,\r\n  candidateId: $node[\"Answer Escalation\"].json.knowledgeCandidate?.id || null,\r\n  candidateStatus: $node[\"Answer Escalation\"].json.knowledgeCandidate?.status || \"PENDING_SENIOR_REVIEW\",\r\n  questionEscalationId: $node[\"Set Teacher Answer Input\"].json.questionEscalationId,\r\n  message: \"Câu trả lời đã tạo KnowledgeCandidate và đang chờ senior/admin duyệt.\"\r\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -224,
+        1536
+      ],
+      "id": "a7adc5a2-bcdb-4734-a54b-e6ea8a06d62d",
+      "name": "Respond Candidate Created"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({\r\n  ok: true,\r\n  success: true,\r\n  knowledgeCandidateCreated: false,\r\n  questionEscalationId: $node[\"Set Teacher Answer Input\"].json.questionEscalationId,\r\n  message: \"Câu trả lời của mentor đã được gửi cho học sinh; AI không học nội dung này.\"\r\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -224,
+        1728
+      ],
+      "id": "af10a125-7741-4469-9e76-096ce565491e",
+      "name": "Respond Answer Only"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({\r\n  ok: true,\r\n  success: true,\r\n  decision: \"REJECT\",\r\n  candidateId: $node[\"Set Approval Input\"].json.candidateId,\r\n  message: \"KnowledgeCandidate đã bị reject; AI không học nội dung này.\"\r\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -464,
+        2224
+      ],
+      "id": "85157540-2f81-49a6-a0e0-7c4c6756e662",
+      "name": "Respond Rejected"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/tutor/knowledge-candidates/{{$node[\"Set Approval Input\"].json.candidateId}}/reject",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$node[\"Set Approval Input\"].json.authToken}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "reviewerId",
+              "value": "={{$node[\"Set Approval Input\"].json.reviewerId}}"
+            },
+            {
+              "name": "reviewerRole",
+              "value": "={{$node[\"Set Approval Input\"].json.reviewerRole}}"
+            },
+            {
+              "name": "reviewerName",
+              "value": "={{$node[\"Set Approval Input\"].json.reviewerName}}"
+            },
+            {
+              "name": "reviewNote",
+              "value": "={{$node[\"Set Approval Input\"].json.reviewNote}}"
+            },
+            {
+              "name": "rejectionReason",
+              "value": "={{$node[\"Set Approval Input\"].json.rejectionReason || $node[\"Set Approval Input\"].json.reviewNote}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -928,
+        2224
+      ],
+      "id": "6c5ad556-9b2e-4e33-aa43-342cb9b5c334",
+      "name": "Reject Candidate",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "=={{\n  {\n    traceId: $json.body.traceId || 'trace-' + Date.now(),\n    sessionId: $json.body.sessionId || 'session-' + Date.now(),\n    conversationId: $json.body.conversationId || 'conversation-' + Date.now(),\n\n    authToken: $json.body.authToken || (($json.headers.authorization || '').replace('Bearer ', '')) || '',\n    authorization: 'Bearer ' + ($json.body.authToken || (($json.headers.authorization || '').replace('Bearer ', '')) || ''),\n\n    studentId: $json.body.studentId,\n    studentName: $json.body.studentName || '',\n    studentEmail: $json.body.studentEmail || '',\n\n    courseId: $json.body.courseId,\n    classId: $json.body.classId || '',\n\n    message: $json.body.message || $json.body.question || '',\n    question: $json.body.question || $json.body.message || '',\n    codeSnippet: $json.body.codeSnippet || $json.body.code || '',\n    startedAt: new Date().toISOString()\n  }\n}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1584,
+        464
+      ],
+      "id": "86966be8-b648-4b47-a7d0-5a63a511a447",
+      "name": "Set - Normalize Input"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "=={{\n  {\n    traceId: $json.traceId || 'trace-' + Date.now(),\n    sessionId: $json.sessionId || 'session-' + Date.now(),\n    conversationId: $json.conversationId || 'conversation-' + Date.now(),\n\n    authToken: $json.authToken || (($json.authorization || '').replace('Bearer ', '')) || '',\n    authorization: $json.authorization || ('Bearer ' + ($json.authToken || '')),\n\n    studentId: $json.studentId,\n    studentName: $json.studentName || '',\n    studentEmail: $json.studentEmail || '',\n\n    courseId: $json.courseId,\n    classId: $json.classId || '',\n\n    message: $json.message || $json.question || '',\n    question: $json.question || $json.message || '',\n    codeSnippet: $json.codeSnippet || $json.code || '',\n\n    startedAt: $json.startedAt || new Date().toISOString()\n  }\n}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1360,
+        464
+      ],
+      "id": "a87ba1e0-08ae-43d0-8e8f-85de3c5256b8",
+      "name": "Set - Trace Context"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "c3510366-7a03-4607-b506-c16a96964d58",
+              "leftValue": "={{ $json.error ? \"ERROR\" : ($json.statusCode >= 400 ? \"ERROR\" : (($json.escalated === true && $json.escalationReason === \"LLM call failed\") ? \"ERROR\" : \"OK\")) }}",
+              "rightValue": "ERROR",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        368,
+        608
+      ],
+      "id": "325445db-20b2-4214-90c7-fdf5ec6345a6",
+      "name": "IF RAG Failed? "
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose", "version": 3 },
+          "conditions": [
+            {
+              "id": "course-quota-condition",
+              "leftValue": "={{ JSON.stringify($json).includes('DAILY_COURSE_QUESTION_LIMIT_REACHED') ? 'QUOTA' : 'CONTINUE' }}",
+              "rightValue": "QUOTA",
+              "operator": { "type": "string", "operation": "equals", "name": "filter.operator.equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [368, 464],
+      "id": "course-quota-router",
+      "name": "IF Course Question Quota Reached"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose", "version": 3 },
+          "conditions": [{
+            "id": "intent-course-quota-condition",
+            "leftValue": "={{ JSON.stringify($json).includes('DAILY_COURSE_QUESTION_LIMIT_REACHED') ? 'QUOTA' : 'CONTINUE' }}",
+            "rightValue": "QUOTA",
+            "operator": { "type": "string", "operation": "equals", "name": "filter.operator.equals" }
+          }],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [-432, 464],
+      "id": "intent-course-quota-router",
+      "name": "IF Intent Course Quota Reached"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ ({ success: false, status: 'QUOTA_EXCEEDED', code: 'DAILY_COURSE_QUESTION_LIMIT_REACHED', message: 'Bạn đã dùng hết 10 câu hỏi của môn ' + $node['Set - Trace Context'].json.courseId + ' hôm nay. Bạn vẫn có thể hỏi các môn khác hoặc quay lại vào ngày mai.', courseId: $node['Set - Trace Context'].json.courseId, dailyLimit: 10, remaining: 0, traceId: $node['Set - Trace Context'].json.traceId, conversationId: $node['Set - Trace Context'].json.conversationId }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [736, 416],
+      "id": "respond-course-quota",
+      "name": "Respond Course Question Quota"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/harness/error-logs",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "traceId",
+              "value": "={{$node[\"Set - Trace Context\"].json.traceId}}"
+            },
+            {
+              "name": "sessionId",
+              "value": "={{$node[\"Set - Trace Context\"].json.sessionId}}"
+            },
+            {
+              "name": "conversationId",
+              "value": "={{$node[\"Set - Trace Context\"].json.conversationId}}"
+            },
+            {
+              "name": "studentId ",
+              "value": "={{$node[\"Set - Trace Context\"].json.studentId}}"
+            },
+            {
+              "name": "courseId",
+              "value": "={{$node[\"Set - Trace Context\"].json.courseId}}"
+            },
+            {
+              "name": "classId",
+              "value": "={{$node[\"Set - Trace Context\"].json.classId}}"
+            },
+            {
+              "name": "workflowName",
+              "value": "Student Chat Harness"
+            },
+            {
+              "name": "nodeName",
+              "value": "Course RAG Query"
+            },
+            {
+              "name": "mode",
+              "value": "RAG"
+            },
+            {
+              "name": "errorType",
+              "value": "RAG_QUERY_FAILED"
+            },
+            {
+              "name": "errorMessage",
+              "value": "={{JSON.stringify($json)}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        736,
+        576
+      ],
+      "id": "4da14896-5861-4867-95bf-c5e85eb7ebf9",
+      "name": "Log Error - RAG"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/harness/logs",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "traceId",
+              "value": "={{$node[\"Set Normalize Review Input\"].json.traceId}}"
+            },
+            {
+              "name": "sessionId",
+              "value": "={{$node[\"Set Normalize Review Input\"].json.sessionId}}"
+            },
+            {
+              "name": "conversationId",
+              "value": "={{$node[\"Set Normalize Review Input\"].json.conversationId}}"
+            },
+            {
+              "name": "studentId",
+              "value": "={{$node[\"Set Normalize Review Input\"].json.courseId}}"
+            },
+            {
+              "name": "courseId",
+              "value": "={{$node[\"Set Normalize Review Input\"].json.courseId}}"
+            },
+            {
+              "name": "classId",
+              "value": "={{$node[\"Set Normalize Review Input\"].json.classId}}"
+            },
+            {
+              "name": "workflowName",
+              "value": "Answer Review Harness"
+            },
+            {
+              "name": "nodeName",
+              "value": " Answer Review Webhook"
+            },
+            {
+              "name": "eventType",
+              "value": "NODE_STARTED"
+            },
+            {
+              "name": "status",
+              "value": "SUCCESS"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -1248,
+        992
+      ],
+      "id": "4bb8a752-7320-46da-a913-bf6e34a3eadd",
+      "name": "Log - Review Started"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "a8b3e0d7-0281-4017-80aa-d3996895f14a",
+              "leftValue": "={{ $json.error ? \"ERROR\" : ($json.statusCode >= 400 ? \"ERROR\" : \"OK\") }}",
+              "rightValue": "ERROR",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -768,
+        992
+      ],
+      "id": "bb72541d-688c-4065-8f8d-fb98a584c168",
+      "name": "IF Review Failed"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/harness/error-logs",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "traceId",
+              "value": "={{$node[\"Set Normalize Review Input\"].json.traceId || 'review-' + Date.now()}}"
+            },
+            {
+              "name": "sessionId",
+              "value": "={{$node[\"Set Normalize Review Input\"].json.sessionId}}"
+            },
+            {
+              "name": "conversationId",
+              "value": "={{$node[\"Set Normalize Review Input\"].json.conversationId}}"
+            },
+            {
+              "name": "studentId ",
+              "value": "={{$node[\"Set Normalize Review Input\"].json.studentId}}"
+            },
+            {
+              "name": "courseId",
+              "value": "={{$node[\"Set Normalize Review Input\"].json.courseId}}"
+            },
+            {
+              "name": "classId",
+              "value": "={{$node[\"Set Normalize Review Input\"].json.classId}}"
+            },
+            {
+              "name": "workflowName",
+              "value": " Answer Review Harness"
+            },
+            {
+              "name": "nodeName",
+              "value": "Create AiAnswerReview"
+            },
+            {
+              "name": "mode",
+              "value": "REVIEW"
+            },
+            {
+              "name": "errorType",
+              "value": "ANSWER_REVIEW_FAILED"
+            },
+            {
+              "name": "errorMessage",
+              "value": "={{JSON.stringify($json)}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -464,
+        768
+      ],
+      "id": "2977e1c6-f3d3-4c9f-beb1-f34ccb33ce84",
+      "name": "Log Error - Review"
+    },
+    {
+      "parameters": {
+        "method": "=POST",
+        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/harness/logs",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "traceId",
+              "value": "={{$node[\"Set Teacher Answer Input\"].json.traceId || 'teacher-answer-' + Date.now()}}"
+            },
+            {
+              "name": "actorId",
+              "value": "={{$node[\"Set Teacher Answer Input\"].json.teacherId}}"
+            },
+            {
+              "name": "actorRole",
+              "value": "=TEACHER"
+            },
+            {
+              "name": "teacherId",
+              "value": "={{$node[\"Set Teacher Answer Input\"].json.teacherId}}"
+            },
+            {
+              "name": "questionEscalationId",
+              "value": "={{$node[\"Set Teacher Answer Input\"].json.questionEscalationId}}"
+            },
+            {
+              "name": "workflowName",
+              "value": "Teacher Answer Harness"
+            },
+            {
+              "name": "nodeName",
+              "value": "Teacher Answer Webhook"
+            },
+            {
+              "name": "mode",
+              "value": "ESCALATE"
+            },
+            {
+              "name": "eventType",
+              "value": "NODE_STARTED"
+            },
+            {
+              "name": "status",
+              "value": "SUCCESS"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -1408,
+        1488
+      ],
+      "id": "4082505d-5c9b-4781-9e14-c5a0b02780a8",
+      "name": "Log - Teacher Answer Started"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "f43fe8e5-5bdb-4a4d-b44a-f4af989feb1d",
+              "leftValue": "={{ $json.error ? \"ERROR\" : ($json.statusCode >= 400 ? \"ERROR\" : \"OK\") }}",
+              "rightValue": "ERROR",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -1008,
+        1488
+      ],
+      "id": "947788d4-7687-4781-8298-21503c9fe4c3",
+      "name": "IF Teacher Answer Failed?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({\r\n  success: false,\r\n  status: \"FAILED\",\r\n  message: \"Không thể lưu câu trả lời của mentor. Vui lòng thử lại sau.\",\r\n  traceId: $node[\"Set Teacher Answer Input\"].json.traceId || \"\",\r\n  conversationId: $node[\"Set Teacher Answer Input\"].json.conversationId || \"\",\r\n  questionEscalationId: $node[\"Set Teacher Answer Input\"].json.questionEscalationId,\r\n  error: \"TEACHER_ANSWER_FAILED\"\r\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -512,
+        1360
+      ],
+      "id": "8c8fe8f4-0710-472e-bbc2-d6af708fca07",
+      "name": "Respond Answer Failed"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({\r\n  success: false,\r\n  status: \"FAILED\",\r\n  message: \"Không thể lưu đánh giá câu trả lời AI. Vui lòng thử lại sau.\",\r\n  traceId: $node[\"Set Normalize Review Input\"].json.traceId,\r\n  conversationId: $node[\"Set Normalize Review Input\"].json.conversationId,\r\n  error: \"ANSWER_REVIEW_FAILED\"\r\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -176,
+        768
+      ],
+      "id": "f4afef17-049e-4973-be1b-a839e243f955",
+      "name": "Respond Review Failed"
+    },
+    {
+      "parameters": {
+        "method": "=POST",
+        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/harness/logs",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "traceId",
+              "value": "={{$node[\"Set Approval Input\"].json.traceId || 'senior-approval-' + Date.now()}}"
+            },
+            {
+              "name": "actorId",
+              "value": "={{$node[\"Set Approval Input\"].json.reviewerId}}"
+            },
+            {
+              "name": "actorRole",
+              "value": "={{$node[\"Set Approval Input\"].json.reviewerRole}}"
+            },
+            {
+              "name": "reviewerId",
+              "value": "={{$node[\"Set Approval Input\"].json.reviewerId}}"
+            },
+            {
+              "name": "knowledgeCandidateId",
+              "value": "={{$node[\"Set Approval Input\"].json.candidateId}}"
+            },
+            {
+              "name": "decision",
+              "value": "={{$node[\"Set Approval Input\"].json.decision}}"
+            },
+            {
+              "name": "workflowName",
+              "value": "Senior Approval Harness"
+            },
+            {
+              "name": "nodeName",
+              "value": "Senior Approval Webhook"
+            },
+            {
+              "name": "mode",
+              "value": "SENIOR_APPROVAL"
+            },
+            {
+              "name": "eventType",
+              "value": "NODE_STARTED"
+            },
+            {
+              "name": "status",
+              "value": "SUCCESS"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -1456,
+        2016
+      ],
+      "id": "f70777cb-3e1f-447a-873a-550758cb8900",
+      "name": "Log - Senior Approval Started"
+    },
+    {
+      "parameters": {
+        "method": "=POST",
+        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/harness/logs",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "traceId",
+              "value": "={{$node[\"Set Teacher Answer Input\"].json.traceId || 'teacher-answer-' + Date.now()}}"
+            },
+            {
+              "name": "actorId",
+              "value": "={{$node[\"Set Teacher Answer Input\"].json.teacherId}}"
+            },
+            {
+              "name": "actorRole",
+              "value": "=TEACHER"
+            },
+            {
+              "name": "teacherId",
+              "value": "={{$node[\"Set Teacher Answer Input\"].json.teacherId}}"
+            },
+            {
+              "name": "questionEscalationId",
+              "value": "={{$node[\"Set Teacher Answer Input\"].json.questionEscalationId}}"
+            },
+            {
+              "name": "workflowName",
+              "value": "Teacher Answer Harness"
+            },
+            {
+              "name": "nodeName",
+              "value": "Answer Escalation"
+            },
+            {
+              "name": "mode",
+              "value": "ESCALATE"
+            },
+            {
+              "name": "errorType",
+              "value": "TEACHER_ANSWER_FAILED"
+            },
+            {
+              "name": "errorMessage",
+              "value": "{{JSON.stringify($json)}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -784,
+        1360
+      ],
+      "id": "b8274c48-992b-488f-86eb-ae05eb857aa6",
+      "name": "Log Error - Teacher Answer"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/harness/logs",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "traceId",
+              "value": "={{$node[\"Set Teacher Answer Input\"].json.traceId || 'teacher-answer-' + Date.now()}}"
+            },
+            {
+              "name": "actorId",
+              "value": "={{$node[\"Set Teacher Answer Input\"].json.teacherId}}"
+            },
+            {
+              "name": "actorRole",
+              "value": "TEACHER"
+            },
+            {
+              "name": "teacherId",
+              "value": "={{$node[\"Set Teacher Answer Input\"].json.teacherId}}"
+            },
+            {
+              "name": "questionEscalationId",
+              "value": "={{$node[\"Set Teacher Answer Input\"].json.questionEscalationId}}"
+            },
+            {
+              "name": "knowledgeCandidateId",
+              "value": "={{$node[\"Answer Escalation\"].json.knowledgeCandidateId || $node[\"Answer Escalation\"].json.candidateId || $node[\"Answer Escalation\"].json.linkedKnowledgeCandidateId}}"
+            },
+            {
+              "name": "workflowName",
+              "value": "Teacher Answer Harness"
+            },
+            {
+              "name": "nodeName",
+              "value": "Knowledge Candidate Created"
+            },
+            {
+              "name": "mode",
+              "value": "ESCALATE"
+            },
+            {
+              "name": "eventType",
+              "value": "KNOWLEDGE_CANDIDATE_CREATED"
+            },
+            {
+              "name": "status",
+              "value": "SUCCESS"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -496,
+        1536
+      ],
+      "id": "c7371cac-c057-4f2e-9912-e8d50cedbd00",
+      "name": "Log - Candidate Created"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/harness/logs",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "traceId",
+              "value": "={{$node[\"Set Teacher Answer Input\"].json.traceId || 'teacher-answer-' + Date.now()}}"
+            },
+            {
+              "name": "actorId",
+              "value": "={{$node[\"Set Teacher Answer Input\"].json.teacherId}}"
+            },
+            {
+              "name": "actorRole",
+              "value": "TEACHER"
+            },
+            {
+              "name": "teacherId",
+              "value": "={{$node[\"Set Teacher Answer Input\"].json.teacherId}}"
+            },
+            {
+              "name": "questionEscalationId",
+              "value": "={{$node[\"Set Teacher Answer Input\"].json.questionEscalationId}}"
+            },
+            {
+              "name": "workflowName",
+              "value": "Teacher Answer Harness"
+            },
+            {
+              "name": "nodeName",
+              "value": " Answer Escalation"
+            },
+            {
+              "name": "mode",
+              "value": "ESCALATE"
+            },
+            {
+              "name": "eventType",
+              "value": " TEACHER_ANSWER_SAVED"
+            },
+            {
+              "name": "status",
+              "value": "SUCCESS"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -496,
+        1728
+      ],
+      "id": "9f925f80-4eb2-422b-b2d9-243a9d71934c",
+      "name": " Log - Answer Only"
+    },
+    {
+      "parameters": {
+        "method": "=POST",
+        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/harness/logs",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "traceId",
+              "value": "={{$node[\"Set Approval Input\"].json.traceId || 'senior-approval-' + Date.now()}}"
+            },
+            {
+              "name": "actorId",
+              "value": "={{$node[\"Set Approval Input\"].json.reviewerId}}"
+            },
+            {
+              "name": "actorRole",
+              "value": "={{$node[\"Set Approval Input\"].json.reviewerRole}}"
+            },
+            {
+              "name": "reviewerId",
+              "value": "={{$node[\"Set Approval Input\"].json.reviewerId}}"
+            },
+            {
+              "name": "knowledgeCandidateId",
+              "value": "={{$node[\"Set Approval Input\"].json.candidateId}}"
+            },
+            {
+              "name": "decision",
+              "value": "=APPROVE"
+            },
+            {
+              "name": "workflowName",
+              "value": "Senior Approval Harness"
+            },
+            {
+              "name": "nodeName",
+              "value": "Approve Candidate"
+            },
+            {
+              "name": "mode",
+              "value": "SENIOR_APPROVAL"
+            },
+            {
+              "name": "eventType",
+              "value": "NODE_COMPLETED"
+            },
+            {
+              "name": "status",
+              "value": "SUCCESS"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -608,
+        2000
+      ],
+      "id": "f2091492-50d5-4aae-bc51-484638f072a6",
+      "name": "Log - Candidate Approved"
+    },
+    {
+      "parameters": {
+        "method": "=POST",
+        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/harness/logs",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "traceId",
+              "value": "={{$node[\"Set Approval Input\"].json.traceId || 'senior-approval-' + Date.now()}}"
+            },
+            {
+              "name": "actorId",
+              "value": "={{$node[\"Set Approval Input\"].json.reviewerId}}"
+            },
+            {
+              "name": "actorRole",
+              "value": "={{$node[\"Set Approval Input\"].json.reviewerRole}}"
+            },
+            {
+              "name": "reviewerId",
+              "value": "={{$node[\"Set Approval Input\"].json.reviewerId}}"
+            },
+            {
+              "name": "knowledgeCandidateId",
+              "value": "={{$node[\"Set Approval Input\"].json.candidateId}}"
+            },
+            {
+              "name": "decision",
+              "value": "=REJECT"
+            },
+            {
+              "name": "workflowName",
+              "value": "Senior Approval Harness"
+            },
+            {
+              "name": "nodeName",
+              "value": "Reject Candidate"
+            },
+            {
+              "name": "mode",
+              "value": "SENIOR_APPROVAL"
+            },
+            {
+              "name": "eventType",
+              "value": "NODE_COMPLETED"
+            },
+            {
+              "name": "status",
+              "value": "SUCCESS"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -704,
+        2224
+      ],
+      "id": "ff498b56-c954-458c-936e-fd97cf5c7e13",
+      "name": "Log - Candidate Rejected"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/harness/logs",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{$node[\"Set - Trace Context\"].json.authorization}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "traceId",
+              "value": "={{$node[\"Set - Trace Context\"].json.traceId}}"
+            },
+            {
+              "name": "sessionId",
+              "value": "={{$node[\"Set - Trace Context\"].json.sessionId}}"
+            },
+            {
+              "name": "conversationId",
+              "value": "={{$node[\"Set - Trace Context\"].json.conversationId}}"
+            },
+            {
+              "name": "studentId",
+              "value": "={{$node[\"Set - Trace Context\"].json.studentId}}"
+            },
+            {
+              "name": "courseId",
+              "value": "={{$node[\"Set - Trace Context\"].json.courseId}}"
+            },
+            {
+              "name": "classId",
+              "value": "={{$node[\"Set - Trace Context\"].json.classId}}"
+            },
+            {
+              "name": "workflowName",
+              "value": "Student Chat Harness"
+            },
+            {
+              "name": "nodeName",
+              "value": "Student Chat Webhook"
+            },
+            {
+              "name": "eventType",
+              "value": "NODE_STARTED"
+            },
+            {
+              "name": "status",
+              "value": "SUCCESS"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -1152,
+        464
+      ],
+      "id": "3ab6a77f-aa0f-4753-bbc5-bd98b495fbdb",
+      "name": "Log - Stundet Chat Started"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{$json.mode}}",
+                    "rightValue": "CODE",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "5b6cab11-65ba-4261-886a-7ffc78eec63e"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "CODE"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "cfce8e7b-0fd1-4d23-ab89-407173c73bf2",
+                    "leftValue": "={{$json.mode}}",
+                    "rightValue": "ESCALATE",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "ESCALATE"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "e65ab694-68cf-41bf-98cd-57812912b08a",
+                    "leftValue": "={{$json.mode}}",
+                    "rightValue": "RAG",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "RAG"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -384,
+        448
+      ],
+      "id": "3f257e92-045e-4b65-8023-50e7ae58f722",
+      "name": "Switch2"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "70fdb935-4c73-4600-bd93-beb13eae0290",
+              "leftValue": "={{ String($json.status ?? '').trim().toUpperCase() }}",
+              "rightValue": "SUBMITTED",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -464,
+        1008
+      ],
+      "id": "9d537a73-9cff-4904-a7df-9bcf740da7d6",
+      "name": " IF Submitted?"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "fd21bcf0-dfdc-48da-8e9f-5a070831796f",
+              "leftValue": "={{ ($json.status || '').trim().toUpperCase() }}",
+              "rightValue": "NEEDS_MENTOR_REVIEW",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -272,
+        1152
+      ],
+      "id": "7a32de3a-3b3e-48c7-b855-f7d6014675a5",
+      "name": " IF Needs Mentor?"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "85286cbb-2248-46a8-a07e-1480331be2c8",
+              "leftValue": "={{ ($json.status || '').trim().toUpperCase() }}",
+              "rightValue": "NEEDS_SENIOR_REVIEW",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -64,
+        1248
+      ],
+      "id": "5b402ab3-89f9-4ae5-ad66-ffec8dcafaf6",
+      "name": "IF Needs Senior?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({\r\n  ok: true,\r\n  success: true,\r\n  status: \"SUBMITTED\",\r\n  reviewId: $node[\"Create AiAnswerReview\"].json.id,\r\n  message: \"Feedback đã được ghi nhận để phân tích chất lượng câu trả lời.\"\r\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -144,
+        976
+      ],
+      "id": "c76c58e4-bdb3-443b-a691-b22797f71a5c",
+      "name": "Respond Review Saved1"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ {\r\n  traceId: $json.body.traceId || ('quiz-submit-' + Date.now()),\r\n  sessionId: $json.body.sessionId || '',\r\n  conversationId: $json.body.conversationId || '',\r\n  authToken: $json.body.authToken || (($json.headers.authorization || '').replace('Bearer ', '')) || '',\r\n  quizSessionId: $json.body.quizSessionId,\r\n  studentId: $json.body.studentId || '',\r\n  courseId: $json.body.courseId || '',\r\n  classId: $json.body.classId || '',\r\n  answers: $json.body.answers || []\r\n} }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1760,
+        3248
+      ],
+      "id": "71bb4317-7525-46c6-a681-2260746733fd",
+      "name": "Set - Normalize Quiz Submit"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "quiz-submit",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -2016,
+        3248
+      ],
+      "id": "c9b2bdb8-5d45-4352-8923-a16f390dc308",
+      "name": "Webhook - Quiz Submit",
+      "webhookId": "e9fd398c-edea-42e5-bba1-e19e15b31670"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/harness/logs",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "traceId",
+              "value": "={{$node[\"Set - Normalize Quiz Submit\"].json.traceId}}"
+            },
+            {
+              "name": "sessionId",
+              "value": "={{$node[\"Set - Normalize Quiz Submit\"].json.sessionId}}"
+            },
+            {
+              "name": "studentId",
+              "value": "={{$node[\"Set - Normalize Quiz Submit\"].json.studentId}}"
+            },
+            {
+              "name": "courseId",
+              "value": "={{$node[\"Set - Normalize Quiz Submit\"].json.courseId}}"
+            },
+            {
+              "name": "classId",
+              "value": "={{$node[\"Set - Normalize Quiz Submit\"].json.classId}}"
+            },
+            {
+              "name": "workflowName",
+              "value": "Quiz Submit Harness"
+            },
+            {
+              "name": "nodeName",
+              "value": "Quiz Submit Webhook"
+            },
+            {
+              "name": "mode ",
+              "value": "QUIZ_SUBMIT"
+            },
+            {
+              "name": "eventType",
+              "value": "NODE_STARTED"
+            },
+            {
+              "name": "status",
+              "value": "SUCCESS"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -1456,
+        3248
+      ],
+      "id": "e37cda53-7677-4a21-ac49-beae8d6501e2",
+      "name": "Log - Quiz Submit Started"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/tutor/quizzes/{{$node[\"Set - Normalize Quiz Submit\"].json.quizSessionId}}/submit",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$node[\"Set - Normalize Quiz Submit\"].json.authToken}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "=answers",
+              "value": "={{$node[\"Set - Normalize Quiz Submit\"].json.answers}}"
+            },
+            {}
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -1136,
+        3248
+      ],
+      "id": "0d77f20f-832a-4d22-a2f8-b0624effa4a7",
+      "name": "Submit Quiz To Backend",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "2fcbbd9d-0238-4572-be93-97a14a6fe545",
+              "leftValue": "={{$json.error ? 'ERROR' : 'OK'}}",
+              "rightValue": "ERROR",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -864,
+        3248
+      ],
+      "id": "dc489218-7021-41a6-bbbb-3902d612c0ce",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/harness/logs",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "traceId",
+              "value": "={{$node[\"Set - Normalize Quiz Submit\"].json.traceId}}"
+            },
+            {
+              "name": "workflowName",
+              "value": "Quiz Submit Harness"
+            },
+            {
+              "name": "nodeName",
+              "value": "Submit Quiz To Backend"
+            },
+            {
+              "name": "mode",
+              "value": "QUIZ_SUBMIT"
+            },
+            {
+              "name": "eventType",
+              "value": "NODE_ERROR"
+            },
+            {
+              "name": "status",
+              "value": "FAILED"
+            },
+            {
+              "name": "errorMessage",
+              "value": "={{$json.error.message || $json.message || 'Submit quiz failed'}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -352,
+        3232
+      ],
+      "id": "e2f1a756-e816-43a8-b4d3-c352392f2eb4",
+      "name": "Log Error"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({\r\n  success: false,\r\n  status: \"FAILED\",\r\n  message: \"Không thể nộp quiz lúc này. Vui lòng thử lại sau.\",\r\n  traceId: $node[\"Set - Normalize Quiz Submit\"].json.traceId,\r\n  quizSessionId: $node[\"Set - Normalize Quiz Submit\"].json.quizSessionId,\r\n  error: \"QUIZ_SUBMIT_FAILED\"\r\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        160,
+        3232
+      ],
+      "id": "940dbe2f-e5c8-4126-8dd0-6a8980f7e27f",
+      "name": "Respond Failed"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "4f5ecf53-e598-40d5-8f7b-eb20aa2d2686",
+              "leftValue": "={{$json.quizType}}",
+              "rightValue": "ASSIGNED",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -464,
+        3408
+      ],
+      "id": "484187b0-a596-45a2-a1fe-22086900b343",
+      "name": "IF - Assigned Quiz?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/harness/logs",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$node[\"Set - Normalize Quiz Submit\"].json.authToken}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "traceId",
+              "value": "={{$node[\"Set - Normalize Quiz Submit\"].json.traceId}}"
+            },
+            {
+              "name": "studentId",
+              "value": "={{$node[\"Set - Normalize Quiz Submit\"].json.studentId}}"
+            },
+            {
+              "name": "courseId",
+              "value": "={{$node[\"Set - Normalize Quiz Submit\"].json.courseId}}"
+            },
+            {
+              "name": "classId",
+              "value": "={{$node[\"Set - Normalize Quiz Submit\"].json.classId}}"
+            },
+            {
+              "name": "workflowName",
+              "value": "Quiz Submit Harness"
+            },
+            {
+              "name": "nodeName",
+              "value": "Notify Teacher Review"
+            },
+            {
+              "name": "mode",
+              "value": "QUIZ_SUBMIT"
+            },
+            {
+              "name": "eventType",
+              "value": "TEACHER_REVIEW_REQUIRED"
+            },
+            {
+              "name": "status",
+              "value": "SUCCESS"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -48,
+        3392
+      ],
+      "id": "a1a9c757-fa19-4a96-bc1f-b5ee4bd0a343",
+      "name": "Notify Teacher / Teacher Inbox"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({\r\n  success: true,\r\n  status: \"SUBMITTED_WAITING_TEACHER_REVIEW\",\r\n  quizType: \"ASSIGNED\",\r\n  quizSessionId: $json.id || $node[\"Set - Normalize Quiz Submit\"].json.quizSessionId,\r\n  score: $json.score,\r\n  maxScore: $json.maxScore,\r\n  percentage: $json.percentage,\r\n  teacherReviewStatus: $json.teacherReviewStatus || \"PENDING_REVIEW\",\r\n  message: \"Bài quiz đã nộp và chấm tạm thời; mentor sẽ review điểm cuối.\",\r\n  traceId: $node[\"Set - Normalize Quiz Submit\"].json.traceId\r\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        320,
+        3392
+      ],
+      "id": "3e6dec31-670a-4bf5-9378-798052c1e66e",
+      "name": "Respond Submitted Waiting Teacher Review"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({\r\n  success: true,\r\n  status: \"SUBMITTED\",\r\n  quizType: $json.quizType || \"SELF_PRACTICE\",\r\n  quizSessionId: $json.id || $node[\"Set - Normalize Quiz Submit\"].json.quizSessionId,\r\n  score: $json.score,\r\n  maxScore: $json.maxScore,\r\n  percentage: $json.percentage,\r\n  message: \"Quiz đã được chấm và kết quả đã cập nhật vào learning memory.\",\r\n  traceId: $node[\"Set - Normalize Quiz Submit\"].json.traceId\r\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -48,
+        3632
+      ],
+      "id": "d0584244-2452-4149-9a71-e7cb570981be",
+      "name": "Respond Self Practice Score"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "quiz-generate",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -2064,
+        2608
+      ],
+      "id": "9d9cd63a-1c8f-40c5-8ee8-39c8360e3c38",
+      "name": "Webhook Quiz Generate",
+      "webhookId": "002e09c0-c43a-4d05-bcb5-a6df0e96ee3a"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/harness/logs",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "traceId",
+              "value": "={{$node[\"Set: Normalize Quiz Generate Input\"].json.traceId}}"
+            },
+            {
+              "name": "studentId",
+              "value": "={{$node[\"Set: Normalize Quiz Generate Input\"].json.studentId}}"
+            },
+            {
+              "name": "teacherId",
+              "value": "={{$node[\"Set: Normalize Quiz Generate Input\"].json.teacherId}}"
+            },
+            {
+              "name": "courseId",
+              "value": "={{$node[\"Set: Normalize Quiz Generate Input\"].json.courseId}}"
+            },
+            {
+              "name": "classId",
+              "value": "={{$node[\"Set: Normalize Quiz Generate Input\"].json.classId}}"
+            },
+            {
+              "name": "workflowName",
+              "value": "Quiz Generate Harness"
+            },
+            {
+              "name": "nodeName",
+              "value": "Quiz Generate Started"
+            },
+            {
+              "name": "mode",
+              "value": "QUIZ_GENERATE"
+            },
+            {
+              "name": "eventType",
+              "value": "NODE_STARTED"
+            },
+            {
+              "name": "status",
+              "value": "SUCCESS"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -1504,
+        2608
+      ],
+      "id": "374a35f3-fd01-4757-99aa-9b13ad3b3bae",
+      "name": "Log: Quiz Generate Started"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "fb2cf251-7183-48f9-b9ae-d151ba80479e",
+              "name": "traceId",
+              "value": "={{$json.body.traceId || 'quiz-generate-' + Date.now()}}",
+              "type": "string"
+            },
+            {
+              "id": "680bd827-adf6-4e98-bb8e-e5bece09abdb",
+              "name": "route",
+              "value": "={{$json.body.teacherId ? 'TEACHER' : 'STUDENT'}}",
+              "type": "string"
+            },
+            {
+              "id": "52f7de62-04ed-4df7-a90b-48eff485ad29",
+              "name": "studentId",
+              "value": "={{$json.body.studentId || ''}}",
+              "type": "string"
+            },
+            {
+              "id": "403e6558-5ae6-46b9-80ec-91e63bd1f0d4",
+              "name": "teacherId",
+              "value": "={{$json.body.teacherId || ''}}",
+              "type": "string"
+            },
+            {
+              "id": "8ff0cbc4-6947-47b8-ae98-b82983db44ac",
+              "name": "courseId",
+              "value": "={{$json.body.courseId}}",
+              "type": "string"
+            },
+            {
+              "id": "b076dab2-1149-4a77-b438-1f266b3731bb",
+              "name": "classId",
+              "value": "={{$json.body.classId || ''}}",
+              "type": "string"
+            },
+            {
+              "id": "d495197a-3c43-46f6-8180-b1696b1624c1",
+              "name": "title ",
+              "value": "={{$json.body.title || ''}}",
+              "type": "string"
+            },
+            {
+              "id": "569feaa5-826a-45f9-9e1e-aa32850ac1b2",
+              "name": "topic",
+              "value": "={{$json.body.topic || ''}}",
+              "type": "string"
+            },
+            {
+              "id": "f46eeb41-b847-4ac4-8ba0-b8dc7039f4e1",
+              "name": "suggestionText",
+              "value": "={{$json.body.suggestionText || ''}}",
+              "type": "string"
+            },
+            {
+              "id": "e84d31db-c4ef-4aa7-9d2d-cb1e9ce58eee",
+              "name": "questionCount",
+              "value": "={{$json.body.questionCount || 5}}",
+              "type": "string"
+            },
+            {
+              "id": "026ced37-8213-4221-bf88-31b1a2d8c93d",
+              "name": "authToken",
+              "value": "={{$json.body.authToken || (($json.headers.authorization || '').replace('Bearer ', '')) || ''}}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1824,
+        2608
+      ],
+      "id": "14d5169f-ae90-4306-85e0-baf137ae9fdf",
+      "name": "Set: Normalize Quiz Generate Input"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/tutor/students/{{$node[\"Set: Normalize Quiz Generate Input\"].json.studentId}}/courses/{{$node[\"Set: Normalize Quiz Generate Input\"].json.courseId}}/quizzes/generate",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$node[\"Set: Normalize Quiz Generate Input\"].json.authToken}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"classId\": \"{{$node['Set: Normalize Quiz Generate Input'].json.classId}}\",\n  \"topic\": \"{{$node['Set: Normalize Quiz Generate Input'].json.topic}}\",\n  \"suggestionText\": \"{{$node['Set: Normalize Quiz Generate Input'].json.suggestionText}}\",\n  \"questionCount\": \"{{$node['Set: Normalize Quiz Generate Input'].json.questionCount}}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -976,
+        2464
+      ],
+      "id": "a129a96a-2ecd-4f11-9617-642bff944dd1",
+      "name": "Generate Student Practice Quiz",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "ee9a7459-a563-4500-be08-e12d7ab5ba06",
+              "leftValue": "={{$json.error ? 'ERROR' : 'OK'}}",
+              "rightValue": "ERROR",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -752,
+        2464
+      ],
+      "id": "a31819b8-6130-4667-aa99-f7e0a1bbf029",
+      "name": "IF Generate Failed?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/harness/logs",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "traceId",
+              "value": "={{$node[\"Set: Normalize Quiz Generate Input\"].json.traceId}}"
+            },
+            {
+              "name": "workflowName",
+              "value": "Quiz Generate Harness"
+            },
+            {
+              "name": "nodeName",
+              "value": "Generate Student Practice Quiz"
+            },
+            {
+              "name": "mode",
+              "value": "QUIZ_GENERATE"
+            },
+            {
+              "name": "eventType",
+              "value": "NODE_ERROR"
+            },
+            {
+              "name": "status",
+              "value": "FAILED"
+            },
+            {
+              "name": "errorMessage",
+              "value": "={{$json.error.message || $json.message || 'Generate student quiz failed'}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -448,
+        2448
+      ],
+      "id": "5802dbf3-8139-47d2-9eca-664663a5e01c",
+      "name": "Log Error1"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({\r\n  success: false,\r\n  status: \"FAILED\",\r\n  quizType: \"SELF_PRACTICE\",\r\n  message: \"Không thể tạo quiz tự ôn lúc này.\",\r\n  traceId: $node[\"Set: Normalize Quiz Generate Input\"].json.traceId,\r\n  error: \"QUIZ_GENERATE_FAILED\"\r\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -208,
+        2448
+      ],
+      "id": "dda0ab92-48a9-42c3-bbfa-6f69bda72940",
+      "name": "Respond Failed1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/harness/logs",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "traceId ",
+              "value": "={{$node[\"Set: Normalize Quiz Generate Input\"].json.traceId}}"
+            },
+            {
+              "name": "studentId",
+              "value": "={{$node[\"Set: Normalize Quiz Generate Input\"].json.studentId}}"
+            },
+            {
+              "name": "courseId",
+              "value": "={{$node[\"Set: Normalize Quiz Generate Input\"].json.courseId}}"
+            },
+            {
+              "name": "classId",
+              "value": "={{$node[\"Set: Normalize Quiz Generate Input\"].json.classId}}"
+            },
+            {
+              "name": "workflowName",
+              "value": "Quiz Generate Harness"
+            },
+            {
+              "name": "nodeName",
+              "value": "Student Practice Quiz Generated"
+            },
+            {
+              "name": "mode",
+              "value": "QUIZ_GENERATE"
+            },
+            {
+              "name": "eventType",
+              "value": "QUIZ_GENERATED"
+            },
+            {
+              "name": "status",
+              "value": "SUCCESS"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -448,
+        2624
+      ],
+      "id": "eddb685d-2dd1-48fc-9f5a-a20ef4db9d36",
+      "name": "Log Student Quiz Generated"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/tutor/teachers/{{$node[\"Set: Normalize Quiz Generate Input\"].json.teacherId}}/courses/{{$node[\"Set: Normalize Quiz Generate Input\"].json.courseId}}/quiz-assignments/generate",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$node[\"Set: Normalize Quiz Generate Input\"].json.authToken}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"classId\": \"{{$node['Set: Normalize Quiz Generate Input'].json.classId}}\",\n  \"title\": \"{{$node['Set: Normalize Quiz Generate Input'].json.title}}\",\n  \"topic\": \"{{$node['Set: Normalize Quiz Generate Input'].json.topic}}\",\n  \"suggestionText\": \"{{$node['Set: Normalize Quiz Generate Input'].json.suggestionText}}\",\n  \"questionCount\": \"{{$node['Set: Normalize Quiz Generate Input'].json.questionCount}}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -976,
+        2848
+      ],
+      "id": "ff1d472e-6f9e-4f82-9c9d-e8b6e920f76c",
+      "name": "Generate Teacher Assignment Draft",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "114e974c-a00a-4328-8263-3f76d47bfb70",
+              "leftValue": "={{$json.error ? 'ERROR' : 'OK'}}",
+              "rightValue": "ERROR",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -752,
+        2848
+      ],
+      "id": "daee94e7-a60e-4f14-a731-3dd171b44835",
+      "name": "IF Generate Failed?1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/harness/logs",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "traceId",
+              "value": "={{$node[\"Set: Normalize Quiz Generate Input\"].json.traceId}}"
+            },
+            {
+              "name": "workflowName",
+              "value": "Quiz Generate Harness"
+            },
+            {
+              "name": "nodeName",
+              "value": "Generate Student Practice Quiz"
+            },
+            {
+              "name": "mode",
+              "value": "QUIZ_GENERATE"
+            },
+            {
+              "name": "eventType",
+              "value": "NODE_ERROR"
+            },
+            {
+              "name": "status",
+              "value": "FAILED"
+            },
+            {
+              "name": "errorMessage",
+              "value": "={{$json.error.message || $json.message || 'Generate teacher draft failed'}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -448,
+        2832
+      ],
+      "id": "de613cc4-d69b-4c89-808f-fbc1889eeb1b",
+      "name": "Log Error2"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({\r\n  success: false,\r\n  status: \"FAILED\",\r\n  quizType: \"TEACHER_ASSIGNMENT\",\r\n  message: \"Không thể tạo draft quiz cho giáo viên lúc này.\",\r\n  traceId: $node[\"Set: Normalize Quiz Generate Input\"].json.traceId,\r\n  error: \"QUIZ_ASSIGNMENT_GENERATE_FAILED\"\r\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -176,
+        2832
+      ],
+      "id": "61d046ce-0ddd-4c04-8386-5aa065703911",
+      "name": "Respond Failed3"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/harness/logs",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "traceId",
+              "value": "={{$node[\"Set: Normalize Quiz Generate Input\"].json.traceId}}"
+            },
+            {
+              "name": "teacherId ",
+              "value": "={{$node[\"Set: Normalize Quiz Generate Input\"].json.teacherId}}"
+            },
+            {
+              "name": "courseId",
+              "value": "={{$node[\"Set: Normalize Quiz Generate Input\"].json.courseId}}"
+            },
+            {
+              "name": "classId",
+              "value": "={{$node[\"Set: Normalize Quiz Generate Input\"].json.classId}}"
+            },
+            {
+              "name": "workflowName",
+              "value": "Quiz Generate Harness"
+            },
+            {
+              "name": "nodeName",
+              "value": "Teacher Assignment Draft Created"
+            },
+            {
+              "name": "mode",
+              "value": "QUIZ_GENERATE"
+            },
+            {
+              "name": "eventType",
+              "value": "QUIZ_DRAFT_CREATED"
+            },
+            {
+              "name": "status",
+              "value": "SUCCESS"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -448,
+        3008
+      ],
+      "id": "b846ce3b-5e66-48fb-94ca-caa0354b450f",
+      "name": "Log Teacher Draft Created"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({\r\n  success: true,\r\n  status: \"DRAFT_CREATED\",\r\n  quizType: \"TEACHER_ASSIGNMENT\",\r\n  assignmentId: $node[\"Generate Teacher Assignment Draft\"].json.id,\r\n  assignment: $node[\"Generate Teacher Assignment Draft\"].json,\r\n  message: \"Draft quiz đã được tạo; mentor có thể sửa, xóa hoặc publish.\",\r\n  traceId: $node[\"Set: Normalize Quiz Generate Input\"].json.traceId\r\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -160,
+        3008
+      ],
+      "id": "1284ef00-4bae-4d70-a0ae-9d05946c10d4",
+      "name": "Respond Teacher Draft Created"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ ($node[\"Set: Normalize Quiz Generate Input\"].json.route || '').trim().toUpperCase() }}",
+                    "rightValue": "STUDENT",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "4d241445-9bed-4fde-883d-d5ee1266113c"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "STUDENT"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "98608acd-4894-4f57-9666-c45f71e14c07",
+                    "leftValue": "={{ ($node[\"Set: Normalize Quiz Generate Input\"].json.route || '').trim().toUpperCase() }}",
+                    "rightValue": "TEACHER",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "TEACHER"
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -1264,
+        2608
+      ],
+      "id": "601b6620-ec8e-46e3-a503-1ce112844549",
+      "name": "Switch: route"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({\r\n  success: true,\r\n  status: \"GENERATED\",\r\n  quizType: \"SELF_PRACTICE\",\r\n  quizSessionId: $node[\"Generate Student Practice Quiz\"].json.id,\r\n  message: \"Quiz tự ôn đã được tạo từ tài liệu môn học.\",\r\n  traceId: $node[\"Set: Normalize Quiz Generate Input\"].json.traceId\r\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -208,
+        2624
+      ],
+      "id": "cee46069-20c3-49a1-a569-54bff8618266",
+      "name": "Respond Student Quiz"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "senior-resolve-answer-review",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        208,
+        1888
+      ],
+      "id": "319173a9-c455-4eba-9b50-2e5ac466ad6b",
+      "name": "Senior Resolve Review Webhook",
+      "webhookId": "83bcbcf6-cf55-4980-a2b9-f7f93f0e11c1"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "=={{\n  {\n    traceId: $json.body.traceId || 'senior-resolve-' + Date.now(),\n    authToken: $json.body.authToken || (($json.headers.authorization || '').replace('Bearer ', '')) || '',\n    reviewId: $json.body.reviewId || '',\n    seniorReviewerId: $json.body.seniorReviewerId || '',\n    seniorReviewerName: $json.body.seniorReviewerName || '',\n    reviewerRole: String($json.body.reviewerRole || 'SENIOR_MENTOR').trim().toUpperCase(),\n    decision: String($json.body.decision || 'CREATE_KNOWLEDGE_CANDIDATE').trim().toUpperCase(),\n    notes: $json.body.notes || '',\n    createKnowledgeCandidate: $json.body.createKnowledgeCandidate === true || String($json.body.createKnowledgeCandidate || '').toLowerCase() === 'true',\n    candidateType: String($json.body.candidateType || 'ACADEMIC_KNOWLEDGE').trim().toUpperCase(),\n    correctedAnswer: $json.body.correctedAnswer || ''\n  }\n}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        560,
+        1888
+      ],
+      "id": "6825b07f-1ffd-400d-88f9-d684d5cb2725",
+      "name": "Set Normalize Senior Resolution"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/tutor/answer-reviews/{{$node[\"Set Normalize Senior Resolution\"].json.reviewId}}/senior-resolve",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$node[\"Set Normalize Senior Resolution\"].json.authToken}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "seniorReviewerId",
+              "value": "={{$node[\"Set Normalize Senior Resolution\"].json.seniorReviewerId}}"
+            },
+            {
+              "name": "seniorReviewerName",
+              "value": "={{$node[\"Set Normalize Senior Resolution\"].json.seniorReviewerName}}"
+            },
+            {
+              "name": "reviewerRole",
+              "value": "={{$node[\"Set Normalize Senior Resolution\"].json.reviewerRole}}"
+            },
+            {
+              "name": "decision",
+              "value": "={{$node[\"Set Normalize Senior Resolution\"].json.decision}}"
+            },
+            {
+              "name": "notes",
+              "value": "={{$node[\"Set Normalize Senior Resolution\"].json.notes}}"
+            },
+            {
+              "name": "createKnowledgeCandidate",
+              "value": "={{$node[\"Set Normalize Senior Resolution\"].json.createKnowledgeCandidate}}"
+            },
+            {
+              "name": "candidateType",
+              "value": "={{$node[\"Set Normalize Senior Resolution\"].json.candidateType}}"
+            },
+            {
+              "name": "correctedAnswer",
+              "value": "={{$node[\"Set Normalize Senior Resolution\"].json.correctedAnswer}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        880,
+        1888
+      ],
+      "id": "41fc617d-da34-43a2-9b3f-eb03a58e9b5a",
+      "name": "Resolve Review & Create Candidate",
+      "retryOnFail": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "67a596c1-545b-42b1-b17e-a937b02ed892",
+              "leftValue": "={{ $json.error ? \"ERROR\" : ($json.statusCode >= 400 ? \"ERROR\" : \"OK\") }}",
+              "rightValue": "ERROR",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1248,
+        1888
+      ],
+      "id": "6e55c166-b8f5-4734-8588-cdfabcb31505",
+      "name": "IF Senior Resolve Failed?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({\r\n  ok: false,\r\n  success: false,\r\n  status: \"SENIOR_RESOLVE_FAILED\",\r\n  reviewId: $node[\"Set Normalize Senior Resolution\"].json.reviewId,\r\n  error: $json.error?.message || $json.message || $json.body?.error || \"Không thể xử lý review hoặc tạo candidate\"\r\n}) }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1728,
+        1872
+      ],
+      "id": "44055fca-ba7e-4c4d-a991-cff718295334",
+      "name": "Respond Senior Resolve Failed"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "f2ee941a-0efe-42fd-b982-d85b7d52fd93",
+              "leftValue": "={{$json.linkedKnowledgeCandidateId || \"\"}}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1440,
+        2128
+      ],
+      "id": "c813c682-004e-4f5a-bcf4-57e653ed8100",
+      "name": "IF Review Candidate Created?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({\r\n  ok: true,\r\n  success: true,\r\n  status: \"RESOLVED\",\r\n  reviewId: $json.id,\r\n  candidateId: $json.linkedKnowledgeCandidateId,\r\n  candidateStatus: \"PENDING_SENIOR_REVIEW\",\r\n  nextStep: \"SEND_TO_FLOW_3\"\r\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        2080,
+        2112
+      ],
+      "id": "ee4cef63-584b-44a5-8145-81cde2bc678a",
+      "name": "Respond Review Candidate Created"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({\r\n  ok: true,\r\n  success: true,\r\n  status: \"RESOLVED\",\r\n  reviewId: $json.id,\r\n  candidateId: null,\r\n  nextStep: \"NONE\"\r\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1776,
+        2288
+      ],
+      "id": "3f941660-fddd-4fc7-9e44-970ff9448258",
+      "name": "Respond Senior Review Resolved"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Get Student Score Memory": {
+      "main": [
+        [
+          {
+            "node": "Intent Classifier",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Course RAG Query": {
+      "main": [
+        [
+          {
+            "node": "IF Course Question Quota Reached",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Course Question Quota Reached": {
+      "main": [
+        [
+          { "node": "Respond Course Question Quota", "type": "main", "index": 0 }
+        ],
+        [
+          { "node": "IF RAG Failed? ", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Student Chat Webhook": {
+      "main": [
+        [
+          {
+            "node": "Set - Normalize Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Intent Classifier": {
+      "main": [
+        [
+          {
+            "node": "IF Intent Course Quota Reached",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Intent Course Quota Reached": {
+      "main": [
+        [{ "node": "Respond Course Question Quota", "type": "main", "index": 0 }],
+        [{ "node": "Switch2", "type": "main", "index": 0 }]
+      ]
+    },
+    "IF Confidence Check": {
+      "main": [
+        [
+          {
+            "node": "Improve Suggestions",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create Escalation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Improve Suggestions": {
+      "main": [
+        [
+          {
+            "node": "Update Memory RAG",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Memory RAG": {
+      "main": [
+        [
+          {
+            "node": "Respond RAG",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Escalation": {
+      "main": [
+        [
+          {
+            "node": "Respond ESCALATE",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code Mentor Query": {
+      "main": [
+        [
+          {
+            "node": "Update Memory CODE",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Memory CODE": {
+      "main": [
+        [
+          {
+            "node": "Respond CODE",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Answer Review Webhook": {
+      "main": [
+        [
+          {
+            "node": "Set Normalize Review Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Normalize Review Input": {
+      "main": [
+        [
+          {
+            "node": "Log - Review Started",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create AiAnswerReview": {
+      "main": [
+        [
+          {
+            "node": "IF Review Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Teacher Answer Webhook": {
+      "main": [
+        [
+          {
+            "node": "Set Teacher Answer Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Teacher Answer Input": {
+      "main": [
+        [
+          {
+            "node": "Log - Teacher Answer Started",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Answer Escalation": {
+      "main": [
+        [
+          {
+            "node": "IF Teacher Answer Failed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Senior Approval Webhook": {
+      "main": [
+        [
+          {
+            "node": "Set Approval Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Approval Input": {
+      "main": [
+        [
+          {
+            "node": "Log - Senior Approval Started",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch1": {
+      "main": [
+        [
+          {
+            "node": " Approve Candidate",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reject Candidate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    " Approve Candidate": {
+      "main": [
+        [
+          {
+            "node": "Log - Candidate Approved",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Candidate Created": {
+      "main": [
+        [
+          {
+            "node": "Log - Candidate Created",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": " Log - Answer Only",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reject Candidate": {
+      "main": [
+        [
+          {
+            "node": "Log - Candidate Rejected",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set - Normalize Input": {
+      "main": [
+        [
+          {
+            "node": "Set - Trace Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set - Trace Context": {
+      "main": [
+        [
+          {
+            "node": "Log - Stundet Chat Started",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF RAG Failed? ": {
+      "main": [
+        [
+          {
+            "node": "Log Error - RAG",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "IF Confidence Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Error - RAG": {
+      "main": [
+        [
+          {
+            "node": "Create Escalation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log - Review Started": {
+      "main": [
+        [
+          {
+            "node": "Create AiAnswerReview",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Review Failed": {
+      "main": [
+        [
+          {
+            "node": "Log Error - Review",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": " IF Submitted?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Error - Review": {
+      "main": [
+        [
+          {
+            "node": "Respond Review Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log - Teacher Answer Started": {
+      "main": [
+        [
+          {
+            "node": "Answer Escalation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Teacher Answer Failed?": {
+      "main": [
+        [
+          {
+            "node": "Log Error - Teacher Answer",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "IF Candidate Created",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log - Senior Approval Started": {
+      "main": [
+        [
+          {
+            "node": "Switch1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Error - Teacher Answer": {
+      "main": [
+        [
+          {
+            "node": "Respond Answer Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log - Candidate Created": {
+      "main": [
+        [
+          {
+            "node": "Respond Candidate Created",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    " Log - Answer Only": {
+      "main": [
+        [
+          {
+            "node": "Respond Answer Only",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log - Candidate Approved": {
+      "main": [
+        [
+          {
+            "node": " Respond Approved",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log - Candidate Rejected": {
+      "main": [
+        [
+          {
+            "node": "Respond Rejected",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log - Stundet Chat Started": {
+      "main": [
+        [
+          {
+            "node": "Get Student Score Memory",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch2": {
+      "main": [
+        [
+          {
+            "node": "Code Mentor Query",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create Escalation",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Course RAG Query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    " IF Submitted?": {
+      "main": [
+        [
+          {
+            "node": "Respond Review Saved1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": " IF Needs Mentor?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    " IF Needs Mentor?": {
+      "main": [
+        [
+          {
+            "node": "Respond Sent To Mentor",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "IF Needs Senior?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Needs Senior?": {
+      "main": [
+        [
+          {
+            "node": "Respond Sent To Senior",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Review Saved",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook - Quiz Submit": {
+      "main": [
+        [
+          {
+            "node": "Set - Normalize Quiz Submit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set - Normalize Quiz Submit": {
+      "main": [
+        [
+          {
+            "node": "Log - Quiz Submit Started",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log - Quiz Submit Started": {
+      "main": [
+        [
+          {
+            "node": "Submit Quiz To Backend",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Submit Quiz To Backend": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Log Error",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "IF - Assigned Quiz?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Error": {
+      "main": [
+        [
+          {
+            "node": "Respond Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Assigned Quiz?": {
+      "main": [
+        [
+          {
+            "node": "Notify Teacher / Teacher Inbox",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Self Practice Score",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify Teacher / Teacher Inbox": {
+      "main": [
+        [
+          {
+            "node": "Respond Submitted Waiting Teacher Review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook Quiz Generate": {
+      "main": [
+        [
+          {
+            "node": "Set: Normalize Quiz Generate Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set: Normalize Quiz Generate Input": {
+      "main": [
+        [
+          {
+            "node": "Log: Quiz Generate Started",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log: Quiz Generate Started": {
+      "main": [
+        [
+          {
+            "node": "Switch: route",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Student Practice Quiz": {
+      "main": [
+        [
+          {
+            "node": "IF Generate Failed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Generate Failed?": {
+      "main": [
+        [
+          {
+            "node": "Log Error1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Student Quiz Generated",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Error1": {
+      "main": [
+        [
+          {
+            "node": "Respond Failed1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Student Quiz Generated": {
+      "main": [
+        [
+          {
+            "node": "Respond Student Quiz",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Teacher Assignment Draft": {
+      "main": [
+        [
+          {
+            "node": "IF Generate Failed?1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Generate Failed?1": {
+      "main": [
+        [
+          {
+            "node": "Log Error2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Teacher Draft Created",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Error2": {
+      "main": [
+        [
+          {
+            "node": "Respond Failed3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Teacher Draft Created": {
+      "main": [
+        [
+          {
+            "node": "Respond Teacher Draft Created",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch: route": {
+      "main": [
+        [
+          {
+            "node": "Generate Student Practice Quiz",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Generate Teacher Assignment Draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Senior Resolve Review Webhook": {
+      "main": [
+        [
+          {
+            "node": "Set Normalize Senior Resolution",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Normalize Senior Resolution": {
+      "main": [
+        [
+          {
+            "node": "Resolve Review & Create Candidate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve Review & Create Candidate": {
+      "main": [
+        [
+          {
+            "node": "IF Senior Resolve Failed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Senior Resolve Failed?": {
+      "main": [
+        [
+          {
+            "node": "Respond Senior Resolve Failed",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "IF Review Candidate Created?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Review Candidate Created?": {
+      "main": [
+        [
+          {
+            "node": "Respond Review Candidate Created",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Senior Review Resolved",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "062292eb-3a0b-4c1f-8f0e-bf4d92a8cf86",
+  "meta": {
+    "instanceId": "8bc7fc9f4a595046dee49ab5cf7b683bb830381e63c4959aef652ed82b7d7e3d"
+  },
+  "nodeGroups": [],
+  "id": "bdFmRV9u8BFGBfpL",
+  "tags": []
+}

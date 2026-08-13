@@ -1,0 +1,184 @@
+server:
+  port: ${PORT:8085}
+  servlet:
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
+  tomcat:
+    connection-timeout: 300000
+
+privacy:
+  ai-sanitization:
+    enabled: ${AI_PRIVACY_SANITIZATION_ENABLED:true}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+
+spring:
+  config:
+    import: optional:file:./config/application-local.yml
+  application:
+    name: ai-tutor-api
+  jackson:
+    time-zone: ${APP_TIMEZONE:Asia/Bangkok}
+  mvc:
+    async:
+      request-timeout: 300000
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 50MB
+  data:
+    mongodb:
+      uri: mongodb://localhost:27017/tutor_db
+  elasticsearch:
+    uris: http://${ELASTICSEARCH_HOST:localhost}:${ELASTICSEARCH_PORT:9200}
+
+upload:
+  pdf:
+    max-size-mb: 50
+    min-text-length: 50
+  code:
+    max-size-mb: 2
+  assignment:
+    max-size-mb: 50
+  excel:
+    max-size-mb: 5
+
+openrouter:
+  enabled: ${OPENROUTER_ENABLED:true}
+  # Chat LLM (OpenAI-compatible). Defaults are placeholders only.
+  # Runtime values come from env vars (.env.deploy / Docker) or config/application-local.yml.
+  api-key: ${OPENROUTER_API_KEY:missing-openrouter-api-key}
+  base-url: ${OPENROUTER_BASE_URL:https://openrouter.ai/api/v1}
+  model: ${OPENROUTER_MODEL:nvidia/nemotron-3-super-120b-a12b:free}
+  timeout-seconds: 60
+  max-retries: 0
+  fallback:
+    enabled: ${OPENROUTER_FALLBACK_ENABLED:true}
+    api-key: ${OPENROUTER_FALLBACK_API_KEY:}
+    base-url: ${OPENROUTER_FALLBACK_BASE_URL:https://openrouter.ai/api/v1}
+    model: ${OPENROUTER_FALLBACK_MODEL:nvidia/nemotron-3-ultra-550b-a55b:free}
+    timeout-seconds: ${OPENROUTER_FALLBACK_TIMEOUT_SECONDS:60}
+    max-retries: ${OPENROUTER_FALLBACK_MAX_RETRIES:0}
+  # Last hosted fallback: automatically routes to an available free model.
+  free-router:
+    enabled: ${OPENROUTER_FREE_ROUTER_ENABLED:true}
+    model: ${OPENROUTER_FREE_ROUTER_MODEL:openrouter/free}
+
+llm:
+  # A failed provider is skipped briefly so concurrent classroom requests do not
+  # repeatedly hit an exhausted quota. Authentication/request errors never fallback.
+  cooldown-seconds: ${LLM_PROVIDER_COOLDOWN_SECONDS:60}
+  quota-cooldown-seconds: ${LLM_QUOTA_COOLDOWN_SECONDS:900}
+  daily-quota-cooldown-seconds: ${LLM_DAILY_QUOTA_COOLDOWN_SECONDS:86400}
+  groq:
+    enabled: ${GROQ_ENABLED:true}
+    api-key: ${GROQ_API_KEY:}
+    base-url: ${GROQ_BASE_URL:https://api.groq.com/openai/v1}
+    model: ${GROQ_MODEL:openai/gpt-oss-120b}
+    models: ${GROQ_MODELS:openai/gpt-oss-120b,qwen/qwen3.6-27b,llama-3.3-70b-versatile,openai/gpt-oss-20b,llama-3.1-8b-instant}
+    timeout-seconds: ${GROQ_TIMEOUT_SECONDS:60}
+  nvidia:
+    enabled: ${NVIDIA_NIM_ENABLED:true}
+    api-key: ${NVIDIA_NIM_API_KEY:}
+    base-url: ${NVIDIA_NIM_BASE_URL:https://integrate.api.nvidia.com/v1}
+    models: ${NVIDIA_NIM_MODELS:nvidia/nemotron-3-super-120b-a12b}
+    timeout-seconds: ${NVIDIA_NIM_TIMEOUT_SECONDS:90}
+ollama:
+  base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+  embedding-model: ${OLLAMA_EMBEDDING_MODEL:embeddinggemma}
+  timeout-seconds: 300
+  # Safe default for machines without a local chat model.
+  # config/application-local.yml enables the downloaded gemma3:4b model.
+  chat:
+    enabled: ${OLLAMA_CHAT_ENABLED:false}
+    model: ${OLLAMA_CHAT_MODEL:}
+    timeout-seconds: ${OLLAMA_CHAT_TIMEOUT_SECONDS:120}
+
+elasticsearch:
+  host: ${ELASTICSEARCH_HOST:localhost}
+  port: ${ELASTICSEARCH_PORT:9200}
+  index: ${ELASTICSEARCH_INDEX:course_material_vectors}
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+security:
+  jwt:
+    # The real secret comes from config/application-local.yml or JWT_SECRET.
+    secret: ${JWT_SECRET:}
+    expiration-minutes: ${JWT_EXPIRATION_MINUTES:1440}
+  swagger:
+    username: ${SWAGGER_USERNAME:swagger-admin}
+    password: ${SWAGGER_PASSWORD:}
+
+app:
+  timezone: ${APP_TIMEZONE:Asia/Bangkok}
+  student-question-quota:
+    daily-limit: ${STUDENT_DAILY_QUESTION_LIMIT:10}
+  answer-review:
+    # Số học sinh khác nhau (cùng câu trả lời AI) trước khi đưa vào hàng mentor/senior.
+    moderate-student-threshold: ${ANSWER_REVIEW_MODERATE_THRESHOLD:1}
+    severe-student-threshold: ${ANSWER_REVIEW_SEVERE_THRESHOLD:1}
+    moderate-rating-min: 2
+    moderate-rating-max: 3
+    severe-rating-max: 1
+
+admin:
+  account:
+    email: ${ADMIN_ACCOUNT_EMAIL:admin@system.local}
+    password: ${ADMIN_ACCOUNT_PASSWORD:admin123}
+    full-name: ${ADMIN_ACCOUNT_FULL_NAME:System Admin}
+
+
+rag:
+  visual:
+    enabled: ${RAG_VISUAL_ENABLED:false}
+    provider: ${RAG_VISUAL_PROVIDER:openrouter}
+    elasticsearch-index: ${RAG_VISUAL_ELASTICSEARCH_INDEX:course_material_vectors_visual_nemotron_v1}
+    max-pages-per-material: ${RAG_VISUAL_MAX_PAGES_PER_MATERIAL:200}
+    retrieval:
+      top-k: ${RAG_VISUAL_RETRIEVAL_TOP_K:4}
+      num-candidates: ${RAG_VISUAL_RETRIEVAL_NUM_CANDIDATES:40}
+    openrouter:
+      api-key: ${OPENROUTER_VISUAL_EMBEDDING_API_KEY:${OPENROUTER_EMBEDDING_API_KEY:}}
+      base-url: ${OPENROUTER_VISUAL_EMBEDDING_BASE_URL:https://openrouter.ai/api/v1}
+      model: ${OPENROUTER_VISUAL_EMBEDDING_MODEL:nvidia/llama-nemotron-embed-vl-1b-v2:free}
+      timeout-seconds: ${OPENROUTER_VISUAL_EMBEDDING_TIMEOUT_SECONDS:90}
+      max-retries: ${OPENROUTER_VISUAL_EMBEDDING_MAX_RETRIES:2}
+  embedding:
+    # Render uses OpenRouter; change to ollama later on a VPS with enough resources.
+    provider: ${RAG_EMBEDDING_PROVIDER:openrouter}
+    openrouter:
+      api-key: ${OPENROUTER_EMBEDDING_API_KEY:}
+      base-url: ${OPENROUTER_EMBEDDING_BASE_URL:https://openrouter.ai/api/v1}
+      model: ${OPENROUTER_EMBEDDING_MODEL:nvidia/llama-nemotron-embed-vl-1b-v2:free}
+      timeout-seconds: ${OPENROUTER_EMBEDDING_TIMEOUT_SECONDS:60}
+      max-retries: ${OPENROUTER_EMBEDDING_MAX_RETRIES:0}
+    nvidia:
+      api-key: ${NVIDIA_EMBEDDING_API_KEY:${NVIDIA_NIM_API_KEY:}}
+      base-url: ${NVIDIA_EMBEDDING_BASE_URL:https://integrate.api.nvidia.com/v1}
+      model: ${NVIDIA_EMBEDDING_MODEL:nvidia/nemotron-3-embed-1b}
+      timeout-seconds: ${NVIDIA_EMBEDDING_TIMEOUT_SECONDS:30}
+      max-retries: ${NVIDIA_EMBEDDING_MAX_RETRIES:3}
+  retrieval:
+    top-k: 20
+    num-candidates: 80
+  rerank:
+    enabled: true
+    api-key: ${OPENROUTER_RERANK_API_KEY:${OPENROUTER_API_KEY:missing-openrouter-api-key}}
+    base-url: https://openrouter.ai/api/v1
+    model: nvidia/llama-nemotron-rerank-vl-1b-v2:free
+    top-k-before: 20
+    top-k-after: 5
+    timeout-seconds: 10
+    max-document-chars: 2000

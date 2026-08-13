@@ -6,8 +6,8 @@ This repository contains the frontend and backend of the AI Tutor platform.
 
 ```text
 .
-|-- AI_Turtor_FE/        React frontend, tests, and frontend documentation
-`-- AI-tutor/            Spring Boot backend and n8n workflows
+|-- Ai_Turtor_FE/        React frontend, tests, and frontend documentation
+`-- AI_Turtor_BE/        Spring Boot backend and n8n workflows
 ```
 
 ## Frontend
@@ -15,7 +15,7 @@ This repository contains the frontend and backend of the AI Tutor platform.
 Requirements: Node.js and npm.
 
 ```bash
-cd AI_Turtor_FE
+cd Ai_Turtor_FE
 npm install
 npm run dev
 ```
@@ -27,20 +27,20 @@ The development server runs at `http://localhost:5173`.
 Requirements: Java 17, Maven, MongoDB, and Elasticsearch.
 
 ```bash
-cd AI-tutor
+cd AI_Turtor_BE
 mvn spring-boot:run
 ```
 
 The backend runs at `http://localhost:8085`. Deployment and environment details
-are documented in `AI-tutor/README.md` and
-`AI-tutor/AI_TUTOR_DEPLOY_HANDOFF.md`.
+are documented in `AI_Turtor_BE/README.md`,
+`AI_Turtor_BE/AI_TUTOR_DEPLOY_HANDOFF.md`, and `RAILWAY_DEPLOY.md`.
 
 ## Verification
 
 ```bash
-cd AI_Turtor_FE
+cd Ai_Turtor_FE
 npm run check
-cd ../AI-tutor
+cd ../AI_Turtor_BE
 mvn test
 ```
 
