@@ -13,11 +13,15 @@
 	}
 
 	handle /api/* {
-		reverse_proxy {$API_UPSTREAM:https://backend-production-0011.up.railway.app}
+		reverse_proxy {$API_UPSTREAM:https://backend-production-0011.up.railway.app} {
+			header_up -Origin
+		}
 	}
 
 	handle /ws/* {
-		reverse_proxy {$API_UPSTREAM:https://backend-production-0011.up.railway.app}
+		reverse_proxy {$API_UPSTREAM:https://backend-production-0011.up.railway.app} {
+			header_up -Origin
+		}
 	}
 
 	handle {
