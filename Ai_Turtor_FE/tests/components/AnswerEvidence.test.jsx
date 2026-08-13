@@ -95,4 +95,23 @@ describe('AnswerEvidence', () => {
     expect(screen.getByText('Bằng chứng 1')).toBeVisible();
     expect(screen.getByText('Starting an Application and Hitting Breakpoints')).toBeVisible();
   });
+
+  it('does not present an escalation-only error as course material evidence', () => {
+    render(
+      <AnswerEvidence
+        message={{
+          mode: 'RAG',
+          groundingType: 'NONE',
+          confidence: 0,
+          sources: [],
+          sourceEvidence: [],
+          questionEscalationId: 'escalation-1',
+        }}
+      />,
+    );
+
+    expect(screen.getByText('Đã gửi yêu cầu mentor xem xét')).toBeVisible();
+    expect(screen.queryByRole('button', { name: /bằng chứng|nguồn tài liệu/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/mức độ phù hợp với tài liệu/i)).not.toBeInTheDocument();
+  });
 });

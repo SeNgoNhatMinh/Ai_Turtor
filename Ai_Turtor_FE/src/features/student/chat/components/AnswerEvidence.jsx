@@ -60,11 +60,13 @@ function AnswerEvidence({ message, sourceMap = {}, onDownloadSource }) {
   const sources = formatSourceItems(Array.isArray(message?.sources) ? message.sources : [], sourceMap);
   const confidenceClass = getConfidenceClass(message?.confidence);
   const confidenceText = message?.confidence == null ? 'Chưa xác định' : `${Math.round(message.confidence * 100)}%`;
-  const grounding = message?.groundingType || (sources.length > 0 ? 'COURSE_MATERIAL' : 'AI_GENERAL_KNOWLEDGE');
+  const grounding = message?.groundingType || (sources.length > 0 ? 'COURSE_MATERIAL' : 'NONE');
   const groundingLabel = grounding === 'COURSE_MATERIAL' ? 'Dựa trên tài liệu môn học' : 'AI tự phân tích bằng kiến thức chung';
   const isCodeMode = message?.mode === 'CODE' || message?.mode === 'CODE_MENTOR';
   const evidence = deduplicateEvidence(Array.isArray(message?.sourceEvidence) ? message.sourceEvidence : []);
-  const hasEvidence = sources.length > 0 || evidence.length > 0 || isCodeMode || message?.questionEscalationId;
+  const hasMaterialEvidence = sources.length > 0 || evidence.length > 0;
+  const hasAnswerEvidence = hasMaterialEvidence || isCodeMode;
+  const hasSupportRecord = Boolean(message?.questionEscalationId);
   const primaryEvidence = evidence[0] || null;
   const evidenceLocation = primaryEvidence
     ? [
@@ -74,10 +76,11 @@ function AnswerEvidence({ message, sourceMap = {}, onDownloadSource }) {
       ].filter(Boolean).join(' · ')
     : '';
 
-  if (!hasEvidence) return null;
+  if (!hasAnswerEvidence && !hasSupportRecord) return null;
 
   return (
     <div className="answer-evidence">
+      {hasAnswerEvidence && <>
       <button
         type="button"
         className={`answer-evidence-toggle${expanded ? ' is-expanded' : ''}`}
@@ -86,10 +89,10 @@ function AnswerEvidence({ message, sourceMap = {}, onDownloadSource }) {
       >
         <FileText size={15} aria-hidden="true" />
         <span>{expanded
-          ? 'Ẩn bằng chứng tài liệu'
+          ? hasMaterialEvidence ? 'Ẩn bằng chứng tài liệu' : 'Ẩn thông tin câu trả lời'
           : evidence.length > 0
             ? `Bằng chứng tài liệu (${evidence.length})`
-            : 'Xem nguồn tài liệu'}</span>
+            : hasMaterialEvidence ? 'Xem nguồn tài liệu' : 'Xem thông tin câu trả lời'}</span>
         <ChevronDown size={15} aria-hidden="true" />
       </button>
       {!expanded && evidenceLocation && (
@@ -102,14 +105,14 @@ function AnswerEvidence({ message, sourceMap = {}, onDownloadSource }) {
         <Sparkles size={14} aria-hidden="true" />
         <span>{getAnswerType(message?.mode)}</span>
       </div>
-      <div className={`answer-evidence-pill grounding-${String(grounding).toLowerCase()}`}>
+      {hasMaterialEvidence && <div className={`answer-evidence-pill grounding-${String(grounding).toLowerCase()}`}>
         <FileText size={14} aria-hidden="true" />
         <span>{groundingLabel}</span>
-      </div>
-      <div className={`answer-evidence-pill confidence-${confidenceClass}`}>
+      </div>}
+      {hasMaterialEvidence && <div className={`answer-evidence-pill confidence-${confidenceClass}`}>
         <ShieldCheck size={14} aria-hidden="true" />
         <span>Mức độ phù hợp với tài liệu: {confidenceText}</span>
-      </div>
+      </div>}
       {sources.length > 0 && (
         <div className="answer-evidence-sources">
           <FileText size={14} aria-hidden="true" />
@@ -171,13 +174,14 @@ function AnswerEvidence({ message, sourceMap = {}, onDownloadSource }) {
           <span>Câu trả lời này do AI tự phân tích bằng kiến thức lập trình chung, không trích từ tài liệu môn học.</span>
         </div>
       )}
-      {message?.questionEscalationId && (
+      </div>}
+      </>}
+      {hasSupportRecord && (
         <div className="answer-evidence-pill support-recorded">
           <LifeBuoy size={14} aria-hidden="true" />
           <span>Đã gửi yêu cầu mentor xem xét</span>
         </div>
       )}
-      </div>}
     </div>
   );
 }
