@@ -20,6 +20,16 @@ management:
   endpoint:
     health:
       show-details: never
+      probes:
+        enabled: true
+      group:
+        liveness:
+          include: livenessState
+  health:
+    # Elasticsearch is checked through the authenticated diagnostics endpoint.
+    # It must not restart an otherwise healthy API when indexing is temporarily unavailable.
+    elasticsearch:
+      enabled: ${MANAGEMENT_HEALTH_ELASTICSEARCH_ENABLED:false}
 
 spring:
   config:
@@ -37,7 +47,7 @@ spring:
       max-request-size: 50MB
   data:
     mongodb:
-      uri: mongodb://localhost:27017/tutor_db
+      uri: ${SPRING_DATA_MONGODB_URI:mongodb://localhost:27017/tutor_db}
   elasticsearch:
     uris: http://${ELASTICSEARCH_HOST:localhost}:${ELASTICSEARCH_PORT:9200}
 
@@ -107,6 +117,9 @@ elasticsearch:
   host: ${ELASTICSEARCH_HOST:localhost}
   port: ${ELASTICSEARCH_PORT:9200}
   index: ${ELASTICSEARCH_INDEX:course_material_vectors}
+  connect-timeout-ms: ${ELASTICSEARCH_CONNECT_TIMEOUT_MS:3000}
+  socket-timeout-ms: ${ELASTICSEARCH_SOCKET_TIMEOUT_MS:5000}
+  connection-request-timeout-ms: ${ELASTICSEARCH_CONNECTION_REQUEST_TIMEOUT_MS:3000}
 
 springdoc:
   swagger-ui:

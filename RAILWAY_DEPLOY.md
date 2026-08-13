@@ -1,45 +1,45 @@
-# Railway Deployment Plan
+# Hướng Dẫn Triển Khai Railway
 
-## 1. Repository layout
+## 1. Cấu trúc kho mã nguồn
 
-Railway deploys the two applications from one Git repository:
+Railway triển khai hai ứng dụng từ cùng một Git repository:
 
 ```text
-Ai_Turtor_FE/   # React/Vite frontend
-AI_Turtor_BE/   # Spring Boot Java 17 backend and n8n workflow files
+Ai_Turtor_FE/   # Frontend React/Vite
+AI_Turtor_BE/   # Backend Spring Boot Java 17 và các workflow n8n
 ```
 
-Use these exact Railway Root Directories:
+Thiết lập chính xác `Root Directory` trên Railway như sau:
 
 - Frontend: `/Ai_Turtor_FE`
 - Backend: `/AI_Turtor_BE`
 
-Create all services in the same Railway project and name them exactly:
+Tạo tất cả service trong cùng một Railway project và đặt đúng tên:
 
 - `frontend`
 - `backend`
 - `elasticsearch`
 - `n8n`
 
-This keeps Railway reference variables in this guide valid.
+Các tên này giúp những biến tham chiếu Railway trong tài liệu hoạt động chính xác.
 
-## 2. Prerequisites
+## 2. Chuẩn bị trước khi triển khai
 
-Prepare these values before deploying:
+Chuẩn bị các giá trị sau:
 
-- MongoDB Atlas URI for database `tutor_db`.
-- A strong JWT secret of at least 64 random characters.
-- Strong initial admin and Swagger passwords.
-- Hosted LLM and embedding API keys used by the backend.
-- A fixed random `N8N_ENCRYPTION_KEY`.
+- MongoDB Atlas URI trỏ tới database `tutor_db`.
+- JWT secret mạnh, có ít nhất 64 ký tự ngẫu nhiên.
+- Mật khẩu ban đầu mạnh cho tài khoản Admin và Swagger.
+- API key cho dịch vụ LLM và embedding mà backend sử dụng.
+- Một giá trị ngẫu nhiên cố định cho `N8N_ENCRYPTION_KEY`.
 
-Do not commit any real key, password, Atlas URI, `.env`, local config, dump, or log.
+Không commit key thật, mật khẩu, Atlas URI, file `.env`, cấu hình local, database dump hoặc log lên Git.
 
-## 3. Deploy Elasticsearch
+## 3. Triển khai Elasticsearch
 
-1. Add a service from Docker image `elasticsearch:8.13.0`.
-2. Name it `elasticsearch`.
-3. Set variables:
+1. Thêm service từ Docker image `elasticsearch:8.13.0`.
+2. Đặt tên service là `elasticsearch`.
+3. Thiết lập các biến:
 
 ```env
 discovery.type=single-node
@@ -47,19 +47,19 @@ xpack.security.enabled=false
 ES_JAVA_OPTS=-Xms512m -Xmx512m
 ```
 
-4. Attach a Railway Volume at `/usr/share/elasticsearch/data`.
-5. Keep it private; it does not need a public domain.
-6. The internal application port is `9200`.
+4. Gắn Railway Volume vào `/usr/share/elasticsearch/data`.
+5. Giữ service ở chế độ private; Elasticsearch không cần public domain.
+6. Cổng nội bộ của service là `9200`.
 
-## 4. Deploy the backend
+## 4. Triển khai Backend
 
-1. Add a GitHub service from this repository.
-2. Name it `backend`.
-3. Set Root Directory to `/AI_Turtor_BE`.
-4. Railway will build the existing Java 17 Dockerfile.
-5. Generate a public domain.
-6. Set Healthcheck Path to `/actuator/health`.
-7. Paste variables in the service Raw Editor, replacing placeholders:
+1. Thêm một GitHub service từ repository này.
+2. Đặt tên service là `backend`.
+3. Đặt `Root Directory` là `/AI_Turtor_BE`.
+4. Railway sẽ build bằng Dockerfile Java 17 có sẵn.
+5. Tạo public domain cho service.
+6. Đặt `Healthcheck Path` là `/actuator/health/liveness`. Liveness không phụ thuộc Elasticsearch, vì Elasticsearch chậm tạm thời không được làm Railway restart toàn bộ API.
+7. Dán các biến sau vào `Raw Editor` của service, sau đó thay các placeholder bằng giá trị thật:
 
 ```env
 PORT=8085
@@ -68,6 +68,10 @@ SPRING_DATA_MONGODB_URI=<mongodb-atlas-uri>
 ELASTICSEARCH_HOST=${{elasticsearch.RAILWAY_PRIVATE_DOMAIN}}
 ELASTICSEARCH_PORT=9200
 ELASTICSEARCH_INDEX=course_material_vectors_nemotron_2048
+ELASTICSEARCH_CONNECT_TIMEOUT_MS=3000
+ELASTICSEARCH_SOCKET_TIMEOUT_MS=5000
+ELASTICSEARCH_CONNECTION_REQUEST_TIMEOUT_MS=3000
+MANAGEMENT_HEALTH_ELASTICSEARCH_ENABLED=false
 
 JWT_SECRET=<strong-random-secret>
 JWT_EXPIRATION_MINUTES=1440
@@ -102,23 +106,30 @@ RAG_VISUAL_ENABLED=false
 OLLAMA_CHAT_ENABLED=false
 ```
 
-Enable only providers for which a valid API key is configured. Do not deploy Ollama
-inside the initial Railway setup; its memory and model storage requirements are much
-higher than hosted API providers.
+Chỉ bật những provider đã có API key hợp lệ. Không nên chạy Ollama trong lần triển khai Railway đầu tiên vì Ollama cần nhiều RAM và dung lượng lưu model hơn so với việc dùng API từ nhà cung cấp bên ngoài.
 
-Verify:
+Kiểm tra các đường dẫn:
 
-- `https://<backend-domain>/actuator/health`
+- `https://<backend-domain>/actuator/health/liveness`
 - `https://<backend-domain>/v3/api-docs`
-- Login through `POST https://<backend-domain>/api/users/login`
+- Đăng nhập bằng `POST https://<backend-domain>/api/users/login`
 
-## 5. Deploy n8n
+Sau khi đăng nhập Admin, kiểm tra Elasticsearch thật bằng:
 
-1. Add a service from Docker image `docker.n8n.io/n8nio/n8n:latest`.
-2. Name it `n8n`.
-3. Generate a public domain for the editor and browser webhooks.
-4. Attach a Railway Volume at `/home/node/.n8n` so workflows and credentials survive redeploys.
-5. Set variables:
+```http
+GET /api/admin/diagnostics/elasticsearch
+Authorization: Bearer <ADMIN_JWT>
+```
+
+API trả `status`, cluster, phiên bản Elasticsearch, trạng thái index, số document và thời gian phản hồi. REST API vẫn là nguồn kiểm tra Elasticsearch; Web health chỉ dùng cho vòng đời container.
+
+## 5. Triển khai n8n
+
+1. Thêm service từ Docker image `docker.n8n.io/n8nio/n8n:latest`.
+2. Đặt tên service là `n8n`.
+3. Tạo public domain cho giao diện quản lý và webhook trên trình duyệt.
+4. Gắn Railway Volume vào `/home/node/.n8n` để workflow và credential không bị mất khi redeploy.
+5. Thiết lập các biến:
 
 ```env
 PORT=5678
@@ -138,8 +149,8 @@ TZ=Asia/Ho_Chi_Minh
 AI_TUTOR_API_BASE_URL=http://${{backend.RAILWAY_PRIVATE_DOMAIN}}:8085
 ```
 
-6. Open the n8n public domain and create the owner account.
-7. Import and activate these files from `AI_Turtor_BE/n8n-import/docker-ready/`:
+6. Mở public domain của n8n và tạo tài khoản owner.
+7. Import và activate các file trong `AI_Turtor_BE/n8n-import/docker-ready/`:
 
 ```text
 AI-tutor-workflow-runtime-fixed.json
@@ -147,21 +158,20 @@ AI-tutor-v2-proactive-workflows.json
 AI-tutor-teacher-ai-grading.json
 ```
 
-8. Confirm every backend HTTP node forwards the incoming `Authorization` header.
-9. Use production `/webhook/...` URLs, not `/webhook-test/...` URLs.
+8. Xác nhận mọi HTTP node gọi backend đều chuyển tiếp header `Authorization` nhận từ request ban đầu.
+9. Dùng URL production `/webhook/...`, không dùng URL test `/webhook-test/...`.
 
-For a single demo instance, n8n's database on the attached volume is sufficient.
-Use a Railway Postgres service before scaling n8n to multiple replicas.
+Với một instance demo duy nhất, database của n8n trên Volume là đủ. Hãy dùng thêm Railway Postgres trước khi scale n8n thành nhiều replica.
 
-## 6. Deploy the frontend
+## 6. Triển khai Frontend
 
-1. Add another GitHub service from this repository.
-2. Name it `frontend`.
-3. Set Root Directory to `/Ai_Turtor_FE`.
-4. Railway will build the frontend Dockerfile and serve the SPA with Caddy.
-5. Generate a public domain.
-6. Set Healthcheck Path to `/health`.
-7. Initially deploy with backend-direct mode:
+1. Thêm một GitHub service khác từ cùng repository.
+2. Đặt tên service là `frontend`.
+3. Đặt `Root Directory` là `/Ai_Turtor_FE`.
+4. Railway sẽ build Dockerfile của frontend và dùng Caddy để phục vụ SPA.
+5. Tạo public domain cho service.
+6. Đặt `Healthcheck Path` là `/health`.
+7. Lần đầu nên triển khai theo chế độ gọi trực tiếp backend:
 
 ```env
 VITE_API_BASE_URL=https://${{backend.RAILWAY_PUBLIC_DOMAIN}}/api
@@ -188,34 +198,29 @@ VITE_N8N_TUTOR_V2_APPROVAL_TIMEOUT_MS=240000
 VITE_N8N_TUTOR_V2_EVALUATION_TIMEOUT_MS=300000
 ```
 
-`VITE_*` variables are embedded at build time. Redeploy the frontend whenever one
-of them changes.
+Các biến `VITE_*` được nhúng vào bản build. Phải redeploy frontend sau mỗi lần thay đổi các biến này.
 
-## 7. Enable n8n flows progressively
+## 7. Bật dần các flow n8n
 
-After backend-direct login, chat, quiz, materials, and WebSocket tests pass:
+Sau khi kiểm tra thành công đăng nhập, chat, quiz, material và WebSocket ở chế độ gọi trực tiếp backend:
 
-1. Test the Student Chat production webhook directly in n8n.
-2. Set `VITE_N8N_ENABLED=true` and redeploy frontend.
-3. Test RAG, CODE, ESCALATE, teacher final answer, and senior approve/reject.
-4. Enable quiz only after its response contract passes:
-   `VITE_N8N_QUIZ_ENABLED=true`.
-5. Enable teacher assignment grading only after its workflow passes:
-   `VITE_N8N_ASSIGNMENT_GRADING_ENABLED=true`.
-6. Enable Tutor V2 only after all V2 webhooks pass:
-   `VITE_N8N_TUTOR_V2_ENABLED=true`.
-7. Keep `VITE_N8N_STRICT=false` during smoke tests. Set it to `true` only when no
-   backend fallback is desired.
+1. Kiểm tra trực tiếp production webhook của Student Chat trong n8n.
+2. Đặt `VITE_N8N_ENABLED=true` và redeploy frontend.
+3. Kiểm tra RAG, CODE, ESCALATE, teacher final answer và senior approve/reject.
+4. Chỉ bật quiz sau khi response contract của workflow đã đúng: `VITE_N8N_QUIZ_ENABLED=true`.
+5. Chỉ bật chấm File Assignment sau khi workflow tương ứng đã chạy đúng: `VITE_N8N_ASSIGNMENT_GRADING_ENABLED=true`.
+6. Chỉ bật Tutor V2 sau khi tất cả webhook V2 đã chạy đúng: `VITE_N8N_TUTOR_V2_ENABLED=true`.
+7. Giữ `VITE_N8N_STRICT=false` trong giai đoạn smoke test. Chỉ chuyển sang `true` khi không muốn FE fallback về backend.
 
-## 8. Final smoke test
+## 8. Kiểm tra nhanh sau khi triển khai
 
-- Login all roles: `STUDENT`, `TEACHER`, `SENIOR_MENTOR`, `ADMIN`.
-- Refresh nested frontend routes; Caddy must return the React application, not 404.
-- Confirm API CORS from the frontend public domain.
-- Confirm `/ws/chat` and `/ws/events` connect over `wss://`.
-- Student chat: RAG, CODE, ESCALATE, history, pin persistence, and 10-question rollover.
-- Student quiz: generate, submit, result review, and assigned quiz.
-- Teacher: publish quiz/assignment, review attempt, and escalation flow.
-- Senior/Admin: knowledge approval/rejection and Tutor V2 review.
-- Admin: PDF upload, URL import, indexing status, academic CRUD, and AI logs.
-- Restart `n8n` and `elasticsearch`; data must remain because volumes are attached.
+- Đăng nhập bằng đủ bốn role: `STUDENT`, `TEACHER`, `SENIOR_MENTOR`, `ADMIN`.
+- Refresh các route con của frontend; Caddy phải trả React application thay vì lỗi 404.
+- Xác nhận CORS API cho phép public domain của frontend.
+- Xác nhận `/ws/chat` và `/ws/events` kết nối bằng `wss://`.
+- Student Chat: kiểm tra RAG, CODE, ESCALATE, lịch sử, ghim tin nhắn vẫn còn sau khi đăng nhập lại và chuyển conversation khi đủ 10 câu hỏi.
+- Student Quiz: kiểm tra tạo quiz, nộp bài, xem kết quả và quiz được giao.
+- Teacher: kiểm tra publish quiz/assignment, review attempt và escalation flow.
+- Senior/Admin: kiểm tra approve/reject tri thức và review Tutor V2.
+- Admin: kiểm tra upload PDF, import URL, trạng thái indexing, CRUD học vụ và AI logs.
+- Restart `n8n` và `elasticsearch`; dữ liệu phải vẫn còn nhờ các Volume đã gắn.

@@ -106,7 +106,8 @@ public class SecurityConfig {
                                 "/api/users/register",
                                 "/ws/chat/**",
                                 "/ws/events/**",
-                                "/actuator/health"
+                                "/actuator/health",
+                                "/actuator/health/**"
                         ).permitAll()
                         // n8n trace logging should not block the harness if a user token expires.
                         .requestMatchers(HttpMethod.POST, "/api/harness/logs", "/api/harness/error-logs").permitAll()
