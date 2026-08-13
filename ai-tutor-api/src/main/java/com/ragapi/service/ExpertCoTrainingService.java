@@ -1,0 +1,510 @@
+package com.ragapi.service;
+
+import com.ragapi.dto.CourseRagAnswer;
+import com.ragapi.dto.cotraining.*;
+import com.ragapi.entity.*;
+import com.ragapi.repository.*;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+
+import java.time.LocalDateTime;
+import java.util.*;
+import java.util.stream.Collectors;
+
+import static com.ragapi.util.ValidationUtils.*;
+
+@Service
+@RequiredArgsConstructor
+public class ExpertCoTrainingService {
+    private static final Set<String> TASK_TYPES = Set.of("GOLD_QA", "RUBRIC", "RANKING", "REVIEW");
+    private static final Set<String> GOLD_USAGE = Set.of("TRAINING", "EVALUATION");
+    private static final Set<String> DIFFICULTIES = Set.of("EASY", "MEDIUM", "HARD");
+    private static final Set<String> SENIOR_ROLES = Set.of("SENIOR_MENTOR", "ADMIN");
+
+    private final ExpertTaskRepository taskRepository;
+    private final GoldQaRepository goldQaRepository;
+    private final ExpertRubricRepository rubricRepository;
+    private final CoverageGapRepository gapRepository;
+    private final EvalRunRepository evalRunRepository;
+    private final EvalResultRepository evalResultRepository;
+    private final CourseMaterialRepository materialRepository;
+    private final ChapterOutlineService chapterOutlineService;
+    private final ElasticVectorService vectorService;
+    private final CourseRagService courseRagService;
+    private final RealtimeEventService realtimeEvents;
+
+    public List<CoverageGap> analyzeCoverage(CoverageAnalysisRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("request is required");
+        }
+        String courseId = requireText(request.getCourseId(), "courseId");
+        boolean useSuggested = request.getUseSuggestedOrConfirmedChapters() == null
+                || request.getUseSuggestedOrConfirmedChapters();
+        boolean smartPolicy = request.getSmartTaskPolicy() == null || request.getSmartTaskPolicy();
+        boolean includeTraining = Boolean.TRUE.equals(request.getIncludeTrainingGoldTasks());
+        boolean includeBenchmark = Boolean.TRUE.equals(request.getIncludeBenchmarkTasks());
+
+        List<String> explicit = request.getChapters() == null ? List.of() : request.getChapters().stream()
+                .filter(Objects::nonNull).map(String::trim).filter(v -> !v.isBlank()).distinct().toList();
+        List<String> chapters = explicit;
+        if (chapters.isEmpty() && useSuggested) {
+            chapters = chapterOutlineService.resolveChapterTitlesForAnalysis(courseId, List.of());
+        }
+        if (chapters.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "No chapters to analyze. Upload and index course materials, confirm suggested chapters, or send chapters explicitly.");
+        }
+
+        int minTraining = positiveOrDefault(request.getMinimumTrainingGoldPerChapter(), smartPolicy ? 0 : 2);
+        int minEvaluation = positiveOrDefault(request.getMinimumEvaluationGoldPerChapter(), smartPolicy ? 0 : 2);
+        int materialCount = (int) materialRepository.findByCourseId(courseId).stream()
+                .filter(m -> "INDEXED".equalsIgnoreCase(m.getIndexingStatus())).count();
+        List<CoverageGap> detected = new ArrayList<>();
+
+        for (String chapter : chapters) {
+            CourseChapterOutline outline = chapterOutlineService.findOutlineByTitle(courseId, chapter);
+            String materialHealth = chapterOutlineService.materialHealth(outline, materialCount);
+            int training = goldQaRepository.findByCourseIdAndChapterAndUsage(courseId, chapter, "TRAINING").size();
+            int evaluation = goldQaRepository.findByCourseIdAndChapterAndUsage(courseId, chapter, "EVALUATION").size();
+            List<String> reasons = buildCoverageReasons(
+                    materialCount, materialHealth, training, evaluation, minTraining, minEvaluation, smartPolicy);
+
+            boolean trainingGap = training < minTraining;
+            boolean evaluationGap = evaluation < minEvaluation;
+            boolean materialBlocked = "NO_MATERIAL".equals(materialHealth) || "MATERIAL_THIN".equals(materialHealth);
+            boolean goldActionNeeded = !materialBlocked && (
+                    (!smartPolicy && (trainingGap || evaluationGap))
+                            || (smartPolicy && includeTraining && trainingGap)
+                            || (smartPolicy && includeBenchmark && evaluationGap));
+
+            if (!materialBlocked && !goldActionNeeded) {
+                gapRepository.findFirstByCourseIdAndChapterAndStatusInOrderByDetectedAtDesc(
+                                courseId, chapter, List.of("OPEN", "TASK_CREATED"))
+                        .ifPresent(existing -> {
+                            existing.setStatus("RESOLVED");
+                            existing.setResolvedBy(request.getRequestedBy());
+                            existing.setResolvedAt(LocalDateTime.now());
+                            existing.setUpdatedAt(LocalDateTime.now());
+                            gapRepository.save(existing);
+                        });
+                continue;
+            }
+
+            CoverageGap gap = gapRepository.findFirstByCourseIdAndChapterAndStatusInOrderByDetectedAtDesc(
+                            courseId, chapter, List.of("OPEN", "TASK_CREATED"))
+                    .orElseGet(CoverageGap::new);
+            boolean tasksAlreadyCreated = "TASK_CREATED".equals(gap.getStatus());
+            LocalDateTime now = LocalDateTime.now();
+            if (gap.getId() == null) {
+                gap.setDetectedAt(now);
+            }
+            gap.setCourseId(courseId);
+            gap.setChapter(chapter);
+            gap.setMaterialCount(materialCount);
+            gap.setTrainingGoldCount(training);
+            gap.setEvaluationGoldCount(evaluation);
+            gap.setMaterialHealth(materialHealth);
+            gap.setChunkCount(outline == null || outline.getChunkCount() == null ? 0 : outline.getChunkCount());
+            gap.setApproxChars(outline == null || outline.getApproxChars() == null ? 0L : outline.getApproxChars());
+            gap.setReasons(reasons);
+            gap.setSeverity(severity(materialHealth, materialCount, training, evaluation));
+            gap.setStatus("OPEN");
+            gap.setUpdatedAt(now);
+            gap = gapRepository.save(gap);
+
+            if (Boolean.TRUE.equals(request.getCreateTasks()) && !tasksAlreadyCreated && goldActionNeeded) {
+                createGapTasks(gap, request.getRequestedBy(), trainingGap, evaluationGap,
+                        materialHealth, smartPolicy, includeTraining, includeBenchmark, request.getTaskDueAt());
+                gap.setStatus("TASK_CREATED");
+                gap.setUpdatedAt(LocalDateTime.now());
+                gap = gapRepository.save(gap);
+            } else if (tasksAlreadyCreated) {
+                gap.setStatus("TASK_CREATED");
+                gap = gapRepository.save(gap);
+            }
+            detected.add(gap);
+        }
+        return detected;
+    }
+
+    private List<String> buildCoverageReasons(
+            int materialCount,
+            String materialHealth,
+            int training,
+            int evaluation,
+            int minTraining,
+            int minEvaluation,
+            boolean smartPolicy
+    ) {
+        List<String> reasons = new ArrayList<>();
+        if (materialCount == 0) {
+            reasons.add("NO_MATERIAL: Course has no indexed material");
+        }
+        if ("NO_MATERIAL".equals(materialHealth)) {
+            reasons.add("NO_MATERIAL: No indexed content mapped to this chapter");
+        } else if ("MATERIAL_THIN".equals(materialHealth)) {
+            reasons.add("MATERIAL_THIN: Indexed content for this chapter is too thin — upload or expand material first");
+        } else if ("MATERIAL_OK".equals(materialHealth)) {
+            reasons.add("MATERIAL_OK: RAG has sufficient material for this chapter");
+        }
+        if (smartPolicy && "MATERIAL_OK".equals(materialHealth)) {
+            if (training < minTraining) {
+                reasons.add("Optional: training Gold Q&A below " + minTraining);
+            }
+            if (evaluation < minEvaluation) {
+                reasons.add("Optional: evaluation holdout below " + minEvaluation);
+            }
+        } else {
+            if (training < minTraining) {
+                reasons.add("Training GoldQA coverage is below " + minTraining);
+            }
+            if (evaluation < minEvaluation) {
+                reasons.add("Evaluation holdout coverage is below " + minEvaluation);
+            }
+        }
+        return reasons;
+    }
+
+    public ExpertTask createTask(CreateExpertTaskRequest request) {
+        if (request == null) throw new IllegalArgumentException("request is required");
+        String type = enumValue(request.getType(), "type", TASK_TYPES);
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime dueAt = normalizeDueAt(request.getDueAt());
+        ExpertTask saved = taskRepository.save(ExpertTask.builder()
+                .courseId(requireText(request.getCourseId(), "courseId"))
+                .chapter(requireMaxLength(request.getChapter(), "chapter", SHORT_TEXT_MAX_LENGTH))
+                .type(type).status("OPEN")
+                .priority(clampPriority(request.getPriority()))
+                .sourceGapId(optionalMaxLength(request.getSourceGapId(), "sourceGapId", SHORT_TEXT_MAX_LENGTH))
+                .title(requireMaxLength(request.getTitle(), "title", SHORT_TEXT_MAX_LENGTH))
+                .instructions(optionalMaxLength(request.getInstructions(), "instructions", DEFAULT_TEXT_MAX_LENGTH))
+                .createdBy(optionalMaxLength(request.getCreatedBy(), "createdBy", SHORT_TEXT_MAX_LENGTH))
+                .dueAt(dueAt).createdAt(now).updatedAt(now).build());
+        realtimeEvents.publishToRoles(Set.of("TEACHER", "SENIOR_MENTOR", "ADMIN"),
+                "EXPERT_TASK_CREATED", "EXPERT_TASK", saved.getId(), saved.getStatus(),
+                Map.of("courseId", saved.getCourseId(), "chapter", saved.getChapter(), "type", saved.getType()));
+        return saved;
+    }
+
+    public List<ExpertTask> createChapterTasks(CreateChapterTasksRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("request is required");
+        }
+        String courseId = requireText(request.getCourseId(), "courseId");
+        String chapter = requireText(request.getChapter(), "chapter");
+        CourseChapterOutline outline = chapterOutlineService.findOutlineByTitle(courseId, chapter);
+        if (outline == null) {
+            throw new IllegalArgumentException("Chapter does not exist in indexed course materials");
+        }
+        if (!"CONFIRMED".equalsIgnoreCase(outline.getStatus())) {
+            throw new IllegalArgumentException("Chapter must be confirmed before creating tasks");
+        }
+        if (outline.getChunkCount() == null || outline.getChunkCount() <= 0) {
+            throw new IllegalArgumentException("Chapter has no indexed content");
+        }
+        chapter = outline.getTitle();
+        String createdBy = optionalMaxLength(request.getCreatedBy(), "createdBy", SHORT_TEXT_MAX_LENGTH);
+        boolean includeTraining = request.getIncludeTrainingGoldTask() == null || request.getIncludeTrainingGoldTask();
+        boolean includeEvaluation = request.getIncludeEvaluationGoldTask() == null || request.getIncludeEvaluationGoldTask();
+        if (!includeTraining && !includeEvaluation) {
+            throw new IllegalArgumentException("At least one of includeTrainingGoldTask or includeEvaluationGoldTask must be true");
+        }
+        CoverageGap gap = gapRepository.findFirstByCourseIdAndChapterAndStatusInOrderByDetectedAtDesc(
+                        courseId, chapter, List.of("OPEN", "TASK_CREATED"))
+                .orElse(null);
+        String gapId = gap == null ? null : gap.getId();
+        int priority = gap != null && "CRITICAL".equals(gap.getSeverity()) ? 100 : 70;
+        LocalDateTime dueAt = normalizeDueAt(request.getDueAt());
+        List<ExpertTask> created = new ArrayList<>();
+        if (includeTraining) {
+            CreateExpertTaskRequest training = new CreateExpertTaskRequest();
+            training.setCourseId(courseId);
+            training.setChapter(chapter);
+            training.setType("GOLD_QA");
+            training.setPriority(priority);
+            training.setSourceGapId(gapId);
+            training.setTitle("Soạn Gold Q&A training - " + chapter);
+            training.setInstructions("Senior chủ động tạo task. Teacher soạn Gold Q&A usage=TRAINING để nạp RAG Brain.");
+            training.setCreatedBy(createdBy);
+            training.setDueAt(dueAt);
+            created.add(createTask(training));
+        }
+        if (includeEvaluation) {
+            CreateExpertTaskRequest evaluation = new CreateExpertTaskRequest();
+            evaluation.setCourseId(courseId);
+            evaluation.setChapter(chapter);
+            evaluation.setType("GOLD_QA");
+            evaluation.setPriority(priority);
+            evaluation.setSourceGapId(gapId);
+            evaluation.setTitle("Soạn Gold Q&A holdout - " + chapter);
+            evaluation.setInstructions("Senior chủ động tạo task. Teacher soạn Gold Q&A usage=EVALUATION (holdout, không index RAG).");
+            evaluation.setCreatedBy(createdBy);
+            evaluation.setDueAt(dueAt);
+            created.add(createTask(evaluation));
+        }
+        if (gap != null && !created.isEmpty()) {
+            gap.setStatus("TASK_CREATED");
+            gap.setUpdatedAt(LocalDateTime.now());
+            gapRepository.save(gap);
+        }
+        return created;
+    }
+
+    public List<ExpertTask> listTasks(String status, String courseId, String assigneeId) {
+        if (assigneeId != null && !assigneeId.isBlank()) return taskRepository.findByAssigneeIdOrderByCreatedAtDesc(assigneeId.trim());
+        if (courseId != null && !courseId.isBlank()) return taskRepository.findByCourseIdOrderByCreatedAtDesc(courseId.trim()).stream()
+                .filter(t -> status == null || status.isBlank() || status.equalsIgnoreCase(t.getStatus())).toList();
+        if (status != null && !status.isBlank()) return taskRepository.findByStatusOrderByPriorityDescCreatedAtAsc(status.trim().toUpperCase(Locale.ROOT));
+        return taskRepository.findAll();
+    }
+
+    public ExpertTask assignTask(String id, AssignExpertTaskRequest request) {
+        ExpertTask task = task(id);
+        if (!Set.of("OPEN", "ASSIGNED").contains(task.getStatus())) throw new IllegalArgumentException("Task cannot be assigned in status " + task.getStatus());
+        task.setAssigneeId(requireText(request == null ? null : request.getAssigneeId(), "assigneeId"));
+        task.setAssigneeTier(optionalMaxLength(request.getAssigneeTier(), "assigneeTier", SHORT_TEXT_MAX_LENGTH));
+        task.setStatus("ASSIGNED"); task.setUpdatedAt(LocalDateTime.now());
+        ExpertTask saved = taskRepository.save(task);
+        realtimeEvents.publishToUser(saved.getAssigneeId(), "EXPERT_TASK_ASSIGNED", "EXPERT_TASK",
+                saved.getId(), saved.getStatus(), Map.of("courseId", saved.getCourseId(), "chapter", saved.getChapter()));
+        return saved;
+    }
+
+    public GoldQa submitGoldQa(SubmitGoldQaRequest request) {
+        if (request == null) throw new IllegalArgumentException("request is required");
+        String usage = enumValue(request.getUsage(), "usage", GOLD_USAGE);
+        String difficulty = enumValue(request.getDifficulty(), "difficulty", DIFFICULTIES);
+        ExpertTask task = optionalTask(request.getSourceTaskId(), "GOLD_QA");
+        LocalDateTime now = LocalDateTime.now();
+        GoldQa gold = goldQaRepository.save(GoldQa.builder()
+                .courseId(requireText(request.getCourseId(), "courseId"))
+                .chapter(requireMaxLength(request.getChapter(), "chapter", SHORT_TEXT_MAX_LENGTH))
+                .question(requireMaxLength(request.getQuestion(), "question", DEFAULT_TEXT_MAX_LENGTH))
+                .goldAnswer(requireMaxLength(request.getGoldAnswer(), "goldAnswer", DEFAULT_TEXT_MAX_LENGTH))
+                .difficulty(difficulty).usage(usage).holdout("EVALUATION".equals(usage))
+                .status("PENDING_REVIEW").version(1)
+                .authorId(requireText(request.getAuthorId(), "authorId"))
+                .sourceTaskId(request.getSourceTaskId()).rubricId(request.getRubricId())
+                .createdAt(now).updatedAt(now).build());
+        completeContributionTask(task, gold.getId());
+        realtimeEvents.publishToRoles(SENIOR_ROLES, "GOLD_QA_SUBMITTED", "GOLD_QA", gold.getId(),
+                gold.getStatus(), Map.of("courseId", gold.getCourseId(), "usage", gold.getUsage(), "authorId", gold.getAuthorId()));
+        return gold;
+    }
+
+    public ExpertRubric submitRubric(SubmitRubricRequest request) {
+        if (request == null) throw new IllegalArgumentException("request is required");
+        validateWeights(request.getCriteriaWeights());
+        ExpertTask task = optionalTask(request.getSourceTaskId(), "RUBRIC");
+        LocalDateTime now = LocalDateTime.now();
+        ExpertRubric rubric = rubricRepository.save(ExpertRubric.builder()
+                .courseId(requireText(request.getCourseId(), "courseId"))
+                .chapter(requireMaxLength(request.getChapter(), "chapter", SHORT_TEXT_MAX_LENGTH))
+                .name(requireMaxLength(request.getName(), "name", SHORT_TEXT_MAX_LENGTH))
+                .description(optionalMaxLength(request.getDescription(), "description", DEFAULT_TEXT_MAX_LENGTH))
+                .criteriaWeights(new LinkedHashMap<>(request.getCriteriaWeights()))
+                .status("PENDING_REVIEW").version(1)
+                .authorId(requireText(request.getAuthorId(), "authorId"))
+                .sourceTaskId(request.getSourceTaskId()).createdAt(now).updatedAt(now).build());
+        completeContributionTask(task, rubric.getId());
+        realtimeEvents.publishToRoles(SENIOR_ROLES, "RUBRIC_SUBMITTED", "EXPERT_RUBRIC", rubric.getId(),
+                rubric.getStatus(), Map.of("courseId", rubric.getCourseId(), "authorId", rubric.getAuthorId()));
+        return rubric;
+    }
+
+    public GoldQa reviewGoldQa(String id, ExpertReviewRequest request, boolean approve) throws Exception {
+        GoldQa gold = goldQaRepository.findById(requireText(id, "id")).orElseThrow(() -> new IllegalArgumentException("GoldQA not found"));
+        ensurePending(gold.getStatus()); ensureSenior(request);
+        LocalDateTime now = LocalDateTime.now();
+        gold.setReviewedBy(request.getReviewerId()); gold.setReviewNote(request.getReviewNote()); gold.setReviewedAt(now); gold.setUpdatedAt(now);
+        if (!approve) {
+            gold.setRejectionReason(requireMaxLength(request.getRejectionReason(), "rejectionReason", DEFAULT_TEXT_MAX_LENGTH));
+            gold.setStatus("REJECTED");
+        } else if (Boolean.TRUE.equals(gold.getHoldout()) || "EVALUATION".equals(gold.getUsage())) {
+            gold.setStatus("APPROVED");
+        } else {
+            String content = "Question: " + gold.getQuestion() + "\nGold answer: " + gold.getGoldAnswer();
+            vectorService.indexChunk(gold.getCourseId(), null, gold.getAuthorId(), gold.getId(), "COURSE_SHARED", "GOLD_QA", null, null, content);
+            gold.setStatus("INDEXED"); gold.setIndexedAt(now);
+        }
+        GoldQa saved = goldQaRepository.save(gold);
+        completeReviewedTask(saved.getSourceTaskId(), approve);
+        realtimeEvents.publishToUser(saved.getAuthorId(), approve ? "GOLD_QA_APPROVED" : "GOLD_QA_REJECTED",
+                "GOLD_QA", saved.getId(), saved.getStatus(), Map.of("courseId", saved.getCourseId(), "usage", saved.getUsage()));
+        return saved;
+    }
+
+    public ExpertRubric reviewRubric(String id, ExpertReviewRequest request, boolean approve) {
+        ExpertRubric rubric = rubricRepository.findById(requireText(id, "id")).orElseThrow(() -> new IllegalArgumentException("Rubric not found"));
+        ensurePending(rubric.getStatus()); ensureSenior(request);
+        rubric.setStatus(approve ? "APPROVED" : "REJECTED");
+        rubric.setReviewedBy(request.getReviewerId()); rubric.setReviewNote(approve ? request.getReviewNote() : requireText(request.getRejectionReason(), "rejectionReason"));
+        rubric.setReviewedAt(LocalDateTime.now()); rubric.setUpdatedAt(LocalDateTime.now());
+        ExpertRubric saved = rubricRepository.save(rubric);
+        completeReviewedTask(saved.getSourceTaskId(), approve);
+        realtimeEvents.publishToUser(saved.getAuthorId(), approve ? "RUBRIC_APPROVED" : "RUBRIC_REJECTED",
+                "EXPERT_RUBRIC", saved.getId(), saved.getStatus(), Map.of("courseId", saved.getCourseId()));
+        return saved;
+    }
+
+    public List<GoldQa> listGoldQa(String courseId, String usage, String status) {
+        return goldQaRepository.findByCourseIdOrderByCreatedAtDesc(requireText(courseId, "courseId")).stream()
+                .filter(g -> usage == null || usage.isBlank() || usage.equalsIgnoreCase(g.getUsage()))
+                .filter(g -> status == null || status.isBlank() || status.equalsIgnoreCase(g.getStatus())).toList();
+    }
+
+    public List<ExpertRubric> listRubrics(String courseId) {
+        return rubricRepository.findByCourseIdOrderByCreatedAtDesc(requireText(courseId, "courseId"));
+    }
+
+    public EvalRun runEvaluation(StartEvalRunRequest request) {
+        String courseId = requireText(request == null ? null : request.getCourseId(), "courseId");
+        double threshold = request.getPassThreshold() == null ? 0.6 : Math.max(0.0, Math.min(1.0, request.getPassThreshold()));
+        List<GoldQa> cases = goldQaRepository.findByCourseIdAndUsageAndStatus(courseId, "EVALUATION", "APPROVED").stream()
+                .filter(g -> request.getChapter() == null || request.getChapter().isBlank() || request.getChapter().equalsIgnoreCase(g.getChapter())).toList();
+        if (cases.isEmpty()) throw new IllegalArgumentException("No approved evaluation holdout cases found");
+        LocalDateTime now = LocalDateTime.now();
+        Optional<EvalRun> baseline = evalRunRepository.findFirstByCourseIdAndStatusOrderByCompletedAtDesc(courseId, "PASSED");
+        EvalRun run = evalRunRepository.save(EvalRun.builder().courseId(courseId).chapter(request.getChapter())
+                .status("RUNNING").harnessVersion(defaultText(request.getHarnessVersion(), "v2-mvp-deterministic"))
+                .kbVersion(defaultText(request.getKbVersion(), "current")).promptVersion(defaultText(request.getPromptVersion(), "current"))
+                .totalCases(cases.size()).passThreshold(threshold).baselineRunId(baseline.map(EvalRun::getId).orElse(null))
+                .triggeredBy(request.getTriggeredBy()).createdAt(now).startedAt(now).build());
+        try {
+            List<EvalResult> results = new ArrayList<>();
+            for (GoldQa gold : cases) results.add(evaluate(run, gold, threshold));
+            evalResultRepository.saveAll(results);
+            double average = results.stream().mapToDouble(EvalResult::getScore).average().orElse(0.0);
+            long hallucinated = results.stream().filter(r -> Boolean.TRUE.equals(r.getHallucinated())).count();
+            int passed = (int) results.stream().filter(r -> Boolean.TRUE.equals(r.getPassed())).count();
+            boolean regression = baseline.map(b -> b.getAverageScore() != null && average < b.getAverageScore() - 0.05).orElse(false);
+            run.setPassedCases(passed); run.setAverageScore(round(average)); run.setHallucinationRate(round(hallucinated / (double) results.size()));
+            run.setRegressionDetected(regression); run.setMetrics(Map.of("accuracy", round(passed / (double) results.size()), "averageScore", round(average)));
+            run.setStatus(average >= threshold && !regression ? "PASSED" : "FAILED"); run.setCompletedAt(LocalDateTime.now());
+            EvalRun saved = evalRunRepository.save(run);
+            realtimeEvents.publishToRoles(SENIOR_ROLES, "EVAL_RUN_COMPLETED", "EVAL_RUN", saved.getId(),
+                    saved.getStatus(), Map.of("courseId", saved.getCourseId(), "averageScore", saved.getAverageScore()));
+            return saved;
+        } catch (Exception e) {
+            run.setStatus("ERROR"); run.setError(e.getMessage()); run.setCompletedAt(LocalDateTime.now());
+            EvalRun saved = evalRunRepository.save(run);
+            realtimeEvents.publishToRoles(SENIOR_ROLES, "EVAL_RUN_FAILED", "EVAL_RUN", saved.getId(),
+                    saved.getStatus(), Map.of("courseId", saved.getCourseId()));
+            return saved;
+        }
+    }
+
+    public List<EvalRun> listEvalRuns(String courseId) { return evalRunRepository.findByCourseIdOrderByCreatedAtDesc(requireText(courseId, "courseId")); }
+    public Map<String, Object> evalRunDetail(String id) {
+        EvalRun run = evalRunRepository.findById(requireText(id, "id")).orElseThrow(() -> new IllegalArgumentException("EvalRun not found"));
+        return Map.of("run", run, "results", evalResultRepository.findByEvalRunIdOrderByCreatedAtAsc(run.getId()));
+    }
+    public List<CoverageGap> listGaps(String courseId) { return gapRepository.findByCourseIdOrderByDetectedAtDesc(requireText(courseId, "courseId")); }
+
+    private EvalResult evaluate(EvalRun run, GoldQa gold, double threshold) throws Exception {
+        CourseRagAnswer answer = courseRagService.askWithConfidence(gold.getQuestion(), gold.getCourseId(), null);
+        double overlap = tokenOverlap(gold.getGoldAnswer(), answer.getAnswer());
+        double confidence = answer.getConfidence() == null ? 0.0 : answer.getConfidence();
+        double score = round(overlap * 0.75 + confidence * 0.25);
+        boolean hallucinated = Boolean.TRUE.equals(answer.getEscalationRecommended()) || confidence < 0.4 || overlap < 0.15;
+        return EvalResult.builder().evalRunId(run.getId()).goldQaId(gold.getId()).courseId(gold.getCourseId()).chapter(gold.getChapter())
+                .question(gold.getQuestion()).goldAnswer(gold.getGoldAnswer()).aiAnswer(answer.getAnswer()).score(score).ragConfidence(confidence)
+                .passed(score >= threshold && !hallucinated).hallucinated(hallucinated)
+                .criterionScores(Map.of("tokenOverlap", round(overlap), "ragConfidence", round(confidence))).createdAt(LocalDateTime.now()).build();
+    }
+
+    private void createGapTasks(
+            CoverageGap gap,
+            String createdBy,
+            boolean training,
+            boolean evaluation,
+            String materialHealth,
+            boolean smartPolicy,
+            boolean includeTraining,
+            boolean includeBenchmark,
+            LocalDateTime dueAt
+    ) {
+        if ("NO_MATERIAL".equals(materialHealth) || "MATERIAL_THIN".equals(materialHealth)) {
+            return;
+        }
+        boolean doTraining = training;
+        boolean doEval = evaluation;
+        if (smartPolicy && "MATERIAL_OK".equals(materialHealth)) {
+            doTraining = training && includeTraining;
+            doEval = evaluation && includeBenchmark;
+        }
+        if (doTraining) {
+            createAutomaticTask(gap, createdBy, "Soạn Gold Q&A training",
+                    "Tạo dữ liệu chuẩn để nạp vào RAG Brain. Chọn usage=TRAINING.", dueAt);
+        }
+        if (doEval) {
+            createAutomaticTask(gap, createdBy, "Soạn Gold Q&A holdout",
+                    "Tạo câu benchmark không được index vào RAG. Chọn usage=EVALUATION.", dueAt);
+        }
+    }
+    private void createAutomaticTask(CoverageGap gap, String createdBy, String title, String instructions, LocalDateTime dueAt) {
+        CreateExpertTaskRequest request = new CreateExpertTaskRequest(); request.setCourseId(gap.getCourseId()); request.setChapter(gap.getChapter());
+        request.setType("GOLD_QA"); request.setPriority("CRITICAL".equals(gap.getSeverity()) ? 100 : 70); request.setSourceGapId(gap.getId());
+        request.setTitle(title + " - " + gap.getChapter()); request.setInstructions(instructions); request.setCreatedBy(createdBy);
+        request.setDueAt(dueAt);
+        createTask(request);
+    }
+    private ExpertTask task(String id) { return taskRepository.findById(requireText(id, "id")).orElseThrow(() -> new IllegalArgumentException("ExpertTask not found")); }
+    private ExpertTask optionalTask(String id, String expectedType) {
+        if (id == null || id.isBlank()) return null;
+        ExpertTask task = task(id); if (!expectedType.equals(task.getType())) throw new IllegalArgumentException("Task type must be " + expectedType);
+        if (Set.of("COMPLETED", "CANCELLED").contains(task.getStatus())) throw new IllegalArgumentException("Task is already closed"); return task;
+    }
+    private void completeContributionTask(ExpertTask task, String contributionId) {
+        if (task == null) return; task.setContributionId(contributionId); task.setStatus("SUBMITTED"); task.setUpdatedAt(LocalDateTime.now()); taskRepository.save(task);
+    }
+    private void completeReviewedTask(String taskId, boolean approved) {
+        if (taskId == null || taskId.isBlank()) return;
+        taskRepository.findById(taskId).ifPresent(task -> {
+            task.setStatus(approved ? "COMPLETED" : "IN_PROGRESS");
+            task.setCompletedAt(approved ? LocalDateTime.now() : null);
+            task.setUpdatedAt(LocalDateTime.now());
+            taskRepository.save(task);
+        });
+    }
+    private void ensurePending(String status) { if (!"PENDING_REVIEW".equals(status)) throw new IllegalArgumentException("Contribution is not pending review"); }
+    private void ensureSenior(ExpertReviewRequest request) {
+        if (request == null || !SENIOR_ROLES.contains(defaultText(request.getReviewerRole(), "").toUpperCase(Locale.ROOT))) throw new IllegalArgumentException("reviewerRole must be SENIOR_MENTOR or ADMIN");
+        requireText(request.getReviewerId(), "reviewerId");
+    }
+    private String enumValue(String value, String field, Set<String> allowed) { String normalized = requireText(value, field).toUpperCase(Locale.ROOT); if (!allowed.contains(normalized)) throw new IllegalArgumentException(field + " must be one of " + allowed); return normalized; }
+    private int positiveOrDefault(Integer value, int fallback) { return value == null ? fallback : Math.max(1, value); }
+    private int clampPriority(Integer priority) { return priority == null ? 50 : Math.max(1, Math.min(100, priority)); }
+    private LocalDateTime normalizeDueAt(LocalDateTime dueAt) {
+        if (dueAt == null) {
+            return null;
+        }
+        if (dueAt.isBefore(LocalDateTime.now())) {
+            throw new IllegalArgumentException("dueAt must not be in the past");
+        }
+        return dueAt;
+    }
+    private String severity(String materialHealth, int materials, int training, int evaluation) {
+        if ("NO_MATERIAL".equals(materialHealth) || materials == 0) {
+            return "CRITICAL";
+        }
+        if ("MATERIAL_THIN".equals(materialHealth)) {
+            return "HIGH";
+        }
+        if (training == 0 && evaluation == 0) {
+            return "LOW";
+        }
+        if (training == 0 || evaluation == 0) {
+            return "MEDIUM";
+        }
+        return "LOW";
+    }
+    private void validateWeights(Map<String, Double> weights) { if (weights == null || weights.isEmpty()) throw new IllegalArgumentException("criteriaWeights are required"); double sum = weights.values().stream().filter(Objects::nonNull).mapToDouble(Double::doubleValue).sum(); if (Math.abs(sum - 1.0) > 0.001) throw new IllegalArgumentException("criteriaWeights must sum to 1.0"); }
+    private String defaultText(String value, String fallback) { return value == null || value.isBlank() ? fallback : value.trim(); }
+    private double tokenOverlap(String expected, String actual) {
+        Set<String> gold = tokens(expected); Set<String> answer = tokens(actual); if (gold.isEmpty()) return 0.0;
+        long common = gold.stream().filter(answer::contains).count(); return common / (double) gold.size();
+    }
+    private Set<String> tokens(String text) { if (text == null) return Set.of(); return Arrays.stream(text.toLowerCase(Locale.ROOT).replaceAll("[^\\p{L}\\p{N}]+", " ").trim().split("\\s+")).filter(v -> v.length() > 2).collect(Collectors.toSet()); }
+    private double round(double value) { return Math.round(value * 10000.0) / 10000.0; }
+}

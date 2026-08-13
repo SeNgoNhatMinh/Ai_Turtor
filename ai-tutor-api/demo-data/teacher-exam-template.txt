@@ -1,0 +1,88 @@
+COURSE: PRJ301
+CLASS: SE1840
+TITLE: Spring Boot Teacher Quiz
+QUIZ TYPE: TEACHER_QUIZ
+MAX SCORE: 100
+QUESTION COUNT: 10
+DURATION: 30 minutes
+
+INSTRUCTIONS
+1. Select exactly one answer (A, B, C, or D) for each question.
+2. Each correct answer is worth 10 points.
+3. Complete and submit the quiz directly on the education website/mobile app.
+4. Do not upload a DOCX answer sheet for this online quiz.
+
+QUESTION 1
+What is the main purpose of Spring Boot auto-configuration?
+A. To replace the Java compiler
+B. To configure beans based on dependencies and application settings
+C. To create database tables manually
+D. To prevent dependency injection
+
+QUESTION 2
+Which annotation is normally used for a business service class?
+A. @Repository
+B. @ControllerAdvice
+C. @Service
+D. @BeanFactory
+
+QUESTION 3
+Which annotation best represents a persistence component?
+A. @Repository
+B. @RestController
+C. @ConfigurationProperties
+D. @RequestBody
+
+QUESTION 4
+What does spring-boot-starter-web primarily provide?
+A. Dependencies commonly needed for a Spring web application
+B. A production database server
+C. A JavaScript runtime
+D. An operating system package manager
+
+QUESTION 5
+Which HTTP method is normally used to create a new resource?
+A. GET
+B. POST
+C. DELETE
+D. HEAD
+
+QUESTION 6
+Which annotation validates a request DTO when used with @RequestBody?
+A. @Primary
+B. @Lazy
+C. @Valid
+D. @Profile
+
+QUESTION 7
+What is the typical purpose of @RestController?
+A. Define REST endpoints whose return values are written to the response body
+B. Configure MongoDB indexes only
+C. Start the JVM
+D. Replace all service classes
+
+QUESTION 8
+Which status code is appropriate when a requested resource is not found?
+A. 200
+B. 201
+C. 400
+D. 404
+
+QUESTION 9
+What is dependency injection used for?
+A. Creating tight coupling between every class
+B. Supplying required dependencies from the application container
+C. Encrypting HTTP requests
+D. Compiling Java source code
+
+QUESTION 10
+Which file commonly contains Spring Boot application configuration?
+A. application.yml
+B. package-lock.json only
+C. index.html only
+D. Dockerfile only
+
+ONLINE SUBMISSION REQUIREMENTS
+- Answer all 10 questions on the system.
+- The Backend stores each selected option in the QuizSession attempt.
+- Submit before the due time shown on the education portal.

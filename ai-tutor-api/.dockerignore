@@ -1,0 +1,16 @@
+.git
+.gitignore
+.env
+.env.*
+!.env.deploy.example
+target
+tmp
+*.log
+
+# Runtime data and database archives are mounted/read outside the image.
+backup
+*.archive
+*.archive.gz
+
+# Optional upstream research repository is not part of the Spring Boot build.
+integrations

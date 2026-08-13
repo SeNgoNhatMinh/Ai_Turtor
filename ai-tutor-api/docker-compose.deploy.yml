@@ -1,0 +1,227 @@
+services:
+  ai-tutor-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ai-tutor-api
+    restart: unless-stopped
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    ports:
+      - "${AI_TUTOR_API_PORT:-8085}:8085"
+    environment:
+      SPRING_DATA_MONGODB_URI: ${SPRING_DATA_MONGODB_URI:?SPRING_DATA_MONGODB_URI is required}
+      ELASTICSEARCH_HOST: elasticsearch
+      ELASTICSEARCH_PORT: 9200
+      ELASTICSEARCH_INDEX: ${ELASTICSEARCH_INDEX:-course_material_vectors_nemotron_2048}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
+      OLLAMA_EMBEDDING_MODEL: ${OLLAMA_EMBEDDING_MODEL:-embeddinggemma}
+      OLLAMA_CHAT_ENABLED: ${OLLAMA_CHAT_ENABLED:-false}
+      OLLAMA_CHAT_MODEL: ${OLLAMA_CHAT_MODEL:-gemma3:4b}
+      OLLAMA_CHAT_TIMEOUT_SECONDS: ${OLLAMA_CHAT_TIMEOUT_SECONDS:-120}
+      RAG_EMBEDDING_PROVIDER: ${RAG_EMBEDDING_PROVIDER:-openrouter}
+      OPENROUTER_EMBEDDING_API_KEY: ${OPENROUTER_EMBEDDING_API_KEY:?OPENROUTER_EMBEDDING_API_KEY is required}
+      OPENROUTER_EMBEDDING_BASE_URL: ${OPENROUTER_EMBEDDING_BASE_URL:-https://openrouter.ai/api/v1}
+      OPENROUTER_EMBEDDING_MODEL: ${OPENROUTER_EMBEDDING_MODEL:-nvidia/llama-nemotron-embed-vl-1b-v2:free}
+      NVIDIA_EMBEDDING_API_KEY: ${NVIDIA_EMBEDDING_API_KEY:-${NVIDIA_NIM_API_KEY}}
+      NVIDIA_EMBEDDING_BASE_URL: ${NVIDIA_EMBEDDING_BASE_URL:-https://integrate.api.nvidia.com/v1}
+      NVIDIA_EMBEDDING_MODEL: ${NVIDIA_EMBEDDING_MODEL:-nvidia/nemotron-3-embed-1b}
+      NVIDIA_EMBEDDING_TIMEOUT_SECONDS: ${NVIDIA_EMBEDDING_TIMEOUT_SECONDS:-30}
+      NVIDIA_EMBEDDING_MAX_RETRIES: ${NVIDIA_EMBEDDING_MAX_RETRIES:-3}
+      OPENROUTER_EMBEDDING_TIMEOUT_SECONDS: ${OPENROUTER_EMBEDDING_TIMEOUT_SECONDS:-60}
+      OPENROUTER_EMBEDDING_MAX_RETRIES: ${OPENROUTER_EMBEDDING_MAX_RETRIES:-0}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:?OPENROUTER_API_KEY is required}
+      OPENROUTER_ENABLED: ${OPENROUTER_ENABLED:-true}
+      OPENROUTER_BASE_URL: ${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
+      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-nvidia/nemotron-3-super-120b-a12b:free}
+      OPENROUTER_TIMEOUT_SECONDS: ${OPENROUTER_TIMEOUT_SECONDS:-60}
+      OPENROUTER_MAX_RETRIES: ${OPENROUTER_MAX_RETRIES:-0}
+      OPENROUTER_FALLBACK_ENABLED: ${OPENROUTER_FALLBACK_ENABLED:-true}
+      OPENROUTER_FALLBACK_API_KEY: ${OPENROUTER_FALLBACK_API_KEY:-}
+      OPENROUTER_FALLBACK_MODEL: ${OPENROUTER_FALLBACK_MODEL:-nvidia/nemotron-3-ultra-550b-a55b:free}
+      OPENROUTER_FALLBACK_TIMEOUT_SECONDS: ${OPENROUTER_FALLBACK_TIMEOUT_SECONDS:-60}
+      OPENROUTER_FALLBACK_MAX_RETRIES: ${OPENROUTER_FALLBACK_MAX_RETRIES:-0}
+      OPENROUTER_FREE_ROUTER_ENABLED: ${OPENROUTER_FREE_ROUTER_ENABLED:-true}
+      OPENROUTER_FREE_ROUTER_MODEL: ${OPENROUTER_FREE_ROUTER_MODEL:-openrouter/free}
+      LLM_PROVIDER_COOLDOWN_SECONDS: ${LLM_PROVIDER_COOLDOWN_SECONDS:-60}
+      LLM_QUOTA_COOLDOWN_SECONDS: ${LLM_QUOTA_COOLDOWN_SECONDS:-900}
+      LLM_DAILY_QUOTA_COOLDOWN_SECONDS: ${LLM_DAILY_QUOTA_COOLDOWN_SECONDS:-86400}
+      GROQ_ENABLED: ${GROQ_ENABLED:-true}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GROQ_BASE_URL: ${GROQ_BASE_URL:-https://api.groq.com/openai/v1}
+      GROQ_MODEL: ${GROQ_MODEL:-openai/gpt-oss-120b}
+      GROQ_MODELS: ${GROQ_MODELS:-openai/gpt-oss-120b,qwen/qwen3.6-27b,llama-3.3-70b-versatile,openai/gpt-oss-20b,llama-3.1-8b-instant}
+      GROQ_TIMEOUT_SECONDS: ${GROQ_TIMEOUT_SECONDS:-60}
+      NVIDIA_NIM_ENABLED: ${NVIDIA_NIM_ENABLED:-true}
+      NVIDIA_NIM_API_KEY: ${NVIDIA_NIM_API_KEY:-}
+      NVIDIA_NIM_BASE_URL: ${NVIDIA_NIM_BASE_URL:-https://integrate.api.nvidia.com/v1}
+      NVIDIA_NIM_MODELS: ${NVIDIA_NIM_MODELS:-nvidia/nemotron-3-super-120b-a12b}
+      NVIDIA_NIM_TIMEOUT_SECONDS: ${NVIDIA_NIM_TIMEOUT_SECONDS:-90}
+      OPENROUTER_RERANK_API_KEY: ${OPENROUTER_RERANK_API_KEY:-${OPENROUTER_API_KEY}}
+      RAG_RERANK_ENABLED: ${RAG_RERANK_ENABLED:-true}
+      RAG_RERANK_MODEL: ${RAG_RERANK_MODEL:-nvidia/llama-nemotron-rerank-vl-1b-v2:free}
+      RAG_RETRIEVAL_TOP_K: ${RAG_RETRIEVAL_TOP_K:-20}
+      RAG_RERANK_TOP_K_AFTER: ${RAG_RERANK_TOP_K_AFTER:-5}
+      RAG_VISUAL_ENABLED: ${RAG_VISUAL_ENABLED:-false}
+      RAG_VISUAL_PROVIDER: ${RAG_VISUAL_PROVIDER:-openrouter}
+      RAG_VISUAL_ELASTICSEARCH_INDEX: ${RAG_VISUAL_ELASTICSEARCH_INDEX:-course_material_vectors_visual_nemotron_v1}
+      RAG_VISUAL_MAX_PAGES_PER_MATERIAL: ${RAG_VISUAL_MAX_PAGES_PER_MATERIAL:-200}
+      OPENROUTER_VISUAL_EMBEDDING_API_KEY: ${OPENROUTER_VISUAL_EMBEDDING_API_KEY:-${OPENROUTER_EMBEDDING_API_KEY}}
+      OPENROUTER_VISUAL_EMBEDDING_MODEL: ${OPENROUTER_VISUAL_EMBEDDING_MODEL:-nvidia/llama-nemotron-embed-vl-1b-v2:free}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      JWT_EXPIRATION_MINUTES: ${JWT_EXPIRATION_MINUTES:-1440}
+      AI_PRIVACY_SANITIZATION_ENABLED: ${AI_PRIVACY_SANITIZATION_ENABLED:-true}
+      SWAGGER_USERNAME: ${SWAGGER_USERNAME:-swagger-admin}
+      SWAGGER_PASSWORD: ${SWAGGER_PASSWORD:?SWAGGER_PASSWORD is required}
+      ADMIN_ACCOUNT_EMAIL: ${ADMIN_ACCOUNT_EMAIL:-admin@system.local}
+      ADMIN_ACCOUNT_PASSWORD: ${ADMIN_ACCOUNT_PASSWORD:-admin123}
+      ADMIN_ACCOUNT_FULL_NAME: ${ADMIN_ACCOUNT_FULL_NAME:-System Admin}
+      APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
+      APP_TIMEZONE: ${APP_TIMEZONE:-Asia/Bangkok}
+      STUDENT_DAILY_QUESTION_LIMIT: ${STUDENT_DAILY_QUESTION_LIMIT:-10}
+      TZ: ${TZ:-Asia/Bangkok}
+      JAVA_TOOL_OPTIONS: "-Dfile.encoding=UTF-8 -Duser.timezone=Asia/Bangkok"
+    networks:
+      - ai-tutor-net
+
+  mongodb:
+    image: mongo:7
+    container_name: ai-tutor-mongodb
+    restart: unless-stopped
+    profiles: ["local-db"]
+    ports:
+      - "${MONGO_PORT:-27017}:27017"
+    volumes:
+      - ai_tutor_mongo_data:/data/db
+    networks:
+      - ai-tutor-net
+
+  # One-shot database tools. Archives are mounted from ./backup by default and
+  # are never part of the application image.
+  mongo-backup:
+    image: mongo:8
+    profiles: ["db-tools"]
+    environment:
+      SOURCE_MONGODB_URI: ${MONGO_BACKUP_SOURCE_URI:-mongodb://mongodb:27017/tutor_db}
+    volumes:
+      - ${MONGO_BACKUP_DIR:-./backup}:/backup
+    command:
+      - sh
+      - -c
+      - >
+        mongodump
+        --uri="$$SOURCE_MONGODB_URI"
+        --db=tutor_db
+        --archive=/backup/tutor_db.archive.gz
+        --gzip
+    restart: "no"
+    networks:
+      - ai-tutor-net
+
+  mongo-restore:
+    image: mongo:8
+    profiles: ["db-restore"]
+    environment:
+      TARGET_MONGODB_URI: ${SPRING_DATA_MONGODB_URI:?SPRING_DATA_MONGODB_URI is required}
+    volumes:
+      - ${MONGO_BACKUP_DIR:-./backup}:/backup:ro
+    command:
+      - sh
+      - -c
+      - >
+        mongorestore
+        --uri="$$TARGET_MONGODB_URI"
+        --archive=/backup/tutor_db.archive.gz
+        --gzip
+        --nsInclude="tutor_db.*"
+        --stopOnError
+    restart: "no"
+    networks:
+      - ai-tutor-net
+
+  elasticsearch:
+    image: elasticsearch:8.13.0
+    container_name: ai-tutor-elasticsearch
+    restart: unless-stopped
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: ${ES_JAVA_OPTS:--Xms512m -Xmx512m}
+    ports:
+      - "${ELASTICSEARCH_PORT_PUBLIC:-9200}:9200"
+    volumes:
+      - ai_tutor_elasticsearch_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9200 >/dev/null || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 20
+    networks:
+      - ai-tutor-net
+
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    container_name: ai-tutor-n8n
+    restart: unless-stopped
+    depends_on:
+      - ai-tutor-api
+    ports:
+      - "${N8N_PORT_PUBLIC:-5678}:5678"
+    environment:
+      GENERIC_TIMEZONE: ${GENERIC_TIMEZONE:-Asia/Bangkok}
+      TZ: ${TZ:-Asia/Bangkok}
+      N8N_HOST: ${N8N_HOST:-localhost}
+      N8N_PORT: 5678
+      N8N_PROTOCOL: ${N8N_PROTOCOL:-http}
+      N8N_EDITOR_BASE_URL: ${N8N_EDITOR_BASE_URL:-http://localhost:5678}
+      WEBHOOK_URL: ${WEBHOOK_URL:-http://localhost:5678/}
+      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_PERSONALIZATION_ENABLED: "false"
+      N8N_SECURE_COOKIE: ${N8N_SECURE_COOKIE:-false}
+      AI_TUTOR_API_BASE_URL: ${AI_TUTOR_API_BASE_URL:-http://ai-tutor-api:8085}
+    volumes:
+      - ai_tutor_n8n_data:/home/node/.n8n
+      - ./n8n-import:/import:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - ai-tutor-net
+
+  docker-info:
+    image: nginx:1.27-alpine
+    container_name: ai-tutor-docker-info
+    restart: unless-stopped
+    depends_on:
+      - ai-tutor-api
+    ports:
+      - "${DOCKER_INFO_PORT:-8090}:80"
+    volumes:
+      - ./docker/info/index.html:/usr/share/nginx/html/index.html:ro
+    networks:
+      - ai-tutor-net
+
+  # Optional. Enable when the server has enough disk/RAM for local embeddings.
+  # Start with: docker compose --env-file .env.deploy --profile ollama up -d ollama
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ai-tutor-ollama
+    restart: unless-stopped
+    profiles: ["ollama"]
+    ports:
+      - "${OLLAMA_PORT_PUBLIC:-11434}:11434"
+    volumes:
+      - ${OLLAMA_MODELS_PATH:-D:/OllamaModels}:/root/.ollama/models
+    networks:
+      - ai-tutor-net
+
+volumes:
+  ai_tutor_mongo_data:
+  ai_tutor_elasticsearch_data:
+  ai_tutor_n8n_data:
+  ai_tutor_ollama_data:
+
+networks:
+  ai-tutor-net:
+    driver: bridge

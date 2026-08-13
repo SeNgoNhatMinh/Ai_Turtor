@@ -1,0 +1,62 @@
+{
+  "notes": [
+    "Du lieu nay la du lieu gia lap, khong chua thong tin sinh vien that.",
+    "Dang nhap de lay JWT; khong ghi JWT hay API key vao source code/FE."
+  ],
+  "academic": {
+    "courseId": "PRJ301",
+    "classId": "SE1840",
+    "teacherId": "TEACHER_A",
+    "seniorId": "SENIOR_A"
+  },
+  "student": {
+    "email": "happyflow.test@example.com",
+    "password": "HappyFlow123!",
+    "displayName": "Happy Flow Student"
+  },
+  "chat": {
+    "theoryQuestion": "Spring Boot la gi? Hay tra loi theo tai lieu mon PRJ301.",
+    "codeQuestion": "Doan Java nay sai o dau?",
+    "codeSnippet": "public class Demo { public static void main(String[] args) { System.out.println(arr[5]); } }"
+  },
+  "answerReviews": [
+    {
+      "rating": 5,
+      "reviewType": "GOOD",
+      "expectedStatus": "SUBMITTED",
+      "feedback": "Cau tra loi dung va ro rang."
+    },
+    {
+      "rating": 3,
+      "reviewType": "PARTIALLY_INCORRECT",
+      "expectedStatus": "NEEDS_MENTOR_REVIEW",
+      "feedback": "Can mentor bo sung vi du."
+    },
+    {
+      "rating": 1,
+      "reviewType": "WRONG_KNOWLEDGE",
+      "expectedStatus": "NEEDS_SENIOR_REVIEW",
+      "feedback": "Noi dung sai kien thuc mon hoc."
+    }
+  ],
+  "mentorAnswer": {
+    "answer": "Spring Boot cung cap auto-configuration, starter dependencies va embedded server.",
+    "createKnowledgeCandidate": true,
+    "candidateType": "ACADEMIC_KNOWLEDGE"
+  },
+  "seniorDecisions": {
+    "approve": {
+      "decision": "APPROVE",
+      "reviewNote": "Noi dung dung voi giao trinh demo."
+    },
+    "reject": {
+      "decision": "REJECT",
+      "rejectionReason": "Noi dung chua du bang chung de dua vao RAG."
+    }
+  },
+  "quiz": {
+    "topic": "Spring Boot",
+    "suggestionText": "On tap Spring Boot co ban",
+    "questionCount": 3
+  }
+}

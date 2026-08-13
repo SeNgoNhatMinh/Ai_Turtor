@@ -1,0 +1,7 @@
+{
+  "answers": [
+    {"questionId": "Q1", "selectedAnswer": "B. To configure beans based on dependencies and application settings"},
+    {"questionId": "Q2", "selectedAnswer": "C. @Service"},
+    {"questionId": "Q3", "selectedAnswer": "B. POST"}
+  ]
+}

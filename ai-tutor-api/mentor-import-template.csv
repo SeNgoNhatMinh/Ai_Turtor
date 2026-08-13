@@ -1,0 +1,4 @@
+Mentor Code,Mentor Name,Email,Phone,Specializations,Categories,Years of Experience,Average Rating (0-5),Completed Sessions,Response Time (Minutes),Max Active Chats,Website,Address,City,Description,Active
+TEACHER-PRJ301-A,Teacher A,teacher.a@university.edu,0900000001,Java Web; Spring Boot; JPA,PRJ301; Java; Backend,8,4.8,120,10,5,,FPT University,HCM,Teacher for PRJ301 Java Web class SE1840,YES
+TEACHER-PRO192-B,Teacher B,teacher.b@university.edu,0900000002,Java OOP; Data Structures,PRO192; Java; OOP,6,4.6,95,15,5,,FPT University,HCM,Teacher for PRO192 programming fundamentals,YES
+MENTOR-SPRING-01,Spring Mentor,spring.mentor@university.edu,0900000003,Spring Security; REST API; Debugging,Spring; Backend; Code Mentor,5,4.7,80,5,4,,Online,HCM,Code mentor for Spring Boot debugging and backend concepts,YES

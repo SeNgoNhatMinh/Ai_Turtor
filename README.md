@@ -1,22 +1,48 @@
-# React + Vite
+# AI Tutor Platform
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This repository contains the frontend and backend of the AI Tutor platform.
 
-Currently, two official plugins are available:
+## Repository layout
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+```text
+.
+|-- src/                 React frontend source
+|-- public/              Frontend static assets
+|-- tests/               Frontend tests
+|-- docs/                Frontend and product documentation
+`-- ai-tutor-api/        Spring Boot backend and n8n workflows
+```
 
-## React Compiler
+## Frontend
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Requirements: Node.js and npm.
 
-## Expanding the ESLint configuration
+```bash
+npm install
+npm run dev
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+The development server runs at `http://localhost:5173`.
 
-## Local Fixes
+## Backend
 
-- Fixed student learning suggestion delete endpoint handling in the frontend API client so query parameters are encoded correctly.
+Requirements: Java 17, Maven, MongoDB, and Elasticsearch.
 
-# Ai_Turtor
+```bash
+cd ai-tutor-api
+mvn spring-boot:run
+```
+
+The backend runs at `http://localhost:8085`. Deployment and environment details
+are documented in `ai-tutor-api/README.md` and
+`ai-tutor-api/AI_TUTOR_DEPLOY_HANDOFF.md`.
+
+## Verification
+
+```bash
+npm run check
+cd ai-tutor-api && mvn test
+```
+
+Environment files, Maven output, logs, backups, and runtime data are excluded
+from Git. Use the committed `.env.*.example` files as configuration templates.

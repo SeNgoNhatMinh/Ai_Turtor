@@ -1,0 +1,35 @@
+# Maven
+target/
+
+# IDE
+.idea/
+.vscode/
+
+# Logs
+*.log
+
+# Build files
+*.class
+*.jar
+
+# Environment
+.env
+.env.deploy
+.env.*
+!.env.deploy.example
+!.env.n8n.example
+
+# Application secrets
+config/application-local.yml
+src/main/resources/application-local.yml
+
+# OS files
+.DS_Store
+Thumbs.db
+.env.n8n
+
+# Runtime data
+backup/
+tmp/
+output/
+integrations/

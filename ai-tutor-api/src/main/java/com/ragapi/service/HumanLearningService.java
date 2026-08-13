@@ -1,0 +1,419 @@
+package com.ragapi.service;
+
+import com.ragapi.dto.KnowledgeCandidateReviewRequest;
+import com.ragapi.dto.MentorAnswerRequest;
+import com.ragapi.entity.CourseMaterial;
+import com.ragapi.entity.KnowledgeCandidate;
+import com.ragapi.entity.MentorAnswer;
+import com.ragapi.entity.QuestionEscalation;
+import com.ragapi.repository.CourseMaterialRepository;
+import com.ragapi.repository.KnowledgeCandidateRepository;
+import com.ragapi.repository.MentorAnswerRepository;
+import com.ragapi.repository.QuestionEscalationRepository;
+import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+
+import java.io.IOException;
+import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
+import static com.ragapi.util.ValidationUtils.DEFAULT_TEXT_MAX_LENGTH;
+import static com.ragapi.util.ValidationUtils.SHORT_TEXT_MAX_LENGTH;
+import static com.ragapi.util.ValidationUtils.optionalMaxLength;
+import static com.ragapi.util.ValidationUtils.requireEnum;
+import static com.ragapi.util.ValidationUtils.requireMaxLength;
+import static com.ragapi.util.ValidationUtils.requireText;
+
+@Slf4j
+@Service
+@AllArgsConstructor
+public class HumanLearningService {
+
+    private static final String STATUS_PENDING_SENIOR_REVIEW = "PENDING_SENIOR_REVIEW";
+    private static final String STATUS_LEGACY_PENDING_REVIEW = "PENDING_REVIEW";
+    private static final String STATUS_REJECTED = "REJECTED";
+    private static final String STATUS_INDEXED = "INDEXED";
+
+    private final QuestionEscalationRepository escalationRepository;
+    private final MentorAnswerRepository mentorAnswerRepository;
+    private final KnowledgeCandidateRepository knowledgeCandidateRepository;
+    private final CourseMaterialRepository courseMaterialRepository;
+    private final CourseMaterialChunkingService chunkingService;
+    private final ElasticVectorService vectorService;
+    private final AiConversationService aiConversationService;
+
+    public Map<String, Object> answerEscalation(String escalationId, MentorAnswerRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("request body is required");
+        }
+        String realEscalationId = requireText(escalationId, "questionEscalationId");
+        String teacherId = requireText(request.getTeacherId(), "teacherId");
+        String answer = requireMaxLength(request.getAnswer(), "answer", DEFAULT_TEXT_MAX_LENGTH);
+
+        QuestionEscalation escalation = escalationRepository.findById(realEscalationId)
+                .orElseThrow(() -> new IllegalArgumentException("Question escalation not found"));
+
+        LocalDateTime now = LocalDateTime.now();
+        MentorAnswer mentorAnswer = MentorAnswer.builder()
+                .id(UUID.randomUUID().toString())
+                .questionEscalationId(escalation.getId())
+                .teacherId(teacherId)
+                .teacherName(optionalMaxLength(request.getTeacherName(), "teacherName", SHORT_TEXT_MAX_LENGTH))
+                .courseId(escalation.getCourseId())
+                .classId(escalation.getClassId())
+                .question(escalation.getOriginalQuestion())
+                .answer(answer)
+                .answeredAt(now)
+                .createdAt(now)
+                .build();
+        mentorAnswer = mentorAnswerRepository.save(mentorAnswer);
+
+        KnowledgeCandidate candidate = null;
+        if (Boolean.TRUE.equals(request.getCreateKnowledgeCandidate())) {
+            String candidateType = normalizeCandidateType(request.getCandidateType());
+            validateLearnableCandidateType(candidateType);
+            if (escalation.getCourseId() == null || escalation.getCourseId().isBlank()) {
+                throw new IllegalArgumentException("courseId is required to create an AI learning candidate");
+            }
+            candidate = buildCandidate(escalation, mentorAnswer, candidateType, now);
+            candidate = knowledgeCandidateRepository.save(candidate);
+            escalation.setStatus("ANSWERED_PENDING_SENIOR_REVIEW");
+        } else {
+            escalation.setStatus("ANSWERED_NO_KNOWLEDGE_CANDIDATE");
+        }
+
+        escalation.setAssignedMentorId(teacherId);
+        escalation.setAssignedMentorName(optionalMaxLength(request.getTeacherName(), "teacherName", SHORT_TEXT_MAX_LENGTH));
+        escalation.setUpdatedAt(now);
+        escalationRepository.save(escalation);
+
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("questionEscalationId", escalation.getId());
+        response.put("mentorAnswerId", mentorAnswer.getId());
+        response.put("mentorAnswer", mentorAnswer);
+        response.put("escalationStatus", escalation.getStatus());
+        response.put("studentVisibleStatus", toStudentVisibleStatus(escalation.getStatus()));
+        response.put("knowledgeCandidateCreated", candidate != null);
+        response.put("knowledgeCandidate", candidate == null ? "" : candidate);
+        response.put("message", candidate == null
+                ? "Teacher answer saved for the student. No AI learning candidate was created."
+                : "Teacher answer saved. Senior mentor approval is required before AI Tutor can learn it.");
+        return response;
+    }
+
+    public Map<String, Object> getEscalationDetail(String escalationId) {
+        String realEscalationId = requireText(escalationId, "questionEscalationId");
+        QuestionEscalation escalation = escalationRepository.findById(realEscalationId)
+                .orElseThrow(() -> new IllegalArgumentException("Question escalation not found"));
+        List<MentorAnswer> mentorAnswers = mentorAnswerRepository.findByQuestionEscalationId(realEscalationId);
+        List<KnowledgeCandidate> candidates = knowledgeCandidateRepository.findByQuestionEscalationId(realEscalationId);
+
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("questionEscalation", escalation);
+        response.put("mentorAnswers", mentorAnswers);
+        response.put("latestMentorAnswer", mentorAnswers.isEmpty() ? "" : mentorAnswers.get(mentorAnswers.size() - 1));
+        response.put("knowledgeCandidates", candidates);
+        response.put("latestKnowledgeCandidate", candidates.isEmpty() ? "" : candidates.get(candidates.size() - 1));
+        response.put("studentVisibleStatus", toStudentVisibleStatus(escalation.getStatus()));
+        response.put("aiBrainUpdated", candidates.stream().anyMatch(candidate -> STATUS_INDEXED.equalsIgnoreCase(candidate.getStatus())));
+        return response;
+    }
+
+    public Map<String, Object> createKnowledgeCandidateAfterAnswer(
+            String escalationId,
+            MentorAnswerRequest request
+    ) {
+        if (request == null) {
+            throw new IllegalArgumentException("request body is required");
+        }
+        String realEscalationId = requireText(escalationId, "questionEscalationId");
+        String teacherId = requireText(request.getTeacherId(), "teacherId");
+        QuestionEscalation escalation = escalationRepository.findById(realEscalationId)
+                .orElseThrow(() -> new IllegalArgumentException("Question escalation not found"));
+        if (escalation.getAssignedMentorId() != null
+                && !escalation.getAssignedMentorId().isBlank()
+                && !teacherId.equals(escalation.getAssignedMentorId())) {
+            throw new IllegalArgumentException("Only the assigned teacher can create knowledge from this escalation");
+        }
+        if (escalation.getCourseId() == null || escalation.getCourseId().isBlank()) {
+            throw new IllegalArgumentException("courseId is required to create an AI learning candidate");
+        }
+
+        List<KnowledgeCandidate> existing = knowledgeCandidateRepository
+                .findByQuestionEscalationId(realEscalationId);
+        if (!existing.isEmpty()) {
+            KnowledgeCandidate candidate = existing.get(existing.size() - 1);
+            return Map.of(
+                    "questionEscalationId", escalation.getId(),
+                    "knowledgeCandidateCreated", false,
+                    "alreadyExists", true,
+                    "knowledgeCandidate", candidate,
+                    "candidateId", candidate.getId(),
+                    "candidateStatus", candidate.getStatus()
+            );
+        }
+
+        List<MentorAnswer> answers = mentorAnswerRepository
+                .findByQuestionEscalationId(realEscalationId);
+        MentorAnswer mentorAnswer = answers.stream()
+                .filter(answer -> teacherId.equals(answer.getTeacherId()))
+                .reduce((first, second) -> second)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Teacher must answer the escalation before creating a knowledge candidate"));
+
+        String candidateType = normalizeCandidateType(request.getCandidateType());
+        validateLearnableCandidateType(candidateType);
+        LocalDateTime now = LocalDateTime.now();
+        KnowledgeCandidate candidate = knowledgeCandidateRepository.save(
+                buildCandidate(escalation, mentorAnswer, candidateType, now));
+        escalation.setStatus("ANSWERED_PENDING_SENIOR_REVIEW");
+        escalation.setUpdatedAt(now);
+        escalationRepository.save(escalation);
+
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("questionEscalationId", escalation.getId());
+        response.put("knowledgeCandidateCreated", true);
+        response.put("alreadyExists", false);
+        response.put("knowledgeCandidate", candidate);
+        response.put("candidateId", candidate.getId());
+        response.put("candidateStatus", candidate.getStatus());
+        response.put("message", "Knowledge Candidate đã được gửi đến senior mentor để duyệt.");
+        return response;
+    }
+    public KnowledgeCandidate approveCandidate(String candidateId, KnowledgeCandidateReviewRequest request) throws IOException {
+        String realCandidateId = requireText(candidateId, "candidateId");
+        KnowledgeCandidate candidate = knowledgeCandidateRepository.findById(realCandidateId)
+                .orElseThrow(() -> new IllegalArgumentException("Knowledge candidate not found"));
+
+        validateCandidateCanBeReviewed(candidate);
+        validateSeniorReviewer(candidate, request);
+        validateLearnableCandidateType(normalizeCandidateType(candidate.getCandidateType()));
+
+        String reviewerId = request.getReviewerId().trim();
+        String content = request.getContentOverride() != null && !request.getContentOverride().isBlank()
+                ? requireMaxLength(request.getContentOverride(), "contentOverride", DEFAULT_TEXT_MAX_LENGTH)
+                : candidate.getContent();
+
+        LocalDateTime now = LocalDateTime.now();
+        CourseMaterial material = new CourseMaterial();
+        material.setTitle("Senior-approved knowledge: " + candidate.getQuestion());
+        material.setCategory("senior-approved-knowledge");
+        material.setCourseId(candidate.getCourseId());
+        material.setClassId(null);
+        material.setTeacherId(reviewerId);
+        material.setMaterialScope("COURSE_SHARED");
+        material.setUploadedByRole("SENIOR_MENTOR");
+        material.setContent(content);
+        material.setSourceType("KNOWLEDGE_CANDIDATE");
+        courseMaterialRepository.save(material);
+
+        List<String> chunks = chunkingService.chunk(content);
+        for (String chunk : chunks) {
+            vectorService.indexChunk(
+                    material.getCourseId(),
+                    material.getClassId(),
+                    material.getTeacherId(),
+                    material.getId(),
+                    material.getMaterialScope(),
+                    chunk
+            );
+        }
+
+        candidate.setContent(content);
+        candidate.setStatus(STATUS_INDEXED);
+        candidate.setReviewedBy(reviewerId);
+        candidate.setReviewerRole(normalizeUpper(request.getReviewerRole()));
+        candidate.setReviewerName(trimToNull(request.getReviewerName()));
+        candidate.setReviewNote(trimToNull(request.getReviewNote()));
+        candidate.setReviewedAt(now);
+        candidate.setIndexedAt(now);
+        candidate.setUpdatedAt(now);
+        KnowledgeCandidate savedCandidate = knowledgeCandidateRepository.save(candidate);
+        notifyStudentAfterCandidateIndexed(savedCandidate);
+        return savedCandidate;
+    }
+
+    public KnowledgeCandidate rejectCandidate(String candidateId, KnowledgeCandidateReviewRequest request) {
+        String realCandidateId = requireText(candidateId, "candidateId");
+        KnowledgeCandidate candidate = knowledgeCandidateRepository.findById(realCandidateId)
+                .orElseThrow(() -> new IllegalArgumentException("Knowledge candidate not found"));
+
+        validateCandidateCanBeReviewed(candidate);
+        validateSeniorReviewer(candidate, request);
+
+        LocalDateTime now = LocalDateTime.now();
+        candidate.setStatus(STATUS_REJECTED);
+        candidate.setReviewedBy(request.getReviewerId().trim());
+        candidate.setReviewerRole(normalizeUpper(request.getReviewerRole()));
+        candidate.setReviewerName(trimToNull(request.getReviewerName()));
+        candidate.setReviewNote(trimToNull(request.getReviewNote()));
+        candidate.setRejectionReason(requireMaxLength(request.getRejectionReason(), "rejectionReason", SHORT_TEXT_MAX_LENGTH));
+        candidate.setReviewedAt(now);
+        candidate.setUpdatedAt(now);
+        KnowledgeCandidate savedCandidate = knowledgeCandidateRepository.save(candidate);
+        updateEscalationAfterCandidateRejected(savedCandidate);
+        return savedCandidate;
+    }
+
+    public List<KnowledgeCandidate> listCandidates(String status, String courseId) {
+        List<KnowledgeCandidate> candidates = status != null && !status.isBlank()
+                ? knowledgeCandidateRepository.findByStatus(status.trim().toUpperCase())
+                : knowledgeCandidateRepository.findAll();
+
+        if (courseId == null || courseId.isBlank()) {
+            return candidates;
+        }
+
+        return candidates.stream()
+                .filter(candidate -> courseId.equals(candidate.getCourseId()))
+                .toList();
+    }
+
+    private void notifyStudentAfterCandidateIndexed(KnowledgeCandidate candidate) {
+        String escalationId = trimToNull(candidate.getQuestionEscalationId());
+        if (escalationId == null) {
+            return;
+        }
+
+        escalationRepository.findById(escalationId).ifPresent(escalation -> {
+            LocalDateTime now = LocalDateTime.now();
+            escalation.setStatus("RESOLVED_INDEXED");
+            escalation.setUpdatedAt(now);
+            escalationRepository.save(escalation);
+
+            String conversationId = trimToNull(escalation.getConversationId());
+            String studentId = trimToNull(escalation.getUserId());
+            if (conversationId == null || studentId == null) {
+                return;
+            }
+
+            try {
+                aiConversationService.saveAssistantMessage(
+                        studentId,
+                        conversationId,
+                        escalation.getCourseId(),
+                        escalation.getClassId(),
+                        buildApprovedKnowledgeFollowUp(candidate),
+                        escalation.getId()
+                );
+            } catch (Exception e) {
+                log.warn("Could not append approved knowledge follow-up for escalation {}: {}", escalationId, e.getMessage());
+            }
+        });
+    }
+
+    private void updateEscalationAfterCandidateRejected(KnowledgeCandidate candidate) {
+        String escalationId = trimToNull(candidate.getQuestionEscalationId());
+        if (escalationId == null) {
+            return;
+        }
+        escalationRepository.findById(escalationId).ifPresent(escalation -> {
+            escalation.setStatus("ANSWERED_KNOWLEDGE_REJECTED");
+            escalation.setUpdatedAt(LocalDateTime.now());
+            escalationRepository.save(escalation);
+        });
+    }
+
+    private String buildApprovedKnowledgeFollowUp(KnowledgeCandidate candidate) {
+        return "AI Tutor đã cập nhật kiến thức từ câu trả lời đã được senior mentor duyệt.\n\n"
+                + "Câu hỏi: " + nullToEmpty(candidate.getQuestion()) + "\n\n"
+                + "Câu trả lời đã duyệt:\n" + nullToEmpty(candidate.getAnswer()) + "\n\n"
+                + "Từ giờ các câu hỏi tương tự trong môn " + nullToEmpty(candidate.getCourseId())
+                + " có thể được AI Tutor trả lời dựa trên tri thức này.";
+    }
+
+    private String toStudentVisibleStatus(String status) {
+        String normalized = normalizeUpper(status);
+        if (normalized == null || normalized.equals("PENDING_OFFER") || normalized.equals("OFFERED") || normalized.equals("IN_CHAT")) {
+            return "WAITING_FOR_MENTOR";
+        }
+        if (normalized.equals("ANSWERED_PENDING_SENIOR_REVIEW")) {
+            return "MENTOR_ANSWERED_PENDING_SENIOR_REVIEW";
+        }
+        if (normalized.equals("ANSWERED_NO_KNOWLEDGE_CANDIDATE") || normalized.equals("ANSWERED_KNOWLEDGE_REJECTED")) {
+            return "MENTOR_ANSWERED";
+        }
+        if (normalized.equals("RESOLVED_INDEXED")) {
+            return "AI_BRAIN_UPDATED";
+        }
+        return normalized;
+    }
+
+    private String nullToEmpty(String value) {
+        return value == null ? "" : value;
+    }
+    private KnowledgeCandidate buildCandidate(
+            QuestionEscalation escalation,
+            MentorAnswer mentorAnswer,
+            String candidateType,
+            LocalDateTime now
+    ) {
+        String content = """
+                Question:
+                %s
+
+                Teacher answer candidate, waiting for senior mentor approval:
+                %s
+                """.formatted(escalation.getOriginalQuestion(), mentorAnswer.getAnswer());
+
+        return KnowledgeCandidate.builder()
+                .id(UUID.randomUUID().toString())
+                .questionEscalationId(escalation.getId())
+                .mentorAnswerId(mentorAnswer.getId())
+                .courseId(escalation.getCourseId())
+                .classId(escalation.getClassId())
+                .teacherId(mentorAnswer.getTeacherId())
+                .candidateType(candidateType)
+                .sourceType("TEACHER_ESCALATION")
+                .question(escalation.getOriginalQuestion())
+                .answer(mentorAnswer.getAnswer())
+                .content(content)
+                .status(STATUS_PENDING_SENIOR_REVIEW)
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
+    }
+
+    private void validateCandidateCanBeReviewed(KnowledgeCandidate candidate) {
+        if (!STATUS_PENDING_SENIOR_REVIEW.equalsIgnoreCase(candidate.getStatus())
+                && !STATUS_LEGACY_PENDING_REVIEW.equalsIgnoreCase(candidate.getStatus())) {
+            throw new IllegalArgumentException("Only pending senior-review candidates can be approved or rejected");
+        }
+    }
+
+    private void validateSeniorReviewer(KnowledgeCandidate candidate, KnowledgeCandidateReviewRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("review request body is required");
+        }
+        requireText(request.getReviewerId(), "reviewerId");
+        String reviewerRole = requireEnum(request.getReviewerRole(), "reviewerRole", "SENIOR_MENTOR", "ADMIN");
+        if (candidate.getTeacherId() != null && candidate.getTeacherId().equals(request.getReviewerId().trim())) {
+            throw new IllegalArgumentException("The mentor who answered cannot approve their own knowledge candidate");
+        }
+    }
+
+    private void validateLearnableCandidateType(String candidateType) {
+        if (!"ACADEMIC_KNOWLEDGE".equals(candidateType)
+                && !"MATERIAL_CORRECTION".equals(candidateType)
+                && !"FAQ_CLARIFICATION".equals(candidateType)) {
+            throw new IllegalArgumentException("Only ACADEMIC_KNOWLEDGE, MATERIAL_CORRECTION, or FAQ_CLARIFICATION can be indexed into AI Tutor brain");
+        }
+    }
+
+    private String normalizeCandidateType(String candidateType) {
+        String normalized = normalizeUpper(candidateType);
+        return normalized == null ? "ACADEMIC_KNOWLEDGE" : normalized;
+    }
+
+    private String trimToNull(String value) {
+        return optionalMaxLength(value, "value", SHORT_TEXT_MAX_LENGTH);
+    }
+
+    private String normalizeUpper(String value) {
+        return value == null || value.isBlank() ? null : value.trim().toUpperCase();
+    }
+}

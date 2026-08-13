@@ -1,0 +1,28 @@
+COURSE: PRJ301
+TITLE: Spring Boot Teacher Quiz - Private Answer Key
+MAX SCORE: 100
+SCORING: 10 points for each correct answer
+
+ANSWER KEY
+QUESTION 1: B
+QUESTION 2: C
+QUESTION 3: A
+QUESTION 4: A
+QUESTION 5: B
+QUESTION 6: C
+QUESTION 7: A
+QUESTION 8: D
+QUESTION 9: B
+QUESTION 10: A
+
+SCORING RULES
+- Correct selection: 10 points.
+- Incorrect selection: 0 points.
+- Missing answer: 0 points.
+- More than one selection for a question: 0 points.
+- Maximum score: 100 points.
+
+AI-ASSISTED GRADING NOTE
+AI may compare the student's answer sheet with this key and suggest a score.
+The teacher must verify and confirm the final score. This answer-key file must
+never be sent to students or indexed into RAG.

@@ -1,0 +1,40 @@
+{
+  "id": "AI_TUTOR_TEACHER_AI_GRADING",
+  "name": "AI Tutor - Teacher AI-assisted Grading",
+  "nodes": [
+    {
+      "parameters": {"httpMethod":"POST","path":"teacher-assignment-ai-grade","responseMode":"responseNode","options":{}},
+      "type":"n8n-nodes-base.webhook","typeVersion":2.1,"position":[-400,0],
+      "id":"41000000-0000-4000-8000-000000000001","name":"Teacher AI Grade Webhook",
+      "webhookId":"42000000-0000-4000-8000-000000000001"
+    },
+    {
+      "parameters": {
+        "method":"POST",
+        "url":"=http://ai-tutor-api:8085/api/mentor/assignment-submissions/{{$node[\"Teacher AI Grade Webhook\"].json.body.submissionId}}/ai-grade",
+        "sendQuery":true,
+        "queryParameters":{"parameters":[{"name":"teacherId","value":"={{ $node[\"Teacher AI Grade Webhook\"].json.body.teacherId }}"}]},
+        "sendHeaders":true,
+        "headerParameters":{"parameters":[{"name":"Authorization","value":"={{ $node[\"Teacher AI Grade Webhook\"].json.headers.authorization }}"}]},
+        "options":{"timeout":300000}
+      },
+      "type":"n8n-nodes-base.httpRequest","typeVersion":4.4,"position":[-100,0],
+      "id":"41000000-0000-4000-8000-000000000002","name":"Request AI Grade","onError":"continueRegularOutput"
+    },
+    {
+      "parameters":{"respondWith":"json","responseBody":"={{ JSON.stringify($json) }}","options":{}},
+      "type":"n8n-nodes-base.respondToWebhook","typeVersion":1.5,"position":[200,0],
+      "id":"41000000-0000-4000-8000-000000000003","name":"Respond AI Grade"
+    }
+  ],
+  "connections": {
+    "Teacher AI Grade Webhook":{"main":[[{"node":"Request AI Grade","type":"main","index":0}]]},
+    "Request AI Grade":{"main":[[{"node":"Respond AI Grade","type":"main","index":0}]]}
+  },
+  "pinData":{},
+  "settings":{"executionOrder":"v1"},
+  "active":true,
+  "versionId":"43000000-0000-4000-8000-000000000001",
+  "meta":{"templateCredsSetupCompleted":true},
+  "tags":[]
+}

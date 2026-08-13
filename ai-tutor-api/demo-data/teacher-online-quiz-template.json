@@ -1,0 +1,37 @@
+{
+  "classId": "SE1840",
+  "title": "Spring Boot Teacher Quiz",
+  "topic": "Spring Boot Basics",
+  "gradingMode": "TEACHER_MANUAL",
+  "questions": [
+    {
+      "questionId": "Q1",
+      "type": "MULTIPLE_CHOICE",
+      "questionText": "What is the main purpose of Spring Boot auto-configuration?",
+      "options": [
+        "A. To replace the Java compiler",
+        "B. To configure beans based on dependencies and application settings",
+        "C. To create database tables manually",
+        "D. To prevent dependency injection"
+      ],
+      "correctAnswer": "B. To configure beans based on dependencies and application settings",
+      "explanation": "Auto-configuration configures the application according to its classpath and settings."
+    },
+    {
+      "questionId": "Q2",
+      "type": "MULTIPLE_CHOICE",
+      "questionText": "Which annotation is normally used for a business service class?",
+      "options": ["A. @Repository", "B. @ControllerAdvice", "C. @Service", "D. @BeanFactory"],
+      "correctAnswer": "C. @Service",
+      "explanation": "@Service communicates the business-service role of the component."
+    },
+    {
+      "questionId": "Q3",
+      "type": "MULTIPLE_CHOICE",
+      "questionText": "Which HTTP method is normally used to create a resource?",
+      "options": ["A. GET", "B. POST", "C. DELETE", "D. HEAD"],
+      "correctAnswer": "B. POST",
+      "explanation": "POST is commonly used to create a subordinate resource."
+    }
+  ]
+}
