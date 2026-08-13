@@ -4,11 +4,16 @@
   auto_https off
 }
 
-{$PORT:3000} {
+:{$PORT:3000} {
   encode zstd gzip
   root * /srv
 
-	respond /health "ok" 200
-  try_files {path} /index.html
-  file_server
+  handle /health {
+    respond "ok" 200
+  }
+
+  handle {
+    try_files {path} /index.html
+    file_server
+  }
 }
