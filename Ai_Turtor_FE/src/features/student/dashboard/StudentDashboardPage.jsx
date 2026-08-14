@@ -6,6 +6,14 @@ const courseCode = (item) => item?.courseId || item?.courseCode || item?.course?
 const courseName = (item) => item?.courseName || item?.courseTitle || item?.course?.name || 'Môn học đang tham gia';
 const classCode = (item) => item?.classCode || item?.classId || item?.classSection?.classCode || item?.classSection?.classId || '';
 
+const waitForContextCommit = () => new Promise((resolve) => {
+  if (typeof globalThis.requestAnimationFrame === 'function') {
+    globalThis.requestAnimationFrame(() => resolve());
+    return;
+  }
+  globalThis.setTimeout(resolve, 0);
+});
+
 export default function StudentDashboardPage({ currentUser, courseId, switchTab, triggerToast, enrollment }) {
   const enrollments = enrollment?.studentEnrollments || [];
   const [pendingTab, setPendingTab] = useState('');
@@ -21,6 +29,8 @@ export default function StudentDashboardPage({ currentUser, courseId, switchTab,
         triggerToast?.('Chưa tìm thấy lớp học đã ghi danh. Hãy tải lại hoặc liên hệ quản trị viên.');
         return;
       }
+      // Let the shared course/class state commit before the route remounts StudentWorkspace.
+      await waitForContextCommit();
       switchTab?.(tab);
     } finally {
       setPendingTab('');

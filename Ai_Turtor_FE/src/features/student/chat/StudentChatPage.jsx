@@ -5,6 +5,7 @@ import { useStudentChatController } from '../../../hooks/useStudentChatControlle
 import { useStudentLearningController } from '../learning/useStudentLearningController';
 import { useStudentLearningActions } from '../learning/useStudentLearningActions';
 import { clearStudyChatHandoff, readStudyChatHandoff } from '../studentRouteHandoff';
+import { classIdMatches } from '../../../utils/academicIds';
 import { useChatMentorRequests } from './useChatMentorRequests';
 import { useStudentChatTabController } from './useStudentChatTabController';
 
@@ -74,6 +75,35 @@ export default function StudentChatPage({
     setChatDraft: chatController.setChatDraft,
     triggerToast,
   });
+
+  useEffect(() => {
+    if (
+      !studentId
+      || enrollment.isStudentEnrollmentsLoading
+      || !enrollment.hasLoadedStudentEnrollments
+    ) return;
+
+    const normalizedCourseId = String(courseId || '').trim().toUpperCase();
+    const hasValidCourse = enrollment.courseOptions.some((item) => (
+      String(item?.value || '').trim().toUpperCase() === normalizedCourseId
+    ));
+    const hasValidClass = enrollment.classOptions.some((item) => (
+      classIdMatches(item?.value, classId)
+      || item?.aliases?.some((alias) => classIdMatches(alias, classId))
+    ));
+    if (hasValidCourse && hasValidClass) return;
+
+    enrollment.ensureEnrollmentContext?.(courseId);
+  }, [
+    classId,
+    courseId,
+    enrollment.classOptions,
+    enrollment.courseOptions,
+    enrollment.ensureEnrollmentContext,
+    enrollment.hasLoadedStudentEnrollments,
+    enrollment.isStudentEnrollmentsLoading,
+    studentId,
+  ]);
 
   useEffect(() => {
     if (!studentId || !courseId) return;

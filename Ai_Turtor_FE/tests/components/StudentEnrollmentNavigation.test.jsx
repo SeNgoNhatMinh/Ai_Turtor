@@ -87,6 +87,33 @@ describe('student enrollment navigation', () => {
     });
   });
 
+  it('replaces a stale class from another course with the selected course class', async () => {
+    const studentId = 'student-stale-class-test';
+    adminAcademicApi.getStudentEnrollments.mockResolvedValue([
+      { studentId, courseId: 'PRJ301', classId: 'SE1832' },
+      { studentId, courseId: 'CEA201', classId: 'CEA201-01' },
+    ]);
+    const setCourseId = vi.fn();
+    const setClassId = vi.fn();
+    const hook = renderHook(() => useStudentEnrollmentOptions({
+      studentId,
+      lookupIds: [],
+      courseId: 'CEA201',
+      classId: 'SE1832',
+      setCourseId,
+      setClassId,
+    }));
+
+    let context;
+    await act(async () => {
+      context = await hook.result.current.ensureEnrollmentContext('CEA201');
+    });
+
+    expect(context).toEqual({ courseId: 'CEA201', classId: 'CEA201-01' });
+    expect(setCourseId).toHaveBeenLastCalledWith('CEA201');
+    expect(setClassId).toHaveBeenLastCalledWith('CEA201-01');
+  });
+
   it('does not enter chat when no canonical enrollment is available', async () => {
     const switchTab = vi.fn();
     const triggerToast = vi.fn();

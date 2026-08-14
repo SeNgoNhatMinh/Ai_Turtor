@@ -2711,3 +2711,10 @@ Copy template này lên đầu phần `History` sau mỗi lần cập nhật:
 
 **Tested**
 - Full `npm run check`: pass (`143` contract tests, `127` unit/component tests, production build).
+
+## 2026-08-14 - Self-Heal Student Course And Class Context
+
+- Student Dashboard now waits for the canonical enrolled course/class state to commit before changing routes.
+- Student Chat validates the selected course/class pair after mounting and automatically reconciles stale session state against canonical enrollment data.
+- Added regression coverage for switching from a stale class in another course to the selected course's enrolled class.
+- Confirmed the Railway frontend was still serving the older Dashboard bundle before this fix was deployed.
