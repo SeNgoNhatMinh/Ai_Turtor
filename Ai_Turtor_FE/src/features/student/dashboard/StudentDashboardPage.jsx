@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { ArrowRight, BookOpen, Bot, ClipboardCheck, GraduationCap, Layers3, MessageCircle, Sparkles } from 'lucide-react';
 import './StudentDashboardPage.css';
 
@@ -5,15 +6,25 @@ const courseCode = (item) => item?.courseId || item?.courseCode || item?.course?
 const courseName = (item) => item?.courseName || item?.courseTitle || item?.course?.name || 'Môn học đang tham gia';
 const classCode = (item) => item?.classCode || item?.classId || item?.classSection?.classCode || item?.classSection?.classId || '';
 
-export default function StudentDashboardPage({ currentUser, courseId, setCourseId, setClassId, switchTab, enrollment }) {
+export default function StudentDashboardPage({ currentUser, courseId, switchTab, triggerToast, enrollment }) {
   const enrollments = enrollment?.studentEnrollments || [];
+  const [pendingTab, setPendingTab] = useState('');
   const name = currentUser?.fullName || currentUser?.name || currentUser?.username || 'bạn';
   const courses = Array.from(new Map(enrollments.map((item) => [courseCode(item), item]).filter(([id]) => id)).values());
   const classCount = new Set(enrollments.map(classCode).filter(Boolean)).size;
-  const openCourse = (item) => {
-    setCourseId?.(courseCode(item));
-    setClassId?.(classCode(item));
-    switchTab?.('student-chat');
+  const openDestination = async (tab, item) => {
+    if (pendingTab) return;
+    setPendingTab(tab);
+    try {
+      const context = await enrollment?.ensureEnrollmentContext?.(courseCode(item) || courseId);
+      if (!context) {
+        triggerToast?.('Chưa tìm thấy lớp học đã ghi danh. Hãy tải lại hoặc liên hệ quản trị viên.');
+        return;
+      }
+      switchTab?.(tab);
+    } finally {
+      setPendingTab('');
+    }
   };
   const actions = [
     [Bot, 'Hỏi AI Tutor', 'Học theo tài liệu môn học', 'student-chat', 'blue'],
@@ -24,7 +35,7 @@ export default function StudentDashboardPage({ currentUser, courseId, setCourseI
 
   return <main className="student-dashboard">
     <section className="student-dashboard-hero">
-      <div><span className="student-dashboard-eyebrow"><Sparkles size={15}/> Không gian học tập của bạn</span><h1>Chào {name}, hôm nay mình học gì?</h1><p>Theo dõi các môn đang tham gia và tiếp tục buổi học chỉ trong một chạm.</p><button type="button" onClick={() => switchTab?.('student-chat')}>Bắt đầu học với AI <ArrowRight size={18}/></button></div>
+      <div><span className="student-dashboard-eyebrow"><Sparkles size={15}/> Không gian học tập của bạn</span><h1>Chào {name}, hôm nay mình học gì?</h1><p>Theo dõi các môn đang tham gia và tiếp tục buổi học chỉ trong một chạm.</p><button type="button" disabled={Boolean(pendingTab)} aria-busy={pendingTab === 'student-chat'} onClick={() => openDestination('student-chat')}>Bắt đầu học với AI <ArrowRight size={18}/></button></div>
       <img src="/favicon.jpg" alt="Linh vật FPT University AI Tutor"/>
     </section>
     <section className="student-dashboard-stats" aria-label="Tổng quan học tập">
@@ -37,10 +48,10 @@ export default function StudentDashboardPage({ currentUser, courseId, setCourseI
       <header className="student-dashboard-heading"><div><span>Môn học của tôi</span><h2>Tiếp tục hành trình học tập</h2></div><button type="button" onClick={() => switchTab?.('student-materials')}>Xem học liệu <ArrowRight size={16}/></button></header>
       {enrollment?.isStudentEnrollmentsLoading ? <div className="student-dashboard-empty">Đang tải danh sách môn học...</div> : courses.length ? <div className="student-course-grid">{courses.map((item, index) => {
         const id = courseCode(item); const classes = enrollments.filter((entry) => courseCode(entry) === id).map(classCode).filter(Boolean);
-        return <article className={`student-course-card course-tone-${index % 4}`} key={id}><div className="student-course-top"><span>{id}</span><small>Đang học</small></div><div className="student-course-icon"><BookOpen size={25}/></div><h3>{courseName(item)}</h3><p>{classes.length ? `Lớp ${classes.join(', ')}` : 'Đã ghi danh vào môn học'}</p><button type="button" onClick={() => openCourse(item)}>Vào môn học <ArrowRight size={17}/></button></article>;
+        return <article className={`student-course-card course-tone-${index % 4}`} key={id}><div className="student-course-top"><span>{id}</span><small>Đang học</small></div><div className="student-course-icon"><BookOpen size={25}/></div><h3>{courseName(item)}</h3><p>{classes.length ? `Lớp ${classes.join(', ')}` : 'Đã ghi danh vào môn học'}</p><button type="button" disabled={Boolean(pendingTab)} onClick={() => openDestination('student-chat', item)}>Vào môn học <ArrowRight size={17}/></button></article>;
       })}</div> : <div className="student-dashboard-empty"><GraduationCap size={34}/><strong>Chưa tìm thấy môn học đang tham gia</strong><span>Danh sách sẽ xuất hiện khi dữ liệu ghi danh được đồng bộ.</span></div>}
     </section>
-    <section className="student-dashboard-section student-dashboard-actions"><header className="student-dashboard-heading"><div><span>Truy cập nhanh</span><h2>Bạn muốn làm gì tiếp theo?</h2></div></header><div className="student-quick-grid">{actions.map(([Icon,title,text,tab,tone]) => <button type="button" className={`student-quick-card ${tone}`} onClick={() => switchTab?.(tab)} key={tab}><span><Icon size={21}/></span><div><strong>{title}</strong><small>{text}</small></div><ArrowRight size={17}/></button>)}</div></section>
+    <section className="student-dashboard-section student-dashboard-actions"><header className="student-dashboard-heading"><div><span>Truy cập nhanh</span><h2>Bạn muốn làm gì tiếp theo?</h2></div></header><div className="student-quick-grid">{actions.map(([Icon,title,text,tab,tone]) => <button type="button" disabled={Boolean(pendingTab)} aria-busy={pendingTab === tab} className={`student-quick-card ${tone}`} onClick={() => openDestination(tab)} key={tab}><span><Icon size={21}/></span><div><strong>{title}</strong><small>{text}</small></div><ArrowRight size={17}/></button>)}</div></section>
     </div>
   </main>;
 }

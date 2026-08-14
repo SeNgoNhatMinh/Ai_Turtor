@@ -66,13 +66,11 @@
     inset: 0;
     z-index: 9999;
     min-height: 100vh;
+    min-height: 100svh;
     width: 100vw;
     overflow-y: auto;
-    background:
-        radial-gradient(circle at 8% 18%, rgba(0, 102, 179, 0.13), transparent 29%),
-        radial-gradient(circle at 50% 4%, rgba(243, 112, 33, 0.15), transparent 27%),
-        radial-gradient(circle at 92% 20%, rgba(0, 166, 81, 0.11), transparent 28%),
-        linear-gradient(135deg, #F7FBFF 0%, #FFFFFF 50%, #F7FFF9 100%);
+    overscroll-behavior: none;
+    background-color: #eaf6ff;
     color: #1F2937;
 }
 
@@ -491,9 +489,8 @@
 
 /* Login artwork is a real page background; the form remains the only floating surface. */
 .login-page {
-    background-color: #eaf6ff;
     background-image: url('/academic-ai-hero.jpg');
-    background-position: center;
+    background-position: 50% 50%;
     background-repeat: no-repeat;
     background-size: cover;
 }
@@ -523,7 +520,7 @@
 .login-toggle-link { color: #0b3b82; }
 
 @media (max-width: 860px) {
-    .login-page { background-position: 31% center; }
+    .login-page { background-position: 30% 50%; }
     .login-page::before { background: rgba(238,246,255,.7); backdrop-filter: blur(2px); }
     .login-shell {
         display: grid;
@@ -537,7 +534,7 @@
 }
 
 @media (max-width: 560px) {
-    .login-page { background-position: 28% center; }
+    .login-page { background-position: 25% 50%; }
     .login-page::before { background: rgba(238,246,255,.78); }
     .login-shell { width: min(100% - 24px, 460px); }
     .login-auth-card { padding: 22px; border-radius: 20px; }
@@ -550,5 +547,22 @@
 @media (min-width: 861px) and (max-width: 1250px) {
     .login-shell { width: min(100% - 40px,1120px); }
     .login-auth-card { max-width: 470px; padding: 34px 36px; }
+}
+
+@media (min-aspect-ratio: 2 / 1) {
+    .login-page { background-position: 50% 46%; }
+}
+
+@media (max-aspect-ratio: 4 / 5) {
+    .login-page { background-position: 24% 50%; }
+}
+
+@media (max-height: 720px) and (min-width: 861px) {
+    .login-shell { padding: 20px 0; }
+    .login-auth-card { padding: 24px 30px; }
+    .login-card-header { margin-bottom: 14px; }
+    .login-auth-brand-row,
+    .login-segment { margin-bottom: 14px; }
+    .login-form { gap: 12px; }
 }
 

@@ -5,6 +5,16 @@ import { classIdMatches, getClassAliases, getClassCodeValue } from '../utils/aca
 
 const normalizeCourseCode = (value) => String(value || '').trim().toUpperCase();
 const normalizeLookupId = (value) => String(value || '').trim();
+const enrollmentCache = new Map();
+
+const buildEnrollmentCacheKey = (studentId, lookupIds) => (
+  [studentId, ...lookupIds]
+    .map(normalizeLookupId)
+    .filter(Boolean)
+    .map((value) => value.toLowerCase())
+    .sort()
+    .join('|')
+);
 
 const getEnrollmentStudentId = (item) => (
   item?.studentId
@@ -50,10 +60,15 @@ export function useStudentEnrollmentOptions({
   setCourseId,
   setClassId,
 }) {
-  const [studentEnrollments, setStudentEnrollments] = useState([]);
-  const [resolvedStudentId, setResolvedStudentId] = useState('');
+  const cacheKey = useMemo(
+    () => buildEnrollmentCacheKey(studentId, lookupIds),
+    [lookupIds, studentId],
+  );
+  const cachedEnrollment = enrollmentCache.get(cacheKey);
+  const [studentEnrollments, setStudentEnrollments] = useState(() => cachedEnrollment?.items || []);
+  const [resolvedStudentId, setResolvedStudentId] = useState(() => cachedEnrollment?.resolvedStudentId || '');
   const [isStudentEnrollmentsLoading, setIsStudentEnrollmentsLoading] = useState(false);
-  const [hasLoadedStudentEnrollments, setHasLoadedStudentEnrollments] = useState(false);
+  const [hasLoadedStudentEnrollments, setHasLoadedStudentEnrollments] = useState(() => Boolean(cachedEnrollment));
   const requestRef = useRef(null);
 
   useEffect(() => () => requestRef.current?.abort(), []);
@@ -65,10 +80,11 @@ export function useStudentEnrollmentOptions({
       .map((item) => `"${item}"`);
     const candidates = [...new Set([...baseCandidates, ...quotedCandidates])];
     if (candidates.length === 0) {
+      enrollmentCache.delete(cacheKey);
       setStudentEnrollments([]);
       setResolvedStudentId('');
       setHasLoadedStudentEnrollments(true);
-      return;
+      return { items: [], resolvedStudentId: '' };
     }
 
     requestRef.current?.abort();
@@ -94,39 +110,44 @@ export function useStudentEnrollmentOptions({
           if (candidateId === candidates[candidates.length - 1]) throw error;
         }
       }
+      const nextResolvedStudentId = matchedStudentId || getEnrollmentStudentId(items[0]) || studentId || '';
+      enrollmentCache.set(cacheKey, { items, resolvedStudentId: nextResolvedStudentId });
       setStudentEnrollments(items);
-      setResolvedStudentId(matchedStudentId || getEnrollmentStudentId(items[0]) || studentId || '');
+      setResolvedStudentId(nextResolvedStudentId);
       setHasLoadedStudentEnrollments(true);
 
       const validEnrollments = items.filter((item) => getEnrollmentCourseId(item) && getEnrollmentClassId(item));
       if (validEnrollments.length === 0) {
         setCourseId('');
         setClassId('');
-        return;
+        return { items, resolvedStudentId: nextResolvedStudentId };
       }
 
       const currentEnrollment = validEnrollments.find(
-        (item) => getEnrollmentCourseId(item) === courseId && classIdMatches(getEnrollmentClassId(item), classId)
+        (item) => normalizeCourseCode(getEnrollmentCourseId(item)) === normalizeCourseCode(courseId)
+          && classIdMatches(getEnrollmentClassId(item), classId)
       );
       if (currentEnrollment) {
         const canonicalClassId = getEnrollmentClassId(currentEnrollment);
         if (canonicalClassId && canonicalClassId !== classId) {
           setClassId(canonicalClassId);
         }
-        return;
+        return { items, resolvedStudentId: nextResolvedStudentId };
       }
 
-      const sameCourseEnrollment = validEnrollments.find((item) => getEnrollmentCourseId(item) === courseId);
+      const sameCourseEnrollment = validEnrollments.find((item) => (
+        normalizeCourseCode(getEnrollmentCourseId(item)) === normalizeCourseCode(courseId)
+      ));
       if (sameCourseEnrollment) {
         setClassId(getEnrollmentClassId(sameCourseEnrollment));
-        return;
+        return { items, resolvedStudentId: nextResolvedStudentId };
       }
 
       const aliasCourseEnrollment = findAliasEnrollment(validEnrollments, courseId);
       if (aliasCourseEnrollment) {
         setCourseId(getEnrollmentCourseId(aliasCourseEnrollment));
         setClassId(getEnrollmentClassId(aliasCourseEnrollment));
-        return;
+        return { items, resolvedStudentId: nextResolvedStudentId };
       }
 
       const firstEnrollment = validEnrollments[0];
@@ -134,19 +155,22 @@ export function useStudentEnrollmentOptions({
         setCourseId(getEnrollmentCourseId(firstEnrollment));
         setClassId(getEnrollmentClassId(firstEnrollment));
       }
+      return { items, resolvedStudentId: nextResolvedStudentId };
     } catch (error) {
       if (controller.signal.aborted) return;
       console.warn('Failed to load student enrollments:', error);
-      setStudentEnrollments([]);
-      setResolvedStudentId('');
+      const cached = enrollmentCache.get(cacheKey);
+      setStudentEnrollments(cached?.items || []);
+      setResolvedStudentId(cached?.resolvedStudentId || '');
       setHasLoadedStudentEnrollments(true);
+      return cached || { items: [], resolvedStudentId: '' };
     } finally {
       if (requestRef.current === controller) {
         requestRef.current = null;
         setIsStudentEnrollmentsLoading(false);
       }
     }
-  }, [classId, courseId, lookupIds, setClassId, setCourseId, studentId]);
+  }, [cacheKey, classId, courseId, lookupIds, setClassId, setCourseId, studentId]);
 
   const courseOptions = useMemo(() => {
     const byCourse = new Map();
@@ -163,7 +187,7 @@ export function useStudentEnrollmentOptions({
 
   const classOptions = useMemo(() => (
     studentEnrollments
-      .filter((item) => !courseId || getEnrollmentCourseId(item) === courseId)
+      .filter((item) => !courseId || normalizeCourseCode(getEnrollmentCourseId(item)) === normalizeCourseCode(courseId))
       .map((item) => {
         const nextClassId = getEnrollmentClassId(item);
         return {
@@ -177,14 +201,40 @@ export function useStudentEnrollmentOptions({
   ), [studentEnrollments, courseId]);
 
   const selectCourse = useCallback((nextCourseId) => {
-    const normalizedCourseId = String(nextCourseId || '').trim();
+    const normalizedCourseId = normalizeCourseCode(nextCourseId);
     const matchingEnrollment = studentEnrollments.find((item) => (
-      getEnrollmentCourseId(item) === normalizedCourseId && getEnrollmentClassId(item)
+      normalizeCourseCode(getEnrollmentCourseId(item)) === normalizedCourseId && getEnrollmentClassId(item)
     ));
 
-    setCourseId(normalizedCourseId);
+    setCourseId(matchingEnrollment ? getEnrollmentCourseId(matchingEnrollment) : normalizedCourseId);
     setClassId(matchingEnrollment ? getEnrollmentClassId(matchingEnrollment) : '');
   }, [setClassId, setCourseId, studentEnrollments]);
+
+  const ensureEnrollmentContext = useCallback(async (preferredCourseId = '') => {
+    let items = studentEnrollments;
+    if (!hasLoadedStudentEnrollments || items.length === 0) {
+      const loaded = await loadStudentEnrollments();
+      items = loaded?.items || items;
+    }
+
+    const validEnrollments = items.filter((item) => getEnrollmentCourseId(item) && getEnrollmentClassId(item));
+    if (validEnrollments.length === 0) return null;
+
+    const preferredCourse = normalizeCourseCode(preferredCourseId || courseId);
+    const preferredClass = classId;
+    const selectedEnrollment = validEnrollments.find((item) => (
+      normalizeCourseCode(getEnrollmentCourseId(item)) === preferredCourse
+      && (!preferredClass || classIdMatches(getEnrollmentClassId(item), preferredClass))
+    )) || validEnrollments.find((item) => (
+      normalizeCourseCode(getEnrollmentCourseId(item)) === preferredCourse
+    )) || validEnrollments[0];
+
+    const nextCourseId = getEnrollmentCourseId(selectedEnrollment);
+    const nextClassId = getEnrollmentClassId(selectedEnrollment);
+    setCourseId(nextCourseId);
+    setClassId(nextClassId);
+    return { courseId: nextCourseId, classId: nextClassId };
+  }, [classId, courseId, hasLoadedStudentEnrollments, loadStudentEnrollments, setClassId, setCourseId, studentEnrollments]);
 
   return {
     studentEnrollments,
@@ -196,5 +246,6 @@ export function useStudentEnrollmentOptions({
     hasStudentEnrollments: courseOptions.length > 0 && classOptions.length > 0,
     loadStudentEnrollments,
     selectCourse,
+    ensureEnrollmentContext,
   };
 }

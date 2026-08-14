@@ -2700,3 +2700,14 @@ Copy template này lên đầu phần `History` sau mỗi lần cập nhật:
 - FE waits for the student to press Send before calling the normal course-scoped chat flow.
 - Removed the previous detour that only analyzed the selected tip and navigated to Learning Progress.
 - Added a renderer interaction test to ensure the selected tip text is preserved exactly.
+
+## 2026-08-14 - Responsive Login Background And Enrollment-Safe Navigation
+
+- Made the login artwork cover phone, tablet, desktop, ultrawide, portrait, and short-height viewports with responsive focal points and compact spacing where needed.
+- Student Dashboard actions now resolve a canonical enrolled course and class before opening Chat, Learning Progress, Quizzes, or Materials.
+- Cached the latest canonical enrollment result across route remounts so Dashboard-to-Chat navigation no longer briefly reports that an enrolled student has no class.
+- Normalized course-code comparisons while preserving the backend course and class values sent to APIs.
+- Added component tests for route remount persistence, successful enrolled navigation, and the no-enrollment guard.
+
+**Tested**
+- Full `npm run check`: pass (`143` contract tests, `127` unit/component tests, production build).
