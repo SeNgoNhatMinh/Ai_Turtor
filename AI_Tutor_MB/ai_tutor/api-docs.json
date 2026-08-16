@@ -1,0 +1,6311 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "AI Tutor Platform API",
+    "description": "API for course-scoped AI tutoring, course materials, student memory, and learning support workflows.\n\nLUU Y CHO FE MOBILE: Cac luong AI (student-chat, answer-review, teacher-answer, senior-approval) goi qua n8n webhook (http://10.0.2.2:5678/webhook/...), KHONG nam trong spec REST nay. Payment/Subscription bi @Hidden khoi Swagger. JWT hien dang TAT.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://10.0.2.2:8085",
+      "description": "Android emulator -> host machine (dùng cho Flutter Android emulator)"
+    },
+    {
+      "url": "http://localhost:8085",
+      "description": "iOS simulator / Flutter web / desktop"
+    },
+    {
+      "url": "http://192.168.1.100:8085",
+      "description": "Thiet bi that - DOI thanh IP LAN cua may chay backend"
+    }
+  ],
+  "tags": [
+    {
+      "name": "AI Answer Reviews",
+      "description": "Human review workflow for AI Tutor answers. Reviews can flag wrong answers for senior mentor validation before AI learns."
+    },
+    {
+      "name": "Assignments",
+      "description": "Teacher assignment distribution and manual review APIs"
+    },
+    {
+      "name": "User Profile",
+      "description": "Student and mentor authentication/profile APIs"
+    },
+    {
+      "name": "AI Conversation History",
+      "description": "Manage AI tutor conversation history"
+    },
+    {
+      "name": "Student Memory",
+      "description": "Student course-scoped memory APIs"
+    },
+    {
+      "name": "Knowledge Candidates",
+      "description": "Senior mentor approval queue before AI Tutor can learn new knowledge"
+    },
+    {
+      "name": "Class Sections",
+      "description": "Class section and student enrollment management APIs"
+    },
+    {
+      "name": "Code Mentor",
+      "description": "Dedicated code debugging mentor APIs"
+    },
+    {
+      "name": "Learning Dashboards",
+      "description": "Student and teacher dashboard APIs"
+    },
+    {
+      "name": "Escalations",
+      "description": "Teacher help workflow APIs"
+    },
+    {
+      "name": "Courses",
+      "description": "Semester, course and academic lifecycle APIs"
+    },
+    {
+      "name": "Mentor Import",
+      "description": "Bulk import teachers and mentors from Excel"
+    },
+    {
+      "name": "Tutor",
+      "description": "AI tutor query, intent routing and diagnostics APIs"
+    },
+    {
+      "name": "Course Materials",
+      "description": "Upload, store and index course materials for RAG"
+    },
+    {
+      "name": "Improve",
+      "description": "Learning improvement suggestions and persisted improve plan APIs"
+    }
+  ],
+  "paths": {
+    "/api/users/{userId}/profile": {
+      "get": {
+        "tags": [
+          "User Profile"
+        ],
+        "summary": "Get user profile",
+        "operationId": "getProfileById",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "User Profile"
+        ],
+        "summary": "Update user profile",
+        "operationId": "updateProfile",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUserProfileRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tutor/students/{studentId}/courses/{courseId}/memory": {
+      "get": {
+        "tags": [
+          "Student Memory"
+        ],
+        "summary": "Get student course-scoped memory",
+        "operationId": "getMemory",
+        "parameters": [
+          {
+            "name": "studentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "courseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Student Memory"
+        ],
+        "summary": "Update student course-scoped memory",
+        "operationId": "updateMemory",
+        "parameters": [
+          {
+            "name": "studentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "courseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateStudentCourseMemoryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/mentor/submissions/{submissionId}/review": {
+      "put": {
+        "tags": [
+          "Assignments"
+        ],
+        "summary": "Teacher manually reviews a submission and records score/feedback",
+        "operationId": "reviewSubmission",
+        "parameters": [
+          {
+            "name": "submissionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewAssignmentSubmissionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/improve-plans/{planId}/complete": {
+      "put": {
+        "tags": [
+          "Improve"
+        ],
+        "summary": "Mark improve plan as completed",
+        "operationId": "completeImprovePlan",
+        "parameters": [
+          {
+            "name": "planId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/subscription-plans/{planId}": {
+      "put": {
+        "tags": [
+          "admin-dashboard-controller"
+        ],
+        "operationId": "updatePlan",
+        "parameters": [
+          {
+            "name": "planId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubscriptionPlanRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "admin-dashboard-controller"
+        ],
+        "operationId": "deletePlan",
+        "parameters": [
+          {
+            "name": "planId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/users/register": {
+      "post": {
+        "tags": [
+          "User Profile"
+        ],
+        "summary": "Register student account",
+        "operationId": "register",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserRegisterRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/users/login": {
+      "post": {
+        "tags": [
+          "User Profile"
+        ],
+        "summary": "Login student or mentor account",
+        "operationId": "login",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserLoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tutor/intent-classify": {
+      "post": {
+        "tags": [
+          "Tutor"
+        ],
+        "summary": "Classify a student question for n8n AI Harness routing",
+        "operationId": "classifyIntent",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IntentClassifyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tutor/improve-suggestions": {
+      "post": {
+        "tags": [
+          "Improve"
+        ],
+        "summary": "Generate improve suggestions and persist an improve plan for a student course",
+        "operationId": "getTutorImproveSuggestions",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SuggestionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tutor/escalations": {
+      "post": {
+        "tags": [
+          "Escalations"
+        ],
+        "summary": "Create a question escalation from n8n AI Harness",
+        "operationId": "createQuestionEscalation",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateQuestionEscalationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tutor/escalations/{id}/answer": {
+      "post": {
+        "tags": [
+          "Escalations"
+        ],
+        "summary": "Teacher answers an escalated question and creates a pending knowledge candidate",
+        "operationId": "answerEscalation",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MentorAnswerRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tutor/escalations/select": {
+      "post": {
+        "tags": [
+          "Escalations"
+        ],
+        "summary": "Select a teacher or mentor and create a chat room",
+        "operationId": "selectMentor",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MentorSelectionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tutor/escalations/offer": {
+      "post": {
+        "tags": [
+          "Escalations"
+        ],
+        "summary": "Offer teacher or mentor help for a question escalation",
+        "operationId": "offerMentorHelp",
+        "parameters": [
+          {
+            "name": "questionEscalationId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tutor/escalations/knowledge-candidates/{id}/reject": {
+      "post": {
+        "tags": [
+          "Knowledge Candidates"
+        ],
+        "summary": "Senior mentor rejects a knowledge candidate",
+        "description": "Requires reviewerRole=SENIOR_MENTOR or ADMIN. Rejected knowledge is not indexed into AI Tutor brain.",
+        "operationId": "rejectKnowledgeCandidate",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KnowledgeCandidateReviewRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tutor/knowledge-candidates/{id}/reject": {
+      "post": {
+        "tags": [
+          "Knowledge Candidates"
+        ],
+        "summary": "Senior mentor rejects a knowledge candidate",
+        "description": "Requires reviewerRole=SENIOR_MENTOR or ADMIN. Rejected knowledge is not indexed into AI Tutor brain.",
+        "operationId": "rejectKnowledgeCandidate_1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KnowledgeCandidateReviewRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tutor/escalations/knowledge-candidates/{id}/approve": {
+      "post": {
+        "tags": [
+          "Knowledge Candidates"
+        ],
+        "summary": "Senior mentor approves and indexes knowledge into course RAG",
+        "description": "Requires reviewerRole=SENIOR_MENTOR or ADMIN. The original answering mentor cannot approve their own candidate.",
+        "operationId": "approveKnowledgeCandidate",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KnowledgeCandidateReviewRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tutor/knowledge-candidates/{id}/approve": {
+      "post": {
+        "tags": [
+          "Knowledge Candidates"
+        ],
+        "summary": "Senior mentor approves and indexes knowledge into course RAG",
+        "description": "Requires reviewerRole=SENIOR_MENTOR or ADMIN. The original answering mentor cannot approve their own candidate.",
+        "operationId": "approveKnowledgeCandidate_1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KnowledgeCandidateReviewRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tutor/escalations/cancel": {
+      "post": {
+        "tags": [
+          "Escalations"
+        ],
+        "summary": "Cancel teacher help offer",
+        "operationId": "cancelMentorHelp",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MentorEscalationCancelRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tutor/answer-reviews": {
+      "get": {
+        "tags": [
+          "AI Answer Reviews"
+        ],
+        "summary": "List AI answer reviews",
+        "description": "Filter reviews by status, courseId, or studentId for dashboards and n8n monitoring.",
+        "operationId": "listReviews",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "description": "SUBMITTED, NEEDS_SENIOR_REVIEW, or RESOLVED",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "courseId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "studentId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "AI Answer Reviews"
+        ],
+        "summary": "Submit a human review for an AI answer",
+        "description": "Use this after RAG_TUTOR, CODE_MENTOR, or ESCALATE responses. Learning disputes are routed to mentor review; source conflicts or missing materials can be routed to senior review. Operational/class policy feedback is stored but not sent to AI brain.",
+        "operationId": "submitReview",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AiAnswerReviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tutor/answer-reviews/{id}/senior-resolve": {
+      "post": {
+        "tags": [
+          "AI Answer Reviews"
+        ],
+        "summary": "Resolve an AI answer review as senior mentor",
+        "description": "Only SENIOR_MENTOR or ADMIN may resolve. Optionally creates a KnowledgeCandidate, but that candidate still requires senior approval before indexing into RAG.",
+        "operationId": "resolveBySeniorReviewer",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SeniorReviewResolutionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/students/assignments/{assignmentId}/submit": {
+      "post": {
+        "tags": [
+          "Assignments"
+        ],
+        "summary": "Student submits an assignment file",
+        "operationId": "submitAssignment",
+        "parameters": [
+          {
+            "name": "assignmentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "studentId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "studentName",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "studentEmail",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "note",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "required": [
+                  "file"
+                ],
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "description": "Student submission file",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/mentors/import": {
+      "post": {
+        "tags": [
+          "Mentor Import"
+        ],
+        "summary": "Import teachers or mentors from Excel",
+        "description": "Upload .xlsx/.xls file with teacher or mentor records. Use dryRun=true to validate before saving.",
+        "operationId": "importMentorsFromExcel",
+        "parameters": [
+          {
+            "name": "dryRun",
+            "in": "query",
+            "description": "true = preview only, false = save records",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "required": [
+                  "file"
+                ],
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "description": "Excel file (.xlsx or .xls)",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "400": {
+            "description": "Invalid Excel file",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Import completed",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/mentor/courses/{courseId}/classes/{classId}/assignments/upload": {
+      "post": {
+        "tags": [
+          "Assignments"
+        ],
+        "summary": "Teacher uploads an assignment file and sends it to class or selected students",
+        "operationId": "createAssignment",
+        "parameters": [
+          {
+            "name": "courseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "classId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "teacherId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "title",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "description",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "targetType",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "ALL_CLASS"
+            }
+          },
+          {
+            "name": "targetStudentIds",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "dueAt",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "required": [
+                  "file"
+                ],
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "description": "Assignment file, for example ZIP/PDF/DOCX",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/courses/{courseId}/materials/{materialId}/reindex": {
+      "post": {
+        "tags": [
+          "Course Materials"
+        ],
+        "summary": "Reindex one course material into Elasticsearch",
+        "operationId": "reindexCourseMaterial",
+        "parameters": [
+          {
+            "name": "courseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "materialId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "teacherId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/courses/{courseId}/materials/upload": {
+      "post": {
+        "tags": [
+          "Course Materials"
+        ],
+        "summary": "Upload course material and index it by course scope",
+        "operationId": "uploadCourseMaterial",
+        "parameters": [
+          {
+            "name": "courseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "classId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "teacherId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "title",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "required": [
+                  "file"
+                ],
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "description": "Course material file",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/class-sections/{courseId}/{classId}/students/import": {
+      "post": {
+        "tags": [
+          "Class Sections"
+        ],
+        "summary": "Import students into a class section from Excel .xlsx",
+        "operationId": "importStudentsFromExcel",
+        "parameters": [
+          {
+            "name": "courseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "classId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "semesterId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "courseName",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "dryRun",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "required": [
+                  "file"
+                ],
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "description": "Excel file (.xlsx or .xls)",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/courses/{courseId}/class-sections/{classId}/students/import": {
+      "post": {
+        "tags": [
+          "Class Sections"
+        ],
+        "summary": "Import students into a class section from Excel .xlsx",
+        "operationId": "importStudentsFromExcel_1",
+        "parameters": [
+          {
+            "name": "courseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "classId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "semesterId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "courseName",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "dryRun",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "required": [
+                  "file"
+                ],
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "description": "Excel file (.xlsx or .xls)",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/class-sections/{courseId}/{classId}/students": {
+      "post": {
+        "tags": [
+          "Class Sections"
+        ],
+        "summary": "Enroll multiple students into a class section from JSON",
+        "operationId": "enrollStudents",
+        "parameters": [
+          {
+            "name": "courseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "classId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnrollStudentsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/courses/{courseId}/class-sections/{classId}/students": {
+      "get": {
+        "tags": [
+          "Class Sections"
+        ],
+        "summary": "List students enrolled in a class section",
+        "operationId": "listClassStudents_1",
+        "parameters": [
+          {
+            "name": "courseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "classId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "teacherId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Class Sections"
+        ],
+        "summary": "Enroll multiple students into a class section from JSON",
+        "operationId": "enrollStudents_1",
+        "parameters": [
+          {
+            "name": "courseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "classId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnrollStudentsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/code-mentor/upload": {
+      "post": {
+        "tags": [
+          "Code Mentor"
+        ],
+        "summary": "Upload a code file and ask the dedicated Code Mentor",
+        "operationId": "upload",
+        "parameters": [
+          {
+            "name": "studentId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "courseId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "classId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "question",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "language",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "assignmentRelated",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "conversationId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "required": [
+                  "file"
+                ],
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "description": "Code file to inspect",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/code-mentor/query": {
+      "post": {
+        "tags": [
+          "Code Mentor"
+        ],
+        "summary": "Ask the dedicated Code Mentor",
+        "operationId": "query",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CodeMentorRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/chat/send": {
+      "post": {
+        "tags": [
+          "chat-controller"
+        ],
+        "operationId": "sendMessage",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatMessageRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/chat/mark-read": {
+      "post": {
+        "tags": [
+          "chat-controller"
+        ],
+        "operationId": "markChatAsRead",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatMarkAsReadRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/chat/close": {
+      "post": {
+        "tags": [
+          "chat-controller"
+        ],
+        "operationId": "closeChatRoom",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatClosureRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ai/query": {
+      "post": {
+        "tags": [
+          "Tutor"
+        ],
+        "summary": "Ask the AI tutor using intent classification",
+        "operationId": "query_1",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "userName",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "userEmail",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AiQueryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ai/conversations": {
+      "get": {
+        "tags": [
+          "AI Conversation History"
+        ],
+        "summary": "List AI tutor conversations",
+        "operationId": "listConversations",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "AI Conversation History"
+        ],
+        "summary": "Create a new AI tutor conversation",
+        "operationId": "createConversation",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/subscriptions/assign": {
+      "post": {
+        "tags": [
+          "admin-dashboard-controller"
+        ],
+        "operationId": "assignSubscription",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssignSubscriptionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/courses/{courseId}/class-sections": {
+      "post": {
+        "tags": [
+          "Class Sections"
+        ],
+        "summary": "Create or update a class section for one course",
+        "operationId": "saveCourseClassSection",
+        "parameters": [
+          {
+            "name": "courseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClassSection"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/academic/semesters": {
+      "get": {
+        "tags": [
+          "Courses"
+        ],
+        "summary": "List semesters",
+        "operationId": "listSemesters",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Semester"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Courses"
+        ],
+        "summary": "Create or update a semester",
+        "operationId": "saveSemester",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Semester"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/semesters": {
+      "get": {
+        "tags": [
+          "Courses"
+        ],
+        "summary": "List semesters",
+        "operationId": "listSemesters_1",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Semester"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Courses"
+        ],
+        "summary": "Create or update a semester",
+        "operationId": "saveSemester_1",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Semester"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/academic/enrollments": {
+      "post": {
+        "tags": [
+          "Class Sections"
+        ],
+        "summary": "Create or update one student enrollment",
+        "operationId": "saveEnrollment",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CourseEnrollment"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/enrollments": {
+      "post": {
+        "tags": [
+          "Class Sections"
+        ],
+        "summary": "Create or update one student enrollment",
+        "operationId": "saveEnrollment_1",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CourseEnrollment"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/courses": {
+      "get": {
+        "tags": [
+          "Courses"
+        ],
+        "summary": "List courses",
+        "operationId": "listCourses",
+        "parameters": [
+          {
+            "name": "semesterId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Course"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Courses"
+        ],
+        "summary": "Create or update a course",
+        "operationId": "saveCourse",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Course"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/academic/courses": {
+      "get": {
+        "tags": [
+          "Courses"
+        ],
+        "summary": "List courses",
+        "operationId": "listCourses_2",
+        "parameters": [
+          {
+            "name": "semesterId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Course"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Courses"
+        ],
+        "summary": "Create or update a course",
+        "operationId": "saveCourse_1",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Course"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/academic/class-sections": {
+      "post": {
+        "tags": [
+          "Class Sections"
+        ],
+        "summary": "Create or update a class section for one teacher",
+        "operationId": "saveClassSection",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClassSection"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/class-sections": {
+      "post": {
+        "tags": [
+          "Class Sections"
+        ],
+        "summary": "Create or update a class section for one teacher",
+        "operationId": "saveClassSection_1",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClassSection"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ai/conversations/{conversationId}": {
+      "delete": {
+        "tags": [
+          "AI Conversation History"
+        ],
+        "summary": "Delete an AI tutor conversation",
+        "operationId": "deleteConversation",
+        "parameters": [
+          {
+            "name": "conversationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "AI Conversation History"
+        ],
+        "summary": "Rename an AI tutor conversation",
+        "operationId": "renameConversation",
+        "parameters": [
+          {
+            "name": "conversationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenameAiConversationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/users/{userId}": {
+      "delete": {
+        "tags": [
+          "admin-dashboard-controller"
+        ],
+        "operationId": "deleteUser",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "admin-dashboard-controller"
+        ],
+        "operationId": "updateUser",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminUserUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/subscriptions/{subscriptionId}/status": {
+      "patch": {
+        "tags": [
+          "admin-dashboard-controller"
+        ],
+        "operationId": "updateSubscriptionStatus",
+        "parameters": [
+          {
+            "name": "subscriptionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubscriptionStatusUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/mentors/{mentorId}": {
+      "delete": {
+        "tags": [
+          "admin-dashboard-controller"
+        ],
+        "operationId": "deleteMentor",
+        "parameters": [
+          {
+            "name": "mentorId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "admin-dashboard-controller"
+        ],
+        "operationId": "updateMentor",
+        "parameters": [
+          {
+            "name": "mentorId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminMentorUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/courses/{courseId}/complete": {
+      "patch": {
+        "tags": [
+          "Courses"
+        ],
+        "summary": "Mark a course, its class sections and enrollments as completed",
+        "operationId": "completeCourse",
+        "parameters": [
+          {
+            "name": "courseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "requesterRole",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/courses/{courseId}/class-sections/{classId}/complete": {
+      "patch": {
+        "tags": [
+          "Courses"
+        ],
+        "summary": "Mark a class section and its enrollments as completed",
+        "operationId": "completeClassSection",
+        "parameters": [
+          {
+            "name": "courseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "classId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "requesterRole",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/users/profile": {
+      "get": {
+        "tags": [
+          "User Profile"
+        ],
+        "summary": "Get user profile by query parameter",
+        "operationId": "getProfile",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tutor/knowledge-candidates/senior-pending": {
+      "get": {
+        "tags": [
+          "Knowledge Candidates"
+        ],
+        "summary": "Alias: list senior mentor pending candidates",
+        "operationId": "listSeniorPendingKnowledgeCandidates",
+        "parameters": [
+          {
+            "name": "teacherId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "courseId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tutor/escalations/knowledge-candidates/senior-pending": {
+      "get": {
+        "tags": [
+          "Knowledge Candidates"
+        ],
+        "summary": "Alias: list senior mentor pending candidates",
+        "operationId": "listSeniorPendingKnowledgeCandidates_1",
+        "parameters": [
+          {
+            "name": "teacherId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "courseId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tutor/escalations/knowledge-candidates/pending": {
+      "get": {
+        "tags": [
+          "Knowledge Candidates"
+        ],
+        "summary": "List candidates waiting for senior mentor review",
+        "description": "Teacher answers and low-quality AI review corrections wait here before AI Tutor can learn them.",
+        "operationId": "listPendingKnowledgeCandidates",
+        "parameters": [
+          {
+            "name": "teacherId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "courseId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tutor/knowledge-candidates/pending": {
+      "get": {
+        "tags": [
+          "Knowledge Candidates"
+        ],
+        "summary": "List candidates waiting for senior mentor review",
+        "description": "Teacher answers and low-quality AI review corrections wait here before AI Tutor can learn them.",
+        "operationId": "listPendingKnowledgeCandidates_1",
+        "parameters": [
+          {
+            "name": "teacherId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "courseId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tutor/escalations/knowledge-candidates": {
+      "get": {
+        "tags": [
+          "Knowledge Candidates"
+        ],
+        "summary": "List knowledge candidates",
+        "description": "List AI learning candidates by status/course. Only INDEXED candidates have entered the RAG brain.",
+        "operationId": "listKnowledgeCandidates",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "courseId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tutor/knowledge-candidates": {
+      "get": {
+        "tags": [
+          "Knowledge Candidates"
+        ],
+        "summary": "List knowledge candidates",
+        "description": "List AI learning candidates by status/course. Only INDEXED candidates have entered the RAG brain.",
+        "operationId": "listKnowledgeCandidates_1",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "courseId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tutor/escalations/history": {
+      "get": {
+        "tags": [
+          "Escalations"
+        ],
+        "summary": "Get escalation history for a student",
+        "operationId": "getMentorEscalationHistory",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tutor/courses/{courseId}/memories": {
+      "get": {
+        "tags": [
+          "Student Memory"
+        ],
+        "summary": "List student memories by course and optional class",
+        "operationId": "listCourseMemories",
+        "parameters": [
+          {
+            "name": "courseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "classId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tutor/answer-reviews/senior-pending": {
+      "get": {
+        "tags": [
+          "AI Answer Reviews"
+        ],
+        "summary": "List reviews waiting for senior mentor validation",
+        "description": "Senior mentors use this queue to inspect potentially incorrect AI answers before creating or approving new AI knowledge.",
+        "operationId": "listSeniorPending",
+        "parameters": [
+          {
+            "name": "courseId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tutor/answer-reviews/mentor-pending": {
+      "get": {
+        "tags": [
+          "AI Answer Reviews"
+        ],
+        "summary": "List reviews waiting for mentor review",
+        "description": "Use this queue for student disputes such as 'AI answered wrong' when the answer should be checked by a course mentor before any senior knowledge workflow.",
+        "operationId": "listMentorPending",
+        "parameters": [
+          {
+            "name": "courseId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tutor/escalations/teachers/{teacherId}": {
+      "get": {
+        "tags": [
+          "Learning Dashboards"
+        ],
+        "summary": "Get teacher escalation inbox",
+        "operationId": "getTeacherEscalationInbox",
+        "parameters": [
+          {
+            "name": "teacherId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "requesterId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "requesterRole",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/mentors/{teacherId}/escalations/inbox": {
+      "get": {
+        "tags": [
+          "Learning Dashboards"
+        ],
+        "summary": "Get teacher escalation inbox",
+        "operationId": "getTeacherEscalationInbox_1",
+        "parameters": [
+          {
+            "name": "teacherId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "requesterId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "requesterRole",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/teachers/{teacherId}/escalations/inbox": {
+      "get": {
+        "tags": [
+          "Learning Dashboards"
+        ],
+        "summary": "Get teacher escalation inbox",
+        "operationId": "getTeacherEscalationInbox_2",
+        "parameters": [
+          {
+            "name": "teacherId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "requesterId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "requesterRole",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/submissions/{submissionId}/file": {
+      "get": {
+        "tags": [
+          "Assignments"
+        ],
+        "summary": "Download student submission file",
+        "operationId": "downloadSubmissionFile",
+        "parameters": [
+          {
+            "name": "submissionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/students/{studentId}/submissions": {
+      "get": {
+        "tags": [
+          "Assignments"
+        ],
+        "summary": "Student lists their submissions, scores and teacher feedback",
+        "operationId": "listStudentSubmissions",
+        "parameters": [
+          {
+            "name": "studentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "courseId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AssignmentSubmission"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/students/{studentId}/improve-plans": {
+      "get": {
+        "tags": [
+          "Improve"
+        ],
+        "summary": "List persisted improve plans for a student",
+        "operationId": "listImprovePlans",
+        "parameters": [
+          {
+            "name": "studentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "courseId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/students/{studentId}/assignments": {
+      "get": {
+        "tags": [
+          "Assignments"
+        ],
+        "summary": "Student lists assignments assigned to them",
+        "operationId": "listStudentAssignments",
+        "parameters": [
+          {
+            "name": "studentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "courseId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Assignment"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/mentors": {
+      "get": {
+        "tags": [
+          "Mentor Management",
+          "Mentor Import"
+        ],
+        "summary": "List all active mentors",
+        "description": "Frontend can call this endpoint to let users choose or inspect mentors.",
+        "operationId": "getAllMentors",
+        "parameters": [
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "specialization",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "minRating",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/mentors/{id}": {
+      "get": {
+        "tags": [
+          "Mentor Management",
+          "Mentor Import"
+        ],
+        "summary": "Get mentor details by ID",
+        "description": "Get full mentor details before selection.",
+        "operationId": "getMentorDetail",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/mentors/import/template": {
+      "get": {
+        "tags": [
+          "Mentor Import"
+        ],
+        "summary": "Get mentor import template specifications",
+        "description": "Returns the expected Excel columns and the download endpoint for the generated template.",
+        "operationId": "getTemplateSpec",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/mentors/import/template/download": {
+      "get": {
+        "tags": [
+          "Mentor Import"
+        ],
+        "summary": "Download generated mentor import template",
+        "description": "Generates an Excel template for teacher/mentor import. No static file is required.",
+        "operationId": "downloadTemplateFile",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/mentors/import/template.xlsx": {
+      "get": {
+        "tags": [
+          "Mentor Import"
+        ],
+        "summary": "Download generated mentor import template",
+        "description": "Generates an Excel template for teacher/mentor import. No static file is required.",
+        "operationId": "downloadTemplateFile_1",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/mentor/courses/{courseId}/classes/{classId}/submissions": {
+      "get": {
+        "tags": [
+          "Assignments"
+        ],
+        "summary": "Teacher lists submissions, scores and feedback for a class",
+        "operationId": "listClassSubmissions",
+        "parameters": [
+          {
+            "name": "courseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "classId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "teacherId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/mentor/courses/{courseId}/classes/{classId}/assignments": {
+      "get": {
+        "tags": [
+          "Assignments"
+        ],
+        "summary": "Teacher lists assignments for one class",
+        "operationId": "listClassAssignments",
+        "parameters": [
+          {
+            "name": "courseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "classId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "teacherId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/mentor/assignments/{assignmentId}/submissions": {
+      "get": {
+        "tags": [
+          "Assignments"
+        ],
+        "summary": "Teacher lists submissions for an assignment",
+        "operationId": "listSubmissions",
+        "parameters": [
+          {
+            "name": "assignmentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "teacherId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/students/{studentId}/courses/{courseId}/improve-plan": {
+      "get": {
+        "tags": [
+          "Improve"
+        ],
+        "summary": "Get latest active improve plan for a student course",
+        "operationId": "getLatestImprovePlan",
+        "parameters": [
+          {
+            "name": "studentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "courseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/improve/students/{studentId}/courses/{courseId}/latest": {
+      "get": {
+        "tags": [
+          "Improve"
+        ],
+        "summary": "Get latest active improve plan for a student course",
+        "operationId": "getLatestImprovePlan_1",
+        "parameters": [
+          {
+            "name": "studentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "courseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/mentors/{teacherId}/dashboard": {
+      "get": {
+        "tags": [
+          "Learning Dashboards"
+        ],
+        "summary": "Get teacher or mentor dashboard",
+        "operationId": "getTeacherDashboard",
+        "parameters": [
+          {
+            "name": "teacherId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "courseId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "classId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "requesterId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "requesterRole",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dashboards/teachers/{teacherId}": {
+      "get": {
+        "tags": [
+          "Learning Dashboards"
+        ],
+        "summary": "Get teacher or mentor dashboard",
+        "operationId": "getTeacherDashboard_1",
+        "parameters": [
+          {
+            "name": "teacherId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "courseId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "classId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "requesterId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "requesterRole",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/teachers/{teacherId}/dashboard": {
+      "get": {
+        "tags": [
+          "Learning Dashboards"
+        ],
+        "summary": "Get teacher or mentor dashboard",
+        "operationId": "getTeacherDashboard_2",
+        "parameters": [
+          {
+            "name": "teacherId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "courseId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "classId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "requesterId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "requesterRole",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/students/{studentId}/dashboard": {
+      "get": {
+        "tags": [
+          "Learning Dashboards"
+        ],
+        "summary": "Get student dashboard",
+        "operationId": "getStudentDashboard",
+        "parameters": [
+          {
+            "name": "studentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "courseId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "requesterId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "requesterRole",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dashboards/students/{studentId}": {
+      "get": {
+        "tags": [
+          "Learning Dashboards"
+        ],
+        "summary": "Get student dashboard",
+        "operationId": "getStudentDashboard_1",
+        "parameters": [
+          {
+            "name": "studentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "courseId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "requesterId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "requesterRole",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/courses/{courseId}/materials": {
+      "get": {
+        "tags": [
+          "Course Materials"
+        ],
+        "summary": "List course materials by course",
+        "operationId": "listCourseMaterials",
+        "parameters": [
+          {
+            "name": "courseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/courses/{courseId}/materials/{materialId}/pdf": {
+      "get": {
+        "tags": [
+          "Course Materials"
+        ],
+        "summary": "Download stored course material PDF",
+        "operationId": "downloadCourseMaterialPdf",
+        "parameters": [
+          {
+            "name": "courseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "materialId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/courses/class-sections/students/import/template.xlsx": {
+      "get": {
+        "tags": [
+          "Class Sections"
+        ],
+        "summary": "Download generated student enrollment Excel template",
+        "operationId": "downloadStudentImportTemplate",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/class-sections/students/import/template.xlsx": {
+      "get": {
+        "tags": [
+          "Class Sections"
+        ],
+        "summary": "Download generated student enrollment Excel template",
+        "operationId": "downloadStudentImportTemplate_1",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/class-sections/students/import/template": {
+      "get": {
+        "tags": [
+          "Class Sections"
+        ],
+        "summary": "Get student enrollment Excel template specification",
+        "operationId": "getStudentImportTemplateSpec",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/courses/class-sections/students/import/template": {
+      "get": {
+        "tags": [
+          "Class Sections"
+        ],
+        "summary": "Get student enrollment Excel template specification",
+        "operationId": "getStudentImportTemplateSpec_1",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/chat/unread": {
+      "get": {
+        "tags": [
+          "chat-controller"
+        ],
+        "operationId": "getUnreadChats",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "role",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "USER"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/chat/history": {
+      "get": {
+        "tags": [
+          "chat-controller"
+        ],
+        "operationId": "getChatHistory",
+        "parameters": [
+          {
+            "name": "chatRoomId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/chat/detail": {
+      "get": {
+        "tags": [
+          "chat-controller"
+        ],
+        "operationId": "getChatRoomDetail",
+        "parameters": [
+          {
+            "name": "chatRoomId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/assignments/{assignmentId}/file": {
+      "get": {
+        "tags": [
+          "Assignments"
+        ],
+        "summary": "Download assignment attachment",
+        "operationId": "downloadAssignmentFile",
+        "parameters": [
+          {
+            "name": "assignmentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ai/conversations/{conversationId}/messages": {
+      "get": {
+        "tags": [
+          "AI Conversation History"
+        ],
+        "summary": "Get messages in an AI tutor conversation",
+        "operationId": "getMessages",
+        "parameters": [
+          {
+            "name": "conversationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/users": {
+      "get": {
+        "tags": [
+          "admin-dashboard-controller"
+        ],
+        "operationId": "listUsers",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "role",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "active",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/subscriptions": {
+      "get": {
+        "tags": [
+          "admin-dashboard-controller"
+        ],
+        "operationId": "listSubscriptions",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "planCode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "activeOnly",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/subscription-plans": {
+      "get": {
+        "tags": [
+          "admin-dashboard-controller"
+        ],
+        "operationId": "listPlans",
+        "parameters": [
+          {
+            "name": "includeInactive",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/mentors": {
+      "get": {
+        "tags": [
+          "admin-dashboard-controller"
+        ],
+        "operationId": "listMentors",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "active",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "verified",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "city",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/mentor-escalations": {
+      "get": {
+        "tags": [
+          "admin-dashboard-controller"
+        ],
+        "operationId": "listMentorEscalations",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "mentorId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/dashboard/stats": {
+      "get": {
+        "tags": [
+          "admin-dashboard-controller"
+        ],
+        "operationId": "getDashboardStats",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/students/{studentId}/courses": {
+      "get": {
+        "tags": [
+          "Class Sections"
+        ],
+        "summary": "List courses and class sections enrolled by one student",
+        "operationId": "listStudentEnrollments",
+        "parameters": [
+          {
+            "name": "studentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CourseEnrollment"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/students/{studentId}/enrollments": {
+      "get": {
+        "tags": [
+          "Class Sections"
+        ],
+        "summary": "List courses and class sections enrolled by one student",
+        "operationId": "listStudentEnrollments_1",
+        "parameters": [
+          {
+            "name": "studentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CourseEnrollment"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/academic/students/{studentId}/enrollments": {
+      "get": {
+        "tags": [
+          "Class Sections"
+        ],
+        "summary": "List courses and class sections enrolled by one student",
+        "operationId": "listStudentEnrollments_2",
+        "parameters": [
+          {
+            "name": "studentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CourseEnrollment"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/mentors/{teacherId}/courses": {
+      "get": {
+        "tags": [
+          "Courses"
+        ],
+        "summary": "List courses taught by one teacher or mentor",
+        "operationId": "listTeacherCourses",
+        "parameters": [
+          {
+            "name": "teacherId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Course"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/academic/mentors/{teacherId}/courses": {
+      "get": {
+        "tags": [
+          "Courses"
+        ],
+        "summary": "List courses taught by one teacher or mentor",
+        "operationId": "listTeacherCourses_1",
+        "parameters": [
+          {
+            "name": "teacherId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Course"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/teachers/{teacherId}/classes": {
+      "get": {
+        "tags": [
+          "Class Sections"
+        ],
+        "summary": "List class sections managed by one teacher or mentor",
+        "operationId": "listTeacherClassSections",
+        "parameters": [
+          {
+            "name": "teacherId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ClassSection"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/mentors/{teacherId}/class-sections": {
+      "get": {
+        "tags": [
+          "Class Sections"
+        ],
+        "summary": "List class sections managed by one teacher or mentor",
+        "operationId": "listTeacherClassSections_1",
+        "parameters": [
+          {
+            "name": "teacherId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ClassSection"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/academic/mentors/{teacherId}/class-sections": {
+      "get": {
+        "tags": [
+          "Class Sections"
+        ],
+        "summary": "List class sections managed by one teacher or mentor",
+        "operationId": "listTeacherClassSections_2",
+        "parameters": [
+          {
+            "name": "teacherId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ClassSection"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/academic/courses/{courseId}/class-sections/{classId}/students": {
+      "get": {
+        "tags": [
+          "Class Sections"
+        ],
+        "summary": "List students enrolled in a class section",
+        "operationId": "listClassStudents",
+        "parameters": [
+          {
+            "name": "courseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "classId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "teacherId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/courses/{courseId}/class-sections": {
+      "get": {
+        "tags": [
+          "Class Sections"
+        ],
+        "summary": "List class sections by course",
+        "operationId": "listCourseClassSections",
+        "parameters": [
+          {
+            "name": "courseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ClassSection"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/academic/courses/{courseId}/class-sections": {
+      "get": {
+        "tags": [
+          "Class Sections"
+        ],
+        "summary": "List class sections by course",
+        "operationId": "listCourseClassSections_1",
+        "parameters": [
+          {
+            "name": "courseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ClassSection"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/courses": {
+      "get": {
+        "tags": [
+          "Courses"
+        ],
+        "summary": "List courses",
+        "operationId": "listCourses_1",
+        "parameters": [
+          {
+            "name": "semesterId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Course"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/courses/{courseId}/materials/{materialId}": {
+      "delete": {
+        "tags": [
+          "Course Materials"
+        ],
+        "summary": "Delete one course material and its indexed chunks",
+        "operationId": "deleteCourseMaterial",
+        "parameters": [
+          {
+            "name": "courseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "materialId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "teacherId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/subscriptions/{subscriptionId}": {
+      "delete": {
+        "tags": [
+          "admin-dashboard-controller"
+        ],
+        "operationId": "deleteSubscription",
+        "parameters": [
+          {
+            "name": "subscriptionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/mentor-escalations/{escalationId}": {
+      "delete": {
+        "tags": [
+          "admin-dashboard-controller"
+        ],
+        "operationId": "deleteMentorEscalation",
+        "parameters": [
+          {
+            "name": "escalationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "UpdateUserProfileRequest": {
+        "type": "object",
+        "properties": {
+          "fullName": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "avatarUrl": {
+            "type": "string"
+          },
+          "bio": {
+            "type": "string"
+          },
+          "address": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          }
+        }
+      },
+      "UpdateStudentCourseMemoryRequest": {
+        "type": "object",
+        "properties": {
+          "classId": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "weakTopics": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "learnedTopics": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "recentQuestions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "recentAnswers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "improveSuggestions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "ReviewAssignmentSubmissionRequest": {
+        "type": "object",
+        "properties": {
+          "teacherId": {
+            "type": "string"
+          },
+          "score": {
+            "type": "number",
+            "format": "double"
+          },
+          "teacherFeedback": {
+            "type": "string"
+          },
+          "weakTopics": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "SubscriptionPlanRequest": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "durationDays": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "price": {
+            "type": "number",
+            "format": "double"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "isActive": {
+            "type": "boolean"
+          }
+        }
+      },
+      "UserRegisterRequest": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          }
+        }
+      },
+      "UserLoginRequest": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string"
+          }
+        }
+      },
+      "IntentClassifyRequest": {
+        "type": "object",
+        "properties": {
+          "studentId": {
+            "type": "string"
+          },
+          "courseId": {
+            "type": "string"
+          },
+          "classId": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "question": {
+            "type": "string"
+          },
+          "codeSnippet": {
+            "type": "string"
+          }
+        }
+      },
+      "SuggestionRequest": {
+        "type": "object",
+        "properties": {
+          "studentId": {
+            "type": "string"
+          },
+          "courseId": {
+            "type": "string"
+          },
+          "classId": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          },
+          "requesterUserId": {
+            "type": "string"
+          },
+          "caseId": {
+            "type": "string"
+          },
+          "question": {
+            "type": "string"
+          },
+          "includeAiSuggestion": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CreateQuestionEscalationRequest": {
+        "type": "object",
+        "properties": {
+          "studentId": {
+            "type": "string"
+          },
+          "studentName": {
+            "type": "string"
+          },
+          "studentEmail": {
+            "type": "string"
+          },
+          "courseId": {
+            "type": "string"
+          },
+          "classId": {
+            "type": "string"
+          },
+          "question": {
+            "type": "string"
+          },
+          "aiResponse": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        }
+      },
+      "MentorAnswerRequest": {
+        "type": "object",
+        "properties": {
+          "teacherId": {
+            "type": "string",
+            "description": "Teacher or mentor ID",
+            "example": "TCH001"
+          },
+          "teacherName": {
+            "type": "string",
+            "description": "Teacher or mentor display name",
+            "example": "Teacher A"
+          },
+          "answer": {
+            "type": "string",
+            "description": "Answer sent back to the student"
+          },
+          "createKnowledgeCandidate": {
+            "type": "boolean",
+            "description": "True only when this answer contains reusable academic knowledge that may become AI brain knowledge after senior approval"
+          },
+          "candidateType": {
+            "type": "string",
+            "description": "ACADEMIC_KNOWLEDGE, MATERIAL_CORRECTION, FAQ_CLARIFICATION, OPERATIONAL_POLICY, GRADING_DECISION, CLASS_RULE, ASSIGNMENT_SPECIFIC",
+            "example": "ACADEMIC_KNOWLEDGE"
+          }
+        },
+        "description": "Teacher or mentor answer for an escalation"
+      },
+      "MentorSelectionRequest": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "questionEscalationId": {
+            "type": "string"
+          },
+          "selectedMentorId": {
+            "type": "string"
+          }
+        }
+      },
+      "KnowledgeCandidateReviewRequest": {
+        "type": "object",
+        "properties": {
+          "reviewerId": {
+            "type": "string",
+            "description": "Reviewer ID. Must not be the same as the mentor who created the answer.",
+            "example": "SM001"
+          },
+          "reviewerRole": {
+            "type": "string",
+            "description": "Reviewer role. Only SENIOR_MENTOR or ADMIN can approve knowledge for AI learning.",
+            "example": "SENIOR_MENTOR"
+          },
+          "reviewerName": {
+            "type": "string",
+            "description": "Reviewer display name"
+          },
+          "contentOverride": {
+            "type": "string",
+            "description": "Optional corrected content to index instead of the original candidate content"
+          },
+          "reviewNote": {
+            "type": "string",
+            "description": "Approval or rejection note"
+          },
+          "rejectionReason": {
+            "type": "string",
+            "description": "Reason when rejecting this candidate"
+          }
+        },
+        "description": "Senior mentor review request for a knowledge candidate"
+      },
+      "MentorEscalationCancelRequest": {
+        "type": "object",
+        "properties": {
+          "questionEscalationId": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        }
+      },
+      "AiAnswerReviewRequest": {
+        "type": "object",
+        "properties": {
+          "studentId": {
+            "type": "string",
+            "description": "Student who received the answer",
+            "example": "STU001"
+          },
+          "courseId": {
+            "type": "string",
+            "description": "Course scope",
+            "example": "PRO192"
+          },
+          "classId": {
+            "type": "string",
+            "description": "Optional class section context",
+            "example": "SE1840"
+          },
+          "conversationId": {
+            "type": "string",
+            "description": "Conversation ID returned by AI query/code mentor",
+            "example": "uuid-conversation-id"
+          },
+          "questionEscalationId": {
+            "type": "string",
+            "description": "Escalation ticket ID if this review belongs to an escalation answer"
+          },
+          "mode": {
+            "type": "string",
+            "description": "AI mode being reviewed: RAG, CODE_MENTOR, or ESCALATE",
+            "example": "RAG"
+          },
+          "reviewType": {
+            "type": "string",
+            "description": "Review type: QUALITY_FEEDBACK, ANSWER_DISPUTE, SOURCE_CONFLICT, MISSING_MATERIAL, OPERATIONAL_POLICY, GRADING_DECISION, CLASS_RULE, ASSIGNMENT_SPECIFIC",
+            "example": "ANSWER_DISPUTE"
+          },
+          "question": {
+            "type": "string",
+            "description": "Student question or reviewed prompt"
+          },
+          "answer": {
+            "type": "string",
+            "description": "AI or mentor answer being reviewed"
+          },
+          "aiConfidence": {
+            "type": "number",
+            "description": "AI confidence returned by backend",
+            "format": "double",
+            "example": 0.85
+          },
+          "rating": {
+            "type": "integer",
+            "description": "Reviewer rating from 1 to 5",
+            "format": "int32",
+            "example": 4
+          },
+          "accurate": {
+            "type": "boolean",
+            "description": "Whether the reviewer thinks the answer is correct"
+          },
+          "helpful": {
+            "type": "boolean",
+            "description": "Whether the answer helped the student"
+          },
+          "correctnessLevel": {
+            "type": "string",
+            "description": "HIGH, MEDIUM, LOW, or INCORRECT",
+            "example": "HIGH"
+          },
+          "feedback": {
+            "type": "string",
+            "description": "Human feedback explaining the rating"
+          },
+          "suggestedCorrection": {
+            "type": "string",
+            "description": "Suggested correction when answer is incomplete or wrong"
+          },
+          "reviewedBy": {
+            "type": "string",
+            "description": "Reviewer user ID"
+          },
+          "reviewerRole": {
+            "type": "string",
+            "description": "STUDENT, HUMAN_REVIEWER, MENTOR, SENIOR_MENTOR, or ADMIN",
+            "example": "STUDENT"
+          }
+        },
+        "description": "Human review for an AI answer after RAG, Code Mentor, or Escalation flow"
+      },
+      "SeniorReviewResolutionRequest": {
+        "type": "object",
+        "properties": {
+          "seniorReviewerId": {
+            "type": "string",
+            "description": "Senior mentor or admin ID",
+            "example": "SM001"
+          },
+          "seniorReviewerName": {
+            "type": "string",
+            "description": "Senior mentor or admin name"
+          },
+          "reviewerRole": {
+            "type": "string",
+            "description": "Must be SENIOR_MENTOR or ADMIN",
+            "example": "SENIOR_MENTOR"
+          },
+          "decision": {
+            "type": "string",
+            "description": "APPROVE_FEEDBACK, REJECT_FEEDBACK, or CREATE_KNOWLEDGE_CANDIDATE",
+            "example": "CREATE_KNOWLEDGE_CANDIDATE"
+          },
+          "notes": {
+            "type": "string",
+            "description": "Senior review note"
+          },
+          "createKnowledgeCandidate": {
+            "type": "boolean",
+            "description": "If true, create a pending KnowledgeCandidate from the correction. It is not indexed until approved."
+          },
+          "candidateType": {
+            "type": "string",
+            "description": "Knowledge type when creating a candidate: ACADEMIC_KNOWLEDGE, MATERIAL_CORRECTION, or FAQ_CLARIFICATION",
+            "example": "ACADEMIC_KNOWLEDGE"
+          },
+          "correctedAnswer": {
+            "type": "string",
+            "description": "Corrected content to use for the knowledge candidate"
+          }
+        },
+        "description": "Senior mentor resolution for a human AI answer review"
+      },
+      "EnrollStudentsRequest": {
+        "type": "object",
+        "properties": {
+          "semesterId": {
+            "type": "string"
+          },
+          "courseName": {
+            "type": "string"
+          },
+          "className": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "students": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StudentEnrollmentItem"
+            }
+          }
+        }
+      },
+      "StudentEnrollmentItem": {
+        "type": "object",
+        "properties": {
+          "studentId": {
+            "type": "string"
+          },
+          "studentCode": {
+            "type": "string"
+          },
+          "studentName": {
+            "type": "string"
+          },
+          "studentEmail": {
+            "type": "string"
+          },
+          "studentPhone": {
+            "type": "string"
+          }
+        }
+      },
+      "CodeMentorRequest": {
+        "type": "object",
+        "properties": {
+          "studentId": {
+            "type": "string"
+          },
+          "courseId": {
+            "type": "string"
+          },
+          "classId": {
+            "type": "string"
+          },
+          "question": {
+            "type": "string",
+            "description": "Student question about the code or error"
+          },
+          "code": {
+            "type": "string",
+            "description": "Code snippet or error log"
+          },
+          "language": {
+            "type": "string",
+            "description": "Programming language or framework",
+            "example": "Java Spring Boot"
+          },
+          "assignmentRelated": {
+            "type": "boolean",
+            "description": "True if this is related to an assignment/homework"
+          },
+          "conversationId": {
+            "type": "string"
+          }
+        },
+        "description": "Code mentor request"
+      },
+      "ChatMessageRequest": {
+        "type": "object",
+        "properties": {
+          "chatRoomId": {
+            "type": "string"
+          },
+          "senderId": {
+            "type": "string"
+          },
+          "senderName": {
+            "type": "string"
+          },
+          "senderRole": {
+            "type": "string"
+          },
+          "content": {
+            "type": "string"
+          },
+          "messageType": {
+            "type": "string"
+          },
+          "attachmentUrl": {
+            "type": "string"
+          },
+          "attachmentName": {
+            "type": "string"
+          }
+        }
+      },
+      "ChatMarkAsReadRequest": {
+        "type": "object",
+        "properties": {
+          "chatRoomId": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          }
+        }
+      },
+      "ChatClosureRequest": {
+        "type": "object",
+        "properties": {
+          "chatRoomId": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          },
+          "userRating": {
+            "type": "number",
+            "format": "double"
+          },
+          "userFeedback": {
+            "type": "string"
+          }
+        }
+      },
+      "AiQueryRequest": {
+        "type": "object",
+        "properties": {
+          "question": {
+            "type": "string",
+            "description": "Student question. Use either question or message; message has higher priority when both are provided.",
+            "example": "Explain MVC in Spring Boot"
+          },
+          "message": {
+            "type": "string",
+            "description": "Alias of question for chat/n8n clients. Use either message or question; do not send different values in both fields.",
+            "example": "JPA lÃ  gÃ¬?"
+          },
+          "codeSnippet": {
+            "type": "string",
+            "description": "Optional code snippet or error log. When present, intent classifier may route to CODE_MENTOR mode."
+          },
+          "courseId": {
+            "type": "string",
+            "description": "Course ID for course-scoped RAG search",
+            "example": "PRJ301"
+          },
+          "classId": {
+            "type": "string",
+            "description": "Optional class section ID for memory/escalation context. RAG search is currently scoped by courseId.",
+            "example": "SE1840"
+          },
+          "conversationId": {
+            "type": "string",
+            "description": "Existing conversation ID. Omit this field for the first message; reuse the returned conversationId to continue the chat.",
+            "example": "uuid-conversation-id"
+          }
+        },
+        "description": "AI tutor query request"
+      },
+      "AssignSubscriptionRequest": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "planId": {
+            "type": "string"
+          },
+          "planCode": {
+            "type": "string"
+          },
+          "startAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ClassSection": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "semesterId": {
+            "type": "string"
+          },
+          "courseId": {
+            "type": "string"
+          },
+          "courseName": {
+            "type": "string"
+          },
+          "classId": {
+            "type": "string"
+          },
+          "className": {
+            "type": "string"
+          },
+          "teacherId": {
+            "type": "string"
+          },
+          "teacherName": {
+            "type": "string"
+          },
+          "teacherEmail": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "endedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Semester": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "semesterCode": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "endedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "CourseEnrollment": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "studentId": {
+            "type": "string"
+          },
+          "studentCode": {
+            "type": "string"
+          },
+          "studentName": {
+            "type": "string"
+          },
+          "studentEmail": {
+            "type": "string"
+          },
+          "studentPhone": {
+            "type": "string"
+          },
+          "semesterId": {
+            "type": "string"
+          },
+          "courseId": {
+            "type": "string"
+          },
+          "courseName": {
+            "type": "string"
+          },
+          "classId": {
+            "type": "string"
+          },
+          "className": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "enrolledAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "completedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Course": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "semesterId": {
+            "type": "string"
+          },
+          "courseId": {
+            "type": "string"
+          },
+          "courseName": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "credits": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "status": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "RenameAiConversationRequest": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        }
+      },
+      "AdminUserUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "isActive": {
+            "type": "boolean"
+          },
+          "role": {
+            "type": "string"
+          }
+        }
+      },
+      "SubscriptionStatusUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "AdminMentorUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "isActive": {
+            "type": "boolean"
+          },
+          "verified": {
+            "type": "boolean"
+          }
+        }
+      },
+      "AssignmentSubmission": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "assignmentId": {
+            "type": "string"
+          },
+          "courseId": {
+            "type": "string"
+          },
+          "classId": {
+            "type": "string"
+          },
+          "teacherId": {
+            "type": "string"
+          },
+          "studentId": {
+            "type": "string"
+          },
+          "studentName": {
+            "type": "string"
+          },
+          "studentEmail": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          },
+          "submittedFileId": {
+            "type": "string"
+          },
+          "submittedFileName": {
+            "type": "string"
+          },
+          "submittedContentType": {
+            "type": "string"
+          },
+          "submittedFileSize": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "status": {
+            "type": "string"
+          },
+          "score": {
+            "type": "number",
+            "format": "double"
+          },
+          "teacherFeedback": {
+            "type": "string"
+          },
+          "weakTopics": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "submittedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reviewedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Assignment": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "courseId": {
+            "type": "string"
+          },
+          "classId": {
+            "type": "string"
+          },
+          "teacherId": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "targetType": {
+            "type": "string"
+          },
+          "targetStudentIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "attachmentFileId": {
+            "type": "string"
+          },
+          "attachmentFileName": {
+            "type": "string"
+          },
+          "attachmentContentType": {
+            "type": "string"
+          },
+          "attachmentFileSize": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "dueAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    }
+  }
+}

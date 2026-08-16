@@ -1,0 +1,55 @@
+name: ai_tutor
+description: "AI Tutor FPT — Mobile app for FPT University"
+publish_to: "none"
+version: 0.1.0
+
+environment:
+  sdk: ^3.9.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  flutter_riverpod: ^2.6.1
+  flutter_hooks: ^0.21.2
+  hooks_riverpod: ^2.6.1
+  go_router: ^14.8.1
+  dio: ^5.8.0+1
+  freezed_annotation: ^3.0.0
+  json_annotation: ^4.9.0
+  google_fonts: ^6.2.1
+  flutter_svg: ^2.0.17
+  cached_network_image: ^3.4.1
+  skeletonizer: ^2.1.3
+  flutter_animate: ^4.5.2
+  flutter_markdown: ^0.7.6+2
+  flutter_highlight: ^0.7.0
+  highlight: ^0.7.0
+  markdown: ^7.3.0
+  fl_chart: ^0.70.2
+  gap: ^3.0.1
+  intl: ^0.20.2
+  flutter_secure_storage: ^9.2.4
+  file_picker: ^8.1.7
+  url_launcher: ^6.3.1
+  path_provider: ^2.1.5
+  open_filex: ^4.6.0
+  font_awesome_flutter: ^11.0.0
+  web_socket_channel: ^3.0.2
+  lucide_icons_flutter: ^3.1.15
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  build_runner: ^2.4.15
+  freezed: ^3.0.0
+  json_serializable: ^6.9.4
+
+flutter:
+  uses-material-design: true
+  generate: true
+  assets:
+    - assets/images/
+    - assets/illustrations/
