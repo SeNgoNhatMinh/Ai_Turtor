@@ -28,7 +28,7 @@ export default function ProviderStatusTable({ providers, loading }) {
   return (
     <Card
       className="admin-ai-logs-section-card"
-      title="Trạng thái LLM API và local"
+      title="Thống kê runtime theo provider"
       extra={<Text type="secondary">Tính từ lần khởi động Backend gần nhất</Text>}
     >
       <Table

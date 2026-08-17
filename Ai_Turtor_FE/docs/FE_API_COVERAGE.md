@@ -143,6 +143,13 @@ Action-level QA cases for the visible UI are maintained in `docs/FE_BUTTON_ACTIO
 - `POST /api/courses/{courseId}/materials/reindex` - `UI done`
 - `POST /api/courses/{courseId}/materials/{materialId}/reindex` - `UI done`
 - `DELETE /api/courses/{courseId}/materials/{materialId}` - `UI done`
+- `GET /api/admin/llm-providers` - `UI done`; hiển thị env config, Admin override và trạng thái hiệu lực
+- `GET /api/admin/llm-providers/stats` - `UI done`; runtime counters tách khỏi bảng cấu hình
+- `PATCH /api/admin/llm-providers/{providerId}` - `UI done`; đổi model/enable override và refetch canonical state
+- `POST /api/admin/llm-providers/{providerId}/enable|disable` - `UI done`; có mutation lock và hiển thị lý do không thể bật khi env/API key/model chưa hợp lệ
+- `DELETE /api/admin/llm-providers/{providerId}` - `UI done`; soft delete có confirm
+- `POST /api/admin/llm-providers/{providerId}/restore` - `UI done`; khôi phục có confirm
+- `POST /api/admin/llm-providers/reload` - `UI done`; reload runtime chain có confirm và refetch stats
 - Admin exposes `/admin/review-queue` for serious Answer Reviews and Knowledge Candidate approval using the same canonical review services and role guards as Senior Mentor.
 
 ## 6. Tutor V2 Expert Co-Training

@@ -3,6 +3,7 @@ import { Buffer } from 'node:buffer';
 import test from 'node:test';
 import {
   getAccountRoleFromJwt,
+  isJwtExpired,
   normalizeLoginResponse,
 } from '../src/features/auth/services/authResponse.js';
 
@@ -75,4 +76,18 @@ test('rejects login responses without a supported account role', () => {
     () => normalizeLoginResponse({ userId: 'unknown-1', token: 'not-a-jwt' }),
     (error) => error.code === 'INVALID_AUTH_RESPONSE' && error.status === 502,
   );
+});
+
+test('rejects login responses that do not include a bearer token', () => {
+  assert.throws(
+    () => normalizeLoginResponse({ userId: 'admin-1', role: 'ADMIN' }),
+    (error) => error.code === 'INVALID_AUTH_RESPONSE' && error.details?.hasToken === false,
+  );
+});
+
+test('detects expired JWTs before restoring a persisted session', () => {
+  const nowMs = Date.UTC(2026, 7, 16, 0, 0, 0);
+  assert.equal(isJwtExpired(createToken({ role: 'ADMIN', exp: nowMs / 1000 - 1 }), nowMs), true);
+  assert.equal(isJwtExpired(createToken({ role: 'ADMIN', exp: nowMs / 1000 + 60 }), nowMs), false);
+  assert.equal(isJwtExpired('e2e-token', nowMs), false);
 });

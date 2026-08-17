@@ -60,6 +60,55 @@
   min-width: 0;
 }
 
+.admin-provider-management-card .ant-card-head-wrapper {
+  gap: 16px;
+}
+
+.admin-provider-guidance {
+  margin-bottom: 16px;
+}
+
+.admin-provider-id,
+.admin-provider-base-url {
+  display: block;
+  max-width: 170px;
+  font-size: 0.78rem;
+}
+
+.admin-provider-family-tag {
+  width: fit-content;
+  margin-inline-end: 0;
+}
+
+.admin-provider-model-cell {
+  width: 100%;
+  min-width: 0;
+}
+
+.admin-provider-model-cell > .ant-typography {
+  max-width: 260px;
+}
+
+.admin-provider-row--deleted > td {
+  background: color-mix(in srgb, var(--color-card-bg) 86%, #94a3b8 14%) !important;
+}
+
+.admin-provider-row--deleted .ant-typography,
+.admin-provider-row--deleted .ant-tag {
+  opacity: 0.72;
+}
+
+.admin-provider-reset-hint {
+  margin-top: -8px;
+}
+
+.admin-provider-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  width: 100%;
+  margin-top: 8px;
+}
+
 .admin-ai-log-answer {
   width: 100%;
 }
@@ -91,6 +140,17 @@
   }
 
   .admin-ai-logs-filter-actions .ant-btn {
+    width: 100%;
+  }
+
+  .admin-provider-management-card .ant-card-head-wrapper {
+    align-items: flex-start;
+    flex-direction: column;
+    padding-block: 12px;
+  }
+
+  .admin-provider-management-card .ant-card-extra,
+  .admin-provider-management-card .ant-card-extra .ant-btn {
     width: 100%;
   }
 }

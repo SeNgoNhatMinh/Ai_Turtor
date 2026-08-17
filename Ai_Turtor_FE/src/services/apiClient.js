@@ -1,5 +1,5 @@
 import { env } from '../config/env';
-import { getUserFacingError, httpClient, httpRequest, addRequestInterceptor, ApiError } from './httpClient';
+import { getUserFacingError, httpClient, httpRequest, ApiError } from './httpClient';
 import { clearAuthToken, getAuthToken } from '../features/auth/services/tokenStorage';
 
 export const API_BASE_URL = env.apiBaseUrl;
@@ -12,14 +12,11 @@ export const API_TIMEOUTS = {
   reindex: 900000,
 };
 
-addRequestInterceptor((config) => {
+function withAuthHeaders(headers = {}) {
   const token = getAuthToken();
-  if (token) {
-    config.init.headers = config.init.headers || {};
-    config.init.headers['Authorization'] = `Bearer ${token}`;
-  }
-  return config;
-});
+  if (!token || headers.Authorization || headers.authorization) return headers;
+  return { ...headers, Authorization: `Bearer ${token}` };
+}
 
 function stripBaseUrl(url) {
   const value = String(url || '');
@@ -71,7 +68,7 @@ export async function request(url, options = {}) {
   try {
     return await httpRequest(stripBaseUrl(url), {
       method,
-      headers,
+      headers: withAuthHeaders(headers),
       body: parsedBody,
       signal,
       responseType,
@@ -85,7 +82,10 @@ export async function request(url, options = {}) {
 
 export async function uploadRequest(url, formData, errorPrefix = "Upload failed", options = {}) {
   try {
-    return await httpClient.upload(stripBaseUrl(url), formData, options);
+    return await httpClient.upload(stripBaseUrl(url), formData, {
+      ...options,
+      headers: withAuthHeaders(options.headers),
+    });
   } catch (error) {
     handleUnauthorized(error);
     error.message = error.message || errorPrefix;
@@ -96,7 +96,10 @@ export async function uploadRequest(url, formData, errorPrefix = "Upload failed"
 export async function blobRequest(url, options = {}) {
   const { skipUnauthorizedRedirect = false, ...requestOptions } = options;
   try {
-    return await httpClient.blob(stripBaseUrl(url), requestOptions);
+    return await httpClient.blob(stripBaseUrl(url), {
+      ...requestOptions,
+      headers: withAuthHeaders(requestOptions.headers),
+    });
   } catch (error) {
     if (!skipUnauthorizedRedirect) handleUnauthorized(error);
     throw error;

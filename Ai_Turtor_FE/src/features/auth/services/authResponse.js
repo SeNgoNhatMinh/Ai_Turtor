@@ -96,6 +96,11 @@ export function getAccountRoleFromJwt(token) {
   return findRole(decodeJwtPayload(token));
 }
 
+export function isJwtExpired(token, nowMs = Date.now()) {
+  const expiresAt = Number(decodeJwtPayload(token)?.exp);
+  return Number.isFinite(expiresAt) && expiresAt * 1000 <= nowMs;
+}
+
 function selectUserRecord(layers) {
   return layers.find((layer) => (
     layer.userId || layer.id || layer._id || layer.email || layer.fullName || layer.name
@@ -121,7 +126,7 @@ export function normalizeLoginResponse(response) {
   const accountRole = tokenRole || responseRole;
   const userRecord = selectUserRecord(layers);
 
-  if (!userRecord || !accountRole) {
+  if (!token || !userRecord || !accountRole) {
     throw new InvalidAuthResponseError({
       hasToken: Boolean(token),
       responseKeys: asObject(response) ? Object.keys(response) : [],

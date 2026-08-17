@@ -1,5 +1,13 @@
 # Frontend Update Log
 
+## 2026-08-16 - Admin LLM Provider Management
+
+- Added the canonical provider configuration list to Admin AI Logs beside the existing runtime statistics.
+- Added model override editing, enable/disable, soft delete, restore and manual runtime-chain reload actions for every Backend provider slot.
+- Kept environment configuration, Admin overrides and effective runtime state visually distinct so the UI does not report a provider as active when env, API key or model configuration prevents it.
+- Added shared mutation locking, compact confirmations and canonical config/stats refetch after every successful action.
+- Added API contract and component coverage for the new provider-management flow.
+
 ## 2026-08-13 - Multi-Path Documentation Website Import
 
 - Extended backend TOC discovery to documentation pages with extensionless paths as well as `.html` and `.htm` pages.
@@ -2718,3 +2726,13 @@ Copy template này lên đầu phần `History` sau mỗi lần cập nhật:
 - Student Chat validates the selected course/class pair after mounting and automatically reconciles stale session state against canonical enrollment data.
 - Added regression coverage for switching from a stale class in another course to the selected course's enrolled class.
 - Confirmed the Railway frontend was still serving the older Dashboard bundle before this fix was deployed.
+
+## 2026-08-16 - Admin LLM Provider Session Safety
+
+- Added the Admin LLM provider configuration UI for listing, editing, enabling, disabling, soft deleting, restoring, and reloading the backend provider chain.
+- Required a bearer token in successful login responses so the app cannot open an authenticated workspace without API credentials.
+- Prevented persisted users from being restored when their JWT is missing or expired.
+- Isolated `401/403` failures from the optional AI logs/provider monitoring module so opening it cannot terminate an otherwise working Admin session.
+- Provider and log authorization failures now stay inside the page with a clear message; normal application APIs still clear genuinely expired sessions.
+- Moved bearer-header attachment from a module-registration side effect into the canonical API request functions so JSON, upload, and download requests consistently carry the latest JWT across hot reloads and lazy chunks.
+- Added contract and component tests for missing/expired tokens and authenticated provider API behavior.

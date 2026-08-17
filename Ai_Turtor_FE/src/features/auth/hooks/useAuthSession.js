@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { clearAuthToken, getAuthToken } from '../services/tokenStorage';
-import { getAccountRoleFromJwt } from '../services/authResponse';
+import { getAccountRoleFromJwt, isJwtExpired } from '../services/authResponse';
 import { normalizeAccountRole } from '../../../constants/roles';
 import { normalizeAppRole } from '../../../utils/formatters';
 import { readJsonStorage, sanitizePersistedUser } from '../../../utils/storage';
@@ -24,9 +24,14 @@ function createMissingRoleError() {
 
 export function useAuthSession() {
   const [currentUser, setCurrentUser] = useState(() => {
+    const token = getAuthToken();
+    if (!token || isJwtExpired(token)) {
+      clearAuthToken();
+      return null;
+    }
     const persisted = sanitizePersistedUser(readJsonStorage(APP_SESSION_USER_KEY, null));
     if (!persisted) return null;
-    const tokenRole = getAccountRoleFromJwt(getAuthToken());
+    const tokenRole = getAccountRoleFromJwt(token);
     if (!tokenRole && persisted.authRoleVerified !== true) return null;
     const accountRole = getUserRole(persisted);
     if (!accountRole) return null;

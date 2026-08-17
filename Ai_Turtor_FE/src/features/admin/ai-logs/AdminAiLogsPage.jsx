@@ -3,6 +3,7 @@ import PageHeader from '../../../components/common/PageHeader';
 import AiLogFilters from './components/AiLogFilters';
 import AiLogMetrics from './components/AiLogMetrics';
 import AiRequestLogsTable from './components/AiRequestLogsTable';
+import LlmProviderManagementTable from './components/LlmProviderManagementTable';
 import ProviderStatusTable from './components/ProviderStatusTable';
 import { useAdminAiLogs } from './hooks/useAdminAiLogs';
 import './AdminAiLogsPage.css';
@@ -26,6 +27,34 @@ export default function AdminAiLogsPage() {
       {controller.error && (
         <Alert className="admin-ai-logs-alert" type="error" showIcon title={controller.error} />
       )}
+      {controller.providerError && (
+        <Alert
+          className="admin-ai-logs-alert"
+          type="error"
+          showIcon
+          closable
+          title={controller.providerError}
+        />
+      )}
+      {controller.providerNotice && (
+        <Alert
+          className="admin-ai-logs-alert"
+          type="success"
+          showIcon
+          closable
+          title={controller.providerNotice}
+        />
+      )}
+      <LlmProviderManagementTable
+        providers={controller.providerConfigs}
+        loading={controller.providerConfigLoading}
+        mutationKey={controller.providerMutationKey}
+        onUpdate={controller.updateProvider}
+        onSetEnabled={controller.setProviderEnabled}
+        onDelete={controller.deleteProvider}
+        onRestore={controller.restoreProvider}
+        onReload={controller.reloadProviderChain}
+      />
       <ProviderStatusTable providers={controller.providerStats} loading={controller.providerLoading} />
       <AiRequestLogsTable logs={controller.logs} loading={controller.loading} />
     </div>
