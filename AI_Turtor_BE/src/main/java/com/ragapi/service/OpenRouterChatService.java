@@ -1,5 +1,6 @@
 package com.ragapi.service;
 
+import com.ragapi.util.StudentFacingMessages;
 import com.ragapi.util.TextSanitizer;
 import com.ragapi.util.VietnameseOutputEnforcer;
 import dev.langchain4j.model.openai.OpenAiChatModel;
@@ -12,7 +13,6 @@ import org.springframework.stereotype.Service;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 
 @Slf4j
@@ -20,61 +20,12 @@ import java.util.Map;
 public class OpenRouterChatService {
 
     private final PrivacySanitizer privacySanitizer;
+    private final LlmProviderAdminService providerAdminService;
 
-    public OpenRouterChatService(PrivacySanitizer privacySanitizer) {
+    public OpenRouterChatService(PrivacySanitizer privacySanitizer, LlmProviderAdminService providerAdminService) {
         this.privacySanitizer = privacySanitizer;
+        this.providerAdminService = providerAdminService;
     }
-
-    @Value("${openrouter.api-key}")
-    private String primaryApiKey;
-
-    @Value("${openrouter.enabled:true}")
-    private boolean primaryEnabled;
-
-    @Value("${openrouter.base-url}")
-    private String primaryBaseUrl;
-
-    @Value("${openrouter.model}")
-    private String primaryModelName;
-
-    @Value("${openrouter.timeout-seconds:60}")
-    private int primaryTimeoutSeconds;
-
-    @Value("${openrouter.max-retries:0}")
-    private int primaryMaxRetries;
-
-    @Value("${llm.groq.enabled:true}")
-    private boolean groqEnabled;
-
-    @Value("${llm.groq.api-key:}")
-    private String groqApiKey;
-
-    @Value("${llm.groq.base-url:https://api.groq.com/openai/v1}")
-    private String groqBaseUrl;
-
-    @Value("${llm.groq.model:openai/gpt-oss-120b}")
-    private String groqModelName;
-
-    @Value("${llm.groq.models:}")
-    private String groqModelNames;
-
-    @Value("${llm.groq.timeout-seconds:60}")
-    private int groqTimeoutSeconds;
-
-    @Value("${llm.nvidia.enabled:true}")
-    private boolean nvidiaEnabled;
-
-    @Value("${llm.nvidia.api-key:}")
-    private String nvidiaApiKey;
-
-    @Value("${llm.nvidia.base-url:https://integrate.api.nvidia.com/v1}")
-    private String nvidiaBaseUrl;
-
-    @Value("${llm.nvidia.models:nvidia/nemotron-3-super-120b-a12b}")
-    private String nvidiaModelNames;
-
-    @Value("${llm.nvidia.timeout-seconds:90}")
-    private int nvidiaTimeoutSeconds;
 
     @Value("${llm.cooldown-seconds:60}")
     private int providerCooldownSeconds;
@@ -82,113 +33,96 @@ public class OpenRouterChatService {
     @Value("${llm.quota-cooldown-seconds:900}")
     private int quotaCooldownSeconds;
 
+    @Value("${llm.quota-soft-cooldown-seconds:120}")
+    private int quotaSoftCooldownSeconds;
+
     @Value("${llm.daily-quota-cooldown-seconds:86400}")
     private int dailyQuotaCooldownSeconds;
 
-    @Value("${openrouter.fallback.enabled:true}")
-    private boolean fallbackEnabled;
+    @Value("${llm.provider-reorder-on-quota:true}")
+    private boolean providerReorderOnQuota;
 
-    @Value("${openrouter.fallback.api-key:}")
-    private String fallbackApiKey;
+    @Value("${llm.skip-diacritics-for-english-questions:true}")
+    private boolean skipDiacriticsForEnglishQuestions;
 
-    @Value("${openrouter.fallback.base-url:https://openrouter.ai/api/v1}")
-    private String fallbackBaseUrl;
-
-    @Value("${openrouter.fallback.model:}")
-    private String fallbackModelName;
-
-    @Value("${openrouter.fallback.timeout-seconds:60}")
-    private int fallbackTimeoutSeconds;
-
-    @Value("${openrouter.fallback.max-retries:0}")
-    private int fallbackMaxRetries;
-
-    @Value("${openrouter.free-router.enabled:true}")
-    private boolean freeRouterEnabled;
-
-    @Value("${openrouter.free-router.model:openrouter/free}")
-    private String freeRouterModelName;
-
-    @Value("${ollama.chat.enabled:false}")
-    private boolean ollamaChatEnabled;
-
-    @Value("${ollama.base-url:http://localhost:11434}")
-    private String ollamaBaseUrl;
-
-    @Value("${ollama.chat.model:}")
-    private String ollamaChatModelName;
-
-    @Value("${ollama.chat.timeout-seconds:120}")
-    private int ollamaChatTimeoutSeconds;
-
-    private LlmProviderChain providerChain;
+    private volatile LlmProviderChain providerChain;
 
     @PostConstruct
     void init() {
-        List<LlmProviderChain.Provider> providers = new ArrayList<>();
-        List<String> configuredGroqModels = parseModels(groqModelNames);
-        if (configuredGroqModels.isEmpty() && hasText(groqModelName)) {
-            configuredGroqModels = List.of(groqModelName.trim());
-        }
-        for (int index = 0; index < configuredGroqModels.size(); index++) {
-            String modelName = configuredGroqModels.get(index);
-            addOpenAiProvider(providers, "groq-" + (index + 1), groqEnabled, groqApiKey, groqBaseUrl,
-                    modelName, groqTimeoutSeconds, 0);
-        }
-        List<String> configuredNvidiaModels = parseModels(nvidiaModelNames);
-        for (int index = 0; index < configuredNvidiaModels.size(); index++) {
-            String modelName = configuredNvidiaModels.get(index);
-            addOpenAiProvider(providers, "nvidia-" + (index + 1), nvidiaEnabled, nvidiaApiKey, nvidiaBaseUrl,
-                    modelName, nvidiaTimeoutSeconds, 0);
-        }
-        addOpenAiProvider(providers, "openrouter-primary", primaryEnabled, primaryApiKey, primaryBaseUrl,
-                primaryModelName, primaryTimeoutSeconds, primaryMaxRetries);
-        String fallbackKey = hasUsableApiKey(fallbackApiKey) ? fallbackApiKey : primaryApiKey;
-        addOpenAiProvider(providers, "openrouter-fallback", fallbackEnabled, fallbackKey, fallbackBaseUrl,
-                fallbackModelName, fallbackTimeoutSeconds, fallbackMaxRetries);
-        addOpenAiProvider(providers, "openrouter-free-router", freeRouterEnabled, primaryApiKey, primaryBaseUrl,
-                freeRouterModelName, primaryTimeoutSeconds, primaryMaxRetries);
+        reloadProviderChain(true);
+    }
 
-        if (ollamaChatEnabled && hasText(ollamaChatModelName)) {
-            OllamaChatModel ollama = OllamaChatModel.builder()
-                    .baseUrl(ollamaBaseUrl)
-                    .modelName(ollamaChatModelName)
-                    .timeout(Duration.ofSeconds(ollamaChatTimeoutSeconds))
-                    .build();
-            providers.add(new LlmProviderChain.Provider("ollama", ollamaChatModelName, ollama::generate));
-        }
+    public synchronized void reloadProviderChain() {
+        reloadProviderChain(false);
+    }
+
+    private synchronized void reloadProviderChain(boolean failIfEmpty) {
+        List<LlmProviderChain.Provider> providers = buildProviders(providerAdminService.activeRuntimeSlots());
         if (providers.isEmpty()) {
-            throw new IllegalStateException("No LLM provider is configured. Set at least one provider API key or enable Ollama chat");
+            if (failIfEmpty) {
+                throw new IllegalStateException("No LLM provider is configured. Set at least one provider API key or enable Ollama chat");
+            }
+            providerChain = null;
+            log.warn("LLM provider chain reloaded with zero active providers");
+            return;
         }
         providerChain = new LlmProviderChain(providers,
                 Duration.ofSeconds(Math.max(0, providerCooldownSeconds)),
+                Duration.ofSeconds(Math.max(0, quotaSoftCooldownSeconds)),
                 Duration.ofSeconds(Math.max(0, quotaCooldownSeconds)),
                 Duration.ofSeconds(Math.max(0, dailyQuotaCooldownSeconds)),
+                providerReorderOnQuota,
                 java.time.Clock.systemUTC());
-        log.info("LLM provider chain initialized: {}", providers.stream()
+        log.info("LLM provider chain reloaded: {}", providers.stream()
                 .map(provider -> provider.name() + "/" + provider.model()).toList());
     }
 
-    public String generate(String prompt) throws Exception {
+    public String generate(String prompt) {
+        return generate(prompt, null);
+    }
+
+    public String generate(String prompt, String studentQuestion) {
         String wrapped = VietnameseOutputEnforcer.wrapPrompt(prompt);
-        String answer = TextSanitizer.cleanForStudentAnswer(generateInternal(wrapped));
-        return enforceVietnameseDiacritics(answer);
+        try {
+            String answer = TextSanitizer.cleanForStudentAnswer(generateInternal(wrapped));
+            answer = enforceVietnameseDiacritics(answer, studentQuestion);
+            if (StudentFacingMessages.isUnavailableMessage(answer)) {
+                return answer;
+            }
+            return answer == null || answer.isBlank()
+                    ? StudentFacingMessages.GENERATION_UNAVAILABLE
+                    : answer;
+        } catch (Exception error) {
+            log.error("Student-facing generation failed after provider chain: {}", summarize(error));
+            return StudentFacingMessages.GENERATION_UNAVAILABLE;
+        }
     }
 
     /**
      * Executes internal utility prompts (for example retrieval-query translation)
      * without forcing a Vietnamese student-facing answer format.
      */
-    public String generateUtility(String prompt) throws Exception {
-        String answer = generateInternal(prompt);
-        return answer == null ? null : answer.trim();
+    public String generateUtility(String prompt) {
+        try {
+            String answer = generateInternal(prompt);
+            return answer == null ? null : answer.trim();
+        } catch (Exception error) {
+            log.warn("Utility generation failed: {}", summarize(error));
+            return null;
+        }
     }
 
     public List<Map<String, Object>> providerStats() {
-        return providerChain.snapshot();
+        LlmProviderChain chain = providerChain;
+        return chain == null ? List.of() : chain.snapshot();
     }
 
-    private String enforceVietnameseDiacritics(String answer) throws Exception {
+    private String enforceVietnameseDiacritics(String answer, String studentQuestion) {
+        if (skipDiacriticsForEnglishQuestions
+                && studentQuestion != null
+                && VietnameseOutputEnforcer.isEnglishPrimary(studentQuestion)) {
+            return answer;
+        }
         if (answer == null || answer.isBlank() || !VietnameseOutputEnforcer.needsDiacriticsCorrection(answer)) {
             return answer;
         }
@@ -213,8 +147,12 @@ public class OpenRouterChatService {
 
     private String generateInternal(String prompt) throws Exception {
         String safePrompt = privacySanitizer.sanitize(prompt);
+        LlmProviderChain chain = providerChain;
+        if (chain == null) {
+            throw new IllegalStateException("LLM provider chain is not initialized");
+        }
         try {
-            LlmProviderChain.Result result = providerChain.generate(safePrompt);
+            LlmProviderChain.Result result = chain.generate(safePrompt);
             log.info("LLM generation succeeded: provider={}, model={}", result.provider(), result.model());
             return result.text();
         } catch (Exception error) {
@@ -223,45 +161,31 @@ public class OpenRouterChatService {
         }
     }
 
-    private void addOpenAiProvider(List<LlmProviderChain.Provider> providers, String name, boolean enabled,
-                                   String apiKey, String baseUrl, String modelName, int timeoutSeconds, int maxRetries) {
-        if (!enabled || !hasUsableApiKey(apiKey) || !hasText(baseUrl) || !hasText(modelName)) {
-            return;
+    private List<LlmProviderChain.Provider> buildProviders(List<LlmRuntimeSlot> slots) {
+        List<LlmProviderChain.Provider> providers = new ArrayList<>();
+        for (LlmRuntimeSlot slot : slots) {
+            if (slot.kind() == LlmRuntimeSlot.LlmRuntimeSlotKind.OLLAMA) {
+                OllamaChatModel ollama = OllamaChatModel.builder()
+                        .baseUrl(slot.baseUrl())
+                        .modelName(slot.model())
+                        .timeout(Duration.ofSeconds(slot.timeoutSeconds()))
+                        .build();
+                providers.add(new LlmProviderChain.Provider(slot.providerId(), slot.model(), ollama::generate));
+                continue;
+            }
+            OpenAiChatModel model = OpenAiChatModel.builder()
+                    .apiKey(slot.apiKey())
+                    .baseUrl(slot.baseUrl())
+                    .modelName(slot.model())
+                    .timeout(Duration.ofSeconds(slot.timeoutSeconds()))
+                    .maxRetries(slot.maxRetries())
+                    .build();
+            providers.add(new LlmProviderChain.Provider(slot.providerId(), slot.model(), model::generate));
         }
-        OpenAiChatModel model = buildModel(apiKey, baseUrl, modelName, timeoutSeconds, maxRetries);
-        providers.add(new LlmProviderChain.Provider(name, modelName, model::generate));
-    }
-
-    private OpenAiChatModel buildModel(String apiKey, String baseUrl, String modelName, int timeoutSeconds, int maxRetries) {
-        return OpenAiChatModel.builder()
-                .apiKey(apiKey)
-                .baseUrl(baseUrl)
-                .modelName(modelName)
-                .timeout(Duration.ofSeconds(timeoutSeconds))
-                .maxRetries(maxRetries)
-                .build();
+        return providers;
     }
 
     private String summarize(Exception error) {
         return error == null ? "unknown" : LlmProviderChain.summarize(error);
-    }
-
-    private boolean hasText(String value) {
-        return value != null && !value.isBlank();
-    }
-
-    private boolean hasUsableApiKey(String value) {
-        return hasText(value) && !value.toLowerCase(Locale.ROOT).startsWith("missing-");
-    }
-
-    private List<String> parseModels(String value) {
-        if (!hasText(value)) {
-            return List.of();
-        }
-        return java.util.Arrays.stream(value.split(","))
-                .map(String::trim)
-                .filter(this::hasText)
-                .distinct()
-                .toList();
     }
 }

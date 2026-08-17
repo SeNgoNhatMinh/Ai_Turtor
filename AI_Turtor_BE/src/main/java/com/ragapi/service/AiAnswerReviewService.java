@@ -50,6 +50,7 @@ public class AiAnswerReviewService {
     private final AiAnswerReviewRepository reviewRepository;
     private final KnowledgeCandidateRepository knowledgeCandidateRepository;
     private final RealtimeEventService realtimeEvents;
+    private final TutorAnswerCacheSeniorService tutorAnswerCacheSeniorService;
 
     @Value("${app.answer-review.moderate-student-threshold:1}")
     private int moderateStudentThreshold = 1;
@@ -199,6 +200,14 @@ public class AiAnswerReviewService {
                 representative = saved;
             }
         }
+        tutorAnswerCacheSeniorService.applySeniorReviewResolution(
+                representative,
+                request.getDecision(),
+                request.getCorrectedAnswer(),
+                request.getNotes(),
+                request.getSeniorReviewerId(),
+                request.getSeniorReviewerName()
+        );
         return representative;
     }
 

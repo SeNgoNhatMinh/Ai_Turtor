@@ -5,6 +5,7 @@ import com.ragapi.dto.CodeMentorResponse;
 import com.ragapi.dto.UpdateStudentCourseMemoryRequest;
 import com.ragapi.entity.StudentCourseMemory;
 import com.ragapi.util.TechnicalIntentDetector;
+import com.ragapi.util.StudentFacingMessages;
 import com.ragapi.util.TextSanitizer;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -13,6 +14,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 
 import static com.ragapi.util.ValidationUtils.DEFAULT_TEXT_MAX_LENGTH;
 import static com.ragapi.util.ValidationUtils.SHORT_TEXT_MAX_LENGTH;
@@ -26,15 +28,18 @@ public class CodeMentorService {
     private final OpenRouterChatService chatService;
     private final StudentCourseMemoryService memoryService;
     private final AiConversationService conversationService;
+    private final CanonicalTutorAnswerCacheService answerCacheService;
 
     public CodeMentorService(
             OpenRouterChatService chatService,
             StudentCourseMemoryService memoryService,
-            AiConversationService conversationService
+            AiConversationService conversationService,
+            CanonicalTutorAnswerCacheService answerCacheService
     ) {
         this.chatService = chatService;
         this.memoryService = memoryService;
         this.conversationService = conversationService;
+        this.answerCacheService = answerCacheService;
     }
 
     public CodeMentorResponse mentor(CodeMentorRequest request) {
@@ -56,16 +61,29 @@ public class CodeMentorService {
         List<String> weakTopics = detectWeakTopics(request);
         String prompt = buildPrompt(request, assignmentSafetyApplied, weakTopics);
 
+        Optional<String> cachedAnswer = answerCacheService.lookupCodeAnswer(
+                request.getCourseId(),
+                request.getClassId(),
+                request.getQuestion(),
+                request.getCode()
+        );
         String answer;
-        try {
+        if (cachedAnswer.isPresent()) {
+            answer = cachedAnswer.get();
+        } else {
             answer = chatService.generate(prompt);
             answer = cleanGeneratedAnswer(answer, request);
-            if (answer == null || answer.isBlank()) {
-                answer = "AI Code Mentor chưa tạo được câu trả lời. Hãy thử lại với thông tin lỗi cụ thể hơn.";
+            if (answer == null || answer.isBlank() || StudentFacingMessages.isUnavailableMessage(answer)) {
+                answer = StudentFacingMessages.CODE_MENTOR_BUSY;
+            } else if (hasText(request.getCourseId())) {
+                answerCacheService.storeCodeAnswer(
+                        request.getCourseId(),
+                        request.getClassId(),
+                        request.getQuestion(),
+                        request.getCode(),
+                        answer
+                );
             }
-        } catch (Exception ex) {
-            log.error("Code mentor LLM call failed", ex);
-            answer = "Lỗi máy chủ: Code Mentor chưa thể phân tích lúc này. Vui lòng thử lại sau.";
         }
 
         answer = TextSanitizer.cleanForStudentAnswer(answer);

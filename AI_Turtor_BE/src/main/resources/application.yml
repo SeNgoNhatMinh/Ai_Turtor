@@ -88,7 +88,10 @@ llm:
   # repeatedly hit an exhausted quota. Authentication/request errors never fallback.
   cooldown-seconds: ${LLM_PROVIDER_COOLDOWN_SECONDS:60}
   quota-cooldown-seconds: ${LLM_QUOTA_COOLDOWN_SECONDS:900}
+  quota-soft-cooldown-seconds: ${LLM_QUOTA_SOFT_COOLDOWN_SECONDS:120}
   daily-quota-cooldown-seconds: ${LLM_DAILY_QUOTA_COOLDOWN_SECONDS:86400}
+  provider-reorder-on-quota: ${LLM_PROVIDER_REORDER_ON_QUOTA:true}
+  skip-diacritics-for-english-questions: ${LLM_SKIP_DIACRITICS_FOR_ENGLISH_QUESTIONS:true}
   groq:
     enabled: ${GROQ_ENABLED:true}
     api-key: ${GROQ_API_KEY:}
@@ -138,6 +141,10 @@ app:
   timezone: ${APP_TIMEZONE:Asia/Bangkok}
   student-question-quota:
     daily-limit: ${STUDENT_DAILY_QUESTION_LIMIT:10}
+  student-question-normalization:
+    enabled: ${STUDENT_QUESTION_NORMALIZATION_ENABLED:true}
+    llm-enabled: ${STUDENT_QUESTION_NORMALIZATION_LLM_ENABLED:true}
+    max-length: ${STUDENT_QUESTION_NORMALIZATION_MAX_LENGTH:500}
   answer-review:
     # Số học sinh khác nhau (cùng câu trả lời AI) trước khi đưa vào hàng mentor/senior.
     moderate-student-threshold: ${ANSWER_REVIEW_MODERATE_THRESHOLD:1}
@@ -145,6 +152,14 @@ app:
     moderate-rating-min: 2
     moderate-rating-max: 3
     severe-rating-max: 1
+  tutor-answer-cache:
+    enabled: ${TUTOR_ANSWER_CACHE_ENABLED:true}
+    ttl-hours: ${TUTOR_ANSWER_CACHE_TTL_HOURS:168}
+    semantic-enabled: ${TUTOR_ANSWER_CACHE_SEMANTIC_ENABLED:true}
+    semantic-min-similarity: ${TUTOR_ANSWER_CACHE_SEMANTIC_MIN_SIMILARITY:0.90}
+    semantic-min-keyword-overlap: ${TUTOR_ANSWER_CACHE_SEMANTIC_MIN_KEYWORD_OVERLAP:0.45}
+    semantic-min-source-overlap: ${TUTOR_ANSWER_CACHE_SEMANTIC_MIN_SOURCE_OVERLAP:0.20}
+    semantic-max-candidates: ${TUTOR_ANSWER_CACHE_SEMANTIC_MAX_CANDIDATES:100}
 
 admin:
   account:
@@ -154,6 +169,8 @@ admin:
 
 
 rag:
+  preview:
+    cache-dir: ${RAG_PREVIEW_CACHE_DIR:/app/data/pdf-preview-cache}
   visual:
     enabled: ${RAG_VISUAL_ENABLED:false}
     provider: ${RAG_VISUAL_PROVIDER:openrouter}
@@ -186,6 +203,11 @@ rag:
   retrieval:
     top-k: 20
     num-candidates: 80
+    query-translation:
+      enabled: ${RAG_QUERY_TRANSLATION_ENABLED:true}
+      target-language: English
+  generation:
+    max-context-chars: ${RAG_GENERATION_MAX_CONTEXT_CHARS:12000}
   rerank:
     enabled: true
     api-key: ${OPENROUTER_RERANK_API_KEY:${OPENROUTER_API_KEY:missing-openrouter-api-key}}

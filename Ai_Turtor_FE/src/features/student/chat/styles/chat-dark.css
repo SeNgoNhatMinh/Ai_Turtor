@@ -183,6 +183,17 @@
   color: #ececec !important;
 }
 
+.app-container.dark .chat-keyword-tip {
+  border-color: rgba(243, 112, 33, 0.35);
+  background: rgba(243, 112, 33, 0.12);
+  color: #ffd7b0;
+}
+
+.app-container.dark .chat-keyword-tip strong,
+.app-container.dark .chat-composer-keyword-tip {
+  color: #ffb077;
+}
+
 .app-container.dark .prompt-starter-card,
 .app-container.dark .answer-action-bar button,
 .app-container.dark .answer-evidence-pill,

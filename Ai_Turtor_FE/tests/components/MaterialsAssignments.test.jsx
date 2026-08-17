@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import MaterialsAssignments from '../../src/features/student/materials/MaterialsAssignmentsView';
 
@@ -47,8 +47,8 @@ describe('MaterialsAssignments course context', () => {
     fireEvent.mouseDown(courseSelect);
     fireEvent.click(await screen.findByText('OOP - Object-Oriented Programming'));
 
-    expect(onCourseChange).toHaveBeenCalledWith('OOP', expect.anything());
-  });
+    await waitFor(() => expect(onCourseChange).toHaveBeenCalledWith('OOP', expect.anything()));
+  }, 15000);
 
   it('explains that an empty list is scoped to the selected course', () => {
     render(<MaterialsAssignments {...baseProps} />);

@@ -160,6 +160,7 @@ function AnswerEvidence({ message, sourceMap = {}, onDownloadSource }) {
                     <AuthenticatedEvidenceImage
                       key={`${visual.imageUrl || visual.pageNumber}-${visualIndex}`}
                       evidence={visual}
+                      enabled={index === 0 && visualIndex === 0}
                     />
                   ))}
                 </div>

@@ -101,6 +101,7 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/material-downloads/*").permitAll()
                         .requestMatchers(
                                 "/api/users/login",
                                 "/api/users/register",
@@ -116,6 +117,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v2/expert-training/chapters/**").hasAnyRole("TEACHER", "SENIOR_MENTOR", "ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/v2/expert-training/gold-qa/*/approve", "/api/v2/expert-training/gold-qa/*/reject", "/api/v2/expert-training/rubrics/*/approve", "/api/v2/expert-training/rubrics/*/reject").hasAnyRole("SENIOR_MENTOR", "ADMIN")
                         .requestMatchers("/api/v2/expert-training/**").hasAnyRole("TEACHER", "SENIOR_MENTOR", "ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/tutor/answer-reviews/*/senior-resolve").hasAnyRole("SENIOR_MENTOR", "ADMIN")
+                        .requestMatchers("/api/tutor/answer-cache/**").hasAnyRole("SENIOR_MENTOR", "ADMIN")
                         .requestMatchers("/api/admin/**", "/api/academic/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/mentors/import/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/mentors/import/**").hasAnyRole("ADMIN", "TEACHER", "SENIOR_MENTOR")
@@ -125,6 +128,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/tutor/escalations/*/answer").hasAnyRole("TEACHER", "SENIOR_MENTOR", "ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/tutor/escalations/*/knowledge-candidate").hasAnyRole("TEACHER", "SENIOR_MENTOR", "ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/harness/**").hasRole("ADMIN")
+                        .requestMatchers("/api/health/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/courses/*/materials/upload", "/api/courses/*/materials/import-url", "/api/courses/*/materials/reindex", "/api/courses/*/materials/*/reindex").hasAnyRole("TEACHER", "SENIOR_MENTOR", "ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/courses/*/materials/**").hasAnyRole("TEACHER", "SENIOR_MENTOR", "ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/courses/*/materials/**").hasAnyRole("TEACHER", "SENIOR_MENTOR", "ADMIN")

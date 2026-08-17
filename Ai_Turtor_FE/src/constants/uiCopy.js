@@ -26,6 +26,8 @@ export const uiCopy = {
       newConversationTitle: 'Đã tạo cuộc trò chuyện mới',
       rolloverMessage: 'Cuộc trò chuyện đã đủ 10 câu hỏi. AI Tutor đã tự động tạo cuộc trò chuyện mới.',
       previousConversation: 'Quay lại cuộc trò chuyện trước',
+      keywordTipTitle: 'Mẹo đặt câu hỏi hiệu quả',
+      keywordTip: 'Hãy dùng đúng từ khóa học thuật của môn (ví dụ: servlet, inheritance, JSP lifecycle, SQL join). AI Tutor tìm tài liệu theo keyword — càng cụ thể thì câu trả lời càng chính xác.',
     },
     codeReview: {
       title: 'Kiểm tra mã nguồn',

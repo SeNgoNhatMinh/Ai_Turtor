@@ -49,14 +49,14 @@ export function useStudentLearningController({
 
     setIsStudentDashboardLoading(true);
     try {
-      const data = await studentLearningApi.getStudentDashboard(studentId, courseId);
+      const [data, memorySnapshot] = await Promise.all([
+        studentLearningApi.getStudentDashboard(studentId, courseId),
+        studentLearningApi.getStudentMemory(studentId, courseId).catch((memoryError) => {
+          console.warn('Student memory lookup failed while loading dashboard:', memoryError);
+          return null;
+        }),
+      ]);
       const normalized = normalizeStudentDashboard(data);
-      let memorySnapshot = null;
-      try {
-        memorySnapshot = await studentLearningApi.getStudentMemory(studentId, courseId);
-      } catch (memoryError) {
-        console.warn('Student memory lookup failed while loading dashboard:', memoryError);
-      }
       const mergedPinnedSuggestions = [
         ...(normalized.pinnedImproveSuggestions || []),
         ...(memorySnapshot?.pinnedImproveSuggestions || []),

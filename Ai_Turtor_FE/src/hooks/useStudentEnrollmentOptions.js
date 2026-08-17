@@ -98,7 +98,7 @@ export function useStudentEnrollmentOptions({
         try {
           const data = await adminAcademicApi.getStudentEnrollments(candidateId, {
             signal: controller.signal,
-            force: true,
+            force: !enrollmentCache.has(cacheKey),
           });
           items = expandEnrollmentItems(data);
           if (items.length > 0) {
@@ -211,8 +211,12 @@ export function useStudentEnrollmentOptions({
   }, [setClassId, setCourseId, studentEnrollments]);
 
   const ensureEnrollmentContext = useCallback(async (preferredCourseId = '') => {
+    if (hasLoadedStudentEnrollments && studentEnrollments.length === 0) {
+      return null;
+    }
+
     let items = studentEnrollments;
-    if (!hasLoadedStudentEnrollments || items.length === 0) {
+    if (!hasLoadedStudentEnrollments) {
       const loaded = await loadStudentEnrollments();
       items = loaded?.items || items;
     }
@@ -243,7 +247,9 @@ export function useStudentEnrollmentOptions({
     resolvedStudentId,
     isStudentEnrollmentsLoading,
     hasLoadedStudentEnrollments,
-    hasStudentEnrollments: courseOptions.length > 0 && classOptions.length > 0,
+    hasStudentEnrollments: studentEnrollments.some(
+      (item) => getEnrollmentCourseId(item) && getEnrollmentClassId(item),
+    ),
     loadStudentEnrollments,
     selectCourse,
     ensureEnrollmentContext,

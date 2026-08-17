@@ -7,7 +7,7 @@
       "type":"n8n-nodes-base.webhook","typeVersion":2.1,"position":[-900,-500],"id":"10000000-0000-4000-8000-000000000001","name":"V2 Coverage Webhook","webhookId":"20000000-0000-4000-8000-000000000001"
     },
     {
-      "parameters":{"method":"POST","url":"={{$env.AI_TUTOR_API_BASE_URL}}/api/v2/expert-training/coverage/analyze","sendHeaders":true,"headerParameters":{"parameters":[{"name":"Authorization","value":"={{ $node[\"V2 Coverage Webhook\"].json.headers.authorization }}"},{"name":"Content-Type","value":"application/json; charset=utf-8"}]},"sendBody":true,"specifyBody":"json","jsonBody":"={{ $node[\"V2 Coverage Webhook\"].json.body }}","options":{}},
+      "parameters":{"method":"POST","url":"=http://ai-tutor-api:8085/api/v2/expert-training/coverage/analyze","sendHeaders":true,"headerParameters":{"parameters":[{"name":"Authorization","value":"={{ $node[\"V2 Coverage Webhook\"].json.headers.authorization }}"},{"name":"Content-Type","value":"application/json; charset=utf-8"}]},"sendBody":true,"specifyBody":"json","jsonBody":"={{ $node[\"V2 Coverage Webhook\"].json.body }}","options":{}},
       "type":"n8n-nodes-base.httpRequest","typeVersion":4.4,"position":[-620,-500],"id":"10000000-0000-4000-8000-000000000002","name":"Analyze Coverage","onError":"continueRegularOutput"
     },
     {
@@ -19,7 +19,7 @@
       "type":"n8n-nodes-base.webhook","typeVersion":2.1,"position":[-900,-260],"id":"10000000-0000-4000-8000-000000000004","name":"V2 GoldQA Webhook","webhookId":"20000000-0000-4000-8000-000000000002"
     },
     {
-      "parameters":{"method":"POST","url":"={{$env.AI_TUTOR_API_BASE_URL}}/api/v2/expert-training/gold-qa","sendHeaders":true,"headerParameters":{"parameters":[{"name":"Authorization","value":"={{ $node[\"V2 GoldQA Webhook\"].json.headers.authorization }}"},{"name":"Content-Type","value":"application/json; charset=utf-8"}]},"sendBody":true,"specifyBody":"json","jsonBody":"={{ $node[\"V2 GoldQA Webhook\"].json.body }}","options":{}},
+      "parameters":{"method":"POST","url":"=http://ai-tutor-api:8085/api/v2/expert-training/gold-qa","sendHeaders":true,"headerParameters":{"parameters":[{"name":"Authorization","value":"={{ $node[\"V2 GoldQA Webhook\"].json.headers.authorization }}"},{"name":"Content-Type","value":"application/json; charset=utf-8"}]},"sendBody":true,"specifyBody":"json","jsonBody":"={{ $node[\"V2 GoldQA Webhook\"].json.body }}","options":{}},
       "type":"n8n-nodes-base.httpRequest","typeVersion":4.4,"position":[-620,-260],"id":"10000000-0000-4000-8000-000000000005","name":"Submit GoldQA","onError":"continueRegularOutput"
     },
     {
@@ -31,7 +31,7 @@
       "type":"n8n-nodes-base.webhook","typeVersion":2.1,"position":[-900,-20],"id":"10000000-0000-4000-8000-000000000007","name":"V2 Rubric Webhook","webhookId":"20000000-0000-4000-8000-000000000003"
     },
     {
-      "parameters":{"method":"POST","url":"={{$env.AI_TUTOR_API_BASE_URL}}/api/v2/expert-training/rubrics","sendHeaders":true,"headerParameters":{"parameters":[{"name":"Authorization","value":"={{ $node[\"V2 Rubric Webhook\"].json.headers.authorization }}"},{"name":"Content-Type","value":"application/json; charset=utf-8"}]},"sendBody":true,"specifyBody":"json","jsonBody":"={{ $node[\"V2 Rubric Webhook\"].json.body }}","options":{}},
+      "parameters":{"method":"POST","url":"=http://ai-tutor-api:8085/api/v2/expert-training/rubrics","sendHeaders":true,"headerParameters":{"parameters":[{"name":"Authorization","value":"={{ $node[\"V2 Rubric Webhook\"].json.headers.authorization }}"},{"name":"Content-Type","value":"application/json; charset=utf-8"}]},"sendBody":true,"specifyBody":"json","jsonBody":"={{ $node[\"V2 Rubric Webhook\"].json.body }}","options":{}},
       "type":"n8n-nodes-base.httpRequest","typeVersion":4.4,"position":[-620,-20],"id":"10000000-0000-4000-8000-000000000008","name":"Submit Rubric","onError":"continueRegularOutput"
     },
     {
@@ -43,7 +43,7 @@
       "type":"n8n-nodes-base.webhook","typeVersion":2.1,"position":[100,-500],"id":"10000000-0000-4000-8000-000000000010","name":"V2 GoldQA Approval Webhook","webhookId":"20000000-0000-4000-8000-000000000004"
     },
     {
-      "parameters":{"method":"POST","url":"={{$env.AI_TUTOR_API_BASE_URL}}/api/v2/expert-training/gold-qa/{{$node[\"V2 GoldQA Approval Webhook\"].json.body.goldQaId}}/approve","sendHeaders":true,"headerParameters":{"parameters":[{"name":"Authorization","value":"={{ $node[\"V2 GoldQA Approval Webhook\"].json.headers.authorization }}"},{"name":"Content-Type","value":"application/json; charset=utf-8"}]},"sendBody":true,"specifyBody":"json","jsonBody":"={{ $node[\"V2 GoldQA Approval Webhook\"].json.body }}","options":{}},
+      "parameters":{"method":"POST","url":"=http://ai-tutor-api:8085/api/v2/expert-training/gold-qa/{{$node[\"V2 GoldQA Approval Webhook\"].json.body.goldQaId}}/approve","sendHeaders":true,"headerParameters":{"parameters":[{"name":"Authorization","value":"={{ $node[\"V2 GoldQA Approval Webhook\"].json.headers.authorization }}"},{"name":"Content-Type","value":"application/json; charset=utf-8"}]},"sendBody":true,"specifyBody":"json","jsonBody":"={{ $node[\"V2 GoldQA Approval Webhook\"].json.body }}","options":{}},
       "type":"n8n-nodes-base.httpRequest","typeVersion":4.4,"position":[380,-500],"id":"10000000-0000-4000-8000-000000000011","name":"Approve GoldQA","onError":"continueRegularOutput"
     },
     {
@@ -55,7 +55,7 @@
       "type":"n8n-nodes-base.webhook","typeVersion":2.1,"position":[100,-260],"id":"10000000-0000-4000-8000-000000000013","name":"V2 Rubric Approval Webhook","webhookId":"20000000-0000-4000-8000-000000000005"
     },
     {
-      "parameters":{"method":"POST","url":"={{$env.AI_TUTOR_API_BASE_URL}}/api/v2/expert-training/rubrics/{{$node[\"V2 Rubric Approval Webhook\"].json.body.rubricId}}/approve","sendHeaders":true,"headerParameters":{"parameters":[{"name":"Authorization","value":"={{ $node[\"V2 Rubric Approval Webhook\"].json.headers.authorization }}"},{"name":"Content-Type","value":"application/json; charset=utf-8"}]},"sendBody":true,"specifyBody":"json","jsonBody":"={{ $node[\"V2 Rubric Approval Webhook\"].json.body }}","options":{}},
+      "parameters":{"method":"POST","url":"=http://ai-tutor-api:8085/api/v2/expert-training/rubrics/{{$node[\"V2 Rubric Approval Webhook\"].json.body.rubricId}}/approve","sendHeaders":true,"headerParameters":{"parameters":[{"name":"Authorization","value":"={{ $node[\"V2 Rubric Approval Webhook\"].json.headers.authorization }}"},{"name":"Content-Type","value":"application/json; charset=utf-8"}]},"sendBody":true,"specifyBody":"json","jsonBody":"={{ $node[\"V2 Rubric Approval Webhook\"].json.body }}","options":{}},
       "type":"n8n-nodes-base.httpRequest","typeVersion":4.4,"position":[380,-260],"id":"10000000-0000-4000-8000-000000000014","name":"Approve Rubric","onError":"continueRegularOutput"
     },
     {
@@ -67,7 +67,7 @@
       "type":"n8n-nodes-base.webhook","typeVersion":2.1,"position":[100,-20],"id":"10000000-0000-4000-8000-000000000016","name":"V2 Eval Webhook","webhookId":"20000000-0000-4000-8000-000000000006"
     },
     {
-      "parameters":{"method":"POST","url":"={{$env.AI_TUTOR_API_BASE_URL}}/api/v2/expert-training/eval-runs","sendHeaders":true,"headerParameters":{"parameters":[{"name":"Authorization","value":"={{ $node[\"V2 Eval Webhook\"].json.headers.authorization }}"},{"name":"Content-Type","value":"application/json; charset=utf-8"}]},"sendBody":true,"specifyBody":"json","jsonBody":"={{ $node[\"V2 Eval Webhook\"].json.body }}","options":{"timeout":300000}},
+      "parameters":{"method":"POST","url":"=http://ai-tutor-api:8085/api/v2/expert-training/eval-runs","sendHeaders":true,"headerParameters":{"parameters":[{"name":"Authorization","value":"={{ $node[\"V2 Eval Webhook\"].json.headers.authorization }}"},{"name":"Content-Type","value":"application/json; charset=utf-8"}]},"sendBody":true,"specifyBody":"json","jsonBody":"={{ $node[\"V2 Eval Webhook\"].json.body }}","options":{"timeout":300000}},
       "type":"n8n-nodes-base.httpRequest","typeVersion":4.4,"position":[380,-20],"id":"10000000-0000-4000-8000-000000000017","name":"Run Golden Evaluation","onError":"continueRegularOutput"
     },
     {

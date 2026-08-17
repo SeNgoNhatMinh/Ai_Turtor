@@ -47,4 +47,22 @@ class IntentClassifierServiceTest {
         assertEquals(IntentClassifierService.MODE_CODE, result.getMode());
         assertEquals("DEBUG_CODE", result.getSubIntent());
     }
+
+    @Test
+    void classScheduleQuestion_isMarkedOffTopic() {
+        var result = service.classify("mai mấy giờ học", "", "CEA201");
+
+        assertEquals(IntentClassifierService.MODE_RAG, result.getMode());
+        assertEquals("OFF_TOPIC", result.getSubIntent());
+        assertFalse(result.getRequiresCourseMaterial());
+    }
+
+    @Test
+    void greeting_isMarkedConversational() {
+        var result = service.classify("xin chào", "", "CEA201");
+
+        assertEquals(IntentClassifierService.MODE_RAG, result.getMode());
+        assertEquals("CONVERSATIONAL", result.getSubIntent());
+        assertFalse(result.getRequiresCourseMaterial());
+    }
 }

@@ -150,6 +150,13 @@ Action-level QA cases for the visible UI are maintained in `docs/FE_BUTTON_ACTIO
 - `DELETE /api/admin/llm-providers/{providerId}` - `UI done`; soft delete có confirm
 - `POST /api/admin/llm-providers/{providerId}/restore` - `UI done`; khôi phục có confirm
 - `POST /api/admin/llm-providers/reload` - `UI done`; reload runtime chain có confirm và refetch stats
+- `GET /api/tutor/answer-cache` - `UI done`; Senior `/senior/answer-cache` và Admin `/admin/answer-cache`, lọc theo course/mode/status
+- `GET /api/tutor/answer-cache/stats` - `UI done`; thống kê theo `reviewStatus`
+- `GET /api/tutor/answer-cache/{cacheId}` - `service only`; chi tiết hiển thị inline trong modal FE
+- `POST /api/tutor/answer-cache/{cacheId}/approve` - `UI done`; duyệt cache có confirm
+- `PATCH /api/tutor/answer-cache/{cacheId}` - `UI done`; sửa `correctedAnswer` + ghi chú Senior
+- `POST /api/tutor/answer-cache/{cacheId}/disable` - `UI done`; tắt cache có confirm
+- `DELETE /api/tutor/answer-cache/{cacheId}` - `UI done`; xóa entry có confirm danger
 - Admin exposes `/admin/review-queue` for serious Answer Reviews and Knowledge Candidate approval using the same canonical review services and role guards as Senior Mentor.
 
 ## 6. Tutor V2 Expert Co-Training

@@ -136,6 +136,36 @@ class LlmProviderChainTest {
         }
     }
 
+    @Test
+    void movesQuotaExhaustedProviderToEndForSubsequentRequests() throws Exception {
+        AtomicInteger groqCalls = new AtomicInteger();
+        AtomicInteger nvidiaCalls = new AtomicInteger();
+        LlmProviderChain chain = new LlmProviderChain(
+                List.of(
+                        provider("groq", prompt -> {
+                            groqCalls.incrementAndGet();
+                            throw new RuntimeException("HTTP 429 rate limit exceeded");
+                        }),
+                        provider("nvidia", prompt -> {
+                            nvidiaCalls.incrementAndGet();
+                            return "nvidia-answer";
+                        })
+                ),
+                Duration.ofSeconds(60),
+                Duration.ofSeconds(30),
+                Duration.ofMinutes(15),
+                Duration.ofHours(24),
+                true,
+                FIXED_CLOCK
+        );
+
+        assertEquals("nvidia", chain.generate("q1").provider());
+        assertEquals("nvidia", chain.generate("q2").provider());
+        assertEquals(1, groqCalls.get());
+        assertEquals(2, nvidiaCalls.get());
+        assertTrue(chain.isCoolingDown("groq"));
+    }
+
     private LlmProviderChain chain(LlmProviderChain.Provider... providers) {
         return new LlmProviderChain(List.of(providers), Duration.ofSeconds(60), FIXED_CLOCK);
     }

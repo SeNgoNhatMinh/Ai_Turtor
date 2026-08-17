@@ -8,6 +8,7 @@ export const API_TIMEOUTS = {
   ai: 180000,
   quizGeneration: 240000,
   upload: 180000,
+  download: 300000,
   websiteImport: 900000,
   reindex: 900000,
 };

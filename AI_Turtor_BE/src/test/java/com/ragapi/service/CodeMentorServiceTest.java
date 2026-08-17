@@ -26,9 +26,11 @@ class CodeMentorServiceTest {
     private StudentCourseMemoryService memoryService;
     @Mock
     private AiConversationService conversationService;
+    @Mock
+    private CanonicalTutorAnswerCacheService answerCacheService;
 
     @Test
-    void storesVietnameseQuestionTogetherWithCodeSnippet() throws Exception {
+    void storesVietnameseQuestionTogetherWithCodeSnippet() {
         CodeMentorRequest request = new CodeMentorRequest();
         request.setStudentId("student-1");
         request.setCourseId("PRO192");
@@ -43,7 +45,7 @@ class CodeMentorServiceTest {
         when(conversationService.saveExchange(eq("student-1"), any(), any(), any(), any()))
                 .thenReturn("conversation-1");
 
-        new CodeMentorService(chatService, memoryService, conversationService).mentor(request);
+        new CodeMentorService(chatService, memoryService, conversationService, answerCacheService).mentor(request);
 
         ArgumentCaptor<String> storedQuestion = ArgumentCaptor.forClass(String.class);
         verify(memoryService).recordInteraction(

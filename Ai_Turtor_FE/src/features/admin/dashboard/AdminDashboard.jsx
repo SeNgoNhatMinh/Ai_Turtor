@@ -5,6 +5,7 @@ import {
   BookOpenCheck, ShieldCheck,
 } from 'lucide-react';
 import { diagnosticsApi } from '../../../services/diagnosticsApi';
+import { normalizeLlmProviders } from '../../../services/adminAiLogsApi';
 import { env } from '../../../config/env';
 import { getUserFacingError } from '../../../services/apiClient';
 import ActionQueue from '../../../components/common/ActionQueue';
@@ -64,6 +65,17 @@ function AdminDashboard({
     ? env.n8nStrict ? 'n8n strict' : 'Đã bật n8n harness'
     : 'Gọi backend trực tiếp';
   const harnessColor = env.n8nEnabled ? 'processing' : 'default';
+  const providerRows = normalizeLlmProviders({ providers: diagnosticsOutput?.providers || [] });
+
+  const renderProviderStatus = (provider) => {
+    if (provider.adminDeleted) return <Tag>Đã xóa khỏi chain</Tag>;
+    if (provider.effectiveEnabled) return <Tag color="success">Đang hoạt động</Tag>;
+    if (!provider.envEnabled) return <Tag color="warning">Môi trường đang tắt</Tag>;
+    if (!provider.apiKeyConfigured) return <Tag color="error">Thiếu API key</Tag>;
+    if (!provider.effectiveModel) return <Tag color="warning">Thiếu model</Tag>;
+    return <Tag>Đã tắt</Tag>;
+  };
+
   const diagnosticsTabs = [
     {
       key: 'health',
@@ -106,10 +118,56 @@ function AdminDashboard({
                   {diagnosticsOutput.ollamaConnectivity ? 'Trực tuyến' : 'Ngoại tuyến'}
                 </Tag>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Text>Mô hình LLM:</Text>
-                <Text strong>{diagnosticsOutput.configDetails?.activeModel || 'Chưa xác định'}</Text>
-              </div>
+              {providerRows.length > 0 ? (
+                <>
+                  <Alert
+                    type="info"
+                    showIcon
+                    title={`${diagnosticsOutput.activeProviderCount ?? providerRows.filter((item) => item.effectiveEnabled).length} / ${diagnosticsOutput.providerCount ?? providerRows.length} provider LLM đang hoạt động trong chain`}
+                    description="Danh sách dưới đây phản ánh đúng cấu hình fallback Groq, NVIDIA NIM, OpenRouter và Ollama từ Backend."
+                  />
+                  <Table
+                    size="small"
+                    pagination={false}
+                    rowKey="providerId"
+                    dataSource={providerRows}
+                    columns={[
+                      {
+                        title: 'Provider',
+                        dataIndex: 'label',
+                        key: 'label',
+                        render: (value, record) => (
+                          <Space direction="vertical" size={0}>
+                            <Text strong>{value}</Text>
+                            <Text type="secondary" style={{ fontSize: 12 }}>{record.providerId}</Text>
+                          </Space>
+                        ),
+                      },
+                      {
+                        title: 'Model',
+                        dataIndex: 'effectiveModel',
+                        key: 'effectiveModel',
+                        ellipsis: true,
+                        render: (value) => value || 'Chưa cấu hình',
+                      },
+                      {
+                        title: 'Trạng thái',
+                        key: 'status',
+                        width: 150,
+                        render: (_, record) => renderProviderStatus(record),
+                      },
+                    ]}
+                  />
+                  <Button type="link" onClick={() => onNavigate?.('/admin/ai-logs')} style={{ paddingInline: 0 }}>
+                    Mở trang quản lý LLM provider chi tiết
+                  </Button>
+                </>
+              ) : (
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Text>Mô hình LLM chính:</Text>
+                  <Text strong>{diagnosticsOutput.configDetails?.activeModel || 'Chưa xác định'}</Text>
+                </div>
+              )}
             </Space>
           ) : (
             <Alert title="Bấm Kiểm tra để xác minh kết nối AI và cơ sở dữ liệu." type="info" showIcon />
@@ -258,7 +316,7 @@ function AdminDashboard({
                   title: 'Kiểm duyệt tri thức AI',
                   description: 'Xử lý nội dung chờ duyệt trước khi đưa vào RAG.',
                   icon: ShieldCheck,
-                  onClick: () => onNavigate?.('/admin/v2'),
+                  onClick: () => onNavigate?.('/admin/review-queue'),
                 },
               ]}
             />

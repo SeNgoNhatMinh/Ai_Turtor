@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getUserFacingError } from '../../../../services/apiClient';
+import { API_BASE_URL, getUserFacingError } from '../../../../services/apiClient';
 import { materialsApi } from '../../../../services/materialsApi';
 import { confirmDanger } from '../../../../components/common/confirmDialog';
 import { isMaterialIndexing, normalizeMaterialsResponse } from '../adminAcademicUtils';
@@ -144,15 +144,24 @@ export function useCourseMaterials({ triggerToast, currentUser, formMaterial }) 
       return;
     }
     try {
-      const blob = await materialsApi.downloadMaterialPdf(materialCourseId, materialId);
-      const url = window.URL.createObjectURL(blob);
+      const downloadCourseId = record?.courseId || materialCourseId;
+      if (!downloadCourseId) {
+        triggerToast('Không xác định được môn học của tài liệu. Hãy làm mới danh sách và thử lại.');
+        return;
+      }
+      const safeTitle = String(title || 'material').replace(/[<>:"/\\|?*]/g, '_').trim();
+      const fileName = `${safeTitle || 'material'}.pdf`;
+      triggerToast('Đang chuẩn bị tệp PDF...');
+      const ticketResponse = await materialsApi.createMaterialDownloadTicket(downloadCourseId, materialId);
+      const ticket = String(ticketResponse?.ticket || '').trim();
+      if (!ticket) throw new Error('Máy chủ không tạo được vé tải học liệu.');
       const a = document.createElement('a');
-      a.href = url;
-      a.download = `${title || 'material'}.pdf`;
+      a.href = `${API_BASE_URL}/material-downloads/${encodeURIComponent(ticket)}`;
+      a.download = fileName;
       document.body.appendChild(a);
       a.click();
       a.remove();
-      window.URL.revokeObjectURL(url);
+      triggerToast('Đã bắt đầu tải tệp PDF.');
     } catch (error) {
       triggerToast(getUserFacingError(error, 'Không thể tải học liệu.'));
     }

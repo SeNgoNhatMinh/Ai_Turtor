@@ -103,6 +103,7 @@ export async function httpRequest(path, options = {}) {
     timeoutMs = env.apiTimeoutMs,
     responseType = 'json',
     signal,
+    retries = method === 'GET' ? 4 : 0,
   } = options;
 
   const controller = new AbortController();
@@ -137,14 +138,31 @@ export async function httpRequest(path, options = {}) {
   let response;
   let parsedBody;
   try {
-    response = await fetch(config.url, config.init);
-    parsedBody = await parseResponse(response, responseType);
+    for (let attempt = 0; attempt <= retries; attempt += 1) {
+      response = undefined;
+      parsedBody = undefined;
+      try {
+        response = await fetch(config.url, config.init);
+        parsedBody = await parseResponse(response, responseType);
 
-    if (!response.ok) {
-      throw normalizeError(null, response, parsedBody);
+        if (!response.ok) {
+          throw normalizeError(null, response, parsedBody);
+        }
+
+        return parsedBody;
+      } catch (error) {
+        const normalized = error instanceof ApiError ? error : normalizeError(error, response, parsedBody);
+        const retryableStatus = !normalized.status || [502, 503, 504].includes(normalized.status);
+        const canRetry = method === 'GET'
+          && attempt < retries
+          && retryableStatus
+          && !controller.signal.aborted;
+        if (!canRetry) throw normalized;
+        const retryDelay = [500, 1500, 3000, 5000][attempt] || 5000;
+        await new Promise((resolve) => window.setTimeout(resolve, retryDelay));
+      }
     }
-
-    return parsedBody;
+    throw normalizeError(null, response, parsedBody);
   } catch (error) {
     if (error instanceof ApiError) throw error;
     throw normalizeError(error, response, parsedBody);

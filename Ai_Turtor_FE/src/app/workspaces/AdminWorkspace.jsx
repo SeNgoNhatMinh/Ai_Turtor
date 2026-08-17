@@ -7,6 +7,7 @@ const adminPages = {
   'admin-academic': lazy(() => import('../../features/admin/academic/AdminAcademicPage')),
   'admin-review': lazy(() => import('../../features/admin/review/AdminReviewPage')),
   'admin-ai-logs': lazy(() => import('../../features/admin/ai-logs/AdminAiLogsPage')),
+  'admin-answer-cache': lazy(() => import('../../features/admin/answer-cache/AdminAnswerCachePage')),
   'admin-reindex': lazy(() => import('../../features/admin/reindex/AdminReindexPage')),
 };
 

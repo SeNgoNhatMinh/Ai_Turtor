@@ -18,6 +18,8 @@ function AdminAcademic({ triggerToast, currentUser }) {
   const [studentOptions, setStudentOptions] = useState([]);
   const [studentsLoading, setStudentsLoading] = useState(false);
   const studentSearchTimerRef = useRef(null);
+  const referenceDataLoadedRef = useRef(false);
+  const referenceDataLoadingRef = useRef(false);
   const [formSemester] = Form.useForm();
   const [formCourse] = Form.useForm();
   const [formClass] = Form.useForm();
@@ -83,8 +85,6 @@ function AdminAcademic({ triggerToast, currentUser }) {
   }, []);
 
   useEffect(() => {
-    academic.loadSemesters();
-    academic.loadCourses();
     const loadMentors = async () => {
       try {
         const mentors = await adminUsersApi.getMentors();
@@ -98,9 +98,38 @@ function AdminAcademic({ triggerToast, currentUser }) {
         }
       }
     };
-    loadMentors();
+
+    const loadReferenceData = async () => {
+      if (referenceDataLoadingRef.current) return;
+      referenceDataLoadingRef.current = true;
+      try {
+        const results = await Promise.allSettled([
+          academic.loadSemesters(),
+          academic.loadCourses(),
+          loadMentors(),
+        ]);
+        referenceDataLoadedRef.current = results.every((result) => result.status === 'fulfilled');
+        if (!referenceDataLoadedRef.current) {
+          triggerToast?.('Một số dữ liệu học vụ chưa tải được. Hệ thống sẽ tự thử lại.');
+        }
+      } finally {
+        referenceDataLoadingRef.current = false;
+      }
+    };
+
+    const reloadMissingReferenceData = () => {
+      if (!referenceDataLoadedRef.current && document.visibilityState === 'visible') {
+        loadReferenceData();
+      }
+    };
+
+    loadReferenceData();
+    window.addEventListener('online', reloadMissingReferenceData);
+    document.addEventListener('visibilitychange', reloadMissingReferenceData);
     return () => {
       window.clearTimeout(studentSearchTimerRef.current);
+      window.removeEventListener('online', reloadMissingReferenceData);
+      document.removeEventListener('visibilitychange', reloadMissingReferenceData);
       closeActiveConfirm();
     };
     // Reference data is loaded once when the admin workspace mounts.

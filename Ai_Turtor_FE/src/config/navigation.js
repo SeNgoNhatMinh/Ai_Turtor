@@ -15,6 +15,7 @@ import {
   FileText,
   House,
   RefreshCw,
+  Database,
 } from 'lucide-react';
 import { ACCOUNT_ROLES, getWorkspaceRole, normalizeAccountRole } from '../constants/roles';
 
@@ -140,6 +141,15 @@ const navigationItems = [
     icon: Inbox,
   },
   {
+    key: 'senior-answer-cache',
+    workspace: 'senior',
+    allowedAccountRoles: [ACCOUNT_ROLES.SENIOR_MENTOR],
+    group: 'Kiểm duyệt chuyên môn',
+    label: 'Cache câu trả lời AI',
+    description: 'Duyệt, sửa hoặc tắt câu trả lời AI đã cache theo semantic similarity.',
+    icon: Database,
+  },
+  {
     key: 'admin-dashboard',
     workspace: 'admin',
     group: 'Hệ thống',
@@ -188,6 +198,15 @@ const navigationItems = [
     description: 'Theo dõi câu hỏi, câu trả lời, tiến trình và token ước tính.',
     icon: FileText,
   },
+  {
+    key: 'admin-answer-cache',
+    workspace: 'admin',
+    allowedAccountRoles: [ACCOUNT_ROLES.ADMIN],
+    group: 'Giám sát AI',
+    label: 'Cache câu trả lời AI',
+    description: 'Quản lý cache semantic: duyệt, sửa, tắt hoặc xóa câu trả lời AI đã lưu.',
+    icon: Database,
+  },
 ];
 
 export const getNavigationForRole = (role) => {
@@ -198,7 +217,7 @@ export const getNavigationForRole = (role) => {
     && (!item.allowedAccountRoles || item.allowedAccountRoles.includes(accountRole))
   ));
   if (workspace === 'senior') {
-    const order = { 'senior-review': 0, 'senior-v2': 1 };
+    const order = { 'senior-review': 0, 'senior-answer-cache': 1, 'senior-v2': 2 };
     return items.sort((left, right) => (order[left.key] ?? 99) - (order[right.key] ?? 99));
   }
   return items;

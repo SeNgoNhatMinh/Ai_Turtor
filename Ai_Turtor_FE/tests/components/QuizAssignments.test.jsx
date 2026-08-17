@@ -116,7 +116,8 @@ describe('QuizAssignments publish flow', () => {
       />,
     );
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Xuất bản' }));
+    fireEvent.click(await screen.findByText('OOP Review'));
+    fireEvent.click(screen.getByRole('button', { name: 'Xuất bản' }));
     const dialog = await screen.findByRole('dialog');
 
     expect(teacherApi.getClassStudents).toHaveBeenCalledWith('PRO192', 'SE1833', 'teacher-1');
@@ -148,7 +149,8 @@ describe('QuizAssignments publish flow', () => {
       />,
     );
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Chỉnh sửa' }));
+    await screen.findByText('OOP Review');
+    fireEvent.click(screen.getByRole('button', { name: 'Chỉnh sửa' }));
     fireEvent.click(screen.getByRole('button', { name: 'Mark draft dirty' }));
 
     expect(screen.getAllByRole('button', { name: /Xuất bản/ }).some((button) => button.disabled)).toBe(true);

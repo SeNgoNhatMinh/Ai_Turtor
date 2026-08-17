@@ -17,6 +17,7 @@ import com.ragapi.service.IntentClassifierService;
 import com.ragapi.service.MentorEscalationService;
 import com.ragapi.service.StudentCourseMemoryService;
 import com.ragapi.service.StudentDailyQuestionQuotaService;
+import com.ragapi.service.StudentQuestionNormalizationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -53,6 +54,7 @@ public class TutorController {
     private final CodeMentorService codeMentorService;
     private final IntentClassifierService intentClassifierService;
     private final StudentDailyQuestionQuotaService questionQuotaService;
+    private final StudentQuestionNormalizationService questionNormalizationService;
 
     @PostMapping("/tutor/intent-classify")
     @Operation(summary = "Classify a student question for n8n AI Harness routing")
@@ -61,9 +63,9 @@ public class TutorController {
             if (request == null) {
                 return ResponseEntity.badRequest().body(Map.of("error", "request body is required"));
             }
-            String question = request.getMessage() != null && !request.getMessage().isBlank()
+            String question = normalizeStudentQuestion(request.getMessage() != null && !request.getMessage().isBlank()
                     ? request.getMessage()
-                    : request.getQuestion();
+                    : request.getQuestion());
             if (question == null || question.isBlank()) {
                 return ResponseEntity.badRequest().body(Map.of("error", "message or question is required"));
             }
@@ -121,7 +123,7 @@ public class TutorController {
             if (request == null) {
                 return ResponseEntity.badRequest().body(Map.of("error", "request body is required"));
             }
-            String question = requireMaxLength(resolveQuestion(request), "question", DEFAULT_TEXT_MAX_LENGTH);
+            String question = normalizeStudentQuestion(requireMaxLength(resolveQuestion(request), "question", DEFAULT_TEXT_MAX_LENGTH));
             String courseId = requireText(request.getCourseId(), "courseId");
             String classId = normalizeScopeValue(request.getClassId());
             if (isStudent(authentication) && !Boolean.TRUE.equals(request.getQuotaConsumed())) {
@@ -540,6 +542,10 @@ public class TutorController {
 
     private String normalizeScopeValue(String value) {
         return value != null && !value.isBlank() ? value.trim() : null;
+    }
+
+    private String normalizeStudentQuestion(String question) {
+        return questionNormalizationService.normalize(question);
     }
 }
 

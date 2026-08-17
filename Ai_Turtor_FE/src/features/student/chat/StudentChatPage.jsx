@@ -75,41 +75,69 @@ export default function StudentChatPage({
     setChatDraft: chatController.setChatDraft,
     triggerToast,
   });
+  const {
+    classOptions,
+    courseOptions,
+    ensureEnrollmentContext,
+    hasLoadedStudentEnrollments,
+    hasStudentEnrollments,
+    isStudentEnrollmentsLoading,
+  } = enrollment;
 
   useEffect(() => {
     if (
       !studentId
-      || enrollment.isStudentEnrollmentsLoading
-      || !enrollment.hasLoadedStudentEnrollments
+      || isStudentEnrollmentsLoading
+      || !hasLoadedStudentEnrollments
+      || (hasLoadedStudentEnrollments && !hasStudentEnrollments)
     ) return;
 
     const normalizedCourseId = String(courseId || '').trim().toUpperCase();
-    const hasValidCourse = enrollment.courseOptions.some((item) => (
+    const hasValidCourse = courseOptions.some((item) => (
       String(item?.value || '').trim().toUpperCase() === normalizedCourseId
     ));
-    const hasValidClass = enrollment.classOptions.some((item) => (
+    const hasValidClass = classOptions.some((item) => (
       classIdMatches(item?.value, classId)
       || item?.aliases?.some((alias) => classIdMatches(alias, classId))
     ));
     if (hasValidCourse && hasValidClass) return;
 
-    enrollment.ensureEnrollmentContext?.(courseId);
+    ensureEnrollmentContext?.(courseId);
   }, [
     classId,
+    classOptions,
     courseId,
-    enrollment.classOptions,
-    enrollment.courseOptions,
-    enrollment.ensureEnrollmentContext,
-    enrollment.hasLoadedStudentEnrollments,
-    enrollment.isStudentEnrollmentsLoading,
+    courseOptions,
+    ensureEnrollmentContext,
+    hasLoadedStudentEnrollments,
+    hasStudentEnrollments,
+    isStudentEnrollmentsLoading,
     studentId,
   ]);
 
   useEffect(() => {
     if (!studentId || !courseId) return;
+
     chat.loadChatSessions();
-    materials.loadCourseMaterials();
-    learning.loadStudentDashboard();
+
+    const materialsTimer = window.setTimeout(() => {
+      materials.loadCourseMaterials();
+    }, 100);
+
+    let dashboardCancel = null;
+    const loadDashboard = () => learning.loadStudentDashboard();
+    if (typeof window.requestIdleCallback === 'function') {
+      const idleId = window.requestIdleCallback(loadDashboard, { timeout: 3000 });
+      dashboardCancel = () => window.cancelIdleCallback(idleId);
+    } else {
+      const dashboardTimer = window.setTimeout(loadDashboard, 1200);
+      dashboardCancel = () => window.clearTimeout(dashboardTimer);
+    }
+
+    return () => {
+      window.clearTimeout(materialsTimer);
+      dashboardCancel?.();
+    };
     // Route pages load only their own resources when identity/context changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [studentId, courseId, classId]);

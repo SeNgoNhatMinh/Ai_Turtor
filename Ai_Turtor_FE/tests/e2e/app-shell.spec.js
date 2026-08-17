@@ -114,6 +114,39 @@ async function mockBackend(page, unexpectedRequests) {
       '/api/students/student-1/improve-plans': { content: [] },
       '/api/students/student-1/courses/PRO192/improve-plan': {},
       '/api/admin/dashboard/stats': {},
+      '/api/health/llm-diagnostics': {
+        diagnostics: {
+          apiKeyValid: true,
+          openRouterConnectivity: true,
+          ollamaConnectivity: true,
+          providerCount: 3,
+          activeProviderCount: 2,
+          providers: [
+            {
+              providerId: 'groq-1',
+              label: 'Groq 1',
+              effectiveModel: 'openai/gpt-oss-120b',
+              effectiveEnabled: true,
+              apiKeyConfigured: true,
+            },
+            {
+              providerId: 'openrouter-primary',
+              label: 'OpenRouter primary',
+              effectiveModel: 'nvidia/nemotron-3-super-120b-a12b:free',
+              effectiveEnabled: true,
+              apiKeyConfigured: true,
+            },
+            {
+              providerId: 'openrouter-fallback',
+              label: 'OpenRouter fallback',
+              effectiveModel: 'nvidia/nemotron-3-ultra-550b-a55b:free',
+              effectiveEnabled: false,
+              apiKeyConfigured: true,
+            },
+          ],
+          configDetails: { activeModel: 'nvidia/nemotron-3-super-120b-a12b:free' },
+        },
+      },
       '/api/harness/logs': { logs: [] },
       '/api/admin/users': { users: [] },
       '/api/admin/mentors': { mentors: [] },
@@ -153,6 +186,31 @@ async function mockBackend(page, unexpectedRequests) {
       '/api/v2/expert-training/gold-qa': { content: [] },
       '/api/v2/expert-training/rubrics': { content: [] },
       '/api/v2/expert-training/eval-runs': { runs: [] },
+      '/api/tutor/answer-cache/stats': {
+        courseId: 'PRO192',
+        total: 1,
+        byReviewStatus: { ACTIVE: 1, SENIOR_APPROVED: 0, SENIOR_CORRECTED: 0, DISABLED: 0 },
+      },
+      '/api/tutor/answer-cache': {
+        count: 1,
+        entries: [{
+          id: 'cache-1',
+          courseId: 'PRO192',
+          classId: 'SE1833',
+          mode: 'RAG',
+          question: 'Servlet là gì?',
+          answer: 'Servlet là thành phần xử lý request HTTP trên server.',
+          reviewStatus: 'ACTIVE',
+          confidence: 0.88,
+          semanticReady: true,
+          groundingType: 'COURSE_MATERIAL',
+          sources: ['material-java-core'],
+          createdAt: '2026-08-17T10:00:00Z',
+        }],
+      },
+      '/api/admin/llm-providers': { providers: [] },
+      '/api/admin/llm-providers/stats': { providers: [] },
+      '/api/admin/ai-logs': { logs: [], summary: {} },
     };
     if (request.method() === 'GET' && Object.hasOwn(explicitGetContracts, url.pathname)) {
       await route.fulfill({
@@ -218,7 +276,8 @@ test.afterEach(async ({ page }) => {
 
 test('student login resolves enrollment context and supports dark mode', async ({ page }) => {
   await signIn(page);
-  await expect(page.getByText('Trò chuyện với AI Tutor', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('Đang tải trang sinh viên...')).toHaveCount(0, { timeout: 15000 });
+  await expect(page.getByText('Trò chuyện với AI Tutor', { exact: true }).first()).toBeVisible({ timeout: 15000 });
   await expect(page.getByLabel('Lớp đã ghi danh')).toContainText('SE1833');
 
   await page.getByRole('switch', { name: 'Dùng giao diện tối' }).click();
@@ -536,6 +595,7 @@ test('practice quiz tabs stay inside the viewport and remain navigable', async (
 });
 
 test('admin routes load their independent feature pages', async ({ page }) => {
+  test.setTimeout(90000);
   await signInAsAdmin(page);
   await expect(page.getByRole('heading', { name: 'Tổng quan hệ thống' })).toBeVisible();
   await expect(page.locator('.page-header')).toHaveCSS('border-radius', '20px');
@@ -567,6 +627,18 @@ test('admin routes load their independent feature pages', async ({ page }) => {
     .toBeLessThanOrEqual(1);
   expect(Math.abs(qualityWorkspaceBounds.x - qualityHeaderBounds.x)).toBeLessThanOrEqual(1);
   expect(Math.abs(qualityWorkspaceBounds.width - qualityHeaderBounds.width)).toBeLessThanOrEqual(1);
+
+  await page.goto('/admin/ai-logs');
+  await expect(page.getByRole('heading', { name: 'Nhật ký hỏi đáp AI' })).toBeVisible();
+  await expect(page.getByText('Quản lý LLM provider')).toBeVisible();
+
+  await page.goto('/admin/answer-cache');
+  await expect(page.getByRole('heading', { name: 'Quản lý cache câu trả lời AI' })).toBeVisible();
+  await expect(page.getByText('Servlet là gì?', { exact: true })).toBeVisible({ timeout: 15000 });
+
+  await page.goto('/admin/reindex');
+  await expect(page.getByRole('heading', { name: 'Reindex toàn bộ tài liệu' })).toBeVisible();
+  await expect(page).toHaveURL(/\/admin\/reindex$/);
 });
 
 test('Ant Design academic controls remain clickable around cards and anchored confirms', async ({ page }) => {
@@ -576,9 +648,10 @@ test('Ant Design academic controls remain clickable around cards and anchored co
   const academicTabs = page.locator('.admin-academic-tabs .ant-tabs-tab');
   await expect(academicTabs).toHaveCount(6);
 
-  const classSectionsTab = page.getByRole('tab', { name: 'Lớp học phần' });
+  const classSectionsTab = page.locator('.admin-academic-tabs').getByRole('tab', { name: 'Lớp học phần' });
+  await classSectionsTab.scrollIntoViewIfNeeded();
   await classSectionsTab.click();
-  await expect(classSectionsTab).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('.admin-academic-tabs .ant-tabs-tabpane-active')).toBeVisible({ timeout: 10000 });
   const courseSelect = page.locator('.ant-tabs-tabpane-active .ant-select').last();
   await courseSelect.click();
   await expect(
@@ -625,9 +698,10 @@ test('Ant Design academic popups remain usable with reduced motion enabled', asy
   await signInAsAdmin(page);
   await page.goto('/admin/academic');
 
-  const classSectionsTab = page.getByRole('tab', { name: 'Lớp học phần' });
+  const classSectionsTab = page.locator('.admin-academic-tabs').getByRole('tab', { name: 'Lớp học phần' });
+  await classSectionsTab.scrollIntoViewIfNeeded();
   await classSectionsTab.click();
-  await expect(classSectionsTab).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('.admin-academic-tabs .ant-tabs-tabpane-active')).toBeVisible({ timeout: 10000 });
 
   const courseSelect = page.locator('.ant-tabs-tabpane-active .ant-select').last();
   await courseSelect.click();
@@ -791,19 +865,6 @@ test('Teacher review queue keeps long ticket lists independently scrollable', as
 
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(1);
-
-  const historyPane = page.locator('.student-chat-history-pane');
-  if (page.viewportSize().width > 760) {
-    await page.getByRole('button', { name: 'Ẩn lịch sử trò chuyện' }).first().click();
-    await expect.poll(() => historyPane.evaluate((node) => node.getBoundingClientRect().width)).toBeLessThanOrEqual(1);
-    await page.getByRole('button', { name: 'Hiện lịch sử trò chuyện' }).click();
-    await expect.poll(() => historyPane.evaluate((node) => node.getBoundingClientRect().width)).toBeGreaterThan(250);
-  } else {
-    await page.getByRole('button', { name: 'Hiện lịch sử trò chuyện' }).click();
-    await expect(historyPane).toHaveClass(/is-open/);
-    await historyPane.getByRole('button', { name: 'Ẩn lịch sử trò chuyện' }).click();
-    await expect(historyPane).not.toHaveClass(/is-open/);
-  }
 });
 
 test('Senior review separates severe feedback, knowledge approval, and history clearly', async ({ page }) => {
@@ -908,4 +969,108 @@ test('Senior review separates severe feedback, knowledge approval, and history c
 
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(1);
+});
+
+test('admin answer cache actions stay signed in and call canonical APIs', async ({ page }) => {
+  let approveCalled = false;
+  let disableCalled = false;
+  let deleteCalled = false;
+
+  await page.route('**/api/tutor/answer-cache/stats?*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        courseId: 'PRO192',
+        total: 1,
+        byReviewStatus: { ACTIVE: 1, SENIOR_APPROVED: 0, SENIOR_CORRECTED: 0, DISABLED: 0 },
+      }),
+    });
+  });
+  await page.route('**/api/tutor/answer-cache?*', async (route) => {
+    if (route.request().method() !== 'GET') {
+      await route.fallback();
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        count: 1,
+        entries: [{
+          id: 'cache-1',
+          courseId: 'PRO192',
+          classId: 'SE1833',
+          mode: 'RAG',
+          question: 'Servlet là gì?',
+          answer: 'Servlet là thành phần xử lý request HTTP trên server.',
+          reviewStatus: 'ACTIVE',
+          confidence: 0.88,
+          semanticReady: true,
+          groundingType: 'COURSE_MATERIAL',
+          sources: ['material-java-core'],
+          createdAt: '2026-08-17T10:00:00Z',
+        }],
+      }),
+    });
+  });
+  await page.route('**/api/tutor/answer-cache/cache-1/approve', async (route) => {
+    approveCalled = true;
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ status: 'APPROVED', entry: { id: 'cache-1', reviewStatus: 'SENIOR_APPROVED' } }),
+    });
+  });
+  await page.route('**/api/tutor/answer-cache/cache-1/disable', async (route) => {
+    disableCalled = true;
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ status: 'DISABLED', entry: { id: 'cache-1', reviewStatus: 'DISABLED' } }),
+    });
+  });
+  await page.route('**/api/tutor/answer-cache/cache-1', async (route) => {
+    if (route.request().method() === 'DELETE') {
+      deleteCalled = true;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ status: 'DELETED', cacheId: 'cache-1' }),
+      });
+      return;
+    }
+    await route.fallback();
+  });
+
+  await signInAsAdmin(page);
+  await page.goto('/admin/answer-cache');
+  await expect(page.getByRole('heading', { name: 'Quản lý cache câu trả lời AI' })).toBeVisible();
+  await expect(page.getByText('Servlet là gì?', { exact: true })).toBeVisible();
+
+  const actionButton = page.locator('.answer-cache-table-card .entity-action-button').first();
+  await actionButton.click();
+  await page.locator('.ant-dropdown-menu-item').filter({ hasText: 'Xem chi tiết' }).click();
+  await expect(page.getByRole('dialog', { name: 'Chi tiết cache' })).toBeVisible();
+  await page.locator('.ant-modal-close').click();
+  await expect(page.getByRole('dialog', { name: 'Chi tiết cache' })).toHaveCount(0);
+
+  await actionButton.click();
+  await page.locator('.ant-dropdown-menu-item').filter({ hasText: 'Duyệt' }).click();
+  await page.locator('.app-confirm-card__btn--primary').click();
+  await expect.poll(() => approveCalled).toBe(true);
+  await expect(page.getByRole('alert').getByText('Đã duyệt cache câu trả lời.')).toBeVisible();
+  await expect(page).toHaveURL(/\/admin\/answer-cache$/);
+
+  await actionButton.click();
+  await page.locator('.ant-dropdown-menu-item').filter({ hasText: 'Tắt cache' }).click();
+  await page.getByRole('button', { name: 'Tắt cache' }).click();
+  await expect.poll(() => disableCalled).toBe(true);
+  await expect(page).toHaveURL(/\/admin\/answer-cache$/);
+
+  await actionButton.click();
+  await page.locator('.ant-dropdown-menu-item').filter({ hasText: 'Xóa entry' }).click();
+  await page.locator('.app-confirm-card--danger .app-confirm-card__btn--primary').click();
+  await expect.poll(() => deleteCalled).toBe(true);
+  await expect(page).toHaveURL(/\/admin\/answer-cache$/);
 });

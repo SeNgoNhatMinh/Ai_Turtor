@@ -11,7 +11,7 @@
     {
       "parameters": {
         "method":"POST",
-        "url":"={{$env.AI_TUTOR_API_BASE_URL}}/api/mentor/assignment-submissions/{{$node[\"Teacher AI Grade Webhook\"].json.body.submissionId}}/ai-grade",
+        "url":"=http://host.docker.internal:8085/api/mentor/assignment-submissions/{{$node[\"Teacher AI Grade Webhook\"].json.body.submissionId}}/ai-grade",
         "sendQuery":true,
         "queryParameters":{"parameters":[{"name":"teacherId","value":"={{ $node[\"Teacher AI Grade Webhook\"].json.body.teacherId }}"}]},
         "sendHeaders":true,

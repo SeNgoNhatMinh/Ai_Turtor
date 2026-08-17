@@ -18,8 +18,13 @@ import java.util.List;
 import java.util.LinkedHashSet;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
+import com.ragapi.util.StudentChatIntentDetector;
+import com.ragapi.util.StudentFacingMessages;
 import com.ragapi.util.TextSanitizer;
 
 import static com.ragapi.util.ValidationUtils.DEFAULT_TEXT_MAX_LENGTH;
@@ -48,6 +53,8 @@ public class CourseRagService {
     private final CourseMaterialRepository materialRepository;
     private final CourseRepository courseRepository;
     private final VisualVectorService visualVectorService;
+    private final CanonicalTutorAnswerCacheService answerCacheService;
+    private final RagContextBudgetService contextBudgetService;
 
     public String ask(String question) throws IOException {
         return ask(question, null, null);
@@ -86,6 +93,22 @@ public class CourseRagService {
             return conversationalAnswer;
         }
 
+        CourseRagAnswer offTopicAnswer = tryBuildOffTopicRedirect(safeQuestion, safeCourseId);
+        if (offTopicAnswer != null) {
+            log.info("Blocked off-topic non-academic question before RAG (courseId={}): {}", safeCourseId, safeQuestion);
+            return offTopicAnswer;
+        }
+
+        Optional<CourseRagAnswer> exactCachedAnswer = answerCacheService.lookupExactRagAnswer(
+                safeCourseId,
+                classId,
+                safeQuestion
+        );
+        if (exactCachedAnswer.isPresent()) {
+            log.info("Returning early exact cached tutor answer for courseId={}", safeCourseId);
+            return exactCachedAnswer.get();
+        }
+
         log.info(
                 "Retrieving course learning context for question: {} (courseId: {}, currentClassId: {})",
                 safeQuestion,
@@ -93,9 +116,12 @@ public class CourseRagService {
                 classId
         );
 
+        String expandedRetrievalQuestion = buildRetrievalQuestion(safeQuestion);
+        boolean keywordExpanded = !expandedRetrievalQuestion.equals(safeQuestion);
         String retrievalQuestion = retrievalQueryTranslationService.expandForRetrieval(
-                buildRetrievalQuestion(safeQuestion),
-                safeCourseId
+                expandedRetrievalQuestion,
+                safeCourseId,
+                keywordExpanded
         );
         if (!retrievalQuestion.equals(safeQuestion)) {
             log.info("Expanded RAG retrieval query: {}", retrievalQuestion);
@@ -113,13 +139,15 @@ public class CourseRagService {
             chunks = fallbackSearchService.search(retrievalQuestion, safeCourseId, classId, 8);
         }
         chunks = rerankService.rerank(retrievalQuestion, chunks);
+        chunks = contextBudgetService.applyBudget(chunks);
 
         List<String> contexts = chunks.stream().map(ElasticVectorService.SearchChunk::content).toList();
         log.info("Retrieved {} context chunks", contexts.size());
 
         String context = String.join("\n", contexts);
-        List<String> sourceLabels = buildSourceLabels(chunks);
-        List<RagSourceEvidence> sourceEvidence = buildSourceEvidence(chunks, safeCourseId);
+        Map<String, CourseMaterial> materialsById = loadMaterials(chunks);
+        List<String> sourceLabels = buildSourceLabels(chunks, materialsById);
+        List<RagSourceEvidence> sourceEvidence = buildSourceEvidence(chunks, safeCourseId, materialsById);
         sourceEvidence = mergeVisualEvidence(sourceEvidence, searchVisualEvidence(safeQuestion, safeCourseId, classId), safeCourseId);
         double confidence = calculateConfidence(chunks);
         boolean grounded = hasGroundedContext(safeQuestion, context) || hasGroundedContext(retrievalQuestion, context);
@@ -162,25 +190,43 @@ public class CourseRagService {
             );
         }
 
+        Optional<CourseRagAnswer> cachedAnswer = answerCacheService.lookupSemanticRagAnswer(
+                safeCourseId,
+                classId,
+                safeQuestion,
+                confidence,
+                sourceLabels
+        );
+        if (cachedAnswer.isPresent()) {
+            log.info("Returning cached tutor answer for courseId={}", safeCourseId);
+            CourseRagAnswer hit = cachedAnswer.get();
+            CourseRagAnswer enrichedHit = CourseRagAnswer.builder()
+                    .answer(hit.getAnswer())
+                    .confidence(confidence)
+                    .sources(sourceLabels)
+                    .sourceEvidence(sourceEvidence)
+                    .groundingType(hit.getGroundingType())
+                    .escalationRecommended(false)
+                    .escalationReason(null)
+                    .build();
+            answerCacheService.storeRagAnswerAsync(safeCourseId, classId, safeQuestion, enrichedHit);
+            return enrichedHit;
+        }
+
         String prompt = buildPrompt(safeQuestion, context, sourceLabels, safeCourseId, classId);
 
         log.info("Sending grounded course-learning prompt to LLM...");
         try {
             log.debug("Context size: {} bytes, question length: {}", context.length(), safeQuestion.length());
 
-            String answer = chatService.generate(prompt);
-            if (answer == null || answer.isBlank()) {
-                log.warn("LLM returned empty response");
-                return blockedRagAnswer(
-                        "AI Tutor chưa tạo được câu trả lời từ tài liệu môn học. Vui lòng thử lại hoặc gửi câu hỏi cho mentor.",
-                        0.0,
-                        List.of(),
-                        "LLM returned empty response"
-                );
+            String answer = chatService.generate(prompt, safeQuestion);
+            if (answer == null || answer.isBlank() || StudentFacingMessages.isUnavailableMessage(answer)) {
+                log.warn("Grounded tutor generation returned no usable answer");
+                return softUnavailableAnswer(StudentFacingMessages.GENERATION_BUSY, sourceLabels);
             }
 
             log.info("Received grounded answer from AI (length: {})", answer.length());
-            return CourseRagAnswer.builder()
+            CourseRagAnswer generated = CourseRagAnswer.builder()
                     .answer(answer)
                     .confidence(confidence)
                     .sources(sourceLabels)
@@ -189,23 +235,24 @@ public class CourseRagService {
                     .escalationRecommended(false)
                     .escalationReason(null)
                     .build();
+            answerCacheService.storeRagAnswerAsync(safeCourseId, classId, safeQuestion, generated);
+            return generated;
         } catch (Exception e) {
-            log.error("========== LLM API ERROR ==========");
-            log.error("Error Type: {}", e.getClass().getName());
-            log.error("Error Message: {}", e.getMessage());
-            log.error("Root Cause: {}", getRootCause(e));
-            log.error("Question: {}", safeQuestion);
-            log.error("Context chunks: {}", contexts.size());
-            log.error("Full Stack Trace:", e);
-            log.error("====================================");
-
-            return blockedRagAnswer(
-                    "Lỗi máy chủ: AI Tutor chưa thể gọi dịch vụ LLM. Vui lòng thử lại sau.",
-                    0.0,
-                    List.of(),
-                    "LLM call failed"
-            );
+            log.error("Grounded tutor generation failed: {}", e.getMessage(), e);
+            return softUnavailableAnswer(StudentFacingMessages.GENERATION_BUSY, sourceLabels);
         }
+    }
+
+    private CourseRagAnswer softUnavailableAnswer(String answer, List<String> sources) {
+        return CourseRagAnswer.builder()
+                .answer(answer)
+                .confidence(0.0)
+                .sources(sources == null ? List.of() : sources)
+                .sourceEvidence(List.of())
+                .groundingType("NONE")
+                .escalationRecommended(false)
+                .escalationReason(null)
+                .build();
     }
 
     private CourseRagAnswer blockedRagAnswer(String answer, double confidence, List<String> sources, String reason) {
@@ -256,10 +303,11 @@ public class CourseRagService {
     }
 
     private CourseRagAnswer tryBuildConversationalAnswer(String question, String courseId) {
-        String normalized = normalizeForMatch(question);
-        if (normalized.isBlank() || normalized.length() > 120) {
+        if (!StudentChatIntentDetector.isAllowedInteraction(question)) {
             return null;
         }
+
+        String normalized = normalizeForMatch(question);
 
         if (isGreeting(normalized)) {
             return safeConversationAnswer(
@@ -298,6 +346,16 @@ public class CourseRagService {
         }
 
         return null;
+    }
+
+    private CourseRagAnswer tryBuildOffTopicRedirect(String question, String courseId) {
+        if (!StudentChatIntentDetector.isOffTopicNonAcademic(question)) {
+            return null;
+        }
+        return safeConversationAnswer(
+                "Mình là AI Tutor môn " + courseId + ", chỉ hỗ trợ câu hỏi học thuật và nội dung tài liệu môn học. "
+                        + "Câu hỏi về lịch học, giờ học, phòng học, điểm số hoặc thông tin hành chính bạn nên xem trên hệ thống lớp hoặc hỏi giáo viên/mentor phụ trách."
+        );
     }
 
     private CourseRagAnswer safeConversationAnswer(String answer) {
@@ -426,7 +484,27 @@ public class CourseRagService {
 
         return currentConfidence;
     }
-    private List<String> buildSourceLabels(List<ElasticVectorService.SearchChunk> chunks) {
+    private Map<String, CourseMaterial> loadMaterials(List<ElasticVectorService.SearchChunk> chunks) {
+        if (chunks == null || chunks.isEmpty()) {
+            return Map.of();
+        }
+        Set<String> materialIds = chunks.stream()
+                .map(ElasticVectorService.SearchChunk::materialId)
+                .filter(Objects::nonNull)
+                .filter(id -> !id.isBlank())
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        if (materialIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, CourseMaterial> result = new LinkedHashMap<>();
+        materialRepository.findAllById(materialIds).forEach(material -> result.put(material.getId(), material));
+        return result;
+    }
+
+    private List<String> buildSourceLabels(
+            List<ElasticVectorService.SearchChunk> chunks,
+            Map<String, CourseMaterial> materialsById
+    ) {
         if (chunks == null || chunks.isEmpty()) {
             return List.of();
         }
@@ -434,7 +512,7 @@ public class CourseRagService {
         List<String> sources = new ArrayList<>();
         Set<String> seenMaterials = new LinkedHashSet<>();
         for (ElasticVectorService.SearchChunk chunk : chunks) {
-            CourseMaterial material = chunk.materialId() == null ? null : materialRepository.findById(chunk.materialId()).orElse(null);
+            CourseMaterial material = chunk.materialId() == null ? null : materialsById.get(chunk.materialId());
             String identity = materialIdentity(material, chunk.materialId());
             if (!seenMaterials.add(identity + '|' + normalizedEvidenceText(chunk.content()))) continue;
             String label = "materialId=" + (chunk.materialId() == null ? "unknown" : chunk.materialId());
@@ -445,14 +523,18 @@ public class CourseRagService {
         return sources;
     }
 
-    private List<RagSourceEvidence> buildSourceEvidence(List<ElasticVectorService.SearchChunk> chunks, String courseId) {
+    private List<RagSourceEvidence> buildSourceEvidence(
+            List<ElasticVectorService.SearchChunk> chunks,
+            String courseId,
+            Map<String, CourseMaterial> materialsById
+    ) {
         if (chunks == null || chunks.isEmpty()) return List.of();
         String courseName = courseRepository.findByCourseId(courseId)
                 .map(course -> course.getCourseName()).orElse(courseId);
         Map<String, RagSourceEvidence> result = new LinkedHashMap<>();
         for (ElasticVectorService.SearchChunk chunk : chunks) {
             if (chunk.materialId() == null) continue;
-            CourseMaterial material = materialRepository.findById(chunk.materialId()).orElse(null);
+            CourseMaterial material = materialsById.get(chunk.materialId());
             int page = estimatePage(material, chunk.content());
             MaterialTocEntry toc = findToc(material, page);
             List<RagVisualEvidence> visualEvidence = buildVisualEvidence(courseId, material, page);

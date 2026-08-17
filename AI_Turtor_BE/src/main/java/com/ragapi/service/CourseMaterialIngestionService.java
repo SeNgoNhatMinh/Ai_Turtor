@@ -32,6 +32,7 @@ public class CourseMaterialIngestionService {
     private final ElasticVectorService vectorService;
     private final PdfExtractionService pdfExtractionService;
     private final PdfStorageService pdfStorageService;
+    private final PdfPageRenderService pdfPageRenderService;
     private final RealtimeEventService realtimeEvents;
     private final ChapterOutlineService chapterOutlineService;
     private final VisualVectorService visualVectorService;
@@ -213,6 +214,7 @@ public class CourseMaterialIngestionService {
                 duplicate.setContentHash(contentHash);
                 repository.save(duplicate);
             }
+            pdfPageRenderService.cacheDocument(duplicate.getCourseId(), duplicate.getId(), pdfBytes);
             log.info("Duplicate PDF upload reused existing materialId={} for courseId={}", duplicate.getId(), normalizedCourseId);
             return duplicate;
         }
@@ -246,6 +248,7 @@ public class CourseMaterialIngestionService {
                 file.getOriginalFilename(),
                 material.getId()
         );
+        pdfPageRenderService.cacheDocument(normalizedCourseId, material.getId(), pdfBytes);
         material.setPdfFileId(pdfFileId);
         repository.save(material);
         log.info("PDF file stored in GridFS with id: {}", pdfFileId);

@@ -21,6 +21,7 @@ import ChatLoadingSteps from './ChatLoadingSteps';
 import InlineMentorSupport from './InlineMentorSupport';
 import PromptStarters from './PromptStarters';
 import StudentMessageBubble from './StudentMessageBubble';
+import { uiCopy } from '../../../../constants/uiCopy';
 
 const AiAnswer = lazy(() => import('../../../../components/AiAnswer'));
 function TutorMascot({ size, className = '' }) {
@@ -79,6 +80,10 @@ function ChatMessageList({
           <div className="chat-empty-state">
             <TutorMascot size={152} className="chat-empty-mascot" />
             <div className="chat-empty-title">Hôm nay bạn muốn học gì?</div>
+            <div className="chat-keyword-tip" role="note">
+              <strong>{uiCopy.student.chat.keywordTipTitle}</strong>
+              <p>{uiCopy.student.chat.keywordTip}</p>
+            </div>
             <PromptStarters disabled={!canChat || isAiLoading} onSelect={onPromptStarter} />
           </div>
         ) : (

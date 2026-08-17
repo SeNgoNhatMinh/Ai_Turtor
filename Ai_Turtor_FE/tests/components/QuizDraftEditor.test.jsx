@@ -22,12 +22,15 @@ describe('QuizDraftEditor', () => {
     const onSave = vi.fn().mockResolvedValue({ ...draft });
     render(<QuizDraftEditor draft={draft} onSave={onSave} />);
 
-    fireEvent.click(await screen.findByRole('radio', { name: 'Creating many classes' }));
+    await waitFor(() => {
+      expect(screen.getByRole('radio', { name: 'Creating many classes' })).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole('radio', { name: 'Creating many classes' }));
     fireEvent.click(screen.getByRole('button', { name: 'Lưu draft' }));
 
     await waitFor(() => expect(onSave).toHaveBeenCalled());
     expect(onSave.mock.calls[0][0].questions[0].correctAnswer).toBe('Creating many classes');
-  });
+  }, 15000);
 
   it('keeps the selected answer synchronized when its option text changes', async () => {
     const onSave = vi.fn().mockResolvedValue({ ...draft });

@@ -4,6 +4,7 @@ import AsyncState from '../../components/common/AsyncState';
 const seniorPages = {
   'senior-review': lazy(() => import('../../features/senior/review/SeniorReviewPage')),
   'senior-v2': lazy(() => import('../../features/senior/expert-training/SeniorExpertTrainingPage')),
+  'senior-answer-cache': lazy(() => import('../../features/senior/answer-cache/SeniorAnswerCachePage')),
 };
 
 function SeniorPageFallback() {

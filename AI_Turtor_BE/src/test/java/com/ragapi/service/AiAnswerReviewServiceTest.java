@@ -69,6 +69,9 @@ class AiAnswerReviewServiceTest {
 
     private RealtimeEventService realtimeEvents;
 
+    @Mock
+    private TutorAnswerCacheSeniorService tutorAnswerCacheSeniorService;
+
 
 
     private AiAnswerReviewService service;
@@ -86,7 +89,8 @@ class AiAnswerReviewServiceTest {
         service = new AiAnswerReviewService(
                 reviewRepository,
                 knowledgeCandidateRepository,
-                realtimeEvents);
+                realtimeEvents,
+                tutorAnswerCacheSeniorService);
 
         stored.clear();
 

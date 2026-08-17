@@ -95,7 +95,13 @@ function ChatWorkspaceHeader({
 
       {!canChat && (
         <div className="chat-context-blocker" role="status">
-          <strong>{!hasStudentEnrollments && hasLoadedStudentEnrollments ? 'Cần ghi danh lớp học' : 'Cần chọn môn học'}</strong>
+          <strong>
+            {isStudentEnrollmentsLoading || !hasLoadedStudentEnrollments
+              ? 'Đang kiểm tra ghi danh'
+              : !hasStudentEnrollments
+                ? 'Cần ghi danh lớp học'
+                : 'Cần chọn môn học'}
+          </strong>
           <span>{chatContextMessage}</span>
         </div>
       )}

@@ -9,7 +9,6 @@ import com.ragapi.service.CourseMaterialQueryService;
 import com.ragapi.service.CourseMaterialHtmlImportService;
 import com.ragapi.service.CourseMaterialIngestionService;
 import com.ragapi.service.CourseMaterialLifecycleService;
-import com.ragapi.service.PdfStorageService;
 import com.ragapi.service.PdfPageRenderService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -18,8 +17,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.mongodb.gridfs.GridFsResource;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -35,9 +34,13 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static com.ragapi.util.ValidationUtils.SHORT_TEXT_MAX_LENGTH;
 import static com.ragapi.util.ValidationUtils.optionalMaxLength;
@@ -54,7 +57,6 @@ public class CourseMaterialController {
     private final CourseMaterialIngestionService ingestionService;
     private final CourseMaterialHtmlImportService htmlImportService;
     private final CourseMaterialRepository courseMaterialRepository;
-    private final PdfStorageService pdfStorageService;
     private final PdfPageRenderService pdfPageRenderService;
     private final CourseMaterialLifecycleService lifecycleService;
     private final CourseMaterialQueryService queryService;
@@ -64,6 +66,8 @@ public class CourseMaterialController {
 
     private static final Set<String> MATERIAL_EXTENSIONS = Set.of("pdf");
     private static final Set<String> MATERIAL_CONTENT_TYPES = Set.of("application/pdf", "application/x-pdf");
+    private static final long DOWNLOAD_TICKET_TTL_SECONDS = 60;
+    private final Map<String, MaterialDownloadTicket> materialDownloadTickets = new ConcurrentHashMap<>();
 
     @PostMapping(
             value = "/courses/{courseId}/materials/upload",
@@ -250,6 +254,62 @@ public class CourseMaterialController {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
+    @PostMapping("/courses/{courseId}/materials/{materialId}/download-ticket")
+    @Operation(summary = "Create a short-lived, one-time material download ticket")
+    public ResponseEntity<?> createMaterialDownloadTicket(
+            @PathVariable String courseId,
+            @PathVariable String materialId
+    ) {
+        CourseMaterial material = courseMaterialRepository.findById(materialId)
+                .orElseThrow(() -> new IllegalArgumentException("Course material not found"));
+        if (material.getCourseId() == null || !material.getCourseId().equals(courseId)
+                || material.getPdfFileId() == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "PDF material not found in requested course"));
+        }
+
+        Instant now = Instant.now();
+        materialDownloadTickets.entrySet().removeIf(entry -> entry.getValue().expiresAt().isBefore(now));
+        String ticket = UUID.randomUUID().toString();
+        materialDownloadTickets.put(ticket, new MaterialDownloadTicket(
+                materialId,
+                material.getSourceFileName(),
+                now.plusSeconds(DOWNLOAD_TICKET_TTL_SECONDS)
+        ));
+        return ResponseEntity.ok(Map.of(
+                "ticket", ticket,
+                "expiresInSeconds", DOWNLOAD_TICKET_TTL_SECONDS
+        ));
+    }
+
+    @GetMapping("/material-downloads/{ticket}")
+    @Operation(summary = "Download a PDF using a one-time ticket")
+    public ResponseEntity<?> downloadMaterialWithTicket(@PathVariable String ticket) {
+        MaterialDownloadTicket downloadTicket = materialDownloadTickets.remove(ticket);
+        if (downloadTicket == null || downloadTicket.expiresAt().isBefore(Instant.now())) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "Download ticket is invalid or expired"));
+        }
+        try {
+            byte[] pdfBytes = pdfPageRenderService.loadDocumentBytes(downloadTicket.materialId());
+            String fileName = downloadTicket.fileName() == null || downloadTicket.fileName().isBlank()
+                    ? downloadTicket.materialId() + ".pdf"
+                    : downloadTicket.fileName();
+            String contentDisposition = org.springframework.http.ContentDisposition.attachment()
+                    .filename(fileName, StandardCharsets.UTF_8)
+                    .build()
+                    .toString();
+            return ResponseEntity.ok()
+                    .contentType(MediaType.APPLICATION_PDF)
+                    .contentLength(pdfBytes.length)
+                    .header(HttpHeaders.CONTENT_DISPOSITION, contentDisposition)
+                    .body(pdfBytes);
+        } catch (IOException error) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Cannot read PDF: " + error.getMessage()));
+        }
+    }
+
     @GetMapping("/courses/{courseId}/materials/{materialId}/pdf")
     @Operation(summary = "Download stored course material PDF")
     public ResponseEntity<?> downloadCourseMaterialPdf(
@@ -257,33 +317,41 @@ public class CourseMaterialController {
             @PathVariable String materialId
     ) {
         try {
-            CourseMaterial material = courseMaterialRepository.findById(materialId)
-                    .orElseThrow(() -> new IllegalArgumentException("Course material not found"));
+            CourseMaterial material = null;
+            if (!pdfPageRenderService.isCachedMaterialCourse(courseId, materialId)) {
+                material = courseMaterialRepository.findById(materialId)
+                        .orElseThrow(() -> new IllegalArgumentException("Course material not found"));
 
-            if (material.getCourseId() == null || !material.getCourseId().equals(courseId)) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                        .body(Map.of("error", "Course material not found in requested course"));
-            }
-            if (material.getPdfFileId() == null) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                        .body(Map.of("error", "This material does not have a stored PDF"));
+                if (material.getCourseId() == null || !material.getCourseId().equals(courseId)) {
+                    return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                            .body(Map.of("error", "Course material not found in requested course"));
+                }
+                if (material.getPdfFileId() == null) {
+                    return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                            .body(Map.of("error", "This material does not have a stored PDF"));
+                }
+                pdfPageRenderService.rememberMaterialCourse(courseId, materialId);
             }
 
-            GridFsResource resource = pdfStorageService.loadByDocumentId(materialId);
-            String fileName = material.getSourceFileName() != null
+            byte[] pdfBytes = pdfPageRenderService.loadDocumentBytes(materialId);
+            String fileName = material != null && material.getSourceFileName() != null
                     ? material.getSourceFileName()
-                    : "course-material.pdf";
+                    : materialId + ".pdf";
 
             return ResponseEntity.ok()
                     .contentType(MediaType.APPLICATION_PDF)
+                    .contentLength(pdfBytes.length)
                     .header("Content-Disposition", "attachment; filename=\"" + fileName + "\"")
-                    .body(resource);
+                    .body(pdfBytes);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (IOException e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Cannot read PDF: " + e.getMessage()));
         }
+    }
+
+    private record MaterialDownloadTicket(String materialId, String fileName, Instant expiresAt) {
     }
 
     @GetMapping(value = "/courses/{courseId}/materials/{materialId}/pages/{pageNumber}/image", produces = MediaType.IMAGE_PNG_VALUE)
@@ -294,13 +362,18 @@ public class CourseMaterialController {
             @PathVariable int pageNumber
     ) {
         try {
-            CourseMaterial material = courseMaterialRepository.findById(materialId)
-                    .orElseThrow(() -> new IllegalArgumentException("Course material not found"));
-            if (!courseId.equals(material.getCourseId())) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Course material not found in requested course"));
-            }
-            if (material.getPdfFileId() == null) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "This material does not have a stored PDF"));
+            if (!pdfPageRenderService.isCachedMaterialCourse(courseId, materialId)) {
+                CourseMaterial material = courseMaterialRepository.findById(materialId)
+                        .orElseThrow(() -> new IllegalArgumentException("Course material not found"));
+                if (!courseId.equals(material.getCourseId())) {
+                    return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                            .body(Map.of("error", "Course material not found in requested course"));
+                }
+                if (material.getPdfFileId() == null) {
+                    return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                            .body(Map.of("error", "This material does not have a stored PDF"));
+                }
+                pdfPageRenderService.rememberMaterialCourse(courseId, materialId);
             }
             return ResponseEntity.ok()
                     .cacheControl(org.springframework.http.CacheControl.maxAge(java.time.Duration.ofHours(6)).cachePrivate())

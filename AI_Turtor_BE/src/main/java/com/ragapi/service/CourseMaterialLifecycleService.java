@@ -21,6 +21,7 @@ public class CourseMaterialLifecycleService {
     private final CourseMaterialChunkingService chunkingService;
     private final ElasticVectorService vectorService;
     private final PdfStorageService pdfStorageService;
+    private final PdfPageRenderService pdfPageRenderService;
     private final VisualVectorService visualVectorService;
 
     public Map<String, Object> deleteMaterial(String courseId, String materialId, String requesterTeacherId) throws IOException {
@@ -32,6 +33,7 @@ public class CourseMaterialLifecycleService {
         if (material.getPdfFileId() != null) {
             pdfStorageService.deleteByDocumentId(materialId);
         }
+        pdfPageRenderService.evictMaterial(materialId);
         materialRepository.deleteById(materialId);
 
         Map<String, Object> response = new LinkedHashMap<>();

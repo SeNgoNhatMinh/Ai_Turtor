@@ -1,6 +1,7 @@
 package com.ragapi.service;
 
 import com.ragapi.dto.IntentClassification;
+import com.ragapi.util.StudentChatIntentDetector;
 import org.springframework.stereotype.Service;
 
 import static com.ragapi.util.TechnicalIntentDetector.containsCodeSyntax;
@@ -28,6 +29,26 @@ public class IntentClassifierService {
                     "TEACHER_POLICY",
                     domain,
                     "Create escalation. Do not answer from AI.",
+                    false);
+        }
+
+        if (StudentChatIntentDetector.isAllowedInteraction(message)) {
+            return base(MODE_RAG,
+                    "Conversational interaction with AI Tutor",
+                    0.97,
+                    "CONVERSATIONAL",
+                    domain,
+                    "Respond naturally without course-material RAG.",
+                    false);
+        }
+
+        if (StudentChatIntentDetector.isOffTopicNonAcademic(message)) {
+            return base(MODE_RAG,
+                    "Off-topic non-academic question",
+                    0.93,
+                    "OFF_TOPIC",
+                    domain,
+                    "Politely redirect without course-material RAG.",
                     false);
         }
 

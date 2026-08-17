@@ -33,7 +33,11 @@ public class RetrievalQueryTranslationService {
     private String targetLanguage;
 
     public String expandForRetrieval(String question, String courseId) {
-        if (!enabled || question == null || question.isBlank() || !shouldTranslate(question)) {
+        return expandForRetrieval(question, courseId, false);
+    }
+
+    public String expandForRetrieval(String question, String courseId, boolean keywordExpanded) {
+        if (!enabled || question == null || question.isBlank() || !shouldTranslate(question, keywordExpanded)) {
             return question;
         }
 
@@ -61,9 +65,32 @@ public class RetrievalQueryTranslationService {
         }
     }
 
+    private boolean shouldTranslate(String question, boolean keywordExpanded) {
+        if (!VietnameseOutputEnforcer.containsVietnameseIntent(question)) {
+            return false;
+        }
+        if (VietnameseOutputEnforcer.isEnglishPrimary(question)) {
+            return false;
+        }
+        if (keywordExpanded && hasStrongEnglishRetrievalTerms(question)) {
+            return false;
+        }
+        return true;
+    }
+
+    private boolean hasStrongEnglishRetrievalTerms(String question) {
+        int asciiWords = 0;
+        for (String raw : question.split("\\s+")) {
+            String token = raw.replaceAll("[^\\p{L}\\p{N}]+", "");
+            if (token.length() >= 3 && token.chars().allMatch(ch -> ch < 128)) {
+                asciiWords++;
+            }
+        }
+        return asciiWords >= 8;
+    }
+
     private boolean shouldTranslate(String question) {
-        return VietnameseOutputEnforcer.containsVietnameseIntent(question)
-                && !VietnameseOutputEnforcer.isEnglishPrimary(question);
+        return shouldTranslate(question, false);
     }
 
     private String buildPrompt(String question, String courseId) {

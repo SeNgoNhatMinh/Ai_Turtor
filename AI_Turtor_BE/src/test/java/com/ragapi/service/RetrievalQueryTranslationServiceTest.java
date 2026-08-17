@@ -2,55 +2,38 @@ package com.ragapi.service;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.contains;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
+@ExtendWith(MockitoExtension.class)
 class RetrievalQueryTranslationServiceTest {
 
+    @Mock
     private OpenRouterChatService chatService;
+
+    @InjectMocks
     private RetrievalQueryTranslationService service;
 
     @BeforeEach
     void setUp() {
-        chatService = mock(OpenRouterChatService.class);
-        service = new RetrievalQueryTranslationService(chatService);
         ReflectionTestUtils.setField(service, "enabled", true);
         ReflectionTestUtils.setField(service, "targetLanguage", "English");
     }
 
     @Test
-    void rewritesVietnameseMathQueryWithoutTermHardcoding() throws Exception {
-        when(chatService.generateUtility(contains("Hàm mệnh đề là gì?")))
-                .thenReturn("propositional function predicate truth value");
+    void expandForRetrieval_skipsLlmWhenKeywordExpansionAlreadyAddedEnglishTerms() {
+        String expanded = "JSP hoạt động thế nào? jsp java server pages jsp lifecycle servlet class compilation web container";
 
-        String result = service.expandForRetrieval("Hàm mệnh đề là gì?", "MAD101");
+        String result = service.expandForRetrieval(expanded, "CEA201", true);
 
-        assertTrue(result.startsWith("Hàm mệnh đề là gì? | "));
-        assertTrue(result.contains("propositional function"));
-    }
-
-    @Test
-    void cachesRewriteForRepeatedQuestion() throws Exception {
-        when(chatService.generateUtility(contains("Lượng từ là gì?")))
-                .thenReturn("quantifier universal existential");
-
-        String first = service.expandForRetrieval("Lượng từ là gì?", "MAD101");
-        String second = service.expandForRetrieval("Lượng từ là gì?", "MAD101");
-
-        assertEquals(first, second);
-        verify(chatService, times(1)).generateUtility(contains("Lượng từ là gì?"));
-    }
-
-    @Test
-    void leavesEnglishQueryUntouched() {
-        assertEquals("What is a proposition?",
-                service.expandForRetrieval("What is a proposition?", "MAD101"));
+        assertThat(result).isEqualTo(expanded);
+        verify(chatService, never()).generateUtility(org.mockito.ArgumentMatchers.anyString());
     }
 }

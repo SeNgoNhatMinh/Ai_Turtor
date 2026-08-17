@@ -1,0 +1,85 @@
+package com.ragapi.util;
+
+import java.util.HashSet;
+import java.util.Locale;
+import java.util.Set;
+
+/**
+ * Lightweight lexical overlap checks so semantically similar but topically
+ * different questions (for example Servlet vs JSP) do not share cached answers.
+ */
+public final class QuestionOverlapUtil {
+
+    private static final Set<String> STOP_WORDS = Set.of(
+            "la", "gi", "gì", "cua", "của", "cho", "em", "anh", "chi", "chị",
+            "the", "thế", "nao", "nào", "hay", "giai", "giải", "thich", "thích",
+            "explain", "what", "is", "a", "an", "and", "or", "in", "on",
+            "of", "to", "with", "about", "please", "help", "ban", "toi", "tôi",
+            "duoc", "được", "khong", "không", "nhu", "như"
+    );
+
+    private QuestionOverlapUtil() {
+    }
+
+    public static double keywordOverlapRatio(String left, String right) {
+        Set<String> leftTokens = meaningfulTokens(left);
+        Set<String> rightTokens = meaningfulTokens(right);
+        if (leftTokens.isEmpty() || rightTokens.isEmpty()) {
+            return 0.0;
+        }
+        int intersection = 0;
+        for (String token : leftTokens) {
+            if (rightTokens.contains(token)) {
+                intersection++;
+            }
+        }
+        int union = leftTokens.size() + rightTokens.size() - intersection;
+        return union == 0 ? 0.0 : (double) intersection / union;
+    }
+
+    public static double sourceOverlapRatio(java.util.List<String> left, java.util.List<String> right) {
+        Set<String> leftSources = normalizeSources(left);
+        Set<String> rightSources = normalizeSources(right);
+        if (leftSources.isEmpty() || rightSources.isEmpty()) {
+            return 0.0;
+        }
+        int intersection = 0;
+        for (String source : leftSources) {
+            if (rightSources.contains(source)) {
+                intersection++;
+            }
+        }
+        int union = leftSources.size() + rightSources.size() - intersection;
+        return union == 0 ? 0.0 : (double) intersection / union;
+    }
+
+    private static Set<String> meaningfulTokens(String text) {
+        Set<String> tokens = new HashSet<>();
+        if (text == null || text.isBlank()) {
+            return tokens;
+        }
+        String normalized = TextSanitizer.normalizeAccentInsensitive(text).toLowerCase(Locale.ROOT);
+        for (String raw : normalized.split("[^\\p{L}\\p{N}]+")) {
+            String token = raw.trim();
+            if (token.length() < 2 || STOP_WORDS.contains(token)) {
+                continue;
+            }
+            tokens.add(token);
+        }
+        return tokens;
+    }
+
+    private static Set<String> normalizeSources(java.util.List<String> sources) {
+        Set<String> normalized = new HashSet<>();
+        if (sources == null) {
+            return normalized;
+        }
+        for (String source : sources) {
+            if (source == null || source.isBlank()) {
+                continue;
+            }
+            normalized.add(source.trim().toLowerCase(Locale.ROOT));
+        }
+        return normalized;
+    }
+}

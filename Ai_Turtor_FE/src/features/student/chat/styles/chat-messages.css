@@ -55,6 +55,34 @@
   color: #0d0d0d;
 }
 
+.chat-keyword-tip {
+  width: min(560px, 100%);
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid #fde7c8;
+  background: #fff8ef;
+  color: #7c4a12;
+  text-align: left;
+}
+
+.chat-keyword-tip strong {
+  display: block;
+  margin-bottom: 4px;
+  color: #9a3412;
+}
+
+.chat-keyword-tip p {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.chat-composer-keyword-tip {
+  display: block;
+  color: #9a3412;
+  margin-bottom: 4px;
+}
+
 .prompt-starters {
   display: grid;
   grid-template-columns: repeat(2, minmax(180px, 1fr));

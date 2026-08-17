@@ -3,7 +3,7 @@
   "nodes": [
     {
       "parameters": {
-        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/tutor/students/{{$node[\"Set - Trace Context\"].json.studentId}}/courses/{{$node[\"Set - Trace Context\"].json.courseId}}/memory",
+        "url": "=http://ai-tutor-api:8085/api/tutor/students/{{$node[\"Set - Trace Context\"].json.studentId}}/courses/{{$node[\"Set - Trace Context\"].json.courseId}}/memory",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -35,7 +35,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/ai/query?userId={{$node[\"Set - Trace Context\"].json.studentId}}&userName={{$node[\"Set - Trace Context\"].json.studentName}}&userEmail={{$node[\"Set - Trace Context\"].json.studentEmail}}",
+        "url": "=http://ai-tutor-api:8085/api/ai/query?userId={{$node[\"Set - Trace Context\"].json.studentId}}&userName={{$node[\"Set - Trace Context\"].json.studentName}}&userEmail={{$node[\"Set - Trace Context\"].json.studentEmail}}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -65,8 +65,8 @@
     },
     {
       "parameters": {
-        "httpMethod": "=POST",
-        "path": "=student-chat",
+        "httpMethod": "POST",
+        "path": "student-chat",
         "responseMode": "responseNode",
         "options": {}
       },
@@ -83,7 +83,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/tutor/intent-classify",
+        "url": "=http://ai-tutor-api:8085/api/tutor/intent-classify",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -185,7 +185,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/tutor/improve-suggestions",
+        "url": "=http://ai-tutor-api:8085/api/tutor/improve-suggestions",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -234,7 +234,7 @@
     {
       "parameters": {
         "method": "PUT",
-        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/tutor/students/{{$node[\"Set - Trace Context\"].json.studentId}}/courses/{{$node[\"Set - Trace Context\"].json.courseId}}/memory",
+        "url": "=http://ai-tutor-api:8085/api/tutor/students/{{$node[\"Set - Trace Context\"].json.studentId}}/courses/{{$node[\"Set - Trace Context\"].json.courseId}}/memory",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -294,7 +294,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/tutor/escalations",
+        "url": "=http://ai-tutor-api:8085/api/tutor/escalations",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -366,7 +366,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/code-mentor/query",
+        "url": "=http://ai-tutor-api:8085/api/code-mentor/query",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -430,7 +430,7 @@
     {
       "parameters": {
         "method": "PUT",
-        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/tutor/students/{{$node[\"Set - Trace Context\"].json.studentId}}/courses/{{$node[\"Set - Trace Context\"].json.courseId}}/memory",
+        "url": "=http://ai-tutor-api:8085/api/tutor/students/{{$node[\"Set - Trace Context\"].json.studentId}}/courses/{{$node[\"Set - Trace Context\"].json.courseId}}/memory",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -537,7 +537,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/tutor/answer-reviews",
+        "url": "=http://ai-tutor-api:8085/api/tutor/answer-reviews",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -671,8 +671,8 @@
     },
     {
       "parameters": {
-        "httpMethod": "=POST",
-        "path": "=teacher-answer-escalation",
+        "httpMethod": "POST",
+        "path": "teacher-answer-escalation",
         "responseMode": "responseNode",
         "options": {}
       },
@@ -704,7 +704,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/tutor/escalations/{{$node[\"Set Teacher Answer Input\"].json.questionEscalationId}}/answer",
+        "url": "=http://ai-tutor-api:8085/api/tutor/escalations/{{$node[\"Set Teacher Answer Input\"].json.questionEscalationId}}/answer",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -752,8 +752,8 @@
     },
     {
       "parameters": {
-        "httpMethod": "=POST",
-        "path": "=senior-knowledge-approval",
+        "httpMethod": "POST",
+        "path": "senior-knowledge-approval",
         "responseMode": "responseNode",
         "options": {}
       },
@@ -852,7 +852,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/tutor/knowledge-candidates/{{$node[\"Set Approval Input\"].json.candidateId}}/approve",
+        "url": "=http://ai-tutor-api:8085/api/tutor/knowledge-candidates/{{$node[\"Set Approval Input\"].json.candidateId}}/approve",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -996,7 +996,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/tutor/knowledge-candidates/{{$node[\"Set Approval Input\"].json.candidateId}}/reject",
+        "url": "=http://ai-tutor-api:8085/api/tutor/knowledge-candidates/{{$node[\"Set Approval Input\"].json.candidateId}}/reject",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -1170,7 +1170,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/harness/error-logs",
+        "url": "http://ai-tutor-api:8085/api/harness/error-logs",
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
@@ -1234,7 +1234,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/harness/logs",
+        "url": "=http://ai-tutor-api:8085/api/harness/logs",
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
@@ -1329,7 +1329,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/harness/error-logs",
+        "url": "=http://ai-tutor-api:8085/api/harness/error-logs",
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
@@ -1393,7 +1393,7 @@
     {
       "parameters": {
         "method": "=POST",
-        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/harness/logs",
+        "url": "=http://ai-tutor-api:8085/api/harness/logs",
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
@@ -1518,7 +1518,7 @@
     {
       "parameters": {
         "method": "=POST",
-        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/harness/logs",
+        "url": "=http://ai-tutor-api:8085/api/harness/logs",
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
@@ -1582,7 +1582,7 @@
     {
       "parameters": {
         "method": "=POST",
-        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/harness/logs",
+        "url": "=http://ai-tutor-api:8085/api/harness/logs",
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
@@ -1642,7 +1642,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/harness/logs",
+        "url": "http://ai-tutor-api:8085/api/harness/logs",
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
@@ -1706,7 +1706,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/harness/logs",
+        "url": "http://ai-tutor-api:8085/api/harness/logs",
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
@@ -1766,7 +1766,7 @@
     {
       "parameters": {
         "method": "=POST",
-        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/harness/logs",
+        "url": "=http://ai-tutor-api:8085/api/harness/logs",
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
@@ -1830,7 +1830,7 @@
     {
       "parameters": {
         "method": "=POST",
-        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/harness/logs",
+        "url": "=http://ai-tutor-api:8085/api/harness/logs",
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
@@ -1894,7 +1894,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/harness/logs",
+        "url": "http://ai-tutor-api:8085/api/harness/logs",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -2206,7 +2206,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/harness/logs",
+        "url": "http://ai-tutor-api:8085/api/harness/logs",
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
@@ -2266,7 +2266,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/tutor/quizzes/{{$node[\"Set - Normalize Quiz Submit\"].json.quizSessionId}}/submit",
+        "url": "=http://ai-tutor-api:8085/api/tutor/quizzes/{{$node[\"Set - Normalize Quiz Submit\"].json.quizSessionId}}/submit",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -2338,7 +2338,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/harness/logs",
+        "url": "http://ai-tutor-api:8085/api/harness/logs",
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
@@ -2436,7 +2436,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/harness/logs",
+        "url": "http://ai-tutor-api:8085/api/harness/logs",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -2548,7 +2548,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/harness/logs",
+        "url": "http://ai-tutor-api:8085/api/harness/logs",
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
@@ -2691,7 +2691,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/tutor/students/{{$node[\"Set: Normalize Quiz Generate Input\"].json.studentId}}/courses/{{$node[\"Set: Normalize Quiz Generate Input\"].json.courseId}}/quizzes/generate",
+        "url": "=http://ai-tutor-api:8085/api/tutor/students/{{$node[\"Set: Normalize Quiz Generate Input\"].json.studentId}}/courses/{{$node[\"Set: Normalize Quiz Generate Input\"].json.courseId}}/quizzes/generate",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -2756,7 +2756,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/harness/logs",
+        "url": "http://ai-tutor-api:8085/api/harness/logs",
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
@@ -2819,7 +2819,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/harness/logs",
+        "url": "http://ai-tutor-api:8085/api/harness/logs",
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
@@ -2875,7 +2875,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/tutor/teachers/{{$node[\"Set: Normalize Quiz Generate Input\"].json.teacherId}}/courses/{{$node[\"Set: Normalize Quiz Generate Input\"].json.courseId}}/quiz-assignments/generate",
+        "url": "=http://ai-tutor-api:8085/api/tutor/teachers/{{$node[\"Set: Normalize Quiz Generate Input\"].json.teacherId}}/courses/{{$node[\"Set: Normalize Quiz Generate Input\"].json.courseId}}/quiz-assignments/generate",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -2940,7 +2940,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/harness/logs",
+        "url": "http://ai-tutor-api:8085/api/harness/logs",
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
@@ -3003,7 +3003,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/harness/logs",
+        "url": "http://ai-tutor-api:8085/api/harness/logs",
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
@@ -3188,7 +3188,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.AI_TUTOR_API_BASE_URL}}/api/tutor/answer-reviews/{{$node[\"Set Normalize Senior Resolution\"].json.reviewId}}/senior-resolve",
+        "url": "=http://ai-tutor-api:8085/api/tutor/answer-reviews/{{$node[\"Set Normalize Senior Resolution\"].json.reviewId}}/senior-resolve",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -3432,7 +3432,7 @@
       "main": [
         [
           {
-            "node": "Improve Suggestions",
+            "node": "Respond RAG",
             "type": "main",
             "index": 0
           }
@@ -3662,7 +3662,7 @@
       "main": [
         [
           {
-            "node": "Log - Stundet Chat Started",
+            "node": "Intent Classifier",
             "type": "main",
             "index": 0
           }
@@ -3837,7 +3837,7 @@
       "main": [
         [
           {
-            "node": "Get Student Score Memory",
+            "node": "Intent Classifier",
             "type": "main",
             "index": 0
           }

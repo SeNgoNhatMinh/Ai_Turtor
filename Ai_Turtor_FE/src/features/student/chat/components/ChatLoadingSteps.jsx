@@ -25,7 +25,7 @@ function ChatLoadingSteps() {
         <span>{STEPS[stepIndex]}</span>
         <small>
           {isTakingLonger
-            ? 'Yêu cầu đang mất thêm thời gian. Nếu dịch vụ chính bận, hệ thống sẽ tự dùng mô hình dự phòng.'
+            ? 'Yêu cầu đang mất thêm thời gian để truy xuất và kiểm tra tài liệu môn học.'
             : 'AI Tutor đang chuẩn bị câu trả lời.'}
         </small>
         <div className="markdown-skeleton" aria-hidden="true">

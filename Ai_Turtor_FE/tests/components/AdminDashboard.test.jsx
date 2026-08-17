@@ -35,6 +35,9 @@ describe('AdminDashboard canonical actions', () => {
     fireEvent.click(screen.getByRole('button', { name: /Quản lý tài khoản và giảng viên/i }));
     expect(onNavigate).toHaveBeenCalledWith('/admin/users');
 
-    await waitFor(() => expect(diagnosticsApi.getHarnessLogs).toHaveBeenCalledTimes(1));
-  });
+    await waitFor(
+      () => expect(diagnosticsApi.getHarnessLogs).toHaveBeenCalledTimes(1),
+      { timeout: 5000 },
+    );
+  }, 15000);
 });

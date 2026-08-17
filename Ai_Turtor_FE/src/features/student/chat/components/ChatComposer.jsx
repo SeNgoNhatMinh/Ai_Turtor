@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { SendOutlined, StopOutlined } from '@ant-design/icons';
 import { Mic, MicOff } from 'lucide-react';
 import { validateChatInput } from '../../../../utils/validators';
+import { uiCopy } from '../../../../constants/uiCopy';
 import { useSpeechToText } from '../useSpeechToText';
 
 function ChatComposer({
@@ -141,6 +142,9 @@ function ChatComposer({
         </div>
         <div className="chat-composer-meta" aria-live="polite">
           {isListening && <span className="chat-speech-status">Đang nghe...</span>}
+          {canChat && (
+            <span className="chat-composer-keyword-tip">{uiCopy.student.chat.keywordTip}</span>
+          )}
           <span>AI Tutor có thể trả lời sai. Hãy kiểm tra lại thông tin quan trọng.</span>
         </div>
       </div>
