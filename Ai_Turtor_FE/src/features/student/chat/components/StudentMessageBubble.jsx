@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Check, Copy, Pencil, Send, X } from 'lucide-react';
 import { PushpinOutlined } from '@ant-design/icons';
-import { validateChatInput } from '../../../../utils/validators';
+import { LIMITS, validateChatInput } from '../../../../utils/validators';
 
 async function copyText(text) {
   if (navigator.clipboard?.writeText) {
@@ -92,7 +92,7 @@ export default function StudentMessageBubble({
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={handleKeyDown}
-          maxLength={8000}
+          maxLength={LIMITS.chatMax}
           rows={3}
           aria-label="Chỉnh sửa câu hỏi"
         />

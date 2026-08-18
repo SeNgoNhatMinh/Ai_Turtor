@@ -159,6 +159,9 @@ app:
     semantic-min-similarity: ${TUTOR_ANSWER_CACHE_SEMANTIC_MIN_SIMILARITY:0.90}
     semantic-min-keyword-overlap: ${TUTOR_ANSWER_CACHE_SEMANTIC_MIN_KEYWORD_OVERLAP:0.45}
     semantic-min-source-overlap: ${TUTOR_ANSWER_CACHE_SEMANTIC_MIN_SOURCE_OVERLAP:0.20}
+    semantic-early-min-similarity: ${TUTOR_ANSWER_CACHE_SEMANTIC_EARLY_MIN_SIMILARITY:0.92}
+    semantic-early-min-keyword-overlap: ${TUTOR_ANSWER_CACHE_SEMANTIC_EARLY_MIN_KEYWORD_OVERLAP:0.50}
+    semantic-early-min-evidence-count: ${TUTOR_ANSWER_CACHE_SEMANTIC_EARLY_MIN_EVIDENCE_COUNT:1}
     semantic-max-candidates: ${TUTOR_ANSWER_CACHE_SEMANTIC_MAX_CANDIDATES:100}
 
 admin:
@@ -206,6 +209,11 @@ rag:
     query-translation:
       enabled: ${RAG_QUERY_TRANSLATION_ENABLED:true}
       target-language: English
+  approved-knowledge:
+    max-chunks: ${RAG_APPROVED_KNOWLEDGE_MAX_CHUNKS:2}
+    min-score: ${RAG_APPROVED_KNOWLEDGE_MIN_SCORE:0.60}
+    strong-semantic-score: ${RAG_APPROVED_KNOWLEDGE_STRONG_SCORE:0.82}
+    min-keyword-overlap: ${RAG_APPROVED_KNOWLEDGE_MIN_KEYWORD_OVERLAP:0.12}
   generation:
     max-context-chars: ${RAG_GENERATION_MAX_CONTEXT_CHARS:12000}
   rerank:

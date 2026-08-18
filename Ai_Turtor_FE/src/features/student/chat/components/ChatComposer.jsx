@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { SendOutlined, StopOutlined } from '@ant-design/icons';
 import { Mic, MicOff } from 'lucide-react';
-import { validateChatInput } from '../../../../utils/validators';
+import { LIMITS, validateChatInput } from '../../../../utils/validators';
 import { uiCopy } from '../../../../constants/uiCopy';
 import { useSpeechToText } from '../useSpeechToText';
 
@@ -24,7 +24,7 @@ function ChatComposer({
 
   const handleSpeechTranscript = useCallback((transcript) => {
     const baseText = speechBaseTextRef.current.trim();
-    const nextText = [baseText, transcript].filter(Boolean).join(' ').slice(0, 8000);
+    const nextText = [baseText, transcript].filter(Boolean).join(' ').slice(0, LIMITS.chatMax);
     setChatInput(nextText);
   }, [setChatInput]);
 
@@ -104,7 +104,7 @@ function ChatComposer({
             value={chatInput}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
-            maxLength={8000}
+            maxLength={LIMITS.chatMax}
             disabled={isAiLoading || !canChat}
             rows={1}
             aria-label="Câu hỏi cho AI Tutor"

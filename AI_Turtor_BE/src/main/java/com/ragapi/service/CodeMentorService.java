@@ -16,8 +16,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 
-import static com.ragapi.util.ValidationUtils.DEFAULT_TEXT_MAX_LENGTH;
 import static com.ragapi.util.ValidationUtils.SHORT_TEXT_MAX_LENGTH;
+import static com.ragapi.util.ValidationUtils.STUDENT_QUESTION_MAX_LENGTH;
+import static com.ragapi.util.ValidationUtils.optionalCodeSnippet;
 import static com.ragapi.util.ValidationUtils.optionalMaxLength;
 import static com.ragapi.util.ValidationUtils.optionalText;
 
@@ -302,8 +303,8 @@ public class CodeMentorService {
         optionalText(request.getClassId(), "classId");
         optionalText(request.getConversationId(), "conversationId");
         optionalMaxLength(request.getLanguage(), "language", SHORT_TEXT_MAX_LENGTH);
-        String question = optionalMaxLength(request.getQuestion(), "question", DEFAULT_TEXT_MAX_LENGTH);
-        String code = optionalMaxLength(request.getCode(), "code", DEFAULT_TEXT_MAX_LENGTH);
+        String question = optionalMaxLength(request.getQuestion(), "question", STUDENT_QUESTION_MAX_LENGTH);
+        String code = optionalCodeSnippet(request.getCode(), "code");
         if (!hasText(question) && !hasText(code)) {
             throw new IllegalArgumentException("question or code is required");
         }

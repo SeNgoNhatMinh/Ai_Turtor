@@ -171,6 +171,20 @@ export default function AnswerCacheTable({
       ),
     },
     {
+      title: 'Đã tái sử dụng',
+      dataIndex: 'reuseCount',
+      key: 'reuseCount',
+      width: 120,
+      render: (value) => Number(value) || 0,
+    },
+    {
+      title: 'Dùng gần nhất',
+      dataIndex: 'lastReusedAt',
+      key: 'lastReusedAt',
+      width: 170,
+      render: formatDateTime,
+    },
+    {
       title: 'Tạo lúc',
       dataIndex: 'createdAt',
       key: 'createdAt',
@@ -203,7 +217,7 @@ export default function AnswerCacheTable({
         <Table
           rowKey="id"
           size="middle"
-          scroll={{ x: 980 }}
+          scroll={{ x: 1250 }}
           loading={loading || anyMutationRunning}
           dataSource={entries}
           columns={columns}
@@ -243,7 +257,11 @@ export default function AnswerCacheTable({
               <Tag>Grounding: {detailEntry.groundingType || '—'}</Tag>
               {detailEntry.classId && <Tag>Class: {detailEntry.classId}</Tag>}
               {detailEntry.linkedReviewId && <Tag>Review: {detailEntry.linkedReviewId}</Tag>}
+              <Tag>Tái sử dụng: {detailEntry.reuseCount || 0} lần</Tag>
             </Space>
+            {detailEntry.lastReusedAt && (
+              <Text type="secondary">Lần dùng cache gần nhất: {formatDateTime(detailEntry.lastReusedAt)}</Text>
+            )}
             {(detailEntry.sources?.length > 0) && (
               <div>
                 <Text type="secondary">Nguồn tham chiếu</Text>

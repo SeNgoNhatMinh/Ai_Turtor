@@ -1,4 +1,4 @@
-# Maven
+sr# Maven
 target/
 
 # IDE
@@ -17,7 +17,6 @@ target/
 .env.deploy
 .env.*
 !.env.deploy.example
-!.env.n8n.example
 
 # Application secrets
 config/application-local.yml
@@ -27,11 +26,3 @@ src/main/resources/application-local.yml
 .DS_Store
 Thumbs.db
 .env.n8n
-
-# Local runtime data
-backup/
-output/
-tmp/
-
-# Optional upstream research repositories
-integrations/

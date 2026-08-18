@@ -1,5 +1,23 @@
 import { API_BASE_URL, API_TIMEOUTS, request } from './apiClient';
 import { getAiMarkdownContent } from '../utils/aiResponseContent.js';
+import {
+  validateChatInput,
+  validateCodeInput,
+  validateCodeMentorRequest,
+} from '../utils/validators';
+
+const invalidRequest = (message) => Object.assign(new Error(message), {
+  status: 400,
+  userMessage: message,
+});
+
+const requireValidTutorPayload = (payload = {}) => {
+  const question = payload.message || payload.question || '';
+  const questionValidation = validateChatInput(question);
+  if (!questionValidation.ok) throw invalidRequest(questionValidation.message);
+  const codeValidation = validateCodeInput(payload.codeSnippet ?? payload.code);
+  if (!codeValidation.ok) throw invalidRequest(codeValidation.message);
+};
 
 const normalizeAiQueryResponse = (response) => {
   if (!response || typeof response !== 'object') {
@@ -14,6 +32,7 @@ const normalizeAiQueryResponse = (response) => {
 
 export const aiTutorApi = {
   async sendQuery(payload, userId, userName = '', userEmail = '', options = {}) {
+    requireValidTutorPayload(payload);
     const params = new URLSearchParams({ userId });
     if (userName) params.append('userName', userName);
     if (userEmail) params.append('userEmail', userEmail);
@@ -28,10 +47,12 @@ export const aiTutorApi = {
   },
 
   async reviewCode(payload) {
+    const validation = validateCodeMentorRequest(payload);
+    if (!validation.ok) throw invalidRequest(validation.message);
     return request(`${API_BASE_URL}/code-mentor/query`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(validation.value),
       timeoutMs: API_TIMEOUTS.ai,
     });
   },

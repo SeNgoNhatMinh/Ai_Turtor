@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { ChevronDown, FileText, LifeBuoy, ShieldCheck, Sparkles } from 'lucide-react';
 import { formatSourceItems } from '../../../../utils/sourceLabels';
-import AuthenticatedEvidenceImage from './AuthenticatedEvidenceImage';
 
 const getAnswerType = (mode) => {
   if (mode === 'CODE' || mode === 'CODE_MENTOR') return 'Xem xét mã nguồn';
@@ -23,16 +22,6 @@ const normalizeEvidenceText = (value) => String(value || '')
   .trim()
   .slice(0, 320);
 
-const mergeVisualEvidence = (current = [], incoming = []) => {
-  const merged = new Map();
-  [...current, ...incoming].forEach((visual) => {
-    if (!visual) return;
-    const key = visual.imageUrl || `${visual.documentUrl || ''}|${visual.pageNumber || ''}`;
-    if (key && !merged.has(key)) merged.set(key, visual);
-  });
-  return [...merged.values()];
-};
-
 const deduplicateEvidence = (items = []) => {
   const merged = new Map();
   items.forEach((item) => {
@@ -46,11 +35,7 @@ const deduplicateEvidence = (items = []) => {
       merged.set(key, item);
       return;
     }
-    const visuals = mergeVisualEvidence(existing.visualEvidence, item.visualEvidence);
-    const preferred = visuals.length > 0 && (!existing.visualEvidence || existing.visualEvidence.length === 0)
-      ? item
-      : existing;
-    merged.set(key, { ...preferred, visualEvidence: visuals });
+    if (!existing.excerpt && item.excerpt) merged.set(key, item);
   });
   return [...merged.values()];
 };
@@ -61,7 +46,13 @@ function AnswerEvidence({ message, sourceMap = {}, onDownloadSource }) {
   const confidenceClass = getConfidenceClass(message?.confidence);
   const confidenceText = message?.confidence == null ? 'Chưa xác định' : `${Math.round(message.confidence * 100)}%`;
   const grounding = message?.groundingType || (sources.length > 0 ? 'COURSE_MATERIAL' : 'NONE');
-  const groundingLabel = grounding === 'COURSE_MATERIAL' ? 'Dựa trên tài liệu môn học' : 'AI tự phân tích bằng kiến thức chung';
+  const groundingLabel = grounding === 'SENIOR_APPROVED_KNOWLEDGE'
+    ? 'Dựa trên kiến thức bổ sung đã được Senior duyệt'
+    : grounding === 'COURSE_MATERIAL_WITH_APPROVED_KNOWLEDGE'
+      ? 'Dựa trên tài liệu môn học và kiến thức Senior duyệt'
+      : grounding === 'COURSE_MATERIAL'
+        ? 'Dựa trên tài liệu môn học'
+        : 'AI tự phân tích bằng kiến thức chung';
   const isCodeMode = message?.mode === 'CODE' || message?.mode === 'CODE_MENTOR';
   const evidence = deduplicateEvidence(Array.isArray(message?.sourceEvidence) ? message.sourceEvidence : []);
   const hasMaterialEvidence = sources.length > 0 || evidence.length > 0;
@@ -137,7 +128,7 @@ function AnswerEvidence({ message, sourceMap = {}, onDownloadSource }) {
         <div className="answer-evidence-details" aria-label="Bằng chứng từ tài liệu môn học">
           {evidence.map((item, index) => (
             <div className="answer-evidence-detail" key={`${item.materialId || item.materialTitle}-${index}`}>
-              <strong>Bằng chứng {index + 1}</strong>
+              <strong>{item.provenanceLabel || `Bằng chứng ${index + 1}`}</strong>
               <span><b>Môn học:</b> {item.courseName || item.courseId || 'Chưa xác định'}</span>
               <span><b>Tài liệu:</b> {item.materialTitle || item.materialId || 'Chưa xác định'}</span>
               {item.chapter && <span><b>Chương/phần:</b> {item.chapter}</span>}
@@ -152,17 +143,6 @@ function AnswerEvidence({ message, sourceMap = {}, onDownloadSource }) {
                 <div className="answer-evidence-quote">
                   <b>Đoạn nội dung chứng minh:</b>
                   <blockquote>{item.excerpt}</blockquote>
-                </div>
-              )}
-              {Array.isArray(item.visualEvidence) && item.visualEvidence.length > 0 && (
-                <div className="visual-evidence-grid" aria-label="Ảnh của trang tài liệu được trích dẫn">
-                  {item.visualEvidence.map((visual, visualIndex) => (
-                    <AuthenticatedEvidenceImage
-                      key={`${visual.imageUrl || visual.pageNumber}-${visualIndex}`}
-                      evidence={visual}
-                      enabled={index === 0 && visualIndex === 0}
-                    />
-                  ))}
                 </div>
               )}
             </div>

@@ -6,7 +6,9 @@ export const LIMITS = {
   nameMax: 80,
   passwordMin: 6,
   passwordMax: 128,
-  chatMax: 8000,
+  chatMax: 4000,
+  codeMax: 12000,
+  codeMaxLines: 100,
   feedbackMax: 2000,
   uploadMaxBytes: 25 * 1024 * 1024,
 };
@@ -53,9 +55,48 @@ export function validateChatInput(input) {
   const value = sanitizeText(input, LIMITS.chatMax);
   if (!value) return { ok: false, message: 'Hãy nhập nội dung trước khi gửi.' };
   if (String(input ?? '').trim().length > LIMITS.chatMax) {
-    return { ok: false, message: `Tin nhắn quá dài. Vui lòng giới hạn trong ${LIMITS.chatMax} ký tự.` };
+    return { ok: false, message: `Câu hỏi quá dài. Vui lòng giới hạn trong ${LIMITS.chatMax} ký tự.` };
   }
   return { ok: true, value };
+}
+
+export function validateCodeInput(input) {
+  const raw = String(input ?? '').trim();
+  if (!raw) return { ok: true, value: '' };
+  if (raw.length > LIMITS.codeMax) {
+    return { ok: false, message: `Đoạn code tối đa ${LIMITS.codeMax} ký tự.` };
+  }
+  const lineCount = raw.split(/\r\n|\r|\n/).length;
+  if (lineCount > LIMITS.codeMaxLines) {
+    return { ok: false, message: `Đoạn code tối đa ${LIMITS.codeMaxLines} dòng (hiện có ${lineCount} dòng).` };
+  }
+  return { ok: true, value: raw };
+}
+
+export function validateCodeMentorRequest(payload = {}) {
+  const question = payload.question ?? payload.message;
+  if (question != null && String(question).trim()) {
+    const questionValidation = validateChatInput(question);
+    if (!questionValidation.ok) return questionValidation;
+  }
+
+  const code = payload.codeSnippet ?? payload.code;
+  const codeValidation = validateCodeInput(code);
+  if (!codeValidation.ok) return codeValidation;
+  if (!codeValidation.value) {
+    return { ok: false, message: 'Hãy dán mã nguồn trước khi gửi Code Mentor.' };
+  }
+
+  return {
+    ok: true,
+    value: {
+      ...payload,
+      ...(payload.question !== undefined ? { question: String(payload.question).trim() } : {}),
+      ...(payload.message !== undefined ? { message: String(payload.message).trim() } : {}),
+      ...(payload.codeSnippet !== undefined ? { codeSnippet: codeValidation.value } : {}),
+      ...(payload.code !== undefined ? { code: codeValidation.value } : {}),
+    },
+  };
 }
 
 export function normalizeReviewMode(mode) {

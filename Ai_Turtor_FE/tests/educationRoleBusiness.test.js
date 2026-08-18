@@ -54,7 +54,7 @@ test('education navigation tabs stay within each workspace role', () => {
   assert.ok(seniorTabs.has('senior-review'));
   assert.ok(seniorTabs.has('senior-v2'));
   assert.ok(!seniorTabs.has('admin-users'));
-  assert.ok(adminTabs.has('admin-review'));
+  assert.ok(!adminTabs.has('admin-review'));
   assert.ok(adminTabs.has('admin-ai-logs'));
   assert.ok(!adminTabs.has('admin-expert-training'));
   assert.ok(!adminTabs.has('senior-review'));

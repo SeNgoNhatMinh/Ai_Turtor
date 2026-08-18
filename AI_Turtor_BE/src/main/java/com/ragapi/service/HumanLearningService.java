@@ -194,9 +194,16 @@ public class HumanLearningService {
         validateLearnableCandidateType(normalizeCandidateType(candidate.getCandidateType()));
 
         String reviewerId = request.getReviewerId().trim();
-        String content = request.getContentOverride() != null && !request.getContentOverride().isBlank()
+        String approvedAnswer = request.getContentOverride() != null && !request.getContentOverride().isBlank()
                 ? requireMaxLength(request.getContentOverride(), "contentOverride", DEFAULT_TEXT_MAX_LENGTH)
-                : candidate.getContent();
+                : (candidate.getAnswer() != null && !candidate.getAnswer().isBlank()
+                        ? candidate.getAnswer()
+                        : candidate.getContent());
+        String content = """
+                [KIẾN THỨC BỔ SUNG ĐÃ ĐƯỢC SENIOR DUYỆT]
+                Câu hỏi: %s
+                Câu trả lời: %s
+                """.formatted(candidate.getQuestion(), approvedAnswer);
 
         LocalDateTime now = LocalDateTime.now();
         CourseMaterial material = new CourseMaterial();
@@ -209,21 +216,32 @@ public class HumanLearningService {
         material.setUploadedByRole("SENIOR_MENTOR");
         material.setContent(content);
         material.setSourceType("KNOWLEDGE_CANDIDATE");
+        material.setKnowledgeCandidateId(candidate.getId());
+        material.setApprovedBy(reviewerId);
+        material.setApprovedByName(trimToNull(request.getReviewerName()));
+        material.setApprovedAt(now);
+        material.setIndexingStatus("PROCESSING");
         courseMaterialRepository.save(material);
 
         List<String> chunks = chunkingService.chunk(content);
-        for (String chunk : chunks) {
-            vectorService.indexChunk(
-                    material.getCourseId(),
-                    material.getClassId(),
-                    material.getTeacherId(),
-                    material.getId(),
-                    material.getMaterialScope(),
-                    chunk
-            );
-        }
+        vectorService.indexChunks(
+                material.getCourseId(),
+                material.getClassId(),
+                material.getTeacherId(),
+                material.getId(),
+                material.getMaterialScope(),
+                "KNOWLEDGE_CANDIDATE",
+                null,
+                null,
+                chunks
+        );
+        material.setIndexingStatus("INDEXED");
+        material.setIndexedAt(now);
+        courseMaterialRepository.save(material);
 
         candidate.setContent(content);
+        candidate.setAnswer(approvedAnswer);
+        candidate.setMaterialId(material.getId());
         candidate.setStatus(STATUS_INDEXED);
         candidate.setReviewedBy(reviewerId);
         candidate.setReviewerRole(normalizeUpper(request.getReviewerRole()));

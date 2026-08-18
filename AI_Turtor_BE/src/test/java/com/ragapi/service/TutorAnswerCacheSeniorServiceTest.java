@@ -27,6 +27,12 @@ class TutorAnswerCacheSeniorServiceTest {
     @Mock
     private CanonicalTutorAnswerRepository repository;
 
+    @Mock
+    private TutorCacheHitAuditService auditService;
+
+    @Mock
+    private CanonicalTutorAnswerCacheService cacheService;
+
     @InjectMocks
     private TutorAnswerCacheSeniorService service;
 

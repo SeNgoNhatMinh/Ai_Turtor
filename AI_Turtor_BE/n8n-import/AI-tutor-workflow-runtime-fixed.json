@@ -65,8 +65,8 @@
     },
     {
       "parameters": {
-        "httpMethod": "POST",
-        "path": "student-chat",
+        "httpMethod": "=POST",
+        "path": "=student-chat",
         "responseMode": "responseNode",
         "options": {}
       },
@@ -671,8 +671,8 @@
     },
     {
       "parameters": {
-        "httpMethod": "POST",
-        "path": "teacher-answer-escalation",
+        "httpMethod": "=POST",
+        "path": "=teacher-answer-escalation",
         "responseMode": "responseNode",
         "options": {}
       },
@@ -752,8 +752,8 @@
     },
     {
       "parameters": {
-        "httpMethod": "POST",
-        "path": "senior-knowledge-approval",
+        "httpMethod": "=POST",
+        "path": "=senior-knowledge-approval",
         "responseMode": "responseNode",
         "options": {}
       },

@@ -609,25 +609,6 @@ test('admin routes load their independent feature pages', async ({ page }) => {
   await expect(page.getByRole('tab', { name: 'Học liệu môn học' })).toBeVisible();
   await expect(page.locator('.page-header')).toHaveCSS('border-radius', '20px');
 
-  await page.goto('/admin/review-queue');
-  await expect(page.getByRole('heading', { name: 'Giám sát chất lượng AI' })).toBeVisible();
-  await expect(page.getByRole('button', { name: /Lịch sử/ })).toBeVisible();
-
-  const qualityPageBounds = await page.locator('.quality-review-page').boundingBox();
-  const qualityHeaderBounds = await page.locator('.quality-review-page > .page-header').boundingBox();
-  const qualityWorkspaceBounds = await page.locator(
-    '.quality-review-page > .answer-review-workspace',
-  ).boundingBox();
-  const expectedInset = page.viewportSize().width <= 768 ? 0 : 24;
-
-  expect(qualityPageBounds).not.toBeNull();
-  expect(qualityHeaderBounds).not.toBeNull();
-  expect(qualityWorkspaceBounds).not.toBeNull();
-  expect(Math.abs(qualityHeaderBounds.x - (qualityPageBounds.x + expectedInset)))
-    .toBeLessThanOrEqual(1);
-  expect(Math.abs(qualityWorkspaceBounds.x - qualityHeaderBounds.x)).toBeLessThanOrEqual(1);
-  expect(Math.abs(qualityWorkspaceBounds.width - qualityHeaderBounds.width)).toBeLessThanOrEqual(1);
-
   await page.goto('/admin/ai-logs');
   await expect(page.getByRole('heading', { name: 'Nhật ký hỏi đáp AI' })).toBeVisible();
   await expect(page.getByText('Quản lý LLM provider')).toBeVisible();

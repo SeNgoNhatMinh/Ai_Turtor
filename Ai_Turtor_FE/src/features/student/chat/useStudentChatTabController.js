@@ -5,7 +5,7 @@ import { materialsApi } from '../../../services/materialsApi';
 import { supportChatApi } from '../../../services/supportChatApi';
 import { getUserFacingError } from '../../../services/apiClient';
 import { classIdMatches } from '../../../utils/academicIds';
-import { validateChatInput } from '../../../utils/validators';
+import { LIMITS, validateChatInput } from '../../../utils/validators';
 
 export function useStudentChatTabController({
   courseId,
@@ -158,7 +158,7 @@ export function useStudentChatTabController({
   };
 
   const setChatDraft = (text) => {
-    setChatInput(String(text || '').slice(0, 8000));
+    setChatInput(String(text || '').slice(0, LIMITS.chatMax));
     globalThis.requestAnimationFrame?.(() => {
       document.querySelector('[data-chat-composer-input="true"]')?.focus();
     });

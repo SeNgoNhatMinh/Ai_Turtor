@@ -24,6 +24,8 @@ function assertReviewerPayload(payload) {
 export function useAnswerCacheManagement({ currentUser, courseId, triggerToast }) {
   const [entries, setEntries] = useState([]);
   const [stats, setStats] = useState(null);
+  const [diagnostics, setDiagnostics] = useState(null);
+  const [recentHits, setRecentHits] = useState([]);
   const [filters, setFilters] = useState({ mode: '', reviewStatus: '', classId: '' });
   const [loading, setLoading] = useState(false);
   const [mutationKey, setMutationKey] = useState('');
@@ -35,12 +37,14 @@ export function useAnswerCacheManagement({ currentUser, courseId, triggerToast }
     if (!normalizedCourseId) {
       setEntries([]);
       setStats(null);
+      setDiagnostics(null);
+      setRecentHits([]);
       return;
     }
     setLoading(true);
     setError('');
     try {
-      const [list, statsData] = await Promise.all([
+      const [list, statsData, diagnosticsData, hitsData] = await Promise.all([
         tutorAnswerCacheApi.list({
           courseId: normalizedCourseId,
           classId: filters.classId,
@@ -48,12 +52,18 @@ export function useAnswerCacheManagement({ currentUser, courseId, triggerToast }
           reviewStatus: filters.reviewStatus,
         }),
         tutorAnswerCacheApi.getStats(normalizedCourseId),
+        tutorAnswerCacheApi.getDiagnostics(normalizedCourseId),
+        tutorAnswerCacheApi.getRecentHits(normalizedCourseId, 50),
       ]);
       setEntries(list);
       setStats(statsData || null);
+      setDiagnostics(diagnosticsData || null);
+      setRecentHits(hitsData);
     } catch (reason) {
       setEntries([]);
       setStats(null);
+      setDiagnostics(null);
+      setRecentHits([]);
       setError(
         reason?.status === 401 || reason?.status === 403
           ? 'API cache câu trả lời chưa chấp nhận quyền Senior/Admin hiện tại.'
@@ -101,6 +111,8 @@ export function useAnswerCacheManagement({ currentUser, courseId, triggerToast }
   return {
     entries,
     stats,
+    diagnostics,
+    recentHits,
     filters,
     setFilters,
     loading,

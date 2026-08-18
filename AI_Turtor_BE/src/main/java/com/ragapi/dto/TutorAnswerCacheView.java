@@ -25,6 +25,8 @@ public class TutorAnswerCacheView {
     private String seniorReviewNotes;
     private String linkedReviewId;
     private LocalDateTime seniorReviewedAt;
+    private long reuseCount;
+    private LocalDateTime lastReusedAt;
     private LocalDateTime createdAt;
     private LocalDateTime expiresAt;
     private boolean semanticReady;

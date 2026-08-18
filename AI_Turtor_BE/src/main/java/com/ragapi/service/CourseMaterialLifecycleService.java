@@ -174,6 +174,26 @@ public class CourseMaterialLifecycleService {
         response.put("indexedVisualPages", indexedVisualPages);
         return response;
     }
+
+    public Map<String, Object> reindexApprovedKnowledge() throws IOException {
+        List<CourseMaterial> materials = materialRepository.findBySourceType("KNOWLEDGE_CANDIDATE");
+        int reindexed = 0;
+        int skipped = 0;
+        for (CourseMaterial material : materials) {
+            if (material.getContent() == null || material.getContent().isBlank()) {
+                skipped++;
+                continue;
+            }
+            reindexMaterial(material.getCourseId(), material.getId(), null);
+            reindexed++;
+        }
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("status", "REINDEXED_APPROVED_KNOWLEDGE");
+        response.put("reindexedMaterials", reindexed);
+        response.put("skippedMaterials", skipped);
+        return response;
+    }
+
     private CourseMaterial requireMaterialInCourse(String courseId, String materialId) {
         CourseMaterial material = materialRepository.findById(materialId)
                 .orElseThrow(() -> new IllegalArgumentException("Course material not found"));

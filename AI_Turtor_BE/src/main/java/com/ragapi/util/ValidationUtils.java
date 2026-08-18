@@ -12,6 +12,9 @@ public final class ValidationUtils {
 
     public static final int DEFAULT_TEXT_MAX_LENGTH = 20_000;
     public static final int SHORT_TEXT_MAX_LENGTH = 500;
+    public static final int STUDENT_QUESTION_MAX_LENGTH = 4_000;
+    public static final int CODE_SNIPPET_MAX_LENGTH = 12_000;
+    public static final int CODE_SNIPPET_MAX_LINES = 100;
 
     private static final Set<String> PLACEHOLDER_VALUES = Set.of(
             "paste_here",
@@ -65,6 +68,20 @@ public final class ValidationUtils {
             throw new IllegalArgumentException(fieldName + " must not exceed " + maxLength + " characters");
         }
         return trimmed;
+    }
+
+    public static String optionalCodeSnippet(String value, String fieldName) {
+        String code = optionalMaxLength(value, fieldName, CODE_SNIPPET_MAX_LENGTH);
+        if (code == null) {
+            return null;
+        }
+        int lineCount = code.split("\\R", -1).length;
+        if (lineCount > CODE_SNIPPET_MAX_LINES) {
+            throw new IllegalArgumentException(
+                    fieldName + " must not exceed " + CODE_SNIPPET_MAX_LINES + " lines"
+            );
+        }
+        return code;
     }
 
     public static String requireEnum(String value, String fieldName, String... allowedValues) {

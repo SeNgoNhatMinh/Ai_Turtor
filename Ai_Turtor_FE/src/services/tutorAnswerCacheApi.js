@@ -19,6 +19,8 @@ export function normalizeAnswerCacheEntry(entry = {}) {
     confidence: Number(entry.confidence) || 0,
     sources: Array.isArray(entry.sources) ? entry.sources : [],
     semanticReady: entry.semanticReady === true,
+    reuseCount: Number(entry.reuseCount) || 0,
+    lastReusedAt: entry.lastReusedAt || null,
     linkedReviewId: String(entry.linkedReviewId || '').trim(),
     seniorReviewerId: String(entry.seniorReviewerId || '').trim(),
     seniorReviewerName: String(entry.seniorReviewerName || '').trim(),
@@ -60,6 +62,27 @@ export const tutorAnswerCacheApi = {
   async getStats(courseId) {
     const params = new URLSearchParams({ courseId: String(courseId || '').trim() });
     return request(`${API_BASE_URL}/tutor/answer-cache/stats?${params}`, preserveSession);
+  },
+  async getDiagnostics(courseId) {
+    const params = new URLSearchParams({ courseId: String(courseId || '').trim() });
+    return request(`${API_BASE_URL}/tutor/answer-cache/diagnostics?${params}`, preserveSession);
+  },
+  async getRecentHits(courseId, limit = 50) {
+    const params = new URLSearchParams({
+      courseId: String(courseId || '').trim(),
+      limit: String(limit),
+    });
+    const data = await request(
+      `${API_BASE_URL}/tutor/answer-cache/hits/recent?${params}`,
+      preserveSession,
+    );
+    const hits = Array.isArray(data) ? data : data?.hits;
+    return (Array.isArray(hits) ? hits : []).map((hit) => ({
+      ...hit,
+      similarity: hit.similarity == null ? null : Number(hit.similarity),
+      cacheLookupMs: Number(hit.cacheLookupMs) || 0,
+      backendProcessingMs: Number(hit.backendProcessingMs) || 0,
+    }));
   },
   async getEntry(cacheId) {
     const data = await request(

@@ -3,6 +3,7 @@ import PageHeader from '../../components/common/PageHeader';
 import AnswerCacheFilters from './components/AnswerCacheFilters';
 import AnswerCacheStats from './components/AnswerCacheStats';
 import AnswerCacheTable from './components/AnswerCacheTable';
+import CacheHitAuditTable from './components/CacheHitAuditTable';
 import { useAnswerCacheManagement } from './hooks/useAnswerCacheManagement';
 import { useAnswerCacheScope } from './hooks/useAnswerCacheScope';
 import './AnswerCachePage.css';
@@ -70,6 +71,14 @@ export default function AnswerCachePage({
       />
 
       {courseId && <AnswerCacheStats stats={controller.stats} />}
+      {courseId && controller.diagnostics && (
+        <Alert
+          className="answer-cache-alert"
+          type="info"
+          showIcon
+          title={`Cache đang ${controller.diagnostics.enabled ? 'bật' : 'tắt'} · Exact RAM: ${controller.diagnostics.exactMemoryEntries || 0} · Semantic sớm ≥ ${Math.round((controller.diagnostics.semanticEarlyMinSimilarity || 0) * 100)}% · Semantic kiểm chứng ≥ ${Math.round((controller.diagnostics.semanticVerifiedMinSimilarity || 0) * 100)}%`}
+        />
+      )}
 
       {courseId && (
         <AnswerCacheTable
@@ -81,6 +90,9 @@ export default function AnswerCachePage({
           onDisable={controller.disableEntry}
           onDelete={controller.deleteEntry}
         />
+      )}
+      {courseId && (
+        <CacheHitAuditTable hits={controller.recentHits} loading={controller.loading} />
       )}
     </div>
   );

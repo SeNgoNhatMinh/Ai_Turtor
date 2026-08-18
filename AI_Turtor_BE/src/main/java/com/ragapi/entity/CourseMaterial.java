@@ -40,6 +40,12 @@ public class CourseMaterial {
     /** Source type, for example PDF, DOCX, PPT, HTML_URL, or JSON. */
     private String sourceType;
 
+    /** Origin metadata for reusable knowledge approved by a senior mentor. */
+    private String knowledgeCandidateId;
+    private String approvedBy;
+    private String approvedByName;
+    private LocalDateTime approvedAt;
+
     /** Original web documentation URL when imported from HTML. */
     private String sourceUrl;
 

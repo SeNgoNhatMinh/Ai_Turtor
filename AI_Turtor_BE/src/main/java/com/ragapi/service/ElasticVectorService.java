@@ -165,6 +165,31 @@ public class ElasticVectorService {
 
     public List<SearchChunk> searchWithScores(String question, String courseId, String classId)
             throws IOException {
+        return searchWithScores(question, courseId, classId, null, retrievalTopK);
+    }
+
+    public List<SearchChunk> searchApprovedKnowledgeWithScores(
+            String question,
+            String courseId,
+            String classId,
+            int maxChunks
+    ) throws IOException {
+        return searchWithScores(
+                question,
+                courseId,
+                classId,
+                "KNOWLEDGE_CANDIDATE",
+                Math.max(1, maxChunks)
+        );
+    }
+
+    private List<SearchChunk> searchWithScores(
+            String question,
+            String courseId,
+            String classId,
+            String sourceType,
+            int topK
+    ) throws IOException {
 
         String safeQuestion = requireMaxLength(question, "question", DEFAULT_TEXT_MAX_LENGTH);
         String safeCourseId = requireText(courseId, "courseId");
@@ -181,7 +206,7 @@ public class ElasticVectorService {
 
         log.debug("Performing KNN search in Elasticsearch");
 
-        List<Query> filters = buildScopeFilters(safeCourseId);
+        List<Query> filters = buildScopeFilters(safeCourseId, sourceType);
         if (classId != null && !classId.isBlank()) {
             log.debug("classId={} is kept as metadata but ignored for RAG search filtering", classId);
         }
@@ -197,8 +222,8 @@ public class ElasticVectorService {
                                 .knn(k -> {
                                     k.field("vector")
                                             .queryVector(queryVector)
-                                            .k(Math.max(1, retrievalTopK))
-                                            .numCandidates(Math.max(Math.max(1, retrievalTopK), retrievalNumCandidates));
+                                            .k(Math.max(1, topK))
+                                            .numCandidates(Math.max(Math.max(1, topK), retrievalNumCandidates));
 
                                     if (!filters.isEmpty()) {
                                         k.filter(filters);
@@ -234,7 +259,7 @@ public class ElasticVectorService {
             }
         });
 
-        log.info("Found {} matching chunks", results.size());
+        log.info("Found {} matching chunks sourceType={}", results.size(), sourceType);
 
         return results;
     }
@@ -284,7 +309,7 @@ public class ElasticVectorService {
                 .exists(ExistsRequest.of(e -> e.index(index)))
                 .value();
     }
-    private List<Query> buildScopeFilters(String courseId) {
+    private List<Query> buildScopeFilters(String courseId, String sourceType) {
 
         List<Query> filters = new ArrayList<>();
 
@@ -292,6 +317,12 @@ public class ElasticVectorService {
             filters.add(TermQuery.of(t -> t
                     .field("courseId.keyword")
                     .value(courseId)
+            )._toQuery());
+        }
+        if (sourceType != null && !sourceType.isBlank()) {
+            filters.add(TermQuery.of(t -> t
+                    .field("sourceType.keyword")
+                    .value(sourceType)
             )._toQuery());
         }
 

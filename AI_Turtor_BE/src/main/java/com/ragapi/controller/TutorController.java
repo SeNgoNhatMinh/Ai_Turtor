@@ -35,7 +35,8 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
-import static com.ragapi.util.ValidationUtils.DEFAULT_TEXT_MAX_LENGTH;
+import static com.ragapi.util.ValidationUtils.STUDENT_QUESTION_MAX_LENGTH;
+import static com.ragapi.util.ValidationUtils.optionalCodeSnippet;
 import static com.ragapi.util.ValidationUtils.requireMaxLength;
 import static com.ragapi.util.ValidationUtils.requireText;
 
@@ -63,12 +64,13 @@ public class TutorController {
             if (request == null) {
                 return ResponseEntity.badRequest().body(Map.of("error", "request body is required"));
             }
-            String question = normalizeStudentQuestion(request.getMessage() != null && !request.getMessage().isBlank()
+            String rawQuestion = request.getMessage() != null && !request.getMessage().isBlank()
                     ? request.getMessage()
-                    : request.getQuestion());
-            if (question == null || question.isBlank()) {
-                return ResponseEntity.badRequest().body(Map.of("error", "message or question is required"));
-            }
+                    : request.getQuestion();
+            String question = normalizeStudentQuestion(
+                    requireMaxLength(rawQuestion, "question", STUDENT_QUESTION_MAX_LENGTH)
+            );
+            String codeSnippet = optionalCodeSnippet(request.getCodeSnippet(), "codeSnippet");
             String courseId = requireText(request.getCourseId(), "courseId");
             if (isStudent(authentication)) {
                 questionQuotaService.consume(authentication.getName(), courseId);
@@ -76,7 +78,7 @@ public class TutorController {
 
             IntentClassification intent = intentClassifierService.classify(
                     question,
-                    request.getCodeSnippet(),
+                    codeSnippet,
                     courseId
             );
 
@@ -123,7 +125,10 @@ public class TutorController {
             if (request == null) {
                 return ResponseEntity.badRequest().body(Map.of("error", "request body is required"));
             }
-            String question = normalizeStudentQuestion(requireMaxLength(resolveQuestion(request), "question", DEFAULT_TEXT_MAX_LENGTH));
+            String question = normalizeStudentQuestion(
+                    requireMaxLength(resolveQuestion(request), "question", STUDENT_QUESTION_MAX_LENGTH)
+            );
+            String codeSnippet = optionalCodeSnippet(request.getCodeSnippet(), "codeSnippet");
             String courseId = requireText(request.getCourseId(), "courseId");
             String classId = normalizeScopeValue(request.getClassId());
             if (isStudent(authentication) && !Boolean.TRUE.equals(request.getQuotaConsumed())) {
@@ -131,7 +136,7 @@ public class TutorController {
             }
             IntentClassification intent = intentClassifierService.classify(
                     question,
-                    request.getCodeSnippet(),
+                    codeSnippet,
                     courseId
             );
 

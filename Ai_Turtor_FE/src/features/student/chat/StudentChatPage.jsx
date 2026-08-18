@@ -75,43 +75,34 @@ export default function StudentChatPage({
     setChatDraft: chatController.setChatDraft,
     triggerToast,
   });
-  const {
-    classOptions,
-    courseOptions,
-    ensureEnrollmentContext,
-    hasLoadedStudentEnrollments,
-    hasStudentEnrollments,
-    isStudentEnrollmentsLoading,
-  } = enrollment;
 
   useEffect(() => {
     if (
       !studentId
-      || isStudentEnrollmentsLoading
-      || !hasLoadedStudentEnrollments
-      || (hasLoadedStudentEnrollments && !hasStudentEnrollments)
+      || enrollment.isStudentEnrollmentsLoading
+      || !enrollment.hasLoadedStudentEnrollments
+      || (enrollment.hasLoadedStudentEnrollments && !enrollment.hasStudentEnrollments)
     ) return;
 
     const normalizedCourseId = String(courseId || '').trim().toUpperCase();
-    const hasValidCourse = courseOptions.some((item) => (
+    const hasValidCourse = enrollment.courseOptions.some((item) => (
       String(item?.value || '').trim().toUpperCase() === normalizedCourseId
     ));
-    const hasValidClass = classOptions.some((item) => (
+    const hasValidClass = enrollment.classOptions.some((item) => (
       classIdMatches(item?.value, classId)
       || item?.aliases?.some((alias) => classIdMatches(alias, classId))
     ));
     if (hasValidCourse && hasValidClass) return;
 
-    ensureEnrollmentContext?.(courseId);
+    enrollment.ensureEnrollmentContext?.(courseId);
   }, [
     classId,
-    classOptions,
     courseId,
-    courseOptions,
-    ensureEnrollmentContext,
-    hasLoadedStudentEnrollments,
-    hasStudentEnrollments,
-    isStudentEnrollmentsLoading,
+    enrollment.classOptions,
+    enrollment.courseOptions,
+    enrollment.ensureEnrollmentContext,
+    enrollment.hasLoadedStudentEnrollments,
+    enrollment.isStudentEnrollmentsLoading,
     studentId,
   ]);
 

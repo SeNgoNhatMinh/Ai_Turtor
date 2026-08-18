@@ -57,7 +57,6 @@ export const appRoutes = [
   { role: 'admin', tab: 'admin-dashboard', path: '/admin/dashboard' },
   { role: 'admin', tab: 'admin-users', path: '/admin/users' },
   { role: 'admin', tab: 'admin-academic', path: '/admin/academic' },
-  { role: 'admin', tab: 'admin-review', path: '/admin/review-queue' },
   { role: 'admin', tab: 'admin-ai-logs', path: '/admin/ai-logs' },
   {
     role: 'admin',
@@ -83,6 +82,7 @@ const tabRoutes = appRoutes.reduce((routes, route) => {
 const legacyRouteStates = {
   '/teacher/expert-training': { role: 'teacher', tab: 'teacher-expert-training' },
   '/admin/expert-training': { role: 'admin', tab: 'admin-expert-training' },
+  '/admin/review-queue': { role: 'admin', tab: 'admin-dashboard' },
 };
 
 export function getRouteForTab(tab) {

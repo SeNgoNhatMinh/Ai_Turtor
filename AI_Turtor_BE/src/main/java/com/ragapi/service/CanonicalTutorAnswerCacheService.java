@@ -2,6 +2,7 @@ package com.ragapi.service;
 
 import com.ragapi.dto.CourseRagAnswer;
 import com.ragapi.dto.RagSourceEvidence;
+import com.ragapi.dto.TutorCacheHitMetadata;
 import com.ragapi.entity.CanonicalTutorAnswer;
 import com.ragapi.repository.CanonicalTutorAnswerRepository;
 import com.ragapi.util.EmbeddingSimilarityUtil;
@@ -13,6 +14,10 @@ import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
@@ -26,6 +31,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 
 @Slf4j
 @Service
@@ -38,7 +45,7 @@ public class CanonicalTutorAnswerCacheService {
 
     private final CanonicalTutorAnswerRepository repository;
     private final EmbeddingService embeddingService;
-    private final PdfPageRenderService pdfPageRenderService;
+    private final MongoTemplate mongoTemplate;
     private final Map<String, MemoryRagAnswer> exactRagMemoryCache = new ConcurrentHashMap<>();
 
     @Value("${app.tutor-answer-cache.enabled:true}")
@@ -58,6 +65,15 @@ public class CanonicalTutorAnswerCacheService {
 
     @Value("${app.tutor-answer-cache.semantic-min-source-overlap:0.20}")
     private double semanticMinSourceOverlap;
+
+    @Value("${app.tutor-answer-cache.semantic-early-min-similarity:0.92}")
+    private double semanticEarlyMinSimilarity;
+
+    @Value("${app.tutor-answer-cache.semantic-early-min-keyword-overlap:0.50}")
+    private double semanticEarlyMinKeywordOverlap;
+
+    @Value("${app.tutor-answer-cache.semantic-early-min-evidence-count:1}")
+    private int semanticEarlyMinEvidenceCount;
 
     @Value("${app.tutor-answer-cache.semantic-max-candidates:100}")
     private int semanticMaxCandidates;
@@ -79,7 +95,9 @@ public class CanonicalTutorAnswerCacheService {
                     .forEach(entry -> rememberExactRagAnswer(
                             entry.getId(),
                             toRagAnswer(entry),
-                            entry.getExpiresAt()
+                            entry.getExpiresAt(),
+                            entry.getReuseCount(),
+                            entry.getLastReusedAt()
                     ));
             log.info("Preloaded {} exact tutor answers into memory cache", exactRagMemoryCache.size());
         } catch (Exception error) {
@@ -102,13 +120,16 @@ public class CanonicalTutorAnswerCacheService {
     }
 
     public Optional<CourseRagAnswer> lookupExactRagAnswer(String courseId, String classId, String question) {
+        long lookupStartedNanos = System.nanoTime();
         String key = buildKey(courseId, classId, "RAG", question, null);
         MemoryRagAnswer memoryEntry = exactRagMemoryCache.get(key);
         if (memoryEntry != null) {
             if (memoryEntry.expiresAt().isAfter(LocalDateTime.now())
                     && hasSourceEvidence(memoryEntry.answer())) {
                 log.info("In-memory exact tutor answer cache hit for courseId={}", courseId);
-                return Optional.of(memoryEntry.answer());
+                incrementReuse(key, memoryEntry);
+                return Optional.of(withHitMetadata(
+                        memoryEntry.answer(), "EXACT", key, 1.0, lookupStartedNanos, courseId, classId));
             }
             exactRagMemoryCache.remove(key, memoryEntry);
         }
@@ -118,18 +139,22 @@ public class CanonicalTutorAnswerCacheService {
             return Optional.empty();
         }
         log.info("Exact tutor answer cache hit for courseId={}", courseId);
-        CourseRagAnswer answer = toRagAnswer(exact.get());
+        CanonicalTutorAnswer entry = exact.get();
+        CourseRagAnswer answer = toRagAnswer(entry);
         if (!hasSourceEvidence(answer)) {
             log.info("Exact tutor answer cache requires evidence refresh for courseId={}", courseId);
             return Optional.empty();
         }
-        rememberExactRagAnswer(key, answer, exact.get().getExpiresAt());
-        return Optional.of(answer);
+        incrementReuse(entry);
+        rememberExactRagAnswer(key, answer, entry.getExpiresAt(), entry.getReuseCount(), entry.getLastReusedAt());
+        return Optional.of(withHitMetadata(
+                answer, "EXACT", key, 1.0, lookupStartedNanos, courseId, classId));
     }
 
     public Optional<String> lookupCodeAnswer(String courseId, String classId, String question, String code) {
         Optional<CanonicalTutorAnswer> exact = lookup(buildKey(courseId, classId, "CODE", question, code));
         if (exact.isPresent()) {
+            incrementReuse(exact.get());
             return exact.map(CanonicalTutorAnswer::getAnswer);
         }
         if (!semanticEnabled || hasText(code)) {
@@ -143,7 +168,7 @@ public class CanonicalTutorAnswerCacheService {
             return;
         }
         String key = buildKey(courseId, classId, "RAG", question, null);
-        rememberExactRagAnswer(key, answer, LocalDateTime.now().plusHours(Math.max(1, ttlHours)));
+        rememberExactRagAnswer(key, answer, LocalDateTime.now().plusHours(Math.max(1, ttlHours)), 0L, null);
         save(
                 key,
                 courseId,
@@ -164,7 +189,7 @@ public class CanonicalTutorAnswerCacheService {
             return;
         }
         String key = buildKey(courseId, classId, "RAG", question, null);
-        rememberExactRagAnswer(key, answer, LocalDateTime.now().plusHours(Math.max(1, ttlHours)));
+        rememberExactRagAnswer(key, answer, LocalDateTime.now().plusHours(Math.max(1, ttlHours)), 0L, null);
         CompletableFuture.runAsync(() -> {
             try {
                 storeRagAnswer(courseId, classId, question, answer);
@@ -201,6 +226,7 @@ public class CanonicalTutorAnswerCacheService {
             double currentConfidence,
             List<String> currentSources
     ) {
+        long lookupStartedNanos = System.nanoTime();
         if (!semanticEnabled || currentConfidence < MIN_STORE_CONFIDENCE) {
             return Optional.empty();
         }
@@ -219,13 +245,67 @@ public class CanonicalTutorAnswerCacheService {
         if (best.isEmpty()) {
             return Optional.empty();
         }
+        CanonicalTutorAnswer entry = best.get();
+        double similarity = EmbeddingSimilarityUtil.cosineSimilarity(queryEmbedding, entry.getQuestionEmbedding());
+        incrementReuse(entry);
         log.info("Semantic tutor answer cache hit for courseId={} matchedQuestion={}",
                 courseId,
-                best.get().getQuestion());
-        return best.map(this::toRagAnswer);
+                entry.getQuestion());
+        return Optional.of(withHitMetadata(
+                toRagAnswer(entry),
+                "SEMANTIC_VERIFIED",
+                entry.getId(),
+                similarity,
+                lookupStartedNanos,
+                courseId,
+                classId
+        ));
     }
 
-    private void rememberExactRagAnswer(String key, CourseRagAnswer answer, LocalDateTime expiresAt) {
+    public Optional<CourseRagAnswer> lookupEarlySemanticRagAnswer(
+            String courseId,
+            String classId,
+            String question
+    ) {
+        long lookupStartedNanos = System.nanoTime();
+        if (!semanticEnabled) {
+            return Optional.empty();
+        }
+        List<Float> queryEmbedding = embedQuestion(question);
+        if (queryEmbedding.isEmpty()) {
+            return Optional.empty();
+        }
+        Optional<CanonicalTutorAnswer> best = loadSemanticCandidates(courseId, classId, "RAG").stream()
+                .filter(TutorAnswerCacheSeniorService::isUsableForStudents)
+                .filter(entry -> isEarlyAcademicRagCacheCandidate(entry, courseId, classId, question, queryEmbedding))
+                .max(Comparator.comparingDouble(entry -> EmbeddingSimilarityUtil.cosineSimilarity(
+                        queryEmbedding, entry.getQuestionEmbedding())));
+        if (best.isEmpty()) {
+            return Optional.empty();
+        }
+        CanonicalTutorAnswer entry = best.get();
+        double similarity = EmbeddingSimilarityUtil.cosineSimilarity(queryEmbedding, entry.getQuestionEmbedding());
+        incrementReuse(entry);
+        log.info("Early semantic tutor answer cache hit courseId={} cacheId={} similarity={}",
+                courseId, entry.getId(), similarity);
+        return Optional.of(withHitMetadata(
+                toRagAnswer(entry),
+                "SEMANTIC_EARLY",
+                entry.getId(),
+                similarity,
+                lookupStartedNanos,
+                courseId,
+                classId
+        ));
+    }
+
+    private void rememberExactRagAnswer(
+            String key,
+            CourseRagAnswer answer,
+            LocalDateTime expiresAt,
+            long reuseCount,
+            LocalDateTime lastReusedAt
+    ) {
         if (key == null || answer == null) {
             return;
         }
@@ -235,36 +315,7 @@ public class CanonicalTutorAnswerCacheService {
         LocalDateTime safeExpiry = expiresAt == null
                 ? LocalDateTime.now().plusHours(Math.max(1, ttlHours))
                 : expiresAt;
-        exactRagMemoryCache.put(key, new MemoryRagAnswer(answer, safeExpiry));
-        preloadEvidencePages(answer);
-    }
-
-    private void preloadEvidencePages(CourseRagAnswer answer) {
-        if (!hasSourceEvidence(answer)) {
-            return;
-        }
-        java.util.Set<String> scheduled = new java.util.HashSet<>();
-        for (RagSourceEvidence evidence : answer.getSourceEvidence()) {
-            if (evidence == null || evidence.getMaterialId() == null) {
-                continue;
-            }
-            if (evidence.getVisualEvidence() != null && !evidence.getVisualEvidence().isEmpty()) {
-                evidence.getVisualEvidence().forEach(visual -> {
-                    if (visual == null || visual.getPageNumber() == null) {
-                        return;
-                    }
-                    String key = evidence.getMaterialId() + ":" + visual.getPageNumber();
-                    if (scheduled.add(key)) {
-                        pdfPageRenderService.preloadPageAsync(evidence.getMaterialId(), visual.getPageNumber());
-                    }
-                });
-            } else if (evidence.getPageStart() != null) {
-                String key = evidence.getMaterialId() + ":" + evidence.getPageStart();
-                if (scheduled.add(key)) {
-                    pdfPageRenderService.preloadPageAsync(evidence.getMaterialId(), evidence.getPageStart());
-                }
-            }
-        }
+        exactRagMemoryCache.put(key, new MemoryRagAnswer(answer, safeExpiry, reuseCount, lastReusedAt));
     }
 
     private Optional<String> lookupSemanticCodeAnswer(String courseId, String classId, String question) {
@@ -273,7 +324,7 @@ public class CanonicalTutorAnswerCacheService {
             return Optional.empty();
         }
         List<CanonicalTutorAnswer> candidates = loadSemanticCandidates(courseId, classId, "CODE");
-        return candidates.stream()
+        Optional<CanonicalTutorAnswer> best = candidates.stream()
                 .filter(TutorAnswerCacheSeniorService::isUsableForStudents)
                 .filter(entry -> entry.getQuestionEmbedding() != null && !entry.getQuestionEmbedding().isEmpty())
                 .filter(entry -> EmbeddingSimilarityUtil.cosineSimilarity(queryEmbedding, entry.getQuestionEmbedding())
@@ -283,8 +334,9 @@ public class CanonicalTutorAnswerCacheService {
                 .max(Comparator.comparingDouble(entry -> EmbeddingSimilarityUtil.cosineSimilarity(
                         queryEmbedding,
                         entry.getQuestionEmbedding()
-                )))
-                .map(CanonicalTutorAnswer::getAnswer);
+                )));
+        best.ifPresent(this::incrementReuse);
+        return best.map(CanonicalTutorAnswer::getAnswer);
     }
 
     private List<CanonicalTutorAnswer> loadSemanticCandidates(String courseId, String classId, String mode) {
@@ -310,7 +362,7 @@ public class CanonicalTutorAnswerCacheService {
         if (entry.getQuestionEmbedding() == null || entry.getQuestionEmbedding().isEmpty()) {
             return false;
         }
-        if (!COURSE_MATERIAL.equals(entry.getGroundingType())) {
+        if (!isReusableGroundingType(entry.getGroundingType())) {
             return false;
         }
         if (entry.getConfidence() == null || entry.getConfidence() < MIN_STORE_CONFIDENCE) {
@@ -334,14 +386,57 @@ public class CanonicalTutorAnswerCacheService {
         return true;
     }
 
+    private boolean isEarlyAcademicRagCacheCandidate(
+            CanonicalTutorAnswer entry,
+            String courseId,
+            String classId,
+            String question,
+            List<Float> queryEmbedding
+    ) {
+        if (entry.getQuestionEmbedding() == null || entry.getQuestionEmbedding().isEmpty()
+                || !isReusableGroundingType(entry.getGroundingType())
+                || entry.getConfidence() == null
+                || entry.getConfidence() < MIN_STORE_CONFIDENCE) {
+            return false;
+        }
+        if (!normalizeScope(courseId).equals(normalizeScope(entry.getCourseId()))
+                || !normalizeScope(classId).equals(normalizeScope(entry.getClassId()))) {
+            return false;
+        }
+        if (entry.getSources() == null || entry.getSources().isEmpty()
+                || entry.getSourceEvidence() == null
+                || entry.getSourceEvidence().size() < Math.max(1, semanticEarlyMinEvidenceCount)) {
+            return false;
+        }
+        boolean evidenceMatchesScope = entry.getSourceEvidence().stream()
+                .filter(java.util.Objects::nonNull)
+                .allMatch(evidence -> (evidence.getCourseId() == null
+                        || normalizeScope(courseId).equals(normalizeScope(evidence.getCourseId())))
+                        && evidence.getMaterialId() != null
+                        && !evidence.getMaterialId().isBlank());
+        if (!evidenceMatchesScope) {
+            return false;
+        }
+        double similarity = EmbeddingSimilarityUtil.cosineSimilarity(queryEmbedding, entry.getQuestionEmbedding());
+        return similarity >= semanticEarlyMinSimilarity
+                && QuestionOverlapUtil.keywordOverlapRatio(question, entry.getQuestion())
+                >= semanticEarlyMinKeywordOverlap;
+    }
+
     private boolean shouldStoreRagAnswer(CourseRagAnswer answer) {
         if (answer == null || !shouldStore(answer.getAnswer())) {
             return false;
         }
-        if (!COURSE_MATERIAL.equals(answer.getGroundingType())) {
+        if (!isReusableGroundingType(answer.getGroundingType())) {
             return false;
         }
         return answer.getConfidence() != null && answer.getConfidence() >= MIN_STORE_CONFIDENCE;
+    }
+
+    private boolean isReusableGroundingType(String groundingType) {
+        return COURSE_MATERIAL.equals(groundingType)
+                || "SENIOR_APPROVED_KNOWLEDGE".equals(groundingType)
+                || "COURSE_MATERIAL_WITH_APPROVED_KNOWLEDGE".equals(groundingType);
     }
 
     private Optional<CanonicalTutorAnswer> lookup(String key) {
@@ -367,7 +462,31 @@ public class CanonicalTutorAnswerCacheService {
                 .build();
     }
 
-    private record MemoryRagAnswer(CourseRagAnswer answer, LocalDateTime expiresAt) {
+    private static final class MemoryRagAnswer {
+        private final CourseRagAnswer answer;
+        private final LocalDateTime expiresAt;
+        private final AtomicLong reuseCount;
+        private final AtomicReference<LocalDateTime> lastReusedAt;
+
+        private MemoryRagAnswer(
+                CourseRagAnswer answer,
+                LocalDateTime expiresAt,
+                long reuseCount,
+                LocalDateTime lastReusedAt
+        ) {
+            this.answer = answer;
+            this.expiresAt = expiresAt;
+            this.reuseCount = new AtomicLong(reuseCount);
+            this.lastReusedAt = new AtomicReference<>(lastReusedAt);
+        }
+
+        CourseRagAnswer answer() {
+            return answer;
+        }
+
+        LocalDateTime expiresAt() {
+            return expiresAt;
+        }
     }
 
     private void save(
@@ -387,23 +506,23 @@ public class CanonicalTutorAnswerCacheService {
             return;
         }
         LocalDateTime now = LocalDateTime.now();
-        CanonicalTutorAnswer entry = CanonicalTutorAnswer.builder()
-                .id(key)
-                .courseId(trim(courseId))
-                .classId(normalizeScope(classId))
-                .mode(mode)
-                .question(trim(question))
-                .answer(TextSanitizer.cleanForStudentAnswer(answer))
-                .confidence(confidence)
-                .sources(sources == null ? List.of() : sources)
-                .sourceEvidence(sourceEvidence == null ? List.of() : sourceEvidence)
-                .groundingType(groundingType)
-                .questionEmbedding(questionEmbedding == null || questionEmbedding.isEmpty() ? null : questionEmbedding)
-                .reviewStatus(TutorAnswerCacheSeniorService.STATUS_ACTIVE)
-                .createdAt(now)
-                .expiresAt(now.plusHours(Math.max(1, ttlHours)))
-                .build();
-        repository.save(entry);
+        Update update = new Update()
+                .set("courseId", trim(courseId))
+                .set("classId", normalizeScope(classId))
+                .set("mode", mode)
+                .set("question", trim(question))
+                .set("answer", TextSanitizer.cleanForStudentAnswer(answer))
+                .set("confidence", confidence)
+                .set("sources", sources == null ? List.of() : sources)
+                .set("sourceEvidence", sourceEvidence == null ? List.of() : sourceEvidence)
+                .set("groundingType", groundingType)
+                .set("questionEmbedding",
+                        questionEmbedding == null || questionEmbedding.isEmpty() ? null : questionEmbedding)
+                .set("expiresAt", now.plusHours(Math.max(1, ttlHours)))
+                .setOnInsert("reviewStatus", TutorAnswerCacheSeniorService.STATUS_ACTIVE)
+                .setOnInsert("reuseCount", 0L)
+                .setOnInsert("createdAt", now);
+        mongoTemplate.upsert(Query.query(Criteria.where("_id").is(key)), update, CanonicalTutorAnswer.class);
         log.debug("Stored tutor answer cache key={} mode={} courseId={} semantic={}",
                 key,
                 mode,
@@ -411,10 +530,84 @@ public class CanonicalTutorAnswerCacheService {
                 questionEmbedding != null && !questionEmbedding.isEmpty());
     }
 
+    private void incrementReuse(CanonicalTutorAnswer entry) {
+        if (entry == null || entry.getId() == null) {
+            return;
+        }
+        LocalDateTime reusedAt = LocalDateTime.now();
+        entry.setReuseCount(entry.getReuseCount() + 1L);
+        entry.setLastReusedAt(reusedAt);
+        persistReuseIncrementAsync(entry.getId(), reusedAt);
+    }
+
+    private void incrementReuse(String cacheId, MemoryRagAnswer memoryEntry) {
+        LocalDateTime reusedAt = LocalDateTime.now();
+        memoryEntry.reuseCount.incrementAndGet();
+        memoryEntry.lastReusedAt.set(reusedAt);
+        persistReuseIncrementAsync(cacheId, reusedAt);
+    }
+
+    private void persistReuseIncrementAsync(String cacheId, LocalDateTime reusedAt) {
+        CompletableFuture.runAsync(() -> {
+            try {
+                mongoTemplate.updateFirst(
+                        Query.query(Criteria.where("_id").is(cacheId)),
+                        new Update().inc("reuseCount", 1L).set("lastReusedAt", reusedAt),
+                        CanonicalTutorAnswer.class
+                );
+            } catch (Exception error) {
+                log.warn("Cannot persist cache reuse increment for cacheId={}: {}", cacheId, error.getMessage());
+            }
+        });
+    }
+
+    private CourseRagAnswer withHitMetadata(
+            CourseRagAnswer answer,
+            String hitType,
+            String matchedCacheId,
+            double similarity,
+            long lookupStartedNanos,
+            String courseId,
+            String classId
+    ) {
+        return CourseRagAnswer.builder()
+                .answer(answer.getAnswer())
+                .confidence(answer.getConfidence())
+                .sources(answer.getSources())
+                .sourceEvidence(answer.getSourceEvidence())
+                .groundingType(answer.getGroundingType())
+                .escalationRecommended(answer.getEscalationRecommended())
+                .escalationReason(answer.getEscalationReason())
+                .cacheHitMetadata(TutorCacheHitMetadata.builder()
+                        .hitType(hitType)
+                        .matchedCacheId(matchedCacheId)
+                        .similarity(similarity)
+                        .cacheLookupMs(TutorCacheHitAuditService.elapsedMillis(lookupStartedNanos))
+                        .courseId(trim(courseId))
+                        .classId(normalizeScope(classId))
+                        .build())
+                .build();
+    }
+
     private boolean hasSourceEvidence(CourseRagAnswer answer) {
         return answer != null
                 && answer.getSourceEvidence() != null
                 && !answer.getSourceEvidence().isEmpty();
+    }
+
+    public Map<String, Object> diagnostics() {
+        Map<String, Object> diagnostics = new java.util.LinkedHashMap<>();
+        diagnostics.put("enabled", enabled);
+        diagnostics.put("semanticEnabled", semanticEnabled);
+        diagnostics.put("exactMemoryEntries", exactRagMemoryCache.size());
+        diagnostics.put("semanticEarlyMinSimilarity", semanticEarlyMinSimilarity);
+        diagnostics.put("semanticEarlyMinKeywordOverlap", semanticEarlyMinKeywordOverlap);
+        diagnostics.put("semanticEarlyMinEvidenceCount", semanticEarlyMinEvidenceCount);
+        diagnostics.put("semanticVerifiedMinSimilarity", semanticMinSimilarity);
+        diagnostics.put("semanticVerifiedMinKeywordOverlap", semanticMinKeywordOverlap);
+        diagnostics.put("semanticVerifiedMinSourceOverlap", semanticMinSourceOverlap);
+        diagnostics.put("semanticMaxCandidates", semanticMaxCandidates);
+        return diagnostics;
     }
 
     private List<Float> embedQuestion(String question) {

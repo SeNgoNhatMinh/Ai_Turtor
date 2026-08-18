@@ -1,6 +1,7 @@
 package com.ragapi.service;
 
 import com.ragapi.dto.CourseRagAnswer;
+import com.ragapi.dto.RagSourceEvidence;
 import com.ragapi.entity.CanonicalTutorAnswer;
 import com.ragapi.repository.CanonicalTutorAnswerRepository;
 import com.ragapi.util.EmbeddingSimilarityUtil;
@@ -12,6 +13,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.data.mongodb.core.MongoTemplate;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -34,6 +36,12 @@ class SemanticTutorAnswerCacheServiceTest {
     @Mock
     private EmbeddingService embeddingService;
 
+    @Mock
+    private PdfPageRenderService pdfPageRenderService;
+
+    @Mock
+    private MongoTemplate mongoTemplate;
+
     @InjectMocks
     private CanonicalTutorAnswerCacheService cacheService;
 
@@ -46,6 +54,9 @@ class SemanticTutorAnswerCacheServiceTest {
         ReflectionTestUtils.setField(cacheService, "semanticMinSimilarity", 0.90);
         ReflectionTestUtils.setField(cacheService, "semanticMinKeywordOverlap", 0.45);
         ReflectionTestUtils.setField(cacheService, "semanticMinSourceOverlap", 0.20);
+        ReflectionTestUtils.setField(cacheService, "semanticEarlyMinSimilarity", 0.96);
+        ReflectionTestUtils.setField(cacheService, "semanticEarlyMinKeywordOverlap", 0.65);
+        ReflectionTestUtils.setField(cacheService, "semanticEarlyMinEvidenceCount", 1);
         ReflectionTestUtils.setField(cacheService, "semanticMaxCandidates", 100);
         servletEmbedding = List.of(1.0f, 0.0f, 0.0f);
     }
@@ -82,6 +93,40 @@ class SemanticTutorAnswerCacheServiceTest {
 
         assertThat(hit).isPresent();
         assertThat(hit.get().getAnswer()).contains("Servlet");
+        assertThat(hit.get().getCacheHitMetadata().getHitType()).isEqualTo("SEMANTIC_VERIFIED");
+    }
+
+    @Test
+    void lookupEarlySemanticRagAnswer_requiresStrictSimilarityKeywordsAndEvidence() {
+        CanonicalTutorAnswer cached = CanonicalTutorAnswer.builder()
+                .id("early-cache-id")
+                .courseId("CEA201")
+                .classId("CEA201-01")
+                .mode("RAG")
+                .question("Servlet xử lý HTTP request như thế nào?")
+                .answer("Servlet nhận và xử lý HTTP request trong web container.")
+                .confidence(0.85)
+                .sources(List.of("materialId=mat-servlet-1"))
+                .sourceEvidence(List.of(RagSourceEvidence.builder()
+                        .courseId("CEA201")
+                        .materialId("mat-servlet-1")
+                        .build()))
+                .groundingType("COURSE_MATERIAL")
+                .questionEmbedding(servletEmbedding)
+                .expiresAt(LocalDateTime.now().plusHours(24))
+                .build();
+        when(repository.findByCourseIdAndClassIdAndModeAndExpiresAtAfterOrderByCreatedAtDesc(
+                eq("CEA201"), eq("CEA201-01"), eq("RAG"), any(LocalDateTime.class)))
+                .thenReturn(List.of(cached));
+        when(embeddingService.generateQueryEmbedding("Servlet xử lý HTTP request như thế nào?"))
+                .thenReturn(new Embedding(new float[]{1.0f, 0.0f, 0.0f}));
+
+        Optional<CourseRagAnswer> hit = cacheService.lookupEarlySemanticRagAnswer(
+                "CEA201", "CEA201-01", "Servlet xử lý HTTP request như thế nào?");
+
+        assertThat(hit).isPresent();
+        assertThat(hit.get().getCacheHitMetadata().getHitType()).isEqualTo("SEMANTIC_EARLY");
+        assertThat(hit.get().getCacheHitMetadata().getMatchedCacheId()).isEqualTo("early-cache-id");
     }
 
     @Test

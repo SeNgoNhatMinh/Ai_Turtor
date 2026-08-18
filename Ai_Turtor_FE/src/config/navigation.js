@@ -183,14 +183,6 @@ const navigationItems = [
     icon: RefreshCw,
   },
   {
-    key: 'admin-review',
-    workspace: 'admin',
-    group: 'Giám sát AI',
-    label: 'Giám sát chất lượng AI',
-    description: 'Theo dõi hàng chờ phản hồi và can thiệp quản trị khi quy trình bị tồn đọng.',
-    icon: Inbox,
-  },
-  {
     key: 'admin-ai-logs',
     workspace: 'admin',
     group: 'Giám sát AI',

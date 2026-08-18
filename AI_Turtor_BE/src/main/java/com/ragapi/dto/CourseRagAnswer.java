@@ -1,5 +1,6 @@
 package com.ragapi.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.ragapi.util.TextSanitizer;
 import lombok.Builder;
 import lombok.Data;
@@ -17,6 +18,8 @@ public class CourseRagAnswer {
     private String groundingType;
     private Boolean escalationRecommended;
     private String escalationReason;
+    @JsonIgnore
+    private TutorCacheHitMetadata cacheHitMetadata;
 
     @Builder
     public CourseRagAnswer(
@@ -26,7 +29,8 @@ public class CourseRagAnswer {
             List<RagSourceEvidence> sourceEvidence,
             String groundingType,
             Boolean escalationRecommended,
-            String escalationReason
+            String escalationReason,
+            TutorCacheHitMetadata cacheHitMetadata
     ) {
         setAnswer(answer);
         this.confidence = confidence;
@@ -35,6 +39,7 @@ public class CourseRagAnswer {
         this.groundingType = groundingType;
         this.escalationRecommended = escalationRecommended;
         setEscalationReason(escalationReason);
+        this.cacheHitMetadata = cacheHitMetadata;
     }
 
     public void setAnswer(String answer) {

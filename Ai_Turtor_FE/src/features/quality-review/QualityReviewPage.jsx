@@ -22,7 +22,6 @@ export default function QualityReviewPage({
     includeTeacherInbox: false,
   });
   const [candidateNotes, setCandidateNotes] = useState({});
-  const isAdmin = mode === 'admin';
   const pendingReviewCount = review.seniorAnswerReviewGroups?.length || review.seniorAnswerReviews?.length || 0;
   const pendingCandidateCount = review.candidates?.length || 0;
   const historyCount = (review.resolvedAnswerReviews?.length || 0) + (review.reviewedCandidates?.length || 0);
@@ -55,12 +54,10 @@ export default function QualityReviewPage({
     <div className="portal-section teacher-feature-page teacher-review-feature-page quality-review-page">
       <PageHeader
         className="senior-review-hero"
-        eyebrow={isAdmin ? 'Giám sát AI' : 'Kiểm duyệt chuyên môn'}
-        title={isAdmin ? 'Giám sát chất lượng AI' : 'Trung tâm kiểm duyệt chuyên môn'}
-        description={isAdmin
-          ? 'Theo dõi phản hồi nghiêm trọng và tri thức đề xuất. Admin không tham gia ChatRoom của lớp.'
-          : 'Xử lý phản hồi nghiêm trọng, tạo tri thức đúng và chỉ phê duyệt vào RAG sau khi đã đối chiếu.'}
-        actions={!isAdmin && (
+        eyebrow="Kiểm duyệt chuyên môn"
+        title="Trung tâm kiểm duyệt chuyên môn"
+        description="Xử lý phản hồi nghiêm trọng, tạo tri thức đúng và chỉ phê duyệt vào RAG sau khi đã đối chiếu."
+        actions={(
           <div className="senior-review-hero__stats" aria-label="Tổng quan hàng đợi kiểm duyệt">
             <div><span><ShieldAlert size={18} /></span><strong>{pendingReviewCount}</strong><small>Phản hồi nghiêm trọng</small></div>
             <div><span><DatabaseZap size={18} /></span><strong>{pendingCandidateCount}</strong><small>Tri thức chờ duyệt</small></div>

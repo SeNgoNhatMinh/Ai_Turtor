@@ -460,6 +460,18 @@ public class CourseMaterialController {
         }
     }
 
+    @PostMapping("/admin/materials/reindex-approved-knowledge")
+    @Operation(summary = "Reindex only senior-approved knowledge materials")
+    public ResponseEntity<?> reindexApprovedKnowledge() {
+        try {
+            return ResponseEntity.ok(lifecycleService.reindexApprovedKnowledge());
+        } catch (IOException e) {
+            log.error("Elasticsearch error during approved knowledge reindex", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Elasticsearch error: " + e.getMessage()));
+        }
+    }
+
     @PostMapping("/courses/{courseId}/materials/{materialId}/reindex")
     @Operation(summary = "Reindex one course material into Elasticsearch")
     public ResponseEntity<?> reindexCourseMaterial(

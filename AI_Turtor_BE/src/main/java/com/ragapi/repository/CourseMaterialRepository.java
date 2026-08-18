@@ -13,6 +13,8 @@ public interface CourseMaterialRepository
 
     List<CourseMaterial> findByTeacherId(String teacherId);
 
+    List<CourseMaterial> findBySourceType(String sourceType);
+
     Optional<CourseMaterial> findFirstByCourseIdAndContentHash(String courseId, String contentHash);
 }
 

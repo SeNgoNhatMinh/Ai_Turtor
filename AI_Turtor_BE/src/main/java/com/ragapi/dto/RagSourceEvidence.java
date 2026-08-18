@@ -18,4 +18,8 @@ public class RagSourceEvidence {
     private Boolean pageEstimated;
     private String excerpt;
     private List<RagVisualEvidence> visualEvidence;
+    private String sourceKind;
+    private String knowledgeCandidateId;
+    private String provenanceLabel;
+    private String reviewerName;
 }

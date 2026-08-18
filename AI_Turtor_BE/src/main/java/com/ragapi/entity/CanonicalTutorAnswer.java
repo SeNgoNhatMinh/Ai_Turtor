@@ -40,6 +40,9 @@ public class CanonicalTutorAnswer {
     private String seniorReviewNotes;
     private String linkedReviewId;
     private LocalDateTime seniorReviewedAt;
+    @Builder.Default
+    private long reuseCount = 0L;
+    private LocalDateTime lastReusedAt;
     private LocalDateTime createdAt;
     private LocalDateTime expiresAt;
 }

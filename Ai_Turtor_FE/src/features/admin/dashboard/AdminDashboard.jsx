@@ -2,7 +2,7 @@ import React from 'react';
 import { Row, Col, Card, Statistic, Space, Alert, Button, Typography, Tag, Table, Input } from 'antd';
 import {
   Users, GraduationCap, Library, AlertTriangle, RefreshCw, Server, FileText,
-  BookOpenCheck, ShieldCheck,
+  BookOpenCheck,
 } from 'lucide-react';
 import { diagnosticsApi } from '../../../services/diagnosticsApi';
 import { normalizeLlmProviders } from '../../../services/adminAiLogsApi';
@@ -310,13 +310,6 @@ function AdminDashboard({
                   description: 'Cập nhật môn học, lớp học phần, ghi danh và tài liệu dùng chung.',
                   icon: BookOpenCheck,
                   onClick: () => onNavigate?.('/admin/academic'),
-                },
-                {
-                  key: 'knowledge',
-                  title: 'Kiểm duyệt tri thức AI',
-                  description: 'Xử lý nội dung chờ duyệt trước khi đưa vào RAG.',
-                  icon: ShieldCheck,
-                  onClick: () => onNavigate?.('/admin/review-queue'),
                 },
               ]}
             />

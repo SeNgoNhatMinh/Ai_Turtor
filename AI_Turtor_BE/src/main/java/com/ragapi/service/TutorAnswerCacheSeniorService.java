@@ -4,6 +4,7 @@ import com.ragapi.dto.SeniorTutorAnswerCacheUpdateRequest;
 import com.ragapi.dto.TutorAnswerCacheView;
 import com.ragapi.entity.AiAnswerReview;
 import com.ragapi.entity.CanonicalTutorAnswer;
+import com.ragapi.entity.TutorCacheHitAudit;
 import com.ragapi.repository.CanonicalTutorAnswerRepository;
 import com.ragapi.util.TextSanitizer;
 import lombok.RequiredArgsConstructor;
@@ -34,6 +35,8 @@ public class TutorAnswerCacheSeniorService {
     public static final String STATUS_SENIOR_CORRECTED = "SENIOR_CORRECTED";
 
     private final CanonicalTutorAnswerRepository repository;
+    private final TutorCacheHitAuditService auditService;
+    private final CanonicalTutorAnswerCacheService cacheService;
 
     public List<TutorAnswerCacheView> list(
             String courseId,
@@ -75,7 +78,14 @@ public class TutorAnswerCacheSeniorService {
         long disabled = 0;
         long seniorApproved = 0;
         long seniorCorrected = 0;
+        long totalReuseCount = 0;
+        LocalDateTime lastReusedAt = null;
         for (CanonicalTutorAnswer entry : entries) {
+            totalReuseCount += entry.getReuseCount();
+            if (entry.getLastReusedAt() != null
+                    && (lastReusedAt == null || entry.getLastReusedAt().isAfter(lastReusedAt))) {
+                lastReusedAt = entry.getLastReusedAt();
+            }
             switch (normalizeReviewStatus(entry.getReviewStatus())) {
                 case STATUS_DISABLED -> disabled++;
                 case STATUS_SENIOR_APPROVED -> seniorApproved++;
@@ -87,11 +97,33 @@ public class TutorAnswerCacheSeniorService {
         byStatus.put(STATUS_SENIOR_APPROVED, seniorApproved);
         byStatus.put(STATUS_SENIOR_CORRECTED, seniorCorrected);
         byStatus.put(STATUS_DISABLED, disabled);
-        return Map.of(
-                "courseId", courseId.trim(),
-                "total", entries.size(),
-                "byReviewStatus", byStatus
-        );
+        List<TutorCacheHitAudit> recentHits = auditService.hitsSince(courseId, LocalDateTime.now().minusHours(24));
+        Map<String, Long> hitsByType = new LinkedHashMap<>();
+        recentHits.forEach(hit -> hitsByType.merge(hit.getHitType(), 1L, Long::sum));
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("courseId", courseId.trim());
+        result.put("total", entries.size());
+        result.put("byReviewStatus", byStatus);
+        result.put("totalReuseCount", totalReuseCount);
+        result.put("lastReusedAt", lastReusedAt);
+        result.put("hitsLast24Hours", recentHits.size());
+        result.put("hitsByTypeLast24Hours", hitsByType);
+        result.put("averageCacheLookupMsLast24Hours", average(recentHits, true));
+        result.put("averageBackendProcessingMsLast24Hours", average(recentHits, false));
+        return result;
+    }
+
+    public Map<String, Object> diagnostics(String courseId) {
+        requireText(courseId, "courseId");
+        Map<String, Object> result = new LinkedHashMap<>(cacheService.diagnostics());
+        result.put("courseId", courseId.trim());
+        result.put("recentHitSampleSize", auditService.recentHits(courseId, 20).size());
+        return result;
+    }
+
+    public List<TutorCacheHitAudit> recentHits(String courseId, int limit) {
+        requireText(courseId, "courseId");
+        return auditService.recentHits(courseId, limit);
     }
 
     public TutorAnswerCacheView get(String cacheId) {
@@ -256,10 +288,19 @@ public class TutorAnswerCacheSeniorService {
                 .seniorReviewNotes(entry.getSeniorReviewNotes())
                 .linkedReviewId(entry.getLinkedReviewId())
                 .seniorReviewedAt(entry.getSeniorReviewedAt())
+                .reuseCount(entry.getReuseCount())
+                .lastReusedAt(entry.getLastReusedAt())
                 .createdAt(entry.getCreatedAt())
                 .expiresAt(entry.getExpiresAt())
                 .semanticReady(entry.getQuestionEmbedding() != null && !entry.getQuestionEmbedding().isEmpty())
                 .build();
+    }
+
+    private double average(List<TutorCacheHitAudit> hits, boolean lookup) {
+        return hits.stream()
+                .mapToLong(hit -> lookup ? hit.getCacheLookupMs() : hit.getBackendProcessingMs())
+                .average()
+                .orElse(0.0);
     }
 
     private boolean matchesClass(CanonicalTutorAnswer entry, String classId) {

@@ -4,24 +4,33 @@ import { API_TIMEOUTS, blobRequest } from '../../../../services/apiClient';
 
 function AuthenticatedEvidenceImage({ evidence, enabled = true }) {
   const containerRef = useRef(null);
-  const [manualLoadRequested, setManualLoadRequested] = useState(false);
-  const [isNearViewport, setIsNearViewport] = useState(false);
+  const [loadRequested, setLoadRequested] = useState(enabled);
+  const [shouldLoad, setShouldLoad] = useState(false);
   const [src, setSrc] = useState('');
   const [failed, setFailed] = useState(false);
-  const loadRequested = enabled || manualLoadRequested;
-  const supportsIntersectionObserver = typeof IntersectionObserver !== 'undefined';
-  const shouldLoad = loadRequested && (!supportsIntersectionObserver || isNearViewport);
 
   useEffect(() => {
-    if (!loadRequested || !evidence?.imageUrl || !supportsIntersectionObserver) return undefined;
+    if (enabled) setLoadRequested(true);
+  }, [enabled]);
+
+  useEffect(() => {
+    if (!loadRequested || !evidence?.imageUrl) {
+      setShouldLoad(false);
+      return undefined;
+    }
 
     const node = containerRef.current;
     if (!node) return undefined;
 
+    if (typeof IntersectionObserver === 'undefined') {
+      setShouldLoad(true);
+      return undefined;
+    }
+
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
-          setIsNearViewport(true);
+          setShouldLoad(true);
           observer.disconnect();
         }
       },
@@ -29,7 +38,7 @@ function AuthenticatedEvidenceImage({ evidence, enabled = true }) {
     );
     observer.observe(node);
     return () => observer.disconnect();
-  }, [loadRequested, evidence?.imageUrl, supportsIntersectionObserver]);
+  }, [loadRequested, evidence?.imageUrl]);
 
   const openDocument = async () => {
     const [url] = String(evidence.documentUrl || '').split('#');
@@ -77,7 +86,7 @@ function AuthenticatedEvidenceImage({ evidence, enabled = true }) {
         <img src={src} alt={evidence.caption || `Trang ${evidence.pageNumber || ''} của tài liệu`} loading="lazy" />
       ) : !loadRequested ? (
         <div className="visual-evidence-loading">
-          <button type="button" onClick={() => setManualLoadRequested(true)}>
+          <button type="button" onClick={() => setLoadRequested(true)}>
             Tải ảnh trang {evidence.pageNumber || ''}
           </button>
         </div>

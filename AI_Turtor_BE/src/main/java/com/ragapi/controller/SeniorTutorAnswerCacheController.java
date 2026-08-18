@@ -64,6 +64,36 @@ public class SeniorTutorAnswerCacheController {
         }
     }
 
+    @GetMapping("/diagnostics")
+    @Operation(summary = "Cache tier configuration and runtime diagnostics")
+    public ResponseEntity<?> diagnostics(@RequestParam("courseId") String courseId) {
+        try {
+            return ResponseEntity.ok(cacheSeniorService.diagnostics(courseId));
+        } catch (IllegalArgumentException error) {
+            return ResponseEntity.badRequest().body(Map.of("error", error.getMessage()));
+        } catch (Exception error) {
+            log.error("Error loading tutor answer cache diagnostics", error);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", error.getMessage()));
+        }
+    }
+
+    @GetMapping("/hits/recent")
+    @Operation(summary = "Recent persistent cache-hit timing audits")
+    public ResponseEntity<?> recentHits(
+            @RequestParam("courseId") String courseId,
+            @RequestParam(value = "limit", defaultValue = "50") int limit
+    ) {
+        try {
+            var hits = cacheSeniorService.recentHits(courseId, limit);
+            return ResponseEntity.ok(Map.of("count", hits.size(), "hits", hits));
+        } catch (IllegalArgumentException error) {
+            return ResponseEntity.badRequest().body(Map.of("error", error.getMessage()));
+        } catch (Exception error) {
+            log.error("Error loading recent tutor cache hits", error);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", error.getMessage()));
+        }
+    }
+
     @GetMapping("/{cacheId}")
     @Operation(summary = "Get one cached AI answer entry")
     public ResponseEntity<?> get(@PathVariable String cacheId) {

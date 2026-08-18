@@ -22,6 +22,25 @@ export default function AnswerCacheStats({ stats }) {
           <Statistic title="Tổng cache" value={Number(stats?.total) || 0} />
         </Card>
       </Col>
+      <Col xs={24} sm={12} md={6}>
+        <Card size="small">
+          <Statistic title="Tổng lượt tái sử dụng" value={Number(stats?.totalReuseCount) || 0} />
+        </Card>
+      </Col>
+      <Col xs={24} sm={12} md={6}>
+        <Card size="small">
+          <Statistic title="Cache hit 24 giờ" value={Number(stats?.hitsLast24Hours) || 0} />
+        </Card>
+      </Col>
+      <Col xs={24} sm={12} md={6}>
+        <Card size="small">
+          <Statistic
+            title="BE trả cache trung bình"
+            value={Number(stats?.averageBackendProcessingMsLast24Hours) || 0}
+            suffix="ms"
+          />
+        </Card>
+      </Col>
       {items.map((item) => (
         <Col xs={24} sm={12} md={6} key={item.key}>
           <Card size="small">

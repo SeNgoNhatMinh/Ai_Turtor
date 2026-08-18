@@ -22,6 +22,7 @@ public class KnowledgeCandidate {
     private String questionEscalationId;
     private String mentorAnswerId;
     private String aiAnswerReviewId;
+    private String materialId;
 
     private String courseId;
     private String classId;
