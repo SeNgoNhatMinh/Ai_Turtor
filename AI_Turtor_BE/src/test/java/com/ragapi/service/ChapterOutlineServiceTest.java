@@ -63,29 +63,40 @@ class ChapterOutlineServiceTest {
         material.setId("M1");
         material.setTitle("Modern Operating Systems 4th Edition");
         material.setPdfFileId("pdf1");
-        material.setContent("full book text");
+        material.setContent("1.1 WHAT IS AN OPERATING SYSTEM?\n" + sectionBody + "\nChapter 2 Next");
         material.setIndexingStatus("INDEXED");
 
-        when(materialRepository.findByCourseId("OSG203")).thenReturn(List.of(material));
-        when(outlineRepository.findByCourseIdAndChapterKey(eq("OSG203"), anyString()))
-                .thenReturn(Optional.empty());
         when(outlineRepository.findByCourseIdAndChapterKey("OSG203", "what-is-an-operating-system"))
                 .thenReturn(Optional.of(outline));
-        when(chunkingService.chunk(anyString())).thenReturn(List.of("c1", "c2", "c3"));
-        when(outlineRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(materialRepository.findById("M1")).thenReturn(Optional.of(material));
-        when(outlineRepository.findByCourseIdOrderByTitleAsc("OSG203")).thenReturn(List.of(outline));
-        org.springframework.data.mongodb.gridfs.GridFsResource gridResource =
-                org.mockito.Mockito.mock(org.springframework.data.mongodb.gridfs.GridFsResource.class);
-        when(gridResource.getInputStream()).thenReturn(new java.io.ByteArrayInputStream(new byte[]{1, 2, 3}));
-        when(pdfStorageService.loadByFileId("pdf1")).thenReturn(gridResource);
-        when(pdfExtractionService.extractPageRange(any(), eq(3), eq(8))).thenReturn(sectionBody);
+        when(materialRepository.countByCourseIdAndIndexingStatus("OSG203", "INDEXED")).thenReturn(1L);
 
         ChapterPreviewView preview = service.previewChapter("OSG203", "what-is-an-operating-system", true);
 
-        assertFalse(preview.isExcerptTruncated());
-        assertTrue(preview.getExcerpt().length() > ChapterOutlineService.MENTOR_EXCERPT_LIMIT);
         assertTrue(preview.getExcerpt().contains("Operating system section content."));
+        assertFalse(preview.getExcerpt().contains("Chapter 2 Next"));
+        verify(pdfStorageService, never()).loadByFileId(anyString());
+    }
+
+    @Test
+    void ignoreChapterHidesOutlineFromSuggestedList() {
+        CourseChapterOutline outline = CourseChapterOutline.builder()
+                .id("O1")
+                .courseId("PRJ301")
+                .chapterKey("jspx-note")
+                .title("A Note about JSP Documents (JSPX)")
+                .status("SUGGESTED")
+                .build();
+        when(outlineRepository.findByCourseIdAndChapterKey("PRJ301", "jspx-note"))
+                .thenReturn(Optional.of(outline));
+        when(outlineRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(goldQaRepository.findByCourseIdOrderByCreatedAtDesc("PRJ301")).thenReturn(List.of());
+        when(materialRepository.countByCourseIdAndIndexingStatus("PRJ301", "INDEXED")).thenReturn(1L);
+
+        var hidden = service.ignoreChapter("PRJ301", "jspx-note");
+
+        assertEquals("IGNORED", outline.getStatus());
+        assertEquals("IGNORED", hidden.getStatus());
     }
 
     @Test
@@ -184,8 +195,8 @@ class ChapterOutlineServiceTest {
         when(outlineRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(outlineRepository.findByCourseIdAndStatusOrderByTitleAsc("PRJ301", "CONFIRMED"))
                 .thenReturn(List.of(a));
-        when(goldQaRepository.findByCourseIdAndChapterAndUsage(anyString(), anyString(), anyString()))
-                .thenReturn(List.of());
+        when(goldQaRepository.findByCourseIdOrderByCreatedAtDesc("PRJ301")).thenReturn(List.of());
+        when(materialRepository.countByCourseIdAndIndexingStatus("PRJ301", "INDEXED")).thenReturn(0L);
 
         ConfirmChaptersRequest request = new ConfirmChaptersRequest();
         request.setCourseId("PRJ301");
@@ -230,5 +241,28 @@ class ChapterOutlineServiceTest {
         service.refreshOutlinesForCourse("OSG203");
 
         assertEquals("IGNORED", legacyHeading.getStatus());
+    }
+
+    @Test
+    void suggestChaptersReadsPersistedOutlinesWithoutRebuilding() {
+        CourseChapterOutline outline = CourseChapterOutline.builder()
+                .id("O1")
+                .courseId("PRJ301")
+                .chapterKey("jsp")
+                .title("JSP")
+                .status("SUGGESTED")
+                .chunkCount(4)
+                .approxChars(2000L)
+                .build();
+        when(outlineRepository.findByCourseIdOrderByTitleAsc("PRJ301")).thenReturn(List.of(outline));
+        when(goldQaRepository.findByCourseIdOrderByCreatedAtDesc("PRJ301")).thenReturn(List.of());
+        when(materialRepository.countByCourseIdAndIndexingStatus("PRJ301", "INDEXED")).thenReturn(1L);
+
+        var chapters = service.suggestChapters("PRJ301");
+
+        assertEquals(1, chapters.size());
+        assertEquals("JSP", chapters.get(0).getTitle());
+        verify(chunkingService, never()).chunk(anyString());
+        verify(materialRepository, never()).findByCourseId(anyString());
     }
 }

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { Button, Select } from 'antd';
 import { RefreshCw } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
@@ -7,18 +7,15 @@ import PageHeader from '../../components/common/PageHeader';
 import ScopeBar from '../../components/common/ScopeBar';
 import AppTabs from '../../components/common/AppTabs';
 import ChapterCoveragePanel from './components/ChapterCoveragePanel';
-import CoverageDashboard from './components/CoverageDashboard';
-import { getEvaluationReadiness } from './expertTrainingSelectors';
 import { defaultExpertTaskDueAt } from './expertTrainingUtils';
 import { useExpertTrainingController } from './useExpertTrainingController';
 import './ExpertTraining.css';
 
 const SeniorReviewQueue = lazy(() => import('./components/SeniorReviewQueue'));
-const EvaluationDashboard = lazy(() => import('./components/EvaluationDashboard'));
-const VALID_TABS = new Set(['coverage', 'review', 'evaluation']);
+const VALID_TABS = new Set(['coverage', 'review']);
 
 function SectionFallback() {
-  return <AsyncState loading loadingLabel="Đang tải khu vực Tutor V2..." loadingRows={6} />;
+  return <AsyncState loading loadingLabel="Đang tải huấn luyện AI..." loadingRows={6} />;
 }
 
 const courseLabel = (course) => (
@@ -33,7 +30,6 @@ export default function ExpertTrainingPage({
   workspaceMode = 'senior',
 }) {
   const [localCourseId, setLocalCourseId] = useState(externalCourseId);
-  const [selectedChapterKeys, setSelectedChapterKeys] = useState([]);
   const [searchParams, setSearchParams] = useSearchParams();
   const queryCourseId = searchParams.get('courseId') || '';
   const courseId = queryCourseId || externalCourseId || localCourseId;
@@ -42,11 +38,9 @@ export default function ExpertTrainingPage({
   const selectedReviewId = searchParams.get('review') || '';
   const activeTab = VALID_TABS.has(requestedTab)
     ? requestedTab
-    : legacyView === 'content'
+    : legacyView === 'evaluation' || legacyView === 'content'
       ? 'review'
-      : legacyView === 'evaluation'
-        ? 'evaluation'
-        : 'coverage';
+      : 'coverage';
 
   const setQueryState = useCallback((updates, replace = false) => {
     setSearchParams((current) => {
@@ -62,7 +56,6 @@ export default function ExpertTrainingPage({
   const setCourseId = useCallback((nextCourseId) => {
     setLocalCourseId(nextCourseId);
     setExternalCourseId?.(nextCourseId);
-    setSelectedChapterKeys([]);
     setQueryState({ courseId: nextCourseId || null, review: null, view: null }, true);
   }, [setExternalCourseId, setQueryState]);
 
@@ -80,71 +73,42 @@ export default function ExpertTrainingPage({
     }
   }, [activeTab, legacyView, requestedTab, setQueryState]);
 
-  const selectedChapterTitles = useMemo(() => {
-    const selected = new Set(selectedChapterKeys);
-    return controller.resources.chapters
-      .filter((chapter) => selected.has(chapter.chapterKey || chapter.id))
-      .map((chapter) => chapter.title);
-  }, [controller.resources.chapters, selectedChapterKeys]);
-
-  const evaluationReadiness = useMemo(
-    () => getEvaluationReadiness(controller.resources),
-    [controller.resources],
-  );
-
-  const createTasksFromGap = useCallback((gap) => controller.createTasksForChapter(gap.chapter, {
-    includeTrainingGoldTask: true,
-    includeEvaluationGoldTask: true,
+  const startChapter = useCallback((chapterTitle) => controller.startChapter(chapterTitle, {
+    questionCount: 2,
     dueAt: defaultExpertTaskDueAt(7),
   }), [controller]);
 
   const tabs = [
     {
       key: 'coverage',
-      label: <span className="senior-workflow-tab"><b>01</b><span>Phủ học liệu<small>Xác nhận chapter và khoảng trống</small></span></span>,
+      label: 'Mục lục',
       children: (
-        <div className="expert-training__hub-stack">
-          <ChapterCoveragePanel
-            chapters={controller.resources.chapters}
-            loading={controller.loading.chapters}
-            error={controller.errors.chapters}
-            canReview
-            pendingAction={controller.pendingAction}
-            preview={controller.chapterPreview}
-            previewLoading={controller.loading.chapterPreview}
-            previewError={controller.errors.chapterPreview}
-            onRefresh={controller.loadChapters}
-            onConfirm={controller.confirmChapterSelection}
-            onAddManual={controller.addManualChapter}
-            onPreview={controller.openChapterPreview}
-            onClosePreview={() => controller.setChapterPreview(null)}
-            onCreateTasks={controller.createTasksForChapter}
-            onOpenMaterial={controller.openSourceMaterial}
-            onSelectionChange={setSelectedChapterKeys}
-          />
-          <CoverageDashboard
-            gaps={controller.resources.gaps}
-            chapters={controller.resources.chapters}
-            selectedChapters={selectedChapterTitles}
-            loading={controller.loading.gaps}
-            error={controller.errors.gaps}
-            canReview
-            pendingAction={controller.pendingAction}
-            onAnalyze={controller.analyzeCoverage}
-            onRefresh={controller.loadGaps}
-            onCreateTaskFromGap={createTasksFromGap}
-          />
-        </div>
+        <ChapterCoveragePanel
+          courseId={courseId}
+          chapters={controller.resources.chapters}
+          tasks={controller.resources.tasks}
+          goldQa={controller.resources.goldQa}
+          loading={controller.loading.chapters}
+          error={controller.errors.chapters}
+          canReview
+          pendingAction={controller.pendingAction}
+          onRefresh={controller.loadChapters}
+          onClosePreview={() => controller.setChapterPreview(null)}
+          onStartChapter={startChapter}
+          onOpenMaterial={controller.openSourceMaterial}
+          onIgnoreChapter={controller.ignoreChapter}
+          onOpenExam={() => setQueryState({ tab: 'review' })}
+        />
       ),
     },
     {
       key: 'review',
-      label: <span className="senior-workflow-tab"><b>02</b><span>Duyệt tri thức{controller.pendingReviewCount ? ` (${controller.pendingReviewCount})` : ''}<small>Kiểm tra Gold Q&amp;A và Rubric</small></span></span>,
+      label: controller.pendingReviewCount ? `Bài thi (${controller.pendingReviewCount})` : 'Bài thi',
       children: (
         <Suspense fallback={<SectionFallback />}>
           <SeniorReviewQueue
             goldQa={controller.resources.goldQa}
-            rubrics={controller.resources.rubrics}
+            rubrics={[]}
             selectedReviewId={selectedReviewId}
             loading={controller.loading.contributions}
             error={controller.errors.contributions}
@@ -157,38 +121,14 @@ export default function ExpertTrainingPage({
         </Suspense>
       ),
     },
-    {
-      key: 'evaluation',
-      label: <span className="senior-workflow-tab"><b>03</b><span>Đánh giá AI<small>Chạy holdout độc lập</small></span></span>,
-      children: (
-        <Suspense fallback={<SectionFallback />}>
-          <EvaluationDashboard
-            runs={controller.resources.evalRuns}
-            readiness={evaluationReadiness}
-            canReview
-            loading={controller.loading.evaluation}
-            error={controller.errors.evaluation}
-            pendingAction={controller.pendingAction}
-            detail={controller.evaluationDetail}
-            detailLoading={controller.evaluationDetailLoading}
-            onRefresh={controller.loadEvaluation}
-            onStart={controller.startEvaluation}
-            onOpenDetail={controller.openEvaluationDetail}
-            onCloseDetail={() => controller.setEvaluationDetail(null)}
-          />
-        </Suspense>
-      ),
-    },
   ];
 
   return (
     <div className="portal-section expert-training-page expert-training-page--reviewer">
       <PageHeader
-        eyebrow={workspaceMode === 'admin' ? 'Giám sát AI' : 'Kiểm duyệt chuyên môn'}
-        title={workspaceMode === 'admin' ? 'Giám sát Tutor V2' : 'Quản trị tri thức & đánh giá AI'}
-        description={workspaceMode === 'admin'
-          ? 'Theo dõi độ phủ toàn hệ thống, audit hoạt động kiểm duyệt và thực hiện quyền quản trị khi cần.'
-          : 'Kiểm soát chuỗi chất lượng từ độ phủ học liệu, nội dung chuyên gia đến đánh giá AI Tutor bằng holdout độc lập.'}
+        eyebrow={workspaceMode === 'admin' ? 'Giám sát AI' : 'Huấn luyện AI'}
+        title={workspaceMode === 'admin' ? 'Huấn luyện AI Tutor' : 'Huấn luyện AI theo giáo trình'}
+        description="Chọn chương đã embed → Teacher viết Q&A vàng → xem bài thi AI → nạp câu đạt vào RAG."
       />
 
       <ScopeBar
@@ -197,14 +137,14 @@ export default function ExpertTrainingPage({
             icon={<RefreshCw size={16} />}
             onClick={controller.refreshAll}
             disabled={!courseId}
-            loading={Object.values(controller.loading).some(Boolean)}
+            loading={controller.loading.courses || controller.loading.chapters}
           >
             Làm mới
           </Button>
         )}
       >
         <Select
-          aria-label="Chọn môn học Tutor V2"
+          aria-label="Chọn môn học"
           showSearch
           optionFilterProp="label"
           value={courseId || undefined}
@@ -224,7 +164,7 @@ export default function ExpertTrainingPage({
         error={controller.errors.courses}
         empty={!controller.loading.courses && !controller.errors.courses && !controller.courses.length}
         emptyTitle="Chưa có môn học khả dụng"
-        emptyDescription="Tạo môn học và index học liệu trước khi chạy Expert Co-Training V2."
+        emptyDescription="Tạo môn học và index giáo trình trước khi huấn luyện AI."
         onRetry={controller.loadCourses}
       >
         {courseId ? (
@@ -238,7 +178,7 @@ export default function ExpertTrainingPage({
           <AsyncState
             empty
             emptyTitle="Chọn môn học để bắt đầu"
-            emptyDescription="Coverage, hàng chờ duyệt và Evaluation được tách riêng theo từng môn."
+            emptyDescription="Mục lục sách và bài thi được tách theo từng môn."
           />
         )}
       </AsyncState>

@@ -1,134 +1,130 @@
-import { useState } from 'react';
-import { Alert, Button, Checkbox, Drawer, Empty, Skeleton, Space, Tooltip } from 'antd';
-import { ListChecks } from 'lucide-react';
-import ChapterMaterialPreviewContent from './ChapterMaterialPreviewContent';
-import {
-  defaultExpertTaskDueAt,
-  toDateTimeLocalValue,
-  toExpertTaskDueAtPayload,
-} from '../expertTrainingUtils';
+import { Alert, Button, Drawer, Space, Typography } from 'antd';
+import { FileSearch, Play, Trash2 } from 'lucide-react';
+import { getChapterPdfOpenTarget } from '../expertTrainingUtils';
+import ChapterPageViewer from './ChapterPageViewer';
 
-export default function ChapterPreviewDrawer({
+const { Text } = Typography;
+
+function ChapterPreviewActions({
   chapter,
   preview,
-  loading,
-  error,
   canReview,
   pendingAction,
-  onClose,
-  onCreateTasks,
-  onConfirmChapter,
+  session,
+  onStartChapter,
   onOpenMaterial,
+  onIgnoreChapter,
 }) {
-  const [includeTraining, setIncludeTraining] = useState(true);
-  const [includeEvaluation, setIncludeEvaluation] = useState(false);
-  const [dueAtLocal, setDueAtLocal] = useState(() => toDateTimeLocalValue(defaultExpertTaskDueAt(7)));
-  const title = preview?.title || chapter?.title || 'Chi tiết chương';
-  const createKey = `create-chapter-tasks:${title}`;
-  const isConfirmed = String(preview?.status || chapter?.status || '').toUpperCase() === 'CONFIRMED';
-  const canCreateTasks = isConfirmed && Boolean(preview?.hasMaterialContent);
+  const title = preview?.title || chapter?.title || '';
+  const chapterKey = chapter?.chapterKey || chapter?.id || '';
+  const pdfTarget = getChapterPdfOpenTarget(chapter, preview);
+  const canStart = canReview
+    && session?.key === 'NOT_STARTED'
+    && Number(chapter?.chunkCount) > 0;
 
-  const createTasks = async () => {
-    if (!title || !canCreateTasks || (!includeTraining && !includeEvaluation)) return;
-    await onCreateTasks?.(title, {
-      includeTrainingGoldTask: includeTraining,
-      includeEvaluationGoldTask: includeEvaluation,
-      dueAt: toExpertTaskDueAtPayload(dueAtLocal),
-    });
-  };
+  return (
+    <Space wrap className="expert-training__chapter-preview-actions">
+      {pdfTarget && (
+        <Button
+          icon={<FileSearch size={16} />}
+          onClick={() => onOpenMaterial?.(pdfTarget.source, {
+            pageStart: pdfTarget.pageStart,
+            pageEnd: pdfTarget.pageEnd,
+          })}
+        >
+          Tải PDF
+        </Button>
+      )}
+      {canReview && (
+        <Button
+          danger
+          icon={<Trash2 size={16} />}
+          disabled={Boolean(pendingAction)}
+          loading={pendingAction === `ignore-chapter:${chapterKey}`}
+          onClick={() => onIgnoreChapter?.(chapter)}
+        >
+          Xóa khỏi mục lục
+        </Button>
+      )}
+      {canReview && (
+        <Button
+          type="primary"
+          icon={<Play size={16} />}
+          disabled={!canStart || Boolean(pendingAction)}
+          loading={pendingAction === `start-chapter:${title}`}
+          onClick={() => onStartChapter?.(chapter)}
+        >
+          Bắt đầu chương
+        </Button>
+      )}
+    </Space>
+  );
+}
 
-  const confirmChapter = async () => {
-    const chapterKey = chapter?.chapterKey || chapter?.id;
-    if (!chapterKey || !preview?.hasMaterialContent) return;
-    await onConfirmChapter?.(chapter);
-  };
+export default function ChapterPreviewDrawer({
+  courseId,
+  chapter,
+  preview,
+  canReview,
+  pendingAction,
+  session,
+  onClose,
+  onStartChapter,
+  onOpenMaterial,
+  onIgnoreChapter,
+}) {
+  const title = preview?.title || chapter?.title || 'Trang sách';
+  const pdfTarget = getChapterPdfOpenTarget(chapter, preview);
 
   return (
     <Drawer
-      title="Tài liệu chương"
+      title={title}
       open={Boolean(chapter)}
       onClose={onClose}
       size="large"
       rootClassName="expert-training__drawer"
       destroyOnHidden
     >
-      {loading ? (
-        <Skeleton active paragraph={{ rows: 8 }} />
-      ) : error ? (
-        <Alert type="error" showIcon title="Không thể tải nội dung chương" description={error} />
-      ) : !preview ? (
-        <Empty description="Chưa có dữ liệu preview cho chương này." />
-      ) : (
-        <>
-          <ChapterMaterialPreviewContent preview={preview} onOpenMaterial={onOpenMaterial} />
+      <ChapterPageViewer
+        courseId={preview?.courseId || courseId}
+        materialId={pdfTarget?.source?.id}
+        pageStart={pdfTarget?.pageStart}
+        pageEnd={pdfTarget?.pageEnd}
+        title={title}
+      />
 
+      {canReview && session?.key && session.key !== 'NOT_STARTED' && (
+        <Alert
+          type="info"
+          showIcon
+          style={{ marginTop: 16 }}
+          title={session.label}
+          description="Chương này đã có phiên train hoặc bài thi."
+        />
+      )}
+
+      {chapter && (
+        <section className="expert-training__chapter-task-builder">
           {canReview && (
-            <section className="expert-training__chapter-task-builder" aria-labelledby="chapter-task-heading">
-              <div>
-                <h3 id="chapter-task-heading">Tạo task cho giảng viên</h3>
-                <p>Task ở trạng thái mở. Giảng viên phù hợp sẽ tự nhận việc.</p>
-              </div>
-              <Space orientation="vertical">
-                <Checkbox checked={includeTraining} onChange={(event) => setIncludeTraining(event.target.checked)}>
-                  Training Gold Q&A — đưa vào RAG sau khi duyệt
-                </Checkbox>
-                <Checkbox checked={includeEvaluation} onChange={(event) => setIncludeEvaluation(event.target.checked)}>
-                  Evaluation holdout — chỉ dùng kiểm thử
-                </Checkbox>
-                <label className="expert-training__task-due-field">
-                  <span>Hạn hoàn thành (giáo viên sẽ thấy trên task)</span>
-                  <input
-                    type="datetime-local"
-                    value={dueAtLocal}
-                    onChange={(event) => setDueAtLocal(event.target.value)}
-                  />
-                </label>
-              </Space>
-              {!isConfirmed && (
-                <Space orientation="vertical" className="expert-training__full-width">
-                  <Alert
-                    type="warning"
-                    showIcon
-                    title="Xác nhận chapter trước khi tạo task"
-                    description="Kiểm tra nội dung nguồn bên trên, sau đó xác nhận chapter này."
-                  />
-                  <Button
-                    onClick={confirmChapter}
-                    disabled={!preview.hasMaterialContent || Boolean(pendingAction)}
-                    loading={pendingAction === 'confirm-chapters'}
-                  >
-                    Xác nhận chapter này
-                  </Button>
-                </Space>
-              )}
-              {isConfirmed && !preview.hasMaterialContent && (
-                <Alert
-                  type="warning"
-                  showIcon
-                  title="Chapter chưa có nội dung index"
-                  description="Hãy upload hoặc reindex học liệu trước khi yêu cầu Teacher soạn nội dung."
-                />
-              )}
-              <Tooltip title={!isConfirmed
-                ? 'Chapter chưa được xác nhận'
-                : !preview.hasMaterialContent
-                  ? 'Chapter chưa có nội dung index'
-                  : ''}>
-                <span>
-                  <Button
-                    type="primary"
-                    icon={<ListChecks size={16} />}
-                    disabled={!canCreateTasks || (!includeTraining && !includeEvaluation) || Boolean(pendingAction)}
-                    loading={pendingAction === createKey}
-                    onClick={createTasks}
-                  >
-                    Tạo task mở
-                  </Button>
-                </span>
-              </Tooltip>
-            </section>
+            <div>
+              <h3>Phiên train chương này</h3>
+              <Text type="secondary">
+                Lật trang sách ở trên để xem layout, hình và bảng. Xóa khỏi mục lục chỉ ẩn mục nhiễu;
+                file giáo trình vẫn giữ nguyên.
+              </Text>
+            </div>
           )}
-        </>
+          <ChapterPreviewActions
+            chapter={chapter}
+            preview={preview}
+            canReview={canReview}
+            pendingAction={pendingAction}
+            session={session}
+            onStartChapter={onStartChapter}
+            onOpenMaterial={onOpenMaterial}
+            onIgnoreChapter={onIgnoreChapter}
+          />
+        </section>
       )}
     </Drawer>
   );

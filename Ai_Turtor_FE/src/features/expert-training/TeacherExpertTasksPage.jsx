@@ -16,7 +16,7 @@ import './ExpertTraining.css';
 const TEACHER_STEPS = [
   { key: 'open', title: 'Chọn task', description: 'Đọc yêu cầu và học liệu' },
   { key: 'assigned', title: 'Nhận việc', description: 'Khóa task cho tài khoản của bạn' },
-  { key: 'contribute', title: 'Đóng góp', description: 'Soạn Gold Q&A hoặc Rubric' },
+  { key: 'contribute', title: 'Đóng góp', description: 'Soạn Q&A vàng' },
   { key: 'review', title: 'Chờ duyệt', description: 'Senior đối chiếu trước khi dùng' },
 ];
 
@@ -75,7 +75,7 @@ export default function TeacherExpertTasksPage({
     setTaskPreviewError('');
     setTaskPreviewLoading(true);
     try {
-      const preview = await expertTrainingApi.getChapterPreviewByTitle(courseId, task.chapter, true);
+      const preview = await expertTrainingApi.getChapterPreviewByTitle(courseId, task.chapter, false);
       setTaskPreview(preview);
     } catch (error) {
       setTaskPreviewError(getUserFacingError(error, 'Không thể tải tài liệu chương.'));
@@ -93,8 +93,8 @@ export default function TeacherExpertTasksPage({
     <div className="expert-training-page">
       <PageHeader
         eyebrow="Chất lượng AI"
-        title="Công việc tri thức AI"
-        description="Xem trước học liệu, kiểm tra hạn Senior giao, nhận task và đóng góp nội dung có kiểm soát."
+        title="Q&A huấn luyện AI"
+        description="Nhận việc, viết Q&A vàng theo chương. Hệ thống chấm AI, Senior mới nạp RAG."
       />
 
       <ScopeBar

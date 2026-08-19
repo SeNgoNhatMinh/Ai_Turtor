@@ -130,7 +130,18 @@ function AnswerEvidence({ message, sourceMap = {}, onDownloadSource }) {
             <div className="answer-evidence-detail" key={`${item.materialId || item.materialTitle}-${index}`}>
               <strong>{item.provenanceLabel || `Bằng chứng ${index + 1}`}</strong>
               <span><b>Môn học:</b> {item.courseName || item.courseId || 'Chưa xác định'}</span>
-              <span><b>Tài liệu:</b> {item.materialTitle || item.materialId || 'Chưa xác định'}</span>
+              <span>
+                <b>Tài liệu:</b>{' '}
+                {item.materialId && onDownloadSource ? (
+                  <button
+                    type="button"
+                    className="source-link answer-evidence-material-link"
+                    onClick={() => onDownloadSource(item.materialId, item.materialTitle)}
+                  >
+                    {item.materialTitle || item.materialId}
+                  </button>
+                ) : (item.materialTitle || item.materialId || 'Chưa xác định')}
+              </span>
               {item.chapter && <span><b>Chương/phần:</b> {item.chapter}</span>}
               {item.pageStart != null && (
                 <span>

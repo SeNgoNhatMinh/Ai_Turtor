@@ -111,13 +111,19 @@ test('expert task due helpers format schedule for teachers', () => {
   assert.match(overdue.label, /Quá hạn/);
 });
 
-test('keeps evaluation Gold Q&A as a holdout instead of training knowledge', () => {
-  const evaluation = normalizeGoldQa({ usage: 'evaluation', status: 'approved' });
-  const training = normalizeGoldQa({ usage: 'training', status: 'indexed' });
-  assert.equal(evaluation.holdout, true);
-  assert.equal(evaluation.status, 'APPROVED');
-  assert.equal(training.holdout, false);
-  assert.equal(training.status, 'INDEXED');
+test('normalizes gold Q&A exam fields without treating them as holdout knowledge', () => {
+  const pending = normalizeGoldQa({
+    usage: 'training',
+    status: 'pending_review',
+    examPassed: true,
+    examScore: 0.82,
+  });
+  const indexed = normalizeGoldQa({ usage: 'training', status: 'indexed' });
+  assert.equal(pending.holdout, false);
+  assert.equal(pending.examPassed, true);
+  assert.equal(pending.examScore, 0.82);
+  assert.equal(pending.status, 'PENDING_REVIEW');
+  assert.equal(indexed.status, 'INDEXED');
 });
 
 test('parses unique chapters and validates rubric weights against the backend contract', () => {
@@ -205,22 +211,12 @@ test('allows Tutor V2 approval only for canonical senior and admin roles', () =>
   assert.equal(isTutorV2Reviewer({ role: 'ADMIN' }), true);
 });
 
-test('keeps coverage-created Gold Q&A tasks on their required training purpose', () => {
+test('gold Q&A tasks are always training questions for the chapter exam', () => {
   assert.equal(getTaskGoldUsage({
     type: 'GOLD_QA',
-    requiredUsage: 'evaluation',
-    instructions: 'TRAINING should not override the explicit purpose.',
-  }), 'EVALUATION');
-  assert.equal(getTaskGoldUsage({
-    type: 'GOLD_QA',
-    title: 'Soan Gold Q&A training',
-    instructions: 'Tao du lieu chuan de nap vao RAG Brain.',
+    title: 'Q&A vàng 1/2',
+    instructions: 'Viết câu hỏi vàng theo giáo trình.',
   }), 'TRAINING');
-  assert.equal(getTaskGoldUsage({
-    type: 'GOLD_QA',
-    title: 'Soan Gold Q&A holdout',
-    instructions: 'Chon usage=EVALUATION.',
-  }), 'EVALUATION');
-  assert.equal(getTaskGoldUsage({ type: 'GOLD_QA', title: 'Manual contribution' }), null);
+  assert.equal(getTaskGoldUsage({ type: 'GOLD_QA', title: 'Manual contribution' }), 'TRAINING');
   assert.equal(getTaskGoldUsage({ type: 'RUBRIC', title: 'Evaluation rubric' }), null);
 });

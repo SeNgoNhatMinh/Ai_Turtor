@@ -24,9 +24,15 @@ public class GroupedAiAnswerReviewItem {
     private String escalationTier;
     private int distinctStudentCount;
     private int reviewCount;
-    /** RED only when more than five distinct students report the same AI answer. */
+    /**
+     * RED when the similar-question cluster has many negative ratings.
+     * ATTENTION when a few students have complained. WATCH when only one rating exists.
+     */
     private String alertLevel;
     private boolean redAlert;
+    private int negativeReviewCount;
+    private int similarQuestionCount;
+    private List<String> similarQuestions;
     private Double averageRating;
     private LocalDateTime firstReportedAt;
     private LocalDateTime lastReportedAt;

@@ -32,6 +32,13 @@ public class GoldQa {
     private String reviewedBy;
     private String reviewNote;
     private String rejectionReason;
+    private String examAiAnswer;
+    private Double examScore;
+    private Double examRagConfidence;
+    private Boolean examPassed;
+    private Boolean examHallucinated;
+    private String examError;
+    private LocalDateTime examinedAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private LocalDateTime reviewedAt;

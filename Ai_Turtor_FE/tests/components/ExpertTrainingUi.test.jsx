@@ -7,6 +7,12 @@ import ChapterPreviewDrawer from '../../src/features/expert-training/components/
 import ContributionWorkspace from '../../src/features/expert-training/components/ContributionWorkspace';
 import ConfirmCard from '../../src/components/common/ConfirmCard';
 
+vi.mock('../../src/services/materialsApi', () => ({
+  materialsApi: {
+    getMaterialPageImage: vi.fn(async () => new Blob(['png'], { type: 'image/png' })),
+  },
+}));
+
 const evaluationProps = {
   runs: [],
   loading: false,
@@ -70,7 +76,7 @@ describe('Tutor V2 UI rules', () => {
     expect(screen.getByText('Cần chỉnh sửa')).toBeInTheDocument();
   });
 
-  it('keeps chapter confirmation and task creation hidden from teachers', () => {
+  it('hides start-chapter from teachers', () => {
     const props = {
       chapters: [{
         id: 'chapter-1',
@@ -81,30 +87,31 @@ describe('Tutor V2 UI rules', () => {
         detectedFrom: 'PDF_BOOKMARK',
         chunkCount: 8,
         tocLevel: 1,
+        pageStart: 12,
+        sourceMaterialIds: ['M1'],
+        primarySourceMaterialId: 'M1',
       }],
+      tasks: [],
+      goldQa: [],
       loading: false,
       error: '',
       pendingAction: '',
-      preview: null,
-      previewLoading: false,
-      previewError: '',
       onRefresh: vi.fn(),
-      onConfirm: vi.fn(),
-      onAddManual: vi.fn(),
-      onPreview: vi.fn(),
       onClosePreview: vi.fn(),
-      onCreateTasks: vi.fn(),
+      onStartChapter: vi.fn(),
       onOpenMaterial: vi.fn(),
+      onIgnoreChapter: vi.fn(),
     };
     const { rerender } = render(<ChapterCoveragePanel {...props} canReview={false} />);
 
-    expect(screen.queryByRole('button', { name: /Xác nhận/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Thêm chapter' })).not.toBeInTheDocument();
-    expect(screen.getByText(/Chapter do Senior Mentor/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Bắt đầu chương' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Xóa khỏi mục lục/ })).not.toBeInTheDocument();
+    expect(screen.getByText(/Senior bắt đầu chương train/)).toBeInTheDocument();
 
     rerender(<ChapterCoveragePanel {...props} canReview />);
-    expect(screen.getByRole('button', { name: /Xác nhận/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Thêm chapter' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Bắt đầu chương' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Xóa khỏi mục lục Object-Oriented Programming' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Mở PDF Object-Oriented Programming' })).toBeInTheDocument();
   });
 
   it('prevents a teacher from submitting another teacher task', () => {
@@ -133,14 +140,15 @@ describe('Tutor V2 UI rules', () => {
 
     expect(screen.getByText('Task này không thuộc về bạn')).toBeInTheDocument();
     expect(screen.getByLabelText('Chương')).toHaveAttribute('readonly');
-    expect(screen.getByRole('button', { name: 'Gửi kiểm duyệt' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Gửi và chấm thi' })).toBeDisabled();
   });
 
-  it('lets Senior confirm an indexed chapter before creating tasks', () => {
-    const onConfirmChapter = vi.fn();
+  it('lets Senior start an indexed chapter without a separate confirm step', () => {
+    const onStartChapter = vi.fn();
     render(
       <ChapterPreviewDrawer
-        chapter={{ chapterKey: 'oop', title: 'OOP', status: 'SUGGESTED' }}
+        courseId="PRJ301"
+        chapter={{ chapterKey: 'oop', title: 'OOP', status: 'SUGGESTED', chunkCount: 4 }}
         preview={{
           title: 'OOP',
           status: 'SUGGESTED',
@@ -150,21 +158,53 @@ describe('Tutor V2 UI rules', () => {
           chunkCount: 4,
           approxChars: 1200,
         }}
-        loading={false}
-        error=""
+        session={{ key: 'NOT_STARTED', label: 'Chưa train' }}
         canReview
         pendingAction=""
         onClose={vi.fn()}
-        onCreateTasks={vi.fn()}
-        onConfirmChapter={onConfirmChapter}
+        onStartChapter={onStartChapter}
         onOpenMaterial={vi.fn()}
+        onIgnoreChapter={vi.fn()}
       />,
     );
 
-    expect(screen.getByText('Xác nhận chapter trước khi tạo task')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Xác nhận chapter này' }));
-    expect(onConfirmChapter).toHaveBeenCalledWith(expect.objectContaining({ chapterKey: 'oop' }));
-    expect(screen.getByRole('button', { name: 'Tạo task mở' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Bắt đầu chương' }));
+    expect(onStartChapter).toHaveBeenCalledWith(expect.objectContaining({ chapterKey: 'oop' }));
+  });
+
+  it('shows a visual book page in the chapter drawer', async () => {
+    const onOpenMaterial = vi.fn();
+    render(
+      <ChapterPreviewDrawer
+        courseId="PRJ301"
+        chapter={{
+          chapterKey: 'jspx-note',
+          title: 'A Note about JSP Documents (JSPX)',
+          status: 'SUGGESTED',
+          chunkCount: 2,
+          pageStart: 138,
+          pageEnd: 139,
+          sourceMaterialIds: ['M1'],
+          primarySourceMaterialId: 'M1',
+        }}
+        preview={null}
+        session={{ key: 'NOT_STARTED', label: 'Chưa train' }}
+        canReview
+        pendingAction=""
+        onClose={vi.fn()}
+        onStartChapter={vi.fn()}
+        onOpenMaterial={onOpenMaterial}
+        onIgnoreChapter={vi.fn()}
+      />,
+    );
+
+    expect(await screen.findByRole('img', { name: /Trang 138/ })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Tải PDF' }));
+    expect(onOpenMaterial).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'M1', sourceType: 'PDF' }),
+      expect.objectContaining({ pageStart: 138 }),
+    );
+    expect(screen.getByRole('button', { name: 'Xóa khỏi mục lục' })).toBeInTheDocument();
   });
 
   it('renders Rubric criteria without leaking duplicate React keys', () => {

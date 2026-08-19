@@ -5,6 +5,9 @@ import {
   normalizeReviewMode,
   validateAuthForm,
   validateChatInput,
+  validateCodeInput,
+  validateOptionalCodeInput,
+  validateCodeMentorRequest,
   validateEmail,
   validateUploadFile,
 } from '../src/utils/validators.js';
@@ -32,12 +35,28 @@ test('validates login and registration fields', () => {
 });
 
 test('blocks empty and oversized chat submissions', () => {
+  assert.equal(LIMITS.chatMax, 4000);
   assert.equal(validateChatInput('   ').ok, false);
   assert.deepEqual(validateChatInput('  Explain OOP  '), {
     ok: true,
     value: 'Explain OOP',
   });
   assert.equal(validateChatInput('x'.repeat(LIMITS.chatMax + 1)).ok, false);
+});
+
+test('keeps Code Mentor limits separate from normal chat limits', () => {
+  assert.equal(validateChatInput('x'.repeat(4001)).ok, false);
+  assert.equal(validateCodeInput('x'.repeat(12000)).ok, true);
+  assert.match(validateCodeInput('x'.repeat(12001)).message, /12000/);
+  assert.match(validateCodeInput(Array.from({ length: 101 }, () => 'x').join('\n')).message, /100 dòng/);
+  assert.equal(validateCodeMentorRequest({
+    question: 'Review this code',
+    codeSnippet: 'const ok = true;',
+  }).ok, true);
+  assert.equal(validateCodeMentorRequest({ question: 'Review', codeSnippet: '' }).ok, false);
+  assert.equal(validateOptionalCodeInput('').ok, true);
+  assert.equal(validateOptionalCodeInput('   ').ok, true);
+  assert.equal(validateOptionalCodeInput('x'.repeat(12001)).ok, false);
 });
 
 test('maps review modes to backend enums', () => {

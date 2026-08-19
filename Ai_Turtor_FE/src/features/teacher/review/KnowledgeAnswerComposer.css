@@ -1,0 +1,117 @@
+.knowledge-answer-composer {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.knowledge-answer-composer__label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0;
+  color: var(--color-text-main);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.knowledge-answer-composer__label em {
+  color: #0b3b82;
+  font-size: 0.68rem;
+  font-style: normal;
+  font-weight: 650;
+}
+
+.knowledge-answer-composer .ant-input {
+  min-height: 168px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  line-height: 1.6;
+  font-size: 0.9rem;
+}
+
+.knowledge-answer-composer.is-dragging .ant-input {
+  border-color: #0b3b82;
+  background: #eef4fb;
+}
+
+.knowledge-answer-composer__toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+}
+
+.knowledge-answer-composer__toolbar > span {
+  color: var(--color-text-muted);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.knowledge-answer-composer__images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.knowledge-answer-composer__image {
+  position: relative;
+}
+
+.knowledge-answer-composer__remove {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(17, 24, 39, 0.78);
+  color: #fff;
+  cursor: pointer;
+}
+
+.knowledge-image-gallery {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.knowledge-image-thumb {
+  display: block;
+  overflow: hidden;
+  width: 112px;
+  height: 84px;
+  border: 1px solid var(--color-card-border);
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.knowledge-image-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.knowledge-image-thumb--empty {
+  display: grid;
+  place-items: center;
+  padding: 8px;
+  color: var(--color-text-muted);
+  font-size: 0.68rem;
+  text-align: center;
+}
+
+.knowledge-image-gallery__empty {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+}
+
+.app-container.dark .knowledge-answer-composer.is-dragging .ant-input,
+.app-container.dark .knowledge-image-thumb {
+  background: #171717;
+}

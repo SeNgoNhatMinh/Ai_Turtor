@@ -1,11 +1,40 @@
+import { useMemo, useState } from 'react';
 import { RefreshCw, Trash2 } from 'lucide-react';
-import { Button, Card, Space, Table } from 'antd';
+import { Button, Card, Input, Space, Table } from 'antd';
 import EntityActionMenu from '../../../../components/common/EntityActionMenu';
 import StatusLabel from '../../../../components/common/StatusLabel';
 import { confirmDanger } from '../../../../components/common/confirmDialog';
 import { findPersonById, getPersonDisplayName, getPersonEmail } from '../../../../utils/displayNames';
+import { getStatusLabel } from '../../../../utils/statusLabels';
+
+function escalationQuestion(record) {
+  return record?.originalQuestion || record?.question || record?.questionPreview || '';
+}
+
+function escalationSearchHaystack(record, users) {
+  const account = findPersonById(users, record.studentId || record.userId);
+  const displayRecord = { ...(account || {}), ...record };
+  return [
+    getPersonDisplayName(displayRecord, ''),
+    getPersonEmail(displayRecord),
+    record.userName,
+    record.userEmail,
+    record.assignedMentorName,
+    record.assignedMentorEmail,
+    escalationQuestion(record),
+    record.status,
+    getStatusLabel(record.status || 'PENDING'),
+  ].join(' ').toLowerCase();
+}
 
 export default function AdminEscalationsTab({ escalations, users }) {
+  const [search, setSearch] = useState('');
+  const filteredEscalations = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    if (!needle) return escalations.list;
+    return escalations.list.filter((record) => escalationSearchHaystack(record, users).includes(needle));
+  }, [escalations.list, search, users]);
+
   const columns = [
     {
       title: 'Sinh viên',
@@ -23,7 +52,12 @@ export default function AdminEscalationsTab({ escalations, users }) {
         );
       },
     },
-    { title: 'Câu hỏi', dataIndex: 'question', key: 'question', ellipsis: true, render: (value) => value || '—' },
+    {
+      title: 'Câu hỏi',
+      key: 'question',
+      ellipsis: true,
+      render: (_, record) => escalationQuestion(record) || '—',
+    },
     {
       title: 'Trạng thái',
       dataIndex: 'status',
@@ -52,18 +86,28 @@ export default function AdminEscalationsTab({ escalations, users }) {
 
   return (
     <Card hoverable>
-      <Space style={{ marginBottom: 16 }}>
-        <Button onClick={escalations.reload} icon={<RefreshCw size={14} />}>Làm mới</Button>
+      <Space style={{ marginBottom: 16, width: '100%', justifyContent: 'space-between' }}>
+        <Space wrap>
+          <Input.Search
+            placeholder="Tìm sinh viên, câu hỏi hoặc trạng thái..."
+            allowClear
+            style={{ width: 320 }}
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            onSearch={setSearch}
+          />
+          <Button onClick={escalations.reload} icon={<RefreshCw size={14} />}>Làm mới</Button>
+        </Space>
       </Space>
       <Table
-        dataSource={escalations.list}
+        dataSource={filteredEscalations}
         columns={columns}
         rowKey="id"
         loading={escalations.loading}
         pagination={{ pageSize: 8 }}
         size="middle"
         scroll={{ x: 680 }}
-        locale={{ emptyText: 'Không có yêu cầu hỗ trợ.' }}
+        locale={{ emptyText: search.trim() ? 'Không tìm thấy yêu cầu hỗ trợ phù hợp.' : 'Không có yêu cầu hỗ trợ.' }}
       />
     </Card>
   );

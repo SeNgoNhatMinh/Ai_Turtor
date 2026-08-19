@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react';
 import { Button, Empty, Segmented } from 'antd';
-import { CheckCheck, History, RefreshCw, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, CheckCheck, History, RefreshCw, ShieldCheck } from 'lucide-react';
 import { CollectionPagination, CollectionSearch } from '../../../components/common/CollectionControls';
 import { useCollectionView } from '../../../hooks/useCollectionView';
 import AnswerReviewCard from './AnswerReviewCard';
+import AnswerReviewQueueTile, { queueItemKey } from './AnswerReviewQueueTile';
 import GroupedAnswerReviewCard from './GroupedAnswerReviewCard';
 import KnowledgeCandidateReviewList from './KnowledgeCandidateReviewList';
 import './ReviewWorkspace.css';
@@ -36,6 +37,7 @@ export default function AnswerReviewWorkspace({
   const [view, setView] = useState('pending');
   const [seniorSection, setSeniorSection] = useState('feedback');
   const [seniorDrafts, setSeniorDrafts] = useState({});
+  const [selectedQueueKey, setSelectedQueueKey] = useState(null);
   const isSenior = mode === 'senior' || mode === 'admin';
 
   const updateSeniorDraft = (reviewId, patch) => {
@@ -45,6 +47,7 @@ export default function AnswerReviewWorkspace({
         notes: '',
         correctedAnswer: '',
         candidateType: 'ACADEMIC_KNOWLEDGE',
+        images: [],
         ...current[reviewId],
         ...patch,
       },
@@ -59,6 +62,7 @@ export default function AnswerReviewWorkspace({
       String(draft.notes || '').trim(),
       String(draft.correctedAnswer || '').trim(),
       draft.candidateType || 'ACADEMIC_KNOWLEDGE',
+      (draft.images || []).map((item) => item.fileId).filter(Boolean),
     );
     if (succeeded) {
       setSeniorDrafts((current) => {
@@ -66,6 +70,7 @@ export default function AnswerReviewWorkspace({
         delete next[reviewId];
         return next;
       });
+      setSelectedQueueKey(null);
     }
   };
 
@@ -112,13 +117,17 @@ export default function AnswerReviewWorkspace({
 
   const selectSeniorSection = (section) => {
     setSeniorSection(section);
+    setSelectedQueueKey(null);
     collection.setQuery('');
   };
 
   const selectMentorView = (nextView) => {
     setView(nextView);
+    setSelectedQueueKey(null);
     collection.setQuery('');
   };
+
+  const selectedGroup = pendingItems.find((group) => queueItemKey(group) === selectedQueueKey) || null;
 
   const renderReviewList = (items, resolved = false) => (
     <div className="answer-review-list">
@@ -135,21 +144,34 @@ export default function AnswerReviewWorkspace({
         items.map((review) => (
           <AnswerReviewCard key={review.id} review={review} queue="history" />
         ))
+      ) : selectedGroup ? (
+        <div className="answer-review-detail">
+          <Button
+            type="text"
+            icon={<ArrowLeft size={15} />}
+            onClick={() => setSelectedQueueKey(null)}
+          >
+            Quay lại danh sách
+          </Button>
+          <GroupedAnswerReviewCard
+            group={selectedGroup}
+            queue={isSenior ? 'senior' : 'mentor'}
+            draft={seniorDrafts[selectedGroup.representativeReviewId || selectedGroup.id]}
+            isPending={pendingReviewIds.includes(selectedGroup.representativeReviewId || selectedGroup.id)}
+            onDraftChange={(patch) => updateSeniorDraft(selectedGroup.representativeReviewId || selectedGroup.id, patch)}
+            onResolve={(decision) => resolveSeniorReview(selectedGroup.representativeReviewId || selectedGroup.id, decision)}
+          />
+        </div>
       ) : (
-        items.map((group) => {
-          const reviewId = group.representativeReviewId || group.id;
-          return (
-            <GroupedAnswerReviewCard
-              key={group.answerFingerprint || reviewId}
+        <div className="answer-review-tile-grid">
+          {items.map((group) => (
+            <AnswerReviewQueueTile
+              key={queueItemKey(group)}
               group={group}
-              queue={isSenior ? 'senior' : 'mentor'}
-              draft={seniorDrafts[reviewId]}
-              isPending={pendingReviewIds.includes(reviewId)}
-              onDraftChange={(patch) => updateSeniorDraft(reviewId, patch)}
-              onResolve={(decision) => resolveSeniorReview(reviewId, decision)}
+              onOpen={() => setSelectedQueueKey(queueItemKey(group))}
             />
-          );
-        })
+          ))}
+        </div>
       )}
     </div>
   );
@@ -225,7 +247,7 @@ export default function AnswerReviewWorkspace({
                 <span className="review-stage__step">Bước 1</span>
                 <div>
                   <h3 id="senior-feedback-heading">Xác minh phản hồi nghiêm trọng</h3>
-                  <p>Đối chiếu câu hỏi, câu trả lời AI và bằng chứng từ sinh viên. Bước này chưa cập nhật RAG.</p>
+                  <p>Danh sách ô theo số lượt đánh giá tệ. Một góp ý chỉ theo dõi; ô đỏ khi cùng câu hỏi hoặc câu tương tự tích nhiều đánh giá tệ. Bấm ô để soạn câu trả lời.</p>
                 </div>
               </div>
               {renderReviewList(collection.visibleItems)}

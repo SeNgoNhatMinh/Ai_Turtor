@@ -7,6 +7,7 @@ import com.ragapi.dto.cotraining.ConfirmChaptersRequest;
 import com.ragapi.dto.cotraining.ManualChapterRequest;
 import com.ragapi.entity.CourseChapterOutline;
 import com.ragapi.entity.CourseMaterial;
+import com.ragapi.entity.GoldQa;
 import com.ragapi.entity.MaterialTocEntry;
 import com.ragapi.repository.CourseChapterOutlineRepository;
 import com.ragapi.repository.CourseMaterialRepository;
@@ -53,11 +54,15 @@ public class ChapterOutlineService {
 
     public List<ChapterOutlineView> suggestChapters(String courseId) {
         String safeCourseId = requireText(courseId, "courseId");
-        refreshOutlinesForCourse(safeCourseId);
-        return outlineRepository.findByCourseIdOrderByTitleAsc(safeCourseId).stream()
+        List<CourseChapterOutline> outlines = outlineRepository.findByCourseIdOrderByTitleAsc(safeCourseId);
+        if (outlines.isEmpty()) {
+            refreshOutlinesForCourse(safeCourseId);
+            outlines = outlineRepository.findByCourseIdOrderByTitleAsc(safeCourseId);
+        }
+        List<CourseChapterOutline> visible = outlines.stream()
                 .filter(o -> !"IGNORED".equalsIgnoreCase(o.getStatus()))
-                .map(this::toView)
                 .toList();
+        return toViews(safeCourseId, visible);
     }
 
     public List<ChapterOutlineView> confirmChapters(ConfirmChaptersRequest request) {
@@ -88,9 +93,7 @@ public class ChapterOutlineService {
             outline.setUpdatedAt(now);
             outlineRepository.save(outline);
         }
-        return outlineRepository.findByCourseIdAndStatusOrderByTitleAsc(courseId, "CONFIRMED").stream()
-                .map(this::toView)
-                .toList();
+        return toViews(courseId, outlineRepository.findByCourseIdAndStatusOrderByTitleAsc(courseId, "CONFIRMED"));
     }
 
     public ChapterOutlineView addManualChapter(ManualChapterRequest request) {
@@ -131,6 +134,17 @@ public class ChapterOutlineService {
         return toView(outline);
     }
 
+    public ChapterOutlineView ignoreChapter(String courseId, String chapterKey) {
+        String safeCourseId = requireText(courseId, "courseId");
+        String safeKey = requireText(chapterKey, "chapterKey");
+        CourseChapterOutline outline = outlineRepository.findByCourseIdAndChapterKey(safeCourseId, safeKey)
+                .orElseThrow(() -> new IllegalArgumentException("Chapter outline not found"));
+        outline.setStatus("IGNORED");
+        outline.setUpdatedAt(LocalDateTime.now());
+        outlineRepository.save(outline);
+        return toView(outline);
+    }
+
     public ChapterPreviewView previewChapter(String courseId, String chapterKey) {
         return previewChapter(courseId, chapterKey, false);
     }
@@ -138,8 +152,11 @@ public class ChapterOutlineService {
     public ChapterPreviewView previewChapterByTitle(String courseId, String chapterTitle, boolean expanded) {
         String safeCourseId = requireText(courseId, "courseId");
         String safeTitle = requireText(chapterTitle, "chapter");
-        refreshOutlinesForCourse(safeCourseId);
         CourseChapterOutline outline = findOutlineByTitle(safeCourseId, safeTitle);
+        if (outline == null) {
+            refreshOutlinesForCourse(safeCourseId);
+            outline = findOutlineByTitle(safeCourseId, safeTitle);
+        }
         if (outline == null) {
             return ChapterPreviewView.builder()
                     .courseId(safeCourseId)
@@ -158,18 +175,21 @@ public class ChapterOutlineService {
     public ChapterPreviewView previewChapter(String courseId, String chapterKey, boolean expanded) {
         String safeCourseId = requireText(courseId, "courseId");
         String safeKey = requireText(chapterKey, "chapterKey");
-        refreshOutlinesForCourse(safeCourseId);
-        CourseChapterOutline outline = outlineRepository.findByCourseIdAndChapterKey(safeCourseId, safeKey)
-                .orElseThrow(() -> new IllegalArgumentException("Chapter outline not found"));
+        CourseChapterOutline found = outlineRepository.findByCourseIdAndChapterKey(safeCourseId, safeKey)
+                .orElse(null);
+        if (found == null) {
+            refreshOutlinesForCourse(safeCourseId);
+            found = outlineRepository.findByCourseIdAndChapterKey(safeCourseId, safeKey)
+                    .orElseThrow(() -> new IllegalArgumentException("Chapter outline not found"));
+        }
+        final CourseChapterOutline outline = found;
 
-        int indexedCount = (int) materialRepository.findByCourseId(safeCourseId).stream()
-                .filter(m -> "INDEXED".equalsIgnoreCase(m.getIndexingStatus()))
-                .count();
+        int indexedCount = (int) materialRepository.countByCourseIdAndIndexingStatus(safeCourseId, "INDEXED");
 
         List<ChapterSourceMaterialView> sources = new ArrayList<>();
         StringBuilder excerpt = new StringBuilder();
         boolean fullSectionRequested = expanded;
-        int excerptLimit = fullSectionRequested ? FULL_SECTION_EXCERPT_LIMIT : PREVIEW_EXCERPT_LIMIT;
+        int excerptLimit = fullSectionRequested ? MENTOR_EXCERPT_LIMIT : PREVIEW_EXCERPT_LIMIT;
         List<String> materialIds = outline.getSourceMaterialIds() == null ? List.of() : outline.getSourceMaterialIds();
 
         for (String materialId : materialIds) {
@@ -184,7 +204,7 @@ public class ChapterOutlineService {
             });
         }
 
-        if (excerpt.isEmpty()) {
+        if (excerpt.isEmpty() && materialIds.isEmpty()) {
             materialRepository.findByCourseId(safeCourseId).stream()
                     .filter(m -> "INDEXED".equalsIgnoreCase(m.getIndexingStatus()))
                     .filter(m -> m.getContent() != null && !m.getContent().isBlank())
@@ -308,6 +328,10 @@ public class ChapterOutlineService {
                         .approxChars(chapter.approxChars)
                         .updatedAt(now)
                         .build());
+                continue;
+            }
+
+            if ("IGNORED".equalsIgnoreCase(existing.getStatus())) {
                 continue;
             }
 
@@ -486,17 +510,6 @@ public class ChapterOutlineService {
     }
 
     private String resolveBookmarkSectionText(CourseChapterOutline outline, CourseMaterial material) {
-        Integer pageStart = outline.getPageStart();
-        Integer pageEnd = outline.getPageEnd();
-        if (pageStart != null && pageStart > 0 && material.getPdfFileId() != null && !material.getPdfFileId().isBlank()) {
-            int end = pageEnd != null && pageEnd >= pageStart ? pageEnd : pageStart;
-            try {
-                GridFsResource resource = pdfStorageService.loadByFileId(material.getPdfFileId());
-                return pdfExtractionService.extractPageRange(resource.getInputStream().readAllBytes(), pageStart, end);
-            } catch (IOException e) {
-                log.warn("Could not extract section pages for chapter {}: {}", outline.getTitle(), e.getMessage());
-            }
-        }
         return extractSectionByTitle(material.getContent(), outline.getTitle());
     }
 
@@ -572,15 +585,41 @@ public class ChapterOutlineService {
         return excerpt.substring(0, limit).trim() + "...";
     }
 
-    private ChapterOutlineView toView(CourseChapterOutline outline) {
-        int training = goldQaRepository.findByCourseIdAndChapterAndUsage(
-                outline.getCourseId(), outline.getTitle(), "TRAINING").size();
-        int evaluation = goldQaRepository.findByCourseIdAndChapterAndUsage(
-                outline.getCourseId(), outline.getTitle(), "EVALUATION").size();
-        int indexedCount = (int) materialRepository.findByCourseId(outline.getCourseId()).stream()
-                .filter(m -> "INDEXED".equalsIgnoreCase(m.getIndexingStatus()))
-                .count();
+    private List<ChapterOutlineView> toViews(String courseId, List<CourseChapterOutline> outlines) {
+        int indexedCount = (int) materialRepository.countByCourseIdAndIndexingStatus(courseId, "INDEXED");
+        Map<String, int[]> goldCounts = goldCountsByChapter(courseId);
+        return outlines.stream()
+                .map(outline -> toView(outline, indexedCount, goldCounts))
+                .toList();
+    }
 
+    private Map<String, int[]> goldCountsByChapter(String courseId) {
+        Map<String, int[]> counts = new LinkedHashMap<>();
+        for (GoldQa gold : goldQaRepository.findByCourseIdOrderByCreatedAtDesc(courseId)) {
+            if (gold.getChapter() == null || gold.getChapter().isBlank()) {
+                continue;
+            }
+            int[] pair = counts.computeIfAbsent(gold.getChapter(), ignored -> new int[2]);
+            if ("EVALUATION".equalsIgnoreCase(gold.getUsage())) {
+                pair[1]++;
+            } else if ("TRAINING".equalsIgnoreCase(gold.getUsage())) {
+                pair[0]++;
+            }
+        }
+        return counts;
+    }
+
+    private ChapterOutlineView toView(CourseChapterOutline outline) {
+        int indexedCount = (int) materialRepository.countByCourseIdAndIndexingStatus(outline.getCourseId(), "INDEXED");
+        return toView(outline, indexedCount, goldCountsByChapter(outline.getCourseId()));
+    }
+
+    private ChapterOutlineView toView(
+            CourseChapterOutline outline,
+            int indexedCount,
+            Map<String, int[]> goldCounts
+    ) {
+        int[] pair = goldCounts.getOrDefault(outline.getTitle(), new int[2]);
         return ChapterOutlineView.builder()
                 .id(outline.getId())
                 .courseId(outline.getCourseId())
@@ -592,11 +631,14 @@ public class ChapterOutlineService {
                 .chunkCount(outline.getChunkCount() == null ? 0 : outline.getChunkCount())
                 .approxChars(outline.getApproxChars() == null ? 0L : outline.getApproxChars())
                 .materialHealth(materialHealth(outline, indexedCount))
-                .trainingGoldCount(training)
-                .evaluationGoldCount(evaluation)
+                .trainingGoldCount(pair[0])
+                .evaluationGoldCount(pair[1])
                 .tocLevel(outline.getTocLevel() == null ? 0 : outline.getTocLevel())
                 .pageStart(outline.getPageStart() == null ? 0 : outline.getPageStart())
                 .pageEnd(outline.getPageEnd() == null ? 0 : outline.getPageEnd())
+                .primarySourceMaterialId(resolvePrimarySourceMaterialId(
+                        outline.getSourceMaterialIds() == null ? List.of() : outline.getSourceMaterialIds(),
+                        List.of()))
                 .build();
     }
 

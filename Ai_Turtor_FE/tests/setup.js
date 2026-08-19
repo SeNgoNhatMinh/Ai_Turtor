@@ -31,3 +31,10 @@ globalThis.ResizeObserver = class ResizeObserver {
 
 window.requestAnimationFrame = (callback) => window.setTimeout(callback, 0);
 window.cancelAnimationFrame = (id) => window.clearTimeout(id);
+
+if (!URL.createObjectURL) {
+  URL.createObjectURL = () => 'blob:mock-page';
+}
+if (!URL.revokeObjectURL) {
+  URL.revokeObjectURL = () => {};
+}

@@ -37,7 +37,8 @@ class HumanLearningServiceTest {
                 materialRepository,
                 chunkingService,
                 vectorService,
-                conversationService
+                conversationService,
+                mock(KnowledgeImageStorageService.class)
         );
         KnowledgeCandidate candidate = KnowledgeCandidate.builder()
                 .id("candidate-1")

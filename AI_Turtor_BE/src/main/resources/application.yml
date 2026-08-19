@@ -152,6 +152,8 @@ app:
     moderate-rating-min: 2
     moderate-rating-max: 3
     severe-rating-max: 1
+    red-alert-negative-count: ${ANSWER_REVIEW_RED_ALERT_COUNT:5}
+    similar-question-overlap: ${ANSWER_REVIEW_SIMILAR_OVERLAP:0.45}
   tutor-answer-cache:
     enabled: ${TUTOR_ANSWER_CACHE_ENABLED:true}
     ttl-hours: ${TUTOR_ANSWER_CACHE_TTL_HOURS:168}

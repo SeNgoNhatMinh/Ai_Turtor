@@ -4,7 +4,6 @@ import AppTabs from '../../../components/common/AppTabs';
 import { getStatusLabel } from '../../../utils/statusLabels';
 import {
   criteriaRowsToWeights,
-  getTaskGoldUsage,
   validateCriteriaWeights,
 } from '../expertTrainingUtils';
 import TaskMaterialContext from './TaskMaterialContext';
@@ -29,7 +28,6 @@ export default function ContributionWorkspace({
 }) {
   const [goldForm] = Form.useForm();
   const [rubricForm] = Form.useForm();
-  const taskGoldUsage = getTaskGoldUsage(selectedTask);
 
   useEffect(() => {
     if (!selectedTask) return;
@@ -38,7 +36,6 @@ export default function ContributionWorkspace({
       goldForm.resetFields();
       goldForm.setFieldsValue({
         chapter: selectedTask.chapter,
-        usage: taskGoldUsage || rejection?.usage || '',
         difficulty: rejection?.difficulty || 'MEDIUM',
         question: rejection?.question || '',
         goldAnswer: rejection?.goldAnswer || '',
@@ -54,26 +51,18 @@ export default function ContributionWorkspace({
           : DEFAULT_RUBRIC_CRITERIA.map((criterion) => ({ ...criterion })),
       });
     }
-  }, [goldForm, rejection, rubricForm, selectedTask, taskGoldUsage]);
+  }, [goldForm, rejection, rubricForm, selectedTask]);
 
   const isTaskOwner = Boolean(selectedTask && selectedTask.assigneeId === userId);
   const canSubmitSelectedTask = Boolean(
     isTaskOwner
     && ['ASSIGNED', 'IN_PROGRESS'].includes(selectedTask.status)
-    && (selectedTask.type !== 'GOLD_QA' || Boolean(taskGoldUsage || rejection?.usage)),
   );
 
   const submitGold = async (values) => {
-    if (!taskGoldUsage && !rejection?.usage) {
-      goldForm.setFields([{ name: 'usage', errors: ['Task chưa xác định TRAINING hoặc EVALUATION.'] }]);
-      return;
-    }
-    if (taskGoldUsage && values.usage !== taskGoldUsage) {
-      goldForm.setFields([{ name: 'usage', errors: [`Công việc này yêu cầu mục đích ${taskGoldUsage}.`] }]);
-      return;
-    }
     const result = await onSubmitGoldQa({
       ...values,
+      usage: 'TRAINING',
       sourceTaskId: selectedTask?.type === 'GOLD_QA' ? selectedTask.id : undefined,
     });
     if (result) {
@@ -102,12 +91,11 @@ export default function ContributionWorkspace({
   const editorItems = [
     {
       key: 'GOLD_QA',
-      label: 'Gold Q&A',
+      label: 'Q&A vàng',
       children: (
         <GoldQaContributionForm
           form={goldForm}
           disabled={!canSubmitSelectedTask}
-          taskUsage={taskGoldUsage}
           pendingAction={pendingAction}
           userId={userId}
           onFinish={submitGold}
@@ -133,8 +121,8 @@ export default function ContributionWorkspace({
     <section className="expert-training__section" aria-labelledby="contributions-heading">
       <div className="expert-training__section-heading">
         <div>
-          <h2 id="contributions-heading">Soạn nội dung đóng góp</h2>
-          <p>Nội dung chỉ được sử dụng sau khi Senior Mentor hoặc Admin kiểm duyệt.</p>
+          <h2 id="contributions-heading">Viết Q&A vàng</h2>
+          <p>Viết theo giáo trình trên màn hình. Hệ thống sẽ chấm AI rồi gửi Senior — chưa nạp RAG.</p>
         </div>
       </div>
 
@@ -174,15 +162,6 @@ export default function ContributionWorkspace({
         />
       )}
 
-      {selectedTask.type === 'GOLD_QA' && !taskGoldUsage && !rejection?.usage && (
-        <Alert
-          type="error"
-          showIcon
-          title="Task chưa xác định mục đích sử dụng"
-          description="Task phải có requiredUsage là TRAINING hoặc EVALUATION trước khi giảng viên đóng góp."
-        />
-      )}
-
       <div className="expert-training__contribution-layout">
         <Card className="expert-training__editor-card" title="Chuẩn bị nội dung">
           <AppTabs
@@ -204,7 +183,7 @@ export default function ContributionWorkspace({
       </div>
 
       <Paragraph type="secondary" className="expert-training__policy-note">
-        Nội dung đã nộp chưa phải tri thức AI. Chỉ TRAINING Gold Q&A được phê duyệt mới được index vào RAG của môn học.
+        Q&A đã nộp chưa vào RAG. Hệ thống chấm AI trên sách trước, Senior mới nạp câu đạt.
       </Paragraph>
     </section>
   );

@@ -11,6 +11,8 @@ public interface CourseMaterialRepository
 
     List<CourseMaterial> findByCourseId(String courseId);
 
+    long countByCourseIdAndIndexingStatus(String courseId, String indexingStatus);
+
     List<CourseMaterial> findByTeacherId(String teacherId);
 
     List<CourseMaterial> findBySourceType(String sourceType);

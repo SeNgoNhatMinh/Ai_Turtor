@@ -718,7 +718,7 @@ test('Teacher sees only the task board and Student is denied Tutor V2 routes', a
   await signInAsTeacher(page);
   await page.goto('/teacher/expert-training');
   await expect(page).toHaveURL(/\/teacher\/expert-tasks/);
-  await expect(page.getByRole('heading', { name: 'Công việc tri thức AI' }).first()).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Q&A huấn luyện AI' }).first()).toBeVisible();
   await expect(page.locator('.page-header')).toHaveCSS('border-radius', '20px');
   await expect(page.getByText('Cần làm (0)', { exact: true })).toBeVisible();
   await expect(page.getByRole('tab', { name: 'Phủ kiến thức' })).toHaveCount(0);

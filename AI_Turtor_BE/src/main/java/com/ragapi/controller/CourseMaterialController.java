@@ -375,10 +375,12 @@ public class CourseMaterialController {
                 }
                 pdfPageRenderService.rememberMaterialCourse(courseId, materialId);
             }
+            byte[] png = pdfPageRenderService.renderPage(materialId, pageNumber);
+            pdfPageRenderService.preloadPageAsync(materialId, pageNumber + 1);
             return ResponseEntity.ok()
                     .cacheControl(org.springframework.http.CacheControl.maxAge(java.time.Duration.ofHours(6)).cachePrivate())
                     .contentType(MediaType.IMAGE_PNG)
-                    .body(pdfPageRenderService.renderPage(materialId, pageNumber));
+                    .body(png);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (IOException e) {

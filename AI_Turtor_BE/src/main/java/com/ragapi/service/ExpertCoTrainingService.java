@@ -186,7 +186,7 @@ public class ExpertCoTrainingService {
         return saved;
     }
 
-    public List<ExpertTask> createChapterTasks(CreateChapterTasksRequest request) {
+    public List<ExpertTask> startChapter(CreateChapterTasksRequest request) {
         if (request == null) {
             throw new IllegalArgumentException("request is required");
         }
@@ -196,58 +196,40 @@ public class ExpertCoTrainingService {
         if (outline == null) {
             throw new IllegalArgumentException("Chapter does not exist in indexed course materials");
         }
-        if (!"CONFIRMED".equalsIgnoreCase(outline.getStatus())) {
-            throw new IllegalArgumentException("Chapter must be confirmed before creating tasks");
-        }
         if (outline.getChunkCount() == null || outline.getChunkCount() <= 0) {
             throw new IllegalArgumentException("Chapter has no indexed content");
         }
         chapter = outline.getTitle();
-        String createdBy = optionalMaxLength(request.getCreatedBy(), "createdBy", SHORT_TEXT_MAX_LENGTH);
-        boolean includeTraining = request.getIncludeTrainingGoldTask() == null || request.getIncludeTrainingGoldTask();
-        boolean includeEvaluation = request.getIncludeEvaluationGoldTask() == null || request.getIncludeEvaluationGoldTask();
-        if (!includeTraining && !includeEvaluation) {
-            throw new IllegalArgumentException("At least one of includeTrainingGoldTask or includeEvaluationGoldTask must be true");
+        List<ExpertTask> active = taskRepository.findByCourseIdAndChapterOrderByCreatedAtDesc(courseId, chapter).stream()
+                .filter(task -> "GOLD_QA".equals(task.getType()))
+                .filter(task -> Set.of("OPEN", "ASSIGNED", "IN_PROGRESS", "SUBMITTED").contains(task.getStatus()))
+                .toList();
+        if (!active.isEmpty()) {
+            return active;
         }
-        CoverageGap gap = gapRepository.findFirstByCourseIdAndChapterAndStatusInOrderByDetectedAtDesc(
-                        courseId, chapter, List.of("OPEN", "TASK_CREATED"))
-                .orElse(null);
-        String gapId = gap == null ? null : gap.getId();
-        int priority = gap != null && "CRITICAL".equals(gap.getSeverity()) ? 100 : 70;
+        int count = request.getQuestionCount() == null ? 2 : Math.max(1, Math.min(5, request.getQuestionCount()));
         LocalDateTime dueAt = normalizeDueAt(request.getDueAt());
+        String createdBy = optionalMaxLength(request.getCreatedBy(), "createdBy", SHORT_TEXT_MAX_LENGTH);
         List<ExpertTask> created = new ArrayList<>();
-        if (includeTraining) {
-            CreateExpertTaskRequest training = new CreateExpertTaskRequest();
-            training.setCourseId(courseId);
-            training.setChapter(chapter);
-            training.setType("GOLD_QA");
-            training.setPriority(priority);
-            training.setSourceGapId(gapId);
-            training.setTitle("Soạn Gold Q&A training - " + chapter);
-            training.setInstructions("Senior chủ động tạo task. Teacher soạn Gold Q&A usage=TRAINING để nạp RAG Brain.");
-            training.setCreatedBy(createdBy);
-            training.setDueAt(dueAt);
-            created.add(createTask(training));
-        }
-        if (includeEvaluation) {
-            CreateExpertTaskRequest evaluation = new CreateExpertTaskRequest();
-            evaluation.setCourseId(courseId);
-            evaluation.setChapter(chapter);
-            evaluation.setType("GOLD_QA");
-            evaluation.setPriority(priority);
-            evaluation.setSourceGapId(gapId);
-            evaluation.setTitle("Soạn Gold Q&A holdout - " + chapter);
-            evaluation.setInstructions("Senior chủ động tạo task. Teacher soạn Gold Q&A usage=EVALUATION (holdout, không index RAG).");
-            evaluation.setCreatedBy(createdBy);
-            evaluation.setDueAt(dueAt);
-            created.add(createTask(evaluation));
-        }
-        if (gap != null && !created.isEmpty()) {
-            gap.setStatus("TASK_CREATED");
-            gap.setUpdatedAt(LocalDateTime.now());
-            gapRepository.save(gap);
+        for (int index = 1; index <= count; index++) {
+            CreateExpertTaskRequest task = new CreateExpertTaskRequest();
+            task.setCourseId(courseId);
+            task.setChapter(chapter);
+            task.setType("GOLD_QA");
+            task.setPriority(80);
+            task.setTitle("Q&A vàng " + index + "/" + count + " — " + chapter);
+            task.setInstructions("Viết một câu hỏi và đáp án vàng theo giáo trình chương này. "
+                    + "Sau khi nộp, hệ thống hỏi AI bằng tài liệu đã embed (chưa nạp Q&A vào RAG) rồi gửi bài thi cho Senior. "
+                    + "Nếu bài thi tốt và hợp tài liệu, Senior nạp vào RAG.");
+            task.setCreatedBy(createdBy);
+            task.setDueAt(dueAt);
+            created.add(createTask(task));
         }
         return created;
+    }
+
+    public List<ExpertTask> createChapterTasks(CreateChapterTasksRequest request) {
+        return startChapter(request);
     }
 
     public List<ExpertTask> listTasks(String status, String courseId, String assigneeId) {
@@ -272,7 +254,9 @@ public class ExpertCoTrainingService {
 
     public GoldQa submitGoldQa(SubmitGoldQaRequest request) {
         if (request == null) throw new IllegalArgumentException("request is required");
-        String usage = enumValue(request.getUsage(), "usage", GOLD_USAGE);
+        String usage = request.getUsage() == null || request.getUsage().isBlank()
+                ? "TRAINING"
+                : enumValue(request.getUsage(), "usage", GOLD_USAGE);
         String difficulty = enumValue(request.getDifficulty(), "difficulty", DIFFICULTIES);
         ExpertTask task = optionalTask(request.getSourceTaskId(), "GOLD_QA");
         LocalDateTime now = LocalDateTime.now();
@@ -281,15 +265,18 @@ public class ExpertCoTrainingService {
                 .chapter(requireMaxLength(request.getChapter(), "chapter", SHORT_TEXT_MAX_LENGTH))
                 .question(requireMaxLength(request.getQuestion(), "question", DEFAULT_TEXT_MAX_LENGTH))
                 .goldAnswer(requireMaxLength(request.getGoldAnswer(), "goldAnswer", DEFAULT_TEXT_MAX_LENGTH))
-                .difficulty(difficulty).usage(usage).holdout("EVALUATION".equals(usage))
+                .difficulty(difficulty).usage(usage).holdout(false)
                 .status("PENDING_REVIEW").version(1)
                 .authorId(requireText(request.getAuthorId(), "authorId"))
                 .sourceTaskId(request.getSourceTaskId()).rubricId(request.getRubricId())
                 .createdAt(now).updatedAt(now).build());
         completeContributionTask(task, gold.getId());
-        realtimeEvents.publishToRoles(SENIOR_ROLES, "GOLD_QA_SUBMITTED", "GOLD_QA", gold.getId(),
-                gold.getStatus(), Map.of("courseId", gold.getCourseId(), "usage", gold.getUsage(), "authorId", gold.getAuthorId()));
-        return gold;
+        examineAgainstTextbook(gold);
+        GoldQa examined = goldQaRepository.findById(gold.getId()).orElse(gold);
+        realtimeEvents.publishToRoles(SENIOR_ROLES, "GOLD_QA_SUBMITTED", "GOLD_QA", examined.getId(),
+                examined.getStatus(), Map.of("courseId", examined.getCourseId(), "usage", examined.getUsage(),
+                        "authorId", examined.getAuthorId(), "examPassed", Boolean.TRUE.equals(examined.getExamPassed())));
+        return examined;
     }
 
     public ExpertRubric submitRubric(SubmitRubricRequest request) {
@@ -320,12 +307,10 @@ public class ExpertCoTrainingService {
         if (!approve) {
             gold.setRejectionReason(requireMaxLength(request.getRejectionReason(), "rejectionReason", DEFAULT_TEXT_MAX_LENGTH));
             gold.setStatus("REJECTED");
-        } else if (Boolean.TRUE.equals(gold.getHoldout()) || "EVALUATION".equals(gold.getUsage())) {
-            gold.setStatus("APPROVED");
         } else {
             String content = "Question: " + gold.getQuestion() + "\nGold answer: " + gold.getGoldAnswer();
             vectorService.indexChunk(gold.getCourseId(), null, gold.getAuthorId(), gold.getId(), "COURSE_SHARED", "GOLD_QA", null, null, content);
-            gold.setStatus("INDEXED"); gold.setIndexedAt(now);
+            gold.setStatus("INDEXED"); gold.setIndexedAt(now); gold.setHoldout(false);
         }
         GoldQa saved = goldQaRepository.save(gold);
         completeReviewedTask(saved.getSourceTaskId(), approve);
@@ -402,16 +387,59 @@ public class ExpertCoTrainingService {
     public List<CoverageGap> listGaps(String courseId) { return gapRepository.findByCourseIdOrderByDetectedAtDesc(requireText(courseId, "courseId")); }
 
     private EvalResult evaluate(EvalRun run, GoldQa gold, double threshold) throws Exception {
+        ExamSnapshot exam = scoreAgainstTextbook(gold, threshold);
+        return EvalResult.builder().evalRunId(run.getId()).goldQaId(gold.getId()).courseId(gold.getCourseId()).chapter(gold.getChapter())
+                .question(gold.getQuestion()).goldAnswer(gold.getGoldAnswer()).aiAnswer(exam.aiAnswer()).score(exam.score())
+                .ragConfidence(exam.confidence()).passed(exam.passed()).hallucinated(exam.hallucinated())
+                .criterionScores(Map.of("tokenOverlap", exam.overlap(), "ragConfidence", exam.confidence()))
+                .createdAt(LocalDateTime.now()).build();
+    }
+
+    private void examineAgainstTextbook(GoldQa gold) {
+        try {
+            ExamSnapshot exam = scoreAgainstTextbook(gold, 0.6);
+            gold.setExamAiAnswer(exam.aiAnswer());
+            gold.setExamScore(exam.score());
+            gold.setExamRagConfidence(exam.confidence());
+            gold.setExamPassed(exam.passed());
+            gold.setExamHallucinated(exam.hallucinated());
+            gold.setExamError(null);
+            gold.setExaminedAt(LocalDateTime.now());
+            gold.setUpdatedAt(LocalDateTime.now());
+            goldQaRepository.save(gold);
+        } catch (Exception error) {
+            gold.setExamError(error.getMessage() == null ? "Exam failed" : error.getMessage());
+            gold.setExamPassed(false);
+            gold.setExaminedAt(LocalDateTime.now());
+            gold.setUpdatedAt(LocalDateTime.now());
+            goldQaRepository.save(gold);
+        }
+    }
+
+    private ExamSnapshot scoreAgainstTextbook(GoldQa gold, double threshold) throws Exception {
         CourseRagAnswer answer = courseRagService.askWithConfidence(gold.getQuestion(), gold.getCourseId(), null);
         double overlap = tokenOverlap(gold.getGoldAnswer(), answer.getAnswer());
         double confidence = answer.getConfidence() == null ? 0.0 : answer.getConfidence();
         double score = round(overlap * 0.75 + confidence * 0.25);
         boolean hallucinated = Boolean.TRUE.equals(answer.getEscalationRecommended()) || confidence < 0.4 || overlap < 0.15;
-        return EvalResult.builder().evalRunId(run.getId()).goldQaId(gold.getId()).courseId(gold.getCourseId()).chapter(gold.getChapter())
-                .question(gold.getQuestion()).goldAnswer(gold.getGoldAnswer()).aiAnswer(answer.getAnswer()).score(score).ragConfidence(confidence)
-                .passed(score >= threshold && !hallucinated).hallucinated(hallucinated)
-                .criterionScores(Map.of("tokenOverlap", round(overlap), "ragConfidence", round(confidence))).createdAt(LocalDateTime.now()).build();
+        return new ExamSnapshot(
+                answer.getAnswer(),
+                round(score),
+                round(confidence),
+                round(overlap),
+                score >= threshold && !hallucinated,
+                hallucinated
+        );
     }
+
+    private record ExamSnapshot(
+            String aiAnswer,
+            double score,
+            double confidence,
+            double overlap,
+            boolean passed,
+            boolean hallucinated
+    ) {}
 
     private void createGapTasks(
             CoverageGap gap,

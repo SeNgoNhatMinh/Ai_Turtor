@@ -4,6 +4,8 @@ import { CheckCircle2, Clock3, MessageCircle, RefreshCw } from 'lucide-react';
 import StatusLabel from '../../../components/common/StatusLabel';
 import SupportChatRoom from '../../../components/support/SupportChatRoom';
 import TeacherAnswerModeSelector from './TeacherAnswerModeSelector';
+import KnowledgeAnswerComposer from './KnowledgeAnswerComposer';
+import KnowledgeImageGallery from './KnowledgeImageGallery';
 import './ReviewWorkspace.css';
 import './TeacherSupportInbox.css';
 
@@ -46,6 +48,8 @@ export default function TeacherSupportInbox({
   onSearch,
   reply,
   onReplyChange,
+  replyImages = [],
+  onReplyImagesChange,
   onSubmitAnswer,
   isSubmitting = false,
   createKnowledgeCandidate,
@@ -173,6 +177,7 @@ export default function TeacherSupportInbox({
                   <section className="teacher-support-history__answer">
                     <span className="teacher-review-eyebrow">Câu trả lời chính thức</span>
                     <p>{selectedEscalation.mentorAnswer || 'Backend chưa trả nội dung câu trả lời chính thức cho bản ghi này.'}</p>
+                    <KnowledgeImageGallery images={selectedEscalation.mentorAnswerImages} />
                     {selectedEscalation.assignedMentorName && <small>Giảng viên: {selectedEscalation.assignedMentorName}</small>}
                   </section>
                 </div>
@@ -191,12 +196,15 @@ export default function TeacherSupportInbox({
                     <p>Phần này khác tin nhắn chat thông thường và sẽ cập nhật trạng thái escalation.</p>
                   </div>
                   <label htmlFor="teacher-final-answer">Câu trả lời cuối sau khi trao đổi:</label>
-                  <textarea
+                  <KnowledgeAnswerComposer
                     id="teacher-final-answer"
                     value={reply}
-                    onChange={(event) => onReplyChange(event.target.value)}
+                    images={replyImages}
                     required
                     disabled={isSubmitting}
+                    placeholder="Viết câu trả lời đầy đủ cho sinh viên. Có thể dán hoặc tải hình minh họa cho sơ đồ, mô hình..."
+                    onChange={onReplyChange}
+                    onImagesChange={onReplyImagesChange}
                   />
                   <TeacherAnswerModeSelector
                     createKnowledgeCandidate={createKnowledgeCandidate}

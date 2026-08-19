@@ -55,7 +55,7 @@ function TaskCard({ task, userId, pendingAction, onClaim, onContribute, onPrevie
     <Card className="expert-training__task-card" size="small">
       <div className="expert-training__task-card-head">
         <div className="expert-training__task-card-title">
-          <span>{task.type === 'RUBRIC' ? 'Rubric' : 'Gold Q&A'}</span>
+          <span>{task.type === 'RUBRIC' ? 'Rubric' : 'Q&A vàng'}</span>
           <strong>{task.title || task.chapter}</strong>
         </div>
         <StatusLabel status={task.status} />
@@ -63,9 +63,7 @@ function TaskCard({ task, userId, pendingAction, onClaim, onContribute, onPrevie
 
       <Space wrap size={[6, 6]}>
         {usage && (
-          <Tag color={usage === 'EVALUATION' ? 'purple' : 'blue'}>
-            {usage === 'EVALUATION' ? 'EVALUATION · holdout' : 'TRAINING · vào RAG sau duyệt'}
-          </Tag>
+          <Tag color="blue">Q&A vàng · chấm rồi mới nạp RAG</Tag>
         )}
         <Tag>{task.chapter}</Tag>
         <Tag>Ưu tiên {task.priority}</Tag>
@@ -129,8 +127,8 @@ export default function ExpertTaskBoard({
     <section className="expert-training__section" aria-labelledby="tasks-heading">
       <div className="expert-training__section-heading">
         <div>
-          <h2 id="tasks-heading">Công việc tri thức AI</h2>
-          <p>Xem trước tài liệu chương, kiểm tra hạn Senior giao, rồi nhận task và đóng góp Gold Q&A hoặc Rubric.</p>
+          <h2 id="tasks-heading">Việc Q&A huấn luyện AI</h2>
+          <p>Nhận việc, viết câu hỏi và đáp án vàng theo giáo trình. Hệ thống chấm AI rồi gửi Senior.</p>
         </div>
         <Button icon={<RefreshCw size={16} />} onClick={onRefresh} loading={loading}>
           Làm mới
@@ -161,7 +159,7 @@ export default function ExpertTaskBoard({
         }
         emptyDescription={
           activeTab === 'TODO'
-            ? 'Senior chạy Coverage Analyze hoặc tạo task theo chương.'
+            ? 'Senior bấm Bắt đầu chương trên mục lục sách để giao việc.'
             : activeTab === 'DOING'
               ? 'Task bạn đã nhận (đang soạn, chỉnh sửa hoặc chờ Senior duyệt) sẽ hiện tại đây.'
               : 'Task được Senior duyệt hoàn tất sẽ xuất hiện tại đây.'

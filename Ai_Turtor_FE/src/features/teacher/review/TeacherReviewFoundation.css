@@ -164,6 +164,10 @@
     white-space: pre-wrap;
 }
 
+.compare-qa .knowledge-image-gallery {
+    margin-top: 10px;
+}
+
 .candidate-card-item__review {
     display: grid;
     gap: 6px;

@@ -1,1 +1,1 @@
-export const DEFAULT_APPROVAL_NOTE = 'Đã đối chiếu với giáo trình.';
+export const DEFAULT_APPROVAL_NOTE = 'Bài thi hợp giáo trình, nạp vào RAG.';

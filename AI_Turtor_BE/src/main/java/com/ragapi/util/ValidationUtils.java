@@ -12,9 +12,12 @@ public final class ValidationUtils {
 
     public static final int DEFAULT_TEXT_MAX_LENGTH = 20_000;
     public static final int SHORT_TEXT_MAX_LENGTH = 500;
+    public static final int REVIEW_NOTE_MAX_LENGTH = 4_000;
     public static final int STUDENT_QUESTION_MAX_LENGTH = 4_000;
     public static final int CODE_SNIPPET_MAX_LENGTH = 12_000;
     public static final int CODE_SNIPPET_MAX_LINES = 100;
+    public static final int KNOWLEDGE_IMAGE_MAX_COUNT = 6;
+    public static final int KNOWLEDGE_IMAGE_MAX_SIZE_MB = 5;
 
     private static final Set<String> PLACEHOLDER_VALUES = Set.of(
             "paste_here",

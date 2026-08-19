@@ -113,7 +113,7 @@ public class SecurityConfig {
                         // n8n trace logging should not block the harness if a user token expires.
                         .requestMatchers(HttpMethod.POST, "/api/harness/logs", "/api/harness/error-logs").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v2/expert-training/coverage/analyze", "/api/v2/expert-training/eval-runs").hasAnyRole("SENIOR_MENTOR", "ADMIN")
-                        .requestMatchers(HttpMethod.POST, "/api/v2/expert-training/chapters/confirm", "/api/v2/expert-training/chapters/manual", "/api/v2/expert-training/chapters/tasks", "/api/v2/expert-training/tasks").hasAnyRole("SENIOR_MENTOR", "ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/v2/expert-training/chapters/confirm", "/api/v2/expert-training/chapters/manual", "/api/v2/expert-training/chapters/tasks", "/api/v2/expert-training/chapters/*/ignore", "/api/v2/expert-training/tasks").hasAnyRole("SENIOR_MENTOR", "ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/v2/expert-training/chapters/**").hasAnyRole("TEACHER", "SENIOR_MENTOR", "ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/v2/expert-training/gold-qa/*/approve", "/api/v2/expert-training/gold-qa/*/reject", "/api/v2/expert-training/rubrics/*/approve", "/api/v2/expert-training/rubrics/*/reject").hasAnyRole("SENIOR_MENTOR", "ADMIN")
                         .requestMatchers("/api/v2/expert-training/**").hasAnyRole("TEACHER", "SENIOR_MENTOR", "ADMIN")
@@ -127,6 +127,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/tutor/knowledge-candidates/**", "/api/tutor/escalations/knowledge-candidates/**").hasAnyRole("TEACHER", "SENIOR_MENTOR", "ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/tutor/escalations/*/answer").hasAnyRole("TEACHER", "SENIOR_MENTOR", "ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/tutor/escalations/*/knowledge-candidate").hasAnyRole("TEACHER", "SENIOR_MENTOR", "ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/tutor/knowledge-images").hasAnyRole("TEACHER", "SENIOR_MENTOR", "ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/tutor/knowledge-images/**").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/harness/**").hasRole("ADMIN")
                         .requestMatchers("/api/health/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/courses/*/materials/upload", "/api/courses/*/materials/import-url", "/api/courses/*/materials/reindex", "/api/courses/*/materials/*/reindex").hasAnyRole("TEACHER", "SENIOR_MENTOR", "ADMIN")

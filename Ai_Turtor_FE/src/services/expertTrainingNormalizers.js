@@ -32,6 +32,7 @@ export const normalizeChapterOutline = (chapter = {}) => ({
   tocLevel: finiteNumber(chapter.tocLevel),
   pageStart: finiteNumber(chapter.pageStart),
   pageEnd: finiteNumber(chapter.pageEnd),
+  primarySourceMaterialId: chapter.primarySourceMaterialId || '',
 });
 
 const normalizeChapterSourceMaterial = (material = {}) => ({
@@ -108,8 +109,15 @@ export const normalizeGoldQa = (item = {}) => ({
   goldAnswer: item.goldAnswer || item.answer || '',
   difficulty: normalizedStatus(item.difficulty, 'MEDIUM'),
   usage: normalizedStatus(item.usage, 'TRAINING'),
-  holdout: Boolean(item.holdout ?? normalizedStatus(item.usage) === 'EVALUATION'),
+  holdout: false,
   status: normalizedStatus(item.status, 'PENDING_REVIEW'),
+  examAiAnswer: item.examAiAnswer || '',
+  examScore: item.examScore == null ? null : finiteNumber(item.examScore),
+  examRagConfidence: item.examRagConfidence == null ? null : finiteNumber(item.examRagConfidence),
+  examPassed: item.examPassed == null ? null : Boolean(item.examPassed),
+  examHallucinated: Boolean(item.examHallucinated),
+  examError: item.examError || '',
+  examinedAt: item.examinedAt || null,
   authorId: item.authorId || '',
   sourceTaskId: item.sourceTaskId || item.taskId || '',
   reviewNote: item.reviewNote || '',

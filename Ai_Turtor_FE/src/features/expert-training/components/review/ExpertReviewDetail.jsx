@@ -13,6 +13,20 @@ import StatusLabel from '../../../../components/common/StatusLabel';
 
 const { Paragraph, Text, Title } = Typography;
 
+function examTone(item) {
+  if (item.examError) return 'error';
+  if (item.examPassed) return 'success';
+  if (item.examPassed === false) return 'warning';
+  return 'info';
+}
+
+function examTitle(item) {
+  if (item.examError) return `Chấm thi lỗi: ${item.examError}`;
+  if (item.examPassed) return `AI đạt ${(Number(item.examScore) * 100).toFixed(0)}% — hợp để nạp RAG nếu Senior đồng ý`;
+  if (item.examPassed === false) return `AI chưa đạt (${item.examScore == null ? '—' : `${(Number(item.examScore) * 100).toFixed(0)}%`}) — nên trả Teacher viết lại`;
+  return 'Chưa có bài thi. Nộp Q&A sẽ chấm bằng giáo trình đã embed.';
+}
+
 export default function ExpertReviewDetail({
   entry,
   form,
@@ -28,7 +42,7 @@ export default function ExpertReviewDetail({
     <div className="expert-training__review-detail-panel">
       <div className="expert-training__review-detail-head">
         <div>
-          <span className="expert-training__eyebrow">NỘI DUNG CHỜ DUYỆT</span>
+          <span className="expert-training__eyebrow">BÀI THI Q&A VÀNG</span>
           <Title level={4}>{isGold ? item.question : item.name}</Title>
         </div>
         <StatusLabel status={item.status} />
@@ -36,37 +50,38 @@ export default function ExpertReviewDetail({
 
       <Descriptions bordered size="small" column={1}>
         <Descriptions.Item label="Chương">{item.chapter}</Descriptions.Item>
-        <Descriptions.Item label="Loại">
-          {isGold ? `Gold Q&A · ${item.usage}` : 'Rubric'}
-        </Descriptions.Item>
         {isGold && <Descriptions.Item label="Độ khó">{item.difficulty}</Descriptions.Item>}
       </Descriptions>
 
       {isGold ? (
         <>
           <section className="expert-training__review-content-section">
-            <h3>Câu hỏi chuẩn</h3>
+            <h3>Câu hỏi vàng</h3>
             <Paragraph>{item.question}</Paragraph>
           </section>
           <section className="expert-training__review-content-section">
-            <h3>Gold Answer</h3>
+            <h3>Đáp án Teacher</h3>
             <Paragraph className="expert-training__preserve-text">{item.goldAnswer}</Paragraph>
           </section>
+          <section className="expert-training__review-content-section">
+            <h3>AI trả lời (chỉ dùng sách, chưa nạp Q&A)</h3>
+            <Paragraph className="expert-training__preserve-text">
+              {item.examAiAnswer || 'Chưa chấm được.'}
+            </Paragraph>
+          </section>
           <Alert
-            type={item.usage === 'EVALUATION' ? 'info' : 'warning'}
+            type={examTone(item)}
             showIcon
-            title={item.usage === 'EVALUATION' ? 'Evaluation holdout riêng tư' : 'Training Gold Q&A có thể vào RAG'}
-            description={item.usage === 'EVALUATION'
-              ? 'Phê duyệt chỉ đưa nội dung vào bộ đánh giá, không index vào RAG.'
-              : 'Phê duyệt sẽ cho phép backend index nội dung này vào tri thức của môn học.'}
+            title={examTitle(item)}
+            description={item.examHallucinated ? 'AI có dấu hiệu bịa hoặc muốn escalate.' : undefined}
           />
         </>
       ) : (
         <section className="expert-training__review-content-section">
-          <h3>Mô tả Rubric</h3>
+          <h3>Rubric</h3>
           <Paragraph>{item.description || 'Không có mô tả.'}</Paragraph>
           <Space wrap>
-            {Object.entries(item.criteriaWeights).map(([name, weight]) => (
+            {Object.entries(item.criteriaWeights || {}).map(([name, weight]) => (
               <Tag key={name}>{name}: {Math.round(Number(weight) * 100)}%</Tag>
             ))}
           </Space>
@@ -74,16 +89,16 @@ export default function ExpertReviewDetail({
       )}
 
       <Form form={form} layout="vertical" className="expert-training__review-form">
-        <Form.Item label="Nhận xét kiểm duyệt" name="reviewNote">
-          <Input.TextArea rows={4} maxLength={5000} placeholder="Ghi nhận xét hoặc nêu rõ nội dung cần chỉnh sửa..." />
+        <Form.Item label="Nhận xét" name="reviewNote">
+          <Input.TextArea rows={4} maxLength={5000} placeholder="Ghi chú khi nạp RAG hoặc lý do trả lại Teacher..." />
         </Form.Item>
       </Form>
 
       <div className="expert-training__review-actions">
-        <Text type="secondary">Backend quyết định trạng thái cuối; FE sẽ tải lại dữ liệu canonical sau thao tác.</Text>
+        <Text type="secondary">Nạp RAG chỉ khi Senior thấy bài thi hợp giáo trình.</Text>
         <Space wrap>
           <Button danger icon={<X size={15} />} onClick={onReject} disabled={pending}>
-            Yêu cầu chỉnh sửa
+            Trả lại Teacher
           </Button>
           <Button
             type="primary"
@@ -92,7 +107,7 @@ export default function ExpertReviewDetail({
             loading={pendingAction === `${isGold ? 'review-gold' : 'review-rubric'}:${item.id}`}
             disabled={pending}
           >
-            Phê duyệt
+            Nạp vào RAG
           </Button>
         </Space>
       </div>

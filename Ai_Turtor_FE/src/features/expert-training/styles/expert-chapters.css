@@ -1,5 +1,129 @@
 .expert-training__chapter-search {
-  width: min(100%, 440px);
+  width: min(100%, 280px);
+}
+
+.expert-training__toc-shell {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  padding: 18px;
+  background: var(--color-card-bg, #fff);
+  border: 1px solid var(--color-card-border, #e4eaf2);
+  border-radius: 16px;
+}
+
+.expert-training__toc-toolbar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.expert-training__toc-toolbar h2 {
+  margin: 0 0 4px;
+  font-size: 18px;
+  line-height: 1.3;
+}
+
+.expert-training__toc-toolbar p {
+  margin: 0;
+  color: var(--color-text-muted, #6e6e73);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.expert-training__toc-filters {
+  width: max-content;
+  max-width: 100%;
+}
+
+.expert-training__chapter-session-list {
+  display: grid;
+  gap: 8px;
+}
+
+.expert-training__chapter-session-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 12px 14px;
+  padding-left: calc(14px + (var(--toc-depth, 0) * 18px));
+  background: #fff;
+  border: 1px solid #edf1f6;
+  border-radius: 12px;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.expert-training__chapter-session-row:hover {
+  border-color: color-mix(in srgb, var(--role-accent, #b33c72) 28%, #edf1f6);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
+}
+
+.expert-training__chapter-session-copy {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.expert-training__chapter-marker {
+  display: grid;
+  place-items: center;
+  min-width: 36px;
+  height: 36px;
+  padding: 0 6px;
+  color: var(--role-work-accent, var(--role-accent, #0b3b82));
+  background: var(--role-soft, #e8eef5);
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.expert-training__chapter-session-copy > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.expert-training__chapter-session-copy strong {
+  color: var(--color-text-main, #202123);
+  font-size: 14px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.expert-training__chapter-session-copy span,
+.expert-training__chapter-session-row span {
+  color: var(--color-text-muted, #6e6e73);
+  font-size: 12px;
+}
+
+.expert-training__chapter-session-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.expert-training__chapter-session-row--depth-1 {
+  background: #fcfdff;
+}
+
+.expert-training__chapter-session-row--depth-2,
+.expert-training__chapter-session-row--depth-3 {
+  background: #f8fafc;
 }
 
 .expert-training__chapter-tree {
@@ -260,5 +384,59 @@
 .expert-training__task-material-content > div:first-child {
   display: grid;
   gap: 7px;
+}
+
+.expert-training__page-viewer {
+  display: grid;
+  gap: 10px;
+  margin: 8px 0 16px;
+}
+
+.expert-training__page-viewer-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.expert-training__page-viewer-frame {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 280px;
+  padding: 12px;
+  background: #e8edf3;
+  border-radius: 12px;
+  overflow: auto;
+}
+
+.expert-training__page-viewer-image {
+  display: block;
+  width: min(100%, 760px);
+  height: auto;
+  background: #fff;
+  border-radius: 4px;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.18);
+}
+
+.expert-training__page-viewer-skeleton {
+  width: min(100%, 420px) !important;
+  height: 320px !important;
+}
+
+.expert-training__page-viewer-frame p,
+.expert-training__page-viewer-busy {
+  margin: 12px 0 0;
+  color: #4b5563;
+  font-size: 13px;
+}
+
+.expert-training__page-viewer-busy {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  padding: 4px 8px;
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 6px;
 }
 

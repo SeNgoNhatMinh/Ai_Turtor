@@ -2,7 +2,7 @@ import { API_BASE_URL, API_TIMEOUTS, request } from './apiClient';
 import { getAiMarkdownContent } from '../utils/aiResponseContent.js';
 import {
   validateChatInput,
-  validateCodeInput,
+  validateOptionalCodeInput,
   validateCodeMentorRequest,
 } from '../utils/validators';
 
@@ -15,7 +15,7 @@ const requireValidTutorPayload = (payload = {}) => {
   const question = payload.message || payload.question || '';
   const questionValidation = validateChatInput(question);
   if (!questionValidation.ok) throw invalidRequest(questionValidation.message);
-  const codeValidation = validateCodeInput(payload.codeSnippet ?? payload.code);
+  const codeValidation = validateOptionalCodeInput(payload.codeSnippet ?? payload.code);
   if (!codeValidation.ok) throw invalidRequest(codeValidation.message);
 };
 

@@ -8,6 +8,7 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Document(collection = "knowledge_candidates")
 @Data
@@ -42,6 +43,7 @@ public class KnowledgeCandidate {
     private String question;
     private String answer;
     private String content;
+    private List<KnowledgeImageAttachment> images;
 
     /**
      * PENDING_SENIOR_REVIEW -> INDEXED or REJECTED

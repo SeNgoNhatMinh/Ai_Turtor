@@ -25,7 +25,7 @@ describe('GroupedAnswerReviewCard', () => {
   it('renders aggregated crowd summary for mentor queue', () => {
     render(<GroupedAnswerReviewCard group={group} queue="mentor" />);
 
-    expect(screen.getByText(/3 sinh viên phản hồi về cùng câu trả lời AI/)).toBeInTheDocument();
+    expect(screen.getByText(/3 sinh viên phản hồi/)).toBeInTheDocument();
     expect(screen.getByText('JSP là gì?')).toBeInTheDocument();
     expect(screen.getByText(/JSP là Java Server Pages/)).toBeInTheDocument();
   });

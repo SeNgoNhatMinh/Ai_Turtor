@@ -91,18 +91,30 @@ export function useExpertTrainingController({
   }), [courseId, loadChapters, runMutation, userId]);
 
   const createTasksForChapter = useCallback((chapter, options) => runMutation({
-    key: `create-chapter-tasks:${chapter}`,
-    action: () => expertTrainingApi.createChapterTasks({
+    key: `start-chapter:${chapter}`,
+    action: () => expertTrainingApi.startChapter({
       courseId,
       chapter,
       createdBy: userId,
-      includeTrainingGoldTask: Boolean(options?.includeTrainingGoldTask),
-      includeEvaluationGoldTask: Boolean(options?.includeEvaluationGoldTask),
+      questionCount: options?.questionCount || 2,
       dueAt: options?.dueAt,
     }),
-    successMessage: 'Đã tạo task mở cho chương đã chọn.',
-    refresh: () => Promise.allSettled([loadTasks(), loadGaps(), loadChapters()]),
-  }), [courseId, loadChapters, loadGaps, loadTasks, runMutation, userId]);
+    successMessage: 'Đã bắt đầu chương. Giảng viên có thể nhận việc Q&A vàng.',
+    refresh: () => Promise.allSettled([loadTasks(), loadChapters()]),
+  }), [courseId, loadChapters, loadTasks, runMutation, userId]);
+
+  const startChapter = createTasksForChapter;
+
+  const ignoreChapter = useCallback((chapter) => {
+    const chapterKey = chapter?.chapterKey || chapter?.id;
+    if (!courseId || !chapterKey) return Promise.resolve(null);
+    return runMutation({
+      key: `ignore-chapter:${chapterKey}`,
+      action: () => expertTrainingApi.ignoreChapter(courseId, chapterKey),
+      successMessage: 'Đã ẩn mục khỏi danh sách huấn luyện. File PDF vẫn giữ nguyên.',
+      refresh: loadChapters,
+    });
+  }, [courseId, loadChapters, runMutation]);
 
   const claimTask = useCallback((task) => {
     if (reviewerRole !== 'TEACHER') {
@@ -127,7 +139,7 @@ export function useExpertTrainingController({
       courseId,
       authorId: userId,
     }),
-    successMessage: 'Đã gửi Gold Q&A để Senior Mentor kiểm duyệt.',
+    successMessage: 'Đã gửi Q&A vàng. Hệ thống đã chấm AI trên giáo trình và gửi bài thi cho Senior.',
     refresh: () => Promise.allSettled([loadTasks(), loadContributions()]),
   }), [courseId, loadContributions, loadTasks, runMutation, userId]);
 
@@ -152,11 +164,11 @@ export function useExpertTrainingController({
     }),
     successMessage: decision === 'approve'
       ? item.usage === 'TRAINING'
-        ? 'Gold Q&A đã được duyệt và đưa vào tri thức môn học.'
-        : 'Evaluation holdout đã được duyệt và không được index.'
+        ? 'Q&A vàng đã được nạp vào RAG.'
+        : 'Q&A vàng đã được nạp vào RAG.'
       : 'Gold Q&A cần được chỉnh sửa trước khi duyệt.',
-    refresh: () => Promise.allSettled([loadTasks(), loadContributions(), loadGaps()]),
-  }), [loadContributions, loadGaps, loadTasks, reviewerRole, runMutation, userId]);
+    refresh: () => Promise.allSettled([loadTasks(), loadContributions()]),
+  }), [loadContributions, loadTasks, reviewerRole, runMutation, userId]);
 
   const reviewRubric = useCallback((item, decision, values) => runMutation({
     key: `review-rubric:${item.id}`,
@@ -192,6 +204,8 @@ export function useExpertTrainingController({
     confirmChapterSelection,
     addManualChapter,
     createTasksForChapter,
+    startChapter,
+    ignoreChapter,
     claimTask,
     submitGoldQa,
     submitRubric,

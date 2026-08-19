@@ -25,6 +25,7 @@ export default function TeacherReviewPage({
     includeTeacherInbox: true,
   });
   const [reply, setReply] = useState('');
+  const [replyImages, setReplyImages] = useState([]);
   const [createKnowledgeCandidate, setCreateKnowledgeCandidate] = useState(false);
   const [candidateType, setCandidateType] = useState('ACADEMIC_KNOWLEDGE');
 
@@ -56,9 +57,11 @@ export default function TeacherReviewPage({
       reply,
       createKnowledgeCandidate,
       safeCandidateType,
+      replyImages.map((item) => item.fileId).filter(Boolean),
     );
     if (succeeded) {
       setReply('');
+      setReplyImages([]);
       setCreateKnowledgeCandidate(false);
     }
   };
@@ -88,6 +91,8 @@ export default function TeacherReviewPage({
                   onSearch={(q) => review.loadTeacherInbox({ q })}
                 reply={reply}
                 onReplyChange={setReply}
+                replyImages={replyImages}
+                onReplyImagesChange={setReplyImages}
                 onSubmitAnswer={handleAnswerEscalation}
                 isSubmitting={review.isTeacherAnswerSubmitting}
                 createKnowledgeCandidate={createKnowledgeCandidate}

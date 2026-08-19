@@ -413,7 +413,10 @@ public class CanonicalTutorAnswerCacheService {
                 .allMatch(evidence -> (evidence.getCourseId() == null
                         || normalizeScope(courseId).equals(normalizeScope(evidence.getCourseId())))
                         && evidence.getMaterialId() != null
-                        && !evidence.getMaterialId().isBlank());
+                        && !evidence.getMaterialId().isBlank()
+                        && entry.getSources().stream()
+                        .filter(java.util.Objects::nonNull)
+                        .anyMatch(source -> source.contains(evidence.getMaterialId())));
         if (!evidenceMatchesScope) {
             return false;
         }

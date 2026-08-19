@@ -2,6 +2,7 @@ import { Alert, Card, Empty, Space, Spin, Tag, Typography } from 'antd';
 import StatusTag from '../../../../components/common/StatusTag';
 import MarkdownRenderer from '../../../../components/markdown/MarkdownRenderer';
 import StudentMentorFlow from '../../../../components/support/StudentMentorFlow';
+import KnowledgeImageGallery from '../../../teacher/review/KnowledgeImageGallery';
 import { uiCopy } from '../../../../constants/uiCopy';
 import {
   getAiSnapshot,
@@ -96,6 +97,7 @@ function SupportConversationDetail({
               tone="answer"
             >
               <Paragraph>{mentorAnswer}</Paragraph>
+              <KnowledgeImageGallery images={ticket.mentorAnswerImages} />
             </ReviewBlock>
           ) : (
             <>

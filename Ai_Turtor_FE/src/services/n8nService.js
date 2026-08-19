@@ -12,11 +12,21 @@ import {
   normalizeHarnessChatResponse,
   normalizeHarnessMode,
 } from '../features/ai-harness/n8nResponse';
+import { validateChatInput, validateOptionalCodeInput } from '../utils/validators';
 
 const normalizeN8nChatResponse = normalizeHarnessChatResponse;
+const invalidChatRequest = (message) => Object.assign(new Error(message), {
+  status: 400,
+  userMessage: message,
+});
 
 export const n8nService = {
   async sendStudentChat(payload, options = {}) {
+    const questionValidation = validateChatInput(payload?.question ?? payload?.message);
+    if (!questionValidation.ok) throw invalidChatRequest(questionValidation.message);
+    const codeValidation = validateOptionalCodeInput(payload?.codeSnippet ?? payload?.code);
+    if (!codeValidation.ok) throw invalidChatRequest(codeValidation.message);
+
     const response = await postN8n('/student-chat', payload, {
       timeoutMs: N8N_CHAT_TIMEOUT_MS,
       ...options,

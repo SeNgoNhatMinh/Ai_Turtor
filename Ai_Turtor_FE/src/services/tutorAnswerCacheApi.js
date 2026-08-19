@@ -2,6 +2,44 @@ import { API_BASE_URL, request } from './apiClient';
 import { encodePath } from '../config/env';
 
 const preserveSession = { skipUnauthorizedRedirect: true };
+const optionalNumber = (value) => {
+  if (value === null || value === undefined || value === '') return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+};
+
+export function normalizeCacheHit(hit = {}) {
+  return {
+    ...hit,
+    id: String(hit.id || hit.hitId || '').trim(),
+    matchedCacheId: String(hit.matchedCacheId || hit.cacheId || '').trim(),
+    hitType: String(hit.hitType || hit.cacheHitType || hit.type || '').trim().toUpperCase(),
+    similarity: optionalNumber(hit.similarity ?? hit.similarityScore),
+    cacheLookupMs: optionalNumber(hit.cacheLookupMs ?? hit.lookupMs),
+    backendProcessingMs: optionalNumber(hit.backendProcessingMs ?? hit.processingMs),
+    createdAt: hit.createdAt || hit.hitAt || hit.timestamp || null,
+  };
+}
+
+export function normalizeAnswerCacheStats(stats = {}) {
+  const latest = stats.latestCacheHit || stats.latestHit || {};
+  const recent = stats.recentHitLogs || stats.recentHits || stats.hitLogs || [];
+  return {
+    ...stats,
+    total: Number(stats.total) || 0,
+    totalReuseCount: Number(stats.totalReuseCount) || 0,
+    latestCacheHitType: String(
+      stats.latestCacheHitType || stats.latestHitType || latest.hitType || latest.cacheHitType || '',
+    ).trim().toUpperCase(),
+    latestSimilarity: optionalNumber(stats.latestSimilarity ?? latest.similarity ?? latest.similarityScore),
+    latestCacheLookupMs: optionalNumber(stats.latestCacheLookupMs ?? latest.cacheLookupMs ?? latest.lookupMs),
+    latestBackendProcessingMs: optionalNumber(
+      stats.latestBackendProcessingMs ?? latest.backendProcessingMs ?? latest.processingMs,
+    ),
+    latestCacheHitAt: stats.latestCacheHitAt || stats.latestHitAt || latest.createdAt || latest.hitAt || null,
+    recentHits: (Array.isArray(recent) ? recent : []).map(normalizeCacheHit),
+  };
+}
 
 export function normalizeAnswerCacheEntry(entry = {}) {
   const id = String(entry.id || '').trim();
@@ -61,7 +99,8 @@ export const tutorAnswerCacheApi = {
   },
   async getStats(courseId) {
     const params = new URLSearchParams({ courseId: String(courseId || '').trim() });
-    return request(`${API_BASE_URL}/tutor/answer-cache/stats?${params}`, preserveSession);
+    const data = await request(`${API_BASE_URL}/tutor/answer-cache/stats?${params}`, preserveSession);
+    return normalizeAnswerCacheStats(data);
   },
   async getDiagnostics(courseId) {
     const params = new URLSearchParams({ courseId: String(courseId || '').trim() });
@@ -77,12 +116,7 @@ export const tutorAnswerCacheApi = {
       preserveSession,
     );
     const hits = Array.isArray(data) ? data : data?.hits;
-    return (Array.isArray(hits) ? hits : []).map((hit) => ({
-      ...hit,
-      similarity: hit.similarity == null ? null : Number(hit.similarity),
-      cacheLookupMs: Number(hit.cacheLookupMs) || 0,
-      backendProcessingMs: Number(hit.backendProcessingMs) || 0,
-    }));
+    return (Array.isArray(hits) ? hits : []).map(normalizeCacheHit);
   },
   async getEntry(cacheId) {
     const data = await request(

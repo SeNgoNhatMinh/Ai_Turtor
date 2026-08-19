@@ -28,6 +28,7 @@ export const expertTrainingApi = {
   async getSuggestedChapters(courseId, options = {}) {
     const response = await request(`${BASE_PATH}/chapters/suggested${createQuery({ courseId })}`, {
       signal: options.signal,
+      retries: 0,
     });
     return asArray(response, 'chapters', 'content').map(normalizeChapterOutline);
   },
@@ -50,7 +51,15 @@ export const expertTrainingApi = {
     return normalizeChapterOutline(response?.chapter || response);
   },
 
-  async getChapterPreview(chapterKey, courseId, expanded = true, options = {}) {
+  async ignoreChapter(courseId, chapterKey) {
+    const response = await request(
+      `${BASE_PATH}/chapters/${encodePath(chapterKey)}/ignore${createQuery({ courseId })}`,
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) },
+    );
+    return normalizeChapterOutline(response?.chapter || response);
+  },
+
+  async getChapterPreview(chapterKey, courseId, expanded = false, options = {}) {
     const response = await request(
       `${BASE_PATH}/chapters/${encodePath(chapterKey)}/preview${createQuery({ courseId, expanded })}`,
       { signal: options.signal },
@@ -58,7 +67,7 @@ export const expertTrainingApi = {
     return normalizeChapterPreview(response);
   },
 
-  async getChapterPreviewByTitle(courseId, chapter, expanded = true, options = {}) {
+  async getChapterPreviewByTitle(courseId, chapter, expanded = false, options = {}) {
     const response = await request(
       `${BASE_PATH}/chapters/preview${createQuery({ courseId, chapter, expanded })}`,
       { signal: options.signal },
@@ -66,13 +75,17 @@ export const expertTrainingApi = {
     return normalizeChapterPreview(response);
   },
 
-  async createChapterTasks(payload) {
-    const response = await request(`${BASE_PATH}/chapters/tasks`, {
+  async startChapter(payload) {
+    const response = await request(`${BASE_PATH}/chapters/start`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
     return asArray(response, 'tasks', 'content').map(normalizeExpertTask);
+  },
+
+  async createChapterTasks(payload) {
+    return this.startChapter(payload);
   },
 
   async analyzeCoverage(payload) {
@@ -121,7 +134,7 @@ export const expertTrainingApi = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
-      timeoutMs: API_TIMEOUTS.ai,
+      timeoutMs: API_TIMEOUTS.quizGeneration,
     }));
   },
 

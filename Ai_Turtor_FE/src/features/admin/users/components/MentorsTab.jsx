@@ -1,5 +1,6 @@
+import { useMemo, useState } from 'react';
 import { Inbox, RefreshCw, Trash2, UserCheck } from 'lucide-react';
-import { Alert, Button, Card, Divider, Space, Switch, Table, Tag, Typography, Upload } from 'antd';
+import { Alert, Button, Card, Divider, Input, Space, Switch, Table, Tag, Typography, Upload } from 'antd';
 import EntityActionMenu from '../../../../components/common/EntityActionMenu';
 import { confirmDanger } from '../../../../components/common/confirmDialog';
 import { ACCOUNT_ROLES } from '../../../../constants/roles';
@@ -7,7 +8,29 @@ import { ACCOUNT_ROLES } from '../../../../constants/roles';
 const { Title } = Typography;
 const { Dragger } = Upload;
 
+function mentorSearchHaystack(mentor, role) {
+  const specializations = Array.isArray(mentor.specializations)
+    ? mentor.specializations.join(' ')
+    : mentor.specializations || mentor.specialization || '';
+  return [
+    mentor.mentorName,
+    mentor.name,
+    mentor.email,
+    mentor.phone,
+    mentor.mentorCode,
+    specializations,
+    role,
+  ].join(' ').toLowerCase();
+}
+
 export default function MentorsTab({ mentors }) {
+  const [search, setSearch] = useState('');
+  const filteredMentors = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    if (!needle) return mentors.list;
+    return mentors.list.filter((mentor) => mentorSearchHaystack(mentor, mentors.getRole(mentor)).includes(needle));
+  }, [mentors.list, mentors.getRole, search]);
+
   const columns = [
     { title: 'Họ tên', dataIndex: 'mentorName', key: 'name', render: (value, record) => value || record.name || '—' },
     { title: 'Email', dataIndex: 'email', key: 'email', ellipsis: true },
@@ -91,17 +114,28 @@ export default function MentorsTab({ mentors }) {
 
   return (
     <Card hoverable>
-      <Space style={{ marginBottom: 16 }}>
-        <Button onClick={mentors.reload} icon={<RefreshCw size={14} />}>Làm mới</Button>
+      <Space style={{ marginBottom: 16, width: '100%', justifyContent: 'space-between' }}>
+        <Space wrap>
+          <Input.Search
+            placeholder="Tìm theo tên, email hoặc chuyên môn..."
+            allowClear
+            style={{ width: 280 }}
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            onSearch={setSearch}
+          />
+          <Button onClick={mentors.reload} icon={<RefreshCw size={14} />}>Làm mới</Button>
+        </Space>
       </Space>
       <Table
         scroll={{ x: 920 }}
-        dataSource={mentors.list}
+        dataSource={filteredMentors}
         columns={columns}
         rowKey="id"
         loading={mentors.loading}
         pagination={{ pageSize: 8 }}
         size="middle"
+        locale={{ emptyText: search.trim() ? 'Không tìm thấy giảng viên phù hợp.' : 'Chưa có giảng viên.' }}
       />
       <Divider />
       <Title level={5}>Import giảng viên từ Excel</Title>

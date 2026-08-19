@@ -17,6 +17,17 @@ class TechnicalIntentDetectorTest {
     }
 
     @Test
+    void servletLifecycleMethods_stayTheory() {
+        String question = "Vòng đời của Servlet gồm các hàm nào (init, service, destroy)?";
+        String normalized = TechnicalIntentDetector.normalize(question);
+
+        assertTrue(TechnicalIntentDetector.looksLikeTheoryQuestion(normalized));
+        assertFalse(TechnicalIntentDetector.looksLikeGuideToCode(normalized));
+        assertFalse(TechnicalIntentDetector.looksLikeCodeOrMentorGuidance(normalized, ""));
+        assertFalse(TechnicalIntentDetector.isCodeMentorQuestion(question, ""));
+    }
+
+    @Test
     void servletConceptQuestion_isNotGuideToCode() {
         String question = "Servlet la gi?";
         String normalized = TechnicalIntentDetector.normalize(question);

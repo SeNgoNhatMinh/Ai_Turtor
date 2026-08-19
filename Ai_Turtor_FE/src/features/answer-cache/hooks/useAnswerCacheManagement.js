@@ -52,13 +52,13 @@ export function useAnswerCacheManagement({ currentUser, courseId, triggerToast }
           reviewStatus: filters.reviewStatus,
         }),
         tutorAnswerCacheApi.getStats(normalizedCourseId),
-        tutorAnswerCacheApi.getDiagnostics(normalizedCourseId),
-        tutorAnswerCacheApi.getRecentHits(normalizedCourseId, 50),
+        tutorAnswerCacheApi.getDiagnostics(normalizedCourseId).catch(() => null),
+        tutorAnswerCacheApi.getRecentHits(normalizedCourseId, 50).catch(() => null),
       ]);
       setEntries(list);
       setStats(statsData || null);
       setDiagnostics(diagnosticsData || null);
-      setRecentHits(hitsData);
+      setRecentHits(Array.isArray(hitsData) ? hitsData : (statsData?.recentHits || []));
     } catch (reason) {
       setEntries([]);
       setStats(null);

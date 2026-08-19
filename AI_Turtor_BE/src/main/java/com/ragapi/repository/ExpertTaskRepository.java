@@ -8,4 +8,5 @@ public interface ExpertTaskRepository extends MongoRepository<ExpertTask, String
     List<ExpertTask> findByStatusOrderByPriorityDescCreatedAtAsc(String status);
     List<ExpertTask> findByAssigneeIdOrderByCreatedAtDesc(String assigneeId);
     List<ExpertTask> findByCourseIdOrderByCreatedAtDesc(String courseId);
+    List<ExpertTask> findByCourseIdAndChapterOrderByCreatedAtDesc(String courseId, String chapter);
 }

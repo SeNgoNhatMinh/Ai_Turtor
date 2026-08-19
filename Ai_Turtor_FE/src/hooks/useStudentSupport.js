@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { getUserFacingError } from '../services/apiClient';
 import { normalizeEscalation } from '../services/normalizers';
 import { supportChatApi } from '../services/supportChatApi';
+import { normalizeKnowledgeImages } from '../services/knowledgeImagesApi';
 
 const TERMINAL_ESCALATION_STATES = new Set([
   'ANSWERED',
@@ -69,9 +70,13 @@ export function useStudentSupport({ activeTab, userId, onConversationResolved })
       const mentorAnswer = typeof latestAnswer === 'string'
         ? latestAnswer
         : latestAnswer?.answer || latestAnswer?.content || latestAnswer?.mentorAnswer || '';
+      const mentorAnswerImages = normalizeKnowledgeImages(
+        typeof latestAnswer === 'object' && latestAnswer ? latestAnswer : detail,
+      );
       const normalized = normalizeEscalation({
         ...detail,
         mentorAnswer: mentorAnswer || detail?.mentorAnswer,
+        mentorAnswerImages,
         studentVisibleStatus: data?.studentVisibleStatus,
         knowledgeCandidates: data?.knowledgeCandidates || [],
         aiBrainUpdated: Boolean(data?.aiBrainUpdated),

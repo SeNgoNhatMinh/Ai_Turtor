@@ -67,10 +67,25 @@
   border-color: #343434;
 }
 
-.app-container.dark .expert-training__chapter-tree,
-.app-container.dark .expert-training__task-material {
+.app-container.dark .expert-training__toc-shell,
+.app-container.dark .expert-training__chapter-session-row {
   background: #171717;
   border-color: #343434;
+}
+
+.app-container.dark .expert-training__chapter-session-row--depth-1,
+.app-container.dark .expert-training__chapter-session-row--depth-2,
+.app-container.dark .expert-training__chapter-session-row--depth-3 {
+  background: #121212;
+}
+
+.app-container.dark .expert-training__chapter-session-copy strong {
+  color: #f7f7f8;
+}
+
+.app-container.dark .expert-training__toc-toolbar p,
+.app-container.dark .expert-training__chapter-session-copy span {
+  color: #b9bec7;
 }
 
 .app-container.dark .expert-training__chapter-node > div:first-child > span,
@@ -200,6 +215,25 @@
 
   .expert-training__chapter-node > .ant-space {
     width: 100%;
+  }
+
+  .expert-training__toc-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .expert-training__chapter-search,
+  .expert-training__toc-filters {
+    width: 100%;
+  }
+
+  .expert-training__chapter-session-row,
+  .expert-training__chapter-session-actions {
+    align-items: stretch;
+  }
+
+  .expert-training__chapter-session-actions .ant-btn {
+    flex: 1 1 auto;
   }
 }
 

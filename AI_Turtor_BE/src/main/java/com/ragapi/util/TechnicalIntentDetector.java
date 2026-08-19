@@ -25,6 +25,13 @@ public final class TechnicalIntentDetector {
             "algorithm", "thuat toan", "design pattern", "architecture", "kien truc"
     };
 
+    private static final String[] THEORY_QUESTION_MARKERS = {
+            "la gi", "vong doi", "lifecycle", "gom cac", "gom nhung", "gom nhung gi",
+            "ham nao", "phuong thuc nao", "method nao", "methods nao",
+            "khai niem", "dinh nghia", "muc dich", "khac nhau", "so sanh",
+            "duoc dung khi nao", "khi nao dung", "vai tro cua"
+    };
+
     private static final String[] CODE_MENTOR_KEYWORDS = {
             "loi code", "sai o dau", "debug", "bug", "exception", "stack trace", "stacktrace",
             "compiler", "compile", "runtime", "crash", "nullpointer", "403", "forbidden",
@@ -79,9 +86,16 @@ public final class TechnicalIntentDetector {
                 || text.contains("();");
     }
 
+    public static boolean looksLikeTheoryQuestion(String text) {
+        return containsAny(text, THEORY_QUESTION_MARKERS);
+    }
+
     public static boolean looksLikeCodeOrMentorGuidance(String text, String codeSnippet) {
         if (hasText(codeSnippet) || containsCodeSyntax(text)) {
             return true;
+        }
+        if (looksLikeTheoryQuestion(text) && !looksLikeGuideToCode(text)) {
+            return false;
         }
         if (looksLikeGuideToCode(text)) {
             return true;

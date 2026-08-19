@@ -6,7 +6,7 @@
   border: 1px solid var(--color-card-border);
   border-radius: 18px;
   background: var(--color-card-bg);
-  box-shadow: 0 12px 34px rgba(44, 31, 104, 0.07);
+  box-shadow: 0 12px 34px rgba(15, 23, 42, 0.06);
 }
 
 .teacher-support-master {
@@ -18,7 +18,7 @@
   overflow: hidden;
   padding: 16px;
   border-right: 1px solid var(--color-card-border);
-  background: linear-gradient(180deg, #fbfaff 0%, #f5f2ff 100%);
+  background: linear-gradient(180deg, #f8fafc 0%, #eef3f8 100%);
 }
 
 .teacher-support-ticket-list {
@@ -35,7 +35,7 @@
   width: 100%;
   position: relative;
   padding: 14px;
-  border: 1px solid #e8e4f2;
+  border: 1px solid #dce4ee;
   border-radius: 13px;
   background: rgba(255, 255, 255, 0.76);
   color: var(--color-text-main);
@@ -47,16 +47,16 @@
 
 .teacher-support-ticket:hover,
 .teacher-support-ticket:focus-visible {
-  border-color: #bdb2ea;
+  border-color: #9db0c7;
   background: #ffffff;
   transform: translateY(-1px);
   outline: none;
 }
 
 .teacher-support-ticket.is-selected {
-  border-color: #7663ce;
+  border-color: #0b3b82;
   background: #ffffff;
-  box-shadow: 0 8px 20px rgba(79, 61, 167, 0.12);
+  box-shadow: 0 8px 20px rgba(11, 59, 130, 0.10);
 }
 
 .teacher-support-ticket.is-selected::before {
@@ -65,7 +65,7 @@
   inset: 12px auto 12px -1px;
   width: 4px;
   border-radius: 0 5px 5px 0;
-  background: #6653c7;
+  background: #0b3b82;
 }
 
 .teacher-support-ticket__topline,
@@ -161,9 +161,9 @@
   align-content: center;
   min-height: 180px;
   padding: 28px;
-  border: 1px dashed #cfc6ed;
+  border: 1px dashed #c5d3e3;
   border-radius: 16px;
-  background: linear-gradient(135deg, #fbfaff, #f5f2ff);
+  background: linear-gradient(135deg, #f8fafc, #eef3f8);
   text-align: center;
 }
 
@@ -178,10 +178,10 @@
 .teacher-support-history__summary { display: flex; align-items: center; gap: 12px; padding: 15px 17px; border: 1px solid #bfe4d2; border-radius: 14px; background: #effaf4; color: #16734d; }
 .teacher-support-history__summary > svg { flex: 0 0 auto; }
 .teacher-support-history__summary strong,.teacher-support-history__summary p { display: block; margin: 0; }.teacher-support-history__summary p { margin-top: 3px; color: #4f7664; font-size: .76rem; }
-.teacher-support-history > section { padding: 17px 18px; border: 1px solid #e5e1f0; border-radius: 14px; background: #fff; }
+.teacher-support-history > section { padding: 17px 18px; border: 1px solid #e4eaf2; border-radius: 14px; background: #fff; }
 .teacher-support-history > section > p { margin: 8px 0 0; color: #27324a; line-height: 1.65; white-space: pre-wrap; }
-.teacher-support-history__answer { border-color: #d4ccf1 !important; background: linear-gradient(135deg,#fff,#f8f6ff) !important; }
-.teacher-support-history__answer small { display: block; margin-top: 12px; color: #706784; font-weight: 700; }
+.teacher-support-history__answer { border-color: #c5d3e3 !important; background: linear-gradient(135deg,#fff,#f5f8fc) !important; }
+.teacher-support-history__answer small { display: block; margin-top: 12px; color: #64748b; font-weight: 700; }
 
 .teacher-final-answer {
   display: grid;

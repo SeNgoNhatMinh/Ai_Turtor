@@ -8,6 +8,7 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Document(collection = "mentor_answers")
 @Data
@@ -28,6 +29,7 @@ public class MentorAnswer {
 
     private String question;
     private String answer;
+    private List<KnowledgeImageAttachment> images;
 
     private LocalDateTime answeredAt;
     private LocalDateTime createdAt;

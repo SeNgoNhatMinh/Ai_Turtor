@@ -5,6 +5,8 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -25,4 +27,7 @@ public class MentorAnswerRequest {
 
     @Schema(description = "ACADEMIC_KNOWLEDGE, MATERIAL_CORRECTION, FAQ_CLARIFICATION, OPERATIONAL_POLICY, GRADING_DECISION, CLASS_RULE, ASSIGNMENT_SPECIFIC", example = "ACADEMIC_KNOWLEDGE")
     private String candidateType;
+
+    @Schema(description = "GridFS ids of diagrams attached to the teacher answer")
+    private List<String> imageIds;
 }

@@ -1,4 +1,4 @@
-import { API_BASE_URL, API_TIMEOUTS, request, uploadRequest } from './apiClient';
+import { API_BASE_URL, API_TIMEOUTS, blobRequest, request, uploadRequest } from './apiClient';
 import { encodePath } from '../config/env';
 import { ApiError } from './httpClient';
 import { getCachedResource, invalidateResourceCache } from './requestCache';
@@ -107,6 +107,20 @@ export const materialsApi = {
     return request(
       `${API_BASE_URL}/courses/${encodePath(courseId)}/materials/${encodePath(materialId)}/download-ticket`,
       { method: 'POST', timeoutMs: API_TIMEOUTS.default },
+    );
+  },
+
+  async downloadMaterialPdf(courseId, materialId) {
+    return blobRequest(
+      `${API_BASE_URL}/courses/${encodePath(courseId)}/materials/${encodePath(materialId)}/pdf`,
+      { timeoutMs: API_TIMEOUTS.download },
+    );
+  },
+
+  async getMaterialPageImage(courseId, materialId, pageNumber) {
+    return blobRequest(
+      `${API_BASE_URL}/courses/${encodePath(courseId)}/materials/${encodePath(materialId)}/pages/${encodePath(pageNumber)}/image`,
+      { timeoutMs: API_TIMEOUTS.download, retries: 0 },
     );
   },
 };

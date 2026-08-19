@@ -4,6 +4,7 @@ import com.ragapi.dto.KnowledgeCandidateReviewRequest;
 import com.ragapi.dto.MentorAnswerRequest;
 import com.ragapi.entity.CourseMaterial;
 import com.ragapi.entity.KnowledgeCandidate;
+import com.ragapi.entity.KnowledgeImageAttachment;
 import com.ragapi.entity.MentorAnswer;
 import com.ragapi.entity.QuestionEscalation;
 import com.ragapi.repository.CourseMaterialRepository;
@@ -22,6 +23,7 @@ import java.util.Map;
 import java.util.UUID;
 
 import static com.ragapi.util.ValidationUtils.DEFAULT_TEXT_MAX_LENGTH;
+import static com.ragapi.util.ValidationUtils.REVIEW_NOTE_MAX_LENGTH;
 import static com.ragapi.util.ValidationUtils.SHORT_TEXT_MAX_LENGTH;
 import static com.ragapi.util.ValidationUtils.optionalMaxLength;
 import static com.ragapi.util.ValidationUtils.requireEnum;
@@ -45,6 +47,7 @@ public class HumanLearningService {
     private final CourseMaterialChunkingService chunkingService;
     private final ElasticVectorService vectorService;
     private final AiConversationService aiConversationService;
+    private final KnowledgeImageStorageService knowledgeImageStorageService;
 
     public Map<String, Object> answerEscalation(String escalationId, MentorAnswerRequest request) {
         if (request == null) {
@@ -53,6 +56,7 @@ public class HumanLearningService {
         String realEscalationId = requireText(escalationId, "questionEscalationId");
         String teacherId = requireText(request.getTeacherId(), "teacherId");
         String answer = requireMaxLength(request.getAnswer(), "answer", DEFAULT_TEXT_MAX_LENGTH);
+        List<KnowledgeImageAttachment> images = knowledgeImageStorageService.resolveAttachments(request.getImageIds());
 
         QuestionEscalation escalation = escalationRepository.findById(realEscalationId)
                 .orElseThrow(() -> new IllegalArgumentException("Question escalation not found"));
@@ -67,6 +71,7 @@ public class HumanLearningService {
                 .classId(escalation.getClassId())
                 .question(escalation.getOriginalQuestion())
                 .answer(answer)
+                .images(images.isEmpty() ? null : images)
                 .answeredAt(now)
                 .createdAt(now)
                 .build();
@@ -203,7 +208,8 @@ public class HumanLearningService {
                 [KIẾN THỨC BỔ SUNG ĐÃ ĐƯỢC SENIOR DUYỆT]
                 Câu hỏi: %s
                 Câu trả lời: %s
-                """.formatted(candidate.getQuestion(), approvedAnswer);
+                """.formatted(candidate.getQuestion(), approvedAnswer)
+                + KnowledgeImageStorageService.formatImageAppendix(candidate.getImages());
 
         LocalDateTime now = LocalDateTime.now();
         CourseMaterial material = new CourseMaterial();
@@ -246,7 +252,7 @@ public class HumanLearningService {
         candidate.setReviewedBy(reviewerId);
         candidate.setReviewerRole(normalizeUpper(request.getReviewerRole()));
         candidate.setReviewerName(trimToNull(request.getReviewerName()));
-        candidate.setReviewNote(trimToNull(request.getReviewNote()));
+        candidate.setReviewNote(optionalMaxLength(request.getReviewNote(), "reviewNote", REVIEW_NOTE_MAX_LENGTH));
         candidate.setReviewedAt(now);
         candidate.setIndexedAt(now);
         candidate.setUpdatedAt(now);
@@ -268,7 +274,7 @@ public class HumanLearningService {
         candidate.setReviewedBy(request.getReviewerId().trim());
         candidate.setReviewerRole(normalizeUpper(request.getReviewerRole()));
         candidate.setReviewerName(trimToNull(request.getReviewerName()));
-        candidate.setReviewNote(trimToNull(request.getReviewNote()));
+        candidate.setReviewNote(optionalMaxLength(request.getReviewNote(), "reviewNote", REVIEW_NOTE_MAX_LENGTH));
         candidate.setRejectionReason(requireMaxLength(request.getRejectionReason(), "rejectionReason", SHORT_TEXT_MAX_LENGTH));
         candidate.setReviewedAt(now);
         candidate.setUpdatedAt(now);
@@ -376,7 +382,8 @@ public class HumanLearningService {
 
                 Teacher answer candidate, waiting for senior mentor approval:
                 %s
-                """.formatted(escalation.getOriginalQuestion(), mentorAnswer.getAnswer());
+                """.formatted(escalation.getOriginalQuestion(), mentorAnswer.getAnswer())
+                + KnowledgeImageStorageService.formatImageAppendix(mentorAnswer.getImages());
 
         return KnowledgeCandidate.builder()
                 .id(UUID.randomUUID().toString())
@@ -390,6 +397,7 @@ public class HumanLearningService {
                 .question(escalation.getOriginalQuestion())
                 .answer(mentorAnswer.getAnswer())
                 .content(content)
+                .images(mentorAnswer.getImages())
                 .status(STATUS_PENDING_SENIOR_REVIEW)
                 .createdAt(now)
                 .updatedAt(now)

@@ -5,6 +5,8 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -34,4 +36,7 @@ public class SeniorReviewResolutionRequest {
 
     @Schema(description = "Corrected content to use for the knowledge candidate")
     private String correctedAnswer;
+
+    @Schema(description = "GridFS ids of diagrams attached to the corrected academic answer")
+    private List<String> imageIds;
 }

@@ -1,6 +1,7 @@
 import { getPersonDisplayName } from '../utils/displayNames.js';
 import { extractAnswerSourceLabels } from '../utils/sourceLabels.js';
 import { hasBrokenTextEncoding, repairMojibake } from '../utils/textEncoding.js';
+import { normalizeKnowledgeImages } from './knowledgeImagesApi';
 
 export const asArray = (data, ...keys) => {
   if (Array.isArray(data)) return data;
@@ -151,6 +152,7 @@ export const normalizeEscalation = (escalation) => ({
   question: escalation.originalQuestion || escalation.question || escalation.questionPreview || '',
   aiResponse: escalation.aiResponse || escalation.aiAnswer || escalation.answerSnapshot || '',
   mentorAnswer: escalation.mentorAnswer || escalation.teacherAnswer || escalation.response || escalation.mentorResponse || '',
+  mentorAnswerImages: normalizeKnowledgeImages(escalation.mentorAnswerImages || escalation),
   assignedMentorName: escalation.assignedMentorName || escalation.mentorName || escalation.teacherName || '',
 });
 
@@ -166,6 +168,7 @@ export const normalizeTeacherInboxItem = (item) => ({
   question: item.originalQuestion || item.question || item.questionPreview || '',
   aiResponse: item.aiResponse || item.aiAnswer || item.answerSnapshot || '',
   mentorAnswer: item.mentorAnswer || item.teacherAnswer || item.officialAnswer || item.response || item.mentorResponse || '',
+  mentorAnswerImages: normalizeKnowledgeImages(item.mentorAnswerImages || item),
   assignedMentorName: item.assignedMentorName || item.mentorName || item.teacherName || '',
   resolvedAt: item.resolvedAt || item.answeredAt || item.updatedAt || '',
 });
@@ -211,6 +214,11 @@ export const normalizeGroupedAnswerReview = (group) => {
       : null,
     firstReportedAt: group?.firstReportedAt || '',
     lastReportedAt: group?.lastReportedAt || '',
+    similarQuestionCount: Number(group?.similarQuestionCount) || 0,
+    similarQuestions: asArray(group?.similarQuestions),
+    negativeReviewCount: Number(group?.negativeReviewCount ?? group?.reviewCount) || 0,
+    redAlert: Boolean(group?.redAlert) || String(group?.alertLevel || '').toUpperCase() === 'RED',
+    alertLevel: String(group?.alertLevel || '').toUpperCase() || 'WATCH',
     representativeReviewId: group?.representativeReviewId || representative.id,
     evidence,
   };

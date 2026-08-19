@@ -48,8 +48,8 @@ export default function TeacherExpertContributionPage({
     <div className="expert-training-page">
       <PageHeader
         eyebrow="Chất lượng AI"
-        title="Đóng góp tri thức"
-        description="Soạn nội dung dựa trên học liệu chương và gửi Senior kiểm duyệt."
+        title="Viết Q&A vàng"
+        description="Soạn câu hỏi và đáp án theo giáo trình. Hệ thống chấm AI rồi gửi Senior."
         actions={<Button icon={<ArrowLeft size={16} />} onClick={goBack}>Về Task Board</Button>}
       />
 

@@ -1,22 +1,22 @@
-import { Alert, Button, Empty, Space, Tag, Typography } from 'antd';
-import { ExternalLink, FileSearch } from 'lucide-react';
+import { Button, Empty, Space, Tag, Typography } from 'antd';
+import { ExternalLink } from 'lucide-react';
 import StatusLabel from '../../../components/common/StatusLabel';
 import {
   formatChapterPreviewPages,
-  getChapterPrimaryPdfSource,
+  getChapterPdfOpenTarget,
   getChapterStatusMeta,
   getDetectedFromLabel,
   getMaterialHealthMeta,
   isPdfMaterialSource,
 } from '../expertTrainingUtils';
-import ChapterExcerptView from './ChapterExcerptView';
+import ChapterPageViewer from './ChapterPageViewer';
 
 const { Text, Title } = Typography;
 
 export default function ChapterMaterialPreviewContent({
+  courseId,
   preview,
   onOpenMaterial,
-  showPdfJumpHint = true,
 }) {
   if (!preview) return null;
 
@@ -25,16 +25,7 @@ export default function ChapterMaterialPreviewContent({
   const detectedFromLabel = getDetectedFromLabel(preview.detectedFrom);
   const chapterStatus = getChapterStatusMeta(preview.status);
   const pageLabel = formatChapterPreviewPages(preview);
-  const primaryPdf = getChapterPrimaryPdfSource(preview);
-  const canJumpToSection = Boolean(primaryPdf) && Number(preview.pageStart) > 0;
-
-  const openPdfAtSection = () => {
-    if (!primaryPdf) return;
-    onOpenMaterial?.(primaryPdf, {
-      pageStart: preview.pageStart,
-      pageEnd: preview.pageEnd,
-    });
-  };
+  const pdfTarget = getChapterPdfOpenTarget(preview, preview);
 
   return (
     <div className="expert-training__chapter-preview">
@@ -48,50 +39,18 @@ export default function ChapterMaterialPreviewContent({
             {Number(preview.pageStart) > 0 && <Tag>{pageLabel}</Tag>}
           </Space>
         </div>
-        <Space orientation="vertical" size={4} align="end">
-          <Text type="secondary">
-            {preview.chunkCount} chunks · {preview.approxChars.toLocaleString('vi-VN')} ký tự
-          </Text>
-          {canJumpToSection && (
-            <Button
-              type="primary"
-              size="small"
-              icon={<FileSearch size={14} />}
-              onClick={openPdfAtSection}
-            >
-              Mở PDF tại mục chương ({pageLabel})
-            </Button>
-          )}
-        </Space>
+        <Text type="secondary">
+          {preview.chunkCount} chunks · {preview.approxChars.toLocaleString('vi-VN')} ký tự
+        </Text>
       </div>
 
-      {showPdfJumpHint && canJumpToSection && (
-        <Alert
-          type="info"
-          showIcon
-          title="Sơ đồ và bố cục trang PDF"
-          description="Phần text bên dưới là nội dung đã trích từ PDF. Hình, bảng và layout đầy đủ — dùng nút Mở PDF tại mục chương để nhảy đúng trang."
-        />
-      )}
-
-      {!preview.hasMaterialContent && (
-        <Alert
-          type="warning"
-          showIcon
-          title="Chương chưa có nội dung đã index"
-          description="Hãy bổ sung hoặc reindex học liệu trước khi soạn tri thức ngoài phạm vi tài liệu."
-        />
-      )}
-
-      <section className="expert-training__chapter-excerpt" aria-labelledby="chapter-excerpt-heading">
-        <h3 id="chapter-excerpt-heading">Nội dung tham khảo</h3>
-        <ChapterExcerptView
-          excerpt={preview.excerpt}
-          truncated={preview.excerptTruncated}
-          totalChars={preview.excerptTotalChars}
-          fullSection={!preview.excerptTruncated}
-        />
-      </section>
+      <ChapterPageViewer
+        courseId={preview.courseId || courseId}
+        materialId={pdfTarget?.source?.id}
+        pageStart={pdfTarget?.pageStart}
+        pageEnd={pdfTarget?.pageEnd}
+        title={title}
+      />
 
       <section className="expert-training__chapter-sources" aria-labelledby="chapter-sources-heading">
         <h3 id="chapter-sources-heading">Nguồn học liệu</h3>
@@ -104,31 +63,18 @@ export default function ChapterMaterialPreviewContent({
                 <StatusLabel status={source.indexingStatus} />
               </Space>
             </div>
-            <Space wrap size={[6, 0]}>
-              {isPdfMaterialSource(source) && Number(preview.pageStart) > 0 && source.id === primaryPdf?.id && (
-                <Button
-                  size="small"
-                  type="primary"
-                  ghost
-                  icon={<FileSearch size={14} />}
-                  onClick={openPdfAtSection}
-                >
-                  PDF · {pageLabel}
-                </Button>
-              )}
-              <Button
-                size="small"
-                icon={<ExternalLink size={14} />}
-                disabled={!isPdfMaterialSource(source)}
-                title={isPdfMaterialSource(source) ? 'Mở PDF nguồn' : 'Chỉ nguồn PDF có thể mở bằng thao tác này'}
-                onClick={() => onOpenMaterial?.(source, {
-                  pageStart: source.id === primaryPdf?.id ? preview.pageStart : undefined,
-                  pageEnd: source.id === primaryPdf?.id ? preview.pageEnd : undefined,
-                })}
-              >
-                Mở PDF
-              </Button>
-            </Space>
+            <Button
+              size="small"
+              icon={<ExternalLink size={14} />}
+              disabled={!isPdfMaterialSource(source)}
+              title={isPdfMaterialSource(source) ? 'Tải PDF nguồn' : 'Chỉ nguồn PDF có thể mở bằng thao tác này'}
+              onClick={() => onOpenMaterial?.(source, {
+                pageStart: source.id === pdfTarget?.source?.id ? preview.pageStart : undefined,
+                pageEnd: source.id === pdfTarget?.source?.id ? preview.pageEnd : undefined,
+              })}
+            >
+              Tải PDF
+            </Button>
           </div>
         )) : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Không có học liệu nguồn." />}
       </section>

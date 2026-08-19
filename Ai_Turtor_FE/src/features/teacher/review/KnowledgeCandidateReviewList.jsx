@@ -2,6 +2,7 @@ import { Alert, Button, Empty, Input, Tag } from 'antd';
 import { Check, X } from 'lucide-react';
 import { confirmAction, confirmDanger } from '../../../components/common/confirmDialog';
 import { formatKnowledgeCandidateStatus } from '../../../constants/knowledgeFlow';
+import KnowledgeImageGallery from './KnowledgeImageGallery';
 
 const CANDIDATE_TYPE_LABELS = {
   ACADEMIC_KNOWLEDGE: 'Kiến thức học thuật',
@@ -94,7 +95,8 @@ function KnowledgeCandidateReviewList({
           </div>
           <div className="compare-qa teacher-a">
             <span>Tri thức đề xuất</span>
-            <p>{cand.content || cand.answer || '—'}</p>
+            <p>{cand.answer || cand.content || '—'}</p>
+            <KnowledgeImageGallery images={cand.images} />
           </div>
         </div>
 

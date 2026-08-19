@@ -14,6 +14,7 @@ export default function AnswerCacheStats({ stats }) {
     label,
     value: Number(byStatus[key]) || 0,
   }));
+  const hasLatestHit = Boolean(stats?.latestCacheHitType);
 
   return (
     <Row gutter={[16, 16]} className="answer-cache-stats">
@@ -41,6 +42,42 @@ export default function AnswerCacheStats({ stats }) {
           />
         </Card>
       </Col>
+      {hasLatestHit && (
+        <>
+          <Col xs={24} sm={12} md={6}>
+            <Card size="small">
+              <Statistic title="Cache hit gần nhất" value={stats.latestCacheHitType} />
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} md={6}>
+            <Card size="small">
+              <Statistic
+                title="Similarity gần nhất"
+                value={stats.latestSimilarity == null ? '—' : Math.round(stats.latestSimilarity * 100)}
+                suffix={stats.latestSimilarity == null ? undefined : '%'}
+              />
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} md={6}>
+            <Card size="small">
+              <Statistic
+                title="Lookup gần nhất"
+                value={stats.latestCacheLookupMs ?? '—'}
+                suffix={stats.latestCacheLookupMs == null ? undefined : 'ms'}
+              />
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} md={6}>
+            <Card size="small">
+              <Statistic
+                title="Backend gần nhất"
+                value={stats.latestBackendProcessingMs ?? '—'}
+                suffix={stats.latestBackendProcessingMs == null ? undefined : 'ms'}
+              />
+            </Card>
+          </Col>
+        </>
+      )}
       {items.map((item) => (
         <Col xs={24} sm={12} md={6} key={item.key}>
           <Card size="small">

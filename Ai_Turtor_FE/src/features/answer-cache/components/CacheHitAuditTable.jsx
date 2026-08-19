@@ -26,7 +26,9 @@ export default function CacheHitAuditTable({ hits = [], loading = false }) {
       title: 'Loại cache hit',
       dataIndex: 'hitType',
       width: 170,
-      render: (value) => <Tag color={value === 'EXACT' ? 'green' : 'blue'}>{HIT_LABELS[value] || value}</Tag>,
+      render: (value) => (
+        value ? <Tag color={value === 'EXACT' ? 'green' : 'blue'}>{HIT_LABELS[value] || value}</Tag> : '—'
+      ),
     },
     {
       title: 'Similarity',
@@ -38,13 +40,13 @@ export default function CacheHitAuditTable({ hits = [], loading = false }) {
       title: 'Cache lookup',
       dataIndex: 'cacheLookupMs',
       width: 120,
-      render: (value) => `${Number(value) || 0} ms`,
+      render: (value) => (Number.isFinite(value) ? `${value} ms` : '—'),
     },
     {
       title: 'Backend xử lý',
       dataIndex: 'backendProcessingMs',
       width: 130,
-      render: (value) => `${Number(value) || 0} ms`,
+      render: (value) => (Number.isFinite(value) ? `${value} ms` : '—'),
     },
     {
       title: 'Cache ID',

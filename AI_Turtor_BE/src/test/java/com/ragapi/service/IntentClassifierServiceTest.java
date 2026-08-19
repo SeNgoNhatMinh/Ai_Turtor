@@ -28,6 +28,20 @@ class IntentClassifierServiceTest {
     }
 
     @Test
+    void servletLifecycleQuestion_routesToRag() {
+        var result = service.classify(
+                "Vòng đời của Servlet gồm các hàm nào (init, service, destroy)?",
+                "",
+                "PRJ301"
+        );
+
+        assertEquals(IntentClassifierService.MODE_RAG, result.getMode());
+        assertEquals("EXPLAIN_CONCEPT", result.getSubIntent());
+        assertEquals("WEB", result.getDomain());
+        assertTrue(result.getRequiresCourseMaterial());
+    }
+
+    @Test
     void servletConceptQuestion_routesToRag() {
         var result = service.classify("Servlet la gi?", "", "PRJ301");
 

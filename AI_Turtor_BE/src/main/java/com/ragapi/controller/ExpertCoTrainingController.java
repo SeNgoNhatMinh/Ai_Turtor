@@ -37,6 +37,14 @@ public class ExpertCoTrainingController {
         return respond(() -> Map.of("chapter", chapterOutlineService.addManualChapter(request)));
     }
 
+    @PostMapping("/chapters/{chapterKey}/ignore")
+    @Operation(summary = "Hide a noisy TOC entry from the training chapter list")
+    public ResponseEntity<?> ignoreChapter(
+            @PathVariable String chapterKey,
+            @RequestParam String courseId) {
+        return respond(() -> Map.of("chapter", chapterOutlineService.ignoreChapter(courseId, chapterKey)));
+    }
+
     @GetMapping("/chapters/{chapterKey}/preview")
     @Operation(summary = "Preview indexed material excerpt mapped to a chapter")
     public ResponseEntity<?> previewChapter(
@@ -51,14 +59,20 @@ public class ExpertCoTrainingController {
     public ResponseEntity<?> previewChapterByTitle(
             @RequestParam String courseId,
             @RequestParam String chapter,
-            @RequestParam(required = false, defaultValue = "true") boolean expanded) {
+            @RequestParam(required = false, defaultValue = "false") boolean expanded) {
         return respond(() -> chapterOutlineService.previewChapterByTitle(courseId, chapter, expanded));
+    }
+
+    @PostMapping("/chapters/start")
+    @Operation(summary = "Start a chapter training session: assign gold Q&A tasks to teachers")
+    public ResponseEntity<?> startChapter(@RequestBody CreateChapterTasksRequest request) {
+        return respond(() -> Map.of("tasks", service.startChapter(request)));
     }
 
     @PostMapping("/chapters/tasks")
     @Operation(summary = "Senior manually creates Gold Q&A tasks for a chapter")
     public ResponseEntity<?> createChapterTasks(@RequestBody CreateChapterTasksRequest request) {
-        return respond(() -> Map.of("tasks", service.createChapterTasks(request)));
+        return respond(() -> Map.of("tasks", service.startChapter(request)));
     }
 
     @PostMapping("/coverage/analyze")

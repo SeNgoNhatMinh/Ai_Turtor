@@ -2,6 +2,10 @@ FROM node:22-alpine AS build
 
 WORKDIR /app
 
+# Stay on npm 10.x. The image prints a notice for npm 12, but npm 12 is a
+# breaking release and is not required for this lockfile.
+RUN npm install -g npm@10.9.8
+
 ARG VITE_API_BASE_URL
 ARG VITE_API_TIMEOUT_MS
 ARG VITE_API_WITH_CREDENTIALS
@@ -46,7 +50,7 @@ ENV VITE_API_BASE_URL=$VITE_API_BASE_URL \
     VITE_N8N_TUTOR_V2_APPROVAL_TIMEOUT_MS=$VITE_N8N_TUTOR_V2_APPROVAL_TIMEOUT_MS \
     VITE_N8N_TUTOR_V2_EVALUATION_TIMEOUT_MS=$VITE_N8N_TUTOR_V2_EVALUATION_TIMEOUT_MS
 
-COPY package.json package-lock.json ./
+COPY package.json package-lock.json .npmrc ./
 RUN npm ci
 
 COPY . .

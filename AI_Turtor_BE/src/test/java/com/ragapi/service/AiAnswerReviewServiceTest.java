@@ -8,6 +8,7 @@ import com.ragapi.dto.GroupedAiAnswerReviewItem;
 import com.ragapi.dto.SeniorReviewResolutionRequest;
 
 import com.ragapi.entity.AiAnswerReview;
+import com.ragapi.entity.KnowledgeCandidate;
 
 import com.ragapi.repository.AiAnswerReviewRepository;
 
@@ -72,6 +73,9 @@ class AiAnswerReviewServiceTest {
     @Mock
     private TutorAnswerCacheSeniorService tutorAnswerCacheSeniorService;
 
+    @Mock
+    private KnowledgeImageStorageService knowledgeImageStorageService;
+
 
 
     private AiAnswerReviewService service;
@@ -90,7 +94,8 @@ class AiAnswerReviewServiceTest {
                 reviewRepository,
                 knowledgeCandidateRepository,
                 realtimeEvents,
-                tutorAnswerCacheSeniorService);
+                tutorAnswerCacheSeniorService,
+                knowledgeImageStorageService);
 
         stored.clear();
 
@@ -129,6 +134,9 @@ class AiAnswerReviewServiceTest {
                 .filter(item -> invocation.getArgument(0).equals(item.getStatus()))
 
                 .toList());
+
+        when(knowledgeImageStorageService.resolveAttachments(any())).thenReturn(List.of());
+        when(knowledgeCandidateRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
     }
 
@@ -224,7 +232,46 @@ class AiAnswerReviewServiceTest {
         assertEquals(2, groups.get(0).getReviewCount());
 
         assertEquals("MODERATE", groups.get(0).getEscalationTier());
+        assertEquals("ATTENTION", groups.get(0).getAlertLevel());
+        org.junit.jupiter.api.Assertions.assertFalse(groups.get(0).isRedAlert());
 
+    }
+
+    @Test
+    void oneNegativeRatingStaysWatchUntilCrowdBuilds() {
+        service.submitReview(severeReview("student-a"));
+
+        GroupedAiAnswerReviewItem group =
+                service.listGroupedPending("NEEDS_SENIOR_REVIEW", "PRJ301").get(0);
+
+        assertEquals("WATCH", group.getAlertLevel());
+        org.junit.jupiter.api.Assertions.assertFalse(group.isRedAlert());
+        assertEquals(1, group.getNegativeReviewCount());
+    }
+
+    @Test
+    void similarQuestionsAccumulateNegativeRatingsIntoRedAlert() {
+        for (int i = 0; i < 3; i++) {
+            AiAnswerReviewRequest first = severeReview("student-a-" + i);
+            first.setQuestion("Vong doi Servlet gom init service destroy");
+            first.setAnswer("Answer variant A " + i);
+            service.submitReview(first);
+        }
+        for (int i = 0; i < 3; i++) {
+            AiAnswerReviewRequest second = severeReview("student-b-" + i);
+            second.setQuestion("Servlet vong doi gom cac ham init service destroy");
+            second.setAnswer("Answer variant B " + i);
+            service.submitReview(second);
+        }
+
+        List<GroupedAiAnswerReviewItem> groups =
+                service.listGroupedPending("NEEDS_SENIOR_REVIEW", "PRJ301");
+
+        assertEquals(1, groups.size());
+        org.junit.jupiter.api.Assertions.assertTrue(groups.get(0).isRedAlert());
+        assertEquals("RED", groups.get(0).getAlertLevel());
+        assertEquals(6, groups.get(0).getNegativeReviewCount());
+        assertEquals(6, groups.get(0).getDistinctStudentCount());
     }
 
     @Test
@@ -257,6 +304,28 @@ class AiAnswerReviewServiceTest {
                 .filter(item -> "RESOLVED".equals(item.getStatus()))
                 .count());
         assertEquals(0, service.listGroupedPending("NEEDS_SENIOR_REVIEW", "PRJ301").size());
+    }
+
+    @Test
+    void seniorKnowledgeCandidateAcceptsLongAcademicAnswers() {
+        AiAnswerReview review = service.submitReview(severeReview("student-a"));
+        String longAnswer = "Vòng đời Servlet gồm init, service và destroy. ".repeat(20);
+        SeniorReviewResolutionRequest request = new SeniorReviewResolutionRequest();
+        request.setSeniorReviewerId("senior-1");
+        request.setReviewerRole("SENIOR_MENTOR");
+        request.setDecision("CREATE_KNOWLEDGE_CANDIDATE");
+        request.setNotes("Đã đối chiếu giáo trình chương Servlet.");
+        request.setCreateKnowledgeCandidate(true);
+        request.setCandidateType("ACADEMIC_KNOWLEDGE");
+        request.setCorrectedAnswer(longAnswer);
+
+        service.resolveBySeniorReviewer(review.getId(), request);
+
+        org.mockito.ArgumentCaptor<KnowledgeCandidate> captor =
+                org.mockito.ArgumentCaptor.forClass(KnowledgeCandidate.class);
+        verify(knowledgeCandidateRepository).save(captor.capture());
+        assertEquals(longAnswer.trim(), captor.getValue().getAnswer());
+        org.junit.jupiter.api.Assertions.assertTrue(captor.getValue().getAnswer().length() > 500);
     }
 
     @Test

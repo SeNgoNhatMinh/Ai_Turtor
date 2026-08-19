@@ -1,258 +1,273 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Alert, Button, Form, Input, Modal, Space, Tag, Tree, Typography } from 'antd';
-import { Eye, ListChecks, Plus, RefreshCw } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Alert, Button, Input, Segmented, Tag, Tooltip } from 'antd';
+import { BookOpen, Eye, FileSearch, Play, Search, Trash2 } from 'lucide-react';
 import AsyncState from '../../../components/common/AsyncState';
+import MetricStrip from '../../../components/common/MetricStrip';
+import { confirmDanger } from '../../../components/common/confirmDialog';
 import {
   formatChapterPages,
-  getChapterStatusMeta,
-  getDetectedFromLabel,
-  getMaterialHealthMeta,
+  getChapterPdfOpenTarget,
+  getChapterSessionState,
 } from '../expertTrainingUtils';
 import ChapterPreviewDrawer from './ChapterPreviewDrawer';
 
-const { Text } = Typography;
+const SESSION_FILTERS = [
+  { value: 'ALL', label: 'Tất cả' },
+  { value: 'NOT_STARTED', label: 'Chưa train' },
+  { value: 'IN_PROGRESS', label: 'Đang train' },
+  { value: 'EXAM_READY', label: 'Có bài thi' },
+  { value: 'INDEXED', label: 'Đã nạp RAG' },
+];
 
-function buildTree(chapters) {
-  const roots = [];
-  const stack = [];
-  chapters.forEach((chapter) => {
-    const level = Math.max(1, Number(chapter.tocLevel) || 1);
-    const node = {
-      key: chapter.chapterKey || chapter.id,
-      chapter,
-      children: [],
-    };
-    while (stack.length && stack[stack.length - 1].level >= level) stack.pop();
-    if (stack.length) stack[stack.length - 1].node.children.push(node);
-    else roots.push(node);
-    stack.push({ level, node });
-  });
-  return roots;
+function chapterMarker(chapter, index) {
+  const match = String(chapter.title || '').match(/^(\d+(?:\.\d+)*)/);
+  if (match) return match[1];
+  if (Number(chapter.tocLevel) > 0) return '';
+  return String(index + 1).padStart(2, '0');
 }
 
 export default function ChapterCoveragePanel({
+  courseId,
   chapters,
+  tasks = [],
+  goldQa = [],
   loading,
   error,
   canReview,
   pendingAction,
-  preview,
-  previewLoading,
-  previewError,
   onRefresh,
-  onConfirm,
-  onAddManual,
-  onPreview,
   onClosePreview,
-  onCreateTasks,
+  onStartChapter,
   onOpenMaterial,
-  onSelectionChange,
+  onOpenExam,
+  onIgnoreChapter,
 }) {
   const [keyword, setKeyword] = useState('');
-  const [checkedKeys, setCheckedKeys] = useState([]);
+  const [sessionFilter, setSessionFilter] = useState('ALL');
   const [selectedChapter, setSelectedChapter] = useState(null);
-  const [manualOpen, setManualOpen] = useState(false);
-  const [manualForm] = Form.useForm();
 
-  useEffect(() => {
-    const nextKeys = chapters
-      .filter((chapter) => chapter.status === 'CONFIRMED')
-      .map((chapter) => chapter.chapterKey || chapter.id);
-    setCheckedKeys(nextKeys);
-    onSelectionChange?.(nextKeys);
-  }, [chapters, onSelectionChange]);
-
-  const visibleChapters = useMemo(() => {
+  const rows = useMemo(() => {
     const query = keyword.trim().toLocaleLowerCase('vi-VN');
-    if (!query) return chapters;
-    return chapters.filter((chapter) => chapter.title.toLocaleLowerCase('vi-VN').includes(query));
-  }, [chapters, keyword]);
+    return chapters
+      .map((chapter, index) => ({
+        chapter,
+        index,
+        session: getChapterSessionState(chapter, tasks, goldQa),
+      }))
+      .filter(({ chapter, session }) => {
+        const matchesQuery = !query || chapter.title.toLocaleLowerCase('vi-VN').includes(query);
+        const matchesFilter = sessionFilter === 'ALL' || session.key === sessionFilter;
+        return matchesQuery && matchesFilter;
+      });
+  }, [chapters, goldQa, keyword, sessionFilter, tasks]);
 
-  const treeData = useMemo(() => buildTree(visibleChapters).map(function mapNode(node) {
-    const chapter = node.chapter;
-    const health = getMaterialHealthMeta(chapter.materialHealth);
-    const status = getChapterStatusMeta(chapter.status);
-    const detectedFromLabel = getDetectedFromLabel(chapter.detectedFrom);
-    return {
-      key: node.key,
-      title: (
-        <div className="expert-training__chapter-node">
-          <div>
-            <strong>{chapter.title}</strong>
-            <span>
-              {formatChapterPages(chapter)} · {chapter.chunkCount} chunks · Gold T/E: {chapter.trainingGoldCount}/{chapter.evaluationGoldCount}
-            </span>
-          </div>
-          <Space wrap size={[4, 4]}>
-            <Tag color={status.color}>{status.label}</Tag>
-            <Tag color={health.color}>{health.label}</Tag>
-            {detectedFromLabel && <Tag>{detectedFromLabel}</Tag>}
-          </Space>
-        </div>
-      ),
-      children: node.children.map(mapNode),
-    };
-  }), [visibleChapters]);
-  const visibleChapterKeys = useMemo(
-    () => new Set(visibleChapters.map((chapter) => chapter.chapterKey || chapter.id)),
-    [visibleChapters],
-  );
+  const summary = useMemo(() => {
+    const counts = { total: chapters.length, notStarted: 0, inProgress: 0, exam: 0, indexed: 0 };
+    chapters.forEach((chapter) => {
+      const session = getChapterSessionState(chapter, tasks, goldQa);
+      if (session.key === 'NOT_STARTED') counts.notStarted += 1;
+      if (session.key === 'IN_PROGRESS') counts.inProgress += 1;
+      if (session.key === 'EXAM_READY') counts.exam += 1;
+      if (session.key === 'INDEXED') counts.indexed += 1;
+    });
+    return counts;
+  }, [chapters, goldQa, tasks]);
 
-  const openPreview = async (key) => {
-    const chapter = chapters.find((item) => (item.chapterKey || item.id) === key);
-    if (!chapter) return;
+  const closePreview = () => {
+    setSelectedChapter(null);
+    onClosePreview?.();
+  };
+
+  const openPreview = (chapter) => {
     setSelectedChapter(chapter);
-    await onPreview?.(chapter);
   };
 
-  const confirmSelection = async () => {
-    if (!checkedKeys.length) return;
-    await onConfirm?.(checkedKeys);
+  const openPdf = (chapter, previewOverride) => {
+    const target = getChapterPdfOpenTarget(chapter, previewOverride);
+    if (!target) return;
+    onOpenMaterial?.(target.source, {
+      pageStart: target.pageStart,
+      pageEnd: target.pageEnd,
+    });
   };
 
-  const confirmCurrentChapter = async (chapter) => {
-    const key = chapter?.chapterKey || chapter?.id;
-    if (!key) return;
-    const nextKeys = [...new Set([...checkedKeys, key])];
-    const result = await onConfirm?.(nextKeys);
-    if (!result) return;
-    setCheckedKeys(nextKeys);
-    onSelectionChange?.(nextKeys);
-    await onPreview?.(chapter);
+  const startChapter = async (chapter) => {
+    if (!chapter?.title) return;
+    await onStartChapter?.(chapter.title);
   };
 
-  const submitManual = async ({ title }) => {
-    const result = await onAddManual?.(title.trim());
-    if (result) {
-      setManualOpen(false);
-      manualForm.resetFields();
-    }
+  const ignoreChapter = (chapter, anchorRect) => {
+    if (!chapter) return;
+    confirmDanger({
+      title: 'Xóa mục này khỏi mục lục?',
+      content: 'Mục sẽ biến khỏi danh sách huấn luyện. File PDF gốc vẫn giữ nguyên.',
+      okText: 'Xóa khỏi mục lục',
+      cancelText: 'Hủy',
+      anchorRect,
+      onOk: async () => {
+        const result = await onIgnoreChapter?.(chapter);
+        if (result && (selectedChapter?.chapterKey || selectedChapter?.id)
+          === (chapter.chapterKey || chapter.id)) {
+          closePreview();
+        }
+      },
+    });
   };
 
   return (
     <section className="expert-training__section" aria-labelledby="chapter-coverage-heading">
-      <div className="expert-training__section-heading">
-        <div>
-          <h2 id="chapter-coverage-heading">Chapter từ học liệu đã index</h2>
-          <p>Xác nhận chapter dùng cho Coverage và xem nội dung nguồn trước khi tạo task.</p>
-        </div>
-        <Space wrap>
-          <Button icon={<RefreshCw size={16} />} onClick={onRefresh} loading={loading}>Làm mới</Button>
-          {canReview && (
-            <>
-              <Button icon={<Plus size={16} />} onClick={() => setManualOpen(true)}>Thêm chapter</Button>
-              <Button
-                type="primary"
-                icon={<ListChecks size={16} />}
-                disabled={!checkedKeys.length || Boolean(pendingAction)}
-                loading={pendingAction === 'confirm-chapters'}
-                onClick={confirmSelection}
-              >
-                Xác nhận ({checkedKeys.length})
-              </Button>
-            </>
-          )}
-        </Space>
-      </div>
-
       {!canReview && (
         <Alert
           type="info"
           showIcon
-          title="Chapter do Senior Mentor hoặc Admin xác nhận"
-          description="Giảng viên có thể xem nội dung nguồn và nhận task đã được tạo."
+          title="Senior bắt đầu chương train"
+          description="Giảng viên nhận việc Q&A vàng sau khi Senior bấm Bắt đầu chương."
         />
       )}
 
-      <Input.Search
-        allowClear
-        value={keyword}
-        onChange={(event) => setKeyword(event.target.value)}
-        placeholder="Tìm chapter..."
-        className="expert-training__chapter-search"
-      />
-
-      <AsyncState
-        loading={loading && !chapters.length}
-        error={error}
-        empty={!loading && !error && !visibleChapters.length}
-        emptyTitle={keyword ? 'Không tìm thấy chapter' : 'Chưa phát hiện chapter'}
-        emptyDescription={keyword
-          ? 'Hãy thay đổi từ khóa.'
-          : 'Hãy index học liệu hoặc thêm chapter thủ công.'}
-        onRetry={onRefresh}
-      >
-        <div className="expert-training__chapter-tree">
-          <Tree
-            blockNode
-            checkable={canReview}
-            checkedKeys={checkedKeys}
-            onCheck={(keys) => {
-              const nextVisibleKeys = Array.isArray(keys) ? keys : keys.checked;
-              setCheckedKeys((current) => {
-                const nextKeys = [...new Set([
-                  ...current.filter((key) => !visibleChapterKeys.has(key)),
-                  ...nextVisibleKeys,
-                ])];
-                onSelectionChange?.(nextKeys);
-                return nextKeys;
-              });
-            }}
-            onSelect={(keys) => keys[0] && openPreview(keys[0])}
-            treeData={treeData}
-            defaultExpandAll
-            titleRender={(node) => (
-              <div className="expert-training__chapter-tree-title">
-                {node.title}
-                <Eye size={15} aria-hidden="true" />
-              </div>
-            )}
-          />
-          <Text type="secondary">Chọn tên chapter để xem preview. Checkbox chỉ dùng khi xác nhận Coverage.</Text>
-        </div>
-      </AsyncState>
-
-      <Modal
-        title="Thêm chapter thủ công"
-        open={manualOpen}
-        onCancel={() => setManualOpen(false)}
-        onOk={() => manualForm.submit()}
-        okText="Thêm và xác nhận"
-        confirmLoading={pendingAction === 'add-manual-chapter'}
-        destroyOnHidden
-      >
-        <Alert
-          type="warning"
-          showIcon
-          title="Chỉ dùng khi học liệu không có mục lục phù hợp"
-          style={{ marginBottom: 16 }}
+      {(!loading || chapters.length > 0) && (
+        <MetricStrip
+          ariaLabel="Tiến độ huấn luyện theo chương"
+          items={[
+            { key: 'total', label: 'Chương', value: summary.total, description: 'Trong mục lục đã index' },
+            { key: 'idle', label: 'Chưa train', value: summary.notStarted, description: 'Chưa giao Teacher' },
+            { key: 'exam', label: 'Bài thi', value: summary.exam, description: 'Chờ Senior xem điểm' },
+            { key: 'rag', label: 'Đã nạp RAG', value: summary.indexed, description: 'Q&A vàng đã vào brain' },
+          ]}
         />
-        <Form form={manualForm} layout="vertical" onFinish={submitManual}>
-          <Form.Item
-            name="title"
-            label="Tên chapter"
-            rules={[{ required: true, whitespace: true, message: 'Nhập tên chapter.' }]}
-          >
-            <Input maxLength={255} placeholder="Memory Management" />
-          </Form.Item>
-        </Form>
-      </Modal>
+      )}
+
+      <div className="expert-training__toc-shell">
+        <div className="expert-training__toc-toolbar">
+          <div>
+            <h2 id="chapter-coverage-heading">Mục lục giáo trình</h2>
+            <p>Chọn chương đã embed, giao Teacher viết Q&A vàng.</p>
+          </div>
+          <Input
+            allowClear
+            prefix={<Search size={15} aria-hidden="true" />}
+            value={keyword}
+            onChange={(event) => setKeyword(event.target.value)}
+            placeholder="Tìm chương..."
+            className="expert-training__chapter-search"
+          />
+        </div>
+
+        <Segmented
+          className="expert-training__toc-filters"
+          value={sessionFilter}
+          onChange={setSessionFilter}
+          options={SESSION_FILTERS.map((item) => ({
+            ...item,
+            label: item.value === 'ALL' ? `${item.label} (${summary.total})` : item.label,
+          }))}
+        />
+
+        <AsyncState
+          loading={loading && !chapters.length}
+          error={error}
+          empty={!loading && !error && !rows.length}
+          emptyTitle={keyword || sessionFilter !== 'ALL' ? 'Không tìm thấy chương' : 'Chưa có mục lục tài liệu'}
+          emptyDescription={keyword || sessionFilter !== 'ALL'
+            ? 'Đổi bộ lọc hoặc từ khóa.'
+            : 'Upload và index giáo trình trước, rồi ấn làm mới.'}
+          onRetry={onRefresh}
+        >
+          <div className="expert-training__chapter-session-list" role="list">
+            {rows.map(({ chapter, index, session }) => {
+              const canStart = canReview
+                && session.key === 'NOT_STARTED'
+                && Number(chapter.chunkCount) > 0;
+              const depth = Math.min(Math.max(Number(chapter.tocLevel) || 0, 0), 3);
+              const marker = chapterMarker(chapter, index);
+              const pdfTarget = getChapterPdfOpenTarget(chapter);
+              const chapterKey = chapter.chapterKey || chapter.id;
+              return (
+                <article
+                  key={chapterKey}
+                  role="listitem"
+                  className={`expert-training__chapter-session-row expert-training__chapter-session-row--depth-${depth}`}
+                  style={{ '--toc-depth': depth }}
+                >
+                  <button
+                    type="button"
+                    className="expert-training__chapter-session-copy"
+                    onClick={() => openPreview(chapter)}
+                  >
+                    <span className="expert-training__chapter-marker" aria-hidden="true">
+                      {marker || <BookOpen size={14} />}
+                    </span>
+                    <div>
+                      <strong>{chapter.title}</strong>
+                      <span>{formatChapterPages(chapter)}</span>
+                    </div>
+                  </button>
+                  <div className="expert-training__chapter-session-actions">
+                    <Tag color={session.color}>{session.label}</Tag>
+                    {pdfTarget && (
+                      <Tooltip title="Mở đúng trang PDF">
+                        <Button
+                          icon={<FileSearch size={15} />}
+                          aria-label={`Mở PDF ${chapter.title}`}
+                          onClick={() => openPdf(chapter)}
+                        />
+                      </Tooltip>
+                    )}
+                    <Tooltip title="Xem trang sách">
+                      <Button
+                        icon={<Eye size={15} />}
+                        aria-label={`Xem trang sách ${chapter.title}`}
+                        onClick={() => openPreview(chapter)}
+                      />
+                    </Tooltip>
+                    {canReview && (
+                      <Tooltip title="Xóa mục nhiễu khỏi mục lục">
+                        <Button
+                          danger
+                          icon={<Trash2 size={15} />}
+                          aria-label={`Xóa khỏi mục lục ${chapter.title}`}
+                          disabled={Boolean(pendingAction)}
+                          loading={pendingAction === `ignore-chapter:${chapterKey}`}
+                          onClick={(event) => ignoreChapter(chapter, event.currentTarget.getBoundingClientRect())}
+                        />
+                      </Tooltip>
+                    )}
+                    {session.key === 'EXAM_READY' && canReview && (
+                      <Button type="primary" ghost onClick={() => onOpenExam?.(chapter.title)}>
+                        Xem bài thi
+                      </Button>
+                    )}
+                    {canReview && (
+                      <Button
+                        type="primary"
+                        icon={<Play size={15} />}
+                        disabled={!canStart || Boolean(pendingAction)}
+                        loading={pendingAction === `start-chapter:${chapter.title}`}
+                        onClick={() => startChapter(chapter)}
+                      >
+                        Bắt đầu chương
+                      </Button>
+                    )}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </AsyncState>
+      </div>
 
       <ChapterPreviewDrawer
         key={selectedChapter?.chapterKey || selectedChapter?.id || 'closed-chapter-preview'}
+        courseId={courseId}
         chapter={selectedChapter}
-        preview={preview}
-        loading={previewLoading}
-        error={previewError}
+        preview={null}
         canReview={canReview}
         pendingAction={pendingAction}
-        onClose={() => {
-          setSelectedChapter(null);
-          onClosePreview?.();
-        }}
-        onCreateTasks={onCreateTasks}
-        onConfirmChapter={confirmCurrentChapter}
+        session={selectedChapter ? getChapterSessionState(selectedChapter, tasks, goldQa) : null}
+        onClose={closePreview}
+        onStartChapter={startChapter}
         onOpenMaterial={onOpenMaterial}
+        onIgnoreChapter={(chapter) => ignoreChapter(chapter)}
       />
     </section>
   );

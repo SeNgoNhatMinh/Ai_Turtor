@@ -78,14 +78,14 @@ export default function SeniorReviewQueue({
       cancelText: 'Hủy',
     };
     if (decision === 'approve') {
-      const isTraining = selectedEntry.kind === 'GOLD_QA' && selectedEntry.item.usage === 'TRAINING';
+      const item = selectedEntry.item;
       confirmAction({
         ...common,
-        title: 'Phê duyệt nội dung?',
-        content: isTraining
-          ? 'TRAINING Gold Q&A sẽ được backend index vào RAG sau khi phê duyệt.'
-          : 'Nội dung sẽ được phê duyệt nhưng không được index vào RAG.',
-        okText: 'Phê duyệt',
+        title: 'Nạp Q&A vàng vào RAG?',
+        content: item.examPassed
+          ? 'AI đã đạt trên giáo trình. Nạp câu này vào RAG brain.'
+          : 'AI chưa đạt. Vẫn có thể nạp nếu bạn thấy hợp tài liệu, hoặc trả Teacher viết lại.',
+        okText: 'Nạp vào RAG',
       });
       return;
     }
@@ -101,8 +101,8 @@ export default function SeniorReviewQueue({
     <div className="expert-training__review-master">
       <div className="expert-training__review-master-head">
         <div>
-          <strong>Hàng chờ kiểm duyệt</strong>
-          <span>{queue.length} nội dung</span>
+          <strong>Bài thi chờ Senior</strong>
+          <span>{queue.length} câu</span>
         </div>
         <Button
           type="text"
@@ -118,8 +118,7 @@ export default function SeniorReviewQueue({
         onChange={setFilter}
         options={[
           { value: 'ALL', label: `Tất cả (${queue.length})` },
-          { value: 'GOLD_QA', label: 'Gold Q&A' },
-          { value: 'RUBRIC', label: 'Rubric' },
+          { value: 'GOLD_QA', label: 'Q&A vàng' },
         ]}
       />
       <AsyncState
@@ -127,8 +126,8 @@ export default function SeniorReviewQueue({
         loading={loading && !queue.length}
         error={error}
         empty={!loading && !error && !filteredQueue.length}
-        emptyTitle="Không có nội dung chờ duyệt"
-        emptyDescription="Nội dung mới từ giảng viên sẽ xuất hiện tại đây sau canonical refetch."
+        emptyTitle="Chưa có bài thi"
+        emptyDescription="Khi giảng viên nộp Q&A vàng, hệ thống chấm AI rồi hiện bài thi tại đây."
         onRetry={onRefresh}
       >
         <div className="expert-training__review-list" role="list">
@@ -144,7 +143,7 @@ export default function SeniorReviewQueue({
                 onClick={() => onSelectReview(entry.id)}
               >
                 <span className="expert-training__review-list-title">{title}</span>
-                <span>{item.chapter} · {entry.kind === 'GOLD_QA' ? item.usage : 'RUBRIC'}</span>
+                <span>{item.chapter} · {item.examPassed ? 'AI đạt' : item.examPassed === false ? 'AI chưa đạt' : 'Q&A vàng'}</span>
                 <StatusLabel status={item.status} />
               </button>
             );
@@ -172,8 +171,8 @@ export default function SeniorReviewQueue({
     <section className="expert-training__section" aria-labelledby="review-heading">
       <div className="expert-training__section-heading">
         <div>
-          <h2 id="review-heading">Kiểm duyệt độc lập</h2>
-          <p>TRAINING chỉ vào RAG sau khi duyệt; EVALUATION luôn được giữ riêng làm holdout.</p>
+          <h2 id="review-heading">Bài thi</h2>
+          <p>Đối chiếu đáp án Teacher với câu AI trả trên sách, rồi nạp vào RAG hoặc trả lại.</p>
         </div>
       </div>
 

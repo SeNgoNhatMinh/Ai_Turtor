@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { adminAcademicApi } from '../../../services/adminAcademicApi';
 import { expertTrainingApi } from '../../../services/expertTrainingApi';
 import { normalizeCourseOption } from '../../../services/expertTrainingNormalizers';
@@ -46,6 +46,8 @@ export function useExpertTrainingResources({
   const reviewerRole = getTutorV2Role(currentUser);
   const canReview = isTutorV2Reviewer(currentUser);
   const resourceMode = mode === 'auto' ? (canReview ? 'reviewer' : 'teacher') : mode;
+  const courseIdRef = useRef(courseId);
+  courseIdRef.current = courseId;
   const [courses, setCourses] = useState([]);
   const [resources, setResources] = useState(createEmptyResources);
   const [loading, setLoading] = useState(INITIAL_LOADING);
@@ -55,24 +57,32 @@ export function useExpertTrainingResources({
   const [evaluationDetail, setEvaluationDetail] = useState(null);
   const [evaluationDetailLoading, setEvaluationDetailLoading] = useState(false);
 
+  const inflightRef = useRef({});
   const updateResource = useCallback((key, value) => {
     setResources((current) => ({ ...current, [key]: value }));
   }, []);
 
-  const loadWithState = useCallback(async (key, loader, onSuccess) => {
+  const loadWithState = useCallback((key, loader, onSuccess) => {
+    if (inflightRef.current[key]) return inflightRef.current[key];
     setLoading((current) => ({ ...current, [key]: true }));
     setErrors((current) => ({ ...current, [key]: '' }));
-    try {
-      const result = await loader();
-      onSuccess(result);
-      return result;
-    } catch (error) {
-      const message = getUserFacingError(error, 'Không thể tải dữ liệu Tutor V2.');
-      setErrors((current) => ({ ...current, [key]: message }));
-      return null;
-    } finally {
-      setLoading((current) => ({ ...current, [key]: false }));
-    }
+    const run = Promise.resolve()
+      .then(loader)
+      .then((result) => {
+        onSuccess(result);
+        return result;
+      })
+      .catch((error) => {
+        const message = getUserFacingError(error, 'Không thể tải dữ liệu Tutor V2.');
+        setErrors((current) => ({ ...current, [key]: message }));
+        return null;
+      })
+      .finally(() => {
+        setLoading((current) => ({ ...current, [key]: false }));
+        if (inflightRef.current[key] === run) inflightRef.current[key] = null;
+      });
+    inflightRef.current[key] = run;
+    return run;
   }, []);
 
   const loadCourses = useCallback(() => loadWithState(
@@ -85,11 +95,11 @@ export function useExpertTrainingResources({
         .map(normalizeCourseOption)
         .filter((item) => item.id);
       setCourses(normalized);
-      if (normalized.length && !normalized.some((item) => item.id === courseId)) {
+      if (normalized.length && !normalized.some((item) => item.id === courseIdRef.current)) {
         setCourseId(normalized[0].id);
       }
     },
-  ), [courseId, loadWithState, resourceMode, setCourseId, userId]);
+  ), [loadWithState, resourceMode, setCourseId, userId]);
 
   const loadGaps = useCallback(() => {
     if (!courseId) return Promise.resolve([]);
@@ -117,13 +127,15 @@ export function useExpertTrainingResources({
     return loadWithState('contributions', async () => {
       const [goldQa, rubrics] = await Promise.all([
         expertTrainingApi.getGoldQa(courseId),
-        expertTrainingApi.getRubrics(courseId),
+        resourceMode === 'reviewer'
+          ? Promise.resolve([])
+          : expertTrainingApi.getRubrics(courseId),
       ]);
       return { goldQa, rubrics };
     }, ({ goldQa, rubrics }) => {
       setResources((current) => ({ ...current, goldQa, rubrics }));
     });
-  }, [courseId, loadWithState]);
+  }, [courseId, loadWithState, resourceMode]);
 
   const loadEvaluation = useCallback(() => {
     if (!courseId) return Promise.resolve([]);
@@ -136,9 +148,14 @@ export function useExpertTrainingResources({
     if (!courseId) return;
     const loaders = resourceMode === 'teacher'
       ? [loadTasks(), loadContributions()]
-      : [loadChapters(), loadGaps(), loadTasks(), loadContributions(), loadEvaluation()];
+      : [loadChapters(), loadTasks(), loadContributions()];
     await Promise.allSettled(loaders);
-  }, [courseId, loadChapters, loadContributions, loadEvaluation, loadGaps, loadTasks, resourceMode]);
+  }, [courseId, loadChapters, loadContributions, loadTasks, resourceMode]);
+
+  const refreshLive = useCallback(async () => {
+    if (!courseId) return;
+    await Promise.allSettled([loadTasks(), loadContributions()]);
+  }, [courseId, loadContributions, loadTasks]);
 
   useEffect(() => {
     const timer = window.setTimeout(loadCourses, 0);
@@ -164,10 +181,9 @@ export function useExpertTrainingResources({
     resourceMode,
     mutationActive,
     refreshAll,
+    refreshLive,
     loadChapters,
     loadContributions,
-    loadEvaluation,
-    loadGaps,
     loadTasks,
   });
 
@@ -191,7 +207,7 @@ export function useExpertTrainingResources({
     + resources.rubrics.filter((item) => item.status === 'PENDING_REVIEW').length
   ), [resources.goldQa, resources.rubrics]);
 
-  const openChapterPreview = useCallback(async (chapter, expanded = true) => {
+  const openChapterPreview = useCallback(async (chapter, expanded = false) => {
     const chapterKey = chapter?.chapterKey || chapter?.id || '';
     const title = chapter?.title || chapter?.chapter || '';
     if (!courseId || (!chapterKey && !title)) return null;
@@ -222,7 +238,7 @@ export function useExpertTrainingResources({
     setLoading((current) => ({ ...current, taskMaterial: true }));
     setErrors((current) => ({ ...current, taskMaterial: '' }));
     try {
-      const preview = await expertTrainingApi.getChapterPreviewByTitle(courseId, chapter, true);
+      const preview = await expertTrainingApi.getChapterPreviewByTitle(courseId, chapter, false);
       setTaskMaterialPreview(preview);
       return preview;
     } catch (error) {
@@ -244,6 +260,7 @@ export function useExpertTrainingResources({
       return;
     }
     try {
+      triggerToast?.('Đang mở PDF giáo trình...');
       const blob = await materialsApi.downloadMaterialPdf(courseId, source.id);
       const url = window.URL.createObjectURL(blob);
       const pageStart = Number(options.pageStart);
@@ -291,12 +308,13 @@ export function useExpertTrainingResources({
     connectionState,
     pendingReviewCount,
     loadCourses,
-    loadGaps,
     loadChapters,
     loadTasks,
     loadContributions,
+    loadGaps,
     loadEvaluation,
     refreshAll,
+    refreshLive,
     openChapterPreview,
     loadTaskMaterialPreview,
     openSourceMaterial,

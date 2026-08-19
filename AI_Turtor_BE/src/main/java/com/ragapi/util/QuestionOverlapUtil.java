@@ -21,6 +21,27 @@ public final class QuestionOverlapUtil {
     private QuestionOverlapUtil() {
     }
 
+    public static boolean areSimilarQuestions(String left, String right, double minOverlap) {
+        Set<String> leftTokens = meaningfulTokens(left);
+        Set<String> rightTokens = meaningfulTokens(right);
+        if (leftTokens.isEmpty() || rightTokens.isEmpty()) {
+            return false;
+        }
+        int intersection = 0;
+        for (String token : leftTokens) {
+            if (rightTokens.contains(token)) {
+                intersection++;
+            }
+        }
+        int union = leftTokens.size() + rightTokens.size() - intersection;
+        double overlap = union == 0 ? 0.0 : (double) intersection / union;
+        if (overlap >= minOverlap) {
+            return true;
+        }
+        int smaller = Math.min(leftTokens.size(), rightTokens.size());
+        return smaller >= 2 && intersection >= Math.ceil(smaller * 0.75);
+    }
+
     public static double keywordOverlapRatio(String left, String right) {
         Set<String> leftTokens = meaningfulTokens(left);
         Set<String> rightTokens = meaningfulTokens(right);

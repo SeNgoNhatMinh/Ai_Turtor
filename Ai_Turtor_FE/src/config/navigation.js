@@ -118,8 +118,8 @@ const navigationItems = [
     workspace: 'teacher',
     allowedAccountRoles: [ACCOUNT_ROLES.TEACHER],
     group: 'Chất lượng AI',
-    label: 'Công việc tri thức AI',
-    description: 'Nhận task và đóng góp Gold Q&A hoặc Rubric theo học liệu.',
+    label: 'Q&A huấn luyện AI',
+    description: 'Nhận việc viết Q&A vàng theo chương giáo trình.',
     icon: BrainCircuit,
   },
   {
@@ -127,8 +127,8 @@ const navigationItems = [
     workspace: 'senior',
     allowedAccountRoles: [ACCOUNT_ROLES.SENIOR_MENTOR],
     group: 'Kiểm duyệt chuyên môn',
-    label: 'Quản trị tri thức AI',
-    description: 'Xác nhận độ phủ, kiểm duyệt tri thức và chạy Evaluation.',
+    label: 'Huấn luyện AI',
+    description: 'Mục lục sách, giao Q&A vàng, xem bài thi rồi nạp RAG.',
     icon: BrainCircuit,
   },
   {

@@ -9,12 +9,34 @@ export function parseChapterInput(value) {
 
 export function getTaskGoldUsage(task) {
   if (!task || String(task.type || '').toUpperCase() !== 'GOLD_QA') return null;
-  const explicitUsage = String(task.requiredUsage || task.usage || '').trim().toUpperCase();
-  if (['TRAINING', 'EVALUATION'].includes(explicitUsage)) return explicitUsage;
-  const context = `${task.title || ''} ${task.instructions || ''}`.toUpperCase();
-  if (context.includes('EVALUATION') || context.includes('HOLDOUT')) return 'EVALUATION';
-  if (context.includes('TRAINING') || context.includes('RAG BRAIN')) return 'TRAINING';
-  return null;
+  return 'TRAINING';
+}
+
+const CHAPTER_SESSION_META = {
+  NOT_STARTED: { key: 'NOT_STARTED', label: 'Chưa train', color: 'default' },
+  IN_PROGRESS: { key: 'IN_PROGRESS', label: 'Đang train', color: 'blue' },
+  EXAM_READY: { key: 'EXAM_READY', label: 'Có bài thi', color: 'gold' },
+  INDEXED: { key: 'INDEXED', label: 'Đã nạp RAG', color: 'green' },
+  NO_MATERIAL: { key: 'NO_MATERIAL', label: 'Chưa có tài liệu', color: 'red' },
+};
+
+export function getChapterSessionState(chapter, tasks = [], goldQa = []) {
+  const title = String(chapter?.title || chapter?.chapter || '').trim();
+  const health = String(chapter?.materialHealth || '').toUpperCase();
+  if (health === 'NO_MATERIAL' || Number(chapter?.chunkCount) <= 0) {
+    return CHAPTER_SESSION_META.NO_MATERIAL;
+  }
+  const chapterTasks = tasks.filter((task) => String(task.chapter || '').trim() === title);
+  const items = goldQa.filter((item) => String(item.chapter || '').trim() === title);
+  const pendingExam = items.filter((item) => item.status === 'PENDING_REVIEW');
+  const indexed = items.filter((item) => item.status === 'INDEXED');
+  const active = chapterTasks.some((task) => (
+    ['OPEN', 'ASSIGNED', 'IN_PROGRESS', 'SUBMITTED'].includes(task.status)
+  ));
+  if (pendingExam.length) return CHAPTER_SESSION_META.EXAM_READY;
+  if (indexed.length && !active) return CHAPTER_SESSION_META.INDEXED;
+  if (active || chapterTasks.length) return CHAPTER_SESSION_META.IN_PROGRESS;
+  return CHAPTER_SESSION_META.NOT_STARTED;
 }
 
 const DETECTED_FROM_LABELS = {
@@ -80,6 +102,27 @@ export function getChapterPrimaryPdfSource(preview) {
     if (primary && isPdfMaterialSource(primary)) return primary;
   }
   return sources.find(isPdfMaterialSource) || null;
+}
+
+export function getChapterPdfOpenTarget(chapter, preview) {
+  const pageStart = Number(preview?.pageStart || chapter?.pageStart) || 0;
+  const pageEnd = Number(preview?.pageEnd || chapter?.pageEnd) || 0;
+  const previewPdf = getChapterPrimaryPdfSource(preview);
+  if (previewPdf) {
+    return { source: previewPdf, pageStart, pageEnd };
+  }
+  const materialId = String(
+    preview?.primarySourceMaterialId
+    || chapter?.primarySourceMaterialId
+    || (Array.isArray(chapter?.sourceMaterialIds) ? chapter.sourceMaterialIds.find(Boolean) : '')
+    || ''
+  ).trim();
+  if (!materialId) return null;
+  return {
+    source: { id: materialId, sourceType: 'PDF' },
+    pageStart,
+    pageEnd,
+  };
 }
 
 export function criteriaRowsToWeights(rows = []) {

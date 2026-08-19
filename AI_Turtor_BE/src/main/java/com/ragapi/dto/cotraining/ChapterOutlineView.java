@@ -24,4 +24,5 @@ public class ChapterOutlineView {
     private int tocLevel;
     private int pageStart;
     private int pageEnd;
+    private String primarySourceMaterialId;
 }

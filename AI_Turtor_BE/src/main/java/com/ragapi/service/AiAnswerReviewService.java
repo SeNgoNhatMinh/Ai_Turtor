@@ -6,6 +6,7 @@ import com.ragapi.dto.GroupedAiAnswerReviewItem;
 import com.ragapi.dto.SeniorReviewResolutionRequest;
 import com.ragapi.entity.AiAnswerReview;
 import com.ragapi.entity.KnowledgeCandidate;
+import com.ragapi.entity.KnowledgeImageAttachment;
 import com.ragapi.repository.AiAnswerReviewRepository;
 import com.ragapi.repository.KnowledgeCandidateRepository;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +28,7 @@ import java.util.UUID;
 import java.util.function.Predicate;
 
 import static com.ragapi.util.ValidationUtils.DEFAULT_TEXT_MAX_LENGTH;
+import static com.ragapi.util.ValidationUtils.REVIEW_NOTE_MAX_LENGTH;
 import static com.ragapi.util.ValidationUtils.SHORT_TEXT_MAX_LENGTH;
 import static com.ragapi.util.ValidationUtils.optionalMaxLength;
 import static com.ragapi.util.ValidationUtils.requireEnum;
@@ -51,6 +53,7 @@ public class AiAnswerReviewService {
     private final KnowledgeCandidateRepository knowledgeCandidateRepository;
     private final RealtimeEventService realtimeEvents;
     private final TutorAnswerCacheSeniorService tutorAnswerCacheSeniorService;
+    private final KnowledgeImageStorageService knowledgeImageStorageService;
 
     @Value("${app.answer-review.moderate-student-threshold:1}")
     private int moderateStudentThreshold = 1;
@@ -66,6 +69,12 @@ public class AiAnswerReviewService {
 
     @Value("${app.answer-review.severe-rating-max:1}")
     private int severeRatingMax = 1;
+
+    @Value("${app.answer-review.red-alert-negative-count:5}")
+    private int redAlertNegativeCount = 5;
+
+    @Value("${app.answer-review.similar-question-overlap:0.45}")
+    private double similarQuestionOverlap = 0.45;
 
     public AiAnswerReview submitReview(AiAnswerReviewRequest request) {
         if (request == null) {
@@ -131,10 +140,13 @@ public class AiAnswerReviewService {
             grouped.computeIfAbsent(key, ignored -> new ArrayList<>()).add(review);
         }
         return grouped.values().stream()
+                .collect(java.util.stream.Collectors.collectingAndThen(
+                        java.util.stream.Collectors.toList(),
+                        this::clusterSimilarFingerprintGroups
+                ))
+                .stream()
                 .map(members -> toGroupedItem(members, queueStatus))
-                .sorted(Comparator.comparing(
-                        GroupedAiAnswerReviewItem::getLastReportedAt,
-                        Comparator.nullsLast(Comparator.reverseOrder())))
+                .sorted(queueUrgencyOrder())
                 .toList();
     }
 
@@ -167,10 +179,9 @@ public class AiAnswerReviewService {
 
         LocalDateTime now = LocalDateTime.now();
         String originalStatus = review.getStatus();
-        String effectiveFingerprint = effectiveFingerprint(review);
         List<AiAnswerReview> group = reviewRepository.findByStatus(originalStatus).stream()
                 .filter(item -> Objects.equals(review.getCourseId(), item.getCourseId()))
-                .filter(item -> Objects.equals(effectiveFingerprint, effectiveFingerprint(item)))
+                .filter(item -> sameOrSimilarQuestion(review, item))
                 .toList();
 
         String candidateId = null;
@@ -188,7 +199,7 @@ public class AiAnswerReviewService {
             member.setSeniorReviewerId(request.getSeniorReviewerId().trim());
             member.setSeniorReviewerName(trimToNull(request.getSeniorReviewerName()));
             member.setSeniorReviewDecision(normalizeUpper(request.getDecision()));
-            member.setSeniorReviewNotes(trimToNull(request.getNotes()));
+            member.setSeniorReviewNotes(optionalMaxLength(request.getNotes(), "notes", REVIEW_NOTE_MAX_LENGTH));
             member.setSeniorReviewedAt(now);
             member.setStatus(STATUS_RESOLVED);
             member.setUpdatedAt(now);
@@ -217,17 +228,18 @@ public class AiAnswerReviewService {
             String candidateType,
             LocalDateTime now
     ) {
-        String correctedAnswer = trimToNull(request.getCorrectedAnswer());
+        String correctedAnswer = optionalMaxLength(request.getCorrectedAnswer(), "correctedAnswer", DEFAULT_TEXT_MAX_LENGTH);
         if (correctedAnswer == null) {
-            correctedAnswer = trimToNull(review.getSuggestedCorrection());
+            correctedAnswer = optionalMaxLength(review.getSuggestedCorrection(), "suggestedCorrection", DEFAULT_TEXT_MAX_LENGTH);
         }
         if (correctedAnswer == null) {
-            correctedAnswer = trimToNull(review.getFeedback());
+            correctedAnswer = optionalMaxLength(review.getFeedback(), "feedback", DEFAULT_TEXT_MAX_LENGTH);
         }
         if (correctedAnswer == null) {
             throw new IllegalArgumentException("correctedAnswer, suggestedCorrection, or feedback is required to create a knowledge candidate");
         }
 
+        List<KnowledgeImageAttachment> images = knowledgeImageStorageService.resolveAttachments(request.getImageIds());
         String content = """
                 Question:
                 %s
@@ -245,7 +257,7 @@ public class AiAnswerReviewService {
                 review.getAccurate(),
                 review.getHelpful(),
                 review.getFeedback() == null ? "" : review.getFeedback()
-        );
+        ) + KnowledgeImageStorageService.formatImageAppendix(images);
 
         return KnowledgeCandidate.builder()
                 .id(UUID.randomUUID().toString())
@@ -258,6 +270,7 @@ public class AiAnswerReviewService {
                 .question(review.getQuestion())
                 .answer(correctedAnswer)
                 .content(content)
+                .images(images.isEmpty() ? null : images)
                 .status(KNOWLEDGE_PENDING_SENIOR_REVIEW)
                 .createdAt(now)
                 .updatedAt(now)
@@ -390,7 +403,24 @@ public class AiAnswerReviewService {
                 .filter(id -> !id.isEmpty())
                 .distinct()
                 .count();
-        boolean redAlert = distinctStudentCount > 5;
+        int negativeReviewCount = (int) sorted.stream()
+                .filter(this::isNegativeRating)
+                .count();
+        List<String> uniqueQuestions = sorted.stream()
+                .map(AiAnswerReview::getQuestion)
+                .filter(question -> question != null && !question.isBlank())
+                .map(String::trim)
+                .distinct()
+                .toList();
+        List<String> similarQuestions = uniqueQuestions.stream()
+                .filter(question -> !question.equals(head.getQuestion()))
+                .limit(6)
+                .toList();
+        boolean redAlert = negativeReviewCount >= redAlertNegativeCount
+                || distinctStudentCount >= redAlertNegativeCount;
+        String alertLevel = redAlert
+                ? "RED"
+                : (distinctStudentCount <= 1 && negativeReviewCount <= 1 ? "WATCH" : "ATTENTION");
 
         return GroupedAiAnswerReviewItem.builder()
                 .answerFingerprint(effectiveFingerprint(head))
@@ -404,7 +434,10 @@ public class AiAnswerReviewService {
                 .escalationTier(head.getEscalationTier())
                 .distinctStudentCount(distinctStudentCount)
                 .reviewCount(sorted.size())
-                .alertLevel(redAlert ? "RED" : "NORMAL")
+                .negativeReviewCount(negativeReviewCount)
+                .similarQuestionCount(uniqueQuestions.size())
+                .similarQuestions(similarQuestions)
+                .alertLevel(alertLevel)
                 .redAlert(redAlert)
                 .averageRating(averageRating)
                 .firstReportedAt(sorted.get(0).getCreatedAt())
@@ -412,6 +445,106 @@ public class AiAnswerReviewService {
                 .representativeReviewId(head.getId())
                 .reviews(evidence)
                 .build();
+    }
+
+    private List<List<AiAnswerReview>> clusterSimilarFingerprintGroups(List<List<AiAnswerReview>> groups) {
+        int size = groups.size();
+        int[] parent = new int[size];
+        for (int i = 0; i < size; i++) {
+            parent[i] = i;
+        }
+        for (int i = 0; i < size; i++) {
+            for (int j = i + 1; j < size; j++) {
+                if (sameCourse(groups.get(i), groups.get(j)) && similarQuestions(groups.get(i), groups.get(j))) {
+                    int left = findCluster(parent, i);
+                    int right = findCluster(parent, j);
+                    if (left != right) {
+                        parent[right] = left;
+                    }
+                }
+            }
+        }
+        Map<Integer, List<AiAnswerReview>> clustered = new LinkedHashMap<>();
+        for (int i = 0; i < size; i++) {
+            clustered.computeIfAbsent(findCluster(parent, i), ignored -> new ArrayList<>()).addAll(groups.get(i));
+        }
+        return new ArrayList<>(clustered.values());
+    }
+
+    private int findCluster(int[] parent, int index) {
+        if (parent[index] != index) {
+            parent[index] = findCluster(parent, parent[index]);
+        }
+        return parent[index];
+    }
+
+    private boolean sameCourse(List<AiAnswerReview> left, List<AiAnswerReview> right) {
+        String leftCourse = left.isEmpty() ? null : left.get(0).getCourseId();
+        String rightCourse = right.isEmpty() ? null : right.get(0).getCourseId();
+        return Objects.equals(leftCourse, rightCourse);
+    }
+
+    private boolean similarQuestions(List<AiAnswerReview> left, List<AiAnswerReview> right) {
+        List<String> leftQuestions = uniqueQuestions(left);
+        List<String> rightQuestions = uniqueQuestions(right);
+        for (String leftQuestion : leftQuestions) {
+            for (String rightQuestion : rightQuestions) {
+                if (com.ragapi.util.QuestionOverlapUtil.areSimilarQuestions(leftQuestion, rightQuestion, similarQuestionOverlap)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private List<String> uniqueQuestions(List<AiAnswerReview> reviews) {
+        return reviews.stream()
+                .map(AiAnswerReview::getQuestion)
+                .filter(question -> question != null && !question.isBlank())
+                .map(String::trim)
+                .distinct()
+                .toList();
+    }
+
+    private boolean sameOrSimilarQuestion(AiAnswerReview left, AiAnswerReview right) {
+        if (left == null || right == null) {
+            return false;
+        }
+        if (Objects.equals(effectiveFingerprint(left), effectiveFingerprint(right))) {
+            return true;
+        }
+        return com.ragapi.util.QuestionOverlapUtil.areSimilarQuestions(
+                left.getQuestion(),
+                right.getQuestion(),
+                similarQuestionOverlap
+        );
+    }
+
+    private boolean isNegativeRating(AiAnswerReview review) {
+        Integer rating = review.getRating();
+        return rating != null && rating <= 3;
+    }
+
+    private Comparator<GroupedAiAnswerReviewItem> queueUrgencyOrder() {
+        return Comparator
+                .comparing((GroupedAiAnswerReviewItem item) -> !item.isRedAlert())
+                .thenComparingInt(item -> alertRank(item.getAlertLevel()))
+                .thenComparing(GroupedAiAnswerReviewItem::getNegativeReviewCount, Comparator.reverseOrder())
+                .thenComparing(GroupedAiAnswerReviewItem::getDistinctStudentCount, Comparator.reverseOrder())
+                .thenComparing(
+                        GroupedAiAnswerReviewItem::getLastReportedAt,
+                        Comparator.nullsLast(Comparator.reverseOrder())
+                );
+    }
+
+    private int alertRank(String alertLevel) {
+        if ("RED".equalsIgnoreCase(alertLevel)) {
+            return 0;
+        }
+        if ("ATTENTION".equalsIgnoreCase(alertLevel)) {
+            return 1;
+        }
+        return 2;
     }
 
     private AiAnswerReviewEvidenceItem toEvidenceItem(AiAnswerReview review) {

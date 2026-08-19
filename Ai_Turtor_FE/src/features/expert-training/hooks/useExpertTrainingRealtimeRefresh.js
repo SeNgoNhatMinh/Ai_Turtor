@@ -14,18 +14,17 @@ export function useExpertTrainingRealtimeRefresh({
   resourceMode,
   mutationActive,
   refreshAll,
+  refreshLive,
   loadChapters,
   loadContributions,
-  loadEvaluation,
-  loadGaps,
   loadTasks,
 }) {
   const connectionState = useRealtimeConnectionState();
   const tutorTimerRef = useRef(null);
   const materialTimerRef = useRef(null);
 
-  useRealtimeReconnect(refreshAll);
-  useCanonicalPolling(refreshAll, {
+  useRealtimeReconnect(refreshLive || refreshAll);
+  useCanonicalPolling(refreshLive || refreshAll, {
     enabled: Boolean(courseId && !mutationActive),
     intervalMs: 30000,
     refreshOnFocus: true,
@@ -40,18 +39,16 @@ export function useExpertTrainingRealtimeRefresh({
         loadTasks();
         loadContributions();
       }
-      if (REALTIME_EVENT_TYPES.expertEvaluation.includes(event.type)) loadEvaluation();
     }, REALTIME_REFRESH_DELAY_MS);
-  }, [courseId, loadContributions, loadEvaluation, loadTasks]);
+  }, [courseId, loadContributions, loadTasks]);
 
   const scheduleMaterialRefresh = useCallback((event) => {
     if (resourceMode === 'teacher' || !eventMatchesCourse(event, courseId)) return;
     window.clearTimeout(materialTimerRef.current);
     materialTimerRef.current = window.setTimeout(() => {
       loadChapters();
-      loadGaps();
     }, REALTIME_REFRESH_DELAY_MS);
-  }, [courseId, loadChapters, loadGaps, resourceMode]);
+  }, [courseId, loadChapters, resourceMode]);
 
   useRealtimeEvent(REALTIME_EVENT_TYPES.tutorV2, scheduleTutorRefresh);
   useRealtimeEvent(REALTIME_EVENT_TYPES.material, scheduleMaterialRefresh);

@@ -39,7 +39,7 @@ class ExpertCoTrainingServiceTest {
     }
 
     @Test
-    void evaluationGoldIsHoldoutAndNeverIndexedOnApproval() throws Exception {
+    void approvedGoldQaIsIndexedAfterExamRegardlessOfLegacyHoldoutFlag() throws Exception {
         GoldQa item = GoldQa.builder().id("G1").courseId("PRJ301").chapter("JSP").question("JSP là gì?")
                 .goldAnswer("JSP là công nghệ view phía máy chủ.").usage("EVALUATION").holdout(true)
                 .status("PENDING_REVIEW").authorId("T1").build();
@@ -50,9 +50,9 @@ class ExpertCoTrainingServiceTest {
 
         GoldQa approved = service.reviewGoldQa("G1", review, true);
 
-        assertEquals("APPROVED", approved.getStatus());
-        assertNull(approved.getIndexedAt());
-        verifyNoInteractions(vectors);
+        assertEquals("INDEXED", approved.getStatus());
+        assertNotNull(approved.getIndexedAt());
+        verify(vectors).indexChunk(eq("PRJ301"), isNull(), eq("T1"), eq("G1"), eq("COURSE_SHARED"), eq("GOLD_QA"), isNull(), isNull(), contains("JSP là gì?"));
     }
 
     @Test
@@ -166,39 +166,90 @@ class ExpertCoTrainingServiceTest {
     }
 
     @Test
-    void createChapterTasksRequiresConfirmedIndexedChapter() {
+    void startChapterOpensGoldTasksForSuggestedIndexedChapter() {
         CourseChapterOutline suggested = CourseChapterOutline.builder()
                 .courseId("PRJ301").title("JSP").status("SUGGESTED").chunkCount(5).build();
         when(chapterOutlines.findOutlineByTitle("PRJ301", "JSP")).thenReturn(suggested);
-        CreateChapterTasksRequest request = new CreateChapterTasksRequest();
-        request.setCourseId("PRJ301");
-        request.setChapter("JSP");
-
-        IllegalArgumentException error = assertThrows(
-                IllegalArgumentException.class,
-                () -> service.createChapterTasks(request));
-
-        assertEquals("Chapter must be confirmed before creating tasks", error.getMessage());
-        verify(tasks, never()).save(any());
-    }
-
-    @Test
-    void createChapterTasksUsesCanonicalConfirmedChapter() {
-        CourseChapterOutline confirmed = CourseChapterOutline.builder()
-                .courseId("PRJ301").title("Java Server Pages").status("CONFIRMED").chunkCount(5).build();
-        when(chapterOutlines.findOutlineByTitle("PRJ301", "JSP")).thenReturn(confirmed);
-        when(gaps.findFirstByCourseIdAndChapterAndStatusInOrderByDetectedAtDesc(
-                eq("PRJ301"), eq("Java Server Pages"), anyList())).thenReturn(Optional.empty());
+        when(tasks.findByCourseIdAndChapterOrderByCreatedAtDesc("PRJ301", "JSP")).thenReturn(List.of());
         when(tasks.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         CreateChapterTasksRequest request = new CreateChapterTasksRequest();
         request.setCourseId("PRJ301");
         request.setChapter("JSP");
-        request.setIncludeTrainingGoldTask(true);
-        request.setIncludeEvaluationGoldTask(false);
 
-        List<ExpertTask> created = service.createChapterTasks(request);
+        List<ExpertTask> created = service.startChapter(request);
+
+        assertEquals(2, created.size());
+        assertTrue(created.get(0).getTitle().contains("Q&A vàng"));
+        verify(tasks, times(2)).save(any(ExpertTask.class));
+    }
+
+    @Test
+    void startChapterReusesActiveTasksInsteadOfDuplicating() {
+        CourseChapterOutline outline = CourseChapterOutline.builder()
+                .courseId("PRJ301").title("JSP").status("SUGGESTED").chunkCount(5).build();
+        ExpertTask existing = ExpertTask.builder().id("T1").type("GOLD_QA").status("OPEN").chapter("JSP").build();
+        when(chapterOutlines.findOutlineByTitle("PRJ301", "JSP")).thenReturn(outline);
+        when(tasks.findByCourseIdAndChapterOrderByCreatedAtDesc("PRJ301", "JSP")).thenReturn(List.of(existing));
+        CreateChapterTasksRequest request = new CreateChapterTasksRequest();
+        request.setCourseId("PRJ301");
+        request.setChapter("JSP");
+
+        List<ExpertTask> result = service.startChapter(request);
+
+        assertEquals(1, result.size());
+        verify(tasks, never()).save(any());
+    }
+
+    @Test
+    void startChapterUsesCanonicalChapterTitle() {
+        CourseChapterOutline confirmed = CourseChapterOutline.builder()
+                .courseId("PRJ301").title("Java Server Pages").status("CONFIRMED").chunkCount(5).build();
+        when(chapterOutlines.findOutlineByTitle("PRJ301", "JSP")).thenReturn(confirmed);
+        when(tasks.findByCourseIdAndChapterOrderByCreatedAtDesc("PRJ301", "Java Server Pages")).thenReturn(List.of());
+        when(tasks.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        CreateChapterTasksRequest request = new CreateChapterTasksRequest();
+        request.setCourseId("PRJ301");
+        request.setChapter("JSP");
+        request.setQuestionCount(1);
+
+        List<ExpertTask> created = service.startChapter(request);
 
         assertEquals(1, created.size());
         assertEquals("Java Server Pages", created.get(0).getChapter());
+    }
+
+    @Test
+    void submitGoldQaExaminesAgainstTextbookWithoutIndexing() throws Exception {
+        ExpertTask task = ExpertTask.builder().id("TASK1").type("GOLD_QA").status("ASSIGNED").build();
+        when(tasks.findById("TASK1")).thenReturn(Optional.of(task));
+        when(tasks.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        GoldQa[] saved = new GoldQa[1];
+        when(gold.save(any())).thenAnswer(inv -> {
+            GoldQa item = inv.getArgument(0);
+            if (item.getId() == null) {
+                item.setId("G3");
+            }
+            saved[0] = item;
+            return item;
+        });
+        when(gold.findById("G3")).thenAnswer(inv -> Optional.ofNullable(saved[0]));
+        when(rag.askWithConfidence(eq("PRO là gì?"), eq("PRJ301"), isNull())).thenReturn(CourseRagAnswer.builder()
+                .answer("PRO là hệ điều hành thời gian thực.").confidence(0.88)
+                .escalationRecommended(false).sources(List.of("ch1")).build());
+        SubmitGoldQaRequest request = new SubmitGoldQaRequest();
+        request.setCourseId("PRJ301");
+        request.setChapter("Khái niệm PRO");
+        request.setQuestion("PRO là gì?");
+        request.setGoldAnswer("PRO là hệ điều hành thời gian thực.");
+        request.setDifficulty("MEDIUM");
+        request.setAuthorId("T1");
+        request.setSourceTaskId("TASK1");
+
+        GoldQa submitted = service.submitGoldQa(request);
+
+        assertEquals("PENDING_REVIEW", submitted.getStatus());
+        assertEquals(true, submitted.getExamPassed());
+        assertNotNull(submitted.getExamAiAnswer());
+        verifyNoInteractions(vectors);
     }
 }

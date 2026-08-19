@@ -154,6 +154,7 @@ export function useTeacherReviewQueue({
     reply,
     createKnowledgeCandidate = false,
     candidateType = 'ACADEMIC_KNOWLEDGE',
+    imageIds = [],
   ) => {
     if (isTeacherAnswerSubmitting || !escalationId || !String(reply || '').trim()) return false;
     setIsTeacherAnswerSubmitting(true);
@@ -164,6 +165,7 @@ export function useTeacherReviewQueue({
       answer: reply,
       createKnowledgeCandidate,
       candidateType,
+      imageIds: Array.isArray(imageIds) ? imageIds.filter(Boolean) : [],
     };
     try {
       if (N8N_ENABLED) {
@@ -212,6 +214,7 @@ export function useTeacherReviewQueue({
     notes,
     correctedAnswer = '',
     candidateType = 'ACADEMIC_KNOWLEDGE',
+    imageIds = [],
   ) => {
     if (pendingSeniorReviewIds.includes(reviewId)) return false;
     setPendingSeniorReviewIds((current) => [...current, reviewId]);
@@ -225,7 +228,9 @@ export function useTeacherReviewQueue({
       notes,
       createKnowledgeCandidate: decision === 'CREATE_KNOWLEDGE_CANDIDATE',
       candidateType,
-      ...(decision === 'CREATE_KNOWLEDGE_CANDIDATE' ? { correctedAnswer } : {}),
+      ...(decision === 'CREATE_KNOWLEDGE_CANDIDATE'
+        ? { correctedAnswer, imageIds: Array.isArray(imageIds) ? imageIds.filter(Boolean) : [] }
+        : {}),
     };
     try {
       if (N8N_ENABLED) {

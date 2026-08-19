@@ -3,7 +3,9 @@ import {
   formatAnswerReviewStatus,
   formatAnswerReviewType,
 } from '../../../constants/answerReview';
+import { REVIEW_NOTE_MAX_LENGTH } from '../../../constants/knowledgeAnswer';
 import { getPersonDisplayName } from '../../../utils/displayNames';
+import KnowledgeAnswerComposer from './KnowledgeAnswerComposer';
 
 const CANDIDATE_TYPES = [
   { value: 'ACADEMIC_KNOWLEDGE', label: 'Kiến thức học thuật' },
@@ -44,6 +46,7 @@ export default function AnswerReviewCard({
   const isHistory = queue === 'history';
   const notes = String(draft.notes || '');
   const correctedAnswer = String(draft.correctedAnswer || '');
+  const images = Array.isArray(draft.images) ? draft.images : [];
   const candidateType = draft.candidateType || 'ACADEMIC_KNOWLEDGE';
   const studentLabel = getPersonDisplayName(review, 'Sinh viên');
   const createdAt = formatDate(review.createdAt);
@@ -103,22 +106,35 @@ export default function AnswerReviewCard({
           )}
         />
       ) : isSeniorQueue ? (
-        <div className="answer-review-resolution">
+        <div className="answer-review-resolution grouped-answer-review__composer">
+          <header className="grouped-answer-review__composer-head">
+            <span>Soạn tri thức đúng</span>
+            <h5>Viết câu trả lời học thuật để bổ sung RAG</h5>
+            <p>Dùng ô ghi chú cho căn cứ kiểm duyệt. Ô trả lời dành cho nội dung đúng, có thể kèm hình minh họa.</p>
+          </header>
+          <label className="grouped-answer-review__note-label" htmlFor={`senior-review-notes-${review.id}`}>
+            Ghi chú kiểm duyệt
+          </label>
           <Input.TextArea
+            id={`senior-review-notes-${review.id}`}
             rows={2}
             value={notes}
-            maxLength={2000}
+            maxLength={REVIEW_NOTE_MAX_LENGTH}
+            showCount
             disabled={isPending || !onDraftChange}
             placeholder="Ghi chú kiểm tra (bắt buộc)..."
             onChange={(event) => onDraftChange?.({ notes: event.target.value })}
           />
-          <Input.TextArea
-            rows={4}
+          <KnowledgeAnswerComposer
+            id={`senior-review-answer-${review.id}`}
+            label="Câu trả lời học thuật đúng"
+            required
             value={correctedAnswer}
-            maxLength={10000}
+            images={images}
             disabled={isPending || !onDraftChange}
             placeholder="Câu trả lời học thuật đúng (bắt buộc khi tạo tri thức dùng lại)..."
-            onChange={(event) => onDraftChange?.({ correctedAnswer: event.target.value })}
+            onChange={(nextValue) => onDraftChange?.({ correctedAnswer: nextValue })}
+            onImagesChange={(nextImages) => onDraftChange?.({ images: nextImages })}
           />
           <Select
             value={candidateType}

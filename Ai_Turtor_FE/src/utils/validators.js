@@ -61,16 +61,22 @@ export function validateChatInput(input) {
 }
 
 export function validateCodeInput(input) {
-  const raw = String(input ?? '').trim();
-  if (!raw) return { ok: true, value: '' };
-  if (raw.length > LIMITS.codeMax) {
-    return { ok: false, message: `Đoạn code tối đa ${LIMITS.codeMax} ký tự.` };
+  const value = String(input ?? '').trim();
+  if (!value) return { ok: false, message: 'Hãy dán mã nguồn trước khi gửi Code Mentor.' };
+  if (value.length > LIMITS.codeMax) {
+    return { ok: false, message: `Mã nguồn quá dài. Vui lòng giới hạn trong ${LIMITS.codeMax} ký tự.` };
   }
-  const lineCount = raw.split(/\r\n|\r|\n/).length;
+  const lineCount = value.split(/\r\n|\r|\n/).length;
   if (lineCount > LIMITS.codeMaxLines) {
-    return { ok: false, message: `Đoạn code tối đa ${LIMITS.codeMaxLines} dòng (hiện có ${lineCount} dòng).` };
+    return { ok: false, message: `Mã nguồn quá dài. Vui lòng giới hạn trong ${LIMITS.codeMaxLines} dòng.` };
   }
-  return { ok: true, value: raw };
+  return { ok: true, value };
+}
+
+export function validateOptionalCodeInput(input) {
+  const value = String(input ?? '').trim();
+  if (!value) return { ok: true, value: '' };
+  return validateCodeInput(value);
 }
 
 export function validateCodeMentorRequest(payload = {}) {
@@ -83,9 +89,6 @@ export function validateCodeMentorRequest(payload = {}) {
   const code = payload.codeSnippet ?? payload.code;
   const codeValidation = validateCodeInput(code);
   if (!codeValidation.ok) return codeValidation;
-  if (!codeValidation.value) {
-    return { ok: false, message: 'Hãy dán mã nguồn trước khi gửi Code Mentor.' };
-  }
 
   return {
     ok: true,
