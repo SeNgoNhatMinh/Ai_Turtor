@@ -5,6 +5,7 @@ import { getUserFacingError } from '../../../services/apiClient';
 import { asArray } from '../../../services/normalizers';
 import { HEATMAP_CLASS } from '../shared/teacherUtils';
 import { getPersonDisplayName } from '../../../utils/displayNames';
+import { DataTable } from '../../../components/common/DataTable';
 
 const normalizeGapLevel = (level) => {
   const normalized = String(level || '').toLowerCase();
@@ -97,6 +98,36 @@ function TeacherClassesTab({
       latest,
     };
   }, [courseMemories]);
+  const studentColumns = useMemo(() => [
+    {
+      header: 'Sinh viên',
+      accessorKey: 'fullName',
+      cell: ({ row }) => (
+        <div className="entity-name-cell">
+          <strong>{getPersonDisplayName(row.original, 'Sinh viên')}</strong>
+        </div>
+      ),
+    },
+    {
+      header: 'Email',
+      accessorKey: 'email',
+      cell: ({ row }) => row.original.email || row.original.studentEmail || '-',
+    },
+    {
+      header: 'Trạng thái học',
+      accessorKey: 'status',
+      cell: ({ row }) => <span className="badge active-badge">{row.original.status || 'Đang học'}</span>,
+    },
+    {
+      header: 'Chủ đề còn yếu',
+      accessorKey: 'weakTopics',
+      cell: ({ row }) => (row.original.weakTopics || []).length
+        ? (row.original.weakTopics || []).map((topic, index) => (
+          <span key={`${topic}-${index}`} className="tag-weak">{topic}</span>
+        ))
+        : <span className="tag-healthy">Chưa ghi nhận điểm yếu</span>,
+    },
+  ], []);
 
   const renderTopicCard = (node, i) => (
     <div
@@ -265,38 +296,14 @@ function TeacherClassesTab({
         <div className="card-header">
           <h3>{classId ? `Sinh viên trong lớp ${classId}` : 'Sinh viên trong lớp'}</h3>
         </div>
-        {teacherStudents.length === 0 ? (
-          <p className="no-data-text">Lớp chưa có sinh viên hoặc chưa tải được danh sách.</p>
-        ) : (
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Sinh viên</th>
-                <th>Email</th>
-                <th>Trạng thái học</th>
-                <th>Chủ đề còn yếu</th>
-              </tr>
-            </thead>
-            <tbody>
-              {teacherStudents.map((s) => (
-                <tr key={s.id}>
-                  <td>
-                    <div className="entity-name-cell">
-                      <strong>{getPersonDisplayName(s, 'Sinh viên')}</strong>
-                    </div>
-                  </td>
-                  <td>{s.email || s.studentEmail || '-'}</td>
-                  <td><span className="badge active-badge">{s.status || 'Đang học'}</span></td>
-                  <td>
-                    {(s.weakTopics || []).length
-                      ? (s.weakTopics || []).map((wt, i) => <span key={`${wt}-${i}`} className="tag-weak">{wt}</span>)
-                      : <span className="tag-healthy">Chưa ghi nhận điểm yếu</span>}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+        <DataTable
+          columns={studentColumns}
+          data={teacherStudents}
+          loading={teacherDashboardLoading}
+          emptyText="Lớp chưa có sinh viên hoặc chưa tải được danh sách."
+          searchKeys={['fullName', 'name', 'email', 'studentEmail', 'status', 'weakTopics']}
+          searchPlaceholder="Tìm sinh viên, email hoặc chủ đề yếu"
+        />
       </div>
     </div>
   );

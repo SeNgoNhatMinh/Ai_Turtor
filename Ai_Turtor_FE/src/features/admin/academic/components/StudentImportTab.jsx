@@ -1,5 +1,6 @@
-import { Alert, Button, Card, Col, Form, Input, Row, Select, Space, Table, Upload } from 'antd';
+import { Alert, Button, Card, Col, Form, Input, Row, Select, Space, Upload } from 'antd';
 import { DownloadOutlined, UploadOutlined } from '@ant-design/icons';
+import SearchableTable from '../../../../components/common/SearchableTable';
 import { getClassCode, getCourseSelectOptions } from '../adminAcademicUtils';
 
 const { Option } = Select;
@@ -150,7 +151,7 @@ function StudentImportTab({
               <Row gutter={[16, 16]}>
                 <Col xs={24} md={12} style={{ minWidth: 0 }}>
                   <Card size="small" title="Dòng thành công">
-                    <Table
+                    <SearchableTable
                       scroll={{ x: 300 }}
                       dataSource={(studentImportResult.successMessages || []).map((text, index) => ({ id: `success-${index}`, text }))}
                       rowKey="id"
@@ -163,7 +164,7 @@ function StudentImportTab({
                 </Col>
                 <Col xs={24} md={12} style={{ minWidth: 0 }}>
                   <Card size="small" title="Dòng có lỗi">
-                    <Table
+                    <SearchableTable
                       scroll={{ x: 300 }}
                       dataSource={(studentImportResult.errorMessages || []).map((text, index) => ({ id: `error-${index}`, text }))}
                       rowKey="id"

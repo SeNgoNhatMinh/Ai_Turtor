@@ -12,7 +12,8 @@ import { useExpertTrainingController } from './useExpertTrainingController';
 import './ExpertTraining.css';
 
 const SeniorReviewQueue = lazy(() => import('./components/SeniorReviewQueue'));
-const VALID_TABS = new Set(['coverage', 'review']);
+const SeniorTaskManagement = lazy(() => import('./components/SeniorTaskManagement'));
+const VALID_TABS = new Set(['coverage', 'tasks', 'review']);
 
 function SectionFallback() {
   return <AsyncState loading loadingLabel="Đang tải huấn luyện AI..." loadingRows={6} />;
@@ -99,6 +100,20 @@ export default function ExpertTrainingPage({
           onIgnoreChapter={controller.ignoreChapter}
           onOpenExam={() => setQueryState({ tab: 'review' })}
         />
+      ),
+    },
+    {
+      key: 'tasks',
+      label: 'Quản lý task',
+      children: (
+        <Suspense fallback={<SectionFallback />}>
+          <SeniorTaskManagement
+            courseId={courseId}
+            chapters={controller.resources.chapters}
+            currentUser={currentUser}
+            triggerToast={triggerToast}
+          />
+        </Suspense>
       ),
     },
     {

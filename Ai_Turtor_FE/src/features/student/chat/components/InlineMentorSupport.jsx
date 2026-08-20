@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Alert, Button, Tag } from 'antd';
+import { Alert, Tag } from 'antd';
 import { LifeBuoy, X } from 'lucide-react';
+import ActionButton from '../../../../components/common/ActionButton';
 import StudentMentorFlow from '../../../../components/support/StudentMentorFlow';
 import { supportChatApi } from '../../../../services/supportChatApi';
 import { getUserFacingError } from '../../../../services/apiClient';
@@ -101,9 +102,9 @@ function InlineMentorSupport({
             <span>Tạo yêu cầu, chọn giáo viên phù hợp và tiếp tục trao đổi riêng.</span>
           </div>
         </div>
-        <Button size="small" loading={isSubmitting} onClick={createSupportRequest}>
+        <ActionButton size="small" loading={isSubmitting} onClick={createSupportRequest}>
           {alreadySent ? 'Mở hỗ trợ' : 'Hỏi giáo viên'}
-        </Button>
+        </ActionButton>
       </div>
     );
   }
@@ -133,13 +134,13 @@ function InlineMentorSupport({
           showIcon
           title="Tạo yêu cầu hỗ trợ cho câu hỏi này"
           description="Hệ thống sẽ lưu môn học, lớp, cuộc trò chuyện, câu hỏi và câu trả lời AI trước khi tìm giáo viên phù hợp."
-          action={<Button size="small" type="primary" loading={isSubmitting} onClick={createSupportRequest}>Tạo yêu cầu</Button>}
+          action={<ActionButton size="small" intent="primary" loading={isSubmitting} onClick={createSupportRequest}>Tạo yêu cầu</ActionButton>}
         />
       ) : (
         <>
           <div className="inline-mentor-chat__toolbar">
             <Tag color="blue">Mentor hỗ trợ</Tag>
-            <Button size="small" onClick={onOpenReviewTab}>Mở trang hỗ trợ</Button>
+            <ActionButton size="small" onClick={onOpenReviewTab}>Mở trang hỗ trợ</ActionButton>
           </div>
           <StudentMentorFlow
             key={escalationId}

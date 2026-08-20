@@ -1,5 +1,6 @@
 package com.ragapi.config;
 
+import com.ragapi.entity.QuestionEscalation;
 import com.ragapi.service.MentorEscalationService;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,33 +30,23 @@ public class MentorEscalationScheduler {
         try {
             log.debug("Running mentor escalation scheduler...");
             
-            List<String> pendingRequests = getPendingQuestionEscalations();
-            
-            for (String requestId : pendingRequests) {
+            List<QuestionEscalation> pendingRequests = mentorEscalationService.getPendingQuestionEscalations();
+
+            for (QuestionEscalation request : pendingRequests) {
                 try {
                     long actualTime = System.currentTimeMillis();
                     // Check xem �'ã 30s chưa từ lúc user hỏi
-                    if (shouldOfferMentorHelp(requestId, actualTime)) {
-                        mentorEscalationService.offerMentorHelp(requestId);
-                        log.info("Mentor help offer sent for request: {}", requestId);
+                    if (shouldOfferMentorHelp(request.getId(), actualTime)) {
+                        mentorEscalationService.offerMentorHelp(request.getId(), request.getUserId());
+                        log.info("Mentor help offer sent for request: {}", request.getId());
                     }
                 } catch (Exception e) {
-                    log.error("Error processing question escalation: {}", requestId, e);
+                    log.error("Error processing question escalation: {}", request.getId(), e);
                 }
             }
         } catch (Exception e) {
             log.error("Error in mentor escalation scheduler", e);
         }
-    }
-    
-    /**
-     * Helper - Lấy danh sách pending question escalations
-     */
-    private List<String> getPendingQuestionEscalations() {
-        var requests = mentorEscalationService.getPendingQuestionEscalations();
-        return requests.stream()
-                .map(r -> r.getId())
-                .toList();
     }
     
     /**

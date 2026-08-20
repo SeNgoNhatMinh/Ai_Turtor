@@ -121,6 +121,38 @@ export const expertTrainingApi = {
     return asArray(response, 'tasks', 'content').map(normalizeExpertTask);
   },
 
+  async searchTasks(filters = {}, options = {}) {
+    const response = await request(`${BASE_PATH}/tasks/page${createQuery(filters)}`, {
+      signal: options.signal,
+    });
+    return {
+      tasks: asArray(response, 'tasks', 'content').map(normalizeExpertTask),
+      page: Number(response?.page) || 0,
+      size: Number(response?.size) || Number(filters.size) || 20,
+      totalElements: Number(response?.totalElements) || 0,
+      totalPages: Number(response?.totalPages) || 0,
+      hasNext: Boolean(response?.hasNext),
+    };
+  },
+
+  async getTask(taskId, options = {}) {
+    return normalizeExpertTask(await request(`${BASE_PATH}/tasks/${encodePath(taskId)}`, {
+      signal: options.signal,
+    }));
+  },
+
+  async updateTask(taskId, payload) {
+    return normalizeExpertTask(await request(`${BASE_PATH}/tasks/${encodePath(taskId)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }));
+  },
+
+  async deleteTask(taskId) {
+    return request(`${BASE_PATH}/tasks/${encodePath(taskId)}`, { method: 'DELETE' });
+  },
+
   async assignTask(taskId, payload) {
     return normalizeExpertTask(await request(`${BASE_PATH}/tasks/${encodePath(taskId)}/assign`, {
       method: 'POST',

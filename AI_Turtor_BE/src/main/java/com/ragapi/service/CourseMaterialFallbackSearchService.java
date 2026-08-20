@@ -39,6 +39,25 @@ public class CourseMaterialFallbackSearchService {
     }
 
     public List<ElasticVectorService.SearchChunk> search(String query, String courseId, String classId, int maxChunks) {
+        return search(query, courseId, classId, maxChunks, false);
+    }
+
+    public List<ElasticVectorService.SearchChunk> searchTextbook(
+            String query,
+            String courseId,
+            String classId,
+            int maxChunks
+    ) {
+        return search(query, courseId, classId, maxChunks, true);
+    }
+
+    private List<ElasticVectorService.SearchChunk> search(
+            String query,
+            String courseId,
+            String classId,
+            int maxChunks,
+            boolean textbookOnly
+    ) {
         if (courseId == null || courseId.isBlank()) {
             return List.of();
         }
@@ -49,7 +68,10 @@ public class CourseMaterialFallbackSearchService {
         List<ElasticVectorService.SearchChunk> firstAvailable = new ArrayList<>();
 
         for (CourseMaterial material : materialRepository.findByCourseId(courseId.trim())) {
-            if (!isVisibleForClass(material, classId) || material.getContent() == null || material.getContent().isBlank()) {
+            if ((textbookOnly && !isTextbookMaterial(material))
+                    || !isVisibleForClass(material, classId)
+                    || material.getContent() == null
+                    || material.getContent().isBlank()) {
                 continue;
             }
 
@@ -98,6 +120,13 @@ public class CourseMaterialFallbackSearchService {
             );
         }
         return result;
+    }
+
+    private boolean isTextbookMaterial(CourseMaterial material) {
+        return material != null
+                && !"KNOWLEDGE_CANDIDATE".equalsIgnoreCase(material.getSourceType())
+                && !"GOLD_QA".equalsIgnoreCase(material.getSourceType())
+                && !"senior-approved-knowledge".equalsIgnoreCase(material.getCategory());
     }
 
     private boolean isVisibleForClass(CourseMaterial material, String requestedClassId) {

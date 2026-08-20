@@ -128,7 +128,8 @@ export default function MentorsTab({ mentors }) {
         </Space>
       </Space>
       <Table
-        scroll={{ x: 920 }}
+        sticky
+        scroll={{ x: 920, y: 520 }}
         dataSource={filteredMentors}
         columns={columns}
         rowKey="id"

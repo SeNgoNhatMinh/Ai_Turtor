@@ -32,6 +32,11 @@ import {
   getExpertTrainingNextAction,
   groupReviewQueue,
 } from '../src/features/expert-training/expertTrainingSelectors.js';
+import {
+  buildTeacherGoldQaSummary,
+  findTaskGoldQa,
+  groupTeacherExpertTasks,
+} from '../src/features/expert-training/expertTaskBoardUtils.js';
 import { getStatusLabel } from '../src/utils/statusLabels.js';
 
 test('normalizes Tutor V2 coverage and evaluation records without inventing success', () => {
@@ -219,4 +224,28 @@ test('gold Q&A tasks are always training questions for the chapter exam', () => 
   }), 'TRAINING');
   assert.equal(getTaskGoldUsage({ type: 'GOLD_QA', title: 'Manual contribution' }), 'TRAINING');
   assert.equal(getTaskGoldUsage({ type: 'RUBRIC', title: 'Evaluation rubric' }), null);
+});
+
+test('Teacher task board follows only GOLD_QA tasks created from the Senior flow', () => {
+  const tasks = [
+    { id: 'open-1', type: 'GOLD_QA', status: 'OPEN', chapter: 'Recursion' },
+    { id: 'mine-1', type: 'GOLD_QA', status: 'SUBMITTED', assigneeId: 'teacher-1', chapter: 'Recursion' },
+    { id: 'done-1', type: 'GOLD_QA', status: 'COMPLETED', assigneeId: 'teacher-1', chapter: 'Loops' },
+    { id: 'rubric-1', type: 'RUBRIC', status: 'OPEN', chapter: 'Legacy' },
+  ];
+  const goldQa = [
+    { id: 'gold-old', sourceTaskId: 'mine-1', status: 'REJECTED', updatedAt: '2026-08-19T08:00:00Z' },
+    { id: 'gold-new', sourceTaskId: 'mine-1', status: 'PENDING_REVIEW', updatedAt: '2026-08-20T08:00:00Z' },
+    { id: 'gold-done', sourceTaskId: 'done-1', status: 'INDEXED', updatedAt: '2026-08-20T09:00:00Z' },
+  ];
+
+  const groups = groupTeacherExpertTasks(tasks, 'teacher-1');
+  const summary = buildTeacherGoldQaSummary(tasks, goldQa, 'teacher-1');
+
+  assert.deepEqual(groups.TODO.map((item) => item.id), ['open-1']);
+  assert.deepEqual(groups.DOING.map((item) => item.id), ['mine-1']);
+  assert.deepEqual(groups.DONE.map((item) => item.id), ['done-1']);
+  assert.equal(findTaskGoldQa(tasks[1], goldQa).id, 'gold-new');
+  assert.equal(summary.pendingReview, 1);
+  assert.equal(summary.indexed, 1);
 });

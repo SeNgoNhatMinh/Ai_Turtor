@@ -135,7 +135,9 @@ public class TutorAnswerCacheSeniorService {
         CanonicalTutorAnswer entry = requireEntry(cacheId);
         entry.setReviewStatus(STATUS_SENIOR_APPROVED);
         applySeniorMetadata(entry, request, null);
-        return toView(repository.save(entry));
+        CanonicalTutorAnswer saved = repository.save(entry);
+        cacheService.evictExactRagAnswer(cacheId);
+        return toView(saved);
     }
 
     public TutorAnswerCacheView correct(String cacheId, SeniorTutorAnswerCacheUpdateRequest request) {
@@ -149,7 +151,9 @@ public class TutorAnswerCacheSeniorService {
         entry.setReviewStatus(STATUS_SENIOR_CORRECTED);
         applySeniorMetadata(entry, request, corrected);
         log.info("Senior corrected tutor answer cache id={} courseId={}", cacheId, entry.getCourseId());
-        return toView(repository.save(entry));
+        CanonicalTutorAnswer saved = repository.save(entry);
+        cacheService.evictExactRagAnswer(cacheId);
+        return toView(saved);
     }
 
     public TutorAnswerCacheView disable(String cacheId, SeniorTutorAnswerCacheUpdateRequest request) {
@@ -158,7 +162,9 @@ public class TutorAnswerCacheSeniorService {
         entry.setReviewStatus(STATUS_DISABLED);
         applySeniorMetadata(entry, request, null);
         log.info("Senior disabled tutor answer cache id={} courseId={}", cacheId, entry.getCourseId());
-        return toView(repository.save(entry));
+        CanonicalTutorAnswer saved = repository.save(entry);
+        cacheService.evictExactRagAnswer(cacheId);
+        return toView(saved);
     }
 
     public void delete(String cacheId, SeniorTutorAnswerCacheUpdateRequest request) {
@@ -167,6 +173,7 @@ public class TutorAnswerCacheSeniorService {
             throw new IllegalArgumentException("Tutor answer cache entry not found");
         }
         repository.deleteById(cacheId);
+        cacheService.evictExactRagAnswer(cacheId);
         log.info("Senior deleted tutor answer cache id={}", cacheId);
     }
 
@@ -198,6 +205,7 @@ public class TutorAnswerCacheSeniorService {
                 entry.setReviewStatus(STATUS_SENIOR_CORRECTED);
             }
             repository.save(entry);
+            cacheService.evictExactRagAnswer(entry.getId());
         }
         log.info("Applied senior review decision {} to {} tutor cache entries for reviewId={}",
                 normalizedDecision,

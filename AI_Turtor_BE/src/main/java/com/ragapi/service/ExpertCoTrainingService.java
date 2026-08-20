@@ -5,11 +5,16 @@ import com.ragapi.dto.cotraining.*;
 import com.ragapi.entity.*;
 import com.ragapi.repository.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.regex.Pattern;
 
 import static com.ragapi.util.ValidationUtils.*;
 
@@ -17,6 +22,8 @@ import static com.ragapi.util.ValidationUtils.*;
 @RequiredArgsConstructor
 public class ExpertCoTrainingService {
     private static final Set<String> TASK_TYPES = Set.of("GOLD_QA", "RUBRIC", "RANKING", "REVIEW");
+    private static final Set<String> TASK_STATUSES = Set.of(
+            "OPEN", "ASSIGNED", "IN_PROGRESS", "SUBMITTED", "COMPLETED", "CANCELLED");
     private static final Set<String> GOLD_USAGE = Set.of("TRAINING", "EVALUATION");
     private static final Set<String> DIFFICULTIES = Set.of("EASY", "MEDIUM", "HARD");
     private static final Set<String> SENIOR_ROLES = Set.of("SENIOR_MENTOR", "ADMIN");
@@ -31,7 +38,9 @@ public class ExpertCoTrainingService {
     private final ChapterOutlineService chapterOutlineService;
     private final ElasticVectorService vectorService;
     private final CourseRagService courseRagService;
+    private final CanonicalTutorAnswerCacheService answerCacheService;
     private final RealtimeEventService realtimeEvents;
+    private final MongoTemplate mongoTemplate;
 
     public List<CoverageGap> analyzeCoverage(CoverageAnalysisRequest request) {
         if (request == null) {
@@ -240,6 +249,142 @@ public class ExpertCoTrainingService {
         return taskRepository.findAll();
     }
 
+    public Map<String, Object> searchTasks(
+            String status,
+            String courseId,
+            String assigneeId,
+            String type,
+            String keyword,
+            int page,
+            int size,
+            String sortBy,
+            String sortDirection
+    ) {
+        int safePage = Math.max(0, page);
+        int safeSize = Math.max(1, Math.min(100, size));
+        Query mongoQuery = new Query();
+        if (courseId != null && !courseId.isBlank()) {
+            mongoQuery.addCriteria(Criteria.where("courseId").is(courseId.trim()));
+        }
+        if (status != null && !status.isBlank()) {
+            mongoQuery.addCriteria(Criteria.where("status").is(enumValue(status, "status", TASK_STATUSES)));
+        }
+        if (type != null && !type.isBlank()) {
+            mongoQuery.addCriteria(Criteria.where("type").is(enumValue(type, "type", TASK_TYPES)));
+        }
+        if (assigneeId != null && !assigneeId.isBlank()) {
+            mongoQuery.addCriteria(Criteria.where("assigneeId").is(assigneeId.trim()));
+        }
+        if (keyword != null && !keyword.isBlank()) {
+            Pattern searchPattern = Pattern.compile(Pattern.quote(keyword.trim()), Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
+            mongoQuery.addCriteria(new Criteria().orOperator(
+                    Criteria.where("title").regex(searchPattern),
+                    Criteria.where("chapter").regex(searchPattern),
+                    Criteria.where("instructions").regex(searchPattern),
+                    Criteria.where("assigneeId").regex(searchPattern),
+                    Criteria.where("createdBy").regex(searchPattern)
+            ));
+        }
+
+        long totalElements = mongoTemplate.count(mongoQuery, ExpertTask.class);
+        String requestedSortBy = defaultText(sortBy, "updatedAt");
+        String safeSortBy = switch (requestedSortBy) {
+            case "createdAt", "dueAt", "priority", "status", "title" -> requestedSortBy;
+            default -> "updatedAt";
+        };
+        Sort.Direction direction = "asc".equalsIgnoreCase(sortDirection)
+                ? Sort.Direction.ASC
+                : Sort.Direction.DESC;
+        mongoQuery.with(Sort.by(direction, safeSortBy).and(Sort.by(Sort.Direction.DESC, "createdAt")));
+        mongoQuery.skip((long) safePage * safeSize).limit(safeSize);
+        List<ExpertTask> tasks = mongoTemplate.find(mongoQuery, ExpertTask.class);
+        int totalPages = totalElements == 0 ? 0 : (int) Math.ceil(totalElements / (double) safeSize);
+
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("tasks", tasks);
+        response.put("page", safePage);
+        response.put("size", safeSize);
+        response.put("totalElements", totalElements);
+        response.put("totalPages", totalPages);
+        response.put("hasNext", safePage + 1 < totalPages);
+        return response;
+    }
+
+    public ExpertTask getTask(String id) {
+        return task(id);
+    }
+
+    public ExpertTask updateTask(String id, UpdateExpertTaskRequest request) {
+        if (request == null) throw new IllegalArgumentException("request is required");
+        ExpertTask task = task(id);
+        if (request.getTitle() != null) {
+            task.setTitle(requireMaxLength(request.getTitle(), "title", SHORT_TEXT_MAX_LENGTH));
+        }
+        if (request.getInstructions() != null) {
+            task.setInstructions(optionalMaxLength(request.getInstructions(), "instructions", DEFAULT_TEXT_MAX_LENGTH));
+        }
+        if (request.getPriority() != null) {
+            task.setPriority(clampPriority(request.getPriority()));
+        }
+        task.setDueAt(request.getDueAt() == null ? null : normalizeDueAt(request.getDueAt()));
+
+        String nextStatus = request.getStatus() == null || request.getStatus().isBlank()
+                ? task.getStatus()
+                : enumValue(request.getStatus(), "status", TASK_STATUSES);
+        boolean statusChanged = !Objects.equals(nextStatus, task.getStatus());
+        boolean hasContribution = !goldQaRepository.findBySourceTaskId(task.getId()).isEmpty()
+                || !rubricRepository.findBySourceTaskId(task.getId()).isEmpty();
+        if (hasContribution && statusChanged) {
+            throw new IllegalArgumentException("Task already has a contribution; its status is controlled by the review flow");
+        }
+
+        if (request.getAssigneeId() != null) {
+            String assigneeId = request.getAssigneeId().trim();
+            task.setAssigneeId(assigneeId.isBlank() ? null : assigneeId);
+            task.setAssigneeTier(task.getAssigneeId() == null
+                    ? null
+                    : optionalMaxLength(request.getAssigneeTier(), "assigneeTier", SHORT_TEXT_MAX_LENGTH));
+        }
+        if ("OPEN".equals(nextStatus)) {
+            task.setAssigneeId(null);
+            task.setAssigneeTier(null);
+        } else if (Set.of("ASSIGNED", "IN_PROGRESS").contains(nextStatus)
+                && (task.getAssigneeId() == null || task.getAssigneeId().isBlank())) {
+            throw new IllegalArgumentException("assigneeId is required for status " + nextStatus);
+        }
+
+        task.setStatus(nextStatus);
+        task.setCompletedAt(Set.of("COMPLETED", "CANCELLED").contains(nextStatus)
+                ? Optional.ofNullable(task.getCompletedAt()).orElse(LocalDateTime.now())
+                : null);
+        task.setUpdatedAt(LocalDateTime.now());
+        ExpertTask saved = taskRepository.save(task);
+        realtimeEvents.publishToRoles(Set.of("TEACHER", "SENIOR_MENTOR", "ADMIN"),
+                "EXPERT_TASK_UPDATED", "EXPERT_TASK", saved.getId(), saved.getStatus(),
+                Map.of("courseId", saved.getCourseId(), "chapter", saved.getChapter(), "type", saved.getType()));
+        return saved;
+    }
+
+    public void deleteTask(String id) {
+        ExpertTask task = task(id);
+        if (!goldQaRepository.findBySourceTaskId(task.getId()).isEmpty()
+                || !rubricRepository.findBySourceTaskId(task.getId()).isEmpty()) {
+            throw new IllegalArgumentException(
+                    "Task already has a contribution and cannot be deleted; cancel it or complete the review flow");
+        }
+        taskRepository.delete(task);
+        if (task.getSourceGapId() != null && !task.getSourceGapId().isBlank()) {
+            gapRepository.findById(task.getSourceGapId()).ifPresent(gap -> {
+                gap.setStatus("OPEN");
+                gap.setUpdatedAt(LocalDateTime.now());
+                gapRepository.save(gap);
+            });
+        }
+        realtimeEvents.publishToRoles(Set.of("TEACHER", "SENIOR_MENTOR", "ADMIN"),
+                "EXPERT_TASK_DELETED", "EXPERT_TASK", task.getId(), "DELETED",
+                Map.of("courseId", task.getCourseId(), "chapter", task.getChapter(), "type", task.getType()));
+    }
+
     public ExpertTask assignTask(String id, AssignExpertTaskRequest request) {
         ExpertTask task = task(id);
         if (!Set.of("OPEN", "ASSIGNED").contains(task.getStatus())) throw new IllegalArgumentException("Task cannot be assigned in status " + task.getStatus());
@@ -313,6 +458,9 @@ public class ExpertCoTrainingService {
             gold.setStatus("INDEXED"); gold.setIndexedAt(now); gold.setHoldout(false);
         }
         GoldQa saved = goldQaRepository.save(gold);
+        if (approve) {
+            answerCacheService.evictRagAnswersForCourse(saved.getCourseId());
+        }
         completeReviewedTask(saved.getSourceTaskId(), approve);
         realtimeEvents.publishToUser(saved.getAuthorId(), approve ? "GOLD_QA_APPROVED" : "GOLD_QA_REJECTED",
                 "GOLD_QA", saved.getId(), saved.getStatus(), Map.of("courseId", saved.getCourseId(), "usage", saved.getUsage()));
@@ -387,7 +535,7 @@ public class ExpertCoTrainingService {
     public List<CoverageGap> listGaps(String courseId) { return gapRepository.findByCourseIdOrderByDetectedAtDesc(requireText(courseId, "courseId")); }
 
     private EvalResult evaluate(EvalRun run, GoldQa gold, double threshold) throws Exception {
-        ExamSnapshot exam = scoreAgainstTextbook(gold, threshold);
+        ExamSnapshot exam = scoreAgainstCurrentRag(gold, threshold);
         return EvalResult.builder().evalRunId(run.getId()).goldQaId(gold.getId()).courseId(gold.getCourseId()).chapter(gold.getChapter())
                 .question(gold.getQuestion()).goldAnswer(gold.getGoldAnswer()).aiAnswer(exam.aiAnswer()).score(exam.score())
                 .ragConfidence(exam.confidence()).passed(exam.passed()).hallucinated(exam.hallucinated())
@@ -417,7 +565,24 @@ public class ExpertCoTrainingService {
     }
 
     private ExamSnapshot scoreAgainstTextbook(GoldQa gold, double threshold) throws Exception {
-        CourseRagAnswer answer = courseRagService.askWithConfidence(gold.getQuestion(), gold.getCourseId(), null);
+        CourseRagAnswer answer = courseRagService.askWithConfidenceFromTextbook(
+                gold.getQuestion(),
+                gold.getCourseId(),
+                null
+        );
+        return scoreAnswer(gold, answer, threshold);
+    }
+
+    private ExamSnapshot scoreAgainstCurrentRag(GoldQa gold, double threshold) throws Exception {
+        CourseRagAnswer answer = courseRagService.askWithConfidence(
+                gold.getQuestion(),
+                gold.getCourseId(),
+                null
+        );
+        return scoreAnswer(gold, answer, threshold);
+    }
+
+    private ExamSnapshot scoreAnswer(GoldQa gold, CourseRagAnswer answer, double threshold) {
         double overlap = tokenOverlap(gold.getGoldAnswer(), answer.getAnswer());
         double confidence = answer.getConfidence() == null ? 0.0 : answer.getConfidence();
         double score = round(overlap * 0.75 + confidence * 0.25);

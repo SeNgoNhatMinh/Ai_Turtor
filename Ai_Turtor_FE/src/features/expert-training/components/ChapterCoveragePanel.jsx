@@ -2,8 +2,10 @@ import { useMemo, useState } from 'react';
 import { Alert, Button, Input, Segmented, Tag, Tooltip } from 'antd';
 import { BookOpen, Eye, FileSearch, Play, Search, Trash2 } from 'lucide-react';
 import AsyncState from '../../../components/common/AsyncState';
+import { CollectionPagination } from '../../../components/common/CollectionControls';
 import MetricStrip from '../../../components/common/MetricStrip';
 import { confirmDanger } from '../../../components/common/confirmDialog';
+import { useCollectionView } from '../../../hooks/useCollectionView';
 import {
   formatChapterPages,
   getChapterPdfOpenTarget,
@@ -72,6 +74,10 @@ export default function ChapterCoveragePanel({
     });
     return counts;
   }, [chapters, goldQa, tasks]);
+  const collection = useCollectionView(rows, {
+    initialPageSize: 25,
+    pageSizeOptions: [25, 50, 100],
+  });
 
   const closePreview = () => {
     setSelectedChapter(null);
@@ -174,7 +180,7 @@ export default function ChapterCoveragePanel({
           onRetry={onRefresh}
         >
           <div className="expert-training__chapter-session-list" role="list">
-            {rows.map(({ chapter, index, session }) => {
+            {collection.visibleItems.map(({ chapter, index, session }) => {
               const canStart = canReview
                 && session.key === 'NOT_STARTED'
                 && Number(chapter.chunkCount) > 0;
@@ -254,6 +260,7 @@ export default function ChapterCoveragePanel({
             })}
           </div>
         </AsyncState>
+        <CollectionPagination collection={collection} />
       </div>
 
       <ChapterPreviewDrawer

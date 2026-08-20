@@ -23,11 +23,26 @@ public class CourseMaterialLifecycleService {
     private final PdfStorageService pdfStorageService;
     private final PdfPageRenderService pdfPageRenderService;
     private final VisualVectorService visualVectorService;
+    private final CourseMaterialAccessPolicy accessPolicy;
 
-    public Map<String, Object> deleteMaterial(String courseId, String materialId, String requesterTeacherId) throws IOException {
+    public Map<String, Object> deleteMaterial(
+            String courseId,
+            String materialId,
+            String requesterId,
+            String requesterRole
+    ) throws IOException {
         CourseMaterial material = requireMaterialInCourse(courseId, materialId);
-        validateTeacherIfProvided(material, requesterTeacherId);
+        accessPolicy.requireManagePermission(material, requesterId, requesterRole);
+        return deleteMaterial(material);
+    }
 
+    public Map<String, Object> deleteMaterialAsSystem(String courseId, String materialId) throws IOException {
+        return deleteMaterial(requireMaterialInCourse(courseId, materialId));
+    }
+
+    private Map<String, Object> deleteMaterial(CourseMaterial material) throws IOException {
+        String courseId = material.getCourseId();
+        String materialId = material.getId();
         long deletedChunks = vectorService.deleteChunksByMaterialId(materialId);
         long deletedVisualPages = visualVectorService.deleteMaterial(materialId);
         if (material.getPdfFileId() != null) {
@@ -45,9 +60,19 @@ public class CourseMaterialLifecycleService {
         return response;
     }
 
-    public Map<String, Object> reindexMaterial(String courseId, String materialId, String requesterTeacherId) throws IOException {
+    public Map<String, Object> reindexMaterial(
+            String courseId,
+            String materialId,
+            String requesterRole
+    ) throws IOException {
+        accessPolicy.requireReindexPermission(requesterRole);
         CourseMaterial material = requireMaterialInCourse(courseId, materialId);
-        validateTeacherIfProvided(material, requesterTeacherId);
+        return reindexMaterial(material);
+    }
+
+    private Map<String, Object> reindexMaterial(CourseMaterial material) throws IOException {
+        String courseId = material.getCourseId();
+        String materialId = material.getId();
         if (material.getContent() == null || material.getContent().isBlank()) {
             throw new IllegalArgumentException("Course material has no extracted content to reindex");
         }
@@ -102,7 +127,11 @@ public class CourseMaterialLifecycleService {
     }
 
 
-    public Map<String, Object> reindexCourse(String courseId, String requesterTeacherId) throws IOException {
+    public Map<String, Object> reindexCourse(
+            String courseId,
+            String requesterRole
+    ) throws IOException {
+        accessPolicy.requireReindexPermission(requesterRole);
         List<CourseMaterial> materials = materialRepository.findByCourseId(courseId);
         if (materials.isEmpty()) {
             throw new IllegalArgumentException("No course materials found for requested course");
@@ -116,12 +145,6 @@ public class CourseMaterialLifecycleService {
         int indexedVisualPages = 0;
 
         for (CourseMaterial material : materials) {
-            if (requesterTeacherId != null && !requesterTeacherId.isBlank()) {
-                if (material.getTeacherId() == null || !requesterTeacherId.equals(material.getTeacherId())) {
-                    skippedMaterials++;
-                    continue;
-                }
-            }
             if (material.getContent() == null || material.getContent().isBlank()) {
                 skippedMaterials++;
                 continue;
@@ -184,7 +207,7 @@ public class CourseMaterialLifecycleService {
                 skipped++;
                 continue;
             }
-            reindexMaterial(material.getCourseId(), material.getId(), null);
+            reindexMaterial(material);
             reindexed++;
         }
         Map<String, Object> response = new LinkedHashMap<>();
@@ -203,12 +226,4 @@ public class CourseMaterialLifecycleService {
         return material;
     }
 
-    private void validateTeacherIfProvided(CourseMaterial material, String requesterTeacherId) {
-        if (requesterTeacherId == null || requesterTeacherId.isBlank()) {
-            return;
-        }
-        if (material.getTeacherId() == null || !requesterTeacherId.equals(material.getTeacherId())) {
-            throw new IllegalArgumentException("Only the material owner teacher can perform this operation");
-        }
-    }
 }

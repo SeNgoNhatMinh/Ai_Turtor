@@ -13,6 +13,94 @@
   width: 100%;
 }
 
+.answer-cache-detail-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.answer-cache-preview {
+  overflow: hidden;
+  width: 100%;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
+}
+
+.answer-cache-preview--original {
+  background: #f8fafc;
+  box-shadow: none;
+}
+
+.answer-cache-preview__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.answer-cache-preview__avatar {
+  display: inline-flex;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: #fff;
+  background: #111827;
+}
+
+.answer-cache-preview__identity {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  line-height: 1.35;
+}
+
+.answer-cache-preview__identity small {
+  color: #64748b;
+}
+
+.answer-cache-preview__content {
+  padding: 18px 22px 22px;
+}
+
+.answer-cache-preview__content .ai-answer {
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+.answer-cache-preview__content .ai-answer > :first-child {
+  margin-top: 0;
+}
+
+.answer-cache-preview__content .ai-answer > :last-child {
+  margin-bottom: 0;
+}
+
+.app-container.dark .answer-cache-preview {
+  border-color: rgba(148, 163, 184, 0.24);
+  background: #151b26;
+  box-shadow: none;
+}
+
+.app-container.dark .answer-cache-preview--original {
+  background: #111722;
+}
+
+.app-container.dark .answer-cache-preview__header {
+  border-bottom-color: rgba(148, 163, 184, 0.18);
+}
+
+.app-container.dark .answer-cache-preview__identity small {
+  color: #94a3b8;
+}
+
 .answer-cache-sources {
   margin: 8px 0 0;
   padding-left: 20px;
@@ -21,4 +109,19 @@
 .answer-cache-sources li {
   margin-bottom: 4px;
   word-break: break-word;
+}
+
+@media (max-width: 720px) {
+  .answer-cache-detail-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .answer-cache-detail-actions .ant-space {
+    width: 100%;
+  }
+
+  .answer-cache-preview__content {
+    padding: 16px;
+  }
 }

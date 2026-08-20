@@ -1,4 +1,5 @@
-import { Card, Table, Tag, Typography } from 'antd';
+import { Card, Tag, Typography } from 'antd';
+import SearchableTable from '../../../../components/common/SearchableTable';
 
 const { Text } = Typography;
 
@@ -31,7 +32,7 @@ export default function ProviderStatusTable({ providers, loading }) {
       title="Thống kê runtime theo provider"
       extra={<Text type="secondary">Tính từ lần khởi động Backend gần nhất</Text>}
     >
-      <Table
+      <SearchableTable
         size="small"
         rowKey="provider"
         dataSource={providers}

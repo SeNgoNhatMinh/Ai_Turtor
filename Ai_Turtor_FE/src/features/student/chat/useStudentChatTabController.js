@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { message } from 'antd';
 import { confirmAction } from '../../../components/common/confirmDialog';
 import { materialsApi } from '../../../services/materialsApi';
@@ -41,12 +41,14 @@ export function useStudentChatTabController({
   ));
   const messagesEndRef = useRef(null);
   const previousMessageCountRef = useRef(0);
+  const previousSessionIdRef = useRef('');
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const marker = messagesEndRef.current;
     const container = marker?.closest('.chat-workspace-messages-container');
     const messageCount = Array.isArray(messages) ? messages.length : 0;
     if (!container) return;
+    const sessionChanged = previousSessionIdRef.current !== activeSessionId;
     const scrollContainer = (top, behavior) => {
       if (typeof container.scrollTo === 'function') container.scrollTo({ top, behavior });
       else container.scrollTop = top;
@@ -55,15 +57,17 @@ export function useStudentChatTabController({
     if (messageCount === 0) {
       scrollContainer(0, 'auto');
       previousMessageCountRef.current = 0;
+      previousSessionIdRef.current = activeSessionId;
       return;
     }
 
     scrollContainer(
       container.scrollHeight,
-      previousMessageCountRef.current === 0 ? 'auto' : 'smooth',
+      sessionChanged || previousMessageCountRef.current === 0 ? 'auto' : 'smooth',
     );
     previousMessageCountRef.current = messageCount;
-  }, [messages]);
+    previousSessionIdRef.current = activeSessionId;
+  }, [activeSessionId, messages]);
 
   const onSaveRename = async (event, sessionId) => {
     event.stopPropagation();

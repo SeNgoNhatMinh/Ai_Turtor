@@ -80,6 +80,23 @@ public class CourseRagService {
     }
 
     public CourseRagAnswer askWithConfidence(String question, String courseId, String classId) throws IOException {
+        return askWithConfidenceInternal(question, courseId, classId, false);
+    }
+
+    public CourseRagAnswer askWithConfidenceFromTextbook(
+            String question,
+            String courseId,
+            String classId
+    ) throws IOException {
+        return askWithConfidenceInternal(question, courseId, classId, true);
+    }
+
+    private CourseRagAnswer askWithConfidenceInternal(
+            String question,
+            String courseId,
+            String classId,
+            boolean textbookOnly
+    ) throws IOException {
         long backendStartedNanos = System.nanoTime();
         String safeQuestion = requireMaxLength(question, "question", STUDENT_QUESTION_MAX_LENGTH);
         String safeCourseId = requireText(courseId, "courseId");
@@ -100,24 +117,26 @@ public class CourseRagService {
             return offTopicAnswer;
         }
 
-        Optional<CourseRagAnswer> exactCachedAnswer = answerCacheService.lookupExactRagAnswer(
-                safeCourseId,
-                classId,
-                safeQuestion
-        );
-        if (exactCachedAnswer.isPresent()) {
-            log.info("Returning early exact cached tutor answer for courseId={}", safeCourseId);
-            return cacheHitAuditService.completeHit(exactCachedAnswer.get(), backendStartedNanos);
-        }
+        if (!textbookOnly) {
+            Optional<CourseRagAnswer> exactCachedAnswer = answerCacheService.lookupExactRagAnswer(
+                    safeCourseId,
+                    classId,
+                    safeQuestion
+            );
+            if (exactCachedAnswer.isPresent()) {
+                log.info("Returning early exact cached tutor answer for courseId={}", safeCourseId);
+                return cacheHitAuditService.completeHit(exactCachedAnswer.get(), backendStartedNanos);
+            }
 
-        Optional<CourseRagAnswer> earlySemanticCachedAnswer = answerCacheService.lookupEarlySemanticRagAnswer(
-                safeCourseId,
-                classId,
-                safeQuestion
-        );
-        if (earlySemanticCachedAnswer.isPresent()) {
-            log.info("Returning early semantic cached tutor answer for courseId={}", safeCourseId);
-            return cacheHitAuditService.completeHit(earlySemanticCachedAnswer.get(), backendStartedNanos);
+            Optional<CourseRagAnswer> earlySemanticCachedAnswer = answerCacheService.lookupEarlySemanticRagAnswer(
+                    safeCourseId,
+                    classId,
+                    safeQuestion
+            );
+            if (earlySemanticCachedAnswer.isPresent()) {
+                log.info("Returning early semantic cached tutor answer for courseId={}", safeCourseId);
+                return cacheHitAuditService.completeHit(earlySemanticCachedAnswer.get(), backendStartedNanos);
+            }
         }
 
         log.info(
@@ -140,31 +159,39 @@ public class CourseRagService {
 
         List<ElasticVectorService.SearchChunk> chunks;
         try {
-            chunks = vectorService.searchWithScores(retrievalQuestion, safeCourseId, classId);
+            chunks = textbookOnly
+                    ? vectorService.searchTextbookWithScores(retrievalQuestion, safeCourseId, classId)
+                    : vectorService.searchWithScores(retrievalQuestion, safeCourseId, classId);
         } catch (Exception exception) {
             log.warn("Vector retrieval unavailable; using Mongo material fallback (courseId={}, classId={}): {}",
                     safeCourseId, classId, exception.getMessage());
             chunks = List.of();
         }
         if (chunks == null || chunks.isEmpty()) {
-            chunks = fallbackSearchService.search(retrievalQuestion, safeCourseId, classId, 8);
+            chunks = textbookOnly
+                    ? fallbackSearchService.searchTextbook(retrievalQuestion, safeCourseId, classId, 8)
+                    : fallbackSearchService.search(retrievalQuestion, safeCourseId, classId, 8);
         }
         if (chunks == null) {
             chunks = List.of();
         }
-        List<ElasticVectorService.SearchChunk> approvedChunks =
-                approvedKnowledgeRetrievalService.retrieveRelevant(safeQuestion, safeCourseId, classId);
-        Set<String> approvedMaterialIds = approvedChunks.stream()
-                .map(ElasticVectorService.SearchChunk::materialId)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toSet());
-        chunks = chunks.stream()
-                .filter(chunk -> chunk.materialId() == null || !approvedMaterialIds.contains(chunk.materialId()))
-                .toList();
         chunks = rerankService.rerank(retrievalQuestion, chunks);
-        List<ElasticVectorService.SearchChunk> mergedChunks = new ArrayList<>(approvedChunks);
-        mergedChunks.addAll(chunks);
-        chunks = contextBudgetService.applyBudget(mergedChunks);
+        if (textbookOnly) {
+            chunks = contextBudgetService.applyBudget(chunks);
+        } else {
+            List<ElasticVectorService.SearchChunk> approvedChunks =
+                    approvedKnowledgeRetrievalService.retrieveRelevant(safeQuestion, safeCourseId, classId);
+            Set<String> approvedMaterialIds = approvedChunks.stream()
+                    .map(ElasticVectorService.SearchChunk::materialId)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toSet());
+            chunks = chunks.stream()
+                    .filter(chunk -> chunk.materialId() == null || !approvedMaterialIds.contains(chunk.materialId()))
+                    .toList();
+            List<ElasticVectorService.SearchChunk> mergedChunks = new ArrayList<>(approvedChunks);
+            mergedChunks.addAll(chunks);
+            chunks = contextBudgetService.applyBudget(mergedChunks);
+        }
 
         List<String> contexts = chunks.stream().map(ElasticVectorService.SearchChunk::content).toList();
         log.info("Retrieved {} context chunks", contexts.size());
@@ -215,28 +242,30 @@ public class CourseRagService {
             );
         }
 
-        Optional<CourseRagAnswer> cachedAnswer = answerCacheService.lookupSemanticRagAnswer(
-                safeCourseId,
-                classId,
-                safeQuestion,
-                confidence,
-                sourceLabels
-        );
-        if (cachedAnswer.isPresent()) {
-            log.info("Returning cached tutor answer for courseId={}", safeCourseId);
-            CourseRagAnswer hit = cachedAnswer.get();
-            CourseRagAnswer enrichedHit = CourseRagAnswer.builder()
-                    .answer(hit.getAnswer())
-                    .confidence(confidence)
-                    .sources(sourceLabels)
-                    .sourceEvidence(sourceEvidence)
-                    .groundingType(groundingType)
-                    .escalationRecommended(false)
-                    .escalationReason(null)
-                    .cacheHitMetadata(hit.getCacheHitMetadata())
-                    .build();
-            answerCacheService.storeRagAnswerAsync(safeCourseId, classId, safeQuestion, enrichedHit);
-            return cacheHitAuditService.completeHit(enrichedHit, backendStartedNanos);
+        if (!textbookOnly) {
+            Optional<CourseRagAnswer> cachedAnswer = answerCacheService.lookupSemanticRagAnswer(
+                    safeCourseId,
+                    classId,
+                    safeQuestion,
+                    confidence,
+                    sourceLabels
+            );
+            if (cachedAnswer.isPresent()) {
+                log.info("Returning cached tutor answer for courseId={}", safeCourseId);
+                CourseRagAnswer hit = cachedAnswer.get();
+                CourseRagAnswer enrichedHit = CourseRagAnswer.builder()
+                        .answer(hit.getAnswer())
+                        .confidence(confidence)
+                        .sources(sourceLabels)
+                        .sourceEvidence(sourceEvidence)
+                        .groundingType(groundingType)
+                        .escalationRecommended(false)
+                        .escalationReason(null)
+                        .cacheHitMetadata(hit.getCacheHitMetadata())
+                        .build();
+                answerCacheService.storeRagAnswerAsync(safeCourseId, classId, safeQuestion, enrichedHit);
+                return cacheHitAuditService.completeHit(enrichedHit, backendStartedNanos);
+            }
         }
 
         String prompt = buildPrompt(safeQuestion, context, sourceLabels, safeCourseId, classId);
@@ -261,7 +290,9 @@ public class CourseRagService {
                     .escalationRecommended(false)
                     .escalationReason(null)
                     .build();
-            answerCacheService.storeRagAnswerAsync(safeCourseId, classId, safeQuestion, generated);
+            if (!textbookOnly) {
+                answerCacheService.storeRagAnswerAsync(safeCourseId, classId, safeQuestion, generated);
+            }
             return generated;
         } catch (Exception e) {
             log.error("Grounded tutor generation failed: {}", e.getMessage(), e);

@@ -1,4 +1,5 @@
-import { Card, Table, Tag, Typography } from 'antd';
+import { Card, Tag, Typography } from 'antd';
+import SearchableTable from '../../../../components/common/SearchableTable';
 import StatusLabel from '../../../../components/common/StatusLabel';
 
 const { Text } = Typography;
@@ -57,7 +58,7 @@ export default function AssignmentListPanel({
       className="materials-list-card"
       styles={{ body: { flex: 1, padding: 0, overflowY: 'auto' } }}
     >
-      <Table
+      <SearchableTable
         dataSource={Array.isArray(assignments) ? assignments : []}
         columns={assignmentColumns}
         rowKey={getAssignmentId}

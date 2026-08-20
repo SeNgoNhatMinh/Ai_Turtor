@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Database, Download, Pencil, Trash2 } from 'lucide-react';
+import { Download, Pencil, Trash2 } from 'lucide-react';
 import { Tag } from 'antd';
 import StatusLabel from '../../../components/common/StatusLabel';
 import EntityActionMenu from '../../../components/common/EntityActionMenu';
@@ -17,8 +17,10 @@ export function useTeacherResourceColumns({
   } = assignmentActions;
   const {
     onDownload: onDownloadMaterial,
+    onEdit: onEditMaterial,
+    onDelete: onDeleteMaterial,
+    canManage: canManageMaterial,
     pendingId: materialActionId,
-    onAction: onMaterialAction,
   } = materialActions;
 
   const assignmentColumns = useMemo(() => [
@@ -94,7 +96,17 @@ export function useTeacherResourceColumns({
     {
       accessorKey: 'classId',
       header: 'Phạm vi',
-      cell: ({ row }) => <Tag color="orange">{row.getValue('classId') ? `Lớp ${row.getValue('classId')}` : 'Toàn môn'}</Tag>,
+      cell: ({ row }) => {
+        const manageable = Boolean(canManageMaterial?.(row.original));
+        return (
+          <div className="teacher-material-scope-cell">
+            <Tag color={row.getValue('classId') ? 'orange' : 'blue'}>
+              {row.getValue('classId') ? `Lớp ${row.getValue('classId')}` : 'Tài liệu chính'}
+            </Tag>
+            <span>{manageable ? 'Bạn tải lên' : 'Chỉ xem'}</span>
+          </div>
+        );
+      },
     },
     {
       id: 'indexingStatus',
@@ -125,25 +137,26 @@ export function useTeacherResourceColumns({
         const material = row.original;
         const materialId = getRecordId(material);
         const isWebsite = material.sourceType === 'HTML_URL';
+        const manageable = Boolean(canManageMaterial?.(material));
         return (
           <EntityActionMenu
             ariaLabel="Thao tác tài liệu"
             items={[
               { key: 'download', label: isWebsite ? 'Website không có PDF' : 'Tải xuống', icon: <Download size={14} />, disabled: isWebsite || !materialId || !onDownloadMaterial },
-              { key: 'reindex', label: 'Lập chỉ mục lại', icon: <Database size={14} />, disabled: !materialId || !onMaterialAction || materialActionId === `reindex:${materialId}` },
+              { key: 'edit', label: manageable ? 'Chỉnh sửa' : 'Chỉ được sửa tài liệu bạn tải lên', icon: <Pencil size={14} />, disabled: !materialId || !manageable || !onEditMaterial },
               { type: 'divider' },
-              { key: 'delete', label: 'Xóa', icon: <Trash2 size={14} />, danger: true, disabled: !materialId || !onMaterialAction || materialActionId === `delete:${materialId}` },
+              { key: 'delete', label: manageable ? 'Xóa' : 'Không thể xóa tài liệu chính', icon: <Trash2 size={14} />, danger: true, disabled: !materialId || !manageable || !onDeleteMaterial || materialActionId === `delete:${materialId}` },
             ]}
-            onAction={(key) => {
+            onAction={(key, meta) => {
               if (key === 'download') onDownloadMaterial?.(materialId, material.title, material);
-              if (key === 'reindex') onMaterialAction?.('reindex', material);
-              if (key === 'delete') onMaterialAction?.('delete', material);
+              if (key === 'edit') onEditMaterial?.(material);
+              if (key === 'delete') onDeleteMaterial?.(material, meta?.anchorRect);
             }}
           />
         );
       },
     },
-  ], [materialActionId, onDownloadMaterial, onMaterialAction]);
+  ], [canManageMaterial, materialActionId, onDeleteMaterial, onDownloadMaterial, onEditMaterial]);
 
   return { assignmentColumns, materialColumns };
 }

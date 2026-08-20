@@ -3,6 +3,8 @@ import { getUserFacingError } from '../../../services/apiClient';
 import { materialsApi } from '../../../services/materialsApi';
 import { useMutationLock } from '../../../hooks/useMutationLock';
 import { getRecordId } from '../shared/teacherUtils';
+import { confirmDanger } from '../../../components/common/confirmDialog';
+import { isTeacherOwnedMaterial } from './teacherMaterialPermissions';
 
 const UPLOAD_COOLDOWN_MS = 2500;
 
@@ -19,6 +21,8 @@ export function useTeacherMaterialController({
   const [title, setTitle] = useState('');
   const [uploading, setUploading] = useState(false);
   const [actionId, setActionId] = useState('');
+  const [editing, setEditing] = useState(null);
+  const [updating, setUpdating] = useState(false);
   const [pendingUpload, setPendingUpload] = useState(null);
   const cooldownTimerRef = useRef(null);
   const { runLocked } = useMutationLock();
@@ -126,36 +130,75 @@ export function useTeacherMaterialController({
     setPendingUpload(null);
   }, []);
 
-  const runAction = useCallback(async (action, material) => {
+  const canManage = useCallback(
+    (material) => isTeacherOwnedMaterial(material, teacherUserId),
+    [teacherUserId],
+  );
+
+  const edit = useCallback((material) => {
+    if (!canManage(material)) {
+      triggerToast('Bạn chỉ có thể chỉnh sửa tài liệu do chính mình tải lên.');
+      return;
+    }
+    setEditing(material);
+  }, [canManage, triggerToast]);
+
+  const update = useCallback(async (values) => {
+    const materialId = getRecordId(editing);
+    if (!materialId || !canManage(editing)) {
+      triggerToast('Bạn không có quyền chỉnh sửa tài liệu này.');
+      return;
+    }
+
+    return runLocked(`teacher:material:update:${materialId}`, async () => {
+      setUpdating(true);
+      try {
+        await materialsApi.updateMaterialMetadata(courseId, materialId, {
+          title: String(values?.title || '').trim(),
+          category: String(values?.category || '').trim(),
+        });
+        setEditing(null);
+        triggerToast('Đã cập nhật thông tin tài liệu.');
+        await onReload?.();
+      } catch (error) {
+        triggerToast(getUserFacingError(error, 'Không thể cập nhật tài liệu.'));
+      } finally {
+        setUpdating(false);
+      }
+    });
+  }, [canManage, courseId, editing, onReload, runLocked, triggerToast]);
+
+  const remove = useCallback((material, anchorRect) => {
     const materialId = getRecordId(material);
     if (!materialId) {
       triggerToast('Học liệu này thiếu mã định danh.');
       return;
     }
+    if (!canManage(material)) {
+      triggerToast('Bạn chỉ có thể xóa tài liệu do chính mình tải lên.');
+      return;
+    }
 
-    return runLocked(`teacher:material:${action}:${materialId}`, async () => {
-      setActionId(`${action}:${materialId}`);
-      try {
-        if (action === 'reindex') {
-          await materialsApi.reindexMaterial(courseId, materialId, teacherUserId);
-          triggerToast('Đã gửi yêu cầu lập chỉ mục lại học liệu.');
-        } else if (action === 'delete') {
-          await materialsApi.deleteMaterial(courseId, materialId, teacherUserId);
-          triggerToast('Đã xóa học liệu.');
-        } else {
-          throw new Error(`Unsupported material action: ${action}`);
+    confirmDanger({
+      title: 'Xóa tài liệu của bạn?',
+      content: 'Tài liệu và các đoạn đã lập chỉ mục của tài liệu này sẽ bị xóa. Thao tác không thể hoàn tác.',
+      okText: 'Xóa tài liệu',
+      cancelText: 'Hủy',
+      anchorRect,
+      onOk: () => runLocked(`teacher:material:delete:${materialId}`, async () => {
+        setActionId(`delete:${materialId}`);
+        try {
+          await materialsApi.deleteMaterial(courseId, materialId);
+          triggerToast('Đã xóa tài liệu.');
+          await onReload?.();
+        } catch (error) {
+          triggerToast(getUserFacingError(error, 'Không thể xóa tài liệu.'));
+        } finally {
+          setActionId('');
         }
-        await onReload?.();
-      } catch (error) {
-        triggerToast(getUserFacingError(
-          error,
-          action === 'delete' ? 'Không thể xóa học liệu.' : 'Không thể lập chỉ mục lại học liệu.',
-        ));
-      } finally {
-        setActionId('');
-      }
+      }),
     });
-  }, [courseId, onReload, runLocked, teacherUserId, triggerToast]);
+  }, [canManage, courseId, onReload, runLocked, triggerToast]);
 
   return {
     file,
@@ -164,9 +207,15 @@ export function useTeacherMaterialController({
     setTitle,
     uploading,
     actionId,
+    editing,
+    setEditing,
+    updating,
     pendingUpload: resolvedPendingUpload,
     clearUploadDraft,
     upload,
-    runAction,
+    canManage,
+    edit,
+    update,
+    remove,
   };
 }

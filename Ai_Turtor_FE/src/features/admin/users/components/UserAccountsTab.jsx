@@ -97,7 +97,8 @@ export default function UserAccountsTab({ users }) {
           </Space>
         </Space>
         <Table
-          scroll={{ x: 720 }}
+          sticky
+          scroll={{ x: 720, y: 520 }}
           dataSource={users.list}
           columns={columns}
           rowKey="id"

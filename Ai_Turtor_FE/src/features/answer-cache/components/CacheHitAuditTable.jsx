@@ -1,4 +1,5 @@
-import { Card, Table, Tag, Typography } from 'antd';
+import { Card, Tag, Typography } from 'antd';
+import SearchableTable from '../../../components/common/SearchableTable';
 
 const { Text } = Typography;
 
@@ -62,7 +63,7 @@ export default function CacheHitAuditTable({ hits = [], loading = false }) {
       title="Log cache đã phục vụ học sinh"
       extra={<Text type="secondary">Thời gian Backend, không gồm truyền mạng</Text>}
     >
-      <Table
+      <SearchableTable
         rowKey={(row) => row.id || `${row.matchedCacheId}-${row.createdAt}`}
         size="small"
         loading={loading}

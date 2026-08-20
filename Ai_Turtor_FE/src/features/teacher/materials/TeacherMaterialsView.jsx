@@ -2,6 +2,7 @@ import { Suspense, lazy, useState } from 'react';
 import AssignmentEditModal from './AssignmentEditModal';
 import AssignmentPublishCard from './AssignmentPublishCard';
 import TeacherMaterialUploadCard from './TeacherMaterialUploadCard';
+import TeacherMaterialEditModal from './TeacherMaterialEditModal';
 import TeacherResourceTables from './TeacherResourceTables';
 import { useTeacherResourceColumns } from './useTeacherResourceColumns';
 
@@ -28,8 +29,10 @@ export default function TeacherMaterialsView({
     },
     materialActions: {
       onDownload: onDownloadMaterial,
+      onEdit: materials.edit,
+      onDelete: materials.remove,
+      canManage: materials.canManage,
       pendingId: materials.actionId,
-      onAction: materials.runAction,
     },
   });
 
@@ -78,6 +81,14 @@ export default function TeacherMaterialsView({
         saving={assignments.updating}
         onCancel={() => assignments.setEditing(null)}
         onSave={assignments.update}
+      />
+
+      <TeacherMaterialEditModal
+        material={materials.editing}
+        open={Boolean(materials.editing)}
+        saving={materials.updating}
+        onCancel={() => materials.setEditing(null)}
+        onSave={materials.update}
       />
 
       {websiteImportOpen && (

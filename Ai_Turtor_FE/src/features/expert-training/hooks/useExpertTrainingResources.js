@@ -125,17 +125,12 @@ export function useExpertTrainingResources({
   const loadContributions = useCallback(() => {
     if (!courseId) return Promise.resolve([]);
     return loadWithState('contributions', async () => {
-      const [goldQa, rubrics] = await Promise.all([
-        expertTrainingApi.getGoldQa(courseId),
-        resourceMode === 'reviewer'
-          ? Promise.resolve([])
-          : expertTrainingApi.getRubrics(courseId),
-      ]);
-      return { goldQa, rubrics };
+      const goldQa = await expertTrainingApi.getGoldQa(courseId);
+      return { goldQa, rubrics: [] };
     }, ({ goldQa, rubrics }) => {
       setResources((current) => ({ ...current, goldQa, rubrics }));
     });
-  }, [courseId, loadWithState, resourceMode]);
+  }, [courseId, loadWithState]);
 
   const loadEvaluation = useCallback(() => {
     if (!courseId) return Promise.resolve([]);
@@ -192,15 +187,19 @@ export function useExpertTrainingResources({
     [resources.tasks, selectedTaskId],
   );
 
-  const selectedTaskRejection = useMemo(() => {
+  const selectedTaskContribution = useMemo(() => {
     if (!selectedTask) return null;
-    return [...resources.goldQa, ...resources.rubrics]
-      .filter((item) => item.sourceTaskId === selectedTask.id && item.status === 'REJECTED')
+    return resources.goldQa
+      .filter((item) => item.sourceTaskId === selectedTask.id)
       .sort((left, right) => (
-        new Date(right.updatedAt || right.reviewedAt || 0)
-        - new Date(left.updatedAt || left.reviewedAt || 0)
+        new Date(right.updatedAt || right.reviewedAt || right.examinedAt || 0)
+        - new Date(left.updatedAt || left.reviewedAt || left.examinedAt || 0)
       ))[0] || null;
-  }, [resources.goldQa, resources.rubrics, selectedTask]);
+  }, [resources.goldQa, selectedTask]);
+
+  const selectedTaskRejection = selectedTaskContribution?.status === 'REJECTED'
+    ? selectedTaskContribution
+    : null;
 
   const pendingReviewCount = useMemo(() => (
     resources.goldQa.filter((item) => item.status === 'PENDING_REVIEW').length
@@ -298,6 +297,7 @@ export function useExpertTrainingResources({
     loading,
     errors,
     selectedTask,
+    selectedTaskContribution,
     selectedTaskRejection,
     chapterPreview,
     setChapterPreview,

@@ -1,9 +1,9 @@
 .expert-training-page {
   width: 100%;
-  height: 100%;
+  height: auto;
+  min-height: 100%;
   min-width: 0;
-  overflow-x: hidden;
-  overflow-y: auto;
+  overflow: visible;
   padding: 28px clamp(18px, 3vw, 40px) 56px;
   color: #202123;
 }
@@ -194,6 +194,57 @@
   margin-top: auto;
 }
 
+.expert-training__task-result {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 9px;
+  padding: 10px 12px;
+  border: 1px solid #dbe3ee;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #475569;
+}
+
+.expert-training__task-result > svg {
+  margin-top: 2px;
+}
+
+.expert-training__task-result > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.expert-training__task-result strong {
+  color: #1f2937;
+  font-size: 13px;
+}
+
+.expert-training__task-result span {
+  font-size: 12px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.expert-training__task-result--passed,
+.expert-training__task-result--indexed {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+  color: #15803d;
+}
+
+.expert-training__task-result--revision {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.expert-training__task-result--review {
+  border-color: #fde68a;
+  background: #fffbeb;
+  color: #a16207;
+}
+
 .expert-training__task-due-field {
   display: grid;
   gap: 6px;
@@ -368,6 +419,30 @@
   display: flex;
   justify-content: flex-end;
   margin-top: 18px;
+}
+
+.expert-training__teacher-exam-result {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.expert-training__teacher-exam-answer {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.expert-training__teacher-exam-answer > strong {
+  color: #1f2937;
+  font-size: 13px;
+}
+
+.expert-training__teacher-exam-answer .ant-typography {
+  margin: 0;
 }
 
 .expert-training__criteria-list {

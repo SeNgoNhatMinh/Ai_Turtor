@@ -9,4 +9,5 @@ public interface GoldQaRepository extends MongoRepository<GoldQa, String> {
     List<GoldQa> findByCourseIdAndUsageAndStatus(String courseId, String usage, String status);
     List<GoldQa> findByCourseIdAndChapterAndUsage(String courseId, String chapter, String usage);
     List<GoldQa> findByCourseIdAndChapterOrderByCreatedAtDesc(String courseId, String chapter);
+    List<GoldQa> findBySourceTaskId(String sourceTaskId);
 }

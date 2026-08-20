@@ -5,11 +5,11 @@ import {
   Modal,
   Progress,
   Row,
-  Table,
   Tag,
   Typography,
 } from 'antd';
 import AsyncState from '../../../../components/common/AsyncState';
+import SearchableTable from '../../../../components/common/SearchableTable';
 import StatusLabel from '../../../../components/common/StatusLabel';
 import { normalizeEvalRun } from '../../../../services/expertTrainingNormalizers';
 import { asArray } from '../../../../services/normalizers';
@@ -98,7 +98,7 @@ export default function EvaluationDetailModal({
             </Row>
             {run.error && <Alert type="error" showIcon title="Evaluation gặp lỗi" description={run.error} />}
             <Paragraph type="secondary">Kết quả được tải từ backend canonical, không dựng lại từ sự kiện WebSocket.</Paragraph>
-            <Table
+            <SearchableTable
               rowKey={(item) => item.id || item.goldQaId}
               columns={resultColumns}
               dataSource={results}

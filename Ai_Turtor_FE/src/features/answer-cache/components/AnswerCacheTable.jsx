@@ -5,13 +5,15 @@ import {
   Input,
   Modal,
   Space,
-  Table,
   Tag,
   Typography,
 } from 'antd';
-import { CheckCircle2, Edit3, Eye, PowerOff, Trash2 } from 'lucide-react';
+import { CheckCircle2, Edit3, Eye, PowerOff, Trash2, X } from 'lucide-react';
+import ActionButton from '../../../components/common/ActionButton';
 import EntityActionMenu from '../../../components/common/EntityActionMenu';
+import SearchableTable from '../../../components/common/SearchableTable';
 import { confirmAction, confirmDanger } from '../../../components/common/confirmDialog';
+import CachedAnswerPreview from './CachedAnswerPreview';
 
 const { Paragraph, Text } = Typography;
 const { TextArea } = Input;
@@ -131,6 +133,12 @@ export default function AnswerCacheTable({
     return items;
   };
 
+  const handleDetailAction = (key) => {
+    const entry = detailEntry;
+    setDetailEntry(null);
+    handleAction(key, entry);
+  };
+
   const columns = [
     {
       title: 'Câu hỏi',
@@ -214,7 +222,7 @@ export default function AnswerCacheTable({
         title="Cache câu trả lời AI"
         extra={<Text type="secondary">{entries.length} entry</Text>}
       >
-        <Table
+        <SearchableTable
           rowKey="id"
           size="middle"
           scroll={{ x: 1250 }}
@@ -228,9 +236,40 @@ export default function AnswerCacheTable({
       <Modal
         open={Boolean(detailEntry)}
         title="Chi tiết cache"
-        footer={null}
-        width={760}
+        width={920}
         onCancel={() => setDetailEntry(null)}
+        footer={detailEntry && (
+          <div className="answer-cache-detail-actions">
+            <ActionButton icon={<X size={15} />} onClick={() => setDetailEntry(null)}>
+              Đóng
+            </ActionButton>
+            <Space wrap>
+              {detailEntry.reviewStatus !== 'SENIOR_APPROVED' && (
+                <ActionButton
+                  intent="primary"
+                  icon={<CheckCircle2 size={15} />}
+                  loading={mutationKey === `approve-${detailEntry.id}`}
+                  onClick={() => handleDetailAction('approve')}
+                >
+                  Duyệt
+                </ActionButton>
+              )}
+              {detailEntry.reviewStatus !== 'DISABLED' && (
+                <>
+                  <ActionButton icon={<Edit3 size={15} />} onClick={() => handleDetailAction('correct')}>
+                    Sửa câu trả lời
+                  </ActionButton>
+                  <ActionButton intent="danger" icon={<PowerOff size={15} />} onClick={() => handleDetailAction('disable')}>
+                    Tắt cache
+                  </ActionButton>
+                </>
+              )}
+              <ActionButton intent="danger" icon={<Trash2 size={15} />} onClick={() => handleDetailAction('delete')}>
+                Xóa entry
+              </ActionButton>
+            </Space>
+          </div>
+        )}
       >
         {detailEntry && (
           <Space direction="vertical" size="middle" className="answer-cache-detail">
@@ -242,15 +281,9 @@ export default function AnswerCacheTable({
               <Text type="secondary">Câu hỏi</Text>
               <Paragraph>{detailEntry.question}</Paragraph>
             </div>
-            <div>
-              <Text type="secondary">Câu trả lời hiện tại</Text>
-              <Paragraph>{detailEntry.answer}</Paragraph>
-            </div>
+            <CachedAnswerPreview answer={detailEntry.answer} />
             {detailEntry.originalAnswer && (
-              <div>
-                <Text type="secondary">Câu trả lời gốc (trước khi sửa)</Text>
-                <Paragraph type="secondary">{detailEntry.originalAnswer}</Paragraph>
-              </div>
+              <CachedAnswerPreview answer={detailEntry.originalAnswer} original />
             )}
             <Space wrap>
               <Tag>Mode: {detailEntry.mode}</Tag>
@@ -288,11 +321,19 @@ export default function AnswerCacheTable({
       <Modal
         open={Boolean(correctEntry)}
         title="Sửa câu trả lời trong cache"
-        okText="Lưu"
-        cancelText="Hủy"
-        confirmLoading={mutationKey === `correct-${correctEntry?.id}`}
         onCancel={closeCorrectModal}
-        onOk={() => form.submit()}
+        footer={(
+          <Space>
+            <ActionButton onClick={closeCorrectModal}>Hủy</ActionButton>
+            <ActionButton
+              intent="primary"
+              loading={mutationKey === `correct-${correctEntry?.id}`}
+              onClick={() => form.submit()}
+            >
+              Lưu
+            </ActionButton>
+          </Space>
+        )}
       >
         <Form form={form} layout="vertical" onFinish={saveCorrection}>
           <Form.Item
@@ -311,12 +352,19 @@ export default function AnswerCacheTable({
       <Modal
         open={Boolean(disableEntry)}
         title="Tắt cache câu trả lời?"
-        okText="Tắt cache"
-        okButtonProps={{ danger: true }}
-        cancelText="Hủy"
-        confirmLoading={mutationKey === `disable-${disableEntry?.id}`}
         onCancel={() => setDisableEntry(null)}
-        onOk={submitDisable}
+        footer={(
+          <Space>
+            <ActionButton onClick={() => setDisableEntry(null)}>Hủy</ActionButton>
+            <ActionButton
+              intent="danger"
+              loading={mutationKey === `disable-${disableEntry?.id}`}
+              onClick={submitDisable}
+            >
+              Tắt cache
+            </ActionButton>
+          </Space>
+        )}
       >
         <Paragraph>
           Sinh viên sẽ không còn nhận câu trả lời này từ cache semantic. Hệ thống vẫn gọi LLM khi có câu hỏi tương tự.

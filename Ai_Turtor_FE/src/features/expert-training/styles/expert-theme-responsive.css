@@ -32,6 +32,37 @@
   color: #c5c7ce;
 }
 
+.app-container.dark .expert-training__task-result,
+.app-container.dark .expert-training__teacher-exam-answer {
+  background: #111827;
+  border-color: #374151;
+  color: #d1d5db;
+}
+
+.app-container.dark .expert-training__task-result strong,
+.app-container.dark .expert-training__teacher-exam-answer > strong {
+  color: #f9fafb;
+}
+
+.app-container.dark .expert-training__task-result--passed,
+.app-container.dark .expert-training__task-result--indexed {
+  background: #052e16;
+  border-color: #166534;
+  color: #86efac;
+}
+
+.app-container.dark .expert-training__task-result--revision {
+  background: #450a0a;
+  border-color: #991b1b;
+  color: #fca5a5;
+}
+
+.app-container.dark .expert-training__task-result--review {
+  background: #422006;
+  border-color: #92400e;
+  color: #fde68a;
+}
+
 .app-container.dark .expert-training__table-row--selected > td {
   background: rgba(243, 112, 33, 0.13) !important;
 }

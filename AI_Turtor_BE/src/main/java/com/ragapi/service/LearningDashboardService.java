@@ -89,7 +89,6 @@ public class LearningDashboardService {
                 .filter(item -> isBlank(courseId) || courseId.equals(item.getCourseId()))
                 .filter(item -> isBlank(classId) || classId.equals(item.getClassId()))
                 .toList();
-        List<String> courseIds = classes.stream().map(ClassSection::getCourseId).distinct().toList();
         List<CourseEnrollment> students = classes.stream()
                 .flatMap(section -> enrollmentRepository.findByCourseIdAndClassId(section.getCourseId(), section.getClassId()).stream())
                 .toList();
@@ -108,9 +107,9 @@ public class LearningDashboardService {
                 .filter(item -> isBlank(courseId) || courseId.equals(item.getCourseId()))
                 .toList();
         List<QuestionEscalation> escalations = escalationRepository.findAll().stream()
-                .filter(item -> courseIds.contains(item.getCourseId()))
+                .filter(item -> isAssignedToTeacher(item, teacherId))
+                .filter(item -> isBlank(courseId) || courseId.equals(item.getCourseId()))
                 .filter(item -> isBlank(classId) || classId.equals(item.getClassId()))
-                .filter(item -> teacherId.equals(item.getAssignedMentorId()) || isTeacherClass(teacherId, item.getCourseId(), item.getClassId()))
                 .toList();
         List<KnowledgeCandidate> candidates = candidateRepository.findAll().stream()
                 .filter(item -> matchesTeacherId(teacherId, item.getTeacherId()))
@@ -147,7 +146,7 @@ public class LearningDashboardService {
 
     public List<QuestionEscalation> listTeacherEscalationInbox(String teacherId, String status, String query) {
         return escalationRepository.findAll().stream()
-                .filter(item -> teacherId.equals(item.getAssignedMentorId()) || isTeacherClass(teacherId, item.getCourseId(), item.getClassId()))
+                .filter(item -> isAssignedToTeacher(item, teacherId))
                 .filter(item -> isBlank(status) || status.equalsIgnoreCase(item.getStatus()))
                 .filter(item -> matchesEscalationQuery(item, query))
                 .toList();
@@ -170,11 +169,10 @@ public class LearningDashboardService {
                 && assignment.getClassId().equals(enrollment.getClassId()));
     }
 
-    private boolean isTeacherClass(String teacherId, String courseId, String classId) {
-        if (isBlank(teacherId) || isBlank(courseId) || isBlank(classId)) return false;
-        return classSectionRepository.findByCourseIdAndClassId(courseId, classId)
-                .map(section -> matchesTeacherId(teacherId, section.getTeacherId()))
-                .orElse(false);
+    private boolean isAssignedToTeacher(QuestionEscalation escalation, String teacherId) {
+        return escalation != null
+                && !isBlank(escalation.getAssignedMentorId())
+                && matchesTeacherId(teacherId, escalation.getAssignedMentorId());
     }
 
     private boolean matchesTeacherId(String requesterTeacherId, String sectionTeacherKey) {

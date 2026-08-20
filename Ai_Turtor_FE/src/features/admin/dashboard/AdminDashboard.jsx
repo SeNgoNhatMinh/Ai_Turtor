@@ -1,5 +1,5 @@
 import React from 'react';
-import { Row, Col, Card, Statistic, Space, Alert, Button, Typography, Tag, Table, Input } from 'antd';
+import { Row, Col, Card, Statistic, Space, Alert, Button, Typography, Tag, Input } from 'antd';
 import {
   Users, GraduationCap, Library, AlertTriangle, RefreshCw, Server, FileText,
   BookOpenCheck,
@@ -10,6 +10,7 @@ import { env } from '../../../config/env';
 import { getUserFacingError } from '../../../services/apiClient';
 import ActionQueue from '../../../components/common/ActionQueue';
 import AppTabs from '../../../components/common/AppTabs';
+import SearchableTable from '../../../components/common/SearchableTable';
 
 const { Text } = Typography;
 
@@ -126,7 +127,7 @@ function AdminDashboard({
                     title={`${diagnosticsOutput.activeProviderCount ?? providerRows.filter((item) => item.effectiveEnabled).length} / ${diagnosticsOutput.providerCount ?? providerRows.length} provider LLM đang hoạt động trong chain`}
                     description="Danh sách dưới đây phản ánh đúng cấu hình fallback Groq, NVIDIA NIM, OpenRouter và Ollama từ Backend."
                   />
-                  <Table
+                  <SearchableTable
                     size="small"
                     pagination={false}
                     rowKey="providerId"
@@ -195,7 +196,7 @@ function AdminDashboard({
                 style={{ marginBottom: 12 }}
               />
             )}
-            <Table
+            <SearchableTable
               dataSource={logs}
               rowKey={(record, index) => record.id || record.timestamp || record.traceId || `log-${index}`}
               size="small"

@@ -1,4 +1,5 @@
-import { Alert, Drawer, Empty, Skeleton, Space, Statistic, Table, Tag, Typography } from 'antd';
+import { Alert, Drawer, Empty, Skeleton, Space, Statistic, Tag, Typography } from 'antd';
+import SearchableTable from '../../../../components/common/SearchableTable';
 import { getQuizGradingModeLabel } from '../quizAssignmentUtils';
 import { formatQuizDateTime } from '../../../student/quizzes/practiceQuizUtils';
 
@@ -112,7 +113,7 @@ export default function QuizScoreboardDrawer({
           ) : !rows.length ? (
             <Empty description="Chưa có sinh viên hoặc lượt làm bài cho quiz này." />
           ) : (
-            <Table
+            <SearchableTable
               className="quiz-scoreboard__table"
               size="small"
               rowKey="key"

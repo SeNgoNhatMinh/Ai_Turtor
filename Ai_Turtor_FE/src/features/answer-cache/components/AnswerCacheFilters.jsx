@@ -1,5 +1,6 @@
-import { Button, Input, Select, Space } from 'antd';
+import { Input, Select, Space } from 'antd';
 import { RefreshCw } from 'lucide-react';
+import ActionButton from '../../../components/common/ActionButton';
 import ScopeBar from '../../../components/common/ScopeBar';
 
 const MODE_OPTIONS = [
@@ -30,9 +31,9 @@ export default function AnswerCacheFilters({
     <ScopeBar
       className="answer-cache-filters"
       actions={(
-        <Button icon={<RefreshCw size={16} />} loading={loading || loadingCourses} onClick={onRefresh}>
+        <ActionButton icon={<RefreshCw size={16} />} loading={loading || loadingCourses} onClick={onRefresh}>
           Làm mới
-        </Button>
+        </ActionButton>
       )}
     >
       <Space wrap size="middle">

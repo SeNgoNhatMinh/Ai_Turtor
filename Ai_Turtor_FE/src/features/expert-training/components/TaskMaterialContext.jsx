@@ -1,5 +1,6 @@
-import { Alert, Button, Card, Empty, Skeleton, Space, Tag, Typography } from 'antd';
+import { Alert, Card, Empty, Skeleton, Space, Tag, Typography } from 'antd';
 import { ExternalLink } from 'lucide-react';
+import ActionButton from '../../../components/common/ActionButton';
 import StatusLabel from '../../../components/common/StatusLabel';
 import ChapterPageViewer from './ChapterPageViewer';
 import {
@@ -85,13 +86,13 @@ export default function TaskMaterialContext({
                 <StatusLabel status={source.indexingStatus} />
               </div>
               {isPdfMaterialSource(source) ? (
-                <Button
+                <ActionButton
                   size="small"
                   icon={<ExternalLink size={14} />}
                   onClick={() => onOpenMaterial?.(source)}
                 >
                   Mở PDF
-                </Button>
+                </ActionButton>
               ) : <Tag>{source.sourceType || 'Nguồn khác'}</Tag>}
             </div>
           )) : <Text type="secondary">Không có nguồn đính kèm.</Text>}

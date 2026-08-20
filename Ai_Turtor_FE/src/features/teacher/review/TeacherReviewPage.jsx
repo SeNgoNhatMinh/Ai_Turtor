@@ -28,6 +28,7 @@ export default function TeacherReviewPage({
   const [replyImages, setReplyImages] = useState([]);
   const [createKnowledgeCandidate, setCreateKnowledgeCandidate] = useState(false);
   const [candidateType, setCandidateType] = useState('ACADEMIC_KNOWLEDGE');
+  const answerReviewCount = review.answerReviewGroups?.length || review.answerReviews?.length || 0;
 
   useEffect(() => {
     review.loadTeacherInbox({ courseId });
@@ -72,6 +73,18 @@ export default function TeacherReviewPage({
         eyebrow="Hỗ trợ & chất lượng AI"
         title={uiCopy.teacher.review.title}
         description="Hỗ trợ sinh viên theo lớp phụ trách và xác minh phản hồi AI ở mức Teacher. Lịch sử ChatRoom vẫn xem lại được sau khi đóng."
+        actions={(
+          <div className="teacher-review-header-stats" aria-label="Tổng quan hàng đợi">
+            <div>
+              <strong>{review.escalations.length}</strong>
+              <span>Yêu cầu hỗ trợ</span>
+            </div>
+            <div>
+              <strong>{answerReviewCount}</strong>
+              <span>Phản hồi AI</span>
+            </div>
+          </div>
+        )}
       />
       <AppTabs
         className="teacher-review-tabs"
@@ -104,7 +117,7 @@ export default function TeacherReviewPage({
           },
           {
             key: 'answer-reviews',
-            label: `Phản hồi AI (${review.answerReviewGroups?.length || review.answerReviews?.length || 0})`,
+            label: `Phản hồi AI (${answerReviewCount})`,
             children: (
               <AnswerReviewWorkspace
                 mode="mentor"

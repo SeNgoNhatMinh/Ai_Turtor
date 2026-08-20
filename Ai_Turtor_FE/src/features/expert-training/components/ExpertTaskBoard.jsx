@@ -1,44 +1,56 @@
 import { useMemo, useState } from 'react';
-import { Button, Card, Segmented, Space, Tag, Typography } from 'antd';
-import { BookOpenCheck, CheckCircle2, Clock3, Eye, Loader2, RefreshCw } from 'lucide-react';
+import { Card, Segmented, Space, Tag, Typography } from 'antd';
+import {
+  BookOpenCheck,
+  CheckCircle2,
+  Clock3,
+  Database,
+  Eye,
+  Loader2,
+  RefreshCw,
+  RotateCcw,
+  ShieldCheck,
+} from 'lucide-react';
+import ActionButton from '../../../components/common/ActionButton';
 import AsyncState from '../../../components/common/AsyncState';
+import { CollectionPagination, CollectionSearch } from '../../../components/common/CollectionControls';
 import StatusLabel from '../../../components/common/StatusLabel';
+import { useCollectionView } from '../../../hooks/useCollectionView';
 import {
   formatExpertTaskDateTime,
+  formatPercent,
   getExpertTaskDueMeta,
-  getTaskGoldUsage,
 } from '../expertTrainingUtils';
-import { groupTeacherExpertTasks } from '../expertTaskBoardUtils';
+import { findTaskGoldQa, groupTeacherExpertTasks } from '../expertTaskBoardUtils';
 
 const { Paragraph, Text } = Typography;
 const FINISHED_STATUSES = new Set(['COMPLETED', 'DONE', 'CANCELLED']);
-const CONTRIBUTION_TYPES = new Set(['GOLD_QA', 'RUBRIC']);
+const TASK_SEARCH_KEYS = ['title', 'chapter', 'instructions', 'status', 'assigneeId'];
 
 function TaskAction({ task, userId, pendingAction, onClaim, onContribute, onPreview }) {
   const isOwner = task.assigneeId === userId;
-  const isContributionTask = CONTRIBUTION_TYPES.has(task.type);
   const canPreview = Boolean(onPreview);
 
   return (
     <Space wrap size={[8, 8]}>
       {canPreview && (
-        <Button icon={<Eye size={15} />} onClick={() => onPreview(task)}>
-          Xem trước
-        </Button>
+        <ActionButton icon={<Eye size={15} />} onClick={() => onPreview(task)}>Xem giáo trình</ActionButton>
       )}
       {task.status === 'OPEN' && !task.assigneeId ? (
-        <Button
-          type="primary"
+        <ActionButton
+          intent="primary"
           loading={pendingAction === `claim-task:${task.id}`}
           disabled={Boolean(pendingAction) || !userId}
           onClick={() => onClaim(task)}
         >
-          Nhận task
-        </Button>
-      ) : isOwner && isContributionTask && ['ASSIGNED', 'IN_PROGRESS'].includes(task.status) ? (
-        <Button type="primary" onClick={() => onContribute(task)}>Đóng góp</Button>
-      ) : isOwner && isContributionTask && FINISHED_STATUSES.has(task.status) ? (
-        <Button onClick={() => onContribute(task)}>Xem nội dung</Button>
+          Nhận và bắt đầu
+        </ActionButton>
+      ) : isOwner && ['ASSIGNED', 'IN_PROGRESS'].includes(task.status) ? (
+        <ActionButton intent="primary" onClick={() => onContribute(task)}>
+          {task.status === 'IN_PROGRESS' ? 'Tiếp tục Q&A' : 'Soạn Q&A'}
+        </ActionButton>
+      ) : isOwner && FINISHED_STATUSES.has(task.status) ? (
+        <ActionButton onClick={() => onContribute(task)}>Xem kết quả</ActionButton>
       ) : task.status === 'SUBMITTED' && isOwner ? (
         <Text type="secondary">Đang chờ Senior duyệt</Text>
       ) : task.assigneeId && !isOwner ? (
@@ -48,25 +60,63 @@ function TaskAction({ task, userId, pendingAction, onClaim, onContribute, onPrev
   );
 }
 
-function TaskCard({ task, userId, pendingAction, onClaim, onContribute, onPreview }) {
-  const usage = getTaskGoldUsage(task);
+function ContributionState({ contribution }) {
+  if (!contribution) return null;
+  if (contribution.status === 'REJECTED') {
+    return (
+      <div className="expert-training__task-result expert-training__task-result--revision">
+        <RotateCcw size={17} aria-hidden="true" />
+        <div>
+          <strong>Senior yêu cầu chỉnh sửa</strong>
+          <span>{contribution.rejectionReason || contribution.reviewNote || 'Mở task để xem lại Q&A.'}</span>
+        </div>
+      </div>
+    );
+  }
+  if (contribution.status === 'INDEXED') {
+    return (
+      <div className="expert-training__task-result expert-training__task-result--indexed">
+        <Database size={17} aria-hidden="true" />
+        <div>
+          <strong>Senior đã nạp vào RAG</strong>
+          <span>Q&A vàng đã trở thành nguồn dùng chung của môn.</span>
+        </div>
+      </div>
+    );
+  }
+  if (contribution.status === 'PENDING_REVIEW') {
+    const passed = contribution.examPassed === true;
+    return (
+      <div className={`expert-training__task-result expert-training__task-result--${passed ? 'passed' : 'review'}`}>
+        <ShieldCheck size={17} aria-hidden="true" />
+        <div>
+          <strong>
+            {passed ? `AI đạt ${formatPercent(contribution.examScore)}` : 'AI chưa đạt hoặc cần Senior kiểm tra'}
+          </strong>
+          <span>Đã chấm bằng giáo trình; Q&A chưa được nạp vào RAG.</span>
+        </div>
+      </div>
+    );
+  }
+  return null;
+}
+
+function TaskCard({ task, contribution, userId, pendingAction, onClaim, onContribute, onPreview }) {
   const dueMeta = getExpertTaskDueMeta(task);
   return (
     <Card className="expert-training__task-card" size="small">
       <div className="expert-training__task-card-head">
         <div className="expert-training__task-card-title">
-          <span>{task.type === 'RUBRIC' ? 'Rubric' : 'Q&A vàng'}</span>
+          <span>Q&A VÀNG · {task.chapter}</span>
           <strong>{task.title || task.chapter}</strong>
         </div>
         <StatusLabel status={task.status} />
       </div>
 
       <Space wrap size={[6, 6]}>
-        {usage && (
-          <Tag color="blue">Q&A vàng · chấm rồi mới nạp RAG</Tag>
-        )}
-        <Tag>{task.chapter}</Tag>
-        <Tag>Ưu tiên {task.priority}</Tag>
+        <Tag color="blue">Chỉ dùng giáo trình</Tag>
+        <Tag>1 câu hỏi + 1 đáp án chuẩn</Tag>
+        {Number(task.priority) >= 90 && <Tag color="orange">Ưu tiên cao</Tag>}
       </Space>
 
       <Paragraph
@@ -91,6 +141,8 @@ function TaskCard({ task, userId, pendingAction, onClaim, onContribute, onPrevie
         </span>
       </div>
 
+      <ContributionState contribution={contribution} />
+
       <div className="expert-training__task-card-action">
         <TaskAction
           task={task}
@@ -107,6 +159,7 @@ function TaskCard({ task, userId, pendingAction, onClaim, onContribute, onPrevie
 
 export default function ExpertTaskBoard({
   tasks = [],
+  goldQa = [],
   userId,
   loading,
   error,
@@ -121,18 +174,23 @@ export default function ExpertTaskBoard({
     () => groupTeacherExpertTasks(tasks, userId),
     [tasks, userId],
   );
-  const visibleTasks = taskGroups[activeTab];
+  const collection = useCollectionView(taskGroups[activeTab], {
+    initialPageSize: 20,
+    pageSizeOptions: [10, 20, 50],
+    searchKeys: TASK_SEARCH_KEYS,
+  });
+  const visibleTasks = collection.visibleItems;
 
   return (
     <section className="expert-training__section" aria-labelledby="tasks-heading">
       <div className="expert-training__section-heading">
         <div>
           <h2 id="tasks-heading">Việc Q&A huấn luyện AI</h2>
-          <p>Nhận việc, viết câu hỏi và đáp án vàng theo giáo trình. Hệ thống chấm AI rồi gửi Senior.</p>
+          <p>Mỗi task do Senior mở từ một chương đã index và chỉ yêu cầu một Q&A vàng.</p>
         </div>
-        <Button icon={<RefreshCw size={16} />} onClick={onRefresh} loading={loading}>
+        <ActionButton icon={<RefreshCw size={16} />} onClick={onRefresh} loading={loading}>
           Làm mới
-        </Button>
+        </ActionButton>
       </div>
 
       <Segmented
@@ -140,10 +198,18 @@ export default function ExpertTaskBoard({
         value={activeTab}
         onChange={setActiveTab}
         options={[
-          { value: 'TODO', label: `Cần làm (${taskGroups.TODO.length})`, icon: <Clock3 size={15} /> },
-          { value: 'DOING', label: `Đang làm (${taskGroups.DOING.length})`, icon: <Loader2 size={15} /> },
-          { value: 'DONE', label: `Đã xong (${taskGroups.DONE.length})`, icon: <CheckCircle2 size={15} /> },
+          { value: 'TODO', label: `Việc mở (${taskGroups.TODO.length})`, icon: <Clock3 size={15} /> },
+          { value: 'DOING', label: `Việc của tôi (${taskGroups.DOING.length})`, icon: <Loader2 size={15} /> },
+          { value: 'DONE', label: `Đã hoàn tất (${taskGroups.DONE.length})`, icon: <CheckCircle2 size={15} /> },
         ]}
+      />
+
+      <CollectionSearch
+        query={collection.query}
+        onQueryChange={collection.setQuery}
+        filteredCount={collection.filteredCount}
+        totalCount={collection.totalCount}
+        placeholder="Tìm task theo chương, tiêu đề hoặc trạng thái"
       />
 
       <AsyncState
@@ -152,17 +218,17 @@ export default function ExpertTaskBoard({
         empty={!loading && !error && !visibleTasks.length}
         emptyTitle={
           activeTab === 'TODO'
-            ? 'Không có task đang mở'
+            ? 'Senior chưa mở task mới'
             : activeTab === 'DOING'
-              ? 'Chưa có công việc đang làm'
-              : 'Chưa có task hoàn thành'
+              ? 'Bạn chưa nhận task nào'
+              : 'Chưa có Q&A được Senior xử lý xong'
         }
         emptyDescription={
           activeTab === 'TODO'
-            ? 'Senior bấm Bắt đầu chương trên mục lục sách để giao việc.'
+            ? 'Khi Senior bấm Bắt đầu chương trên mục lục, task GOLD_QA sẽ xuất hiện ở đây.'
             : activeTab === 'DOING'
-              ? 'Task bạn đã nhận (đang soạn, chỉnh sửa hoặc chờ Senior duyệt) sẽ hiện tại đây.'
-              : 'Task được Senior duyệt hoàn tất sẽ xuất hiện tại đây.'
+              ? 'Task đang soạn, được trả lại hoặc đang chờ Senior duyệt sẽ nằm tại đây.'
+              : 'Q&A được nạp RAG hoặc task đã đóng sẽ xuất hiện tại đây.'
         }
         onRetry={onRefresh}
       >
@@ -171,6 +237,7 @@ export default function ExpertTaskBoard({
             <TaskCard
               key={task.id}
               task={task}
+              contribution={findTaskGoldQa(task, goldQa)}
               userId={userId}
               pendingAction={pendingAction}
               onClaim={onClaim}
@@ -180,6 +247,7 @@ export default function ExpertTaskBoard({
           ))}
         </div>
       </AsyncState>
+      <CollectionPagination collection={collection} />
     </section>
   );
 }

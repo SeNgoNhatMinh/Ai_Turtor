@@ -65,6 +65,7 @@ class TutorAnswerCacheSeniorServiceTest {
 
         assertThat(view.getReviewStatus()).isEqualTo("DISABLED");
         assertThat(TutorAnswerCacheSeniorService.isUsableForStudents(activeEntry)).isFalse();
+        verify(cacheService).evictExactRagAnswer("cache-1");
     }
 
     @Test
@@ -80,6 +81,7 @@ class TutorAnswerCacheSeniorServiceTest {
         assertThat(view.getReviewStatus()).isEqualTo("SENIOR_CORRECTED");
         assertThat(view.getOriginalAnswer()).contains("Servlet");
         assertThat(view.getAnswer()).contains("HTTP request");
+        verify(cacheService).evictExactRagAnswer("cache-1");
     }
 
     @Test
@@ -107,6 +109,17 @@ class TutorAnswerCacheSeniorServiceTest {
 
         assertThat(activeEntry.getReviewStatus()).isEqualTo("DISABLED");
         verify(repository).save(activeEntry);
+        verify(cacheService).evictExactRagAnswer("cache-1");
+    }
+
+    @Test
+    void delete_removesPersistedAndInMemoryEntry() {
+        when(repository.existsById("cache-1")).thenReturn(true);
+
+        service.delete("cache-1", seniorRequest());
+
+        verify(repository).deleteById("cache-1");
+        verify(cacheService).evictExactRagAnswer("cache-1");
     }
 
     @Test

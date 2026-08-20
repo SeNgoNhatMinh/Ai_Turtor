@@ -9,6 +9,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Query;
 
 import java.util.List;
 import java.util.Map;
@@ -30,12 +32,28 @@ class ExpertCoTrainingServiceTest {
     @Mock ChapterOutlineService chapterOutlines;
     @Mock ElasticVectorService vectors;
     @Mock CourseRagService rag;
+    @Mock CanonicalTutorAnswerCacheService answerCache;
     @Mock RealtimeEventService realtimeEvents;
+    @Mock MongoTemplate mongoTemplate;
     ExpertCoTrainingService service;
 
     @BeforeEach
     void setUp() {
-        service = new ExpertCoTrainingService(tasks, gold, rubrics, gaps, runs, results, materials, chapterOutlines, vectors, rag, realtimeEvents);
+        service = new ExpertCoTrainingService(
+                tasks,
+                gold,
+                rubrics,
+                gaps,
+                runs,
+                results,
+                materials,
+                chapterOutlines,
+                vectors,
+                rag,
+                answerCache,
+                realtimeEvents,
+                mongoTemplate
+        );
     }
 
     @Test
@@ -53,6 +71,7 @@ class ExpertCoTrainingServiceTest {
         assertEquals("INDEXED", approved.getStatus());
         assertNotNull(approved.getIndexedAt());
         verify(vectors).indexChunk(eq("PRJ301"), isNull(), eq("T1"), eq("G1"), eq("COURSE_SHARED"), eq("GOLD_QA"), isNull(), isNull(), contains("JSP là gì?"));
+        verify(answerCache).evictRagAnswersForCourse("PRJ301");
     }
 
     @Test
@@ -233,7 +252,7 @@ class ExpertCoTrainingServiceTest {
             return item;
         });
         when(gold.findById("G3")).thenAnswer(inv -> Optional.ofNullable(saved[0]));
-        when(rag.askWithConfidence(eq("PRO là gì?"), eq("PRJ301"), isNull())).thenReturn(CourseRagAnswer.builder()
+        when(rag.askWithConfidenceFromTextbook(eq("PRO là gì?"), eq("PRJ301"), isNull())).thenReturn(CourseRagAnswer.builder()
                 .answer("PRO là hệ điều hành thời gian thực.").confidence(0.88)
                 .escalationRecommended(false).sources(List.of("ch1")).build());
         SubmitGoldQaRequest request = new SubmitGoldQaRequest();
@@ -251,5 +270,52 @@ class ExpertCoTrainingServiceTest {
         assertEquals(true, submitted.getExamPassed());
         assertNotNull(submitted.getExamAiAnswer());
         verifyNoInteractions(vectors);
+        verify(rag, never()).askWithConfidence(anyString(), anyString(), any());
+    }
+
+    @Test
+    void searchTasksReturnsServerSidePaginationMetadata() {
+        ExpertTask row = ExpertTask.builder().id("T1").courseId("PRJ301").type("GOLD_QA").status("OPEN").build();
+        when(mongoTemplate.count(any(Query.class), eq(ExpertTask.class))).thenReturn(1001L);
+        when(mongoTemplate.find(any(Query.class), eq(ExpertTask.class))).thenReturn(List.of(row));
+
+        Map<String, Object> response = service.searchTasks(
+                "OPEN", "PRJ301", null, "GOLD_QA", "JSP", 2, 20, "updatedAt", "desc");
+
+        assertEquals(1001L, response.get("totalElements"));
+        assertEquals(51, response.get("totalPages"));
+        assertEquals(true, response.get("hasNext"));
+        assertEquals(List.of(row), response.get("tasks"));
+    }
+
+    @Test
+    void updateTaskCanReopenAndUnassignTaskWithoutContribution() {
+        ExpertTask task = ExpertTask.builder().id("T1").courseId("PRJ301").chapter("JSP")
+                .type("GOLD_QA").title("Old").status("ASSIGNED").assigneeId("TEACHER1").build();
+        when(tasks.findById("T1")).thenReturn(Optional.of(task));
+        when(gold.findBySourceTaskId("T1")).thenReturn(List.of());
+        when(rubrics.findBySourceTaskId("T1")).thenReturn(List.of());
+        when(tasks.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        UpdateExpertTaskRequest request = new UpdateExpertTaskRequest();
+        request.setTitle("Updated");
+        request.setStatus("OPEN");
+        request.setAssigneeId("");
+
+        ExpertTask updated = service.updateTask("T1", request);
+
+        assertEquals("Updated", updated.getTitle());
+        assertEquals("OPEN", updated.getStatus());
+        assertNull(updated.getAssigneeId());
+    }
+
+    @Test
+    void deleteTaskRejectsTaskThatAlreadyHasContribution() {
+        ExpertTask task = ExpertTask.builder().id("T1").courseId("PRJ301").chapter("JSP")
+                .type("GOLD_QA").status("SUBMITTED").build();
+        when(tasks.findById("T1")).thenReturn(Optional.of(task));
+        when(gold.findBySourceTaskId("T1")).thenReturn(List.of(GoldQa.builder().id("G1").build()));
+
+        assertThrows(IllegalArgumentException.class, () -> service.deleteTask("T1"));
+        verify(tasks, never()).delete(any());
     }
 }

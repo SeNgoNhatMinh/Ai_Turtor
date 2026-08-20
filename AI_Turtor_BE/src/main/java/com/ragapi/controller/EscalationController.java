@@ -44,12 +44,16 @@ public class EscalationController {
 
     @PostMapping
     @Operation(summary = "Create a question escalation from n8n AI Harness")
-    public ResponseEntity<?> createQuestionEscalation(@RequestBody CreateQuestionEscalationRequest request) {
+    public ResponseEntity<?> createQuestionEscalation(
+            @RequestBody CreateQuestionEscalationRequest request,
+            Authentication authentication
+    ) {
         try {
             if (request == null) {
                 return ResponseEntity.badRequest().body(Map.of("error", "request body is required"));
             }
             String studentId = requireText(request.getStudentId(), "studentId");
+            requireSelfOrAdmin(authentication, studentId);
             String courseId = requireText(request.getCourseId(), "courseId");
             String question = requireMaxLength(request.getQuestion(), "question", DEFAULT_TEXT_MAX_LENGTH);
             String studentEmail = optionalMaxLength(request.getStudentEmail(), "studentEmail", SHORT_TEXT_MAX_LENGTH);
@@ -81,6 +85,8 @@ public class EscalationController {
                     "classId", escalation.getClassId() == null ? "" : escalation.getClassId(),
                     "message", "Question escalation created"
             ));
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             log.error("Error creating question escalation", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -90,14 +96,22 @@ public class EscalationController {
 
     @PostMapping("/offer")
     @Operation(summary = "Offer teacher or mentor help for a question escalation")
-    public ResponseEntity<?> offerMentorHelp(@RequestParam String questionEscalationId) {
+    public ResponseEntity<?> offerMentorHelp(
+            @RequestParam String questionEscalationId,
+            Authentication authentication
+    ) {
         try {
-            MentorEscalationOfferResponse response = mentorEscalationService.offerMentorHelp(requireText(questionEscalationId, "questionEscalationId"));
+            MentorEscalationOfferResponse response = mentorEscalationService.offerMentorHelp(
+                    requireText(questionEscalationId, "questionEscalationId"),
+                    authenticatedUserId(authentication)
+            );
             if (response == null) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
                         .body(Map.of("error", "Question escalation not found: " + questionEscalationId));
             }
             return ResponseEntity.ok(response);
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             log.error("Error offering teacher help", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -107,14 +121,21 @@ public class EscalationController {
 
     @PostMapping("/select")
     @Operation(summary = "Select a teacher or mentor and create a chat room")
-    public ResponseEntity<?> selectMentor(@RequestBody MentorSelectionRequest request) {
+    public ResponseEntity<?> selectMentor(
+            @RequestBody MentorSelectionRequest request,
+            Authentication authentication
+    ) {
         try {
+            String userId = authenticatedUserId(authentication);
+            requireSelfOrAdmin(authentication, requireText(request.getUserId(), "userId"));
             MentorSelectionResponse response = mentorEscalationService.selectMentor(
                     requireText(request.getQuestionEscalationId(), "questionEscalationId"),
-                    requireText(request.getUserId(), "userId"),
+                    userId,
                     requireText(request.getSelectedMentorId(), "selectedMentorId")
             );
             return ResponseEntity.ok(response);
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             log.error("Error selecting teacher or mentor", e);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
@@ -124,11 +145,16 @@ public class EscalationController {
 
     @PostMapping("/cancel")
     @Operation(summary = "Cancel teacher help offer")
-    public ResponseEntity<?> cancelMentorHelp(@RequestBody MentorEscalationCancelRequest request) {
+    public ResponseEntity<?> cancelMentorHelp(
+            @RequestBody MentorEscalationCancelRequest request,
+            Authentication authentication
+    ) {
         try {
+            String userId = authenticatedUserId(authentication);
+            requireSelfOrAdmin(authentication, requireText(request.getUserId(), "userId"));
             mentorEscalationService.cancelMentorHelpOffer(
                     requireText(request.getQuestionEscalationId(), "questionEscalationId"),
-                    requireText(request.getUserId(), "userId"),
+                    userId,
                     optionalMaxLength(request.getReason(), "reason", DEFAULT_TEXT_MAX_LENGTH)
             );
 
@@ -136,6 +162,8 @@ public class EscalationController {
                     "status", "SUCCESS",
                     "message", "Teacher help offer cancelled"
             ));
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             log.error("Error cancelling teacher help", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -145,14 +173,20 @@ public class EscalationController {
 
     @GetMapping("/history")
     @Operation(summary = "Get escalation history for a student")
-    public ResponseEntity<?> getMentorEscalationHistory(@RequestParam String userId) {
+    public ResponseEntity<?> getMentorEscalationHistory(
+            @RequestParam String userId,
+            Authentication authentication
+    ) {
         try {
+            requireSelfOrAdmin(authentication, requireText(userId, "userId"));
             var escalations = mentorEscalationService.getUserMentorEscalationHistory(requireText(userId, "userId"));
             return ResponseEntity.ok(Map.of(
                     "userId", requireText(userId, "userId"),
                     "escalations", escalations,
                     "count", escalations.size()
             ));
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             log.error("Error fetching escalation history", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -162,9 +196,16 @@ public class EscalationController {
 
     @GetMapping("/{id}")
     @Operation(summary = "Get escalation detail for student/mentor status tracking")
-    public ResponseEntity<?> getEscalationDetail(@PathVariable String id) {
+    public ResponseEntity<?> getEscalationDetail(@PathVariable String id, Authentication authentication) {
         try {
-            return ResponseEntity.ok(humanLearningService.getEscalationDetail(id));
+            return ResponseEntity.ok(humanLearningService.getEscalationDetail(
+                    id,
+                    authenticatedUserId(authentication),
+                    authenticatedRole(authentication)
+            ));
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             log.error("Error fetching escalation detail", e);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
@@ -205,6 +246,33 @@ public class EscalationController {
             log.error("Error creating post-answer knowledge candidate", e);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    private String authenticatedUserId(Authentication authentication) {
+        if (authentication == null || authentication.getName() == null) {
+            throw new SecurityException("Authentication is required");
+        }
+        return authentication.getName();
+    }
+
+    private String authenticatedRole(Authentication authentication) {
+        if (authentication == null) {
+            return "";
+        }
+        return authentication.getAuthorities().stream()
+                .map(authority -> authority.getAuthority())
+                .filter(authority -> authority != null && authority.startsWith("ROLE_"))
+                .map(authority -> authority.substring("ROLE_".length()))
+                .findFirst()
+                .orElse("");
+    }
+
+    private void requireSelfOrAdmin(Authentication authentication, String claimedUserId) {
+        String authenticatedId = authenticatedUserId(authentication);
+        if (!"ADMIN".equalsIgnoreCase(authenticatedRole(authentication))
+                && !authenticatedId.equals(claimedUserId)) {
+            throw new SecurityException("Requester cannot access another student's escalation");
         }
     }
 }

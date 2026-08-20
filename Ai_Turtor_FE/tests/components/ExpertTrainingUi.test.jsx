@@ -5,6 +5,7 @@ import StatusLabel from '../../src/components/common/StatusLabel';
 import ChapterCoveragePanel from '../../src/features/expert-training/components/ChapterCoveragePanel';
 import ChapterPreviewDrawer from '../../src/features/expert-training/components/ChapterPreviewDrawer';
 import ContributionWorkspace from '../../src/features/expert-training/components/ContributionWorkspace';
+import ExpertTaskBoard from '../../src/features/expert-training/components/ExpertTaskBoard';
 import ConfirmCard from '../../src/components/common/ConfirmCard';
 
 vi.mock('../../src/services/materialsApi', () => ({
@@ -140,7 +141,7 @@ describe('Tutor V2 UI rules', () => {
 
     expect(screen.getByText('Task này không thuộc về bạn')).toBeInTheDocument();
     expect(screen.getByLabelText('Chương')).toHaveAttribute('readonly');
-    expect(screen.getByRole('button', { name: 'Gửi và chấm thi' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Nộp Q&A và chấm bằng sách' })).toBeDisabled();
   });
 
   it('lets Senior start an indexed chapter without a separate confirm step', () => {
@@ -207,39 +208,77 @@ describe('Tutor V2 UI rules', () => {
     expect(screen.getByRole('button', { name: 'Xóa khỏi mục lục' })).toBeInTheDocument();
   });
 
-  it('renders Rubric criteria without leaking duplicate React keys', () => {
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
-    try {
-      render(
-        <ContributionWorkspace
-          selectedTask={{
+  it('keeps the Teacher editor on the Senior GOLD_QA flow only', () => {
+    render(
+      <ContributionWorkspace
+        selectedTask={{
+          id: 'rubric-task-1',
+          type: 'RUBRIC',
+          status: 'ASSIGNED',
+          assigneeId: 'teacher-1',
+          chapter: 'Collections',
+          title: 'Legacy Rubric task',
+        }}
+        userId="teacher-1"
+        pendingAction=""
+        onSubmitGoldQa={vi.fn()}
+        materialPreview={null}
+        materialLoading={false}
+        materialError=""
+        contribution={null}
+        rejection={null}
+        onOpenMaterial={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('Task không thuộc flow GOLD_QA hiện tại')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Nộp Q&A và chấm bằng sách' })).toBeDisabled();
+    expect(screen.queryByText('Rubric chất lượng câu trả lời')).not.toBeInTheDocument();
+  });
+
+  it('shows only GOLD_QA tasks and mirrors the exam state visible to Senior', () => {
+    render(
+      <ExpertTaskBoard
+        tasks={[
+          {
+            id: 'gold-task-1',
+            type: 'GOLD_QA',
+            status: 'SUBMITTED',
+            assigneeId: 'teacher-1',
+            chapter: 'Recursion',
+            title: 'Q&A vàng 1/2 · Recursion',
+            priority: 70,
+          },
+          {
             id: 'rubric-task-1',
             type: 'RUBRIC',
-            status: 'ASSIGNED',
-            assigneeId: 'teacher-1',
-            chapter: 'Collections',
-            title: 'Rubric chất lượng câu trả lời',
-            instructions: 'Đánh giá độ chính xác và bám nguồn.',
-          }}
-          userId="teacher-1"
-          pendingAction=""
-          onSubmitGoldQa={vi.fn()}
-          onSubmitRubric={vi.fn()}
-          materialPreview={null}
-          materialLoading={false}
-          materialError=""
-          rejection={null}
-          onOpenMaterial={vi.fn()}
-        />,
-      );
+            status: 'OPEN',
+            chapter: 'Recursion',
+            title: 'Legacy Rubric task',
+          },
+        ]}
+        goldQa={[{
+          id: 'gold-1',
+          sourceTaskId: 'gold-task-1',
+          status: 'PENDING_REVIEW',
+          examPassed: true,
+          examScore: 0.82,
+        }]}
+        userId="teacher-1"
+        loading={false}
+        error=""
+        pendingAction=""
+        onRefresh={vi.fn()}
+        onClaim={vi.fn()}
+        onContribute={vi.fn()}
+        onPreviewTask={vi.fn()}
+      />,
+    );
 
-      const keyWarnings = consoleError.mock.calls.filter(([message]) => (
-        String(message).includes('same key') || String(message).includes('key prop is being spread')
-      ));
-      expect(keyWarnings).toHaveLength(0);
-    } finally {
-      consoleError.mockRestore();
-    }
+    fireEvent.click(screen.getByText(/Việc của tôi/));
+    expect(screen.getByText('Q&A vàng 1/2 · Recursion')).toBeInTheDocument();
+    expect(screen.getByText('AI đạt 82%')).toBeInTheDocument();
+    expect(screen.queryByText('Legacy Rubric task')).not.toBeInTheDocument();
   });
 
   it('keeps an anchored confirmation usable when the page scrolls', () => {

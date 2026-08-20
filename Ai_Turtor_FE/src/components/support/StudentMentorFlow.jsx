@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Avatar, Button, Empty, Radio, Spin, Tag } from 'antd';
+import { Alert, Avatar, Empty, Radio, Spin, Tag } from 'antd';
 import { GraduationCap, Search, Star } from 'lucide-react';
+import ActionButton from '../common/ActionButton';
 import { supportChatApi } from '../../services/supportChatApi';
 import { getUserFacingError } from '../../services/apiClient';
 import SupportChatRoom from './SupportChatRoom';
@@ -155,9 +156,9 @@ function StudentMentorFlow({ escalation, currentUser, compact = false, onEscalat
                   ? 'Hiện chưa có giáo viên hoạt động phù hợp với môn và lớp này.'
                   : 'Danh sách giáo viên phù hợp chưa được tải.'}
               />
-              <Button type="primary" icon={<Search size={15} />} onClick={findMentors}>
+              <ActionButton intent="primary" icon={<Search size={15} />} onClick={findMentors}>
                 {hasLoadedOffer ? 'Kiểm tra lại' : 'Tìm giáo viên'}
-              </Button>
+              </ActionButton>
             </>
           )}
         </div>
@@ -178,9 +179,9 @@ function StudentMentorFlow({ escalation, currentUser, compact = false, onEscalat
               </Radio>
             ))}
           </Radio.Group>
-          <Button type="primary" loading={isSelecting} disabled={!selectedMentorId} onClick={chooseMentor}>
+          <ActionButton intent="primary" loading={isSelecting} disabled={!selectedMentorId} onClick={chooseMentor}>
             Bắt đầu trao đổi
-          </Button>
+          </ActionButton>
         </>
       )}
     </section>

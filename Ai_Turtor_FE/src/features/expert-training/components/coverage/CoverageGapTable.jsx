@@ -1,5 +1,6 @@
-import { Button, Space, Table, Tag, Typography } from 'antd';
+import { Button, Space, Tag, Typography } from 'antd';
 import AsyncState from '../../../../components/common/AsyncState';
+import SearchableTable from '../../../../components/common/SearchableTable';
 import StatusLabel from '../../../../components/common/StatusLabel';
 import { getMaterialHealthMeta } from '../../expertTrainingUtils';
 
@@ -100,7 +101,7 @@ export default function CoverageGapTable({
       emptyDescription="Senior Mentor hoặc Admin có thể phân tích các chương cần kiểm tra."
       onRetry={onRefresh}
     >
-      <Table
+      <SearchableTable
         rowKey="id"
         columns={buildColumns({ canReview, onCreateTask, pendingAction })}
         dataSource={gaps}

@@ -3,8 +3,11 @@ package com.ragapi.controller;
 import com.ragapi.dto.CourseMaterialListResponse;
 import com.ragapi.dto.HtmlTableOfContentsRequest;
 import com.ragapi.dto.ImportCourseMaterialUrlRequest;
+import com.ragapi.dto.UpdateCourseMaterialMetadataRequest;
 import com.ragapi.entity.CourseMaterial;
 import com.ragapi.repository.CourseMaterialRepository;
+import com.ragapi.service.AccessGuardService;
+import com.ragapi.service.CourseMaterialAccessPolicy;
 import com.ragapi.service.CourseMaterialQueryService;
 import com.ragapi.service.CourseMaterialHtmlImportService;
 import com.ragapi.service.CourseMaterialIngestionService;
@@ -21,6 +24,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -60,6 +64,8 @@ public class CourseMaterialController {
     private final PdfPageRenderService pdfPageRenderService;
     private final CourseMaterialLifecycleService lifecycleService;
     private final CourseMaterialQueryService queryService;
+    private final CourseMaterialAccessPolicy materialAccessPolicy;
+    private final AccessGuardService accessGuardService;
 
     @Value("${upload.pdf.max-size-mb:50}")
     private long maxMaterialUploadMb;
@@ -81,11 +87,12 @@ public class CourseMaterialController {
             @RequestParam("title") String title,
             @RequestParam(value = "uploaderRole", required = false) String uploaderRole,
             @Parameter(description = "Course material file", required = true, schema = @Schema(type = "string", format = "binary"))
-            @RequestPart("file") MultipartFile file
+            @RequestPart("file") MultipartFile file,
+            Authentication authentication
     ) {
         try {
             validateScope(courseId);
-            MaterialUploadScope uploadScope = resolveUploadScope(uploaderRole, classId, teacherId);
+            MaterialUploadScope uploadScope = resolveUploadScope(courseId, classId, authentication);
             validateFile(file, "file", maxMaterialUploadMb, MATERIAL_EXTENSIONS, MATERIAL_CONTENT_TYPES);
             String safeTitle = requireMaxLength(title, "title", SHORT_TEXT_MAX_LENGTH);
             CourseMaterial material = ingestionService.ingestPdfAsync(
@@ -118,6 +125,8 @@ public class CourseMaterialController {
             response.put("indexedAt", material.getIndexedAt());
             response.put("indexingError", material.getIndexingError());
             return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (IOException e) {
@@ -168,14 +177,15 @@ public class CourseMaterialController {
     @Operation(summary = "Import HTML documentation URL as course material")
     public ResponseEntity<?> importCourseMaterialUrl(
             @PathVariable String courseId,
-            @RequestBody ImportCourseMaterialUrlRequest request
+            @RequestBody ImportCourseMaterialUrlRequest request,
+            Authentication authentication
     ) {
         try {
             validateScope(courseId);
             if (request == null) {
                 return ResponseEntity.badRequest().body(Map.of("error", "Request body is required"));
             }
-            MaterialUploadScope uploadScope = resolveUploadScope(request.getUploaderRole(), request.getClassId(), request.getTeacherId());
+            MaterialUploadScope uploadScope = resolveUploadScope(courseId, request.getClassId(), authentication);
             CourseMaterialHtmlImportService.ImportResult result = htmlImportService.importHtml(
                     request,
                     courseId,
@@ -199,6 +209,8 @@ public class CourseMaterialController {
             response.put("importedPageCount", result.importedUrls().size());
             response.put("indexingStatus", result.indexingStatus());
             return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (IOException e) {
@@ -231,7 +243,8 @@ public class CourseMaterialController {
     public ResponseEntity<?> updateCourseMaterialMetadata(
             @PathVariable String courseId,
             @PathVariable String materialId,
-            @RequestBody CourseMaterial request
+            @RequestBody UpdateCourseMaterialMetadataRequest request,
+            Authentication authentication
     ) {
         try {
             CourseMaterial material = courseMaterialRepository.findById(materialId)
@@ -243,6 +256,11 @@ public class CourseMaterialController {
             if (request == null) {
                 return ResponseEntity.badRequest().body(Map.of("error", "Request body is required"));
             }
+            materialAccessPolicy.requireManagePermission(
+                    material,
+                    authenticatedUserId(authentication),
+                    authenticatedRole(authentication)
+            );
             if (request.getTitle() != null) {
                 material.setTitle(requireMaxLength(request.getTitle(), "title", SHORT_TEXT_MAX_LENGTH));
             }
@@ -250,6 +268,8 @@ public class CourseMaterialController {
                 material.setCategory(optionalMaxLength(request.getCategory(), "category", SHORT_TEXT_MAX_LENGTH));
             }
             return ResponseEntity.ok(courseMaterialRepository.save(material));
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
@@ -444,11 +464,16 @@ public class CourseMaterialController {
     @Operation(summary = "Reindex all course materials into Elasticsearch")
     public ResponseEntity<?> reindexCourseMaterials(
             @PathVariable String courseId,
-            @RequestParam(value = "teacherId", required = false) String teacherId
+            Authentication authentication
     ) {
         try {
             validateScope(courseId);
-            return ResponseEntity.ok(lifecycleService.reindexCourse(courseId, teacherId));
+            return ResponseEntity.ok(lifecycleService.reindexCourse(
+                    courseId,
+                    authenticatedRole(authentication)
+            ));
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (IOException e) {
@@ -479,10 +504,16 @@ public class CourseMaterialController {
     public ResponseEntity<?> reindexCourseMaterial(
             @PathVariable String courseId,
             @PathVariable String materialId,
-            @RequestParam(value = "teacherId", required = false) String teacherId
+            Authentication authentication
     ) {
         try {
-            return ResponseEntity.ok(lifecycleService.reindexMaterial(courseId, materialId, teacherId));
+            return ResponseEntity.ok(lifecycleService.reindexMaterial(
+                    courseId,
+                    materialId,
+                    authenticatedRole(authentication)
+            ));
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (IOException e) {
@@ -501,10 +532,17 @@ public class CourseMaterialController {
     public ResponseEntity<?> deleteCourseMaterial(
             @PathVariable String courseId,
             @PathVariable String materialId,
-            @RequestParam(value = "teacherId", required = false) String teacherId
+            Authentication authentication
     ) {
         try {
-            return ResponseEntity.ok(lifecycleService.deleteMaterial(courseId, materialId, teacherId));
+            return ResponseEntity.ok(lifecycleService.deleteMaterial(
+                    courseId,
+                    materialId,
+                    authenticatedUserId(authentication),
+                    authenticatedRole(authentication)
+            ));
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (IOException e) {
@@ -521,26 +559,48 @@ public class CourseMaterialController {
         requireMaxLength(courseId, "courseId", SHORT_TEXT_MAX_LENGTH);
     }
 
-    private MaterialUploadScope resolveUploadScope(String uploaderRole, String classId, String teacherId) {
+    private MaterialUploadScope resolveUploadScope(
+            String courseId,
+            String classId,
+            Authentication authentication
+    ) {
+        String requesterId = authenticatedUserId(authentication);
+        String requesterRole = authenticatedRole(authentication);
         String safeClassId = normalizeOptionalFormValue(optionalMaxLength(classId, "classId", SHORT_TEXT_MAX_LENGTH));
-        String safeRole = normalizeOptionalFormValue(uploaderRole);
-        String role = safeRole == null
-                ? (safeClassId == null ? "ADMIN" : "TEACHER")
-                : safeRole.toUpperCase();
-
-        if ("ADMIN".equals(role)) {
-            String uploaderId = normalizeOptionalFormValue(optionalMaxLength(teacherId, "teacherId", SHORT_TEXT_MAX_LENGTH));
-            return new MaterialUploadScope(null, uploaderId == null ? "ADMIN" : uploaderId, "COURSE_SHARED", "ADMIN");
+        if (materialAccessPolicy.isPrivileged(requesterRole)) {
+            return new MaterialUploadScope(null, requesterId, "COURSE_SHARED", "ADMIN");
         }
-
-        String safeTeacherId = normalizeOptionalFormValue(optionalMaxLength(teacherId, "teacherId", SHORT_TEXT_MAX_LENGTH));
-        if (safeTeacherId == null) {
-            throw new IllegalArgumentException("teacherId is required when a teacher uploads class material");
+        if (!materialAccessPolicy.isTeacher(requesterRole)) {
+            throw new SecurityException("Only teachers, senior mentors or administrators can upload course materials");
         }
         if (safeClassId == null) {
             throw new IllegalArgumentException("classId is required when a teacher uploads class material");
         }
-        return new MaterialUploadScope(safeClassId, safeTeacherId, "CLASS_SECTION", "TEACHER");
+        try {
+            accessGuardService.allowTeacherForClassOrAdmin(requesterId, requesterRole, courseId, safeClassId);
+        } catch (IllegalArgumentException error) {
+            throw new SecurityException(error.getMessage());
+        }
+        return new MaterialUploadScope(safeClassId, requesterId, "CLASS_SECTION", "TEACHER");
+    }
+
+    private String authenticatedUserId(Authentication authentication) {
+        if (authentication == null || authentication.getName() == null || authentication.getName().isBlank()) {
+            throw new SecurityException("Authentication is required");
+        }
+        return authentication.getName();
+    }
+
+    private String authenticatedRole(Authentication authentication) {
+        if (authentication == null) {
+            throw new SecurityException("Authentication role is required");
+        }
+        return authentication.getAuthorities().stream()
+                .map(authority -> authority.getAuthority())
+                .filter(authority -> authority != null && authority.startsWith("ROLE_"))
+                .map(authority -> authority.substring("ROLE_".length()))
+                .findFirst()
+                .orElseThrow(() -> new SecurityException("Authentication role is required"));
     }
 
     private String normalizeOptionalFormValue(String value) {
@@ -557,5 +617,3 @@ public class CourseMaterialController {
     private record MaterialUploadScope(String classId, String uploaderId, String materialScope, String uploaderRole) {}
 
 }
-
-

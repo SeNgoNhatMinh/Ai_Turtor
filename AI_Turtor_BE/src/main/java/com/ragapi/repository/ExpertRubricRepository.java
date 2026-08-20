@@ -6,4 +6,5 @@ import java.util.List;
 
 public interface ExpertRubricRepository extends MongoRepository<ExpertRubric, String> {
     List<ExpertRubric> findByCourseIdOrderByCreatedAtDesc(String courseId);
+    List<ExpertRubric> findBySourceTaskId(String sourceTaskId);
 }

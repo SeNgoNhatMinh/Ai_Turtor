@@ -99,6 +99,42 @@ public class ExpertCoTrainingController {
         return respond(() -> Map.of("tasks", service.listTasks(status, courseId, assigneeId)));
     }
 
+    @GetMapping("/tasks/page")
+    @Operation(summary = "Search and paginate expert tasks for large task queues")
+    public ResponseEntity<?> searchTasks(
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String courseId,
+            @RequestParam(required = false) String assigneeId,
+            @RequestParam(required = false) String type,
+            @RequestParam(required = false, name = "query") String keyword,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "updatedAt") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDirection) {
+        return respond(() -> service.searchTasks(
+                status, courseId, assigneeId, type, keyword, page, size, sortBy, sortDirection));
+    }
+
+    @GetMapping("/tasks/{id}")
+    public ResponseEntity<?> getTask(@PathVariable String id) {
+        return respond(() -> service.getTask(id));
+    }
+
+    @PutMapping("/tasks/{id}")
+    public ResponseEntity<?> updateTask(
+            @PathVariable String id,
+            @RequestBody UpdateExpertTaskRequest request) {
+        return respond(() -> service.updateTask(id, request));
+    }
+
+    @DeleteMapping("/tasks/{id}")
+    public ResponseEntity<?> deleteTask(@PathVariable String id) {
+        return respond(() -> {
+            service.deleteTask(id);
+            return Map.of("status", "DELETED", "taskId", id);
+        });
+    }
+
     @PostMapping("/tasks/{id}/assign")
     public ResponseEntity<?> assignTask(@PathVariable String id, @RequestBody AssignExpertTaskRequest request) {
         return respond(() -> service.assignTask(id, request));

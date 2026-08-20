@@ -26,6 +26,11 @@ import static com.ragapi.util.ValidationUtils.requireText;
 @RequiredArgsConstructor
 public class ElasticVectorService {
 
+    private static final Set<String> NON_TEXTBOOK_SOURCE_TYPES = Set.of(
+            "GOLD_QA",
+            "KNOWLEDGE_CANDIDATE"
+    );
+
     private final ElasticsearchClient elasticsearchClient;
     private final EmbeddingService embeddingService;
 
@@ -183,11 +188,37 @@ public class ElasticVectorService {
         );
     }
 
+    public List<SearchChunk> searchTextbookWithScores(
+            String question,
+            String courseId,
+            String classId
+    ) throws IOException {
+        return searchWithScores(
+                question,
+                courseId,
+                classId,
+                null,
+                NON_TEXTBOOK_SOURCE_TYPES,
+                retrievalTopK
+        );
+    }
+
     private List<SearchChunk> searchWithScores(
             String question,
             String courseId,
             String classId,
             String sourceType,
+            int topK
+    ) throws IOException {
+        return searchWithScores(question, courseId, classId, sourceType, Set.of(), topK);
+    }
+
+    private List<SearchChunk> searchWithScores(
+            String question,
+            String courseId,
+            String classId,
+            String sourceType,
+            Set<String> excludedSourceTypes,
             int topK
     ) throws IOException {
 
@@ -206,7 +237,7 @@ public class ElasticVectorService {
 
         log.debug("Performing KNN search in Elasticsearch");
 
-        List<Query> filters = buildScopeFilters(safeCourseId, sourceType);
+        List<Query> filters = buildScopeFilters(safeCourseId, sourceType, excludedSourceTypes);
         if (classId != null && !classId.isBlank()) {
             log.debug("classId={} is kept as metadata but ignored for RAG search filtering", classId);
         }
@@ -309,7 +340,11 @@ public class ElasticVectorService {
                 .exists(ExistsRequest.of(e -> e.index(index)))
                 .value();
     }
-    private List<Query> buildScopeFilters(String courseId, String sourceType) {
+    private List<Query> buildScopeFilters(
+            String courseId,
+            String sourceType,
+            Set<String> excludedSourceTypes
+    ) {
 
         List<Query> filters = new ArrayList<>();
 
@@ -326,10 +361,23 @@ public class ElasticVectorService {
             )._toQuery());
         }
 
+        if (excludedSourceTypes != null) {
+            excludedSourceTypes.stream()
+                    .filter(Objects::nonNull)
+                    .map(String::trim)
+                    .filter(value -> !value.isBlank())
+                    .forEach(value -> {
+                        Query excluded = TermQuery.of(t -> t
+                                .field("sourceType.keyword")
+                                .value(value)
+                        )._toQuery();
+                        filters.add(Query.of(q -> q.bool(b -> b.mustNot(excluded))));
+                    });
+        }
+
         return filters;
     }
 }
-
 
 
 

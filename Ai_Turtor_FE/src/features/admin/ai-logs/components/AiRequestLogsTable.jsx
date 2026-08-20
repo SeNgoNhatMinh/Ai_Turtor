@@ -1,4 +1,5 @@
-import { Card, Space, Table, Tag, Typography } from 'antd';
+import { Card, Space, Tag, Typography } from 'antd';
+import SearchableTable from '../../../../components/common/SearchableTable';
 
 const { Paragraph, Text } = Typography;
 
@@ -41,7 +42,7 @@ const renderExpandedLog = (row) => (
 export default function AiRequestLogsTable({ logs, loading }) {
   return (
     <Card className="admin-ai-logs-section-card" title="Lịch sử yêu cầu">
-      <Table
+      <SearchableTable
         rowKey={(row, index) => `${row.conversationId}-${row.createdAt}-${index}`}
         dataSource={logs}
         loading={loading}

@@ -106,7 +106,8 @@ export default function AdminEscalationsTab({ escalations, users }) {
         loading={escalations.loading}
         pagination={{ pageSize: 8 }}
         size="middle"
-        scroll={{ x: 680 }}
+        sticky
+        scroll={{ x: 680, y: 520 }}
         locale={{ emptyText: search.trim() ? 'Không tìm thấy yêu cầu hỗ trợ phù hợp.' : 'Không có yêu cầu hỗ trợ.' }}
       />
     </Card>

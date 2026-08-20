@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Button } from 'antd';
 import { ArrowLeft } from 'lucide-react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import ActionButton from '../../components/common/ActionButton';
 import AsyncState from '../../components/common/AsyncState';
 import PageHeader from '../../components/common/PageHeader';
 import ContributionWorkspace from './components/ContributionWorkspace';
@@ -45,12 +45,12 @@ export default function TeacherExpertContributionPage({
   }, [courseId, navigate]);
 
   return (
-    <div className="expert-training-page">
+    <div className="portal-section expert-training-page expert-training-page--teacher">
       <PageHeader
         eyebrow="Chất lượng AI"
-        title="Viết Q&A vàng"
-        description="Soạn câu hỏi và đáp án theo giáo trình. Hệ thống chấm AI rồi gửi Senior."
-        actions={<Button icon={<ArrowLeft size={16} />} onClick={goBack}>Về Task Board</Button>}
+        title="Soạn bài thi Q&A vàng"
+        description="Viết đúng chương Senior đã giao. Hệ thống hỏi AI bằng sách trước khi chuyển bài sang Senior."
+        actions={<ActionButton icon={<ArrowLeft size={16} />} onClick={goBack}>Về danh sách task</ActionButton>}
       />
 
       <AsyncState
@@ -67,10 +67,10 @@ export default function TeacherExpertContributionPage({
             userId={controller.userId}
             pendingAction={controller.pendingAction}
             onSubmitGoldQa={controller.submitGoldQa}
-            onSubmitRubric={controller.submitRubric}
             materialPreview={controller.taskMaterialPreview}
             materialLoading={controller.loading.taskMaterial}
             materialError={controller.errors.taskMaterial}
+            contribution={controller.selectedTaskContribution}
             rejection={controller.selectedTaskRejection}
             onOpenMaterial={controller.openSourceMaterial}
             onSubmitted={goBack}

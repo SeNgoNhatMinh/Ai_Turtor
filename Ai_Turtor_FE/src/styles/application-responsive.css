@@ -115,7 +115,11 @@
 }
 
 @media (max-width: 760px) {
-    body {
+    html,
+    body,
+    #root {
+        min-height: 100%;
+        height: auto;
         overflow: auto;
     }
 

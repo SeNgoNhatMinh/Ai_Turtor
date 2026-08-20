@@ -1,5 +1,6 @@
-import { Alert, Button, Col, Form, Input, Row, Select } from 'antd';
+import { Alert, Col, Form, Input, Row, Select } from 'antd';
 import { Send } from 'lucide-react';
+import ActionButton from '../../../../components/common/ActionButton';
 
 export default function GoldQaContributionForm({
   form,
@@ -32,28 +33,38 @@ export default function GoldQaContributionForm({
           </Form.Item>
         </Col>
       </Row>
-      <Form.Item label="Câu hỏi vàng" name="question" rules={[{ required: true, whitespace: true }]}>
-        <Input.TextArea rows={3} maxLength={5000} placeholder="Câu hỏi theo đúng chương giáo trình..." />
+      <Form.Item
+        label="Câu hỏi vàng"
+        name="question"
+        extra="Viết một câu hỏi cụ thể mà sinh viên có thể hỏi trong phạm vi chương này."
+        rules={[{ required: true, whitespace: true }]}
+      >
+        <Input.TextArea rows={3} maxLength={5000} showCount placeholder="Ví dụ: Đệ quy là gì và điều kiện dừng có vai trò gì?" />
       </Form.Item>
-      <Form.Item label="Đáp án vàng" name="goldAnswer" rules={[{ required: true, whitespace: true }]}>
-        <Input.TextArea rows={7} maxLength={5000} placeholder="Đáp án ngắn, đúng sách..." />
+      <Form.Item
+        label="Đáp án chuẩn theo giáo trình"
+        name="goldAnswer"
+        extra="Trả lời đủ ý, không bổ sung kiến thức ngoài phần tài liệu hiển thị bên cạnh."
+        rules={[{ required: true, whitespace: true }]}
+      >
+        <Input.TextArea rows={8} maxLength={5000} showCount placeholder="Viết đáp án chuẩn, rõ ràng và bám sát giáo trình..." />
       </Form.Item>
       <Alert
         type="info"
         showIcon
-        title="Chưa vào RAG"
-        description="Sau khi gửi, hệ thống hỏi AI bằng giáo trình đã embed rồi gửi bài thi cho Senior. Senior mới quyết định nạp vào RAG."
+        title="Gửi bài không đồng nghĩa AI đã học"
+        description="Backend sẽ hỏi AI bằng giáo trình cũ, tính điểm bài thi rồi chuyển đáp án Teacher và đáp án AI sang Senior."
       />
       <div className="expert-training__form-actions">
-        <Button
-          type="primary"
+        <ActionButton
+          intent="primary"
           htmlType="submit"
           icon={<Send size={16} />}
           loading={pendingAction === 'submit-gold-qa'}
           disabled={Boolean(pendingAction) || !userId || disabled}
         >
-          Gửi và chấm thi
-        </Button>
+          Nộp Q&A và chấm bằng sách
+        </ActionButton>
       </div>
     </Form>
   );

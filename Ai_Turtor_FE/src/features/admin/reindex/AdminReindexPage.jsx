@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Button, Card, Col, Progress, Row, Table, Tag, Typography } from 'antd';
+import { Alert, Button, Card, Col, Progress, Row, Tag, Typography } from 'antd';
 import { CheckCircle2, Database, RefreshCw, TriangleAlert } from 'lucide-react';
 import PageHeader from '../../../components/common/PageHeader';
+import SearchableTable from '../../../components/common/SearchableTable';
 import { adminAcademicApi } from '../../../services/adminAcademicApi';
 import { materialsApi } from '../../../services/materialsApi';
 import { getUserFacingError } from '../../../services/apiClient';
@@ -11,7 +12,7 @@ const { Paragraph, Text } = Typography;
 const getCourseId = (course = {}) => String(course.courseId || course.id || course.code || '').trim();
 const getCourseName = (course = {}) => course.courseName || course.name || course.title || 'Chưa có tên môn';
 
-export default function AdminReindexPage({ currentUser, triggerToast }) {
+export default function AdminReindexPage({ triggerToast }) {
   const [courses, setCourses] = useState([]);
   const [states, setStates] = useState({});
   const [loading, setLoading] = useState(true);
@@ -46,11 +47,11 @@ export default function AdminReindexPage({ currentUser, triggerToast }) {
 
   const progress = courses.length ? Math.round(((summary.completed + summary.failed) / courses.length) * 100) : 0;
 
-  const reindexCourse = async (course, requesterId) => {
+  const reindexCourse = async (course) => {
     const courseId = getCourseId(course);
     setStates((previous) => ({ ...previous, [courseId]: { status: 'PROCESSING' } }));
     try {
-      const result = await materialsApi.reindexCourseMaterials(courseId, requesterId);
+      const result = await materialsApi.reindexCourseMaterials(courseId);
       setStates((previous) => ({ ...previous, [courseId]: { status: 'DONE', result } }));
       return true;
     } catch (reason) {
@@ -66,7 +67,7 @@ export default function AdminReindexPage({ currentUser, triggerToast }) {
     if (running) return;
     setRunning(true);
     setError('');
-    const success = await reindexCourse(course, currentUser?.userId || currentUser?.id || '');
+    const success = await reindexCourse(course);
     setRunning(false);
     triggerToast?.(success
       ? `Đã reindex môn ${getCourseId(course)} thành công.`
@@ -78,11 +79,10 @@ export default function AdminReindexPage({ currentUser, triggerToast }) {
     setRunning(true);
     setError('');
     setStates(Object.fromEntries(courses.map((course) => [getCourseId(course), { status: 'WAITING' }])));
-    const requesterId = currentUser?.userId || currentUser?.id || '';
     let failedCount = 0;
 
     for (const course of courses) {
-      const success = await reindexCourse(course, requesterId);
+      const success = await reindexCourse(course);
       if (!success) failedCount += 1;
     }
 
@@ -127,7 +127,7 @@ export default function AdminReindexPage({ currentUser, triggerToast }) {
         <Col xs={12} lg={6}><Card><Text type="secondary">Thất bại</Text><strong className="danger"><TriangleAlert size={18} />{summary.failed}</strong></Card></Col>
       </Row>
       <Card title="Tiến trình theo môn học">
-        <Table
+        <SearchableTable
           rowKey={getCourseId}
           loading={loading}
           dataSource={courses}

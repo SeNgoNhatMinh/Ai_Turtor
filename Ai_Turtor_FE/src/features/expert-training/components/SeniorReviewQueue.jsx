@@ -9,9 +9,11 @@ import {
 } from 'antd';
 import { RefreshCw } from 'lucide-react';
 import AsyncState from '../../../components/common/AsyncState';
+import { CollectionPagination, CollectionSearch } from '../../../components/common/CollectionControls';
 import { confirmAction, confirmDanger } from '../../../components/common/confirmDialog';
 import MasterDetailLayout from '../../../components/common/MasterDetailLayout';
 import StatusLabel from '../../../components/common/StatusLabel';
+import { useCollectionView } from '../../../hooks/useCollectionView';
 import { groupReviewQueue } from '../expertTrainingSelectors';
 import ExpertReviewDetail from './review/ExpertReviewDetail';
 import { DEFAULT_APPROVAL_NOTE } from './review/reviewConstants';
@@ -37,6 +39,11 @@ export default function SeniorReviewQueue({
   const filteredQueue = kindFilter === 'ALL'
     ? queue
     : queue.filter((entry) => entry.kind === kindFilter);
+  const collection = useCollectionView(filteredQueue, {
+    initialPageSize: 20,
+    pageSizeOptions: [10, 20, 50],
+    searchKeys: ['item.question', 'item.chapter', 'item.authorId', 'item.status'],
+  });
   const selectedEntry = queue.find((entry) => entry.id === selectedReviewId) || null;
 
   useEffect(() => {
@@ -121,17 +128,24 @@ export default function SeniorReviewQueue({
           { value: 'GOLD_QA', label: 'Q&A vàng' },
         ]}
       />
+      <CollectionSearch
+        query={collection.query}
+        onQueryChange={collection.setQuery}
+        filteredCount={collection.filteredCount}
+        totalCount={collection.totalCount}
+        placeholder="Tìm câu hỏi, chương hoặc Teacher"
+      />
       <AsyncState
         compact
         loading={loading && !queue.length}
         error={error}
-        empty={!loading && !error && !filteredQueue.length}
+        empty={!loading && !error && !collection.filteredCount}
         emptyTitle="Chưa có bài thi"
         emptyDescription="Khi giảng viên nộp Q&A vàng, hệ thống chấm AI rồi hiện bài thi tại đây."
         onRetry={onRefresh}
       >
         <div className="expert-training__review-list" role="list">
-          {filteredQueue.map((entry) => {
+          {collection.visibleItems.map((entry) => {
             const item = entry.item;
             const title = entry.kind === 'GOLD_QA' ? item.question : item.name;
             return (
@@ -150,6 +164,7 @@ export default function SeniorReviewQueue({
           })}
         </div>
       </AsyncState>
+      <CollectionPagination collection={collection} />
     </div>
   );
 

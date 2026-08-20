@@ -13,6 +13,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.mongodb.core.MongoTemplate;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
@@ -41,7 +42,7 @@ class TutorCacheHitAuditServiceTest {
         service.completeHit(answer, System.nanoTime());
 
         ArgumentCaptor<TutorCacheHitAudit> captor = ArgumentCaptor.forClass(TutorCacheHitAudit.class);
-        verify(repository).save(captor.capture());
+        verify(repository, timeout(1000)).save(captor.capture());
         TutorCacheHitAudit audit = captor.getValue();
         assertThat(audit.getMatchedCacheId()).isEqualTo("cache-1");
         assertThat(audit.getCacheLookupMs()).isEqualTo(12L);

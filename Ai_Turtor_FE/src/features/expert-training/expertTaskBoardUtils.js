@@ -14,9 +14,9 @@ const sortExpertTasks = (left, right) => (
 );
 
 function isExpertTaskVisibleToTeacher(task, userId) {
-  return task.status === 'OPEN'
+  return task.type === 'GOLD_QA' && (task.status === 'OPEN'
     || task.assigneeId === userId
-    || (!task.assigneeId && ACTIVE_STATUSES.has(task.status));
+    || (!task.assigneeId && ACTIVE_STATUSES.has(task.status)));
 }
 
 export function groupTeacherExpertTasks(tasks = [], userId = '') {
@@ -27,5 +27,33 @@ export function groupTeacherExpertTasks(tasks = [], userId = '') {
       task.assigneeId === userId && DOING_STATUSES.has(task.status)
     )).sort(sortExpertTasks),
     DONE: visible.filter((task) => FINISHED_STATUSES.has(task.status)).sort(sortExpertTasks),
+  };
+}
+
+const contributionTime = (item) => asTimestamp(
+  item?.updatedAt || item?.reviewedAt || item?.examinedAt || item?.createdAt,
+);
+
+export function findTaskGoldQa(task, goldQa = []) {
+  if (!task?.id) return null;
+  return goldQa
+    .filter((item) => item.sourceTaskId === task.id)
+    .sort((left, right) => contributionTime(right) - contributionTime(left))[0] || null;
+}
+
+export function buildTeacherGoldQaSummary(tasks = [], goldQa = [], userId = '') {
+  const groups = groupTeacherExpertTasks(tasks, userId);
+  const mine = [...groups.DOING, ...groups.DONE];
+  const contributions = mine
+    .map((task) => findTaskGoldQa(task, goldQa))
+    .filter(Boolean);
+
+  return {
+    available: groups.TODO.length,
+    active: groups.DOING.filter((task) => ['ASSIGNED', 'IN_PROGRESS'].includes(task.status)).length,
+    pendingReview: groups.DOING.filter((task) => task.status === 'SUBMITTED').length,
+    needsRevision: contributions.filter((item) => item.status === 'REJECTED').length,
+    indexed: contributions.filter((item) => item.status === 'INDEXED').length,
+    completed: groups.DONE.length,
   };
 }

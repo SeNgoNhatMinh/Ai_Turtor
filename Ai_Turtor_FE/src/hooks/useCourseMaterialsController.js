@@ -144,36 +144,6 @@ export function useCourseMaterialsController({
     }
   };
 
-  const handleTeacherDeleteMaterial = async (materialId) => {
-    if (!courseId) {
-      triggerToast('Hãy chọn môn học trước khi xóa học liệu.');
-      return;
-    }
-    triggerToast('Đang xóa học liệu môn học...');
-    try {
-      await materialsApi.deleteMaterial(courseId, materialId);
-      triggerToast('Đã xóa học liệu.');
-      loadCourseMaterials();
-    } catch (error) {
-      triggerToast(getUserFacingError(error, 'Không thể xóa học liệu.'));
-    }
-  };
-
-  const handleTeacherReindexMaterial = async (materialId) => {
-    if (!courseId) {
-      triggerToast('Hãy chọn môn học trước khi lập chỉ mục lại học liệu.');
-      return;
-    }
-    triggerToast('Đang yêu cầu lập chỉ mục lại học liệu...');
-    try {
-      await materialsApi.reindexMaterial(courseId, materialId);
-      triggerToast('Đã gửi yêu cầu lập chỉ mục lại.');
-      loadCourseMaterials();
-    } catch (error) {
-      triggerToast(getUserFacingError(error, 'Không thể lập chỉ mục lại học liệu.'));
-    }
-  };
-
   const handleDownloadMaterial = async (materialId, title) => {
     if (!courseId) {
       triggerToast('Hãy chọn môn học trước khi tải học liệu xuống.');
@@ -203,8 +173,6 @@ export function useCourseMaterialsController({
     uploadProgressText,
     loadCourseMaterials,
     handleTeacherUploadMaterial,
-    handleTeacherDeleteMaterial,
-    handleTeacherReindexMaterial,
     handleDownloadMaterial,
   };
 }

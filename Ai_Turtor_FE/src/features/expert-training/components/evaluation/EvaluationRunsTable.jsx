@@ -1,5 +1,6 @@
-import { Button, Table, Tag } from 'antd';
+import { Button, Tag } from 'antd';
 import AsyncState from '../../../../components/common/AsyncState';
+import SearchableTable from '../../../../components/common/SearchableTable';
 import StatusLabel from '../../../../components/common/StatusLabel';
 import { formatPercent } from '../../expertTrainingUtils';
 import { formatEvaluationDate } from './evaluationViewUtils';
@@ -82,7 +83,7 @@ export default function EvaluationRunsTable({
       emptyDescription="Phê duyệt ít nhất một Evaluation Gold Q&A trước khi chạy."
       onRetry={onRefresh}
     >
-      <Table
+      <SearchableTable
         rowKey="id"
         columns={columnsFor(onOpenDetail)}
         dataSource={runs}

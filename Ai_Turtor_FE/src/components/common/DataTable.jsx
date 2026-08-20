@@ -51,11 +51,11 @@ export function DataTable({
   loading = false,
   emptyText = 'Không có dữ liệu.',
   pageSize = DEFAULT_PAGE_SIZE,
-  pageSizeOptions = [10, 20, 50],
-  searchable = false,
+  pageSizeOptions = [10, 20, 50, 100],
+  searchable = true,
   searchKeys = [],
   searchPlaceholder = 'Tìm trong danh sách',
-  maxBodyHeight,
+  maxBodyHeight = 'min(58vh, 640px)',
 }) {
   const safeData = Array.isArray(data) ? data : [];
   const safeColumns = Array.isArray(columns) ? columns : [];

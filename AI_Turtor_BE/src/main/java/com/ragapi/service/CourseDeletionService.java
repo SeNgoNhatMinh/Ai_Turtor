@@ -52,7 +52,7 @@ public class CourseDeletionService {
         long deletedChunks = 0;
         long deletedVisualPages = 0;
         for (CourseMaterial material : materials) {
-            Map<String, Object> result = materialLifecycleService.deleteMaterial(courseId, material.getId(), null);
+            Map<String, Object> result = materialLifecycleService.deleteMaterialAsSystem(courseId, material.getId());
             deletedChunks += asLong(result.get("deletedChunks"));
             deletedVisualPages += asLong(result.get("deletedVisualPages"));
         }

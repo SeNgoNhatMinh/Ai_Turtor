@@ -9,6 +9,7 @@ import QuizScoreboardDrawer from './components/QuizScoreboardDrawer';
 import { useQuizAssignmentsController } from './useQuizAssignmentsController';
 import { useQuizScoreboard } from './useQuizScoreboard';
 import '../../student/quizzes/Quiz.css';
+import './TeacherQuizzesPage.css';
 
 function QuizAssignments({
   teacherId,

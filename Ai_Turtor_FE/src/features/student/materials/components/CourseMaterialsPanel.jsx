@@ -1,5 +1,6 @@
 import { DownloadOutlined } from '@ant-design/icons';
-import { Button, Card, Empty, Table, Tag, Typography } from 'antd';
+import { Button, Card, Empty, Tag, Typography } from 'antd';
+import SearchableTable from '../../../../components/common/SearchableTable';
 import { getMaterialDisplayName } from '../../../../utils/sourceLabels';
 
 const { Text } = Typography;
@@ -67,7 +68,7 @@ export default function CourseMaterialsPanel({ materials, onDownload }) {
 
   return (
     <Card styles={{ body: { padding: 16 } }}>
-      <Table
+      <SearchableTable
         dataSource={materials}
         rowKey={(record) => record.id || record.materialId}
         pagination={{ pageSize: 8 }}

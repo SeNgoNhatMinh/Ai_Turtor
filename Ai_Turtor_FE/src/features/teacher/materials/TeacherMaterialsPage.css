@@ -49,6 +49,17 @@
   gap: 4px;
 }
 
+.teacher-material-scope-cell {
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+}
+
+.teacher-material-scope-cell > span:last-child {
+  color: var(--color-text-muted, #64748b);
+  font-size: 0.7rem;
+}
+
 .teacher-material-status-cell span {
   display: -webkit-box;
   overflow: hidden;

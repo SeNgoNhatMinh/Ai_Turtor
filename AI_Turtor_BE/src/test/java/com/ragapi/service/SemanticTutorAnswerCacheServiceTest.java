@@ -173,7 +173,24 @@ class SemanticTutorAnswerCacheServiceTest {
 
         cacheService.storeRagAnswer("CEA201", null, "Servlet là gì?", answer);
 
-        verify(repository, never()).save(org.mockito.ArgumentMatchers.any());
+        verify(mongoTemplate, never()).upsert(any(), any(), eq(CanonicalTutorAnswer.class));
+    }
+
+    @Test
+    void storeRagAnswer_skipsAnswersThatRequireEscalation() {
+        CourseRagAnswer answer = CourseRagAnswer.builder()
+                .answer("Tài liệu chưa đủ để trả lời chắc chắn.")
+                .confidence(0.9)
+                .sources(List.of("mat-1"))
+                .groundingType("COURSE_MATERIAL")
+                .escalationRecommended(true)
+                .escalationReason("Insufficient material")
+                .build();
+
+        cacheService.storeRagAnswer("CEA201", null, "Servlet là gì?", answer);
+
+        verify(mongoTemplate, never()).upsert(any(), any(), eq(CanonicalTutorAnswer.class));
+        verify(embeddingService, never()).generateQueryEmbedding(anyString());
     }
 
     @Test

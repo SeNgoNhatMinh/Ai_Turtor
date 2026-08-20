@@ -15,10 +15,12 @@
   width: 100%;
   overflow-x: auto;
   overscroll-behavior-x: contain;
+  scrollbar-gutter: stable;
 }
 
 .data-table-scroll--bounded {
   overflow: auto;
+  overscroll-behavior: contain;
   scrollbar-gutter: stable;
 }
 

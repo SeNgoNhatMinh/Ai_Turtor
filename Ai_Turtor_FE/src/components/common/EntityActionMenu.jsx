@@ -1,6 +1,7 @@
 import { useRef } from 'react';
-import { Button, Dropdown } from 'antd';
+import { Dropdown } from 'antd';
 import { MoreHorizontal } from 'lucide-react';
+import ActionButton from './ActionButton';
 import './EntityActionMenu.css';
 
 function EntityActionMenu({
@@ -34,8 +35,8 @@ function EntityActionMenu({
         className="entity-action-trigger"
         onClick={(event) => event.stopPropagation()}
       >
-        <Button
-          type="text"
+        <ActionButton
+          intent="text"
           size="small"
           className="conversation-more-button entity-action-button"
           icon={<MoreHorizontal size={17} />}

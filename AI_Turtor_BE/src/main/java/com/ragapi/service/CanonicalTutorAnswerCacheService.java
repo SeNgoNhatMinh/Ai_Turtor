@@ -94,6 +94,7 @@ public class CanonicalTutorAnswerCacheService {
                     .filter(entry -> entry.getSourceEvidence() != null && !entry.getSourceEvidence().isEmpty())
                     .forEach(entry -> rememberExactRagAnswer(
                             entry.getId(),
+                            entry.getCourseId(),
                             toRagAnswer(entry),
                             entry.getExpiresAt(),
                             entry.getReuseCount(),
@@ -146,7 +147,14 @@ public class CanonicalTutorAnswerCacheService {
             return Optional.empty();
         }
         incrementReuse(entry);
-        rememberExactRagAnswer(key, answer, entry.getExpiresAt(), entry.getReuseCount(), entry.getLastReusedAt());
+        rememberExactRagAnswer(
+                key,
+                entry.getCourseId(),
+                answer,
+                entry.getExpiresAt(),
+                entry.getReuseCount(),
+                entry.getLastReusedAt()
+        );
         return Optional.of(withHitMetadata(
                 answer, "EXACT", key, 1.0, lookupStartedNanos, courseId, classId));
     }
@@ -168,7 +176,14 @@ public class CanonicalTutorAnswerCacheService {
             return;
         }
         String key = buildKey(courseId, classId, "RAG", question, null);
-        rememberExactRagAnswer(key, answer, LocalDateTime.now().plusHours(Math.max(1, ttlHours)), 0L, null);
+        rememberExactRagAnswer(
+                key,
+                courseId,
+                answer,
+                LocalDateTime.now().plusHours(Math.max(1, ttlHours)),
+                0L,
+                null
+        );
         save(
                 key,
                 courseId,
@@ -189,7 +204,14 @@ public class CanonicalTutorAnswerCacheService {
             return;
         }
         String key = buildKey(courseId, classId, "RAG", question, null);
-        rememberExactRagAnswer(key, answer, LocalDateTime.now().plusHours(Math.max(1, ttlHours)), 0L, null);
+        rememberExactRagAnswer(
+                key,
+                courseId,
+                answer,
+                LocalDateTime.now().plusHours(Math.max(1, ttlHours)),
+                0L,
+                null
+        );
         CompletableFuture.runAsync(() -> {
             try {
                 storeRagAnswer(courseId, classId, question, answer);
@@ -301,6 +323,7 @@ public class CanonicalTutorAnswerCacheService {
 
     private void rememberExactRagAnswer(
             String key,
+            String courseId,
             CourseRagAnswer answer,
             LocalDateTime expiresAt,
             long reuseCount,
@@ -315,7 +338,40 @@ public class CanonicalTutorAnswerCacheService {
         LocalDateTime safeExpiry = expiresAt == null
                 ? LocalDateTime.now().plusHours(Math.max(1, ttlHours))
                 : expiresAt;
-        exactRagMemoryCache.put(key, new MemoryRagAnswer(answer, safeExpiry, reuseCount, lastReusedAt));
+        exactRagMemoryCache.put(
+                key,
+                new MemoryRagAnswer(normalizeScope(courseId), answer, safeExpiry, reuseCount, lastReusedAt)
+        );
+    }
+
+    public void evictExactRagAnswer(String cacheId) {
+        if (cacheId == null || cacheId.isBlank()) {
+            return;
+        }
+        exactRagMemoryCache.remove(cacheId.trim());
+    }
+
+    public long evictRagAnswersForCourse(String courseId) {
+        String normalizedCourseId = normalizeScope(courseId);
+        if (normalizedCourseId.isBlank()) {
+            return 0L;
+        }
+
+        exactRagMemoryCache.entrySet().removeIf(entry ->
+                normalizedCourseId.equalsIgnoreCase(entry.getValue().courseId()));
+
+        try {
+            long deleted = mongoTemplate.remove(
+                    Query.query(Criteria.where("courseId").is(normalizedCourseId).and("mode").is("RAG")),
+                    CanonicalTutorAnswer.class
+            ).getDeletedCount();
+            log.info("Evicted {} persisted tutor RAG cache entries for courseId={}", deleted, normalizedCourseId);
+            return deleted;
+        } catch (Exception error) {
+            log.warn("Cannot evict persisted tutor RAG cache for courseId={}: {}",
+                    normalizedCourseId, error.getMessage());
+            return 0L;
+        }
     }
 
     private Optional<String> lookupSemanticCodeAnswer(String courseId, String classId, String question) {
@@ -430,6 +486,9 @@ public class CanonicalTutorAnswerCacheService {
         if (answer == null || !shouldStore(answer.getAnswer())) {
             return false;
         }
+        if (Boolean.TRUE.equals(answer.getEscalationRecommended())) {
+            return false;
+        }
         if (!isReusableGroundingType(answer.getGroundingType())) {
             return false;
         }
@@ -466,17 +525,20 @@ public class CanonicalTutorAnswerCacheService {
     }
 
     private static final class MemoryRagAnswer {
+        private final String courseId;
         private final CourseRagAnswer answer;
         private final LocalDateTime expiresAt;
         private final AtomicLong reuseCount;
         private final AtomicReference<LocalDateTime> lastReusedAt;
 
         private MemoryRagAnswer(
+                String courseId,
                 CourseRagAnswer answer,
                 LocalDateTime expiresAt,
                 long reuseCount,
                 LocalDateTime lastReusedAt
         ) {
+            this.courseId = courseId;
             this.answer = answer;
             this.expiresAt = expiresAt;
             this.reuseCount = new AtomicLong(reuseCount);
@@ -485,6 +547,10 @@ public class CanonicalTutorAnswerCacheService {
 
         CourseRagAnswer answer() {
             return answer;
+        }
+
+        String courseId() {
+            return courseId;
         }
 
         LocalDateTime expiresAt() {

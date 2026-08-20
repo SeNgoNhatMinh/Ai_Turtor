@@ -1,8 +1,10 @@
 package com.ragapi.service;
 
 import com.ragapi.dto.KnowledgeCandidateReviewRequest;
+import com.ragapi.dto.MentorAnswerRequest;
 import com.ragapi.entity.CourseMaterial;
 import com.ragapi.entity.KnowledgeCandidate;
+import com.ragapi.entity.QuestionEscalation;
 import com.ragapi.repository.CourseMaterialRepository;
 import com.ragapi.repository.KnowledgeCandidateRepository;
 import com.ragapi.repository.MentorAnswerRepository;
@@ -14,6 +16,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -30,6 +33,7 @@ class HumanLearningServiceTest {
         CourseMaterialChunkingService chunkingService = mock(CourseMaterialChunkingService.class);
         ElasticVectorService vectorService = mock(ElasticVectorService.class);
         AiConversationService conversationService = mock(AiConversationService.class);
+        CanonicalTutorAnswerCacheService answerCacheService = mock(CanonicalTutorAnswerCacheService.class);
         HumanLearningService service = new HumanLearningService(
                 escalationRepository,
                 mentorAnswerRepository,
@@ -38,7 +42,8 @@ class HumanLearningServiceTest {
                 chunkingService,
                 vectorService,
                 conversationService,
-                mock(KnowledgeImageStorageService.class)
+                mock(KnowledgeImageStorageService.class),
+                answerCacheService
         );
         KnowledgeCandidate candidate = KnowledgeCandidate.builder()
                 .id("candidate-1")
@@ -85,5 +90,37 @@ class HumanLearningServiceTest {
                 null,
                 List.of("approved chunk")
         );
+        verify(answerCacheService).evictRagAnswersForCourse("PRJ301");
+    }
+
+    @Test
+    void answerEscalationRejectsTeacherWhoWasNotSelectedByStudent() {
+        QuestionEscalationRepository escalationRepository = mock(QuestionEscalationRepository.class);
+        KnowledgeImageStorageService imageStorageService = mock(KnowledgeImageStorageService.class);
+        HumanLearningService service = new HumanLearningService(
+                escalationRepository,
+                mock(MentorAnswerRepository.class),
+                mock(KnowledgeCandidateRepository.class),
+                mock(CourseMaterialRepository.class),
+                mock(CourseMaterialChunkingService.class),
+                mock(ElasticVectorService.class),
+                mock(AiConversationService.class),
+                imageStorageService,
+                mock(CanonicalTutorAnswerCacheService.class)
+        );
+        QuestionEscalation escalation = QuestionEscalation.builder()
+                .id("escalation-1")
+                .userId("student-1")
+                .assignedMentorId("mentor-selected")
+                .build();
+        when(escalationRepository.findById("escalation-1")).thenReturn(Optional.of(escalation));
+        when(imageStorageService.resolveAttachments(any())).thenReturn(List.of());
+        MentorAnswerRequest request = new MentorAnswerRequest();
+        request.setTeacherId("mentor-other");
+        request.setAnswer("Câu trả lời không được phép ghi vào ticket này.");
+
+        assertThatThrownBy(() -> service.answerEscalation("escalation-1", request))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("selected by the student");
     }
 }

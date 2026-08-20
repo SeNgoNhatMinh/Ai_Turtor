@@ -8,11 +8,11 @@ import {
   Modal,
   Space,
   Switch,
-  Table,
   Tag,
   Tooltip,
   Typography,
 } from 'antd';
+import SearchableTable from '../../../../components/common/SearchableTable';
 import { Edit3, Power, PowerOff, RefreshCw, RotateCcw, Trash2 } from 'lucide-react';
 import EntityActionMenu from '../../../../components/common/EntityActionMenu';
 import { confirmAction, confirmDanger } from '../../../../components/common/confirmDialog';
@@ -250,7 +250,7 @@ export default function LlmProviderManagementTable({
           title="Backend là nguồn trạng thái chuẩn"
           description="Bật/tắt, đổi model, xóa hoặc khôi phục đều reload runtime chain. API key và provider bị tắt từ biến môi trường phải được sửa tại môi trường deploy."
         />
-        <Table
+        <SearchableTable
           size="middle"
           rowKey="providerId"
           dataSource={providers}

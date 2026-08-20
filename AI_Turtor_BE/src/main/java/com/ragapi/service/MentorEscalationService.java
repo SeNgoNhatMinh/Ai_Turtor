@@ -87,7 +87,7 @@ public class MentorEscalationService {
         return questionEscalationRepository.save(request);
     }
 
-    public MentorEscalationOfferResponse offerMentorHelp(String questionEscalationId) {
+    public MentorEscalationOfferResponse offerMentorHelp(String questionEscalationId, String userId) {
         Optional<QuestionEscalation> opt = questionEscalationRepository.findById(questionEscalationId);
         if (opt.isEmpty()) {
             log.error("Question escalation not found: {}", questionEscalationId);
@@ -95,6 +95,7 @@ public class MentorEscalationService {
         }
 
         QuestionEscalation request = opt.get();
+        requireStudentOwner(request, userId, "request mentor suggestions");
         if ("IN_CHAT".equalsIgnoreCase(request.getStatus())
                 && request.getChatRoomId() != null
                 && !request.getChatRoomId().isBlank()) {
@@ -154,6 +155,8 @@ public class MentorEscalationService {
     ) {
         QuestionEscalation request = questionEscalationRepository.findById(questionEscalationId)
                 .orElseThrow(() -> new RuntimeException("Question escalation not found"));
+
+        requireStudentOwner(request, userId, "select a mentor");
 
         if ("IN_CHAT".equalsIgnoreCase(request.getStatus())
                 && request.getChatRoomId() != null
@@ -222,6 +225,7 @@ public class MentorEscalationService {
 
     public void cancelMentorHelpOffer(String questionEscalationId, String userId, String reason) {
         questionEscalationRepository.findById(questionEscalationId).ifPresent(request -> {
+            requireStudentOwner(request, userId, "cancel it");
             request.setStatus("CANCELLED");
             request.setCancelReason(reason);
             request.setUpdatedAt(LocalDateTime.now());
@@ -263,6 +267,12 @@ public class MentorEscalationService {
                 .escalationRoute(request.getEscalationRoute())
                 .routeReason(request.getRouteReason())
                 .build();
+    }
+
+    private void requireStudentOwner(QuestionEscalation escalation, String userId, String action) {
+        if (escalation == null || escalation.getUserId() == null || !escalation.getUserId().equals(userId)) {
+            throw new SecurityException("Only the student who created this escalation can " + action);
+        }
     }
 
     private List<MentorSuggestionDTO> buildClassTeacherSuggestion(ClassSection classSection) {
@@ -368,5 +378,3 @@ public class MentorEscalationService {
         return value == null || value.isBlank();
     }
 }
-
-

@@ -48,6 +48,7 @@ public class HumanLearningService {
     private final ElasticVectorService vectorService;
     private final AiConversationService aiConversationService;
     private final KnowledgeImageStorageService knowledgeImageStorageService;
+    private final CanonicalTutorAnswerCacheService answerCacheService;
 
     public Map<String, Object> answerEscalation(String escalationId, MentorAnswerRequest request) {
         if (request == null) {
@@ -60,6 +61,7 @@ public class HumanLearningService {
 
         QuestionEscalation escalation = escalationRepository.findById(realEscalationId)
                 .orElseThrow(() -> new IllegalArgumentException("Question escalation not found"));
+        requireAssignedTeacher(escalation, teacherId);
 
         LocalDateTime now = LocalDateTime.now();
         MentorAnswer mentorAnswer = MentorAnswer.builder()
@@ -110,10 +112,15 @@ public class HumanLearningService {
         return response;
     }
 
-    public Map<String, Object> getEscalationDetail(String escalationId) {
+    public Map<String, Object> getEscalationDetail(
+            String escalationId,
+            String requesterId,
+            String requesterRole
+    ) {
         String realEscalationId = requireText(escalationId, "questionEscalationId");
         QuestionEscalation escalation = escalationRepository.findById(realEscalationId)
                 .orElseThrow(() -> new IllegalArgumentException("Question escalation not found"));
+        requireEscalationViewer(escalation, requesterId, requesterRole);
         List<MentorAnswer> mentorAnswers = mentorAnswerRepository.findByQuestionEscalationId(realEscalationId);
         List<KnowledgeCandidate> candidates = knowledgeCandidateRepository.findByQuestionEscalationId(realEscalationId);
 
@@ -139,11 +146,7 @@ public class HumanLearningService {
         String teacherId = requireText(request.getTeacherId(), "teacherId");
         QuestionEscalation escalation = escalationRepository.findById(realEscalationId)
                 .orElseThrow(() -> new IllegalArgumentException("Question escalation not found"));
-        if (escalation.getAssignedMentorId() != null
-                && !escalation.getAssignedMentorId().isBlank()
-                && !teacherId.equals(escalation.getAssignedMentorId())) {
-            throw new IllegalArgumentException("Only the assigned teacher can create knowledge from this escalation");
-        }
+        requireAssignedTeacher(escalation, teacherId);
         if (escalation.getCourseId() == null || escalation.getCourseId().isBlank()) {
             throw new IllegalArgumentException("courseId is required to create an AI learning candidate");
         }
@@ -257,6 +260,7 @@ public class HumanLearningService {
         candidate.setIndexedAt(now);
         candidate.setUpdatedAt(now);
         KnowledgeCandidate savedCandidate = knowledgeCandidateRepository.save(candidate);
+        answerCacheService.evictRagAnswersForCourse(savedCandidate.getCourseId());
         notifyStudentAfterCandidateIndexed(savedCandidate);
         return savedCandidate;
     }
@@ -408,6 +412,29 @@ public class HumanLearningService {
         if (!STATUS_PENDING_SENIOR_REVIEW.equalsIgnoreCase(candidate.getStatus())
                 && !STATUS_LEGACY_PENDING_REVIEW.equalsIgnoreCase(candidate.getStatus())) {
             throw new IllegalArgumentException("Only pending senior-review candidates can be approved or rejected");
+        }
+    }
+
+    private void requireAssignedTeacher(QuestionEscalation escalation, String teacherId) {
+        if (escalation == null
+                || escalation.getAssignedMentorId() == null
+                || escalation.getAssignedMentorId().isBlank()
+                || !teacherId.equals(escalation.getAssignedMentorId())) {
+            throw new IllegalArgumentException("Only the mentor selected by the student can access this escalation");
+        }
+    }
+
+    private void requireEscalationViewer(
+            QuestionEscalation escalation,
+            String requesterId,
+            String requesterRole
+    ) {
+        String actorId = trimToNull(requesterId);
+        boolean admin = "ADMIN".equalsIgnoreCase(trimToNull(requesterRole));
+        boolean studentOwner = actorId != null && actorId.equals(escalation.getUserId());
+        boolean assignedMentor = actorId != null && actorId.equals(escalation.getAssignedMentorId());
+        if (!admin && !studentOwner && !assignedMentor) {
+            throw new SecurityException("Escalation is private to the student and selected mentor");
         }
     }
 

@@ -68,22 +68,16 @@ export const materialsApi = {
     return response;
   },
 
-  async deleteMaterial(courseId, materialId, teacherId = '') {
-    const params = new URLSearchParams();
-    if (teacherId) params.append('teacherId', teacherId);
-    const qs = params.toString();
-    const response = await request(`${API_BASE_URL}/courses/${encodePath(courseId)}/materials/${encodePath(materialId)}${qs ? `?${qs}` : ''}`, {
+  async deleteMaterial(courseId, materialId) {
+    const response = await request(`${API_BASE_URL}/courses/${encodePath(courseId)}/materials/${encodePath(materialId)}`, {
       method: 'DELETE',
     });
     invalidateResourceCache(materialCachePrefix(courseId));
     return response;
   },
 
-  async reindexCourseMaterials(courseId, teacherId = '') {
-    const params = new URLSearchParams();
-    if (teacherId) params.append('teacherId', teacherId);
-    const qs = params.toString();
-    const response = await request(`${API_BASE_URL}/courses/${encodePath(courseId)}/materials/reindex${qs ? `?${qs}` : ''}`, {
+  async reindexCourseMaterials(courseId) {
+    const response = await request(`${API_BASE_URL}/courses/${encodePath(courseId)}/materials/reindex`, {
       method: 'POST',
       timeoutMs: API_TIMEOUTS.reindex,
     });
@@ -91,11 +85,8 @@ export const materialsApi = {
     return response;
   },
 
-  async reindexMaterial(courseId, materialId, teacherId = '') {
-    const params = new URLSearchParams();
-    if (teacherId) params.append('teacherId', teacherId);
-    const qs = params.toString();
-    const response = await request(`${API_BASE_URL}/courses/${encodePath(courseId)}/materials/${encodePath(materialId)}/reindex${qs ? `?${qs}` : ''}`, {
+  async reindexMaterial(courseId, materialId) {
+    const response = await request(`${API_BASE_URL}/courses/${encodePath(courseId)}/materials/${encodePath(materialId)}/reindex`, {
       method: 'POST',
       timeoutMs: API_TIMEOUTS.reindex,
     });
