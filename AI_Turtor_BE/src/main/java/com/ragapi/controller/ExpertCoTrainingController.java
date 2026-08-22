@@ -141,8 +141,17 @@ public class ExpertCoTrainingController {
     }
 
     @PostMapping("/gold-qa")
-    public ResponseEntity<?> submitGoldQa(@RequestBody SubmitGoldQaRequest request) {
-        return respond(() -> service.submitGoldQa(request));
+    @Operation(summary = "Teacher submits Gold Q&A. Default exam=true scores AI vs Teacher Gold Q&A on the textbook.")
+    public ResponseEntity<?> submitGoldQa(
+            @RequestBody SubmitGoldQaRequest request,
+            @RequestParam(defaultValue = "true") boolean exam) {
+        return respond(() -> exam ? service.submitGoldQaAndExam(request) : service.submitGoldQa(request));
+    }
+
+    @PostMapping("/gold-qa/{id}/exam")
+    @Operation(summary = "Score AI textbook answer against Teacher Gold Q&A. Does not index into RAG.")
+    public ResponseEntity<?> examGoldQa(@PathVariable String id) {
+        return respond(() -> service.examGoldQa(id));
     }
 
     @GetMapping("/gold-qa")

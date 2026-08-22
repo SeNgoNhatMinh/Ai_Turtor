@@ -176,8 +176,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        784,
-        832
+        880,
+        704
       ],
       "id": "588a87ea-0272-4720-a847-4f13a97bf63b",
       "name": "IF Confidence Check"
@@ -196,30 +196,8 @@
           ]
         },
         "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "studentId",
-              "value": "={{$node[\"Set - Trace Context\"].json.studentId}}"
-            },
-            {
-              "name": "courseId",
-              "value": "={{$node[\"Set - Trace Context\"].json.courseId}}"
-            },
-            {
-              "name": "classId",
-              "value": "={{$node[\"Set - Trace Context\"].json.classId}}"
-            },
-            {
-              "name": "question",
-              "value": "={{$node[\"Set - Trace Context\"].json.message}}"
-            },
-            {
-              "name": "answer",
-              "value": "={{$node[\"Course RAG Query\"].json.answer}}"
-            }
-          ]
-        },
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  studentId: $node['Set - Trace Context'].json.studentId,\n  courseId: $node['Set - Trace Context'].json.courseId,\n  classId: $node['Set - Trace Context'].json.classId,\n  question: $node['Set - Trace Context'].json.message,\n  includeAiSuggestion: true\n}) }}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -229,7 +207,8 @@
         704
       ],
       "id": "215e116e-6921-4199-9d06-7d88eece2ee3",
-      "name": "Improve Suggestions"
+      "name": "Improve Suggestions",
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -239,32 +218,14 @@
         "headerParameters": {
           "parameters": [
             {
-              "name": "=Authorization",
+              "name": "Authorization",
               "value": "={{$node[\"Set - Trace Context\"].json.authorization}}"
             }
           ]
         },
         "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "classId",
-              "value": "={{$node[\"Set - Trace Context\"].json.classId}}"
-            },
-            {
-              "name": "recentQuestion",
-              "value": "={{$node[\"Set - Trace Context\"].json.message}}"
-            },
-            {
-              "name": "=recentAnswer",
-              "value": "={{$node[\"Course RAG Query\"].json.answer}}"
-            },
-            {
-              "name": "improveSuggestions",
-              "value": "={{[$node[\"Improve Suggestions\"].json.aiSuggestion || JSON.stringify($node[\"Improve Suggestions\"].json.ruleSuggestions || [])]}}"
-            }
-          ]
-        },
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  classId: $node['Set - Trace Context'].json.classId,\n  recentQuestions: [$node['Set - Trace Context'].json.message].filter(Boolean),\n  recentAnswers: [$node['Course RAG Query'].json.answer].filter(Boolean),\n  improveSuggestions: [\n    ...(($node['Improve Suggestions'].json.ruleSuggestions || []).map(item => item.title || item.text || item).filter(Boolean)),\n    $node['Improve Suggestions'].json.aiSuggestion\n  ].filter(Boolean)\n}) }}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -274,7 +235,8 @@
         704
       ],
       "id": "99f92ca6-8cee-4f72-8d62-77f5423bdc38",
-      "name": "Update Memory RAG"
+      "name": "Update Memory RAG",
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -3432,7 +3394,7 @@
       "main": [
         [
           {
-            "node": "Respond RAG",
+            "node": "Improve Suggestions",
             "type": "main",
             "index": 0
           }
@@ -3662,7 +3624,7 @@
       "main": [
         [
           {
-            "node": "Intent Classifier",
+            "node": "Log - Stundet Chat Started",
             "type": "main",
             "index": 0
           }
@@ -3837,7 +3799,7 @@
       "main": [
         [
           {
-            "node": "Intent Classifier",
+            "node": "Get Student Score Memory",
             "type": "main",
             "index": 0
           }

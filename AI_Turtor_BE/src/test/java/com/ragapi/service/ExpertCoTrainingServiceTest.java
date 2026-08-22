@@ -264,7 +264,7 @@ class ExpertCoTrainingServiceTest {
         request.setAuthorId("T1");
         request.setSourceTaskId("TASK1");
 
-        GoldQa submitted = service.submitGoldQa(request);
+        GoldQa submitted = service.submitGoldQaAndExam(request);
 
         assertEquals("PENDING_REVIEW", submitted.getStatus());
         assertEquals(true, submitted.getExamPassed());

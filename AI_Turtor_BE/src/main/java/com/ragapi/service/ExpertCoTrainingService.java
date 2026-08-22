@@ -416,12 +416,22 @@ public class ExpertCoTrainingService {
                 .sourceTaskId(request.getSourceTaskId()).rubricId(request.getRubricId())
                 .createdAt(now).updatedAt(now).build());
         completeContributionTask(task, gold.getId());
+        return gold;
+    }
+
+    public GoldQa examGoldQa(String id) {
+        GoldQa gold = goldQaRepository.findById(requireText(id, "id"))
+                .orElseThrow(() -> new IllegalArgumentException("GoldQA not found"));
         examineAgainstTextbook(gold);
         GoldQa examined = goldQaRepository.findById(gold.getId()).orElse(gold);
         realtimeEvents.publishToRoles(SENIOR_ROLES, "GOLD_QA_SUBMITTED", "GOLD_QA", examined.getId(),
                 examined.getStatus(), Map.of("courseId", examined.getCourseId(), "usage", examined.getUsage(),
                         "authorId", examined.getAuthorId(), "examPassed", Boolean.TRUE.equals(examined.getExamPassed())));
         return examined;
+    }
+
+    public GoldQa submitGoldQaAndExam(SubmitGoldQaRequest request) {
+        return examGoldQa(submitGoldQa(request).getId());
     }
 
     public ExpertRubric submitRubric(SubmitRubricRequest request) {

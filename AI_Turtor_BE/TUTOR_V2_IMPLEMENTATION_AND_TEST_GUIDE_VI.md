@@ -122,12 +122,11 @@ Chạy evaluation:
 
 Import file `n8n-import/AI-tutor-v2-proactive-workflows.json`, sau đó mở workflow và chọn **Publish/Active**.
 
-- `POST /webhook/v2-coverage-analyze`
-- `POST /webhook/v2-gold-qa-submit`
-- `POST /webhook/v2-rubric-submit`
-- `POST /webhook/v2-gold-qa-approve`
-- `POST /webhook/v2-rubric-approve`
-- `POST /webhook/v2-eval-run`
+Luồng n8n V2:
+- `POST /webhook/v2-gold-qa-submit` — lưu Gold Q&A rồi chấm AI vs đáp án Teacher trên sách
+- `POST /webhook/v2-gold-qa-approve` — Senior nạp Gold Q&A vào RAG
+
+Bắt đầu chương, reject, coverage, rubric và eval-run gọi thẳng Backend.
 
 Khi gọi webhook n8n, JWT phải nằm trong HTTP header `Authorization: Bearer <JWT_TOKEN>`, không đặt trong JSON body. n8n chuyển tiếp header này sang Backend. Quyền role, trạng thái, tách training/holdout và index RAG đều do Backend quyết định.
 
