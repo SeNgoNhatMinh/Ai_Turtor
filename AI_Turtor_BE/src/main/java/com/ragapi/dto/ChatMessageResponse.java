@@ -25,6 +25,12 @@ public class ChatMessageResponse {
     private String messageType;
     private LocalDateTime sentAt;
     private String status; // "SENT", "DELIVERED", "READ"
+    private String questionEscalationId;
+    private Boolean knowledgeCandidateCreated;
+    private Boolean knowledgeCandidateAlreadyExists;
+    private String knowledgeCandidateId;
+    private String knowledgeCandidateStatus;
+    private String actionMessage;
 }
 
 

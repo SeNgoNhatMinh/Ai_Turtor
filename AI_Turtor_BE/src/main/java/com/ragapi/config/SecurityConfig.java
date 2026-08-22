@@ -140,6 +140,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/tutor/quiz-assignments/**").hasAnyRole("TEACHER", "SENIOR_MENTOR", "ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/tutor/quiz-assignments/**", "/api/tutor/quizzes/*/teacher-review").hasAnyRole("TEACHER", "SENIOR_MENTOR", "ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/tutor/quiz-assignments/**").hasAnyRole("TEACHER", "SENIOR_MENTOR", "ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/chat/send-answer-and-index").hasAnyRole("TEACHER", "SENIOR_MENTOR", "ADMIN")
                         .requestMatchers("/api/chat/**").hasAnyRole("STUDENT", "TEACHER", "SENIOR_MENTOR", "ADMIN")
                         .requestMatchers("/api/code-mentor/**", "/api/ai/**", "/api/tutor/**", "/api/students/**", "/api/courses/**", "/api/improve/**", "/api/improve-plans/**").authenticated()
                         .anyRequest().authenticated()

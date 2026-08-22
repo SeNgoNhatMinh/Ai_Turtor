@@ -32,7 +32,6 @@ class HumanLearningServiceTest {
         CourseMaterialRepository materialRepository = mock(CourseMaterialRepository.class);
         CourseMaterialChunkingService chunkingService = mock(CourseMaterialChunkingService.class);
         ElasticVectorService vectorService = mock(ElasticVectorService.class);
-        AiConversationService conversationService = mock(AiConversationService.class);
         CanonicalTutorAnswerCacheService answerCacheService = mock(CanonicalTutorAnswerCacheService.class);
         HumanLearningService service = new HumanLearningService(
                 escalationRepository,
@@ -41,7 +40,6 @@ class HumanLearningServiceTest {
                 materialRepository,
                 chunkingService,
                 vectorService,
-                conversationService,
                 mock(KnowledgeImageStorageService.class),
                 answerCacheService
         );
@@ -104,7 +102,6 @@ class HumanLearningServiceTest {
                 mock(CourseMaterialRepository.class),
                 mock(CourseMaterialChunkingService.class),
                 mock(ElasticVectorService.class),
-                mock(AiConversationService.class),
                 imageStorageService,
                 mock(CanonicalTutorAnswerCacheService.class)
         );
@@ -122,5 +119,42 @@ class HumanLearningServiceTest {
         assertThatThrownBy(() -> service.answerEscalation("escalation-1", request))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("selected by the student");
+    }
+
+    @Test
+    void submitTeacherChatAnswerReusesExistingCandidate() {
+        QuestionEscalationRepository escalationRepository = mock(QuestionEscalationRepository.class);
+        KnowledgeCandidateRepository candidateRepository = mock(KnowledgeCandidateRepository.class);
+        HumanLearningService service = new HumanLearningService(
+                escalationRepository,
+                mock(MentorAnswerRepository.class),
+                candidateRepository,
+                mock(CourseMaterialRepository.class),
+                mock(CourseMaterialChunkingService.class),
+                mock(ElasticVectorService.class),
+                mock(KnowledgeImageStorageService.class),
+                mock(CanonicalTutorAnswerCacheService.class)
+        );
+        QuestionEscalation escalation = QuestionEscalation.builder()
+                .id("escalation-1")
+                .chatRoomId("ROOM-1")
+                .assignedMentorId("teacher-1")
+                .courseId("PFP191")
+                .build();
+        KnowledgeCandidate existing = KnowledgeCandidate.builder()
+                .id("candidate-1")
+                .status("PENDING_SENIOR_REVIEW")
+                .build();
+        when(escalationRepository.findByChatRoomId("ROOM-1")).thenReturn(Optional.of(escalation));
+        when(candidateRepository.findByQuestionEscalationId("escalation-1")).thenReturn(List.of(existing));
+        MentorAnswerRequest request = new MentorAnswerRequest();
+        request.setTeacherId("teacher-1");
+        request.setAnswer("PyTorch là thư viện học sâu.");
+
+        var result = service.submitTeacherChatAnswerAndCandidate("ROOM-1", request);
+
+        assertThat(result.get("alreadyExists")).isEqualTo(true);
+        assertThat(result.get("knowledgeCandidateCreated")).isEqualTo(false);
+        assertThat(result.get("candidateId")).isEqualTo("candidate-1");
     }
 }

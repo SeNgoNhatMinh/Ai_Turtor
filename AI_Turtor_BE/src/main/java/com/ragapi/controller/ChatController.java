@@ -1,9 +1,12 @@
 package com.ragapi.controller;
 
+import com.ragapi.config.ChatWebSocketHandler;
 import com.ragapi.dto.ChatClosureRequest;
 import com.ragapi.dto.ChatMarkAsReadRequest;
 import com.ragapi.dto.ChatMessageRequest;
 import com.ragapi.service.ChatService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -22,9 +25,11 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/chat")
 @RequiredArgsConstructor
+@Tag(name = "Teacher-Student Chat", description = "Live chat between the assigned teacher and student")
 public class ChatController {
 
     private final ChatService chatService;
+    private final ChatWebSocketHandler chatWebSocketHandler;
 
     @PostMapping("/send")
     public ResponseEntity<?> sendMessage(@RequestBody ChatMessageRequest request, Authentication auth) {
@@ -32,6 +37,21 @@ public class ChatController {
             return ResponseEntity.ok(chatService.sendMessage(request, userId(auth), role(auth)));
         } catch (Exception e) {
             return error("sending message", e);
+        }
+    }
+
+    @PostMapping("/send-answer-and-index")
+    @Operation(summary = "Teacher sends the same answer to the student chat and creates a pending knowledge candidate")
+    public ResponseEntity<?> sendAnswerAndCreateKnowledgeCandidate(
+            @RequestBody ChatMessageRequest request,
+            Authentication auth
+    ) {
+        try {
+            var response = chatService.sendAnswerAndCreateKnowledgeCandidate(request, userId(auth), role(auth));
+            chatWebSocketHandler.broadcastNewMessage(request.getChatRoomId(), response);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return error("sending answer and creating knowledge candidate", e);
         }
     }
 

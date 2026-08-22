@@ -46,7 +46,6 @@ public class HumanLearningService {
     private final CourseMaterialRepository courseMaterialRepository;
     private final CourseMaterialChunkingService chunkingService;
     private final ElasticVectorService vectorService;
-    private final AiConversationService aiConversationService;
     private final KnowledgeImageStorageService knowledgeImageStorageService;
     private final CanonicalTutorAnswerCacheService answerCacheService;
 
@@ -100,16 +99,47 @@ public class HumanLearningService {
 
         Map<String, Object> response = new LinkedHashMap<>();
         response.put("questionEscalationId", escalation.getId());
+        response.put("chatRoomId", escalation.getChatRoomId() == null ? "" : escalation.getChatRoomId());
         response.put("mentorAnswerId", mentorAnswer.getId());
         response.put("mentorAnswer", mentorAnswer);
         response.put("escalationStatus", escalation.getStatus());
         response.put("studentVisibleStatus", toStudentVisibleStatus(escalation.getStatus()));
         response.put("knowledgeCandidateCreated", candidate != null);
+        response.put("alreadyExists", false);
         response.put("knowledgeCandidate", candidate == null ? "" : candidate);
+        response.put("candidateId", candidate == null ? "" : candidate.getId());
+        response.put("candidateStatus", candidate == null ? "" : candidate.getStatus());
         response.put("message", candidate == null
                 ? "Teacher answer saved for the student. No AI learning candidate was created."
                 : "Teacher answer saved. Senior mentor approval is required before AI Tutor can learn it.");
         return response;
+    }
+
+    public Map<String, Object> submitTeacherChatAnswerAndCandidate(String chatRoomId, MentorAnswerRequest request) {
+        String roomId = requireText(chatRoomId, "chatRoomId");
+        QuestionEscalation escalation = escalationRepository.findByChatRoomId(roomId)
+                .orElseThrow(() -> new IllegalArgumentException("No escalation is linked to this chat room"));
+
+        List<KnowledgeCandidate> existing = knowledgeCandidateRepository.findByQuestionEscalationId(escalation.getId());
+        if (!existing.isEmpty()) {
+            KnowledgeCandidate candidate = existing.get(existing.size() - 1);
+            Map<String, Object> response = new LinkedHashMap<>();
+            response.put("questionEscalationId", escalation.getId());
+            response.put("chatRoomId", roomId);
+            response.put("knowledgeCandidateCreated", false);
+            response.put("alreadyExists", true);
+            response.put("knowledgeCandidate", candidate);
+            response.put("candidateId", candidate.getId());
+            response.put("candidateStatus", candidate.getStatus());
+            response.put("message", "Câu trả lời đã được gửi. Knowledge candidate cho escalation này đã tồn tại.");
+            return response;
+        }
+
+        if (request == null) {
+            throw new IllegalArgumentException("request body is required");
+        }
+        request.setCreateKnowledgeCandidate(true);
+        return answerEscalation(escalation.getId(), request);
     }
 
     public Map<String, Object> getEscalationDetail(
@@ -261,7 +291,7 @@ public class HumanLearningService {
         candidate.setUpdatedAt(now);
         KnowledgeCandidate savedCandidate = knowledgeCandidateRepository.save(candidate);
         answerCacheService.evictRagAnswersForCourse(savedCandidate.getCourseId());
-        notifyStudentAfterCandidateIndexed(savedCandidate);
+        markEscalationIndexed(savedCandidate);
         return savedCandidate;
     }
 
@@ -301,36 +331,15 @@ public class HumanLearningService {
                 .toList();
     }
 
-    private void notifyStudentAfterCandidateIndexed(KnowledgeCandidate candidate) {
+    private void markEscalationIndexed(KnowledgeCandidate candidate) {
         String escalationId = trimToNull(candidate.getQuestionEscalationId());
         if (escalationId == null) {
             return;
         }
-
         escalationRepository.findById(escalationId).ifPresent(escalation -> {
-            LocalDateTime now = LocalDateTime.now();
             escalation.setStatus("RESOLVED_INDEXED");
-            escalation.setUpdatedAt(now);
+            escalation.setUpdatedAt(LocalDateTime.now());
             escalationRepository.save(escalation);
-
-            String conversationId = trimToNull(escalation.getConversationId());
-            String studentId = trimToNull(escalation.getUserId());
-            if (conversationId == null || studentId == null) {
-                return;
-            }
-
-            try {
-                aiConversationService.saveAssistantMessage(
-                        studentId,
-                        conversationId,
-                        escalation.getCourseId(),
-                        escalation.getClassId(),
-                        buildApprovedKnowledgeFollowUp(candidate),
-                        escalation.getId()
-                );
-            } catch (Exception e) {
-                log.warn("Could not append approved knowledge follow-up for escalation {}: {}", escalationId, e.getMessage());
-            }
         });
     }
 
@@ -344,14 +353,6 @@ public class HumanLearningService {
             escalation.setUpdatedAt(LocalDateTime.now());
             escalationRepository.save(escalation);
         });
-    }
-
-    private String buildApprovedKnowledgeFollowUp(KnowledgeCandidate candidate) {
-        return "AI Tutor đã cập nhật kiến thức từ câu trả lời đã được senior mentor duyệt.\n\n"
-                + "Câu hỏi: " + nullToEmpty(candidate.getQuestion()) + "\n\n"
-                + "Câu trả lời đã duyệt:\n" + nullToEmpty(candidate.getAnswer()) + "\n\n"
-                + "Từ giờ các câu hỏi tương tự trong môn " + nullToEmpty(candidate.getCourseId())
-                + " có thể được AI Tutor trả lời dựa trên tri thức này.";
     }
 
     private String toStudentVisibleStatus(String status) {
@@ -371,9 +372,6 @@ public class HumanLearningService {
         return normalized;
     }
 
-    private String nullToEmpty(String value) {
-        return value == null ? "" : value;
-    }
     private KnowledgeCandidate buildCandidate(
             QuestionEscalation escalation,
             MentorAnswer mentorAnswer,

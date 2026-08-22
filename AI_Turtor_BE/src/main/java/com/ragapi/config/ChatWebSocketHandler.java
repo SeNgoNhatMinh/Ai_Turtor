@@ -43,7 +43,7 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
                 session.sendMessage(json(Map.of("type", "PONG")));
                 return;
             }
-            if (!"SEND_MESSAGE".equalsIgnoreCase(type)) {
+            if (!"SEND_MESSAGE".equalsIgnoreCase(type) && !"SEND_ANSWER_AND_INDEX".equalsIgnoreCase(type)) {
                 throw new IllegalArgumentException("Unsupported WebSocket message type: " + type);
             }
 
@@ -57,8 +57,11 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
                     .messageType(payload.path("messageType").asText("TEXT"))
                     .attachmentUrl(textOrNull(payload, "attachmentUrl"))
                     .attachmentName(textOrNull(payload, "attachmentName"))
+                    .candidateType(textOrNull(payload, "candidateType"))
                     .build();
-            var saved = chatService.sendMessage(request, attr(session, "userId"), role);
+            var saved = "SEND_ANSWER_AND_INDEX".equalsIgnoreCase(type)
+                    ? chatService.sendAnswerAndCreateKnowledgeCandidate(request, attr(session, "userId"), role)
+                    : chatService.sendMessage(request, attr(session, "userId"), role);
             broadcast(attr(session, "chatRoomId"), Map.of("type", "NEW_MESSAGE", "message", saved));
         } catch (Exception e) {
             log.warn("WebSocket chat message rejected: {}", e.getMessage());
@@ -74,6 +77,13 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
     @Override
     public void handleTransportError(WebSocketSession session, Throwable exception) {
         sessions.remove(session);
+    }
+
+    public void broadcastNewMessage(String roomId, Object message) {
+        if (roomId == null || roomId.isBlank() || message == null) {
+            return;
+        }
+        broadcast(roomId, Map.of("type", "NEW_MESSAGE", "message", message));
     }
 
     private void broadcast(String roomId, Object payload) {

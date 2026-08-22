@@ -5,6 +5,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 /**
  * ChatMessageRequest - Request �'�f gửi tin nhắn
  */
@@ -21,6 +23,12 @@ public class ChatMessageRequest {
     private String messageType; // "TEXT", "IMAGE", "FILE"
     private String attachmentUrl; // URL ảnh/file nếu có
     private String attachmentName;
+    /**
+     * Used only by send-answer-and-index. Regular chat send ignores this flag.
+     */
+    private Boolean createKnowledgeCandidate;
+    private String candidateType;
+    private List<String> imageIds;
 }
 
 

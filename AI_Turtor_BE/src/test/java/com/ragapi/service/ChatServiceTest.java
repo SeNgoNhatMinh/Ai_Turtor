@@ -18,7 +18,9 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -30,13 +32,20 @@ class ChatServiceTest {
     @Mock ChatMessageRepository chatMessageRepository;
     @Mock QuestionEscalationRepository escalationRepository;
     @Mock MentorRepository mentorRepository;
+    @Mock HumanLearningService humanLearningService;
 
     private ChatService service;
     private ChatRoom activeRoom;
 
     @BeforeEach
     void setUp() {
-        service = new ChatService(chatRoomRepository, chatMessageRepository, escalationRepository, mentorRepository);
+        service = new ChatService(
+                chatRoomRepository,
+                chatMessageRepository,
+                escalationRepository,
+                mentorRepository,
+                humanLearningService
+        );
         activeRoom = ChatRoom.builder()
                 .id("ROOM-1")
                 .userId("STUDENT-1")
@@ -95,6 +104,41 @@ class ChatServiceTest {
         assertEquals(1, activeRoom.getMessageCount());
         verify(chatMessageRepository).save(any(ChatMessage.class));
         verify(chatRoomRepository).save(activeRoom);
+    }
+
+    @Test
+    void studentCannotSendAnswerAndCreateKnowledgeCandidate() {
+        ChatMessageRequest request = request("STUDENT-1", "STUDENT");
+        assertThrows(SecurityException.class,
+                () -> service.sendAnswerAndCreateKnowledgeCandidate(request, "STUDENT-1", "STUDENT"));
+        verify(humanLearningService, never()).submitTeacherChatAnswerAndCandidate(any(), any());
+        verify(chatMessageRepository, never()).save(any());
+    }
+
+    @Test
+    void teacherSendAnswerAndIndexSavesChatAndCreatesCandidate() {
+        when(chatRoomRepository.findById("ROOM-1")).thenReturn(Optional.of(activeRoom));
+        when(chatMessageRepository.save(any(ChatMessage.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(chatRoomRepository.save(any(ChatRoom.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(humanLearningService.submitTeacherChatAnswerAndCandidate(eq("ROOM-1"), any()))
+                .thenReturn(java.util.Map.of(
+                        "questionEscalationId", "ESC-1",
+                        "knowledgeCandidateCreated", true,
+                        "alreadyExists", false,
+                        "candidateId", "CAND-1",
+                        "candidateStatus", "PENDING_SENIOR_REVIEW",
+                        "message", "Teacher answer saved."
+                ));
+
+        var response = service.sendAnswerAndCreateKnowledgeCandidate(
+                request("TEACHER-1", "MENTOR"), "TEACHER-1", "TEACHER");
+
+        assertEquals("ROOM-1", response.getChatRoomId());
+        assertEquals("MENTOR", response.getSenderRole());
+        assertTrue(response.getKnowledgeCandidateCreated());
+        assertEquals("CAND-1", response.getKnowledgeCandidateId());
+        verify(humanLearningService).submitTeacherChatAnswerAndCandidate(eq("ROOM-1"), any());
+        verify(chatMessageRepository).save(any(ChatMessage.class));
     }
 
     @Test

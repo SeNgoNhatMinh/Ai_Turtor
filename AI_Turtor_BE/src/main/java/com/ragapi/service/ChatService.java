@@ -6,10 +6,11 @@ import com.ragapi.dto.ChatMessageInfo;
 import com.ragapi.dto.ChatMessageRequest;
 import com.ragapi.dto.ChatMessageResponse;
 import com.ragapi.dto.ChatRoomDetailResponse;
+import com.ragapi.dto.MentorAnswerRequest;
 import com.ragapi.entity.ChatMessage;
 import com.ragapi.entity.ChatRoom;
+import com.ragapi.entity.KnowledgeCandidate;
 import com.ragapi.entity.Mentor;
-import com.ragapi.entity.QuestionEscalation;
 import com.ragapi.repository.ChatMessageRepository;
 import com.ragapi.repository.ChatRoomRepository;
 import com.ragapi.repository.MentorRepository;
@@ -23,6 +24,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Slf4j
@@ -34,6 +36,7 @@ public class ChatService {
     private final ChatMessageRepository chatMessageRepository;
     private final QuestionEscalationRepository questionEscalationRepository;
     private final MentorRepository mentorRepository;
+    private final HumanLearningService humanLearningService;
 
     public ChatMessageResponse sendMessage(ChatMessageRequest request, String requesterId, String requesterRole) {
         validateMessageRequest(request);
@@ -78,6 +81,58 @@ public class ChatService {
         chatRoomRepository.save(room);
         log.info("Message sent in chat room {} by {} ({})", room.getId(), requesterId, expectedSenderRole);
         return mapMessageToResponse(message);
+    }
+
+    public ChatMessageResponse sendAnswerAndCreateKnowledgeCandidate(
+            ChatMessageRequest request,
+            String requesterId,
+            String requesterRole
+    ) {
+        if (!isTeacher(requesterRole) && !isAdmin(requesterRole)) {
+            throw new SecurityException("Only teachers can send an answer and create a knowledge candidate");
+        }
+        requireAccessibleRoom(request.getChatRoomId(), requesterId, requesterRole);
+
+        MentorAnswerRequest answerRequest = new MentorAnswerRequest();
+        answerRequest.setTeacherId(requesterId);
+        answerRequest.setTeacherName(request.getSenderName());
+        answerRequest.setAnswer(request.getContent());
+        answerRequest.setCreateKnowledgeCandidate(true);
+        answerRequest.setCandidateType(request.getCandidateType());
+        answerRequest.setImageIds(request.getImageIds());
+
+        var candidateResult = humanLearningService.submitTeacherChatAnswerAndCandidate(
+                request.getChatRoomId(),
+                answerRequest
+        );
+        ChatMessageResponse sent = sendMessage(request, requesterId, requesterRole);
+        applyCandidateResult(sent, candidateResult);
+        return sent;
+    }
+
+    public ChatMessageResponse deliverTeacherAnswerToChat(
+            String chatRoomId,
+            String teacherId,
+            String teacherName,
+            String content,
+            String requesterRole
+    ) {
+        if (blank(chatRoomId) || blank(teacherId) || blank(content)) {
+            return null;
+        }
+        ChatRoom room = chatRoomRepository.findById(chatRoomId).orElse(null);
+        if (room == null || !"ACTIVE".equalsIgnoreCase(room.getStatus())) {
+            return null;
+        }
+        ChatMessageRequest request = ChatMessageRequest.builder()
+                .chatRoomId(chatRoomId)
+                .senderId(teacherId)
+                .senderName(teacherName)
+                .senderRole("MENTOR")
+                .content(content)
+                .messageType("TEXT")
+                .build();
+        return sendMessage(request, teacherId, requesterRole);
     }
 
     public ChatHistoryResponse getChatHistory(String chatRoomId, int pageNumber, int pageSize,
@@ -227,6 +282,28 @@ public class ChatService {
 
     private int value(Integer number) {
         return number == null ? 0 : number;
+    }
+
+    private void applyCandidateResult(ChatMessageResponse sent, Map<String, Object> result) {
+        if (sent == null || result == null) {
+            return;
+        }
+        sent.setQuestionEscalationId(asString(result.get("questionEscalationId")));
+        sent.setKnowledgeCandidateCreated(Boolean.TRUE.equals(result.get("knowledgeCandidateCreated")));
+        sent.setKnowledgeCandidateAlreadyExists(Boolean.TRUE.equals(result.get("alreadyExists")));
+        Object candidate = result.get("knowledgeCandidate");
+        if (candidate instanceof KnowledgeCandidate knowledgeCandidate) {
+            sent.setKnowledgeCandidateId(knowledgeCandidate.getId());
+            sent.setKnowledgeCandidateStatus(knowledgeCandidate.getStatus());
+        } else {
+            sent.setKnowledgeCandidateId(asString(result.get("candidateId")));
+            sent.setKnowledgeCandidateStatus(asString(result.get("candidateStatus")));
+        }
+        sent.setActionMessage(asString(result.get("message")));
+    }
+
+    private String asString(Object value) {
+        return value == null ? null : String.valueOf(value);
     }
 
     private ChatMessageResponse mapMessageToResponse(ChatMessage message) {

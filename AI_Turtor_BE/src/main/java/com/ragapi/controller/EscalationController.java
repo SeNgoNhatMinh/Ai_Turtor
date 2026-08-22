@@ -7,6 +7,7 @@ import com.ragapi.dto.MentorEscalationOfferResponse;
 import com.ragapi.dto.MentorSelectionRequest;
 import com.ragapi.dto.MentorSelectionResponse;
 import com.ragapi.entity.QuestionEscalation;
+import com.ragapi.service.ChatService;
 import com.ragapi.service.HumanLearningService;
 import com.ragapi.service.MentorEscalationService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -41,6 +42,7 @@ public class EscalationController {
 
     private final MentorEscalationService mentorEscalationService;
     private final HumanLearningService humanLearningService;
+    private final ChatService chatService;
 
     @PostMapping
     @Operation(summary = "Create a question escalation from n8n AI Harness")
@@ -222,7 +224,27 @@ public class EscalationController {
     ) {
         try {
             request.setTeacherId(authentication.getName());
-            return ResponseEntity.ok(humanLearningService.answerEscalation(id, request));
+            Map<String, Object> result = humanLearningService.answerEscalation(id, request);
+            Object chatRoomId = result.get("chatRoomId");
+            if (chatRoomId instanceof String roomId && !roomId.isBlank()) {
+                try {
+                    var delivered = chatService.deliverTeacherAnswerToChat(
+                            roomId,
+                            request.getTeacherId(),
+                            request.getTeacherName(),
+                            request.getAnswer(),
+                            authenticatedRole(authentication)
+                    );
+                    result.put("chatDelivered", delivered != null);
+                    if (delivered != null) {
+                        result.put("chatMessageId", delivered.getMessageId());
+                    }
+                } catch (Exception chatError) {
+                    log.warn("Could not deliver teacher answer to chat room {}: {}", roomId, chatError.getMessage());
+                    result.put("chatDelivered", false);
+                }
+            }
+            return ResponseEntity.ok(result);
         } catch (Exception e) {
             log.error("Error answering escalation", e);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
