@@ -296,12 +296,12 @@ body:has(.app-container.dark) .sidebar-nav-tooltip.ant-tooltip .ant-tooltip-arro
   background: var(--role-soft);
   color: var(--role-accent-dark);
 }
-.app-container:is(.role-teacher,.role-senior):not(.dark) .ant-btn-primary {
+.app-container:is(.role-teacher,.role-senior):not(.dark) .ant-btn-primary:not(:disabled):not(.ant-btn-disabled) {
   background: var(--role-work-accent, #0b3b82) !important;
   border-color: var(--role-work-accent, #0b3b82) !important;
   box-shadow: 0 7px 18px rgba(11, 59, 130, 0.2) !important;
 }
-.app-container:is(.role-teacher,.role-senior):not(.dark) .ant-btn-primary:hover {
+.app-container:is(.role-teacher,.role-senior):not(.dark) .ant-btn-primary:not(:disabled):not(.ant-btn-disabled):hover {
   background: #001b3d !important;
   border-color: #001b3d !important;
 }
@@ -311,12 +311,12 @@ body:has(.app-container.dark) .sidebar-nav-tooltip.ant-tooltip .ant-tooltip-arro
 .app-container:is(.role-teacher,.role-senior):not(.dark) .ant-tabs-ink-bar {
   background: var(--role-work-accent, #0b3b82) !important;
 }
-.app-container.role-admin:not(.dark) .ant-btn-primary {
+.app-container.role-admin:not(.dark) .ant-btn-primary:not(:disabled):not(.ant-btn-disabled) {
   background: var(--role-accent) !important;
   border-color: var(--role-accent) !important;
   box-shadow: 0 7px 18px color-mix(in srgb, var(--role-accent) 25%, transparent) !important;
 }
-.app-container.role-admin:not(.dark) .ant-btn-primary:hover {
+.app-container.role-admin:not(.dark) .ant-btn-primary:not(:disabled):not(.ant-btn-disabled):hover {
   background: var(--role-accent-dark) !important;
   border-color: var(--role-accent-dark) !important;
 }

@@ -22,7 +22,8 @@ export const teacherApi = {
     const params = new URLSearchParams();
     if (teacherId) params.append('teacherId', teacherId);
     const query = params.toString();
-    return request(`${API_BASE_URL}/academic/courses/${encodePath(courseId)}/class-sections/${encodePath(classId)}/students${query ? `?${query}` : ''}`);
+    // Teachers cannot call /api/academic/** (admin-only). Use the shared courses alias.
+    return request(`${API_BASE_URL}/courses/${encodePath(courseId)}/class-sections/${encodePath(classId)}/students${query ? `?${query}` : ''}`);
   },
 
   async getCourseMemories(courseId, classId = '') {

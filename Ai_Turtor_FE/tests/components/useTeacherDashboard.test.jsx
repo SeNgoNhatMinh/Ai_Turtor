@@ -15,13 +15,13 @@ describe('useTeacherDashboard class assignment loading', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     teacherApi.getClassStudents.mockResolvedValue({ students: [] });
+    teacherApi.getDashboard.mockResolvedValue({ classes: [], students: [] });
   });
 
-  it('loads the complete teacher class scope without stale course filters', async () => {
-    teacherApi.getDashboard.mockResolvedValue({
-      classes: [{ courseId: 'AI101', classId: 'AI101-01', teacherId: 'teacher-1' }],
-      students: [],
-    });
+  it('loads assigned classes from the teacher class endpoint without waiting on dashboard', async () => {
+    teacherApi.getClassSections.mockResolvedValue([
+      { courseId: 'AI101', classId: 'AI101-01', teacherId: 'teacher-1' },
+    ]);
 
     const { result } = renderHook(() => useTeacherDashboard({
       teacherId: 'teacher-1',
@@ -31,7 +31,7 @@ describe('useTeacherDashboard class assignment loading', () => {
 
     await act(async () => result.current.loadTeacherDashboard());
 
-    expect(teacherApi.getDashboard).toHaveBeenCalledWith('teacher-1');
+    expect(teacherApi.getClassSections).toHaveBeenCalledWith('teacher-1');
     expect(result.current.classesList).toEqual(expect.arrayContaining([
       expect.objectContaining({
         courseId: 'AI101',
@@ -60,5 +60,32 @@ describe('useTeacherDashboard class assignment loading', () => {
       courseId: 'PRO192',
       classId: 'SE1833',
     }));
+  });
+
+  it('loads enrolled students for assigned classes via the teacher-accessible class-section API', async () => {
+    teacherApi.getClassSections.mockResolvedValue([
+      { courseId: 'PRO192', classId: 'SE1833', teacherId: 'teacher-1' },
+    ]);
+    teacherApi.getClassStudents.mockResolvedValue({
+      students: [
+        { studentId: 's1', studentName: 'An Nguyen', studentEmail: 'an@fpt.edu.vn', status: 'ACTIVE' },
+      ],
+    });
+
+    const { result } = renderHook(() => useTeacherDashboard({
+      teacherId: 'teacher-1',
+      courseId: 'PRO192',
+      classId: 'SE1833',
+    }));
+
+    await act(async () => result.current.loadTeacherDashboard());
+
+    expect(teacherApi.getClassStudents).toHaveBeenCalledWith('PRO192', 'SE1833');
+    expect(result.current.teacherStudents[0]).toEqual(expect.objectContaining({
+      name: 'An Nguyen',
+      email: 'an@fpt.edu.vn',
+      status: 'ACTIVE',
+    }));
+    expect(result.current.classesList[0].details).toBe('1 sinh viên');
   });
 });

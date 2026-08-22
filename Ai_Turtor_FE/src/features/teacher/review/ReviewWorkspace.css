@@ -30,9 +30,10 @@
 
 .teacher-support-workspace__heading h2,
 .knowledge-review-section h2 {
-  margin: 3px 0 5px;
-  color: var(--color-text-main);
-  font-size: 1.1rem;
+  margin: 0 0 4px;
+  color: #0b3b82;
+  font-size: 1.08rem;
+  font-weight: 750;
   line-height: 1.3;
 }
 

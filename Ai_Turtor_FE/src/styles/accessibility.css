@@ -8,6 +8,68 @@
   cursor: not-allowed;
 }
 
+/*
+ * Disabled actions stay labeled. Theme CSS used to keep the solid primary
+ * fill while Ant Design faded the label to ~25% black, so "Gửi" vanished
+ * until the field had text.
+ */
+.app-container .ant-btn:disabled,
+.app-container .ant-btn.ant-btn-disabled {
+  cursor: not-allowed;
+  opacity: 1 !important;
+}
+
+.app-container .ant-btn-primary:disabled,
+.app-container .ant-btn-primary.ant-btn-disabled,
+.app-container .ant-btn-color-primary.ant-btn-variant-solid:disabled,
+.app-container .ant-btn-color-primary.ant-btn-variant-solid.ant-btn-disabled {
+  color: #ffffff !important;
+  background: color-mix(in srgb, var(--role-work-accent, var(--role-accent, #0b3b82)) 62%, #ffffff) !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+.app-container .ant-btn-default:disabled,
+.app-container .ant-btn-default.ant-btn-disabled,
+.app-container .ant-btn-variant-outlined:disabled,
+.app-container .ant-btn-variant-outlined.ant-btn-disabled,
+.app-container .ant-btn-variant-dashed:disabled,
+.app-container .ant-btn-variant-dashed.ant-btn-disabled {
+  color: #3f3f46 !important;
+  background: #f4f4f5 !important;
+  border-color: #a1a1aa !important;
+  box-shadow: none !important;
+}
+
+.app-container .ant-btn:disabled span,
+.app-container .ant-btn.ant-btn-disabled span,
+.app-container .ant-btn:disabled .ant-btn-icon,
+.app-container .ant-btn.ant-btn-disabled .ant-btn-icon,
+.app-container .ant-btn:disabled svg,
+.app-container .ant-btn.ant-btn-disabled svg {
+  color: inherit !important;
+  opacity: 1 !important;
+}
+
+.app-container.dark .ant-btn-primary:disabled,
+.app-container.dark .ant-btn-primary.ant-btn-disabled,
+.app-container.dark .ant-btn-color-primary.ant-btn-variant-solid:disabled,
+.app-container.dark .ant-btn-color-primary.ant-btn-variant-solid.ant-btn-disabled {
+  color: #fafafa !important;
+  background: color-mix(in srgb, var(--role-accent, #f37021) 46%, #18181b) !important;
+}
+
+.app-container.dark .ant-btn-default:disabled,
+.app-container.dark .ant-btn-default.ant-btn-disabled,
+.app-container.dark .ant-btn-variant-outlined:disabled,
+.app-container.dark .ant-btn-variant-outlined.ant-btn-disabled,
+.app-container.dark .ant-btn-variant-dashed:disabled,
+.app-container.dark .ant-btn-variant-dashed.ant-btn-disabled {
+  color: #e4e4e7 !important;
+  background: #27272a !important;
+  border-color: #71717a !important;
+}
+
 @media (max-width: 768px) {
   .ant-table-wrapper {
     max-width: 100%;

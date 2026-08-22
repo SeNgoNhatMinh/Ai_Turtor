@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { teacherApi } from '../../../services/teacherApi';
 import { asArray, normalizeTeacherDashboard } from '../../../services/normalizers';
 import { getPersonDisplayName, getPersonEmail, getPersonId } from '../../../utils/displayNames';
@@ -29,7 +29,9 @@ const mapClassSection = (section, courseId) => {
     classCode: resolvedClassCode,
     classId: resolvedClassId,
     name: section.name || section.className || `Lớp ${resolvedClassCode || 'chưa đặt mã'}`,
-    details: section.description || `${section.studentCount ?? 0} sinh viên`,
+    studentCount: section.studentCount,
+    details: section.description
+      || (section.studentCount != null ? `${section.studentCount} sinh viên` : 'Đang đếm sĩ số...'),
   };
 };
 
@@ -37,6 +39,7 @@ const mapStudent = (student) => ({
   ...student,
   id: getPersonId(student),
   name: getPersonDisplayName(student, 'Sinh viên'),
+  fullName: getPersonDisplayName(student, 'Sinh viên'),
   email: getPersonEmail(student) || '—',
   status: student.status || 'ACTIVE',
   weakTopics: student.weakTopics?.length ? student.weakTopics : [],
@@ -68,67 +71,163 @@ const attachStudentCounts = (sections, students) => {
   });
 };
 
+const heatmapFromWeakTopicCounts = (counts) => {
+  if (!counts || typeof counts !== 'object' || Array.isArray(counts)) return [];
+  return Object.entries(counts).map(([label, count]) => {
+    const total = Number(count) || 0;
+    return {
+      label,
+      level: total >= 3 ? 'high' : total >= 2 ? 'medium' : 'low',
+    };
+  });
+};
+
+const resolveHeatmap = (data, normalized) => (
+  normalized.topicHeatmap.length
+    ? normalized.topicHeatmap
+    : heatmapFromWeakTopicCounts(data?.weakTopicCounts)
+);
+
 export function useTeacherDashboard({ teacherId, courseId, classId }) {
   const [classesList, setClassesList] = useState([]);
   const [teacherStudents, setTeacherStudents] = useState([]);
   const [teacherTopicHeatmap, setTeacherTopicHeatmap] = useState([]);
-  const [teacherDashboardLoading, setTeacherDashboardLoading] = useState(false);
+  const [classesLoading, setClassesLoading] = useState(false);
+  const [studentsLoading, setStudentsLoading] = useState(false);
+  const loadedTeacherIdRef = useRef('');
 
-  const loadTeacherDashboard = async () => {
+  const applyClassStudentCount = (courseKey, classKey, count) => {
+    setClassesList((current) => current.map((item) => {
+      if (!belongsToScope(item, courseKey, classKey)) return item;
+      return {
+        ...item,
+        studentCount: count,
+        details: `${count} sinh viên`,
+      };
+    }));
+  };
+
+  const fetchAssignedClasses = async () => {
+    const payload = await teacherApi.getClassSections(teacherId);
+    return asArray(payload, 'content', 'classSections', 'classes').map((section) => mapClassSection(section, ''));
+  };
+
+  const fetchClassRoster = async (courseKey, classKey) => {
+    if (!courseKey || !classKey) return [];
+    try {
+      const data = await teacherApi.getClassStudents(courseKey, classKey);
+      return asArray(data, 'students', 'content');
+    } catch {
+      try {
+        const data = await teacherApi.getClassStudents(courseKey, classKey, teacherId);
+        return asArray(data, 'students', 'content');
+      } catch {
+        return [];
+      }
+    }
+  };
+
+  const hydrateClassRosters = async (assignedClasses, selectedCourseId, selectedClassId) => {
+    const results = await Promise.all(assignedClasses.map(async (section) => {
+      const courseKey = section.courseId;
+      const classKey = section.classId || section.classCode;
+      const students = await fetchClassRoster(courseKey, classKey);
+      return { section, students };
+    }));
+
+    setClassesList((current) => {
+      const base = current.length ? current : assignedClasses;
+      return base.map((item) => {
+        const match = results.find(({ section }) => (
+          belongsToScope(item, section.courseId, section.classId || section.classCode)
+        ));
+        if (!match) return item;
+        return {
+          ...item,
+          studentCount: match.students.length,
+          details: `${match.students.length} sinh viên`,
+          students: match.students.map(mapStudent),
+        };
+      });
+    });
+
+    const selected = results.find(({ section }) => (
+      belongsToScope(section, selectedCourseId, selectedClassId)
+    ));
+    if (selected) {
+      setTeacherStudents(selected.students.map(mapStudent));
+    } else if (selectedCourseId && selectedClassId) {
+      const fallback = await fetchClassRoster(selectedCourseId, selectedClassId);
+      setTeacherStudents(fallback.map(mapStudent));
+    } else {
+      setTeacherStudents([]);
+    }
+  };
+
+  const loadTeacherDashboard = async ({ forceClasses = false } = {}) => {
     if (!teacherId) {
+      loadedTeacherIdRef.current = '';
       setClassesList([]);
       setTeacherStudents([]);
       setTeacherTopicHeatmap([]);
       return;
     }
-    setTeacherDashboardLoading(true);
+
+    const shouldReloadClasses = forceClasses || loadedTeacherIdRef.current !== teacherId;
+    if (shouldReloadClasses) setClassesLoading(true);
+    if (courseId && classId) setStudentsLoading(true);
+
     try {
-      // Always load the complete teacher scope first. A course/class left in
-      // session storage must not hide a class that Admin has just assigned.
-      const data = await teacherApi.getDashboard(teacherId);
-      const normalized = normalizeTeacherDashboard(data);
-      setTeacherTopicHeatmap(normalized.topicHeatmap);
-
-      let assignedClasses = normalized.classSections;
-      if (!assignedClasses.length) {
-        const fallback = await teacherApi.getClassSections(teacherId);
-        assignedClasses = asArray(fallback, 'content', 'classSections', 'classes');
-      }
-      setClassesList(attachStudentCounts(assignedClasses, normalized.students));
-
-      const scopedStudents = normalized.students.filter((student) => belongsToScope(student, courseId, classId));
-      if (scopedStudents.length || (!courseId && !classId)) {
-        setTeacherStudents(scopedStudents.map(mapStudent));
-      } else if (courseId && classId && assignedClasses.some((section) => belongsToScope(section, courseId, classId))) {
+      let assignedClasses = classesList;
+      if (shouldReloadClasses) {
         try {
-          const studentsData = await teacherApi.getClassStudents(courseId, classId, teacherId);
-          const classStudents = asArray(studentsData, 'students', 'content').map(mapStudent);
-          setTeacherStudents(classStudents);
-          setClassesList((current) => current.map((item) => {
-            if (!belongsToScope(item, courseId, classId)) return item;
-            return {
-              ...item,
-              studentCount: classStudents.length,
-              details: `${classStudents.length} sinh viên`,
-            };
-          }));
+          assignedClasses = await fetchAssignedClasses();
+          setClassesList(assignedClasses);
+          loadedTeacherIdRef.current = teacherId;
         } catch {
-          setTeacherStudents([]);
+          loadedTeacherIdRef.current = '';
+          assignedClasses = [];
+        } finally {
+          setClassesLoading(false);
         }
-      } else {
-        setTeacherStudents([]);
       }
-    } catch {
-      setTeacherStudents([]);
-      setTeacherTopicHeatmap([]);
-      try {
-        const fallback = await teacherApi.getClassSections(teacherId);
-        setClassesList(asArray(fallback, 'content', 'classSections', 'classes').map((section) => mapClassSection(section, '')));
-      } catch {
-        setClassesList([]);
-      }
+
+      const studentPromise = (async () => {
+        try {
+          await hydrateClassRosters(assignedClasses, courseId, classId);
+        } catch {
+          if (courseId && classId) {
+            const fallback = await fetchClassRoster(courseId, classId);
+            setTeacherStudents(fallback.map(mapStudent));
+            applyClassStudentCount(courseId, classId, fallback.length);
+          } else {
+            setTeacherStudents([]);
+          }
+        } finally {
+          setStudentsLoading(false);
+        }
+      })();
+
+      const heatmapPromise = (async () => {
+        try {
+          const data = await teacherApi.getDashboard(teacherId, courseId, classId);
+          const normalized = normalizeTeacherDashboard(data);
+          setTeacherTopicHeatmap(resolveHeatmap(data, normalized));
+          if (loadedTeacherIdRef.current !== teacherId && normalized.classSections.length) {
+            setClassesList(attachStudentCounts(normalized.classSections, normalized.students));
+            loadedTeacherIdRef.current = teacherId;
+          }
+        } catch {
+          if (loadedTeacherIdRef.current !== teacherId) {
+            setTeacherTopicHeatmap([]);
+          }
+        }
+      })();
+
+      await Promise.all([studentPromise, heatmapPromise]);
     } finally {
-      setTeacherDashboardLoading(false);
+      setClassesLoading(false);
+      setStudentsLoading(false);
     }
   };
 
@@ -136,7 +235,9 @@ export function useTeacherDashboard({ teacherId, courseId, classId }) {
     classesList,
     teacherStudents,
     teacherTopicHeatmap,
-    teacherDashboardLoading,
+    classesLoading,
+    studentsLoading,
+    teacherDashboardLoading: classesLoading,
     loadTeacherDashboard,
   };
 }

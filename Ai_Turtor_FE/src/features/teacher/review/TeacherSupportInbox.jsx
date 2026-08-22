@@ -25,15 +25,20 @@ function SupportTicketButton({ item, selected, onSelect }) {
       onClick={() => onSelect(item)}
       aria-pressed={selected}
     >
-      <div className="teacher-support-ticket__topline">
-        <strong>{item.student || 'Sinh viên'}</strong>
-        <StatusLabel status={item.status} />
-      </div>
-      <p>{item.title || item.question || 'Yêu cầu hỗ trợ'}</p>
-      <div className="teacher-support-ticket__meta">
-        <span>{item.context || '—'}</span>
-        <time><Clock3 size={12} /> {item.time ? new Date(item.time).toLocaleString('vi-VN') : '—'}</time>
-      </div>
+      <span className="teacher-support-ticket__icon" aria-hidden="true">
+        <MessageCircle size={16} />
+      </span>
+      <span className="teacher-support-ticket__body">
+        <span className="teacher-support-ticket__topline">
+          <strong>{item.student || 'Sinh viên'}</strong>
+          <StatusLabel status={item.status} />
+        </span>
+        <p>{item.title || item.question || 'Yêu cầu hỗ trợ'}</p>
+        <span className="teacher-support-ticket__meta">
+          <em>{item.context || '—'}</em>
+          <time><Clock3 size={12} /> {item.time ? new Date(item.time).toLocaleString('vi-VN') : '—'}</time>
+        </span>
+      </span>
     </button>
   );
 }
@@ -51,6 +56,7 @@ export default function TeacherSupportInbox({
   replyImages = [],
   onReplyImagesChange,
   onSubmitAnswer,
+  onAnswerIndexed,
   isSubmitting = false,
   createKnowledgeCandidate,
   onCreateKnowledgeCandidateChange,
@@ -83,13 +89,16 @@ export default function TeacherSupportInbox({
     <section className="teacher-support-workspace" aria-labelledby="teacher-support-heading">
       <div className="teacher-support-workspace__heading">
         <div>
-          <span className="teacher-review-eyebrow">Hỗ trợ trực tiếp</span>
-          <h2 id="teacher-support-heading">Trao đổi với sinh viên</h2>
-          <p>Tiếp nhận yêu cầu, trao đổi trong ChatRoom và xem lại toàn bộ lịch sử sau khi đóng.</p>
+          <h2 id="teacher-support-heading">Hộp thư hỗ trợ</h2>
+          <p>
+            {grouped.active.length
+              ? `${grouped.active.length} yêu cầu đang mở · bấm để trao đổi hoặc xem lịch sử`
+              : 'Chưa có yêu cầu đang mở. Lịch sử chat vẫn xem lại được sau khi đóng.'}
+          </p>
         </div>
         <div className="teacher-support-toolbar">
           <Input.Search
-            placeholder="Tìm kiếm yêu cầu (tên sinh viên hoặc nội dung)..."
+            placeholder="Tìm sinh viên hoặc nội dung yêu cầu"
             allowClear
             onSearch={(value) => onSearch?.(String(value || '').trim())}
             className="teacher-support-search"
@@ -130,7 +139,11 @@ export default function TeacherSupportInbox({
 
         <div className="teacher-support-detail">
           {!selectedEscalation ? (
-            <Empty description="Chọn một yêu cầu để xem chi tiết." />
+            <div className="teacher-support-detail__empty">
+              <MessageCircle size={22} />
+              <strong>Chọn một yêu cầu</strong>
+              <span>Bấm vào sinh viên bên trái để mở chat hoặc xem lại lịch sử.</span>
+            </div>
           ) : (
             <>
               <header className="teacher-support-detail__header">
@@ -150,6 +163,7 @@ export default function TeacherSupportInbox({
                   currentUser={currentUser}
                   compact
                   readOnly={!isChatActive}
+                  onAnswerIndexed={onAnswerIndexed}
                 />
               ) : isHistorySelection ? (
                 <div className="teacher-support-history">
@@ -193,7 +207,7 @@ export default function TeacherSupportInbox({
                   <div>
                     <span className="teacher-review-eyebrow">Kết luận chính thức</span>
                     <h3>Chốt câu trả lời sau khi trao đổi</h3>
-                    <p>Phần này khác tin nhắn chat thông thường và sẽ cập nhật trạng thái escalation.</p>
+                    <p>Nếu đã dùng nút “Gửi + gửi senior duyệt” trong chat thì không cần viết lại phần này. Form này vẫn dùng khi muốn chốt đáp án ngoài khung chat.</p>
                   </div>
                   <label htmlFor="teacher-final-answer">Câu trả lời cuối sau khi trao đổi:</label>
                   <KnowledgeAnswerComposer

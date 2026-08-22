@@ -14,11 +14,21 @@ export default function TeacherActionCenter({ items, loading, error, hasScope, o
   return (
     <Card
       className="teacher-action-center"
-      title="Việc cần xử lý"
+      title={(
+        <div className="teacher-action-center__heading">
+          <strong>Việc cần xử lý</strong>
+          <span>Bài nộp, quiz và phản hồi đang chờ trong lớp hiện tại</span>
+        </div>
+      )}
       extra={(
-        <Button size="small" icon={<RefreshCw size={14} />} onClick={onRefresh} disabled={!hasScope || loading}>
-          Làm mới
-        </Button>
+        <div className="teacher-action-center__extra">
+          {hasScope && !loading && items.length > 0 ? (
+            <em>{items.length} nhóm việc</em>
+          ) : null}
+          <Button size="small" icon={<RefreshCw size={14} />} onClick={onRefresh} disabled={!hasScope || loading}>
+            Làm mới
+          </Button>
+        </div>
       )}
     >
       {!hasScope ? (

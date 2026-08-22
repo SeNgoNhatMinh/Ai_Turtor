@@ -183,11 +183,12 @@ export default function AnswerReviewWorkspace({
     >
       <div className="teacher-support-workspace__heading">
         <div>
-          <span className="teacher-review-eyebrow">{isSenior ? 'Kiểm duyệt cấp cao' : 'Xác minh chuyên môn'}</span>
-          <h2 id="answer-review-heading">{isSenior ? 'Hàng đợi kiểm duyệt' : 'Phản hồi AI cần giảng viên kiểm tra'}</h2>
+          <h2 id="answer-review-heading">{isSenior ? 'Hàng đợi kiểm duyệt' : 'Phản hồi AI cần kiểm tra'}</h2>
           <p>{isSenior
             ? 'Xử lý phản hồi nghiêm trọng trước, sau đó phê duyệt riêng tri thức đủ tin cậy để đưa vào RAG.'
-            : 'Kiểm tra các nhóm phản hồi 2–3 sao có đủ bằng chứng từ sinh viên.'}</p>
+            : pendingCount
+              ? `${pendingCount} nhóm phản hồi · bấm ô để xem bằng chứng và xử lý`
+              : 'Khi sinh viên đánh giá thấp câu trả lời AI, nhóm phản hồi sẽ hiện tại đây.'}</p>
         </div>
         <Button
           icon={<RefreshCw size={15} />}

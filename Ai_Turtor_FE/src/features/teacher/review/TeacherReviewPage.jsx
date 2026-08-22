@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { CheckCircle2, LifeBuoy, ShieldAlert } from 'lucide-react';
 import PageHeader from '../../../components/common/PageHeader';
 import AppTabs from '../../../components/common/AppTabs';
 import { uiCopy } from '../../../constants/uiCopy';
@@ -9,6 +10,13 @@ import { eventMatchesCourse, REALTIME_EVENT_TYPES } from '../../realtime/realtim
 import AnswerReviewWorkspace from './AnswerReviewWorkspace';
 import TeacherSupportInbox from './TeacherSupportInbox';
 import './TeacherReviewPage.css';
+
+const HISTORY_STATUSES = new Set(['COMPLETED', 'CLOSED', 'CANCELLED']);
+
+const isHistoryEscalation = (item) => {
+  const status = String(item?.status || '').trim().toUpperCase();
+  return HISTORY_STATUSES.has(status) || status.includes('ANSWERED');
+};
 
 export default function TeacherReviewPage({
   currentUser,
@@ -29,6 +37,9 @@ export default function TeacherReviewPage({
   const [createKnowledgeCandidate, setCreateKnowledgeCandidate] = useState(false);
   const [candidateType, setCandidateType] = useState('ACADEMIC_KNOWLEDGE');
   const answerReviewCount = review.answerReviewGroups?.length || review.answerReviews?.length || 0;
+  const openSupportCount = review.escalations.filter((item) => !isHistoryEscalation(item)).length;
+  const resolvedCount = review.escalations.filter(isHistoryEscalation).length
+    + (review.resolvedAnswerReviews?.length || 0);
 
   useEffect(() => {
     review.loadTeacherInbox({ courseId });
@@ -68,20 +79,27 @@ export default function TeacherReviewPage({
   };
 
   return (
-    <div className="portal-section teacher-feature-page teacher-review-feature-page">
+    <div className="portal-section teacher-feature-page teacher-review-feature-page teacher-review-queue-page">
       <PageHeader
         eyebrow="Hỗ trợ & chất lượng AI"
         title={uiCopy.teacher.review.title}
-        description="Hỗ trợ sinh viên theo lớp phụ trách và xác minh phản hồi AI ở mức Teacher. Lịch sử ChatRoom vẫn xem lại được sau khi đóng."
+        description={uiCopy.teacher.review.subtitle}
         actions={(
           <div className="teacher-review-header-stats" aria-label="Tổng quan hàng đợi">
             <div>
-              <strong>{review.escalations.length}</strong>
-              <span>Yêu cầu hỗ trợ</span>
+              <span><LifeBuoy size={16} /></span>
+              <strong>{openSupportCount}</strong>
+              <small>Hỗ trợ đang mở</small>
             </div>
             <div>
+              <span><ShieldAlert size={16} /></span>
               <strong>{answerReviewCount}</strong>
-              <span>Phản hồi AI</span>
+              <small>Phản hồi AI</small>
+            </div>
+            <div>
+              <span><CheckCircle2 size={16} /></span>
+              <strong>{resolvedCount}</strong>
+              <small>Đã xử lý</small>
             </div>
           </div>
         )}
@@ -92,7 +110,13 @@ export default function TeacherReviewPage({
         items={[
           {
             key: 'support',
-            label: `Hỗ trợ sinh viên (${review.escalations.length})`,
+            label: (
+              <span className="teacher-review-tab">
+                <LifeBuoy size={15} />
+                Hỗ trợ sinh viên
+                <em>{review.escalations.length}</em>
+              </span>
+            ),
             children: (
               <TeacherSupportInbox
                 currentUser={currentUser}
@@ -100,13 +124,23 @@ export default function TeacherReviewPage({
                 escalations={review.escalations}
                 selectedEscalation={review.selectedEscalation}
                 onSelectEscalation={review.setSelectedEscalation}
-                  onRefresh={() => review.loadTeacherInbox({})}
-                  onSearch={(q) => review.loadTeacherInbox({ q })}
+                onRefresh={() => review.loadTeacherInbox({})}
+                onSearch={(q) => review.loadTeacherInbox({ q })}
                 reply={reply}
                 onReplyChange={setReply}
                 replyImages={replyImages}
                 onReplyImagesChange={setReplyImages}
                 onSubmitAnswer={handleAnswerEscalation}
+                onAnswerIndexed={(result) => {
+                  if (result?.knowledgeCandidateCreated) {
+                    triggerToast('Đã gửi đáp án cho sinh viên và tạo đề xuất tri thức cho senior duyệt.');
+                  } else if (result?.knowledgeCandidateAlreadyExists) {
+                    triggerToast('Đã gửi đáp án. Đề xuất tri thức cho yêu cầu này đã tồn tại.');
+                  } else {
+                    triggerToast('Đã gửi đáp án cho sinh viên.');
+                  }
+                  review.loadTeacherInbox({});
+                }}
                 isSubmitting={review.isTeacherAnswerSubmitting}
                 createKnowledgeCandidate={createKnowledgeCandidate}
                 onCreateKnowledgeCandidateChange={setCreateKnowledgeCandidate}
@@ -117,7 +151,13 @@ export default function TeacherReviewPage({
           },
           {
             key: 'answer-reviews',
-            label: `Phản hồi AI (${answerReviewCount})`,
+            label: (
+              <span className="teacher-review-tab">
+                <ShieldAlert size={15} />
+                Phản hồi AI
+                <em>{answerReviewCount}</em>
+              </span>
+            ),
             children: (
               <AnswerReviewWorkspace
                 mode="mentor"

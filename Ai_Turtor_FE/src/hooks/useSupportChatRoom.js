@@ -142,6 +142,32 @@ export function useSupportChatRoom({
     };
   }, [chatRoomId, enabled, loadRoom, realtimeEnabled, socketRetry]);
 
+  const sendAnswerAndIndex = useCallback(async (content, candidateType = 'ACADEMIC_KNOWLEDGE') => {
+    const trimmed = String(content || '').trim();
+    if (!chatRoomId || !userId || !trimmed || isSending) return null;
+    setIsSending(true);
+    try {
+      const sent = await supportChatApi.sendAnswerAndIndex({
+        chatRoomId,
+        senderId: userId,
+        senderName,
+        senderRole,
+        content: trimmed,
+        messageType: 'TEXT',
+        createKnowledgeCandidate: true,
+        candidateType,
+      });
+      setMessages((current) => mergeMessages(current, [sent]));
+      setError('');
+      return sent;
+    } catch (requestError) {
+      setError(getUserFacingError(requestError, 'Không thể gửi đáp án và tạo đề xuất tri thức.'));
+      return null;
+    } finally {
+      setIsSending(false);
+    }
+  }, [chatRoomId, isSending, senderName, senderRole, userId]);
+
   const sendMessage = useCallback(async (content) => {
     const trimmed = String(content || '').trim();
     if (!chatRoomId || !userId || !trimmed || isSending) return false;
@@ -207,6 +233,7 @@ export function useSupportChatRoom({
     senderRole,
     loadRoom,
     sendMessage,
+    sendAnswerAndIndex,
     closeRoom,
   }), [
     closeRoom,
@@ -218,6 +245,7 @@ export function useSupportChatRoom({
     isSending,
     loadRoom,
     messages,
+    sendAnswerAndIndex,
     sendMessage,
     senderRole,
   ]);

@@ -16,22 +16,26 @@
 
 .answer-review-tile {
   display: grid;
+  align-content: start;
   gap: 8px;
   width: 100%;
-  min-height: 168px;
+  min-height: 176px;
   padding: 16px;
-  border: 1px solid var(--color-card-border);
+  border: 1px solid #e4eaf2;
   border-radius: 16px;
-  background: var(--color-card-bg);
+  background: #fff;
   color: inherit;
   text-align: left;
   cursor: pointer;
   font: inherit;
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
+  box-shadow: 0 8px 20px rgba(11, 59, 130, 0.05);
+  transition: border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
 }
 
 .answer-review-tile:hover,
 .answer-review-tile:focus-visible {
+  border-color: #c9d7ea;
+  box-shadow: 0 12px 24px rgba(11, 59, 130, 0.08);
   transform: translateY(-1px);
   outline: none;
 }
@@ -94,6 +98,24 @@
 .answer-review-tile--red h4,
 .answer-review-tile__urgent {
   color: #9f1239;
+}
+
+.answer-review-tile__cta {
+  justify-self: start;
+  margin-top: 4px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(243, 112, 33, 0.12);
+  color: #c05612;
+  font-size: 0.7rem;
+  font-weight: 750;
+}
+
+.answer-review-tile:hover .answer-review-tile__cta,
+.answer-review-tile:focus-visible .answer-review-tile__cta,
+.answer-review-tile--red .answer-review-tile__cta {
+  background: #f37021;
+  color: #fff;
 }
 
 .answer-review-detail {
@@ -380,9 +402,19 @@
 
 .answer-review-workspace {
   padding: 18px;
-  border: 1px solid var(--color-card-border);
-  border-radius: 10px;
+  border: 1px solid #e4eaf2;
+  border-radius: 18px;
   background: var(--color-card-bg);
+  box-shadow: 0 12px 28px rgba(11, 59, 130, 0.04);
+}
+
+.answer-review-workspace > .ant-segmented {
+  align-self: start;
+  width: fit-content;
+  max-width: 100%;
+  padding: 4px;
+  border-radius: 12px;
+  background: #f1f5f9;
 }
 
 .answer-review-workspace--senior {

@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, CheckCircle2, Lightbulb, RefreshCw, Target } from 'lucide-react';
+import { Drawer } from 'antd';
+import { AlertTriangle, BookOpen, CheckCircle2, GraduationCap, Lightbulb, RefreshCw, Target, Users } from 'lucide-react';
 import { teacherApi } from '../../../services/teacherApi';
 import { getUserFacingError } from '../../../services/apiClient';
 import { asArray } from '../../../services/normalizers';
-import { HEATMAP_CLASS } from '../shared/teacherUtils';
+import { findTeacherClass, getClassOptionValue, HEATMAP_CLASS } from '../shared/teacherUtils';
+import { classIdMatches } from '../../../utils/academicIds';
 import { getPersonDisplayName } from '../../../utils/displayNames';
 import { DataTable } from '../../../components/common/DataTable';
 
@@ -28,15 +30,20 @@ function TeacherClassesTab({
   courseId,
   classId,
   setClassId,
+  onSelectClass,
   classesList = [],
   teacherStudents = [],
   teacherDashboardLoading,
+  classesLoading,
+  studentsLoading,
   loadTeacherDashboard,
   heatmapNodes = [],
   triggerToast,
 }) {
   const [courseMemories, setCourseMemories] = useState([]);
   const [courseMemoriesLoading, setCourseMemoriesLoading] = useState(false);
+  const [rosterOpen, setRosterOpen] = useState(false);
+  const [rosterClassId, setRosterClassId] = useState('');
 
   useEffect(() => {
     if (!courseId) {
@@ -68,7 +75,19 @@ function TeacherClassesTab({
     };
   }, [classId, courseId, triggerToast]);
 
-  const currentClass = classesList.find((item) => item.classCode === classId || item.classId === classId || item.id === classId);
+  const currentClass = findTeacherClass(classesList, classId);
+  const rosterClass = findTeacherClass(classesList, rosterClassId) || currentClass;
+  const rosterStudents = rosterClass?.students?.length
+    ? rosterClass.students
+    : (classIdMatches(getClassOptionValue(rosterClass), classId) ? teacherStudents : []);
+
+  const openClassRoster = (item) => {
+    const nextClassId = getClassOptionValue(item);
+    setRosterClassId(nextClassId);
+    setRosterOpen(true);
+    if (onSelectClass) onSelectClass(item);
+    else setClassId?.(nextClassId);
+  };
   const normalizedHeatmap = heatmapNodes.map((node) => ({
     ...node,
     label: getTopicLabel(node),
@@ -141,59 +160,84 @@ function TeacherClassesTab({
   );
 
   return (
-    <div className="grid-2x2 portal-view">
-      <div className="glass-card">
-        <div className="card-header">
-          <h3>Danh sách lớp được phân công</h3>
+    <div className="teacher-classes-grid">
+      <section className="glass-card teacher-classes-panel">
+        <div className="teacher-panel-header">
+          <div>
+            <h3>Lớp được phân công</h3>
+            <p>{classesList.length ? `${classesList.length} lớp · bấm vào lớp để xem sinh viên` : 'Các lớp bạn đang phụ trách'}</p>
+          </div>
           <button
             type="button"
-            className="btn-small-chat"
-            onClick={loadTeacherDashboard}
-            disabled={teacherDashboardLoading || !loadTeacherDashboard}
+            className="teacher-panel-refresh"
+            onClick={() => loadTeacherDashboard?.({ forceClasses: true })}
+            disabled={classesLoading || teacherDashboardLoading || !loadTeacherDashboard}
             aria-label="Làm mới lớp được phân công và tín hiệu học tập"
           >
-            <RefreshCw style={{ width: 12, height: 12 }} /> Làm mới
+            <RefreshCw size={14} /> Làm mới
           </button>
         </div>
-        {teacherDashboardLoading ? (
-          <p className="no-data-text">Đang tải dữ liệu lớp...</p>
+        {classesLoading && !classesList.length ? (
+          <div className="teacher-classes-empty">
+            <GraduationCap size={22} />
+            <strong>Đang tải dữ liệu lớp...</strong>
+            <span>Hệ thống đang lấy danh sách lớp được phân công.</span>
+          </div>
         ) : classesList.length === 0 ? (
-          <p className="no-data-text">Tài khoản chưa được phân công lớp học phần.</p>
+          <div className="teacher-classes-empty">
+            <GraduationCap size={22} />
+            <strong>Chưa được phân công lớp</strong>
+            <span>Tài khoản chưa có lớp học phần. Khi được gán lớp, danh sách sẽ hiện tại đây.</span>
+          </div>
         ) : (
           <div className="teacher-classes-list">
             {classesList.map((c, i) => {
-              const classValue = c.classCode || c.classId || c.id;
-              const isCurrentClass = classId === classValue;
-              const classDetails = isCurrentClass
-                ? `${teacherStudents.length} sinh viên`
-                : c.details;
+              const classValue = getClassOptionValue(c);
+              const isCurrentClass = Boolean(findTeacherClass([c], classId));
+              const knownCount = Number.isFinite(Number(c.studentCount)) ? Number(c.studentCount) : null;
+              const studentCount = isCurrentClass && !studentsLoading
+                ? teacherStudents.length
+                : knownCount;
               return (
                 <button
                   type="button"
                   key={classValue || i}
-                  className={`class-card-item ${isCurrentClass ? 'active-class' : ''}`}
-                  onClick={() => setClassId(classValue)}
-                  disabled={!classValue || !setClassId}
+                  className={`teacher-class-card ${isCurrentClass ? 'is-active' : ''}`}
+                  onClick={() => openClassRoster(c)}
+                  disabled={!classValue}
                   aria-pressed={isCurrentClass}
                 >
-                  <span className="badge-semester">Học kỳ: {c.semester}</span>
-                  <h4>{c.name}</h4>
-                  <p>{classDetails}</p>
+                  <span className="teacher-class-card__icon" aria-hidden="true">
+                    <GraduationCap size={18} />
+                  </span>
+                  <span className="teacher-class-card__body">
+                    <strong>{c.name}</strong>
+                    <span>
+                      {c.courseId ? <em>{c.courseId}</em> : null}
+                      <em>{studentCount == null ? 'Đang đếm sĩ số' : `${studentCount} sinh viên`}</em>
+                    </span>
+                  </span>
+                  <span className="teacher-class-card__side">
+                    <em>Học kỳ {c.semester}</em>
+                    <small><Users size={13} /> Xem sinh viên</small>
+                  </span>
                 </button>
               );
             })}
           </div>
         )}
-      </div>
+      </section>
 
-      <div className="glass-card">
-        <div className="card-header">
+      <section className="glass-card teacher-insight-panel">
+        <div className="teacher-panel-header">
           <div>
-            <h3>Chủ đề cần hỗ trợ của lớp</h3>
-            <span className="card-subtitle">
-              {currentClass?.name || (classId ? `Lớp ${classId}` : 'Chưa chọn lớp')} · tổng hợp từ bộ nhớ học tập, bài nộp và kết quả quiz
-            </span>
+            <h3>Chủ đề cần hỗ trợ</h3>
+            <p>Tổng hợp từ bộ nhớ học tập, bài nộp và kết quả quiz</p>
           </div>
+          <span className="teacher-class-chip">
+            <BookOpen size={13} />
+            {currentClass?.name || (classId ? `Lớp ${classId}` : 'Chưa chọn lớp')}
+          </span>
         </div>
 
         <div className="teacher-gap-summary">
@@ -290,21 +334,30 @@ function TeacherClassesTab({
             <span><span className="legend-box val-none"></span> Ổn định</span>
           </div>
         </div>
-      </div>
+      </section>
 
-      <div className="glass-card span-2">
-        <div className="card-header">
-          <h3>{classId ? `Sinh viên trong lớp ${classId}` : 'Sinh viên trong lớp'}</h3>
+      <Drawer
+        className="teacher-class-roster"
+        title={rosterClass?.name ? `Sinh viên trong ${rosterClass.name}` : 'Danh sách sinh viên'}
+        open={rosterOpen}
+        onClose={() => setRosterOpen(false)}
+        width={720}
+        destroyOnHidden
+      >
+        <div className="teacher-class-roster__meta">
+          <span>{rosterClass?.courseId ? `Môn ${rosterClass.courseId}` : 'Môn học'}</span>
+          {rosterClass?.semester && rosterClass.semester !== '—' ? <span>Học kỳ {rosterClass.semester}</span> : null}
+          <span>{rosterStudents.length} sinh viên</span>
         </div>
         <DataTable
           columns={studentColumns}
-          data={teacherStudents}
-          loading={teacherDashboardLoading}
+          data={rosterStudents}
+          loading={studentsLoading && !rosterStudents.length}
           emptyText="Lớp chưa có sinh viên hoặc chưa tải được danh sách."
-          searchKeys={['fullName', 'name', 'email', 'studentEmail', 'status', 'weakTopics']}
-          searchPlaceholder="Tìm sinh viên, email hoặc chủ đề yếu"
+          searchKeys={['fullName', 'name', 'email', 'studentEmail', 'studentCode', 'status', 'weakTopics']}
+          searchPlaceholder="Tìm sinh viên, email hoặc mã số"
         />
-      </div>
+      </Drawer>
     </div>
   );
 }

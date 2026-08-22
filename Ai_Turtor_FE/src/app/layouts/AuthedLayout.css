@@ -138,7 +138,15 @@
 .teacher-feature-page,
 .admin-route-page {
   min-width: 0;
+  min-height: 0;
+  height: auto;
   overflow: visible;
+}
+
+.teacher-feature-page .portal-view,
+.teacher-feature-page.portal-section {
+  height: auto;
+  min-height: 0;
 }
 
 .admin-route-page {

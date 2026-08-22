@@ -21,6 +21,12 @@
   background: linear-gradient(180deg, #f8fafc 0%, #eef3f8 100%);
 }
 
+.teacher-support-master > .ant-segmented {
+  padding: 4px;
+  border-radius: 12px;
+  background: #fff;
+}
+
 .teacher-support-ticket-list {
   display: flex;
   flex-direction: column;
@@ -32,40 +38,55 @@
 }
 
 .teacher-support-ticket {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
   width: 100%;
   position: relative;
-  padding: 14px;
+  padding: 13px 12px;
   border: 1px solid #dce4ee;
-  border-radius: 13px;
-  background: rgba(255, 255, 255, 0.76);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.88);
   color: var(--color-text-main);
   cursor: pointer;
   font: inherit;
   text-align: left;
-  transition: transform 140ms ease, background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+  transition: background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
 }
 
 .teacher-support-ticket:hover,
 .teacher-support-ticket:focus-visible {
-  border-color: #9db0c7;
+  border-color: #c9d7ea;
   background: #ffffff;
-  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(11, 59, 130, 0.06);
   outline: none;
 }
 
 .teacher-support-ticket.is-selected {
-  border-color: #0b3b82;
+  border-color: rgba(11, 59, 130, 0.28);
   background: #ffffff;
-  box-shadow: 0 8px 20px rgba(11, 59, 130, 0.10);
+  box-shadow: inset 3px 0 0 #0b3b82, 0 8px 20px rgba(11, 59, 130, 0.08);
 }
 
-.teacher-support-ticket.is-selected::before {
-  content: '';
-  position: absolute;
-  inset: 12px auto 12px -1px;
-  width: 4px;
-  border-radius: 0 5px 5px 0;
+.teacher-support-ticket__icon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  background: rgba(11, 59, 130, 0.08);
+  color: #0b3b82;
+}
+
+.teacher-support-ticket.is-selected .teacher-support-ticket__icon {
   background: #0b3b82;
+  color: #fff;
+}
+
+.teacher-support-ticket__body {
+  display: grid;
+  min-width: 0;
 }
 
 .teacher-support-ticket__topline,
@@ -80,14 +101,15 @@
 .teacher-support-ticket__topline strong {
   min-width: 0;
   overflow: hidden;
-  font-size: 0.82rem;
+  font-size: 0.84rem;
+  font-weight: 750;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.teacher-support-ticket > p {
+.teacher-support-ticket__body > p {
   display: -webkit-box;
-  margin: 8px 0;
+  margin: 6px 0 8px;
   overflow: hidden;
   overflow-wrap: anywhere;
   color: #27324a;
@@ -104,9 +126,10 @@
   font-size: 0.66rem;
 }
 
-.teacher-support-ticket__meta span {
+.teacher-support-ticket__meta em {
   min-width: 0;
   overflow-wrap: anywhere;
+  font-style: normal;
 }
 
 .teacher-support-ticket__meta time {
@@ -156,15 +179,24 @@
   line-height: 1.5;
 }
 
+.teacher-support-detail__empty,
 .teacher-support-detail__notice {
   display: grid;
+  justify-items: center;
   align-content: center;
-  min-height: 180px;
+  gap: 6px;
+  min-height: 220px;
   padding: 28px;
   border: 1px dashed #c5d3e3;
   border-radius: 16px;
   background: linear-gradient(135deg, #f8fafc, #eef3f8);
+  color: #0b3b82;
   text-align: center;
+}
+
+.teacher-support-detail__empty span,
+.teacher-support-detail__notice p {
+  max-width: 36ch;
 }
 
 .teacher-support-detail__notice strong {
@@ -186,7 +218,11 @@
 .teacher-final-answer {
   display: grid;
   gap: 12px;
-  padding-top: 4px;
+  margin-top: 4px;
+  padding: 16px;
+  border: 1px solid #d7e2ee;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #ffffff 0%, #f5f8fc 100%);
 }
 
 .teacher-final-answer h3 {
@@ -223,8 +259,24 @@
 }
 
 .app-container.dark .teacher-support-master,
+.app-container.dark .teacher-support-detail__empty,
 .app-container.dark .teacher-support-detail__notice {
   background: #111111;
+}
+
+.app-container.dark .teacher-support-ticket__icon {
+  background: rgba(147, 197, 253, 0.12);
+  color: #93c5fd;
+}
+
+.app-container.dark .teacher-support-ticket.is-selected .teacher-support-ticket__icon {
+  background: #1d4ed8;
+  color: #fff;
+}
+
+.app-container.dark .teacher-final-answer {
+  border-color: #303947;
+  background: #161b22;
 }
 
 .app-container.dark .teacher-support-ticket:hover,

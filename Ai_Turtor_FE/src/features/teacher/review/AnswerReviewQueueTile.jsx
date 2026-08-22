@@ -55,6 +55,7 @@ export default function AnswerReviewQueueTile({ group, onOpen }) {
           <span className="answer-review-tile__urgent"><AlertTriangle size={14} /> Ưu tiên</span>
         )}
       </div>
+      <small className="answer-review-tile__cta">Xem chi tiết</small>
     </button>
   );
 }

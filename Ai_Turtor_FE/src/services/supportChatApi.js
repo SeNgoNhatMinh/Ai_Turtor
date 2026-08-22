@@ -68,6 +68,14 @@ export const supportChatApi = {
     });
   },
 
+  async sendAnswerAndIndex(payload) {
+    return request(`${API_BASE_URL}/chat/send-answer-and-index`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  },
+
   async markRead(chatRoomId) {
     return request(`${API_BASE_URL}/chat/mark-read`, {
       method: 'POST',
