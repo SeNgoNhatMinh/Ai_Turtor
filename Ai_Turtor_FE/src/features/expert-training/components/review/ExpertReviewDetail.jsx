@@ -10,6 +10,7 @@ import {
 } from 'antd';
 import { Check, X } from 'lucide-react';
 import StatusLabel from '../../../../components/common/StatusLabel';
+import GoldQaExamCompare from '../contribution/GoldQaExamCompare';
 
 const { Paragraph, Text, Title } = Typography;
 
@@ -55,20 +56,7 @@ export default function ExpertReviewDetail({
 
       {isGold ? (
         <>
-          <section className="expert-training__review-content-section">
-            <h3>Câu hỏi vàng</h3>
-            <Paragraph>{item.question}</Paragraph>
-          </section>
-          <section className="expert-training__review-content-section">
-            <h3>Đáp án Teacher</h3>
-            <Paragraph className="expert-training__preserve-text">{item.goldAnswer}</Paragraph>
-          </section>
-          <section className="expert-training__review-content-section">
-            <h3>AI trả lời (chỉ dùng sách, chưa nạp Q&A)</h3>
-            <Paragraph className="expert-training__preserve-text">
-              {item.examAiAnswer || 'Chưa chấm được.'}
-            </Paragraph>
-          </section>
+          <GoldQaExamCompare contribution={item} />
           <Alert
             type={examTone(item)}
             showIcon

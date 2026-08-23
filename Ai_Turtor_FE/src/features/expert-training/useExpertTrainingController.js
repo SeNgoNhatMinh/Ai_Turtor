@@ -139,9 +139,23 @@ export function useExpertTrainingController({
       courseId,
       authorId: userId,
     }),
-    successMessage: 'Đã gửi Q&A vàng. Hệ thống đã chấm AI trên giáo trình và gửi bài thi cho Senior.',
+    successMessage: 'Đã lưu Q&A và chấm AI trên giáo trình. Xem kết quả rồi bấm Gửi Senior khi sẵn sàng.',
     refresh: () => Promise.allSettled([loadTasks(), loadContributions()]),
   }), [courseId, loadContributions, loadTasks, runMutation, userId]);
+
+  const examGoldQa = useCallback((goldQaId) => runMutation({
+    key: `exam-gold-qa:${goldQaId}`,
+    action: () => expertTrainingGateway.examGoldQa(goldQaId),
+    successMessage: 'Đã chấm lại AI trên giáo trình.',
+    refresh: () => Promise.allSettled([loadTasks(), loadContributions()]),
+  }), [loadContributions, loadTasks, runMutation]);
+
+  const sendGoldQaForReview = useCallback((goldQaId) => runMutation({
+    key: `send-gold-qa:${goldQaId}`,
+    action: () => expertTrainingGateway.sendGoldQaForReview(goldQaId),
+    successMessage: 'Đã gửi bài thi sang Senior duyệt. AI chưa học Q&A này cho đến khi Senior nạp RAG.',
+    refresh: () => Promise.allSettled([loadTasks(), loadContributions()]),
+  }), [loadContributions, loadTasks, runMutation]);
 
   const submitRubric = useCallback((payload) => runMutation({
     key: 'submit-rubric',
@@ -208,6 +222,8 @@ export function useExpertTrainingController({
     ignoreChapter,
     claimTask,
     submitGoldQa,
+    examGoldQa,
+    sendGoldQaForReview,
     submitRubric,
     reviewGoldQa,
     reviewRubric,

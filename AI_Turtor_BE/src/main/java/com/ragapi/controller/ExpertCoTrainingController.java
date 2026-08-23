@@ -149,9 +149,15 @@ public class ExpertCoTrainingController {
     }
 
     @PostMapping("/gold-qa/{id}/exam")
-    @Operation(summary = "Score AI textbook answer against Teacher Gold Q&A. Does not index into RAG.")
+    @Operation(summary = "Score AI textbook answer against Teacher Gold Q&A. Keeps draft with Teacher; does not notify Senior.")
     public ResponseEntity<?> examGoldQa(@PathVariable String id) {
         return respond(() -> service.examGoldQa(id));
+    }
+
+    @PostMapping("/gold-qa/{id}/send-for-review")
+    @Operation(summary = "Teacher sends examined Gold Q&A to Senior review queue. Does not index into RAG.")
+    public ResponseEntity<?> sendGoldQaForReview(@PathVariable String id) {
+        return respond(() -> service.sendGoldQaForReview(id));
     }
 
     @GetMapping("/gold-qa")

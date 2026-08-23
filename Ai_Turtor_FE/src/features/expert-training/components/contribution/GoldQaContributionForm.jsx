@@ -53,7 +53,7 @@ export default function GoldQaContributionForm({
         type="info"
         showIcon
         title="Gửi bài không đồng nghĩa AI đã học"
-        description="Backend sẽ hỏi AI bằng giáo trình cũ, tính điểm bài thi rồi chuyển đáp án Teacher và đáp án AI sang Senior."
+        description="Backend sẽ hỏi AI bằng giáo trình hiện tại (chưa nạp Q&A này), rồi để bạn xem kết quả. Senior chỉ nhận bài khi bạn bấm Gửi Senior duyệt."
       />
       <div className="expert-training__form-actions">
         <ActionButton
@@ -63,7 +63,7 @@ export default function GoldQaContributionForm({
           loading={pendingAction === 'submit-gold-qa'}
           disabled={Boolean(pendingAction) || !userId || disabled}
         >
-          Nộp Q&A và chấm bằng sách
+          Lưu và chấm AI bằng sách
         </ActionButton>
       </div>
     </Form>

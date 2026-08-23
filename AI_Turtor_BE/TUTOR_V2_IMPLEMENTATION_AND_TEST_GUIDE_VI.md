@@ -123,7 +123,9 @@ Chạy evaluation:
 Import file `n8n-import/AI-tutor-v2-proactive-workflows.json`, sau đó mở workflow và chọn **Publish/Active**.
 
 Luồng n8n V2:
-- `POST /webhook/v2-gold-qa-submit` — lưu Gold Q&A rồi chấm AI vs đáp án Teacher trên sách
+- `POST /webhook/v2-gold-qa-submit` — lưu Gold Q&A + chấm AI → `EXAMINED` (Teacher giữ bài, chưa gửi Senior)
+- `POST /webhook/v2-gold-qa-exam` — Teacher thi lại
+- `POST /webhook/v2-gold-qa-send-review` — Teacher gửi Senior → `PENDING_REVIEW`
 - `POST /webhook/v2-gold-qa-approve` — Senior nạp Gold Q&A vào RAG
 
 Bắt đầu chương, reject, coverage, rubric và eval-run gọi thẳng Backend.
@@ -217,7 +219,7 @@ Teacher nhấn **Nhận task**, FE gọi `POST /api/v2/expert-training/tasks/{ta
 
 ### Bước 3 - Teacher nộp nội dung
 
-Với task Gold Q&A, gọi `POST /webhook/v2-gold-qa-submit`. Phải truyền đúng `sourceTaskId` và `usage` của task. Kết quả trở thành `PENDING_REVIEW`.
+Với task Gold Q&A, gọi `POST /webhook/v2-gold-qa-submit`. Phải truyền đúng `sourceTaskId` và `usage` của task. Kết quả trở thành `EXAMINED` (chưa vào hàng Senior). Teacher xem kết quả, có thể `POST /webhook/v2-gold-qa-exam` để thi lại, rồi `POST /webhook/v2-gold-qa-send-review` để chuyển `PENDING_REVIEW`.
 
 Với task rubric, gọi `POST /webhook/v2-rubric-submit`. Tổng các trọng số phải bằng `1.0`.
 

@@ -4,14 +4,14 @@
   "nodes": [
     {
       "parameters": {
-        "content": "Nộp Gold Q&A → chấm AI vs đáp án Teacher trên sách (chưa vào RAG) → Senior duyệt thì mới index.",
-        "height": 80,
+        "content": "1) Nộp + chấm → EXAMINED (Teacher giữ bài)\n2) Thi lại (optional)\n3) Teacher bấm gửi Senior → PENDING_REVIEW\n4) Senior duyệt → index RAG (AI mới nhớ Gold Q&A)",
+        "height": 110,
         "width": 980,
         "color": 5
       },
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [-1120, -420],
+      "position": [-1120, -480],
       "id": "10000000-0000-4000-8000-000000000100",
       "name": "Flow Note"
     },
@@ -66,13 +66,83 @@
       "typeVersion": 1.5,
       "position": [-360, -280],
       "id": "10000000-0000-4000-8000-000000000006",
-      "name": "Respond exam"
+      "name": "Respond examined"
+    },
+    {
+      "parameters": {"httpMethod":"POST","path":"v2-gold-qa-exam","responseMode":"responseNode","options":{}},
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [-1120, -40],
+      "id": "10000000-0000-4000-8000-000000000030",
+      "name": "Re-exam Gold Q&A",
+      "webhookId": "20000000-0000-4000-8000-000000000030"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://host.docker.internal:8085/api/v2/expert-training/gold-qa/{{$node[\"Re-exam Gold Q&A\"].json.body.goldQaId}}/exam",
+        "sendHeaders": true,
+        "headerParameters": {"parameters":[{"name":"Authorization","value":"={{ $node[\"Re-exam Gold Q&A\"].json.headers.authorization }}"},{"name":"Content-Type","value":"application/json; charset=utf-8"}]},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={}",
+        "options": {"timeout": 180000}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [-880, -40],
+      "id": "10000000-0000-4000-8000-000000000031",
+      "name": "Re-score AI vs Teacher",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {"respondWith":"json","responseBody":"={{ JSON.stringify($json) }}","options":{}},
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [-620, -40],
+      "id": "10000000-0000-4000-8000-000000000032",
+      "name": "Respond re-exam"
+    },
+    {
+      "parameters": {"httpMethod":"POST","path":"v2-gold-qa-send-review","responseMode":"responseNode","options":{}},
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [-1120, 200],
+      "id": "10000000-0000-4000-8000-000000000033",
+      "name": "Send Gold Q&A to Senior",
+      "webhookId": "20000000-0000-4000-8000-000000000033"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://host.docker.internal:8085/api/v2/expert-training/gold-qa/{{$node[\"Send Gold Q&A to Senior\"].json.body.goldQaId}}/send-for-review",
+        "sendHeaders": true,
+        "headerParameters": {"parameters":[{"name":"Authorization","value":"={{ $node[\"Send Gold Q&A to Senior\"].json.headers.authorization }}"},{"name":"Content-Type","value":"application/json; charset=utf-8"}]},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={}",
+        "options": {"timeout": 60000}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [-880, 200],
+      "id": "10000000-0000-4000-8000-000000000034",
+      "name": "Mark pending Senior review",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {"respondWith":"json","responseBody":"={{ JSON.stringify($json) }}","options":{}},
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [-620, 200],
+      "id": "10000000-0000-4000-8000-000000000035",
+      "name": "Respond sent"
     },
     {
       "parameters": {"httpMethod":"POST","path":"v2-gold-qa-approve","responseMode":"responseNode","options":{}},
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
-      "position": [-1120, -40],
+      "position": [-1120, 440],
       "id": "10000000-0000-4000-8000-000000000010",
       "name": "Approve Gold Q&A",
       "webhookId": "20000000-0000-4000-8000-000000000004"
@@ -90,7 +160,7 @@
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
-      "position": [-880, -40],
+      "position": [-880, 440],
       "id": "10000000-0000-4000-8000-000000000011",
       "name": "Index Gold Q&A into RAG",
       "onError": "continueRegularOutput"
@@ -99,7 +169,7 @@
       "parameters": {"respondWith":"json","responseBody":"={{ JSON.stringify($json) }}","options":{}},
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
-      "position": [-620, -40],
+      "position": [-620, 440],
       "id": "10000000-0000-4000-8000-000000000012",
       "name": "Respond indexed"
     }
@@ -107,14 +177,18 @@
   "connections": {
     "Submit Gold Q&A": {"main": [[{"node": "Save Teacher Gold Q&A", "type": "main", "index": 0}]]},
     "Save Teacher Gold Q&A": {"main": [[{"node": "Score AI vs Teacher Gold Q&A", "type": "main", "index": 0}]]},
-    "Score AI vs Teacher Gold Q&A": {"main": [[{"node": "Respond exam", "type": "main", "index": 0}]]},
+    "Score AI vs Teacher Gold Q&A": {"main": [[{"node": "Respond examined", "type": "main", "index": 0}]]},
+    "Re-exam Gold Q&A": {"main": [[{"node": "Re-score AI vs Teacher", "type": "main", "index": 0}]]},
+    "Re-score AI vs Teacher": {"main": [[{"node": "Respond re-exam", "type": "main", "index": 0}]]},
+    "Send Gold Q&A to Senior": {"main": [[{"node": "Mark pending Senior review", "type": "main", "index": 0}]]},
+    "Mark pending Senior review": {"main": [[{"node": "Respond sent", "type": "main", "index": 0}]]},
     "Approve Gold Q&A": {"main": [[{"node": "Index Gold Q&A into RAG", "type": "main", "index": 0}]]},
     "Index Gold Q&A into RAG": {"main": [[{"node": "Respond indexed", "type": "main", "index": 0}]]}
   },
   "pinData": {},
   "settings": {"executionOrder": "v1"},
   "active": true,
-  "versionId": "30000000-0000-4000-8000-000000000004",
+  "versionId": "30000000-0000-4000-8000-000000000005",
   "meta": {"templateCredsSetupCompleted": true},
   "tags": []
 }

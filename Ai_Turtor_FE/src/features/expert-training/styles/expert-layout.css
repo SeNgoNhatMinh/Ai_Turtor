@@ -445,6 +445,109 @@
   margin: 0;
 }
 
+.expert-exam-chat {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+.expert-exam-chat__row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  width: 100%;
+}
+
+.expert-exam-chat__row--user {
+  justify-content: flex-end;
+}
+
+.expert-exam-chat__avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  flex: 0 0 32px;
+  margin-top: 2px;
+}
+
+.expert-exam-chat__avatar--teacher {
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.expert-exam-chat__avatar--ai {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.expert-exam-chat__bubble {
+  min-width: 0;
+  max-width: min(100%, 680px);
+}
+
+.expert-exam-chat__bubble--user {
+  max-width: min(100%, 560px);
+  padding: 12px 16px;
+  border-radius: 18px 18px 4px 18px;
+  background: #f4f4f5;
+}
+
+.expert-exam-chat__bubble--teacher,
+.expert-exam-chat__bubble--ai {
+  flex: 1;
+  padding: 4px 0 0;
+}
+
+.expert-exam-chat__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.expert-exam-chat__meta > strong {
+  font-size: 13px;
+  color: #111827;
+}
+
+.expert-exam-chat__meta > span,
+.expert-exam-chat__plain {
+  margin: 0;
+  color: #4b5563;
+  font-size: 13px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.expert-exam-chat__body {
+  min-width: 0;
+}
+
+.expert-exam-chat__body .ai-answer,
+.expert-exam-chat__body .markdown-body {
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+.expert-exam-chat__body table {
+  display: block;
+  width: 100%;
+  overflow-x: auto;
+}
+
+.expert-exam-chat__score {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-top: 4px;
+}
+
 .expert-training__criteria-list {
   display: grid;
   gap: 8px;

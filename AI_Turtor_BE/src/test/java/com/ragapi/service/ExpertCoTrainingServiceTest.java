@@ -12,6 +12,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Query;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -243,6 +244,7 @@ class ExpertCoTrainingServiceTest {
         when(tasks.findById("TASK1")).thenReturn(Optional.of(task));
         when(tasks.save(any())).thenAnswer(inv -> inv.getArgument(0));
         GoldQa[] saved = new GoldQa[1];
+        when(gold.findBySourceTaskId("TASK1")).thenReturn(List.of());
         when(gold.save(any())).thenAnswer(inv -> {
             GoldQa item = inv.getArgument(0);
             if (item.getId() == null) {
@@ -266,11 +268,29 @@ class ExpertCoTrainingServiceTest {
 
         GoldQa submitted = service.submitGoldQaAndExam(request);
 
-        assertEquals("PENDING_REVIEW", submitted.getStatus());
+        assertEquals("EXAMINED", submitted.getStatus());
         assertEquals(true, submitted.getExamPassed());
         assertNotNull(submitted.getExamAiAnswer());
+        assertEquals("IN_PROGRESS", task.getStatus());
         verifyNoInteractions(vectors);
         verify(rag, never()).askWithConfidence(anyString(), anyString(), any());
+    }
+
+    @Test
+    void sendGoldQaForReviewNotifiesSeniorOnlyAfterTeacherConfirms() {
+        GoldQa draft = GoldQa.builder().id("G4").courseId("PRJ301").usage("TRAINING")
+                .status("EXAMINED").authorId("T1").sourceTaskId("TASK1")
+                .examAiAnswer("answer").examinedAt(LocalDateTime.now()).examPassed(true).build();
+        ExpertTask task = ExpertTask.builder().id("TASK1").type("GOLD_QA").status("IN_PROGRESS").build();
+        when(gold.findById("G4")).thenReturn(Optional.of(draft));
+        when(gold.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(tasks.findById("TASK1")).thenReturn(Optional.of(task));
+        when(tasks.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        GoldQa sent = service.sendGoldQaForReview("G4");
+
+        assertEquals("PENDING_REVIEW", sent.getStatus());
+        assertEquals("SUBMITTED", task.getStatus());
     }
 
     @Test

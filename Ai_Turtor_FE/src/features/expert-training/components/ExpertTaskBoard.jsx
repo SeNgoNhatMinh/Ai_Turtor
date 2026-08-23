@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Card, Segmented, Space, Tag, Typography } from 'antd';
+import { Card, Modal, Segmented, Space, Tag, Typography } from 'antd';
 import {
   BookOpenCheck,
   CheckCircle2,
@@ -11,6 +11,7 @@ import {
   RotateCcw,
   ShieldCheck,
 } from 'lucide-react';
+import GoldQaExamCompare from './contribution/GoldQaExamCompare';
 import ActionButton from '../../../components/common/ActionButton';
 import AsyncState from '../../../components/common/AsyncState';
 import { CollectionPagination, CollectionSearch } from '../../../components/common/CollectionControls';
@@ -27,14 +28,29 @@ const { Paragraph, Text } = Typography;
 const FINISHED_STATUSES = new Set(['COMPLETED', 'DONE', 'CANCELLED']);
 const TASK_SEARCH_KEYS = ['title', 'chapter', 'instructions', 'status', 'assigneeId'];
 
-function TaskAction({ task, userId, pendingAction, onClaim, onContribute, onPreview }) {
+function TaskAction({
+  task,
+  contribution,
+  userId,
+  pendingAction,
+  onClaim,
+  onContribute,
+  onPreview,
+  onViewExam,
+}) {
   const isOwner = task.assigneeId === userId;
   const canPreview = Boolean(onPreview);
+  const canViewExam = Boolean(contribution && (contribution.examAiAnswer || contribution.goldAnswer || contribution.examScore != null));
 
   return (
     <Space wrap size={[8, 8]}>
       {canPreview && (
         <ActionButton icon={<Eye size={15} />} onClick={() => onPreview(task)}>Xem giáo trình</ActionButton>
+      )}
+      {canViewExam && (
+        <ActionButton icon={<ShieldCheck size={15} />} onClick={() => onViewExam(contribution)}>
+          Xem kết quả chấm
+        </ActionButton>
       )}
       {task.status === 'OPEN' && !task.assigneeId ? (
         <ActionButton
@@ -91,9 +107,23 @@ function ContributionState({ contribution }) {
         <ShieldCheck size={17} aria-hidden="true" />
         <div>
           <strong>
-            {passed ? `AI đạt ${formatPercent(contribution.examScore)}` : 'AI chưa đạt hoặc cần Senior kiểm tra'}
+            {passed ? `AI đạt ${formatPercent(contribution.examScore)} · đã gửi Senior` : 'Đã gửi Senior · AI chưa đạt'}
           </strong>
-          <span>Đã chấm bằng giáo trình; Q&A chưa được nạp vào RAG.</span>
+          <span>Đang chờ Senior duyệt nạp RAG. Bấm Xem kết quả chấm để đối chiếu.</span>
+        </div>
+      </div>
+    );
+  }
+  if (contribution.status === 'EXAMINED') {
+    const passed = contribution.examPassed === true;
+    return (
+      <div className={`expert-training__task-result expert-training__task-result--${passed ? 'passed' : 'review'}`}>
+        <ShieldCheck size={17} aria-hidden="true" />
+        <div>
+          <strong>
+            {passed ? `AI đạt ${formatPercent(contribution.examScore)}` : 'AI chưa đạt hoặc cần kiểm tra'}
+          </strong>
+          <span>Đã chấm bằng giáo trình. Mở task để Thi lại hoặc Gửi Senior duyệt.</span>
         </div>
       </div>
     );
@@ -101,7 +131,7 @@ function ContributionState({ contribution }) {
   return null;
 }
 
-function TaskCard({ task, contribution, userId, pendingAction, onClaim, onContribute, onPreview }) {
+function TaskCard({ task, contribution, userId, pendingAction, onClaim, onContribute, onPreview, onViewExam }) {
   const dueMeta = getExpertTaskDueMeta(task);
   return (
     <Card className="expert-training__task-card" size="small">
@@ -146,11 +176,13 @@ function TaskCard({ task, contribution, userId, pendingAction, onClaim, onContri
       <div className="expert-training__task-card-action">
         <TaskAction
           task={task}
+          contribution={contribution}
           userId={userId}
           pendingAction={pendingAction}
           onClaim={onClaim}
           onContribute={onContribute}
           onPreview={onPreview}
+          onViewExam={onViewExam}
         />
       </div>
     </Card>
@@ -170,6 +202,7 @@ export default function ExpertTaskBoard({
   onPreviewTask,
 }) {
   const [activeTab, setActiveTab] = useState('TODO');
+  const [examContribution, setExamContribution] = useState(null);
   const taskGroups = useMemo(
     () => groupTeacherExpertTasks(tasks, userId),
     [tasks, userId],
@@ -243,11 +276,25 @@ export default function ExpertTaskBoard({
               onClaim={onClaim}
               onContribute={onContribute}
               onPreview={onPreviewTask}
+              onViewExam={setExamContribution}
             />
           ))}
         </div>
       </AsyncState>
       <CollectionPagination collection={collection} />
+      <Modal
+        open={Boolean(examContribution)}
+        title="Kết quả chấm"
+        footer={null}
+        width={800}
+        className="expert-exam-chat-modal"
+        onCancel={() => setExamContribution(null)}
+        destroyOnHidden
+      >
+        {examContribution && (
+          <GoldQaExamCompare contribution={examContribution} />
+        )}
+      </Modal>
     </section>
   );
 }

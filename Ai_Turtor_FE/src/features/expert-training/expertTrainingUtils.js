@@ -28,7 +28,7 @@ export function getChapterSessionState(chapter, tasks = [], goldQa = []) {
   }
   const chapterTasks = tasks.filter((task) => String(task.chapter || '').trim() === title);
   const items = goldQa.filter((item) => String(item.chapter || '').trim() === title);
-  const pendingExam = items.filter((item) => item.status === 'PENDING_REVIEW');
+  const pendingExam = items.filter((item) => item.status === 'PENDING_REVIEW' || item.status === 'EXAMINED');
   const indexed = items.filter((item) => item.status === 'INDEXED');
   const active = chapterTasks.some((task) => (
     ['OPEN', 'ASSIGNED', 'IN_PROGRESS', 'SUBMITTED'].includes(task.status)

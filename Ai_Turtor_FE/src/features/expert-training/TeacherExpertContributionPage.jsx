@@ -49,7 +49,7 @@ export default function TeacherExpertContributionPage({
       <PageHeader
         eyebrow="Chất lượng AI"
         title="Soạn bài thi Q&A vàng"
-        description="Viết đúng chương Senior đã giao. Hệ thống hỏi AI bằng sách trước khi chuyển bài sang Senior."
+        description="Viết đúng chương Senior đã giao. Chấm AI trên sách trước, rồi bạn tự gửi Senior khi hài lòng."
         actions={<ActionButton icon={<ArrowLeft size={16} />} onClick={goBack}>Về danh sách task</ActionButton>}
       />
 
@@ -67,13 +67,15 @@ export default function TeacherExpertContributionPage({
             userId={controller.userId}
             pendingAction={controller.pendingAction}
             onSubmitGoldQa={controller.submitGoldQa}
+            onExamGoldQa={controller.examGoldQa}
+            onSendForReview={controller.sendGoldQaForReview}
             materialPreview={controller.taskMaterialPreview}
             materialLoading={controller.loading.taskMaterial}
             materialError={controller.errors.taskMaterial}
             contribution={controller.selectedTaskContribution}
             rejection={controller.selectedTaskRejection}
             onOpenMaterial={controller.openSourceMaterial}
-            onSubmitted={goBack}
+            onSentToSenior={goBack}
           />
         )}
       </AsyncState>

@@ -405,33 +405,72 @@ public class ExpertCoTrainingService {
         String difficulty = enumValue(request.getDifficulty(), "difficulty", DIFFICULTIES);
         ExpertTask task = optionalTask(request.getSourceTaskId(), "GOLD_QA");
         LocalDateTime now = LocalDateTime.now();
-        GoldQa gold = goldQaRepository.save(GoldQa.builder()
+        String authorId = requireText(request.getAuthorId(), "authorId");
+        GoldQa gold = findEditableGoldDraft(task, authorId).orElseGet(() -> GoldQa.builder()
                 .courseId(requireText(request.getCourseId(), "courseId"))
-                .chapter(requireMaxLength(request.getChapter(), "chapter", SHORT_TEXT_MAX_LENGTH))
-                .question(requireMaxLength(request.getQuestion(), "question", DEFAULT_TEXT_MAX_LENGTH))
-                .goldAnswer(requireMaxLength(request.getGoldAnswer(), "goldAnswer", DEFAULT_TEXT_MAX_LENGTH))
-                .difficulty(difficulty).usage(usage).holdout(false)
-                .status("PENDING_REVIEW").version(1)
-                .authorId(requireText(request.getAuthorId(), "authorId"))
-                .sourceTaskId(request.getSourceTaskId()).rubricId(request.getRubricId())
-                .createdAt(now).updatedAt(now).build());
-        completeContributionTask(task, gold.getId());
-        return gold;
+                .usage(usage)
+                .holdout(false)
+                .version(1)
+                .authorId(authorId)
+                .sourceTaskId(request.getSourceTaskId())
+                .createdAt(now)
+                .build());
+        gold.setCourseId(requireText(request.getCourseId(), "courseId"));
+        gold.setChapter(requireMaxLength(request.getChapter(), "chapter", SHORT_TEXT_MAX_LENGTH));
+        gold.setQuestion(requireMaxLength(request.getQuestion(), "question", DEFAULT_TEXT_MAX_LENGTH));
+        gold.setGoldAnswer(requireMaxLength(request.getGoldAnswer(), "goldAnswer", DEFAULT_TEXT_MAX_LENGTH));
+        gold.setDifficulty(difficulty);
+        gold.setUsage(usage);
+        gold.setHoldout(false);
+        gold.setRubricId(request.getRubricId());
+        gold.setStatus("EXAMINED");
+        gold.setRejectionReason(null);
+        gold.setReviewNote(null);
+        gold.setReviewedBy(null);
+        gold.setReviewedAt(null);
+        gold.setUpdatedAt(now);
+        GoldQa saved = goldQaRepository.save(gold);
+        attachContributionDraft(task, saved.getId());
+        return saved;
     }
 
     public GoldQa examGoldQa(String id) {
         GoldQa gold = goldQaRepository.findById(requireText(id, "id"))
                 .orElseThrow(() -> new IllegalArgumentException("GoldQA not found"));
+        ensureTeacherExamable(gold.getStatus());
         examineAgainstTextbook(gold);
         GoldQa examined = goldQaRepository.findById(gold.getId()).orElse(gold);
-        realtimeEvents.publishToRoles(SENIOR_ROLES, "GOLD_QA_SUBMITTED", "GOLD_QA", examined.getId(),
-                examined.getStatus(), Map.of("courseId", examined.getCourseId(), "usage", examined.getUsage(),
-                        "authorId", examined.getAuthorId(), "examPassed", Boolean.TRUE.equals(examined.getExamPassed())));
-        return examined;
+        examined.setStatus("EXAMINED");
+        examined.setUpdatedAt(LocalDateTime.now());
+        GoldQa saved = goldQaRepository.save(examined);
+        realtimeEvents.publishToUser(saved.getAuthorId(), "GOLD_QA_EXAMINED", "GOLD_QA", saved.getId(),
+                saved.getStatus(), Map.of("courseId", saved.getCourseId(), "usage", saved.getUsage(),
+                        "examPassed", Boolean.TRUE.equals(saved.getExamPassed())));
+        return saved;
     }
 
     public GoldQa submitGoldQaAndExam(SubmitGoldQaRequest request) {
         return examGoldQa(submitGoldQa(request).getId());
+    }
+
+    public GoldQa sendGoldQaForReview(String id) {
+        GoldQa gold = goldQaRepository.findById(requireText(id, "id"))
+                .orElseThrow(() -> new IllegalArgumentException("GoldQA not found"));
+        if (!"EXAMINED".equals(gold.getStatus())) {
+            throw new IllegalArgumentException("Only examined Gold Q&A can be sent to Senior review");
+        }
+        if (gold.getExaminedAt() == null && gold.getExamAiAnswer() == null) {
+            throw new IllegalArgumentException("Run exam before sending Gold Q&A to Senior");
+        }
+        gold.setStatus("PENDING_REVIEW");
+        gold.setUpdatedAt(LocalDateTime.now());
+        GoldQa saved = goldQaRepository.save(gold);
+        ExpertTask task = optionalTask(saved.getSourceTaskId(), "GOLD_QA");
+        completeContributionTask(task, saved.getId());
+        realtimeEvents.publishToRoles(SENIOR_ROLES, "GOLD_QA_SUBMITTED", "GOLD_QA", saved.getId(),
+                saved.getStatus(), Map.of("courseId", saved.getCourseId(), "usage", saved.getUsage(),
+                        "authorId", saved.getAuthorId(), "examPassed", Boolean.TRUE.equals(saved.getExamPassed())));
+        return saved;
     }
 
     public ExpertRubric submitRubric(SubmitRubricRequest request) {
@@ -658,9 +697,37 @@ public class ExpertCoTrainingService {
         ExpertTask task = task(id); if (!expectedType.equals(task.getType())) throw new IllegalArgumentException("Task type must be " + expectedType);
         if (Set.of("COMPLETED", "CANCELLED").contains(task.getStatus())) throw new IllegalArgumentException("Task is already closed"); return task;
     }
-    private void completeContributionTask(ExpertTask task, String contributionId) {
-        if (task == null) return; task.setContributionId(contributionId); task.setStatus("SUBMITTED"); task.setUpdatedAt(LocalDateTime.now()); taskRepository.save(task);
+    private void attachContributionDraft(ExpertTask task, String contributionId) {
+        if (task == null) return;
+        task.setContributionId(contributionId);
+        if (!"SUBMITTED".equals(task.getStatus()) && !"COMPLETED".equals(task.getStatus())) {
+            task.setStatus("IN_PROGRESS");
+        }
+        task.setUpdatedAt(LocalDateTime.now());
+        taskRepository.save(task);
     }
+
+    private void completeContributionTask(ExpertTask task, String contributionId) {
+        if (task == null) return;
+        task.setContributionId(contributionId);
+        task.setStatus("SUBMITTED");
+        task.setUpdatedAt(LocalDateTime.now());
+        taskRepository.save(task);
+    }
+
+    private Optional<GoldQa> findEditableGoldDraft(ExpertTask task, String authorId) {
+        if (task == null || task.getId() == null || task.getId().isBlank()) return Optional.empty();
+        return goldQaRepository.findBySourceTaskId(task.getId()).stream()
+                .filter(item -> authorId.equals(item.getAuthorId()))
+                .filter(item -> Set.of("EXAMINED", "REJECTED").contains(item.getStatus()))
+                .sorted((left, right) -> {
+                    LocalDateTime leftAt = left.getUpdatedAt() == null ? LocalDateTime.MIN : left.getUpdatedAt();
+                    LocalDateTime rightAt = right.getUpdatedAt() == null ? LocalDateTime.MIN : right.getUpdatedAt();
+                    return rightAt.compareTo(leftAt);
+                })
+                .findFirst();
+    }
+
     private void completeReviewedTask(String taskId, boolean approved) {
         if (taskId == null || taskId.isBlank()) return;
         taskRepository.findById(taskId).ifPresent(task -> {
@@ -671,6 +738,11 @@ public class ExpertCoTrainingService {
         });
     }
     private void ensurePending(String status) { if (!"PENDING_REVIEW".equals(status)) throw new IllegalArgumentException("Contribution is not pending review"); }
+    private void ensureTeacherExamable(String status) {
+        if (!Set.of("EXAMINED", "REJECTED").contains(status)) {
+            throw new IllegalArgumentException("Gold Q&A cannot be examined in status " + status);
+        }
+    }
     private void ensureSenior(ExpertReviewRequest request) {
         if (request == null || !SENIOR_ROLES.contains(defaultText(request.getReviewerRole(), "").toUpperCase(Locale.ROOT))) throw new IllegalArgumentException("reviewerRole must be SENIOR_MENTOR or ADMIN");
         requireText(request.getReviewerId(), "reviewerId");

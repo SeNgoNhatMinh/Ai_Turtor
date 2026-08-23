@@ -19,6 +19,16 @@ export const expertTrainingGateway = {
     return normalizeGoldQa(await n8nService.submitTutorV2GoldQa(payload));
   },
 
+  async examGoldQa(goldQaId) {
+    if (!isTutorV2HarnessEnabled()) return expertTrainingApi.examGoldQa(goldQaId);
+    return normalizeGoldQa(await n8nService.examTutorV2GoldQa({ goldQaId }));
+  },
+
+  async sendGoldQaForReview(goldQaId) {
+    if (!isTutorV2HarnessEnabled()) return expertTrainingApi.sendGoldQaForReview(goldQaId);
+    return normalizeGoldQa(await n8nService.sendTutorV2GoldQaForReview({ goldQaId }));
+  },
+
   async submitRubric(payload) {
     return expertTrainingApi.submitRubric(payload);
   },

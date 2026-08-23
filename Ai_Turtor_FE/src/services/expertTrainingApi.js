@@ -170,6 +170,23 @@ export const expertTrainingApi = {
     }));
   },
 
+  async examGoldQa(goldQaId) {
+    return normalizeGoldQa(await request(`${BASE_PATH}/gold-qa/${encodePath(goldQaId)}/exam`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+      timeoutMs: API_TIMEOUTS.quizGeneration,
+    }));
+  },
+
+  async sendGoldQaForReview(goldQaId) {
+    return normalizeGoldQa(await request(`${BASE_PATH}/gold-qa/${encodePath(goldQaId)}/send-for-review`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    }));
+  },
+
   async getGoldQa(courseId, filters = {}, options = {}) {
     const response = await request(`${BASE_PATH}/gold-qa${createQuery({ courseId, ...filters })}`, {
       signal: options.signal,

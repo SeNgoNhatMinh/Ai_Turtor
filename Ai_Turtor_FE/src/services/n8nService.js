@@ -107,6 +107,22 @@ export const n8nService = {
     }), 'Không thể hoàn tất luồng Gold Q&A của Tutor V2.');
   },
 
+  async examTutorV2GoldQa(payload, options = {}) {
+    return ensureHarnessSuccess(await postN8n('/v2-gold-qa-exam', payload, {
+      timeoutMs: N8N_TUTOR_V2_FLOW_TIMEOUT_MS,
+      ...options,
+      includeAuthTokenInBody: false,
+    }), 'Không thể chấm lại Gold Q&A của Tutor V2.');
+  },
+
+  async sendTutorV2GoldQaForReview(payload, options = {}) {
+    return ensureHarnessSuccess(await postN8n('/v2-gold-qa-send-review', payload, {
+      timeoutMs: N8N_TUTOR_V2_FLOW_TIMEOUT_MS,
+      ...options,
+      includeAuthTokenInBody: false,
+    }), 'Không thể gửi Gold Q&A sang Senior.');
+  },
+
   async submitTutorV2Rubric(payload, options = {}) {
     return ensureHarnessSuccess(await postN8n('/v2-rubric-submit', payload, {
       timeoutMs: N8N_TUTOR_V2_FLOW_TIMEOUT_MS,

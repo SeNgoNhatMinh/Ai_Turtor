@@ -141,7 +141,7 @@ describe('Tutor V2 UI rules', () => {
 
     expect(screen.getByText('Task này không thuộc về bạn')).toBeInTheDocument();
     expect(screen.getByLabelText('Chương')).toHaveAttribute('readonly');
-    expect(screen.getByRole('button', { name: 'Nộp Q&A và chấm bằng sách' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Lưu và chấm AI bằng sách' })).toBeDisabled();
   });
 
   it('lets Senior start an indexed chapter without a separate confirm step', () => {
@@ -208,6 +208,56 @@ describe('Tutor V2 UI rules', () => {
     expect(screen.getByRole('button', { name: 'Xóa khỏi mục lục' })).toBeInTheDocument();
   });
 
+  it('keeps typed Gold Q&A text when the same task refreshes', () => {
+    const task = {
+      id: 'task-keep-draft',
+      type: 'GOLD_QA',
+      status: 'IN_PROGRESS',
+      assigneeId: 'teacher-1',
+      chapter: 'A Note about JSP Documents (JSPX)',
+      title: 'Q&A vàng 1/2',
+    };
+    const { rerender } = render(
+      <ContributionWorkspace
+        selectedTask={task}
+        userId="teacher-1"
+        pendingAction=""
+        onSubmitGoldQa={vi.fn()}
+        materialPreview={null}
+        materialLoading={false}
+        materialError=""
+        contribution={null}
+        rejection={null}
+        onOpenMaterial={vi.fn()}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText('Câu hỏi vàng'), {
+      target: { value: 'JSPX khác JSP ở điểm nào?' },
+    });
+    fireEvent.change(screen.getByLabelText('Đáp án chuẩn theo giáo trình'), {
+      target: { value: 'JSPX dùng cú pháp XML.' },
+    });
+
+    rerender(
+      <ContributionWorkspace
+        selectedTask={{ ...task }}
+        userId="teacher-1"
+        pendingAction=""
+        onSubmitGoldQa={vi.fn()}
+        materialPreview={null}
+        materialLoading={false}
+        materialError=""
+        contribution={null}
+        rejection={null}
+        onOpenMaterial={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText('Câu hỏi vàng')).toHaveValue('JSPX khác JSP ở điểm nào?');
+    expect(screen.getByLabelText('Đáp án chuẩn theo giáo trình')).toHaveValue('JSPX dùng cú pháp XML.');
+  });
+
   it('keeps the Teacher editor on the Senior GOLD_QA flow only', () => {
     render(
       <ContributionWorkspace
@@ -232,7 +282,7 @@ describe('Tutor V2 UI rules', () => {
     );
 
     expect(screen.getByText('Task không thuộc flow GOLD_QA hiện tại')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Nộp Q&A và chấm bằng sách' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Lưu và chấm AI bằng sách' })).toBeDisabled();
     expect(screen.queryByText('Rubric chất lượng câu trả lời')).not.toBeInTheDocument();
   });
 
@@ -243,7 +293,7 @@ describe('Tutor V2 UI rules', () => {
           {
             id: 'gold-task-1',
             type: 'GOLD_QA',
-            status: 'SUBMITTED',
+            status: 'IN_PROGRESS',
             assigneeId: 'teacher-1',
             chapter: 'Recursion',
             title: 'Q&A vàng 1/2 · Recursion',
@@ -260,7 +310,10 @@ describe('Tutor V2 UI rules', () => {
         goldQa={[{
           id: 'gold-1',
           sourceTaskId: 'gold-task-1',
-          status: 'PENDING_REVIEW',
+          status: 'EXAMINED',
+          question: 'What is recursion?',
+          goldAnswer: 'Recursion is a function that calls itself.',
+          examAiAnswer: 'A function that calls itself until a base case.',
           examPassed: true,
           examScore: 0.82,
         }]}
@@ -278,6 +331,11 @@ describe('Tutor V2 UI rules', () => {
     fireEvent.click(screen.getByText(/Việc của tôi/));
     expect(screen.getByText('Q&A vàng 1/2 · Recursion')).toBeInTheDocument();
     expect(screen.getByText('AI đạt 82%')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Xem kết quả chấm' }));
+    expect(screen.getByText('Teacher')).toBeInTheDocument();
+    expect(screen.getByText('AI Tutor')).toBeInTheDocument();
+    expect(screen.getByText('Recursion is a function that calls itself.')).toBeInTheDocument();
+    expect(screen.getByText('A function that calls itself until a base case.')).toBeInTheDocument();
     expect(screen.queryByText('Legacy Rubric task')).not.toBeInTheDocument();
   });
 
