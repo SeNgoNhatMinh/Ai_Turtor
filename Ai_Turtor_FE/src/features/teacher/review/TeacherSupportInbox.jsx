@@ -149,6 +149,7 @@ export default function TeacherSupportInbox({
             allowClear
             onSearch={(value) => onSearch?.(String(value || '').trim())}
             className="teacher-support-search"
+            aria-label="Tìm sinh viên hoặc nội dung yêu cầu"
           />
           <ActionButton icon={<RefreshCw size={15} />} loading={loading} onClick={onRefresh}>
             Làm mới
