@@ -1,4 +1,5 @@
 import { Alert, Card, Empty, Space, Spin, Tag, Typography } from 'antd';
+import { Bot, CircleHelp, Clock3, GraduationCap, ShieldCheck } from 'lucide-react';
 import StatusTag from '../../../../components/common/StatusTag';
 import MarkdownRenderer from '../../../../components/markdown/MarkdownRenderer';
 import StudentMentorFlow from '../../../../components/support/StudentMentorFlow';
@@ -14,10 +15,10 @@ import {
 
 const { Paragraph, Text, Title } = Typography;
 
-function ReviewBlock({ label, children, tone = 'default' }) {
+function ReviewBlock({ label, children, tone = 'default', icon = null }) {
   return (
     <section className={`mentor-review-block mentor-review-block--${tone}`}>
-      <span>{label}</span>
+      <span>{icon}{label}</span>
       <div>{children}</div>
     </section>
   );
@@ -35,7 +36,7 @@ function SupportConversationDetail({
       <Card className="mentor-review-detail-card" styles={{ body: { padding: 0 } }}>
         <Empty description={uiCopy.student.support.detailEmpty} className="mentor-review-detail-empty">
           <Text type="secondary">
-            Chọn một yêu cầu để xem câu hỏi, câu trả lời AI trước đó, phản hồi của giảng viên và trạng thái kiểm duyệt.
+            Chọn một yêu cầu ở danh sách bên trái để xem toàn bộ tiến trình và trao đổi với giảng viên.
           </Text>
         </Empty>
       </Card>
@@ -53,7 +54,8 @@ function SupportConversationDetail({
       <div className="mentor-review-detail">
         <div className="mentor-review-detail__header">
           <div>
-            <Title level={4}>{ticket.questionPreview || 'Chi tiết yêu cầu hỗ trợ'}</Title>
+            <span className="mentor-review-detail__eyebrow">Chi tiết yêu cầu</span>
+            <Title level={4}>Trao đổi với giảng viên</Title>
             <Space size={[8, 8]} wrap>
               {ticket.courseId && <Tag>Môn {ticket.courseId}</Tag>}
               {ticket.classId && <Tag>Lớp {ticket.classId}</Tag>}
@@ -79,12 +81,12 @@ function SupportConversationDetail({
             </div>
           )}
 
-          <ReviewBlock label="Câu hỏi của sinh viên" tone="question">
+          <ReviewBlock label="Câu hỏi của sinh viên" tone="question" icon={<CircleHelp size={15} />}>
             <Paragraph className="mentor-review-question-text">{getQuestionText(ticket)}</Paragraph>
           </ReviewBlock>
 
           {aiSnapshot && (
-            <ReviewBlock label="Câu trả lời AI trước đó" tone="ai">
+            <ReviewBlock label="Câu trả lời AI trước đó" tone="ai" icon={<Bot size={15} />}>
               <div className="mentor-review-markdown">
                 <MarkdownRenderer markdown={aiSnapshot} />
               </div>
@@ -95,6 +97,7 @@ function SupportConversationDetail({
             <ReviewBlock
               label={assignedMentor ? `Câu trả lời từ ${assignedMentor}` : 'Câu trả lời của giảng viên'}
               tone="answer"
+              icon={<GraduationCap size={15} />}
             >
               <Paragraph>{mentorAnswer}</Paragraph>
               <KnowledgeImageGallery images={ticket.mentorAnswerImages} />
@@ -109,6 +112,7 @@ function SupportConversationDetail({
               />
               {!isChatActive && (
                 <div className="mentor-review-waiting">
+                  <Clock3 size={19} aria-hidden="true" />
                   <div>
                     <Title level={5}>Đang chờ bắt đầu hỗ trợ</Title>
                     <Paragraph>
@@ -121,8 +125,11 @@ function SupportConversationDetail({
           )}
 
           <div className="mentor-review-learning-note" role="note">
-            <strong>Về tri thức AI</strong>
-            <span>Câu trả lời của giảng viên chỉ được đưa vào RAG sau khi Senior Mentor hoặc Admin phê duyệt.</span>
+            <ShieldCheck size={18} aria-hidden="true" />
+            <div>
+              <strong>Kiểm soát tri thức AI</strong>
+              <span>Câu trả lời của giảng viên chỉ được đưa vào RAG sau khi Senior Mentor hoặc Admin phê duyệt.</span>
+            </div>
           </div>
         </div>
       </div>

@@ -108,6 +108,7 @@ public class LearningDashboardService {
                 .toList();
         List<QuestionEscalation> escalations = escalationRepository.findAll().stream()
                 .filter(item -> isAssignedToTeacher(item, teacherId))
+                .filter(item -> item.getHiddenFromMentorInboxAt() == null)
                 .filter(item -> isBlank(courseId) || courseId.equals(item.getCourseId()))
                 .filter(item -> isBlank(classId) || classId.equals(item.getClassId()))
                 .toList();
@@ -147,6 +148,7 @@ public class LearningDashboardService {
     public List<QuestionEscalation> listTeacherEscalationInbox(String teacherId, String status, String query) {
         return escalationRepository.findAll().stream()
                 .filter(item -> isAssignedToTeacher(item, teacherId))
+                .filter(item -> item.getHiddenFromMentorInboxAt() == null)
                 .filter(item -> isBlank(status) || status.equalsIgnoreCase(item.getStatus()))
                 .filter(item -> matchesEscalationQuery(item, query))
                 .toList();

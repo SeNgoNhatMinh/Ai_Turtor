@@ -25,11 +25,12 @@ function mentorSearchHaystack(mentor, role) {
 
 export default function MentorsTab({ mentors }) {
   const [search, setSearch] = useState('');
+  const { list, getRole } = mentors;
   const filteredMentors = useMemo(() => {
     const needle = search.trim().toLowerCase();
-    if (!needle) return mentors.list;
-    return mentors.list.filter((mentor) => mentorSearchHaystack(mentor, mentors.getRole(mentor)).includes(needle));
-  }, [mentors.list, mentors.getRole, search]);
+    if (!needle) return list;
+    return list.filter((mentor) => mentorSearchHaystack(mentor, getRole(mentor)).includes(needle));
+  }, [getRole, list, search]);
 
   const columns = [
     { title: 'Họ tên', dataIndex: 'mentorName', key: 'name', render: (value, record) => value || record.name || '—' },

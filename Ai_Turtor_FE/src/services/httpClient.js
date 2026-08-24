@@ -18,16 +18,6 @@ export function getUserFacingError(error, fallback = 'Đã xảy ra lỗi. Vui l
   return getSafeUserMessage(error.userMessage || error.message, fallback);
 }
 
-const requestInterceptors = [];
-
-export function addRequestInterceptor(interceptor) {
-  requestInterceptors.push(interceptor);
-  return () => {
-    const index = requestInterceptors.indexOf(interceptor);
-    if (index >= 0) requestInterceptors.splice(index, 1);
-  };
-}
-
 async function parseResponse(response, responseType) {
   if (response.status === 204) return null;
   if (responseType === 'blob') return response.blob();
@@ -112,7 +102,7 @@ export async function httpRequest(path, options = {}) {
   if (signal?.aborted) abortFromCaller();
   else signal?.addEventListener('abort', abortFromCaller, { once: true });
 
-  let config = {
+  const config = {
     url: buildUrl(path, query),
     init: {
       method,
@@ -129,10 +119,6 @@ export async function httpRequest(path, options = {}) {
       config.init.headers['Content-Type'] = config.init.headers['Content-Type'] || 'application/json';
       config.init.body = typeof body === 'string' ? body : JSON.stringify(body);
     }
-  }
-
-  for (const interceptor of requestInterceptors) {
-    config = (await interceptor(config)) || config;
   }
 
   let response;

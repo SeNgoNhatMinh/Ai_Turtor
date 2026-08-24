@@ -1,6 +1,6 @@
 .quality-review-page {
   padding: 0 24px 24px;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .quality-review-page > .senior-review-hero {
@@ -60,11 +60,11 @@
 }
 
 .quality-review-page > .answer-review-workspace {
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-gutter: stable;
+  overflow: visible;
+  overscroll-behavior: auto;
+  scrollbar-gutter: auto;
   border-radius: 18px;
   border-color: #d7e2ee;
   background: #ffffff;

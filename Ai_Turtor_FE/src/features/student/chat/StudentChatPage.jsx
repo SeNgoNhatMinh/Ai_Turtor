@@ -20,6 +20,15 @@ export default function StudentChatPage({
   triggerToast,
   enrollment,
 }) {
+  const {
+    classOptions,
+    courseOptions,
+    ensureEnrollmentContext,
+    hasLoadedStudentEnrollments,
+    hasStudentEnrollments,
+    isStudentEnrollmentsLoading,
+    selectCourse,
+  } = enrollment;
   const pendingStudyHandoffRef = useRef(readStudyChatHandoff());
   const learning = useStudentLearningController({
     studentId,
@@ -47,10 +56,10 @@ export default function StudentChatPage({
   });
   const chatController = useStudentChatTabController({
     courseId,
-    setCourseId: enrollment.selectCourse || setCourseId,
+    setCourseId: selectCourse || setCourseId,
     classId,
-    courseOptions: enrollment.courseOptions,
-    classOptions: enrollment.classOptions,
+    courseOptions,
+    classOptions,
     sessions: chat.sessions,
     activeSessionId: chat.activeSessionId,
     messages: chat.messages,
@@ -79,30 +88,31 @@ export default function StudentChatPage({
   useEffect(() => {
     if (
       !studentId
-      || enrollment.isStudentEnrollmentsLoading
-      || !enrollment.hasLoadedStudentEnrollments
-      || (enrollment.hasLoadedStudentEnrollments && !enrollment.hasStudentEnrollments)
+      || isStudentEnrollmentsLoading
+      || !hasLoadedStudentEnrollments
+      || (hasLoadedStudentEnrollments && !hasStudentEnrollments)
     ) return;
 
     const normalizedCourseId = String(courseId || '').trim().toUpperCase();
-    const hasValidCourse = enrollment.courseOptions.some((item) => (
+    const hasValidCourse = courseOptions.some((item) => (
       String(item?.value || '').trim().toUpperCase() === normalizedCourseId
     ));
-    const hasValidClass = enrollment.classOptions.some((item) => (
+    const hasValidClass = classOptions.some((item) => (
       classIdMatches(item?.value, classId)
       || item?.aliases?.some((alias) => classIdMatches(alias, classId))
     ));
     if (hasValidCourse && hasValidClass) return;
 
-    enrollment.ensureEnrollmentContext?.(courseId);
+    ensureEnrollmentContext?.(courseId);
   }, [
     classId,
     courseId,
-    enrollment.classOptions,
-    enrollment.courseOptions,
-    enrollment.ensureEnrollmentContext,
-    enrollment.hasLoadedStudentEnrollments,
-    enrollment.isStudentEnrollmentsLoading,
+    classOptions,
+    courseOptions,
+    ensureEnrollmentContext,
+    hasLoadedStudentEnrollments,
+    hasStudentEnrollments,
+    isStudentEnrollmentsLoading,
     studentId,
   ]);
 
@@ -173,11 +183,11 @@ export default function StudentChatPage({
       courseId={courseId}
       onCourseChange={chatController.handleCourseChange}
       classId={classId}
-      courseOptions={enrollment.courseOptions}
-      classOptions={enrollment.classOptions}
-      isStudentEnrollmentsLoading={enrollment.isStudentEnrollmentsLoading}
-      hasLoadedStudentEnrollments={enrollment.hasLoadedStudentEnrollments}
-      hasStudentEnrollments={enrollment.hasStudentEnrollments}
+      courseOptions={courseOptions}
+      classOptions={classOptions}
+      isStudentEnrollmentsLoading={isStudentEnrollmentsLoading}
+      hasLoadedStudentEnrollments={hasLoadedStudentEnrollments}
+      hasStudentEnrollments={hasStudentEnrollments}
       isDarkMode={isDarkMode}
       messages={chat.messages}
       chatInput={chatController.chatInput}

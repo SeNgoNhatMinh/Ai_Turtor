@@ -1,14 +1,21 @@
 import {
   Alert,
-  Button,
-  Descriptions,
   Form,
   Input,
   Space,
   Tag,
   Typography,
 } from 'antd';
-import { Check, X } from 'lucide-react';
+import { useEffect, useRef } from 'react';
+import {
+  BookOpenCheck,
+  Check,
+  Gauge,
+  GraduationCap,
+  MessageSquareText,
+  X,
+} from 'lucide-react';
+import ActionButton from '../../../../components/common/ActionButton';
 import StatusLabel from '../../../../components/common/StatusLabel';
 import GoldQaExamCompare from '../contribution/GoldQaExamCompare';
 
@@ -38,26 +45,52 @@ export default function ExpertReviewDetail({
   const item = entry.item;
   const isGold = entry.kind === 'GOLD_QA';
   const pending = Boolean(pendingAction);
+  const panelRef = useRef(null);
+
+  useEffect(() => {
+    panelRef.current?.closest('.master-detail-layout__detail')?.scrollTo({ top: 0 });
+  }, [entry.id]);
 
   return (
-    <div className="expert-training__review-detail-panel">
+    <div ref={panelRef} className="expert-training__review-detail-panel">
       <div className="expert-training__review-detail-head">
         <div>
-          <span className="expert-training__eyebrow">BÀI THI Q&A VÀNG</span>
+          <span className="expert-training__eyebrow">CÂU HỎI CẦN QUYẾT ĐỊNH</span>
           <Title level={4}>{isGold ? item.question : item.name}</Title>
         </div>
         <StatusLabel status={item.status} />
       </div>
 
-      <Descriptions bordered size="small" column={1}>
-        <Descriptions.Item label="Chương">{item.chapter}</Descriptions.Item>
-        {isGold && <Descriptions.Item label="Độ khó">{item.difficulty}</Descriptions.Item>}
-      </Descriptions>
+      <div className="expert-training__review-meta-grid">
+        <div>
+          <BookOpenCheck size={17} />
+          <span><small>Chương giáo trình</small><strong>{item.chapter || 'Chưa xác định'}</strong></span>
+        </div>
+        {isGold && (
+          <div>
+            <Gauge size={17} />
+            <span><small>Độ khó</small><strong>{item.difficulty || 'Chưa phân loại'}</strong></span>
+          </div>
+        )}
+        <div>
+          <GraduationCap size={17} />
+          <span><small>Người soạn</small><strong>{item.authorId || 'Teacher'}</strong></span>
+        </div>
+      </div>
 
       {isGold ? (
         <>
-          <GoldQaExamCompare contribution={item} />
+          <section className="expert-training__review-block">
+            <header>
+              <div>
+                <span className="expert-training__review-block-icon"><MessageSquareText size={17} /></span>
+                <div><h3>Đối chiếu đáp án</h3><p>Teacher soạn đáp án chuẩn; AI chỉ được trả lời bằng giáo trình đã index.</p></div>
+              </div>
+            </header>
+            <GoldQaExamCompare contribution={item} />
+          </section>
           <Alert
+            className="expert-training__review-verdict"
             type={examTone(item)}
             showIcon
             title={examTitle(item)}
@@ -77,7 +110,10 @@ export default function ExpertReviewDetail({
       )}
 
       <Form form={form} layout="vertical" className="expert-training__review-form">
-        <Form.Item label="Nhận xét" name="reviewNote">
+        <div className="expert-training__review-form-heading">
+          <div><h3>Quyết định của Senior</h3><p>Ghi rõ lý do nếu trả lại để Teacher biết chính xác phần cần sửa.</p></div>
+        </div>
+        <Form.Item label="Nhận xét kiểm duyệt" name="reviewNote">
           <Input.TextArea rows={4} maxLength={5000} placeholder="Ghi chú khi nạp RAG hoặc lý do trả lại Teacher..." />
         </Form.Item>
       </Form>
@@ -85,18 +121,18 @@ export default function ExpertReviewDetail({
       <div className="expert-training__review-actions">
         <Text type="secondary">Nạp RAG chỉ khi Senior thấy bài thi hợp giáo trình.</Text>
         <Space wrap>
-          <Button danger icon={<X size={15} />} onClick={onReject} disabled={pending}>
+          <ActionButton intent="danger" icon={<X size={15} />} onClick={onReject} disabled={pending}>
             Trả lại Teacher
-          </Button>
-          <Button
-            type="primary"
+          </ActionButton>
+          <ActionButton
+            intent="primary"
             icon={<Check size={15} />}
             onClick={onApprove}
             loading={pendingAction === `${isGold ? 'review-gold' : 'review-rubric'}:${item.id}`}
             disabled={pending}
           >
             Nạp vào RAG
-          </Button>
+          </ActionButton>
         </Space>
       </div>
     </div>

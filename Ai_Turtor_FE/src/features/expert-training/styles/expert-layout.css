@@ -10,11 +10,27 @@
 
 /* Reviewer pages share the same content grid as the other Admin/Senior routes. */
 .expert-training-page--reviewer {
+  container-name: expert-training-reviewer;
+  container-type: inline-size;
+  max-width: 100%;
   padding: 0 24px 24px;
+  overflow-x: clip;
 }
 
 .expert-training-page--reviewer .expert-training__tabs {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   margin-top: 0;
+}
+
+.expert-training-page--reviewer .expert-training__tabs > .ant-tabs-content-holder,
+.expert-training-page--reviewer .expert-training__tabs > .ant-tabs-content-holder > .ant-tabs-content,
+.expert-training-page--reviewer .expert-training__tabs .ant-tabs-tabpane,
+.expert-training-page--reviewer .expert-training__section {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .expert-training__course-select {
@@ -330,6 +346,11 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 20px;
+  min-width: 0;
+}
+
+.expert-training__section-heading > div {
+  min-width: 0;
 }
 
 .expert-training__section-heading h2 {

@@ -67,4 +67,26 @@ class LearningDashboardServiceTest {
 
         assertThat(visible).extracting(QuestionEscalation::getId).containsExactly("assigned");
     }
+
+    @Test
+    void teacherInboxDoesNotShowSoftDeletedTicketButStudentRecordRemains() {
+        QuestionEscalation visible = QuestionEscalation.builder()
+                .id("visible")
+                .assignedMentorId("teacher-1")
+                .status("COMPLETED")
+                .build();
+        QuestionEscalation hidden = QuestionEscalation.builder()
+                .id("hidden")
+                .userId("student-1")
+                .assignedMentorId("teacher-1")
+                .status("COMPLETED")
+                .hiddenFromMentorInboxAt(java.time.LocalDateTime.now())
+                .build();
+        when(escalationRepository.findAll()).thenReturn(List.of(visible, hidden));
+
+        List<QuestionEscalation> inbox = service.listTeacherEscalationInbox("teacher-1", null, null);
+
+        assertThat(inbox).extracting(QuestionEscalation::getId).containsExactly("visible");
+        assertThat(hidden.getUserId()).isEqualTo("student-1");
+    }
 }

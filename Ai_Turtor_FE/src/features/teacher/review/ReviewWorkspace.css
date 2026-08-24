@@ -2,7 +2,14 @@
 .answer-review-workspace {
   display: grid;
   gap: 18px;
+  width: 100%;
+  max-width: 100%;
   min-width: 0;
+}
+
+.teacher-support-workspace {
+  container: teacher-support / inline-size;
+  overflow-x: clip;
 }
 
 .teacher-support-workspace__heading {
@@ -10,6 +17,16 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 20px;
+  min-width: 0;
+  max-width: 100%;
+  padding: 16px 18px;
+  border: 1px solid var(--color-card-border);
+  border-radius: 16px;
+  background: var(--color-card-bg);
+}
+
+.teacher-support-workspace__heading > div:first-child {
+  min-width: 0;
 }
 
 .teacher-support-toolbar {
@@ -17,14 +34,35 @@
   flex: 0 1 auto;
   align-items: center;
   gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+  padding-left: 12px;
 }
 
-.teacher-support-search { width: min(390px, 32vw); }
+.teacher-support-search {
+  width: min(390px, 32vw);
+  max-width: 100%;
+  min-width: 0;
+}
+
+.teacher-support-search .ant-input,
+.teacher-support-search .ant-input-group-addon .ant-btn {
+  min-height: 42px;
+}
+
+.teacher-support-search .ant-input-affix-wrapper {
+  min-height: 42px;
+  padding-inline: 14px;
+}
 
 @media (max-width: 1100px) {
   .teacher-support-workspace__heading {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .teacher-support-toolbar {
+    padding-left: 0;
   }
 }
 
@@ -62,5 +100,9 @@
 
   .teacher-support-workspace__heading > .ant-btn {
     width: 100%;
+  }
+
+  .teacher-support-workspace__heading {
+    padding: 14px;
   }
 }

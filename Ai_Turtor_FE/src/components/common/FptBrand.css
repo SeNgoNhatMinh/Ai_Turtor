@@ -1,0 +1,85 @@
+.fpt-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  color: #172033;
+  font-family: var(--font-heading, inherit);
+  line-height: 1;
+}
+
+.fpt-brand__mark {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 58px;
+  aspect-ratio: 34 / 21;
+}
+
+.fpt-brand__mark img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.fpt-brand__copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.fpt-brand__copy strong,
+.fpt-brand__copy small {
+  display: block;
+  white-space: nowrap;
+}
+
+.fpt-brand__copy strong {
+  font-size: 1.08rem;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+}
+
+.fpt-brand__copy small {
+  color: #64748b;
+  font-size: 0.67rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.fpt-brand--compact {
+  gap: 8px;
+}
+
+.fpt-brand--compact .fpt-brand__mark {
+  width: 48px;
+}
+
+.fpt-brand--compact .fpt-brand__copy strong {
+  font-size: 1rem;
+}
+
+.app-container.dark .fpt-brand {
+  color: #f8fafc;
+}
+
+.app-container.dark .fpt-brand__copy small {
+  color: #cbd5e1;
+}
+
+@media (max-width: 520px) {
+  .top-nav .fpt-brand__mark {
+    width: 48px;
+  }
+
+  .top-nav .fpt-brand__copy strong {
+    font-size: 0.95rem;
+  }
+
+  .top-nav .fpt-brand__copy small {
+    font-size: 0.6rem;
+  }
+}

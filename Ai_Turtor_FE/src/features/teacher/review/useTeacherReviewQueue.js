@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { getUserFacingError } from '../../../services/apiClient';
 import { n8nService } from '../../../services/n8nService';
 import { N8N_ENABLED, N8N_STRICT } from '../../../services/n8nClient';
@@ -29,6 +29,8 @@ export function useTeacherReviewQueue({
   const [resolvedAnswerReviews, setResolvedAnswerReviews] = useState([]);
   const [isResolvedReviewsLoading, setIsResolvedReviewsLoading] = useState(false);
   const [isTeacherAnswerSubmitting, setIsTeacherAnswerSubmitting] = useState(false);
+  const [deletingEscalationIds, setDeletingEscalationIds] = useState([]);
+  const deletingEscalationIdsRef = useRef(new Set());
   const [pendingCandidateActionIds, setPendingCandidateActionIds] = useState([]);
   const [pendingSeniorReviewIds, setPendingSeniorReviewIds] = useState([]);
   const reviewerName = currentUser?.fullName || currentUser?.name || 'Senior Mentor';
@@ -208,6 +210,25 @@ export function useTeacherReviewQueue({
     }
   };
 
+  const hideEscalationFromTeacherInbox = useCallback(async (escalationId) => {
+    if (!escalationId || deletingEscalationIdsRef.current.has(escalationId)) return false;
+    deletingEscalationIdsRef.current.add(escalationId);
+    setDeletingEscalationIds((current) => [...current, escalationId]);
+    try {
+      await teacherReviewApi.hideEscalationFromTeacherInbox(escalationId);
+      setEscalations((current) => current.filter((item) => item.id !== escalationId));
+      setSelectedEscalation((current) => (current?.id === escalationId ? null : current));
+      triggerToast('Đã xoá ticket khỏi hộp thư của bạn. Sinh viên vẫn xem được lịch sử này.');
+      return true;
+    } catch (error) {
+      triggerToast(getUserFacingError(error, 'Không thể xoá ticket khỏi hộp thư.'));
+      return false;
+    } finally {
+      deletingEscalationIdsRef.current.delete(escalationId);
+      setDeletingEscalationIds((current) => current.filter((id) => id !== escalationId));
+    }
+  }, [triggerToast]);
+
   const handleSeniorResolveReview = async (
     reviewId,
     decision,
@@ -339,6 +360,7 @@ export function useTeacherReviewQueue({
     isAnswerReviewsLoading,
     isResolvedReviewsLoading,
     isTeacherAnswerSubmitting,
+    deletingEscalationIds,
     pendingCandidateActionIds,
     pendingSeniorReviewIds,
     loadTeacherInbox,
@@ -348,6 +370,7 @@ export function useTeacherReviewQueue({
     loadCandidateHistory,
     loadReviewHistory,
     handleTeacherAnswerEsc,
+    hideEscalationFromTeacherInbox,
     handleSeniorResolveReview,
     handleApproveCandidate: (id, note = 'Đã phê duyệt') => handleCandidateDecision(id, 'APPROVE', note),
     handleRejectCandidate: (id, reason = 'Giảng viên đã từ chối') => handleCandidateDecision(id, 'REJECT', reason),

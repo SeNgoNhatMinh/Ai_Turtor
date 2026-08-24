@@ -1,14 +1,20 @@
 import { useEffect, useState } from 'react';
 import {
-  Button,
   Drawer,
   Empty,
   Form,
   Grid,
   Segmented,
 } from 'antd';
-import { RefreshCw } from 'lucide-react';
+import {
+  BookOpenCheck,
+  ChevronRight,
+  ClipboardCheck,
+  GraduationCap,
+  RefreshCw,
+} from 'lucide-react';
 import AsyncState from '../../../components/common/AsyncState';
+import ActionButton from '../../../components/common/ActionButton';
 import { CollectionPagination, CollectionSearch } from '../../../components/common/CollectionControls';
 import { confirmAction, confirmDanger } from '../../../components/common/confirmDialog';
 import MasterDetailLayout from '../../../components/common/MasterDetailLayout';
@@ -107,12 +113,15 @@ export default function SeniorReviewQueue({
   const master = (
     <div className="expert-training__review-master">
       <div className="expert-training__review-master-head">
-        <div>
-          <strong>Bài thi chờ Senior</strong>
-          <span>{queue.length} câu</span>
+        <div className="expert-training__review-master-title">
+          <span className="expert-training__review-master-icon"><ClipboardCheck size={18} /></span>
+          <div>
+            <strong>Hàng chờ kiểm duyệt</strong>
+            <span>{collection.filteredCount} / {queue.length} bài thi</span>
+          </div>
         </div>
-        <Button
-          type="text"
+        <ActionButton
+          intent="text"
           icon={<RefreshCw size={16} />}
           aria-label="Làm mới hàng chờ"
           onClick={onRefresh}
@@ -156,9 +165,22 @@ export default function SeniorReviewQueue({
                 className={`expert-training__review-list-item ${entry.id === selectedReviewId ? 'is-active' : ''}`}
                 onClick={() => onSelectReview(entry.id)}
               >
+                <span className="expert-training__review-list-topline">
+                  <span className="expert-training__review-kind">{entry.kind === 'GOLD_QA' ? 'Q&A vàng' : 'Rubric'}</span>
+                  <StatusLabel status={item.status} />
+                </span>
                 <span className="expert-training__review-list-title">{title}</span>
-                <span>{item.chapter} · {item.examPassed ? 'AI đạt' : item.examPassed === false ? 'AI chưa đạt' : 'Q&A vàng'}</span>
-                <StatusLabel status={item.status} />
+                <span className="expert-training__review-list-meta">
+                  <span><BookOpenCheck size={13} /> {item.chapter || 'Chưa xác định chương'}</span>
+                  <span><GraduationCap size={13} /> {item.authorId || 'Teacher'}</span>
+                </span>
+                <span className={`expert-training__review-list-result ${item.examPassed ? 'is-passed' : item.examPassed === false ? 'is-revision' : ''}`}>
+                  <strong>
+                    {item.examScore == null ? 'Chưa có điểm' : `Điểm AI ${Math.round(Number(item.examScore) * 100)}%`}
+                  </strong>
+                  <span>{item.examPassed ? 'Đạt' : item.examPassed === false ? 'Cần xem lại' : 'Chờ chấm'}</span>
+                  <ChevronRight size={15} />
+                </span>
               </button>
             );
           })}
@@ -184,10 +206,18 @@ export default function SeniorReviewQueue({
 
   return (
     <section className="expert-training__section" aria-labelledby="review-heading">
-      <div className="expert-training__section-heading">
-        <div>
-          <h2 id="review-heading">Bài thi</h2>
-          <p>Đối chiếu đáp án Teacher với câu AI trả trên sách, rồi nạp vào RAG hoặc trả lại.</p>
+      <div className="expert-training__section-heading expert-training__review-section-heading">
+        <div className="expert-training__review-section-copy">
+          <span className="expert-training__review-section-icon"><ClipboardCheck size={21} /></span>
+          <div>
+            <span className="expert-training__eyebrow">KIỂM DUYỆT CHẤT LƯỢNG</span>
+            <h2 id="review-heading">Bài thi Q&A vàng</h2>
+            <p>So sánh đáp án Teacher với câu AI trả từ giáo trình trước khi quyết định nạp vào RAG.</p>
+          </div>
+        </div>
+        <div className="expert-training__review-queue-summary" aria-label={`${queue.length} bài thi chờ duyệt`}>
+          <strong>{queue.length}</strong>
+          <span>Chờ Senior</span>
         </div>
       </div>
 

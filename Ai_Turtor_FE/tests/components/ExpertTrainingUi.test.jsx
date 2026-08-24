@@ -332,8 +332,8 @@ describe('Tutor V2 UI rules', () => {
     expect(screen.getByText('Q&A vàng 1/2 · Recursion')).toBeInTheDocument();
     expect(screen.getByText('AI đạt 82%')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Xem kết quả chấm' }));
-    expect(screen.getByText('Teacher')).toBeInTheDocument();
-    expect(screen.getByText('AI Tutor')).toBeInTheDocument();
+    expect(screen.getByText('Đáp án Teacher')).toBeInTheDocument();
+    expect(screen.getByText('Câu trả lời AI')).toBeInTheDocument();
     expect(screen.getByText('Recursion is a function that calls itself.')).toBeInTheDocument();
     expect(screen.getByText('A function that calls itself until a base case.')).toBeInTheDocument();
     expect(screen.queryByText('Legacy Rubric task')).not.toBeInTheDocument();

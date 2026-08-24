@@ -1,0 +1,48 @@
+.workspace-forbidden {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 10px;
+  min-height: min(70vh, 680px);
+  padding: 32px;
+  color: var(--text-primary, #172033);
+  text-align: center;
+}
+
+.workspace-forbidden__code {
+  color: var(--primary-color, #0b4a92);
+  font-size: clamp(3rem, 8vw, 6rem);
+  font-weight: 900;
+  line-height: 1;
+}
+
+.workspace-forbidden h1,
+.workspace-forbidden p {
+  margin: 0;
+}
+
+.workspace-forbidden p {
+  color: var(--text-secondary, #667085);
+}
+
+.workspace-forbidden button {
+  min-height: 42px;
+  margin-top: 10px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--primary-color, #0b4a92);
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+}
+
+.workspace-forbidden button:hover {
+  filter: brightness(1.08);
+}
+
+.workspace-forbidden button:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--primary-color, #0b4a92) 34%, transparent);
+  outline-offset: 3px;
+}

@@ -71,7 +71,22 @@
     }
 
     .mentor-review-content {
-        max-height: 60vh;
+        max-height: none;
+        overflow: visible;
+    }
+
+    .mentor-review-page-header {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .mentor-review-page-header__stats {
+        width: 100%;
+    }
+
+    .mentor-review-page-header__stats > div {
+        flex: 1;
+        justify-content: center;
     }
 
     .student-chat-section,
@@ -245,6 +260,50 @@
         height: auto;
         min-height: calc(100vh - 170px);
         padding: 12px;
+    }
+
+    .mentor-review-page-header {
+        gap: 16px;
+        padding: 17px;
+        border-radius: 14px;
+    }
+
+    .mentor-review-page-header__identity {
+        align-items: flex-start;
+    }
+
+    .mentor-review-page-header__icon {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+    }
+
+    .mentor-review-page-header__stats {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .mentor-review-page-header__stats > div {
+        min-width: 0;
+        white-space: normal;
+    }
+
+    .mentor-review-list-card {
+        position: static;
+        max-height: none;
+    }
+
+    .mentor-ticket-list {
+        max-height: 380px;
+    }
+
+    .mentor-review-detail__header {
+        gap: 12px;
+        padding: 16px;
+    }
+
+    .mentor-review-content {
+        padding: 13px;
     }
 
     .portal-view {

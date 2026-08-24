@@ -7,7 +7,7 @@ import {
   KNOWLEDGE_IMAGE_MAX_COUNT,
   KNOWLEDGE_IMAGE_MAX_SIZE_MB,
 } from '../../../constants/knowledgeAnswer';
-import { knowledgeImagesApi } from '../../../services/knowledgeImagesApi';
+import { knowledgeImagesApi } from '../../../services/knowledgeImagesApi.js';
 import KnowledgeImageGallery from './KnowledgeImageGallery';
 import './KnowledgeAnswerComposer.css';
 

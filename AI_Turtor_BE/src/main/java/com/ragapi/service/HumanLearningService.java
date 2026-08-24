@@ -9,6 +9,7 @@ import com.ragapi.entity.MentorAnswer;
 import com.ragapi.entity.QuestionEscalation;
 import com.ragapi.repository.CourseMaterialRepository;
 import com.ragapi.repository.KnowledgeCandidateRepository;
+import com.ragapi.repository.MentorRepository;
 import com.ragapi.repository.MentorAnswerRepository;
 import com.ragapi.repository.QuestionEscalationRepository;
 import lombok.AllArgsConstructor;
@@ -41,6 +42,7 @@ public class HumanLearningService {
     private static final String STATUS_INDEXED = "INDEXED";
 
     private final QuestionEscalationRepository escalationRepository;
+    private final MentorRepository mentorRepository;
     private final MentorAnswerRepository mentorAnswerRepository;
     private final KnowledgeCandidateRepository knowledgeCandidateRepository;
     private final CourseMaterialRepository courseMaterialRepository;
@@ -163,6 +165,20 @@ public class HumanLearningService {
         response.put("studentVisibleStatus", toStudentVisibleStatus(escalation.getStatus()));
         response.put("aiBrainUpdated", candidates.stream().anyMatch(candidate -> STATUS_INDEXED.equalsIgnoreCase(candidate.getStatus())));
         return response;
+    }
+
+    public void hideEscalationFromTeacherInbox(String escalationId, String teacherId) {
+        String realEscalationId = requireText(escalationId, "questionEscalationId");
+        String realTeacherId = requireText(teacherId, "teacherId");
+        QuestionEscalation escalation = escalationRepository.findById(realEscalationId)
+                .orElseThrow(() -> new IllegalArgumentException("Question escalation not found"));
+        requireAssignedTeacher(escalation, realTeacherId);
+
+        if (escalation.getHiddenFromMentorInboxAt() == null) {
+            escalation.setHiddenFromMentorInboxAt(LocalDateTime.now());
+            escalation.setUpdatedAt(LocalDateTime.now());
+            escalationRepository.save(escalation);
+        }
     }
 
     public Map<String, Object> createKnowledgeCandidateAfterAnswer(
@@ -417,9 +433,37 @@ public class HumanLearningService {
         if (escalation == null
                 || escalation.getAssignedMentorId() == null
                 || escalation.getAssignedMentorId().isBlank()
-                || !teacherId.equals(escalation.getAssignedMentorId())) {
+                || !matchesTeacherId(teacherId, escalation.getAssignedMentorId())) {
             throw new IllegalArgumentException("Only the mentor selected by the student can access this escalation");
         }
+    }
+
+    private boolean matchesTeacherId(String requesterTeacherId, String assignedMentorKey) {
+        if (requesterTeacherId == null || requesterTeacherId.isBlank()
+                || assignedMentorKey == null || assignedMentorKey.isBlank()) {
+            return false;
+        }
+        if (requesterTeacherId.equals(assignedMentorKey)) {
+            return true;
+        }
+
+        var requesterMentor = mentorRepository.findById(requesterTeacherId)
+                .or(() -> mentorRepository.findByMentorCode(requesterTeacherId));
+        var assignedMentor = mentorRepository.findById(assignedMentorKey)
+                .or(() -> mentorRepository.findByMentorCode(assignedMentorKey));
+
+        if (requesterMentor.isPresent() && assignedMentor.isPresent()) {
+            return requesterMentor.get().getId().equals(assignedMentor.get().getId());
+        }
+        if (requesterMentor.isPresent()) {
+            return requesterMentor.get().getId().equals(assignedMentorKey)
+                    || assignedMentorKey.equalsIgnoreCase(requesterMentor.get().getMentorCode());
+        }
+        if (assignedMentor.isPresent()) {
+            return assignedMentor.get().getId().equals(requesterTeacherId)
+                    || requesterTeacherId.equalsIgnoreCase(assignedMentor.get().getMentorCode());
+        }
+        return false;
     }
 
     private void requireEscalationViewer(

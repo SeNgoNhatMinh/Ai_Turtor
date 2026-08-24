@@ -110,11 +110,11 @@ test('teacher quiz workflow: drafts stay editable, published attempts feed score
 test('teacher expert tasks split open pool, active work, and completed contributions', () => {
   const teacherId = 't-1';
   const tasks = [
-    { id: '1', status: 'OPEN', priority: 2 },
-    { id: '2', status: 'ASSIGNED', assigneeId: teacherId, priority: 1 },
-    { id: '3', status: 'SUBMITTED', assigneeId: teacherId },
-    { id: '4', status: 'COMPLETED', assigneeId: teacherId },
-    { id: '5', status: 'ASSIGNED', assigneeId: 'other-teacher' },
+    { id: '1', type: 'GOLD_QA', status: 'OPEN', priority: 2 },
+    { id: '2', type: 'GOLD_QA', status: 'ASSIGNED', assigneeId: teacherId, priority: 1 },
+    { id: '3', type: 'GOLD_QA', status: 'SUBMITTED', assigneeId: teacherId },
+    { id: '4', type: 'GOLD_QA', status: 'COMPLETED', assigneeId: teacherId },
+    { id: '5', type: 'GOLD_QA', status: 'ASSIGNED', assigneeId: 'other-teacher' },
   ];
   const groups = groupTeacherExpertTasks(tasks, teacherId);
   assert.deepEqual(groups.TODO.map((task) => task.id), ['1']);

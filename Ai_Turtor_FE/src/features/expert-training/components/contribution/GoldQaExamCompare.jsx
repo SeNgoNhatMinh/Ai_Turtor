@@ -1,25 +1,32 @@
-import { Tag } from 'antd';
-import { GraduationCap, Sparkles } from 'lucide-react';
+import {
+  BookOpenText,
+  CircleAlert,
+  CircleCheck,
+  GraduationCap,
+  Sparkles,
+} from 'lucide-react';
 import AiAnswer from '../../../../components/AiAnswer';
 import { formatTeacherGoldAnswer } from '../../../../utils/teacherGoldAnswerFormat';
 import { formatPercent } from '../../expertTrainingUtils';
 
-function ExamChatTurn({ role, name, hint, children }) {
+function AnswerComparisonCard({ role, name, hint, icon, children }) {
   return (
-    <article className={`expert-exam-chat__row expert-exam-chat__row--${role}`}>
-      {role !== 'user' && (
-        <div className={`expert-exam-chat__avatar expert-exam-chat__avatar--${role}`} aria-hidden="true">
-          {role === 'teacher' ? <GraduationCap size={16} /> : <Sparkles size={16} />}
-        </div>
-      )}
-      <div className={`expert-exam-chat__bubble expert-exam-chat__bubble--${role}`}>
-        <header className="expert-exam-chat__meta">
-          <strong>{name}</strong>
-          {hint ? <span>{hint}</span> : null}
-        </header>
-        <div className="expert-exam-chat__body">{children}</div>
-      </div>
+    <article className={`expert-exam-compare-card expert-exam-compare-card--${role}`}>
+      <header>
+        <span className={`expert-exam-chat__avatar expert-exam-chat__avatar--${role}`} aria-hidden="true">{icon}</span>
+        <div><strong>{name}</strong><span>{hint}</span></div>
+      </header>
+      <div className="expert-exam-chat__body">{children}</div>
     </article>
+  );
+}
+
+function ExamMetric({ label, value, tone = '' }) {
+  return (
+    <div className={`expert-exam-metric ${tone ? `expert-exam-metric--${tone}` : ''}`}>
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
   );
 }
 
@@ -31,32 +38,48 @@ export default function GoldQaExamCompare({ contribution }) {
 
   return (
     <div className="expert-exam-chat">
-      {contribution.question ? (
-        <ExamChatTurn role="user" name="Câu hỏi vàng">
-          <p className="expert-exam-chat__plain">{contribution.question}</p>
-        </ExamChatTurn>
-      ) : null}
+      <div className="expert-exam-question">
+        <BookOpenText size={17} />
+        <div><span>Câu hỏi kiểm tra</span><strong>{contribution.question || 'Chưa có câu hỏi.'}</strong></div>
+      </div>
 
-      <ExamChatTurn role="teacher" name="Teacher" hint="Đáp án Gold Q&A · đã làm đẹp để dễ đọc">
-        <AiAnswer markdown={teacherAnswer} hideSourceSection />
-      </ExamChatTurn>
+      <div className="expert-exam-comparison-grid">
+        <AnswerComparisonCard
+          role="teacher"
+          name="Đáp án Teacher"
+          hint="Gold Q&A được đề xuất"
+          icon={<GraduationCap size={16} />}
+        >
+          <AiAnswer markdown={teacherAnswer} hideSourceSection />
+        </AnswerComparisonCard>
 
-      <ExamChatTurn role="ai" name="AI Tutor" hint="Trả lời từ giáo trình, chưa nạp Q&A này">
-        <AiAnswer markdown={aiAnswer} hideSourceSection />
-      </ExamChatTurn>
+        <AnswerComparisonCard
+          role="ai"
+          name="Câu trả lời AI"
+          hint="Sinh từ giáo trình, chưa học Q&A này"
+          icon={<Sparkles size={16} />}
+        >
+          <AiAnswer markdown={aiAnswer} hideSourceSection />
+        </AnswerComparisonCard>
+      </div>
 
-      <footer className="expert-exam-chat__score">
-        {contribution.examScore != null && (
-          <Tag color={contribution.examPassed ? 'green' : 'orange'}>
-            Điểm AI: {formatPercent(contribution.examScore)}
-          </Tag>
-        )}
-        {contribution.examRagConfidence != null && (
-          <Tag>RAG confidence: {formatPercent(contribution.examRagConfidence)}</Tag>
-        )}
-        <Tag color={contribution.examHallucinated ? 'red' : 'green'}>
-          {contribution.examHallucinated ? 'Có nguy cơ hallucination' : 'Không phát hiện hallucination'}
-        </Tag>
+      <footer className="expert-exam-metrics">
+        <ExamMetric
+          label="Điểm bài thi"
+          value={contribution.examScore == null ? '—' : formatPercent(contribution.examScore)}
+          tone={contribution.examPassed ? 'success' : 'warning'}
+        />
+        <ExamMetric
+          label="RAG confidence"
+          value={contribution.examRagConfidence == null ? '—' : formatPercent(contribution.examRagConfidence)}
+        />
+        <div className={`expert-exam-metric expert-exam-metric--${contribution.examHallucinated ? 'danger' : 'success'}`}>
+          <span>Kiểm tra bịa nội dung</span>
+          <strong>
+            {contribution.examHallucinated ? <CircleAlert size={16} /> : <CircleCheck size={16} />}
+            {contribution.examHallucinated ? 'Có nguy cơ' : 'Không phát hiện'}
+          </strong>
+        </div>
       </footer>
     </div>
   );

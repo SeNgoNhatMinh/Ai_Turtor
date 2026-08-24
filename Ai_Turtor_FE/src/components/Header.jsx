@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { Switch } from 'antd';
 import { getAccountRoleLabel, normalizeAccountRole } from '../constants/roles';
+import FptBrand from './common/FptBrand';
 
 const ProfileModal = lazy(() => import('./common/ProfileModal'));
 
@@ -27,11 +28,7 @@ function Header({ activeRole, isDarkMode, setIsDarkMode, currentUser, onLogout, 
   return (
     <header className="top-nav">
       <div className="logo-area">
-        <div className="fpt-text-mark">
-          <span className="brand-fpt">FPT</span>
-          <span className="brand-university">University</span>
-          <small>AI Tutor</small>
-        </div>
+        <FptBrand />
       </div>
       
       <div className="role-switcher-container" aria-label="Không gian làm việc hiện tại">

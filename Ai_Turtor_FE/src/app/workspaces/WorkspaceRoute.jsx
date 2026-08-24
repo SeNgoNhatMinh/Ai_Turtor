@@ -1,8 +1,8 @@
 import { lazy, Suspense } from 'react';
-import { Button, Result } from 'antd';
 import { Navigate, useNavigate, useOutletContext } from 'react-router-dom';
 import { normalizeAccountRole } from '../../constants/roles';
 import { getHomeRouteForRole } from '../routes';
+import './WorkspaceRoute.css';
 
 const StudentWorkspace = lazy(() => import('./StudentWorkspace'));
 const TeacherWorkspace = lazy(() => import('./TeacherWorkspace'));
@@ -28,12 +28,14 @@ function WorkspaceFallback() {
 function ForbiddenPage({ homeRoute }) {
   const navigate = useNavigate();
   return (
-    <Result
-      status="403"
-      title="Không có quyền truy cập"
-      subTitle="Tài khoản hiện tại không được phép sử dụng chức năng này."
-      extra={<Button type="primary" onClick={() => navigate(homeRoute, { replace: true })}>Về trang chính</Button>}
-    />
+    <section className="workspace-forbidden" role="alert">
+      <span className="workspace-forbidden__code" aria-hidden="true">403</span>
+      <h1>Không có quyền truy cập</h1>
+      <p>Tài khoản hiện tại không được phép sử dụng chức năng này.</p>
+      <button type="button" onClick={() => navigate(homeRoute, { replace: true })}>
+        Về trang chính
+      </button>
+    </section>
   );
 }
 

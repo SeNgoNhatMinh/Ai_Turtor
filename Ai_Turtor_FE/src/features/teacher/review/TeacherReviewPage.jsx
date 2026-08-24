@@ -126,6 +126,8 @@ export default function TeacherReviewPage({
                 onSelectEscalation={review.setSelectedEscalation}
                 onRefresh={() => review.loadTeacherInbox({})}
                 onSearch={(q) => review.loadTeacherInbox({ q })}
+                onDeleteEscalation={review.hideEscalationFromTeacherInbox}
+                deletingEscalationIds={review.deletingEscalationIds}
                 reply={reply}
                 onReplyChange={setReply}
                 replyImages={replyImages}

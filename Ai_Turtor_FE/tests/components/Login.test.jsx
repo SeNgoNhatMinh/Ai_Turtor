@@ -2,10 +2,6 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import LoginPage from '../../src/features/auth/LoginPage';
 
-vi.mock('../../src/components/RobotHeadMascot', () => ({
-  default: () => <div aria-label="AI robot tutor saying the FPT learning slogan" />,
-}));
-
 describe('Login', () => {
   it('validates credentials before making a request', () => {
     const triggerToast = vi.fn();

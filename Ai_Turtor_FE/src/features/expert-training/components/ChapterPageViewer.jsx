@@ -36,43 +36,57 @@ export default function ChapterPageViewer({
   const start = Math.max(1, Number(pageStart) || 0);
   const end = Math.max(start, Number(pageEnd) || start);
   const canRender = Boolean(courseId && materialId && start > 0);
+
+  if (!canRender) {
+    return (
+      <Empty
+        image={Empty.PRESENTED_IMAGE_SIMPLE}
+        description="Mục lục chưa gắn số trang PDF nên chưa xem được trang sách."
+      />
+    );
+  }
+
+  return (
+    <ChapterPageViewerContent
+      key={`${courseId}:${materialId}:${start}:${end}`}
+      courseId={courseId}
+      materialId={materialId}
+      start={start}
+      end={end}
+      title={title}
+    />
+  );
+}
+
+function ChapterPageViewerContent({ courseId, materialId, start, end, title }) {
   const [page, setPage] = useState(start);
-  const [src, setSrc] = useState('');
-  const [loading, setLoading] = useState(canRender);
-  const [error, setError] = useState('');
+  const [loadState, setLoadState] = useState(null);
   const [retryNonce, setRetryNonce] = useState(0);
   const objectUrlRef = useRef('');
+  const requestKey = `${courseId}:${materialId}:${page}:${retryNonce}`;
+  const currentLoadState = loadState?.key === requestKey
+    ? loadState
+    : { src: '', loading: true, error: '' };
+  const { src, loading, error } = currentLoadState;
 
   useEffect(() => {
-    setPage(start);
-  }, [courseId, materialId, start]);
-
-  useEffect(() => {
-    if (!canRender) {
-      setSrc('');
-      setLoading(false);
-      setError('');
-      return undefined;
-    }
-
     let cancelled = false;
-    setLoading(true);
-    setError('');
     loadPageBlob(courseId, materialId, page)
       .then((blob) => {
         if (cancelled) return;
         if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
         const nextUrl = URL.createObjectURL(blob);
         objectUrlRef.current = nextUrl;
-        setSrc(nextUrl);
+        setLoadState({ key: requestKey, src: nextUrl, loading: false, error: '' });
       })
       .catch((loadError) => {
         if (cancelled) return;
-        setSrc('');
-        setError(getUserFacingError(loadError, 'Không thể render trang sách. Thử lại hoặc mở PDF.'));
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
+        setLoadState({
+          key: requestKey,
+          src: '',
+          loading: false,
+          error: getUserFacingError(loadError, 'Không thể render trang sách. Thử lại hoặc mở PDF.'),
+        });
       });
 
     const neighbor = page < end ? page + 1 : page > start ? page - 1 : 0;
@@ -83,7 +97,7 @@ export default function ChapterPageViewer({
     return () => {
       cancelled = true;
     };
-  }, [canRender, courseId, end, materialId, page, retryNonce, start]);
+  }, [courseId, end, materialId, page, requestKey, start]);
 
   useEffect(() => () => {
     if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
@@ -102,15 +116,6 @@ export default function ChapterPageViewer({
   const rangeLabel = useMemo(() => (
     start === end ? `Trang ${start}` : `Trang ${page} / ${start}–${end}`
   ), [end, page, start]);
-
-  if (!canRender) {
-    return (
-      <Empty
-        image={Empty.PRESENTED_IMAGE_SIMPLE}
-        description="Mục lục chưa gắn số trang PDF nên chưa xem được trang sách."
-      />
-    );
-  }
 
   return (
     <section className="expert-training__page-viewer" aria-label={`Trang sách ${title}`}>

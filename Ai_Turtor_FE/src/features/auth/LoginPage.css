@@ -99,221 +99,6 @@
     padding: 48px 0;
 }
 
-.login-brand-panel {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 22px;
-    min-width: 0;
-}
-
-.login-brand-kicker {
-    width: fit-content;
-    padding: 8px 14px;
-    border: 1px solid #F3D2BC;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.72);
-    color: #D85F16;
-    font-size: 0.78rem;
-    font-weight: 800;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    box-shadow: 0 12px 30px rgba(216, 95, 22, 0.08);
-}
-
-.login-mascot-stage {
-    position: relative;
-    width: min(430px, 100%);
-    margin: 2px 0 4px;
-}
-
-.login-robot-wrap {
-    position: relative;
-    display: grid;
-    place-items: center;
-    min-height: 230px;
-    border: 1px solid rgba(243, 210, 188, 0.78);
-    border-radius: 34px;
-    background:
-        radial-gradient(circle at 48% 26%, rgba(255, 255, 255, 0.82), transparent 34%),
-        linear-gradient(145deg, rgba(255, 255, 255, 0.84), rgba(255, 239, 228, 0.72));
-    box-shadow: 0 30px 70px rgba(216, 95, 22, 0.14);
-    backdrop-filter: blur(16px);
-    overflow: visible;
-}
-
-.login-robot-wrap::after {
-    content: "";
-    position: absolute;
-    inset: auto 18% 10px;
-    height: 18px;
-    border-radius: 999px;
-    background: rgba(16, 31, 53, 0.08);
-    filter: blur(10px);
-}
-
-.login-robot-head {
-    z-index: 2;
-    width: min(210px, 24vh) !important;
-    height: min(172px, 19.7vh) !important;
-}
-
-.login-robot-fallback {
-    position: relative;
-    z-index: 2;
-    width: 210px;
-    height: 210px;
-    border-radius: 40%;
-    background:
-        radial-gradient(circle at 50% 34%, rgba(255, 255, 255, 0.9), transparent 30%),
-        linear-gradient(145deg, rgba(243, 112, 33, 0.18), rgba(31, 41, 55, 0.1));
-}
-
-.login-speech-bubble {
-    position: absolute;
-    top: 18px;
-    right: -36px;
-    z-index: 3;
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    max-width: 235px;
-    padding: 13px 16px;
-    border: 1px solid rgba(243, 112, 33, 0.2);
-    border-radius: 18px 18px 18px 6px;
-    background: rgba(255, 255, 255, 0.96);
-    color: #1F2937;
-    box-shadow: 0 18px 42px rgba(216, 95, 22, 0.16);
-    font-size: 0.92rem;
-    font-weight: 800;
-    line-height: 1.25;
-    text-align: left;
-    animation: loginSpeechFloat 3.8s infinite ease-in-out;
-}
-
-.login-speech-bubble::before {
-    content: "";
-    position: absolute;
-    left: -9px;
-    bottom: 16px;
-    width: 18px;
-    height: 18px;
-    border-left: 1px solid rgba(243, 112, 33, 0.2);
-    border-bottom: 1px solid rgba(243, 112, 33, 0.2);
-    background: rgba(255, 255, 255, 0.96);
-    transform: rotate(45deg);
-}
-
-.login-speech-bubble::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    background: linear-gradient(110deg, transparent 0 38%, rgba(243, 112, 33, 0.1) 48%, transparent 58% 100%);
-    transform: translateX(-120%);
-    animation: loginSpeechShine 3.4s infinite ease-in-out;
-}
-
-.login-speech-bubble span,
-.login-speech-bubble strong {
-    position: relative;
-    z-index: 1;
-    display: block;
-    width: fit-content;
-    max-width: 100%;
-    overflow: hidden;
-    white-space: nowrap;
-}
-
-.login-speech-bubble span {
-    color: #6B7280;
-    animation: loginSpeechLineOne 5.4s infinite ease-in-out both;
-}
-
-.login-speech-bubble strong {
-    color: #D85F16;
-    font-size: 1.05rem;
-    animation: loginSpeechLineTwo 5.4s infinite ease-in-out both;
-}
-
-.login-speech-bubble strong::after {
-    content: "";
-    display: inline-block;
-    width: 2px;
-    height: 1em;
-    margin-left: 4px;
-    border-radius: 999px;
-    background: #F37021;
-    vertical-align: -0.12em;
-    animation: loginSpeechCaret 0.82s steps(1, end) infinite;
-}
-
-.login-brand-panel h1 {
-    max-width: 720px;
-    margin: 0;
-    color: #1F2937;
-    font-family: var(--font-heading);
-    font-size: clamp(2.6rem, 6vw, 5.4rem);
-    font-weight: 900;
-    line-height: 0.96;
-    letter-spacing: 0;
-}
-
-.login-brand-panel h1 > .fpt-logo-wordmark {
-    margin-right: 0.08em;
-}
-
-.login-brand-panel > p {
-    max-width: 620px;
-    margin: 0;
-    color: #4B5563;
-    font-size: 1.08rem;
-    font-weight: 500;
-    line-height: 1.7;
-}
-
-.login-benefit-grid {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 14px;
-    width: 100%;
-    margin-top: 12px;
-}
-
-.login-benefit-card {
-    min-width: 0;
-    padding: 16px;
-    border: 1px solid #F3D2BC;
-    border-radius: 18px;
-    background: rgba(255, 255, 255, 0.78);
-    box-shadow: 0 14px 34px rgba(216, 95, 22, 0.08);
-}
-
-.login-benefit-icon {
-    display: grid;
-    place-items: center;
-    width: 38px;
-    height: 38px;
-    margin-bottom: 12px;
-    border-radius: 12px;
-    background: #FFF0E6;
-    color: #D85F16;
-}
-
-.login-benefit-card h2 {
-    margin: 0 0 6px;
-    color: #1F2937;
-    font-size: 0.95rem;
-    font-weight: 800;
-}
-
-.login-benefit-card p {
-    margin: 0;
-    color: #6B7280;
-    font-size: 0.84rem;
-    line-height: 1.45;
-}
-
 .login-auth-card {
     box-sizing: border-box;
     width: 100%;
@@ -352,8 +137,16 @@
 }
 
 .login-card-header .login-brand-mark {
+    align-items: center;
     justify-content: flex-start;
     margin-bottom: 0;
+    line-height: 1;
+}
+
+.login-card-header .brand-university {
+    display: inline-flex;
+    align-items: center;
+    align-self: center;
 }
 
 .login-card-header h2 {
@@ -505,9 +298,6 @@
     min-height: 100dvh;
     gap: 0;
 }
-.login-brand-kicker { border-color: rgba(11,59,130,.15); background: rgba(255,255,255,.84); color: #0b3b82; box-shadow: 0 12px 30px rgba(0,27,61,.08); }
-.login-brand-panel h1 { max-width: 640px; color: #001b3d; font-size: clamp(2.6rem,5vw,4.8rem); text-shadow: 0 2px 18px rgba(255,255,255,.8); }
-.login-brand-panel > p { max-width: 560px; color: #29435f; text-shadow: 0 1px 12px rgba(255,255,255,.95); }
 .login-auth-card { max-width: 500px; padding: 38px 40px; border-color: rgba(255,255,255,.85); border-radius: 30px; background: rgba(255,255,255,.92); box-shadow: 0 30px 80px rgba(0,27,61,.2); backdrop-filter: blur(24px); }
 .login-auth-card .login-input-wrap,
 .login-auth-card .login-submit { min-height: 54px; }

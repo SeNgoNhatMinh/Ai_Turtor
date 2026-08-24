@@ -52,7 +52,7 @@ describe('TeacherSupportInbox history', () => {
   it('opens completed ChatRoom history in read-only mode', () => {
     render(<InboxHarness />);
 
-    fireEvent.click(screen.getByRole('radio', { name: 'Lịch sử (1)' }));
+    fireEvent.click(screen.getByRole('radio', { name: 'Đã xử lý 1' }));
     fireEvent.click(screen.getByRole('button', { name: /Sinh viên B/i }));
 
     expect(screen.getByText('Câu hỏi dài đã hoàn tất và cần xem lại đầy đủ trong lịch sử.')).toBeInTheDocument();

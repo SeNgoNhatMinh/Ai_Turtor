@@ -34,10 +34,10 @@ import { n8nService } from '../../src/services/n8nService';
 describe('expertTrainingGateway', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('routes coverage and Teacher Gold Q&A submission through Tutor V2 n8n', async () => {
-    n8nService.analyzeTutorV2Coverage.mockResolvedValue({
-      gaps: [{ id: 'gap-1', courseId: 'PFP191', chapter: 'Recursion', status: 'OPEN' }],
-    });
+  it('keeps coverage on the canonical API and routes Teacher Gold Q&A submission through Tutor V2 n8n', async () => {
+    expertTrainingApi.analyzeCoverage.mockResolvedValue([
+      { id: 'gap-1', courseId: 'PFP191', chapter: 'Recursion', status: 'OPEN' },
+    ]);
     n8nService.submitTutorV2GoldQa.mockResolvedValue({
       id: 'gold-1',
       courseId: 'PFP191',
@@ -54,7 +54,8 @@ describe('expertTrainingGateway', () => {
 
     expect(gaps).toHaveLength(1);
     expect(submitted).toMatchObject({ id: 'gold-1', status: 'PENDING_REVIEW', examPassed: true });
-    expect(expertTrainingApi.analyzeCoverage).not.toHaveBeenCalled();
+    expect(expertTrainingApi.analyzeCoverage).toHaveBeenCalledWith({ courseId: 'PFP191' });
+    expect(n8nService.analyzeTutorV2Coverage).not.toHaveBeenCalled();
     expect(expertTrainingApi.submitGoldQa).not.toHaveBeenCalled();
   });
 

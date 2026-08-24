@@ -1,7 +1,7 @@
 import { API_BASE_URL, request } from './apiClient';
 import { encodePath } from '../config/env';
 
-export function normalizeLlmProvider(provider = {}) {
+function normalizeLlmProvider(provider = {}) {
   const providerId = String(provider.providerId || provider.id || provider.provider || '').trim();
   return {
     ...provider,

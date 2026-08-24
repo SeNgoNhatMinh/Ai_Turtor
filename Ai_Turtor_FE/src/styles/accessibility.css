@@ -8,6 +8,28 @@
   cursor: not-allowed;
 }
 
+/* Solid primary actions must never inherit muted typography colors. */
+.app-container .ant-btn-primary,
+.app-container .ant-btn-color-primary.ant-btn-variant-solid {
+  color: #ffffff !important;
+}
+
+.app-container .ant-btn-primary > span,
+.app-container .ant-btn-primary span,
+.app-container .ant-btn-primary .ant-btn-icon,
+.app-container .ant-btn-primary svg,
+.app-container .ant-btn-color-primary.ant-btn-variant-solid > span,
+.app-container .ant-btn-color-primary.ant-btn-variant-solid span,
+.app-container .ant-btn-color-primary.ant-btn-variant-solid .ant-btn-icon,
+.app-container .ant-btn-color-primary.ant-btn-variant-solid svg {
+  color: #ffffff !important;
+}
+
+.app-container a.ant-btn-primary,
+.app-container a.ant-btn-color-primary.ant-btn-variant-solid {
+  color: #ffffff !important;
+}
+
 /*
  * Disabled actions stay labeled. Theme CSS used to keep the solid primary
  * fill while Ant Design faded the label to ~25% black, so "Gửi" vanished

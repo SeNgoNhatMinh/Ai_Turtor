@@ -5,10 +5,10 @@ import { getHomeRouteForRole } from './app/routes';
 import Toast from './components/Toast';
 import { useAuthSession } from './features/auth/hooks/useAuthSession';
 import { useToastMessage } from './hooks/useToastMessage';
-import RealtimeEventsProvider from './features/realtime/RealtimeEventsProvider';
 
 const LoginPage = lazy(() => import('./features/auth/LoginPage'));
 const ThemedAuthedLayout = lazy(() => import('./app/layouts/ThemedAuthedLayout'));
+const RealtimeEventsProvider = lazy(() => import('./features/realtime/RealtimeEventsProvider'));
 
 function RouteLoadingFallback() {
   return (

@@ -4,7 +4,8 @@ import { ArrowLeft, CheckCheck, History, RefreshCw, ShieldCheck } from 'lucide-r
 import { CollectionPagination, CollectionSearch } from '../../../components/common/CollectionControls';
 import { useCollectionView } from '../../../hooks/useCollectionView';
 import AnswerReviewCard from './AnswerReviewCard';
-import AnswerReviewQueueTile, { queueItemKey } from './AnswerReviewQueueTile';
+import AnswerReviewQueueTile from './AnswerReviewQueueTile';
+import { queueItemKey } from './answerReviewQueueUtils';
 import GroupedAnswerReviewCard from './GroupedAnswerReviewCard';
 import KnowledgeCandidateReviewList from './KnowledgeCandidateReviewList';
 import './ReviewWorkspace.css';

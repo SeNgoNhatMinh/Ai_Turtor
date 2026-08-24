@@ -18,6 +18,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -215,6 +216,28 @@ public class EscalationController {
         }
     }
 
+    @DeleteMapping("/{id}/teacher-inbox")
+    @Operation(summary = "Hide an escalation from the assigned teacher inbox without deleting student history")
+    public ResponseEntity<?> hideFromTeacherInbox(
+            @PathVariable String id,
+            Authentication authentication
+    ) {
+        try {
+            humanLearningService.hideEscalationFromTeacherInbox(id, authenticatedUserId(authentication));
+            return ResponseEntity.ok(Map.of(
+                    "questionEscalationId", id,
+                    "hiddenFromTeacherInbox", true,
+                    "studentHistoryPreserved", true,
+                    "message", "Escalation hidden from teacher inbox"
+            ));
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Error hiding escalation from teacher inbox", e);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", e.getMessage()));
+        }
+    }
+
     @PostMapping("/{id}/answer")
     @Operation(summary = "Teacher answers an escalated question and creates a pending knowledge candidate")
     public ResponseEntity<?> answerEscalation(
@@ -298,4 +321,3 @@ public class EscalationController {
         }
     }
 }
-

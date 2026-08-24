@@ -1,21 +1,20 @@
 import { useEffect, useState } from 'react';
-import { knowledgeImagesApi, normalizeKnowledgeImages } from '../../../services/knowledgeImagesApi';
+import { knowledgeImagesApi } from '../../../services/knowledgeImagesApi.js';
+import { normalizeKnowledgeImages } from '../../../services/knowledgeImageNormalizers.js';
 
 function KnowledgeImageThumb({ image }) {
-  const [src, setSrc] = useState(image.previewUrl || '');
+  const [blobSrc, setBlobSrc] = useState('');
+  const src = image.previewUrl || blobSrc;
 
   useEffect(() => {
-    if (image.previewUrl) {
-      setSrc(image.previewUrl);
-      return undefined;
-    }
+    if (image.previewUrl) return undefined;
     if (!image.fileId) return undefined;
     let objectUrl = '';
     let cancelled = false;
     knowledgeImagesApi.fetchBlob(image.fileId).then((blob) => {
       if (cancelled) return;
       objectUrl = URL.createObjectURL(blob);
-      setSrc(objectUrl);
+      setBlobSrc(objectUrl);
     }).catch(() => {});
     return () => {
       cancelled = true;
@@ -39,7 +38,12 @@ function KnowledgeImageThumb({ image }) {
       rel="noreferrer"
       title={image.fileName || 'Mở hình minh họa'}
     >
-      <img src={src} alt={image.fileName || 'Hình minh họa'} />
+      <img
+        src={src}
+        alt={image.fileName || 'Hình minh họa'}
+        loading="lazy"
+        decoding="async"
+      />
     </a>
   );
 }

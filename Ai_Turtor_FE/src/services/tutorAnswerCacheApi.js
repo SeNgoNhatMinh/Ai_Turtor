@@ -8,7 +8,7 @@ const optionalNumber = (value) => {
   return Number.isFinite(number) ? number : null;
 };
 
-export function normalizeCacheHit(hit = {}) {
+function normalizeCacheHit(hit = {}) {
   return {
     ...hit,
     id: String(hit.id || hit.hitId || '').trim(),
@@ -21,7 +21,7 @@ export function normalizeCacheHit(hit = {}) {
   };
 }
 
-export function normalizeAnswerCacheStats(stats = {}) {
+function normalizeAnswerCacheStats(stats = {}) {
   const latest = stats.latestCacheHit || stats.latestHit || {};
   const recent = stats.recentHitLogs || stats.recentHits || stats.hitLogs || [];
   return {

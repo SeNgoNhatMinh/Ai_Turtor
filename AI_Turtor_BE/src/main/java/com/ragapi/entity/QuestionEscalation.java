@@ -54,6 +54,12 @@ public class QuestionEscalation {
     private String chatRoomId;
     private List<MentorSuggestion> suggestedMentors;
 
+    /**
+     * Soft-delete marker for the assigned teacher's support inbox only.
+     * The escalation remains available to the student and is not removed from MongoDB.
+     */
+    private LocalDateTime hiddenFromMentorInboxAt;
+
     private Integer mentorResponseTime;
     private Integer durationSeconds;
     private Double userSatisfactionRating;

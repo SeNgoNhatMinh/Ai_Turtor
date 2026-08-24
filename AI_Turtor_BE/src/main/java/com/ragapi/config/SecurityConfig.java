@@ -129,6 +129,10 @@ public class SecurityConfig {
                         .requestMatchers("/api/tutor/knowledge-candidates/**", "/api/tutor/escalations/knowledge-candidates/**").hasAnyRole("TEACHER", "SENIOR_MENTOR", "ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/tutor/escalations/*/answer").hasAnyRole("TEACHER", "SENIOR_MENTOR", "ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/tutor/escalations/*/knowledge-candidate").hasAnyRole("TEACHER", "SENIOR_MENTOR", "ADMIN")
+                        // Do not couple this soft-delete action to a particular historical
+                        // teacher role name. HumanLearningService verifies that the JWT user
+                        // is the teacher assigned to the ticket before hiding it.
+                        .requestMatchers(HttpMethod.DELETE, "/api/tutor/escalations/*/teacher-inbox").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/tutor/knowledge-images").hasAnyRole("TEACHER", "SENIOR_MENTOR", "ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/tutor/knowledge-images/**").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/harness/**").hasRole("ADMIN")

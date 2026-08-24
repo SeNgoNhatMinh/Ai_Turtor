@@ -93,7 +93,7 @@ export function formatChapterPreviewPages(preview) {
   return formatChapterPages(preview);
 }
 
-export function getChapterPrimaryPdfSource(preview) {
+function getChapterPrimaryPdfSource(preview) {
   if (!preview) return null;
   const primaryId = String(preview.primarySourceMaterialId || '').trim();
   const sources = Array.isArray(preview.sourceMaterials) ? preview.sourceMaterials : [];
@@ -184,13 +184,6 @@ export function toExpertTaskDueAtPayload(value) {
   if (!value) return undefined;
   const date = parseDate(value);
   return date ? date.toISOString() : undefined;
-}
-
-export function toDateTimeLocalValue(isoValue) {
-  const date = parseDate(isoValue);
-  if (!date) return '';
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
 export function getExpertTaskDueMeta(task) {

@@ -25,6 +25,15 @@ export const teacherReviewApi = {
     });
   },
 
+  async hideEscalationFromTeacherInbox(escalationId) {
+    return request(`${API_BASE_URL}/tutor/escalations/${encodePath(escalationId)}/teacher-inbox`, {
+      method: 'DELETE',
+      // A route/configuration error on this optional inbox action must not clear
+      // an otherwise valid teacher session and reload the whole app to login.
+      skipUnauthorizedRedirect: true,
+    });
+  },
+
   async submitAnswerReview(payload) {
     return request(`${API_BASE_URL}/tutor/answer-reviews`, {
       method: 'POST',

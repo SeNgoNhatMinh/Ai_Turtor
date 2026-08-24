@@ -18,10 +18,6 @@ const ALERT_COPY = {
   watch: 'Mới 1 góp ý — chưa cần xử lý',
 };
 
-export function queueItemKey(group) {
-  return group?.answerFingerprint || group?.representativeReviewId || group?.id || '';
-}
-
 export default function AnswerReviewQueueTile({ group, onOpen }) {
   const alert = queueAlert(group);
   const reviewCount = Number(group?.reviewCount) || 0;

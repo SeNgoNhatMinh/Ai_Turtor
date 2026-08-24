@@ -1,7 +1,7 @@
 import { getPersonDisplayName } from '../utils/displayNames.js';
 import { extractAnswerSourceLabels } from '../utils/sourceLabels.js';
 import { hasBrokenTextEncoding, repairMojibake } from '../utils/textEncoding.js';
-import { normalizeKnowledgeImages } from './knowledgeImagesApi';
+import { normalizeKnowledgeImages } from './knowledgeImageNormalizers.js';
 
 export const asArray = (data, ...keys) => {
   if (Array.isArray(data)) return data;

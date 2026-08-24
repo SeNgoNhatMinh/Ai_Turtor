@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { getUserFacingError } from '../services/apiClient';
 import { normalizeEscalation } from '../services/normalizers';
 import { supportChatApi } from '../services/supportChatApi';
-import { normalizeKnowledgeImages } from '../services/knowledgeImagesApi';
+import { normalizeKnowledgeImages } from '../services/knowledgeImageNormalizers.js';
 
 const TERMINAL_ESCALATION_STATES = new Set([
   'ANSWERED',

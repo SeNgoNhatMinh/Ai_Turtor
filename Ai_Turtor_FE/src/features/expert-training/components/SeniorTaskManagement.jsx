@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Button,
   Descriptions,
   Drawer,
   Form,
@@ -389,7 +388,7 @@ export default function SeniorTaskManagement({
         onClose={() => setDetail(null)}
         width={560}
         className="expert-task-manager__drawer"
-        extra={detail && <Button icon={<Pencil size={15} />} onClick={() => openEdit(detail)}>Chỉnh sửa</Button>}
+        extra={detail && <ActionButton icon={<Pencil size={15} />} onClick={() => openEdit(detail)}>Chỉnh sửa</ActionButton>}
       >
         {detailLoading ? (
           <AsyncState loading loadingLabel="Đang tải task..." />

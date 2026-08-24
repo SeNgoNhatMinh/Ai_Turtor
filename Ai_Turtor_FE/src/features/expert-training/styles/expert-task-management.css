@@ -1,5 +1,8 @@
 .expert-task-manager {
+  width: 100%;
+  max-width: 100%;
   min-width: 0;
+  overflow: hidden;
 }
 
 .expert-task-manager__toolbar {
@@ -17,8 +20,30 @@
 }
 
 .expert-task-manager__table .ant-table-container {
+  max-width: 100%;
   border: 1px solid var(--color-card-border, #e5e7eb);
   border-radius: 10px;
+}
+
+.expert-task-manager__table,
+.expert-task-manager__table .ant-spin-nested-loading,
+.expert-task-manager__table .ant-spin-container,
+.expert-task-manager__table .ant-table,
+.expert-task-manager__table .ant-table-wrapper {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.expert-task-manager__table .ant-table-content,
+.expert-task-manager__table .ant-table-body {
+  max-width: 100%;
+  overscroll-behavior-x: contain;
+}
+
+.expert-task-manager__table .ant-pagination {
+  flex-wrap: wrap;
+  row-gap: 8px;
 }
 
 .expert-task-manager__title {
@@ -80,5 +105,25 @@
 
   .expert-task-manager__toolbar > span {
     justify-self: start;
+  }
+}
+
+@container expert-training-reviewer (max-width: 760px) {
+  .expert-task-manager .expert-training__section-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .expert-task-manager .expert-training__section-heading > .ant-space {
+    width: 100%;
+  }
+
+  .expert-task-manager .expert-training__section-heading > .ant-space .ant-btn {
+    flex: 1 1 auto;
+  }
+
+  .expert-task-manager__toolbar,
+  .expert-task-manager__form-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

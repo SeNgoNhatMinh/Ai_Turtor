@@ -14,6 +14,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -35,11 +36,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             Map<String, Object> claims = jwtService.validateAndParse(header.substring(7));
             String userId = String.valueOf(claims.get("userId"));
-            String role = String.valueOf(claims.getOrDefault("role", "STUDENT")).toUpperCase();
+            String role = normalizeRole(claims.get("role"));
+            List<SimpleGrantedAuthority> authorities = new ArrayList<>();
+            authorities.add(new SimpleGrantedAuthority("ROLE_" + role));
+            if ("MENTOR".equals(role)) {
+                authorities.add(new SimpleGrantedAuthority("ROLE_TEACHER"));
+            }
             UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                     userId,
                     null,
-                    List.of(new SimpleGrantedAuthority("ROLE_" + role))
+                    List.copyOf(authorities)
             );
             authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
             SecurityContextHolder.getContext().setAuthentication(authentication);
@@ -48,5 +54,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    private String normalizeRole(Object claim) {
+        String role = claim == null ? "STUDENT" : String.valueOf(claim).trim().toUpperCase();
+        if (role.startsWith("ROLE_")) {
+            role = role.substring("ROLE_".length());
+        }
+        return role.isBlank() ? "STUDENT" : role;
     }
 }

@@ -1,8 +1,9 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
-import { Button, Select } from 'antd';
+import { Select } from 'antd';
 import { RefreshCw } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import AsyncState from '../../components/common/AsyncState';
+import ActionButton from '../../components/common/ActionButton';
 import PageHeader from '../../components/common/PageHeader';
 import ScopeBar from '../../components/common/ScopeBar';
 import AppTabs from '../../components/common/AppTabs';
@@ -148,14 +149,14 @@ export default function ExpertTrainingPage({
 
       <ScopeBar
         actions={(
-          <Button
+          <ActionButton
             icon={<RefreshCw size={16} />}
             onClick={controller.refreshAll}
             disabled={!courseId}
             loading={controller.loading.courses || controller.loading.chapters}
           >
             Làm mới
-          </Button>
+          </ActionButton>
         )}
       >
         <Select

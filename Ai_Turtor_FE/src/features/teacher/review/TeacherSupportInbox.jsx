@@ -1,6 +1,15 @@
-import { useMemo, useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 import { Button, Empty, Segmented, Tag, Input } from 'antd';
-import { CheckCircle2, Clock3, MessageCircle, RefreshCw } from 'lucide-react';
+import {
+  CheckCircle2,
+  Clock3,
+  Inbox,
+  MessageCircle,
+  RefreshCw,
+  Trash2,
+} from 'lucide-react';
+import ActionButton from '../../../components/common/ActionButton';
+import { confirmDanger } from '../../../components/common/confirmDialog';
 import StatusLabel from '../../../components/common/StatusLabel';
 import SupportChatRoom from '../../../components/support/SupportChatRoom';
 import TeacherAnswerModeSelector from './TeacherAnswerModeSelector';
@@ -10,6 +19,7 @@ import './ReviewWorkspace.css';
 import './TeacherSupportInbox.css';
 
 const HISTORY_STATUSES = new Set(['COMPLETED', 'CLOSED', 'CANCELLED']);
+const TICKET_BATCH_SIZE = 40;
 
 const getStatus = (item) => String(item?.status || '').trim().toUpperCase();
 const isHistoryItem = (item) => {
@@ -17,31 +27,59 @@ const isHistoryItem = (item) => {
   return HISTORY_STATUSES.has(status) || status.includes('ANSWERED');
 };
 
-function SupportTicketButton({ item, selected, onSelect }) {
+const SupportTicketButton = memo(function SupportTicketButton({ item, selected, onSelect, onDelete, deleting }) {
+  const requestDelete = (event) => {
+    event.stopPropagation();
+    const anchorRect = event.currentTarget.getBoundingClientRect();
+    confirmDanger({
+      title: 'Xoá ticket khỏi hộp thư?',
+      content: 'Ticket chỉ bị ẩn khỏi hộp thư của bạn. Sinh viên vẫn giữ và xem được toàn bộ lịch sử hỗ trợ.',
+      okText: 'Xoá khỏi hộp thư',
+      cancelText: 'Huỷ',
+      anchorRect,
+      onOk: () => onDelete?.(item.id),
+    });
+  };
+
   return (
-    <button
-      type="button"
+    <article
       className={`teacher-support-ticket ${selected ? 'is-selected' : ''}`}
-      onClick={() => onSelect(item)}
-      aria-pressed={selected}
     >
-      <span className="teacher-support-ticket__icon" aria-hidden="true">
-        <MessageCircle size={16} />
-      </span>
-      <span className="teacher-support-ticket__body">
-        <span className="teacher-support-ticket__topline">
-          <strong>{item.student || 'Sinh viên'}</strong>
-          <StatusLabel status={item.status} />
+      <button
+        type="button"
+        className="teacher-support-ticket__select"
+        onClick={() => onSelect(item)}
+        aria-pressed={selected}
+      >
+        <span className="teacher-support-ticket__icon" aria-hidden="true">
+          <MessageCircle size={16} />
         </span>
-        <p>{item.title || item.question || 'Yêu cầu hỗ trợ'}</p>
-        <span className="teacher-support-ticket__meta">
-          <em>{item.context || '—'}</em>
-          <time><Clock3 size={12} /> {item.time ? new Date(item.time).toLocaleString('vi-VN') : '—'}</time>
+        <span className="teacher-support-ticket__body">
+          <span className="teacher-support-ticket__topline">
+            <strong>{item.student || 'Sinh viên'}</strong>
+          </span>
+          <p>{item.title || item.question || 'Yêu cầu hỗ trợ'}</p>
+          <span className="teacher-support-ticket__context">{item.context || 'Chưa có thông tin môn học'}</span>
+          <span className="teacher-support-ticket__footer">
+            <StatusLabel status={item.status} className="teacher-support-ticket__status" />
+            <time><Clock3 size={12} /> {item.time ? new Date(item.time).toLocaleString('vi-VN') : '—'}</time>
+          </span>
         </span>
-      </span>
-    </button>
+      </button>
+      <ActionButton
+        intent="text"
+        danger
+        className="teacher-support-ticket__delete"
+        icon={<Trash2 size={14} />}
+        loading={deleting}
+        disabled={deleting}
+        aria-label="Xoá ticket khỏi hộp thư"
+        title={`Xoá ticket của ${item.student || 'sinh viên'} khỏi hộp thư teacher`}
+        onClick={requestDelete}
+      />
+    </article>
   );
-}
+});
 
 export default function TeacherSupportInbox({
   currentUser,
@@ -51,6 +89,8 @@ export default function TeacherSupportInbox({
   onSelectEscalation,
   onRefresh,
   onSearch,
+  onDeleteEscalation,
+  deletingEscalationIds = [],
   reply,
   onReplyChange,
   replyImages = [],
@@ -64,6 +104,7 @@ export default function TeacherSupportInbox({
   onCandidateTypeChange,
 }) {
   const [view, setView] = useState('active');
+  const [visibleLimit, setVisibleLimit] = useState(TICKET_BATCH_SIZE);
   const grouped = useMemo(() => ({
     active: escalations.filter((item) => !isHistoryItem(item)),
     history: escalations.filter(isHistoryItem),
@@ -73,6 +114,7 @@ export default function TeacherSupportInbox({
     ? selectedView
     : view;
   const visibleTickets = grouped[effectiveView];
+  const renderedTickets = visibleTickets.slice(0, visibleLimit);
   const selectedStatus = getStatus(selectedEscalation);
   const isHistorySelection = Boolean(selectedEscalation && isHistoryItem(selectedEscalation));
   const isChatActive = ['IN_CHAT', 'CHAT_ACTIVE', 'MENTOR_SELECTED'].includes(selectedStatus);
@@ -80,6 +122,7 @@ export default function TeacherSupportInbox({
 
   const changeView = (nextView) => {
     setView(nextView);
+    setVisibleLimit(TICKET_BATCH_SIZE);
     if (!grouped[nextView].some((item) => item.id === selectedEscalation?.id)) {
       onSelectEscalation?.(grouped[nextView][0] || null);
     }
@@ -88,13 +131,17 @@ export default function TeacherSupportInbox({
   return (
     <section className="teacher-support-workspace" aria-labelledby="teacher-support-heading">
       <div className="teacher-support-workspace__heading">
-        <div>
-          <h2 id="teacher-support-heading">Hộp thư hỗ trợ</h2>
-          <p>
-            {grouped.active.length
-              ? `${grouped.active.length} yêu cầu đang mở · bấm để trao đổi hoặc xem lịch sử`
-              : 'Chưa có yêu cầu đang mở. Lịch sử chat vẫn xem lại được sau khi đóng.'}
-          </p>
+        <div className="teacher-support-heading-copy">
+          <span className="teacher-support-heading-icon" aria-hidden="true"><Inbox size={20} /></span>
+          <div>
+            <span className="teacher-review-eyebrow">Trung tâm trao đổi</span>
+            <h2 id="teacher-support-heading">Hộp thư hỗ trợ</h2>
+            <p>
+              {grouped.active.length
+                ? `${grouped.active.length} yêu cầu cần theo dõi và phản hồi`
+                : 'Không có yêu cầu đang mở. Bạn có thể xem lại lịch sử đã xử lý.'}
+            </p>
+          </div>
         </div>
         <div className="teacher-support-toolbar">
           <Input.Search
@@ -103,32 +150,53 @@ export default function TeacherSupportInbox({
             onSearch={(value) => onSearch?.(String(value || '').trim())}
             className="teacher-support-search"
           />
-          <Button icon={<RefreshCw size={15} />} loading={loading} onClick={onRefresh}>
+          <ActionButton icon={<RefreshCw size={15} />} loading={loading} onClick={onRefresh}>
             Làm mới
-          </Button>
+          </ActionButton>
         </div>
       </div>
 
       <div className="teacher-support-layout">
         <aside className="teacher-support-master" aria-label="Danh sách yêu cầu hỗ trợ">
-          <Segmented
-            block
-            value={effectiveView}
-            onChange={changeView}
-            options={[
-              { label: `Cần xử lý (${grouped.active.length})`, value: 'active' },
-              { label: `Lịch sử (${grouped.history.length})`, value: 'history' },
-            ]}
-          />
+          <div className="teacher-support-master__header">
+            <div>
+              <strong>Danh sách yêu cầu</strong>
+              <span>{visibleTickets.length} ticket</span>
+            </div>
+            <Segmented
+              block
+              value={effectiveView}
+              onChange={changeView}
+              options={[
+                { label: `Đang mở ${grouped.active.length}`, value: 'active' },
+                { label: `Đã xử lý ${grouped.history.length}`, value: 'history' },
+              ]}
+            />
+          </div>
           <div className="teacher-support-ticket-list">
-            {visibleTickets.length ? visibleTickets.map((item) => (
-              <SupportTicketButton
-                key={item.id}
-                item={item}
-                selected={item.id === selectedEscalation?.id}
-                onSelect={onSelectEscalation}
-              />
-            )) : (
+            {visibleTickets.length ? (
+              <>
+                {renderedTickets.map((item) => (
+                  <SupportTicketButton
+                    key={item.id}
+                    item={item}
+                    selected={item.id === selectedEscalation?.id}
+                    onSelect={onSelectEscalation}
+                    onDelete={onDeleteEscalation}
+                    deleting={deletingEscalationIds.includes(item.id)}
+                  />
+                ))}
+                {renderedTickets.length < visibleTickets.length && (
+                  <button
+                    type="button"
+                    className="teacher-support-ticket-list__more"
+                    onClick={() => setVisibleLimit((current) => current + TICKET_BATCH_SIZE)}
+                  >
+                    Xem thêm {Math.min(TICKET_BATCH_SIZE, visibleTickets.length - renderedTickets.length)} ticket
+                  </button>
+                )}
+              </>
+            ) : (
               <Empty
                 image={Empty.PRESENTED_IMAGE_SIMPLE}
                 description={effectiveView === 'active' ? 'Không có yêu cầu nào cần xử lý.' : 'Chưa có lịch sử trao đổi.'}
@@ -140,21 +208,27 @@ export default function TeacherSupportInbox({
         <div className="teacher-support-detail">
           {!selectedEscalation ? (
             <div className="teacher-support-detail__empty">
-              <MessageCircle size={22} />
-              <strong>Chọn một yêu cầu</strong>
-              <span>Bấm vào sinh viên bên trái để mở chat hoặc xem lại lịch sử.</span>
+              <span className="teacher-support-detail__empty-icon"><MessageCircle size={25} /></span>
+              <strong>Chọn ticket để bắt đầu</strong>
+              <span>Xem câu hỏi, trao đổi với sinh viên hoặc đọc lại lịch sử hỗ trợ tại đây.</span>
             </div>
           ) : (
             <>
               <header className="teacher-support-detail__header">
-                <div>
-                  <span className="teacher-review-eyebrow">Câu hỏi của sinh viên</span>
-                  <h3>{selectedEscalation.question || selectedEscalation.title}</h3>
-                  <p>{selectedEscalation.student || 'Sinh viên'} · {selectedEscalation.context || '—'}</p>
+                <div className="teacher-support-detail__title">
+                  <span className="teacher-support-detail__question-icon" aria-hidden="true"><MessageCircle size={18} /></span>
+                  <div>
+                    <span className="teacher-review-eyebrow">Câu hỏi của sinh viên</span>
+                    <h3>{selectedEscalation.question || selectedEscalation.title}</h3>
+                    <p>{selectedEscalation.student || 'Sinh viên'} · {selectedEscalation.context || '—'}</p>
+                  </div>
                 </div>
-                <Tag icon={<MessageCircle size={13} />} color={hasChatHistory ? 'blue' : 'default'}>
-                  {hasChatHistory ? 'Có lịch sử chat' : 'Chưa tạo ChatRoom'}
-                </Tag>
+                <div className="teacher-support-detail__badges">
+                  <StatusLabel status={selectedEscalation.status} />
+                  <Tag icon={<MessageCircle size={13} />} color={hasChatHistory ? 'blue' : 'default'}>
+                    {hasChatHistory ? 'Có lịch sử chat' : 'Chưa tạo ChatRoom'}
+                  </Tag>
+                </div>
               </header>
 
               {hasChatHistory ? (

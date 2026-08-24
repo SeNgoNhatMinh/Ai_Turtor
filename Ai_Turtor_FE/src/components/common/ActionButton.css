@@ -1,0 +1,38 @@
+.app-action-button.ant-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-weight: 650;
+}
+
+.app-action-button.ant-btn-primary,
+.app-action-button.ant-btn-color-primary.ant-btn-variant-solid {
+  color: #ffffff !important;
+}
+
+.app-action-button.ant-btn-primary > span,
+.app-action-button.ant-btn-primary .ant-btn-icon,
+.app-action-button.ant-btn-primary svg,
+.app-action-button.ant-btn-color-primary.ant-btn-variant-solid > span,
+.app-action-button.ant-btn-color-primary.ant-btn-variant-solid .ant-btn-icon,
+.app-action-button.ant-btn-color-primary.ant-btn-variant-solid svg {
+  color: inherit !important;
+}
+
+.app-action-button--danger.ant-btn-dangerous:not(.ant-btn-primary) {
+  color: #b42318;
+  border-color: #f1a8a1;
+}
+
+.app-action-button--danger.ant-btn-dangerous:not(.ant-btn-primary):hover {
+  color: #912018 !important;
+  border-color: #d92d20 !important;
+  background: #fff5f4 !important;
+}
+
+.app-container.dark .app-action-button--danger.ant-btn-dangerous:not(.ant-btn-primary) {
+  color: #fda29b;
+  border-color: #7f1d1d;
+  background: #271313;
+}

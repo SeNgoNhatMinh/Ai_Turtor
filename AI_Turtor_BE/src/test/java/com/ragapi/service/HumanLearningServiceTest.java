@@ -4,9 +4,11 @@ import com.ragapi.dto.KnowledgeCandidateReviewRequest;
 import com.ragapi.dto.MentorAnswerRequest;
 import com.ragapi.entity.CourseMaterial;
 import com.ragapi.entity.KnowledgeCandidate;
+import com.ragapi.entity.Mentor;
 import com.ragapi.entity.QuestionEscalation;
 import com.ragapi.repository.CourseMaterialRepository;
 import com.ragapi.repository.KnowledgeCandidateRepository;
+import com.ragapi.repository.MentorRepository;
 import com.ragapi.repository.MentorAnswerRepository;
 import com.ragapi.repository.QuestionEscalationRepository;
 import org.junit.jupiter.api.Test;
@@ -35,6 +37,7 @@ class HumanLearningServiceTest {
         CanonicalTutorAnswerCacheService answerCacheService = mock(CanonicalTutorAnswerCacheService.class);
         HumanLearningService service = new HumanLearningService(
                 escalationRepository,
+                mock(MentorRepository.class),
                 mentorAnswerRepository,
                 candidateRepository,
                 materialRepository,
@@ -97,6 +100,7 @@ class HumanLearningServiceTest {
         KnowledgeImageStorageService imageStorageService = mock(KnowledgeImageStorageService.class);
         HumanLearningService service = new HumanLearningService(
                 escalationRepository,
+                mock(MentorRepository.class),
                 mock(MentorAnswerRepository.class),
                 mock(KnowledgeCandidateRepository.class),
                 mock(CourseMaterialRepository.class),
@@ -122,11 +126,75 @@ class HumanLearningServiceTest {
     }
 
     @Test
+    void hideEscalationOnlyMarksTeacherInboxAndKeepsEscalation() {
+        QuestionEscalationRepository escalationRepository = mock(QuestionEscalationRepository.class);
+        HumanLearningService service = new HumanLearningService(
+                escalationRepository,
+                mock(MentorRepository.class),
+                mock(MentorAnswerRepository.class),
+                mock(KnowledgeCandidateRepository.class),
+                mock(CourseMaterialRepository.class),
+                mock(CourseMaterialChunkingService.class),
+                mock(ElasticVectorService.class),
+                mock(KnowledgeImageStorageService.class),
+                mock(CanonicalTutorAnswerCacheService.class)
+        );
+        QuestionEscalation escalation = QuestionEscalation.builder()
+                .id("escalation-1")
+                .userId("student-1")
+                .assignedMentorId("teacher-1")
+                .status("COMPLETED")
+                .build();
+        when(escalationRepository.findById("escalation-1")).thenReturn(Optional.of(escalation));
+
+        service.hideEscalationFromTeacherInbox("escalation-1", "teacher-1");
+
+        assertThat(escalation.getHiddenFromMentorInboxAt()).isNotNull();
+        assertThat(escalation.getUserId()).isEqualTo("student-1");
+        verify(escalationRepository).save(escalation);
+        verify(escalationRepository, org.mockito.Mockito.never()).delete(any());
+    }
+
+    @Test
+    void hideEscalationAcceptsMentorCodeForTheSameTeacherAccount() {
+        QuestionEscalationRepository escalationRepository = mock(QuestionEscalationRepository.class);
+        MentorRepository mentorRepository = mock(MentorRepository.class);
+        HumanLearningService service = new HumanLearningService(
+                escalationRepository,
+                mentorRepository,
+                mock(MentorAnswerRepository.class),
+                mock(KnowledgeCandidateRepository.class),
+                mock(CourseMaterialRepository.class),
+                mock(CourseMaterialChunkingService.class),
+                mock(ElasticVectorService.class),
+                mock(KnowledgeImageStorageService.class),
+                mock(CanonicalTutorAnswerCacheService.class)
+        );
+        Mentor mentor = Mentor.builder().id("mentor-db-id").mentorCode("GV001").build();
+        QuestionEscalation escalation = QuestionEscalation.builder()
+                .id("escalation-legacy")
+                .userId("student-1")
+                .assignedMentorId("GV001")
+                .status("COMPLETED")
+                .build();
+        when(escalationRepository.findById("escalation-legacy")).thenReturn(Optional.of(escalation));
+        when(mentorRepository.findById("mentor-db-id")).thenReturn(Optional.of(mentor));
+        when(mentorRepository.findById("GV001")).thenReturn(Optional.empty());
+        when(mentorRepository.findByMentorCode("GV001")).thenReturn(Optional.of(mentor));
+
+        service.hideEscalationFromTeacherInbox("escalation-legacy", "mentor-db-id");
+
+        assertThat(escalation.getHiddenFromMentorInboxAt()).isNotNull();
+        verify(escalationRepository).save(escalation);
+    }
+
+    @Test
     void submitTeacherChatAnswerReusesExistingCandidate() {
         QuestionEscalationRepository escalationRepository = mock(QuestionEscalationRepository.class);
         KnowledgeCandidateRepository candidateRepository = mock(KnowledgeCandidateRepository.class);
         HumanLearningService service = new HumanLearningService(
                 escalationRepository,
+                mock(MentorRepository.class),
                 mock(MentorAnswerRepository.class),
                 candidateRepository,
                 mock(CourseMaterialRepository.class),
