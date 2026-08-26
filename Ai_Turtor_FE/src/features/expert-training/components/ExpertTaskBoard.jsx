@@ -94,8 +94,8 @@ function ContributionState({ contribution }) {
       <div className="expert-training__task-result expert-training__task-result--indexed">
         <Database size={17} aria-hidden="true" />
         <div>
-          <strong>Senior đã nạp vào RAG</strong>
-          <span>Q&A vàng đã trở thành nguồn dùng chung của môn.</span>
+          <strong>Senior đã nạp ghi chú theo giáo trình</strong>
+          <span>Dùng để AI dạy đúng chương — giáo trình vẫn là chuẩn, không phải đáp án thay sách.</span>
         </div>
       </div>
     );
@@ -107,9 +107,9 @@ function ContributionState({ contribution }) {
         <ShieldCheck size={17} aria-hidden="true" />
         <div>
           <strong>
-            {passed ? `AI đạt ${formatPercent(contribution.examScore)} · đã gửi Senior` : 'Đã gửi Senior · AI chưa đạt'}
+            {passed ? `Xem trước ${formatPercent(contribution.examScore)} · đã gửi Senior` : 'Đã gửi Senior · xem trước chưa đủ'}
           </strong>
-          <span>Đang chờ Senior duyệt nạp RAG. Bấm Xem kết quả chấm để đối chiếu.</span>
+          <span>Senior chỉ duyệt nạp. Bấm Xem kết quả để đối chiếu bản xem trước.</span>
         </div>
       </div>
     );
@@ -121,9 +121,9 @@ function ContributionState({ contribution }) {
         <ShieldCheck size={17} aria-hidden="true" />
         <div>
           <strong>
-            {passed ? `AI đạt ${formatPercent(contribution.examScore)}` : 'AI chưa đạt hoặc cần kiểm tra'}
+            {passed ? `Xem trước: phủ ${formatPercent(contribution.examScore)} ý giáo trình` : 'Xem trước: chưa đủ ý'}
           </strong>
-          <span>Đã chấm bằng giáo trình. Mở task để Thi lại hoặc Gửi Senior duyệt.</span>
+          <span>Đã xem trước câu SV. Mở task để Thi lại hoặc Gửi Senior duyệt nạp.</span>
         </div>
       </div>
     );
@@ -145,7 +145,7 @@ function TaskCard({ task, contribution, userId, pendingAction, onClaim, onContri
 
       <Space wrap size={[6, 6]}>
         <Tag color="blue">Chỉ dùng giáo trình</Tag>
-        <Tag>1 câu hỏi + 1 đáp án chuẩn</Tag>
+        <Tag>1 câu hỏi + tóm tắt ý từ sách</Tag>
         {Number(task.priority) >= 90 && <Tag color="orange">Ưu tiên cao</Tag>}
       </Space>
 

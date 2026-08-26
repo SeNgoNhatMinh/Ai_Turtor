@@ -92,21 +92,24 @@ export default function SeniorReviewQueue({
     };
     if (decision === 'approve') {
       const item = selectedEntry.item;
+      const isEvaluation = String(item.usage || '').toUpperCase() === 'EVALUATION';
       confirmAction({
         ...common,
-        title: 'Nạp Q&A vàng vào RAG?',
-        content: item.examPassed
-          ? 'AI đã đạt trên giáo trình. Nạp câu này vào RAG brain.'
-          : 'AI chưa đạt. Vẫn có thể nạp nếu bạn thấy hợp tài liệu, hoặc trả Teacher viết lại.',
-        okText: 'Nạp vào RAG',
+        title: isEvaluation ? 'Duyệt holdout EVALUATION?' : 'Nạp ghi chú theo giáo trình vào RAG?',
+        content: isEvaluation
+          ? 'Holdout chỉ dùng benchmark — không nạp vào RAG. Giáo trình vẫn là chuẩn duy nhất.'
+          : item.examPassed
+            ? 'Teacher đã xem trước câu SV đủ ý. Bạn chỉ duyệt nạp ghi chú vào RAG (sách vẫn là chuẩn).'
+            : 'Bản xem trước chưa đạt. Chỉ nạp nếu bạn chắc tóm tắt bám sách; không thì trả Teacher Thi lại.',
+        okText: isEvaluation ? 'Duyệt holdout' : 'Duyệt nạp RAG',
       });
       return;
     }
     confirmDanger({
       ...common,
-      title: 'Yêu cầu giảng viên chỉnh sửa?',
-      content: 'Task sẽ trở lại trạng thái Đang thực hiện và hiển thị ghi chú này cho giảng viên.',
-      okText: 'Yêu cầu chỉnh sửa',
+      title: 'Yêu cầu Teacher Thi lại?',
+      content: 'Task trở lại Đang thực hiện. Teacher phải chỉnh tóm tắt và Thi lại để xem trước câu SV đủ ý.',
+      okText: 'Trả lại để Thi lại',
     });
   };
 
@@ -211,8 +214,8 @@ export default function SeniorReviewQueue({
           <span className="expert-training__review-section-icon"><ClipboardCheck size={21} /></span>
           <div>
             <span className="expert-training__eyebrow">KIỂM DUYỆT CHẤT LƯỢNG</span>
-            <h2 id="review-heading">Bài thi Q&A vàng</h2>
-            <p>So sánh đáp án Teacher với câu AI trả từ giáo trình trước khi quyết định nạp vào RAG.</p>
+            <h2 id="review-heading">Duyệt nạp RAG</h2>
+            <p>Teacher đã xem trước câu SV bằng Thi lại. Senior chỉ đối chiếu và duyệt nạp — không phải bước làm AI tốt hơn.</p>
           </div>
         </div>
         <div className="expert-training__review-queue-summary" aria-label={`${queue.length} bài thi chờ duyệt`}>

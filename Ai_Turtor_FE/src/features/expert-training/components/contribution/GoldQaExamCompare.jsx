@@ -33,7 +33,7 @@ function ExamMetric({ label, value, tone = '' }) {
 export default function GoldQaExamCompare({ contribution }) {
   if (!contribution) return null;
 
-  const teacherAnswer = formatTeacherGoldAnswer(contribution.goldAnswer) || 'Chưa có đáp án Teacher.';
+  const teacherAnswer = formatTeacherGoldAnswer(contribution.goldAnswer) || 'Chưa có tóm tắt theo giáo trình.';
   const aiAnswer = contribution.examAiAnswer || contribution.examError || 'Chưa chấm được.';
 
   return (
@@ -46,8 +46,8 @@ export default function GoldQaExamCompare({ contribution }) {
       <div className="expert-exam-comparison-grid">
         <AnswerComparisonCard
           role="teacher"
-          name="Đáp án Teacher"
-          hint="Gold Q&A được đề xuất"
+          name="Tóm tắt theo giáo trình"
+          hint="Teacher biên tập từ sách — không phải đáp án thay sách"
           icon={<GraduationCap size={16} />}
         >
           <AiAnswer markdown={teacherAnswer} hideSourceSection />
@@ -55,8 +55,8 @@ export default function GoldQaExamCompare({ contribution }) {
 
         <AnswerComparisonCard
           role="ai"
-          name="Câu trả lời AI"
-          hint="Sinh từ giáo trình, chưa học Q&A này"
+          name="Câu trả lời AI (xem trước)"
+          hint="Như khi SV hỏi sau training — chưa nạp RAG thật"
           icon={<Sparkles size={16} />}
         >
           <AiAnswer markdown={aiAnswer} hideSourceSection />

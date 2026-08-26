@@ -141,7 +141,7 @@ describe('Tutor V2 UI rules', () => {
 
     expect(screen.getByText('Task này không thuộc về bạn')).toBeInTheDocument();
     expect(screen.getByLabelText('Chương')).toHaveAttribute('readonly');
-    expect(screen.getByRole('button', { name: 'Lưu và chấm AI bằng sách' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Lưu và xem trước câu SV' })).toBeDisabled();
   });
 
   it('lets Senior start an indexed chapter without a separate confirm step', () => {
@@ -232,10 +232,10 @@ describe('Tutor V2 UI rules', () => {
       />,
     );
 
-    fireEvent.change(screen.getByLabelText('Câu hỏi vàng'), {
+    fireEvent.change(screen.getByLabelText('Câu hỏi (theo chương giáo trình)'), {
       target: { value: 'JSPX khác JSP ở điểm nào?' },
     });
-    fireEvent.change(screen.getByLabelText('Đáp án chuẩn theo giáo trình'), {
+    fireEvent.change(screen.getByLabelText('Tóm tắt ý chính từ giáo trình'), {
       target: { value: 'JSPX dùng cú pháp XML.' },
     });
 
@@ -254,8 +254,8 @@ describe('Tutor V2 UI rules', () => {
       />,
     );
 
-    expect(screen.getByLabelText('Câu hỏi vàng')).toHaveValue('JSPX khác JSP ở điểm nào?');
-    expect(screen.getByLabelText('Đáp án chuẩn theo giáo trình')).toHaveValue('JSPX dùng cú pháp XML.');
+    expect(screen.getByLabelText('Câu hỏi (theo chương giáo trình)')).toHaveValue('JSPX khác JSP ở điểm nào?');
+    expect(screen.getByLabelText('Tóm tắt ý chính từ giáo trình')).toHaveValue('JSPX dùng cú pháp XML.');
   });
 
   it('keeps the Teacher editor on the Senior GOLD_QA flow only', () => {
@@ -282,7 +282,7 @@ describe('Tutor V2 UI rules', () => {
     );
 
     expect(screen.getByText('Task không thuộc flow GOLD_QA hiện tại')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Lưu và chấm AI bằng sách' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Lưu và xem trước câu SV' })).toBeDisabled();
     expect(screen.queryByText('Rubric chất lượng câu trả lời')).not.toBeInTheDocument();
   });
 
@@ -330,10 +330,10 @@ describe('Tutor V2 UI rules', () => {
 
     fireEvent.click(screen.getByText(/Việc của tôi/));
     expect(screen.getByText('Q&A vàng 1/2 · Recursion')).toBeInTheDocument();
-    expect(screen.getByText('AI đạt 82%')).toBeInTheDocument();
+    expect(screen.getByText('Xem trước: phủ 82% ý giáo trình')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Xem kết quả chấm' }));
-    expect(screen.getByText('Đáp án Teacher')).toBeInTheDocument();
-    expect(screen.getByText('Câu trả lời AI')).toBeInTheDocument();
+    expect(screen.getByText('Tóm tắt theo giáo trình')).toBeInTheDocument();
+    expect(screen.getByText('Câu trả lời AI (xem trước)')).toBeInTheDocument();
     expect(screen.getByText('Recursion is a function that calls itself.')).toBeInTheDocument();
     expect(screen.getByText('A function that calls itself until a base case.')).toBeInTheDocument();
     expect(screen.queryByText('Legacy Rubric task')).not.toBeInTheDocument();

@@ -19,9 +19,9 @@ import './ExpertTraining.css';
 const TEACHER_STEPS = [
   { key: 'senior-start', title: 'Senior giao chương', description: 'Chương đã có chunks' },
   { key: 'claim', title: 'Nhận task', description: 'Task được khóa cho bạn' },
-  { key: 'write', title: 'Viết Q&A', description: 'Bám đúng giáo trình' },
-  { key: 'exam', title: 'AI chấm bằng sách', description: 'Q&A chưa vào RAG' },
-  { key: 'decision', title: 'Senior quyết định', description: 'Nạp RAG hoặc trả lại' },
+  { key: 'write', title: 'Tóm tắt theo sách', description: 'Không soạn đáp án thay sách' },
+  { key: 'exam', title: 'Thi lại · xem trước SV', description: 'Kiểm câu đủ ý trước khi gửi' },
+  { key: 'decision', title: 'Senior duyệt nạp', description: 'Chỉ nạp RAG, không chấm lại' },
 ];
 
 export default function TeacherExpertTasksPage({
@@ -103,7 +103,7 @@ export default function TeacherExpertTasksPage({
       <PageHeader
         eyebrow="Chất lượng AI"
         title="Q&A huấn luyện AI theo giáo trình"
-        description="Nhận task GOLD_QA do Senior mở từ mục lục, soạn đáp án chuẩn và gửi bài thi để Senior duyệt."
+        description="Nhận task do Senior mở từ mục lục, soạn câu hỏi + tóm tắt ý từ giáo trình (không soạn đáp án thay sách), rồi gửi Senior duyệt."
       />
 
       <ScopeBar
@@ -173,7 +173,7 @@ export default function TeacherExpertTasksPage({
       <section className="expert-training__workflow-guide" aria-label="Quy trình đóng góp tri thức">
         <div>
           <strong>Vai trò của Teacher</strong>
-          <span>Bạn không tự tạo task và không tự cho AI học. Senior kiểm soát chương và bước nạp RAG.</span>
+          <span>Bạn không tự tạo task và không tự cho AI học. Giáo trình là chuẩn; Senior chỉ nạp TRAINING khi tóm tắt bám sách.</span>
         </div>
         <WorkflowStepper steps={TEACHER_STEPS} activeIndex={activeStep} />
       </section>

@@ -16,8 +16,9 @@ test('breaks a jammed teacher paragraph into readable sentences', () => {
     'JSPX là JSP viết bằng XML. Chúng dùng thẻ XML thay vì scriptlet. Cú pháp: file phải well-formed.',
   );
 
-  assert.match(output, /JSPX là JSP viết bằng XML\.\n\n/);
-  assert.match(output, /Chúng dùng thẻ XML thay vì scriptlet\./);
+  assert.match(output, /^- JSPX là JSP viết bằng XML\./m);
+  assert.match(output, /^- Chúng dùng thẻ XML thay vì scriptlet\./m);
+  assert.match(output, /Cú pháp: file phải well-formed/);
 });
 
 test('turns informal labels into section headings', () => {
@@ -31,4 +32,33 @@ test('keeps an already formatted markdown answer', () => {
   const output = formatTeacherGoldAnswer(input);
   assert.match(output, /JSPX là JSP dạng XML/);
   assert.match(output, /`<%@ page %>`/);
+});
+
+test('turns multiline teacher points into a bullet list', () => {
+  const output = formatTeacherGoldAnswer(
+    'JSPX là dạng XML của JSP, thường đuôi .jspx, phải tuân thủ XML\n'
+    + 'Dễ phát hiện lỗi lúc compile hơn runtime\n'
+    + 'Ít phổ biến hơn JSP thường -> ít ví dụ cộng đồng hơn\n'
+    + 'Sách chỉ giới thiệu khác biệt rồi chủ yếu dùng JSP thường',
+  );
+
+  assert.match(output, /^- JSPX là dạng XML/m);
+  assert.match(output, /^- Dễ phát hiện lỗi/m);
+  assert.match(output, /^- Ít phổ biến hơn/m);
+  assert.match(output, /^- Sách chỉ giới thiệu/m);
+  assert.match(output, /`\.jspx`/);
+});
+
+test('splits jammed Vietnamese clauses into bullets', () => {
+  const output = formatTeacherGoldAnswer(
+    'JSPX là dạng XML của JSP, thường đuôi .jspx, phải tuân thủ XML '
+    + 'Dễ phát hiện lỗi lúc compile hơn runtime '
+    + 'Ít phổ biến hơn JSP thường -> ít ví dụ cộng đồng hơn '
+    + 'Sách chỉ giới thiệu khác biệt rồi chủ yếu dùng JSP thường',
+  );
+
+  assert.match(output, /^- JSPX là dạng XML/m);
+  assert.match(output, /^- Dễ phát hiện lỗi/m);
+  assert.match(output, /^- Ít phổ biến hơn/m);
+  assert.match(output, /^- Sách chỉ giới thiệu/m);
 });

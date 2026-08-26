@@ -15,22 +15,22 @@ function contributionFeedback(contribution) {
   if (contribution.status === 'INDEXED') {
     return {
       type: 'success',
-      title: 'Senior đã duyệt và nạp Q&A vào RAG',
-      description: 'Q&A vàng hiện là nguồn COURSE_SHARED của môn và có thể được sinh viên truy xuất.',
+      title: 'Senior đã nạp ghi chú vào RAG',
+      description: 'Sinh viên sẽ nhận câu trả lời như bản xem trước Teacher đã chấm. Giáo trình vẫn là chuẩn.',
     };
   }
   if (contribution.status === 'REJECTED') {
     return {
       type: 'error',
-      title: 'Senior yêu cầu chỉnh sửa Q&A',
-      description: contribution.rejectionReason || contribution.reviewNote || 'Hãy chỉnh lại nội dung theo giáo trình rồi chấm lại trước khi gửi Senior.',
+      title: 'Senior yêu cầu chỉnh lại cho khớp giáo trình',
+      description: contribution.rejectionReason || contribution.reviewNote || 'Chỉnh câu hỏi/tóm tắt cho đúng sách rồi Thi lại (xem trước câu SV) trước khi gửi Senior.',
     };
   }
   if (contribution.status === 'PENDING_REVIEW') {
     return {
       type: 'info',
-      title: 'Đã gửi Senior duyệt',
-      description: 'Bài thi đang chờ Senior quyết định có nạp Q&A vào RAG hay không. AI chưa học nội dung này.',
+      title: 'Đã gửi Senior duyệt nạp',
+      description: 'Senior chỉ xem bản xem trước và duyệt nạp RAG. AI chưa phục vụ SV bằng ghi chú này cho đến khi được nạp.',
     };
   }
   if (contribution.status === 'EXAMINED') {
@@ -38,17 +38,17 @@ function contributionFeedback(contribution) {
       return {
         type: 'warning',
         title: 'Không chấm được bài thi tự động',
-        description: 'Bạn có thể sửa đáp án rồi bấm Thi lại. Chưa gửi Senior.',
+        description: 'Sửa tóm tắt theo sách rồi bấm Thi lại để xem trước câu trả lời SV. Chưa gửi Senior.',
       };
     }
     return {
       type: contribution.examPassed ? 'success' : 'warning',
       title: contribution.examPassed
-        ? `AI đạt ${formatPercent(contribution.examScore)} trên giáo trình`
-        : `AI chưa đạt${contribution.examScore == null ? '' : ` · điểm ${formatPercent(contribution.examScore)}`}`,
+        ? `Xem trước: AI phủ ${formatPercent(contribution.examScore)} ý giáo trình`
+        : `Xem trước: AI chưa phủ đủ (${contribution.examScore == null ? '—' : formatPercent(contribution.examScore)})`,
       description: contribution.examPassed
-        ? 'Đây chỉ là tín hiệu trước khi AI học Q&A. Bạn có thể Thi lại hoặc Gửi Senior duyệt.'
-        : 'AI trả lời từ sách chưa khớp đáp án chuẩn. Sửa Q&A rồi Thi lại trước khi gửi Senior.',
+        ? 'Đây là câu AI sẽ trả cho SV sau khi TRAINING được nạp (chưa index thật). Có thể Thi lại hoặc Gửi Senior duyệt nạp.'
+        : 'Bản xem trước chưa đủ ý. Chỉnh tóm tắt theo sách rồi bấm Thi lại — Senior chỉ duyệt nạp khi bạn đã thấy câu đủ ý.',
     };
   }
   return null;
@@ -75,7 +75,7 @@ function ContributionResult({
             disabled={Boolean(pendingAction)}
             onClick={() => onExamGoldQa?.(contribution.id)}
           >
-            Thi lại
+            Thi lại · xem trước câu SV
           </ActionButton>
           <ActionButton
             intent="primary"
@@ -84,7 +84,7 @@ function ContributionResult({
             disabled={Boolean(pendingAction)}
             onClick={() => onSendForReview?.(contribution.id)}
           >
-            Gửi Senior duyệt
+            Gửi Senior duyệt nạp
           </ActionButton>
         </Space>
       )}
@@ -170,8 +170,8 @@ export default function ContributionWorkspace({
     <section className="expert-training__section" aria-labelledby="contributions-heading">
       <div className="expert-training__section-heading">
         <div>
-          <h2 id="contributions-heading">Viết Q&A vàng</h2>
-          <p>Chấm AI trên giáo trình trước. Chỉ khi bạn bấm Gửi Senior duyệt thì bài mới vào hàng chờ nạp RAG.</p>
+          <h2 id="contributions-heading">Soạn theo giáo trình</h2>
+          <p>Thi lại = xem trước câu AI sẽ trả cho SV sau training. Senior chỉ duyệt nạp RAG khi bạn đã thấy câu đủ ý.</p>
         </div>
       </div>
 
@@ -189,7 +189,7 @@ export default function ContributionWorkspace({
           type="error"
           showIcon
           title="Task không thuộc flow GOLD_QA hiện tại"
-          description="Màn Teacher chỉ xử lý Q&A vàng được Senior tạo từ mục lục giáo trình."
+          description="Màn Teacher chỉ xử lý task Q&A do Senior tạo từ mục lục giáo trình. Sách là chuẩn — không soạn đáp án thay sách."
         />
       )}
 
@@ -212,7 +212,7 @@ export default function ContributionWorkspace({
       )}
 
       <div className="expert-training__contribution-layout">
-        <Card className="expert-training__editor-card" title="Câu hỏi và đáp án chuẩn">
+        <Card className="expert-training__editor-card" title="Câu hỏi và tóm tắt theo giáo trình">
           <ContributionResult
             contribution={contribution}
             canTeacherGate={canTeacherGate}
@@ -240,7 +240,7 @@ export default function ContributionWorkspace({
       </div>
 
       <Paragraph type="secondary" className="expert-training__policy-note">
-        AI chỉ nhớ Gold Q&A sau khi Senior nạp vào RAG. Lần chấm trước đó chỉ so sánh AI (sách cũ) với đáp án Teacher.
+        Giáo trình là chuẩn duy nhất. Teacher dùng Lưu/Thi lại để xem trước câu SV (sách + tóm tắt, chưa index). Senior chỉ xem và duyệt nạp TRAINING vào RAG.
       </Paragraph>
     </section>
   );

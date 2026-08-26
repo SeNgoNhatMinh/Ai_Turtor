@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { normalizeAppRole } from '../utils/formatters';
-import { readJsonStorage } from '../utils/storage';
+import {
+  APP_UI_STATE_KEY,
+  readJsonStorage,
+  writeJsonStorage,
+  writeLastPath,
+} from '../utils/storage';
 import { getHomeRouteForRole, getRouteConfig, getRouteForTab, getRouteState } from './routes';
-
-const APP_UI_STATE_KEY = 'ai-tutor:ui-state';
 
 export function useAppNavigation({ currentUser, currentUserRole }) {
   const location = useLocation();
@@ -30,14 +33,21 @@ export function useAppNavigation({ currentUser, currentUserRole }) {
   }, [isDarkMode]);
 
   useEffect(() => {
-    window.sessionStorage.setItem(APP_UI_STATE_KEY, JSON.stringify({
+    writeJsonStorage(APP_UI_STATE_KEY, {
       activeRole,
       activeTab,
       courseId,
       classId,
       isDarkMode,
-    }));
+    });
   }, [activeRole, activeTab, courseId, classId, isDarkMode]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    const nextPath = `${location.pathname}${location.search || ''}`;
+    if (nextPath === '/' || nextPath.startsWith('/login')) return;
+    writeLastPath(nextPath);
+  }, [currentUser, location.pathname, location.search]);
 
   useEffect(() => {
     if (!routeState) return;

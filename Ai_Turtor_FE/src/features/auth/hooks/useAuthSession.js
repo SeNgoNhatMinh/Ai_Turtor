@@ -3,9 +3,14 @@ import { clearAuthToken, getAuthToken } from '../services/tokenStorage';
 import { getAccountRoleFromJwt, isJwtExpired } from '../services/authResponse';
 import { normalizeAccountRole } from '../../../constants/roles';
 import { normalizeAppRole } from '../../../utils/formatters';
-import { readJsonStorage, sanitizePersistedUser } from '../../../utils/storage';
-
-const APP_SESSION_USER_KEY = 'ai-tutor:current-user';
+import {
+  APP_SESSION_USER_KEY,
+  clearLastPath,
+  readJsonStorage,
+  removeJsonStorage,
+  sanitizePersistedUser,
+  writeJsonStorage,
+} from '../../../utils/storage';
 
 function getUserRole(user) {
   const tokenRole = getAccountRoleFromJwt(getAuthToken());
@@ -27,6 +32,7 @@ export function useAuthSession() {
     const token = getAuthToken();
     if (!token || isJwtExpired(token)) {
       clearAuthToken();
+      removeJsonStorage(APP_SESSION_USER_KEY);
       return null;
     }
     const persisted = sanitizePersistedUser(readJsonStorage(APP_SESSION_USER_KEY, null));
@@ -56,10 +62,10 @@ export function useAuthSession() {
 
   useEffect(() => {
     if (!currentUser) {
-      window.sessionStorage.removeItem(APP_SESSION_USER_KEY);
+      removeJsonStorage(APP_SESSION_USER_KEY);
       return;
     }
-    window.sessionStorage.setItem(APP_SESSION_USER_KEY, JSON.stringify(sanitizePersistedUser(currentUser)));
+    writeJsonStorage(APP_SESSION_USER_KEY, sanitizePersistedUser(currentUser));
   }, [currentUser]);
 
   const completeLogin = useCallback((user) => {
@@ -96,7 +102,8 @@ export function useAuthSession() {
 
   const logout = useCallback(() => {
     setCurrentUser(null);
-    window.sessionStorage.removeItem(APP_SESSION_USER_KEY);
+    removeJsonStorage(APP_SESSION_USER_KEY);
+    clearLastPath();
     clearAuthToken();
   }, []);
 

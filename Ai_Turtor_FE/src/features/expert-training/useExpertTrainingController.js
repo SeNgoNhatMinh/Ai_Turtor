@@ -139,21 +139,20 @@ export function useExpertTrainingController({
       courseId,
       authorId: userId,
     }),
-    successMessage: 'Đã lưu Q&A và chấm AI trên giáo trình. Xem kết quả rồi bấm Gửi Senior khi sẵn sàng.',
-    refresh: () => Promise.allSettled([loadTasks(), loadContributions()]),
+    successMessage: 'Đã xem trước câu SV (sách + tóm tắt, chưa nạp RAG). Thi lại nếu muốn kiểm lại.',
   }), [courseId, loadContributions, loadTasks, runMutation, userId]);
 
   const examGoldQa = useCallback((goldQaId) => runMutation({
     key: `exam-gold-qa:${goldQaId}`,
     action: () => expertTrainingGateway.examGoldQa(goldQaId),
-    successMessage: 'Đã chấm lại AI trên giáo trình.',
+    successMessage: 'Đã Thi lại — đây là câu AI sẽ trả cho SV sau khi TRAINING được nạp.',
     refresh: () => Promise.allSettled([loadTasks(), loadContributions()]),
   }), [loadContributions, loadTasks, runMutation]);
 
   const sendGoldQaForReview = useCallback((goldQaId) => runMutation({
     key: `send-gold-qa:${goldQaId}`,
     action: () => expertTrainingGateway.sendGoldQaForReview(goldQaId),
-    successMessage: 'Đã gửi bài thi sang Senior duyệt. AI chưa học Q&A này cho đến khi Senior nạp RAG.',
+    successMessage: 'Đã gửi Senior. Senior chỉ duyệt nạp RAG; AI chưa phục vụ SV bằng ghi chú này.',
     refresh: () => Promise.allSettled([loadTasks(), loadContributions()]),
   }), [loadContributions, loadTasks, runMutation]);
 
@@ -178,9 +177,9 @@ export function useExpertTrainingController({
     }),
     successMessage: decision === 'approve'
       ? item.usage === 'TRAINING'
-        ? 'Q&A vàng đã được nạp vào RAG.'
-        : 'Q&A vàng đã được nạp vào RAG.'
-      : 'Gold Q&A cần được chỉnh sửa trước khi duyệt.',
+        ? 'Đã nạp ghi chú theo giáo trình vào RAG (sách vẫn là chuẩn).'
+        : 'Đã duyệt holdout EVALUATION (không nạp vào RAG).'
+      : 'Cần chỉnh tóm tắt cho khớp giáo trình trước khi duyệt lại.',
     refresh: () => Promise.allSettled([loadTasks(), loadContributions()]),
   }), [loadContributions, loadTasks, reviewerRole, runMutation, userId]);
 

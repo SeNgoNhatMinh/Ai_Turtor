@@ -34,26 +34,31 @@ export default function GoldQaContributionForm({
         </Col>
       </Row>
       <Form.Item
-        label="Câu hỏi vàng"
+        label="Câu hỏi (theo chương giáo trình)"
         name="question"
-        extra="Viết một câu hỏi cụ thể mà sinh viên có thể hỏi trong phạm vi chương này."
+        extra="Viết câu sinh viên hay hỏi trong phạm vi chương — bám mục lục/sách đã hiển thị."
         rules={[{ required: true, whitespace: true }]}
       >
-        <Input.TextArea rows={3} maxLength={5000} showCount placeholder="Ví dụ: Đệ quy là gì và điều kiện dừng có vai trò gì?" />
+        <Input.TextArea rows={3} maxLength={5000} showCount placeholder="Ví dụ: Vòng đời Servlet gồm những giai đoạn nào?" />
       </Form.Item>
       <Form.Item
-        label="Đáp án chuẩn theo giáo trình"
+        label="Tóm tắt ý chính từ giáo trình"
         name="goldAnswer"
-        extra="Trả lời đủ ý, không bổ sung kiến thức ngoài phần tài liệu hiển thị bên cạnh."
+        extra="Mỗi ý một dòng (hoặc gạch đầu dòng -). Chỉ liệt kê/diễn đạt lại ý đã có trong sách; giáo trình là chuẩn duy nhất."
         rules={[{ required: true, whitespace: true }]}
       >
-        <Input.TextArea rows={8} maxLength={5000} showCount placeholder="Viết đáp án chuẩn, rõ ràng và bám sát giáo trình..." />
+        <Input.TextArea
+          rows={8}
+          maxLength={5000}
+          showCount
+          placeholder={'Ví dụ (mỗi ý một dòng):\n- JSPX là dạng XML của JSP, đuôi .jspx\n- Dễ phát hiện lỗi lúc compile hơn runtime\n- Ít phổ biến hơn JSP thường'}
+        />
       </Form.Item>
       <Alert
         type="info"
         showIcon
-        title="Gửi bài không đồng nghĩa AI đã học"
-        description="Backend sẽ hỏi AI bằng giáo trình hiện tại (chưa nạp Q&A này), rồi để bạn xem kết quả. Senior chỉ nhận bài khi bạn bấm Gửi Senior duyệt."
+        title="Giáo trình là chuẩn — chấm = xem trước câu SV sau training"
+        description="Lưu/Thi lại sẽ hỏi AI bằng sách + tóm tắt của bạn (chưa nạp RAG). Khi thấy câu đủ ý mới Gửi Senior — Senior chỉ duyệt nạp, không phải bước làm AI tốt hơn."
       />
       <div className="expert-training__form-actions">
         <ActionButton
@@ -63,7 +68,7 @@ export default function GoldQaContributionForm({
           loading={pendingAction === 'submit-gold-qa'}
           disabled={Boolean(pendingAction) || !userId || disabled}
         >
-          Lưu và chấm AI bằng sách
+          Lưu và xem trước câu SV
         </ActionButton>
       </div>
     </Form>

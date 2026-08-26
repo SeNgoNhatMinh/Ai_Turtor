@@ -58,7 +58,7 @@ class ExpertCoTrainingServiceTest {
     }
 
     @Test
-    void approvedGoldQaIsIndexedAfterExamRegardlessOfLegacyHoldoutFlag() throws Exception {
+    void evaluationHoldoutIsApprovedWithoutIndexingIntoRag() throws Exception {
         GoldQa item = GoldQa.builder().id("G1").courseId("PRJ301").chapter("JSP").question("JSP là gì?")
                 .goldAnswer("JSP là công nghệ view phía máy chủ.").usage("EVALUATION").holdout(true)
                 .status("PENDING_REVIEW").authorId("T1").build();
@@ -69,10 +69,11 @@ class ExpertCoTrainingServiceTest {
 
         GoldQa approved = service.reviewGoldQa("G1", review, true);
 
-        assertEquals("INDEXED", approved.getStatus());
-        assertNotNull(approved.getIndexedAt());
-        verify(vectors).indexChunk(eq("PRJ301"), isNull(), eq("T1"), eq("G1"), eq("COURSE_SHARED"), eq("GOLD_QA"), isNull(), isNull(), contains("JSP là gì?"));
-        verify(answerCache).evictRagAnswersForCourse("PRJ301");
+        assertEquals("APPROVED", approved.getStatus());
+        assertTrue(Boolean.TRUE.equals(approved.getHoldout()));
+        assertNull(approved.getIndexedAt());
+        verify(vectors, never()).indexChunk(any(), any(), any(), any(), any(), any(), any(), any(), any());
+        verify(answerCache, never()).evictRagAnswersForCourse(anyString());
     }
 
     @Test
@@ -89,7 +90,12 @@ class ExpertCoTrainingServiceTest {
 
         assertEquals("INDEXED", approved.getStatus());
         assertNotNull(approved.getIndexedAt());
-        verify(vectors).indexChunk(eq("PRJ301"), isNull(), eq("T1"), eq("G2"), eq("COURSE_SHARED"), eq("GOLD_QA"), isNull(), isNull(), contains("JSP lifecycle"));
+        verify(vectors).indexChunk(eq("PRJ301"), isNull(), eq("T1"), eq("G2"), eq("COURSE_SHARED"), eq("GOLD_QA"), isNull(), isNull(),
+                argThat(content -> content != null
+                        && content.contains("JSP lifecycle")
+                        && content.contains("Key points summarized from course materials")
+                        && content.contains("textbook/course materials are authoritative")));
+        verify(answerCache).evictRagAnswersForCourse("PRJ301");
     }
 
     @Test
@@ -239,7 +245,7 @@ class ExpertCoTrainingServiceTest {
     }
 
     @Test
-    void submitGoldQaExaminesAgainstTextbookWithoutIndexing() throws Exception {
+    void submitGoldQaExaminesWithTrainingPreviewWithoutIndexing() throws Exception {
         ExpertTask task = ExpertTask.builder().id("TASK1").type("GOLD_QA").status("ASSIGNED").build();
         when(tasks.findById("TASK1")).thenReturn(Optional.of(task));
         when(tasks.save(any())).thenAnswer(inv -> inv.getArgument(0));
@@ -254,7 +260,9 @@ class ExpertCoTrainingServiceTest {
             return item;
         });
         when(gold.findById("G3")).thenAnswer(inv -> Optional.ofNullable(saved[0]));
-        when(rag.askWithConfidenceFromTextbook(eq("PRO là gì?"), eq("PRJ301"), isNull())).thenReturn(CourseRagAnswer.builder()
+        when(rag.askWithConfidencePreviewingTrainingNote(
+                eq("PRO là gì?"), eq("PRJ301"), isNull(), eq("Khái niệm PRO"), eq("PRO là hệ điều hành thời gian thực.")
+        )).thenReturn(CourseRagAnswer.builder()
                 .answer("PRO là hệ điều hành thời gian thực.").confidence(0.88)
                 .escalationRecommended(false).sources(List.of("ch1")).build());
         SubmitGoldQaRequest request = new SubmitGoldQaRequest();
@@ -273,7 +281,11 @@ class ExpertCoTrainingServiceTest {
         assertNotNull(submitted.getExamAiAnswer());
         assertEquals("IN_PROGRESS", task.getStatus());
         verifyNoInteractions(vectors);
+        verify(rag).askWithConfidencePreviewingTrainingNote(
+                eq("PRO là gì?"), eq("PRJ301"), isNull(), eq("Khái niệm PRO"), eq("PRO là hệ điều hành thời gian thực.")
+        );
         verify(rag, never()).askWithConfidence(anyString(), anyString(), any());
+        verify(rag, never()).askWithConfidenceFromTextbook(anyString(), anyString(), any());
     }
 
     @Test

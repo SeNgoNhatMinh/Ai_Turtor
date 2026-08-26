@@ -30,9 +30,9 @@ function examTone(item) {
 
 function examTitle(item) {
   if (item.examError) return `Chấm thi lỗi: ${item.examError}`;
-  if (item.examPassed) return `AI đạt ${(Number(item.examScore) * 100).toFixed(0)}% — hợp để nạp RAG nếu Senior đồng ý`;
-  if (item.examPassed === false) return `AI chưa đạt (${item.examScore == null ? '—' : `${(Number(item.examScore) * 100).toFixed(0)}%`}) — nên trả Teacher viết lại`;
-  return 'Chưa có bài thi. Nộp Q&A sẽ chấm bằng giáo trình đã embed.';
+  if (item.examPassed) return `Xem trước đạt ${(Number(item.examScore) * 100).toFixed(0)}% — Teacher đã thấy câu SV đủ ý; bạn chỉ duyệt nạp`;
+  if (item.examPassed === false) return `Xem trước chưa đủ (${item.examScore == null ? '—' : `${(Number(item.examScore) * 100).toFixed(0)}%`}) — nên trả Teacher Thi lại`;
+  return 'Chưa có bài xem trước. Teacher phải Lưu/Thi lại trước khi gửi duyệt nạp.';
 }
 
 export default function ExpertReviewDetail({
@@ -84,7 +84,7 @@ export default function ExpertReviewDetail({
             <header>
               <div>
                 <span className="expert-training__review-block-icon"><MessageSquareText size={17} /></span>
-                <div><h3>Đối chiếu đáp án</h3><p>Teacher soạn đáp án chuẩn; AI chỉ được trả lời bằng giáo trình đã index.</p></div>
+                <div><h3>Bản xem trước câu SV</h3><p>Teacher đã chấm bằng sách + tóm tắt (chưa index). Bạn chỉ đối chiếu rồi duyệt nạp RAG.</p></div>
               </div>
             </header>
             <GoldQaExamCompare contribution={item} />
@@ -114,12 +114,12 @@ export default function ExpertReviewDetail({
           <div><h3>Quyết định của Senior</h3><p>Ghi rõ lý do nếu trả lại để Teacher biết chính xác phần cần sửa.</p></div>
         </div>
         <Form.Item label="Nhận xét kiểm duyệt" name="reviewNote">
-          <Input.TextArea rows={4} maxLength={5000} placeholder="Ghi chú khi nạp RAG hoặc lý do trả lại Teacher..." />
+          <Input.TextArea rows={4} maxLength={5000} placeholder="Ghi chú khi nạp ghi chú theo giáo trình, hoặc lý do trả lại để chỉnh cho khớp sách..." />
         </Form.Item>
       </Form>
 
       <div className="expert-training__review-actions">
-        <Text type="secondary">Nạp RAG chỉ khi Senior thấy bài thi hợp giáo trình.</Text>
+        <Text type="secondary">Senior chỉ duyệt nạp. Chất lượng câu trả lời đã được Teacher kiểm bằng Thi lại (xem trước).</Text>
         <Space wrap>
           <ActionButton intent="danger" icon={<X size={15} />} onClick={onReject} disabled={pending}>
             Trả lại Teacher
@@ -131,7 +131,11 @@ export default function ExpertReviewDetail({
             loading={pendingAction === `${isGold ? 'review-gold' : 'review-rubric'}:${item.id}`}
             disabled={pending}
           >
-            Nạp vào RAG
+            {isGold && String(item.usage || '').toUpperCase() === 'EVALUATION'
+              ? 'Duyệt holdout'
+              : isGold
+                ? 'Nạp ghi chú theo sách'
+                : 'Phê duyệt'}
           </ActionButton>
         </Space>
       </div>

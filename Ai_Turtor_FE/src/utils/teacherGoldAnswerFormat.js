@@ -3,12 +3,19 @@ import { normalizeAiMarkdown } from './markdownPreprocessor.js';
 const CODE_TOKEN = /(?:<%@[\s\S]*?%>|<%=?[\s\S]*?%>|<\/?(?:jsp:)?[A-Za-z][\w:.-]*\b[^>]*>)/g;
 const CODE_LINE = /(?:<%@|<%=?|%>|<jsp:|<\/jsp:)|(?:^\s*<\/?[A-Za-z][\w:.-]*[\s/>])|(?:[{};]\s*$)/;
 const LABEL_LINE = /^(định nghĩa|khái niệm|cú pháp|ví dụ|lưu ý|khác biệt|so sánh|ưu điểm|nhược điểm|jspx?|xml|html)\s*[:：]\s+/i;
+const VI_CAPITAL = 'A-ZÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴÈÉẸẺẼÊỀẾỆỂỄÌÍỊỈĨÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠÙÚỤỦŨƯỪỨỰỬỮỲÝỴỶỸĐ';
+const VI_LOWER = 'a-zàáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹ';
+const CLAUSE_BREAK = new RegExp(
+  `([\\p{L}\\p{N}.)\\]])\\s+(?=[${VI_CAPITAL}][${VI_LOWER}])`,
+  'gu',
+);
 
 const looksLikeMarkdown = (text) => (
   /(^|\n)\s{0,3}#{1,6}\s+\S/.test(text)
   || /(^|\n)```/.test(text)
   || /(^|\n)\|.+\|/.test(text)
   || /\*\*[^*\n]{2,}\*\*/.test(text)
+  || /(^|\n)\s*[-*•]\s+\S/.test(text)
 );
 
 const looksLikeCodeLine = (line) => {
@@ -19,11 +26,13 @@ const looksLikeCodeLine = (line) => {
 };
 
 function wrapInlineCode(text) {
-  return text.replace(CODE_TOKEN, (token) => {
-    const compact = token.replace(/\s+/g, ' ').trim();
-    if (!compact || compact.includes('`')) return token;
-    return `\`${compact}\``;
-  });
+  return text
+    .replace(CODE_TOKEN, (token) => {
+      const compact = token.replace(/\s+/g, ' ').trim();
+      if (!compact || compact.includes('`')) return token;
+      return `\`${compact}\``;
+    })
+    .replace(/(?<![\w`])(\.[A-Za-z][A-Za-z0-9]{1,8})\b/g, '`$1`');
 }
 
 function fenceCodeRuns(text) {
@@ -67,11 +76,48 @@ function breakPackedSentences(text) {
   return text.replace(/([.!?…])[ \t]+(?=[\p{Lu}“"0-9])/gu, '$1\n\n');
 }
 
+function splitPackedClauses(text) {
+  return text.replace(CLAUSE_BREAK, '$1\n');
+}
+
+function toBulletList(lines) {
+  const items = lines
+    .map((line) => line.replace(/^\s*[-*•]\s+/, '').trim())
+    .filter(Boolean);
+  if (items.length <= 1) return items[0] || '';
+  return items.map((item) => `- ${item}`).join('\n');
+}
+
+function promoteReadablePoints(text) {
+  const rawLines = text
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (rawLines.length >= 2) {
+    return toBulletList(rawLines);
+  }
+
+  const single = rawLines[0] || '';
+  const clauseLines = splitPackedClauses(single)
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (clauseLines.length >= 2) {
+    return toBulletList(clauseLines);
+  }
+
+  return single;
+}
+
 function promoteShortLead(text) {
   const blocks = text.split(/\n{2,}/);
   if (blocks.length < 2) return text;
   const lead = blocks[0].trim();
-  if (lead.length > 72 || /[.!?]$/.test(lead) || lead.startsWith('#')) return text;
+  if (lead.length > 72 || /[.!?]$/.test(lead) || lead.startsWith('#') || lead.startsWith('- ')) {
+    return text;
+  }
   blocks[0] = `### ${lead}`;
   return blocks.join('\n\n');
 }
@@ -80,7 +126,18 @@ export function formatTeacherGoldAnswer(input = '') {
   const raw = String(input || '').trim();
   if (!raw) return '';
 
-  if (looksLikeMarkdown(raw)) {
+  if (looksLikeMarkdown(raw) && /(^|\n)\s*[-*•]\s+\S/.test(raw)) {
+    return normalizeAiMarkdown(raw);
+  }
+
+  if (looksLikeMarkdown(raw) && !/(^|\n)\s*[-*•]\s+\S/.test(raw)) {
+    // Keep intentional markdown, but still bulletize plain multi-line bodies.
+    const withPoints = promoteReadablePoints(
+      raw.replace(/\r\n/g, '\n').replace(/\r/g, '\n'),
+    );
+    if (withPoints.includes('\n- ') || withPoints.startsWith('- ')) {
+      return normalizeAiMarkdown(withPoints);
+    }
     return normalizeAiMarkdown(raw);
   }
 
@@ -90,6 +147,7 @@ export function formatTeacherGoldAnswer(input = '') {
     .replace(/[ \t]+\n/g, '\n')
     .replace(/[ \t]{2,}/g, ' ');
 
+  text = promoteReadablePoints(text);
   text = wrapInlineCode(text);
   text = fenceCodeRuns(text);
   text = breakPackedSentences(text);

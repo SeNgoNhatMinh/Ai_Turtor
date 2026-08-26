@@ -2,15 +2,32 @@ import { BrowserRouter, Navigate, Route, Routes, useOutletContext } from 'react-
 import { normalizeAccountRole } from '../constants/roles';
 import App from '../App.jsx';
 import WorkspaceRoute from './workspaces/WorkspaceRoute';
-import { appRoutes, getHomeRouteForRole } from './routes';
+import { appRoutes, getHomeRouteForRole, getRouteState } from './routes';
+import { readLastPath } from '../utils/storage';
 
-function HomeRedirect() {
-  const context = useOutletContext();
+function resolveHomePath(context) {
   const accountRole = normalizeAccountRole(
     context.workspaceProps?.currentUser?.originalRole
       || context.workspaceProps?.currentUser?.role,
   );
-  return <Navigate to={getHomeRouteForRole(accountRole || context.activeRole || context.currentUserRole)} replace />;
+  const roleHome = getHomeRouteForRole(accountRole || context.activeRole || context.currentUserRole);
+  const lastPath = readLastPath();
+  if (!lastPath || lastPath === '/' || lastPath.startsWith('/login')) return roleHome;
+
+  const pathname = lastPath.split('?')[0] || '';
+  const lastRoute = getRouteState(pathname);
+  if (!lastRoute) return roleHome;
+
+  const workspaceRole = context.currentUserRole || '';
+  if (workspaceRole && workspaceRole !== 'admin' && lastRoute.role !== workspaceRole) {
+    return roleHome;
+  }
+  return lastPath;
+}
+
+function HomeRedirect() {
+  const context = useOutletContext();
+  return <Navigate to={resolveHomePath(context)} replace />;
 }
 
 function LegacyExpertTrainingRedirect({ admin = false }) {

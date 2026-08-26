@@ -23,7 +23,7 @@ describe('useAuthSession role recovery', () => {
 
   it('repairs an old STUDENT session using the role in JWT', () => {
     window.localStorage.setItem('ai_tutor_jwt', createToken({ role: 'ADMIN' }));
-    window.sessionStorage.setItem('ai-tutor:current-user', JSON.stringify({
+    window.localStorage.setItem('ai-tutor:current-user', JSON.stringify({
       userId: 'admin-1',
       email: 'admin@example.com',
       role: 'STUDENT',
@@ -35,8 +35,24 @@ describe('useAuthSession role recovery', () => {
     expect(result.current.currentUserRole).toBe('admin');
   });
 
-  it('discards an unverified legacy session without a valid JWT role', () => {
+  it('migrates a legacy sessionStorage user into localStorage', () => {
+    window.localStorage.setItem('ai_tutor_jwt', createToken({ role: 'TEACHER' }));
     window.sessionStorage.setItem('ai-tutor:current-user', JSON.stringify({
+      userId: 'teacher-1',
+      email: 'teacher@example.com',
+      role: 'TEACHER',
+      authRoleVerified: true,
+    }));
+
+    const { result } = renderHook(() => useAuthSession());
+
+    expect(result.current.currentUser.role).toBe('TEACHER');
+    expect(window.localStorage.getItem('ai-tutor:current-user')).toContain('teacher-1');
+    expect(window.sessionStorage.getItem('ai-tutor:current-user')).toBeNull();
+  });
+
+  it('discards an unverified legacy session without a valid JWT role', () => {
+    window.localStorage.setItem('ai-tutor:current-user', JSON.stringify({
       userId: 'teacher-1',
       role: 'STUDENT',
     }));
@@ -60,5 +76,6 @@ describe('useAuthSession role recovery', () => {
 
     expect(result.current.currentUser.role).toBe('TEACHER');
     expect(result.current.currentUserRole).toBe('teacher');
+    expect(window.localStorage.getItem('ai-tutor:current-user')).toContain('teacher-1');
   });
 });

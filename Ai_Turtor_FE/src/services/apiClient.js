@@ -1,6 +1,7 @@
 import { env } from '../config/env';
 import { getUserFacingError, httpClient, httpRequest, ApiError } from './httpClient';
 import { clearAuthToken, getAuthToken } from '../features/auth/services/tokenStorage';
+import { APP_SESSION_USER_KEY, clearLastPath, removeJsonStorage } from '../utils/storage';
 
 export const API_BASE_URL = env.apiBaseUrl;
 export const API_TIMEOUTS = {
@@ -42,7 +43,8 @@ function handleUnauthorized(error) {
   unauthorizedRedirectStarted = true;
   clearAuthToken();
   if (typeof window !== 'undefined') {
-    window.sessionStorage.removeItem('ai-tutor:current-user');
+    removeJsonStorage(APP_SESSION_USER_KEY);
+    clearLastPath();
     window.location.reload();
   }
 }

@@ -4,7 +4,7 @@
   "nodes": [
     {
       "parameters": {
-        "content": "1) Nộp + chấm → EXAMINED (Teacher giữ bài)\n2) Thi lại (optional)\n3) Teacher bấm gửi Senior → PENDING_REVIEW\n4) Senior duyệt → index RAG (AI mới nhớ Gold Q&A)",
+        "content": "1) Teacher nộp + xem trước câu SV (sách + tóm tắt, chưa index) → EXAMINED\n2) Thi lại = xem trước lại cho đủ ý\n3) Gửi Senior → PENDING_REVIEW\n4) Senior chỉ duyệt nạp TRAINING vào RAG (EVALUATION không index)",
         "height": 110,
         "width": 980,
         "color": 5

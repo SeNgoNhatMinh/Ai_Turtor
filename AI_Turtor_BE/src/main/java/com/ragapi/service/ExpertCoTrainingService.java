@@ -227,9 +227,9 @@ public class ExpertCoTrainingService {
             task.setType("GOLD_QA");
             task.setPriority(80);
             task.setTitle("Q&A vàng " + index + "/" + count + " — " + chapter);
-            task.setInstructions("Viết một câu hỏi và đáp án vàng theo giáo trình chương này. "
-                    + "Sau khi nộp, hệ thống hỏi AI bằng tài liệu đã embed (chưa nạp Q&A vào RAG) rồi gửi bài thi cho Senior. "
-                    + "Nếu bài thi tốt và hợp tài liệu, Senior nạp vào RAG.");
+            task.setInstructions("Giáo trình là chuẩn duy nhất. "
+                    + "Soạn câu hỏi + tóm tắt ý từ sách, rồi Lưu/Thi lại để xem trước câu AI sẽ trả cho SV (sách + tóm tắt, chưa nạp RAG). "
+                    + "Khi câu đủ ý mới Gửi Senior — Senior chỉ duyệt nạp TRAINING, không phải bước làm AI tốt hơn.");
             task.setCreatedBy(createdBy);
             task.setDueAt(dueAt);
             created.add(createTask(task));
@@ -501,13 +501,26 @@ public class ExpertCoTrainingService {
         if (!approve) {
             gold.setRejectionReason(requireMaxLength(request.getRejectionReason(), "rejectionReason", DEFAULT_TEXT_MAX_LENGTH));
             gold.setStatus("REJECTED");
+        } else if ("EVALUATION".equalsIgnoreCase(gold.getUsage())) {
+            // Holdout only: never index teacher text into RAG (textbook remains sole factual source).
+            gold.setStatus("APPROVED");
+            gold.setHoldout(true);
+            gold.setIndexedAt(null);
         } else {
-            String content = "Question: " + gold.getQuestion() + "\nGold answer: " + gold.getGoldAnswer();
+            // TRAINING: index as a book-aligned teaching note, not as an override of the textbook.
+            String content = ""
+                    + "Course-material teaching note (textbook/course materials are authoritative; this note must not contradict them).\n"
+                    + "Chapter: " + (gold.getChapter() == null ? "" : gold.getChapter()) + "\n"
+                    + "Student question: " + gold.getQuestion() + "\n"
+                    + "Key points summarized from course materials:\n"
+                    + gold.getGoldAnswer();
             vectorService.indexChunk(gold.getCourseId(), null, gold.getAuthorId(), gold.getId(), "COURSE_SHARED", "GOLD_QA", null, null, content);
-            gold.setStatus("INDEXED"); gold.setIndexedAt(now); gold.setHoldout(false);
+            gold.setStatus("INDEXED");
+            gold.setIndexedAt(now);
+            gold.setHoldout(false);
         }
         GoldQa saved = goldQaRepository.save(gold);
-        if (approve) {
+        if (approve && "INDEXED".equalsIgnoreCase(saved.getStatus())) {
             answerCacheService.evictRagAnswersForCourse(saved.getCourseId());
         }
         completeReviewedTask(saved.getSourceTaskId(), approve);
@@ -594,7 +607,7 @@ public class ExpertCoTrainingService {
 
     private void examineAgainstTextbook(GoldQa gold) {
         try {
-            ExamSnapshot exam = scoreAgainstTextbook(gold, 0.6);
+            ExamSnapshot exam = scoreTrainingPreview(gold, 0.6);
             gold.setExamAiAnswer(exam.aiAnswer());
             gold.setExamScore(exam.score());
             gold.setExamRagConfidence(exam.confidence());
@@ -613,11 +626,14 @@ public class ExpertCoTrainingService {
         }
     }
 
-    private ExamSnapshot scoreAgainstTextbook(GoldQa gold, double threshold) throws Exception {
-        CourseRagAnswer answer = courseRagService.askWithConfidenceFromTextbook(
+    /** Preview student-facing answer with draft teaching note (no RAG index yet). */
+    private ExamSnapshot scoreTrainingPreview(GoldQa gold, double threshold) throws Exception {
+        CourseRagAnswer answer = courseRagService.askWithConfidencePreviewingTrainingNote(
                 gold.getQuestion(),
                 gold.getCourseId(),
-                null
+                null,
+                gold.getChapter(),
+                gold.getGoldAnswer()
         );
         return scoreAnswer(gold, answer, threshold);
     }
@@ -676,12 +692,12 @@ public class ExpertCoTrainingService {
             doEval = evaluation && includeBenchmark;
         }
         if (doTraining) {
-            createAutomaticTask(gap, createdBy, "Soạn Gold Q&A training",
-                    "Tạo dữ liệu chuẩn để nạp vào RAG Brain. Chọn usage=TRAINING.", dueAt);
+            createAutomaticTask(gap, createdBy, "Soạn Q&A training theo giáo trình",
+                    "Giáo trình là chuẩn. Soạn câu hỏi + tóm tắt ý từ sách (usage=TRAINING). Không viết đáp án thay sách.", dueAt);
         }
         if (doEval) {
-            createAutomaticTask(gap, createdBy, "Soạn Gold Q&A holdout",
-                    "Tạo câu benchmark không được index vào RAG. Chọn usage=EVALUATION.", dueAt);
+            createAutomaticTask(gap, createdBy, "Soạn Q&A holdout theo giáo trình",
+                    "Giáo trình là chuẩn. Soạn câu benchmark từ sách (usage=EVALUATION). Không index vào RAG.", dueAt);
         }
     }
     private void createAutomaticTask(CoverageGap gap, String createdBy, String title, String instructions, LocalDateTime dueAt) {

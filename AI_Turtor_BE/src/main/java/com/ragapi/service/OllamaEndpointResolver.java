@@ -62,17 +62,57 @@ final class OllamaEndpointResolver {
         if (primary != null) {
             ordered.add(primary);
         }
-        ordered.add("http://127.0.0.1:11434");
-        ordered.add("http://localhost:11434");
+        // Prefer compose service DNS before loopback (loopback inside a container is wrong).
+        ordered.add("http://ollama:11434");
+        ordered.add("http://host.docker.internal:11434");
+        boolean configuredIsLoopback = primary != null && (primary.contains("127.0.0.1") || primary.contains("localhost"));
+        if (configuredIsLoopback || primary == null) {
+            ordered.add("http://127.0.0.1:11434");
+            ordered.add("http://localhost:11434");
+        }
         if (primary != null && primary.contains("host.docker.internal")) {
-            ordered.add(primary.replace("host.docker.internal", "127.0.0.1"));
-            ordered.add(primary.replace("host.docker.internal", "localhost"));
+            ordered.add(primary.replace("host.docker.internal", "ollama"));
         }
         return new ArrayList<>(ordered);
     }
 
-    static void clearCacheForTests() {
-        CACHE.set(null);
+    static java.util.Optional<Set<String>> listInstalledModels(String baseUrl) {
+        String resolved = resolve(baseUrl);
+        try {
+            HttpClient client = HttpClient.newBuilder()
+                    .connectTimeout(PROBE_TIMEOUT)
+                    .build();
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(trimSlash(resolved) + "/api/tags"))
+                    .timeout(PROBE_TIMEOUT)
+                    .GET()
+                    .build();
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() < 200 || response.statusCode() >= 300 || response.body() == null) {
+                return java.util.Optional.empty();
+            }
+            Set<String> names = new LinkedHashSet<>();
+            // Lightweight parse: "name":"model:tag"
+            java.util.regex.Matcher matcher = java.util.regex.Pattern
+                    .compile("\"name\"\\s*:\\s*\"([^\"]+)\"")
+                    .matcher(response.body());
+            while (matcher.find()) {
+                names.add(matcher.group(1));
+            }
+            return java.util.Optional.of(names);
+        } catch (Exception error) {
+            log.warn("Failed to list Ollama models from {}: {}", resolved, error.getMessage());
+            return java.util.Optional.empty();
+        }
+    }
+
+    static boolean isModelInstalled(String baseUrl, String modelName) {
+        if (modelName == null || modelName.isBlank()) {
+            return false;
+        }
+        return listInstalledModels(baseUrl)
+                .map(models -> models.stream().anyMatch(name -> name.equalsIgnoreCase(modelName.trim())))
+                .orElse(true); // if probe fails, do not block admin updates
     }
 
     private static boolean isReachable(HttpClient client, String baseUrl) {

@@ -144,6 +144,11 @@ public class LlmProviderAdminService {
             if (model.isEmpty()) {
                 override.setModel(null);
             } else {
+                if (slot.kind() == LlmRuntimeSlot.LlmRuntimeSlotKind.OLLAMA
+                        && !OllamaEndpointResolver.isModelInstalled(slot.baseUrl(), model)) {
+                    throw new IllegalArgumentException(
+                            "Ollama model '" + model + "' is not installed. Run: ollama pull " + model);
+                }
                 override.setModel(model);
             }
         }
