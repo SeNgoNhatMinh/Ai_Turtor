@@ -74,6 +74,11 @@ export function cleanChapterExcerptRaw(text) {
   value = value.replace(PDF_INDD_ARTIFACT, ' ');
   value = value.replace(PDF_PAGE_FOOTER, ' ');
   value = value.replace(PDF_PAGE_HEADER, '');
+  // Website imports may store figure URLs separately for the gallery.
+  value = value.replace(/^Figure:\s*https?:\/\/\S+\s*$/gim, '');
+  value = value.replace(/^Source URL:\s*\S+\s*$/gim, '');
+  value = value.replace(/^Page title:\s*.+$/gim, '');
+  value = value.replace(/\n{3,}/g, '\n\n').trim();
   if (!looksLikeCodeText(value)) {
     value = value.replace(/\s+In This Chapter\s+/gi, '\n\nIn This Chapter\n\n');
     value = value.replace(/\s>>\s+/g, '\n• ');

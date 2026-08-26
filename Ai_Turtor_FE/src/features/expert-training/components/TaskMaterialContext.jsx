@@ -2,6 +2,7 @@ import { Alert, Card, Empty, Skeleton, Space, Tag, Typography } from 'antd';
 import { ExternalLink } from 'lucide-react';
 import ActionButton from '../../../components/common/ActionButton';
 import StatusLabel from '../../../components/common/StatusLabel';
+import { parseChapterExcerptBlocks } from '../chapterExcerptFormat';
 import ChapterPageViewer from './ChapterPageViewer';
 import {
   getDetectedFromLabel,
@@ -12,6 +13,33 @@ import {
 } from '../expertTrainingUtils';
 
 const { Text } = Typography;
+
+function ExcerptBlocks({ excerpt }) {
+  const blocks = parseChapterExcerptBlocks(excerpt);
+  if (!blocks.length) {
+    return <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Chưa có đoạn trích học liệu." />;
+  }
+  return (
+    <div className="expert-training__excerpt-scroll expert-training__task-material-excerpt">
+      {blocks.map((block, index) => {
+        if (block.type === 'heading') {
+          return <h4 key={`h-${index}`} className="expert-training__excerpt-heading">{block.text}</h4>;
+        }
+        if (block.type === 'list' || block.type === 'list-item') {
+          return <p key={`l-${index}`} className="expert-training__excerpt-list-item">{block.text}</p>;
+        }
+        if (block.type === 'code') {
+          return (
+            <pre key={`c-${index}`} className="expert-training__excerpt-sample-code">
+              <code>{block.text}</code>
+            </pre>
+          );
+        }
+        return <p key={`p-${index}`} className="expert-training__excerpt-paragraph">{block.text}</p>;
+      })}
+    </div>
+  );
+}
 
 export default function TaskMaterialContext({
   preview,
@@ -42,6 +70,7 @@ export default function TaskMaterialContext({
   const health = getMaterialHealthMeta(preview.materialHealth);
   const chapterStatus = getChapterStatusMeta(preview.status);
   const detectedFromLabel = getDetectedFromLabel(preview.detectedFrom);
+  const pdfTarget = getChapterPdfOpenTarget(preview, preview);
 
   return (
     <Card
@@ -69,13 +98,37 @@ export default function TaskMaterialContext({
           />
         )}
 
-        <ChapterPageViewer
-          courseId={preview.courseId}
-          materialId={getChapterPdfOpenTarget(preview, preview)?.source?.id}
-          pageStart={preview.pageStart}
-          pageEnd={preview.pageEnd}
-          title={preview.title}
-        />
+        {pdfTarget ? (
+          <ChapterPageViewer
+            courseId={preview.courseId}
+            materialId={pdfTarget.source?.id}
+            pageStart={pdfTarget.pageStart}
+            pageEnd={pdfTarget.pageEnd}
+            title={preview.title}
+          />
+        ) : (
+          <>
+            {Array.isArray(preview.imageUrls) && preview.imageUrls.length > 0 && (
+              <div className="expert-training__chapter-figures-grid">
+                {preview.imageUrls.slice(0, 8).map((url) => (
+                  <a key={url} href={url} target="_blank" rel="noopener noreferrer" className="expert-training__chapter-figure">
+                    <img src={url} alt="" loading="lazy" referrerPolicy="no-referrer" />
+                  </a>
+                ))}
+              </div>
+            )}
+            {preview.sourcePageUrl && (
+              <ActionButton
+                size="small"
+                icon={<ExternalLink size={14} />}
+                onClick={() => window.open(preview.sourcePageUrl, '_blank', 'noopener,noreferrer')}
+              >
+                Mở trang nguồn
+              </ActionButton>
+            )}
+            <ExcerptBlocks excerpt={preview.excerpt || ''} />
+          </>
+        )}
 
         <div className="expert-training__task-material-sources">
           <strong>Nguồn tham khảo</strong>

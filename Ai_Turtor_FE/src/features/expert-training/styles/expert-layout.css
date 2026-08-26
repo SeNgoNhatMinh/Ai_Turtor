@@ -319,6 +319,152 @@
   min-width: 0;
 }
 
+.expert-training__editor-stack {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.expert-qa-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.expert-qa-list {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.expert-qa-card {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.expert-qa-card.is-expanded {
+  border-color: #f37021;
+  box-shadow: 0 0 0 1px rgba(243, 112, 33, 0.15);
+}
+
+.expert-qa-card__head {
+  display: grid;
+  gap: 8px;
+}
+
+.expert-qa-card__toggle {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.expert-qa-card__index {
+  font-weight: 700;
+  color: #9a3412;
+}
+
+.expert-qa-card__title {
+  color: #111827;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.expert-qa-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.expert-qa-card__summary {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #f9fafb;
+  color: #4b5563;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.expert-qa-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.expert-qa-card__exam {
+  padding-top: 10px;
+  border-top: 1px solid #eef1f5;
+}
+
+@media (max-width: 900px) {
+  .expert-exam-duo {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.expert-training__qa-list {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.expert-training__qa-list-hint {
+  margin: 0;
+  color: #6b7280;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.expert-training__qa-list-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+}
+
+.expert-training__qa-list-item.is-selected {
+  border-color: #f37021;
+  background: rgba(243, 112, 33, 0.06);
+}
+
+.expert-training__qa-list-item.is-draft {
+  cursor: default;
+  border-style: dashed;
+}
+
+.expert-training__qa-list-index {
+  font-weight: 700;
+  color: #9a3412;
+  min-width: 1.75rem;
+}
+
+.expert-training__qa-list-question {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #111827;
+}
+
 .expert-training__material-aside {
   position: sticky;
   top: 16px;
@@ -438,7 +584,9 @@
 
 .expert-training__form-actions {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
+  gap: 8px;
   margin-top: 18px;
 }
 

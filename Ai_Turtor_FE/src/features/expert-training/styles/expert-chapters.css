@@ -20,6 +20,13 @@
   flex-wrap: wrap;
 }
 
+.expert-training__toc-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .expert-training__toc-toolbar h2 {
   margin: 0 0 4px;
   font-size: 18px;
@@ -217,6 +224,38 @@
   background: #f7f7f5;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
+}
+
+.expert-training__chapter-figures {
+  display: grid;
+  gap: 10px;
+}
+
+.expert-training__chapter-figures h3 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.expert-training__chapter-figures-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 10px;
+}
+
+.expert-training__chapter-figure {
+  display: block;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.expert-training__chapter-figure img {
+  display: block;
+  width: 100%;
+  height: 140px;
+  object-fit: contain;
+  background: #fff;
 }
 
 .expert-training__chapter-excerpt h3,

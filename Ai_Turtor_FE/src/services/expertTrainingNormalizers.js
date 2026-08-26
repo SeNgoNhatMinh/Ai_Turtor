@@ -60,6 +60,10 @@ export const normalizeChapterPreview = (preview = {}) => ({
   pageStart: finiteNumber(preview.pageStart),
   pageEnd: finiteNumber(preview.pageEnd),
   primarySourceMaterialId: preview.primarySourceMaterialId || '',
+  sourcePageUrl: preview.sourcePageUrl || '',
+  imageUrls: Array.isArray(preview.imageUrls)
+    ? preview.imageUrls.map((url) => String(url || '').trim()).filter(Boolean)
+    : [],
   sourceMaterials: Array.isArray(preview.sourceMaterials)
     ? preview.sourceMaterials.map(normalizeChapterSourceMaterial).filter((item) => item.id)
     : [],
@@ -110,13 +114,20 @@ export const normalizeGoldQa = (item = {}) => ({
   difficulty: normalizedStatus(item.difficulty, 'MEDIUM'),
   usage: normalizedStatus(item.usage, 'TRAINING'),
   holdout: false,
-  status: normalizedStatus(item.status, 'PENDING_REVIEW'),
+  status: normalizedStatus(item.status, 'DRAFT'),
   examAiAnswer: item.examAiAnswer || '',
   examScore: item.examScore == null ? null : finiteNumber(item.examScore),
   examRagConfidence: item.examRagConfidence == null ? null : finiteNumber(item.examRagConfidence),
   examPassed: item.examPassed == null ? null : Boolean(item.examPassed),
   examHallucinated: Boolean(item.examHallucinated),
   examError: item.examError || '',
+  examBaselineAiAnswer: item.examBaselineAiAnswer || '',
+  examBaselineScore: item.examBaselineScore == null ? null : finiteNumber(item.examBaselineScore),
+  examBaselineRagConfidence: item.examBaselineRagConfidence == null
+    ? null
+    : finiteNumber(item.examBaselineRagConfidence),
+  examBaselinePassed: item.examBaselinePassed == null ? null : Boolean(item.examBaselinePassed),
+  examUsedTeachingNote: Boolean(item.examUsedTeachingNote),
   examinedAt: item.examinedAt || null,
   authorId: item.authorId || '',
   sourceTaskId: item.sourceTaskId || item.taskId || '',

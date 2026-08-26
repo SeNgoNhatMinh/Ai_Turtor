@@ -25,6 +25,18 @@ public class ExpertCoTrainingController {
         return respond(() -> Map.of("chapters", chapterOutlineService.suggestChapters(courseId)));
     }
 
+    @PostMapping("/chapters/refresh")
+    @Operation(summary = "Force rebuild chapter outlines from indexed PDF bookmarks and HTML URL sections")
+    public ResponseEntity<?> refreshChapters(@RequestParam String courseId) {
+        return respond(() -> Map.of("chapters", chapterOutlineService.refreshChapters(courseId)));
+    }
+
+    @PostMapping("/chapters/refresh-html")
+    @Operation(summary = "Force rebuild chapter outlines for every course with indexed HTML_URL materials")
+    public ResponseEntity<?> refreshAllHtmlCourseChapters() {
+        return respond(chapterOutlineService::refreshAllHtmlCourseChapters);
+    }
+
     @PostMapping("/chapters/confirm")
     @Operation(summary = "Confirm which suggested chapters senior will use for V2 coverage")
     public ResponseEntity<?> confirmChapters(@RequestBody ConfirmChaptersRequest request) {
@@ -141,17 +153,28 @@ public class ExpertCoTrainingController {
     }
 
     @PostMapping("/gold-qa")
-    @Operation(summary = "Teacher submits Gold Q&A. Default exam=true scores AI vs Teacher Gold Q&A on the textbook.")
+    @Operation(summary = "Teacher saves Gold Q&A. Default exam=false keeps DRAFT list item. exam=true runs first baseline exam.")
     public ResponseEntity<?> submitGoldQa(
             @RequestBody SubmitGoldQaRequest request,
-            @RequestParam(defaultValue = "true") boolean exam) {
+            @RequestParam(defaultValue = "false") boolean exam) {
         return respond(() -> exam ? service.submitGoldQaAndExam(request) : service.submitGoldQa(request));
     }
 
     @PostMapping("/gold-qa/{id}/exam")
-    @Operation(summary = "Score AI textbook answer against Teacher Gold Q&A. Keeps draft with Teacher; does not notify Senior.")
+    @Operation(summary = "First exam = baseline without teaching note; retake injects teacher notes for before/after compare.")
     public ResponseEntity<?> examGoldQa(@PathVariable String id) {
         return respond(() -> service.examGoldQa(id));
+    }
+
+    @DeleteMapping("/gold-qa/{id}")
+    @Operation(summary = "Teacher deletes a draft/examined Gold Q&A they authored (not pending Senior review).")
+    public ResponseEntity<?> deleteGoldQa(
+            @PathVariable String id,
+            @RequestParam String authorId) {
+        return respond(() -> {
+            service.deleteGoldQa(id, authorId);
+            return Map.of("status", "DELETED", "goldQaId", id);
+        });
     }
 
     @PostMapping("/gold-qa/{id}/send-for-review")

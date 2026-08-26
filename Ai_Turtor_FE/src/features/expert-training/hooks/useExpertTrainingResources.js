@@ -115,6 +115,14 @@ export function useExpertTrainingResources({
     });
   }, [courseId, loadWithState, updateResource]);
 
+  const refreshChapters = useCallback(() => {
+    if (!courseId) return Promise.resolve([]);
+    return loadWithState('chapters', () => expertTrainingApi.refreshChapters(courseId), (items) => {
+      updateResource('chapters', items);
+      triggerToast?.(`Đã làm mới mục lục: ${items?.length || 0} chương.`);
+    });
+  }, [courseId, loadWithState, triggerToast, updateResource]);
+
   const loadTasks = useCallback(() => {
     if (!courseId) return Promise.resolve([]);
     return loadWithState('tasks', () => expertTrainingApi.getTasks({ courseId }), (items) => {
@@ -187,19 +195,19 @@ export function useExpertTrainingResources({
     [resources.tasks, selectedTaskId],
   );
 
-  const selectedTaskContribution = useMemo(() => {
-    if (!selectedTask) return null;
+  const selectedTaskContributions = useMemo(() => {
+    if (!selectedTask) return [];
     return resources.goldQa
       .filter((item) => item.sourceTaskId === selectedTask.id)
       .sort((left, right) => (
-        new Date(right.updatedAt || right.reviewedAt || right.examinedAt || 0)
-        - new Date(left.updatedAt || left.reviewedAt || left.examinedAt || 0)
-      ))[0] || null;
+        new Date(left.createdAt || left.updatedAt || 0)
+        - new Date(right.createdAt || right.updatedAt || 0)
+      ));
   }, [resources.goldQa, selectedTask]);
 
-  const selectedTaskRejection = selectedTaskContribution?.status === 'REJECTED'
-    ? selectedTaskContribution
-    : null;
+  const selectedTaskContribution = selectedTaskContributions[selectedTaskContributions.length - 1] || null;
+
+  const selectedTaskRejection = selectedTaskContributions.find((item) => item.status === 'REJECTED') || null;
 
   const pendingReviewCount = useMemo(() => (
     resources.goldQa.filter((item) => item.status === 'PENDING_REVIEW').length
@@ -298,6 +306,7 @@ export function useExpertTrainingResources({
     errors,
     selectedTask,
     selectedTaskContribution,
+    selectedTaskContributions,
     selectedTaskRejection,
     chapterPreview,
     setChapterPreview,
@@ -309,6 +318,7 @@ export function useExpertTrainingResources({
     pendingReviewCount,
     loadCourses,
     loadChapters,
+    refreshChapters,
     loadTasks,
     loadContributions,
     loadGaps,

@@ -44,7 +44,12 @@ export function useExpertTrainingController({
     setPendingAction(key);
     try {
       const result = await action();
-      triggerToast?.(successMessage);
+      if (typeof successMessage === 'function') {
+        const message = successMessage(result);
+        if (message) triggerToast?.(message);
+      } else if (successMessage) {
+        triggerToast?.(successMessage);
+      }
       await refresh?.();
       return result;
     } catch (error) {
@@ -132,22 +137,59 @@ export function useExpertTrainingController({
     });
   }, [loadTasks, reviewerRole, runMutation, triggerToast, userId]);
 
-  const submitGoldQa = useCallback((payload) => runMutation({
-    key: 'submit-gold-qa',
+  const submitGoldQa = useCallback((payload, options = {}) => runMutation({
+    key: options.exam === true ? 'submit-gold-qa' : 'save-gold-draft',
     action: () => expertTrainingGateway.submitGoldQa({
       ...payload,
       courseId,
       authorId: userId,
-    }),
-    successMessage: 'Đã xem trước câu SV (sách + tóm tắt, chưa nạp RAG). Thi lại nếu muốn kiểm lại.',
+    }, { exam: options.exam === true }),
+    successMessage: options.exam === true
+      ? 'Đã lưu và cho AI thi lần 1 (chưa gắn ý GV).'
+      : 'Đã thêm vào danh sách (bản nháp). Chưa cho AI thi.',
+    refresh: () => Promise.allSettled([loadTasks(), loadContributions()]),
   }), [courseId, loadContributions, loadTasks, runMutation, userId]);
 
   const examGoldQa = useCallback((goldQaId) => runMutation({
     key: `exam-gold-qa:${goldQaId}`,
     action: () => expertTrainingGateway.examGoldQa(goldQaId),
-    successMessage: 'Đã Thi lại — đây là câu AI sẽ trả cho SV sau khi TRAINING được nạp.',
+    successMessage: (result) => (
+      result?.status === 'BASELINE_EXAMINED'
+        ? 'AI đã thi lần 1 (chưa gắn ý GV). Còn 1 lượt thi lại để gộp ý GV.'
+        : 'AI đã thi lại: gộp lần 1 + ý GV. Đã hết 2 lượt — gửi Senior khi ổn.'
+    ),
     refresh: () => Promise.allSettled([loadTasks(), loadContributions()]),
   }), [loadContributions, loadTasks, runMutation]);
+
+  const examAllDraftGoldQa = useCallback(async (goldQaIds = []) => {
+    const ids = (goldQaIds || []).filter(Boolean);
+    if (!ids.length) {
+      triggerToast?.('Không có câu nháp nào cần AI thi.');
+      return null;
+    }
+    let last = null;
+    for (const id of ids) {
+      last = await runMutation({
+        key: `exam-gold-qa:${id}`,
+        action: () => expertTrainingGateway.examGoldQa(id),
+        successMessage: null,
+        refresh: null,
+      });
+      if (!last) break;
+    }
+    await Promise.allSettled([loadTasks(), loadContributions()]);
+    if (last) {
+      triggerToast?.(`Đã cho AI thi lần 1 (${ids.length} câu). Thi lại từng câu để gắn ý GV.`);
+    }
+    return last;
+  }, [loadContributions, loadTasks, runMutation, triggerToast]);
+
+  const deleteGoldQa = useCallback((goldQaId) => runMutation({
+    key: `delete-gold-qa:${goldQaId}`,
+    action: () => expertTrainingGateway.deleteGoldQa(goldQaId, userId),
+    successMessage: 'Đã xóa câu hỏi khỏi danh sách.',
+    refresh: () => Promise.allSettled([loadTasks(), loadContributions()]),
+  }), [loadContributions, loadTasks, runMutation, userId]);
 
   const sendGoldQaForReview = useCallback((goldQaId) => runMutation({
     key: `send-gold-qa:${goldQaId}`,
@@ -179,7 +221,7 @@ export function useExpertTrainingController({
       ? item.usage === 'TRAINING'
         ? 'Đã nạp ghi chú theo giáo trình vào RAG (sách vẫn là chuẩn).'
         : 'Đã duyệt holdout EVALUATION (không nạp vào RAG).'
-      : 'Cần chỉnh tóm tắt cho khớp giáo trình trước khi duyệt lại.',
+      : 'Cần chỉnh tóm tắt cho khớp giáo trình. Lượt thi AI đã reset — Teacher thi lại 2 lần rồi gửi.',
     refresh: () => Promise.allSettled([loadTasks(), loadContributions()]),
   }), [loadContributions, loadTasks, reviewerRole, runMutation, userId]);
 
@@ -222,6 +264,8 @@ export function useExpertTrainingController({
     claimTask,
     submitGoldQa,
     examGoldQa,
+    examAllDraftGoldQa,
+    deleteGoldQa,
     sendGoldQaForReview,
     submitRubric,
     reviewGoldQa,

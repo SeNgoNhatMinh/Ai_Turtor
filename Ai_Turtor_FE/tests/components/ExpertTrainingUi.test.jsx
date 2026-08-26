@@ -130,18 +130,16 @@ describe('Tutor V2 UI rules', () => {
         userId="teacher-1"
         pendingAction=""
         onSubmitGoldQa={vi.fn()}
-        onSubmitRubric={vi.fn()}
         materialPreview={null}
         materialLoading={false}
         materialError=""
-        rejection={null}
         onOpenMaterial={vi.fn()}
       />,
     );
 
     expect(screen.getByText('Task này không thuộc về bạn')).toBeInTheDocument();
-    expect(screen.getByLabelText('Chương')).toHaveAttribute('readonly');
-    expect(screen.getByRole('button', { name: 'Lưu và xem trước câu SV' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Thêm câu hỏi' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Lưu vào danh sách' })).not.toBeInTheDocument();
   });
 
   it('lets Senior start an indexed chapter without a separate confirm step', () => {
@@ -208,6 +206,145 @@ describe('Tutor V2 UI rules', () => {
     expect(screen.getByRole('button', { name: 'Xóa khỏi mục lục' })).toBeInTheDocument();
   });
 
+  it('lets the teacher start an extra question on the same chapter task', () => {
+    render(
+      <ContributionWorkspace
+        selectedTask={{
+          id: 'task-multi',
+          type: 'GOLD_QA',
+          status: 'IN_PROGRESS',
+          assigneeId: 'teacher-1',
+          chapter: 'Chapter 1: Introducing Java Platform, Enterprise Edition',
+          title: 'Q&A vàng',
+        }}
+        userId="teacher-1"
+        pendingAction=""
+        onSubmitGoldQa={vi.fn()}
+        onExamGoldQa={vi.fn()}
+        onExamAllDrafts={vi.fn()}
+        onSendForReview={vi.fn()}
+        contributions={[
+          {
+            id: 'g1',
+            question: 'Servlet lifecycle gồm gì?',
+            goldAnswer: 'init, service, destroy',
+            status: 'EXAMINED',
+            examPassed: true,
+            examScore: 0.8,
+            examUsedTeachingNote: true,
+          },
+        ]}
+        materialPreview={null}
+        materialLoading={false}
+        materialError=""
+        onOpenMaterial={vi.fn()}
+        onDeleteGoldQa={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('Servlet lifecycle gồm gì?')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Cho AI thi lại' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Gửi Senior' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Xóa' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Thêm câu hỏi' }));
+    expect(screen.getByText('Thêm câu hỏi #2')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Cho AI thi' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Câu hỏi (theo chương giáo trình)')).toHaveValue('');
+    fireEvent.click(screen.getByRole('button', { name: 'Hủy' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Sửa' }));
+    expect(screen.getByText('Sửa câu hỏi #1')).toBeInTheDocument();
+    expect(screen.getByLabelText('Câu hỏi (theo chương giáo trình)')).toHaveValue('Servlet lifecycle gồm gì?');
+    expect(screen.getByLabelText('Tóm tắt ý chính từ giáo trình')).toHaveValue('init, service, destroy');
+    expect(screen.queryByRole('button', { name: 'Cho AI thi lại' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Cập nhật danh sách' })).toBeInTheDocument();
+  });
+
+  it('shows baseline retake label before teaching-note exam', () => {
+    render(
+      <ContributionWorkspace
+        selectedTask={{
+          id: 'task-baseline',
+          type: 'GOLD_QA',
+          status: 'IN_PROGRESS',
+          assigneeId: 'teacher-1',
+          chapter: 'Servlet',
+          title: 'Q&A vàng',
+        }}
+        userId="teacher-1"
+        pendingAction=""
+        onSubmitGoldQa={vi.fn()}
+        onExamGoldQa={vi.fn()}
+        onSendForReview={vi.fn()}
+        onDeleteGoldQa={vi.fn()}
+        contributions={[
+          {
+            id: 'b1',
+            question: 'Filter chain là gì?',
+            goldAnswer: '- Filter chạy trước Servlet',
+            status: 'BASELINE_EXAMINED',
+            examScore: 0.4,
+            examUsedTeachingNote: false,
+          },
+        ]}
+        materialPreview={null}
+        materialLoading={false}
+        materialError=""
+        onOpenMaterial={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('AI trả lời · chưa gắn ý GV')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Cho AI thi lại (gộp ý GV)' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Gửi Senior' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Xóa' })).toBeInTheDocument();
+  });
+
+  it('shows draft list actions for AI grading and retake', () => {
+    const onExamGoldQa = vi.fn();
+    const onExamAllDrafts = vi.fn();
+    render(
+      <ContributionWorkspace
+        selectedTask={{
+          id: 'task-drafts',
+          type: 'GOLD_QA',
+          status: 'IN_PROGRESS',
+          assigneeId: 'teacher-1',
+          chapter: 'Servlet',
+          title: 'Q&A vàng',
+        }}
+        userId="teacher-1"
+        pendingAction=""
+        onSubmitGoldQa={vi.fn()}
+        onExamGoldQa={onExamGoldQa}
+        onExamAllDrafts={onExamAllDrafts}
+        contributions={[
+          {
+            id: 'd1',
+            question: 'Filter chain là gì?',
+            goldAnswer: '- Filter chạy trước Servlet',
+            status: 'DRAFT',
+          },
+          {
+            id: 'd2',
+            question: 'Listener dùng khi nào?',
+            goldAnswer: '- Theo dõi lifecycle',
+            status: 'DRAFT',
+          },
+        ]}
+        materialPreview={null}
+        materialLoading={false}
+        materialError=""
+        onOpenMaterial={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: 'Cho AI thi 2 câu nháp' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Cho AI thi 2 câu nháp' }));
+    expect(onExamAllDrafts).toHaveBeenCalledWith(['d1', 'd2']);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Cho AI thi' })[0]);
+    expect(onExamGoldQa).toHaveBeenCalledWith('d1');
+  });
+
   it('keeps typed Gold Q&A text when the same task refreshes', () => {
     const task = {
       id: 'task-keep-draft',
@@ -254,6 +391,7 @@ describe('Tutor V2 UI rules', () => {
       />,
     );
 
+    expect(screen.getByRole('button', { name: 'Cho AI thi' })).toBeInTheDocument();
     expect(screen.getByLabelText('Câu hỏi (theo chương giáo trình)')).toHaveValue('JSPX khác JSP ở điểm nào?');
     expect(screen.getByLabelText('Tóm tắt ý chính từ giáo trình')).toHaveValue('JSPX dùng cú pháp XML.');
   });
@@ -276,13 +414,13 @@ describe('Tutor V2 UI rules', () => {
         materialLoading={false}
         materialError=""
         contribution={null}
-        rejection={null}
         onOpenMaterial={vi.fn()}
       />,
     );
 
-    expect(screen.getByText('Task không thuộc flow GOLD_QA hiện tại')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Lưu và xem trước câu SV' })).toBeDisabled();
+    expect(screen.getByText('Task không thuộc flow GOLD_QA')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Thêm câu hỏi' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Lưu vào danh sách' })).not.toBeInTheDocument();
     expect(screen.queryByText('Rubric chất lượng câu trả lời')).not.toBeInTheDocument();
   });
 
@@ -332,8 +470,8 @@ describe('Tutor V2 UI rules', () => {
     expect(screen.getByText('Q&A vàng 1/2 · Recursion')).toBeInTheDocument();
     expect(screen.getByText('Xem trước: phủ 82% ý giáo trình')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Xem kết quả chấm' }));
-    expect(screen.getByText('Tóm tắt theo giáo trình')).toBeInTheDocument();
-    expect(screen.getByText('Câu trả lời AI (xem trước)')).toBeInTheDocument();
+    expect(screen.getByText('Ý chính giáo viên')).toBeInTheDocument();
+    expect(screen.getByText('Câu trả lời AI (chưa gắn ý GV)')).toBeInTheDocument();
     expect(screen.getByText('Recursion is a function that calls itself.')).toBeInTheDocument();
     expect(screen.getByText('A function that calls itself until a base case.')).toBeInTheDocument();
     expect(screen.queryByText('Legacy Rubric task')).not.toBeInTheDocument();

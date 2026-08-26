@@ -21,6 +21,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.atLeast;
 
 @ExtendWith(MockitoExtension.class)
 class ChapterOutlineServiceTest {
@@ -42,7 +43,8 @@ class ChapterOutlineServiceTest {
                 chunkingService,
                 goldQaRepository,
                 pdfExtractionService,
-                pdfStorageService);
+                pdfStorageService,
+                new HtmlSectionMediaService());
     }
 
     @Test
@@ -244,6 +246,96 @@ class ChapterOutlineServiceTest {
     }
 
     @Test
+    void refreshOutlinesSplitsHtmlWebsiteSectionsIntoChapters() {
+        String content = """
+                Source URL: https://docs.example.com/pro/intro
+                Page title: Introduction to PRO
+
+                PRO intro body with enough text for indexing and training coverage.
+
+                ---
+
+                Source URL: https://docs.example.com/pro/ch1.html#sec-1.2
+                Page title: Chapter 1. Introduction
+
+                Loops and arrays body with enough text for indexing and training coverage.
+                """;
+        CourseMaterial material = new CourseMaterial();
+        material.setId("M-HTML");
+        material.setCourseId("PRO192");
+        material.setTitle("PRF192");
+        material.setSourceType("HTML_URL");
+        material.setIndexingStatus("INDEXED");
+        material.setImportedPageCount(2);
+        material.setContent(content);
+
+        when(materialRepository.findByCourseId("PRO192")).thenReturn(List.of(material));
+        when(chunkingService.chunk(anyString())).thenAnswer(inv -> {
+            String text = inv.getArgument(0);
+            int parts = Math.max(1, text.length() / 40);
+            return java.util.stream.IntStream.range(0, parts).mapToObj(i -> "chunk-" + i).toList();
+        });
+        when(outlineRepository.findByCourseIdAndChapterKey(eq("PRO192"), anyString()))
+                .thenReturn(Optional.empty());
+        when(outlineRepository.findByCourseIdOrderByTitleAsc("PRO192")).thenReturn(List.of());
+        when(outlineRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        service.refreshOutlinesForCourse("PRO192");
+
+        ArgumentCaptor<CourseChapterOutline> saved = ArgumentCaptor.forClass(CourseChapterOutline.class);
+        verify(outlineRepository, atLeast(2)).save(saved.capture());
+        assertTrue(saved.getAllValues().stream().anyMatch(o ->
+                "Introduction to PRO".equals(o.getTitle())
+                        && "HTML_SECTION".equals(o.getDetectedFrom())
+                        && o.getChunkCount() > 0
+                        && o.getPageStart() == null));
+        assertTrue(saved.getAllValues().stream().anyMatch(o ->
+                o.getTitle().startsWith("1.2")
+                        && o.getTitle().contains("Chapter 1. Introduction")
+                        && "HTML_SECTION".equals(o.getDetectedFrom())));
+    }
+
+    @Test
+    void resolveHtmlSectionTitleUsesUrlFragmentWhenPageTitleRepeats() {
+        assertEquals(
+                "1.2 · Chapter 1. Introduction",
+                ChapterOutlineService.resolveHtmlSectionTitle(
+                        "Chapter 1. Introduction",
+                        "https://docs.example.com/ch1.html#jvms-1.2",
+                        1
+                )
+        );
+        assertEquals(
+                "Preface to the Java SE 8 Edition",
+                ChapterOutlineService.resolveHtmlSectionTitle(
+                        "Preface to the Java SE 8 Edition",
+                        "https://docs.example.com/preface.html",
+                        1
+                )
+        );
+    }
+
+    @Test
+    void extractHtmlSectionByTitleReturnsSelectedWebsitePage() {
+        String content = """
+                Source URL: https://docs.example.com/a
+                Page title: Alpha Topic
+
+                Alpha body.
+
+                ---
+
+                Source URL: https://docs.example.com/b
+                Page title: Beta Topic
+
+                Beta body.
+                """;
+        String section = ChapterOutlineService.extractHtmlSectionByTitle(content, "Beta Topic");
+        assertTrue(section.contains("Beta body."));
+        assertFalse(section.contains("Alpha body."));
+    }
+
+    @Test
     void suggestChaptersReadsPersistedOutlinesWithoutRebuilding() {
         CourseChapterOutline outline = CourseChapterOutline.builder()
                 .id("O1")
@@ -263,6 +355,6 @@ class ChapterOutlineServiceTest {
         assertEquals(1, chapters.size());
         assertEquals("JSP", chapters.get(0).getTitle());
         verify(chunkingService, never()).chunk(anyString());
-        verify(materialRepository, never()).findByCourseId(anyString());
+        verify(outlineRepository, never()).save(any());
     }
 }

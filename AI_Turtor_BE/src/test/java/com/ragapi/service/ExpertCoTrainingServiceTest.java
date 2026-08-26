@@ -295,7 +295,12 @@ class ExpertCoTrainingServiceTest {
                 .examAiAnswer("answer").examinedAt(LocalDateTime.now()).examPassed(true).build();
         ExpertTask task = ExpertTask.builder().id("TASK1").type("GOLD_QA").status("IN_PROGRESS").build();
         when(gold.findById("G4")).thenReturn(Optional.of(draft));
-        when(gold.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(gold.save(any())).thenAnswer(inv -> {
+            GoldQa item = inv.getArgument(0);
+            draft.setStatus(item.getStatus());
+            return item;
+        });
+        when(gold.findBySourceTaskId("TASK1")).thenAnswer(inv -> List.of(draft));
         when(tasks.findById("TASK1")).thenReturn(Optional.of(task));
         when(tasks.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
@@ -303,6 +308,44 @@ class ExpertCoTrainingServiceTest {
 
         assertEquals("PENDING_REVIEW", sent.getStatus());
         assertEquals("SUBMITTED", task.getStatus());
+    }
+
+    @Test
+    void submitWithoutGoldQaIdCreatesAdditionalQaOnSameTask() throws Exception {
+        ExpertTask task = ExpertTask.builder().id("TASK1").type("GOLD_QA").status("IN_PROGRESS").build();
+        GoldQa existing = GoldQa.builder().id("G-OLD").courseId("PRJ301").chapter("JSP")
+                .question("Câu cũ?").goldAnswer("Ý cũ").usage("TRAINING").status("EXAMINED")
+                .authorId("T1").sourceTaskId("TASK1").build();
+        when(tasks.findById("TASK1")).thenReturn(Optional.of(task));
+        when(tasks.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(gold.findBySourceTaskId("TASK1")).thenReturn(List.of(existing));
+        when(gold.save(any())).thenAnswer(inv -> {
+            GoldQa item = inv.getArgument(0);
+            if (item.getId() == null) item.setId("G-NEW");
+            return item;
+        });
+        when(gold.findById("G-NEW")).thenAnswer(inv -> Optional.of(GoldQa.builder()
+                .id("G-NEW").courseId("PRJ301").chapter("JSP").question("JSPX là gì?")
+                .goldAnswer("JSPX là JSP dạng XML.").usage("TRAINING").status("EXAMINED")
+                .authorId("T1").sourceTaskId("TASK1").examPassed(true)
+                .examAiAnswer("JSPX là JSP dạng XML.").build()));
+        when(rag.askWithConfidencePreviewingTrainingNote(anyString(), anyString(), any(), anyString(), anyString()))
+                .thenReturn(CourseRagAnswer.builder().answer("JSPX là JSP dạng XML.").confidence(0.9)
+                        .escalationRecommended(false).sources(List.of("ch1")).build());
+
+        SubmitGoldQaRequest request = new SubmitGoldQaRequest();
+        request.setCourseId("PRJ301");
+        request.setChapter("JSP");
+        request.setQuestion("JSPX là gì?");
+        request.setGoldAnswer("JSPX là JSP dạng XML.");
+        request.setDifficulty("MEDIUM");
+        request.setAuthorId("T1");
+        request.setSourceTaskId("TASK1");
+
+        GoldQa created = service.submitGoldQaAndExam(request);
+
+        assertEquals("G-NEW", created.getId());
+        assertNotEquals("G-OLD", created.getId());
     }
 
     @Test

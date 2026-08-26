@@ -108,8 +108,8 @@ export default function SeniorReviewQueue({
     confirmDanger({
       ...common,
       title: 'Yêu cầu Teacher Thi lại?',
-      content: 'Task trở lại Đang thực hiện. Teacher phải chỉnh tóm tắt và Thi lại để xem trước câu SV đủ ý.',
-      okText: 'Trả lại để Thi lại',
+      content: 'Task trở lại Đang thực hiện. Lượt thi AI được reset — Teacher chỉnh ý rồi Cho AI thi (2 lượt) trước khi gửi lại.',
+      okText: 'Trả lại Teacher',
     });
   };
 

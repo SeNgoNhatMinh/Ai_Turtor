@@ -31,6 +31,9 @@ public class ImportCourseMaterialUrlRequest {
     @Schema(description = "Specific TOC/chapter URLs selected by FE. When provided, followNext is ignored. There is no fixed item-count limit.")
     private List<String> selectedUrls;
 
+    @Schema(description = "Optional TOC titles aligned with selectedUrls (same order). Used as section titles instead of HTML H1.")
+    private List<String> selectedTitles;
+
     @Schema(description = "Follow documentation Next links on the same domain", example = "false")
     private Boolean followNext;
 

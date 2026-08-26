@@ -29,8 +29,28 @@ export const expertTrainingApi = {
     const response = await request(`${BASE_PATH}/chapters/suggested${createQuery({ courseId })}`, {
       signal: options.signal,
       retries: 0,
+      timeoutMs: API_TIMEOUTS.quizGeneration,
     });
     return asArray(response, 'chapters', 'content').map(normalizeChapterOutline);
+  },
+
+  async refreshChapters(courseId) {
+    const response = await request(`${BASE_PATH}/chapters/refresh${createQuery({ courseId })}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+      timeoutMs: API_TIMEOUTS.quizGeneration,
+    });
+    return asArray(response, 'chapters', 'content').map(normalizeChapterOutline);
+  },
+
+  async refreshAllHtmlChapters() {
+    return request(`${BASE_PATH}/chapters/refresh-html`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+      timeoutMs: API_TIMEOUTS.quizGeneration,
+    });
   },
 
   async confirmChapters(payload) {
@@ -161,13 +181,21 @@ export const expertTrainingApi = {
     }));
   },
 
-  async submitGoldQa(payload) {
-    return normalizeGoldQa(await request(`${BASE_PATH}/gold-qa`, {
+  async submitGoldQa(payload, options = {}) {
+    const exam = options.exam === true;
+    const query = exam ? '?exam=true' : '?exam=false';
+    return normalizeGoldQa(await request(`${BASE_PATH}/gold-qa${query}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
       timeoutMs: API_TIMEOUTS.quizGeneration,
     }));
+  },
+
+  async deleteGoldQa(goldQaId, authorId) {
+    return request(`${BASE_PATH}/gold-qa/${encodePath(goldQaId)}${createQuery({ authorId })}`, {
+      method: 'DELETE',
+    });
   },
 
   async examGoldQa(goldQaId) {

@@ -109,8 +109,9 @@ public class CourseMaterialHtmlImportService {
 
         if (!selectedUris.isEmpty()) {
             Map<String, Document> documentCache = new HashMap<>();
+            Map<String, String> titlesByUrl = resolveSelectedTitles(request.getSelectedUrls(), request.getSelectedTitles());
             for (URI selectedUri : selectedUris) {
-                appendImportedPage(selectedUri, mergedContent, importedUrls, documentCache);
+                appendImportedPage(selectedUri, mergedContent, importedUrls, documentCache, titlesByUrl.get(selectedUri.toString()));
                 if (sourceSection == null || sourceSection.isBlank()) {
                     sourceSection = selectedUri.getFragment();
                 }
@@ -125,7 +126,7 @@ public class CourseMaterialHtmlImportService {
                 if (resolvedTitle == null || resolvedTitle.isBlank()) {
                     resolvedTitle = page.title();
                 }
-                appendPageText(current, page, mergedContent, importedUrls);
+                appendPageText(current, page, mergedContent, importedUrls, null);
 
                 current = Boolean.TRUE.equals(request.getFollowNext())
                         ? resolveNextUrl(current, page.document(), startUri.getHost())
@@ -175,22 +176,47 @@ public class CourseMaterialHtmlImportService {
         return uris;
     }
 
+    Map<String, String> resolveSelectedTitles(List<String> selectedUrls, List<String> selectedTitles) {
+        Map<String, String> titlesByUrl = new HashMap<>();
+        if (selectedUrls == null || selectedTitles == null) {
+            return titlesByUrl;
+        }
+        int n = Math.min(selectedUrls.size(), selectedTitles.size());
+        for (int i = 0; i < n; i++) {
+            String url = selectedUrls.get(i);
+            String title = selectedTitles.get(i);
+            if (url == null || url.isBlank() || title == null || title.isBlank()) {
+                continue;
+            }
+            titlesByUrl.put(url.trim(), title.trim());
+        }
+        return titlesByUrl;
+    }
+
     private void appendImportedPage(
             URI uri,
             StringBuilder mergedContent,
             List<String> importedUrls,
-            Map<String, Document> documentCache
+            Map<String, Document> documentCache,
+            String tocTitle
     ) throws IOException {
         ParsedHtmlPage page = fetchAndExtract(uri, documentCache);
-        appendPageText(uri, page, mergedContent, importedUrls);
+        appendPageText(uri, page, mergedContent, importedUrls, tocTitle);
     }
 
-    private void appendPageText(URI uri, ParsedHtmlPage page, StringBuilder mergedContent, List<String> importedUrls) {
+    private void appendPageText(
+            URI uri,
+            ParsedHtmlPage page,
+            StringBuilder mergedContent,
+            List<String> importedUrls,
+            String tocTitle
+    ) {
         if (!mergedContent.isEmpty()) {
             mergedContent.append("\n\n---\n\n");
         }
+        String sectionTitle = firstNonBlank(tocTitle, page.title(), uri.toString());
         mergedContent.append("Source URL: ").append(uri).append("\n");
-        mergedContent.append("Page title: ").append(page.title()).append("\n\n");
+        mergedContent.append("Page title: ").append(sectionTitle).append("\n\n");
         mergedContent.append(page.text());
         importedUrls.add(uri.toString());
     }
@@ -230,11 +256,55 @@ public class CourseMaterialHtmlImportService {
                 uri.toString()
         );
         String text = extractTextForFragment(doc, content, uri.getFragment());
+        List<String> imageUrls = extractImageUrlsForFragment(doc, content, uri.getFragment(), uri);
         text = normalizeText(text);
         if (text.length() < 100) {
             throw new IllegalArgumentException("HTML URL has too little readable text to import: " + uri);
         }
+        if (!imageUrls.isEmpty()) {
+            text = text + HtmlSectionMediaService.formatFiguresBlock(imageUrls);
+        }
         return new ParsedHtmlPage(doc, title, text);
+    }
+
+    private List<String> extractImageUrlsForFragment(Document doc, Element content, String fragment, URI pageUri) {
+        Element scope;
+        if (fragment == null || fragment.isBlank()) {
+            scope = content;
+        } else {
+            Element anchor = doc.getElementById(fragment);
+            if (anchor == null) {
+                anchor = doc.selectFirst("a[name=" + cssEscape(fragment) + "]");
+            }
+            if (anchor == null) {
+                scope = content;
+            } else {
+                Element section = anchor.closest(".section, section");
+                scope = section != null ? section : content;
+            }
+        }
+        if (scope == null) {
+            return List.of();
+        }
+        Set<String> urls = new LinkedHashSet<>();
+        for (Element img : scope.select("img[src]")) {
+            String abs = img.absUrl("src");
+            if (abs == null || abs.isBlank()) {
+                continue;
+            }
+            String lower = abs.toLowerCase(Locale.ROOT);
+            if (!(lower.startsWith("http://") || lower.startsWith("https://"))) {
+                continue;
+            }
+            if (lower.contains("1x1") || lower.contains("pixel") || lower.contains("spacer")) {
+                continue;
+            }
+            urls.add(abs);
+            if (urls.size() >= 16) {
+                break;
+            }
+        }
+        return new ArrayList<>(urls);
     }
 
     private Document fetchDocument(URI uri) throws IOException {

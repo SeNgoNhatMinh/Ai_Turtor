@@ -94,8 +94,13 @@ export default function ExpertTrainingPage({
           error={controller.errors.chapters}
           canReview
           pendingAction={controller.pendingAction}
+          chapterPreview={controller.chapterPreview}
+          chapterPreviewLoading={controller.loading.chapterPreview}
+          chapterPreviewError={controller.errors.chapterPreview}
           onRefresh={controller.loadChapters}
+          onForceRefresh={controller.refreshChapters}
           onClosePreview={() => controller.setChapterPreview(null)}
+          onOpenPreview={(chapter) => controller.openChapterPreview(chapter, true)}
           onStartChapter={startChapter}
           onOpenMaterial={controller.openSourceMaterial}
           onIgnoreChapter={controller.ignoreChapter}

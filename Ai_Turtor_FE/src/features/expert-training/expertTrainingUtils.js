@@ -44,6 +44,7 @@ const DETECTED_FROM_LABELS = {
   PDF_TOC: 'Mục lục PDF',
   MATERIAL: 'Học liệu đã index',
   MATERIAL_TITLE: 'Tiêu đề học liệu',
+  HTML_SECTION: 'Mục website',
   HEADING: '',
   MANUAL: 'Thêm thủ công',
   UNKNOWN: 'Chưa xác định',
@@ -82,9 +83,13 @@ export function isPdfMaterialSource(source) {
 }
 
 export function formatChapterPages(chapter) {
+  const detectedFrom = String(chapter?.detectedFrom || '').trim().toUpperCase();
+  if (detectedFrom.includes('HTML')) {
+    return 'Mục website';
+  }
   const start = Number(chapter?.pageStart);
   const end = Number(chapter?.pageEnd);
-  if (!Number.isFinite(start) || start <= 0) return 'Chưa có trang';
+  if (!Number.isFinite(start) || start <= 0) return 'Chưa có trang PDF';
   if (!Number.isFinite(end) || end <= 0 || end === start) return `Trang ${start}`;
   return `Trang ${start}–${end}`;
 }
@@ -107,10 +112,14 @@ function getChapterPrimaryPdfSource(preview) {
 export function getChapterPdfOpenTarget(chapter, preview) {
   const pageStart = Number(preview?.pageStart || chapter?.pageStart) || 0;
   const pageEnd = Number(preview?.pageEnd || chapter?.pageEnd) || 0;
+  // HTML website chapters have no PDF page range — never invent page 1.
+  if (!(pageStart > 0)) return null;
+
   const previewPdf = getChapterPrimaryPdfSource(preview);
   if (previewPdf) {
     return { source: previewPdf, pageStart, pageEnd };
   }
+
   const materialId = String(
     preview?.primarySourceMaterialId
     || chapter?.primarySourceMaterialId
@@ -118,6 +127,8 @@ export function getChapterPdfOpenTarget(chapter, preview) {
     || ''
   ).trim();
   if (!materialId) return null;
+
+  // Real pageStart means PDF outline. Do not default HTML_URL materials here.
   return {
     source: { id: materialId, sourceType: 'PDF' },
     pageStart,

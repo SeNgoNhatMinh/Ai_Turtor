@@ -264,6 +264,10 @@ export default function ImportWebsiteModal({
       const title = String(values.title || toc?.title || '').trim();
       const teacherId = currentUser?.userId || currentUser?.id || currentUser?._id || 'ADMIN';
       const selected = selectedUrls;
+      const selectedTitles = selected.map((url) => {
+        const match = (toc?.items || []).find((item) => item.url === url);
+        return String(match?.title || '').trim();
+      });
       const uploaderRole = isAdmin ? 'ADMIN' : 'TEACHER';
 
       if (!toc) {
@@ -291,6 +295,7 @@ export default function ImportWebsiteModal({
             uploaderRole,
             teacherId,
             selectedUrls: selected,
+            selectedTitles,
           };
 
       const response = await materialApi.importCourseMaterialUrl(courseId, payload);

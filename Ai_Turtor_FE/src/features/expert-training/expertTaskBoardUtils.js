@@ -34,11 +34,16 @@ const contributionTime = (item) => asTimestamp(
   item?.updatedAt || item?.reviewedAt || item?.examinedAt || item?.createdAt,
 );
 
-export function findTaskGoldQa(task, goldQa = []) {
-  if (!task?.id) return null;
+export function findTaskGoldQaList(task, goldQa = []) {
+  if (!task?.id) return [];
   return goldQa
     .filter((item) => item.sourceTaskId === task.id)
-    .sort((left, right) => contributionTime(right) - contributionTime(left))[0] || null;
+    .sort((left, right) => contributionTime(left) - contributionTime(right));
+}
+
+export function findTaskGoldQa(task, goldQa = []) {
+  const items = findTaskGoldQaList(task, goldQa);
+  return items[items.length - 1] || null;
 }
 
 export function buildTeacherGoldQaSummary(tasks = [], goldQa = [], userId = '') {

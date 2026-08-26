@@ -38,6 +38,13 @@ public class GoldQa {
     private Boolean examPassed;
     private Boolean examHallucinated;
     private String examError;
+    /** First exam: textbook/RAG only (no teacher teaching note). */
+    private String examBaselineAiAnswer;
+    private Double examBaselineScore;
+    private Double examBaselineRagConfidence;
+    private Boolean examBaselinePassed;
+    /** True after retake that injects teacher goldAnswer as draft teaching note. */
+    private Boolean examUsedTeachingNote;
     private LocalDateTime examinedAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

@@ -13,4 +13,6 @@ public class SubmitGoldQaRequest {
     private String authorId;
     private String sourceTaskId;
     private String rubricId;
+    /** When set, update this Gold Q&A; otherwise create a new one for the task. */
+    private String goldQaId;
 }

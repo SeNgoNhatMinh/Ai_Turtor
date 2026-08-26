@@ -22,7 +22,7 @@ import {
   formatPercent,
   getExpertTaskDueMeta,
 } from '../expertTrainingUtils';
-import { findTaskGoldQa, groupTeacherExpertTasks } from '../expertTaskBoardUtils';
+import { findTaskGoldQa, findTaskGoldQaList, groupTeacherExpertTasks } from '../expertTaskBoardUtils';
 
 const { Paragraph, Text } = Typography;
 const FINISHED_STATUSES = new Set(['COMPLETED', 'DONE', 'CANCELLED']);
@@ -131,7 +131,7 @@ function ContributionState({ contribution }) {
   return null;
 }
 
-function TaskCard({ task, contribution, userId, pendingAction, onClaim, onContribute, onPreview, onViewExam }) {
+function TaskCard({ task, contribution, contributionCount = 0, userId, pendingAction, onClaim, onContribute, onPreview, onViewExam }) {
   const dueMeta = getExpertTaskDueMeta(task);
   return (
     <Card className="expert-training__task-card" size="small">
@@ -145,7 +145,7 @@ function TaskCard({ task, contribution, userId, pendingAction, onClaim, onContri
 
       <Space wrap size={[6, 6]}>
         <Tag color="blue">Chỉ dùng giáo trình</Tag>
-        <Tag>1 câu hỏi + tóm tắt ý từ sách</Tag>
+        <Tag>{contributionCount > 0 ? `${contributionCount} câu hỏi + tóm tắt` : 'Nhiều câu hỏi / chương dài'}</Tag>
         {Number(task.priority) >= 90 && <Tag color="orange">Ưu tiên cao</Tag>}
       </Space>
 
@@ -271,6 +271,7 @@ export default function ExpertTaskBoard({
               key={task.id}
               task={task}
               contribution={findTaskGoldQa(task, goldQa)}
+              contributionCount={findTaskGoldQaList(task, goldQa).length}
               userId={userId}
               pendingAction={pendingAction}
               onClaim={onClaim}

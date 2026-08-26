@@ -104,14 +104,14 @@ export const materialsApi = {
   async downloadMaterialPdf(courseId, materialId) {
     return blobRequest(
       `${API_BASE_URL}/courses/${encodePath(courseId)}/materials/${encodePath(materialId)}/pdf`,
-      { timeoutMs: API_TIMEOUTS.download },
+      { timeoutMs: API_TIMEOUTS.download, skipUnauthorizedRedirect: true },
     );
   },
 
   async getMaterialPageImage(courseId, materialId, pageNumber) {
     return blobRequest(
       `${API_BASE_URL}/courses/${encodePath(courseId)}/materials/${encodePath(materialId)}/pages/${encodePath(pageNumber)}/image`,
-      { timeoutMs: API_TIMEOUTS.download, retries: 0 },
+      { timeoutMs: API_TIMEOUTS.download, retries: 0, skipUnauthorizedRedirect: true },
     );
   },
 };

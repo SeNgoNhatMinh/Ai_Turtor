@@ -406,15 +406,18 @@ public class ExpertCoTrainingService {
         ExpertTask task = optionalTask(request.getSourceTaskId(), "GOLD_QA");
         LocalDateTime now = LocalDateTime.now();
         String authorId = requireText(request.getAuthorId(), "authorId");
-        GoldQa gold = findEditableGoldDraft(task, authorId).orElseGet(() -> GoldQa.builder()
-                .courseId(requireText(request.getCourseId(), "courseId"))
-                .usage(usage)
-                .holdout(false)
-                .version(1)
-                .authorId(authorId)
-                .sourceTaskId(request.getSourceTaskId())
-                .createdAt(now)
-                .build());
+        GoldQa gold = resolveEditableGoldQa(request.getGoldQaId(), task, authorId)
+                .orElseGet(() -> GoldQa.builder()
+                        .courseId(requireText(request.getCourseId(), "courseId"))
+                        .usage(usage)
+                        .holdout(false)
+                        .version(1)
+                        .authorId(authorId)
+                        .sourceTaskId(request.getSourceTaskId())
+                        .createdAt(now)
+                        .build());
+        String previousStatus = gold.getStatus();
+        boolean preserveExam = "BASELINE_EXAMINED".equals(previousStatus) || "EXAMINED".equals(previousStatus);
         gold.setCourseId(requireText(request.getCourseId(), "courseId"));
         gold.setChapter(requireMaxLength(request.getChapter(), "chapter", SHORT_TEXT_MAX_LENGTH));
         gold.setQuestion(requireMaxLength(request.getQuestion(), "question", DEFAULT_TEXT_MAX_LENGTH));
@@ -423,11 +426,17 @@ public class ExpertCoTrainingService {
         gold.setUsage(usage);
         gold.setHoldout(false);
         gold.setRubricId(request.getRubricId());
-        gold.setStatus("EXAMINED");
-        gold.setRejectionReason(null);
-        gold.setReviewNote(null);
-        gold.setReviewedBy(null);
-        gold.setReviewedAt(null);
+        if (preserveExam) {
+            // Keep exam attempts; only Senior reject resets the 2-exam quota.
+            gold.setStatus(previousStatus);
+        } else {
+            gold.setStatus("DRAFT");
+            gold.setRejectionReason(null);
+            gold.setReviewNote(null);
+            gold.setReviewedBy(null);
+            gold.setReviewedAt(null);
+            clearExamResults(gold);
+        }
         gold.setUpdatedAt(now);
         GoldQa saved = goldQaRepository.save(gold);
         attachContributionDraft(task, saved.getId());
@@ -438,15 +447,53 @@ public class ExpertCoTrainingService {
         GoldQa gold = goldQaRepository.findById(requireText(id, "id"))
                 .orElseThrow(() -> new IllegalArgumentException("GoldQA not found"));
         ensureTeacherExamable(gold.getStatus());
-        examineAgainstTextbook(gold);
+        if ("EXAMINED".equals(gold.getStatus()) || Boolean.TRUE.equals(gold.getExamUsedTeachingNote())) {
+            throw new IllegalArgumentException(
+                    "Đã dùng đủ 2 lượt thi (lần 1 + thi lại). Chỉ được thi lại sau khi Senior từ chối và gửi về."
+            );
+        }
+        if ("BASELINE_EXAMINED".equals(gold.getStatus())
+                || (gold.getExamBaselineAiAnswer() != null && !gold.getExamBaselineAiAnswer().isBlank())) {
+            examineWithTeachingNote(gold);
+            GoldQa examined = goldQaRepository.findById(gold.getId()).orElse(gold);
+            examined.setStatus("EXAMINED");
+            examined.setExamUsedTeachingNote(true);
+            examined.setUpdatedAt(LocalDateTime.now());
+            GoldQa saved = goldQaRepository.save(examined);
+            realtimeEvents.publishToUser(saved.getAuthorId(), "GOLD_QA_EXAMINED", "GOLD_QA", saved.getId(),
+                    saved.getStatus(), Map.of("courseId", saved.getCourseId(), "usage", saved.getUsage(),
+                            "examPassed", Boolean.TRUE.equals(saved.getExamPassed()),
+                            "examUsedTeachingNote", true));
+            return saved;
+        }
+        examineBaseline(gold);
         GoldQa examined = goldQaRepository.findById(gold.getId()).orElse(gold);
-        examined.setStatus("EXAMINED");
+        examined.setStatus("BASELINE_EXAMINED");
+        examined.setExamUsedTeachingNote(false);
         examined.setUpdatedAt(LocalDateTime.now());
         GoldQa saved = goldQaRepository.save(examined);
-        realtimeEvents.publishToUser(saved.getAuthorId(), "GOLD_QA_EXAMINED", "GOLD_QA", saved.getId(),
+        realtimeEvents.publishToUser(saved.getAuthorId(), "GOLD_QA_BASELINE_EXAMINED", "GOLD_QA", saved.getId(),
                 saved.getStatus(), Map.of("courseId", saved.getCourseId(), "usage", saved.getUsage(),
-                        "examPassed", Boolean.TRUE.equals(saved.getExamPassed())));
+                        "examPassed", Boolean.TRUE.equals(saved.getExamPassed()),
+                        "examUsedTeachingNote", false));
         return saved;
+    }
+
+    public void deleteGoldQa(String id, String authorId) {
+        GoldQa gold = goldQaRepository.findById(requireText(id, "id"))
+                .orElseThrow(() -> new IllegalArgumentException("GoldQA not found"));
+        String safeAuthor = requireText(authorId, "authorId");
+        if (!safeAuthor.equals(gold.getAuthorId())) {
+            throw new IllegalArgumentException("Only the author can delete this Gold Q&A");
+        }
+        if (!Set.of("DRAFT", "BASELINE_EXAMINED", "EXAMINED", "REJECTED").contains(gold.getStatus())) {
+            throw new IllegalArgumentException("Gold Q&A cannot be deleted in status " + gold.getStatus());
+        }
+        String taskId = gold.getSourceTaskId();
+        goldQaRepository.deleteById(gold.getId());
+        if (taskId != null && !taskId.isBlank()) {
+            taskRepository.findById(taskId).ifPresent(task -> refreshTaskStatusAfterGoldChange(task, null));
+        }
     }
 
     public GoldQa submitGoldQaAndExam(SubmitGoldQaRequest request) {
@@ -457,7 +504,10 @@ public class ExpertCoTrainingService {
         GoldQa gold = goldQaRepository.findById(requireText(id, "id"))
                 .orElseThrow(() -> new IllegalArgumentException("GoldQA not found"));
         if (!"EXAMINED".equals(gold.getStatus())) {
-            throw new IllegalArgumentException("Only examined Gold Q&A can be sent to Senior review");
+            throw new IllegalArgumentException("Chỉ gửi Senior sau khi Cho AI thi lại (đã gắn ý chính giáo viên)");
+        }
+        if (!Boolean.TRUE.equals(gold.getExamUsedTeachingNote())) {
+            throw new IllegalArgumentException("Chạy Cho AI thi lại với ý chính giáo viên trước khi gửi Senior");
         }
         if (gold.getExaminedAt() == null && gold.getExamAiAnswer() == null) {
             throw new IllegalArgumentException("Run exam before sending Gold Q&A to Senior");
@@ -466,7 +516,7 @@ public class ExpertCoTrainingService {
         gold.setUpdatedAt(LocalDateTime.now());
         GoldQa saved = goldQaRepository.save(gold);
         ExpertTask task = optionalTask(saved.getSourceTaskId(), "GOLD_QA");
-        completeContributionTask(task, saved.getId());
+        refreshTaskStatusAfterGoldChange(task, saved.getId());
         realtimeEvents.publishToRoles(SENIOR_ROLES, "GOLD_QA_SUBMITTED", "GOLD_QA", saved.getId(),
                 saved.getStatus(), Map.of("courseId", saved.getCourseId(), "usage", saved.getUsage(),
                         "authorId", saved.getAuthorId(), "examPassed", Boolean.TRUE.equals(saved.getExamPassed())));
@@ -500,6 +550,8 @@ public class ExpertCoTrainingService {
         gold.setReviewedBy(request.getReviewerId()); gold.setReviewNote(request.getReviewNote()); gold.setReviewedAt(now); gold.setUpdatedAt(now);
         if (!approve) {
             gold.setRejectionReason(requireMaxLength(request.getRejectionReason(), "rejectionReason", DEFAULT_TEXT_MAX_LENGTH));
+            // Reset 2 exam attempts so Teacher can Cho AI thi + thi lại again after revising.
+            clearExamResults(gold);
             gold.setStatus("REJECTED");
         } else if ("EVALUATION".equalsIgnoreCase(gold.getUsage())) {
             // Holdout only: never index teacher text into RAG (textbook remains sole factual source).
@@ -523,7 +575,10 @@ public class ExpertCoTrainingService {
         if (approve && "INDEXED".equalsIgnoreCase(saved.getStatus())) {
             answerCacheService.evictRagAnswersForCourse(saved.getCourseId());
         }
-        completeReviewedTask(saved.getSourceTaskId(), approve);
+        refreshTaskStatusAfterGoldChange(
+                saved.getSourceTaskId() == null ? null : taskRepository.findById(saved.getSourceTaskId()).orElse(null),
+                saved.getId()
+        );
         realtimeEvents.publishToUser(saved.getAuthorId(), approve ? "GOLD_QA_APPROVED" : "GOLD_QA_REJECTED",
                 "GOLD_QA", saved.getId(), saved.getStatus(), Map.of("courseId", saved.getCourseId(), "usage", saved.getUsage()));
         return saved;
@@ -605,14 +660,19 @@ public class ExpertCoTrainingService {
                 .createdAt(LocalDateTime.now()).build();
     }
 
-    private void examineAgainstTextbook(GoldQa gold) {
+    private void examineBaseline(GoldQa gold) {
         try {
-            ExamSnapshot exam = scoreTrainingPreview(gold, 0.6);
+            ExamSnapshot exam = scoreAgainstCurrentRag(gold, 0.6);
+            gold.setExamBaselineAiAnswer(exam.aiAnswer());
+            gold.setExamBaselineScore(exam.score());
+            gold.setExamBaselineRagConfidence(exam.confidence());
+            gold.setExamBaselinePassed(exam.passed());
             gold.setExamAiAnswer(exam.aiAnswer());
             gold.setExamScore(exam.score());
             gold.setExamRagConfidence(exam.confidence());
             gold.setExamPassed(exam.passed());
             gold.setExamHallucinated(exam.hallucinated());
+            gold.setExamUsedTeachingNote(false);
             gold.setExamError(null);
             gold.setExaminedAt(LocalDateTime.now());
             gold.setUpdatedAt(LocalDateTime.now());
@@ -620,22 +680,71 @@ public class ExpertCoTrainingService {
         } catch (Exception error) {
             gold.setExamError(error.getMessage() == null ? "Exam failed" : error.getMessage());
             gold.setExamPassed(false);
+            gold.setExamUsedTeachingNote(false);
             gold.setExaminedAt(LocalDateTime.now());
             gold.setUpdatedAt(LocalDateTime.now());
             goldQaRepository.save(gold);
         }
     }
 
-    /** Preview student-facing answer with draft teaching note (no RAG index yet). */
-    private ExamSnapshot scoreTrainingPreview(GoldQa gold, double threshold) throws Exception {
-        CourseRagAnswer answer = courseRagService.askWithConfidencePreviewingTrainingNote(
+    private void examineWithTeachingNote(GoldQa gold) {
+        try {
+            String baseline = gold.getExamBaselineAiAnswer();
+            if (baseline == null || baseline.isBlank()) {
+                baseline = gold.getExamAiAnswer();
+            }
+            ExamSnapshot exam = scoreSynthesizedExam(gold, baseline, 0.6);
+            // Option: never show a worse retake score than the baseline coverage.
+            double keptScore = exam.score();
+            if (gold.getExamBaselineScore() != null) {
+                keptScore = Math.max(keptScore, gold.getExamBaselineScore());
+            }
+            gold.setExamAiAnswer(exam.aiAnswer());
+            gold.setExamScore(round(keptScore));
+            gold.setExamRagConfidence(exam.confidence());
+            gold.setExamPassed(keptScore >= 0.6 && !exam.hallucinated());
+            gold.setExamHallucinated(exam.hallucinated());
+            gold.setExamUsedTeachingNote(true);
+            gold.setExamError(null);
+            gold.setExaminedAt(LocalDateTime.now());
+            gold.setUpdatedAt(LocalDateTime.now());
+            goldQaRepository.save(gold);
+        } catch (Exception error) {
+            gold.setExamError(error.getMessage() == null ? "Exam failed" : error.getMessage());
+            gold.setExamPassed(false);
+            gold.setExamUsedTeachingNote(true);
+            gold.setExaminedAt(LocalDateTime.now());
+            gold.setUpdatedAt(LocalDateTime.now());
+            goldQaRepository.save(gold);
+        }
+    }
+
+    private ExamSnapshot scoreSynthesizedExam(GoldQa gold, String baselineAnswer, double threshold) throws Exception {
+        CourseRagAnswer answer = courseRagService.askWithConfidenceSynthesizingExam(
                 gold.getQuestion(),
                 gold.getCourseId(),
                 null,
                 gold.getChapter(),
-                gold.getGoldAnswer()
+                gold.getGoldAnswer(),
+                baselineAnswer
         );
         return scoreAnswer(gold, answer, threshold);
+    }
+
+    private void clearExamResults(GoldQa gold) {
+        if (gold == null) return;
+        gold.setExamAiAnswer(null);
+        gold.setExamScore(null);
+        gold.setExamRagConfidence(null);
+        gold.setExamPassed(null);
+        gold.setExamHallucinated(null);
+        gold.setExamError(null);
+        gold.setExamBaselineAiAnswer(null);
+        gold.setExamBaselineScore(null);
+        gold.setExamBaselineRagConfidence(null);
+        gold.setExamBaselinePassed(null);
+        gold.setExamUsedTeachingNote(null);
+        gold.setExaminedAt(null);
     }
 
     private ExamSnapshot scoreAgainstCurrentRag(GoldQa gold, double threshold) throws Exception {
@@ -731,32 +840,78 @@ public class ExpertCoTrainingService {
         taskRepository.save(task);
     }
 
-    private Optional<GoldQa> findEditableGoldDraft(ExpertTask task, String authorId) {
-        if (task == null || task.getId() == null || task.getId().isBlank()) return Optional.empty();
-        return goldQaRepository.findBySourceTaskId(task.getId()).stream()
-                .filter(item -> authorId.equals(item.getAuthorId()))
-                .filter(item -> Set.of("EXAMINED", "REJECTED").contains(item.getStatus()))
-                .sorted((left, right) -> {
-                    LocalDateTime leftAt = left.getUpdatedAt() == null ? LocalDateTime.MIN : left.getUpdatedAt();
-                    LocalDateTime rightAt = right.getUpdatedAt() == null ? LocalDateTime.MIN : right.getUpdatedAt();
-                    return rightAt.compareTo(leftAt);
-                })
-                .findFirst();
+    /**
+     * Long chapters may have many Q&amp;A on one task. Keep the task open for more drafts
+     * until every Gold Q&amp;A is indexed/approved (or still allow edits when rejected).
+     */
+    private void refreshTaskStatusAfterGoldChange(ExpertTask task, String contributionId) {
+        if (task == null) return;
+        if (contributionId != null && !contributionId.isBlank()) {
+            task.setContributionId(contributionId);
+        }
+        List<GoldQa> items = goldQaRepository.findBySourceTaskId(task.getId());
+        boolean hasEditable = items.stream()
+                .anyMatch(item -> Set.of("DRAFT", "BASELINE_EXAMINED", "EXAMINED", "REJECTED").contains(item.getStatus()));
+        boolean hasPending = items.stream()
+                .anyMatch(item -> "PENDING_REVIEW".equals(item.getStatus()));
+        boolean allAccepted = !items.isEmpty() && items.stream().allMatch(item ->
+                "INDEXED".equals(item.getStatus())
+                        || ("EVALUATION".equalsIgnoreCase(item.getUsage()) && "APPROVED".equals(item.getStatus()))
+        );
+        if (allAccepted) {
+            task.setStatus("COMPLETED");
+            task.setCompletedAt(LocalDateTime.now());
+        } else if (hasPending && !hasEditable) {
+            task.setStatus("SUBMITTED");
+            task.setCompletedAt(null);
+        } else {
+            task.setStatus("IN_PROGRESS");
+            task.setCompletedAt(null);
+        }
+        task.setUpdatedAt(LocalDateTime.now());
+        taskRepository.save(task);
+    }
+
+    private Optional<GoldQa> resolveEditableGoldQa(String goldQaId, ExpertTask task, String authorId) {
+        if (goldQaId == null || goldQaId.isBlank()) {
+            return Optional.empty();
+        }
+        GoldQa existing = goldQaRepository.findById(goldQaId.trim())
+                .orElseThrow(() -> new IllegalArgumentException("GoldQA not found"));
+        if (!authorId.equals(existing.getAuthorId())) {
+            throw new IllegalArgumentException("Only the author can update this Gold Q&A");
+        }
+        if (task != null && existing.getSourceTaskId() != null
+                && !task.getId().equals(existing.getSourceTaskId())) {
+            throw new IllegalArgumentException("Gold Q&A does not belong to this task");
+        }
+        if (!Set.of("DRAFT", "BASELINE_EXAMINED", "EXAMINED", "REJECTED").contains(existing.getStatus())) {
+            throw new IllegalArgumentException("Gold Q&A cannot be edited in status " + existing.getStatus());
+        }
+        return Optional.of(existing);
     }
 
     private void completeReviewedTask(String taskId, boolean approved) {
         if (taskId == null || taskId.isBlank()) return;
         taskRepository.findById(taskId).ifPresent(task -> {
-            task.setStatus(approved ? "COMPLETED" : "IN_PROGRESS");
-            task.setCompletedAt(approved ? LocalDateTime.now() : null);
-            task.setUpdatedAt(LocalDateTime.now());
-            taskRepository.save(task);
+            if (!approved) {
+                task.setStatus("IN_PROGRESS");
+                task.setCompletedAt(null);
+                task.setUpdatedAt(LocalDateTime.now());
+                taskRepository.save(task);
+                return;
+            }
+            refreshTaskStatusAfterGoldChange(task, task.getContributionId());
         });
     }
+
     private void ensurePending(String status) { if (!"PENDING_REVIEW".equals(status)) throw new IllegalArgumentException("Contribution is not pending review"); }
     private void ensureTeacherExamable(String status) {
-        if (!Set.of("EXAMINED", "REJECTED").contains(status)) {
-            throw new IllegalArgumentException("Gold Q&A cannot be examined in status " + status);
+        if (!Set.of("DRAFT", "BASELINE_EXAMINED", "REJECTED").contains(status)) {
+            throw new IllegalArgumentException(
+                    "Gold Q&A cannot be examined in status " + status
+                            + ". Đã hết 2 lượt thi hoặc đang chờ Senior — chỉ reset khi Senior từ chối."
+            );
         }
     }
     private void ensureSenior(ExpertReviewRequest request) {

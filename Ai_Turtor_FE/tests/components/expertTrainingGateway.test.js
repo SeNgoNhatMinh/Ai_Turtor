@@ -9,6 +9,7 @@ vi.mock('../../src/services/n8nService', () => ({
   n8nService: {
     analyzeTutorV2Coverage: vi.fn(),
     submitTutorV2GoldQa: vi.fn(),
+    examTutorV2GoldQa: vi.fn(),
     submitTutorV2Rubric: vi.fn(),
     approveTutorV2GoldQa: vi.fn(),
     approveTutorV2Rubric: vi.fn(),
@@ -20,6 +21,7 @@ vi.mock('../../src/services/expertTrainingApi', () => ({
   expertTrainingApi: {
     analyzeCoverage: vi.fn(),
     submitGoldQa: vi.fn(),
+    examGoldQa: vi.fn(),
     submitRubric: vi.fn(),
     reviewGoldQa: vi.fn(),
     reviewRubric: vi.fn(),
@@ -34,29 +36,75 @@ import { n8nService } from '../../src/services/n8nService';
 describe('expertTrainingGateway', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('keeps coverage on the canonical API and routes Teacher Gold Q&A submission through Tutor V2 n8n', async () => {
+  it('always saves DRAFT via API first; exam=true then runs exam endpoint', async () => {
     expertTrainingApi.analyzeCoverage.mockResolvedValue([
       { id: 'gap-1', courseId: 'PFP191', chapter: 'Recursion', status: 'OPEN' },
     ]);
-    n8nService.submitTutorV2GoldQa.mockResolvedValue({
+    expertTrainingApi.submitGoldQa.mockResolvedValue({
       id: 'gold-1',
       courseId: 'PFP191',
       usage: 'TRAINING',
-      status: 'PENDING_REVIEW',
-      examPassed: true,
+      status: 'DRAFT',
+    });
+    n8nService.examTutorV2GoldQa.mockResolvedValue({
+      id: 'gold-1',
+      courseId: 'PFP191',
+      usage: 'TRAINING',
+      status: 'BASELINE_EXAMINED',
+      examUsedTeachingNote: false,
     });
 
     const gaps = await expertTrainingGateway.analyzeCoverage({ courseId: 'PFP191' });
     const submitted = await expertTrainingGateway.submitGoldQa({
       courseId: 'PFP191',
       question: 'Recursion là gì?',
-    });
+    }, { exam: true });
 
     expect(gaps).toHaveLength(1);
-    expect(submitted).toMatchObject({ id: 'gold-1', status: 'PENDING_REVIEW', examPassed: true });
-    expect(expertTrainingApi.analyzeCoverage).toHaveBeenCalledWith({ courseId: 'PFP191' });
-    expect(n8nService.analyzeTutorV2Coverage).not.toHaveBeenCalled();
-    expect(expertTrainingApi.submitGoldQa).not.toHaveBeenCalled();
+    expect(submitted).toMatchObject({ id: 'gold-1', status: 'BASELINE_EXAMINED' });
+    expect(expertTrainingApi.submitGoldQa).toHaveBeenCalledWith(
+      expect.objectContaining({ question: 'Recursion là gì?' }),
+      { exam: false },
+    );
+    expect(n8nService.submitTutorV2GoldQa).not.toHaveBeenCalled();
+    expect(n8nService.examTutorV2GoldQa).toHaveBeenCalledWith({ goldQaId: 'gold-1' });
+  });
+
+  it('defaults submitGoldQa to draft-only without exam', async () => {
+    expertTrainingApi.submitGoldQa.mockResolvedValue({
+      id: 'gold-plain',
+      status: 'DRAFT',
+    });
+
+    const saved = await expertTrainingGateway.submitGoldQa({
+      courseId: 'PRJ301',
+      question: 'JSP là gì?',
+    });
+
+    expect(saved).toMatchObject({ id: 'gold-plain', status: 'DRAFT' });
+    expect(n8nService.examTutorV2GoldQa).not.toHaveBeenCalled();
+  });
+
+  it('saves draft list items via API with exam=false and skips exam', async () => {
+    expertTrainingApi.submitGoldQa.mockResolvedValue({
+      id: 'gold-draft-1',
+      status: 'DRAFT',
+      question: 'Servlet lifecycle gồm gì?',
+    });
+
+    const saved = await expertTrainingGateway.submitGoldQa({
+      courseId: 'PRJ301',
+      question: 'Servlet lifecycle gồm gì?',
+      goldAnswer: '- init\n- service\n- destroy',
+    }, { exam: false });
+
+    expect(saved).toMatchObject({ id: 'gold-draft-1', status: 'DRAFT' });
+    expect(expertTrainingApi.submitGoldQa).toHaveBeenCalledWith(
+      expect.objectContaining({ question: 'Servlet lifecycle gồm gì?' }),
+      { exam: false },
+    );
+    expect(n8nService.examTutorV2GoldQa).not.toHaveBeenCalled();
+    expect(n8nService.submitTutorV2GoldQa).not.toHaveBeenCalled();
   });
 
   it('routes Senior approval through n8n but keeps rejection on the canonical API', async () => {

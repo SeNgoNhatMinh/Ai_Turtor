@@ -28,6 +28,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static com.ragapi.util.ValidationUtils.requireText;
 
@@ -43,7 +45,11 @@ public class ChapterOutlineService {
     static final int FULL_SECTION_EXCERPT_LIMIT = 250_000;
     static final String DETECTED_FROM_MATERIAL = "MATERIAL_TITLE";
     static final String DETECTED_FROM_BOOKMARK = "PDF_BOOKMARK";
+    static final String DETECTED_FROM_HTML_SECTION = "HTML_SECTION";
     static final String DETECTED_FROM_MANUAL = "MANUAL";
+    private static final Pattern HTML_SECTION_SPLIT = Pattern.compile("\\n\\n---+\\n\\n");
+    private static final Pattern HTML_PAGE_TITLE = Pattern.compile("(?im)^Page title:\\s*(.+)$");
+    private static final Pattern HTML_SOURCE_URL = Pattern.compile("(?im)^Source URL:\\s*(.+)$");
 
     private final CourseMaterialRepository materialRepository;
     private final CourseChapterOutlineRepository outlineRepository;
@@ -51,18 +57,92 @@ public class ChapterOutlineService {
     private final GoldQaRepository goldQaRepository;
     private final PdfExtractionService pdfExtractionService;
     private final PdfStorageService pdfStorageService;
+    private final HtmlSectionMediaService htmlSectionMediaService;
 
     public List<ChapterOutlineView> suggestChapters(String courseId) {
         String safeCourseId = requireText(courseId, "courseId");
         List<CourseChapterOutline> outlines = outlineRepository.findByCourseIdOrderByTitleAsc(safeCourseId);
-        if (outlines.isEmpty()) {
-            refreshOutlinesForCourse(safeCourseId);
-            outlines = outlineRepository.findByCourseIdOrderByTitleAsc(safeCourseId);
-        }
         List<CourseChapterOutline> visible = outlines.stream()
                 .filter(o -> !"IGNORED".equalsIgnoreCase(o.getStatus()))
                 .toList();
+        // Rebuild when empty, noise-ignored, or HTML website import still collapsed to one title chapter.
+        if (outlines.isEmpty() || visible.isEmpty() || needsHtmlSectionRebuild(safeCourseId, outlines)) {
+            refreshOutlinesForCourse(safeCourseId);
+            outlines = outlineRepository.findByCourseIdOrderByTitleAsc(safeCourseId);
+            visible = outlines.stream()
+                    .filter(o -> !"IGNORED".equalsIgnoreCase(o.getStatus()))
+                    .toList();
+        }
         return toViews(safeCourseId, visible);
+    }
+
+    /** Force rebuild chapter outlines from indexed materials (PDF bookmarks + HTML URL sections). */
+    public List<ChapterOutlineView> refreshChapters(String courseId) {
+        String safeCourseId = requireText(courseId, "courseId");
+        refreshOutlinesForCourse(safeCourseId);
+        List<CourseChapterOutline> visible = outlineRepository.findByCourseIdOrderByTitleAsc(safeCourseId).stream()
+                .filter(o -> !"IGNORED".equalsIgnoreCase(o.getStatus()))
+                .toList();
+        return toViews(safeCourseId, visible);
+    }
+
+    /**
+     * Rebuild outlines for every course that has indexed HTML_URL materials.
+     * Used after website-import TOC fixes so Senior Mục lục catches up without re-upload.
+     */
+    public Map<String, Object> refreshAllHtmlCourseChapters() {
+        Set<String> courseIds = new LinkedHashSet<>();
+        for (CourseMaterial material : materialRepository.findBySourceType("HTML_URL")) {
+            if (!"INDEXED".equalsIgnoreCase(material.getIndexingStatus())) {
+                continue;
+            }
+            if (material.getCourseId() == null || material.getCourseId().isBlank()) {
+                continue;
+            }
+            if (!hasHtmlSectionMarkers(material.getContent())) {
+                continue;
+            }
+            courseIds.add(material.getCourseId().trim());
+        }
+        List<Map<String, Object>> results = new ArrayList<>();
+        for (String courseId : courseIds) {
+            List<ChapterOutlineView> chapters = refreshChapters(courseId);
+            long htmlSections = chapters.stream()
+                    .filter(c -> DETECTED_FROM_HTML_SECTION.equalsIgnoreCase(c.getDetectedFrom()))
+                    .count();
+            results.add(Map.of(
+                    "courseId", courseId,
+                    "chapterCount", chapters.size(),
+                    "htmlSectionCount", htmlSections
+            ));
+        }
+        return Map.of(
+                "courseCount", courseIds.size(),
+                "courses", results
+        );
+    }
+
+    private boolean needsHtmlSectionRebuild(String courseId, List<CourseChapterOutline> outlines) {
+        List<CourseMaterial> htmlMaterials = materialRepository.findByCourseId(courseId).stream()
+                .filter(m -> "INDEXED".equalsIgnoreCase(m.getIndexingStatus()))
+                .filter(m -> isHtmlUrlMaterial(m) && hasHtmlSectionMarkers(m.getContent()))
+                .toList();
+        if (htmlMaterials.isEmpty()) {
+            return false;
+        }
+        long sectionOutlines = outlines.stream()
+                .filter(o -> DETECTED_FROM_HTML_SECTION.equalsIgnoreCase(o.getDetectedFrom()))
+                .filter(o -> !"IGNORED".equalsIgnoreCase(o.getStatus()))
+                .count();
+        if (sectionOutlines == 0) {
+            return true;
+        }
+        int importedPages = htmlMaterials.stream()
+                .mapToInt(m -> m.getImportedPageCount() == null ? 0 : Math.max(0, m.getImportedPageCount()))
+                .sum();
+        // Oracle-style docs reuse the chapter H1 for every subsection; under-split until we
+        // expand titles with URL fragments.
+        return importedPages > 1 && importedPages > sectionOutlines * 2;
     }
 
     public List<ChapterOutlineView> confirmChapters(ConfirmChaptersRequest request) {
@@ -217,6 +297,24 @@ public class ChapterOutlineService {
         boolean fromMaterial = isIndexedMaterialSource(outline.getDetectedFrom());
         String primarySourceMaterialId = resolvePrimarySourceMaterialId(materialIds, sources);
 
+        String sourcePageUrl = null;
+        List<String> imageUrls = List.of();
+        if (DETECTED_FROM_HTML_SECTION.equalsIgnoreCase(outline.getDetectedFrom())
+                || sources.stream().anyMatch(s -> s.getSourceType() != null
+                && s.getSourceType().toUpperCase().contains("HTML"))) {
+            HtmlSectionMediaService.SectionMedia media = htmlSectionMediaService.resolveFromStoredSection(rawExcerpt);
+            sourcePageUrl = media.sourcePageUrl();
+            imageUrls = media.imageUrls();
+        }
+
+        int pageStart = outline.getPageStart() == null ? 0 : outline.getPageStart();
+        int pageEnd = outline.getPageEnd() == null ? 0 : outline.getPageEnd();
+        if (pageStart <= 0) {
+            int[] pdfPages = resolveDefaultPdfPreviewPages(materialIds);
+            pageStart = pdfPages[0];
+            pageEnd = pdfPages[1];
+        }
+
         return ChapterPreviewView.builder()
                 .courseId(safeCourseId)
                 .chapterKey(outline.getChapterKey())
@@ -230,11 +328,34 @@ public class ChapterOutlineService {
                 .excerptTruncated(excerptTruncated)
                 .excerptTotalChars(rawExcerpt.length())
                 .hasMaterialContent(fromMaterial && !excerptText.isBlank())
-                .pageStart(outline.getPageStart() == null ? 0 : outline.getPageStart())
-                .pageEnd(outline.getPageEnd() == null ? 0 : outline.getPageEnd())
+                .pageStart(pageStart)
+                .pageEnd(pageEnd)
                 .primarySourceMaterialId(primarySourceMaterialId)
+                .sourcePageUrl(sourcePageUrl)
+                .imageUrls(imageUrls)
                 .sourceMaterials(sources)
                 .build();
+    }
+
+    private int[] resolveDefaultPdfPreviewPages(List<String> materialIds) {
+        if (materialIds == null) {
+            return new int[]{0, 0};
+        }
+        for (String materialId : materialIds) {
+            if (materialId == null || materialId.isBlank()) {
+                continue;
+            }
+            CourseMaterial material = materialRepository.findById(materialId.trim()).orElse(null);
+            if (material == null || material.getPdfFileId() == null || material.getPdfFileId().isBlank()) {
+                continue;
+            }
+            int total = material.getPageCount() == null ? 0 : material.getPageCount();
+            if (total <= 0) {
+                total = 5;
+            }
+            return new int[]{1, Math.min(5, total)};
+        }
+        return new int[]{0, 0};
     }
 
     private static String resolvePrimarySourceMaterialId(List<String> materialIds, List<ChapterSourceMaterialView> sources) {
@@ -385,7 +506,11 @@ public class ChapterOutlineService {
             }
             boolean stale = !activeKeys.contains(existing.getChapterKey());
             boolean legacyHeading = "HEADING".equalsIgnoreCase(existing.getDetectedFrom());
-            boolean noise = legacyHeading || !ChapterHeadingUtils.isPlausibleChapterTitle(existing.getTitle());
+            boolean skipNoiseFilter = DETECTED_FROM_MATERIAL.equalsIgnoreCase(existing.getDetectedFrom())
+                    || DETECTED_FROM_HTML_SECTION.equalsIgnoreCase(existing.getDetectedFrom())
+                    || DETECTED_FROM_BOOKMARK.equalsIgnoreCase(existing.getDetectedFrom());
+            boolean noise = legacyHeading
+                    || (!skipNoiseFilter && !ChapterHeadingUtils.isPlausibleChapterTitle(existing.getTitle()));
             if (stale || noise) {
                 existing.setStatus("IGNORED");
                 existing.setUpdatedAt(now);
@@ -400,6 +525,11 @@ public class ChapterOutlineService {
             return;
         }
 
+        if (isHtmlUrlMaterial(material) && hasHtmlSectionMarkers(content)) {
+            ingestHtmlSections(material, aggregated, content);
+            return;
+        }
+
         List<MaterialTocEntry> toc = material.getTableOfContents();
         if (toc != null && !toc.isEmpty()) {
             ingestMaterialFromBookmarks(material, aggregated, toc, content);
@@ -409,6 +539,104 @@ public class ChapterOutlineService {
         String title = firstNonBlank(material.getTitle(), material.getCategory(), "General");
         int chunks = chunkingService.chunk(content).size();
         mergeChapter(aggregated, title, DETECTED_FROM_MATERIAL, material.getId(), chunks, content.length(), null, null, null);
+    }
+
+    private static boolean isHtmlUrlMaterial(CourseMaterial material) {
+        String sourceType = material.getSourceType() == null ? "" : material.getSourceType().trim().toUpperCase();
+        return "HTML_URL".equals(sourceType) || sourceType.contains("HTML");
+    }
+
+    private static boolean hasHtmlSectionMarkers(String content) {
+        return content != null
+                && content.contains("Source URL:")
+                && content.contains("Page title:");
+    }
+
+    private void ingestHtmlSections(
+            CourseMaterial material,
+            Map<String, AggregatedChapter> aggregated,
+            String content
+    ) {
+        String[] parts = HTML_SECTION_SPLIT.split(content);
+        int created = 0;
+        for (String part : parts) {
+            if (part == null || part.isBlank()) {
+                continue;
+            }
+            String section = part.trim();
+            String pageTitle = matchFirstGroup(HTML_PAGE_TITLE, section);
+            String sourceUrl = matchFirstGroup(HTML_SOURCE_URL, section);
+            String title = resolveHtmlSectionTitle(pageTitle, sourceUrl, created + 1);
+            int chunks = Math.max(1, chunkingService.chunk(section).size());
+            mergeChapter(
+                    aggregated,
+                    title,
+                    DETECTED_FROM_HTML_SECTION,
+                    material.getId(),
+                    chunks,
+                    section.length(),
+                    0,
+                    null,
+                    null
+            );
+            created += 1;
+        }
+        if (created == 0) {
+            String title = firstNonBlank(material.getTitle(), material.getCategory(), "General");
+            int chunks = chunkingService.chunk(content).size();
+            mergeChapter(aggregated, title, DETECTED_FROM_MATERIAL, material.getId(), chunks, content.length(), null, null, null);
+        }
+    }
+
+    static String resolveHtmlSectionTitle(String pageTitle, String sourceUrl, int index) {
+        String fragment = extractUrlFragment(sourceUrl);
+        String sectionLabel = humanizeHtmlFragment(fragment);
+        if (sectionLabel != null && !sectionLabel.isBlank()) {
+            if (pageTitle != null && !pageTitle.isBlank()
+                    && !pageTitle.equalsIgnoreCase(sectionLabel)
+                    && !pageTitle.toLowerCase().contains(sectionLabel.toLowerCase())) {
+                return sectionLabel + " · " + pageTitle.trim();
+            }
+            return sectionLabel;
+        }
+        if (pageTitle != null && !pageTitle.isBlank()) {
+            return pageTitle.trim();
+        }
+        if (sourceUrl != null && !sourceUrl.isBlank()) {
+            return sourceUrl.trim();
+        }
+        return "HTML section " + index;
+    }
+
+    static String extractUrlFragment(String sourceUrl) {
+        if (sourceUrl == null || sourceUrl.isBlank()) {
+            return null;
+        }
+        int hash = sourceUrl.indexOf('#');
+        if (hash < 0 || hash >= sourceUrl.length() - 1) {
+            return null;
+        }
+        return sourceUrl.substring(hash + 1).trim();
+    }
+
+    static String humanizeHtmlFragment(String fragment) {
+        if (fragment == null || fragment.isBlank()) {
+            return null;
+        }
+        String cleaned = fragment.trim();
+        // docs.oracle.com style: jvms-1.2.3 / jls-8.4.1
+        cleaned = cleaned.replaceFirst("(?i)^[a-z]{2,10}-", "");
+        cleaned = cleaned.replace('-', ' ').trim();
+        return cleaned.isBlank() ? fragment.trim() : cleaned;
+    }
+
+    private static String matchFirstGroup(Pattern pattern, String text) {
+        Matcher matcher = pattern.matcher(text);
+        if (!matcher.find()) {
+            return null;
+        }
+        String value = matcher.group(1);
+        return value == null ? null : value.trim();
     }
 
     private void ingestMaterialFromBookmarks(
@@ -485,8 +713,11 @@ public class ChapterOutlineService {
             return;
         }
 
-        if (DETECTED_FROM_BOOKMARK.equalsIgnoreCase(outline.getDetectedFrom())) {
-            String sectionText = resolveBookmarkSectionText(outline, material);
+        if (DETECTED_FROM_BOOKMARK.equalsIgnoreCase(outline.getDetectedFrom())
+                || DETECTED_FROM_HTML_SECTION.equalsIgnoreCase(outline.getDetectedFrom())) {
+            String sectionText = DETECTED_FROM_HTML_SECTION.equalsIgnoreCase(outline.getDetectedFrom())
+                    ? extractHtmlSectionByTitle(material.getContent(), outline.getTitle())
+                    : resolveBookmarkSectionText(outline, material);
             if (!sectionText.isBlank()) {
                 appendExcerptText(excerpt, sectionText, excerptLimit, fullSectionRequested);
                 return;
@@ -511,6 +742,43 @@ public class ChapterOutlineService {
 
     private String resolveBookmarkSectionText(CourseChapterOutline outline, CourseMaterial material) {
         return extractSectionByTitle(material.getContent(), outline.getTitle());
+    }
+
+    static String extractHtmlSectionByTitle(String content, String title) {
+        if (content == null || content.isBlank() || title == null || title.isBlank()) {
+            return "";
+        }
+        String[] parts = HTML_SECTION_SPLIT.split(content);
+        String needle = title.trim();
+        String fragmentHint = null;
+        int sep = needle.indexOf(" · ");
+        if (sep > 0) {
+            fragmentHint = needle.substring(0, sep).trim();
+        }
+        for (String part : parts) {
+            if (part == null || part.isBlank()) {
+                continue;
+            }
+            String pageTitle = matchFirstGroup(HTML_PAGE_TITLE, part);
+            String sourceUrl = matchFirstGroup(HTML_SOURCE_URL, part);
+            if (pageTitle != null && pageTitle.equalsIgnoreCase(needle)) {
+                return part.trim();
+            }
+            if (fragmentHint != null && sourceUrl != null) {
+                String fragment = extractUrlFragment(sourceUrl);
+                String humanized = humanizeHtmlFragment(fragment);
+                if (fragmentHint.equalsIgnoreCase(humanized)
+                        || (fragment != null && (fragment.equalsIgnoreCase(fragmentHint)
+                        || fragment.endsWith("-" + fragmentHint)
+                        || fragment.endsWith(fragmentHint)))) {
+                    return part.trim();
+                }
+            }
+            if (indexOfIgnoreCase(part, needle) >= 0) {
+                return part.trim();
+            }
+        }
+        return extractSectionByTitle(content, title);
     }
 
     static String extractSectionByTitle(String content, String title) {
@@ -644,7 +912,8 @@ public class ChapterOutlineService {
 
     private static boolean isIndexedMaterialSource(String detectedFrom) {
         return DETECTED_FROM_MATERIAL.equalsIgnoreCase(detectedFrom)
-                || DETECTED_FROM_BOOKMARK.equalsIgnoreCase(detectedFrom);
+                || DETECTED_FROM_BOOKMARK.equalsIgnoreCase(detectedFrom)
+                || DETECTED_FROM_HTML_SECTION.equalsIgnoreCase(detectedFrom);
     }
 
     private String firstNonBlank(String... values) {

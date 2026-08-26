@@ -102,7 +102,29 @@ public class CourseRagService {
             String chapter,
             String teachingNote
     ) throws IOException {
-        return askWithConfidenceInternal(question, courseId, classId, true, chapter, teachingNote);
+        return askWithConfidenceInternal(question, courseId, classId, true, chapter, teachingNote, null);
+    }
+
+    /**
+     * Teacher retake: merge baseline draft + teacher checklist + textbook into one fuller answer.
+     */
+    public CourseRagAnswer askWithConfidenceSynthesizingExam(
+            String question,
+            String courseId,
+            String classId,
+            String chapter,
+            String teachingNote,
+            String baselineAnswer
+    ) throws IOException {
+        return askWithConfidenceInternal(
+                question,
+                courseId,
+                classId,
+                true,
+                chapter,
+                teachingNote,
+                baselineAnswer
+        );
     }
 
     private CourseRagAnswer askWithConfidenceInternal(
@@ -111,7 +133,7 @@ public class CourseRagService {
             String classId,
             boolean textbookOnly
     ) throws IOException {
-        return askWithConfidenceInternal(question, courseId, classId, textbookOnly, null, null);
+        return askWithConfidenceInternal(question, courseId, classId, textbookOnly, null, null, null);
     }
 
     private CourseRagAnswer askWithConfidenceInternal(
@@ -121,6 +143,26 @@ public class CourseRagService {
             boolean textbookOnly,
             String draftChapter,
             String draftTeachingNote
+    ) throws IOException {
+        return askWithConfidenceInternal(
+                question,
+                courseId,
+                classId,
+                textbookOnly,
+                draftChapter,
+                draftTeachingNote,
+                null
+        );
+    }
+
+    private CourseRagAnswer askWithConfidenceInternal(
+            String question,
+            String courseId,
+            String classId,
+            boolean textbookOnly,
+            String draftChapter,
+            String draftTeachingNote,
+            String baselineDraftAnswer
     ) throws IOException {
         long backendStartedNanos = System.nanoTime();
         String safeQuestion = requireMaxLength(question, "question", STUDENT_QUESTION_MAX_LENGTH);
@@ -222,7 +264,7 @@ public class CourseRagService {
         log.info("Retrieved {} context chunks", contexts.size());
 
         String context = String.join("\n", contexts);
-        context = prependDraftTeachingNote(context, draftChapter, draftTeachingNote);
+        context = prependDraftTeachingNote(context, draftChapter, draftTeachingNote, baselineDraftAnswer);
         Map<String, CourseMaterial> materialsById = loadMaterials(chunks);
         String groundingType = resolveGroundingType(chunks, materialsById);
         List<String> sourceLabels = buildSourceLabels(chunks, materialsById);
@@ -294,7 +336,14 @@ public class CourseRagService {
             }
         }
 
-        String prompt = buildPrompt(safeQuestion, context, sourceLabels, safeCourseId, classId);
+        String prompt = buildPrompt(
+                safeQuestion,
+                context,
+                sourceLabels,
+                safeCourseId,
+                classId,
+                baselineDraftAnswer != null && !baselineDraftAnswer.isBlank()
+        );
 
         log.info("Sending grounded course-learning prompt to LLM...");
         try {
@@ -761,26 +810,77 @@ public class CourseRagService {
         return proof.toString();
     }
 
-    private String prependDraftTeachingNote(String context, String chapter, String teachingNote) {
-        if (teachingNote == null || teachingNote.isBlank()) {
+    private String prependDraftTeachingNote(
+            String context,
+            String chapter,
+            String teachingNote,
+            String baselineDraftAnswer
+    ) {
+        StringBuilder prefix = new StringBuilder();
+        if (teachingNote != null && !teachingNote.isBlank()) {
+            prefix.append("""
+                    Course-material teaching note (PREVIEW for Teacher exam — not indexed yet; textbook remains authoritative).
+                    Chapter: %s
+                    Student-facing key points summarized from course materials (checklist — cover every point that the textbook supports):
+                    %s
+                    """.formatted(
+                    chapter == null ? "" : chapter.trim(),
+                    teachingNote.trim()
+            ));
+        }
+        if (baselineDraftAnswer != null && !baselineDraftAnswer.isBlank()) {
+            if (!prefix.isEmpty()) {
+                prefix.append('\n');
+            }
+            prefix.append("""
+                    PRIOR DRAFT ANSWER (baseline exam — textbook/RAG only, before teaching-note checklist):
+                    ---
+                    %s
+                    ---
+                    SYNTHESIS TASK:
+                    - Produce ONE improved final answer for the student.
+                    - Keep useful accurate content from the prior draft.
+                    - Add any checklist points from the teaching note that are supported by the textbook context but missing or weak in the prior draft.
+                    - Do not become a thin paraphrase of only the teaching note; keep the fuller textbook-grounded explanation.
+                    - If the teaching note conflicts with textbook excerpts, prefer the textbook and ignore the conflicting note.
+                    """.formatted(baselineDraftAnswer.trim()));
+        }
+        if (prefix.isEmpty()) {
             return context == null ? "" : context;
         }
-        String note = """
-                Course-material teaching note (PREVIEW for Teacher exam — not indexed yet; textbook remains authoritative).
-                Chapter: %s
-                Student-facing key points summarized from course materials:
-                %s
-                """.formatted(
-                chapter == null ? "" : chapter.trim(),
-                teachingNote.trim()
-        );
         if (context == null || context.isBlank()) {
-            return note;
+            return prefix.toString();
         }
-        return note + "\n\n" + context;
+        return prefix + "\n\n" + context;
     }
 
-    private String buildPrompt(String question, String context, List<String> sourceLabels, String courseId, String classId) {
+    private String buildPrompt(
+            String question,
+            String context,
+            List<String> sourceLabels,
+            String courseId,
+            String classId
+    ) {
+        return buildPrompt(question, context, sourceLabels, courseId, classId, false);
+    }
+
+    private String buildPrompt(
+            String question,
+            String context,
+            List<String> sourceLabels,
+            String courseId,
+            String classId,
+            boolean synthesizeExam
+    ) {
+        String synthesizeBlock = synthesizeExam ? """
+
+                TEACHER EXAM SYNTHESIS (retake):
+                - A prior draft answer and a teacher checklist appear at the top of the context.
+                - Write one final student-facing answer that is more complete than either alone.
+                - Checklist points must appear when supported by textbook excerpts; keep strong textbook explanations from the prior draft.
+                - Do not drop important prior-draft content just to mirror the checklist wording.
+                """ : "";
+
         return """
                 You are an AI Tutor Platform for university students.
 
@@ -805,7 +905,7 @@ public class CourseRagService {
                 - Code/debugging questions belong to Code Mentor mode, not RAG mode.
                 - Never output Base64, data:image URLs, HTML img tags, or invented image attachments.
                 - If Senior-approved knowledge is used, label that section as "Kiến thức bổ sung" only. Do not mention Senior approval, reviewers, or internal review workflow.
-
+                %s
                 TEACHING STYLE:
                 - Explain clearly and in enough detail, but stay grounded in the provided material.
                 - Cover every major step/concept present in the context that answers the question; do not stop mid-sentence.
@@ -847,6 +947,7 @@ public class CourseRagService {
                 STUDENT QUESTION:
                 %s
                 """.formatted(
+                synthesizeBlock,
                 courseId == null ? "" : courseId,
                 classId == null ? "" : classId,
                 sourceLabels == null ? "" : String.join(", ", sourceLabels),

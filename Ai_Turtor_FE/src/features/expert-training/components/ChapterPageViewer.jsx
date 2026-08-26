@@ -33,9 +33,9 @@ export default function ChapterPageViewer({
   pageEnd,
   title = 'Trang sách',
 }) {
-  const start = Math.max(1, Number(pageStart) || 0);
+  const start = Number(pageStart);
   const end = Math.max(start, Number(pageEnd) || start);
-  const canRender = Boolean(courseId && materialId && start > 0);
+  const canRender = Boolean(courseId && materialId && Number.isFinite(start) && start > 0);
 
   if (!canRender) {
     return (

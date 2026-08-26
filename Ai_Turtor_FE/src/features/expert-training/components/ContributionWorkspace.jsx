@@ -1,8 +1,19 @@
-import { useEffect, useRef } from 'react';
-import { Alert, Card, Form, Space, Typography } from 'antd';
-import { RefreshCw, Send } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Alert, Card, Form, Tag, Typography } from 'antd';
+import {
+  ChevronDown,
+  ChevronUp,
+  Pencil,
+  Plus,
+  RefreshCw,
+  Send,
+  Sparkles,
+  Trash2,
+} from 'lucide-react';
 import ActionButton from '../../../components/common/ActionButton';
+import { confirmDanger } from '../../../components/common/confirmDialog';
 import { getStatusLabel } from '../../../utils/statusLabels';
+import { formatTeacherGoldAnswer } from '../../../utils/teacherGoldAnswerFormat';
 import { formatPercent } from '../expertTrainingUtils';
 import TaskMaterialContext from './TaskMaterialContext';
 import GoldQaContributionForm from './contribution/GoldQaContributionForm';
@@ -10,85 +21,157 @@ import GoldQaExamCompare from './contribution/GoldQaExamCompare';
 
 const { Paragraph } = Typography;
 
-function contributionFeedback(contribution) {
-  if (!contribution) return null;
-  if (contribution.status === 'INDEXED') {
-    return {
-      type: 'success',
-      title: 'Senior đã nạp ghi chú vào RAG',
-      description: 'Sinh viên sẽ nhận câu trả lời như bản xem trước Teacher đã chấm. Giáo trình vẫn là chuẩn.',
-    };
-  }
-  if (contribution.status === 'REJECTED') {
-    return {
-      type: 'error',
-      title: 'Senior yêu cầu chỉnh lại cho khớp giáo trình',
-      description: contribution.rejectionReason || contribution.reviewNote || 'Chỉnh câu hỏi/tóm tắt cho đúng sách rồi Thi lại (xem trước câu SV) trước khi gửi Senior.',
-    };
-  }
-  if (contribution.status === 'PENDING_REVIEW') {
-    return {
-      type: 'info',
-      title: 'Đã gửi Senior duyệt nạp',
-      description: 'Senior chỉ xem bản xem trước và duyệt nạp RAG. AI chưa phục vụ SV bằng ghi chú này cho đến khi được nạp.',
-    };
-  }
-  if (contribution.status === 'EXAMINED') {
-    if (contribution.examError) {
-      return {
-        type: 'warning',
-        title: 'Không chấm được bài thi tự động',
-        description: 'Sửa tóm tắt theo sách rồi bấm Thi lại để xem trước câu trả lời SV. Chưa gửi Senior.',
-      };
-    }
-    return {
-      type: contribution.examPassed ? 'success' : 'warning',
-      title: contribution.examPassed
-        ? `Xem trước: AI phủ ${formatPercent(contribution.examScore)} ý giáo trình`
-        : `Xem trước: AI chưa phủ đủ (${contribution.examScore == null ? '—' : formatPercent(contribution.examScore)})`,
-      description: contribution.examPassed
-        ? 'Đây là câu AI sẽ trả cho SV sau khi TRAINING được nạp (chưa index thật). Có thể Thi lại hoặc Gửi Senior duyệt nạp.'
-        : 'Bản xem trước chưa đủ ý. Chỉnh tóm tắt theo sách rồi bấm Thi lại — Senior chỉ duyệt nạp khi bạn đã thấy câu đủ ý.',
-    };
-  }
-  return null;
+function statusTone(status) {
+  if (status === 'INDEXED' || status === 'APPROVED') return 'success';
+  if (status === 'REJECTED') return 'error';
+  if (status === 'PENDING_REVIEW') return 'processing';
+  if (status === 'BASELINE_EXAMINED') return 'warning';
+  if (status === 'EXAMINED') return 'success';
+  return 'default';
 }
 
-function ContributionResult({
-  contribution,
+function summaryPreview(text) {
+  const formatted = formatTeacherGoldAnswer(text) || String(text || '').trim();
+  const lines = formatted.split('\n').map((line) => line.trim()).filter(Boolean);
+  return lines.slice(0, 3);
+}
+
+function examButtonLabel(status) {
+  if (status === 'DRAFT' || status === 'REJECTED') return 'Cho AI thi';
+  if (status === 'BASELINE_EXAMINED') return 'Cho AI thi lại (gộp ý GV)';
+  return 'Cho AI thi lại';
+}
+
+function QaListRow({
+  item,
+  index,
+  expanded,
   canTeacherGate,
   pendingAction,
-  onExamGoldQa,
-  onSendForReview,
+  onToggle,
+  onEdit,
+  onExam,
+  onSend,
+  onDelete,
 }) {
-  const feedback = contributionFeedback(contribution);
-  if (!feedback) return null;
+  const examining = pendingAction === `exam-gold-qa:${item.id}`;
+  const sending = pendingAction === `send-gold-qa:${item.id}`;
+  const deleting = pendingAction === `delete-gold-qa:${item.id}`;
+  const editable = ['DRAFT', 'BASELINE_EXAMINED', 'EXAMINED', 'REJECTED'].includes(item.status);
+  const examable = ['DRAFT', 'BASELINE_EXAMINED', 'REJECTED'].includes(item.status);
+  const sendable = item.status === 'EXAMINED' && Boolean(item.examUsedTeachingNote);
+  const deletable = ['DRAFT', 'BASELINE_EXAMINED', 'EXAMINED', 'REJECTED'].includes(item.status);
+  const bullets = summaryPreview(item.goldAnswer);
+
   return (
-    <div className="expert-training__teacher-exam-result">
-      <Alert showIcon type={feedback.type} title={feedback.title} description={feedback.description} />
-      <GoldQaExamCompare contribution={contribution} />
-      {canTeacherGate && contribution.status === 'EXAMINED' && (
-        <Space wrap className="expert-training__form-actions">
-          <ActionButton
-            icon={<RefreshCw size={16} />}
-            loading={pendingAction === `exam-gold-qa:${contribution.id}`}
-            disabled={Boolean(pendingAction)}
-            onClick={() => onExamGoldQa?.(contribution.id)}
-          >
-            Thi lại · xem trước câu SV
-          </ActionButton>
-          <ActionButton
-            intent="primary"
-            icon={<Send size={16} />}
-            loading={pendingAction === `send-gold-qa:${contribution.id}`}
-            disabled={Boolean(pendingAction)}
-            onClick={() => onSendForReview?.(contribution.id)}
-          >
-            Gửi Senior duyệt nạp
-          </ActionButton>
-        </Space>
+    <article className={`expert-qa-card${expanded ? ' is-expanded' : ''}`}>
+      <header className="expert-qa-card__head">
+        <button type="button" className="expert-qa-card__toggle" onClick={() => onToggle(item.id)}>
+          <span className="expert-qa-card__index">#{index + 1}</span>
+          <span className="expert-qa-card__title">{item.question || 'Chưa có câu hỏi'}</span>
+          {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+        </button>
+        <div className="expert-qa-card__meta">
+          <Tag color={statusTone(item.status)}>{getStatusLabel(item.status)}</Tag>
+          {item.examScore != null && (
+            <Tag color={item.examPassed ? 'success' : 'warning'}>
+              {item.examUsedTeachingNote ? 'Sau' : 'Trước'} · AI phủ {formatPercent(item.examScore)}
+            </Tag>
+          )}
+        </div>
+      </header>
+
+      <div className="expert-qa-card__summary">
+        {bullets.length ? bullets.map((line) => (
+          <span key={line}>{line.replace(/^[-*•]\s*/, '')}</span>
+        )) : <span>Chưa có tóm tắt ý</span>}
+      </div>
+
+      {canTeacherGate && (
+        <div className="expert-qa-card__actions">
+          {editable && (
+            <ActionButton
+              icon={<Pencil size={15} />}
+              disabled={Boolean(pendingAction)}
+              onClick={() => onEdit(item)}
+            >
+              Sửa
+            </ActionButton>
+          )}
+          {examable && (
+            <ActionButton
+              intent={item.status === 'DRAFT' || item.status === 'BASELINE_EXAMINED' || item.status === 'REJECTED' ? 'primary' : 'default'}
+              icon={item.status === 'BASELINE_EXAMINED' ? <RefreshCw size={15} /> : <Sparkles size={15} />}
+              loading={examining}
+              disabled={Boolean(pendingAction)}
+              onClick={() => onExam(item.id)}
+            >
+              {examButtonLabel(item.status)}
+            </ActionButton>
+          )}
+          {sendable && (
+            <ActionButton
+              intent="primary"
+              icon={<Send size={15} />}
+              loading={sending}
+              disabled={Boolean(pendingAction)}
+              onClick={() => onSend(item.id)}
+            >
+              Gửi Senior
+            </ActionButton>
+          )}
+          {deletable && (
+            <ActionButton
+              intent="danger"
+              icon={<Trash2 size={15} />}
+              loading={deleting}
+              disabled={Boolean(pendingAction)}
+              onClick={() => onDelete(item)}
+            >
+              Xóa
+            </ActionButton>
+          )}
+        </div>
       )}
-    </div>
+
+      {expanded && (item.examAiAnswer || item.examError || item.examBaselineAiAnswer) && (
+        <div className="expert-qa-card__exam">
+          <GoldQaExamCompare contribution={item} />
+        </div>
+      )}
+      {expanded && item.status === 'DRAFT' && !item.examAiAnswer && (
+        <Alert
+          type="info"
+          showIcon
+          title="Chưa cho AI thi"
+          description="Tối đa 2 lượt: (1) Cho AI thi — chưa gắn ý GV. (2) Thi lại — gộp lần 1 + ý GV thành câu đầy đủ hơn."
+        />
+      )}
+      {expanded && item.status === 'BASELINE_EXAMINED' && (
+        <Alert
+          type="warning"
+          showIcon
+          title="Còn 1 lượt thi lại"
+          description="Thi lại sẽ gộp câu lần 1 với ý chính của bạn. Sau đó chỉ còn Gửi Senior (không thi lần 3)."
+        />
+      )}
+      {expanded && item.status === 'EXAMINED' && (
+        <Alert
+          type="success"
+          showIcon
+          title="Đã hết 2 lượt thi"
+          description="Gửi Senior duyệt. Nếu Senior từ chối, hệ thống reset lượt thi để bạn chỉnh ý và thi lại từ đầu."
+        />
+      )}
+      {expanded && item.status === 'REJECTED' && (
+        <Alert
+          type="error"
+          showIcon
+          title="Senior đã trả về — lượt thi đã reset"
+          description="Sửa ý chính nếu cần, rồi Cho AI thi (lần 1) và thi lại (lần 2) trước khi gửi lại Senior."
+        />
+      )}
+    </article>
   );
 }
 
@@ -98,136 +181,240 @@ export default function ContributionWorkspace({
   pendingAction,
   onSubmitGoldQa,
   onExamGoldQa,
+  onExamAllDrafts,
   onSendForReview,
+  onDeleteGoldQa,
   materialPreview,
   materialLoading,
   materialError,
+  contributions = [],
   contribution,
-  rejection,
   onOpenMaterial,
-  onSubmitted,
-  onSentToSenior,
 }) {
   const [goldForm] = Form.useForm();
   const hydrateKeyRef = useRef('');
+  const [composerOpen, setComposerOpen] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [expandedId, setExpandedId] = useState(null);
+
+  const items = useMemo(() => {
+    if (Array.isArray(contributions) && contributions.length) return contributions;
+    if (contribution) return [contribution];
+    return [];
+  }, [contribution, contributions]);
+
+  const draftIds = useMemo(
+    () => items.filter((item) => item.status === 'DRAFT').map((item) => item.id).filter(Boolean),
+    [items],
+  );
+  const baselineCount = items.filter((item) => item.status === 'BASELINE_EXAMINED').length;
+  const examinedCount = items.filter((item) => item.status === 'EXAMINED').length;
+  const editingItem = editingId ? items.find((item) => item.id === editingId) : null;
 
   useEffect(() => {
     if (!selectedTask?.id) {
-      hydrateKeyRef.current = '';
+      setComposerOpen(false);
+      setEditingId(null);
+      setExpandedId(null);
       return;
     }
-
-    const saved = rejection || contribution;
-    const hydrateKey = `${selectedTask.id}:${saved?.id || 'draft'}:${saved?.updatedAt || ''}`;
-    goldForm.setFieldsValue({ chapter: selectedTask.chapter });
-
-    if (hydrateKeyRef.current === hydrateKey) return;
-
-    const switchingTask = !hydrateKeyRef.current.startsWith(`${selectedTask.id}:`);
-    const question = String(goldForm.getFieldValue('question') || '').trim();
-    const goldAnswer = String(goldForm.getFieldValue('goldAnswer') || '').trim();
-    const hasLocalDraft = Boolean(question || goldAnswer);
-
-    if (switchingTask || !hasLocalDraft) {
-      goldForm.setFieldsValue({
-        difficulty: saved?.difficulty || 'MEDIUM',
-        question: saved?.question || '',
-        goldAnswer: saved?.goldAnswer || '',
-      });
+    if (!items.length) {
+      setComposerOpen(true);
+      setEditingId(null);
     }
+  }, [items.length, selectedTask?.id]);
 
-    hydrateKeyRef.current = hydrateKey;
-  }, [contribution, goldForm, rejection, selectedTask]);
+  useEffect(() => {
+    if (!composerOpen || !selectedTask?.id) return;
+    const key = `${selectedTask.id}:${editingId || 'new'}:${editingItem?.updatedAt || ''}`;
+    if (hydrateKeyRef.current === key) return;
+    goldForm.setFieldsValue({
+      chapter: selectedTask.chapter,
+      difficulty: editingItem?.difficulty || 'MEDIUM',
+      question: editingItem?.question || '',
+      goldAnswer: editingItem?.goldAnswer || '',
+    });
+    hydrateKeyRef.current = key;
+  }, [composerOpen, editingId, editingItem, goldForm, selectedTask]);
 
   const isGoldQaTask = selectedTask?.type === 'GOLD_QA';
   const isTaskOwner = Boolean(selectedTask && selectedTask.assigneeId === userId);
   const canSubmitSelectedTask = Boolean(
     isGoldQaTask
     && isTaskOwner
-    && ['ASSIGNED', 'IN_PROGRESS'].includes(selectedTask.status)
+    && ['ASSIGNED', 'IN_PROGRESS', 'SUBMITTED'].includes(selectedTask.status)
   );
-  const canTeacherGate = Boolean(isTaskOwner && canSubmitSelectedTask);
 
-  const submitGold = async (values) => {
-    const result = await onSubmitGoldQa({
-      ...values,
-      usage: 'TRAINING',
-      sourceTaskId: selectedTask?.type === 'GOLD_QA' ? selectedTask.id : undefined,
+  const openNewComposer = () => {
+    hydrateKeyRef.current = '';
+    setEditingId(null);
+    setComposerOpen(true);
+    goldForm.setFieldsValue({
+      chapter: selectedTask?.chapter,
+      difficulty: 'MEDIUM',
+      question: '',
+      goldAnswer: '',
     });
+  };
+
+  const openEditComposer = (item) => {
+    hydrateKeyRef.current = '';
+    setEditingId(item.id);
+    setComposerOpen(true);
+    setExpandedId(item.id);
+  };
+
+  const closeComposer = () => {
+    setComposerOpen(false);
+    setEditingId(null);
+    hydrateKeyRef.current = '';
+  };
+
+  const goldPayload = (values) => ({
+    ...values,
+    usage: 'TRAINING',
+    sourceTaskId: selectedTask?.type === 'GOLD_QA' ? selectedTask.id : undefined,
+    goldQaId: editingId || undefined,
+  });
+
+  const saveToList = async (values) => {
+    const result = await onSubmitGoldQa(goldPayload(values), { exam: false });
     if (result) {
-      onSubmitted?.(result);
+      closeComposer();
+      setExpandedId(result.id || null);
     }
   };
 
-  const sendToSenior = async (goldQaId) => {
-    const result = await onSendForReview?.(goldQaId);
-    if (result) {
-      onSentToSenior?.(result);
+  const saveAndExam = async (values) => {
+    if (editingItem?.status === 'EXAMINED') {
+      await saveToList(values);
+      return;
     }
+    const result = await onSubmitGoldQa(goldPayload(values), { exam: false });
+    if (!result?.id) return;
+    closeComposer();
+    setExpandedId(result.id);
+    await onExamGoldQa?.(result.id);
+  };
+
+  const sendToSenior = async (goldQaId) => {
+    await onSendForReview?.(goldQaId);
+  };
+
+  const deleteFromList = (item) => {
+    confirmDanger({
+      title: 'Xóa câu hỏi này?',
+      content: 'Câu hỏi sẽ bị xóa khỏi danh sách. Không thể hoàn tác.',
+      okText: 'Xóa',
+      cancelText: 'Giữ lại',
+      onOk: async () => {
+        const ok = await onDeleteGoldQa?.(item.id);
+        if (ok && editingId === item.id) closeComposer();
+        if (ok && expandedId === item.id) setExpandedId(null);
+      },
+    });
   };
 
   return (
     <section className="expert-training__section" aria-labelledby="contributions-heading">
       <div className="expert-training__section-heading">
         <div>
-          <h2 id="contributions-heading">Soạn theo giáo trình</h2>
-          <p>Thi lại = xem trước câu AI sẽ trả cho SV sau training. Senior chỉ duyệt nạp RAG khi bạn đã thấy câu đủ ý.</p>
+          <h2 id="contributions-heading">Danh sách câu hỏi theo giáo trình</h2>
+          <p>
+            Soạn Q + ý chính → Lưu list → Cho AI thi (lần 1) → Thi lại gộp ý GV (lần 2) → Gửi Senior.
+          </p>
         </div>
       </div>
 
       {selectedTask && (
         <Alert
-          type={selectedTask.status === 'SUBMITTED' ? 'success' : 'info'}
+          type="info"
           showIcon
-          title={`Đang thực hiện: ${selectedTask.title}`}
-          description={`${selectedTask.chapter} · ${getStatusLabel(selectedTask.status)}${selectedTask.instructions ? ` · ${selectedTask.instructions}` : ''}`}
+          title={`${selectedTask.title} · ${selectedTask.chapter}`}
+          description={`${getStatusLabel(selectedTask.status)} · ${items.length} câu · ${draftIds.length} nháp · ${baselineCount} đã thi lần 1 · ${examinedCount} đã thi lại`}
         />
       )}
 
       {!isGoldQaTask && (
-        <Alert
-          type="error"
-          showIcon
-          title="Task không thuộc flow GOLD_QA hiện tại"
-          description="Màn Teacher chỉ xử lý task Q&A do Senior tạo từ mục lục giáo trình. Sách là chuẩn — không soạn đáp án thay sách."
-        />
+        <Alert type="error" showIcon title="Task không thuộc flow GOLD_QA" description="Chỉ soạn Q&A từ task Senior tạo theo mục lục." />
       )}
-
       {!isTaskOwner && (
-        <Alert
-          type="warning"
-          showIcon
-          title="Task này không thuộc về bạn"
-          description="Chỉ giảng viên đã nhận task mới có thể soạn và gửi nội dung."
-        />
+        <Alert type="warning" showIcon title="Task này không thuộc về bạn" description="Chỉ giảng viên đã nhận task mới soạn được." />
       )}
 
-      {isTaskOwner && !canSubmitSelectedTask && (
-        <Alert
-          type="info"
-          showIcon
-          title={selectedTask.status === 'SUBMITTED' ? 'Nội dung đã gửi kiểm duyệt' : 'Task hiện không thể chỉnh sửa'}
-          description="Editor chỉ mở khi task ở trạng thái Đã giao hoặc Đang thực hiện."
-        />
+      {canSubmitSelectedTask && (
+        <div className="expert-qa-toolbar">
+          <ActionButton
+            intent="primary"
+            icon={<Plus size={16} />}
+            disabled={Boolean(pendingAction) || composerOpen}
+            onClick={openNewComposer}
+          >
+            Thêm câu hỏi
+          </ActionButton>
+          {draftIds.length > 0 && (
+            <ActionButton
+              icon={<Sparkles size={16} />}
+              loading={String(pendingAction || '').startsWith('exam-gold-qa:')}
+              disabled={Boolean(pendingAction)}
+              onClick={() => onExamAllDrafts?.(draftIds)}
+            >
+              {`Cho AI thi ${draftIds.length} câu nháp`}
+            </ActionButton>
+          )}
+        </div>
       )}
 
       <div className="expert-training__contribution-layout">
-        <Card className="expert-training__editor-card" title="Câu hỏi và tóm tắt theo giáo trình">
-          <ContributionResult
-            contribution={contribution}
-            canTeacherGate={canTeacherGate}
-            pendingAction={pendingAction}
-            onExamGoldQa={onExamGoldQa}
-            onSendForReview={sendToSenior}
-          />
-          <GoldQaContributionForm
-            form={goldForm}
-            disabled={!canSubmitSelectedTask}
-            pendingAction={pendingAction}
-            userId={userId}
-            onFinish={submitGold}
-          />
-        </Card>
+        <div className="expert-training__editor-stack">
+          {composerOpen && canSubmitSelectedTask && (
+            <Card
+              className="expert-training__editor-card"
+              title={editingId ? `Sửa câu hỏi #${items.findIndex((item) => item.id === editingId) + 1}` : `Thêm câu hỏi #${items.length + 1}`}
+            >
+              <GoldQaContributionForm
+                form={goldForm}
+                disabled={false}
+                pendingAction={pendingAction}
+                userId={userId}
+                onFinish={saveToList}
+                onExam={saveAndExam}
+                onCancel={closeComposer}
+                showCancel={items.length > 0}
+                submitLabel={editingId ? 'Cập nhật danh sách' : 'Lưu vào danh sách'}
+                examLabel={examButtonLabel(editingItem?.status || 'DRAFT')}
+                showExam={editingItem?.status !== 'EXAMINED'}
+              />
+            </Card>
+          )}
+
+          {!items.length && !composerOpen && (
+            <Alert
+              type="info"
+              showIcon
+              title="Chưa có câu hỏi trong danh sách"
+              description="Bấm Thêm câu hỏi để bắt đầu soạn."
+            />
+          )}
+
+          <div className="expert-qa-list" aria-label="Danh sách câu hỏi">
+            {items.map((item, index) => (
+              <QaListRow
+                key={item.id || `qa-${index}`}
+                item={item}
+                index={index}
+                expanded={expandedId === item.id}
+                canTeacherGate={canSubmitSelectedTask}
+                pendingAction={pendingAction}
+                onToggle={(id) => setExpandedId((current) => (current === id ? null : id))}
+                onEdit={openEditComposer}
+                onExam={onExamGoldQa}
+                onSend={sendToSenior}
+                onDelete={deleteFromList}
+              />
+            ))}
+          </div>
+        </div>
 
         <aside className="expert-training__material-aside" aria-label="Tài liệu chương">
           <TaskMaterialContext
@@ -240,7 +427,7 @@ export default function ContributionWorkspace({
       </div>
 
       <Paragraph type="secondary" className="expert-training__policy-note">
-        Giáo trình là chuẩn duy nhất. Teacher dùng Lưu/Thi lại để xem trước câu SV (sách + tóm tắt, chưa index). Senior chỉ xem và duyệt nạp TRAINING vào RAG.
+        Giáo trình là chuẩn. Lần 1 AI trả lời chưa gắn ý GV; lần 2 gắn ý chính để thấy cải thiện. Senior chỉ duyệt nạp RAG.
       </Paragraph>
     </section>
   );

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Alert, Button, Input, Segmented, Tag, Tooltip } from 'antd';
-import { BookOpen, Eye, FileSearch, Play, Search, Trash2 } from 'lucide-react';
+import { BookOpen, Eye, FileSearch, Play, RefreshCw, Search, Trash2 } from 'lucide-react';
 import AsyncState from '../../../components/common/AsyncState';
 import { CollectionPagination } from '../../../components/common/CollectionControls';
 import MetricStrip from '../../../components/common/MetricStrip';
@@ -37,8 +37,13 @@ export default function ChapterCoveragePanel({
   error,
   canReview,
   pendingAction,
+  chapterPreview = null,
+  chapterPreviewLoading = false,
+  chapterPreviewError = '',
   onRefresh,
+  onForceRefresh,
   onClosePreview,
+  onOpenPreview,
   onStartChapter,
   onOpenMaterial,
   onOpenExam,
@@ -86,6 +91,7 @@ export default function ChapterCoveragePanel({
 
   const openPreview = (chapter) => {
     setSelectedChapter(chapter);
+    onOpenPreview?.(chapter);
   };
 
   const openPdf = (chapter, previewOverride) => {
@@ -147,16 +153,31 @@ export default function ChapterCoveragePanel({
         <div className="expert-training__toc-toolbar">
           <div>
             <h2 id="chapter-coverage-heading">Mục lục giáo trình</h2>
-            <p>Chọn chương đã embed, giao Teacher viết Q&A vàng.</p>
+            <p>Chọn chương đã embed, giao Teacher viết Q&A vàng. Tài liệu URL sẽ tách từng mục website.</p>
           </div>
-          <Input
-            allowClear
-            prefix={<Search size={15} aria-hidden="true" />}
-            value={keyword}
-            onChange={(event) => setKeyword(event.target.value)}
-            placeholder="Tìm chương..."
-            className="expert-training__chapter-search"
-          />
+          <div className="expert-training__toc-toolbar-actions">
+            {canReview && (
+              <Button
+                icon={<RefreshCw size={15} />}
+                loading={Boolean(pendingAction) || loading}
+                disabled={Boolean(pendingAction)}
+                onClick={() => {
+                  if (onForceRefresh) onForceRefresh();
+                  else onRefresh?.();
+                }}
+              >
+                Làm mới mục lục
+              </Button>
+            )}
+            <Input
+              allowClear
+              prefix={<Search size={15} aria-hidden="true" />}
+              value={keyword}
+              onChange={(event) => setKeyword(event.target.value)}
+              placeholder="Tìm chương..."
+              className="expert-training__chapter-search"
+            />
+          </div>
         </div>
 
         <Segmented
@@ -267,7 +288,9 @@ export default function ChapterCoveragePanel({
         key={selectedChapter?.chapterKey || selectedChapter?.id || 'closed-chapter-preview'}
         courseId={courseId}
         chapter={selectedChapter}
-        preview={null}
+        preview={chapterPreview}
+        previewLoading={chapterPreviewLoading}
+        previewError={chapterPreviewError}
         canReview={canReview}
         pendingAction={pendingAction}
         session={selectedChapter ? getChapterSessionState(selectedChapter, tasks, goldQa) : null}

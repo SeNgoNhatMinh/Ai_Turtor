@@ -27,5 +27,9 @@ public class ChapterPreviewView {
     private int pageEnd;
     /** Preferred material id for opening PDF at chapter section. */
     private String primarySourceMaterialId;
+    /** Live documentation page for HTML_URL sections (from Source URL: ...). */
+    private String sourcePageUrl;
+    /** Absolute image URLs found on the section page (website materials). */
+    private List<String> imageUrls;
     private List<ChapterSourceMaterialView> sourceMaterials;
 }

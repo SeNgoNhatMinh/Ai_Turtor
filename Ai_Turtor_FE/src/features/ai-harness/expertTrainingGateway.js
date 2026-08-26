@@ -14,14 +14,21 @@ export const expertTrainingGateway = {
     return expertTrainingApi.analyzeCoverage(payload);
   },
 
-  async submitGoldQa(payload) {
-    if (!isTutorV2HarnessEnabled()) return expertTrainingApi.submitGoldQa(payload);
-    return normalizeGoldQa(await n8nService.submitTutorV2GoldQa(payload));
+  async submitGoldQa(payload, options = {}) {
+    // Default: persist DRAFT only. Opt-in exam=true runs baseline exam after save.
+    const exam = options.exam === true;
+    const saved = normalizeGoldQa(await expertTrainingApi.submitGoldQa(payload, { exam: false }));
+    if (!exam) return saved;
+    return this.examGoldQa(saved.id);
   },
 
   async examGoldQa(goldQaId) {
     if (!isTutorV2HarnessEnabled()) return expertTrainingApi.examGoldQa(goldQaId);
     return normalizeGoldQa(await n8nService.examTutorV2GoldQa({ goldQaId }));
+  },
+
+  async deleteGoldQa(goldQaId, authorId) {
+    return expertTrainingApi.deleteGoldQa(goldQaId, authorId);
   },
 
   async sendGoldQaForReview(goldQaId) {
