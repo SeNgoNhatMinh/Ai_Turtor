@@ -45,7 +45,34 @@ public class OpenRouterChatService {
     @Value("${llm.skip-diacritics-for-english-questions:true}")
     private boolean skipDiacriticsForEnglishQuestions;
 
+    @Value("${llm.diacritics-correction-enabled:true}")
+    private boolean diacriticsCorrectionEnabled;
+
+    @Value("${llm.skip-diacritics-for-ollama:true}")
+    private boolean skipDiacriticsForOllama;
+
+    @Value("${llm.cloud-failover-timeout-seconds:20}")
+    private int cloudFailoverTimeoutSeconds;
+
+    @Value("${ollama.chat.temperature:0.2}")
+    private double ollamaTemperature;
+
+    @Value("${ollama.chat.top-k:40}")
+    private int ollamaTopK;
+
+    @Value("${ollama.chat.num-predict:512}")
+    private int ollamaNumPredict;
+
+    @Value("${ollama.chat.num-ctx:4096}")
+    private int ollamaNumCtx;
+
+    @Value("${ollama.chat.max-retries:0}")
+    private int ollamaMaxRetries;
+
     private volatile LlmProviderChain providerChain;
+    private volatile boolean ollamaOnlyActive;
+    private volatile boolean ollamaActive;
+    private volatile String resolvedOllamaBaseUrl;
 
     @PostConstruct
     void init() {
@@ -57,7 +84,11 @@ public class OpenRouterChatService {
     }
 
     private synchronized void reloadProviderChain(boolean failIfEmpty) {
-        List<LlmProviderChain.Provider> providers = buildProviders(providerAdminService.activeRuntimeSlots());
+        List<LlmRuntimeSlot> slots = providerAdminService.activeRuntimeSlots();
+        ollamaActive = slots.stream().anyMatch(slot -> slot.kind() == LlmRuntimeSlot.LlmRuntimeSlotKind.OLLAMA);
+        ollamaOnlyActive = ollamaActive && slots.stream()
+                .allMatch(slot -> slot.kind() == LlmRuntimeSlot.LlmRuntimeSlotKind.OLLAMA);
+        List<LlmProviderChain.Provider> providers = buildProviders(slots);
         if (providers.isEmpty()) {
             if (failIfEmpty) {
                 throw new IllegalStateException("No LLM provider is configured. Set at least one provider API key or enable Ollama chat");
@@ -73,8 +104,21 @@ public class OpenRouterChatService {
                 Duration.ofSeconds(Math.max(0, dailyQuotaCooldownSeconds)),
                 providerReorderOnQuota,
                 java.time.Clock.systemUTC());
-        log.info("LLM provider chain reloaded: {}", providers.stream()
-                .map(provider -> provider.name() + "/" + provider.model()).toList());
+        log.info("LLM provider chain reloaded: ollamaOnly={}, providers={}",
+                ollamaOnlyActive,
+                providers.stream().map(provider -> provider.name() + "/" + provider.model()).toList());
+    }
+
+    public boolean isOllamaOnlyActive() {
+        return ollamaOnlyActive;
+    }
+
+    public boolean isOllamaActive() {
+        return ollamaActive;
+    }
+
+    public String resolvedOllamaBaseUrl() {
+        return resolvedOllamaBaseUrl;
     }
 
     public String generate(String prompt) {
@@ -84,8 +128,9 @@ public class OpenRouterChatService {
     public String generate(String prompt, String studentQuestion) {
         String wrapped = VietnameseOutputEnforcer.wrapPrompt(prompt);
         try {
-            String answer = TextSanitizer.cleanForStudentAnswer(generateInternal(wrapped));
-            answer = enforceVietnameseDiacritics(answer, studentQuestion);
+            LlmProviderChain.Result result = generateInternalResult(wrapped);
+            String answer = TextSanitizer.cleanForStudentAnswer(result.text());
+            answer = enforceVietnameseDiacritics(answer, studentQuestion, result.provider());
             if (StudentFacingMessages.isUnavailableMessage(answer)) {
                 return answer;
             }
@@ -104,7 +149,7 @@ public class OpenRouterChatService {
      */
     public String generateUtility(String prompt) {
         try {
-            String answer = generateInternal(prompt);
+            String answer = generateInternalResult(prompt).text();
             return answer == null ? null : answer.trim();
         } catch (Exception error) {
             log.warn("Utility generation failed: {}", summarize(error));
@@ -117,7 +162,13 @@ public class OpenRouterChatService {
         return chain == null ? List.of() : chain.snapshot();
     }
 
-    private String enforceVietnameseDiacritics(String answer, String studentQuestion) {
+    private String enforceVietnameseDiacritics(String answer, String studentQuestion, String providerId) {
+        if (!diacriticsCorrectionEnabled) {
+            return answer;
+        }
+        if (skipDiacriticsForOllama && "ollama".equalsIgnoreCase(providerId)) {
+            return answer;
+        }
         if (skipDiacriticsForEnglishQuestions
                 && studentQuestion != null
                 && VietnameseOutputEnforcer.isEnglishPrimary(studentQuestion)) {
@@ -129,7 +180,7 @@ public class OpenRouterChatService {
         log.info("LLM answer missing Vietnamese diacritics — running correction pass");
         try {
             String correctionPrompt = VietnameseOutputEnforcer.buildCorrectionPrompt(answer);
-            String corrected = TextSanitizer.cleanForStudentAnswer(generateInternal(correctionPrompt));
+            String corrected = TextSanitizer.cleanForStudentAnswer(generateInternalResult(correctionPrompt).text());
             if (corrected == null || corrected.isBlank()) {
                 return answer;
             }
@@ -145,7 +196,7 @@ public class OpenRouterChatService {
         return answer;
     }
 
-    private String generateInternal(String prompt) throws Exception {
+    private LlmProviderChain.Result generateInternalResult(String prompt) throws Exception {
         String safePrompt = privacySanitizer.sanitize(prompt);
         LlmProviderChain chain = providerChain;
         if (chain == null) {
@@ -154,7 +205,7 @@ public class OpenRouterChatService {
         try {
             LlmProviderChain.Result result = chain.generate(safePrompt);
             log.info("LLM generation succeeded: provider={}, model={}", result.provider(), result.model());
-            return result.text();
+            return result;
         } catch (Exception error) {
             log.error("All eligible LLM providers failed: {}", summarize(error));
             throw error;
@@ -163,21 +214,35 @@ public class OpenRouterChatService {
 
     private List<LlmProviderChain.Provider> buildProviders(List<LlmRuntimeSlot> slots) {
         List<LlmProviderChain.Provider> providers = new ArrayList<>();
+        boolean hasOllama = slots.stream().anyMatch(slot -> slot.kind() == LlmRuntimeSlot.LlmRuntimeSlotKind.OLLAMA);
         for (LlmRuntimeSlot slot : slots) {
             if (slot.kind() == LlmRuntimeSlot.LlmRuntimeSlotKind.OLLAMA) {
+                String baseUrl = OllamaEndpointResolver.resolve(slot.baseUrl());
+                resolvedOllamaBaseUrl = baseUrl;
                 OllamaChatModel ollama = OllamaChatModel.builder()
-                        .baseUrl(slot.baseUrl())
+                        .baseUrl(baseUrl)
                         .modelName(slot.model())
-                        .timeout(Duration.ofSeconds(slot.timeoutSeconds()))
+                        .timeout(Duration.ofSeconds(Math.max(15, slot.timeoutSeconds())))
+                        .temperature(ollamaTemperature)
+                        .topK(Math.max(1, ollamaTopK))
+                        .numPredict(Math.max(64, ollamaNumPredict))
+                        .numCtx(Math.max(1024, ollamaNumCtx))
+                        .maxRetries(Math.max(0, ollamaMaxRetries))
                         .build();
                 providers.add(new LlmProviderChain.Provider(slot.providerId(), slot.model(), ollama::generate));
+                log.info("Ollama chat client ready: model={}, baseUrl={}, timeout={}s, numPredict={}, numCtx={}",
+                        slot.model(), baseUrl, slot.timeoutSeconds(), ollamaNumPredict, ollamaNumCtx);
                 continue;
+            }
+            int timeoutSeconds = slot.timeoutSeconds();
+            if (hasOllama && cloudFailoverTimeoutSeconds > 0) {
+                timeoutSeconds = Math.min(timeoutSeconds, cloudFailoverTimeoutSeconds);
             }
             OpenAiChatModel model = OpenAiChatModel.builder()
                     .apiKey(slot.apiKey())
                     .baseUrl(slot.baseUrl())
                     .modelName(slot.model())
-                    .timeout(Duration.ofSeconds(slot.timeoutSeconds()))
+                    .timeout(Duration.ofSeconds(Math.max(5, timeoutSeconds)))
                     .maxRetries(slot.maxRetries())
                     .build();
             providers.add(new LlmProviderChain.Provider(slot.providerId(), slot.model(), model::generate));

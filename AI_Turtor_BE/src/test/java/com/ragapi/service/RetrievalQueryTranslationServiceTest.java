@@ -24,6 +24,7 @@ class RetrievalQueryTranslationServiceTest {
     @BeforeEach
     void setUp() {
         ReflectionTestUtils.setField(service, "enabled", true);
+        ReflectionTestUtils.setField(service, "skipWhenOllamaOnly", true);
         ReflectionTestUtils.setField(service, "targetLanguage", "English");
     }
 
@@ -34,6 +35,17 @@ class RetrievalQueryTranslationServiceTest {
         String result = service.expandForRetrieval(expanded, "CEA201", true);
 
         assertThat(result).isEqualTo(expanded);
+        verify(chatService, never()).generateUtility(org.mockito.ArgumentMatchers.anyString());
+    }
+
+    @Test
+    void expandForRetrieval_skipsWhenOnlyOllamaIsActive() {
+        org.mockito.Mockito.when(chatService.isOllamaOnlyActive()).thenReturn(true);
+
+        String question = "JSP hoạt động thế nào?";
+        String result = service.expandForRetrieval(question, "PRJ301", false);
+
+        assertThat(result).isEqualTo(question);
         verify(chatService, never()).generateUtility(org.mockito.ArgumentMatchers.anyString());
     }
 }

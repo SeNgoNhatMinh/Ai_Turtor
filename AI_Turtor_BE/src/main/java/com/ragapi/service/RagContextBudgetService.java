@@ -11,14 +11,26 @@ import java.util.List;
 @Service
 public class RagContextBudgetService {
 
+    private final OpenRouterChatService chatService;
+
     @Value("${rag.generation.max-context-chars:12000}")
     private int maxContextChars;
 
+    @Value("${rag.generation.ollama-max-context-chars:6000}")
+    private int ollamaMaxContextChars;
+
+    public RagContextBudgetService(OpenRouterChatService chatService) {
+        this.chatService = chatService;
+    }
+
     public List<ElasticVectorService.SearchChunk> applyBudget(List<ElasticVectorService.SearchChunk> chunks) {
-        if (chunks == null || chunks.isEmpty() || maxContextChars <= 0) {
+        int configuredLimit = chatService.isOllamaOnlyActive()
+                ? Math.min(maxContextChars, ollamaMaxContextChars)
+                : maxContextChars;
+        if (chunks == null || chunks.isEmpty() || configuredLimit <= 0) {
             return chunks == null ? List.of() : chunks;
         }
-        int limit = Math.max(1000, maxContextChars);
+        int limit = Math.max(1000, configuredLimit);
         List<ElasticVectorService.SearchChunk> selected = new ArrayList<>();
         int used = 0;
         for (ElasticVectorService.SearchChunk chunk : chunks) {

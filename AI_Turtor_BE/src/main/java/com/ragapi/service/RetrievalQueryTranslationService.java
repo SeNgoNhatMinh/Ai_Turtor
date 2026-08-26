@@ -29,6 +29,9 @@ public class RetrievalQueryTranslationService {
     @Value("${rag.retrieval.query-translation.enabled:true}")
     private boolean enabled;
 
+    @Value("${rag.retrieval.query-translation.skip-when-ollama-only:true}")
+    private boolean skipWhenOllamaOnly;
+
     @Value("${rag.retrieval.query-translation.target-language:English}")
     private String targetLanguage;
 
@@ -38,6 +41,10 @@ public class RetrievalQueryTranslationService {
 
     public String expandForRetrieval(String question, String courseId, boolean keywordExpanded) {
         if (!enabled || question == null || question.isBlank() || !shouldTranslate(question, keywordExpanded)) {
+            return question;
+        }
+        if (skipWhenOllamaOnly && chatService.isOllamaOnlyActive()) {
+            log.info("Skipping retrieval query translation because only Ollama is active");
             return question;
         }
 

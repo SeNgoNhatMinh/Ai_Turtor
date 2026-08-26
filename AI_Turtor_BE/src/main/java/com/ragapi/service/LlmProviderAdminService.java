@@ -273,13 +273,16 @@ public class LlmProviderAdminService {
                 primaryMaxRetries,
                 LlmRuntimeSlot.LlmRuntimeSlotKind.OPENAI_COMPAT
         ));
+        String resolvedOllamaUrl = ollamaChatEnabled
+                ? OllamaEndpointResolver.resolve(ollamaBaseUrl)
+                : ollamaBaseUrl;
         slots.add(new EnvSlot(
                 "ollama",
                 "ollama",
                 "Ollama local fallback",
                 ollamaChatEnabled,
                 ollamaChatModelName,
-                ollamaBaseUrl,
+                resolvedOllamaUrl,
                 "",
                 ollamaChatTimeoutSeconds,
                 0,

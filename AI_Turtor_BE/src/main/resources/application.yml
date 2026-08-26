@@ -92,6 +92,11 @@ llm:
   daily-quota-cooldown-seconds: ${LLM_DAILY_QUOTA_COOLDOWN_SECONDS:86400}
   provider-reorder-on-quota: ${LLM_PROVIDER_REORDER_ON_QUOTA:true}
   skip-diacritics-for-english-questions: ${LLM_SKIP_DIACRITICS_FOR_ENGLISH_QUESTIONS:true}
+  diacritics-correction-enabled: ${LLM_DIACRITICS_CORRECTION_ENABLED:true}
+  # Local Ollama answers already cost time; skip the second correction LLM pass.
+  skip-diacritics-for-ollama: ${LLM_SKIP_DIACRITICS_FOR_OLLAMA:true}
+  # When Ollama is in the chain, fail cloud providers faster so local fallback is reached.
+  cloud-failover-timeout-seconds: ${LLM_CLOUD_FAILOVER_TIMEOUT_SECONDS:20}
   groq:
     enabled: ${GROQ_ENABLED:true}
     api-key: ${GROQ_API_KEY:}
@@ -114,7 +119,12 @@ ollama:
   chat:
     enabled: ${OLLAMA_CHAT_ENABLED:false}
     model: ${OLLAMA_CHAT_MODEL:}
-    timeout-seconds: ${OLLAMA_CHAT_TIMEOUT_SECONDS:120}
+    timeout-seconds: ${OLLAMA_CHAT_TIMEOUT_SECONDS:90}
+    temperature: ${OLLAMA_CHAT_TEMPERATURE:0.2}
+    top-k: ${OLLAMA_CHAT_TOP_K:40}
+    num-predict: ${OLLAMA_CHAT_NUM_PREDICT:512}
+    num-ctx: ${OLLAMA_CHAT_NUM_CTX:2048}
+    max-retries: ${OLLAMA_CHAT_MAX_RETRIES:0}
 
 elasticsearch:
   host: ${ELASTICSEARCH_HOST:localhost}
@@ -210,6 +220,8 @@ rag:
     num-candidates: 80
     query-translation:
       enabled: ${RAG_QUERY_TRANSLATION_ENABLED:true}
+      # Extra LLM hop is expensive for local gemma; skip when cloud chat is off.
+      skip-when-ollama-only: ${RAG_QUERY_TRANSLATION_SKIP_WHEN_OLLAMA_ONLY:true}
       target-language: English
   approved-knowledge:
     max-chunks: ${RAG_APPROVED_KNOWLEDGE_MAX_CHUNKS:2}
@@ -218,6 +230,7 @@ rag:
     min-keyword-overlap: ${RAG_APPROVED_KNOWLEDGE_MIN_KEYWORD_OVERLAP:0.12}
   generation:
     max-context-chars: ${RAG_GENERATION_MAX_CONTEXT_CHARS:12000}
+    ollama-max-context-chars: ${RAG_GENERATION_OLLAMA_MAX_CONTEXT_CHARS:6000}
   rerank:
     enabled: true
     api-key: ${OPENROUTER_RERANK_API_KEY:${OPENROUTER_API_KEY:missing-openrouter-api-key}}
