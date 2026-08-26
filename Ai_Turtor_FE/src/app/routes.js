@@ -72,6 +72,13 @@ export const appRoutes = [
     allowedAccountRoles: ['ADMIN'],
     navigationPath: true,
   },
+  {
+    role: 'admin',
+    tab: 'admin-indexed-notes',
+    path: '/admin/indexed-teaching-notes',
+    allowedAccountRoles: ['ADMIN'],
+    navigationPath: true,
+  },
 ];
 
 const tabRoutes = appRoutes.reduce((routes, route) => {

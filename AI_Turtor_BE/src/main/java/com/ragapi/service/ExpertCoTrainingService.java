@@ -560,13 +560,7 @@ public class ExpertCoTrainingService {
             gold.setIndexedAt(null);
         } else {
             // TRAINING: index as a book-aligned teaching note, not as an override of the textbook.
-            String content = ""
-                    + "Course-material teaching note (textbook/course materials are authoritative; this note must not contradict them).\n"
-                    + "Chapter: " + (gold.getChapter() == null ? "" : gold.getChapter()) + "\n"
-                    + "Student question: " + gold.getQuestion() + "\n"
-                    + "Key points summarized from course materials:\n"
-                    + gold.getGoldAnswer();
-            vectorService.indexChunk(gold.getCourseId(), null, gold.getAuthorId(), gold.getId(), "COURSE_SHARED", "GOLD_QA", null, null, content);
+            writeTeachingNoteToElasticsearch(gold);
             gold.setStatus("INDEXED");
             gold.setIndexedAt(now);
             gold.setHoldout(false);
@@ -601,6 +595,121 @@ public class ExpertCoTrainingService {
         return goldQaRepository.findByCourseIdOrderByCreatedAtDesc(requireText(courseId, "courseId")).stream()
                 .filter(g -> usage == null || usage.isBlank() || usage.equalsIgnoreCase(g.getUsage()))
                 .filter(g -> status == null || status.isBlank() || status.equalsIgnoreCase(g.getStatus())).toList();
+    }
+
+    public List<GoldQa> listIndexedTeachingNotes(String courseId, String status) {
+        Set<String> statuses;
+        if (status != null && !status.isBlank()) {
+            statuses = Set.of(status.trim().toUpperCase(Locale.ROOT));
+        } else {
+            statuses = Set.of("INDEXED", "UNINDEXED");
+        }
+        if (courseId != null && !courseId.isBlank()) {
+            return goldQaRepository.findByCourseIdAndStatusInOrderByUpdatedAtDesc(courseId.trim(), statuses);
+        }
+        return goldQaRepository.findByStatusInOrderByUpdatedAtDesc(statuses);
+    }
+
+    public GoldQa updateIndexedTeachingNote(String id, UpdateIndexedTeachingNoteRequest request) throws Exception {
+        if (request == null) throw new IllegalArgumentException("request is required");
+        GoldQa gold = requireManagedTeachingNote(id);
+        if (request.getChapter() != null && !request.getChapter().isBlank()) {
+            gold.setChapter(requireMaxLength(request.getChapter(), "chapter", SHORT_TEXT_MAX_LENGTH));
+        }
+        if (request.getQuestion() != null && !request.getQuestion().isBlank()) {
+            gold.setQuestion(requireMaxLength(request.getQuestion(), "question", DEFAULT_TEXT_MAX_LENGTH));
+        }
+        if (request.getGoldAnswer() != null && !request.getGoldAnswer().isBlank()) {
+            gold.setGoldAnswer(requireMaxLength(request.getGoldAnswer(), "goldAnswer", DEFAULT_TEXT_MAX_LENGTH));
+        }
+        gold.setUpdatedAt(LocalDateTime.now());
+        boolean shouldReindex = !Boolean.FALSE.equals(request.getReindex())
+                || "INDEXED".equalsIgnoreCase(gold.getStatus());
+        if (shouldReindex) {
+            rewriteTeachingNoteIndex(gold);
+            gold.setStatus("INDEXED");
+            gold.setIndexedAt(LocalDateTime.now());
+        }
+        GoldQa saved = goldQaRepository.save(gold);
+        answerCacheService.evictRagAnswersForCourse(saved.getCourseId());
+        return saved;
+    }
+
+    public GoldQa reindexTeachingNote(String id) throws Exception {
+        GoldQa gold = requireManagedTeachingNote(id);
+        rewriteTeachingNoteIndex(gold);
+        gold.setStatus("INDEXED");
+        gold.setIndexedAt(LocalDateTime.now());
+        gold.setUpdatedAt(LocalDateTime.now());
+        GoldQa saved = goldQaRepository.save(gold);
+        answerCacheService.evictRagAnswersForCourse(saved.getCourseId());
+        return saved;
+    }
+
+    public GoldQa unindexTeachingNote(String id) throws Exception {
+        GoldQa gold = requireManagedTeachingNote(id);
+        vectorService.deleteChunksByMaterialId(gold.getId());
+        gold.setStatus("UNINDEXED");
+        gold.setIndexedAt(null);
+        gold.setUpdatedAt(LocalDateTime.now());
+        GoldQa saved = goldQaRepository.save(gold);
+        answerCacheService.evictRagAnswersForCourse(saved.getCourseId());
+        return saved;
+    }
+
+    public void deleteIndexedTeachingNote(String id) throws Exception {
+        GoldQa gold = requireManagedTeachingNote(id);
+        String courseId = gold.getCourseId();
+        String taskId = gold.getSourceTaskId();
+        vectorService.deleteChunksByMaterialId(gold.getId());
+        goldQaRepository.deleteById(gold.getId());
+        if (courseId != null && !courseId.isBlank()) {
+            answerCacheService.evictRagAnswersForCourse(courseId);
+        }
+        if (taskId != null && !taskId.isBlank()) {
+            taskRepository.findById(taskId).ifPresent(task -> refreshTaskStatusAfterGoldChange(task, null));
+        }
+    }
+
+    private GoldQa requireManagedTeachingNote(String id) {
+        GoldQa gold = goldQaRepository.findById(requireText(id, "id"))
+                .orElseThrow(() -> new IllegalArgumentException("GoldQA not found"));
+        if (!Set.of("INDEXED", "UNINDEXED").contains(gold.getStatus())) {
+            throw new IllegalArgumentException(
+                    "Chỉ quản lý được ghi chú đã duyệt nạp RAG (INDEXED/UNINDEXED). Status hiện tại: " + gold.getStatus());
+        }
+        if ("EVALUATION".equalsIgnoreCase(gold.getUsage())) {
+            throw new IllegalArgumentException("EVALUATION holdout không được index vào RAG");
+        }
+        return gold;
+    }
+
+    private void rewriteTeachingNoteIndex(GoldQa gold) throws Exception {
+        vectorService.deleteChunksByMaterialId(gold.getId());
+        writeTeachingNoteToElasticsearch(gold);
+    }
+
+    private void writeTeachingNoteToElasticsearch(GoldQa gold) throws Exception {
+        vectorService.indexChunk(
+                gold.getCourseId(),
+                null,
+                gold.getAuthorId(),
+                gold.getId(),
+                "COURSE_SHARED",
+                "GOLD_QA",
+                null,
+                null,
+                buildTeachingNoteContent(gold)
+        );
+    }
+
+    private String buildTeachingNoteContent(GoldQa gold) {
+        return ""
+                + "Course-material teaching note (textbook/course materials are authoritative; this note must not contradict them).\n"
+                + "Chapter: " + (gold.getChapter() == null ? "" : gold.getChapter()) + "\n"
+                + "Student question: " + gold.getQuestion() + "\n"
+                + "Key points summarized from course materials:\n"
+                + gold.getGoldAnswer();
     }
 
     public List<ExpertRubric> listRubrics(String courseId) {

@@ -203,6 +203,28 @@ public class ElasticVectorService {
         );
     }
 
+    /**
+     * Optional teaching-note outlines indexed from Senior-approved Gold Q&A.
+     * Keep topK small — textbooks remain the primary retrieval source.
+     */
+    public List<SearchChunk> searchGoldQaTeachingNotesWithScores(
+            String question,
+            String courseId,
+            String classId,
+            int maxChunks
+    ) throws IOException {
+        if (maxChunks <= 0) {
+            return List.of();
+        }
+        return searchWithScores(
+                question,
+                courseId,
+                classId,
+                "GOLD_QA",
+                Math.max(1, Math.min(maxChunks, 3))
+        );
+    }
+
     private List<SearchChunk> searchWithScores(
             String question,
             String courseId,
@@ -281,7 +303,8 @@ public class ElasticVectorService {
                             Objects.toString(source.get("courseId"), null),
                             Objects.toString(source.get("classId"), null),
                             Objects.toString(source.get("teacherId"), null),
-                            Objects.toString(source.get("materialScope"), null)
+                            Objects.toString(source.get("materialScope"), null),
+                            Objects.toString(source.get("sourceType"), null)
                     );
                     if (isVisibleForClass(chunk, classId)) {
                         results.add(chunk);
@@ -323,8 +346,20 @@ public class ElasticVectorService {
             String courseId,
             String classId,
             String teacherId,
-            String materialScope
+            String materialScope,
+            String sourceType
     ) {
+        public SearchChunk(
+                String content,
+                Double score,
+                String materialId,
+                String courseId,
+                String classId,
+                String teacherId,
+                String materialScope
+        ) {
+            this(content, score, materialId, courseId, classId, teacherId, materialScope, null);
+        }
     }
 
     private boolean isVisibleForClass(SearchChunk chunk, String requestedClassId) {

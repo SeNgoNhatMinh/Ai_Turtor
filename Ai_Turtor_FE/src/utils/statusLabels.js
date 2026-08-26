@@ -37,6 +37,7 @@ const STATUS_META = Object.freeze({
   INACTIVE: { color: 'default', label: 'Ngừng hoạt động' },
   APPROVED: { color: 'green', label: 'Đã phê duyệt' },
   INDEXED: { color: 'green', label: 'Đã đưa vào RAG' },
+  UNINDEXED: { color: 'default', label: 'Đã gỡ khỏi RAG' },
   REJECTED: { color: 'red', label: 'Cần chỉnh sửa' },
   RESOLVED: { color: 'green', label: 'Đã xử lý' },
   TASK_CREATED: { color: 'blue', label: 'Đã tạo công việc' },

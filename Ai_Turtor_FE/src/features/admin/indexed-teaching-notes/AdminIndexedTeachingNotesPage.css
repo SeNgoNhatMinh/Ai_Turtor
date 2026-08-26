@@ -1,0 +1,19 @@
+.admin-indexed-notes-page {
+  display: grid;
+  gap: 16px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: clip;
+}
+
+.admin-indexed-notes-filters .ant-card-body {
+  display: grid;
+  gap: 4px;
+}
+
+.admin-indexed-notes-page .ant-table-wrapper,
+.admin-indexed-notes-page .searchable-table {
+  min-width: 0;
+  max-width: 100%;
+}

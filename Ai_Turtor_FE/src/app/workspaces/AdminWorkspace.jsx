@@ -8,6 +8,7 @@ const adminPages = {
   'admin-ai-logs': lazy(() => import('../../features/admin/ai-logs/AdminAiLogsPage')),
   'admin-answer-cache': lazy(() => import('../../features/admin/answer-cache/AdminAnswerCachePage')),
   'admin-reindex': lazy(() => import('../../features/admin/reindex/AdminReindexPage')),
+  'admin-indexed-notes': lazy(() => import('../../features/admin/indexed-teaching-notes/AdminIndexedTeachingNotesPage')),
 };
 
 function AdminPageFallback() {

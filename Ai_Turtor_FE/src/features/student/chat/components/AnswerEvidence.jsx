@@ -50,9 +50,13 @@ function AnswerEvidence({ message, sourceMap = {}, onDownloadSource }) {
     ? 'Dựa trên kiến thức bổ sung đã được Senior duyệt'
     : grounding === 'COURSE_MATERIAL_WITH_APPROVED_KNOWLEDGE'
       ? 'Dựa trên tài liệu môn học và kiến thức Senior duyệt'
-      : grounding === 'COURSE_MATERIAL'
-        ? 'Dựa trên tài liệu môn học'
-        : 'AI tự phân tích bằng kiến thức chung';
+      : grounding === 'COURSE_MATERIAL_WITH_TEACHING_NOTE'
+        ? 'Dựa trên tài liệu môn học (có ghi chú giảng dạy)'
+        : grounding === 'GOLD_QA_TEACHING_NOTE'
+          ? 'Dựa trên ghi chú giảng dạy (thiếu đoạn giáo trình khớp)'
+          : grounding === 'COURSE_MATERIAL'
+            ? 'Dựa trên tài liệu môn học'
+            : 'AI tự phân tích bằng kiến thức chung';
   const isCodeMode = message?.mode === 'CODE' || message?.mode === 'CODE_MENTOR';
   const evidence = deduplicateEvidence(Array.isArray(message?.sourceEvidence) ? message.sourceEvidence : []);
   const hasMaterialEvidence = sources.length > 0 || evidence.length > 0;

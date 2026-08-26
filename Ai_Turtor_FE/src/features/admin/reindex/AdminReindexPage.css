@@ -1,21 +1,139 @@
-.admin-reindex-page { display: grid; gap: 18px; }
-.admin-reindex-page .reindex-hero { border: 1px solid rgba(16, 185, 129, .24); background: linear-gradient(135deg, rgba(236, 253, 245, .98), rgba(240, 253, 250, .9)); }
-.reindex-hero__content { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 18px; margin-bottom: 20px; }
-.reindex-hero__icon { width: 58px; height: 58px; display: grid; place-items: center; color: #047857; border-radius: 16px; background: rgba(16, 185, 129, .14); }
-.reindex-hero h2 { margin: 0 0 5px; color: #064e3b; font-size: 1.25rem; }
-.reindex-hero .ant-typography { margin: 0; color: #45645b; }
-.reindex-stats .ant-card-body { display: flex; flex-direction: column; gap: 6px; }
-.reindex-stats strong { display: flex; align-items: center; gap: 7px; color: #0f172a; font-size: 1.7rem; }
-.reindex-stats strong.success { color: #047857; }
-.reindex-stats strong.danger { color: #dc2626; }
-.reindex-note { margin-bottom: 4px; }
+.admin-reindex-page {
+  display: grid;
+  gap: 18px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: clip;
+}
+
+.admin-reindex-page > .ant-card,
+.admin-reindex-page > .ant-row,
+.admin-reindex-page > .ant-alert,
+.admin-reindex-page > .page-header {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.admin-reindex-page .reindex-hero {
+  border: 1px solid rgba(16, 185, 129, 0.24);
+  background: linear-gradient(135deg, rgba(236, 253, 245, 0.98), rgba(240, 253, 250, 0.9));
+}
+
+.reindex-hero__content {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 20px;
+  min-width: 0;
+}
+
+.reindex-hero__icon {
+  width: 58px;
+  height: 58px;
+  display: grid;
+  place-items: center;
+  color: #047857;
+  border-radius: 16px;
+  background: rgba(16, 185, 129, 0.14);
+}
+
+.reindex-hero h2 {
+  margin: 0 0 5px;
+  color: #064e3b;
+  font-size: 1.25rem;
+}
+
+.reindex-hero .ant-typography {
+  margin: 0;
+  color: #45645b;
+}
+
+.reindex-stats {
+  width: 100%;
+  max-width: 100%;
+  margin: 0 !important;
+}
+
+.reindex-stats > .ant-col {
+  min-width: 0;
+}
+
+.reindex-stats .ant-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.reindex-stats strong {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #0f172a;
+  font-size: 1.7rem;
+}
+
+.reindex-stats strong.success {
+  color: #047857;
+}
+
+.reindex-stats strong.danger {
+  color: #dc2626;
+}
+
+.admin-reindex-page .reindex-progress-card .ant-card-body {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.admin-reindex-page .searchable-table {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.admin-reindex-page .ant-table-wrapper,
+.admin-reindex-page .ant-spin-nested-loading,
+.admin-reindex-page .ant-spin-container,
+.admin-reindex-page .ant-table,
+.admin-reindex-page .ant-table-container {
+  max-width: 100%;
+  min-width: 0 !important;
+}
+
+.admin-reindex-page .ant-table-content {
+  overflow-x: auto !important;
+}
+
+.reindex-note {
+  margin-bottom: 4px;
+}
+
 .app-container.dark .admin-reindex-page .reindex-hero,
-body.theme-dark .admin-reindex-page .reindex-hero { background: linear-gradient(135deg, rgba(6, 78, 59, .42), rgba(15, 118, 110, .24)); }
+body.theme-dark .admin-reindex-page .reindex-hero {
+  background: linear-gradient(135deg, rgba(6, 78, 59, 0.42), rgba(15, 118, 110, 0.24));
+}
+
 .app-container.dark .reindex-hero h2,
-body.theme-dark .reindex-hero h2 { color: #d1fae5; }
+body.theme-dark .reindex-hero h2 {
+  color: #d1fae5;
+}
+
 .app-container.dark .reindex-hero .ant-typography,
-body.theme-dark .reindex-hero .ant-typography { color: #a7f3d0; }
-@media (max-width: 768px) {
-  .reindex-hero__content { grid-template-columns: auto 1fr; }
-  .reindex-hero__content .ant-btn { grid-column: 1 / -1; width: 100%; }
+body.theme-dark .reindex-hero .ant-typography {
+  color: #a7f3d0;
+}
+
+@media (max-width: 900px) {
+  .reindex-hero__content {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .reindex-hero__content .ant-btn {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
 }

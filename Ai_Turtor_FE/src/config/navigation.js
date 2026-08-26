@@ -183,6 +183,15 @@ const navigationItems = [
     icon: RefreshCw,
   },
   {
+    key: 'admin-indexed-notes',
+    workspace: 'admin',
+    allowedAccountRoles: [ACCOUNT_ROLES.ADMIN],
+    group: 'Giám sát AI',
+    label: 'Ghi chú RAG (Gold Q&A)',
+    description: 'Sửa, gỡ hoặc xóa ghi chú giảng dạy Senior đã nạp vào Elasticsearch.',
+    icon: BookOpen,
+  },
+  {
     key: 'admin-ai-logs',
     workspace: 'admin',
     group: 'Giám sát AI',

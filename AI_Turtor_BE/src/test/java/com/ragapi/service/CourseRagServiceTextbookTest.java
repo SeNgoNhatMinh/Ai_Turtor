@@ -60,7 +60,7 @@ class CourseRagServiceTextbookTest {
     @Test
     void textbookExamSkipsCacheAndLearnedKnowledge() throws Exception {
         ElasticVectorService.SearchChunk textbookChunk = new ElasticVectorService.SearchChunk(
-                "PRO là hệ điều hành thời gian thực dùng trong giáo trình.",
+                "PRO la he dieu hanh thoi gian thuc dung trong giao trinh.",
                 0.95,
                 "material-1",
                 "PRJ301",
@@ -76,16 +76,55 @@ class CourseRagServiceTextbookTest {
         when(contextBudgetService.applyBudget(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(materialRepository.findAllById(any())).thenReturn(List.of());
         when(courseRepository.findByCourseId("PRJ301")).thenReturn(Optional.empty());
-        when(chatService.generate(anyString(), eq("PRO là gì?")))
-                .thenReturn("Theo giáo trình, PRO là hệ điều hành thời gian thực.");
+        when(chatService.generate(anyString(), eq("PRO la gi?")))
+                .thenReturn("Theo giao trinh, PRO la he dieu hanh thoi gian thuc.");
 
-        CourseRagAnswer answer = service.askWithConfidenceFromTextbook("PRO là gì?", "PRJ301", null);
+        CourseRagAnswer answer = service.askWithConfidenceFromTextbook("PRO la gi?", "PRJ301", null);
 
-        assertEquals("Theo giáo trình, PRO là hệ điều hành thời gian thực.", answer.getAnswer());
+        assertEquals("Theo giao trinh, PRO la he dieu hanh thoi gian thuc.", answer.getAnswer());
         assertFalse(answer.getEscalationRecommended());
         verify(vectorService).searchTextbookWithScores(anyString(), eq("PRJ301"), isNull());
         verify(vectorService, never()).searchWithScores(anyString(), anyString(), any());
         verifyNoInteractions(answerCacheService, cacheHitAuditService, approvedKnowledgeRetrievalService);
         verify(fallbackSearchService, never()).search(anyString(), anyString(), any(), any(Integer.class));
+    }
+
+    @Test
+    void studentAskRetrievesTextbooksFirstAndNeverUsesUnfilteredSearch() throws Exception {
+        ElasticVectorService.SearchChunk textbookChunk = new ElasticVectorService.SearchChunk(
+                "Java EE builds on Java SE and adds enterprise APIs.",
+                0.91,
+                "pdf-1",
+                "PRJ301",
+                null,
+                "teacher-1",
+                "COURSE_SHARED",
+                "PDF"
+        );
+        when(retrievalQueryTranslationService.expandForRetrieval(anyString(), eq("PRJ301"), any(Boolean.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(vectorService.searchTextbookWithScores(anyString(), eq("PRJ301"), isNull()))
+                .thenReturn(List.of(textbookChunk));
+        when(vectorService.searchGoldQaTeachingNotesWithScores(anyString(), eq("PRJ301"), isNull(), eq(2)))
+                .thenReturn(List.of());
+        when(approvedKnowledgeRetrievalService.retrieveRelevant(anyString(), eq("PRJ301"), isNull()))
+                .thenReturn(List.of());
+        when(rerankService.rerank(anyString(), any())).thenAnswer(invocation -> invocation.getArgument(1));
+        when(contextBudgetService.applyBudget(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(materialRepository.findAllById(any())).thenReturn(List.of());
+        when(courseRepository.findByCourseId("PRJ301")).thenReturn(Optional.empty());
+        when(answerCacheService.lookupExactRagAnswer(eq("PRJ301"), isNull(), anyString())).thenReturn(Optional.empty());
+        when(answerCacheService.lookupEarlySemanticRagAnswer(eq("PRJ301"), isNull(), anyString())).thenReturn(Optional.empty());
+        when(answerCacheService.lookupSemanticRagAnswer(eq("PRJ301"), isNull(), anyString(), any(Double.class), any()))
+                .thenReturn(Optional.empty());
+        when(chatService.generate(anyString(), eq("Java EE vs Java SE")))
+                .thenReturn("Theo giao trinh, Java EE xay tren Java SE.");
+
+        CourseRagAnswer answer = service.askWithConfidence("Java EE vs Java SE", "PRJ301", null);
+
+        assertEquals("Theo giao trinh, Java EE xay tren Java SE.", answer.getAnswer());
+        verify(vectorService).searchTextbookWithScores(anyString(), eq("PRJ301"), isNull());
+        verify(vectorService).searchGoldQaTeachingNotesWithScores(anyString(), eq("PRJ301"), isNull(), eq(2));
+        verify(vectorService, never()).searchWithScores(anyString(), anyString(), any());
     }
 }

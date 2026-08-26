@@ -93,7 +93,8 @@ public class CourseMaterialFallbackSearchService {
                         material.getCourseId(),
                         material.getClassId(),
                         material.getTeacherId(),
-                        material.getMaterialScope()
+                        material.getMaterialScope(),
+                        material.getSourceType()
                 );
                 if (!capturedFirstChunk) {
                     firstAvailable.add(searchChunk);

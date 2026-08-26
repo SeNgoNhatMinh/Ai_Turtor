@@ -54,7 +54,8 @@ public class RagContextBudgetService {
                     chunk.courseId(),
                     chunk.classId(),
                     chunk.teacherId(),
-                    chunk.materialScope()
+                    chunk.materialScope(),
+                    chunk.sourceType()
             ));
             used += remaining;
             break;

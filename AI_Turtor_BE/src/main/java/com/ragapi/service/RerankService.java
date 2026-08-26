@@ -157,7 +157,8 @@ public class RerankService {
                     original.courseId(),
                     original.classId(),
                     original.teacherId(),
-                    original.materialScope()
+                    original.materialScope(),
+                    original.sourceType()
             ));
             usedIndexes.add(scoredIndex.index());
         }

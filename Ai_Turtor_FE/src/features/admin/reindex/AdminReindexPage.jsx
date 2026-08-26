@@ -126,21 +126,29 @@ export default function AdminReindexPage({ triggerToast }) {
         <Col xs={12} lg={6}><Card><Text type="secondary">Đang xử lý</Text><strong>{summary.processing}</strong></Card></Col>
         <Col xs={12} lg={6}><Card><Text type="secondary">Thất bại</Text><strong className="danger"><TriangleAlert size={18} />{summary.failed}</strong></Card></Col>
       </Row>
-      <Card title="Tiến trình theo môn học">
+      <Card className="reindex-progress-card" title="Tiến trình theo môn học">
         <SearchableTable
           rowKey={getCourseId}
           loading={loading}
           dataSource={courses}
           pagination={false}
+          sticky={false}
+          scroll={{ x: 880, y: 480 }}
           columns={[
-            { title: 'Mã môn', key: 'courseId', width: 150, render: (_, row) => <Text strong>{getCourseId(row)}</Text> },
-            { title: 'Tên môn học', key: 'name', render: (_, row) => getCourseName(row) },
-            { title: 'Trạng thái', key: 'status', width: 150, render: (_, row) => statusTag(states[getCourseId(row)]?.status) },
-            { title: 'Chi tiết', key: 'message', render: (_, row) => states[getCourseId(row)]?.message || '—' },
+            { title: 'Mã môn', key: 'courseId', width: 120, ellipsis: true, render: (_, row) => <Text strong>{getCourseId(row)}</Text> },
+            { title: 'Tên môn học', key: 'name', ellipsis: true, render: (_, row) => getCourseName(row) },
+            { title: 'Trạng thái', key: 'status', width: 130, render: (_, row) => statusTag(states[getCourseId(row)]?.status) },
+            {
+              title: 'Chi tiết',
+              key: 'message',
+              ellipsis: true,
+              render: (_, row) => states[getCourseId(row)]?.message || '—',
+            },
             {
               title: 'Thao tác',
               key: 'action',
               width: 170,
+              fixed: 'right',
               render: (_, row) => (
                 <Button
                   icon={<RefreshCw size={14} />}

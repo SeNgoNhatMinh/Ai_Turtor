@@ -226,18 +226,15 @@ public class CourseRagService {
 
         List<ElasticVectorService.SearchChunk> chunks;
         try {
-            chunks = textbookOnly
-                    ? vectorService.searchTextbookWithScores(retrievalQuestion, safeCourseId, classId)
-                    : vectorService.searchWithScores(retrievalQuestion, safeCourseId, classId);
+            // Always retrieve textbooks/PDF/HTML first. GOLD_QA teaching notes must not crowd them out.
+            chunks = vectorService.searchTextbookWithScores(retrievalQuestion, safeCourseId, classId);
         } catch (Exception exception) {
             log.warn("Vector retrieval unavailable; using Mongo material fallback (courseId={}, classId={}): {}",
                     safeCourseId, classId, exception.getMessage());
             chunks = List.of();
         }
         if (chunks == null || chunks.isEmpty()) {
-            chunks = textbookOnly
-                    ? fallbackSearchService.searchTextbook(retrievalQuestion, safeCourseId, classId, 8)
-                    : fallbackSearchService.search(retrievalQuestion, safeCourseId, classId, 8);
+            chunks = fallbackSearchService.searchTextbook(retrievalQuestion, safeCourseId, classId, 8);
         }
         if (chunks == null) {
             chunks = List.of();
@@ -246,17 +243,38 @@ public class CourseRagService {
         if (textbookOnly) {
             chunks = contextBudgetService.applyBudget(chunks);
         } else {
+            List<ElasticVectorService.SearchChunk> teachingNotes = List.of();
+            try {
+                teachingNotes = vectorService.searchGoldQaTeachingNotesWithScores(
+                        retrievalQuestion,
+                        safeCourseId,
+                        classId,
+                        2
+                );
+            } catch (Exception exception) {
+                log.debug("Gold Q&A teaching-note retrieval skipped: {}", exception.getMessage());
+            }
             List<ElasticVectorService.SearchChunk> approvedChunks =
                     approvedKnowledgeRetrievalService.retrieveRelevant(safeQuestion, safeCourseId, classId);
-            Set<String> approvedMaterialIds = approvedChunks.stream()
+            Set<String> usedMaterialIds = chunks.stream()
                     .map(ElasticVectorService.SearchChunk::materialId)
                     .filter(Objects::nonNull)
-                    .collect(Collectors.toSet());
-            chunks = chunks.stream()
-                    .filter(chunk -> chunk.materialId() == null || !approvedMaterialIds.contains(chunk.materialId()))
-                    .toList();
-            List<ElasticVectorService.SearchChunk> mergedChunks = new ArrayList<>(approvedChunks);
-            mergedChunks.addAll(chunks);
+                    .collect(Collectors.toCollection(LinkedHashSet::new));
+            List<ElasticVectorService.SearchChunk> mergedChunks = new ArrayList<>(chunks);
+            for (ElasticVectorService.SearchChunk note : teachingNotes) {
+                if (note == null || note.materialId() == null || usedMaterialIds.contains(note.materialId())) {
+                    continue;
+                }
+                usedMaterialIds.add(note.materialId());
+                mergedChunks.add(note);
+            }
+            for (ElasticVectorService.SearchChunk approved : approvedChunks) {
+                if (approved == null || approved.materialId() == null || usedMaterialIds.contains(approved.materialId())) {
+                    continue;
+                }
+                usedMaterialIds.add(approved.materialId());
+                mergedChunks.add(approved);
+            }
             chunks = contextBudgetService.applyBudget(mergedChunks);
         }
 
@@ -647,11 +665,16 @@ public class CourseRagService {
             CourseMaterial material = chunk.materialId() == null ? null : materialsById.get(chunk.materialId());
             String identity = materialIdentity(material, chunk.materialId());
             if (!seenMaterials.add(identity + '|' + normalizedEvidenceText(chunk.content()))) continue;
-            String label = isApprovedKnowledge(material)
-                    ? "approvedKnowledgeId=" + (material.getKnowledgeCandidateId() == null
-                            ? chunk.materialId()
-                            : material.getKnowledgeCandidateId())
-                    : "materialId=" + (chunk.materialId() == null ? "unknown" : chunk.materialId());
+            String label;
+            if (isGoldQaTeachingNote(chunk, material)) {
+                label = "teachingNoteId=" + (chunk.materialId() == null ? "unknown" : chunk.materialId());
+            } else if (isApprovedKnowledge(material)) {
+                label = "approvedKnowledgeId=" + (material.getKnowledgeCandidateId() == null
+                        ? chunk.materialId()
+                        : material.getKnowledgeCandidateId());
+            } else {
+                label = "materialId=" + (chunk.materialId() == null ? "unknown" : chunk.materialId());
+            }
             if (!sources.contains(label)) {
                 sources.add(label);
             }
@@ -672,21 +695,28 @@ public class CourseRagService {
             if (chunk.materialId() == null) continue;
             CourseMaterial material = materialsById.get(chunk.materialId());
             boolean approvedKnowledge = isApprovedKnowledge(material);
-            int page = approvedKnowledge ? -1 : estimatePage(material, chunk.content());
-            MaterialTocEntry toc = approvedKnowledge ? null : findToc(material, page);
+            boolean teachingNote = isGoldQaTeachingNote(chunk, material);
+            int page = approvedKnowledge || teachingNote ? -1 : estimatePage(material, chunk.content());
+            MaterialTocEntry toc = approvedKnowledge || teachingNote ? null : findToc(material, page);
             RagSourceEvidence candidate = RagSourceEvidence.builder()
                     .courseId(courseId).courseName(courseName)
                     .materialId(chunk.materialId())
-                    .materialTitle(material == null ? chunk.materialId() : material.getTitle())
+                    .materialTitle(teachingNote
+                            ? "Ghi chú giảng dạy (Gold Q&A)"
+                            : (material == null ? chunk.materialId() : material.getTitle()))
                     .chapter(toc == null ? null : toc.getTitle())
                     .pageStart(page > 0 ? page : null)
                     .pageEnd(page > 0 ? page : null)
                     .pageEstimated(page > 0)
                     .excerpt(excerpt(chunk.content()))
                     .visualEvidence(List.of())
-                    .sourceKind(approvedKnowledge ? "SENIOR_APPROVED_KNOWLEDGE" : "COURSE_MATERIAL")
+                    .sourceKind(teachingNote
+                            ? "GOLD_QA_TEACHING_NOTE"
+                            : (approvedKnowledge ? "SENIOR_APPROVED_KNOWLEDGE" : "COURSE_MATERIAL"))
                     .knowledgeCandidateId(approvedKnowledge ? material.getKnowledgeCandidateId() : null)
-                    .provenanceLabel(approvedKnowledge ? "Kiến thức bổ sung" : null)
+                    .provenanceLabel(teachingNote
+                            ? "Ghi chú giảng dạy"
+                            : (approvedKnowledge ? "Kiến thức bổ sung" : null))
                     .reviewerName(approvedKnowledge ? material.getApprovedByName() : null)
                     .build();
             String key = evidenceIdentity(candidate, material);
@@ -741,15 +771,28 @@ public class CourseRagService {
                 || "senior-approved-knowledge".equalsIgnoreCase(material.getCategory()));
     }
 
+    private boolean isGoldQaTeachingNote(
+            ElasticVectorService.SearchChunk chunk,
+            CourseMaterial material
+    ) {
+        if (chunk != null && chunk.sourceType() != null && "GOLD_QA".equalsIgnoreCase(chunk.sourceType())) {
+            return true;
+        }
+        return material != null && "GOLD_QA".equalsIgnoreCase(material.getSourceType());
+    }
+
     private String resolveGroundingType(
             List<ElasticVectorService.SearchChunk> chunks,
             Map<String, CourseMaterial> materialsById
     ) {
         boolean hasApproved = false;
         boolean hasCourseMaterial = false;
+        boolean hasTeachingNote = false;
         for (ElasticVectorService.SearchChunk chunk : chunks) {
             CourseMaterial material = chunk.materialId() == null ? null : materialsById.get(chunk.materialId());
-            if (isApprovedKnowledge(material)) {
+            if (isGoldQaTeachingNote(chunk, material)) {
+                hasTeachingNote = true;
+            } else if (isApprovedKnowledge(material)) {
                 hasApproved = true;
             } else {
                 hasCourseMaterial = true;
@@ -760,6 +803,12 @@ public class CourseRagService {
         }
         if (hasApproved) {
             return "SENIOR_APPROVED_KNOWLEDGE";
+        }
+        if (hasTeachingNote && hasCourseMaterial) {
+            return "COURSE_MATERIAL_WITH_TEACHING_NOTE";
+        }
+        if (hasTeachingNote && !hasCourseMaterial) {
+            return "GOLD_QA_TEACHING_NOTE";
         }
         return "COURSE_MATERIAL";
     }
