@@ -128,7 +128,7 @@ const navigationItems = [
     allowedAccountRoles: [ACCOUNT_ROLES.SENIOR_MENTOR],
     group: 'Kiểm duyệt chuyên môn',
     label: 'Huấn luyện AI',
-    description: 'Mục lục sách, giao Q&A vàng, xem bài thi rồi nạp RAG.',
+    description: 'Mục lục sách, giao Q&A vàng, xem bài đánh giá rồi nạp RAG.',
     icon: BrainCircuit,
   },
   {

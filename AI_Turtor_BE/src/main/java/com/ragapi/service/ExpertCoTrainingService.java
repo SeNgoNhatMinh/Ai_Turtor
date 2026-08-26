@@ -228,7 +228,7 @@ public class ExpertCoTrainingService {
             task.setPriority(80);
             task.setTitle("Q&A vàng " + index + "/" + count + " — " + chapter);
             task.setInstructions("Giáo trình là chuẩn duy nhất. "
-                    + "Soạn câu hỏi + tóm tắt ý từ sách, rồi Lưu/Thi lại để xem trước câu AI sẽ trả cho SV (sách + tóm tắt, chưa nạp RAG). "
+                    + "Soạn câu hỏi + tóm tắt ý từ sách, rồi Lưu/đánh giá lại để xem trước câu AI sẽ trả cho SV (sách + tóm tắt, chưa nạp RAG). "
                     + "Khi câu đủ ý mới Gửi Senior — Senior chỉ duyệt nạp TRAINING, không phải bước làm AI tốt hơn.");
             task.setCreatedBy(createdBy);
             task.setDueAt(dueAt);
@@ -449,7 +449,7 @@ public class ExpertCoTrainingService {
         ensureTeacherExamable(gold.getStatus());
         if ("EXAMINED".equals(gold.getStatus()) || Boolean.TRUE.equals(gold.getExamUsedTeachingNote())) {
             throw new IllegalArgumentException(
-                    "Đã dùng đủ 2 lượt thi (lần 1 + thi lại). Chỉ được thi lại sau khi Senior từ chối và gửi về."
+                    "Đã dùng đủ 2 lượt đánh giá (lần 1 + đánh giá lại). Chỉ được đánh giá lại sau khi Senior từ chối và gửi về."
             );
         }
         if ("BASELINE_EXAMINED".equals(gold.getStatus())
@@ -504,10 +504,10 @@ public class ExpertCoTrainingService {
         GoldQa gold = goldQaRepository.findById(requireText(id, "id"))
                 .orElseThrow(() -> new IllegalArgumentException("GoldQA not found"));
         if (!"EXAMINED".equals(gold.getStatus())) {
-            throw new IllegalArgumentException("Chỉ gửi Senior sau khi Cho AI thi lại (đã gắn ý chính giáo viên)");
+            throw new IllegalArgumentException("Chỉ gửi Senior sau khi Cho AI đánh giá lại (đã gắn ý chính giáo viên)");
         }
         if (!Boolean.TRUE.equals(gold.getExamUsedTeachingNote())) {
-            throw new IllegalArgumentException("Chạy Cho AI thi lại với ý chính giáo viên trước khi gửi Senior");
+            throw new IllegalArgumentException("Chạy Cho AI đánh giá lại với ý chính giáo viên trước khi gửi Senior");
         }
         if (gold.getExaminedAt() == null && gold.getExamAiAnswer() == null) {
             throw new IllegalArgumentException("Run exam before sending Gold Q&A to Senior");
@@ -550,7 +550,7 @@ public class ExpertCoTrainingService {
         gold.setReviewedBy(request.getReviewerId()); gold.setReviewNote(request.getReviewNote()); gold.setReviewedAt(now); gold.setUpdatedAt(now);
         if (!approve) {
             gold.setRejectionReason(requireMaxLength(request.getRejectionReason(), "rejectionReason", DEFAULT_TEXT_MAX_LENGTH));
-            // Reset 2 exam attempts so Teacher can Cho AI thi + thi lại again after revising.
+            // Reset 2 exam attempts so Teacher can Cho AI đánh giá + đánh giá lại again after revising.
             clearExamResults(gold);
             gold.setStatus("REJECTED");
         } else if ("EVALUATION".equalsIgnoreCase(gold.getUsage())) {
@@ -1019,7 +1019,7 @@ public class ExpertCoTrainingService {
         if (!Set.of("DRAFT", "BASELINE_EXAMINED", "REJECTED").contains(status)) {
             throw new IllegalArgumentException(
                     "Gold Q&A cannot be examined in status " + status
-                            + ". Đã hết 2 lượt thi hoặc đang chờ Senior — chỉ reset khi Senior từ chối."
+                            + ". Đã hết 2 lượt đánh giá hoặc đang chờ Senior — chỉ reset khi Senior từ chối."
             );
         }
     }

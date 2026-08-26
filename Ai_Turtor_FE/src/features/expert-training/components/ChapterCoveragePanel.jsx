@@ -17,7 +17,7 @@ const SESSION_FILTERS = [
   { value: 'ALL', label: 'Tất cả' },
   { value: 'NOT_STARTED', label: 'Chưa train' },
   { value: 'IN_PROGRESS', label: 'Đang train' },
-  { value: 'EXAM_READY', label: 'Có bài thi' },
+  { value: 'EXAM_READY', label: 'Có bài đánh giá' },
   { value: 'INDEXED', label: 'Đã nạp RAG' },
 ];
 
@@ -143,7 +143,7 @@ export default function ChapterCoveragePanel({
           items={[
             { key: 'total', label: 'Chương', value: summary.total, description: 'Trong mục lục đã index' },
             { key: 'idle', label: 'Chưa train', value: summary.notStarted, description: 'Chưa giao Teacher' },
-            { key: 'exam', label: 'Bài thi', value: summary.exam, description: 'Chờ Senior xem điểm' },
+            { key: 'exam', label: 'Bài đánh giá', value: summary.exam, description: 'Chờ Senior xem điểm' },
             { key: 'rag', label: 'Đã nạp RAG', value: summary.indexed, description: 'Q&A vàng đã vào brain' },
           ]}
         />
@@ -261,7 +261,7 @@ export default function ChapterCoveragePanel({
                     )}
                     {session.key === 'EXAM_READY' && canReview && (
                       <Button type="primary" ghost onClick={() => onOpenExam?.(chapter.title)}>
-                        Xem bài thi
+                        Xem bài đánh giá
                       </Button>
                     )}
                     {canReview && (

@@ -11,7 +11,7 @@ export default function GoldQaContributionForm({
   onExam,
   onCancel,
   submitLabel = 'Lưu vào danh sách',
-  examLabel = 'Cho AI thi',
+  examLabel = 'Cho AI đánh giá',
   showCancel = false,
   showExam = true,
 }) {
@@ -70,8 +70,8 @@ export default function GoldQaContributionForm({
       <Alert
         type="info"
         showIcon
-        title="Lưu list hoặc cho AI thi ngay trên form này"
-        description="Lưu = nháp. Cho AI thi trên form = lần 1. Sau đó trên list còn 1 lượt thi lại (gộp ý GV). Senior từ chối mới reset 2 lượt."
+        title="Lưu list hoặc cho AI đánh giá ngay trên form này"
+        description="Lưu = nháp. Cho AI đánh giá trên form = lần 1. Sau đó trên list còn 1 lượt đánh giá lại (gộp ý GV). Senior từ chối mới reset 2 lượt."
       />
       <div className="expert-training__form-actions">
         {showCancel && (

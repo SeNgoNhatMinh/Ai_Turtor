@@ -207,7 +207,7 @@ export default function ChapterPreviewDrawer({
           showIcon
           style={{ marginTop: 16 }}
           title={session.label}
-          description="Chương này đã có phiên train hoặc bài thi."
+          description="Chương này đã có phiên train hoặc bài đánh giá."
         />
       )}
 

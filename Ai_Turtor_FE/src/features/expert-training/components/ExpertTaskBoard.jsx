@@ -123,7 +123,7 @@ function ContributionState({ contribution }) {
           <strong>
             {passed ? `Xem trước: phủ ${formatPercent(contribution.examScore)} ý giáo trình` : 'Xem trước: chưa đủ ý'}
           </strong>
-          <span>Đã xem trước câu SV. Mở task để Thi lại hoặc Gửi Senior duyệt nạp.</span>
+          <span>Đã xem trước câu SV. Mở task để đánh giá lại hoặc Gửi Senior duyệt nạp.</span>
         </div>
       </div>
     );

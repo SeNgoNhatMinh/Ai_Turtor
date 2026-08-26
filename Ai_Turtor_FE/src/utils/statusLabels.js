@@ -24,7 +24,7 @@ const STATUS_META = Object.freeze({
   READY: { color: 'green', label: 'Sẵn sàng' },
   ARCHIVED: { color: 'default', label: 'Đã lưu trữ' },
   PENDING_REVIEW: { color: 'orange', label: 'Chờ kiểm duyệt' },
-  EXAMINED: { color: 'blue', label: 'AI thi lại · có ý GV' },
+  EXAMINED: { color: 'blue', label: 'AI đánh giá lại · có ý GV' },
   NEEDS_MENTOR_REVIEW: { color: 'orange', label: 'Chờ giảng viên kiểm tra' },
   NEEDS_SENIOR_REVIEW: { color: 'purple', label: 'Chờ Senior Mentor kiểm tra' },
   ANSWERED_NO_KNOWLEDGE_CANDIDATE: { color: 'green', label: 'Đã trả lời' },

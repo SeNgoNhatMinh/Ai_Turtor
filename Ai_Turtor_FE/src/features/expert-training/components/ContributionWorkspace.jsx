@@ -37,9 +37,9 @@ function summaryPreview(text) {
 }
 
 function examButtonLabel(status) {
-  if (status === 'DRAFT' || status === 'REJECTED') return 'Cho AI thi';
-  if (status === 'BASELINE_EXAMINED') return 'Cho AI thi lại (gộp ý GV)';
-  return 'Cho AI thi lại';
+  if (status === 'DRAFT' || status === 'REJECTED') return 'Cho AI đánh giá';
+  if (status === 'BASELINE_EXAMINED') return 'Cho AI đánh giá lại (gộp ý GV)';
+  return 'Cho AI đánh giá lại';
 }
 
 function QaListRow({
@@ -143,32 +143,32 @@ function QaListRow({
         <Alert
           type="info"
           showIcon
-          title="Chưa cho AI thi"
-          description="Tối đa 2 lượt: (1) Cho AI thi — chưa gắn ý GV. (2) Thi lại — gộp lần 1 + ý GV thành câu đầy đủ hơn."
+          title="Chưa cho AI đánh giá"
+          description="Tối đa 2 lượt: (1) Cho AI đánh giá — chưa gắn ý GV. (2) Đánh giá lại — gộp lần 1 + ý GV thành câu đầy đủ hơn."
         />
       )}
       {expanded && item.status === 'BASELINE_EXAMINED' && (
         <Alert
           type="warning"
           showIcon
-          title="Còn 1 lượt thi lại"
-          description="Thi lại sẽ gộp câu lần 1 với ý chính của bạn. Sau đó chỉ còn Gửi Senior (không thi lần 3)."
+          title="Còn 1 lượt đánh giá lại"
+          description="Đánh giá lại sẽ gộp câu lần 1 với ý chính của bạn. Sau đó chỉ còn Gửi Senior (không đánh giá lần 3)."
         />
       )}
       {expanded && item.status === 'EXAMINED' && (
         <Alert
           type="success"
           showIcon
-          title="Đã hết 2 lượt thi"
-          description="Gửi Senior duyệt. Nếu Senior từ chối, hệ thống reset lượt thi để bạn chỉnh ý và thi lại từ đầu."
+          title="Đã hết 2 lượt đánh giá"
+          description="Gửi Senior duyệt. Nếu Senior từ chối, hệ thống reset lượt đánh giá để bạn hiệu chỉnh và đánh giá lại tốt hơn."
         />
       )}
       {expanded && item.status === 'REJECTED' && (
         <Alert
           type="error"
           showIcon
-          title="Senior đã trả về — lượt thi đã reset"
-          description="Sửa ý chính nếu cần, rồi Cho AI thi (lần 1) và thi lại (lần 2) trước khi gửi lại Senior."
+          title="Senior đã trả về — lượt đánh giá đã reset"
+          description="Sửa ý chính nếu cần, rồi Cho AI đánh giá (lần 1) và đánh giá lại (lần 2) trước khi gửi lại Senior."
         />
       )}
     </article>
@@ -321,7 +321,7 @@ export default function ContributionWorkspace({
         <div>
           <h2 id="contributions-heading">Danh sách câu hỏi theo giáo trình</h2>
           <p>
-            Soạn Q + ý chính → Lưu list → Cho AI thi (lần 1) → Thi lại gộp ý GV (lần 2) → Gửi Senior.
+            Soạn Q + ý chính → Lưu list → Cho AI đánh giá (lần 1) → Đánh giá lại gộp ý GV (lần 2) → Gửi Senior.
           </p>
         </div>
       </div>
@@ -331,7 +331,7 @@ export default function ContributionWorkspace({
           type="info"
           showIcon
           title={`${selectedTask.title} · ${selectedTask.chapter}`}
-          description={`${getStatusLabel(selectedTask.status)} · ${items.length} câu · ${draftIds.length} nháp · ${baselineCount} đã thi lần 1 · ${examinedCount} đã thi lại`}
+          description={`${getStatusLabel(selectedTask.status)} · ${items.length} câu · ${draftIds.length} nháp · ${baselineCount} đã đánh giá lần 1 · ${examinedCount} đã đánh giá lại`}
         />
       )}
 
@@ -359,7 +359,7 @@ export default function ContributionWorkspace({
               disabled={Boolean(pendingAction)}
               onClick={() => onExamAllDrafts?.(draftIds)}
             >
-              {`Cho AI thi ${draftIds.length} câu nháp`}
+              {`Cho AI đánh giá ${draftIds.length} câu nháp`}
             </ActionButton>
           )}
         </div>

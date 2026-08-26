@@ -92,7 +92,7 @@ public class CourseRagService {
     }
 
     /**
-     * Teacher exam / "Thi lại": textbook retrieval plus a draft teaching note so the answer
+     * Teacher exam / "đánh giá lại": textbook retrieval plus a draft teaching note so the answer
      * previews what students would get after Senior indexes TRAINING — without writing to RAG/cache.
      */
     public CourseRagAnswer askWithConfidencePreviewingTrainingNote(

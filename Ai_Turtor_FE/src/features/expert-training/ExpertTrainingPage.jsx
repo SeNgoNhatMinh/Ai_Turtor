@@ -124,7 +124,7 @@ export default function ExpertTrainingPage({
     },
     {
       key: 'review',
-      label: controller.pendingReviewCount ? `Bài thi (${controller.pendingReviewCount})` : 'Bài thi',
+      label: controller.pendingReviewCount ? `Bài đánh giá (${controller.pendingReviewCount})` : 'Bài đánh giá',
       children: (
         <Suspense fallback={<SectionFallback />}>
           <SeniorReviewQueue
@@ -149,7 +149,7 @@ export default function ExpertTrainingPage({
       <PageHeader
         eyebrow={workspaceMode === 'admin' ? 'Giám sát AI' : 'Huấn luyện AI'}
         title={workspaceMode === 'admin' ? 'Huấn luyện AI Tutor' : 'Huấn luyện AI theo giáo trình'}
-        description="Chọn chương → Teacher soạn tóm tắt + Thi lại (xem trước câu SV) → Senior chỉ duyệt nạp TRAINING vào RAG."
+        description="Chọn chương → Teacher soạn tóm tắt + đánh giá lại (xem trước câu SV) → Senior chỉ duyệt nạp TRAINING vào RAG."
       />
 
       <ScopeBar
@@ -199,7 +199,7 @@ export default function ExpertTrainingPage({
           <AsyncState
             empty
             emptyTitle="Chọn môn học để bắt đầu"
-            emptyDescription="Mục lục sách và bài thi được tách theo từng môn."
+            emptyDescription="Mục lục sách và bài đánh giá được tách theo từng môn."
           />
         )}
       </AsyncState>

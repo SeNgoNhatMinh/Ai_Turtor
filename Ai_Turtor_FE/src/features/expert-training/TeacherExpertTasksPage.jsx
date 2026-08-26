@@ -20,7 +20,7 @@ const TEACHER_STEPS = [
   { key: 'senior-start', title: 'Senior giao chương', description: 'Chương đã có chunks' },
   { key: 'claim', title: 'Nhận task', description: 'Task được khóa cho bạn' },
   { key: 'write', title: 'Tóm tắt theo sách', description: 'Không soạn đáp án thay sách' },
-  { key: 'exam', title: 'Thi lại · xem trước SV', description: 'Kiểm câu đủ ý trước khi gửi' },
+  { key: 'exam', title: 'Đánh giá lại · xem trước SV', description: 'Kiểm câu đủ ý trước khi gửi' },
   { key: 'decision', title: 'Senior duyệt nạp', description: 'Chỉ nạp RAG, không chấm lại' },
 ];
 

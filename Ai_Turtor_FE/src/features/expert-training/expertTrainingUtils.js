@@ -15,7 +15,7 @@ export function getTaskGoldUsage(task) {
 const CHAPTER_SESSION_META = {
   NOT_STARTED: { key: 'NOT_STARTED', label: 'Chưa train', color: 'default' },
   IN_PROGRESS: { key: 'IN_PROGRESS', label: 'Đang train', color: 'blue' },
-  EXAM_READY: { key: 'EXAM_READY', label: 'Có bài thi', color: 'gold' },
+  EXAM_READY: { key: 'EXAM_READY', label: 'Có bài đánh giá', color: 'gold' },
   INDEXED: { key: 'INDEXED', label: 'Đã nạp RAG', color: 'green' },
   NO_MATERIAL: { key: 'NO_MATERIAL', label: 'Chưa có tài liệu', color: 'red' },
 };

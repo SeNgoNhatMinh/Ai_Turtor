@@ -91,7 +91,7 @@ export default function GoldQaExamCompare({ contribution }) {
         </div>
       </div>
 
-      <div className="expert-exam-scorebar" role="group" aria-label="Điểm bài thi">
+      <div className="expert-exam-scorebar" role="group" aria-label="Điểm đánh giá">
         {beforeScore != null && (
           <MetricChip
             label="Lần 1 · chưa ý GV"
@@ -142,7 +142,7 @@ export default function GoldQaExamCompare({ contribution }) {
 
       {baselineOnly && (
         <p className="expert-exam-hint expert-exam-hint--warn">
-          Đây là lần 1 — AI chưa dùng tóm tắt ý của bạn. Bấm <strong>Cho AI thi lại</strong> để so sánh trước/sau.
+          Đây là lần 1 — AI chưa dùng tóm tắt ý của bạn. Bấm <strong>Cho AI đánh giá lại</strong> để so sánh trước/sau.
         </p>
       )}
       {showBeforeAfter && (

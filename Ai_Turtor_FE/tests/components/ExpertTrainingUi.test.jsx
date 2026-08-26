@@ -243,19 +243,19 @@ describe('Tutor V2 UI rules', () => {
     );
 
     expect(screen.getByText('Servlet lifecycle gồm gì?')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Cho AI thi lại' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Cho AI đánh giá lại' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Gửi Senior' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Xóa' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Thêm câu hỏi' }));
     expect(screen.getByText('Thêm câu hỏi #2')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Cho AI thi' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Cho AI đánh giá' })).toBeInTheDocument();
     expect(screen.getByLabelText('Câu hỏi (theo chương giáo trình)')).toHaveValue('');
     fireEvent.click(screen.getByRole('button', { name: 'Hủy' }));
     fireEvent.click(screen.getByRole('button', { name: 'Sửa' }));
     expect(screen.getByText('Sửa câu hỏi #1')).toBeInTheDocument();
     expect(screen.getByLabelText('Câu hỏi (theo chương giáo trình)')).toHaveValue('Servlet lifecycle gồm gì?');
     expect(screen.getByLabelText('Tóm tắt ý chính từ giáo trình')).toHaveValue('init, service, destroy');
-    expect(screen.queryByRole('button', { name: 'Cho AI thi lại' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Cho AI đánh giá lại' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Cập nhật danh sách' })).toBeInTheDocument();
   });
 
@@ -294,7 +294,7 @@ describe('Tutor V2 UI rules', () => {
     );
 
     expect(screen.getByText('AI trả lời · chưa gắn ý GV')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Cho AI thi lại (gộp ý GV)' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Cho AI đánh giá lại (gộp ý GV)' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Gửi Senior' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Xóa' })).toBeInTheDocument();
   });
@@ -338,10 +338,10 @@ describe('Tutor V2 UI rules', () => {
       />,
     );
 
-    expect(screen.getByRole('button', { name: 'Cho AI thi 2 câu nháp' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Cho AI thi 2 câu nháp' }));
+    expect(screen.getByRole('button', { name: 'Cho AI đánh giá 2 câu nháp' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Cho AI đánh giá 2 câu nháp' }));
     expect(onExamAllDrafts).toHaveBeenCalledWith(['d1', 'd2']);
-    fireEvent.click(screen.getAllByRole('button', { name: 'Cho AI thi' })[0]);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Cho AI đánh giá' })[0]);
     expect(onExamGoldQa).toHaveBeenCalledWith('d1');
   });
 
@@ -391,7 +391,7 @@ describe('Tutor V2 UI rules', () => {
       />,
     );
 
-    expect(screen.getByRole('button', { name: 'Cho AI thi' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Cho AI đánh giá' })).toBeInTheDocument();
     expect(screen.getByLabelText('Câu hỏi (theo chương giáo trình)')).toHaveValue('JSPX khác JSP ở điểm nào?');
     expect(screen.getByLabelText('Tóm tắt ý chính từ giáo trình')).toHaveValue('JSPX dùng cú pháp XML.');
   });

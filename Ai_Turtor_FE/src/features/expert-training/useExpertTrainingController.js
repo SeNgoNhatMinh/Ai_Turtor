@@ -145,8 +145,8 @@ export function useExpertTrainingController({
       authorId: userId,
     }, { exam: options.exam === true }),
     successMessage: options.exam === true
-      ? 'Đã lưu và cho AI thi lần 1 (chưa gắn ý GV).'
-      : 'Đã thêm vào danh sách (bản nháp). Chưa cho AI thi.',
+      ? 'Đã lưu và cho AI đánh giá lần 1 (chưa gắn ý GV).'
+      : 'Đã thêm vào danh sách (bản nháp). Chưa cho AI đánh giá.',
     refresh: () => Promise.allSettled([loadTasks(), loadContributions()]),
   }), [courseId, loadContributions, loadTasks, runMutation, userId]);
 
@@ -155,8 +155,8 @@ export function useExpertTrainingController({
     action: () => expertTrainingGateway.examGoldQa(goldQaId),
     successMessage: (result) => (
       result?.status === 'BASELINE_EXAMINED'
-        ? 'AI đã thi lần 1 (chưa gắn ý GV). Còn 1 lượt thi lại để gộp ý GV.'
-        : 'AI đã thi lại: gộp lần 1 + ý GV. Đã hết 2 lượt — gửi Senior khi ổn.'
+        ? 'AI đã đánh giá lần 1 (chưa gắn ý GV). Còn 1 lượt đánh giá lại để gộp ý GV.'
+        : 'AI đã đánh giá lại: gộp lần 1 + ý GV. Đã hết 2 lượt — gửi Senior khi ổn.'
     ),
     refresh: () => Promise.allSettled([loadTasks(), loadContributions()]),
   }), [loadContributions, loadTasks, runMutation]);
@@ -164,7 +164,7 @@ export function useExpertTrainingController({
   const examAllDraftGoldQa = useCallback(async (goldQaIds = []) => {
     const ids = (goldQaIds || []).filter(Boolean);
     if (!ids.length) {
-      triggerToast?.('Không có câu nháp nào cần AI thi.');
+      triggerToast?.('Không có câu nháp nào cần AI đánh giá.');
       return null;
     }
     let last = null;
@@ -179,7 +179,7 @@ export function useExpertTrainingController({
     }
     await Promise.allSettled([loadTasks(), loadContributions()]);
     if (last) {
-      triggerToast?.(`Đã cho AI thi lần 1 (${ids.length} câu). Thi lại từng câu để gắn ý GV.`);
+      triggerToast?.(`Đã cho AI đánh giá lần 1 (${ids.length} câu). Đánh giá lại từng câu để gắn ý GV.`);
     }
     return last;
   }, [loadContributions, loadTasks, runMutation, triggerToast]);
@@ -221,7 +221,7 @@ export function useExpertTrainingController({
       ? item.usage === 'TRAINING'
         ? 'Đã nạp ghi chú theo giáo trình vào RAG (sách vẫn là chuẩn).'
         : 'Đã duyệt holdout EVALUATION (không nạp vào RAG).'
-      : 'Cần chỉnh tóm tắt cho khớp giáo trình. Lượt thi AI đã reset — Teacher thi lại 2 lần rồi gửi.',
+      : 'Cần chỉnh tóm tắt cho khớp giáo trình. Lượt đánh giá AI đã reset — Teacher đánh giá lại 2 lần rồi gửi.',
     refresh: () => Promise.allSettled([loadTasks(), loadContributions()]),
   }), [loadContributions, loadTasks, reviewerRole, runMutation, userId]);
 

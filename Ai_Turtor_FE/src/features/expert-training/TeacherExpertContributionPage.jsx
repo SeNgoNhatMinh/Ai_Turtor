@@ -49,7 +49,7 @@ export default function TeacherExpertContributionPage({
       <PageHeader
         eyebrow="Chất lượng AI"
         title="Danh sách Q&A theo giáo trình"
-        description="Thêm nhiều câu vào list (nháp) → Cho AI thi lần 1 (chưa gắn ý) → thi lại với ý GV → gửi Senior."
+        description="Thêm nhiều câu vào list (nháp) → Cho AI đánh giá lần 1 (chưa gắn ý) → đánh giá lại với ý GV → gửi Senior."
         actions={<ActionButton icon={<ArrowLeft size={16} />} onClick={goBack}>Về danh sách task</ActionButton>}
       />
 
