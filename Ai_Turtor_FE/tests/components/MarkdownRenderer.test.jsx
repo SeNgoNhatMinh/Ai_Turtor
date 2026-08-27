@@ -47,6 +47,33 @@ describe('MarkdownRenderer Vietnamese text', () => {
     expect(screen.getAllByRole('listitem')).toHaveLength(1);
   });
 
+  it('keeps the course-material answer when hideSourceSection is on and the body cites a PDF', () => {
+    render(
+      <MarkdownRenderer
+        hideSourceSection
+        markdown={[
+          '## Theo tài liệu môn học',
+          '',
+          'OOP (Object-Oriented Programming) là lập trình hướng đối tượng. Tài liệu PRO192.pdf nêu class, object, inheritance.',
+          '',
+          '## Lưu ý để học tốt hơn',
+          '',
+          '- Xem các chương về class, object',
+          '',
+          '## Nguồn tài liệu đã dùng',
+          '',
+          '- PRO192.pdf',
+        ].join('\n')}
+      />,
+    );
+
+    expect(screen.getByRole('heading', { name: 'Theo tài liệu môn học' })).toBeInTheDocument();
+    expect(
+      screen.getByText(/OOP \(Object-Oriented Programming\) là lập trình hướng đối tượng/),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Nguồn tài liệu đã dùng' })).not.toBeInTheDocument();
+  });
+
   it('sends the exact selected study tip into the continue-learning flow', () => {
     const onStudyTipStudy = vi.fn();
     render(
@@ -58,5 +85,18 @@ describe('MarkdownRenderer Vietnamese text', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Ôn lại vòng đời Servlet' }));
     expect(onStudyTipStudy).toHaveBeenCalledWith('Ôn lại vòng đời Servlet');
+  });
+
+  it('treats same-page study-tip URLs as buttons instead of navigation', () => {
+    const onStudyTipStudy = vi.fn();
+    render(
+      <MarkdownRenderer
+        markdown="[Ôn constructor](http://localhost:5173/student/chat#ai-study-tip-1)"
+        onStudyTipStudy={onStudyTipStudy}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Ôn constructor' }));
+    expect(onStudyTipStudy).toHaveBeenCalledWith('Ôn constructor');
   });
 });

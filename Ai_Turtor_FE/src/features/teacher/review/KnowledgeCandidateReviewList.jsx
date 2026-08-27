@@ -49,6 +49,11 @@ function KnowledgeCandidateReviewList({
     const normalizedStatus = String(cand.status || '').trim().toUpperCase();
     const isIndexed = ['INDEXED', 'APPROVED', 'APPROVED_INTO_AI_KNOWLEDGE'].includes(normalizedStatus);
 
+    const existing = cand.existingAcademicKnowledge;
+    const approveContent = existing
+      ? `Câu hỏi này đã có trong RAG. Phê duyệt sẽ thay thế đáp án cũ bằng nội dung này; AI chỉ dùng đáp án mới.`
+      : 'Nội dung sẽ được đưa vào RAG và có thể được AI Tutor sử dụng để trả lời.';
+
     const submitDecision = async (decision) => {
       const handler = decision === 'APPROVE' ? handleApproveCandidate : handleRejectCandidate;
       const succeeded = await handler?.(cand.id, note);
@@ -61,7 +66,7 @@ function KnowledgeCandidateReviewList({
       openConfirm({
         title: approving ? 'Phê duyệt tri thức này?' : 'Từ chối tri thức này?',
         content: approving
-          ? 'Nội dung sẽ được đưa vào RAG và có thể được AI Tutor sử dụng để trả lời.'
+          ? approveContent
           : 'Candidate sẽ bị từ chối, không được đưa vào RAG. Lý do từ chối sẽ được lưu lại.',
         okText: approving ? 'Phê duyệt' : 'Từ chối',
         cancelText: 'Hủy',
@@ -117,6 +122,14 @@ function KnowledgeCandidateReviewList({
           </div>
         ) : canReviewKnowledgeCandidates ? (
           <>
+            {existing && (
+              <Alert
+                type="warning"
+                showIcon
+                title="Câu hỏi này đã có trong RAG"
+                description="Phê duyệt sẽ thay thế đáp án đang nạp. AI sẽ chỉ dùng đáp án mới, không giữ hai đáp án cùng lúc."
+              />
+            )}
             {isOwnCandidate && (
               <Alert
                 type="info"

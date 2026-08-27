@@ -1,16 +1,10 @@
-import { Alert, Button, Collapse, Input, Rate, Select, Tag } from 'antd';
+import { Alert, Button, Collapse, Input, Rate, Tag } from 'antd';
 import {
   formatAnswerReviewStatus,
   formatEscalationTier,
 } from '../../../constants/answerReview';
 import { REVIEW_NOTE_MAX_LENGTH } from '../../../constants/knowledgeAnswer';
 import KnowledgeAnswerComposer from './KnowledgeAnswerComposer';
-
-const CANDIDATE_TYPES = [
-  { value: 'ACADEMIC_KNOWLEDGE', label: 'Kiến thức học thuật' },
-  { value: 'MATERIAL_CORRECTION', label: 'Sửa nội dung tài liệu' },
-  { value: 'FAQ_CLARIFICATION', label: 'Làm rõ câu hỏi thường gặp' },
-];
 
 const formatDate = (value) => {
   if (!value) return '';
@@ -42,8 +36,6 @@ export default function GroupedAnswerReviewCard({
   const isSeniorQueue = queue === 'senior';
   const notes = String(draft.notes || '');
   const correctedAnswer = String(draft.correctedAnswer || '');
-  const images = Array.isArray(draft.images) ? draft.images : [];
-  const candidateType = draft.candidateType || 'ACADEMIC_KNOWLEDGE';
   const tierColor = group.escalationTier === 'SEVERE' || group.escalationTier === 'IMMEDIATE'
     ? 'red'
     : 'gold';
@@ -141,22 +133,13 @@ export default function GroupedAnswerReviewCard({
               label="Câu trả lời học thuật đúng"
               required
               value={correctedAnswer}
-              images={images}
               disabled={isPending || !onDraftChange}
-              placeholder="Câu trả lời học thuật đúng (bắt buộc khi tạo tri thức dùng lại). Có thể dán hoặc tải hình minh họa..."
+              placeholder="Câu trả lời học thuật đúng (bắt buộc khi tạo tri thức dùng lại)."
               onChange={(nextValue) => onDraftChange?.({ correctedAnswer: nextValue })}
-              onImagesChange={(nextImages) => onDraftChange?.({ images: nextImages })}
             />
-            <div className="grouped-answer-review__type">
-              <span>Loại tri thức</span>
-              <Select
-                value={candidateType}
-                options={CANDIDATE_TYPES}
-                disabled={isPending || !onDraftChange}
-                aria-label="Loại Knowledge Candidate"
-                onChange={(value) => onDraftChange?.({ candidateType: value })}
-              />
-            </div>
+            <p className="answer-review-resolution__hint" style={{ marginTop: 0 }}>
+              Loại tri thức: Kiến thức học thuật
+            </p>
             <div className="answer-review-resolution__actions">
               <Button
                 disabled={!notes.trim() || isPending || !onResolve}

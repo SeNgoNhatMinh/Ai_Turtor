@@ -100,14 +100,14 @@ export default function SeniorReviewQueue({
           ? 'Holdout chỉ dùng benchmark — không nạp vào RAG. Giáo trình vẫn là chuẩn duy nhất.'
           : item.examPassed
             ? 'Teacher đã xem trước câu SV đủ ý. Bạn chỉ duyệt nạp ghi chú vào RAG (sách vẫn là chuẩn).'
-            : 'Bản xem trước chưa đạt. Chỉ nạp nếu bạn chắc tóm tắt bám sách; không thì trả Teacher đánh giá lại.',
+            : 'Bản xem trước chưa đạt. Chỉ nạp nếu bạn chắc tóm tắt bám sách; không thì trả Teacher Đánh giá lại.',
         okText: isEvaluation ? 'Duyệt holdout' : 'Duyệt nạp RAG',
       });
       return;
     }
     confirmDanger({
       ...common,
-      title: 'Yêu cầu Teacher đánh giá lại?',
+      title: 'Yêu cầu Teacher Đánh giá lại?',
       content: 'Task trở lại Đang thực hiện. Lượt đánh giá AI được reset — Teacher chỉnh ý rồi Cho AI đánh giá (2 lượt) trước khi gửi lại.',
       okText: 'Trả lại Teacher',
     });
@@ -215,7 +215,7 @@ export default function SeniorReviewQueue({
           <div>
             <span className="expert-training__eyebrow">KIỂM DUYỆT CHẤT LƯỢNG</span>
             <h2 id="review-heading">Duyệt nạp RAG</h2>
-            <p>Teacher đã xem trước câu SV bằng đánh giá lại. Senior chỉ đối chiếu và duyệt nạp — không phải bước làm AI tốt hơn.</p>
+            <p>Teacher đã xem trước câu SV bằng Đánh giá lại. Senior chỉ đối chiếu và duyệt nạp — không phải bước làm AI tốt hơn.</p>
           </div>
         </div>
         <div className="expert-training__review-queue-summary" aria-label={`${queue.length} bài đánh giá chờ duyệt`}>

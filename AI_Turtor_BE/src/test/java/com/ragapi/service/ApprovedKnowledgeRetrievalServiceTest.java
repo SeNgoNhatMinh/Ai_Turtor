@@ -32,6 +32,27 @@ class ApprovedKnowledgeRetrievalServiceTest {
         assertThat(service.retrieveRelevant("Servlet lifecycle", "PRJ301", null)).isEmpty();
     }
 
+    @Test
+    void keepsNearExactIndexedQuestionEvenWhenAnswerIsLongAndScoreIsModerate() throws Exception {
+        ElasticVectorService vectorService = mock(ElasticVectorService.class);
+        ApprovedKnowledgeRetrievalService service = service(vectorService);
+        String chunkContent = """
+                [KIẾN THỨC BỔ SUNG ĐÃ ĐƯỢC SENIOR DUYỆT]
+                Câu hỏi: pytorch được áp dụng trong python như thế nào ?
+                Câu trả lời: PyTorch là thư viện Python dùng tensor để tính toán số và huấn luyện mô hình AI.
+                Cài đặt bằng pip install torch, sau đó import torch, tạo torch.tensor và dùng torch.nn để dựng mạng.
+                Thư viện này cũng hỗ trợ GPU, autograd, DataLoader, optimizer và nhiều API khác không xuất hiện trong giáo trình vòng lặp.
+                """.trim();
+        var chunk = chunk(chunkContent, 0.64);
+        when(vectorService.searchApprovedKnowledgeWithScores(
+                "pytorch được áp dụng ở trong python như thế nào ?", "PFP191", null, 8))
+                .thenReturn(List.of(chunk));
+
+        assertThat(service.retrieveRelevant(
+                "pytorch được áp dụng ở trong python như thế nào ?", "PFP191", null))
+                .containsExactly(chunk);
+    }
+
     private ApprovedKnowledgeRetrievalService service(ElasticVectorService vectorService) {
         ApprovedKnowledgeRetrievalService service = new ApprovedKnowledgeRetrievalService(vectorService);
         ReflectionTestUtils.setField(service, "maxChunks", 2);

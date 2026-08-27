@@ -154,23 +154,34 @@ function SupportRichTextEditor({
   return (
     <div className={`support-rich-editor ${disabled ? 'is-disabled' : ''}`}>
       <div className="support-rich-editor__toolbar" role="toolbar" aria-label="Công cụ soạn thảo">
-        {TOOLS.map(({ cmd, label, icon: Icon, shortcut }) => (
-          <Tooltip key={cmd} title={shortcut ? `${label} (${shortcut})` : label}>
-            <button
-              type="button"
-              className={`support-rich-editor__tool ${active[cmd] ? 'is-active' : ''}`}
-              aria-label={label}
-              aria-pressed={Boolean(active[cmd])}
-              disabled={disabled}
-              onMouseDown={(event) => {
-                event.preventDefault();
-                runCommand(cmd);
-              }}
+        {TOOLS.map(({ cmd, label, icon: Icon, shortcut }) => {
+          const hint = shortcut ? `${label} (${shortcut})` : label;
+          return (
+            <Tooltip
+              key={cmd}
+              title={<span className="support-rich-editor-tooltip-text">{hint}</span>}
+              mouseEnterDelay={0.15}
+              rootClassName="support-rich-editor-tooltip"
+              classNames={{ root: 'support-rich-editor-tooltip' }}
             >
-              <Icon size={15} />
-            </button>
-          </Tooltip>
-        ))}
+              <span className="support-rich-editor__tool-wrap">
+                <button
+                  type="button"
+                  className={`support-rich-editor__tool ${active[cmd] ? 'is-active' : ''}`}
+                  aria-label={hint}
+                  aria-pressed={Boolean(active[cmd])}
+                  disabled={disabled}
+                  onMouseDown={(event) => {
+                    event.preventDefault();
+                    runCommand(cmd);
+                  }}
+                >
+                  <Icon size={15} />
+                </button>
+              </span>
+            </Tooltip>
+          );
+        })}
       </div>
       <div
         ref={editorRef}

@@ -42,7 +42,10 @@ const recoverCanonicalAnswer = async ({ conversationId, userId, question, signal
     if (signal?.aborted) return null;
 
     try {
-      const chatMessages = await conversationApi.getMessages(conversationId, userId, { signal });
+      const chatMessages = await conversationApi.getMessages(conversationId, userId, {
+        signal,
+        skipUnauthorizedRedirect: true,
+      });
       const messagePairs = pairMessages(asArray(chatMessages, 'content', 'messages'));
       const exchange = findCanonicalExchange(messagePairs, question);
       if (exchange) return exchange;
@@ -182,28 +185,40 @@ export function useStudentChatController({
         });
       }
 
-      const responseConversationId = data.conversationId || data.sessionId || previousSessionId;
+      const responseConversationId = data.conversationId || previousSessionId;
       const responseConversationTitle = getSafeConversationTitle(
         data.conversationTitle || data.title || previousSessionTitle,
         courseId,
       );
-      let refreshedSessions = await loadChatSessions();
-      let canonicalSession = resolveCanonicalConversation({
-        responseConversationId,
-        previousSessionId,
-        sessionsBefore: sessionsBeforeRequest,
-        sessionsAfter: refreshedSessions,
-      });
+      const staysInCurrentConversation = Boolean(
+        previousSessionId
+        && responseConversationId
+        && responseConversationId === previousSessionId
+        && !data.maxTurnsReached
+      );
+      let canonicalSession = staysInCurrentConversation
+        ? sessionsBeforeRequest.find((session) => session.id === previousSessionId) || null
+        : null;
 
-      if (!canonicalSession && responseConversationId) {
-        await waitForConversationPersistence();
-        refreshedSessions = await loadChatSessions();
+      if (!staysInCurrentConversation) {
+        let refreshedSessions = await loadChatSessions({ silent: true });
         canonicalSession = resolveCanonicalConversation({
           responseConversationId,
           previousSessionId,
           sessionsBefore: sessionsBeforeRequest,
           sessionsAfter: refreshedSessions,
         });
+
+        if (!canonicalSession && responseConversationId) {
+          await waitForConversationPersistence();
+          refreshedSessions = await loadChatSessions({ silent: true });
+          canonicalSession = resolveCanonicalConversation({
+            responseConversationId,
+            previousSessionId,
+            sessionsBefore: sessionsBeforeRequest,
+            sessionsAfter: refreshedSessions,
+          });
+        }
       }
 
       const canonicalConversationId = canonicalSession?.id || responseConversationId;
@@ -296,12 +311,11 @@ export function useStudentChatController({
         return updated;
       });
 
-      if (canonicalConversationId && (
-        didStartNewConversation
-        || canonicalConversationId !== responseConversationId
-      )) {
+      if (didStartNewConversation && canonicalConversationId) {
         try {
-          const chatMsgs = await conversationApi.getMessages(canonicalConversationId, userId);
+          const chatMsgs = await conversationApi.getMessages(canonicalConversationId, userId, {
+            skipUnauthorizedRedirect: true,
+          });
           const historyPairs = pairMessages(asArray(chatMsgs, 'content', 'messages'));
           if (historyPairs.length > 0) {
             setMessages(historyPairs);

@@ -224,7 +224,7 @@ rag:
       skip-when-ollama-only: ${RAG_QUERY_TRANSLATION_SKIP_WHEN_OLLAMA_ONLY:true}
       target-language: English
   approved-knowledge:
-    max-chunks: ${RAG_APPROVED_KNOWLEDGE_MAX_CHUNKS:2}
+    max-chunks: ${RAG_APPROVED_KNOWLEDGE_MAX_CHUNKS:4}
     min-score: ${RAG_APPROVED_KNOWLEDGE_MIN_SCORE:0.60}
     strong-semantic-score: ${RAG_APPROVED_KNOWLEDGE_STRONG_SCORE:0.82}
     min-keyword-overlap: ${RAG_APPROVED_KNOWLEDGE_MIN_KEYWORD_OVERLAP:0.12}

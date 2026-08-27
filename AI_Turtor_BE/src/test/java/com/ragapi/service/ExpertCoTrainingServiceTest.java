@@ -79,7 +79,9 @@ class ExpertCoTrainingServiceTest {
     @Test
     void trainingGoldIsIndexedOnlyAfterSeniorApproval() throws Exception {
         GoldQa item = GoldQa.builder().id("G2").courseId("PRJ301").chapter("JSP").question("JSP lifecycle?")
-                .goldAnswer("Translation, compilation, init, service, destroy.").usage("TRAINING").holdout(false)
+                .goldAnswer("Teacher guidance: mention every lifecycle phase.")
+                .examAiAnswer("AI final answer: translation, compilation, init, service, destroy.")
+                .examUsedTeachingNote(true).usage("TRAINING").holdout(false)
                 .status("PENDING_REVIEW").authorId("T1").build();
         when(gold.findById("G2")).thenReturn(Optional.of(item));
         when(gold.save(any())).thenAnswer(inv -> inv.getArgument(0));
@@ -90,11 +92,13 @@ class ExpertCoTrainingServiceTest {
 
         assertEquals("INDEXED", approved.getStatus());
         assertNotNull(approved.getIndexedAt());
+        assertEquals("AI final answer: translation, compilation, init, service, destroy.",
+                approved.getApprovedAnswer());
         verify(vectors).indexChunk(eq("PRJ301"), isNull(), eq("T1"), eq("G2"), eq("COURSE_SHARED"), eq("GOLD_QA"), isNull(), isNull(),
                 argThat(content -> content != null
                         && content.contains("JSP lifecycle")
-                        && content.contains("Key points summarized from course materials")
-                        && content.contains("textbook/course materials are authoritative")));
+                        && content.contains("AI final answer: translation, compilation, init, service, destroy.")
+                        && !content.contains("Teacher guidance: mention every lifecycle phase.")));
         verify(answerCache).evictRagAnswersForCourse("PRJ301");
     }
 
@@ -286,6 +290,43 @@ class ExpertCoTrainingServiceTest {
         );
         verify(rag, never()).askWithConfidence(anyString(), anyString(), any());
         verify(rag, never()).askWithConfidenceFromTextbook(anyString(), anyString(), any());
+    }
+
+    @Test
+    void firstTeacherExamUsesTextbookOnlyRagWithoutStudentAnswerCache() throws Exception {
+        GoldQa draft = GoldQa.builder()
+                .id("G-JSPX")
+                .courseId("PRJ301")
+                .chapter("Using JSPs to Display Content")
+                .question("JSP Documents (JSPX) là gì?")
+                .goldAnswer("JSPX là JSP dạng XML có phần mở rộng .jspx.")
+                .usage("TRAINING")
+                .status("DRAFT")
+                .authorId("T1")
+                .build();
+        when(gold.findById("G-JSPX")).thenReturn(Optional.of(draft));
+        when(gold.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(rag.askWithConfidenceFromTextbook(
+                eq("JSP Documents (JSPX) là gì?"),
+                eq("PRJ301"),
+                isNull()
+        )).thenReturn(CourseRagAnswer.builder()
+                .answer("JSPX là JSP dạng XML có phần mở rộng .jspx.")
+                .confidence(0.9)
+                .escalationRecommended(false)
+                .sources(List.of("main-material"))
+                .build());
+
+        GoldQa examined = service.examGoldQa("G-JSPX");
+
+        assertEquals("BASELINE_EXAMINED", examined.getStatus());
+        assertFalse(Boolean.TRUE.equals(examined.getExamUsedTeachingNote()));
+        verify(rag).askWithConfidenceFromTextbook(
+                eq("JSP Documents (JSPX) là gì?"),
+                eq("PRJ301"),
+                isNull()
+        );
+        verify(rag, never()).askWithConfidence(anyString(), anyString(), any());
     }
 
     @Test

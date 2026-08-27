@@ -228,7 +228,7 @@ public class ExpertCoTrainingService {
             task.setPriority(80);
             task.setTitle("Q&A vàng " + index + "/" + count + " — " + chapter);
             task.setInstructions("Giáo trình là chuẩn duy nhất. "
-                    + "Soạn câu hỏi + tóm tắt ý từ sách, rồi Lưu/đánh giá lại để xem trước câu AI sẽ trả cho SV (sách + tóm tắt, chưa nạp RAG). "
+                    + "Soạn câu hỏi + tóm tắt ý từ sách, rồi Lưu/Thi lại để xem trước câu AI sẽ trả cho SV (sách + tóm tắt, chưa nạp RAG). "
                     + "Khi câu đủ ý mới Gửi Senior — Senior chỉ duyệt nạp TRAINING, không phải bước làm AI tốt hơn.");
             task.setCreatedBy(createdBy);
             task.setDueAt(dueAt);
@@ -449,7 +449,7 @@ public class ExpertCoTrainingService {
         ensureTeacherExamable(gold.getStatus());
         if ("EXAMINED".equals(gold.getStatus()) || Boolean.TRUE.equals(gold.getExamUsedTeachingNote())) {
             throw new IllegalArgumentException(
-                    "Đã dùng đủ 2 lượt đánh giá (lần 1 + đánh giá lại). Chỉ được đánh giá lại sau khi Senior từ chối và gửi về."
+                    "Đã dùng đủ 2 lượt thi (lần 1 + thi lại). Chỉ được thi lại sau khi Senior từ chối và gửi về."
             );
         }
         if ("BASELINE_EXAMINED".equals(gold.getStatus())
@@ -504,10 +504,10 @@ public class ExpertCoTrainingService {
         GoldQa gold = goldQaRepository.findById(requireText(id, "id"))
                 .orElseThrow(() -> new IllegalArgumentException("GoldQA not found"));
         if (!"EXAMINED".equals(gold.getStatus())) {
-            throw new IllegalArgumentException("Chỉ gửi Senior sau khi Cho AI đánh giá lại (đã gắn ý chính giáo viên)");
+            throw new IllegalArgumentException("Chỉ gửi Senior sau khi Cho AI thi lại (đã gắn ý chính giáo viên)");
         }
         if (!Boolean.TRUE.equals(gold.getExamUsedTeachingNote())) {
-            throw new IllegalArgumentException("Chạy Cho AI đánh giá lại với ý chính giáo viên trước khi gửi Senior");
+            throw new IllegalArgumentException("Chạy Cho AI thi lại với ý chính giáo viên trước khi gửi Senior");
         }
         if (gold.getExaminedAt() == null && gold.getExamAiAnswer() == null) {
             throw new IllegalArgumentException("Run exam before sending Gold Q&A to Senior");
@@ -550,7 +550,7 @@ public class ExpertCoTrainingService {
         gold.setReviewedBy(request.getReviewerId()); gold.setReviewNote(request.getReviewNote()); gold.setReviewedAt(now); gold.setUpdatedAt(now);
         if (!approve) {
             gold.setRejectionReason(requireMaxLength(request.getRejectionReason(), "rejectionReason", DEFAULT_TEXT_MAX_LENGTH));
-            // Reset 2 exam attempts so Teacher can Cho AI đánh giá + đánh giá lại again after revising.
+            // Reset 2 exam attempts so Teacher can Cho AI thi + thi lại again after revising.
             clearExamResults(gold);
             gold.setStatus("REJECTED");
         } else if ("EVALUATION".equalsIgnoreCase(gold.getUsage())) {
@@ -559,7 +559,9 @@ public class ExpertCoTrainingService {
             gold.setHoldout(true);
             gold.setIndexedAt(null);
         } else {
-            // TRAINING: index as a book-aligned teaching note, not as an override of the textbook.
+            // TRAINING: Senior approves the second AI exam answer. The teacher's
+            // goldAnswer remains guidance only and must never become the indexed answer.
+            gold.setApprovedAnswer(requireText(gold.getExamAiAnswer(), "secondExamAiAnswer"));
             writeTeachingNoteToElasticsearch(gold);
             gold.setStatus("INDEXED");
             gold.setIndexedAt(now);
@@ -610,6 +612,15 @@ public class ExpertCoTrainingService {
         return goldQaRepository.findByStatusInOrderByUpdatedAtDesc(statuses);
     }
 
+    public boolean isManagedTeachingNote(String id) {
+        if (id == null || id.isBlank()) {
+            return false;
+        }
+        return goldQaRepository.findById(id.trim())
+                .map(gold -> Set.of("INDEXED", "UNINDEXED").contains(gold.getStatus()))
+                .orElse(false);
+    }
+
     public GoldQa updateIndexedTeachingNote(String id, UpdateIndexedTeachingNoteRequest request) throws Exception {
         if (request == null) throw new IllegalArgumentException("request is required");
         GoldQa gold = requireManagedTeachingNote(id);
@@ -620,7 +631,8 @@ public class ExpertCoTrainingService {
             gold.setQuestion(requireMaxLength(request.getQuestion(), "question", DEFAULT_TEXT_MAX_LENGTH));
         }
         if (request.getGoldAnswer() != null && !request.getGoldAnswer().isBlank()) {
-            gold.setGoldAnswer(requireMaxLength(request.getGoldAnswer(), "goldAnswer", DEFAULT_TEXT_MAX_LENGTH));
+            gold.setApprovedAnswer(requireMaxLength(
+                    request.getGoldAnswer(), "approvedAnswer", DEFAULT_TEXT_MAX_LENGTH));
         }
         gold.setUpdatedAt(LocalDateTime.now());
         boolean shouldReindex = !Boolean.FALSE.equals(request.getReindex())
@@ -649,6 +661,11 @@ public class ExpertCoTrainingService {
     public GoldQa unindexTeachingNote(String id) throws Exception {
         GoldQa gold = requireManagedTeachingNote(id);
         vectorService.deleteChunksByMaterialId(gold.getId());
+        materialRepository.findById(gold.getId()).ifPresent(material -> {
+            material.setIndexingStatus("UNINDEXED");
+            material.setIndexedAt(null);
+            materialRepository.save(material);
+        });
         gold.setStatus("UNINDEXED");
         gold.setIndexedAt(null);
         gold.setUpdatedAt(LocalDateTime.now());
@@ -662,6 +679,7 @@ public class ExpertCoTrainingService {
         String courseId = gold.getCourseId();
         String taskId = gold.getSourceTaskId();
         vectorService.deleteChunksByMaterialId(gold.getId());
+        materialRepository.deleteById(gold.getId());
         goldQaRepository.deleteById(gold.getId());
         if (courseId != null && !courseId.isBlank()) {
             answerCacheService.evictRagAnswersForCourse(courseId);
@@ -685,11 +703,33 @@ public class ExpertCoTrainingService {
     }
 
     private void rewriteTeachingNoteIndex(GoldQa gold) throws Exception {
+        if (gold.getApprovedAnswer() == null || gold.getApprovedAnswer().isBlank()) {
+            gold.setApprovedAnswer(resolveIndexedAnswer(gold));
+        }
         vectorService.deleteChunksByMaterialId(gold.getId());
         writeTeachingNoteToElasticsearch(gold);
     }
 
     private void writeTeachingNoteToElasticsearch(GoldQa gold) throws Exception {
+        LocalDateTime now = LocalDateTime.now();
+        String content = buildTeachingNoteContent(gold);
+        CourseMaterial material = materialRepository.findById(gold.getId()).orElseGet(CourseMaterial::new);
+        material.setId(gold.getId());
+        material.setTitle("Senior-approved V2 Gold Q&A: " + gold.getQuestion());
+        material.setCategory("senior-approved-knowledge");
+        material.setCourseId(gold.getCourseId());
+        material.setClassId(null);
+        material.setTeacherId(gold.getAuthorId());
+        material.setMaterialScope("COURSE_SHARED");
+        material.setUploadedByRole("SENIOR_MENTOR");
+        material.setContent(content);
+        material.setSourceType("GOLD_QA");
+        material.setApprovedBy(gold.getReviewedBy());
+        material.setApprovedAt(gold.getReviewedAt() == null ? now : gold.getReviewedAt());
+        material.setIndexingStatus("PROCESSING");
+        material.setIndexingError(null);
+        materialRepository.save(material);
+
         vectorService.indexChunk(
                 gold.getCourseId(),
                 null,
@@ -699,17 +739,50 @@ public class ExpertCoTrainingService {
                 "GOLD_QA",
                 null,
                 null,
-                buildTeachingNoteContent(gold)
+                content
         );
+        material.setIndexingStatus("INDEXED");
+        material.setIndexedAt(now);
+        materialRepository.save(material);
+    }
+
+    /** Called when the CourseMaterial representation of a V2 Gold Q&A is deleted. */
+    public void onTeachingNoteMaterialDeleted(String materialId) {
+        if (materialId == null || materialId.isBlank()) {
+            return;
+        }
+        goldQaRepository.findById(materialId).ifPresent(gold -> {
+            if (!"EVALUATION".equalsIgnoreCase(gold.getUsage())) {
+                gold.setStatus("UNINDEXED");
+                gold.setIndexedAt(null);
+                gold.setUpdatedAt(LocalDateTime.now());
+                goldQaRepository.save(gold);
+                answerCacheService.evictRagAnswersForCourse(gold.getCourseId());
+            }
+        });
     }
 
     private String buildTeachingNoteContent(GoldQa gold) {
+        String approvedAnswer = resolveIndexedAnswer(gold);
         return ""
                 + "Course-material teaching note (textbook/course materials are authoritative; this note must not contradict them).\n"
                 + "Chapter: " + (gold.getChapter() == null ? "" : gold.getChapter()) + "\n"
                 + "Student question: " + gold.getQuestion() + "\n"
-                + "Key points summarized from course materials:\n"
-                + gold.getGoldAnswer();
+                + "Senior-approved AI answer after the teacher-guided second exam:\n"
+                + approvedAnswer;
+    }
+
+    private String resolveIndexedAnswer(GoldQa gold) {
+        if (gold.getApprovedAnswer() != null && !gold.getApprovedAnswer().isBlank()) {
+            return gold.getApprovedAnswer();
+        }
+        // Backward-compatible repair for records indexed before approvedAnswer existed.
+        if (Boolean.TRUE.equals(gold.getExamUsedTeachingNote())
+                && gold.getExamAiAnswer() != null
+                && !gold.getExamAiAnswer().isBlank()) {
+            return gold.getExamAiAnswer();
+        }
+        return requireText(gold.getGoldAnswer(), "approvedAnswer");
     }
 
     public List<ExpertRubric> listRubrics(String courseId) {
@@ -771,7 +844,7 @@ public class ExpertCoTrainingService {
 
     private void examineBaseline(GoldQa gold) {
         try {
-            ExamSnapshot exam = scoreAgainstCurrentRag(gold, 0.6);
+            ExamSnapshot exam = scoreAgainstTextbookBaseline(gold, 0.6);
             gold.setExamBaselineAiAnswer(exam.aiAnswer());
             gold.setExamBaselineScore(exam.score());
             gold.setExamBaselineRagConfidence(exam.confidence());
@@ -842,6 +915,7 @@ public class ExpertCoTrainingService {
 
     private void clearExamResults(GoldQa gold) {
         if (gold == null) return;
+        gold.setApprovedAnswer(null);
         gold.setExamAiAnswer(null);
         gold.setExamScore(null);
         gold.setExamRagConfidence(null);
@@ -858,6 +932,15 @@ public class ExpertCoTrainingService {
 
     private ExamSnapshot scoreAgainstCurrentRag(GoldQa gold, double threshold) throws Exception {
         CourseRagAnswer answer = courseRagService.askWithConfidence(
+                gold.getQuestion(),
+                gold.getCourseId(),
+                null
+        );
+        return scoreAnswer(gold, answer, threshold);
+    }
+
+    private ExamSnapshot scoreAgainstTextbookBaseline(GoldQa gold, double threshold) throws Exception {
+        CourseRagAnswer answer = courseRagService.askWithConfidenceFromTextbook(
                 gold.getQuestion(),
                 gold.getCourseId(),
                 null
@@ -1019,7 +1102,7 @@ public class ExpertCoTrainingService {
         if (!Set.of("DRAFT", "BASELINE_EXAMINED", "REJECTED").contains(status)) {
             throw new IllegalArgumentException(
                     "Gold Q&A cannot be examined in status " + status
-                            + ". Đã hết 2 lượt đánh giá hoặc đang chờ Senior — chỉ reset khi Senior từ chối."
+                            + ". Đã hết 2 lượt thi hoặc đang chờ Senior — chỉ reset khi Senior từ chối."
             );
         }
     }

@@ -17,6 +17,20 @@ const asArray = (value) => {
   return [];
 };
 
+const asNonEmptyId = (value) => {
+  const id = typeof value === 'string' ? value.trim() : '';
+  return id || '';
+};
+
+const isEphemeralHarnessId = (value) => (
+  /^(conversation|session|trace)-\d{10,}$/i.test(String(value || '').trim())
+);
+
+const asPersistedConversationId = (value) => {
+  const id = asNonEmptyId(value);
+  return id && !isEphemeralHarnessId(id) ? id : '';
+};
+
 const parseJsonObject = (value) => {
   if (typeof value !== 'string') return value;
   try {
@@ -128,9 +142,9 @@ export function normalizeHarnessChatResponse(response = {}, fallbackContext = {}
     mode,
     confidence: toNumberOrNull(normalized.confidence) ?? (escalated ? 0 : null),
     sources: dedupeByIdentity(asArray(normalized.sources)),
-    conversationId: normalized.conversationId
-      || normalized.sessionId
-      || fallbackContext.conversationId
+    conversationId: asPersistedConversationId(normalized.conversationId)
+      || asPersistedConversationId(normalized.conversation?.id)
+      || asPersistedConversationId(fallbackContext.conversationId)
       || null,
     questionEscalationId: normalized.questionEscalationId || normalized.escalationId || null,
     userMessageId: normalized.userMessageId || normalized.studentMessageId || null,

@@ -1,10 +1,12 @@
 package com.ragapi.entity;
 
+import com.ragapi.dto.ExistingAcademicKnowledge;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.Transient;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.LocalDateTime;
@@ -59,4 +61,11 @@ public class KnowledgeCandidate {
     private LocalDateTime indexedAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+
+    /**
+     * Populated only on list/read responses when another INDEXED candidate in the
+     * same course already answers this question. Not persisted.
+     */
+    @Transient
+    private ExistingAcademicKnowledge existingAcademicKnowledge;
 }

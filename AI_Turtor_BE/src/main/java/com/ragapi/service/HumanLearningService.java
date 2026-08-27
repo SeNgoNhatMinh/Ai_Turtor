@@ -40,6 +40,8 @@ public class HumanLearningService {
     private static final String STATUS_LEGACY_PENDING_REVIEW = "PENDING_REVIEW";
     private static final String STATUS_REJECTED = "REJECTED";
     private static final String STATUS_INDEXED = "INDEXED";
+    private static final String STATUS_UNINDEXED = "UNINDEXED";
+    private static final String STATUS_SUPERSEDED = "SUPERSEDED";
 
     private final QuestionEscalationRepository escalationRepository;
     private final MentorRepository mentorRepository;
@@ -261,6 +263,8 @@ public class HumanLearningService {
                 + KnowledgeImageStorageService.formatImageAppendix(candidate.getImages());
 
         LocalDateTime now = LocalDateTime.now();
+        supersedeIndexedDuplicates(candidate, now);
+
         CourseMaterial material = new CourseMaterial();
         material.setTitle("Senior-approved knowledge: " + candidate.getQuestion());
         material.setCategory("senior-approved-knowledge");
@@ -345,6 +349,221 @@ public class HumanLearningService {
         return candidates.stream()
                 .filter(candidate -> courseId.equals(candidate.getCourseId()))
                 .toList();
+    }
+
+    public List<KnowledgeCandidate> listIndexedApprovedKnowledge(String courseId, String status) {
+        java.util.Set<String> statuses;
+        if (status != null && !status.isBlank()) {
+            statuses = java.util.Set.of(status.trim().toUpperCase());
+        } else {
+            statuses = java.util.Set.of(STATUS_INDEXED, STATUS_UNINDEXED);
+        }
+        if (courseId != null && !courseId.isBlank()) {
+            return knowledgeCandidateRepository.findByCourseIdAndStatusInOrderByIndexedAtDesc(courseId.trim(), statuses);
+        }
+        return knowledgeCandidateRepository.findByStatusInOrderByIndexedAtDesc(statuses);
+    }
+
+    public KnowledgeCandidate updateIndexedApprovedKnowledge(
+            String candidateId,
+            String question,
+            String answer,
+            boolean reindex
+    ) throws IOException {
+        KnowledgeCandidate candidate = requireManagedIndexedCandidate(candidateId);
+        if (question != null && !question.isBlank()) {
+            candidate.setQuestion(requireMaxLength(question, "question", DEFAULT_TEXT_MAX_LENGTH));
+        }
+        if (answer != null && !answer.isBlank()) {
+            candidate.setAnswer(requireMaxLength(answer, "answer", DEFAULT_TEXT_MAX_LENGTH));
+        }
+        String content = """
+                [KIẾN THỨC BỔ SUNG ĐÃ ĐƯỢC SENIOR DUYỆT]
+                Câu hỏi: %s
+                Câu trả lời: %s
+                """.formatted(candidate.getQuestion(), candidate.getAnswer())
+                + KnowledgeImageStorageService.formatImageAppendix(candidate.getImages());
+        candidate.setContent(content);
+        candidate.setUpdatedAt(LocalDateTime.now());
+
+        CourseMaterial material = loadMaterialForCandidate(candidate);
+        if (material != null) {
+            material.setTitle("Senior-approved knowledge: " + candidate.getQuestion());
+            material.setContent(content);
+            if (reindex || STATUS_INDEXED.equalsIgnoreCase(candidate.getStatus())) {
+                rewriteCandidateIndex(candidate, material, content);
+                candidate.setStatus(STATUS_INDEXED);
+                candidate.setIndexedAt(LocalDateTime.now());
+                material.setIndexingStatus("INDEXED");
+                material.setIndexedAt(LocalDateTime.now());
+            }
+            courseMaterialRepository.save(material);
+        } else if (reindex) {
+            throw new IllegalArgumentException("Không tìm thấy CourseMaterial gắn với knowledge candidate này");
+        }
+        KnowledgeCandidate saved = knowledgeCandidateRepository.save(candidate);
+        answerCacheService.evictRagAnswersForCourse(saved.getCourseId());
+        return saved;
+    }
+
+    public KnowledgeCandidate reindexApprovedKnowledge(String candidateId) throws IOException {
+        KnowledgeCandidate candidate = requireManagedIndexedCandidate(candidateId);
+        CourseMaterial material = loadMaterialForCandidate(candidate);
+        if (material == null) {
+            throw new IllegalArgumentException("Không tìm thấy CourseMaterial gắn với knowledge candidate này");
+        }
+        String content = candidate.getContent() != null && !candidate.getContent().isBlank()
+                ? candidate.getContent()
+                : """
+                [KIẾN THỨC BỔ SUNG ĐÃ ĐƯỢC SENIOR DUYỆT]
+                Câu hỏi: %s
+                Câu trả lời: %s
+                """.formatted(candidate.getQuestion(), candidate.getAnswer());
+        rewriteCandidateIndex(candidate, material, content);
+        material.setContent(content);
+        material.setIndexingStatus("INDEXED");
+        material.setIndexedAt(LocalDateTime.now());
+        courseMaterialRepository.save(material);
+        candidate.setContent(content);
+        candidate.setStatus(STATUS_INDEXED);
+        candidate.setIndexedAt(LocalDateTime.now());
+        candidate.setUpdatedAt(LocalDateTime.now());
+        KnowledgeCandidate saved = knowledgeCandidateRepository.save(candidate);
+        answerCacheService.evictRagAnswersForCourse(saved.getCourseId());
+        return saved;
+    }
+
+    public KnowledgeCandidate unindexApprovedKnowledge(String candidateId) throws IOException {
+        KnowledgeCandidate candidate = requireManagedIndexedCandidate(candidateId);
+        String materialId = trimToNull(candidate.getMaterialId());
+        if (materialId != null) {
+            vectorService.deleteChunksByMaterialId(materialId);
+            courseMaterialRepository.findById(materialId).ifPresent(material -> {
+                material.setIndexingStatus("UNINDEXED");
+                material.setIndexedAt(null);
+                courseMaterialRepository.save(material);
+            });
+        }
+        candidate.setStatus(STATUS_UNINDEXED);
+        candidate.setIndexedAt(null);
+        candidate.setUpdatedAt(LocalDateTime.now());
+        KnowledgeCandidate saved = knowledgeCandidateRepository.save(candidate);
+        answerCacheService.evictRagAnswersForCourse(saved.getCourseId());
+        return saved;
+    }
+
+    public void deleteIndexedApprovedKnowledge(String candidateId) throws IOException {
+        KnowledgeCandidate candidate = requireManagedIndexedCandidate(candidateId);
+        String courseId = candidate.getCourseId();
+        String materialId = trimToNull(candidate.getMaterialId());
+        if (materialId != null) {
+            vectorService.deleteChunksByMaterialId(materialId);
+            courseMaterialRepository.deleteById(materialId);
+        }
+        knowledgeCandidateRepository.deleteById(candidate.getId());
+        if (courseId != null && !courseId.isBlank()) {
+            answerCacheService.evictRagAnswersForCourse(courseId);
+        }
+    }
+
+    /** Called when a CourseMaterial with sourceType=KNOWLEDGE_CANDIDATE is deleted. */
+    public void onApprovedKnowledgeMaterialDeleted(String materialId) {
+        if (materialId == null || materialId.isBlank()) {
+            return;
+        }
+        knowledgeCandidateRepository.findByMaterialId(materialId).ifPresent(candidate -> {
+            candidate.setStatus(STATUS_UNINDEXED);
+            candidate.setMaterialId(null);
+            candidate.setIndexedAt(null);
+            candidate.setUpdatedAt(LocalDateTime.now());
+            knowledgeCandidateRepository.save(candidate);
+            if (candidate.getCourseId() != null && !candidate.getCourseId().isBlank()) {
+                answerCacheService.evictRagAnswersForCourse(candidate.getCourseId());
+            }
+            log.info("Marked knowledge candidate {} UNINDEXED after material {} deleted",
+                    candidate.getId(), materialId);
+        });
+    }
+
+    private void supersedeIndexedDuplicates(KnowledgeCandidate incoming, LocalDateTime now) throws IOException {
+        String courseId = trimToNull(incoming.getCourseId());
+        String normalizedQuestion = normalizeQuestionKey(incoming.getQuestion());
+        if (courseId == null || normalizedQuestion.isBlank()) {
+            return;
+        }
+        List<KnowledgeCandidate> existing = knowledgeCandidateRepository.findByCourseIdAndStatus(courseId, STATUS_INDEXED);
+        for (KnowledgeCandidate prior : existing) {
+            if (prior.getId() != null && prior.getId().equals(incoming.getId())) {
+                continue;
+            }
+            if (!normalizedQuestion.equals(normalizeQuestionKey(prior.getQuestion()))) {
+                continue;
+            }
+            String materialId = trimToNull(prior.getMaterialId());
+            if (materialId != null) {
+                vectorService.deleteChunksByMaterialId(materialId);
+                courseMaterialRepository.deleteById(materialId);
+            }
+            prior.setStatus(STATUS_SUPERSEDED);
+            prior.setMaterialId(null);
+            prior.setIndexedAt(null);
+            prior.setUpdatedAt(now);
+            prior.setReviewNote((prior.getReviewNote() == null ? "" : prior.getReviewNote() + " | ")
+                    + "Superseded by newer Senior approval for the same question");
+            knowledgeCandidateRepository.save(prior);
+            log.info("Superseded indexed knowledge candidate {} with newer candidate {} (courseId={})",
+                    prior.getId(), incoming.getId(), courseId);
+        }
+    }
+
+    private KnowledgeCandidate requireManagedIndexedCandidate(String candidateId) {
+        KnowledgeCandidate candidate = knowledgeCandidateRepository.findById(requireText(candidateId, "id"))
+                .orElseThrow(() -> new IllegalArgumentException("Knowledge candidate not found"));
+        if (!STATUS_INDEXED.equalsIgnoreCase(candidate.getStatus())
+                && !STATUS_UNINDEXED.equalsIgnoreCase(candidate.getStatus())) {
+            throw new IllegalArgumentException(
+                    "Chỉ quản lý được knowledge đã duyệt nạp RAG (INDEXED/UNINDEXED). Status hiện tại: "
+                            + candidate.getStatus());
+        }
+        return candidate;
+    }
+
+    private CourseMaterial loadMaterialForCandidate(KnowledgeCandidate candidate) {
+        String materialId = trimToNull(candidate.getMaterialId());
+        if (materialId == null) {
+            return null;
+        }
+        return courseMaterialRepository.findById(materialId).orElse(null);
+    }
+
+    private void rewriteCandidateIndex(KnowledgeCandidate candidate, CourseMaterial material, String content)
+            throws IOException {
+        vectorService.deleteChunksByMaterialId(material.getId());
+        List<String> chunks = chunkingService.chunk(content);
+        if (chunks.isEmpty()) {
+            chunks = List.of(content.trim());
+        }
+        vectorService.indexChunks(
+                material.getCourseId(),
+                material.getClassId(),
+                material.getTeacherId(),
+                material.getId(),
+                material.getMaterialScope(),
+                "KNOWLEDGE_CANDIDATE",
+                null,
+                null,
+                chunks
+        );
+        candidate.setMaterialId(material.getId());
+    }
+
+    private static String normalizeQuestionKey(String question) {
+        if (question == null) {
+            return "";
+        }
+        return question.toLowerCase(java.util.Locale.ROOT)
+                .replaceAll("\\s+", " ")
+                .trim();
     }
 
     private void markEscalationIndexed(KnowledgeCandidate candidate) {

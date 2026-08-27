@@ -149,7 +149,7 @@ export default function ExpertTrainingPage({
       <PageHeader
         eyebrow={workspaceMode === 'admin' ? 'Giám sát AI' : 'Huấn luyện AI'}
         title={workspaceMode === 'admin' ? 'Huấn luyện AI Tutor' : 'Huấn luyện AI theo giáo trình'}
-        description="Chọn chương → Teacher soạn tóm tắt + đánh giá lại (xem trước câu SV) → Senior chỉ duyệt nạp TRAINING vào RAG."
+        description="Chọn chương → Teacher soạn tóm tắt + Đánh giá lại (xem trước câu SV) → Senior chỉ duyệt nạp TRAINING vào RAG."
       />
 
       <ScopeBar

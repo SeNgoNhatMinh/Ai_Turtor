@@ -35,6 +35,14 @@ const hasSessionChanged = (before, after) => (
   || getSessionQuestionCount(before) !== getSessionQuestionCount(after)
 );
 
+export function isSyntheticConversationId(value) {
+  return /^(conversation|session|trace)-\d{10,}$/i.test(String(value || '').trim());
+}
+
+const sessionReachedTurnLimit = (session) => (
+  Boolean(session?.maxTurnsReached) || getSessionQuestionCount(session) >= CHAT_TURN_LIMIT
+);
+
 export function resolveCanonicalConversation({
   responseConversationId,
   previousSessionId,
@@ -45,12 +53,28 @@ export function resolveCanonicalConversation({
   const after = sortSessionsByActivity(sessionsAfter);
   if (after.length === 0) return null;
 
-  const directMatch = after.find((session) => session.id === responseConversationId);
+  const responseId = String(responseConversationId || '').trim();
+  const previousId = String(previousSessionId || '').trim();
+  const previousMatch = previousId
+    ? after.find((session) => session.id === previousId)
+    : null;
+  const directMatch = responseId && !isSyntheticConversationId(responseId)
+    ? after.find((session) => session.id === responseId)
+    : null;
+
   if (directMatch) return directMatch;
 
   const beforeById = new Map(before.map((session) => [session.id, session]));
   const newlyCreated = after.find((session) => !beforeById.has(session.id));
-  if (newlyCreated) return newlyCreated;
+  const previousReachedLimit = sessionReachedTurnLimit(previousMatch);
+
+  if (previousMatch && !previousReachedLimit) {
+    return previousMatch;
+  }
+
+  if (newlyCreated && (!previousId || previousReachedLimit || !previousMatch)) {
+    return newlyCreated;
+  }
 
   const updated = after.find((session) => {
     const previous = beforeById.get(session.id);
@@ -58,11 +82,7 @@ export function resolveCanonicalConversation({
   });
   if (updated) return updated;
 
-  if (previousSessionId && responseConversationId === previousSessionId) {
-    return after.find((session) => session.id === previousSessionId) || null;
-  }
-
-  return null;
+  return previousMatch || null;
 }
 
 const normalizeExchangeText = (value) => String(value || '')

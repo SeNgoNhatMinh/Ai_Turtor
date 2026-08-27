@@ -16,11 +16,28 @@ class QuestionOverlapUtilTest {
     }
 
     @Test
-    void keywordOverlap_isLowForDifferentTopics() {
-        double overlap = QuestionOverlapUtil.keywordOverlapRatio(
-                "Servlet là gì?",
-                "JSP lifecycle hoạt động thế nào?"
-        );
-        assertThat(overlap).isLessThan(0.45);
+    void canonicalQuestionKey_ignoresAccentsPunctuationAndSpacing() {
+        assertThat(QuestionOverlapUtil.canonicalQuestionKey("pytorch là gì ?"))
+                .isEqualTo(QuestionOverlapUtil.canonicalQuestionKey("pytorch la gi"));
+    }
+
+    @Test
+    void isSameAcademicQuestion_treatsNearDuplicatesAsOneItem() {
+        assertThat(QuestionOverlapUtil.isSameAcademicQuestion(
+                "pytorch là gì?",
+                "pytorch la gi ?"
+        )).isTrue();
+        assertThat(QuestionOverlapUtil.isSameAcademicQuestion(
+                "pytorch được áp dụng ở trong python như thế nào?",
+                "pytorch được áp dụng trong python như thế nào?"
+        )).isTrue();
+    }
+
+    @Test
+    void isSameAcademicQuestion_keepsDistinctTopicsSeparate() {
+        assertThat(QuestionOverlapUtil.isSameAcademicQuestion(
+                "pytorch là gì?",
+                "pytorch được áp dụng trong python như thế nào?"
+        )).isFalse();
     }
 }

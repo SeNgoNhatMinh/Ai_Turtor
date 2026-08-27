@@ -1,7 +1,6 @@
 import { API_BASE_URL, request } from './apiClient';
 import { encodePath } from '../config/env';
 import { asArray } from './normalizers';
-import { normalizeGoldQa } from './expertTrainingNormalizers';
 
 const BASE = `${API_BASE_URL}/admin/indexed-teaching-notes`;
 
@@ -14,14 +13,34 @@ const query = (values = {}) => {
   return text ? `?${text}` : '';
 };
 
+const normalizeIndexedKnowledge = (item = {}) => ({
+  id: item.id || item._id || '',
+  courseId: item.courseId || '',
+  classId: item.classId || '',
+  question: item.question || '',
+  goldAnswer: item.goldAnswer || item.answer || '',
+  answer: item.answer || item.goldAnswer || '',
+  content: item.content || '',
+  status: String(item.status || '').toUpperCase(),
+  materialId: item.materialId || '',
+  sourceType: item.sourceType || '',
+  candidateType: item.candidateType || '',
+  chapter: item.chapter || item.candidateType || 'Kiến thức Senior duyệt',
+  authorId: item.authorId || item.teacherId || '',
+  reviewedBy: item.reviewedBy || '',
+  reviewerName: item.reviewerName || '',
+  indexedAt: item.indexedAt || null,
+  updatedAt: item.updatedAt || null,
+});
+
 export const indexedTeachingNotesApi = {
   async list({ courseId, status } = {}) {
     const response = await request(`${BASE}${query({ courseId, status })}`);
-    return asArray(response, 'items', 'content').map(normalizeGoldQa);
+    return asArray(response, 'items', 'content').map(normalizeIndexedKnowledge);
   },
 
   async update(id, payload) {
-    return normalizeGoldQa(await request(`${BASE}/${encodePath(id)}`, {
+    return normalizeIndexedKnowledge(await request(`${BASE}/${encodePath(id)}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -29,7 +48,7 @@ export const indexedTeachingNotesApi = {
   },
 
   async reindex(id) {
-    return normalizeGoldQa(await request(`${BASE}/${encodePath(id)}/reindex`, {
+    return normalizeIndexedKnowledge(await request(`${BASE}/${encodePath(id)}/reindex`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({}),
@@ -37,7 +56,7 @@ export const indexedTeachingNotesApi = {
   },
 
   async unindex(id) {
-    return normalizeGoldQa(await request(`${BASE}/${encodePath(id)}/unindex`, {
+    return normalizeIndexedKnowledge(await request(`${BASE}/${encodePath(id)}/unindex`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({}),

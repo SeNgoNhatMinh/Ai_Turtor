@@ -53,6 +53,14 @@ class StudentQuestionNormalizationServiceTest {
     }
 
     @Test
+    void normalize_skipsLlmWhenVietnameseDiacriticsAreAlreadyPresent() {
+        String question = "Sự khác biệt giữa Java EE 7 và Java SE 7";
+
+        assertThat(service.normalize(question)).isEqualTo(question);
+        verify(chatService, never()).generateUtility(anyString());
+    }
+
+    @Test
     void normalize_skipsLlmWhenDisabled() {
         ReflectionTestUtils.setField(service, "llmEnabled", false);
 

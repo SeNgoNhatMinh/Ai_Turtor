@@ -4,6 +4,7 @@ import {
   buildMaterialSourceMap,
   extractAnswerSourceLabels,
   formatSourceItems,
+  isMaterialSourceText,
   normalizeSourceDisplayName,
 } from '../src/utils/sourceLabels.js';
 
@@ -40,4 +41,26 @@ test('deduplicates normalized source labels and preserves a downloadable materia
     id: '6a3d56a6ad3e666fbe4566ee',
     label: 'Professional_Java.pdf',
   }]);
+});
+
+test('treats only dedicated citation lines as material source text', () => {
+  assert.equal(isMaterialSourceText('PRO192.pdf'), true);
+  assert.equal(isMaterialSourceText('materialId=6a3d56a6ad3e666fbe4566ee'), true);
+  assert.equal(isMaterialSourceText('6a3d56a6ad3e666fbe4566ee'), true);
+  assert.equal(isMaterialSourceText('Tài liệu: PRO192.pdf'), true);
+
+  assert.equal(
+    isMaterialSourceText(
+      'OOP (Object-Oriented Programming) là lập trình hướng đối tượng. Tài liệu PRO192.pdf nêu class, object, inheritance.',
+    ),
+    false,
+  );
+  assert.equal(
+    isMaterialSourceText('OOP là lập trình hướng đối tượng theo slide Chapter1.pptx của môn PRO192.'),
+    false,
+  );
+  assert.equal(
+    isMaterialSourceText('OOP là lập trình hướng đối tượng. Nguồn 6a3d56a6ad3e666fbe4566ee.'),
+    false,
+  );
 });

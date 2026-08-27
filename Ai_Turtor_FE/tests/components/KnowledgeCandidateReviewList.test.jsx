@@ -59,6 +59,32 @@ describe('KnowledgeCandidateReviewList flow separation', () => {
     expect(handleNoteChange).toHaveBeenCalledWith('candidate-1', '');
   });
 
+  it('warns when the pending question is already indexed with another answer', () => {
+    render(
+      <KnowledgeCandidateReviewList
+        candidates={[{
+          ...candidate,
+          teacherId: 'teacher-1',
+          existingAcademicKnowledge: {
+            id: 'indexed-1',
+            question: 'Spring Boot la gi',
+            answer: 'Đáp án cũ trong RAG',
+            status: 'INDEXED',
+          },
+        }]}
+        candidateNotes={{ 'candidate-1': 'Duyệt thay thế' }}
+        canReviewKnowledgeCandidates
+        currentReviewerId="senior-2"
+        handleNoteChange={vi.fn()}
+        handleApproveCandidate={vi.fn()}
+        handleRejectCandidate={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('Câu hỏi này đã có trong RAG')).toBeVisible();
+    expect(screen.getByText(/thay thế đáp án đang nạp/)).toBeVisible();
+  });
+
   it('renders indexed and rejected candidates as read-only history', () => {
     render(
       <KnowledgeCandidateReviewList

@@ -285,7 +285,7 @@ export default function LlmProviderManagementTable({
               },
             }]}
           >
-            <Input placeholder="Ví dụ: llama-3.3-70b-versatile" allowClear />
+            <Input placeholder="Ví dụ: openai/gpt-oss-120b" allowClear />
           </Form.Item>
           <Form.Item
             name="enabled"

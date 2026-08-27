@@ -83,6 +83,51 @@ test('keeps the existing canonical session when n8n responds with that id', () =
   })?.id, session.id);
 });
 
+test('keeps the current session when n8n returns a synthetic conversation id', () => {
+  const current = {
+    id: 'canonical-session',
+    lastMessageAt: '2026-07-22T10:05:00Z',
+    messageCount: 4,
+    userQuestionCount: 2,
+  };
+  const accidentalNew = {
+    id: 'accidental-new-session',
+    lastMessageAt: '2026-07-22T10:06:00Z',
+    messageCount: 2,
+    userQuestionCount: 1,
+  };
+
+  assert.equal(resolveCanonicalConversation({
+    responseConversationId: 'conversation-1784735431773',
+    previousSessionId: current.id,
+    sessionsBefore: [{ ...current, messageCount: 2, userQuestionCount: 1 }],
+    sessionsAfter: [accidentalNew, current],
+  })?.id, current.id);
+});
+
+test('switches to the continuation session after the turn limit', () => {
+  const previous = {
+    id: 'full-session',
+    lastMessageAt: '2026-07-22T10:05:00Z',
+    messageCount: 20,
+    userQuestionCount: 10,
+    maxTurnsReached: true,
+  };
+  const continuation = {
+    id: 'continuation-session',
+    lastMessageAt: '2026-07-22T10:06:00Z',
+    messageCount: 2,
+    userQuestionCount: 1,
+  };
+
+  assert.equal(resolveCanonicalConversation({
+    responseConversationId: 'conversation-1784735431999',
+    previousSessionId: previous.id,
+    sessionsBefore: [previous],
+    sessionsAfter: [continuation, previous],
+  })?.id, continuation.id);
+});
+
 test('recovers the persisted answer for the exact submitted question', () => {
   const exchange = findCanonicalExchange([
     { question: 'Servlet là gì?', answer: 'Servlet chạy trên web container.' },

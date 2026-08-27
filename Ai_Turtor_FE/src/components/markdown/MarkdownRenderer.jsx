@@ -100,8 +100,21 @@ function CodeRenderer({ inline, className = '', children, ...props }) {
   );
 }
 
+function getHashTarget(href) {
+  const raw = String(href || '').trim();
+  if (!raw) return '';
+  if (raw.startsWith('#')) return raw.slice(1);
+  try {
+    const parsed = new URL(raw, typeof window !== 'undefined' ? window.location.href : 'http://localhost/');
+    return String(parsed.hash || '').replace(/^#/, '');
+  } catch {
+    return '';
+  }
+}
+
 function LinkRenderer({ href, children, onStudyTipStudy, ...props }) {
-  if (String(href || '').startsWith('#ai-study-tip-')) {
+  const hashTarget = getHashTarget(href);
+  if (hashTarget.startsWith('ai-study-tip-')) {
     const text = getNodeText(children).trim();
     if (!onStudyTipStudy) {
       return <span className="ai-answer-study-tip ai-answer-study-tip--disabled">{children}</span>;
@@ -124,14 +137,30 @@ function LinkRenderer({ href, children, onStudyTipStudy, ...props }) {
     return <span className="ai-answer-link-disabled">{children}</span>;
   }
 
-  const isAnchor = safeHref.startsWith('#');
+  const isSamePageHash = Boolean(hashTarget) && (
+    safeHref.startsWith('#')
+    || (() => {
+      try {
+        const parsed = new URL(safeHref, typeof window !== 'undefined' ? window.location.href : 'http://localhost/');
+        return typeof window !== 'undefined'
+          && parsed.origin === window.location.origin
+          && parsed.pathname === window.location.pathname;
+      } catch {
+        return false;
+      }
+    })()
+  );
   return (
     <a
       {...props}
       href={safeHref}
       className="ai-answer-link"
-      target={isAnchor ? undefined : '_blank'}
-      rel={isAnchor ? undefined : 'noreferrer'}
+      target={isSamePageHash ? undefined : '_blank'}
+      rel={isSamePageHash ? undefined : 'noreferrer'}
+      onClick={(event) => {
+        if (isSamePageHash) event.preventDefault();
+        props.onClick?.(event);
+      }}
     >
       {children}
     </a>

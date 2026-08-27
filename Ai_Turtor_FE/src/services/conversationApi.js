@@ -8,7 +8,10 @@ export const conversationApi = {
   async getConversations(userId, courseId, options = {}) {
     const params = new URLSearchParams({ userId });
     if (courseId) params.append('courseId', courseId);
-    const loader = () => request(`${API_BASE_URL}/ai/conversations?${params}`, { signal: options.signal });
+    const loader = () => request(`${API_BASE_URL}/ai/conversations?${params}`, {
+      signal: options.signal,
+      skipUnauthorizedRedirect: options.skipUnauthorizedRedirect,
+    });
     if (options.signal) return loader();
     return getCachedResource(conversationCacheKey(userId, courseId), loader, {
       force: options.force,
@@ -35,6 +38,7 @@ export const conversationApi = {
     const params = new URLSearchParams({ userId });
     return request(`${API_BASE_URL}/ai/conversations/${encodePath(conversationId)}/messages?${params}`, {
       signal: options.signal,
+      skipUnauthorizedRedirect: options.skipUnauthorizedRedirect,
     });
   },
 
@@ -71,6 +75,8 @@ export const conversationApi = {
 
   async getPinnedMessages(conversationId, userId) {
     const params = new URLSearchParams({ userId });
-    return request(`${API_BASE_URL}/ai/conversations/${encodePath(conversationId)}/pinned-messages?${params}`);
+    return request(`${API_BASE_URL}/ai/conversations/${encodePath(conversationId)}/pinned-messages?${params}`, {
+      skipUnauthorizedRedirect: true,
+    });
   },
 };

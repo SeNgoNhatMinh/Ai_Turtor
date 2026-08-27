@@ -25,7 +25,9 @@ export const getFptTheme = (isDarkMode = false, prefersReducedMotion = false) =>
     colorBgLayout: isDarkMode ? fptColors.darkBackground : fptColors.background,
     colorBgContainer: isDarkMode ? fptColors.darkSurface : fptColors.surface,
     colorBgElevated: isDarkMode ? '#171717' : fptColors.surface,
-    colorBgSpotlight: isDarkMode ? '#1F1F1F' : fptColors.surface,
+    // Tooltip uses this as background and colorTextLightSolid (white) as text.
+    // A white spotlight in light mode made the bubble look empty.
+    colorBgSpotlight: isDarkMode ? '#1F1F1F' : '#202123',
     colorText: isDarkMode ? '#F9FAFB' : fptColors.text,
     colorTextSecondary: isDarkMode ? '#D1D5DB' : fptColors.muted,
     colorBorder: isDarkMode ? '#2A2A2A' : fptColors.border,

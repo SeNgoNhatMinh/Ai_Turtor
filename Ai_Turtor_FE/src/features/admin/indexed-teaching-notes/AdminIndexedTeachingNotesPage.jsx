@@ -56,7 +56,7 @@ export default function AdminIndexedTeachingNotesPage({ courseId, setCourseId, t
       });
       setItems(data);
     } catch (reason) {
-      setError(getUserFacingError(reason, 'Không thể tải ghi chú giảng dạy đã index.'));
+      setError(getUserFacingError(reason, 'Không thể tải index Senior đã duyệt.'));
       setItems([]);
     } finally {
       setLoading(false);
@@ -86,9 +86,8 @@ export default function AdminIndexedTeachingNotesPage({ courseId, setCourseId, t
   const openEdit = (row) => {
     setEditing(row);
     form.setFieldsValue({
-      chapter: row.chapter || '',
       question: row.question || '',
-      goldAnswer: row.goldAnswer || '',
+      goldAnswer: row.goldAnswer || row.answer || '',
     });
   };
 
@@ -97,11 +96,11 @@ export default function AdminIndexedTeachingNotesPage({ courseId, setCourseId, t
     setPendingId(editing.id);
     try {
       await indexedTeachingNotesApi.update(editing.id, { ...values, reindex: true });
-      triggerToast?.('Đã cập nhật và nạp lại chỉ mục ghi chú.');
+      triggerToast?.('Đã cập nhật và nạp lại chỉ mục knowledge.');
       setEditing(null);
       await loadNotes();
     } catch (reason) {
-      triggerToast?.(getUserFacingError(reason, 'Không thể cập nhật ghi chú.'));
+      triggerToast?.(getUserFacingError(reason, 'Không thể cập nhật index.'));
     } finally {
       setPendingId('');
     }
@@ -130,8 +129,8 @@ export default function AdminIndexedTeachingNotesPage({ courseId, setCourseId, t
     <div className="portal-section admin-route-page admin-indexed-notes-page">
       <PageHeader
         eyebrow="Giám sát AI"
-        title="Ghi chú giảng dạy đã nạp RAG"
-        description="Quản lý Gold Q&A Senior đã duyệt vào Elasticsearch: sửa nội dung lỗi thời, gỡ khỏi RAG hoặc xóa hẳn."
+        title="Index Senior đã duyệt (RAG)"
+        description="Danh sách toàn bộ knowledge V2 và Gold Q&A Senior đã nạp vào Elasticsearch. Có thể sửa, gỡ RAG hoặc xóa."
         actions={(
           <Button icon={<RefreshCw size={16} />} onClick={loadNotes} disabled={Boolean(pendingId)}>
             Làm mới
@@ -169,18 +168,18 @@ export default function AdminIndexedTeachingNotesPage({ courseId, setCourseId, t
           </div>
         </Space>
         <Paragraph type="secondary" style={{ margin: '12px 0 0' }}>
-          {stats.total} ghi chú · {stats.indexed} đang nạp · {stats.unindexed} đã gỡ
+          {stats.total} index · {stats.indexed} đang nạp · {stats.unindexed} đã gỡ
         </Paragraph>
       </Card>
 
-      <Card title="Danh sách ghi chú Gold Q&A">
+      <Card title="Knowledge Senior đã duyệt vào RAG">
         <SearchableTable
           rowKey={(row) => row.id}
           loading={loading}
           dataSource={items}
           sticky={false}
           scroll={{ x: 1100, y: 520 }}
-          searchKeys={['courseId', 'chapter', 'question', 'goldAnswer', 'authorId']}
+          searchKeys={['courseId', 'chapter', 'question', 'goldAnswer', 'answer', 'authorId', 'candidateType']}
           columns={[
             {
               title: 'Môn',
@@ -189,9 +188,9 @@ export default function AdminIndexedTeachingNotesPage({ courseId, setCourseId, t
               render: (value) => <Text strong>{value}</Text>,
             },
             {
-              title: 'Chương',
+              title: 'Loại',
               dataIndex: 'chapter',
-              width: 220,
+              width: 180,
               ellipsis: true,
             },
             {
@@ -247,11 +246,11 @@ export default function AdminIndexedTeachingNotesPage({ courseId, setCourseId, t
                     icon={<Trash2 size={14} />}
                     disabled={Boolean(pendingId)}
                     onClick={() => confirmDanger({
-                      title: 'Xóa ghi chú này?',
-                      content: 'Xóa khỏi Mongo và Elasticsearch. Không thể hoàn tác.',
+                      title: 'Xóa index này?',
+                      content: 'Chỉ xóa knowledge Senior đã duyệt (không đụng giáo trình). Không thể hoàn tác.',
                       okText: 'Xóa',
                       cancelText: 'Hủy',
-                      onOk: () => runAction(row.id, () => indexedTeachingNotesApi.remove(row.id), 'Đã xóa ghi chú.'),
+                      onOk: () => runAction(row.id, () => indexedTeachingNotesApi.remove(row.id), 'Đã xóa index.'),
                     })}
                   >
                     Xóa
@@ -264,7 +263,7 @@ export default function AdminIndexedTeachingNotesPage({ courseId, setCourseId, t
       </Card>
 
       <Modal
-        title="Sửa ghi chú giảng dạy"
+        title="Sửa knowledge Senior đã duyệt"
         open={Boolean(editing)}
         onCancel={() => setEditing(null)}
         onOk={saveEdit}
@@ -281,15 +280,12 @@ export default function AdminIndexedTeachingNotesPage({ courseId, setCourseId, t
               showIcon
               style={{ marginBottom: 12 }}
               title={`${editing.courseId} · ${editing.status === 'INDEXED' ? 'Đang trong RAG' : 'Đã gỡ RAG'}`}
-              description="Lưu sẽ cập nhật nội dung và viết lại chunk Elasticsearch (nếu đang/được nạp)."
+              description="Lưu sẽ cập nhật câu hỏi/đáp án và viết lại chunk Elasticsearch."
             />
-            <Form.Item name="chapter" label="Chương" rules={[{ required: true, whitespace: true }]}>
-              <Input maxLength={255} />
-            </Form.Item>
             <Form.Item name="question" label="Câu hỏi" rules={[{ required: true, whitespace: true }]}>
               <TextArea rows={3} maxLength={5000} showCount />
             </Form.Item>
-            <Form.Item name="goldAnswer" label="Tóm tắt ý chính" rules={[{ required: true, whitespace: true }]}>
+            <Form.Item name="goldAnswer" label="Câu trả lời đã duyệt" rules={[{ required: true, whitespace: true }]}>
               <TextArea rows={8} maxLength={5000} showCount />
             </Form.Item>
           </Form>

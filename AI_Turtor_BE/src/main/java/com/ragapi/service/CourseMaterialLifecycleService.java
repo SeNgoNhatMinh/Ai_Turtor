@@ -24,6 +24,8 @@ public class CourseMaterialLifecycleService {
     private final PdfPageRenderService pdfPageRenderService;
     private final VisualVectorService visualVectorService;
     private final CourseMaterialAccessPolicy accessPolicy;
+    private final HumanLearningService humanLearningService;
+    private final ExpertCoTrainingService expertCoTrainingService;
 
     public Map<String, Object> deleteMaterial(
             String courseId,
@@ -43,6 +45,9 @@ public class CourseMaterialLifecycleService {
     private Map<String, Object> deleteMaterial(CourseMaterial material) throws IOException {
         String courseId = material.getCourseId();
         String materialId = material.getId();
+        boolean approvedKnowledge = "KNOWLEDGE_CANDIDATE".equalsIgnoreCase(material.getSourceType());
+        boolean goldQaTeachingNote = "GOLD_QA".equalsIgnoreCase(material.getSourceType());
+        // Only delete chunks for this exact materialId — never wipe textbook materials.
         long deletedChunks = vectorService.deleteChunksByMaterialId(materialId);
         long deletedVisualPages = visualVectorService.deleteMaterial(materialId);
         if (material.getPdfFileId() != null) {
@@ -50,6 +55,11 @@ public class CourseMaterialLifecycleService {
         }
         pdfPageRenderService.evictMaterial(materialId);
         materialRepository.deleteById(materialId);
+        if (approvedKnowledge) {
+            humanLearningService.onApprovedKnowledgeMaterialDeleted(materialId);
+        } else if (goldQaTeachingNote) {
+            expertCoTrainingService.onTeachingNoteMaterialDeleted(materialId);
+        }
 
         Map<String, Object> response = new LinkedHashMap<>();
         response.put("status", "DELETED");
@@ -57,6 +67,7 @@ public class CourseMaterialLifecycleService {
         response.put("materialId", materialId);
         response.put("deletedChunks", deletedChunks);
         response.put("deletedVisualPages", deletedVisualPages);
+        response.put("approvedKnowledgeCascaded", approvedKnowledge || goldQaTeachingNote);
         return response;
     }
 

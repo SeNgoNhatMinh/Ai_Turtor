@@ -46,7 +46,7 @@ function App() {
       navigate(getHomeRouteForRole(accountRole), { replace: true });
     }
     authIdentityRef.current = identity;
-  }, [auth.currentUser, auth.currentUserId, navigate]);
+  }, [auth.currentUser?.originalRole, auth.currentUser?.role, auth.currentUserId, navigate]);
 
   const handleLoginSuccess = (user) => {
     const { accountRole } = auth.completeLogin(user);

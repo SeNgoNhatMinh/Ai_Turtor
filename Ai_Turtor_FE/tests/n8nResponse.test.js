@@ -22,7 +22,8 @@ test('normalizes wrapped RAG response and removes duplicate sources and suggesti
       message: 'A course answer',
       mode: 'RAG_TUTOR',
       confidence: '0.82',
-      sessionId: 'conversation-2',
+      sessionId: 'harness-session-2',
+      conversationId: 'conversation-2',
       studentMessageId: 'user-message-1',
       aiMessageId: 'assistant-message-1',
       sources: [
@@ -55,6 +56,29 @@ test('normalizes escalation response and keeps fallback conversation', () => {
   assert.equal(result.confidence, 0);
   assert.equal(result.questionEscalationId, 'ticket-1');
   assert.equal(result.conversationId, 'conversation-1');
+});
+
+test('does not treat harness sessionId as a chat conversation id', () => {
+  const result = normalizeHarnessChatResponse({
+    success: true,
+    mode: 'RAG_TUTOR',
+    answer: 'Kept in the current thread',
+    sessionId: 'harness-session-stable',
+  }, { conversationId: 'mongo-conversation-1' });
+
+  assert.equal(result.conversationId, 'mongo-conversation-1');
+});
+
+test('ignores n8n synthetic conversation-{timestamp} ids and keeps the current thread', () => {
+  const result = normalizeHarnessChatResponse({
+    success: true,
+    mode: 'RAG_TUTOR',
+    answer: 'Stay in the current conversation',
+    conversationId: 'conversation-1784735431773',
+    sessionId: 'session-1784735431773',
+  }, { conversationId: '392152c5-ce32-4746-86e9-7a16ea6d21cc' });
+
+  assert.equal(result.conversationId, '392152c5-ce32-4746-86e9-7a16ea6d21cc');
 });
 
 test('unwraps a JSON-stringified n8n body so the answer remains visible', () => {

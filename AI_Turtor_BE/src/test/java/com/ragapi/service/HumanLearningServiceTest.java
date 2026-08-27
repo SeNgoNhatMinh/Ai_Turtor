@@ -95,6 +95,105 @@ class HumanLearningServiceTest {
     }
 
     @Test
+    void approveCandidateSupersedesNearDuplicateIndexedQuestion() throws Exception {
+        QuestionEscalationRepository escalationRepository = mock(QuestionEscalationRepository.class);
+        KnowledgeCandidateRepository candidateRepository = mock(KnowledgeCandidateRepository.class);
+        CourseMaterialRepository materialRepository = mock(CourseMaterialRepository.class);
+        CourseMaterialChunkingService chunkingService = mock(CourseMaterialChunkingService.class);
+        ElasticVectorService vectorService = mock(ElasticVectorService.class);
+        CanonicalTutorAnswerCacheService answerCacheService = mock(CanonicalTutorAnswerCacheService.class);
+        HumanLearningService service = new HumanLearningService(
+                escalationRepository,
+                mock(MentorRepository.class),
+                mock(MentorAnswerRepository.class),
+                candidateRepository,
+                materialRepository,
+                chunkingService,
+                vectorService,
+                mock(KnowledgeImageStorageService.class),
+                answerCacheService
+        );
+        KnowledgeCandidate prior = KnowledgeCandidate.builder()
+                .id("old-candidate")
+                .courseId("PFP191")
+                .question("pytorch la gi")
+                .status("INDEXED")
+                .materialId("mat-old")
+                .reviewNote("ok")
+                .build();
+        KnowledgeCandidate candidate = KnowledgeCandidate.builder()
+                .id("candidate-2")
+                .courseId("PFP191")
+                .teacherId("teacher-1")
+                .candidateType("ACADEMIC_KNOWLEDGE")
+                .question("pytorch là gì ?")
+                .answer("PyTorch là thư viện học sâu.")
+                .status("PENDING_SENIOR_REVIEW")
+                .build();
+        when(candidateRepository.findById("candidate-2")).thenReturn(Optional.of(candidate));
+        when(candidateRepository.findByCourseIdAndStatus("PFP191", "INDEXED")).thenReturn(List.of(prior));
+        when(materialRepository.save(any(CourseMaterial.class))).thenAnswer(invocation -> {
+            CourseMaterial material = invocation.getArgument(0);
+            if (material.getId() == null) {
+                material.setId("material-2");
+            }
+            return material;
+        });
+        when(chunkingService.chunk(any())).thenReturn(List.of("approved chunk"));
+        when(candidateRepository.save(any(KnowledgeCandidate.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        KnowledgeCandidateReviewRequest request = new KnowledgeCandidateReviewRequest();
+        request.setReviewerId("senior-1");
+        request.setReviewerRole("SENIOR_MENTOR");
+        request.setReviewerName("Senior Mentor");
+
+        service.approveCandidate("candidate-2", request);
+
+        assertThat(prior.getStatus()).isEqualTo("SUPERSEDED");
+        verify(vectorService).deleteChunksByMaterialId("mat-old");
+        verify(materialRepository).deleteById("mat-old");
+    }
+
+    @Test
+    void listCandidatesAnnotatesPendingDuplicateOfIndexedQuestion() {
+        KnowledgeCandidateRepository candidateRepository = mock(KnowledgeCandidateRepository.class);
+        HumanLearningService service = new HumanLearningService(
+                mock(QuestionEscalationRepository.class),
+                mock(MentorRepository.class),
+                mock(MentorAnswerRepository.class),
+                candidateRepository,
+                mock(CourseMaterialRepository.class),
+                mock(CourseMaterialChunkingService.class),
+                mock(ElasticVectorService.class),
+                mock(KnowledgeImageStorageService.class),
+                mock(CanonicalTutorAnswerCacheService.class)
+        );
+        KnowledgeCandidate pending = KnowledgeCandidate.builder()
+                .id("pending-1")
+                .courseId("PFP191")
+                .question("pytorch là gì?")
+                .status("PENDING_SENIOR_REVIEW")
+                .build();
+        KnowledgeCandidate indexed = KnowledgeCandidate.builder()
+                .id("indexed-1")
+                .courseId("PFP191")
+                .question("pytorch la gi")
+                .answer("Đáp án cũ")
+                .status("INDEXED")
+                .indexedAt(java.time.LocalDateTime.now())
+                .build();
+        when(candidateRepository.findByStatus("PENDING_SENIOR_REVIEW")).thenReturn(List.of(pending));
+        when(candidateRepository.findByCourseIdAndStatus("PFP191", "INDEXED")).thenReturn(List.of(indexed));
+
+        List<KnowledgeCandidate> listed = service.listCandidates("PENDING_SENIOR_REVIEW", "PFP191");
+
+        assertThat(listed).hasSize(1);
+        assertThat(listed.get(0).getExistingAcademicKnowledge()).isNotNull();
+        assertThat(listed.get(0).getExistingAcademicKnowledge().getId()).isEqualTo("indexed-1");
+        assertThat(listed.get(0).getExistingAcademicKnowledge().getAnswer()).isEqualTo("Đáp án cũ");
+    }
+
+    @Test
     void answerEscalationRejectsTeacherWhoWasNotSelectedByStudent() {
         QuestionEscalationRepository escalationRepository = mock(QuestionEscalationRepository.class);
         KnowledgeImageStorageService imageStorageService = mock(KnowledgeImageStorageService.class);

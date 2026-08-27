@@ -33,6 +33,25 @@ public final class StudentFacingMessages {
                 || normalized.equals(normalize(CODE_MENTOR_BUSY));
     }
 
+    /**
+     * LLM refusals that say the textbook omitted a topic. Do not cache or reuse them
+     * after Senior-approved knowledge has been indexed for that course.
+     */
+    public static boolean isInsufficientMaterialAnswer(String value) {
+        if (value == null || value.isBlank()) {
+            return false;
+        }
+        String normalized = normalize(value);
+        boolean mentionsMaterial = normalized.contains("tai lieu")
+                || normalized.contains("course material")
+                || normalized.contains("materialid");
+        boolean saysMissing = normalized.contains("khong de cap")
+                || normalized.contains("khong nhac")
+                || normalized.contains("does not mention")
+                || normalized.contains("not mentioned");
+        return mentionsMaterial && saysMissing;
+    }
+
     private static String normalize(String value) {
         return TextSanitizer.normalizeAccentInsensitive(value).toLowerCase(Locale.ROOT);
     }

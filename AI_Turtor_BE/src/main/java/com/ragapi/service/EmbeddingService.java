@@ -9,14 +9,18 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class EmbeddingService {
 
+    private static final int MAX_QUERY_CACHE_ENTRIES = 256;
+
     private final EmbeddingModel embeddingModel;
     private final PrivacySanitizer privacySanitizer;
+    private final ConcurrentHashMap<String, Embedding> queryEmbeddingCache = new ConcurrentHashMap<>();
 
     public Embedding generateEmbedding(String text) {
         return generateQueryEmbedding(text);
@@ -56,9 +60,17 @@ public class EmbeddingService {
     }
 
     private Embedding generateEmbedding(String text, boolean query) {
-
         text = validateAndSanitize(text);
+        if (!query) {
+            return embedUncached(text, false);
+        }
+        if (queryEmbeddingCache.size() >= MAX_QUERY_CACHE_ENTRIES) {
+            queryEmbeddingCache.clear();
+        }
+        return queryEmbeddingCache.computeIfAbsent(text, key -> embedUncached(key, true));
+    }
 
+    private Embedding embedUncached(String text, boolean query) {
         try {
             log.info("Generating embedding for text length: {}", text.length());
 

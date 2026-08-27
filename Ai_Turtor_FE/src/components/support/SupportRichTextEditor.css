@@ -21,6 +21,10 @@
   background: #fafafa;
 }
 
+.support-rich-editor__tool-wrap {
+  display: inline-flex;
+}
+
 .support-rich-editor__tool {
   display: inline-flex;
   align-items: center;
@@ -163,4 +167,26 @@ body.theme-dark .support-rich-editor__surface a,
 body.theme-dark .support-rich-editor__hint,
 .app-container.dark .support-rich-editor__hint {
   color: #a1a1aa;
+}
+
+.support-rich-editor-tooltip .ant-tooltip-inner,
+.support-rich-editor-tooltip.ant-tooltip .ant-tooltip-inner {
+  min-height: 28px;
+  padding: 5px 10px;
+  background: #202123 !important;
+  color: #f9fafb !important;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+
+.support-rich-editor-tooltip .ant-tooltip-arrow::before,
+.support-rich-editor-tooltip.ant-tooltip .ant-tooltip-arrow::before {
+  background: #202123 !important;
+}
+
+.support-rich-editor-tooltip-text {
+  color: #f9fafb !important;
+  font-weight: 650;
 }

@@ -127,3 +127,27 @@ test('merges duplicate bold source sections and repeated PDF suffixes', () => {
   assert.doesNotMatch(output, /\.pdf\.pdf/i);
   assert.equal(stripSourceSection(output), 'Nội dung trả lời.');
 });
+
+test('keeps course-material answers that mention a PDF in prose', () => {
+  const input = [
+    '## Theo tài liệu môn học',
+    '',
+    'OOP (Object-Oriented Programming) là lập trình hướng đối tượng. Tài liệu PRO192.pdf nêu class, object, inheritance.',
+    '',
+    '## Lưu ý để học tốt hơn',
+    '',
+    '- Xem các chương về class, object',
+    '',
+    '## Nguồn tài liệu đã dùng',
+    '',
+    '- PRO192.pdf',
+  ].join('\n');
+
+  const output = normalizeAiMarkdown(input);
+  const visible = stripSourceSection(output);
+
+  assert.match(visible, /OOP \(Object-Oriented Programming\) là lập trình hướng đối tượng/);
+  assert.match(visible, /Theo tài liệu môn học/);
+  assert.match(visible, /Lưu ý để học tốt hơn/);
+  assert.doesNotMatch(visible, /Nguồn tài liệu đã dùng/);
+});

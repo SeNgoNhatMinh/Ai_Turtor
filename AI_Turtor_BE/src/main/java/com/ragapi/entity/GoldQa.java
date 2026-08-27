@@ -20,7 +20,10 @@ public class GoldQa {
     private String courseId;
     private String chapter;
     private String question;
+    /** Teacher-authored key points used only to guide the second AI exam. */
     private String goldAnswer;
+    /** Final second-exam AI answer selected by Senior for indexing into RAG. */
+    private String approvedAnswer;
     private String difficulty; // EASY, MEDIUM, HARD
     private String usage; // TRAINING or EVALUATION
     private Boolean holdout;

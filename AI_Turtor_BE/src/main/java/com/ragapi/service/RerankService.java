@@ -13,17 +13,25 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.text.Normalizer;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class RerankService {
+
+    private static final Set<String> FALLBACK_STOP_WORDS = Set.of(
+            "and", "are", "definition", "for", "from", "how", "the", "what",
+            "cua", "cho", "gi", "la", "nhu", "va"
+    );
 
     private final ObjectMapper objectMapper;
     private final PrivacySanitizer privacySanitizer;
@@ -57,13 +65,13 @@ public class RerankService {
             return List.of();
         }
         if (!enabled) {
-            return fallback(chunks, "rerank disabled");
+            return fallback(query, chunks, "rerank disabled");
         }
         if (apiKey == null || apiKey.isBlank() || apiKey.startsWith("missing-")) {
-            return fallback(chunks, "rerank api key is missing");
+            return fallback(query, chunks, "rerank api key is missing");
         }
         if (query == null || query.isBlank()) {
-            return fallback(chunks, "query is blank");
+            return fallback(query, chunks, "query is blank");
         }
 
         List<ElasticVectorService.SearchChunk> candidates = chunks.stream()
@@ -101,20 +109,20 @@ public class RerankService {
 
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
-                log.warn("Rerank API failed with status {}. Falling back to Elasticsearch order. Body: {}",
+                log.warn("Rerank API failed with status {}. Falling back to local lexical reranking. Body: {}",
                         response.statusCode(), truncate(response.body(), 500));
-                return fallback(chunks, "rerank api returned non-2xx");
+                return fallback(query, chunks, "rerank api returned non-2xx");
             }
 
             List<ElasticVectorService.SearchChunk> reranked = parseRerankResponse(response.body(), candidates);
             if (reranked.isEmpty()) {
-                return fallback(chunks, "rerank api returned no results");
+                return fallback(query, chunks, "rerank api returned no results");
             }
             log.info("Reranked {} candidate chunks down to {} chunks", candidates.size(), reranked.size());
             return reranked;
         } catch (Exception e) {
-            log.warn("Rerank API call failed. Falling back to Elasticsearch order: {}", e.getMessage());
-            return fallback(chunks, "rerank exception");
+            log.warn("Rerank API call failed. Falling back to local lexical reranking: {}", e.getMessage());
+            return fallback(query, chunks, "rerank exception");
         }
     }
 
@@ -171,10 +179,58 @@ public class RerankService {
         return reranked;
     }
 
-    private List<ElasticVectorService.SearchChunk> fallback(List<ElasticVectorService.SearchChunk> chunks, String reason) {
+    private List<ElasticVectorService.SearchChunk> fallback(
+            String query,
+            List<ElasticVectorService.SearchChunk> chunks,
+            String reason
+    ) {
         int limit = Math.min(Math.max(1, topKAfter), chunks.size());
-        log.debug("Rerank fallback used: {}", reason);
-        return chunks.stream().limit(limit).toList();
+        Set<String> queryTokens = meaningfulTokens(query);
+        if (queryTokens.isEmpty()) {
+            log.debug("Rerank fallback used without lexical tokens: {}", reason);
+            return chunks.stream().limit(limit).toList();
+        }
+
+        List<ElasticVectorService.SearchChunk> reranked = new ArrayList<>(chunks);
+        reranked.sort(
+                Comparator.comparingDouble(
+                                (ElasticVectorService.SearchChunk chunk) -> lexicalScore(queryTokens, chunk.content())
+                        )
+                        .reversed()
+                        .thenComparing(
+                                chunk -> chunk.score() == null ? Double.NEGATIVE_INFINITY : chunk.score(),
+                                Comparator.reverseOrder()
+                        )
+        );
+        log.info("Local lexical rerank fallback selected {} of {} chunks: {}", limit, chunks.size(), reason);
+        return reranked.stream().limit(limit).toList();
+    }
+
+    private double lexicalScore(Set<String> queryTokens, String content) {
+        Set<String> contentTokens = meaningfulTokens(content);
+        if (contentTokens.isEmpty()) {
+            return 0.0;
+        }
+        long matches = queryTokens.stream().filter(contentTokens::contains).count();
+        return (double) matches / queryTokens.size();
+    }
+
+    private Set<String> meaningfulTokens(String value) {
+        String normalized = Normalizer.normalize(value == null ? "" : value, Normalizer.Form.NFD)
+                .replaceAll("\\p{M}+", "")
+                .toLowerCase(Locale.ROOT)
+                .replaceAll("[^\\p{L}\\p{N}]+", " ")
+                .trim();
+        if (normalized.isEmpty()) {
+            return Set.of();
+        }
+        Set<String> tokens = new LinkedHashSet<>();
+        for (String token : normalized.split("\\s+")) {
+            if (token.length() >= 3 && !FALLBACK_STOP_WORDS.contains(token)) {
+                tokens.add(token);
+            }
+        }
+        return tokens;
     }
 
     private String normalizeBaseUrl(String value) {

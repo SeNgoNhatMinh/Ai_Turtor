@@ -21,6 +21,38 @@ public final class QuestionOverlapUtil {
     private QuestionOverlapUtil() {
     }
 
+    /**
+     * Canonical form for duplicate academic questions: accents stripped, punctuation
+     * removed, whitespace collapsed. "pytorch là gì ?" and "pytorch la gi" match.
+     */
+    public static String canonicalQuestionKey(String question) {
+        if (question == null || question.isBlank()) {
+            return "";
+        }
+        return TextSanitizer.normalizeAccentInsensitive(question)
+                .toLowerCase(Locale.ROOT)
+                .replaceAll("\\s+", " ")
+                .trim();
+    }
+
+    /**
+     * True when two Senior/student questions are the same academic item (exact after
+     * canonicalization, or high token overlap). Distinct topics such as
+     * "pytorch là gì" vs "pytorch được áp dụng trong python" stay separate.
+     */
+    public static boolean isSameAcademicQuestion(String left, String right) {
+        String leftKey = canonicalQuestionKey(left);
+        String rightKey = canonicalQuestionKey(right);
+        if (leftKey.isEmpty() || rightKey.isEmpty()) {
+            return false;
+        }
+        if (leftKey.equals(rightKey)) {
+            return true;
+        }
+        return areSimilarQuestions(left, right, 0.55)
+                && keywordOverlapRatio(left, right) >= 0.50;
+    }
+
     public static boolean areSimilarQuestions(String left, String right, double minOverlap) {
         Set<String> leftTokens = meaningfulTokens(left);
         Set<String> rightTokens = meaningfulTokens(right);

@@ -243,10 +243,41 @@ export function formatSourceItems(sources, sourceMap = {}) {
   return specificItems.length ? specificItems : items;
 }
 
+const SOURCE_FILE_TOKEN_RE = /(?:\*\*|__|`)?[^\s,;:*`]+(?:\.(?:pdf|docx?|pptx?|xlsx?|html?|md|txt))+\b(?:\*\*|__|`)?/gi;
+
+function sourceFileTokens(text) {
+  return [...String(text || '').matchAll(SOURCE_FILE_TOKEN_RE)].map((match) => match[0]);
+}
+
+function withoutSourceTokens(text, fileTokens = []) {
+  let remainder = String(text || '');
+  fileTokens.forEach((token) => {
+    remainder = remainder.split(token).join(' ');
+  });
+  return remainder
+    .replace(SOURCE_ID_GLOBAL_RE, ' ')
+    .replace(RAW_MONGO_ID_GLOBAL_RE, ' ')
+    .replace(/^\s*(?:[-*+]\s+|\d+[.)]\s+)/, '')
+    .replace(/(?:course materials?|source materials?|sources?|tài liệu(?: môn học)?|nguồn(?: tài liệu(?: đã dùng)?)?)/gi, ' ')
+    .replace(/[\s,;:()/\\_\-–—*`'".+=]+/g, '')
+    .trim();
+}
+
+/**
+ * True only for dedicated citation lines (filename, materialId, Mongo id).
+ * A prose paragraph that merely mentions a .pdf/.pptx/.md name must stay visible.
+ */
 export function isMaterialSourceText(value) {
   const text = cleanLabel(value);
-  if (extractSourceFileLabels(text).length > 0) return true;
-  if (SOURCE_ID_RE.test(text) || RAW_MONGO_ID_RE.test(text)) return true;
-  const ids = extractSourceIds(text);
-  return ids.length > 0 && ids.every((id) => RAW_MONGO_ID_RE.test(id));
+  if (!text) return false;
+  if (RAW_MONGO_ID_RE.test(text)) return true;
+
+  const fileTokens = sourceFileTokens(text);
+  const hasSourceId = SOURCE_ID_RE.test(text);
+  const hasMongoIdInText = RAW_MONGO_ID_GLOBAL_RE.test(text);
+  RAW_MONGO_ID_GLOBAL_RE.lastIndex = 0;
+  SOURCE_FILE_TOKEN_RE.lastIndex = 0;
+  if (!fileTokens.length && !hasSourceId && !hasMongoIdInText) return false;
+
+  return withoutSourceTokens(text, fileTokens).length === 0;
 }

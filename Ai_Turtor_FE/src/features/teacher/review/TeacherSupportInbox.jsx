@@ -93,14 +93,11 @@ export default function TeacherSupportInbox({
   deletingEscalationIds = [],
   reply,
   onReplyChange,
-  replyImages = [],
-  onReplyImagesChange,
   onSubmitAnswer,
   onAnswerIndexed,
   isSubmitting = false,
   createKnowledgeCandidate,
   onCreateKnowledgeCandidateChange,
-  candidateType,
   onCandidateTypeChange,
 }) {
   const [view, setView] = useState('active');
@@ -288,16 +285,13 @@ export default function TeacherSupportInbox({
                   <KnowledgeAnswerComposer
                     id="teacher-final-answer"
                     value={reply}
-                    images={replyImages}
                     required
                     disabled={isSubmitting}
-                    placeholder="Viết câu trả lời đầy đủ cho sinh viên. Có thể dán hoặc tải hình minh họa cho sơ đồ, mô hình..."
+                    placeholder="Viết câu trả lời đầy đủ cho sinh viên."
                     onChange={onReplyChange}
-                    onImagesChange={onReplyImagesChange}
                   />
                   <TeacherAnswerModeSelector
                     createKnowledgeCandidate={createKnowledgeCandidate}
-                    candidateType={candidateType}
                     setCreateKnowledgeCandidate={onCreateKnowledgeCandidateChange}
                     setCandidateType={onCandidateTypeChange}
                     disabled={isSubmitting}

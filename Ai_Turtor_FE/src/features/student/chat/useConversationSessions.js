@@ -67,7 +67,7 @@ export function useConversationSessions({
     }
   };
 
-  const loadChatSessions = async () => {
+  const loadChatSessions = async ({ silent = false } = {}) => {
     if (!userId || !courseId) {
       setSessions([]);
       return [];
@@ -75,11 +75,12 @@ export function useConversationSessions({
     sessionsRequestRef.current?.abort();
     const controller = new AbortController();
     sessionsRequestRef.current = controller;
-    setIsSessionsLoading(true);
+    if (!silent) setIsSessionsLoading(true);
     try {
       const data = await conversationApi.getConversations(userId, courseId, {
         signal: controller.signal,
         force: true,
+        skipUnauthorizedRedirect: silent,
       });
       if (!controller.signal.aborted) {
         const normalizedSessions = sortSessionsByActivity(

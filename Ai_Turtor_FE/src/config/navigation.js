@@ -187,8 +187,8 @@ const navigationItems = [
     workspace: 'admin',
     allowedAccountRoles: [ACCOUNT_ROLES.ADMIN],
     group: 'Giám sát AI',
-    label: 'Ghi chú RAG (Gold Q&A)',
-    description: 'Sửa, gỡ hoặc xóa ghi chú giảng dạy Senior đã nạp vào Elasticsearch.',
+    label: 'Index Senior đã duyệt (RAG)',
+    description: 'Xem/sửa/gỡ các knowledge Senior V2 đã nạp vào Elasticsearch.',
     icon: BookOpen,
   },
   {

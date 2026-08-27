@@ -52,6 +52,10 @@ public class StudentQuestionNormalizationService {
             return trimmed;
         }
 
+        if (alreadyHasVietnameseDiacritics(trimmed)) {
+            return trimmed;
+        }
+
         String cached = cache.get(trimmed);
         if (cached != null) {
             return cached;
@@ -71,6 +75,11 @@ public class StudentQuestionNormalizationService {
         }
         cache.put(trimmed, corrected);
         return corrected;
+    }
+
+    private boolean alreadyHasVietnameseDiacritics(String question) {
+        return question.codePoints().anyMatch(codePoint ->
+                Character.isLetter(codePoint) && codePoint > 127);
     }
 
     private String inferCorrectedQuestion(String question) {

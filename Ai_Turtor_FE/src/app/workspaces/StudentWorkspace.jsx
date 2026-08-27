@@ -32,7 +32,7 @@ export default function StudentWorkspace({
     currentUser?.studentCode,
     currentUser?.email,
     currentUser?._id,
-  ], [currentUser]);
+  ], [currentUser?.studentId, currentUser?.studentCode, currentUser?.email, currentUser?._id]);
   const enrollment = useStudentEnrollmentOptions({
     studentId: currentUserId,
     lookupIds: studentLookupIds,

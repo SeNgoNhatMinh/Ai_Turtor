@@ -113,8 +113,8 @@ public class CourseMaterialFallbackSearchService {
                 .toList();
 
         if (!result.isEmpty()) {
-            log.warn(
-                    "Using Mongo course material fallback search because Elasticsearch returned no usable chunks (courseId={}, classId={}, chunks={})",
+            log.debug(
+                    "Mongo lexical course material search selected chunks (courseId={}, classId={}, chunks={})",
                     courseId,
                     classId,
                     result.size()

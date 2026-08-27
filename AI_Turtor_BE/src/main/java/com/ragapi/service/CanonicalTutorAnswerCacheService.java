@@ -90,6 +90,7 @@ public class CanonicalTutorAnswerCacheService {
             entries.stream()
                     .filter(TutorAnswerCacheSeniorService::isUsableForStudents)
                     .filter(entry -> !StudentFacingMessages.isUnavailableMessage(entry.getAnswer()))
+                    .filter(entry -> !StudentFacingMessages.isInsufficientMaterialAnswer(entry.getAnswer()))
                     .filter(entry -> !TextSanitizer.isSystemFailureOrEscalationAnswer(entry.getAnswer()))
                     .filter(entry -> entry.getSourceEvidence() != null && !entry.getSourceEvidence().isEmpty())
                     .forEach(entry -> rememberExactRagAnswer(
@@ -126,7 +127,8 @@ public class CanonicalTutorAnswerCacheService {
         MemoryRagAnswer memoryEntry = exactRagMemoryCache.get(key);
         if (memoryEntry != null) {
             if (memoryEntry.expiresAt().isAfter(LocalDateTime.now())
-                    && hasSourceEvidence(memoryEntry.answer())) {
+                    && hasSourceEvidence(memoryEntry.answer())
+                    && !StudentFacingMessages.isInsufficientMaterialAnswer(memoryEntry.answer().getAnswer())) {
                 log.info("In-memory exact tutor answer cache hit for courseId={}", courseId);
                 incrementReuse(key, memoryEntry);
                 return Optional.of(withHitMetadata(
@@ -299,6 +301,7 @@ public class CanonicalTutorAnswerCacheService {
         }
         Optional<CanonicalTutorAnswer> best = loadSemanticCandidates(courseId, classId, "RAG").stream()
                 .filter(TutorAnswerCacheSeniorService::isUsableForStudents)
+                .filter(entry -> !StudentFacingMessages.isInsufficientMaterialAnswer(entry.getAnswer()))
                 .filter(entry -> isEarlyAcademicRagCacheCandidate(entry, courseId, classId, question, queryEmbedding))
                 .max(Comparator.comparingDouble(entry -> EmbeddingSimilarityUtil.cosineSimilarity(
                         queryEmbedding, entry.getQuestionEmbedding())));
@@ -509,6 +512,7 @@ public class CanonicalTutorAnswerCacheService {
                 .filter(entry -> entry.getExpiresAt() == null || entry.getExpiresAt().isAfter(LocalDateTime.now()))
                 .filter(TutorAnswerCacheSeniorService::isUsableForStudents)
                 .filter(entry -> !StudentFacingMessages.isUnavailableMessage(entry.getAnswer()))
+                .filter(entry -> !StudentFacingMessages.isInsufficientMaterialAnswer(entry.getAnswer()))
                 .filter(entry -> !TextSanitizer.isSystemFailureOrEscalationAnswer(entry.getAnswer()));
     }
 
@@ -697,6 +701,7 @@ public class CanonicalTutorAnswerCacheService {
             return false;
         }
         return !StudentFacingMessages.isUnavailableMessage(answer)
+                && !StudentFacingMessages.isInsufficientMaterialAnswer(answer)
                 && !TextSanitizer.isSystemFailureOrEscalationAnswer(answer);
     }
 

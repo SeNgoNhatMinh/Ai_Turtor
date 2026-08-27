@@ -29,8 +29,9 @@ describe('KnowledgeAnswerComposer', () => {
     expect(onChange).toHaveBeenCalledWith('A'.repeat(1200));
   });
 
-  it('exposes an image upload action for diagrams', () => {
+  it('does not offer image upload on the teacher answer form', () => {
     render(<KnowledgeAnswerComposer id="knowledge-answer" value="" onChange={vi.fn()} />);
-    expect(screen.getByRole('button', { name: 'Thêm hình minh họa' })).toBeEnabled();
+    expect(screen.queryByRole('button', { name: 'Thêm hình minh họa' })).not.toBeInTheDocument();
+    expect(screen.getByText('Tối đa 20.000 ký tự.')).toBeInTheDocument();
   });
 });

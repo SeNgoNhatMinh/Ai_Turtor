@@ -31,8 +31,8 @@ function examTone(item) {
 function examTitle(item) {
   if (item.examError) return `Lỗi đánh giá: ${item.examError}`;
   if (item.examPassed) return `Xem trước đạt ${(Number(item.examScore) * 100).toFixed(0)}% — Teacher đã thấy câu SV đủ ý; bạn chỉ duyệt nạp`;
-  if (item.examPassed === false) return `Xem trước chưa đủ (${item.examScore == null ? '—' : `${(Number(item.examScore) * 100).toFixed(0)}%`}) — nên trả Teacher đánh giá lại`;
-  return 'Chưa có bài xem trước. Teacher phải Lưu/đánh giá lại trước khi gửi duyệt nạp.';
+  if (item.examPassed === false) return `Xem trước chưa đủ (${item.examScore == null ? '—' : `${(Number(item.examScore) * 100).toFixed(0)}%`}) — nên trả Teacher Đánh giá lại`;
+  return 'Chưa có bài xem trước. Teacher phải Lưu/Đánh giá lại trước khi gửi duyệt nạp.';
 }
 
 export default function ExpertReviewDetail({
@@ -119,7 +119,7 @@ export default function ExpertReviewDetail({
       </Form>
 
       <div className="expert-training__review-actions">
-        <Text type="secondary">Senior chỉ duyệt nạp. Chất lượng câu trả lời đã được Teacher kiểm bằng đánh giá lại (xem trước).</Text>
+        <Text type="secondary">Senior chỉ duyệt nạp. Chất lượng câu trả lời đã được Teacher kiểm bằng Đánh giá lại (xem trước).</Text>
         <Space wrap>
           <ActionButton intent="danger" icon={<X size={15} />} onClick={onReject} disabled={pending}>
             Trả lại Teacher
