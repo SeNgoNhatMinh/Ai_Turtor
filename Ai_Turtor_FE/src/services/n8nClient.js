@@ -2,10 +2,17 @@ import { env } from '../config/env';
 import { getAuthToken } from '../features/auth/services/tokenStorage';
 import { createHarnessEnvelope } from '../features/ai-harness/trace';
 
-const N8N_BASE_URL = env.n8nBaseUrl;
+const RAILWAY_FRONTEND_HOST = 'ai-turtor.up.railway.app';
+const RAILWAY_N8N_BASE_URL = 'https://n8n-production-1b35.up.railway.app';
+const isRailwayProduction = typeof window !== 'undefined'
+  && window.location.hostname === RAILWAY_FRONTEND_HOST;
+
+// Vite variables are embedded at build time. Keep Railway chat on the n8n
+// production path even if a stale/missing build argument is deployed.
+const N8N_BASE_URL = isRailwayProduction ? RAILWAY_N8N_BASE_URL : env.n8nBaseUrl;
 const N8N_WEBHOOK_MODE = env.n8nWebhookMode;
-export const N8N_ENABLED = env.n8nEnabled;
-export const N8N_STRICT = env.n8nStrict;
+export const N8N_ENABLED = isRailwayProduction || env.n8nEnabled;
+export const N8N_STRICT = isRailwayProduction || env.n8nStrict;
 const N8N_TIMEOUT_MS = env.n8nTimeoutMs;
 export const N8N_CHAT_TIMEOUT_MS = env.n8nChatTimeoutMs;
 export const N8N_QUIZ_TIMEOUT_MS = env.n8nQuizTimeoutMs;
