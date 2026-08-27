@@ -32,7 +32,6 @@ const openConfirm = ({
   cancelText,
   onOk,
   danger = false,
-  anchorRect,
 }) => {
   closeActiveConfirm();
   const container = document.createElement('div');
@@ -48,7 +47,6 @@ const openConfirm = ({
       cancelText={cancelText}
       danger={danger}
       onOk={onOk}
-      anchorRect={anchorRect}
       onClose={closeActiveConfirm}
     />,
   );
@@ -63,7 +61,6 @@ export const confirmDanger = ({
   okText = 'Delete',
   cancelText = 'Cancel',
   onOk,
-  anchorRect,
 }) => openConfirm({
   title,
   content,
@@ -71,7 +68,6 @@ export const confirmDanger = ({
   cancelText,
   danger: true,
   onOk,
-  anchorRect,
 });
 
 export const confirmAction = ({
@@ -80,7 +76,6 @@ export const confirmAction = ({
   okText = 'Confirm',
   cancelText = 'Cancel',
   onOk,
-  anchorRect,
 }) => openConfirm({
   title,
   content,
@@ -88,5 +83,4 @@ export const confirmAction = ({
   cancelText,
   danger: false,
   onOk,
-  anchorRect,
 });

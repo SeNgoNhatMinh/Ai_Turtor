@@ -5,7 +5,8 @@ import {
   ThunderboltOutlined,
 } from '@ant-design/icons';
 import { useState } from 'react';
-import { Alert, Button, Card, Empty, Skeleton, Space, Tag, Tooltip, Typography, Popconfirm } from 'antd';
+import { Alert, Button, Card, Empty, Skeleton, Space, Tag, Tooltip, Typography } from 'antd';
+import { confirmDanger } from '../../../components/common/confirmDialog';
 import SuggestionDetailModal from './SuggestionDetailModal';
 import {
   canDeleteSuggestion,
@@ -153,17 +154,19 @@ function StudySuggestionsSection({
                       {isPinned ? 'Bỏ ghim' : 'Ghim'}
                     </Button>
                     {onDelete && canDeleteSuggestion(suggestion) && (
-                      <Popconfirm
-                        title="Xóa gợi ý khỏi bộ nhớ?"
-                        description="Gợi ý sẽ bị xóa khỏi bộ nhớ học tập của bạn và không xuất hiện trong danh sách ghim."
-                        onConfirm={() => onDelete?.(suggestion)}
-                        okText="Xóa"
-                        cancelText="Hủy"
+                      <Button
+                        size="small"
+                        danger
+                        onClick={() => confirmDanger({
+                          title: 'Xóa gợi ý khỏi bộ nhớ?',
+                          content: 'Gợi ý sẽ bị xóa khỏi bộ nhớ học tập của bạn và không xuất hiện trong danh sách ghim.',
+                          okText: 'Xóa',
+                          cancelText: 'Hủy',
+                          onOk: () => onDelete?.(suggestion),
+                        })}
                       >
-                        <Button size="small" danger>
-                          Xóa
-                        </Button>
-                      </Popconfirm>
+                        Xóa
+                      </Button>
                     )}
                   </Space>
                 </div>

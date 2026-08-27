@@ -12,6 +12,21 @@ import {
 } from './practiceQuizUtils';
 import { useMutationLock } from '../../../hooks/useMutationLock';
 
+const normalizeTopic = (value) => {
+  const normalized = String(value || '').trim();
+  return /^\\+$/.test(normalized) ? '' : normalized;
+};
+
+const buildQuizTopic = (suggestedTopic, customTopic) => {
+  const suggestion = normalizeTopic(suggestedTopic);
+  const custom = normalizeTopic(customTopic);
+  if (!suggestion) return custom;
+  if (!custom || custom.toLocaleLowerCase('vi-VN') === suggestion.toLocaleLowerCase('vi-VN')) {
+    return suggestion;
+  }
+  return `${suggestion}. Trọng tâm: ${custom}`;
+};
+
 export function usePracticeQuizzes({
   studentId,
   courseId,
@@ -21,7 +36,8 @@ export function usePracticeQuizzes({
   triggerToast,
   onAfterQuizSubmit,
 }) {
-  const [topic, setTopic] = useState(initialSuggestion || '');
+  const [suggestedTopic, setSuggestedTopic] = useState(() => normalizeTopic(initialSuggestion));
+  const [topic, setTopic] = useState('');
   const [questionCount, setQuestionCount] = useState(5);
   const [history, setHistory] = useState([]);
   const [assigned, setAssigned] = useState([]);
@@ -40,14 +56,20 @@ export function usePracticeQuizzes({
   useEffect(() => {
     if (!initialSuggestion) return undefined;
     const timer = window.setTimeout(() => {
-      setTopic(initialSuggestion);
+      setSuggestedTopic(normalizeTopic(initialSuggestion));
+      setTopic('');
       setActiveTab('generate');
     }, 0);
     return () => window.clearTimeout(timer);
   }, [initialSuggestion]);
 
   const suggestionOptions = useMemo(() => {
-    const unique = [...new Set(asQuizArray(suggestions).map(getSuggestionText).filter(Boolean))];
+    const unique = [...new Set(
+      asQuizArray(suggestions)
+        .map(getSuggestionText)
+        .map(normalizeTopic)
+        .filter(Boolean),
+    )];
     return unique.map((value) => ({
       value,
       label: value.length > 92 ? `${value.slice(0, 92)}...` : value,
@@ -112,7 +134,7 @@ export function usePracticeQuizzes({
   useEffect(() => () => loadRequestRef.current.controller?.abort(), []);
 
   const generateQuiz = useCallback(async (overrideTopic = '') => {
-    const selectedTopic = String(overrideTopic || topic || '').trim();
+    const selectedTopic = normalizeTopic(overrideTopic) || buildQuizTopic(suggestedTopic, topic);
     if (!hasContext) {
       setError('Hãy chọn môn học trước khi tạo quiz.');
       return;
@@ -146,7 +168,6 @@ export function usePracticeQuizzes({
             + 'Hệ thống đã loại câu không đạt yêu cầu.',
           );
         }
-        setTopic(selectedTopic);
         setActiveQuiz(quiz);
         setActiveTab('active');
         await loadQuizzes();
@@ -159,7 +180,7 @@ export function usePracticeQuizzes({
         setLoadingKey('');
       }
     });
-  }, [classId, courseId, hasContext, loadQuizzes, questionCount, runLocked, studentId, topic, triggerToast]);
+  }, [classId, courseId, hasContext, loadQuizzes, questionCount, runLocked, studentId, suggestedTopic, topic, triggerToast]);
 
   const startAssignedQuiz = useCallback(async (assignment) => {
     const assignmentId = getAssignmentId(assignment);
@@ -229,13 +250,17 @@ export function usePracticeQuizzes({
   }, []);
 
   const retryFromResult = useCallback(() => {
-    const retryTopic = lastResult?.topic || lastResult?.suggestionText || topic;
+    const retryTopic = lastResult?.topic
+      || lastResult?.suggestionText
+      || buildQuizTopic(suggestedTopic, topic);
     if (retryTopic) generateQuiz(retryTopic);
-  }, [generateQuiz, lastResult, topic]);
+  }, [generateQuiz, lastResult, suggestedTopic, topic]);
 
   return {
     topic,
     setTopic,
+    suggestedTopic,
+    setSuggestedTopic,
     questionCount,
     setQuestionCount,
     assigned: safeAssigned,

@@ -7,20 +7,33 @@ export function CollectionSearch({
   filteredCount,
   totalCount,
   placeholder = 'Tìm trong danh sách',
+  onSubmit,
 }) {
   return (
     <div className="collection-search-bar">
       <label className="collection-search-field">
-        <Search size={15} aria-hidden="true" />
+        <Search size={19} strokeWidth={2.2} aria-hidden="true" />
         <input
           type="search"
           value={query}
           onChange={(event) => onQueryChange(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') onSubmit?.(query);
+          }}
           placeholder={placeholder}
           aria-label={placeholder}
         />
       </label>
       <span>{query ? `${filteredCount}/${totalCount} kết quả` : `${totalCount} bản ghi`}</span>
+    </div>
+  );
+}
+
+export function CollectionToolbar({ children, ...searchProps }) {
+  return (
+    <div className="collection-toolbar">
+      <CollectionSearch {...searchProps} />
+      {children && <div className="collection-toolbar__actions">{children}</div>}
     </div>
   );
 }

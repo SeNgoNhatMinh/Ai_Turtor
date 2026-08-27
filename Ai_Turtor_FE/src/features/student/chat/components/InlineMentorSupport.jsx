@@ -112,9 +112,12 @@ function InlineMentorSupport({
   return (
     <div className="inline-mentor-card">
       <div className="inline-mentor-card__header">
-        <div>
+        <div className="inline-mentor-card__title">
+          <span className="inline-mentor-card__title-icon" aria-hidden="true"><LifeBuoy size={18} /></span>
+          <div>
           <strong>Giáo viên hỗ trợ câu trả lời này</strong>
           <span>Trao đổi về đúng câu hỏi này trước khi giáo viên gửi câu trả lời cuối cùng.</span>
+          </div>
         </div>
         <button type="button" className="inline-mentor-card__close" onClick={onClose} aria-label="Ẩn hỗ trợ từ giáo viên">
           <X size={16} />
@@ -139,7 +142,7 @@ function InlineMentorSupport({
       ) : (
         <>
           <div className="inline-mentor-chat__toolbar">
-            <Tag color="blue">Mentor hỗ trợ</Tag>
+            <Tag color="blue">Kênh hỗ trợ riêng</Tag>
             <ActionButton size="small" onClick={onOpenReviewTab}>Mở trang hỗ trợ</ActionButton>
           </div>
           <StudentMentorFlow

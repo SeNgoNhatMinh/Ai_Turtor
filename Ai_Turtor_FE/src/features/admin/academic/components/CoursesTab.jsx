@@ -58,7 +58,7 @@ function CoursesTab({ form, courses, onCreate, onReload, onAction }) {
                 cell: ({ row }) => (
                   <EntityActionMenu
                     items={actionItems}
-                    onAction={(key, meta) => onAction('course', row.original, key, meta)}
+                    onAction={(key) => onAction('course', row.original, key)}
                     ariaLabel="Thao tác môn học"
                   />
                 ),

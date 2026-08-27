@@ -37,7 +37,7 @@ describe('ConfirmCard', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
     expect(onOk).toHaveBeenCalledOnce();
-    expect(screen.getByRole('button', { name: 'Working...' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Đang xử lý...' })).toBeDisabled();
     resolveAction();
   });
 });

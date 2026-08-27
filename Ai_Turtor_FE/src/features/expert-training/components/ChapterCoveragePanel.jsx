@@ -108,14 +108,13 @@ export default function ChapterCoveragePanel({
     await onStartChapter?.(chapter.title);
   };
 
-  const ignoreChapter = (chapter, anchorRect) => {
+  const ignoreChapter = (chapter) => {
     if (!chapter) return;
     confirmDanger({
       title: 'Xóa mục này khỏi mục lục?',
       content: 'Mục sẽ biến khỏi danh sách huấn luyện. File PDF gốc vẫn giữ nguyên.',
       okText: 'Xóa khỏi mục lục',
       cancelText: 'Hủy',
-      anchorRect,
       onOk: async () => {
         const result = await onIgnoreChapter?.(chapter);
         if (result && (selectedChapter?.chapterKey || selectedChapter?.id)
@@ -255,7 +254,7 @@ export default function ChapterCoveragePanel({
                           aria-label={`Xóa khỏi mục lục ${chapter.title}`}
                           disabled={Boolean(pendingAction)}
                           loading={pendingAction === `ignore-chapter:${chapterKey}`}
-                          onClick={(event) => ignoreChapter(chapter, event.currentTarget.getBoundingClientRect())}
+                          onClick={() => ignoreChapter(chapter)}
                         />
                       </Tooltip>
                     )}

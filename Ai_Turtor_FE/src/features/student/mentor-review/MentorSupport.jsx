@@ -1,5 +1,8 @@
+import { useState } from 'react';
+import { Drawer } from 'antd';
 import { uiCopy } from '../../../constants/uiCopy';
 import { CheckCircle2, Clock3, MessagesSquare } from 'lucide-react';
+import useResponsiveViewport from '../../../hooks/useResponsiveViewport';
 import SupportConversationDetail from './components/SupportConversationDetail';
 import SupportTicketList from './components/SupportTicketList';
 import { isAnsweredTicket } from './mentorSupportUtils';
@@ -16,10 +19,16 @@ function MentorSupport({
   onEscalationChange,
   currentUser,
 }) {
+  const { isMobile } = useResponsiveViewport();
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
   const safeTickets = Array.isArray(escalations) ? escalations : [];
   const selectedTicket = selectedEscalation || safeTickets[0] || null;
   const answeredCount = safeTickets.filter(isAnsweredTicket).length;
   const waitingCount = Math.max(0, safeTickets.length - answeredCount);
+  const handleSelectTicket = (ticket) => {
+    onSelectEscalation(ticket);
+    if (isMobile) setIsDetailOpen(true);
+  };
 
   return (
     <div className="portal-section mentor-review-page">
@@ -54,16 +63,37 @@ function MentorSupport({
           isLoading={isEscalationsLoading}
           error={escalationsError}
           onReload={loadEscalations}
-          onSelect={onSelectEscalation}
+          onSelect={handleSelectTicket}
         />
-        <SupportConversationDetail
-          ticket={selectedTicket}
-          isLoading={isEscalationDetailLoading}
-          error={escalationDetailError}
-          currentUser={currentUser}
-          onEscalationChange={onEscalationChange}
-        />
+        {!isMobile && (
+          <SupportConversationDetail
+            ticket={selectedTicket}
+            isLoading={isEscalationDetailLoading}
+            error={escalationDetailError}
+            currentUser={currentUser}
+            onEscalationChange={onEscalationChange}
+          />
+        )}
       </div>
+      {isMobile && (
+        <Drawer
+          open={isDetailOpen}
+          onClose={() => setIsDetailOpen(false)}
+          placement="right"
+          size={420}
+          title="Chi tiết yêu cầu hỗ trợ"
+          rootClassName="mentor-review-mobile-detail-drawer"
+          styles={{ body: { padding: 0 } }}
+        >
+          <SupportConversationDetail
+            ticket={selectedTicket}
+            isLoading={isEscalationDetailLoading}
+            error={escalationDetailError}
+            currentUser={currentUser}
+            onEscalationChange={onEscalationChange}
+          />
+        </Drawer>
+      )}
     </div>
   );
 }

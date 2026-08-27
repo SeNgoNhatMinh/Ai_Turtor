@@ -47,7 +47,7 @@ function ChatSessionsPanel({
   const groupedSessions = useMemo(() => groupSessionsByTime(visibleSessions), [visibleSessions]);
   const hasMore = visibleCount < filteredSessions.length;
 
-  const handleSessionMenu = (key, session, meta) => {
+  const handleSessionMenu = (key, session) => {
     if (key === 'rename') {
       setEditingSessionId(session.id);
       setEditingSessionTitle(session.title);
@@ -59,7 +59,6 @@ function ChatSessionsPanel({
         content: 'Lịch sử của cuộc trò chuyện này sẽ bị xóa.',
         okText: 'Xóa',
         cancelText: 'Hủy',
-        anchorRect: meta?.anchorRect,
         onOk: () => onDelete(session.id),
       });
     }

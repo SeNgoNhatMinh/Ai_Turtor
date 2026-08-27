@@ -147,10 +147,10 @@ export function useTeacherResourceColumns({
               { type: 'divider' },
               { key: 'delete', label: manageable ? 'Xóa' : 'Không thể xóa tài liệu chính', icon: <Trash2 size={14} />, danger: true, disabled: !materialId || !manageable || !onDeleteMaterial || materialActionId === `delete:${materialId}` },
             ]}
-            onAction={(key, meta) => {
+            onAction={(key) => {
               if (key === 'download') onDownloadMaterial?.(materialId, material.title, material);
               if (key === 'edit') onEditMaterial?.(material);
-              if (key === 'delete') onDeleteMaterial?.(material, meta?.anchorRect);
+              if (key === 'delete') onDeleteMaterial?.(material);
             }}
           />
         );

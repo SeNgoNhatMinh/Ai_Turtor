@@ -176,7 +176,7 @@ export default function LlmProviderManagementTable({
             items={items}
             disabled={anyMutationRunning}
             ariaLabel={`Thao tác với ${provider.label}`}
-            onAction={(key, meta) => {
+            onAction={(key) => {
               if (key === 'edit') openEditor(provider);
               if (key === 'enable') onSetEnabled?.(provider.providerId, true);
               if (key === 'disable') {
@@ -185,7 +185,6 @@ export default function LlmProviderManagementTable({
                   content: 'Provider sẽ bị loại khỏi chain ngay sau khi Backend reload cấu hình.',
                   okText: 'Tắt provider',
                   cancelText: 'Hủy',
-                  anchorRect: meta?.anchorRect,
                   onOk: () => onSetEnabled?.(provider.providerId, false),
                 });
               }
@@ -195,7 +194,6 @@ export default function LlmProviderManagementTable({
                   content: 'Dữ liệu cấu hình gốc không bị xóa. Admin có thể khôi phục provider sau.',
                   okText: 'Xóa khỏi chain',
                   cancelText: 'Hủy',
-                  anchorRect: meta?.anchorRect,
                   onOk: () => onDelete?.(provider.providerId),
                 });
               }
@@ -205,7 +203,6 @@ export default function LlmProviderManagementTable({
                   content: 'Backend sẽ khôi phục provider và reload runtime chain.',
                   okText: 'Khôi phục',
                   cancelText: 'Hủy',
-                  anchorRect: meta?.anchorRect,
                   onOk: () => onRestore?.(provider.providerId),
                 });
               }
@@ -216,13 +213,12 @@ export default function LlmProviderManagementTable({
     },
   ];
 
-  const confirmReload = (event) => {
+  const confirmReload = () => {
     confirmAction({
       title: 'Reload LLM provider chain?',
       content: 'Backend sẽ nạp lại chain từ cấu hình hiện tại. Request AI mới sẽ dùng chain sau khi reload.',
       okText: 'Reload chain',
       cancelText: 'Hủy',
-      anchorRect: event.currentTarget.getBoundingClientRect(),
       onOk: onReload,
     });
   };

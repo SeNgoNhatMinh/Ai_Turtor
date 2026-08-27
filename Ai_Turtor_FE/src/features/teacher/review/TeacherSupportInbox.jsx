@@ -30,13 +30,11 @@ const isHistoryItem = (item) => {
 const SupportTicketButton = memo(function SupportTicketButton({ item, selected, onSelect, onDelete, deleting }) {
   const requestDelete = (event) => {
     event.stopPropagation();
-    const anchorRect = event.currentTarget.getBoundingClientRect();
     confirmDanger({
       title: 'Xoá ticket khỏi hộp thư?',
       content: 'Ticket chỉ bị ẩn khỏi hộp thư của bạn. Sinh viên vẫn giữ và xem được toàn bộ lịch sử hỗ trợ.',
       okText: 'Xoá khỏi hộp thư',
       cancelText: 'Huỷ',
-      anchorRect,
       onOk: () => onDelete?.(item.id),
     });
   };

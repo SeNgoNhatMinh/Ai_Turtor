@@ -1,5 +1,6 @@
 import ChatSessionsPanel from './components/ChatSessionsPanel';
 import ChatWorkspace from './components/ChatWorkspace';
+import useResponsiveViewport from '../../../hooks/useResponsiveViewport';
 
 function StudentChatView({
   isHistoryDrawerOpen,
@@ -55,14 +56,9 @@ function StudentChatView({
   onOpenMentorReview,
   onMentorRequestCreated,
 }) {
+  const { isMobile } = useResponsiveViewport();
   const closeHistoryOnMobile = () => {
-    if (
-      typeof window !== 'undefined'
-      && typeof window.matchMedia === 'function'
-      && window.matchMedia('(max-width: 760px)').matches
-    ) {
-      setIsHistoryDrawerOpen(false);
-    }
+    if (isMobile) setIsHistoryDrawerOpen(false);
   };
 
   return (

@@ -179,7 +179,7 @@ export default function SeniorTaskManagement({
     }
   };
 
-  const deleteTask = (task, anchorRect) => {
+  const deleteTask = (task) => {
     confirmDanger({
       title: 'Xóa task này?',
       content: task.contributionId
@@ -187,7 +187,6 @@ export default function SeniorTaskManagement({
         : 'Task sẽ bị xóa khỏi hàng việc của Teacher. Thao tác này không thể hoàn tác.',
       okText: 'Xóa task',
       cancelText: 'Hủy',
-      anchorRect,
       onOk: async () => {
         if (task.contributionId) return;
         try {
@@ -256,10 +255,10 @@ export default function SeniorTaskManagement({
             { key: 'edit', label: 'Chỉnh sửa', icon: <Pencil size={15} /> },
             { key: 'delete', label: 'Xóa task', icon: <Trash2 size={15} />, danger: true, disabled: Boolean(task.contributionId) },
           ]}
-          onAction={(action, context) => {
+          onAction={(action) => {
             if (action === 'view') openDetail(task);
             if (action === 'edit') openEdit(task);
-            if (action === 'delete') deleteTask(task, context.anchorRect);
+            if (action === 'delete') deleteTask(task);
           }}
         />
       ),

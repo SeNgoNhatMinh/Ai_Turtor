@@ -63,8 +63,15 @@ export default function AdminIndexedTeachingNotesPage({ courseId, setCourseId, t
     }
   }, [courseId, statusFilter]);
 
-  useEffect(() => { loadCourses(); }, [loadCourses]);
-  useEffect(() => { loadNotes(); }, [loadNotes]);
+  useEffect(() => {
+    const frameId = window.requestAnimationFrame(() => { void loadCourses(); });
+    return () => window.cancelAnimationFrame(frameId);
+  }, [loadCourses]);
+
+  useEffect(() => {
+    const frameId = window.requestAnimationFrame(() => { void loadNotes(); });
+    return () => window.cancelAnimationFrame(frameId);
+  }, [loadNotes]);
 
   const courseOptions = useMemo(
     () => [

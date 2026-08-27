@@ -69,7 +69,7 @@ export default function SeniorReviewQueue({
     if (selectedEntry && value !== 'ALL' && selectedEntry.kind !== value) onSelectReview(null);
   };
 
-  const submitReview = (decision, anchorRect) => {
+  const submitReview = (decision) => {
     if (!selectedEntry || pendingAction) return;
     const values = form.getFieldsValue();
     const note = String(values.reviewNote || '').trim();
@@ -86,7 +86,6 @@ export default function SeniorReviewQueue({
       if (result) onSelectReview(null);
     };
     const common = {
-      anchorRect,
       onOk: execute,
       cancelText: 'Hủy',
     };
@@ -198,8 +197,8 @@ export default function SeniorReviewQueue({
       entry={selectedEntry}
       form={form}
       pendingAction={pendingAction}
-      onApprove={(event) => submitReview('approve', event.currentTarget.getBoundingClientRect())}
-      onReject={(event) => submitReview('reject', event.currentTarget.getBoundingClientRect())}
+      onApprove={() => submitReview('approve')}
+      onReject={() => submitReview('reject')}
     />
   ) : (
     <div className="expert-training__review-empty">

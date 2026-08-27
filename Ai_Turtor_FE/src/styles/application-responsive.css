@@ -129,7 +129,159 @@
 
 }
 
-@media (max-width: 760px) {
+/* Stable desktop sidebar rail. The toggle stays on the same edge and every
+   inner surface clips independently, so collapsing never spills text over the
+   page while the main content recalculates its width. */
+@media (min-width: 768px) and (hover: hover) {
+    .main-layout {
+        position: relative;
+        overflow: hidden;
+    }
+
+    .main-sidebar {
+        position: relative;
+        z-index: 6;
+        flex: 0 0 var(--sidebar-width);
+        width: var(--sidebar-width);
+        min-width: var(--sidebar-width);
+        max-width: var(--sidebar-width);
+        padding: 18px 14px;
+        overflow: visible;
+        contain: layout;
+        transition:
+            flex-basis 180ms ease,
+            width 180ms ease,
+            min-width 180ms ease,
+            max-width 180ms ease,
+            padding 180ms ease;
+    }
+
+    .main-sidebar--collapsed {
+        flex-basis: 84px;
+        width: 84px;
+        min-width: 84px;
+        max-width: 84px;
+        padding-inline: 12px;
+    }
+
+    .sidebar-topbar {
+        position: absolute;
+        top: 14px;
+        right: 14px;
+        z-index: 8;
+        width: 40px;
+        min-height: 40px;
+        margin: 0;
+    }
+
+    .main-sidebar--expanded .sidebar-topbar {
+        justify-content: center;
+    }
+
+    .main-sidebar--collapsed .sidebar-topbar {
+        right: 50%;
+        justify-content: center;
+        transform: translateX(50%);
+    }
+
+    .sidebar-collapse-control {
+        display: inline-grid;
+        place-items: center;
+        width: 40px;
+        min-width: 40px;
+        height: 40px;
+        padding: 0;
+        border: 1px solid #d9e2ec;
+        border-radius: 50%;
+        background: #ffffff !important;
+        color: #0b3b82 !important;
+        box-shadow: 0 7px 18px rgba(0, 27, 61, 0.18);
+        cursor: pointer;
+        appearance: none;
+        -webkit-appearance: none;
+    }
+
+    .sidebar-collapse-control svg {
+        display: block;
+        width: 20px;
+        height: 20px;
+        max-width: none;
+        color: currentColor;
+        stroke: currentColor;
+    }
+
+    .sidebar-collapse-control:hover,
+    .sidebar-collapse-control:focus-visible {
+        border-color: #ff8a00;
+        background: #ffffff !important;
+        color: #d85f16 !important;
+        outline: none;
+    }
+
+    .sidebar-collapse-control:focus-visible {
+        box-shadow: 0 0 0 3px rgba(255, 138, 0, 0.22), 0 7px 18px rgba(0, 27, 61, 0.18);
+    }
+
+    .app-container.dark .sidebar-collapse-control {
+        border-color: #454545;
+        background: #242424 !important;
+        color: #f3f4f6 !important;
+        box-shadow: 0 7px 18px rgba(0, 0, 0, 0.36);
+    }
+
+    .app-container.dark .sidebar-collapse-control:hover,
+    .app-container.dark .sidebar-collapse-control:focus-visible {
+        border-color: #ff9c55;
+        background: #303030 !important;
+        color: #ffb077 !important;
+    }
+
+    .sidebar-menu-wrap {
+        width: 100%;
+        min-width: 0;
+        margin-top: 42px;
+        overflow-x: hidden;
+        overscroll-behavior: contain;
+    }
+
+    .main-sidebar--collapsed .sidebar-menu-wrap,
+    .main-sidebar--collapsed .ant-menu-inline-collapsed {
+        width: 100%;
+    }
+
+    .main-sidebar--collapsed .ant-menu-light .ant-menu-item {
+        display: grid;
+        place-items: center;
+        width: 48px;
+        min-width: 48px;
+        height: 48px;
+        margin: 5px auto;
+        padding-inline: 0 !important;
+        border-radius: 13px;
+    }
+
+    .main-sidebar--collapsed .ant-menu-item .ant-menu-item-icon {
+        margin: 0;
+        font-size: 20px;
+        line-height: 1;
+    }
+
+    .main-sidebar--collapsed .ant-menu-title-content,
+    .main-sidebar--collapsed .sidebar-learning-card {
+        display: none !important;
+    }
+
+    .main-sidebar--collapsed .ant-menu-item-selected {
+        box-shadow: 0 7px 18px rgba(0, 0, 0, 0.16) !important;
+    }
+
+    .content-wrapper {
+        flex: 1 1 0;
+        min-width: 0;
+    }
+}
+
+@media (max-width: 767px), (hover: none) and (pointer: coarse) {
     html,
     body,
     #root {
@@ -319,5 +471,217 @@
         margin-left: auto;
     }
 
+}
+
+/* Canonical mobile web shell. Keep this block last so older feature-specific
+   breakpoints cannot reintroduce document scrolling or the horizontal sidebar. */
+@media (max-width: 767px), (hover: none) and (pointer: coarse) {
+    html,
+    body,
+    #root {
+        width: 100%;
+        height: var(--app-viewport-height, 100dvh);
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    .app-container {
+        width: 100%;
+        height: var(--app-viewport-height, 100dvh);
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    .main-layout {
+        display: flex;
+        flex-direction: row;
+        height: calc(var(--app-viewport-height, 100dvh) - var(--mobile-header-height, 58px));
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    .main-sidebar {
+        display: none;
+    }
+
+    .content-wrapper {
+        flex: 1 1 auto;
+        width: 100%;
+        height: 100%;
+        min-width: 0;
+        min-height: 0;
+        overflow-x: hidden;
+        overflow-y: auto;
+        overscroll-behavior-y: contain;
+        scrollbar-gutter: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .app-container--focused-chat .content-wrapper,
+    .app-container--focused-chat .portal-section,
+    .app-container--focused-chat .student-chat-section--minimal,
+    .app-container--focused-chat .student-chat-layout--chatgpt,
+    .app-container--focused-chat .student-chat-main-pane,
+    .app-container--focused-chat .chat-workspace-dark {
+        height: 100%;
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    .student-chat-section--minimal,
+    .student-chat-layout--chatgpt {
+        min-height: 0;
+    }
+
+    .student-chat-layout--chatgpt {
+        height: 100%;
+        border-radius: 0;
+    }
+
+    .student-chat-history-pane {
+        height: var(--app-viewport-height, 100dvh);
+        max-height: var(--app-viewport-height, 100dvh);
+        padding-top: env(safe-area-inset-top);
+        padding-bottom: env(safe-area-inset-bottom);
+    }
+
+    .student-chat-layout--chatgpt .chat-sessions-card.ant-card {
+        height: 100%;
+        min-height: 0;
+        max-height: 100%;
+    }
+
+    .portal-view,
+    .portal-section,
+    .teacher-feature-page,
+    .admin-route-page,
+    .ant-card,
+    .ant-card-body,
+    .ant-tabs,
+    .ant-tabs-content-holder,
+    .ant-tabs-content,
+    .ant-tabs-tabpane,
+    .ant-form,
+    .ant-row,
+    .ant-col {
+        min-width: 0;
+        max-width: 100%;
+    }
+
+    .page-header,
+    .workspace-toolbar,
+    .collection-toolbar,
+    .collection-search-bar,
+    .ant-card-head-wrapper {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .page-header__actions,
+    .page-header__actions > *,
+    .workspace-toolbar > *,
+    .collection-toolbar__actions,
+    .collection-search-field {
+        width: 100%;
+        max-width: 100%;
+    }
+
+    .collection-toolbar__actions {
+        display: grid;
+        grid-template-columns: 1fr;
+    }
+
+    .collection-toolbar__actions .ant-btn,
+    .page-header__actions .ant-btn {
+        min-height: 44px;
+    }
+
+    .ant-table-wrapper {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: auto;
+        overscroll-behavior-x: contain;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .ant-table-wrapper .ant-table {
+        min-width: max-content;
+    }
+
+    .ant-pagination {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    .ant-modal-root .ant-modal-wrap {
+        padding: max(12px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
+    }
+
+    .ant-modal {
+        top: 0;
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0;
+        padding-bottom: 0;
+    }
+
+    .ant-modal-content {
+        max-height: calc(var(--app-viewport-height, 100dvh) - max(24px, env(safe-area-inset-top) + env(safe-area-inset-bottom)));
+        overflow: hidden;
+        border-radius: 16px;
+    }
+
+    .ant-modal-body {
+        max-height: calc(var(--app-viewport-height, 100dvh) - 180px);
+        overflow-y: auto;
+        overscroll-behavior: contain;
+    }
+
+    .ant-modal-footer {
+        position: sticky;
+        bottom: 0;
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 8px;
+        background: inherit;
+    }
+
+    .ant-modal-footer .ant-btn {
+        width: 100%;
+        min-height: 44px;
+        margin-inline-start: 0 !important;
+    }
+
+    :where(.ant-btn, button, [role="button"]):not(.ant-switch) {
+        min-height: 44px;
+    }
+
+    :where(p, li, td, th, a, code, pre, .ant-typography) {
+        overflow-wrap: anywhere;
+    }
+
+    pre,
+    .markdown-table-wrapper,
+    .chat-gpt-ai-content .table-wrapper {
+        max-width: 100%;
+        overflow-x: auto;
+        overscroll-behavior-x: contain;
+    }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+    .content-wrapper {
+        padding: 16px;
+    }
+
+    .page-header,
+    .workspace-toolbar {
+        gap: 16px;
+    }
+
+    .grid-3-cols,
+    .grid-4-cols {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
 }
 

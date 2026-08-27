@@ -6,6 +6,7 @@ import { supportChatApi } from '../../../services/supportChatApi';
 import { getUserFacingError } from '../../../services/apiClient';
 import { classIdMatches } from '../../../utils/academicIds';
 import { LIMITS, validateChatInput } from '../../../utils/validators';
+import { isMobileViewport } from '../../../hooks/useResponsiveViewport';
 
 export function useStudentChatTabController({
   courseId,
@@ -34,11 +35,7 @@ export function useStudentChatTabController({
   const [editingSessionId, setEditingSessionId] = useState(null);
   const [editingSessionTitle, setEditingSessionTitle] = useState('');
   const [isAiLoading, setIsAiLoading] = useState(false);
-  const [isHistoryDrawerOpen, setIsHistoryDrawerOpen] = useState(() => (
-    typeof window !== 'undefined'
-    && typeof window.matchMedia === 'function'
-    && window.matchMedia('(min-width: 761px)').matches
-  ));
+  const [isHistoryDrawerOpen, setIsHistoryDrawerOpen] = useState(() => !isMobileViewport());
   const messagesEndRef = useRef(null);
   const previousMessageCountRef = useRef(0);
   const previousSessionIdRef = useRef('');

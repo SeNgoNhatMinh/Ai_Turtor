@@ -35,7 +35,7 @@ const hasSessionChanged = (before, after) => (
   || getSessionQuestionCount(before) !== getSessionQuestionCount(after)
 );
 
-export function isSyntheticConversationId(value) {
+function isSyntheticConversationId(value) {
   return /^(conversation|session|trace)-\d{10,}$/i.test(String(value || '').trim());
 }
 

@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 export function useToastMessage(durationMs = 3500) {
   const [toastMessage, setToastMessage] = useState(null);
@@ -22,6 +22,10 @@ export function useToastMessage(durationMs = 3500) {
       timeoutRef.current = null;
     }, durationMs);
   }, [durationMs]);
+
+  useEffect(() => () => {
+    if (timeoutRef.current) window.clearTimeout(timeoutRef.current);
+  }, []);
 
   return {
     toastMessage,

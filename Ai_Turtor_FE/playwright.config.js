@@ -14,7 +14,17 @@ export default defineConfig({
   },
   projects: [
     { name: 'desktop-chrome', use: { ...devices['Desktop Chrome'], channel: 'chrome' } },
+    {
+      name: 'android-small-360',
+      use: {
+        ...devices['Pixel 5'],
+        viewport: { width: 360, height: 800 },
+        channel: 'chrome',
+      },
+    },
     { name: 'mobile-chrome', use: { ...devices['Pixel 7'], channel: 'chrome' } },
+    { name: 'mobile-safari', use: { ...devices['iPhone 13'] } },
+    { name: 'tablet', use: { ...devices['iPad Mini'] } },
   ],
   webServer: {
     command: 'npm run dev -- --host 127.0.0.1',

@@ -63,6 +63,7 @@ export default function TeacherExpertContributionPage({
       >
         {selectedTask && (
           <ContributionWorkspace
+            key={selectedTask.id}
             selectedTask={selectedTask}
             userId={controller.userId}
             pendingAction={controller.pendingAction}

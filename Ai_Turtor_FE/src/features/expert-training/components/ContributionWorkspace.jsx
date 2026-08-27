@@ -193,15 +193,18 @@ export default function ContributionWorkspace({
 }) {
   const [goldForm] = Form.useForm();
   const hydrateKeyRef = useRef('');
-  const [composerOpen, setComposerOpen] = useState(false);
-  const [editingId, setEditingId] = useState(null);
-  const [expandedId, setExpandedId] = useState(null);
 
   const items = useMemo(() => {
     if (Array.isArray(contributions) && contributions.length) return contributions;
     if (contribution) return [contribution];
     return [];
   }, [contribution, contributions]);
+
+  // The parent keys this workspace by task id, so task-local UI state resets
+  // through React remounting instead of a cascade of setState calls in an effect.
+  const [composerOpen, setComposerOpen] = useState(() => Boolean(selectedTask?.id && !items.length));
+  const [editingId, setEditingId] = useState(null);
+  const [expandedId, setExpandedId] = useState(null);
 
   const draftIds = useMemo(
     () => items.filter((item) => item.status === 'DRAFT').map((item) => item.id).filter(Boolean),
@@ -210,19 +213,6 @@ export default function ContributionWorkspace({
   const baselineCount = items.filter((item) => item.status === 'BASELINE_EXAMINED').length;
   const examinedCount = items.filter((item) => item.status === 'EXAMINED').length;
   const editingItem = editingId ? items.find((item) => item.id === editingId) : null;
-
-  useEffect(() => {
-    if (!selectedTask?.id) {
-      setComposerOpen(false);
-      setEditingId(null);
-      setExpandedId(null);
-      return;
-    }
-    if (!items.length) {
-      setComposerOpen(true);
-      setEditingId(null);
-    }
-  }, [items.length, selectedTask?.id]);
 
   useEffect(() => {
     if (!composerOpen || !selectedTask?.id) return;

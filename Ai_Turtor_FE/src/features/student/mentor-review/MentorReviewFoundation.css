@@ -241,6 +241,7 @@
 
 .mentor-ticket-item {
   display: block;
+  flex: 0 0 auto;
   width: 100%;
   padding: 12px;
   border: 1px solid #e7edf4;
@@ -250,6 +251,140 @@
   text-align: left;
   cursor: pointer;
   transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+@media (max-width: 767px), (hover: none) and (pointer: coarse) {
+  .mentor-review-page {
+    gap: 12px;
+  }
+
+  .mentor-review-page-header {
+    gap: 14px;
+    padding: 14px;
+  }
+
+  .mentor-review-page-header__identity {
+    align-items: flex-start;
+  }
+
+  .mentor-review-page-header__identity > div {
+    width: 100%;
+  }
+
+  .mentor-review-page-header__eyebrow,
+  .mentor-review-page-header p {
+    display: none;
+  }
+
+  .mentor-review-page-header h1 {
+    font-size: 1.18rem;
+  }
+
+  .mentor-review-page-header__stats {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .mentor-review-page-header__stats > div {
+    justify-content: center;
+    min-width: 0;
+    padding-inline: 7px;
+    white-space: normal;
+  }
+
+  .mentor-review-layout {
+    display: block;
+  }
+
+  .mentor-review-list-card {
+    position: static;
+    width: 100%;
+    max-height: none;
+  }
+
+  .mentor-review-list-card .ant-card-head {
+    min-height: 54px;
+    padding-inline: 14px;
+  }
+
+  .mentor-review-list-card .ant-card-head-wrapper {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .mentor-review-list-card .ant-card-head-title,
+  .mentor-review-list-card .ant-card-extra {
+    min-width: 0;
+    padding-block: 10px;
+  }
+
+  .mentor-review-list-card .ant-card-extra .ant-btn {
+    width: auto;
+    min-height: 40px;
+  }
+
+  .mentor-ticket-toolbar {
+    padding: 10px;
+  }
+
+  .mentor-ticket-list {
+    max-height: min(52dvh, 520px);
+    min-height: 280px;
+    padding: 9px;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .mentor-ticket-item {
+    min-height: 112px;
+    padding: 11px;
+  }
+
+  .mentor-ticket-meta {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .mentor-ticket-footer > .ant-tag {
+    max-width: calc(100% - 92px);
+  }
+
+  .mentor-review-mobile-detail-drawer .ant-drawer-content-wrapper {
+    width: 100% !important;
+    max-width: 100%;
+  }
+
+  .mentor-review-mobile-detail-drawer .ant-drawer-header {
+    padding-top: max(14px, env(safe-area-inset-top));
+  }
+
+  .mentor-review-mobile-detail-drawer .ant-drawer-body {
+    padding-bottom: env(safe-area-inset-bottom) !important;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .mentor-review-mobile-detail-drawer .mentor-review-detail-card {
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .mentor-review-detail__header {
+    flex-direction: column;
+    padding: 15px;
+    border-radius: 0;
+  }
+
+  .mentor-review-content {
+    padding: 12px;
+  }
 }
 
 .mentor-ticket-item:hover {

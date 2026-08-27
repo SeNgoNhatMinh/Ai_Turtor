@@ -1,6 +1,7 @@
-import { lazy, Suspense, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import {
   LogOut,
+  Menu,
   Moon,
   Sun,
 } from 'lucide-react';
@@ -10,10 +11,33 @@ import FptBrand from './common/FptBrand';
 
 const ProfileModal = lazy(() => import('./common/ProfileModal'));
 
-function Header({ activeRole, isDarkMode, setIsDarkMode, currentUser, onLogout, onProfileUpdated }) {
+function Header({
+  activeRole,
+  activePageLabel,
+  isMobile = false,
+  onOpenNavigation,
+  onNavigateHome,
+  isDarkMode,
+  setIsDarkMode,
+  currentUser,
+  onLogout,
+  onProfileUpdated,
+  profileOpenSignal = 0,
+}) {
   const accountRole = normalizeAccountRole(currentUser?.role || activeRole);
   const roleLabel = getAccountRoleLabel(accountRole);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+
+  // The mobile navigation drawer can request the same profile modal without
+  // introducing a second profile implementation.
+  const lastProfileOpenSignal = useRef(profileOpenSignal);
+
+  useEffect(() => {
+    if (profileOpenSignal !== lastProfileOpenSignal.current) {
+      lastProfileOpenSignal.current = profileOpenSignal;
+      setIsProfileModalOpen(true);
+    }
+  }, [profileOpenSignal]);
 
   const getProfileName = () => {
     if (currentUser?.fullName) return `${roleLabel}: ${currentUser.fullName}`;
@@ -27,9 +51,27 @@ function Header({ activeRole, isDarkMode, setIsDarkMode, currentUser, onLogout, 
 
   return (
     <header className="top-nav">
-      <div className="logo-area">
-        <FptBrand />
-      </div>
+      {isMobile && (
+        <button
+          type="button"
+          className="mobile-navigation-trigger"
+          onClick={onOpenNavigation}
+          aria-label="Mở menu điều hướng"
+          aria-haspopup="dialog"
+        >
+          <Menu size={22} aria-hidden="true" />
+        </button>
+      )}
+      <button
+        type="button"
+        className="logo-area"
+        onClick={onNavigateHome}
+        aria-label="Về trang đầu của thanh điều hướng"
+        title="Về trang đầu"
+      >
+        <FptBrand compact={isMobile} />
+        {isMobile && <strong className="mobile-page-title">{activePageLabel}</strong>}
+      </button>
       
       <div className="role-switcher-container" aria-label="Không gian làm việc hiện tại">
         <span className="role-label">Không gian: {roleLabel}</span>
@@ -54,7 +96,7 @@ function Header({ activeRole, isDarkMode, setIsDarkMode, currentUser, onLogout, 
           <span id="current-user-name">{getProfileName()}</span>
           <div className="avatar-circle">{getAvatarText()}</div>
         </button>
-        {currentUser && (
+        {currentUser && !isMobile && (
           <button type="button" className="header-logout-button" onClick={onLogout}>
             <LogOut size={16} /> Đăng xuất
           </button>

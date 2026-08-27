@@ -140,14 +140,13 @@ export function useAcademicEntityController({
     }
   };
 
-  const completeCourse = (record, anchorRect) => {
+  const completeCourse = (record) => {
     const courseId = getCourseCode(record);
     if (!courseId) return triggerToast('Môn học thiếu mã định danh. Hãy tải lại và thử lại.');
     confirmAction({
       title: 'Đánh dấu môn học đã hoàn tất?',
       content: 'Các lớp và ghi danh thuộc môn học cũng sẽ được đánh dấu hoàn tất để phục vụ điều phối và báo cáo.',
       okText: 'Đánh dấu hoàn tất',
-      anchorRect,
       onOk: async () => {
         try {
           await adminAcademicApi.completeCourse(courseId);
@@ -161,7 +160,7 @@ export function useAcademicEntityController({
     });
   };
 
-  const completeClass = (record, anchorRect) => {
+  const completeClass = (record) => {
     const courseId = record?.courseId || selectedCourseId;
     const classId = getClassCode(record);
     if (!courseId || !classId) return triggerToast('Lớp học phần thiếu mã môn hoặc mã lớp. Hãy tải lại và thử lại.');
@@ -169,7 +168,6 @@ export function useAcademicEntityController({
       title: 'Đánh dấu lớp đã hoàn tất?',
       content: 'Lớp học phần và các ghi danh liên quan sẽ được đánh dấu hoàn tất.',
       okText: 'Đánh dấu hoàn tất',
-      anchorRect,
       onOk: async () => {
         try {
           await adminAcademicApi.completeClassSection(courseId, classId);
@@ -182,15 +180,15 @@ export function useAcademicEntityController({
     });
   };
 
-  const handleAcademicAction = (type, record, key, meta) => {
+  const handleAcademicAction = (type, record, key) => {
     if (key === 'view' || key === 'edit') return openEntityModal(type, key, record);
-    if (type === 'course' && key === 'complete') return completeCourse(record, meta?.anchorRect);
-    if (type === 'class' && key === 'complete') return completeClass(record, meta?.anchorRect);
-    if (type === 'semester' && key === 'delete') return deleteHandlers.semester(record, meta?.anchorRect);
-    if (type === 'course' && key === 'delete') return deleteHandlers.course(record, meta?.anchorRect);
-    if (type === 'class' && key === 'delete') return deleteHandlers.classSection(record, meta?.anchorRect);
+    if (type === 'course' && key === 'complete') return completeCourse(record);
+    if (type === 'class' && key === 'complete') return completeClass(record);
+    if (type === 'semester' && key === 'delete') return deleteHandlers.semester(record);
+    if (type === 'course' && key === 'delete') return deleteHandlers.course(record);
+    if (type === 'class' && key === 'delete') return deleteHandlers.classSection(record);
     if (type === 'enrollment' && (key === 'delete' || key === 'remove')) {
-      return deleteHandlers.enrollment(record, meta?.anchorRect);
+      return deleteHandlers.enrollment(record);
     }
     return undefined;
   };

@@ -20,7 +20,7 @@ describe('confirm dialog click safety', () => {
     expect(document.querySelector('.app-confirm-host')).not.toBeInTheDocument();
   });
 
-  it('lets clicks pass around an anchored confirmation card', async () => {
+  it('uses one stable modal layout even when a caller passes an old anchor', async () => {
     confirmDanger({
       title: 'Delete class?',
       content: 'Confirm this action.',
@@ -40,10 +40,7 @@ describe('confirm dialog click safety', () => {
     });
 
     const overlay = document.querySelector('.app-confirm-overlay');
-    const card = document.querySelector('.app-confirm-card');
-
-    expect(overlay).toHaveClass('app-confirm-overlay--anchored');
-    expect(getComputedStyle(overlay).pointerEvents).toBe('none');
-    expect(getComputedStyle(card).pointerEvents).toBe('auto');
+    expect(overlay).not.toHaveClass('app-confirm-overlay--anchored');
+    expect(document.body).toHaveStyle({ overflow: 'hidden' });
   });
 });

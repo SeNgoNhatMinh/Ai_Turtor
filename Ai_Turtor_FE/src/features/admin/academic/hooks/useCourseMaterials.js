@@ -180,7 +180,7 @@ export function useCourseMaterials({ triggerToast, currentUser, formMaterial }) 
     }
   };
 
-  const handleDeleteMaterial = async (materialId, anchorRect) => {
+  const handleDeleteMaterial = async (materialId) => {
     if (!materialId) {
       triggerToast('Học liệu thiếu mã định danh. Hãy làm mới danh sách và thử lại.');
       return;
@@ -189,7 +189,6 @@ export function useCourseMaterials({ triggerToast, currentUser, formMaterial }) 
       title: 'Xóa học liệu môn học?',
       content: 'Học liệu dùng chung sẽ bị xóa khỏi kho tri thức AI của môn học.',
       okText: 'Xóa',
-      anchorRect,
       onOk: async () => {
         try {
           await materialsApi.deleteMaterial(materialCourseId, materialId);

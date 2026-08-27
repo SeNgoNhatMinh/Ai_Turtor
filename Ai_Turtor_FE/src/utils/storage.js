@@ -1,6 +1,6 @@
 export const APP_SESSION_USER_KEY = 'ai-tutor:current-user';
 export const APP_UI_STATE_KEY = 'ai-tutor:ui-state';
-export const APP_LAST_PATH_KEY = 'ai-tutor:last-path';
+const APP_LAST_PATH_KEY = 'ai-tutor:last-path';
 
 export const readJsonStorage = (key, fallback = null) => {
   try {

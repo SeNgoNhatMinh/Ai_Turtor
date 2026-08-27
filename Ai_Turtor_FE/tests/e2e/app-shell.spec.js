@@ -303,8 +303,18 @@ test('student materials remains readable in dark mode', async ({ page }) => {
 
 test('main student workspace does not overflow the viewport', async ({ page }) => {
   await signIn(page);
-  await expect(page.locator('.main-sidebar')).not.toHaveClass(/main-sidebar--collapsed/);
-  await expect(page.getByText('Trò chuyện AI Tutor', { exact: true })).toBeVisible();
+  if (page.viewportSize().width <= 767) {
+    await expect(page.locator('.main-sidebar')).toHaveCount(0);
+    await page.getByRole('button', { name: 'Mở menu điều hướng' }).click();
+    const mobileDrawer = page.getByRole('dialog', { name: 'FPT University AI Tutor' });
+    await expect(mobileDrawer).toBeVisible();
+    await expect(mobileDrawer.getByText('Trò chuyện AI Tutor', { exact: true })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(mobileDrawer).not.toBeVisible();
+  } else {
+    await expect(page.locator('.main-sidebar')).not.toHaveClass(/main-sidebar--collapsed/);
+    await expect(page.getByText('Trò chuyện AI Tutor', { exact: true })).toBeVisible();
+  }
   await expect.poll(async () => page.evaluate(() => ({
     scrollWidth: document.documentElement.scrollWidth,
     width: window.innerWidth,

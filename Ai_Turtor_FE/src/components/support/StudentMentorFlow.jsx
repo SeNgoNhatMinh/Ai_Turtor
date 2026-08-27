@@ -34,6 +34,11 @@ function StudentMentorFlow({ escalation, currentUser, compact = false, onEscalat
     () => mentors.find((mentor) => mentor.id === selectedMentorId),
     [mentors, selectedMentorId],
   );
+  const statusLabel = mentors.length > 0
+    ? (STATUS_LABELS[status] || status || STATUS_LABELS.PENDING_OFFER)
+    : hasLoadedOffer
+      ? 'Chưa có giáo viên phù hợp'
+      : 'Sẵn sàng tìm giáo viên';
 
   useEffect(() => {
     const syncTimer = window.setTimeout(() => {
@@ -138,7 +143,7 @@ function StudentMentorFlow({ escalation, currentUser, compact = false, onEscalat
           <strong>Chọn giáo viên cho câu hỏi này</strong>
           <span>Hệ thống ưu tiên giáo viên phụ trách lớp, sau đó đến các mentor đang sẵn sàng.</span>
         </div>
-        <Tag color={status === 'OFFERED' ? 'blue' : 'orange'}>{STATUS_LABELS[status] || status || STATUS_LABELS.PENDING_OFFER}</Tag>
+        <Tag color={mentors.length > 0 ? 'blue' : hasLoadedOffer ? 'default' : 'gold'}>{statusLabel}</Tag>
       </div>
 
       {error && <Alert type="error" showIcon title={error} />}

@@ -143,7 +143,7 @@ function StudentEnrollmentsTab({
                 cell: ({ row }) => (
                   <EntityActionMenu
                     items={enrollmentActionItems}
-                    onAction={(key, meta) => onAction('enrollment', row.original, key, meta)}
+                    onAction={(key) => onAction('enrollment', row.original, key)}
                     ariaLabel="Thao tác ghi danh"
                   />
                 ),

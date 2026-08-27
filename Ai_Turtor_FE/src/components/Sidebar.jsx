@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Button, Menu, Tooltip } from 'antd';
+import { Menu, Tooltip } from 'antd';
 import { ArrowRight, BookOpen, MessageSquareText, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { getNavigationForRole } from '../config/navigation';
 
@@ -32,7 +32,11 @@ function Sidebar({ accountRole, activeRole, activeTab, switchTab, courseId, clas
   });
 
   return (
-    <aside className={`main-sidebar ${collapsed ? 'main-sidebar--collapsed' : ''}`}>
+    <aside
+      className={`main-sidebar ${collapsed ? 'main-sidebar--collapsed' : 'main-sidebar--expanded'}`}
+      aria-label="Thanh điều hướng chính"
+      data-collapsed={collapsed ? 'true' : 'false'}
+    >
       <div className="sidebar-topbar">
         <Tooltip
           title={<span className="sidebar-tooltip-text">{collapsed ? 'Mở thanh điều hướng' : 'Thu gọn thanh điều hướng'}</span>}
@@ -41,17 +45,20 @@ function Sidebar({ accountRole, activeRole, activeTab, switchTab, courseId, clas
           classNames={{ root: 'sidebar-nav-tooltip' }}
           rootClassName="sidebar-nav-tooltip"
         >
-          <Button
-            className="sidebar-collapse-btn"
-            type="text"
-            icon={collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+          <button
+            type="button"
+            className="sidebar-collapse-control"
             onClick={() => setCollapsed((value) => !value)}
             aria-label={collapsed ? 'Mở thanh điều hướng' : 'Thu gọn thanh điều hướng'}
-          />
+            aria-expanded={!collapsed}
+            aria-controls="desktop-primary-navigation"
+          >
+            {collapsed ? <PanelLeftOpen size={20} aria-hidden="true" /> : <PanelLeftClose size={20} aria-hidden="true" />}
+          </button>
         </Tooltip>
       </div>
 
-      <div className="sidebar-menu-wrap">
+      <div className="sidebar-menu-wrap" id="desktop-primary-navigation">
         <Menu
           mode="inline"
           inlineCollapsed={collapsed}

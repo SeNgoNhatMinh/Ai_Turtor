@@ -60,7 +60,7 @@ function KnowledgeCandidateReviewList({
       if (succeeded) handleNoteChange?.(cand.id, '');
     };
 
-    const requestDecision = (event, decision) => {
+    const requestDecision = (decision) => {
       const approving = decision === 'APPROVE';
       const openConfirm = approving ? confirmAction : confirmDanger;
       openConfirm({
@@ -70,7 +70,6 @@ function KnowledgeCandidateReviewList({
           : 'Candidate sẽ bị từ chối, không được đưa vào RAG. Lý do từ chối sẽ được lưu lại.',
         okText: approving ? 'Phê duyệt' : 'Từ chối',
         cancelText: 'Hủy',
-        anchorRect: event.currentTarget.getBoundingClientRect(),
         onOk: () => submitDecision(decision),
       });
     };
@@ -160,7 +159,7 @@ function KnowledgeCandidateReviewList({
                 icon={<Check size={15} />}
                 disabled={isActionDisabled}
                 loading={isPending}
-                onClick={(event) => requestDecision(event, 'APPROVE')}
+                onClick={() => requestDecision('APPROVE')}
               >
                 Phê duyệt vào tri thức AI
               </Button>
@@ -169,7 +168,7 @@ function KnowledgeCandidateReviewList({
                 icon={<X size={15} />}
                 disabled={isActionDisabled}
                 loading={isPending}
-                onClick={(event) => requestDecision(event, 'REJECT')}
+                onClick={() => requestDecision('REJECT')}
               >
                 Từ chối
               </Button>

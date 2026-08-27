@@ -168,7 +168,7 @@ export function useTeacherMaterialController({
     });
   }, [canManage, courseId, editing, onReload, runLocked, triggerToast]);
 
-  const remove = useCallback((material, anchorRect) => {
+  const remove = useCallback((material) => {
     const materialId = getRecordId(material);
     if (!materialId) {
       triggerToast('Học liệu này thiếu mã định danh.');
@@ -184,7 +184,6 @@ export function useTeacherMaterialController({
       content: 'Tài liệu và các đoạn đã lập chỉ mục của tài liệu này sẽ bị xóa. Thao tác không thể hoàn tác.',
       okText: 'Xóa tài liệu',
       cancelText: 'Hủy',
-      anchorRect,
       onOk: () => runLocked(`teacher:material:delete:${materialId}`, async () => {
         setActionId(`delete:${materialId}`);
         try {

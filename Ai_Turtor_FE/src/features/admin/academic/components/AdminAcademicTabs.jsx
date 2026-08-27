@@ -132,11 +132,11 @@ export default function AdminAcademicTabs({
             onUpload={materials.handleUploadMaterial}
             onOpenWebsiteImport={() => materials.setWebsiteImportOpen(true)}
             onReload={() => materials.loadCourseMaterials()}
-            onMaterialAction={(key, record, materialId, meta) => {
+            onMaterialAction={(key, record, materialId) => {
               if (key === 'view' || key === 'edit') onOpenEntity('material', key, record);
               if (key === 'download') materials.handleDownloadMaterial(materialId, record.title, record);
               if (key === 'reindex') materials.handleReindexMaterial(materialId);
-              if (key === 'delete') materials.handleDeleteMaterial(materialId, meta?.anchorRect);
+              if (key === 'delete') materials.handleDeleteMaterial(materialId);
             }}
           />
         </Suspense>

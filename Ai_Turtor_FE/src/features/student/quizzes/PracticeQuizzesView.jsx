@@ -49,6 +49,8 @@ function PracticeQuizzesView({
         <QuizGeneratePanel
           topic={quiz.topic}
           setTopic={quiz.setTopic}
+          suggestedTopic={quiz.suggestedTopic}
+          setSuggestedTopic={quiz.setSuggestedTopic}
           questionCount={quiz.questionCount}
           setQuestionCount={quiz.setQuestionCount}
           suggestionOptions={quiz.suggestionOptions}

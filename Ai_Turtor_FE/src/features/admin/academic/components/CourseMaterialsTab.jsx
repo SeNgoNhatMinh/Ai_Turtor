@@ -171,7 +171,7 @@ function CourseMaterialsTab({
                           { type: 'divider' },
                           { key: 'delete', icon: <Trash2 size={14} />, label: 'Xóa', danger: true },
                         ]}
-                        onAction={(key, meta) => onMaterialAction(key, row.original, materialId, meta)}
+                        onAction={(key) => onMaterialAction(key, row.original, materialId)}
                         ariaLabel="Thao tác học liệu"
                       />
                     );

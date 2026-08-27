@@ -146,7 +146,7 @@ function ClassSectionsTab({
                 cell: ({ row }) => (
                   <EntityActionMenu
                     items={actionItems}
-                    onAction={(key, meta) => onAction('class', row.original, key, meta)}
+                    onAction={(key) => onAction('class', row.original, key)}
                     ariaLabel="Thao tác lớp học phần"
                   />
                 ),

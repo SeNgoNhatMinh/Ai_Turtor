@@ -69,7 +69,7 @@ const ConversationItem = memo(function ConversationItem({
       </div>
       <EntityActionMenu
         items={MENU_ITEMS}
-        onAction={(key, meta) => onMenuAction(key, session, meta)}
+        onAction={(key) => onMenuAction(key, session)}
         ariaLabel="Thao tác cuộc trò chuyện"
         disabled={Boolean(sessionMutationKey)}
       />

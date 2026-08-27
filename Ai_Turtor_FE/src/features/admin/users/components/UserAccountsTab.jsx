@@ -1,5 +1,7 @@
 import { Edit, RefreshCw, Trash2 } from 'lucide-react';
-import { Button, Card, Form, Input, Modal, Select, Space, Switch, Table, Tag } from 'antd';
+import { Card, Form, Input, Modal, Select, Switch, Table, Tag } from 'antd';
+import ActionButton from '../../../../components/common/ActionButton';
+import { CollectionToolbar } from '../../../../components/common/CollectionControls';
 import EntityActionMenu from '../../../../components/common/EntityActionMenu';
 import StatusLabel from '../../../../components/common/StatusLabel';
 import { confirmDanger } from '../../../../components/common/confirmDialog';
@@ -56,13 +58,12 @@ export default function UserAccountsTab({ users }) {
             { key: 'delete', icon: <Trash2 size={14} />, label: 'Xóa tài khoản', danger: true },
           ]}
           ariaLabel={`Thao tác với ${record.fullName || record.email}`}
-          onAction={(key, meta) => {
+          onAction={(key) => {
             if (key === 'edit') openEditor(record);
             if (key === 'delete') {
               confirmDanger({
                 title: 'Xóa tài khoản này?',
                 content: 'Tài khoản sẽ bị xóa khỏi hệ thống và không thể hoàn tác.',
-                anchorRect: meta?.anchorRect,
                 onOk: () => users.remove(record.id),
               });
             }
@@ -75,27 +76,24 @@ export default function UserAccountsTab({ users }) {
   return (
     <>
       <Card hoverable>
-        <Space style={{ marginBottom: 16, width: '100%', justifyContent: 'space-between' }}>
-          <Space wrap>
-            <Input.Search
-              placeholder="Tìm theo email hoặc họ tên..."
-              allowClear
-              style={{ width: 260 }}
-              value={users.search}
-              onChange={(event) => users.setSearch(event.target.value)}
-              onSearch={users.reload}
-            />
-            <Select
-              placeholder="Lọc vai trò"
-              allowClear
-              style={{ width: 150 }}
-              value={users.role || undefined}
-              onChange={(value) => users.setRole(value || '')}
-              options={roleOptions}
-            />
-            <Button onClick={users.reload} icon={<RefreshCw size={14} />}>Làm mới</Button>
-          </Space>
-        </Space>
+        <CollectionToolbar
+          query={users.search}
+          onQueryChange={users.setSearch}
+          filteredCount={users.list.length}
+          totalCount={users.list.length}
+          placeholder="Tìm theo email hoặc họ tên..."
+          onSubmit={users.reload}
+        >
+          <Select
+            placeholder="Lọc vai trò"
+            allowClear
+            style={{ minWidth: 150 }}
+            value={users.role || undefined}
+            onChange={(value) => users.setRole(value || '')}
+            options={roleOptions}
+          />
+          <ActionButton onClick={users.reload} icon={<RefreshCw size={14} />}>Làm mới</ActionButton>
+        </CollectionToolbar>
         <Table
           sticky
           scroll={{ x: 720, y: 520 }}
@@ -123,7 +121,7 @@ export default function UserAccountsTab({ users }) {
           <Form.Item name="isActive" label="Trạng thái" valuePropName="checked">
             <Switch checkedChildren="Hoạt động" unCheckedChildren="Đã khóa" />
           </Form.Item>
-          <Button type="primary" htmlType="submit" block>Lưu thay đổi</Button>
+          <ActionButton intent="primary" htmlType="submit" block>Lưu thay đổi</ActionButton>
         </Form>
       </Modal>
     </>

@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 import { RefreshCw, Trash2 } from 'lucide-react';
-import { Button, Card, Input, Space, Table } from 'antd';
+import { Card, Table } from 'antd';
+import ActionButton from '../../../../components/common/ActionButton';
+import { CollectionToolbar } from '../../../../components/common/CollectionControls';
 import EntityActionMenu from '../../../../components/common/EntityActionMenu';
 import StatusLabel from '../../../../components/common/StatusLabel';
 import { confirmDanger } from '../../../../components/common/confirmDialog';
@@ -73,10 +75,9 @@ export default function AdminEscalationsTab({ escalations, users }) {
         <EntityActionMenu
           items={[{ key: 'delete', icon: <Trash2 size={14} />, label: 'Xóa yêu cầu', danger: true }]}
           ariaLabel="Thao tác yêu cầu hỗ trợ"
-          onAction={(_, meta) => confirmDanger({
+          onAction={() => confirmDanger({
             title: 'Xóa yêu cầu hỗ trợ này?',
             content: 'Yêu cầu sẽ bị xóa khỏi hàng chờ quản trị.',
-            anchorRect: meta?.anchorRect,
             onOk: () => escalations.remove(record.id),
           })}
         />
@@ -86,19 +87,15 @@ export default function AdminEscalationsTab({ escalations, users }) {
 
   return (
     <Card hoverable>
-      <Space style={{ marginBottom: 16, width: '100%', justifyContent: 'space-between' }}>
-        <Space wrap>
-          <Input.Search
-            placeholder="Tìm sinh viên, câu hỏi hoặc trạng thái..."
-            allowClear
-            style={{ width: 320 }}
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            onSearch={setSearch}
-          />
-          <Button onClick={escalations.reload} icon={<RefreshCw size={14} />}>Làm mới</Button>
-        </Space>
-      </Space>
+      <CollectionToolbar
+        query={search}
+        onQueryChange={setSearch}
+        filteredCount={filteredEscalations.length}
+        totalCount={escalations.list.length}
+        placeholder="Tìm sinh viên, câu hỏi hoặc trạng thái..."
+      >
+        <ActionButton onClick={escalations.reload} icon={<RefreshCw size={14} />}>Làm mới</ActionButton>
+      </CollectionToolbar>
       <Table
         dataSource={filteredEscalations}
         columns={columns}

@@ -18,6 +18,7 @@ body {
     font-family: var(--font-sans);
     overflow: hidden;
     height: 100vh;
+    height: 100dvh;
     width: 100vw;
     -webkit-font-smoothing: antialiased;
 }
@@ -56,6 +57,38 @@ body {
 * {
     scrollbar-width: thin;
     scrollbar-color: rgba(71, 85, 105, 0.48) rgba(148, 163, 184, 0.1);
+}
+
+img,
+svg,
+video,
+canvas {
+    max-width: 100%;
+}
+
+@media (max-width: 767px), (hover: none) and (pointer: coarse) {
+    html,
+    body,
+    #root {
+        width: 100%;
+        height: var(--app-viewport-height, 100dvh);
+        min-height: 0;
+        overflow: hidden;
+        overscroll-behavior: none;
+    }
+
+    body {
+        position: fixed;
+        inset: 0;
+    }
+
+    :where(button, [role="button"], a, input, select, textarea) {
+        touch-action: manipulation;
+    }
+
+    :where(input, select, textarea) {
+        font-size: 16px !important;
+    }
 }
 
 ::-webkit-scrollbar {

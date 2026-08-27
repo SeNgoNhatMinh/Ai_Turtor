@@ -8,10 +8,10 @@ function ConfirmCard({
   cancelText,
   danger = false,
   onOk,
-  anchorRect,
   onClose,
 }) {
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
   const titleId = useId();
   const contentId = useId();
   const cancelRef = useRef(null);
@@ -19,6 +19,8 @@ function ConfirmCard({
 
   useEffect(() => {
     const previouslyFocused = document.activeElement;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
     cancelRef.current?.focus();
     const onKeyDown = (event) => {
       if (event.key === 'Escape') onClose?.();
@@ -38,6 +40,7 @@ function ConfirmCard({
     window.addEventListener('keydown', onKeyDown);
     return () => {
       window.removeEventListener('keydown', onKeyDown);
+      document.body.style.overflow = previousOverflow;
       previouslyFocused?.focus?.();
     };
   }, [onClose]);
@@ -45,68 +48,35 @@ function ConfirmCard({
   const confirm = async () => {
     if (loading) return;
     setLoading(true);
+    setErrorMessage('');
     try {
       await onOk?.();
+      if (onClose) onClose();
+      else setLoading(false);
     } catch (error) {
       console.error('Confirm action failed:', error);
-    } finally {
-      onClose?.();
+      setErrorMessage(error?.userMessage || error?.message || 'Không thể hoàn tất thao tác. Vui lòng thử lại.');
+      setLoading(false);
     }
-  };
-
-  const getAnchoredStyle = () => {
-    if (!anchorRect) return undefined;
-    const margin = 12;
-    const gap = 8;
-    const estimatedHeight = 164;
-    const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
-    const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
-    const width = Math.min(320, viewportWidth - margin * 2);
-
-    const left = Math.min(
-      Math.max(margin, anchorRect.right - width),
-      Math.max(margin, viewportWidth - width - margin),
-    );
-
-    const belowTop = anchorRect.bottom + gap;
-    const aboveTop = anchorRect.top - estimatedHeight - gap;
-    const hasRoomBelow = belowTop + estimatedHeight <= viewportHeight - margin;
-    const hasRoomAbove = aboveTop >= margin;
-    const top = hasRoomBelow
-      ? belowTop
-      : hasRoomAbove
-        ? aboveTop
-        : Math.min(
-            Math.max(margin, belowTop),
-            Math.max(margin, viewportHeight - estimatedHeight - margin),
-          );
-
-    return {
-      left,
-      top,
-      right: 'auto',
-      bottom: 'auto',
-      width,
-    };
   };
 
   return (
     <div
-      className={`app-confirm-overlay ${anchorRect ? 'app-confirm-overlay--anchored' : ''}`}
-      onClick={anchorRect ? undefined : onClose}
+      className="app-confirm-overlay"
+      onClick={loading ? undefined : onClose}
     >
       <div
-        className={`app-confirm-card ${anchorRect ? 'app-confirm-card--anchored' : ''} ${danger ? 'app-confirm-card--danger' : ''}`}
+        className={`app-confirm-card ${danger ? 'app-confirm-card--danger' : ''}`}
         role={danger ? 'alertdialog' : 'dialog'}
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={content ? contentId : undefined}
-        style={getAnchoredStyle()}
         onClick={(event) => event.stopPropagation()}
       >
         <div className="app-confirm-card__body">
           <div className="app-confirm-card__title" id={titleId}>{title}</div>
           {content && <div className="app-confirm-card__content" id={contentId}>{content}</div>}
+          {errorMessage && <div className="app-confirm-card__error" role="alert">{errorMessage}</div>}
         </div>
         <div className="app-confirm-card__actions">
           <button ref={cancelRef} type="button" className="app-confirm-card__btn" onClick={onClose} disabled={loading}>
@@ -119,7 +89,7 @@ function ConfirmCard({
             onClick={confirm}
             disabled={loading}
           >
-            {loading ? 'Working...' : okText}
+            {loading ? 'Đang xử lý...' : okText}
           </button>
         </div>
       </div>

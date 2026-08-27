@@ -53,7 +53,7 @@ function TermsTab({ form, semesters, onCreate, onReload, onAction }) {
                 cell: ({ row }) => (
                   <EntityActionMenu
                     items={actionItems}
-                    onAction={(key, meta) => onAction('semester', row.original, key, meta)}
+                    onAction={(key) => onAction('semester', row.original, key)}
                     ariaLabel="Thao tác học kỳ"
                   />
                 ),

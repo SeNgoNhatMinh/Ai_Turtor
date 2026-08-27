@@ -1,10 +1,15 @@
 import { useState } from 'react';
-import { ArrowRight, BookOpen, Bot, ClipboardCheck, GraduationCap, Layers3, MessageCircle, Sparkles } from 'lucide-react';
+import { ArrowRight, BookOpen, Bot, ClipboardCheck, GraduationCap, Layers3, MessageCircle, Search, Sparkles, X } from 'lucide-react';
 import './StudentDashboardPage.css';
 
 const courseCode = (item) => item?.courseId || item?.courseCode || item?.course?.courseId || item?.course?.id || '';
 const courseName = (item) => item?.courseName || item?.courseTitle || item?.course?.name || 'Môn học đang tham gia';
 const classCode = (item) => item?.classCode || item?.classId || item?.classSection?.classCode || item?.classSection?.classId || '';
+const normalizeSearchText = (value) => String(value || '')
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .toLocaleLowerCase('vi')
+  .trim();
 
 const waitForContextCommit = () => new Promise((resolve) => {
   if (typeof globalThis.requestAnimationFrame === 'function') {
@@ -17,8 +22,15 @@ const waitForContextCommit = () => new Promise((resolve) => {
 export default function StudentDashboardPage({ currentUser, courseId, switchTab, triggerToast, enrollment }) {
   const enrollments = enrollment?.studentEnrollments || [];
   const [pendingTab, setPendingTab] = useState('');
+  const [courseQuery, setCourseQuery] = useState('');
   const name = currentUser?.fullName || currentUser?.name || currentUser?.username || 'bạn';
   const courses = Array.from(new Map(enrollments.map((item) => [courseCode(item), item]).filter(([id]) => id)).values());
+  const normalizedCourseQuery = normalizeSearchText(courseQuery);
+  const filteredCourses = courses.filter((item) => {
+    const id = courseCode(item);
+    const classes = enrollments.filter((entry) => courseCode(entry) === id).map(classCode).filter(Boolean);
+    return !normalizedCourseQuery || normalizeSearchText(`${id} ${courseName(item)} ${classes.join(' ')}`).includes(normalizedCourseQuery);
+  });
   const classCount = new Set(enrollments.map(classCode).filter(Boolean)).size;
   const openDestination = async (tab, item) => {
     if (pendingTab) return;
@@ -56,10 +68,11 @@ export default function StudentDashboardPage({ currentUser, courseId, switchTab,
     <div className="student-dashboard-content-grid">
     <section className="student-dashboard-section student-dashboard-courses">
       <header className="student-dashboard-heading"><div><span>Môn học của tôi</span><h2>Tiếp tục hành trình học tập</h2></div><button type="button" onClick={() => switchTab?.('student-materials')}>Xem học liệu <ArrowRight size={16}/></button></header>
-      {enrollment?.isStudentEnrollmentsLoading ? <div className="student-dashboard-empty">Đang tải danh sách môn học...</div> : courses.length ? <div className="student-course-grid">{courses.map((item, index) => {
+      {courses.length > 0 && <label className="student-dashboard-course-search"><Search size={20} aria-hidden="true"/><input type="search" value={courseQuery} onChange={(event) => setCourseQuery(event.target.value)} placeholder="Tìm theo mã môn, tên môn hoặc lớp" aria-label="Tìm môn học"/>{courseQuery && <button type="button" onClick={() => setCourseQuery('')} aria-label="Xóa nội dung tìm kiếm"><X size={18} aria-hidden="true"/></button>}</label>}
+      {enrollment?.isStudentEnrollmentsLoading ? <div className="student-dashboard-empty">Đang tải danh sách môn học...</div> : filteredCourses.length ? <div className="student-course-grid">{filteredCourses.map((item, index) => {
         const id = courseCode(item); const classes = enrollments.filter((entry) => courseCode(entry) === id).map(classCode).filter(Boolean);
         return <article className={`student-course-card course-tone-${index % 4}`} key={id}><div className="student-course-top"><span>{id}</span><small>Đang học</small></div><div className="student-course-icon"><BookOpen size={25}/></div><h3>{courseName(item)}</h3><p>{classes.length ? `Lớp ${classes.join(', ')}` : 'Đã ghi danh vào môn học'}</p><button type="button" disabled={Boolean(pendingTab)} onClick={() => openDestination('student-chat', item)}>Vào môn học <ArrowRight size={17}/></button></article>;
-      })}</div> : <div className="student-dashboard-empty"><GraduationCap size={34}/><strong>Chưa tìm thấy môn học đang tham gia</strong><span>Danh sách sẽ xuất hiện khi dữ liệu ghi danh được đồng bộ.</span></div>}
+      })}</div> : courses.length ? <div className="student-dashboard-empty"><Search size={34}/><strong>Không tìm thấy môn học phù hợp</strong><span>Hãy thử mã môn, tên môn hoặc mã lớp khác.</span></div> : <div className="student-dashboard-empty"><GraduationCap size={34}/><strong>Chưa tìm thấy môn học đang tham gia</strong><span>Danh sách sẽ xuất hiện khi dữ liệu ghi danh được đồng bộ.</span></div>}
     </section>
     <section className="student-dashboard-section student-dashboard-actions"><header className="student-dashboard-heading"><div><span>Truy cập nhanh</span><h2>Bạn muốn làm gì tiếp theo?</h2></div></header><div className="student-quick-grid">{actions.map(([Icon,title,text,tab,tone]) => <button type="button" disabled={Boolean(pendingTab)} aria-busy={pendingTab === tab} className={`student-quick-card ${tone}`} onClick={() => openDestination(tab)} key={tab}><span><Icon size={21}/></span><div><strong>{title}</strong><small>{text}</small></div><ArrowRight size={17}/></button>)}</div></section>
     </div>

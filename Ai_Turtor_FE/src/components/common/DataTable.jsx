@@ -56,6 +56,7 @@ export function DataTable({
   searchKeys = [],
   searchPlaceholder = 'Tìm trong danh sách',
   maxBodyHeight = 'min(58vh, 640px)',
+  mobileCompact = true,
 }) {
   const safeData = Array.isArray(data) ? data : [];
   const safeColumns = Array.isArray(columns) ? columns : [];
@@ -82,11 +83,15 @@ export function DataTable({
           className={`data-table-scroll ${maxBodyHeight ? 'data-table-scroll--bounded' : ''}`}
           style={maxBodyHeight ? { maxHeight: maxBodyHeight } : undefined}
         >
-          <table className="data-table" role="table">
+          <table className={`data-table ${mobileCompact ? 'data-table--mobile-compact' : ''}`} role="table">
             <thead>
               <tr>
                 {safeColumns.map((column, index) => (
-                  <th key={getColumnId(column, index)} scope="col">
+                  <th
+                    key={getColumnId(column, index)}
+                    scope="col"
+                    className={column.mobileHidden ? 'data-table-cell--mobile-hidden' : undefined}
+                  >
                     {renderHeader(column)}
                   </th>
                 ))}
@@ -103,7 +108,10 @@ export function DataTable({
                 visibleRows.map((record, rowIndex) => (
                   <tr key={getRowKey(record, collection.pageIndex * collection.pageSize + rowIndex)}>
                     {safeColumns.map((column, columnIndex) => (
-                      <td key={getColumnId(column, columnIndex)}>
+                      <td
+                        key={getColumnId(column, columnIndex)}
+                        className={column.mobileHidden ? 'data-table-cell--mobile-hidden' : undefined}
+                      >
                         {renderCell(column, record)}
                       </td>
                     ))}

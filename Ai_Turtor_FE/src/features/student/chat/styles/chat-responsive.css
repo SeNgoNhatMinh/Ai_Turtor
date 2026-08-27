@@ -106,7 +106,7 @@
   }
 }
 
-@media (max-width: 760px) {
+@media (max-width: 767px), (hover: none) and (pointer: coarse) {
   .chat-course-switch-banner {
     align-items: stretch;
     flex-direction: column;
@@ -176,6 +176,20 @@
     padding-bottom: 142px;
   }
 
+  .chat-workspace-messages-container--empty {
+    padding-bottom: 154px;
+  }
+
+  .chat-workspace-messages-inner--empty {
+    min-height: max-content;
+  }
+
+  .chat-empty-state {
+    justify-content: flex-start;
+    min-height: max-content;
+    padding-bottom: 18px;
+  }
+
   .chat-gpt-bubble-user {
     max-width: 86%;
   }
@@ -211,6 +225,27 @@
     gap: 2px;
     padding-inline: 4px;
     text-align: left;
+  }
+
+  .chat-workspace-header {
+    flex: 0 0 auto;
+    padding: 8px 10px;
+  }
+
+  .chat-workspace-header h4.ant-typography {
+    max-width: calc(100vw - 150px);
+  }
+
+  .chat-workspace-messages-inner {
+    padding: 20px 12px 16px;
+  }
+
+  .chat-workspace-input-area {
+    padding: 0 max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
+  }
+
+  .chat-gpt-input-wrapper textarea {
+    max-height: min(32dvh, 180px);
   }
 }
 

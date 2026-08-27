@@ -275,12 +275,12 @@ body.theme-dark .support-chat-room__hint {
 
 .mentor-selection-flow {
   display: grid;
-  gap: 12px;
+  gap: 14px;
   min-width: 0;
-  padding: 14px;
-  border: 1px solid #fed7aa;
-  border-radius: 12px;
-  background: #fffaf5;
+  padding: 16px;
+  border: 1px solid #dbe6f1;
+  border-radius: 14px;
+  background: #ffffff;
 }
 
 .mentor-selection-flow__heading {
@@ -297,20 +297,85 @@ body.theme-dark .support-chat-room__hint {
 
 .mentor-selection-flow__heading strong {
   color: #18181b;
+  font-size: 15px;
+  line-height: 1.35;
 }
 
 .mentor-selection-flow__heading span {
   margin-top: 3px;
   color: #52525b;
-  font-size: 12px;
+  max-width: 54ch;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.mentor-selection-flow__heading > .ant-tag {
+  flex: 0 0 auto;
+  max-width: 48%;
+  margin-inline-end: 0;
+  overflow: hidden;
+  padding: 4px 9px;
+  border: 0;
+  border-radius: 8px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .mentor-selection-flow__empty {
   display: grid;
   justify-items: center;
-  gap: 10px;
-  padding: 8px;
+  gap: 12px;
+  min-height: 0;
+  padding: 12px 8px 4px;
   color: #52525b;
+}
+
+.mentor-selection-flow__empty .ant-empty {
+  margin-block: 0;
+}
+
+.mentor-selection-flow__empty .ant-empty-image {
+  height: 46px;
+  margin-bottom: 8px;
+}
+
+.mentor-selection-flow__empty .ant-empty-description {
+  max-width: 440px;
+  margin: 0 auto;
+  color: #667085;
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.mentor-selection-flow__empty > .ant-btn {
+  min-height: 42px;
+  padding-inline: 18px;
+}
+
+@media (max-width: 767px), (hover: none) and (pointer: coarse) {
+  .mentor-selection-flow {
+    gap: 12px;
+    padding: 13px;
+  }
+
+  .mentor-selection-flow__heading {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 9px;
+  }
+
+  .mentor-selection-flow__heading > .ant-tag {
+    max-width: 100%;
+  }
+
+  .mentor-selection-flow__empty {
+    padding: 8px 4px 2px;
+  }
+
+  .mentor-selection-flow__empty > .ant-btn {
+    width: 100%;
+  }
 }
 
 .mentor-selection-list {

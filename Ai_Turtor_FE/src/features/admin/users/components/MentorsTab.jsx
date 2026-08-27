@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 import { Inbox, RefreshCw, Trash2, UserCheck } from 'lucide-react';
-import { Alert, Button, Card, Divider, Input, Space, Switch, Table, Tag, Typography, Upload } from 'antd';
+import { Alert, Card, Divider, Switch, Table, Tag, Typography, Upload } from 'antd';
+import ActionButton from '../../../../components/common/ActionButton';
+import { CollectionToolbar } from '../../../../components/common/CollectionControls';
 import EntityActionMenu from '../../../../components/common/EntityActionMenu';
 import { confirmDanger } from '../../../../components/common/confirmDialog';
 import { ACCOUNT_ROLES } from '../../../../constants/roles';
@@ -96,13 +98,12 @@ export default function MentorsTab({ mentors }) {
               { key: 'delete', icon: <Trash2 size={14} />, label: 'Xóa hồ sơ giảng viên', danger: true },
             ]}
             ariaLabel={`Thao tác với ${record.mentorName || record.name || 'giảng viên'}`}
-            onAction={(key, meta) => {
+            onAction={(key) => {
               if (key === 'role') mentors.changeRole(record, nextRole);
               if (key === 'delete') {
                 confirmDanger({
                   title: 'Xóa hồ sơ giảng viên này?',
                   content: 'Hồ sơ giảng viên sẽ bị xóa và không thể hoàn tác.',
-                  anchorRect: meta?.anchorRect,
                   onOk: () => mentors.remove(record.id),
                 });
               }
@@ -115,19 +116,15 @@ export default function MentorsTab({ mentors }) {
 
   return (
     <Card hoverable>
-      <Space style={{ marginBottom: 16, width: '100%', justifyContent: 'space-between' }}>
-        <Space wrap>
-          <Input.Search
-            placeholder="Tìm theo tên, email hoặc chuyên môn..."
-            allowClear
-            style={{ width: 280 }}
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            onSearch={setSearch}
-          />
-          <Button onClick={mentors.reload} icon={<RefreshCw size={14} />}>Làm mới</Button>
-        </Space>
-      </Space>
+      <CollectionToolbar
+        query={search}
+        onQueryChange={setSearch}
+        filteredCount={filteredMentors.length}
+        totalCount={list.length}
+        placeholder="Tìm theo tên, email hoặc chuyên môn..."
+      >
+        <ActionButton onClick={mentors.reload} icon={<RefreshCw size={14} />}>Làm mới</ActionButton>
+      </CollectionToolbar>
       <Table
         sticky
         scroll={{ x: 920, y: 520 }}

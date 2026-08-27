@@ -12,6 +12,8 @@ const { Text } = Typography;
 function QuizGeneratePanel({
   topic,
   setTopic,
+  suggestedTopic = '',
+  setSuggestedTopic,
   questionCount,
   setQuestionCount,
   suggestionOptions,
@@ -20,6 +22,13 @@ function QuizGeneratePanel({
   isGenerating,
   onGenerate,
 }) {
+  const selectOptions = suggestionOptions.some((option) => option.value === suggestedTopic)
+    ? suggestionOptions
+    : suggestedTopic
+      ? [{ value: suggestedTopic, label: suggestedTopic }, ...suggestionOptions]
+      : suggestionOptions;
+  const hasQuizTopic = Boolean(suggestedTopic.trim() || topic.trim());
+
   return (
     <div className="quiz-generate-layout">
       <Card className="quiz-card quiz-generate-card" title={<span className="quiz-card-title">Tạo quiz tự ôn</span>}>
@@ -31,23 +40,31 @@ function QuizGeneratePanel({
             description="AI Tutor chỉ tạo quiz khi có tài liệu đã lập chỉ mục phù hợp với chủ đề được chọn."
           />
           <div className="quiz-field">
-            <label>1. Chọn gợi ý hoặc nhập chủ đề</label>
+            <label>1. Chọn chủ đề gợi ý</label>
+            <Text type="secondary" className="quiz-field-hint">
+              Chọn nhanh một chủ đề được đề xuất, hoặc tự nhập ở bước 2.
+            </Text>
             <Select
               showSearch
               allowClear
-              value={topic || undefined}
-              onChange={(value) => setTopic(value || '')}
-              onSearch={setTopic}
+              value={suggestedTopic || undefined}
+              onChange={(value) => setSuggestedTopic?.(value || '')}
+              optionFilterProp="label"
               placeholder="Chọn chủ đề còn yếu hoặc gợi ý học tập"
-              options={suggestionOptions}
+              options={selectOptions}
               disabled={!hasContext || isLoading}
             />
           </div>
           <div className="quiz-field">
-            <label>2. Làm rõ chủ đề</label>
+            <label>2. Nhập hoặc làm rõ chủ đề</label>
+            <Text type="secondary" className="quiz-field-hint">
+              Bổ sung phạm vi hoặc từ khóa để câu hỏi bám sát nội dung bạn muốn ôn.
+            </Text>
             <Input
               value={topic}
               onChange={(event) => setTopic(event.target.value)}
+              allowClear
+              maxLength={240}
               placeholder="Ví dụ: constructor Java, cấu hình servlet server..."
               disabled={!hasContext || isLoading}
             />
@@ -73,7 +90,7 @@ function QuizGeneratePanel({
             block
             icon={<QuestionCircleOutlined />}
             loading={isGenerating}
-            disabled={!hasContext || !topic.trim() || isLoading}
+            disabled={!hasContext || !hasQuizTopic || isLoading}
             onClick={() => onGenerate()}
           >
             Tạo quiz {questionCount} câu
@@ -92,7 +109,7 @@ function QuizGeneratePanel({
             <Text strong>Chủ đề được đề xuất</Text>
             <div>
               {suggestionOptions.slice(0, 4).map((item) => (
-                <button key={item.value} type="button" onClick={() => setTopic(item.value)}>{item.label}</button>
+                <button key={item.value} type="button" onClick={() => setSuggestedTopic?.(item.value)}>{item.label}</button>
               ))}
             </div>
           </div>

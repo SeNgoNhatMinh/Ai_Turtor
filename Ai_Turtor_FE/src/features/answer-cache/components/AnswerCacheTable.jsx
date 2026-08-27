@@ -81,7 +81,7 @@ export default function AnswerCacheTable({
     if (saved) setDisableEntry(null);
   };
 
-  const handleAction = async (key, entry, anchorRect) => {
+  const handleAction = async (key, entry) => {
     if (!entry?.id || anyMutationRunning) return;
     if (key === 'view') {
       setDetailEntry(entry);
@@ -92,7 +92,6 @@ export default function AnswerCacheTable({
         title: 'Duyệt cache câu trả lời?',
         content: 'Sinh viên sẽ tiếp tục nhận câu trả lời này từ cache semantic.',
         okText: 'Duyệt',
-        anchorRect,
         onOk: () => onApprove?.(entry.id),
       });
       return;
@@ -110,7 +109,6 @@ export default function AnswerCacheTable({
         title: 'Xóa entry cache?',
         content: 'Entry sẽ bị xóa vĩnh viễn khỏi cache. Sinh viên sẽ phải gọi LLM lại cho câu hỏi tương tự.',
         okText: 'Xóa',
-        anchorRect,
         onOk: () => onDelete?.(entry.id),
       });
     }
@@ -209,7 +207,7 @@ export default function AnswerCacheTable({
           ariaLabel="Thao tác cache"
           disabled={anyMutationRunning}
           items={buildMenuItems(entry)}
-          onAction={(key, meta) => handleAction(key, entry, meta?.anchorRect)}
+          onAction={(key) => handleAction(key, entry)}
         />
       ),
     },

@@ -1,4 +1,3 @@
-import { useRef } from 'react';
 import { Dropdown } from 'antd';
 import { MoreHorizontal } from 'lucide-react';
 import ActionButton from './ActionButton';
@@ -10,8 +9,6 @@ function EntityActionMenu({
   ariaLabel = 'Row actions',
   disabled = false,
 }) {
-  const triggerRef = useRef(null);
-
   return (
     <Dropdown
       trigger={['click']}
@@ -21,17 +18,11 @@ function EntityActionMenu({
         items,
         onClick: ({ key, domEvent }) => {
           domEvent.stopPropagation();
-          onAction?.(key, {
-            domEvent,
-            anchorRect:
-              triggerRef.current?.getBoundingClientRect?.()
-              || domEvent?.currentTarget?.getBoundingClientRect?.(),
-          });
+          onAction?.(key);
         },
       }}
     >
       <span
-        ref={triggerRef}
         className="entity-action-trigger"
         onClick={(event) => event.stopPropagation()}
       >

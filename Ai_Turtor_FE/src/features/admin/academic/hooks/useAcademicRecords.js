@@ -169,13 +169,12 @@ export function useAcademicRecords({
     }
   };
 
-  const handleDeleteSemester = (record, anchorRect) => {
+  const handleDeleteSemester = (record) => {
     const semesterCode = getSemesterCode(record);
     if (!semesterCode) return triggerToast('Học kỳ này thiếu mã định danh.');
     confirmDanger({
       title: 'Xóa học kỳ?',
       content: `Học kỳ ${semesterCode} sẽ bị xóa khỏi hệ thống.`,
-      anchorRect,
       onOk: async () => {
         try {
           await adminAcademicApi.deleteSemester(semesterCode);
@@ -188,14 +187,13 @@ export function useAcademicRecords({
     });
   };
 
-  const handleDeleteCourse = (record, anchorRect) => {
+  const handleDeleteCourse = (record) => {
     const courseId = getCourseCode(record);
     if (!courseId) return triggerToast('Môn học này thiếu mã định danh.');
     confirmDanger({
       title: `Xóa toàn bộ môn ${courseId}?`,
       content: 'Tất cả lớp học phần, ghi danh, học liệu, bài tập, quiz và lịch sử học thuộc môn này sẽ bị xóa vĩnh viễn.',
       okText: 'Xóa toàn bộ',
-      anchorRect,
       onOk: async () => {
         try {
           await adminAcademicApi.deleteCourse(courseId, { cascade: true });
@@ -212,14 +210,13 @@ export function useAcademicRecords({
     });
   };
 
-  const handleDeleteClassSection = (record, anchorRect) => {
+  const handleDeleteClassSection = (record) => {
     const courseId = record.courseId || selectedCourseId;
     const classId = getClassCode(record);
     if (!courseId || !classId) return triggerToast('Lớp học phần thiếu mã môn hoặc mã lớp.');
     confirmDanger({
       title: 'Xóa lớp học phần?',
       content: `Lớp ${classId} của môn ${courseId} sẽ bị xóa.`,
-      anchorRect,
       onOk: async () => {
         try {
           await adminAcademicApi.deleteClassSection(courseId, classId);
@@ -232,7 +229,7 @@ export function useAcademicRecords({
     });
   };
 
-  const handleDeleteEnrollment = (record, anchorRect) => {
+  const handleDeleteEnrollment = (record) => {
     const enrollmentId = getEnrollmentId(record);
     const courseId = record.courseId;
     const classId = record.classId;
@@ -244,7 +241,6 @@ export function useAcademicRecords({
       title: 'Xóa ghi danh?',
       content: 'Sinh viên sẽ bị xóa khỏi lớp học phần đã chọn.',
       okText: 'Xóa khỏi lớp',
-      anchorRect,
       onOk: async () => {
         try {
           if (enrollmentId) {
