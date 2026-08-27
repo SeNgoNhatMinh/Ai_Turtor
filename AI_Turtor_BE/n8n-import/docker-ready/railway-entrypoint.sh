@@ -6,7 +6,10 @@ set -eu
 N8N_DATA_DIR="/home/node/.n8n"
 WORKFLOW_SOURCE_DIR="/opt/ai-tutor-workflows"
 WORKFLOW_IMPORT_DIR="/tmp/ai-tutor-workflows"
-WORKFLOW_BUNDLE_VERSION="20260814-1"
+# Derive the marker from the actual workflow bundle. Railway keeps the n8n
+# volume between deploys, so a fixed marker would prevent changed JSON files
+# from being imported on subsequent deploys.
+WORKFLOW_BUNDLE_VERSION="$(sha256sum "$WORKFLOW_SOURCE_DIR"/*.json | sha256sum | cut -d' ' -f1)"
 WORKFLOW_MARKER="$N8N_DATA_DIR/.ai-tutor-workflows-$WORKFLOW_BUNDLE_VERSION"
 BACKEND_BASE_URL="${AI_TUTOR_API_BASE_URL:-http://ai-tutor-api:8085}"
 
