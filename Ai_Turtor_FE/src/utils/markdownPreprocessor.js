@@ -354,19 +354,17 @@ function restoreBlocks(text, vault) {
  * 6. LIST NORMALIZATION
  * =========================================================
  * Fixes:
- *   "text - item" → "text\n- item"
  *   "-item"       → "- item"
  *   "1.item"      → "1. item"
+ *
+ * Only repair markers at the beginning of a line. Treating inline
+ * `+`, `-` or numbered expressions as list markers corrupts equations.
  * ========================================================= */
-
 function normalizeLists(text) {
   return text
-    .replace(/([^\n])(\s+)([-*+]\s+)/g, '$1\n$3')
-    .replace(/([^\n])(\s+)(\d+[.)]\s+)/g, '$1\n$3')
     .replace(/^(\s*)[-*+](\S)/gm, '$1- $2')
     .replace(/^(\s*)(\d+)[.)](\S)/gm, '$1$2. $3');
 }
-
 /* =========================================================
  * 7. TABLE ENGINE (GFM)
  * =========================================================

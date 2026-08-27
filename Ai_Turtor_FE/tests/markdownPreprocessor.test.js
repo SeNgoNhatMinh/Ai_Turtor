@@ -83,6 +83,27 @@ test('does not turn plus signs inside inline code into list items', () => {
   assert.doesNotMatch(output, /Ctrl\n\+ Alt/);
 });
 
+test('preserves arithmetic expressions inside list items', () => {
+  const input = [
+    '- **b. Tổng số thanh ghi:** tổng = (1 + 3) + (3 + 4) = **11** thanh ghi.',
+    '- **c. Số địa chỉ:** 5 + 7 = **12** địa chỉ.',
+  ].join('\n');
+
+  const output = normalizeAiMarkdown(input);
+
+  assert.equal(output, input);
+  assert.doesNotMatch(output, /\n\+\s/);
+});
+
+test('repairs list markers only when they start a line', () => {
+  const input = ['-mục một', '+mục hai', '1.mục ba'].join('\n');
+
+  assert.equal(
+    normalizeAiMarkdown(input),
+    ['- mục một', '- mục hai', '1. mục ba'].join('\n'),
+  );
+});
+
 test('markdown normalization is idempotent', () => {
   const once = normalizeAiMarkdown('Theo tai lieu mon hoc\n\n- Constructor là gì?');
   assert.equal(normalizeAiMarkdown(once), once);

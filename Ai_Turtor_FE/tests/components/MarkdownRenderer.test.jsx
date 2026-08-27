@@ -35,6 +35,18 @@ describe('MarkdownRenderer Vietnamese text', () => {
     expect(screen.queryByText('S')).not.toBeInTheDocument();
   });
 
+  it('renders arithmetic expressions as one compact list item', () => {
+    render(
+      <MarkdownRenderer
+        markdown={'- **Tổng số thanh ghi:** (1 + 3) + (3 + 4) = **11** thanh ghi.'}
+      />,
+    );
+
+    const item = screen.getByRole('listitem');
+    expect(item).toHaveTextContent('Tổng số thanh ghi: (1 + 3) + (3 + 4) = 11 thanh ghi.');
+    expect(screen.getAllByRole('listitem')).toHaveLength(1);
+  });
+
   it('sends the exact selected study tip into the continue-learning flow', () => {
     const onStudyTipStudy = vi.fn();
     render(
