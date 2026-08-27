@@ -131,6 +131,15 @@ public class ApprovedKnowledgeRetrievalService {
         if (storedQuestion.isBlank() && chunk.content() != null) {
             storedQuestion = chunk.content();
         }
+        String askedKey = QuestionOverlapUtil.canonicalQuestionKey(question);
+        String storedKey = QuestionOverlapUtil.canonicalQuestionKey(storedQuestion);
+        // A concise question is relevant when the approved question starts with that
+        // complete question and merely adds another clause, e.g. "X là gì?" versus
+        // "X là gì? X được dùng để làm gì?". This avoids rejecting one-topic queries
+        // whose stop-word removal leaves only a single distinctive token.
+        if (isQuestionPrefix(askedKey, storedKey) || isQuestionPrefix(storedKey, askedKey)) {
+            return true;
+        }
         // Indexed Senior Q&A is already course-scoped. Match the student question to the
         // stored question line — Jaccard against the full long answer is almost always too low.
         if (QuestionOverlapUtil.areSimilarQuestions(question, storedQuestion, 0.40)) {
@@ -143,6 +152,14 @@ public class ApprovedKnowledgeRetrievalService {
         String relevanceText = storedQuestion + " " + extractAnswerLead(chunk.content());
         double keywordOverlap = QuestionOverlapUtil.keywordOverlapRatio(question, relevanceText);
         return score >= minScore && keywordOverlap >= minKeywordOverlap;
+    }
+
+    private boolean isQuestionPrefix(String shorter, String longer) {
+        return shorter != null
+                && longer != null
+                && !shorter.isBlank()
+                && shorter.length() >= 4
+                && (longer.equals(shorter) || longer.startsWith(shorter + " "));
     }
 
     private String extractAnswerLead(String content) {

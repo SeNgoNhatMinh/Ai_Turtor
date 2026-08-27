@@ -53,6 +53,24 @@ class ApprovedKnowledgeRetrievalServiceTest {
                 .containsExactly(chunk);
     }
 
+    @Test
+    void keepsConciseQuestionWhenApprovedQuestionAddsAnotherClause() throws Exception {
+        ElasticVectorService vectorService = mock(ElasticVectorService.class);
+        ApprovedKnowledgeRetrievalService service = service(vectorService);
+        String chunkContent = """
+                [KIẾN THỨC BỔ SUNG ĐÃ ĐƯỢC SENIOR DUYỆT]
+                Câu hỏi: pytorch là gì ? nó được dùng để làm gì ?
+                Câu trả lời: PyTorch là thư viện tính toán khoa học dựa trên Python.
+                """.trim();
+        var chunk = chunk(chunkContent, 0.55);
+        when(vectorService.searchApprovedKnowledgeWithScores(
+                "pytorch là gì ?", "PFP191", null, 8))
+                .thenReturn(List.of(chunk));
+
+        assertThat(service.retrieveRelevant("pytorch là gì ?", "PFP191", null))
+                .containsExactly(chunk);
+    }
+
     private ApprovedKnowledgeRetrievalService service(ElasticVectorService vectorService) {
         ApprovedKnowledgeRetrievalService service = new ApprovedKnowledgeRetrievalService(vectorService);
         ReflectionTestUtils.setField(service, "maxChunks", 2);
