@@ -47,7 +47,6 @@ export default function AnswerReviewWorkspace({
       [reviewId]: {
         notes: '',
         correctedAnswer: '',
-        candidateType: 'ACADEMIC_KNOWLEDGE',
         images: [],
         ...current[reviewId],
         ...patch,
@@ -62,7 +61,6 @@ export default function AnswerReviewWorkspace({
       decision,
       String(draft.notes || '').trim(),
       String(draft.correctedAnswer || '').trim(),
-      draft.candidateType || 'ACADEMIC_KNOWLEDGE',
       (draft.images || []).map((item) => item.fileId).filter(Boolean),
     );
     if (succeeded) {

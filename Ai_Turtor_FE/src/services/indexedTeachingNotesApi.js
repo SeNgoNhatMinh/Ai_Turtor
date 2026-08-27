@@ -1,7 +1,6 @@
 import { API_BASE_URL, request } from './apiClient';
 import { encodePath } from '../config/env';
 import { asArray } from './normalizers';
-import { normalizeGoldQa } from './expertTrainingNormalizers';
 
 const BASE = `${API_BASE_URL}/admin/indexed-teaching-notes`;
 
@@ -14,33 +13,30 @@ const query = (values = {}) => {
   return text ? `?${text}` : '';
 };
 
+const normalizeApprovedRagIndex = (item = {}) => ({
+  ...item,
+  id: item.id || '',
+  courseId: item.courseId || '',
+  chapter: item.chapter || 'Chưa xác định chương',
+  question: item.question || '',
+  approvedAnswer: item.approvedAnswer || item.goldAnswer || item.answer || '',
+  status: String(item.status || 'INDEXED').trim().toUpperCase(),
+  sourceType: item.sourceType || 'SENIOR_APPROVED_V2_ANSWER',
+  authorId: item.authorId || '',
+  reviewedBy: item.reviewedBy || '',
+});
+
 export const indexedTeachingNotesApi = {
-  async list({ courseId, status } = {}) {
-    const response = await request(`${BASE}${query({ courseId, status })}`);
-    return asArray(response, 'items', 'content').map(normalizeGoldQa);
+  async list({ courseId } = {}) {
+    const response = await request(`${BASE}${query({ courseId })}`);
+    return asArray(response, 'items', 'content').map(normalizeApprovedRagIndex);
   },
 
   async update(id, payload) {
-    return normalizeGoldQa(await request(`${BASE}/${encodePath(id)}`, {
+    return normalizeApprovedRagIndex(await request(`${BASE}/${encodePath(id)}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
-    }));
-  },
-
-  async reindex(id) {
-    return normalizeGoldQa(await request(`${BASE}/${encodePath(id)}/reindex`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({}),
-    }));
-  },
-
-  async unindex(id) {
-    return normalizeGoldQa(await request(`${BASE}/${encodePath(id)}/unindex`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({}),
     }));
   },
 

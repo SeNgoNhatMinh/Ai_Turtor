@@ -11,7 +11,7 @@ import {
   Tag,
   Typography,
 } from 'antd';
-import { Pencil, RefreshCw, Trash2, Undo2 } from 'lucide-react';
+import { Pencil, RefreshCw, Trash2 } from 'lucide-react';
 import PageHeader from '../../../components/common/PageHeader';
 import SearchableTable from '../../../components/common/SearchableTable';
 import { confirmDanger } from '../../../components/common/confirmDialog';
@@ -30,7 +30,6 @@ const courseName = (course = {}) => course.courseName || course.name || course.t
 export default function AdminIndexedTeachingNotesPage({ courseId, setCourseId, triggerToast }) {
   const [courses, setCourses] = useState([]);
   const [items, setItems] = useState([]);
-  const [statusFilter, setStatusFilter] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [pendingId, setPendingId] = useState('');
@@ -52,19 +51,25 @@ export default function AdminIndexedTeachingNotesPage({ courseId, setCourseId, t
     try {
       const data = await indexedTeachingNotesApi.list({
         courseId: courseId || undefined,
-        status: statusFilter || undefined,
       });
       setItems(data);
     } catch (reason) {
-      setError(getUserFacingError(reason, 'Không thể tải ghi chú giảng dạy đã index.'));
+      setError(getUserFacingError(reason, 'Không thể tải các chỉ mục câu trả lời đã duyệt.'));
       setItems([]);
     } finally {
       setLoading(false);
     }
-  }, [courseId, statusFilter]);
+  }, [courseId]);
 
-  useEffect(() => { loadCourses(); }, [loadCourses]);
-  useEffect(() => { loadNotes(); }, [loadNotes]);
+  useEffect(() => {
+    const timer = window.setTimeout(loadCourses, 0);
+    return () => window.clearTimeout(timer);
+  }, [loadCourses]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(loadNotes, 0);
+    return () => window.clearTimeout(timer);
+  }, [loadNotes]);
 
   const courseOptions = useMemo(
     () => [
@@ -77,18 +82,12 @@ export default function AdminIndexedTeachingNotesPage({ courseId, setCourseId, t
     [courses],
   );
 
-  const stats = useMemo(() => ({
-    total: items.length,
-    indexed: items.filter((item) => item.status === 'INDEXED').length,
-    unindexed: items.filter((item) => item.status === 'UNINDEXED').length,
-  }), [items]);
-
   const openEdit = (row) => {
     setEditing(row);
     form.setFieldsValue({
       chapter: row.chapter || '',
       question: row.question || '',
-      goldAnswer: row.goldAnswer || '',
+      approvedAnswer: row.approvedAnswer || '',
     });
   };
 
@@ -97,11 +96,11 @@ export default function AdminIndexedTeachingNotesPage({ courseId, setCourseId, t
     setPendingId(editing.id);
     try {
       await indexedTeachingNotesApi.update(editing.id, { ...values, reindex: true });
-      triggerToast?.('Đã cập nhật và nạp lại chỉ mục ghi chú.');
+      triggerToast?.('Đã cập nhật chỉ mục câu trả lời.');
       setEditing(null);
       await loadNotes();
     } catch (reason) {
-      triggerToast?.(getUserFacingError(reason, 'Không thể cập nhật ghi chú.'));
+      triggerToast?.(getUserFacingError(reason, 'Không thể cập nhật chỉ mục.'));
     } finally {
       setPendingId('');
     }
@@ -120,18 +119,12 @@ export default function AdminIndexedTeachingNotesPage({ courseId, setCourseId, t
     }
   };
 
-  const statusTag = (status) => {
-    if (status === 'INDEXED') return <Tag color="success">{getStatusLabel(status)}</Tag>;
-    if (status === 'UNINDEXED') return <Tag color="default">{getStatusLabel(status)}</Tag>;
-    return <Tag>{getStatusLabel(status)}</Tag>;
-  };
-
   return (
     <div className="portal-section admin-route-page admin-indexed-notes-page">
       <PageHeader
         eyebrow="Giám sát AI"
-        title="Ghi chú giảng dạy đã nạp RAG"
-        description="Quản lý Gold Q&A Senior đã duyệt vào Elasticsearch: sửa nội dung lỗi thời, gỡ khỏi RAG hoặc xóa hẳn."
+        title="Chỉ mục câu trả lời đã duyệt"
+        description="Hiển thị các câu trả lời V2 đã được Senior duyệt và đang thực sự được RAG sử dụng."
         actions={(
           <Button icon={<RefreshCw size={16} />} onClick={loadNotes} disabled={Boolean(pendingId)}>
             Làm mới
@@ -142,11 +135,10 @@ export default function AdminIndexedTeachingNotesPage({ courseId, setCourseId, t
       {error && <Alert type="error" showIcon title={error} />}
 
       <Card className="admin-indexed-notes-filters">
-        <Space wrap size={12}>
-          <div>
+        <div className="admin-indexed-notes-filter-grid">
+          <div className="admin-indexed-notes-filter-field">
             <Text type="secondary">Môn học</Text>
             <Select
-              style={{ minWidth: 260, display: 'block' }}
               value={courseId || ''}
               options={courseOptions}
               onChange={(value) => setCourseId?.(value || '')}
@@ -154,33 +146,20 @@ export default function AdminIndexedTeachingNotesPage({ courseId, setCourseId, t
               optionFilterProp="label"
             />
           </div>
-          <div>
-            <Text type="secondary">Trạng thái</Text>
-            <Select
-              style={{ minWidth: 180, display: 'block' }}
-              value={statusFilter}
-              options={[
-                { value: '', label: 'Đã nạp + đã gỡ' },
-                { value: 'INDEXED', label: 'Đang trong RAG' },
-                { value: 'UNINDEXED', label: 'Đã gỡ khỏi RAG' },
-              ]}
-              onChange={setStatusFilter}
-            />
-          </div>
-        </Space>
+        </div>
         <Paragraph type="secondary" style={{ margin: '12px 0 0' }}>
-          {stats.total} ghi chú · {stats.indexed} đang nạp · {stats.unindexed} đã gỡ
+          {items.length} chỉ mục đang hoạt động trong RAG
         </Paragraph>
       </Card>
 
-      <Card title="Danh sách ghi chú Gold Q&A">
+      <Card className="admin-indexed-notes-list-card" title="Danh sách chỉ mục Senior đã duyệt">
         <SearchableTable
           rowKey={(row) => row.id}
           loading={loading}
           dataSource={items}
           sticky={false}
-          scroll={{ x: 1100, y: 520 }}
-          searchKeys={['courseId', 'chapter', 'question', 'goldAnswer', 'authorId']}
+          scroll={{ x: 1370, y: 520 }}
+          searchKeys={['courseId', 'chapter', 'question', 'approvedAnswer', 'authorId', 'reviewedBy']}
           columns={[
             {
               title: 'Môn',
@@ -197,21 +176,31 @@ export default function AdminIndexedTeachingNotesPage({ courseId, setCourseId, t
             {
               title: 'Câu hỏi',
               dataIndex: 'question',
+              width: 280,
               ellipsis: true,
+            },
+            {
+              title: 'Câu trả lời đã duyệt',
+              dataIndex: 'approvedAnswer',
+              width: 380,
+              render: (value) => (
+                <Paragraph ellipsis={{ rows: 2, tooltip: value }} style={{ margin: 0 }}>
+                  {value}
+                </Paragraph>
+              ),
             },
             {
               title: 'Trạng thái',
               dataIndex: 'status',
-              width: 150,
-              render: statusTag,
+              width: 140,
+              render: (status) => <Tag color="success">{getStatusLabel(status)}</Tag>,
             },
             {
               title: 'Thao tác',
               key: 'actions',
-              width: 320,
-              fixed: 'right',
+              width: 240,
               render: (_, row) => (
-                <Space wrap size={6}>
+                <Space wrap size={6} className="admin-indexed-notes-actions">
                   <Button
                     size="small"
                     icon={<Pencil size={14} />}
@@ -220,41 +209,20 @@ export default function AdminIndexedTeachingNotesPage({ courseId, setCourseId, t
                   >
                     Sửa
                   </Button>
-                  {row.status === 'UNINDEXED' ? (
-                    <Button
-                      size="small"
-                      loading={pendingId === row.id}
-                      disabled={Boolean(pendingId) && pendingId !== row.id}
-                      icon={<RefreshCw size={14} />}
-                      onClick={() => runAction(row.id, () => indexedTeachingNotesApi.reindex(row.id), 'Đã nạp lại vào RAG.')}
-                    >
-                      Nạp lại
-                    </Button>
-                  ) : (
-                    <Button
-                      size="small"
-                      loading={pendingId === row.id}
-                      disabled={Boolean(pendingId) && pendingId !== row.id}
-                      icon={<Undo2 size={14} />}
-                      onClick={() => runAction(row.id, () => indexedTeachingNotesApi.unindex(row.id), 'Đã gỡ khỏi RAG.')}
-                    >
-                      Gỡ RAG
-                    </Button>
-                  )}
                   <Button
                     size="small"
                     danger
                     icon={<Trash2 size={14} />}
                     disabled={Boolean(pendingId)}
                     onClick={() => confirmDanger({
-                      title: 'Xóa ghi chú này?',
-                      content: 'Xóa khỏi Mongo và Elasticsearch. Không thể hoàn tác.',
-                      okText: 'Xóa',
+                      title: 'Gỡ chỉ mục này khỏi RAG?',
+                      content: 'Chỉ xóa dữ liệu khỏi Elasticsearch. Bản ghi duyệt V2 vẫn được giữ để không làm đứt task và lịch sử kiểm duyệt.',
+                      okText: 'Gỡ khỏi RAG',
                       cancelText: 'Hủy',
-                      onOk: () => runAction(row.id, () => indexedTeachingNotesApi.remove(row.id), 'Đã xóa ghi chú.'),
+                      onOk: () => runAction(row.id, () => indexedTeachingNotesApi.remove(row.id), 'Đã gỡ chỉ mục khỏi RAG.'),
                     })}
                   >
-                    Xóa
+                    Gỡ chỉ mục
                   </Button>
                 </Space>
               ),
@@ -264,11 +232,11 @@ export default function AdminIndexedTeachingNotesPage({ courseId, setCourseId, t
       </Card>
 
       <Modal
-        title="Sửa ghi chú giảng dạy"
+        title="Sửa chỉ mục câu trả lời"
         open={Boolean(editing)}
         onCancel={() => setEditing(null)}
         onOk={saveEdit}
-        okText="Lưu & nạp lại RAG"
+        okText="Lưu & cập nhật RAG"
         cancelText="Hủy"
         confirmLoading={Boolean(editing && pendingId === editing.id)}
         width={720}
@@ -280,8 +248,8 @@ export default function AdminIndexedTeachingNotesPage({ courseId, setCourseId, t
               type="info"
               showIcon
               style={{ marginBottom: 12 }}
-              title={`${editing.courseId} · ${editing.status === 'INDEXED' ? 'Đang trong RAG' : 'Đã gỡ RAG'}`}
-              description="Lưu sẽ cập nhật nội dung và viết lại chunk Elasticsearch (nếu đang/được nạp)."
+              title={`${editing.courseId} · Đang được RAG sử dụng`}
+              description="Lưu sẽ cập nhật nội dung đã duyệt và viết lại chỉ mục Elasticsearch."
             />
             <Form.Item name="chapter" label="Chương" rules={[{ required: true, whitespace: true }]}>
               <Input maxLength={255} />
@@ -289,7 +257,7 @@ export default function AdminIndexedTeachingNotesPage({ courseId, setCourseId, t
             <Form.Item name="question" label="Câu hỏi" rules={[{ required: true, whitespace: true }]}>
               <TextArea rows={3} maxLength={5000} showCount />
             </Form.Item>
-            <Form.Item name="goldAnswer" label="Tóm tắt ý chính" rules={[{ required: true, whitespace: true }]}>
+            <Form.Item name="approvedAnswer" label="Câu trả lời đã duyệt" rules={[{ required: true, whitespace: true }]}>
               <TextArea rows={8} maxLength={5000} showCount />
             </Form.Item>
           </Form>

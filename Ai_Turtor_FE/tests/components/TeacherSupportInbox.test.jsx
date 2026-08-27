@@ -42,8 +42,6 @@ function InboxHarness() {
       onSubmitAnswer={vi.fn()}
       createKnowledgeCandidate={false}
       onCreateKnowledgeCandidateChange={vi.fn()}
-      candidateType="ACADEMIC_KNOWLEDGE"
-      onCandidateTypeChange={vi.fn()}
     />
   );
 }
@@ -58,5 +56,14 @@ describe('TeacherSupportInbox history', () => {
     expect(screen.getByText('Câu hỏi dài đã hoàn tất và cần xem lại đầy đủ trong lịch sử.')).toBeInTheDocument();
     expect(screen.getByText('Lịch sử room-closed · chỉ đọc')).toBeInTheDocument();
     expect(screen.queryByLabelText('Câu trả lời cuối sau khi trao đổi:')).not.toBeInTheDocument();
+  });
+
+  it('uses the chat rich-text editor and hides the knowledge type selector', () => {
+    render(<InboxHarness />);
+
+    expect(screen.getByRole('toolbar', { name: 'Công cụ soạn thảo' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Đậm' })).toBeInTheDocument();
+    expect(screen.queryByText('Loại tri thức:')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Loại Knowledge Candidate')).not.toBeInTheDocument();
   });
 });

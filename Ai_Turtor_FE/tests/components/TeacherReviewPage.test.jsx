@@ -45,12 +45,19 @@ describe('TeacherReviewPage official answer action', () => {
       />,
     );
 
-    const answer = screen.getByLabelText('Câu trả lời cuối sau khi trao đổi:');
-    fireEvent.change(answer, { target: { value: 'A verified explanation.' } });
+    const answer = screen.getByRole('textbox', { name: /Câu trả lời cuối sau khi trao đổi:/ });
+    answer.innerHTML = '<p>A verified explanation.</p>';
+    fireEvent.input(answer);
     fireEvent.click(screen.getByRole('button', { name: 'Gửi câu trả lời chính thức' }));
 
     await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
-    expect(answer).toHaveValue('A verified explanation.');
+    expect(answer).toHaveTextContent('A verified explanation.');
+    expect(submit).toHaveBeenCalledWith(
+      'esc-1',
+      '<p>A verified explanation.</p>',
+      false,
+      [],
+    );
   });
 
   it('clears the answer only after a successful mutation', async () => {
@@ -66,11 +73,12 @@ describe('TeacherReviewPage official answer action', () => {
       />,
     );
 
-    const answer = screen.getByLabelText('Câu trả lời cuối sau khi trao đổi:');
-    fireEvent.change(answer, { target: { value: 'A verified explanation.' } });
+    const answer = screen.getByRole('textbox', { name: /Câu trả lời cuối sau khi trao đổi:/ });
+    answer.innerHTML = '<p>A verified explanation.</p>';
+    fireEvent.input(answer);
     fireEvent.click(screen.getByRole('button', { name: 'Gửi câu trả lời chính thức' }));
 
-    await waitFor(() => expect(answer).toHaveValue(''));
+    await waitFor(() => expect(answer).toHaveTextContent(''));
   });
 
   it('disables the action while a mutation is pending', () => {

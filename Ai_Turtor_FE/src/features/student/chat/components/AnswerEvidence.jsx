@@ -51,9 +51,9 @@ function AnswerEvidence({ message, sourceMap = {}, onDownloadSource }) {
     : grounding === 'COURSE_MATERIAL_WITH_APPROVED_KNOWLEDGE'
       ? 'Dựa trên tài liệu môn học và kiến thức Senior duyệt'
       : grounding === 'COURSE_MATERIAL_WITH_TEACHING_NOTE'
-        ? 'Dựa trên tài liệu môn học (có ghi chú giảng dạy)'
+        ? 'Dựa trên tài liệu môn học và câu trả lời đã duyệt'
         : grounding === 'GOLD_QA_TEACHING_NOTE'
-          ? 'Dựa trên ghi chú giảng dạy (thiếu đoạn giáo trình khớp)'
+          ? 'Dựa trên câu trả lời đã duyệt (thiếu đoạn giáo trình khớp)'
           : grounding === 'COURSE_MATERIAL'
             ? 'Dựa trên tài liệu môn học'
             : 'AI tự phân tích bằng kiến thức chung';

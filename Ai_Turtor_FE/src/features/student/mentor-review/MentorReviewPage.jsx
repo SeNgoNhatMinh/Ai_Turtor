@@ -1,11 +1,10 @@
 import MentorSupport from './MentorSupport';
 import { useStudentSupport } from '../../../hooks/useStudentSupport';
 
-export default function MentorReviewPage({ currentUser, studentId, switchTab }) {
+export default function MentorReviewPage({ currentUser, studentId }) {
   const support = useStudentSupport({
     activeTab: 'student-escalation',
     userId: currentUser?.userId || currentUser?.id || studentId,
-    onConversationResolved: () => switchTab?.('student-chat'),
   });
 
   return (

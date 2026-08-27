@@ -9,6 +9,7 @@ import {
 } from '../../../constants/knowledgeAnswer';
 import { knowledgeImagesApi } from '../../../services/knowledgeImagesApi.js';
 import KnowledgeImageGallery from './KnowledgeImageGallery';
+import SupportRichTextEditor from '../../../components/support/SupportRichTextEditor';
 import './KnowledgeAnswerComposer.css';
 
 const isImageFile = (file) => Boolean(file?.type?.startsWith('image/') || /\.(png|jpe?g|webp|gif)$/i.test(file?.name || ''));
@@ -25,6 +26,8 @@ export default function KnowledgeAnswerComposer({
   rows = 8,
   placeholder = 'Viết câu trả lời học thuật đầy đủ. Có thể dán hoặc tải hình minh họa cho sơ đồ, mô hình...',
   helper = 'Tối đa 20.000 ký tự. PNG, JPG, WEBP hoặc GIF, tối đa 6 ảnh, mỗi ảnh 5 MB.',
+  richText = false,
+  onSubmit,
 }) {
   const fileInputRef = useRef(null);
   const [uploading, setUploading] = useState(false);
@@ -74,28 +77,20 @@ export default function KnowledgeAnswerComposer({
   return (
     <div className={`knowledge-answer-composer ${isDragging ? 'is-dragging' : ''}`}>
       {label ? (
-        <label className="knowledge-answer-composer__label" htmlFor={id}>
-          {label}
-          {required ? <em>Bắt buộc</em> : null}
-        </label>
+        richText ? (
+          <span id={`${id}-label`} className="knowledge-answer-composer__label">
+            {label}
+            {required ? <em>Bắt buộc</em> : null}
+          </span>
+        ) : (
+          <label className="knowledge-answer-composer__label" htmlFor={id}>
+            {label}
+            {required ? <em>Bắt buộc</em> : null}
+          </label>
+        )
       ) : null}
-      <Input.TextArea
-        id={id}
-        aria-label={label}
-        value={value}
-        rows={rows}
-        maxLength={KNOWLEDGE_ANSWER_MAX_LENGTH}
-        showCount
-        required={required}
-        disabled={disabled}
-        placeholder={placeholder}
-        onChange={(event) => onChange?.(event.target.value)}
-        onPaste={(event) => {
-          const files = Array.from(event.clipboardData?.files || []).filter(isImageFile);
-          if (!files.length) return;
-          event.preventDefault();
-          addFiles(files);
-        }}
+      <div
+        className="knowledge-answer-composer__editor"
         onDragOver={(event) => {
           event.preventDefault();
           if (!disabled) setIsDragging(true);
@@ -106,7 +101,41 @@ export default function KnowledgeAnswerComposer({
           setIsDragging(false);
           addFiles(event.dataTransfer?.files);
         }}
-      />
+      >
+        {richText ? (
+          <SupportRichTextEditor
+            id={id}
+            ariaLabel={label ? undefined : placeholder}
+            ariaLabelledBy={label ? `${id}-label` : undefined}
+            value={value}
+            onChange={onChange}
+            onSubmit={onSubmit}
+            onFiles={addFiles}
+            placeholder={placeholder}
+            disabled={disabled}
+            maxLength={KNOWLEDGE_ANSWER_MAX_LENGTH}
+          />
+        ) : (
+          <Input.TextArea
+            id={id}
+            aria-label={label}
+            value={value}
+            rows={rows}
+            maxLength={KNOWLEDGE_ANSWER_MAX_LENGTH}
+            showCount
+            required={required}
+            disabled={disabled}
+            placeholder={placeholder}
+            onChange={(event) => onChange?.(event.target.value)}
+            onPaste={(event) => {
+              const files = Array.from(event.clipboardData?.files || []).filter(isImageFile);
+              if (!files.length) return;
+              event.preventDefault();
+              addFiles(files);
+            }}
+          />
+        )}
+      </div>
       <div className="knowledge-answer-composer__toolbar">
         <input
           ref={fileInputRef}

@@ -2,21 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import { Alert, Button, Empty, Input, Rate, Spin, Tag } from 'antd';
 import { BookPlus, MessageCircle, RefreshCw, Send, XCircle } from 'lucide-react';
 import { useSupportChatRoom } from '../../hooks/useSupportChatRoom';
-import { isRichTextEmpty, looksLikeRichHtml, sanitizeRichHtml } from '../../utils/richText';
+import { isRichTextEmpty, sanitizeRichHtml } from '../../utils/richText';
 import SupportRichTextEditor from './SupportRichTextEditor';
+import SupportRichTextContent from './SupportRichTextContent';
 import './SupportChatRoom.css';
-
-function SupportMessageBody({ content }) {
-  if (looksLikeRichHtml(content)) {
-    return (
-      <div
-        className="support-chat-message__body is-rich"
-        dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(content) }}
-      />
-    );
-  }
-  return <p className="support-chat-message__body">{content}</p>;
-}
 
 function SupportChatRoom({
   chatRoomId,
@@ -106,7 +95,7 @@ function SupportChatRoom({
           return (
             <article key={message.messageId || `${message.senderId}-${message.sentAt}`} className={`support-chat-message ${mine ? 'is-mine' : ''}`}>
               <span>{mine ? 'Bạn' : message.senderName || (message.senderRole === 'MENTOR' ? 'Giáo viên' : 'Sinh viên')}</span>
-              <SupportMessageBody content={message.content} />
+              <SupportRichTextContent content={message.content} className="support-chat-message__body" />
               <time>{message.sentAt ? new Date(message.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}</time>
             </article>
           );

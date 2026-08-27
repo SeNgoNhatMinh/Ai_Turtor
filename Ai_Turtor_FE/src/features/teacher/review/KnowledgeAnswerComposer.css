@@ -30,7 +30,23 @@
   font-size: 0.9rem;
 }
 
+.knowledge-answer-composer__editor {
+  min-width: 0;
+}
+
+.knowledge-answer-composer__editor .support-rich-editor__surface {
+  min-height: 168px;
+  max-height: 360px;
+  padding: 12px 14px;
+  font-size: 0.9rem;
+}
+
 .knowledge-answer-composer.is-dragging .ant-input {
+  border-color: #0b3b82;
+  background: #eef4fb;
+}
+
+.knowledge-answer-composer.is-dragging .support-rich-editor {
   border-color: #0b3b82;
   background: #eef4fb;
 }

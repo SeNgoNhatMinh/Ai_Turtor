@@ -12,6 +12,8 @@ import ActionButton from '../../../components/common/ActionButton';
 import { confirmDanger } from '../../../components/common/confirmDialog';
 import StatusLabel from '../../../components/common/StatusLabel';
 import SupportChatRoom from '../../../components/support/SupportChatRoom';
+import SupportRichTextContent from '../../../components/support/SupportRichTextContent';
+import { isRichTextEmpty } from '../../../utils/richText';
 import TeacherAnswerModeSelector from './TeacherAnswerModeSelector';
 import KnowledgeAnswerComposer from './KnowledgeAnswerComposer';
 import KnowledgeImageGallery from './KnowledgeImageGallery';
@@ -100,8 +102,6 @@ export default function TeacherSupportInbox({
   isSubmitting = false,
   createKnowledgeCandidate,
   onCreateKnowledgeCandidateChange,
-  candidateType,
-  onCandidateTypeChange,
 }) {
   const [view, setView] = useState('active');
   const [visibleLimit, setVisibleLimit] = useState(TICKET_BATCH_SIZE);
@@ -265,7 +265,10 @@ export default function TeacherSupportInbox({
                   )}
                   <section className="teacher-support-history__answer">
                     <span className="teacher-review-eyebrow">Câu trả lời chính thức</span>
-                    <p>{selectedEscalation.mentorAnswer || 'Backend chưa trả nội dung câu trả lời chính thức cho bản ghi này.'}</p>
+                    <SupportRichTextContent
+                      content={selectedEscalation.mentorAnswer || 'Backend chưa trả nội dung câu trả lời chính thức cho bản ghi này.'}
+                      className="teacher-support-history__rich-answer"
+                    />
                     <KnowledgeImageGallery images={selectedEscalation.mentorAnswerImages} />
                     {selectedEscalation.assignedMentorName && <small>Giảng viên: {selectedEscalation.assignedMentorName}</small>}
                   </section>
@@ -284,29 +287,29 @@ export default function TeacherSupportInbox({
                     <h3>Chốt câu trả lời sau khi trao đổi</h3>
                     <p>Nếu đã dùng nút “Gửi + gửi senior duyệt” trong chat thì không cần viết lại phần này. Form này vẫn dùng khi muốn chốt đáp án ngoài khung chat.</p>
                   </div>
-                  <label htmlFor="teacher-final-answer">Câu trả lời cuối sau khi trao đổi:</label>
                   <KnowledgeAnswerComposer
                     id="teacher-final-answer"
+                    label="Câu trả lời cuối sau khi trao đổi:"
                     value={reply}
                     images={replyImages}
                     required
                     disabled={isSubmitting}
+                    richText
+                    onSubmit={onSubmitAnswer}
                     placeholder="Viết câu trả lời đầy đủ cho sinh viên. Có thể dán hoặc tải hình minh họa cho sơ đồ, mô hình..."
                     onChange={onReplyChange}
                     onImagesChange={onReplyImagesChange}
                   />
                   <TeacherAnswerModeSelector
                     createKnowledgeCandidate={createKnowledgeCandidate}
-                    candidateType={candidateType}
                     setCreateKnowledgeCandidate={onCreateKnowledgeCandidateChange}
-                    setCandidateType={onCandidateTypeChange}
                     disabled={isSubmitting}
                   />
                   <Button
                     type="primary"
                     htmlType="submit"
                     loading={isSubmitting}
-                    disabled={isSubmitting || !reply.trim()}
+                    disabled={isSubmitting || isRichTextEmpty(reply)}
                     aria-label={isSubmitting ? 'Đang gửi câu trả lời...' : 'Gửi câu trả lời chính thức'}
                   >
                     {isSubmitting ? 'Đang gửi câu trả lời...' : 'Gửi câu trả lời chính thức'}

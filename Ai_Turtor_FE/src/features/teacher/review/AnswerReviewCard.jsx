@@ -1,4 +1,4 @@
-import { Alert, Button, Input, Rate, Select, Tag } from 'antd';
+import { Alert, Button, Input, Rate, Tag } from 'antd';
 import {
   formatAnswerReviewStatus,
   formatAnswerReviewType,
@@ -6,12 +6,6 @@ import {
 import { REVIEW_NOTE_MAX_LENGTH } from '../../../constants/knowledgeAnswer';
 import { getPersonDisplayName } from '../../../utils/displayNames';
 import KnowledgeAnswerComposer from './KnowledgeAnswerComposer';
-
-const CANDIDATE_TYPES = [
-  { value: 'ACADEMIC_KNOWLEDGE', label: 'Kiến thức học thuật' },
-  { value: 'MATERIAL_CORRECTION', label: 'Sửa nội dung tài liệu' },
-  { value: 'FAQ_CLARIFICATION', label: 'Làm rõ câu hỏi thường gặp' },
-];
 
 const formatBoolean = (value) => {
   if (value === true) return 'Có';
@@ -47,7 +41,6 @@ export default function AnswerReviewCard({
   const notes = String(draft.notes || '');
   const correctedAnswer = String(draft.correctedAnswer || '');
   const images = Array.isArray(draft.images) ? draft.images : [];
-  const candidateType = draft.candidateType || 'ACADEMIC_KNOWLEDGE';
   const studentLabel = getPersonDisplayName(review, 'Sinh viên');
   const createdAt = formatDate(review.createdAt);
 
@@ -136,13 +129,9 @@ export default function AnswerReviewCard({
             onChange={(nextValue) => onDraftChange?.({ correctedAnswer: nextValue })}
             onImagesChange={(nextImages) => onDraftChange?.({ images: nextImages })}
           />
-          <Select
-            value={candidateType}
-            options={CANDIDATE_TYPES}
-            disabled={isPending || !onDraftChange}
-            aria-label="Loại Knowledge Candidate"
-            onChange={(value) => onDraftChange?.({ candidateType: value })}
-          />
+          <p className="answer-review-resolution__hint">
+            Loại đề xuất được cố định là kiến thức học thuật.
+          </p>
           <div className="answer-review-resolution__actions">
             <Button
               disabled={!notes.trim() || isPending || !onResolve}

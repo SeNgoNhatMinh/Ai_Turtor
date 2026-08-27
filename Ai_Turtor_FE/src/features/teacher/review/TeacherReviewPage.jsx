@@ -3,7 +3,7 @@ import { CheckCircle2, LifeBuoy, ShieldAlert } from 'lucide-react';
 import PageHeader from '../../../components/common/PageHeader';
 import AppTabs from '../../../components/common/AppTabs';
 import { uiCopy } from '../../../constants/uiCopy';
-import { ACADEMIC_CANDIDATE_TYPES } from '../../../constants/knowledgeFlow';
+import { isRichTextEmpty, sanitizeRichHtml } from '../../../utils/richText';
 import { useTeacherReviewQueue } from './useTeacherReviewQueue';
 import { useRealtimeEvent, useRealtimeReconnect } from '../../realtime/realtimeContext';
 import { eventMatchesCourse, REALTIME_EVENT_TYPES } from '../../realtime/realtimeEvents';
@@ -35,7 +35,6 @@ export default function TeacherReviewPage({
   const [reply, setReply] = useState('');
   const [replyImages, setReplyImages] = useState([]);
   const [createKnowledgeCandidate, setCreateKnowledgeCandidate] = useState(false);
-  const [candidateType, setCandidateType] = useState('ACADEMIC_KNOWLEDGE');
   const answerReviewCount = review.answerReviewGroups?.length || review.answerReviews?.length || 0;
   const openSupportCount = review.escalations.filter((item) => !isHistoryEscalation(item)).length;
   const resolvedCount = review.escalations.filter(isHistoryEscalation).length
@@ -59,16 +58,13 @@ export default function TeacherReviewPage({
   });
 
   const handleAnswerEscalation = async (event) => {
-    event.preventDefault();
-    if (!reply.trim() || !review.selectedEscalation?.id || review.isTeacherAnswerSubmitting) return;
-    const safeCandidateType = createKnowledgeCandidate && ACADEMIC_CANDIDATE_TYPES.has(candidateType)
-      ? candidateType
-      : 'ACADEMIC_KNOWLEDGE';
+    event?.preventDefault?.();
+    const safeReply = sanitizeRichHtml(reply);
+    if (isRichTextEmpty(safeReply) || !review.selectedEscalation?.id || review.isTeacherAnswerSubmitting) return;
     const succeeded = await review.handleTeacherAnswerEsc(
       review.selectedEscalation.id,
-      reply,
+      safeReply,
       createKnowledgeCandidate,
-      safeCandidateType,
       replyImages.map((item) => item.fileId).filter(Boolean),
     );
     if (succeeded) {
@@ -146,8 +142,6 @@ export default function TeacherReviewPage({
                 isSubmitting={review.isTeacherAnswerSubmitting}
                 createKnowledgeCandidate={createKnowledgeCandidate}
                 onCreateKnowledgeCandidateChange={setCreateKnowledgeCandidate}
-                candidateType={candidateType}
-                onCandidateTypeChange={setCandidateType}
               />
             ),
           },

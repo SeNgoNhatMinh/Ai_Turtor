@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { getUserFacingError } from '../services/apiClient';
 import { normalizeEscalation } from '../services/normalizers';
 import { supportChatApi } from '../services/supportChatApi';
@@ -17,20 +17,13 @@ const TERMINAL_ESCALATION_STATES = new Set([
 
 const normalizeStatus = (value) => String(value || '').trim().toUpperCase();
 
-export function useStudentSupport({ activeTab, userId, onConversationResolved }) {
+export function useStudentSupport({ activeTab, userId }) {
   const [escalations, setEscalations] = useState([]);
   const [selectedEscalation, setSelectedEscalation] = useState(null);
   const [isEscalationsLoading, setIsEscalationsLoading] = useState(false);
   const [isEscalationDetailLoading, setIsEscalationDetailLoading] = useState(false);
   const [escalationsError, setEscalationsError] = useState('');
   const [escalationDetailError, setEscalationDetailError] = useState('');
-  const handledResolvedConversationIdsRef = useRef(new Set());
-  const onConversationResolvedRef = useRef(onConversationResolved);
-
-  useEffect(() => {
-    onConversationResolvedRef.current = onConversationResolved;
-  }, [onConversationResolved]);
-
   const loadEscalations = useCallback(async () => {
     if (!userId) {
       setEscalations([]);
@@ -87,14 +80,6 @@ export function useStudentSupport({ activeTab, userId, onConversationResolved })
       setEscalations((current) => current.map((item) => (
         item.id === escalationId ? { ...item, ...normalized } : item
       )));
-      if (
-        normalizeStatus(normalized.status) === 'RESOLVED_INDEXED'
-        && normalized.conversationId
-        && !handledResolvedConversationIdsRef.current.has(normalized.conversationId)
-      ) {
-        handledResolvedConversationIdsRef.current.add(normalized.conversationId);
-        Promise.resolve(onConversationResolvedRef.current?.(normalized.conversationId)).catch(() => {});
-      }
       return normalized;
     } catch (error) {
       setEscalationDetailError(getUserFacingError(error, 'Không thể tải đầy đủ yêu cầu hỗ trợ này.'));

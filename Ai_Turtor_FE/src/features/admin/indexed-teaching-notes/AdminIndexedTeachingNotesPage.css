@@ -7,13 +7,103 @@
   overflow-x: clip;
 }
 
+.admin-indexed-notes-page > *,
+.admin-indexed-notes-page .ant-card,
+.admin-indexed-notes-page .ant-card-body,
+.admin-indexed-notes-page .ant-card-head,
+.admin-indexed-notes-page .ant-card-head-wrapper {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
 .admin-indexed-notes-filters .ant-card-body {
   display: grid;
   gap: 4px;
+}
+
+.admin-indexed-notes-filter-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  width: min(460px, 100%);
+  min-width: 0;
+}
+
+.admin-indexed-notes-filter-field {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.admin-indexed-notes-filter-field .ant-select {
+  width: 100%;
+  min-width: 0;
+}
+
+.admin-indexed-notes-list-card > .ant-card-body {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.admin-indexed-notes-page .searchable-table {
+  display: grid;
+  width: 100%;
 }
 
 .admin-indexed-notes-page .ant-table-wrapper,
 .admin-indexed-notes-page .searchable-table {
   min-width: 0;
   max-width: 100%;
+}
+
+.admin-indexed-notes-page .collection-search-bar,
+.admin-indexed-notes-page .ant-spin-nested-loading,
+.admin-indexed-notes-page .ant-spin-container,
+.admin-indexed-notes-page .ant-table,
+.admin-indexed-notes-page .ant-table-container,
+.admin-indexed-notes-page .ant-table-header,
+.admin-indexed-notes-page .ant-table-body {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0 !important;
+}
+
+.admin-indexed-notes-page .ant-table-content,
+.admin-indexed-notes-page .ant-table-body {
+  overflow-x: auto !important;
+  overscroll-behavior-x: contain;
+}
+
+.admin-indexed-notes-page .ant-table-cell {
+  overflow-wrap: anywhere;
+}
+
+.admin-indexed-notes-actions {
+  max-width: 100%;
+}
+
+.admin-indexed-notes-actions .ant-space-item {
+  min-width: 0;
+}
+
+@media (max-width: 720px) {
+  .admin-indexed-notes-filter-grid {
+    grid-template-columns: minmax(0, 1fr);
+    width: 100%;
+  }
+
+  .admin-indexed-notes-filters .ant-card-body,
+  .admin-indexed-notes-list-card > .ant-card-body {
+    padding: 16px;
+  }
+
+  .admin-indexed-notes-page .collection-search-bar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .admin-indexed-notes-page .collection-search-field {
+    width: 100%;
+  }
 }

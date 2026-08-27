@@ -638,6 +638,35 @@
   white-space: pre-wrap;
 }
 
+.teacher-support-history__rich-answer {
+  margin-top: 8px;
+  overflow-wrap: anywhere;
+  color: #27324a;
+  line-height: 1.65;
+}
+
+.teacher-support-history__rich-answer > :first-child {
+  margin-top: 0;
+}
+
+.teacher-support-history__rich-answer > :last-child {
+  margin-bottom: 0;
+}
+
+.teacher-support-history__rich-answer ul,
+.teacher-support-history__rich-answer ol {
+  padding-left: 1.4rem;
+}
+
+.teacher-support-history__rich-answer pre {
+  max-width: 100%;
+  overflow-x: auto;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #eef2f7;
+  white-space: pre-wrap;
+}
+
 .teacher-support-history__answer {
   border-color: #c5d3e3 !important;
   background: #f8fbff !important;

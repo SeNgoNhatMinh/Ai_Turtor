@@ -48,9 +48,13 @@ function queryState(command) {
 }
 
 function SupportRichTextEditor({
+  id,
+  ariaLabel,
+  ariaLabelledBy,
   value = '',
   onChange,
   onSubmit,
+  onFiles,
   placeholder = 'Trả lời sinh viên...',
   disabled = false,
   maxLength = 10000,
@@ -125,6 +129,12 @@ function SupportRichTextEditor({
   };
 
   const handlePaste = (event) => {
+    const files = Array.from(event.clipboardData?.files || []);
+    if (files.length && onFiles) {
+      event.preventDefault();
+      onFiles(files);
+      return;
+    }
     event.preventDefault();
     const html = event.clipboardData?.getData('text/html');
     const text = event.clipboardData?.getData('text/plain') || '';
@@ -173,12 +183,14 @@ function SupportRichTextEditor({
         ))}
       </div>
       <div
+        id={id}
         ref={editorRef}
         className={`support-rich-editor__surface ${isEmpty ? 'is-empty' : ''}`}
         contentEditable={!disabled}
         role="textbox"
         aria-multiline="true"
-        aria-label={placeholder}
+        aria-label={ariaLabel || (!id && !ariaLabelledBy ? placeholder : undefined)}
+        aria-labelledby={ariaLabelledBy}
         data-placeholder={placeholder}
         suppressContentEditableWarning
         onInput={handleInput}
