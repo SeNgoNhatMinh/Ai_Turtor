@@ -44,6 +44,30 @@ class CourseMaterialFallbackSearchServiceTest {
         assertEquals("book-1", result.get(0).materialId());
     }
 
+    @Test
+    void approvedKnowledgeSearchMatchesConceptInsideFullAnswerOnly() {
+        CourseMaterial textbook = material("book-1", "PDF", "Giáo trình Python cơ bản.");
+        CourseMaterial candidate = material(
+                "candidate-1",
+                "KNOWLEDGE_CANDIDATE",
+                "Câu hỏi: PyTorch là gì? Câu trả lời: Forward Propagation đưa dữ liệu qua mạng neural."
+        );
+        candidate.setCategory("senior-approved-knowledge");
+        when(materialRepository.findByCourseId("PFP191")).thenReturn(List.of(textbook, candidate));
+        when(chunkingService.chunk(anyString())).thenAnswer(invocation ->
+                List.of(invocation.getArgument(0, String.class)));
+
+        List<ElasticVectorService.SearchChunk> result = service.searchApprovedKnowledge(
+                "Forward Propagation",
+                "PFP191",
+                null,
+                8
+        );
+
+        assertEquals(1, result.size());
+        assertEquals("candidate-1", result.get(0).materialId());
+    }
+
     private CourseMaterial material(String id, String sourceType, String content) {
         CourseMaterial material = new CourseMaterial();
         material.setId(id);
