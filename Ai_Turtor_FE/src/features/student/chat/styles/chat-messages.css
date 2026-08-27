@@ -1,7 +1,7 @@
 /* Message List Area */
 .chat-workspace-messages-container {
-  flex: 1;
-  height: 0;
+  flex: 1 1 0%;
+  height: auto;
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
@@ -35,8 +35,9 @@
 }
 
 .chat-workspace-messages-inner--empty {
+  flex: 0 0 auto;
   min-height: 100%;
-  height: max-content;
+  height: auto;
   padding-top: 18px;
   padding-bottom: 12px;
 }

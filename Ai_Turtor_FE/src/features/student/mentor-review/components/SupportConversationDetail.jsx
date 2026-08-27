@@ -1,5 +1,6 @@
-import { Alert, Card, Empty, Space, Spin, Tag, Typography } from 'antd';
-import { Bot, CircleHelp, Clock3, GraduationCap, ShieldCheck } from 'lucide-react';
+import { Alert, Spin } from 'antd';
+import { Bot, Clock3, GraduationCap, ShieldCheck } from 'lucide-react';
+import AsyncState from '../../../../components/common/AsyncState';
 import StatusTag from '../../../../components/common/StatusTag';
 import MarkdownRenderer from '../../../../components/markdown/MarkdownRenderer';
 import StudentMentorFlow from '../../../../components/support/StudentMentorFlow';
@@ -12,8 +13,6 @@ import {
   getQuestionText,
   normalizeSupportStatus,
 } from '../mentorSupportUtils';
-
-const { Paragraph, Text, Title } = Typography;
 
 function ReviewBlock({ label, children, tone = 'default', icon = null }) {
   return (
@@ -33,13 +32,13 @@ function SupportConversationDetail({
 }) {
   if (!ticket) {
     return (
-      <Card className="mentor-review-detail-card" styles={{ body: { padding: 0 } }}>
-        <Empty description={uiCopy.student.support.detailEmpty} className="mentor-review-detail-empty">
-          <Text type="secondary">
-            Chọn một yêu cầu ở danh sách bên trái để xem toàn bộ tiến trình và trao đổi với giảng viên.
-          </Text>
-        </Empty>
-      </Card>
+      <section className="mentor-review-detail-card">
+        <AsyncState
+          empty
+          emptyTitle={uiCopy.student.support.detailEmpty}
+          emptyDescription="Chọn một yêu cầu ở danh sách bên trái để xem toàn bộ tiến trình và trao đổi với giảng viên."
+        />
+      </section>
     );
   }
 
@@ -50,17 +49,18 @@ function SupportConversationDetail({
   const isChatActive = ['IN_CHAT', 'CHAT_ACTIVE', 'MENTOR_SELECTED'].includes(status);
 
   return (
-    <Card className="mentor-review-detail-card" styles={{ body: { padding: 0 } }}>
+    <section className="mentor-review-detail-card">
       <div className="mentor-review-detail">
         <div className="mentor-review-detail__header">
           <div>
             <span className="mentor-review-detail__eyebrow">Chi tiết yêu cầu</span>
-            <Title level={4}>Trao đổi với giảng viên</Title>
-            <Space size={[8, 8]} wrap>
-              {ticket.courseId && <Tag>Môn {ticket.courseId}</Tag>}
-              {ticket.classId && <Tag>Lớp {ticket.classId}</Tag>}
-              {assignedMentor && <Tag>Giảng viên {assignedMentor}</Tag>}
-            </Space>
+            <h2>{getQuestionText(ticket)}</h2>
+            <p className="mentor-review-detail__hint">Theo dõi câu trả lời và trao đổi trực tiếp với giảng viên.</p>
+            <div className="mentor-review-detail__meta">
+              {ticket.courseId && <span>Môn {ticket.courseId}</span>}
+              {ticket.classId && <span>Lớp {ticket.classId}</span>}
+              {assignedMentor && <span>Giảng viên {assignedMentor}</span>}
+            </div>
           </div>
           <StatusTag status={ticket.status} />
         </div>
@@ -77,13 +77,9 @@ function SupportConversationDetail({
           {isLoading && (
             <div className="mentor-review-detail-loading">
               <Spin size="small" />
-              <Text type="secondary">Đang tải nội dung đầy đủ...</Text>
+              <span className="mentor-review-state-hint">Đang tải nội dung đầy đủ...</span>
             </div>
           )}
-
-          <ReviewBlock label="Câu hỏi của sinh viên" tone="question" icon={<CircleHelp size={15} />}>
-            <Paragraph className="mentor-review-question-text">{getQuestionText(ticket)}</Paragraph>
-          </ReviewBlock>
 
           {aiSnapshot && (
             <ReviewBlock label="Câu trả lời AI trước đó" tone="ai" icon={<Bot size={15} />}>
@@ -99,7 +95,7 @@ function SupportConversationDetail({
               tone="answer"
               icon={<GraduationCap size={15} />}
             >
-              <Paragraph>{mentorAnswer}</Paragraph>
+              <p className="mentor-review-answer-text">{mentorAnswer}</p>
               <KnowledgeImageGallery images={ticket.mentorAnswerImages} />
             </ReviewBlock>
           ) : (
@@ -114,10 +110,10 @@ function SupportConversationDetail({
                 <div className="mentor-review-waiting">
                   <Clock3 size={19} aria-hidden="true" />
                   <div>
-                    <Title level={5}>Đang chờ bắt đầu hỗ trợ</Title>
-                    <Paragraph>
+                    <h3>Đang chờ bắt đầu hỗ trợ</h3>
+                    <p>
                       Hệ thống cần tìm giảng viên phụ trách môn/lớp, sau đó bạn chọn giảng viên để mở cuộc trò chuyện hai chiều.
-                    </Paragraph>
+                    </p>
                   </div>
                 </div>
               )}
@@ -133,7 +129,7 @@ function SupportConversationDetail({
           </div>
         </div>
       </div>
-    </Card>
+    </section>
   );
 }
 

@@ -213,6 +213,92 @@ body:has(.app-container.dark) .sidebar-nav-tooltip.ant-tooltip .ant-tooltip-arro
     box-shadow: 0 0 0 2px rgba(32, 33, 35, 0.08) !important;
 }
 
+/* Authenticated UI control baseline. Feature screens may choose intent and
+   density, while shape, typography and interaction size remain consistent. */
+.app-container .ant-btn {
+  min-height: 38px;
+  padding-inline: 14px;
+  border-radius: 9px;
+  box-shadow: none;
+  font-weight: 650;
+}
+
+.app-container .ant-btn-sm {
+  min-height: 32px;
+  padding-inline: 10px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+}
+
+.app-container .ant-btn-lg {
+  min-height: 44px;
+  padding-inline: 18px;
+  border-radius: 11px;
+}
+
+.app-container .ant-btn-icon-only {
+  width: 38px;
+  min-width: 38px;
+  padding-inline: 0;
+}
+
+.app-container .ant-btn-sm.ant-btn-icon-only {
+  width: 32px;
+  min-width: 32px;
+}
+
+.app-container .ant-btn > .ant-btn-icon,
+.app-container .ant-btn > svg {
+  display: inline-grid;
+  flex: 0 0 auto;
+  place-items: center;
+}
+
+.app-container :where(.ant-input, .ant-input-affix-wrapper, .ant-input-number, .ant-picker) {
+  min-height: 40px;
+  border-radius: 9px;
+  font-size: 0.875rem;
+}
+
+.app-container textarea.ant-input {
+  min-height: auto;
+  line-height: 1.55;
+}
+
+.app-container .ant-select-single:not(.ant-select-customize-input) .ant-select-selector {
+  min-height: 40px;
+  border-radius: 9px;
+}
+
+.app-container .ant-select-single .ant-select-selector .ant-select-selection-item,
+.app-container .ant-select-single .ant-select-selector .ant-select-selection-placeholder {
+  line-height: 38px;
+}
+
+.app-container .ant-tag {
+  max-width: 100%;
+  min-height: 24px;
+  margin-inline-end: 0;
+  padding-inline: 8px;
+  overflow: hidden;
+  border-radius: 7px;
+  line-height: 22px;
+  text-overflow: ellipsis;
+}
+
+.app-container .ant-card {
+  border-radius: 14px;
+}
+
+.app-container .ant-card-head {
+  min-height: 56px;
+  padding-inline: 16px;
+}
+
+.app-container .ant-card-body {
+  min-width: 0;
+}
+
 /* Keep wide tables contained without clipping every Card/Select popup. */
 .ant-card {
   max-width: 100%;

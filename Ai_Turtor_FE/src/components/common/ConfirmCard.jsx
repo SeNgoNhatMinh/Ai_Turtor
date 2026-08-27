@@ -50,7 +50,11 @@ function ConfirmCard({
     setLoading(true);
     setErrorMessage('');
     try {
-      await onOk?.();
+      const result = await onOk?.();
+      if (result === false) {
+        setLoading(false);
+        return;
+      }
       if (onClose) onClose();
       else setLoading(false);
     } catch (error) {

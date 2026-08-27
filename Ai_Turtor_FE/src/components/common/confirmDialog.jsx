@@ -56,10 +56,10 @@ const openConfirm = ({
 removeConfirmHosts(activeConfirm?.container);
 
 export const confirmDanger = ({
-  title = 'Delete item?',
-  content = 'This action cannot be undone.',
-  okText = 'Delete',
-  cancelText = 'Cancel',
+  title = 'Xóa mục này?',
+  content = 'Thao tác này không thể hoàn tác.',
+  okText = 'Xóa',
+  cancelText = 'Hủy',
   onOk,
 }) => openConfirm({
   title,
@@ -71,10 +71,10 @@ export const confirmDanger = ({
 });
 
 export const confirmAction = ({
-  title = 'Confirm action?',
-  content = 'Please confirm before continuing.',
-  okText = 'Confirm',
-  cancelText = 'Cancel',
+  title = 'Xác nhận thao tác?',
+  content = 'Vui lòng xác nhận trước khi tiếp tục.',
+  okText = 'Xác nhận',
+  cancelText = 'Hủy',
   onOk,
 }) => openConfirm({
   title,

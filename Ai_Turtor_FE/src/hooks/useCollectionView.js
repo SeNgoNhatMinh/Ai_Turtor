@@ -1,14 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useDeferredValue, useMemo, useState } from 'react';
+import { normalizeSearchText } from '../utils/searchText';
 
-function normalizeSearchText(value) {
-  return String(value ?? '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/đ/g, 'd')
-    .replace(/Đ/g, 'D')
-    .toLowerCase()
-    .trim();
-}
+const EMPTY_SEARCH_KEYS = Object.freeze([]);
 
 function getNestedValue(record, path) {
   return String(path || '')
@@ -39,19 +32,25 @@ export function matchesCollectionQuery(record, query, searchKeys = []) {
 export function useCollectionView(items, {
   initialPageSize = 20,
   pageSizeOptions = [10, 20, 50],
-  searchKeys = [],
+  searchKeys = EMPTY_SEARCH_KEYS,
 } = {}) {
   const [query, setQueryState] = useState('');
   const [pageIndex, setPageIndexState] = useState(0);
   const [pageSize, setPageSizeState] = useState(initialPageSize);
   const safeItems = useMemo(() => (Array.isArray(items) ? items : []), [items]);
   const safePageSize = Math.max(1, Number(pageSize) || 20);
+  const deferredQuery = useDeferredValue(query);
+  const searchKeySignature = (Array.isArray(searchKeys) ? searchKeys : EMPTY_SEARCH_KEYS).join('\u0000');
+  const stableSearchKeys = useMemo(
+    () => (searchKeySignature ? searchKeySignature.split('\u0000') : EMPTY_SEARCH_KEYS),
+    [searchKeySignature],
+  );
 
   const filteredItems = useMemo(() => (
-    query
-      ? safeItems.filter((record) => matchesCollectionQuery(record, query, searchKeys))
+    deferredQuery
+      ? safeItems.filter((record) => matchesCollectionQuery(record, deferredQuery, stableSearchKeys))
       : safeItems
-  ), [query, safeItems, searchKeys]);
+  ), [deferredQuery, safeItems, stableSearchKeys]);
 
   const pageCount = Math.max(1, Math.ceil(filteredItems.length / safePageSize));
   const resolvedPageIndex = Math.min(pageIndex, pageCount - 1);

@@ -1,10 +1,20 @@
 .admin-indexed-notes-page {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 16px;
   width: 100%;
   max-width: 100%;
   min-width: 0;
-  overflow-x: clip;
+  overflow-x: hidden;
+}
+
+.admin-indexed-notes-page > *,
+.admin-indexed-notes-page .ant-card,
+.admin-indexed-notes-page .ant-card-body,
+.admin-indexed-notes-page .searchable-table {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .admin-indexed-notes-filters .ant-card-body {
@@ -12,8 +22,61 @@
   gap: 4px;
 }
 
+.admin-indexed-notes-filter-grid {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.4fr) minmax(180px, 1fr);
+  gap: 12px;
+  width: min(640px, 100%);
+  min-width: 0;
+}
+
+.admin-indexed-notes-filter-grid > div,
+.admin-indexed-notes-filter-select {
+  width: 100%;
+  min-width: 0;
+}
+
+.admin-indexed-notes-filter-grid .ant-typography {
+  display: block;
+  margin-bottom: 5px;
+}
+
 .admin-indexed-notes-page .ant-table-wrapper,
 .admin-indexed-notes-page .searchable-table {
+  width: 100%;
   min-width: 0;
   max-width: 100%;
+}
+
+.admin-indexed-notes-page .ant-table-wrapper {
+  overflow: hidden;
+}
+
+.admin-indexed-notes-page .ant-table-container {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.admin-indexed-notes-page .ant-table-header,
+.admin-indexed-notes-page .ant-table-body,
+.admin-indexed-notes-page .ant-table-content {
+  max-width: 100%;
+  overscroll-behavior-x: contain;
+}
+
+.admin-indexed-notes-page .ant-table-cell-fix-right:last-child {
+  padding-inline: 8px;
+  text-align: center;
+}
+
+@media (max-width: 640px) {
+  .admin-indexed-notes-filter-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-indexed-notes-page .ant-card-head,
+  .admin-indexed-notes-page .ant-card-body {
+    padding-inline: 12px;
+  }
 }

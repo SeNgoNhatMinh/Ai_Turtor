@@ -1,4 +1,4 @@
-import { Search } from 'lucide-react';
+import { Search, X } from 'lucide-react';
 import './CollectionControls.css';
 
 export function CollectionSearch({
@@ -11,7 +11,7 @@ export function CollectionSearch({
 }) {
   return (
     <div className="collection-search-bar">
-      <label className="collection-search-field">
+      <div className="collection-search-field" role="search">
         <Search size={19} strokeWidth={2.2} aria-hidden="true" />
         <input
           type="search"
@@ -23,8 +23,18 @@ export function CollectionSearch({
           placeholder={placeholder}
           aria-label={placeholder}
         />
-      </label>
-      <span>{query ? `${filteredCount}/${totalCount} kết quả` : `${totalCount} bản ghi`}</span>
+        {query && (
+          <button
+            type="button"
+            className="collection-search-clear"
+            onClick={() => onQueryChange('')}
+            aria-label="Xóa từ khóa tìm kiếm"
+          >
+            <X size={15} aria-hidden="true" />
+          </button>
+        )}
+      </div>
+      <span aria-live="polite">{query ? `${filteredCount}/${totalCount} kết quả` : `${totalCount} bản ghi`}</span>
     </div>
   );
 }

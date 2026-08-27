@@ -3,14 +3,9 @@ import { Drawer, Menu } from 'antd';
 import { LogOut, Search, UserRound, X } from 'lucide-react';
 import { getNavigationForRole } from '../config/navigation';
 import { getAccountRoleLabel, normalizeAccountRole } from '../constants/roles';
+import { includesSearchText } from '../utils/searchText';
 import FptBrand from './common/FptBrand';
 import './MobileNavigationDrawer.css';
-
-const normalizeSearchText = (value) => String(value || '')
-  .normalize('NFD')
-  .replace(/[\u0300-\u036f]/g, '')
-  .toLocaleLowerCase('vi')
-  .trim();
 
 export default function MobileNavigationDrawer({
   open,
@@ -29,9 +24,8 @@ export default function MobileNavigationDrawer({
   const normalizedRole = normalizeAccountRole(accountRole || activeRole);
   const roleLabel = getAccountRoleLabel(normalizedRole);
   const items = useMemo(() => {
-    const query = normalizeSearchText(searchQuery);
     return getNavigationForRole(normalizedRole)
-      .filter((item) => !query || normalizeSearchText(`${item.label} ${item.description}`).includes(query))
+      .filter((item) => includesSearchText(`${item.label} ${item.description}`, searchQuery))
       .map((item) => ({
         key: item.key,
         icon: <item.icon size={20} aria-hidden="true" />,

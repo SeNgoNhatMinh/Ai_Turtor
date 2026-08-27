@@ -10,15 +10,6 @@
     box-shadow: none;
 }
 
-.app-container.dark .sidebar-collapse-btn.ant-btn {
-    color: #ECECEC;
-}
-
-.app-container.dark .sidebar-collapse-btn.ant-btn:hover {
-    background: rgba(255, 255, 255, 0.08) !important;
-    color: #FFFFFF !important;
-}
-
 .avatar-circle {
     background: #202123 !important;
     color: #FFFFFF !important;

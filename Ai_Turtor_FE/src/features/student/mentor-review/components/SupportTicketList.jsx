@@ -1,22 +1,30 @@
 import { useDeferredValue, useMemo, useState } from 'react';
-import { Alert, Card, Empty, Input, Spin, Typography } from 'antd';
-import { BookOpen, CalendarClock, RefreshCw, Search } from 'lucide-react';
+import { BookOpen, CalendarClock, RefreshCw } from 'lucide-react';
 import ActionButton from '../../../../components/common/ActionButton';
+import AsyncState from '../../../../components/common/AsyncState';
+import { CollectionSearch } from '../../../../components/common/CollectionControls';
 import StatusTag from '../../../../components/common/StatusTag';
 import { uiCopy } from '../../../../constants/uiCopy';
+import { matchesCollectionQuery } from '../../../../hooks/useCollectionView';
 import {
   formatSupportDateTime,
   getQuestionText,
   isAnsweredTicket,
 } from '../mentorSupportUtils';
 
-const { Text } = Typography;
-
 const FILTER_OPTIONS = [
   { value: 'all', label: 'Tất cả' },
   { value: 'waiting', label: 'Đang xử lý' },
   { value: 'answered', label: 'Đã phản hồi' },
 ];
+
+const TICKET_SEARCH_KEYS = Object.freeze([
+  'questionPreview',
+  'question',
+  'courseId',
+  'classId',
+  'status',
+]);
 
 function TicketPreview({ ticket, isActive, onSelect }) {
   const question = getQuestionText(ticket);
@@ -60,30 +68,25 @@ function SupportTicketList({
 }) {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState('all');
-  const deferredQuery = useDeferredValue(query.trim().toLocaleLowerCase('vi'));
+  const deferredQuery = useDeferredValue(query);
   const filteredTickets = useMemo(() => tickets.filter((ticket) => {
     const answered = isAnsweredTicket(ticket);
     if (filter === 'waiting' && answered) return false;
     if (filter === 'answered' && !answered) return false;
     if (!deferredQuery) return true;
-    return [
-      ticket?.questionPreview,
-      ticket?.question,
-      ticket?.courseId,
-      ticket?.classId,
-      ticket?.status,
-    ].filter(Boolean).join(' ').toLocaleLowerCase('vi').includes(deferredQuery);
+    return matchesCollectionQuery(ticket, deferredQuery, TICKET_SEARCH_KEYS);
   }), [deferredQuery, filter, tickets]);
 
   return (
-    <Card
-      title={(
+    <section className="mentor-review-list-card" aria-label={uiCopy.student.support.listTitle}>
+      <header className="mentor-review-panel-header">
         <div className="mentor-ticket-list-title">
-          <span>{uiCopy.student.support.listTitle}</span>
+          <div>
+            <strong>{uiCopy.student.support.listTitle}</strong>
+            <small>Chọn một yêu cầu để xem tiến trình hỗ trợ</small>
+          </div>
           <span>{tickets.length}</span>
         </div>
-      )}
-      extra={(
         <ActionButton
           size="small"
           icon={<RefreshCw size={15} />}
@@ -91,75 +94,57 @@ function SupportTicketList({
           loading={isLoading}
           aria-label="Làm mới danh sách yêu cầu"
         >Làm mới</ActionButton>
-      )}
-      className="mentor-review-list-card"
-      styles={{ body: { padding: 0 } }}
-    >
-      {!error && !isLoading && tickets.length > 0 && (
-        <div className="mentor-ticket-toolbar">
-          <Input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            prefix={<Search size={16} aria-hidden="true" />}
-            placeholder="Tìm theo câu hỏi, môn hoặc lớp"
-            allowClear
-            aria-label="Tìm yêu cầu hỗ trợ"
-          />
-          <div className="mentor-ticket-filters" role="group" aria-label="Lọc yêu cầu hỗ trợ">
-            {FILTER_OPTIONS.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                className={filter === option.value ? 'is-active' : ''}
-                onClick={() => setFilter(option.value)}
-                aria-pressed={filter === option.value}
-              >
-                {option.label}
-              </button>
+      </header>
+
+      <div className="mentor-review-list-body">
+        {!error && !isLoading && tickets.length > 0 && (
+          <div className="mentor-ticket-toolbar">
+            <CollectionSearch
+              query={query}
+              onQueryChange={setQuery}
+              filteredCount={filteredTickets.length}
+              totalCount={tickets.length}
+              placeholder="Tìm theo câu hỏi, môn hoặc lớp"
+            />
+            <div className="mentor-ticket-filters" role="group" aria-label="Lọc yêu cầu hỗ trợ">
+              {FILTER_OPTIONS.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  className={filter === option.value ? 'is-active' : ''}
+                  onClick={() => setFilter(option.value)}
+                  aria-pressed={filter === option.value}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <AsyncState
+          loading={isLoading}
+          loadingLabel="Đang tải yêu cầu hỗ trợ..."
+          error={error}
+          empty={!isLoading && !error && filteredTickets.length === 0}
+          emptyTitle={tickets.length ? 'Không tìm thấy yêu cầu phù hợp' : uiCopy.student.support.emptyTitle}
+          emptyDescription={tickets.length ? 'Thử đổi từ khóa hoặc bộ lọc trạng thái.' : uiCopy.student.support.emptyDescription}
+          onRetry={onReload}
+          compact
+        >
+          <div className="mentor-ticket-list">
+            {filteredTickets.map((ticket) => (
+              <TicketPreview
+                key={ticket.id}
+                ticket={ticket}
+                isActive={selectedTicket?.id === ticket.id}
+                onSelect={onSelect}
+              />
             ))}
           </div>
-        </div>
-      )}
-
-      {error ? (
-        <Alert
-          type="error"
-          showIcon
-          title="Không thể tải yêu cầu hỗ trợ"
-          description={error}
-          className="mentor-review-inline-alert"
-        />
-      ) : isLoading ? (
-        <div className="mentor-review-loading"><Spin description="Đang tải yêu cầu..." /></div>
-      ) : filteredTickets.length ? (
-        <div className="mentor-ticket-list">
-          {filteredTickets.map((ticket) => (
-            <TicketPreview
-              key={ticket.id}
-              ticket={ticket}
-              isActive={selectedTicket?.id === ticket.id}
-              onSelect={onSelect}
-            />
-          ))}
-        </div>
-      ) : tickets.length ? (
-        <Empty
-          description="Không tìm thấy yêu cầu phù hợp"
-          image={Empty.PRESENTED_IMAGE_SIMPLE}
-          className="mentor-review-empty mentor-review-empty--filtered"
-        >
-          <Text type="secondary">Thử đổi từ khóa hoặc bộ lọc trạng thái.</Text>
-        </Empty>
-      ) : (
-        <Empty
-          description={uiCopy.student.support.emptyTitle}
-          image={Empty.PRESENTED_IMAGE_SIMPLE}
-          className="mentor-review-empty"
-        >
-          <Text type="secondary">{uiCopy.student.support.emptyDescription}</Text>
-        </Empty>
-      )}
-    </Card>
+        </AsyncState>
+      </div>
+    </section>
   );
 }
 

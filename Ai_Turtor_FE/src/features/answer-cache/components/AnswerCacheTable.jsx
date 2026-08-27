@@ -48,7 +48,6 @@ export default function AnswerCacheTable({
 }) {
   const [detailEntry, setDetailEntry] = useState(null);
   const [correctEntry, setCorrectEntry] = useState(null);
-  const [disableEntry, setDisableEntry] = useState(null);
   const [form] = Form.useForm();
   const anyMutationRunning = Boolean(mutationKey);
 
@@ -75,12 +74,6 @@ export default function AnswerCacheTable({
     if (saved) closeCorrectModal();
   };
 
-  const submitDisable = async () => {
-    if (!disableEntry?.id) return;
-    const saved = await onDisable?.(disableEntry.id, '');
-    if (saved) setDisableEntry(null);
-  };
-
   const handleAction = async (key, entry) => {
     if (!entry?.id || anyMutationRunning) return;
     if (key === 'view') {
@@ -101,7 +94,12 @@ export default function AnswerCacheTable({
       return;
     }
     if (key === 'disable') {
-      setDisableEntry(entry);
+      confirmDanger({
+        title: 'Tắt cache câu trả lời?',
+        content: 'Sinh viên sẽ không còn nhận câu trả lời này từ cache semantic. Hệ thống vẫn gọi LLM khi có câu hỏi tương tự.',
+        okText: 'Tắt cache',
+        onOk: () => onDisable?.(entry.id, ''),
+      });
       return;
     }
     if (key === 'delete') {
@@ -347,32 +345,6 @@ export default function AnswerCacheTable({
         </Form>
       </Modal>
 
-      <Modal
-        open={Boolean(disableEntry)}
-        title="Tắt cache câu trả lời?"
-        onCancel={() => setDisableEntry(null)}
-        footer={(
-          <Space>
-            <ActionButton onClick={() => setDisableEntry(null)}>Hủy</ActionButton>
-            <ActionButton
-              intent="danger"
-              loading={mutationKey === `disable-${disableEntry?.id}`}
-              onClick={submitDisable}
-            >
-              Tắt cache
-            </ActionButton>
-          </Space>
-        )}
-      >
-        <Paragraph>
-          Sinh viên sẽ không còn nhận câu trả lời này từ cache semantic. Hệ thống vẫn gọi LLM khi có câu hỏi tương tự.
-        </Paragraph>
-        {disableEntry?.question && (
-          <Paragraph type="secondary" ellipsis={{ rows: 3, expandable: true }}>
-            {disableEntry.question}
-          </Paragraph>
-        )}
-      </Modal>
     </>
   );
 }

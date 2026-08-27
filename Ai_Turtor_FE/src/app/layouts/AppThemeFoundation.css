@@ -48,8 +48,7 @@
 .app-container:not(.dark) .top-nav { background: rgba(255,255,255,.96); border-bottom: 1px solid #e4eaf2; box-shadow: 0 8px 28px rgba(0,27,61,.06); backdrop-filter: blur(18px); }
 .app-container:not(.dark) .main-sidebar { background: linear-gradient(180deg,#001b3d 0%,#082d62 100%); border-right: 0; box-shadow: 14px 0 36px rgba(0,27,61,.12); }
 .app-container:not(.dark) .main-sidebar .nav-item,
-.app-container:not(.dark) .main-sidebar .nav-group-title,
-.app-container:not(.dark) .main-sidebar .sidebar-collapse-btn.ant-btn { color: rgba(255,255,255,.72); }
+.app-container:not(.dark) .main-sidebar .nav-group-title { color: rgba(255,255,255,.72); }
 .app-container:not(.dark) .main-sidebar .nav-item:hover { color: #fff; background: rgba(255,255,255,.09); }
 .app-container:not(.dark) .main-sidebar .nav-item.active { color: #001b3d; background: #fff; box-shadow: 0 10px 24px rgba(0,0,0,.16); }
 .app-container:not(.dark) .main-sidebar .nav-item.active svg { color: #ff8a00; }
@@ -72,7 +71,6 @@
     box-shadow: 0 9px 22px rgba(0,0,0,.16);
 }
 .app-container:not(.dark) .main-sidebar .ant-menu-item-selected svg { color: #ff8a00 !important; }
-.app-container:not(.dark) .main-sidebar .sidebar-collapse-btn.ant-btn { color: #fff !important; opacity: 1; }
 .app-container:not(.dark) .content-wrapper,
 .app-container:not(.dark) .portal-view,
 .app-container:not(.dark) .ant-layout,

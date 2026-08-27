@@ -1,17 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
-  Button,
   Card,
   Form,
   Input,
   Modal,
   Select,
-  Space,
   Tag,
   Typography,
 } from 'antd';
 import { Pencil, RefreshCw, Trash2, Undo2 } from 'lucide-react';
+import ActionButton from '../../../components/common/ActionButton';
+import EntityActionMenu from '../../../components/common/EntityActionMenu';
 import PageHeader from '../../../components/common/PageHeader';
 import SearchableTable from '../../../components/common/SearchableTable';
 import { confirmDanger } from '../../../components/common/confirmDialog';
@@ -26,6 +26,13 @@ const { TextArea } = Input;
 
 const courseCode = (course = {}) => String(course.courseId || course.id || course.code || '').trim();
 const courseName = (course = {}) => course.courseName || course.name || course.title || courseCode(course);
+
+const getKnowledgeTypeLabel = (value) => {
+  const normalized = String(value || '').trim().toUpperCase();
+  if (normalized === 'ACADEMIC_KNOWLEDGE') return 'Kiến thức học thuật';
+  if (normalized === 'GOLD_QA') return 'Q&A đã duyệt';
+  return value || '—';
+};
 
 export default function AdminIndexedTeachingNotesPage({ courseId, setCourseId, triggerToast }) {
   const [courses, setCourses] = useState([]);
@@ -132,6 +139,38 @@ export default function AdminIndexedTeachingNotesPage({ courseId, setCourseId, t
     return <Tag>{getStatusLabel(status)}</Tag>;
   };
 
+  const handleRowAction = (key, row) => {
+    if (key === 'edit') {
+      openEdit(row);
+      return;
+    }
+    if (key === 'reindex') {
+      void runAction(row.id, () => indexedTeachingNotesApi.reindex(row.id), 'Đã nạp lại vào RAG.');
+      return;
+    }
+    if (key === 'unindex') {
+      void runAction(row.id, () => indexedTeachingNotesApi.unindex(row.id), 'Đã gỡ khỏi RAG.');
+      return;
+    }
+    if (key === 'delete') {
+      confirmDanger({
+        title: 'Xóa index này?',
+        content: 'Chỉ xóa knowledge Senior đã duyệt (không đụng giáo trình). Không thể hoàn tác.',
+        okText: 'Xóa',
+        onOk: () => runAction(row.id, () => indexedTeachingNotesApi.remove(row.id), 'Đã xóa index.'),
+      });
+    }
+  };
+
+  const rowActions = (row) => [
+    { key: 'edit', label: 'Sửa', icon: <Pencil size={14} /> },
+    row.status === 'UNINDEXED'
+      ? { key: 'reindex', label: 'Nạp lại RAG', icon: <RefreshCw size={14} /> }
+      : { key: 'unindex', label: 'Gỡ khỏi RAG', icon: <Undo2 size={14} /> },
+    { type: 'divider' },
+    { key: 'delete', label: 'Xóa index', icon: <Trash2 size={14} />, danger: true },
+  ];
+
   return (
     <div className="portal-section admin-route-page admin-indexed-notes-page">
       <PageHeader
@@ -139,20 +178,20 @@ export default function AdminIndexedTeachingNotesPage({ courseId, setCourseId, t
         title="Index Senior đã duyệt (RAG)"
         description="Danh sách toàn bộ knowledge V2 và Gold Q&A Senior đã nạp vào Elasticsearch. Có thể sửa, gỡ RAG hoặc xóa."
         actions={(
-          <Button icon={<RefreshCw size={16} />} onClick={loadNotes} disabled={Boolean(pendingId)}>
+          <ActionButton icon={<RefreshCw size={16} />} onClick={loadNotes} disabled={Boolean(pendingId)}>
             Làm mới
-          </Button>
+          </ActionButton>
         )}
       />
 
       {error && <Alert type="error" showIcon title={error} />}
 
       <Card className="admin-indexed-notes-filters">
-        <Space wrap size={12}>
+        <div className="admin-indexed-notes-filter-grid">
           <div>
             <Text type="secondary">Môn học</Text>
             <Select
-              style={{ minWidth: 260, display: 'block' }}
+              className="admin-indexed-notes-filter-select"
               value={courseId || ''}
               options={courseOptions}
               onChange={(value) => setCourseId?.(value || '')}
@@ -163,7 +202,7 @@ export default function AdminIndexedTeachingNotesPage({ courseId, setCourseId, t
           <div>
             <Text type="secondary">Trạng thái</Text>
             <Select
-              style={{ minWidth: 180, display: 'block' }}
+              className="admin-indexed-notes-filter-select"
               value={statusFilter}
               options={[
                 { value: '', label: 'Đã nạp + đã gỡ' },
@@ -173,7 +212,7 @@ export default function AdminIndexedTeachingNotesPage({ courseId, setCourseId, t
               onChange={setStatusFilter}
             />
           </div>
-        </Space>
+        </div>
         <Paragraph type="secondary" style={{ margin: '12px 0 0' }}>
           {stats.total} index · {stats.indexed} đang nạp · {stats.unindexed} đã gỡ
         </Paragraph>
@@ -185,7 +224,7 @@ export default function AdminIndexedTeachingNotesPage({ courseId, setCourseId, t
           loading={loading}
           dataSource={items}
           sticky={false}
-          scroll={{ x: 1100, y: 520 }}
+          scroll={{ x: 900, y: 520 }}
           searchKeys={['courseId', 'chapter', 'question', 'goldAnswer', 'answer', 'authorId', 'candidateType']}
           columns={[
             {
@@ -199,6 +238,7 @@ export default function AdminIndexedTeachingNotesPage({ courseId, setCourseId, t
               dataIndex: 'chapter',
               width: 180,
               ellipsis: true,
+              render: getKnowledgeTypeLabel,
             },
             {
               title: 'Câu hỏi',
@@ -212,57 +252,17 @@ export default function AdminIndexedTeachingNotesPage({ courseId, setCourseId, t
               render: statusTag,
             },
             {
-              title: 'Thao tác',
+              title: <span className="sr-only">Thao tác</span>,
               key: 'actions',
-              width: 320,
+              width: 56,
               fixed: 'right',
               render: (_, row) => (
-                <Space wrap size={6}>
-                  <Button
-                    size="small"
-                    icon={<Pencil size={14} />}
-                    disabled={Boolean(pendingId)}
-                    onClick={() => openEdit(row)}
-                  >
-                    Sửa
-                  </Button>
-                  {row.status === 'UNINDEXED' ? (
-                    <Button
-                      size="small"
-                      loading={pendingId === row.id}
-                      disabled={Boolean(pendingId) && pendingId !== row.id}
-                      icon={<RefreshCw size={14} />}
-                      onClick={() => runAction(row.id, () => indexedTeachingNotesApi.reindex(row.id), 'Đã nạp lại vào RAG.')}
-                    >
-                      Nạp lại
-                    </Button>
-                  ) : (
-                    <Button
-                      size="small"
-                      loading={pendingId === row.id}
-                      disabled={Boolean(pendingId) && pendingId !== row.id}
-                      icon={<Undo2 size={14} />}
-                      onClick={() => runAction(row.id, () => indexedTeachingNotesApi.unindex(row.id), 'Đã gỡ khỏi RAG.')}
-                    >
-                      Gỡ RAG
-                    </Button>
-                  )}
-                  <Button
-                    size="small"
-                    danger
-                    icon={<Trash2 size={14} />}
-                    disabled={Boolean(pendingId)}
-                    onClick={() => confirmDanger({
-                      title: 'Xóa index này?',
-                      content: 'Chỉ xóa knowledge Senior đã duyệt (không đụng giáo trình). Không thể hoàn tác.',
-                      okText: 'Xóa',
-                      cancelText: 'Hủy',
-                      onOk: () => runAction(row.id, () => indexedTeachingNotesApi.remove(row.id), 'Đã xóa index.'),
-                    })}
-                  >
-                    Xóa
-                  </Button>
-                </Space>
+                <EntityActionMenu
+                  ariaLabel="Thao tác index Senior"
+                  disabled={Boolean(pendingId)}
+                  items={rowActions(row)}
+                  onAction={(key) => handleRowAction(key, row)}
+                />
               ),
             },
           ]}

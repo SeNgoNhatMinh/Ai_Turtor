@@ -21,7 +21,7 @@
   box-shadow: 0 12px 34px rgba(15, 45, 82, 0.06);
 }
 
-.teacher-review-feature-page > .page-header .page-title.ant-typography {
+.teacher-review-feature-page > .page-header .page-title {
   font-size: clamp(1.45rem, 1.8vw, 1.8rem);
 }
 

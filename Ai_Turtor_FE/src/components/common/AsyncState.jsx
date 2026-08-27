@@ -1,5 +1,6 @@
-import { Alert, Button, Empty, Skeleton } from 'antd';
+import { Alert, Empty, Skeleton } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
+import ActionButton from './ActionButton';
 import './AsyncState.css';
 
 function AsyncState({
@@ -32,7 +33,7 @@ function AsyncState({
           title="Không thể tải nội dung"
           description={error}
           action={onRetry ? (
-            <Button size="small" icon={<ReloadOutlined />} aria-label="Thử lại" onClick={onRetry}>Thử lại</Button>
+            <ActionButton size="small" icon={<ReloadOutlined />} aria-label="Thử lại" onClick={onRetry}>Thử lại</ActionButton>
           ) : null}
         />
       </div>
