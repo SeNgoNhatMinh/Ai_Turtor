@@ -170,7 +170,7 @@
 
   .chat-workspace-dark {
     height: 100%;
-    min-height: 520px;
+    min-height: 0;
   }
 
   .chat-workspace-messages-container {
@@ -181,6 +181,7 @@
     padding-bottom: 0;
     overflow-x: hidden;
     overflow-y: scroll;
+    scroll-padding-bottom: 16px;
     touch-action: pan-y;
     -webkit-overflow-scrolling: touch;
   }
@@ -194,7 +195,7 @@
     flex: 0 0 auto;
     min-height: calc(100% + 1px);
     height: auto;
-    padding-bottom: max(210px, calc(150px + env(safe-area-inset-bottom)));
+    padding-bottom: 24px;
   }
 
   .chat-empty-state {
@@ -254,7 +255,11 @@
   }
 
   .chat-workspace-input-area {
+    position: relative;
+    inset: auto;
+    flex: 0 0 auto;
     padding: 0 max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
+    background: #fff;
   }
 
   .chat-gpt-input-wrapper textarea {

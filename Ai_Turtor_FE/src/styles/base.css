@@ -79,7 +79,10 @@ canvas {
 
     body {
         position: fixed;
-        inset: 0;
+        top: var(--app-viewport-offset-top, 0px);
+        left: var(--app-viewport-offset-left, 0px);
+        right: auto;
+        bottom: auto;
     }
 
     :where(button, [role="button"], a, input, select, textarea) {

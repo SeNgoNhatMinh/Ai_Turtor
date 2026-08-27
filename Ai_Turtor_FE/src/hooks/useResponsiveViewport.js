@@ -11,7 +11,7 @@ export function isMobileViewport() {
 
 function readViewport() {
   if (typeof window === 'undefined') {
-    return { isMobile: false, width: 1024, height: 768 };
+    return { isMobile: false, width: 1024, height: 768, offsetTop: 0, offsetLeft: 0 };
   }
 
   const viewport = window.visualViewport;
@@ -19,6 +19,8 @@ function readViewport() {
     isMobile: isMobileViewport(),
     width: Math.round(viewport?.width || window.innerWidth),
     height: Math.round(viewport?.height || window.innerHeight),
+    offsetTop: Math.round(viewport?.offsetTop || 0),
+    offsetLeft: Math.round(viewport?.offsetLeft || 0),
   };
 }
 
@@ -35,10 +37,14 @@ export default function useResponsiveViewport() {
       frame = window.requestAnimationFrame(() => {
         const nextViewport = readViewport();
         document.documentElement.style.setProperty('--app-viewport-height', `${nextViewport.height}px`);
+        document.documentElement.style.setProperty('--app-viewport-offset-top', `${nextViewport.offsetTop}px`);
+        document.documentElement.style.setProperty('--app-viewport-offset-left', `${nextViewport.offsetLeft}px`);
         setViewport((current) => (
           current.isMobile === nextViewport.isMobile
           && current.width === nextViewport.width
           && current.height === nextViewport.height
+          && current.offsetTop === nextViewport.offsetTop
+          && current.offsetLeft === nextViewport.offsetLeft
             ? current
             : nextViewport
         ));
@@ -50,6 +56,7 @@ export default function useResponsiveViewport() {
     window.addEventListener('resize', update, { passive: true });
     window.addEventListener('orientationchange', update, { passive: true });
     visualViewport?.addEventListener('resize', update, { passive: true });
+    visualViewport?.addEventListener('scroll', update, { passive: true });
 
     return () => {
       window.cancelAnimationFrame(frame);
@@ -57,6 +64,7 @@ export default function useResponsiveViewport() {
       window.removeEventListener('resize', update);
       window.removeEventListener('orientationchange', update);
       visualViewport?.removeEventListener('resize', update);
+      visualViewport?.removeEventListener('scroll', update);
     };
   }, []);
 
