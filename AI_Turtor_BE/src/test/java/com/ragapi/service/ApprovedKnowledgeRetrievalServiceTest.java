@@ -71,8 +71,40 @@ class ApprovedKnowledgeRetrievalServiceTest {
                 .containsExactly(chunk);
     }
 
+    @Test
+    void retrievesConceptMentionedDeepInsideApprovedAnswer() throws Exception {
+        ElasticVectorService vectorService = mock(ElasticVectorService.class);
+        CourseMaterialFallbackSearchService fallback = mock(CourseMaterialFallbackSearchService.class);
+        ApprovedKnowledgeRetrievalService service = service(vectorService, fallback);
+        String chunkContent = """
+                [KIẾN THỨC BỔ SUNG ĐÃ ĐƯỢC SENIOR DUYỆT]
+                Câu hỏi: pytorch là gì và được dùng để làm gì?
+                Câu trả lời: PyTorch hỗ trợ xây dựng mạng neural.
+                Phần nền tảng giải thích tensors, weights và biases.
+                Forward Propagation là bước đưa dữ liệu qua mạng để tạo dự đoán.
+                """.trim();
+        var chunk = chunk(chunkContent, 0.90);
+        when(vectorService.searchApprovedKnowledgeWithScores(
+                "Forward Propagation", "PFP191", null, 8))
+                .thenReturn(List.of());
+        when(fallback.searchApprovedKnowledge(
+                "Forward Propagation", "PFP191", null, 8))
+                .thenReturn(List.of(chunk));
+
+        assertThat(service.retrieveRelevant("Forward Propagation", "PFP191", null))
+                .containsExactly(chunk);
+    }
+
     private ApprovedKnowledgeRetrievalService service(ElasticVectorService vectorService) {
-        ApprovedKnowledgeRetrievalService service = new ApprovedKnowledgeRetrievalService(vectorService);
+        CourseMaterialFallbackSearchService fallback = mock(CourseMaterialFallbackSearchService.class);
+        return service(vectorService, fallback);
+    }
+
+    private ApprovedKnowledgeRetrievalService service(
+            ElasticVectorService vectorService,
+            CourseMaterialFallbackSearchService fallback
+    ) {
+        ApprovedKnowledgeRetrievalService service = new ApprovedKnowledgeRetrievalService(vectorService, fallback);
         ReflectionTestUtils.setField(service, "maxChunks", 2);
         ReflectionTestUtils.setField(service, "minScore", 0.60);
         ReflectionTestUtils.setField(service, "strongSemanticScore", 0.82);

@@ -39,7 +39,7 @@ public class CourseMaterialFallbackSearchService {
     }
 
     public List<ElasticVectorService.SearchChunk> search(String query, String courseId, String classId, int maxChunks) {
-        return search(query, courseId, classId, maxChunks, false);
+        return search(query, courseId, classId, maxChunks, false, false);
     }
 
     public List<ElasticVectorService.SearchChunk> searchTextbook(
@@ -48,7 +48,16 @@ public class CourseMaterialFallbackSearchService {
             String classId,
             int maxChunks
     ) {
-        return search(query, courseId, classId, maxChunks, true);
+        return search(query, courseId, classId, maxChunks, true, false);
+    }
+
+    public List<ElasticVectorService.SearchChunk> searchApprovedKnowledge(
+            String query,
+            String courseId,
+            String classId,
+            int maxChunks
+    ) {
+        return search(query, courseId, classId, maxChunks, false, true);
     }
 
     private List<ElasticVectorService.SearchChunk> search(
@@ -56,7 +65,8 @@ public class CourseMaterialFallbackSearchService {
             String courseId,
             String classId,
             int maxChunks,
-            boolean textbookOnly
+            boolean textbookOnly,
+            boolean approvedKnowledgeOnly
     ) {
         if (courseId == null || courseId.isBlank()) {
             return List.of();
@@ -69,6 +79,7 @@ public class CourseMaterialFallbackSearchService {
 
         for (CourseMaterial material : materialRepository.findByCourseId(courseId.trim())) {
             if ((textbookOnly && !isTextbookMaterial(material))
+                    || (approvedKnowledgeOnly && !isApprovedKnowledgeMaterial(material))
                     || !isVisibleForClass(material, classId)
                     || material.getContent() == null
                     || material.getContent().isBlank()) {
@@ -106,7 +117,9 @@ public class CourseMaterialFallbackSearchService {
             }
         }
 
-        List<ElasticVectorService.SearchChunk> selected = relevant.isEmpty() ? firstAvailable : relevant;
+        List<ElasticVectorService.SearchChunk> selected = relevant.isEmpty() && !approvedKnowledgeOnly
+                ? firstAvailable
+                : relevant;
         List<ElasticVectorService.SearchChunk> result = selected.stream()
                 .sorted(Comparator.comparing(ElasticVectorService.SearchChunk::score, Comparator.nullsLast(Comparator.reverseOrder())))
                 .limit(limit)
@@ -128,6 +141,12 @@ public class CourseMaterialFallbackSearchService {
                 && !"KNOWLEDGE_CANDIDATE".equalsIgnoreCase(material.getSourceType())
                 && !"GOLD_QA".equalsIgnoreCase(material.getSourceType())
                 && !"senior-approved-knowledge".equalsIgnoreCase(material.getCategory());
+    }
+
+    private boolean isApprovedKnowledgeMaterial(CourseMaterial material) {
+        return material != null
+                && ("KNOWLEDGE_CANDIDATE".equalsIgnoreCase(material.getSourceType())
+                || "senior-approved-knowledge".equalsIgnoreCase(material.getCategory()));
     }
 
     private boolean isVisibleForClass(CourseMaterial material, String requestedClassId) {

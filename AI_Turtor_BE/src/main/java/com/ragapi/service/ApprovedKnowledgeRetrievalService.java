@@ -20,6 +20,7 @@ import java.util.Map;
 public class ApprovedKnowledgeRetrievalService {
 
     private final ElasticVectorService vectorService;
+    private final CourseMaterialFallbackSearchService fallbackSearchService;
 
     @Value("${rag.approved-knowledge.max-chunks:2}")
     private int maxChunks;
@@ -38,42 +39,67 @@ public class ApprovedKnowledgeRetrievalService {
             String courseId,
             String classId
     ) {
+        int candidateCount = Math.max(maxChunks, maxChunks * 4);
+        List<ElasticVectorService.SearchChunk> semanticCandidates;
         try {
-            int candidateCount = Math.max(maxChunks, maxChunks * 4);
-            List<ElasticVectorService.SearchChunk> candidates =
-                    vectorService.searchApprovedKnowledgeWithScores(
-                            question,
-                            courseId,
-                            classId,
-                            candidateCount
-                    );
-            List<ElasticVectorService.SearchChunk> matches = candidates.stream()
-                    .filter(chunk -> isRelevant(question, chunk))
-                    .sorted(Comparator.comparing(
-                            (ElasticVectorService.SearchChunk chunk) -> chunk.score() == null ? 0.0 : chunk.score(),
-                            Comparator.reverseOrder()))
-                    .toList();
-            List<ElasticVectorService.SearchChunk> deduped = collapseDuplicateQuestions(matches);
-            List<ElasticVectorService.SearchChunk> limited = deduped.stream()
-                    .limit(Math.max(1, maxChunks))
-                    .toList();
-            if (!limited.isEmpty()) {
-                log.info("Pinned {} relevant senior-approved knowledge chunks for courseId={}",
-                        limited.size(), courseId);
-            } else if (candidates != null && !candidates.isEmpty()) {
-                log.warn(
-                        "Filtered all {} senior-approved ES hits for courseId={} question={}",
-                        candidates.size(),
-                        courseId,
-                        question
-                );
-            }
-            return limited;
+            semanticCandidates = vectorService.searchApprovedKnowledgeWithScores(
+                    question,
+                    courseId,
+                    classId,
+                    candidateCount
+            );
         } catch (IOException error) {
-            log.warn("Approved knowledge retrieval unavailable for courseId={}: {}",
+            log.warn("Semantic approved knowledge retrieval unavailable for courseId={}: {}",
                     courseId, error.getMessage());
-            return List.of();
+            semanticCandidates = List.of();
         }
+
+        // Search the complete approved answer text lexically as well. This catches
+        // named concepts buried deep in long answers even when vector top-K misses them.
+        List<ElasticVectorService.SearchChunk> lexicalCandidates =
+                fallbackSearchService.searchApprovedKnowledge(question, courseId, classId, candidateCount);
+        if (semanticCandidates == null) {
+            semanticCandidates = List.of();
+        }
+        if (lexicalCandidates == null) {
+            lexicalCandidates = List.of();
+        }
+        Map<String, ElasticVectorService.SearchChunk> candidatesByKey = new LinkedHashMap<>();
+        for (ElasticVectorService.SearchChunk candidate : lexicalCandidates) {
+            candidatesByKey.put(chunkKey(candidate), candidate);
+        }
+        for (ElasticVectorService.SearchChunk candidate : semanticCandidates) {
+            candidatesByKey.putIfAbsent(chunkKey(candidate), candidate);
+        }
+        List<ElasticVectorService.SearchChunk> candidates = new ArrayList<>(candidatesByKey.values());
+        List<ElasticVectorService.SearchChunk> matches = candidates.stream()
+                .filter(chunk -> isRelevant(question, chunk))
+                .sorted(Comparator.comparing(
+                        (ElasticVectorService.SearchChunk chunk) -> chunk.score() == null ? 0.0 : chunk.score(),
+                        Comparator.reverseOrder()))
+                .toList();
+        List<ElasticVectorService.SearchChunk> limited = collapseDuplicateQuestions(matches).stream()
+                .limit(Math.max(1, maxChunks))
+                .toList();
+        if (!limited.isEmpty()) {
+            log.info("Pinned {} relevant senior-approved knowledge chunks for courseId={}",
+                    limited.size(), courseId);
+        } else if (!candidates.isEmpty()) {
+            log.warn(
+                    "Filtered all {} senior-approved hits for courseId={} question={}",
+                    candidates.size(),
+                    courseId,
+                    question
+            );
+        }
+        return limited;
+    }
+
+    private String chunkKey(ElasticVectorService.SearchChunk chunk) {
+        if (chunk == null) {
+            return "null";
+        }
+        return String.valueOf(chunk.materialId()) + "|" + String.valueOf(chunk.content());
     }
 
     /**
@@ -138,6 +164,9 @@ public class ApprovedKnowledgeRetrievalService {
         // "X là gì? X được dùng để làm gì?". This avoids rejecting one-topic queries
         // whose stop-word removal leaves only a single distinctive token.
         if (isQuestionPrefix(askedKey, storedKey) || isQuestionPrefix(storedKey, askedKey)) {
+            return true;
+        }
+        if (QuestionOverlapUtil.queryKeywordCoverageRatio(question, chunk.content()) >= 0.75) {
             return true;
         }
         // Indexed Senior Q&A is already course-scoped. Match the student question to the

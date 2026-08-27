@@ -23,7 +23,7 @@ public final class QuestionOverlapUtil {
 
     /**
      * Canonical form for duplicate academic questions: accents stripped, punctuation
-     * removed, whitespace collapsed. "pytorch là gì ?" and "pytorch la gi" match.
+     * removed and whitespace collapsed.
      */
     public static String canonicalQuestionKey(String question) {
         if (question == null || question.isBlank()) {
@@ -37,8 +37,8 @@ public final class QuestionOverlapUtil {
 
     /**
      * True when two Senior/student questions are the same academic item (exact after
-     * canonicalization, or high token overlap). Distinct topics such as
-     * "pytorch là gì" vs "pytorch được áp dụng trong python" stay separate.
+     * canonicalization, or high token overlap). Questions that merely share a broad
+     * course keyword remain separate.
      */
     public static boolean isSameAcademicQuestion(String left, String right) {
         String leftKey = canonicalQuestionKey(left);
@@ -88,6 +88,25 @@ public final class QuestionOverlapUtil {
         }
         int union = leftTokens.size() + rightTokens.size() - intersection;
         return union == 0 ? 0.0 : (double) intersection / union;
+    }
+
+    /**
+     * Directional coverage of the query by a larger body of text. Unlike Jaccard,
+     * this remains high when a short concept query occurs inside a long approved answer.
+     */
+    public static double queryKeywordCoverageRatio(String query, String text) {
+        Set<String> queryTokens = meaningfulTokens(query);
+        Set<String> textTokens = meaningfulTokens(text);
+        if (queryTokens.isEmpty() || textTokens.isEmpty()) {
+            return 0.0;
+        }
+        int matched = 0;
+        for (String token : queryTokens) {
+            if (textTokens.contains(token)) {
+                matched++;
+            }
+        }
+        return (double) matched / queryTokens.size();
     }
 
     public static double sourceOverlapRatio(java.util.List<String> left, java.util.List<String> right) {
