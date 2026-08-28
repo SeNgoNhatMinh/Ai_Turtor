@@ -1,0 +1,22 @@
+{
+  "id": "/",
+  "name": "AI Tutor Platform",
+  "short_name": "AI Tutor",
+  "description": "Hệ thống trợ lý học tập thông minh",
+  "lang": "vi",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone"],
+  "orientation": "any",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "icons": [
+    {
+      "src": "/fpt-browser-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
