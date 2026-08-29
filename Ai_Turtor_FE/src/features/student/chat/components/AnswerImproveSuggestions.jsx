@@ -20,7 +20,7 @@ function AnswerImproveSuggestions({
     (Array.isArray(suggestions) ? suggestions : [])
       .map((suggestion) => [getSuggestionText(suggestion).toLowerCase(), suggestion])
       .filter(([key]) => key),
-  ).values()].slice(0, 4);
+  ).values()].slice(0, 8);
 
   if (uniqueSuggestions.length === 0) return null;
 

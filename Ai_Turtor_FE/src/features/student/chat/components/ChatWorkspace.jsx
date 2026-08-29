@@ -7,7 +7,7 @@ import ChatWorkspaceHeader from './ChatWorkspaceHeader';
 import PinnedMessagesBar from './PinnedMessagesBar';
 import { useAnswerFeedback } from '../useAnswerFeedback';
 import { usePinnedChatMessages } from '../usePinnedChatMessages';
-import { buildLessonChatPrompt } from '../../learning/studySuggestionPrompt';
+import { buildLessonChatPrompt, lessonSuggestionsForMessage } from '../../learning/studySuggestionPrompt';
 import '../ChatWorkspace.css';
 
 const CHAT_TURN_LIMIT = 10;
@@ -128,6 +128,18 @@ function ChatWorkspace({
             : '';
   const questionCount = Math.max(0, Math.min(CHAT_TURN_LIMIT, Number(activeSessionQuestionCount) || 0));
   const isNearTurnLimit = questionCount >= 8 && questionCount < CHAT_TURN_LIMIT && !activeSessionMaxTurnsReached;
+  const composerTopics = useMemo(() => {
+    const sessionTopics = (Array.isArray(tutorSession?.suggestedTopics) ? tutorSession.suggestedTopics : [])
+      .map((topic) => String(topic || '').trim())
+      .filter(Boolean);
+    const parsedLessons = lessonSuggestionsForMessage(safeMessages[safeMessages.length - 1])
+      .map((item) => String(item?.title || item?.suggestionText || item || '').trim())
+      .filter(Boolean);
+    const looksLikeLessons = (topics) => topics.some((topic) => /(?:bắt đầu\s+)?(?:bài|bai)\s+\d+/i.test(topic));
+    if (looksLikeLessons(sessionTopics)) return sessionTopics;
+    if (parsedLessons.length > 0) return parsedLessons;
+    return sessionTopics;
+  }, [safeMessages, tutorSession?.suggestedTopics]);
   const handleCourseSelect = (nextCourseId) => {
     if (!nextCourseId || nextCourseId === courseId) return;
     if (!courseId) {
@@ -190,20 +202,6 @@ function ChatWorkspace({
         {tutorSessionSummary?.summaryText && (
           <p className="tutor-session-strip__summary">{tutorSessionSummary.summaryText}</p>
         )}
-        {tutorSession?.status !== 'COMPLETED' && Array.isArray(tutorSession?.suggestedTopics)
-          && tutorSession.suggestedTopics.length > 0 && (
-          <div className="tutor-session-strip__topics">
-            {tutorSession.suggestedTopics.map((topic) => (
-              <button
-                type="button"
-                key={topic}
-                onClick={() => onPromptStarter?.(buildLessonChatPrompt(topic))}
-              >
-                {topic}
-              </button>
-            ))}
-          </div>
-        )}
       </section>
 
       <PinnedMessagesBar
@@ -241,6 +239,20 @@ function ChatWorkspace({
         triggerToast={triggerToast}
         userId={userId}
       />
+
+      {tutorSession?.status !== 'COMPLETED' && composerTopics.length > 0 && (
+        <div className="tutor-session-strip__topics tutor-session-strip__topics--composer" role="list">
+          {composerTopics.map((topic) => (
+            <button
+              type="button"
+              key={topic}
+              onClick={() => onPromptStarter?.(buildLessonChatPrompt(topic))}
+            >
+              {topic}
+            </button>
+          ))}
+        </div>
+      )}
 
       <ChatComposer
         activeSessionMaxTurnsReached={activeSessionMaxTurnsReached}

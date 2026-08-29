@@ -71,6 +71,28 @@ class LearningPathParserTest {
     }
 
     @Test
+    void parsesMarkdownBoldAndInlineCodeLessonLines() {
+        String answer = """
+                ## Lộ trình học
+                1. **Bài 1: Giới thiệu vòng lặp `for`** – hiểu cú pháp và cách lặp qua một danh sách.
+                2. **Bài 2: Vòng lặp while**
+                6. Bài 6: Xử lý lỗi ngữ nghĩa (semantic error) khi viết vòng lặp – tránh lỗi logic.
+
+                ## Bắt đầu thế nào
+                Bạn muốn bắt đầu với bài nào? Gợi ý: **Bắt đầu bài 1: Giới thiệu vòng lặp for**.
+                """;
+
+        List<SuggestionItem> items = LearningPathParser.parseLessonSuggestions(answer);
+
+        assertEquals(3, items.size());
+        assertEquals("Bắt đầu bài 1: Giới thiệu vòng lặp for – hiểu cú pháp và cách lặp qua một danh sách.",
+                items.get(0).getTitle());
+        assertEquals("Bắt đầu bài 2: Vòng lặp while", items.get(1).getTitle());
+        assertEquals("Bắt đầu bài 6: Xử lý lỗi ngữ nghĩa (semantic error) khi viết vòng lặp – tránh lỗi logic.",
+                items.get(2).getTitle());
+    }
+
+    @Test
     void ignoresAnswersWithoutBaiLessons() {
         assertTrue(LearningPathParser.parseLessonSuggestions(
                 "## Theo tài liệu môn học\nServlet là chương trình Java chạy trên web server."

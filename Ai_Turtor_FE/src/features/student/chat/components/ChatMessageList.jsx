@@ -22,6 +22,7 @@ import InlineMentorSupport from './InlineMentorSupport';
 import PromptStarters from './PromptStarters';
 import StudentMessageBubble from './StudentMessageBubble';
 import { uiCopy } from '../../../../constants/uiCopy';
+import { lessonSuggestionsForMessage } from '../../learning/studySuggestionPrompt';
 
 const AiAnswer = lazy(() => import('../../../../components/AiAnswer'));
 function TutorMascot({ size, className = '' }) {
@@ -161,7 +162,7 @@ function ChatMessageList({
                         />
                         {!message.canceled && !message.aiServiceError && (
                           <AnswerImproveSuggestions
-                            suggestions={message.nextImproveSuggestions}
+                            suggestions={lessonSuggestionsForMessage(message)}
                             onStudy={onStudySuggestion}
                             onCreateQuiz={onCreateQuizFromSuggestion}
                             sourceMode={message.mode}

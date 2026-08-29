@@ -15,7 +15,7 @@ import java.util.regex.Pattern;
 public final class LearningPathParser {
 
     private static final Pattern BAI_LINE = Pattern.compile(
-            "(?im)^[\\s>*-]*(?:\\d+[.)]\\s*)?(?:Bài|Bai)\\s+(\\d+)\\s*[:：.\\-]\\s*(.+?)\\s*$"
+            "(?i)^(?:\\d+[.)]\\s*)?(?:bắt đầu\\s+|bat dau\\s+)?(?:bài|bai)\\s+(\\d+)\\s*[:：.\\-]\\s*(.+)$"
     );
     private static final Pattern LESSON_FOCUS = Pattern.compile(
             "(?i)(?:bắt đầu bài|bat dau bai|học ngay bài|hoc ngay bai)\\s+\\d+\\s*[:：.\\-]\\s*(.+)"
@@ -32,7 +32,7 @@ public final class LearningPathParser {
         LinkedHashSet<String> seen = new LinkedHashSet<>();
         List<SuggestionItem> items = new ArrayList<>();
         for (String line : answer.split("\\R")) {
-            Matcher matcher = BAI_LINE.matcher(line.trim());
+            Matcher matcher = BAI_LINE.matcher(normalizeLessonLine(line));
             if (!matcher.matches()) {
                 continue;
             }
@@ -41,10 +41,10 @@ public final class LearningPathParser {
             if (title.isBlank()) {
                 continue;
             }
-            String prompt = "Bắt đầu bài " + number + ": " + title;
-            if (!seen.add(prompt.toLowerCase())) {
+            if (!seen.add(number)) {
                 continue;
             }
+            String prompt = "Bắt đầu bài " + number + ": " + title;
             items.add(new SuggestionItem(
                     prompt,
                     "Lộ trình học từ tài liệu môn học",
@@ -106,6 +106,16 @@ public final class LearningPathParser {
             return focus;
         }
         return topic + " " + focus;
+    }
+
+    private static String normalizeLessonLine(String line) {
+        if (line == null) {
+            return "";
+        }
+        return stripMarkdown(line)
+                .replaceFirst("^[\\s>*-]+", "")
+                .replaceAll("\\s+", " ")
+                .trim();
     }
 
     private static String stripMarkdown(String value) {

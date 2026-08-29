@@ -52,6 +52,16 @@
   scrollbar-width: thin;
 }
 
+.tutor-session-strip__topics--composer {
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  margin: 0;
+  padding: 0.45rem 1rem 0.4rem;
+  border-top: 1px solid var(--border-color, #e2e8f0);
+  background: #fafafa;
+  overflow-x: visible;
+}
+
 .tutor-session-strip__topics button {
   flex: 0 0 auto;
   max-width: 220px;
