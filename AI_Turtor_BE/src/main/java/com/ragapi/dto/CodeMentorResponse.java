@@ -17,6 +17,8 @@ public class CodeMentorResponse {
     private Boolean assignmentSafetyApplied;
     private List<String> weakTopics;
     private String conversationId;
+    private String userMessageId;
+    private String assistantMessageId;
     private String groundingType;
     private String sourceDisclosure;
 
@@ -27,6 +29,8 @@ public class CodeMentorResponse {
             Boolean assignmentSafetyApplied,
             List<String> weakTopics,
             String conversationId,
+            String userMessageId,
+            String assistantMessageId,
             String groundingType,
             String sourceDisclosure
     ) {
@@ -35,6 +39,8 @@ public class CodeMentorResponse {
         this.assignmentSafetyApplied = assignmentSafetyApplied;
         setWeakTopics(weakTopics);
         this.conversationId = conversationId;
+        this.userMessageId = userMessageId;
+        this.assistantMessageId = assistantMessageId;
         this.groundingType = groundingType;
         this.sourceDisclosure = sourceDisclosure;
     }

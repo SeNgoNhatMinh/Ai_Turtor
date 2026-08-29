@@ -11,6 +11,7 @@ import java.util.Optional;
 public interface AiMessageRepository extends MongoRepository<AiMessage, String> {
 
     Page<AiMessage> findByConversationId(String conversationId, Pageable pageable);
+    List<AiMessage> findByConversationIdOrderByCreatedAtAsc(String conversationId);
 
     long countByConversationId(String conversationId);
 

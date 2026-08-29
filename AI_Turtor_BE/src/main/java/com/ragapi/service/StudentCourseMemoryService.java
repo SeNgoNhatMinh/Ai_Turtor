@@ -96,6 +96,36 @@ public class StudentCourseMemoryService {
         }
         return repository.findByCourseId(courseId.trim());
     }
+
+    public String buildTutorContext(String studentId, String courseId) {
+        if (studentId == null || studentId.isBlank() || courseId == null || courseId.isBlank()) {
+            return "";
+        }
+        return repository.findByStudentIdAndCourseId(studentId.trim(), courseId.trim())
+                .map(memory -> {
+                    List<String> lines = new ArrayList<>();
+                    if (memory.getSummary() != null && !memory.getSummary().isBlank()) {
+                        lines.add("- Prior summary: " + memory.getSummary());
+                    }
+                    appendList(lines, "Topics needing more scaffolding", memory.getWeakTopics(), 5);
+                    appendList(lines, "Topics already learned", memory.getLearnedTopics(), 5);
+                    appendList(lines, "Recent student questions", memory.getRecentQuestions(), 3);
+                    appendList(lines, "Recommended next steps", memory.getImproveSuggestions(), 4);
+                    return String.join("\n", lines);
+                })
+                .orElse("");
+    }
+
+    private void appendList(List<String> lines, String label, List<String> values, int limit) {
+        if (values == null || values.isEmpty()) return;
+        String joined = values.stream()
+                .filter(value -> value != null && !value.isBlank())
+                .limit(limit)
+                .reduce((left, right) -> left + "; " + right)
+                .orElse("");
+        if (!joined.isBlank()) lines.add("- " + label + ": " + joined);
+    }
+
     public StudentCourseMemory pinImproveSuggestion(String studentId, String courseId, String suggestion) {
         String normalized = normalize(suggestion);
         if (normalized == null) {

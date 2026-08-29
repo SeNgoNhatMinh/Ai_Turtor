@@ -1,10 +1,11 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { aiTutorApi } from '../services/aiTutorApi';
 import { conversationApi } from '../services/conversationApi';
 import { getUserFacingError } from '../services/apiClient';
 import { asArray, pairMessages } from '../services/normalizers';
 import { N8N_ENABLED, N8N_STRICT } from '../services/n8nClient';
 import { n8nService } from '../services/n8nService';
+import { tutorSessionApi } from '../services/tutorSessionApi';
 import {
   AI_SERVICE_ERROR_MESSAGE,
   buildAiServiceErrorMessage,
@@ -105,6 +106,9 @@ export function useStudentChatController({
     handleRenameSession,
   } = conversation;
   const activeAiRequestIdRef = useRef(0);
+  const [activeTutorSession, setActiveTutorSession] = useState(null);
+  const [tutorSessionSummary, setTutorSessionSummary] = useState(null);
+  const [isTutorSessionLoading, setIsTutorSessionLoading] = useState(false);
   const canceledAiRequestIdsRef = useRef(new Set());
   const activeAiAbortControllerRef = useRef(null);
   useEffect(() => () => {
@@ -112,6 +116,32 @@ export function useStudentChatController({
   }, []);
 
   const getStudentUserId = () => userId;
+
+  const openTutorSession = async () => {
+    if (!userId || !courseId || !classId || isTutorSessionLoading) return null;
+    setIsTutorSessionLoading(true);
+    try {
+      const data = await tutorSessionApi.openSession({
+        studentId: userId,
+        courseId,
+        classId,
+      });
+      const session = data?.session || null;
+      setActiveTutorSession(session);
+      setTutorSessionSummary(null);
+      const conversationId = data?.conversationId;
+      await loadChatSessions({ silent: true });
+      if (conversationId) {
+        await handleSelectSession(conversationId, 'Buổi học cùng AI Tutor');
+      }
+      return data;
+    } catch (error) {
+      triggerToast(getUserFacingError(error, 'Không thể mở buổi học cùng AI Tutor.'));
+      return null;
+    } finally {
+      setIsTutorSessionLoading(false);
+    }
+  };
 
   const handleSendQuery = async (chatInput, codeSnippet, setAvatarEmotion) => {
     const text = chatInput.trim();
@@ -155,7 +185,9 @@ export function useStudentChatController({
             message: text,
             question: text,
             codeSnippet: codeSnippet || '',
-            conversationId: previousSessionId || ''
+            conversationId: previousSessionId || '',
+            tutorSessionId: activeTutorSession?.id || '',
+            sessionPhase: activeTutorSession?.phase || 'TEACH',
           }, { signal: requestController.signal });
         } catch (n8nError) {
           if (requestController.signal.aborted) throw n8nError;
@@ -167,7 +199,9 @@ export function useStudentChatController({
             codeSnippet: codeSnippet || null,
             courseId,
             classId,
-            conversationId: previousSessionId || null
+            conversationId: previousSessionId || null,
+            tutorSessionId: activeTutorSession?.id || null,
+            sessionPhase: activeTutorSession?.phase || 'TEACH',
           }, userId, currentUser?.fullName || '', currentUser?.email || '', {
             signal: requestController.signal,
           });
@@ -179,13 +213,38 @@ export function useStudentChatController({
           codeSnippet: codeSnippet || null,
           courseId,
           classId,
-          conversationId: previousSessionId || null
+          conversationId: previousSessionId || null,
+          tutorSessionId: activeTutorSession?.id || null,
+          sessionPhase: activeTutorSession?.phase || 'TEACH',
         }, userId, currentUser?.fullName || '', currentUser?.email || '', {
           signal: requestController.signal,
         });
       }
 
       const responseConversationId = data.conversationId || previousSessionId;
+      if (activeTutorSession?.id && activeSessionQuestionCount + 1 >= 10) {
+        try {
+          const summary = await tutorSessionApi.closeSession(activeTutorSession.id);
+          setTutorSessionSummary(summary);
+          setActiveTutorSession((session) => session ? {
+            ...session,
+            status: 'COMPLETED',
+            phase: 'CLOSED',
+            summaryId: summary?.id,
+          } : session);
+        } catch (summaryError) {
+          console.warn('Tutor session summary could not be generated:', summaryError);
+        }
+      } else if (activeTutorSession && (data?.sessionPhase || Array.isArray(data?.suggestedTopics))) {
+        setActiveTutorSession((session) => session ? {
+          ...session,
+          phase: data.sessionPhase || session.phase,
+          supportLevel: data.supportLevel || session.supportLevel,
+          suggestedTopics: Array.isArray(data.suggestedTopics) && data.suggestedTopics.length > 0
+            ? data.suggestedTopics
+            : session.suggestedTopics,
+        } : session);
+      }
       const responseConversationTitle = getSafeConversationTitle(
         data.conversationTitle || data.title || previousSessionTitle,
         courseId,
@@ -407,5 +466,9 @@ export function useStudentChatController({
     handleRenameSession,
     handleSendQuery,
     handleStopAiGeneration,
+    activeTutorSession,
+    tutorSessionSummary,
+    isTutorSessionLoading,
+    openTutorSession,
   };
 }

@@ -14,4 +14,9 @@ public class IntentClassifyRequest {
     private String message;
     private String question;
     private String codeSnippet;
+    private String conversationId;
+    private String tutorSessionId;
+    private String sessionPhase;
+    private String clickedSuggestion;
+    private String learningActionType;
 }

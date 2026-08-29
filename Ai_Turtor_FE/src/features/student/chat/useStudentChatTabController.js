@@ -7,6 +7,7 @@ import { getUserFacingError } from '../../../services/apiClient';
 import { classIdMatches } from '../../../utils/academicIds';
 import { LIMITS, validateChatInput } from '../../../utils/validators';
 import { isMobileViewport } from '../../../hooks/useResponsiveViewport';
+import { buildLessonChatPrompt } from '../learning/studySuggestionPrompt';
 
 export function useStudentChatTabController({
   courseId,
@@ -110,7 +111,7 @@ export function useStudentChatTabController({
     handleSelectSession(previousSessionId, previousSession?.title || 'Cuộc trò chuyện trước');
   };
 
-  const sendText = (text) => {
+  const sendText = (text, requestContext = {}) => {
     if (isAiLoading) return;
     if (!userId) {
       triggerToast?.('Vui lòng đăng nhập trước khi gửi tin nhắn.');
@@ -149,13 +150,13 @@ export function useStudentChatTabController({
     const textToSend = validation.value;
     setChatInput('');
     setIsAiLoading(true);
-    handleSendQuery(textToSend, '', () => {}).finally(() => {
+    handleSendQuery(textToSend, '', () => {}, requestContext).finally(() => {
       setIsAiLoading(false);
     });
   };
 
   const handlePromptStarter = (prompt) => {
-    sendText(prompt);
+    sendText(buildLessonChatPrompt(prompt) || prompt);
   };
 
   const setChatDraft = (text) => {

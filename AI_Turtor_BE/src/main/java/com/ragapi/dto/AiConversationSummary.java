@@ -17,6 +17,9 @@ public class AiConversationSummary {
     private String title;
     private String courseId;
     private String classId;
+    private String tutorSessionId;
+    private String parentConversationId;
+    private String sessionType;
     private Integer messageCount;
     private Integer userQuestionCount;
     private Boolean maxTurnsReached;

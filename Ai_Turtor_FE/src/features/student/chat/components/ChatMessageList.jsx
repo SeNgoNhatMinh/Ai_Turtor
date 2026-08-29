@@ -143,7 +143,10 @@ function ChatMessageList({
                           <AiAnswer
                             markdown={withoutLegacyEvidenceAppendix(message.answer, evidenceMessage)}
                             sourceMap={materialSourceMap}
-                            onStudyTipStudy={onStudySuggestion}
+                            onStudyTipStudy={(text) => onStudySuggestion?.({
+                              text,
+                              sourceMode: message.mode,
+                            })}
                             onDownloadSource={onDownloadSource}
                             hideSourceSection
                           />
@@ -159,6 +162,7 @@ function ChatMessageList({
                             suggestions={message.nextImproveSuggestions}
                             onStudy={onStudySuggestion}
                             onCreateQuiz={onCreateQuizFromSuggestion}
+                            sourceMode={message.mode}
                           />
                         )}
                         {!message.canceled && (

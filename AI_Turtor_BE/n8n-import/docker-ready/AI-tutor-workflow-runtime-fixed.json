@@ -47,8 +47,10 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"message\": \"{{$node['Set - Trace Context'].json.message}}\",\n  \"courseId\": \"{{$node['Set - Trace Context'].json.courseId}}\",\n  \"classId\": \"{{$node['Set - Trace Context'].json.classId}}\",\n  \"conversationId\": \"{{$node['Set - Trace Context'].json.conversationId}}\",\n  \"quotaConsumed\": true\n}",
-        "options": {}
+        "jsonBody": "={{ JSON.stringify({\n  message: $node['Set - Trace Context'].json.message,\n  question: $node['Set - Trace Context'].json.question,\n  codeSnippet: $node['Set - Trace Context'].json.codeSnippet,\n  courseId: $node['Set - Trace Context'].json.courseId,\n  classId: $node['Set - Trace Context'].json.classId,\n  conversationId: $node['Set - Trace Context'].json.conversationId,\n  tutorSessionId: $node['Set - Trace Context'].json.tutorSessionId,\n  sessionPhase: $node['Set - Trace Context'].json.sessionPhase,\n  quotaConsumed: true,\n  harnessMode: 'RAG'\n}) }}",
+        "options": {
+          "timeout": 300000
+        }
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
@@ -94,48 +96,11 @@
           ]
         },
         "sendBody": true,
-        "contentType": "=json",
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "studentId",
-              "value": "={{$node[\"Set - Trace Context\"].json.studentId}}"
-            },
-            {
-              "name": "courseId",
-              "value": "={{$node[\"Set - Trace Context\"].json.courseId}}"
-            },
-            {
-              "name": "classId",
-              "value": "={{$node[\"Set - Trace Context\"].json.classId}}"
-            },
-            {
-              "name": "message",
-              "value": "={{$node[\"Set - Trace Context\"].json.message}}"
-            },
-            {
-              "name": "question",
-              "value": "={{$node[\"Set - Trace Context\"].json.question}}"
-            },
-            {
-              "name": "codeSnippet",
-              "value": "={{$node[\"Set - Trace Context\"].json.codeSnippet}}"
-            },
-            {
-              "name": "traceId",
-              "value": "={{$node[\"Set - Trace Context\"].json.traceId}}"
-            },
-            {
-              "name": "sessionId",
-              "value": "={{$node[\"Set - Trace Context\"].json.sessionId}}"
-            },
-            {
-              "name": "conversationId",
-              "value": "={{$node[\"Set - Trace Context\"].json.conversationId}}"
-            }
-          ]
+        "options": {
+          "timeout": 60000
         },
-        "options": {}
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  studentId: $node['Set - Trace Context'].json.studentId,\n  courseId: $node['Set - Trace Context'].json.courseId,\n  classId: $node['Set - Trace Context'].json.classId,\n  message: $node['Set - Trace Context'].json.message,\n  question: $node['Set - Trace Context'].json.question,\n  codeSnippet: $node['Set - Trace Context'].json.codeSnippet,\n  conversationId: $node['Set - Trace Context'].json.conversationId,\n  tutorSessionId: $node['Set - Trace Context'].json.tutorSessionId,\n  sessionPhase: $node['Set - Trace Context'].json.sessionPhase\n}) }}"
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
@@ -145,7 +110,9 @@
       ],
       "id": "c3d92235-94ba-46ec-83f7-d8a3ac7b5641",
       "name": "Intent Classifier",
-      "onError": "continueRegularOutput"
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 2
     },
     {
       "parameters": {
@@ -159,12 +126,22 @@
           "conditions": [
             {
               "id": "d6014137-4558-4f84-8469-a89d0ddeb441",
-              "leftValue": "={{$node[\"Course RAG Query\"].json.escalated}}",
+              "leftValue": "={{ String($node[\"Course RAG Query\"].json.escalated) }}",
               "rightValue": "false",
               "operator": {
                 "type": "string",
                 "operation": "equals",
                 "name": "filter.operator.equals"
+              }
+            },
+            {
+              "id": "rag-answer-present-check",
+              "leftValue": "={{ Boolean($node[\"Course RAG Query\"].json.answer) }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
               }
             }
           ],
@@ -241,7 +218,7 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ ({\r\n  success: true,\r\n  mode: \"RAG_TUTOR\",\r\n  answer: $node[\"Course RAG Query\"].json.answer,\r\n  confidence: $node[\"Course RAG Query\"].json.confidence || null,\r\n  escalated: $node[\"Course RAG Query\"].json.escalated || false,\r\n  questionEscalationId: $node[\"Course RAG Query\"].json.questionEscalationId || null,\r\n  conversationId: $node[\"Course RAG Query\"].json.conversationId || $node[\"Course RAG Query\"].json.body?.conversationId || $node[\"Set - Trace Context\"].json.conversationId,\r\n  traceId: $node[\"Set - Trace Context\"].json.traceId,\r\n  sources: $node[\"Course RAG Query\"].json.sources || [],\r\n  sourceEvidence: $node[\"Course RAG Query\"].json.sourceEvidence || [],\r\n  groundingType: $node[\"Course RAG Query\"].json.groundingType || \"COURSE_MATERIAL\"\r\n}) }}",
+        "responseBody": "={{ ({\n  success: Boolean($node[\"Course RAG Query\"].json.answer),\n  mode: \"RAG_TUTOR\",\n  answer: $node[\"Course RAG Query\"].json.answer || \"Hệ thống tạm thời không nhận được câu trả lời từ AI Tutor. Vui lòng thử lại sau ít phút.\",\n  confidence: $node[\"Course RAG Query\"].json.confidence || null,\n  escalated: $node[\"Course RAG Query\"].json.escalated || false,\n  questionEscalationId: $node[\"Course RAG Query\"].json.questionEscalationId || null,\n  conversationId: $node[\"Course RAG Query\"].json.conversationId || $node[\"Set - Trace Context\"].json.conversationId,\n  userMessageId: $node[\"Course RAG Query\"].json.userMessageId || null,\n  assistantMessageId: $node[\"Course RAG Query\"].json.assistantMessageId || null,\n  tutorSessionId: $node[\"Course RAG Query\"].json.tutorSessionId || $node[\"Set - Trace Context\"].json.tutorSessionId,\n  sessionPhase: $node[\"Course RAG Query\"].json.sessionPhase || $node[\"Set - Trace Context\"].json.sessionPhase,\n  subIntent: $node[\"Course RAG Query\"].json.subIntent || $node[\"Intent Classifier\"].json.subIntent || null,\n  nextImproveSuggestions: $node[\"Course RAG Query\"].json.nextImproveSuggestions || [],\n  suggestedTopics: $node[\"Course RAG Query\"].json.suggestedTopics || [],\n  traceId: $node[\"Set - Trace Context\"].json.traceId,\n  sources: $node[\"Course RAG Query\"].json.sources || [],\n  sourceEvidence: $node[\"Course RAG Query\"].json.sourceEvidence || [],\n  groundingType: $node[\"Course RAG Query\"].json.groundingType || \"COURSE_MATERIAL\"\n}) }}",
         "options": {}
       },
       "type": "n8n-nodes-base.respondToWebhook",
@@ -267,39 +244,9 @@
           ]
         },
         "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "studentId",
-              "value": "={{$node[\"Set - Trace Context\"].json.studentId}}"
-            },
-            {
-              "name": "studentName",
-              "value": "={{$node[\"Set - Trace Context\"].json.studentName}}"
-            },
-            {
-              "name": "courseId",
-              "value": "={{$node[\"Set - Trace Context\"].json.courseId}}"
-            },
-            {
-              "name": "classId",
-              "value": "={{$node[\"Set - Trace Context\"].json.classId}}"
-            },
-            {
-              "name": "question",
-              "value": "={{$node[\"Set - Trace Context\"].json.message}}"
-            },
-            {
-              "name": "reason",
-              "value": "={{$node[\"Intent Classifier\"].json.reason || \"Intent classifier routed this question to teacher escalation\"}}"
-            },
-            {
-              "name": "conversationId",
-              "value": "={{$node[\"Set - Trace Context\"].json.conversationId}}"
-            }
-          ]
-        },
-        "options": {}
+        "options": {},
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  studentId: $node['Set - Trace Context'].json.studentId,\n  studentName: $node['Set - Trace Context'].json.studentName,\n  studentEmail: $node['Set - Trace Context'].json.studentEmail,\n  courseId: $node['Set - Trace Context'].json.courseId,\n  classId: $node['Set - Trace Context'].json.classId,\n  question: $node['Set - Trace Context'].json.message,\n  reason: $node['Intent Classifier'].json.reason || 'Intent classifier routed this question to teacher escalation',\n  conversationId: $node['Set - Trace Context'].json.conversationId\n}) }}"
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
@@ -308,7 +255,8 @@
         288
       ],
       "id": "ee131011-4ca6-4bb7-a450-dca8e77cbdc1",
-      "name": "Create Escalation"
+      "name": "Create Escalation",
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -333,49 +281,17 @@
         "headerParameters": {
           "parameters": [
             {
-              "name": "=Authorization",
+              "name": "Authorization",
               "value": "={{$node[\"Set - Trace Context\"].json.authorization}}"
             }
           ]
         },
         "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "studentId",
-              "value": "={{$node[\"Set - Trace Context\"].json.studentId}}"
-            },
-            {
-              "name": "courseId",
-              "value": "={{$node[\"Set - Trace Context\"].json.courseId}}"
-            },
-            {
-              "name": "classId",
-              "value": "={{$node[\"Set - Trace Context\"].json.classId}}"
-            },
-            {
-              "name": "question",
-              "value": "={{$node[\"Set - Trace Context\"].json.message}}"
-            },
-            {
-              "name": "code",
-              "value": "={{$node[\"Set - Trace Context\"].json.codeSnippet}}"
-            },
-            {
-              "name": "conversationId",
-              "value": "={{$node[\"Set - Trace Context\"].json.conversationId}}"
-            },
-            {
-              "name": "traceId",
-              "value": "={{$node[\"Set - Trace Context\"].json.traceId}}"
-            },
-            {
-              "name": "sessionId",
-              "value": "={{$node[\"Set - Trace Context\"].json.sessionId}}"
-            }
-          ]
+        "options": {
+          "timeout": 300000
         },
-        "options": {}
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  studentId: $node['Set - Trace Context'].json.studentId,\n  courseId: $node['Set - Trace Context'].json.courseId,\n  classId: $node['Set - Trace Context'].json.classId,\n  question: $node['Set - Trace Context'].json.question,\n  code: $node['Set - Trace Context'].json.codeSnippet,\n  conversationId: $node['Set - Trace Context'].json.conversationId\n}) }}"
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
@@ -387,7 +303,8 @@
       "name": "Code Mentor Query",
       "retryOnFail": true,
       "maxTries": 2,
-      "waitBetweenTries": 3000
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -437,7 +354,7 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ ({\r\n  success: true,\r\n  mode: \"CODE\",\r\n  answer: $node[\"Code Mentor Query\"].json.answer,\r\n  confidence: $node[\"Code Mentor Query\"].json.confidence || 0.95,\r\n  escalated: false,\r\n  conversationId: $node[\"Code Mentor Query\"].json.conversationId || $node[\"Set - Trace Context\"].json.conversationId,\r\n  traceId: $node[\"Set - Trace Context\"].json.traceId,\r\n  sources: $node[\"Code Mentor Query\"].json.sources || [\"CODE\"]\r\n}) }}",
+        "responseBody": "={{ ({\n  success: Boolean($node[\"Code Mentor Query\"].json.answer),\n  mode: \"CODE\",\n  answer: $node[\"Code Mentor Query\"].json.answer || \"Code Mentor tạm thời không trả lời được. Vui lòng thử lại.\",\n  confidence: $node[\"Code Mentor Query\"].json.confidence || 0.95,\n  escalated: false,\n  conversationId: $node[\"Code Mentor Query\"].json.conversationId || $node[\"Set - Trace Context\"].json.conversationId,\n  userMessageId: $node[\"Code Mentor Query\"].json.userMessageId || null,\n  assistantMessageId: $node[\"Code Mentor Query\"].json.assistantMessageId || null,\n  traceId: $node[\"Set - Trace Context\"].json.traceId,\n  sources: $node[\"Code Mentor Query\"].json.sources || [\"CODE\"]\n}) }}",
         "options": {}
       },
       "type": "n8n-nodes-base.respondToWebhook",
@@ -1011,7 +928,7 @@
     {
       "parameters": {
         "mode": "raw",
-        "jsonOutput": "=={{\n  {\n    traceId: $json.body.traceId || 'trace-' + Date.now(),\n    sessionId: $json.body.sessionId || 'session-' + Date.now(),\n    conversationId: $json.body.conversationId || '',\n\n    authToken: $json.body.authToken || (($json.headers.authorization || '').replace('Bearer ', '')) || '',\n    authorization: 'Bearer ' + ($json.body.authToken || (($json.headers.authorization || '').replace('Bearer ', '')) || ''),\n\n    studentId: $json.body.studentId,\n    studentName: $json.body.studentName || '',\n    studentEmail: $json.body.studentEmail || '',\n\n    courseId: $json.body.courseId,\n    classId: $json.body.classId || '',\n\n    message: $json.body.message || $json.body.question || '',\n    question: $json.body.question || $json.body.message || '',\n    codeSnippet: $json.body.codeSnippet || $json.body.code || '',\n    startedAt: new Date().toISOString()\n  }\n}}",
+        "jsonOutput": "=={{\n  {\n    traceId: $json.body.traceId || 'trace-' + Date.now(),\n    sessionId: $json.body.sessionId || 'session-' + Date.now(),\n    conversationId: $json.body.conversationId || '',\n    tutorSessionId: $json.body.tutorSessionId || '',\n    sessionPhase: $json.body.sessionPhase || 'TEACH',\n    authToken: $json.body.authToken || (($json.headers.authorization || '').replace('Bearer ', '')) || '',\n    authorization: 'Bearer ' + ($json.body.authToken || (($json.headers.authorization || '').replace('Bearer ', '')) || ''),\n    studentId: $json.body.studentId,\n    studentName: $json.body.studentName || '',\n    studentEmail: $json.body.studentEmail || '',\n    courseId: $json.body.courseId,\n    classId: $json.body.classId || '',\n    message: $json.body.message || $json.body.question || '',\n    question: $json.body.question || $json.body.message || '',\n    codeSnippet: $json.body.codeSnippet || $json.body.code || '',\n    startedAt: new Date().toISOString()\n  }\n}}",
         "options": {}
       },
       "type": "n8n-nodes-base.set",
@@ -1026,7 +943,7 @@
     {
       "parameters": {
         "mode": "raw",
-        "jsonOutput": "=={{\n  {\n    traceId: $json.traceId || 'trace-' + Date.now(),\n    sessionId: $json.sessionId || 'session-' + Date.now(),\n    conversationId: $json.conversationId || 'conversation-' + Date.now(),\n\n    authToken: $json.authToken || (($json.authorization || '').replace('Bearer ', '')) || '',\n    authorization: $json.authorization || ('Bearer ' + ($json.authToken || '')),\n\n    studentId: $json.studentId,\n    studentName: $json.studentName || '',\n    studentEmail: $json.studentEmail || '',\n\n    courseId: $json.courseId,\n    classId: $json.classId || '',\n\n    message: $json.message || $json.question || '',\n    question: $json.question || $json.message || '',\n    codeSnippet: $json.codeSnippet || $json.code || '',\n\n    startedAt: $json.startedAt || new Date().toISOString()\n  }\n}}",
+        "jsonOutput": "=={{\n  {\n    traceId: $json.traceId || 'trace-' + Date.now(),\n    sessionId: $json.sessionId || 'session-' + Date.now(),\n    conversationId: $json.conversationId || '',\n    tutorSessionId: $json.tutorSessionId || '',\n    sessionPhase: $json.sessionPhase || 'TEACH',\n    authToken: $json.authToken || (($json.authorization || '').replace('Bearer ', '')) || '',\n    authorization: $json.authorization || ('Bearer ' + ($json.authToken || '')),\n    studentId: $json.studentId,\n    studentName: $json.studentName || '',\n    studentEmail: $json.studentEmail || '',\n    courseId: $json.courseId,\n    classId: $json.classId || '',\n    message: $json.message || $json.question || '',\n    question: $json.question || $json.message || '',\n    codeSnippet: $json.codeSnippet || $json.code || '',\n    startedAt: $json.startedAt || new Date().toISOString()\n  }\n}}",
         "options": {}
       },
       "type": "n8n-nodes-base.set",
@@ -1076,13 +993,22 @@
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose", "version": 3 },
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
           "conditions": [
             {
               "id": "course-quota-condition",
-              "leftValue": "={{ JSON.stringify($json).includes('DAILY_COURSE_QUESTION_LIMIT_REACHED') ? 'QUOTA' : 'CONTINUE' }}",
+              "leftValue": "={{ (JSON.stringify($json).includes('DAILY_COURSE_QUESTION_LIMIT_REACHED') || Number($json.statusCode) === 429) ? 'QUOTA' : 'CONTINUE' }}",
               "rightValue": "QUOTA",
-              "operator": { "type": "string", "operation": "equals", "name": "filter.operator.equals" }
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
             }
           ],
           "combinator": "and"
@@ -1092,20 +1018,34 @@
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [368, 464],
+      "position": [
+        368,
+        464
+      ],
       "id": "course-quota-router",
       "name": "IF Course Question Quota Reached"
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose", "version": 3 },
-          "conditions": [{
-            "id": "intent-course-quota-condition",
-            "leftValue": "={{ JSON.stringify($json).includes('DAILY_COURSE_QUESTION_LIMIT_REACHED') ? 'QUOTA' : 'CONTINUE' }}",
-            "rightValue": "QUOTA",
-            "operator": { "type": "string", "operation": "equals", "name": "filter.operator.equals" }
-          }],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "intent-course-quota-condition",
+              "leftValue": "={{ (JSON.stringify($json).includes('DAILY_COURSE_QUESTION_LIMIT_REACHED') || Number($json.statusCode) === 429) ? 'QUOTA' : 'CONTINUE' }}",
+              "rightValue": "QUOTA",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
           "combinator": "and"
         },
         "looseTypeValidation": true,
@@ -1113,7 +1053,10 @@
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [-432, 464],
+      "position": [
+        -432,
+        464
+      ],
       "id": "intent-course-quota-router",
       "name": "IF Intent Course Quota Reached"
     },
@@ -1125,7 +1068,10 @@
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
-      "position": [736, 416],
+      "position": [
+        736,
+        416
+      ],
       "id": "respond-course-quota",
       "name": "Respond Course Question Quota"
     },
@@ -1931,12 +1877,12 @@
                 "options": {
                   "caseSensitive": true,
                   "leftValue": "",
-                  "typeValidation": "strict",
+                  "typeValidation": "loose",
                   "version": 3
                 },
                 "conditions": [
                   {
-                    "leftValue": "={{$json.mode}}",
+                    "leftValue": "={{ String($json.mode || $json.body?.mode || '').trim().toUpperCase() }}",
                     "rightValue": "CODE",
                     "operator": {
                       "type": "string",
@@ -1955,13 +1901,13 @@
                 "options": {
                   "caseSensitive": true,
                   "leftValue": "",
-                  "typeValidation": "strict",
+                  "typeValidation": "loose",
                   "version": 3
                 },
                 "conditions": [
                   {
                     "id": "cfce8e7b-0fd1-4d23-ab89-407173c73bf2",
-                    "leftValue": "={{$json.mode}}",
+                    "leftValue": "={{ String($json.mode || $json.body?.mode || '').trim().toUpperCase() }}",
                     "rightValue": "ESCALATE",
                     "operator": {
                       "type": "string",
@@ -1980,13 +1926,13 @@
                 "options": {
                   "caseSensitive": true,
                   "leftValue": "",
-                  "typeValidation": "strict",
+                  "typeValidation": "loose",
                   "version": 3
                 },
                 "conditions": [
                   {
                     "id": "e65ab694-68cf-41bf-98cd-57812912b08a",
-                    "leftValue": "={{$json.mode}}",
+                    "leftValue": "={{ String($json.mode || $json.body?.mode || '').trim().toUpperCase() }}",
                     "rightValue": "RAG",
                     "operator": {
                       "type": "string",
@@ -2002,7 +1948,10 @@
             }
           ]
         },
-        "options": {}
+        "options": {
+          "fallbackOutput": "extra"
+        },
+        "looseTypeValidation": true
       },
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
@@ -3355,10 +3304,18 @@
     "IF Course Question Quota Reached": {
       "main": [
         [
-          { "node": "Respond Course Question Quota", "type": "main", "index": 0 }
+          {
+            "node": "Respond Course Question Quota",
+            "type": "main",
+            "index": 0
+          }
         ],
         [
-          { "node": "IF RAG Failed? ", "type": "main", "index": 0 }
+          {
+            "node": "IF RAG Failed? ",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
@@ -3386,8 +3343,20 @@
     },
     "IF Intent Course Quota Reached": {
       "main": [
-        [{ "node": "Respond Course Question Quota", "type": "main", "index": 0 }],
-        [{ "node": "Switch2", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Respond Course Question Quota",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Switch2",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "IF Confidence Check": {
@@ -3818,6 +3787,13 @@
         [
           {
             "node": "Create Escalation",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Course RAG Query",
             "type": "main",
             "index": 0
           }

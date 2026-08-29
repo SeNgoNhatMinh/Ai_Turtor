@@ -55,6 +55,10 @@ function StudentChatView({
   onDownloadSource,
   onOpenMentorReview,
   onMentorRequestCreated,
+  tutorSession,
+  tutorSessionSummary,
+  isTutorSessionLoading,
+  onStartNextTutorSession,
 }) {
   const closeHistoryOnMobile = () => {
     if (isMobileViewport()) setIsHistoryDrawerOpen(false);
@@ -139,6 +143,10 @@ function StudentChatView({
             onDownloadSource={onDownloadSource}
             onOpenMentorReview={onOpenMentorReview}
             onMentorRequestCreated={onMentorRequestCreated}
+            tutorSession={tutorSession}
+            tutorSessionSummary={tutorSessionSummary}
+            isTutorSessionLoading={isTutorSessionLoading}
+            onStartNextTutorSession={onStartNextTutorSession}
           />
         </div>
       </div>

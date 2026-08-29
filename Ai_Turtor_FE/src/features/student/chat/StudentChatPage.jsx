@@ -82,6 +82,7 @@ export default function StudentChatPage({
     switchTab,
     loadStudentDashboard: learning.loadStudentDashboard,
     setChatDraft: chatController.setChatDraft,
+    sendChatMessage: chatController.sendText,
     triggerToast,
   });
 
@@ -119,7 +120,7 @@ export default function StudentChatPage({
   useEffect(() => {
     if (!studentId || !courseId) return;
 
-    chat.loadChatSessions();
+    chat.openTutorSession();
 
     const materialsTimer = window.setTimeout(() => {
       materials.loadCourseMaterials();
@@ -216,6 +217,10 @@ export default function StudentChatPage({
       onDownloadSource={chatController.handleDownloadSource}
       onOpenMentorReview={() => switchTab?.('student-escalation')}
       onMentorRequestCreated={mentorRequests.refreshMentorRequests}
+      tutorSession={chat.activeTutorSession}
+      tutorSessionSummary={chat.tutorSessionSummary}
+      isTutorSessionLoading={chat.isTutorSessionLoading}
+      onStartNextTutorSession={chat.openTutorSession}
     />
   );
 }

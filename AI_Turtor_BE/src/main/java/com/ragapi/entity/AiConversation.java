@@ -28,6 +28,11 @@ public class AiConversation {
 
     private String classId;
 
+    private String tutorSessionId;
+    private String parentConversationId;
+    /** QNA, LESSON, DIAGNOSTIC, REVIEW. */
+    private String sessionType;
+
     /** Tiêu �'ề hi�fn th�< trên sidebar (thường lấy từ câu hỏi �'ầu tiên). */
     private String title;
 

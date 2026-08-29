@@ -11,22 +11,43 @@ describe('useStudentLearningActions', () => {
     clearStudyChatHandoff();
   });
 
-  it('fills an editable chat draft without submitting the suggestion', () => {
+  it('sends the study tip immediately when already in chat', () => {
+    const sendChatMessage = vi.fn();
     const setChatDraft = vi.fn();
     const switchTab = vi.fn();
     const { result } = renderHook(() => useStudentLearningActions({
       activeTab: 'student-chat',
       courseId: 'PRJ301',
+      sendChatMessage,
       setChatDraft,
       switchTab,
     }));
 
     act(() => result.current.handleStudySuggestion('Servlet lifecycle'));
 
-    expect(setChatDraft).toHaveBeenCalledOnce();
-    expect(setChatDraft.mock.calls[0][0]).toContain('Servlet lifecycle');
+    expect(sendChatMessage).toHaveBeenCalledOnce();
+    expect(sendChatMessage.mock.calls[0][0]).toContain('Servlet lifecycle');
+    expect(setChatDraft).not.toHaveBeenCalled();
     expect(switchTab).not.toHaveBeenCalled();
     expect(readStudyChatHandoff()).toBeNull();
+  });
+
+  it('extracts text from a structured improve suggestion before sending', () => {
+    const sendChatMessage = vi.fn();
+    const { result } = renderHook(() => useStudentLearningActions({
+      activeTab: 'student-chat',
+      courseId: 'PRJ301',
+      sendChatMessage,
+    }));
+
+    act(() => result.current.handleStudySuggestion({
+      title: 'Ôn lại class và object',
+      sourceMode: 'RAG',
+    }));
+
+    expect(sendChatMessage).toHaveBeenCalledOnce();
+    expect(sendChatMessage.mock.calls[0][0]).toContain('Ôn lại class và object');
+    expect(sendChatMessage.mock.calls[0][0]).not.toContain('[object Object]');
   });
 
   it('moves an editable draft from Learning Progress to Chat', () => {

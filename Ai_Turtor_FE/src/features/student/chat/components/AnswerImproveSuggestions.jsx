@@ -10,7 +10,12 @@ const getSuggestionText = (suggestion) => String(
   || '',
 ).trim();
 
-function AnswerImproveSuggestions({ suggestions = [], onStudy, onCreateQuiz }) {
+function AnswerImproveSuggestions({
+  suggestions = [],
+  onStudy,
+  onCreateQuiz,
+  sourceMode,
+}) {
   const uniqueSuggestions = [...new Map(
     (Array.isArray(suggestions) ? suggestions : [])
       .map((suggestion) => [getSuggestionText(suggestion).toLowerCase(), suggestion])
@@ -33,7 +38,14 @@ function AnswerImproveSuggestions({ suggestions = [], onStudy, onCreateQuiz }) {
               <span>{text}</span>
               <div className="answer-improve-suggestion__actions">
                 {onStudy && (
-                  <button type="button" onClick={() => onStudy(text)}>
+                  <button
+                    type="button"
+                    onClick={() => onStudy({
+                      ...(suggestion && typeof suggestion === 'object' ? suggestion : {}),
+                      text,
+                      sourceMode,
+                    })}
+                  >
                     <BookOpenCheck size={14} aria-hidden="true" /> Học ngay
                   </button>
                 )}

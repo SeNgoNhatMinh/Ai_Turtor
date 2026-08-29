@@ -104,6 +104,25 @@ class TextbookChunkAlignmentTest {
         assertThat(TextbookChunkAlignment.topChunksCoverQuestion("Servlet là gì", List.of(jspCompile), 3)).isFalse();
     }
 
+    @Test
+    void exampleFollowUpFocusRanksServletSpecAheadOfJspxExamplePage() {
+        SearchChunk jspx = chunk(
+                "JSP Document (JSPX) example table comparing <%@ page %> with <jsp:directive.page />.",
+                0.96,
+                "jspx"
+        );
+        SearchChunk spec = chunk(
+                "Servlet Specification is part of the Java EE specification and defines servlet lifecycle.",
+                0.61,
+                "spec"
+        );
+        String focus = "Servlet Specification giúp mình hiểu khái niệm của phần này với? có ví dụ ko?";
+
+        List<SearchChunk> ranked = TextbookChunkAlignment.rank(focus, List.of(jspx, spec));
+
+        assertThat(ranked.get(0).materialId()).isEqualTo("spec");
+    }
+
     private SearchChunk chunk(String content, double score, String materialId) {
         return new SearchChunk(content, score, materialId, "PRJ301", null, "t1", "COURSE_SHARED", "PDF");
     }

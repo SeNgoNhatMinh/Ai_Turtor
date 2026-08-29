@@ -1,6 +1,7 @@
 package com.ragapi.service;
 
 import com.ragapi.dto.CodeMentorRequest;
+import com.ragapi.dto.CodeMentorResponse;
 import com.ragapi.entity.StudentCourseMemory;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -42,10 +43,13 @@ class CodeMentorServiceTest {
         memory.setWeakTopics(new ArrayList<>());
         when(chatService.generate(any())).thenReturn("Biến int không thể nhận trực tiếp một String.");
         when(memoryService.getOrCreateMemory("student-1", "PRO192")).thenReturn(memory);
-        when(conversationService.saveExchange(eq("student-1"), any(), any(), any(), any()))
-                .thenReturn("conversation-1");
+        when(conversationService.saveExchangeWithMessages(
+                eq("student-1"), any(), eq("PRO192"), eq("SE1840"), any(), any(), any()))
+                .thenReturn(new AiConversationService.SavedExchange(
+                        "conversation-1", "user-message-1", "assistant-message-1"));
 
-        new CodeMentorService(chatService, memoryService, conversationService, answerCacheService).mentor(request);
+        CodeMentorResponse response = new CodeMentorService(
+                chatService, memoryService, conversationService, answerCacheService).mentor(request);
 
         ArgumentCaptor<String> storedQuestion = ArgumentCaptor.forClass(String.class);
         verify(memoryService).recordInteraction(
@@ -61,5 +65,8 @@ class CodeMentorServiceTest {
         assertTrue(value.contains("Code/error log:"));
         assertTrue(value.contains("int x = \"10\";"));
         assertEquals(-1, value.indexOf('\uFFFD'));
+        assertEquals("conversation-1", response.getConversationId());
+        assertEquals("user-message-1", response.getUserMessageId());
+        assertEquals("assistant-message-1", response.getAssistantMessageId());
     }
 }

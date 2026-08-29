@@ -34,4 +34,9 @@ public class IntentClassification {
      * True when the answer must be grounded in uploaded course materials.
      */
     private Boolean requiresCourseMaterial;
+
+    /**
+     * Decision source used for diagnostics: RULE, LLM, or SAFE_RAG_FALLBACK.
+     */
+    private String routingStrategy;
 }

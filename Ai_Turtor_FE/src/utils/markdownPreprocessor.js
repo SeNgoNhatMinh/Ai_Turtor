@@ -155,7 +155,19 @@ function isListLine(line) {
 
 function isTableLine(line) {
   const t = line.trim();
-  return t.includes('|') && t.split('|').filter(Boolean).length >= 2;
+  if (!t.includes('|')) return false;
+  const cells = t.replace(/^\|/, '').replace(/\|$/, '').split('|').map((c) => c.trim());
+  return cells.length >= 2;
+}
+
+function looksLikeFakeHeader(cells) {
+  const joined = cells.map((c) => String(c || '').trim()).join('');
+  if (!joined || /^table$/i.test(joined)) return true;
+  return cells.every((c) => !String(c || '').trim() || /^:?-{2,}:?$/.test(String(c).trim()));
+}
+
+function looksLikeCodeRow(cells) {
+  return cells.some((c) => /[<>]|<%|%>|jsp:|@\w+/.test(String(c || '')));
 }
 
 function isHeadingLine(line) {
@@ -174,12 +186,11 @@ function isHeadingLine(line) {
 
 function hardFixInlineTables(text) {
   return text.replace(
-    /([^\n|])[ \t]*(\|(?:[^|\n]+\|){1,}(?:\s*\|(?:[^|\n]+\|){1,})+)/g,
+    /([^\n|])[ \t]*(\|(?:[^|\n]+\|){1,}(?:[ \t]+\|(?:[^|\n]+\|){1,})+)/g,
     (_, prefix, tableBlob) => {
-      // Split on boundaries where a cell-end pipe is followed by whitespace
-      // then another cell-start pipe.
       const rows = tableBlob
-        .replace(/\|\s*\|/g, '|\n|')
+        .replace(/\|[ \t]+\|/g, '|\n|')
+        .replace(/\|\|/g, '|\n|')
         .split('\n')
         .map((r) => r.trim())
         .filter(Boolean);
@@ -385,38 +396,80 @@ function isSeparatorRow(cells) {
   return cells.length > 0 && cells.every((c) => /^:?-{3,}:?$/.test(c));
 }
 
+function wrapCodeishCell(cell) {
+  const value = String(cell || '').trim();
+  if (!value || value.includes('`')) return cell;
+  if (/[<>]|<%|%>|jsp:|@WebServlet|doGet|doPost/.test(value)) {
+    return `\`${value.replaceAll('`', '')}\``;
+  }
+  return cell;
+}
+
 function buildGfmTable(rows) {
   if (!rows.length) return [];
 
   const parsed = rows.map(splitCells);
   const cols = Math.max(...parsed.map((r) => r.length));
 
-  // Pad every row to the same column count
   const padded = parsed.map((r) => {
     const copy = [...r];
     while (copy.length < cols) copy.push('');
     return copy;
   });
 
-  const header = padded[0];
+  let header = padded[0];
   let body = padded.slice(1);
 
-  // Strip existing separator (if present)
+  if (looksLikeFakeHeader(header) && padded.length > 1) {
+    header = padded[1];
+    body = padded.slice(2);
+  }
+
   if (body.length && isSeparatorRow(body[0])) {
     body = body.slice(1);
   }
+  if (looksLikeFakeHeader(header) && body.length) {
+    header = body[0];
+    body = body.slice(1);
+  }
+  if (body.length && isSeparatorRow(body[0])) {
+    body = body.slice(1);
+  }
+  if (looksLikeCodeRow(header)) {
+    const cols = Math.max(header.length, 2);
+    body = [header, ...body];
+    header = cols === 2 ? ['Cột 1', 'Cột 2'] : Array.from({ length: cols }, (_, i) => `Cột ${i + 1}`);
+  }
 
-  const sep = Array(cols).fill('---');
+  const sep = Array(Math.max(header.length, cols)).fill('---');
+  while (header.length < sep.length) header.push('');
 
   return [
-    `| ${header.join(' | ')} |`,
+    `| ${header.map(wrapCodeishCell).join(' | ')} |`,
     `| ${sep.join(' | ')} |`,
-    ...body.map((r) => `| ${r.join(' | ')} |`),
+    ...body.map((r) => {
+      const copy = [...r];
+      while (copy.length < sep.length) copy.push('');
+      return `| ${copy.map(wrapCodeishCell).join(' | ')} |`;
+    }),
   ];
 }
 
 function repairTables(text) {
-  const lines = text.split('\n');
+  const cleaned = String(text || '')
+    .split('\n')
+    .map((line) => {
+      if (/^\s*TABLE\s*$/i.test(line)) return '';
+      if (!isTableLine(line)) {
+        const caption = line.trim().match(/^\|\s*([^|]+)\s*\|\s*$/);
+        if (caption && !/^:?-{2,}:?$/.test(caption[1].trim())) {
+          return caption[1].trim();
+        }
+      }
+      return line;
+    })
+    .join('\n');
+  const lines = cleaned.split('\n');
   const out = [];
   let buf = [];
 

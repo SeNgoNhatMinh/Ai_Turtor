@@ -128,6 +128,41 @@ test('merges duplicate bold source sections and repeated PDF suffixes', () => {
   assert.equal(stripSourceSection(output), 'Nội dung trả lời.');
 });
 
+test('repairs fake TABLE caption and ASCII dash rows into a ChatGPT-style GFM table', () => {
+  const input = [
+    'JSP thông thường so với JSPX:',
+    '',
+    '| JSPX (XML) |',
+    '',
+    'TABLE',
+    '| ---------------- | -------- |',
+    '| <%@ page ... %> | <jsp:directive.page /> |',
+    '| <%! ... %> | <jsp:declaration> ... </jsp:declaration> |',
+  ].join('\n');
+
+  const output = normalizeAiMarkdown(input);
+
+  assert.doesNotMatch(output, /^TABLE$/m);
+  assert.doesNotMatch(output, /^\| JSPX \(XML\) \|$/m);
+  assert.match(output, /^\| Cột 1 \| Cột 2 \|$/m);
+  assert.match(output, /^\| --- \| --- \|$/m);
+  assert.match(output, /`<%@ page \.\.\. %>`/);
+  assert.match(output, /`<jsp:directive\.page \/>`/);
+});
+
+test('keeps a normal markdown table header', () => {
+  const input = [
+    '| JSP | JSPX |',
+    '| --- | --- |',
+    '| `<%@ page %>` | `<jsp:directive.page />` |',
+  ].join('\n');
+
+  const output = normalizeAiMarkdown(input);
+
+  assert.match(output, /^\| JSP \| JSPX \|$/m);
+  assert.doesNotMatch(output, /Cột 1/);
+});
+
 test('keeps course-material answers that mention a PDF in prose', () => {
   const input = [
     '## Theo tài liệu môn học',

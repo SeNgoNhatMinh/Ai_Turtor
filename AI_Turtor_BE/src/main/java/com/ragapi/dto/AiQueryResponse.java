@@ -35,6 +35,9 @@ public class AiQueryResponse {
     @Schema(description = "Whether the answer must be grounded in course material")
     private Boolean requiresCourseMaterial;
 
+    @Schema(description = "Routing decision source: RULE, LLM, or SAFE_RAG_FALLBACK")
+    private String routingStrategy;
+
     @Schema(description = "AI-generated answer")
     private String answer;
 
@@ -59,6 +62,10 @@ public class AiQueryResponse {
     @Schema(description = "Course ID scoped to this conversation")
     private String courseId;
 
+    private String tutorSessionId;
+    private String sessionPhase;
+    private String supportLevel;
+
     @Schema(description = "Question escalation ID when teacher help is required")
     private String questionEscalationId;
 
@@ -70,6 +77,9 @@ public class AiQueryResponse {
 
     @Schema(description = "Next improve suggestions after this answer")
     private List<SuggestionItem> nextImproveSuggestions;
+
+    @Schema(description = "Updated tutor-session lesson chips when a learning path was proposed")
+    private List<String> suggestedTopics;
 
     @Schema(description = "Optional AI-generated improve plan as raw text or JSON")
     private String nextAiSuggestion;
@@ -117,5 +127,9 @@ public class AiQueryResponse {
 
     public void setSources(List<String> sources) {
         this.sources = TextSanitizer.cleanList(sources);
+    }
+
+    public void setSuggestedTopics(List<String> suggestedTopics) {
+        this.suggestedTopics = TextSanitizer.cleanList(suggestedTopics);
     }
 }

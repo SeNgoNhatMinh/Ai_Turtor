@@ -38,6 +38,24 @@ public class AccessGuardService {
         throw new IllegalArgumentException("Requester is not allowed to access this student resource");
     }
 
+    public void allowEnrolledStudentSelfOrAdmin(
+            String requesterId,
+            String requesterRole,
+            String studentId,
+            String courseId,
+            String classId
+    ) {
+        if (isAdmin(requesterRole)) {
+            return;
+        }
+        if (!isStudent(requesterRole) || isBlank(requesterId) || !requesterId.equals(studentId)) {
+            throw new IllegalArgumentException("Only the authenticated student can open this tutor session");
+        }
+        if (enrollmentRepository.findByStudentIdAndCourseIdAndClassId(studentId, courseId, classId).isEmpty()) {
+            throw new IllegalArgumentException("Student is not enrolled in this course and class");
+        }
+    }
+
     public void allowTeacherForClassOrAdmin(String requesterId, String requesterRole, String courseId, String classId) {
         if (isBlank(requesterId) && isBlank(requesterRole)) {
             return;
@@ -51,6 +69,22 @@ public class AccessGuardService {
             return;
         }
         throw new IllegalArgumentException("Requester is not the teacher of this class section");
+    }
+
+    public void allowTeacherForStudentTranscript(
+            String requesterId,
+            String requesterRole,
+            String studentId,
+            String courseId,
+            String classId
+    ) {
+        allowTeacherForClassOrAdmin(requesterId, requesterRole, courseId, classId);
+        if (isAdmin(requesterRole)) {
+            return;
+        }
+        if (enrollmentRepository.findByStudentIdAndCourseIdAndClassId(studentId, courseId, classId).isEmpty()) {
+            throw new IllegalArgumentException("Student is not enrolled in this teacher's class");
+        }
     }
 
     public void allowStudentEnrollmentOrTeacherOrAdmin(String requesterId, String requesterRole, String studentId, String courseId, String classId) {

@@ -1,23 +1,29 @@
 package com.ragapi.controller;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ragapi.dto.AiQueryRequest;
 import com.ragapi.dto.AiQueryResponse;
 import com.ragapi.dto.CodeMentorRequest;
 import com.ragapi.dto.CourseRagAnswer;
 import com.ragapi.dto.IntentClassification;
 import com.ragapi.dto.IntentClassifyRequest;
+import com.ragapi.dto.SuggestionItem;
+import com.ragapi.dto.TutorIntentContext;
 import com.ragapi.entity.QuestionEscalation;
-import com.ragapi.entity.StudentCourseMemory;
+import com.ragapi.entity.TutorSession;
 import com.ragapi.service.AiConversationService;
 import com.ragapi.service.CodeMentorService;
 import com.ragapi.service.CourseRagService;
 import com.ragapi.service.IntentClassifierService;
 import com.ragapi.service.MentorEscalationService;
+import com.ragapi.service.PedagogicalDirectiveService;
 import com.ragapi.service.StudentCourseMemoryService;
 import com.ragapi.service.StudentDailyQuestionQuotaService;
 import com.ragapi.service.StudentQuestionNormalizationService;
+import com.ragapi.service.TutorSessionService;
+import com.ragapi.util.ConversationFocus;
+import com.ragapi.util.HarnessRouting;
+import com.ragapi.util.LearningPathParser;
+import com.ragapi.util.StudentChatIntentDetector;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -47,7 +53,6 @@ import static com.ragapi.util.ValidationUtils.requireText;
 @Tag(name = "Tutor", description = "AI tutor query, intent routing and diagnostics APIs")
 public class TutorController {
 
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private final CourseRagService ragService;
     private final MentorEscalationService mentorEscalationService;
     private final AiConversationService aiConversationService;
@@ -56,6 +61,8 @@ public class TutorController {
     private final IntentClassifierService intentClassifierService;
     private final StudentDailyQuestionQuotaService questionQuotaService;
     private final StudentQuestionNormalizationService questionNormalizationService;
+    private final PedagogicalDirectiveService pedagogicalDirectiveService;
+    private final TutorSessionService tutorSessionService;
 
     @PostMapping("/tutor/intent-classify")
     @Operation(summary = "Classify a student question for n8n AI Harness routing")
@@ -75,11 +82,19 @@ public class TutorController {
             if (isStudent(authentication)) {
                 questionQuotaService.consume(authentication.getName(), courseId);
             }
+            String userId = isStudent(authentication) ? authentication.getName() : request.getStudentId();
+            TutorIntentContext intentContext = resolveIntentContext(
+                    request.getConversationId(),
+                    request.getTutorSessionId(),
+                    request.getSessionPhase(),
+                    userId
+            );
 
             IntentClassification intent = intentClassifierService.classify(
                     question,
                     codeSnippet,
-                    courseId
+                    courseId,
+                    intentContext
             );
 
             Map<String, Object> body = new java.util.LinkedHashMap<>();
@@ -94,6 +109,7 @@ public class TutorController {
             body.put("domain", intent.getDomain());
             body.put("answerPolicy", intent.getAnswerPolicy());
             body.put("requiresCourseMaterial", intent.getRequiresCourseMaterial());
+            body.put("routingStrategy", intent.getRoutingStrategy());
             return ResponseEntity.ok(body);
         } catch (StudentDailyQuestionQuotaService.QuestionQuotaExceededException e) {
             String message = "Bạn đã dùng hết " + e.getDailyLimit() + " câu hỏi của môn "
@@ -125,6 +141,9 @@ public class TutorController {
             if (request == null) {
                 return ResponseEntity.badRequest().body(Map.of("error", "request body is required"));
             }
+            if (isStudent(authentication)) {
+                userId = authentication.getName();
+            }
             String question = normalizeStudentQuestion(
                     requireMaxLength(resolveQuestion(request), "question", STUDENT_QUESTION_MAX_LENGTH)
             );
@@ -134,35 +153,106 @@ public class TutorController {
             if (isStudent(authentication) && !Boolean.TRUE.equals(request.getQuotaConsumed())) {
                 questionQuotaService.consume(authentication.getName(), courseId);
             }
+            String recentHistoryContext = "";
+            try {
+                recentHistoryContext = aiConversationService.buildRecentTutorContext(
+                        request.getConversationId(), userId);
+            } catch (RuntimeException historyError) {
+                log.warn("Tutor history unavailable; continuing without chat context: {}", historyError.getMessage());
+            }
+            String classifierHistory = aiConversationService.buildRecentTutorContextForClassifier(
+                    request.getConversationId(), userId);
+            String sessionTopic = null;
+            String sessionPhase = request.getSessionPhase();
+            if (request.getTutorSessionId() != null && !request.getTutorSessionId().isBlank()) {
+                try {
+                    TutorSession activeSession = tutorSessionService.getSession(request.getTutorSessionId());
+                    sessionTopic = activeSession.getTopic();
+                    if (activeSession.getPhase() != null && !activeSession.getPhase().isBlank()) {
+                        sessionPhase = activeSession.getPhase();
+                    }
+                } catch (RuntimeException sessionError) {
+                    log.debug("Tutor session unavailable for intent context: {}", sessionError.getMessage());
+                }
+            }
             IntentClassification intent = intentClassifierService.classify(
                     question,
                     codeSnippet,
-                    courseId
+                    courseId,
+                    new TutorIntentContext(classifierHistory, sessionPhase, sessionTopic)
             );
+            String routingMode = HarnessRouting.normalizeMode(request.getHarnessMode());
+            if (routingMode == null) {
+                routingMode = intent.getMode();
+            }
+            log.info("Tutor routing decision: mode={}, harnessMode={}, subIntent={}, strategy={}, confidence={}",
+                    routingMode, request.getHarnessMode(), intent.getSubIntent(),
+                    intent.getRoutingStrategy(), intent.getConfidence());
 
-            if (IntentClassifierService.MODE_CODE.equals(intent.getMode())) {
+            if (IntentClassifierService.MODE_CODE.equals(routingMode)) {
                 return handleCodeMentorIntent(request, question, courseId, classId, userId, intent);
             }
 
-            if (IntentClassifierService.MODE_ESCALATE.equals(intent.getMode())) {
-                return handleEscalationIntent(question, courseId, classId, userId, userName, userEmail, intent);
+            if (IntentClassifierService.MODE_ESCALATE.equals(routingMode)) {
+                return handleEscalationIntent(
+                        request, question, courseId, classId, userId, userName, userEmail, intent);
             }
 
-            if (isLearningCoachingIntent(question, courseId)) {
-                return handleLearningCoachingIntent(request, question, courseId, classId, userId, intent);
+            String pedagogicalContext = pedagogicalDirectiveService.buildTutorContext(
+                    userId, courseId, classId);
+            String learnerContext = studentCourseMemoryService.buildTutorContext(userId, courseId);
+            if (!recentHistoryContext.isBlank()) {
+                learnerContext = learnerContext.isBlank()
+                        ? "- Recent session history:\n" + recentHistoryContext
+                        : learnerContext + "\n- Recent session history:\n" + recentHistoryContext;
             }
-
-            CourseRagAnswer ragAnswer = ragService.askWithConfidence(
-                    question,
-                    courseId,
-                    classId
-            );
+            if ("LEARNING_PATH".equals(intent.getSubIntent())) {
+                String chapterHints = tutorSessionService.courseChapterTitleHints(courseId);
+                if (!chapterHints.isBlank()) {
+                    learnerContext = learnerContext.isBlank()
+                            ? chapterHints
+                            : learnerContext + "\n" + chapterHints;
+                }
+            }
+            boolean conversationalInteraction = Boolean.FALSE.equals(intent.getRequiresCourseMaterial())
+                    && ("CONVERSATIONAL".equals(intent.getSubIntent())
+                    || "OFF_TOPIC".equals(intent.getSubIntent()));
+            String teachingMode = intent.getSubIntent();
+            String lastStudentQuestion = ConversationFocus.lastSubstantiveStudentQuestion(recentHistoryContext);
+            String retrievalHint = null;
+            if (StudentChatIntentDetector.isDependentFollowUp(question)) {
+                retrievalHint = (lastStudentQuestion == null || lastStudentQuestion.isBlank())
+                        ? sessionTopic
+                        : lastStudentQuestion;
+                if (!lastStudentQuestion.isBlank()) {
+                    String followUpHint = "- The student is following up on their previous question. Stay on that topic; "
+                            + "do not jump to a different chapter (for example Servlet Specification → JSP). "
+                            + "Previous question: " + lastStudentQuestion;
+                    learnerContext = learnerContext.isBlank()
+                            ? followUpHint
+                            : learnerContext + "\n" + followUpHint;
+                }
+            }
+            CourseRagAnswer ragAnswer;
+            if (conversationalInteraction) {
+                ragAnswer = ragService.answerTutorInteraction(
+                        question, courseId, intent.getSubIntent(),
+                        pedagogicalContext, learnerContext, recentHistoryContext);
+            } else {
+                ragAnswer = (pedagogicalContext.isBlank() && learnerContext.isBlank())
+                        ? ragService.askWithConfidence(question, courseId, classId, teachingMode, retrievalHint)
+                        : ragService.askWithPersonalizedTutorContext(
+                                question, courseId, classId, pedagogicalContext, learnerContext,
+                                teachingMode, retrievalHint);
+            }
             String answer = ragAnswer.getAnswer();
+            List<SuggestionItem> lessonSuggestions = LearningPathParser.parseLessonSuggestions(answer);
 
             QuestionEscalation questionEscalation = null;
             String conversationId = null;
             String userMessageId = null;
             String assistantMessageId = null;
+            TutorSession tutorSessionState = null;
 
             if (userId != null && !userId.isBlank()) {
                 if (courseId != null && !courseId.isBlank()) {
@@ -204,6 +294,21 @@ public class TutorController {
                 conversationId = savedExchange.conversationId();
                 userMessageId = savedExchange.userMessageId();
                 assistantMessageId = savedExchange.assistantMessageId();
+                if (request.getTutorSessionId() != null && !request.getTutorSessionId().isBlank()) {
+                    aiConversationService.attachExchangeToTutorSession(
+                            conversationId,
+                            userMessageId,
+                            assistantMessageId,
+                            request.getTutorSessionId(),
+                            request.getSessionPhase() == null ? "TEACH" : request.getSessionPhase()
+                    );
+                    tutorSessionState = tutorSessionService.recordStudentTurn(
+                            request.getTutorSessionId(), conversationId);
+                    if (!lessonSuggestions.isEmpty()) {
+                        tutorSessionState = tutorSessionService.applyLearningPath(
+                                request.getTutorSessionId(), question, lessonSuggestions);
+                    }
+                }
             }
 
             AiQueryResponse response = new AiQueryResponse();
@@ -223,8 +328,23 @@ public class TutorController {
             response.setUserMessageId(userMessageId);
             response.setAssistantMessageId(assistantMessageId);
             response.setCourseId(courseId);
+            response.setTutorSessionId(request.getTutorSessionId());
+            response.setSessionPhase(tutorSessionState == null
+                    ? (request.getSessionPhase() == null ? "TEACH" : request.getSessionPhase())
+                    : tutorSessionState.getPhase());
+            if (request.getTutorSessionId() != null && !request.getTutorSessionId().isBlank()) {
+                response.setSupportLevel((tutorSessionState == null
+                        ? tutorSessionService.getSession(request.getTutorSessionId())
+                        : tutorSessionState).getSupportLevel());
+            }
             if (questionEscalation != null) {
                 response.setQuestionEscalationId(questionEscalation.getId());
+            }
+            if (!lessonSuggestions.isEmpty()) {
+                response.setNextImproveSuggestions(lessonSuggestions);
+            }
+            if (tutorSessionState != null && tutorSessionState.getSuggestedTopics() != null) {
+                response.setSuggestedTopics(tutorSessionState.getSuggestedTopics());
             }
 
             return ResponseEntity.ok(response);
@@ -284,6 +404,30 @@ public class TutorController {
                 .anyMatch(authority -> "ROLE_STUDENT".equals(authority.getAuthority()));
     }
 
+    private TutorIntentContext resolveIntentContext(
+            String conversationId,
+            String tutorSessionId,
+            String sessionPhase,
+            String userId
+    ) {
+        String classifierHistory = aiConversationService.buildRecentTutorContextForClassifier(
+                conversationId, userId);
+        String topic = null;
+        String phase = sessionPhase;
+        if (tutorSessionId != null && !tutorSessionId.isBlank()) {
+            try {
+                TutorSession activeSession = tutorSessionService.getSession(tutorSessionId);
+                topic = activeSession.getTopic();
+                if (activeSession.getPhase() != null && !activeSession.getPhase().isBlank()) {
+                    phase = activeSession.getPhase();
+                }
+            } catch (RuntimeException sessionError) {
+                log.debug("Tutor session unavailable for intent context: {}", sessionError.getMessage());
+            }
+        }
+        return new TutorIntentContext(classifierHistory, phase, topic);
+    }
+
     private void applyIntentMetadata(AiQueryResponse response, IntentClassification intent) {
         if (response == null || intent == null) {
             return;
@@ -292,181 +436,9 @@ public class TutorController {
         response.setDomain(intent.getDomain());
         response.setAnswerPolicy(intent.getAnswerPolicy());
         response.setRequiresCourseMaterial(intent.getRequiresCourseMaterial());
+        response.setRoutingStrategy(intent.getRoutingStrategy());
     }
 
-    private ResponseEntity<?> handleLearningCoachingIntent(
-            AiQueryRequest request,
-            String question,
-            String courseId,
-            String classId,
-            String userId,
-            IntentClassification intent
-    ) {
-        String answer = buildLearningCoachingAnswer(userId, courseId, classId);
-        String conversationId = request.getConversationId();
-        String userMessageId = null;
-        String assistantMessageId = null;
-
-        if (userId != null && !userId.isBlank()) {
-            studentCourseMemoryService.recordInteraction(userId, courseId, classId, question, answer);
-            var savedExchange = aiConversationService.saveExchangeWithMessages(
-                    userId,
-                    request.getConversationId(),
-                    courseId,
-                    classId,
-                    question,
-                    answer,
-                    null
-            );
-            conversationId = savedExchange.conversationId();
-            userMessageId = savedExchange.userMessageId();
-            assistantMessageId = savedExchange.assistantMessageId();
-        }
-
-        AiQueryResponse response = new AiQueryResponse();
-        response.setMode(IntentClassifierService.MODE_RAG);
-        response.setIntentReason("Learning improvement coaching request");
-        response.setIntentConfidence(intent.getConfidence());
-        applyIntentMetadata(response, intent);
-        response.setAnswer(answer);
-        response.setConfidence(1.0);
-        response.setSources(List.of("STUDENT_COURSE_MEMORY"));
-        response.setEscalated(false);
-        response.setEscalationReason(null);
-        response.setConversationId(conversationId);
-        response.setUserMessageId(userMessageId);
-        response.setAssistantMessageId(assistantMessageId);
-        response.setCourseId(courseId);
-        return ResponseEntity.ok(response);
-    }
-
-    private String buildLearningCoachingAnswer(String userId, String courseId, String classId) {
-        if (userId == null || userId.isBlank()) {
-            return "Được, mình có thể giúp bạn cải thiện môn " + courseId + ". Nhưng để cá nhân hóa theo điểm yếu và lịch sử học, hệ thống cần biết studentId của bạn. Trước mắt, bạn có thể bắt đầu theo 3 bước: đọc lại tài liệu chính của môn, hỏi mình từng khái niệm chưa rõ, rồi làm bài tập nhỏ/paste lỗi code để Code Mentor hướng dẫn debug.";
-        }
-
-        StudentCourseMemory memory = studentCourseMemoryService.getOrCreateMemory(userId, courseId);
-        List<String> weakTopics = memory.getWeakTopics() == null ? List.of() : memory.getWeakTopics();
-        List<String> learnedTopics = memory.getLearnedTopics() == null ? List.of() : memory.getLearnedTopics();
-        List<String> recentQuestions = memory.getRecentQuestions() == null ? List.of() : memory.getRecentQuestions();
-        List<String> improveSuggestions = memory.getImproveSuggestions() == null ? List.of() : memory.getImproveSuggestions();
-
-        StringBuilder answer = new StringBuilder();
-        answer.append("Được, mình sẽ giúp bạn cải thiện môn ").append(courseId).append(" theo kiểu mentor nhé.\n\n");
-        answer.append("## Tình trạng hiện tại\n");
-        if (memory.getSummary() != null && !memory.getSummary().isBlank()) {
-            answer.append("- ").append(memory.getSummary()).append("\n");
-        } else {
-            answer.append("- Hiện hệ thống chưa có nhiều dữ liệu học tập của bạn trong môn này. Mình sẽ bắt đầu bằng kế hoạch nền tảng.\n");
-        }
-        if (classId != null && !classId.isBlank()) {
-            answer.append("- Lớp hiện tại: ").append(classId).append("\n");
-        }
-
-        answer.append("\n## Chủ đề nên ưu tiên\n");
-        if (!weakTopics.isEmpty()) {
-            for (String topic : weakTopics) {
-                answer.append("- Ôn lại: ").append(topic).append("\n");
-            }
-        } else if (!recentQuestions.isEmpty()) {
-            answer.append("- Mình chưa thấy weak topic rõ ràng, nhưng bạn đã hỏi gần đây về: ")
-                    .append(String.join(", ", recentQuestions.subList(Math.max(0, recentQuestions.size() - Math.min(3, recentQuestions.size())), recentQuestions.size())))
-                    .append("\n");
-        } else {
-            answer.append("- Chưa có điểm yếu được ghi nhận. Hãy bắt đầu bằng một chủ đề cụ thể bạn thấy khó, ví dụ OOP, array, loop, class/object hoặc exception.\n");
-        }
-
-        answer.append("\n## Kế hoạch cải thiện 3 bước\n");
-        answer.append("1. Chọn 1 chủ đề nhỏ trong ").append(courseId).append(" và hỏi mình giải thích lại bằng ví dụ.\n");
-        answer.append("2. Làm một bài tập nhỏ liên quan đến chủ đề đó, nếu lỗi thì paste code/lỗi vào Code Mentor.\n");
-        answer.append("3. Sau khi hiểu, hỏi mình tóm tắt lại kiến thức và tự kiểm tra bằng 3 câu hỏi ngắn.\n");
-
-        if (!learnedTopics.isEmpty()) {
-            answer.append("\n## Chủ đề bạn đã học\n");
-            for (String topic : learnedTopics) {
-                answer.append("- ").append(topic).append("\n");
-            }
-        }
-
-        if (!improveSuggestions.isEmpty()) {
-            answer.append("\n## Gợi ý cải thiện đã có\n");
-            for (String suggestion : improveSuggestions) {
-                appendImproveSuggestion(answer, suggestion);
-            }
-        }
-
-        answer.append("\nBạn muốn bắt đầu từ chủ đề nào trong ").append(courseId).append("? Nếu chưa biết, hãy gửi mình tên bài/slide hoặc paste đoạn code bạn đang kẹt.");
-        return answer.toString();
-    }
-
-    private void appendImproveSuggestion(StringBuilder answer, String suggestion) {
-        if (suggestion == null || suggestion.isBlank()) {
-            return;
-        }
-        String trimmed = suggestion.trim();
-        if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) {
-            appendPlainImproveSuggestion(answer, trimmed);
-            return;
-        }
-        try {
-            JsonNode root = OBJECT_MAPPER.readTree(trimmed);
-            appendJsonImproveSuggestion(answer, root);
-        } catch (Exception e) {
-            appendPlainImproveSuggestion(answer, trimmed);
-        }
-    }
-
-    private void appendJsonImproveSuggestion(StringBuilder answer, JsonNode root) {
-        JsonNode suggestions = root.has("suggestions") ? root.get("suggestions") : root;
-        if (suggestions != null && suggestions.isArray()) {
-            for (JsonNode item : suggestions) {
-                String title = item.path("title").asText("").trim();
-                String reason = item.path("reason").asText("").trim();
-                if (!title.isBlank()) {
-                    answer.append("- ").append(title).append("\n");
-                }
-                if (!reason.isBlank()) {
-                    answer.append("  Lý do: ").append(reason).append("\n");
-                }
-                JsonNode nextSteps = item.path("nextSteps");
-                if (nextSteps.isArray() && nextSteps.size() > 0) {
-                    answer.append("  Việc nên làm:\n");
-                    for (JsonNode step : nextSteps) {
-                        String stepText = step.asText("").trim();
-                        if (!stepText.isBlank()) {
-                            answer.append("  - ").append(stepText).append("\n");
-                        }
-                    }
-                }
-            }
-        }
-        String notes = root.path("notes").asText("").trim();
-        if (!notes.isBlank()) {
-            answer.append("- Ghi chú: ").append(notes).append("\n");
-        }
-    }
-
-    private void appendPlainImproveSuggestion(StringBuilder answer, String suggestion) {
-        answer.append("- ").append(suggestion).append("\n");
-    }
-    private boolean isLearningCoachingIntent(String question, String courseId) {
-        String text = question == null ? "" : question.toLowerCase();
-        String course = courseId == null ? "" : courseId.toLowerCase();
-        boolean asksImprove = text.contains("cải thiện")
-                || text.contains("cai thien")
-                || text.contains("học tốt")
-                || text.contains("hoc tot")
-                || text.contains("yếu")
-                || text.contains("yeu")
-                || text.contains("ôn tập")
-                || text.contains("on tap")
-                || text.contains("improve")
-                || text.contains("lộ trình")
-                || text.contains("lo trinh")
-                || text.contains("kế hoạch")
-                || text.contains("ke hoach");
-        return asksImprove && (course.isBlank() || text.contains(course) || text.contains("môn") || text.contains("mon") || text.length() <= 120);
-    }
     private ResponseEntity<?> handleCodeMentorIntent(
             AiQueryRequest request,
             String question,
@@ -494,13 +466,24 @@ public class TutorController {
         response.setConfidence(intent.getConfidence());
         response.setEscalated(false);
         response.setConversationId(codeResponse.getConversationId());
+        response.setUserMessageId(codeResponse.getUserMessageId());
+        response.setAssistantMessageId(codeResponse.getAssistantMessageId());
         response.setSources(List.of("CODE"));
         response.setSourceEvidence(List.of());
         response.setGroundingType(codeResponse.getGroundingType());
+        response.setCourseId(courseId);
+        attachTutorSessionContext(
+                response,
+                request,
+                codeResponse.getConversationId(),
+                codeResponse.getUserMessageId(),
+                codeResponse.getAssistantMessageId()
+        );
         return ResponseEntity.ok(response);
     }
 
     private ResponseEntity<?> handleEscalationIntent(
+            AiQueryRequest request,
             String question,
             String courseId,
             String classId,
@@ -535,7 +518,63 @@ public class TutorController {
         response.setEscalationReason(intent.getReason());
         response.setQuestionEscalationId(questionEscalation != null ? questionEscalation.getId() : null);
         response.setSources(List.of());
+        response.setSourceEvidence(List.of());
+        response.setGroundingType("NONE");
+        response.setCourseId(courseId);
+
+        if (userId != null && !userId.isBlank()) {
+            var savedExchange = aiConversationService.saveExchangeWithMessages(
+                    userId,
+                    request.getConversationId(),
+                    courseId,
+                    classId,
+                    question,
+                    response.getAnswer(),
+                    questionEscalation != null ? questionEscalation.getId() : null,
+                    IntentClassifierService.MODE_ESCALATE,
+                    intent.getConfidence(),
+                    List.of(),
+                    List.of(),
+                    "NONE"
+            );
+            response.setConversationId(savedExchange.conversationId());
+            response.setUserMessageId(savedExchange.userMessageId());
+            response.setAssistantMessageId(savedExchange.assistantMessageId());
+            attachTutorSessionContext(
+                    response,
+                    request,
+                    savedExchange.conversationId(),
+                    savedExchange.userMessageId(),
+                    savedExchange.assistantMessageId()
+            );
+        }
         return ResponseEntity.ok(response);
+    }
+
+    private void attachTutorSessionContext(
+            AiQueryResponse response,
+            AiQueryRequest request,
+            String conversationId,
+            String userMessageId,
+            String assistantMessageId
+    ) {
+        String sessionId = request.getTutorSessionId();
+        if (sessionId == null || sessionId.isBlank()) {
+            return;
+        }
+        String phase = request.getSessionPhase() == null ? "TEACH" : request.getSessionPhase();
+        TutorSession session = null;
+        if (conversationId != null && userMessageId != null && assistantMessageId != null) {
+            aiConversationService.attachExchangeToTutorSession(
+                    conversationId, userMessageId, assistantMessageId, sessionId, phase);
+            session = tutorSessionService.recordStudentTurn(sessionId, conversationId);
+        }
+        if (session == null) {
+            session = tutorSessionService.getSession(sessionId);
+        }
+        response.setTutorSessionId(sessionId);
+        response.setSessionPhase(session.getPhase() == null ? phase : session.getPhase());
+        response.setSupportLevel(session.getSupportLevel());
     }
 
     private String resolveQuestion(AiQueryRequest request) {

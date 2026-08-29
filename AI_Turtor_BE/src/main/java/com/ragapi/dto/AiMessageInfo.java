@@ -23,6 +23,9 @@ public class AiMessageInfo {
     private List<RagSourceEvidence> sourceEvidence;
     private String groundingType;
     private String questionEscalationId;
+    private String tutorSessionId;
+    private String sessionPhase;
+    private Boolean proactive;
     private Boolean pinned;
     private LocalDateTime pinnedAt;
     private LocalDateTime createdAt;

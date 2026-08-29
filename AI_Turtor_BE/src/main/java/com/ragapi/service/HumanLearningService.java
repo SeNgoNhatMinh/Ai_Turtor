@@ -2,6 +2,7 @@ package com.ragapi.service;
 
 import com.ragapi.dto.KnowledgeCandidateReviewRequest;
 import com.ragapi.dto.MentorAnswerRequest;
+import com.ragapi.dto.ExistingAcademicKnowledge;
 import com.ragapi.entity.CourseMaterial;
 import com.ragapi.entity.KnowledgeCandidate;
 import com.ragapi.entity.KnowledgeImageAttachment;
@@ -18,6 +19,7 @@ import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -342,13 +344,13 @@ public class HumanLearningService {
                 ? knowledgeCandidateRepository.findByStatus(status.trim().toUpperCase())
                 : knowledgeCandidateRepository.findAll();
 
-        if (courseId == null || courseId.isBlank()) {
-            return candidates;
-        }
-
-        return candidates.stream()
-                .filter(candidate -> courseId.equals(candidate.getCourseId()))
-                .toList();
+        List<KnowledgeCandidate> filtered = courseId == null || courseId.isBlank()
+                ? candidates
+                : candidates.stream()
+                        .filter(candidate -> courseId.equals(candidate.getCourseId()))
+                        .toList();
+        annotateExistingAcademicKnowledge(filtered);
+        return filtered;
     }
 
     public List<KnowledgeCandidate> listIndexedApprovedKnowledge(String courseId, String status) {
@@ -558,12 +560,37 @@ public class HumanLearningService {
     }
 
     private static String normalizeQuestionKey(String question) {
-        if (question == null) {
-            return "";
+        return com.ragapi.util.TextSanitizer.normalizeAccentInsensitive(question);
+    }
+
+    private void annotateExistingAcademicKnowledge(List<KnowledgeCandidate> candidates) {
+        Map<String, List<KnowledgeCandidate>> indexedByCourse = new HashMap<>();
+        for (KnowledgeCandidate candidate : candidates) {
+            candidate.setExistingAcademicKnowledge(null);
+            String courseId = trimToNull(candidate.getCourseId());
+            String questionKey = normalizeQuestionKey(candidate.getQuestion());
+            if (courseId == null || questionKey.isBlank() || STATUS_INDEXED.equals(candidate.getStatus())) {
+                continue;
+            }
+            List<KnowledgeCandidate> indexed = indexedByCourse.computeIfAbsent(
+                    courseId,
+                    key -> knowledgeCandidateRepository.findByCourseIdAndStatus(key, STATUS_INDEXED)
+            );
+            indexed.stream()
+                    .filter(existing -> !java.util.Objects.equals(existing.getId(), candidate.getId()))
+                    .filter(existing -> questionKey.equals(normalizeQuestionKey(existing.getQuestion())))
+                    .findFirst()
+                    .ifPresent(existing -> candidate.setExistingAcademicKnowledge(
+                            ExistingAcademicKnowledge.builder()
+                                    .id(existing.getId())
+                                    .question(existing.getQuestion())
+                                    .answer(existing.getAnswer())
+                                    .courseId(existing.getCourseId())
+                                    .status(existing.getStatus())
+                                    .indexedAt(existing.getIndexedAt())
+                                    .build()
+                    ));
         }
-        return question.toLowerCase(java.util.Locale.ROOT)
-                .replaceAll("\\s+", " ")
-                .trim();
     }
 
     private void markEscalationIndexed(KnowledgeCandidate candidate) {

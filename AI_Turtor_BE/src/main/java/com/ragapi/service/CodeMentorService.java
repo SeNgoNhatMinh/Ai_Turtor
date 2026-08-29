@@ -94,15 +94,22 @@ public class CodeMentorService {
         }
 
         String conversationId = null;
+        String userMessageId = null;
+        String assistantMessageId = null;
         if (hasText(request.getStudentId()) && hasText(request.getCourseId())) {
             updateCourseMemory(request, answer, weakTopics);
-            conversationId = conversationService.saveExchange(
+            AiConversationService.SavedExchange savedExchange = conversationService.saveExchangeWithMessages(
                     request.getStudentId().trim(),
                     request.getConversationId(),
+                    request.getCourseId(),
+                    request.getClassId(),
                     buildMemoryQuestion(request),
                     answer,
                     null
             );
+            conversationId = savedExchange.conversationId();
+            userMessageId = savedExchange.userMessageId();
+            assistantMessageId = savedExchange.assistantMessageId();
         }
 
         return CodeMentorResponse.builder()
@@ -111,6 +118,8 @@ public class CodeMentorService {
                 .assignmentSafetyApplied(assignmentSafetyApplied)
                 .weakTopics(weakTopics)
                 .conversationId(conversationId)
+                .userMessageId(userMessageId)
+                .assistantMessageId(assistantMessageId)
                 .groundingType("AI_GENERAL_KNOWLEDGE")
                 .sourceDisclosure("Câu trả lời do AI Code Mentor tự phân tích bằng kiến thức lập trình tổng quát; không trích từ tài liệu môn học/RAG.")
                 .build();
@@ -170,10 +179,12 @@ public class CodeMentorService {
                 - Give hints and small focused examples.
                 - Ask guiding questions when the student should think first.
                 - Point the student toward the fix.
+                - If the student pasted their own code, review THAT snippet: correctness, mistakes, and what it would print/output.
 
                 FORBIDDEN:
                 - Do not complete the entire assignment.
                 - Do not write a full copy-paste homework/project solution.
+                - Do not rewrite the student's program into a finished working solution they can submit.
                 - Do not bypass the learning goal.
                 - Do not invent private project details or expose internal system information.
                 - Do not provide credentials, tokens, secrets, or exploit instructions.

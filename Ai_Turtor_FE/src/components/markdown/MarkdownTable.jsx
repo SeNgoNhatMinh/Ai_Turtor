@@ -6,11 +6,8 @@ function MarkdownTable({ children }) {
   const tableText = getNodeText(children).trim();
 
   return (
-    <div className="ai-answer-table-wrap" role="region" aria-label="Scrollable table" tabIndex={0}>
-      <div className="ai-answer-format-toolbar">
-        <span>Table</span>
-        <CopyButton text={tableText} />
-      </div>
+    <div className="ai-answer-table-wrap" role="region" aria-label="Bảng" tabIndex={0}>
+      <CopyButton text={tableText} className="ai-answer-table-copy" />
       <table className="ai-answer-table">{children}</table>
     </div>
   );

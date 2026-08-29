@@ -7,6 +7,7 @@ import ChatWorkspaceHeader from './ChatWorkspaceHeader';
 import PinnedMessagesBar from './PinnedMessagesBar';
 import { useAnswerFeedback } from '../useAnswerFeedback';
 import { usePinnedChatMessages } from '../usePinnedChatMessages';
+import { buildLessonChatPrompt } from '../../learning/studySuggestionPrompt';
 import '../ChatWorkspace.css';
 
 const CHAT_TURN_LIMIT = 10;
@@ -53,6 +54,10 @@ function ChatWorkspace({
   onDownloadSource,
   onOpenMentorReview,
   onMentorRequestCreated,
+  tutorSession,
+  tutorSessionSummary,
+  isTutorSessionLoading = false,
+  onStartNextTutorSession,
 }) {
   const [pendingCourseId, setPendingCourseId] = useState('');
 
@@ -165,6 +170,40 @@ function ChatWorkspace({
         selectedCourseValue={selectedCourseValue}
         turnLimitNotice={turnLimitNotice}
       />
+
+      <section className="tutor-session-strip" aria-label="Lộ trình buổi học">
+        <div className="tutor-session-strip__heading">
+          <div>
+            <strong>AI Tutor đang đồng hành</strong>
+            <span>
+              {tutorSession?.status === 'COMPLETED'
+                ? 'Đã tổng kết và gửi buổi học cho giảng viên'
+                : `Giai đoạn: ${tutorSession?.phase || 'OPEN'} · Mức hỗ trợ: ${tutorSession?.supportLevel || 'STANDARD'}`}
+            </span>
+          </div>
+          {tutorSession?.status === 'COMPLETED' && (
+            <button type="button" onClick={onStartNextTutorSession} disabled={isTutorSessionLoading}>
+              Bắt đầu buổi tiếp theo
+            </button>
+          )}
+        </div>
+        {tutorSessionSummary?.summaryText && (
+          <p className="tutor-session-strip__summary">{tutorSessionSummary.summaryText}</p>
+        )}
+        {tutorSession?.status !== 'COMPLETED' && Array.isArray(tutorSession?.suggestedTopics) && (
+          <div className="tutor-session-strip__topics">
+            {tutorSession.suggestedTopics.map((topic) => (
+              <button
+                type="button"
+                key={topic}
+                onClick={() => onPromptStarter?.(buildLessonChatPrompt(topic))}
+              >
+                {topic}
+              </button>
+            ))}
+          </div>
+        )}
+      </section>
 
       <PinnedMessagesBar
         messages={pinnedMessages}

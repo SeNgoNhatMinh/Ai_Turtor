@@ -8,6 +8,7 @@ const teacherPages = {
   'teacher-materials': lazy(() => import('../../features/teacher/materials/TeacherMaterialsPage')),
   'teacher-grading': lazy(() => import('../../features/teacher/grading/TeacherGradingPage')),
   'teacher-escalations': lazy(() => import('../../features/teacher/review/TeacherReviewPage')),
+  'teacher-tutoring': lazy(() => import('../../features/teacher/tutoring/TeacherTutoringPage')),
 };
 const TeacherExpertTasksPage = lazy(() => import('../../features/expert-training/TeacherExpertTasksPage'));
 const TeacherExpertContributionPage = lazy(() => import('../../features/expert-training/TeacherExpertContributionPage'));

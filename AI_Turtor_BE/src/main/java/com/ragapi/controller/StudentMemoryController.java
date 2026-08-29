@@ -4,12 +4,14 @@ import com.ragapi.dto.PinImproveSuggestionRequest;
 import com.ragapi.dto.UpdateStudentCourseMemoryRequest;
 import com.ragapi.entity.StudentCourseMemory;
 import com.ragapi.service.StudentCourseMemoryService;
+import com.ragapi.service.AccessGuardService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -30,14 +32,17 @@ import java.util.Map;
 public class StudentMemoryController {
 
     private final StudentCourseMemoryService memoryService;
+    private final AccessGuardService accessGuard;
 
     @GetMapping("/students/{studentId}/courses/{courseId}/memory")
     @Operation(summary = "Get student course-scoped memory")
     public ResponseEntity<?> getMemory(
             @PathVariable String studentId,
-            @PathVariable String courseId
+            @PathVariable String courseId,
+            Authentication authentication
     ) {
         try {
+            allowSelf(authentication, studentId);
             StudentCourseMemory memory = memoryService.getOrCreateMemory(studentId, courseId);
             return ResponseEntity.ok(memory);
         } catch (IllegalArgumentException ex) {
@@ -54,9 +59,11 @@ public class StudentMemoryController {
     public ResponseEntity<?> updateMemory(
             @PathVariable String studentId,
             @PathVariable String courseId,
-            @RequestBody UpdateStudentCourseMemoryRequest request
+            @RequestBody UpdateStudentCourseMemoryRequest request,
+            Authentication authentication
     ) {
         try {
+            allowSelf(authentication, studentId);
             StudentCourseMemory memory = memoryService.updateMemory(studentId, courseId, request);
             return ResponseEntity.ok(memory);
         } catch (IllegalArgumentException ex) {
@@ -73,9 +80,11 @@ public class StudentMemoryController {
     public ResponseEntity<?> pinImproveSuggestion(
             @PathVariable String studentId,
             @PathVariable String courseId,
-            @RequestBody PinImproveSuggestionRequest request
+            @RequestBody PinImproveSuggestionRequest request,
+            Authentication authentication
     ) {
         try {
+            allowSelf(authentication, studentId);
             StudentCourseMemory memory = memoryService.pinImproveSuggestion(
                     studentId,
                     courseId,
@@ -96,9 +105,11 @@ public class StudentMemoryController {
     public ResponseEntity<?> unpinImproveSuggestion(
             @PathVariable String studentId,
             @PathVariable String courseId,
-            @RequestParam("suggestion") String suggestion
+            @RequestParam("suggestion") String suggestion,
+            Authentication authentication
     ) {
         try {
+            allowSelf(authentication, studentId);
             StudentCourseMemory memory = memoryService.unpinImproveSuggestion(studentId, courseId, suggestion);
             return ResponseEntity.ok(memory);
         } catch (IllegalArgumentException ex) {
@@ -113,8 +124,10 @@ public class StudentMemoryController {
     @DeleteMapping("/students/{studentId}/courses/{courseId}/memory/improve-suggestions")
     @Operation(summary = "Delete an AI improve suggestion from student memory (also unpins it)")
     public ResponseEntity<?> deleteImproveSuggestion(@PathVariable String studentId,
-            @PathVariable String courseId, @RequestParam("suggestion") String suggestion) {
+            @PathVariable String courseId, @RequestParam("suggestion") String suggestion,
+            Authentication authentication) {
         try {
+            allowSelf(authentication, studentId);
             return ResponseEntity.ok(memoryService.deleteImproveSuggestion(studentId, courseId, suggestion));
         } catch (IllegalArgumentException ex) {
             return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
@@ -127,9 +140,12 @@ public class StudentMemoryController {
     @Operation(summary = "List student memories by course and optional class")
     public ResponseEntity<?> listCourseMemories(
             @PathVariable String courseId,
-            @RequestParam(value = "classId", required = false) String classId
+            @RequestParam(value = "classId", required = false) String classId,
+            Authentication authentication
     ) {
         try {
+            accessGuard.allowTeacherForClassOrAdmin(
+                    authentication.getName(), role(authentication), courseId, classId);
             var memories = memoryService.listCourseMemories(courseId, classId);
             return ResponseEntity.ok(Map.of(
                     "courseId", courseId,
@@ -144,6 +160,18 @@ public class StudentMemoryController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Server error: " + ex.getMessage()));
         }
+    }
+
+    private void allowSelf(Authentication authentication, String studentId) {
+        accessGuard.allowStudentSelfOrAdmin(authentication.getName(), role(authentication), studentId);
+    }
+
+    private String role(Authentication authentication) {
+        return authentication.getAuthorities().stream()
+                .map(authority -> authority.getAuthority())
+                .filter(value -> value != null && value.startsWith("ROLE_"))
+                .map(value -> value.substring("ROLE_".length()))
+                .findFirst().orElse("");
     }
 }
 

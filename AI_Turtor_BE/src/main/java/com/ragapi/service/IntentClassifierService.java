@@ -1,26 +1,60 @@
 package com.ragapi.service;
 
 import com.ragapi.dto.IntentClassification;
+import com.ragapi.dto.TutorIntentContext;
 import com.ragapi.util.StudentChatIntentDetector;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.time.Instant;
+import java.util.HexFormat;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Pattern;
 
 import static com.ragapi.util.TechnicalIntentDetector.containsCodeSyntax;
 import static com.ragapi.util.TechnicalIntentDetector.hasText;
 import static com.ragapi.util.TechnicalIntentDetector.looksLikeCodeOrMentorGuidance;
 import static com.ragapi.util.TechnicalIntentDetector.looksLikeGuideSolution;
+import static com.ragapi.util.TechnicalIntentDetector.mentionsStudentCode;
 import static com.ragapi.util.TechnicalIntentDetector.normalize;
 
 @Service
+@Slf4j
+@RequiredArgsConstructor
 public class IntentClassifierService {
+
+    private static final long SEMANTIC_CACHE_TTL_SECONDS = 60;
+    private static final int SEMANTIC_CACHE_MAX_ENTRIES = 2_000;
 
     public static final String MODE_RAG = "RAG";
     public static final String MODE_CODE = "CODE";
     public static final String MODE_ESCALATE = "ESCALATE";
 
+    private final LlmIntentClassifierService llmIntentClassifierService;
+    private final Map<String, CachedIntent> semanticCache = new ConcurrentHashMap<>();
+
     public IntentClassification classify(String message, String codeSnippet, String courseId) {
+        return classify(message, codeSnippet, courseId, TutorIntentContext.none());
+    }
+
+    public IntentClassification classify(
+            String message,
+            String codeSnippet,
+            String courseId,
+            TutorIntentContext intentContext
+    ) {
+        TutorIntentContext context = intentContext == null ? TutorIntentContext.none() : intentContext;
         String original = safe(message) + "\n" + safe(codeSnippet);
         String text = normalize(original);
         String domain = detectDomain(text);
+        if ("GENERAL_STUDY".equals(domain) && context.sessionTopic() != null && !context.sessionTopic().isBlank()) {
+            domain = detectDomain(normalize(context.sessionTopic()));
+        }
+        final String resolvedDomain = domain;
 
         if (looksLikeEscalation(text)) {
             return base(MODE_ESCALATE,
@@ -29,7 +63,17 @@ public class IntentClassifierService {
                     "TEACHER_POLICY",
                     domain,
                     "Create escalation. Do not answer from AI.",
-                    false);
+                    false, "RULE");
+        }
+
+        if (StudentChatIntentDetector.isStudyPlanningInteraction(message)) {
+            return base(MODE_RAG,
+                    "Student requested a learning plan or revision direction",
+                    0.95,
+                    "LEARNING_PATH",
+                    domain,
+                    "Build a personalized learning path from course material and learner memory.",
+                    true, "RULE");
         }
 
         if (StudentChatIntentDetector.isAllowedInteraction(message)) {
@@ -39,7 +83,7 @@ public class IntentClassifierService {
                     "CONVERSATIONAL",
                     domain,
                     "Respond naturally without course-material RAG.",
-                    false);
+                    false, "RULE");
         }
 
         if (StudentChatIntentDetector.isOffTopicNonAcademic(message)) {
@@ -49,27 +93,93 @@ public class IntentClassifierService {
                     "OFF_TOPIC",
                     domain,
                     "Politely redirect without course-material RAG.",
-                    false);
+                    false, "RULE");
+        }
+
+        if (StudentChatIntentDetector.isLessonStart(message)) {
+            return base(MODE_RAG,
+                    "Student selected a numbered lesson to study",
+                    0.96,
+                    "LESSON_TEACH",
+                    domain,
+                    "Teach this one lesson as a tutor, grounded in course material. Allow a small example when the material supports it.",
+                    true, "RULE");
+        }
+
+        if (StudentChatIntentDetector.isTopicStudyStart(message)) {
+            return base(MODE_RAG,
+                    "Student wants to start studying a topic",
+                    0.95,
+                    "LEARNING_PATH",
+                    domain,
+                    "Propose a numbered lesson path from course material. Do not dump a full definition yet.",
+                    true, "RULE");
+        }
+
+        if (context.hasTeachContext()
+                && StudentChatIntentDetector.isDependentFollowUp(message)
+                && !hasText(codeSnippet)
+                && !containsCodeSyntax(text)
+                && !mentionsStudentCode(text)) {
+            return base(MODE_RAG,
+                    "In-lesson follow-up; continue the current topic from chat history",
+                    0.94,
+                    "LESSON_TEACH",
+                    domain,
+                    "Teach the follow-up as a continuation of the current lesson, grounded in course material.",
+                    true, "RULE");
+        }
+
+        if (hasText(codeSnippet) || containsCodeSyntax(text) || mentionsStudentCode(text)) {
+            return base(MODE_CODE,
+                    "Explicit code or executable syntax was provided",
+                    0.98,
+                    detectCodeMentorSubIntent(text, codeSnippet),
+                    domain,
+                    "Guide only: explain, hint, review, debug, or suggest next steps. Do not complete homework/full solutions.",
+                    false, "RULE");
         }
 
         if (looksLikeCodeOrMentorGuidance(text, codeSnippet)) {
             return base(MODE_CODE,
-                    "Interactive technical mentoring request",
-                    hasText(codeSnippet) || containsCodeSyntax(text) ? 0.95 : 0.86,
+                    "Explicit technical mentoring request",
+                    0.90,
                     detectCodeMentorSubIntent(text, codeSnippet),
                     domain,
                     "Guide only: explain, hint, review, debug, or suggest next steps. Do not complete homework/full solutions.",
-                    false);
+                    false, "RULE");
         }
 
-        String subIntent = detectRagSubIntent(text);
-        return base(MODE_RAG,
-                "Theory or course material question",
-                hasText(courseId) ? 0.92 : 0.78,
-                subIntent,
-                domain,
-                "Answer only from course material. Translate/explain naturally for Vietnamese students. Escalate if material is missing.",
-                true);
+        if (StudentChatIntentDetector.looksLikeAcademicQuestion(text)) {
+            return base(MODE_RAG,
+                    "Explicit academic concept or explanation request",
+                    0.97,
+                    detectRagSubIntent(text),
+                    domain,
+                    "Answer only from course material. Translate/explain naturally for Vietnamese students. Escalate if material is missing.",
+                    true, "RULE");
+        }
+
+        String cacheKey = semanticCacheKey(message, codeSnippet, courseId, context.recentHistory(), context.sessionTopic());
+        IntentClassification cached = getCachedSemanticIntent(cacheKey);
+        if (cached != null) {
+            return cached;
+        }
+
+        IntentClassification semanticIntent = llmIntentClassifierService.classify(
+                        message, codeSnippet, courseId, context.recentHistory())
+                .orElseGet(() -> {
+                    log.info("Intent classifier using safe course-RAG fallback");
+                    return base(MODE_RAG,
+                            "Uncertain intent safely routed to course knowledge",
+                            hasText(courseId) ? 0.72 : 0.62,
+                            detectRagSubIntent(text),
+                            resolvedDomain,
+                            "Answer from course material and approved knowledge; escalate if evidence is insufficient.",
+                            true, "SAFE_RAG_FALLBACK");
+                });
+        cacheSemanticIntent(cacheKey, semanticIntent);
+        return semanticIntent;
     }
 
     private IntentClassification base(
@@ -79,7 +189,8 @@ public class IntentClassifierService {
             String subIntent,
             String domain,
             String answerPolicy,
-            boolean requiresCourseMaterial
+            boolean requiresCourseMaterial,
+            String routingStrategy
     ) {
         return IntentClassification.builder()
                 .mode(mode)
@@ -89,11 +200,12 @@ public class IntentClassifierService {
                 .domain(domain)
                 .answerPolicy(answerPolicy)
                 .requiresCourseMaterial(requiresCourseMaterial)
+                .routingStrategy(routingStrategy)
                 .build();
     }
 
     private boolean looksLikeEscalation(String text) {
-        return containsAny(text,
+        return containsAnyWholePhrase(text,
                 "tru diem", "diem danh", "diem so", "cham diem", "grading", "grade",
                 "nop tre", "late submit", "deadline", "submit sau", "assignment policy",
                 "quy dinh cua thay", "quy dinh cua co", "thay co tru", "co tru diem",
@@ -134,6 +246,12 @@ public class IntentClassifierService {
     }
 
     private String detectRagSubIntent(String text) {
+        if (StudentChatIntentDetector.isLessonStart(text)) {
+            return "LESSON_TEACH";
+        }
+        if (StudentChatIntentDetector.isTopicStudyStart(text)) {
+            return "LEARNING_PATH";
+        }
         if (containsAny(text, "hoi em", "dat cau hoi", "on tap", "kiem tra kien thuc", "tu de den kho")) {
             return "EXAM_PRACTICE";
         }
@@ -170,6 +288,60 @@ public class IntentClassifierService {
             }
         }
         return false;
+    }
+
+    private boolean containsAnyWholePhrase(String text, String... phrases) {
+        for (String phrase : phrases) {
+            Pattern pattern = Pattern.compile(
+                    "(?<![\\p{L}\\p{N}])" + Pattern.quote(phrase) + "(?![\\p{L}\\p{N}])",
+                    Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+            );
+            if (pattern.matcher(text).find()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private IntentClassification getCachedSemanticIntent(String key) {
+        CachedIntent cached = semanticCache.get(key);
+        if (cached == null) {
+            return null;
+        }
+        if (cached.expiresAt().isBefore(Instant.now())) {
+            semanticCache.remove(key, cached);
+            return null;
+        }
+        return cached.intent();
+    }
+
+    private void cacheSemanticIntent(String key, IntentClassification intent) {
+        if (semanticCache.size() >= SEMANTIC_CACHE_MAX_ENTRIES) {
+            semanticCache.entrySet().removeIf(entry -> entry.getValue().expiresAt().isBefore(Instant.now()));
+            if (semanticCache.size() >= SEMANTIC_CACHE_MAX_ENTRIES) {
+                semanticCache.clear();
+            }
+        }
+        semanticCache.put(key, new CachedIntent(
+                intent,
+                Instant.now().plusSeconds(SEMANTIC_CACHE_TTL_SECONDS)
+        ));
+    }
+
+    private String semanticCacheKey(
+            String message, String codeSnippet, String courseId, String recentHistory, String sessionTopic) {
+        String input = safe(courseId) + "\u0000" + safe(message) + "\u0000" + safe(codeSnippet)
+                + "\u0000" + safe(recentHistory) + "\u0000" + safe(sessionTopic);
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256")
+                    .digest(input.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(digest);
+        } catch (Exception error) {
+            return Integer.toHexString(input.hashCode());
+        }
+    }
+
+    private record CachedIntent(IntentClassification intent, Instant expiresAt) {
     }
 
     private String safe(String value) {

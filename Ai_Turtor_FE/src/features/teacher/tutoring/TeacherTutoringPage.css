@@ -1,0 +1,77 @@
+.teacher-tutoring-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(280px, 0.8fr) minmax(360px, 1.2fr);
+}
+
+.teacher-tutoring-card {
+  background: var(--surface-color, #fff);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 16px;
+  padding: 1rem;
+}
+
+.teacher-directive-form {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.teacher-directive-form input,
+.teacher-directive-form select,
+.teacher-directive-form textarea {
+  background: transparent;
+  border: 1px solid var(--border-color, #cbd5e1);
+  border-radius: 10px;
+  color: inherit;
+  padding: 0.7rem;
+}
+
+.teacher-directive-form button,
+.teacher-tutoring-card article button {
+  background: #2563eb;
+  border: 0;
+  border-radius: 9px;
+  color: #fff;
+  cursor: pointer;
+  padding: 0.55rem 0.8rem;
+}
+
+.teacher-directive-list,
+.teacher-session-feed,
+.teacher-transcript {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.teacher-tutoring-card article,
+.teacher-transcript article {
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 12px;
+  padding: 0.8rem;
+}
+
+.teacher-session-feed article div {
+  display: flex;
+  justify-content: space-between;
+}
+
+.teacher-session-feed article span,
+.teacher-session-feed article small {
+  color: var(--text-secondary, #64748b);
+}
+
+.teacher-transcript article.is-student {
+  margin-left: 3rem;
+}
+
+.teacher-transcript article.is-tutor {
+  background: rgba(37, 99, 235, 0.06);
+  margin-right: 3rem;
+}
+
+@media (max-width: 900px) {
+  .teacher-tutoring-grid {
+    grid-template-columns: 1fr;
+  }
+}

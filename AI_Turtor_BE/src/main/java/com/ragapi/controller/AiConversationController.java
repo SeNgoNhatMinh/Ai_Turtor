@@ -5,12 +5,14 @@ import com.ragapi.dto.AiConversationListResponse;
 import com.ragapi.dto.AiConversationSummary;
 import com.ragapi.dto.RenameAiConversationRequest;
 import com.ragapi.service.AiConversationService;
+import com.ragapi.service.AccessGuardService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -31,6 +33,7 @@ import java.util.Map;
 public class AiConversationController {
 
     private final AiConversationService aiConversationService;
+    private final AccessGuardService accessGuard;
 
     @GetMapping
     @Operation(summary = "List AI tutor conversations")
@@ -38,9 +41,11 @@ public class AiConversationController {
             @RequestParam String userId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size,
-            @RequestParam(value = "courseId", required = false) String courseId
+            @RequestParam(value = "courseId", required = false) String courseId,
+            Authentication authentication
     ) {
         try {
+            accessGuard.allowStudentSelfOrAdmin(authentication.getName(), role(authentication), userId);
             AiConversationListResponse response = aiConversationService.listConversations(userId, courseId, page, size);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
@@ -54,9 +59,11 @@ public class AiConversationController {
     public ResponseEntity<?> createConversation(
             @RequestParam String userId,
             @RequestParam(value = "courseId", required = false) String courseId,
-            @RequestParam(value = "classId", required = false) String classId
+            @RequestParam(value = "classId", required = false) String classId,
+            Authentication authentication
     ) {
         try {
+            accessGuard.allowStudentSelfOrAdmin(authentication.getName(), role(authentication), userId);
             AiConversationSummary summary = aiConversationService.createConversation(userId, courseId, classId);
             return ResponseEntity.ok(summary);
         } catch (Exception e) {
@@ -72,9 +79,11 @@ public class AiConversationController {
             @RequestParam String keyword,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
-            @RequestParam(value = "courseId", required = false) String courseId
+            @RequestParam(value = "courseId", required = false) String courseId,
+            Authentication authentication
     ) {
         try {
+            accessGuard.allowStudentSelfOrAdmin(authentication.getName(), role(authentication), userId);
             return ResponseEntity.ok(aiConversationService.searchMessages(userId, keyword, courseId, page, size));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
@@ -90,9 +99,11 @@ public class AiConversationController {
             @PathVariable String conversationId,
             @RequestParam String userId,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "100") int size
+            @RequestParam(defaultValue = "100") int size,
+            Authentication authentication
     ) {
         try {
+            accessGuard.allowStudentSelfOrAdmin(authentication.getName(), role(authentication), userId);
             AiConversationHistoryResponse response = aiConversationService.getMessages(conversationId, userId, page, size);
             return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
@@ -107,9 +118,11 @@ public class AiConversationController {
     @Operation(summary = "List pinned messages in an AI tutor conversation")
     public ResponseEntity<?> listPinnedMessages(
             @PathVariable String conversationId,
-            @RequestParam String userId
+            @RequestParam String userId,
+            Authentication authentication
     ) {
         try {
+            accessGuard.allowStudentSelfOrAdmin(authentication.getName(), role(authentication), userId);
             return ResponseEntity.ok(Map.of(
                     "conversationId", conversationId,
                     "messages", aiConversationService.listPinnedMessages(conversationId, userId)
@@ -127,9 +140,11 @@ public class AiConversationController {
     public ResponseEntity<?> pinMessage(
             @PathVariable String conversationId,
             @PathVariable String messageId,
-            @RequestParam String userId
+            @RequestParam String userId,
+            Authentication authentication
     ) {
         try {
+            accessGuard.allowStudentSelfOrAdmin(authentication.getName(), role(authentication), userId);
             return ResponseEntity.ok(aiConversationService.pinMessage(conversationId, messageId, userId));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
@@ -144,9 +159,11 @@ public class AiConversationController {
     public ResponseEntity<?> unpinMessage(
             @PathVariable String conversationId,
             @PathVariable String messageId,
-            @RequestParam String userId
+            @RequestParam String userId,
+            Authentication authentication
     ) {
         try {
+            accessGuard.allowStudentSelfOrAdmin(authentication.getName(), role(authentication), userId);
             return ResponseEntity.ok(aiConversationService.unpinMessage(conversationId, messageId, userId));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
@@ -160,9 +177,12 @@ public class AiConversationController {
     @Operation(summary = "Rename an AI tutor conversation")
     public ResponseEntity<?> renameConversation(
             @PathVariable String conversationId,
-            @RequestBody RenameAiConversationRequest request
+            @RequestBody RenameAiConversationRequest request,
+            Authentication authentication
     ) {
         try {
+            accessGuard.allowStudentSelfOrAdmin(
+                    authentication.getName(), role(authentication), request.getUserId());
             AiConversationSummary summary = aiConversationService.renameConversation(
                     conversationId, request.getUserId(), request.getTitle()
             );
@@ -179,9 +199,11 @@ public class AiConversationController {
     @Operation(summary = "Delete an AI tutor conversation")
     public ResponseEntity<?> deleteConversation(
             @PathVariable String conversationId,
-            @RequestParam String userId
+            @RequestParam String userId,
+            Authentication authentication
     ) {
         try {
+            accessGuard.allowStudentSelfOrAdmin(authentication.getName(), role(authentication), userId);
             aiConversationService.deleteConversation(conversationId, userId);
             return ResponseEntity.ok(Map.of("status", "SUCCESS", "message", "Đã xóa cuộc trò chuyện"));
         } catch (IllegalArgumentException e) {
@@ -190,5 +212,13 @@ public class AiConversationController {
             log.error("Error deleting AI conversation", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", e.getMessage()));
         }
+    }
+
+    private String role(Authentication authentication) {
+        return authentication.getAuthorities().stream()
+                .map(authority -> authority.getAuthority())
+                .filter(value -> value != null && value.startsWith("ROLE_"))
+                .map(value -> value.substring("ROLE_".length()))
+                .findFirst().orElse("");
     }
 }

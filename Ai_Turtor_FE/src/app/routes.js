@@ -20,6 +20,7 @@ export const appRoutes = [
   { role: 'teacher', tab: 'teacher-materials', path: '/teacher/materials', allowedAccountRoles: ['TEACHER'] },
   { role: 'teacher', tab: 'teacher-grading', path: '/teacher/grading', allowedAccountRoles: ['TEACHER'] },
   { role: 'teacher', tab: 'teacher-escalations', path: '/teacher/review-queue', allowedAccountRoles: ['TEACHER'] },
+  { role: 'teacher', tab: 'teacher-tutoring', path: '/teacher/ai-tutoring', allowedAccountRoles: ['TEACHER'] },
   {
     role: 'senior',
     tab: 'senior-review',

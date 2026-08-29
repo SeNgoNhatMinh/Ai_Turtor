@@ -67,6 +67,76 @@ public class AiConversationService {
         return toSummary(conversation);
     }
 
+    public AiConversationSummary createTutorConversation(
+            String userId,
+            String courseId,
+            String classId,
+            String tutorSessionId
+    ) {
+        AiConversation conversation = createConversationEntity(
+                userId, UUID.randomUUID().toString(), courseId, classId);
+        conversation.setTutorSessionId(trimToNull(tutorSessionId));
+        conversation.setSessionType("LESSON");
+        conversation.setTitle("Buổi học cùng AI Tutor");
+        return toSummary(conversationRepository.save(conversation));
+    }
+
+    public AiMessage appendProactiveAssistantMessage(
+            String conversationId,
+            String userId,
+            String tutorSessionId,
+            String sessionPhase,
+            String content
+    ) {
+        AiConversation conversation = requireConversation(conversationId, userId);
+        LocalDateTime now = LocalDateTime.now();
+        AiMessage message = messageRepository.save(AiMessage.builder()
+                .id(UUID.randomUUID().toString())
+                .conversationId(conversationId)
+                .userId(userId)
+                .role("ASSISTANT")
+                .content(content)
+                .mode("TUTOR")
+                .tutorSessionId(trimToNull(tutorSessionId))
+                .sessionPhase(trimToNull(sessionPhase))
+                .proactive(true)
+                .pinned(false)
+                .createdAt(now)
+                .build());
+        conversation.setTutorSessionId(trimToNull(tutorSessionId));
+        conversation.setSessionType("LESSON");
+        conversation.setMessageCount((conversation.getMessageCount() == null ? 0 : conversation.getMessageCount()) + 1);
+        conversation.setLastMessageAt(now);
+        conversation.setUpdatedAt(now);
+        conversationRepository.save(conversation);
+        return message;
+    }
+
+    public void attachExchangeToTutorSession(
+            String conversationId,
+            String userMessageId,
+            String assistantMessageId,
+            String tutorSessionId,
+            String sessionPhase
+    ) {
+        String safeSessionId = trimToNull(tutorSessionId);
+        if (safeSessionId == null) return;
+        conversationRepository.findById(conversationId).ifPresent(conversation -> {
+            conversation.setTutorSessionId(safeSessionId);
+            conversation.setSessionType("LESSON");
+            conversationRepository.save(conversation);
+        });
+        for (String messageId : new String[]{userMessageId, assistantMessageId}) {
+            if (messageId == null || messageId.isBlank()) continue;
+            messageRepository.findById(messageId).ifPresent(message -> {
+                message.setTutorSessionId(safeSessionId);
+                message.setSessionPhase(trimToNull(sessionPhase));
+                message.setProactive(false);
+                messageRepository.save(message);
+            });
+        }
+    }
+
     public AiConversationHistoryResponse getMessages(String conversationId, String userId, int page, int size) {
         AiConversation conversation = requireConversation(conversationId, userId);
 
@@ -124,6 +194,51 @@ public class AiConversationService {
                 .pageSize(size)
                 .messages(messages)
                 .build();
+    }
+
+    public String buildRecentTutorContext(String conversationId, String userId) {
+        return buildRecentTutorContext(conversationId, userId, 6, 500, false);
+    }
+
+    /**
+     * Compact history for intent routing. Never throws: missing conversation yields "".
+     */
+    public String buildRecentTutorContextForClassifier(String conversationId, String userId) {
+        return buildRecentTutorContext(conversationId, userId, 4, 240, true);
+    }
+
+    private String buildRecentTutorContext(
+            String conversationId,
+            String userId,
+            int maxMessages,
+            int maxCharsPerMessage,
+            boolean swallowMissing
+    ) {
+        String safeConversationId = trimToNull(conversationId);
+        String safeUserId = trimToNull(userId);
+        if (safeConversationId == null || safeUserId == null) return "";
+        try {
+            requireConversation(safeConversationId, safeUserId);
+        } catch (RuntimeException exception) {
+            if (swallowMissing) {
+                log.debug("Classifier history skipped: {}", exception.getMessage());
+                return "";
+            }
+            throw exception;
+        }
+        List<AiMessage> messages = messageRepository.findByConversationIdOrderByCreatedAtAsc(safeConversationId);
+        int fromIndex = Math.max(0, messages.size() - maxMessages);
+        return messages.subList(fromIndex, messages.size()).stream()
+                .filter(message -> message.getContent() != null && !message.getContent().isBlank())
+                .map(message -> {
+                    String content = message.getContent().trim().replaceAll("\\s+", " ");
+                    if (content.length() > maxCharsPerMessage) {
+                        content = content.substring(0, maxCharsPerMessage) + "...";
+                    }
+                    return "- " + ("STUDENT".equalsIgnoreCase(message.getRole()) ? "Student" : "Tutor")
+                            + ": " + content;
+                })
+                .collect(Collectors.joining("\n"));
     }
 
     public String saveExchange(
@@ -307,6 +422,9 @@ public class AiConversationService {
         }
         AiConversation next = createConversationEntity(userId, UUID.randomUUID().toString(), courseId, classId);
         next.setTitle(buildContinuationTitle(conversation.getTitle()));
+        next.setParentConversationId(conversation.getId());
+        next.setTutorSessionId(conversation.getTutorSessionId());
+        next.setSessionType(conversation.getSessionType());
         return conversationRepository.save(next);
     }
 
@@ -373,6 +491,9 @@ public class AiConversationService {
                 .title(conversation.getTitle())
                 .courseId(conversation.getCourseId())
                 .classId(conversation.getClassId())
+                .tutorSessionId(conversation.getTutorSessionId())
+                .parentConversationId(conversation.getParentConversationId())
+                .sessionType(conversation.getSessionType())
                 .messageCount(conversation.getMessageCount())
                 .userQuestionCount(userQuestionCount)
                 .maxTurnsReached(userQuestionCount >= MAX_USER_QUESTIONS_PER_CONVERSATION)
@@ -392,6 +513,9 @@ public class AiConversationService {
                 .sourceEvidence(message.getSourceEvidence())
                 .groundingType(message.getGroundingType())
                 .questionEscalationId(message.getQuestionEscalationId())
+                .tutorSessionId(message.getTutorSessionId())
+                .sessionPhase(message.getSessionPhase())
+                .proactive(message.getProactive())
                 .pinned(Boolean.TRUE.equals(message.getPinned()))
                 .pinnedAt(message.getPinnedAt())
                 .createdAt(message.getCreatedAt())

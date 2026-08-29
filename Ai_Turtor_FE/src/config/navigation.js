@@ -114,6 +114,15 @@ const navigationItems = [
     icon: Inbox,
   },
   {
+    key: 'teacher-tutoring',
+    workspace: 'teacher',
+    allowedAccountRoles: [ACCOUNT_ROLES.TEACHER],
+    group: 'Hỗ trợ',
+    label: 'Theo dõi AI Tutor',
+    description: 'Xem buổi học và truyền chỉ dẫn sư phạm theo từng sinh viên.',
+    icon: BrainCircuit,
+  },
+  {
     key: 'teacher-expert-training',
     workspace: 'teacher',
     allowedAccountRoles: [ACCOUNT_ROLES.TEACHER],

@@ -12,3 +12,14 @@ test('builds the visible student chat message for an improve suggestion', () => 
 test('does not build a chat message for an empty suggestion', () => {
   assert.equal(buildStudySuggestionPrompt('   '), '');
 });
+
+test('sends a numbered lesson chip as a lesson start, not an improve-plan wrap', () => {
+  assert.equal(
+    buildStudySuggestionPrompt('Bài 1: Servlet là gì?'),
+    'Bắt đầu bài 1: Servlet là gì?',
+  );
+  assert.equal(
+    buildStudySuggestionPrompt('Bắt đầu bài 2: Request và Response'),
+    'Bắt đầu bài 2: Request và Response',
+  );
+});

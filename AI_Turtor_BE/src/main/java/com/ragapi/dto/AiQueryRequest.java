@@ -29,6 +29,15 @@ public class AiQueryRequest {
     @Schema(description = "Existing conversation ID. Omit this field for the first message; reuse the returned conversationId to continue the chat.", example = "uuid-conversation-id")
     private String conversationId;
 
+    @Schema(description = "Active proactive tutor session ID")
+    private String tutorSessionId;
+
+    @Schema(description = "Current tutor phase: OPEN, DIAGNOSTIC, TEACH, PRACTICE or REFLECT")
+    private String sessionPhase;
+
     @Schema(description = "Internal n8n marker: per-course quota was consumed before intent routing", hidden = true)
     private Boolean quotaConsumed;
+
+    @Schema(description = "n8n Switch already chose RAG, CODE, or ESCALATE. Omit when FE calls this API directly.")
+    private String harnessMode;
 }

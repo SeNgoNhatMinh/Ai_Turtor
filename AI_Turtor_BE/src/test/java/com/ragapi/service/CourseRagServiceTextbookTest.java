@@ -230,4 +230,54 @@ class CourseRagServiceTextbookTest {
         assertTrue(promptCaptor.getValue().contains(lexicalChunk.content()));
     }
 
+    @Test
+    void exampleFollowUpRetrievesPreviousQuestionNotBareExampleQuery() throws Exception {
+        String followUp = "có ví dụ ko?";
+        String previous = "Servlet Specification giúp mình hiểu khái niệm của phần này với?";
+        String retrievalFocus = previous + " " + followUp;
+        ElasticVectorService.SearchChunk specChunk = new ElasticVectorService.SearchChunk(
+                "The Servlet Specification defines servlet lifecycle methods init, service, destroy.",
+                0.71,
+                "spec",
+                "PRJ301",
+                null,
+                "teacher-1",
+                "COURSE_SHARED",
+                "PDF"
+        );
+        ElasticVectorService.SearchChunk jspxChunk = new ElasticVectorService.SearchChunk(
+                "JSP Document (JSPX) is an XML JSP file. Example: <jsp:directive.page />",
+                0.93,
+                "jspx",
+                "PRJ301",
+                null,
+                "teacher-1",
+                "COURSE_SHARED",
+                "PDF"
+        );
+        when(retrievalQueryTranslationService.expandForRetrieval(eq(retrievalFocus), eq("PRJ301"), eq(false)))
+                .thenReturn(retrievalFocus);
+        when(vectorService.searchTextbookWithScores(eq(retrievalFocus), eq("PRJ301"), isNull()))
+                .thenReturn(List.of(jspxChunk, specChunk));
+        when(fallbackSearchService.searchTextbook(eq(retrievalFocus), eq("PRJ301"), isNull(), eq(8)))
+                .thenReturn(List.of(specChunk));
+        when(vectorService.searchGoldQaTeachingNotesWithScores(eq(retrievalFocus), eq("PRJ301"), isNull(), eq(2)))
+                .thenReturn(List.of());
+        when(approvedKnowledgeRetrievalService.retrieveRelevant(eq(retrievalFocus), eq("PRJ301"), isNull()))
+                .thenReturn(List.of());
+        when(rerankService.rerank(eq(retrievalFocus), any())).thenAnswer(invocation -> invocation.getArgument(1));
+        when(contextBudgetService.applyBudget(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(chatService.generate(anyString(), eq(followUp)))
+                .thenReturn("Servlet Specification quy định init, service, destroy.");
+
+        CourseRagAnswer answer = service.askWithConfidence(followUp, "PRJ301", null, "EXPLAIN_CONCEPT", previous);
+
+        assertEquals("Servlet Specification quy định init, service, destroy.", answer.getAnswer());
+        ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
+        verify(chatService).generate(promptCaptor.capture(), eq(followUp));
+        assertTrue(promptCaptor.getValue().contains(specChunk.content()));
+        verify(vectorService).searchTextbookWithScores(eq(retrievalFocus), eq("PRJ301"), isNull());
+        verify(fallbackSearchService).searchTextbook(eq(retrievalFocus), eq("PRJ301"), isNull(), eq(8));
+        verifyNoInteractions(answerCacheService, cacheHitAuditService);
+    }
 }
