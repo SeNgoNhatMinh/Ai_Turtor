@@ -150,7 +150,7 @@ export function useStudentChatController({
       const welcomeIndex = list.findIndex((item) => (
         item?.id === turn.id
         || String(item?.answer || '').trim() === turn.answer
-        || (!String(item?.question || '').trim() && /chào mừng bạn đến với buổi học/i.test(String(item?.answer || '')))
+        || (!String(item?.question || '').trim() && /chào mừng bạn đến với (?:buổi học|môn)/i.test(String(item?.answer || '')))
       ));
       if (welcomeIndex >= 0) {
         const next = [...list];

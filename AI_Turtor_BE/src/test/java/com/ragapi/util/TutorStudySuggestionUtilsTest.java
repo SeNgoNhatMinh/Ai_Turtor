@@ -77,5 +77,9 @@ class TutorStudySuggestionUtilsTest {
                 "A string is a sequence", "Adding new functions")));
         assertTrue(TutorStudySuggestionUtils.needsSuggestionRefresh(List.of(
                 "Môn PFP191 gồm những nội dung nào?")));
+        assertTrue(TutorStudySuggestionUtils.needsSuggestionRefresh(List.of(
+                "Adding new functions", "Boolean expressions")));
+        assertFalse(TutorStudySuggestionUtils.needsSuggestionRefresh(List.of(
+                "Nền tảng cú pháp", "Cấu trúc điều khiển")));
     }
 }

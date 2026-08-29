@@ -94,7 +94,8 @@ public final class TutorStudySuggestionUtils {
                 ChapterHeadingUtils.isBookFrontMatterTitle(item)
                         || ChapterHeadingUtils.isSentenceLikeHeading(item)
                         || ChapterHeadingUtils.isCourseOverviewChip(item)
-                        || isCourseAgnosticStarter(item));
+                        || isCourseAgnosticStarter(item)
+                        || looksLikeRawMaterialHeading(item));
         if (hasJunk) {
             return true;
         }
@@ -109,7 +110,14 @@ public final class TutorStudySuggestionUtils {
         return NEW_COURSE_STARTERS.stream().anyMatch(starter -> starter.equalsIgnoreCase(trimmed));
     }
 
-    static boolean looksNumbered(String title) {
+    static boolean looksLikeRawMaterialHeading(String title) {
+        if (title == null || title.isBlank() || looksNumbered(title)) {
+            return false;
+        }
+        return title.trim().matches("[A-Za-z0-9 ,.'()/+_-]+");
+    }
+
+    public static boolean looksNumbered(String title) {
         if (title == null || title.isBlank()) {
             return false;
         }
