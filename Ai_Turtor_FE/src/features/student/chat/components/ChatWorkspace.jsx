@@ -190,7 +190,8 @@ function ChatWorkspace({
         {tutorSessionSummary?.summaryText && (
           <p className="tutor-session-strip__summary">{tutorSessionSummary.summaryText}</p>
         )}
-        {tutorSession?.status !== 'COMPLETED' && Array.isArray(tutorSession?.suggestedTopics) && (
+        {tutorSession?.status !== 'COMPLETED' && Array.isArray(tutorSession?.suggestedTopics)
+          && tutorSession.suggestedTopics.length > 0 && (
           <div className="tutor-session-strip__topics">
             {tutorSession.suggestedTopics.map((topic) => (
               <button

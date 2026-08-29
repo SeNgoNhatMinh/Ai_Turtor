@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -79,6 +80,23 @@ public class AiConversationService {
         conversation.setSessionType("LESSON");
         conversation.setTitle("Buổi học cùng AI Tutor");
         return toSummary(conversationRepository.save(conversation));
+    }
+
+    public boolean existsForUser(String conversationId, String userId) {
+        return findOwned(conversationId, userId).isPresent();
+    }
+
+    public Optional<AiConversationSummary> findOwnedSummary(String conversationId, String userId) {
+        return findOwned(conversationId, userId).map(this::toSummary);
+    }
+
+    private Optional<AiConversation> findOwned(String conversationId, String userId) {
+        String id = trimToNull(conversationId);
+        String owner = trimToNull(userId);
+        if (id == null || owner == null) {
+            return Optional.empty();
+        }
+        return conversationRepository.findByIdAndUserId(id, owner);
     }
 
     public AiMessage appendProactiveAssistantMessage(

@@ -53,6 +53,7 @@ class StudentChatIntentDetectorTest {
         assertTrue(StudentChatIntentDetector.isTopicStudyStart("Nay mình học Java Servlet"));
         assertTrue(StudentChatIntentDetector.isTopicStudyStart("Hôm nay mình học Servlet"));
         assertTrue(StudentChatIntentDetector.isTopicStudyStart("Mình muốn học JSP"));
+        assertTrue(StudentChatIntentDetector.isTopicStudyStart("Nay mình học Alternative execution"));
         assertFalse(StudentChatIntentDetector.isTopicStudyStart("Servlet là gì?"));
         assertFalse(StudentChatIntentDetector.isTopicStudyStart("Hôm nay mình hơi mệt, học chậm với mình nhé"));
         assertFalse(StudentChatIntentDetector.isTopicStudyStart("mai mấy giờ học"));

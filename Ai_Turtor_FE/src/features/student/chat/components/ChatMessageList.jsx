@@ -110,20 +110,22 @@ function ChatMessageList({
             const showMentorSupport = Boolean(escalationId || openSupportCards[messageKey]);
 
             return (
-              <div
+                <div
                 key={messageKey}
                 data-chat-message-key={messageKey}
                 className={`chat-message-turn ${highlightedMessageKey === messageKey ? 'chat-message-turn--highlighted' : ''}`}
               >
-                <div className="chat-gpt-message-row user">
-                  <StudentMessageBubble
-                    canResend={canChat && !isAiLoading && !activeSessionMaxTurnsReached}
-                    isPinned={isPinned}
-                    onResend={onResendMessage}
-                    question={message.question}
-                    triggerToast={triggerToast}
-                  />
-                </div>
+                {String(message.question || '').trim() ? (
+                  <div className="chat-gpt-message-row user">
+                    <StudentMessageBubble
+                      canResend={canChat && !isAiLoading && !activeSessionMaxTurnsReached}
+                      isPinned={isPinned}
+                      onResend={onResendMessage}
+                      question={message.question}
+                      triggerToast={triggerToast}
+                    />
+                  </div>
+                ) : null}
 
                 {!message.pending && (
                   <div className="chat-gpt-message-row ai">

@@ -67,4 +67,83 @@ public final class ChapterHeadingUtils {
 
         return true;
     }
+
+    /**
+     * Book/publisher metadata, not a studyable lesson. Used for tutor opening chips.
+     */
+    public static boolean isBookFrontMatterTitle(String title) {
+        if (title == null || title.isBlank()) {
+            return true;
+        }
+        String lower = title.trim().toLowerCase(Locale.ROOT)
+                .replace('“', ' ')
+                .replace('”', ' ')
+                .replace('"', ' ')
+                .replace('\'', ' ')
+                .replaceAll("\\s+", " ")
+                .trim();
+        String stripped = lower.replaceFirst("^(?:\\d+(?:\\.\\d+)*\\s+)", "");
+
+        if (stripped.matches("(?:table of )?contents")
+                || stripped.equals("mục lục")
+                || stripped.equals("muc luc")) {
+            return true;
+        }
+        if (stripped.matches("preface|foreword|dedication|colophon|copyright|errata|index|bibliography|credits?")) {
+            return true;
+        }
+        if (stripped.matches("lời nói đầu|loi noi dau|lời giới thiệu|loi gioi thieu|lời cảm ơn|loi cam on")) {
+            return true;
+        }
+        if (stripped.startsWith("copyright ")
+                || stripped.startsWith("about the author")
+                || stripped.startsWith("about the editor")
+                || stripped.startsWith("about the technical editor")
+                || stripped.startsWith("about the reviewer")
+                || stripped.startsWith("about the publisher")
+                || stripped.startsWith("acknowledg")
+                || stripped.startsWith("a timeline of")
+                || stripped.equals("title page")
+                || stripped.equals("main material")
+                || stripped.matches("how to use this (?:book|guide).*")
+                || stripped.equals("who this book is for")) {
+            return true;
+        }
+        return false;
+    }
+
+    public static boolean isStudySuggestionTitle(String title) {
+        return isPlausibleChapterTitle(title) && !isBookFrontMatterTitle(title);
+    }
+
+    /**
+     * A heading that is a definition sentence, not a study unit ("A string is a sequence").
+     */
+    public static boolean isSentenceLikeHeading(String title) {
+        if (title == null || title.isBlank()) {
+            return false;
+        }
+        String trimmed = title.trim().replaceAll("\\s+", " ");
+        return trimmed.matches("(?i)^(?:\\d+(?:\\.\\d+)*\\s+)?(?:a|an|the)\\s+.+\\s+(?:is|are|was|were)\\b.*");
+    }
+
+    public static boolean isCourseOverviewChip(String title) {
+        if (title == null || title.isBlank()) {
+            return false;
+        }
+        String lower = title.trim().toLowerCase(Locale.ROOT);
+        return lower.contains("gồm những nội dung nào")
+                || lower.contains("gom nhung noi dung nao")
+                || lower.contains("nên học gì trước")
+                || lower.contains("nen hoc gi truoc")
+                || lower.contains("tóm tắt lộ trình môn")
+                || lower.contains("tom tat lo trinh mon");
+    }
+
+    /** Clickable tutor opening chip: a real unit to start studying, not TOC noise. */
+    public static boolean isStudyUnitTitle(String title) {
+        return isStudySuggestionTitle(title)
+                && !isSentenceLikeHeading(title)
+                && !isCourseOverviewChip(title);
+    }
 }

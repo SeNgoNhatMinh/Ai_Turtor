@@ -152,6 +152,8 @@ export function useAcademicRecords({
       const resolvedStudentId = getPersonId(student) || values.studentId;
       await adminAcademicApi.createEnrollment({
         studentId: resolvedStudentId,
+        studentName: student ? getPersonDisplayName(student, '') : undefined,
+        studentEmail: getPersonEmail(student) || undefined,
         courseId: values.courseId,
         classId: values.classId,
         status: 'ACTIVE',

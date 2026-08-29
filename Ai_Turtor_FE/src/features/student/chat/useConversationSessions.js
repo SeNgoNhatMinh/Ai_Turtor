@@ -140,7 +140,7 @@ export function useConversationSessions({
     });
   };
 
-  const handleSelectSession = async (sessionId, title) => {
+  const handleSelectSession = async (sessionId, title, options = {}) => {
     if (!userId) {
       triggerToast('Vui lòng đăng nhập để mở lịch sử trò chuyện.');
       return;
@@ -158,7 +158,7 @@ export function useConversationSessions({
         setMessages(pairMessages(asArray(chatMessages, 'content', 'messages')));
       }
     } catch (error) {
-      if (!controller.signal.aborted) {
+      if (!controller.signal.aborted && !options.silent) {
         triggerToast(getUserFacingError(error, 'Không thể mở cuộc trò chuyện này.'));
       }
     } finally {

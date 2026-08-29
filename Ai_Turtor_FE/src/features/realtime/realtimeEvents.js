@@ -4,6 +4,7 @@ const WS_PROTOCOL = {
 };
 
 export const REALTIME_EVENT_TYPES = Object.freeze({
+  tutorSession: ['TUTOR_SESSION_OPENED', 'TUTOR_SESSION_UPDATED'],
   material: ['MATERIAL_INDEXING', 'MATERIAL_INDEXED', 'MATERIAL_INDEXING_FAILED'],
   studentAssignment: ['ASSIGNMENT_ASSIGNED', 'ASSIGNMENT_REVIEWED'],
   teacherAssignment: ['ASSIGNMENT_SUBMITTED'],

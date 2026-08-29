@@ -12,10 +12,21 @@ export function normalizeLessonStart(suggestionText) {
   return '';
 }
 
+export function buildTopicStudyPrompt(suggestionText) {
+  const topic = String(suggestionText || '').trim();
+  if (!topic) return '';
+  if (/^(?:nay|hôm nay)\s+(?:mình|em)\s+học\b/i.test(topic)
+    || /^(?:mình|em)\s+muốn\s+học\b/i.test(topic)
+    || /^bắt đầu\s+học\b/i.test(topic)) {
+    return topic;
+  }
+  return `Nay mình học ${topic}`;
+}
+
 export function buildLessonChatPrompt(suggestionText) {
   const topic = String(suggestionText || '').trim();
   if (!topic) return '';
-  return normalizeLessonStart(topic) || topic;
+  return normalizeLessonStart(topic) || buildTopicStudyPrompt(topic);
 }
 
 export function buildStudySuggestionPrompt(suggestionText) {

@@ -9,7 +9,7 @@
   max-width: 100%;
   display: flex;
   flex-direction: column;
-  padding-bottom: 156px;
+  padding-bottom: 108px;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
   touch-action: pan-y;
@@ -17,14 +17,14 @@
 }
 
 .chat-workspace-messages-inner {
-  max-width: 860px;
+  max-width: 768px;
   min-width: 0;
   margin: 0 auto;
   width: 100%;
-  padding: 36px 28px 18px;
+  padding: 16px 20px 12px;
   display: flex;
   flex-direction: column;
-  gap: 30px;
+  gap: 18px;
 }
 
 .chat-workspace-messages-container--empty {
@@ -153,7 +153,7 @@
   flex-direction: column;
   min-width: 0;
   max-width: 100%;
-  gap: 24px;
+  gap: 12px;
   border-radius: 18px;
   transition: background-color 0.18s ease, box-shadow 0.18s ease;
 }
@@ -175,13 +175,44 @@
 .chat-gpt-bubble-user {
   background-color: #f4f4f4;
   color: #0d0d0d;
-  padding: 12px 18px;
-  border-radius: 20px;
-  max-width: min(72%, 620px);
+  padding: 10px 16px;
+  border-radius: 22px;
+  max-width: min(78%, 640px);
   font-size: 15px;
-  line-height: 1.6;
+  line-height: 1.55;
   overflow-wrap: anywhere;
   word-break: break-word;
+  white-space: pre-wrap;
+  text-align: left;
+}
+
+.student-message-prose {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.student-message-prose + .student-message-code {
+  margin-top: 10px;
+}
+
+.student-message-code {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #ececec;
+  overflow-x: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12.5px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  text-align: left;
+}
+
+.student-message-code code {
+  font: inherit;
+  color: inherit;
 }
 
 .student-message-group {
@@ -189,7 +220,7 @@
   flex-direction: column;
   align-items: flex-end;
   min-width: 0;
-  max-width: min(72%, 620px);
+  max-width: min(78%, 640px);
 }
 
 .student-message-group .chat-gpt-bubble-user {
@@ -351,7 +382,7 @@
   bottom: 0;
   left: 0;
   right: 0;
-  padding: 0 28px 26px;
+  padding: 0 20px 14px;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0) 0%, #ffffff 20%);
   display: flex;
   justify-content: center;

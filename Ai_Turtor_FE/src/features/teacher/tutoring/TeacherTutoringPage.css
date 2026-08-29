@@ -37,15 +37,13 @@
 }
 
 .teacher-directive-list,
-.teacher-session-feed,
-.teacher-transcript {
+.teacher-session-feed {
   display: grid;
   gap: 0.75rem;
   margin-top: 1rem;
 }
 
-.teacher-tutoring-card article,
-.teacher-transcript article {
+.teacher-tutoring-card article {
   border: 1px solid var(--border-color, #e2e8f0);
   border-radius: 12px;
   padding: 0.8rem;
@@ -61,13 +59,88 @@
   color: var(--text-secondary, #64748b);
 }
 
-.teacher-transcript article.is-student {
-  margin-left: 3rem;
+.teacher-transcript-drawer .ant-drawer-body {
+  background: #ffffff;
+  padding: 16px 20px 32px;
 }
 
-.teacher-transcript article.is-tutor {
-  background: rgba(37, 99, 235, 0.06);
-  margin-right: 3rem;
+.teacher-transcript {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.teacher-transcript__empty {
+  color: #6b7280;
+  text-align: center;
+}
+
+.teacher-transcript__turn {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.teacher-transcript__turn > strong {
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.teacher-transcript__turn.is-student {
+  align-items: flex-end;
+}
+
+.teacher-transcript__turn.is-student > strong {
+  padding-right: 4px;
+}
+
+.teacher-transcript__bubble {
+  max-width: min(86%, 560px);
+  padding: 10px 16px;
+  border-radius: 22px;
+  background: #f4f4f4;
+  color: #0d0d0d;
+  font-size: 15px;
+  line-height: 1.55;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+.teacher-transcript__bubble .student-message-prose {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.teacher-transcript__bubble .student-message-code {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #ececec;
+  overflow-x: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12.5px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.teacher-transcript__turn.is-tutor {
+  align-items: stretch;
+}
+
+.teacher-transcript__markdown {
+  color: #0d0d0d;
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+.teacher-transcript__markdown .ai-answer {
+  max-width: 100%;
 }
 
 @media (max-width: 900px) {

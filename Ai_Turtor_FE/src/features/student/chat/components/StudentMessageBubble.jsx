@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Check, Copy, Pencil, Send, X } from 'lucide-react';
 import { PushpinOutlined } from '@ant-design/icons';
 import { LIMITS, validateChatInput } from '../../../../utils/validators';
+import StudentMessageContent from './StudentMessageContent';
 
 async function copyText(text) {
   if (navigator.clipboard?.writeText) {
@@ -113,7 +114,7 @@ export default function StudentMessageBubble({
     <div className="student-message-group">
       <div className={`chat-gpt-bubble-user ${isPinned ? 'chat-message-pinned' : ''}`}>
         {isPinned && <PushpinOutlined className="chat-message-pin-badge" />}
-        {question}
+        <StudentMessageContent text={question} />
       </div>
       <div className="student-message-actions" aria-label="Thao tác tin nhắn">
         <button type="button" onClick={handleCopy} title={copied ? 'Đã sao chép' : 'Sao chép'} aria-label={copied ? 'Đã sao chép' : 'Sao chép tin nhắn'}>

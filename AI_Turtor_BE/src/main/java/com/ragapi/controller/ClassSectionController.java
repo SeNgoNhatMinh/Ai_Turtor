@@ -7,6 +7,7 @@ import com.ragapi.entity.ClassSection;
 import com.ragapi.entity.CourseEnrollment;
 import com.ragapi.repository.ClassSectionRepository;
 import com.ragapi.repository.CourseEnrollmentRepository;
+import com.ragapi.service.ClassRosterService;
 import com.ragapi.service.StudentEnrollmentImportService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -51,6 +52,7 @@ public class ClassSectionController {
     private final ClassSectionRepository classSectionRepository;
     private final CourseEnrollmentRepository courseEnrollmentRepository;
     private final StudentEnrollmentImportService studentEnrollmentImportService;
+    private final ClassRosterService classRosterService;
 
     @PostMapping({"/academic/class-sections", "/admin/class-sections"})
     @Operation(summary = "Create or update a class section for one teacher")
@@ -164,7 +166,7 @@ public class ClassSectionController {
                     .body(Map.of("error", "This teacher is not assigned to the requested class section"));
         }
 
-        List<CourseEnrollment> students = courseEnrollmentRepository.findByCourseIdAndClassId(courseId, classId);
+        List<CourseEnrollment> students = classRosterService.listClassStudents(courseId, classId);
         Map<String, Object> response = new LinkedHashMap<>();
         response.put("courseId", courseId);
         response.put("classId", classId);
@@ -181,7 +183,11 @@ public class ClassSectionController {
         if (validationError != null) {
             return ResponseEntity.badRequest().body(Map.of("error", validationError));
         }
-        return ResponseEntity.ok(saveEnrollmentEntity(request));
+        try {
+            return ResponseEntity.ok(saveEnrollmentEntity(request));
+        } catch (IllegalArgumentException error) {
+            return ResponseEntity.badRequest().body(Map.of("error", error.getMessage()));
+        }
     }
 
     @PostMapping({"/admin/class-sections/{courseId}/{classId}/students", "/courses/{courseId}/class-sections/{classId}/students"})
@@ -396,6 +402,8 @@ public class ClassSectionController {
         enrollment.setStudentName(trimToNull(request.getStudentName()));
         enrollment.setStudentEmail(trimToNull(request.getStudentEmail()));
         enrollment.setStudentPhone(trimToNull(request.getStudentPhone()));
+        classRosterService.copyProfileOnto(enrollment);
+        classRosterService.rejectIfStaffAccount(enrollment);
         enrollment.setSemesterId(trimToNull(request.getSemesterId()));
         enrollment.setCourseId(request.getCourseId().trim());
         enrollment.setCourseName(trimToNull(request.getCourseName()));
@@ -414,6 +422,8 @@ public class ClassSectionController {
         enrollment.setStudentName(trimToNull(request.getStudentName()));
         enrollment.setStudentEmail(trimToNull(request.getStudentEmail()));
         enrollment.setStudentPhone(trimToNull(request.getStudentPhone()));
+        classRosterService.copyProfileOnto(enrollment);
+        classRosterService.rejectIfStaffAccount(enrollment);
         enrollment.setSemesterId(trimToNull(request.getSemesterId()));
         enrollment.setCourseId(request.getCourseId().trim());
         enrollment.setCourseName(trimToNull(request.getCourseName()));

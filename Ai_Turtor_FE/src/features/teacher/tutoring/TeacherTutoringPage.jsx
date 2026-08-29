@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Drawer } from 'antd';
 import PageHeader from '../../../components/common/PageHeader';
+import MarkdownRenderer from '../../../components/markdown/MarkdownRenderer';
+import StudentMessageContent from '../../student/chat/components/StudentMessageContent';
 import { getUserFacingError } from '../../../services/apiClient';
 import { asArray } from '../../../services/normalizers';
 import { tutorSessionApi } from '../../../services/tutorSessionApi';
@@ -167,17 +169,35 @@ export default function TeacherTutoringPage({
 
       <Drawer
         title={`Hội thoại của ${selectedSummary?.studentId || 'sinh viên'}`}
-        width={640}
+        width={760}
+        className="teacher-transcript-drawer"
         open={Boolean(selectedSummary)}
         onClose={() => setSelectedSummary(null)}
       >
         <div className="teacher-transcript">
-          {transcript.map((message) => (
-            <article key={message.id} className={message.role === 'STUDENT' ? 'is-student' : 'is-tutor'}>
-              <strong>{message.role === 'STUDENT' ? 'Sinh viên' : 'AI Tutor'}</strong>
-              <p>{message.content}</p>
-            </article>
-          ))}
+          {transcript.length === 0 && (
+            <p className="teacher-transcript__empty">Chưa có tin nhắn trong buổi học này.</p>
+          )}
+          {transcript.map((message) => {
+            const isStudent = message.role === 'STUDENT';
+            return (
+              <article
+                key={message.id}
+                className={isStudent ? 'teacher-transcript__turn is-student' : 'teacher-transcript__turn is-tutor'}
+              >
+                <strong>{isStudent ? 'Sinh viên' : 'AI Tutor'}</strong>
+                {isStudent ? (
+                  <div className="teacher-transcript__bubble">
+                    <StudentMessageContent text={message.content} />
+                  </div>
+                ) : (
+                  <div className="teacher-transcript__markdown">
+                    <MarkdownRenderer markdown={message.content || ''} hideSourceSection />
+                  </div>
+                )}
+              </article>
+            );
+          })}
         </div>
       </Drawer>
     </div>

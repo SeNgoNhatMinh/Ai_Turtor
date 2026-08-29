@@ -6,6 +6,8 @@ import { asArray, pairMessages } from '../services/normalizers';
 import { N8N_ENABLED, N8N_STRICT } from '../services/n8nClient';
 import { n8nService } from '../services/n8nService';
 import { tutorSessionApi } from '../services/tutorSessionApi';
+import { useRealtimeEvent, useRealtimeReconnect } from '../features/realtime/realtimeContext';
+import { REALTIME_EVENT_TYPES } from '../features/realtime/realtimeEvents';
 import {
   AI_SERVICE_ERROR_MESSAGE,
   buildAiServiceErrorMessage,
@@ -17,6 +19,20 @@ import {
   findCanonicalExchange,
   resolveCanonicalConversation,
 } from '../features/student/chat/conversations/sessionUtils';
+
+const openingContent = (openingMessage) => String(openingMessage?.content || '').trim();
+
+const toOpeningTurn = (openingMessage) => {
+  const content = openingContent(openingMessage);
+  if (!content) return null;
+  return {
+    id: openingMessage?.messageId || openingMessage?.id || `opening-${content.slice(0, 24)}`,
+    question: '',
+    answer: content,
+    proactive: true,
+    mode: 'TUTOR',
+  };
+};
 
 const getSafeConversationTitle = (value, courseId) => {
   const repairedTitle = repairMojibake(value).trim();
@@ -111,14 +127,52 @@ export function useStudentChatController({
   const [isTutorSessionLoading, setIsTutorSessionLoading] = useState(false);
   const canceledAiRequestIdsRef = useRef(new Set());
   const activeAiAbortControllerRef = useRef(null);
+  const tutorOpenInFlightRef = useRef(false);
+  const activeSessionIdRef = useRef(activeSessionId);
+  const courseIdRef = useRef(courseId);
+  const userIdRef = useRef(userId);
+  const classIdRef = useRef(classId);
+  activeSessionIdRef.current = activeSessionId;
+  courseIdRef.current = courseId;
+  userIdRef.current = userId;
+  classIdRef.current = classId;
   useEffect(() => () => {
     activeAiAbortControllerRef.current?.abort();
   }, []);
 
-  const getStudentUserId = () => userId;
+  const getStudentUserId = () => userIdRef.current || userId;
+
+  const seedOpeningMessage = (openingMessage) => {
+    const turn = toOpeningTurn(openingMessage);
+    if (!turn) return;
+    setMessages((prev) => {
+      const list = Array.isArray(prev) ? prev : [];
+      const welcomeIndex = list.findIndex((item) => (
+        item?.id === turn.id
+        || String(item?.answer || '').trim() === turn.answer
+        || (!String(item?.question || '').trim() && /chào mừng bạn đến với buổi học/i.test(String(item?.answer || '')))
+      ));
+      if (welcomeIndex >= 0) {
+        const next = [...list];
+        next[welcomeIndex] = { ...next[welcomeIndex], ...turn, id: next[welcomeIndex].id || turn.id };
+        return next;
+      }
+      return [turn, ...list];
+    });
+  };
+
+  const mergeTutorSession = (session) => {
+    if (!session?.id) return;
+    setActiveTutorSession((current) => (
+      current?.id && current.id !== session.id
+        ? { ...session }
+        : { ...(current || {}), ...session }
+    ));
+  };
 
   const openTutorSession = async () => {
-    if (!userId || !courseId || !classId || isTutorSessionLoading) return null;
+    if (!userId || !courseId || !classId || isTutorSessionLoading || tutorOpenInFlightRef.current) return null;
+    tutorOpenInFlightRef.current = true;
     setIsTutorSessionLoading(true);
     try {
       const data = await tutorSessionApi.openSession({
@@ -127,21 +181,55 @@ export function useStudentChatController({
         classId,
       });
       const session = data?.session || null;
-      setActiveTutorSession(session);
+      mergeTutorSession(session);
       setTutorSessionSummary(null);
       const conversationId = data?.conversationId;
       await loadChatSessions({ silent: true });
       if (conversationId) {
-        await handleSelectSession(conversationId, 'Buổi học cùng AI Tutor');
+        bumpConversationActivity({
+          conversationId,
+          title: 'Buổi học cùng AI Tutor',
+          messageCountIncrement: openingContent(data?.openingMessage) ? 1 : 0,
+        });
+        await handleSelectSession(conversationId, 'Buổi học cùng AI Tutor', { silent: true });
+        seedOpeningMessage(data?.openingMessage);
       }
       return data;
     } catch (error) {
       triggerToast(getUserFacingError(error, 'Không thể mở buổi học cùng AI Tutor.'));
       return null;
     } finally {
+      tutorOpenInFlightRef.current = false;
       setIsTutorSessionLoading(false);
     }
   };
+
+  useRealtimeEvent(REALTIME_EVENT_TYPES.tutorSession, (event) => {
+    const payload = event?.data || {};
+    const session = payload.session;
+    if (!session?.id) return;
+    if (String(session.courseId || payload.courseId || '') !== String(courseIdRef.current || '')) return;
+    if (session.studentId && String(session.studentId) !== String(userIdRef.current || '')) return;
+    mergeTutorSession(session);
+    if (event.type !== 'TUTOR_SESSION_OPENED') return;
+    if (tutorOpenInFlightRef.current) {
+      seedOpeningMessage(payload.openingMessage);
+      return;
+    }
+    const conversationId = payload.conversationId;
+    if (conversationId && conversationId !== activeSessionIdRef.current) {
+      handleSelectSession(conversationId, 'Buổi học cùng AI Tutor', { silent: true }).then(() => {
+        seedOpeningMessage(payload.openingMessage);
+      });
+      return;
+    }
+    seedOpeningMessage(payload.openingMessage);
+  });
+
+  useRealtimeReconnect(() => {
+    if (!userIdRef.current || !courseIdRef.current || !classIdRef.current) return;
+    openTutorSession();
+  });
 
   const handleSendQuery = async (chatInput, codeSnippet, setAvatarEmotion) => {
     const text = chatInput.trim();

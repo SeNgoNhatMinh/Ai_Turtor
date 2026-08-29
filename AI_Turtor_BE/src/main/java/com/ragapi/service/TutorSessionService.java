@@ -7,6 +7,7 @@ import com.ragapi.dto.UpdateTutorSessionRequest;
 import com.ragapi.entity.*;
 import com.ragapi.repository.*;
 import com.ragapi.util.LearningPathParser;
+import com.ragapi.util.TutorStudySuggestionUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -30,6 +31,7 @@ public class TutorSessionService {
     private final AiMessageRepository messageRepository;
     private final AiConversationService conversationService;
     private final ChapterOutlineService chapterOutlineService;
+    private final RealtimeEventService realtimeEvents;
 
     public Map<String, Object> openOrResume(OpenTutorSessionRequest request) {
         if (request == null) throw new IllegalArgumentException("request is required");
@@ -38,7 +40,15 @@ public class TutorSessionService {
         Optional<TutorSession> active = sessionRepository
                 .findFirstByStudentIdAndCourseIdAndStatusOrderByUpdatedAtDesc(studentId, courseId, "ACTIVE");
         if (active.isPresent()) {
-            return response(active.get(), null, null, true);
+            TutorSession session = active.get();
+            boolean suggestionsChanged = refreshOpeningSuggestions(session);
+            AiConversationSummary conversation = ensureTutorConversation(
+                    session, studentId, courseId, request.getClassId());
+            AiMessage openingMessage = ensureOpeningMessage(
+                    session, studentId, conversation.getConversationId(), suggestionsChanged);
+            String eventType = openingMessage == null ? "TUTOR_SESSION_UPDATED" : "TUTOR_SESSION_OPENED";
+            publishTutorSession(eventType, session, conversation.getConversationId(), openingMessage);
+            return response(session, conversation.getConversationId(), openingMessage, true);
         }
 
         LocalDateTime now = LocalDateTime.now();
@@ -61,11 +71,10 @@ public class TutorSessionService {
 
         AiConversationSummary conversation = conversationService.createTutorConversation(
                 studentId, courseId, request.getClassId(), session.getId());
-        session.getConversationIds().add(conversation.getConversationId());
+        ensureConversationIds(session).add(conversation.getConversationId());
         sessionRepository.save(session);
-        String opening = buildOpening(session);
-        AiMessage message = conversationService.appendProactiveAssistantMessage(
-                conversation.getConversationId(), studentId, session.getId(), "OPEN", opening);
+        AiMessage message = appendOpening(session, studentId, conversation.getConversationId());
+        publishTutorSession("TUTOR_SESSION_OPENED", session, conversation.getConversationId(), message);
         return response(session, conversation.getConversationId(), message, false);
     }
 
@@ -205,7 +214,9 @@ public class TutorSessionService {
             session.setTopic(trimToNull(topic));
         }
         session.setUpdatedAt(LocalDateTime.now());
-        return sessionRepository.save(session);
+        TutorSession saved = sessionRepository.save(session);
+        publishTutorSession("TUTOR_SESSION_UPDATED", saved, lastConversationId(saved), null);
+        return saved;
     }
 
     public String courseChapterTitleHints(String courseId) {
@@ -247,20 +258,145 @@ public class TutorSessionService {
     }
 
     private List<String> suggestedTopics(String studentId, String courseId) {
-        LinkedHashSet<String> result = new LinkedHashSet<>();
-        memoryRepository.findByStudentIdAndCourseId(studentId, courseId)
-                .ifPresent(memory -> result.addAll(limit(memory.getWeakTopics(), 3)));
+        List<String> weakTopics = memoryRepository.findByStudentIdAndCourseId(studentId, courseId)
+                .map(memory -> limit(memory.getWeakTopics(), 3))
+                .orElse(List.of());
+        List<TutorStudySuggestionUtils.RankedTitle> chapters = List.of();
         try {
-            chapterOutlineService.suggestChapters(courseId).stream()
-                    .map(view -> view.getTitle())
+            chapters = chapterOutlineService.suggestChapters(courseId).stream()
                     .filter(Objects::nonNull)
-                    .limit(4)
-                    .forEach(result::add);
+                    .map(view -> new TutorStudySuggestionUtils.RankedTitle(
+                            view.getTitle(),
+                            view.getPageStart(),
+                            view.getTocLevel()))
+                    .toList();
         } catch (Exception ignored) {
-            // Opening remains available while chapter extraction is unavailable.
+            // Opening still greets; chips fall back to new-course starters.
         }
-        if (result.isEmpty()) result.add("Ôn lại nội dung gần nhất");
-        return result.stream().limit(4).toList();
+        return TutorStudySuggestionUtils.openingSuggestions(courseId, weakTopics, chapters);
+    }
+
+    private AiConversationSummary ensureTutorConversation(
+            TutorSession session, String studentId, String courseId, String classId) {
+        List<String> ids = ensureConversationIds(session);
+        String existingId = lastConversationId(session);
+        return conversationService.findOwnedSummary(existingId, studentId)
+                .orElseGet(() -> {
+                    ids.removeIf(id -> id == null || id.isBlank()
+                            || !conversationService.existsForUser(id, studentId));
+                    AiConversationSummary created = conversationService.createTutorConversation(
+                            studentId, courseId, classId, session.getId());
+                    ids.add(created.getConversationId());
+                    session.setUpdatedAt(LocalDateTime.now());
+                    sessionRepository.save(session);
+                    return created;
+                });
+    }
+
+    private List<String> ensureConversationIds(TutorSession session) {
+        if (session.getConversationIds() == null) {
+            session.setConversationIds(new ArrayList<>());
+        }
+        return session.getConversationIds();
+    }
+
+    private boolean refreshOpeningSuggestions(TutorSession session) {
+        if (!TutorStudySuggestionUtils.needsSuggestionRefresh(session.getSuggestedTopics())) {
+            return false;
+        }
+        session.setSuggestedTopics(suggestedTopics(session.getStudentId(), session.getCourseId()));
+        session.setUpdatedAt(LocalDateTime.now());
+        sessionRepository.save(session);
+        return true;
+    }
+
+    private AiMessage ensureOpeningMessage(
+            TutorSession session, String studentId, String conversationId, boolean rewriteStaleOpening) {
+        if (conversationId == null || conversationId.isBlank()) {
+            return null;
+        }
+        List<AiMessage> existing = messageRepository.findByConversationIdOrderByCreatedAtAsc(conversationId);
+        if (existing.isEmpty()) {
+            return appendOpening(session, studentId, conversationId);
+        }
+        if (existing.size() == 1) {
+            AiMessage only = existing.get(0);
+            if (isProactiveAssistant(only) && (rewriteStaleOpening || isStaleOpening(only.getContent()))) {
+                only.setContent(buildOpening(session));
+                return messageRepository.save(only);
+            }
+        }
+        return null;
+    }
+
+    private boolean isProactiveAssistant(AiMessage message) {
+        return message != null
+                && "ASSISTANT".equalsIgnoreCase(message.getRole())
+                && Boolean.TRUE.equals(message.getProactive());
+    }
+
+    private boolean isStaleOpening(String content) {
+        if (content == null || content.isBlank()) {
+            return true;
+        }
+        String lower = content.toLowerCase(Locale.ROOT);
+        return lower.contains("about the author")
+                || lower.contains("about the technical")
+                || lower.contains("a timeline of java")
+                || lower.contains("gồm những nội dung nào")
+                || lower.contains("a string is a sequence");
+    }
+
+    private AiMessage appendOpening(TutorSession session, String studentId, String conversationId) {
+        String opening = buildOpening(session);
+        if (opening == null || opening.isBlank() || conversationId == null || conversationId.isBlank()) {
+            return null;
+        }
+        return conversationService.appendProactiveAssistantMessage(
+                conversationId, studentId, session.getId(), "OPEN", opening);
+    }
+
+    private void publishTutorSession(
+            String eventType, TutorSession session, String conversationId, AiMessage openingMessage) {
+        if (session == null || session.getStudentId() == null || session.getStudentId().isBlank()) {
+            return;
+        }
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("session", session);
+        data.put("conversationId", conversationId == null ? "" : conversationId);
+        data.put("courseId", session.getCourseId() == null ? "" : session.getCourseId());
+        data.put("openingMessage", openingPayload(openingMessage, session));
+        realtimeEvents.publishToUser(
+                session.getStudentId(),
+                eventType,
+                "TUTOR_SESSION",
+                session.getId(),
+                session.getStatus(),
+                data);
+    }
+
+    private Map<String, Object> openingPayload(AiMessage openingMessage, TutorSession session) {
+        if (openingMessage == null) {
+            return Map.of();
+        }
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("messageId", openingMessage.getId());
+        payload.put("role", openingMessage.getRole());
+        payload.put("content", openingMessage.getContent());
+        payload.put("proactive", true);
+        payload.put("sessionPhase", session == null ? "OPEN" : session.getPhase());
+        return payload;
+    }
+
+    private String lastConversationId(TutorSession session) {
+        if (session == null || session.getConversationIds() == null) {
+            return "";
+        }
+        return session.getConversationIds().stream()
+                .filter(Objects::nonNull)
+                .filter(id -> !id.isBlank())
+                .reduce((first, second) -> second)
+                .orElse("");
     }
 
     private String resolveSupportLevel(String studentId, String courseId, String classId) {
@@ -286,18 +422,23 @@ public class TutorSessionService {
     }
 
     private String buildOpening(TutorSession session) {
-        StringBuilder opening = new StringBuilder("## Chào mừng bạn đến với buổi học ")
+        List<String> suggestions = session.getSuggestedTopics() == null ? List.of() : session.getSuggestedTopics();
+        boolean hasTopic = session.getTopic() != null && !session.getTopic().isBlank();
+        boolean hasLessons = suggestions.stream().anyMatch(topic ->
+                topic != null && topic.toLowerCase(Locale.ROOT).matches("^(?:bắt đầu\\s+|bat dau\\s+)?(?:bài|bai)\\s+\\d+\\b.*"));
+        StringBuilder opening = new StringBuilder("## Chào mừng bạn đến với môn ")
                 .append(session.getCourseId()).append("\n\n")
-                .append("Mình sẽ đồng hành như một gia sư: cùng chọn mục tiêu, giải thích theo từng bước, ")
-                .append("cho bạn thực hành và tổng kết cuối buổi.\n\n");
-        if (session.getTopic() != null) {
+                .append("Mình sẽ đồng hành như gia sư: từ tài liệu môn học, mình chọn những phần ")
+                .append("nên học trước. Bạn bấm một gợi ý — mình sẽ mở lộ trình từng bài, ")
+                .append("giống khi bạn nói *hôm nay mình học* chủ đề đó.\n\n");
+        if (hasTopic) {
             opening.append("Hôm nay chúng ta bắt đầu với **").append(session.getTopic()).append("**.\n\n");
-        } else {
-            opening.append("Hôm nay bạn muốn học nội dung nào?\n\n");
         }
-        opening.append("### Gợi ý từ lộ trình của bạn\n");
-        session.getSuggestedTopics().forEach(topic -> opening.append("- ").append(topic).append("\n"));
-        opening.append("\nBạn có thể chọn một gợi ý hoặc nhập chủ đề khác.");
+        if (!suggestions.isEmpty()) {
+            opening.append(hasLessons ? "### Gợi ý từ lộ trình của bạn\n" : "### Bắt đầu học một phần của môn\n");
+            suggestions.forEach(topic -> opening.append("- ").append(topic).append("\n"));
+            opening.append("\nChọn một gợi ý ở trên để học theo lộ trình, hoặc nhập chủ đề khác.");
+        }
         return opening.toString();
     }
 
@@ -306,16 +447,10 @@ public class TutorSessionService {
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("session", session);
         result.put("resumed", resumed);
-        result.put("conversationId", conversationId != null
+        result.put("conversationId", conversationId != null && !conversationId.isBlank()
                 ? conversationId
-                : session.getConversationIds().stream().reduce((first, second) -> second).orElse(""));
-        result.put("openingMessage", openingMessage == null ? Map.of() : Map.of(
-                "messageId", openingMessage.getId(),
-                "role", openingMessage.getRole(),
-                "content", openingMessage.getContent(),
-                "proactive", true,
-                "sessionPhase", session.getPhase()
-        ));
+                : lastConversationId(session));
+        result.put("openingMessage", openingPayload(openingMessage, session));
         result.put("turnLimit", 10);
         return result;
     }

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildStudySuggestionPrompt } from '../src/features/student/learning/studySuggestionPrompt.js';
+import { buildLessonChatPrompt, buildStudySuggestionPrompt } from '../src/features/student/learning/studySuggestionPrompt.js';
 
 test('builds the visible student chat message for an improve suggestion', () => {
   assert.equal(
@@ -21,5 +21,20 @@ test('sends a numbered lesson chip as a lesson start, not an improve-plan wrap',
   assert.equal(
     buildStudySuggestionPrompt('Bắt đầu bài 2: Request và Response'),
     'Bắt đầu bài 2: Request và Response',
+  );
+});
+
+test('course opening chips start the same topic-study flow as hôm nay mình học', () => {
+  assert.equal(
+    buildLessonChatPrompt('Chapter 3 Functions'),
+    'Nay mình học Chapter 3 Functions',
+  );
+  assert.equal(
+    buildLessonChatPrompt('Nay mình học Servlet'),
+    'Nay mình học Servlet',
+  );
+  assert.equal(
+    buildLessonChatPrompt('Bài 1: Servlet là gì?'),
+    'Bắt đầu bài 1: Servlet là gì?',
   );
 });

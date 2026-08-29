@@ -335,6 +335,10 @@
   color: #ececec !important;
 }
 
+.app-container.dark .student-message-code {
+  background: #2a2a2a;
+}
+
 .app-container.dark .student-message-actions button {
   color: #a3a3a3;
 }

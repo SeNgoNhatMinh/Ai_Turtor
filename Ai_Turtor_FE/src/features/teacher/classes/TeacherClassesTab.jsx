@@ -121,11 +121,17 @@ function TeacherClassesTab({
     {
       header: 'Sinh viên',
       accessorKey: 'fullName',
-      cell: ({ row }) => (
-        <div className="entity-name-cell">
-          <strong>{getPersonDisplayName(row.original, 'Sinh viên')}</strong>
-        </div>
-      ),
+      cell: ({ row }) => {
+        const displayName = getPersonDisplayName(row.original, 'Sinh viên');
+        return (
+          <div className="entity-name-cell">
+            <strong>{displayName}</strong>
+            {displayName === 'Sinh viên' && row.original.studentId ? (
+              <span>{row.original.studentId}</span>
+            ) : null}
+          </div>
+        );
+      },
     },
     {
       header: 'Email',
