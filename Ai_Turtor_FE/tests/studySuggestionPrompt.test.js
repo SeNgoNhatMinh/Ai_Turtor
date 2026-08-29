@@ -39,6 +39,17 @@ test('course opening chips start the same topic-study flow as hôm nay mình h�
   );
 });
 
+test('numbered lesson with an en-dash still starts that lesson', () => {
+  assert.equal(
+    buildStudySuggestionPrompt('Bài 2 – Sử dụng biến lặp (itervar) trong thân vòng.'),
+    'Bắt đầu bài 2: Sử dụng biến lặp (itervar) trong thân vòng.',
+  );
+  assert.equal(
+    buildLessonChatPrompt('Bài 2 – Sử dụng biến lặp (itervar) trong thân vòng.'),
+    'Bắt đầu bài 2: Sử dụng biến lặp (itervar) trong thân vòng.',
+  );
+});
+
 test('parses numbered Bài lines from a learning-path answer even with markdown bold', () => {
   const items = parseLessonSuggestionsFromAnswer(`
 ## Lộ trình học

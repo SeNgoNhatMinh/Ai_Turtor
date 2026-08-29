@@ -3,6 +3,7 @@ import { aiTutorApi } from '../services/aiTutorApi';
 import { conversationApi } from '../services/conversationApi';
 import { getUserFacingError } from '../services/apiClient';
 import { asArray, pairMessages } from '../services/normalizers';
+import { buildUnderstandingCheckPrompt } from '../features/student/chat/understandingCheck';
 import { N8N_ENABLED, N8N_STRICT } from '../services/n8nClient';
 import { n8nService } from '../services/n8nService';
 import { tutorSessionApi } from '../services/tutorSessionApi';
@@ -511,6 +512,52 @@ export function useStudentChatController({
     }
   };
 
+  const handleCheckUnderstanding = async (quiz, selected) => {
+    const userId = getStudentUserId();
+    if (!userId) {
+      throw Object.assign(new Error('Vui lòng đăng nhập trước khi gửi tin nhắn.'), {
+        userMessage: 'Vui lòng đăng nhập trước khi gửi tin nhắn.',
+      });
+    }
+    if (!courseId || !classId) {
+      throw Object.assign(new Error('Tài khoản chưa được ghi danh vào lớp.'), {
+        userMessage: 'Tài khoản chưa được ghi danh vào lớp. Vui lòng liên hệ Admin hoặc giáo viên.',
+      });
+    }
+    const prompt = buildUnderstandingCheckPrompt(quiz, selected);
+    if (!prompt) {
+      throw Object.assign(new Error('Chưa chọn đáp án.'), {
+        userMessage: 'Hãy chọn một đáp án trước.',
+      });
+    }
+    try {
+      const data = await aiTutorApi.sendQuery({
+        question: prompt,
+        message: prompt,
+        courseId,
+        classId,
+        conversationId: activeSessionId || null,
+        tutorSessionId: activeTutorSession?.id || null,
+        sessionPhase: activeTutorSession?.phase || 'TEACH',
+        persist: false,
+        quotaConsumed: true,
+        harnessMode: 'RAG',
+      }, userId, currentUser?.fullName || '', currentUser?.email || '');
+      const answer = String(data?.answer || '').trim();
+      if (!answer) {
+        throw Object.assign(new Error('empty check answer'), {
+          userMessage: 'Tutor chưa chấm được câu này. Thử lại nhé.',
+        });
+      }
+      return answer;
+    } catch (error) {
+      if (error?.userMessage) throw error;
+      throw Object.assign(new Error(getUserFacingError(error, 'Không kiểm tra được đáp án. Thử lại nhé.')), {
+        userMessage: getUserFacingError(error, 'Không kiểm tra được đáp án. Thử lại nhé.'),
+      });
+    }
+  };
+
   const handleStopAiGeneration = () => {
     const requestId = activeAiRequestIdRef.current;
     if (requestId) canceledAiRequestIdsRef.current.add(requestId);
@@ -553,6 +600,7 @@ export function useStudentChatController({
     handleDeleteSession,
     handleRenameSession,
     handleSendQuery,
+    handleCheckUnderstanding,
     handleStopAiGeneration,
     activeTutorSession,
     tutorSessionSummary,

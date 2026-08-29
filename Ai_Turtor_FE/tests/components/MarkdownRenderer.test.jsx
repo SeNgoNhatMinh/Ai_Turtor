@@ -87,6 +87,19 @@ describe('MarkdownRenderer Vietnamese text', () => {
     expect(onStudyTipStudy).toHaveBeenCalledWith('Ôn lại vòng đời Servlet');
   });
 
+  it('turns the next-lesson line into a clickable lesson chip', () => {
+    const onStudyTipStudy = vi.fn();
+    render(
+      <MarkdownRenderer
+        markdown={'## Bài tiếp theo\n\n- Bài 2 – Sử dụng biến lặp (itervar) trong thân vòng.'}
+        onStudyTipStudy={onStudyTipStudy}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Bài 2/ }));
+    expect(onStudyTipStudy).toHaveBeenCalledWith('Bài 2 – Sử dụng biến lặp (itervar) trong thân vòng.');
+  });
+
   it('treats same-page study-tip URLs as buttons instead of navigation', () => {
     const onStudyTipStudy = vi.fn();
     render(

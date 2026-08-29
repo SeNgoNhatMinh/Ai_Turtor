@@ -150,7 +150,8 @@ public class TutorController {
             String codeSnippet = optionalCodeSnippet(request.getCodeSnippet(), "codeSnippet");
             String courseId = requireText(request.getCourseId(), "courseId");
             String classId = normalizeScopeValue(request.getClassId());
-            if (isStudent(authentication) && !Boolean.TRUE.equals(request.getQuotaConsumed())) {
+            boolean persistTurn = !Boolean.FALSE.equals(request.getPersist());
+            if (isStudent(authentication) && persistTurn && !Boolean.TRUE.equals(request.getQuotaConsumed())) {
                 questionQuotaService.consume(authentication.getName(), courseId);
             }
             String recentHistoryContext = "";
@@ -185,6 +186,9 @@ public class TutorController {
             if (routingMode == null) {
                 routingMode = intent.getMode();
             }
+            if (!persistTurn) {
+                routingMode = IntentClassifierService.MODE_RAG;
+            }
             log.info("Tutor routing decision: mode={}, harnessMode={}, subIntent={}, strategy={}, confidence={}",
                     routingMode, request.getHarnessMode(), intent.getSubIntent(),
                     intent.getRoutingStrategy(), intent.getConfidence());
@@ -206,7 +210,13 @@ public class TutorController {
                         ? "- Recent session history:\n" + recentHistoryContext
                         : learnerContext + "\n- Recent session history:\n" + recentHistoryContext;
             }
-            if ("LEARNING_PATH".equals(intent.getSubIntent())) {
+            if (!persistTurn) {
+                String checkHint = "- The student is checking their multiple-choice answer to the current lesson. "
+                        + "Say whether the chosen option is correct, name the right option, and explain briefly from the material. "
+                        + "Do not start a new learning path or ask them to send another chat message.";
+                learnerContext = learnerContext.isBlank() ? checkHint : learnerContext + "\n" + checkHint;
+            }
+            if (persistTurn && "LEARNING_PATH".equals(intent.getSubIntent())) {
                 String chapterHints = tutorSessionService.courseChapterTitleHints(courseId);
                 if (!chapterHints.isBlank()) {
                     learnerContext = learnerContext.isBlank()
@@ -217,7 +227,7 @@ public class TutorController {
             boolean conversationalInteraction = Boolean.FALSE.equals(intent.getRequiresCourseMaterial())
                     && ("CONVERSATIONAL".equals(intent.getSubIntent())
                     || "OFF_TOPIC".equals(intent.getSubIntent()));
-            String teachingMode = intent.getSubIntent();
+            String teachingMode = persistTurn ? intent.getSubIntent() : "EXPLAIN_CONCEPT";
             String lastStudentQuestion = ConversationFocus.lastSubstantiveStudentQuestion(recentHistoryContext);
             String retrievalHint = null;
             if (StudentChatIntentDetector.isDependentFollowUp(question)) {
@@ -254,7 +264,7 @@ public class TutorController {
             String assistantMessageId = null;
             TutorSession tutorSessionState = null;
 
-            if (userId != null && !userId.isBlank()) {
+            if (persistTurn && userId != null && !userId.isBlank()) {
                 if (courseId != null && !courseId.isBlank()) {
                     studentCourseMemoryService.recordInteraction(
                             userId,
@@ -304,7 +314,8 @@ public class TutorController {
                     );
                     tutorSessionState = tutorSessionService.recordStudentTurn(
                             request.getTutorSessionId(), conversationId);
-                    if (!lessonSuggestions.isEmpty()) {
+                    if (!lessonSuggestions.isEmpty()
+                            && "LEARNING_PATH".equalsIgnoreCase(intent.getSubIntent())) {
                         tutorSessionState = tutorSessionService.applyLearningPath(
                                 request.getTutorSessionId(), question, lessonSuggestions);
                     }
@@ -324,7 +335,9 @@ public class TutorController {
             response.setGroundingType(ragAnswer.getGroundingType());
             response.setEscalated(escalated);
             response.setEscalationReason(escalated ? ragAnswer.getEscalationReason() : null);
-            response.setConversationId(conversationId);
+            response.setConversationId(conversationId != null && !conversationId.isBlank()
+                    ? conversationId
+                    : (request.getConversationId() == null ? "" : request.getConversationId()));
             response.setUserMessageId(userMessageId);
             response.setAssistantMessageId(assistantMessageId);
             response.setCourseId(courseId);
@@ -340,7 +353,8 @@ public class TutorController {
             if (questionEscalation != null) {
                 response.setQuestionEscalationId(questionEscalation.getId());
             }
-            if (!lessonSuggestions.isEmpty()) {
+            if (persistTurn && !lessonSuggestions.isEmpty()
+                    && "LEARNING_PATH".equalsIgnoreCase(intent.getSubIntent())) {
                 response.setNextImproveSuggestions(lessonSuggestions);
             }
             if (tutorSessionState != null && tutorSessionState.getSuggestedTopics() != null) {

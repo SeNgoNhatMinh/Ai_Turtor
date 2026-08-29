@@ -38,6 +38,9 @@ public class AiQueryRequest {
     @Schema(description = "Internal n8n marker: per-course quota was consumed before intent routing", hidden = true)
     private Boolean quotaConsumed;
 
+    @Schema(description = "When false, grade/explain in place without saving a chat turn")
+    private Boolean persist;
+
     @Schema(description = "n8n Switch already chose RAG, CODE, or ESCALATE. Omit when FE calls this API directly.")
     private String harnessMode;
 }

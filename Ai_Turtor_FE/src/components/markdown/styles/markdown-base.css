@@ -167,6 +167,27 @@
   outline: none;
 }
 
+.ai-answer-study-tip--lesson {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  margin: 0.1rem 0;
+  padding: 0.22rem 0.72rem;
+  border: 1px solid #c7d2fe;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #1e293b;
+  text-decoration: none;
+  font-size: 0.9em;
+}
+
+.ai-answer-study-tip--lesson:hover,
+.ai-answer-study-tip--lesson:focus-visible {
+  background: #e0e7ff;
+  color: #1e3a8a;
+  text-decoration: none;
+}
+
 .ai-answer-study-tip--disabled {
   cursor: text;
   text-decoration: none;

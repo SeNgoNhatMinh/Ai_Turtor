@@ -31,6 +31,7 @@ function ChatWorkspace({
   onResendMessage,
   onStopQuery,
   onPromptStarter,
+  onCheckUnderstanding,
   onAnswerAction,
   isAiLoading = false,
   messagesEndRef,
@@ -230,6 +231,7 @@ function ChatWorkspace({
         onOpenMentorReview={onOpenMentorReview}
         onMentorRequestCreated={onMentorRequestCreated}
         onPromptStarter={onPromptStarter}
+        onCheckUnderstanding={onCheckUnderstanding}
         onResendMessage={onResendMessage}
         onStudySuggestion={onStudySuggestion}
         pinnedMessageIdSet={pinnedMessageIdSet}

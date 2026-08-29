@@ -1316,10 +1316,20 @@ public class CourseRagService {
                 The example MUST be about the previous student question (do not switch chapters).
 
                 ## Kiểm tra hiểu
-                One short check question.
+                One short multiple-choice check the student can tap. Use this exact form.
+                The UI hides Đáp án and Giải thích until they pick an option:
+                Câu hỏi: <one short question>
+                A. <choice>
+                B. <choice>
+                C. <choice>
+                Đáp án: <A or B or C>
+                Giải thích: <one short sentence from the material why that choice is correct>
+                Do not put the correct choice into the question text.
 
                 ## Bài tiếp theo
                 Name the next Bài only when teaching a numbered lesson path; otherwise omit.
+                One bullet the student can click, exactly:
+                - Bài N: <short title from the material>
 
                 ## Nguồn tài liệu đã dùng
                 List only the materialId or approvedKnowledgeId values supplied in SOURCE MATERIAL IDS. Do not invent sources.

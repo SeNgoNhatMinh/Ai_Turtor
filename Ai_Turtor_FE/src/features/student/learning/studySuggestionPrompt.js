@@ -2,7 +2,7 @@ export function normalizeLessonStart(suggestionText) {
   const topic = String(suggestionText || '').trim();
   if (!topic) return '';
 
-  const numbered = topic.match(/^(?:bắt đầu\s+)?(?:bài|bai)\s+(\d+)\s*[:：.\-]\s*(.+)$/i);
+  const numbered = topic.match(/^(?:bắt đầu\s+)?(?:bài|bai)\s+(\d+)\s*[:：.\-–—]\s*(.+)$/i);
   if (numbered) {
     return `Bắt đầu bài ${numbered[1]}: ${numbered[2].trim()}`;
   }
@@ -51,6 +51,7 @@ export function parseLessonSuggestionsFromAnswer(answer) {
     items.push({ title: prompt, suggestionText: prompt });
     if (items.length >= 8) break;
   }
+  if (items.length < 2) return [];
   return items;
 }
 

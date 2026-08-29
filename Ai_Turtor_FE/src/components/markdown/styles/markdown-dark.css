@@ -45,9 +45,16 @@
   color: #ffd7bd;
 }
 
-.app-container.dark .ai-answer-study-tip:hover,
-.app-container.dark .ai-answer-study-tip:focus-visible {
-  color: #ffb077;
+.app-container.dark .ai-answer-study-tip--lesson {
+  border-color: #4338ca;
+  background: rgba(99, 102, 241, 0.22);
+  color: #e0e7ff;
+}
+
+.app-container.dark .ai-answer-study-tip--lesson:hover,
+.app-container.dark .ai-answer-study-tip--lesson:focus-visible {
+  background: rgba(129, 140, 248, 0.32);
+  color: #c7d2fe;
 }
 
 .app-container.dark .ai-answer-table-wrap,

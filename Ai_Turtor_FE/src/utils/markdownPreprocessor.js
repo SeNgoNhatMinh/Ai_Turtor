@@ -112,6 +112,8 @@ const VIETNAMESE_EXACT_SECTION_LABELS = {
   'cach debug tung buoc': 'Cách debug từng bước',
   'goi y sua': 'Gợi ý sửa',
   'chu de nen on lai': 'Chủ đề nên ôn lại',
+  'bai tiep theo': 'Bài tiếp theo',
+  'kiem tra hieu': 'Kiểm tra hiểu',
 };
 
 function normalizeVietnameseSectionLine(line) {
@@ -574,7 +576,11 @@ function escapeMarkdownLabel(text) {
 }
 
 function isStudyTipHeading(line) {
-  return /^#{1,6}\s*lưu ý(?=\s|:|$)/iu.test(line.trim());
+  const body = String(line || '').trim().replace(/^#{1,6}\s*/, '');
+  const key = toVietnameseSectionKey(unwrapSimpleMarkdownDecoration(body));
+  return key.startsWith('luu y')
+    || key === 'bai tiep theo'
+    || key === 'bai ke tiep';
 }
 
 function isSourceHeading(line) {

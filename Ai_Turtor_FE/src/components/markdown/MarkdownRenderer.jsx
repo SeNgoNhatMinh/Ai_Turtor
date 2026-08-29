@@ -116,15 +116,16 @@ function LinkRenderer({ href, children, onStudyTipStudy, ...props }) {
   const hashTarget = getHashTarget(href);
   if (hashTarget.startsWith('ai-study-tip-')) {
     const text = getNodeText(children).trim();
+    const isNextLesson = /(?:bắt đầu\s+)?(?:bài|bai)\s+\d+/i.test(text);
     if (!onStudyTipStudy) {
       return <span className="ai-answer-study-tip ai-answer-study-tip--disabled">{children}</span>;
     }
     return (
       <button
         type="button"
-        className="ai-answer-study-tip"
+        className={`ai-answer-study-tip${isNextLesson ? ' ai-answer-study-tip--lesson' : ''}`}
         onClick={() => onStudyTipStudy(text)}
-        title="Học tiếp nội dung này với AI Tutor"
+        title={isNextLesson ? 'Bắt đầu bài này với AI Tutor' : 'Học tiếp nội dung này với AI Tutor'}
       >
         {children}
       </button>

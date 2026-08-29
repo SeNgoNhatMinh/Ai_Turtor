@@ -186,3 +186,14 @@ test('keeps course-material answers that mention a PDF in prose', () => {
   assert.match(visible, /Lưu ý để học tốt hơn/);
   assert.doesNotMatch(visible, /Nguồn tài liệu đã dùng/);
 });
+
+test('turns Bài tiếp theo into a clickable study-tip link', () => {
+  const output = normalizeAiMarkdown([
+    '## Bài tiếp theo',
+    '',
+    '- Bài 2 – Sử dụng biến lặp (itervar) trong thân vòng.',
+  ].join('\n'));
+
+  assert.match(output, /## Bài tiếp theo/);
+  assert.match(output, /\[Bài 2 – Sử dụng biến lặp \(itervar\) trong thân vòng\.\]\(#ai-study-tip-1\)/);
+});

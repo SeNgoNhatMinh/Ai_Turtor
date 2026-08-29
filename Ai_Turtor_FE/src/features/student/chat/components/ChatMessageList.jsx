@@ -49,6 +49,7 @@ function ChatMessageList({
   onOpenMentorReview,
   onMentorRequestCreated,
   onPromptStarter,
+  onCheckUnderstanding,
   onResendMessage,
   onStudySuggestion,
   pinnedMessageIdSet,
@@ -150,6 +151,7 @@ function ChatMessageList({
                               text,
                               sourceMode: message.mode,
                             })}
+                            onCheckAnswer={onCheckUnderstanding}
                             onDownloadSource={onDownloadSource}
                             hideSourceSection
                           />
