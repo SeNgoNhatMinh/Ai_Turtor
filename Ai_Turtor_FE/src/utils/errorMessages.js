@@ -16,6 +16,10 @@ const AI_SERVICE_ERROR_PATTERNS = [
   /(failed|error|unavailable|timeout|timed out).*llm/i,
   /ai tutor service is temporarily unavailable/i,
   /ai tutor could not reach the language model/i,
+  /mình đang xử lý hơi chậm/i,
+  /minh dang xu ly hoi cham/i,
+  /mình chưa tạo được câu trả lời/i,
+  /mình chưa phân tích xong/i,
 ];
 
 const TECHNICAL_ERROR_PATTERNS = [

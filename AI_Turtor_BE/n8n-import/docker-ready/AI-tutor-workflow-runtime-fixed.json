@@ -1058,7 +1058,7 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ ({ success: false, status: 'QUOTA_EXCEEDED', code: 'DAILY_COURSE_QUESTION_LIMIT_REACHED', message: 'Bạn đã dùng hết 10 câu hỏi của môn ' + $node['Set - Trace Context'].json.courseId + ' hôm nay. Bạn vẫn có thể hỏi các môn khác hoặc quay lại vào ngày mai.', courseId: $node['Set - Trace Context'].json.courseId, dailyLimit: 10, remaining: 0, traceId: $node['Set - Trace Context'].json.traceId, conversationId: $node['Set - Trace Context'].json.conversationId }) }}",
+        "responseBody": "={{ ({ success: false, status: 'QUOTA_EXCEEDED', code: 'DAILY_COURSE_QUESTION_LIMIT_REACHED', message: 'Phiên học hôm nay của môn ' + $node['Set - Trace Context'].json.courseId + ' đã hết. Cảm ơn bạn đã học cùng mình. Bạn có thể hỏi môn khác, hoặc quay lại vào ngày mai.', courseId: $node['Set - Trace Context'].json.courseId, dailyLimit: 10, remaining: 0, traceId: $node['Set - Trace Context'].json.traceId, conversationId: $node['Set - Trace Context'].json.conversationId }) }}",
         "options": {}
       },
       "type": "n8n-nodes-base.respondToWebhook",

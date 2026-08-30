@@ -101,6 +101,16 @@
   color: #a3a3a3;
 }
 
+.app-container.dark .chat-session-complete-card {
+  border-color: #365314;
+  background: #14532d;
+  color: #ecfccb;
+}
+
+.app-container.dark .chat-session-complete-card span {
+  color: #d9f99d;
+}
+
 .app-container.dark .chat-turn-limit-banner-actions button {
   background: #1f1f1f;
   color: #ececec;

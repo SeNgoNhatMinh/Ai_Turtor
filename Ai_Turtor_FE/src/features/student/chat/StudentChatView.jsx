@@ -45,6 +45,8 @@ function StudentChatView({
   currentUser,
   activeSessionQuestionCount,
   activeSessionMaxTurnsReached,
+  courseDailyQuota,
+  courseDailyQuotaExhausted,
   turnLimitNotice,
   onTurnLimitBack,
   onDismissTurnLimitNotice,
@@ -134,6 +136,8 @@ function StudentChatView({
             activeSessionId={activeSessionId}
             activeSessionQuestionCount={activeSessionQuestionCount}
             activeSessionMaxTurnsReached={activeSessionMaxTurnsReached}
+            courseDailyQuota={courseDailyQuota}
+            courseDailyQuotaExhausted={courseDailyQuotaExhausted}
             turnLimitNotice={turnLimitNotice}
             onTurnLimitBack={onTurnLimitBack}
             onDismissTurnLimitNotice={onDismissTurnLimitNotice}

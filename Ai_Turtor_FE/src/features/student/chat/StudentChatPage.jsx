@@ -64,6 +64,7 @@ export default function StudentChatPage({
     activeSessionId: chat.activeSessionId,
     messages: chat.messages,
     activeSessionMaxTurnsReached: chat.activeSessionMaxTurnsReached,
+    courseDailyQuotaExhausted: chat.courseDailyQuotaExhausted,
     turnLimitNotice: chat.turnLimitNotice,
     dismissTurnLimitNotice: chat.dismissTurnLimitNotice,
     resetChat: chat.resetChat,
@@ -207,6 +208,8 @@ export default function StudentChatPage({
       currentUser={currentUser}
       activeSessionQuestionCount={chat.activeSessionQuestionCount}
       activeSessionMaxTurnsReached={chat.activeSessionMaxTurnsReached}
+      courseDailyQuota={chat.courseDailyQuota}
+      courseDailyQuotaExhausted={chat.courseDailyQuotaExhausted}
       turnLimitNotice={chat.turnLimitNotice}
       onTurnLimitBack={chatController.handleBackToPreviousChat}
       onDismissTurnLimitNotice={chat.dismissTurnLimitNotice}

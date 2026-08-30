@@ -93,6 +93,15 @@ public class AiQueryResponse {
     @Schema(description = "COURSE_MATERIAL, AI_GENERAL_KNOWLEDGE, MEMORY, or NONE")
     private String groundingType;
 
+    @Schema(description = "Questions already used today for this course")
+    private Integer dailyQuestionUsed;
+
+    @Schema(description = "Daily question limit per course", example = "10")
+    private Integer dailyQuestionLimit;
+
+    @Schema(description = "Questions remaining today for this course")
+    private Integer dailyQuestionRemaining;
+
     public void setAnswer(String answer) {
         this.answer = TextSanitizer.cleanForStudentAnswer(answer);
     }

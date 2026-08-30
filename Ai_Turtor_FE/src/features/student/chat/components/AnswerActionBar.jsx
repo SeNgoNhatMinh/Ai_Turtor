@@ -19,19 +19,26 @@ const isInsufficientMaterialAnswer = (message) => {
   );
 };
 
-function AnswerActionBar({ message, mentorRequestInProgress = false, onAction }) {
+function AnswerActionBar({
+  message,
+  mentorRequestInProgress = false,
+  disableRetry = false,
+  onAction,
+}) {
   if (message?.retryable || message?.aiServiceError) {
     const retryPrompt = message?.question || '';
     return (
       <div className="answer-action-bar answer-action-bar--error" aria-label="Thao tác khôi phục">
-        <button
-          type="button"
-          onClick={() => onAction({ label: 'Thử lại', prompt: retryPrompt, type: 'retry', message })}
-          disabled={!retryPrompt.trim()}
-        >
-          <RotateCcw size={14} aria-hidden="true" />
-          <span>Thử lại</span>
-        </button>
+        {!disableRetry && (
+          <button
+            type="button"
+            onClick={() => onAction({ label: 'Thử lại', prompt: retryPrompt, type: 'retry', message })}
+            disabled={!retryPrompt.trim()}
+          >
+            <RotateCcw size={14} aria-hidden="true" />
+            <span>Thử lại</span>
+          </button>
+        )}
         {!mentorRequestInProgress && (
           <button
             type="button"

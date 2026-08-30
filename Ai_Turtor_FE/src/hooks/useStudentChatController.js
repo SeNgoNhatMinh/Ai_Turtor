@@ -17,6 +17,13 @@ import {
 import { hasBrokenTextEncoding, repairMojibake } from '../utils/textEncoding';
 import { useConversationSessions } from '../features/student/chat/useConversationSessions';
 import {
+  DAILY_COURSE_QUESTION_LIMIT,
+  DAILY_SESSION_COMPLETE_MESSAGE,
+  isDailyCourseQuotaError,
+  normalizeDailyQuota,
+} from '../constants/sessionQuota';
+import { uiCopy } from '../constants/uiCopy';
+import {
   findCanonicalExchange,
   resolveCanonicalConversation,
 } from '../features/student/chat/conversations/sessionUtils';
@@ -199,6 +206,41 @@ export function useStudentChatController({
   }, []);
 
   const getStudentUserId = () => userIdRef.current || userId;
+  const [dailyQuota, setDailyQuota] = useState({
+    used: 0,
+    remaining: DAILY_COURSE_QUESTION_LIMIT,
+    limit: DAILY_COURSE_QUESTION_LIMIT,
+  });
+
+  useEffect(() => {
+    const sid = userId || studentId;
+    if (!sid || !courseId) {
+      setDailyQuota({
+        used: 0,
+        remaining: DAILY_COURSE_QUESTION_LIMIT,
+        limit: DAILY_COURSE_QUESTION_LIMIT,
+      });
+      return undefined;
+    }
+    let cancelled = false;
+    aiTutorApi.getQuestionQuota(sid, courseId).then((data) => {
+      if (!cancelled) setDailyQuota(normalizeDailyQuota(data));
+    }).catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [courseId, studentId, userId]);
+
+  const applyQuotaPayload = (payload) => {
+    if (payload == null) return null;
+    if (payload.dailyQuestionUsed == null && payload.used == null
+        && payload.dailyQuestionRemaining == null && payload.remaining == null) {
+      return null;
+    }
+    const next = normalizeDailyQuota(payload);
+    setDailyQuota(next);
+    return next;
+  };
 
   const seedOpeningMessage = (openingMessage) => {
     const turn = toOpeningTurn(openingMessage);
@@ -289,6 +331,22 @@ export function useStudentChatController({
     openTutorSession();
   });
 
+  const closeTutorSessionIfDailyComplete = async (remaining) => {
+    if (!activeTutorSession?.id || remaining > 0) return;
+    try {
+      const summary = await tutorSessionApi.closeSession(activeTutorSession.id);
+      setTutorSessionSummary(summary);
+      setActiveTutorSession((session) => (session ? {
+        ...session,
+        status: 'COMPLETED',
+        phase: 'CLOSED',
+        summaryId: summary?.id,
+      } : session));
+    } catch (summaryError) {
+      console.warn('Tutor session summary could not be generated:', summaryError);
+    }
+  };
+
   const handleSendQuery = async (chatInput, codeSnippet, setAvatarEmotion) => {
     const text = chatInput.trim();
     const userId = getStudentUserId();
@@ -337,6 +395,7 @@ export function useStudentChatController({
           }, { signal: requestController.signal });
         } catch (n8nError) {
           if (requestController.signal.aborted) throw n8nError;
+          if (isDailyCourseQuotaError(n8nError)) throw n8nError;
           if (isN8nTimeoutError(n8nError)) {
             console.warn('n8n timed out; waiting for the in-flight answer instead of generating again');
             const recovered = await recoverInFlightAnswer({
@@ -384,19 +443,20 @@ export function useStudentChatController({
       }
 
       const responseConversationId = data.conversationId || previousSessionId;
-      if (activeTutorSession?.id && activeSessionQuestionCount + 1 >= 10) {
+      let nextQuota = applyQuotaPayload(data);
+      if (!nextQuota) {
         try {
-          const summary = await tutorSessionApi.closeSession(activeTutorSession.id);
-          setTutorSessionSummary(summary);
-          setActiveTutorSession((session) => session ? {
-            ...session,
-            status: 'COMPLETED',
-            phase: 'CLOSED',
-            summaryId: summary?.id,
-          } : session);
-        } catch (summaryError) {
-          console.warn('Tutor session summary could not be generated:', summaryError);
+          const quotaUserId = getStudentUserId();
+          if (quotaUserId && courseId) {
+            nextQuota = normalizeDailyQuota(await aiTutorApi.getQuestionQuota(quotaUserId, courseId));
+            setDailyQuota(nextQuota);
+          }
+        } catch {
+          nextQuota = null;
         }
+      }
+      if (nextQuota && nextQuota.remaining <= 0) {
+        await closeTutorSessionIfDailyComplete(0);
       } else if (activeTutorSession && (data?.sessionPhase || Array.isArray(data?.suggestedTopics))) {
         setActiveTutorSession((session) => session ? {
           ...session,
@@ -479,12 +539,12 @@ export function useStudentChatController({
         setActiveSessionTitle(canonicalConversationTitle);
       }
 
-      if (didStartNewConversation) {
+      if (didStartNewConversation && nextQuota?.remaining <= 0) {
         setTurnLimitNotice({
           type: 'turn-limit',
           previousSessionId,
           currentSessionId: canonicalConversationId,
-          message: 'Cuộc trò chuyện đã đủ 10 câu hỏi. AI Tutor đã tạo cuộc trò chuyện mới để giữ ngữ cảnh tập trung.',
+          message: uiCopy.student.chat.rolloverMessage,
         });
       }
 
@@ -560,6 +620,36 @@ export function useStudentChatController({
         return;
       }
 
+      const quotaReached = isDailyCourseQuotaError(error);
+      if (quotaReached) {
+        setDailyQuota((current) => ({
+          ...current,
+          used: current.limit,
+          remaining: 0,
+        }));
+        await closeTutorSessionIfDailyComplete(0);
+      }
+
+      if (isDailyCourseQuotaError(error)) {
+        setMessages((prev) => {
+          const updated = [...prev];
+          updated[updated.length - 1] = {
+            question: text,
+            answer: DAILY_SESSION_COMPLETE_MESSAGE,
+            rawAnswer: DAILY_SESSION_COMPLETE_MESSAGE,
+            confidence: 1,
+            sources: [],
+            sessionComplete: true,
+            aiServiceError: false,
+            retryable: false,
+            pending: false,
+          };
+          return updated;
+        });
+        setAvatarEmotion('idle');
+        return;
+      }
+
       setMessages((prev) => {
         const updated = [...prev];
         const friendlyError = getUserFacingError(error, 'AI Tutor chưa thể trả lời lúc này. Vui lòng thử lại sau.');
@@ -570,14 +660,28 @@ export function useStudentChatController({
           rawAnswer: friendlyError,
           confidence: 0,
           sources: [],
-          aiServiceError: isAiServiceError,
-          retryable: true,
+          aiServiceError: true,
+          retryable: !quotaReached,
           pending: false
         };
         return updated;
       });
       setAvatarEmotion('idle');
-      triggerToast(getUserFacingError(error, 'Yêu cầu AI Tutor thất bại. Vui lòng thử lại sau.'));
+      if (!quotaReached) {
+        triggerToast(getUserFacingError(error, 'Yêu cầu AI Tutor thất bại. Vui lòng thử lại sau.'));
+        try {
+          const quotaUserId = getStudentUserId();
+          if (quotaUserId && courseId) {
+            const next = normalizeDailyQuota(await aiTutorApi.getQuestionQuota(quotaUserId, courseId));
+            setDailyQuota(next);
+            if (next.remaining <= 0) {
+              await closeTutorSessionIfDailyComplete(0);
+            }
+          }
+        } catch {
+          // Keep the last known daily count if the quota endpoint is unavailable.
+        }
+      }
     } finally {
       if (activeAiAbortControllerRef.current === requestController) {
         activeAiAbortControllerRef.current = null;
@@ -664,6 +768,8 @@ export function useStudentChatController({
     messages,
     activeSessionQuestionCount,
     activeSessionMaxTurnsReached,
+    courseDailyQuota: dailyQuota,
+    courseDailyQuotaExhausted: dailyQuota.remaining <= 0,
     turnLimitNotice,
     dismissTurnLimitNotice,
     resetChat,

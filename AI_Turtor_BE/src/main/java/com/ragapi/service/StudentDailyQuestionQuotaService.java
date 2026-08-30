@@ -43,7 +43,7 @@ public class StudentDailyQuestionQuotaService {
         String safeCourseId = courseId.trim().toUpperCase(java.util.Locale.ROOT);
         ZonedDateTime now = ZonedDateTime.now(zoneId);
         LocalDate usageDate = now.toLocalDate();
-        String documentId = safeStudentId + ":" + safeCourseId + ":" + usageDate;
+        String documentId = documentId(safeStudentId, safeCourseId, usageDate);
         Query query = Query.query(Criteria.where("_id").is(documentId)
                 .and("questionCount").lt(dailyLimit));
         Update update = new Update()
@@ -63,16 +63,39 @@ public class StudentDailyQuestionQuotaService {
             if (usage == null) {
                 throw quotaExceeded(safeCourseId, now);
             }
-            return new QuotaUsage(safeCourseId, usage.getQuestionCount(),
-                    Math.max(0, dailyLimit - usage.getQuestionCount()), resetAt(now));
+            return toUsage(safeCourseId, usage.getQuestionCount(), now);
         } catch (DuplicateKeyException exhausted) {
             // The fixed _id already exists but did not match questionCount < dailyLimit.
             throw quotaExceeded(safeCourseId, now);
         }
     }
 
+    public QuotaUsage currentUsage(String studentId, String courseId) {
+        if (studentId == null || studentId.isBlank() || courseId == null || courseId.isBlank()) {
+            throw new IllegalArgumentException("Student ID and course ID are required");
+        }
+        ZonedDateTime now = ZonedDateTime.now(zoneId);
+        String documentId = documentId(
+                studentId.trim(),
+                courseId.trim().toUpperCase(java.util.Locale.ROOT),
+                now.toLocalDate()
+        );
+        StudentDailyQuestionUsage usage = mongoTemplate.findById(documentId, StudentDailyQuestionUsage.class);
+        int used = usage == null ? 0 : Math.max(0, usage.getQuestionCount());
+        return toUsage(courseId.trim().toUpperCase(java.util.Locale.ROOT), used, now);
+    }
+
     public int dailyLimit() {
         return dailyLimit;
+    }
+
+    private QuotaUsage toUsage(String courseId, int used, ZonedDateTime now) {
+        int clamped = Math.min(used, dailyLimit);
+        return new QuotaUsage(courseId, clamped, Math.max(0, dailyLimit - clamped), resetAt(now));
+    }
+
+    private String documentId(String studentId, String courseId, LocalDate usageDate) {
+        return studentId + ":" + courseId + ":" + usageDate;
     }
 
     private QuestionQuotaExceededException quotaExceeded(String courseId, ZonedDateTime now) {

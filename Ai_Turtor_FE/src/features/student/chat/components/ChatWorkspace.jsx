@@ -8,6 +8,7 @@ import PinnedMessagesBar from './PinnedMessagesBar';
 import { useAnswerFeedback } from '../useAnswerFeedback';
 import { usePinnedChatMessages } from '../usePinnedChatMessages';
 import { buildLessonChatPrompt, lessonSuggestionsForMessage } from '../../learning/studySuggestionPrompt';
+import { uiCopy } from '../../../../constants/uiCopy';
 import '../ChatWorkspace.css';
 
 const CHAT_TURN_LIMIT = 10;
@@ -43,6 +44,8 @@ function ChatWorkspace({
   activeSessionId,
   activeSessionQuestionCount = 0,
   activeSessionMaxTurnsReached = false,
+  courseDailyQuota = { used: 0, remaining: 10, limit: 10 },
+  courseDailyQuotaExhausted = false,
   turnLimitNotice,
   onTurnLimitBack,
   onDismissTurnLimitNotice,
@@ -127,8 +130,12 @@ function ChatWorkspace({
           : !hasClassSelection
             ? 'Lớp được xác định tự động từ thông tin ghi danh. Hãy chuyển sang môn có lớp đang hoạt động.'
             : '';
-  const questionCount = Math.max(0, Math.min(CHAT_TURN_LIMIT, Number(activeSessionQuestionCount) || 0));
-  const isNearTurnLimit = questionCount >= 8 && questionCount < CHAT_TURN_LIMIT && !activeSessionMaxTurnsReached;
+  const questionCount = Math.max(0, Math.min(
+    Number(courseDailyQuota?.limit) || CHAT_TURN_LIMIT,
+    Number(courseDailyQuota?.used ?? activeSessionQuestionCount) || 0,
+  ));
+  const dailyQuotaExhausted = Boolean(courseDailyQuotaExhausted || courseDailyQuota?.remaining <= 0);
+  const isNearTurnLimit = questionCount >= 8 && !dailyQuotaExhausted;
   const composerTopics = useMemo(() => {
     const sessionTopics = (Array.isArray(tutorSession?.suggestedTopics) ? tutorSession.suggestedTopics : [])
       .map((topic) => String(topic || '').trim())
@@ -159,7 +166,7 @@ function ChatWorkspace({
   return (
     <div className="chat-workspace-dark" style={style}>
       <ChatWorkspaceHeader
-        activeSessionMaxTurnsReached={activeSessionMaxTurnsReached}
+        activeSessionMaxTurnsReached={dailyQuotaExhausted}
         activeSessionTitle={activeSessionTitle}
         isHistoryOpen={isHistoryOpen}
         canChat={canChatWithCurrentContext}
@@ -187,19 +194,24 @@ function ChatWorkspace({
       <section className="tutor-session-strip" aria-label="Lộ trình buổi học">
         <div className="tutor-session-strip__heading">
           <div>
-            <strong>AI Tutor đang đồng hành</strong>
+            <strong>{dailyQuotaExhausted ? uiCopy.student.chat.sessionCompleteTitle : 'AI Tutor đang đồng hành'}</strong>
             <span>
-              {tutorSession?.status === 'COMPLETED'
-                ? 'Đã tổng kết và gửi buổi học cho giảng viên'
-                : `Giai đoạn: ${tutorSession?.phase || 'OPEN'} · Mức hỗ trợ: ${tutorSession?.supportLevel || 'STANDARD'}`}
+              {dailyQuotaExhausted
+                ? uiCopy.student.chat.sessionComplete
+                : tutorSession?.status === 'COMPLETED'
+                  ? 'Đã tổng kết và gửi buổi học cho giảng viên'
+                  : `Giai đoạn: ${tutorSession?.phase || 'OPEN'} · Mức hỗ trợ: ${tutorSession?.supportLevel || 'STANDARD'}`}
             </span>
           </div>
-          {tutorSession?.status === 'COMPLETED' && (
+          {tutorSession?.status === 'COMPLETED' && !dailyQuotaExhausted && (
             <button type="button" onClick={onStartNextTutorSession} disabled={isTutorSessionLoading}>
               Bắt đầu buổi tiếp theo
             </button>
           )}
         </div>
+        {dailyQuotaExhausted && (
+          <p className="tutor-session-strip__summary">{uiCopy.student.chat.sessionCompleteHint}</p>
+        )}
         {tutorSessionSummary?.summaryText && (
           <p className="tutor-session-strip__summary">{tutorSessionSummary.summaryText}</p>
         )}
@@ -213,7 +225,7 @@ function ChatWorkspace({
 
       <ChatMessageList
         activeSessionId={activeSessionId}
-        activeSessionMaxTurnsReached={activeSessionMaxTurnsReached}
+        activeSessionMaxTurnsReached={dailyQuotaExhausted}
         canChat={canChatWithCurrentContext}
         classId={classId}
         courseId={courseId}
@@ -242,7 +254,7 @@ function ChatWorkspace({
         userId={userId}
       />
 
-      {tutorSession?.status !== 'COMPLETED' && composerTopics.length > 0 && (
+      {tutorSession?.status !== 'COMPLETED' && !dailyQuotaExhausted && composerTopics.length > 0 && (
         <div className="tutor-session-strip__topics tutor-session-strip__topics--composer" role="list">
           {composerTopics.map((topic) => (
             <button
@@ -257,7 +269,7 @@ function ChatWorkspace({
       )}
 
       <ChatComposer
-        activeSessionMaxTurnsReached={activeSessionMaxTurnsReached}
+        activeSessionMaxTurnsReached={dailyQuotaExhausted}
         canChat={canChatWithCurrentContext}
         chatContextMessage={chatContextMessage}
         chatInput={chatInput}

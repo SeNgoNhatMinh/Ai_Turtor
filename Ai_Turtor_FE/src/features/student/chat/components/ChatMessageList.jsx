@@ -139,7 +139,11 @@ function ChatMessageList({
                         {message.aiServiceError && (
                           <div className="chat-ai-service-error" role="alert">
                             <strong>AI Tutor tạm thời không phản hồi.</strong>
-                            <span>Hãy thử lại sau hoặc gửi câu hỏi cho mentor xem xét.</span>
+                            <span>
+                              {activeSessionMaxTurnsReached
+                                ? 'Câu hỏi này chưa được trả lời. Phía dưới là kết thúc phiên học hôm nay, không phải lỗi hệ thống.'
+                                : 'Đây không phải hết phiên học. Hãy thử lại, hoặc gửi câu hỏi cho mentor xem xét.'}
+                            </span>
                           </div>
                         )}
 
@@ -170,10 +174,11 @@ function ChatMessageList({
                             sourceMode={message.mode}
                           />
                         )}
-                        {!message.canceled && (
+                        {!message.canceled && !message.sessionComplete && (
                           <AnswerActionBar
                             message={message}
                             mentorRequestInProgress={showMentorSupport}
+                            disableRetry={activeSessionMaxTurnsReached}
                             onAction={handleAnswerAction}
                           />
                         )}
@@ -236,6 +241,13 @@ function ChatMessageList({
               <TutorMascot size={32} />
             </div>
             <ChatLoadingSteps />
+          </div>
+        )}
+        {activeSessionMaxTurnsReached && !isAiLoading && messages.length > 0 && (
+          <div className="chat-session-complete-card" role="status">
+            <strong>{uiCopy.student.chat.sessionCompleteTitle}</strong>
+            <p>{uiCopy.student.chat.sessionComplete}</p>
+            <span>{uiCopy.student.chat.sessionCompleteHint}</span>
           </div>
         )}
         <div ref={messagesEndRef} style={{ height: 1 }} />

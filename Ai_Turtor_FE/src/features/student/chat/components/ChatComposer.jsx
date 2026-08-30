@@ -3,6 +3,7 @@ import { SendOutlined, StopOutlined } from '@ant-design/icons';
 import { Mic, MicOff } from 'lucide-react';
 import { LIMITS, validateChatInput } from '../../../../utils/validators';
 import { uiCopy } from '../../../../constants/uiCopy';
+import { DAILY_SESSION_COMPLETE_MESSAGE } from '../../../../constants/sessionQuota';
 import { useSpeechToText } from '../useSpeechToText';
 
 function ChatComposer({
@@ -18,7 +19,7 @@ function ChatComposer({
 }) {
   const textareaRef = useRef(null);
   const speechBaseTextRef = useRef('');
-  const fullMessage = 'Cuộc trò chuyện đã đủ 10 câu hỏi. Hãy tạo cuộc trò chuyện mới.';
+  const fullMessage = DAILY_SESSION_COMPLETE_MESSAGE;
   const sendDisabled = !canChat || !validateChatInput(chatInput).ok || activeSessionMaxTurnsReached;
   const speechDisabled = isAiLoading || !canChat || activeSessionMaxTurnsReached;
 
@@ -87,10 +88,10 @@ function ChatComposer({
 
   const placeholder = !canChat
     ? chatContextMessage
-    : activeSessionMaxTurnsReached
-      ? fullMessage
-      : isAiLoading
-        ? 'AI Tutor đang trả lời...'
+    : isAiLoading
+      ? 'AI Tutor đang trả lời...'
+      : activeSessionMaxTurnsReached
+        ? fullMessage
         : 'Nhập câu hỏi cho AI Tutor...';
 
   return (
@@ -105,7 +106,7 @@ function ChatComposer({
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
             maxLength={LIMITS.chatMax}
-            disabled={isAiLoading || !canChat}
+            disabled={isAiLoading || !canChat || activeSessionMaxTurnsReached}
             rows={1}
             aria-label="Câu hỏi cho AI Tutor"
           />

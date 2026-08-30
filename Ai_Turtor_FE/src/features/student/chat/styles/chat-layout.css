@@ -230,6 +230,35 @@
   color: #6b7280 !important;
 }
 
+.chat-session-complete-card {
+  margin: 8px 0 16px;
+  padding: 16px 18px;
+  border: 1px solid #dbe7db;
+  border-radius: 16px;
+  background: #f4faf4;
+  color: #14532d;
+}
+
+.chat-session-complete-card strong {
+  display: block;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.chat-session-complete-card p {
+  margin: 4px 0 0;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.chat-session-complete-card span {
+  display: block;
+  margin-top: 6px;
+  color: #3f6212;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
 .chat-course-switch-banner {
   display: flex;
   align-items: center;

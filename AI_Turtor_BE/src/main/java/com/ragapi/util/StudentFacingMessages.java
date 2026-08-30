@@ -19,6 +19,12 @@ public final class StudentFacingMessages {
     public static final String CODE_MENTOR_BUSY =
             "Mình chưa phân tích xong phần này. Bạn thử gửi lại đoạn code hoặc lỗi cụ thể hơn, hoặc thử lại sau vài giây nhé.";
 
+    public static String dailySessionComplete(String courseId) {
+        String course = courseId == null || courseId.isBlank() ? "môn này" : "môn " + courseId.trim();
+        return "Phiên học hôm nay của " + course
+                + " đã hết. Cảm ơn bạn đã học cùng mình. Bạn có thể hỏi môn khác, hoặc quay lại vào ngày mai.";
+    }
+
     private StudentFacingMessages() {
     }
 

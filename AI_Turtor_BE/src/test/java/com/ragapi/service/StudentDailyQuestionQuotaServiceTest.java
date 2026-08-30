@@ -60,4 +60,18 @@ class StudentDailyQuestionQuotaServiceTest {
         assertThrows(IllegalArgumentException.class, () -> service.consume(" ", "PRJ301"));
         assertThrows(IllegalArgumentException.class, () -> service.consume("student-1", " "));
     }
+
+    @Test
+    void currentUsageIsZeroWhenStudentHasNotAskedToday() {
+        MongoTemplate mongoTemplate = mock(MongoTemplate.class);
+        when(mongoTemplate.findById(any(String.class), eq(StudentDailyQuestionUsage.class))).thenReturn(null);
+        StudentDailyQuestionQuotaService service = new StudentDailyQuestionQuotaService(
+                mongoTemplate, 10, "Asia/Bangkok");
+
+        StudentDailyQuestionQuotaService.QuotaUsage result = service.currentUsage("student-1", "prj301");
+
+        assertEquals("PRJ301", result.courseId());
+        assertEquals(0, result.used());
+        assertEquals(10, result.remaining());
+    }
 }

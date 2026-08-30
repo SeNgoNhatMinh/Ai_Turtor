@@ -8,6 +8,7 @@ import { classIdMatches } from '../../../utils/academicIds';
 import { LIMITS, validateChatInput } from '../../../utils/validators';
 import { isMobileViewport } from '../../../hooks/useResponsiveViewport';
 import { buildLessonChatPrompt } from '../learning/studySuggestionPrompt';
+import { uiCopy } from '../../../constants/uiCopy';
 
 export function useStudentChatTabController({
   courseId,
@@ -19,6 +20,7 @@ export function useStudentChatTabController({
   activeSessionId,
   messages = [],
   activeSessionMaxTurnsReached = false,
+  courseDailyQuotaExhausted = false,
   turnLimitNotice,
   dismissTurnLimitNotice,
   resetChat,
@@ -136,8 +138,8 @@ export function useStudentChatTabController({
       return;
     }
 
-    if (activeSessionMaxTurnsReached) {
-      triggerToast?.('Cuộc trò chuyện đã đủ 10 câu hỏi. Hãy tạo cuộc trò chuyện mới.');
+    if (courseDailyQuotaExhausted) {
+      triggerToast?.(uiCopy.student.chat.full);
       return;
     }
 

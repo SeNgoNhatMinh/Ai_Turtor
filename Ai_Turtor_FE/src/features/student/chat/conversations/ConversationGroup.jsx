@@ -1,7 +1,7 @@
 import { memo } from 'react';
 import { Input, Typography } from 'antd';
 import EntityActionMenu from '../../../../components/common/EntityActionMenu';
-import { CHAT_TURN_LIMIT, formatSessionTime, getSessionQuestionCount } from './sessionUtils';
+import { formatSessionTime, getSessionQuestionCount } from './sessionUtils';
 
 const { Text } = Typography;
 const MENU_ITEMS = [
@@ -21,7 +21,6 @@ const ConversationItem = memo(function ConversationItem({
   sessionMutationKey,
 }) {
   const questionCount = getSessionQuestionCount(session);
-  const isFull = Boolean(session.maxTurnsReached || questionCount >= CHAT_TURN_LIMIT);
   const isMutating = String(sessionMutationKey || '').endsWith(`:${session.id}`);
   const canSelect = typeof onSelect === 'function' && !isEditing && !sessionMutationKey;
   const selectSession = () => {
@@ -63,8 +62,7 @@ const ConversationItem = memo(function ConversationItem({
         </div>
         <div className="session-item-meta">
           <Text className="session-item-time">{formatSessionTime(session)}</Text>
-          {questionCount > 0 && <span className="session-question-count">{questionCount}/{CHAT_TURN_LIMIT}</span>}
-          {isFull && <span className="session-full-badge">Đã đầy</span>}
+          {questionCount > 0 && <span className="session-question-count">{questionCount} câu</span>}
         </div>
       </div>
       <EntityActionMenu

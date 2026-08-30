@@ -1,4 +1,5 @@
 import { buildUrl, env } from '../config/env';
+import { DAILY_SESSION_COMPLETE_MESSAGE } from '../constants/sessionQuota';
 import { getSafeUserMessage } from '../utils/errorMessages';
 
 export class ApiError extends Error {
@@ -60,7 +61,7 @@ function normalizeError(error, response, body) {
       if (body?.code === 'DAILY_COURSE_QUESTION_LIMIT_REACHED') {
         return getSafeUserMessage(
           body?.message || body?.error,
-          'Bạn đã dùng hết 10 câu hỏi hôm nay cho môn học này. Hạn mức sẽ tự làm mới vào ngày mai.',
+          DAILY_SESSION_COMPLETE_MESSAGE,
         );
       }
       return 'AI Tutor đang nhận quá nhiều yêu cầu. Hệ thống sẽ tự thử mô hình dự phòng khi có thể; vui lòng đợi một chút rồi gửi lại.';

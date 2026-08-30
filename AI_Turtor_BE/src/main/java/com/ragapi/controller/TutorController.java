@@ -24,6 +24,7 @@ import com.ragapi.util.ConversationFocus;
 import com.ragapi.util.HarnessRouting;
 import com.ragapi.util.LearningPathParser;
 import com.ragapi.util.StudentChatIntentDetector;
+import com.ragapi.util.StudentFacingMessages;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +32,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -63,6 +66,30 @@ public class TutorController {
     private final StudentQuestionNormalizationService questionNormalizationService;
     private final PedagogicalDirectiveService pedagogicalDirectiveService;
     private final TutorSessionService tutorSessionService;
+
+    @GetMapping("/tutor/students/{studentId}/courses/{courseId}/question-quota")
+    @Operation(summary = "Get today's per-course question quota for a student")
+    public ResponseEntity<?> getQuestionQuota(
+            @PathVariable String studentId,
+            @PathVariable String courseId,
+            Authentication authentication
+    ) {
+        try {
+            if (isStudent(authentication) && !authentication.getName().equals(studentId)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "Forbidden"));
+            }
+            StudentDailyQuestionQuotaService.QuotaUsage usage = questionQuotaService.currentUsage(studentId, courseId);
+            return ResponseEntity.ok(Map.of(
+                    "courseId", usage.courseId(),
+                    "used", usage.used(),
+                    "remaining", usage.remaining(),
+                    "dailyLimit", questionQuotaService.dailyLimit(),
+                    "resetAt", usage.resetAt().toString()
+            ));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
 
     @PostMapping("/tutor/intent-classify")
     @Operation(summary = "Classify a student question for n8n AI Harness routing")
@@ -112,8 +139,7 @@ public class TutorController {
             body.put("routingStrategy", intent.getRoutingStrategy());
             return ResponseEntity.ok(body);
         } catch (StudentDailyQuestionQuotaService.QuestionQuotaExceededException e) {
-            String message = "Bạn đã dùng hết " + e.getDailyLimit() + " câu hỏi của môn "
-                    + e.getCourseId() + " hôm nay. Bạn có thể hỏi môn khác hoặc quay lại vào ngày mai.";
+            String message = StudentFacingMessages.dailySessionComplete(e.getCourseId());
             return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(Map.of(
                     "error", message, "message", message,
                     "code", "DAILY_COURSE_QUESTION_LIMIT_REACHED", "courseId", e.getCourseId(),
@@ -360,14 +386,14 @@ public class TutorController {
             if (tutorSessionState != null && tutorSessionState.getSuggestedTopics() != null) {
                 response.setSuggestedTopics(tutorSessionState.getSuggestedTopics());
             }
+            applyDailyQuota(response, userId, courseId);
 
             return ResponseEntity.ok(response);
         } catch (StudentDailyQuestionQuotaService.QuestionQuotaExceededException e) {
+            String message = StudentFacingMessages.dailySessionComplete(e.getCourseId());
             return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(Map.of(
-                    "error", "Bạn đã dùng hết " + e.getDailyLimit() + " câu hỏi của môn "
-                            + e.getCourseId() + " hôm nay. Bạn có thể hỏi môn khác hoặc quay lại vào ngày mai.",
-                    "message", "Bạn đã dùng hết " + e.getDailyLimit() + " câu hỏi của môn "
-                            + e.getCourseId() + " hôm nay. Bạn có thể hỏi môn khác hoặc quay lại vào ngày mai.",
+                    "error", message,
+                    "message", message,
                     "code", "DAILY_COURSE_QUESTION_LIMIT_REACHED",
                     "courseId", e.getCourseId(),
                     "dailyLimit", e.getDailyLimit(),
@@ -410,6 +436,20 @@ public class TutorController {
             log.error("Unexpected error during AI query", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Server error: " + e.getMessage()));
+        }
+    }
+
+    private void applyDailyQuota(AiQueryResponse response, String studentId, String courseId) {
+        if (studentId == null || studentId.isBlank() || courseId == null || courseId.isBlank()) {
+            return;
+        }
+        try {
+            StudentDailyQuestionQuotaService.QuotaUsage usage = questionQuotaService.currentUsage(studentId, courseId);
+            response.setDailyQuestionUsed(usage.used());
+            response.setDailyQuestionLimit(questionQuotaService.dailyLimit());
+            response.setDailyQuestionRemaining(usage.remaining());
+        } catch (RuntimeException ignored) {
+            // Quota readout must not fail the student answer.
         }
     }
 
@@ -535,7 +575,6 @@ public class TutorController {
         response.setSourceEvidence(List.of());
         response.setGroundingType("NONE");
         response.setCourseId(courseId);
-
         if (userId != null && !userId.isBlank()) {
             var savedExchange = aiConversationService.saveExchangeWithMessages(
                     userId,
@@ -562,6 +601,7 @@ public class TutorController {
                     savedExchange.assistantMessageId()
             );
         }
+        applyDailyQuota(response, userId, courseId);
         return ResponseEntity.ok(response);
     }
 

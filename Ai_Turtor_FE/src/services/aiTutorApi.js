@@ -46,6 +46,12 @@ export const aiTutorApi = {
     return normalizeAiQueryResponse(response);
   },
 
+  async getQuestionQuota(studentId, courseId) {
+    const safeStudentId = encodeURIComponent(String(studentId || '').trim());
+    const safeCourseId = encodeURIComponent(String(courseId || '').trim());
+    return request(`${API_BASE_URL}/tutor/students/${safeStudentId}/courses/${safeCourseId}/question-quota`);
+  },
+
   async reviewCode(payload) {
     const validation = validateCodeMentorRequest(payload);
     if (!validation.ok) throw invalidRequest(validation.message);
