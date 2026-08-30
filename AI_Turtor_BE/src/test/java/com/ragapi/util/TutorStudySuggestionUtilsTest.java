@@ -43,6 +43,34 @@ class TutorStudySuggestionUtilsTest {
     }
 
     @Test
+    void openingPrefersQuestionsTheStudentAlreadyAsked() {
+        List<String> suggestions = TutorStudySuggestionUtils.openingSuggestions(
+                "CEA201",
+                List.of(),
+                List.of(
+                        "Controller trong MVC dùng để làm gì?",
+                        "Vòng lặp for khác while ở điểm nào?"
+                ),
+                List.of(
+                        new TutorStudySuggestionUtils.RankedTitle("0.1 Outline of the Book", 1, 1),
+                        new TutorStudySuggestionUtils.RankedTitle("0.2 A Roadmap for Readers and Instructors", 2, 1)
+                ));
+        assertEquals(List.of(
+                "Vòng lặp for khác while ở điểm nào?",
+                "Controller trong MVC dùng để làm gì?"
+        ), suggestions);
+    }
+
+    @Test
+    void skipsPrefaceNumberedBookSections() {
+        List<String> picked = TutorStudySuggestionUtils.pickChapterSuggestions(List.of(
+                new TutorStudySuggestionUtils.RankedTitle("0.1 Outline of the Book", 1, 1),
+                new TutorStudySuggestionUtils.RankedTitle("Chapter 1 Computer Abstraction", 12, 1)
+        ), 4);
+        assertEquals(List.of("Chapter 1 Computer Abstraction"), picked);
+    }
+
+    @Test
     void newCourseFallsBackToAStartableCourseUnit() {
         List<String> suggestions = TutorStudySuggestionUtils.openingSuggestions(
                 "PFP191",
@@ -67,7 +95,7 @@ class TutorStudySuggestionUtilsTest {
     @Test
     void refreshesFrontMatterChipsButKeepsLessonPath() {
         assertTrue(TutorStudySuggestionUtils.needsSuggestionRefresh(List.of(
-                "About the Author", "A Timeline of Java Platforms")));
+                "0.1 Outline of the Book", "0.2 A Roadmap for Readers and Instructors")));
         assertFalse(TutorStudySuggestionUtils.needsSuggestionRefresh(List.of(
                 "Bài 1: Servlet", "Bài 2: Filter")));
         assertTrue(TutorStudySuggestionUtils.needsSuggestionRefresh(List.of()));

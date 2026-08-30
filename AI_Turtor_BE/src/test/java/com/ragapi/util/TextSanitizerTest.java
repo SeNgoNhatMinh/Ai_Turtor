@@ -16,6 +16,22 @@ class TextSanitizerTest {
     }
 
     @Test
+    void stripsPromptNarrationFromStudentAnswers() {
+        String leaked = """
+                ## Giải thích
+                TLD ánh xạ thẻ JSP sang Tag Handler.
+
+                ## Bài tiếp theo
+                (Omit as per instruction: "otherwise omit." I'll omit it to be safe.)
+                - Wait, the prompt says:
+                """;
+        String cleaned = TextSanitizer.cleanForStudentAnswer(leaked);
+        assertFalse(cleaned.toLowerCase().contains("the prompt says"));
+        assertFalse(cleaned.contains("## Bài tiếp theo"));
+        assertTrue(cleaned.contains("TLD ánh xạ"));
+    }
+
+    @Test
     void preservesVietnameseWithDiacritics() {
         String input = "Hệ thống chưa có tài liệu của môn PRJ301.";
         assertEquals(input, TextSanitizer.cleanForStudentAnswer(input));

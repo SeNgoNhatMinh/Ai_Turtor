@@ -260,8 +260,12 @@ public class TutorSessionService {
     }
 
     private List<String> suggestedTopics(String studentId, String courseId) {
-        List<String> weakTopics = memoryRepository.findByStudentIdAndCourseId(studentId, courseId)
-                .map(memory -> limit(memory.getWeakTopics(), 3))
+        Optional<StudentCourseMemory> memory = memoryRepository.findByStudentIdAndCourseId(studentId, courseId);
+        List<String> weakTopics = memory
+                .map(item -> limit(item.getWeakTopics(), 3))
+                .orElse(List.of());
+        List<String> recentQuestions = memory
+                .map(StudentCourseMemory::getRecentQuestions)
                 .orElse(List.of());
         List<TutorStudySuggestionUtils.RankedTitle> chapters = List.of();
         try {
@@ -275,8 +279,10 @@ public class TutorSessionService {
         } catch (Exception ignored) {
             // Opening still greets; chips fall back to new-course starters.
         }
-        List<String> fromOutline = TutorStudySuggestionUtils.openingSuggestions(courseId, weakTopics, chapters);
-        if (fromOutline.stream().anyMatch(TutorStudySuggestionUtils::looksNumbered)) {
+        List<String> fromOutline = TutorStudySuggestionUtils.openingSuggestions(
+                courseId, weakTopics, recentQuestions, chapters);
+        if (!TutorStudySuggestionUtils.askedTopicChips(recentQuestions).isEmpty()
+                || fromOutline.stream().anyMatch(TutorStudySuggestionUtils::looksNumberedLesson)) {
             return fromOutline;
         }
         List<String> curriculum = List.of();
@@ -285,7 +291,7 @@ public class TutorSessionService {
         } catch (Exception ignored) {
             // Opening still greets from chapter titles when the overview model is unavailable.
         }
-        if (!curriculum.isEmpty()) {
+        if (!curriculum.isEmpty() && TutorStudySuggestionUtils.askedTopicChips(recentQuestions).isEmpty()) {
             LinkedHashSet<String> result = new LinkedHashSet<>();
             weakTopics.stream()
                     .filter(Objects::nonNull)
@@ -368,7 +374,10 @@ public class TutorSessionService {
                 || lower.contains("a timeline of java")
                 || lower.contains("gồm những nội dung nào")
                 || lower.contains("a string is a sequence")
-                || lower.contains("adding new functions")) {
+                || lower.contains("adding new functions")
+                || lower.contains("outline of the book")
+                || lower.contains("roadmap for readers")
+                || lower.contains("internet and web resources")) {
             return true;
         }
         if (hasNumberedLessonPath(session)) {
@@ -381,7 +390,7 @@ public class TutorSessionService {
         List<String> suggestions = session == null || session.getSuggestedTopics() == null
                 ? List.of()
                 : session.getSuggestedTopics();
-        return suggestions.stream().anyMatch(TutorStudySuggestionUtils::looksNumbered);
+        return suggestions.stream().anyMatch(TutorStudySuggestionUtils::looksNumberedLesson);
     }
 
     private AiMessage appendOpening(TutorSession session, String studentId, String conversationId) {
@@ -498,9 +507,16 @@ public class TutorSessionService {
             return opening.toString();
         }
         if (!suggestions.isEmpty()) {
-            opening.append(hasLessons ? "### Gợi ý từ lộ trình của bạn\n" : "### Bắt đầu học một phần của môn\n");
+            boolean personalPath = memoryRepository.findByStudentIdAndCourseId(
+                            session.getStudentId(), session.getCourseId())
+                    .map(memory -> (memory.getRecentQuestions() != null && !memory.getRecentQuestions().isEmpty())
+                            || (memory.getWeakTopics() != null && !memory.getWeakTopics().isEmpty()))
+                    .orElse(false);
+            opening.append(personalPath ? "### Gợi ý từ lộ trình của bạn\n" : "### Bắt đầu học một phần của môn\n");
             suggestions.forEach(topic -> opening.append("- ").append(topic).append("\n"));
-            opening.append("\nChọn một gợi ý ở trên để học theo lộ trình, hoặc nhập chủ đề khác.");
+            opening.append(personalPath
+                    ? "\nChọn một chủ đề bạn đã hỏi để ôn lại, hoặc nhập câu hỏi mới."
+                    : "\nChọn một gợi ý ở trên để bắt đầu học, hoặc nhập chủ đề khác.");
         }
         return opening.toString();
     }

@@ -29,8 +29,11 @@ class ChapterHeadingUtilsTest {
         assertTrue(ChapterHeadingUtils.isBookFrontMatterTitle("About the Author"));
         assertTrue(ChapterHeadingUtils.isBookFrontMatterTitle("About the Technical Editors"));
         assertTrue(ChapterHeadingUtils.isBookFrontMatterTitle("A Timeline of Java Platforms"));
-        assertTrue(ChapterHeadingUtils.isBookFrontMatterTitle("Mục lục"));
-        assertFalse(ChapterHeadingUtils.isBookFrontMatterTitle("A Note about JSP Documents (JSPX)"));
+        assertTrue(ChapterHeadingUtils.isBookFrontMatterTitle("0.1 Outline of the Book"));
+        assertTrue(ChapterHeadingUtils.isBookFrontMatterTitle("0.2 A Roadmap for Readers and Instructors"));
+        assertTrue(ChapterHeadingUtils.isBookFrontMatterTitle("0.3 Why Study Computer Organization and Architecture"));
+        assertTrue(ChapterHeadingUtils.isBookFrontMatterTitle("0.4 Internet and Web Resources"));
+        assertFalse(ChapterHeadingUtils.isStudyUnitTitle("0.1 Outline of the Book"));
         assertTrue(ChapterHeadingUtils.isStudySuggestionTitle("A Note about JSP Documents (JSPX)"));
         assertFalse(ChapterHeadingUtils.isStudySuggestionTitle("About the Author"));
         assertTrue(ChapterHeadingUtils.isSentenceLikeHeading("A string is a sequence"));

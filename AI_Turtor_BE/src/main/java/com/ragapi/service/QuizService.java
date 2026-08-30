@@ -838,6 +838,7 @@ public class QuizService {
         private String type;
         private String questionText;
         private List<String> options;
+        @com.fasterxml.jackson.annotation.JsonAlias({"answer", "correct", "correctOption", "answerKey"})
         private String correctAnswer;
         private String explanation;
     }

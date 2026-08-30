@@ -44,6 +44,7 @@ public final class TextSanitizer {
             return cleaned;
         }
         cleaned = stripUnexpectedScripts(cleaned);
+        cleaned = PromptLeakFilter.strip(cleaned);
         return cleaned.replaceAll("[ \\t]{2,}", " ").trim();
     }
 

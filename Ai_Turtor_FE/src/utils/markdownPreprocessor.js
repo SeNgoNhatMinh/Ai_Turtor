@@ -147,6 +147,74 @@ function normalizeVietnameseSectionLabels(text) {
  * 2. LINE DETECTORS
  * ========================================================= */
 
+function isPromptLeakLine(line) {
+  const text = String(line || '').trim();
+  if (!text) return false;
+  if (/^\s*[-*+]?\s*["'`“”]+#{1,6}\s*/.test(text)) return true;
+  return /the prompt says|as per instruction|as instructed|i'?ll omit|i will omit|numbered path provided|omit as per|wait,?\s+the prompt|otherwise omit|name the next bài|leave it blank as instructed|include the heading|actually,?\s+the prompt|numbered lesson path/i.test(text);
+}
+
+function isValidNextLessonBullet(line) {
+  return /^\s*[-*+]?\s*(?:bài|bai)\s+\d+\s*[:：.\-\u2013\u2014]/i.test(String(line || '').trim());
+}
+
+function stripPromptLeak(text) {
+  const withoutParens = String(text || '').replace(
+    /\(\s*(?:Omit as per|Wait,?\s+the prompt|The prompt says|as per instruction|Actually,?\s+the prompt)[\s\S]*?\)/gi,
+    '',
+  );
+  const lines = withoutParens.split('\n').filter((line) => !isPromptLeakLine(line));
+  const output = [];
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (!/^#{1,6}\s*bài tiếp theo\s*$/i.test(line.trim())) {
+      output.push(line);
+      continue;
+    }
+    const body = [];
+    let cursor = index + 1;
+    while (cursor < lines.length && !isHeadingLine(lines[cursor])) {
+      body.push(lines[cursor]);
+      cursor += 1;
+    }
+    if (body.some(isValidNextLessonBullet)) {
+      output.push(line, ...body);
+    }
+    index = cursor - 1;
+  }
+  return output.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+function dropHeadingSection(text, headingPattern) {
+  const lines = String(text || '').split('\n');
+  const output = [];
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (!headingPattern.test(line.trim())) {
+      output.push(line);
+      continue;
+    }
+    let cursor = index + 1;
+    while (cursor < lines.length && !isHeadingLine(lines[cursor])) {
+      cursor += 1;
+    }
+    index = cursor - 1;
+  }
+  return output.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+function stripNumberedCurriculumFromNormalAnswer(text) {
+  const source = String(text || '');
+  const isNormalQa = /^#{1,6}\s*theo tài liệu môn học\s*$/im.test(source);
+  if (!isNormalQa) {
+    return source;
+  }
+  let result = dropHeadingSection(source, /^#{1,6}\s*lộ trình học\s*$/i);
+  result = dropHeadingSection(result, /^#{1,6}\s*bắt đầu thế nào\s*$/i);
+  result = dropHeadingSection(result, /^#{1,6}\s*bài tiếp theo\s*$/i);
+  return result;
+}
+
 function isFenceLine(line) {
   return /^\s*(```|~~~)/.test(line);
 }
@@ -763,6 +831,8 @@ export function normalizeAiMarkdown(input = '') {
   /* 1 */ text = normalizeNewlines(text);
   /* 2 */ text = trimTrailingWhitespace(text);
   /* 3 */ text = collapseBlankLines(text);
+  text = stripPromptLeak(text);
+  text = stripNumberedCurriculumFromNormalAnswer(text);
   // Protect original code/math before any structural repair can touch it.
   const originalBlocks = protectBlocks(text);
   text = originalBlocks.text;

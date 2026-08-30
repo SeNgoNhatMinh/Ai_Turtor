@@ -1,7 +1,9 @@
 const CHECK_HEADING = /^(#{1,6})\s*(?:kiểm tra hiểu|understanding check)\s*$/im;
 const OPTION_MARK = /(?:^|\s)(?:\(([A-Da-d])\)|([A-Da-d])\.)\s+/g;
-const ANSWER_LINE = /(?:đáp án|dap an|answer|correct)(?:\s+đúng)?\s*(?:là|:|：)\s*([A-Da-d])\b/i;
+const CANONICAL_ANSWER = /(?:^|\n)\s*(?:đáp án|dap an|(?:the\s+)?(?:correct\s+)?answer)(?:\s+đúng)?\s*(?:là|is|:|：|-)?\s*([A-Da-d])\b[^\n]*/i;
 const LEAKED_ANSWER = /nếu bạn chọn(?:\s+đáp án)?\s+([A-Da-d])\b/i;
+const CHOOSE_ANSWER = /(?:chọn|choose|pick)\s+(?:đáp án\s+)?([A-Da-d])\b/i;
+const LONE_KEY = /(?:^|\n)\s*([A-Da-d])\s*[.)]?\s*$/;
 const EXPLAIN_LINE = /(?:^|\n)\s*(?:giải thích|giai thich|explanation|lý do|ly do)\s*[:：]\s*([\s\S]+)$/i;
 const QUESTION_PREFIX = /^(?:câu hỏi|cau hoi|question)\s*[:：]\s*/im;
 
@@ -26,11 +28,16 @@ export function parseUnderstandingQuiz(sectionBody) {
   const raw = String(sectionBody || '').trim();
   if (!raw) return null;
 
-  const answerMatch = raw.match(ANSWER_LINE) || raw.match(LEAKED_ANSWER);
+  const canonicalMatch = raw.match(CANONICAL_ANSWER);
+  const leakedMatch = raw.match(LEAKED_ANSWER);
+  const chooseMatch = raw.match(CHOOSE_ANSWER);
+  const loneMatch = raw.match(LONE_KEY);
+  const answerMatch = canonicalMatch || leakedMatch || chooseMatch || loneMatch;
   const explainMatch = raw.match(EXPLAIN_LINE);
   let working = raw;
   if (explainMatch) working = working.replace(explainMatch[0], '\n');
-  if (raw.match(ANSWER_LINE)) working = working.replace(ANSWER_LINE, '\n');
+  if (canonicalMatch) working = working.replace(canonicalMatch[0], '\n');
+  else if (!leakedMatch && !chooseMatch && loneMatch) working = working.replace(loneMatch[0], '\n');
   working = working.replace(QUESTION_PREFIX, '').trim();
 
   const marks = [];

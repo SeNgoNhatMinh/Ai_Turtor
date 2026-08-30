@@ -32,7 +32,6 @@ public record TutorIntentContext(String recentHistory, String sessionPhase, Stri
         }
         String history = recentHistory();
         return history.contains("Bắt đầu bài")
-                || history.contains("Bài 1")
-                || history.contains("Lộ trình");
+                || history.contains("## Lộ trình học");
     }
 }

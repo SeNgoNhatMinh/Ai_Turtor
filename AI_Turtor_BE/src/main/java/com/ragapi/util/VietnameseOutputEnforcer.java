@@ -62,9 +62,11 @@ public final class VietnameseOutputEnforcer {
 
                 LOCAL MODEL OUTPUT BUDGET:
                 - Write a FULL student-facing lesson. Cover every required heading with real content (not one-line stubs).
+                - For a numbered lesson, write ## Giải thích with real tutor content BEFORE any quiz.
+                  A quiz-only answer is invalid.
                 - If you include a quiz, the heading MUST be exactly "## Kiểm tra hiểu" (never "Understanding Check").
                 - Quiz options MUST be on separate lines as "A. ..." "B. ..." "C. ...". Never write (A) (B) (C) on one line.
-                - Copy this shape:
+                - Copy this shape and NEVER omit the last two lines:
                   ## Kiểm tra hiểu
                   Câu hỏi: <one short question>
                   A. <choice>
@@ -72,6 +74,10 @@ public final class VietnameseOutputEnforcer {
                   C. <choice>
                   Đáp án: <A or B or C>
                   Giải thích: <one short sentence>
+                - Write Đáp án and Giải thích right after C. Skip the next-lesson heading if needed; never drop Đáp án.
+                - Never narrate the prompt. Never write "the prompt says", "as per instruction", or discuss omitting a heading.
+                - Numbered "Bài 1/2/3" and "## Bài tiếp theo" are only for a topic roadmap or an active numbered lesson.
+                  For a normal concept question, use "## Lưu ý để học tốt hơn" about the current topic instead.
                 - Never stop mid-sentence, mid-list, or mid-code fence. Close every markdown code fence.
                 - Do not omit a required heading to save tokens. Finish the last heading before you stop.
                 """;

@@ -32,7 +32,7 @@ public final class StudentChatIntentDetector {
             "(?:^|\\s)(?:nay|hom nay)(?:\\s+minh|\\s+em)?(?:\\s+muon)?\\s+hoc(?!\\s+(?:gi|cham|khong|voi)\\b)"
                     + "|(?:^|\\s)(?:minh|em)\\s+muon\\s+hoc\\b"
                     + "|(?:^|\\s)bat dau\\s+hoc\\b"
-                    + "|(?:^|\\s)hoc\\s+(?:ve|phan|chuong)\\b"
+                    + "|(?:^|\\s)hoc\\s+(?:ve|phan|chuong|bai)\\b"
     );
 
     private static final Pattern LESSON_START = Pattern.compile(
@@ -101,8 +101,7 @@ public final class StudentChatIntentDetector {
                 || isThanks(normalized)
                 || isGoodbye(normalized)
                 || isCapabilityQuestion(normalized)
-                || isHowToUseQuestion(normalized)
-                || matchesStudyPlanningPhrase(normalized);
+                || isHowToUseQuestion(normalized);
     }
 
     public static boolean isStudyPlanningInteraction(String question) {

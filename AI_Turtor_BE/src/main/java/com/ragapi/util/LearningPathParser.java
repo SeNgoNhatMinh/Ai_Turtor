@@ -17,6 +17,9 @@ public final class LearningPathParser {
     private static final Pattern BAI_LINE = Pattern.compile(
             "(?i)^(?:\\d+[.)]\\s*)?(?:bắt đầu\\s+|bat dau\\s+)?(?:bài|bai)\\s+(\\d+)\\s*[:：.\\-]\\s*(.+)$"
     );
+    private static final Pattern CURRENT_LESSON = Pattern.compile(
+            "(?i)(?:bắt đầu bài|bat dau bai|học ngay bài|hoc ngay bai)\\s+(\\d+)"
+    );
     private static final Pattern LESSON_FOCUS = Pattern.compile(
             "(?i)(?:bắt đầu bài|bat dau bai|học ngay bài|hoc ngay bai)\\s+\\d+\\s*[:：.\\-]\\s*(.+)"
     );
@@ -31,7 +34,7 @@ public final class LearningPathParser {
         }
         LinkedHashSet<String> seen = new LinkedHashSet<>();
         List<SuggestionItem> items = new ArrayList<>();
-        for (String line : answer.split("\\R")) {
+        for (String line : splitLessonLines(answer)) {
             Matcher matcher = BAI_LINE.matcher(normalizeLessonLine(line));
             if (!matcher.matches()) {
                 continue;
@@ -76,6 +79,48 @@ public final class LearningPathParser {
         return retrievalFocus(question, null);
     }
 
+    public static Integer currentLessonNumber(String question) {
+        if (question == null || question.isBlank()) {
+            return null;
+        }
+        Matcher matcher = CURRENT_LESSON.matcher(question.trim());
+        if (!matcher.find()) {
+            return null;
+        }
+        try {
+            return Integer.parseInt(matcher.group(1));
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
+    }
+
+    /**
+     * Next numbered lesson after the student's current "Bắt đầu bài N", taken from
+     * a prior roadmap in conversation/memory. Returns a markdown bullet or null.
+     */
+    public static String nextLessonBullet(String question, String context) {
+        Integer current = currentLessonNumber(question);
+        if (current == null || current < 1) {
+            return null;
+        }
+        int wanted = current + 1;
+        for (SuggestionItem item : parseLessonSuggestions(context)) {
+            Matcher matcher = BAI_LINE.matcher(normalizeLessonLine(item.getTitle()));
+            if (!matcher.matches()) {
+                continue;
+            }
+            if (Integer.parseInt(matcher.group(1)) != wanted) {
+                continue;
+            }
+            String title = stripMarkdown(matcher.group(2));
+            if (title.isBlank()) {
+                continue;
+            }
+            return "- Bài " + wanted + ": " + title;
+        }
+        return null;
+    }
+
     /**
      * For short in-lesson follow-ups, prepend the session topic so retrieval stays on the lesson.
      * New topic-study questions never mix in the previous topic.
@@ -106,6 +151,18 @@ public final class LearningPathParser {
             return focus;
         }
         return topic + " " + focus;
+    }
+
+    private static String[] splitLessonLines(String answer) {
+        String expanded = answer.replaceAll(
+                "(?i)(?<=\\S)\\s+(?=\\d+[.)]\\s*(?:bài|bai)\\s+\\d+)",
+                "\n"
+        );
+        expanded = expanded.replaceAll(
+                "(?i)(?<=\\S)\\s+(?:[-*+]\\s+)?(?=(?:bài|bai)\\s+\\d+\\s*[:：.\\-])",
+                "\n"
+        );
+        return expanded.split("\\R");
     }
 
     private static String normalizeLessonLine(String line) {

@@ -105,7 +105,17 @@ public final class ChapterHeadingUtils {
                 || stripped.startsWith("a timeline of")
                 || stripped.equals("title page")
                 || stripped.equals("main material")
-                || stripped.matches("how to use this (?:book|guide).*")
+                || stripped.equals("outline of the book")
+                || stripped.startsWith("a roadmap for")
+                || stripped.startsWith("roadmap for")
+                || stripped.matches("why study\\b.*")
+                || stripped.contains("internet and web resources")
+                || stripped.contains("for readers and instructors")
+                || stripped.startsWith("how to use this")
+                || stripped.startsWith("how to read this")
+                || stripped.startsWith("organization of this book")
+                || stripped.startsWith("to the student")
+                || stripped.startsWith("to the instructor")
                 || stripped.equals("who this book is for")) {
             return true;
         }

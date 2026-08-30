@@ -67,6 +67,42 @@ Giải thích: Index 1 là banana.
   assert.equal(extracted.quiz.options[1].text, 'banana');
 });
 
+test('parses Đáp án without a colon', () => {
+  const quiz = parseUnderstandingQuiz(`
+Câu hỏi: Vai trò của Controller?
+A. Chỉ View
+B. View và Model
+C. Chỉ Model
+Đáp án B
+Giải thích: Controller nối View với Model.
+`);
+  assert.equal(quiz.correctKey, 'B');
+  assert.equal(quiz.explanation, 'Controller nối View với Model.');
+});
+
+test('parses English "the correct answer is" keys', () => {
+  const quiz = parseUnderstandingQuiz(`
+Câu hỏi: Lần lặp thứ hai lấy giá trị nào?
+A. apple
+B. banana
+C. cherry
+The correct answer is B
+`);
+  assert.equal(quiz.correctKey, 'B');
+  assert.equal(quiz.options[1].text, 'banana');
+});
+
+test('parses a trailing lone letter after the options', () => {
+  const quiz = parseUnderstandingQuiz(`
+Câu hỏi: Lần lặp thứ hai lấy giá trị nào?
+A. apple
+B. banana
+C. cherry
+B
+`);
+  assert.equal(quiz.correctKey, 'B');
+});
+
 test('grades leaked answer text without calling the tutor', () => {
   const quiz = parseUnderstandingQuiz(`
 Câu hỏi: Bạn hiểu đúng về vai trò của Controller trong kiến trúc MVC chưa?

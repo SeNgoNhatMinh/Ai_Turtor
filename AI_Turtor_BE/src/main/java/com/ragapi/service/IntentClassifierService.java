@@ -66,13 +66,33 @@ public class IntentClassifierService {
                     false, "RULE");
         }
 
-        if (StudentChatIntentDetector.isStudyPlanningInteraction(message)) {
+        if (StudentChatIntentDetector.isLessonStart(message)) {
             return base(MODE_RAG,
-                    "Student requested a learning plan or revision direction",
+                    "Student selected a numbered lesson to study",
+                    0.96,
+                    "LESSON_TEACH",
+                    domain,
+                    "Teach this one lesson as a tutor, grounded in course material. Allow a small example when the material supports it.",
+                    true, "RULE");
+        }
+
+        if (StudentChatIntentDetector.isTopicStudyStart(message)) {
+            return base(MODE_RAG,
+                    "Student wants to start studying a topic",
                     0.95,
                     "LEARNING_PATH",
                     domain,
-                    "Build a personalized learning path from course material and learner memory.",
+                    "Propose a numbered lesson path from course material. Do not dump a full definition yet.",
+                    true, "RULE");
+        }
+
+        if (StudentChatIntentDetector.isStudyPlanningInteraction(message)) {
+            return base(MODE_RAG,
+                    "Student asked what to study or review next on the current topic",
+                    0.93,
+                    "EXPLAIN_CONCEPT",
+                    domain,
+                    "Suggest related review or the next concept for the current question. Do not start a numbered Bài 1-2-3 path.",
                     true, "RULE");
         }
 
@@ -94,26 +114,6 @@ public class IntentClassifierService {
                     domain,
                     "Politely redirect without course-material RAG.",
                     false, "RULE");
-        }
-
-        if (StudentChatIntentDetector.isLessonStart(message)) {
-            return base(MODE_RAG,
-                    "Student selected a numbered lesson to study",
-                    0.96,
-                    "LESSON_TEACH",
-                    domain,
-                    "Teach this one lesson as a tutor, grounded in course material. Allow a small example when the material supports it.",
-                    true, "RULE");
-        }
-
-        if (StudentChatIntentDetector.isTopicStudyStart(message)) {
-            return base(MODE_RAG,
-                    "Student wants to start studying a topic",
-                    0.95,
-                    "LEARNING_PATH",
-                    domain,
-                    "Propose a numbered lesson path from course material. Do not dump a full definition yet.",
-                    true, "RULE");
         }
 
         if (context.hasTeachContext()
@@ -254,9 +254,6 @@ public class IntentClassifierService {
         }
         if (containsAny(text, "hoi em", "dat cau hoi", "on tap", "kiem tra kien thuc", "tu de den kho")) {
             return "EXAM_PRACTICE";
-        }
-        if (containsAny(text, "hoc gi tiep", "nen hoc gi", "learning path", "can hoc kien thuc nao truoc", "lien quan chuong nao")) {
-            return "LEARNING_PATH";
         }
         if (containsAny(text, "khac nhau", "so sanh", "difference", "compare")) {
             return "COMPARE_CONCEPTS";

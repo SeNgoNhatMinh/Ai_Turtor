@@ -46,6 +46,7 @@ class StudentChatIntentDetectorTest {
         assertFalse(StudentChatIntentDetector.isAllowedInteraction(question));
         assertFalse(StudentChatIntentDetector.isStudyPlanningInteraction(question));
         assertTrue(StudentChatIntentDetector.isStudyPlanningInteraction("Mình nên ôn gì tiếp?"));
+        assertFalse(StudentChatIntentDetector.isAllowedInteraction("Mình nên ôn gì tiếp?"));
     }
 
     @Test
@@ -54,6 +55,7 @@ class StudentChatIntentDetectorTest {
         assertTrue(StudentChatIntentDetector.isTopicStudyStart("Hôm nay mình học Servlet"));
         assertTrue(StudentChatIntentDetector.isTopicStudyStart("Mình muốn học JSP"));
         assertTrue(StudentChatIntentDetector.isTopicStudyStart("Nay mình học Alternative execution"));
+        assertTrue(StudentChatIntentDetector.isTopicStudyStart("Học bài lập trình hướng đối tượng"));
         assertFalse(StudentChatIntentDetector.isTopicStudyStart("Servlet là gì?"));
         assertFalse(StudentChatIntentDetector.isTopicStudyStart("Hôm nay mình hơi mệt, học chậm với mình nhé"));
         assertFalse(StudentChatIntentDetector.isTopicStudyStart("mai mấy giờ học"));

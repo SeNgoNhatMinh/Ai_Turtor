@@ -197,3 +197,38 @@ test('turns Bài tiếp theo into a clickable study-tip link', () => {
   assert.match(output, /## Bài tiếp theo/);
   assert.match(output, /\[Bài 2 – Sử dụng biến lặp \(itervar\) trong thân vòng\.\]\(#ai-study-tip-1\)/);
 });
+
+test('strips prompt narration from a broken Bài tiếp theo section', () => {
+  const output = normalizeAiMarkdown([
+    '## Kiểm tra hiểu',
+    'Câu hỏi: TLD dùng để làm gì?',
+    '',
+    '## Bài tiếp theo',
+    '(Omit as per instruction: "Name the next Bài only when teaching a numbered lesson path; otherwise omit." I don\'t have a numbered path provided, so I\'ll omit it to be safe, or I can just include the heading.)',
+    '- Wait, the prompt says:',
+    '- "## Bài tiếp theo',
+  ].join('\n'));
+
+  assert.doesNotMatch(output, /the prompt says/i);
+  assert.doesNotMatch(output, /Omit as per/i);
+  assert.doesNotMatch(output, /## Bài tiếp theo/);
+  assert.match(output, /Kiểm tra hiểu/);
+});
+
+test('normal concept answers do not keep a numbered Bài 1-2-3 follow-up', () => {
+  const output = normalizeAiMarkdown([
+    '## Theo tài liệu môn học',
+    'OOP gom dữ liệu và hành vi vào đối tượng.',
+    '',
+    '## Bài tiếp theo',
+    '- Bài 1: Tổng quan OOP',
+    '- Bài 2: Kế thừa',
+    '',
+    '## Lưu ý để học tốt hơn',
+    '- Ôn encapsulation',
+  ].join('\n'));
+
+  assert.doesNotMatch(output, /## Bài tiếp theo/);
+  assert.doesNotMatch(output, /Bài 1: Tổng quan OOP/);
+  assert.match(output, /Ôn encapsulation/);
+});

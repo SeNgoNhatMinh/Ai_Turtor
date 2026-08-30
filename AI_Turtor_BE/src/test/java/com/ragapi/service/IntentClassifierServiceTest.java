@@ -71,6 +71,16 @@ class IntentClassifierServiceTest {
     }
 
     @Test
+    void whatToStudyNext_staysOnCurrentTopicNotNumberedPath() {
+        var result = service.classify("Mình nên ôn gì tiếp?", "", "PRO192");
+
+        assertEquals(IntentClassifierService.MODE_RAG, result.getMode());
+        assertEquals("EXPLAIN_CONCEPT", result.getSubIntent());
+        assertNotEquals("LEARNING_PATH", result.getSubIntent());
+        assertTrue(result.getRequiresCourseMaterial());
+    }
+
+    @Test
     void numberedLessonStart_routesToLessonTeach() {
         var result = service.classify("Bắt đầu bài 1: Servlet là gì?", "", "PRJ301");
 

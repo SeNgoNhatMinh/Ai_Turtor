@@ -35,20 +35,57 @@ public final class TutorStudySuggestionUtils {
     }
 
     public static List<String> openingSuggestions(String courseId, List<String> weakTopics, List<RankedTitle> chapters) {
-        LinkedHashSet<String> result = new LinkedHashSet<>();
+        return openingSuggestions(courseId, weakTopics, List.of(), chapters);
+    }
+
+    public static List<String> openingSuggestions(
+            String courseId,
+            List<String> weakTopics,
+            List<String> recentQuestions,
+            List<RankedTitle> chapters
+    ) {
+        LinkedHashSet<String> personal = new LinkedHashSet<>(askedTopicChips(recentQuestions));
         if (weakTopics != null) {
             weakTopics.stream()
                     .filter(Objects::nonNull)
                     .map(String::trim)
+                    .filter(topic -> !topic.isBlank())
                     .filter(ChapterHeadingUtils::isStudyUnitTitle)
                     .limit(2)
-                    .forEach(result::add);
+                    .forEach(personal::add);
         }
+        if (!personal.isEmpty()) {
+            return personal.stream().limit(4).toList();
+        }
+        LinkedHashSet<String> result = new LinkedHashSet<>();
         pickChapterSuggestions(chapters, 4).forEach(result::add);
         if (result.isEmpty()) {
             result.addAll(courseStarters(courseId));
         }
         return result.stream().limit(4).toList();
+    }
+
+    /** Recent student questions, newest first, as clickable path chips. */
+    public static List<String> askedTopicChips(List<String> recentQuestions) {
+        if (recentQuestions == null || recentQuestions.isEmpty()) {
+            return List.of();
+        }
+        LinkedHashSet<String> result = new LinkedHashSet<>();
+        for (int i = recentQuestions.size() - 1; i >= 0 && result.size() < 4; i--) {
+            String question = recentQuestions.get(i);
+            if (question == null || question.isBlank()) {
+                continue;
+            }
+            String trimmed = question.trim().replaceAll("\\s+", " ");
+            if (trimmed.length() < 8 || ChapterHeadingUtils.isBookFrontMatterTitle(trimmed)) {
+                continue;
+            }
+            if (trimmed.length() > 90) {
+                trimmed = trimmed.substring(0, 87).trim() + "...";
+            }
+            result.add(trimmed);
+        }
+        return List.copyOf(result);
     }
 
     public static List<String> pickChapterSuggestions(List<RankedTitle> chapters, int limit) {
@@ -60,12 +97,12 @@ public final class TutorStudySuggestionUtils {
                 .filter(chapter -> ChapterHeadingUtils.isStudyUnitTitle(chapter.title()))
                 .toList();
         List<RankedTitle> topLevel = units.stream()
-                .filter(chapter -> chapter.tocLevel() <= 1 || looksNumbered(chapter.title()))
+                .filter(chapter -> chapter.tocLevel() <= 1 || looksNumberedLesson(chapter.title()))
                 .toList();
         List<RankedTitle> chosen = topLevel.isEmpty() ? units : topLevel;
         return chosen.stream()
                 .sorted(Comparator
-                        .comparingInt((RankedTitle chapter) -> looksNumbered(chapter.title()) ? 0 : 1)
+                        .comparingInt((RankedTitle chapter) -> looksNumberedLesson(chapter.title()) ? 0 : 1)
                         .thenComparingInt(chapter -> chapter.tocLevel() > 0 ? chapter.tocLevel() : 99)
                         .thenComparingInt(chapter -> chapter.pageStart() > 0
                                 ? chapter.pageStart()
@@ -95,7 +132,8 @@ public final class TutorStudySuggestionUtils {
                         || ChapterHeadingUtils.isSentenceLikeHeading(item)
                         || ChapterHeadingUtils.isCourseOverviewChip(item)
                         || isCourseAgnosticStarter(item)
-                        || looksLikeRawMaterialHeading(item));
+                        || looksLikeRawMaterialHeading(item)
+                        || looksLikePrefaceNumbering(item));
         if (hasJunk) {
             return true;
         }
@@ -111,10 +149,24 @@ public final class TutorStudySuggestionUtils {
     }
 
     static boolean looksLikeRawMaterialHeading(String title) {
-        if (title == null || title.isBlank() || looksNumbered(title)) {
+        if (title == null || title.isBlank() || looksNumberedLesson(title)) {
             return false;
         }
         return title.trim().matches("[A-Za-z0-9 ,.'()/+_-]+");
+    }
+
+    public static boolean looksNumberedLesson(String title) {
+        if (!looksNumbered(title) || looksLikePrefaceNumbering(title)) {
+            return false;
+        }
+        return true;
+    }
+
+    static boolean looksLikePrefaceNumbering(String title) {
+        if (title == null || title.isBlank()) {
+            return false;
+        }
+        return title.trim().matches("(?i)^0+(?:\\.\\d+)*\\b.*");
     }
 
     public static boolean looksNumbered(String title) {

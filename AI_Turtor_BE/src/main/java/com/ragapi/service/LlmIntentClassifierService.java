@@ -114,9 +114,11 @@ public class LlmIntentClassifierService {
                 Rules:
                 - Natural wording such as "giúp mình hiểu", follow-up questions, or a bare concept name
                   is normally RAG, not conversational and not CODE.
-                - "Nay mình học X" / wanting to start studying a topic → LEARNING_PATH
+                - "Nay mình học X" / "học bài X" / wanting to start studying a topic → LEARNING_PATH
                   (propose a numbered lesson path; do not dump a full definition).
                 - "Bắt đầu bài N: ..." → LESSON_TEACH (teach that one lesson as a tutor).
+                - "học gì tiếp", "ôn gì", "nên học gì" during a normal Q&A → EXPLAIN_CONCEPT.
+                  Suggest review or a related next concept for the CURRENT question. Do NOT start Bài 1, 2, 3.
                 - If recent chat shows a previous student question and the current message is a short
                   follow-up ("có ví dụ ko?", "ví dụ đi", "còn response thì sao?", "chưa hiểu"),
                   stay on THAT previous question. Do not jump to a different chapter.

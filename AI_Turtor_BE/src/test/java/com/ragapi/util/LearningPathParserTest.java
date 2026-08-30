@@ -93,6 +93,18 @@ class LearningPathParserTest {
     }
 
     @Test
+    void nextLessonBulletUsesTheFollowingNumberedPathItem() {
+        String path = "1. Bài 1: Servlet 2. Bài 2: Request 5. Bài 5: Custom tag 6. Bài 6: Kiểm tra runtime custom tag";
+        assertEquals(
+                "- Bài 6: Kiểm tra runtime custom tag",
+                LearningPathParser.nextLessonBullet(
+                        "Bắt đầu bài 5: Triển khai custom tag trong JSPX và kiểm tra runtime",
+                        path
+                )
+        );
+    }
+
+    @Test
     void ignoresAnswersWithoutBaiLessons() {
         assertTrue(LearningPathParser.parseLessonSuggestions(
                 "## Theo tài liệu môn học\nServlet là chương trình Java chạy trên web server."

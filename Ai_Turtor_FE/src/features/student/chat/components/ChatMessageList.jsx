@@ -109,7 +109,8 @@ function ChatMessageList({
               || localEscalationIds[messageKey]
               || existingMentorRequest?.id
               || existingMentorRequest?.questionEscalationId;
-            const showMentorSupport = Boolean(escalationId || openSupportCards[messageKey]);
+            const isWelcomeTurn = Boolean(message.proactive) || !String(message.question || '').trim();
+            const showMentorSupport = !isWelcomeTurn && Boolean(escalationId || openSupportCards[messageKey]);
 
             return (
                 <div
@@ -166,7 +167,7 @@ function ChatMessageList({
                           sourceMap={materialSourceMap}
                           onDownloadSource={onDownloadSource}
                         />
-                        {!message.canceled && !message.aiServiceError && (
+                        {!message.canceled && !message.aiServiceError && !isWelcomeTurn && (
                           <AnswerImproveSuggestions
                             suggestions={lessonSuggestionsForMessage(message)}
                             onStudy={onStudySuggestion}
@@ -174,7 +175,7 @@ function ChatMessageList({
                             sourceMode={message.mode}
                           />
                         )}
-                        {!message.canceled && !message.sessionComplete && (
+                        {!message.canceled && !message.sessionComplete && !isWelcomeTurn && (
                           <AnswerActionBar
                             message={message}
                             mentorRequestInProgress={showMentorSupport}
@@ -205,7 +206,7 @@ function ChatMessageList({
                           />
                         )}
 
-                        {!message.canceled && (
+                        {!message.canceled && !isWelcomeTurn && (
                           <AnswerFeedbackControls
                             index={index}
                             message={message}
