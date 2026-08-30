@@ -46,7 +46,7 @@ class VietnameseOutputEnforcerTest {
     void wrapOllamaCompletenessAsksForFinishedShortAnswers() {
         String wrapped = VietnameseOutputEnforcer.wrapOllamaCompleteness("Answer briefly.");
         assertTrue(wrapped.contains("LOCAL MODEL OUTPUT BUDGET"));
-        assertTrue(wrapped.contains("Write a FULL student-facing lesson"));
+        assertTrue(wrapped.contains("## Kiểm tra hiểu"));
         assertEquals(wrapped, VietnameseOutputEnforcer.wrapOllamaCompleteness(wrapped));
     }
 }

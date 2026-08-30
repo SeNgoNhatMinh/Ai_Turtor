@@ -1200,7 +1200,7 @@ public class CourseRagService {
                         ? "- No active teacher directive." : pedagogicalContext,
                 learnerMemoryContext == null || learnerMemoryContext.isBlank()
                         ? "- No prior learner memory." : learnerMemoryContext,
-                responseFormatBlock(learningPath, lessonTeach),
+                responseFormatBlock(learningPath, lessonTeach, compactLocal),
                 courseId == null ? "" : courseId,
                 classId == null ? "" : classId,
                 sourceLabels == null ? "" : String.join(", ", sourceLabels),
@@ -1304,7 +1304,7 @@ public class CourseRagService {
                 """;
     }
 
-    private String responseFormatBlock(boolean learningPath, boolean lessonTeach) {
+    private String responseFormatBlock(boolean learningPath, boolean lessonTeach, boolean compactLocal) {
         if (learningPath) {
             return """
                 ## Lộ trình học
@@ -1344,6 +1344,7 @@ public class CourseRagService {
                 Đáp án: <A or B or C>
                 Giải thích: <one short sentence from the material why that choice is correct>
                 Do not put the correct choice into the question text.
+                %s
 
                 ## Bài tiếp theo
                 Name the next Bài only when teaching a numbered lesson path; otherwise omit.
@@ -1352,7 +1353,7 @@ public class CourseRagService {
 
                 ## Nguồn tài liệu đã dùng
                 List only the materialId or approvedKnowledgeId values supplied in SOURCE MATERIAL IDS. Do not invent sources.
-                """;
+                """.formatted(compactLocal ? ollamaQuizReminder() : "");
         }
         return """
                 ## Theo tài liệu môn học
@@ -1369,6 +1370,13 @@ public class CourseRagService {
 
                 ## Nguồn tài liệu đã dùng
                 List only the materialId or approvedKnowledgeId values supplied in SOURCE MATERIAL IDS. Do not invent sources.
+                """;
+    }
+
+    private String ollamaQuizReminder() {
+        return """
+                LOCAL MODEL: copy that quiz shape exactly. Heading must be "## Kiểm tra hiểu", never "Understanding Check".
+                Put A. B. C. on separate lines. Do not write (A) (B) (C) in one paragraph.
                 """;
     }
 

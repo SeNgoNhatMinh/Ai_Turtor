@@ -55,7 +55,7 @@ public class ImproveSuggestionService {
 
         List<SuggestionItem> ruleSuggestions = buildRuleSuggestions(memory);
         String aiSuggestion = null;
-        if (Boolean.TRUE.equals(request.getIncludeAiSuggestion())) {
+        if (Boolean.TRUE.equals(request.getIncludeAiSuggestion()) && !chatService.isOllamaOnlyActive()) {
             aiSuggestion = buildAiSuggestion(request, memory);
         }
 

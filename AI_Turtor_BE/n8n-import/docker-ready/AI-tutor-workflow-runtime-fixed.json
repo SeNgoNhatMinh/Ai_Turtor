@@ -49,7 +49,7 @@
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({\n  message: $node['Set - Trace Context'].json.message,\n  question: $node['Set - Trace Context'].json.question,\n  codeSnippet: $node['Set - Trace Context'].json.codeSnippet,\n  courseId: $node['Set - Trace Context'].json.courseId,\n  classId: $node['Set - Trace Context'].json.classId,\n  conversationId: $node['Set - Trace Context'].json.conversationId,\n  tutorSessionId: $node['Set - Trace Context'].json.tutorSessionId,\n  sessionPhase: $node['Set - Trace Context'].json.sessionPhase,\n  quotaConsumed: true,\n  harnessMode: 'RAG'\n}) }}",
         "options": {
-          "timeout": 300000
+          "timeout": 420000
         }
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -60,9 +60,7 @@
       ],
       "id": "6f28811f-529c-4db5-ab37-77ae7652c5b6",
       "name": "Course RAG Query",
-      "retryOnFail": true,
-      "maxTries": 2,
-      "waitBetweenTries": 3000,
+      "retryOnFail": false,
       "onError": "continueRegularOutput"
     },
     {
@@ -111,8 +109,7 @@
       "id": "c3d92235-94ba-46ec-83f7-d8a3ac7b5641",
       "name": "Intent Classifier",
       "onError": "continueRegularOutput",
-      "retryOnFail": true,
-      "maxTries": 2
+      "retryOnFail": false
     },
     {
       "parameters": {
@@ -288,7 +285,7 @@
         },
         "sendBody": true,
         "options": {
-          "timeout": 300000
+          "timeout": 420000
         },
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({\n  studentId: $node['Set - Trace Context'].json.studentId,\n  courseId: $node['Set - Trace Context'].json.courseId,\n  classId: $node['Set - Trace Context'].json.classId,\n  question: $node['Set - Trace Context'].json.question,\n  code: $node['Set - Trace Context'].json.codeSnippet,\n  conversationId: $node['Set - Trace Context'].json.conversationId\n}) }}"
@@ -301,9 +298,7 @@
       ],
       "id": "bc381681-05c8-44d1-a0f9-8e740a50971f",
       "name": "Code Mentor Query",
-      "retryOnFail": true,
-      "maxTries": 2,
-      "waitBetweenTries": 3000,
+      "retryOnFail": false,
       "onError": "continueRegularOutput"
     },
     {

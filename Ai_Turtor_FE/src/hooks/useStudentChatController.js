@@ -48,6 +48,17 @@ const waitForConversationPersistence = () => new Promise((resolve) => {
 });
 
 const CANONICAL_ANSWER_RETRY_DELAYS = [0, 350, 800];
+const IN_FLIGHT_ANSWER_RETRY_DELAYS = [2000, 4000, 8000, 10000, 15000, 20000, 20000];
+
+const fetchCanonicalAnswer = async ({ conversationId, userId, question, signal }) => {
+  if (!conversationId || !userId) return null;
+  const chatMessages = await conversationApi.getMessages(conversationId, userId, {
+    signal,
+    skipUnauthorizedRedirect: true,
+  });
+  const messagePairs = pairMessages(asArray(chatMessages, 'content', 'messages'));
+  return findCanonicalExchange(messagePairs, question);
+};
 
 const recoverCanonicalAnswer = async ({ conversationId, userId, question, signal }) => {
   if (!conversationId || !userId) return null;
@@ -60,12 +71,7 @@ const recoverCanonicalAnswer = async ({ conversationId, userId, question, signal
     if (signal?.aborted) return null;
 
     try {
-      const chatMessages = await conversationApi.getMessages(conversationId, userId, {
-        signal,
-        skipUnauthorizedRedirect: true,
-      });
-      const messagePairs = pairMessages(asArray(chatMessages, 'content', 'messages'));
-      const exchange = findCanonicalExchange(messagePairs, question);
+      const exchange = await fetchCanonicalAnswer({ conversationId, userId, question, signal });
       if (exchange) return exchange;
     } catch (error) {
       if (signal?.aborted) return null;
@@ -75,6 +81,57 @@ const recoverCanonicalAnswer = async ({ conversationId, userId, question, signal
 
   return null;
 };
+
+const recoverInFlightAnswer = async ({
+  conversationId,
+  userId,
+  question,
+  signal,
+  loadSessions,
+}) => {
+  let resolvedConversationId = conversationId;
+
+  for (const delayMs of IN_FLIGHT_ANSWER_RETRY_DELAYS) {
+    if (signal?.aborted) return null;
+    await new Promise((resolve) => globalThis.setTimeout(resolve, delayMs));
+    if (signal?.aborted) return null;
+
+    if (!resolvedConversationId && typeof loadSessions === 'function') {
+      try {
+        const sessions = await loadSessions({ silent: true });
+        const newest = Array.isArray(sessions) ? sessions[0] : null;
+        resolvedConversationId = newest?.id || resolvedConversationId;
+      } catch {
+        // Keep polling while the first generate is still persisting.
+      }
+    }
+
+    if (!resolvedConversationId) continue;
+
+    try {
+      const exchange = await fetchCanonicalAnswer({
+        conversationId: resolvedConversationId,
+        userId,
+        question,
+        signal,
+      });
+      if (exchange) {
+        return {
+          ...exchange,
+          conversationId: resolvedConversationId,
+        };
+      }
+    } catch (error) {
+      if (signal?.aborted) return null;
+    }
+  }
+
+  return null;
+};
+
+const isN8nTimeoutError = (error) => (
+  error?.details?.code === 'N8N_TIMEOUT' || error?.code === 'N8N_TIMEOUT'
+);
 
 const createMissingChatAnswerError = () => {
   const error = new Error('The AI workflow completed without a chat answer.');
@@ -280,20 +337,36 @@ export function useStudentChatController({
           }, { signal: requestController.signal });
         } catch (n8nError) {
           if (requestController.signal.aborted) throw n8nError;
-          if (N8N_STRICT) throw n8nError;
-          console.warn('n8n request failed, trying backend API fallback:', n8nError);
-          data = await aiTutorApi.sendQuery({
-            question: text,
-            message: text,
-            codeSnippet: codeSnippet || null,
-            courseId,
-            classId,
-            conversationId: previousSessionId || null,
-            tutorSessionId: activeTutorSession?.id || null,
-            sessionPhase: activeTutorSession?.phase || 'TEACH',
-          }, userId, currentUser?.fullName || '', currentUser?.email || '', {
-            signal: requestController.signal,
-          });
+          if (isN8nTimeoutError(n8nError)) {
+            console.warn('n8n timed out; waiting for the in-flight answer instead of generating again');
+            const recovered = await recoverInFlightAnswer({
+              conversationId: previousSessionId || '',
+              userId,
+              question: text,
+              signal: requestController.signal,
+              loadSessions: (opts) => loadChatSessions(opts),
+            });
+            if (recovered) {
+              data = recovered;
+            } else {
+              throw n8nError;
+            }
+          } else {
+            if (N8N_STRICT) throw n8nError;
+            console.warn('n8n request failed, trying backend API fallback:', n8nError);
+            data = await aiTutorApi.sendQuery({
+              question: text,
+              message: text,
+              codeSnippet: codeSnippet || null,
+              courseId,
+              classId,
+              conversationId: previousSessionId || null,
+              tutorSessionId: activeTutorSession?.id || null,
+              sessionPhase: activeTutorSession?.phase || 'TEACH',
+            }, userId, currentUser?.fullName || '', currentUser?.email || '', {
+              signal: requestController.signal,
+            });
+          }
         }
       } else {
         data = await aiTutorApi.sendQuery({

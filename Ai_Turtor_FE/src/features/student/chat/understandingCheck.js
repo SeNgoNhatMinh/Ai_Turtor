@@ -1,6 +1,7 @@
-const CHECK_HEADING = /^(#{1,6})\s*kiểm tra hiểu\s*$/im;
-const OPTION_MARK = /(?:^|\s)([A-D])\.\s+/g;
-const ANSWER_LINE = /(?:^|\n)\s*(?:đáp án|dap an|answer|correct)\s*[:：]\s*([A-Da-d])\b\.?/i;
+const CHECK_HEADING = /^(#{1,6})\s*(?:kiểm tra hiểu|understanding check)\s*$/im;
+const OPTION_MARK = /(?:^|\s)(?:\(([A-Da-d])\)|([A-Da-d])\.)\s+/g;
+const ANSWER_LINE = /(?:đáp án|dap an|answer|correct)(?:\s+đúng)?\s*(?:là|:|：)\s*([A-Da-d])\b/i;
+const LEAKED_ANSWER = /nếu bạn chọn(?:\s+đáp án)?\s+([A-Da-d])\b/i;
 const EXPLAIN_LINE = /(?:^|\n)\s*(?:giải thích|giai thich|explanation|lý do|ly do)\s*[:：]\s*([\s\S]+)$/i;
 const QUESTION_PREFIX = /^(?:câu hỏi|cau hoi|question)\s*[:：]\s*/im;
 
@@ -25,11 +26,11 @@ export function parseUnderstandingQuiz(sectionBody) {
   const raw = String(sectionBody || '').trim();
   if (!raw) return null;
 
-  const answerMatch = raw.match(ANSWER_LINE);
+  const answerMatch = raw.match(ANSWER_LINE) || raw.match(LEAKED_ANSWER);
   const explainMatch = raw.match(EXPLAIN_LINE);
   let working = raw;
   if (explainMatch) working = working.replace(explainMatch[0], '\n');
-  if (answerMatch) working = working.replace(answerMatch[0], '\n');
+  if (raw.match(ANSWER_LINE)) working = working.replace(ANSWER_LINE, '\n');
   working = working.replace(QUESTION_PREFIX, '').trim();
 
   const marks = [];
@@ -37,7 +38,7 @@ export function parseUnderstandingQuiz(sectionBody) {
   let match = OPTION_MARK.exec(working);
   while (match) {
     marks.push({
-      key: match[1].toUpperCase(),
+      key: (match[1] || match[2]).toUpperCase(),
       start: match.index,
       textStart: match.index + match[0].length,
     });
@@ -59,11 +60,24 @@ export function parseUnderstandingQuiz(sectionBody) {
 
   if (options.length < 2) return null;
 
+  let correctKey = answerMatch ? answerMatch[1].toUpperCase() : '';
+  let explanation = explainMatch ? stripDecorations(explainMatch[1]) : '';
+  const last = options[options.length - 1];
+  const leaked = last?.text?.match(
+    /^(.{12,}?[.!?])\s+(Nếu bạn chọn(?:\s+đáp án)?\s+[A-D]\b[\s\S]+)$/i,
+  );
+  if (leaked) {
+    last.text = stripDecorations(leaked[1]);
+    const leakedKey = leaked[2].match(LEAKED_ANSWER);
+    if (!correctKey && leakedKey) correctKey = leakedKey[1].toUpperCase();
+    if (!explanation) explanation = stripDecorations(leaked[2]);
+  }
+
   return {
     question: `${question}?`,
     options,
-    correctKey: answerMatch ? answerMatch[1].toUpperCase() : '',
-    explanation: explainMatch ? stripDecorations(explainMatch[1]) : '',
+    correctKey,
+    explanation,
   };
 }
 

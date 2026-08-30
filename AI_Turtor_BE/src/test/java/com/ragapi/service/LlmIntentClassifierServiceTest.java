@@ -87,4 +87,12 @@ class LlmIntentClassifierServiceTest {
                 prompt.contains("Bắt đầu bài 1: Servlet là gì?")
                         && prompt.contains("còn response thì sao?")));
     }
+
+    @Test
+    void skipsLlmWhenOllamaOnlyIsActive() {
+        when(chatService.isOllamaOnlyActive()).thenReturn(true);
+
+        assertTrue(service.classify("Controller trong MVC dùng để làm gì?", "", "PRJ301").isEmpty());
+        verify(chatService, org.mockito.Mockito.never()).generateUtility(anyString());
+    }
 }

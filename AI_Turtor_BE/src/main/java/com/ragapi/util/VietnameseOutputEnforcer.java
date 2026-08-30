@@ -62,7 +62,16 @@ public final class VietnameseOutputEnforcer {
 
                 LOCAL MODEL OUTPUT BUDGET:
                 - Write a FULL student-facing lesson. Cover every required heading with real content (not one-line stubs).
-                - Include explanation, a small example when the material supports it, the understanding-check (A/B/C), and sources.
+                - If you include a quiz, the heading MUST be exactly "## Kiểm tra hiểu" (never "Understanding Check").
+                - Quiz options MUST be on separate lines as "A. ..." "B. ..." "C. ...". Never write (A) (B) (C) on one line.
+                - Copy this shape:
+                  ## Kiểm tra hiểu
+                  Câu hỏi: <one short question>
+                  A. <choice>
+                  B. <choice>
+                  C. <choice>
+                  Đáp án: <A or B or C>
+                  Giải thích: <one short sentence>
                 - Never stop mid-sentence, mid-list, or mid-code fence. Close every markdown code fence.
                 - Do not omit a required heading to save tokens. Finish the last heading before you stop.
                 """;

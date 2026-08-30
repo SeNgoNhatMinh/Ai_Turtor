@@ -1,12 +1,8 @@
 import { useState } from 'react';
 import { CircleHelp } from 'lucide-react';
-import MarkdownRenderer from '../../../../components/markdown/MarkdownRenderer';
 
-function UnderstandingCheckQuiz({ quiz, onCheckAnswer }) {
+function UnderstandingCheckQuiz({ quiz }) {
   const [selectedKey, setSelectedKey] = useState('');
-  const [checking, setChecking] = useState(false);
-  const [tutorAnswer, setTutorAnswer] = useState('');
-  const [checkError, setCheckError] = useState('');
 
   if (!quiz?.question || !Array.isArray(quiz.options) || quiz.options.length < 2) {
     return null;
@@ -16,30 +12,9 @@ function UnderstandingCheckQuiz({ quiz, onCheckAnswer }) {
   const hasKey = Boolean(quiz.correctKey);
   const isCorrect = hasKey && selectedKey === quiz.correctKey;
   const correctOption = quiz.options.find((item) => item.key === quiz.correctKey);
-  const verdict = /chưa đúng|sai rồi|không đúng/i.test(tutorAnswer)
-    ? 'is-wrong'
-    : /đúng rồi|chính xác|^đúng\b/i.test(tutorAnswer)
-      ? 'is-correct'
-      : '';
 
   const selectOption = (key) => {
     setSelectedKey(key);
-    setTutorAnswer('');
-    setCheckError('');
-  };
-
-  const askTutor = async () => {
-    if (!selected || !onCheckAnswer || checking) return;
-    setChecking(true);
-    setCheckError('');
-    try {
-      const answer = await onCheckAnswer(quiz, selected);
-      setTutorAnswer(String(answer || '').trim());
-    } catch (error) {
-      setCheckError(error?.userMessage || error?.message || 'Không kiểm tra được đáp án. Thử lại nhé.');
-    } finally {
-      setChecking(false);
-    }
   };
 
   return (
@@ -48,7 +23,7 @@ function UnderstandingCheckQuiz({ quiz, onCheckAnswer }) {
         <CircleHelp size={16} aria-hidden="true" />
         <div>
           <strong>Kiểm tra hiểu</strong>
-          <span>Quiz nhanh — chọn một đáp án để xem đúng sai.</span>
+          <span>Chọn một đáp án để xem đúng sai và giải thích ngay, không gọi lại AI.</span>
         </div>
       </div>
       <p className="understanding-check__question">{quiz.question}</p>
@@ -76,7 +51,7 @@ function UnderstandingCheckQuiz({ quiz, onCheckAnswer }) {
         })}
       </div>
       {selected && (
-        <div className={`understanding-check__result ${hasKey ? (isCorrect ? 'is-correct' : 'is-wrong') : verdict}`}>
+        <div className={`understanding-check__result ${hasKey ? (isCorrect ? 'is-correct' : 'is-wrong') : ''}`}>
           {hasKey ? (
             <>
               <strong>{isCorrect ? 'Đúng rồi.' : 'Chưa đúng.'}</strong>
@@ -85,32 +60,14 @@ function UnderstandingCheckQuiz({ quiz, onCheckAnswer }) {
                   ? `Đáp án ${selected.key}: ${selected.text}`
                   : `Bạn chọn ${selected.key}. Đáp án đúng là ${quiz.correctKey}${correctOption ? `: ${correctOption.text}` : ''}.`}
               </p>
+              {quiz.explanation ? <p>{quiz.explanation}</p> : null}
             </>
           ) : (
             <>
               <strong>Bạn chọn {selected.key}.</strong>
-              {!tutorAnswer && !checking ? (
-                <p>Tutor sẽ chấm ngay trong ô này, không gửi xuống khung chat.</p>
-              ) : null}
+              <p>Câu này chưa kèm đáp án sẵn trong bài, nên chưa chấm được ngay.</p>
             </>
           )}
-          {quiz.explanation && hasKey ? <p>{quiz.explanation}</p> : null}
-          {!hasKey && onCheckAnswer && !tutorAnswer ? (
-            <button
-              type="button"
-              className="understanding-check__ask"
-              onClick={askTutor}
-              disabled={checking}
-            >
-              {checking ? 'Đang chấm...' : 'Nhờ tutor kiểm tra'}
-            </button>
-          ) : null}
-          {checkError ? <p className="understanding-check__error">{checkError}</p> : null}
-          {tutorAnswer ? (
-            <div className="understanding-check__tutor">
-              <MarkdownRenderer markdown={tutorAnswer} hideSourceSection />
-            </div>
-          ) : null}
         </div>
       )}
     </section>

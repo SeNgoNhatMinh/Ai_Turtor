@@ -42,7 +42,7 @@ public class LlmIntentClassifierService {
 
     public Optional<IntentClassification> classify(
             String message, String codeSnippet, String courseId, String recentHistory) {
-        if (!enabled) {
+        if (!enabled || chatService.isOllamaOnlyActive()) {
             return Optional.empty();
         }
 
