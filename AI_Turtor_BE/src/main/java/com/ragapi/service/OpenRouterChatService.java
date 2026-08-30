@@ -127,8 +127,16 @@ public class OpenRouterChatService {
 
     public String generate(String prompt, String studentQuestion) {
         String wrapped = VietnameseOutputEnforcer.wrapPrompt(prompt);
+        if (ollamaOnlyActive) {
+            wrapped = VietnameseOutputEnforcer.wrapOllamaCompleteness(wrapped);
+        }
         try {
             LlmProviderChain.Result result = generateInternalResult(wrapped);
+            if (ollamaOnlyActive) {
+                String raw = result.text() == null ? "" : result.text();
+                log.info("Ollama generation size: promptChars={}, answerChars={}",
+                        wrapped.length(), raw.length());
+            }
             String answer = TextSanitizer.cleanForStudentAnswer(result.text());
             answer = enforceVietnameseDiacritics(answer, studentQuestion, result.provider());
             if (StudentFacingMessages.isUnavailableMessage(answer)) {

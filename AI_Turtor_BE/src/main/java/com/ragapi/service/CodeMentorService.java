@@ -152,6 +152,33 @@ public class CodeMentorService {
     }
 
     private String buildPrompt(CodeMentorRequest request, boolean assignmentSafetyApplied, List<String> weakTopics) {
+        if (chatService.isOllamaOnlyActive()) {
+            return """
+                    You are a university technical mentor. Answer in the student's language (Vietnamese with diacritics if they wrote Vietnamese).
+                    Keep code identifiers unchanged. Give hints and a small focused example, not a full homework solution.
+                    Finish every required heading with real content (not stubs). Do not stop mid-sentence or leave an open code fence.
+
+                    ## Chẩn đoán vấn đề
+                    ## Nguyên nhân có thể
+                    ## Cách debug từng bước
+                    ## Gợi ý sửa
+                    ## Ví dụ nhỏ nếu cần
+                    ## Chủ đề nên ôn lại
+
+                    assignmentSafetyApplied: %s
+                    STUDENT QUESTION:
+                    %s
+
+                    CODE OR ERROR LOG:
+                    ```text
+                    %s
+                    ```
+                    """.formatted(
+                    assignmentSafetyApplied,
+                    safe(request.getQuestion()),
+                    safe(request.getCode())
+            );
+        }
         return """
                 You are a dedicated AI Technical Mentor for university students. You support code, algorithms, data structures, SQL, architecture, debugging, and step-by-step learning guidance.
 

@@ -41,4 +41,12 @@ class VietnameseOutputEnforcerTest {
         assertTrue(wrapped.contains("MANDATORY VIETNAMESE OUTPUT"));
         assertEquals(wrapped, VietnameseOutputEnforcer.wrapPrompt(wrapped));
     }
+
+    @Test
+    void wrapOllamaCompletenessAsksForFinishedShortAnswers() {
+        String wrapped = VietnameseOutputEnforcer.wrapOllamaCompleteness("Answer briefly.");
+        assertTrue(wrapped.contains("LOCAL MODEL OUTPUT BUDGET"));
+        assertTrue(wrapped.contains("Write a FULL student-facing lesson"));
+        assertEquals(wrapped, VietnameseOutputEnforcer.wrapOllamaCompleteness(wrapped));
+    }
 }

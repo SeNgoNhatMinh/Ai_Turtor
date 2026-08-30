@@ -48,6 +48,26 @@ public final class VietnameseOutputEnforcer {
         return prompt + PROMPT_SUFFIX;
     }
 
+    /**
+     * Local models must finish every required heading with real content, not a stub.
+     */
+    public static String wrapOllamaCompleteness(String prompt) {
+        if (prompt == null || prompt.isBlank()) {
+            return prompt;
+        }
+        if (prompt.contains("LOCAL MODEL OUTPUT BUDGET")) {
+            return prompt;
+        }
+        return prompt + """
+
+                LOCAL MODEL OUTPUT BUDGET:
+                - Write a FULL student-facing lesson. Cover every required heading with real content (not one-line stubs).
+                - Include explanation, a small example when the material supports it, the understanding-check (A/B/C), and sources.
+                - Never stop mid-sentence, mid-list, or mid-code fence. Close every markdown code fence.
+                - Do not omit a required heading to save tokens. Finish the last heading before you stop.
+                """;
+    }
+
     public static String buildCorrectionPrompt(String text) {
         return """
                 You are a Vietnamese copy editor. Fix ONLY missing diacritics in the text below.

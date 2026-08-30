@@ -119,11 +119,11 @@ ollama:
   chat:
     enabled: ${OLLAMA_CHAT_ENABLED:false}
     model: ${OLLAMA_CHAT_MODEL:}
-    timeout-seconds: ${OLLAMA_CHAT_TIMEOUT_SECONDS:180}
+    timeout-seconds: ${OLLAMA_CHAT_TIMEOUT_SECONDS:300}
     temperature: ${OLLAMA_CHAT_TEMPERATURE:0.2}
     top-k: ${OLLAMA_CHAT_TOP_K:40}
-    num-predict: ${OLLAMA_CHAT_NUM_PREDICT:1536}
-    num-ctx: ${OLLAMA_CHAT_NUM_CTX:4096}
+    num-predict: ${OLLAMA_CHAT_NUM_PREDICT:4096}
+    num-ctx: ${OLLAMA_CHAT_NUM_CTX:16384}
     max-retries: ${OLLAMA_CHAT_MAX_RETRIES:0}
 
 elasticsearch:
@@ -230,7 +230,7 @@ rag:
     min-keyword-overlap: ${RAG_APPROVED_KNOWLEDGE_MIN_KEYWORD_OVERLAP:0.12}
   generation:
     max-context-chars: ${RAG_GENERATION_MAX_CONTEXT_CHARS:12000}
-    ollama-max-context-chars: ${RAG_GENERATION_OLLAMA_MAX_CONTEXT_CHARS:8000}
+    ollama-max-context-chars: ${RAG_GENERATION_OLLAMA_MAX_CONTEXT_CHARS:6000}
   rerank:
     enabled: true
     api-key: ${OPENROUTER_RERANK_API_KEY:${OPENROUTER_API_KEY:missing-openrouter-api-key}}
