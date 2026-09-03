@@ -1,15 +1,18 @@
 import { lazy, Suspense, useEffect, useMemo } from 'react';
+import { useMatch } from 'react-router-dom';
 import AsyncState from '../../components/common/AsyncState';
 import { useStudentEnrollmentOptions } from '../../hooks/useStudentEnrollmentOptions';
 
 const studentPages = {
   'student-dashboard': lazy(() => import('../../features/student/dashboard/StudentDashboardPage')),
   'student-chat': lazy(() => import('../../features/student/chat/StudentChatPage')),
+  'student-live-lessons': lazy(() => import('../../features/live-lessons/StudentLiveLessonsPage')),
   'student-memory': lazy(() => import('../../features/student/learning/LearningProgressPage')),
   'student-quizzes': lazy(() => import('../../features/student/quizzes/PracticeQuizzesPage')),
   'student-materials': lazy(() => import('../../features/student/materials/StudentMaterialsPage')),
   'student-escalation': lazy(() => import('../../features/student/mentor-review/MentorReviewPage')),
 };
+const StudentLiveClassroomPage = lazy(() => import('../../features/live-lessons/LiveClassroomPage'));
 
 function StudentPageFallback() {
   return <AsyncState loading loadingLabel="Đang tải trang sinh viên..." loadingRows={6} />;
@@ -42,7 +45,8 @@ export default function StudentWorkspace({
     setClassId,
   });
   const studentId = enrollment.resolvedStudentId || currentUserId;
-  const Page = studentPages[activeTab];
+  const liveClassroomMatch = useMatch('/student/live-lessons/:lessonId');
+  const Page = liveClassroomMatch ? StudentLiveClassroomPage : studentPages[activeTab];
 
   useEffect(() => {
     if (!currentUserId) return;
@@ -65,6 +69,7 @@ export default function StudentWorkspace({
         switchTab={switchTab}
         triggerToast={triggerToast}
         enrollment={enrollment}
+        role="student"
       />
     </Suspense>
   );

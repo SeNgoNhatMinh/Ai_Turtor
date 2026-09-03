@@ -11,6 +11,7 @@ import {
   Users,
   Library,
   MessageCircle,
+  Video,
   BrainCircuit,
   FileText,
   House,
@@ -35,6 +36,14 @@ const navigationItems = [
     label: 'Trò chuyện AI Tutor',
     description: 'Hỏi theo môn học và xem lại lịch sử trò chuyện.',
     icon: MessageSquare,
+  },
+  {
+    key: 'student-live-lessons',
+    workspace: 'student',
+    group: 'Học tập',
+    label: 'Live theo lớp',
+    description: 'Vào buổi học video của lớp, chat với giảng viên và hỏi AI chỗ chưa hiểu.',
+    icon: Video,
   },
   {
     key: 'student-memory',
@@ -76,6 +85,15 @@ const navigationItems = [
     label: 'Lớp được phân công',
     description: 'Xem lớp, sinh viên và các chủ đề còn yếu.',
     icon: LayoutGrid,
+  },
+  {
+    key: 'teacher-live-lessons',
+    workspace: 'teacher',
+    allowedAccountRoles: [ACCOUNT_ROLES.TEACHER],
+    group: 'Giảng dạy',
+    label: 'Live video lớp',
+    description: 'Lên lịch video YouTube đã quay, mở buổi live và trả lời chat lớp.',
+    icon: Video,
   },
   {
     key: 'teacher-quizzes',
