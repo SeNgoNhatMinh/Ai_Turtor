@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Hand, Mic, MicOff } from 'lucide-react';
 import PageHeader from '../../components/common/PageHeader';
 import AiAnswer from '../../components/AiAnswer';
@@ -9,7 +9,7 @@ import { getUserFacingError } from '../../services/httpClient';
 import { youtubeWatchUrl } from '../../utils/youtubeVideo';
 import { useRealtimeEvent } from '../realtime/realtimeContext';
 import { formatLessonTime, STATUS_LABEL, waitingCopy } from './liveLessonUtils';
-import { clockAtMs, followPlaybackSeconds, mergePlaybackSnapshot, playbackSnapshotFromLesson } from './playbackClock';
+import { followPlaybackSeconds, mergePlaybackSnapshot, playbackSnapshotFromLesson, snapshotClockMs } from './playbackClock';
 import LiveSyncedPlayer from './LiveSyncedPlayer';
 import { useLiveLessonVoice } from './useLiveLessonVoice';
 import './live-lesson.css';
@@ -61,10 +61,12 @@ export default function LiveClassroomPage({
   triggerToast,
 }) {
   const { lessonId } = useParams();
+  const location = useLocation();
   const navigate = useNavigate();
+  const isTeacher = role === 'teacher' || String(location.pathname || '').includes('/teacher/live-lessons/');
   const [lesson, setLesson] = useState(null);
   const [snapshot, setSnapshot] = useState(null);
-  const [tab, setTab] = useState(role === 'teacher' ? 'people' : 'class');
+  const [tab, setTab] = useState(isTeacher ? 'people' : 'class');
   const [messages, setMessages] = useState([]);
   const [draft, setDraft] = useState('');
   const [aiQuestion, setAiQuestion] = useState('');
@@ -72,7 +74,6 @@ export default function LiveClassroomPage({
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [asking, setAsking] = useState(false);
-  const isTeacher = role === 'teacher';
   const displayName = currentUser?.fullName || currentUser?.name || currentUser?.email || '';
   const playbackActive = Boolean(lesson?.playbackActive);
   const voice = useLiveLessonVoice({
@@ -127,6 +128,7 @@ export default function LiveClassroomPage({
     if (String(event.entityId) !== String(lessonId)) return;
     const paused = event.data?.paused ?? event.data?.playbackPaused;
     const position = event.data?.positionSeconds;
+    const eventClock = snapshotClockMs(event.data, Date.now());
     setLesson((current) => {
       if (!current) return current;
       return {
@@ -135,6 +137,7 @@ export default function LiveClassroomPage({
         status: event.type === 'LIVE_LESSON_STARTED' ? 'LIVE' : current.status,
         playbackPaused: paused == null ? current.playbackPaused : Boolean(paused),
         playbackElapsedSeconds: position == null ? current.playbackElapsedSeconds : Number(position),
+        playbackClockEpochMs: event.data?.playbackClockEpochMs ?? current.playbackClockEpochMs,
       };
     });
     if (position != null || paused != null) {
@@ -144,13 +147,13 @@ export default function LiveClassroomPage({
           paused: Boolean(paused),
           positionSeconds: Number(position) || 0,
           capturedAtMs: Date.now(),
-          clockAtMs: clockAtMs(event.data?.playbackClockAt) || Date.now(),
+          clockAtMs: eventClock,
         };
         if (!current) return next;
-        if (current.clockAtMs && next.clockAtMs && next.clockAtMs < current.clockAtMs) return current;
-        const pauseChanged = Boolean(current.paused) !== next.paused;
+        if (current.clockAtMs && next.clockAtMs + 1500 < current.clockAtMs && !next.paused) return current;
+        if (Boolean(current.paused) !== next.paused) return next;
         const jumped = Math.abs(followPlaybackSeconds(current) - next.positionSeconds) > 2.5;
-        return pauseChanged || jumped ? next : current;
+        return jumped ? next : current;
       });
     } else {
       loadLesson().catch(() => {});
@@ -222,8 +225,24 @@ export default function LiveClassroomPage({
 
   const syncPlayback = async ({ paused, positionSeconds }) => {
     if (!isTeacher) return;
+    const nextPaused = Boolean(paused);
+    const seconds = Math.max(0, Number(positionSeconds) || 0);
+    const capturedAtMs = Date.now();
+    setLesson((current) => (current ? {
+      ...current,
+      playbackPaused: nextPaused,
+      playbackElapsedSeconds: seconds,
+      playbackClockEpochMs: capturedAtMs,
+    } : current));
+    setSnapshot({
+      playbackActive: true,
+      paused: nextPaused,
+      positionSeconds: seconds,
+      capturedAtMs,
+      clockAtMs: capturedAtMs,
+    });
     try {
-      const next = await liveLessonApi.syncPlayback(lessonId, { paused, positionSeconds });
+      const next = await liveLessonApi.syncPlayback(lessonId, { paused: nextPaused, positionSeconds: seconds });
       setLesson(next);
       setSnapshot(playbackSnapshotFromLesson(next));
     } catch (error) {
@@ -338,7 +357,7 @@ export default function LiveClassroomPage({
             </button>
             {isTeacher ? (
               <button type="button" className={tab === 'people' ? 'active' : ''} onClick={() => setTab('people')}>
-                Người tham gia
+                Người tham gia{roster.length ? ` (${roster.length})` : ''}
               </button>
             ) : (
               <button type="button" className={tab === 'ai' ? 'active' : ''} onClick={() => setTab('ai')}>

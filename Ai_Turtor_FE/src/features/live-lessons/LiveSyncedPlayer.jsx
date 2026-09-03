@@ -46,7 +46,7 @@ export default function LiveSyncedPlayer({
     };
 
     const applyFollow = (player = playerRef.current) => {
-      if (isTeacher || !player || typeof player.seekTo !== 'function') return;
+      if (!player || typeof player.seekTo !== 'function') return;
       const paused = Boolean(snapshotRef.current?.paused);
       const expected = followPlaybackSeconds(snapshotRef.current);
       const current = readTime(player);
@@ -89,11 +89,14 @@ export default function LiveSyncedPlayer({
           events: {
             onReady: (event) => {
               setDuration(event.target.getDuration?.() || 0);
-              if (snapshotRef.current?.paused) event.target.pauseVideo();
-              else event.target.playVideo();
               applyFollow(event.target);
             },
             onStateChange: (event) => {
+              const paused = Boolean(snapshotRef.current?.paused);
+              if (paused && (event.data === YT.PlayerState.PLAYING || event.data === YT.PlayerState.BUFFERING)) {
+                event.target.pauseVideo();
+                return;
+              }
               if (!isTeacher || seekingRef.current) return;
               if (event.data === YT.PlayerState.ENDED) {
                 onControlRef.current?.({
@@ -112,14 +115,16 @@ export default function LiveSyncedPlayer({
       const player = playerRef.current;
       if (!player) return;
       applyFollow(player);
-      const state = player.getPlayerState?.();
       if (isTeacher && !seekingRef.current) {
-        const current = readTime(player);
+        const paused = Boolean(snapshotRef.current?.paused);
+        const current = paused
+          ? followPlaybackSeconds(snapshotRef.current)
+          : readTime(player);
         setLocalSeconds(current);
         if (Date.now() - lastBeatAtRef.current > HEARTBEAT_MS) {
           lastBeatAtRef.current = Date.now();
           onControlRef.current?.({
-            paused: Boolean(snapshotRef.current?.paused) || isPausedState(state),
+            paused,
             positionSeconds: current,
           });
         }
@@ -132,7 +137,7 @@ export default function LiveSyncedPlayer({
       } catch {
         // Player was destroyed.
       }
-    }, 800);
+    }, 400);
 
     return () => {
       cancelled = true;
@@ -153,8 +158,22 @@ export default function LiveSyncedPlayer({
   const paused = Boolean(snapshot?.paused);
   const max = Math.max(duration || 0, localSeconds, 1);
 
+  const readPlayerSeconds = () => {
+    try {
+      return playerRef.current?.getCurrentTime?.() ?? followPlaybackSeconds(snapshot);
+    } catch {
+      return followPlaybackSeconds(snapshot);
+    }
+  };
+
   const commit = (nextPaused, seconds) => {
     lastBeatAtRef.current = Date.now();
+    const player = playerRef.current;
+    if (player) {
+      if (nextPaused) player.pauseVideo?.();
+      else player.playVideo?.();
+    }
+    setLocalSeconds(Math.max(0, Number(seconds) || 0));
     onControlRef.current?.({
       paused: nextPaused,
       positionSeconds: Math.max(0, Number(seconds) || 0),
@@ -170,7 +189,7 @@ export default function LiveSyncedPlayer({
           <button
             type="button"
             className="live-btn"
-            onClick={() => commit(!paused, followPlaybackSeconds(snapshot))}
+            onClick={() => commit(!paused, readPlayerSeconds())}
           >
             {paused ? <Play size={16} /> : <Pause size={16} />}
             {paused ? 'Phát' : 'Tạm dừng'}
@@ -186,11 +205,15 @@ export default function LiveSyncedPlayer({
             onChange={(event) => setLocalSeconds(Number(event.target.value))}
             onMouseUp={(event) => {
               seekingRef.current = false;
-              commit(paused, Number(event.target.value));
+              const seconds = Number(event.target.value);
+              playerRef.current?.seekTo?.(seconds, true);
+              commit(paused, seconds);
             }}
             onTouchEnd={(event) => {
               seekingRef.current = false;
-              commit(paused, Number(event.target.value));
+              const seconds = Number(event.target.value);
+              playerRef.current?.seekTo?.(seconds, true);
+              commit(paused, seconds);
             }}
           />
           <span>{formatClock(localSeconds)} / {formatClock(duration)}</span>

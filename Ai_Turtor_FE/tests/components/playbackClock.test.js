@@ -43,15 +43,33 @@ describe('playbackClock', () => {
       playbackActive: true,
       playbackPaused: false,
       playbackElapsedSeconds: 20,
+      playbackClockEpochMs: 1_000,
     }, 1_000);
     const paused = mergePlaybackSnapshot(previous, {
       playbackActive: true,
       playbackPaused: true,
       playbackElapsedSeconds: 20,
-      playbackClockAt: new Date(Date.now()).toISOString(),
+      playbackClockEpochMs: Date.now(),
     });
     expect(paused.paused).toBe(true);
     expect(formatClock(75)).toBe('1:15');
+  });
+
+  it('applies a teacher pause even if the poll clock is slightly behind', () => {
+    const previous = {
+      playbackActive: true,
+      paused: false,
+      positionSeconds: 40,
+      capturedAtMs: 5_000,
+      clockAtMs: 5_000,
+    };
+    const merged = mergePlaybackSnapshot(previous, {
+      playbackActive: true,
+      playbackPaused: true,
+      playbackElapsedSeconds: 40,
+      playbackClockEpochMs: 4_000,
+    });
+    expect(merged.paused).toBe(true);
   });
 
   it('does not let a stale poll unpause a newer pause', () => {

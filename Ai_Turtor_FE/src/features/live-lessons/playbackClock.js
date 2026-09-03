@@ -5,6 +5,12 @@ export function clockAtMs(value) {
   return Number.isFinite(ms) ? ms : 0;
 }
 
+export function snapshotClockMs(source, fallback = Date.now()) {
+  const epoch = Number(source?.playbackClockEpochMs);
+  if (Number.isFinite(epoch) && epoch > 0) return epoch;
+  return clockAtMs(source?.playbackClockAt) || fallback;
+}
+
 export function followPlaybackSeconds(snapshot, nowMs = Date.now()) {
   if (!snapshot || !snapshot.playbackActive) return 0;
   const base = Math.max(0, Number(snapshot.positionSeconds) || 0);
@@ -30,19 +36,20 @@ export function playbackSnapshotFromLesson(lesson, capturedAtMs = Date.now()) {
     paused: Boolean(lesson?.playbackPaused),
     positionSeconds: Number(lesson?.playbackElapsedSeconds) || 0,
     capturedAtMs,
-    clockAtMs: clockAtMs(lesson?.playbackClockAt) || capturedAtMs,
+    clockAtMs: snapshotClockMs(lesson, capturedAtMs),
   };
 }
 
 export function mergePlaybackSnapshot(previous, nextLesson) {
   const next = playbackSnapshotFromLesson(nextLesson);
   if (!previous || !next.playbackActive) return next;
-  if (previous.clockAtMs && next.clockAtMs && next.clockAtMs < previous.clockAtMs) {
+  if (previous.clockAtMs && next.clockAtMs && next.clockAtMs + 1500 < previous.clockAtMs) {
     return previous;
   }
   if (previous.paused && !next.paused && next.clockAtMs <= (previous.clockAtMs || 0)) {
     return previous;
   }
+  if (!previous.paused && next.paused) return next;
   const predicted = followPlaybackSeconds(previous);
   const pauseChanged = Boolean(previous.paused) !== Boolean(next.paused);
   const jumped = Math.abs(predicted - next.positionSeconds) > 2.5;

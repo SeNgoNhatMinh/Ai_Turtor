@@ -22,6 +22,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -235,9 +236,13 @@ public class LiveLessonService {
         LiveLessonResponse response = toResponse(lessonRepository.save(lesson));
         Map<String, Object> extra = new LinkedHashMap<>();
         extra.put("paused", response.isPlaybackPaused());
+        extra.put("playbackPaused", response.isPlaybackPaused());
         extra.put("positionSeconds", response.getPlaybackElapsedSeconds());
         if (response.getPlaybackClockAt() != null) {
             extra.put("playbackClockAt", response.getPlaybackClockAt().toString());
+        }
+        if (response.getPlaybackClockEpochMs() != null) {
+            extra.put("playbackClockEpochMs", response.getPlaybackClockEpochMs());
         }
         notifyLessonRoom(response, "LIVE_LESSON_PLAYBACK", "LIVE", extra);
         return response;
@@ -520,6 +525,7 @@ public class LiveLessonService {
                 .playbackElapsedSeconds(elapsed)
                 .playbackPaused(paused)
                 .playbackClockAt(lesson.getPlaybackClockAt())
+                .playbackClockEpochMs(toEpochMs(lesson.getPlaybackClockAt()))
                 .upcomingSoon(isUpcomingSoon(lesson, now))
                 .minutesUntilStart(minutesUntilStart)
                 .build();
@@ -535,6 +541,13 @@ public class LiveLessonService {
                 .content(message.getContent())
                 .createdAt(message.getCreatedAt())
                 .build();
+    }
+
+    private static Long toEpochMs(LocalDateTime value) {
+        if (value == null) {
+            return null;
+        }
+        return value.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
     }
 
     private static String normalizeRole(String role) {
