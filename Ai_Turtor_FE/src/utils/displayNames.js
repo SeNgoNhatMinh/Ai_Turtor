@@ -54,9 +54,25 @@ export const getPersonId = (record) => getFirstText(record, PERSON_ID_FIELDS);
 export const getPersonEmail = (record) => getFirstText(record, PERSON_EMAIL_FIELDS);
 
 export const getPersonDisplayName = (record, fallback = 'User') => {
-  const name = getFirstText(record, PERSON_NAME_FIELDS);
+  const decode = (value) => {
+    if (!value) return value;
+    const text = String(value);
+    if (!/[+%]/.test(text)) return text;
+    try {
+      // '+' in query strings typically represents space.
+      return decodeURIComponent(text.replace(/\+/g, ' '));
+    } catch {
+      return text;
+    }
+  };
+
+  const nameRaw = getFirstText(record, PERSON_NAME_FIELDS);
+  const name = decode(nameRaw);
   if (name && !OPAQUE_ID_RE.test(name)) return name;
-  return getPersonEmail(record) || fallback;
+
+  const emailRaw = getPersonEmail(record);
+  const email = decode(emailRaw);
+  return email || fallback;
 };
 
 export const findPersonById = (people = [], id = '') => {

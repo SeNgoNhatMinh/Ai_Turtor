@@ -18,6 +18,8 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import java.util.Map;
 import java.util.regex.Pattern;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 
 @Component
 @RequiredArgsConstructor
@@ -60,8 +62,9 @@ public class LiveVoiceHandshakeInterceptor implements HandshakeInterceptor {
 
     private String resolveDisplayName(String queryName, Map<String, Object> claims, String userId,
                                       LiveLessonResponse lesson) {
-        if (isHumanName(queryName)) {
-            return queryName.trim();
+        String decodedQueryName = safeUrlDecode(queryName);
+        if (isHumanName(decodedQueryName)) {
+            return decodedQueryName.trim();
         }
         if (isHumanName(text(claims.get("fullName")))) {
             return text(claims.get("fullName"));
@@ -75,8 +78,9 @@ public class LiveVoiceHandshakeInterceptor implements HandshakeInterceptor {
                     .findByStudentIdAndCourseIdAndClassId(userId, lesson.getCourseId(), lesson.getClassId())
                     .map(CourseEnrollment::getStudentName)
                     .orElse("");
-            if (isHumanName(enrolledName)) {
-                return enrolledName.trim();
+            String decodedEnrolledName = safeUrlDecode(enrolledName);
+            if (isHumanName(decodedEnrolledName)) {
+                return decodedEnrolledName.trim();
             }
         }
         if (user != null && isHumanName(user.getEmail())) {
@@ -99,5 +103,16 @@ public class LiveVoiceHandshakeInterceptor implements HandshakeInterceptor {
         }
         String text = String.valueOf(value).trim();
         return text.isEmpty() || "null".equalsIgnoreCase(text) ? "" : text;
+    }
+
+    private static String safeUrlDecode(String value) {
+        if (value == null) return "";
+        String text = value.trim();
+        if (text.isEmpty()) return "";
+        try {
+            return URLDecoder.decode(text, StandardCharsets.UTF_8);
+        } catch (Exception ignored) {
+            return text;
+        }
     }
 }
