@@ -118,4 +118,37 @@ class LiveLessonServiceTest {
         assertThat(response.getEmbedUrl()).contains("dQw4w9WgXcQ");
         assertThat(response.getTopic()).isEqualTo("Lập trình hướng đối tượng");
     }
+
+    @Test
+    void deleteAllowsEndedLessonsAfterPlayback() {
+        LiveLesson lesson = LiveLesson.builder()
+                .id("lesson-1")
+                .teacherId("teacher-1")
+                .status(LiveLessonService.STATUS_ENDED)
+                .playbackStartedAt(LocalDateTime.now().minusHours(1))
+                .endsAt(LocalDateTime.now().minusMinutes(5))
+                .build();
+        when(lessonRepository.findById("lesson-1")).thenReturn(Optional.of(lesson));
+
+        service.delete("lesson-1", "teacher-1");
+
+        verify(chatRepository).deleteByLessonId("lesson-1");
+        verify(lessonRepository).delete(lesson);
+    }
+
+    @Test
+    void deleteRejectsALessonThatIsStillPlaying() {
+        LiveLesson lesson = LiveLesson.builder()
+                .id("lesson-1")
+                .teacherId("teacher-1")
+                .status(LiveLessonService.STATUS_LIVE)
+                .playbackStartedAt(LocalDateTime.now())
+                .endsAt(LocalDateTime.now().plusHours(1))
+                .build();
+        when(lessonRepository.findById("lesson-1")).thenReturn(Optional.of(lesson));
+
+        assertThatThrownBy(() -> service.delete("lesson-1", "teacher-1"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("đang phát");
+    }
 }

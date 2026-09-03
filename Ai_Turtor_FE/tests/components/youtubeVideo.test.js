@@ -6,7 +6,7 @@ describe('youtubeVideo', () => {
     expect(youtubeVideoId('https://www.youtube.com/watch?v=dQw4w9WgXcQ')).toBe('dQw4w9WgXcQ');
     expect(youtubeVideoId('https://youtu.be/dQw4w9WgXcQ')).toBe('dQw4w9WgXcQ');
     expect(youtubeEmbedUrl('https://www.youtube.com/embed/dQw4w9WgXcQ'))
-      .toBe('https://www.youtube.com/embed/dQw4w9WgXcQ');
+      .toBe('https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ');
     expect(youtubeEmbedUrl('dQw4w9WgXcQ', { locked: true, startSeconds: 75 }))
       .toContain('controls=0');
     expect(youtubeEmbedUrl('dQw4w9WgXcQ', { locked: true, startSeconds: 75 }))

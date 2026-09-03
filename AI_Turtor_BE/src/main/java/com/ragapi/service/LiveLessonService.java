@@ -132,7 +132,7 @@ public class LiveLessonService {
     public void delete(String lessonId, String teacherId) {
         LiveLesson lesson = requireOwnedLesson(lessonId, teacherId);
         refreshAndSave(lesson, LocalDateTime.now());
-        if (STATUS_LIVE.equals(lesson.getStatus()) || lesson.getPlaybackStartedAt() != null) {
+        if (STATUS_LIVE.equals(lesson.getStatus())) {
             throw new IllegalArgumentException("Không xóa buổi đang phát. Hãy kết thúc trước.");
         }
         chatRepository.deleteByLessonId(lessonId);

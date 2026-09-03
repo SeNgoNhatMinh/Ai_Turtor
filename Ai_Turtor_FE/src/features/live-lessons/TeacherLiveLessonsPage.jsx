@@ -208,7 +208,10 @@ export default function TeacherLiveLessonsPage({
                       className="live-btn danger"
                       onClick={() => {
                         if (window.confirm('Xóa buổi live này?')) {
-                          runAction(() => liveLessonApi.remove(lesson.id));
+                          runAction(async () => {
+                            await liveLessonApi.remove(lesson.id);
+                            triggerToast?.('Đã xóa buổi live.', 'success');
+                          });
                         }
                       }}
                     >
@@ -217,15 +220,18 @@ export default function TeacherLiveLessonsPage({
                   </>
                 )}
                 {lesson.status === 'ENDED' && (
-                  <button
-                    type="button"
-                    className="live-btn ghost"
-                    onClick={() => {
-                      if (window.confirm('Xóa buổi đã kết thúc khỏi danh sách?')) {
-                        runAction(() => liveLessonApi.remove(lesson.id));
-                      }
-                    }}
-                  >
+                    <button
+                      type="button"
+                      className="live-btn ghost"
+                      onClick={() => {
+                        if (window.confirm('Xóa buổi đã kết thúc khỏi danh sách?')) {
+                          runAction(async () => {
+                            await liveLessonApi.remove(lesson.id);
+                            triggerToast?.('Đã xóa buổi live.', 'success');
+                          });
+                        }
+                      }}
+                    >
                     Xóa
                   </button>
                 )}

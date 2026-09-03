@@ -30,7 +30,7 @@ export const liveLessonApi = {
   },
 
   remove(lessonId) {
-    return json('DELETE', `${API_BASE_URL}/live-lessons/${encodeURIComponent(lessonId)}`);
+    return request(`${API_BASE_URL}/live-lessons/${encodeURIComponent(lessonId)}`, { method: 'DELETE' });
   },
 
   startPlayback(lessonId) {

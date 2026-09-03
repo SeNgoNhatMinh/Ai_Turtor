@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import PageHeader from '../../components/common/PageHeader';
 import AiAnswer from '../../components/AiAnswer';
@@ -31,14 +31,17 @@ export default function LiveClassroomPage({
   const isTeacher = role === 'teacher';
   const displayName = currentUser?.fullName || currentUser?.name || currentUser?.email || '';
   const playbackActive = Boolean(lesson?.playbackActive);
-  const embedSrc = useMemo(() => {
-    if (!lesson || !playbackActive) return '';
-    return youtubeEmbedUrl(lesson.youtubeUrl || lesson.youtubeVideoId || lesson.embedUrl, {
+  const embedSrcRef = useRef('');
+  if (!playbackActive) {
+    embedSrcRef.current = '';
+  } else if (!embedSrcRef.current && lesson) {
+    embedSrcRef.current = youtubeEmbedUrl(lesson.youtubeUrl || lesson.youtubeVideoId || lesson.embedUrl, {
       locked: true,
       autoplay: true,
       startSeconds: lesson.playbackElapsedSeconds || 0,
     });
-  }, [lesson, playbackActive]);
+  }
+  const embedSrc = playbackActive ? embedSrcRef.current : '';
 
   const loadLesson = async () => {
     const next = await liveLessonApi.get(lessonId);
@@ -176,9 +179,12 @@ export default function LiveClassroomPage({
             {playbackActive && embedSrc ? (
               <>
                 <iframe
+                  key={embedSrc}
                   title={lesson.topic}
                   src={embedSrc}
-                  allow="autoplay; encrypted-media"
+                  allow="autoplay; encrypted-media; picture-in-picture"
+                  referrerPolicy="strict-origin-when-cross-origin"
+                  allowFullScreen={false}
                 />
                 <div className="live-player-lock" aria-hidden="true" />
               </>

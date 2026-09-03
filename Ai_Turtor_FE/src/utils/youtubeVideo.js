@@ -33,14 +33,15 @@ export function youtubeEmbedUrl(rawUrl, options = {}) {
     params.set('fs', '0');
     params.set('modestbranding', '1');
     params.set('rel', '0');
+    params.set('iv_load_policy', '3');
     params.set('playsinline', '1');
     params.set('autoplay', options.autoplay === false ? '0' : '1');
-    params.set('mute', '0');
     const start = Math.max(0, Number(options.startSeconds) || 0);
     if (start > 0) params.set('start', String(Math.floor(start)));
   }
   const query = params.toString();
-  return query ? `https://www.youtube.com/embed/${id}?${query}` : `https://www.youtube.com/embed/${id}`;
+  const host = 'https://www.youtube-nocookie.com/embed/';
+  return query ? `${host}${id}?${query}` : `${host}${id}`;
 }
 
 export function youtubeWatchUrl(rawUrl) {
