@@ -16,6 +16,8 @@ public class ChatWebSocketConfig implements WebSocketConfigurer {
     private final ChatWebSocketHandshakeInterceptor interceptor;
     private final EventWebSocketHandler eventHandler;
     private final EventWebSocketHandshakeInterceptor eventInterceptor;
+    private final LiveVoiceWebSocketHandler liveVoiceHandler;
+    private final LiveVoiceHandshakeInterceptor liveVoiceInterceptor;
 
     @Value("${app.cors.allowed-origins:http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,http://127.0.0.1:3000}")
     private String allowedOrigins;
@@ -27,6 +29,9 @@ public class ChatWebSocketConfig implements WebSocketConfigurer {
                 .setAllowedOriginPatterns(allowedOrigins.split(","));
         registry.addHandler(eventHandler, "/ws/events")
                 .addInterceptors(eventInterceptor)
+                .setAllowedOriginPatterns(allowedOrigins.split(","));
+        registry.addHandler(liveVoiceHandler, "/ws/live-voice")
+                .addInterceptors(liveVoiceInterceptor)
                 .setAllowedOriginPatterns(allowedOrigins.split(","));
     }
 }

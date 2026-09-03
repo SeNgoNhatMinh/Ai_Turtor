@@ -1,12 +1,17 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { Mic, MicOff } from 'lucide-react';
 import PageHeader from '../../components/common/PageHeader';
 import AiAnswer from '../../components/AiAnswer';
 import AnswerEvidence from '../student/chat/components/AnswerEvidence';
 import { liveLessonApi } from '../../services/liveLessonApi';
 import { getUserFacingError } from '../../services/httpClient';
-import { youtubeEmbedUrl, youtubeWatchUrl } from '../../utils/youtubeVideo';
+import { youtubeWatchUrl } from '../../utils/youtubeVideo';
+import { useRealtimeEvent } from '../realtime/realtimeContext';
 import { formatLessonTime, STATUS_LABEL, waitingCopy } from './liveLessonUtils';
+import { followPlaybackSeconds, mergePlaybackSnapshot, playbackSnapshotFromLesson } from './playbackClock';
+import LiveSyncedPlayer from './LiveSyncedPlayer';
+import { useLiveLessonVoice } from './useLiveLessonVoice';
 import './live-lesson.css';
 
 const POLL_MS = 4000;
@@ -19,6 +24,7 @@ export default function LiveClassroomPage({
   const { lessonId } = useParams();
   const navigate = useNavigate();
   const [lesson, setLesson] = useState(null);
+  const [snapshot, setSnapshot] = useState(null);
   const [tab, setTab] = useState('class');
   const [messages, setMessages] = useState([]);
   const [draft, setDraft] = useState('');
@@ -31,21 +37,21 @@ export default function LiveClassroomPage({
   const isTeacher = role === 'teacher';
   const displayName = currentUser?.fullName || currentUser?.name || currentUser?.email || '';
   const playbackActive = Boolean(lesson?.playbackActive);
-  const embedSrcRef = useRef('');
-  if (!playbackActive) {
-    embedSrcRef.current = '';
-  } else if (!embedSrcRef.current && lesson) {
-    embedSrcRef.current = youtubeEmbedUrl(lesson.youtubeUrl || lesson.youtubeVideoId || lesson.embedUrl, {
-      locked: true,
-      autoplay: true,
-      startSeconds: lesson.playbackElapsedSeconds || 0,
-    });
-  }
-  const embedSrc = playbackActive ? embedSrcRef.current : '';
+  const voice = useLiveLessonVoice({
+    lessonId,
+    currentUser,
+    enabled: Boolean(lessonId && lesson && lesson.status !== 'ENDED'),
+    triggerToast,
+  });
+
+  const applyLesson = (next) => {
+    setLesson(next);
+    setSnapshot((current) => mergePlaybackSnapshot(current, next));
+  };
 
   const loadLesson = async () => {
     const next = await liveLessonApi.get(lessonId);
-    setLesson(next);
+    applyLesson(next);
     return next;
   };
 
@@ -77,6 +83,38 @@ export default function LiveClassroomPage({
       window.clearInterval(timer);
     };
   }, [lessonId]);
+
+  useRealtimeEvent(['LIVE_LESSON_PLAYBACK', 'LIVE_LESSON_STARTED'], (event) => {
+    if (String(event.entityId) !== String(lessonId)) return;
+    const paused = event.data?.paused ?? event.data?.playbackPaused;
+    const position = event.data?.positionSeconds;
+    setLesson((current) => {
+      if (!current) return current;
+      return {
+        ...current,
+        playbackActive: current.playbackActive || event.type === 'LIVE_LESSON_STARTED',
+        status: event.type === 'LIVE_LESSON_STARTED' ? 'LIVE' : current.status,
+        playbackPaused: paused == null ? current.playbackPaused : Boolean(paused),
+        playbackElapsedSeconds: position == null ? current.playbackElapsedSeconds : Number(position),
+      };
+    });
+    if (position != null || paused != null) {
+      setSnapshot((current) => {
+        const next = {
+          playbackActive: true,
+          paused: Boolean(paused),
+          positionSeconds: Number(position) || 0,
+          capturedAtMs: Date.now(),
+        };
+        if (!current) return next;
+        const pauseChanged = Boolean(current.paused) !== next.paused;
+        const jumped = Math.abs(followPlaybackSeconds(current) - next.positionSeconds) > 2.5;
+        return pauseChanged || jumped ? next : current;
+      });
+    } else {
+      loadLesson().catch(() => {});
+    }
+  });
 
   const goBack = () => {
     navigate(isTeacher ? '/teacher/live-lessons' : '/student/live-lessons');
@@ -135,6 +173,18 @@ export default function LiveClassroomPage({
         ? await liveLessonApi.startPlayback(lessonId)
         : await liveLessonApi.end(lessonId);
       setLesson(next);
+      setSnapshot(playbackSnapshotFromLesson(next));
+    } catch (error) {
+      triggerToast?.(getUserFacingError(error), 'error');
+    }
+  };
+
+  const syncPlayback = async ({ paused, positionSeconds }) => {
+    if (!isTeacher) return;
+    try {
+      const next = await liveLessonApi.syncPlayback(lessonId, { paused, positionSeconds });
+      setLesson(next);
+      setSnapshot(playbackSnapshotFromLesson(next));
     } catch (error) {
       triggerToast?.(getUserFacingError(error), 'error');
     }
@@ -149,7 +199,7 @@ export default function LiveClassroomPage({
   }
 
   const canStudentChat = lesson.status !== 'ENDED';
-  const canTeacherChat = true;
+  const speakingNames = voice.speaking.map((peer) => peer.displayName || peer.userId);
 
   return (
     <div className="portal-section live-classroom">
@@ -176,18 +226,13 @@ export default function LiveClassroomPage({
       <div className="live-classroom-layout">
         <section className="live-classroom-stage">
           <div className="live-classroom-player">
-            {playbackActive && embedSrc ? (
-              <>
-                <iframe
-                  key={embedSrc}
-                  title={lesson.topic}
-                  src={embedSrc}
-                  allow="autoplay; encrypted-media; picture-in-picture"
-                  referrerPolicy="strict-origin-when-cross-origin"
-                  allowFullScreen={false}
-                />
-                <div className="live-player-lock" aria-hidden="true" />
-              </>
+            {playbackActive ? (
+              <LiveSyncedPlayer
+                lesson={lesson}
+                snapshot={snapshot}
+                isTeacher={isTeacher}
+                onControl={syncPlayback}
+              />
             ) : (
               <div className="live-waiting">
                 <div>
@@ -197,9 +242,28 @@ export default function LiveClassroomPage({
               </div>
             )}
           </div>
+          {lesson.status !== 'ENDED' && (
+            <div className="live-voice-bar">
+              <button
+                type="button"
+                className={`live-btn ${voice.muted ? 'secondary' : 'danger'}`}
+                onClick={voice.toggleMic}
+              >
+                {voice.muted ? <MicOff size={16} /> : <Mic size={16} />}
+                {voice.muted ? 'Bật mic' : 'Tắt mic'}
+              </button>
+              <p>
+                {voice.connected
+                  ? (speakingNames.length
+                    ? `Đang nói: ${speakingNames.join(', ')}`
+                    : 'Mic đang tắt. Bật mic để nói với lớp.')
+                  : 'Đang nối mic lớp...'}
+              </p>
+            </div>
+          )}
           <p className="live-hint">
-            Video do giảng viên phát cho cả lớp. Sinh viên không tự bấm play.
-            Muốn xem lại, dùng link YouTube giảng viên gửi trên chat lớp.
+            Video chạy theo giảng viên: phát, tạm dừng và tua thì cả lớp đi cùng một mốc.
+            Sinh viên không tự bấm play. Mic chỉ truyền tiếng, không bật camera.
           </p>
         </section>
 
@@ -227,7 +291,7 @@ export default function LiveClassroomPage({
                   </article>
                 ))}
               </div>
-              {(isTeacher ? canTeacherChat : canStudentChat) && (
+              {(isTeacher || canStudentChat) && (
                 <form className="live-classroom-composer" onSubmit={sendClassChat}>
                   <input
                     value={draft}

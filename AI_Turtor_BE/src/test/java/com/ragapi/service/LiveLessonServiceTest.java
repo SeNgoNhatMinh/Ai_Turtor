@@ -3,6 +3,7 @@ package com.ragapi.service;
 import com.ragapi.dto.CreateLiveLessonRequest;
 import com.ragapi.dto.LiveLessonResponse;
 import com.ragapi.entity.ClassSection;
+import com.ragapi.entity.CourseEnrollment;
 import com.ragapi.entity.LiveLesson;
 import com.ragapi.repository.ClassSectionRepository;
 import com.ragapi.repository.CourseEnrollmentRepository;
@@ -16,11 +17,15 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -37,6 +42,8 @@ class LiveLessonServiceTest {
     private CourseEnrollmentRepository enrollmentRepository;
     @Mock
     private CourseRagService ragService;
+    @Mock
+    private RealtimeEventService realtimeEvents;
 
     @InjectMocks
     private LiveLessonService service;
@@ -75,6 +82,22 @@ class LiveLessonServiceTest {
     }
 
     @Test
+    void sharedClockPausesAndResumesFromTeacherPosition() {
+        LiveLesson lesson = LiveLesson.builder()
+                .status(LiveLessonService.STATUS_LIVE)
+                .playbackStartedAt(LocalDateTime.of(2026, 9, 3, 20, 0))
+                .playbackPaused(true)
+                .playbackPositionSeconds(42d)
+                .playbackClockAt(LocalDateTime.of(2026, 9, 3, 20, 1))
+                .build();
+        assertThat(LiveLessonService.currentPlaybackSeconds(lesson, LocalDateTime.of(2026, 9, 3, 20, 10)))
+                .isEqualTo(42);
+        lesson.setPlaybackPaused(false);
+        assertThat(LiveLessonService.currentPlaybackSeconds(lesson, LocalDateTime.of(2026, 9, 3, 20, 1, 10)))
+                .isEqualTo(52);
+    }
+
+    @Test
     void createRejectsTeacherWhoDoesNotOwnTheClass() {
         CreateLiveLessonRequest request = new CreateLiveLessonRequest();
         request.setCourseId("PRF301");
@@ -99,7 +122,8 @@ class LiveLessonServiceTest {
         request.setClassId("SE1840");
         request.setTopic("Lập trình hướng đối tượng");
         request.setYoutubeUrl("https://youtu.be/dQw4w9WgXcQ");
-        request.setStartsAt(LocalDateTime.of(2026, 9, 3, 15, 0));
+        LocalDateTime startsAt = LocalDateTime.now().plusDays(1).withHour(19).withMinute(30).withSecond(0).withNano(0);
+        request.setStartsAt(startsAt);
 
         ClassSection section = new ClassSection();
         section.setTeacherId("teacher-1");
@@ -108,15 +132,54 @@ class LiveLessonServiceTest {
         when(classSectionRepository.findByCourseIdAndClassId("PRF301", "SE1840"))
                 .thenReturn(Optional.of(section));
         when(lessonRepository.save(any(LiveLesson.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(enrollmentRepository.findByCourseIdAndClassId("PRF301", "SE1840"))
+                .thenReturn(List.of(CourseEnrollment.builder().studentId("sv-1").build()));
 
         LiveLessonResponse response = service.create(request, "teacher-1", "Thầy A");
 
         ArgumentCaptor<LiveLesson> captor = ArgumentCaptor.forClass(LiveLesson.class);
         verify(lessonRepository).save(captor.capture());
         assertThat(captor.getValue().getYoutubeVideoId()).isEqualTo("dQw4w9WgXcQ");
-        assertThat(captor.getValue().getEndsAt()).isEqualTo(LocalDateTime.of(2026, 9, 3, 16, 30));
+        assertThat(captor.getValue().getEndsAt()).isEqualTo(startsAt.plusMinutes(90));
         assertThat(response.getEmbedUrl()).contains("dQw4w9WgXcQ");
         assertThat(response.getTopic()).isEqualTo("Lập trình hướng đối tượng");
+        verify(realtimeEvents).publishToUsers(
+                eq(List.of("sv-1")),
+                eq("LIVE_LESSON_SCHEDULED"),
+                eq("LIVE_LESSON"),
+                anyString(),
+                eq("SCHEDULED"),
+                any()
+        );
+    }
+
+    @Test
+    void sendUpcomingRemindersNotifiesOnceTenMinutesBefore() {
+        LiveLesson lesson = LiveLesson.builder()
+                .id("lesson-1")
+                .courseId("PRF301")
+                .classId("SE1840")
+                .status(LiveLessonService.STATUS_SCHEDULED)
+                .startsAt(LocalDateTime.now().plusMinutes(5))
+                .endsAt(LocalDateTime.now().plusHours(2))
+                .build();
+        when(lessonRepository.findByStatus(LiveLessonService.STATUS_SCHEDULED)).thenReturn(List.of(lesson));
+        when(lessonRepository.save(any(LiveLesson.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(enrollmentRepository.findByCourseIdAndClassId("PRF301", "SE1840"))
+                .thenReturn(List.of(CourseEnrollment.builder().studentId("sv-1").build()));
+
+        service.sendUpcomingReminders();
+        service.sendUpcomingReminders();
+
+        assertThat(lesson.getStartReminderSentAt()).isNotNull();
+        verify(realtimeEvents, times(1)).publishToUsers(
+                eq(List.of("sv-1")),
+                eq("LIVE_LESSON_STARTING"),
+                eq("LIVE_LESSON"),
+                eq("lesson-1"),
+                eq("UPCOMING"),
+                any()
+        );
     }
 
     @Test

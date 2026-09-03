@@ -107,6 +107,7 @@ public class SecurityConfig {
                                 "/api/users/register",
                                 "/ws/chat/**",
                                 "/ws/events/**",
+                                "/ws/live-voice/**",
                                 "/actuator/health",
                                 "/actuator/health/**"
                         ).permitAll()

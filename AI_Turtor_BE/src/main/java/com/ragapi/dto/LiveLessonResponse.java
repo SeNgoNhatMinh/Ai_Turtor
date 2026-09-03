@@ -25,6 +25,7 @@ public class LiveLessonResponse {
     private LocalDateTime playbackStartedAt;
     private boolean playbackActive;
     private int playbackElapsedSeconds;
+    private boolean playbackPaused;
     /** True from 10 minutes before startsAt until the teacher starts the video. */
     private boolean upcomingSoon;
     private long minutesUntilStart;

@@ -4,6 +4,7 @@ import com.ragapi.dto.CreateLiveLessonRequest;
 import com.ragapi.dto.LiveLessonAiAskRequest;
 import com.ragapi.dto.LiveLessonChatMessageRequest;
 import com.ragapi.dto.UpdateLiveLessonRequest;
+import com.ragapi.dto.SyncLivePlaybackRequest;
 import com.ragapi.service.LiveLessonService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -106,6 +107,21 @@ public class LiveLessonController {
             return ResponseEntity.ok(liveLessonService.startPlayback(lessonId, userId(auth)));
         } catch (Exception error) {
             return errorResponse("starting live video", error);
+        }
+    }
+
+    @PostMapping("/{lessonId}/playback")
+    @Operation(summary = "Teacher play, pause, or seek the shared class video")
+    public ResponseEntity<?> syncPlayback(
+            @PathVariable String lessonId,
+            @RequestBody SyncLivePlaybackRequest request,
+            Authentication auth
+    ) {
+        try {
+            requireTeacher(auth);
+            return ResponseEntity.ok(liveLessonService.syncPlayback(lessonId, userId(auth), request));
+        } catch (Exception error) {
+            return errorResponse("syncing live video", error);
         }
     }
 

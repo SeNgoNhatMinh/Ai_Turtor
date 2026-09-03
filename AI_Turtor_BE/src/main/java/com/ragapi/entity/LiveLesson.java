@@ -40,6 +40,13 @@ public class LiveLesson {
     private LocalDateTime endsAt;
     /** Set when the teacher presses play; students cannot start the video themselves. */
     private LocalDateTime playbackStartedAt;
+    /** Shared clock: true when the teacher has paused the class video. */
+    private Boolean playbackPaused;
+    /** Video position in seconds at {@link #playbackClockAt}. */
+    private Double playbackPositionSeconds;
+    private LocalDateTime playbackClockAt;
+    /** Set when the 10-minute “starting soon” reminder has been sent to the class. */
+    private LocalDateTime startReminderSentAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

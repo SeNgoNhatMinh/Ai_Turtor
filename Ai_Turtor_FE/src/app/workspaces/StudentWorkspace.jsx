@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useMemo } from 'react';
 import { useMatch } from 'react-router-dom';
 import AsyncState from '../../components/common/AsyncState';
 import { useStudentEnrollmentOptions } from '../../hooks/useStudentEnrollmentOptions';
+import { useLiveLessonReminders } from '../../features/live-lessons/useLiveLessonReminders';
 
 const studentPages = {
   'student-dashboard': lazy(() => import('../../features/student/dashboard/StudentDashboardPage')),
@@ -47,6 +48,11 @@ export default function StudentWorkspace({
   const studentId = enrollment.resolvedStudentId || currentUserId;
   const liveClassroomMatch = useMatch('/student/live-lessons/:lessonId');
   const Page = liveClassroomMatch ? StudentLiveClassroomPage : studentPages[activeTab];
+
+  useLiveLessonReminders({
+    enabled: Boolean(studentId),
+    triggerToast,
+  });
 
   useEffect(() => {
     if (!currentUserId) return;

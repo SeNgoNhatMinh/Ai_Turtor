@@ -97,7 +97,7 @@ export default function TeacherLiveLessonsPage({
         triggerToast?.('Đã cập nhật buổi live.', 'success');
       } else {
         await liveLessonApi.create(payload, currentUser?.fullName || currentUser?.name);
-        triggerToast?.('Đã tạo buổi live. Sinh viên sẽ được báo trước 10 phút.', 'success');
+        triggerToast?.('Đã tạo buổi live. Sinh viên trong lớp sẽ thấy lịch ngay; 10 phút trước giờ học sẽ được nhắc vào phòng chờ.');
       }
       resetForm();
       await loadLessons();
@@ -122,7 +122,7 @@ export default function TeacherLiveLessonsPage({
       <PageHeader
         eyebrow="Học thêm"
         title="Live video lớp"
-        description="Lên lịch video đã quay. Tới giờ sinh viên vào chờ; chỉ bạn bấm bắt đầu thì video mới chạy. Xem lại bằng link YouTube gửi trên chat."
+        description="Có thể tạo trước 1 ngày hoặc hơn. Sinh viên thấy lịch trên Live theo lớp; 10 phút trước giờ học sẽ được nhắc vào phòng chờ. Video chỉ chạy khi bạn bấm bắt đầu."
       />
 
       <section className="live-lesson-form-card">
@@ -148,9 +148,10 @@ export default function TeacherLiveLessonsPage({
             </select>
           </label>
           <label>
-            Giờ bắt đầu (báo SV trước 10 phút)
+            Giờ bắt đầu (có thể chọn ngày mai hoặc xa hơn)
             <input
               type="datetime-local"
+              min={editingId ? undefined : toDateTimeLocalValue()}
               value={form.startsAt}
               onChange={(event) => updateField('startsAt', event.target.value)}
               required

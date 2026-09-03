@@ -7,6 +7,7 @@ import com.ragapi.dto.LiveLessonAiAskRequest;
 import com.ragapi.dto.LiveLessonChatMessageRequest;
 import com.ragapi.dto.LiveLessonChatMessageResponse;
 import com.ragapi.dto.LiveLessonResponse;
+import com.ragapi.dto.SyncLivePlaybackRequest;
 import com.ragapi.entity.ClassSection;
 import com.ragapi.entity.CourseEnrollment;
 import com.ragapi.entity.LiveLesson;
@@ -51,6 +52,7 @@ public class LiveLessonService {
     private final ClassSectionRepository classSectionRepository;
     private final CourseEnrollmentRepository enrollmentRepository;
     private final CourseRagService ragService;
+    private final RealtimeEventService realtimeEvents;
 
     public LiveLessonResponse create(CreateLiveLessonRequest request, String teacherId, String teacherName) {
         if (request == null) {
@@ -94,7 +96,14 @@ public class LiveLessonService {
                 .createdAt(now)
                 .updatedAt(now)
                 .build();
-        return toResponse(lessonRepository.save(refreshStatus(lesson, now)));
+        LiveLesson saved = lessonRepository.save(refreshStatus(lesson, now));
+        if (isUpcomingSoon(saved, now)) {
+            saved.setStartReminderSentAt(now);
+            saved = lessonRepository.save(saved);
+        }
+        LiveLessonResponse response = toResponse(saved);
+        notifyClassStudents(response, "LIVE_LESSON_SCHEDULED", "SCHEDULED");
+        return response;
     }
 
     public LiveLessonResponse update(String lessonId, UpdateLiveLessonRequest request, String teacherId) {
@@ -114,8 +123,14 @@ public class LiveLessonService {
             lesson.setYoutubeUrl(request.getYoutubeUrl().trim());
             lesson.setYoutubeVideoId(videoId);
         }
+        LocalDateTime previousStart = lesson.getStartsAt();
+        boolean rescheduled = false;
         if (request.getStartsAt() != null) {
             lesson.setStartsAt(request.getStartsAt());
+            rescheduled = previousStart == null || !previousStart.equals(request.getStartsAt());
+            if (rescheduled) {
+                lesson.setStartReminderSentAt(null);
+            }
         }
         LocalDateTime startsAt = lesson.getStartsAt();
         LocalDateTime endsAt = request.getEndsAt() != null
@@ -126,7 +141,11 @@ public class LiveLessonService {
         }
         lesson.setEndsAt(endsAt);
         lesson.setUpdatedAt(LocalDateTime.now());
-        return toResponse(lessonRepository.save(lesson));
+        LiveLessonResponse response = toResponse(lessonRepository.save(lesson));
+        if (rescheduled) {
+            notifyClassStudents(response, "LIVE_LESSON_SCHEDULED", "SCHEDULED");
+        }
+        return response;
     }
 
     public void delete(String lessonId, String teacherId) {
@@ -179,20 +198,82 @@ public class LiveLessonService {
         if (STATUS_ENDED.equals(lesson.getStatus())) {
             throw new IllegalArgumentException("This live lesson has already ended");
         }
+        boolean firstStart = lesson.getPlaybackStartedAt() == null;
         lesson.setStatus(STATUS_LIVE);
-        if (lesson.getPlaybackStartedAt() == null) {
+        if (firstStart) {
             lesson.setPlaybackStartedAt(now);
+            lesson.setPlaybackPaused(false);
+            lesson.setPlaybackPositionSeconds(0d);
+            lesson.setPlaybackClockAt(now);
         }
         if (lesson.getEndsAt() == null || !lesson.getEndsAt().isAfter(now)) {
             lesson.setEndsAt(now.plusMinutes(DEFAULT_DURATION_MINUTES));
         }
         lesson.setUpdatedAt(now);
-        return toResponse(lessonRepository.save(lesson));
+        LiveLessonResponse response = toResponse(lessonRepository.save(lesson));
+        if (firstStart) {
+            notifyClassStudents(response, "LIVE_LESSON_STARTED", "LIVE");
+        }
+        return response;
+    }
+
+    public LiveLessonResponse syncPlayback(String lessonId, String teacherId, SyncLivePlaybackRequest request) {
+        LiveLesson lesson = requireOwnedLesson(lessonId, teacherId);
+        LocalDateTime now = LocalDateTime.now();
+        refreshStatus(lesson, now);
+        if (!STATUS_LIVE.equals(lesson.getStatus()) || lesson.getPlaybackStartedAt() == null) {
+            throw new IllegalArgumentException("Hãy bắt đầu video trước khi điều khiển.");
+        }
+        if (request == null) {
+            throw new IllegalArgumentException("request is required");
+        }
+        double position = request.getPositionSeconds() == null ? 0d : Math.max(0d, request.getPositionSeconds());
+        lesson.setPlaybackPaused(Boolean.TRUE.equals(request.getPaused()));
+        lesson.setPlaybackPositionSeconds(position);
+        lesson.setPlaybackClockAt(now);
+        lesson.setUpdatedAt(now);
+        LiveLessonResponse response = toResponse(lessonRepository.save(lesson));
+        Map<String, Object> extra = new LinkedHashMap<>();
+        extra.put("paused", response.isPlaybackPaused());
+        extra.put("positionSeconds", response.getPlaybackElapsedSeconds());
+        notifyLessonRoom(response, "LIVE_LESSON_PLAYBACK", "LIVE", extra);
+        return response;
+    }
+
+    public void sendUpcomingReminders() {
+        LocalDateTime now = LocalDateTime.now();
+        List<LiveLesson> scheduled = lessonRepository.findByStatus(STATUS_SCHEDULED);
+        if (scheduled == null || scheduled.isEmpty()) {
+            return;
+        }
+        for (LiveLesson lesson : scheduled) {
+            try {
+                refreshStatus(lesson, now);
+                if (!STATUS_SCHEDULED.equals(lesson.getStatus())) {
+                    lessonRepository.save(lesson);
+                    continue;
+                }
+                if (!isUpcomingSoon(lesson, now) || lesson.getStartReminderSentAt() != null) {
+                    continue;
+                }
+                lesson.setStartReminderSentAt(now);
+                lesson.setUpdatedAt(now);
+                LiveLessonResponse response = toResponse(lessonRepository.save(lesson));
+                notifyClassStudents(response, "LIVE_LESSON_STARTING", "UPCOMING");
+            } catch (Exception ignored) {
+                // One bad lesson must not block reminders for the rest of the class.
+            }
+        }
     }
 
     public LiveLessonResponse end(String lessonId, String teacherId) {
         LiveLesson lesson = requireOwnedLesson(lessonId, teacherId);
         LocalDateTime now = LocalDateTime.now();
+        if (STATUS_LIVE.equals(lesson.getStatus()) && lesson.getPlaybackStartedAt() != null) {
+            lesson.setPlaybackPositionSeconds((double) currentPlaybackSeconds(lesson, now));
+            lesson.setPlaybackPaused(true);
+            lesson.setPlaybackClockAt(now);
+        }
         lesson.setStatus(STATUS_ENDED);
         lesson.setEndsAt(now);
         lesson.setUpdatedAt(now);
@@ -341,13 +422,77 @@ public class LiveLessonService {
         return !now.isBefore(notifyAt) && now.isBefore(latestWait);
     }
 
+    static int currentPlaybackSeconds(LiveLesson lesson, LocalDateTime now) {
+        if (lesson == null || now == null || lesson.getPlaybackStartedAt() == null) {
+            return 0;
+        }
+        if (lesson.getPlaybackClockAt() != null) {
+            double base = lesson.getPlaybackPositionSeconds() == null ? 0d : lesson.getPlaybackPositionSeconds();
+            if (Boolean.TRUE.equals(lesson.getPlaybackPaused())) {
+                return (int) Math.max(0, Math.floor(base));
+            }
+            long extra = Math.max(0, Duration.between(lesson.getPlaybackClockAt(), now).getSeconds());
+            return (int) Math.max(0, Math.floor(base + extra));
+        }
+        return (int) Math.max(0, Duration.between(lesson.getPlaybackStartedAt(), now).getSeconds());
+    }
+
+    private void notifyClassStudents(LiveLessonResponse lesson, String type, String status) {
+        notifyLessonRoom(lesson, type, status, Map.of(), false);
+    }
+
+    private void notifyLessonRoom(LiveLessonResponse lesson, String type, String status, Map<String, Object> extra) {
+        notifyLessonRoom(lesson, type, status, extra, true);
+    }
+
+    private void notifyLessonRoom(
+            LiveLessonResponse lesson,
+            String type,
+            String status,
+            Map<String, Object> extra,
+            boolean includeTeacher
+    ) {
+        if (lesson == null || lesson.getCourseId() == null || lesson.getClassId() == null) {
+            return;
+        }
+        List<CourseEnrollment> enrollments = enrollmentRepository.findByCourseIdAndClassId(
+                lesson.getCourseId(), lesson.getClassId());
+        List<String> recipientIds = new ArrayList<>();
+        if (enrollments != null) {
+            enrollments.stream()
+                    .map(CourseEnrollment::getStudentId)
+                    .filter(id -> id != null && !id.isBlank())
+                    .distinct()
+                    .forEach(recipientIds::add);
+        }
+        if (includeTeacher && lesson.getTeacherId() != null && !lesson.getTeacherId().isBlank()
+                && !recipientIds.contains(lesson.getTeacherId())) {
+            recipientIds.add(lesson.getTeacherId());
+        }
+        if (recipientIds.isEmpty()) {
+            return;
+        }
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("courseId", lesson.getCourseId());
+        data.put("classId", lesson.getClassId());
+        data.put("topic", lesson.getTopic() == null ? "" : lesson.getTopic());
+        if (lesson.getStartsAt() != null) {
+            data.put("startsAt", lesson.getStartsAt().toString());
+        }
+        data.put("minutesUntilStart", lesson.getMinutesUntilStart());
+        data.put("playbackPaused", lesson.isPlaybackPaused());
+        data.put("positionSeconds", lesson.getPlaybackElapsedSeconds());
+        if (extra != null) {
+            data.putAll(extra);
+        }
+        realtimeEvents.publishToUsers(recipientIds, type, "LIVE_LESSON", lesson.getId(), status, data);
+    }
+
     private LiveLessonResponse toResponse(LiveLesson lesson) {
         LocalDateTime now = LocalDateTime.now();
         boolean playbackActive = lesson.getPlaybackStartedAt() != null && STATUS_LIVE.equals(lesson.getStatus());
-        int elapsed = 0;
-        if (playbackActive) {
-            elapsed = (int) Math.max(0, Duration.between(lesson.getPlaybackStartedAt(), now).getSeconds());
-        }
+        int elapsed = playbackActive ? currentPlaybackSeconds(lesson, now) : 0;
+        boolean paused = !playbackActive || Boolean.TRUE.equals(lesson.getPlaybackPaused());
         long minutesUntilStart = 0;
         if (lesson.getStartsAt() != null) {
             minutesUntilStart = Duration.between(now, lesson.getStartsAt()).toMinutes();
@@ -370,6 +515,7 @@ public class LiveLessonService {
                 .playbackStartedAt(lesson.getPlaybackStartedAt())
                 .playbackActive(playbackActive)
                 .playbackElapsedSeconds(elapsed)
+                .playbackPaused(paused)
                 .upcomingSoon(isUpcomingSoon(lesson, now))
                 .minutesUntilStart(minutesUntilStart)
                 .build();

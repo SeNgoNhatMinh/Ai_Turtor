@@ -4,6 +4,8 @@ export const STATUS_LABEL = {
   ENDED: 'Đã kết thúc',
 };
 
+const NUDGE_PREFIX = 'live-lesson-nudge:';
+
 export function formatLessonTime(value) {
   if (!value) return 'Chưa đặt giờ';
   const date = new Date(value);
@@ -45,46 +47,63 @@ export function waitingCopy(lesson) {
   return 'Phòng đã mở. Video chỉ chạy khi giảng viên bấm bắt đầu.';
 }
 
-const NOTIFY_KEY = 'live-lesson-notified';
+export function isStartingWithinHours(lesson, hours = 24) {
+  if (!lesson || lesson.status === 'ENDED' || lesson.playbackActive) return false;
+  const minutes = Number(lesson.minutesUntilStart);
+  if (Number.isFinite(minutes)) {
+    return minutes > 0 && minutes <= hours * 60;
+  }
+  if (!lesson.startsAt) return false;
+  const start = new Date(lesson.startsAt).getTime();
+  if (Number.isNaN(start)) return false;
+  const delta = start - Date.now();
+  return delta > 0 && delta <= hours * 3600 * 1000;
+}
 
-function notifiedIds() {
+export function notificationPermission() {
+  if (typeof window === 'undefined' || !('Notification' in window)) return 'unsupported';
+  return Notification.permission;
+}
+
+export async function enableLiveLessonNotifications() {
+  if (typeof window === 'undefined' || !('Notification' in window)) return 'unsupported';
+  if (Notification.permission === 'granted') return 'granted';
   try {
-    return JSON.parse(window.sessionStorage.getItem(NOTIFY_KEY) || '[]');
+    return await Notification.requestPermission();
   } catch {
-    return [];
+    return Notification.permission;
   }
 }
 
-export function rememberNotified(lessonId) {
-  const ids = new Set(notifiedIds());
-  ids.add(lessonId);
-  window.sessionStorage.setItem(NOTIFY_KEY, JSON.stringify([...ids]));
+export function showLiveLessonNotification(title, body) {
+  if (typeof window === 'undefined' || !('Notification' in window)) return;
+  if (Notification.permission !== 'granted') return;
+  try {
+    new Notification(title, { body });
+  } catch {
+    // Ignore browsers that block Notification construction without a service worker.
+  }
 }
 
-export function wasNotified(lessonId) {
-  return notifiedIds().includes(lessonId);
+export function claimLessonNudge(kind, lessonId) {
+  if (!kind || !lessonId || typeof window === 'undefined') return false;
+  const key = `${NUDGE_PREFIX}${kind}:${lessonId}`;
+  try {
+    if (window.localStorage.getItem(key)) return false;
+    window.localStorage.setItem(key, String(Date.now()));
+    return true;
+  } catch {
+    return true;
+  }
 }
 
-export async function notifyUpcomingLesson(lesson) {
-  if (!lesson?.id || !lesson.upcomingSoon || lesson.playbackActive || wasNotified(lesson.id)) return;
-  rememberNotified(lesson.id);
+export function notifyUpcomingLesson(lesson) {
+  if (!lesson?.id || !lesson.upcomingSoon || lesson.playbackActive) return false;
+  if (!claimLessonNudge('soon', lesson.id)) return false;
   const title = `Sắp học: ${lesson.topic || 'Buổi live'}`;
   const body = lesson.minutesUntilStart > 0
     ? `Còn ${lesson.minutesUntilStart} phút. Vào phòng chờ, video do giảng viên phát.`
     : 'Đã tới giờ. Vào phòng và chờ giảng viên bắt đầu video.';
-  if (typeof window === 'undefined' || !('Notification' in window)) return;
-  if (Notification.permission === 'default') {
-    try {
-      await Notification.requestPermission();
-    } catch {
-      return;
-    }
-  }
-  if (Notification.permission === 'granted') {
-    try {
-      new Notification(title, { body });
-    } catch {
-      // Ignore browsers that block Notification construction without a service worker.
-    }
-  }
+  showLiveLessonNotification(title, body);
+  return true;
 }

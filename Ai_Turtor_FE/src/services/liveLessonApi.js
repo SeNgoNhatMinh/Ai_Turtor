@@ -37,6 +37,10 @@ export const liveLessonApi = {
     return json('POST', `${API_BASE_URL}/live-lessons/${encodeURIComponent(lessonId)}/open`);
   },
 
+  syncPlayback(lessonId, payload) {
+    return json('POST', `${API_BASE_URL}/live-lessons/${encodeURIComponent(lessonId)}/playback`, payload);
+  },
+
   end(lessonId) {
     return json('POST', `${API_BASE_URL}/live-lessons/${encodeURIComponent(lessonId)}/end`);
   },

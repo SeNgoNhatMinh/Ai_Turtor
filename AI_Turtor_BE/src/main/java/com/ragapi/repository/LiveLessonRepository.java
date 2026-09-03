@@ -12,4 +12,6 @@ public interface LiveLessonRepository extends MongoRepository<LiveLesson, String
     List<LiveLesson> findByCourseIdAndClassIdOrderByStartsAtDesc(String courseId, String classId);
 
     List<LiveLesson> findByTeacherIdOrderByStartsAtDesc(String teacherId);
+
+    List<LiveLesson> findByStatus(String status);
 }
