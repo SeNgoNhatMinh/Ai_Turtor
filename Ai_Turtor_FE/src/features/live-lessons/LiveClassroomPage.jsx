@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Hand, Mic, MicOff } from 'lucide-react';
 import PageHeader from '../../components/common/PageHeader';
 import AiAnswer from '../../components/AiAnswer';
 import AnswerEvidence from '../student/chat/components/AnswerEvidence';
+import { getPersonDisplayName } from '../../utils/displayNames';
 import { liveLessonApi } from '../../services/liveLessonApi';
 import { getUserFacingError } from '../../services/httpClient';
 import { youtubeWatchUrl } from '../../utils/youtubeVideo';
@@ -19,6 +20,10 @@ const POLL_MS = 4000;
 function isStaffRole(role) {
   const value = String(role || '').toUpperCase();
   return value === 'TEACHER' || value === 'ADMIN' || value === 'SENIOR_MENTOR';
+}
+
+function rosterName(person) {
+  return getPersonDisplayName(person, isStaffRole(person?.role) ? 'Giảng viên' : 'Sinh viên');
 }
 
 function personStatus(person) {
@@ -39,7 +44,7 @@ function sortRoster(people) {
       return 4;
     };
     return rank(left) - rank(right)
-      || String(left.displayName || left.userId).localeCompare(String(right.displayName || right.userId));
+      || String(rosterName(left)).localeCompare(String(rosterName(right)));
   });
 }
 
@@ -74,8 +79,10 @@ export default function LiveClassroomPage({
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [asking, setAsking] = useState(false);
-  const displayName = currentUser?.fullName || currentUser?.name || currentUser?.email || '';
+  const displayName = getPersonDisplayName(currentUser, currentUser?.email || '');
   const playbackActive = Boolean(lesson?.playbackActive);
+  const liveRef = useRef(false);
+  liveRef.current = playbackActive && lesson?.status !== 'ENDED';
   const voice = useLiveLessonVoice({
     lessonId,
     currentUser,
@@ -124,8 +131,22 @@ export default function LiveClassroomPage({
     };
   }, [lessonId]);
 
-  useRealtimeEvent(['LIVE_LESSON_PLAYBACK', 'LIVE_LESSON_STARTED'], (event) => {
+  useRealtimeEvent(['LIVE_LESSON_PLAYBACK', 'LIVE_LESSON_STARTED', 'LIVE_LESSON_ENDED'], (event) => {
     if (String(event.entityId) !== String(lessonId)) return;
+    if (event.type === 'LIVE_LESSON_ENDED') {
+      setLesson((current) => (current ? {
+        ...current,
+        status: 'ENDED',
+        playbackActive: false,
+        playbackPaused: true,
+      } : current));
+      setSnapshot((current) => (current ? {
+        ...current,
+        playbackActive: false,
+        paused: true,
+      } : current));
+      return;
+    }
     const paused = event.data?.paused ?? event.data?.playbackPaused;
     const position = event.data?.positionSeconds;
     const eventClock = snapshotClockMs(event.data, Date.now());
@@ -224,7 +245,7 @@ export default function LiveClassroomPage({
   };
 
   const syncPlayback = async ({ paused, positionSeconds }) => {
-    if (!isTeacher) return;
+    if (!isTeacher || !liveRef.current) return;
     const nextPaused = Boolean(paused);
     const seconds = Math.max(0, Number(positionSeconds) || 0);
     const capturedAtMs = Date.now();
@@ -260,7 +281,7 @@ export default function LiveClassroomPage({
 
   const canStudentChat = lesson.status !== 'ENDED';
   const selfUserId = String(currentUser?.userId || currentUser?.id || '');
-  const speakingNames = voice.speaking.map((peer) => peer.displayName || peer.userId);
+  const speakingNames = voice.speaking.map((peer) => rosterName(peer));
   const roster = sortRoster(voice.participants);
 
   return (
@@ -416,7 +437,7 @@ export default function LiveClassroomPage({
                     >
                       <div>
                         <strong>
-                          {person.displayName || person.userId}
+                          {rosterName(person)}
                           {mine ? ' · Bạn' : ''}
                           {staff ? ' · GV' : ''}
                         </strong>

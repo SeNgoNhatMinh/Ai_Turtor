@@ -285,7 +285,9 @@ public class LiveLessonService {
         lesson.setStatus(STATUS_ENDED);
         lesson.setEndsAt(now);
         lesson.setUpdatedAt(now);
-        return toResponse(lessonRepository.save(lesson));
+        LiveLessonResponse response = toResponse(lessonRepository.save(lesson));
+        notifyLessonRoom(response, "LIVE_LESSON_ENDED", "ENDED", Map.of());
+        return response;
     }
 
     public List<LiveLessonChatMessageResponse> listChat(String lessonId, String userId, String role) {

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getAuthToken } from '../auth/services/tokenStorage';
 import { env } from '../../config/env';
+import { getPersonDisplayName } from '../../utils/displayNames';
 import { buildRealtimeSocketUrl } from '../realtime/realtimeEvents';
 
 const ICE_SERVERS = [{ urls: 'stun:stun.l.google.com:19302' }];
@@ -36,7 +37,7 @@ function upsertPeer(list, peer) {
 
 export function useLiveLessonVoice({ lessonId, currentUser, enabled, isTeacher = false, triggerToast }) {
   const fallbackUserId = currentUser?.userId || currentUser?.id || '';
-  const displayName = currentUser?.fullName || currentUser?.name || currentUser?.email || fallbackUserId;
+  const displayName = getPersonDisplayName(currentUser, fallbackUserId);
   const [muted, setMuted] = useState(true);
   const [handRaised, setHandRaised] = useState(false);
   const [canSpeak, setCanSpeak] = useState(Boolean(isTeacher));
@@ -45,9 +46,9 @@ export function useLiveLessonVoice({ lessonId, currentUser, enabled, isTeacher =
   const [connected, setConnected] = useState(false);
   const socketRef = useRef(null);
   const peersRef = useRef(new Map());
+  const pendingIceRef = useRef(new Map());
   const streamRef = useRef(null);
   const selfIdRef = useRef(fallbackUserId);
-  const pendingOfferRef = useRef(new Set());
   const isTeacherRef = useRef(isTeacher);
   isTeacherRef.current = isTeacher;
 
@@ -62,6 +63,7 @@ export function useLiveLessonVoice({ lessonId, currentUser, enabled, isTeacher =
     peersRef.current.forEach(({ audio }) => {
       try {
         audio.muted = false;
+        audio.volume = 1;
         const played = audio.play();
         if (played?.catch) played.catch(() => {});
       } catch {
@@ -86,6 +88,20 @@ export function useLiveLessonVoice({ lessonId, currentUser, enabled, isTeacher =
     setHandRaised(false);
   }, []);
 
+  const flushIce = useCallback(async (peerId) => {
+    const entry = peersRef.current.get(peerId);
+    const queued = pendingIceRef.current.get(peerId) || [];
+    pendingIceRef.current.delete(peerId);
+    if (!entry?.pc?.remoteDescription) return;
+    for (const candidate of queued) {
+      try {
+        await entry.pc.addIceCandidate(candidate);
+      } catch {
+        // Candidate may belong to a previous offer.
+      }
+    }
+  }, []);
+
   const closePeer = useCallback((peerId) => {
     const entry = peersRef.current.get(peerId);
     if (!entry) return;
@@ -96,14 +112,14 @@ export function useLiveLessonVoice({ lessonId, currentUser, enabled, isTeacher =
     }
     entry.audio?.remove();
     peersRef.current.delete(peerId);
-    pendingOfferRef.current.delete(peerId);
+    pendingIceRef.current.delete(peerId);
   }, []);
 
   const attachStream = useCallback((pc) => {
     const stream = streamRef.current;
-    if (!stream) return;
+    if (!stream || !pc) return;
     stream.getAudioTracks().forEach((track) => {
-      const sender = pc.getSenders().find((item) => item.track?.kind === 'audio' || item.track == null);
+      const sender = pc.getSenders().find((item) => !item.track || item.track.kind === 'audio');
       if (sender) sender.replaceTrack(track);
       else pc.addTrack(track, stream);
     });
@@ -112,15 +128,18 @@ export function useLiveLessonVoice({ lessonId, currentUser, enabled, isTeacher =
   const offerTo = useCallback(async (peerId) => {
     const entry = peersRef.current.get(peerId);
     const pc = entry?.pc;
-    if (!pc) return;
-    if (pc.signalingState !== 'stable') {
-      pendingOfferRef.current.add(peerId);
-      return;
+    if (!pc || pc.signalingState !== 'stable') return;
+    entry.makingOffer = true;
+    try {
+      const offer = await pc.createOffer();
+      if (pc.signalingState !== 'stable') return;
+      await pc.setLocalDescription(offer);
+      send({ type: 'OFFER', toUserId: peerId, sdp: pc.localDescription.sdp });
+    } catch {
+      // Glare while two peers offer at once.
+    } finally {
+      entry.makingOffer = false;
     }
-    pendingOfferRef.current.delete(peerId);
-    const offer = await pc.createOffer();
-    await pc.setLocalDescription(offer);
-    send({ type: 'OFFER', toUserId: peerId, sdp: offer.sdp });
   }, [send]);
 
   const ensurePeer = useCallback((peerId) => {
@@ -132,7 +151,10 @@ export function useLiveLessonVoice({ lessonId, currentUser, enabled, isTeacher =
     const audio = document.createElement('audio');
     audio.autoplay = true;
     audio.playsInline = true;
+    audio.muted = false;
+    audio.volume = 1;
     document.body.appendChild(audio);
+    const entry = { pc, audio, makingOffer: false, polite: String(selfIdRef.current) > String(peerId) };
     pc.onicecandidate = (event) => {
       const candidate = icePayload(event.candidate);
       if (candidate?.candidate) {
@@ -143,16 +165,15 @@ export function useLiveLessonVoice({ lessonId, currentUser, enabled, isTeacher =
       const stream = event.streams?.[0] || new MediaStream([event.track]);
       audio.srcObject = stream;
       audio.muted = false;
+      audio.volume = 1;
       const played = audio.play();
       if (played?.catch) played.catch(() => {});
     };
-    pc.onsignalingstatechange = () => {
-      if (pc.signalingState === 'stable' && pendingOfferRef.current.has(peerId)) {
-        offerTo(peerId).catch(() => {});
-      }
+    pc.onnegotiationneeded = () => {
+      offerTo(peerId).catch(() => {});
     };
     attachStream(pc);
-    peersRef.current.set(peerId, { pc, audio });
+    peersRef.current.set(peerId, entry);
     return pc;
   }, [attachStream, offerTo, send]);
 
@@ -197,9 +218,6 @@ export function useLiveLessonVoice({ lessonId, currentUser, enabled, isTeacher =
         setParticipants(Array.isArray(event.participants) ? event.participants : list);
         for (const peer of list) {
           ensurePeer(peer.userId);
-          if (String(selfIdRef.current) < String(peer.userId)) {
-            offerTo(peer.userId).catch(() => {});
-          }
         }
         return;
       }
@@ -207,9 +225,6 @@ export function useLiveLessonVoice({ lessonId, currentUser, enabled, isTeacher =
         setPeers((current) => upsertPeer(current, event.peer));
         setParticipants((current) => upsertPeer(current, event.peer));
         ensurePeer(event.peer.userId);
-        if (String(selfIdRef.current) < String(event.peer.userId)) {
-          offerTo(event.peer.userId).catch(() => {});
-        }
         return;
       }
       if (type === 'PEER_UPDATED' && event.peer?.userId) {
@@ -259,9 +274,20 @@ export function useLiveLessonVoice({ lessonId, currentUser, enabled, isTeacher =
       }
       if (type === 'OFFER' && event.fromUserId && event.sdp) {
         const pc = ensurePeer(event.fromUserId);
-        if (!pc) return;
+        const entry = peersRef.current.get(event.fromUserId);
+        if (!pc || !entry) return;
+        const collision = entry.makingOffer || pc.signalingState !== 'stable';
+        if (collision) {
+          if (!entry.polite) return;
+          try {
+            await pc.setLocalDescription({ type: 'rollback' });
+          } catch {
+            return;
+          }
+        }
         try {
           await pc.setRemoteDescription({ type: 'offer', sdp: event.sdp });
+          await flushIce(event.fromUserId);
           const answer = await pc.createAnswer();
           await pc.setLocalDescription(answer);
           send({ type: 'ANSWER', toUserId: event.fromUserId, sdp: answer.sdp });
@@ -274,15 +300,23 @@ export function useLiveLessonVoice({ lessonId, currentUser, enabled, isTeacher =
         const pc = ensurePeer(event.fromUserId);
         try {
           await pc?.setRemoteDescription({ type: 'answer', sdp: event.sdp });
+          await flushIce(event.fromUserId);
         } catch {
           // Ignore a late answer after hangup.
         }
         return;
       }
       if (type === 'ICE' && event.fromUserId && event.candidate) {
-        const pc = ensurePeer(event.fromUserId);
+        ensurePeer(event.fromUserId);
+        const pc = peersRef.current.get(event.fromUserId)?.pc;
+        if (!pc?.remoteDescription) {
+          const queued = pendingIceRef.current.get(event.fromUserId) || [];
+          queued.push(event.candidate);
+          pendingIceRef.current.set(event.fromUserId, queued);
+          return;
+        }
         try {
-          await pc?.addIceCandidate(event.candidate);
+          await pc.addIceCandidate(event.candidate);
         } catch {
           // Ignore late ICE after hangup.
         }
@@ -301,7 +335,7 @@ export function useLiveLessonVoice({ lessonId, currentUser, enabled, isTeacher =
       setPeers([]);
       setParticipants([]);
     };
-  }, [applyForceMute, closePeer, displayName, enabled, ensurePeer, fallbackUserId, lessonId, offerTo, send, triggerToast]);
+  }, [applyForceMute, closePeer, displayName, enabled, ensurePeer, fallbackUserId, flushIce, lessonId, send, triggerToast]);
 
   const toggleMic = async () => {
     playRemote();
@@ -318,7 +352,6 @@ export function useLiveLessonVoice({ lessonId, currentUser, enabled, isTeacher =
         streamRef.current = stream;
         peersRef.current.forEach(({ pc }, peerId) => {
           attachStream(pc);
-          pendingOfferRef.current.add(peerId);
           offerTo(peerId).catch(() => {});
         });
         playRemote();

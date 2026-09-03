@@ -92,6 +92,9 @@ export function useLiveLessonReminders({ enabled, triggerToast }) {
         'Vào phòng Live theo lớp để xem cùng lớp.',
       );
     }
+    if (event.type === 'LIVE_LESSON_ENDED') {
+      triggerToast?.(`Buổi live đã kết thúc: ${event.data?.topic || 'Buổi live'}`);
+    }
     load().catch(() => {});
   });
 }

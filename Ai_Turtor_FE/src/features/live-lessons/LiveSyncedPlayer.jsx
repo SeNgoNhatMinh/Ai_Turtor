@@ -18,7 +18,7 @@ export default function LiveSyncedPlayer({
   isTeacher,
   onControl,
 }) {
-  const hostRef = useRef(null);
+  const wrapperRef = useRef(null);
   const playerRef = useRef(null);
   const seekingRef = useRef(false);
   const snapshotRef = useRef(snapshot);
@@ -34,8 +34,11 @@ export default function LiveSyncedPlayer({
   onControlRef.current = onControl;
 
   useEffect(() => {
-    if (!playbackActive || !hostRef.current) return undefined;
+    if (!playbackActive || !wrapperRef.current) return undefined;
     let cancelled = false;
+    const host = document.createElement('div');
+    host.className = 'live-yt-host-inner';
+    wrapperRef.current.replaceChildren(host);
 
     const readTime = (player) => {
       try {
@@ -70,9 +73,9 @@ export default function LiveSyncedPlayer({
 
     loadYoutubeIframeApi()
       .then((YT) => {
-        if (cancelled || !hostRef.current) return;
+        if (cancelled || !host.isConnected) return;
         const start = Math.max(0, Math.floor(followPlaybackSeconds(snapshotRef.current)));
-        const player = new YT.Player(hostRef.current, {
+        const player = new YT.Player(host, {
           videoId,
           playerVars: {
             autoplay: snapshotRef.current?.paused ? 0 : 1,
@@ -92,6 +95,7 @@ export default function LiveSyncedPlayer({
               applyFollow(event.target);
             },
             onStateChange: (event) => {
+              if (cancelled) return;
               const paused = Boolean(snapshotRef.current?.paused);
               if (paused && (event.data === YT.PlayerState.PLAYING || event.data === YT.PlayerState.BUFFERING)) {
                 event.target.pauseVideo();
@@ -112,6 +116,7 @@ export default function LiveSyncedPlayer({
       .catch(() => {});
 
     const syncTimer = window.setInterval(() => {
+      if (cancelled) return;
       const player = playerRef.current;
       if (!player) return;
       applyFollow(player);
@@ -142,12 +147,15 @@ export default function LiveSyncedPlayer({
     return () => {
       cancelled = true;
       window.clearInterval(syncTimer);
+      const player = playerRef.current;
+      playerRef.current = null;
       try {
-        playerRef.current?.destroy?.();
+        player?.stopVideo?.();
+        player?.destroy?.();
       } catch {
         // Ignore YouTube destroy errors on unmount.
       }
-      playerRef.current = null;
+      wrapperRef.current?.replaceChildren();
     };
   }, [playbackActive, videoId, isTeacher]);
 
@@ -156,7 +164,8 @@ export default function LiveSyncedPlayer({
   }
 
   const paused = Boolean(snapshot?.paused);
-  const max = Math.max(duration || 0, localSeconds, 1);
+  const max = Math.max(duration || 0, Number.isFinite(localSeconds) ? localSeconds : 0, 1);
+  const sliderValue = Math.min(Number.isFinite(localSeconds) ? localSeconds : 0, max);
 
   const readPlayerSeconds = () => {
     try {
@@ -182,7 +191,7 @@ export default function LiveSyncedPlayer({
 
   return (
     <>
-      <div className="live-yt-host" ref={hostRef} />
+      <div className="live-yt-host" ref={wrapperRef} />
       <div className="live-player-lock" aria-hidden="true" />
       {isTeacher && (
         <div className="live-player-controls">
@@ -199,7 +208,7 @@ export default function LiveSyncedPlayer({
             min="0"
             max={max}
             step="1"
-            value={Math.min(localSeconds, max)}
+            value={sliderValue}
             onMouseDown={() => { seekingRef.current = true; }}
             onTouchStart={() => { seekingRef.current = true; }}
             onChange={(event) => setLocalSeconds(Number(event.target.value))}
