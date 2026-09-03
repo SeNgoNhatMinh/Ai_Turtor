@@ -155,6 +155,53 @@ public class ElasticVectorService {
         log.info("Indexed {} chunks in one embedding/bulk batch", contents.size());
     }
 
+    public void indexHierarchicalChunks(
+            String courseId,
+            String classId,
+            String teacherId,
+            String materialId,
+            String materialScope,
+            String sourceType,
+            String sourceUrl,
+            String sourceDomain,
+            List<CourseMaterialChunkingService.HierarchicalChunk> chunks
+    ) throws IOException {
+        if (chunks == null || chunks.isEmpty()) return;
+        List<String> contents = chunks.stream().map(CourseMaterialChunkingService.HierarchicalChunk::content).toList();
+        List<Embedding> embeddings = embeddingService.generatePassageEmbeddings(contents);
+        if (embeddings.size() != chunks.size()) {
+            throw new IllegalStateException("Embedding count did not match hierarchical chunk count");
+        }
+        BulkRequest.Builder bulk = new BulkRequest.Builder();
+        for (int i = 0; i < chunks.size(); i++) {
+            CourseMaterialChunkingService.HierarchicalChunk chunk = chunks.get(i);
+            Map<String, Object> data = new HashMap<>();
+            data.put("documentId", chunk.documentId());
+            data.put("materialId", materialId);
+            data.put("courseId", courseId);
+            data.put("classId", classId);
+            data.put("teacherId", teacherId);
+            data.put("materialScope", materialScope);
+            data.put("sourceType", sourceType);
+            data.put("sourceUrl", sourceUrl);
+            data.put("sourceDomain", sourceDomain);
+            data.put("chapterId", chunk.chapterId());
+            data.put("chapterTitle", chunk.chapterTitle());
+            data.put("sectionId", chunk.sectionId());
+            data.put("sectionTitle", chunk.sectionTitle());
+            data.put("chunkId", chunk.chunkId());
+            data.put("chunkIndex", chunk.chunkIndex());
+            data.put("nodeType", "CHUNK");
+            data.put("parentContent", parentWindow(chunk.parentContent(), chunk.content(), 3_600));
+            data.put("content", chunk.content());
+            data.put("vector", embeddings.get(i).vector());
+            bulk.operations(op -> op.index(idx -> idx.index(index).document(data)));
+        }
+        var response = elasticsearchClient.bulk(bulk.build());
+        if (response.errors()) throw new IOException("Elasticsearch hierarchical bulk indexing reported errors");
+        log.info("Indexed {} hierarchical child chunks", chunks.size());
+    }
+
     public List<String> search(String question)
             throws IOException {
 
@@ -201,6 +248,59 @@ public class ElasticVectorService {
                 NON_TEXTBOOK_SOURCE_TYPES,
                 retrievalTopK
         );
+    }
+
+    public List<SearchChunk> searchTextbookKeywordWithScores(
+            String question,
+            String courseId,
+            String classId,
+            int topK
+    ) throws IOException {
+        String safeQuestion = requireMaxLength(question, "question", DEFAULT_TEXT_MAX_LENGTH);
+        String safeCourseId = requireText(courseId, "courseId");
+        if (topK <= 0) {
+            return List.of();
+        }
+        if (classId != null && !classId.isBlank()) {
+            log.debug("classId={} is kept as metadata but ignored for keyword RAG search filtering", classId);
+        }
+        if (!indexExists()) {
+            log.warn("Elasticsearch index {} does not exist yet. Returning empty keyword RAG context.", index);
+            return List.of();
+        }
+
+        List<Query> filters = buildScopeFilters(safeCourseId, null, NON_TEXTBOOK_SOURCE_TYPES);
+        Query contentQuery = Query.of(q -> q.match(m -> m
+                .field("content")
+                .query(safeQuestion)
+        ));
+
+        SearchResponse<Map> response = elasticsearchClient.search(s -> s
+                        .index(index)
+                        .size(Math.max(1, topK))
+                        .query(q -> q.bool(b -> {
+                            b.must(contentQuery);
+                            for (Query filter : filters) {
+                                b.filter(filter);
+                            }
+                            return b;
+                        })),
+                Map.class
+        );
+
+        List<SearchChunk> results = new ArrayList<>();
+        response.hits().hits().forEach(hit -> {
+            Map source = hit.source();
+            if (source == null) {
+                return;
+            }
+            SearchChunk chunk = toSearchChunk(source, hit.score());
+            if (chunk != null && isVisibleForClass(chunk, classId)) {
+                results.add(chunk);
+            }
+        });
+        log.info("Found {} keyword matching textbook chunks", results.size());
+        return results;
     }
 
     /**
@@ -294,21 +394,9 @@ public class ElasticVectorService {
             Map source = hit.source();
 
             if(source != null) {
-                Object content = source.get("content");
-                if (content != null) {
-                    SearchChunk chunk = new SearchChunk(
-                            content.toString(),
-                            hit.score(),
-                            Objects.toString(source.get("materialId"), null),
-                            Objects.toString(source.get("courseId"), null),
-                            Objects.toString(source.get("classId"), null),
-                            Objects.toString(source.get("teacherId"), null),
-                            Objects.toString(source.get("materialScope"), null),
-                            Objects.toString(source.get("sourceType"), null)
-                    );
-                    if (isVisibleForClass(chunk, classId)) {
-                        results.add(chunk);
-                    }
+                SearchChunk chunk = toSearchChunk(source, hit.score());
+                if (chunk != null && isVisibleForClass(chunk, classId)) {
+                    results.add(chunk);
                 }
             }
         });
@@ -316,6 +404,49 @@ public class ElasticVectorService {
         log.info("Found {} matching chunks sourceType={}", results.size(), sourceType);
 
         return results;
+    }
+
+    private SearchChunk toSearchChunk(Map source, Double score) {
+        Object childContent = source.get("content");
+        Object parentContent = source.get("parentContent");
+        Object content = parentContent != null ? parentContent : childContent;
+        if (content == null) {
+            return null;
+        }
+        return new SearchChunk(
+                content.toString(),
+                score,
+                Objects.toString(source.get("materialId"), null),
+                Objects.toString(source.get("courseId"), null),
+                Objects.toString(source.get("classId"), null),
+                Objects.toString(source.get("teacherId"), null),
+                Objects.toString(source.get("materialScope"), null),
+                Objects.toString(source.get("sourceType"), null),
+                Objects.toString(source.get("documentId"), null),
+                Objects.toString(source.get("chapterId"), null),
+                Objects.toString(source.get("chapterTitle"), null),
+                Objects.toString(source.get("sectionId"), null),
+                Objects.toString(source.get("sectionTitle"), null),
+                Objects.toString(source.get("chunkId"), null),
+                source.get("chunkIndex") instanceof Number number ? number.intValue() : null,
+                parentContent != null ? "SECTION" : Objects.toString(source.get("nodeType"), null)
+        );
+    }
+
+    private String parentWindow(String parent, String child, int maxChars) {
+        if (parent == null || parent.length() <= maxChars) return parent;
+        int childPosition = child == null ? 0 : parent.indexOf(child);
+        int start = Math.max(0, childPosition - 800);
+        if (start > 0) {
+            int boundary = parent.indexOf(' ', start);
+            if (boundary > 0) start = boundary + 1;
+        }
+        int end = Math.min(parent.length(), start + maxChars);
+        if (end < parent.length()) {
+            int boundary = parent.lastIndexOf(' ', end);
+            if (boundary > start) end = boundary;
+        }
+        return parent.substring(start, end).trim();
     }
 
     public long deleteChunksByMaterialId(String materialId) throws IOException {
@@ -347,7 +478,15 @@ public class ElasticVectorService {
             String classId,
             String teacherId,
             String materialScope,
-            String sourceType
+            String sourceType,
+            String documentId,
+            String chapterId,
+            String chapterTitle,
+            String sectionId,
+            String sectionTitle,
+            String chunkId,
+            Integer chunkIndex,
+            String nodeType
     ) {
         public SearchChunk(
                 String content,
@@ -358,7 +497,22 @@ public class ElasticVectorService {
                 String teacherId,
                 String materialScope
         ) {
-            this(content, score, materialId, courseId, classId, teacherId, materialScope, null);
+            this(content, score, materialId, courseId, classId, teacherId, materialScope, null,
+                    materialId, null, null, null, null, null, null, "CHUNK");
+        }
+
+        public SearchChunk(
+                String content,
+                Double score,
+                String materialId,
+                String courseId,
+                String classId,
+                String teacherId,
+                String materialScope,
+                String sourceType
+        ) {
+            this(content, score, materialId, courseId, classId, teacherId, materialScope, sourceType,
+                    materialId, null, null, null, null, null, null, "CHUNK");
         }
     }
 

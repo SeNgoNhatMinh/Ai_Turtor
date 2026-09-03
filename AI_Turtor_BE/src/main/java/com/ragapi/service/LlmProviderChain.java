@@ -191,7 +191,7 @@ final class LlmProviderChain {
         if (containsAny(text, "403", "forbidden", "404", "model not found", "no endpoints found", "no endpoint",
                 "invalid model", "unsupported model", "timeout", "timed out", "500", "502", "503", "504",
                 "upstream", "overloaded", "unavailable", "connect", "connection", "reset",
-                "choices() is null", "choices is null", "nullpointerexception")) {
+                "choices() is null", "choices is null", "nullpointerexception", "invalid provider output")) {
             return FailureKind.TRANSIENT;
         }
         return FailureKind.FATAL_REQUEST;

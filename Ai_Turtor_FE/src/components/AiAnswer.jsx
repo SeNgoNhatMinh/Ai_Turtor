@@ -1,10 +1,14 @@
 import { memo, useMemo } from 'react';
 import MarkdownRenderer from './markdown/MarkdownRenderer';
 import UnderstandingCheckQuiz from '../features/student/chat/components/UnderstandingCheckQuiz';
-import { extractUnderstandingCheck } from '../features/student/chat/understandingCheck';
+import {
+  extractUnderstandingCheck,
+  normalizeStructuredUnderstandingQuiz,
+} from '../features/student/chat/understandingCheck';
 
 function AiAnswer({
   markdown,
+  understandingCheck,
   streaming = false,
   sourceMap = {},
   onStudyTipStudy,
@@ -12,10 +16,15 @@ function AiAnswer({
   onDownloadSource,
   hideSourceSection = false,
 }) {
-  const { before, after, quiz } = useMemo(
+  const extracted = useMemo(
     () => extractUnderstandingCheck(markdown),
     [markdown],
   );
+  const quiz = useMemo(
+    () => normalizeStructuredUnderstandingQuiz(understandingCheck) || extracted.quiz,
+    [understandingCheck, extracted.quiz],
+  );
+  const { before, after } = extracted;
 
   if (!quiz) {
     return (

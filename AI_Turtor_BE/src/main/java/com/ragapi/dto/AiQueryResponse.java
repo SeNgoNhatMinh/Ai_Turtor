@@ -1,6 +1,7 @@
 package com.ragapi.dto;
 
 import com.ragapi.util.TextSanitizer;
+import com.ragapi.util.UnderstandingCheckExtractor;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -40,6 +41,9 @@ public class AiQueryResponse {
 
     @Schema(description = "AI-generated answer")
     private String answer;
+
+    @Schema(description = "Typed understanding check when the answer contains one; null otherwise")
+    private UnderstandingCheckPayload understandingCheck;
 
     @Schema(description = "Estimated answer confidence from retrieval quality", example = "0.85")
     private Double confidence;
@@ -104,6 +108,7 @@ public class AiQueryResponse {
 
     public void setAnswer(String answer) {
         this.answer = TextSanitizer.cleanForStudentAnswer(answer);
+        this.understandingCheck = UnderstandingCheckExtractor.extract(this.answer);
     }
 
     public void setIntentReason(String intentReason) {

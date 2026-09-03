@@ -44,15 +44,66 @@ class RagContextBudgetServiceTest {
         ReflectionTestUtils.setField(service, "maxContextChars", 12000);
         ReflectionTestUtils.setField(service, "ollamaMaxContextChars", 1000);
         List<SearchChunk> chunks = List.of(
-                chunk("a".repeat(800), 0.9),
+                chunk("a".repeat(700), 0.9),
                 chunk("b".repeat(800), 0.8)
         );
 
         List<SearchChunk> selected = service.applyBudget(chunks);
 
         assertThat(selected).hasSize(2);
-        assertThat(selected.get(0).content()).hasSize(800);
-        assertThat(selected.get(1).content()).hasSize(200);
+        assertThat(selected.get(0).content()).hasSize(700);
+        assertThat(selected.get(1).content()).hasSize(300);
+    }
+
+    @Test
+    void applyBudget_doesNotCreateMeaninglessTailEvidence() {
+        when(chatService.isOllamaOnlyActive()).thenReturn(false);
+        RagContextBudgetService service = new RagContextBudgetService(chatService);
+        ReflectionTestUtils.setField(service, "maxContextChars", 1000);
+        ReflectionTestUtils.setField(service, "ollamaMaxContextChars", 600);
+        List<SearchChunk> chunks = List.of(
+                chunk("a".repeat(996), 0.9),
+                chunk("meaningful source excerpt that must not become four characters", 0.8)
+        );
+
+        List<SearchChunk> selected = service.applyBudget(chunks);
+
+        assertThat(selected).hasSize(1);
+        assertThat(selected.get(0).content()).hasSize(996);
+    }
+
+    @Test
+    void applyBudget_preservesHierarchyMetadataWhenChunkIsTrimmed() {
+        when(chatService.isOllamaOnlyActive()).thenReturn(false);
+        RagContextBudgetService service = new RagContextBudgetService(chatService);
+        ReflectionTestUtils.setField(service, "maxContextChars", 1000);
+        ReflectionTestUtils.setField(service, "ollamaMaxContextChars", 600);
+        SearchChunk chunk = new SearchChunk(
+                "x".repeat(1400),
+                0.9,
+                "mat-1",
+                "PRJ301",
+                "SE1840",
+                "teacher-1",
+                "COURSE_SHARED",
+                "PDF",
+                "doc-1",
+                "chapter-3",
+                "Chapter 3: Writing Your First Servlet",
+                "section-4",
+                "Understanding doGet(), doPost(), and Other Methods",
+                "chunk-1",
+                1,
+                "SECTION"
+        );
+
+        List<SearchChunk> selected = service.applyBudget(List.of(chunk));
+
+        assertThat(selected).hasSize(1);
+        assertThat(selected.get(0).content()).hasSize(1000);
+        assertThat(selected.get(0).chapterTitle()).isEqualTo("Chapter 3: Writing Your First Servlet");
+        assertThat(selected.get(0).sectionTitle()).isEqualTo("Understanding doGet(), doPost(), and Other Methods");
+        assertThat(selected.get(0).nodeType()).isEqualTo("SECTION");
     }
 
     private SearchChunk chunk(String content, double score) {

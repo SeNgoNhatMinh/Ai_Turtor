@@ -20,6 +20,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import com.ragapi.util.LearningPathParser;
@@ -60,6 +61,7 @@ public class CourseRagService {
     private final TutorCacheHitAuditService cacheHitAuditService;
     private final RagContextBudgetService contextBudgetService;
     private final ApprovedKnowledgeRetrievalService approvedKnowledgeRetrievalService;
+    private final ParentChildRetrievalService parentChildRetrievalService;
 
     public String ask(String question) throws IOException {
         return ask(question, null, null);
@@ -396,6 +398,19 @@ public class CourseRagService {
         if (vectorChunks == null) {
             vectorChunks = List.of();
         }
+        List<ElasticVectorService.SearchChunk> keywordChunks;
+        try {
+            keywordChunks = vectorService.searchTextbookKeywordWithScores(
+                    retrievalFocus,
+                    safeCourseId,
+                    classId,
+                    12
+            );
+        } catch (Exception exception) {
+            log.debug("Keyword retrieval unavailable; continuing with vector/Mongo retrieval: {}",
+                    exception.getMessage());
+            keywordChunks = List.of();
+        }
         List<ElasticVectorService.SearchChunk> lexicalChunks = fallbackSearchService.searchTextbook(
                 retrievalFocus,
                 safeCourseId,
@@ -405,6 +420,7 @@ public class CourseRagService {
         List<ElasticVectorService.SearchChunk> chunks = TextbookChunkAlignment.merge(
                 retrievalFocus,
                 vectorChunks,
+                keywordChunks,
                 lexicalChunks
         );
         if (chunks.isEmpty()) {
@@ -412,6 +428,13 @@ public class CourseRagService {
         }
         chunks = rerankService.rerank(retrievalFocus, chunks);
         chunks = TextbookChunkAlignment.rank(retrievalFocus, chunks);
+        chunks = TextbookChunkAlignment.diversifyByCoverage(retrievalFocus, chunks, 12);
+        // Search precise child chunks first, then fetch their containing sections.
+        // This stays local/deterministic and works with legacy flat ES documents too.
+        chunks = parentChildRetrievalService.expand(chunks, loadMaterials(chunks));
+        chunks = TextbookChunkAlignment.excludeNavigation(chunks);
+        chunks = TextbookChunkAlignment.rank(retrievalFocus, chunks);
+        chunks = TextbookChunkAlignment.diversifyByCoverage(retrievalFocus, chunks, 8);
         List<ElasticVectorService.SearchChunk> approvedChunks = List.of();
         if (textbookOnly) {
             chunks = contextBudgetService.applyBudget(chunks);
@@ -441,6 +464,11 @@ public class CourseRagService {
             List<ElasticVectorService.SearchChunk> textbookAndNotes = new ArrayList<>(chunks);
             for (ElasticVectorService.SearchChunk note : teachingNotes) {
                 if (note == null || note.materialId() == null || usedMaterialIds.contains(note.materialId())) {
+                    continue;
+                }
+                if (!TextbookChunkAlignment.hasDistinctiveOverlap(retrievalFocus, note, 2)) {
+                    log.debug("Ignoring semantically nearby Gold Q&A without enough lexical topic overlap: {}",
+                            note.materialId());
                     continue;
                 }
                 usedMaterialIds.add(note.materialId());
@@ -898,22 +926,34 @@ public class CourseRagService {
         Map<String, RagSourceEvidence> result = new LinkedHashMap<>();
         for (ElasticVectorService.SearchChunk chunk : chunks) {
             if (chunk.materialId() == null) continue;
+            if (TextbookChunkAlignment.isLikelyNavigationChunk(chunk)) continue;
             CourseMaterial material = materialsById.get(chunk.materialId());
+            String evidenceExcerpt = excerpt(chunk.content());
+            if (!isUsefulEvidenceExcerpt(evidenceExcerpt)
+                    || !isExcerptVerified(material, chunk.content())) {
+                continue;
+            }
             boolean approvedKnowledge = isApprovedKnowledge(material);
             boolean teachingNote = isGoldQaTeachingNote(chunk, material);
-            int page = approvedKnowledge || teachingNote ? -1 : estimatePage(material, chunk.content());
-            MaterialTocEntry toc = approvedKnowledge || teachingNote ? null : findToc(material, page);
+            boolean hasStoredHierarchy = firstNonBlank(chunk.sectionTitle(), chunk.chapterTitle()) != null;
+            int page = approvedKnowledge || teachingNote || !hasStoredHierarchy ? -1 : estimatePage(material, chunk.content());
+            MaterialTocEntry toc = approvedKnowledge || teachingNote || !hasStoredHierarchy ? null : findToc(material, page);
+            String hierarchyTitle = firstNonBlank(
+                    chunk.sectionTitle(),
+                    toc == null ? chunk.chapterTitle() : toc.getTitle()
+            );
             RagSourceEvidence candidate = RagSourceEvidence.builder()
                     .courseId(courseId).courseName(courseName)
                     .materialId(chunk.materialId())
                     .materialTitle(teachingNote
                             ? "Ghi chú giảng dạy (Gold Q&A)"
                             : (material == null ? chunk.materialId() : material.getTitle()))
-                    .chapter(toc == null ? null : toc.getTitle())
+                    .chapter(hierarchyTitle != null ? hierarchyTitle : (toc == null ? null : toc.getTitle()))
                     .pageStart(page > 0 ? page : null)
                     .pageEnd(page > 0 ? page : null)
                     .pageEstimated(page > 0)
-                    .excerpt(excerpt(chunk.content()))
+                    .excerpt(evidenceExcerpt)
+                    .excerptVerified(true)
                     .visualEvidence(List.of())
                     .sourceKind(teachingNote
                             ? "GOLD_QA_TEACHING_NOTE"
@@ -926,8 +966,34 @@ public class CourseRagService {
                     .build();
             String key = evidenceIdentity(candidate, material);
             result.putIfAbsent(key, candidate);
+            if (result.size() >= 6) break;
         }
         return new ArrayList<>(result.values());
+    }
+
+    private String firstNonBlank(String first, String second) {
+        if (first != null && !first.isBlank()) return first.trim();
+        if (second != null && !second.isBlank()) return second.trim();
+        return null;
+    }
+
+    private boolean isUsefulEvidenceExcerpt(String value) {
+        String clean = TextSanitizer.clean(value);
+        if (clean == null || clean.length() < 80) return false;
+        return Pattern.compile("(?U)\\b\\p{L}[\\p{L}\\p{N}_-]+\\b")
+                .matcher(clean)
+                .results()
+                .limit(8)
+                .count() >= 8;
+    }
+
+    private boolean isExcerptVerified(CourseMaterial material, String chunkContent) {
+        if (material == null || material.getContent() == null || chunkContent == null) return false;
+        if (material.getContent().contains(chunkContent)) return true;
+        String materialText = TextSanitizer.clean(material.getContent());
+        String chunkText = TextSanitizer.clean(chunkContent);
+        if (materialText == null || chunkText == null || chunkText.isBlank()) return false;
+        return materialText.replaceAll("\\s+", " ").contains(chunkText.replaceAll("\\s+", " "));
     }
 
     private String materialIdentity(CourseMaterial material, String fallbackId) {

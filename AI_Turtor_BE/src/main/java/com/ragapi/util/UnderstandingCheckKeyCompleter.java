@@ -11,23 +11,23 @@ import java.util.regex.Pattern;
 public final class UnderstandingCheckKeyCompleter {
 
     private static final Pattern CHECK_HEADING = Pattern.compile(
-            "(?im)^#{1,6}\\s*(?:kiểm tra hiểu|understanding check)\\s*$");
+            "(?ium)^#{1,6}\\s*(?:kiểm tra hiểu|understanding check)\\s*$");
     private static final Pattern NEXT_HEADING = Pattern.compile("(?m)^#{1,6}\\s+\\S");
     private static final Pattern OPTIONS = Pattern.compile(
             "(?i)(?:^|\\s)(?:\\(([A-D])\\)|([A-D])\\.)\\s+");
     private static final Pattern ANSWER_KEY = Pattern.compile(
-            "(?i)(?:đáp án|dap an|(?:the\\s+)?(?:correct\\s+)?answer)"
+            "(?iu)(?:đáp án|dap an|(?:the\\s+)?(?:correct\\s+)?answer)"
                     + "(?:\\s+đúng)?\\s*(?:là|is|:|：|-)?\\s*([A-D])\\b");
     private static final Pattern CANONICAL_ANSWER_LINE = Pattern.compile(
-            "(?im)^\\s*(?:đáp án|dap an|(?:the\\s+)?(?:correct\\s+)?answer)"
+            "(?ium)^\\s*(?:đáp án|dap an|(?:the\\s+)?(?:correct\\s+)?answer)"
                     + "\\s*(?:đúng\\s*)?(?:là|is|:|：|-)?\\s*([A-D])\\b");
     private static final Pattern LEAKED = Pattern.compile(
-            "(?i)nếu bạn chọn(?:\\s+đáp án)?\\s+([A-D])\\b");
+            "(?iu)nếu bạn chọn(?:\\s+đáp án)?\\s+([A-D])\\b");
     private static final Pattern CHOOSE = Pattern.compile(
-            "(?i)(?:chọn|choose|pick)\\s+(?:đáp án\\s+)?([A-D])\\b");
+            "(?iu)(?:chọn|choose|pick)\\s+(?:đáp án\\s+)?([A-D])\\b");
     private static final Pattern LONE_KEY = Pattern.compile("(?im)^\\s*([A-D])\\s*[.)]?\\s*$");
     private static final Pattern EXPLAIN = Pattern.compile(
-            "(?im)^\\s*(?:giải thích|giai thich|explanation|lý do|ly do)\\s*[:：]\\s*(.+)$");
+            "(?ium)^\\s*(?:giải thích|giai thich|explanation|lý do|ly do)\\s*[:：]\\s*(.+)$");
 
     private UnderstandingCheckKeyCompleter() {
     }

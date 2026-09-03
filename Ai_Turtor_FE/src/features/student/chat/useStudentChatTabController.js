@@ -19,7 +19,6 @@ export function useStudentChatTabController({
   sessions = [],
   activeSessionId,
   messages = [],
-  activeSessionMaxTurnsReached = false,
   courseDailyQuotaExhausted = false,
   turnLimitNotice,
   dismissTurnLimitNotice,

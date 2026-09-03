@@ -138,7 +138,7 @@ Các biến bắt buộc/sửa chính:
 OPENROUTER_API_KEY=sk-or-real-key-here
 OPENROUTER_MODEL=openai/gpt-oss-120b:free
 OPENROUTER_RERANK_API_KEY=
-RAG_RERANK_ENABLED=true
+RAG_RERANK_ENABLED=false
 RAG_RERANK_MODEL=nvidia/llama-nemotron-rerank-vl-1b-v2:free
 RAG_RETRIEVAL_TOP_K=20
 RAG_RERANK_TOP_K_AFTER=5

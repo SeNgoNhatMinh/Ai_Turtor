@@ -60,4 +60,21 @@ class TextSanitizerTest {
     void cleanListRemovesBlankEntries() {
         assertEquals(2, TextSanitizer.cleanList(java.util.List.of(" Servlet ", "", "JSP")).size());
     }
+
+    @Test
+    void stripsClosedReasoningBlockAndKeepsFinalAnswer() {
+        String answer = "<think>private chain of thought</think>\n## Theo tài liệu môn học\nServlet có init, service và destroy.";
+
+        String cleaned = TextSanitizer.cleanForStudentAnswer(answer);
+
+        assertFalse(cleaned.contains("private chain of thought"));
+        assertTrue(cleaned.startsWith("## Theo tài liệu môn học"));
+    }
+
+    @Test
+    void rejectsUnclosedReasoningOnlyOutput() {
+        String answer = "<think>Here's a thinking process: [Output Generation] draft only";
+
+        assertEquals("", TextSanitizer.cleanForStudentAnswer(answer));
+    }
 }

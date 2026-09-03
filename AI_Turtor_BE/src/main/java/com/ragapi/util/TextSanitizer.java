@@ -14,6 +14,12 @@ public final class TextSanitizer {
 
     private static final Charset WINDOWS_1252 = Charset.forName("windows-1252");
     private static final Pattern TOKEN_OR_SPACE = Pattern.compile("\\S+|\\s+");
+    private static final Pattern COMPLETE_REASONING_BLOCK = Pattern.compile(
+            "(?is)<(?:think|analysis|reasoning)>.*?</(?:think|analysis|reasoning)>"
+    );
+    private static final Pattern REASONING_TAG = Pattern.compile(
+            "(?is)</?(?:think|analysis|reasoning)>"
+    );
 
     private TextSanitizer() {
     }
@@ -43,9 +49,26 @@ public final class TextSanitizer {
         if (cleaned == null || cleaned.isBlank()) {
             return cleaned;
         }
+        cleaned = stripReasoningEnvelope(cleaned);
+        if (cleaned.isBlank()) {
+            return cleaned;
+        }
         cleaned = stripUnexpectedScripts(cleaned);
         cleaned = PromptLeakFilter.strip(cleaned);
         return cleaned.replaceAll("[ \\t]{2,}", " ").trim();
+    }
+
+    private static String stripReasoningEnvelope(String value) {
+        String withoutCompleteBlocks = COMPLETE_REASONING_BLOCK.matcher(value).replaceAll("").trim();
+        if (REASONING_TAG.matcher(withoutCompleteBlocks).find()) {
+            return "";
+        }
+        String lower = withoutCompleteBlocks.toLowerCase(Locale.ROOT);
+        if (lower.contains("here's a thinking process:")
+                || (lower.contains("self-correction/verification") && lower.contains("[output generation]"))) {
+            return "";
+        }
+        return withoutCompleteBlocks;
     }
 
     /** Lowercase, strip diacritics, keep letters/digits for cross-accent search/matching. */
@@ -189,4 +212,3 @@ public final class TextSanitizer {
         return normalized.replaceAll("\\p{InCombiningDiacriticalMarks}+", "");
     }
 }
-

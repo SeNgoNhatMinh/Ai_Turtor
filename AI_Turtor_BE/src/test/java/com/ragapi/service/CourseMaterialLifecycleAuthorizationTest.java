@@ -32,6 +32,7 @@ class CourseMaterialLifecycleAuthorizationTest {
                 mock(CourseMaterialChunkingService.class),
                 vectorService,
                 mock(PdfStorageService.class),
+                mock(PdfExtractionService.class),
                 mock(PdfPageRenderService.class),
                 visualVectorService,
                 new CourseMaterialAccessPolicy(),

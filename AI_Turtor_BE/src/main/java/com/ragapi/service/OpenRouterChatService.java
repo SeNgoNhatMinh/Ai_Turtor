@@ -237,7 +237,8 @@ public class OpenRouterChatService {
                         .numCtx(Math.max(1024, ollamaNumCtx))
                         .maxRetries(Math.max(0, ollamaMaxRetries))
                         .build();
-                providers.add(new LlmProviderChain.Provider(slot.providerId(), slot.model(), ollama::generate));
+                providers.add(new LlmProviderChain.Provider(
+                        slot.providerId(), slot.model(), prompt -> requireStudentReadyOutput(ollama.generate(prompt))));
                 log.info("Ollama chat client ready: model={}, baseUrl={}, timeout={}s, numPredict={}, numCtx={}",
                         slot.model(), baseUrl, slot.timeoutSeconds(), ollamaNumPredict, ollamaNumCtx);
                 continue;
@@ -253,9 +254,18 @@ public class OpenRouterChatService {
                     .timeout(Duration.ofSeconds(Math.max(5, timeoutSeconds)))
                     .maxRetries(slot.maxRetries())
                     .build();
-            providers.add(new LlmProviderChain.Provider(slot.providerId(), slot.model(), model::generate));
+            providers.add(new LlmProviderChain.Provider(
+                    slot.providerId(), slot.model(), prompt -> requireStudentReadyOutput(model.generate(prompt))));
         }
         return providers;
+    }
+
+    private String requireStudentReadyOutput(String raw) {
+        String cleaned = TextSanitizer.cleanForStudentAnswer(raw);
+        if (cleaned == null || cleaned.isBlank()) {
+            throw new IllegalStateException("Invalid provider output: reasoning-only or empty response");
+        }
+        return cleaned;
     }
 
     private String summarize(Exception error) {

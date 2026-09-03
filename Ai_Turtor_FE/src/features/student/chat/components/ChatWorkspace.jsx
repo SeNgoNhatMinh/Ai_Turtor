@@ -43,7 +43,6 @@ function ChatWorkspace({
   currentUser,
   activeSessionId,
   activeSessionQuestionCount = 0,
-  activeSessionMaxTurnsReached = false,
   courseDailyQuota = { used: 0, remaining: 10, limit: 10 },
   courseDailyQuotaExhausted = false,
   turnLimitNotice,
@@ -136,8 +135,9 @@ function ChatWorkspace({
   ));
   const dailyQuotaExhausted = Boolean(courseDailyQuotaExhausted || courseDailyQuota?.remaining <= 0);
   const isNearTurnLimit = questionCount >= 8 && !dailyQuotaExhausted;
+  const suggestedTopics = tutorSession?.suggestedTopics;
   const composerTopics = useMemo(() => {
-    const sessionTopics = (Array.isArray(tutorSession?.suggestedTopics) ? tutorSession.suggestedTopics : [])
+    const sessionTopics = (Array.isArray(suggestedTopics) ? suggestedTopics : [])
       .map((topic) => String(topic || '').trim())
       .filter(Boolean);
     const parsedLessons = lessonSuggestionsForMessage(safeMessages[safeMessages.length - 1])
@@ -147,7 +147,7 @@ function ChatWorkspace({
     if (looksLikeLessons(sessionTopics)) return sessionTopics;
     if (parsedLessons.length > 0) return parsedLessons;
     return sessionTopics;
-  }, [safeMessages, tutorSession?.suggestedTopics]);
+  }, [safeMessages, suggestedTopics]);
   const handleCourseSelect = (nextCourseId) => {
     if (!nextCourseId || nextCourseId === courseId) return;
     if (!courseId) {

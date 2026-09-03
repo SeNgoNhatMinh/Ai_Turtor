@@ -102,7 +102,10 @@ llm:
     api-key: ${GROQ_API_KEY:}
     base-url: ${GROQ_BASE_URL:https://api.groq.com/openai/v1}
     model: ${GROQ_MODEL:openai/gpt-oss-120b}
+    # Keep deprecated entries in GROQ_MODELS so persisted groq-N overrides retain
+    # their original slot IDs. Disabled models are never exposed or called.
     models: ${GROQ_MODELS:openai/gpt-oss-120b,qwen/qwen3.6-27b,llama-3.3-70b-versatile,openai/gpt-oss-20b,llama-3.1-8b-instant}
+    disabled-models: ${GROQ_DISABLED_MODELS:llama-3.3-70b-versatile,llama-3.1-8b-instant}
     timeout-seconds: ${GROQ_TIMEOUT_SECONDS:60}
   nvidia:
     enabled: ${NVIDIA_NIM_ENABLED:true}
@@ -122,8 +125,10 @@ ollama:
     timeout-seconds: ${OLLAMA_CHAT_TIMEOUT_SECONDS:300}
     temperature: ${OLLAMA_CHAT_TEMPERATURE:0.2}
     top-k: ${OLLAMA_CHAT_TOP_K:40}
-    num-predict: ${OLLAMA_CHAT_NUM_PREDICT:4096}
-    num-ctx: ${OLLAMA_CHAT_NUM_CTX:16384}
+    # Conservative fallback profile for 4 GB GPUs. Cloud providers remain first
+    # in the chain; local generation should not exhaust RAM/VRAM during failover.
+    num-predict: ${OLLAMA_CHAT_NUM_PREDICT:1024}
+    num-ctx: ${OLLAMA_CHAT_NUM_CTX:8192}
     max-retries: ${OLLAMA_CHAT_MAX_RETRIES:0}
 
 elasticsearch:
@@ -232,7 +237,7 @@ rag:
     max-context-chars: ${RAG_GENERATION_MAX_CONTEXT_CHARS:12000}
     ollama-max-context-chars: ${RAG_GENERATION_OLLAMA_MAX_CONTEXT_CHARS:6000}
   rerank:
-    enabled: true
+    enabled: ${RAG_RERANK_ENABLED:false}
     api-key: ${OPENROUTER_RERANK_API_KEY:${OPENROUTER_API_KEY:missing-openrouter-api-key}}
     base-url: https://openrouter.ai/api/v1
     model: nvidia/llama-nemotron-rerank-vl-1b-v2:free

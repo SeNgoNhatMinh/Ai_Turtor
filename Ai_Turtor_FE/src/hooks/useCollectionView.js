@@ -1,5 +1,5 @@
 import { useDeferredValue, useMemo, useState } from 'react';
-import { normalizeSearchText } from '../utils/searchText';
+import { normalizeSearchText } from '../utils/searchText.js';
 
 const EMPTY_SEARCH_KEYS = Object.freeze([]);
 

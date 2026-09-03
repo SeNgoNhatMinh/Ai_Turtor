@@ -51,6 +51,7 @@ class LlmProviderAdminServiceTest {
         ReflectionTestUtils.setField(service, "groqBaseUrl", "https://api.groq.com/openai/v1");
         ReflectionTestUtils.setField(service, "groqModelName", "groq/model-a");
         ReflectionTestUtils.setField(service, "groqModelNames", "");
+        ReflectionTestUtils.setField(service, "groqDisabledModelNames", "");
         ReflectionTestUtils.setField(service, "nvidiaEnabled", false);
         ReflectionTestUtils.setField(service, "nvidiaModelNames", "");
         ReflectionTestUtils.setField(service, "fallbackEnabled", false);
@@ -143,5 +144,20 @@ class LlmProviderAdminServiceTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Unknown providerId");
         verify(chatService, never()).reloadProviderChain();
+    }
+
+    @Test
+    void disabledGroqModels_areSkippedWithoutRenumberingRemainingSlots() {
+        ReflectionTestUtils.setField(service, "groqModelNames",
+                "openai/gpt-oss-120b,llama-3.3-70b-versatile,openai/gpt-oss-20b,llama-3.1-8b-instant");
+        ReflectionTestUtils.setField(service, "groqDisabledModelNames",
+                "LLAMA-3.3-70B-VERSATILE, llama-3.1-8b-instant");
+
+        assertThat(service.listProviderConfigs())
+                .filteredOn(view -> view.getFamily().equals("groq"))
+                .extracting(view -> view.getProviderId() + ":" + view.getEffectiveModel())
+                .containsExactly(
+                        "groq-1:openai/gpt-oss-120b",
+                        "groq-3:openai/gpt-oss-20b");
     }
 }

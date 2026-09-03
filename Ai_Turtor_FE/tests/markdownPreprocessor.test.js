@@ -198,6 +198,20 @@ test('turns Bài tiếp theo into a clickable study-tip link', () => {
   assert.match(output, /\[Bài 2 – Sử dụng biến lặp \(itervar\) trong thân vòng\.\]\(#ai-study-tip-1\)/);
 });
 
+test('removes punctuation-only placeholders from study tips', () => {
+  const output = normalizeAiMarkdown([
+    '## Lưu ý để học tốt hơn',
+    '',
+    '1. Ôn lại vòng đời Servlet.',
+    '- --',
+    '---',
+  ].join('\n'));
+
+  assert.match(output, /Ôn lại vòng đời Servlet/);
+  assert.doesNotMatch(output, /\]\(#ai-study-tip-2\)/);
+  assert.doesNotMatch(output, /^\s*[-*+]\s+--\s*$/m);
+});
+
 test('strips prompt narration from a broken Bài tiếp theo section', () => {
   const output = normalizeAiMarkdown([
     '## Kiểm tra hiểu',

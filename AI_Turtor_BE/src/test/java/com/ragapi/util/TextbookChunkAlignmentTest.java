@@ -123,6 +123,96 @@ class TextbookChunkAlignmentTest {
         assertThat(ranked.get(0).materialId()).isEqualTo("spec");
     }
 
+    @Test
+    void exactLifecycleMethodsBeatSubstringMatchesFromSpringConfiguration() {
+        SearchChunk spring = chunk(
+                "InitializingBean and PreDestroy offer lifecycle control. A Servlet init parameter configures services.",
+                0.96,
+                "spring"
+        );
+        SearchChunk servlet = chunk(
+                "The container calls init() once, service() for requests, and destroy() before removing the Servlet.",
+                0.62,
+                "servlet"
+        );
+
+        List<SearchChunk> ranked = TextbookChunkAlignment.rank(
+                "Explain the Servlet lifecycle, especially init, service, and destroy, using only course material.",
+                List.of(spring, servlet)
+        );
+
+        assertThat(ranked.get(0).materialId()).isEqualTo("servlet");
+    }
+
+    @Test
+    void optionalSourceRequiresMultipleDistinctiveTopicTerms() {
+        String question = "Explain servlet lifecycle init service destroy";
+        SearchChunk unrelatedJspx = chunk(
+                "JSPX is an XML document used by a Java web application.", 0.99, "jspx-note");
+        SearchChunk lifecycleNote = chunk(
+                "A servlet lifecycle calls init, service, and destroy.", 0.70, "servlet-note");
+
+        assertThat(TextbookChunkAlignment.hasDistinctiveOverlap(question, unrelatedJspx, 2)).isFalse();
+        assertThat(TextbookChunkAlignment.hasDistinctiveOverlap(question, lifecycleNote, 2)).isTrue();
+    }
+
+    @Test
+    void diversifyByCoveragePromotesMissingLifecycleMethodSection() {
+        SearchChunk initDestroy = chunk(
+                "Servlet init() prepares resources and destroy() releases resources.", 0.91, "init-destroy");
+        SearchChunk config = chunk(
+                "Servlet deployment descriptors and init-param configuration.", 0.89, "config");
+        SearchChunk service = chunk(
+                "The Servlet service() method services incoming requests before doGet or doPost handles HTTP.",
+                0.60,
+                "service"
+        );
+
+        List<SearchChunk> diversified = TextbookChunkAlignment.diversifyByCoverage(
+                "When loaded, explain Servlet init service destroy order.",
+                List.of(initDestroy, config, service),
+                3
+        );
+
+        assertThat(diversified.subList(0, 2))
+                .extracting(SearchChunk::materialId)
+                .contains("init-destroy", "service");
+    }
+
+    @Test
+    void bm25ScaleDoesNotLetNavigationBeatLifecycleEvidence() {
+        SearchChunk contents = new SearchChunk(
+                "Contents Chapter 3 Writing Your First Servlet Creating a Servlet Class Using init and destroy service method 41 42 43",
+                22.0,
+                "contents",
+                "PRJ301",
+                null,
+                "t1",
+                "COURSE_SHARED",
+                "PDF",
+                "doc",
+                "chapter-contents",
+                "Contents",
+                "contents-section",
+                "Contents",
+                "chunk-contents",
+                1,
+                "SECTION"
+        );
+        SearchChunk lifecycle = chunk(
+                "The container calls init() once, then service() handles each request, and destroy() releases resources.",
+                0.62,
+                "lifecycle"
+        );
+
+        List<SearchChunk> ranked = TextbookChunkAlignment.merge(
+                "Explain Servlet init service destroy order.",
+                List.of(contents, lifecycle)
+        );
+
+        assertThat(ranked).extracting(SearchChunk::materialId).containsExactly("lifecycle");
+    }
+
     private SearchChunk chunk(String content, double score, String materialId) {
         return new SearchChunk(content, score, materialId, "PRJ301", null, "t1", "COURSE_SHARED", "PDF");
     }

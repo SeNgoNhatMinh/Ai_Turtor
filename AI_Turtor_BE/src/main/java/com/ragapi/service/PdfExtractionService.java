@@ -26,7 +26,7 @@ import java.util.List;
 @Service
 public class PdfExtractionService {
 
-    static final int MAX_TOC_ENTRIES = 80;
+    static final int MAX_TOC_ENTRIES = 1000;
     static final int MAX_TOC_LEVEL = 2;
 
     @Value("${upload.pdf.max-size-mb:50}")
@@ -101,6 +101,22 @@ public class PdfExtractionService {
             stripper.setEndPage(safeEnd);
 
             return normalizeVietnameseText(stripper.getText(document));
+        }
+    }
+
+    public List<String> extractPages(byte[] pdfBytes) throws IOException {
+        if (pdfBytes == null || pdfBytes.length == 0) return List.of();
+        try (PDDocument document = Loader.loadPDF(pdfBytes)) {
+            List<String> pages = new ArrayList<>(document.getNumberOfPages());
+            PDFTextStripper stripper = new PDFTextStripper();
+            stripper.setSortByPosition(true);
+            stripper.setLineSeparator("\n");
+            for (int page = 1; page <= document.getNumberOfPages(); page++) {
+                stripper.setStartPage(page);
+                stripper.setEndPage(page);
+                pages.add(normalizeVietnameseText(stripper.getText(document)));
+            }
+            return pages;
         }
     }
 

@@ -1,10 +1,10 @@
 const CHECK_HEADING = /^(#{1,6})\s*(?:kiểm tra hiểu|understanding check)\s*$/im;
 const OPTION_MARK = /(?:^|\s)(?:\(([A-Da-d])\)|([A-Da-d])\.)\s+/g;
-const CANONICAL_ANSWER = /(?:^|\n)\s*(?:đáp án|dap an|(?:the\s+)?(?:correct\s+)?answer)(?:\s+đúng)?\s*(?:là|is|:|：|-)?\s*([A-Da-d])\b[^\n]*/i;
+const CANONICAL_ANSWER = /(?:^|\s)(?<!chọn\s)(?<!choose\s)(?<!pick\s)(?:đáp án|dap an|(?:the\s+)?(?:correct\s+)?answer)(?:\s+đúng)?\s*(?:là|is|:|：|-)?\s*([A-Da-d])\b[^\n]*/i;
 const LEAKED_ANSWER = /nếu bạn chọn(?:\s+đáp án)?\s+([A-Da-d])\b/i;
 const CHOOSE_ANSWER = /(?:chọn|choose|pick)\s+(?:đáp án\s+)?([A-Da-d])\b/i;
 const LONE_KEY = /(?:^|\n)\s*([A-Da-d])\s*[.)]?\s*$/;
-const EXPLAIN_LINE = /(?:^|\n)\s*(?:giải thích|giai thich|explanation|lý do|ly do)\s*[:：]\s*([\s\S]+)$/i;
+const EXPLAIN_MARKER = /(?:^|\s)(?:giải thích|giai thich|explanation|lý do|ly do)\s*[:：]\s*/ig;
 const QUESTION_PREFIX = /^(?:câu hỏi|cau hoi|question)\s*[:：]\s*/im;
 
 function stripDecorations(value) {
@@ -19,13 +19,39 @@ function stripDecorations(value) {
 
 function nextSectionBreak(text) {
   const heading = text.search(/(?:^|\n)#{1,6}\s+\S/);
-  const rule = text.search(/(?:^|\n)\s*-{3,}\s*(?:\n|$)/);
-  const indexes = [heading, rule].filter((index) => index >= 0);
-  return indexes.length ? Math.min(...indexes) : -1;
+  return heading >= 0 ? heading : -1;
+}
+
+export function normalizeStructuredUnderstandingQuiz(value) {
+  if (!value || typeof value !== 'object') return null;
+  const question = String(value.question || '').trim();
+  const seenKeys = new Set();
+  const options = (Array.isArray(value.options) ? value.options : [])
+    .map((option) => ({
+      key: String(option?.key || '').trim().toUpperCase(),
+      text: String(option?.text || '').trim(),
+    }))
+    .filter((option) => {
+      if (!/^[A-D]$/.test(option.key) || !option.text || seenKeys.has(option.key)) return false;
+      seenKeys.add(option.key);
+      return true;
+    });
+  if (!question || options.length < 2) return null;
+
+  const requestedKey = String(value.correctKey || '').trim().toUpperCase();
+  const correctKey = options.some((option) => option.key === requestedKey) ? requestedKey : '';
+  return {
+    question,
+    options,
+    correctKey,
+    explanation: String(value.explanation || '').trim(),
+  };
 }
 
 export function parseUnderstandingQuiz(sectionBody) {
-  const raw = String(sectionBody || '').trim();
+  const raw = String(sectionBody || '')
+    .replace(/[*_`]+/g, '')
+    .trim();
   if (!raw) return null;
 
   const canonicalMatch = raw.match(CANONICAL_ANSWER);
@@ -33,10 +59,25 @@ export function parseUnderstandingQuiz(sectionBody) {
   const chooseMatch = raw.match(CHOOSE_ANSWER);
   const loneMatch = raw.match(LONE_KEY);
   const answerMatch = canonicalMatch || leakedMatch || chooseMatch || loneMatch;
-  const explainMatch = raw.match(EXPLAIN_LINE);
+  const explainMarkers = [...raw.matchAll(EXPLAIN_MARKER)];
+  const firstExplain = explainMarkers[0];
+  const explanationEndCandidates = [
+    ...explainMarkers.slice(1).map((item) => item.index),
+    canonicalMatch?.index,
+    raw.length,
+  ].filter((index) => Number.isInteger(index) && index > (firstExplain?.index ?? -1));
+  const explanationEnd = explanationEndCandidates.length
+    ? Math.min(...explanationEndCandidates)
+    : raw.length;
+  const parsedExplanation = firstExplain
+    ? raw.slice(firstExplain.index + firstExplain[0].length, explanationEnd)
+    : '';
+  const metadataIndexes = [
+    canonicalMatch?.index,
+    ...explainMarkers.map((item) => item.index),
+  ].filter(Number.isInteger);
   let working = raw;
-  if (explainMatch) working = working.replace(explainMatch[0], '\n');
-  if (canonicalMatch) working = working.replace(canonicalMatch[0], '\n');
+  if (metadataIndexes.length) working = working.slice(0, Math.min(...metadataIndexes));
   else if (!leakedMatch && !chooseMatch && loneMatch) working = working.replace(loneMatch[0], '\n');
   working = working.replace(QUESTION_PREFIX, '').trim();
 
@@ -68,7 +109,11 @@ export function parseUnderstandingQuiz(sectionBody) {
   if (options.length < 2) return null;
 
   let correctKey = answerMatch ? answerMatch[1].toUpperCase() : '';
-  let explanation = explainMatch ? stripDecorations(explainMatch[1]) : '';
+  let explanation = stripDecorations(
+    parsedExplanation
+      .replace(CANONICAL_ANSWER, ' ')
+      .replace(EXPLAIN_MARKER, ' '),
+  );
   const last = options[options.length - 1];
   const leaked = last?.text?.match(
     /^(.{12,}?[.!?])\s+(Nếu bạn chọn(?:\s+đáp án)?\s+[A-D]\b[\s\S]+)$/i,

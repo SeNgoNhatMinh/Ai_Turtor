@@ -12,7 +12,7 @@ import static org.mockito.Mockito.mock;
 class RerankServiceTest {
 
     @Test
-    void localFallbackPrefersChunksContainingMoreQueryTerms() {
+    void disabledRerankPreservesAllHybridRetrievalResultsInOrder() {
         RerankService service = new RerankService(
                 new ObjectMapper(),
                 mock(PrivacySanitizer.class)
@@ -38,7 +38,7 @@ class RerankServiceTest {
                 List.of(unrelated, partial, relevant)
         );
 
-        assertThat(result).containsExactly(relevant, partial);
+        assertThat(result).containsExactly(unrelated, partial, relevant);
     }
 
     private ElasticVectorService.SearchChunk chunk(String content, double score) {

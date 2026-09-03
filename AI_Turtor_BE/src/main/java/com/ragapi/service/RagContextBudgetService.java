@@ -11,6 +11,8 @@ import java.util.List;
 @Service
 public class RagContextBudgetService {
 
+    static final int MIN_PARTIAL_CHUNK_CHARS = 240;
+
     private final OpenRouterChatService chatService;
 
     @Value("${rag.generation.max-context-chars:12000}")
@@ -47,17 +49,32 @@ public class RagContextBudgetService {
                 used += content.length();
                 continue;
             }
+            if (remaining < MIN_PARTIAL_CHUNK_CHARS) {
+                break;
+            }
+            String partial = truncateAtBoundary(content, remaining);
+            if (partial.length() < MIN_PARTIAL_CHUNK_CHARS) {
+                break;
+            }
             selected.add(new ElasticVectorService.SearchChunk(
-                    content.substring(0, remaining),
+                    partial,
                     chunk.score(),
                     chunk.materialId(),
                     chunk.courseId(),
                     chunk.classId(),
                     chunk.teacherId(),
                     chunk.materialScope(),
-                    chunk.sourceType()
+                    chunk.sourceType(),
+                    chunk.documentId(),
+                    chunk.chapterId(),
+                    chunk.chapterTitle(),
+                    chunk.sectionId(),
+                    chunk.sectionTitle(),
+                    chunk.chunkId(),
+                    chunk.chunkIndex(),
+                    chunk.nodeType()
             ));
-            used += remaining;
+            used += partial.length();
             break;
         }
         if (selected.size() < chunks.size()) {
@@ -65,5 +82,18 @@ public class RagContextBudgetService {
                     selected.size(), chunks.size(), used, limit);
         }
         return selected;
+    }
+
+    private String truncateAtBoundary(String content, int limit) {
+        String prefix = content.substring(0, Math.min(limit, content.length())).trim();
+        int minimumBoundary = Math.min(MIN_PARTIAL_CHUNK_CHARS, prefix.length());
+        int boundary = Math.max(
+                Math.max(prefix.lastIndexOf('\n'), prefix.lastIndexOf('.')),
+                prefix.lastIndexOf(' ')
+        );
+        if (boundary >= minimumBoundary) {
+            prefix = prefix.substring(0, boundary).trim();
+        }
+        return prefix;
     }
 }

@@ -674,6 +674,11 @@ function makeStudyTipLink(text, index) {
   return `[${escapeMarkdownLabel(text)}](#ai-study-tip-${index})`;
 }
 
+function isEmptyStudyTipPlaceholder(text) {
+  const plain = unwrapSimpleMarkdownDecoration(String(text || '').trim());
+  return !plain || /^[\s–—_*+.·•…-]+$/u.test(plain);
+}
+
 function enhanceStudyTips(text) {
   const lines = text.split('\n');
   const output = [];
@@ -709,16 +714,19 @@ function enhanceStudyTips(text) {
 
     const bullet = line.match(/^(\s*[-*+]\s+)(.+)$/);
     if (bullet) {
+      if (isEmptyStudyTipPlaceholder(bullet[2])) continue;
       output.push(`${bullet[1]}${makeStudyTipLink(bullet[2].trim(), tipIndex++)}`);
       continue;
     }
 
     const ordered = line.match(/^(\s*\d+[.)]\s+)(.+)$/);
     if (ordered) {
+      if (isEmptyStudyTipPlaceholder(ordered[2])) continue;
       output.push(`${ordered[1]}${makeStudyTipLink(ordered[2].trim(), tipIndex++)}`);
       continue;
     }
 
+    if (isEmptyStudyTipPlaceholder(trimmed)) continue;
     output.push(`- ${makeStudyTipLink(trimmed, tipIndex++)}`);
   }
 

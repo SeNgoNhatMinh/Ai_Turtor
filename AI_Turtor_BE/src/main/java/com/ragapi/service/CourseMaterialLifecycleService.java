@@ -21,6 +21,7 @@ public class CourseMaterialLifecycleService {
     private final CourseMaterialChunkingService chunkingService;
     private final ElasticVectorService vectorService;
     private final PdfStorageService pdfStorageService;
+    private final PdfExtractionService pdfExtractionService;
     private final PdfPageRenderService pdfPageRenderService;
     private final VisualVectorService visualVectorService;
     private final CourseMaterialAccessPolicy accessPolicy;
@@ -94,13 +95,15 @@ public class CourseMaterialLifecycleService {
 
         long deletedChunks = vectorService.deleteChunksByMaterialId(materialId);
         visualVectorService.deleteMaterial(materialId);
-        List<String> chunks = chunkingService.chunk(material.getContent());
+        List<CourseMaterialChunkingService.HierarchicalChunk> chunks =
+                prepareHierarchicalChunks(material);
         if (chunks.isEmpty()) {
-            chunks = List.of(material.getContent().trim());
+            throw new IllegalArgumentException("Course material could not be chunked for reindexing");
         }
         for (int start = 0; start < chunks.size(); start += EMBEDDING_BATCH_SIZE) {
-            List<String> batch = chunks.subList(start, Math.min(start + EMBEDDING_BATCH_SIZE, chunks.size()));
-            vectorService.indexChunks(
+            List<CourseMaterialChunkingService.HierarchicalChunk> batch =
+                    chunks.subList(start, Math.min(start + EMBEDDING_BATCH_SIZE, chunks.size()));
+            vectorService.indexHierarchicalChunks(
                     material.getCourseId(),
                     material.getClassId(),
                     material.getTeacherId(),
@@ -163,13 +166,16 @@ public class CourseMaterialLifecycleService {
 
             deletedChunks += vectorService.deleteChunksByMaterialId(material.getId());
             deletedVisualPages += visualVectorService.deleteMaterial(material.getId());
-            List<String> chunks = chunkingService.chunk(material.getContent());
+            List<CourseMaterialChunkingService.HierarchicalChunk> chunks =
+                    prepareHierarchicalChunks(material);
             if (chunks.isEmpty()) {
-                chunks = List.of(material.getContent().trim());
+                skippedMaterials++;
+                continue;
             }
             for (int start = 0; start < chunks.size(); start += EMBEDDING_BATCH_SIZE) {
-                List<String> batch = chunks.subList(start, Math.min(start + EMBEDDING_BATCH_SIZE, chunks.size()));
-                vectorService.indexChunks(
+                List<CourseMaterialChunkingService.HierarchicalChunk> batch =
+                        chunks.subList(start, Math.min(start + EMBEDDING_BATCH_SIZE, chunks.size()));
+                vectorService.indexHierarchicalChunks(
                         material.getCourseId(),
                         material.getClassId(),
                         material.getTeacherId(),
@@ -207,6 +213,35 @@ public class CourseMaterialLifecycleService {
         response.put("indexedChunks", indexedChunks);
         response.put("indexedVisualPages", indexedVisualPages);
         return response;
+    }
+
+    private List<CourseMaterialChunkingService.HierarchicalChunk> prepareHierarchicalChunks(
+            CourseMaterial material) {
+        if (material == null || !"PDF".equalsIgnoreCase(material.getSourceType())
+                || material.getPdfFileId() == null || material.getPdfFileId().isBlank()) {
+            return chunkingService.chunkHierarchically(material);
+        }
+        try {
+            var resource = pdfStorageService.loadByFileId(material.getPdfFileId());
+            byte[] pdfBytes;
+            try (var input = resource.getInputStream()) {
+                pdfBytes = input.readAllBytes();
+            }
+            var refreshedToc = pdfExtractionService.extractTableOfContents(pdfBytes);
+            if (!refreshedToc.isEmpty()) {
+                material.setTableOfContents(refreshedToc);
+                materialRepository.save(material);
+            }
+            List<String> pages = pdfExtractionService.extractPages(pdfBytes);
+            List<CourseMaterialChunkingService.HierarchicalChunk> pageChunks =
+                    chunkingService.chunkPdfPages(material, pages);
+            if (!pageChunks.isEmpty()) return pageChunks;
+        } catch (Exception error) {
+            // Backward-compatible fallback: reindex still works with stored TOC/text.
+            // A missing original PDF must not make existing course material unusable.
+            material.setIndexingError("Could not refresh PDF table of contents: " + error.getMessage());
+        }
+        return chunkingService.chunkHierarchically(material);
     }
 
     public Map<String, Object> reindexApprovedKnowledge() throws IOException {

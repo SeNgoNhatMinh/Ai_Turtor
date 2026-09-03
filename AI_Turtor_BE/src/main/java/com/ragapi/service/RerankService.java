@@ -65,7 +65,8 @@ public class RerankService {
             return List.of();
         }
         if (!enabled) {
-            return fallback(query, chunks, "rerank disabled");
+            log.debug("Rerank disabled; preserving all {} hybrid retrieval chunks", chunks.size());
+            return List.copyOf(chunks);
         }
         if (apiKey == null || apiKey.isBlank() || apiKey.startsWith("missing-")) {
             return fallback(query, chunks, "rerank api key is missing");

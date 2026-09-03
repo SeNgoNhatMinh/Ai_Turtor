@@ -15,6 +15,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -67,6 +68,8 @@ public class LlmProviderAdminService {
     private String groqModelName;
     @Value("${llm.groq.models:}")
     private String groqModelNames;
+    @Value("${llm.groq.disabled-models:}")
+    private String groqDisabledModelNames;
     @Value("${llm.groq.timeout-seconds:60}")
     private int groqTimeoutSeconds;
 
@@ -212,13 +215,20 @@ public class LlmProviderAdminService {
         if (groqModels.isEmpty() && hasText(groqModelName)) {
             groqModels = List.of(groqModelName.trim());
         }
+        Set<String> disabledGroqModels = parseModels(groqDisabledModelNames).stream()
+                .map(this::normalizeModelName)
+                .collect(Collectors.toSet());
         for (int index = 0; index < groqModels.size(); index++) {
+            String model = groqModels.get(index);
+            if (disabledGroqModels.contains(normalizeModelName(model))) {
+                continue;
+            }
             slots.add(new EnvSlot(
                     "groq-" + (index + 1),
                     "groq",
                     "Groq " + (index + 1),
                     groqEnabled,
-                    groqModels.get(index),
+                    model,
                     groqBaseUrl,
                     groqApiKey,
                     groqTimeoutSeconds,
@@ -368,6 +378,10 @@ public class LlmProviderAdminService {
 
     private boolean hasText(String value) {
         return value != null && !value.isBlank();
+    }
+
+    private String normalizeModelName(String value) {
+        return value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
     }
 
     private boolean hasUsableApiKey(String value) {

@@ -114,4 +114,26 @@ describe('AnswerEvidence', () => {
     expect(screen.queryByRole('button', { name: /bằng chứng|nguồn tài liệu/i })).not.toBeInTheDocument();
     expect(screen.queryByText(/mức độ phù hợp với tài liệu/i)).not.toBeInTheDocument();
   });
+
+  it('does not present a truncated context tail as academic evidence', () => {
+    render(
+      <AnswerEvidence
+        message={{
+          mode: 'RAG',
+          groundingType: 'COURSE_MATERIAL',
+          sources: [],
+          sourceEvidence: [{
+            courseId: 'PRJ301',
+            materialTitle: 'Main Material',
+            pageStart: 14,
+            pageEstimated: true,
+            excerpt: 'clas',
+          }],
+        }}
+      />,
+    );
+
+    expect(screen.queryByRole('button', { name: /bằng chứng|nguồn tài liệu/i })).not.toBeInTheDocument();
+    expect(screen.queryByText('clas')).not.toBeInTheDocument();
+  });
 });

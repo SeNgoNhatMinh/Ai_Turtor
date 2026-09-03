@@ -1,6 +1,32 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { extractUnderstandingCheck, parseUnderstandingQuiz, buildUnderstandingCheckPrompt } from '../src/features/student/chat/understandingCheck.js';
+import {
+  buildUnderstandingCheckPrompt,
+  extractUnderstandingCheck,
+  normalizeStructuredUnderstandingQuiz,
+  parseUnderstandingQuiz,
+} from '../src/features/student/chat/understandingCheck.js';
+
+test('validates a structured understanding-check payload from the API', () => {
+  const quiz = normalizeStructuredUnderstandingQuiz({
+    question: 'Servlet gọi phương thức nào trước?',
+    options: [
+      { key: 'a', text: 'service()' },
+      { key: 'B', text: 'init()' },
+      { key: 'B', text: 'duplicate must be ignored' },
+      { key: 'x', text: 'invalid key' },
+    ],
+    correctKey: 'b',
+    explanation: 'init() khởi tạo tài nguyên.',
+  });
+
+  assert.deepEqual(quiz.options, [
+    { key: 'A', text: 'service()' },
+    { key: 'B', text: 'init()' },
+  ]);
+  assert.equal(quiz.correctKey, 'B');
+  assert.equal(quiz.explanation, 'init() khởi tạo tài nguyên.');
+});
 
 test('parses parenthesized A/B/C options on one line', () => {
   const quiz = parseUnderstandingQuiz(
@@ -65,6 +91,40 @@ Giải thích: Index 1 là banana.
   assert.equal(extracted.quiz.correctKey, 'B');
   assert.equal(extracted.quiz.explanation, 'Index 1 là banana.');
   assert.equal(extracted.quiz.options[1].text, 'banana');
+});
+
+test('hides an inline answer and explanation leaked into the last option', () => {
+  const extracted = extractUnderstandingCheck(`
+## Kiểm tra hiểu
+Câu hỏi: Khi một Servlet được tải lần đầu, phương thức nào được gọi đầu tiên?
+A. service() xử lý HTTP ngay lập tức
+B. init() thiết lập tài nguyên cần thiết
+C. destroy() giải phóng tài nguyên. **Giải thích:** init() được gọi ngay sau khi Servlet được khởi tạo. **Đáp án:** B **Giải thích:** init() chuẩn bị tài nguyên.
+`);
+
+  assert.equal(extracted.quiz.correctKey, 'B');
+  assert.equal(extracted.quiz.options[2].text, 'destroy() giải phóng tài nguyên.');
+  assert.equal(extracted.quiz.explanation, 'init() được gọi ngay sau khi Servlet được khởi tạo.');
+  assert.doesNotMatch(extracted.quiz.explanation, /Đáp án|Giải thích/);
+  assert.doesNotMatch(extracted.before, /Đáp án|Giải thích/);
+  assert.doesNotMatch(extracted.after, /Đáp án|Giải thích/);
+});
+
+test('keeps an answer below a markdown rule inside the hidden quiz payload', () => {
+  const extracted = extractUnderstandingCheck(`
+## Kiểm tra hiểu
+Câu hỏi: Servlet callback đầu tiên là gì?
+A. service()
+B. init()
+C. destroy()
+---
+Đáp án: B Giải thích: init() chạy một lần khi khởi tạo.
+`);
+
+  assert.equal(extracted.quiz.correctKey, 'B');
+  assert.equal(extracted.quiz.options[2].text, 'destroy()');
+  assert.equal(extracted.quiz.explanation, 'init() chạy một lần khi khởi tạo.');
+  assert.equal(extracted.after, '');
 });
 
 test('parses Đáp án without a colon', () => {

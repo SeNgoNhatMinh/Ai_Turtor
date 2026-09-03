@@ -27,6 +27,8 @@ const deduplicateEvidence = (items = []) => {
   items.forEach((item) => {
     if (!item) return;
     const excerpt = normalizeEvidenceText(item.excerpt);
+    const excerptWords = excerpt.match(/[\p{L}\p{N}_-]{2,}/gu) || [];
+    if (excerpt && (excerpt.length < 40 || excerptWords.length < 5)) return;
     const key = excerpt
       ? `${item.courseId || item.courseName || ''}|text:${excerpt}`
       : `${item.courseId || item.courseName || ''}|${item.materialId || item.materialTitle || ''}|${item.pageStart || ''}`;
@@ -156,7 +158,9 @@ function AnswerEvidence({ message, sourceMap = {}, onDownloadSource }) {
               )}
               {item.excerpt && (
                 <div className="answer-evidence-quote">
-                  <b>Đoạn nội dung chứng minh:</b>
+                  <b>{item.excerptVerified
+                    ? 'Đoạn trích đã đối chiếu nguyên văn trong tài liệu:'
+                    : 'Đoạn nội dung được truy xuất:'}</b>
                   <blockquote>{item.excerpt}</blockquote>
                 </div>
               )}

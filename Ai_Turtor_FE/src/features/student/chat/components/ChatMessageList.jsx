@@ -151,6 +151,7 @@ function ChatMessageList({
                         <Suspense fallback={<div className="chat-answer-loading">Đang định dạng câu trả lời...</div>}>
                           <AiAnswer
                             markdown={withoutLegacyEvidenceAppendix(message.answer, evidenceMessage)}
+                            understandingCheck={message.understandingCheck}
                             sourceMap={materialSourceMap}
                             onStudyTipStudy={(text) => onStudySuggestion?.({
                               text,

@@ -33,7 +33,7 @@ export function parseLessonSuggestionsFromAnswer(answer) {
   const text = String(answer || '');
   if (!text.trim()) return [];
 
-  const linePattern = /^(?:\d+[.)]\s*)?(?:bắt đầu\s+|bat dau\s+)?(?:bài|bai)\s+(\d+)\s*[:：.\-]\s*(.+)$/i;
+  const linePattern = /^(?:\d+[.)]\s*)?(?:bắt đầu\s+|bat dau\s+)?(?:bài|bai)\s+(\d+)\s*[:：.-]\s*(.+)$/i;
   const seen = new Set();
   const items = [];
   for (const raw of text.split(/\r?\n/)) {

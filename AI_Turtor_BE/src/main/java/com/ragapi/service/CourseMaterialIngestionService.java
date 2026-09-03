@@ -326,15 +326,17 @@ public class CourseMaterialIngestionService {
         if (material.getContent() == null || material.getContent().isBlank()) {
             throw new IllegalArgumentException("Course material has no extracted text to index");
         }
-        List<String> chunks = chunkingService.chunk(material.getContent());
+        List<CourseMaterialChunkingService.HierarchicalChunk> chunks =
+                prepareHierarchicalChunks(material);
         if (chunks.isEmpty()) {
-            chunks = List.of(material.getContent().trim());
+            throw new IllegalArgumentException("Course material could not be chunked for indexing");
         }
-        log.info("Course material chunked into {} chunks", chunks.size());
+        log.info("Course material chunked into {} hierarchical child chunks", chunks.size());
 
         for (int start = 0; start < chunks.size(); start += EMBEDDING_BATCH_SIZE) {
-            List<String> batch = chunks.subList(start, Math.min(start + EMBEDDING_BATCH_SIZE, chunks.size()));
-            vectorService.indexChunks(
+            List<CourseMaterialChunkingService.HierarchicalChunk> batch =
+                    chunks.subList(start, Math.min(start + EMBEDDING_BATCH_SIZE, chunks.size()));
+            vectorService.indexHierarchicalChunks(
                     material.getCourseId(),
                     material.getClassId(),
                     material.getTeacherId(),
@@ -347,8 +349,31 @@ public class CourseMaterialIngestionService {
             );
         }
 
-        log.info("All course material chunks indexed to Elasticsearch");
+        log.info("All hierarchical course material chunks indexed to Elasticsearch");
         return chunks.size();
+    }
+
+    private List<CourseMaterialChunkingService.HierarchicalChunk> prepareHierarchicalChunks(
+            CourseMaterial material) {
+        if (material == null || !"PDF".equalsIgnoreCase(material.getSourceType())
+                || material.getPdfFileId() == null || material.getPdfFileId().isBlank()) {
+            return chunkingService.chunkHierarchically(material);
+        }
+        try {
+            var resource = pdfStorageService.loadByFileId(material.getPdfFileId());
+            byte[] pdfBytes;
+            try (var input = resource.getInputStream()) {
+                pdfBytes = input.readAllBytes();
+            }
+            List<String> pages = pdfExtractionService.extractPages(pdfBytes);
+            List<CourseMaterialChunkingService.HierarchicalChunk> pageChunks =
+                    chunkingService.chunkPdfPages(material, pages);
+            if (!pageChunks.isEmpty()) return pageChunks;
+        } catch (Exception error) {
+            log.warn("Could not build page-aware PDF hierarchy for materialId={}: {}",
+                    material.getId(), error.getMessage());
+        }
+        return chunkingService.chunkHierarchically(material);
     }
 
     private String normalizeScopeValue(String value) {

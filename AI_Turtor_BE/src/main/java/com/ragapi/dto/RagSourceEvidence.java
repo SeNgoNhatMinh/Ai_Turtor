@@ -17,6 +17,7 @@ public class RagSourceEvidence {
     private Integer pageEnd;
     private Boolean pageEstimated;
     private String excerpt;
+    private Boolean excerptVerified;
     private List<RagVisualEvidence> visualEvidence;
     private String sourceKind;
     private String knowledgeCandidateId;

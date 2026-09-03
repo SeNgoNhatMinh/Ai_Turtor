@@ -128,7 +128,7 @@ const recoverInFlightAnswer = async ({
           conversationId: resolvedConversationId,
         };
       }
-    } catch (error) {
+    } catch {
       if (signal?.aborted) return null;
     }
   }
@@ -573,6 +573,7 @@ export function useStudentChatController({
           question: text,
           answer: isAiServiceError ? AI_SERVICE_ERROR_MESSAGE : answerText,
           rawAnswer: answerText,
+          understandingCheck: data.understandingCheck || null,
           id: data.assistantMessageId || data.messageId || data.aiMessageId || data.responseMessageId,
           messageId: data.assistantMessageId || data.messageId || data.aiMessageId || data.responseMessageId,
           assistantMessageId: data.assistantMessageId || data.messageId || data.aiMessageId || data.responseMessageId,
@@ -653,7 +654,6 @@ export function useStudentChatController({
       setMessages((prev) => {
         const updated = [...prev];
         const friendlyError = getUserFacingError(error, 'AI Tutor chưa thể trả lời lúc này. Vui lòng thử lại sau.');
-        const isAiServiceError = isAiServiceErrorText(friendlyError);
         updated[updated.length - 1] = {
           question: text,
           answer: buildAiServiceErrorMessage(friendlyError),
