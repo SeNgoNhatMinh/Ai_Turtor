@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Mic, MicOff } from 'lucide-react';
+import { Hand, Mic, MicOff } from 'lucide-react';
 import PageHeader from '../../components/common/PageHeader';
 import AiAnswer from '../../components/AiAnswer';
 import AnswerEvidence from '../student/chat/components/AnswerEvidence';
@@ -9,12 +9,51 @@ import { getUserFacingError } from '../../services/httpClient';
 import { youtubeWatchUrl } from '../../utils/youtubeVideo';
 import { useRealtimeEvent } from '../realtime/realtimeContext';
 import { formatLessonTime, STATUS_LABEL, waitingCopy } from './liveLessonUtils';
-import { followPlaybackSeconds, mergePlaybackSnapshot, playbackSnapshotFromLesson } from './playbackClock';
+import { clockAtMs, followPlaybackSeconds, mergePlaybackSnapshot, playbackSnapshotFromLesson } from './playbackClock';
 import LiveSyncedPlayer from './LiveSyncedPlayer';
 import { useLiveLessonVoice } from './useLiveLessonVoice';
 import './live-lesson.css';
 
 const POLL_MS = 4000;
+
+function isStaffRole(role) {
+  const value = String(role || '').toUpperCase();
+  return value === 'TEACHER' || value === 'ADMIN' || value === 'SENIOR_MENTOR';
+}
+
+function personStatus(person) {
+  if (isStaffRole(person.role)) return 'Giảng viên';
+  if (person.muted === false) return 'Đang nói';
+  if (person.handRaised) return 'Đang giơ tay';
+  if (person.canSpeak) return 'Được phép nói';
+  return 'Mic tắt';
+}
+
+function sortRoster(people) {
+  return [...people].sort((left, right) => {
+    const rank = (person) => {
+      if (person.handRaised) return 0;
+      if (person.muted === false) return 1;
+      if (person.canSpeak) return 2;
+      if (isStaffRole(person.role)) return 3;
+      return 4;
+    };
+    return rank(left) - rank(right)
+      || String(left.displayName || left.userId).localeCompare(String(right.displayName || right.userId));
+  });
+}
+
+function voiceHelpText({ connected, isTeacher, canSpeak, muted, handRaised, speakingNames }) {
+  if (!connected) return 'Đang nối mic lớp...';
+  const speaking = speakingNames.length ? `Đang nói: ${speakingNames.join(', ')}. ` : '';
+  if (isTeacher) {
+    return `${speaking}${muted ? 'Bật mic để giảng. Quản lý sinh viên ở tab Người tham gia.' : 'Mic của bạn đang bật.'}`;
+  }
+  if (!canSpeak) {
+    return `${speaking}${handRaised ? 'Đã giơ tay. Chờ giảng viên cho phép nói.' : 'Giơ tay để xin nói. Giảng viên sẽ bật mic khi đến lượt bạn.'}`;
+  }
+  return `${speaking}${muted ? 'Giảng viên đã cho phép. Bấm Bật mic để nói.' : 'Bạn đang nói.'}`;
+}
 
 export default function LiveClassroomPage({
   currentUser,
@@ -25,11 +64,10 @@ export default function LiveClassroomPage({
   const navigate = useNavigate();
   const [lesson, setLesson] = useState(null);
   const [snapshot, setSnapshot] = useState(null);
-  const [tab, setTab] = useState('class');
+  const [tab, setTab] = useState(role === 'teacher' ? 'people' : 'class');
   const [messages, setMessages] = useState([]);
   const [draft, setDraft] = useState('');
   const [aiQuestion, setAiQuestion] = useState('');
-  const [timestamp, setTimestamp] = useState('');
   const [aiTurns, setAiTurns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
@@ -41,6 +79,7 @@ export default function LiveClassroomPage({
     lessonId,
     currentUser,
     enabled: Boolean(lessonId && lesson && lesson.status !== 'ENDED'),
+    isTeacher,
     triggerToast,
   });
 
@@ -105,8 +144,10 @@ export default function LiveClassroomPage({
           paused: Boolean(paused),
           positionSeconds: Number(position) || 0,
           capturedAtMs: Date.now(),
+          clockAtMs: clockAtMs(event.data?.playbackClockAt) || Date.now(),
         };
         if (!current) return next;
+        if (current.clockAtMs && next.clockAtMs && next.clockAtMs < current.clockAtMs) return current;
         const pauseChanged = Boolean(current.paused) !== next.paused;
         const jumped = Math.abs(followPlaybackSeconds(current) - next.positionSeconds) > 2.5;
         return pauseChanged || jumped ? next : current;
@@ -157,7 +198,7 @@ export default function LiveClassroomPage({
     const question = aiQuestion.trim();
     setAsking(true);
     try {
-      const response = await liveLessonApi.askAi(lessonId, question, timestamp.trim());
+      const response = await liveLessonApi.askAi(lessonId, question);
       setAiTurns((current) => [...current, { question, response }]);
       setAiQuestion('');
     } catch (error) {
@@ -199,7 +240,9 @@ export default function LiveClassroomPage({
   }
 
   const canStudentChat = lesson.status !== 'ENDED';
+  const selfUserId = String(currentUser?.userId || currentUser?.id || '');
   const speakingNames = voice.speaking.map((peer) => peer.displayName || peer.userId);
+  const roster = sortRoster(voice.participants);
 
   return (
     <div className="portal-section live-classroom">
@@ -243,27 +286,48 @@ export default function LiveClassroomPage({
             )}
           </div>
           {lesson.status !== 'ENDED' && (
-            <div className="live-voice-bar">
-              <button
-                type="button"
-                className={`live-btn ${voice.muted ? 'secondary' : 'danger'}`}
-                onClick={voice.toggleMic}
-              >
-                {voice.muted ? <MicOff size={16} /> : <Mic size={16} />}
-                {voice.muted ? 'Bật mic' : 'Tắt mic'}
-              </button>
+            <div className="live-voice-bar" onClick={voice.playRemote}>
+              {!isTeacher && (
+                <button type="button" className="live-btn ghost" onClick={voice.playRemote}>
+                  Mở loa
+                </button>
+              )}
+              {!isTeacher && !voice.canSpeak && (
+                <button
+                  type="button"
+                  className={`live-btn ${voice.handRaised ? 'danger' : 'secondary'}`}
+                  onClick={voice.handRaised ? voice.lowerHand : voice.raiseHand}
+                >
+                  <Hand size={16} />
+                  {voice.handRaised ? 'Hạ tay' : 'Giơ tay'}
+                </button>
+              )}
+              {(isTeacher || voice.canSpeak) && (
+                <button
+                  type="button"
+                  className={`live-btn ${voice.muted ? 'secondary' : 'danger'}`}
+                  onClick={voice.toggleMic}
+                >
+                  {voice.muted ? <MicOff size={16} /> : <Mic size={16} />}
+                  {voice.muted ? 'Bật mic' : 'Tắt mic'}
+                </button>
+              )}
               <p>
-                {voice.connected
-                  ? (speakingNames.length
-                    ? `Đang nói: ${speakingNames.join(', ')}`
-                    : 'Mic đang tắt. Bật mic để nói với lớp.')
-                  : 'Đang nối mic lớp...'}
+                {voiceHelpText({
+                  connected: voice.connected,
+                  isTeacher,
+                  canSpeak: voice.canSpeak,
+                  muted: voice.muted,
+                  handRaised: voice.handRaised,
+                  speakingNames,
+                })}
               </p>
             </div>
           )}
           <p className="live-hint">
-            Video chạy theo giảng viên: phát, tạm dừng và tua thì cả lớp đi cùng một mốc.
-            Sinh viên không tự bấm play. Mic chỉ truyền tiếng, không bật camera.
+            {isTeacher
+              ? 'Video chỉ điều khiển bằng thanh Phát / Tạm dừng. Sinh viên xin nói bằng giơ tay; bạn cho phép từng người ở tab Người tham gia.'
+              : 'Video do giảng viên điều khiển. Giơ tay để xin nói. Câu hỏi riêng gửi ở tab Hỏi AI, không cần mốc phút.'}
           </p>
         </section>
 
@@ -272,12 +336,18 @@ export default function LiveClassroomPage({
             <button type="button" className={tab === 'class' ? 'active' : ''} onClick={() => setTab('class')}>
               Chat lớp
             </button>
-            <button type="button" className={tab === 'ai' ? 'active' : ''} onClick={() => setTab('ai')}>
-              Hỏi AI
-            </button>
+            {isTeacher ? (
+              <button type="button" className={tab === 'people' ? 'active' : ''} onClick={() => setTab('people')}>
+                Người tham gia
+              </button>
+            ) : (
+              <button type="button" className={tab === 'ai' ? 'active' : ''} onClick={() => setTab('ai')}>
+                Hỏi AI
+              </button>
+            )}
           </div>
 
-          {tab === 'class' ? (
+          {tab === 'class' && (
             <>
               <div className="live-classroom-messages">
                 {messages.length === 0 && <p>Chưa có tin nhắn. Hãy chào giảng viên và cả lớp.</p>}
@@ -303,7 +373,62 @@ export default function LiveClassroomPage({
                 </form>
               )}
             </>
-          ) : (
+          )}
+
+          {tab === 'people' && isTeacher && (
+            <div className="live-people-panel">
+              <p className="live-ai-intro">
+                Sinh viên giơ tay xin nói. Tắt mic cả lớp, rồi bật mic đúng người bạn cho phép.
+              </p>
+              <div className="live-people-toolbar">
+                <button type="button" className="live-btn danger" onClick={voice.muteAll}>
+                  Tắt mic tất cả
+                </button>
+              </div>
+              <div className="live-people-list">
+                {roster.length === 0 && <p className="live-empty">Chưa có ai vào phòng.</p>}
+                {roster.map((person) => {
+                  const mine = String(person.userId) === selfUserId;
+                  const staff = isStaffRole(person.role);
+                  return (
+                    <article
+                      key={person.userId}
+                      className={`live-person${person.handRaised ? ' raised' : ''}${person.muted === false ? ' speaking' : ''}`}
+                    >
+                      <div>
+                        <strong>
+                          {person.displayName || person.userId}
+                          {mine ? ' · Bạn' : ''}
+                          {staff ? ' · GV' : ''}
+                        </strong>
+                        <span>{personStatus(person)}</span>
+                      </div>
+                      {!staff && !mine && (
+                        <div className="live-person-actions">
+                          <button
+                            type="button"
+                            className="live-btn"
+                            onClick={() => voice.allowSpeak(person.userId)}
+                          >
+                            Cho nói
+                          </button>
+                          <button
+                            type="button"
+                            className="live-btn secondary"
+                            onClick={() => voice.muteUser(person.userId)}
+                          >
+                            Tắt mic
+                          </button>
+                        </div>
+                      )}
+                    </article>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {tab === 'ai' && !isTeacher && (
             <div className="live-ai-panel">
               <p className="live-ai-intro">
                 Câu hỏi này chỉ bạn thấy. AI giải thích từ tài liệu môn, không trừ quota chat 1-1.
@@ -328,19 +453,9 @@ export default function LiveClassroomPage({
                     maxLength={4000}
                   />
                 </label>
-                <div className="live-ai-form-row">
-                  <label>
-                    Mốc phút (tuỳ chọn)
-                    <input
-                      value={timestamp}
-                      onChange={(event) => setTimestamp(event.target.value)}
-                      placeholder="12:30"
-                    />
-                  </label>
-                  <button className="live-btn" type="submit" disabled={asking || !aiQuestion.trim()}>
-                    {asking ? 'Đang hỏi...' : 'Hỏi AI'}
-                  </button>
-                </div>
+                <button className="live-btn" type="submit" disabled={asking || !aiQuestion.trim()}>
+                  {asking ? 'Đang hỏi...' : 'Hỏi AI'}
+                </button>
               </form>
             </div>
           )}

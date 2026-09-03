@@ -48,8 +48,26 @@ describe('playbackClock', () => {
       playbackActive: true,
       playbackPaused: true,
       playbackElapsedSeconds: 20,
+      playbackClockAt: new Date(Date.now()).toISOString(),
     });
     expect(paused.paused).toBe(true);
     expect(formatClock(75)).toBe('1:15');
+  });
+
+  it('does not let a stale poll unpause a newer pause', () => {
+    const previous = {
+      playbackActive: true,
+      paused: true,
+      positionSeconds: 40,
+      capturedAtMs: 5_000,
+      clockAtMs: 5_000,
+    };
+    const merged = mergePlaybackSnapshot(previous, {
+      playbackActive: true,
+      playbackPaused: false,
+      playbackElapsedSeconds: 42,
+      playbackClockAt: new Date(1_000).toISOString(),
+    });
+    expect(merged).toBe(previous);
   });
 });

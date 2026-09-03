@@ -236,6 +236,9 @@ public class LiveLessonService {
         Map<String, Object> extra = new LinkedHashMap<>();
         extra.put("paused", response.isPlaybackPaused());
         extra.put("positionSeconds", response.getPlaybackElapsedSeconds());
+        if (response.getPlaybackClockAt() != null) {
+            extra.put("playbackClockAt", response.getPlaybackClockAt().toString());
+        }
         notifyLessonRoom(response, "LIVE_LESSON_PLAYBACK", "LIVE", extra);
         return response;
     }
@@ -516,6 +519,7 @@ public class LiveLessonService {
                 .playbackActive(playbackActive)
                 .playbackElapsedSeconds(elapsed)
                 .playbackPaused(paused)
+                .playbackClockAt(lesson.getPlaybackClockAt())
                 .upcomingSoon(isUpcomingSoon(lesson, now))
                 .minutesUntilStart(minutesUntilStart)
                 .build();

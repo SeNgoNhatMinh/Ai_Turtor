@@ -57,9 +57,10 @@ export const liveLessonApi = {
   },
 
   askAi(lessonId, question, videoTimestamp) {
-    return json('POST', `${API_BASE_URL}/live-lessons/${encodeURIComponent(lessonId)}/ask-ai`, {
-      question,
-      videoTimestamp,
-    }, { timeoutMs: API_TIMEOUTS.ai });
+    const body = { question };
+    if (videoTimestamp) body.videoTimestamp = videoTimestamp;
+    return json('POST', `${API_BASE_URL}/live-lessons/${encodeURIComponent(lessonId)}/ask-ai`, body, {
+      timeoutMs: API_TIMEOUTS.ai,
+    });
   },
 };

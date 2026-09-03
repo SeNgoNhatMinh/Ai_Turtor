@@ -5,8 +5,12 @@ import { followPlaybackSeconds, formatClock } from './playbackClock';
 import { loadYoutubeIframeApi } from './loadYoutubeIframeApi';
 
 const DRIFT_SECONDS = 2.5;
-const SEEK_COOLDOWN_MS = 2000;
+const SEEK_COOLDOWN_MS = 2500;
 const HEARTBEAT_MS = 4000;
+
+function isPausedState(state) {
+  return state === 2 || state === 5 || state === 0;
+}
 
 export default function LiveSyncedPlayer({
   lesson,
@@ -43,16 +47,25 @@ export default function LiveSyncedPlayer({
 
     const applyFollow = (player = playerRef.current) => {
       if (isTeacher || !player || typeof player.seekTo !== 'function') return;
+      const paused = Boolean(snapshotRef.current?.paused);
       const expected = followPlaybackSeconds(snapshotRef.current);
       const current = readTime(player);
-      if (Math.abs(current - expected) > DRIFT_SECONDS && Date.now() - lastSeekAtRef.current > SEEK_COOLDOWN_MS) {
+      const state = player.getPlayerState?.();
+      const drifted = Math.abs(current - expected) > DRIFT_SECONDS
+        && Date.now() - lastSeekAtRef.current > SEEK_COOLDOWN_MS;
+      if (paused) {
+        if (drifted) {
+          lastSeekAtRef.current = Date.now();
+          player.seekTo(expected, true);
+        }
+        if (!isPausedState(state)) player.pauseVideo();
+        return;
+      }
+      if (drifted) {
         lastSeekAtRef.current = Date.now();
         player.seekTo(expected, true);
       }
-      const paused = Boolean(snapshotRef.current?.paused);
-      const state = player.getPlayerState?.();
-      if (paused && state === 1) player.pauseVideo();
-      if (!paused && state !== 1 && state !== 3) player.playVideo();
+      if (state !== 1 && state !== 3) player.playVideo();
     };
 
     loadYoutubeIframeApi()
@@ -81,7 +94,8 @@ export default function LiveSyncedPlayer({
               applyFollow(event.target);
             },
             onStateChange: (event) => {
-              if (event.data === YT.PlayerState.ENDED && isTeacher) {
+              if (!isTeacher || seekingRef.current) return;
+              if (event.data === YT.PlayerState.ENDED) {
                 onControlRef.current?.({
                   paused: true,
                   positionSeconds: event.target.getCurrentTime?.() || 0,
@@ -98,12 +112,16 @@ export default function LiveSyncedPlayer({
       const player = playerRef.current;
       if (!player) return;
       applyFollow(player);
+      const state = player.getPlayerState?.();
       if (isTeacher && !seekingRef.current) {
         const current = readTime(player);
         setLocalSeconds(current);
-        if (!snapshotRef.current?.paused && Date.now() - lastBeatAtRef.current > HEARTBEAT_MS) {
+        if (Date.now() - lastBeatAtRef.current > HEARTBEAT_MS) {
           lastBeatAtRef.current = Date.now();
-          onControlRef.current?.({ paused: false, positionSeconds: current });
+          onControlRef.current?.({
+            paused: Boolean(snapshotRef.current?.paused) || isPausedState(state),
+            positionSeconds: current,
+          });
         }
       } else if (!seekingRef.current) {
         setLocalSeconds(followPlaybackSeconds(snapshotRef.current));
@@ -146,7 +164,7 @@ export default function LiveSyncedPlayer({
   return (
     <>
       <div className="live-yt-host" ref={hostRef} />
-      {!isTeacher && <div className="live-player-lock" aria-hidden="true" />}
+      <div className="live-player-lock" aria-hidden="true" />
       {isTeacher && (
         <div className="live-player-controls">
           <button

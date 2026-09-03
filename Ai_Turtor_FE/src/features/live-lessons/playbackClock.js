@@ -1,3 +1,10 @@
+export function clockAtMs(value) {
+  if (value == null || value === '') return 0;
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  const ms = new Date(value).getTime();
+  return Number.isFinite(ms) ? ms : 0;
+}
+
 export function followPlaybackSeconds(snapshot, nowMs = Date.now()) {
   if (!snapshot || !snapshot.playbackActive) return 0;
   const base = Math.max(0, Number(snapshot.positionSeconds) || 0);
@@ -23,12 +30,19 @@ export function playbackSnapshotFromLesson(lesson, capturedAtMs = Date.now()) {
     paused: Boolean(lesson?.playbackPaused),
     positionSeconds: Number(lesson?.playbackElapsedSeconds) || 0,
     capturedAtMs,
+    clockAtMs: clockAtMs(lesson?.playbackClockAt) || capturedAtMs,
   };
 }
 
 export function mergePlaybackSnapshot(previous, nextLesson) {
   const next = playbackSnapshotFromLesson(nextLesson);
   if (!previous || !next.playbackActive) return next;
+  if (previous.clockAtMs && next.clockAtMs && next.clockAtMs < previous.clockAtMs) {
+    return previous;
+  }
+  if (previous.paused && !next.paused && next.clockAtMs <= (previous.clockAtMs || 0)) {
+    return previous;
+  }
   const predicted = followPlaybackSeconds(previous);
   const pauseChanged = Boolean(previous.paused) !== Boolean(next.paused);
   const jumped = Math.abs(predicted - next.positionSeconds) > 2.5;

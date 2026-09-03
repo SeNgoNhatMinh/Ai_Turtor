@@ -170,7 +170,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 3;
+  z-index: 4;
   display: flex;
   gap: 0.65rem;
   align-items: center;
@@ -199,6 +199,7 @@
 
 .live-voice-bar {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.75rem;
   align-items: center;
   margin-top: 0.75rem;
@@ -350,6 +351,81 @@
 .live-ai-form textarea {
   min-height: 88px;
   resize: vertical;
+}
+
+.live-ai-form .live-btn {
+  align-self: flex-end;
+  width: auto;
+}
+
+.live-people-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-height: 0;
+  flex: 1;
+}
+
+.live-people-toolbar {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.live-people-toolbar .live-btn {
+  width: auto;
+}
+
+.live-people-list {
+  flex: 1;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  min-height: 160px;
+}
+
+.live-person {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: 14px;
+  background: #f8fafc;
+  border: 1px solid transparent;
+}
+
+.live-person.raised {
+  background: #fff7ed;
+  border-color: #fdba74;
+}
+
+.live-person.speaking {
+  background: #ecfdf3;
+  border-color: #86efac;
+}
+
+.live-person strong,
+.live-person span {
+  display: block;
+}
+
+.live-person span {
+  margin-top: 0.15rem;
+  color: #64748b;
+  font-size: 0.8rem;
+}
+
+.live-person-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.4rem;
+}
+
+.live-person-actions .live-btn {
+  width: auto;
+  padding: 0.4rem 0.7rem;
 }
 
 .live-ai-form-row {
