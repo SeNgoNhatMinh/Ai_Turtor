@@ -105,6 +105,45 @@ class LearningPathParserTest {
     }
 
     @Test
+    void nextLessonBulletKeepsStoredPathWhenHistoryHasADifferentChapter() {
+        List<String> path = List.of(
+                "Bắt đầu bài 1: Câu lệnh if cơ bản – hiểu cú pháp và cách thực thi khi điều kiện đúng.",
+                "Bắt đầu bài 2: Toán tử so sánh – các phép so sánh (==, !=, >, <, >=, <=) dùng trong điều kiện.",
+                "Bắt đầu bài 3: Toán tử logic và rút gọn điều kiện."
+        );
+        String context = LearningPathParser.activePathContext(path)
+                + "\n## Bài tiếp theo\n- Bài 2: Nắm rõ đặc điểm và cách hoạt động của vòng lặp for (definite) và while (indefinite)";
+        assertEquals(
+                "- Bài 2: Toán tử so sánh – các phép so sánh (==, !=, >, <, >=, <=) dùng trong điều kiện.",
+                LearningPathParser.nextLessonBullet(
+                        "Bắt đầu bài 1: Câu lệnh if cơ bản – hiểu cú pháp và cách thực thi khi điều kiện đúng.",
+                        context
+                )
+        );
+    }
+
+    @Test
+    void activePathContextFormatsStoredLessonStarters() {
+        String context = LearningPathParser.activePathContext(List.of(
+                "Bắt đầu bài 1: Câu lệnh if cơ bản",
+                "Bắt đầu bài 2: Toán tử so sánh"
+        ));
+        assertTrue(context.contains("Bài 1: Câu lệnh if cơ bản"));
+        assertTrue(context.contains("Bài 2: Toán tử so sánh"));
+        assertTrue(LearningPathParser.hasNumberedPath(context));
+    }
+
+    @Test
+    void nextLessonBulletIsNullAtEndOfPath() {
+        String path = LearningPathParser.activePathContext(List.of(
+                "Bắt đầu bài 1: Câu lệnh if cơ bản",
+                "Bắt đầu bài 2: Toán tử so sánh"
+        ));
+        assertEquals(null, LearningPathParser.nextLessonBullet("Bắt đầu bài 2: Toán tử so sánh", path));
+        assertTrue(LearningPathParser.hasNumberedPath(path));
+    }
+
+    @Test
     void ignoresAnswersWithoutBaiLessons() {
         assertTrue(LearningPathParser.parseLessonSuggestions(
                 "## Theo tài liệu môn học\nServlet là chương trình Java chạy trên web server."

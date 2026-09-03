@@ -191,12 +191,16 @@ public class TutorController {
                     request.getConversationId(), userId);
             String sessionTopic = null;
             String sessionPhase = request.getSessionPhase();
+            List<String> sessionSuggestedTopics = List.of();
             if (request.getTutorSessionId() != null && !request.getTutorSessionId().isBlank()) {
                 try {
                     TutorSession activeSession = tutorSessionService.getSession(request.getTutorSessionId());
                     sessionTopic = activeSession.getTopic();
                     if (activeSession.getPhase() != null && !activeSession.getPhase().isBlank()) {
                         sessionPhase = activeSession.getPhase();
+                    }
+                    if (activeSession.getSuggestedTopics() != null) {
+                        sessionSuggestedTopics = activeSession.getSuggestedTopics();
                     }
                 } catch (RuntimeException sessionError) {
                     log.debug("Tutor session unavailable for intent context: {}", sessionError.getMessage());
@@ -254,6 +258,12 @@ public class TutorController {
                     && ("CONVERSATIONAL".equals(intent.getSubIntent())
                     || "OFF_TOPIC".equals(intent.getSubIntent()));
             String teachingMode = persistTurn ? intent.getSubIntent() : "EXPLAIN_CONCEPT";
+            String pathContext = LearningPathParser.activePathContext(sessionSuggestedTopics);
+            if (!pathContext.isBlank() && "LESSON_TEACH".equalsIgnoreCase(teachingMode)) {
+                learnerContext = learnerContext.isBlank()
+                        ? pathContext
+                        : pathContext + "\n" + learnerContext;
+            }
             String lastStudentQuestion = ConversationFocus.lastSubstantiveStudentQuestion(recentHistoryContext);
             String retrievalHint = null;
             if (StudentChatIntentDetector.isDependentFollowUp(question)) {

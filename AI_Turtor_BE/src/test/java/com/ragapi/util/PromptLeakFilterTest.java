@@ -59,6 +59,47 @@ class PromptLeakFilterTest {
     }
 
     @Test
+    void replaceNextLessonOverridesAWrongPathBullet() {
+        String raw = """
+                ## Giải thích
+                Câu lệnh if kiểm tra điều kiện.
+
+                ## Bài tiếp theo
+                - Bài 2: Nắm rõ đặc điểm và cách hoạt động của vòng lặp for (definite) và while (indefinite)
+
+                ## Nguồn tài liệu đã dùng
+                material-1
+                """;
+        String replaced = PromptLeakFilter.replaceNextLesson(
+                raw,
+                "- Bài 2: Toán tử so sánh – các phép so sánh (==, !=, >, <, >=, <=) dùng trong điều kiện."
+        );
+        assertTrue(replaced.contains("## Bài tiếp theo"));
+        assertTrue(replaced.contains("- Bài 2: Toán tử so sánh"));
+        assertFalse(replaced.contains("vòng lặp for"));
+        assertTrue(replaced.indexOf("## Bài tiếp theo") < replaced.indexOf("## Nguồn tài liệu đã dùng"));
+    }
+
+    @Test
+    void dropNextLessonRemovesTheHeadingWhenPathIsFinished() {
+        String raw = """
+                ## Giải thích
+                Bài cuối.
+
+                ## Bài tiếp theo
+                - Bài 7: Một chương khác
+
+                ## Nguồn tài liệu đã dùng
+                material-1
+                """;
+        String dropped = PromptLeakFilter.dropNextLesson(raw);
+        assertFalse(dropped.contains("## Bài tiếp theo"));
+        assertFalse(dropped.contains("Một chương khác"));
+        assertTrue(dropped.contains("Bài cuối."));
+        assertTrue(dropped.contains("## Nguồn tài liệu đã dùng"));
+    }
+
+    @Test
     void stripsNumberedCurriculumFromNormalAnswers() {
         String raw = """
                 ## Theo tài liệu môn học

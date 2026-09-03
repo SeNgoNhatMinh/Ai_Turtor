@@ -12,6 +12,7 @@ import {
   X,
 } from 'lucide-react';
 import { includesSearchText } from '../../../utils/searchText';
+import TutorMascot from '../../../components/common/TutorMascot';
 import LiveNowBanner from '../../live-lessons/LiveNowBanner';
 import './StudentDashboardPage.css';
 
@@ -223,7 +224,11 @@ export default function StudentDashboardPage({ currentUser, courseId, classId, s
             Bắt đầu học với AI <ArrowRight size={18} />
           </button>
         </div>
-        <img src="/favicon.jpg" alt="Linh vật FPT University AI Tutor" />
+        <TutorMascot
+          size="hero"
+          className="student-dashboard-mascot"
+          alt="Linh vật FPT University AI Tutor"
+        />
       </section>
 
       <LiveNowBanner courseId={courseId} classId={classId} />

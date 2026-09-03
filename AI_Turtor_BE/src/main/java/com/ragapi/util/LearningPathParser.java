@@ -95,6 +95,42 @@ public final class LearningPathParser {
     }
 
     /**
+     * Canonical numbered path from a tutor session, injected into learner memory
+     * so LESSON_TEACH stays on the roadmap instead of inventing another chapter.
+     */
+    public static String activePathContext(List<String> suggestedTopics) {
+        if (suggestedTopics == null || suggestedTopics.isEmpty()) {
+            return "";
+        }
+        return activePathContext(String.join("\n", suggestedTopics));
+    }
+
+    public static String activePathContext(String context) {
+        List<SuggestionItem> lessons = parseLessonSuggestions(context);
+        if (lessons.size() < 2) {
+            return "";
+        }
+        StringBuilder block = new StringBuilder(
+                "- Active numbered lesson path (copy the next Bài title exactly; do not invent a different chapter):\n");
+        for (SuggestionItem item : lessons) {
+            Matcher matcher = BAI_LINE.matcher(normalizeLessonLine(item.getTitle()));
+            if (!matcher.matches()) {
+                continue;
+            }
+            String title = stripMarkdown(matcher.group(2));
+            if (title.isBlank()) {
+                continue;
+            }
+            block.append("  Bài ").append(matcher.group(1)).append(": ").append(title).append('\n');
+        }
+        return block.toString().stripTrailing();
+    }
+
+    public static boolean hasNumberedPath(String context) {
+        return parseLessonSuggestions(context).size() >= 2;
+    }
+
+    /**
      * Next numbered lesson after the student's current "Bắt đầu bài N", taken from
      * a prior roadmap in conversation/memory. Returns a markdown bullet or null.
      */

@@ -225,7 +225,7 @@
     gap: 10px;
   }
 
-  .chat-gpt-bubble-ai > div:first-child {
+  .chat-gpt-ai-avatar {
     display: none;
   }
 

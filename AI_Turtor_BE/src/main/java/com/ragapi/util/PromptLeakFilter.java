@@ -86,6 +86,15 @@ public final class PromptLeakFilter {
         return without.replaceAll("\\n{3,}", "\n\n").trim();
     }
 
+    public static String dropNextLesson(String answer) {
+        Section section = findNextLessonSection(answer);
+        if (section == null) {
+            return answer;
+        }
+        String without = answer.substring(0, section.headingStart) + answer.substring(section.end);
+        return without.replaceAll("\\n{3,}", "\n\n").trim();
+    }
+
     public static String insertNextLesson(String answer, String bullet) {
         if (bullet == null || bullet.isBlank()) {
             return answer;
@@ -103,6 +112,11 @@ public final class PromptLeakFilter {
                     + safe.substring(sources.start())).replaceAll("\\n{3,}", "\n\n").trim();
         }
         return (safe.stripTrailing() + "\n\n" + block).replaceAll("\\n{3,}", "\n\n").trim();
+    }
+
+    /** Always use the stored-path bullet, even if the model already wrote a different Bài. */
+    public static String replaceNextLesson(String answer, String bullet) {
+        return insertNextLesson(dropNextLesson(answer), bullet);
     }
 
     /**

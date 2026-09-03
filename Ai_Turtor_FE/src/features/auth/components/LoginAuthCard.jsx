@@ -1,4 +1,5 @@
 import { ArrowRight, Lock, Mail, User, UserPlus } from 'lucide-react';
+import TutorMascot from '../../../components/common/TutorMascot';
 import FptWordmark from './FptWordmark';
 
 function LoginAuthCard({
@@ -22,13 +23,10 @@ function LoginAuthCard({
     <section className="login-auth-card" aria-label={isLoginView ? 'Biểu mẫu đăng nhập' : 'Biểu mẫu tạo tài khoản'}>
       <div className="login-card-header">
         <div className="login-auth-brand-row">
-          <img
-            src="/favicon.jpg"
-            alt="Biểu tượng FPT University AI Tutor"
+          <TutorMascot
+            size="md"
             className="login-auth-mascot"
-            width="48"
-            height="48"
-            decoding="async"
+            alt="Biểu tượng FPT University AI Tutor"
           />
           <div className="login-brand-mark">
             <FptWordmark className="is-compact" />

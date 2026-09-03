@@ -1501,15 +1501,17 @@ public class CourseRagService {
 
     private String restoreNextLesson(String answer, String question, String learnerMemoryContext) {
         String cleaned = PromptLeakFilter.strip(answer);
-        if (PromptLeakFilter.hasValidNextLesson(cleaned)) {
-            return cleaned;
-        }
         String next = LearningPathParser.nextLessonBullet(question, learnerMemoryContext);
-        if (next == null) {
-            return cleaned;
+        if (next != null) {
+            log.info("Restored next-lesson bullet from numbered path: {}", next);
+            return PromptLeakFilter.replaceNextLesson(cleaned, next);
         }
-        log.info("Filled next-lesson bullet from numbered path: {}", next);
-        return PromptLeakFilter.insertNextLesson(cleaned, next);
+        if (LearningPathParser.hasNumberedPath(learnerMemoryContext)
+                && LearningPathParser.currentLessonNumber(question) != null) {
+            log.info("Dropped next-lesson bullet; numbered path has no following bài");
+            return PromptLeakFilter.dropNextLesson(cleaned);
+        }
+        return cleaned;
     }
 
     private boolean asksForUnsupportedExpansion(String question, String context) {

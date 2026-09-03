@@ -124,16 +124,8 @@
     margin-bottom: 18px;
 }
 
-.login-auth-mascot {
-    width: 58px;
-    height: 58px;
+.login-auth-mascot.tutor-mascot {
     flex: 0 0 auto;
-    border: 1px solid #F3D2BC;
-    border-radius: 18px;
-    background: #FFFFFF;
-    object-fit: contain;
-    padding: 4px;
-    box-shadow: 0 12px 28px rgba(216, 95, 22, 0.12);
 }
 
 .login-card-header .login-brand-mark {
@@ -330,7 +322,7 @@
     .login-auth-card { padding: 22px; border-radius: 20px; }
     .login-card-header h2 { font-size: 1.5rem; }
     .login-auth-brand-row { gap: 10px; margin-bottom: 14px; }
-    .login-auth-mascot { width: 48px; height: 48px; border-radius: 15px; }
+    .login-auth-mascot.tutor-mascot--md { width: 60px; height: 60px; border-radius: 18px; }
     .login-segment button { min-height: 40px; font-size: .86rem; }
 }
 

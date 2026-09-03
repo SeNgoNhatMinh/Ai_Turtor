@@ -50,13 +50,12 @@
   justify-content: center;
   min-height: clamp(300px, calc(100dvh - 340px), 500px);
   margin-top: 0;
-  gap: 16px;
+  gap: 18px;
   text-align: center;
 }
 
 .chat-empty-mascot {
-  width: clamp(112px, 18vh, 152px) !important;
-  height: clamp(92px, 14.76vh, 125px) !important;
+  margin-bottom: 2px;
 }
 
 .chat-empty-title {
@@ -355,10 +354,16 @@
 
 .chat-gpt-bubble-ai {
   display: flex;
-  gap: 18px;
+  align-items: flex-start;
+  gap: 14px;
   min-width: 0;
   max-width: 100%;
   width: 100%;
+}
+
+.chat-gpt-ai-avatar {
+  flex: 0 0 auto;
+  margin-top: 2px;
 }
 
 .chat-gpt-ai-content {
@@ -456,17 +461,6 @@
 
 .chat-gpt-send-btn:not(:disabled):hover {
   opacity: 0.8;
-}
-
-.chat-fpt-mascot {
-  display: block;
-  flex: 0 0 auto;
-  border: 1px solid #dce8f5;
-  border-radius: 24%;
-  background: #fff;
-  object-fit: contain;
-  padding: 5px;
-  box-shadow: 0 12px 34px rgba(0, 43, 91, 0.12);
 }
 
 .chat-gpt-tool-btn {

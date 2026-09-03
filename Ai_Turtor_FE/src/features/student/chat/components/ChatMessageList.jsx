@@ -23,11 +23,9 @@ import PromptStarters from './PromptStarters';
 import StudentMessageBubble from './StudentMessageBubble';
 import { uiCopy } from '../../../../constants/uiCopy';
 import { lessonSuggestionsForMessage } from '../../learning/studySuggestionPrompt';
+import TutorMascot from '../../../../components/common/TutorMascot';
 
 const AiAnswer = lazy(() => import('../../../../components/AiAnswer'));
-function TutorMascot({ size, className = '' }) {
-  return <img src="/favicon.jpg" alt="Linh vật AI Tutor" className={`chat-fpt-mascot ${className}`} style={{ width: size, height: size }} />;
-}
 
 function ChatMessageList({
   activeSessionId,
@@ -80,7 +78,7 @@ function ChatMessageList({
       <div className={`chat-workspace-messages-inner ${messages.length === 0 ? 'chat-workspace-messages-inner--empty' : ''}`}>
         {messages.length === 0 ? (
           <div className="chat-empty-state">
-            <TutorMascot size={152} className="chat-empty-mascot" />
+            <TutorMascot size="lg" className="chat-empty-mascot" />
             <div className="chat-empty-title">Hôm nay bạn muốn học gì?</div>
             <div className="chat-keyword-tip" role="note">
               <strong>{uiCopy.student.chat.keywordTipTitle}</strong>
@@ -133,8 +131,8 @@ function ChatMessageList({
                 {!message.pending && (
                   <div className="chat-gpt-message-row ai">
                     <div className="chat-gpt-bubble-ai">
-                      <div style={{ flexShrink: 0, marginTop: '-4px' }}>
-                        <TutorMascot size={36} />
+                      <div className="chat-gpt-ai-avatar">
+                        <TutorMascot size="sm" />
                       </div>
                       <div className="chat-gpt-ai-content">
                         {message.aiServiceError && (
@@ -240,7 +238,7 @@ function ChatMessageList({
         {isAiLoading && (
           <div className="chat-gpt-loading">
             <div className="chat-gpt-loading-avatar">
-              <TutorMascot size={32} />
+              <TutorMascot size="sm" />
             </div>
             <ChatLoadingSteps />
           </div>
