@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { request } from '../../src/services/apiClient';
+import { blobRequest, request } from '../../src/services/apiClient';
 
 describe('apiClient bearer authentication', () => {
   beforeEach(() => {
@@ -31,5 +31,23 @@ describe('apiClient bearer authentication', () => {
 
     const [, init] = fetchMock.mock.calls[0];
     expect(init.headers.Authorization).toBeUndefined();
+  });
+
+  it('parses a JSON TTS error even when the caller expects an audio blob', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(
+      JSON.stringify({
+        code: 'TTS_UNAVAILABLE',
+        message: 'Không thể tạo giọng đọc lúc này.',
+      }),
+      { status: 503, headers: { 'Content-Type': 'application/json' } },
+    ));
+
+    await expect(blobRequest('/api/tts/synthesize', {
+      method: 'POST',
+      body: { messageId: 'm1', courseId: 'PRJ301', classId: 'SE1832', text: 'Xin chào' },
+    })).rejects.toMatchObject({
+      code: 'TTS_UNAVAILABLE',
+      userMessage: 'Không thể tạo giọng đọc lúc này.',
+    });
   });
 });

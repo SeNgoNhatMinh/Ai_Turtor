@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import ChatMessageList from './ChatMessageList';
 import { buildMaterialSourceMap } from '../../../../utils/sourceLabels';
 import { classIdMatches } from '../../../../utils/academicIds';
@@ -9,6 +9,8 @@ import { useAnswerFeedback } from '../useAnswerFeedback';
 import { usePinnedChatMessages } from '../usePinnedChatMessages';
 import { buildLessonChatPrompt, lessonSuggestionsForMessage } from '../../learning/studySuggestionPrompt';
 import { uiCopy } from '../../../../constants/uiCopy';
+import { getUserFacingError } from '../../../../services/apiClient';
+import { ttsApi } from '../../../../services/ttsApi';
 import '../ChatWorkspace.css';
 
 const CHAT_TURN_LIMIT = 10;
@@ -63,6 +65,69 @@ function ChatWorkspace({
   onStartNextTutorSession,
 }) {
   const [pendingCourseId, setPendingCourseId] = useState('');
+  const [ttsVoices, setTtsVoices] = useState([]);
+  const [ttsVoiceId, setTtsVoiceId] = useState('');
+  const [ttsVoicesLoading, setTtsVoicesLoading] = useState(false);
+  const [ttsVoicesError, setTtsVoicesError] = useState('');
+
+  const voiceStorageKey = useMemo(() => (
+    `ai-tutor:student-tts-voice:${String(userId || currentUser?.id || 'current')}:${courseId || 'none'}:${classId || 'none'}`
+  ), [classId, courseId, currentUser?.id, userId]);
+
+  useEffect(() => {
+    let active = true;
+    if (!courseId || !classId) {
+      Promise.resolve().then(() => {
+        if (!active) return;
+        setTtsVoices([]);
+        setTtsVoiceId('');
+        setTtsVoicesError('');
+      });
+      return () => { active = false; };
+    }
+    Promise.resolve()
+      .then(() => {
+        if (!active) return null;
+        setTtsVoicesLoading(true);
+        setTtsVoicesError('');
+        return ttsApi.listVoices(courseId, classId);
+      })
+      .then((response) => {
+        if (!active || !response) return;
+        const voices = Array.isArray(response) ? response.filter((voice) => voice?.id && voice?.name) : [];
+        setTtsVoices(voices);
+        let stored = '';
+        try {
+          stored = window.localStorage.getItem(voiceStorageKey) || '';
+        } catch {
+          stored = '';
+        }
+        const selected = voices.some((voice) => voice.id === stored)
+          ? stored
+          : voices[0]?.id || '';
+        setTtsVoiceId(selected);
+      })
+      .catch((error) => {
+        if (!active) return;
+        setTtsVoices([]);
+        setTtsVoiceId('');
+        setTtsVoicesError(getUserFacingError(error, 'Không thể tải danh sách giọng.'));
+      })
+      .finally(() => {
+        if (active) setTtsVoicesLoading(false);
+      });
+    return () => { active = false; };
+  }, [classId, courseId, voiceStorageKey]);
+
+  const changeTtsVoice = (nextVoiceId) => {
+    if (!ttsVoices.some((voice) => voice.id === nextVoiceId)) return;
+    setTtsVoiceId(nextVoiceId);
+    try {
+      window.localStorage.setItem(voiceStorageKey, nextVoiceId);
+    } catch {
+      // The selection remains active for the current tab.
+    }
+  };
 
   const materialSourceMap = useMemo(() => buildMaterialSourceMap(courseMaterials), [courseMaterials]);
   const safeMessages = useMemo(() => (
@@ -188,6 +253,11 @@ function ChatWorkspace({
         questionCount={questionCount}
         selectedClassLabel={selectedClassOption?.label || selectedClassValue}
         selectedCourseValue={selectedCourseValue}
+        ttsVoiceId={ttsVoiceId}
+        ttsVoices={ttsVoices}
+        ttsVoicesError={ttsVoicesError}
+        ttsVoicesLoading={ttsVoicesLoading}
+        onTtsVoiceChange={changeTtsVoice}
         turnLimitNotice={turnLimitNotice}
       />
 
@@ -251,6 +321,8 @@ function ChatWorkspace({
         studentName={studentName}
         togglePinnedMessage={togglePinnedMessage}
         triggerToast={triggerToast}
+        ttsEnabled={ttsVoices.length > 0 && !ttsVoicesError}
+        voiceId={ttsVoiceId}
         userId={userId}
       />
 

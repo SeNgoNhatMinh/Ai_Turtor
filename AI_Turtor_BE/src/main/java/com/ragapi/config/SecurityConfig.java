@@ -120,6 +120,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/v2/expert-training/gold-qa/*/approve", "/api/v2/expert-training/gold-qa/*/reject", "/api/v2/expert-training/rubrics/*/approve", "/api/v2/expert-training/rubrics/*/reject").hasAnyRole("SENIOR_MENTOR", "ADMIN")
                         .requestMatchers("/api/v2/expert-training/**").hasAnyRole("TEACHER", "SENIOR_MENTOR", "ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/tutor/answer-reviews/*/senior-resolve").hasAnyRole("SENIOR_MENTOR", "ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/tts/read", "/api/tts/synthesize").hasRole("STUDENT")
                         .requestMatchers("/api/tutor/answer-cache/**").hasAnyRole("SENIOR_MENTOR", "ADMIN")
                         .requestMatchers("/api/admin/**", "/api/academic/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/mentors/import/**").hasRole("ADMIN")

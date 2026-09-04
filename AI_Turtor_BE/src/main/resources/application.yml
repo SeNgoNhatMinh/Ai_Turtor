@@ -31,6 +31,24 @@ management:
     elasticsearch:
       enabled: ${MANAGEMENT_HEALTH_ELASTICSEARCH_ENABLED:false}
 
+tts:
+  enabled: ${TTS_ENABLED:false}
+  provider: ${TTS_PROVIDER:nvidia-magpie}
+  max-text-length: ${TTS_MAX_TEXT_LENGTH:6000}
+  # Keep headroom for Magpie's 2,000-character normalization and 4 MB audio payload limits.
+  max-chunk-length: ${TTS_MAX_CHUNK_LENGTH:600}
+  nvidia:
+    api-key: ${NVIDIA_API_KEY:}
+    base-url: ${NVIDIA_TTS_BASE_URL:https://877104f7-e885-42b9-8de8-f6e4c6303969.invocation.api.nvcf.nvidia.com}
+    list-voices-path: ${NVIDIA_TTS_LIST_VOICES_PATH:/v1/audio/list_voices}
+    synthesis-path: ${NVIDIA_TTS_SYNTHESIS_PATH:/v1/audio/synthesize}
+    language: ${NVIDIA_TTS_LANGUAGE:vi-VN}
+    encoding: ${NVIDIA_TTS_ENCODING:LINEAR_PCM}
+    sample-rate: ${NVIDIA_TTS_SAMPLE_RATE:44100}
+    default-voice-id: ${NVIDIA_TTS_DEFAULT_VOICE_ID:}
+    voice-cache-ttl-minutes: ${NVIDIA_TTS_VOICE_CACHE_TTL_MINUTES:30}
+    timeout-seconds: ${NVIDIA_TTS_TIMEOUT_SECONDS:90}
+
 spring:
   config:
     import: optional:file:./config/application-local.yml

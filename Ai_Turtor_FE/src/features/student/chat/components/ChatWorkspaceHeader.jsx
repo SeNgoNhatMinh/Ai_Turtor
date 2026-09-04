@@ -1,7 +1,8 @@
 import { CloseOutlined } from '@ant-design/icons';
-import { Button, Select, Space, Tooltip, Typography } from 'antd';
+import { Button, Select, Tooltip, Typography } from 'antd';
 import { PanelLeft } from 'lucide-react';
 import { uiCopy } from '../../../../constants/uiCopy';
+import VoiceSelector from '../../../tts/components/VoiceSelector';
 
 const { Title } = Typography;
 
@@ -28,6 +29,11 @@ function ChatWorkspaceHeader({
   questionCount,
   selectedClassLabel,
   selectedCourseValue,
+  ttsVoiceId,
+  ttsVoices,
+  ttsVoicesError,
+  ttsVoicesLoading,
+  onTtsVoiceChange,
   turnLimitNotice,
 }) {
   return (
@@ -52,14 +58,14 @@ function ChatWorkspaceHeader({
             </Tooltip>
           </div>
         </div>
-        <Space wrap>
+        <div className="chat-header-controls" aria-label="Ngữ cảnh và giọng đọc">
           <Select
             value={selectedCourseValue}
             onChange={onCourseSelect}
-            style={{ width: 150 }}
             placeholder="Chọn môn học"
             aria-label="Chọn môn học"
             disabled={isStudentEnrollmentsLoading || courseOptions.length === 0}
+            className="chat-header-course-select"
             classNames={{
               popup: {
                 root: `chat-course-select-popup ${isDarkMode ? 'chat-course-select-popup--dark' : ''}`,
@@ -75,7 +81,16 @@ function ChatWorkspaceHeader({
             <span>Lớp</span>
             <strong>{selectedClassLabel || 'Chưa xếp lớp'}</strong>
           </div>
-        </Space>
+          <VoiceSelector
+            compact
+            value={ttsVoiceId}
+            voices={ttsVoices}
+            loading={ttsVoicesLoading}
+            disabled={!canChat}
+            error={ttsVoicesError}
+            onChange={onTtsVoiceChange}
+          />
+        </div>
       </div>
 
       {pendingCourseId && (

@@ -1,0 +1,33 @@
+.tts-voice-selector {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 260px;
+}
+
+.tts-voice-selector > svg {
+  flex: 0 0 auto;
+  color: #f37021;
+}
+
+.tts-voice-selector .ant-select {
+  min-width: 220px;
+  flex: 1;
+}
+
+.tts-voice-selector--compact {
+  min-width: 190px;
+}
+
+.tts-voice-selector--compact .ant-select {
+  min-width: 160px;
+  max-width: 230px;
+}
+
+@media (max-width: 760px) {
+  .tts-voice-selector--compact,
+  .tts-voice-selector--compact .ant-select {
+    min-width: 150px;
+    max-width: 190px;
+  }
+}

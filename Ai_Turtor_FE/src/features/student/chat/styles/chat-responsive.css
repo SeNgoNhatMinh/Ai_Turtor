@@ -6,6 +6,49 @@
   }
 }
 
+/* Respond to the actual chat pane width, including when the history sidebar is open. */
+@container chat-workspace (max-width: 1050px) {
+  .chat-workspace-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .chat-header-leading,
+  .chat-header-controls {
+    width: 100%;
+  }
+
+  .chat-header-controls {
+    flex: none;
+    grid-template-columns: minmax(120px, 0.85fr) minmax(165px, 1fr) minmax(190px, 1.25fr);
+    justify-content: stretch;
+  }
+
+  .chat-workspace-header h4.ant-typography {
+    max-width: calc(100cqw - 180px);
+  }
+}
+
+@container chat-workspace (max-width: 680px) {
+  .chat-header-controls {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+  }
+
+  .chat-header-controls .tts-voice-selector--compact {
+    grid-column: 1 / -1;
+  }
+}
+
+@container chat-workspace (max-width: 440px) {
+  .chat-header-controls {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .chat-header-controls .tts-voice-selector--compact {
+    grid-column: auto;
+  }
+}
+
 @media (max-width: 900px) {
   .student-chat-history-pane:not(.is-open) .chat-history-header {
     justify-content: center;
@@ -91,10 +134,6 @@
   .chat-turn-limit-banner-actions {
     width: 100%;
     justify-content: flex-start;
-  }
-
-  .chat-workspace-header .ant-space {
-    width: 100%;
   }
 
   .chat-workspace-messages-inner {

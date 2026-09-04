@@ -10,6 +10,8 @@
   position: relative;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   overflow: hidden;
+  container-name: chat-workspace;
+  container-type: inline-size;
 }
 
 /* Header */
@@ -25,6 +27,27 @@
   min-width: 0;
   max-width: 100%;
   overflow-x: hidden;
+  gap: 12px;
+}
+
+.chat-header-controls {
+  display: grid;
+  flex: 0 1 590px;
+  grid-template-columns: minmax(120px, 150px) minmax(165px, 190px) minmax(190px, 230px);
+  align-items: center;
+  justify-content: end;
+  gap: 8px;
+  min-width: 0;
+}
+
+.chat-header-course-select.ant-select,
+.chat-header-controls .chat-class-readonly-pill,
+.chat-header-controls .tts-voice-selector--compact,
+.chat-header-controls .tts-voice-selector--compact .ant-select {
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  box-sizing: border-box;
 }
 
 .chat-workspace-header h4.ant-typography {
@@ -109,6 +132,7 @@
   align-items: center;
   gap: 6px;
   min-width: 0;
+  flex: 1 1 auto;
 }
 
 .chat-header-history-button.ant-btn {

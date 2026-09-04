@@ -194,6 +194,28 @@ GET  /api/mentor/assignments/{assignmentId}/submissions
 PUT  /api/mentor/submissions/{submissionId}/review
 ```
 
+### NVIDIA Magpie TTS
+
+TTS chạy qua backend, không gọi NVIDIA từ React và không cần model local:
+
+```http
+GET    /api/tts/voices?courseId={courseId}&classId={classId}
+POST   /api/tts/synthesize
+```
+
+Sinh viên chọn trực tiếp một giọng tiếng Việt trong catalog NVIDIA mà API trả về và gửi
+`providerVoiceId` khi yêu cầu tạo audio. Không còn cấu hình profile giọng theo giáo viên.
+
+Cấu hình tối thiểu phải đặt ở môi trường server (không commit giá trị key):
+
+```dotenv
+TTS_ENABLED=true
+TTS_PROVIDER=nvidia-magpie
+NVIDIA_API_KEY=
+```
+
+Xem các biến endpoint, language, sample rate, cache voice và giới hạn chunk trong `.env.deploy.example`.
+
 ## 6. Tài Liệu Quan Trọng
 
 - `N8N_HARNESS_TRACE_AND_ERROR_HANDLING.md`: n8n trace context, retry, error logging, fallback handling, and debugging by traceId.

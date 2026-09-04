@@ -21,9 +21,10 @@ export function getUserFacingError(error, fallback = 'Đã xảy ra lỗi. Vui l
 
 async function parseResponse(response, responseType) {
   if (response.status === 204) return null;
-  if (responseType === 'blob') return response.blob();
   const contentType = response.headers.get('content-type') || '';
+  if (responseType === 'blob' && response.ok) return response.blob();
   if (contentType.includes('application/json')) return response.json();
+  if (responseType === 'blob') return response.blob();
   const text = await response.text();
   return text || null;
 }
@@ -57,6 +58,9 @@ function normalizeError(error, response, body) {
     'Request failed';
 
   const userMessage = (() => {
+    if (body?.code === 'TTS_UNAVAILABLE') {
+      return getSafeUserMessage(message, 'Không thể tạo giọng đọc lúc này. Vui lòng thử lại sau.');
+    }
     if (response.status === 429) {
       if (body?.code === 'DAILY_COURSE_QUESTION_LIMIT_REACHED') {
         return getSafeUserMessage(

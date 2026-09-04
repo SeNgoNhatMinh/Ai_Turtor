@@ -105,6 +105,21 @@ services:
       LLM_SKIP_DIACRITICS_FOR_ENGLISH_QUESTIONS: ${LLM_SKIP_DIACRITICS_FOR_ENGLISH_QUESTIONS:-true}
       TZ: ${TZ:-Asia/Bangkok}
       JAVA_TOOL_OPTIONS: "-Dfile.encoding=UTF-8 -Duser.timezone=Asia/Bangkok"
+      TTS_ENABLED: ${TTS_ENABLED:-false}
+      TTS_PROVIDER: ${TTS_PROVIDER:-nvidia-magpie}
+      # Backward-compatible credential alias: the container still receives NVIDIA_API_KEY.
+      NVIDIA_API_KEY: ${NVIDIA_API_KEY:-${NVIDIA_NIM_API_KEY}}
+      NVIDIA_TTS_BASE_URL: ${NVIDIA_TTS_BASE_URL:-https://877104f7-e885-42b9-8de8-f6e4c6303969.invocation.api.nvcf.nvidia.com}
+      NVIDIA_TTS_LIST_VOICES_PATH: ${NVIDIA_TTS_LIST_VOICES_PATH:-/v1/audio/list_voices}
+      NVIDIA_TTS_SYNTHESIS_PATH: ${NVIDIA_TTS_SYNTHESIS_PATH:-/v1/audio/synthesize}
+      NVIDIA_TTS_LANGUAGE: ${NVIDIA_TTS_LANGUAGE:-vi-VN}
+      NVIDIA_TTS_ENCODING: ${NVIDIA_TTS_ENCODING:-LINEAR_PCM}
+      NVIDIA_TTS_SAMPLE_RATE: ${NVIDIA_TTS_SAMPLE_RATE:-44100}
+      NVIDIA_TTS_DEFAULT_VOICE_ID: ${NVIDIA_TTS_DEFAULT_VOICE_ID:-}
+      NVIDIA_TTS_VOICE_CACHE_TTL_MINUTES: ${NVIDIA_TTS_VOICE_CACHE_TTL_MINUTES:-30}
+      NVIDIA_TTS_TIMEOUT_SECONDS: ${NVIDIA_TTS_TIMEOUT_SECONDS:-90}
+      TTS_MAX_TEXT_LENGTH: ${TTS_MAX_TEXT_LENGTH:-6000}
+      TTS_MAX_CHUNK_LENGTH: ${TTS_MAX_CHUNK_LENGTH:-600}
     volumes:
       - ai_tutor_pdf_preview_cache:/app/data/pdf-preview-cache
     networks:
