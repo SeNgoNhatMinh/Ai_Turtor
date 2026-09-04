@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import {
   findMentorRequestForMessage,
   getCanonicalMessageSources,
@@ -26,8 +26,168 @@ import { uiCopy } from '../../../../constants/uiCopy';
 import { lessonSuggestionsForMessage, resolveChatStudyTip } from '../../learning/studySuggestionPrompt';
 import { isAiServiceErrorText, shouldOfferLessonContinuations } from '../../../../utils/errorMessages';
 import TutorMascot from '../../../../components/common/TutorMascot';
+import { useMarkdownReveal } from '../useMarkdownReveal';
 
 const AiAnswer = lazy(() => import('../../../../components/AiAnswer'));
+
+function scrollChatToEnd(messagesEndRef) {
+  const marker = messagesEndRef?.current;
+  const container = marker?.closest('.chat-workspace-messages-container');
+  if (!container) return;
+  if (typeof container.scrollTo === 'function') {
+    container.scrollTo({ top: container.scrollHeight, behavior: 'auto' });
+    return;
+  }
+  container.scrollTop = container.scrollHeight;
+}
+
+function StudentLiveAnswer({
+  activeSessionId,
+  activeSessionMaxTurnsReached,
+  classId,
+  courseId,
+  currentUser,
+  escalationId,
+  evidenceMessage,
+  feedback,
+  feedbackIndex,
+  handleAnswerAction,
+  isPinned,
+  isPinning,
+  isWelcomeTurn,
+  materialSourceMap,
+  message,
+  messageKey,
+  messagesEndRef,
+  offerLessonContinuations,
+  onCreateQuizFromSuggestion,
+  onDownloadSource,
+  onLockUnderstandingAnswer,
+  onMentorRequestCreated,
+  onOpenMentorReview,
+  onStudySuggestion,
+  openSupportCards,
+  pathSuggestions,
+  setLocalEscalationIds,
+  setOpenSupportCards,
+  showMentorSupport,
+  studentName,
+  togglePinnedMessage,
+  triggerToast,
+  tutorTurnFailed,
+  userId,
+}) {
+  const fullMarkdown = withoutLegacyEvidenceAppendix(message.answer, evidenceMessage);
+  const reveal = Boolean(message.revealAnswer) && !tutorTurnFailed && !message.canceled;
+  const { text: revealedMarkdown, done } = useMarkdownReveal(fullMarkdown, reveal);
+
+  useEffect(() => {
+    if (!reveal || done) return;
+    scrollChatToEnd(messagesEndRef);
+  }, [done, messagesEndRef, reveal, revealedMarkdown]);
+
+  return (
+    <>
+      <Suspense fallback={<div className="chat-answer-loading">Đang định dạng câu trả lời...</div>}>
+        <AiAnswer
+          markdown={revealedMarkdown}
+          understandingCheck={done ? message.understandingCheck : null}
+          understandingSelectedKey={done ? message.understandingSelectedKey : ''}
+          attemptId={message.assistantMessageId || message.messageId || message.id}
+          streaming={reveal && !done}
+          sourceMap={materialSourceMap}
+          onStudyTipStudy={done ? (text) => onStudySuggestion?.({
+            text: resolveChatStudyTip(message.question, text),
+            sourceMode: message.mode,
+          }) : undefined}
+          onLockAnswer={done ? (key) => onLockUnderstandingAnswer?.(message, key) : undefined}
+          onDownloadSource={onDownloadSource}
+          hideSourceSection
+        />
+      </Suspense>
+
+      {done && (
+        <AnswerEvidence
+          message={evidenceMessage}
+          sourceMap={materialSourceMap}
+          onDownloadSource={onDownloadSource}
+        />
+      )}
+      {done && !message.canceled && offerLessonContinuations && !isWelcomeTurn && (
+        <AnswerImproveSuggestions
+          suggestions={pathSuggestions}
+          onStudy={onStudySuggestion}
+          onCreateQuiz={onCreateQuizFromSuggestion}
+          sourceMode={message.mode}
+        />
+      )}
+      {done && !message.canceled && offerLessonContinuations && !isWelcomeTurn
+        && pathSuggestions.length === 0 && (
+        <LessonDeepDiveCta
+          question={message.question}
+          answer={message.answer}
+          onStudy={onStudySuggestion}
+        />
+      )}
+      {done && !message.canceled && !message.sessionComplete && !isWelcomeTurn && (
+        <AnswerActionBar
+          message={{
+            ...message,
+            aiServiceError: tutorTurnFailed,
+            retryable: Boolean(message.retryable || tutorTurnFailed),
+          }}
+          mentorRequestInProgress={showMentorSupport}
+          disableRetry={activeSessionMaxTurnsReached}
+          onAction={handleAnswerAction}
+        />
+      )}
+
+      {done && !message.canceled && showMentorSupport && (
+        <InlineMentorSupport
+          message={{ ...message, questionEscalationId: escalationId }}
+          userId={userId}
+          studentName={studentName}
+          studentEmail={currentUser?.email}
+          currentUser={currentUser}
+          courseId={courseId}
+          classId={classId}
+          conversationId={activeSessionId}
+          isOpen={Boolean(openSupportCards[messageKey])}
+          onOpen={() => setOpenSupportCards((current) => ({ ...current, [messageKey]: true }))}
+          onClose={() => setOpenSupportCards((current) => ({ ...current, [messageKey]: false }))}
+          onEscalationCreated={(nextId) => {
+            setLocalEscalationIds((current) => ({ ...current, [messageKey]: nextId }));
+            onMentorRequestCreated?.();
+          }}
+          onOpenReviewTab={onOpenMentorReview}
+          triggerToast={triggerToast}
+        />
+      )}
+
+      {done && !message.canceled && !isWelcomeTurn && !tutorTurnFailed && (
+        <AnswerFeedbackControls
+          index={feedbackIndex}
+          message={message}
+          isPinned={isPinned}
+          isFeedbackSubmitting={feedback.isFeedbackSubmitting}
+          feedbackOpenIndex={feedback.feedbackOpenIndex}
+          feedbackPanelMode={feedback.feedbackPanelMode}
+          feedbackAction={feedback.feedbackAction}
+          feedbackText={feedback.feedbackText}
+          setFeedbackText={feedback.setFeedbackText}
+          onTogglePin={() => togglePinnedMessage(message)}
+          isPinning={isPinning}
+          onHelpful={() => feedback.submitQuickReview(message, 'helpful')}
+          onToggleRatingPanel={feedback.toggleRatingPanel}
+          onSelectStar={feedback.selectStarRating}
+          onOpenFeedback={feedback.openFeedbackForm}
+          onCloseFeedback={feedback.closeFeedbackForm}
+          onSubmitFeedback={() => feedback.submitFeedback(message)}
+        />
+      )}
+    </>
+  );
+}
 
 function ChatMessageList({
   activeSessionId,
@@ -152,101 +312,41 @@ function ChatMessageList({
                         )}
 
                         {!tutorTurnFailed && (
-                          <Suspense fallback={<div className="chat-answer-loading">Đang định dạng câu trả lời...</div>}>
-                            <AiAnswer
-                              markdown={withoutLegacyEvidenceAppendix(message.answer, evidenceMessage)}
-                              understandingCheck={message.understandingCheck}
-                              understandingSelectedKey={message.understandingSelectedKey}
-                              attemptId={message.assistantMessageId || message.messageId || message.id}
-                              sourceMap={materialSourceMap}
-                              onStudyTipStudy={(text) => onStudySuggestion?.({
-                                text: resolveChatStudyTip(message.question, text),
-                                sourceMode: message.mode,
-                              })}
-                              onLockAnswer={(key) => onLockUnderstandingAnswer?.(message, key)}
-                              onDownloadSource={onDownloadSource}
-                              hideSourceSection
-                            />
-                          </Suspense>
-                        )}
-
-                        {!tutorTurnFailed && (
-                          <AnswerEvidence
-                            message={evidenceMessage}
-                            sourceMap={materialSourceMap}
-                            onDownloadSource={onDownloadSource}
-                          />
-                        )}
-                        {!message.canceled && offerLessonContinuations && !isWelcomeTurn && (
-                          <AnswerImproveSuggestions
-                            suggestions={pathSuggestions}
-                            onStudy={onStudySuggestion}
-                            onCreateQuiz={onCreateQuizFromSuggestion}
-                            sourceMode={message.mode}
-                          />
-                        )}
-                        {!message.canceled && offerLessonContinuations && !isWelcomeTurn
-                          && pathSuggestions.length === 0 && (
-                          <LessonDeepDiveCta
-                            question={message.question}
-                            answer={message.answer}
-                            onStudy={onStudySuggestion}
-                          />
-                        )}
-                        {!message.canceled && !message.sessionComplete && !isWelcomeTurn && (
-                          <AnswerActionBar
-                            message={{
-                              ...message,
-                              aiServiceError: tutorTurnFailed,
-                              retryable: Boolean(message.retryable || tutorTurnFailed),
-                            }}
-                            mentorRequestInProgress={showMentorSupport}
-                            disableRetry={activeSessionMaxTurnsReached}
-                            onAction={handleAnswerAction}
-                          />
-                        )}
-
-                        {!message.canceled && showMentorSupport && (
-                          <InlineMentorSupport
-                            message={{ ...message, questionEscalationId: escalationId }}
-                            userId={userId}
-                            studentName={studentName}
-                            studentEmail={currentUser?.email}
-                            currentUser={currentUser}
-                            courseId={courseId}
+                          <StudentLiveAnswer
+                            activeSessionId={activeSessionId}
+                            activeSessionMaxTurnsReached={activeSessionMaxTurnsReached}
                             classId={classId}
-                            conversationId={activeSessionId}
-                            isOpen={Boolean(openSupportCards[messageKey])}
-                            onOpen={() => openInlineSupport(messageKey)}
-                            onClose={() => setOpenSupportCards((current) => ({ ...current, [messageKey]: false }))}
-                            onEscalationCreated={(nextId) => {
-                              setLocalEscalationIds((current) => ({ ...current, [messageKey]: nextId }));
-                              onMentorRequestCreated?.();
-                            }}
-                            onOpenReviewTab={onOpenMentorReview}
-                            triggerToast={triggerToast}
-                          />
-                        )}
-
-                        {!message.canceled && !isWelcomeTurn && !tutorTurnFailed && (
-                          <AnswerFeedbackControls
-                            index={index}
-                            message={message}
+                            courseId={courseId}
+                            currentUser={currentUser}
+                            escalationId={escalationId}
+                            evidenceMessage={evidenceMessage}
+                            feedback={feedback}
+                            feedbackIndex={index}
+                            handleAnswerAction={handleAnswerAction}
                             isPinned={isPinned}
-                            isFeedbackSubmitting={feedback.isFeedbackSubmitting}
-                            feedbackOpenIndex={feedback.feedbackOpenIndex}
-                            feedbackPanelMode={feedback.feedbackPanelMode}
-                            feedbackAction={feedback.feedbackAction}
-                            feedbackText={feedback.feedbackText}
-                            setFeedbackText={feedback.setFeedbackText}
-                            onTogglePin={() => togglePinnedMessage(message)}
                             isPinning={isPinning}
-                            onHelpful={() => feedback.submitQuickReview(message, 'helpful')}
-                            onToggleRatingPanel={feedback.toggleRatingPanel}
-                            onSelectStar={feedback.selectStarRating}
-                            onOpenFeedback={feedback.openFeedbackForm}
-                            onCloseFeedback={feedback.closeFeedbackForm}
-                            onSubmitFeedback={() => feedback.submitFeedback(message)}
+                            isWelcomeTurn={isWelcomeTurn}
+                            materialSourceMap={materialSourceMap}
+                            message={message}
+                            messageKey={messageKey}
+                            messagesEndRef={messagesEndRef}
+                            offerLessonContinuations={offerLessonContinuations}
+                            onCreateQuizFromSuggestion={onCreateQuizFromSuggestion}
+                            onDownloadSource={onDownloadSource}
+                            onLockUnderstandingAnswer={onLockUnderstandingAnswer}
+                            onMentorRequestCreated={onMentorRequestCreated}
+                            onOpenMentorReview={onOpenMentorReview}
+                            onStudySuggestion={onStudySuggestion}
+                            openSupportCards={openSupportCards}
+                            pathSuggestions={pathSuggestions}
+                            setLocalEscalationIds={setLocalEscalationIds}
+                            setOpenSupportCards={setOpenSupportCards}
+                            showMentorSupport={showMentorSupport}
+                            studentName={studentName}
+                            togglePinnedMessage={togglePinnedMessage}
+                            triggerToast={triggerToast}
+                            tutorTurnFailed={tutorTurnFailed}
+                            userId={userId}
                           />
                         )}
                       </div>

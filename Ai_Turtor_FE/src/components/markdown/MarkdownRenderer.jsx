@@ -222,14 +222,14 @@ function MarkdownRenderer({ markdown, streaming = false, sourceMap = {}, onStudy
     () => createMarkdownComponents({ sourceMap, onStudyTipStudy, onDownloadSource }),
     [sourceMap, onStudyTipStudy, onDownloadSource],
   );
-  const hasMath = useMemo(() => containsMath(content), [content]);
+  const hasMath = useMemo(() => containsMath(content || ''), [content]);
 
-  if (!content) return null;
+  if (!content && !streaming) return null;
 
   return (
-    <MarkdownErrorBoundary contentKey={content} fallbackText={content}>
+    <MarkdownErrorBoundary contentKey={content || 'stream'} fallbackText={content}>
       <div className={`ai-answer ai-answer-prose ${streaming ? 'is-streaming' : ''}`}>
-        {hasMath ? (
+        {content && hasMath ? (
           <Suspense
             fallback={(
               <MarkdownDocument
@@ -242,14 +242,14 @@ function MarkdownRenderer({ markdown, streaming = false, sourceMap = {}, onStudy
           >
             <MathMarkdownDocument content={content} components={components} />
           </Suspense>
-        ) : (
+        ) : content ? (
           <MarkdownDocument
             content={content}
             components={components}
             remarkPlugins={baseRemarkPlugins}
             rehypePlugins={baseRehypePlugins}
           />
-        )}
+        ) : null}
         {streaming && <span className="ai-answer-stream-cursor" aria-hidden="true" />}
       </div>
     </MarkdownErrorBoundary>

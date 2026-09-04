@@ -586,7 +586,8 @@ export function useStudentChatController({
           questionEscalationId: data.questionEscalationId || data.escalationId || null,
           aiServiceError: isAiServiceError,
           retryable: isAiServiceError,
-          pending: false
+          pending: false,
+          revealAnswer: !isAiServiceError,
         };
         return updated;
       });
@@ -598,7 +599,16 @@ export function useStudentChatController({
           });
           const historyPairs = pairMessages(asArray(chatMsgs, 'content', 'messages'));
           if (historyPairs.length > 0) {
-            setMessages(historyPairs);
+            setMessages((prev) => {
+              const prevLast = prev[prev.length - 1];
+              if (!prevLast?.revealAnswer) return historyPairs;
+              const next = [...historyPairs];
+              const last = next[next.length - 1];
+              if (last && String(last.answer || '') === String(prevLast.answer || '')) {
+                next[next.length - 1] = { ...last, revealAnswer: true };
+              }
+              return next;
+            });
           }
         } catch {
           // Keep the just-submitted exchange visible if history reload is not ready yet.
