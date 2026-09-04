@@ -198,7 +198,7 @@ export default function StudentChatPage({
       onResendMessage={chatController.sendText}
       onStopQuery={chatController.onStopQuery}
       onPromptStarter={chatController.handlePromptStarter}
-      onCheckUnderstanding={chat.handleCheckUnderstanding}
+      onLockUnderstandingAnswer={chat.handleLockUnderstandingAnswer}
       onAnswerAction={chatController.handleAnswerAction}
       isAiLoading={chatController.isAiLoading}
       messagesEndRef={chatController.messagesEndRef}

@@ -76,12 +76,26 @@
   background: #eef2ff;
 }
 
+.understanding-check__option:disabled {
+  cursor: default;
+}
+
 .understanding-check__option.is-correct {
   border-color: #86efac;
   background: #f0fdf4;
 }
 
 .understanding-check__option.is-wrong {
+  border-color: #fca5a5;
+  background: #fef2f2;
+}
+
+.understanding-check__option.is-correct:hover {
+  border-color: #86efac;
+  background: #f0fdf4;
+}
+
+.understanding-check__option.is-wrong:hover {
   border-color: #fca5a5;
   background: #fef2f2;
 }

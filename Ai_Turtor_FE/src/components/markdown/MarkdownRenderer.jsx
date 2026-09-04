@@ -117,13 +117,18 @@ function LinkRenderer({ href, children, onStudyTipStudy, ...props }) {
   if (hashTarget.startsWith('ai-study-tip-')) {
     const text = getNodeText(children).trim();
     const isNextLesson = /(?:bắt đầu\s+)?(?:bài|bai)\s+\d+/i.test(text);
+    const className = [
+      'ai-answer-study-tip',
+      isNextLesson ? 'ai-answer-study-tip--lesson' : '',
+      onStudyTipStudy ? '' : 'ai-answer-study-tip--disabled',
+    ].filter(Boolean).join(' ');
     if (!onStudyTipStudy) {
-      return <span className="ai-answer-study-tip ai-answer-study-tip--disabled">{children}</span>;
+      return <span className={className}>{children}</span>;
     }
     return (
       <button
         type="button"
-        className={`ai-answer-study-tip${isNextLesson ? ' ai-answer-study-tip--lesson' : ''}`}
+        className={className}
         onClick={() => onStudyTipStudy(text)}
         title={isNextLesson ? 'Bắt đầu bài này với AI Tutor' : 'Học tiếp nội dung này với AI Tutor'}
       >

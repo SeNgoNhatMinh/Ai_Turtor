@@ -34,6 +34,11 @@ const getMessageSources = (message = {}) => {
   return [...explicitSources, ...sourceIds, ...recoveredLabels];
 };
 
+const getMessageQuizAttempt = (message = {}) => ({
+  understandingSelectedKey: String(message.understandingSelectedKey || '').trim(),
+  understandingAnsweredAt: message.understandingAnsweredAt || null,
+});
+
 const getMessageSourceEvidence = (message = {}) => asArray(
   message.sourceEvidence
   || message.source_evidence
@@ -94,6 +99,7 @@ export const pairMessages = (messages) => {
             nextMsg.nextImproveSuggestions || nextMsg.improveSuggestions || nextMsg.suggestions,
           ),
           questionEscalationId: nextMsg.questionEscalationId || null,
+          ...getMessageQuizAttempt(nextMsg),
           createdAt: msg.createdAt || nextMsg.createdAt
         });
         i++;
@@ -119,6 +125,7 @@ export const pairMessages = (messages) => {
           msg.nextImproveSuggestions || msg.improveSuggestions || msg.suggestions,
         ),
         questionEscalationId: msg.questionEscalationId || null,
+        ...getMessageQuizAttempt(msg),
         createdAt: msg.createdAt
       });
     } else {
@@ -135,6 +142,7 @@ export const pairMessages = (messages) => {
           msg.nextImproveSuggestions || msg.improveSuggestions || msg.suggestions,
         ),
         questionEscalationId: msg.questionEscalationId || null,
+        ...getMessageQuizAttempt(msg),
         createdAt: msg.createdAt
       });
     }

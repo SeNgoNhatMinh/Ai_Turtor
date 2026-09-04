@@ -153,6 +153,7 @@ test('pairs canonical student and assistant messages', () => {
       content: 'OOP is object-oriented programming.',
       mode: 'RAG',
       suggestions: ['Review classes'],
+      understandingSelectedKey: 'B',
     },
   ]);
 
@@ -161,6 +162,7 @@ test('pairs canonical student and assistant messages', () => {
   assert.equal(pairs[0].assistantMessageId, 'ai-1');
   assert.equal(pairs[0].question, 'What is OOP?');
   assert.equal(pairs[0].answer, 'OOP is object-oriented programming.');
+  assert.equal(pairs[0].understandingSelectedKey, 'B');
   assert.deepEqual(pairs[0].nextImproveSuggestions, ['Review classes']);
 });
 

@@ -397,6 +397,26 @@ public class AiConversationService {
         return toMessageInfo(messageRepository.save(message));
     }
 
+    public AiMessageInfo recordUnderstandingCheck(String conversationId, String messageId, String userId, String selectedKey) {
+        requireConversation(conversationId, userId);
+        String key = selectedKey == null ? "" : selectedKey.trim().toUpperCase();
+        if (!key.matches("[A-D]")) {
+            throw new IllegalArgumentException("Đáp án kiểm tra hiểu phải là A, B, C hoặc D");
+        }
+        AiMessage message = messageRepository.findByIdAndConversationIdAndUserId(messageId, conversationId, userId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy tin nhắn"));
+        String role = message.getRole() == null ? "" : message.getRole().trim().toUpperCase();
+        if (!"ASSISTANT".equals(role)) {
+            throw new IllegalArgumentException("Chỉ lưu đáp án trên câu trả lời của AI Tutor");
+        }
+        if (message.getUnderstandingSelectedKey() == null || message.getUnderstandingSelectedKey().isBlank()) {
+            message.setUnderstandingSelectedKey(key);
+            message.setUnderstandingAnsweredAt(LocalDateTime.now());
+            return toMessageInfo(messageRepository.save(message));
+        }
+        return toMessageInfo(message);
+    }
+
     public AiMessageInfo unpinMessage(String conversationId, String messageId, String userId) {
         requireConversation(conversationId, userId);
         AiMessage message = messageRepository.findByIdAndConversationIdAndUserId(messageId, conversationId, userId)
@@ -536,6 +556,8 @@ public class AiConversationService {
                 .proactive(message.getProactive())
                 .pinned(Boolean.TRUE.equals(message.getPinned()))
                 .pinnedAt(message.getPinnedAt())
+                .understandingSelectedKey(message.getUnderstandingSelectedKey())
+                .understandingAnsweredAt(message.getUnderstandingAnsweredAt())
                 .createdAt(message.getCreatedAt())
                 .build();
     }

@@ -49,7 +49,7 @@ function ChatMessageList({
   onOpenMentorReview,
   onMentorRequestCreated,
   onPromptStarter,
-  onCheckUnderstanding,
+  onLockUnderstandingAnswer,
   onResendMessage,
   onStudySuggestion,
   pinnedMessageIdSet,
@@ -156,12 +156,14 @@ function ChatMessageList({
                             <AiAnswer
                               markdown={withoutLegacyEvidenceAppendix(message.answer, evidenceMessage)}
                               understandingCheck={message.understandingCheck}
+                              understandingSelectedKey={message.understandingSelectedKey}
+                              attemptId={message.assistantMessageId || message.messageId || message.id}
                               sourceMap={materialSourceMap}
                               onStudyTipStudy={(text) => onStudySuggestion?.({
                                 text: resolveChatStudyTip(message.question, text),
                                 sourceMode: message.mode,
                               })}
-                              onCheckAnswer={onCheckUnderstanding}
+                              onLockAnswer={(key) => onLockUnderstandingAnswer?.(message, key)}
                               onDownloadSource={onDownloadSource}
                               hideSourceSection
                             />

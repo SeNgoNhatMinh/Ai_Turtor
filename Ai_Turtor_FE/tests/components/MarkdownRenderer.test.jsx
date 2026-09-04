@@ -112,4 +112,13 @@ describe('MarkdownRenderer Vietnamese text', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Ôn constructor' }));
     expect(onStudyTipStudy).toHaveBeenCalledWith('Ôn constructor');
   });
+
+  it('keeps study tips as review text when no continue-learning handler is provided', () => {
+    render(
+      <MarkdownRenderer markdown={'## Bài tiếp theo\n\n- Bài 2 – Sử dụng biến lặp (itervar) trong thân vòng.'} />,
+    );
+
+    expect(screen.queryByRole('button', { name: /Bài 2/ })).not.toBeInTheDocument();
+    expect(screen.getByText(/Bài 2/)).toBeVisible();
+  });
 });

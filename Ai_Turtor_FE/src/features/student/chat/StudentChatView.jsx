@@ -35,7 +35,7 @@ function StudentChatView({
   onResendMessage,
   onStopQuery,
   onPromptStarter,
-  onCheckUnderstanding,
+  onLockUnderstandingAnswer,
   onAnswerAction,
   isAiLoading,
   messagesEndRef,
@@ -124,7 +124,7 @@ function StudentChatView({
             onResendMessage={onResendMessage}
             onStopQuery={onStopQuery}
             onPromptStarter={onPromptStarter}
-            onCheckUnderstanding={onCheckUnderstanding}
+            onLockUnderstandingAnswer={onLockUnderstandingAnswer}
             onAnswerAction={onAnswerAction}
             isAiLoading={isAiLoading}
             messagesEndRef={messagesEndRef}

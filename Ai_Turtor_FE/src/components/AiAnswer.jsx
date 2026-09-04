@@ -12,9 +12,12 @@ function AiAnswer({
   streaming = false,
   sourceMap = {},
   onStudyTipStudy,
-  onCheckAnswer,
+  onLockAnswer,
   onDownloadSource,
   hideSourceSection = false,
+  reviewer = false,
+  understandingSelectedKey = '',
+  attemptId = '',
 }) {
   const extracted = useMemo(
     () => extractUnderstandingCheck(markdown),
@@ -51,7 +54,13 @@ function AiAnswer({
           hideSourceSection={hideSourceSection}
         />
       ) : null}
-      <UnderstandingCheckQuiz quiz={quiz} onCheckAnswer={onCheckAnswer} />
+      <UnderstandingCheckQuiz
+        quiz={quiz}
+        reviewer={reviewer}
+        lockedKey={understandingSelectedKey}
+        attemptId={attemptId}
+        onLockAnswer={onLockAnswer}
+      />
       {after ? (
         <MarkdownRenderer
           markdown={after}

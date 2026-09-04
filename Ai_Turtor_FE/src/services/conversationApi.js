@@ -73,6 +73,14 @@ export const conversationApi = {
     });
   },
 
+  async recordUnderstandingCheck(conversationId, messageId, userId, selectedKey) {
+    return request(`${API_BASE_URL}/ai/conversations/${encodePath(conversationId)}/messages/${encodePath(messageId)}/understanding-check`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, selectedKey }),
+    });
+  },
+
   async getPinnedMessages(conversationId, userId) {
     const params = new URLSearchParams({ userId });
     return request(`${API_BASE_URL}/ai/conversations/${encodePath(conversationId)}/pinned-messages?${params}`, {

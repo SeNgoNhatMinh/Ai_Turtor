@@ -25,6 +25,14 @@ export function parseNumberedLesson(text) {
   return null;
 }
 
+export function teacherStudentPathLabel(text) {
+  const lesson = parseNumberedLesson(text);
+  if (lesson?.kind === 'deep-list') return 'Yêu cầu học chuyên sâu';
+  if (lesson?.kind === 'deep-teach') return `Đào sâu bài ${lesson.number}`;
+  if (lesson?.kind === 'lesson') return `Bài ${lesson.number}`;
+  return '';
+}
+
 export function isDeepDiveListPrompt(text) {
   return parseNumberedLesson(text)?.kind === 'deep-list';
 }
@@ -99,6 +107,48 @@ export function buildLessonChatPrompt(suggestionText) {
   const topic = String(suggestionText || '').trim();
   if (!topic) return '';
   return normalizeLessonStart(topic) || buildTopicStudyPrompt(topic);
+}
+
+function parseBulletsUnderHeadings(answer, headingPattern) {
+  const text = String(answer || '');
+  if (!text.trim()) return [];
+
+  const items = [];
+  const seen = new Set();
+  let inSection = false;
+  for (const raw of text.split(/\r?\n/)) {
+    const trimmed = String(raw || '').trim();
+    if (/^#{1,6}\s+\S/.test(trimmed)) {
+      const heading = trimmed.replace(/^#{1,6}\s*/, '');
+      inSection = headingPattern.test(heading);
+      continue;
+    }
+    if (!inSection) continue;
+    const line = trimmed
+      .replace(/^[-*+]\s+/, '')
+      .replace(/^\d+[.)]\s+/, '')
+      .replace(/^\[([^\]]+)\]\([^)]+\)$/, '$1')
+      .replace(/[*_`]+/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (!line || /^[\s–—_*+.·•…-]+$/u.test(line)) continue;
+    const key = line.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    items.push({ title: line, suggestionText: line });
+    if (items.length >= 8) break;
+  }
+  return items;
+}
+
+export function parseDeepDiveSuggestionsFromAnswer(answer) {
+  return parseBulletsUnderHeadings(answer, /^(?:học chuyên sâu|học tiếp phần này)\s*$/i);
+}
+
+export function parseNextLessonSuggestionsFromAnswer(answer) {
+  const fromHeading = parseBulletsUnderHeadings(answer, /^(?:bài tiếp theo|bài kế tiếp)\s*$/i);
+  if (fromHeading.length > 0) return fromHeading;
+  return parseLessonSuggestionsFromAnswer(answer);
 }
 
 export function parseLessonSuggestionsFromAnswer(answer) {

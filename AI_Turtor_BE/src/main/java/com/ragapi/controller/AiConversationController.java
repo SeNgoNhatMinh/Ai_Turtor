@@ -4,6 +4,7 @@ import com.ragapi.dto.AiConversationHistoryResponse;
 import com.ragapi.dto.AiConversationListResponse;
 import com.ragapi.dto.AiConversationSummary;
 import com.ragapi.dto.RenameAiConversationRequest;
+import com.ragapi.dto.UnderstandingCheckAnswerRequest;
 import com.ragapi.service.AiConversationService;
 import com.ragapi.service.AccessGuardService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -169,6 +170,29 @@ public class AiConversationController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             log.error("Error unpinning message", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PostMapping("/{conversationId}/messages/{messageId}/understanding-check")
+    @Operation(summary = "Lock a student's one-time understanding-check answer")
+    public ResponseEntity<?> recordUnderstandingCheck(
+            @PathVariable String conversationId,
+            @PathVariable String messageId,
+            @RequestBody UnderstandingCheckAnswerRequest request,
+            Authentication authentication
+    ) {
+        try {
+            String userId = request == null ? "" : request.getUserId();
+            accessGuard.allowStudentSelfOrAdmin(authentication.getName(), role(authentication), userId);
+            return ResponseEntity.ok(aiConversationService.recordUnderstandingCheck(
+                    conversationId, messageId, userId, request == null ? "" : request.getSelectedKey()));
+        } catch (IllegalArgumentException e) {
+            String message = e.getMessage() == null ? "" : e.getMessage();
+            HttpStatus status = message.contains("Không tìm thấy") ? HttpStatus.NOT_FOUND : HttpStatus.BAD_REQUEST;
+            return ResponseEntity.status(status).body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Error recording understanding check", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", e.getMessage()));
         }
     }

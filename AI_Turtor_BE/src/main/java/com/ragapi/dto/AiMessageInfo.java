@@ -28,6 +28,8 @@ public class AiMessageInfo {
     private Boolean proactive;
     private Boolean pinned;
     private LocalDateTime pinnedAt;
+    private String understandingSelectedKey;
+    private LocalDateTime understandingAnsweredAt;
     private LocalDateTime createdAt;
 }
 

@@ -141,11 +141,87 @@ export function sessionHeadline(session, fallbackTopics = []) {
   return when ? `Học tự do · ${when}` : 'Học tự do';
 }
 
+export function classScopeKey(courseId, classId) {
+  return `${String(courseId || '').trim().toUpperCase()}::${String(classId || '').trim().toUpperCase()}`;
+}
+
+export function formatClassScopeLabel({ courseId, classId, className } = {}) {
+  const course = String(courseId || '').trim();
+  const klass = String(classId || className || '').trim();
+  if (course && klass && klass.toUpperCase() !== course.toUpperCase()) return `${course} · ${klass}`;
+  if (klass) return `Lớp ${klass}`;
+  if (course) return course;
+  return 'Lớp chưa chọn';
+}
+
+export function mapAssignedClass(section = {}, fallback = {}) {
+  const nestedCourseId = section.course?.courseId || section.course?.id;
+  const courseId = section.courseId
+    || section.courseCode
+    || nestedCourseId
+    || (typeof section.course === 'string' ? section.course : '')
+    || fallback.courseId
+    || '';
+  const classId = section.classId
+    || section.classCode
+    || section.classSection?.classId
+    || section.sectionId
+    || fallback.classId
+    || '';
+  const mapped = {
+    courseId: String(courseId).trim(),
+    classId: String(classId).trim(),
+    className: String(section.name || section.className || classId).trim(),
+  };
+  return {
+    ...mapped,
+    key: classScopeKey(mapped.courseId, mapped.classId),
+    label: formatClassScopeLabel(mapped),
+  };
+}
+
+export function uniqueClassScopes(sections = [], fallback = {}) {
+  const result = [];
+  const seen = new Set();
+  const extras = fallback?.courseId && fallback?.classId ? [fallback] : [];
+  [...sections, ...extras].forEach((section) => {
+    const mapped = mapAssignedClass(section);
+    if (!mapped.courseId || !mapped.classId || seen.has(mapped.key)) return;
+    seen.add(mapped.key);
+    result.push(mapped);
+  });
+  return result.sort((left, right) => left.label.localeCompare(right.label, 'vi'));
+}
+
+export function groupRowsByClass(rows = []) {
+  const groups = [];
+  const index = new Map();
+  rows.forEach((row) => {
+    const key = row.classKey || classScopeKey(row.courseId, row.classId);
+    if (!index.has(key)) {
+      const group = {
+        key,
+        courseId: row.courseId,
+        classId: row.classId,
+        label: row.classLabel || formatClassScopeLabel(row),
+        students: [],
+      };
+      index.set(key, group);
+      groups.push(group);
+    }
+    index.get(key).students.push(row);
+  });
+  return groups.sort((left, right) => left.label.localeCompare(right.label, 'vi'));
+}
+
 export function buildClassStudentRows({
   roster = [],
   memories = [],
   sessions = [],
   summaries = [],
+  courseId = '',
+  classId = '',
+  classLabel = '',
 } = {}) {
   const memoryByStudent = new Map();
   memories.forEach((memory) => {
@@ -186,9 +262,19 @@ export function buildClassStudentRows({
         || recentQuestions.length > 0
         || studentSessions.length > 0
         || studentSummaries.length > 0;
+      const scopedCourseId = student.courseId || courseId;
+      const scopedClassId = student.classId || classId;
+      const scopedLabel = classLabel || formatClassScopeLabel({
+        courseId: scopedCourseId,
+        classId: scopedClassId,
+      });
       return mergeRosterIdentity({
         ...student,
         studentId: student.studentId || studentId,
+        courseId: scopedCourseId,
+        classId: scopedClassId,
+        classKey: classScopeKey(scopedCourseId, scopedClassId),
+        classLabel: scopedLabel,
         memory,
         sessions: studentSessions,
         summaries: studentSummaries,
@@ -208,6 +294,33 @@ export function buildClassStudentRows({
     .sort((left, right) => (
       formatTeacherStudentLabel(left).localeCompare(formatTeacherStudentLabel(right), 'vi')
     ));
+}
+
+export function isStudentTranscriptRole(role) {
+  return String(role || '').trim().toUpperCase() === 'STUDENT';
+}
+
+export function transcriptMessageText(message) {
+  return String(message?.content || message?.answer || message?.question || '').trim();
+}
+
+export function groupTranscriptTurns(messages = []) {
+  const turns = [];
+  (Array.isArray(messages) ? messages : []).forEach((message, index) => {
+    const item = { ...message, id: message?.id || `msg-${index}` };
+    if (isStudentTranscriptRole(item.role)) {
+      turns.push({ id: item.id, student: item, tutor: null });
+      return;
+    }
+    const last = turns[turns.length - 1];
+    if (last && !last.tutor) {
+      last.tutor = item;
+      last.id = `${last.id}-${item.id}`;
+      return;
+    }
+    turns.push({ id: item.id, student: null, tutor: item });
+  });
+  return turns;
 }
 
 export function groupTutorSummariesByStudent(summaries = []) {

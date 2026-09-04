@@ -6,8 +6,11 @@ import {
   buildLessonChatPrompt,
   buildStudySuggestionPrompt,
   lessonSuggestionsForMessage,
+  parseDeepDiveSuggestionsFromAnswer,
   parseLessonSuggestionsFromAnswer,
+  parseNextLessonSuggestionsFromAnswer,
   resolveChatStudyTip,
+  teacherStudentPathLabel,
 } from '../src/features/student/learning/studySuggestionPrompt.js';
 
 test('builds the visible student chat message for an improve suggestion', () => {
@@ -139,5 +142,29 @@ test('deep-dive bullets stay on the current bài instead of starting the next on
   assert.equal(
     buildStudySuggestionPrompt('Đào sâu bài 3: Cache miss khi CPU không tìm thấy dữ liệu'),
     'Đào sâu bài 3: Cache miss khi CPU không tìm thấy dữ liệu',
+  );
+});
+
+test('extracts deep-dive bullets for the teacher transcript review', () => {
+  const items = parseDeepDiveSuggestionsFromAnswer(`
+## Học chuyên sâu
+- Cache miss khi CPU không tìm thấy dữ liệu
+- False sharing khi hai core ghi cùng cache line
+
+## Bài tiếp theo
+- Bài 4: File system
+`);
+  assert.deepEqual(items.map((item) => item.suggestionText), [
+    'Cache miss khi CPU không tìm thấy dữ liệu',
+    'False sharing khi hai core ghi cùng cache line',
+  ]);
+  assert.equal(teacherStudentPathLabel('Gợi ý học chuyên sâu bài 3: Cache'), 'Yêu cầu học chuyên sâu');
+  assert.equal(teacherStudentPathLabel('Đào sâu bài 3: Cache miss'), 'Đào sâu bài 3');
+  assert.deepEqual(
+    parseNextLessonSuggestionsFromAnswer(`
+## Bài tiếp theo
+- Bài 4: File system
+`).map((item) => item.suggestionText),
+    ['Bài 4: File system'],
   );
 });

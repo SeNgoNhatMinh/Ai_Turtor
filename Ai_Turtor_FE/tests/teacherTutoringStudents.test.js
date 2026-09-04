@@ -3,12 +3,15 @@ import assert from 'node:assert/strict';
 import {
   buildClassStudentRows,
   formatTeacherStudentLabel,
+  groupRowsByClass,
+  groupTranscriptTurns,
   groupTutorSummariesByStudent,
   isShortStudyTopic,
   mergeRosterIdentity,
   sessionHeadline,
   studentInitials,
   supportLevelLabel,
+  uniqueClassScopes,
 } from '../src/features/teacher/tutoring/teacherTutoringStudents.js';
 
 test('teacher student labels prefer name and student code over UUID', () => {
@@ -113,4 +116,34 @@ test('groups tutor summaries by student instead of repeating the UUID', () => {
   assert.equal(groups[0].sessions.length, 2);
   assert.equal(formatTeacherStudentLabel(groups[0].student), 'An');
   assert.equal(supportLevelLabel('HIGH_SUPPORT'), 'Hướng dẫn kỹ');
+});
+
+test('groups student rows by assigned class', () => {
+  const scopes = uniqueClassScopes([
+    { courseId: 'PRJ301', classId: 'SE1833' },
+    { courseId: 'PRJ301', classId: 'SE1840' },
+    { courseId: 'PRJ301', classId: 'SE1840' },
+  ]);
+  assert.deepEqual(scopes.map((scope) => scope.label), ['PRJ301 · SE1833', 'PRJ301 · SE1840']);
+
+  const groups = groupRowsByClass([
+    { studentId: 'a', classKey: 'PRJ301::SE1840', courseId: 'PRJ301', classId: 'SE1840', classLabel: 'PRJ301 · SE1840' },
+    { studentId: 'b', classKey: 'PRJ301::SE1833', courseId: 'PRJ301', classId: 'SE1833', classLabel: 'PRJ301 · SE1833' },
+    { studentId: 'c', classKey: 'PRJ301::SE1840', courseId: 'PRJ301', classId: 'SE1840', classLabel: 'PRJ301 · SE1840' },
+  ]);
+  assert.equal(groups.length, 2);
+  assert.equal(groups[0].label, 'PRJ301 · SE1833');
+  assert.equal(groups[1].students.length, 2);
+});
+
+test('pairs student and tutor transcript messages into chat turns', () => {
+  const turns = groupTranscriptTurns([
+    { id: 's1', role: 'STUDENT', content: 'JSP là gì?' },
+    { id: 'a1', role: 'ASSISTANT', content: '## Kiểm tra hiểu\nA. X B. Y' },
+    { id: 'a2', role: 'ASSISTANT', content: 'Chào mừng' },
+  ]);
+  assert.equal(turns.length, 2);
+  assert.equal(turns[0].student.content, 'JSP là gì?');
+  assert.equal(turns[0].tutor.role, 'ASSISTANT');
+  assert.equal(turns[1].student, null);
 });

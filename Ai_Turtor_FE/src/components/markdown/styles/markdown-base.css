@@ -189,7 +189,16 @@
 }
 
 .ai-answer-study-tip--disabled {
-  cursor: text;
+  cursor: default;
+  pointer-events: none;
   text-decoration: none;
+}
+
+.ai-answer-study-tip--lesson.ai-answer-study-tip--disabled,
+.ai-answer-study-tip--lesson.ai-answer-study-tip--disabled:hover,
+.ai-answer-study-tip--lesson.ai-answer-study-tip--disabled:focus-visible {
+  background: #eef2ff;
+  color: #1e293b;
+  cursor: default;
 }
 
