@@ -1,3 +1,75 @@
+export function parseNumberedLesson(text) {
+  const topic = String(text || '').trim();
+  if (!topic) return null;
+
+  const deepList = topic.match(
+    /^(?:gợi ý\s+)?học chuyên sâu bài\s+(\d+)\s*[:：.\-–—]\s*(.+)$/i,
+  );
+  if (deepList) {
+    return { number: deepList[1], title: deepList[2].trim(), kind: 'deep-list' };
+  }
+
+  const deepTeach = topic.match(
+    /^đào sâu bài\s+(\d+)\s*[:：.\-–—]\s*(.+)$/i,
+  );
+  if (deepTeach) {
+    return { number: deepTeach[1], title: deepTeach[2].trim(), kind: 'deep-teach' };
+  }
+
+  const numbered = topic.match(
+    /^(?:bắt đầu\s+)?(?:bài|bai)\s+(\d+)\s*[:：.\-–—]\s*(.+)$/i,
+  );
+  if (numbered) {
+    return { number: numbered[1], title: numbered[2].trim(), kind: 'lesson' };
+  }
+  return null;
+}
+
+export function isDeepDiveListPrompt(text) {
+  return parseNumberedLesson(text)?.kind === 'deep-list';
+}
+
+export function isDeepDiveTopicPrompt(text) {
+  return parseNumberedLesson(text)?.kind === 'deep-teach';
+}
+
+export function buildDeepDiveListPrompt(lessonText, answerText = '') {
+  const lesson = parseNumberedLesson(lessonText);
+  if (!lesson || lesson.kind !== 'lesson') return '';
+  if (answerHasDeepDiveList(answerText)) return '';
+  return `Gợi ý học chuyên sâu bài ${lesson.number}: ${lesson.title}`;
+}
+
+export function answerHasDeepDiveList(answer) {
+  return /^#{1,6}\s*(?:học chuyên sâu|học tiếp phần này)\s*$/im.test(String(answer || ''));
+}
+
+export function buildDeepDiveTopicPrompt(lessonNumber, topicText) {
+  const number = String(lessonNumber || '').trim();
+  const topic = String(topicText || '').trim();
+  if (!number || !topic) return '';
+  if (parseNumberedLesson(topic)?.kind === 'lesson') {
+    return normalizeLessonStart(topic);
+  }
+  if (isDeepDiveTopicPrompt(topic) || isDeepDiveListPrompt(topic)) {
+    return topic;
+  }
+  return `Đào sâu bài ${number}: ${topic}`;
+}
+
+export function resolveChatStudyTip(question, tipText) {
+  const tip = String(tipText || '').trim();
+  if (!tip) return '';
+  if (parseNumberedLesson(tip)?.kind === 'lesson' || /^(?:bắt đầu\s+)?(?:bài|bai)\s+\d+/i.test(tip)) {
+    return normalizeLessonStart(tip) || tip;
+  }
+  const lesson = parseNumberedLesson(question);
+  if (lesson) {
+    return buildDeepDiveTopicPrompt(lesson.number, tip);
+  }
+  return tip;
+}
+
 export function normalizeLessonStart(suggestionText) {
   const topic = String(suggestionText || '').trim();
   if (!topic) return '';
@@ -64,6 +136,9 @@ export function lessonSuggestionsForMessage(message) {
 export function buildStudySuggestionPrompt(suggestionText) {
   const topic = String(suggestionText || '').trim();
   if (!topic) return '';
+  if (isDeepDiveListPrompt(topic) || isDeepDiveTopicPrompt(topic)) {
+    return topic;
+  }
 
   const lesson = normalizeLessonStart(topic);
   if (lesson) return lesson;

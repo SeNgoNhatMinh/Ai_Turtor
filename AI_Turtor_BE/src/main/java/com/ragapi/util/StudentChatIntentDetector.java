@@ -42,6 +42,16 @@ public final class StudentChatIntentDetector {
                     + "|on tap\\s+phan\\b"
     );
 
+    /** Student asked for deeper angles of the current numbered lesson, not the next Bài. */
+    private static final Pattern LESSON_DEEP_PATH = Pattern.compile(
+            "(?:goi y\\s+)?hoc\\s+chuyen\\s+sau\\s+bai\\s+\\d+"
+    );
+
+    /** Student picked one deeper angle of the current numbered lesson. */
+    private static final Pattern LESSON_DEEP_TEACH = Pattern.compile(
+            "dao\\s+sau\\s+bai\\s+\\d+"
+    );
+
     /**
      * Short, context-dependent turns. No course topic names — only how the student continues.
      */
@@ -114,10 +124,37 @@ public final class StudentChatIntentDetector {
      */
     public static boolean isTopicStudyStart(String question) {
         String normalized = normalize(question);
-        if (normalized.isBlank() || isLessonStart(normalized) || hasDefinitionAsk(normalized)) {
+        if (normalized.isBlank()
+                || isLessonDeepPath(normalized)
+                || isLessonDeepTeach(normalized)
+                || isLessonStart(normalized)
+                || hasDefinitionAsk(normalized)) {
             return false;
         }
         return TOPIC_STUDY_START.matcher(normalized).find();
+    }
+
+    /**
+     * Student wants deeper sub-topics of the current numbered lesson, not a new roadmap
+     * and not the next Bài.
+     */
+    public static boolean isLessonDeepPath(String question) {
+        String normalized = normalize(question);
+        if (normalized.isBlank() || isLessonDeepTeach(normalized)) {
+            return false;
+        }
+        return LESSON_DEEP_PATH.matcher(normalized).find();
+    }
+
+    /**
+     * Student picked one deeper angle ("Đào sâu bài N: …") of the current numbered lesson.
+     */
+    public static boolean isLessonDeepTeach(String question) {
+        String normalized = normalize(question);
+        if (normalized.isBlank()) {
+            return false;
+        }
+        return LESSON_DEEP_TEACH.matcher(normalized).find();
     }
 
     /**
@@ -125,7 +162,7 @@ public final class StudentChatIntentDetector {
      */
     public static boolean isLessonStart(String question) {
         String normalized = normalize(question);
-        if (normalized.isBlank()) {
+        if (normalized.isBlank() || isLessonDeepPath(normalized) || isLessonDeepTeach(normalized)) {
             return false;
         }
         return LESSON_START.matcher(normalized).find();
@@ -143,6 +180,8 @@ public final class StudentChatIntentDetector {
         if (isOffTopicNonAcademic(question)
                 || isAllowedInteraction(question)
                 || isTopicStudyStart(question)
+                || isLessonDeepPath(question)
+                || isLessonDeepTeach(question)
                 || isLessonStart(question)
                 || isStudyPlanningInteraction(question)) {
             return false;

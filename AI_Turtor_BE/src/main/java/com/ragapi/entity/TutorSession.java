@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.Transient;
 import org.springframework.data.mongodb.core.index.CompoundIndex;
 import org.springframework.data.mongodb.core.mapping.Document;
 
@@ -22,6 +23,14 @@ public class TutorSession {
     @Id
     private String id;
     private String studentId;
+    @Transient
+    private String studentName;
+    @Transient
+    private String studentCode;
+    @Transient
+    private String studentEmail;
+    @Transient
+    private Integer studentTurnCount;
     private String courseId;
     private String classId;
     private String topic;

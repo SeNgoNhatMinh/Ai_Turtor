@@ -114,6 +114,8 @@ const VIETNAMESE_EXACT_SECTION_LABELS = {
   'chu de nen on lai': 'Chủ đề nên ôn lại',
   'bai tiep theo': 'Bài tiếp theo',
   'kiem tra hieu': 'Kiểm tra hiểu',
+  'hoc chuyen sau': 'Học chuyên sâu',
+  'hoc tiep phan nay': 'Học tiếp phần này',
 };
 
 function normalizeVietnameseSectionLine(line) {
@@ -648,7 +650,9 @@ function isStudyTipHeading(line) {
   const key = toVietnameseSectionKey(unwrapSimpleMarkdownDecoration(body));
   return key.startsWith('luu y')
     || key === 'bai tiep theo'
-    || key === 'bai ke tiep';
+    || key === 'bai ke tiep'
+    || key === 'hoc chuyen sau'
+    || key === 'hoc tiep phan nay';
 }
 
 function isSourceHeading(line) {

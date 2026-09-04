@@ -178,11 +178,15 @@ final class LlmProviderChain {
     }
 
     private static FailureKind classifyFailure(Throwable error) {
-        String text = summarize(error).toLowerCase(Locale.ROOT);
+        String text = normalizeFailureText(summarize(error));
         if (containsAny(text, "401", "invalid api key", "authentication", "unauthorized", "permission denied")) {
             return FailureKind.AUTH;
         }
-        if (containsAny(text, "429", "402", "rate limit", "rate-limited", "too many requests", "quota", "insufficient credits")) {
+        if (containsAny(text,
+                "429", "402", "rate limit", "rate limited", "too many requests", "quota",
+                "insufficient credits", "otpm", "tpd", "rpd",
+                "tokens per minute", "tokens per day", "output tokens",
+                "request too large for model", "enforced limit")) {
             return FailureKind.QUOTA;
         }
         if (containsAny(text, "400", "bad request", "content policy", "safety")) {
@@ -195,6 +199,13 @@ final class LlmProviderChain {
             return FailureKind.TRANSIENT;
         }
         return FailureKind.FATAL_REQUEST;
+    }
+
+    private static String normalizeFailureText(String raw) {
+        return String.valueOf(raw)
+                .toLowerCase(Locale.ROOT)
+                .replace('_', ' ')
+                .replace('-', ' ');
     }
 
     List<Map<String, Object>> snapshot() {

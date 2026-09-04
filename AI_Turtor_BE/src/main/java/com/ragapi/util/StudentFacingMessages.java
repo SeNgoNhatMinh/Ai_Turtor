@@ -8,10 +8,10 @@ import java.util.Locale;
 public final class StudentFacingMessages {
 
     public static final String GENERATION_BUSY =
-            "Mình đang xử lý hơi chậm một chút. Bạn thử hỏi lại sau vài giây, hoặc chia nhỏ câu hỏi để mình trả lời chính xác hơn nhé.";
+            "Mình chưa soạn xong ý này từ tài liệu. Bạn bấm Thử lại giúp mình, hoặc hỏi gọn hơn một ý nhé.";
 
     public static final String GENERATION_UNAVAILABLE =
-            "Hiện tại mình chưa tạo được câu trả lời cho câu hỏi này. Bạn thử hỏi lại sau ít phút, hoặc nhờ mentor hỗ trợ nếu cần gấp nhé.";
+            "Mình chưa giảng được phần này lúc này. Bạn thử lại giúp mình, hoặc gửi mentor nếu cần gấp nhé.";
 
     public static final String RAG_EMPTY =
             "Mình chưa tổng hợp được câu trả lời từ tài liệu môn học cho câu hỏi này. Bạn thử diễn đạt lại câu hỏi, hoặc hỏi mentor nếu vẫn chưa rõ nhé.";
@@ -33,10 +33,7 @@ public final class StudentFacingMessages {
             return true;
         }
         String normalized = TextSanitizer.normalizeAccentInsensitive(value);
-        return normalized.equals(normalize(GENERATION_BUSY))
-                || normalized.equals(normalize(GENERATION_UNAVAILABLE))
-                || normalized.equals(normalize(RAG_EMPTY))
-                || normalized.equals(normalize(CODE_MENTOR_BUSY));
+        return looksLikeUnavailable(normalized);
     }
 
     /**
@@ -56,6 +53,19 @@ public final class StudentFacingMessages {
                 || normalized.contains("does not mention")
                 || normalized.contains("not mentioned");
         return mentionsMaterial && saysMissing;
+    }
+
+    private static boolean looksLikeUnavailable(String normalized) {
+        String text = normalize(normalized);
+        return text.equals(normalize(GENERATION_BUSY))
+                || text.equals(normalize(GENERATION_UNAVAILABLE))
+                || text.equals(normalize(RAG_EMPTY))
+                || text.equals(normalize(CODE_MENTOR_BUSY))
+                || text.contains("chua soan xong")
+                || text.contains("xu ly hoi cham")
+                || text.contains("chua tao duoc cau tra loi")
+                || text.contains("chua giang duoc phan nay")
+                || text.contains("chua phan tich xong");
     }
 
     private static String normalize(String value) {

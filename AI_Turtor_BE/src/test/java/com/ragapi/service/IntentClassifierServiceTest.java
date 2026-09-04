@@ -90,6 +90,33 @@ class IntentClassifierServiceTest {
     }
 
     @Test
+    void deepDiveRequest_routesToLessonDeepPathNotNextBai() {
+        var result = service.classify(
+                "Gợi ý học chuyên sâu bài 3: Cache",
+                "",
+                "OSG202"
+        );
+
+        assertEquals(IntentClassifierService.MODE_RAG, result.getMode());
+        assertEquals("LESSON_DEEP_PATH", result.getSubIntent());
+        assertNotEquals("LESSON_TEACH", result.getSubIntent());
+        assertNotEquals("LEARNING_PATH", result.getSubIntent());
+        assertTrue(result.getRequiresCourseMaterial());
+    }
+
+    @Test
+    void deepDiveTopic_routesToLessonTeach() {
+        var result = service.classify(
+                "Đào sâu bài 3: Cache miss khi CPU không tìm thấy dữ liệu",
+                "",
+                "OSG202"
+        );
+
+        assertEquals("LESSON_TEACH", result.getSubIntent());
+        assertTrue(result.getRequiresCourseMaterial());
+    }
+
+    @Test
     void naturalServletSpecificationFollowUp_routesToCourseRag() {
         var result = service.classify(
                 "Servlet Specification giúp mình hiểu khái niệm của phần này với?",

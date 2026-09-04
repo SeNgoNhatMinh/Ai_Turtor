@@ -121,7 +121,7 @@ public final class PromptLeakFilter {
 
     /**
      * Normal Q&amp;A must not keep a numbered curriculum. Those headings belong only to
-     * LEARNING_PATH / LESSON_TEACH turns.
+     * LEARNING_PATH / LESSON_TEACH / LESSON_DEEP_PATH turns.
      */
     public static String stripNumberedCurriculum(String answer) {
         if (answer == null || answer.isBlank()) {

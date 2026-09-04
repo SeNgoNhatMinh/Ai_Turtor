@@ -13,7 +13,6 @@ import {
 } from 'lucide-react';
 import { includesSearchText } from '../../../utils/searchText';
 import TutorMascot from '../../../components/common/TutorMascot';
-import LiveNowBanner from '../../live-lessons/LiveNowBanner';
 import './StudentDashboardPage.css';
 
 const EMPTY_ENROLLMENTS = [];
@@ -230,8 +229,6 @@ export default function StudentDashboardPage({ currentUser, courseId, classId, s
           alt="Linh vật FPT University AI Tutor"
         />
       </section>
-
-      <LiveNowBanner courseId={courseId} classId={classId} />
 
       <section className="student-dashboard-stats" aria-label="Tổng quan học tập">
         <article><span><GraduationCap size={21} /></span><div><strong>{courses.length}</strong><small>Môn đang học</small></div></article>

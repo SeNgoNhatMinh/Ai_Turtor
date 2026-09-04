@@ -198,6 +198,31 @@ test('turns Bài tiếp theo into a clickable study-tip link', () => {
   assert.match(output, /\[Bài 2 – Sử dụng biến lặp \(itervar\) trong thân vòng\.\]\(#ai-study-tip-1\)/);
 });
 
+test('turns Học tiếp phần này bullets into clickable study-tip links', () => {
+  const output = normalizeAiMarkdown([
+    '## Học tiếp phần này',
+    '',
+    '- Cache L3 dùng chung giữa các core khác với L2 riêng từng core thế nào',
+    '- False sharing khi hai core ghi cache line gần nhau',
+  ].join('\n'));
+
+  assert.match(output, /## Học tiếp phần này/);
+  assert.match(output, /\[Cache L3 dùng chung giữa các core khác với L2 riêng từng core thế nào\]\(#ai-study-tip-1\)/);
+});
+
+test('turns Học chuyên sâu bullets into clickable study-tip links', () => {
+  const output = normalizeAiMarkdown([
+    '## Học chuyên sâu',
+    '',
+    '- Cache miss khi CPU không tìm thấy dữ liệu',
+    '- Buffer cache của OS khi đọc file',
+  ].join('\n'));
+
+  assert.match(output, /## Học chuyên sâu/);
+  assert.match(output, /\[Cache miss khi CPU không tìm thấy dữ liệu\]\(#ai-study-tip-1\)/);
+  assert.match(output, /\[Buffer cache của OS khi đọc file\]\(#ai-study-tip-2\)/);
+});
+
 test('removes punctuation-only placeholders from study tips', () => {
   const output = normalizeAiMarkdown([
     '## Lưu ý để học tốt hơn',

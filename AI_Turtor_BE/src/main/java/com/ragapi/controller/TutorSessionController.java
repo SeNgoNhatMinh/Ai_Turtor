@@ -101,6 +101,24 @@ public class TutorSessionController {
         }
     }
 
+    @GetMapping("/teachers/{teacherId}/courses/{courseId}/classes/{classId}/sessions")
+    public ResponseEntity<?> teacherSessions(
+            @PathVariable String teacherId,
+            @PathVariable String courseId,
+            @PathVariable String classId,
+            Authentication authentication
+    ) {
+        try {
+            requireSameRequesterOrAdmin(teacherId, authentication);
+            accessGuard.allowTeacherForClassOrAdmin(
+                    requesterId(authentication), requesterRole(authentication), courseId, classId);
+            return ResponseEntity.ok(Map.of(
+                    "sessions", sessionService.listTeacherSessions(courseId, classId)));
+        } catch (IllegalArgumentException error) {
+            return ResponseEntity.badRequest().body(Map.of("error", error.getMessage()));
+        }
+    }
+
     @GetMapping("/teachers/{teacherId}/session-summaries/{summaryId}/transcript")
     public ResponseEntity<?> transcript(
             @PathVariable String teacherId,
@@ -116,6 +134,26 @@ public class TutorSessionController {
             return ResponseEntity.ok(Map.of(
                     "summary", summary,
                     "messages", sessionService.getSummaryTranscript(summaryId)));
+        } catch (IllegalArgumentException error) {
+            return ResponseEntity.badRequest().body(Map.of("error", error.getMessage()));
+        }
+    }
+
+    @GetMapping("/teachers/{teacherId}/sessions/{sessionId}/transcript")
+    public ResponseEntity<?> sessionTranscript(
+            @PathVariable String teacherId,
+            @PathVariable String sessionId,
+            Authentication authentication
+    ) {
+        try {
+            requireSameRequesterOrAdmin(teacherId, authentication);
+            TutorSession session = sessionService.getSession(sessionId);
+            accessGuard.allowTeacherForStudentTranscript(
+                    requesterId(authentication), requesterRole(authentication),
+                    session.getStudentId(), session.getCourseId(), session.getClassId());
+            return ResponseEntity.ok(Map.of(
+                    "session", session,
+                    "messages", sessionService.getSessionTranscript(sessionId)));
         } catch (IllegalArgumentException error) {
             return ResponseEntity.badRequest().body(Map.of("error", error.getMessage()));
         }

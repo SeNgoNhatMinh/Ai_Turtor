@@ -1,7 +1,7 @@
 export const AI_SERVICE_ERROR_MESSAGE = [
-  'AI Tutor chưa thể kết nối tới mô hình ngôn ngữ lúc này.',
+  'Mình chưa soạn xong ý này từ tài liệu.',
   '',
-  'Bạn có thể thử lại sau ít phút hoặc gửi câu hỏi cho giảng viên hỗ trợ.',
+  'Bạn bấm Thử lại giúp mình nhé. Đây không phải hết phiên học.',
 ].join('\n');
 
 const MOJIBAKE_PATTERN = /(LÃ|Lá»|Æ°|á»|áº|Ã²|Ã¡|Ãª|Ã´|Ä‘)/i;
@@ -16,9 +16,14 @@ const AI_SERVICE_ERROR_PATTERNS = [
   /(failed|error|unavailable|timeout|timed out).*llm/i,
   /ai tutor service is temporarily unavailable/i,
   /ai tutor could not reach the language model/i,
+  /chưa thể kết nối tới mô hình/i,
+  /chua the ket noi toi mo hinh/i,
   /mình đang xử lý hơi chậm/i,
   /minh dang xu ly hoi cham/i,
   /mình chưa tạo được câu trả lời/i,
+  /mình chưa soạn xong/i,
+  /minh chua soan xong/i,
+  /mình chưa giảng được phần này/i,
   /mình chưa phân tích xong/i,
 ];
 
@@ -66,4 +71,12 @@ export function buildAiServiceErrorMessage(fallback = '') {
   return isAiServiceErrorText(fallback) || !fallback
     ? AI_SERVICE_ERROR_MESSAGE
     : fallback;
+}
+
+export function shouldOfferLessonContinuations(message) {
+  if (!message || message.canceled || message.aiServiceError || message.sessionComplete) {
+    return false;
+  }
+  return !isAiServiceErrorText(message.answer)
+    && !isAiServiceErrorText(message.rawAnswer);
 }

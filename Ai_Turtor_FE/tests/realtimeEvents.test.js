@@ -37,8 +37,6 @@ test('filters scoped events without dropping envelopes that omit course data', (
 test('covers Tutor V2 event names and creates an idempotency key', () => {
   assert.equal(REALTIME_EVENT_TYPES.tutorV2.includes('GOLD_QA_SUBMITTED'), true);
   assert.equal(REALTIME_EVENT_TYPES.tutorSession.includes('TUTOR_SESSION_OPENED'), true);
-  assert.equal(REALTIME_EVENT_TYPES.liveLesson.includes('LIVE_LESSON_SCHEDULED'), true);
-  assert.equal(REALTIME_EVENT_TYPES.liveLesson.includes('LIVE_LESSON_STARTING'), true);
   assert.equal(REALTIME_EVENT_TYPES.tutorV2.includes('EVAL_RUN_COMPLETED'), true);
   assert.equal(getRealtimeEventDedupeKey({
     type: 'GOLD_QA_SUBMITTED',

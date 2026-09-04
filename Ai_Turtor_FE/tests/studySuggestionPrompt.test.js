@@ -1,6 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildLessonChatPrompt, buildStudySuggestionPrompt, lessonSuggestionsForMessage, parseLessonSuggestionsFromAnswer } from '../src/features/student/learning/studySuggestionPrompt.js';
+import {
+  buildDeepDiveListPrompt,
+  buildDeepDiveTopicPrompt,
+  buildLessonChatPrompt,
+  buildStudySuggestionPrompt,
+  lessonSuggestionsForMessage,
+  parseLessonSuggestionsFromAnswer,
+  resolveChatStudyTip,
+} from '../src/features/student/learning/studySuggestionPrompt.js';
 
 test('builds the visible student chat message for an improve suggestion', () => {
   assert.equal(
@@ -73,4 +81,63 @@ test('uses parsed lessons when the API did not send nextImproveSuggestions', () 
     nextImproveSuggestions: [],
   });
   assert.equal(parsed[0].title, 'Bắt đầu bài 1: Servlet là gì?');
+});
+
+test('asks AI for deeper angles of the current numbered lesson', () => {
+  assert.equal(
+    buildDeepDiveListPrompt('Bắt đầu bài 3: Cache'),
+    'Gợi ý học chuyên sâu bài 3: Cache',
+  );
+  assert.equal(buildDeepDiveListPrompt('Gợi ý học chuyên sâu bài 3: Cache'), '');
+  assert.equal(buildDeepDiveListPrompt('Đào sâu bài 3: Cache miss'), '');
+  assert.equal(
+    buildDeepDiveListPrompt(
+      'Bắt đầu bài 4: Cache',
+      '## Học chuyên sâu\n- So sánh L1 và L2\n\n## Bài tiếp theo\n- Bài 5: File',
+    ),
+    '',
+  );
+  assert.equal(
+    buildDeepDiveListPrompt(
+      'Bắt đầu bài 4: Cache',
+      '## Học tiếp phần này\n- False sharing\n\n## Bài tiếp theo\n- Bài 5: File',
+    ),
+    '',
+  );
+  assert.equal(
+    buildStudySuggestionPrompt('Gợi ý học chuyên sâu bài 3: Cache'),
+    'Gợi ý học chuyên sâu bài 3: Cache',
+  );
+});
+
+test('deep-dive bullets stay on the current bài instead of starting the next one', () => {
+  assert.equal(
+    buildDeepDiveTopicPrompt('3', 'Cache miss khi CPU không tìm thấy dữ liệu'),
+    'Đào sâu bài 3: Cache miss khi CPU không tìm thấy dữ liệu',
+  );
+  assert.equal(
+    resolveChatStudyTip(
+      'Gợi ý học chuyên sâu bài 3: Cache',
+      'Cache miss khi CPU không tìm thấy dữ liệu',
+    ),
+    'Đào sâu bài 3: Cache miss khi CPU không tìm thấy dữ liệu',
+  );
+  assert.equal(
+    resolveChatStudyTip(
+      'Gợi ý học chuyên sâu bài 3: Cache',
+      'Bài 4: Các cấp độ cache (L1, L2)',
+    ),
+    'Bắt đầu bài 4: Các cấp độ cache (L1, L2)',
+  );
+  assert.equal(
+    resolveChatStudyTip(
+      'Đào sâu bài 4: Phân tích cách các core đa lõi chia sẻ cache L2/L3',
+      'False sharing khi hai core ghi cùng cache line',
+    ),
+    'Đào sâu bài 4: False sharing khi hai core ghi cùng cache line',
+  );
+  assert.equal(
+    buildStudySuggestionPrompt('Đào sâu bài 3: Cache miss khi CPU không tìm thấy dữ liệu'),
+    'Đào sâu bài 3: Cache miss khi CPU không tìm thấy dữ liệu',
+  );
 });

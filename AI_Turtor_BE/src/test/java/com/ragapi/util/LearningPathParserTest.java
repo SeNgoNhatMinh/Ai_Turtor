@@ -144,6 +144,30 @@ class LearningPathParserTest {
     }
 
     @Test
+    void deepDivePromptsKeepTheSameLessonNumberForNextBai() {
+        String path = LearningPathParser.activePathContext(List.of(
+                "Bắt đầu bài 3: Cache",
+                "Bắt đầu bài 4: Các cấp độ cache (L1, L2)"
+        ));
+        assertEquals(Integer.valueOf(3), LearningPathParser.currentLessonNumber(
+                "Gợi ý học chuyên sâu bài 3: Cache"));
+        assertEquals(Integer.valueOf(3), LearningPathParser.currentLessonNumber(
+                "Đào sâu bài 3: Cache miss khi CPU không tìm thấy dữ liệu"));
+        assertEquals(
+                "- Bài 4: Các cấp độ cache (L1, L2)",
+                LearningPathParser.nextLessonBullet(
+                        "Đào sâu bài 3: Cache miss khi CPU không tìm thấy dữ liệu",
+                        path
+                )
+        );
+        assertEquals(
+                "Cache miss khi CPU không tìm thấy dữ liệu",
+                LearningPathParser.retrievalFocus(
+                        "Đào sâu bài 3: Cache miss khi CPU không tìm thấy dữ liệu")
+        );
+    }
+
+    @Test
     void ignoresAnswersWithoutBaiLessons() {
         assertTrue(LearningPathParser.parseLessonSuggestions(
                 "## Theo tài liệu môn học\nServlet là chương trình Java chạy trên web server."

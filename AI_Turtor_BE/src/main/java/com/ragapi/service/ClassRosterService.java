@@ -1,6 +1,9 @@
 package com.ragapi.service;
 
 import com.ragapi.entity.CourseEnrollment;
+import com.ragapi.entity.PedagogicalDirective;
+import com.ragapi.entity.TutorSession;
+import com.ragapi.entity.TutorSessionSummary;
 import com.ragapi.entity.User;
 import com.ragapi.repository.CourseEnrollmentRepository;
 import com.ragapi.repository.UserRepository;
@@ -9,7 +12,9 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -33,6 +38,89 @@ public class ClassRosterService {
             roster.add(hydrateFromUserAccount(enrollment));
         }
         return roster;
+    }
+
+    public Map<String, CourseEnrollment> indexClassStudents(String courseId, String classId) {
+        Map<String, CourseEnrollment> index = new LinkedHashMap<>();
+        if (isBlank(courseId) || isBlank(classId)) {
+            return index;
+        }
+        for (CourseEnrollment enrollment : listClassStudents(courseId, classId)) {
+            if (hasText(enrollment.getStudentId())) {
+                index.putIfAbsent(enrollment.getStudentId().trim(), enrollment);
+            }
+        }
+        return index;
+    }
+
+    public CourseEnrollment resolveStudent(String studentId, String courseId, String classId) {
+        return resolveStudent(studentId, courseId, classId, null);
+    }
+
+    public CourseEnrollment resolveStudent(
+            String studentId,
+            String courseId,
+            String classId,
+            Map<String, CourseEnrollment> roster
+    ) {
+        if (isBlank(studentId)) {
+            return null;
+        }
+        String id = studentId.trim();
+        if (roster != null && roster.containsKey(id)) {
+            return roster.get(id);
+        }
+        if (hasText(courseId) && hasText(classId)) {
+            Optional<CourseEnrollment> enrollment = courseEnrollmentRepository
+                    .findByStudentIdAndCourseIdAndClassId(id, courseId, classId);
+            if (enrollment.isPresent()) {
+                return hydrateFromUserAccount(enrollment.get());
+            }
+        }
+        Optional<User> account = userRepository.findById(id);
+        if (account.isEmpty()) {
+            account = userRepository.findByEmail(id);
+        }
+        if (account.isEmpty()) {
+            return CourseEnrollment.builder().studentId(id).build();
+        }
+        User user = account.get();
+        return CourseEnrollment.builder()
+                .studentId(id)
+                .studentName(trimToNull(user.getFullName()))
+                .studentEmail(trimToNull(user.getEmail()))
+                .build();
+    }
+
+    public void copyIdentity(CourseEnrollment source, TutorSessionSummary summary) {
+        if (source == null || summary == null) {
+            return;
+        }
+        summary.setStudentName(trimToNull(source.getStudentName()));
+        summary.setStudentCode(trimToNull(source.getStudentCode()));
+        summary.setStudentEmail(trimToNull(source.getStudentEmail()));
+    }
+
+    public void copyIdentity(CourseEnrollment source, PedagogicalDirective directive) {
+        if (source == null || directive == null) {
+            return;
+        }
+        directive.setStudentName(trimToNull(source.getStudentName()));
+        directive.setStudentCode(trimToNull(source.getStudentCode()));
+        directive.setStudentEmail(trimToNull(source.getStudentEmail()));
+    }
+
+    public void copyIdentity(CourseEnrollment source, TutorSession session) {
+        if (source == null || session == null) {
+            return;
+        }
+        session.setStudentName(trimToNull(source.getStudentName()));
+        session.setStudentCode(trimToNull(source.getStudentCode()));
+        session.setStudentEmail(trimToNull(source.getStudentEmail()));
+    }
+
+    private static String trimToNull(String value) {
+        return isBlank(value) ? null : value.trim();
     }
 
     public void rejectIfStaffAccount(CourseEnrollment enrollment) {

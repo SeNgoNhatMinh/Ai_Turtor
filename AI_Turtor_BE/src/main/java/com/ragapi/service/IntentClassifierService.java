@@ -66,9 +66,22 @@ public class IntentClassifierService {
                     false, "RULE");
         }
 
-        if (StudentChatIntentDetector.isLessonStart(message)) {
+        if (StudentChatIntentDetector.isLessonDeepPath(message)) {
             return base(MODE_RAG,
-                    "Student selected a numbered lesson to study",
+                    "Student wants deeper angles of the current numbered lesson",
+                    0.96,
+                    "LESSON_DEEP_PATH",
+                    domain,
+                    "Propose 3-5 deeper sub-topics of THIS numbered lesson from course material. Do not start the next Bài.",
+                    true, "RULE");
+        }
+
+        if (StudentChatIntentDetector.isLessonDeepTeach(message)
+                || StudentChatIntentDetector.isLessonStart(message)) {
+            return base(MODE_RAG,
+                    StudentChatIntentDetector.isLessonDeepTeach(message)
+                            ? "Student selected a deeper angle of the current numbered lesson"
+                            : "Student selected a numbered lesson to study",
                     0.96,
                     "LESSON_TEACH",
                     domain,
@@ -246,7 +259,10 @@ public class IntentClassifierService {
     }
 
     private String detectRagSubIntent(String text) {
-        if (StudentChatIntentDetector.isLessonStart(text)) {
+        if (StudentChatIntentDetector.isLessonDeepPath(text)) {
+            return "LESSON_DEEP_PATH";
+        }
+        if (StudentChatIntentDetector.isLessonDeepTeach(text) || StudentChatIntentDetector.isLessonStart(text)) {
             return "LESSON_TEACH";
         }
         if (StudentChatIntentDetector.isTopicStudyStart(text)) {

@@ -77,6 +77,8 @@ public final class VietnameseOutputEnforcer {
                 - Write Đáp án and Giải thích right after C. Skip the next-lesson heading if needed; never drop Đáp án.
                 - Never narrate the prompt. Never write "the prompt says", "as per instruction", or discuss omitting a heading.
                 - Numbered "Bài 1/2/3" and "## Bài tiếp theo" are only for a topic roadmap or an active numbered lesson.
+                  "## Học chuyên sâu" is for deeper angles of a numbered lesson.
+                  "## Học tiếp phần này" is for narrower follow-ups of a clicked deep-dive topic.
                   For a normal concept question, use "## Lưu ý để học tốt hơn" about the current topic instead.
                 - Never stop mid-sentence, mid-list, or mid-code fence. Close every markdown code fence.
                 - Do not omit a required heading to save tokens. Finish the last heading before you stop.

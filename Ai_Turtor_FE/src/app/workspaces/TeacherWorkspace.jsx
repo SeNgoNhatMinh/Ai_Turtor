@@ -4,14 +4,12 @@ import AsyncState from '../../components/common/AsyncState';
 
 const teacherPages = {
   'teacher-classes': lazy(() => import('../../features/teacher/classes/TeacherClassesPage')),
-  'teacher-live-lessons': lazy(() => import('../../features/live-lessons/TeacherLiveLessonsPage')),
   'teacher-quizzes': lazy(() => import('../../features/teacher/quizzes/TeacherQuizzesPage')),
   'teacher-materials': lazy(() => import('../../features/teacher/materials/TeacherMaterialsPage')),
   'teacher-grading': lazy(() => import('../../features/teacher/grading/TeacherGradingPage')),
   'teacher-escalations': lazy(() => import('../../features/teacher/review/TeacherReviewPage')),
   'teacher-tutoring': lazy(() => import('../../features/teacher/tutoring/TeacherTutoringPage')),
 };
-const TeacherLiveClassroomPage = lazy(() => import('../../features/live-lessons/LiveClassroomPage'));
 const TeacherExpertTasksPage = lazy(() => import('../../features/expert-training/TeacherExpertTasksPage'));
 const TeacherExpertContributionPage = lazy(() => import('../../features/expert-training/TeacherExpertContributionPage'));
 
@@ -30,12 +28,9 @@ export default function TeacherWorkspace({
   switchTab,
 }) {
   const contributionMatch = useMatch('/teacher/expert-tasks/:taskId/contribute');
-  const liveClassroomMatch = useMatch('/teacher/live-lessons/:lessonId');
-  const Page = liveClassroomMatch
-    ? TeacherLiveClassroomPage
-    : activeTab === 'teacher-expert-training'
-      ? contributionMatch ? TeacherExpertContributionPage : TeacherExpertTasksPage
-      : teacherPages[activeTab];
+  const Page = activeTab === 'teacher-expert-training'
+    ? contributionMatch ? TeacherExpertContributionPage : TeacherExpertTasksPage
+    : teacherPages[activeTab];
   const teacherId = currentUser?.userId || currentUser?.id || '';
 
   if (!Page) return null;

@@ -17,7 +17,7 @@ class PedagogicalDirectiveServiceTest {
     void onlyConfirmedDirectiveIsExposedToTutorContext() {
         PedagogicalDirectiveRepository repository = mock(PedagogicalDirectiveRepository.class);
         when(repository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
-        PedagogicalDirectiveService service = new PedagogicalDirectiveService(repository);
+        PedagogicalDirectiveService service = new PedagogicalDirectiveService(repository, mock(ClassRosterService.class));
 
         PedagogicalDirectiveRequest request = new PedagogicalDirectiveRequest();
         request.setStudentId("student-1");

@@ -18,10 +18,11 @@ public final class LearningPathParser {
             "(?i)^(?:\\d+[.)]\\s*)?(?:bắt đầu\\s+|bat dau\\s+)?(?:bài|bai)\\s+(\\d+)\\s*[:：.\\-]\\s*(.+)$"
     );
     private static final Pattern CURRENT_LESSON = Pattern.compile(
-            "(?i)(?:bắt đầu bài|bat dau bai|học ngay bài|hoc ngay bai)\\s+(\\d+)"
+            "(?:goi y hoc chuyen sau bai|hoc chuyen sau bai|dao sau bai|"
+                    + "bat dau bai|hoc ngay bai)\\s+(\\d+)"
     );
     private static final Pattern LESSON_FOCUS = Pattern.compile(
-            "(?i)(?:bắt đầu bài|bat dau bai|học ngay bài|hoc ngay bai)\\s+\\d+\\s*[:：.\\-]\\s*(.+)"
+            "(?iu)(?:bài|bai)\\s+\\d+\\s*[:：.\\-]\\s*(.+)"
     );
     private static final int MAX_LESSONS = 8;
 
@@ -83,7 +84,7 @@ public final class LearningPathParser {
         if (question == null || question.isBlank()) {
             return null;
         }
-        Matcher matcher = CURRENT_LESSON.matcher(question.trim());
+        Matcher matcher = CURRENT_LESSON.matcher(normalizeLessonPrompt(question));
         if (!matcher.find()) {
             return null;
         }
@@ -92,6 +93,12 @@ public final class LearningPathParser {
         } catch (NumberFormatException ignored) {
             return null;
         }
+    }
+
+    private static String normalizeLessonPrompt(String question) {
+        return TextSanitizer.normalizeAccentInsensitive(question.trim())
+                .replace('đ', 'd')
+                .replace('Đ', 'd');
     }
 
     /**

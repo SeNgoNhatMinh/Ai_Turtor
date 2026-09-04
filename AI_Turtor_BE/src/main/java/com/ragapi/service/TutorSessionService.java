@@ -34,6 +34,7 @@ public class TutorSessionService {
     private final ChapterOutlineService chapterOutlineService;
     private final CourseCurriculumOverviewService curriculumOverviewService;
     private final RealtimeEventService realtimeEvents;
+    private final ClassRosterService classRosterService;
 
     public Map<String, Object> openOrResume(OpenTutorSessionRequest request) {
         if (request == null) throw new IllegalArgumentException("request is required");
@@ -157,8 +158,26 @@ public class TutorSessionService {
     }
 
     public List<TutorSessionSummary> listTeacherSummaries(String courseId, String classId) {
-        return summaryRepository.findByCourseIdAndClassIdOrderByCreatedAtDesc(
-                requireText(courseId, "courseId"), requireText(classId, "classId"));
+        String safeCourseId = requireText(courseId, "courseId");
+        String safeClassId = requireText(classId, "classId");
+        List<TutorSessionSummary> summaries = summaryRepository.findByCourseIdAndClassIdOrderByCreatedAtDesc(
+                safeCourseId, safeClassId);
+        Map<String, CourseEnrollment> roster = classRosterService.indexClassStudents(safeCourseId, safeClassId);
+        summaries.forEach(summary -> attachStudentIdentity(summary, roster));
+        return summaries;
+    }
+
+    public List<TutorSession> listTeacherSessions(String courseId, String classId) {
+        String safeCourseId = requireText(courseId, "courseId");
+        String safeClassId = requireText(classId, "classId");
+        List<TutorSession> sessions = sessionRepository.findByCourseIdAndClassIdOrderByUpdatedAtDesc(
+                safeCourseId, safeClassId);
+        Map<String, CourseEnrollment> roster = classRosterService.indexClassStudents(safeCourseId, safeClassId);
+        sessions.forEach(session -> {
+            attachStudentIdentity(session, roster);
+            session.setStudentTurnCount(countStudentTurns(session));
+        });
+        return sessions;
     }
 
     public List<TutorSession> listStudentSessions(String studentId, String courseId) {
@@ -246,17 +265,20 @@ public class TutorSessionService {
     }
 
     public TutorSessionSummary getSummary(String summaryId) {
-        return summaryRepository.findById(requireText(summaryId, "summaryId"))
+        TutorSessionSummary summary = summaryRepository.findById(requireText(summaryId, "summaryId"))
                 .orElseThrow(() -> new IllegalArgumentException("Tutor session summary not found"));
+        attachStudentIdentity(summary, null);
+        return summary;
     }
 
     public List<AiMessage> getSummaryTranscript(String summaryId) {
         TutorSessionSummary summary = getSummary(summaryId);
-        return summary.getConversationIds().stream()
-                .filter(Objects::nonNull)
-                .flatMap(id -> messageRepository.findByConversationIdOrderByCreatedAtAsc(id).stream())
-                .sorted(Comparator.comparing(AiMessage::getCreatedAt, Comparator.nullsLast(Comparator.naturalOrder())))
-                .toList();
+        return transcriptForConversations(summary.getConversationIds());
+    }
+
+    public List<AiMessage> getSessionTranscript(String sessionId) {
+        TutorSession session = requireSession(sessionId);
+        return transcriptForConversations(session.getConversationIds());
     }
 
     private List<String> suggestedTopics(String studentId, String courseId) {
@@ -557,5 +579,45 @@ public class TutorSessionService {
 
     private String trimToNull(String value) {
         return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    private void attachStudentIdentity(TutorSessionSummary summary, Map<String, CourseEnrollment> roster) {
+        if (summary == null || summary.getStudentId() == null || summary.getStudentId().isBlank()) {
+            return;
+        }
+        CourseEnrollment identity = classRosterService.resolveStudent(
+                summary.getStudentId(), summary.getCourseId(), summary.getClassId(), roster);
+        classRosterService.copyIdentity(identity, summary);
+    }
+
+    private void attachStudentIdentity(TutorSession session, Map<String, CourseEnrollment> roster) {
+        if (session == null || session.getStudentId() == null || session.getStudentId().isBlank()) {
+            return;
+        }
+        CourseEnrollment identity = classRosterService.resolveStudent(
+                session.getStudentId(), session.getCourseId(), session.getClassId(), roster);
+        classRosterService.copyIdentity(identity, session);
+    }
+
+    private int countStudentTurns(TutorSession session) {
+        if (session == null || session.getConversationIds() == null) {
+            return 0;
+        }
+        return (int) session.getConversationIds().stream()
+                .filter(Objects::nonNull)
+                .distinct()
+                .mapToLong(id -> messageRepository.countByConversationIdAndRole(id, "STUDENT"))
+                .sum();
+    }
+
+    private List<AiMessage> transcriptForConversations(List<String> conversationIds) {
+        if (conversationIds == null || conversationIds.isEmpty()) {
+            return List.of();
+        }
+        return conversationIds.stream()
+                .filter(Objects::nonNull)
+                .flatMap(id -> messageRepository.findByConversationIdOrderByCreatedAtAsc(id).stream())
+                .sorted(Comparator.comparing(AiMessage::getCreatedAt, Comparator.nullsLast(Comparator.naturalOrder())))
+                .toList();
     }
 }

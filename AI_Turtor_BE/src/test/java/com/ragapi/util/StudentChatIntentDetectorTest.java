@@ -78,6 +78,34 @@ class StudentChatIntentDetectorTest {
         assertTrue(StudentChatIntentDetector.isLessonStart("Bắt đầu bài 1: Servlet là gì?"));
         assertTrue(StudentChatIntentDetector.isLessonStart("Bài 2: Request và Response"));
         assertFalse(StudentChatIntentDetector.isLessonStart("Nay mình học Java Servlet"));
+        assertFalse(StudentChatIntentDetector.isLessonStart(
+                "Gợi ý học chuyên sâu bài 3: Cache"));
+        assertFalse(StudentChatIntentDetector.isLessonStart(
+                "Đào sâu bài 3: Cache miss khi CPU không tìm thấy dữ liệu"));
+    }
+
+    @Test
+    void lessonDeepPathIsNotANewRoadmapOrNextBai() {
+        assertTrue(StudentChatIntentDetector.isLessonDeepPath(
+                "Gợi ý học chuyên sâu bài 3: Cache"));
+        assertTrue(StudentChatIntentDetector.isLessonDeepPath(
+                "Học chuyên sâu bài 1: Servlet là gì?"));
+        assertFalse(StudentChatIntentDetector.isLessonDeepPath(
+                "Bắt đầu bài 3: Cache"));
+        assertFalse(StudentChatIntentDetector.isLessonDeepPath(
+                "Đào sâu bài 3: Cache miss"));
+        assertFalse(StudentChatIntentDetector.isTopicStudyStart(
+                "Gợi ý học chuyên sâu bài 3: Cache"));
+    }
+
+    @Test
+    void lessonDeepTeachStaysOnCurrentNumberedLesson() {
+        assertTrue(StudentChatIntentDetector.isLessonDeepTeach(
+                "Đào sâu bài 3: Cache miss khi CPU không tìm thấy dữ liệu"));
+        assertFalse(StudentChatIntentDetector.isLessonDeepTeach(
+                "Gợi ý học chuyên sâu bài 3: Cache"));
+        assertFalse(StudentChatIntentDetector.isLessonStart(
+                "Đào sâu bài 3: Cache miss"));
     }
 
     @Test

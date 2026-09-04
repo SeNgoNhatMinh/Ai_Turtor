@@ -17,12 +17,14 @@ const withoutLegacyEvidenceAppendix = (answer, evidenceMessage) => {
 };
 import AnswerFeedbackControls from './AnswerFeedbackControls';
 import AnswerImproveSuggestions from './AnswerImproveSuggestions';
+import LessonDeepDiveCta from './LessonDeepDiveCta';
 import ChatLoadingSteps from './ChatLoadingSteps';
 import InlineMentorSupport from './InlineMentorSupport';
 import PromptStarters from './PromptStarters';
 import StudentMessageBubble from './StudentMessageBubble';
 import { uiCopy } from '../../../../constants/uiCopy';
-import { lessonSuggestionsForMessage } from '../../learning/studySuggestionPrompt';
+import { lessonSuggestionsForMessage, resolveChatStudyTip } from '../../learning/studySuggestionPrompt';
+import { isAiServiceErrorText, shouldOfferLessonContinuations } from '../../../../utils/errorMessages';
 import TutorMascot from '../../../../components/common/TutorMascot';
 
 const AiAnswer = lazy(() => import('../../../../components/AiAnswer'));
@@ -109,6 +111,9 @@ function ChatMessageList({
               || existingMentorRequest?.questionEscalationId;
             const isWelcomeTurn = Boolean(message.proactive) || !String(message.question || '').trim();
             const showMentorSupport = !isWelcomeTurn && Boolean(escalationId || openSupportCards[messageKey]);
+            const pathSuggestions = lessonSuggestionsForMessage(message);
+            const offerLessonContinuations = shouldOfferLessonContinuations(message);
+            const tutorTurnFailed = Boolean(message.aiServiceError || isAiServiceErrorText(message.answer));
 
             return (
                 <div
@@ -135,48 +140,64 @@ function ChatMessageList({
                         <TutorMascot size="sm" />
                       </div>
                       <div className="chat-gpt-ai-content">
-                        {message.aiServiceError && (
-                          <div className="chat-ai-service-error" role="alert">
-                            <strong>AI Tutor tạm thời không phản hồi.</strong>
+                        {tutorTurnFailed && (
+                          <div className="chat-ai-service-error" role="status">
+                            <strong>Mình chưa soạn xong lượt này.</strong>
                             <span>
                               {activeSessionMaxTurnsReached
                                 ? 'Câu hỏi này chưa được trả lời. Phía dưới là kết thúc phiên học hôm nay, không phải lỗi hệ thống.'
-                                : 'Đây không phải hết phiên học. Hãy thử lại, hoặc gửi câu hỏi cho mentor xem xét.'}
+                                : 'Không phải hết phiên học. Bấm Thử lại giúp mình, hoặc gửi mentor xem xét.'}
                             </span>
                           </div>
                         )}
 
-                        <Suspense fallback={<div className="chat-answer-loading">Đang định dạng câu trả lời...</div>}>
-                          <AiAnswer
-                            markdown={withoutLegacyEvidenceAppendix(message.answer, evidenceMessage)}
-                            understandingCheck={message.understandingCheck}
-                            sourceMap={materialSourceMap}
-                            onStudyTipStudy={(text) => onStudySuggestion?.({
-                              text,
-                              sourceMode: message.mode,
-                            })}
-                            onCheckAnswer={onCheckUnderstanding}
-                            onDownloadSource={onDownloadSource}
-                            hideSourceSection
-                          />
-                        </Suspense>
+                        {!tutorTurnFailed && (
+                          <Suspense fallback={<div className="chat-answer-loading">Đang định dạng câu trả lời...</div>}>
+                            <AiAnswer
+                              markdown={withoutLegacyEvidenceAppendix(message.answer, evidenceMessage)}
+                              understandingCheck={message.understandingCheck}
+                              sourceMap={materialSourceMap}
+                              onStudyTipStudy={(text) => onStudySuggestion?.({
+                                text: resolveChatStudyTip(message.question, text),
+                                sourceMode: message.mode,
+                              })}
+                              onCheckAnswer={onCheckUnderstanding}
+                              onDownloadSource={onDownloadSource}
+                              hideSourceSection
+                            />
+                          </Suspense>
+                        )}
 
-                        <AnswerEvidence
-                          message={evidenceMessage}
-                          sourceMap={materialSourceMap}
-                          onDownloadSource={onDownloadSource}
-                        />
-                        {!message.canceled && !message.aiServiceError && !isWelcomeTurn && (
+                        {!tutorTurnFailed && (
+                          <AnswerEvidence
+                            message={evidenceMessage}
+                            sourceMap={materialSourceMap}
+                            onDownloadSource={onDownloadSource}
+                          />
+                        )}
+                        {!message.canceled && offerLessonContinuations && !isWelcomeTurn && (
                           <AnswerImproveSuggestions
-                            suggestions={lessonSuggestionsForMessage(message)}
+                            suggestions={pathSuggestions}
                             onStudy={onStudySuggestion}
                             onCreateQuiz={onCreateQuizFromSuggestion}
                             sourceMode={message.mode}
                           />
                         )}
+                        {!message.canceled && offerLessonContinuations && !isWelcomeTurn
+                          && pathSuggestions.length === 0 && (
+                          <LessonDeepDiveCta
+                            question={message.question}
+                            answer={message.answer}
+                            onStudy={onStudySuggestion}
+                          />
+                        )}
                         {!message.canceled && !message.sessionComplete && !isWelcomeTurn && (
                           <AnswerActionBar
-                            message={message}
+                            message={{
+                              ...message,
+                              aiServiceError: tutorTurnFailed,
+                              retryable: Boolean(message.retryable || tutorTurnFailed),
+                            }}
                             mentorRequestInProgress={showMentorSupport}
                             disableRetry={activeSessionMaxTurnsReached}
                             onAction={handleAnswerAction}
@@ -205,7 +226,7 @@ function ChatMessageList({
                           />
                         )}
 
-                        {!message.canceled && !isWelcomeTurn && (
+                        {!message.canceled && !isWelcomeTurn && !tutorTurnFailed && (
                           <AnswerFeedbackControls
                             index={index}
                             message={message}

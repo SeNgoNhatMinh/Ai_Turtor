@@ -1,6 +1,7 @@
 package com.ragapi.service;
 
 import com.ragapi.dto.PedagogicalDirectiveRequest;
+import com.ragapi.entity.CourseEnrollment;
 import com.ragapi.entity.PedagogicalDirective;
 import com.ragapi.repository.PedagogicalDirectiveRepository;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +19,7 @@ public class PedagogicalDirectiveService {
             Set.of("HIGH_SUPPORT", "STANDARD", "CHALLENGE");
 
     private final PedagogicalDirectiveRepository repository;
+    private final ClassRosterService classRosterService;
 
     public PedagogicalDirective createDraft(
             PedagogicalDirectiveRequest request,
@@ -65,8 +67,20 @@ public class PedagogicalDirectiveService {
     }
 
     public List<PedagogicalDirective> listForClass(String courseId, String classId) {
-        return repository.findByCourseIdAndClassIdOrderByPriorityDescUpdatedAtDesc(
-                requireText(courseId, "courseId"), requireText(classId, "classId"));
+        String safeCourseId = requireText(courseId, "courseId");
+        String safeClassId = requireText(classId, "classId");
+        List<PedagogicalDirective> directives = repository.findByCourseIdAndClassIdOrderByPriorityDescUpdatedAtDesc(
+                safeCourseId, safeClassId);
+        Map<String, CourseEnrollment> roster = classRosterService.indexClassStudents(safeCourseId, safeClassId);
+        directives.forEach(directive -> {
+            if (directive.getStudentId() == null || directive.getStudentId().isBlank()) {
+                return;
+            }
+            CourseEnrollment identity = classRosterService.resolveStudent(
+                    directive.getStudentId(), safeCourseId, safeClassId, roster);
+            classRosterService.copyIdentity(identity, directive);
+        });
+        return directives;
     }
 
     public String buildTutorContext(String studentId, String courseId, String classId) {

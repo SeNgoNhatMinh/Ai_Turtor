@@ -107,6 +107,29 @@ class LlmProviderChainTest {
     }
 
     @Test
+    void groqOutputTokenLimitFallsBackToLocalInsteadOfAbortingChain() throws Exception {
+        String groqOtpm = """
+                RuntimeException: dev.ai4j.openai4j.OpenAiHttpException: \
+                {"error":{"message":"Request too large for model `qwen/qwen3.6-27b` in organization \
+                `org_01kymn2ptjfb3t58js3hweteh2` service tier `on_demand` on output tokens per minute (OTPM): \
+                Limit 1000, Requested 2048. The request's expected output tokens exceed the enforced limit; \
+                reduce max_tokens (or the request's expected output) and try again.",\
+                "type":"tokens","code":"rate_limit_exceeded"}}
+                """;
+        LlmProviderChain chain = chain(
+                provider("groq-2", prompt -> { throw new RuntimeException(groqOtpm); }),
+                provider("nvidia", prompt -> { throw new RuntimeException("HTTP 429 rate_limit_exceeded"); }),
+                provider("ollama", prompt -> "local-answer")
+        );
+
+        LlmProviderChain.Result result = chain.generate("Đào sâu bài 4: cache L2/L3");
+
+        assertEquals("ollama", result.provider());
+        assertEquals("local-answer", result.text());
+        assertTrue(chain.isCoolingDown("groq-2"));
+    }
+
+    @Test
     void rejectsEmptyProviderConfiguration() {
         assertThrows(IllegalArgumentException.class,
                 () -> new LlmProviderChain(List.of(), Duration.ofSeconds(60), FIXED_CLOCK));

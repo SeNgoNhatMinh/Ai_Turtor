@@ -21,7 +21,7 @@ public class LlmIntentClassifierService {
     private static final Set<String> MODES = Set.of("RAG", "CODE", "ESCALATE");
     private static final Set<String> SUB_INTENTS = Set.of(
             "CONVERSATIONAL", "OFF_TOPIC", "EXPLAIN_CONCEPT", "COMPARE_CONCEPTS",
-            "CONCEPT_APPLICATION", "EXAM_PRACTICE", "LEARNING_PATH", "LESSON_TEACH", "DEBUG_CODE",
+            "CONCEPT_APPLICATION", "EXAM_PRACTICE", "LEARNING_PATH", "LESSON_DEEP_PATH", "LESSON_TEACH", "DEBUG_CODE",
             "EXPLAIN_ERROR", "CODE_REVIEW", "ALGORITHM_HINT", "DATA_STRUCTURE_ADVICE",
             "SQL_REVIEW", "ARCHITECTURE_REVIEW", "REVIEW_LOGIC", "GUIDE_SOLUTION",
             "TECHNICAL_MENTORING", "TEACHER_POLICY"
@@ -102,7 +102,7 @@ public class LlmIntentClassifierService {
 
                 Allowed subIntent:
                 CONVERSATIONAL, OFF_TOPIC, EXPLAIN_CONCEPT, COMPARE_CONCEPTS,
-                CONCEPT_APPLICATION, EXAM_PRACTICE, LEARNING_PATH, LESSON_TEACH, DEBUG_CODE,
+                CONCEPT_APPLICATION, EXAM_PRACTICE, LEARNING_PATH, LESSON_DEEP_PATH, LESSON_TEACH, DEBUG_CODE,
                 EXPLAIN_ERROR, CODE_REVIEW, ALGORITHM_HINT, DATA_STRUCTURE_ADVICE,
                 SQL_REVIEW, ARCHITECTURE_REVIEW, REVIEW_LOGIC, GUIDE_SOLUTION,
                 TECHNICAL_MENTORING, TEACHER_POLICY.
@@ -117,6 +117,8 @@ public class LlmIntentClassifierService {
                 - "Nay mình học X" / "học bài X" / wanting to start studying a topic → LEARNING_PATH
                   (propose a numbered lesson path; do not dump a full definition).
                 - "Bắt đầu bài N: ..." → LESSON_TEACH (teach that one lesson as a tutor).
+                - "Gợi ý học chuyên sâu bài N: ..." → LESSON_DEEP_PATH (deeper angles of THIS lesson only).
+                - "Đào sâu bài N: ..." → LESSON_TEACH (teach that deeper angle; next Bài stays N+1).
                 - "học gì tiếp", "ôn gì", "nên học gì" during a normal Q&A → EXPLAIN_CONCEPT.
                   Suggest review or a related next concept for the CURRENT question. Do NOT start Bài 1, 2, 3.
                 - If recent chat shows a previous student question and the current message is a short

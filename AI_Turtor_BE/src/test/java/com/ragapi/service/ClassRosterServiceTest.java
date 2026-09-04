@@ -112,4 +112,48 @@ class ClassRosterServiceTest {
         assertEquals("Tran Thi C", roster.get(0).getStudentName());
         verify(enrollmentRepository).delete(adminEnroll);
     }
+
+    @Test
+    void resolvesStudentNameFromClassRosterInsteadOfRawId() {
+        CourseEnrollment enrollment = CourseEnrollment.builder()
+                .studentId("7bd7d121-b1b4-4b47-b077-a1d617a98219")
+                .studentCode("SE1840001")
+                .studentName("Nguyen Van A")
+                .studentEmail("anvse1840001@fpt.edu.vn")
+                .courseId("PRJ301")
+                .classId("SE1840")
+                .build();
+        when(enrollmentRepository.findByCourseIdAndClassId("PRJ301", "SE1840"))
+                .thenReturn(List.of(enrollment));
+        when(userRepository.findById("7bd7d121-b1b4-4b47-b077-a1d617a98219"))
+                .thenReturn(Optional.empty());
+
+        CourseEnrollment resolved = service.resolveStudent(
+                "7bd7d121-b1b4-4b47-b077-a1d617a98219",
+                "PRJ301",
+                "SE1840",
+                service.indexClassStudents("PRJ301", "SE1840"));
+
+        assertEquals("Nguyen Van A", resolved.getStudentName());
+        assertEquals("SE1840001", resolved.getStudentCode());
+        assertEquals("anvse1840001@fpt.edu.vn", resolved.getStudentEmail());
+    }
+
+    @Test
+    void fallsBackToUserAccountWhenStudentIsMissingFromRoster() {
+        when(enrollmentRepository.findByCourseIdAndClassId("PRJ301", "SE1840")).thenReturn(List.of());
+        when(enrollmentRepository.findByStudentIdAndCourseIdAndClassId(
+                "user-9", "PRJ301", "SE1840")).thenReturn(Optional.empty());
+        when(userRepository.findById("user-9")).thenReturn(Optional.of(User.builder()
+                .id("user-9")
+                .fullName("Le Thi D")
+                .email("d@fpt.edu.vn")
+                .role("STUDENT")
+                .build()));
+
+        CourseEnrollment resolved = service.resolveStudent("user-9", "PRJ301", "SE1840");
+
+        assertEquals("Le Thi D", resolved.getStudentName());
+        assertEquals("d@fpt.edu.vn", resolved.getStudentEmail());
+    }
 }

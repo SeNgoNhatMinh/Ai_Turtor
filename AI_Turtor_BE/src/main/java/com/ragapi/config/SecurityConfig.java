@@ -107,7 +107,6 @@ public class SecurityConfig {
                                 "/api/users/register",
                                 "/ws/chat/**",
                                 "/ws/events/**",
-                                "/ws/live-voice/**",
                                 "/actuator/health",
                                 "/actuator/health/**"
                         ).permitAll()
@@ -147,7 +146,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.DELETE, "/api/tutor/quiz-assignments/**").hasAnyRole("TEACHER", "SENIOR_MENTOR", "ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/chat/send-answer-and-index").hasAnyRole("TEACHER", "SENIOR_MENTOR", "ADMIN")
                         .requestMatchers("/api/chat/**").hasAnyRole("STUDENT", "TEACHER", "SENIOR_MENTOR", "ADMIN")
-                        .requestMatchers("/api/live-lessons/**", "/api/code-mentor/**", "/api/ai/**", "/api/tutor/**", "/api/students/**", "/api/courses/**", "/api/improve/**", "/api/improve-plans/**").authenticated()
+                        .requestMatchers("/api/code-mentor/**", "/api/ai/**", "/api/tutor/**", "/api/students/**", "/api/courses/**", "/api/improve/**", "/api/improve-plans/**").authenticated()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)

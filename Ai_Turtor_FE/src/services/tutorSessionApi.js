@@ -34,10 +34,24 @@ export const tutorSessionApi = {
     );
   },
 
+  listTeacherSessions(teacherId, courseId, classId) {
+    return request(
+      `${API_BASE_URL}/tutor/teachers/${encodeURIComponent(teacherId)}/courses/${encodeURIComponent(courseId)}`
+      + `/classes/${encodeURIComponent(classId)}/sessions`,
+    );
+  },
+
   getTranscript(teacherId, summaryId) {
     return request(
       `${API_BASE_URL}/tutor/teachers/${encodeURIComponent(teacherId)}`
       + `/session-summaries/${encodeURIComponent(summaryId)}/transcript`,
+    );
+  },
+
+  getSessionTranscript(teacherId, sessionId) {
+    return request(
+      `${API_BASE_URL}/tutor/teachers/${encodeURIComponent(teacherId)}`
+      + `/sessions/${encodeURIComponent(sessionId)}/transcript`,
     );
   },
 

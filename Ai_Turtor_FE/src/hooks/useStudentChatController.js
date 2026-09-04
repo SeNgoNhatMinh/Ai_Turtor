@@ -10,7 +10,6 @@ import { tutorSessionApi } from '../services/tutorSessionApi';
 import { useRealtimeEvent, useRealtimeReconnect } from '../features/realtime/realtimeContext';
 import { REALTIME_EVENT_TYPES } from '../features/realtime/realtimeEvents';
 import {
-  AI_SERVICE_ERROR_MESSAGE,
   buildAiServiceErrorMessage,
   isAiServiceErrorText,
 } from '../utils/errorMessages';
@@ -571,7 +570,7 @@ export function useStudentChatController({
         const isAiServiceError = isAiServiceErrorText(answerText);
         updated[updated.length - 1] = {
           question: text,
-          answer: isAiServiceError ? AI_SERVICE_ERROR_MESSAGE : answerText,
+          answer: answerText,
           rawAnswer: answerText,
           understandingCheck: data.understandingCheck || null,
           id: data.assistantMessageId || data.messageId || data.aiMessageId || data.responseMessageId,
@@ -653,7 +652,7 @@ export function useStudentChatController({
 
       setMessages((prev) => {
         const updated = [...prev];
-        const friendlyError = getUserFacingError(error, 'AI Tutor chưa thể trả lời lúc này. Vui lòng thử lại sau.');
+        const friendlyError = getUserFacingError(error, 'Mình chưa soạn xong lượt này. Thử lại giúp mình nhé.');
         updated[updated.length - 1] = {
           question: text,
           answer: buildAiServiceErrorMessage(friendlyError),
@@ -668,7 +667,7 @@ export function useStudentChatController({
       });
       setAvatarEmotion('idle');
       if (!quotaReached) {
-        triggerToast(getUserFacingError(error, 'Yêu cầu AI Tutor thất bại. Vui lòng thử lại sau.'));
+        triggerToast(getUserFacingError(error, 'Mình chưa soạn xong lượt này. Thử lại giúp mình nhé.'));
         try {
           const quotaUserId = getStudentUserId();
           if (quotaUserId && courseId) {

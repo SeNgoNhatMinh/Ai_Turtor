@@ -259,7 +259,9 @@ public class TutorController {
                     || "OFF_TOPIC".equals(intent.getSubIntent()));
             String teachingMode = persistTurn ? intent.getSubIntent() : "EXPLAIN_CONCEPT";
             String pathContext = LearningPathParser.activePathContext(sessionSuggestedTopics);
-            if (!pathContext.isBlank() && "LESSON_TEACH".equalsIgnoreCase(teachingMode)) {
+            if (!pathContext.isBlank()
+                    && ("LESSON_TEACH".equalsIgnoreCase(teachingMode)
+                    || "LESSON_DEEP_PATH".equalsIgnoreCase(teachingMode))) {
                 learnerContext = learnerContext.isBlank()
                         ? pathContext
                         : pathContext + "\n" + learnerContext;
