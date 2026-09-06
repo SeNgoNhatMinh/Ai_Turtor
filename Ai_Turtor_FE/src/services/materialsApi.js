@@ -61,7 +61,10 @@ export const materialsApi = {
   async getStudentClassMaterials(studentId, courseId, classId, options = {}) {
     const loader = () => request(
       `${API_BASE_URL}/students/${encodePath(studentId)}/courses/${encodePath(courseId)}/classes/${encodePath(classId)}/materials`,
-      { signal: options.signal },
+      {
+        signal: options.signal,
+        skipUnauthorizedRedirect: options.skipUnauthorizedRedirect,
+      },
     );
     if (options.signal) return loader();
     return getCachedResource(

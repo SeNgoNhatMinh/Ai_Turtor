@@ -71,6 +71,7 @@ function App() {
     setClassId: navigation.setClassId,
     isDarkMode: navigation.isDarkMode,
     triggerToast: toast.triggerToast,
+    onLogout: handleLogout,
   };
 
   if (!auth.currentUser) {

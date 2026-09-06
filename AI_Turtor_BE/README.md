@@ -247,7 +247,9 @@ File cấu hình local:
 config/application-local.yml
 ```
 
-File local này không nên commit API key lên repository.
+Khi chạy Maven trực tiếp, backend cũng tự động đọc `.env.deploy` nếu tệp này tồn tại.
+Giữ `JWT_SECRET` giống nhau giữa Docker và Maven để token không bị mất hiệu lực khi đổi cách chạy backend.
+Các file local này không nên commit API key lên repository.
 
 ## 8. Ghi Chú Encoding
 

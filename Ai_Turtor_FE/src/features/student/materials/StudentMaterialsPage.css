@@ -1,124 +1,254 @@
+.student-materials-page {
+  --materials-accent: #f37021;
+  --materials-accent-dark: #d85c0f;
+  --materials-blue: #0b3b82;
+  --materials-border: #e3e9f1;
+  --materials-muted: #667085;
+  --materials-surface: #ffffff;
+  --materials-soft: #f7f9fc;
+}
+
+.student-materials-page__header {
+  margin-bottom: 18px;
+}
+
 .student-materials-context {
   display: flex;
-  align-items: flex-end;
-  gap: 18px;
-  padding: 14px 16px;
-  margin-bottom: 16px;
-  border: 1px solid var(--border-color, #e5e7eb);
-  border-radius: 8px;
-  background: var(--surface-elevated, #fff);
+  align-items: center;
+  gap: 20px;
+  padding: 16px 18px;
+  margin-bottom: 18px;
+  border: 1px solid var(--materials-border);
+  border-radius: 16px;
+  background: linear-gradient(135deg, #ffffff 0%, #f8fbff 100%);
+  box-shadow: 0 8px 24px rgba(15, 39, 71, 0.05);
+}
+
+.student-materials-context__intro {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 210px;
+}
+
+.student-materials-context__intro > div {
+  display: grid;
+  gap: 2px;
+}
+
+.student-materials-context__intro-icon,
+.student-teacher-materials__heading-icon,
+.student-assignment-details__icon {
+  display: grid;
+  flex: 0 0 42px;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border-radius: 12px;
+  background: linear-gradient(145deg, #fff0e5, #fff8f3);
+  color: var(--materials-accent-dark);
+  font-size: 20px;
+  box-shadow: inset 0 0 0 1px rgba(243, 112, 33, 0.14);
 }
 
 .student-materials-context__field {
   display: grid;
+  flex: 0 0 auto;
   gap: 6px;
+}
+
+.student-materials-context__label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }
 
 .student-materials-context__class .ant-tag {
   display: inline-flex;
   align-items: center;
-  min-height: 32px;
+  min-height: 34px;
   margin: 0;
-  padding-inline: 12px;
+  padding-inline: 13px;
+  border-radius: 9px;
+  font-weight: 700;
 }
 
 .student-materials-context__hint {
+  display: flex;
+  align-items: center;
+  gap: 7px;
   margin-left: auto;
-  padding-bottom: 5px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  background: rgba(11, 59, 130, 0.05);
 }
 
-.student-materials-page .student-assignment-row.is-selected > td {
-  background: var(--surface-selected, #fff4ec) !important;
+.student-materials-context__hint > .anticon {
+  color: var(--materials-blue);
 }
 
-.student-teacher-materials {
+.student-materials-tabs > .ant-tabs-nav {
+  margin-bottom: 20px;
+  padding: 5px;
+  border-radius: 14px;
+  background: #f2f5f8;
+}
+
+.student-materials-tabs > .ant-tabs-nav .ant-tabs-tab {
+  min-height: 44px;
+  border-radius: 10px;
+}
+
+.student-materials-tab-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.student-materials-tab-label > .anticon {
+  font-size: 16px;
+}
+
+.student-materials-tab-count {
+  display: inline-grid;
+  min-width: 24px;
+  height: 22px;
+  padding-inline: 6px;
+  place-items: center;
+  border-radius: 999px;
+  background: #e5e9ee;
+  color: #596273;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.student-materials-tabs .ant-tabs-tab-active .student-materials-tab-count {
+  background: #fff0e5;
+  color: var(--materials-accent-dark);
+}
+
+.student-teacher-materials,
+.materials-list-card,
+.materials-detail-card {
   overflow: hidden;
-  border-color: var(--border-color, #e5e7eb);
-  border-radius: 20px;
+  border-color: var(--materials-border);
+  border-radius: 18px;
+  background: var(--materials-surface);
+  box-shadow: 0 12px 32px rgba(24, 50, 83, 0.07);
 }
 
-.student-teacher-materials__header {
+.student-teacher-materials__header,
+.student-assignment-list__header,
+.student-assignment-details__header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 24px;
-  padding: 24px;
-  border-bottom: 1px solid var(--border-color, #e5e7eb);
-  background: linear-gradient(135deg, #fffaf6 0%, #fff 58%);
+  gap: 20px;
+  padding: 22px 24px;
+  border-bottom: 1px solid var(--materials-border);
+  background: linear-gradient(135deg, #fffaf6 0%, #ffffff 58%, #f7faff 100%);
 }
 
-.student-teacher-materials__eyebrow {
+.student-teacher-materials__heading,
+.student-assignment-details__title-row {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+}
+
+.student-teacher-materials__eyebrow,
+.student-assignment-list__eyebrow,
+.student-assignment-details__eyebrow {
   display: block;
-  margin-bottom: 5px;
-  color: #d65f14;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  margin-bottom: 4px;
+  color: var(--materials-accent-dark);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.09em;
   text-transform: uppercase;
 }
 
-.student-teacher-materials__header h2 {
+.student-teacher-materials__header h2,
+.student-assignment-list__header h2,
+.student-assignment-details__header h2 {
   margin: 0;
-  color: var(--text-primary, #111827);
-  font-size: 24px;
+  color: #172033;
+  font-size: 22px;
   line-height: 1.25;
 }
 
-.student-teacher-materials__header p {
+.student-teacher-materials__header p,
+.student-assignment-list__header p {
   max-width: 640px;
-  margin: 7px 0 0;
-  color: var(--text-secondary, #667085);
+  margin: 6px 0 0;
+  color: var(--materials-muted);
+  line-height: 1.5;
 }
 
-.student-teacher-materials__summary {
+.student-teacher-materials__summary,
+.student-assignment-list__summary {
   display: grid;
   grid-template-columns: auto auto auto;
   align-items: center;
   gap: 7px;
   min-width: max-content;
-  padding: 7px 8px 7px 13px;
+  padding: 6px 7px 6px 12px;
   border: 1px solid #fed7bd;
   border-radius: 999px;
   background: #fff;
-  color: #667085;
+  color: var(--materials-muted);
 }
 
-.student-teacher-materials__summary strong {
-  color: #d65f14;
+.student-teacher-materials__summary strong,
+.student-assignment-list__summary strong {
+  color: var(--materials-accent-dark);
   font-size: 18px;
 }
 
-.student-teacher-materials__alert {
+.student-teacher-materials__alert,
+.student-assignment-list__alert {
   margin: 16px 16px 0;
+  border-radius: 12px;
 }
 
 .student-teacher-materials__loading,
-.student-teacher-materials__empty {
+.student-assignment-list__loading,
+.student-teacher-materials__empty,
+.student-assignment-list__empty,
+.student-assignment-details__empty {
   padding: 48px 24px;
 }
 
-.student-teacher-materials__empty .ant-empty-description > span {
+.student-teacher-materials__empty .ant-empty-description > span,
+.student-assignment-list__empty .ant-empty-description > span,
+.student-assignment-details__empty .ant-empty-description > span {
   display: grid;
   gap: 6px;
 }
 
-.student-teacher-materials__empty small {
-  color: var(--text-secondary, #667085);
-  font-size: 14px;
+.student-teacher-materials__empty small,
+.student-assignment-list__empty small,
+.student-assignment-details__empty small {
+  color: var(--materials-muted);
+  font-size: 13px;
 }
 
-.student-teacher-materials .searchable-table {
+.student-teacher-materials .searchable-table,
+.materials-list-card .searchable-table {
   padding: 16px;
 }
 
-.student-material-title {
+.student-material-title,
+.student-assignment-title {
   display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  min-width: 260px;
+  align-items: center;
+  gap: 11px;
+  min-width: 240px;
 }
 
-.student-material-title > .anticon {
+.student-material-title > .anticon,
+.student-assignment-title__icon {
   display: grid;
   flex: 0 0 38px;
   width: 38px;
@@ -126,74 +256,330 @@
   place-items: center;
   border-radius: 10px;
   background: #fff1e8;
-  color: #d65f14;
+  color: var(--materials-accent-dark);
+  font-size: 17px;
+}
+
+.student-material-title > div,
+.student-assignment-title > div {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.student-assignment-title .ant-typography-secondary {
+  max-width: 290px;
+  font-size: 12px;
+}
+
+.student-material-row > td,
+.student-assignment-row > td {
+  transition: background-color 0.18s ease;
+}
+
+.student-materials-page .student-assignment-row.is-selected > td,
+.student-materials-page .student-assignment-row.is-selected:hover > td {
+  background: #fff4ec !important;
+}
+
+.student-assignment-score {
+  color: #087443;
+  font-weight: 800;
+}
+
+.student-assignment-deadline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--materials-muted);
+  white-space: nowrap;
+}
+
+.student-assignment-deadline.is-overdue {
+  color: #c53b32;
+  font-weight: 700;
+}
+
+.materials-layout {
+  display: grid;
+  width: 100%;
+  align-items: start;
+  grid-template-columns: minmax(520px, 1.12fr) minmax(380px, 0.88fr);
+  gap: 18px;
+}
+
+.materials-list-card,
+.materials-detail-card {
+  min-width: 0;
+}
+
+.student-assignment-details__title-row > div {
+  min-width: 0;
+}
+
+.student-assignment-details__header h2 {
+  overflow-wrap: anywhere;
+}
+
+.student-assignment-details__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.student-assignment-details__deadline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--materials-muted);
+  font-size: 13px;
+}
+
+.student-assignment-details__content {
+  display: grid;
+  gap: 0;
+}
+
+.student-assignment-details__section,
+.student-assignment-submit {
+  padding: 22px 24px;
+}
+
+.student-assignment-details__section h3,
+.student-assignment-submitted h3,
+.student-assignment-submit__heading h4 {
+  margin: 0 0 8px;
+  color: #172033;
+}
+
+.student-assignment-details__section > .ant-typography {
+  margin-bottom: 18px;
+  color: var(--materials-muted);
+  line-height: 1.65;
+}
+
+.assignment-attachment {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  padding: 14px;
+  border: 1px solid #f3d2bc;
+  border-radius: 12px;
+  background: #fff8f2;
+}
+
+.assignment-attachment__icon {
+  display: grid;
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border-radius: 10px;
+  background: #fff;
+  color: var(--materials-accent-dark);
+  font-size: 19px;
+}
+
+.assignment-attachment__copy {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.assignment-attachment__action {
+  margin-left: auto;
+}
+
+.student-assignment-submitted {
+  margin: 0 24px;
+  padding: 18px;
+  border: 1px solid #cce8d8;
+  border-radius: 14px;
+  background: #f4fbf7;
+}
+
+.student-assignment-submitted__heading {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin-bottom: 12px;
+}
+
+.student-assignment-submitted__icon {
+  display: grid;
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border-radius: 50%;
+  background: #dcf6e7;
+  color: #087443;
   font-size: 18px;
 }
 
-.student-material-title > div {
-  display: grid;
-  gap: 3px;
+.student-assignment-submitted__body {
+  width: 100%;
 }
 
-[data-theme='dark'] .student-materials-context,
-.app-container.dark .student-materials-context {
-  border-color: #343434;
-  background: #171717;
+.student-assignment-submitted__feedback {
+  margin: 0 !important;
+}
+
+.student-assignment-submit {
+  margin-top: 22px;
+  border-top: 1px solid var(--materials-border);
+  background: var(--materials-soft);
+}
+
+.student-assignment-submit__heading {
+  margin-bottom: 15px;
+}
+
+.student-assignment-dropzone.ant-upload-wrapper .ant-upload-drag {
+  border-color: #d8dee8;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.student-assignment-dropzone.ant-upload-wrapper .ant-upload-drag:hover {
+  border-color: var(--materials-accent);
+  background: #fffaf6;
+}
+
+.student-assignment-dropzone .ant-upload-drag-icon {
+  margin-bottom: 8px !important;
+}
+
+.student-assignment-dropzone .ant-upload-drag-icon .anticon {
+  color: var(--materials-accent) !important;
+}
+
+.student-assignment-submit__note {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.student-assignment-submit__button {
+  margin-top: 16px;
+  min-height: 44px;
+  border-radius: 10px;
+  font-weight: 750;
 }
 
 .app-container.dark .student-materials-page {
-  --surface-selected: #27180f;
+  --materials-border: #33373d;
+  --materials-muted: #aeb5c0;
+  --materials-surface: #151719;
+  --materials-soft: #111315;
 }
 
-.app-container.dark .student-teacher-materials__header {
-  border-bottom-color: #343434;
-  background: linear-gradient(135deg, #21150e 0%, #171717 58%);
+.app-container.dark .student-materials-context,
+[data-theme='dark'] .student-materials-context {
+  border-color: var(--materials-border);
+  background: linear-gradient(135deg, #181a1d 0%, #14171b 100%);
+  box-shadow: none;
 }
 
-.app-container.dark .student-teacher-materials__summary {
+.app-container.dark .student-materials-context__hint {
+  background: rgba(78, 139, 226, 0.1);
+}
+
+.app-container.dark .student-materials-tabs > .ant-tabs-nav {
+  background: #101214;
+}
+
+.app-container.dark .student-materials-tab-count {
+  background: #30343a;
+  color: #d3d7de;
+}
+
+.app-container.dark .student-teacher-materials,
+.app-container.dark .materials-list-card,
+.app-container.dark .materials-detail-card {
+  box-shadow: none;
+}
+
+.app-container.dark .student-teacher-materials__header,
+.app-container.dark .student-assignment-list__header,
+.app-container.dark .student-assignment-details__header {
+  background: linear-gradient(135deg, #21150e 0%, #17191c 58%, #15191f 100%);
+}
+
+.app-container.dark .student-teacher-materials__header h2,
+.app-container.dark .student-assignment-list__header h2,
+.app-container.dark .student-assignment-details__header h2,
+.app-container.dark .student-assignment-details__section h3,
+.app-container.dark .student-assignment-submitted h3,
+.app-container.dark .student-assignment-submit__heading h4 {
+  color: #f5f7fa;
+}
+
+.app-container.dark .student-teacher-materials__summary,
+.app-container.dark .student-assignment-list__summary {
   border-color: #4a3426;
-  background: #1c1c1c;
+  background: #1c1e21;
   color: #d1d5db;
 }
 
-.app-container.dark .student-material-title > .anticon {
+.app-container.dark .student-material-title > .anticon,
+.app-container.dark .student-assignment-title__icon,
+.app-container.dark .student-materials-context__intro-icon,
+.app-container.dark .student-teacher-materials__heading-icon,
+.app-container.dark .student-assignment-details__icon {
   background: #2b1a10;
 }
 
 .app-container.dark .student-materials-page .ant-table-thead > tr > th {
-  border-bottom-color: #343434 !important;
-  background: #1c1c1c !important;
+  border-bottom-color: #34383e !important;
+  background: #1c1f23 !important;
   color: #f3f4f6 !important;
 }
 
 .app-container.dark .student-materials-page .ant-table-tbody > tr > td {
-  border-bottom-color: #2a2a2a;
-  background: #0f0f0f;
+  border-bottom-color: #292d32;
+  background: #121416;
   color: #f3f4f6;
 }
 
 .app-container.dark .student-materials-page .ant-table-tbody > tr.ant-table-row:hover > td {
-  background: #1c1c1c !important;
+  background: #1c1f23 !important;
 }
 
 .app-container.dark .student-materials-page .student-assignment-row.is-selected > td,
 .app-container.dark .student-materials-page .student-assignment-row.is-selected:hover > td {
-  background: #27180f !important;
+  background: #2a1a10 !important;
 }
 
-.app-container.dark .student-materials-page .assignment-attachment {
+.app-container.dark .assignment-attachment {
   border-color: #4a3426;
-  background: #1c120b;
+  background: #21160f;
 }
 
-.app-container.dark .student-materials-page .ant-upload-drag {
-  border-color: #4a3426 !important;
-  background: #141414 !important;
+.app-container.dark .assignment-attachment__icon {
+  background: #16181b;
 }
 
-.app-container.dark .student-materials-page .ant-upload-drag:hover {
-  border-color: #f37021 !important;
-  background: #1c120b !important;
+.app-container.dark .student-assignment-submitted {
+  border-color: #25563c;
+  background: #12231a;
+}
+
+.app-container.dark .student-assignment-submit {
+  background: #111315;
+}
+
+.app-container.dark .student-assignment-dropzone.ant-upload-wrapper .ant-upload-drag {
+  border-color: #3a3e44;
+  background: #17191c;
+}
+
+.app-container.dark .student-assignment-dropzone.ant-upload-wrapper .ant-upload-drag:hover {
+  border-color: var(--materials-accent);
+  background: #21160f;
 }
 
 .app-container.dark .student-materials-page .ant-upload-text,
@@ -202,35 +588,80 @@
   color: #d1d5db !important;
 }
 
-.app-container.dark .student-materials-page .ant-input::placeholder,
-.app-container.dark .student-materials-page textarea.ant-input::placeholder {
-  color: #9ca3af !important;
+@media (max-width: 1180px) {
+  .student-materials-context {
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+
+  .student-materials-context__hint {
+    flex-basis: 100%;
+    margin-left: 0;
+  }
+
+  .materials-layout {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 720px) {
   .student-materials-context {
-    align-items: stretch;
     flex-direction: column;
-    gap: 12px;
+    gap: 13px;
+    padding: 15px;
   }
 
+  .student-materials-context__intro {
+    min-width: 0;
+  }
+
+  .student-materials-context__field,
   .student-materials-context .ant-select {
     width: 100% !important;
     min-width: 0 !important;
   }
 
-  .student-materials-context__hint {
-    margin-left: 0;
-    padding-bottom: 0;
+  .student-materials-tab-label {
+    gap: 6px;
   }
 
-  .student-teacher-materials__header {
+  .student-materials-tab-label > .anticon {
+    display: none;
+  }
+
+  .student-teacher-materials__header,
+  .student-assignment-list__header,
+  .student-assignment-details__header {
     align-items: stretch;
     flex-direction: column;
-    padding: 20px;
+    padding: 18px;
   }
 
-  .student-teacher-materials__summary {
+  .student-teacher-materials__summary,
+  .student-assignment-list__summary {
     align-self: flex-start;
+  }
+
+  .student-assignment-details__meta {
+    justify-content: flex-start;
+  }
+
+  .student-assignment-details__section,
+  .student-assignment-submit {
+    padding: 18px;
+  }
+
+  .student-assignment-submitted {
+    margin-inline: 18px;
+  }
+
+  .assignment-attachment {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .assignment-attachment__action {
+    width: 100%;
+    margin-left: 0;
   }
 }

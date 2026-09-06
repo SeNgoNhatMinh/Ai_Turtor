@@ -84,13 +84,14 @@ export async function request(url, options = {}) {
 }
 
 export async function uploadRequest(url, formData, errorPrefix = "Upload failed", options = {}) {
+  const { skipUnauthorizedRedirect = false, ...uploadOptions } = options;
   try {
     return await httpClient.upload(stripBaseUrl(url), formData, {
-      ...options,
-      headers: withAuthHeaders(options.headers),
+      ...uploadOptions,
+      headers: withAuthHeaders(uploadOptions.headers),
     });
   } catch (error) {
-    handleUnauthorized(error);
+    if (!skipUnauthorizedRedirect) handleUnauthorized(error);
     error.message = error.message || errorPrefix;
     throw error;
   }

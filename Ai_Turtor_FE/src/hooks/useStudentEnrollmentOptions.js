@@ -59,6 +59,7 @@ export function useStudentEnrollmentOptions({
   classId,
   setCourseId,
   setClassId,
+  skipUnauthorizedRedirect = false,
 }) {
   const cacheKey = useMemo(
     () => buildEnrollmentCacheKey(studentId, lookupIds),
@@ -99,6 +100,7 @@ export function useStudentEnrollmentOptions({
           const data = await adminAcademicApi.getStudentEnrollments(candidateId, {
             signal: controller.signal,
             force: !enrollmentCache.has(cacheKey),
+            skipUnauthorizedRedirect,
           });
           items = expandEnrollmentItems(data);
           if (items.length > 0) {
@@ -170,7 +172,7 @@ export function useStudentEnrollmentOptions({
         setIsStudentEnrollmentsLoading(false);
       }
     }
-  }, [cacheKey, classId, courseId, lookupIds, setClassId, setCourseId, studentId]);
+  }, [cacheKey, classId, courseId, lookupIds, setClassId, setCourseId, skipUnauthorizedRedirect, studentId]);
 
   const courseOptions = useMemo(() => {
     const byCourse = new Map();

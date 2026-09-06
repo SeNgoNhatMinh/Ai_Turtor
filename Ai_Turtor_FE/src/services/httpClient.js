@@ -58,6 +58,9 @@ function normalizeError(error, response, body) {
     'Request failed';
 
   const userMessage = (() => {
+    if (response.status === 401 && String(message).trim().toLowerCase() === 'unauthorized') {
+      return 'Phiên đăng nhập không còn hợp lệ. Vui lòng đăng nhập lại.';
+    }
     if (body?.code === 'TTS_UNAVAILABLE') {
       return getSafeUserMessage(message, 'Không thể tạo giọng đọc lúc này. Vui lòng thử lại sau.');
     }

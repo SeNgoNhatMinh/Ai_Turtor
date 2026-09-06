@@ -4,6 +4,7 @@ import {
   BookOpen,
   Bot,
   ClipboardCheck,
+  FileCheck2,
   GraduationCap,
   Layers3,
   MessageCircle,
@@ -19,7 +20,8 @@ const EMPTY_ENROLLMENTS = [];
 const QUICK_ACTIONS = [
   { icon: Bot, title: 'Hỏi AI Tutor', description: 'Học theo tài liệu môn học', tab: 'student-chat', tone: 'blue' },
   { icon: ClipboardCheck, title: 'Làm quiz', description: 'Luyện tập và kiểm tra nhanh', tab: 'student-quizzes', tone: 'orange' },
-  { icon: BookOpen, title: 'Xem học liệu', description: 'Tài liệu và bài tập môn học', tab: 'student-materials', tone: 'green' },
+  { icon: BookOpen, title: 'Xem học liệu', description: 'Tài liệu do giảng viên chia sẻ', tab: 'student-materials', tone: 'green' },
+  { icon: FileCheck2, title: 'Làm bài tập', description: 'Xem đề và nộp bài theo hạn', tab: 'student-assignments', tone: 'orange' },
   { icon: MessageCircle, title: 'Hỏi giảng viên', description: 'Theo dõi yêu cầu hỗ trợ', tab: 'student-escalation', tone: 'purple' },
 ];
 

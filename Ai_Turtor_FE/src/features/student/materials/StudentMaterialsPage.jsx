@@ -1,37 +1,26 @@
 import { useEffect } from 'react';
+import PageHeader from '../../../components/common/PageHeader';
+import { uiCopy } from '../../../constants/uiCopy';
 import { useCourseMaterialsController } from '../../../hooks/useCourseMaterialsController';
-import { useStudentAssignmentsController } from '../../../hooks/useStudentAssignmentsController';
-import MaterialsAssignmentsView from './MaterialsAssignmentsView';
-import { useStudentMaterialsController } from './useStudentMaterialsController';
+import CourseMaterialsPanel from './components/CourseMaterialsPanel';
+import MaterialsCourseContext from './components/MaterialsCourseContext';
 import './StudentMaterialsPage.css';
 
 export default function StudentMaterialsPage({
-  currentUser,
   studentId,
   courseId,
   setCourseId,
   classId,
   triggerToast,
   enrollment,
+  onLogout,
 }) {
-  const assignments = useStudentAssignmentsController({
-    studentId,
-    studentName: currentUser?.fullName || currentUser?.name || '',
-    studentEmail: currentUser?.email || '',
-    courseId,
-    triggerToast,
-  });
   const materials = useCourseMaterialsController({
     courseId,
     classId,
     studentId,
     triggerToast,
-  });
-  const form = useStudentMaterialsController({
-    selectedAssignment: assignments.selectedAssignment,
-    handleStudentSubmit: assignments.handleStudentSubmit,
-    onDownloadAssignment: assignments.handleDownloadAssignment,
-    onDownloadSubmission: assignments.handleDownloadSubmission,
+    skipUnauthorizedRedirect: true,
   });
 
   const handleCourseChange = (nextCourseId) => {
@@ -43,35 +32,36 @@ export default function StudentMaterialsPage({
   };
 
   useEffect(() => {
-    assignments.loadStudentAssignments();
     materials.loadCourseMaterials();
-    // Route page owns assignment and material loading.
+    // Route page owns material loading.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [studentId, courseId, classId]);
 
   return (
-    <MaterialsAssignmentsView
-      assignments={assignments.assignments}
-      selectedAssignment={assignments.selectedAssignment}
-      setSelectedAssignment={assignments.setSelectedAssignment}
-      studentSubmissionFile={form.studentSubmissionFile}
-      setStudentSubmissionFile={form.setStudentSubmissionFile}
-      studentSubmissionNote={form.studentSubmissionNote}
-      setStudentSubmissionNote={form.setStudentSubmissionNote}
-      onStudentSubmit={form.onStudentSubmit}
-      isSubmitting={form.isSubmitting}
-      onDownloadAssignment={form.handleDownloadAssignment}
-      onDownloadSubmission={form.handleDownloadSubmission}
-      courseMaterials={materials.courseMaterials}
-      materialsLoading={materials.isMaterialsLoading}
-      materialsError={materials.materialsError}
-      onReloadMaterials={materials.loadCourseMaterials}
-      onDownloadMaterial={materials.handleDownloadMaterial}
-      courseId={courseId}
-      classId={classId}
-      courseOptions={enrollment?.courseOptions || []}
-      enrollmentsLoading={enrollment?.isStudentEnrollmentsLoading || false}
-      onCourseChange={handleCourseChange}
-    />
+    <div className="portal-section student-materials-page">
+      <PageHeader
+        className="student-materials-page__header"
+        eyebrow="Học liệu"
+        title={uiCopy.student.materials.title}
+        description={uiCopy.student.materials.subtitle}
+      />
+      <MaterialsCourseContext
+        courseId={courseId}
+        classId={classId}
+        courseOptions={enrollment?.courseOptions || []}
+        loading={enrollment?.isStudentEnrollmentsLoading || false}
+        onCourseChange={handleCourseChange}
+      />
+      <CourseMaterialsPanel
+        materials={materials.courseMaterials}
+        loading={materials.isMaterialsLoading}
+        error={materials.materialsError}
+        courseId={courseId}
+        classId={classId}
+        onRetry={materials.loadCourseMaterials}
+        onLoginAgain={onLogout}
+        onDownload={materials.handleDownloadMaterial}
+      />
+    </div>
   );
 }

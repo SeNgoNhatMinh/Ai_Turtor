@@ -17,7 +17,10 @@ export const adminAcademicApi = {
   },
 
   async getStudentEnrollments(studentId, options = {}) {
-    const loader = () => request(`${API_BASE_URL}/students/${encodePath(studentId)}/enrollments`, { signal: options.signal });
+    const loader = () => request(`${API_BASE_URL}/students/${encodePath(studentId)}/enrollments`, {
+      signal: options.signal,
+      skipUnauthorizedRedirect: options.skipUnauthorizedRedirect,
+    });
     if (options.signal) return loader();
     return getCachedResource(`enrollments:${studentId}`, loader, { force: options.force, ttlMs: 15000 });
   },

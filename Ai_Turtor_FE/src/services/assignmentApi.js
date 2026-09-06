@@ -15,18 +15,30 @@ export function assertAssignmentUploadReceipt(response) {
 }
 
 export const assignmentApi = {
-  async getStudentAssignments(studentId, courseId = '') {
+  async getStudentAssignments(studentId, courseId = '', options = {}) {
     const params = new URLSearchParams();
     if (courseId) params.append('courseId', courseId);
     const query = params.toString();
-    return request(`${API_BASE_URL}/students/${encodePath(studentId)}/assignments${query ? `?${query}` : ''}`);
+    return request(
+      `${API_BASE_URL}/students/${encodePath(studentId)}/assignments${query ? `?${query}` : ''}`,
+      {
+        signal: options.signal,
+        skipUnauthorizedRedirect: options.skipUnauthorizedRedirect,
+      },
+    );
   },
 
-  async getStudentSubmissions(studentId, courseId = '') {
+  async getStudentSubmissions(studentId, courseId = '', options = {}) {
     const params = new URLSearchParams();
     if (courseId) params.append('courseId', courseId);
     const query = params.toString();
-    return request(`${API_BASE_URL}/students/${encodePath(studentId)}/submissions${query ? `?${query}` : ''}`);
+    return request(
+      `${API_BASE_URL}/students/${encodePath(studentId)}/submissions${query ? `?${query}` : ''}`,
+      {
+        signal: options.signal,
+        skipUnauthorizedRedirect: options.skipUnauthorizedRedirect,
+      },
+    );
   },
 
   async getAssignmentDetail(assignmentId) {
@@ -41,7 +53,7 @@ export const assignmentApi = {
     });
   },
 
-  async submitAssignment(assignmentId, formData, student) {
+  async submitAssignment(assignmentId, formData, student, options = {}) {
     const identity = typeof student === 'object' && student !== null
       ? student
       : { studentId: student };
@@ -50,7 +62,12 @@ export const assignmentApi = {
     if (identity.studentName) params.append('studentName', identity.studentName);
     if (identity.studentEmail) params.append('studentEmail', identity.studentEmail);
     if (note) params.append('note', note);
-    return uploadRequest(`${API_BASE_URL}/students/assignments/${encodePath(assignmentId)}/submit?${params}`, formData, 'Nộp bài thất bại');
+    return uploadRequest(
+      `${API_BASE_URL}/students/assignments/${encodePath(assignmentId)}/submit?${params}`,
+      formData,
+      'Nộp bài thất bại',
+      { skipUnauthorizedRedirect: options.skipUnauthorizedRedirect },
+    );
   },
 
   async uploadAssignment(courseId, classId, formData) {
@@ -105,12 +122,16 @@ export const assignmentApi = {
     });
   },
 
-  async downloadAssignmentFile(assignmentId) {
-    return blobRequest(`${API_BASE_URL}/assignments/${encodePath(assignmentId)}/file`);
+  async downloadAssignmentFile(assignmentId, options = {}) {
+    return blobRequest(`${API_BASE_URL}/assignments/${encodePath(assignmentId)}/file`, {
+      skipUnauthorizedRedirect: options.skipUnauthorizedRedirect,
+    });
   },
 
-  async downloadSubmissionFile(submissionId) {
-    return blobRequest(`${API_BASE_URL}/submissions/${encodePath(submissionId)}/file`);
+  async downloadSubmissionFile(submissionId, options = {}) {
+    return blobRequest(`${API_BASE_URL}/submissions/${encodePath(submissionId)}/file`, {
+      skipUnauthorizedRedirect: options.skipUnauthorizedRedirect,
+    });
   },
 
   async deleteAssignment(assignmentId, teacherId = '') {

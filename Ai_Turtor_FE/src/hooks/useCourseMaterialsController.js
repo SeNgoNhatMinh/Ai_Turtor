@@ -19,6 +19,7 @@ export function useCourseMaterialsController({
   studentId,
   teacherId,
   triggerToast,
+  skipUnauthorizedRedirect = false,
 }) {
   const [courseMaterials, setCourseMaterials] = useState([]);
   const [isMaterialsLoading, setIsMaterialsLoading] = useState(false);
@@ -47,7 +48,11 @@ export function useCourseMaterialsController({
     setIsMaterialsLoading(true);
     setMaterialsError('');
     try {
-      const options = { signal: controller.signal, force: true };
+      const options = {
+        signal: controller.signal,
+        force: true,
+        skipUnauthorizedRedirect,
+      };
       const data = studentId
         ? await materialsApi.getStudentClassMaterials(studentId, courseId, classId, options)
         : await materialsApi.getCourseMaterials(courseId, classId, options);
@@ -78,7 +83,7 @@ export function useCourseMaterialsController({
         setIsMaterialsLoading(false);
       }
     }
-  }, [classId, courseId, studentId]);
+  }, [classId, courseId, studentId, skipUnauthorizedRedirect]);
 
   useRealtimeEvent(REALTIME_EVENT_TYPES.material, (event) => {
     if (!eventMatchesCourse(event, courseId)) return;

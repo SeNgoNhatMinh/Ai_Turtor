@@ -7,6 +7,7 @@ const studentPages = {
   'student-chat': lazy(() => import('../../features/student/chat/StudentChatPage')),
   'student-quizzes': lazy(() => import('../../features/student/quizzes/PracticeQuizzesPage')),
   'student-materials': lazy(() => import('../../features/student/materials/StudentMaterialsPage')),
+  'student-assignments': lazy(() => import('../../features/student/materials/StudentAssignmentsPage')),
   'student-escalation': lazy(() => import('../../features/student/mentor-review/MentorReviewPage')),
 };
 
@@ -24,6 +25,7 @@ export default function StudentWorkspace({
   setClassId,
   isDarkMode,
   triggerToast,
+  onLogout,
 }) {
   const currentUserId = currentUser?.userId || currentUser?.id || '';
   const studentLookupIds = useMemo(() => [
@@ -39,6 +41,7 @@ export default function StudentWorkspace({
     classId,
     setCourseId,
     setClassId,
+    skipUnauthorizedRedirect: true,
   });
   const studentId = enrollment.resolvedStudentId || currentUserId;
   const Page = studentPages[activeTab];
@@ -64,6 +67,7 @@ export default function StudentWorkspace({
         switchTab={switchTab}
         triggerToast={triggerToast}
         enrollment={enrollment}
+        onLogout={onLogout}
         role="student"
       />
     </Suspense>

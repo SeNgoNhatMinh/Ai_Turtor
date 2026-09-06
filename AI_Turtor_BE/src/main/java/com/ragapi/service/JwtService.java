@@ -28,6 +28,11 @@ public class JwtService {
             @Value("${security.jwt.secret}") String secret,
             @Value("${security.jwt.expiration-minutes:1440}") long expirationMinutes
     ) {
+        if (secret == null || secret.isBlank()) {
+            throw new IllegalStateException(
+                    "JWT_SECRET is required. Configure it in .env.deploy, an environment variable, or config/application-local.yml."
+            );
+        }
         this.objectMapper = objectMapper;
         this.secretBytes = secret.getBytes(StandardCharsets.UTF_8);
         this.expirationSeconds = Math.max(5, expirationMinutes) * 60;

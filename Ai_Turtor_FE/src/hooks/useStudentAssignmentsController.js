@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { assignmentApi } from '../services/assignmentApi';
 import { getUserFacingError } from '../services/apiClient';
 import {
@@ -15,21 +15,39 @@ export function useStudentAssignmentsController({
   studentEmail = '',
   courseId = '',
   triggerToast,
+  skipUnauthorizedRedirect = false,
 }) {
   const [assignments, setAssignments] = useState([]);
   const [selectedAssignment, setSelectedAssignment] = useState(null);
+  const [isAssignmentsLoading, setIsAssignmentsLoading] = useState(false);
+  const [assignmentsError, setAssignmentsError] = useState('');
+  const assignmentsRequestRef = useRef(null);
 
-  const loadStudentAssignments = async () => {
+  useEffect(() => () => assignmentsRequestRef.current?.abort(), []);
+
+  const loadStudentAssignments = useCallback(async () => {
+    assignmentsRequestRef.current?.abort();
     if (!studentId) {
       setAssignments([]);
       setSelectedAssignment(null);
+      setAssignmentsError('');
+      setIsAssignmentsLoading(false);
       return;
     }
+    const controller = new AbortController();
+    assignmentsRequestRef.current = controller;
+    setIsAssignmentsLoading(true);
+    setAssignmentsError('');
     try {
+      const options = {
+        signal: controller.signal,
+        skipUnauthorizedRedirect,
+      };
       const [assignmentData, submissionData] = await Promise.all([
-        assignmentApi.getStudentAssignments(studentId, courseId),
-        assignmentApi.getStudentSubmissions(studentId, courseId),
+        assignmentApi.getStudentAssignments(studentId, courseId, options),
+        assignmentApi.getStudentSubmissions(studentId, courseId, options),
       ]);
+      if (controller.signal.aborted) return;
       const assignList = asArray(assignmentData, 'content', 'assignments').map(normalizeAssignment);
       const submissionList = asArray(submissionData, 'content', 'submissions').map(normalizeAssignmentSubmission);
       const submissionsByAssignment = new Map(submissionList.map((submission) => [
@@ -50,10 +68,18 @@ export function useStudentAssignmentsController({
         || null
       ));
     } catch (error) {
+      if (controller.signal.aborted) return;
       console.warn('Failed to load student assignments:', error);
       setAssignments([]);
+      setSelectedAssignment(null);
+      setAssignmentsError(getUserFacingError(error, 'Không thể tải bài tập được giao.'));
+    } finally {
+      if (assignmentsRequestRef.current === controller) {
+        assignmentsRequestRef.current = null;
+        setIsAssignmentsLoading(false);
+      }
     }
-  };
+  }, [courseId, skipUnauthorizedRedirect, studentId]);
 
   useRealtimeEvent(REALTIME_EVENT_TYPES.studentAssignment, (event) => {
     if (eventMatchesCourse(event, courseId)) loadStudentAssignments();
@@ -75,7 +101,7 @@ export function useStudentAssignmentsController({
         studentId,
         studentName,
         studentEmail,
-      });
+      }, { skipUnauthorizedRedirect });
       triggerToast('Đã nộp bài thành công.');
       await loadStudentAssignments();
       return true;
@@ -96,7 +122,7 @@ export function useStudentAssignmentsController({
     }
     triggerToast('Đang tải tệp bài tập...');
     try {
-      const blob = await assignmentApi.downloadAssignmentFile(assignmentId);
+      const blob = await assignmentApi.downloadAssignmentFile(assignmentId, { skipUnauthorizedRedirect });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -120,7 +146,7 @@ export function useStudentAssignmentsController({
       return;
     }
     try {
-      const blob = await assignmentApi.downloadSubmissionFile(submissionId);
+      const blob = await assignmentApi.downloadSubmissionFile(submissionId, { skipUnauthorizedRedirect });
       const url = window.URL.createObjectURL(blob);
       const anchor = document.createElement('a');
       anchor.href = url;
@@ -138,6 +164,8 @@ export function useStudentAssignmentsController({
     assignments,
     selectedAssignment,
     setSelectedAssignment,
+    isAssignmentsLoading,
+    assignmentsError,
     loadStudentAssignments,
     handleStudentSubmit,
     handleDownloadAssignment,

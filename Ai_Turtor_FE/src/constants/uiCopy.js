@@ -53,8 +53,12 @@ export const uiCopy = {
       preparing: 'Đang tạo quiz từ tài liệu môn học đã lập chỉ mục...',
     },
     materials: {
-      title: 'Tài liệu & bài tập',
-      subtitle: 'Xem tài liệu từ giảng viên và nộp bài tập theo đúng lớp học phần.',
+      title: 'Tài liệu học tập',
+      subtitle: 'Xem và tải tài liệu do giảng viên chia sẻ cho đúng lớp học phần.',
+    },
+    assignments: {
+      title: 'Bài tập được giao',
+      subtitle: 'Theo dõi yêu cầu, hạn nộp và gửi bài làm theo từng môn học.',
       empty: 'Chọn một bài tập để xem chi tiết',
       uploadText: 'Kéo thả tệp vào đây hoặc bấm để chọn',
       uploadHint: 'Hỗ trợ các định dạng được backend cho phép, tối đa 50 MB',

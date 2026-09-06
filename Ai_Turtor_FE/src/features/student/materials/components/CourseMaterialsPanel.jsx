@@ -1,10 +1,11 @@
 import {
   DownloadOutlined,
   FilePdfOutlined,
+  FolderOpenOutlined,
   LinkOutlined,
   ReloadOutlined,
 } from '@ant-design/icons';
-import { Alert, Button, Card, Empty, Skeleton, Tag, Typography } from 'antd';
+import { Alert, Button, Card, Empty, Skeleton, Tag, Tooltip, Typography } from 'antd';
 import SearchableTable from '../../../../components/common/SearchableTable';
 import { getMaterialDisplayName } from '../../../../utils/sourceLabels';
 
@@ -14,6 +15,16 @@ const isWebsiteMaterial = (material) => (
   String(material?.sourceType || material?.type || '').toUpperCase() === 'HTML_URL'
 );
 
+const getReadableError = (error) => {
+  const message = String(error || '').trim();
+  if (/unauthorized|\b401\b/i.test(message)) {
+    return 'Phiên đăng nhập không còn hợp lệ. Vui lòng đăng nhập lại rồi tải lại danh sách.';
+  }
+  return message || 'Đã xảy ra lỗi khi tải dữ liệu. Vui lòng thử lại.';
+};
+
+const isSessionError = (error) => /phiên đăng nhập|unauthorized|\b401\b/i.test(String(error || ''));
+
 export default function CourseMaterialsPanel({
   materials,
   loading = false,
@@ -21,6 +32,7 @@ export default function CourseMaterialsPanel({
   courseId = '',
   classId = '',
   onRetry,
+  onLoginAgain,
   onDownload,
 }) {
   const safeMaterials = Array.isArray(materials) ? materials : [];
@@ -44,6 +56,7 @@ export default function CourseMaterialsPanel({
       dataIndex: 'classId',
       key: 'classId',
       width: 160,
+      responsive: ['md'],
       render: (value) => <Tag color="blue">{value || classId}</Tag>,
     },
     {
@@ -51,6 +64,7 @@ export default function CourseMaterialsPanel({
       dataIndex: 'indexedAt',
       key: 'indexedAt',
       width: 150,
+      responsive: ['lg'],
       render: (value) => (
         <Text type="secondary">{value ? new Date(value).toLocaleDateString('vi-VN') : '-'}</Text>
       ),
@@ -66,6 +80,7 @@ export default function CourseMaterialsPanel({
         return (
           <Button
             type="primary"
+            ghost
             icon={<DownloadOutlined />}
             onClick={() => onDownload(record.id, record.title)}
           >
@@ -79,21 +94,29 @@ export default function CourseMaterialsPanel({
   return (
     <Card className="student-teacher-materials" styles={{ body: { padding: 0 } }}>
       <div className="student-teacher-materials__header">
-        <div>
-          <span className="student-teacher-materials__eyebrow">{courseId || 'Môn học'}</span>
-          <h2>Tài liệu từ giảng viên</h2>
-          <p>Chỉ gồm học liệu do giảng viên phụ trách lớp {classId || 'hiện tại'} đăng tải.</p>
+        <div className="student-teacher-materials__heading">
+          <span className="student-teacher-materials__heading-icon" aria-hidden="true">
+            <FolderOpenOutlined />
+          </span>
+          <div>
+            <span className="student-teacher-materials__eyebrow">{courseId || 'Môn học'}</span>
+            <h2>Tài liệu từ giảng viên</h2>
+            <p>Học liệu được chia sẻ riêng cho lớp {classId || 'hiện tại'}.</p>
+          </div>
         </div>
         <div className="student-teacher-materials__summary">
           <strong>{safeMaterials.length}</strong>
           <span>tài liệu</span>
-          <Button
-            type="text"
-            aria-label="Tải lại tài liệu"
-            icon={<ReloadOutlined />}
-            loading={loading}
-            onClick={onRetry}
-          />
+          <Tooltip title="Tải lại danh sách">
+            <Button
+              type="text"
+              aria-label="Tải lại tài liệu"
+              icon={<ReloadOutlined />}
+              loading={loading}
+              disabled={!onRetry}
+              onClick={onRetry}
+            />
+          </Tooltip>
         </div>
       </div>
 
@@ -103,8 +126,10 @@ export default function CourseMaterialsPanel({
           type="error"
           showIcon
           message="Không tải được tài liệu"
-          description={error}
-          action={<Button size="small" onClick={onRetry}>Thử lại</Button>}
+          description={getReadableError(error)}
+          action={isSessionError(error) && onLoginAgain
+            ? <Button type="primary" size="small" onClick={onLoginAgain}>Đăng nhập lại</Button>
+            : onRetry ? <Button size="small" onClick={onRetry}>Thử lại</Button> : null}
         />
       )}
 
@@ -131,6 +156,9 @@ export default function CourseMaterialsPanel({
           searchPlaceholder="Tìm tài liệu của giảng viên"
           pagination={{ pageSize: 8, hideOnSinglePage: true }}
           scroll={{ x: 720 }}
+          size="middle"
+          rowClassName="student-material-row"
+          locale={{ emptyText: 'Không tìm thấy tài liệu phù hợp.' }}
           columns={columns}
         />
       )}

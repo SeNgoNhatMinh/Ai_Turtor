@@ -51,7 +51,10 @@ tts:
 
 spring:
   config:
-    import: optional:file:./config/application-local.yml
+    # Keep direct Maven runs and Docker Compose on the same JWT secret. Spring
+    # reads .env.deploy as a properties file when it is present; Docker still
+    # supplies the same values as environment variables.
+    import: optional:file:./config/application-local.yml,optional:file:./.env.deploy[.properties],optional:file:./AI_Turtor_BE/.env.deploy[.properties]
   application:
     name: ai-tutor-api
   jackson:
