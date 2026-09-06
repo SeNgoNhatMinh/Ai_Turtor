@@ -93,7 +93,6 @@ function StudentChatView({
               onSelectSession(sessionId, title);
               closeHistoryOnMobile();
             }}
-            onClose={() => setIsHistoryDrawerOpen(false)}
             onDelete={onDeleteSession}
             editingSessionId={editingSessionId}
             editingSessionTitle={editingSessionTitle}

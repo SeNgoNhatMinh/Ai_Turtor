@@ -332,7 +332,7 @@ test('main student workspace does not overflow the viewport', async ({ page }) =
   } else {
     await page.getByRole('button', { name: 'Hiện lịch sử trò chuyện' }).click();
     await expect(historyPane).toHaveClass(/is-open/);
-    await historyPane.getByRole('button', { name: 'Ẩn lịch sử trò chuyện' }).click();
+    await page.getByRole('button', { name: 'Đóng lịch sử chat' }).click();
     await expect(historyPane).not.toHaveClass(/is-open/);
   }
 });

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Button, Card, Tooltip } from 'antd';
-import { PanelLeftClose, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useDebouncedValue } from '../../../../hooks/useDebouncedValue';
 import { confirmDanger } from '../../../../components/common/confirmDialog';
 import ConversationGroup from '../conversations/ConversationGroup';
@@ -29,7 +29,6 @@ function ChatSessionsPanel({
   setEditingSessionId,
   setEditingSessionTitle,
   onSaveRename,
-  onClose,
   style,
 }) {
   const [searchText, setSearchText] = useState('');
@@ -96,16 +95,6 @@ function ChatSessionsPanel({
               disabled={!onCreate || Boolean(sessionMutationKey)}
               className="chat-history-icon-button"
               aria-label="Tạo cuộc trò chuyện mới"
-            />
-          </Tooltip>
-          <Tooltip title="Ẩn lịch sử trò chuyện">
-            <Button
-              type="text"
-              size="small"
-              icon={<PanelLeftClose size={17} />}
-              onClick={onClose}
-              className="chat-history-icon-button"
-              aria-label="Ẩn lịch sử trò chuyện"
             />
           </Tooltip>
         </div>
