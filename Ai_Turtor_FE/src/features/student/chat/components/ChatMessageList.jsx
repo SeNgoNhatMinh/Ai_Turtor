@@ -27,6 +27,8 @@ import { lessonSuggestionsForMessage, resolveChatStudyTip } from '../../learning
 import { isAiServiceErrorText, shouldOfferLessonContinuations } from '../../../../utils/errorMessages';
 import TutorMascot from '../../../../components/common/TutorMascot';
 import { useMarkdownReveal } from '../useMarkdownReveal';
+import TtsMessageAction from './TtsMessageAction';
+import { useMessageAudio } from '../useMessageAudio';
 
 const AiAnswer = lazy(() => import('../../../../components/AiAnswer'));
 
@@ -57,6 +59,7 @@ function StudentLiveAnswer({
   isWelcomeTurn,
   materialSourceMap,
   message,
+  messageAudio,
   messageKey,
   messagesEndRef,
   offerLessonContinuations,
@@ -74,12 +77,16 @@ function StudentLiveAnswer({
   studentName,
   togglePinnedMessage,
   triggerToast,
+  ttsEnabled,
   tutorTurnFailed,
   userId,
+  voiceId,
 }) {
   const fullMarkdown = withoutLegacyEvidenceAppendix(message.answer, evidenceMessage);
   const reveal = Boolean(message.revealAnswer) && !tutorTurnFailed && !message.canceled;
   const { text: revealedMarkdown, done } = useMarkdownReveal(fullMarkdown, reveal);
+  const showTtsAction = ttsEnabled && !message.canceled && Boolean(fullMarkdown.trim());
+  const showGeneralActions = !message.canceled && !message.sessionComplete && !isWelcomeTurn;
 
   useEffect(() => {
     if (!reveal || done) return;
@@ -129,17 +136,37 @@ function StudentLiveAnswer({
           onStudy={onStudySuggestion}
         />
       )}
-      {done && !message.canceled && !message.sessionComplete && !isWelcomeTurn && (
-        <AnswerActionBar
-          message={{
-            ...message,
-            aiServiceError: tutorTurnFailed,
-            retryable: Boolean(message.retryable || tutorTurnFailed),
-          }}
-          mentorRequestInProgress={showMentorSupport}
-          disableRetry={activeSessionMaxTurnsReached}
-          onAction={handleAnswerAction}
-        />
+      {done && (showTtsAction || showGeneralActions) && (
+        <div className="chat-ai-action-row">
+          {showTtsAction && (
+            <TtsMessageAction
+              messageKey={messageKey}
+              speech={messageAudio.state}
+              onToggle={() => messageAudio.toggle({
+                messageKey,
+                messageId: message.assistantMessageId || message.messageId || message.id || messageKey,
+                courseId,
+                classId,
+                text: fullMarkdown,
+                providerVoiceId: voiceId,
+              })}
+              onStop={() => messageAudio.stop(messageKey)}
+              onSeek={(value) => messageAudio.seek(messageKey, value)}
+            />
+          )}
+          {showGeneralActions && (
+            <AnswerActionBar
+              message={{
+                ...message,
+                aiServiceError: tutorTurnFailed,
+                retryable: Boolean(message.retryable || tutorTurnFailed),
+              }}
+              mentorRequestInProgress={showMentorSupport}
+              disableRetry={activeSessionMaxTurnsReached}
+              onAction={handleAnswerAction}
+            />
+          )}
+        </div>
       )}
 
       {done && !message.canceled && showMentorSupport && (
@@ -217,10 +244,15 @@ function ChatMessageList({
   studentName,
   togglePinnedMessage,
   triggerToast,
+  ttsEnabled = true,
   userId,
+  voiceId = '',
 }) {
   const [openSupportCards, setOpenSupportCards] = useState({});
   const [localEscalationIds, setLocalEscalationIds] = useState({});
+  const messageAudio = useMessageAudio(
+    `${activeSessionId || ''}:${courseId || ''}:${classId || ''}:${voiceId}`,
+  );
 
   const openInlineSupport = (messageKey) => {
     setOpenSupportCards((current) => ({ ...current, [messageKey]: true }));
@@ -328,6 +360,7 @@ function ChatMessageList({
                             isWelcomeTurn={isWelcomeTurn}
                             materialSourceMap={materialSourceMap}
                             message={message}
+                            messageAudio={messageAudio}
                             messageKey={messageKey}
                             messagesEndRef={messagesEndRef}
                             offerLessonContinuations={offerLessonContinuations}
@@ -345,8 +378,10 @@ function ChatMessageList({
                             studentName={studentName}
                             togglePinnedMessage={togglePinnedMessage}
                             triggerToast={triggerToast}
+                            ttsEnabled={ttsEnabled}
                             tutorTurnFailed={tutorTurnFailed}
                             userId={userId}
+                            voiceId={voiceId}
                           />
                         )}
                       </div>
