@@ -20,7 +20,7 @@
 
   .chat-header-controls {
     flex: none;
-    grid-template-columns: minmax(120px, 0.85fr) minmax(165px, 1fr) minmax(190px, 1.25fr);
+    grid-template-columns: minmax(120px, 0.85fr) minmax(165px, 1fr);
     justify-content: stretch;
   }
 
@@ -34,9 +34,6 @@
     grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
   }
 
-  .chat-header-controls .tts-voice-selector--compact {
-    grid-column: 1 / -1;
-  }
 }
 
 @container chat-workspace (max-width: 440px) {
@@ -44,9 +41,6 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .chat-header-controls .tts-voice-selector--compact {
-    grid-column: auto;
-  }
 }
 
 @media (max-width: 900px) {

@@ -253,11 +253,6 @@ function ChatWorkspace({
         questionCount={questionCount}
         selectedClassLabel={selectedClassOption?.label || selectedClassValue}
         selectedCourseValue={selectedCourseValue}
-        ttsVoiceId={ttsVoiceId}
-        ttsVoices={ttsVoices}
-        ttsVoicesError={ttsVoicesError}
-        ttsVoicesLoading={ttsVoicesLoading}
-        onTtsVoiceChange={changeTtsVoice}
         turnLimitNotice={turnLimitNotice}
       />
 
@@ -322,6 +317,9 @@ function ChatWorkspace({
         togglePinnedMessage={togglePinnedMessage}
         triggerToast={triggerToast}
         ttsEnabled={ttsVoices.length > 0 && !ttsVoicesError}
+        ttsVoices={ttsVoices}
+        ttsVoicesLoading={ttsVoicesLoading}
+        onTtsVoiceChange={changeTtsVoice}
         voiceId={ttsVoiceId}
         userId={userId}
       />

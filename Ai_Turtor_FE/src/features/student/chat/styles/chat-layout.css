@@ -32,8 +32,8 @@
 
 .chat-header-controls {
   display: grid;
-  flex: 0 1 590px;
-  grid-template-columns: minmax(120px, 150px) minmax(165px, 190px) minmax(190px, 230px);
+  flex: 0 1 350px;
+  grid-template-columns: minmax(120px, 150px) minmax(165px, 190px);
   align-items: center;
   justify-content: end;
   gap: 8px;
@@ -41,9 +41,7 @@
 }
 
 .chat-header-course-select.ant-select,
-.chat-header-controls .chat-class-readonly-pill,
-.chat-header-controls .tts-voice-selector--compact,
-.chat-header-controls .tts-voice-selector--compact .ant-select {
+.chat-header-controls .chat-class-readonly-pill {
   width: 100%;
   min-width: 0;
   max-width: none;

@@ -7,6 +7,7 @@ const formatTime = (seconds) => {
 };
 
 export default function TtsMessageAction({
+  children,
   messageKey,
   speech,
   onToggle,
@@ -40,6 +41,7 @@ export default function TtsMessageAction({
             <Square size={14} aria-hidden="true" /> Dừng
           </button>
         )}
+        {children}
       </div>
 
       {isCurrent && speech.hasAudio && (playing || paused) && (

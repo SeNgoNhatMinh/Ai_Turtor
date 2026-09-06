@@ -29,6 +29,7 @@ import TutorMascot from '../../../../components/common/TutorMascot';
 import { useMarkdownReveal } from '../useMarkdownReveal';
 import TtsMessageAction from './TtsMessageAction';
 import { useMessageAudio } from '../useMessageAudio';
+import VoiceSelector from '../../../tts/components/VoiceSelector';
 
 const AiAnswer = lazy(() => import('../../../../components/AiAnswer'));
 
@@ -78,6 +79,9 @@ function StudentLiveAnswer({
   togglePinnedMessage,
   triggerToast,
   ttsEnabled,
+  ttsVoices,
+  ttsVoicesLoading,
+  onTtsVoiceChange,
   tutorTurnFailed,
   userId,
   voiceId,
@@ -152,7 +156,15 @@ function StudentLiveAnswer({
               })}
               onStop={() => messageAudio.stop(messageKey)}
               onSeek={(value) => messageAudio.seek(messageKey, value)}
-            />
+            >
+              <VoiceSelector
+                compact
+                value={voiceId}
+                voices={ttsVoices}
+                loading={ttsVoicesLoading}
+                onChange={onTtsVoiceChange}
+              />
+            </TtsMessageAction>
           )}
           {showGeneralActions && (
             <AnswerActionBar
@@ -245,6 +257,9 @@ function ChatMessageList({
   togglePinnedMessage,
   triggerToast,
   ttsEnabled = true,
+  ttsVoices = [],
+  ttsVoicesLoading = false,
+  onTtsVoiceChange,
   userId,
   voiceId = '',
 }) {
@@ -379,6 +394,9 @@ function ChatMessageList({
                             togglePinnedMessage={togglePinnedMessage}
                             triggerToast={triggerToast}
                             ttsEnabled={ttsEnabled}
+                            ttsVoices={ttsVoices}
+                            ttsVoicesLoading={ttsVoicesLoading}
+                            onTtsVoiceChange={onTtsVoiceChange}
                             tutorTurnFailed={tutorTurnFailed}
                             userId={userId}
                             voiceId={voiceId}

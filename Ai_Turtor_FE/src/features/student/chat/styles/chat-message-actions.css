@@ -149,6 +149,14 @@
   gap: 8px;
 }
 
+.tts-message-actions .tts-voice-selector--compact {
+  min-width: 190px;
+}
+
+.tts-message-actions .tts-voice-selector--compact .ant-select {
+  width: 180px;
+}
+
 .tts-message-button,
 .tts-message-stop {
   min-height: 32px;
