@@ -1,6 +1,6 @@
 import { extractUnderstandingCheck } from './understandingCheck.js';
 
-export const REVEAL_MIN_CHARS = 32;
+const REVEAL_MIN_CHARS = 32;
 
 export function revealSourceMarkdown(markdown) {
   const text = String(markdown || '');

@@ -138,7 +138,7 @@ function QuickAction({ action, disabled, isPending, onOpen }) {
   );
 }
 
-export default function StudentDashboardPage({ currentUser, courseId, classId, switchTab, triggerToast, enrollment }) {
+export default function StudentDashboardPage({ currentUser, courseId, switchTab, triggerToast, enrollment }) {
   const enrollments = enrollment?.studentEnrollments || EMPTY_ENROLLMENTS;
   const [pendingTab, setPendingTab] = useState('');
   const [courseQuery, setCourseQuery] = useState('');

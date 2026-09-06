@@ -1,4 +1,3 @@
-const STUDY_CHAT_HANDOFF_KEY = 'ai-tutor:student:study-chat-handoff';
 const QUIZ_TOPIC_HANDOFF_KEY = 'ai-tutor:student:quiz-topic-handoff';
 
 const read = (key) => {
@@ -24,12 +23,6 @@ const write = (key, value) => {
     // Navigation still succeeds when browser storage is unavailable.
   }
 };
-
-export const writeStudyChatHandoff = (value) => write(STUDY_CHAT_HANDOFF_KEY, value);
-
-export const readStudyChatHandoff = () => read(STUDY_CHAT_HANDOFF_KEY);
-
-export const clearStudyChatHandoff = () => remove(STUDY_CHAT_HANDOFF_KEY);
 
 export const writeQuizTopicHandoff = (suggestionText) => write(QUIZ_TOPIC_HANDOFF_KEY, {
   suggestionText: String(suggestionText || '').trim(),

@@ -101,34 +101,6 @@ const getSuggestionTextValue = (suggestion) => (
     : suggestion?.actionText || suggestion?.title || suggestion?.content || ''
 );
 
-const normalizeSuggestionValue = (value) => String(value || '').trim().toLowerCase();
-
-export const suggestionMatchesText = (suggestion, target) => {
-  const targetDeleteValue = typeof target === 'object' ? target?.deleteValue : '';
-  if (
-    targetDeleteValue
-    && suggestion?.deleteValue
-    && normalizeSuggestionValue(suggestion.deleteValue) === normalizeSuggestionValue(targetDeleteValue)
-  ) {
-    return true;
-  }
-
-  const targetText = getSuggestionTextValue(target);
-  const candidates = typeof suggestion === 'string'
-    ? [suggestion]
-    : [suggestion?.actionText, suggestion?.title, suggestion?.content];
-
-  return candidates.some((candidate) => (
-    normalizeSuggestionValue(candidate) === normalizeSuggestionValue(targetText)
-  ));
-};
-
-export const createRecoveredSuggestion = (text) => ({
-  priority: 'medium',
-  title: text,
-  content: 'Saved from pinned items. Keep reviewing this topic when you continue your study plan.',
-});
-
 export const mergeSuggestionLists = (...lists) => {
   const merged = [];
   const seen = new Set();

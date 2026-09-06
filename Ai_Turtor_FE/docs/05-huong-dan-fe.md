@@ -1,7 +1,7 @@
 # 05 – Hướng Dẫn Frontend (ai-tutor-frontend)
 
 > **Mục đích:** Tổng hợp trạng thái hiện tại của FE — đã làm gì, đang làm gì, sẽ làm gì.  
-> **Cập nhật lần cuối:** 2026-06-21  
+> **Cập nhật lần cuối:** 2026-09-06
 > **Người cập nhật:** _(ghi tên vào đây mỗi khi sửa)_
 
 ---
@@ -21,8 +21,6 @@
 - [x] **Đánh giá câu trả lời** — Hữu ích / Không hữu ích / Góp ý (gọi `/api/tutor/answer-reviews`)
 - [x] **Lịch sử session chat** — tạo mới, đổi tên, xoá
 - [x] **Code Mentor** — phân tích code, debug (panel bên phải)
-- [x] **Tiến trình học** (`LearningProgress`) — topics đã học, điểm yếu, đề xuất AI
-- [x] **Edit Concepts** — modal chỉnh sửa memory học sinh (`PUT /api/tutor/students/.../memory`)
 - [x] **Tài liệu & Bài tập** (`MaterialsAssignments`)
   - Tab Assignments: xem, tải, nộp bài
   - Tab Course Learning Materials: danh sách PDF môn học + nút Download

@@ -60,7 +60,6 @@ ai-tutor-frontend/
 │           ├── ChatSessionsPanel.jsx  ← Danh sách lịch sử session chat
 │           ├── CodeReviewPanel.jsx    ← Panel Code Mentor (phân tích code)
 │           ├── TutorAvatarPanel.jsx   ← Panel avatar AI (Spline 3D)
-│           ├── LearningProgress.jsx   ← Tiến trình học / memory editor
 │           ├── MaterialsAssignments.jsx ← Tài liệu & bài tập môn học
 │           ├── MentorSupport.jsx      ← Hỗ trợ từ giáo viên (escalation chat)
 │           └── MentorSelectModal.jsx  ← Modal chọn giáo viên hỗ trợ
@@ -164,10 +163,6 @@ Navigation được định nghĩa tập trung tại `src/config/navigation.js`.
 - `isAiLoading` → hiển thị typing indicator + nút **Dừng lại** (đỏ)
 - Bubble AI chỉ render khi `!message.pending`
 - Nút đánh giá: Hữu ích / Không hữu ích / Góp ý (gọi `POST /api/tutor/answer-reviews`)
-
-### `LearningProgress.jsx`
-- Hiển thị: Topics đã học · Điểm yếu · Đề xuất AI
-- Modal "Edit Concepts" → cập nhật memory học sinh (`PUT /api/tutor/students/{id}/courses/{id}/memory`)
 
 ### `TeacherPortal.jsx`
 - Tab Classes: Heatmap kiến thức lớp + danh sách sinh viên

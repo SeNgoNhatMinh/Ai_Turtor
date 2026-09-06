@@ -12,7 +12,6 @@ import {
   buildQuizScoreboardRows,
   getTeacherQuizAttemptRowStatus,
 } from '../src/features/teacher/quizzes/quizScoreboardUtils.js';
-import { buildStudentNextSteps } from '../src/features/student/learning/studentNextStepUtils.js';
 import {
   FEEDBACK_ACTIONS,
   getFeedbackActionKeyForStar,
@@ -59,25 +58,6 @@ test('education navigation tabs stay within each workspace role', () => {
   assert.ok(adminTabs.has('admin-ai-logs'));
   assert.ok(!adminTabs.has('admin-expert-training'));
   assert.ok(!adminTabs.has('senior-review'));
-});
-
-test('student next steps surface pending quizzes and assignments without completed noise', () => {
-  const steps = buildStudentNextSteps({
-    assignedQuizzes: [{ id: 'qa-1', assignmentId: 'qa-1', title: 'Midterm', status: 'PUBLISHED' }],
-    quizHistory: [],
-    assignments: [{ id: 'a1', title: 'Lab 1', status: 'OPEN' }],
-    submissions: [],
-  });
-  assert.ok(steps.some((step) => String(step.key).includes('qa-1')));
-  assert.ok(steps.some((step) => String(step.key).includes('a1')));
-
-  const afterAttempt = buildStudentNextSteps({
-    assignedQuizzes: [{ id: 'qa-1', assignmentId: 'qa-1', title: 'Midterm', status: 'PUBLISHED' }],
-    quizHistory: [{ assignmentId: 'qa-1', status: 'SUBMITTED' }],
-    assignments: [],
-    submissions: [],
-  });
-  assert.ok(!afterAttempt.some((step) => String(step.key).includes('assigned-quiz:qa-1')));
 });
 
 test('student answer feedback follows education escalation tiers', () => {

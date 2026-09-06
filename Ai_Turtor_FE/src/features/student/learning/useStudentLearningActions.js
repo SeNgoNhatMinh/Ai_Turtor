@@ -1,5 +1,4 @@
-import { useEffect } from 'react';
-import { writeQuizTopicHandoff, writeStudyChatHandoff } from '../studentRouteHandoff';
+import { writeQuizTopicHandoff } from '../studentRouteHandoff';
 import { buildStudySuggestionPrompt } from './studySuggestionPrompt';
 
 const getSuggestionText = (suggestion) => String(
@@ -13,39 +12,24 @@ const getSuggestionText = (suggestion) => String(
 ).trim();
 
 export function useStudentLearningActions({
-  activeTab,
-  courseId,
   switchTab,
-  loadStudentDashboard,
   setChatDraft,
   sendChatMessage,
   triggerToast,
 }) {
-  useEffect(() => {
-    if (activeTab === 'student-memory') {
-      loadStudentDashboard?.();
-    }
-    // Dashboard refresh is driven by tab/course changes, not callback identity.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, courseId]);
-
   const handleStudySuggestion = (suggestion) => {
     const text = getSuggestionText(suggestion);
     if (!text) return;
 
     const prompt = buildStudySuggestionPrompt(text);
-    if (activeTab === 'student-chat' && sendChatMessage) {
+    if (sendChatMessage) {
       sendChatMessage(prompt);
       return;
     }
-    if (activeTab === 'student-chat' && setChatDraft) {
+    if (setChatDraft) {
       setChatDraft(prompt);
       triggerToast?.('Đã đưa gợi ý vào khung chat. Bạn có thể chỉnh sửa trước khi gửi.');
-      return;
     }
-
-    writeStudyChatHandoff({ suggestionText: text, prompt });
-    switchTab?.('student-chat');
   };
 
   const handleCreateQuizFromSuggestion = (suggestionText) => {

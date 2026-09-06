@@ -1,4 +1,4 @@
-export function parseNumberedLesson(text) {
+function parseNumberedLesson(text) {
   const topic = String(text || '').trim();
   if (!topic) return null;
 
@@ -33,11 +33,11 @@ export function teacherStudentPathLabel(text) {
   return '';
 }
 
-export function isDeepDiveListPrompt(text) {
+function isDeepDiveListPrompt(text) {
   return parseNumberedLesson(text)?.kind === 'deep-list';
 }
 
-export function isDeepDiveTopicPrompt(text) {
+function isDeepDiveTopicPrompt(text) {
   return parseNumberedLesson(text)?.kind === 'deep-teach';
 }
 
@@ -48,7 +48,7 @@ export function buildDeepDiveListPrompt(lessonText, answerText = '') {
   return `Gợi ý học chuyên sâu bài ${lesson.number}: ${lesson.title}`;
 }
 
-export function answerHasDeepDiveList(answer) {
+function answerHasDeepDiveList(answer) {
   return /^#{1,6}\s*(?:học chuyên sâu|học tiếp phần này)\s*$/im.test(String(answer || ''));
 }
 
@@ -78,7 +78,7 @@ export function resolveChatStudyTip(question, tipText) {
   return tip;
 }
 
-export function normalizeLessonStart(suggestionText) {
+function normalizeLessonStart(suggestionText) {
   const topic = String(suggestionText || '').trim();
   if (!topic) return '';
 
@@ -92,7 +92,7 @@ export function normalizeLessonStart(suggestionText) {
   return '';
 }
 
-export function buildTopicStudyPrompt(suggestionText) {
+function buildTopicStudyPrompt(suggestionText) {
   const topic = String(suggestionText || '').trim();
   if (!topic) return '';
   if (/^(?:nay|hôm nay)\s+(?:mình|em)\s+học\b/i.test(topic)

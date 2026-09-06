@@ -6,7 +6,6 @@
 @import "./features/student/chat/styles/chat-history-foundation.css";
 @import "./features/student/chat/styles/chat-message-foundation.css";
 @import "./features/student/chat/styles/chat-side-panel-foundation.css";
-@import "./features/student/learning/LearningProgressFoundation.css";
 @import "./features/student/materials/StudentMaterialsFoundation.css";
 @import "./features/student/materials/StudentAssignmentsFoundation.css";
 @import "./features/teacher/classes/TeacherClasses.css";

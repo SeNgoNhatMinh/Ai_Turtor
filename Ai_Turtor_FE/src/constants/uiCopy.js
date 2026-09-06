@@ -43,13 +43,6 @@ export const uiCopy = {
       title: 'Trạng thái AI Tutor',
       subtitle: 'Robot thể hiện trạng thái của AI Tutor, không phải một chatbot riêng.',
     },
-    progress: {
-      title: 'Tiến độ học tập',
-      subtitle: 'Theo dõi kiến thức đã học, nội dung còn yếu và kế hoạch ôn tập theo từng môn.',
-      learnedTitle: 'Đã nắm vững',
-      weakTitle: 'Cần cải thiện',
-      suggestionsTitle: 'Gợi ý học tập',
-    },
     quizzes: {
       title: 'Luyện tập bằng quiz theo tài liệu môn học',
       subtitle: 'Tạo quiz tự ôn, làm quiz giảng viên giao và xem lại kết quả sau khi nộp.',

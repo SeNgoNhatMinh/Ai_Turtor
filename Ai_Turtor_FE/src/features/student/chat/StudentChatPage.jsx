@@ -1,10 +1,9 @@
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import StudentChatView from './StudentChatView';
 import { useCourseMaterialsController } from '../../../hooks/useCourseMaterialsController';
 import { useStudentChatController } from '../../../hooks/useStudentChatController';
 import { useStudentLearningController } from '../learning/useStudentLearningController';
 import { useStudentLearningActions } from '../learning/useStudentLearningActions';
-import { clearStudyChatHandoff, readStudyChatHandoff } from '../studentRouteHandoff';
 import { classIdMatches } from '../../../utils/academicIds';
 import { useChatMentorRequests } from './useChatMentorRequests';
 import { useStudentChatTabController } from './useStudentChatTabController';
@@ -29,12 +28,10 @@ export default function StudentChatPage({
     isStudentEnrollmentsLoading,
     selectCourse,
   } = enrollment;
-  const pendingStudyHandoffRef = useRef(readStudyChatHandoff());
   const learning = useStudentLearningController({
     studentId,
     courseId,
     classId,
-    switchTab,
     triggerToast,
   });
   const chat = useStudentChatController({
@@ -78,10 +75,7 @@ export default function StudentChatPage({
     triggerToast,
   });
   const learningActions = useStudentLearningActions({
-    activeTab: 'student-chat',
-    courseId,
     switchTab,
-    loadStudentDashboard: learning.loadStudentDashboard,
     setChatDraft: chatController.setChatDraft,
     sendChatMessage: chatController.sendText,
     triggerToast,
@@ -142,19 +136,6 @@ export default function StudentChatPage({
       dashboardCancel?.();
     };
     // Route pages load only their own resources when identity/context changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [studentId, courseId, classId]);
-
-  useEffect(() => {
-    const handoff = pendingStudyHandoffRef.current;
-    if (!handoff || !studentId || !courseId || !classId) return;
-    pendingStudyHandoffRef.current = null;
-    clearStudyChatHandoff();
-    if (handoff.prompt) {
-      chatController.setChatDraft(handoff.prompt);
-      triggerToast?.('Đã đưa gợi ý vào khung chat. Bạn có thể chỉnh sửa trước khi gửi.');
-    }
-    // Consume a route handoff once after enrollment context is available.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [studentId, courseId, classId]);
 

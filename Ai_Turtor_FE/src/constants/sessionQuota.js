@@ -1,8 +1,6 @@
-export const DAILY_COURSE_QUESTION_LIMIT_CODE = 'DAILY_COURSE_QUESTION_LIMIT_REACHED';
+const DAILY_COURSE_QUESTION_LIMIT_CODE = 'DAILY_COURSE_QUESTION_LIMIT_REACHED';
 
 export const DAILY_COURSE_QUESTION_LIMIT = 10;
-
-export const DAILY_SESSION_COMPLETE_TITLE = 'Phiên học hôm nay đã hết';
 
 export const DAILY_SESSION_COMPLETE_MESSAGE =
   'Phiên học hôm nay của môn này đã hết 10 câu hỏi. Cảm ơn bạn đã học cùng mình. Bạn có thể hỏi môn khác, hoặc quay lại môn này vào ngày mai.';

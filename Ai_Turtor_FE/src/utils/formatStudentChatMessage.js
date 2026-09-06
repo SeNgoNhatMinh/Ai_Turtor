@@ -37,7 +37,7 @@ export function reconstructExplodedMarkup(text) {
     .trim();
 }
 
-export function prettyPrintMarkup(text) {
+function prettyPrintMarkup(text) {
   const splitTags = String(text || '')
     .replace(/>\s*</g, '>\n<')
     .trim();
@@ -64,7 +64,7 @@ export function prettyPrintMarkup(text) {
   return out.join('\n');
 }
 
-export function splitProseAndCode(text) {
+function splitProseAndCode(text) {
   const raw = String(text || '').trim();
   if (!raw) return { prose: '', code: '' };
 

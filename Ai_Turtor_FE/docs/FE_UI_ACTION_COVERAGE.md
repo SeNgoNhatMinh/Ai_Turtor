@@ -56,7 +56,6 @@ The real Mentor Support action remains under an AI answer because it carries que
 | Admin dashboard | Real action navigation and no fabricated activity/log state | `tests/components/AdminDashboard.test.jsx` |
 | Website material import | Admin/Teacher must analyze backend TOC and select entries before import | `tests/components/ImportWebsiteModal.test.jsx` |
 | Material processing | Accepted upload keeps `materialId`, blocks duplicate processing upload and exposes indexing state | `tests/components/TeacherMaterialUploadCard.test.jsx`, `tests/components/materialsApi.test.js` |
-| Student next steps | Only pending canonical assignment/quiz/support records become actions | `tests/studentNextSteps.test.js` |
 | Teacher action center | Queue item routes to its owning feature and remains disabled without class scope | `tests/components/TeacherActionCenter.test.jsx` |
 | Review history | Resolved Answer Review is read-only and cannot submit another decision | `tests/components/AnswerReviewCard.test.jsx` |
 | Runtime routes | Unexpected API requests return `501` and fail E2E | `tests/e2e/app-shell.spec.js` |

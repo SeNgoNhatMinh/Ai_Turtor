@@ -129,22 +129,7 @@ Chuẩn bị thêm một student không có enrollment để test guard.
 | SCHAT-026 | P1 AUTO-E2E | Suggestion `Create quiz` | AI answer có suggestion | Route handoff sang `/student/quizzes` | Topic được prefill, chưa generate cho tới khi user bấm. |
 | SCHAT-027 | P0 MANUAL-LIVE | `Ask mentor` / create support | AI answer low confidence hoặc user yêu cầu | `POST /api/tutor/escalations`, sau đó `POST .../offer` | Tạo ticket gắn đúng question, AI answer, conversation, course/class. |
 
-## 6. Student - Learning Progress (`/student/progress`)
-
-| ID | Priority | Button/action | Setup | Expected API/effect | Acceptance |
-|---|---|---|---|---|---|
-| SLEARN-001 | P0 AUTO-E2E | `Refresh dashboard` | Có enrollment | Dashboard + memory canonical GET | Snapshot/memory cập nhật, không dùng fallback topic giả. |
-| SLEARN-002 | P0 AUTO-E2E + MANUAL-LIVE | `Analyze memory` | Có chat/memory | `POST /api/tutor/improve-suggestions` | Loading lock; suggestions/plan render từ response/refetch. |
-| SLEARN-003 | P1 AUTO-E2E | `Edit memory` | Memory đã load | Local modal | Form hydrate đúng learned/weak/recent data. |
-| SLEARN-004 | P1 AUTO-E2E | `Save` memory | Modal có thay đổi | `PUT .../memory` | Modal chỉ đóng sau success; refresh không mất dữ liệu. |
-| SLEARN-005 | P1 AUTO-E2E | Pin suggestion | Suggestion chưa pin | `POST .../memory/pinned-suggestions` | Item lên đầu, không duplicate. |
-| SLEARN-006 | P1 AUTO-E2E | Unpin suggestion | Suggestion đã pin | `DELETE .../memory/pinned-suggestions?suggestion=` | Item vẫn trong checklist, chỉ mất pinned state. |
-| SLEARN-007 | P0 AUTO-E2E | `Study now` | Suggestion hợp lệ | `POST .../suggestions/learn` | Route sang chat với course context và nội dung hướng dẫn. |
-| SLEARN-008 | P0 AUTO-E2E | `Create quiz` | Suggestion hợp lệ | Route handoff sang quiz | Suggestion được prefill đúng. |
-| SLEARN-009 | P1 AUTO-E2E | `Reload plans` | Có course | `GET /api/students/{studentId}/improve-plans?courseId=` | Latest và history không duplicate. |
-| SLEARN-010 | P1 AUTO-E2E | `Mark complete` | Active plan | `PUT /api/improve-plans/{planId}/complete` | Plan chuyển completed sau canonical reload; button lock. |
-
-## 7. Student - Practice Quizzes (`/student/quizzes`)
+## 6. Student - Practice Quizzes (`/student/quizzes`)
 
 | ID | Priority | Button/action | Setup | Expected API/effect | Acceptance |
 |---|---|---|---|---|---|
@@ -160,7 +145,7 @@ Chuẩn bị thêm một student không có enrollment để test guard.
 | SQUIZ-010 | P0 AUTO-E2E | Submit `AI_ASSISTED` | Assigned AI-assisted quiz | Submit endpoint | Auto score chỉ là gợi ý cho tới teacher final review. |
 | SQUIZ-011 | P1 AUTO-E2E | Tab navigation | Mobile/desktop | Local tab state | Năm tab không overflow, keyboard navigation hoạt động. |
 
-## 8. Student - Materials And Assignments (`/student/materials`)
+## 7. Student - Materials And Assignments (`/student/materials`)
 
 | ID | Priority | Button/action | Setup | Expected API/effect | Acceptance |
 |---|---|---|---|---|---|
@@ -171,7 +156,7 @@ Chuẩn bị thêm một student không có enrollment để test guard.
 | SMAT-005 | P1 AUTO-E2E | Download submitted file | Có submission | `GET /api/submissions/{submissionId}/file` | Filename thật, không hardcode ZIP. |
 | SMAT-006 | P1 MANUAL-LIVE | Assignment realtime | Teacher publish/review | WebSocket event -> canonical assignments/submissions GET | UI tự cập nhật; event không tự tạo success data. |
 
-## 9. Student - Mentor Review (`/student/mentor-review`)
+## 8. Student - Mentor Review (`/student/mentor-review`)
 
 | ID | Priority | Button/action | Setup | Expected API/effect | Acceptance |
 |---|---|---|---|---|---|
@@ -184,7 +169,7 @@ Chuẩn bị thêm một student không có enrollment để test guard.
 | SMENTOR-007 | P1 AUTO-E2E | Close/cancel -> Cancel confirm | Active flow | Không mutation | Room/ticket giữ nguyên. |
 | SMENTOR-008 | P0 MANUAL-LIVE | Close room | Active ChatRoom | `POST /api/chat/close` | Status completed; final answer/review vẫn tồn tại sau reload. |
 
-## 10. Teacher - Classes (`/teacher/classes`)
+## 9. Teacher - Classes (`/teacher/classes`)
 
 | ID | Priority | Button/action | Setup | Expected API/effect | Acceptance |
 |---|---|---|---|---|---|
@@ -192,7 +177,7 @@ Chuẩn bị thêm một student không có enrollment để test guard.
 | TCLASS-002 | P0 AUTO-E2E | Select class | Teacher có nhiều class | Class students + memories GET | Course/class đồng bộ; roster hiển thị name/email. |
 | TCLASS-003 | P1 AUTO-E2E | Heatmap topic/select action | Có memory data | Local selection/navigation | Weak topic, affected students, risk và action khớp canonical memory. |
 
-## 11. Teacher - Quiz Assignments (`/teacher/quizzes`)
+## 10. Teacher - Quiz Assignments (`/teacher/quizzes`)
 
 | ID | Priority | Button/action | Setup | Expected API/effect | Acceptance |
 |---|---|---|---|---|---|
@@ -212,7 +197,7 @@ Chuẩn bị thêm một student không có enrollment để test guard.
 | TQUIZ-014 | P0 AUTO-E2E | Switch class khi dirty -> keep editing | Draft dirty | Không API | Scope cũ và draft cũ được giữ. |
 | TQUIZ-015 | P0 AUTO-E2E | Switch class -> confirm | Draft dirty | Reload list theo scope mới | Draft list/student picker đổi cùng class, không trộn course. |
 
-## 12. Teacher - Materials And File Assignments (`/teacher/materials`)
+## 11. Teacher - Materials And File Assignments (`/teacher/materials`)
 
 | ID | Priority | Button/action | Setup | Expected API/effect | Acceptance |
 |---|---|---|---|---|---|
@@ -230,7 +215,7 @@ Chuẩn bị thêm một student không có enrollment để test guard.
 | TASSIGN-005 | P1 AUTO-E2E | Assignment `Download` | Có attachment | Assignment file GET | Filename gốc. |
 | TASSIGN-006 | P0 AUTO-E2E | Assignment `Delete` | Assignment existing | `DELETE /api/mentor/assignments/{id}` sau confirm | Cancel không delete; receipt mới xóa row. |
 
-## 13. Teacher - Grading (`/teacher/grading`)
+## 12. Teacher - Grading (`/teacher/grading`)
 
 | ID | Priority | Button/action | Setup | Expected API/effect | Acceptance |
 |---|---|---|---|---|---|
@@ -244,7 +229,7 @@ Chuẩn bị thêm một student không có enrollment để test guard.
 | TGRADE-008 | P0 AUTO-E2E | `Submit Final Review` quiz | Attempt pending | `PUT /api/tutor/quizzes/{sessionId}/teacher-review` | Một mutation; reviewed attempt read-only sau reload. |
 | TGRADE-009 | P0 AUTO-E2E | Review quiz options | Attempt có detail | Read-only | Hiển thị student choice/key/correctness theo grading policy. |
 
-## 14. Teacher/Senior - Review Queue (`/teacher/review-queue`)
+## 13. Teacher/Senior - Review Queue (`/teacher/review-queue`)
 
 | ID | Priority | Button/action | Setup | Expected API/effect | Acceptance |
 |---|---|---|---|---|---|
@@ -259,7 +244,7 @@ Chuẩn bị thêm một student không có enrollment để test guard.
 | TREVIEW-009 | P0 AUTO-E2E | Candidate `Reject` | SENIOR_MENTOR/ADMIN, reason | n8n approval/reject hoặc backend reject | Reason required; status rejected; không index. |
 | TREVIEW-010 | P0 AUTO-E2E | Candidate action bằng TEACHER | Login TEACHER | Không mutation | Approve/reject hidden hoặc disabled theo role. |
 
-## 15. Admin - Dashboard (`/admin/dashboard`)
+## 14. Admin - Dashboard (`/admin/dashboard`)
 
 | ID | Priority | Button/action | Setup | Expected API/effect | Acceptance |
 |---|---|---|---|---|---|
@@ -268,7 +253,7 @@ Chuẩn bị thêm một student không có enrollment để test guard.
 | ADASH-003 | P2 AUTO-E2E | Click Trace ID | Log có traceId | `GET /api/harness/traces/{traceId}` | Input/detail đúng trace. |
 | ADASH-004 | P2 AUTO-E2E | `Load Trace` | Nhập traceId | Same endpoint | Empty ID không request; invalid ID có error state. |
 
-## 16. Admin - Users (`/admin/users`)
+## 15. Admin - Users (`/admin/users`)
 
 | ID | Priority | Button/action | Setup | Expected API/effect | Acceptance |
 |---|---|---|---|---|---|
@@ -283,7 +268,7 @@ Chuẩn bị thêm một student không có enrollment để test guard.
 | AUSER-009 | P1 AUTO-E2E | Support requests Reload | Có escalation | `GET /api/admin/mentor-escalations` | Student name/email thay ID khi có account data. |
 | AUSER-010 | P1 AUTO-E2E | Delete support request | Escalation existing | `DELETE /api/admin/mentor-escalations/{id}` | Confirm + canonical row removal. |
 
-## 17. Admin - Academic (`/admin/academic`)
+## 16. Admin - Academic (`/admin/academic`)
 
 | ID | Priority | Button/action | Setup | Expected API/effect | Acceptance |
 |---|---|---|---|---|---|
@@ -308,7 +293,7 @@ Chuẩn bị thêm một student không có enrollment để test guard.
 | AMAT-007 | P0 AUTO-E2E | Material Delete Cancel/Confirm | Material existing | Cancel none; confirm DELETE | Confirm dễ bấm; không hiện lạc sang chat. |
 | AMAT-008 | P1 MANUAL-LIVE | Material indexing realtime | Upload/import/reindex | WebSocket event -> materials GET | `PROCESSING -> INDEXED/FAILED` tự cập nhật. |
 
-## 18. Tutor V2 Expert Co-Training (`/teacher/expert-training`, `/admin/expert-training`)
+## 17. Tutor V2 Expert Co-Training (`/teacher/expert-training`, `/admin/expert-training`)
 
 | ID | Mức/Test | Button/Action | Expected |
 |---|---|---|---|
@@ -342,7 +327,7 @@ Chuẩn bị thêm một student không có enrollment để test guard.
 | V2-028 | P0 MANUAL-LIVE | Reject và resubmit | Reject bắt buộc note, task về `IN_PROGRESS`; Teacher thấy reason và nội dung cũ để chỉnh sửa/gửi lại. |
 | V2-029 | P0 AUTO-E2E | Canonical selected task | URL chỉ lưu task ID; sau REST/WebSocket refetch detail lấy object mới, không giữ status stale. |
 
-## 19. Cross-Cutting Error, Lock, Realtime Và n8n
+## 18. Cross-Cutting Error, Lock, Realtime Và n8n
 
 | ID | Priority | Scenario | Expected |
 |---|---|---|---|
@@ -362,7 +347,7 @@ Chuẩn bị thêm một student không có enrollment để test guard.
 | CROSS-014 | P1 AUTO-E2E | Dark mode | Dropdown, Select popup, ConfirmCard, status, quiz result và markdown đủ contrast. |
 | CROSS-015 | P1 AUTO-E2E | Keyboard/reduced motion | Tab/Enter/Escape/focus hoạt động; animation giảm theo media query. |
 
-## 20. Refactor Audit Cho Testability
+## 19. Refactor Audit Cho Testability
 
 ### Đã đúng hướng
 
@@ -385,7 +370,7 @@ Chuẩn bị thêm một student không có enrollment để test guard.
 2. Hook mutation mới nên giữ contract `{ run, isPending, error }` để tiếp tục thống nhất test double-click và failure rollback.
 3. Các chuỗi mới nên đi qua copy/status constants; chưa cần thêm framework i18n khi sản phẩm chỉ dùng tiếng Việt.
 
-## 21. Automation Roadmap
+## 20. Automation Roadmap
 
 ### Phase A - P0 mocked E2E
 
@@ -414,7 +399,7 @@ Chuẩn bị thêm một student không có enrollment để test guard.
 - AI-assisted assignment grading và teacher final score.
 - KnowledgeCandidate approve/reject và RAG indexing.
 
-## 22. Regression Commands
+## 21. Regression Commands
 
 Chạy theo thứ tự sau trước khi ký test run:
 
@@ -428,7 +413,7 @@ npm run dead-code
 
 `npm run check` có thể thay cho ba lệnh đầu. Live integration cases phải ghi rõ cấu hình `VITE_N8N_ENABLED`, quiz/assignment grading flags và workflow version đang active.
 
-## 23. Execution Log Template
+## 22. Execution Log Template
 
 | Run date | Build/commit | Environment | Test IDs | Pass | Fail | Blocked | Evidence/issue |
 |---|---|---|---|---:|---:|---:|---|
@@ -436,7 +421,7 @@ npm run dead-code
 
 Khi phát hiện lỗi, issue phải ghi: test ID, role, route, request/response status, payload đã che token, UI state trước/sau và bước reproduce tối thiểu.
 
-## 24. Canonical Action Centers, Review History Và Material Processing
+## 23. Canonical Action Centers, Review History Và Material Processing
 
 | ID | Priority | Button/Action | Expected |
 |---|---|---|---|

@@ -7,7 +7,6 @@ export default function PracticeQuizzesPage({
   studentId,
   courseId,
   classId,
-  switchTab,
   triggerToast,
 }) {
   const [initialSuggestion] = useState(readQuizTopicHandoff);
@@ -15,7 +14,6 @@ export default function PracticeQuizzesPage({
     studentId,
     courseId,
     classId,
-    switchTab,
     triggerToast,
   });
 

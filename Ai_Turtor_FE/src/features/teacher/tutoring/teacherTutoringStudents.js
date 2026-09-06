@@ -81,7 +81,7 @@ function uniqueTexts(values) {
 
 const META_TOPIC_RE = /tóm tắt các câu hỏi|câu hỏi gần đây|improve plan|learning improvement|^code mentor:/i;
 
-export function isMemoryMetaPhrase(text) {
+function isMemoryMetaPhrase(text) {
   return META_TOPIC_RE.test(String(text || '').trim());
 }
 
@@ -141,11 +141,11 @@ export function sessionHeadline(session, fallbackTopics = []) {
   return when ? `Học tự do · ${when}` : 'Học tự do';
 }
 
-export function classScopeKey(courseId, classId) {
+function classScopeKey(courseId, classId) {
   return `${String(courseId || '').trim().toUpperCase()}::${String(classId || '').trim().toUpperCase()}`;
 }
 
-export function formatClassScopeLabel({ courseId, classId, className } = {}) {
+function formatClassScopeLabel({ courseId, classId, className } = {}) {
   const course = String(courseId || '').trim();
   const klass = String(classId || className || '').trim();
   if (course && klass && klass.toUpperCase() !== course.toUpperCase()) return `${course} · ${klass}`;
@@ -154,7 +154,7 @@ export function formatClassScopeLabel({ courseId, classId, className } = {}) {
   return 'Lớp chưa chọn';
 }
 
-export function mapAssignedClass(section = {}, fallback = {}) {
+function mapAssignedClass(section = {}, fallback = {}) {
   const nestedCourseId = section.course?.courseId || section.course?.id;
   const courseId = section.courseId
     || section.courseCode
@@ -296,7 +296,7 @@ export function buildClassStudentRows({
     ));
 }
 
-export function isStudentTranscriptRole(role) {
+function isStudentTranscriptRole(role) {
   return String(role || '').trim().toUpperCase() === 'STUDENT';
 }
 
