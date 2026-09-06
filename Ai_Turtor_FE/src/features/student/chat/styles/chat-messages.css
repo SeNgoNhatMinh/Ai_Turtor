@@ -381,6 +381,39 @@
   max-width: 100%;
 }
 
+/* Keep tutor answers compact and scannable, like a modern conversational UI. */
+.chat-gpt-ai-content .ai-answer {
+  gap: 0;
+}
+
+.chat-gpt-ai-content .ai-answer-paragraph,
+.chat-gpt-ai-content .ai-answer-list {
+  font-size: 16px;
+  line-height: 1.65;
+}
+
+.chat-gpt-ai-content .ai-answer-prose > * + * {
+  margin-top: 14px;
+}
+
+.chat-gpt-ai-content .ai-answer-heading {
+  margin: 22px 0 6px;
+  font-size: 18px;
+  line-height: 1.4;
+}
+
+.chat-gpt-ai-content .ai-answer-heading:first-child {
+  margin-top: 0;
+}
+
+.chat-gpt-ai-content .ai-answer-list {
+  padding-left: 22px;
+}
+
+.chat-gpt-ai-content .ai-answer-list li + li {
+  margin-top: 5px;
+}
+
 /* Input Area Fixed at Bottom */
 .chat-workspace-input-area {
   position: absolute;

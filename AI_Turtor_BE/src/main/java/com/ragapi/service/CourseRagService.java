@@ -1253,6 +1253,15 @@ public class CourseRagService {
                 LEARNER MEMORY:
                 %s
 
+                CHATGPT-LIKE READABILITY:
+                - Write clean GitHub-flavored Markdown, not one dense wall of text.
+                - Start with a direct answer of at most 1-2 sentences.
+                - Keep each paragraph to 2-3 sentences and put a blank line between paragraphs.
+                - When the answer covers multiple distinct concepts, give each concept a short `###` subheading.
+                - Use bullets for properties, differences, steps, and important notes; keep each bullet focused on one idea.
+                - Keep code identifiers, values, operators, method calls, and short expressions in inline backticks.
+                - Do not add decorative headings, repetitive summaries, or unnecessary filler.
+
                 RESPONSE FORMAT:
                 %s
 
