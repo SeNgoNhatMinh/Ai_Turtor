@@ -58,6 +58,19 @@ export const materialsApi = {
     return getCachedResource(`${materialCachePrefix(courseId)}${classId || 'course'}`, loader, { force: options.force });
   },
 
+  async getStudentClassMaterials(studentId, courseId, classId, options = {}) {
+    const loader = () => request(
+      `${API_BASE_URL}/students/${encodePath(studentId)}/courses/${encodePath(courseId)}/classes/${encodePath(classId)}/materials`,
+      { signal: options.signal },
+    );
+    if (options.signal) return loader();
+    return getCachedResource(
+      `${materialCachePrefix(courseId)}student:${studentId}:${classId}`,
+      loader,
+      { force: options.force },
+    );
+  },
+
   async updateMaterialMetadata(courseId, materialId, payload) {
     const response = await request(`${API_BASE_URL}/courses/${encodePath(courseId)}/materials/${encodePath(materialId)}`, {
       method: 'PUT',
@@ -104,6 +117,13 @@ export const materialsApi = {
   async downloadMaterialPdf(courseId, materialId) {
     return blobRequest(
       `${API_BASE_URL}/courses/${encodePath(courseId)}/materials/${encodePath(materialId)}/pdf`,
+      { timeoutMs: API_TIMEOUTS.download, skipUnauthorizedRedirect: true },
+    );
+  },
+
+  async downloadStudentClassMaterialPdf(studentId, courseId, classId, materialId) {
+    return blobRequest(
+      `${API_BASE_URL}/students/${encodePath(studentId)}/courses/${encodePath(courseId)}/classes/${encodePath(classId)}/materials/${encodePath(materialId)}/pdf`,
       { timeoutMs: API_TIMEOUTS.download, skipUnauthorizedRedirect: true },
     );
   },

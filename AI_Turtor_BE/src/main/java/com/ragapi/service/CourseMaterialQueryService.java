@@ -3,6 +3,7 @@ package com.ragapi.service;
 import com.ragapi.dto.CourseMaterialListResponse;
 import com.ragapi.dto.CourseMaterialSummary;
 import com.ragapi.entity.CourseMaterial;
+import com.ragapi.repository.ClassSectionRepository;
 import com.ragapi.repository.CourseMaterialRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -19,6 +20,7 @@ import static com.ragapi.util.ValidationUtils.requireMaxLength;
 public class CourseMaterialQueryService {
 
     private final CourseMaterialRepository courseMaterialRepository;
+    private final ClassSectionRepository classSectionRepository;
 
     public CourseMaterialListResponse listMaterials(
             String courseId,
@@ -57,6 +59,43 @@ public class CourseMaterialQueryService {
                 indexingStatus,
                 sourceType
         );
+    }
+
+    public CourseMaterialListResponse listStudentClassMaterials(String courseId, String classId) {
+        String safeCourseId = requireMaxLength(courseId, "courseId", SHORT_TEXT_MAX_LENGTH);
+        String safeClassId = requireMaxLength(classId, "classId", SHORT_TEXT_MAX_LENGTH);
+        String classTeacherId = resolveClassTeacherId(safeCourseId, safeClassId);
+        List<CourseMaterial> teacherMaterials = courseMaterialRepository.findByCourseId(safeCourseId).stream()
+                .filter(material -> matchesOptionalEquals(material.getClassId(), safeClassId))
+                .filter(material -> matchesOptionalEquals(material.getTeacherId(), classTeacherId))
+                .filter(material -> matchesOptionalEquals(material.getMaterialScope(), "CLASS_SECTION"))
+                .filter(material -> matchesOptionalEquals(material.getUploadedByRole(), "TEACHER"))
+                .toList();
+
+        return buildListResponse(
+                teacherMaterials,
+                safeCourseId,
+                safeClassId,
+                classTeacherId,
+                "CLASS_SECTION",
+                null,
+                null
+        );
+    }
+
+    public CourseMaterial requireStudentClassMaterial(String courseId, String classId, String materialId) {
+        String safeCourseId = requireMaxLength(courseId, "courseId", SHORT_TEXT_MAX_LENGTH);
+        String safeClassId = requireMaxLength(classId, "classId", SHORT_TEXT_MAX_LENGTH);
+        String safeMaterialId = requireMaxLength(materialId, "materialId", SHORT_TEXT_MAX_LENGTH);
+        String classTeacherId = resolveClassTeacherId(safeCourseId, safeClassId);
+
+        return courseMaterialRepository.findById(safeMaterialId)
+                .filter(material -> matchesOptionalEquals(material.getCourseId(), safeCourseId))
+                .filter(material -> matchesOptionalEquals(material.getClassId(), safeClassId))
+                .filter(material -> matchesOptionalEquals(material.getTeacherId(), classTeacherId))
+                .filter(material -> matchesOptionalEquals(material.getMaterialScope(), "CLASS_SECTION"))
+                .filter(material -> matchesOptionalEquals(material.getUploadedByRole(), "TEACHER"))
+                .orElseThrow(() -> new SecurityException("Material is not available to this class"));
     }
 
     private CourseMaterialListResponse buildListResponse(
@@ -128,6 +167,12 @@ public class CourseMaterialQueryService {
         return Comparator
                 .comparing(CourseMaterial::getIndexedAt, Comparator.nullsLast(Comparator.reverseOrder()))
                 .thenComparing(material -> material.getTitle() == null ? "" : material.getTitle(), String.CASE_INSENSITIVE_ORDER);
+    }
+
+    private String resolveClassTeacherId(String courseId, String classId) {
+        return classSectionRepository.findByCourseIdAndClassId(courseId, classId)
+                .map(section -> requireMaxLength(section.getTeacherId(), "teacherId", SHORT_TEXT_MAX_LENGTH))
+                .orElseThrow(() -> new IllegalArgumentException("Class section not found"));
     }
 
     private boolean matchesClassScope(CourseMaterial material, String classId) {

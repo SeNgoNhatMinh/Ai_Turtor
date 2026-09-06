@@ -10,11 +10,11 @@ export default function MaterialsCourseContext({
   onCourseChange,
 }) {
   return (
-    <div className="student-materials-context" role="region" aria-label="Ngữ cảnh môn học của bài tập">
+    <div className="student-materials-context" role="region" aria-label="Ngữ cảnh môn học của sinh viên">
       <div className="student-materials-context__field">
         <Text type="secondary">Môn học</Text>
         <Select
-          aria-label="Môn học của bài tập"
+          aria-label="Môn học đang xem"
           value={courseId || undefined}
           options={courseOptions}
           loading={loading}
@@ -29,7 +29,7 @@ export default function MaterialsCourseContext({
         <Tag color={classId ? 'blue' : 'default'}>{classId || 'Chưa được xếp lớp'}</Tag>
       </div>
       <Text type="secondary" className="student-materials-context__hint">
-        Bài tập và tài liệu bên dưới được lọc theo môn học này.
+        Chỉ hiển thị tài liệu do giảng viên phụ trách lớp này đăng tải.
       </Text>
     </div>
   );

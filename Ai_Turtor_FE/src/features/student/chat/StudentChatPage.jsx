@@ -44,7 +44,7 @@ export default function StudentChatPage({
   const materials = useCourseMaterialsController({
     courseId,
     classId,
-    teacherId: studentId,
+    studentId,
     triggerToast,
   });
   const mentorRequests = useChatMentorRequests({

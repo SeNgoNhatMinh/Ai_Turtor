@@ -31,6 +31,110 @@
   background: var(--surface-selected, #fff4ec) !important;
 }
 
+.student-teacher-materials {
+  overflow: hidden;
+  border-color: var(--border-color, #e5e7eb);
+  border-radius: 20px;
+}
+
+.student-teacher-materials__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 24px;
+  border-bottom: 1px solid var(--border-color, #e5e7eb);
+  background: linear-gradient(135deg, #fffaf6 0%, #fff 58%);
+}
+
+.student-teacher-materials__eyebrow {
+  display: block;
+  margin-bottom: 5px;
+  color: #d65f14;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.student-teacher-materials__header h2 {
+  margin: 0;
+  color: var(--text-primary, #111827);
+  font-size: 24px;
+  line-height: 1.25;
+}
+
+.student-teacher-materials__header p {
+  max-width: 640px;
+  margin: 7px 0 0;
+  color: var(--text-secondary, #667085);
+}
+
+.student-teacher-materials__summary {
+  display: grid;
+  grid-template-columns: auto auto auto;
+  align-items: center;
+  gap: 7px;
+  min-width: max-content;
+  padding: 7px 8px 7px 13px;
+  border: 1px solid #fed7bd;
+  border-radius: 999px;
+  background: #fff;
+  color: #667085;
+}
+
+.student-teacher-materials__summary strong {
+  color: #d65f14;
+  font-size: 18px;
+}
+
+.student-teacher-materials__alert {
+  margin: 16px 16px 0;
+}
+
+.student-teacher-materials__loading,
+.student-teacher-materials__empty {
+  padding: 48px 24px;
+}
+
+.student-teacher-materials__empty .ant-empty-description > span {
+  display: grid;
+  gap: 6px;
+}
+
+.student-teacher-materials__empty small {
+  color: var(--text-secondary, #667085);
+  font-size: 14px;
+}
+
+.student-teacher-materials .searchable-table {
+  padding: 16px;
+}
+
+.student-material-title {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 260px;
+}
+
+.student-material-title > .anticon {
+  display: grid;
+  flex: 0 0 38px;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border-radius: 10px;
+  background: #fff1e8;
+  color: #d65f14;
+  font-size: 18px;
+}
+
+.student-material-title > div {
+  display: grid;
+  gap: 3px;
+}
+
 [data-theme='dark'] .student-materials-context,
 .app-container.dark .student-materials-context {
   border-color: #343434;
@@ -39,6 +143,21 @@
 
 .app-container.dark .student-materials-page {
   --surface-selected: #27180f;
+}
+
+.app-container.dark .student-teacher-materials__header {
+  border-bottom-color: #343434;
+  background: linear-gradient(135deg, #21150e 0%, #171717 58%);
+}
+
+.app-container.dark .student-teacher-materials__summary {
+  border-color: #4a3426;
+  background: #1c1c1c;
+  color: #d1d5db;
+}
+
+.app-container.dark .student-material-title > .anticon {
+  background: #2b1a10;
 }
 
 .app-container.dark .student-materials-page .ant-table-thead > tr > th {
@@ -103,5 +222,15 @@
   .student-materials-context__hint {
     margin-left: 0;
     padding-bottom: 0;
+  }
+
+  .student-teacher-materials__header {
+    align-items: stretch;
+    flex-direction: column;
+    padding: 20px;
+  }
+
+  .student-teacher-materials__summary {
+    align-self: flex-start;
   }
 }

@@ -54,7 +54,7 @@ export const uiCopy = {
     },
     materials: {
       title: 'Tài liệu & bài tập',
-      subtitle: 'Xem tài liệu môn học, tải đề bài và nộp bài tập theo đúng lớp học phần.',
+      subtitle: 'Xem tài liệu từ giảng viên và nộp bài tập theo đúng lớp học phần.',
       empty: 'Chọn một bài tập để xem chi tiết',
       uploadText: 'Kéo thả tệp vào đây hoặc bấm để chọn',
       uploadHint: 'Hỗ trợ các định dạng được backend cho phép, tối đa 50 MB',

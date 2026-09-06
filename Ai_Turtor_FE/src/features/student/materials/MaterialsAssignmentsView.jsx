@@ -7,7 +7,7 @@ import CourseMaterialsPanel from './components/CourseMaterialsPanel';
 import MaterialsCourseContext from './components/MaterialsCourseContext';
 
 export default function MaterialsAssignmentsView({
-  assignments,
+  assignments = [],
   selectedAssignment,
   setSelectedAssignment,
   studentSubmissionFile,
@@ -19,6 +19,9 @@ export default function MaterialsAssignmentsView({
   onDownloadAssignment,
   onDownloadSubmission,
   courseMaterials = [],
+  materialsLoading = false,
+  materialsError = '',
+  onReloadMaterials,
   onDownloadMaterial,
   courseId = '',
   classId = '',
@@ -28,8 +31,23 @@ export default function MaterialsAssignmentsView({
 }) {
   const tabItems = [
     {
+      key: 'materials',
+      label: `Tài liệu giảng viên (${courseMaterials.length})`,
+      children: (
+        <CourseMaterialsPanel
+          materials={courseMaterials}
+          loading={materialsLoading}
+          error={materialsError}
+          courseId={courseId}
+          classId={classId}
+          onRetry={onReloadMaterials}
+          onDownload={onDownloadMaterial}
+        />
+      ),
+    },
+    {
       key: 'assignments',
-      label: 'Bài tập được giao',
+      label: `Bài tập được giao (${assignments.length})`,
       children: (
         <div className="materials-layout">
           <AssignmentListPanel
@@ -52,13 +70,6 @@ export default function MaterialsAssignmentsView({
         </div>
       ),
     },
-    {
-      key: 'materials',
-      label: 'Tài liệu môn học',
-      children: (
-        <CourseMaterialsPanel materials={courseMaterials} onDownload={onDownloadMaterial} />
-      ),
-    },
   ];
 
   return (
@@ -71,7 +82,7 @@ export default function MaterialsAssignmentsView({
         loading={enrollmentsLoading}
         onCourseChange={onCourseChange}
       />
-      <AppTabs defaultActiveKey="assignments" items={tabItems} />
+      <AppTabs defaultActiveKey="materials" items={tabItems} />
     </div>
   );
 }

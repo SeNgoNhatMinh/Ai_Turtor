@@ -16,10 +16,13 @@ function getMaterialStatusFromEvent(event) {
 export function useCourseMaterialsController({
   courseId,
   classId,
+  studentId,
   teacherId,
   triggerToast,
 }) {
   const [courseMaterials, setCourseMaterials] = useState([]);
+  const [isMaterialsLoading, setIsMaterialsLoading] = useState(false);
+  const [materialsError, setMaterialsError] = useState('');
   const [uploadProgress, setUploadProgress] = useState(null);
   const [uploadProgressText, setUploadProgressText] = useState('');
   const materialsRequestRef = useRef(null);
@@ -32,20 +35,30 @@ export function useCourseMaterialsController({
   }, []);
 
   const loadCourseMaterials = useCallback(async () => {
-    if (!courseId) {
+    materialsRequestRef.current?.abort();
+    if (!courseId || (studentId && !classId)) {
       setCourseMaterials([]);
+      setMaterialsError('');
+      setIsMaterialsLoading(false);
       return;
     }
-    materialsRequestRef.current?.abort();
     const controller = new AbortController();
     materialsRequestRef.current = controller;
+    setIsMaterialsLoading(true);
+    setMaterialsError('');
     try {
-      const data = await materialsApi.getCourseMaterials(courseId, classId, {
-        signal: controller.signal,
-        force: true,
-      });
+      const options = { signal: controller.signal, force: true };
+      const data = studentId
+        ? await materialsApi.getStudentClassMaterials(studentId, courseId, classId, options)
+        : await materialsApi.getCourseMaterials(courseId, classId, options);
       if (!controller.signal.aborted) {
-        const items = asArray(data, 'materials', 'content').map(normalizeCourseMaterial);
+        const items = asArray(data, 'materials', 'content')
+          .map(normalizeCourseMaterial)
+          .filter((item) => !studentId || (
+            String(item.classId || '').toLowerCase() === String(classId).toLowerCase()
+            && String(item.materialScope || '').toUpperCase() === 'CLASS_SECTION'
+            && String(item.uploadedByRole || '').toUpperCase() === 'TEACHER'
+          ));
         const canonicalIds = new Set(items.map((item) => item.id).filter(Boolean));
         canonicalIds.forEach((id) => optimisticMaterialsRef.current.delete(id));
         const optimisticItems = [...optimisticMaterialsRef.current.values()]
@@ -57,10 +70,15 @@ export function useCourseMaterialsController({
     } catch (error) {
       if (controller.signal.aborted) return;
       console.warn('Failed to load course materials:', error);
+      if (studentId) setCourseMaterials([]);
+      setMaterialsError(getUserFacingError(error, 'Không thể tải tài liệu của giảng viên.'));
     } finally {
-      if (materialsRequestRef.current === controller) materialsRequestRef.current = null;
+      if (materialsRequestRef.current === controller) {
+        materialsRequestRef.current = null;
+        setIsMaterialsLoading(false);
+      }
     }
-  }, [classId, courseId]);
+  }, [classId, courseId, studentId]);
 
   useRealtimeEvent(REALTIME_EVENT_TYPES.material, (event) => {
     if (!eventMatchesCourse(event, courseId)) return;
@@ -151,7 +169,9 @@ export function useCourseMaterialsController({
     }
     triggerToast('Đang tải học liệu...');
     try {
-      const blob = await materialsApi.downloadMaterialPdf(courseId, materialId);
+      const blob = studentId
+        ? await materialsApi.downloadStudentClassMaterialPdf(studentId, courseId, classId, materialId)
+        : await materialsApi.downloadMaterialPdf(courseId, materialId);
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -167,6 +187,8 @@ export function useCourseMaterialsController({
 
   return {
     courseMaterials,
+    isMaterialsLoading,
+    materialsError,
     upsertCourseMaterial,
     setCourseMaterials,
     uploadProgress,

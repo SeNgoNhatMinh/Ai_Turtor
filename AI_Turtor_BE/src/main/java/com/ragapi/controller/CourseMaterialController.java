@@ -459,6 +459,74 @@ public class CourseMaterialController {
         }
     }
 
+    @GetMapping("/students/{studentId}/courses/{courseId}/classes/{classId}/materials")
+    @Operation(
+            summary = "List teacher-uploaded materials visible to an enrolled student",
+            description = "Returns only TEACHER materials scoped to the student's enrolled class. School-wide COURSE_SHARED materials are excluded."
+    )
+    public ResponseEntity<?> listStudentClassMaterials(
+            @PathVariable String studentId,
+            @PathVariable String courseId,
+            @PathVariable String classId,
+            Authentication authentication
+    ) {
+        try {
+            accessGuardService.allowEnrolledStudentSelfOrAdmin(
+                    authenticatedUserId(authentication),
+                    authenticatedRole(authentication),
+                    studentId,
+                    courseId,
+                    classId
+            );
+            return ResponseEntity.ok(queryService.listStudentClassMaterials(courseId, classId));
+        } catch (SecurityException | IllegalArgumentException error) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", error.getMessage()));
+        }
+    }
+
+    @GetMapping("/students/{studentId}/courses/{courseId}/classes/{classId}/materials/{materialId}/pdf")
+    @Operation(summary = "Download a teacher-uploaded class material as an enrolled student")
+    public ResponseEntity<?> downloadStudentClassMaterialPdf(
+            @PathVariable String studentId,
+            @PathVariable String courseId,
+            @PathVariable String classId,
+            @PathVariable String materialId,
+            Authentication authentication
+    ) {
+        try {
+            accessGuardService.allowEnrolledStudentSelfOrAdmin(
+                    authenticatedUserId(authentication),
+                    authenticatedRole(authentication),
+                    studentId,
+                    courseId,
+                    classId
+            );
+            CourseMaterial material = queryService.requireStudentClassMaterial(courseId, classId, materialId);
+            if (material.getPdfFileId() == null || material.getPdfFileId().isBlank()) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(Map.of("error", "This material does not have a stored PDF"));
+            }
+
+            byte[] pdfBytes = pdfPageRenderService.loadDocumentBytes(materialId);
+            String fileName = material.getSourceFileName() == null || material.getSourceFileName().isBlank()
+                    ? materialId + ".pdf"
+                    : material.getSourceFileName();
+            return ResponseEntity.ok()
+                    .contentType(MediaType.APPLICATION_PDF)
+                    .contentLength(pdfBytes.length)
+                    .header(HttpHeaders.CONTENT_DISPOSITION, org.springframework.http.ContentDisposition.attachment()
+                            .filename(fileName, StandardCharsets.UTF_8)
+                            .build()
+                            .toString())
+                    .body(pdfBytes);
+        } catch (SecurityException | IllegalArgumentException error) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", error.getMessage()));
+        } catch (IOException error) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Cannot read PDF: " + error.getMessage()));
+        }
+    }
+
 
     @PostMapping("/courses/{courseId}/materials/reindex")
     @Operation(summary = "Reindex all course materials into Elasticsearch")

@@ -214,10 +214,15 @@ export function useStudentChatTabController({
   };
 
   const handleDownloadSource = async (materialId, title) => {
-    if (!courseId || !materialId) return;
+    if (!userId || !courseId || !classId || !materialId) return;
     message.loading({ content: 'Đang tải tài liệu...', key: 'dl' });
     try {
-      const blob = await materialsApi.downloadMaterialPdf(courseId, materialId);
+      const blob = await materialsApi.downloadStudentClassMaterialPdf(
+        userId,
+        courseId,
+        classId,
+        materialId,
+      );
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;

@@ -24,7 +24,7 @@ export default function StudentMaterialsPage({
   const materials = useCourseMaterialsController({
     courseId,
     classId,
-    teacherId: studentId,
+    studentId,
     triggerToast,
   });
   const form = useStudentMaterialsController({
@@ -63,6 +63,9 @@ export default function StudentMaterialsPage({
       onDownloadAssignment={form.handleDownloadAssignment}
       onDownloadSubmission={form.handleDownloadSubmission}
       courseMaterials={materials.courseMaterials}
+      materialsLoading={materials.isMaterialsLoading}
+      materialsError={materials.materialsError}
+      onReloadMaterials={materials.loadCourseMaterials}
       onDownloadMaterial={materials.handleDownloadMaterial}
       courseId={courseId}
       classId={classId}

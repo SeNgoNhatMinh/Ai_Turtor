@@ -1,5 +1,10 @@
-import { DownloadOutlined } from '@ant-design/icons';
-import { Button, Card, Empty, Tag, Typography } from 'antd';
+import {
+  DownloadOutlined,
+  FilePdfOutlined,
+  LinkOutlined,
+  ReloadOutlined,
+} from '@ant-design/icons';
+import { Alert, Button, Card, Empty, Skeleton, Tag, Typography } from 'antd';
 import SearchableTable from '../../../../components/common/SearchableTable';
 import { getMaterialDisplayName } from '../../../../utils/sourceLabels';
 
@@ -9,53 +14,58 @@ const isWebsiteMaterial = (material) => (
   String(material?.sourceType || material?.type || '').toUpperCase() === 'HTML_URL'
 );
 
-export default function CourseMaterialsPanel({ materials, onDownload }) {
-  if (!Array.isArray(materials) || materials.length === 0) {
-    return (
-      <Card styles={{ body: { padding: 16 } }}>
-        <Empty description="Môn học này chưa có tài liệu." />
-      </Card>
-    );
-  }
-
+export default function CourseMaterialsPanel({
+  materials,
+  loading = false,
+  error = '',
+  courseId = '',
+  classId = '',
+  onRetry,
+  onDownload,
+}) {
+  const safeMaterials = Array.isArray(materials) ? materials : [];
   const columns = [
     {
-      title: 'Tên tài liệu',
+      title: 'Tài liệu',
       dataIndex: 'title',
       key: 'title',
-      render: (title) => <Text strong>{title || 'Tài liệu chưa đặt tên'}</Text>,
-    },
-    {
-      title: 'Tên tệp',
-      dataIndex: 'fileName',
-      key: 'fileName',
-      render: (_, record) => (
-        <Text type="secondary">{getMaterialDisplayName(record) || 'Không có thông tin tệp'}</Text>
+      render: (title, record) => (
+        <div className="student-material-title">
+          {isWebsiteMaterial(record) ? <LinkOutlined /> : <FilePdfOutlined />}
+          <div>
+            <Text strong>{title || 'Tài liệu chưa đặt tên'}</Text>
+            <Text type="secondary">{getMaterialDisplayName(record) || 'Không có thông tin tệp'}</Text>
+          </div>
+        </div>
       ),
     },
     {
-      title: 'Phạm vi',
+      title: 'Lớp học',
       dataIndex: 'classId',
       key: 'classId',
-      render: (value) => <Tag color="orange">{value ? `Lớp ${value}` : 'Toàn môn'}</Tag>,
+      width: 160,
+      render: (value) => <Tag color="blue">{value || classId}</Tag>,
     },
     {
-      title: 'Ngày tải lên',
-      dataIndex: 'createdAt',
-      key: 'createdAt',
-      render: (value) => <Text type="secondary">{value ? new Date(value).toLocaleDateString() : '-'}</Text>,
+      title: 'Ngày cập nhật',
+      dataIndex: 'indexedAt',
+      key: 'indexedAt',
+      width: 150,
+      render: (value) => (
+        <Text type="secondary">{value ? new Date(value).toLocaleDateString('vi-VN') : '-'}</Text>
+      ),
     },
     {
-      title: 'Tải xuống',
+      title: '',
       key: 'action',
-      width: 120,
+      width: 130,
+      align: 'right',
       render: (_, record) => {
-        if (isWebsiteMaterial(record)) return <Tag>Tài liệu website</Tag>;
+        if (isWebsiteMaterial(record)) return <Tag icon={<LinkOutlined />}>Website</Tag>;
         if (!onDownload || !record.id) return <Text type="secondary">Không khả dụng</Text>;
         return (
           <Button
             type="primary"
-            size="small"
             icon={<DownloadOutlined />}
             onClick={() => onDownload(record.id, record.title)}
           >
@@ -67,14 +77,63 @@ export default function CourseMaterialsPanel({ materials, onDownload }) {
   ];
 
   return (
-    <Card styles={{ body: { padding: 16 } }}>
-      <SearchableTable
-        dataSource={materials}
-        rowKey={(record) => record.id || record.materialId}
-        pagination={{ pageSize: 8 }}
-        scroll={{ x: 760 }}
-        columns={columns}
-      />
+    <Card className="student-teacher-materials" styles={{ body: { padding: 0 } }}>
+      <div className="student-teacher-materials__header">
+        <div>
+          <span className="student-teacher-materials__eyebrow">{courseId || 'Môn học'}</span>
+          <h2>Tài liệu từ giảng viên</h2>
+          <p>Chỉ gồm học liệu do giảng viên phụ trách lớp {classId || 'hiện tại'} đăng tải.</p>
+        </div>
+        <div className="student-teacher-materials__summary">
+          <strong>{safeMaterials.length}</strong>
+          <span>tài liệu</span>
+          <Button
+            type="text"
+            aria-label="Tải lại tài liệu"
+            icon={<ReloadOutlined />}
+            loading={loading}
+            onClick={onRetry}
+          />
+        </div>
+      </div>
+
+      {error && (
+        <Alert
+          className="student-teacher-materials__alert"
+          type="error"
+          showIcon
+          message="Không tải được tài liệu"
+          description={error}
+          action={<Button size="small" onClick={onRetry}>Thử lại</Button>}
+        />
+      )}
+
+      {loading && safeMaterials.length === 0 ? (
+        <div className="student-teacher-materials__loading">
+          <Skeleton active paragraph={{ rows: 4 }} />
+        </div>
+      ) : safeMaterials.length === 0 && !error ? (
+        <Empty
+          className="student-teacher-materials__empty"
+          image={Empty.PRESENTED_IMAGE_SIMPLE}
+          description={(
+            <span>
+              <strong>Giảng viên chưa đăng tài liệu cho lớp này.</strong>
+              <small>Khi có tài liệu mới, chúng sẽ xuất hiện tại đây.</small>
+            </span>
+          )}
+        />
+      ) : (
+        <SearchableTable
+          dataSource={safeMaterials}
+          rowKey={(record) => record.id || record.materialId}
+          searchKeys={['title', 'fileName', 'sourceFileName']}
+          searchPlaceholder="Tìm tài liệu của giảng viên"
+          pagination={{ pageSize: 8, hideOnSinglePage: true }}
+          scroll={{ x: 720 }}
+          columns={columns}
+        />
+      )}
     </Card>
   );
 }
