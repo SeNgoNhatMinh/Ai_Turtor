@@ -5,7 +5,6 @@ import { useStudentEnrollmentOptions } from '../../hooks/useStudentEnrollmentOpt
 const studentPages = {
   'student-dashboard': lazy(() => import('../../features/student/dashboard/StudentDashboardPage')),
   'student-chat': lazy(() => import('../../features/student/chat/StudentChatPage')),
-  'student-memory': lazy(() => import('../../features/student/learning/LearningProgressPage')),
   'student-quizzes': lazy(() => import('../../features/student/quizzes/PracticeQuizzesPage')),
   'student-materials': lazy(() => import('../../features/student/materials/StudentMaterialsPage')),
   'student-escalation': lazy(() => import('../../features/student/mentor-review/MentorReviewPage')),

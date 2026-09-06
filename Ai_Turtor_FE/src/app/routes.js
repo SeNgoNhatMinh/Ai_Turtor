@@ -11,7 +11,6 @@ const roleHomeRoutes = {
 export const appRoutes = [
   { role: 'student', tab: 'student-dashboard', path: '/student/dashboard' },
   { role: 'student', tab: 'student-chat', path: '/student/chat' },
-  { role: 'student', tab: 'student-memory', path: '/student/progress' },
   { role: 'student', tab: 'student-quizzes', path: '/student/quizzes' },
   { role: 'student', tab: 'student-materials', path: '/student/materials' },
   { role: 'student', tab: 'student-escalation', path: '/student/mentor-review' },

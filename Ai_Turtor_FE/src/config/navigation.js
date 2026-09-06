@@ -1,6 +1,5 @@
 import {
   MessageSquare,
-  TrendingUp,
   BookOpen,
   ClipboardList,
   LayoutGrid,
@@ -35,14 +34,6 @@ const navigationItems = [
     label: 'Trò chuyện AI Tutor',
     description: 'Hỏi theo môn học và xem lại lịch sử trò chuyện.',
     icon: MessageSquare,
-  },
-  {
-    key: 'student-memory',
-    workspace: 'student',
-    group: 'Học tập',
-    label: 'Tiến độ học tập',
-    description: 'Xem chủ đề đã học, điểm yếu và gợi ý ôn tập.',
-    icon: TrendingUp,
   },
   {
     key: 'student-quizzes',

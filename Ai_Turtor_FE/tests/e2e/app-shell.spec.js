@@ -285,8 +285,7 @@ test('student login resolves enrollment context and supports dark mode', async (
   await expect(page.getByRole('switch', { name: 'Dùng giao diện sáng' })).toBeVisible();
 
   await page.goto('/student/progress');
-  await expect(page.getByRole('heading', { name: 'Tiến độ học tập' })).toHaveCSS('color', 'rgb(249, 250, 251)');
-  await expect(page.locator('.page-subtitle')).toHaveCSS('color', 'rgb(209, 213, 219)');
+  await expect(page).toHaveURL(/\/student\/dashboard$/);
 });
 
 test('student materials remains readable in dark mode', async ({ page }) => {
@@ -523,28 +522,10 @@ test('student chat recovers a persisted backend answer when n8n returns memory o
   await expect(page.getByText('Student memory returned by the incorrect Respond RAG node.')).toHaveCount(0);
 });
 
-test('learning progress uses an actionable plan without canvas overflow', async ({ page }) => {
-  await signIn(page);
-  await page.goto('/student/progress');
-
-  await page.getByRole('tab', { name: 'Kế hoạch ôn tập' }).click();
-  const actionPlan = page.locator('.learning-action-plan-card');
-  await expect(page.getByText('Kế hoạch học theo môn', { exact: true })).toBeVisible();
-  await actionPlan.scrollIntoViewIfNeeded();
-  const planBounds = await actionPlan.boundingBox();
-  expect(planBounds).not.toBeNull();
-  expect(planBounds.x).toBeGreaterThanOrEqual(0);
-  expect(planBounds.x + planBounds.width).toBeLessThanOrEqual(page.viewportSize().width + 1);
-  await expect(page.locator('#knowledge-graph-canvas')).toHaveCount(0);
-  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
-  expect(overflow).toBeLessThanOrEqual(1);
-});
-
 test('student feature pages use readable page headers', async ({ page }) => {
   await signIn(page);
 
   const pages = [
-    ['/student/progress', 'Tiến độ học tập', 'Học tập cá nhân'],
     ['/student/quizzes', 'Luyện tập bằng quiz theo tài liệu môn học', 'Quiz luyện tập'],
     ['/student/materials', 'Tài liệu & bài tập', 'Học liệu & bài tập'],
   ];
