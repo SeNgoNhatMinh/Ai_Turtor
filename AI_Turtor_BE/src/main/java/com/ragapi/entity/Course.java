@@ -27,6 +27,7 @@ public class Course {
     @JsonAlias({"name", "title"})
     private String courseName;
     private String description;
+    private String syllabusVietnamese;
     private Integer credits;
     private String status;
     private LocalDateTime createdAt;

@@ -4,6 +4,7 @@ import com.ragapi.dto.CourseCurriculumOverview;
 import com.ragapi.entity.Course;
 import com.ragapi.repository.CourseRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -18,12 +19,13 @@ import static com.ragapi.util.ValidationUtils.SHORT_TEXT_MAX_LENGTH;
 import static com.ragapi.util.ValidationUtils.requireMaxLength;
 
 /**
- * Reads the official curriculum from Course.description. The overview is
- * deterministic: uploaded material headings and language models never create
- * or rewrite the school's syllabus.
+ * Reads the official curriculum from Course.description. Material headings and
+ * language models never create syllabus topics; a language model may only
+ * translate the school's source text to Vietnamese while preserving structure.
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class CourseCurriculumOverviewService {
 
     private static final int MAX_UNITS = 16;
@@ -31,8 +33,16 @@ public class CourseCurriculumOverviewService {
             "^\\s*(?:[-*\u2022\u25aa\u25e6]+|\\d+(?:\\.\\d+)*[.)-]?)\\s*"
     );
     private static final Pattern TOPIC_SEPARATOR = Pattern.compile("\\s*(?::|\uff1a|\\||\\s[\u2013\u2014-]\\s)\\s*");
+    private static final Pattern VIETNAMESE_DIACRITICS = Pattern.compile(
+            "[\u00e0\u00e1\u1ea3\u00e3\u1ea1\u0103\u1eb1\u1eaf\u1eb3\u1eb5\u1eb7\u00e2\u1ea7\u1ea5\u1ea9\u1eab\u1ead"
+                    + "\u00e8\u00e9\u1ebb\u1ebd\u1eb9\u00ea\u1ec1\u1ebf\u1ec3\u1ec5\u1ec7\u00ec\u00ed\u1ec9\u0129\u1ecb"
+                    + "\u00f2\u00f3\u1ecf\u00f5\u1ecd\u00f4\u1ed3\u1ed1\u1ed5\u1ed7\u1ed9\u01a1\u1edd\u1edb\u1edf\u1ee1\u1ee3"
+                    + "\u00f9\u00fa\u1ee7\u0169\u1ee5\u01b0\u1eeb\u1ee9\u1eed\u1eef\u1ef1\u1ef3\u00fd\u1ef7\u1ef9\u1ef5\u0111]",
+            Pattern.CASE_INSENSITIVE
+    );
 
     private final CourseRepository courseRepository;
+    private final OpenRouterChatService chatService;
 
     public CourseCurriculumOverview forCourse(String courseId) {
         if (courseId == null || courseId.isBlank()) {
@@ -43,7 +53,11 @@ public class CourseCurriculumOverviewService {
         if (course == null) {
             return CourseCurriculumOverview.empty(safeCourseId);
         }
-        return parseSyllabus(safeCourseId, course.getCourseName(), course.getDescription());
+        return parseSyllabus(
+                safeCourseId,
+                course.getCourseName(),
+                displaySyllabus(course)
+        );
     }
 
     public void saveOfficialSyllabus(String courseId, String syllabusDescription) {
@@ -52,6 +66,8 @@ public class CourseCurriculumOverviewService {
         Course course = courseRepository.findByCourseId(safeCourseId)
                 .orElseThrow(() -> new IllegalArgumentException("Course " + safeCourseId + " does not exist"));
         course.setDescription(safeSyllabus);
+        String translated = translateToVietnamese(safeSyllabus);
+        course.setSyllabusVietnamese(shouldCacheTranslation(safeSyllabus, translated) ? translated : null);
         course.setUpdatedAt(LocalDateTime.now());
         courseRepository.save(course);
     }
@@ -73,6 +89,83 @@ public class CourseCurriculumOverviewService {
             );
         }
         return safeSyllabus;
+    }
+
+    private String displaySyllabus(Course course) {
+        String source = course.getDescription();
+        if (source == null || source.isBlank()) {
+            return "";
+        }
+        if (course.getSyllabusVietnamese() != null && !course.getSyllabusVietnamese().isBlank()) {
+            return course.getSyllabusVietnamese();
+        }
+        String translated = translateToVietnamese(source);
+        if (shouldCacheTranslation(source, translated)) {
+            course.setSyllabusVietnamese(translated);
+            course.setUpdatedAt(LocalDateTime.now());
+            courseRepository.save(course);
+        }
+        return translated;
+    }
+
+    private String translateToVietnamese(String source) {
+        if (source == null || source.isBlank() || looksVietnamese(source)) {
+            return source == null ? "" : source.trim();
+        }
+        String prompt = """
+                Dịch syllabus chính thức sau sang tiếng Việt.
+                Yêu cầu bắt buộc:
+                - Chỉ dịch ngôn ngữ; không thêm, bớt, gộp, suy luận hay giải thích nội dung.
+                - Giữ nguyên thứ tự và số dòng nội dung.
+                - Giữ nguyên dấu đầu dòng, số thứ tự và dấu hai chấm phân cách chủ đề.
+                - Giữ nguyên tên công nghệ, từ viết tắt và mã như Java, JSP, Servlet, MVC, JPA, AI.
+                - Chỉ trả về bản dịch, không dùng khung mã Markdown.
+
+                Syllabus:
+                %s
+                """.formatted(source.trim());
+        try {
+            String translated = stripCodeFence(chatService.generateUtility(prompt));
+            if (translated.isBlank() || !looksVietnamese(translated)) {
+                return source.trim();
+            }
+            int sourceUnits = parseSyllabus("", "", source).units().size();
+            int translatedUnits = parseSyllabus("", "", translated).units().size();
+            if (sourceUnits > 0 && translatedUnits != sourceUnits) {
+                log.warn("Rejected syllabus translation because unit count changed: {} -> {}", sourceUnits, translatedUnits);
+                return source.trim();
+            }
+            return translated;
+        } catch (Exception error) {
+            log.warn("Could not translate official syllabus to Vietnamese: {}", error.getMessage());
+            return source.trim();
+        }
+    }
+
+    private boolean shouldCacheTranslation(String source, String translated) {
+        return translated != null
+                && !translated.isBlank()
+                && (looksVietnamese(source) || !translated.trim().equals(source.trim()));
+    }
+
+    private boolean looksVietnamese(String value) {
+        return value != null && VIETNAMESE_DIACRITICS.matcher(value).find();
+    }
+
+    private String stripCodeFence(String value) {
+        if (value == null) {
+            return "";
+        }
+        String trimmed = value.trim();
+        if (!trimmed.startsWith("```")) {
+            return trimmed;
+        }
+        int firstLineEnd = trimmed.indexOf('\n');
+        int lastFence = trimmed.lastIndexOf("```");
+        if (firstLineEnd >= 0 && lastFence > firstLineEnd) {
+            return trimmed.substring(firstLineEnd + 1, lastFence).trim();
+        }
+        return trimmed.replace("```", "").trim();
     }
 
     static CourseCurriculumOverview parseSyllabus(

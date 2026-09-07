@@ -30,6 +30,7 @@ import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 
 @RestController
@@ -131,7 +132,11 @@ public class CourseController {
         course.setSemesterId(trimToNull(request.getSemesterId()));
         course.setCourseId(request.getCourseId().trim());
         course.setCourseName(trimToNull(request.getCourseName()));
-        course.setDescription(trimToNull(request.getDescription()));
+        String description = trimToNull(request.getDescription());
+        if (!Objects.equals(course.getDescription(), description)) {
+            course.setSyllabusVietnamese(null);
+        }
+        course.setDescription(description);
         course.setCredits(request.getCredits());
         course.setStatus(defaultStatus(request.getStatus()));
         course.setUpdatedAt(LocalDateTime.now());
