@@ -26,7 +26,7 @@ public class TtsTextNormalizationService {
     @Value("${tts.max-text-length:6000}")
     private int maxTextLength;
 
-    @Value("${tts.max-chunk-length:600}")
+    @Value("${tts.max-chunk-length:350}")
     private int maxChunkLength;
 
     public String normalize(String markdown) {
@@ -60,7 +60,7 @@ public class TtsTextNormalizationService {
     public List<String> splitForProviderRetry(String normalizedText) {
         String value = normalizedText == null ? "" : normalizedText.trim();
         if (value.isBlank()) return List.of();
-        int retryLimit = Math.max(100, Math.min(400, value.length() / 2));
+        int retryLimit = Math.max(40, Math.min(300, (value.length() + 1) / 2));
         return splitNormalized(value, retryLimit);
     }
 

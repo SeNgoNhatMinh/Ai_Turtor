@@ -36,7 +36,7 @@ tts:
   provider: ${TTS_PROVIDER:nvidia-magpie}
   max-text-length: ${TTS_MAX_TEXT_LENGTH:6000}
   # Keep headroom for Magpie's 2,000-character normalization and 4 MB audio payload limits.
-  max-chunk-length: ${TTS_MAX_CHUNK_LENGTH:600}
+  max-chunk-length: ${TTS_MAX_CHUNK_LENGTH:350}
   nvidia:
     api-key: ${NVIDIA_API_KEY:}
     base-url: ${NVIDIA_TTS_BASE_URL:https://877104f7-e885-42b9-8de8-f6e4c6303969.invocation.api.nvcf.nvidia.com}

@@ -234,10 +234,12 @@ public class NvidiaMagpieTtsProvider implements TtsProvider {
 
     private TtsUnavailableException providerError(String operation, RestClientResponseException error) {
         int status = error.getStatusCode().value();
-        log.warn("NVIDIA Magpie {} failed with HTTP {}", operation, status);
-        if (status == 400 && isProviderChunkTooLarge(error)) {
+        String providerMessage = providerMessage(error);
+        log.warn("NVIDIA Magpie {} failed with HTTP {}{}", operation, status,
+                providerMessage.isBlank() ? "" : ": " + providerMessage);
+        if (status == 400 && !isProviderConfigurationError(error)) {
             return new TtsChunkTooLargeException(
-                    "NVIDIA Magpie rejected a chunk that exceeded an internal payload limit", error);
+                    "NVIDIA Magpie rejected this text chunk after normalization", error);
         }
         if (status == 429) {
             return new TtsUnavailableException("Dịch vụ giọng đọc đang bận. Vui lòng thử lại sau ít phút.", error);
@@ -248,11 +250,28 @@ public class NvidiaMagpieTtsProvider implements TtsProvider {
         return unavailable(error);
     }
 
-    private boolean isProviderChunkTooLarge(RestClientResponseException error) {
+    private boolean isProviderConfigurationError(RestClientResponseException error) {
         String responseBody = safe(error.getResponseBodyAsString()).toLowerCase(Locale.ROOT);
-        return responseBody.contains("maximum input length")
-                || responseBody.contains("input text is larger")
-                || responseBody.contains("message larger than max");
+        return containsInvalidField(responseBody, "voice")
+                || containsInvalidField(responseBody, "language")
+                || containsInvalidField(responseBody, "encoding");
+    }
+
+    private boolean containsInvalidField(String responseBody, String field) {
+        return responseBody.contains(field)
+                && (responseBody.contains("invalid")
+                || responseBody.contains("unsupported")
+                || responseBody.contains("not supported")
+                || responseBody.contains("does not exist")
+                || responseBody.contains("not found"));
+    }
+
+    private String providerMessage(RestClientResponseException error) {
+        String responseBody = safe(error.getResponseBodyAsString())
+                .replaceAll("[\\r\\n\\t]+", " ")
+                .replaceAll("\\s{2,}", " ");
+        if (responseBody.length() <= 500) return responseBody;
+        return responseBody.substring(0, 500) + "…";
     }
 
     private void requireAvailable() {
