@@ -56,6 +56,7 @@ function CourseMaterialsTab({
               />
             </Form.Item>
             <Form.Item
+              className="syllabus-form-item"
               name="syllabusDescription"
               label="Nội dung chính trong chương trình học (syllabus)"
               extra="Nội dung này do nhà trường cung cấp và sẽ được AI Tutor hiển thị trực tiếp, không tự suy luận từ tài liệu."

@@ -409,6 +409,7 @@ export default function ImportWebsiteModal({
 
             {isAdmin && (
               <Form.Item
+                className="syllabus-form-item"
                 name="syllabusDescription"
                 label={<Text strong>Nội dung chính trong chương trình học (syllabus)</Text>}
                 extra="AI Tutor hiển thị trực tiếp nội dung do nhà trường nhập, không tự tạo từ website."

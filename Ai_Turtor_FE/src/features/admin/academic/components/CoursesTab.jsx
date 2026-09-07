@@ -25,6 +25,7 @@ function CoursesTab({ form, courses, onCreate, onReload, onAction }) {
               <Input placeholder="Java Web Application" />
             </Form.Item>
             <Form.Item
+              className="syllabus-form-item"
               name="description"
               label="Syllabus chính thức"
               extra="Mỗi dòng theo định dạng: Chủ đề: mô tả. Syllabus sẽ bắt buộc khi Admin tải học liệu."

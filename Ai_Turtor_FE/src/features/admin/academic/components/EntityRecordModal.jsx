@@ -82,6 +82,7 @@ function EntityRecordModal({
               <Input />
             </Form.Item>
             <Form.Item
+              className="syllabus-form-item"
               name="description"
               label="Syllabus chính thức"
               extra="Mỗi dòng: Chủ đề: mô tả"
@@ -193,6 +194,7 @@ function EntityRecordModal({
             </Form.Item>
             {showMaterialSyllabus && (
               <Form.Item
+                className="syllabus-form-item"
                 name="syllabusDescription"
                 label="Nội dung chính trong chương trình học (syllabus)"
                 extra="Syllabus dùng chung cho toàn môn học. AI Tutor sẽ hiển thị trực tiếp nội dung này; không cần tải lại hoặc lập chỉ mục lại tài liệu."

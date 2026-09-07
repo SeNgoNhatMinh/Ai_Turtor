@@ -265,6 +265,23 @@ body:has(.app-container.dark) .sidebar-nav-tooltip.ant-tooltip .ant-tooltip-arro
   line-height: 1.55;
 }
 
+/* Ant Design positions the textarea character count below the input with
+   absolute positioning. Reserve a separate row so syllabus hints do not
+   overlap the counter. */
+.syllabus-form-item .ant-form-item-control-input {
+  margin-bottom: 24px;
+}
+
+.syllabus-form-item .ant-input-data-count {
+  bottom: -22px;
+  inset-inline-end: 2px;
+  line-height: 20px;
+}
+
+.syllabus-form-item .ant-form-item-extra {
+  margin-top: 2px;
+}
+
 .app-container .ant-select-single:not(.ant-select-customize-input) .ant-select-selector {
   min-height: 40px;
   border-radius: 9px;
