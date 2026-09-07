@@ -7,6 +7,7 @@ import {
   getClassCode,
   getCourseCode,
   getEnrollmentId,
+  isCourseSharedMaterial,
   getRecordId,
   getSemesterCode,
 } from './adminAcademicUtils';
@@ -23,6 +24,7 @@ export function useAcademicEntityController({
   loadClassSections,
   loadStudentEnrollments,
   loadCourseMaterials,
+  onMaterialSyllabusUpdated,
   deleteHandlers,
 }) {
   const [entityModal, setEntityModal] = useState(EMPTY_MODAL);
@@ -69,6 +71,7 @@ export function useAcademicEntityController({
       form.setFieldsValue({
         title: nextRecord.title || 'Học liệu chưa đặt tên',
         category: nextRecord.category || nextRecord.materialCategory || '',
+        syllabusDescription: nextRecord.syllabusDescription || '',
       });
     }
   };
@@ -136,8 +139,19 @@ export function useAcademicEntityController({
       if (entityModal.type === 'material') {
         const materialId = getRecordId(record);
         const courseId = record.courseId || materialCourseId;
-        await materialsApi.updateMaterialMetadata(courseId, materialId, { ...record, title: values.title, category: values.category });
-        triggerToast('Đã cập nhật thông tin học liệu.');
+        const isCourseShared = isCourseSharedMaterial(record);
+        await materialsApi.updateMaterialMetadata(courseId, materialId, {
+          title: values.title,
+          category: values.category,
+          syllabusDescription: isCourseShared ? values.syllabusDescription : undefined,
+        });
+        if (isCourseShared) {
+          await loadCourses();
+          onMaterialSyllabusUpdated?.(values.syllabusDescription);
+        }
+        triggerToast(isCourseShared
+          ? 'Đã cập nhật thông tin học liệu và syllabus của môn.'
+          : 'Đã cập nhật thông tin học liệu.');
         await loadCourseMaterials(courseId);
       }
       closeEntityModal();

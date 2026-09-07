@@ -48,16 +48,23 @@ public class CourseCurriculumOverviewService {
 
     public void saveOfficialSyllabus(String courseId, String syllabusDescription) {
         String safeCourseId = requireMaxLength(courseId, "courseId", SHORT_TEXT_MAX_LENGTH);
+        String safeSyllabus = validateOfficialSyllabus(syllabusDescription);
+        Course course = courseRepository.findByCourseId(safeCourseId)
+                .orElseThrow(() -> new IllegalArgumentException("Course " + safeCourseId + " does not exist"));
+        course.setDescription(safeSyllabus);
+        course.setUpdatedAt(LocalDateTime.now());
+        courseRepository.save(course);
+    }
+
+    public String validateOfficialSyllabus(String syllabusDescription) {
         String safeSyllabus = requireMaxLength(
                 syllabusDescription,
                 "syllabusDescription",
                 DEFAULT_TEXT_MAX_LENGTH
         );
-        Course course = courseRepository.findByCourseId(safeCourseId)
-                .orElseThrow(() -> new IllegalArgumentException("Course " + safeCourseId + " does not exist"));
         CourseCurriculumOverview parsed = parseSyllabus(
-                safeCourseId,
-                course.getCourseName(),
+                "",
+                "",
                 safeSyllabus
         );
         if (!parsed.hasUnits()) {
@@ -65,9 +72,7 @@ public class CourseCurriculumOverviewService {
                     "Syllabus phải có ít nhất một dòng theo định dạng \"Chủ đề: mô tả\""
             );
         }
-        course.setDescription(safeSyllabus);
-        course.setUpdatedAt(LocalDateTime.now());
-        courseRepository.save(course);
+        return safeSyllabus;
     }
 
     static CourseCurriculumOverview parseSyllabus(

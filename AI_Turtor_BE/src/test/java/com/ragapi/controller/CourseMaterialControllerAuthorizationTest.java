@@ -64,7 +64,7 @@ class CourseMaterialControllerAuthorizationTest {
         var response = controller.updateCourseMaterialMetadata(
                 "PRJ301",
                 "main-1",
-                new UpdateCourseMaterialMetadataRequest("Changed", "Main"),
+                new UpdateCourseMaterialMetadataRequest("Changed", "Main", null),
                 authentication("teacher-1", "TEACHER")
         );
 

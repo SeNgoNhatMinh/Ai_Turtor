@@ -274,7 +274,20 @@ public class CourseMaterialController {
             if (request.getCategory() != null) {
                 material.setCategory(optionalMaxLength(request.getCategory(), "category", SHORT_TEXT_MAX_LENGTH));
             }
-            return ResponseEntity.ok(courseMaterialRepository.save(material));
+            boolean courseShared = isCourseSharedMaterial(material);
+            if (request.getSyllabusDescription() != null && !courseShared) {
+                throw new IllegalArgumentException(
+                        "Syllabus can only be updated from a course-shared material"
+                );
+            }
+            if (request.getSyllabusDescription() != null) {
+                curriculumOverviewService.validateOfficialSyllabus(request.getSyllabusDescription());
+            }
+            CourseMaterial saved = courseMaterialRepository.save(material);
+            if (request.getSyllabusDescription() != null) {
+                curriculumOverviewService.saveOfficialSyllabus(courseId, request.getSyllabusDescription());
+            }
+            return ResponseEntity.ok(saved);
         } catch (SecurityException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
         } catch (IllegalArgumentException e) {
@@ -698,6 +711,18 @@ public class CourseMaterialController {
             return;
         }
         curriculumOverviewService.saveOfficialSyllabus(courseId, syllabusDescription);
+    }
+
+    private boolean isCourseSharedMaterial(CourseMaterial material) {
+        if (material == null) {
+            return false;
+        }
+        if ("COURSE_SHARED".equalsIgnoreCase(material.getMaterialScope())) {
+            return true;
+        }
+        return (material.getMaterialScope() == null || material.getMaterialScope().isBlank())
+                && (material.getClassId() == null || material.getClassId().isBlank())
+                && !"TEACHER".equalsIgnoreCase(material.getUploadedByRole());
     }
 
     private record MaterialUploadScope(String classId, String uploaderId, String materialScope, String uploaderRole) {}

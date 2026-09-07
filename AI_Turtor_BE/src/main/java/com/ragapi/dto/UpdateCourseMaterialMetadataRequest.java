@@ -10,4 +10,5 @@ import lombok.NoArgsConstructor;
 public class UpdateCourseMaterialMetadataRequest {
     private String title;
     private String category;
+    private String syllabusDescription;
 }

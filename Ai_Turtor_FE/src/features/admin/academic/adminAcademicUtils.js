@@ -33,6 +33,12 @@ export const normalizeMaterialsResponse = (data) => (
 
 export const isWebsiteMaterial = (record) => String(record?.sourceType || '').toUpperCase() === 'HTML_URL';
 
+export const isCourseSharedMaterial = (record) => {
+  const scope = String(record?.materialScope || '').toUpperCase();
+  if (scope === 'COURSE_SHARED') return true;
+  return !scope && !record?.classId && String(record?.uploadedByRole || '').toUpperCase() !== 'TEACHER';
+};
+
 export const isMaterialIndexing = (record) => (
   MATERIAL_INDEXING_STATUSES.has(String(record?.indexingStatus || '').toUpperCase())
 );

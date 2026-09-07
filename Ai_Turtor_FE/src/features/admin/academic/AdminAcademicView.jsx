@@ -60,6 +60,9 @@ function AdminAcademic({ triggerToast, currentUser }) {
     loadClassSections: academic.loadClassSections,
     loadStudentEnrollments: academic.loadStudentEnrollments,
     loadCourseMaterials: materials.loadCourseMaterials,
+    onMaterialSyllabusUpdated: (syllabusDescription) => {
+      formMaterial.setFieldValue('syllabusDescription', syllabusDescription);
+    },
     deleteHandlers: {
       semester: academic.handleDeleteSemester,
       course: academic.handleDeleteCourse,

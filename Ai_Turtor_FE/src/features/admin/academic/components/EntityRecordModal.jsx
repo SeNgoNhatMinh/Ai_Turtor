@@ -1,5 +1,6 @@
 import { Form, Input, InputNumber, Modal, Select } from 'antd';
 import { getPersonDisplayName, getPersonEmail, getPersonId } from '../../../../utils/displayNames';
+import { isCourseSharedMaterial } from '../adminAcademicUtils';
 
 const { Option } = Select;
 
@@ -30,6 +31,8 @@ function EntityRecordModal({
 }) {
   const isViewMode = entityModal.mode === 'view';
   const entityLabel = ENTITY_LABELS[entityModal.type] || 'bản ghi';
+  const showMaterialSyllabus = entityModal.type === 'material'
+    && isCourseSharedMaterial(entityModal.record);
   const handleMentorChange = (mentorId) => {
     const mentor = mentors.find((item) => getMentorId(item) === mentorId);
     form.setFieldsValue({
@@ -49,6 +52,7 @@ function EntityRecordModal({
       cancelButtonProps={{ style: isViewMode ? { display: 'none' } : undefined }}
       confirmLoading={entitySaving}
       destroyOnHidden
+      width={entityModal.type === 'material' || entityModal.type === 'course' ? 760 : undefined}
     >
       <Form form={form} layout="vertical" disabled={isViewMode}>
         {entityModal.type === 'semester' && (
@@ -187,6 +191,30 @@ function EntityRecordModal({
             <Form.Item name="category" label="Danh mục">
               <Input placeholder="Không bắt buộc" />
             </Form.Item>
+            {showMaterialSyllabus && (
+              <Form.Item
+                name="syllabusDescription"
+                label="Nội dung chính trong chương trình học (syllabus)"
+                extra="Syllabus dùng chung cho toàn môn học. AI Tutor sẽ hiển thị trực tiếp nội dung này; không cần tải lại hoặc lập chỉ mục lại tài liệu."
+                rules={[
+                  { required: !isViewMode, whitespace: true, message: 'Nhập syllabus chính thức của môn học' },
+                  {
+                    validator: (_, value) => (
+                      !value || String(value).split(/\r?\n/).some((line) => line.includes(':'))
+                        ? Promise.resolve()
+                        : Promise.reject(new Error('Syllabus cần có ít nhất một dòng "Chủ đề: mô tả"'))
+                    ),
+                  },
+                ]}
+              >
+                <Input.TextArea
+                  rows={10}
+                  maxLength={20000}
+                  showCount
+                  placeholder={'Cú pháp Python: Các quy tắc viết câu lệnh và biểu thức\nCấu trúc điều khiển: if/else, for và while'}
+                />
+              </Form.Item>
+            )}
           </>
         )}
       </Form>

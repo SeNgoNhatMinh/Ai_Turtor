@@ -133,7 +133,16 @@ export default function AdminAcademicTabs({
             onOpenWebsiteImport={() => materials.setWebsiteImportOpen(true)}
             onReload={() => materials.loadCourseMaterials()}
             onMaterialAction={(key, record, materialId) => {
-              if (key === 'view' || key === 'edit') onOpenEntity('material', key, record);
+              if (key === 'view' || key === 'edit') {
+                const courseId = record.courseId || materials.materialCourseId;
+                const course = (academic.courses || []).find(
+                  (item) => (item.courseId || item.id) === courseId,
+                );
+                onOpenEntity('material', key, {
+                  ...record,
+                  syllabusDescription: course?.description || '',
+                });
+              }
               if (key === 'download') materials.handleDownloadMaterial(materialId, record.title, record);
               if (key === 'reindex') materials.handleReindexMaterial(materialId);
               if (key === 'delete') materials.handleDeleteMaterial(materialId);
