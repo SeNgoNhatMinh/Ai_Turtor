@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Alert, Button, Card, Checkbox, Divider, Form, Input, InputNumber, Modal, Space, Tag, Typography } from 'antd';
 import { FolderOpenOutlined, GlobalOutlined, ImportOutlined, LinkOutlined, SearchOutlined } from '@ant-design/icons';
 import { getUserFacingError } from '../../services/apiClient';
@@ -92,6 +92,7 @@ export default function ImportWebsiteModal({
   triggerToast,
   onUploaded,
   isAdmin = false,
+  syllabusDescription = '',
 }) {
   const [form] = Form.useForm();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -127,6 +128,11 @@ export default function ImportWebsiteModal({
     () => [...new Set(tocItems.map((item) => getPathType(item.url)))],
     [tocItems],
   );
+
+  useEffect(() => {
+    if (!open || !isAdmin) return;
+    form.setFieldValue('syllabusDescription', syllabusDescription);
+  }, [form, isAdmin, open, syllabusDescription]);
 
   const handleAfterOpenChange = (visible) => {
     if (visible) return;
@@ -261,6 +267,9 @@ export default function ImportWebsiteModal({
   const handleImport = async () => {
     try {
       const values = await validateBaseForm();
+      if (isAdmin) {
+        Object.assign(values, await form.validateFields(['syllabusDescription']));
+      }
       const title = String(values.title || toc?.title || '').trim();
       const teacherId = currentUser?.userId || currentUser?.id || currentUser?._id || 'ADMIN';
       const selected = selectedUrls;
@@ -288,6 +297,7 @@ export default function ImportWebsiteModal({
             teacherId,
             followNext: fallbackFollowNext,
             maxPages: fallbackFollowNext ? Math.max(Number(fallbackMaxPages) || 1, 1) : 1,
+            syllabusDescription: isAdmin ? values.syllabusDescription : undefined,
           }
         : {
             url: toc?.sourceUrl || values.url.trim(),
@@ -296,6 +306,7 @@ export default function ImportWebsiteModal({
             teacherId,
             selectedUrls: selected,
             selectedTitles,
+            syllabusDescription: isAdmin ? values.syllabusDescription : undefined,
           };
 
       const response = await materialApi.importCourseMaterialUrl(courseId, payload);
@@ -395,6 +406,32 @@ export default function ImportWebsiteModal({
             >
               <Input placeholder="Java Virtual Machine Specification" disabled={isAnalyzing || isImporting} />
             </Form.Item>
+
+            {isAdmin && (
+              <Form.Item
+                name="syllabusDescription"
+                label={<Text strong>Nội dung chính trong chương trình học (syllabus)</Text>}
+                extra="AI Tutor hiển thị trực tiếp nội dung do nhà trường nhập, không tự tạo từ website."
+                rules={[
+                  { required: true, whitespace: true, message: 'Nhập syllabus chính thức của môn học' },
+                  {
+                    validator: (_, value) => (
+                      !value || String(value).split(/\r?\n/).some((line) => line.includes(':'))
+                        ? Promise.resolve()
+                        : Promise.reject(new Error('Mỗi chủ đề cần theo định dạng "Chủ đề: mô tả"'))
+                    ),
+                  },
+                ]}
+              >
+                <Input.TextArea
+                  rows={6}
+                  maxLength={20000}
+                  showCount
+                  disabled={isAnalyzing || isImporting}
+                  placeholder={'Chủ đề 1: Nội dung chính\nChủ đề 2: Nội dung chính'}
+                />
+              </Form.Item>
+            )}
 
             <Button
               icon={<SearchOutlined />}

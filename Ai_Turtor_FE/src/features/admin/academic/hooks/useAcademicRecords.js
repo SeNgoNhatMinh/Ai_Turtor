@@ -126,7 +126,13 @@ export function useAcademicRecords({
   };
 
   const handleCreateCourse = async (values) => {
-    await adminAcademicApi.createCourse({ courseId: values.courseId, courseName: values.courseName, credits: values.credits, status: 'ACTIVE' });
+    await adminAcademicApi.createCourse({
+      courseId: values.courseId,
+      courseName: values.courseName,
+      description: values.description,
+      credits: values.credits,
+      status: 'ACTIVE',
+    });
     triggerToast('Đã tạo môn học mới.');
     formCourse.resetFields();
     loadCourses();

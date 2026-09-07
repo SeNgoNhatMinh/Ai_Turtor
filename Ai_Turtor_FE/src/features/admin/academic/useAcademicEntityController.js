@@ -42,6 +42,7 @@ export function useAcademicEntityController({
       form.setFieldsValue({
         courseId: getCourseCode(nextRecord),
         courseName: nextRecord.courseName || nextRecord.name,
+        description: nextRecord.description || '',
         credits: nextRecord.credits || 3,
         status: nextRecord.status || 'ACTIVE',
       });
@@ -94,7 +95,14 @@ export function useAcademicEntityController({
       }
       if (entityModal.type === 'course') {
         const courseId = getCourseCode(record);
-        await adminAcademicApi.updateCourse(courseId, { ...record, courseId, courseName: values.courseName, credits: values.credits, status: values.status });
+        await adminAcademicApi.updateCourse(courseId, {
+          ...record,
+          courseId,
+          courseName: values.courseName,
+          description: values.description,
+          credits: values.credits,
+          status: values.status,
+        });
         triggerToast('Đã cập nhật môn học.');
         await loadCourses();
       }

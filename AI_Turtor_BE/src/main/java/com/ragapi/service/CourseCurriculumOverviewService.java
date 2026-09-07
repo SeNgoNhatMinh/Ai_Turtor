@@ -1,39 +1,38 @@
 package com.ragapi.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ragapi.dto.CourseCurriculumOverview;
-import com.ragapi.dto.cotraining.ChapterOutlineView;
 import com.ragapi.entity.Course;
 import com.ragapi.repository.CourseRepository;
-import com.ragapi.util.ChapterHeadingUtils;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.Locale;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import static com.ragapi.util.ValidationUtils.DEFAULT_TEXT_MAX_LENGTH;
+import static com.ragapi.util.ValidationUtils.SHORT_TEXT_MAX_LENGTH;
+import static com.ragapi.util.ValidationUtils.requireMaxLength;
 
 /**
- * Turns indexed chapter headings into a student-facing "nội dung chính" list.
- * Grounded in course materials; not a hardcoded syllabus per course code.
+ * Reads the official curriculum from Course.description. The overview is
+ * deterministic: uploaded material headings and language models never create
+ * or rewrite the school's syllabus.
  */
-@Slf4j
 @Service
 @RequiredArgsConstructor
 public class CourseCurriculumOverviewService {
 
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-    private static final int MAX_HEADINGS = 48;
-    private static final int MAX_UNITS = 8;
+    private static final int MAX_UNITS = 16;
+    private static final Pattern LIST_PREFIX = Pattern.compile(
+            "^\\s*(?:[-*\u2022\u25aa\u25e6]+|\\d+(?:\\.\\d+)*[.)-]?)\\s*"
+    );
+    private static final Pattern TOPIC_SEPARATOR = Pattern.compile("\\s*(?::|\uff1a|\\||\\s[\u2013\u2014-]\\s)\\s*");
 
     private final CourseRepository courseRepository;
-    private final ChapterOutlineService chapterOutlineService;
-    private final OpenRouterChatService chatService;
-    private final Map<String, CourseCurriculumOverview> cache = new ConcurrentHashMap<>();
 
     public CourseCurriculumOverview forCourse(String courseId) {
         if (courseId == null || courseId.isBlank()) {
@@ -41,134 +40,125 @@ public class CourseCurriculumOverviewService {
         }
         String safeCourseId = courseId.trim();
         Course course = courseRepository.findByCourseId(safeCourseId).orElse(null);
-        List<String> headings = materialHeadings(safeCourseId);
-        String cacheKey = cacheKey(safeCourseId, course, headings);
-        CourseCurriculumOverview cached = cache.get(cacheKey);
-        if (cached != null) {
-            return cached;
+        if (course == null) {
+            return CourseCurriculumOverview.empty(safeCourseId);
         }
-        CourseCurriculumOverview generated = generate(safeCourseId, course, headings);
-        if (generated.hasUnits()) {
-            cache.put(cacheKey, generated);
-        }
-        return generated;
+        return parseSyllabus(safeCourseId, course.getCourseName(), course.getDescription());
     }
 
-    private List<String> materialHeadings(String courseId) {
-        try {
-            return chapterOutlineService.suggestChapters(courseId).stream()
-                    .map(ChapterOutlineView::getTitle)
-                    .filter(Objects::nonNull)
-                    .map(String::trim)
-                    .filter(title -> !title.isBlank())
-                    .filter(ChapterHeadingUtils::isStudyUnitTitle)
-                    .distinct()
-                    .limit(MAX_HEADINGS)
-                    .toList();
-        } catch (Exception error) {
-            log.warn("Could not load chapter headings for {}: {}", courseId, error.getMessage());
-            return List.of();
-        }
-    }
-
-    private CourseCurriculumOverview generate(String courseId, Course course, List<String> headings) {
-        String courseName = course == null || course.getCourseName() == null ? "" : course.getCourseName().trim();
-        String description = course == null || course.getDescription() == null ? "" : course.getDescription().trim();
-        if (headings.isEmpty() && courseName.isBlank() && description.isBlank()) {
-            return CourseCurriculumOverview.empty(courseId);
-        }
-        String raw = chatService.generateUtility(buildPrompt(courseId, courseName, description, headings));
-        CourseCurriculumOverview parsed = parse(courseId, courseName, raw);
-        if (parsed.hasUnits()) {
-            return parsed;
-        }
-        return fallback(courseId, courseName, headings);
-    }
-
-    static String buildPrompt(String courseId, String courseName, String description, List<String> headings) {
-        StringBuilder headingBlock = new StringBuilder();
-        headings.forEach(title -> headingBlock.append("- ").append(title).append("\n"));
-        return """
-                You write a Vietnamese tutor opening for one university course.
-                Group the material headings into the MAIN curriculum blocks a beginner should study.
-                Do not invent a different subject. Use only this course code, name, description, and headings.
-
-                Course code: %s
-                Course name: %s
-                Description: %s
-
-                Material headings:
-                %s
-                Return exactly one JSON object and no markdown:
-                {
-                  "summary": "one Vietnamese sentence: what this course trains the student to do",
-                  "units": [
-                    {"title": "short Vietnamese unit name", "detail": "one short Vietnamese clause of what it covers"}
-                  ]
-                }
-
-                Rules:
-                - 5 to 8 units, in a sensible study order
-                - title is a study topic the student can click, not a question
-                - merge tiny TOC subsections into larger blocks (syntax, control flow, functions, data, files, OOP, ...)
-                - skip book front matter and publisher notes
-                """.formatted(
-                courseId == null ? "" : courseId,
-                courseName == null || courseName.isBlank() ? courseId : courseName,
-                description == null || description.isBlank() ? "(none)" : description,
-                headingBlock.isEmpty() ? "- (no headings indexed yet)" : headingBlock
+    public void saveOfficialSyllabus(String courseId, String syllabusDescription) {
+        String safeCourseId = requireMaxLength(courseId, "courseId", SHORT_TEXT_MAX_LENGTH);
+        String safeSyllabus = requireMaxLength(
+                syllabusDescription,
+                "syllabusDescription",
+                DEFAULT_TEXT_MAX_LENGTH
         );
+        Course course = courseRepository.findByCourseId(safeCourseId)
+                .orElseThrow(() -> new IllegalArgumentException("Course " + safeCourseId + " does not exist"));
+        CourseCurriculumOverview parsed = parseSyllabus(
+                safeCourseId,
+                course.getCourseName(),
+                safeSyllabus
+        );
+        if (!parsed.hasUnits()) {
+            throw new IllegalArgumentException(
+                    "Syllabus phải có ít nhất một dòng theo định dạng \"Chủ đề: mô tả\""
+            );
+        }
+        course.setDescription(safeSyllabus);
+        course.setUpdatedAt(LocalDateTime.now());
+        courseRepository.save(course);
     }
 
-    static CourseCurriculumOverview parse(String courseId, String courseName, String raw) {
-        if (raw == null || raw.isBlank()) {
-            return CourseCurriculumOverview.empty(courseId);
+    static CourseCurriculumOverview parseSyllabus(
+            String courseId,
+            String courseName,
+            String syllabusDescription
+    ) {
+        String safeCourseId = courseId == null ? "" : courseId.trim();
+        String safeCourseName = courseName == null ? "" : courseName.trim();
+        if (syllabusDescription == null || syllabusDescription.isBlank()) {
+            return new CourseCurriculumOverview(safeCourseId, safeCourseName, "", List.of());
         }
-        try {
-            JsonNode root = OBJECT_MAPPER.readTree(extractJson(raw));
-            String summary = root.path("summary").asText("").trim();
-            List<CourseCurriculumOverview.Unit> units = new ArrayList<>();
-            for (JsonNode node : root.path("units")) {
-                String title = node.path("title").asText("").trim();
-                String detail = node.path("detail").asText("").trim();
-                if (title.isBlank()) {
-                    continue;
-                }
-                units.add(new CourseCurriculumOverview.Unit(title, detail));
-                if (units.size() >= MAX_UNITS) {
-                    break;
-                }
+
+        List<String> summaryLines = new ArrayList<>();
+        List<CourseCurriculumOverview.Unit> units = new ArrayList<>();
+        for (String rawLine : syllabusDescription.split("\\R")) {
+            String line = rawLine == null ? "" : rawLine.trim();
+            if (line.isBlank() || isSyllabusHeading(line)) {
+                continue;
             }
-            return new CourseCurriculumOverview(courseId, courseName, summary, units);
-        } catch (Exception error) {
-            return CourseCurriculumOverview.empty(courseId);
+            Matcher prefixMatcher = LIST_PREFIX.matcher(line);
+            boolean listItem = prefixMatcher.find() && prefixMatcher.end() > 0;
+            if (listItem) {
+                line = line.substring(prefixMatcher.end()).trim();
+            }
+            if (line.isBlank()) {
+                continue;
+            }
+
+            Matcher separatorMatcher = TOPIC_SEPARATOR.matcher(line);
+            if (separatorMatcher.find() && separatorMatcher.start() > 0) {
+                String title = cleanMarkdown(line.substring(0, separatorMatcher.start()));
+                String detail = cleanMarkdown(line.substring(separatorMatcher.end()));
+                if (!title.isBlank()) {
+                    units.add(new CourseCurriculumOverview.Unit(title, detail));
+                }
+            } else if (listItem) {
+                String title = cleanMarkdown(line);
+                if (!title.isBlank()) {
+                    units.add(new CourseCurriculumOverview.Unit(title, ""));
+                }
+            } else if (units.isEmpty()) {
+                summaryLines.add(cleanMarkdown(line));
+            } else {
+                CourseCurriculumOverview.Unit previous = units.remove(units.size() - 1);
+                String detail = previous.detail().isBlank()
+                        ? cleanMarkdown(line)
+                        : previous.detail() + " " + cleanMarkdown(line);
+                units.add(new CourseCurriculumOverview.Unit(previous.title(), detail));
+            }
+
+            if (units.size() >= MAX_UNITS) {
+                break;
+            }
         }
+
+        String summary = summaryLines.stream()
+                .filter(value -> value != null && !value.isBlank())
+                .reduce((left, right) -> left + " " + right)
+                .orElseGet(() -> officialSummary(safeCourseId, safeCourseName));
+        return new CourseCurriculumOverview(safeCourseId, safeCourseName, summary, units);
     }
 
-    static CourseCurriculumOverview fallback(String courseId, String courseName, List<String> headings) {
-        List<CourseCurriculumOverview.Unit> units = headings.stream()
-                .limit(MAX_UNITS)
-                .map(title -> new CourseCurriculumOverview.Unit(title, ""))
-                .toList();
-        String summary = courseName == null || courseName.isBlank()
-                ? ""
-                : "Môn " + courseId + " (" + courseName + ").";
-        return new CourseCurriculumOverview(courseId, courseName, summary, units);
+    private static boolean isSyllabusHeading(String value) {
+        String normalized = value.toLowerCase(Locale.ROOT)
+                .replace("**", "")
+                .replace("#", "")
+                .trim();
+        return normalized.equals("syllabus")
+                || normalized.equals("course syllabus")
+                || normalized.equals("nội dung chính trong chương trình học")
+                || normalized.equals("nội dung chính trong chương trình học:");
     }
 
-    static String extractJson(String raw) {
-        String trimmed = raw.trim();
-        int start = trimmed.indexOf('{');
-        int end = trimmed.lastIndexOf('}');
-        if (start >= 0 && end > start) {
-            return trimmed.substring(start, end + 1);
+    private static String cleanMarkdown(String value) {
+        if (value == null) {
+            return "";
         }
-        return trimmed;
+        return value.trim()
+                .replaceAll("^#{1,6}\\s*", "")
+                .replaceAll("^\\*\\*(.*?)\\*\\*$", "$1")
+                .replace("**", "")
+                .trim();
     }
 
-    private String cacheKey(String courseId, Course course, List<String> headings) {
-        String name = course == null ? "" : String.valueOf(course.getCourseName());
-        String description = course == null ? "" : String.valueOf(course.getDescription());
-        return courseId + "|" + name + "|" + description + "|" + String.join("\n", headings);
+    private static String officialSummary(String courseId, String courseName) {
+        String label = courseName == null || courseName.isBlank()
+                ? courseId
+                : courseId + " (" + courseName + ")";
+        return label == null || label.isBlank()
+                ? "Chương trình học chính thức do nhà trường cung cấp."
+                : "Chương trình học chính thức của môn " + label + " do nhà trường cung cấp.";
     }
 }

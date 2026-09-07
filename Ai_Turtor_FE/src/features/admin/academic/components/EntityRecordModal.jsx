@@ -77,6 +77,22 @@ function EntityRecordModal({
             <Form.Item name="courseName" label="Tên môn học" rules={[{ required: !isViewMode, message: 'Nhập tên môn học' }]}>
               <Input />
             </Form.Item>
+            <Form.Item
+              name="description"
+              label="Syllabus chính thức"
+              extra="Mỗi dòng: Chủ đề: mô tả"
+              rules={[
+                {
+                  validator: (_, value) => (
+                    !value || String(value).split(/\r?\n/).some((line) => line.includes(':'))
+                      ? Promise.resolve()
+                      : Promise.reject(new Error('Syllabus cần có ít nhất một dòng "Chủ đề: mô tả"'))
+                  ),
+                },
+              ]}
+            >
+              <Input.TextArea rows={8} maxLength={20000} showCount />
+            </Form.Item>
             <Form.Item name="credits" label="Số tín chỉ">
               <InputNumber min={1} max={10} style={{ width: '100%' }} />
             </Form.Item>

@@ -30,6 +30,11 @@ function CourseMaterialsTab({
   onMaterialAction,
 }) {
   const courseOptions = getCourseSelectOptions(courses);
+  const handleCourseSelect = (courseId) => {
+    const course = (courses || []).find((item) => (item.courseId || item.id) === courseId);
+    form.setFieldValue('syllabusDescription', course?.description || '');
+    onCourseChange(courseId);
+  };
 
   return (
     <Row gutter={[16, 16]}>
@@ -46,8 +51,30 @@ function CourseMaterialsTab({
               <Select
                 placeholder="Chọn môn học"
                 value={materialCourseId || undefined}
-                onChange={onCourseChange}
+                onChange={handleCourseSelect}
                 options={courseOptions}
+              />
+            </Form.Item>
+            <Form.Item
+              name="syllabusDescription"
+              label="Nội dung chính trong chương trình học (syllabus)"
+              extra="Nội dung này do nhà trường cung cấp và sẽ được AI Tutor hiển thị trực tiếp, không tự suy luận từ tài liệu."
+              rules={[
+                { required: true, whitespace: true, message: 'Nhập syllabus chính thức của môn học' },
+                {
+                  validator: (_, value) => (
+                    !value || String(value).split(/\r?\n/).some((line) => line.includes(':'))
+                      ? Promise.resolve()
+                      : Promise.reject(new Error('Mỗi chủ đề cần theo định dạng "Chủ đề: mô tả"'))
+                  ),
+                },
+              ]}
+            >
+              <Input.TextArea
+                rows={8}
+                maxLength={20000}
+                showCount
+                placeholder={'Cú pháp Python: Quy tắc viết câu lệnh, biểu thức và comment\nNhập xuất & tương tác: Nhận dữ liệu người dùng và in kết quả\nCấu trúc điều khiển: if/else, vòng lặp và rẽ nhánh'}
               />
             </Form.Item>
             <Form.Item name="title" label="Tên học liệu" rules={[{ required: true, message: 'Nhập tên học liệu' }]}>

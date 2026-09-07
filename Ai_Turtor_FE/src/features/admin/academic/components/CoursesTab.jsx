@@ -1,4 +1,4 @@
-import { Button, Card, Col, Form, Input, InputNumber, Row } from 'antd';
+import { Button, Card, Col, Form, Input, InputNumber, Row, Tag } from 'antd';
 import { CheckCircle2, Eye, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import EntityActionMenu from '../../../../components/common/EntityActionMenu';
 import { DataTable } from '../../../../components/common/DataTable';
@@ -24,6 +24,22 @@ function CoursesTab({ form, courses, onCreate, onReload, onAction }) {
             <Form.Item name="courseName" label="Tên môn học" rules={[{ required: true }]}>
               <Input placeholder="Java Web Application" />
             </Form.Item>
+            <Form.Item
+              name="description"
+              label="Syllabus chính thức"
+              extra="Mỗi dòng theo định dạng: Chủ đề: mô tả. Syllabus sẽ bắt buộc khi Admin tải học liệu."
+              rules={[
+                {
+                  validator: (_, value) => (
+                    !value || String(value).split(/\r?\n/).some((line) => line.includes(':'))
+                      ? Promise.resolve()
+                      : Promise.reject(new Error('Syllabus cần có ít nhất một dòng "Chủ đề: mô tả"'))
+                  ),
+                },
+              ]}
+            >
+              <Input.TextArea rows={6} maxLength={20000} showCount />
+            </Form.Item>
             <Form.Item name="credits" label="Số tín chỉ" initialValue={3}>
               <InputNumber min={1} max={10} style={{ width: '100%' }} />
             </Form.Item>
@@ -36,13 +52,22 @@ function CoursesTab({ form, courses, onCreate, onReload, onAction }) {
           <DataTable
             data={courses || []}
             searchable
-            searchKeys={['courseId', 'courseName', 'semesterId', 'status']}
+            searchKeys={['courseId', 'courseName', 'description', 'semesterId', 'status']}
             searchPlaceholder="Tìm mã hoặc tên môn học"
             maxBodyHeight={560}
             emptyText="Chưa có môn học."
             columns={[
               { accessorKey: 'courseId', header: 'Mã môn' },
               { accessorKey: 'courseName', header: 'Tên môn học' },
+              {
+                accessorKey: 'description',
+                header: 'Syllabus',
+                cell: ({ row }) => (
+                  row.getValue('description')
+                    ? <Tag color="green">Đã nhập</Tag>
+                    : <Tag color="orange">Chưa nhập</Tag>
+                ),
+              },
               { accessorKey: 'credits', header: 'Tín chỉ' },
               {
                 accessorKey: 'status',

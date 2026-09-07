@@ -8,6 +8,7 @@ import com.ragapi.entity.CourseMaterial;
 import com.ragapi.repository.CourseMaterialRepository;
 import com.ragapi.service.AccessGuardService;
 import com.ragapi.service.CourseMaterialAccessPolicy;
+import com.ragapi.service.CourseCurriculumOverviewService;
 import com.ragapi.service.CourseMaterialQueryService;
 import com.ragapi.service.CourseMaterialHtmlImportService;
 import com.ragapi.service.CourseMaterialIngestionService;
@@ -66,6 +67,7 @@ public class CourseMaterialController {
     private final CourseMaterialQueryService queryService;
     private final CourseMaterialAccessPolicy materialAccessPolicy;
     private final AccessGuardService accessGuardService;
+    private final CourseCurriculumOverviewService curriculumOverviewService;
 
     @Value("${upload.pdf.max-size-mb:50}")
     private long maxMaterialUploadMb;
@@ -86,6 +88,7 @@ public class CourseMaterialController {
             @RequestParam(value = "teacherId", required = false) String teacherId,
             @RequestParam("title") String title,
             @RequestParam(value = "uploaderRole", required = false) String uploaderRole,
+            @RequestParam(value = "syllabusDescription", required = false) String syllabusDescription,
             @Parameter(description = "Course material file", required = true, schema = @Schema(type = "string", format = "binary"))
             @RequestPart("file") MultipartFile file,
             Authentication authentication
@@ -95,6 +98,7 @@ public class CourseMaterialController {
             MaterialUploadScope uploadScope = resolveUploadScope(courseId, classId, authentication);
             validateFile(file, "file", maxMaterialUploadMb, MATERIAL_EXTENSIONS, MATERIAL_CONTENT_TYPES);
             String safeTitle = requireMaxLength(title, "title", SHORT_TEXT_MAX_LENGTH);
+            saveOfficialSyllabusForSharedMaterial(courseId, uploadScope, syllabusDescription);
             CourseMaterial material = ingestionService.ingestPdfAsync(
                     file,
                     safeTitle,
@@ -122,6 +126,7 @@ public class CourseMaterialController {
             response.put("pageCount", material.getPageCount());
             response.put("tocItemCount", material.getTableOfContents() == null ? 0 : material.getTableOfContents().size());
             response.put("indexingStatus", material.getIndexingStatus());
+            response.put("syllabusUpdated", "COURSE_SHARED".equals(uploadScope.materialScope()));
             response.put("indexedAt", material.getIndexedAt());
             response.put("indexingError", material.getIndexingError());
             return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
@@ -186,6 +191,7 @@ public class CourseMaterialController {
                 return ResponseEntity.badRequest().body(Map.of("error", "Request body is required"));
             }
             MaterialUploadScope uploadScope = resolveUploadScope(courseId, request.getClassId(), authentication);
+            saveOfficialSyllabusForSharedMaterial(courseId, uploadScope, request.getSyllabusDescription());
             CourseMaterialHtmlImportService.ImportResult result = htmlImportService.importHtml(
                     request,
                     courseId,
@@ -208,6 +214,7 @@ public class CourseMaterialController {
             response.put("importedUrls", result.importedUrls());
             response.put("importedPageCount", result.importedUrls().size());
             response.put("indexingStatus", result.indexingStatus());
+            response.put("syllabusUpdated", "COURSE_SHARED".equals(uploadScope.materialScope()));
             return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
         } catch (SecurityException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
@@ -680,6 +687,17 @@ public class CourseMaterialController {
             return null;
         }
         return trimmed;
+    }
+
+    private void saveOfficialSyllabusForSharedMaterial(
+            String courseId,
+            MaterialUploadScope uploadScope,
+            String syllabusDescription
+    ) {
+        if (uploadScope == null || !"COURSE_SHARED".equals(uploadScope.materialScope())) {
+            return;
+        }
+        curriculumOverviewService.saveOfficialSyllabus(courseId, syllabusDescription);
     }
 
     private record MaterialUploadScope(String classId, String uploaderId, String materialScope, String uploaderRole) {}

@@ -289,6 +289,23 @@ public class TutorSessionService {
         List<String> recentQuestions = memory
                 .map(StudentCourseMemory::getRecentQuestions)
                 .orElse(List.of());
+        List<String> curriculum = List.of();
+        try {
+            curriculum = curriculumOverviewService.forCourse(courseId).unitTitles();
+        } catch (Exception ignored) {
+            // Courses created before syllabus support can still use indexed chapter titles.
+        }
+        if (!curriculum.isEmpty()) {
+            LinkedHashSet<String> result = new LinkedHashSet<>();
+            weakTopics.stream()
+                    .filter(Objects::nonNull)
+                    .map(String::trim)
+                    .filter(topic -> !topic.isBlank())
+                    .limit(2)
+                    .forEach(result::add);
+            curriculum.forEach(result::add);
+            return result.stream().limit(6).toList();
+        }
         List<TutorStudySuggestionUtils.RankedTitle> chapters = List.of();
         try {
             chapters = chapterOutlineService.suggestChapters(courseId).stream()
@@ -306,23 +323,6 @@ public class TutorSessionService {
         if (!TutorStudySuggestionUtils.askedTopicChips(recentQuestions).isEmpty()
                 || fromOutline.stream().anyMatch(TutorStudySuggestionUtils::looksNumberedLesson)) {
             return fromOutline;
-        }
-        List<String> curriculum = List.of();
-        try {
-            curriculum = curriculumOverviewService.forCourse(courseId).unitTitles();
-        } catch (Exception ignored) {
-            // Opening still greets from chapter titles when the overview model is unavailable.
-        }
-        if (!curriculum.isEmpty() && TutorStudySuggestionUtils.askedTopicChips(recentQuestions).isEmpty()) {
-            LinkedHashSet<String> result = new LinkedHashSet<>();
-            weakTopics.stream()
-                    .filter(Objects::nonNull)
-                    .map(String::trim)
-                    .filter(topic -> !topic.isBlank())
-                    .limit(2)
-                    .forEach(result::add);
-            curriculum.forEach(result::add);
-            return result.stream().limit(6).toList();
         }
         return fromOutline;
     }
@@ -352,10 +352,12 @@ public class TutorSessionService {
     }
 
     private boolean refreshOpeningSuggestions(TutorSession session) {
-        if (!TutorStudySuggestionUtils.needsSuggestionRefresh(session.getSuggestedTopics())) {
+        List<String> current = session.getSuggestedTopics() == null ? List.of() : session.getSuggestedTopics();
+        List<String> refreshed = suggestedTopics(session.getStudentId(), session.getCourseId());
+        if (current.equals(refreshed)) {
             return false;
         }
-        session.setSuggestedTopics(suggestedTopics(session.getStudentId(), session.getCourseId()));
+        session.setSuggestedTopics(refreshed);
         session.setUpdatedAt(LocalDateTime.now());
         sessionRepository.save(session);
         return true;
@@ -370,10 +372,13 @@ public class TutorSessionService {
         if (existing.isEmpty()) {
             return appendOpening(session, studentId, conversationId);
         }
-        if (existing.size() == 1) {
-            AiMessage only = existing.get(0);
-            if (isProactiveAssistant(only) && (rewriteStaleOpening || isStaleOpening(session, only.getContent()))) {
-                only.setContent(buildOpening(session));
+        AiMessage only = existing.get(0);
+        if (isProactiveAssistant(only)) {
+            String expectedOpening = buildOpening(session);
+            if (rewriteStaleOpening
+                    || isStaleOpening(session, only.getContent())
+                    || !expectedOpening.equals(only.getContent())) {
+                only.setContent(expectedOpening);
                 return messageRepository.save(only);
             }
         }
@@ -492,15 +497,13 @@ public class TutorSessionService {
     private String buildOpening(TutorSession session) {
         List<String> suggestions = session.getSuggestedTopics() == null ? List.of() : session.getSuggestedTopics();
         boolean hasTopic = session.getTopic() != null && !session.getTopic().isBlank();
-        boolean hasLessons = hasNumberedLessonPath(session);
         CourseCurriculumOverview overview = CourseCurriculumOverview.empty(session.getCourseId());
-        if (!hasLessons) {
-            try {
-                overview = curriculumOverviewService.forCourse(session.getCourseId());
-            } catch (Exception ignored) {
-                overview = CourseCurriculumOverview.empty(session.getCourseId());
-            }
+        try {
+            overview = curriculumOverviewService.forCourse(session.getCourseId());
+        } catch (Exception ignored) {
+            overview = CourseCurriculumOverview.empty(session.getCourseId());
         }
+        boolean hasLessons = !overview.hasUnits() && hasNumberedLessonPath(session);
         StringBuilder opening = new StringBuilder("## Chào mừng bạn đến với môn ")
                 .append(session.getCourseId());
         if (overview.courseName() != null && !overview.courseName().isBlank()) {

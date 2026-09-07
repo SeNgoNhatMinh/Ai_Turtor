@@ -5,6 +5,7 @@ import com.ragapi.entity.CourseMaterial;
 import com.ragapi.repository.CourseMaterialRepository;
 import com.ragapi.service.AccessGuardService;
 import com.ragapi.service.CourseMaterialAccessPolicy;
+import com.ragapi.service.CourseCurriculumOverviewService;
 import com.ragapi.service.CourseMaterialHtmlImportService;
 import com.ragapi.service.CourseMaterialIngestionService;
 import com.ragapi.service.CourseMaterialLifecycleService;
@@ -49,7 +50,8 @@ class CourseMaterialControllerAuthorizationTest {
                 mock(CourseMaterialLifecycleService.class),
                 mock(CourseMaterialQueryService.class),
                 new CourseMaterialAccessPolicy(),
-                accessGuardService
+                accessGuardService,
+                mock(CourseCurriculumOverviewService.class)
         );
         ReflectionTestUtils.setField(controller, "maxMaterialUploadMb", 50L);
     }
@@ -100,6 +102,7 @@ class CourseMaterialControllerAuthorizationTest {
                 "admin-id-from-client",
                 "Teacher note",
                 "ADMIN",
+                null,
                 pdf,
                 authentication("teacher-1", "TEACHER")
         );

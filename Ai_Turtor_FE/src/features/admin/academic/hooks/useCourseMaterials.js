@@ -7,7 +7,12 @@ import { useRealtimeReconnect } from '../../../realtime/realtimeContext';
 
 const wait = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
 
-export function useCourseMaterials({ triggerToast, currentUser, formMaterial }) {
+export function useCourseMaterials({
+  triggerToast,
+  currentUser,
+  formMaterial,
+  onCourseSyllabusUpdated,
+}) {
   const [materialCourseId, setMaterialCourseId] = useState('');
   const [courseMaterials, setCourseMaterials] = useState([]);
   const [materialsLoading, setMaterialsLoading] = useState(false);
@@ -106,21 +111,24 @@ export function useCourseMaterials({ triggerToast, currentUser, formMaterial }) 
     formData.append('title', values.title);
     formData.append('teacherId', currentUser?.userId || currentUser?.id || 'ADMIN');
     formData.append('uploaderRole', 'ADMIN');
+    formData.append('syllabusDescription', values.syllabusDescription);
     setMaterialUploadBusy(true);
     const releaseUploadButton = () => window.setTimeout(() => setMaterialUploadBusy(false), 2500);
     const previousCount = courseMaterials.length;
     try {
       await materialsApi.uploadMaterial(materialCourseId, formData);
       const appeared = await refreshCourseMaterialsWithRetry(materialCourseId, previousCount, values.title);
-      formMaterial.resetFields();
+      formMaterial.resetFields(['title']);
       setMaterialFile(null);
+      await onCourseSyllabusUpdated?.();
       triggerToast(appeared ? 'Đã tải học liệu dùng chung.' : 'Backend đã nhận tệp. Học liệu sẽ xuất hiện sau khi lập chỉ mục.');
     } catch (error) {
       triggerToast('Backend đang xử lý tệp. Hệ thống đang kiểm tra danh sách học liệu...');
       const appeared = await refreshCourseMaterialsWithRetry(materialCourseId, previousCount, values.title);
       if (appeared) {
-        formMaterial.resetFields();
+        formMaterial.resetFields(['title']);
         setMaterialFile(null);
+        await onCourseSyllabusUpdated?.();
         triggerToast('Đã tải học liệu dùng chung.');
       } else {
         triggerToast(getUserFacingError(error, 'Không thể tải học liệu. Hãy thử lại.'));
@@ -132,6 +140,7 @@ export function useCourseMaterials({ triggerToast, currentUser, formMaterial }) 
 
   const handleWebsiteMaterialImported = async (expectedTitle) => {
     await refreshCourseMaterialsWithRetry(materialCourseId, courseMaterials.length, expectedTitle);
+    await onCourseSyllabusUpdated?.();
   };
 
   const handleDownloadMaterial = async (materialId, title, record) => {

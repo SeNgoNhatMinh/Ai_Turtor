@@ -36,7 +36,12 @@ function AdminAcademic({ triggerToast, currentUser }) {
     formEnroll,
   });
 
-  const materials = useCourseMaterials({ triggerToast, currentUser, formMaterial });
+  const materials = useCourseMaterials({
+    triggerToast,
+    currentUser,
+    formMaterial,
+    onCourseSyllabusUpdated: academic.loadCourses,
+  });
   const studentImport = useStudentImport({
     triggerToast,
     courses: academic.courses,
@@ -177,6 +182,7 @@ function AdminAcademic({ triggerToast, currentUser }) {
             triggerToast={triggerToast}
             onUploaded={materials.handleWebsiteMaterialImported}
             isAdmin
+            syllabusDescription={formMaterial.getFieldValue('syllabusDescription') || ''}
           />
         </Suspense>
       )}

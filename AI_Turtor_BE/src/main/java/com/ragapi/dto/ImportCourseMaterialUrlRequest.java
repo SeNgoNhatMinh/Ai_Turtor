@@ -28,6 +28,9 @@ public class ImportCourseMaterialUrlRequest {
     @Schema(description = "ADMIN imports course-shared material, TEACHER imports class-scoped material", example = "ADMIN")
     private String uploaderRole;
 
+    @Schema(description = "Official school syllabus saved to Course.description. Required for ADMIN course-shared imports.")
+    private String syllabusDescription;
+
     @Schema(description = "Specific TOC/chapter URLs selected by FE. When provided, followNext is ignored. There is no fixed item-count limit.")
     private List<String> selectedUrls;
 
