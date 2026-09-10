@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { CircleHelp } from 'lucide-react';
 
 function storageKeyFor(attemptId, reviewer) {
@@ -51,13 +51,16 @@ function UnderstandingCheckQuiz({
   onLockAnswer,
 }) {
   const studentKey = String(lockedKey || '').trim().toUpperCase();
-  const [selectedKey, setSelectedKey] = useState(
-    () => studentKey || readStoredKey(attemptId, reviewer),
+  const selectionScope = storageKeyFor(attemptId, reviewer);
+  const [localSelection, setLocalSelection] = useState(() => ({
+    scope: selectionScope,
+    key: readStoredKey(attemptId, reviewer),
+  }));
+  const selectedKey = studentKey || (
+    localSelection.scope === selectionScope
+      ? localSelection.key
+      : readStoredKey(attemptId, reviewer)
   );
-
-  useEffect(() => {
-    if (studentKey) setSelectedKey(studentKey);
-  }, [studentKey]);
 
   if (!quiz?.question || !Array.isArray(quiz.options) || quiz.options.length < 2) {
     return null;
@@ -75,7 +78,7 @@ function UnderstandingCheckQuiz({
     if (locked) return;
     const nextKey = String(key || '').trim().toUpperCase();
     if (!nextKey) return;
-    setSelectedKey(nextKey);
+    setLocalSelection({ scope: selectionScope, key: nextKey });
     writeStoredKey(attemptId, reviewer, nextKey);
     if (!reviewer) onLockAnswer?.(nextKey);
   };

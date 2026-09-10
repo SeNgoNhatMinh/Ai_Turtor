@@ -1,13 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { aiTutorApi } from '../services/aiTutorApi';
 import { conversationApi } from '../services/conversationApi';
 import { getUserFacingError } from '../services/apiClient';
 import { asArray, pairMessages } from '../services/normalizers';
 import { N8N_ENABLED, N8N_STRICT } from '../services/n8nClient';
 import { n8nService } from '../services/n8nService';
-import { tutorSessionApi } from '../services/tutorSessionApi';
-import { useRealtimeEvent, useRealtimeReconnect } from '../features/realtime/realtimeContext';
-import { REALTIME_EVENT_TYPES } from '../features/realtime/realtimeEvents';
 import {
   buildAiServiceErrorMessage,
   isAiServiceErrorText,
@@ -15,30 +12,19 @@ import {
 import { hasBrokenTextEncoding, repairMojibake } from '../utils/textEncoding';
 import { useConversationSessions } from '../features/student/chat/useConversationSessions';
 import {
-  DAILY_COURSE_QUESTION_LIMIT,
   DAILY_SESSION_COMPLETE_MESSAGE,
   isDailyCourseQuotaError,
-  normalizeDailyQuota,
 } from '../constants/sessionQuota';
 import { uiCopy } from '../constants/uiCopy';
+import { resolveCanonicalConversation } from '../features/student/chat/conversations/sessionUtils';
 import {
-  findCanonicalExchange,
-  resolveCanonicalConversation,
-} from '../features/student/chat/conversations/sessionUtils';
-
-const openingContent = (openingMessage) => String(openingMessage?.content || '').trim();
-
-const toOpeningTurn = (openingMessage) => {
-  const content = openingContent(openingMessage);
-  if (!content) return null;
-  return {
-    id: openingMessage?.messageId || openingMessage?.id || `opening-${content.slice(0, 24)}`,
-    question: '',
-    answer: content,
-    proactive: true,
-    mode: 'TUTOR',
-  };
-};
+  createMissingChatAnswerError,
+  isN8nTimeoutError,
+  recoverCanonicalAnswer,
+  recoverInFlightAnswer,
+} from '../features/student/chat/chatAnswerRecovery';
+import { useDailyQuestionQuota } from '../features/student/chat/useDailyQuestionQuota';
+import { useTutorSessionController } from '../features/student/chat/useTutorSessionController';
 
 const getSafeConversationTitle = (value, courseId) => {
   const repairedTitle = repairMojibake(value).trim();
@@ -51,100 +37,6 @@ const getSafeConversationTitle = (value, courseId) => {
 const waitForConversationPersistence = () => new Promise((resolve) => {
   globalThis.setTimeout(resolve, 450);
 });
-
-const CANONICAL_ANSWER_RETRY_DELAYS = [0, 350, 800];
-const IN_FLIGHT_ANSWER_RETRY_DELAYS = [2000, 4000, 8000, 10000, 15000, 20000, 20000];
-
-const fetchCanonicalAnswer = async ({ conversationId, userId, question, signal }) => {
-  if (!conversationId || !userId) return null;
-  const chatMessages = await conversationApi.getMessages(conversationId, userId, {
-    signal,
-    skipUnauthorizedRedirect: true,
-  });
-  const messagePairs = pairMessages(asArray(chatMessages, 'content', 'messages'));
-  return findCanonicalExchange(messagePairs, question);
-};
-
-const recoverCanonicalAnswer = async ({ conversationId, userId, question, signal }) => {
-  if (!conversationId || !userId) return null;
-
-  for (const delayMs of CANONICAL_ANSWER_RETRY_DELAYS) {
-    if (signal?.aborted) return null;
-    if (delayMs > 0) {
-      await new Promise((resolve) => globalThis.setTimeout(resolve, delayMs));
-    }
-    if (signal?.aborted) return null;
-
-    try {
-      const exchange = await fetchCanonicalAnswer({ conversationId, userId, question, signal });
-      if (exchange) return exchange;
-    } catch (error) {
-      if (signal?.aborted) return null;
-      if (delayMs === CANONICAL_ANSWER_RETRY_DELAYS.at(-1)) throw error;
-    }
-  }
-
-  return null;
-};
-
-const recoverInFlightAnswer = async ({
-  conversationId,
-  userId,
-  question,
-  signal,
-  loadSessions,
-}) => {
-  let resolvedConversationId = conversationId;
-
-  for (const delayMs of IN_FLIGHT_ANSWER_RETRY_DELAYS) {
-    if (signal?.aborted) return null;
-    await new Promise((resolve) => globalThis.setTimeout(resolve, delayMs));
-    if (signal?.aborted) return null;
-
-    if (!resolvedConversationId && typeof loadSessions === 'function') {
-      try {
-        const sessions = await loadSessions({ silent: true });
-        const newest = Array.isArray(sessions) ? sessions[0] : null;
-        resolvedConversationId = newest?.id || resolvedConversationId;
-      } catch {
-        // Keep polling while the first generate is still persisting.
-      }
-    }
-
-    if (!resolvedConversationId) continue;
-
-    try {
-      const exchange = await fetchCanonicalAnswer({
-        conversationId: resolvedConversationId,
-        userId,
-        question,
-        signal,
-      });
-      if (exchange) {
-        return {
-          ...exchange,
-          conversationId: resolvedConversationId,
-        };
-      }
-    } catch {
-      if (signal?.aborted) return null;
-    }
-  }
-
-  return null;
-};
-
-const isN8nTimeoutError = (error) => (
-  error?.details?.code === 'N8N_TIMEOUT' || error?.code === 'N8N_TIMEOUT'
-);
-
-const createMissingChatAnswerError = () => {
-  const error = new Error('The AI workflow completed without a chat answer.');
-  error.name = 'N8nError';
-  error.code = 'N8N_CHAT_ANSWER_MISSING';
-  error.userMessage = 'AI Tutor đã xử lý nhưng chưa đồng bộ được câu trả lời. Vui lòng thử lại.';
-  return error;
-};
 
 export function useStudentChatController({
   currentUser,
@@ -168,6 +60,8 @@ export function useStudentChatController({
     sessions,
     messages,
     isSessionsLoading,
+    sessionMutationKey,
+    isCreatingSession,
     turnLimitNotice,
     activeSessionQuestionCount,
     activeSessionMaxTurnsReached,
@@ -185,165 +79,41 @@ export function useStudentChatController({
     handleRenameSession,
   } = conversation;
   const activeAiRequestIdRef = useRef(0);
-  const [activeTutorSession, setActiveTutorSession] = useState(null);
-  const [tutorSessionSummary, setTutorSessionSummary] = useState(null);
-  const [isTutorSessionLoading, setIsTutorSessionLoading] = useState(false);
   const canceledAiRequestIdsRef = useRef(new Set());
   const activeAiAbortControllerRef = useRef(null);
-  const tutorOpenInFlightRef = useRef(false);
-  const activeSessionIdRef = useRef(activeSessionId);
-  const courseIdRef = useRef(courseId);
   const userIdRef = useRef(userId);
-  const classIdRef = useRef(classId);
-  activeSessionIdRef.current = activeSessionId;
-  courseIdRef.current = courseId;
   userIdRef.current = userId;
-  classIdRef.current = classId;
+
+  const {
+    dailyQuota,
+    applyQuotaPayload,
+    refreshDailyQuota,
+    markDailyQuotaExhausted,
+  } = useDailyQuestionQuota({ userId, studentId, courseId });
+  const {
+    activeTutorSession,
+    tutorSessionSummary,
+    isTutorSessionLoading,
+    openTutorSession,
+    closeTutorSessionIfDailyComplete,
+    applyTutorResponse,
+  } = useTutorSessionController({
+    userId,
+    courseId,
+    classId,
+    activeSessionId,
+    triggerToast,
+    setMessages,
+    loadChatSessions,
+    bumpConversationActivity,
+    handleSelectSession,
+  });
+
   useEffect(() => () => {
     activeAiAbortControllerRef.current?.abort();
   }, []);
 
   const getStudentUserId = () => userIdRef.current || userId;
-  const [dailyQuota, setDailyQuota] = useState({
-    used: 0,
-    remaining: DAILY_COURSE_QUESTION_LIMIT,
-    limit: DAILY_COURSE_QUESTION_LIMIT,
-  });
-
-  useEffect(() => {
-    const sid = userId || studentId;
-    if (!sid || !courseId) {
-      setDailyQuota({
-        used: 0,
-        remaining: DAILY_COURSE_QUESTION_LIMIT,
-        limit: DAILY_COURSE_QUESTION_LIMIT,
-      });
-      return undefined;
-    }
-    let cancelled = false;
-    aiTutorApi.getQuestionQuota(sid, courseId).then((data) => {
-      if (!cancelled) setDailyQuota(normalizeDailyQuota(data));
-    }).catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [courseId, studentId, userId]);
-
-  const applyQuotaPayload = (payload) => {
-    if (payload == null) return null;
-    if (payload.dailyQuestionUsed == null && payload.used == null
-        && payload.dailyQuestionRemaining == null && payload.remaining == null) {
-      return null;
-    }
-    const next = normalizeDailyQuota(payload);
-    setDailyQuota(next);
-    return next;
-  };
-
-  const seedOpeningMessage = (openingMessage) => {
-    const turn = toOpeningTurn(openingMessage);
-    if (!turn) return;
-    setMessages((prev) => {
-      const list = Array.isArray(prev) ? prev : [];
-      const welcomeIndex = list.findIndex((item) => (
-        item?.id === turn.id
-        || String(item?.answer || '').trim() === turn.answer
-        || (!String(item?.question || '').trim() && /chào mừng bạn đến với (?:buổi học|môn)/i.test(String(item?.answer || '')))
-      ));
-      if (welcomeIndex >= 0) {
-        const next = [...list];
-        next[welcomeIndex] = { ...next[welcomeIndex], ...turn, id: next[welcomeIndex].id || turn.id };
-        return next;
-      }
-      return [turn, ...list];
-    });
-  };
-
-  const mergeTutorSession = (session) => {
-    if (!session?.id) return;
-    setActiveTutorSession((current) => (
-      current?.id && current.id !== session.id
-        ? { ...session }
-        : { ...(current || {}), ...session }
-    ));
-  };
-
-  const openTutorSession = async () => {
-    if (!userId || !courseId || !classId || isTutorSessionLoading || tutorOpenInFlightRef.current) return null;
-    tutorOpenInFlightRef.current = true;
-    setIsTutorSessionLoading(true);
-    try {
-      const data = await tutorSessionApi.openSession({
-        studentId: userId,
-        courseId,
-        classId,
-      });
-      const session = data?.session || null;
-      mergeTutorSession(session);
-      setTutorSessionSummary(null);
-      const conversationId = data?.conversationId;
-      await loadChatSessions({ silent: true });
-      if (conversationId) {
-        bumpConversationActivity({
-          conversationId,
-          title: 'Buổi học cùng AI Tutor',
-          messageCountIncrement: openingContent(data?.openingMessage) ? 1 : 0,
-        });
-        await handleSelectSession(conversationId, 'Buổi học cùng AI Tutor', { silent: true });
-        seedOpeningMessage(data?.openingMessage);
-      }
-      return data;
-    } catch (error) {
-      triggerToast(getUserFacingError(error, 'Không thể mở buổi học cùng AI Tutor.'));
-      return null;
-    } finally {
-      tutorOpenInFlightRef.current = false;
-      setIsTutorSessionLoading(false);
-    }
-  };
-
-  useRealtimeEvent(REALTIME_EVENT_TYPES.tutorSession, (event) => {
-    const payload = event?.data || {};
-    const session = payload.session;
-    if (!session?.id) return;
-    if (String(session.courseId || payload.courseId || '') !== String(courseIdRef.current || '')) return;
-    if (session.studentId && String(session.studentId) !== String(userIdRef.current || '')) return;
-    mergeTutorSession(session);
-    if (event.type !== 'TUTOR_SESSION_OPENED') return;
-    if (tutorOpenInFlightRef.current) {
-      seedOpeningMessage(payload.openingMessage);
-      return;
-    }
-    const conversationId = payload.conversationId;
-    if (conversationId && conversationId !== activeSessionIdRef.current) {
-      handleSelectSession(conversationId, 'Buổi học cùng AI Tutor', { silent: true }).then(() => {
-        seedOpeningMessage(payload.openingMessage);
-      });
-      return;
-    }
-    seedOpeningMessage(payload.openingMessage);
-  });
-
-  useRealtimeReconnect(() => {
-    if (!userIdRef.current || !courseIdRef.current || !classIdRef.current) return;
-    openTutorSession();
-  });
-
-  const closeTutorSessionIfDailyComplete = async (remaining) => {
-    if (!activeTutorSession?.id || remaining > 0) return;
-    try {
-      const summary = await tutorSessionApi.closeSession(activeTutorSession.id);
-      setTutorSessionSummary(summary);
-      setActiveTutorSession((session) => (session ? {
-        ...session,
-        status: 'COMPLETED',
-        phase: 'CLOSED',
-        summaryId: summary?.id,
-      } : session));
-    } catch (summaryError) {
-      console.warn('Tutor session summary could not be generated:', summaryError);
-    }
-  };
 
   const handleSendQuery = async (chatInput, codeSnippet, setAvatarEmotion) => {
     const text = chatInput.trim();
@@ -444,26 +214,15 @@ export function useStudentChatController({
       let nextQuota = applyQuotaPayload(data);
       if (!nextQuota) {
         try {
-          const quotaUserId = getStudentUserId();
-          if (quotaUserId && courseId) {
-            nextQuota = normalizeDailyQuota(await aiTutorApi.getQuestionQuota(quotaUserId, courseId));
-            setDailyQuota(nextQuota);
-          }
+          nextQuota = await refreshDailyQuota();
         } catch {
           nextQuota = null;
         }
       }
       if (nextQuota && nextQuota.remaining <= 0) {
         await closeTutorSessionIfDailyComplete(0);
-      } else if (activeTutorSession && (data?.sessionPhase || Array.isArray(data?.suggestedTopics))) {
-        setActiveTutorSession((session) => session ? {
-          ...session,
-          phase: data.sessionPhase || session.phase,
-          supportLevel: data.supportLevel || session.supportLevel,
-          suggestedTopics: Array.isArray(data.suggestedTopics) && data.suggestedTopics.length > 0
-            ? data.suggestedTopics
-            : session.suggestedTopics,
-        } : session);
+      } else {
+        applyTutorResponse(data);
       }
       const responseConversationTitle = getSafeConversationTitle(
         data.conversationTitle || data.title || previousSessionTitle,
@@ -631,11 +390,7 @@ export function useStudentChatController({
 
       const quotaReached = isDailyCourseQuotaError(error);
       if (quotaReached) {
-        setDailyQuota((current) => ({
-          ...current,
-          used: current.limit,
-          remaining: 0,
-        }));
+        markDailyQuotaExhausted();
         await closeTutorSessionIfDailyComplete(0);
       }
 
@@ -678,13 +433,9 @@ export function useStudentChatController({
       if (!quotaReached) {
         triggerToast(getUserFacingError(error, 'Mình chưa soạn xong lượt này. Thử lại giúp mình nhé.'));
         try {
-          const quotaUserId = getStudentUserId();
-          if (quotaUserId && courseId) {
-            const next = normalizeDailyQuota(await aiTutorApi.getQuestionQuota(quotaUserId, courseId));
-            setDailyQuota(next);
-            if (next.remaining <= 0) {
-              await closeTutorSessionIfDailyComplete(0);
-            }
+          const nextQuota = await refreshDailyQuota();
+          if (nextQuota?.remaining <= 0) {
+            await closeTutorSessionIfDailyComplete(0);
           }
         } catch {
           // Keep the last known daily count if the quota endpoint is unavailable.
@@ -752,6 +503,8 @@ export function useStudentChatController({
     activeSessionTitle,
     sessions,
     isSessionsLoading,
+    sessionMutationKey,
+    isCreatingSession,
     messages,
     activeSessionQuestionCount,
     activeSessionMaxTurnsReached,

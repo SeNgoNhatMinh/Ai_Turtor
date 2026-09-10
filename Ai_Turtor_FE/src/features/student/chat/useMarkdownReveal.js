@@ -29,21 +29,18 @@ export function useMarkdownReveal(markdown, enabled = false) {
   const source = revealSourceMarkdown(full);
   const reducedMotion = usePrefersReducedMotion();
   const animate = shouldRevealAnswer({ enabled, markdown: full, reducedMotion });
-  const [index, setIndex] = useState(() => (animate ? 0 : source.length));
+  const [revealState, setRevealState] = useState(() => ({ source, index: 0 }));
+  const index = revealState.source === source ? revealState.index : 0;
 
   useEffect(() => {
-    if (!animate) {
-      setIndex(source.length);
-      return undefined;
-    }
+    if (!animate) return undefined;
 
-    setIndex(0);
     let current = 0;
     let frame = 0;
     const step = revealStepSize(source.length);
     const tick = () => {
       current = nextRevealIndex(source, current, step);
-      setIndex(current);
+      setRevealState({ source, index: current });
       if (current < source.length) {
         frame = window.requestAnimationFrame(tick);
       }
