@@ -4,10 +4,14 @@ import { asArray } from './normalizers';
 const encodePath = (value) => encodeURIComponent(String(value ?? ''));
 
 export const supportChatApi = {
-  async getEscalationHistory(userId) {
+  async getEscalationHistory(userId, options = {}) {
     const params = new URLSearchParams({ userId });
     return asArray(
-      await request(`${API_BASE_URL}/tutor/escalations/history?${params}`),
+      await request(`${API_BASE_URL}/tutor/escalations/history?${params}`, {
+        signal: options.signal,
+        skipUnauthorizedRedirect: options.skipUnauthorizedRedirect,
+        retries: options.retries,
+      }),
       'escalations',
       'content',
     );

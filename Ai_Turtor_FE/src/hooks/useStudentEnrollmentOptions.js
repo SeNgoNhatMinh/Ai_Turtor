@@ -1,11 +1,15 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '../app/queryKeys';
 import { adminAcademicApi } from '../services/adminAcademicApi';
 import { asArray } from '../services/normalizers';
 import { classIdMatches, getClassAliases, getClassCodeValue } from '../utils/academicIds';
 
+const ENROLLMENT_STALE_TIME_MS = 5 * 60_000;
+const EMPTY_ENROLLMENT_RESULT = { items: [], resolvedStudentId: '' };
+
 const normalizeCourseCode = (value) => String(value || '').trim().toUpperCase();
 const normalizeLookupId = (value) => String(value || '').trim();
-const enrollmentCache = new Map();
 
 const buildEnrollmentCacheKey = (studentId, lookupIds) => (
   [studentId, ...lookupIds]
@@ -24,7 +28,10 @@ const getEnrollmentStudentId = (item) => (
   || ''
 );
 
-const getEnrollmentCourseId = (item) => item?.courseId || item?.courseCode || item?.course?.courseId || item?.course?.id || '';
+const getEnrollmentCourseId = (item) => (
+  item?.courseId || item?.courseCode || item?.course?.courseId || item?.course?.id || ''
+);
+
 const getEnrollmentClassId = (item) => getClassCodeValue(item);
 
 const expandEnrollmentItems = (data) => {
@@ -52,6 +59,8 @@ const findAliasEnrollment = (items, requestedCourseId) => {
   }) || null;
 };
 
+const canTryNextIdentity = (error) => [400, 404].includes(Number(error?.status));
+
 export function useStudentEnrollmentOptions({
   studentId,
   lookupIds = [],
@@ -61,118 +70,125 @@ export function useStudentEnrollmentOptions({
   setClassId,
   skipUnauthorizedRedirect = false,
 }) {
+  const queryClient = useQueryClient();
   const cacheKey = useMemo(
     () => buildEnrollmentCacheKey(studentId, lookupIds),
     [lookupIds, studentId],
   );
-  const cachedEnrollment = enrollmentCache.get(cacheKey);
-  const [studentEnrollments, setStudentEnrollments] = useState(() => cachedEnrollment?.items || []);
-  const [resolvedStudentId, setResolvedStudentId] = useState(() => cachedEnrollment?.resolvedStudentId || '');
-  const [isStudentEnrollmentsLoading, setIsStudentEnrollmentsLoading] = useState(false);
-  const [hasLoadedStudentEnrollments, setHasLoadedStudentEnrollments] = useState(() => Boolean(cachedEnrollment));
-  const requestRef = useRef(null);
-
-  useEffect(() => () => requestRef.current?.abort(), []);
-
-  const loadStudentEnrollments = useCallback(async () => {
+  const candidates = useMemo(() => {
     const baseCandidates = [studentId, ...lookupIds].map(normalizeLookupId).filter(Boolean);
     const quotedCandidates = baseCandidates
       .filter((item) => !item.startsWith('"') && !item.endsWith('"'))
       .map((item) => `"${item}"`);
-    const candidates = [...new Set([...baseCandidates, ...quotedCandidates])];
+    return [...new Set([...baseCandidates, ...quotedCandidates])];
+  }, [lookupIds, studentId]);
+  const queryKey = useMemo(() => queryKeys.studentEnrollments(cacheKey), [cacheKey]);
+
+  const fetchStudentEnrollments = useCallback(async ({ signal }) => {
+    if (candidates.length === 0) return EMPTY_ENROLLMENT_RESULT;
+
+    for (const [index, candidateId] of candidates.entries()) {
+      try {
+        const data = await adminAcademicApi.getStudentEnrollments(candidateId, {
+          signal,
+          retries: 0,
+          skipUnauthorizedRedirect,
+        });
+        const items = expandEnrollmentItems(data);
+        if (items.length > 0) {
+          return {
+            items,
+            resolvedStudentId: candidateId || getEnrollmentStudentId(items[0]) || studentId || '',
+          };
+        }
+      } catch (error) {
+        if (signal.aborted) throw error;
+        const isLastCandidate = index === candidates.length - 1;
+        if (isLastCandidate || !canTryNextIdentity(error)) throw error;
+      }
+    }
+
+    return { items: [], resolvedStudentId: studentId || '' };
+  }, [candidates, skipUnauthorizedRedirect, studentId]);
+
+  const enrollmentQuery = useQuery({
+    queryKey,
+    queryFn: fetchStudentEnrollments,
+    enabled: false,
+    staleTime: ENROLLMENT_STALE_TIME_MS,
+  });
+  const enrollmentResult = enrollmentQuery.data || EMPTY_ENROLLMENT_RESULT;
+  const studentEnrollments = enrollmentResult.items;
+  const resolvedStudentId = enrollmentResult.resolvedStudentId;
+  const hasLoadedStudentEnrollments = enrollmentQuery.data !== undefined || enrollmentQuery.isFetched;
+
+  const applyEnrollmentContext = useCallback((result) => {
+    const items = result?.items || [];
+    const validEnrollments = items.filter((item) => (
+      getEnrollmentCourseId(item) && getEnrollmentClassId(item)
+    ));
+
+    if (validEnrollments.length === 0) {
+      setCourseId('');
+      setClassId('');
+      return result;
+    }
+
+    const currentEnrollment = validEnrollments.find((item) => (
+      normalizeCourseCode(getEnrollmentCourseId(item)) === normalizeCourseCode(courseId)
+      && classIdMatches(getEnrollmentClassId(item), classId)
+    ));
+    if (currentEnrollment) {
+      const canonicalClassId = getEnrollmentClassId(currentEnrollment);
+      if (canonicalClassId && canonicalClassId !== classId) setClassId(canonicalClassId);
+      return result;
+    }
+
+    const sameCourseEnrollment = validEnrollments.find((item) => (
+      normalizeCourseCode(getEnrollmentCourseId(item)) === normalizeCourseCode(courseId)
+    ));
+    if (sameCourseEnrollment) {
+      setClassId(getEnrollmentClassId(sameCourseEnrollment));
+      return result;
+    }
+
+    const aliasCourseEnrollment = findAliasEnrollment(validEnrollments, courseId);
+    if (aliasCourseEnrollment) {
+      setCourseId(getEnrollmentCourseId(aliasCourseEnrollment));
+      setClassId(getEnrollmentClassId(aliasCourseEnrollment));
+      return result;
+    }
+
+    const firstEnrollment = validEnrollments[0];
+    setCourseId(getEnrollmentCourseId(firstEnrollment));
+    setClassId(getEnrollmentClassId(firstEnrollment));
+    return result;
+  }, [classId, courseId, setClassId, setCourseId]);
+
+  const loadStudentEnrollments = useCallback(async ({ force = false } = {}) => {
     if (candidates.length === 0) {
-      enrollmentCache.delete(cacheKey);
-      setStudentEnrollments([]);
-      setResolvedStudentId('');
-      setHasLoadedStudentEnrollments(true);
-      return { items: [], resolvedStudentId: '' };
+      queryClient.setQueryData(queryKey, EMPTY_ENROLLMENT_RESULT);
+      return applyEnrollmentContext(EMPTY_ENROLLMENT_RESULT);
     }
 
-    requestRef.current?.abort();
-    const controller = new AbortController();
-    requestRef.current = controller;
-    setIsStudentEnrollmentsLoading(true);
     try {
-      let items = [];
-      let matchedStudentId = '';
-      for (const candidateId of candidates) {
-        try {
-          const data = await adminAcademicApi.getStudentEnrollments(candidateId, {
-            signal: controller.signal,
-            force: !enrollmentCache.has(cacheKey),
-            skipUnauthorizedRedirect,
-          });
-          items = expandEnrollmentItems(data);
-          if (items.length > 0) {
-            matchedStudentId = candidateId;
-            break;
-          }
-        } catch (error) {
-          if (controller.signal.aborted) return;
-          if (candidateId === candidates[candidates.length - 1]) throw error;
-        }
-      }
-      const nextResolvedStudentId = matchedStudentId || getEnrollmentStudentId(items[0]) || studentId || '';
-      enrollmentCache.set(cacheKey, { items, resolvedStudentId: nextResolvedStudentId });
-      setStudentEnrollments(items);
-      setResolvedStudentId(nextResolvedStudentId);
-      setHasLoadedStudentEnrollments(true);
-
-      const validEnrollments = items.filter((item) => getEnrollmentCourseId(item) && getEnrollmentClassId(item));
-      if (validEnrollments.length === 0) {
-        setCourseId('');
-        setClassId('');
-        return { items, resolvedStudentId: nextResolvedStudentId };
-      }
-
-      const currentEnrollment = validEnrollments.find(
-        (item) => normalizeCourseCode(getEnrollmentCourseId(item)) === normalizeCourseCode(courseId)
-          && classIdMatches(getEnrollmentClassId(item), classId)
-      );
-      if (currentEnrollment) {
-        const canonicalClassId = getEnrollmentClassId(currentEnrollment);
-        if (canonicalClassId && canonicalClassId !== classId) {
-          setClassId(canonicalClassId);
-        }
-        return { items, resolvedStudentId: nextResolvedStudentId };
-      }
-
-      const sameCourseEnrollment = validEnrollments.find((item) => (
-        normalizeCourseCode(getEnrollmentCourseId(item)) === normalizeCourseCode(courseId)
-      ));
-      if (sameCourseEnrollment) {
-        setClassId(getEnrollmentClassId(sameCourseEnrollment));
-        return { items, resolvedStudentId: nextResolvedStudentId };
-      }
-
-      const aliasCourseEnrollment = findAliasEnrollment(validEnrollments, courseId);
-      if (aliasCourseEnrollment) {
-        setCourseId(getEnrollmentCourseId(aliasCourseEnrollment));
-        setClassId(getEnrollmentClassId(aliasCourseEnrollment));
-        return { items, resolvedStudentId: nextResolvedStudentId };
-      }
-
-      const firstEnrollment = validEnrollments[0];
-      if (firstEnrollment) {
-        setCourseId(getEnrollmentCourseId(firstEnrollment));
-        setClassId(getEnrollmentClassId(firstEnrollment));
-      }
-      return { items, resolvedStudentId: nextResolvedStudentId };
+      const result = await queryClient.fetchQuery({
+        queryKey,
+        queryFn: fetchStudentEnrollments,
+        staleTime: force ? 0 : ENROLLMENT_STALE_TIME_MS,
+      });
+      return applyEnrollmentContext(result);
     } catch (error) {
-      if (controller.signal.aborted) return;
       console.warn('Failed to load student enrollments:', error);
-      const cached = enrollmentCache.get(cacheKey);
-      setStudentEnrollments(cached?.items || []);
-      setResolvedStudentId(cached?.resolvedStudentId || '');
-      setHasLoadedStudentEnrollments(true);
-      return cached || { items: [], resolvedStudentId: '' };
-    } finally {
-      if (requestRef.current === controller) {
-        requestRef.current = null;
-        setIsStudentEnrollmentsLoading(false);
-      }
+      return queryClient.getQueryData(queryKey) || EMPTY_ENROLLMENT_RESULT;
     }
-  }, [cacheKey, classId, courseId, lookupIds, setClassId, setCourseId, skipUnauthorizedRedirect, studentId]);
+  }, [
+    applyEnrollmentContext,
+    candidates.length,
+    fetchStudentEnrollments,
+    queryClient,
+    queryKey,
+  ]);
 
   const courseOptions = useMemo(() => {
     const byCourse = new Map();
@@ -189,7 +205,9 @@ export function useStudentEnrollmentOptions({
 
   const classOptions = useMemo(() => (
     studentEnrollments
-      .filter((item) => !courseId || normalizeCourseCode(getEnrollmentCourseId(item)) === normalizeCourseCode(courseId))
+      .filter((item) => (
+        !courseId || normalizeCourseCode(getEnrollmentCourseId(item)) === normalizeCourseCode(courseId)
+      ))
       .map((item) => {
         const nextClassId = getEnrollmentClassId(item);
         return {
@@ -205,7 +223,8 @@ export function useStudentEnrollmentOptions({
   const selectCourse = useCallback((nextCourseId) => {
     const normalizedCourseId = normalizeCourseCode(nextCourseId);
     const matchingEnrollment = studentEnrollments.find((item) => (
-      normalizeCourseCode(getEnrollmentCourseId(item)) === normalizedCourseId && getEnrollmentClassId(item)
+      normalizeCourseCode(getEnrollmentCourseId(item)) === normalizedCourseId
+      && getEnrollmentClassId(item)
     ));
 
     setCourseId(matchingEnrollment ? getEnrollmentCourseId(matchingEnrollment) : normalizedCourseId);
@@ -213,9 +232,7 @@ export function useStudentEnrollmentOptions({
   }, [setClassId, setCourseId, studentEnrollments]);
 
   const ensureEnrollmentContext = useCallback(async (preferredCourseId = '') => {
-    if (hasLoadedStudentEnrollments && studentEnrollments.length === 0) {
-      return null;
-    }
+    if (hasLoadedStudentEnrollments && studentEnrollments.length === 0) return null;
 
     let items = studentEnrollments;
     if (!hasLoadedStudentEnrollments) {
@@ -223,7 +240,9 @@ export function useStudentEnrollmentOptions({
       items = loaded?.items || items;
     }
 
-    const validEnrollments = items.filter((item) => getEnrollmentCourseId(item) && getEnrollmentClassId(item));
+    const validEnrollments = items.filter((item) => (
+      getEnrollmentCourseId(item) && getEnrollmentClassId(item)
+    ));
     if (validEnrollments.length === 0) return null;
 
     const preferredCourse = normalizeCourseCode(preferredCourseId || courseId);
@@ -240,14 +259,22 @@ export function useStudentEnrollmentOptions({
     setCourseId(nextCourseId);
     setClassId(nextClassId);
     return { courseId: nextCourseId, classId: nextClassId };
-  }, [classId, courseId, hasLoadedStudentEnrollments, loadStudentEnrollments, setClassId, setCourseId, studentEnrollments]);
+  }, [
+    classId,
+    courseId,
+    hasLoadedStudentEnrollments,
+    loadStudentEnrollments,
+    setClassId,
+    setCourseId,
+    studentEnrollments,
+  ]);
 
   return {
     studentEnrollments,
     courseOptions,
     classOptions,
     resolvedStudentId,
-    isStudentEnrollmentsLoading,
+    isStudentEnrollmentsLoading: enrollmentQuery.isFetching,
     hasLoadedStudentEnrollments,
     hasStudentEnrollments: studentEnrollments.some(
       (item) => getEnrollmentCourseId(item) && getEnrollmentClassId(item),

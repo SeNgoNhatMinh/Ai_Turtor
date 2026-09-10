@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Outlet } from 'react-router-dom';
 import { useAppNavigation } from './app/useAppNavigation';
 import { getHomeRouteForRole } from './app/routes';
@@ -27,6 +28,7 @@ function App() {
   });
   const { navigate } = navigation;
   const toast = useToastMessage();
+  const queryClient = useQueryClient();
   const authIdentityRef = useRef('');
   const hasInitializedAuthIdentityRef = useRef(false);
 
@@ -49,6 +51,7 @@ function App() {
   }, [auth.currentUser?.originalRole, auth.currentUser?.role, auth.currentUserId, navigate]);
 
   const handleLoginSuccess = (user) => {
+    queryClient.clear();
     const { accountRole } = auth.completeLogin(user);
     navigation.setCourseId('');
     navigation.setClassId('');
@@ -56,6 +59,7 @@ function App() {
   };
 
   const handleLogout = () => {
+    queryClient.clear();
     navigation.setCourseId('');
     navigation.setClassId('');
     auth.logout();

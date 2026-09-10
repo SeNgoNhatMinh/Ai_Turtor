@@ -20,6 +20,7 @@ export const adminAcademicApi = {
     const loader = () => request(`${API_BASE_URL}/students/${encodePath(studentId)}/enrollments`, {
       signal: options.signal,
       skipUnauthorizedRedirect: options.skipUnauthorizedRedirect,
+      retries: options.retries,
     });
     if (options.signal) return loader();
     return getCachedResource(`enrollments:${studentId}`, loader, { force: options.force, ttlMs: 15000 });

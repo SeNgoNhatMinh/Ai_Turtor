@@ -1,9 +1,13 @@
+import { QueryClientProvider } from '@tanstack/react-query';
 import AppErrorBoundary from './AppErrorBoundary';
+import { appQueryClient } from './queryClient';
 
 export default function AppProviders({ children }) {
   return (
     <AppErrorBoundary>
-      {children}
+      <QueryClientProvider client={appQueryClient}>
+        {children}
+      </QueryClientProvider>
     </AppErrorBoundary>
   );
 }
