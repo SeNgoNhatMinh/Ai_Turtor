@@ -9,6 +9,10 @@ import { LIMITS, validateChatInput } from '../../../utils/validators';
 import { isMobileViewport } from '../../../hooks/useResponsiveViewport';
 import { buildLessonChatPrompt } from '../learning/studySuggestionPrompt';
 import { uiCopy } from '../../../constants/uiCopy';
+import {
+  buildIncorrectAnswerRemediationPrompt,
+  buildMissingAnswerKeyRemediationPrompt,
+} from './understandingCheck';
 
 export function useStudentChatTabController({
   courseId,
@@ -26,6 +30,7 @@ export function useStudentChatTabController({
   handleSelectSession,
   handleRenameSession,
   handleSendQuery,
+  handleLockUnderstandingAnswer,
   handleStopAiGeneration,
   switchTab,
   userId,
@@ -160,6 +165,36 @@ export function useStudentChatTabController({
     sendText(buildLessonChatPrompt(prompt) || prompt);
   };
 
+  const handleUnderstandingCheckAnswer = async (answerMessage, selectedKey, attempt = {}) => {
+    await handleLockUnderstandingAnswer?.(answerMessage, selectedKey);
+    if (!attempt.quiz?.correctKey) {
+      const missingKeyPrompt = buildMissingAnswerKeyRemediationPrompt(
+        attempt.quiz,
+        attempt.selected,
+      );
+      if (!missingKeyPrompt) return;
+      triggerToast?.('AI Tutor đang kiểm tra đáp án và giảng lại ngay.');
+      sendText(missingKeyPrompt, {
+        interactionType: 'UNDERSTANDING_REMEDIATION',
+        displayQuestion: attempt.quiz?.question || '',
+      });
+      return;
+    }
+    if (attempt.isCorrect !== false) return;
+
+    const remediationPrompt = buildIncorrectAnswerRemediationPrompt(
+      attempt.quiz,
+      attempt.selected,
+    );
+    if (!remediationPrompt) return;
+
+    triggerToast?.('AI Tutor đang giảng lại theo cách dễ hiểu hơn.');
+    sendText(remediationPrompt, {
+      interactionType: 'UNDERSTANDING_REMEDIATION',
+      displayQuestion: attempt.quiz?.question || '',
+    });
+  };
+
   const setChatDraft = (text) => {
     setChatInput(String(text || '').slice(0, LIMITS.chatMax));
     globalThis.requestAnimationFrame?.(() => {
@@ -255,6 +290,7 @@ export function useStudentChatTabController({
     onSendQuery,
     onStopQuery,
     handlePromptStarter,
+    handleUnderstandingCheckAnswer,
     handleAnswerAction,
     handleDownloadSource,
   };

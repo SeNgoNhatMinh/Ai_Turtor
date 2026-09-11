@@ -56,6 +56,7 @@ function UnderstandingCheckQuiz({
     scope: selectionScope,
     key: readStoredKey(attemptId, reviewer),
   }));
+  const [checkingMissingKey, setCheckingMissingKey] = useState(false);
   const selectedKey = studentKey || (
     localSelection.scope === selectionScope
       ? localSelection.key
@@ -80,7 +81,14 @@ function UnderstandingCheckQuiz({
     if (!nextKey) return;
     setLocalSelection({ scope: selectionScope, key: nextKey });
     writeStoredKey(attemptId, reviewer, nextKey);
-    if (!reviewer) onLockAnswer?.(nextKey);
+    if (!reviewer) {
+      if (!quiz.correctKey) setCheckingMissingKey(true);
+      onLockAnswer?.(nextKey, {
+        quiz,
+        selected: quiz.options.find((option) => option.key === nextKey),
+        isCorrect: Boolean(quiz.correctKey) && nextKey === quiz.correctKey,
+      });
+    }
   };
 
   return (
@@ -136,7 +144,24 @@ function UnderstandingCheckQuiz({
           ) : (
             <>
               <strong>{actor} chọn {selected.key}.</strong>
-              <p>Câu này chưa kèm đáp án sẵn trong bài, nên chưa chấm được ngay.</p>
+              <p>AI Tutor đang kiểm tra đáp án và sẽ giảng lại ngay bên dưới.</p>
+              {!reviewer ? (
+                <button
+                  type="button"
+                  className="understanding-check__ask"
+                  disabled={checkingMissingKey}
+                  onClick={() => {
+                    setCheckingMissingKey(true);
+                    onLockAnswer?.(selected.key, {
+                      quiz,
+                      selected,
+                      isCorrect: false,
+                    });
+                  }}
+                >
+                  {checkingMissingKey ? 'Đang kiểm tra…' : 'Kiểm tra đáp án'}
+                </button>
+              ) : null}
             </>
           )}
         </div>

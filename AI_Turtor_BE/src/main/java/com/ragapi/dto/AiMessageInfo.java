@@ -30,9 +30,9 @@ public class AiMessageInfo {
     private LocalDateTime pinnedAt;
     private String understandingSelectedKey;
     private LocalDateTime understandingAnsweredAt;
+    private UnderstandingCheckPayload understandingCheck;
     private LocalDateTime createdAt;
 }
-
 
 
 

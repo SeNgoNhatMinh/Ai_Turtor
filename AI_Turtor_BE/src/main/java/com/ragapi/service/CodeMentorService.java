@@ -7,6 +7,7 @@ import com.ragapi.entity.StudentCourseMemory;
 import com.ragapi.util.TechnicalIntentDetector;
 import com.ragapi.util.StudentFacingMessages;
 import com.ragapi.util.TextSanitizer;
+import com.ragapi.util.UnderstandingCheckKeyCompleter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -74,6 +75,7 @@ public class CodeMentorService {
         } else {
             answer = chatService.generate(prompt);
             answer = cleanGeneratedAnswer(answer, request);
+            answer = completeUnderstandingCheckKey(answer);
             if (answer == null || answer.isBlank() || StudentFacingMessages.isUnavailableMessage(answer)) {
                 answer = StudentFacingMessages.CODE_MENTOR_BUSY;
             } else if (hasText(request.getCourseId())) {
@@ -86,6 +88,8 @@ public class CodeMentorService {
                 );
             }
         }
+
+        answer = completeUnderstandingCheckKey(answer);
 
         answer = TextSanitizer.cleanForStudentAnswer(answer);
         if (!TextSanitizer.isSystemFailureOrEscalationAnswer(answer)) {
@@ -268,6 +272,20 @@ public class CodeMentorService {
                 .replaceAll("(?m)^\\s+", "")
                 .trim();
         return TextSanitizer.cleanForStudentAnswer(cleaned);
+    }
+
+    private String completeUnderstandingCheckKey(String answer) {
+        String withLocalKey = UnderstandingCheckKeyCompleter.completeLocally(answer);
+        if (!UnderstandingCheckKeyCompleter.missingAnswerKey(withLocalKey)) {
+            return withLocalKey;
+        }
+        try {
+            String patch = chatService.generateUtility(UnderstandingCheckKeyCompleter.patchPrompt(withLocalKey));
+            return UnderstandingCheckKeyCompleter.applyPatch(withLocalKey, patch);
+        } catch (Exception error) {
+            log.warn("Could not complete Code Mentor understanding-check answer key: {}", error.getMessage());
+            return withLocalKey;
+        }
     }
 
     private boolean containsNonLatinScript(String text) {

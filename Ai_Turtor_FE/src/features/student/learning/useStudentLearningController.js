@@ -32,7 +32,7 @@ export function useStudentLearningController({
   const [studentDashboard, setStudentDashboard] = useState(emptyDashboard);
   const [suggestions, setSuggestions] = useState([]);
 
-  const loadStudentDashboard = async () => {
+  const loadStudentDashboard = async ({ skipUnauthorizedRedirect = false } = {}) => {
     if (!studentId || !courseId) {
       setStudentDashboard(emptyDashboard);
       setSuggestions([]);
@@ -41,8 +41,8 @@ export function useStudentLearningController({
 
     try {
       const [data, memorySnapshot] = await Promise.all([
-        studentLearningApi.getStudentDashboard(studentId, courseId),
-        studentLearningApi.getStudentMemory(studentId, courseId).catch((error) => {
+        studentLearningApi.getStudentDashboard(studentId, courseId, { skipUnauthorizedRedirect }),
+        studentLearningApi.getStudentMemory(studentId, courseId, { skipUnauthorizedRedirect }).catch((error) => {
           console.warn('Student memory lookup failed while loading dashboard:', error);
           return null;
         }),
@@ -71,7 +71,7 @@ export function useStudentLearningController({
       writeAnalyzedSuggestions(studentId, courseId, mergedSuggestions);
     } catch {
       try {
-        const memory = await studentLearningApi.getStudentMemory(studentId, courseId);
+        const memory = await studentLearningApi.getStudentMemory(studentId, courseId, { skipUnauthorizedRedirect });
         const normalizedMemory = normalizeStudentDashboard(memory);
         setStudentDashboard({
           ...emptyDashboard,

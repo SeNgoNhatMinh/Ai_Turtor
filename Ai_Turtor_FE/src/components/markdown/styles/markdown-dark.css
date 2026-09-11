@@ -151,10 +151,10 @@
   background: rgba(0, 0, 0, 0.88);
 }
 
-.app-container.dark .ai-answer-render-error {
-  border-color: rgba(248, 113, 113, 0.42);
-  background: rgba(127, 29, 29, 0.18);
-  color: #fecaca;
+.app-container.dark .ai-answer-fallback-code {
+  border-color: #3f3f46;
+  background: #111827;
+  color: #ececec;
 }
 
 .app-container.dark .ai-answer-stream-cursor {

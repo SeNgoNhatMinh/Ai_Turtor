@@ -46,6 +46,7 @@ export default function StudentChatPage({
     classId,
     studentId,
     triggerToast,
+    skipUnauthorizedRedirect: true,
   });
   const mentorRequests = useChatMentorRequests({
     userId: studentId,
@@ -68,6 +69,7 @@ export default function StudentChatPage({
     handleSelectSession: chat.handleSelectSession,
     handleRenameSession: chat.handleRenameSession,
     handleSendQuery: chat.handleSendQuery,
+    handleLockUnderstandingAnswer: chat.handleLockUnderstandingAnswer,
     handleStopAiGeneration: chat.handleStopAiGeneration,
     switchTab,
     userId: studentId,
@@ -122,7 +124,7 @@ export default function StudentChatPage({
     }, 100);
 
     let dashboardCancel = null;
-    const loadDashboard = () => learning.loadStudentDashboard();
+    const loadDashboard = () => learning.loadStudentDashboard({ skipUnauthorizedRedirect: true });
     if (typeof window.requestIdleCallback === 'function') {
       const idleId = window.requestIdleCallback(loadDashboard, { timeout: 3000 });
       dashboardCancel = () => window.cancelIdleCallback(idleId);
@@ -179,7 +181,7 @@ export default function StudentChatPage({
       onResendMessage={chatController.sendText}
       onStopQuery={chatController.onStopQuery}
       onPromptStarter={chatController.handlePromptStarter}
-      onLockUnderstandingAnswer={chat.handleLockUnderstandingAnswer}
+      onLockUnderstandingAnswer={chatController.handleUnderstandingCheckAnswer}
       onAnswerAction={chatController.handleAnswerAction}
       isAiLoading={chatController.isAiLoading}
       messagesEndRef={chatController.messagesEndRef}

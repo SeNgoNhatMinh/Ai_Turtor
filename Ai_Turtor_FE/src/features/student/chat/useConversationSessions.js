@@ -153,7 +153,10 @@ export function useConversationSessions({
     setTurnLimitNotice(null);
     setMessages([]);
     try {
-      const chatMessages = await conversationApi.getMessages(sessionId, userId, { signal: controller.signal });
+      const chatMessages = await conversationApi.getMessages(sessionId, userId, {
+        signal: controller.signal,
+        skipUnauthorizedRedirect: options.silent,
+      });
       if (!controller.signal.aborted) {
         setMessages(pairMessages(asArray(chatMessages, 'content', 'messages')));
       }

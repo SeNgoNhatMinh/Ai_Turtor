@@ -73,4 +73,27 @@ describe('useConversationSessions mutations', () => {
     expect(result.current.sessions).toEqual([]);
     expect(triggerToast).toHaveBeenCalledWith(expect.stringContaining('Không thể đổi tên'));
   });
+
+  it('does not turn a silent background history failure into a global logout', async () => {
+    conversationApi.getMessages.mockRejectedValue(Object.assign(new Error('Unauthorized'), { status: 401 }));
+    const triggerToast = vi.fn();
+    const { result } = renderHook(() => useConversationSessions({
+      currentUser: { id: 'student-1' },
+      studentId: 'student-1',
+      courseId: 'PRO192',
+      classId: 'SE1833',
+      triggerToast,
+    }));
+
+    await act(async () => {
+      await result.current.handleSelectSession('conversation-1', 'Buổi học cùng AI Tutor', { silent: true });
+    });
+
+    expect(conversationApi.getMessages).toHaveBeenCalledWith(
+      'conversation-1',
+      'student-1',
+      expect.objectContaining({ skipUnauthorizedRedirect: true }),
+    );
+    expect(triggerToast).not.toHaveBeenCalled();
+  });
 });

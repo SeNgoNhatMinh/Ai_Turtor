@@ -99,6 +99,7 @@ export const pairMessages = (messages) => {
             nextMsg.nextImproveSuggestions || nextMsg.improveSuggestions || nextMsg.suggestions,
           ),
           questionEscalationId: nextMsg.questionEscalationId || null,
+          understandingCheck: nextMsg.understandingCheck || null,
           ...getMessageQuizAttempt(nextMsg),
           createdAt: msg.createdAt || nextMsg.createdAt
         });
@@ -125,6 +126,7 @@ export const pairMessages = (messages) => {
           msg.nextImproveSuggestions || msg.improveSuggestions || msg.suggestions,
         ),
         questionEscalationId: msg.questionEscalationId || null,
+        understandingCheck: msg.understandingCheck || null,
         ...getMessageQuizAttempt(msg),
         createdAt: msg.createdAt
       });
@@ -142,6 +144,7 @@ export const pairMessages = (messages) => {
           msg.nextImproveSuggestions || msg.improveSuggestions || msg.suggestions,
         ),
         questionEscalationId: msg.questionEscalationId || null,
+        understandingCheck: msg.understandingCheck || null,
         ...getMessageQuizAttempt(msg),
         createdAt: msg.createdAt
       });

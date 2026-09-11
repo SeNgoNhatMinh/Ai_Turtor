@@ -6,6 +6,7 @@ const jsonRequest = (url, method, body, options = {}) => request(url, {
   body: body === undefined ? undefined : JSON.stringify(body),
   timeoutMs: API_TIMEOUTS.ai,
   signal: options.signal,
+  skipUnauthorizedRedirect: options.skipUnauthorizedRedirect,
 });
 
 export const tutorSessionApi = {

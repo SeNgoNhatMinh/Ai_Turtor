@@ -22,6 +22,7 @@ import ChatLoadingSteps from './ChatLoadingSteps';
 import InlineMentorSupport from './InlineMentorSupport';
 import PromptStarters from './PromptStarters';
 import StudentMessageBubble from './StudentMessageBubble';
+import RemediationRequestCard from './RemediationRequestCard';
 import { uiCopy } from '../../../../constants/uiCopy';
 import { lessonSuggestionsForMessage, resolveChatStudyTip } from '../../learning/studySuggestionPrompt';
 import { isAiServiceErrorText, shouldOfferLessonContinuations } from '../../../../utils/errorMessages';
@@ -32,6 +33,21 @@ import { useMessageAudio } from '../useMessageAudio';
 import VoiceSelector from '../../../tts/components/VoiceSelector';
 
 const AiAnswer = lazy(() => import('../../../../components/AiAnswer'));
+
+const REMEDIATION_PROMPT_PREFIX = /^Ôn lại sau câu (?:trả lời chưa đúng|kiểm tra chưa có đáp án)\./i;
+const REMEDIATION_QUESTION = /^Câu vừa làm:\s*(.+)$/im;
+
+function getRemediationRequest(message) {
+  const rawQuestion = String(message?.question || '').trim();
+  const isRemediation = message?.interactionType === 'UNDERSTANDING_REMEDIATION'
+    || REMEDIATION_PROMPT_PREFIX.test(rawQuestion);
+  if (!isRemediation) return null;
+
+  return {
+    question: String(message?.displayQuestion || rawQuestion.match(REMEDIATION_QUESTION)?.[1] || '')
+      .trim(),
+  };
+}
 
 function scrollChatToEnd(messagesEndRef) {
   const marker = messagesEndRef?.current;
@@ -111,7 +127,9 @@ function StudentLiveAnswer({
             text: resolveChatStudyTip(message.question, text),
             sourceMode: message.mode,
           }) : undefined}
-          onLockAnswer={done ? (key) => onLockUnderstandingAnswer?.(message, key) : undefined}
+          onLockAnswer={done ? (key, attempt) => (
+            onLockUnderstandingAnswer?.(message, key, attempt)
+          ) : undefined}
           onDownloadSource={onDownloadSource}
           hideSourceSection
         />
@@ -321,6 +339,7 @@ function ChatMessageList({
             const pathSuggestions = lessonSuggestionsForMessage(message);
             const offerLessonContinuations = shouldOfferLessonContinuations(message);
             const tutorTurnFailed = Boolean(message.aiServiceError || isAiServiceErrorText(message.answer));
+            const remediationRequest = getRemediationRequest(message);
 
             return (
                 <div
@@ -329,14 +348,18 @@ function ChatMessageList({
                 className={`chat-message-turn ${highlightedMessageKey === messageKey ? 'chat-message-turn--highlighted' : ''}`}
               >
                 {String(message.question || '').trim() ? (
-                  <div className="chat-gpt-message-row user">
-                    <StudentMessageBubble
-                      canResend={canChat && !isAiLoading && !activeSessionMaxTurnsReached}
-                      isPinned={isPinned}
-                      onResend={onResendMessage}
-                      question={message.question}
-                      triggerToast={triggerToast}
-                    />
+                  <div className={`chat-gpt-message-row ${remediationRequest ? 'learning-event' : 'user'}`}>
+                    {remediationRequest ? (
+                      <RemediationRequestCard question={remediationRequest.question} />
+                    ) : (
+                      <StudentMessageBubble
+                        canResend={canChat && !isAiLoading && !activeSessionMaxTurnsReached}
+                        isPinned={isPinned}
+                        onResend={onResendMessage}
+                        question={message.question}
+                        triggerToast={triggerToast}
+                      />
+                    )}
                   </div>
                 ) : null}
 

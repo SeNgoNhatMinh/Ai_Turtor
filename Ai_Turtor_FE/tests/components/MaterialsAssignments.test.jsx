@@ -40,7 +40,9 @@ describe('MaterialsAssignments course context', () => {
       />,
     );
 
-    expect(screen.getByText('test 1')).toBeVisible();
+    fireEvent.click(screen.getByRole('tab', { name: /Bài tập được giao/i }));
+
+    expect(await screen.findByText('test 1')).toBeVisible();
     expect(screen.getByText('AI101-01')).toBeVisible();
 
     const courseSelect = screen.getByRole('combobox', { name: 'Môn học của bài tập' });
@@ -50,9 +52,29 @@ describe('MaterialsAssignments course context', () => {
     await waitFor(() => expect(onCourseChange).toHaveBeenCalledWith('OOP', expect.anything()));
   }, 15000);
 
-  it('explains that an empty list is scoped to the selected course', () => {
+  it('explains that an empty list is scoped to the selected course', async () => {
     render(<MaterialsAssignments {...baseProps} />);
 
-    expect(screen.getByText('Chưa có bài tập được xuất bản cho AI101.')).toBeVisible();
+    fireEvent.click(screen.getByRole('tab', { name: /Bài tập được giao/i }));
+
+    expect(await screen.findByText('Chưa có bài tập được xuất bản cho AI101.')).toBeVisible();
+  });
+
+  it('shows an inline error and retry action without leaving the page', async () => {
+    const onReloadAssignments = vi.fn();
+    render(
+      <MaterialsAssignments
+        {...baseProps}
+        assignmentsError="Unauthorized"
+        onReloadAssignments={onReloadAssignments}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('tab', { name: /Bài tập được giao/i }));
+
+    expect(await screen.findByText('Không tải được bài tập')).toBeVisible();
+    expect(screen.getByText(/Phiên đăng nhập không còn hợp lệ/i)).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Thử lại' }));
+    expect(onReloadAssignments).toHaveBeenCalledTimes(1);
   });
 });

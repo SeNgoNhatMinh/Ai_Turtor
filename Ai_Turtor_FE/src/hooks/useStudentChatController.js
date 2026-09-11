@@ -115,7 +115,7 @@ export function useStudentChatController({
 
   const getStudentUserId = () => userIdRef.current || userId;
 
-  const handleSendQuery = async (chatInput, codeSnippet, setAvatarEmotion) => {
+  const handleSendQuery = async (chatInput, codeSnippet, setAvatarEmotion, requestContext = {}) => {
     const text = chatInput.trim();
     const userId = getStudentUserId();
     if (!userId) {
@@ -142,7 +142,14 @@ export function useStudentChatController({
         questionCountIncrement: 1,
       });
     }
-    setMessages((prev) => [...prev, { question: text, answer: null, pending: true, requestId }]);
+    setMessages((prev) => [...prev, {
+      question: text,
+      answer: null,
+      pending: true,
+      requestId,
+      interactionType: requestContext.interactionType || '',
+      displayQuestion: requestContext.displayQuestion || '',
+    }]);
 
     try {
       let data;
@@ -160,6 +167,7 @@ export function useStudentChatController({
             conversationId: previousSessionId || '',
             tutorSessionId: activeTutorSession?.id || '',
             sessionPhase: activeTutorSession?.phase || 'TEACH',
+            interactionType: requestContext.interactionType || '',
           }, { signal: requestController.signal });
         } catch (n8nError) {
           if (requestController.signal.aborted) throw n8nError;
@@ -328,6 +336,8 @@ export function useStudentChatController({
         const isAiServiceError = isAiServiceErrorText(answerText);
         updated[updated.length - 1] = {
           question: text,
+          interactionType: requestContext.interactionType || '',
+          displayQuestion: requestContext.displayQuestion || '',
           answer: answerText,
           rawAnswer: answerText,
           understandingCheck: data.understandingCheck || null,

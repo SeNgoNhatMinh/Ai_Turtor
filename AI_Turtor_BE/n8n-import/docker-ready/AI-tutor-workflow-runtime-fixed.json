@@ -215,7 +215,7 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ ({\n  success: Boolean($node[\"Course RAG Query\"].json.answer),\n  mode: \"RAG_TUTOR\",\n  answer: $node[\"Course RAG Query\"].json.answer || \"Hệ thống tạm thời không nhận được câu trả lời từ AI Tutor. Vui lòng thử lại sau ít phút.\",\n  confidence: $node[\"Course RAG Query\"].json.confidence || null,\n  escalated: $node[\"Course RAG Query\"].json.escalated || false,\n  questionEscalationId: $node[\"Course RAG Query\"].json.questionEscalationId || null,\n  conversationId: $node[\"Course RAG Query\"].json.conversationId || $node[\"Set - Trace Context\"].json.conversationId,\n  userMessageId: $node[\"Course RAG Query\"].json.userMessageId || null,\n  assistantMessageId: $node[\"Course RAG Query\"].json.assistantMessageId || null,\n  tutorSessionId: $node[\"Course RAG Query\"].json.tutorSessionId || $node[\"Set - Trace Context\"].json.tutorSessionId,\n  sessionPhase: $node[\"Course RAG Query\"].json.sessionPhase || $node[\"Set - Trace Context\"].json.sessionPhase,\n  subIntent: $node[\"Course RAG Query\"].json.subIntent || $node[\"Intent Classifier\"].json.subIntent || null,\n  nextImproveSuggestions: $node[\"Course RAG Query\"].json.nextImproveSuggestions || [],\n  suggestedTopics: $node[\"Course RAG Query\"].json.suggestedTopics || [],\n  traceId: $node[\"Set - Trace Context\"].json.traceId,\n  sources: $node[\"Course RAG Query\"].json.sources || [],\n  sourceEvidence: $node[\"Course RAG Query\"].json.sourceEvidence || [],\n  groundingType: $node[\"Course RAG Query\"].json.groundingType || \"COURSE_MATERIAL\"\n}) }}",
+        "responseBody": "={{ ({\n  success: Boolean($node[\"Course RAG Query\"].json.answer),\n  mode: \"RAG_TUTOR\",\n  answer: $node[\"Course RAG Query\"].json.answer || \"Hệ thống tạm thời không nhận được câu trả lời từ AI Tutor. Vui lòng thử lại sau ít phút.\",\n  confidence: $node[\"Course RAG Query\"].json.confidence || null,\n  escalated: $node[\"Course RAG Query\"].json.escalated || false,\n  questionEscalationId: $node[\"Course RAG Query\"].json.questionEscalationId || null,\n  conversationId: $node[\"Course RAG Query\"].json.conversationId || $node[\"Set - Trace Context\"].json.conversationId,\n  userMessageId: $node[\"Course RAG Query\"].json.userMessageId || null,\n  assistantMessageId: $node[\"Course RAG Query\"].json.assistantMessageId || null,\n  tutorSessionId: $node[\"Course RAG Query\"].json.tutorSessionId || $node[\"Set - Trace Context\"].json.tutorSessionId,\n  sessionPhase: $node[\"Course RAG Query\"].json.sessionPhase || $node[\"Set - Trace Context\"].json.sessionPhase,\n  subIntent: $node[\"Course RAG Query\"].json.subIntent || $node[\"Intent Classifier\"].json.subIntent || null,\n  nextImproveSuggestions: $node[\"Course RAG Query\"].json.nextImproveSuggestions || [],\n  suggestedTopics: $node[\"Course RAG Query\"].json.suggestedTopics || [],\n  understandingCheck: $node[\"Course RAG Query\"].json.understandingCheck || null,\n  traceId: $node[\"Set - Trace Context\"].json.traceId,\n  sources: $node[\"Course RAG Query\"].json.sources || [],\n  sourceEvidence: $node[\"Course RAG Query\"].json.sourceEvidence || [],\n  groundingType: $node[\"Course RAG Query\"].json.groundingType || \"COURSE_MATERIAL\"\n}) }}",
         "options": {}
       },
       "type": "n8n-nodes-base.respondToWebhook",
@@ -923,7 +923,7 @@
     {
       "parameters": {
         "mode": "raw",
-        "jsonOutput": "=={{\n  {\n    traceId: $json.body.traceId || 'trace-' + Date.now(),\n    sessionId: $json.body.sessionId || 'session-' + Date.now(),\n    conversationId: $json.body.conversationId || '',\n    tutorSessionId: $json.body.tutorSessionId || '',\n    sessionPhase: $json.body.sessionPhase || 'TEACH',\n    authToken: $json.body.authToken || (($json.headers.authorization || '').replace('Bearer ', '')) || '',\n    authorization: 'Bearer ' + ($json.body.authToken || (($json.headers.authorization || '').replace('Bearer ', '')) || ''),\n    studentId: $json.body.studentId,\n    studentName: $json.body.studentName || '',\n    studentEmail: $json.body.studentEmail || '',\n    courseId: $json.body.courseId,\n    classId: $json.body.classId || '',\n    message: $json.body.message || $json.body.question || '',\n    question: $json.body.question || $json.body.message || '',\n    codeSnippet: $json.body.codeSnippet || $json.body.code || '',\n    startedAt: new Date().toISOString()\n  }\n}}",
+        "jsonOutput": "=={{\n  {\n    traceId: $json.body.traceId || 'trace-' + Date.now(),\n    sessionId: $json.body.sessionId || 'session-' + Date.now(),\n    conversationId: $json.body.conversationId || '',\n    tutorSessionId: $json.body.tutorSessionId || '',\n    sessionPhase: $json.body.sessionPhase || 'TEACH',\n    interactionType: String($json.body.interactionType || '').trim().toUpperCase(),\n    authToken: $json.body.authToken || (($json.headers.authorization || '').replace('Bearer ', '')) || '',\n    authorization: 'Bearer ' + ($json.body.authToken || (($json.headers.authorization || '').replace('Bearer ', '')) || ''),\n    studentId: $json.body.studentId,\n    studentName: $json.body.studentName || '',\n    studentEmail: $json.body.studentEmail || '',\n    courseId: $json.body.courseId,\n    classId: $json.body.classId || '',\n    message: $json.body.message || $json.body.question || '',\n    question: $json.body.question || $json.body.message || '',\n    codeSnippet: $json.body.codeSnippet || $json.body.code || '',\n    startedAt: new Date().toISOString()\n  }\n}}",
         "options": {}
       },
       "type": "n8n-nodes-base.set",
@@ -938,7 +938,7 @@
     {
       "parameters": {
         "mode": "raw",
-        "jsonOutput": "=={{\n  {\n    traceId: $json.traceId || 'trace-' + Date.now(),\n    sessionId: $json.sessionId || 'session-' + Date.now(),\n    conversationId: $json.conversationId || '',\n    tutorSessionId: $json.tutorSessionId || '',\n    sessionPhase: $json.sessionPhase || 'TEACH',\n    authToken: $json.authToken || (($json.authorization || '').replace('Bearer ', '')) || '',\n    authorization: $json.authorization || ('Bearer ' + ($json.authToken || '')),\n    studentId: $json.studentId,\n    studentName: $json.studentName || '',\n    studentEmail: $json.studentEmail || '',\n    courseId: $json.courseId,\n    classId: $json.classId || '',\n    message: $json.message || $json.question || '',\n    question: $json.question || $json.message || '',\n    codeSnippet: $json.codeSnippet || $json.code || '',\n    startedAt: $json.startedAt || new Date().toISOString()\n  }\n}}",
+        "jsonOutput": "=={{\n  {\n    traceId: $json.traceId || 'trace-' + Date.now(),\n    sessionId: $json.sessionId || 'session-' + Date.now(),\n    conversationId: $json.conversationId || '',\n    tutorSessionId: $json.tutorSessionId || '',\n    sessionPhase: $json.sessionPhase || 'TEACH',\n    interactionType: String($json.interactionType || '').trim().toUpperCase(),\n    authToken: $json.authToken || (($json.authorization || '').replace('Bearer ', '')) || '',\n    authorization: $json.authorization || ('Bearer ' + ($json.authToken || '')),\n    studentId: $json.studentId,\n    studentName: $json.studentName || '',\n    studentEmail: $json.studentEmail || '',\n    courseId: $json.courseId,\n    classId: $json.classId || '',\n    message: $json.message || $json.question || '',\n    question: $json.question || $json.message || '',\n    codeSnippet: $json.codeSnippet || $json.code || '',\n    startedAt: $json.startedAt || new Date().toISOString()\n  }\n}}",
         "options": {}
       },
       "type": "n8n-nodes-base.set",
@@ -1877,7 +1877,7 @@
                 },
                 "conditions": [
                   {
-                    "leftValue": "={{ String($json.mode || $json.body?.mode || '').trim().toUpperCase() }}",
+                    "leftValue": "={{ String($node[\"Set - Trace Context\"].json.interactionType || '').trim().toUpperCase() === 'UNDERSTANDING_REMEDIATION' ? 'RAG' : String($json.mode || $json.body?.mode || '').trim().toUpperCase() }}",
                     "rightValue": "CODE",
                     "operator": {
                       "type": "string",
@@ -1902,7 +1902,7 @@
                 "conditions": [
                   {
                     "id": "cfce8e7b-0fd1-4d23-ab89-407173c73bf2",
-                    "leftValue": "={{ String($json.mode || $json.body?.mode || '').trim().toUpperCase() }}",
+                    "leftValue": "={{ String($node[\"Set - Trace Context\"].json.interactionType || '').trim().toUpperCase() === 'UNDERSTANDING_REMEDIATION' ? 'RAG' : String($json.mode || $json.body?.mode || '').trim().toUpperCase() }}",
                     "rightValue": "ESCALATE",
                     "operator": {
                       "type": "string",
@@ -1927,7 +1927,7 @@
                 "conditions": [
                   {
                     "id": "e65ab694-68cf-41bf-98cd-57812912b08a",
-                    "leftValue": "={{ String($json.mode || $json.body?.mode || '').trim().toUpperCase() }}",
+                    "leftValue": "={{ String($node[\"Set - Trace Context\"].json.interactionType || '').trim().toUpperCase() === 'UNDERSTANDING_REMEDIATION' ? 'RAG' : String($json.mode || $json.body?.mode || '').trim().toUpperCase() }}",
                     "rightValue": "RAG",
                     "operator": {
                       "type": "string",
@@ -4187,11 +4187,11 @@
     "binaryMode": "separate",
     "availableInMCP": false
   },
-  "versionId": "062292eb-3a0b-4c1f-8f0e-bf4d92a8cf86",
+  "versionId": "ba865cea-04d2-4019-ad27-d1e1f7bcaa30",
   "meta": {
     "instanceId": "8bc7fc9f4a595046dee49ab5cf7b683bb830381e63c4959aef652ed82b7d7e3d"
   },
   "nodeGroups": [],
-  "id": "bdFmRV9u8BFGBfpL",
+  "id": "uGR95kYN1WImLDJt",
   "tags": []
 }

@@ -55,7 +55,7 @@ function AnswerImproveSuggestions({
                   )}
                   {onCreateQuiz && (
                     <button type="button" onClick={() => onCreateQuiz(text)}>
-                      <ClipboardList size={14} aria-hidden="true" /> Tạo quiz
+                      <ClipboardList size={14} aria-hidden="true" /> Ôn tập
                     </button>
                   )}
                 </div>

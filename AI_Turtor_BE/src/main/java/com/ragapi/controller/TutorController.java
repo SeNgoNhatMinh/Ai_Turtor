@@ -219,6 +219,9 @@ public class TutorController {
             if (!persistTurn) {
                 routingMode = IntentClassifierService.MODE_RAG;
             }
+            if (isUnderstandingRemediation(question)) {
+                routingMode = IntentClassifierService.MODE_RAG;
+            }
             log.info("Tutor routing decision: mode={}, harnessMode={}, subIntent={}, strategy={}, confidence={}",
                     routingMode, request.getHarnessMode(), intent.getSubIntent(),
                     intent.getRoutingStrategy(), intent.getConfidence());
@@ -657,6 +660,9 @@ public class TutorController {
     private String normalizeStudentQuestion(String question) {
         return questionNormalizationService.normalize(question);
     }
+
+    private boolean isUnderstandingRemediation(String question) {
+        return question != null
+                && question.stripLeading().startsWith("Ôn lại sau câu ");
+    }
 }
-
-

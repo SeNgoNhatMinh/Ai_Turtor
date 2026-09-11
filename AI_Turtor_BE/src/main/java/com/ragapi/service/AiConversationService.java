@@ -4,6 +4,7 @@ import com.ragapi.dto.AiConversationHistoryResponse;
 import com.ragapi.dto.AiConversationListResponse;
 import com.ragapi.dto.AiConversationSummary;
 import com.ragapi.dto.AiMessageInfo;
+import com.ragapi.util.UnderstandingCheckExtractor;
 import com.ragapi.dto.RagSourceEvidence;
 import com.ragapi.entity.AiConversation;
 import com.ragapi.entity.AiMessage;
@@ -558,6 +559,7 @@ public class AiConversationService {
                 .pinnedAt(message.getPinnedAt())
                 .understandingSelectedKey(message.getUnderstandingSelectedKey())
                 .understandingAnsweredAt(message.getUnderstandingAnsweredAt())
+                .understandingCheck(UnderstandingCheckExtractor.extract(message.getContent()))
                 .createdAt(message.getCreatedAt())
                 .build();
     }

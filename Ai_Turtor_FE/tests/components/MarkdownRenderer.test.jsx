@@ -1,8 +1,51 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import MarkdownRenderer from '../../src/components/markdown/MarkdownRenderer';
+import MarkdownErrorBoundary from '../../src/components/markdown/MarkdownErrorBoundary';
+
+function BrokenMarkdownChild() {
+  throw new Error('forced markdown renderer failure');
+}
 
 describe('MarkdownRenderer Vietnamese text', () => {
+  it('keeps Markdown formatted with neutral styling when the rich renderer fails', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    render(
+      <MarkdownErrorBoundary
+        contentKey="fallback-example"
+        fallbackText={'## Giải thích\n\nNội dung **quan trọng**.\n\n1. Bước đầu tiên'}
+      >
+        <BrokenMarkdownChild />
+      </MarkdownErrorBoundary>,
+    );
+
+    expect(document.querySelector('.ai-answer-fallback')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Giải thích' })).toBeVisible();
+    expect(screen.getByText('quan trọng')).toBeVisible();
+    expect(document.querySelector('.ai-answer-render-error')).not.toBeInTheDocument();
+    warn.mockRestore();
+  });
+
+  it('renders a long lesson explanation as prose instead of the red fallback', () => {
+    render(
+      <MarkdownRenderer
+        markdown={[
+          '## Giải thích',
+          '',
+          'Chapter 1 *Introduction* của tài liệu **Java Virtual Machine Specification** giới thiệu tổng quan về ngôn ngữ Java và máy ảo Java (JVM). Phần 1.1 *A Bit of History* mô tả lịch sử ra đời của Java, mục tiêu hỗ trợ các thiết bị mạng và khả năng chạy trên nhiều kiến trúc phần cứng mà không lo về an toàn.',
+          '',
+          'Trong tài liệu hiện tại (materialId = 6a7c8c4f65abb40bc742abf4) chỉ có các mục 1.1 và 1.2; không có mục 1.5 **Feedback**.',
+          '',
+          '1. **Mở tài liệu** tại link `https://docs.oracle.com/javase/specs/jvms/se8/html/jvms-1.html`.',
+          '2. **Xác định mục tiêu**: hiểu vì sao Java được thiết kế để “write once, run anywhere”.',
+        ].join('\n')}
+      />,
+    );
+
+    expect(document.querySelector('.ai-answer-render-error')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Giải thích' })).toBeVisible();
+  });
+
   it('renders corrected structural headings and preserves accented body text', () => {
     render(
       <MarkdownRenderer markdown={'## Chan doan van de\n\nConstructor là phương thức đặc biệt để khởi tạo đối tượng.'} />,

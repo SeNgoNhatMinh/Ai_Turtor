@@ -15,7 +15,9 @@ import java.util.regex.Pattern;
 public final class UnderstandingCheckExtractor {
 
     private static final Pattern CHECK_HEADING = Pattern.compile(
-            "(?ium)^#{1,6}\\s*(?:kiểm tra hiểu|understanding check)\\s*$");
+            "(?ium)^#{1,6}\\s*(?:kiểm tra hiểu|understanding check|"
+                    + "câu(?:\\s+hỏi)?\\s+trắc nghiệm mới"
+                    + "(?:\\s*\\((?:(?:được|đã)\\s+)?paraphrase\\))?|câu hỏi ôn tập)\\s*$");
     private static final Pattern NEXT_HEADING = Pattern.compile("(?m)^#{1,6}\\s+\\S");
     private static final Pattern OPTION = Pattern.compile(
             "(?iu)(?:^|\\s)(?:\\(([A-D])\\)|([A-D])\\.)\\s+");
@@ -24,6 +26,9 @@ public final class UnderstandingCheckExtractor {
     private static final Pattern ANSWER = Pattern.compile(
             "(?iu)(?:^|\\s)(?:đáp án|dap an|(?:the\\s+)?(?:correct\\s+)?answer)"
                     + "(?:\\s+đúng)?\\s*(?:là|is|:|：|-)?\\s*([A-D])\\b");
+    private static final Pattern ANSWER_PROMPT_MARKER = Pattern.compile(
+            "(?iu)(?:^|\\s)\\s*[-*+]?\\s*chọn\\s+đáp\\s+án\\s+đúng"
+                    + "\\s*[:：-]\\s*(?:[-*+]\\s*)?");
     private static final Pattern EXPLANATION = Pattern.compile(
             "(?iu)(?:^|\\s)(?:giải thích|giai thich|explanation|lý do|ly do)\\s*[:：]\\s*");
     private static final Pattern DECORATION = Pattern.compile("[*_`]+");
@@ -42,11 +47,17 @@ public final class UnderstandingCheckExtractor {
         boolean hasAnswer = answerMatcher.find();
         Matcher explanationMatcher = EXPLANATION.matcher(raw);
         boolean hasExplanation = explanationMatcher.find();
+        Matcher answerPromptMatcher = ANSWER_PROMPT_MARKER.matcher(raw);
+        boolean hasAnswerPrompt = answerPromptMatcher.find()
+                && hasAtLeastTwoOptions(raw.substring(0, answerPromptMatcher.start()));
 
         int metadataStart = raw.length();
         if (hasAnswer) metadataStart = Math.min(metadataStart, answerMatcher.start());
         if (hasExplanation) metadataStart = Math.min(metadataStart, explanationMatcher.start());
-        String visible = raw.substring(0, metadataStart).trim();
+        if (hasAnswerPrompt) metadataStart = Math.min(metadataStart, answerPromptMatcher.start());
+        String visible = raw.substring(0, metadataStart)
+                .replaceFirst("(?s)(?:^|\\n)\\s*[-+]\\s*$", "")
+                .trim();
 
         List<OptionMark> marks = new ArrayList<>();
         Matcher optionMatcher = OPTION.matcher(visible);
@@ -85,7 +96,62 @@ public final class UnderstandingCheckExtractor {
             explanation = clean(raw.substring(start, end));
         }
 
-        return new UnderstandingCheckPayload(question + "?", options, correctKey, explanation);
+        ShuffledOptions shuffled = shuffleCorrectAnswerPosition(question, options, correctKey);
+        return new UnderstandingCheckPayload(
+                question + "?",
+                shuffled.options(),
+                shuffled.correctKey(),
+                explanation
+        );
+    }
+
+    /**
+     * Keeps the presentation stable for a saved question while distributing the
+     * correct choice across the available positions. A fresh random shuffle on
+     * every read would invalidate an answer key that was already persisted.
+     */
+    private static ShuffledOptions shuffleCorrectAnswerPosition(
+            String question,
+            List<UnderstandingCheckPayload.Option> options,
+            String correctKey
+    ) {
+        if (correctKey == null || correctKey.isBlank() || options.size() < 2) {
+            return new ShuffledOptions(options, correctKey == null ? "" : correctKey);
+        }
+
+        UnderstandingCheckPayload.Option correctOption = options.stream()
+                .filter(option -> correctKey.equalsIgnoreCase(option.getKey()))
+                .findFirst()
+                .orElse(null);
+        if (correctOption == null) {
+            return new ShuffledOptions(options, "");
+        }
+
+        String seedInput = question + "\u001f" + options.stream()
+                .map(option -> option.getKey() + "\u001e" + option.getText())
+                .reduce((left, right) -> left + "\u001f" + right)
+                .orElse("");
+        int targetIndex = Math.floorMod(seedInput.hashCode(), options.size());
+
+        List<UnderstandingCheckPayload.Option> reordered = new ArrayList<>();
+        for (UnderstandingCheckPayload.Option option : options) {
+            if (!correctKey.equalsIgnoreCase(option.getKey())) {
+                reordered.add(option);
+            }
+        }
+        reordered.add(targetIndex, correctOption);
+
+        List<UnderstandingCheckPayload.Option> relabeled = new ArrayList<>();
+        String shuffledCorrectKey = "";
+        for (int index = 0; index < reordered.size(); index++) {
+            String nextKey = String.valueOf((char) ('A' + index));
+            UnderstandingCheckPayload.Option option = reordered.get(index);
+            relabeled.add(new UnderstandingCheckPayload.Option(nextKey, option.getText()));
+            if (correctKey.equalsIgnoreCase(option.getKey())) {
+                shuffledCorrectKey = nextKey;
+            }
+        }
+        return new ShuffledOptions(relabeled, shuffledCorrectKey);
     }
 
     private static String findBody(String answer) {
@@ -107,6 +173,18 @@ public final class UnderstandingCheckExtractor {
                 .trim();
     }
 
+    private static boolean hasAtLeastTwoOptions(String value) {
+        Matcher matcher = OPTION.matcher(value);
+        int count = 0;
+        while (matcher.find()) {
+            if (++count >= 2) return true;
+        }
+        return false;
+    }
+
     private record OptionMark(String key, int start, int textStart) {
+    }
+
+    private record ShuffledOptions(List<UnderstandingCheckPayload.Option> options, String correctKey) {
     }
 }

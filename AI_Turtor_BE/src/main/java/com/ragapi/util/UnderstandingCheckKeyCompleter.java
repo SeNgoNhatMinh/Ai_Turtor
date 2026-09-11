@@ -11,7 +11,9 @@ import java.util.regex.Pattern;
 public final class UnderstandingCheckKeyCompleter {
 
     private static final Pattern CHECK_HEADING = Pattern.compile(
-            "(?ium)^#{1,6}\\s*(?:kiểm tra hiểu|understanding check)\\s*$");
+            "(?ium)^#{1,6}\\s*(?:kiểm tra hiểu|understanding check|"
+                    + "câu(?:\\s+hỏi)?\\s+trắc nghiệm mới"
+                    + "(?:\\s*\\((?:(?:được|đã)\\s+)?paraphrase\\))?|câu hỏi ôn tập)\\s*$");
     private static final Pattern NEXT_HEADING = Pattern.compile("(?m)^#{1,6}\\s+\\S");
     private static final Pattern OPTIONS = Pattern.compile(
             "(?i)(?:^|\\s)(?:\\(([A-D])\\)|([A-D])\\.)\\s+");

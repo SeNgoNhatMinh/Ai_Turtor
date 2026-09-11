@@ -241,6 +241,24 @@
     max-width: 86%;
   }
 
+  .remediation-request-card {
+    grid-template-columns: 36px minmax(0, 1fr);
+    width: 92%;
+  }
+
+  .remediation-request-card__status {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .remediation-request-card__content > span {
+    display: -webkit-box;
+    overflow: hidden;
+    white-space: normal;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
   .student-message-group {
     max-width: 86%;
   }

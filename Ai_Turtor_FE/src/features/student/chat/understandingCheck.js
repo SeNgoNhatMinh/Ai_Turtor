@@ -1,6 +1,8 @@
-const CHECK_HEADING = /^(#{1,6})\s*(?:kiểm tra hiểu|understanding check)\s*$/im;
+const CHECK_HEADING = /^(#{1,6})\s*(?:kiểm tra hiểu|understanding check|câu(?:\s+hỏi)?\s+trắc nghiệm mới(?:\s*\((?:(?:được|đã)\s+)?paraphrase\))?|câu hỏi ôn tập)\s*$/im;
 const OPTION_MARK = /(?:^|\s)(?:\(([A-Da-d])\)|([A-Da-d])\.)\s+/g;
 const CANONICAL_ANSWER = /(?:^|\s)(?<!chọn\s)(?<!choose\s)(?<!pick\s)(?:đáp án|dap an|(?:the\s+)?(?:correct\s+)?answer)(?:\s+đúng)?\s*(?:là|is|:|：|-)?\s*([A-Da-d])\b[^\n]*/i;
+const REVEALED_ANSWER = /(?:^|\s)\s*[-*+]?\s*chọn đáp án đúng\s*[:：-]\s*(?:\n\s*[-*+]?\s*)?([A-Da-d])\s*[.)]?\s*[^\n]*/i;
+const ANSWER_PROMPT_MARKER = /(?:^|\s)\s*[-*+]?\s*chọn đáp án đúng\s*[:：-]\s*(?:[-*+]\s*)?/i;
 const LEAKED_ANSWER = /nếu bạn chọn(?:\s+đáp án)?\s+([A-Da-d])\b/i;
 const CHOOSE_ANSWER = /(?:chọn|choose|pick)\s+(?:đáp án\s+)?([A-Da-d])\b/i;
 const LONE_KEY = /(?:^|\n)\s*([A-Da-d])\s*[.)]?\s*$/;
@@ -20,6 +22,36 @@ function stripDecorations(value) {
 function nextSectionBreak(text) {
   const heading = text.search(/(?:^|\n)#{1,6}\s+\S/);
   return heading >= 0 ? heading : -1;
+}
+
+function javaStringHash(value) {
+  let hash = 0;
+  const text = String(value || '');
+  for (let index = 0; index < text.length; index += 1) {
+    hash = ((hash * 31) + text.charCodeAt(index)) | 0;
+  }
+  return hash;
+}
+
+function shuffleCorrectAnswerPosition(question, options, correctKey) {
+  if (!correctKey || options.length < 2) return { options, correctKey };
+  const correctOption = options.find((option) => option.key === correctKey);
+  if (!correctOption) return { options, correctKey: '' };
+
+  const seedInput = `${question}\u001f${options
+    .map((option) => `${option.key}\u001e${option.text}`)
+    .join('\u001f')}`;
+  const targetIndex = ((javaStringHash(seedInput) % options.length) + options.length) % options.length;
+  const reordered = options.filter((option) => option.key !== correctKey);
+  reordered.splice(targetIndex, 0, correctOption);
+
+  let shuffledCorrectKey = '';
+  const relabeled = reordered.map((option, index) => {
+    const key = String.fromCharCode(65 + index);
+    if (option.key === correctKey) shuffledCorrectKey = key;
+    return { key, text: option.text };
+  });
+  return { options: relabeled, correctKey: shuffledCorrectKey };
 }
 
 export function normalizeStructuredUnderstandingQuiz(value) {
@@ -55,15 +87,23 @@ export function parseUnderstandingQuiz(sectionBody) {
   if (!raw) return null;
 
   const canonicalMatch = raw.match(CANONICAL_ANSWER);
+  const revealedAnswerMatch = raw.match(REVEALED_ANSWER);
   const leakedMatch = raw.match(LEAKED_ANSWER);
   const chooseMatch = raw.match(CHOOSE_ANSWER);
   const loneMatch = raw.match(LONE_KEY);
-  const answerMatch = canonicalMatch || leakedMatch || chooseMatch || loneMatch;
+  const answerMatch = canonicalMatch || revealedAnswerMatch || leakedMatch || chooseMatch || loneMatch;
+  const answerPromptMatch = raw.match(ANSWER_PROMPT_MARKER);
+  let answerPromptIndex;
+  if (Number.isInteger(answerPromptMatch?.index)) {
+    const optionMarkersBeforePrompt = [...raw.slice(0, answerPromptMatch.index).matchAll(OPTION_MARK)];
+    if (optionMarkersBeforePrompt.length >= 2) answerPromptIndex = answerPromptMatch.index;
+  }
   const explainMarkers = [...raw.matchAll(EXPLAIN_MARKER)];
   const firstExplain = explainMarkers[0];
   const explanationEndCandidates = [
     ...explainMarkers.slice(1).map((item) => item.index),
     canonicalMatch?.index,
+    revealedAnswerMatch?.index,
     raw.length,
   ].filter((index) => Number.isInteger(index) && index > (firstExplain?.index ?? -1));
   const explanationEnd = explanationEndCandidates.length
@@ -74,10 +114,16 @@ export function parseUnderstandingQuiz(sectionBody) {
     : '';
   const metadataIndexes = [
     canonicalMatch?.index,
+    revealedAnswerMatch?.index,
+    answerPromptIndex,
     ...explainMarkers.map((item) => item.index),
   ].filter(Number.isInteger);
   let working = raw;
-  if (metadataIndexes.length) working = working.slice(0, Math.min(...metadataIndexes));
+  if (metadataIndexes.length) {
+    working = working
+      .slice(0, Math.min(...metadataIndexes))
+      .replace(/(?:^|\n)\s*[-+]\s*$/, '');
+  }
   else if (!leakedMatch && !chooseMatch && loneMatch) working = working.replace(loneMatch[0], '\n');
   working = working.replace(QUESTION_PREFIX, '').trim();
 
@@ -112,6 +158,7 @@ export function parseUnderstandingQuiz(sectionBody) {
   let explanation = stripDecorations(
     parsedExplanation
       .replace(CANONICAL_ANSWER, ' ')
+      .replace(REVEALED_ANSWER, ' ')
       .replace(EXPLAIN_MARKER, ' '),
   );
   const last = options[options.length - 1];
@@ -125,10 +172,11 @@ export function parseUnderstandingQuiz(sectionBody) {
     if (!explanation) explanation = stripDecorations(leaked[2]);
   }
 
+  const shuffled = shuffleCorrectAnswerPosition(question, options, correctKey);
   return {
     question: `${question}?`,
-    options,
-    correctKey,
+    options: shuffled.options,
+    correctKey: shuffled.correctKey,
     explanation,
   };
 }
@@ -173,4 +221,45 @@ export function buildUnderstandingCheckPrompt(quiz, selected) {
     `Học sinh chọn: ${choice}. ${choiceText}`,
     'Hãy chấm: nói rõ Đúng hay Chưa đúng, nêu đáp án đúng, và giải thích ngắn theo tài liệu. Không mở lộ trình bài mới.',
   ].filter(Boolean).join('\n');
+}
+
+export function buildIncorrectAnswerRemediationPrompt(quiz, selected) {
+  const question = String(quiz?.question || '').trim();
+  const selectedKey = String(selected?.key || '').trim().toUpperCase();
+  const selectedText = String(selected?.text || '').trim();
+  const correctKey = String(quiz?.correctKey || '').trim().toUpperCase();
+  const correctOption = (Array.isArray(quiz?.options) ? quiz.options : [])
+    .find((option) => option.key === correctKey);
+  if (!question || !selectedKey || !correctKey || selectedKey === correctKey) return '';
+
+  return [
+    'Ôn lại sau câu trả lời chưa đúng.',
+    `Câu vừa làm: ${question}`,
+    `Em đã chọn: ${selectedKey}. ${selectedText}`,
+    `Đáp án đúng: ${correctKey}. ${String(correctOption?.text || '').trim()}`,
+    quiz?.explanation ? `Lý do trong bài: ${String(quiz.explanation).trim()}` : '',
+    'Hãy tự động giảng lại đúng kiến thức này bằng cách dễ hiểu hơn, dùng cả Giải thích khái niệm (Conceptual Explanation) và Minh họa trực quan (Visual Representation).',
+    'Sau đó cho em làm lại một câu trắc nghiệm dễ hơn về cùng kiến thức, nhưng phải paraphrase câu hỏi và các lựa chọn; không lặp nguyên văn câu cũ và không chuyển sang chủ đề mới.',
+  ].filter(Boolean).join('\n');
+}
+
+export function buildMissingAnswerKeyRemediationPrompt(quiz, selected) {
+  const question = String(quiz?.question || '').trim();
+  const selectedKey = String(selected?.key || '').trim().toUpperCase();
+  const selectedText = String(selected?.text || '').trim();
+  const options = (Array.isArray(quiz?.options) ? quiz.options : [])
+    .map((option) => `${option.key}. ${String(option.text || '').trim()}`)
+    .filter((option) => option.length > 3)
+    .join('\n');
+  if (!question || !selectedKey || !options) return '';
+
+  return [
+    'Ôn lại sau câu kiểm tra chưa có đáp án.',
+    `Câu vừa làm: ${question}`,
+    'Các lựa chọn:',
+    options,
+    `Em đã chọn: ${selectedKey}. ${selectedText}`,
+    'Hãy dựa vào tài liệu môn học để xác định và chấm đáp án em đã chọn, rồi giảng lại kiến thức này bằng Giải thích khái niệm (Conceptual Explanation) và Minh họa trực quan (Visual Representation).',
+    'Sau đó cho em làm lại một câu trắc nghiệm dễ hơn về cùng kiến thức nhưng được paraphrase. Câu mới phải có các lựa chọn A, B, C và kết thúc bằng đúng hai dòng: Đáp án: <A hoặc B hoặc C>; Giải thích: <một câu ngắn>.',
+  ].join('\n');
 }

@@ -33,6 +33,37 @@ describe('apiClient bearer authentication', () => {
     expect(init.headers.Authorization).toBeUndefined();
   });
 
+  it('preserves the current session when a background request opts out of redirecting', async () => {
+    window.localStorage.setItem('ai_tutor_jwt', 'current-student-token');
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(
+      JSON.stringify({ error: 'Unauthorized' }),
+      { status: 401, headers: { 'Content-Type': 'application/json' } },
+    ));
+
+    await expect(request('/api/students/student-1/assignments', {
+      skipUnauthorizedRedirect: true,
+      retries: 0,
+    })).rejects.toMatchObject({ status: 401 });
+
+    expect(window.localStorage.getItem('ai_tutor_jwt')).toBe('current-student-token');
+  });
+
+  it('keeps a specific login failure message on a 401 response', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(
+      JSON.stringify({ error: 'Email hoặc Password không chính xác' }),
+      { status: 401, headers: { 'Content-Type': 'application/json' } },
+    ));
+
+    await expect(request('/api/users/login', {
+      method: 'POST',
+      body: { email: 'student@example.com', password: 'wrong' },
+      skipUnauthorizedRedirect: true,
+    })).rejects.toMatchObject({
+      status: 401,
+      userMessage: 'Email hoặc Password không chính xác',
+    });
+  });
+
   it('parses a JSON TTS error even when the caller expects an audio blob', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(
       JSON.stringify({

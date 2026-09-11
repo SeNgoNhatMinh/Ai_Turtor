@@ -166,6 +166,10 @@
   justify-content: flex-end;
 }
 
+.chat-gpt-message-row.learning-event {
+  justify-content: flex-end;
+}
+
 .chat-gpt-message-row.ai {
   justify-content: flex-start;
 }
@@ -379,6 +383,60 @@
 .chat-gpt-ai-content > * {
   min-width: 0;
   max-width: 100%;
+}
+
+.remediation-request-card {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+  width: min(82%, 720px);
+  padding: 12px 14px;
+  border: 1px solid #fed7aa;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #fffaf5 0%, #fff7ed 100%);
+  color: #172033;
+  box-shadow: 0 6px 18px rgba(194, 65, 12, 0.06);
+}
+
+.remediation-request-card__icon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: #ffedd5;
+  color: #ea580c;
+}
+
+.remediation-request-card__content {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.remediation-request-card__content strong {
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.remediation-request-card__content > span {
+  overflow: hidden;
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.45;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.remediation-request-card__status {
+  padding: 6px 9px;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #c2410c;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 /* Keep tutor answers compact and scannable, like a modern conversational UI. */
