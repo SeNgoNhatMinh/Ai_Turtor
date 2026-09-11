@@ -43,4 +43,16 @@ public class AiQueryRequest {
 
     @Schema(description = "n8n Switch already chose RAG, CODE, or ESCALATE. Omit when FE calls this API directly.")
     private String harnessMode;
+
+    @Schema(description = "Intent subtype already classified by n8n. Ignored when harnessMode is absent.", hidden = true)
+    private String harnessSubIntent;
+
+    @Schema(description = "Academic domain already classified by n8n. Ignored when harnessMode is absent.", hidden = true)
+    private String harnessDomain;
+
+    @Schema(description = "Routing confidence already calculated by n8n. Ignored when harnessMode is absent.", hidden = true)
+    private Double harnessConfidence;
+
+    @Schema(description = "Routing reason supplied by n8n. Ignored when harnessMode is absent.", hidden = true)
+    private String harnessReason;
 }

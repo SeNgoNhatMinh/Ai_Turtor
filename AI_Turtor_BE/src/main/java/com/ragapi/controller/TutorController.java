@@ -187,8 +187,6 @@ public class TutorController {
             } catch (RuntimeException historyError) {
                 log.warn("Tutor history unavailable; continuing without chat context: {}", historyError.getMessage());
             }
-            String classifierHistory = aiConversationService.buildRecentTutorContextForClassifier(
-                    request.getConversationId(), userId);
             String sessionTopic = null;
             String sessionPhase = request.getSessionPhase();
             List<String> sessionSuggestedTopics = List.of();
@@ -206,14 +204,19 @@ public class TutorController {
                     log.debug("Tutor session unavailable for intent context: {}", sessionError.getMessage());
                 }
             }
-            IntentClassification intent = intentClassifierService.classify(
-                    question,
-                    codeSnippet,
-                    courseId,
-                    new TutorIntentContext(classifierHistory, sessionPhase, sessionTopic)
-            );
             String routingMode = HarnessRouting.normalizeMode(request.getHarnessMode());
-            if (routingMode == null) {
+            IntentClassification intent;
+            if (routingMode != null) {
+                intent = buildHarnessIntent(request, routingMode);
+            } else {
+                String classifierHistory = aiConversationService.buildRecentTutorContextForClassifier(
+                        request.getConversationId(), userId);
+                intent = intentClassifierService.classify(
+                        question,
+                        codeSnippet,
+                        courseId,
+                        new TutorIntentContext(classifierHistory, sessionPhase, sessionTopic)
+                );
                 routingMode = intent.getMode();
             }
             if (!persistTurn) {
@@ -506,6 +509,57 @@ public class TutorController {
         response.setAnswerPolicy(intent.getAnswerPolicy());
         response.setRequiresCourseMaterial(intent.getRequiresCourseMaterial());
         response.setRoutingStrategy(intent.getRoutingStrategy());
+    }
+
+    private IntentClassification buildHarnessIntent(AiQueryRequest request, String mode) {
+        String subIntent = normalizedHarnessValue(request.getHarnessSubIntent());
+        if (subIntent == null) {
+            subIntent = switch (mode) {
+                case IntentClassifierService.MODE_CODE -> "TECHNICAL_MENTORING";
+                case IntentClassifierService.MODE_ESCALATE -> "TEACHER_POLICY";
+                default -> "EXPLAIN_CONCEPT";
+            };
+        }
+        String domain = normalizedHarnessValue(request.getHarnessDomain());
+        if (domain == null) {
+            domain = "GENERAL_STUDY";
+        }
+        double confidence = request.getHarnessConfidence() == null
+                ? 0.99
+                : Math.max(0.0, Math.min(0.99, request.getHarnessConfidence()));
+        boolean requiresCourseMaterial = IntentClassifierService.MODE_RAG.equals(mode)
+                && !"CONVERSATIONAL".equals(subIntent)
+                && !"OFF_TOPIC".equals(subIntent);
+        String answerPolicy = switch (mode) {
+            case IntentClassifierService.MODE_CODE ->
+                    "Guide, explain, review, or debug without completing assessed work.";
+            case IntentClassifierService.MODE_ESCALATE ->
+                    "Create escalation. Do not answer teacher-only decisions.";
+            default -> requiresCourseMaterial
+                    ? "Answer from course materials and approved knowledge; escalate when evidence is insufficient."
+                    : "Respond naturally as a course tutor without inventing course facts.";
+        };
+        String reason = request.getHarnessReason() == null || request.getHarnessReason().isBlank()
+                ? "n8n AI Harness selected the backend route"
+                : request.getHarnessReason().trim();
+        return IntentClassification.builder()
+                .mode(mode)
+                .reason(reason)
+                .confidence(confidence)
+                .subIntent(subIntent)
+                .domain(domain)
+                .answerPolicy(answerPolicy)
+                .requiresCourseMaterial(requiresCourseMaterial)
+                .routingStrategy("N8N_HARNESS")
+                .build();
+    }
+
+    private String normalizedHarnessValue(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        String normalized = value.trim().toUpperCase();
+        return normalized.matches("[A-Z][A-Z0-9_]{0,63}") ? normalized : null;
     }
 
     private ResponseEntity<?> handleCodeMentorIntent(

@@ -677,7 +677,8 @@ public class CourseRagService {
                 && internalTarget;
         boolean internalConfigRequest = (normalized.contains("config")
                 || normalized.contains("cau hinh"))
-                && internalTarget;
+                && internalTarget
+                && !StudentChatIntentDetector.isLessonStart(question);
         boolean credentialRequest = normalized.contains("api key")
                 || normalized.contains("apikey")
                 || normalized.contains("password")

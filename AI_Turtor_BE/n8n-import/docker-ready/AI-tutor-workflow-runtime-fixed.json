@@ -3,37 +3,6 @@
   "nodes": [
     {
       "parameters": {
-        "url": "=http://ai-tutor-api:8085/api/tutor/students/{{$node[\"Set - Trace Context\"].json.studentId}}/courses/{{$node[\"Set - Trace Context\"].json.courseId}}/memory",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Authorization",
-              "value": "={{$node[\"Set - Trace Context\"].json.authorization}}"
-            }
-          ]
-        },
-        "options": {
-          "response": {
-            "response": {
-              "fullResponse": true,
-              "responseFormat": "json"
-            }
-          }
-        }
-      },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "position": [
-        -912,
-        464
-      ],
-      "id": "f8d1fd6a-65e0-4b22-8ac1-3f4e8ccf448e",
-      "name": "Get Student Score Memory",
-      "onError": "continueRegularOutput"
-    },
-    {
-      "parameters": {
         "method": "POST",
         "url": "=http://ai-tutor-api:8085/api/ai/query?userId={{$node[\"Set - Trace Context\"].json.studentId}}&userName={{$node[\"Set - Trace Context\"].json.studentName}}&userEmail={{$node[\"Set - Trace Context\"].json.studentEmail}}",
         "sendHeaders": true,
@@ -47,7 +16,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({\n  message: $node['Set - Trace Context'].json.message,\n  question: $node['Set - Trace Context'].json.question,\n  codeSnippet: $node['Set - Trace Context'].json.codeSnippet,\n  courseId: $node['Set - Trace Context'].json.courseId,\n  classId: $node['Set - Trace Context'].json.classId,\n  conversationId: $node['Set - Trace Context'].json.conversationId,\n  tutorSessionId: $node['Set - Trace Context'].json.tutorSessionId,\n  sessionPhase: $node['Set - Trace Context'].json.sessionPhase,\n  quotaConsumed: true,\n  harnessMode: 'RAG'\n}) }}",
+        "jsonBody": "={{ JSON.stringify({\n  message: $node['Set - Trace Context'].json.message,\n  question: $node['Set - Trace Context'].json.question,\n  codeSnippet: $node['Set - Trace Context'].json.codeSnippet,\n  courseId: $node['Set - Trace Context'].json.courseId,\n  classId: $node['Set - Trace Context'].json.classId,\n  conversationId: $node['Set - Trace Context'].json.conversationId,\n  tutorSessionId: $node['Set - Trace Context'].json.tutorSessionId,\n  sessionPhase: $node['Set - Trace Context'].json.sessionPhase,\n  quotaConsumed: true,\n  harnessMode: 'RAG',\n  harnessSubIntent: $node['Set - Trace Context'].json.interactionType === 'UNDERSTANDING_REMEDIATION'\n    ? 'EXAM_PRACTICE'\n    : ($node['Intent Classifier'].json.subIntent || 'EXPLAIN_CONCEPT'),\n  harnessDomain: $node['Set - Trace Context'].json.interactionType === 'UNDERSTANDING_REMEDIATION'\n    ? 'GENERAL_STUDY'\n    : ($node['Intent Classifier'].json.domain || 'GENERAL_STUDY'),\n  harnessConfidence: $node['Set - Trace Context'].json.interactionType === 'UNDERSTANDING_REMEDIATION'\n    ? 0.99\n    : Number($node['Intent Classifier'].json.confidence || 0.99),\n  harnessReason: $node['Set - Trace Context'].json.interactionType === 'UNDERSTANDING_REMEDIATION'\n    ? 'Understanding remediation fast path selected by n8n'\n    : ($node['Intent Classifier'].json.reason || 'RAG route selected by n8n')\n}) }}",
         "options": {
           "timeout": 420000
         }
@@ -158,64 +127,8 @@
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "=http://ai-tutor-api:8085/api/tutor/improve-suggestions",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Authorization",
-              "value": "={{$node[\"Set - Trace Context\"].json.authorization}}"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({\n  studentId: $node['Set - Trace Context'].json.studentId,\n  courseId: $node['Set - Trace Context'].json.courseId,\n  classId: $node['Set - Trace Context'].json.classId,\n  question: $node['Set - Trace Context'].json.message,\n  includeAiSuggestion: true\n}) }}",
-        "options": {}
-      },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "position": [
-        1152,
-        704
-      ],
-      "id": "215e116e-6921-4199-9d06-7d88eece2ee3",
-      "name": "Improve Suggestions",
-      "onError": "continueRegularOutput"
-    },
-    {
-      "parameters": {
-        "method": "PUT",
-        "url": "=http://ai-tutor-api:8085/api/tutor/students/{{$node[\"Set - Trace Context\"].json.studentId}}/courses/{{$node[\"Set - Trace Context\"].json.courseId}}/memory",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Authorization",
-              "value": "={{$node[\"Set - Trace Context\"].json.authorization}}"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({\n  classId: $node['Set - Trace Context'].json.classId,\n  recentQuestions: [$node['Set - Trace Context'].json.message].filter(Boolean),\n  recentAnswers: [$node['Course RAG Query'].json.answer].filter(Boolean),\n  improveSuggestions: [\n    ...(($node['Improve Suggestions'].json.ruleSuggestions || []).map(item => item.title || item.text || item).filter(Boolean)),\n    $node['Improve Suggestions'].json.aiSuggestion\n  ].filter(Boolean)\n}) }}",
-        "options": {}
-      },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "position": [
-        1424,
-        704
-      ],
-      "id": "99f92ca6-8cee-4f72-8d62-77f5423bdc38",
-      "name": "Update Memory RAG",
-      "onError": "continueRegularOutput"
-    },
-    {
-      "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ ({\n  success: Boolean($node[\"Course RAG Query\"].json.answer),\n  mode: \"RAG_TUTOR\",\n  answer: $node[\"Course RAG Query\"].json.answer || \"Hệ thống tạm thời không nhận được câu trả lời từ AI Tutor. Vui lòng thử lại sau ít phút.\",\n  confidence: $node[\"Course RAG Query\"].json.confidence || null,\n  escalated: $node[\"Course RAG Query\"].json.escalated || false,\n  questionEscalationId: $node[\"Course RAG Query\"].json.questionEscalationId || null,\n  conversationId: $node[\"Course RAG Query\"].json.conversationId || $node[\"Set - Trace Context\"].json.conversationId,\n  userMessageId: $node[\"Course RAG Query\"].json.userMessageId || null,\n  assistantMessageId: $node[\"Course RAG Query\"].json.assistantMessageId || null,\n  tutorSessionId: $node[\"Course RAG Query\"].json.tutorSessionId || $node[\"Set - Trace Context\"].json.tutorSessionId,\n  sessionPhase: $node[\"Course RAG Query\"].json.sessionPhase || $node[\"Set - Trace Context\"].json.sessionPhase,\n  subIntent: $node[\"Course RAG Query\"].json.subIntent || $node[\"Intent Classifier\"].json.subIntent || null,\n  nextImproveSuggestions: $node[\"Course RAG Query\"].json.nextImproveSuggestions || [],\n  suggestedTopics: $node[\"Course RAG Query\"].json.suggestedTopics || [],\n  understandingCheck: $node[\"Course RAG Query\"].json.understandingCheck || null,\n  traceId: $node[\"Set - Trace Context\"].json.traceId,\n  sources: $node[\"Course RAG Query\"].json.sources || [],\n  sourceEvidence: $node[\"Course RAG Query\"].json.sourceEvidence || [],\n  groundingType: $node[\"Course RAG Query\"].json.groundingType || \"COURSE_MATERIAL\"\n}) }}",
+        "responseBody": "={{ ({\n  success: Boolean($node[\"Course RAG Query\"].json.answer),\n  mode: \"RAG_TUTOR\",\n  answer: $node[\"Course RAG Query\"].json.answer || \"Hệ thống tạm thời không nhận được câu trả lời từ AI Tutor. Vui lòng thử lại sau ít phút.\",\n  confidence: $node[\"Course RAG Query\"].json.confidence || null,\n  escalated: $node[\"Course RAG Query\"].json.escalated || false,\n  questionEscalationId: $node[\"Course RAG Query\"].json.questionEscalationId || null,\n  conversationId: $node[\"Course RAG Query\"].json.conversationId || $node[\"Set - Trace Context\"].json.conversationId,\n  userMessageId: $node[\"Course RAG Query\"].json.userMessageId || null,\n  assistantMessageId: $node[\"Course RAG Query\"].json.assistantMessageId || null,\n  tutorSessionId: $node[\"Course RAG Query\"].json.tutorSessionId || $node[\"Set - Trace Context\"].json.tutorSessionId,\n  sessionPhase: $node[\"Course RAG Query\"].json.sessionPhase || $node[\"Set - Trace Context\"].json.sessionPhase,\n  subIntent: $node[\"Course RAG Query\"].json.subIntent || null,\n  nextImproveSuggestions: $node[\"Course RAG Query\"].json.nextImproveSuggestions || [],\n  suggestedTopics: $node[\"Course RAG Query\"].json.suggestedTopics || [],\n  understandingCheck: $node[\"Course RAG Query\"].json.understandingCheck || null,\n  traceId: $node[\"Set - Trace Context\"].json.traceId,\n  sources: $node[\"Course RAG Query\"].json.sources || [],\n  sourceEvidence: $node[\"Course RAG Query\"].json.sourceEvidence || [],\n  groundingType: $node[\"Course RAG Query\"].json.groundingType || \"COURSE_MATERIAL\"\n}) }}",
         "options": {}
       },
       "type": "n8n-nodes-base.respondToWebhook",
@@ -243,7 +156,7 @@
         "sendBody": true,
         "options": {},
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({\n  studentId: $node['Set - Trace Context'].json.studentId,\n  studentName: $node['Set - Trace Context'].json.studentName,\n  studentEmail: $node['Set - Trace Context'].json.studentEmail,\n  courseId: $node['Set - Trace Context'].json.courseId,\n  classId: $node['Set - Trace Context'].json.classId,\n  question: $node['Set - Trace Context'].json.message,\n  reason: $node['Intent Classifier'].json.reason || 'Intent classifier routed this question to teacher escalation',\n  conversationId: $node['Set - Trace Context'].json.conversationId\n}) }}"
+        "jsonBody": "={{ JSON.stringify({\n  studentId: $node['Set - Trace Context'].json.studentId,\n  studentName: $node['Set - Trace Context'].json.studentName,\n  studentEmail: $node['Set - Trace Context'].json.studentEmail,\n  courseId: $node['Set - Trace Context'].json.courseId,\n  classId: $node['Set - Trace Context'].json.classId,\n  question: $node['Set - Trace Context'].json.message,\n  reason: $node['Set - Trace Context'].json.interactionType === 'UNDERSTANDING_REMEDIATION'\n    ? ($node['Course RAG Query'].json.escalationReason || 'Course material confidence is too low for remediation')\n    : ($node['Intent Classifier'].json.reason || 'Intent classifier routed this question to teacher escalation'),\n  conversationId: $node['Set - Trace Context'].json.conversationId\n}) }}"
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
@@ -3270,21 +3183,45 @@
       ],
       "id": "3f941660-fddd-4fc7-9e44-970ff9448258",
       "name": "Respond Senior Review Resolved"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "understanding-remediation-fast-path-condition",
+              "leftValue": "={{ $json.interactionType || \"\" }}",
+              "rightValue": "UNDERSTANDING_REMEDIATION",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -912,
+        464
+      ],
+      "id": "understanding-remediation-fast-path",
+      "name": "IF Understanding Remediation"
     }
   ],
   "pinData": {},
   "connections": {
-    "Get Student Score Memory": {
-      "main": [
-        [
-          {
-            "node": "Intent Classifier",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Course RAG Query": {
       "main": [
         [
@@ -3358,7 +3295,7 @@
       "main": [
         [
           {
-            "node": "Improve Suggestions",
+            "node": "Respond RAG",
             "type": "main",
             "index": 0
           }
@@ -3366,28 +3303,6 @@
         [
           {
             "node": "Create Escalation",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Improve Suggestions": {
-      "main": [
-        [
-          {
-            "node": "Update Memory RAG",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Update Memory RAG": {
-      "main": [
-        [
-          {
-            "node": "Respond RAG",
             "type": "main",
             "index": 0
           }
@@ -3763,7 +3678,7 @@
       "main": [
         [
           {
-            "node": "Get Student Score Memory",
+            "node": "IF Understanding Remediation",
             "type": "main",
             "index": 0
           }
@@ -4174,6 +4089,24 @@
         [
           {
             "node": "Respond Senior Review Resolved",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Understanding Remediation": {
+      "main": [
+        [
+          {
+            "node": "Course RAG Query",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Intent Classifier",
             "type": "main",
             "index": 0
           }
