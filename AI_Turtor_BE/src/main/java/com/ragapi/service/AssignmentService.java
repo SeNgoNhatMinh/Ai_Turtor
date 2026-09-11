@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -29,6 +30,7 @@ import static com.ragapi.util.ValidationUtils.optionalMaxLength;
 import static com.ragapi.util.ValidationUtils.requireMaxLength;
 import static com.ragapi.util.ValidationUtils.requireText;
 import static com.ragapi.util.ValidationUtils.validateScore;
+import static com.ragapi.util.TextSanitizer.normalizeAccentInsensitive;
 
 @Service
 @AllArgsConstructor
@@ -119,10 +121,29 @@ public class AssignmentService {
     public List<Assignment> listAssignmentsForStudent(String studentId, String courseId) {
         requireText(studentId, "studentId");
 
-        return assignmentRepository.findAll().stream()
-                .filter(assignment -> courseId == null || courseId.isBlank() || courseId.equals(assignment.getCourseId()))
-                .filter(assignment -> isStudentTargeted(assignment, studentId))
+        var enrollments = enrollmentRepository.findByStudentId(studentId);
+        Set<String> enrolledScopes = enrollments.stream()
+                .map(item -> item.getCourseId() + "\u0000" + item.getClassId())
+                .collect(Collectors.toSet());
+        List<String> enrolledCourseIds = enrollments.stream()
+                .map(item -> item.getCourseId())
+                .filter(value -> value != null && !value.isBlank())
+                .distinct()
+                .toList();
+        List<Assignment> candidates = courseId == null || courseId.isBlank()
+                ? (enrolledCourseIds.isEmpty() ? List.of() : assignmentRepository.findByCourseIdIn(enrolledCourseIds))
+                : assignmentRepository.findByCourseId(courseId.trim());
+
+        return candidates.stream()
+                .filter(assignment -> enrolledScopes.contains(assignment.getCourseId() + "\u0000" + assignment.getClassId()))
+                .filter(assignment -> isAssignmentTargetedToStudent(assignment, studentId))
                 .collect(Collectors.toList());
+    }
+
+    private boolean isAssignmentTargetedToStudent(Assignment assignment, String studentId) {
+        if (!TARGET_SELECTED_STUDENTS.equalsIgnoreCase(assignment.getTargetType())) return true;
+        return assignment.getTargetStudentIds() != null
+                && assignment.getTargetStudentIds().stream().anyMatch(studentId::equals);
     }
 
     public AssignmentSubmission submitAssignment(
@@ -289,8 +310,25 @@ public class AssignmentService {
     }
 
     public List<AssignmentSubmission> listSubmissionsForStudent(String studentId, String courseId) {
+        return listSubmissionsForStudent(studentId, courseId, List.of());
+    }
+
+    public List<AssignmentSubmission> listSubmissionsForStudent(
+            String studentId,
+            String courseId,
+            List<String> assignmentIds
+    ) {
         requireText(studentId, "studentId");
-        return submissionRepository.findByStudentId(studentId).stream()
+        List<String> safeAssignmentIds = assignmentIds == null ? List.of() : assignmentIds.stream()
+                .filter(value -> value != null && !value.isBlank())
+                .map(String::trim)
+                .distinct()
+                .limit(100)
+                .toList();
+        List<AssignmentSubmission> submissions = safeAssignmentIds.isEmpty()
+                ? submissionRepository.findByStudentId(studentId)
+                : submissionRepository.findByStudentIdAndAssignmentIdIn(studentId, safeAssignmentIds);
+        return submissions.stream()
                 .filter(submission -> courseId == null || courseId.isBlank() || courseId.equals(submission.getCourseId()))
                 .collect(Collectors.toList());
     }
@@ -385,6 +423,28 @@ public class AssignmentService {
             throw new IllegalArgumentException("targetType must be ALL_CLASS or SELECTED_STUDENTS");
         }
         return normalized;
+    }
+
+    public List<Assignment> searchAssignmentsForStudent(String studentId, String courseId, String query) {
+        String safeQuery = normalizeAccentInsensitive(optionalMaxLength(query, "query", SHORT_TEXT_MAX_LENGTH));
+        return listAssignmentsForStudent(studentId, courseId).stream()
+                .filter(assignment -> safeQuery.isBlank()
+                        || containsIgnoreCase(assignment.getTitle(), safeQuery)
+                        || containsIgnoreCase(assignment.getDescription(), safeQuery)
+                        || containsIgnoreCase(assignment.getAssignmentType(), safeQuery))
+                .sorted((left, right) -> {
+                    LocalDateTime leftDate = left.getUpdatedAt() == null ? left.getCreatedAt() : left.getUpdatedAt();
+                    LocalDateTime rightDate = right.getUpdatedAt() == null ? right.getCreatedAt() : right.getUpdatedAt();
+                    if (leftDate == null && rightDate == null) return 0;
+                    if (leftDate == null) return 1;
+                    if (rightDate == null) return -1;
+                    return rightDate.compareTo(leftDate);
+                })
+                .toList();
+    }
+
+    private boolean containsIgnoreCase(String value, String normalizedQuery) {
+        return value != null && normalizeAccentInsensitive(value).contains(normalizedQuery);
     }
 
     private String normalizeAssignmentType(String value) {

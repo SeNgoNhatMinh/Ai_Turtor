@@ -1,6 +1,7 @@
 package com.ragapi.controller;
 
 import com.ragapi.dto.ReviewAssignmentSubmissionRequest;
+import com.ragapi.dto.PageResponse;
 import com.ragapi.entity.Assignment;
 import com.ragapi.entity.AssignmentSubmission;
 import com.ragapi.service.AssignmentFileStorageService;
@@ -171,20 +172,28 @@ public class AssignmentController {
     }
     @GetMapping("/students/{studentId}/assignments")
     @Operation(summary = "Student lists assignments assigned to them")
-    public ResponseEntity<List<Assignment>> listStudentAssignments(
+    public ResponseEntity<?> listStudentAssignments(
             @PathVariable String studentId,
-            @RequestParam(required = false) String courseId
+            @RequestParam(required = false) String courseId,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size,
+            @RequestParam(required = false) String query
     ) {
-        return ResponseEntity.ok(assignmentService.listAssignmentsForStudent(studentId, courseId));
+        if (page == null && size == null && (query == null || query.isBlank())) {
+            return ResponseEntity.ok(assignmentService.listAssignmentsForStudent(studentId, courseId));
+        }
+        List<Assignment> assignments = assignmentService.searchAssignmentsForStudent(studentId, courseId, query);
+        return ResponseEntity.ok(PageResponse.from(assignments, page, size));
     }
 
     @GetMapping("/students/{studentId}/submissions")
     @Operation(summary = "Student lists their submissions, scores and teacher feedback")
     public ResponseEntity<List<AssignmentSubmission>> listStudentSubmissions(
             @PathVariable String studentId,
-            @RequestParam(required = false) String courseId
+            @RequestParam(required = false) String courseId,
+            @RequestParam(required = false) List<String> assignmentIds
     ) {
-        return ResponseEntity.ok(assignmentService.listSubmissionsForStudent(studentId, courseId));
+        return ResponseEntity.ok(assignmentService.listSubmissionsForStudent(studentId, courseId, assignmentIds));
     }
 
     @PostMapping(

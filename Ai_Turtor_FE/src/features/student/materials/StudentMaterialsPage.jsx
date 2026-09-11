@@ -32,7 +32,7 @@ export default function StudentMaterialsPage({
   };
 
   useEffect(() => {
-    materials.loadCourseMaterials();
+    materials.loadCourseMaterials({ page: 0, query: '' });
     // Route page owns material loading.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [studentId, courseId, classId]);
@@ -61,6 +61,9 @@ export default function StudentMaterialsPage({
         onRetry={materials.loadCourseMaterials}
         onLoginAgain={onLogout}
         onDownload={materials.handleDownloadMaterial}
+        pagination={materials.materialsPage}
+        onPageChange={materials.changeMaterialsPage}
+        onSearch={materials.searchMaterials}
       />
     </div>
   );

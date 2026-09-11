@@ -117,6 +117,9 @@ export default function AssignmentListPanel({
   onSelect,
   onRetry,
   onLoginAgain,
+  pagination,
+  onPageChange,
+  onSearch,
 }) {
   const selectedId = getAssignmentId(selectedAssignment);
   const safeAssignments = Array.isArray(assignments) ? assignments : [];
@@ -136,7 +139,7 @@ export default function AssignmentListPanel({
           <p>Chọn một bài để xem yêu cầu và nộp tệp.</p>
         </div>
         <div className="student-assignment-list__summary">
-          <strong>{safeAssignments.length}</strong>
+          <strong>{pagination?.totalElements ?? safeAssignments.length}</strong>
           <span>bài</span>
           <Tooltip title="Tải lại danh sách">
             <Button
@@ -181,12 +184,20 @@ export default function AssignmentListPanel({
         />
       ) : (
         <SearchableTable
+          key={courseId}
           dataSource={safeAssignments}
           columns={assignmentColumns}
           rowKey={getAssignmentId}
           searchKeys={['title', 'description', 'desc', 'assignmentType', 'status']}
           searchPlaceholder="Tìm bài tập"
-          pagination={{ pageSize: 8, hideOnSinglePage: true }}
+          serverPagination={pagination?.serverPaged ? {
+            page: pagination.page,
+            pageSize: pagination.pageSize,
+            totalElements: pagination.totalElements,
+            onChange: onPageChange,
+          } : undefined}
+          onServerSearch={pagination?.serverPaged ? onSearch : undefined}
+          pagination={pagination?.serverPaged ? undefined : { pageSize: 8, hideOnSinglePage: true }}
           size="middle"
           scroll={{ x: 700, y: 560 }}
           onRow={(record) => {

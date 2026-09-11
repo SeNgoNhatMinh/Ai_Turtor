@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { lazy, memo, Suspense, useEffect, useRef, useState } from 'react';
 import {
   LogOut,
   Menu,
@@ -117,4 +117,4 @@ function Header({
   );
 }
 
-export default Header;
+export default memo(Header);

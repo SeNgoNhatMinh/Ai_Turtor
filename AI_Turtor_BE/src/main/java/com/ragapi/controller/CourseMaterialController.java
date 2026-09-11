@@ -437,7 +437,10 @@ public class CourseMaterialController {
             @RequestParam(value = "teacherId", required = false) String teacherId,
             @RequestParam(value = "materialScope", required = false) String materialScope,
             @RequestParam(value = "indexingStatus", required = false) String indexingStatus,
-            @RequestParam(value = "sourceType", required = false) String sourceType
+            @RequestParam(value = "sourceType", required = false) String sourceType,
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false) Integer size,
+            @RequestParam(value = "query", required = false) String query
     ) {
         try {
             CourseMaterialListResponse response = queryService.listAllMaterials(
@@ -446,7 +449,10 @@ public class CourseMaterialController {
                     teacherId,
                     materialScope,
                     indexingStatus,
-                    sourceType
+                    sourceType,
+                    page,
+                    size,
+                    query
             );
             return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
@@ -462,7 +468,10 @@ public class CourseMaterialController {
             @RequestParam(value = "teacherId", required = false) String teacherId,
             @RequestParam(value = "materialScope", required = false) String materialScope,
             @RequestParam(value = "indexingStatus", required = false) String indexingStatus,
-            @RequestParam(value = "sourceType", required = false) String sourceType
+            @RequestParam(value = "sourceType", required = false) String sourceType,
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false) Integer size,
+            @RequestParam(value = "query", required = false) String query
     ) {
         try {
             CourseMaterialListResponse response = queryService.listMaterials(
@@ -471,7 +480,10 @@ public class CourseMaterialController {
                     teacherId,
                     materialScope,
                     indexingStatus,
-                    sourceType
+                    sourceType,
+                    page,
+                    size,
+                    query
             );
             return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
@@ -488,6 +500,9 @@ public class CourseMaterialController {
             @PathVariable String studentId,
             @PathVariable String courseId,
             @PathVariable String classId,
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false) Integer size,
+            @RequestParam(value = "query", required = false) String query,
             Authentication authentication
     ) {
         try {
@@ -498,7 +513,7 @@ public class CourseMaterialController {
                     courseId,
                     classId
             );
-            return ResponseEntity.ok(queryService.listStudentClassMaterials(courseId, classId));
+            return ResponseEntity.ok(queryService.listStudentClassMaterials(courseId, classId, page, size, query));
         } catch (SecurityException | IllegalArgumentException error) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", error.getMessage()));
         }

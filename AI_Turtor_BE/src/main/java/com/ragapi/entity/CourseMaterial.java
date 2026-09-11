@@ -3,11 +3,17 @@ package com.ragapi.entity;
 import lombok.*;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.data.mongodb.core.index.CompoundIndex;
+import org.springframework.data.mongodb.core.index.CompoundIndexes;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
 @Document(collection = "course_materials")
+@CompoundIndexes({
+        @CompoundIndex(name = "material_course_class_updated_idx", def = "{'courseId': 1, 'classId': 1, 'indexedAt': -1}"),
+        @CompoundIndex(name = "material_teacher_course_idx", def = "{'teacherId': 1, 'courseId': 1}")
+})
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

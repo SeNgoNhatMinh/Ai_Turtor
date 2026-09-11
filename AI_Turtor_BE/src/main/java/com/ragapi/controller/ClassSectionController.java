@@ -3,6 +3,7 @@ package com.ragapi.controller;
 import com.ragapi.dto.EnrollStudentsRequest;
 import com.ragapi.dto.MentorImportResponse;
 import com.ragapi.dto.StudentEnrollmentItem;
+import com.ragapi.dto.PageResponse;
 import com.ragapi.entity.ClassSection;
 import com.ragapi.entity.CourseEnrollment;
 import com.ragapi.repository.ClassSectionRepository;
@@ -39,9 +40,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 import static com.ragapi.util.ValidationUtils.requireEnum;
 import static com.ragapi.util.ValidationUtils.requireText;
+import static com.ragapi.util.ValidationUtils.optionalMaxLength;
+import static com.ragapi.util.ValidationUtils.SHORT_TEXT_MAX_LENGTH;
+import static com.ragapi.util.TextSanitizer.normalizeAccentInsensitive;
 
 @RestController
 @RequestMapping("/api")
@@ -147,7 +152,10 @@ public class ClassSectionController {
     public ResponseEntity<?> listClassStudents(
             @PathVariable String courseId,
             @PathVariable String classId,
-            @RequestParam(value = "teacherId", required = false) String teacherId
+            @RequestParam(value = "teacherId", required = false) String teacherId,
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false) Integer size,
+            @RequestParam(value = "query", required = false) String query
     ) {
         var section = classSectionRepository.findByCourseIdAndClassId(courseId, classId);
         if (section.isEmpty()) {
@@ -167,12 +175,31 @@ public class ClassSectionController {
         }
 
         List<CourseEnrollment> students = classRosterService.listClassStudents(courseId, classId);
+        String safeQuery = normalizeAccentInsensitive(optionalMaxLength(query, "query", SHORT_TEXT_MAX_LENGTH));
+        if (!safeQuery.isBlank()) {
+            students = students.stream()
+                    .filter(student -> Stream.of(
+                                    student.getStudentId(),
+                                    student.getStudentName(),
+                                    student.getStudentEmail()
+                            )
+                            .filter(value -> value != null && !value.isBlank())
+                            .anyMatch(value -> normalizeAccentInsensitive(value).contains(safeQuery)))
+                    .toList();
+        }
+        PageResponse<CourseEnrollment> studentPage = page == null && size == null && safeQuery.isBlank()
+                ? PageResponse.unpaged(students)
+                : PageResponse.from(students, page, size);
         Map<String, Object> response = new LinkedHashMap<>();
         response.put("courseId", courseId);
         response.put("classId", classId);
         response.put("teacherId", section.get().getTeacherId());
-        response.put("count", students.size());
-        response.put("students", students);
+        response.put("count", studentPage.getTotalElements());
+        response.put("students", studentPage.getContent());
+        response.put("page", studentPage.getPage());
+        response.put("size", studentPage.getSize());
+        response.put("totalElements", studentPage.getTotalElements());
+        response.put("totalPages", studentPage.getTotalPages());
         return ResponseEntity.ok(response);
     }
 

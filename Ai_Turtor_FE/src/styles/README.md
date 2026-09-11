@@ -29,6 +29,23 @@ verification.
 - Do not move feature CSS back into `src/index.css`; add an import at the correct
   cascade position instead.
 
+## FPT UI contract
+
+- `src/theme/fptTheme.js` is the Ant Design source of truth. `tokens.css` mirrors
+  its semantic values for feature-owned CSS.
+- Use `--color-action-primary` for primary actions and selected controls,
+  `--color-navigation` for navigation, `--color-success` for completion,
+  `--color-error` for failures and destructive actions, and
+  `--color-surface-subtle` for table or administration backgrounds.
+- Use the shared `PageHeader`, `ActionButton`, `DataTable`, `SearchableTable`, and
+  `AsyncState` components before creating a feature-specific equivalent.
+- Keep at most 100 records in a server page. Paginate material, enrollment, and
+  assignment APIs before adding client virtualization. Chat history already
+  reveals sessions in batches of 50 and tutor sessions are capped at 10 turns.
+- Every clickable row must support `Enter` and `Space`, every icon-only action
+  needs an accessible label, and new layouts must remain usable at 768px and
+  below.
+
 ## Safe migration
 
 1. Move one complete selector block without changing its declarations.

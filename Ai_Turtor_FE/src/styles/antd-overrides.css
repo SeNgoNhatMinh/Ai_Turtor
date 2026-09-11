@@ -209,8 +209,25 @@ body:has(.app-container.dark) .sidebar-nav-tooltip.ant-tooltip .ant-tooltip-arro
 .app-container.light .ant-input:focus,
 .app-container.light .ant-input-focused,
 .app-container.light .ant-select-focused .ant-select-selector {
-    border-color: #BDBDB8 !important;
-    box-shadow: 0 0 0 2px rgba(32, 33, 35, 0.08) !important;
+    border-color: var(--color-action-primary) !important;
+    box-shadow: var(--focus-ring) !important;
+}
+
+.app-container .ant-form-item-label > label {
+  color: var(--color-text-main);
+  font-weight: 650;
+}
+
+.app-container .ant-form-item-extra,
+.app-container .ant-form-item-explain {
+  margin-top: 5px;
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.app-container .ant-form-item-has-error .ant-form-item-explain-error {
+  color: var(--color-error);
 }
 
 /* Authenticated UI control baseline. Feature screens may choose intent and
@@ -329,25 +346,25 @@ body:has(.app-container.dark) .sidebar-nav-tooltip.ant-tooltip .ant-tooltip-arro
 /* Role identity: sidebar keeps its color. Teacher/Senior work canvas is a cool
    slate surface so it does not blend into the maroon/purple chrome. */
 .app-container.role-teacher:not(.dark) {
-  --role-accent: #6653c7;
-  --role-accent-dark: #382b83;
+  --role-accent: var(--color-action-primary);
+  --role-accent-dark: var(--color-action-primary-hover);
   --role-soft: #e8eef5;
   --role-surface: #f3f6fa;
-  --role-work-accent: #0b3b82;
+  --role-work-accent: var(--color-action-primary);
 }
 .app-container.role-senior:not(.dark) {
-  --role-accent: #b33c72;
-  --role-accent-dark: #66214a;
+  --role-accent: var(--color-action-primary);
+  --role-accent-dark: var(--color-action-primary-hover);
   --role-soft: #e8eef5;
   --role-surface: #f3f6fa;
-  --role-work-accent: #0b3b82;
+  --role-work-accent: var(--color-action-primary);
 }
 .app-container.role-admin:not(.dark) {
-  --role-accent: #16875b;
-  --role-accent-dark: #07533b;
-  --role-soft: #e8f7f0;
-  --role-surface: #f3fbf7;
-  --role-work-accent: #07533b;
+  --role-accent: var(--color-action-primary);
+  --role-accent-dark: var(--color-action-primary-hover);
+  --role-soft: #fff3eb;
+  --role-surface: var(--color-bg-dark);
+  --role-work-accent: var(--color-action-primary);
 }
 .app-container:is(.role-teacher,.role-senior,.role-admin):not(.dark) .content-wrapper,
 .app-container:is(.role-teacher,.role-senior,.role-admin):not(.dark) .portal-view,
@@ -355,14 +372,8 @@ body:has(.app-container.dark) .sidebar-nav-tooltip.ant-tooltip .ant-tooltip-arro
 .app-container:is(.role-teacher,.role-senior,.role-admin):not(.dark) .ant-layout-content {
   background: var(--role-surface) !important;
 }
-.app-container.role-teacher:not(.dark) .main-sidebar {
-  background: linear-gradient(180deg, #241b62 0%, #5542a9 100%) !important;
-}
-.app-container.role-senior:not(.dark) .main-sidebar {
-  background: linear-gradient(180deg, #4d1639 0%, #8f2d62 100%) !important;
-}
-.app-container.role-admin:not(.dark) .main-sidebar {
-  background: linear-gradient(180deg, #063e2d 0%, #0d7450 100%) !important;
+.app-container:is(.role-student,.role-teacher,.role-senior,.role-admin):not(.dark) .main-sidebar {
+  background: linear-gradient(180deg, var(--color-navigation) 0%, var(--color-navigation-soft) 100%) !important;
 }
 .app-container:is(.role-teacher,.role-senior,.role-admin):not(.dark) .role-switcher-container .role-label {
   display: inline-flex;
@@ -400,13 +411,13 @@ body:has(.app-container.dark) .sidebar-nav-tooltip.ant-tooltip .ant-tooltip-arro
   color: var(--role-accent-dark);
 }
 .app-container:is(.role-teacher,.role-senior):not(.dark) .ant-btn-primary:not(:disabled):not(.ant-btn-disabled) {
-  background: var(--role-work-accent, #0b3b82) !important;
-  border-color: var(--role-work-accent, #0b3b82) !important;
-  box-shadow: 0 7px 18px rgba(11, 59, 130, 0.2) !important;
+  background: var(--color-action-primary) !important;
+  border-color: var(--color-action-primary) !important;
+  box-shadow: 0 7px 18px rgba(243, 112, 33, 0.2) !important;
 }
 .app-container:is(.role-teacher,.role-senior):not(.dark) .ant-btn-primary:not(:disabled):not(.ant-btn-disabled):hover {
-  background: #001b3d !important;
-  border-color: #001b3d !important;
+  background: var(--color-action-primary-hover) !important;
+  border-color: var(--color-action-primary-hover) !important;
 }
 .app-container:is(.role-teacher,.role-senior):not(.dark) .ant-tabs-tab-active .ant-tabs-tab-btn {
   color: var(--role-work-accent, #0b3b82) !important;
@@ -415,13 +426,13 @@ body:has(.app-container.dark) .sidebar-nav-tooltip.ant-tooltip .ant-tooltip-arro
   background: var(--role-work-accent, #0b3b82) !important;
 }
 .app-container.role-admin:not(.dark) .ant-btn-primary:not(:disabled):not(.ant-btn-disabled) {
-  background: var(--role-accent) !important;
-  border-color: var(--role-accent) !important;
+  background: var(--color-action-primary) !important;
+  border-color: var(--color-action-primary) !important;
   box-shadow: 0 7px 18px color-mix(in srgb, var(--role-accent) 25%, transparent) !important;
 }
 .app-container.role-admin:not(.dark) .ant-btn-primary:not(:disabled):not(.ant-btn-disabled):hover {
-  background: var(--role-accent-dark) !important;
-  border-color: var(--role-accent-dark) !important;
+  background: var(--color-action-primary-hover) !important;
+  border-color: var(--color-action-primary-hover) !important;
 }
 .app-container.role-admin:not(.dark) .ant-tabs-tab-active .ant-tabs-tab-btn {
   color: var(--role-accent) !important;
@@ -429,4 +440,4 @@ body:has(.app-container.dark) .sidebar-nav-tooltip.ant-tooltip .ant-tooltip-arro
 .app-container.role-admin:not(.dark) .ant-tabs-ink-bar {
   background: var(--role-accent) !important;
 }
-.app-container:is(.role-teacher,.role-senior,.role-admin):not(.dark) .main-sidebar .ant-menu-item-selected svg{color:var(--role-accent)!important}.sidebar-role-card button{background:rgba(255,255,255,.95)!important;color:#173453!important}.role-admin .sidebar-role-card button{color:#07533b!important}.role-teacher .sidebar-role-card button{color:#382b83!important}.role-senior .sidebar-role-card button{color:#66214a!important}
+.app-container:is(.role-teacher,.role-senior,.role-admin):not(.dark) .main-sidebar .ant-menu-item-selected svg{color:var(--color-action-primary)!important}.sidebar-role-card button{background:rgba(255,255,255,.95)!important;color:var(--color-navigation)!important}

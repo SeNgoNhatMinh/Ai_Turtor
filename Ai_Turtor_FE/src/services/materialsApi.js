@@ -52,15 +52,23 @@ export const materialsApi = {
   async getCourseMaterials(courseId, classId = '', options = {}) {
     const params = new URLSearchParams();
     if (classId) params.append('classId', classId);
+    if (options.page != null) params.set('page', String(options.page));
+    if (options.size != null) params.set('size', String(options.size));
+    if (options.query) params.set('query', String(options.query));
     const qs = params.toString();
     const loader = () => request(`${API_BASE_URL}/courses/${encodePath(courseId)}/materials${qs ? `?${qs}` : ''}`, { signal: options.signal });
     if (options.signal) return loader();
-    return getCachedResource(`${materialCachePrefix(courseId)}${classId || 'course'}`, loader, { force: options.force });
+    return getCachedResource(`${materialCachePrefix(courseId)}${classId || 'course'}:${params}`, loader, { force: options.force });
   },
 
   async getStudentClassMaterials(studentId, courseId, classId, options = {}) {
+    const params = new URLSearchParams();
+    if (options.page != null) params.set('page', String(options.page));
+    if (options.size != null) params.set('size', String(options.size));
+    if (options.query) params.set('query', String(options.query));
+    const query = params.toString();
     const loader = () => request(
-      `${API_BASE_URL}/students/${encodePath(studentId)}/courses/${encodePath(courseId)}/classes/${encodePath(classId)}/materials`,
+      `${API_BASE_URL}/students/${encodePath(studentId)}/courses/${encodePath(courseId)}/classes/${encodePath(classId)}/materials${query ? `?${query}` : ''}`,
       {
         signal: options.signal,
         skipUnauthorizedRedirect: options.skipUnauthorizedRedirect,
@@ -68,7 +76,7 @@ export const materialsApi = {
     );
     if (options.signal) return loader();
     return getCachedResource(
-      `${materialCachePrefix(courseId)}student:${studentId}:${classId}`,
+      `${materialCachePrefix(courseId)}student:${studentId}:${classId}:${params}`,
       loader,
       { force: options.force },
     );

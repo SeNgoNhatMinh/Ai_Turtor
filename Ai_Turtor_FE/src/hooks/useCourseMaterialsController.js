@@ -6,6 +6,15 @@ import { asArray, normalizeCourseMaterial } from '../services/normalizers';
 import { useRealtimeEvent, useRealtimeReconnect } from '../features/realtime/realtimeContext';
 import { eventMatchesCourse, REALTIME_EVENT_TYPES } from '../features/realtime/realtimeEvents';
 
+const INITIAL_MATERIALS_PAGE = Object.freeze({
+  page: 0,
+  pageSize: 8,
+  totalElements: 0,
+  totalPages: 1,
+  query: '',
+  serverPaged: false,
+});
+
 function getMaterialStatusFromEvent(event) {
   if (event.type === 'MATERIAL_INDEXING_FAILED') return 'INDEXING_FAILED';
   if (event.type === 'MATERIAL_INDEXED') return 'INDEXED';
@@ -24,21 +33,30 @@ export function useCourseMaterialsController({
   const [courseMaterials, setCourseMaterials] = useState([]);
   const [isMaterialsLoading, setIsMaterialsLoading] = useState(false);
   const [materialsError, setMaterialsError] = useState('');
+  const [materialsPage, setMaterialsPage] = useState(INITIAL_MATERIALS_PAGE);
   const [uploadProgress, setUploadProgress] = useState(null);
   const [uploadProgressText, setUploadProgressText] = useState('');
   const materialsRequestRef = useRef(null);
   const optimisticMaterialsRef = useRef(new Map());
   const realtimeRefreshRef = useRef(null);
+  const materialsPageRef = useRef(INITIAL_MATERIALS_PAGE);
+
+  const updateMaterialsPage = useCallback((next) => {
+    const value = typeof next === 'function' ? next(materialsPageRef.current) : next;
+    materialsPageRef.current = value;
+    setMaterialsPage(value);
+  }, []);
 
   useEffect(() => () => {
     materialsRequestRef.current?.abort();
     window.clearTimeout(realtimeRefreshRef.current);
   }, []);
 
-  const loadCourseMaterials = useCallback(async () => {
+  const loadCourseMaterials = useCallback(async (requestPage = {}) => {
     materialsRequestRef.current?.abort();
     if (!courseId || (studentId && !classId)) {
       setCourseMaterials([]);
+      updateMaterialsPage(INITIAL_MATERIALS_PAGE);
       setMaterialsError('');
       setIsMaterialsLoading(false);
       return;
@@ -48,10 +66,19 @@ export function useCourseMaterialsController({
     setIsMaterialsLoading(true);
     setMaterialsError('');
     try {
+      const currentPage = materialsPageRef.current;
+      const requestedPage = Number.isInteger(requestPage?.page) ? requestPage.page : currentPage.page;
+      const requestedPageSize = Number.isInteger(requestPage?.pageSize) ? requestPage.pageSize : currentPage.pageSize;
+      const requestedQuery = typeof requestPage?.query === 'string' ? requestPage.query : currentPage.query;
       const options = {
         signal: controller.signal,
         force: true,
         skipUnauthorizedRedirect,
+        ...(studentId ? {
+          page: requestedPage,
+          size: requestedPageSize,
+          query: requestedQuery,
+        } : {}),
       };
       const data = studentId
         ? await materialsApi.getStudentClassMaterials(studentId, courseId, classId, options)
@@ -70,6 +97,14 @@ export function useCourseMaterialsController({
           .filter((item) => !canonicalIds.has(item.id));
         const mergedItems = [...optimisticItems, ...items];
         setCourseMaterials(mergedItems);
+        updateMaterialsPage({
+          page: Number(data?.page ?? requestedPage),
+          pageSize: Number(data?.size ?? requestedPageSize),
+          totalElements: Number(data?.totalElements ?? data?.count ?? mergedItems.length),
+          totalPages: Number(data?.totalPages ?? 1),
+          query: requestedQuery,
+          serverPaged: Boolean(studentId && data?.page != null && data?.size != null),
+        });
         return mergedItems;
       }
     } catch (error) {
@@ -83,7 +118,15 @@ export function useCourseMaterialsController({
         setIsMaterialsLoading(false);
       }
     }
-  }, [classId, courseId, studentId, skipUnauthorizedRedirect]);
+  }, [classId, courseId, skipUnauthorizedRedirect, studentId, updateMaterialsPage]);
+
+  const changeMaterialsPage = useCallback((page, pageSize) => {
+    loadCourseMaterials({ page, pageSize });
+  }, [loadCourseMaterials]);
+
+  const searchMaterials = useCallback((query) => {
+    loadCourseMaterials({ page: 0, query });
+  }, [loadCourseMaterials]);
 
   useRealtimeEvent(REALTIME_EVENT_TYPES.material, (event) => {
     if (!eventMatchesCourse(event, courseId)) return;
@@ -194,11 +237,14 @@ export function useCourseMaterialsController({
     courseMaterials,
     isMaterialsLoading,
     materialsError,
+    materialsPage,
     upsertCourseMaterial,
     setCourseMaterials,
     uploadProgress,
     uploadProgressText,
     loadCourseMaterials,
+    changeMaterialsPage,
+    searchMaterials,
     handleTeacherUploadMaterial,
     handleDownloadMaterial,
   };

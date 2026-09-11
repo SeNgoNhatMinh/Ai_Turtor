@@ -7,11 +7,17 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.data.mongodb.core.index.CompoundIndex;
+import org.springframework.data.mongodb.core.index.CompoundIndexes;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
 @Document(collection = "assignments")
+@CompoundIndexes({
+        @CompoundIndex(name = "assignment_course_class_teacher_idx", def = "{'courseId': 1, 'classId': 1, 'teacherId': 1}"),
+        @CompoundIndex(name = "assignment_course_updated_idx", def = "{'courseId': 1, 'updatedAt': -1}")
+})
 @Data
 @Builder
 @NoArgsConstructor

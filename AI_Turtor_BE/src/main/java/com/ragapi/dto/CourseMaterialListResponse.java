@@ -20,5 +20,9 @@ public class CourseMaterialListResponse {
     private String indexingStatus;
     private String sourceType;
     private Integer count;
+    private Integer page;
+    private Integer size;
+    private Long totalElements;
+    private Integer totalPages;
     private List<CourseMaterialSummary> materials;
 }

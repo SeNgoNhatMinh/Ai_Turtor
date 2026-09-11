@@ -9,6 +9,15 @@ import {
 import { useRealtimeEvent, useRealtimeReconnect } from '../features/realtime/realtimeContext';
 import { eventMatchesCourse, REALTIME_EVENT_TYPES } from '../features/realtime/realtimeEvents';
 
+const INITIAL_ASSIGNMENTS_PAGE = Object.freeze({
+  page: 0,
+  pageSize: 8,
+  totalElements: 0,
+  totalPages: 1,
+  query: '',
+  serverPaged: false,
+});
+
 export function useStudentAssignmentsController({
   studentId,
   studentName = '',
@@ -21,15 +30,24 @@ export function useStudentAssignmentsController({
   const [selectedAssignment, setSelectedAssignment] = useState(null);
   const [isAssignmentsLoading, setIsAssignmentsLoading] = useState(false);
   const [assignmentsError, setAssignmentsError] = useState('');
+  const [assignmentsPage, setAssignmentsPage] = useState(INITIAL_ASSIGNMENTS_PAGE);
   const assignmentsRequestRef = useRef(null);
+  const assignmentsPageRef = useRef(INITIAL_ASSIGNMENTS_PAGE);
+
+  const updateAssignmentsPage = useCallback((next) => {
+    const value = typeof next === 'function' ? next(assignmentsPageRef.current) : next;
+    assignmentsPageRef.current = value;
+    setAssignmentsPage(value);
+  }, []);
 
   useEffect(() => () => assignmentsRequestRef.current?.abort(), []);
 
-  const loadStudentAssignments = useCallback(async () => {
+  const loadStudentAssignments = useCallback(async (requestPage = {}) => {
     assignmentsRequestRef.current?.abort();
     if (!studentId) {
       setAssignments([]);
       setSelectedAssignment(null);
+      updateAssignmentsPage(INITIAL_ASSIGNMENTS_PAGE);
       setAssignmentsError('');
       setIsAssignmentsLoading(false);
       return;
@@ -39,16 +57,27 @@ export function useStudentAssignmentsController({
     setIsAssignmentsLoading(true);
     setAssignmentsError('');
     try {
+      const currentPage = assignmentsPageRef.current;
+      const requestedPage = Number.isInteger(requestPage?.page) ? requestPage.page : currentPage.page;
+      const requestedPageSize = Number.isInteger(requestPage?.pageSize) ? requestPage.pageSize : currentPage.pageSize;
+      const requestedQuery = typeof requestPage?.query === 'string' ? requestPage.query : currentPage.query;
       const options = {
         signal: controller.signal,
         skipUnauthorizedRedirect,
+        page: requestedPage,
+        size: requestedPageSize,
+        query: requestedQuery,
       };
-      const [assignmentData, submissionData] = await Promise.all([
-        assignmentApi.getStudentAssignments(studentId, courseId, options),
-        assignmentApi.getStudentSubmissions(studentId, courseId, options),
-      ]);
+      const assignmentData = await assignmentApi.getStudentAssignments(studentId, courseId, options);
       if (controller.signal.aborted) return;
       const assignList = asArray(assignmentData, 'content', 'assignments').map(normalizeAssignment);
+      const assignmentIds = assignList
+        .map((assignment) => assignment.id || assignment.assignmentId)
+        .filter(Boolean);
+      const submissionData = assignmentIds.length
+        ? await assignmentApi.getStudentSubmissions(studentId, courseId, { ...options, assignmentIds })
+        : [];
+      if (controller.signal.aborted) return;
       const submissionList = asArray(submissionData, 'content', 'submissions').map(normalizeAssignmentSubmission);
       const submissionsByAssignment = new Map(submissionList.map((submission) => [
         submission.assignmentId || submission.assignment?.id,
@@ -62,6 +91,14 @@ export function useStudentAssignmentsController({
           : assignment;
       });
       setAssignments(merged);
+      updateAssignmentsPage({
+        page: Number(assignmentData?.page ?? requestedPage),
+        pageSize: Number(assignmentData?.size ?? requestedPageSize),
+        totalElements: Number(assignmentData?.totalElements ?? merged.length),
+        totalPages: Number(assignmentData?.totalPages ?? 1),
+        query: requestedQuery,
+        serverPaged: assignmentData?.page != null && assignmentData?.size != null,
+      });
       setSelectedAssignment((current) => (
         merged.find((assignment) => (assignment.id || assignment.assignmentId) === (current?.id || current?.assignmentId))
         || merged[0]
@@ -79,7 +116,15 @@ export function useStudentAssignmentsController({
         setIsAssignmentsLoading(false);
       }
     }
-  }, [courseId, skipUnauthorizedRedirect, studentId]);
+  }, [courseId, skipUnauthorizedRedirect, studentId, updateAssignmentsPage]);
+
+  const changeAssignmentsPage = useCallback((page, pageSize) => {
+    loadStudentAssignments({ page, pageSize });
+  }, [loadStudentAssignments]);
+
+  const searchAssignments = useCallback((query) => {
+    loadStudentAssignments({ page: 0, query });
+  }, [loadStudentAssignments]);
 
   useRealtimeEvent(REALTIME_EVENT_TYPES.studentAssignment, (event) => {
     if (eventMatchesCourse(event, courseId)) loadStudentAssignments();
@@ -166,7 +211,10 @@ export function useStudentAssignmentsController({
     setSelectedAssignment,
     isAssignmentsLoading,
     assignmentsError,
+    assignmentsPage,
     loadStudentAssignments,
+    changeAssignmentsPage,
+    searchAssignments,
     handleStudentSubmit,
     handleDownloadAssignment,
     handleDownloadSubmission,

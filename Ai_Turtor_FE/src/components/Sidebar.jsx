@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 import { Menu, Tooltip } from 'antd';
 import { ArrowRight, BookOpen, MessageSquareText, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { getNavigationForRole } from '../config/navigation';
 
-function Sidebar({ accountRole, activeRole, activeTab, switchTab, courseId, classId }) {
-  const [collapsed, setCollapsed] = useState(false);
+function Sidebar({ accountRole, activeRole, activeTab, switchTab, courseId, classId, compactByDefault = false }) {
+  const [collapsed, setCollapsed] = useState(compactByDefault);
   const workspaceCards = {
     teacher: { eyebrow: 'Không gian giảng dạy', title: 'Quản lý lớp học', detail: 'Theo dõi lớp, quiz và bài nộp', button: 'Xem lớp học', tab: 'teacher-classes' },
     senior: { eyebrow: 'Kiểm duyệt chuyên môn', title: 'Senior Mentor', detail: 'Rà soát phản hồi và tri thức AI', button: 'Mở hàng đợi', tab: 'senior-review' },
@@ -12,7 +12,7 @@ function Sidebar({ accountRole, activeRole, activeTab, switchTab, courseId, clas
   };
   const workspaceCard = workspaceCards[activeRole];
 
-  const items = getNavigationForRole(accountRole || activeRole).map((item) => {
+  const items = useMemo(() => getNavigationForRole(accountRole || activeRole).map((item) => {
     const Icon = item.icon;
     return {
       key: item.key,
@@ -29,7 +29,7 @@ function Sidebar({ accountRole, activeRole, activeTab, switchTab, courseId, clas
         </Tooltip>
       ),
     };
-  });
+  }), [accountRole, activeRole]);
 
   return (
     <aside
@@ -99,4 +99,4 @@ function Sidebar({ accountRole, activeRole, activeTab, switchTab, courseId, clas
   );
 }
 
-export default Sidebar;
+export default memo(Sidebar);

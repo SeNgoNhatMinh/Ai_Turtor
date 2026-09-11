@@ -34,6 +34,9 @@ export default function CourseMaterialsPanel({
   onRetry,
   onLoginAgain,
   onDownload,
+  pagination,
+  onPageChange,
+  onSearch,
 }) {
   const safeMaterials = Array.isArray(materials) ? materials : [];
   const columns = [
@@ -105,7 +108,7 @@ export default function CourseMaterialsPanel({
           </div>
         </div>
         <div className="student-teacher-materials__summary">
-          <strong>{safeMaterials.length}</strong>
+          <strong>{pagination?.totalElements ?? safeMaterials.length}</strong>
           <span>tài liệu</span>
           <Tooltip title="Tải lại danh sách">
             <Button
@@ -150,11 +153,19 @@ export default function CourseMaterialsPanel({
         />
       ) : (
         <SearchableTable
+          key={`${courseId}:${classId}`}
           dataSource={safeMaterials}
           rowKey={(record) => record.id || record.materialId}
           searchKeys={['title', 'fileName', 'sourceFileName']}
           searchPlaceholder="Tìm tài liệu của giảng viên"
-          pagination={{ pageSize: 8, hideOnSinglePage: true }}
+          serverPagination={pagination?.serverPaged ? {
+            page: pagination.page,
+            pageSize: pagination.pageSize,
+            totalElements: pagination.totalElements,
+            onChange: onPageChange,
+          } : undefined}
+          onServerSearch={pagination?.serverPaged ? onSearch : undefined}
+          pagination={pagination?.serverPaged ? undefined : { pageSize: 8, hideOnSinglePage: true }}
           scroll={{ x: 720 }}
           size="middle"
           rowClassName="student-material-row"

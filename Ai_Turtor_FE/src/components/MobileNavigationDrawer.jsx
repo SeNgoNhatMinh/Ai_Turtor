@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 import { Drawer, Menu } from 'antd';
 import { LogOut, Search, UserRound, X } from 'lucide-react';
 import { getNavigationForRole } from '../config/navigation';
@@ -7,7 +7,7 @@ import { includesSearchText } from '../utils/searchText';
 import FptBrand from './common/FptBrand';
 import './MobileNavigationDrawer.css';
 
-export default function MobileNavigationDrawer({
+function MobileNavigationDrawer({
   open,
   onClose,
   accountRole,
@@ -109,3 +109,5 @@ export default function MobileNavigationDrawer({
     </Drawer>
   );
 }
+
+export default memo(MobileNavigationDrawer);

@@ -1,11 +1,33 @@
 /* Shared accessibility and responsive guarantees for production workspaces. */
 :where(button, a, input, textarea, select, [role="button"], [tabindex]):focus-visible {
-  outline: 3px solid rgba(243, 112, 33, 0.38);
+  outline: 3px solid var(--color-focus-ring, rgba(243, 112, 33, 0.38));
   outline-offset: 2px;
 }
 
 :where(button, [role="button"]):disabled {
   cursor: not-allowed;
+}
+
+.skip-link {
+  position: fixed;
+  top: 8px;
+  left: 12px;
+  z-index: 10000;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: var(--color-navigation, #001b3d);
+  color: #ffffff !important;
+  font-weight: 700;
+  transform: translateY(-160%);
+  transition: transform 160ms ease;
+}
+
+.skip-link:focus-visible {
+  transform: translateY(0);
+}
+
+#main-content:focus {
+  outline: none;
 }
 
 /* Solid primary actions must never inherit muted typography colors. */
@@ -46,7 +68,7 @@
 .app-container .ant-btn-color-primary.ant-btn-variant-solid:disabled,
 .app-container .ant-btn-color-primary.ant-btn-variant-solid.ant-btn-disabled {
   color: #ffffff !important;
-  background: color-mix(in srgb, var(--role-work-accent, var(--role-accent, #0b3b82)) 62%, #ffffff) !important;
+  background: color-mix(in srgb, var(--color-action-primary, #f37021) 62%, #ffffff) !important;
   border-color: transparent !important;
   box-shadow: none !important;
 }

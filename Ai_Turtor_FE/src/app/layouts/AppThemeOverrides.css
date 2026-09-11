@@ -116,24 +116,24 @@
 }
 
 .ant-btn-primary:not(:disabled):not(.ant-btn-disabled) {
-    background: #F37021 !important;
-    border-color: #F37021 !important;
+    background: var(--color-action-primary) !important;
+    border-color: var(--color-action-primary) !important;
     box-shadow: 0 6px 14px rgba(15, 23, 42, 0.12);
 }
 
 .ant-btn-primary:not(:disabled):not(.ant-btn-disabled):hover {
-    background: #D85F16 !important;
-    border-color: #D85F16 !important;
+    background: var(--color-action-primary-hover) !important;
+    border-color: var(--color-action-primary-hover) !important;
 }
 
 .ant-tabs-tab.ant-tabs-tab-active .ant-tabs-tab-btn,
 .ant-tabs-tab:hover,
 a {
-    color: #F37021 !important;
+    color: var(--color-action-primary) !important;
 }
 
 .ant-tabs-ink-bar {
-    background: #F37021 !important;
+    background: var(--color-action-primary) !important;
 }
 
 .app-container .ant-tabs-ink-bar {
@@ -144,7 +144,7 @@ a {
 .ant-input-focused,
 .ant-select-focused .ant-select-selector,
 .ant-upload-wrapper .ant-upload-drag:hover {
-    border-color: #F37021 !important;
+    border-color: var(--color-action-primary) !important;
     box-shadow: 0 0 0 2px rgba(243, 112, 33, 0.12) !important;
 }
 

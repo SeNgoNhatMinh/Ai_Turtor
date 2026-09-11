@@ -43,7 +43,7 @@ export default function StudentAssignmentsPage({
   };
 
   useEffect(() => {
-    assignments.loadStudentAssignments();
+    assignments.loadStudentAssignments({ page: 0, query: '' });
     // Route page owns assignment loading.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [studentId, courseId, classId]);
@@ -78,6 +78,9 @@ export default function StudentAssignmentsPage({
           onSelect={assignments.setSelectedAssignment}
           onRetry={assignments.loadStudentAssignments}
           onLoginAgain={onLogout}
+          pagination={assignments.assignmentsPage}
+          onPageChange={assignments.changeAssignmentsPage}
+          onSearch={assignments.searchAssignments}
         />
         <AssignmentDetailsPanel
           assignment={assignments.selectedAssignment}

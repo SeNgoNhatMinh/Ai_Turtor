@@ -1,8 +1,10 @@
 import { CollectionPagination, CollectionSearch } from './CollectionControls';
 import { useCollectionView } from '../../hooks/useCollectionView';
+import { Skeleton } from 'antd';
 import './DataTable.css';
 
 const DEFAULT_PAGE_SIZE = 20;
+const DEFAULT_SKELETON_ROWS = 5;
 
 function getColumnId(column, index) {
   return column.id || column.accessorKey || `column-${index}`;
@@ -68,7 +70,8 @@ export function DataTable({
   const visibleRows = collection.visibleItems;
 
   return (
-    <div className="data-table-root">
+    <div className="data-table-root" aria-busy={loading}>
+      {loading && <span className="sr-only" role="status">Đang tải danh sách...</span>}
       {searchable && (
         <CollectionSearch
           query={collection.query}
@@ -98,12 +101,19 @@ export function DataTable({
               </tr>
             </thead>
             <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan={Math.max(safeColumns.length, 1)} className="data-table-state">
-                    Đang tải...
-                  </td>
-                </tr>
+              {loading && visibleRows.length === 0 ? (
+                Array.from({ length: Math.min(DEFAULT_SKELETON_ROWS, collection.pageSize) }, (_, rowIndex) => (
+                  <tr key={`loading-row-${rowIndex}`} aria-hidden="true">
+                    {safeColumns.map((column, columnIndex) => (
+                      <td
+                        key={getColumnId(column, columnIndex)}
+                        className={column.mobileHidden ? 'data-table-cell--mobile-hidden' : undefined}
+                      >
+                        <Skeleton.Input active block size="small" />
+                      </td>
+                    ))}
+                  </tr>
+                ))
               ) : visibleRows.length ? (
                 visibleRows.map((record, rowIndex) => (
                   <tr key={getRowKey(record, collection.pageIndex * collection.pageSize + rowIndex)}>

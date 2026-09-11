@@ -28,7 +28,7 @@ function AsyncState({
     return (
       <div className={`async-state ${compact ? 'async-state--compact' : ''}`}>
         <Alert
-          type="warning"
+          type="error"
           showIcon
           title="Không thể tải nội dung"
           description={error}

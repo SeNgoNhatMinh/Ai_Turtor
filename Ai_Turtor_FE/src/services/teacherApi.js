@@ -18,9 +18,12 @@ export const teacherApi = {
     return request(`${API_BASE_URL}/teachers/${encodePath(teacherId)}/classes`);
   },
 
-  async getClassStudents(courseId, classId, teacherId = '') {
+  async getClassStudents(courseId, classId, teacherId = '', options = {}) {
     const params = new URLSearchParams();
     if (teacherId) params.append('teacherId', teacherId);
+    if (options.page != null) params.set('page', String(options.page));
+    if (options.size != null) params.set('size', String(options.size));
+    if (options.query) params.set('query', String(options.query));
     const query = params.toString();
     // Teachers cannot call /api/academic/** (admin-only). Use the shared courses alias.
     return request(`${API_BASE_URL}/courses/${encodePath(courseId)}/class-sections/${encodePath(classId)}/students${query ? `?${query}` : ''}`);

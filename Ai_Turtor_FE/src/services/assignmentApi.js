@@ -18,6 +18,9 @@ export const assignmentApi = {
   async getStudentAssignments(studentId, courseId = '', options = {}) {
     const params = new URLSearchParams();
     if (courseId) params.append('courseId', courseId);
+    if (options.page != null) params.set('page', String(options.page));
+    if (options.size != null) params.set('size', String(options.size));
+    if (options.query) params.set('query', String(options.query));
     const query = params.toString();
     return request(
       `${API_BASE_URL}/students/${encodePath(studentId)}/assignments${query ? `?${query}` : ''}`,
@@ -31,6 +34,9 @@ export const assignmentApi = {
   async getStudentSubmissions(studentId, courseId = '', options = {}) {
     const params = new URLSearchParams();
     if (courseId) params.append('courseId', courseId);
+    (options.assignmentIds || []).forEach((assignmentId) => {
+      if (assignmentId) params.append('assignmentIds', assignmentId);
+    });
     const query = params.toString();
     return request(
       `${API_BASE_URL}/students/${encodePath(studentId)}/submissions${query ? `?${query}` : ''}`,
