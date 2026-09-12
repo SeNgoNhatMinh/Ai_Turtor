@@ -38,11 +38,13 @@ export const adminUsersApi = {
     return request(`${API_BASE_URL}/admin/users/${encodePath(userId)}`, { method: 'DELETE' });
   },
 
-  async getMentors(category = '') {
+  async getMentors(category = '', options = {}) {
     const params = new URLSearchParams();
     if (category) params.append('category', category);
     const query = params.toString();
-    return asArray(await request(`${API_BASE_URL}/mentors${query ? `?${query}` : ''}`), 'mentors', 'content');
+    return asArray(await request(`${API_BASE_URL}/mentors${query ? `?${query}` : ''}`, {
+      signal: options.signal,
+    }), 'mentors', 'content');
   },
 
   async getAdminMentors(q = '', options = {}) {

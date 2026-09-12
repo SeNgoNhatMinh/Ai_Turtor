@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { queryKeys } from '../../../../app/queryKeys';
 import { adminAcademicApi } from '../../../../services/adminAcademicApi';
 import { getUserFacingError } from '../../../../services/apiClient';
 
@@ -11,27 +13,23 @@ export function useStudentImport({
 }) {
   const [studentImportCourseId, setStudentImportCourseId] = useState('');
   const [studentImportClassId, setStudentImportClassId] = useState('');
-  const [studentImportClasses, setStudentImportClasses] = useState([]);
   const [studentImportFile, setStudentImportFile] = useState(null);
   const [studentImportLoading, setStudentImportLoading] = useState(false);
   const [studentImportResult, setStudentImportResult] = useState(null);
+  const studentImportClassesQuery = useQuery({
+    queryKey: queryKeys.adminClassSections(studentImportCourseId),
+    queryFn: ({ signal }) => adminAcademicApi.getClassSections(studentImportCourseId, { signal }),
+    enabled: Boolean(studentImportCourseId),
+    staleTime: 30_000,
+  });
+  const studentImportClasses = studentImportClassesQuery.data || [];
 
   const loadStudentImportClasses = async (courseId) => {
     setStudentImportCourseId(courseId);
     setStudentImportClassId('');
     formStudentImport.setFieldsValue({ classId: undefined });
     setStudentImportResult(null);
-    if (!courseId) {
-      setStudentImportClasses([]);
-      return;
-    }
-    try {
-      const data = await adminAcademicApi.getClassSections(courseId);
-      setStudentImportClasses(Array.isArray(data) ? data : []);
-    } catch (error) {
-      setStudentImportClasses([]);
-      triggerToast(getUserFacingError(error, 'Không thể tải danh sách lớp học phần.'));
-    }
+    if (!courseId) return;
   };
 
   const handleDownloadStudentTemplate = async () => {
@@ -92,6 +90,8 @@ export function useStudentImport({
     studentImportCourseId,
     studentImportClassId,
     studentImportClasses,
+    studentImportClassesLoading: Boolean(studentImportCourseId)
+      && (studentImportClassesQuery.isPending || studentImportClassesQuery.isFetching),
     studentImportFile,
     studentImportLoading,
     studentImportResult,

@@ -4,8 +4,10 @@ import { encodePath } from '../config/env';
 import { fetchServerQuery, invalidateServerQueries } from './queryCache';
 
 export const adminAcademicApi = {
-  async getSemesters() {
-    return asArray(await request(`${API_BASE_URL}/admin/semesters`), 'semesters', 'content');
+  async getSemesters(options = {}) {
+    return asArray(await request(`${API_BASE_URL}/admin/semesters`, {
+      signal: options.signal,
+    }), 'semesters', 'content');
   },
 
   async getCourses(options = {}) {
@@ -14,8 +16,10 @@ export const adminAcademicApi = {
     }), 'courses', 'content');
   },
 
-  async getClassSections(courseId) {
-    return asArray(await request(`${API_BASE_URL}/academic/courses/${encodePath(courseId)}/class-sections`), 'classSections', 'classes', 'content');
+  async getClassSections(courseId, options = {}) {
+    return asArray(await request(`${API_BASE_URL}/academic/courses/${encodePath(courseId)}/class-sections`, {
+      signal: options.signal,
+    }), 'classSections', 'classes', 'content');
   },
 
   async getStudentEnrollments(studentId, options = {}) {

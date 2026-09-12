@@ -1,10 +1,18 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '../../../../app/queryKeys';
 import { API_BASE_URL, getUserFacingError } from '../../../../services/apiClient';
 import { materialsApi } from '../../../../services/materialsApi';
 import { confirmDanger } from '../../../../components/common/confirmDialog';
 import { isMaterialIndexing, normalizeMaterialsResponse } from '../adminAcademicUtils';
-import { useRealtimeReconnect } from '../../../realtime/realtimeContext';
+import {
+  useRealtimeConnectionState,
+  useRealtimeEvent,
+  useRealtimeReconnect,
+} from '../../../realtime/realtimeContext';
+import { eventMatchesCourse, REALTIME_EVENT_TYPES } from '../../../realtime/realtimeEvents';
 
+const EMPTY_LIST = [];
 const wait = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
 
 export function useCourseMaterials({
@@ -13,70 +21,67 @@ export function useCourseMaterials({
   formMaterial,
   onCourseSyllabusUpdated,
 }) {
+  const queryClient = useQueryClient();
+  const realtimeState = useRealtimeConnectionState();
   const [materialCourseId, setMaterialCourseId] = useState('');
-  const [courseMaterials, setCourseMaterials] = useState([]);
-  const [materialsLoading, setMaterialsLoading] = useState(false);
   const [materialUploadBusy, setMaterialUploadBusy] = useState(false);
   const [materialFile, setMaterialFile] = useState(null);
   const [websiteImportOpen, setWebsiteImportOpen] = useState(false);
+  const [reconciling, setReconciling] = useState(false);
+  const queryKey = queryKeys.adminCourseMaterials(materialCourseId);
 
-  useEffect(() => {
-    if (!materialCourseId || !courseMaterials.some(isMaterialIndexing)) {
-      return undefined;
+  const materialsQuery = useQuery({
+    queryKey,
+    queryFn: async ({ signal }) => normalizeMaterialsResponse(
+      await materialsApi.getCourseMaterials(materialCourseId, '', { signal }),
+    ),
+    enabled: Boolean(materialCourseId),
+    staleTime: 15_000,
+    refetchInterval: (query) => (
+      realtimeState !== 'CONNECTED' && query.state.data?.some(isMaterialIndexing) ? 5000 : false
+    ),
+  });
+  const courseMaterials = materialCourseId ? materialsQuery.data || EMPTY_LIST : EMPTY_LIST;
+
+  const loadCourseMaterials = useCallback(async (courseId = materialCourseId, options = {}) => {
+    const normalizedCourseId = String(courseId || '').trim();
+    if (!normalizedCourseId) return [];
+    if (normalizedCourseId !== materialCourseId) {
+      setMaterialCourseId(normalizedCourseId);
+      return queryClient.getQueryData(queryKeys.adminCourseMaterials(normalizedCourseId)) || [];
     }
-
-    let cancelled = false;
-    const pollMaterials = async () => {
-      try {
-        const data = await materialsApi.getCourseMaterials(materialCourseId, '', { force: true });
-        if (!cancelled) {
-          setCourseMaterials(normalizeMaterialsResponse(data));
-        }
-      } catch {
-        // Keep polling quiet. Manual Reload still surfaces errors.
-      }
-    };
-
-    const intervalId = window.setInterval(pollMaterials, 2500);
-    return () => {
-      cancelled = true;
-      window.clearInterval(intervalId);
-    };
-  }, [materialCourseId, courseMaterials]);
-
-  const loadCourseMaterials = async (courseId = materialCourseId, options = {}) => {
-    const { silent = false, suppressError = false } = options;
-    if (!courseId) {
-      setCourseMaterials([]);
-      return;
+    const result = await materialsQuery.refetch();
+    if (result.error && !options.suppressError) {
+      triggerToast(getUserFacingError(result.error, 'Không thể tải học liệu môn học.'));
     }
-    if (!silent) setMaterialsLoading(true);
-    try {
-      const data = await materialsApi.getCourseMaterials(courseId, '', { force: true });
-      setCourseMaterials(normalizeMaterialsResponse(data));
-    } catch (error) {
-      if (!suppressError) triggerToast(getUserFacingError(error, 'Không thể tải học liệu môn học.'));
-    } finally {
-      if (!silent) setMaterialsLoading(false);
-    }
-  };
+    return result.data || [];
+  }, [materialCourseId, materialsQuery, queryClient, triggerToast]);
+
+  useRealtimeEvent(REALTIME_EVENT_TYPES.material, (event) => {
+    if (!materialCourseId || !eventMatchesCourse(event, materialCourseId)) return;
+    queryClient.invalidateQueries({ queryKey, exact: true });
+  });
 
   useRealtimeReconnect(() => {
-    if (materialCourseId) loadCourseMaterials(materialCourseId, { silent: true, suppressError: true });
+    if (materialCourseId) queryClient.invalidateQueries({ queryKey, exact: true });
   });
 
   const refreshCourseMaterialsWithRetry = async (courseId, previousCount = 0, expectedTitle = '') => {
     const delays = [0, 1200, 2500, 4500, 7000, 10000];
     const normalizedTitle = String(expectedTitle || '').trim().toLowerCase();
-    setMaterialsLoading(true);
+    const targetKey = queryKeys.adminCourseMaterials(courseId);
+    setReconciling(true);
     try {
       for (const delay of delays) {
         if (delay) await wait(delay);
         try {
-          const data = await materialsApi.getCourseMaterials(courseId, '', { force: true });
-          const items = normalizeMaterialsResponse(data);
-          setCourseMaterials(items);
-          const hasExpectedTitle = normalizedTitle && items.some((item) => String(item?.title || '').trim().toLowerCase() === normalizedTitle);
+          const items = normalizeMaterialsResponse(
+            await materialsApi.getCourseMaterials(courseId, '', { force: true }),
+          );
+          queryClient.setQueryData(targetKey, items);
+          const hasExpectedTitle = normalizedTitle && items.some(
+            (item) => String(item?.title || '').trim().toLowerCase() === normalizedTitle,
+          );
           if (items.length > previousCount || hasExpectedTitle) return true;
         } catch (error) {
           if (delay === delays[delays.length - 1]) {
@@ -86,15 +91,13 @@ export function useCourseMaterials({
       }
       return false;
     } finally {
-      setMaterialsLoading(false);
+      setReconciling(false);
     }
   };
 
-  const handleCourseChange = (courseId) => {
-    if (courseId !== materialCourseId) setCourseMaterials([]);
-    setMaterialCourseId(courseId);
-    loadCourseMaterials(courseId);
-  };
+  const handleCourseChange = useCallback((courseId) => {
+    setMaterialCourseId(courseId || '');
+  }, []);
 
   const handleUploadMaterial = async (values) => {
     if (materialUploadBusy) return;
@@ -164,12 +167,12 @@ export function useCourseMaterials({
       const ticketResponse = await materialsApi.createMaterialDownloadTicket(downloadCourseId, materialId);
       const ticket = String(ticketResponse?.ticket || '').trim();
       if (!ticket) throw new Error('Máy chủ không tạo được vé tải học liệu.');
-      const a = document.createElement('a');
-      a.href = `${API_BASE_URL}/material-downloads/${encodeURIComponent(ticket)}`;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
+      const anchor = document.createElement('a');
+      anchor.href = `${API_BASE_URL}/material-downloads/${encodeURIComponent(ticket)}`;
+      anchor.download = fileName;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
       triggerToast('Đã bắt đầu tải tệp PDF.');
     } catch (error) {
       triggerToast(getUserFacingError(error, 'Không thể tải học liệu.'));
@@ -183,6 +186,7 @@ export function useCourseMaterials({
     }
     try {
       await materialsApi.reindexMaterial(materialCourseId, materialId);
+      await queryClient.invalidateQueries({ queryKey, exact: true });
       triggerToast('Đã yêu cầu lập chỉ mục lại học liệu.');
     } catch (error) {
       triggerToast(getUserFacingError(error, 'Không thể lập chỉ mục lại học liệu.'));
@@ -201,8 +205,8 @@ export function useCourseMaterials({
       onOk: async () => {
         try {
           await materialsApi.deleteMaterial(materialCourseId, materialId);
+          await queryClient.invalidateQueries({ queryKey, exact: true });
           triggerToast('Đã xóa học liệu môn học.');
-          loadCourseMaterials(materialCourseId);
         } catch (error) {
           triggerToast(getUserFacingError(error, 'Không thể xóa học liệu môn học.'));
         }
@@ -213,7 +217,11 @@ export function useCourseMaterials({
   return {
     materialCourseId,
     courseMaterials,
-    materialsLoading,
+    materialsLoading: Boolean(materialCourseId)
+      && (materialsQuery.isPending || materialsQuery.isFetching || reconciling),
+    materialsError: materialsQuery.error
+      ? getUserFacingError(materialsQuery.error, 'Không thể tải học liệu môn học.')
+      : '',
     materialUploadBusy,
     materialFile,
     websiteImportOpen,

@@ -114,6 +114,18 @@ export const queryKeys = {
   adminAiLogs: (filters = {}) => ['admin', 'ai-logs', filters],
   adminLlmProviders: () => ['admin', 'llm-providers', 'configuration'],
   adminLlmProviderStats: () => ['admin', 'llm-providers', 'stats'],
+  adminSemesters: () => ['admin', 'academic', 'semesters'],
+  adminCourses: () => ['admin', 'academic', 'courses'],
+  adminClassSections: (courseId) => ['admin', 'academic', 'class-sections', courseId || 'none'],
+  adminStudentEnrollments: (search) => [
+    'admin',
+    'academic',
+    'student-enrollments',
+    String(search || '').trim(),
+  ],
+  adminStudentSearch: (search) => ['admin', 'student-search', String(search || '').trim()],
+  adminMentorOptions: () => ['admin', 'academic', 'mentor-options'],
+  adminCourseMaterials: (courseId) => ['admin', 'academic', 'materials', courseId || 'none'],
   studentMentorRequests: (studentId) => ['student', 'mentor-requests', studentId],
   studentMentorRequestDetail: (escalationId) => [
     'student',

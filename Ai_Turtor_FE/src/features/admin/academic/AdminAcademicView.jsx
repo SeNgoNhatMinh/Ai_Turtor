@@ -1,5 +1,7 @@
-import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
+import { Suspense, lazy, useEffect, useState } from 'react';
 import { Form } from 'antd';
+import { useQuery } from '@tanstack/react-query';
+import { queryKeys } from '../../../app/queryKeys';
 import { closeActiveConfirm } from '../../../components/common/confirmDialog';
 import { materialsApi } from '../../../services/materialsApi';
 import { adminUsersApi } from '../../../services/adminUsersApi';
@@ -9,17 +11,14 @@ import EntityRecordModal from './components/EntityRecordModal';
 import { useAcademicRecords } from './hooks/useAcademicRecords';
 import { useCourseMaterials } from './hooks/useCourseMaterials';
 import { useStudentImport } from './hooks/useStudentImport';
+import { useDebouncedValue } from '../../../hooks/useDebouncedValue';
 import './AdminAcademic.css';
 
 const ImportWebsiteModal = lazy(() => import('../../../components/importWebsite/ImportWebsiteModal'));
 
 function AdminAcademic({ triggerToast, currentUser }) {
-  const [mentorOptions, setMentorOptions] = useState([]);
-  const [studentOptions, setStudentOptions] = useState([]);
-  const [studentsLoading, setStudentsLoading] = useState(false);
-  const studentSearchTimerRef = useRef(null);
-  const referenceDataLoadedRef = useRef(false);
-  const referenceDataLoadingRef = useRef(false);
+  const [studentSearch, setStudentSearch] = useState('');
+  const debouncedStudentSearch = useDebouncedValue(studentSearch.trim(), 300);
   const [formSemester] = Form.useForm();
   const [formCourse] = Form.useForm();
   const [formClass] = Form.useForm();
@@ -42,6 +41,35 @@ function AdminAcademic({ triggerToast, currentUser }) {
     formMaterial,
     onCourseSyllabusUpdated: academic.loadCourses,
   });
+
+  const mentorOptionsQuery = useQuery({
+    queryKey: queryKeys.adminMentorOptions(),
+    queryFn: async ({ signal }) => {
+      try {
+        return await adminUsersApi.getMentors('', { signal });
+      } catch (error) {
+        if (signal.aborted) throw error;
+        const mentors = await adminUsersApi.getAdminMentors('', { signal });
+        return mentors.filter((mentor) => mentor.isActive !== false);
+      }
+    },
+    staleTime: 5 * 60_000,
+  });
+  const studentOptionsQuery = useQuery({
+    queryKey: queryKeys.adminStudentSearch(debouncedStudentSearch),
+    queryFn: ({ signal }) => adminUsersApi.getAdminUsers(
+      debouncedStudentSearch,
+      'STUDENT',
+      true,
+      { signal },
+    ),
+    enabled: debouncedStudentSearch.length >= 2,
+    staleTime: 60_000,
+  });
+  const mentorOptions = mentorOptionsQuery.data || [];
+  const studentOptions = debouncedStudentSearch.length >= 2 ? studentOptionsQuery.data || [] : [];
+  const studentsLoading = debouncedStudentSearch.length >= 2
+    && (studentOptionsQuery.isPending || studentOptionsQuery.isFetching);
   const studentImport = useStudentImport({
     triggerToast,
     courses: academic.courses,
@@ -71,77 +99,10 @@ function AdminAcademic({ triggerToast, currentUser }) {
     },
   });
 
-  const searchStudents = useCallback((query) => {
-    window.clearTimeout(studentSearchTimerRef.current);
-    const normalized = String(query || '').trim();
-    if (normalized.length < 2) {
-      setStudentOptions([]);
-      setStudentsLoading(false);
-      return;
-    }
-    setStudentsLoading(true);
-    studentSearchTimerRef.current = window.setTimeout(async () => {
-      try {
-        const students = await adminUsersApi.getAdminUsers(normalized, 'STUDENT', true);
-        setStudentOptions(Array.isArray(students) ? students : []);
-      } catch {
-        setStudentOptions([]);
-      } finally {
-        setStudentsLoading(false);
-      }
-    }, 300);
-  }, []);
-
   useEffect(() => {
-    const loadMentors = async () => {
-      try {
-        const mentors = await adminUsersApi.getMentors();
-        setMentorOptions(Array.isArray(mentors) ? mentors : []);
-      } catch {
-        try {
-          const mentors = await adminUsersApi.getAdminMentors();
-          setMentorOptions(Array.isArray(mentors) ? mentors.filter((mentor) => mentor.isActive !== false) : []);
-        } catch {
-          setMentorOptions([]);
-        }
-      }
-    };
-
-    const loadReferenceData = async () => {
-      if (referenceDataLoadingRef.current) return;
-      referenceDataLoadingRef.current = true;
-      try {
-        const results = await Promise.allSettled([
-          academic.loadSemesters(),
-          academic.loadCourses(),
-          loadMentors(),
-        ]);
-        referenceDataLoadedRef.current = results.every((result) => result.status === 'fulfilled');
-        if (!referenceDataLoadedRef.current) {
-          triggerToast?.('Một số dữ liệu học vụ chưa tải được. Hệ thống sẽ tự thử lại.');
-        }
-      } finally {
-        referenceDataLoadingRef.current = false;
-      }
-    };
-
-    const reloadMissingReferenceData = () => {
-      if (!referenceDataLoadedRef.current && document.visibilityState === 'visible') {
-        loadReferenceData();
-      }
-    };
-
-    loadReferenceData();
-    window.addEventListener('online', reloadMissingReferenceData);
-    document.addEventListener('visibilitychange', reloadMissingReferenceData);
     return () => {
-      window.clearTimeout(studentSearchTimerRef.current);
-      window.removeEventListener('online', reloadMissingReferenceData);
-      document.removeEventListener('visibilitychange', reloadMissingReferenceData);
       closeActiveConfirm();
     };
-    // Reference data is loaded once when the admin workspace mounts.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
@@ -161,7 +122,7 @@ function AdminAcademic({ triggerToast, currentUser }) {
         mentors={mentorOptions}
         studentOptions={studentOptions}
         studentsLoading={studentsLoading}
-        onStudentSearch={searchStudents}
+        onStudentSearch={setStudentSearch}
         triggerToast={triggerToast}
         onAcademicAction={entity.handleAcademicAction}
         onOpenEntity={entity.openEntityModal}
