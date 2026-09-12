@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Form } from 'antd';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '../../../app/queryKeys';
 import { getUserFacingError } from '../../../services/apiClient';
 import { quizApi } from '../../../services/quizApi';
 import { teacherApi } from '../../../services/teacherApi';
@@ -16,6 +18,8 @@ import { classIdMatches } from '../../../utils/academicIds';
 import { validateQuizDraft } from './quizDraftUtils';
 import { getQuizAssignmentId, isQuizDraft } from './quizAssignmentUtils';
 
+const EMPTY_LIST = [];
+
 export function useQuizAssignmentsController({
   teacherId,
   teacherName,
@@ -26,8 +30,8 @@ export function useQuizAssignmentsController({
   teacherStudents,
   triggerToast,
 }) {
+  const queryClient = useQueryClient();
   const [form] = Form.useForm();
-  const [assignments, setAssignments] = useState([]);
   const [draft, setDraft] = useState(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -41,6 +45,13 @@ export function useQuizAssignmentsController({
   const [draftEditorState, setDraftEditorState] = useState({ dirty: false, valid: true });
   const [pendingClassSwitch, setPendingClassSwitch] = useState(null);
   const draftEditorRef = useRef(null);
+  const assignmentsQuery = useQuery({
+    queryKey: queryKeys.teacherQuizAssignments(teacherId),
+    queryFn: ({ signal }) => quizApi.getTeacherQuizAssignments(teacherId, { signal }),
+    enabled: Boolean(teacherId),
+    staleTime: 15_000,
+  });
+  const assignments = assignmentsQuery.data || EMPTY_LIST;
 
   const handleDraftStateChange = useCallback((nextState) => {
     setDraftEditorState((current) => (
@@ -94,19 +105,15 @@ export function useQuizAssignmentsController({
   const allVisibleSelected = visibleStudentIds.length > 0
     && visibleStudentIds.every((studentId) => selectedStudents.includes(studentId));
 
-  const loadAssignments = useCallback(async () => {
-    if (!teacherId) return;
-    try {
-      setAssignments(await quizApi.getTeacherQuizAssignments(teacherId));
-    } catch (error) {
-      triggerToast?.(getUserFacingError(error, 'Không thể tải danh sách quiz.'));
-    }
-  }, [teacherId, triggerToast]);
-
   useEffect(() => {
-    const loadTimer = window.setTimeout(loadAssignments, 0);
-    return () => window.clearTimeout(loadTimer);
-  }, [courseId, loadAssignments]);
+    if (!assignmentsQuery.error) return;
+    triggerToast?.(getUserFacingError(assignmentsQuery.error, 'Không thể tải danh sách quiz.'));
+  }, [assignmentsQuery.error, triggerToast]);
+
+  const loadAssignments = useCallback(
+    () => assignmentsQuery.refetch(),
+    [assignmentsQuery],
+  );
 
   useEffect(() => {
     form.setFieldValue('classId', classId || undefined);
@@ -258,7 +265,16 @@ export function useQuizAssignmentsController({
     setPublishOpen(true);
     setPublishStudentsLoading(true);
     try {
-      const data = await teacherApi.getClassStudents(assignmentCourseId, assignmentClassId, teacherId);
+      const data = await queryClient.fetchQuery({
+        queryKey: queryKeys.teacherClassRoster(teacherId, assignmentCourseId, assignmentClassId),
+        queryFn: ({ signal }) => teacherApi.getClassStudents(
+          assignmentCourseId,
+          assignmentClassId,
+          teacherId,
+          { signal },
+        ),
+        staleTime: 30_000,
+      });
       const roster = asArray(data, 'students', 'content', 'enrollments')
         .filter((student) => getPersonId(student));
       setPublishStudents(roster.length ? roster : teacherStudents);

@@ -115,9 +115,11 @@ export const quizApi = {
     };
   },
 
-  async getTeacherQuizAssignments(teacherId) {
+  async getTeacherQuizAssignments(teacherId, options = {}) {
     return asArray(
-      await request(`${API_BASE_URL}/tutor/teachers/${encodePath(teacherId)}/quiz-assignments`),
+      await request(`${API_BASE_URL}/tutor/teachers/${encodePath(teacherId)}/quiz-assignments`, {
+        signal: options.signal,
+      }),
       'assignments',
       'content',
     ).map(normalizeQuizAssignment);

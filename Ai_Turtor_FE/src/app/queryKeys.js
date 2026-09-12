@@ -158,6 +158,19 @@ export const queryKeys = {
     reviewStatus || 'all',
     Number(page) || 0,
   ],
+  teacherQuizAssignments: (teacherId) => [
+    'teacher',
+    'quiz-assignments',
+    teacherId || 'anonymous',
+  ],
+  teacherQuizScoreboard: (teacherId, assignmentId, courseId, classId) => [
+    'teacher',
+    'quiz-scoreboard',
+    teacherId || 'anonymous',
+    assignmentId || 'none',
+    courseId || 'none',
+    classId || 'none',
+  ],
   teacherAssignmentSubmissions: (teacherId, courseId, classId) => [
     'teacher',
     'grading',
