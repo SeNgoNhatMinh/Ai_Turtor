@@ -17,7 +17,10 @@ export const knowledgeImagesApi = {
     };
   },
 
-  fetchBlob(fileId) {
-    return blobRequest(`${API_BASE_URL}/tutor/knowledge-images/${encodePath(fileId)}`);
+  fetchBlob(fileId, options = {}) {
+    return blobRequest(
+      `${API_BASE_URL}/tutor/knowledge-images/${encodePath(fileId)}`,
+      { signal: options.signal },
+    );
   },
 };

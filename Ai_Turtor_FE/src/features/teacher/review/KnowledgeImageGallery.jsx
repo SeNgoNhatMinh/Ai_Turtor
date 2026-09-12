@@ -1,26 +1,33 @@
 import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { queryKeys } from '../../../app/queryKeys.js';
 import { knowledgeImagesApi } from '../../../services/knowledgeImagesApi.js';
 import { normalizeKnowledgeImages } from '../../../services/knowledgeImageNormalizers.js';
 
 function KnowledgeImageThumb({ image }) {
   const [blobSrc, setBlobSrc] = useState('');
   const src = image.previewUrl || blobSrc;
+  const imageQuery = useQuery({
+    queryKey: queryKeys.knowledgeImage(image.fileId),
+    queryFn: ({ signal }) => knowledgeImagesApi.fetchBlob(image.fileId, { signal }),
+    enabled: !image.previewUrl && Boolean(image.fileId),
+    staleTime: Infinity,
+    gcTime: 5 * 60_000,
+    retry: 1,
+  });
 
   useEffect(() => {
-    if (image.previewUrl) return undefined;
-    if (!image.fileId) return undefined;
-    let objectUrl = '';
-    let cancelled = false;
-    knowledgeImagesApi.fetchBlob(image.fileId).then((blob) => {
-      if (cancelled) return;
-      objectUrl = URL.createObjectURL(blob);
-      setBlobSrc(objectUrl);
-    }).catch(() => {});
+    if (!imageQuery.data || image.previewUrl) return undefined;
+    const objectUrl = URL.createObjectURL(imageQuery.data);
+    let active = true;
+    queueMicrotask(() => {
+      if (active) setBlobSrc(objectUrl);
+    });
     return () => {
-      cancelled = true;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      active = false;
+      URL.revokeObjectURL(objectUrl);
     };
-  }, [image.fileId, image.previewUrl]);
+  }, [image.previewUrl, imageQuery.data]);
 
   if (!src) {
     return (

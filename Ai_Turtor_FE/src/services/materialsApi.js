@@ -143,10 +143,15 @@ export const materialsApi = {
     );
   },
 
-  async getMaterialPageImage(courseId, materialId, pageNumber) {
+  async getMaterialPageImage(courseId, materialId, pageNumber, options = {}) {
     return blobRequest(
       `${API_BASE_URL}/courses/${encodePath(courseId)}/materials/${encodePath(materialId)}/pages/${encodePath(pageNumber)}/image`,
-      { timeoutMs: API_TIMEOUTS.download, retries: 0, skipUnauthorizedRedirect: true },
+      {
+        timeoutMs: API_TIMEOUTS.download,
+        retries: 0,
+        skipUnauthorizedRedirect: true,
+        signal: options.signal,
+      },
     );
   },
 };

@@ -1,30 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Alert, Button, Empty, Skeleton, Space } from 'antd';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { queryKeys } from '../../../app/queryKeys';
 import { materialsApi } from '../../../services/materialsApi';
 import { getUserFacingError } from '../../../services/httpClient';
 
-const MAX_CACHED_PAGES = 24;
-const pageBlobCache = new Map();
-
-const pageCacheKey = (courseId, materialId, page) => `${courseId}:${materialId}:${page}`;
-
-async function loadPageBlob(courseId, materialId, page) {
-  const key = pageCacheKey(courseId, materialId, page);
-  const cached = pageBlobCache.get(key);
-  if (cached) {
-    pageBlobCache.delete(key);
-    pageBlobCache.set(key, cached);
-    return cached;
-  }
-  const blob = await materialsApi.getMaterialPageImage(courseId, materialId, page);
-  pageBlobCache.set(key, blob);
-  while (pageBlobCache.size > MAX_CACHED_PAGES) {
-    const oldest = pageBlobCache.keys().next().value;
-    pageBlobCache.delete(oldest);
-  }
-  return blob;
-}
+const PAGE_IMAGE_CACHE_TIME = 5 * 60_000;
 
 export default function ChapterPageViewer({
   courseId,
@@ -59,49 +41,54 @@ export default function ChapterPageViewer({
 }
 
 function ChapterPageViewerContent({ courseId, materialId, start, end, title }) {
+  const queryClient = useQueryClient();
   const [page, setPage] = useState(start);
-  const [loadState, setLoadState] = useState(null);
-  const [retryNonce, setRetryNonce] = useState(0);
-  const objectUrlRef = useRef('');
-  const requestKey = `${courseId}:${materialId}:${page}:${retryNonce}`;
-  const currentLoadState = loadState?.key === requestKey
-    ? loadState
-    : { src: '', loading: true, error: '' };
-  const { src, loading, error } = currentLoadState;
+  const [src, setSrc] = useState('');
+  const pageQuery = useQuery({
+    queryKey: queryKeys.materialPageImage(courseId, materialId, page),
+    queryFn: ({ signal }) => materialsApi.getMaterialPageImage(
+      courseId,
+      materialId,
+      page,
+      { signal },
+    ),
+    staleTime: Infinity,
+    gcTime: PAGE_IMAGE_CACHE_TIME,
+    retry: 1,
+  });
+  const loading = pageQuery.isPending || pageQuery.isFetching;
+  const error = pageQuery.error
+    ? getUserFacingError(pageQuery.error, 'Không thể render trang sách. Thử lại hoặc mở PDF.')
+    : '';
 
   useEffect(() => {
-    let cancelled = false;
-    loadPageBlob(courseId, materialId, page)
-      .then((blob) => {
-        if (cancelled) return;
-        if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
-        const nextUrl = URL.createObjectURL(blob);
-        objectUrlRef.current = nextUrl;
-        setLoadState({ key: requestKey, src: nextUrl, loading: false, error: '' });
-      })
-      .catch((loadError) => {
-        if (cancelled) return;
-        setLoadState({
-          key: requestKey,
-          src: '',
-          loading: false,
-          error: getUserFacingError(loadError, 'Không thể render trang sách. Thử lại hoặc mở PDF.'),
-        });
-      });
-
-    const neighbor = page < end ? page + 1 : page > start ? page - 1 : 0;
-    if (neighbor) {
-      loadPageBlob(courseId, materialId, neighbor).catch(() => {});
-    }
-
+    if (!pageQuery.data) return undefined;
+    const objectUrl = URL.createObjectURL(pageQuery.data);
+    let active = true;
+    queueMicrotask(() => {
+      if (active) setSrc(objectUrl);
+    });
     return () => {
-      cancelled = true;
+      active = false;
+      URL.revokeObjectURL(objectUrl);
     };
-  }, [courseId, end, materialId, page, requestKey, start]);
+  }, [pageQuery.data]);
 
-  useEffect(() => () => {
-    if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
-  }, []);
+  useEffect(() => {
+    const neighbor = page < end ? page + 1 : page > start ? page - 1 : 0;
+    if (!neighbor) return;
+    queryClient.prefetchQuery({
+      queryKey: queryKeys.materialPageImage(courseId, materialId, neighbor),
+      queryFn: ({ signal }) => materialsApi.getMaterialPageImage(
+        courseId,
+        materialId,
+        neighbor,
+        { signal },
+      ),
+      staleTime: Infinity,
+      gcTime: PAGE_IMAGE_CACHE_TIME,
+    });
+  }, [courseId, end, materialId, page, queryClient, start]);
 
   useEffect(() => {
     const onKey = (event) => {
@@ -144,7 +131,7 @@ function ChapterPageViewerContent({ courseId, materialId, start, end, title }) {
           title="Không tải được trang sách"
           description={error}
           action={(
-            <Button size="small" onClick={() => setRetryNonce((current) => current + 1)}>
+            <Button size="small" onClick={() => pageQuery.refetch()} loading={pageQuery.isFetching}>
               Thử lại
             </Button>
           )}

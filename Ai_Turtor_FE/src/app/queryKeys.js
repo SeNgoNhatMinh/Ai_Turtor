@@ -69,6 +69,14 @@ export const queryKeys = {
     Number(filters.pageSize) || 8,
     String(filters.query || '').trim(),
   ],
+  materialPageImage: (courseId, materialId, page) => [
+    'materials',
+    courseId || 'none',
+    materialId || 'none',
+    'page-image',
+    Number(page) || 0,
+  ],
+  knowledgeImage: (fileId) => ['knowledge-image', fileId || 'none'],
   teacherAssignments: (teacherId, courseId, classId) => [
     'teacher',
     'assignments',
