@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
-import { tutorAnswerCacheApi } from '../../../services/tutorAnswerCacheApi';
+import { useCallback, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '../../../app/queryKeys';
+import { ACCOUNT_ROLES, normalizeAccountRole } from '../../../constants/roles';
 import { getUserFacingError } from '../../../services/apiClient';
-import { normalizeAccountRole, ACCOUNT_ROLES } from '../../../constants/roles';
+import { tutorAnswerCacheApi } from '../../../services/tutorAnswerCacheApi';
 
 function buildReviewerPayload(currentUser, extra = {}) {
   const role = normalizeAccountRole(currentUser?.role, ACCOUNT_ROLES.SENIOR_MENTOR);
@@ -21,86 +23,64 @@ function assertReviewerPayload(payload) {
   }
 }
 
+const loadAnswerCache = async (courseId, filters) => {
+  const [entries, stats, diagnostics, recentHits] = await Promise.all([
+    tutorAnswerCacheApi.list({ courseId, ...filters }),
+    tutorAnswerCacheApi.getStats(courseId),
+    tutorAnswerCacheApi.getDiagnostics(courseId).catch(() => null),
+    tutorAnswerCacheApi.getRecentHits(courseId, 50).catch(() => null),
+  ]);
+  return {
+    entries,
+    stats: stats || null,
+    diagnostics: diagnostics || null,
+    recentHits: Array.isArray(recentHits) ? recentHits : (stats?.recentHits || []),
+  };
+};
+
 export function useAnswerCacheManagement({ currentUser, courseId, triggerToast }) {
-  const [entries, setEntries] = useState([]);
-  const [stats, setStats] = useState(null);
-  const [diagnostics, setDiagnostics] = useState(null);
-  const [recentHits, setRecentHits] = useState([]);
+  const queryClient = useQueryClient();
+  const normalizedCourseId = String(courseId || '').trim();
   const [filters, setFilters] = useState({ mode: '', reviewStatus: '', classId: '' });
-  const [loading, setLoading] = useState(false);
-  const [mutationKey, setMutationKey] = useState('');
-  const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [actionError, setActionError] = useState('');
+  const cacheQuery = useQuery({
+    queryKey: queryKeys.answerCache(normalizedCourseId, filters),
+    queryFn: () => loadAnswerCache(normalizedCourseId, filters),
+    enabled: Boolean(normalizedCourseId),
+    staleTime: 15_000,
+  });
 
-  const loadEntries = useCallback(async () => {
-    const normalizedCourseId = String(courseId || '').trim();
-    if (!normalizedCourseId) {
-      setEntries([]);
-      setStats(null);
-      setDiagnostics(null);
-      setRecentHits([]);
-      return;
-    }
-    setLoading(true);
-    setError('');
-    try {
-      const [list, statsData, diagnosticsData, hitsData] = await Promise.all([
-        tutorAnswerCacheApi.list({
-          courseId: normalizedCourseId,
-          classId: filters.classId,
-          mode: filters.mode,
-          reviewStatus: filters.reviewStatus,
-        }),
-        tutorAnswerCacheApi.getStats(normalizedCourseId),
-        tutorAnswerCacheApi.getDiagnostics(normalizedCourseId).catch(() => null),
-        tutorAnswerCacheApi.getRecentHits(normalizedCourseId, 50).catch(() => null),
-      ]);
-      setEntries(list);
-      setStats(statsData || null);
-      setDiagnostics(diagnosticsData || null);
-      setRecentHits(Array.isArray(hitsData) ? hitsData : (statsData?.recentHits || []));
-    } catch (reason) {
-      setEntries([]);
-      setStats(null);
-      setDiagnostics(null);
-      setRecentHits([]);
-      setError(
-        reason?.status === 401 || reason?.status === 403
-          ? 'API cache câu trả lời chưa chấp nhận quyền Senior/Admin hiện tại.'
-          : getUserFacingError(reason, 'Không thể tải cache câu trả lời AI.'),
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, [courseId, filters.classId, filters.mode, filters.reviewStatus]);
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      loadEntries();
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, [loadEntries]);
+  const cacheMutation = useMutation({
+    mutationFn: ({ action }) => action(),
+  });
 
   const runMutation = useCallback(async (key, action, successMessage) => {
-    if (mutationKey) return false;
-    setMutationKey(key);
-    setError('');
+    if (cacheMutation.isPending) return false;
+    setActionError('');
     setNotice('');
     try {
-      await action();
-      await loadEntries();
+      await cacheMutation.mutateAsync({ key, action });
+      await queryClient.invalidateQueries({
+        queryKey: ['admin', 'answer-cache', normalizedCourseId],
+      });
       setNotice(successMessage);
       triggerToast?.(successMessage, 'success');
       return true;
     } catch (reason) {
       const message = getUserFacingError(reason, 'Thao tác cache thất bại.');
-      setError(message);
+      setActionError(message);
       triggerToast?.(message, 'error');
       return false;
-    } finally {
-      setMutationKey('');
     }
-  }, [loadEntries, mutationKey, triggerToast]);
+  }, [
+    cacheMutation,
+    normalizedCourseId,
+    queryClient,
+    setActionError,
+    setNotice,
+    triggerToast,
+  ]);
 
   const reviewerPayload = useCallback((extra = {}) => {
     const payload = buildReviewerPayload(currentUser, extra);
@@ -108,20 +88,27 @@ export function useAnswerCacheManagement({ currentUser, courseId, triggerToast }
     return payload;
   }, [currentUser]);
 
+  const queryError = cacheQuery.error
+    ? (cacheQuery.error?.status === 401 || cacheQuery.error?.status === 403
+      ? 'API cache câu trả lời chưa chấp nhận quyền Senior/Admin hiện tại.'
+      : getUserFacingError(cacheQuery.error, 'Không thể tải cache câu trả lời AI.'))
+    : '';
+  const data = cacheQuery.data || {};
+
   return {
-    entries,
-    stats,
-    diagnostics,
-    recentHits,
+    entries: data.entries || [],
+    stats: data.stats || null,
+    diagnostics: data.diagnostics || null,
+    recentHits: data.recentHits || [],
     filters,
     setFilters,
-    loading,
-    mutationKey,
-    error,
+    loading: cacheQuery.isPending,
+    mutationKey: cacheMutation.isPending ? cacheMutation.variables?.key || '' : '',
+    error: actionError || queryError,
     notice,
     setNotice,
-    setError,
-    refresh: loadEntries,
+    setError: setActionError,
+    refresh: cacheQuery.refetch,
     approveEntry: (cacheId) => runMutation(
       `approve-${cacheId}`,
       () => tutorAnswerCacheApi.approve(cacheId, reviewerPayload()),
@@ -129,10 +116,7 @@ export function useAnswerCacheManagement({ currentUser, courseId, triggerToast }
     ),
     correctEntry: (cacheId, correctedAnswer, notes) => runMutation(
       `correct-${cacheId}`,
-      () => tutorAnswerCacheApi.correct(cacheId, reviewerPayload({
-        correctedAnswer,
-        notes,
-      })),
+      () => tutorAnswerCacheApi.correct(cacheId, reviewerPayload({ correctedAnswer, notes })),
       'Đã cập nhật câu trả lời trong cache.',
     ),
     disableEntry: (cacheId, notes) => runMutation(

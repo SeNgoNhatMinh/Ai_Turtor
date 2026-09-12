@@ -1,9 +1,9 @@
 import { API_BASE_URL, API_TIMEOUTS, blobRequest, request, uploadRequest } from './apiClient';
 import { encodePath } from '../config/env';
 import { ApiError } from './httpClient';
-import { getCachedResource, invalidateResourceCache } from './requestCache';
+import { fetchServerQuery, invalidateServerQueries } from './queryCache';
 
-const materialCachePrefix = (courseId) => `materials:${courseId}:`;
+const materialQueryKey = (courseId) => ['materials', courseId];
 
 export function assertMaterialUploadReceipt(response) {
   const materialId = String(response?.materialId || response?.documentId || '').trim();
@@ -25,7 +25,7 @@ export const materialsApi = {
       timeoutMs: API_TIMEOUTS.upload,
     });
     assertMaterialUploadReceipt(response);
-    invalidateResourceCache(materialCachePrefix(courseId));
+    invalidateServerQueries(materialQueryKey(courseId));
     return response;
   },
 
@@ -36,7 +36,7 @@ export const materialsApi = {
       body: JSON.stringify(payload),
       timeoutMs: API_TIMEOUTS.websiteImport,
     });
-    invalidateResourceCache(materialCachePrefix(courseId));
+    invalidateServerQueries(materialQueryKey(courseId));
     return response;
   },
 
@@ -56,9 +56,13 @@ export const materialsApi = {
     if (options.size != null) params.set('size', String(options.size));
     if (options.query) params.set('query', String(options.query));
     const qs = params.toString();
-    const loader = () => request(`${API_BASE_URL}/courses/${encodePath(courseId)}/materials${qs ? `?${qs}` : ''}`, { signal: options.signal });
+    const loader = ({ signal } = {}) => request(`${API_BASE_URL}/courses/${encodePath(courseId)}/materials${qs ? `?${qs}` : ''}`, { signal: options.signal || signal });
     if (options.signal) return loader();
-    return getCachedResource(`${materialCachePrefix(courseId)}${classId || 'course'}:${params}`, loader, { force: options.force });
+    return fetchServerQuery(
+      [...materialQueryKey(courseId), 'course', classId || 'all', params.toString()],
+      loader,
+      { force: options.force },
+    );
   },
 
   async getStudentClassMaterials(studentId, courseId, classId, options = {}) {
@@ -67,16 +71,16 @@ export const materialsApi = {
     if (options.size != null) params.set('size', String(options.size));
     if (options.query) params.set('query', String(options.query));
     const query = params.toString();
-    const loader = () => request(
+    const loader = ({ signal } = {}) => request(
       `${API_BASE_URL}/students/${encodePath(studentId)}/courses/${encodePath(courseId)}/classes/${encodePath(classId)}/materials${query ? `?${query}` : ''}`,
       {
-        signal: options.signal,
+        signal: options.signal || signal,
         skipUnauthorizedRedirect: options.skipUnauthorizedRedirect,
       },
     );
     if (options.signal) return loader();
-    return getCachedResource(
-      `${materialCachePrefix(courseId)}student:${studentId}:${classId}:${params}`,
+    return fetchServerQuery(
+      [...materialQueryKey(courseId), 'student', studentId, classId, params.toString()],
       loader,
       { force: options.force },
     );
@@ -88,7 +92,7 @@ export const materialsApi = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
-    invalidateResourceCache(materialCachePrefix(courseId));
+    invalidateServerQueries(materialQueryKey(courseId));
     return response;
   },
 
@@ -96,7 +100,7 @@ export const materialsApi = {
     const response = await request(`${API_BASE_URL}/courses/${encodePath(courseId)}/materials/${encodePath(materialId)}`, {
       method: 'DELETE',
     });
-    invalidateResourceCache(materialCachePrefix(courseId));
+    invalidateServerQueries(materialQueryKey(courseId));
     return response;
   },
 
@@ -105,7 +109,7 @@ export const materialsApi = {
       method: 'POST',
       timeoutMs: API_TIMEOUTS.reindex,
     });
-    invalidateResourceCache(materialCachePrefix(courseId));
+    invalidateServerQueries(materialQueryKey(courseId));
     return response;
   },
 
@@ -114,7 +118,7 @@ export const materialsApi = {
       method: 'POST',
       timeoutMs: API_TIMEOUTS.reindex,
     });
-    invalidateResourceCache(materialCachePrefix(courseId));
+    invalidateServerQueries(materialQueryKey(courseId));
     return response;
   },
 

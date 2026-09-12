@@ -76,7 +76,7 @@ export default function AnswerCachePage({
           className="answer-cache-alert"
           type="info"
           showIcon
-          title={`Cache đang ${controller.diagnostics.enabled ? 'bật' : 'tắt'} · Exact RAM: ${controller.diagnostics.exactMemoryEntries || 0} · Semantic sớm ≥ ${Math.round((controller.diagnostics.semanticEarlyMinSimilarity || 0) * 100)}% · Semantic kiểm chứng ≥ ${Math.round((controller.diagnostics.semanticVerifiedMinSimilarity || 0) * 100)}%`}
+          title={`Cache đang ${controller.diagnostics.enabled ? 'bật' : 'tắt'} · Redis: ${controller.diagnostics.redisAvailable ? 'sẵn sàng' : 'đang fallback MongoDB'} · Semantic sớm ≥ ${Math.round((controller.diagnostics.semanticEarlyMinSimilarity || 0) * 100)}% · Semantic kiểm chứng ≥ ${Math.round((controller.diagnostics.semanticVerifiedMinSimilarity || 0) * 100)}%`}
         />
       )}
 

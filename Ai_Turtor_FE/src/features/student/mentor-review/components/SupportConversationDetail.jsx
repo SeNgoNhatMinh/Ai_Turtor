@@ -11,6 +11,7 @@ import {
   getAssignedMentor,
   getMentorAnswer,
   getQuestionText,
+  getSupportTicketStatus,
   normalizeSupportStatus,
 } from '../mentorSupportUtils';
 
@@ -62,7 +63,7 @@ function SupportConversationDetail({
               {assignedMentor && <span>Giảng viên {assignedMentor}</span>}
             </div>
           </div>
-          <StatusTag status={ticket.status} />
+          <StatusTag status={getSupportTicketStatus(ticket)} />
         </div>
 
         <div className="mentor-review-content">

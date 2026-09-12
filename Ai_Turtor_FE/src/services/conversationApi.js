@@ -1,21 +1,21 @@
 import { API_BASE_URL, request } from './apiClient';
 import { encodePath } from '../config/env';
-import { getCachedResource, invalidateResourceCache } from './requestCache';
+import { fetchServerQuery, invalidateServerQueries } from './queryCache';
 
-const conversationCacheKey = (userId, courseId) => `conversations:${userId}:${courseId || 'all'}`;
+const conversationQueryKey = (userId, courseId) => ['conversations', userId, courseId || 'all'];
 
 export const conversationApi = {
   async getConversations(userId, courseId, options = {}) {
     const params = new URLSearchParams({ userId });
     if (courseId) params.append('courseId', courseId);
-    const loader = () => request(`${API_BASE_URL}/ai/conversations?${params}`, {
-      signal: options.signal,
+    const loader = ({ signal } = {}) => request(`${API_BASE_URL}/ai/conversations?${params}`, {
+      signal: options.signal || signal,
       skipUnauthorizedRedirect: options.skipUnauthorizedRedirect,
     });
     if (options.signal) return loader();
-    return getCachedResource(conversationCacheKey(userId, courseId), loader, {
+    return fetchServerQuery(conversationQueryKey(userId, courseId), loader, {
       force: options.force,
-      ttlMs: 10000,
+      staleTime: 10_000,
     });
   },
 
@@ -30,7 +30,7 @@ export const conversationApi = {
     if (courseId) params.append('courseId', courseId);
     if (classId) params.append('classId', classId);
     const response = await request(`${API_BASE_URL}/ai/conversations?${params}`, { method: 'POST' });
-    invalidateResourceCache('conversations:');
+    invalidateServerQueries(['conversations']);
     return response;
   },
 
@@ -45,7 +45,7 @@ export const conversationApi = {
   async deleteConversation(conversationId, userId) {
     const params = new URLSearchParams({ userId });
     const response = await request(`${API_BASE_URL}/ai/conversations/${encodePath(conversationId)}?${params}`, { method: 'DELETE' });
-    invalidateResourceCache('conversations:');
+    invalidateServerQueries(['conversations']);
     return response;
   },
 
@@ -55,7 +55,7 @@ export const conversationApi = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title, userId }),
     });
-    invalidateResourceCache('conversations:');
+    invalidateServerQueries(['conversations']);
     return response;
   },
 

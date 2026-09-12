@@ -159,6 +159,7 @@ export const normalizeEscalation = (escalation) => ({
   questionPreview: escalation.questionPreview || escalation.question || escalation.originalQuestion || escalation.title || 'Support request',
   createdAt: escalation.createdAt || escalation.updatedAt || new Date().toISOString(),
   status: escalation.status || 'PENDING',
+  studentVisibleStatus: escalation.studentVisibleStatus || '',
   originalQuestion: escalation.originalQuestion || escalation.question || escalation.questionPreview || '',
   question: escalation.originalQuestion || escalation.question || escalation.questionPreview || '',
   aiResponse: escalation.aiResponse || escalation.aiAnswer || escalation.answerSnapshot || '',
@@ -166,6 +167,24 @@ export const normalizeEscalation = (escalation) => ({
   mentorAnswerImages: normalizeKnowledgeImages(escalation.mentorAnswerImages || escalation),
   assignedMentorName: escalation.assignedMentorName || escalation.mentorName || escalation.teacherName || '',
 });
+
+export const normalizeEscalationDetailResponse = (data) => {
+  const detail = data?.questionEscalation || data?.escalation || data || {};
+  const latestAnswer = data?.latestMentorAnswer;
+  const mentorAnswer = typeof latestAnswer === 'string'
+    ? latestAnswer
+    : latestAnswer?.answer || latestAnswer?.content || latestAnswer?.mentorAnswer || '';
+  return normalizeEscalation({
+    ...detail,
+    mentorAnswer: mentorAnswer || detail?.mentorAnswer,
+    mentorAnswerImages: normalizeKnowledgeImages(
+      typeof latestAnswer === 'object' && latestAnswer ? latestAnswer : detail,
+    ),
+    studentVisibleStatus: data?.studentVisibleStatus || detail?.studentVisibleStatus,
+    knowledgeCandidates: data?.knowledgeCandidates || [],
+    aiBrainUpdated: Boolean(data?.aiBrainUpdated),
+  });
+};
 
 export const normalizeTeacherInboxItem = (item) => ({
   ...item,

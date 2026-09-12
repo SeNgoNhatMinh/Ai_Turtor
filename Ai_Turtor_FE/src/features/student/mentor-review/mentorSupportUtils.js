@@ -1,5 +1,39 @@
 export const normalizeSupportStatus = (status) => String(status || '').toUpperCase();
 
+const ANSWERED_STATUSES = new Set([
+  'ANSWERED',
+  'ANSWERED_PENDING_SENIOR_REVIEW',
+  'ANSWERED_NO_KNOWLEDGE_CANDIDATE',
+  'ANSWERED_KNOWLEDGE_REJECTED',
+  'MENTOR_ANSWERED',
+  'MENTOR_ANSWERED_PENDING_SENIOR_REVIEW',
+  'RESOLVED',
+  'RESOLVED_INDEXED',
+  'AI_BRAIN_UPDATED',
+  'COMPLETED',
+  'CLOSED',
+]);
+
+const PROCESSING_STATUSES = new Set([
+  '',
+  'PENDING',
+  'PENDING_OFFER',
+  'WAITING_FOR_MENTOR',
+  'OFFERED',
+  'MENTOR_SELECTED',
+  'ASSIGNED',
+  'IN_CHAT',
+  'CHAT_ACTIVE',
+]);
+
+export const getSupportTicketStatus = (ticket) => {
+  const workflowStatus = normalizeSupportStatus(ticket?.status);
+  if (ANSWERED_STATUSES.has(workflowStatus) || workflowStatus.includes('ANSWERED')) {
+    return workflowStatus;
+  }
+  return normalizeSupportStatus(ticket?.studentVisibleStatus) || workflowStatus;
+};
+
 export const getMentorAnswer = (ticket) => (
   ticket?.mentorAnswer
   || ticket?.answer
@@ -45,9 +79,13 @@ export const formatSupportDateTime = (value) => {
 };
 
 export const isAnsweredTicket = (ticket) => {
-  const status = normalizeSupportStatus(ticket?.status);
+  const status = getSupportTicketStatus(ticket);
   return Boolean(getMentorAnswer(ticket))
-    || status.includes('ANSWERED')
-    || status.includes('COMPLETED')
-    || status.includes('CLOSED');
+    || ANSWERED_STATUSES.has(status)
+    || status.includes('ANSWERED');
+};
+
+export const isProcessingTicket = (ticket) => {
+  if (isAnsweredTicket(ticket)) return false;
+  return PROCESSING_STATUSES.has(getSupportTicketStatus(ticket));
 };

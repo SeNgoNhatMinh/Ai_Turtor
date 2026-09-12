@@ -1,10 +1,12 @@
 import { useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Alert, Tag } from 'antd';
 import { LifeBuoy, X } from 'lucide-react';
 import ActionButton from '../../../../components/common/ActionButton';
 import StudentMentorFlow from '../../../../components/support/StudentMentorFlow';
 import { supportChatApi } from '../../../../services/supportChatApi';
 import { getUserFacingError } from '../../../../services/apiClient';
+import { queryKeys } from '../../../../app/queryKeys';
 
 function InlineMentorSupport({
   message,
@@ -22,9 +24,9 @@ function InlineMentorSupport({
   onOpenReviewTab,
   triggerToast,
 }) {
+  const queryClient = useQueryClient();
   const [createdEscalationId, setCreatedEscalationId] = useState('');
   const [escalationState, setEscalationState] = useState(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
   const escalationId = message?.questionEscalationId || createdEscalationId;
@@ -39,6 +41,20 @@ function InlineMentorSupport({
     email: studentEmail,
     role: 'STUDENT',
   };
+  const createEscalationMutation = useMutation({
+    mutationFn: () => supportChatApi.createEscalation({
+      studentId: accountUserId,
+      studentName: studentName || accountUserId,
+      studentEmail: studentEmail || currentUser?.email || '',
+      courseId,
+      classId,
+      conversationId: conversationId || message?.conversationId || '',
+      question: questionText,
+      aiResponse: answerText || 'Student requested teacher support from AI Tutor chat.',
+      reason: 'Student requested teacher support for this AI Tutor answer.',
+    }),
+  });
+  const isSubmitting = createEscalationMutation.isPending;
 
   const createSupportRequest = async () => {
     if (alreadySent) {
@@ -53,19 +69,8 @@ function InlineMentorSupport({
     }
 
     setError('');
-    setIsSubmitting(true);
     try {
-      const data = await supportChatApi.createEscalation({
-        studentId: accountUserId,
-        studentName: studentName || accountUserId,
-        studentEmail: studentEmail || currentUser?.email || '',
-        courseId,
-        classId,
-        conversationId: conversationId || message?.conversationId || '',
-        question: questionText,
-        aiResponse: answerText || 'Student requested teacher support from AI Tutor chat.',
-        reason: 'Student requested teacher support for this AI Tutor answer.',
-      });
+      const data = await createEscalationMutation.mutateAsync();
       const nextId = data?.questionEscalationId || data?.id || data?.escalationId;
       if (!nextId) throw new Error('Backend did not return a support request id.');
       const nextEscalation = {
@@ -80,6 +85,13 @@ function InlineMentorSupport({
       };
       setCreatedEscalationId(nextId);
       setEscalationState(nextEscalation);
+      queryClient.setQueryData(
+        queryKeys.studentMentorRequestDetail(nextId),
+        nextEscalation,
+      );
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.studentMentorRequests(accountUserId),
+      });
       onEscalationCreated?.(nextId);
       onOpen?.();
       triggerToast?.('Đã tạo yêu cầu hỗ trợ từ giáo viên.');
@@ -87,8 +99,6 @@ function InlineMentorSupport({
       const friendly = getUserFacingError(requestError, 'Không thể tạo yêu cầu hỗ trợ từ giáo viên.');
       setError(friendly);
       triggerToast?.(friendly);
-    } finally {
-      setIsSubmitting(false);
     }
   };
 

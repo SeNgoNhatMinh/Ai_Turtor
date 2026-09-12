@@ -1,29 +1,45 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '../app/queryKeys';
 import { getUserFacingError } from '../services/apiClient';
-import { normalizeEscalation } from '../services/normalizers';
+import { normalizeEscalation, normalizeEscalationDetailResponse } from '../services/normalizers';
 import { supportChatApi } from '../services/supportChatApi';
-import { normalizeKnowledgeImages } from '../services/knowledgeImageNormalizers.js';
 
 const TERMINAL_ESCALATION_STATES = new Set([
   'ANSWERED',
   'ANSWERED_NO_KNOWLEDGE_CANDIDATE',
+  'ANSWERED_KNOWLEDGE_REJECTED',
+  'MENTOR_ANSWERED',
+  'MENTOR_ANSWERED_PENDING_SENIOR_REVIEW',
   'COMPLETED',
   'CLOSED',
   'CANCELLED',
   'REJECTED',
   'RESOLVED',
   'RESOLVED_INDEXED',
+  'AI_BRAIN_UPDATED',
 ]);
 
 const normalizeStatus = (value) => String(value || '').trim().toUpperCase();
+const sortNewestFirst = (items) => items.slice().sort(
+  (a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0),
+);
+
+const loadEscalations = async (userId, signal) => {
+  const data = await supportChatApi.getEscalationHistory(userId, { signal });
+  return sortNewestFirst((Array.isArray(data) ? data : []).map(normalizeEscalation));
+};
+
+const loadEscalationDetail = async (escalationId, signal) => {
+  const data = await supportChatApi.getEscalationDetail(escalationId, { signal });
+  return normalizeEscalationDetailResponse(data);
+};
 
 export function useStudentSupport({ activeTab, userId, onConversationResolved }) {
-  const [escalations, setEscalations] = useState([]);
-  const [selectedEscalation, setSelectedEscalation] = useState(null);
-  const [isEscalationsLoading, setIsEscalationsLoading] = useState(false);
-  const [isEscalationDetailLoading, setIsEscalationDetailLoading] = useState(false);
-  const [escalationsError, setEscalationsError] = useState('');
-  const [escalationDetailError, setEscalationDetailError] = useState('');
+  const queryClient = useQueryClient();
+  const resolvedUserId = String(userId || '').trim();
+  const isActive = activeTab === 'student-escalation';
+  const [selectedEscalationId, setSelectedEscalationId] = useState(null);
   const handledResolvedConversationIdsRef = useRef(new Set());
   const onConversationResolvedRef = useRef(onConversationResolved);
 
@@ -31,137 +47,100 @@ export function useStudentSupport({ activeTab, userId, onConversationResolved })
     onConversationResolvedRef.current = onConversationResolved;
   }, [onConversationResolved]);
 
-  const loadEscalations = useCallback(async () => {
-    if (!userId) {
-      setEscalations([]);
-      setSelectedEscalation(null);
-      return;
-    }
+  const historyQuery = useQuery({
+    queryKey: queryKeys.studentMentorRequests(resolvedUserId),
+    queryFn: ({ signal }) => loadEscalations(resolvedUserId, signal),
+    enabled: isActive && Boolean(resolvedUserId),
+    staleTime: 30_000,
+  });
+  const escalations = useMemo(() => historyQuery.data || [], [historyQuery.data]);
+  const selectedIdExists = escalations.some((item) => item.id === selectedEscalationId);
+  const effectiveSelectedId = selectedEscalationId === ''
+    ? ''
+    : selectedIdExists
+      ? selectedEscalationId
+      : escalations[0]?.id || '';
 
-    setIsEscalationsLoading(true);
-    setEscalationsError('');
-    try {
-      const data = await supportChatApi.getEscalationHistory(userId);
-      const items = (Array.isArray(data) ? data : [])
-        .map(normalizeEscalation)
-        .sort((a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0));
-      setEscalations(items);
-      setSelectedEscalation((current) => {
-        if (current && !items.some((item) => item.id === current.id)) return null;
-        return current || items[0] || null;
-      });
-    } catch (error) {
-      setEscalations([]);
-      setSelectedEscalation(null);
-      setEscalationsError(getUserFacingError(error, 'Không thể tải các yêu cầu hỗ trợ.'));
-    } finally {
-      setIsEscalationsLoading(false);
-    }
-  }, [userId]);
-
-  const loadEscalationDetail = useCallback(async (escalationId) => {
-    if (!escalationId) return;
-    setIsEscalationDetailLoading(true);
-    setEscalationDetailError('');
-    try {
-      const data = await supportChatApi.getEscalationDetail(escalationId);
-      const detail = data?.questionEscalation || data?.escalation || data || {};
-      const latestAnswer = data?.latestMentorAnswer;
-      const mentorAnswer = typeof latestAnswer === 'string'
-        ? latestAnswer
-        : latestAnswer?.answer || latestAnswer?.content || latestAnswer?.mentorAnswer || '';
-      const mentorAnswerImages = normalizeKnowledgeImages(
-        typeof latestAnswer === 'object' && latestAnswer ? latestAnswer : detail,
-      );
-      const normalized = normalizeEscalation({
-        ...detail,
-        mentorAnswer: mentorAnswer || detail?.mentorAnswer,
-        mentorAnswerImages,
-        studentVisibleStatus: data?.studentVisibleStatus,
-        knowledgeCandidates: data?.knowledgeCandidates || [],
-        aiBrainUpdated: Boolean(data?.aiBrainUpdated),
-      });
-      setSelectedEscalation((current) => (
-        current?.id === escalationId ? { ...current, ...normalized } : current
-      ));
-      setEscalations((current) => current.map((item) => (
-        item.id === escalationId ? { ...item, ...normalized } : item
-      )));
-      if (
-        normalizeStatus(normalized.status) === 'RESOLVED_INDEXED'
-        && normalized.conversationId
-        && !handledResolvedConversationIdsRef.current.has(normalized.conversationId)
-      ) {
-        handledResolvedConversationIdsRef.current.add(normalized.conversationId);
-        Promise.resolve(onConversationResolvedRef.current?.(normalized.conversationId)).catch(() => {});
-      }
-      return normalized;
-    } catch (error) {
-      setEscalationDetailError(getUserFacingError(error, 'Không thể tải đầy đủ yêu cầu hỗ trợ này.'));
-    } finally {
-      setIsEscalationDetailLoading(false);
-    }
-  }, []);
+  const selectedSummary = useMemo(
+    () => escalations.find((item) => item.id === effectiveSelectedId) || null,
+    [effectiveSelectedId, escalations],
+  );
+  const detailQuery = useQuery({
+    queryKey: queryKeys.studentMentorRequestDetail(effectiveSelectedId),
+    queryFn: ({ signal }) => loadEscalationDetail(effectiveSelectedId, signal),
+    enabled: isActive && Boolean(effectiveSelectedId),
+    staleTime: 10_000,
+    refetchInterval: (query) => {
+      const data = query.state.data || selectedSummary;
+      const workflowStatus = normalizeStatus(data?.status);
+      const visibleStatus = normalizeStatus(data?.studentVisibleStatus);
+      return TERMINAL_ESCALATION_STATES.has(workflowStatus)
+        || TERMINAL_ESCALATION_STATES.has(visibleStatus)
+        ? false
+        : 10_000;
+    },
+  });
+  const selectedEscalation = selectedSummary
+    ? { ...selectedSummary, ...(detailQuery.data || {}) }
+    : null;
 
   useEffect(() => {
-    if (activeTab !== 'student-escalation') return undefined;
-    const loadTimer = window.setTimeout(loadEscalations, 0);
-    return () => window.clearTimeout(loadTimer);
-  }, [activeTab, loadEscalations]);
-
-  useEffect(() => {
-    if (activeTab !== 'student-escalation' || !selectedEscalation?.id) return undefined;
-    const detailTimer = window.setTimeout(
-      () => loadEscalationDetail(selectedEscalation.id),
-      0,
+    const detail = detailQuery.data;
+    if (!detail?.id || !resolvedUserId) return;
+    queryClient.setQueryData(
+      queryKeys.studentMentorRequests(resolvedUserId),
+      (current = []) => current.map((item) => (
+        item.id === detail.id ? { ...item, ...detail } : item
+      )),
     );
-    return () => window.clearTimeout(detailTimer);
-  }, [activeTab, selectedEscalation?.id, loadEscalationDetail]);
+    if (
+      (normalizeStatus(detail.status) === 'RESOLVED_INDEXED'
+        || normalizeStatus(detail.studentVisibleStatus) === 'AI_BRAIN_UPDATED')
+      && detail.conversationId
+      && !handledResolvedConversationIdsRef.current.has(detail.conversationId)
+    ) {
+      handledResolvedConversationIdsRef.current.add(detail.conversationId);
+      Promise.resolve(onConversationResolvedRef.current?.(detail.conversationId)).catch(() => {});
+    }
+  }, [detailQuery.data, queryClient, resolvedUserId]);
 
-  useEffect(() => {
-    if (activeTab !== 'student-escalation' || !selectedEscalation?.id) return undefined;
-    if (TERMINAL_ESCALATION_STATES.has(normalizeStatus(selectedEscalation.status))) return undefined;
+  const refetchHistory = historyQuery.refetch;
+  const loadEscalationsNow = useCallback(async () => {
+    if (!resolvedUserId) return [];
+    const result = await refetchHistory();
+    return result.data || [];
+  }, [refetchHistory, resolvedUserId]);
 
-    let cancelled = false;
-    let timerId;
-    let attempt = 0;
-    const poll = async () => {
-      await loadEscalationDetail(selectedEscalation.id);
-      if (cancelled) return;
-      attempt += 1;
-      const delay = Math.min(5000 * (2 ** Math.min(attempt, 3)), 30000);
-      timerId = window.setTimeout(poll, delay);
-    };
-    timerId = window.setTimeout(poll, 5000);
-
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timerId);
-    };
-  }, [activeTab, loadEscalationDetail, selectedEscalation?.id, selectedEscalation?.status]);
-
-  const handleSelectEscalation = (escalation) => {
-    setSelectedEscalation(escalation);
-  };
+  const handleSelectEscalation = useCallback((escalation) => {
+    setSelectedEscalationId(escalation?.id || '');
+  }, [setSelectedEscalationId]);
 
   const handleEscalationChange = useCallback((nextEscalation) => {
     if (!nextEscalation?.id) return;
-    setSelectedEscalation((current) => (
-      current?.id === nextEscalation.id ? { ...current, ...nextEscalation } : current
-    ));
-    setEscalations((current) => current.map((item) => (
-      item.id === nextEscalation.id ? { ...item, ...nextEscalation } : item
-    )));
-  }, []);
+    queryClient.setQueryData(
+      queryKeys.studentMentorRequestDetail(nextEscalation.id),
+      (current) => ({ ...(current || {}), ...nextEscalation }),
+    );
+    queryClient.setQueryData(
+      queryKeys.studentMentorRequests(resolvedUserId),
+      (current = []) => current.map((item) => (
+        item.id === nextEscalation.id ? { ...item, ...nextEscalation } : item
+      )),
+    );
+  }, [queryClient, resolvedUserId]);
 
   return {
     escalations,
     selectedEscalation,
-    isEscalationsLoading,
-    isEscalationDetailLoading,
-    escalationsError,
-    escalationDetailError,
-    loadEscalations,
+    isEscalationsLoading: historyQuery.isPending,
+    isEscalationDetailLoading: detailQuery.isFetching && !detailQuery.data,
+    escalationsError: historyQuery.error
+      ? getUserFacingError(historyQuery.error, 'Không thể tải các yêu cầu hỗ trợ.')
+      : '',
+    escalationDetailError: detailQuery.error
+      ? getUserFacingError(detailQuery.error, 'Không thể tải đầy đủ yêu cầu hỗ trợ này.')
+      : '',
+    loadEscalations: loadEscalationsNow,
     handleSelectEscalation,
     handleEscalationChange,
   };

@@ -6,7 +6,7 @@ import PageHeader from '../../../components/common/PageHeader';
 import useResponsiveViewport from '../../../hooks/useResponsiveViewport';
 import SupportConversationDetail from './components/SupportConversationDetail';
 import SupportTicketList from './components/SupportTicketList';
-import { isAnsweredTicket } from './mentorSupportUtils';
+import { isAnsweredTicket, isProcessingTicket } from './mentorSupportUtils';
 
 function MentorSupport({
   escalations = [],
@@ -23,9 +23,9 @@ function MentorSupport({
   const { isMobile } = useResponsiveViewport();
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const safeTickets = Array.isArray(escalations) ? escalations : [];
-  const selectedTicket = selectedEscalation || safeTickets[0] || null;
+  const selectedTicket = selectedEscalation || null;
   const answeredCount = safeTickets.filter(isAnsweredTicket).length;
-  const waitingCount = Math.max(0, safeTickets.length - answeredCount);
+  const waitingCount = safeTickets.filter(isProcessingTicket).length;
   const handleSelectTicket = (ticket) => {
     onSelectEscalation(ticket);
     if (isMobile) setIsDetailOpen(true);

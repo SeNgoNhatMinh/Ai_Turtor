@@ -169,6 +169,10 @@
 }
 
 .mentor-ticket-filters button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
   min-width: 0;
   min-height: 32px;
   padding: 5px 7px;
@@ -183,6 +187,23 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   cursor: pointer;
+}
+
+.mentor-ticket-filters button small {
+  display: inline-grid;
+  min-width: 19px;
+  height: 19px;
+  padding-inline: 5px;
+  border-radius: 999px;
+  background: rgba(102, 112, 133, 0.1);
+  color: inherit;
+  font-size: 0.65rem;
+  line-height: 19px;
+  place-items: center;
+}
+
+.mentor-ticket-filters button.is-active small {
+  background: #eaf2fd;
 }
 
 .mentor-ticket-filters button:hover {

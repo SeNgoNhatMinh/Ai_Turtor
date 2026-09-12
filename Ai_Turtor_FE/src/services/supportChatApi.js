@@ -25,8 +25,12 @@ export const supportChatApi = {
     });
   },
 
-  async getEscalationDetail(escalationId) {
-    return request(`${API_BASE_URL}/tutor/escalations/${encodePath(escalationId)}`);
+  async getEscalationDetail(escalationId, options = {}) {
+    return request(`${API_BASE_URL}/tutor/escalations/${encodePath(escalationId)}`, {
+      signal: options.signal,
+      skipUnauthorizedRedirect: options.skipUnauthorizedRedirect,
+      retries: options.retries,
+    });
   },
 
   async offerMentors(escalationId) {
@@ -42,22 +46,22 @@ export const supportChatApi = {
     });
   },
 
-  async getHistory(chatRoomId, { page = 0, size = 100 } = {}) {
+  async getHistory(chatRoomId, { page = 0, size = 100, signal } = {}) {
     const params = new URLSearchParams({
       chatRoomId,
       page: String(page),
       size: String(size),
     });
-    const response = await request(`${API_BASE_URL}/chat/history?${params}`);
+    const response = await request(`${API_BASE_URL}/chat/history?${params}`, { signal });
     return {
       ...response,
       messages: asArray(response, 'messages', 'content').slice().reverse(),
     };
   },
 
-  async getDetail(chatRoomId) {
+  async getDetail(chatRoomId, options = {}) {
     const params = new URLSearchParams({ chatRoomId });
-    return request(`${API_BASE_URL}/chat/detail?${params}`);
+    return request(`${API_BASE_URL}/chat/detail?${params}`, { signal: options.signal });
   },
 
   async getUnreadRooms() {

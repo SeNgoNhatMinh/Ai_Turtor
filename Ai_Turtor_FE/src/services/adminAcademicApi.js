@@ -1,7 +1,7 @@
 import { API_BASE_URL, blobRequest, request, uploadRequest } from './apiClient';
 import { asArray } from './normalizers';
 import { encodePath } from '../config/env';
-import { getCachedResource, invalidateResourceCache } from './requestCache';
+import { fetchServerQuery, invalidateServerQueries } from './queryCache';
 
 export const adminAcademicApi = {
   async getSemesters() {
@@ -17,13 +17,16 @@ export const adminAcademicApi = {
   },
 
   async getStudentEnrollments(studentId, options = {}) {
-    const loader = () => request(`${API_BASE_URL}/students/${encodePath(studentId)}/enrollments`, {
-      signal: options.signal,
+    const loader = ({ signal } = {}) => request(`${API_BASE_URL}/students/${encodePath(studentId)}/enrollments`, {
+      signal: options.signal || signal,
       skipUnauthorizedRedirect: options.skipUnauthorizedRedirect,
       retries: options.retries,
     });
     if (options.signal) return loader();
-    return getCachedResource(`enrollments:${studentId}`, loader, { force: options.force, ttlMs: 15000 });
+    return fetchServerQuery(['enrollments', studentId], loader, {
+      force: options.force,
+      staleTime: 15_000,
+    });
   },
 
   async createSemester(payload) {
@@ -105,7 +108,7 @@ export const adminAcademicApi = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
-    invalidateResourceCache('enrollments:');
+    invalidateServerQueries(['enrollments']);
     return response;
   },
 
@@ -115,13 +118,13 @@ export const adminAcademicApi = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
-    invalidateResourceCache('enrollments:');
+    invalidateServerQueries(['enrollments']);
     return response;
   },
 
   async deleteEnrollment(enrollmentId) {
     const response = await request(`${API_BASE_URL}/admin/enrollments/${encodePath(enrollmentId)}`, { method: 'DELETE' });
-    invalidateResourceCache('enrollments:');
+    invalidateServerQueries(['enrollments']);
     return response;
   },
 
@@ -129,7 +132,7 @@ export const adminAcademicApi = {
     const response = await request(`${API_BASE_URL}/courses/${encodePath(courseId)}/class-sections/${encodePath(classId)}/students/${encodePath(studentId)}`, {
       method: 'DELETE',
     });
-    invalidateResourceCache('enrollments:');
+    invalidateServerQueries(['enrollments']);
     return response;
   },
 

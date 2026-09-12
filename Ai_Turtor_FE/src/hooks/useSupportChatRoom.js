@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '../app/queryKeys';
 import { env } from '../config/env';
-import { getAuthToken } from '../features/auth/services/tokenStorage';
 import { getChatSenderRole, normalizeAccountRole } from '../constants/roles';
-import { supportChatApi } from '../services/supportChatApi';
+import { getAuthToken } from '../features/auth/services/tokenStorage';
 import { getUserFacingError } from '../services/apiClient';
+import { supportChatApi } from '../services/supportChatApi';
 
 const getMessageId = (message) => String(message?.messageId || message?.id || '');
 
@@ -37,66 +39,63 @@ const getSocketUrl = (chatRoomId) => {
   return `${endpoint}${separator}${new URLSearchParams({ chatRoomId, token })}`;
 };
 
+const loadChatRoom = async (chatRoomId, signal) => {
+  const [history, detail] = await Promise.all([
+    supportChatApi.getHistory(chatRoomId, { signal }),
+    supportChatApi.getDetail(chatRoomId, { signal }),
+  ]);
+  return { messages: history.messages || [], detail: detail || null };
+};
+
 export function useSupportChatRoom({
   chatRoomId,
   currentUser,
   enabled = true,
   realtimeEnabled = true,
 }) {
-  const [messages, setMessages] = useState([]);
-  const [detail, setDetail] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isSending, setIsSending] = useState(false);
-  const [isClosing, setIsClosing] = useState(false);
-  const [error, setError] = useState('');
+  const queryClient = useQueryClient();
   const [connectionState, setConnectionState] = useState('idle');
   const [socketRetry, setSocketRetry] = useState(0);
+  const [actionError, setActionError] = useState('');
   const socketRef = useRef(null);
 
   const userId = currentUser?.userId || currentUser?.id || currentUser?._id || '';
   const senderName = currentUser?.fullName || currentUser?.name || currentUser?.email || userId;
   const accountRole = normalizeAccountRole(currentUser?.originalRole || currentUser?.role);
   const senderRole = getChatSenderRole(accountRole);
+  const roomQueryKey = useMemo(() => queryKeys.supportChatRoom(chatRoomId), [chatRoomId]);
+  const shouldPoll = enabled && realtimeEnabled && env.realtimeEnabled;
 
-  const loadRoom = useCallback(async ({ silent = false } = {}) => {
-    if (!chatRoomId || !enabled) {
-      setMessages([]);
-      setDetail(null);
-      return;
-    }
-    if (!silent) setIsLoading(true);
-    try {
-      const [history, roomDetail] = await Promise.all([
-        supportChatApi.getHistory(chatRoomId),
-        supportChatApi.getDetail(chatRoomId),
-      ]);
-      setMessages((current) => mergeMessages(current, history.messages || []));
-      setDetail(roomDetail || null);
-      setError('');
-      supportChatApi.markRead(chatRoomId).catch(() => {});
-    } catch (requestError) {
-      if (!silent) setError(getUserFacingError(requestError, 'Không thể tải cuộc trao đổi hỗ trợ này.'));
-    } finally {
-      if (!silent) setIsLoading(false);
-    }
-  }, [chatRoomId, enabled]);
+  const roomQuery = useQuery({
+    queryKey: roomQueryKey,
+    queryFn: ({ signal }) => loadChatRoom(chatRoomId, signal),
+    enabled: enabled && Boolean(chatRoomId),
+    staleTime: 2_000,
+    refetchInterval: shouldPoll ? 5_000 : false,
+  });
+  const roomData = roomQuery.data;
+  const messages = useMemo(() => roomData?.messages || [], [roomData?.messages]);
+  const detail = roomData?.detail || null;
 
+  const updateRoomData = useCallback((updater) => {
+    queryClient.setQueryData(roomQueryKey, (current = { messages: [], detail: null }) => updater(current));
+  }, [queryClient, roomQueryKey]);
+
+  const markReadMutation = useMutation({
+    mutationFn: () => supportChatApi.markRead(chatRoomId),
+  });
+  const markRead = markReadMutation.mutate;
+  const latestMessageId = getMessageId(messages[messages.length - 1]);
   useEffect(() => {
-    if (!chatRoomId || !enabled) return undefined;
-    const timer = window.setTimeout(() => {
-      setMessages([]);
-      setDetail(null);
-      setError('');
-      loadRoom();
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, [chatRoomId, enabled, loadRoom]);
+    if (chatRoomId && enabled && latestMessageId) markRead();
+  }, [chatRoomId, enabled, latestMessageId, markRead]);
 
-  useEffect(() => {
-    if (!chatRoomId || !enabled || !realtimeEnabled || !env.realtimeEnabled) return undefined;
-    const timer = window.setInterval(() => loadRoom({ silent: true }), 5000);
-    return () => window.clearInterval(timer);
-  }, [chatRoomId, enabled, loadRoom, realtimeEnabled]);
+  const refetchRoom = roomQuery.refetch;
+  const loadRoom = useCallback(async () => {
+    if (!chatRoomId || !enabled) return null;
+    const result = await refetchRoom();
+    return result.data || null;
+  }, [chatRoomId, enabled, refetchRoom]);
 
   useEffect(() => {
     const socketUrl = getSocketUrl(chatRoomId);
@@ -109,18 +108,21 @@ export function useSupportChatRoom({
     const connectingTimer = window.setTimeout(() => setConnectionState('connecting'), 0);
     socket.onopen = () => {
       setConnectionState('connected');
-      loadRoom({ silent: true });
+      loadRoom();
     };
     socket.onmessage = (event) => {
       try {
         const payload = JSON.parse(event.data);
         if (payload?.type === 'ERROR') {
-          setError('Không thể gửi tin nhắn hỗ trợ trực tiếp. Vui lòng thử lại.');
+          setActionError('Không thể gửi tin nhắn hỗ trợ trực tiếp. Vui lòng thử lại.');
           return;
         }
         const message = payload?.message || payload;
         if (message?.content && (message?.messageId || message?.id)) {
-          setMessages((current) => mergeMessages(current, [message]));
+          updateRoomData((current) => ({
+            ...current,
+            messages: mergeMessages(current.messages || [], [message]),
+          }));
         }
       } catch (parseError) {
         console.warn('Ignored malformed support chat socket message.', parseError);
@@ -140,95 +142,116 @@ export function useSupportChatRoom({
       window.clearTimeout(reconnectTimer);
       socket.close();
     };
-  }, [chatRoomId, enabled, loadRoom, realtimeEnabled, socketRetry]);
+  }, [chatRoomId, enabled, loadRoom, realtimeEnabled, socketRetry, updateRoomData]);
+
+  const sendAnswerMutation = useMutation({
+    mutationFn: ({ content, candidateType }) => supportChatApi.sendAnswerAndIndex({
+      chatRoomId,
+      senderId: userId,
+      senderName,
+      senderRole,
+      content,
+      messageType: 'TEXT',
+      createKnowledgeCandidate: true,
+      candidateType,
+    }),
+    onMutate: () => setActionError(''),
+    onSuccess: (sent) => updateRoomData((current) => ({
+      ...current,
+      messages: mergeMessages(current.messages || [], [sent]),
+    })),
+    onError: (error) => setActionError(
+      getUserFacingError(error, 'Không thể gửi đáp án và tạo đề xuất tri thức.'),
+    ),
+  });
+
+  const sendHttpMutation = useMutation({
+    mutationFn: (content) => supportChatApi.sendMessage({
+      chatRoomId,
+      senderId: userId,
+      senderName,
+      senderRole,
+      content,
+      messageType: 'TEXT',
+    }),
+    onMutate: () => setActionError(''),
+    onSuccess: (sent) => updateRoomData((current) => ({
+      ...current,
+      messages: mergeMessages(current.messages || [], [sent]),
+    })),
+    onError: (error) => setActionError(
+      getUserFacingError(error, 'Không thể gửi tin nhắn này.'),
+    ),
+  });
+
+  const closeMutation = useMutation({
+    mutationFn: ({ rating, feedback }) => supportChatApi.closeRoom({
+      chatRoomId,
+      userRating: rating,
+      userFeedback: feedback,
+    }),
+    onMutate: () => setActionError(''),
+    onSuccess: () => updateRoomData((current) => ({
+      ...current,
+      detail: { ...(current.detail || {}), status: 'CLOSED' },
+    })),
+    onError: (error) => setActionError(
+      getUserFacingError(error, 'Không thể đóng cuộc trao đổi hỗ trợ này.'),
+    ),
+  });
 
   const sendAnswerAndIndex = useCallback(async (content, candidateType = 'ACADEMIC_KNOWLEDGE') => {
     const trimmed = String(content || '').trim();
-    if (!chatRoomId || !userId || !trimmed || isSending) return null;
-    setIsSending(true);
+    if (!chatRoomId || !userId || !trimmed || sendAnswerMutation.isPending) return null;
     try {
-      const sent = await supportChatApi.sendAnswerAndIndex({
-        chatRoomId,
-        senderId: userId,
-        senderName,
-        senderRole,
-        content: trimmed,
-        messageType: 'TEXT',
-        createKnowledgeCandidate: true,
-        candidateType,
-      });
-      setMessages((current) => mergeMessages(current, [sent]));
-      setError('');
-      return sent;
-    } catch (requestError) {
-      setError(getUserFacingError(requestError, 'Không thể gửi đáp án và tạo đề xuất tri thức.'));
+      return await sendAnswerMutation.mutateAsync({ content: trimmed, candidateType });
+    } catch {
       return null;
-    } finally {
-      setIsSending(false);
     }
-  }, [chatRoomId, isSending, senderName, senderRole, userId]);
+  }, [chatRoomId, sendAnswerMutation, userId]);
 
   const sendMessage = useCallback(async (content) => {
     const trimmed = String(content || '').trim();
-    if (!chatRoomId || !userId || !trimmed || isSending) return false;
-    setIsSending(true);
-    try {
-      if (socketRef.current?.readyState === WebSocket.OPEN) {
-        socketRef.current.send(JSON.stringify({
-          type: 'SEND_MESSAGE',
-          senderName,
-          content: trimmed,
-          messageType: 'TEXT',
-        }));
-        setError('');
-        return true;
-      }
-      const sent = await supportChatApi.sendMessage({
-        chatRoomId,
-        senderId: userId,
+    if (!chatRoomId || !userId || !trimmed || sendHttpMutation.isPending) return false;
+    if (socketRef.current?.readyState === WebSocket.OPEN) {
+      socketRef.current.send(JSON.stringify({
+        type: 'SEND_MESSAGE',
         senderName,
-        senderRole,
         content: trimmed,
         messageType: 'TEXT',
-      });
-      setMessages((current) => mergeMessages(current, [sent]));
-      setError('');
+      }));
+      setActionError('');
       return true;
-    } catch (requestError) {
-      setError(getUserFacingError(requestError, 'Không thể gửi tin nhắn này.'));
-      return false;
-    } finally {
-      setIsSending(false);
     }
-  }, [chatRoomId, isSending, senderName, senderRole, userId]);
+    try {
+      await sendHttpMutation.mutateAsync(trimmed);
+      return true;
+    } catch {
+      return false;
+    }
+  }, [chatRoomId, sendHttpMutation, senderName, userId]);
 
   const closeRoom = useCallback(async ({ rating, feedback } = {}) => {
-    if (!chatRoomId || isClosing) return false;
-    setIsClosing(true);
+    if (!chatRoomId || closeMutation.isPending) return false;
     try {
-      await supportChatApi.closeRoom({
-        chatRoomId,
-        userRating: rating,
-        userFeedback: feedback,
-      });
-      setDetail((current) => ({ ...current, status: 'CLOSED' }));
-      setError('');
+      await closeMutation.mutateAsync({ rating, feedback });
       return true;
-    } catch (requestError) {
-      setError(getUserFacingError(requestError, 'Không thể đóng cuộc trao đổi hỗ trợ này.'));
+    } catch {
       return false;
-    } finally {
-      setIsClosing(false);
     }
-  }, [chatRoomId, isClosing]);
+  }, [chatRoomId, closeMutation]);
+
+  const queryError = roomQuery.error
+    ? getUserFacingError(roomQuery.error, 'Không thể tải cuộc trao đổi hỗ trợ này.')
+    : '';
 
   return useMemo(() => ({
     messages,
     detail,
-    isLoading,
-    isSending,
-    isClosing,
-    error,
+    isLoading: roomQuery.isPending,
+    isSending: sendAnswerMutation.isPending || sendHttpMutation.isPending,
+    isClosing: closeMutation.isPending,
+    error: actionError || queryError,
     connectionState,
     senderRole,
     loadRoom,
@@ -236,16 +259,18 @@ export function useSupportChatRoom({
     sendAnswerAndIndex,
     closeRoom,
   }), [
+    actionError,
+    closeMutation.isPending,
     closeRoom,
     connectionState,
     detail,
-    error,
-    isClosing,
-    isLoading,
-    isSending,
     loadRoom,
     messages,
+    queryError,
+    roomQuery.isPending,
     sendAnswerAndIndex,
+    sendAnswerMutation.isPending,
+    sendHttpMutation.isPending,
     sendMessage,
     senderRole,
   ]);

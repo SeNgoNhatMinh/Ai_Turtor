@@ -1,9 +1,12 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Alert, Avatar, Empty, Radio, Spin, Tag } from 'antd';
 import { GraduationCap, Search, Star } from 'lucide-react';
-import ActionButton from '../common/ActionButton';
-import { supportChatApi } from '../../services/supportChatApi';
+import { queryKeys } from '../../app/queryKeys';
 import { getUserFacingError } from '../../services/apiClient';
+import { normalizeEscalationDetailResponse } from '../../services/normalizers';
+import { supportChatApi } from '../../services/supportChatApi';
+import ActionButton from '../common/ActionButton';
 import SupportChatRoom from './SupportChatRoom';
 
 const normalizeStatus = (value) => String(value || '').trim().toUpperCase();
@@ -17,100 +20,113 @@ const STATUS_LABELS = {
 };
 
 function StudentMentorFlow({ escalation, currentUser, compact = false, onEscalationChange }) {
-  const [detail, setDetail] = useState(escalation || null);
-  const [mentors, setMentors] = useState([]);
+  const queryClient = useQueryClient();
+  const [offeredMentors, setOfferedMentors] = useState([]);
   const [selectedMentorId, setSelectedMentorId] = useState('');
-  const [isOffering, setIsOffering] = useState(false);
-  const [isSelecting, setIsSelecting] = useState(false);
   const [hasLoadedOffer, setHasLoadedOffer] = useState(false);
-  const [error, setError] = useState('');
   const [routeMessage, setRouteMessage] = useState('');
+  const [actionError, setActionError] = useState('');
 
-  const escalationId = escalation?.id || escalation?.questionEscalationId || detail?.id || detail?.questionEscalationId;
+  const escalationId = escalation?.id || escalation?.questionEscalationId || '';
   const userId = currentUser?.userId || currentUser?.id || currentUser?._id || '';
+  const detailQuery = useQuery({
+    queryKey: queryKeys.studentMentorRequestDetail(escalationId),
+    queryFn: async ({ signal }) => normalizeEscalationDetailResponse(
+      await supportChatApi.getEscalationDetail(escalationId, { signal }),
+    ),
+    enabled: Boolean(escalationId),
+    staleTime: 10_000,
+  });
+  const detail = useMemo(
+    () => ({ ...(escalation || {}), ...(detailQuery.data || {}) }),
+    [detailQuery.data, escalation],
+  );
+  const mentors = useMemo(() => (
+    offeredMentors.length
+      ? offeredMentors
+      : Array.isArray(detail?.suggestedMentors) ? detail.suggestedMentors : []
+  ), [detail, offeredMentors]);
+  const effectiveMentorId = selectedMentorId || (mentors.length === 1 ? mentors[0].id : '');
+  const selectedMentor = useMemo(
+    () => mentors.find((mentor) => mentor.id === effectiveMentorId),
+    [effectiveMentorId, mentors],
+  );
   const status = normalizeStatus(detail?.status || escalation?.status);
   const chatRoomId = detail?.chatRoomId || escalation?.chatRoomId || '';
-  const selectedMentor = useMemo(
-    () => mentors.find((mentor) => mentor.id === selectedMentorId),
-    [mentors, selectedMentorId],
-  );
   const statusLabel = mentors.length > 0
     ? (STATUS_LABELS[status] || status || STATUS_LABELS.PENDING_OFFER)
     : hasLoadedOffer
       ? 'Chưa có giáo viên phù hợp'
       : 'Sẵn sàng tìm giáo viên';
 
-  useEffect(() => {
-    const syncTimer = window.setTimeout(() => {
-      setDetail((current) => ({ ...current, ...escalation }));
-    }, 0);
-    return () => window.clearTimeout(syncTimer);
-  }, [escalation]);
+  const updateEscalationCache = useCallback((next) => {
+    if (!next?.id) return;
+    queryClient.setQueryData(
+      queryKeys.studentMentorRequestDetail(next.id),
+      (current) => ({ ...(current || {}), ...next }),
+    );
+    if (userId) {
+      queryClient.setQueryData(
+        queryKeys.studentMentorRequests(userId),
+        (current = []) => current.map((item) => (
+          item.id === next.id ? { ...item, ...next } : item
+        )),
+      );
+    }
+    onEscalationChange?.(next);
+  }, [onEscalationChange, queryClient, userId]);
 
-  useEffect(() => {
-    if (!escalationId) return undefined;
-    let cancelled = false;
-    const timer = window.setTimeout(async () => {
-      try {
-        const response = await supportChatApi.getEscalationDetail(escalationId);
-        const nextDetail = response?.questionEscalation || response?.escalation || response || {};
-        if (!cancelled) setDetail((current) => ({ ...current, ...nextDetail }));
-      } catch {
-        // The parent ticket still contains enough state for offer/select in older BE responses.
-      }
-    }, 0);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timer);
-    };
-  }, [escalationId]);
-
-  const findMentors = async () => {
-    if (!escalationId || isOffering) return;
-    setIsOffering(true);
-    setError('');
-    try {
-      const offer = await supportChatApi.offerMentors(escalationId);
+  const offerMutation = useMutation({
+    mutationFn: () => supportChatApi.offerMentors(escalationId),
+    onMutate: () => setActionError(''),
+    onSuccess: (offer) => {
       const suggestions = Array.isArray(offer?.suggestedMentors) ? offer.suggestedMentors : [];
       setHasLoadedOffer(true);
-      setMentors(suggestions);
+      setOfferedMentors(suggestions);
       setSelectedMentorId(suggestions.length === 1 ? suggestions[0].id : '');
       setRouteMessage(offer?.message || 'Hãy chọn một giáo viên để tiếp tục trao đổi câu hỏi này.');
-      const next = { ...detail, status: 'OFFERED', escalationRoute: offer?.escalationRoute };
-      setDetail(next);
-      onEscalationChange?.(next);
-    } catch (requestError) {
-      setError(getUserFacingError(requestError, 'Không thể tìm giáo viên phù hợp cho câu hỏi này.'));
-    } finally {
-      setIsOffering(false);
-    }
+      updateEscalationCache({
+        ...detail,
+        id: escalationId,
+        status: 'OFFERED',
+        suggestedMentors: suggestions,
+        escalationRoute: offer?.escalationRoute,
+      });
+    },
+    onError: (error) => setActionError(
+      getUserFacingError(error, 'Không thể tìm giáo viên phù hợp cho câu hỏi này.'),
+    ),
+  });
+
+  const selectMutation = useMutation({
+    mutationFn: () => supportChatApi.selectMentor({
+      questionEscalationId: escalationId,
+      userId,
+      selectedMentorId: effectiveMentorId,
+    }),
+    onMutate: () => setActionError(''),
+    onSuccess: (selection) => updateEscalationCache({
+      ...detail,
+      id: escalationId,
+      status: 'IN_CHAT',
+      chatRoomId: selection?.chatRoomId,
+      assignedMentorId: effectiveMentorId,
+      assignedMentorName: selection?.mentorName || selectedMentor?.mentorName,
+      assignedMentorEmail: selection?.mentorEmail,
+    }),
+    onError: (error) => setActionError(
+      getUserFacingError(error, 'Không thể kết nối với giáo viên này.'),
+    ),
+  });
+
+  const findMentors = () => {
+    if (!escalationId || offerMutation.isPending) return;
+    offerMutation.mutate();
   };
 
-  const chooseMentor = async () => {
-    if (!escalationId || !userId || !selectedMentorId || isSelecting) return;
-    setIsSelecting(true);
-    setError('');
-    try {
-      const selection = await supportChatApi.selectMentor({
-        questionEscalationId: escalationId,
-        userId,
-        selectedMentorId,
-      });
-      const next = {
-        ...detail,
-        status: 'IN_CHAT',
-        chatRoomId: selection?.chatRoomId,
-        assignedMentorId: selectedMentorId,
-        assignedMentorName: selection?.mentorName || selectedMentor?.mentorName,
-        assignedMentorEmail: selection?.mentorEmail,
-      };
-      setDetail(next);
-      onEscalationChange?.(next);
-    } catch (requestError) {
-      setError(getUserFacingError(requestError, 'Không thể kết nối với giáo viên này.'));
-    } finally {
-      setIsSelecting(false);
-    }
+  const chooseMentor = () => {
+    if (!escalationId || !userId || !effectiveMentorId || selectMutation.isPending) return;
+    selectMutation.mutate();
   };
 
   if (!escalationId) return null;
@@ -125,11 +141,7 @@ function StudentMentorFlow({ escalation, currentUser, compact = false, onEscalat
         allowClose={!isConversationClosed}
         readOnly={isConversationClosed}
         compact={compact}
-        onClosed={() => {
-          const next = { ...detail, status: 'COMPLETED' };
-          setDetail(next);
-          onEscalationChange?.(next);
-        }}
+        onClosed={() => updateEscalationCache({ ...detail, id: escalationId, status: 'COMPLETED' })}
       />
     );
   }
@@ -146,12 +158,12 @@ function StudentMentorFlow({ escalation, currentUser, compact = false, onEscalat
         <Tag color={mentors.length > 0 ? 'blue' : hasLoadedOffer ? 'default' : 'gold'}>{statusLabel}</Tag>
       </div>
 
-      {error && <Alert type="error" showIcon title={error} />}
+      {actionError && <Alert type="error" showIcon title={actionError} />}
       {routeMessage && <Alert type="info" showIcon title={routeMessage} />}
 
       {mentors.length === 0 ? (
         <div className="mentor-selection-flow__empty">
-          {isOffering ? (
+          {offerMutation.isPending ? (
             <><Spin size="small" /> Đang tìm giáo viên phụ trách môn và lớp này...</>
           ) : (
             <>
@@ -169,7 +181,7 @@ function StudentMentorFlow({ escalation, currentUser, compact = false, onEscalat
         </div>
       ) : (
         <>
-          <Radio.Group value={selectedMentorId} onChange={(event) => setSelectedMentorId(event.target.value)} className="mentor-selection-list">
+          <Radio.Group value={effectiveMentorId} onChange={(event) => setSelectedMentorId(event.target.value)} className="mentor-selection-list">
             {mentors.map((mentor) => (
               <Radio key={mentor.id} value={mentor.id} className="mentor-selection-option">
                 <Avatar src={mentor.avatarUrl} icon={<GraduationCap size={17} />} />
@@ -184,7 +196,7 @@ function StudentMentorFlow({ escalation, currentUser, compact = false, onEscalat
               </Radio>
             ))}
           </Radio.Group>
-          <ActionButton intent="primary" loading={isSelecting} disabled={!selectedMentorId} onClick={chooseMentor}>
+          <ActionButton intent="primary" loading={selectMutation.isPending} disabled={!effectiveMentorId} onClick={chooseMentor}>
             Bắt đầu trao đổi
           </ActionButton>
         </>

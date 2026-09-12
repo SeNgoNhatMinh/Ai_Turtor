@@ -1,4 +1,4 @@
-import { useDeferredValue, useMemo, useState } from 'react';
+import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { BookOpen, CalendarClock, RefreshCw } from 'lucide-react';
 import ActionButton from '../../../../components/common/ActionButton';
 import AsyncState from '../../../../components/common/AsyncState';
@@ -9,7 +9,9 @@ import { matchesCollectionQuery } from '../../../../hooks/useCollectionView';
 import {
   formatSupportDateTime,
   getQuestionText,
+  getSupportTicketStatus,
   isAnsweredTicket,
+  isProcessingTicket,
 } from '../mentorSupportUtils';
 
 const FILTER_OPTIONS = [
@@ -51,7 +53,7 @@ function TicketPreview({ ticket, isActive, onSelect }) {
         {meta.map((item) => <span key={item}><BookOpen size={13} />{item}</span>)}
       </div>
       <div className="mentor-ticket-footer">
-        <StatusTag status={ticket?.status} />
+        <StatusTag status={getSupportTicketStatus(ticket)} />
         <span className="mentor-ticket-open-label">Xem chi tiết <span aria-hidden="true">→</span></span>
       </div>
     </button>
@@ -69,13 +71,22 @@ function SupportTicketList({
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState('all');
   const deferredQuery = useDeferredValue(query);
+  const ticketCounts = useMemo(() => ({
+    all: tickets.length,
+    waiting: tickets.filter(isProcessingTicket).length,
+    answered: tickets.filter(isAnsweredTicket).length,
+  }), [tickets]);
   const filteredTickets = useMemo(() => tickets.filter((ticket) => {
-    const answered = isAnsweredTicket(ticket);
-    if (filter === 'waiting' && answered) return false;
-    if (filter === 'answered' && !answered) return false;
+    if (filter === 'waiting' && !isProcessingTicket(ticket)) return false;
+    if (filter === 'answered' && !isAnsweredTicket(ticket)) return false;
     if (!deferredQuery) return true;
     return matchesCollectionQuery(ticket, deferredQuery, TICKET_SEARCH_KEYS);
   }), [deferredQuery, filter, tickets]);
+
+  useEffect(() => {
+    const selectionIsVisible = filteredTickets.some((ticket) => ticket.id === selectedTicket?.id);
+    if (!selectionIsVisible) onSelect(filteredTickets[0] || null);
+  }, [filteredTickets, onSelect, selectedTicket?.id]);
 
   return (
     <section className="mentor-review-list-card" aria-label={uiCopy.student.support.listTitle}>
@@ -115,7 +126,8 @@ function SupportTicketList({
                   onClick={() => setFilter(option.value)}
                   aria-pressed={filter === option.value}
                 >
-                  {option.label}
+                  <span>{option.label}</span>
+                  <small>{ticketCounts[option.value]}</small>
                 </button>
               ))}
             </div>

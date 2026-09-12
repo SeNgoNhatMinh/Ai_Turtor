@@ -6,9 +6,9 @@ import {
   normalizeQuizSession,
   normalizeTeacherQuizAttempt,
 } from './normalizers';
-import { getCachedResource, invalidateResourceCache } from './requestCache';
+import { fetchServerQuery, invalidateServerQueries } from './queryCache';
 
-const quizCachePrefix = (studentId, courseId) => `quizzes:${studentId}:${courseId}`;
+const quizQueryKey = (studentId, courseId) => ['quizzes', studentId, courseId];
 
 const normalizeListResponse = (data, keys, normalizer) => {
   const list = asArray(data, ...keys);
@@ -27,31 +27,31 @@ export const quizApi = {
       body: JSON.stringify(payload),
       timeoutMs: API_TIMEOUTS.quizGeneration,
     }));
-    invalidateResourceCache(quizCachePrefix(studentId, courseId));
+    invalidateServerQueries(quizQueryKey(studentId, courseId));
     return quiz;
   },
 
   async getStudentQuizHistory(studentId, courseId, options = {}) {
-    const loader = async () => normalizeListResponse(
-      await request(`${API_BASE_URL}/tutor/students/${encodePath(studentId)}/courses/${encodePath(courseId)}/quizzes`, { signal: options.signal }),
+    const loader = async ({ signal } = {}) => normalizeListResponse(
+      await request(`${API_BASE_URL}/tutor/students/${encodePath(studentId)}/courses/${encodePath(courseId)}/quizzes`, { signal: options.signal || signal }),
       ['quizzes', 'quizSessions', 'sessions', 'history', 'items', 'content', 'data', 'results'],
       normalizeQuizSession,
     );
     if (options.signal) return loader();
-    return getCachedResource(`${quizCachePrefix(studentId, courseId)}:history`, loader, { force: options.force });
+    return fetchServerQuery([...quizQueryKey(studentId, courseId), 'history'], loader, { force: options.force });
   },
 
   async getAssignedQuizzes(studentId, courseId, classId = '', options = {}) {
     const params = new URLSearchParams();
     if (classId) params.append('classId', classId);
     const qs = params.toString();
-    const loader = async () => normalizeListResponse(
-      await request(`${API_BASE_URL}/tutor/students/${encodePath(studentId)}/courses/${encodePath(courseId)}/quiz-assignments${qs ? `?${qs}` : ''}`, { signal: options.signal }),
+    const loader = async ({ signal } = {}) => normalizeListResponse(
+      await request(`${API_BASE_URL}/tutor/students/${encodePath(studentId)}/courses/${encodePath(courseId)}/quiz-assignments${qs ? `?${qs}` : ''}`, { signal: options.signal || signal }),
       ['assignments', 'quizAssignments', 'assignedQuizzes', 'items', 'content', 'data', 'results'],
       normalizeQuizAssignment,
     );
     if (options.signal) return loader();
-    return getCachedResource(`${quizCachePrefix(studentId, courseId)}:assigned:${classId}`, loader, { force: options.force });
+    return fetchServerQuery([...quizQueryKey(studentId, courseId), 'assigned', classId || 'all'], loader, { force: options.force });
   },
 
   async getQuiz(quizSessionId) {
@@ -65,7 +65,7 @@ export const quizApi = {
       body: JSON.stringify(payload),
       timeoutMs: API_TIMEOUTS.ai,
     }));
-    invalidateResourceCache('quizzes:');
+    invalidateServerQueries(['quizzes']);
     return quiz;
   },
 
@@ -75,7 +75,7 @@ export const quizApi = {
       method: 'POST',
       timeoutMs: API_TIMEOUTS.ai,
     }));
-    invalidateResourceCache(`quizzes:${studentId}:`);
+    invalidateServerQueries(['quizzes', studentId]);
     return quiz;
   },
 
@@ -136,7 +136,7 @@ export const quizApi = {
         timeoutMs: API_TIMEOUTS.quizGeneration,
       },
     ));
-    invalidateResourceCache(`teacher-quizzes:${teacherId}`);
+    invalidateServerQueries(['teacher-quizzes', teacherId]);
     return assignment;
   },
 
