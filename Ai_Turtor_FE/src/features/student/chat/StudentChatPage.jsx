@@ -118,26 +118,7 @@ export default function StudentChatPage({
     if (!studentId || !courseId) return;
 
     chat.openTutorSession();
-
-    const materialsTimer = window.setTimeout(() => {
-      materials.loadCourseMaterials();
-    }, 100);
-
-    let dashboardCancel = null;
-    const loadDashboard = () => learning.loadStudentDashboard({ skipUnauthorizedRedirect: true });
-    if (typeof window.requestIdleCallback === 'function') {
-      const idleId = window.requestIdleCallback(loadDashboard, { timeout: 3000 });
-      dashboardCancel = () => window.cancelIdleCallback(idleId);
-    } else {
-      const dashboardTimer = window.setTimeout(loadDashboard, 1200);
-      dashboardCancel = () => window.clearTimeout(dashboardTimer);
-    }
-
-    return () => {
-      window.clearTimeout(materialsTimer);
-      dashboardCancel?.();
-    };
-    // Route pages load only their own resources when identity/context changes.
+    // Tutor session is an explicit workflow action; learning data loads declaratively.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [studentId, courseId, classId]);
 

@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import PageHeader from '../../../components/common/PageHeader';
 import { uiCopy } from '../../../constants/uiCopy';
 import { useCourseMaterialsController } from '../../../hooks/useCourseMaterialsController';
@@ -30,12 +29,6 @@ export default function StudentMaterialsPage({
     }
     setCourseId?.(nextCourseId);
   };
-
-  useEffect(() => {
-    materials.loadCourseMaterials({ page: 0, query: '' });
-    // Route page owns material loading.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [studentId, courseId, classId]);
 
   return (
     <div className="portal-section student-materials-page">

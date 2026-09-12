@@ -19,10 +19,7 @@ export default function PracticeQuizzesPage({
 
   useEffect(() => {
     clearQuizTopicHandoff();
-    learning.loadStudentDashboard();
-    // Suggestions are scoped to the selected course.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [studentId, courseId]);
+  }, []);
 
   return (
     <PracticeQuizzesView

@@ -39,9 +39,8 @@ export default function TeacherMaterialsPage({
 
   useEffect(() => {
     dashboard.loadTeacherDashboard();
-    courseMaterialData.loadCourseMaterials();
     assignments.load();
-    // Materials route owns these three independent resources.
+    // Materials are loaded declaratively by TanStack Query.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [teacherId, courseId, classId]);
 

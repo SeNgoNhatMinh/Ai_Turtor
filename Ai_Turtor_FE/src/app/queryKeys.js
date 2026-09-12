@@ -52,7 +52,23 @@ export const queryKeys = {
     'assigned',
     classId || 'all',
   ],
+  studentLearning: (studentId, courseId) => [
+    'student',
+    'learning',
+    studentId || 'anonymous',
+    courseId || 'none',
+  ],
   quizDetail: (quizId) => ['quiz', 'detail', quizId || 'none'],
+  courseMaterials: ({ courseId, classId, studentId, teacherId, filters = {} }) => [
+    'materials',
+    courseId || 'none',
+    studentId ? 'student' : 'staff',
+    studentId || teacherId || 'anonymous',
+    classId || 'all',
+    Number(filters.page) || 0,
+    Number(filters.pageSize) || 8,
+    String(filters.query || '').trim(),
+  ],
   studentMentorRequests: (studentId) => ['student', 'mentor-requests', studentId],
   studentMentorRequestDetail: (escalationId) => [
     'student',

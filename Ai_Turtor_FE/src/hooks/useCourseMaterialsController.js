@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '../app/queryKeys';
 import { assignmentApi } from '../services/assignmentApi';
 import { materialsApi } from '../services/materialsApi';
 import { getUserFacingError } from '../services/apiClient';
@@ -9,11 +11,9 @@ import { eventMatchesCourse, REALTIME_EVENT_TYPES } from '../features/realtime/r
 const INITIAL_MATERIALS_PAGE = Object.freeze({
   page: 0,
   pageSize: 8,
-  totalElements: 0,
-  totalPages: 1,
   query: '',
-  serverPaged: false,
 });
+const EMPTY_LIST = [];
 
 function getMaterialStatusFromEvent(event) {
   if (event.type === 'MATERIAL_INDEXING_FAILED') return 'INDEXING_FAILED';
@@ -21,6 +21,53 @@ function getMaterialStatusFromEvent(event) {
   if (event.type === 'MATERIAL_INDEXING') return 'INDEXING';
   return event.status || 'PROCESSING';
 }
+
+const loadMaterialsPage = async ({
+  courseId,
+  classId,
+  studentId,
+  pageRequest,
+  signal,
+  skipUnauthorizedRedirect,
+  optimisticMaterials,
+}) => {
+  const options = {
+    signal,
+    skipUnauthorizedRedirect,
+    ...(studentId ? {
+      page: pageRequest.page,
+      size: pageRequest.pageSize,
+      query: pageRequest.query,
+    } : {}),
+  };
+  const data = studentId
+    ? await materialsApi.getStudentClassMaterials(studentId, courseId, classId, options)
+    : await materialsApi.getCourseMaterials(courseId, classId, options);
+  const canonicalItems = asArray(data, 'materials', 'content')
+    .map(normalizeCourseMaterial)
+    .filter((item) => !studentId || (
+      String(item.classId || '').toLowerCase() === String(classId).toLowerCase()
+      && String(item.materialScope || '').toUpperCase() === 'CLASS_SECTION'
+      && String(item.uploadedByRole || '').toUpperCase() === 'TEACHER'
+    ));
+  const canonicalIds = new Set(canonicalItems.map((item) => item.id).filter(Boolean));
+  canonicalIds.forEach((id) => optimisticMaterials.delete(id));
+  const optimisticItems = [...optimisticMaterials.values()]
+    .filter((item) => !canonicalIds.has(item.id));
+  const items = [...optimisticItems, ...canonicalItems];
+
+  return {
+    items,
+    pagination: {
+      page: Number(data?.page ?? pageRequest.page),
+      pageSize: Number(data?.size ?? pageRequest.pageSize),
+      totalElements: Number(data?.totalElements ?? data?.count ?? items.length),
+      totalPages: Number(data?.totalPages ?? 1),
+      query: pageRequest.query,
+      serverPaged: Boolean(studentId && data?.page != null && data?.size != null),
+    },
+  };
+};
 
 export function useCourseMaterialsController({
   courseId,
@@ -30,103 +77,96 @@ export function useCourseMaterialsController({
   triggerToast,
   skipUnauthorizedRedirect = false,
 }) {
-  const [courseMaterials, setCourseMaterials] = useState([]);
-  const [isMaterialsLoading, setIsMaterialsLoading] = useState(false);
-  const [materialsError, setMaterialsError] = useState('');
-  const [materialsPage, setMaterialsPage] = useState(INITIAL_MATERIALS_PAGE);
+  const queryClient = useQueryClient();
+  const [pageRequest, setPageRequest] = useState(INITIAL_MATERIALS_PAGE);
   const [uploadProgress, setUploadProgress] = useState(null);
   const [uploadProgressText, setUploadProgressText] = useState('');
-  const materialsRequestRef = useRef(null);
   const optimisticMaterialsRef = useRef(new Map());
   const realtimeRefreshRef = useRef(null);
-  const materialsPageRef = useRef(INITIAL_MATERIALS_PAGE);
+  const queryKey = useMemo(() => queryKeys.courseMaterials({
+    courseId,
+    classId,
+    studentId,
+    teacherId,
+    filters: pageRequest,
+  }), [classId, courseId, pageRequest, studentId, teacherId]);
+  const hasContext = Boolean(courseId && (!studentId || classId));
 
-  const updateMaterialsPage = useCallback((next) => {
-    const value = typeof next === 'function' ? next(materialsPageRef.current) : next;
-    materialsPageRef.current = value;
-    setMaterialsPage(value);
-  }, []);
+  const materialsQuery = useQuery({
+    queryKey,
+    queryFn: ({ signal }) => loadMaterialsPage({
+      courseId,
+      classId,
+      studentId,
+      pageRequest,
+      signal,
+      skipUnauthorizedRedirect,
+      optimisticMaterials: optimisticMaterialsRef.current,
+    }),
+    enabled: hasContext,
+    staleTime: 15_000,
+    placeholderData: keepPreviousData,
+    retry: 1,
+  });
+  const refetchMaterials = materialsQuery.refetch;
+  const courseMaterials = materialsQuery.data?.items || EMPTY_LIST;
+  const materialsPage = useMemo(() => materialsQuery.data?.pagination || ({
+    ...pageRequest,
+    totalElements: 0,
+    totalPages: 1,
+    serverPaged: false,
+  }), [materialsQuery.data?.pagination, pageRequest]);
 
   useEffect(() => () => {
-    materialsRequestRef.current?.abort();
     window.clearTimeout(realtimeRefreshRef.current);
   }, []);
 
+  const setCourseMaterials = useCallback((updater) => {
+    queryClient.setQueryData(queryKey, (current = {
+      items: [],
+      pagination: materialsPage,
+    }) => ({
+      ...current,
+      items: typeof updater === 'function' ? updater(current.items || []) : updater,
+    }));
+  }, [materialsPage, queryClient, queryKey]);
+
   const loadCourseMaterials = useCallback(async (requestPage = {}) => {
-    materialsRequestRef.current?.abort();
-    if (!courseId || (studentId && !classId)) {
-      setCourseMaterials([]);
-      updateMaterialsPage(INITIAL_MATERIALS_PAGE);
-      setMaterialsError('');
-      setIsMaterialsLoading(false);
-      return;
+    if (!hasContext) return [];
+    const hasNewPageRequest = Number.isInteger(requestPage?.page)
+      || Number.isInteger(requestPage?.pageSize)
+      || typeof requestPage?.query === 'string';
+
+    if (hasNewPageRequest) {
+      setPageRequest((current) => ({
+        page: Number.isInteger(requestPage.page) ? requestPage.page : current.page,
+        pageSize: Number.isInteger(requestPage.pageSize) ? requestPage.pageSize : current.pageSize,
+        query: typeof requestPage.query === 'string'
+          ? requestPage.query.trim()
+          : current.query,
+      }));
+      return materialsQuery.data?.items || [];
     }
-    const controller = new AbortController();
-    materialsRequestRef.current = controller;
-    setIsMaterialsLoading(true);
-    setMaterialsError('');
-    try {
-      const currentPage = materialsPageRef.current;
-      const requestedPage = Number.isInteger(requestPage?.page) ? requestPage.page : currentPage.page;
-      const requestedPageSize = Number.isInteger(requestPage?.pageSize) ? requestPage.pageSize : currentPage.pageSize;
-      const requestedQuery = typeof requestPage?.query === 'string' ? requestPage.query : currentPage.query;
-      const options = {
-        signal: controller.signal,
-        force: true,
-        skipUnauthorizedRedirect,
-        ...(studentId ? {
-          page: requestedPage,
-          size: requestedPageSize,
-          query: requestedQuery,
-        } : {}),
-      };
-      const data = studentId
-        ? await materialsApi.getStudentClassMaterials(studentId, courseId, classId, options)
-        : await materialsApi.getCourseMaterials(courseId, classId, options);
-      if (!controller.signal.aborted) {
-        const items = asArray(data, 'materials', 'content')
-          .map(normalizeCourseMaterial)
-          .filter((item) => !studentId || (
-            String(item.classId || '').toLowerCase() === String(classId).toLowerCase()
-            && String(item.materialScope || '').toUpperCase() === 'CLASS_SECTION'
-            && String(item.uploadedByRole || '').toUpperCase() === 'TEACHER'
-          ));
-        const canonicalIds = new Set(items.map((item) => item.id).filter(Boolean));
-        canonicalIds.forEach((id) => optimisticMaterialsRef.current.delete(id));
-        const optimisticItems = [...optimisticMaterialsRef.current.values()]
-          .filter((item) => !canonicalIds.has(item.id));
-        const mergedItems = [...optimisticItems, ...items];
-        setCourseMaterials(mergedItems);
-        updateMaterialsPage({
-          page: Number(data?.page ?? requestedPage),
-          pageSize: Number(data?.size ?? requestedPageSize),
-          totalElements: Number(data?.totalElements ?? data?.count ?? mergedItems.length),
-          totalPages: Number(data?.totalPages ?? 1),
-          query: requestedQuery,
-          serverPaged: Boolean(studentId && data?.page != null && data?.size != null),
-        });
-        return mergedItems;
-      }
-    } catch (error) {
-      if (controller.signal.aborted) return;
-      console.warn('Failed to load course materials:', error);
-      if (studentId) setCourseMaterials([]);
-      setMaterialsError(getUserFacingError(error, 'Không thể tải tài liệu của giảng viên.'));
-    } finally {
-      if (materialsRequestRef.current === controller) {
-        materialsRequestRef.current = null;
-        setIsMaterialsLoading(false);
-      }
-    }
-  }, [classId, courseId, skipUnauthorizedRedirect, studentId, updateMaterialsPage]);
+
+    const result = await refetchMaterials();
+    return result.data?.items || [];
+  }, [hasContext, materialsQuery.data?.items, refetchMaterials]);
 
   const changeMaterialsPage = useCallback((page, pageSize) => {
-    loadCourseMaterials({ page, pageSize });
-  }, [loadCourseMaterials]);
+    setPageRequest((current) => ({
+      ...current,
+      page: Number.isInteger(page) ? page : current.page,
+      pageSize: Number.isInteger(pageSize) ? pageSize : current.pageSize,
+    }));
+  }, []);
 
   const searchMaterials = useCallback((query) => {
-    loadCourseMaterials({ page: 0, query });
-  }, [loadCourseMaterials]);
+    setPageRequest((current) => ({
+      ...current,
+      page: 0,
+      query: String(query || '').trim(),
+    }));
+  }, []);
 
   useRealtimeEvent(REALTIME_EVENT_TYPES.material, (event) => {
     if (!eventMatchesCourse(event, courseId)) return;
@@ -147,11 +187,19 @@ export function useCourseMaterialsController({
       )));
     }
     window.clearTimeout(realtimeRefreshRef.current);
-    realtimeRefreshRef.current = window.setTimeout(loadCourseMaterials, 300);
+    realtimeRefreshRef.current = window.setTimeout(() => {
+      queryClient.invalidateQueries({
+        queryKey: ['materials', courseId || 'none'],
+      });
+    }, 300);
   });
 
   useRealtimeReconnect(() => {
-    if (courseId) loadCourseMaterials();
+    if (courseId) {
+      queryClient.invalidateQueries({
+        queryKey: ['materials', courseId],
+      });
+    }
   });
 
   const upsertCourseMaterial = useCallback((material) => {
@@ -162,7 +210,7 @@ export function useCourseMaterialsController({
       normalized,
       ...current.filter((item) => item.id !== normalized.id),
     ]);
-  }, []);
+  }, [setCourseMaterials]);
 
   const handleTeacherUploadMaterial = async (title, classIdVal, file) => {
     if (!courseId) {
@@ -196,9 +244,8 @@ export function useCourseMaterialsController({
       } else {
         await materialsApi.uploadMaterial(courseId, formData);
         triggerToast('Đã tải học liệu môn học.');
-        loadCourseMaterials();
+        await queryClient.invalidateQueries({ queryKey: ['materials', courseId] });
       }
-
       setUploadProgress(100);
       setUploadProgressText('Tải lên hoàn tất.');
     } catch (error) {
@@ -221,12 +268,12 @@ export function useCourseMaterialsController({
         ? await materialsApi.downloadStudentClassMaterialPdf(studentId, courseId, classId, materialId)
         : await materialsApi.downloadMaterialPdf(courseId, materialId);
       const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${title || 'material'}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `${title || 'material'}.pdf`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
       window.URL.revokeObjectURL(url);
     } catch (error) {
       triggerToast(getUserFacingError(error, 'Không thể tải học liệu.'));
@@ -235,8 +282,10 @@ export function useCourseMaterialsController({
 
   return {
     courseMaterials,
-    isMaterialsLoading,
-    materialsError,
+    isMaterialsLoading: materialsQuery.isPending || materialsQuery.isFetching,
+    materialsError: materialsQuery.error
+      ? getUserFacingError(materialsQuery.error, 'Không thể tải tài liệu của giảng viên.')
+      : '',
     materialsPage,
     upsertCourseMaterial,
     setCourseMaterials,
