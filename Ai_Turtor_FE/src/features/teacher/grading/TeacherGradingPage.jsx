@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import PageHeader from '../../../components/common/PageHeader';
 import { uiCopy } from '../../../constants/uiCopy';
 import TeacherGradingTab from './TeacherGradingTab';
@@ -19,12 +19,6 @@ export default function TeacherGradingPage({ teacherId, courseId, classId, trigg
   const [score, setScore] = useState('');
   const [feedback, setFeedback] = useState('');
   const [weakTopics, setWeakTopics] = useState([]);
-
-  useEffect(() => {
-    grading.loadTeacherSubmissions();
-    // Grading data is isolated to this route.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [teacherId, courseId, classId]);
 
   const handleGradeSubmit = (event) => {
     event.preventDefault();

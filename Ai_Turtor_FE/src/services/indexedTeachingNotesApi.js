@@ -34,8 +34,10 @@ const normalizeIndexedKnowledge = (item = {}) => ({
 });
 
 export const indexedTeachingNotesApi = {
-  async list({ courseId, status } = {}) {
-    const response = await request(`${BASE}${query({ courseId, status })}`);
+  async list({ courseId, status } = {}, options = {}) {
+    const response = await request(`${BASE}${query({ courseId, status })}`, {
+      signal: options.signal,
+    });
     return asArray(response, 'items', 'content').map(normalizeIndexedKnowledge);
   },
 

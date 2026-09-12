@@ -8,13 +8,15 @@ export const teacherReviewApi = {
     return request(`${API_BASE_URL}/tutor/escalations/${encodePath(escalationId)}`);
   },
 
-  async getTeacherEscalations(teacherId, filters = {}) {
+  async getTeacherEscalations(teacherId, filters = {}, options = {}) {
     const params = new URLSearchParams();
     Object.entries(filters).forEach(([key, value]) => {
       if (value) params.append(key, value);
     });
     const qs = params.toString();
-    return request(`${API_BASE_URL}/tutor/escalations/teachers/${encodePath(teacherId)}${qs ? `?${qs}` : ''}`);
+    return request(`${API_BASE_URL}/tutor/escalations/teachers/${encodePath(teacherId)}${qs ? `?${qs}` : ''}`, {
+      signal: options.signal,
+    });
   },
 
   async answerEscalation(escalationId, payload) {
@@ -42,9 +44,11 @@ export const teacherReviewApi = {
     });
   },
 
-  async getMentorPendingAnswerReviewQueue(courseId = '') {
+  async getMentorPendingAnswerReviewQueue(courseId = '', options = {}) {
     const params = courseId ? `?courseId=${encodeURIComponent(courseId)}` : '';
-    const data = await request(`${API_BASE_URL}/tutor/answer-reviews/mentor-pending${params}`);
+    const data = await request(`${API_BASE_URL}/tutor/answer-reviews/mentor-pending${params}`, {
+      signal: options.signal,
+    });
     return {
       groups: asArray(data, 'groups'),
       reviews: asArray(data, 'reviews', 'content'),
@@ -53,9 +57,11 @@ export const teacherReviewApi = {
     };
   },
 
-  async getSeniorPendingAnswerReviewQueue(courseId = '') {
+  async getSeniorPendingAnswerReviewQueue(courseId = '', options = {}) {
     const params = courseId ? `?courseId=${encodeURIComponent(courseId)}` : '';
-    const data = await request(`${API_BASE_URL}/tutor/answer-reviews/senior-pending${params}`);
+    const data = await request(`${API_BASE_URL}/tutor/answer-reviews/senior-pending${params}`, {
+      signal: options.signal,
+    });
     return {
       groups: asArray(data, 'groups'),
       reviews: asArray(data, 'reviews', 'content'),
@@ -65,14 +71,14 @@ export const teacherReviewApi = {
   },
 
   /** @deprecated Use getMentorPendingAnswerReviewQueue */
-  async getMentorPendingAnswerReviews(courseId = '') {
-    const queue = await this.getMentorPendingAnswerReviewQueue(courseId);
+  async getMentorPendingAnswerReviews(courseId = '', options = {}) {
+    const queue = await this.getMentorPendingAnswerReviewQueue(courseId, options);
     return queue.reviews;
   },
 
   /** @deprecated Use getSeniorPendingAnswerReviewQueue */
-  async getSeniorPendingAnswerReviews(courseId = '') {
-    const queue = await this.getSeniorPendingAnswerReviewQueue(courseId);
+  async getSeniorPendingAnswerReviews(courseId = '', options = {}) {
+    const queue = await this.getSeniorPendingAnswerReviewQueue(courseId, options);
     return queue.reviews;
   },
 

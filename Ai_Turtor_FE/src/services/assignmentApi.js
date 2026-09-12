@@ -94,8 +94,10 @@ export const assignmentApi = {
     });
   },
 
-  async getClassSubmissions(courseId, classId, teacherId) {
-    return request(`${API_BASE_URL}/mentor/courses/${encodePath(courseId)}/classes/${encodePath(classId)}/submissions?teacherId=${encodeURIComponent(teacherId)}`);
+  async getClassSubmissions(courseId, classId, teacherId, options = {}) {
+    return request(`${API_BASE_URL}/mentor/courses/${encodePath(courseId)}/classes/${encodePath(classId)}/submissions?teacherId=${encodeURIComponent(teacherId)}`, {
+      signal: options.signal,
+    });
   },
 
   async getAssignmentSubmissions(assignmentId, teacherId) {

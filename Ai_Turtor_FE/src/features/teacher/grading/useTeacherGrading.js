@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '../../../app/queryKeys';
 import { assignmentApi } from '../../../services/assignmentApi';
 import { assignmentGradingGateway } from '../../ai-harness/assignmentGradingGateway';
 import { quizApi } from '../../../services/quizApi';
@@ -22,140 +24,141 @@ const EMPTY_ATTEMPT_PAGE = {
 };
 
 export function useTeacherGrading({ teacherId, courseId, classId, teacherStudents, triggerToast }) {
-  const [teacherSubmissions, setTeacherSubmissions] = useState([]);
-  const [quizSubmissions, setQuizSubmissions] = useState([]);
-  const [quizAttemptPage, setQuizAttemptPage] = useState(EMPTY_ATTEMPT_PAGE);
+  const queryClient = useQueryClient();
   const [quizPage, setQuizPage] = useState(0);
   const [quizReviewStatus, setQuizReviewStatusState] = useState('PENDING');
-  const [isQuizSubmissionsLoading, setIsQuizSubmissionsLoading] = useState(false);
   const [loadingQuizDetailId, setLoadingQuizDetailId] = useState('');
-  const [selectedTeacherSub, setSelectedTeacherSub] = useState(null);
+  const [selectedTeacherSubState, setSelectedTeacherSub] = useState(null);
   const [answerKeyUploadingId, setAnswerKeyUploadingId] = useState('');
   const [aiGradingSubmissionId, setAiGradingSubmissionId] = useState('');
-  const studentLookupRef = useRef(new Map());
   const { runLocked, lockedKeys } = useMutationLock();
+  const hasScope = Boolean(teacherId && courseId && classId);
+  const assignmentQueryKey = queryKeys.teacherGradingAssignments(teacherId, courseId, classId);
+  const quizQueryKey = queryKeys.teacherGradingQuizzes(
+    teacherId,
+    courseId,
+    classId,
+    quizReviewStatus,
+    quizPage,
+  );
+  const studentLookup = useMemo(
+    () => new Map((teacherStudents || []).map((student) => [student.id, student])),
+    [teacherStudents],
+  );
 
-  useEffect(() => {
-    studentLookupRef.current = new Map(
-      (teacherStudents || []).map((student) => [student.id, student]),
-    );
-    setQuizSubmissions((current) => current.map((attempt) => {
-      const student = studentLookupRef.current.get(attempt.studentId);
-      return student ? {
-        ...attempt,
-        studentName: student.name || student.fullName || attempt.studentName,
-        studentEmail: student.email || attempt.studentEmail,
-      } : attempt;
-    }));
-  }, [teacherStudents]);
-
-  const loadTeacherSubmissions = async () => {
-    if (!courseId || !classId || !teacherId) {
-      setTeacherSubmissions([]);
-      setSelectedTeacherSub(null);
-      return;
-    }
-    try {
+  const assignmentSubmissionsQuery = useQuery({
+    queryKey: assignmentQueryKey,
+    queryFn: async ({ signal }) => {
       const [submissionData, assignmentData] = await Promise.all([
-        assignmentApi.getClassSubmissions(courseId, classId, teacherId),
-        assignmentApi.getClassAssignments(courseId, classId, teacherId),
+        assignmentApi.getClassSubmissions(courseId, classId, teacherId, { signal }),
+        assignmentApi.getClassAssignments(courseId, classId, teacherId, { signal }),
       ]);
       const assignments = asArray(assignmentData, 'content', 'assignments').map(normalizeAssignment);
       const assignmentsById = new Map(assignments.map((assignment) => [assignment.id, assignment]));
-      const submissions = asArray(submissionData, 'content', 'submissions').map((rawSubmission) => {
+      return asArray(submissionData, 'content', 'submissions').map((rawSubmission) => {
         const submission = normalizeAssignmentSubmission(rawSubmission);
-        const assignment = assignmentsById.get(submission.assignmentId) || normalizeAssignment(rawSubmission.assignment);
-        const student = studentLookupRef.current.get(submission.studentId || submission.userId);
+        const assignment = assignmentsById.get(submission.assignmentId)
+          || normalizeAssignment(rawSubmission.assignment);
         return {
           ...assignment,
           ...submission,
           id: submission.id,
           submissionId: submission.id,
           assignment,
-          studentName: student?.name || student?.fullName || submission.studentName,
-          studentEmail: student?.email || submission.studentEmail,
         };
       });
-      setTeacherSubmissions(submissions);
-      setSelectedTeacherSub((current) => {
-        const currentId = current?.submissionId || current?.id;
-        return submissions.find((submission) => submission.id === currentId)
-          || submissions[0]
-          || null;
-      });
-    } catch {
-      setTeacherSubmissions([]);
-    }
-  };
-
-  useRealtimeEvent([
-    ...REALTIME_EVENT_TYPES.teacherAssignment,
-    ...REALTIME_EVENT_TYPES.assignmentAiGrading,
-  ], () => {
-    loadTeacherSubmissions();
+    },
+    enabled: hasScope,
+    staleTime: 15_000,
   });
-
-  const loadQuizSubmissions = useCallback(async ({ signal } = {}) => {
-    if (!teacherId || !courseId || !classId) {
-      setQuizSubmissions([]);
-      setQuizAttemptPage(EMPTY_ATTEMPT_PAGE);
-      return;
-    }
-    setIsQuizSubmissionsLoading(true);
-    try {
-      const response = await quizApi.getTeacherQuizAttempts(teacherId, {
+  const quizSubmissionsQuery = useQuery({
+    queryKey: quizQueryKey,
+    queryFn: ({ signal }) => quizApi.getTeacherQuizAttempts(teacherId, {
         status: 'SUBMITTED',
         reviewStatus: quizReviewStatus || undefined,
         courseId,
         classId,
         page: quizPage,
         size: 20,
-      }, { signal });
-      const attempts = response.attempts.map((attempt) => {
-        const student = studentLookupRef.current.get(attempt.studentId);
-        return {
-          ...attempt,
-          studentName: student?.name || student?.fullName || attempt.studentName,
-          studentEmail: student?.email || attempt.studentEmail,
-        };
-      });
-      setQuizSubmissions(attempts);
-      setQuizAttemptPage({
-        page: response.page,
-        size: response.size,
-        totalElements: response.totalElements,
-        totalPages: response.totalPages,
-      });
-      setSelectedTeacherSub((current) => {
-        if (!current?.quizSessionId) return current;
-        return attempts.some((attempt) => attempt.id === current.id) ? current : null;
-      });
-    } catch (error) {
-      if (error?.name === 'AbortError') return;
-      console.error('Failed to load teacher quiz attempts', error);
-      setQuizSubmissions([]);
-      setQuizAttemptPage(EMPTY_ATTEMPT_PAGE);
-      triggerToast(getUserFacingError(error, 'Không thể tải danh sách lượt làm quiz cần duyệt.'));
-    } finally {
-      setIsQuizSubmissionsLoading(false);
-    }
-  }, [classId, courseId, quizPage, quizReviewStatus, teacherId, triggerToast]);
-
-  useRealtimeReconnect(() => {
-    if (teacherId && courseId && classId) {
-      loadTeacherSubmissions();
-      loadQuizSubmissions();
-    }
+      }, { signal }),
+    enabled: hasScope,
+    staleTime: 15_000,
   });
 
+  const teacherSubmissions = useMemo(() => (
+    (assignmentSubmissionsQuery.data || []).map((submission) => {
+      const student = studentLookup.get(submission.studentId || submission.userId);
+      return {
+        ...submission,
+        studentName: student?.name || student?.fullName || submission.studentName,
+        studentEmail: student?.email || submission.studentEmail,
+      };
+    })
+  ), [assignmentSubmissionsQuery.data, studentLookup]);
+  const quizSubmissions = useMemo(() => (
+    (quizSubmissionsQuery.data?.attempts || []).map((attempt) => {
+      const student = studentLookup.get(attempt.studentId);
+      return {
+        ...attempt,
+        studentName: student?.name || student?.fullName || attempt.studentName,
+        studentEmail: student?.email || attempt.studentEmail,
+      };
+    })
+  ), [quizSubmissionsQuery.data?.attempts, studentLookup]);
+  const quizAttemptPage = quizSubmissionsQuery.data ? {
+    page: quizSubmissionsQuery.data.page,
+    size: quizSubmissionsQuery.data.size,
+    totalElements: quizSubmissionsQuery.data.totalElements,
+    totalPages: quizSubmissionsQuery.data.totalPages,
+  } : EMPTY_ATTEMPT_PAGE;
+  const selectedTeacherSub = useMemo(() => {
+    if (!hasScope) return null;
+    const selectedId = selectedTeacherSubState?.submissionId || selectedTeacherSubState?.id;
+    if (selectedTeacherSubState?.quizSessionId) {
+      const currentQuiz = quizSubmissions.find((attempt) => attempt.id === selectedId);
+      if (currentQuiz) return { ...currentQuiz, ...selectedTeacherSubState };
+      return quizSubmissionsQuery.isPending ? selectedTeacherSubState : null;
+    }
+    const currentSubmission = teacherSubmissions.find((submission) => submission.id === selectedId);
+    if (currentSubmission) return { ...currentSubmission, ...selectedTeacherSubState };
+    if (assignmentSubmissionsQuery.isPending) return selectedTeacherSubState;
+    return teacherSubmissions[0] || null;
+  }, [
+    assignmentSubmissionsQuery.isPending,
+    hasScope,
+    quizSubmissions,
+    quizSubmissionsQuery.isPending,
+    selectedTeacherSubState,
+    teacherSubmissions,
+  ]);
+
   useEffect(() => {
-    const controller = new AbortController();
-    const timer = window.setTimeout(() => loadQuizSubmissions({ signal: controller.signal }), 0);
-    return () => {
-      window.clearTimeout(timer);
-      controller.abort();
-    };
-  }, [loadQuizSubmissions]);
+    if (!quizSubmissionsQuery.error) return;
+    triggerToast(getUserFacingError(
+      quizSubmissionsQuery.error,
+      'Không thể tải danh sách lượt làm quiz cần duyệt.',
+    ));
+  }, [quizSubmissionsQuery.error, triggerToast]);
+
+  const loadTeacherSubmissions = useCallback(
+    () => assignmentSubmissionsQuery.refetch(),
+    [assignmentSubmissionsQuery],
+  );
+  const loadQuizSubmissions = useCallback(
+    () => quizSubmissionsQuery.refetch(),
+    [quizSubmissionsQuery],
+  );
+  const invalidateGrading = useCallback(() => {
+    if (!hasScope) return;
+    queryClient.invalidateQueries({ queryKey: assignmentQueryKey, exact: true });
+    queryClient.invalidateQueries({ queryKey: ['teacher', 'grading', 'quizzes', teacherId, courseId, classId] });
+  }, [assignmentQueryKey, classId, courseId, hasScope, queryClient, teacherId]);
+
+  useRealtimeEvent([
+    ...REALTIME_EVENT_TYPES.teacherAssignment,
+    ...REALTIME_EVENT_TYPES.assignmentAiGrading,
+  ], invalidateGrading);
+  useRealtimeReconnect(invalidateGrading);
 
   const setQuizReviewStatus = (status) => {
     setQuizReviewStatusState(status);
@@ -169,7 +172,11 @@ export function useTeacherGrading({ teacherId, courseId, classId, teacherStudent
     setSelectedTeacherSub(attempt);
     setLoadingQuizDetailId(quizSessionId);
     try {
-      const detail = await quizApi.getQuiz(quizSessionId);
+      const detail = await queryClient.fetchQuery({
+        queryKey: queryKeys.quizDetail(quizSessionId),
+        queryFn: ({ signal }) => quizApi.getQuiz(quizSessionId, { signal }),
+        staleTime: 30_000,
+      });
       const merged = normalizeQuizSession({ ...attempt, ...detail });
       setSelectedTeacherSub(merged);
       return merged;
@@ -190,20 +197,25 @@ export function useTeacherGrading({ teacherId, courseId, classId, teacherStudent
           feedback,
         });
         triggerToast('Đã lưu kết quả duyệt quiz.');
-        setQuizSubmissions((current) => current.map((quiz) => (
-          quiz.id === quizSessionId
-            ? {
-                ...quiz,
-                teacherReviewedScore: Number(reviewedScore),
-                finalScore: Number(reviewedScore),
-                finalPercentage: quiz.maxScore
-                  ? Math.round((Number(reviewedScore) * 10000) / quiz.maxScore) / 100
-                  : 0,
-                teacherFeedback: feedback,
-                teacherReviewStatus: 'REVIEWED',
-              }
-            : quiz
-        )));
+        queryClient.setQueriesData({
+          queryKey: ['teacher', 'grading', 'quizzes', teacherId, courseId, classId],
+        }, (current) => current ? {
+          ...current,
+          attempts: (current.attempts || []).map((quiz) => (
+            quiz.id === quizSessionId
+              ? {
+                  ...quiz,
+                  teacherReviewedScore: Number(reviewedScore),
+                  finalScore: Number(reviewedScore),
+                  finalPercentage: quiz.maxScore
+                    ? Math.round((Number(reviewedScore) * 10000) / quiz.maxScore) / 100
+                    : 0,
+                  teacherFeedback: feedback,
+                  teacherReviewStatus: 'REVIEWED',
+                }
+              : quiz
+          )),
+        } : current);
         setSelectedTeacherSub((current) => current?.id === quizSessionId ? {
           ...current,
           teacherReviewedScore: Number(reviewedScore),
@@ -213,6 +225,8 @@ export function useTeacherGrading({ teacherId, courseId, classId, teacherStudent
         } : current);
         if (quizReviewStatus === 'PENDING') {
           await loadQuizSubmissions();
+        } else {
+          await queryClient.invalidateQueries({ queryKey: quizQueryKey, exact: true });
         }
         return true;
       } catch (error) {
@@ -303,7 +317,8 @@ export function useTeacherGrading({ teacherId, courseId, classId, teacherStudent
     setQuizPage,
     quizReviewStatus,
     setQuizReviewStatus,
-    isQuizSubmissionsLoading,
+    isQuizSubmissionsLoading: hasScope
+      && (quizSubmissionsQuery.isPending || quizSubmissionsQuery.isFetching),
     loadingQuizDetailId,
     selectedTeacherSub,
     setSelectedTeacherSub,

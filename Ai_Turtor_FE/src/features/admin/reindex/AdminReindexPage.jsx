@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Alert, Button, Card, Col, Progress, Row, Tag, Typography } from 'antd';
 import { CheckCircle2, Database, RefreshCw, TriangleAlert } from 'lucide-react';
 import PageHeader from '../../../components/common/PageHeader';
@@ -6,6 +7,7 @@ import SearchableTable from '../../../components/common/SearchableTable';
 import { adminAcademicApi } from '../../../services/adminAcademicApi';
 import { materialsApi } from '../../../services/materialsApi';
 import { getUserFacingError } from '../../../services/apiClient';
+import { queryKeys } from '../../../app/queryKeys';
 import './AdminReindexPage.css';
 
 const { Paragraph, Text } = Typography;
@@ -13,28 +15,19 @@ const getCourseId = (course = {}) => String(course.courseId || course.id || cour
 const getCourseName = (course = {}) => course.courseName || course.name || course.title || 'Chưa có tên môn';
 
 export default function AdminReindexPage({ triggerToast }) {
-  const [courses, setCourses] = useState([]);
   const [states, setStates] = useState({});
-  const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
-  const [error, setError] = useState('');
-
-  const loadCourses = useCallback(async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const data = await adminAcademicApi.getCourses();
-      const validCourses = data.filter((course) => getCourseId(course));
-      setCourses(validCourses);
-      setStates(Object.fromEntries(validCourses.map((course) => [getCourseId(course), { status: 'READY' }])));
-    } catch (reason) {
-      setError(getUserFacingError(reason, 'Không thể tải danh sách môn học.'));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { loadCourses(); }, [loadCourses]);
+  const coursesQuery = useQuery({
+    queryKey: queryKeys.adminCourses(),
+    queryFn: ({ signal }) => adminAcademicApi.getCourses({ signal }),
+    staleTime: 60_000,
+  });
+  const courses = (coursesQuery.data || []).filter((course) => getCourseId(course));
+  const loading = coursesQuery.isPending || coursesQuery.isFetching;
+  const error = coursesQuery.error
+    ? getUserFacingError(coursesQuery.error, 'Không thể tải danh sách môn học.')
+    : '';
+  const loadCourses = () => coursesQuery.refetch();
 
   const summary = useMemo(() => {
     const values = Object.values(states);
@@ -66,7 +59,6 @@ export default function AdminReindexPage({ triggerToast }) {
   const runSingleCourse = async (course) => {
     if (running) return;
     setRunning(true);
-    setError('');
     const success = await reindexCourse(course);
     setRunning(false);
     triggerToast?.(success
@@ -77,7 +69,6 @@ export default function AdminReindexPage({ triggerToast }) {
   const runReindex = async () => {
     if (running || !courses.length) return;
     setRunning(true);
-    setError('');
     setStates(Object.fromEntries(courses.map((course) => [getCourseId(course), { status: 'WAITING' }])));
     let failedCount = 0;
 

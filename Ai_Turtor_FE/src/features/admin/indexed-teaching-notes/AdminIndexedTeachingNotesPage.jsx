@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Alert,
   Card,
@@ -19,10 +20,12 @@ import { adminAcademicApi } from '../../../services/adminAcademicApi';
 import { indexedTeachingNotesApi } from '../../../services/indexedTeachingNotesApi';
 import { getUserFacingError } from '../../../services/apiClient';
 import { getStatusLabel } from '../../../utils/statusLabels';
+import { queryKeys } from '../../../app/queryKeys';
 import './AdminIndexedTeachingNotesPage.css';
 
 const { Paragraph, Text } = Typography;
 const { TextArea } = Input;
+const EMPTY_LIST = [];
 
 const courseCode = (course = {}) => String(course.courseId || course.id || course.code || '').trim();
 const courseName = (course = {}) => course.courseName || course.name || course.title || courseCode(course);
@@ -35,50 +38,36 @@ const getKnowledgeTypeLabel = (value) => {
 };
 
 export default function AdminIndexedTeachingNotesPage({ courseId, setCourseId, triggerToast }) {
-  const [courses, setCourses] = useState([]);
-  const [items, setItems] = useState([]);
+  const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [pendingId, setPendingId] = useState('');
   const [editing, setEditing] = useState(null);
   const [form] = Form.useForm();
 
-  const loadCourses = useCallback(async () => {
-    try {
-      const data = await adminAcademicApi.getCourses();
-      setCourses((data || []).filter((item) => courseCode(item)));
-    } catch (reason) {
-      setError(getUserFacingError(reason, 'Không thể tải danh sách môn học.'));
-    }
-  }, []);
-
-  const loadNotes = useCallback(async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const data = await indexedTeachingNotesApi.list({
+  const coursesQuery = useQuery({
+    queryKey: queryKeys.adminCourses(),
+    queryFn: ({ signal }) => adminAcademicApi.getCourses({ signal }),
+    staleTime: 60_000,
+  });
+  const notesQuery = useQuery({
+    queryKey: queryKeys.adminIndexedTeachingNotes(courseId, statusFilter),
+    queryFn: ({ signal }) => indexedTeachingNotesApi.list({
         courseId: courseId || undefined,
         status: statusFilter || undefined,
-      });
-      setItems(data);
-    } catch (reason) {
-      setError(getUserFacingError(reason, 'Không thể tải index Senior đã duyệt.'));
-      setItems([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [courseId, statusFilter]);
-
-  useEffect(() => {
-    const frameId = window.requestAnimationFrame(() => { void loadCourses(); });
-    return () => window.cancelAnimationFrame(frameId);
-  }, [loadCourses]);
-
-  useEffect(() => {
-    const frameId = window.requestAnimationFrame(() => { void loadNotes(); });
-    return () => window.cancelAnimationFrame(frameId);
-  }, [loadNotes]);
+      }, { signal }),
+    staleTime: 15_000,
+  });
+  const courses = useMemo(
+    () => (coursesQuery.data || EMPTY_LIST).filter((item) => courseCode(item)),
+    [coursesQuery.data],
+  );
+  const items = notesQuery.data || EMPTY_LIST;
+  const loading = notesQuery.isPending || notesQuery.isFetching;
+  const queryError = notesQuery.error || coursesQuery.error;
+  const error = queryError
+    ? getUserFacingError(queryError, 'Không thể tải dữ liệu index Senior đã duyệt.')
+    : '';
+  const loadNotes = () => notesQuery.refetch();
 
   const courseOptions = useMemo(
     () => [
@@ -112,7 +101,7 @@ export default function AdminIndexedTeachingNotesPage({ courseId, setCourseId, t
       await indexedTeachingNotesApi.update(editing.id, { ...values, reindex: true });
       triggerToast?.('Đã cập nhật và nạp lại chỉ mục knowledge.');
       setEditing(null);
-      await loadNotes();
+      await queryClient.invalidateQueries({ queryKey: ['admin', 'indexed-teaching-notes'] });
     } catch (reason) {
       triggerToast?.(getUserFacingError(reason, 'Không thể cập nhật index.'));
     } finally {
@@ -125,7 +114,7 @@ export default function AdminIndexedTeachingNotesPage({ courseId, setCourseId, t
     try {
       await action();
       triggerToast?.(successMessage);
-      await loadNotes();
+      await queryClient.invalidateQueries({ queryKey: ['admin', 'indexed-teaching-notes'] });
     } catch (reason) {
       triggerToast?.(getUserFacingError(reason, 'Thao tác thất bại.'));
     } finally {
