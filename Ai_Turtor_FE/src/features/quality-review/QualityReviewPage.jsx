@@ -1,10 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { DatabaseZap, History, ShieldAlert } from 'lucide-react';
 import PageHeader from '../../components/common/PageHeader';
 import AnswerReviewWorkspace from '../teacher/review/AnswerReviewWorkspace';
 import { useTeacherReviewQueue } from '../teacher/review/useTeacherReviewQueue';
-import { useRealtimeEvent, useRealtimeReconnect } from '../realtime/realtimeContext';
-import { eventMatchesCourse, REALTIME_EVENT_TYPES } from '../realtime/realtimeEvents';
 import './QualityReviewPage.css';
 
 export default function QualityReviewPage({
@@ -25,26 +23,6 @@ export default function QualityReviewPage({
   const pendingReviewCount = review.seniorAnswerReviewGroups?.length || review.seniorAnswerReviews?.length || 0;
   const pendingCandidateCount = review.candidates?.length || 0;
   const historyCount = (review.resolvedAnswerReviews?.length || 0) + (review.reviewedCandidates?.length || 0);
-
-  useEffect(() => {
-    review.loadAnswerReviews();
-    review.loadKnowledgeCandidates();
-    review.loadReviewHistory();
-    // Resources are loaded only while this role-specific route is mounted.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reviewerId, courseId]);
-
-  useRealtimeEvent(REALTIME_EVENT_TYPES.answerReview, (event) => {
-    if (!eventMatchesCourse(event, courseId)) return;
-    review.loadAnswerReviews();
-    review.loadKnowledgeCandidates();
-    review.loadReviewHistory();
-  });
-  useRealtimeReconnect(() => {
-    review.loadAnswerReviews();
-    review.loadKnowledgeCandidates();
-    review.loadReviewHistory();
-  });
 
   const handleNoteChange = (candidateId, value) => {
     setCandidateNotes((current) => ({ ...current, [candidateId]: value }));

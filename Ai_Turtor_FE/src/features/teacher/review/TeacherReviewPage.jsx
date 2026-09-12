@@ -1,12 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { CheckCircle2, LifeBuoy, ShieldAlert } from 'lucide-react';
 import PageHeader from '../../../components/common/PageHeader';
 import AppTabs from '../../../components/common/AppTabs';
 import { uiCopy } from '../../../constants/uiCopy';
 import { ACADEMIC_CANDIDATE_TYPES } from '../../../constants/knowledgeFlow';
 import { useTeacherReviewQueue } from './useTeacherReviewQueue';
-import { useRealtimeEvent, useRealtimeReconnect } from '../../realtime/realtimeContext';
-import { eventMatchesCourse, REALTIME_EVENT_TYPES } from '../../realtime/realtimeEvents';
 import AnswerReviewWorkspace from './AnswerReviewWorkspace';
 import TeacherSupportInbox from './TeacherSupportInbox';
 import './TeacherReviewPage.css';
@@ -22,7 +20,6 @@ export default function TeacherReviewPage({
   currentUser,
   teacherId,
   courseId,
-  classId,
   triggerToast,
 }) {
   const review = useTeacherReviewQueue({
@@ -40,23 +37,6 @@ export default function TeacherReviewPage({
   const openSupportCount = review.escalations.filter((item) => !isHistoryEscalation(item)).length;
   const resolvedCount = review.escalations.filter(isHistoryEscalation).length
     + (review.resolvedAnswerReviews?.length || 0);
-
-  useEffect(() => {
-    review.loadTeacherInbox({ courseId });
-    review.loadAnswerReviews();
-    review.loadResolvedAnswerReviews?.();
-    // Review resources are fetched only while this route is mounted.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [teacherId, courseId, classId]);
-
-  useRealtimeEvent(REALTIME_EVENT_TYPES.answerReview, (event) => {
-    if (!eventMatchesCourse(event, courseId)) return;
-    review.loadAnswerReviews();
-  });
-  useRealtimeReconnect(() => {
-    review.loadAnswerReviews();
-    review.loadResolvedAnswerReviews?.();
-  });
 
   const handleAnswerEscalation = async (event) => {
     event.preventDefault();

@@ -82,7 +82,7 @@ export const teacherReviewApi = {
     return queue.reviews;
   },
 
-  async getAnswerReviews(filters = {}) {
+  async getAnswerReviews(filters = {}, options = {}) {
     const params = new URLSearchParams();
     Object.entries(filters).forEach(([key, value]) => {
       if (value !== undefined && value !== null && value !== '') {
@@ -91,7 +91,9 @@ export const teacherReviewApi = {
     });
     const query = params.toString();
     return asArray(
-      await request(`${API_BASE_URL}/tutor/answer-reviews${query ? `?${query}` : ''}`),
+      await request(`${API_BASE_URL}/tutor/answer-reviews${query ? `?${query}` : ''}`, {
+        signal: options.signal,
+      }),
       'reviews',
       'content',
       'items',
@@ -106,12 +108,14 @@ export const teacherReviewApi = {
     });
   },
 
-  async getKnowledgeCandidates(status = '', courseId = '') {
+  async getKnowledgeCandidates(status = '', courseId = '', options = {}) {
     const params = new URLSearchParams();
     if (status) params.append('status', status);
     if (courseId) params.append('courseId', courseId);
     return asArray(
-      await request(`${API_BASE_URL}/tutor/escalations/knowledge-candidates?${params}`),
+      await request(`${API_BASE_URL}/tutor/escalations/knowledge-candidates?${params}`, {
+        signal: options.signal,
+      }),
       'candidates',
       'content',
     );
