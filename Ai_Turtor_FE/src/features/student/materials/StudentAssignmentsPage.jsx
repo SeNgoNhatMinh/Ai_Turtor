@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { FormOutlined } from '@ant-design/icons';
 import PageHeader from '../../../components/common/PageHeader';
 import { uiCopy } from '../../../constants/uiCopy';
@@ -41,12 +40,6 @@ export default function StudentAssignmentsPage({
     }
     setCourseId?.(nextCourseId);
   };
-
-  useEffect(() => {
-    assignments.loadStudentAssignments({ page: 0, query: '' });
-    // Route page owns assignment loading.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [studentId, courseId, classId]);
 
   return (
     <div className="portal-section student-materials-page student-assignments-page">

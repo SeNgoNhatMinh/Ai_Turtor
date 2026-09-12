@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '../app/queryKeys';
 import { assignmentApi } from '../services/assignmentApi';
 import { getUserFacingError } from '../services/apiClient';
 import {
@@ -12,11 +14,59 @@ import { eventMatchesCourse, REALTIME_EVENT_TYPES } from '../features/realtime/r
 const INITIAL_ASSIGNMENTS_PAGE = Object.freeze({
   page: 0,
   pageSize: 8,
-  totalElements: 0,
-  totalPages: 1,
   query: '',
-  serverPaged: false,
 });
+const EMPTY_LIST = [];
+
+const getAssignmentId = (assignment) => assignment?.id || assignment?.assignmentId || '';
+
+const loadStudentAssignmentsPage = async ({
+  studentId,
+  courseId,
+  page,
+  pageSize,
+  query,
+  signal,
+  skipUnauthorizedRedirect,
+}) => {
+  const options = {
+    signal,
+    skipUnauthorizedRedirect,
+    page,
+    size: pageSize,
+    query,
+  };
+  const assignmentData = await assignmentApi.getStudentAssignments(studentId, courseId, options);
+  const assignments = asArray(assignmentData, 'content', 'assignments').map(normalizeAssignment);
+  const assignmentIds = assignments.map(getAssignmentId).filter(Boolean);
+  const submissionData = assignmentIds.length
+    ? await assignmentApi.getStudentSubmissions(studentId, courseId, { ...options, assignmentIds })
+    : [];
+  const submissions = asArray(submissionData, 'content', 'submissions')
+    .map(normalizeAssignmentSubmission);
+  const submissionsByAssignment = new Map(submissions.map((submission) => [
+    submission.assignmentId || submission.assignment?.id,
+    submission,
+  ]));
+  const items = assignments.map((assignment) => {
+    const submission = submissionsByAssignment.get(getAssignmentId(assignment));
+    return submission
+      ? { ...assignment, submission, status: submission.status || assignment.status, score: submission.score }
+      : assignment;
+  });
+
+  return {
+    items,
+    pagination: {
+      page: Number(assignmentData?.page ?? page),
+      pageSize: Number(assignmentData?.size ?? pageSize),
+      totalElements: Number(assignmentData?.totalElements ?? items.length),
+      totalPages: Number(assignmentData?.totalPages ?? 1),
+      query,
+      serverPaged: assignmentData?.page != null && assignmentData?.size != null,
+    },
+  };
+};
 
 export function useStudentAssignmentsController({
   studentId,
@@ -26,141 +76,123 @@ export function useStudentAssignmentsController({
   triggerToast,
   skipUnauthorizedRedirect = false,
 }) {
-  const [assignments, setAssignments] = useState([]);
-  const [selectedAssignment, setSelectedAssignment] = useState(null);
-  const [isAssignmentsLoading, setIsAssignmentsLoading] = useState(false);
-  const [assignmentsError, setAssignmentsError] = useState('');
-  const [assignmentsPage, setAssignmentsPage] = useState(INITIAL_ASSIGNMENTS_PAGE);
-  const assignmentsRequestRef = useRef(null);
-  const assignmentsPageRef = useRef(INITIAL_ASSIGNMENTS_PAGE);
+  const queryClient = useQueryClient();
+  const [pageRequest, setPageRequest] = useState(INITIAL_ASSIGNMENTS_PAGE);
+  const [selectedAssignmentId, setSelectedAssignmentId] = useState('');
+  const assignmentsQueryKey = useMemo(
+    () => queryKeys.studentAssignments(studentId, courseId, pageRequest),
+    [courseId, pageRequest, studentId],
+  );
+  const hasContext = Boolean(studentId);
 
-  const updateAssignmentsPage = useCallback((next) => {
-    const value = typeof next === 'function' ? next(assignmentsPageRef.current) : next;
-    assignmentsPageRef.current = value;
-    setAssignmentsPage(value);
+  const assignmentsQuery = useQuery({
+    queryKey: assignmentsQueryKey,
+    queryFn: ({ signal }) => loadStudentAssignmentsPage({
+      studentId,
+      courseId,
+      ...pageRequest,
+      signal,
+      skipUnauthorizedRedirect,
+    }),
+    enabled: hasContext,
+    staleTime: 15_000,
+    placeholderData: keepPreviousData,
+    retry: 1,
+  });
+
+  const assignments = assignmentsQuery.data?.items || EMPTY_LIST;
+  const assignmentsPage = assignmentsQuery.data?.pagination || {
+    ...INITIAL_ASSIGNMENTS_PAGE,
+    totalElements: 0,
+    totalPages: 1,
+    serverPaged: false,
+  };
+  const selectedAssignment = assignments.find(
+    (assignment) => getAssignmentId(assignment) === selectedAssignmentId,
+  ) || assignments[0] || null;
+
+  const setSelectedAssignment = useCallback((assignment) => {
+    setSelectedAssignmentId(getAssignmentId(assignment));
   }, []);
 
-  useEffect(() => () => assignmentsRequestRef.current?.abort(), []);
-
   const loadStudentAssignments = useCallback(async (requestPage = {}) => {
-    assignmentsRequestRef.current?.abort();
-    if (!studentId) {
-      setAssignments([]);
-      setSelectedAssignment(null);
-      updateAssignmentsPage(INITIAL_ASSIGNMENTS_PAGE);
-      setAssignmentsError('');
-      setIsAssignmentsLoading(false);
-      return;
+    if (!studentId) return [];
+    const hasNewPageRequest = Number.isInteger(requestPage?.page)
+      || Number.isInteger(requestPage?.pageSize)
+      || typeof requestPage?.query === 'string';
+
+    if (hasNewPageRequest) {
+      setPageRequest((current) => ({
+        page: Number.isInteger(requestPage.page) ? requestPage.page : current.page,
+        pageSize: Number.isInteger(requestPage.pageSize) ? requestPage.pageSize : current.pageSize,
+        query: typeof requestPage.query === 'string' ? requestPage.query : current.query,
+      }));
+      return assignmentsQuery.data?.items || [];
     }
-    const controller = new AbortController();
-    assignmentsRequestRef.current = controller;
-    setIsAssignmentsLoading(true);
-    setAssignmentsError('');
-    try {
-      const currentPage = assignmentsPageRef.current;
-      const requestedPage = Number.isInteger(requestPage?.page) ? requestPage.page : currentPage.page;
-      const requestedPageSize = Number.isInteger(requestPage?.pageSize) ? requestPage.pageSize : currentPage.pageSize;
-      const requestedQuery = typeof requestPage?.query === 'string' ? requestPage.query : currentPage.query;
-      const options = {
-        signal: controller.signal,
-        skipUnauthorizedRedirect,
-        page: requestedPage,
-        size: requestedPageSize,
-        query: requestedQuery,
-      };
-      const assignmentData = await assignmentApi.getStudentAssignments(studentId, courseId, options);
-      if (controller.signal.aborted) return;
-      const assignList = asArray(assignmentData, 'content', 'assignments').map(normalizeAssignment);
-      const assignmentIds = assignList
-        .map((assignment) => assignment.id || assignment.assignmentId)
-        .filter(Boolean);
-      const submissionData = assignmentIds.length
-        ? await assignmentApi.getStudentSubmissions(studentId, courseId, { ...options, assignmentIds })
-        : [];
-      if (controller.signal.aborted) return;
-      const submissionList = asArray(submissionData, 'content', 'submissions').map(normalizeAssignmentSubmission);
-      const submissionsByAssignment = new Map(submissionList.map((submission) => [
-        submission.assignmentId || submission.assignment?.id,
-        submission,
-      ]));
-      const merged = assignList.map((assignment) => {
-        const assignmentId = assignment.id || assignment.assignmentId;
-        const submission = submissionsByAssignment.get(assignmentId);
-        return submission
-          ? { ...assignment, submission, status: submission.status || assignment.status, score: submission.score }
-          : assignment;
-      });
-      setAssignments(merged);
-      updateAssignmentsPage({
-        page: Number(assignmentData?.page ?? requestedPage),
-        pageSize: Number(assignmentData?.size ?? requestedPageSize),
-        totalElements: Number(assignmentData?.totalElements ?? merged.length),
-        totalPages: Number(assignmentData?.totalPages ?? 1),
-        query: requestedQuery,
-        serverPaged: assignmentData?.page != null && assignmentData?.size != null,
-      });
-      setSelectedAssignment((current) => (
-        merged.find((assignment) => (assignment.id || assignment.assignmentId) === (current?.id || current?.assignmentId))
-        || merged[0]
-        || null
-      ));
-    } catch (error) {
-      if (controller.signal.aborted) return;
-      console.warn('Failed to load student assignments:', error);
-      setAssignments([]);
-      setSelectedAssignment(null);
-      setAssignmentsError(getUserFacingError(error, 'Không thể tải bài tập được giao.'));
-    } finally {
-      if (assignmentsRequestRef.current === controller) {
-        assignmentsRequestRef.current = null;
-        setIsAssignmentsLoading(false);
-      }
-    }
-  }, [courseId, skipUnauthorizedRedirect, studentId, updateAssignmentsPage]);
+
+    const result = await assignmentsQuery.refetch();
+    return result.data?.items || [];
+  }, [assignmentsQuery, studentId]);
 
   const changeAssignmentsPage = useCallback((page, pageSize) => {
-    loadStudentAssignments({ page, pageSize });
-  }, [loadStudentAssignments]);
+    setPageRequest((current) => ({
+      ...current,
+      page: Number.isInteger(page) ? page : current.page,
+      pageSize: Number.isInteger(pageSize) ? pageSize : current.pageSize,
+    }));
+  }, []);
 
   const searchAssignments = useCallback((query) => {
-    loadStudentAssignments({ page: 0, query });
-  }, [loadStudentAssignments]);
+    setPageRequest((current) => ({ ...current, page: 0, query: String(query || '') }));
+  }, []);
 
   useRealtimeEvent(REALTIME_EVENT_TYPES.studentAssignment, (event) => {
-    if (eventMatchesCourse(event, courseId)) loadStudentAssignments();
+    if (eventMatchesCourse(event, courseId)) {
+      queryClient.invalidateQueries({
+        queryKey: ['student', 'assignments', studentId || 'anonymous', courseId || 'all'],
+      });
+    }
   });
 
   useRealtimeReconnect(() => {
-    if (studentId) loadStudentAssignments();
+    if (studentId) {
+      queryClient.invalidateQueries({
+        queryKey: ['student', 'assignments', studentId, courseId || 'all'],
+      });
+    }
   });
 
-  const handleStudentSubmit = async (assignmentId, file, note) => {
-    triggerToast('Đang nộp bài...');
+  const submitMutation = useMutation({
+    mutationFn: ({ assignmentId, formData }) => assignmentApi.submitAssignment(
+      assignmentId,
+      formData,
+      { studentId, studentName, studentEmail },
+      { skipUnauthorizedRedirect },
+    ),
+    onSuccess: () => queryClient.invalidateQueries({
+      queryKey: ['student', 'assignments', studentId || 'anonymous', courseId || 'all'],
+    }),
+  });
 
+  const handleStudentSubmit = useCallback(async (assignmentId, file, note) => {
+    triggerToast('Đang nộp bài...');
     const formData = new FormData();
     formData.append('file', file);
     formData.append('note', note);
 
     try {
-      await assignmentApi.submitAssignment(assignmentId, formData, {
-        studentId,
-        studentName,
-        studentEmail,
-      }, { skipUnauthorizedRedirect });
+      await submitMutation.mutateAsync({ assignmentId, formData });
       triggerToast('Đã nộp bài thành công.');
-      await loadStudentAssignments();
       return true;
     } catch (error) {
       console.error('Error submitting assignment:', error);
       triggerToast(getUserFacingError(error, 'Không thể nộp bài.'));
       return false;
     }
-  };
+  }, [submitMutation, triggerToast]);
 
-  const handleDownloadAssignment = async (assignment) => {
-    const assignmentId = typeof assignment === 'string'
-      ? assignment
-      : assignment?.id || assignment?.assignmentId;
+  const handleDownloadAssignment = useCallback(async (assignment) => {
+    const assignmentId = typeof assignment === 'string' ? assignment : getAssignmentId(assignment);
     if (!assignmentId) {
       triggerToast('Bài tập này không có tệp để tải xuống.');
       return;
@@ -169,20 +201,20 @@ export function useStudentAssignmentsController({
     try {
       const blob = await assignmentApi.downloadAssignmentFile(assignmentId, { skipUnauthorizedRedirect });
       const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = assignment?.attachmentFileName || assignment?.fileName || `assignment-${assignmentId}`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = assignment?.attachmentFileName || assignment?.fileName || `assignment-${assignmentId}`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
       window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Error downloading assignment:', error);
       triggerToast(getUserFacingError(error, 'Không thể tải tệp bài tập.'));
     }
-  };
+  }, [skipUnauthorizedRedirect, triggerToast]);
 
-  const handleDownloadSubmission = async (submission) => {
+  const handleDownloadSubmission = useCallback(async (submission) => {
     const submissionId = typeof submission === 'string'
       ? submission
       : submission?.id || submission?.submissionId;
@@ -203,14 +235,16 @@ export function useStudentAssignmentsController({
     } catch (error) {
       triggerToast(getUserFacingError(error, 'Không thể tải tệp bạn đã nộp.'));
     }
-  };
+  }, [skipUnauthorizedRedirect, triggerToast]);
 
   return {
     assignments,
     selectedAssignment,
     setSelectedAssignment,
-    isAssignmentsLoading,
-    assignmentsError,
+    isAssignmentsLoading: assignmentsQuery.isPending || assignmentsQuery.isFetching,
+    assignmentsError: assignmentsQuery.error
+      ? getUserFacingError(assignmentsQuery.error, 'Không thể tải bài tập được giao.')
+      : '',
     assignmentsPage,
     loadStudentAssignments,
     changeAssignmentsPage,

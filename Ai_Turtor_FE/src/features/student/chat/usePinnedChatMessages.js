@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '../../../app/queryKeys';
 import { getUserFacingError } from '../../../services/apiClient';
 import { conversationApi } from '../../../services/conversationApi';
 import {
@@ -11,33 +13,33 @@ import {
 const MAX_PINNED_MESSAGES = 3;
 
 export function usePinnedChatMessages({ userId, sessionId, messages, triggerToast }) {
-  const [serverMessages, setServerMessages] = useState([]);
-  const [pinningMessageId, setPinningMessageId] = useState('');
+  const queryClient = useQueryClient();
   const [highlightedMessageKey, setHighlightedMessageKey] = useState('');
-
-  const loadPinnedMessages = useCallback(async () => {
-    if (!userId || !sessionId) {
-      setServerMessages([]);
-      return;
-    }
-    try {
-      const data = await conversationApi.getPinnedMessages(sessionId, userId);
-      setServerMessages(normalizePinnedMessages(data));
-    } catch (error) {
-      console.warn('Failed to load pinned chat messages:', error);
-      setServerMessages([]);
-    }
-  }, [sessionId, userId]);
+  const pinnedQueryKey = useMemo(
+    () => queryKeys.pinnedConversationMessages(sessionId, userId),
+    [sessionId, userId],
+  );
+  const pinnedQuery = useQuery({
+    queryKey: pinnedQueryKey,
+    queryFn: async ({ signal }) => normalizePinnedMessages(
+      await conversationApi.getPinnedMessages(sessionId, userId, { signal }),
+    ),
+    enabled: Boolean(userId && sessionId),
+    staleTime: 30_000,
+    retry: 1,
+  });
+  const refetchPinnedMessages = pinnedQuery.refetch;
+  const serverMessages = useMemo(() => pinnedQuery.data || [], [pinnedQuery.data]);
 
   useEffect(() => {
-    let cancelled = false;
-    Promise.resolve().then(() => {
-      if (!cancelled) loadPinnedMessages();
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [loadPinnedMessages]);
+    if (pinnedQuery.error) console.warn('Failed to load pinned chat messages:', pinnedQuery.error);
+  }, [pinnedQuery.error]);
+
+  const loadPinnedMessages = useCallback(async () => {
+    if (!userId || !sessionId) return [];
+    const result = await refetchPinnedMessages();
+    return result.data || [];
+  }, [refetchPinnedMessages, sessionId, userId]);
 
   const pinnedMessageIdSet = useMemo(
     () => new Set(serverMessages.map((item) => item.messageId).filter(Boolean)),
@@ -72,6 +74,22 @@ export function usePinnedChatMessages({ userId, sessionId, messages, triggerToas
       };
     }), [messageLookupById, serverMessages]);
 
+  const pinMutation = useMutation({
+    mutationFn: async ({ messageId, isPinned }) => {
+      if (isPinned) await conversationApi.unpinChatMessage(sessionId, messageId, userId);
+      else await conversationApi.pinChatMessage(sessionId, messageId, userId);
+      return { messageId, isPinned };
+    },
+    onSuccess: async ({ isPinned }) => {
+      await queryClient.invalidateQueries({ queryKey: pinnedQueryKey });
+      triggerToast?.(isPinned ? 'Đã bỏ ghim tin nhắn.' : 'Đã ghim tin nhắn.');
+    },
+    onError: (error, { isPinned }) => triggerToast?.(getUserFacingError(
+      error,
+      isPinned ? 'Không thể bỏ ghim tin nhắn.' : 'Không thể ghim tin nhắn.',
+    )),
+  });
+
   const togglePinnedMessage = useCallback(async (message) => {
     if (!userId || !sessionId) {
       triggerToast?.('Hãy mở một cuộc trò chuyện đã lưu trước khi ghim tin nhắn.');
@@ -88,21 +106,12 @@ export function usePinnedChatMessages({ userId, sessionId, messages, triggerToas
       return;
     }
 
-    setPinningMessageId(messageId);
     try {
-      if (isPinned) await conversationApi.unpinChatMessage(sessionId, messageId, userId);
-      else await conversationApi.pinChatMessage(sessionId, messageId, userId);
-      await loadPinnedMessages();
-      triggerToast?.(isPinned ? 'Đã bỏ ghim tin nhắn.' : 'Đã ghim tin nhắn.');
-    } catch (error) {
-      triggerToast?.(getUserFacingError(
-        error,
-        isPinned ? 'Không thể bỏ ghim tin nhắn.' : 'Không thể ghim tin nhắn.',
-      ));
-    } finally {
-      setPinningMessageId('');
+      await pinMutation.mutateAsync({ messageId, isPinned });
+    } catch {
+      // The mutation owns the user-facing error state.
     }
-  }, [loadPinnedMessages, pinnedMessageIdSet, serverMessages.length, sessionId, triggerToast, userId]);
+  }, [pinMutation, pinnedMessageIdSet, serverMessages.length, sessionId, triggerToast, userId]);
 
   const jumpToPinnedMessage = useCallback((messageKey) => {
     const target = document.querySelector(`[data-chat-message-key="${CSS.escape(messageKey)}"]`);
@@ -153,7 +162,7 @@ export function usePinnedChatMessages({ userId, sessionId, messages, triggerToas
     highlightedMessageKey,
     pinnedMessageIdSet,
     pinnedMessages,
-    pinningMessageId,
+    pinningMessageId: pinMutation.isPending ? pinMutation.variables?.messageId || '' : '',
     jumpToPinnedMessage,
     togglePinnedMessage,
   };

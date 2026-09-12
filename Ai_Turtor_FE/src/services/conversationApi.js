@@ -1,8 +1,7 @@
 import { API_BASE_URL, request } from './apiClient';
 import { encodePath } from '../config/env';
+import { queryKeys } from '../app/queryKeys';
 import { fetchServerQuery, invalidateServerQueries } from './queryCache';
-
-const conversationQueryKey = (userId, courseId) => ['conversations', userId, courseId || 'all'];
 
 export const conversationApi = {
   async getConversations(userId, courseId, options = {}) {
@@ -13,7 +12,7 @@ export const conversationApi = {
       skipUnauthorizedRedirect: options.skipUnauthorizedRedirect,
     });
     if (options.signal) return loader();
-    return fetchServerQuery(conversationQueryKey(userId, courseId), loader, {
+    return fetchServerQuery(queryKeys.conversations(userId, courseId), loader, {
       force: options.force,
       staleTime: 10_000,
     });
@@ -81,9 +80,10 @@ export const conversationApi = {
     });
   },
 
-  async getPinnedMessages(conversationId, userId) {
+  async getPinnedMessages(conversationId, userId, options = {}) {
     const params = new URLSearchParams({ userId });
     return request(`${API_BASE_URL}/ai/conversations/${encodePath(conversationId)}/pinned-messages?${params}`, {
+      signal: options.signal,
       skipUnauthorizedRedirect: true,
     });
   },

@@ -1,4 +1,27 @@
 export const queryKeys = {
+  conversations: (userId, courseId) => [
+    'conversations',
+    userId,
+    courseId || 'all',
+  ],
+  conversationMessages: (conversationId, userId) => [
+    'conversation',
+    conversationId || 'none',
+    'messages',
+    userId || 'anonymous',
+  ],
+  pinnedConversationMessages: (conversationId, userId) => [
+    'conversation',
+    conversationId || 'none',
+    'pinned-messages',
+    userId || 'anonymous',
+  ],
+  ttsVoices: (courseId, classId) => [
+    'tts',
+    'voices',
+    courseId || 'none',
+    classId || 'none',
+  ],
   profile: (userId) => ['account', 'profile', userId],
   studentEnrollments: (identityKey) => ['student', 'enrollments', identityKey],
   studentQuestionQuota: (studentId, courseId) => [
@@ -7,6 +30,29 @@ export const queryKeys = {
     studentId,
     courseId,
   ],
+  studentAssignments: (studentId, courseId, filters = {}) => [
+    'student',
+    'assignments',
+    studentId || 'anonymous',
+    courseId || 'all',
+    Number(filters.page) || 0,
+    Number(filters.pageSize) || 8,
+    String(filters.query || '').trim(),
+  ],
+  studentQuizHistory: (studentId, courseId) => [
+    'quizzes',
+    studentId || 'anonymous',
+    courseId || 'all',
+    'history',
+  ],
+  studentAssignedQuizzes: (studentId, courseId, classId) => [
+    'quizzes',
+    studentId || 'anonymous',
+    courseId || 'all',
+    'assigned',
+    classId || 'all',
+  ],
+  quizDetail: (quizId) => ['quiz', 'detail', quizId || 'none'],
   studentMentorRequests: (studentId) => ['student', 'mentor-requests', studentId],
   studentMentorRequestDetail: (escalationId) => [
     'student',

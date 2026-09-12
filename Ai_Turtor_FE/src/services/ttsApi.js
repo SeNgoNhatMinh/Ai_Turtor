@@ -1,9 +1,10 @@
 import { API_BASE_URL, blobRequest, request } from './apiClient';
 
 export const ttsApi = {
-  listVoices(courseId, classId) {
+  listVoices(courseId, classId, options = {}) {
     const params = new URLSearchParams({ courseId, classId });
     return request(`${API_BASE_URL}/tts/voices?${params}`, {
+      signal: options.signal,
       skipUnauthorizedRedirect: true,
       retries: 1,
     });

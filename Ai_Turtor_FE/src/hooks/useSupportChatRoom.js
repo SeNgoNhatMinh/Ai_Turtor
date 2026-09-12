@@ -64,14 +64,18 @@ export function useSupportChatRoom({
   const accountRole = normalizeAccountRole(currentUser?.originalRole || currentUser?.role);
   const senderRole = getChatSenderRole(accountRole);
   const roomQueryKey = useMemo(() => queryKeys.supportChatRoom(chatRoomId), [chatRoomId]);
-  const shouldPoll = enabled && realtimeEnabled && env.realtimeEnabled;
+  const realtimeAvailable = realtimeEnabled && env.realtimeEnabled;
+  const shouldPoll = enabled
+    && Boolean(chatRoomId)
+    && (!realtimeAvailable || connectionState === 'fallback');
 
   const roomQuery = useQuery({
     queryKey: roomQueryKey,
     queryFn: ({ signal }) => loadChatRoom(chatRoomId, signal),
     enabled: enabled && Boolean(chatRoomId),
     staleTime: 2_000,
-    refetchInterval: shouldPoll ? 5_000 : false,
+    refetchInterval: shouldPoll ? 15_000 : false,
+    refetchIntervalInBackground: false,
   });
   const roomData = roomQuery.data;
   const messages = useMemo(() => roomData?.messages || [], [roomData?.messages]);
@@ -99,7 +103,14 @@ export function useSupportChatRoom({
 
   useEffect(() => {
     const socketUrl = getSocketUrl(chatRoomId);
-    if (!socketUrl || !enabled || !realtimeEnabled || !env.realtimeEnabled) return undefined;
+    if (!enabled) {
+      const idleTimer = window.setTimeout(() => setConnectionState('idle'), 0);
+      return () => window.clearTimeout(idleTimer);
+    }
+    if (!socketUrl || !realtimeAvailable) {
+      const fallbackTimer = window.setTimeout(() => setConnectionState('fallback'), 0);
+      return () => window.clearTimeout(fallbackTimer);
+    }
 
     const socket = new WebSocket(socketUrl);
     socketRef.current = socket;
@@ -142,7 +153,7 @@ export function useSupportChatRoom({
       window.clearTimeout(reconnectTimer);
       socket.close();
     };
-  }, [chatRoomId, enabled, loadRoom, realtimeEnabled, socketRetry, updateRoomData]);
+  }, [chatRoomId, enabled, loadRoom, realtimeAvailable, socketRetry, updateRoomData]);
 
   const sendAnswerMutation = useMutation({
     mutationFn: ({ content, candidateType }) => supportChatApi.sendAnswerAndIndex({

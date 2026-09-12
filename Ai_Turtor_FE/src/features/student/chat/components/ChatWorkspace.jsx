@@ -1,4 +1,6 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { queryKeys } from '../../../../app/queryKeys';
 import ChatMessageList from './ChatMessageList';
 import { buildMaterialSourceMap } from '../../../../utils/sourceLabels';
 import { classIdMatches } from '../../../../utils/academicIds';
@@ -14,6 +16,9 @@ import { ttsApi } from '../../../../services/ttsApi';
 import '../ChatWorkspace.css';
 
 const CHAT_TURN_LIMIT = 10;
+const normalizeTtsVoices = (response) => (
+  Array.isArray(response) ? response.filter((voice) => voice?.id && voice?.name) : []
+);
 
 function ChatWorkspace({
   activeSessionTitle,
@@ -65,59 +70,38 @@ function ChatWorkspace({
   onStartNextTutorSession,
 }) {
   const [pendingCourseId, setPendingCourseId] = useState('');
-  const [ttsVoices, setTtsVoices] = useState([]);
   const [ttsVoiceId, setTtsVoiceId] = useState('');
-  const [ttsVoicesLoading, setTtsVoicesLoading] = useState(false);
-  const [ttsVoicesError, setTtsVoicesError] = useState('');
 
   const voiceStorageKey = useMemo(() => (
     `ai-tutor:student-tts-voice:${String(userId || currentUser?.id || 'current')}:${courseId || 'none'}:${classId || 'none'}`
   ), [classId, courseId, currentUser?.id, userId]);
 
-  useEffect(() => {
-    let active = true;
-    if (!courseId || !classId) {
-      Promise.resolve().then(() => {
-        if (!active) return;
-        setTtsVoices([]);
-        setTtsVoiceId('');
-        setTtsVoicesError('');
-      });
-      return () => { active = false; };
+  const ttsVoicesQuery = useQuery({
+    queryKey: queryKeys.ttsVoices(courseId, classId),
+    queryFn: ({ signal }) => ttsApi.listVoices(courseId, classId, { signal }),
+    enabled: Boolean(courseId && classId),
+    select: normalizeTtsVoices,
+    staleTime: 30 * 60_000,
+    gcTime: 60 * 60_000,
+    retry: 1,
+  });
+  const ttsVoices = useMemo(() => ttsVoicesQuery.data || [], [ttsVoicesQuery.data]);
+  const ttsVoicesError = ttsVoicesQuery.error
+    ? getUserFacingError(ttsVoicesQuery.error, 'Không thể tải danh sách giọng.')
+    : '';
+
+  const storedTtsVoiceId = useMemo(() => {
+    try {
+      return window.localStorage.getItem(voiceStorageKey) || '';
+    } catch {
+      return '';
     }
-    Promise.resolve()
-      .then(() => {
-        if (!active) return null;
-        setTtsVoicesLoading(true);
-        setTtsVoicesError('');
-        return ttsApi.listVoices(courseId, classId);
-      })
-      .then((response) => {
-        if (!active || !response) return;
-        const voices = Array.isArray(response) ? response.filter((voice) => voice?.id && voice?.name) : [];
-        setTtsVoices(voices);
-        let stored = '';
-        try {
-          stored = window.localStorage.getItem(voiceStorageKey) || '';
-        } catch {
-          stored = '';
-        }
-        const selected = voices.some((voice) => voice.id === stored)
-          ? stored
-          : voices[0]?.id || '';
-        setTtsVoiceId(selected);
-      })
-      .catch((error) => {
-        if (!active) return;
-        setTtsVoices([]);
-        setTtsVoiceId('');
-        setTtsVoicesError(getUserFacingError(error, 'Không thể tải danh sách giọng.'));
-      })
-      .finally(() => {
-        if (active) setTtsVoicesLoading(false);
-      });
-    return () => { active = false; };
-  }, [classId, courseId, voiceStorageKey]);
+  }, [voiceStorageKey]);
+  const selectedTtsVoiceId = ttsVoices.some((voice) => voice.id === ttsVoiceId)
+    ? ttsVoiceId
+    : ttsVoices.some((voice) => voice.id === storedTtsVoiceId)
+      ? storedTtsVoiceId
+      : ttsVoices[0]?.id || '';
 
   const changeTtsVoice = (nextVoiceId) => {
     if (!ttsVoices.some((voice) => voice.id === nextVoiceId)) return;
@@ -318,9 +302,9 @@ function ChatWorkspace({
         triggerToast={triggerToast}
         ttsEnabled={ttsVoices.length > 0 && !ttsVoicesError}
         ttsVoices={ttsVoices}
-        ttsVoicesLoading={ttsVoicesLoading}
+        ttsVoicesLoading={ttsVoicesQuery.isPending}
         onTtsVoiceChange={changeTtsVoice}
-        voiceId={ttsVoiceId}
+        voiceId={selectedTtsVoiceId}
         userId={userId}
       />
 

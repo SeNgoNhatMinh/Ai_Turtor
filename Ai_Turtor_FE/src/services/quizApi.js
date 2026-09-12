@@ -1,5 +1,6 @@
 import { API_BASE_URL, API_TIMEOUTS, request } from './apiClient';
 import { encodePath } from '../config/env';
+import { queryKeys } from '../app/queryKeys';
 import {
   asArray,
   normalizeQuizAssignment,
@@ -7,8 +8,6 @@ import {
   normalizeTeacherQuizAttempt,
 } from './normalizers';
 import { fetchServerQuery, invalidateServerQueries } from './queryCache';
-
-const quizQueryKey = (studentId, courseId) => ['quizzes', studentId, courseId];
 
 const normalizeListResponse = (data, keys, normalizer) => {
   const list = asArray(data, ...keys);
@@ -27,7 +26,7 @@ export const quizApi = {
       body: JSON.stringify(payload),
       timeoutMs: API_TIMEOUTS.quizGeneration,
     }));
-    invalidateServerQueries(quizQueryKey(studentId, courseId));
+    invalidateServerQueries(['quizzes', studentId, courseId]);
     return quiz;
   },
 
@@ -38,7 +37,7 @@ export const quizApi = {
       normalizeQuizSession,
     );
     if (options.signal) return loader();
-    return fetchServerQuery([...quizQueryKey(studentId, courseId), 'history'], loader, { force: options.force });
+    return fetchServerQuery(queryKeys.studentQuizHistory(studentId, courseId), loader, { force: options.force });
   },
 
   async getAssignedQuizzes(studentId, courseId, classId = '', options = {}) {
@@ -51,11 +50,18 @@ export const quizApi = {
       normalizeQuizAssignment,
     );
     if (options.signal) return loader();
-    return fetchServerQuery([...quizQueryKey(studentId, courseId), 'assigned', classId || 'all'], loader, { force: options.force });
+    return fetchServerQuery(
+      queryKeys.studentAssignedQuizzes(studentId, courseId, classId),
+      loader,
+      { force: options.force },
+    );
   },
 
-  async getQuiz(quizSessionId) {
-    return normalizeQuizSession(await request(`${API_BASE_URL}/tutor/quizzes/${encodePath(quizSessionId)}`));
+  async getQuiz(quizSessionId, options = {}) {
+    return normalizeQuizSession(await request(
+      `${API_BASE_URL}/tutor/quizzes/${encodePath(quizSessionId)}`,
+      { signal: options.signal },
+    ));
   },
 
   async submitQuiz(quizSessionId, payload) {
