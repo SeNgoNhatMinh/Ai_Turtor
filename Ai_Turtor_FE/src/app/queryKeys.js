@@ -163,6 +163,16 @@ export const queryKeys = {
   expertChapters: (courseId) => ['expert-training', courseId || 'none', 'chapters'],
   expertCoverageGaps: (courseId) => ['expert-training', courseId || 'none', 'coverage-gaps'],
   expertTasks: (courseId) => ['expert-training', courseId || 'none', 'tasks'],
+  expertTaskSearch: (filters = {}) => [
+    'expert-training',
+    filters.courseId || 'none',
+    'task-search',
+    filters.status || 'all',
+    String(filters.query || '').trim(),
+    Number(filters.page) || 0,
+    Number(filters.pageSize) || 20,
+  ],
+  expertTaskDetail: (taskId) => ['expert-training', 'task-detail', taskId || 'none'],
   expertContributions: (courseId) => ['expert-training', courseId || 'none', 'contributions'],
   expertEvaluations: (courseId) => ['expert-training', courseId || 'none', 'evaluations'],
   expertChapterPreview: (courseId, chapterKey, expanded) => [

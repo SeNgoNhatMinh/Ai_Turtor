@@ -1,7 +1,9 @@
 import { useCallback, useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Alert, Select } from 'antd';
 import { ClipboardList, Database, PenLine, RefreshCw, ShieldCheck } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { queryKeys } from '../../app/queryKeys';
 import ActionButton from '../../components/common/ActionButton';
 import AsyncState from '../../components/common/AsyncState';
 import MetricStrip from '../../components/common/MetricStrip';
@@ -34,9 +36,6 @@ export default function TeacherExpertTasksPage({
   const [searchParams, setSearchParams] = useSearchParams();
   const [localCourseId, setLocalCourseId] = useState(externalCourseId);
   const [previewTask, setPreviewTask] = useState(null);
-  const [taskPreview, setTaskPreview] = useState(null);
-  const [taskPreviewLoading, setTaskPreviewLoading] = useState(false);
-  const [taskPreviewError, setTaskPreviewError] = useState('');
   const queryCourseId = searchParams.get('courseId') || '';
   const courseId = queryCourseId || externalCourseId || localCourseId;
 
@@ -58,6 +57,17 @@ export default function TeacherExpertTasksPage({
     triggerToast,
     mode: 'teacher',
   });
+  const taskPreviewQuery = useQuery({
+    queryKey: queryKeys.expertTaskMaterial(courseId, previewTask?.chapter),
+    queryFn: ({ signal }) => expertTrainingApi.getChapterPreviewByTitle(
+      courseId,
+      previewTask.chapter,
+      false,
+      { signal },
+    ),
+    enabled: Boolean(courseId && previewTask?.chapter),
+    staleTime: 60_000,
+  });
 
   const openContribution = useCallback((task) => {
     navigate(`/teacher/expert-tasks/${encodeURIComponent(task.id)}/contribute?courseId=${encodeURIComponent(courseId)}`);
@@ -65,27 +75,14 @@ export default function TeacherExpertTasksPage({
 
   const closeTaskPreview = useCallback(() => {
     setPreviewTask(null);
-    setTaskPreview(null);
-    setTaskPreviewError('');
   }, []);
 
-  const openTaskPreview = useCallback(async (task) => {
+  const openTaskPreview = useCallback((task) => {
     if (!courseId || !task?.chapter) {
       triggerToast?.('Chọn môn học trước khi xem trước task.');
       return;
     }
     setPreviewTask(task);
-    setTaskPreview(null);
-    setTaskPreviewError('');
-    setTaskPreviewLoading(true);
-    try {
-      const preview = await expertTrainingApi.getChapterPreviewByTitle(courseId, task.chapter, false);
-      setTaskPreview(preview);
-    } catch (error) {
-      setTaskPreviewError(getUserFacingError(error, 'Không thể tải tài liệu chương.'));
-    } finally {
-      setTaskPreviewLoading(false);
-    }
   }, [courseId, triggerToast]);
 
   const summary = useMemo(() => buildTeacherGoldQaSummary(
@@ -214,9 +211,12 @@ export default function TeacherExpertTasksPage({
 
       <TaskPreviewDrawer
         task={previewTask}
-        preview={taskPreview}
-        loading={taskPreviewLoading}
-        error={taskPreviewError}
+        preview={taskPreviewQuery.data || null}
+        loading={Boolean(previewTask)
+          && (taskPreviewQuery.isPending || taskPreviewQuery.isFetching)}
+        error={taskPreviewQuery.error
+          ? getUserFacingError(taskPreviewQuery.error, 'Không thể tải tài liệu chương.')
+          : ''}
         open={Boolean(previewTask)}
         onClose={closeTaskPreview}
         onOpenMaterial={controller.openSourceMaterial}

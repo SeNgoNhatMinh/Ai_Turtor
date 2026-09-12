@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Descriptions,
   Drawer,
@@ -12,6 +13,7 @@ import {
   Tag,
 } from 'antd';
 import { Eye, Pencil, Plus, RefreshCw, Search, Trash2 } from 'lucide-react';
+import { queryKeys } from '../../../app/queryKeys';
 import ActionButton from '../../../components/common/ActionButton';
 import AsyncState from '../../../components/common/AsyncState';
 import EntityActionMenu from '../../../components/common/EntityActionMenu';
@@ -20,6 +22,7 @@ import { confirmDanger } from '../../../components/common/confirmDialog';
 import { expertTrainingApi } from '../../../services/expertTrainingApi';
 import { getUserFacingError } from '../../../services/httpClient';
 import { formatExpertTaskDateTime } from '../expertTrainingUtils';
+import { useDebouncedValue } from '../../../hooks/useDebouncedValue';
 import '../styles/expert-task-management.css';
 
 const TASK_STATUSES = ['OPEN', 'ASSIGNED', 'IN_PROGRESS', 'SUBMITTED', 'COMPLETED', 'CANCELLED'];
@@ -44,67 +47,54 @@ export default function SeniorTaskManagement({
   triggerToast,
 }) {
   const [form] = Form.useForm();
-  const requestSequence = useRef(0);
-  const [rows, setRows] = useState([]);
+  const queryClient = useQueryClient();
   const [query, setQuery] = useState('');
-  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const debouncedQuery = useDebouncedValue(query.trim(), 300);
   const [status, setStatus] = useState('ALL');
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
   const [editor, setEditor] = useState(null);
   const [saving, setSaving] = useState(false);
-  const [detail, setDetail] = useState(null);
-  const [detailLoading, setDetailLoading] = useState(false);
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => setDebouncedQuery(query.trim()), 300);
-    return () => window.clearTimeout(timer);
-  }, [query]);
-
-  const loadTasks = useCallback(async () => {
-    if (!courseId) {
-      setRows([]);
-      setTotal(0);
-      return;
-    }
-    const sequence = requestSequence.current + 1;
-    requestSequence.current = sequence;
-    setLoading(true);
-    setError('');
-    try {
-      const result = await expertTrainingApi.searchTasks({
-        courseId,
-        type: 'GOLD_QA',
-        status: status === 'ALL' ? '' : status,
-        query: debouncedQuery,
-        page,
-        size: pageSize,
-        sortBy: 'updatedAt',
-        sortDirection: 'desc',
-      });
-      if (requestSequence.current !== sequence) return;
-      setRows(result.tasks);
-      setTotal(result.totalElements);
-      if (result.totalElements > 0 && page >= result.totalPages) {
-        setPage(Math.max(0, result.totalPages - 1));
-      }
-    } catch (loadError) {
-      if (requestSequence.current !== sequence) return;
-      setRows([]);
-      setTotal(0);
-      setError(getUserFacingError(loadError, 'Không thể tải danh sách task.'));
-    } finally {
-      if (requestSequence.current === sequence) setLoading(false);
-    }
-  }, [courseId, debouncedQuery, page, pageSize, status]);
-
-  useEffect(() => {
-    const timer = window.setTimeout(loadTasks, 0);
-    return () => window.clearTimeout(timer);
-  }, [loadTasks]);
+  const [detailTask, setDetailTask] = useState(null);
+  const searchFilters = {
+    courseId,
+    status: status === 'ALL' ? '' : status,
+    query: debouncedQuery,
+    page,
+    pageSize,
+  };
+  const tasksQueryKey = queryKeys.expertTaskSearch(searchFilters);
+  const tasksQuery = useQuery({
+    queryKey: tasksQueryKey,
+    queryFn: ({ signal }) => expertTrainingApi.searchTasks({
+      courseId,
+      type: 'GOLD_QA',
+      status: searchFilters.status,
+      query: debouncedQuery,
+      page,
+      size: pageSize,
+      sortBy: 'updatedAt',
+      sortDirection: 'desc',
+    }, { signal }),
+    enabled: Boolean(courseId),
+    staleTime: 15_000,
+  });
+  const detailQuery = useQuery({
+    queryKey: queryKeys.expertTaskDetail(detailTask?.id),
+    queryFn: ({ signal }) => expertTrainingApi.getTask(detailTask.id, { signal }),
+    enabled: Boolean(detailTask?.id),
+    placeholderData: detailTask || undefined,
+    staleTime: 30_000,
+  });
+  const rows = tasksQuery.data?.tasks || [];
+  const total = tasksQuery.data?.totalElements || 0;
+  const loading = Boolean(courseId) && (tasksQuery.isPending || tasksQuery.isFetching);
+  const error = tasksQuery.error
+    ? getUserFacingError(tasksQuery.error, 'Không thể tải danh sách task.')
+    : '';
+  const detail = detailQuery.data || detailTask;
+  const detailLoading = Boolean(detailTask) && (detailQuery.isPending || detailQuery.isFetching);
+  const loadTasks = () => tasksQuery.refetch();
 
   const chapterOptions = useMemo(() => chapters
     .filter((chapter) => Number(chapter.chunkCount) > 0 && chapter.status !== 'IGNORED')
@@ -129,16 +119,8 @@ export default function SeniorTaskManagement({
     });
   };
 
-  const openDetail = async (task) => {
-    setDetail(task);
-    setDetailLoading(true);
-    try {
-      setDetail(await expertTrainingApi.getTask(task.id));
-    } catch (detailError) {
-      triggerToast?.(getUserFacingError(detailError, 'Không thể tải chi tiết task.'));
-    } finally {
-      setDetailLoading(false);
-    }
+  const openDetail = (task) => {
+    setDetailTask(task);
   };
 
   const saveTask = async () => {
@@ -170,7 +152,10 @@ export default function SeniorTaskManagement({
         triggerToast?.('Đã cập nhật task.');
       }
       setEditor(null);
-      await loadTasks();
+      await queryClient.invalidateQueries({
+        queryKey: ['expert-training', courseId, 'task-search'],
+      });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.expertTasks(courseId) });
     } catch (saveError) {
       if (saveError?.errorFields) return;
       triggerToast?.(getUserFacingError(saveError, 'Không thể lưu task.'));
@@ -192,7 +177,11 @@ export default function SeniorTaskManagement({
         try {
           await expertTrainingApi.deleteTask(task.id);
           triggerToast?.('Đã xóa task.');
-          await loadTasks();
+          if (rows.length === 1 && page > 0) setPage((current) => Math.max(0, current - 1));
+          await queryClient.invalidateQueries({
+            queryKey: ['expert-training', courseId, 'task-search'],
+          });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.expertTasks(courseId) });
         } catch (deleteError) {
           triggerToast?.(getUserFacingError(deleteError, 'Không thể xóa task.'));
         }
@@ -383,14 +372,19 @@ export default function SeniorTaskManagement({
 
       <Drawer
         title="Chi tiết task"
-        open={Boolean(detail)}
-        onClose={() => setDetail(null)}
+        open={Boolean(detailTask)}
+        onClose={() => setDetailTask(null)}
         width={560}
         className="expert-task-manager__drawer"
         extra={detail && <ActionButton icon={<Pencil size={15} />} onClick={() => openEdit(detail)}>Chỉnh sửa</ActionButton>}
       >
         {detailLoading ? (
           <AsyncState loading loadingLabel="Đang tải task..." />
+        ) : detailQuery.error ? (
+          <AsyncState
+            error={getUserFacingError(detailQuery.error, 'Không thể tải chi tiết task.')}
+            onRetry={() => detailQuery.refetch()}
+          />
         ) : detail && (
           <Descriptions bordered column={1} size="small">
             <Descriptions.Item label="Tiêu đề">{detail.title}</Descriptions.Item>
