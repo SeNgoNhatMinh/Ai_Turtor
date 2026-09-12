@@ -2,8 +2,10 @@ import { API_BASE_URL, request } from './apiClient';
 import { encodePath } from '../config/env';
 
 export const teacherApi = {
-  async getCourses(teacherId) {
-    return request(`${API_BASE_URL}/mentors/${encodePath(teacherId)}/courses`);
+  async getCourses(teacherId, options = {}) {
+    return request(`${API_BASE_URL}/mentors/${encodePath(teacherId)}/courses`, {
+      signal: options.signal,
+    });
   },
 
   async getDashboard(teacherId, courseId = '', classId = '', options = {}) {

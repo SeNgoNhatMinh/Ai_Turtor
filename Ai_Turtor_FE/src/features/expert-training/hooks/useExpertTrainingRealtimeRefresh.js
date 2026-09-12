@@ -25,7 +25,7 @@ export function useExpertTrainingRealtimeRefresh({
 
   useRealtimeReconnect(refreshLive || refreshAll);
   useCanonicalPolling(refreshLive || refreshAll, {
-    enabled: Boolean(courseId && !mutationActive),
+    enabled: Boolean(courseId && !mutationActive && connectionState !== 'CONNECTED'),
     intervalMs: 30000,
     refreshOnFocus: true,
   });

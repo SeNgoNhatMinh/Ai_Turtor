@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '../../../app/queryKeys';
 import { adminAcademicApi } from '../../../services/adminAcademicApi';
 import { expertTrainingApi } from '../../../services/expertTrainingApi';
 import { normalizeCourseOption } from '../../../services/expertTrainingNormalizers';
@@ -13,25 +15,11 @@ import {
 } from '../expertTrainingUtils';
 import { useExpertTrainingRealtimeRefresh } from './useExpertTrainingRealtimeRefresh';
 
-const createEmptyResources = () => ({
-  chapters: [],
-  gaps: [],
-  tasks: [],
-  goldQa: [],
-  rubrics: [],
-  evalRuns: [],
-});
+const EMPTY_LIST = [];
 
-const INITIAL_LOADING = {
-  courses: false,
-  chapters: false,
-  chapterPreview: false,
-  taskMaterial: false,
-  gaps: false,
-  tasks: false,
-  contributions: false,
-  evaluation: false,
-};
+const errorMessage = (error, fallback = 'Không thể tải dữ liệu Tutor V2.') => (
+  error ? getUserFacingError(error, fallback) : ''
+);
 
 export function useExpertTrainingResources({
   currentUser,
@@ -42,142 +30,204 @@ export function useExpertTrainingResources({
   mode = 'auto',
   mutationActive = false,
 }) {
+  const queryClient = useQueryClient();
   const userId = currentUser?.userId || currentUser?.id || '';
   const reviewerRole = getTutorV2Role(currentUser);
   const canReview = isTutorV2Reviewer(currentUser);
   const resourceMode = mode === 'auto' ? (canReview ? 'reviewer' : 'teacher') : mode;
-  const courseIdRef = useRef(courseId);
-  courseIdRef.current = courseId;
-  const [courses, setCourses] = useState([]);
-  const [resources, setResources] = useState(createEmptyResources);
-  const [loading, setLoading] = useState(INITIAL_LOADING);
-  const [errors, setErrors] = useState({});
-  const [chapterPreview, setChapterPreview] = useState(null);
-  const [taskMaterialPreview, setTaskMaterialPreview] = useState(null);
-  const [evaluationDetail, setEvaluationDetail] = useState(null);
-  const [evaluationDetailLoading, setEvaluationDetailLoading] = useState(false);
+  const [chapterPreviewRequest, setChapterPreviewRequest] = useState(null);
+  const [taskMaterialChapter, setTaskMaterialChapter] = useState('');
+  const [evaluationRunId, setEvaluationRunId] = useState('');
 
-  const inflightRef = useRef({});
-  const updateResource = useCallback((key, value) => {
-    setResources((current) => ({ ...current, [key]: value }));
-  }, []);
-
-  const loadWithState = useCallback((key, loader, onSuccess) => {
-    if (inflightRef.current[key]) return inflightRef.current[key];
-    setLoading((current) => ({ ...current, [key]: true }));
-    setErrors((current) => ({ ...current, [key]: '' }));
-    const run = Promise.resolve()
-      .then(loader)
-      .then((result) => {
-        onSuccess(result);
-        return result;
-      })
-      .catch((error) => {
-        const message = getUserFacingError(error, 'Không thể tải dữ liệu Tutor V2.');
-        setErrors((current) => ({ ...current, [key]: message }));
-        return null;
-      })
-      .finally(() => {
-        setLoading((current) => ({ ...current, [key]: false }));
-        if (inflightRef.current[key] === run) inflightRef.current[key] = null;
-      });
-    inflightRef.current[key] = run;
-    return run;
-  }, []);
-
-  const loadCourses = useCallback(() => loadWithState(
-    'courses',
-    () => resourceMode === 'teacher'
-      ? teacherApi.getCourses(userId)
-      : adminAcademicApi.getCourses(),
-    (items) => {
-      const normalized = asArray(items, 'courses', 'content')
+  const coursesQuery = useQuery({
+    queryKey: queryKeys.expertCourses(userId, resourceMode),
+    queryFn: async ({ signal }) => {
+      const items = resourceMode === 'teacher'
+        ? await teacherApi.getCourses(userId, { signal })
+        : await adminAcademicApi.getCourses({ signal });
+      return asArray(items, 'courses', 'content')
         .map(normalizeCourseOption)
         .filter((item) => item.id);
-      setCourses(normalized);
-      if (normalized.length && !normalized.some((item) => item.id === courseIdRef.current)) {
-        setCourseId(normalized[0].id);
-      }
     },
-  ), [loadWithState, resourceMode, setCourseId, userId]);
+    enabled: Boolean(userId),
+    staleTime: 60_000,
+  });
+  const chaptersQuery = useQuery({
+    queryKey: queryKeys.expertChapters(courseId),
+    queryFn: ({ signal }) => expertTrainingApi.getSuggestedChapters(courseId, { signal }),
+    enabled: Boolean(courseId && resourceMode !== 'teacher'),
+    staleTime: 30_000,
+  });
+  const gapsQuery = useQuery({
+    queryKey: queryKeys.expertCoverageGaps(courseId),
+    queryFn: ({ signal }) => expertTrainingApi.getCoverageGaps(courseId, { signal }),
+    enabled: Boolean(courseId && resourceMode !== 'teacher'),
+    staleTime: 30_000,
+  });
+  const tasksQuery = useQuery({
+    queryKey: queryKeys.expertTasks(courseId),
+    queryFn: ({ signal }) => expertTrainingApi.getTasks({ courseId }, { signal }),
+    enabled: Boolean(courseId),
+    staleTime: 15_000,
+  });
+  const contributionsQuery = useQuery({
+    queryKey: queryKeys.expertContributions(courseId),
+    queryFn: async ({ signal }) => {
+      const [goldQa, rubrics] = await Promise.all([
+        expertTrainingApi.getGoldQa(courseId, {}, { signal }),
+        expertTrainingApi.getRubrics(courseId, { signal }),
+      ]);
+      return { goldQa, rubrics };
+    },
+    enabled: Boolean(courseId),
+    staleTime: 15_000,
+  });
+  const evaluationQuery = useQuery({
+    queryKey: queryKeys.expertEvaluations(courseId),
+    queryFn: ({ signal }) => expertTrainingApi.getEvaluationRuns(courseId, { signal }),
+    enabled: Boolean(courseId && resourceMode !== 'teacher'),
+    staleTime: 30_000,
+  });
 
-  const loadGaps = useCallback(() => {
-    if (!courseId) return Promise.resolve([]);
-    return loadWithState('gaps', () => expertTrainingApi.getCoverageGaps(courseId), (items) => {
-      updateResource('gaps', items);
-    });
-  }, [courseId, loadWithState, updateResource]);
+  const chapterPreviewKey = chapterPreviewRequest?.chapterKey
+    || chapterPreviewRequest?.title
+    || '';
+  const chapterPreviewQuery = useQuery({
+    queryKey: queryKeys.expertChapterPreview(
+      courseId,
+      chapterPreviewKey,
+      chapterPreviewRequest?.expanded,
+    ),
+    queryFn: ({ signal }) => chapterPreviewRequest.chapterKey
+      ? expertTrainingApi.getChapterPreview(
+        chapterPreviewRequest.chapterKey,
+        courseId,
+        chapterPreviewRequest.expanded,
+        { signal },
+      )
+      : expertTrainingApi.getChapterPreviewByTitle(
+        courseId,
+        chapterPreviewRequest.title,
+        chapterPreviewRequest.expanded,
+        { signal },
+      ),
+    enabled: Boolean(courseId && chapterPreviewRequest && chapterPreviewKey),
+    staleTime: 60_000,
+  });
+  const taskMaterialQuery = useQuery({
+    queryKey: queryKeys.expertTaskMaterial(courseId, taskMaterialChapter),
+    queryFn: ({ signal }) => expertTrainingApi.getChapterPreviewByTitle(
+      courseId,
+      taskMaterialChapter,
+      false,
+      { signal },
+    ),
+    enabled: Boolean(courseId && taskMaterialChapter),
+    staleTime: 60_000,
+  });
+  const evaluationDetailQuery = useQuery({
+    queryKey: queryKeys.expertEvaluationDetail(evaluationRunId),
+    queryFn: ({ signal }) => expertTrainingApi.getEvaluationRun(evaluationRunId, { signal }),
+    enabled: Boolean(evaluationRunId),
+    staleTime: 60_000,
+  });
 
-  const loadChapters = useCallback(() => {
-    if (!courseId) return Promise.resolve([]);
-    return loadWithState('chapters', () => expertTrainingApi.getSuggestedChapters(courseId), (items) => {
-      updateResource('chapters', items);
-    });
-  }, [courseId, loadWithState, updateResource]);
+  const courses = coursesQuery.data || EMPTY_LIST;
+  const resources = useMemo(() => ({
+    chapters: chaptersQuery.data || EMPTY_LIST,
+    gaps: gapsQuery.data || EMPTY_LIST,
+    tasks: tasksQuery.data || EMPTY_LIST,
+    goldQa: contributionsQuery.data?.goldQa || EMPTY_LIST,
+    rubrics: contributionsQuery.data?.rubrics || EMPTY_LIST,
+    evalRuns: evaluationQuery.data || EMPTY_LIST,
+  }), [
+    chaptersQuery.data,
+    contributionsQuery.data,
+    evaluationQuery.data,
+    gapsQuery.data,
+    tasksQuery.data,
+  ]);
+  const loading = {
+    courses: Boolean(userId) && (coursesQuery.isPending || coursesQuery.isFetching),
+    chapters: Boolean(courseId && resourceMode !== 'teacher')
+      && (chaptersQuery.isPending || chaptersQuery.isFetching),
+    chapterPreview: Boolean(chapterPreviewRequest)
+      && (chapterPreviewQuery.isPending || chapterPreviewQuery.isFetching),
+    taskMaterial: Boolean(taskMaterialChapter)
+      && (taskMaterialQuery.isPending || taskMaterialQuery.isFetching),
+    gaps: Boolean(courseId && resourceMode !== 'teacher')
+      && (gapsQuery.isPending || gapsQuery.isFetching),
+    tasks: Boolean(courseId) && (tasksQuery.isPending || tasksQuery.isFetching),
+    contributions: Boolean(courseId)
+      && (contributionsQuery.isPending || contributionsQuery.isFetching),
+    evaluation: Boolean(courseId && resourceMode !== 'teacher')
+      && (evaluationQuery.isPending || evaluationQuery.isFetching),
+  };
+  const errors = {
+    courses: errorMessage(coursesQuery.error),
+    chapters: errorMessage(chaptersQuery.error),
+    chapterPreview: errorMessage(chapterPreviewQuery.error, 'Không thể tải nội dung chương.'),
+    taskMaterial: errorMessage(taskMaterialQuery.error, 'Không thể tải tài liệu chương.'),
+    gaps: errorMessage(gapsQuery.error),
+    tasks: errorMessage(tasksQuery.error),
+    contributions: errorMessage(contributionsQuery.error),
+    evaluation: errorMessage(evaluationQuery.error),
+  };
 
-  const refreshChapters = useCallback(() => {
-    if (!courseId) return Promise.resolve([]);
-    return loadWithState('chapters', () => expertTrainingApi.refreshChapters(courseId), (items) => {
-      updateResource('chapters', items);
+  useEffect(() => {
+    if (!courses.length || courses.some((item) => item.id === courseId)) return;
+    setCourseId(courses[0].id);
+  }, [courseId, courses, setCourseId]);
+
+  const loadCourses = useCallback(() => coursesQuery.refetch(), [coursesQuery]);
+  const loadGaps = useCallback(() => (
+    courseId ? gapsQuery.refetch() : Promise.resolve([])
+  ), [courseId, gapsQuery]);
+  const loadChapters = useCallback(() => (
+    courseId ? chaptersQuery.refetch() : Promise.resolve([])
+  ), [chaptersQuery, courseId]);
+  const loadTasks = useCallback(() => (
+    courseId ? tasksQuery.refetch() : Promise.resolve([])
+  ), [courseId, tasksQuery]);
+  const loadContributions = useCallback(() => (
+    courseId ? contributionsQuery.refetch() : Promise.resolve([])
+  ), [contributionsQuery, courseId]);
+  const loadEvaluation = useCallback(() => (
+    courseId ? evaluationQuery.refetch() : Promise.resolve([])
+  ), [courseId, evaluationQuery]);
+
+  const refreshChapters = useCallback(async () => {
+    if (!courseId) return [];
+    try {
+      const items = await expertTrainingApi.refreshChapters(courseId);
+      queryClient.setQueryData(queryKeys.expertChapters(courseId), items);
       triggerToast?.(`Đã làm mới mục lục: ${items?.length || 0} chương.`);
-    });
-  }, [courseId, loadWithState, triggerToast, updateResource]);
-
-  const loadTasks = useCallback(() => {
-    if (!courseId) return Promise.resolve([]);
-    return loadWithState('tasks', () => expertTrainingApi.getTasks({ courseId }), (items) => {
-      updateResource('tasks', items);
-    });
-  }, [courseId, loadWithState, updateResource]);
-
-  const loadContributions = useCallback(() => {
-    if (!courseId) return Promise.resolve([]);
-    return loadWithState('contributions', async () => {
-      const goldQa = await expertTrainingApi.getGoldQa(courseId);
-      return { goldQa, rubrics: [] };
-    }, ({ goldQa, rubrics }) => {
-      setResources((current) => ({ ...current, goldQa, rubrics }));
-    });
-  }, [courseId, loadWithState]);
-
-  const loadEvaluation = useCallback(() => {
-    if (!courseId) return Promise.resolve([]);
-    return loadWithState('evaluation', () => expertTrainingApi.getEvaluationRuns(courseId), (items) => {
-      updateResource('evalRuns', items);
-    });
-  }, [courseId, loadWithState, updateResource]);
+      return items;
+    } catch (error) {
+      triggerToast?.(getUserFacingError(error, 'Không thể làm mới mục lục.'));
+      return [];
+    }
+  }, [courseId, queryClient, triggerToast]);
 
   const refreshAll = useCallback(async () => {
     if (!courseId) return;
     const loaders = resourceMode === 'teacher'
       ? [loadTasks(), loadContributions()]
-      : [loadChapters(), loadTasks(), loadContributions()];
+      : [loadChapters(), loadGaps(), loadTasks(), loadContributions(), loadEvaluation()];
     await Promise.allSettled(loaders);
-  }, [courseId, loadChapters, loadContributions, loadTasks, resourceMode]);
-
+  }, [
+    courseId,
+    loadChapters,
+    loadContributions,
+    loadEvaluation,
+    loadGaps,
+    loadTasks,
+    resourceMode,
+  ]);
   const refreshLive = useCallback(async () => {
     if (!courseId) return;
     await Promise.allSettled([loadTasks(), loadContributions()]);
   }, [courseId, loadContributions, loadTasks]);
-
-  useEffect(() => {
-    const timer = window.setTimeout(loadCourses, 0);
-    return () => window.clearTimeout(timer);
-  }, [loadCourses]);
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      if (!courseId) {
-        setResources(createEmptyResources());
-        return;
-      }
-      setChapterPreview(null);
-      setTaskMaterialPreview(null);
-      setEvaluationDetail(null);
-      refreshAll();
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, [courseId, refreshAll]);
 
   const connectionState = useExpertTrainingRealtimeRefresh({
     courseId,
@@ -194,7 +244,6 @@ export function useExpertTrainingResources({
     () => resources.tasks.find((task) => task.id === selectedTaskId) || null,
     [resources.tasks, selectedTaskId],
   );
-
   const selectedTaskContributions = useMemo(() => {
     if (!selectedTask) return [];
     return resources.goldQa
@@ -204,61 +253,59 @@ export function useExpertTrainingResources({
         - new Date(right.createdAt || right.updatedAt || 0)
       ));
   }, [resources.goldQa, selectedTask]);
-
   const selectedTaskContribution = selectedTaskContributions[selectedTaskContributions.length - 1] || null;
-
   const selectedTaskRejection = selectedTaskContributions.find((item) => item.status === 'REJECTED') || null;
-
   const pendingReviewCount = useMemo(() => (
     resources.goldQa.filter((item) => item.status === 'PENDING_REVIEW').length
     + resources.rubrics.filter((item) => item.status === 'PENDING_REVIEW').length
   ), [resources.goldQa, resources.rubrics]);
 
   const openChapterPreview = useCallback(async (chapter, expanded = false) => {
-    const chapterKey = chapter?.chapterKey || chapter?.id || '';
-    const title = chapter?.title || chapter?.chapter || '';
-    if (!courseId || (!chapterKey && !title)) return null;
-    setLoading((current) => ({ ...current, chapterPreview: true }));
-    setErrors((current) => ({ ...current, chapterPreview: '' }));
+    const request = {
+      chapterKey: chapter?.chapterKey || chapter?.id || '',
+      title: chapter?.title || chapter?.chapter || '',
+      expanded,
+    };
+    const key = request.chapterKey || request.title;
+    if (!courseId || !key) return null;
+    setChapterPreviewRequest(request);
     try {
-      const preview = chapterKey
-        ? await expertTrainingApi.getChapterPreview(chapterKey, courseId, expanded)
-        : await expertTrainingApi.getChapterPreviewByTitle(courseId, title, expanded);
-      setChapterPreview(preview);
-      return preview;
-    } catch (error) {
-      setErrors((current) => ({
-        ...current,
-        chapterPreview: getUserFacingError(error, 'Không thể tải nội dung chương.'),
-      }));
+      return await queryClient.fetchQuery({
+        queryKey: queryKeys.expertChapterPreview(courseId, key, expanded),
+        queryFn: ({ signal }) => request.chapterKey
+          ? expertTrainingApi.getChapterPreview(request.chapterKey, courseId, expanded, { signal })
+          : expertTrainingApi.getChapterPreviewByTitle(courseId, request.title, expanded, { signal }),
+        staleTime: 60_000,
+      });
+    } catch {
       return null;
-    } finally {
-      setLoading((current) => ({ ...current, chapterPreview: false }));
     }
-  }, [courseId]);
+  }, [courseId, queryClient]);
 
+  const setChapterPreview = useCallback((value) => {
+    if (!value) setChapterPreviewRequest(null);
+  }, []);
   const loadTaskMaterialPreview = useCallback(async (chapter) => {
     if (!courseId || !chapter) {
-      setTaskMaterialPreview(null);
+      setTaskMaterialChapter('');
       return null;
     }
-    setLoading((current) => ({ ...current, taskMaterial: true }));
-    setErrors((current) => ({ ...current, taskMaterial: '' }));
+    setTaskMaterialChapter(chapter);
     try {
-      const preview = await expertTrainingApi.getChapterPreviewByTitle(courseId, chapter, false);
-      setTaskMaterialPreview(preview);
-      return preview;
-    } catch (error) {
-      setErrors((current) => ({
-        ...current,
-        taskMaterial: getUserFacingError(error, 'Không thể tải tài liệu chương.'),
-      }));
-      setTaskMaterialPreview(null);
+      return await queryClient.fetchQuery({
+        queryKey: queryKeys.expertTaskMaterial(courseId, chapter),
+        queryFn: ({ signal }) => expertTrainingApi.getChapterPreviewByTitle(
+          courseId,
+          chapter,
+          false,
+          { signal },
+        ),
+        staleTime: 60_000,
+      });
+    } catch {
       return null;
-    } finally {
-      setLoading((current) => ({ ...current, taskMaterial: false }));
     }
-  }, [courseId]);
+  }, [courseId, queryClient]);
 
   const openSourceMaterial = useCallback(async (source, options = {}) => {
     if (!source?.id) return;
@@ -273,9 +320,7 @@ export function useExpertTrainingResources({
       const pageStart = Number(options.pageStart);
       const hash = Number.isFinite(pageStart) && pageStart > 0 ? `#page=${Math.floor(pageStart)}` : '';
       const opened = window.open(`${url}${hash}`, '_blank', 'noopener,noreferrer');
-      if (!opened) {
-        triggerToast?.('Trình duyệt chặn cửa sổ mới. Cho phép popup rồi thử lại.');
-      }
+      if (!opened) triggerToast?.('Trình duyệt chặn cửa sổ mới. Cho phép popup rồi thử lại.');
       window.setTimeout(() => window.URL.revokeObjectURL(url), 120000);
     } catch (error) {
       triggerToast?.(getUserFacingError(error, 'Không thể mở tài liệu nguồn.'));
@@ -283,18 +328,19 @@ export function useExpertTrainingResources({
   }, [courseId, triggerToast]);
 
   const openEvaluationDetail = useCallback(async (runId) => {
-    setEvaluationDetailLoading(true);
+    if (!runId) return null;
+    setEvaluationRunId(runId);
     try {
-      const detail = await expertTrainingApi.getEvaluationRun(runId);
-      setEvaluationDetail(detail);
-      return detail;
+      return await queryClient.fetchQuery({
+        queryKey: queryKeys.expertEvaluationDetail(runId),
+        queryFn: ({ signal }) => expertTrainingApi.getEvaluationRun(runId, { signal }),
+        staleTime: 60_000,
+      });
     } catch (error) {
       triggerToast?.(getUserFacingError(error, 'Không thể tải chi tiết Evaluation.'));
       return null;
-    } finally {
-      setEvaluationDetailLoading(false);
     }
-  }, [triggerToast]);
+  }, [queryClient, triggerToast]);
 
   return {
     userId,
@@ -308,12 +354,15 @@ export function useExpertTrainingResources({
     selectedTaskContribution,
     selectedTaskContributions,
     selectedTaskRejection,
-    chapterPreview,
+    chapterPreview: chapterPreviewQuery.data || null,
     setChapterPreview,
-    taskMaterialPreview,
-    evaluationDetail,
-    setEvaluationDetail,
-    evaluationDetailLoading,
+    taskMaterialPreview: taskMaterialQuery.data || null,
+    evaluationDetail: evaluationDetailQuery.data || null,
+    setEvaluationDetail: (value) => {
+      if (!value) setEvaluationRunId('');
+    },
+    evaluationDetailLoading: Boolean(evaluationRunId)
+      && (evaluationDetailQuery.isPending || evaluationDetailQuery.isFetching),
     connectionState,
     pendingReviewCount,
     loadCourses,
