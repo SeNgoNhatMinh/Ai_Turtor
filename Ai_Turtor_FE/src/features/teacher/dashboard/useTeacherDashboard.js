@@ -1,8 +1,12 @@
-import { useRef, useState } from 'react';
+import { useCallback, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '../../../app/queryKeys';
 import { teacherApi } from '../../../services/teacherApi';
 import { asArray, normalizeTeacherDashboard } from '../../../services/normalizers';
 import { getPersonDisplayName, getPersonEmail, getPersonId } from '../../../utils/displayNames';
 import { classIdMatches, getClassCodeValue } from '../../../utils/academicIds';
+
+const EMPTY_LIST = [];
 
 const mapClassSection = (section, courseId) => {
   const nestedCourseId = section.course?.courseId || section.course?.id || '';
@@ -31,7 +35,7 @@ const mapClassSection = (section, courseId) => {
     name: section.name || section.className || `Lớp ${resolvedClassCode || 'chưa đặt mã'}`,
     studentCount: section.studentCount,
     details: section.description
-      || (section.studentCount != null ? `${section.studentCount} sinh viên` : 'Đang đếm sĩ số...'),
+      || (section.studentCount != null ? `${section.studentCount} sinh viên` : 'Chưa tải sĩ số'),
   };
 };
 
@@ -89,155 +93,100 @@ const resolveHeatmap = (data, normalized) => (
 );
 
 export function useTeacherDashboard({ teacherId, courseId, classId }) {
-  const [classesList, setClassesList] = useState([]);
-  const [teacherStudents, setTeacherStudents] = useState([]);
-  const [teacherTopicHeatmap, setTeacherTopicHeatmap] = useState([]);
-  const [classesLoading, setClassesLoading] = useState(false);
-  const [studentsLoading, setStudentsLoading] = useState(false);
-  const loadedTeacherIdRef = useRef('');
+  const queryClient = useQueryClient();
+  const classesKey = queryKeys.teacherClasses(teacherId);
+  const rosterKey = queryKeys.teacherClassRoster(teacherId, courseId, classId);
+  const dashboardKey = queryKeys.teacherDashboard(teacherId, courseId, classId);
 
-  const applyClassStudentCount = (courseKey, classKey, count) => {
-    setClassesList((current) => current.map((item) => {
-      if (!belongsToScope(item, courseKey, classKey)) return item;
+  const classesQuery = useQuery({
+    queryKey: classesKey,
+    queryFn: async ({ signal }) => asArray(
+      await teacherApi.getClassSections(teacherId, { signal }),
+      'content',
+      'classSections',
+      'classes',
+    ).map((section) => mapClassSection(section, '')),
+    enabled: Boolean(teacherId),
+    staleTime: 60_000,
+    retry: 1,
+  });
+
+  const rosterQuery = useQuery({
+    queryKey: rosterKey,
+    queryFn: async ({ signal }) => {
+      try {
+        const data = await teacherApi.getClassStudents(courseId, classId, '', { signal });
+        return asArray(data, 'students', 'content').map(mapStudent);
+      } catch (error) {
+        if (signal.aborted) throw error;
+        const data = await teacherApi.getClassStudents(courseId, classId, teacherId, { signal });
+        return asArray(data, 'students', 'content').map(mapStudent);
+      }
+    },
+    enabled: Boolean(teacherId && courseId && classId),
+    staleTime: 30_000,
+    retry: 1,
+  });
+
+  const dashboardQuery = useQuery({
+    queryKey: dashboardKey,
+    queryFn: ({ signal }) => teacherApi.getDashboard(teacherId, courseId, classId, { signal }),
+    enabled: Boolean(teacherId),
+    staleTime: 30_000,
+    retry: 1,
+  });
+
+  const normalizedDashboard = useMemo(
+    () => normalizeTeacherDashboard(dashboardQuery.data || {}),
+    [dashboardQuery.data],
+  );
+
+  const teacherStudents = rosterQuery.data || EMPTY_LIST;
+  const classesList = useMemo(() => {
+    const assignedClasses = classesQuery.data?.length
+      ? classesQuery.data
+      : attachStudentCounts(normalizedDashboard.classSections, normalizedDashboard.students);
+
+    if (!courseId || !classId || !rosterQuery.data) return assignedClasses;
+    return assignedClasses.map((item) => {
+      if (!belongsToScope(item, courseId, classId)) return item;
       return {
         ...item,
-        studentCount: count,
-        details: `${count} sinh viên`,
+        studentCount: rosterQuery.data.length,
+        details: `${rosterQuery.data.length} sinh viên`,
+        students: rosterQuery.data,
       };
-    }));
-  };
-
-  const fetchAssignedClasses = async () => {
-    const payload = await teacherApi.getClassSections(teacherId);
-    return asArray(payload, 'content', 'classSections', 'classes').map((section) => mapClassSection(section, ''));
-  };
-
-  const fetchClassRoster = async (courseKey, classKey) => {
-    if (!courseKey || !classKey) return [];
-    try {
-      const data = await teacherApi.getClassStudents(courseKey, classKey);
-      return asArray(data, 'students', 'content');
-    } catch {
-      try {
-        const data = await teacherApi.getClassStudents(courseKey, classKey, teacherId);
-        return asArray(data, 'students', 'content');
-      } catch {
-        return [];
-      }
-    }
-  };
-
-  const hydrateClassRosters = async (assignedClasses, selectedCourseId, selectedClassId) => {
-    const results = await Promise.all(assignedClasses.map(async (section) => {
-      const courseKey = section.courseId;
-      const classKey = section.classId || section.classCode;
-      const students = await fetchClassRoster(courseKey, classKey);
-      return { section, students };
-    }));
-
-    setClassesList((current) => {
-      const base = current.length ? current : assignedClasses;
-      return base.map((item) => {
-        const match = results.find(({ section }) => (
-          belongsToScope(item, section.courseId, section.classId || section.classCode)
-        ));
-        if (!match) return item;
-        return {
-          ...item,
-          studentCount: match.students.length,
-          details: `${match.students.length} sinh viên`,
-          students: match.students.map(mapStudent),
-        };
-      });
     });
+  }, [classId, classesQuery.data, courseId, normalizedDashboard, rosterQuery.data]);
 
-    const selected = results.find(({ section }) => (
-      belongsToScope(section, selectedCourseId, selectedClassId)
-    ));
-    if (selected) {
-      setTeacherStudents(selected.students.map(mapStudent));
-    } else if (selectedCourseId && selectedClassId) {
-      const fallback = await fetchClassRoster(selectedCourseId, selectedClassId);
-      setTeacherStudents(fallback.map(mapStudent));
-    } else {
-      setTeacherStudents([]);
+  const teacherTopicHeatmap = useMemo(
+    () => resolveHeatmap(dashboardQuery.data, normalizedDashboard),
+    [dashboardQuery.data, normalizedDashboard],
+  );
+
+  const loadTeacherDashboard = useCallback(async ({ forceClasses = false } = {}) => {
+    const tasks = [
+      queryClient.invalidateQueries({ queryKey: dashboardKey, exact: true }),
+    ];
+    if (courseId && classId) {
+      tasks.push(queryClient.invalidateQueries({ queryKey: rosterKey, exact: true }));
     }
-  };
-
-  const loadTeacherDashboard = async ({ forceClasses = false } = {}) => {
-    if (!teacherId) {
-      loadedTeacherIdRef.current = '';
-      setClassesList([]);
-      setTeacherStudents([]);
-      setTeacherTopicHeatmap([]);
-      return;
+    if (forceClasses) {
+      tasks.push(queryClient.invalidateQueries({ queryKey: classesKey, exact: true }));
     }
-
-    const shouldReloadClasses = forceClasses || loadedTeacherIdRef.current !== teacherId;
-    if (shouldReloadClasses) setClassesLoading(true);
-    if (courseId && classId) setStudentsLoading(true);
-
-    try {
-      let assignedClasses = classesList;
-      if (shouldReloadClasses) {
-        try {
-          assignedClasses = await fetchAssignedClasses();
-          setClassesList(assignedClasses);
-          loadedTeacherIdRef.current = teacherId;
-        } catch {
-          loadedTeacherIdRef.current = '';
-          assignedClasses = [];
-        } finally {
-          setClassesLoading(false);
-        }
-      }
-
-      const studentPromise = (async () => {
-        try {
-          await hydrateClassRosters(assignedClasses, courseId, classId);
-        } catch {
-          if (courseId && classId) {
-            const fallback = await fetchClassRoster(courseId, classId);
-            setTeacherStudents(fallback.map(mapStudent));
-            applyClassStudentCount(courseId, classId, fallback.length);
-          } else {
-            setTeacherStudents([]);
-          }
-        } finally {
-          setStudentsLoading(false);
-        }
-      })();
-
-      const heatmapPromise = (async () => {
-        try {
-          const data = await teacherApi.getDashboard(teacherId, courseId, classId);
-          const normalized = normalizeTeacherDashboard(data);
-          setTeacherTopicHeatmap(resolveHeatmap(data, normalized));
-          if (loadedTeacherIdRef.current !== teacherId && normalized.classSections.length) {
-            setClassesList(attachStudentCounts(normalized.classSections, normalized.students));
-            loadedTeacherIdRef.current = teacherId;
-          }
-        } catch {
-          if (loadedTeacherIdRef.current !== teacherId) {
-            setTeacherTopicHeatmap([]);
-          }
-        }
-      })();
-
-      await Promise.all([studentPromise, heatmapPromise]);
-    } finally {
-      setClassesLoading(false);
-      setStudentsLoading(false);
-    }
-  };
+    await Promise.all(tasks);
+  }, [classId, classesKey, courseId, dashboardKey, queryClient, rosterKey]);
 
   return {
     classesList,
     teacherStudents,
     teacherTopicHeatmap,
-    classesLoading,
-    studentsLoading,
-    teacherDashboardLoading: classesLoading,
+    classesLoading: Boolean(teacherId) && (classesQuery.isPending || classesQuery.isFetching),
+    studentsLoading: Boolean(teacherId && courseId && classId)
+      && (rosterQuery.isPending || rosterQuery.isFetching),
+    teacherDashboardLoading: Boolean(teacherId)
+      && (classesQuery.isPending || classesQuery.isFetching),
+    error: classesQuery.error || rosterQuery.error || dashboardQuery.error,
     loadTeacherDashboard,
   };
 }

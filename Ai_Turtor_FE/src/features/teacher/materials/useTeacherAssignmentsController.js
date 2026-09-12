@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '../../../app/queryKeys';
 import { assignmentApi } from '../../../services/assignmentApi';
 import { getUserFacingError } from '../../../services/apiClient';
 import { normalizeAssignment } from '../../../services/normalizers';
 import { useMutationLock } from '../../../hooks/useMutationLock';
 import { validateAssignmentFile } from '../../../utils/assignmentFiles';
 import { getRecordId } from '../shared/teacherUtils';
+
+const EMPTY_LIST = [];
 
 function getAssignmentItems(data) {
   if (Array.isArray(data)) return data;
@@ -19,6 +23,7 @@ export function useTeacherAssignmentsController({
   teacherUserId,
   triggerToast,
 }) {
+  const queryClient = useQueryClient();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [type, setType] = useState('ASSIGNMENT');
@@ -28,11 +33,21 @@ export function useTeacherAssignmentsController({
   const [targetType, setTargetType] = useState('ALL_CLASS');
   const [targetStudents, setTargetStudents] = useState('');
   const [publishing, setPublishing] = useState(false);
-  const [records, setRecords] = useState([]);
-  const [loading, setLoading] = useState(false);
   const [editing, setEditing] = useState(null);
   const [updating, setUpdating] = useState(false);
   const { runLocked } = useMutationLock();
+  const assignmentsQueryKey = queryKeys.teacherAssignments(teacherUserId, courseId, classId);
+  const assignmentsQuery = useQuery({
+    queryKey: assignmentsQueryKey,
+    queryFn: async ({ signal }) => getAssignmentItems(
+      await assignmentApi.getClassAssignments(courseId, classId, teacherUserId, { signal }),
+    ).map(normalizeAssignment),
+    enabled: Boolean(courseId && classId && teacherUserId),
+    staleTime: 15_000,
+    retry: 1,
+  });
+  const refetchAssignments = assignmentsQuery.refetch;
+  const records = assignmentsQuery.data || EMPTY_LIST;
 
   useEffect(() => {
     const timer = window.setTimeout(() => setTargetStudents(''), 0);
@@ -40,25 +55,14 @@ export function useTeacherAssignmentsController({
   }, [classId]);
 
   const load = useCallback(async () => {
-    if (!courseId || !classId || !teacherUserId) {
-      setRecords([]);
+    if (!courseId || !classId || !teacherUserId) return [];
+    const result = await refetchAssignments();
+    if (result.error) {
+      triggerToast(getUserFacingError(result.error, 'Không thể tải bài tập của lớp.'));
       return [];
     }
-
-    setLoading(true);
-    try {
-      const data = await assignmentApi.getClassAssignments(courseId, classId, teacherUserId);
-      const normalized = getAssignmentItems(data).map(normalizeAssignment);
-      setRecords(normalized);
-      return normalized;
-    } catch (error) {
-      setRecords([]);
-      triggerToast(getUserFacingError(error, 'Không thể tải bài tập của lớp.'));
-      return [];
-    } finally {
-      setLoading(false);
-    }
-  }, [classId, courseId, teacherUserId, triggerToast]);
+    return result.data || [];
+  }, [classId, courseId, refetchAssignments, teacherUserId, triggerToast]);
 
   const setFile = useCallback((nextFile) => {
     if (!nextFile) {
@@ -168,6 +172,10 @@ export function useTeacherAssignmentsController({
 
     try {
       await assignmentApi.deleteAssignment(assignmentId, teacherUserId);
+      queryClient.removeQueries({
+        queryKey: queryKeys.assignmentDetail(assignmentId),
+        exact: true,
+      });
       triggerToast('Đã xóa bài tập.');
       await load();
     } catch (error) {
@@ -176,7 +184,7 @@ export function useTeacherAssignmentsController({
         'Không thể xóa bài tập. Chỉ được xóa khi chưa có bài nộp.',
       ));
     }
-  }, [load, teacherUserId, triggerToast]);
+  }, [load, queryClient, teacherUserId, triggerToast]);
 
   const edit = useCallback(async (assignment) => {
     const assignmentId = getRecordId(assignment);
@@ -186,12 +194,16 @@ export function useTeacherAssignmentsController({
     }
 
     try {
-      const detail = await assignmentApi.getAssignmentDetail(assignmentId);
+      const detail = await queryClient.fetchQuery({
+        queryKey: queryKeys.assignmentDetail(assignmentId),
+        queryFn: ({ signal }) => assignmentApi.getAssignmentDetail(assignmentId, { signal }),
+        staleTime: 15_000,
+      });
       setEditing(detail || assignment);
     } catch (error) {
       triggerToast(getUserFacingError(error, 'Không thể tải chi tiết bài tập.'));
     }
-  }, [triggerToast]);
+  }, [queryClient, triggerToast]);
 
   const update = useCallback(async (values) => {
     const assignmentId = getRecordId(editing);
@@ -202,6 +214,10 @@ export function useTeacherAssignmentsController({
       await assignmentApi.updateAssignment(assignmentId, {
         ...values,
         teacherId: teacherUserId,
+      });
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.assignmentDetail(assignmentId),
+        exact: true,
       });
       setEditing(null);
       triggerToast('Đã cập nhật bài tập.');
@@ -214,7 +230,7 @@ export function useTeacherAssignmentsController({
     } finally {
       setUpdating(false);
     }
-  }, [editing, load, teacherUserId, triggerToast, updating]);
+  }, [editing, load, queryClient, teacherUserId, triggerToast, updating]);
 
   const download = useCallback(async (assignment) => {
     const assignmentId = getRecordId(assignment);
@@ -261,7 +277,11 @@ export function useTeacherAssignmentsController({
       isPublishing: publishing,
     },
     records,
-    loading,
+    loading: Boolean(courseId && classId && teacherUserId)
+      && (assignmentsQuery.isPending || assignmentsQuery.isFetching),
+    error: assignmentsQuery.error
+      ? getUserFacingError(assignmentsQuery.error, 'Không thể tải bài tập của lớp.')
+      : '',
     load,
     create,
     remove,

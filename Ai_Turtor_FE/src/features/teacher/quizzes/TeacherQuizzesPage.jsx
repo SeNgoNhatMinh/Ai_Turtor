@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import QuizAssignments from './QuizAssignments';
 import { useTeacherDashboard } from '../dashboard/useTeacherDashboard';
 import { findTeacherClass, getClassCourseId } from '../shared/teacherUtils';
@@ -13,12 +12,6 @@ export default function TeacherQuizzesPage({
   triggerToast,
 }) {
   const dashboard = useTeacherDashboard({ teacherId, courseId, classId });
-
-  useEffect(() => {
-    dashboard.loadTeacherDashboard();
-    // Student targets are loaded for the selected class.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [teacherId, courseId, classId]);
 
   const handleClassChange = (nextClassId) => {
     const selectedClass = findTeacherClass(dashboard.classesList, nextClassId);

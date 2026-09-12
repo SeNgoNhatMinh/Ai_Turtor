@@ -38,13 +38,6 @@ export default function TeacherMaterialsPage({
   });
 
   useEffect(() => {
-    dashboard.loadTeacherDashboard();
-    assignments.load();
-    // Materials are loaded declaratively by TanStack Query.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [teacherId, courseId, classId]);
-
-  useEffect(() => {
     if (dashboard.teacherDashboardLoading || !dashboard.classesList.length) return;
     const matchedClass = findTeacherClass(dashboard.classesList, classId);
     const selectedClass = matchedClass || (!classId && dashboard.classesList.length === 1

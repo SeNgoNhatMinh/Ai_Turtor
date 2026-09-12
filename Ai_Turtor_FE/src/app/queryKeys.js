@@ -69,6 +69,37 @@ export const queryKeys = {
     Number(filters.pageSize) || 8,
     String(filters.query || '').trim(),
   ],
+  teacherAssignments: (teacherId, courseId, classId) => [
+    'teacher',
+    'assignments',
+    teacherId || 'anonymous',
+    courseId || 'none',
+    classId || 'none',
+  ],
+  assignmentDetail: (assignmentId) => [
+    'assignment',
+    'detail',
+    assignmentId || 'none',
+  ],
+  teacherClasses: (teacherId) => [
+    'teacher',
+    'classes',
+    teacherId || 'anonymous',
+  ],
+  teacherClassRoster: (teacherId, courseId, classId) => [
+    'teacher',
+    'class-roster',
+    teacherId || 'anonymous',
+    courseId || 'none',
+    classId || 'none',
+  ],
+  teacherDashboard: (teacherId, courseId, classId) => [
+    'teacher',
+    'dashboard',
+    teacherId || 'anonymous',
+    courseId || 'all',
+    classId || 'all',
+  ],
   studentMentorRequests: (studentId) => ['student', 'mentor-requests', studentId],
   studentMentorRequestDetail: (escalationId) => [
     'student',

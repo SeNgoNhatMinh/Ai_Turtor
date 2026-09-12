@@ -47,8 +47,10 @@ export const assignmentApi = {
     );
   },
 
-  async getAssignmentDetail(assignmentId) {
-    return request(`${API_BASE_URL}/assignments/${encodePath(assignmentId)}`);
+  async getAssignmentDetail(assignmentId, options = {}) {
+    return request(`${API_BASE_URL}/assignments/${encodePath(assignmentId)}`, {
+      signal: options.signal,
+    });
   },
 
   async updateAssignment(assignmentId, payload) {
@@ -86,8 +88,10 @@ export const assignmentApi = {
     return assertAssignmentUploadReceipt(response);
   },
 
-  async getClassAssignments(courseId, classId, teacherId) {
-    return request(`${API_BASE_URL}/mentor/courses/${encodePath(courseId)}/classes/${encodePath(classId)}/assignments?teacherId=${encodeURIComponent(teacherId)}`);
+  async getClassAssignments(courseId, classId, teacherId, options = {}) {
+    return request(`${API_BASE_URL}/mentor/courses/${encodePath(courseId)}/classes/${encodePath(classId)}/assignments?teacherId=${encodeURIComponent(teacherId)}`, {
+      signal: options.signal,
+    });
   },
 
   async getClassSubmissions(courseId, classId, teacherId) {

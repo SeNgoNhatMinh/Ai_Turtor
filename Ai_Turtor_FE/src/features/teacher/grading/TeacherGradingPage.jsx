@@ -21,7 +21,6 @@ export default function TeacherGradingPage({ teacherId, courseId, classId, trigg
   const [weakTopics, setWeakTopics] = useState([]);
 
   useEffect(() => {
-    dashboard.loadTeacherDashboard();
     grading.loadTeacherSubmissions();
     // Grading data is isolated to this route.
     // eslint-disable-next-line react-hooks/exhaustive-deps

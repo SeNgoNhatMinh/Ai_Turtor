@@ -26,12 +26,6 @@ export default function TeacherClassesPage({
   });
 
   useEffect(() => {
-    dashboard.loadTeacherDashboard();
-    // Dashboard is scoped by teacher/course/class.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [teacherId, courseId, classId]);
-
-  useEffect(() => {
     if (dashboard.teacherDashboardLoading || !dashboard.classesList.length) return;
     const selectedExists = Boolean(findTeacherClass(dashboard.classesList, classId));
     if (selectedExists) return;
