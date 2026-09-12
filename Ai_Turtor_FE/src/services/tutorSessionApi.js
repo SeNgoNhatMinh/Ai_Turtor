@@ -28,38 +28,43 @@ export const tutorSessionApi = {
     );
   },
 
-  listTeacherSummaries(teacherId, courseId, classId) {
+  listTeacherSummaries(teacherId, courseId, classId, options = {}) {
     return request(
       `${API_BASE_URL}/tutor/teachers/${encodeURIComponent(teacherId)}/courses/${encodeURIComponent(courseId)}`
       + `/classes/${encodeURIComponent(classId)}/session-summaries`,
+      { signal: options.signal },
     );
   },
 
-  listTeacherSessions(teacherId, courseId, classId) {
+  listTeacherSessions(teacherId, courseId, classId, options = {}) {
     return request(
       `${API_BASE_URL}/tutor/teachers/${encodeURIComponent(teacherId)}/courses/${encodeURIComponent(courseId)}`
       + `/classes/${encodeURIComponent(classId)}/sessions`,
+      { signal: options.signal },
     );
   },
 
-  getTranscript(teacherId, summaryId) {
+  getTranscript(teacherId, summaryId, options = {}) {
     return request(
       `${API_BASE_URL}/tutor/teachers/${encodeURIComponent(teacherId)}`
       + `/session-summaries/${encodeURIComponent(summaryId)}/transcript`,
+      { signal: options.signal },
     );
   },
 
-  getSessionTranscript(teacherId, sessionId) {
+  getSessionTranscript(teacherId, sessionId, options = {}) {
     return request(
       `${API_BASE_URL}/tutor/teachers/${encodeURIComponent(teacherId)}`
       + `/sessions/${encodeURIComponent(sessionId)}/transcript`,
+      { signal: options.signal },
     );
   },
 
-  listDirectives(teacherId, courseId, classId) {
+  listDirectives(teacherId, courseId, classId, options = {}) {
     return request(
       `${API_BASE_URL}/tutor/teachers/${encodeURIComponent(teacherId)}/courses/${encodeURIComponent(courseId)}`
       + `/classes/${encodeURIComponent(classId)}/directives`,
+      { signal: options.signal },
     );
   },
 

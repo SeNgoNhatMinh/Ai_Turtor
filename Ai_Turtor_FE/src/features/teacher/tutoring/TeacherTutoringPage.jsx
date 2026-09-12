@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Drawer } from 'antd';
+import { queryKeys } from '../../../app/queryKeys';
 import PageHeader from '../../../components/common/PageHeader';
 import { getUserFacingError } from '../../../services/apiClient';
 import { asArray } from '../../../services/normalizers';
@@ -36,6 +38,47 @@ function TopicList({ label, items, tone = 'default', wrap = false }) {
   );
 }
 
+const EMPTY_LIST = [];
+
+const settledValue = (results, index, fallback) => (
+  results[index]?.status === 'fulfilled' ? results[index].value : fallback
+);
+
+async function loadClassBundle(teacherId, scope, signal) {
+  const results = await Promise.allSettled([
+    tutorSessionApi.listTeacherSummaries(teacherId, scope.courseId, scope.classId, { signal }),
+    tutorSessionApi.listTeacherSessions(teacherId, scope.courseId, scope.classId, { signal }),
+    tutorSessionApi.listDirectives(teacherId, scope.courseId, scope.classId, { signal }),
+    teacherApi.getClassStudents(scope.courseId, scope.classId, teacherId, { signal }),
+    teacherApi.getCourseMemories(scope.courseId, scope.classId, { signal }),
+  ]);
+  if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
+  if (results.every((result) => result.status === 'rejected')) {
+    throw results[0].reason || new Error('Không thể tải dữ liệu lớp.');
+  }
+  const roster = asArray(settledValue(results, 3, {}), 'students', 'items', 'content');
+  return {
+    students: buildClassStudentRows({
+      roster,
+      memories: asArray(settledValue(results, 4, {}), 'memories', 'items', 'content'),
+      sessions: asArray(settledValue(results, 1, {}), 'sessions', 'items', 'content')
+        .map((item) => mergeRosterIdentity(item, roster)),
+      summaries: asArray(settledValue(results, 0, {}), 'summaries', 'items', 'content')
+        .map((item) => mergeRosterIdentity(item, roster)),
+      courseId: scope.courseId,
+      classId: scope.classId,
+      classLabel: scope.label,
+    }),
+    directives: asArray(settledValue(results, 2, {}), 'directives', 'items', 'content').map((item) => ({
+      ...mergeRosterIdentity(item, roster),
+      courseId: scope.courseId,
+      classId: scope.classId,
+      classKey: scope.key,
+      classLabel: scope.label,
+    })),
+  };
+}
+
 export default function TeacherTutoringPage({
   teacherId,
   courseId,
@@ -44,14 +87,10 @@ export default function TeacherTutoringPage({
   setClassId,
   triggerToast,
 }) {
-  const [classScopes, setClassScopes] = useState([]);
-  const [studentRows, setStudentRows] = useState([]);
-  const [directives, setDirectives] = useState([]);
+  const queryClient = useQueryClient();
   const [activeClassKey, setActiveClassKey] = useState('ALL');
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [selectedSummary, setSelectedSummary] = useState(null);
-  const [transcript, setTranscript] = useState([]);
-  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [query, setQuery] = useState('');
   const [form, setForm] = useState({
@@ -62,85 +101,82 @@ export default function TeacherTutoringPage({
     supportLevel: 'STANDARD',
   });
 
-  const loadClassBundle = async (scope) => {
-    const [summaryData, sessionData, directiveData, studentData, memoryData] = await Promise.all([
-      tutorSessionApi.listTeacherSummaries(teacherId, scope.courseId, scope.classId).catch(() => ({ summaries: [] })),
-      tutorSessionApi.listTeacherSessions(teacherId, scope.courseId, scope.classId).catch(() => ({ sessions: [] })),
-      tutorSessionApi.listDirectives(teacherId, scope.courseId, scope.classId).catch(() => ({ directives: [] })),
-      teacherApi.getClassStudents(scope.courseId, scope.classId, teacherId).catch(() => ({ students: [] })),
-      teacherApi.getCourseMemories(scope.courseId, scope.classId).catch(() => ({ memories: [] })),
-    ]);
-    const roster = asArray(studentData, 'students', 'items', 'content');
-    return {
-      students: buildClassStudentRows({
-        roster,
-        memories: asArray(memoryData, 'memories', 'items', 'content'),
-        sessions: asArray(sessionData, 'sessions', 'items', 'content').map((item) => mergeRosterIdentity(item, roster)),
-        summaries: asArray(summaryData, 'summaries', 'items', 'content').map((item) => mergeRosterIdentity(item, roster)),
-        courseId: scope.courseId,
-        classId: scope.classId,
-        classLabel: scope.label,
-      }),
-      directives: asArray(directiveData, 'directives', 'items', 'content').map((item) => ({
-        ...mergeRosterIdentity(item, roster),
-        courseId: scope.courseId,
-        classId: scope.classId,
-        classKey: scope.key,
-        classLabel: scope.label,
-      })),
-    };
-  };
-
-  const load = async () => {
-    if (!teacherId) return;
-    setLoading(true);
-    try {
-      let assigned = [];
-      try {
-        const classData = await teacherApi.getClassSections(teacherId);
-        assigned = asArray(classData, 'classes', 'classSections', 'content');
-      } catch {
-        assigned = [];
-      }
-      const scopes = uniqueClassScopes(assigned, { courseId, classId });
-      if (!scopes.length) {
-        setClassScopes([]);
-        setStudentRows([]);
-        setDirectives([]);
-        return;
-      }
-      const bundles = await Promise.all(scopes.map((scope) => loadClassBundle(scope)));
-      setClassScopes(scopes);
-      setStudentRows(bundles.flatMap((bundle) => bundle.students));
-      setDirectives(bundles.flatMap((bundle) => bundle.directives));
-      setActiveClassKey((current) => {
-        if (current === 'ALL' && scopes.length > 1) return current;
-        if (scopes.some((scope) => scope.key === current)) return current;
-        const preferred = scopes.find((scope) => (
-          String(scope.courseId).toUpperCase() === String(courseId || '').toUpperCase()
-          && String(scope.classId).toUpperCase() === String(classId || '').toUpperCase()
-        ));
-        if (preferred) return preferred.key;
-        return scopes.length === 1 ? scopes[0].key : 'ALL';
-      });
-    } catch (error) {
-      triggerToast?.(getUserFacingError(error, 'Không thể tải dữ liệu gia sư của lớp.'));
-    } finally {
-      setLoading(false);
-    }
-  };
+  const classesQuery = useQuery({
+    queryKey: queryKeys.teacherClasses(teacherId),
+    queryFn: async ({ signal }) => asArray(
+      await teacherApi.getClassSections(teacherId, { signal }),
+      'classes',
+      'classSections',
+      'content',
+    ),
+    enabled: Boolean(teacherId),
+    staleTime: 60_000,
+  });
+  const classScopes = useMemo(() => uniqueClassScopes(
+    classesQuery.data || EMPTY_LIST,
+    { courseId, classId },
+  ), [classId, classesQuery.data, courseId]);
+  const scopeKeys = useMemo(() => classScopes.map((scope) => scope.key), [classScopes]);
+  const tutoringQueryKey = queryKeys.teacherTutoringBundle(teacherId, scopeKeys);
+  const tutoringQuery = useQuery({
+    queryKey: tutoringQueryKey,
+    queryFn: async ({ signal }) => {
+      const bundles = await Promise.all(
+        classScopes.map((scope) => loadClassBundle(teacherId, scope, signal)),
+      );
+      return {
+        students: bundles.flatMap((bundle) => bundle.students),
+        directives: bundles.flatMap((bundle) => bundle.directives),
+      };
+    },
+    enabled: Boolean(teacherId && classScopes.length),
+    staleTime: 30_000,
+  });
+  const studentRows = tutoringQuery.data?.students || EMPTY_LIST;
+  const directives = tutoringQuery.data?.directives || EMPTY_LIST;
+  const loading = Boolean(teacherId)
+    && (classesQuery.isPending || classesQuery.isFetching
+      || (classScopes.length > 0 && (tutoringQuery.isPending || tutoringQuery.isFetching)));
+  const effectiveActiveClassKey = useMemo(() => {
+    if (activeClassKey === 'ALL' && classScopes.length > 1) return 'ALL';
+    if (classScopes.some((scope) => scope.key === activeClassKey)) return activeClassKey;
+    const preferred = classScopes.find((scope) => (
+      String(scope.courseId).toUpperCase() === String(courseId || '').toUpperCase()
+      && String(scope.classId).toUpperCase() === String(classId || '').toUpperCase()
+    ));
+    return preferred?.key || (classScopes.length === 1 ? classScopes[0].key : 'ALL');
+  }, [activeClassKey, classId, classScopes, courseId]);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => load(), 0);
-    return () => window.clearTimeout(timer);
-    // Reload when the signed-in teacher changes; class tabs then pick the assigned sections.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [teacherId]);
+    const error = classesQuery.error || tutoringQuery.error;
+    if (!error) return;
+    triggerToast?.(getUserFacingError(error, 'Không thể tải dữ liệu gia sư của lớp.'));
+  }, [classesQuery.error, triggerToast, tutoringQuery.error]);
+
+  const transcriptKind = selectedSummary?._transcriptKind || '';
+  const transcriptId = selectedSummary?.id || '';
+  const transcriptQuery = useQuery({
+    queryKey: queryKeys.teacherTutorTranscript(teacherId, transcriptKind, transcriptId),
+    queryFn: async ({ signal }) => {
+      const data = transcriptKind === 'session'
+        ? await tutorSessionApi.getSessionTranscript(teacherId, transcriptId, { signal })
+        : await tutorSessionApi.getTranscript(teacherId, transcriptId, { signal });
+      return asArray(data, 'messages', 'content', 'items');
+    },
+    enabled: Boolean(teacherId && transcriptKind && transcriptId),
+    staleTime: 60_000,
+  });
+  const transcript = transcriptQuery.data || EMPTY_LIST;
+
+  useEffect(() => {
+    if (!transcriptQuery.error) return;
+    triggerToast?.(getUserFacingError(transcriptQuery.error, 'Không thể tải toàn bộ hội thoại.'));
+  }, [transcriptQuery.error, triggerToast]);
 
   const scopedRows = useMemo(() => {
-    if (activeClassKey === 'ALL') return studentRows;
-    return studentRows.filter((student) => student.classKey === activeClassKey);
-  }, [activeClassKey, studentRows]);
+    if (effectiveActiveClassKey === 'ALL') return studentRows;
+    return studentRows.filter((student) => student.classKey === effectiveActiveClassKey);
+  }, [effectiveActiveClassKey, studentRows]);
 
   const visibleGroups = useMemo(() => {
     const keyword = query.trim().toLowerCase();
@@ -152,19 +188,19 @@ export default function TeacherTutoringPage({
 
   const visibleDirectives = useMemo(() => {
     const confirmed = directives.filter((item) => item.status === 'CONFIRMED');
-    if (activeClassKey === 'ALL') return confirmed;
-    return confirmed.filter((item) => item.classKey === activeClassKey);
-  }, [activeClassKey, directives]);
+    if (effectiveActiveClassKey === 'ALL') return confirmed;
+    return confirmed.filter((item) => item.classKey === effectiveActiveClassKey);
+  }, [directives, effectiveActiveClassKey]);
 
   const formStudents = useMemo(() => {
-    const key = form.classKey || (activeClassKey === 'ALL' ? '' : activeClassKey);
+    const key = form.classKey || (effectiveActiveClassKey === 'ALL' ? '' : effectiveActiveClassKey);
     if (!key) return studentRows;
     return studentRows.filter((student) => student.classKey === key);
-  }, [activeClassKey, form.classKey, studentRows]);
+  }, [effectiveActiveClassKey, form.classKey, studentRows]);
 
   const studiedCount = scopedRows.filter((student) => student.hasActivity).length;
   const weakCount = scopedRows.filter((student) => student.weakTopics.length > 0).length;
-  const activeScope = classScopes.find((scope) => scope.key === activeClassKey)
+  const activeScope = classScopes.find((scope) => scope.key === effectiveActiveClassKey)
     || classScopes.find((scope) => scope.key === form.classKey)
     || classScopes[0];
 
@@ -185,7 +221,6 @@ export default function TeacherTutoringPage({
   const openStudent = (student) => {
     setSelectedStudent(student);
     setSelectedSummary(null);
-    setTranscript([]);
     setForm((value) => ({
       ...value,
       classKey: student.classKey || value.classKey,
@@ -193,37 +228,20 @@ export default function TeacherTutoringPage({
     }));
   };
 
-  const openTranscript = async (summary) => {
-    setSelectedSummary(summary);
-    setTranscript([]);
-    try {
-      const data = await tutorSessionApi.getTranscript(teacherId, summary.id);
-      const nextSummary = mergeRosterIdentity(data?.summary || summary, studentRows);
-      setSelectedSummary(nextSummary);
-      setTranscript(asArray(data, 'messages', 'content', 'items'));
-    } catch (error) {
-      triggerToast?.(getUserFacingError(error, 'Không thể tải toàn bộ hội thoại.'));
-    }
+  const openTranscript = (summary) => {
+    setSelectedSummary({ ...summary, _transcriptKind: 'summary' });
   };
 
-  const openSessionTranscript = async (session) => {
+  const openSessionTranscript = (session) => {
     setSelectedSummary({
       ...session,
       topic: session.topic || 'Học tự do',
+      _transcriptKind: 'session',
     });
-    setTranscript([]);
-    try {
-      const data = await tutorSessionApi.getSessionTranscript(teacherId, session.id);
-      setSelectedSummary(mergeRosterIdentity(data?.session || session, studentRows));
-      setTranscript(asArray(data, 'messages', 'content', 'items'));
-    } catch (error) {
-      triggerToast?.(getUserFacingError(error, 'Không thể tải toàn bộ hội thoại.'));
-    }
   };
 
   const closeTranscript = () => {
     setSelectedSummary(null);
-    setTranscript([]);
   };
 
   const applyDirectiveToStudent = (student, topic = '') => {
@@ -241,7 +259,9 @@ export default function TeacherTutoringPage({
     event.preventDefault();
     if (!form.instruction.trim()) return;
     const selectedStudentScope = studentRows.find((student) => student.studentId === form.studentId);
-    const scope = classScopes.find((item) => item.key === (form.classKey || selectedStudentScope?.classKey || activeClassKey))
+    const scope = classScopes.find((item) => item.key === (
+      form.classKey || selectedStudentScope?.classKey || effectiveActiveClassKey
+    ))
       || activeScope;
     if (!scope?.courseId || !scope?.classId) {
       triggerToast?.('Hãy chọn lớp trước khi gửi chỉ dẫn.');
@@ -260,7 +280,7 @@ export default function TeacherTutoringPage({
       await tutorSessionApi.confirmDirective(teacherId, draft.id);
       setForm({ classKey: form.classKey || scope.key, studentId: '', topic: '', instruction: '', supportLevel: 'STANDARD' });
       triggerToast?.('Đã xác nhận chỉ dẫn. AI Tutor sẽ áp dụng từ lượt học tiếp theo.');
-      await load();
+      await queryClient.invalidateQueries({ queryKey: tutoringQueryKey, exact: true });
     } catch (error) {
       triggerToast?.(getUserFacingError(error, 'Không thể lưu chỉ dẫn sư phạm.'));
     } finally {
@@ -271,7 +291,7 @@ export default function TeacherTutoringPage({
   const archiveDirective = async (directiveId) => {
     try {
       await tutorSessionApi.archiveDirective(teacherId, directiveId);
-      await load();
+      await queryClient.invalidateQueries({ queryKey: tutoringQueryKey, exact: true });
     } catch (error) {
       triggerToast?.(getUserFacingError(error, 'Không thể ngừng áp dụng chỉ dẫn.'));
     }
@@ -315,7 +335,7 @@ export default function TeacherTutoringPage({
               <label className="teacher-directive-field">
                 <span>Lớp áp dụng</span>
                 <select
-                  value={form.classKey || (activeClassKey === 'ALL' ? '' : activeClassKey)}
+                  value={form.classKey || (effectiveActiveClassKey === 'ALL' ? '' : effectiveActiveClassKey)}
                   onChange={(event) => setForm((value) => ({
                     ...value,
                     classKey: event.target.value,
@@ -405,7 +425,7 @@ export default function TeacherTutoringPage({
             <h2>Danh sách sinh viên theo lớp</h2>
             <p className="teacher-session-feed__hint">
               {classScopes.length > 1
-                ? `${classScopes.length} lớp phụ trách · ${scopedRows.length} sinh viên${activeClassKey === 'ALL' ? '' : ` · ${activeScope?.label || ''}`}`
+                ? `${classScopes.length} lớp phụ trách · ${scopedRows.length} sinh viên${effectiveActiveClassKey === 'ALL' ? '' : ` · ${activeScope?.label || ''}`}`
                 : `${activeScope?.label || 'Lớp hiện tại'} · ${scopedRows.length} sinh viên`}
               . Bấm một thẻ để xem bài đã học.
             </p>
@@ -415,8 +435,8 @@ export default function TeacherTutoringPage({
                   <button
                     type="button"
                     role="tab"
-                    aria-selected={activeClassKey === 'ALL'}
-                    className={activeClassKey === 'ALL' ? 'is-active' : ''}
+                    aria-selected={effectiveActiveClassKey === 'ALL'}
+                    className={effectiveActiveClassKey === 'ALL' ? 'is-active' : ''}
                     onClick={() => selectClass('ALL')}
                   >
                     Tất cả lớp
@@ -428,8 +448,8 @@ export default function TeacherTutoringPage({
                     key={scope.key}
                     type="button"
                     role="tab"
-                    aria-selected={activeClassKey === scope.key}
-                    className={activeClassKey === scope.key ? 'is-active' : ''}
+                    aria-selected={effectiveActiveClassKey === scope.key}
+                    className={effectiveActiveClassKey === scope.key ? 'is-active' : ''}
                     onClick={() => selectClass(scope.key)}
                   >
                     {scope.label}
@@ -626,7 +646,9 @@ export default function TeacherTutoringPage({
                 <span>{selectedStudentLabel}</span>
               </div>
             </header>
-            {transcript.length === 0 ? (
+            {transcriptQuery.isPending ? (
+              <p className="teacher-transcript__empty">Đang tải hội thoại...</p>
+            ) : transcript.length === 0 ? (
               <p className="teacher-transcript__empty">Chưa có tin nhắn trong buổi học này.</p>
             ) : (
               <TeacherTranscriptThread messages={transcript} student={selectedStudent} />

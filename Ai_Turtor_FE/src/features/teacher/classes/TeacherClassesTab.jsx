@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Drawer } from 'antd';
+import { useQuery } from '@tanstack/react-query';
+import { queryKeys } from '../../../app/queryKeys';
 import { AlertTriangle, BookOpen, CheckCircle2, GraduationCap, Lightbulb, RefreshCw, Target, Users } from 'lucide-react';
 import { teacherApi } from '../../../services/teacherApi';
 import { getUserFacingError } from '../../../services/apiClient';
@@ -26,6 +28,8 @@ const getTopicDescription = (level) => {
   return 'Chưa đủ dữ liệu. Kiểm tra lại sau khi có thêm hoạt động học tập.';
 };
 
+const EMPTY_LIST = [];
+
 function TeacherClassesTab({
   courseId,
   classId,
@@ -40,40 +44,30 @@ function TeacherClassesTab({
   heatmapNodes = [],
   triggerToast,
 }) {
-  const [courseMemories, setCourseMemories] = useState([]);
-  const [courseMemoriesLoading, setCourseMemoriesLoading] = useState(false);
   const [rosterOpen, setRosterOpen] = useState(false);
   const [rosterClassId, setRosterClassId] = useState('');
+  const courseMemoriesQuery = useQuery({
+    queryKey: queryKeys.teacherCourseMemories(courseId, classId),
+    queryFn: async ({ signal }) => asArray(
+      await teacherApi.getCourseMemories(courseId, classId, { signal }),
+      'memories',
+      'content',
+      'items',
+    ),
+    enabled: Boolean(courseId),
+    staleTime: 30_000,
+  });
+  const courseMemories = courseMemoriesQuery.data || EMPTY_LIST;
+  const courseMemoriesLoading = Boolean(courseId)
+    && (courseMemoriesQuery.isPending || courseMemoriesQuery.isFetching);
 
   useEffect(() => {
-    if (!courseId) {
-      const resetTimer = window.setTimeout(() => setCourseMemories([]), 0);
-      return () => window.clearTimeout(resetTimer);
-    }
-
-    let cancelled = false;
-    const loadCourseMemories = async () => {
-      setCourseMemoriesLoading(true);
-      try {
-        const data = await teacherApi.getCourseMemories(courseId, classId);
-        if (!cancelled) {
-          setCourseMemories(asArray(data, 'memories', 'content', 'items'));
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setCourseMemories([]);
-          triggerToast?.(getUserFacingError(error, 'Không thể tải tín hiệu bộ nhớ học tập của môn.'));
-        }
-      } finally {
-        if (!cancelled) setCourseMemoriesLoading(false);
-      }
-    };
-
-    loadCourseMemories();
-    return () => {
-      cancelled = true;
-    };
-  }, [classId, courseId, triggerToast]);
+    if (!courseMemoriesQuery.error) return;
+    triggerToast?.(getUserFacingError(
+      courseMemoriesQuery.error,
+      'Không thể tải tín hiệu bộ nhớ học tập của môn.',
+    ));
+  }, [courseMemoriesQuery.error, triggerToast]);
 
   const currentClass = findTeacherClass(classesList, classId);
   const rosterClass = findTeacherClass(classesList, rosterClassId) || currentClass;
@@ -176,7 +170,10 @@ function TeacherClassesTab({
           <button
             type="button"
             className="teacher-panel-refresh"
-            onClick={() => loadTeacherDashboard?.({ forceClasses: true })}
+            onClick={() => {
+              loadTeacherDashboard?.({ forceClasses: true });
+              if (courseId) courseMemoriesQuery.refetch();
+            }}
             disabled={classesLoading || teacherDashboardLoading || !loadTeacherDashboard}
             aria-label="Làm mới lớp được phân công và tín hiệu học tập"
           >

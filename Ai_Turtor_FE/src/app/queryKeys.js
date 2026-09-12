@@ -140,6 +140,25 @@ export const queryKeys = {
     courseId || 'none',
     classId || 'none',
   ],
+  teacherCourseMemories: (courseId, classId) => [
+    'teacher',
+    'course-memories',
+    courseId || 'none',
+    classId || 'all',
+  ],
+  teacherTutoringBundle: (teacherId, scopeKeys = []) => [
+    'teacher',
+    'tutoring',
+    teacherId || 'anonymous',
+    scopeKeys,
+  ],
+  teacherTutorTranscript: (teacherId, kind, transcriptId) => [
+    'teacher',
+    'tutoring-transcript',
+    teacherId || 'anonymous',
+    kind || 'none',
+    transcriptId || 'none',
+  ],
   teacherReviewInbox: (teacherId, courseId, filters = {}) => [
     'teacher',
     'review',

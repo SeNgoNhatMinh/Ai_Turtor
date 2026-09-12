@@ -35,10 +35,12 @@ export const teacherApi = {
     });
   },
 
-  async getCourseMemories(courseId, classId = '') {
+  async getCourseMemories(courseId, classId = '', options = {}) {
     const params = new URLSearchParams();
     if (classId) params.append('classId', classId);
     const query = params.toString();
-    return request(`${API_BASE_URL}/tutor/courses/${encodePath(courseId)}/memories${query ? `?${query}` : ''}`);
+    return request(`${API_BASE_URL}/tutor/courses/${encodePath(courseId)}/memories${query ? `?${query}` : ''}`, {
+      signal: options.signal,
+    });
   },
 };
