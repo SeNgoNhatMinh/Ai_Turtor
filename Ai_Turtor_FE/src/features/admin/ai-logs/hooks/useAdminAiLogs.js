@@ -1,114 +1,97 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '../../../../app/queryKeys';
 import { adminAiLogsApi } from '../../../../services/adminAiLogsApi';
 import { getUserFacingError } from '../../../../services/apiClient';
+
+const EMPTY_LIST = [];
 
 const buildLogFilters = (values = {}) => {
   const range = Array.isArray(values.range) ? values.range : [];
   return {
-    studentId: values.studentId,
-    courseId: values.courseId,
-    q: values.q,
-    from: range[0]?.toISOString?.(),
-    to: range[1]?.toISOString?.(),
+    studentId: values.studentId || '',
+    courseId: values.courseId || '',
+    q: values.q || '',
+    from: range[0]?.toISOString?.() || '',
+    to: range[1]?.toISOString?.() || '',
   };
 };
 
+const providerErrorMessage = (reason, fallback) => (
+  reason?.status === 401 || reason?.status === 403
+    ? 'API quản lý LLM provider chưa chấp nhận quyền Admin hiện tại. Phiên đăng nhập của bạn vẫn được giữ nguyên.'
+    : getUserFacingError(reason, fallback)
+);
+
 export function useAdminAiLogs() {
-  const [logs, setLogs] = useState([]);
-  const [summary, setSummary] = useState({});
-  const [providerConfigs, setProviderConfigs] = useState([]);
-  const [providerStats, setProviderStats] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [providerConfigLoading, setProviderConfigLoading] = useState(false);
-  const [providerLoading, setProviderLoading] = useState(false);
-  const [providerMutationKey, setProviderMutationKey] = useState('');
-  const [providerError, setProviderError] = useState('');
+  const queryClient = useQueryClient();
+  const [filters, setFilters] = useState(() => buildLogFilters());
   const [providerNotice, setProviderNotice] = useState('');
-  const [error, setError] = useState('');
+  const [providerMutationError, setProviderMutationError] = useState('');
+
+  const logsQuery = useQuery({
+    queryKey: queryKeys.adminAiLogs(filters),
+    queryFn: ({ signal }) => adminAiLogsApi.getLogs(filters, { signal }),
+    staleTime: 15_000,
+  });
+  const providerConfigsQuery = useQuery({
+    queryKey: queryKeys.adminLlmProviders(),
+    queryFn: ({ signal }) => adminAiLogsApi.getProviders({ signal }),
+    staleTime: 30_000,
+  });
+  const providerStatsQuery = useQuery({
+    queryKey: queryKeys.adminLlmProviderStats(),
+    queryFn: ({ signal }) => adminAiLogsApi.getProviderStats({ signal }),
+    staleTime: 15_000,
+  });
+
+  const providerMutation = useMutation({
+    mutationFn: ({ action }) => action(),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.adminLlmProviders() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.adminLlmProviderStats() }),
+      ]);
+    },
+  });
 
   const applyFilters = useCallback(async (values = {}) => {
-    setLoading(true);
-    setError('');
-    try {
-      const data = await adminAiLogsApi.getLogs(buildLogFilters(values));
-      setLogs(Array.isArray(data?.logs) ? data.logs : []);
-      setSummary(data?.summary || {});
-    } catch (reason) {
-      setLogs([]);
-      setSummary({});
-      const permissionMessage = reason?.status === 401 || reason?.status === 403
-        ? 'API nhật ký AI chưa chấp nhận quyền Admin hiện tại. Phiên đăng nhập của bạn vẫn được giữ nguyên.'
-        : 'Không thể tải nhật ký hỏi đáp AI.';
-      setError(
-        reason?.status === 401 || reason?.status === 403
-          ? permissionMessage
-          : getUserFacingError(reason, permissionMessage),
-      );
-    } finally {
-      setLoading(false);
+    const nextFilters = buildLogFilters(values);
+    if (JSON.stringify(nextFilters) === JSON.stringify(filters)) {
+      await logsQuery.refetch();
+      return;
     }
-  }, []);
-
-  const loadProviderStats = useCallback(async () => {
-    setProviderLoading(true);
-    try {
-      const data = await adminAiLogsApi.getProviderStats();
-      setProviderStats(Array.isArray(data?.providers) ? data.providers : []);
-    } catch (reason) {
-      console.warn('Unable to load LLM provider stats:', reason);
-      setProviderStats([]);
-      setProviderError(
-        reason?.status === 401 || reason?.status === 403
-          ? 'API quản lý LLM provider chưa chấp nhận quyền Admin hiện tại. Phiên đăng nhập của bạn vẫn được giữ nguyên.'
-          : getUserFacingError(reason, 'Không thể tải thống kê runtime của LLM provider.'),
-      );
-    } finally {
-      setProviderLoading(false);
-    }
-  }, []);
-
-  const loadProviderConfigs = useCallback(async () => {
-    setProviderConfigLoading(true);
-    try {
-      setProviderConfigs(await adminAiLogsApi.getProviders());
-    } catch (reason) {
-      console.warn('Unable to load LLM provider configuration:', reason);
-      setProviderError(
-        reason?.status === 401 || reason?.status === 403
-          ? 'API quản lý LLM provider chưa chấp nhận quyền Admin hiện tại. Phiên đăng nhập của bạn vẫn được giữ nguyên.'
-          : getUserFacingError(reason, 'Không thể tải cấu hình LLM provider.'),
-      );
-    } finally {
-      setProviderConfigLoading(false);
-    }
-  }, []);
+    setFilters(nextFilters);
+  }, [filters, logsQuery]);
 
   const refreshAll = useCallback(async () => {
-    setProviderError('');
-    await Promise.all([applyFilters(), loadProviderConfigs(), loadProviderStats()]);
-  }, [applyFilters, loadProviderConfigs, loadProviderStats]);
+    setProviderMutationError('');
+    const emptyFilters = buildLogFilters();
+    const tasks = [
+      queryClient.invalidateQueries({ queryKey: queryKeys.adminLlmProviders() }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.adminLlmProviderStats() }),
+    ];
+    if (JSON.stringify(filters) === JSON.stringify(emptyFilters)) {
+      tasks.push(logsQuery.refetch());
+    } else {
+      setFilters(emptyFilters);
+    }
+    await Promise.all(tasks);
+  }, [filters, logsQuery, queryClient]);
 
   const runProviderMutation = useCallback(async (mutationKey, action, successMessage) => {
-    if (providerMutationKey) return false;
-    setProviderMutationKey(mutationKey);
-    setProviderError('');
+    if (providerMutation.isPending) return false;
+    setProviderMutationError('');
     setProviderNotice('');
     try {
-      await action();
-      await Promise.all([loadProviderConfigs(), loadProviderStats()]);
+      await providerMutation.mutateAsync({ mutationKey, action });
       setProviderNotice(successMessage);
       return true;
     } catch (reason) {
-      setProviderError(
-        reason?.status === 401 || reason?.status === 403
-          ? 'Bạn chưa được Backend cấp quyền quản lý LLM provider. Phiên đăng nhập vẫn được giữ nguyên.'
-          : getUserFacingError(reason, 'Không thể cập nhật LLM provider.'),
-      );
+      setProviderMutationError(providerErrorMessage(reason, 'Không thể cập nhật LLM provider.'));
       return false;
-    } finally {
-      setProviderMutationKey('');
     }
-  }, [loadProviderConfigs, loadProviderStats, providerMutationKey]);
+  }, [providerMutation]);
 
   const updateProvider = useCallback((providerId, payload) => runProviderMutation(
     `update:${providerId}`,
@@ -142,23 +125,34 @@ export function useAdminAiLogs() {
     'Đã reload LLM provider chain từ cấu hình hiện tại.',
   ), [runProviderMutation]);
 
-  useEffect(() => {
-    const timer = window.setTimeout(refreshAll, 0);
-    return () => window.clearTimeout(timer);
-  }, [refreshAll]);
+  const logsPayload = logsQuery.data || {};
+  const logPermissionMessage = logsQuery.error?.status === 401 || logsQuery.error?.status === 403
+    ? 'API nhật ký AI chưa chấp nhận quyền Admin hiện tại. Phiên đăng nhập của bạn vẫn được giữ nguyên.'
+    : 'Không thể tải nhật ký hỏi đáp AI.';
+  const providerQueryError = providerConfigsQuery.error || providerStatsQuery.error;
 
   return {
-    logs,
-    summary,
-    providerConfigs,
-    providerStats,
-    loading,
-    providerConfigLoading,
-    providerLoading,
-    providerMutationKey,
-    providerError,
+    logs: Array.isArray(logsPayload.logs) ? logsPayload.logs : EMPTY_LIST,
+    summary: logsPayload.summary || {},
+    providerConfigs: providerConfigsQuery.data || EMPTY_LIST,
+    providerStats: Array.isArray(providerStatsQuery.data?.providers)
+      ? providerStatsQuery.data.providers
+      : EMPTY_LIST,
+    loading: logsQuery.isPending || logsQuery.isFetching,
+    providerConfigLoading: providerConfigsQuery.isPending || providerConfigsQuery.isFetching,
+    providerLoading: providerStatsQuery.isPending || providerStatsQuery.isFetching,
+    providerMutationKey: providerMutation.isPending
+      ? providerMutation.variables?.mutationKey || ''
+      : '',
+    providerError: providerMutationError || (providerQueryError
+      ? providerErrorMessage(providerQueryError, 'Không thể tải thông tin LLM provider.')
+      : ''),
     providerNotice,
-    error,
+    error: logsQuery.error
+      ? (logsQuery.error.status === 401 || logsQuery.error.status === 403
+        ? logPermissionMessage
+        : getUserFacingError(logsQuery.error, logPermissionMessage))
+      : '',
     applyFilters,
     refreshAll,
     updateProvider,

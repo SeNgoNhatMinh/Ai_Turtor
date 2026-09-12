@@ -1,4 +1,5 @@
 import React from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Row, Col, Card, Statistic, Space, Alert, Button, Typography, Tag, Input } from 'antd';
 import {
   Users, GraduationCap, Library, AlertTriangle, RefreshCw, Server, FileText,
@@ -11,6 +12,7 @@ import { getUserFacingError } from '../../../services/apiClient';
 import ActionQueue from '../../../components/common/ActionQueue';
 import AppTabs from '../../../components/common/AppTabs';
 import SearchableTable from '../../../components/common/SearchableTable';
+import { queryKeys } from '../../../app/queryKeys';
 
 const { Text } = Typography;
 
@@ -21,46 +23,40 @@ function AdminDashboard({
   runDiagnostics,
   onNavigate,
 }) {
-  const [logs, setLogs] = React.useState([]);
-  const [logsLoading, setLogsLoading] = React.useState(false);
-  const [logsError, setLogsError] = React.useState('');
   const [traceId, setTraceId] = React.useState('');
-  const [traceOutput, setTraceOutput] = React.useState(null);
-  const [traceError, setTraceError] = React.useState('');
-
-  const loadLogs = async () => {
-    setLogsLoading(true);
-    setLogsError('');
-    try {
-      const data = await diagnosticsApi.getHarnessLogs({ limit: 50 });
-      setLogs(Array.isArray(data) ? data : data?.content || data?.logs || []);
-    } catch (error) {
-      setLogs([]);
-      setLogsError(getUserFacingError(error, 'Không thể tải nhật ký AI Harness.'));
-    } finally {
-      setLogsLoading(false);
+  const [requestedTraceId, setRequestedTraceId] = React.useState('');
+  const logFilters = React.useMemo(() => ({ limit: 50 }), []);
+  const logsQuery = useQuery({
+    queryKey: queryKeys.adminHarnessLogs(logFilters),
+    queryFn: ({ signal }) => diagnosticsApi.getHarnessLogs(logFilters, { signal }),
+    staleTime: 15_000,
+  });
+  const traceQuery = useQuery({
+    queryKey: queryKeys.adminHarnessTrace(requestedTraceId),
+    queryFn: ({ signal }) => diagnosticsApi.getTraceLogs(requestedTraceId, { signal }),
+    enabled: Boolean(requestedTraceId),
+    staleTime: 60_000,
+  });
+  const logsPayload = logsQuery.data;
+  const logs = Array.isArray(logsPayload) ? logsPayload : logsPayload?.content || logsPayload?.logs || [];
+  const logsLoading = logsQuery.isPending || logsQuery.isFetching;
+  const logsError = logsQuery.error
+    ? getUserFacingError(logsQuery.error, 'Không thể tải nhật ký AI Harness.')
+    : '';
+  const traceOutput = traceQuery.data || null;
+  const traceError = traceQuery.error
+    ? getUserFacingError(traceQuery.error, 'Không thể tải trace này.')
+    : '';
+  const loadLogs = () => logsQuery.refetch();
+  const loadTrace = (nextTraceId = traceId) => {
+    const normalizedTraceId = String(nextTraceId || '').trim();
+    if (!normalizedTraceId) return;
+    if (normalizedTraceId === requestedTraceId) {
+      traceQuery.refetch();
+      return;
     }
+    setRequestedTraceId(normalizedTraceId);
   };
-
-  const loadTrace = async (requestedTraceId = traceId) => {
-    if (!requestedTraceId) return;
-    setLogsLoading(true);
-    setTraceError('');
-    setTraceOutput(null);
-    try {
-      const data = await diagnosticsApi.getTraceLogs(requestedTraceId);
-      setTraceOutput(data);
-    } catch (error) {
-      setTraceError(getUserFacingError(error, 'Không thể tải trace này.'));
-    } finally {
-      setLogsLoading(false);
-    }
-  };
-
-  React.useEffect(() => {
-    const loadTimer = window.setTimeout(loadLogs, 0);
-    return () => window.clearTimeout(loadTimer);
-  }, []);
 
   const harnessLabel = env.n8nEnabled
     ? env.n8nStrict ? 'n8n strict' : 'Đã bật n8n harness'
@@ -234,7 +230,7 @@ function AdminDashboard({
                 onChange={(event) => setTraceId(event.target.value)}
                 style={{ width: 300 }}
               />
-              <Button type="primary" onClick={() => loadTrace()} loading={logsLoading} disabled={!traceId.trim()}>Tải trace</Button>
+              <Button type="primary" onClick={() => loadTrace()} loading={traceQuery.isFetching} disabled={!traceId.trim()}>Tải trace</Button>
             </Space>
             {traceError && <Alert type="warning" showIcon title={traceError} style={{ marginBottom: 12 }} />}
             {traceOutput && (

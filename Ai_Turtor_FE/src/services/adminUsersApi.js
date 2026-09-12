@@ -7,13 +7,15 @@ export const adminUsersApi = {
     return uploadRequest(`${API_BASE_URL}/mentors/import`, formData, 'Import failed');
   },
 
-  async getAdminUsers(q = '', role = '', active = '') {
+  async getAdminUsers(q = '', role = '', active = '', options = {}) {
     const params = new URLSearchParams();
     if (q) params.append('q', q);
     if (role) params.append('role', role);
     if (active !== '') params.append('active', active);
     const qs = params.toString();
-    return asArray(await request(`${API_BASE_URL}/admin/users${qs ? `?${qs}` : ''}`), 'users', 'content');
+    return asArray(await request(`${API_BASE_URL}/admin/users${qs ? `?${qs}` : ''}`, {
+      signal: options.signal,
+    }), 'users', 'content');
   },
 
   async updateAdminUser(userId, payload) {
@@ -43,11 +45,13 @@ export const adminUsersApi = {
     return asArray(await request(`${API_BASE_URL}/mentors${query ? `?${query}` : ''}`), 'mentors', 'content');
   },
 
-  async getAdminMentors(q = '') {
+  async getAdminMentors(q = '', options = {}) {
     const params = new URLSearchParams();
     if (q) params.append('q', q);
     const query = params.toString();
-    return asArray(await request(`${API_BASE_URL}/admin/mentors${query ? `?${query}` : ''}`), 'mentors', 'content');
+    return asArray(await request(`${API_BASE_URL}/admin/mentors${query ? `?${query}` : ''}`, {
+      signal: options.signal,
+    }), 'mentors', 'content');
   },
 
   async updateAdminMentor(mentorId, payload) {
@@ -62,12 +66,14 @@ export const adminUsersApi = {
     return request(`${API_BASE_URL}/admin/mentors/${encodePath(mentorId)}`, { method: 'DELETE' });
   },
 
-  async getAdminEscalations(status = '') {
+  async getAdminEscalations(status = '', options = {}) {
     const params = new URLSearchParams();
     if (status) params.append('status', status);
     const query = params.toString();
     return asArray(
-      await request(`${API_BASE_URL}/admin/mentor-escalations${query ? `?${query}` : ''}`),
+      await request(`${API_BASE_URL}/admin/mentor-escalations${query ? `?${query}` : ''}`, {
+        signal: options.signal,
+      }),
       'escalations',
       'content',
     );

@@ -43,7 +43,7 @@ const jsonOptions = (method, body) => ({
 const preserveAdminSession = { skipUnauthorizedRedirect: true };
 
 export const adminAiLogsApi = {
-  async getLogs(filters = {}) {
+  async getLogs(filters = {}, options = {}) {
     const params = new URLSearchParams();
     Object.entries(filters).forEach(([key, value]) => {
       if (value !== undefined && value !== null && String(value).trim() !== '') params.set(key, String(value));
@@ -51,14 +51,20 @@ export const adminAiLogsApi = {
     const query = params.toString();
     return request(
       `${API_BASE_URL}/admin/ai-logs${query ? `?${query}` : ''}`,
-      preserveAdminSession,
+      { ...preserveAdminSession, signal: options.signal },
     );
   },
-  async getProviderStats() {
-    return request(`${API_BASE_URL}/admin/llm-providers/stats`, preserveAdminSession);
+  async getProviderStats(options = {}) {
+    return request(`${API_BASE_URL}/admin/llm-providers/stats`, {
+      ...preserveAdminSession,
+      signal: options.signal,
+    });
   },
-  async getProviders() {
-    const data = await request(`${API_BASE_URL}/admin/llm-providers`, preserveAdminSession);
+  async getProviders(options = {}) {
+    const data = await request(`${API_BASE_URL}/admin/llm-providers`, {
+      ...preserveAdminSession,
+      signal: options.signal,
+    });
     return normalizeLlmProviders(data);
   },
   async updateProvider(providerId, payload) {

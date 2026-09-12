@@ -8,8 +8,10 @@ export const adminAcademicApi = {
     return asArray(await request(`${API_BASE_URL}/admin/semesters`), 'semesters', 'content');
   },
 
-  async getCourses() {
-    return asArray(await request(`${API_BASE_URL}/courses`), 'courses', 'content');
+  async getCourses(options = {}) {
+    return asArray(await request(`${API_BASE_URL}/courses`, {
+      signal: options.signal,
+    }), 'courses', 'content');
   },
 
   async getClassSections(courseId) {

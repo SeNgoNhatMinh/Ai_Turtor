@@ -1,45 +1,51 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect } from 'react';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { queryKeys } from '../../../app/queryKeys';
 import { diagnosticsApi } from '../../../services/diagnosticsApi';
 import { adminAcademicApi } from '../../../services/adminAcademicApi';
 import { getUserFacingError } from '../../../services/apiClient';
 
 export function useAdminDashboardController({ triggerToast }) {
-  const [adminStats, setAdminStats] = useState({});
-  const [diagnosticsOutput, setDiagnosticsOutput] = useState(null);
-  const [isDiagnosticsRunning, setIsDiagnosticsRunning] = useState(false);
-
-  const loadAdminStats = useCallback(async () => {
-    try {
+  const statsQuery = useQuery({
+    queryKey: queryKeys.adminDashboardStats(),
+    queryFn: async ({ signal }) => {
       const [stats, courses] = await Promise.all([
-        diagnosticsApi.getAdminStats(),
-        adminAcademicApi.getCourses(),
+        diagnosticsApi.getAdminStats({ signal }),
+        adminAcademicApi.getCourses({ signal }),
       ]);
-      setAdminStats({ ...(stats || {}), courses: Array.isArray(courses) ? courses.length : 0 });
-    } catch (error) {
-      setAdminStats({});
-      triggerToast?.(getUserFacingError(error, 'Không thể tải số liệu tổng quan.'));
-    }
-  }, [triggerToast]);
+      return { ...(stats || {}), courses: Array.isArray(courses) ? courses.length : 0 };
+    },
+    staleTime: 30_000,
+  });
 
-  const runDiagnostics = async () => {
-    if (isDiagnosticsRunning) return;
-    setIsDiagnosticsRunning(true);
+  const diagnosticsMutation = useMutation({
+    mutationFn: () => diagnosticsApi.runLlmDiagnostics(),
+  });
+
+  useEffect(() => {
+    if (!statsQuery.error) return;
+    triggerToast?.(getUserFacingError(statsQuery.error, 'Không thể tải số liệu tổng quan.'));
+  }, [statsQuery.error, triggerToast]);
+
+  const loadAdminStats = useCallback(() => statsQuery.refetch(), [statsQuery]);
+
+  const runDiagnostics = useCallback(async () => {
+    if (diagnosticsMutation.isPending) return;
     triggerToast?.('Đang kiểm tra kết nối hệ thống...');
     try {
-      const diagnostics = await diagnosticsApi.runLlmDiagnostics();
-      setDiagnosticsOutput(diagnostics);
+      await diagnosticsMutation.mutateAsync();
       triggerToast?.('Đã hoàn tất kiểm tra hệ thống.');
     } catch (error) {
       triggerToast?.(getUserFacingError(error, 'Không thể chạy kiểm tra hệ thống.'));
-    } finally {
-      setIsDiagnosticsRunning(false);
     }
-  };
+  }, [diagnosticsMutation, triggerToast]);
 
   return {
-    adminStats,
-    diagnosticsOutput,
-    isDiagnosticsRunning,
+    adminStats: statsQuery.data || {},
+    diagnosticsOutput: diagnosticsMutation.data || null,
+    isDiagnosticsRunning: diagnosticsMutation.isPending,
+    statsLoading: statsQuery.isPending || statsQuery.isFetching,
+    statsError: statsQuery.error,
     loadAdminStats,
     runDiagnostics,
   };
