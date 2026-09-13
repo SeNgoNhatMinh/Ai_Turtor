@@ -97,6 +97,12 @@ export function getRouteForTab(tab) {
   return tabRoutes[tab] || '';
 }
 
+export function getStudentSupportPath(escalationId) {
+  const path = getRouteForTab('student-escalation');
+  const ticketId = String(escalationId || '').trim();
+  return ticketId ? `${path}?${new URLSearchParams({ ticket: ticketId })}` : path;
+}
+
 export function getHomeRouteForRole(role) {
   return roleHomeRoutes[String(role || '').toLowerCase()] || roleHomeRoutes.student;
 }

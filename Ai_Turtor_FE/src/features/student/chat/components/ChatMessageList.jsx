@@ -67,6 +67,7 @@ function StudentLiveAnswer({
   courseId,
   currentUser,
   escalationId,
+  mentorRequest,
   evidenceMessage,
   feedback,
   feedbackIndex,
@@ -202,6 +203,7 @@ function StudentLiveAnswer({
       {done && !message.canceled && showMentorSupport && (
         <InlineMentorSupport
           message={{ ...message, questionEscalationId: escalationId }}
+          escalation={mentorRequest}
           userId={userId}
           studentName={studentName}
           studentEmail={currentUser?.email}
@@ -389,6 +391,7 @@ function ChatMessageList({
                             courseId={courseId}
                             currentUser={currentUser}
                             escalationId={escalationId}
+                            mentorRequest={existingMentorRequest}
                             evidenceMessage={evidenceMessage}
                             feedback={feedback}
                             feedbackIndex={index}

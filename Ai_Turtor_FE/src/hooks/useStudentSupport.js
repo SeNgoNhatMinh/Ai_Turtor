@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../app/queryKeys';
 import { getUserFacingError } from '../services/apiClient';
@@ -35,17 +35,10 @@ const loadEscalationDetail = async (escalationId, signal) => {
   return normalizeEscalationDetailResponse(data);
 };
 
-export function useStudentSupport({ activeTab, userId, onConversationResolved }) {
+export function useStudentSupport({ activeTab, userId, selectedEscalationId = null }) {
   const queryClient = useQueryClient();
   const resolvedUserId = String(userId || '').trim();
   const isActive = activeTab === 'student-escalation';
-  const [selectedEscalationId, setSelectedEscalationId] = useState(null);
-  const handledResolvedConversationIdsRef = useRef(new Set());
-  const onConversationResolvedRef = useRef(onConversationResolved);
-
-  useEffect(() => {
-    onConversationResolvedRef.current = onConversationResolved;
-  }, [onConversationResolved]);
 
   const historyQuery = useQuery({
     queryKey: queryKeys.studentMentorRequests(resolvedUserId),
@@ -54,12 +47,7 @@ export function useStudentSupport({ activeTab, userId, onConversationResolved })
     staleTime: 30_000,
   });
   const escalations = useMemo(() => historyQuery.data || [], [historyQuery.data]);
-  const selectedIdExists = escalations.some((item) => item.id === selectedEscalationId);
-  const effectiveSelectedId = selectedEscalationId === ''
-    ? ''
-    : selectedIdExists
-      ? selectedEscalationId
-      : escalations[0]?.id || '';
+  const effectiveSelectedId = selectedEscalationId ?? escalations[0]?.id ?? '';
 
   const selectedSummary = useMemo(
     () => escalations.find((item) => item.id === effectiveSelectedId) || null,
@@ -68,7 +56,7 @@ export function useStudentSupport({ activeTab, userId, onConversationResolved })
   const detailQuery = useQuery({
     queryKey: queryKeys.studentMentorRequestDetail(effectiveSelectedId),
     queryFn: ({ signal }) => loadEscalationDetail(effectiveSelectedId, signal),
-    enabled: isActive && Boolean(effectiveSelectedId),
+    enabled: isActive && Boolean(resolvedUserId && effectiveSelectedId),
     staleTime: 10_000,
     refetchInterval: (query) => {
       const data = query.state.data || selectedSummary;
@@ -80,7 +68,7 @@ export function useStudentSupport({ activeTab, userId, onConversationResolved })
         : 10_000;
     },
   });
-  const selectedEscalation = selectedSummary
+  const selectedEscalation = selectedSummary || detailQuery.data
     ? { ...selectedSummary, ...(detailQuery.data || {}) }
     : null;
 
@@ -93,15 +81,6 @@ export function useStudentSupport({ activeTab, userId, onConversationResolved })
         item.id === detail.id ? { ...item, ...detail } : item
       )),
     );
-    if (
-      (normalizeStatus(detail.status) === 'RESOLVED_INDEXED'
-        || normalizeStatus(detail.studentVisibleStatus) === 'AI_BRAIN_UPDATED')
-      && detail.conversationId
-      && !handledResolvedConversationIdsRef.current.has(detail.conversationId)
-    ) {
-      handledResolvedConversationIdsRef.current.add(detail.conversationId);
-      Promise.resolve(onConversationResolvedRef.current?.(detail.conversationId)).catch(() => {});
-    }
   }, [detailQuery.data, queryClient, resolvedUserId]);
 
   const refetchHistory = historyQuery.refetch;
@@ -110,10 +89,6 @@ export function useStudentSupport({ activeTab, userId, onConversationResolved })
     const result = await refetchHistory();
     return result.data || [];
   }, [refetchHistory, resolvedUserId]);
-
-  const handleSelectEscalation = useCallback((escalation) => {
-    setSelectedEscalationId(escalation?.id || '');
-  }, [setSelectedEscalationId]);
 
   const handleEscalationChange = useCallback((nextEscalation) => {
     if (!nextEscalation?.id) return;
@@ -141,7 +116,6 @@ export function useStudentSupport({ activeTab, userId, onConversationResolved })
       ? getUserFacingError(detailQuery.error, 'Không thể tải đầy đủ yêu cầu hỗ trợ này.')
       : '',
     loadEscalations: loadEscalationsNow,
-    handleSelectEscalation,
     handleEscalationChange,
   };
 }

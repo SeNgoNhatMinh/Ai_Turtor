@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { useDeferredValue, useMemo, useState } from 'react';
 import { BookOpen, CalendarClock, RefreshCw } from 'lucide-react';
 import ActionButton from '../../../../components/common/ActionButton';
 import AsyncState from '../../../../components/common/AsyncState';
@@ -82,11 +82,6 @@ function SupportTicketList({
     if (!deferredQuery) return true;
     return matchesCollectionQuery(ticket, deferredQuery, TICKET_SEARCH_KEYS);
   }), [deferredQuery, filter, tickets]);
-
-  useEffect(() => {
-    const selectionIsVisible = filteredTickets.some((ticket) => ticket.id === selectedTicket?.id);
-    if (!selectionIsVisible) onSelect(filteredTickets[0] || null);
-  }, [filteredTickets, onSelect, selectedTicket?.id]);
 
   return (
     <section className="mentor-review-list-card" aria-label={uiCopy.student.support.listTitle}>

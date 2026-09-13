@@ -35,7 +35,10 @@ function SupportConversationDetail({
     return (
       <section className="mentor-review-detail-card">
         <AsyncState
-          empty
+          loading={isLoading}
+          loadingLabel="Đang tải yêu cầu hỗ trợ..."
+          error={error}
+          empty={!isLoading && !error}
           emptyTitle={uiCopy.student.support.detailEmpty}
           emptyDescription="Chọn một yêu cầu ở danh sách bên trái để xem toàn bộ tiến trình và trao đổi với giảng viên."
         />

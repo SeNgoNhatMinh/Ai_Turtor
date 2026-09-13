@@ -1,15 +1,20 @@
 import { useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Alert, Tag } from 'antd';
-import { LifeBuoy, X } from 'lucide-react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Alert } from 'antd';
+import { ArrowUpRight, Check, GraduationCap, X } from 'lucide-react';
 import ActionButton from '../../../../components/common/ActionButton';
+import StatusTag from '../../../../components/common/StatusTag';
+import MarkdownRenderer from '../../../../components/markdown/MarkdownRenderer';
 import StudentMentorFlow from '../../../../components/support/StudentMentorFlow';
 import { supportChatApi } from '../../../../services/supportChatApi';
 import { getUserFacingError } from '../../../../services/apiClient';
 import { queryKeys } from '../../../../app/queryKeys';
+import { normalizeEscalationDetailResponse } from '../../../../services/normalizers';
+import { getMentorAnswer, getSupportTicketStatus, isAnsweredTicket } from '../../mentor-review/mentorSupportUtils';
 
 function InlineMentorSupport({
   message,
+  escalation,
   userId,
   studentName,
   studentEmail,
@@ -41,6 +46,25 @@ function InlineMentorSupport({
     email: studentEmail,
     role: 'STUDENT',
   };
+  const detailQuery = useQuery({
+    queryKey: queryKeys.studentMentorRequestDetail(escalationId),
+    queryFn: async ({ signal }) => normalizeEscalationDetailResponse(
+      await supportChatApi.getEscalationDetail(escalationId, { signal }),
+    ),
+    enabled: Boolean(escalationId && isOpen),
+    staleTime: 10_000,
+  });
+  const ticket = {
+    id: escalationId,
+    originalQuestion: questionText,
+    status: 'PENDING_OFFER',
+    ...escalation,
+    ...escalationState,
+    ...detailQuery.data,
+  };
+  const mentorAnswer = getMentorAnswer(ticket);
+  const answered = alreadySent && isAnsweredTicket(ticket);
+  const currentStep = answered ? 2 : alreadySent ? 1 : 0;
   const createEscalationMutation = useMutation({
     mutationFn: () => supportChatApi.createEscalation({
       studentId: accountUserId,
@@ -57,6 +81,7 @@ function InlineMentorSupport({
   const isSubmitting = createEscalationMutation.isPending;
 
   const createSupportRequest = async () => {
+    if (isSubmitting) return;
     if (alreadySent) {
       onOpen?.();
       return;
@@ -82,6 +107,7 @@ function InlineMentorSupport({
         aiResponse: answerText,
         courseId,
         classId,
+        conversationId: conversationId || message?.conversationId || '',
       };
       setCreatedEscalationId(nextId);
       setEscalationState(nextEscalation);
@@ -94,81 +120,97 @@ function InlineMentorSupport({
       });
       onEscalationCreated?.(nextId);
       onOpen?.();
-      triggerToast?.('Đã tạo yêu cầu hỗ trợ từ giáo viên.');
+      triggerToast?.('Đã tạo yêu cầu hỗ trợ từ giảng viên.');
     } catch (requestError) {
-      const friendly = getUserFacingError(requestError, 'Không thể tạo yêu cầu hỗ trợ từ giáo viên.');
+      const friendly = getUserFacingError(requestError, 'Không thể tạo yêu cầu hỗ trợ từ giảng viên.');
       setError(friendly);
       triggerToast?.(friendly);
     }
   };
 
-  if (!isOpen) {
-    return (
-      <div className="inline-mentor-card inline-mentor-card--collapsed">
-        <div className="inline-mentor-card__summary">
-          <LifeBuoy size={16} />
-          <div>
-            <strong>{alreadySent ? 'Câu hỏi này đã có yêu cầu hỗ trợ' : 'Bạn cần giáo viên giải thích?'}</strong>
-            <span>Tạo yêu cầu, chọn giáo viên phù hợp và tiếp tục trao đổi riêng.</span>
-          </div>
-        </div>
-        <ActionButton size="small" loading={isSubmitting} onClick={createSupportRequest}>
-          {alreadySent ? 'Mở hỗ trợ' : 'Hỏi giáo viên'}
-        </ActionButton>
-      </div>
-    );
-  }
-
   return (
-    <div className="inline-mentor-card">
+    <section className={`inline-mentor-card ${!isOpen ? 'inline-mentor-card--collapsed' : ''}`} aria-label="Hỗ trợ từ giảng viên cho câu hỏi này">
       <div className="inline-mentor-card__header">
         <div className="inline-mentor-card__title">
-          <span className="inline-mentor-card__title-icon" aria-hidden="true"><LifeBuoy size={18} /></span>
+          <span className="inline-mentor-card__title-icon" aria-hidden="true"><GraduationCap size={21} /></span>
           <div>
-          <strong>Giáo viên hỗ trợ câu trả lời này</strong>
-          <span>Trao đổi về đúng câu hỏi này trước khi giáo viên gửi câu trả lời cuối cùng.</span>
+            <strong>Hỗ trợ từ giảng viên</strong>
+            <span>{answered
+              ? 'Giảng viên đã phản hồi câu hỏi của bạn.'
+              : alreadySent
+                ? 'Theo dõi yêu cầu và tiếp tục trao đổi với giảng viên.'
+                : 'Cần giải thích thêm? Gửi câu hỏi này tới giảng viên.'}</span>
           </div>
         </div>
-        <button type="button" className="inline-mentor-card__close" onClick={onClose} aria-label="Ẩn hỗ trợ từ giáo viên">
-          <X size={16} />
-        </button>
+        {isOpen && (
+          <button type="button" className="inline-mentor-card__close" onClick={onClose} aria-label="Thu gọn hỗ trợ từ giảng viên">
+            <X size={18} />
+          </button>
+        )}
       </div>
-
       {error && <Alert type="error" showIcon title={error} />}
-
-      <div className="inline-mentor-question">
-        <span>Câu hỏi trong AI Tutor</span>
-        <p>{questionText || 'Không có nội dung câu hỏi.'}</p>
-      </div>
-
-      {!alreadySent ? (
-        <Alert
-          type="info"
-          showIcon
-          title="Tạo yêu cầu hỗ trợ cho câu hỏi này"
-          description="Hệ thống sẽ lưu môn học, lớp, cuộc trò chuyện, câu hỏi và câu trả lời AI trước khi tìm giáo viên phù hợp."
-          action={<ActionButton size="small" intent="primary" loading={isSubmitting} onClick={createSupportRequest}>Tạo yêu cầu</ActionButton>}
-        />
+      {!isOpen ? (
+        <div className="inline-mentor-card__actions">
+          {alreadySent && <StatusTag status={getSupportTicketStatus(ticket)} />}
+          <ActionButton onClick={onOpen} aria-expanded={false}>Xem hỗ trợ</ActionButton>
+          {alreadySent && (
+            <ActionButton icon={<ArrowUpRight size={15} />} onClick={() => onOpenReviewTab?.(escalationId)}>
+              Mở ticket
+            </ActionButton>
+          )}
+        </div>
       ) : (
         <>
-          <div className="inline-mentor-chat__toolbar">
-            <Tag color="blue">Kênh hỗ trợ riêng</Tag>
-            <ActionButton size="small" onClick={onOpenReviewTab}>Mở trang hỗ trợ</ActionButton>
+          <ol className="inline-mentor-steps" aria-label="Tiến trình hỗ trợ">
+            {['Gửi câu hỏi', 'Trao đổi', 'Nhận phản hồi'].map((label, index) => (
+              <li key={label} className={index <= currentStep ? 'is-active' : ''} aria-current={index === currentStep ? 'step' : undefined}>
+                <span aria-hidden="true">{index < currentStep ? <Check size={13} /> : index + 1}</span>
+                {label}
+              </li>
+            ))}
+          </ol>
+          <div className="inline-mentor-question">
+            <span>Câu hỏi cần hỗ trợ</span>
+            <p>{questionText || 'Không có nội dung câu hỏi.'}</p>
+            <div className="inline-mentor-question__meta">
+              {(ticket.courseId || courseId) && <span>Môn {ticket.courseId || courseId}</span>}
+              {(ticket.classId || classId) && <span>Lớp {ticket.classId || classId}</span>}
+            </div>
           </div>
-          <StudentMentorFlow
-            key={escalationId}
-            escalation={escalationState || {
-              ...message,
-              id: escalationId,
-              questionEscalationId: escalationId,
-            }}
-            currentUser={studentUser}
-            compact
-            onEscalationChange={setEscalationState}
-          />
+          {!alreadySent ? (
+            <div className="inline-mentor-card__request">
+              <p>Giảng viên sẽ xem câu hỏi cùng câu trả lời AI để hỗ trợ bạn. Sau khi gửi, hãy chọn giảng viên để bắt đầu trao đổi.</p>
+              <ActionButton intent="primary" loading={isSubmitting} onClick={createSupportRequest}>
+                Gửi yêu cầu hỗ trợ
+              </ActionButton>
+            </div>
+          ) : (
+            <>
+              <div className="inline-mentor-chat__toolbar">
+                <StatusTag status={getSupportTicketStatus(ticket)} />
+                <ActionButton icon={<ArrowUpRight size={15} />} onClick={() => onOpenReviewTab?.(escalationId)}>
+                  Mở ticket
+                </ActionButton>
+              </div>
+              {mentorAnswer ? (
+                <div className="inline-mentor-answer">
+                  <strong>Phản hồi từ giảng viên</strong>
+                  <MarkdownRenderer markdown={mentorAnswer} />
+                </div>
+              ) : (
+                <StudentMentorFlow
+                  key={escalationId}
+                  escalation={ticket}
+                  currentUser={studentUser}
+                  compact
+                  onEscalationChange={setEscalationState}
+                />
+              )}
+            </>
+          )}
         </>
       )}
-    </div>
+    </section>
   );
 }
 

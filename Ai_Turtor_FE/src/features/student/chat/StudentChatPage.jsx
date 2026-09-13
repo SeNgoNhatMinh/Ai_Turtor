@@ -1,4 +1,6 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { getStudentSupportPath } from '../../../app/routes';
 import StudentChatView from './StudentChatView';
 import { useCourseMaterialsController } from '../../../hooks/useCourseMaterialsController';
 import { useStudentChatController } from '../../../hooks/useStudentChatController';
@@ -19,6 +21,10 @@ export default function StudentChatPage({
   triggerToast,
   enrollment,
 }) {
+  const navigate = useNavigate();
+  const openMentorReview = useCallback((escalationId) => {
+    navigate(getStudentSupportPath(escalationId));
+  }, [navigate]);
   const {
     classOptions,
     courseOptions,
@@ -49,7 +55,7 @@ export default function StudentChatPage({
     skipUnauthorizedRedirect: true,
   });
   const mentorRequests = useChatMentorRequests({
-    userId: studentId,
+    userId: currentUser?.userId || currentUser?.id || studentId,
     courseId,
   });
   const chatController = useStudentChatTabController({
@@ -72,7 +78,8 @@ export default function StudentChatPage({
     handleLockUnderstandingAnswer: chat.handleLockUnderstandingAnswer,
     handleStopAiGeneration: chat.handleStopAiGeneration,
     switchTab,
-    userId: studentId,
+    onOpenMentorReview: openMentorReview,
+    userId: currentUser?.userId || currentUser?.id || studentId,
     studentDashboard: learning.studentDashboard,
     triggerToast,
   });
@@ -183,7 +190,7 @@ export default function StudentChatPage({
       onStudySuggestion={learningActions.handleStudySuggestion}
       onCreateQuizFromSuggestion={learningActions.handleCreateQuizFromSuggestion}
       onDownloadSource={chatController.handleDownloadSource}
-      onOpenMentorReview={() => switchTab?.('student-escalation')}
+      onOpenMentorReview={openMentorReview}
       onMentorRequestCreated={mentorRequests.refreshMentorRequests}
       tutorSession={chat.activeTutorSession}
       tutorSessionSummary={chat.tutorSessionSummary}

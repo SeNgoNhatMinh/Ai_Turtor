@@ -33,6 +33,7 @@ export function useStudentChatTabController({
   handleLockUnderstandingAnswer,
   handleStopAiGeneration,
   switchTab,
+  onOpenMentorReview,
   userId,
   studentDashboard,
   loadEscalations,
@@ -215,12 +216,13 @@ export function useStudentChatTabController({
 
     if (type === 'mentor') {
       try {
-        await supportChatApi.createEscalation({
+        const escalation = await supportChatApi.createEscalation({
           studentId: userId,
           studentName: studentDashboard?.studentName || studentDashboard?.fullName || '',
           studentEmail: studentDashboard?.studentEmail || '',
           courseId,
           classId,
+          conversationId: activeSessionId || answerMessage?.conversationId || '',
           question: answerMessage?.question || prompt,
           aiResponse: answerMessage?.rawAnswer || answerMessage?.answer || '',
           reason: answerMessage?.aiServiceError
@@ -229,7 +231,11 @@ export function useStudentChatTabController({
         });
         triggerToast?.('Đã gửi yêu cầu hỗ trợ cho mentor.');
         loadEscalations?.();
-        switchTab?.('student-escalation');
+        if (onOpenMentorReview) {
+          onOpenMentorReview(escalation?.questionEscalationId || escalation?.id || escalation?.escalationId);
+        } else {
+          switchTab?.('student-escalation');
+        }
       } catch (error) {
         triggerToast?.(getUserFacingError(error, 'Không thể tạo yêu cầu hỗ trợ.'));
       }

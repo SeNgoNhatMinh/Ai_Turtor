@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Drawer } from 'antd';
 import { uiCopy } from '../../../constants/uiCopy';
 import { CheckCircle2, Clock3 } from 'lucide-react';
@@ -19,17 +18,14 @@ function MentorSupport({
   onSelectEscalation,
   onEscalationChange,
   currentUser,
+  isDetailOpen = false,
+  onCloseDetail,
 }) {
   const { isMobile } = useResponsiveViewport();
-  const [isDetailOpen, setIsDetailOpen] = useState(false);
   const safeTickets = Array.isArray(escalations) ? escalations : [];
   const selectedTicket = selectedEscalation || null;
   const answeredCount = safeTickets.filter(isAnsweredTicket).length;
   const waitingCount = safeTickets.filter(isProcessingTicket).length;
-  const handleSelectTicket = (ticket) => {
-    onSelectEscalation(ticket);
-    if (isMobile) setIsDetailOpen(true);
-  };
 
   return (
     <div className="portal-section mentor-review-page">
@@ -59,7 +55,7 @@ function MentorSupport({
           isLoading={isEscalationsLoading}
           error={escalationsError}
           onReload={loadEscalations}
-          onSelect={handleSelectTicket}
+          onSelect={onSelectEscalation}
         />
         {!isMobile && (
           <SupportConversationDetail
@@ -74,7 +70,7 @@ function MentorSupport({
       {isMobile && (
         <Drawer
           open={isDetailOpen}
-          onClose={() => setIsDetailOpen(false)}
+          onClose={onCloseDetail}
           placement="right"
           size={420}
           title="Chi tiết yêu cầu hỗ trợ"
