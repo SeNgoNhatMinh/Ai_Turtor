@@ -23,6 +23,47 @@ PillStyle statusStyleFor(String domain, String value) => switch ((
     AppColors.primaryWash,
     'Đang trò chuyện',
   ),
+  ('escalation', 'CHAT_ACTIVE') => (
+    AppColors.primary,
+    AppColors.primaryWash,
+    'Đang trò chuyện',
+  ),
+  ('escalation', 'MENTOR_SELECTED') => (
+    AppColors.primary,
+    AppColors.primaryWash,
+    'Đã chọn giảng viên',
+  ),
+  ('escalation', 'WAITING_FOR_MENTOR') => (
+    AppColors.warning,
+    AppColors.warningBg,
+    'Đang chờ giảng viên',
+  ),
+  ('escalation', 'ASSIGNED') => (
+    AppColors.info,
+    AppColors.infoBg,
+    'Đã phân công',
+  ),
+  ('escalation', 'ANSWERED') => (
+    AppColors.success,
+    AppColors.successBg,
+    'Đã phản hồi',
+  ),
+  ('escalation', 'MENTOR_ANSWERED') => (
+    AppColors.success,
+    AppColors.successBg,
+    'Đã phản hồi',
+  ),
+  ('escalation', 'RESOLVED') => (
+    AppColors.success,
+    AppColors.successBg,
+    'Đã xử lý',
+  ),
+  ('escalation', 'RESOLVED_INDEXED') => (
+    AppColors.success,
+    AppColors.successBg,
+    'Đã xử lý',
+  ),
+  ('escalation', 'CLOSED') => (AppColors.warm500, AppColors.warm100, 'Đã đóng'),
   ('escalation', 'COMPLETED') => (
     AppColors.success,
     AppColors.successBg,
@@ -93,37 +134,21 @@ PillStyle statusStyleFor(String domain, String value) => switch ((
   ),
   ('review', 'REJECTED') => (AppColors.error, AppColors.errorBg, 'Đã từ chối'),
   ('task', 'OPEN') => (AppColors.info, AppColors.infoBg, 'Chưa nhận'),
-  ('task', 'ASSIGNED') => (
-    AppColors.primary,
-    AppColors.primaryWash,
-    'Đã nhận',
-  ),
+  ('task', 'ASSIGNED') => (AppColors.primary, AppColors.primaryWash, 'Đã nhận'),
   ('task', 'IN_PROGRESS') => (
     AppColors.warning,
     AppColors.warningBg,
     'Đang làm',
   ),
-  ('task', 'SUBMITTED') => (
-    AppColors.info,
-    AppColors.infoBg,
-    'Chờ duyệt',
-  ),
+  ('task', 'SUBMITTED') => (AppColors.info, AppColors.infoBg, 'Chờ duyệt'),
   ('task', 'COMPLETED') => (
     AppColors.success,
     AppColors.successBg,
     'Hoàn thành',
   ),
-  ('task', 'CANCELLED') => (
-    AppColors.warm500,
-    AppColors.warm100,
-    'Đã huỷ',
-  ),
+  ('task', 'CANCELLED') => (AppColors.warm500, AppColors.warm100, 'Đã huỷ'),
   ('gap', 'OPEN') => (AppColors.warning, AppColors.warningBg, 'Thiếu dữ liệu'),
-  ('gap', 'TASK_CREATED') => (
-    AppColors.info,
-    AppColors.infoBg,
-    'Đã tạo task',
-  ),
+  ('gap', 'TASK_CREATED') => (AppColors.info, AppColors.infoBg, 'Đã tạo task'),
   ('gap', 'RESOLVED') => (
     AppColors.success,
     AppColors.successBg,
@@ -132,6 +157,13 @@ PillStyle statusStyleFor(String domain, String value) => switch ((
   ('gap', 'CRITICAL') => (AppColors.error, AppColors.errorBg, 'Nghiêm trọng'),
   ('gap', 'HIGH') => (AppColors.warning, AppColors.warningBg, 'Cao'),
   ('gap', 'MEDIUM') => (AppColors.info, AppColors.infoBg, 'Trung bình'),
+  ('live', 'SCHEDULED') => (
+    AppColors.warm500,
+    AppColors.warm100,
+    'Chờ giảng viên',
+  ),
+  ('live', 'LIVE') => (AppColors.error, AppColors.errorBg, 'Đang phát'),
+  ('live', 'ENDED') => (AppColors.warm700, AppColors.warm100, 'Đã kết thúc'),
   _ => (AppColors.warm700, AppColors.warm100, value),
 };
 

@@ -6,6 +6,7 @@ import '../../../core/constants/app_assets.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
+import '../fpt_logo.dart';
 
 enum PortalHeaderStyle { greeting, title, profile }
 
@@ -26,12 +27,12 @@ class PortalCompactHeader extends StatelessWidget {
     super.key,
     required String eyebrow,
     required String title,
+    this.leading,
     this.actions = const [],
   })  : style = PortalHeaderStyle.greeting,
         eyebrow = eyebrow,
         title = title,
         subtitle = null,
-        leading = null,
         profileAvatar = null;
 
   const PortalCompactHeader.title({
@@ -123,8 +124,7 @@ class PortalCompactHeader extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(compact ? 16 : 22),
+        shape: BoxShape.circle,
         border: Border.all(color: AppColors.borderHairline, width: 1.5),
         boxShadow: const [
           BoxShadow(
@@ -134,13 +134,15 @@ class PortalCompactHeader extends StatelessWidget {
           ),
         ],
       ),
-      padding: EdgeInsets.all(compact ? 6 : Insets.sm),
-      child: Image.asset(
-        AppAssets.cocVangLogoTransparent,
-        fit: BoxFit.contain,
-        errorBuilder: (_, __, ___) => Image.asset(
-          AppAssets.cocVangLogo,
-          fit: BoxFit.contain,
+      child: ClipOval(
+        child: Image.asset(
+          AppAssets.cocFptEducation,
+          fit: BoxFit.cover,
+          filterQuality: FilterQuality.high,
+          errorBuilder: (_, __, ___) => Image.asset(
+            AppAssets.askCocButton,
+            fit: BoxFit.cover,
+          ),
         ),
       ),
     );
@@ -217,18 +219,7 @@ class _TitleContent extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Image.asset(
-          AppAssets.cocVangLogoTransparent,
-          width: 40,
-          height: 40,
-          fit: BoxFit.contain,
-          errorBuilder: (_, __, ___) => Image.asset(
-            AppAssets.cocVangLogo,
-            width: 40,
-            height: 40,
-            fit: BoxFit.contain,
-          ),
-        ),
+        const FptLogo(height: 28),
         const Gap(Insets.md),
         Expanded(
           child: Column(

@@ -1,4 +1,5 @@
 import '../../core/utils/json_helpers.dart';
+import '../../features/ai_tutor/data/daily_question_quota.dart';
 import 'improve_suggestion.dart';
 import 'rag_source_evidence.dart';
 import 'rag_visual_evidence.dart';
@@ -57,6 +58,10 @@ class AiMessage {
     this.conversationId,
     this.createdAt,
     this.improveSuggestions = const [],
+    this.understandingCheck,
+    this.understandingSelectedKey,
+    this.codeSnippet,
+    this.proactive = false,
   });
 
   final String id;
@@ -74,13 +79,23 @@ class AiMessage {
   final String? conversationId;
   final DateTime? createdAt;
   final List<ImproveSuggestionItem> improveSuggestions;
+  final Map<String, dynamic>? understandingCheck;
+  final String? understandingSelectedKey;
+  final String? codeSnippet;
+  final bool proactive;
 
   AiMessage copyWith({
     bool? pinned,
+    bool? escalated,
     DateTime? pinnedAt,
     List<ImproveSuggestionItem>? improveSuggestions,
     String? content,
     String? conversationId,
+    String? questionEscalationId,
+    Map<String, dynamic>? understandingCheck,
+    String? understandingSelectedKey,
+    String? codeSnippet,
+    bool? proactive,
   }) {
     return AiMessage(
       id: id,
@@ -91,13 +106,18 @@ class AiMessage {
       sources: sources,
       sourceEvidence: sourceEvidence,
       visualEvidence: visualEvidence,
-      escalated: escalated,
+      escalated: escalated ?? this.escalated,
       pinned: pinned ?? this.pinned,
-      questionEscalationId: questionEscalationId,
+      questionEscalationId: questionEscalationId ?? this.questionEscalationId,
       pinnedAt: pinnedAt ?? this.pinnedAt,
       conversationId: conversationId ?? this.conversationId,
       createdAt: createdAt,
       improveSuggestions: improveSuggestions ?? this.improveSuggestions,
+      understandingCheck: understandingCheck ?? this.understandingCheck,
+      understandingSelectedKey:
+          understandingSelectedKey ?? this.understandingSelectedKey,
+      codeSnippet: codeSnippet ?? this.codeSnippet,
+      proactive: proactive ?? this.proactive,
     );
   }
 
@@ -131,7 +151,9 @@ class AiMessage {
       ),
       isUser: isUser,
       mode: mode,
-      confidence: _parseConfidence(json['confidence'] ?? json['intentConfidence']),
+      confidence: _parseConfidence(
+        json['confidence'] ?? json['intentConfidence'],
+      ),
       sources: _parseSources(json['sources'], json['sourceEvidence']),
       sourceEvidence: RagSourceEvidence.fromAiPayload(json),
       visualEvidence: RagVisualEvidence.fromAiPayload(json),
@@ -141,8 +163,26 @@ class AiMessage {
       pinnedAt: parseDateTime(json['pinnedAt']),
       conversationId: json['conversationId']?.toString(),
       createdAt: parseDateTime(json['createdAt'] ?? json['timestamp']),
-      improveSuggestions: _parseImproveSuggestions(json['nextImproveSuggestions']),
+      improveSuggestions: _parseImproveSuggestions(
+        json['nextImproveSuggestions'],
+      ),
+      understandingCheck: _parseUnderstandingCheck(json['understandingCheck']),
+      understandingSelectedKey: _parseUnderstandingSelectedKey(
+        json['understandingSelectedKey'],
+      ),
+      codeSnippet: json['codeSnippet']?.toString(),
+      proactive: json['proactive'] == true,
     );
+  }
+
+  static Map<String, dynamic>? _parseUnderstandingCheck(dynamic value) {
+    if (value is! Map) return null;
+    return Map<String, dynamic>.from(value);
+  }
+
+  static String? _parseUnderstandingSelectedKey(dynamic value) {
+    final key = value?.toString().trim().toUpperCase() ?? '';
+    return RegExp(r'^[A-D]$').hasMatch(key) ? key : null;
   }
 
   static List<ImproveSuggestionItem> _parseImproveSuggestions(dynamic value) {
@@ -150,7 +190,9 @@ class AiMessage {
     return ImproveSuggestionItem.actionableChips(
       value
           .whereType<Map>()
-          .map((e) => ImproveSuggestionItem.fromJson(Map<String, dynamic>.from(e)))
+          .map(
+            (e) => ImproveSuggestionItem.fromJson(Map<String, dynamic>.from(e)),
+          )
           .toList(),
     );
   }
@@ -209,6 +251,8 @@ class AiAnswer {
     this.userMessageId,
     this.assistantMessageId,
     this.suggestionConsumed = false,
+    this.dailyQuota,
+    this.understandingCheck,
   });
 
   final String answer;
@@ -226,6 +270,8 @@ class AiAnswer {
   final String? userMessageId;
   final String? assistantMessageId;
   final bool suggestionConsumed;
+  final DailyQuestionQuota? dailyQuota;
+  final Map<String, dynamic>? understandingCheck;
 
   factory AiAnswer.fromJson(Map<String, dynamic> json) {
     final questionEscalationId =
@@ -257,6 +303,10 @@ class AiAnswer {
       userMessageId: json['userMessageId']?.toString(),
       assistantMessageId: json['assistantMessageId']?.toString(),
       suggestionConsumed: json['suggestionConsumed'] == true,
+      dailyQuota: hasQuotaPayload(json) ? normalizeDailyQuota(json) : null,
+      understandingCheck: AiMessage._parseUnderstandingCheck(
+        json['understandingCheck'],
+      ),
     );
   }
 }

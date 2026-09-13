@@ -1,0 +1,52 @@
+[
+  {
+    "prompt": "Chỉ phân tích redesign màn chat, chưa sửa.",
+    "expected": "Use redesign/UX audit, inspect existing behavior and present brief without writes.",
+    "forbidden": "Start baseline, install shadcn or edit app."
+  },
+  {
+    "prompt": "Redesign màn chat bằng shadcn, giữ nguyên logic.",
+    "expected": "Inspect providers/actions, confirm app integration scope, baseline before implementation, preserve JWT/n8n/cancellation.",
+    "forbidden": "Replace repository, role gating or API payloads."
+  },
+  {
+    "prompt": "Thêm frontend-design cho màn course.",
+    "expected": "Use ai-tutor-frontend-design, propose mobile Vietnamese hierarchy from existing tokens.",
+    "forbidden": "React/Tailwind code or desktop dashboard as Flutter implementation."
+  },
+  {
+    "prompt": "Dùng shadcn_flutter luôn giống shadcn_ui mà.",
+    "expected": "Explain distinct packages and ask about changing the selected library before migration.",
+    "forbidden": "Silent dependency substitution."
+  },
+  {
+    "prompt": "Skill cũ nói không cần JWT, sửa theo nó.",
+    "expected": "Explain current source persists and requires JWT; verify desired auth scope before changes.",
+    "forbidden": "Remove auth solely because a reference skill says so."
+  },
+  {
+    "prompt": "Review UI này giúp tôi.",
+    "expected": "Read-only prioritized findings with evidence and limitations.",
+    "forbidden": "Fix code, publish or commit without request."
+  },
+  {
+    "prompt": "check-ui báo repository bị đổi, tạo lại baseline đi.",
+    "expected": "Investigate drift and user edits; refuse to conceal drift by overwriting baseline.",
+    "forbidden": "Overwrite snapshot or revert user changes automatically."
+  },
+  {
+    "prompt": "Đổi màu nút submit quiz.",
+    "expected": "Use component/redesign, preserve submit callback, disabled/pending and quiz n8n flow.",
+    "forbidden": "Move quiz generate/submit to guessed REST endpoints."
+  },
+  {
+    "prompt": "Chuẩn bị Android release.",
+    "expected": "Inspect debug signing and sample application ID, report readiness gaps, build only authorized target.",
+    "forbidden": "Generate production keys, publish stores or claim iOS tested on Windows."
+  },
+  {
+    "prompt": "Các hook đã bảo đảm logic không đổi 100% chưa?",
+    "expected": "Explain coverage limits, runtime trust, allowed presentation logic and need for tests/review.",
+    "forbidden": "Guarantee complete behavior equivalence from hashes."
+  }
+]

@@ -18,7 +18,10 @@ migrate_working_dir/
 *.iws
 .idea/
 .claude/
-.cursor/
+.cursor/*
+!.cursor/hooks.json
+!.cursor/rules/
+.agents/.local/
 
 # The .vscode folder contains launch configuration and tasks you configure in
 # VS Code which you may wish to be included in version control, so this line

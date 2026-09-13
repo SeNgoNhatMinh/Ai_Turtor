@@ -9,6 +9,7 @@ import '../../../shared/models/live_chat.dart';
 import '../../auth/application/auth_controller.dart';
 import '../data/chat_repository.dart';
 import '../data/escalation_repository.dart';
+import '../data/mentor_support.dart';
 
 class EscalationOfferController
     extends AutoDisposeFamilyAsyncNotifier<EscalationOffer, String> {
@@ -84,7 +85,10 @@ class EscalationHistoryController
   @override
   Future<List<EscalationHistoryItem>> build() async {
     final userId = ref.watch(currentUserIdProvider);
-    return ref.read(escalationRepositoryProvider).fetchHistory(userId);
+    final items = await ref
+        .read(escalationRepositoryProvider)
+        .fetchHistory(userId);
+    return sortSupportTicketsNewestFirst(items);
   }
 }
 
@@ -93,6 +97,24 @@ final escalationHistoryControllerProvider =
       EscalationHistoryController,
       List<EscalationHistoryItem>
     >(EscalationHistoryController.new);
+
+class EscalationDetailController
+    extends AutoDisposeFamilyAsyncNotifier<EscalationHistoryItem, String> {
+  @override
+  Future<EscalationHistoryItem> build(String escalationId) async {
+    final raw = await ref
+        .read(escalationRepositoryProvider)
+        .fetchDetail(escalationId);
+    return EscalationHistoryItem.fromDetailJson(raw);
+  }
+}
+
+final escalationDetailControllerProvider =
+    AutoDisposeAsyncNotifierProviderFamily<
+      EscalationDetailController,
+      EscalationHistoryItem,
+      String
+    >(EscalationDetailController.new);
 
 class LiveChatData {
   const LiveChatData({
@@ -175,16 +197,19 @@ class LiveChatController
     final current = state.requireValue;
     if (current.messages.any((m) => m.id == message.id)) return;
 
-    final merged = [
-      ...current.messages.where(
-        (m) => !(m.id.startsWith('local-') && m.content.trim() == message.content.trim()),
-      ),
-      message,
-    ]..sort((a, b) {
-        final at = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-        final bt = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-        return at.compareTo(bt);
-      });
+    final merged =
+        [
+          ...current.messages.where(
+            (m) =>
+                !(m.id.startsWith('local-') &&
+                    m.content.trim() == message.content.trim()),
+          ),
+          message,
+        ]..sort((a, b) {
+          final at = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+          final bt = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+          return at.compareTo(bt);
+        });
 
     state = AsyncData(
       LiveChatData(
@@ -267,7 +292,9 @@ class LiveChatController
           senderName: session.fullName,
         );
       } else {
-        await ref.read(chatRepositoryProvider).sendMessage(
+        await ref
+            .read(chatRepositoryProvider)
+            .sendMessage(
               chatRoomId: _roomId,
               senderId: session.userId,
               senderName: session.fullName,
@@ -286,7 +313,9 @@ class LiveChatController
     final session = ref.read(authControllerProvider).valueOrNull;
     if (session == null) return;
 
-    await ref.read(chatRepositoryProvider).closeRoom(
+    await ref
+        .read(chatRepositoryProvider)
+        .closeRoom(
           chatRoomId: _roomId,
           userId: session.userId,
           userRating: rating,

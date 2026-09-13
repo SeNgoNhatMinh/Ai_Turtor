@@ -1,4 +1,3 @@
-import 'package:dio/dio.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -8,8 +7,10 @@ import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:speech_to_text/speech_to_text.dart';
 
 import '../../../core/network/exceptions.dart';
+import '../../../core/network/network_providers.dart';
 import '../../../core/router/routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_motion.dart';
@@ -17,17 +18,34 @@ import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/utils/ai_chat_content.dart';
+import '../../../core/utils/study_suggestion_prompt.dart';
+import '../../../core/utils/chat_turn_limit.dart';
+import '../../../core/utils/conversation_time_groups.dart';
+import '../../../core/utils/reviewed_message_ids.dart';
+import '../../student/student_route_handoff.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/models/improve_suggestion.dart';
 import '../../../shared/models/ai_conversation.dart';
 import '../../../shared/models/course.dart';
+import '../../../shared/models/escalation.dart';
 import '../../../shared/widgets/chat_bubble.dart';
 import '../../../shared/widgets/widgets.dart';
+import '../../auth/application/auth_controller.dart';
 import '../../courses/application/courses_controller.dart';
+import '../../escalation/application/escalation_controller.dart';
 import '../../memory/presentation/widgets/improve_suggestion_widgets.dart';
-import '../../quiz/presentation/student_quiz_screens.dart';
 import '../application/ai_tutor_controller.dart';
+import '../application/daily_question_quota_controller.dart';
+import '../application/tts_controller.dart';
+import '../data/chat_improve_suggestions.dart';
+import '../data/code_mentor.dart';
+import '../data/tutor_session.dart';
+import '../data/tts_models.dart';
+import '../data/understanding_check.dart';
 import 'widgets/ai_chat_widgets.dart';
+import 'widgets/lesson_deep_dive_cta.dart';
+import 'widgets/tts_widgets.dart';
+import 'widgets/understanding_check_quiz.dart';
 
 /// Điểm vào tab "Ask Cóc": giống ChatGPT — bấm vào là luôn bắt đầu một
 /// cuộc trò chuyện MỚI hoàn toàn, không tự mở lại đoạn chat cũ gần nhất.
@@ -50,7 +68,7 @@ class TutorEntryScreen extends HookConsumerWidget {
               ref.read(selectedCourseProvider) ?? courses?.firstOrNull;
           final created = await ref
               .read(conversationsControllerProvider.notifier)
-              .createNew(
+              .openTutorSessionOrCreate(
                 courseId: course?.code,
                 classId: course?.classId,
               );
@@ -135,6 +153,7 @@ class ConversationHistoryDrawer extends HookConsumerWidget {
       return timer.cancel;
     }, [searchQuery.value]);
 
+    final visibleCount = useState(conversationPageSize);
     final isSearching = debouncedQuery.value.trim().isNotEmpty;
     final searchResults = isSearching
         ? ref.watch(chatMessageSearchProvider(debouncedQuery.value.trim()))
@@ -149,10 +168,7 @@ class ConversationHistoryDrawer extends HookConsumerWidget {
         return;
       }
       context.go(
-        AppRoutes.studentTutorChat(
-          targetConversationId,
-          messageId: message.id,
-        ),
+        AppRoutes.studentTutorChat(targetConversationId, messageId: message.id),
       );
     }
 
@@ -166,7 +182,7 @@ class ConversationHistoryDrawer extends HookConsumerWidget {
     Future<void> createNew() async {
       final created = await ref
           .read(conversationsControllerProvider.notifier)
-          .createNew();
+          .openTutorSessionOrCreate();
       if (!context.mounted) return;
       Navigator.of(context).pop();
       context.go(AppRoutes.studentTutorChat(created.id));
@@ -182,9 +198,7 @@ class ConversationHistoryDrawer extends HookConsumerWidget {
         child: DecoratedBox(
           decoration: const BoxDecoration(
             color: AppColors.canvas,
-            border: Border(
-              right: BorderSide(color: AppColors.borderHairline),
-            ),
+            border: Border(right: BorderSide(color: AppColors.borderHairline)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -193,29 +207,15 @@ class ConversationHistoryDrawer extends HookConsumerWidget {
                 padding: const EdgeInsets.fromLTRB(
                   Insets.screenH,
                   Insets.md,
-                  Insets.sm,
+                  Insets.screenH,
                   Insets.md,
                 ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Hội thoại',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.splashNavy,
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: 'Đóng',
-                      onPressed: () => Navigator.of(context).pop(),
-                      icon: const Icon(
-                        LucideIcons.panelLeftClose,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  'Hội thoại',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.splashNavy,
+                  ),
                 ),
               ),
               Padding(
@@ -227,194 +227,203 @@ class ConversationHistoryDrawer extends HookConsumerWidget {
                 ),
                 child: _SearchBar(onChanged: (v) => searchQuery.value = v),
               ),
-            if (!isSearching && pinnedEntries.isNotEmpty)
-              _DrawerPinnedSection(
-                entries: pinnedEntries,
-                title: l10n.pinnedMessagesTitle,
-                onTap: (entry) {
-                  final message = entry.message;
-                  final targetConversationId = message.conversationId;
-                  Navigator.of(context).pop();
-                  if (targetConversationId == null ||
-                      targetConversationId.isEmpty) {
-                    onViewPinnedMessage?.call(message.id);
-                    return;
-                  }
-                  if (targetConversationId == activeConversationId) {
-                    onViewPinnedMessage?.call(message.id);
-                    return;
-                  }
-                  context.go(
-                    AppRoutes.studentTutorChat(
-                      targetConversationId,
-                      messageId: message.id,
-                    ),
-                  );
-                },
-                onUnpin: (entry) async {
-                  final message = entry.message;
-                  final convId = message.conversationId ?? activeId;
-                  if (convId == null) return;
-                  try {
-                    await ref
-                        .read(chatControllerProvider(convId).notifier)
-                        .togglePinMessage(
-                          conversationId: convId,
-                          messageId: message.id,
-                        );
-                  } catch (e) {
-                    if (!context.mounted) return;
-                    ScaffoldMessenger.of(
-                      context,
-                    ).showSnackBar(SnackBar(content: Text(describeError(e))));
-                  }
-                },
-              ),
-            // ── Scrollable list ───────────────────────────────────
-            Expanded(
-              child: isSearching
-                  ? searchResults!.when(
-                      loading: () => const LoadingSkeleton(),
-                      error: (error, _) => ErrorState(
-                        message: describeError(error),
-                        onRetry: () => ref.invalidate(
-                          chatMessageSearchProvider(
-                            debouncedQuery.value.trim(),
+              if (!isSearching && pinnedEntries.isNotEmpty)
+                _DrawerPinnedSection(
+                  entries: pinnedEntries,
+                  title: l10n.pinnedMessagesTitle,
+                  onTap: (entry) {
+                    final message = entry.message;
+                    final targetConversationId = message.conversationId;
+                    Navigator.of(context).pop();
+                    if (targetConversationId == null ||
+                        targetConversationId.isEmpty) {
+                      onViewPinnedMessage?.call(message.id);
+                      return;
+                    }
+                    if (targetConversationId == activeConversationId) {
+                      onViewPinnedMessage?.call(message.id);
+                      return;
+                    }
+                    context.go(
+                      AppRoutes.studentTutorChat(
+                        targetConversationId,
+                        messageId: message.id,
+                      ),
+                    );
+                  },
+                  onUnpin: (entry) async {
+                    final message = entry.message;
+                    final convId = message.conversationId ?? activeId;
+                    if (convId == null) return;
+                    try {
+                      await ref
+                          .read(chatControllerProvider(convId).notifier)
+                          .togglePinMessage(
+                            conversationId: convId,
+                            messageId: message.id,
+                          );
+                    } catch (e) {
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(
+                        context,
+                      ).showSnackBar(SnackBar(content: Text(describeError(e))));
+                    }
+                  },
+                ),
+              // ── Scrollable list ───────────────────────────────────
+              Expanded(
+                child: isSearching
+                    ? searchResults!.when(
+                        loading: () => const LoadingSkeleton(),
+                        error: (error, _) => ErrorState(
+                          message: describeError(error),
+                          onRetry: () => ref.invalidate(
+                            chatMessageSearchProvider(
+                              debouncedQuery.value.trim(),
+                            ),
                           ),
                         ),
-                      ),
-                      data: (items) {
-                        if (items.isEmpty) {
-                          return EmptyState(
-                            title: 'Không tìm thấy tin nhắn',
-                            message:
-                                'Thử từ khóa khác trong nội dung câu hỏi hoặc câu trả lời AI.',
-                          );
-                        }
-                        return ListView.separated(
-                          padding: const EdgeInsets.fromLTRB(
-                            Insets.screenH,
-                            Insets.sm,
-                            Insets.screenH,
-                            Insets.lg,
-                          ),
-                          itemCount: items.length,
-                          separatorBuilder: (_, __) =>
-                              const Gap(Insets.sm),
-                          itemBuilder: (context, index) {
-                            return _SearchMessageTile(
-                              message: items[index],
-                              onTap: () => openSearchResult(items[index]),
+                        data: (items) {
+                          if (items.isEmpty) {
+                            return EmptyState(
+                              title: 'Không tìm thấy tin nhắn',
+                              message:
+                                  'Thử từ khóa khác trong nội dung câu hỏi hoặc câu trả lời AI.',
                             );
-                          },
-                        );
-                      },
-                    )
-                  : conversations.when(
-                loading: () => const LoadingSkeleton(),
-                error: (error, _) => ErrorState(
-                  message: describeError(error),
-                  onRetry: () =>
-                      ref.invalidate(conversationsControllerProvider),
-                ),
-                data: (allItems) {
-                  if (allItems.isEmpty) {
-                    return EmptyState(
-                      title: l10n.emptyConversationsTitle,
-                      message: l10n.emptyConversationsMessage,
-                      ctaLabel: l10n.newConversation,
-                      onCta: createNew,
-                    );
-                  }
-
-                  final now = DateTime.now();
-                  final todayItems = allItems
-                      .where(
-                        (c) =>
-                            c.lastMessageAt != null &&
-                            _isToday(c.lastMessageAt!, now),
+                          }
+                          return ListView.separated(
+                            padding: const EdgeInsets.fromLTRB(
+                              Insets.screenH,
+                              Insets.sm,
+                              Insets.screenH,
+                              Insets.lg,
+                            ),
+                            itemCount: items.length,
+                            separatorBuilder: (_, __) => const Gap(Insets.sm),
+                            itemBuilder: (context, index) {
+                              return _SearchMessageTile(
+                                message: items[index],
+                                onTap: () => openSearchResult(items[index]),
+                              );
+                            },
+                          );
+                        },
                       )
-                      .toList();
-                  final earlierItems = allItems
-                      .where(
-                        (c) =>
-                            c.lastMessageAt == null ||
-                            !_isToday(c.lastMessageAt!, now),
-                      )
-                      .toList();
+                    : conversations.when(
+                        loading: () => const LoadingSkeleton(),
+                        error: (error, _) => ErrorState(
+                          message: describeError(error),
+                          onRetry: () =>
+                              ref.invalidate(conversationsControllerProvider),
+                        ),
+                        data: (allItems) {
+                          if (allItems.isEmpty) {
+                            return EmptyState(
+                              title: l10n.emptyConversationsTitle,
+                              message: l10n.emptyConversationsMessage,
+                              ctaLabel: l10n.newConversation,
+                              onCta: createNew,
+                            );
+                          }
 
-                  return RefreshIndicator(
-                    color: AppColors.primary,
-                    onRefresh: () =>
-                        ref.refresh(conversationsControllerProvider.future),
-                    child: ListView(
-                      padding: const EdgeInsets.fromLTRB(
-                        Insets.screenH,
-                        Insets.sm,
-                        Insets.screenH,
-                        Insets.lg,
+                          final orderedItems = sortConversationsByActivity(
+                            allItems,
+                          );
+                          final visibleItems =
+                              orderedItems.length <= visibleCount.value
+                              ? orderedItems
+                              : orderedItems.take(visibleCount.value).toList();
+                          final groups = groupConversationsByTime(visibleItems);
+                          final hasMore = visibleCount.value < allItems.length;
+
+                          return RefreshIndicator(
+                            color: AppColors.primary,
+                            onRefresh: () => ref.refresh(
+                              conversationsControllerProvider.future,
+                            ),
+                            child: ListView(
+                              padding: const EdgeInsets.fromLTRB(
+                                Insets.screenH,
+                                Insets.sm,
+                                Insets.screenH,
+                                Insets.lg,
+                              ),
+                              children: [
+                                for (final group in groups) ...[
+                                  _SectionLabel(group.label.toUpperCase()),
+                                  const Gap(Insets.sm),
+                                  _ConversationGroup(
+                                    items: group.items,
+                                    activeId: activeConversationId,
+                                    onTap: openConversation,
+                                    onDelete: (id) => ref
+                                        .read(
+                                          conversationsControllerProvider
+                                              .notifier,
+                                        )
+                                        .deleteConversation(id),
+                                    onRename: (id, title) => ref
+                                        .read(
+                                          conversationsControllerProvider
+                                              .notifier,
+                                        )
+                                        .renameConversation(id, title),
+                                  ),
+                                  const Gap(Insets.xl),
+                                ],
+                                if (hasMore)
+                                  TextButton(
+                                    onPressed: () {
+                                      visibleCount.value =
+                                          (visibleCount.value +
+                                                  conversationPageSize)
+                                              .clamp(0, allItems.length);
+                                    },
+                                    child: const Text('Xem thêm'),
+                                  ),
+                              ],
+                            ),
+                          );
+                        },
                       ),
-                      children: [
-                        if (todayItems.isNotEmpty) ...[
-                          _SectionLabel('HÔM NAY'),
-                          const Gap(Insets.sm),
-                          _ConversationGroup(
-                            items: todayItems,
-                            activeId: activeConversationId,
-                            onTap: openConversation,
-                            onDelete: (id) => ref
-                                .read(conversationsControllerProvider.notifier)
-                                .deleteConversation(id),
-                            onRename: (id, title) => ref
-                                .read(conversationsControllerProvider.notifier)
-                                .renameConversation(id, title),
-                          ),
-                          const Gap(Insets.xl),
-                        ],
-                        if (earlierItems.isNotEmpty) ...[
-                          _SectionLabel('TRƯỚC ĐÓ'),
-                          const Gap(Insets.sm),
-                          _ConversationGroup(
-                            items: earlierItems,
-                            activeId: activeConversationId,
-                            onTap: openConversation,
-                            onDelete: (id) => ref
-                                .read(conversationsControllerProvider.notifier)
-                                .deleteConversation(id),
-                            onRename: (id, title) => ref
-                                .read(conversationsControllerProvider.notifier)
-                                .renameConversation(id, title),
-                          ),
-                        ],
-                      ],
+              ),
+              // ── New conversation button ───────────────────────────
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  Insets.screenH,
+                  Insets.sm,
+                  Insets.screenH,
+                  Insets.lg,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _NewConversationButton(
+                      label: l10n.newConversation,
+                      onTap: createNew,
                     ),
-                  );
-                },
+                    const Gap(Insets.sm),
+                    TextButton.icon(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                        context.go(AppRoutes.studentHome);
+                      },
+                      icon: const Icon(LucideIcons.home, size: 18),
+                      label: Text(l10n.tabHome),
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            // ── New conversation button ───────────────────────────
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                Insets.screenH,
-                Insets.sm,
-                Insets.screenH,
-                Insets.lg,
-              ),
-              child: _NewConversationButton(
-                label: l10n.newConversation,
-                onTap: createNew,
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
-    ),
     );
   }
 }
-
-bool _isToday(DateTime dt, DateTime now) =>
-    dt.year == now.year && dt.month == now.month && dt.day == now.day;
 
 bool _isPersistedMessageId(String messageId) {
   return !messageId.startsWith('local-') &&
@@ -530,9 +539,9 @@ class _SearchMessageTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final excerpt = sanitizeAiChatContent(message.content)
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .trim();
+    final excerpt = sanitizeAiChatContent(
+      message.content,
+    ).replaceAll(RegExp(r'\s+'), ' ').trim();
     final timeLabel = message.createdAt != null
         ? formatRelativeTime(message.createdAt!)
         : null;
@@ -613,9 +622,9 @@ class _DrawerPinnedSection extends HookWidget {
   final ValueChanged<PinnedMessageEntry> onUnpin;
 
   static String _pinnedExcerpt(String content) {
-    var text = sanitizeAiChatContent(content)
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .trim();
+    var text = sanitizeAiChatContent(
+      content,
+    ).replaceAll(RegExp(r'\s+'), ' ').trim();
     text = text.replaceFirst(RegExp(r'^#{1,6}\s*'), '');
     return text;
   }
@@ -668,9 +677,9 @@ class _DrawerPinnedSection extends HookWidget {
                           '$title (${entries.length})',
                           style: Theme.of(context).textTheme.labelLarge
                               ?.copyWith(
-                            color: AppColors.primaryDark,
-                            fontWeight: FontWeight.w700,
-                          ),
+                                color: AppColors.primaryDark,
+                                fontWeight: FontWeight.w700,
+                              ),
                         ),
                       ),
                       AnimatedRotation(
@@ -726,9 +735,7 @@ class _DrawerPinnedSection extends HookWidget {
                             entry.conversationTitle,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context)
-                                .textTheme
-                                .labelSmall
+                            style: Theme.of(context).textTheme.labelSmall
                                 ?.copyWith(color: AppColors.textTertiary),
                           ),
                           trailing: IconButton(
@@ -1057,6 +1064,108 @@ class _NewConversationButton extends StatelessWidget {
   }
 }
 
+void _showInChatSearch(
+  BuildContext context, {
+  required List<AiMessage> messages,
+  required ValueChanged<String> onSelect,
+}) {
+  showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: AppColors.card,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(Radii.xl)),
+    ),
+    builder: (sheetContext) {
+      return _InChatSearchSheet(
+        messages: messages,
+        onSelect: (message) {
+          Navigator.of(sheetContext).pop();
+          onSelect(message.id);
+        },
+      );
+    },
+  );
+}
+
+class _InChatSearchSheet extends HookWidget {
+  const _InChatSearchSheet({required this.messages, required this.onSelect});
+
+  final List<AiMessage> messages;
+  final ValueChanged<AiMessage> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final query = useState('');
+    final q = query.value.trim().toLowerCase();
+    final matches = q.isEmpty
+        ? const <AiMessage>[]
+        : messages
+              .where(
+                (message) => sanitizeAiChatContent(
+                  message.content,
+                ).toLowerCase().contains(q),
+              )
+              .toList();
+
+    return SafeArea(
+      child: SizedBox(
+        height: MediaQuery.sizeOf(context).height * 0.72,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            Insets.screenH,
+            Insets.lg,
+            Insets.screenH,
+            Insets.md,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Tìm trong đoạn chat',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+              ),
+              const Gap(Insets.md),
+              _SearchBar(onChanged: (value) => query.value = value),
+              const Gap(Insets.md),
+              Expanded(
+                child: q.isEmpty
+                    ? Center(
+                        child: Text(
+                          'Nhập từ khóa để tìm trong hội thoại này.',
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(color: AppColors.textTertiary),
+                          textAlign: TextAlign.center,
+                        ),
+                      )
+                    : matches.isEmpty
+                    ? const EmptyState(
+                        title: 'Không tìm thấy tin nhắn',
+                        message:
+                            'Thử từ khóa khác trong nội dung câu hỏi hoặc câu trả lời AI.',
+                      )
+                    : ListView.separated(
+                        itemCount: matches.length,
+                        separatorBuilder: (_, __) => const Gap(Insets.sm),
+                        itemBuilder: (context, index) {
+                          final message = matches[index];
+                          return _SearchMessageTile(
+                            message: message,
+                            onTap: () => onSelect(message),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class ChatScreen extends HookConsumerWidget {
   const ChatScreen({
     super.key,
@@ -1077,15 +1186,142 @@ class ChatScreen extends HookConsumerWidget {
     final courses = ref.watch(coursesControllerProvider);
     final selectedCourse = ref.watch(selectedCourseProvider);
     final scaffoldKey = useMemoized(() => GlobalKey<ScaffoldState>());
+    final chatInputKey = useMemoized(() => GlobalKey<_ChatInputBarState>());
+
+    useEffect(() {
+      final opening = ref.read(tutorOpeningHandoffProvider);
+      if (opening?.conversationId == conversationId) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (ref.read(tutorOpeningHandoffProvider)?.conversationId ==
+              conversationId) {
+            ref.read(tutorOpeningHandoffProvider.notifier).state = null;
+          }
+        });
+      }
+      return null;
+    }, [conversationId]);
+
+    useEffect(() {
+      void applyHandoff() {
+        final handoff = ref.read(studyChatHandoffProvider);
+        if (handoff == null || !context.mounted) return;
+        final bar = chatInputKey.currentState;
+        if (bar == null) return;
+        bar.setDraft(handoff.prompt);
+        ref.read(studyChatHandoffProvider.notifier).state = null;
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text(studyChatHandoffSnack)));
+      }
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        applyHandoff();
+        if (ref.read(studyChatHandoffProvider) != null) {
+          Future<void>.delayed(const Duration(milliseconds: 120), applyHandoff);
+        }
+      });
+      return null;
+    }, [conversationId]);
+
+    useEffect(() {
+      var cancelled = false;
+      Future<void> hydrateReviews() async {
+        final stored = await loadReviewedMessageIds(
+          ref.read(secureStorageProvider),
+          conversationId: conversationId,
+        );
+        if (cancelled || stored.isEmpty) return;
+        ref
+            .read(reviewedMessageIdsProvider(conversationId).notifier)
+            .update((ids) => {...ids, ...stored});
+      }
+
+      unawaited(hydrateReviews());
+      return () => cancelled = true;
+    }, [conversationId]);
 
     final courseItems = courses.valueOrNull ?? const [];
     final activeCourse = selectedCourse ?? courseItems.firstOrNull;
     final courseCode = activeCourse?.code ?? '—';
+    final ttsScope = ttsScopeForChat(
+      userId: ref.watch(authControllerProvider).valueOrNull?.userId,
+      courseId: activeCourse?.id,
+      courseCode: activeCourse?.code,
+      classId: activeCourse?.classId,
+      className: activeCourse?.className,
+    );
+    final ttsVoicesAsync = ref.watch(ttsVoicesProvider(ttsScope));
+    final ttsVoices = ttsVoicesAsync.valueOrNull ?? const <TtsVoice>[];
+    final selectedTtsVoiceId = ref.watch(ttsSelectedVoiceProvider(ttsScope));
+    final resolvedTtsVoiceId = resolveTtsVoiceId(
+      voices: ttsVoices,
+      selectedId: selectedTtsVoiceId,
+      storedId: selectedTtsVoiceId,
+    );
+    final ttsEnabled = ttsScope.isValid;
+    final ttsVoicesError = ttsVoicesAsync.hasError
+        ? describeError(ttsVoicesAsync.error!)
+        : '';
     final consumedKeys = ref.watch(
       consumedSuggestionKeysProvider(conversationId),
     );
     final reviewedIds = ref.watch(reviewedMessageIdsProvider(conversationId));
-    final learningSuggestionKey = useState<String?>(null);
+    final turnNotice = ref.watch(chatTurnLimitNoticeProvider);
+    final conversations = ref.watch(conversationsControllerProvider);
+    final activeSession = conversations.valueOrNull
+        ?.where((item) => item.id == conversationId)
+        .firstOrNull;
+    final quotaCourseId = activeCourse?.code.trim() ?? '';
+    final dailyQuota = ref.watch(dailyQuestionQuotaProvider(quotaCourseId));
+    final dailyQuotaExhausted =
+        quotaCourseId.isNotEmpty && dailyQuota.exhausted;
+    final questionCount = dailyQuota.used;
+    final questionLimit = dailyQuota.limit;
+    final maxTurnsReached = sessionMaxTurnsReached(
+      activeSession,
+      messages: messages.valueOrNull ?? const [],
+    );
+    final composerLocked = dailyQuotaExhausted || maxTurnsReached;
+    final mentorRequests = ref.watch(escalationHistoryControllerProvider);
+    final mentorRequestingMessageId = useState<String?>(null);
+
+    String normalizeComparableText(String? value) {
+      return (value ?? '').trim().replaceAll(RegExp(r'\s+'), ' ').toLowerCase();
+    }
+
+    EscalationHistoryItem? findMentorRequest(String userQuestion) {
+      final question = normalizeComparableText(userQuestion);
+      if (question.isEmpty) return null;
+
+      for (final request
+          in mentorRequests.valueOrNull ?? const <EscalationHistoryItem>[]) {
+        if (normalizeComparableText(request.originalQuestion) != question) {
+          continue;
+        }
+        final requestConversationId = request.conversationId?.trim() ?? '';
+        if (requestConversationId.isNotEmpty &&
+            requestConversationId != conversationId) {
+          continue;
+        }
+        final requestCourseId = request.courseId?.trim().toUpperCase() ?? '';
+        final currentCourseId = activeCourse?.code.trim().toUpperCase() ?? '';
+        if (requestCourseId.isNotEmpty &&
+            currentCourseId.isNotEmpty &&
+            requestCourseId != currentCourseId) {
+          continue;
+        }
+        final requestClassId = request.classId?.trim().toUpperCase() ?? '';
+        final currentClassId =
+            activeCourse?.classId?.trim().toUpperCase() ?? '';
+        if (requestClassId.isNotEmpty &&
+            currentClassId.isNotEmpty &&
+            requestClassId != currentClassId) {
+          continue;
+        }
+        return request;
+      }
+      return null;
+    }
 
     void scrollToMessage(String messageId) {
       final key = messageKeys[messageId];
@@ -1116,38 +1352,92 @@ class ChatScreen extends HookConsumerWidget {
       return null;
     }, [messages.valueOrNull?.length, scrollToMessageId]);
 
-    Future<void> handleLearnSuggestion(ImproveSuggestionItem item) async {
-      if (activeCourse == null) return;
-      learningSuggestionKey.value = item.key;
-      try {
-        await ref
-            .read(chatControllerProvider(conversationId).notifier)
-            .learnFromSuggestionInChat(
-              conversationId: conversationId,
-              courseId: activeCourse.code,
-              classId: activeCourse.classId,
-              suggestion: item,
-            );
-      } on DioException catch (e) {
-        if (!context.mounted) return;
-        final message = e.response?.statusCode == 409
-            ? 'Gợi ý này đã được học rồi. Hãy chọn gợi ý khác hoặc hỏi câu mới.'
-            : describeError(e);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(message)),
-        );
-      } catch (e) {
-        if (!context.mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(describeError(e))),
-        );
-      } finally {
-        learningSuggestionKey.value = null;
+    Future<void> sendStudyPromptInChat(String prompt) async {
+      if (prompt.isEmpty || activeCourse == null) return;
+      if (isPending || composerLocked) {
+        chatInputKey.currentState?.setDraft(prompt);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text(studyChatHandoffSnack)));
+        return;
+      }
+      final effectiveId = await ref
+          .read(chatControllerProvider(conversationId).notifier)
+          .sendMessage(
+            conversationId: conversationId,
+            message: prompt,
+            courseId: activeCourse.code,
+            classId: activeCourse.classId,
+          );
+      if (!context.mounted) return;
+      if (effectiveId != conversationId) {
+        context.go(AppRoutes.studentTutorChat(effectiveId));
       }
     }
 
-    Future<void> handleStudyTipTap(String tipText) async {
-      await handleLearnSuggestion(ImproveSuggestionItem.fromLabel(tipText));
+    void handleLearnSuggestion(ImproveSuggestionItem item) {
+      final text = item.effectiveText.trim().isNotEmpty
+          ? item.effectiveText
+          : item.title;
+      unawaited(sendStudyPromptInChat(buildStudySuggestionPrompt(text)));
+    }
+
+    void handleStudyTipTap(String tipText, {String currentQuestion = ''}) {
+      final resolved = resolveChatStudyTip(currentQuestion, tipText);
+      unawaited(sendStudyPromptInChat(buildStudySuggestionPrompt(resolved)));
+    }
+
+    Future<void> handleDeepDiveStudy(String prompt) {
+      return sendStudyPromptInChat(prompt);
+    }
+
+    Future<void> handleUnderstandingCheckAnswer({
+      required AiMessage message,
+      required String selectedKey,
+      required UnderstandingCheckAttempt attempt,
+    }) async {
+      await ref
+          .read(chatControllerProvider(conversationId).notifier)
+          .lockUnderstandingAnswer(
+            conversationId: conversationId,
+            message: message,
+            selectedKey: selectedKey,
+          );
+      if (!context.mounted) return;
+      if (activeCourse == null) return;
+
+      final quiz = attempt.quiz;
+      final selected = attempt.selected;
+      final prompt = quiz.correctKey.isEmpty
+          ? buildMissingAnswerKeyRemediationPrompt(quiz, selected)
+          : attempt.isCorrect
+          ? ''
+          : buildIncorrectAnswerRemediationPrompt(quiz, selected);
+      if (prompt.isEmpty || composerLocked) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            quiz.correctKey.isEmpty
+                ? 'AI Tutor đang kiểm tra đáp án và giảng lại ngay.'
+                : 'AI Tutor đang giảng lại theo cách dễ hiểu hơn.',
+          ),
+        ),
+      );
+      final effectiveId = await ref
+          .read(chatControllerProvider(conversationId).notifier)
+          .sendMessage(
+            conversationId: conversationId,
+            message: prompt,
+            displayMessage: quiz.question,
+            interactionType: 'UNDERSTANDING_REMEDIATION',
+            courseId: activeCourse.code,
+            classId: activeCourse.classId,
+          );
+      if (!context.mounted) return;
+      if (effectiveId != conversationId) {
+        context.go(AppRoutes.studentTutorChat(effectiveId));
+      }
     }
 
     void showReviewSubmittedSnack(String? status) {
@@ -1156,9 +1446,9 @@ class ChatScreen extends HookConsumerWidget {
         'NEEDS_SENIOR_REVIEW' => l10n.reviewSubmittedSnackSenior,
         _ => l10n.reviewSubmittedSnack,
       };
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
     }
 
     Future<void> submitMessageReview({
@@ -1193,9 +1483,9 @@ class ChatScreen extends HookConsumerWidget {
         showReviewSubmittedSnack(status);
       } catch (e) {
         if (!context.mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(describeError(e))),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(describeError(e))));
       }
     }
 
@@ -1267,16 +1557,136 @@ class ChatScreen extends HookConsumerWidget {
       );
     }
 
-    void handleQuizFromSuggestion(ImproveSuggestionItem item) {
-      if (activeCourse == null) return;
-      Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => TakeQuizScreen(
-            courseId: activeCourse.id,
-            topic: item.effectiveTopic,
-            suggestionText: item.effectiveText,
+    Future<void> handleMentorReview(
+      AiMessage aiMessage,
+      String userQuestion,
+    ) async {
+      if (activeCourse == null || mentorRequestingMessageId.value != null) {
+        return;
+      }
+
+      mentorRequestingMessageId.value = aiMessage.id;
+      String? escalationId;
+      try {
+        escalationId = await ref
+            .read(chatControllerProvider(conversationId).notifier)
+            .requestMentorReview(
+              conversationId: conversationId,
+              aiMessage: aiMessage,
+              userQuestion: userQuestion,
+              courseId: activeCourse.code,
+              classId: activeCourse.classId,
+            );
+        if (!context.mounted) return;
+        ref.invalidate(escalationHistoryControllerProvider);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Đã gửi yêu cầu hỗ trợ cho mentor.')),
+        );
+      } catch (e) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(describeError(e))));
+      } finally {
+        if (context.mounted) mentorRequestingMessageId.value = null;
+      }
+
+      if (context.mounted && escalationId != null) {
+        context.push(AppRoutes.studentSupport(ticketId: escalationId));
+      }
+    }
+
+    Future<void> showMentorReviewConfirmation(
+      AiMessage aiMessage,
+      String userQuestion,
+    ) {
+      return showModalBottomSheet<void>(
+        context: context,
+        backgroundColor: AppColors.card,
+        isScrollControlled: true,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(Radii.xl)),
+        ),
+        builder: (sheetContext) => SafeArea(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+              Insets.screenH,
+              Insets.lg,
+              Insets.screenH,
+              Insets.lg + MediaQuery.viewInsetsOf(sheetContext).bottom,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    const Icon(LucideIcons.lifeBuoy, color: AppColors.primary),
+                    const Gap(Insets.sm),
+                    Expanded(
+                      child: Text(
+                        'Gửi mentor xem xét',
+                        style: Theme.of(sheetContext).textTheme.titleLarge
+                            ?.copyWith(fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Đóng',
+                      onPressed: () => Navigator.of(sheetContext).pop(),
+                      icon: const Icon(LucideIcons.x),
+                    ),
+                  ],
+                ),
+                const Gap(Insets.sm),
+                Text(
+                  'Hệ thống sẽ lưu câu hỏi, câu trả lời AI, môn học và lớp trước khi tìm mentor phù hợp.',
+                  style: Theme.of(sheetContext).textTheme.bodyMedium?.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const Gap(Insets.lg),
+                Text(
+                  'Câu hỏi trong AI Tutor',
+                  style: Theme.of(sheetContext).textTheme.labelLarge?.copyWith(
+                    color: AppColors.textSecondary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const Gap(Insets.xs),
+                FptCard(
+                  outlined: true,
+                  child: Text(
+                    userQuestion,
+                    style: Theme.of(sheetContext).textTheme.bodyLarge,
+                  ),
+                ),
+                const Gap(Insets.lg),
+                FptButton(
+                  label: 'Tạo yêu cầu',
+                  icon: LucideIcons.send,
+                  expand: true,
+                  onPressed: () {
+                    Navigator.of(sheetContext).pop();
+                    handleMentorReview(aiMessage, userQuestion);
+                  },
+                ),
+              ],
+            ),
           ),
         ),
+      );
+    }
+
+    void handleQuizFromSuggestion(ImproveSuggestionItem item) {
+      if (activeCourse == null) return;
+      final topic = item.effectiveText.trim().isNotEmpty
+          ? item.effectiveText
+          : item.title;
+      openQuizFromSuggestion(
+        context,
+        ref,
+        courseRouteId: activeCourse.id,
+        suggestionText: topic,
       );
     }
 
@@ -1329,51 +1739,63 @@ class ChatScreen extends HookConsumerWidget {
       showModalBottomSheet<void>(
         context: context,
         backgroundColor: AppColors.card,
+        isScrollControlled: true,
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(Radii.xl)),
         ),
-        builder: (_) => Padding(
-          padding: const EdgeInsets.fromLTRB(
-            Insets.screenH,
-            Insets.lg,
-            Insets.screenH,
-            Insets.xxxl,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                l10n.selectCourse,
-                style: Theme.of(context).textTheme.titleMedium,
+        builder: (sheetContext) => SafeArea(
+          child: SizedBox(
+            height: MediaQuery.sizeOf(sheetContext).height * 0.72,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(
+                Insets.screenH,
+                Insets.lg,
+                Insets.screenH,
+                Insets.md,
               ),
-              const Gap(Insets.md),
-              ...courseItems.map(
-                (c) => ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text('${c.code} — ${c.name}'),
-                  trailing: c.id == activeCourse?.id
-                      ? const Icon(
-                          LucideIcons.checkCircle2,
-                          color: AppColors.primary,
-                        )
-                      : null,
-                  onTap: () async {
-                    ref.read(selectedCourseProvider.notifier).state = c;
-                    Navigator.of(context).pop();
-                    if (c.id == activeCourse?.id) return;
-                    final created = await ref
-                        .read(conversationsControllerProvider.notifier)
-                        .createNew(
-                          courseId: c.code,
-                          classId: c.classId,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l10n.selectCourse,
+                    style: Theme.of(sheetContext).textTheme.titleMedium,
+                  ),
+                  const Gap(Insets.md),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: courseItems.length,
+                      itemBuilder: (_, index) {
+                        final course = courseItems[index];
+                        return ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text('${course.code} — ${course.name}'),
+                          trailing: course.id == activeCourse?.id
+                              ? const Icon(
+                                  LucideIcons.checkCircle2,
+                                  color: AppColors.primary,
+                                )
+                              : null,
+                          onTap: () async {
+                            ref.read(selectedCourseProvider.notifier).state =
+                                course;
+                            Navigator.of(sheetContext).pop();
+                            if (course.id == activeCourse?.id) return;
+                            final created = await ref
+                                .read(conversationsControllerProvider.notifier)
+                                .openTutorSessionOrCreate(
+                                  courseId: course.code,
+                                  classId: course.classId,
+                                );
+                            if (!context.mounted) return;
+                            context.go(AppRoutes.studentTutorChat(created.id));
+                          },
                         );
-                    if (!context.mounted) return;
-                    context.go(AppRoutes.studentTutorChat(created.id));
-                  },
-                ),
+                      },
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       );
@@ -1381,7 +1803,7 @@ class ChatScreen extends HookConsumerWidget {
 
     return Scaffold(
       key: scaffoldKey,
-      backgroundColor: AppColors.canvas,
+      backgroundColor: AppColors.card,
       drawerScrimColor: AppColors.scrim,
       drawerEnableOpenDragGesture: true,
       drawer: ConversationHistoryDrawer(
@@ -1390,11 +1812,37 @@ class ChatScreen extends HookConsumerWidget {
       ),
       appBar: AiChatAppBar(
         courseCode: courseCode,
+        classLabel: AiChatAppBar.formatClassLabel(
+          className: activeCourse?.className,
+          classId: activeCourse?.classId,
+        ),
+        questionCount: questionCount,
+        questionLimit: questionLimit,
+        maxTurnsReached: dailyQuotaExhausted,
         onCourseTap: showCoursePicker,
         onHistoryTap: () => scaffoldKey.currentState?.openDrawer(),
+        onSearchTap: () => _showInChatSearch(
+          context,
+          messages: messages.valueOrNull ?? const [],
+          onSelect: scrollToMessage,
+        ),
       ),
       body: Column(
         children: [
+          if (turnNotice != null &&
+              turnNotice.currentSessionId == conversationId)
+            AiChatTurnLimitBanner(
+              message: turnNotice.message,
+              onOpenPrevious: () {
+                context.go(
+                  AppRoutes.studentTutorChat(turnNotice.previousSessionId),
+                );
+              },
+              onDismiss: () {
+                ref.read(chatTurnLimitNoticeProvider.notifier).state = null;
+              },
+            ),
+          if (dailyQuotaExhausted) const AiChatDailyQuotaBanner(),
           Expanded(
             child: messages.when(
               loading: () => const LoadingSkeleton(itemCount: 4),
@@ -1417,38 +1865,72 @@ class ChatScreen extends HookConsumerWidget {
                       items.length + (isPending ? 1 : 0) + listHeaderCount,
                   itemBuilder: (context, index) {
                     if (index == 0) {
+                      if (items.isEmpty && !isPending) {
+                        final courseHasHistory = hasStudentChattedCourse(
+                          conversations.valueOrNull ?? const [],
+                          courseId: activeCourse?.id,
+                          courseCode: activeCourse?.code,
+                        );
+                        if (!courseHasHistory) {
+                          return const AiChatOpeningPlaceholder();
+                        }
+                        return AiChatPromptStarters(
+                          enabled: !isPending && !composerLocked,
+                          onSelect: (prompt) {
+                            final bar = chatInputKey.currentState;
+                            if (bar == null) return;
+                            bar.setDraft(prompt);
+                            bar.sendDraft();
+                          },
+                        );
+                      }
                       return AiChatDateSeparator(label: l10n.chatToday);
                     }
 
                     final msgIndex = index - listHeaderCount;
                     if (isPending && msgIndex == items.length) {
-                      return AiMessageRow(
+                      return const AiMessageRow(
                         isUser: false,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            vertical: Insets.sm,
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                l10n.aiThinking,
-                                style: Theme.of(context).textTheme.bodySmall
-                                    ?.copyWith(color: AppColors.textTertiary),
-                              ),
-                              const Gap(Insets.xs),
-                              const TypingDots(),
-                            ],
-                          ),
-                        ),
+                        child: AiChatLoadingSteps(),
                       );
                     }
 
                     final message = items[msgIndex];
+                    final isRetryableError =
+                        !message.isUser && message.id.startsWith('err-');
+                    final userQuestion = message.isUser
+                        ? null
+                        : ChatController.precedingUserQuestion(items, msgIndex);
+                    final existingMentorRequest = userQuestion == null
+                        ? null
+                        : findMentorRequest(userQuestion);
+                    final effectiveEscalationId =
+                        (message.questionEscalationId != null &&
+                            message.questionEscalationId!.isNotEmpty)
+                        ? message.questionEscalationId
+                        : existingMentorRequest?.id;
                     final messageKey = messageKeys.putIfAbsent(
                       message.id,
                       GlobalKey.new,
                     );
+                    final extracted = message.isUser
+                        ? const UnderstandingCheckExtract(before: '', after: '')
+                        : resolveUnderstandingCheck(
+                            markdown: message.content,
+                            structured: message.understandingCheck,
+                          );
+                    final quiz = extracted.quiz;
+                    final isWelcomeTurn = isWelcomeTutorTurn(
+                      message,
+                      precedingUserQuestion: userQuestion,
+                    );
+                    final pathSuggestions =
+                        message.isUser || isRetryableError || isWelcomeTurn
+                        ? const <ImproveSuggestionItem>[]
+                        : chatImproveSuggestionsForMessage(
+                            answer: message.content,
+                            apiSuggestions: message.improveSuggestions,
+                          );
                     return KeyedSubtree(
                       key: messageKey,
                       child: Column(
@@ -1458,35 +1940,167 @@ class ChatScreen extends HookConsumerWidget {
                             isUser: message.isUser,
                             child: ChatBubble(
                               isUser: message.isUser,
-                              content: message.content,
+                              codeSnippet: message.codeSnippet,
+                              content: quiz == null
+                                  ? message.content
+                                  : extracted.before,
+                              afterContent: quiz == null
+                                  ? null
+                                  : extracted.after,
+                              betweenContent: quiz == null
+                                  ? null
+                                  : UnderstandingCheckQuiz(
+                                      quiz: quiz,
+                                      lockedKey:
+                                          message.understandingSelectedKey ??
+                                          '',
+                                      onLockAnswer: (key, attempt) {
+                                        unawaited(
+                                          handleUnderstandingCheckAnswer(
+                                            message: message,
+                                            selectedKey: key,
+                                            attempt: attempt,
+                                          ),
+                                        );
+                                      },
+                                    ),
                               mode: message.mode,
                               confidence: message.confidence,
                               sources: message.sources,
                               sourceEvidence: message.sourceEvidence,
                               visualEvidence: message.visualEvidence,
-                              escalated: message.escalated,
+                              escalated:
+                                  message.escalated ||
+                                  effectiveEscalationId != null,
                               pinned: message.pinned,
                               pinnedLabel: l10n.pinnedLabel,
                               onStudyTipTap: message.isUser
                                   ? null
-                                  : handleStudyTipTap,
-                              trailing:
-                                  message.questionEscalationId != null &&
-                                      message.questionEscalationId!.isNotEmpty
-                                  ? FptButton(
-                                      label: l10n.requestMentorSupport,
-                                      size: FptButtonSize.sm,
-                                      variant: FptButtonVariant.tonal,
-                                      onPressed: () => context.push(
-                                        AppRoutes.escalationOffer(
-                                          message.questionEscalationId!,
-                                        ),
-                                      ),
-                                    )
-                                  : null,
+                                  : (tip) => handleStudyTipTap(
+                                      tip,
+                                      currentQuestion: userQuestion ?? '',
+                                    ),
                             ),
                           ),
-                          if (!message.isUser)
+                          if (message.isUser)
+                            AiUserMessageActions(
+                              canResend: !isPending && !composerLocked,
+                              onCopy: () =>
+                                  _copyAiAnswer(context, message.content),
+                              onEdit: () {
+                                chatInputKey.currentState?.setDraft(
+                                  message.content,
+                                );
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Tin nhắn cũ vẫn được giữ trong lịch sử. Chỉnh sửa rồi gửi lại.',
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          if (isRetryableError && userQuestion != null)
+                            Padding(
+                              padding: const EdgeInsets.only(
+                                left: 44,
+                                bottom: Insets.sm,
+                              ),
+                              child: Align(
+                                alignment: Alignment.centerLeft,
+                                child: FptButton(
+                                  label: 'Thử lại',
+                                  icon: LucideIcons.refreshCw,
+                                  size: FptButtonSize.sm,
+                                  variant: FptButtonVariant.tonal,
+                                  onPressed: isPending || composerLocked
+                                      ? null
+                                      : () {
+                                          final bar = chatInputKey.currentState;
+                                          if (bar == null) return;
+                                          bar.setDraft(userQuestion);
+                                          bar.sendDraft();
+                                        },
+                                ),
+                              ),
+                            ),
+                          if (!isRetryableError &&
+                              !message.isUser &&
+                              !isWelcomeTurn &&
+                              userQuestion != null)
+                            Padding(
+                              padding: const EdgeInsets.only(
+                                left: 44,
+                                bottom: Insets.sm,
+                              ),
+                              child: Align(
+                                alignment: Alignment.centerLeft,
+                                child: FptButton(
+                                  label: effectiveEscalationId == null
+                                      ? 'Gửi mentor xem xét'
+                                      : 'Mở hỗ trợ mentor',
+                                  icon: LucideIcons.lifeBuoy,
+                                  size: FptButtonSize.sm,
+                                  variant: FptButtonVariant.tonal,
+                                  loading:
+                                      effectiveEscalationId == null &&
+                                      mentorRequestingMessageId.value ==
+                                          message.id,
+                                  onPressed:
+                                      mentorRequestingMessageId.value != null
+                                      ? null
+                                      : () {
+                                          if (effectiveEscalationId != null) {
+                                            context.push(
+                                              AppRoutes.studentSupport(
+                                                ticketId: effectiveEscalationId,
+                                              ),
+                                            );
+                                            return;
+                                          }
+                                          showMentorReviewConfirmation(
+                                            message,
+                                            userQuestion,
+                                          );
+                                        },
+                                ),
+                              ),
+                            ),
+                          if (!message.isUser &&
+                              !isRetryableError &&
+                              ttsEnabled &&
+                              message.content.trim().isNotEmpty)
+                            TtsAnswerControls(
+                              conversationId: conversationId,
+                              messageKey: message.id,
+                              messageId: message.id,
+                              courseId: ttsScope.courseId,
+                              classId: ttsScope.classId,
+                              text: ttsSpeakableText(
+                                quiz == null
+                                    ? message.content
+                                    : extracted.before,
+                                hasEvidenceMetadata:
+                                    message.sourceEvidence.isNotEmpty ||
+                                    message.sources.isNotEmpty,
+                              ),
+                              voiceId: resolvedTtsVoiceId,
+                              voices: ttsVoices,
+                              voicesLoading: ttsVoicesAsync.isLoading,
+                              voicesError: ttsVoicesError,
+                              onVoiceChange: (voiceId) {
+                                ref
+                                    .read(
+                                      ttsSelectedVoiceProvider(
+                                        ttsScope,
+                                      ).notifier,
+                                    )
+                                    .select(voiceId);
+                              },
+                            ),
+                          if (!message.isUser &&
+                              !isRetryableError &&
+                              !isWelcomeTurn)
                             AiChatReviewBar(
                               ratingPrompt: l10n.reviewHelpfulPrompt,
                               reportLabel: l10n.reviewReport,
@@ -1502,9 +2116,9 @@ class ChatScreen extends HookConsumerWidget {
                                   : (rating) {
                                       final question =
                                           ChatController.precedingUserQuestion(
-                                        items,
-                                        msgIndex,
-                                      );
+                                            items,
+                                            msgIndex,
+                                          );
                                       if (question == null) return;
                                       handleReviewRating(
                                         message,
@@ -1517,22 +2131,31 @@ class ChatScreen extends HookConsumerWidget {
                                   : () {
                                       final question =
                                           ChatController.precedingUserQuestion(
-                                        items,
-                                        msgIndex,
-                                      );
+                                            items,
+                                            msgIndex,
+                                          );
                                       if (question == null) return;
                                       handleReviewReport(message, question);
                                     },
                             ),
-                          if (!message.isUser &&
-                              message.improveSuggestions.isNotEmpty)
+                          if (pathSuggestions.isNotEmpty)
                             ImproveSuggestionsStrip(
-                              suggestions: message.improveSuggestions,
-                              answerMarkdown: message.content,
+                              suggestions: pathSuggestions,
                               consumedKeys: consumedKeys,
-                              loadingKey: learningSuggestionKey.value,
                               onLearn: handleLearnSuggestion,
                               onCreateQuiz: handleQuizFromSuggestion,
+                            ),
+                          if (!isRetryableError &&
+                              !message.isUser &&
+                              (userQuestion ?? '').trim().isNotEmpty &&
+                              pathSuggestions.isEmpty)
+                            LessonDeepDiveCta(
+                              question: userQuestion!,
+                              answer: message.content,
+                              enabled: !isPending && !composerLocked,
+                              onStudy: (prompt) {
+                                unawaited(handleDeepDiveStudy(prompt));
+                              },
                             ),
                         ],
                       ),
@@ -1542,7 +2165,13 @@ class ChatScreen extends HookConsumerWidget {
               },
             ),
           ),
-          _ChatInputBar(conversationId: conversationId),
+          SafeArea(
+            top: false,
+            child: _ChatInputBar(
+              key: chatInputKey,
+              conversationId: conversationId,
+            ),
+          ),
         ],
       ),
     );
@@ -1550,7 +2179,7 @@ class ChatScreen extends HookConsumerWidget {
 }
 
 class _ChatInputBar extends ConsumerStatefulWidget {
-  const _ChatInputBar({required this.conversationId});
+  const _ChatInputBar({super.key, required this.conversationId});
 
   final String conversationId;
 
@@ -1560,27 +2189,100 @@ class _ChatInputBar extends ConsumerStatefulWidget {
 
 class _ChatInputBarState extends ConsumerState<_ChatInputBar> {
   final _messageController = TextEditingController();
+  final _codeController = TextEditingController();
+  final _focusNode = FocusNode();
+  final _speech = SpeechToText();
+  final _attachments = <String>[];
+  var _codeExpanded = false;
+  var _listening = false;
+  var _speechReady = false;
+  var _speechBaseText = '';
+
+  void setDraft(String text) {
+    _messageController
+      ..text = text
+      ..selection = TextSelection.collapsed(offset: text.length);
+    _focusNode.requestFocus();
+  }
+
+  Future<void> sendDraft() => _send();
+
+  @override
+  void initState() {
+    super.initState();
+    _prepareSpeech();
+  }
+
+  Future<void> _prepareSpeech() async {
+    try {
+      _speechReady = await _speech.initialize(
+        onStatus: (status) {
+          if (!mounted) return;
+          if (status == SpeechToText.notListeningStatus ||
+              status == SpeechToText.doneStatus) {
+            setState(() => _listening = false);
+          }
+        },
+        onError: (_) {
+          if (!mounted) return;
+          setState(() => _listening = false);
+        },
+      );
+    } catch (_) {
+      _speechReady = false;
+    }
+  }
 
   @override
   void dispose() {
+    unawaited(_speech.stop());
     _messageController.dispose();
+    _codeController.dispose();
+    _focusNode.dispose();
     super.dispose();
   }
 
   Future<void> _send() async {
-    final text = _messageController.text.trim();
-    if (text.isEmpty) return;
+    if (_listening) {
+      await _speech.stop();
+      _listening = false;
+    }
+    final typed = _messageController.text.trim();
+    final codeCheck = validateOptionalCodeInput(_codeController.text);
+    if (!codeCheck.ok) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(codeCheck.message)));
+      return;
+    }
+    final attachmentLine = _attachments.isEmpty
+        ? ''
+        : 'Em đính kèm: ${_attachments.join(', ')}.';
+    final text = [
+      attachmentLine,
+      typed,
+    ].where((part) => part.isNotEmpty).join('\n');
+    if (text.isEmpty && codeCheck.value.isEmpty) return;
     final courses = ref.read(coursesControllerProvider).valueOrNull;
     final course = ref.read(selectedCourseProvider) ?? courses?.firstOrNull;
     if (course == null) return;
+    final quota = ref.read(dailyQuestionQuotaProvider(course.code.trim()));
+    if (quota.exhausted) return;
     _messageController.clear();
+    _codeController.clear();
+    setState(() {
+      _attachments.clear();
+      _codeExpanded = false;
+    });
     final effectiveId = await ref
         .read(chatControllerProvider(widget.conversationId).notifier)
         .sendMessage(
           conversationId: widget.conversationId,
-          message: text,
+          message: text.isEmpty ? codeOnlyQuestion : text,
           courseId: course.code,
           classId: course.classId,
+          codeSnippet: codeCheck.value.isEmpty ? null : codeCheck.value,
         );
     if (!mounted) return;
     if (effectiveId != widget.conversationId) {
@@ -1588,21 +2290,119 @@ class _ChatInputBarState extends ConsumerState<_ChatInputBar> {
     }
   }
 
+  Future<void> _toggleMic() async {
+    if (_listening) {
+      await _speech.stop();
+      if (mounted) setState(() => _listening = false);
+      return;
+    }
+
+    if (!_speechReady) {
+      await _prepareSpeech();
+    }
+    if (!_speechReady || !_speech.isAvailable) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Thiết bị này chưa hỗ trợ nhập bằng giọng nói hoặc chưa cấp quyền micro.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    _speechBaseText = _messageController.text.trimRight();
+    try {
+      await _speech.listen(
+        listenOptions: SpeechListenOptions(
+          localeId: 'vi_VN',
+          partialResults: true,
+        ),
+        onResult: (result) {
+          if (!mounted) return;
+          final transcript = result.recognizedWords.trim();
+          final next = [
+            _speechBaseText,
+            transcript,
+          ].where((part) => part.isNotEmpty).join(' ');
+          _messageController.value = TextEditingValue(
+            text: next,
+            selection: TextSelection.collapsed(offset: next.length),
+          );
+        },
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Không thể bật micro. Hãy kiểm tra quyền thu âm rồi thử lại.',
+          ),
+        ),
+      );
+      return;
+    }
+    if (mounted) setState(() => _listening = _speech.isListening);
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final isPending = ref.watch(chatPendingProvider(widget.conversationId));
-    final dailyBlocked = ref.watch(studentDailyQuestionBlockedProvider);
     final courses = ref.read(coursesControllerProvider).valueOrNull;
-    final canSend = courses?.isNotEmpty == true && !isPending && !dailyBlocked;
+    final selectedCourse = ref.watch(selectedCourseProvider);
+    final activeCourse = selectedCourse ?? courses?.firstOrNull;
+    final quotaCourseId = activeCourse?.code.trim() ?? '';
+    final dailyQuota = ref.watch(dailyQuestionQuotaProvider(quotaCourseId));
+    final dailyBlocked = quotaCourseId.isNotEmpty && dailyQuota.exhausted;
+    final conversations = ref.watch(conversationsControllerProvider);
+    final messages =
+        ref.watch(chatControllerProvider(widget.conversationId)).valueOrNull ??
+        const [];
+    final activeSession = conversations.valueOrNull
+        ?.where((item) => item.id == widget.conversationId)
+        .firstOrNull;
+    final maxTurnsReached = sessionMaxTurnsReached(
+      activeSession,
+      messages: messages,
+    );
+    final canSend =
+        courses?.isNotEmpty == true &&
+        !isPending &&
+        !dailyBlocked &&
+        !maxTurnsReached;
 
     return AiChatInputBar(
       controller: _messageController,
+      focusNode: _focusNode,
       hint: dailyBlocked
-          ? 'Đã hết lượt hỏi AI hôm nay (giới hạn theo ngày).'
+          ? describeDailyQuestionLimit(
+              dailyQuota.resetAt == null
+                  ? null
+                  : ApiBusinessException(
+                      message: '',
+                      code: dailyQuestionLimitCode,
+                      resetAt: dailyQuota.resetAt,
+                    ),
+            )
+          : maxTurnsReached
+          ? 'Cuộc trò chuyện đã đủ 10 câu hỏi. Hãy tạo cuộc trò chuyện mới.'
           : l10n.chatInputHint,
       enabled: canSend,
       isPending: isPending,
+      isListening: _listening,
+      showComposerTips: true,
+      attachmentNames: List.unmodifiable(_attachments),
+      codeController: _codeController,
+      codeExpanded: _codeExpanded,
+      onToggleCode: () {
+        setState(() => _codeExpanded = !_codeExpanded);
+      },
+      onMic: _toggleMic,
+      onRemoveAttachment: (name) {
+        setState(() => _attachments.remove(name));
+      },
       onSend: _send,
       onStop: () => ref
           .read(chatControllerProvider(widget.conversationId).notifier)
@@ -1647,16 +2447,35 @@ class CodeMentorScreen extends HookConsumerWidget {
           courses.maybeWhen(
             data: (items) {
               if (items.isEmpty) return const SizedBox.shrink();
-              final selectedId = selectedCourse?.id ?? items.first.id;
-              final value = items.firstWhere(
-                (c) => c.id == selectedId,
-                orElse: () => items.first,
-              );
+              final unique = <Course>[];
+              final seen = <String>{};
+              for (final c in items) {
+                if (seen.add(c.selectionKey)) unique.add(c);
+              }
+              final value = selectedCourse != null
+                  ? unique.cast<Course?>().firstWhere(
+                          (c) => c == selectedCourse,
+                          orElse: () => null,
+                        ) ??
+                        unique.first
+                  : unique.first;
               return DropdownButtonFormField<Course>(
                 value: value,
                 decoration: InputDecoration(labelText: l10n.selectCourse),
-                items: items
-                    .map((c) => DropdownMenuItem(value: c, child: Text(c.name)))
+                items: unique
+                    .map(
+                      (c) => DropdownMenuItem(
+                        value: c,
+                        child: Text(
+                          c.className != null && c.className!.isNotEmpty
+                              ? '${c.code} — ${c.className}'
+                              : (c.name.isNotEmpty
+                                    ? '${c.code} — ${c.name}'
+                                    : c.code),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    )
                     .toList(),
                 onChanged: (c) {
                   if (c != null) {
@@ -1715,6 +2534,11 @@ class CodeMentorScreen extends HookConsumerWidget {
             error: (error, _) => ErrorState(message: describeError(error)),
             data: (answer) {
               if (answer == null) return const SizedBox.shrink();
+              final extracted = resolveUnderstandingCheck(
+                markdown: answer.answer,
+                structured: answer.understandingCheck,
+              );
+              final quiz = extracted.quiz;
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -1735,7 +2559,11 @@ class CodeMentorScreen extends HookConsumerWidget {
                     ),
                   ChatBubble(
                     isUser: false,
-                    content: answer.answer,
+                    content: quiz == null ? answer.answer : extracted.before,
+                    afterContent: quiz == null ? null : extracted.after,
+                    betweenContent: quiz == null
+                        ? null
+                        : UnderstandingCheckQuiz(quiz: quiz),
                     confidence: answer.confidence,
                     sources: answer.sources,
                     sourceEvidence: answer.sourceEvidence,

@@ -8,6 +8,7 @@ import '../../../core/constants/app_assets.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
+import '../fpt_logo.dart';
 
 /// Nền gradient cam nhạt — bọc body màn hình PlugPro.
 class PlugProBackground extends StatelessWidget {
@@ -55,7 +56,7 @@ class PlugProPageScaffold extends StatelessWidget {
   }
 }
 
-/// Header tab: logo Cóc + tiêu đề + actions.
+/// Header tab: logo FPT chính thức + tiêu đề + actions.
 class PlugProAppBar extends StatelessWidget {
   const PlugProAppBar({
     super.key,
@@ -70,31 +71,17 @@ class PlugProAppBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final topPad = MediaQuery.paddingOf(context).top + Insets.md;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(
+      padding: EdgeInsets.fromLTRB(
         Insets.screenH,
-        Insets.md,
+        topPad,
         Insets.screenH,
         Insets.sm,
       ),
       child: Row(
         children: [
-          if (showLogo) ...[
-            Image.asset(
-              AppAssets.cocVangLogoTransparent,
-              width: 36,
-              height: 36,
-              fit: BoxFit.contain,
-              filterQuality: FilterQuality.high,
-              errorBuilder: (_, __, ___) => Image.asset(
-                AppAssets.cocVangLogo,
-                width: 36,
-                height: 36,
-                fit: BoxFit.contain,
-              ),
-            ),
-            const Gap(Insets.sm),
-          ],
+          if (showLogo) ...[const FptLogo(height: 26), const Gap(Insets.md)],
           Expanded(
             child: Text(
               title,
@@ -285,10 +272,7 @@ class PlugProPills extends StatelessWidget {
                   borderRadius: BorderRadius.circular(22),
                   border: selected
                       ? null
-                      : Border.all(
-                          color: AppColors.homeOrangeWash,
-                          width: 1.5,
-                        ),
+                      : Border.all(color: AppColors.homeOrangeWash, width: 1.5),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -365,13 +349,13 @@ class PlugProHeroCard extends StatelessWidget {
               decoration: BoxDecoration(
                 gradient: AppColors.homeHeroGradient,
                 borderRadius: BorderRadius.circular(28),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.primary.withValues(alpha: 0.25),
-                      blurRadius: 24,
-                      offset: const Offset(0, 10),
-                    ),
-                  ],
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.primary.withValues(alpha: 0.25),
+                    blurRadius: 24,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
               ),
               child: Stack(
                 children: [
@@ -453,16 +437,16 @@ class PlugProHeroCard extends StatelessWidget {
               Positioned(
                 right: -4,
                 bottom: -18,
-                child: Image.asset(
-                  AppAssets.cocVangLogoTransparent,
-                  width: 130,
-                  height: 130,
-                  fit: BoxFit.contain,
-                  filterQuality: FilterQuality.high,
-                  gaplessPlayback: true,
-                  errorBuilder: (_, __, ___) => const SizedBox(
+                child: ClipOval(
+                  child: Image.asset(
+                    AppAssets.cocFptEducation,
                     width: 130,
                     height: 130,
+                    fit: BoxFit.cover,
+                    filterQuality: FilterQuality.high,
+                    gaplessPlayback: true,
+                    errorBuilder: (_, __, ___) =>
+                        const SizedBox(width: 130, height: 130),
                   ),
                 ),
               ),
@@ -487,8 +471,7 @@ class _HeroWavePainter extends CustomPainter {
       final amp = 8.0 + wave * 4;
       path.moveTo(0, baseY);
       for (var x = 0.0; x <= size.width; x += 4) {
-        final y = baseY +
-            math.sin((x / size.width) * math.pi * 3 + wave) * amp;
+        final y = baseY + math.sin((x / size.width) * math.pi * 3 + wave) * amp;
         path.lineTo(x, y);
       }
       canvas.drawPath(path, paint);
@@ -520,9 +503,13 @@ class PlugProStatsRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: Insets.screenH),
       child: Row(
         children: [
-          Expanded(child: _StatChip(value: leftValue, label: leftLabel)),
+          Expanded(
+            child: _StatChip(value: leftValue, label: leftLabel),
+          ),
           const Gap(Insets.md),
-          Expanded(child: _StatChip(value: rightValue, label: rightLabel)),
+          Expanded(
+            child: _StatChip(value: rightValue, label: rightLabel),
+          ),
         ],
       ),
     );
@@ -654,23 +641,20 @@ class PlugProServiceTabs extends StatelessWidget {
       (PlugProServiceTab.tertiary, labels.tertiary, icons[2]),
     ];
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: Insets.screenH),
-      child: Row(
-        children: [
-          for (var i = 0; i < tabs.length; i++) ...[
-            if (i > 0) const Gap(Insets.sm),
-            Expanded(
-              child: _ServiceTabButton(
-                label: tabs[i].$2,
-                icon: tabs[i].$3,
-                selected: selected == tabs[i].$1,
-                onTap: () => onSelected(tabs[i].$1),
-              ),
+    return Row(
+      children: [
+        for (var i = 0; i < tabs.length; i++) ...[
+          if (i > 0) const Gap(Insets.sm),
+          Expanded(
+            child: _ServiceTabButton(
+              label: tabs[i].$2,
+              icon: tabs[i].$3,
+              selected: selected == tabs[i].$1,
+              onTap: () => onSelected(tabs[i].$1),
             ),
-          ],
+          ),
         ],
-      ),
+      ],
     );
   }
 }
@@ -722,9 +706,7 @@ class _ServiceTabButton extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: selected
-                        ? AppColors.onOrange
-                        : AppColors.primary,
+                    color: selected ? AppColors.onOrange : AppColors.primary,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -747,6 +729,7 @@ class PlugProProviderCard extends StatelessWidget {
     required this.onTap,
     this.subtitle,
     this.width = 168,
+
     /// Khóa ổn định (vd. courseId) — chọn gradient khác nhau theo môn.
     this.colorKey,
   });
@@ -891,9 +874,8 @@ class PlugProProviderCard extends StatelessWidget {
                           subtitle!,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppColors.textTertiary,
-                          ),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: AppColors.textTertiary),
                         ),
                       ],
                     ],
@@ -910,12 +892,7 @@ class PlugProProviderCard extends StatelessWidget {
 
 /// Card nội dung chuẩn PlugPro — viền cam nhạt, bo góc lớn.
 class PlugProCard extends StatelessWidget {
-  const PlugProCard({
-    super.key,
-    required this.child,
-    this.onTap,
-    this.padding,
-  });
+  const PlugProCard({super.key, required this.child, this.onTap, this.padding});
 
   final Widget child;
   final VoidCallback? onTap;

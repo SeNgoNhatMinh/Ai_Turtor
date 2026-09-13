@@ -1,4 +1,3 @@
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -8,7 +7,6 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../core/network/network_providers.dart';
 import '../../../core/utils/authenticated_file_open.dart';
-import '../../../core/utils/material_upload.dart';
 import '../../../core/network/exceptions.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_tokens.dart';
@@ -48,13 +46,6 @@ class TeacherMaterialsScreen extends ConsumerWidget {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: AppColors.primary,
-        foregroundColor: AppColors.onOrange,
-        onPressed: () => _showUploadSheet(context, scope),
-        icon: const Icon(LucideIcons.upload),
-        label: Text(l10n.uploadMaterial),
-      ),
       body: materials.when(
         loading: () => const LoadingSkeleton(),
         error: (error, _) => ErrorState(
@@ -67,8 +58,6 @@ class TeacherMaterialsScreen extends ConsumerWidget {
             return EmptyState(
               title: l10n.emptyTeacherMaterialsTitle,
               message: l10n.emptyTeacherMaterialsMessage,
-              ctaLabel: l10n.uploadMaterial,
-              onCta: () => _showUploadSheet(context, scope),
             );
           }
           return RefreshIndicator(
@@ -94,18 +83,6 @@ class TeacherMaterialsScreen extends ConsumerWidget {
           );
         },
       ),
-    );
-  }
-
-  void _showUploadSheet(BuildContext context, MaterialScope scope) {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: AppColors.card,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(Radii.xl)),
-      ),
-      builder: (_) => _UploadMaterialSheet(scope: scope),
     );
   }
 
@@ -410,126 +387,6 @@ class _MaterialAction extends StatelessWidget {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _UploadMaterialSheet extends HookConsumerWidget {
-  const _UploadMaterialSheet({required this.scope});
-
-  final MaterialScope scope;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = AppLocalizations.of(context)!;
-    final titleController = useTextEditingController();
-    final pickedFile = useState<PlatformFile?>(null);
-    final submitting = useState(false);
-    final errorText = useState<String?>(null);
-
-    Future<void> pickFile() async {
-      final file = await pickCourseMaterialPdf();
-      if (file != null) {
-        final validation = validateCourseMaterialPdfFile(file);
-        if (validation != null) {
-          errorText.value = validation;
-          return;
-        }
-        pickedFile.value = file;
-        errorText.value = null;
-      }
-    }
-
-    Future<void> submit() async {
-      final title = titleController.text.trim();
-      final path = pickedFile.value?.path;
-      if (title.isEmpty || path == null) {
-        errorText.value = l10n.uploadMaterialValidation;
-        return;
-      }
-      final validation = validateCourseMaterialPdfFile(pickedFile.value!);
-      if (validation != null) {
-        errorText.value = validation;
-        return;
-      }
-      submitting.value = true;
-      errorText.value = null;
-      try {
-        final uploaded = await ref
-            .read(teacherMaterialsControllerProvider(scope).notifier)
-            .upload(title: title, filePath: path);
-        if (context.mounted) {
-          final indexing = !uploaded.isIndexed;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                indexing
-                    ? '${l10n.materialUploaded} · ${l10n.materialIndexing}'
-                    : l10n.materialUploaded,
-              ),
-              backgroundColor: AppColors.success,
-            ),
-          );
-          Navigator.pop(context);
-        }
-      } catch (error) {
-        errorText.value = describeError(error);
-      } finally {
-        submitting.value = false;
-      }
-    }
-
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        Insets.screenH,
-        Insets.lg,
-        Insets.screenH,
-        MediaQuery.viewInsetsOf(context).bottom + Insets.xl,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            l10n.uploadMaterial,
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
-          const Gap(Insets.lg),
-          FptTextField(
-            controller: titleController,
-            label: l10n.materialTitleLabel,
-          ),
-          const Gap(Insets.md),
-          FptButton(
-            label: pickedFile.value?.name ?? l10n.pickFile,
-            variant: FptButtonVariant.secondary,
-            icon: LucideIcons.paperclip,
-            onPressed: pickFile,
-          ),
-          const Gap(Insets.xs),
-          Text(
-            'PDF · tối đa 50 MB · index nền sau khi upload (BE mới)',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppColors.textTertiary,
-                ),
-          ),
-          if (errorText.value != null) ...[
-            const Gap(Insets.md),
-            Text(
-              errorText.value!,
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: AppColors.error),
-            ),
-          ],
-          const Gap(Insets.lg),
-          FptButton(
-            label: l10n.uploadMaterial,
-            loading: submitting.value,
-            onPressed: submitting.value ? null : submit,
-          ),
-        ],
       ),
     );
   }

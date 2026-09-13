@@ -51,6 +51,43 @@ class ImprovePlanRepository {
     return StudentMemory.fromJson(response.data ?? {});
   }
 
+  Future<StudentMemory> updateMemory({
+    required String studentId,
+    required String courseId,
+    String? classId,
+    required List<String> learnedTopics,
+    required List<String> weakTopics,
+  }) async {
+    final response = await _dio.put<Map<String, dynamic>>(
+      '/api/tutor/students/$studentId/courses/$courseId/memory',
+      data: {
+        if (classId != null && classId.isNotEmpty) 'classId': classId,
+        'learnedTopics': learnedTopics,
+        'weakTopics': weakTopics,
+        'summary':
+            'Nội dung cập nhật thủ công: ${learnedTopics.join(', ')}. '
+            'Nội dung cần tập trung: ${weakTopics.join(', ')}.',
+      },
+    );
+    return StudentMemory.fromJson(response.data ?? {});
+  }
+
+  Future<void> analyzeProgress({
+    required String studentId,
+    required String courseId,
+    String? classId,
+  }) async {
+    await _dio.post<void>(
+      '/api/tutor/improve-suggestions',
+      data: {
+        'studentId': studentId,
+        'courseId': courseId,
+        if (classId != null && classId.isNotEmpty) 'classId': classId,
+        'includeAiSuggestion': false,
+      },
+    );
+  }
+
   Future<void> createSuggestions({
     required String studentId,
     required String courseId,
@@ -82,7 +119,9 @@ class ImprovePlanRepository {
     if (raw is! List) return const [];
     final items = raw
         .whereType<Map>()
-        .map((e) => ImproveSuggestionItem.fromJson(Map<String, dynamic>.from(e)))
+        .map(
+          (e) => ImproveSuggestionItem.fromJson(Map<String, dynamic>.from(e)),
+        )
         .toList();
     return ImproveSuggestionItem.actionableChips(items);
   }

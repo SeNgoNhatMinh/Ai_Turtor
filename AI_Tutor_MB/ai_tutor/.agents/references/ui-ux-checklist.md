@@ -1,0 +1,12 @@
+# UI/UX acceptance checklist
+- State current audience/role, main task and primary action; do not expose unauthorized actions for visual symmetry.
+- Information hierarchy fits a phone; long lessons, course names and Vietnamese text wrap gracefully.
+- Spacing/typography/color/radius/elevation use the shared system, including dark mode.
+- Clear loading, empty, offline/error, retry, success and disabled states; no fabricated populated data in production.
+- Touch targets, contrast, non-color cues, semantics, focus and reduced motion reviewed.
+- Narrow phone, normal phone, tablet, landscape, 200% text and keyboard-visible scenarios checked.
+- Chat: long Markdown/code blocks, citations, images, composer, cancel, retry, scroll and pending messages.
+- Quiz: single/multiple choices as actually modeled, answer persistence, submit guard, result and retry.
+- Course/lesson: material links, loading, access restrictions and lesson playback continuity.
+- Teacher/senior/admin: queue status, role restrictions, confirmation and destructive-action feedback.
+- Report screenshot-only findings separately from device and assistive-technology tests.

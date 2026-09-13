@@ -2,6 +2,13 @@ import 'package:dio/dio.dart';
 
 import '../utils/json_helpers.dart';
 
+const dailyQuestionLimitCode = 'DAILY_QUESTION_LIMIT_REACHED';
+const dailyCourseQuestionLimitCode = 'DAILY_COURSE_QUESTION_LIMIT_REACHED';
+
+bool isDailyCourseQuotaCode(String? code) {
+  return code == dailyQuestionLimitCode || code == dailyCourseQuestionLimitCode;
+}
+
 /// Business error from Spring (`code` + `error`) or n8n (`code` + `message`).
 class ApiBusinessException implements Exception {
   ApiBusinessException({
@@ -16,8 +23,7 @@ class ApiBusinessException implements Exception {
   final int? dailyLimit;
   final DateTime? resetAt;
 
-  bool get isDailyQuestionLimitReached =>
-      code == 'DAILY_QUESTION_LIMIT_REACHED';
+  bool get isDailyQuestionLimitReached => isDailyCourseQuotaCode(code);
 
   @override
   String toString() => message;
@@ -45,21 +51,40 @@ ApiBusinessException? apiBusinessExceptionFromDio(DioException error) {
   if (parsed != null) return parsed;
   if (error.response?.statusCode == 429) {
     return ApiBusinessException(
-      message: mapDioMessage(error) ??
+      message:
+          mapDioMessage(error) ??
           'Bạn đã hết lượt hỏi AI hôm nay. Vui lòng thử lại vào ngày mai.',
-      code: 'DAILY_QUESTION_LIMIT_REACHED',
+      code: dailyQuestionLimitCode,
     );
   }
   return null;
 }
 
+String describeDailyQuestionLimit(ApiBusinessException? error) {
+  final reset = error?.resetAt;
+  if (reset != null) {
+    final hour = reset.hour.toString().padLeft(2, '0');
+    final minute = reset.minute.toString().padLeft(2, '0');
+    return 'Bạn đã dùng hết 10 câu hỏi hôm nay cho môn học này. Hạn mức làm mới lúc $hour:$minute.';
+  }
+  return 'Bạn đã dùng hết 10 câu hỏi hôm nay cho môn học này. Hạn mức sẽ tự làm mới vào ngày mai.';
+}
+
 String describeError(Object error) {
   if (error is ApiBusinessException) {
+    if (error.isDailyQuestionLimitReached) {
+      return describeDailyQuestionLimit(error);
+    }
     return error.message;
   }
   if (error is DioException) {
     final business = apiBusinessExceptionFromDio(error);
-    if (business != null) return business.message;
+    if (business != null) {
+      if (business.isDailyQuestionLimitReached) {
+        return describeDailyQuestionLimit(business);
+      }
+      return business.message;
+    }
     final serverMessage = mapDioMessage(error);
     if (serverMessage != null) return serverMessage;
     return switch (error.type) {
@@ -68,11 +93,13 @@ String describeError(Object error) {
       DioExceptionType.connectionError =>
         'Mất kết nối tới máy chủ. Kiểm tra mạng và thử lại.',
       DioExceptionType.badResponse => switch (error.response?.statusCode) {
-        401 => 'Phiên đăng nhập đã hết hạn. Vui lòng đăng xuất và đăng nhập lại.',
-        403 => 'Không có quyền hoặc token không hợp lệ. Hãy đăng xuất và đăng nhập lại.',
-        429 =>
-          'Bạn đã hết lượt hỏi AI hôm nay. Vui lòng thử lại vào ngày mai.',
-        _ => 'Máy chủ phản hồi lỗi (${error.response?.statusCode}). Thử lại sau.',
+        401 =>
+          'Phiên đăng nhập đã hết hạn. Vui lòng đăng xuất và đăng nhập lại.',
+        403 =>
+          'Không có quyền hoặc token không hợp lệ. Hãy đăng xuất và đăng nhập lại.',
+        429 => describeDailyQuestionLimit(null),
+        _ =>
+          'Máy chủ phản hồi lỗi (${error.response?.statusCode}). Thử lại sau.',
       },
       _ => 'Đã có lỗi xảy ra. Vui lòng thử lại.',
     };
@@ -101,8 +128,7 @@ String describeAuthError(Object error) {
     }
 
     return switch (error.type) {
-      DioExceptionType.connectionTimeout ||
-      DioExceptionType.receiveTimeout =>
+      DioExceptionType.connectionTimeout || DioExceptionType.receiveTimeout =>
         'Máy chủ phản hồi quá chậm. Kiểm tra backend đang chạy và thử lại.',
       DioExceptionType.connectionError =>
         'Không kết nối được máy chủ. Kiểm tra mạng hoặc địa chỉ API.',

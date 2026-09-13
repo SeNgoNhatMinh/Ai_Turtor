@@ -1,90 +1,99 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:gap/gap.dart';
 
 import '../../../../core/constants/app_assets.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 
-/// Header đăng nhập — gradient navy EduNova + logo.
+/// Header login — chỉ Cóc lớn (không logo FPT).
 class LoginSplashHeader extends StatelessWidget {
   const LoginSplashHeader({super.key, required this.height});
 
   final double height;
 
+  /// Đường kính Cóc — nổi bật trên nền navy.
+  static const cocSize = 128.0;
+
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light,
-      child: Container(
+      child: SizedBox(
         height: height,
         width: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              AppColors.primary,
-              AppColors.primaryTint,
-            ],
-            stops: [0.0, 1.0],
-          ),
-        ),
-        child: SafeArea(
-          bottom: false,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 100,
-                height: 100,
-                padding: const EdgeInsets.all(Insets.sm),
-                decoration: BoxDecoration(
-                  color: AppColors.card,
-                  borderRadius: BorderRadius.circular(28),
-                  border: Border.all(
-                    color: AppColors.onOrange.withValues(alpha: 0.25),
-                  ),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x1A0D1B3D),
-                      blurRadius: 20,
-                      offset: Offset(0, 8),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            const ColoredBox(color: AppColors.loginNavy),
+            const CustomPaint(painter: _LoginDotPatternPainter()),
+            SafeArea(
+              bottom: false,
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: Insets.sm),
+                  child: Container(
+                    width: cocSize,
+                    height: cocSize,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 3.5),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.28),
+                          blurRadius: 18,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-                child: Image.asset(
-                  AppAssets.cocVangLogoTransparent,
-                  fit: BoxFit.contain,
-                  errorBuilder: (_, __, ___) => Image.asset(
-                    AppAssets.cocVangLogo,
-                    fit: BoxFit.contain,
+                    child: ClipOval(
+                      child: Image.asset(
+                        AppAssets.cocFptEducation,
+                        fit: BoxFit.cover,
+                        filterQuality: FilterQuality.high,
+                        gaplessPlayback: true,
+                        errorBuilder: (_, __, ___) => Image.asset(
+                          AppAssets.askCocButton,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ),
-              const Gap(Insets.md),
-              Text(
-                'Ask Cóc',
-                style: textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.onOrange,
-                  letterSpacing: -0.5,
-                ),
-              ),
-              const Gap(Insets.xs),
-              Text(
-                'Học là đổi mới · AI Tutor FPT',
-                style: textTheme.bodyMedium?.copyWith(
-                  color: AppColors.onOrange.withValues(alpha: 0.88),
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
+}
+
+class _LoginDotPatternPainter extends CustomPainter {
+  const _LoginDotPatternPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = const Color(0x40B8D4F0)
+      ..style = PaintingStyle.fill;
+
+    void cluster(double ox, double oy, int cols, int rows) {
+      const step = 10.0;
+      for (var r = 0; r < rows; r++) {
+        for (var c = 0; c < cols; c++) {
+          canvas.drawCircle(
+            Offset(ox + c * step, oy + r * step),
+            1.5,
+            paint,
+          );
+        }
+      }
+    }
+
+    cluster(size.width * 0.06, size.height * 0.18, 5, 4);
+    cluster(size.width * 0.72, size.height * 0.42, 5, 4);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

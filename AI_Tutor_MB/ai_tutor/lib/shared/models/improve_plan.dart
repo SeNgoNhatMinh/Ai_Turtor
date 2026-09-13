@@ -65,12 +65,12 @@ class ImprovePlan {
     return ImprovePlan(
       id: _readPlanId(json),
       riskLevel: readString(json, 'riskLevel', fallback: 'LOW'),
-      riskPercent: ((json['riskPercent'] ?? json['riskScore']) as num?)?.toInt(),
+      riskPercent: ((json['riskPercent'] ?? json['riskScore']) as num?)
+          ?.toInt(),
       weakTopics: parseStringList(json['weakTopics']),
       planItems: _parsePlanItems(rawItems),
       steps: steps,
-      evidence: _parseEvidence(json['evidence']) ??
-          json['summary']?.toString(),
+      evidence: _parseEvidence(json['evidence']) ?? json['summary']?.toString(),
       completed: json['completed'] == true || json['status'] == 'COMPLETED',
     );
   }
@@ -87,17 +87,20 @@ class ImprovePlan {
 
   static List<String> _parsePlanItems(dynamic raw) {
     if (raw is List) {
-      return raw.map((e) {
-        if (e is String) return e;
-        if (e is Map) {
-          return readString(
-            Map<String, dynamic>.from(e),
-            'title',
-            fallback: readString(Map<String, dynamic>.from(e), 'name'),
-          );
-        }
-        return e.toString();
-      }).where((s) => s.isNotEmpty).toList();
+      return raw
+          .map((e) {
+            if (e is String) return e;
+            if (e is Map) {
+              return readString(
+                Map<String, dynamic>.from(e),
+                'title',
+                fallback: readString(Map<String, dynamic>.from(e), 'name'),
+              );
+            }
+            return e.toString();
+          })
+          .where((s) => s.isNotEmpty)
+          .toList();
     }
     return parseStringList(raw);
   }
@@ -122,7 +125,11 @@ class ImprovePlan {
         return PlanStep(title: item);
       }
       if (item is Map<String, dynamic>) {
-        final statusRaw = readString(item, 'status', fallback: '').toUpperCase();
+        final statusRaw = readString(
+          item,
+          'status',
+          fallback: '',
+        ).toUpperCase();
         final status = switch (statusRaw) {
           'COMPLETED' || 'DONE' => PlanStepStatus.completed,
           'IN_PROGRESS' || 'ACTIVE' => PlanStepStatus.inProgress,
@@ -152,21 +159,29 @@ class ImprovePlan {
 class StudentMemory {
   const StudentMemory({
     this.weakTopics = const [],
+    this.learnedTopics = const [],
     this.improveSuggestions = const [],
     this.pinnedSuggestions = const [],
+    this.recentQuestions = const [],
     this.notes,
   });
 
   final List<String> weakTopics;
+  final List<String> learnedTopics;
   final List<String> improveSuggestions;
   final List<String> pinnedSuggestions;
+  final List<String> recentQuestions;
   final String? notes;
 
   factory StudentMemory.fromJson(Map<String, dynamic> json) {
     return StudentMemory(
       weakTopics: parseStringList(json['weakTopics']),
+      learnedTopics: parseStringList(json['learnedTopics']),
       improveSuggestions: parseStringList(json['improveSuggestions']),
       pinnedSuggestions: parseStringList(json['pinnedImproveSuggestions']),
+      recentQuestions: parseStringList(
+        json['recentQuestions'] ?? json['recentUserQuestions'],
+      ),
       notes: json['notes']?.toString() ?? json['summary']?.toString(),
     );
   }
@@ -194,11 +209,13 @@ class LearnSuggestionResult {
     final rawSuggestions = json['nextImproveSuggestions'];
     final suggestions = rawSuggestions is List
         ? rawSuggestions
-            .whereType<Map>()
-            .map((e) => ImproveSuggestionItem.fromJson(
+              .whereType<Map>()
+              .map(
+                (e) => ImproveSuggestionItem.fromJson(
                   Map<String, dynamic>.from(e),
-                ))
-            .toList()
+                ),
+              )
+              .toList()
         : const <ImproveSuggestionItem>[];
 
     return LearnSuggestionResult(

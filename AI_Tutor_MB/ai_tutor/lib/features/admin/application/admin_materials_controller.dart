@@ -14,18 +14,6 @@ class AdminMaterialsController
     return ref.read(coursesRepositoryProvider).fetchMaterials(courseId);
   }
 
-  Future<CourseMaterial> upload({required String title, required String filePath}) async {
-    final adminId = ref.read(currentUserIdProvider);
-    final material = await ref.read(coursesRepositoryProvider).uploadAdminMaterial(
-          courseId: arg,
-          adminId: adminId,
-          title: title,
-          filePath: filePath,
-        );
-    ref.invalidateSelf();
-    return material;
-  }
-
   Future<void> delete(String materialId) async {
     final adminId = ref.read(currentUserIdProvider);
     await ref.read(coursesRepositoryProvider).deleteMaterial(

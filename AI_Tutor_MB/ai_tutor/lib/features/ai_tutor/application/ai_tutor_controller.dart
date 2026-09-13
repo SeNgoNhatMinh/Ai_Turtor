@@ -1,15 +1,25 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/exceptions.dart';
+import '../../../core/network/network_providers.dart';
 import '../../../core/utils/ai_chat_content.dart';
+import '../../../core/utils/reviewed_message_ids.dart';
+import '../data/chat_improve_suggestions.dart';
 import '../../../shared/models/ai_conversation.dart';
 import '../../../shared/models/course.dart';
 import '../../../shared/models/improve_suggestion.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../courses/application/courses_controller.dart';
+import '../../escalation/data/escalation_repository.dart';
 import '../../memory/data/improve_plan_repository.dart';
 import '../data/ai_tutor_repository.dart';
+import '../data/daily_question_quota.dart';
+import '../data/tutor_session.dart';
+import '../data/understanding_check_store.dart';
+import 'daily_question_quota_controller.dart';
 
 String? _correctnessLevelForReview({
   required int rating,
@@ -27,6 +37,124 @@ Course? _activeCourseForChat(Ref ref) {
   return selected ?? courses?.firstOrNull;
 }
 
+Future<TutorSessionOpenResult?> _openTutorSessionBestEffort({
+  required AiTutorRepository repo,
+  required String studentId,
+  Course? course,
+  String? courseId,
+  String? classId,
+}) async {
+  for (final attempt in tutorSessionOpenAttempts(
+    course: course,
+    courseId: courseId,
+    classId: classId,
+  )) {
+    try {
+      final opened = await repo.openTutorSession(
+        studentId: studentId,
+        courseId: attempt.$1,
+        classId: attempt.$2,
+      );
+      if (opened.openingMessage != null || opened.conversationId.isNotEmpty) {
+        return opened;
+      }
+    } catch (_) {}
+  }
+  return null;
+}
+
+Future<List<String>> _openingLessonStartersForCourse({
+  required AiTutorRepository repo,
+  Course? course,
+  String? courseCode,
+}) async {
+  final keys = <String>{
+    if ((course?.id ?? '').trim().isNotEmpty) course!.id.trim(),
+    if ((course?.code ?? '').trim().isNotEmpty) course!.code.trim(),
+    if ((courseCode ?? '').trim().isNotEmpty) courseCode!.trim(),
+  };
+  for (final key in keys) {
+    final titles = await repo.fetchSuggestedChapterTitles(key);
+    final picked = pickOpeningLessonStarters(titles);
+    if (picked.isNotEmpty) return picked;
+  }
+  return const [];
+}
+
+Future<({AiMessage opening, TutorSessionOpenResult? session})>
+_resolveFirstVisitOpeningBundle({
+  required AiTutorRepository repo,
+  required String userId,
+  Course? course,
+  String? courseCode,
+  String? classId,
+}) async {
+  final opened = await _openTutorSessionBestEffort(
+    repo: repo,
+    studentId: userId,
+    course: course,
+    courseId: courseCode,
+    classId: classId,
+  );
+  if (opened?.openingMessage != null) {
+    return (opening: opened!.openingMessage!, session: opened);
+  }
+  if (opened != null && opened.conversationId.isNotEmpty) {
+    try {
+      final persisted = await repo.fetchMessages(
+        conversationId: opened.conversationId,
+        userId: userId,
+      );
+      for (final message in persisted) {
+        if (!message.isUser && isWelcomeTutorTurn(message)) {
+          return (opening: message, session: opened);
+        }
+      }
+      for (final message in persisted) {
+        if (!message.isUser) {
+          return (opening: message, session: opened);
+        }
+      }
+    } catch (_) {}
+  }
+
+  final starters = await _openingLessonStartersForCourse(
+    repo: repo,
+    course: course,
+    courseCode: courseCode,
+  );
+  final opening = buildCourseWelcomeOpening(
+    courseLabel: (courseCode ?? '').trim().isNotEmpty
+        ? courseCode!.trim()
+        : (course?.code ?? course?.id ?? 'môn học'),
+    courseName: course?.name,
+    lessonStarters: starters,
+  );
+  return (opening: opening, session: opened);
+}
+
+Future<List<AiConversation>> _historyForCourse({
+  required AiTutorRepository repo,
+  required String userId,
+  String? courseId,
+  String? courseCode,
+}) async {
+  final keys = <String>{
+    if ((courseCode ?? '').trim().isNotEmpty) courseCode!.trim(),
+    if ((courseId ?? '').trim().isNotEmpty) courseId!.trim(),
+  };
+  if (keys.isEmpty) return const [];
+  final seen = <String>{};
+  final merged = <AiConversation>[];
+  for (final key in keys) {
+    final items = await repo.fetchConversations(userId, courseId: key);
+    for (final item in items) {
+      if (seen.add(item.id)) merged.add(item);
+    }
+  }
+  return merged;
+}
+
 /// Các suggestion đã bấm "Học ngay" trong một cuộc trò chuyện.
 final consumedSuggestionKeysProvider = StateProvider.autoDispose
     .family<Set<String>, String>((ref, conversationId) => {});
@@ -38,6 +166,29 @@ final reviewedMessageIdsProvider = StateProvider.autoDispose
 /// `true` khi backend trả `DAILY_QUESTION_LIMIT_REACHED` (BE mới).
 final studentDailyQuestionBlockedProvider = StateProvider<bool>((ref) => false);
 
+/// Thời điểm hạn mức ngày làm mới, nếu backend trả `resetAt`.
+final studentDailyQuestionResetAtProvider = StateProvider<DateTime?>(
+  (ref) => null,
+);
+
+class ChatTurnLimitNotice {
+  const ChatTurnLimitNotice({
+    required this.previousSessionId,
+    required this.currentSessionId,
+    this.message =
+        'Cuộc trò chuyện đã đủ 10 câu hỏi. AI Tutor đã tạo cuộc trò chuyện mới để giữ ngữ cảnh tập trung.',
+  });
+
+  final String previousSessionId;
+  final String currentSessionId;
+  final String message;
+}
+
+/// Banner rollover khi backend tạo conversation mới vì đủ 10 câu.
+final chatTurnLimitNoticeProvider = StateProvider<ChatTurnLimitNotice?>(
+  (ref) => null,
+);
+
 class ConversationsController
     extends AutoDisposeAsyncNotifier<List<AiConversation>> {
   @override
@@ -46,10 +197,9 @@ class ConversationsController
     final course = ref.watch(selectedCourseProvider);
     final courses = ref.watch(coursesControllerProvider).valueOrNull;
     final activeCourse = course ?? courses?.firstOrNull;
-    return ref.read(aiTutorRepositoryProvider).fetchConversations(
-      userId,
-      courseId: activeCourse?.id,
-    );
+    return ref
+        .read(aiTutorRepositoryProvider)
+        .fetchConversations(userId, courseId: activeCourse?.id);
   }
 
   Future<AiConversation> createNew({String? courseId, String? classId}) async {
@@ -64,6 +214,79 @@ class ConversationsController
         );
     ref.invalidateSelf();
     return conversation;
+  }
+
+  Future<AiConversation> openTutorSessionOrCreate({
+    String? courseId,
+    String? classId,
+  }) async {
+    final userId = ref.read(currentUserIdProvider);
+    final active = _activeCourseForChat(ref);
+    final resolvedCourseId = (courseId ?? active?.code ?? '').trim();
+    final resolvedClassId = resolveTutorClassId(
+      classId: classId ?? active?.classId,
+      className: active?.className,
+    );
+    if (resolvedCourseId.isEmpty) {
+      return createNew(
+        courseId: courseId,
+        classId: resolvedClassId.isEmpty ? classId : resolvedClassId,
+      );
+    }
+
+    final repo = ref.read(aiTutorRepositoryProvider);
+    final history = await _historyForCourse(
+      repo: repo,
+      userId: userId,
+      courseId: active?.id,
+      courseCode: resolvedCourseId,
+    );
+    final chatted = hasStudentChattedCourse(
+      history,
+      courseId: active?.id,
+      courseCode: resolvedCourseId,
+    );
+    // Mọi môn: đã hỏi AI → cuộc mới trống + gợi ý.
+    // Mọi môn: chưa hỏi lần nào → mở buổi học (lời chào + lộ trình).
+    if (chatted) {
+      return createNew(courseId: resolvedCourseId, classId: resolvedClassId);
+    }
+
+    final bundle = await _resolveFirstVisitOpeningBundle(
+      repo: repo,
+      userId: userId,
+      course: active,
+      courseCode: resolvedCourseId,
+      classId: resolvedClassId,
+    );
+    final opened = bundle.session;
+    if (opened == null || opened.conversationId.isEmpty) {
+      final created = await createNew(
+        courseId: active?.id ?? resolvedCourseId,
+        classId: resolvedClassId,
+      );
+      ref
+          .read(tutorOpeningHandoffProvider.notifier)
+          .state = TutorSessionOpenResult(
+        conversationId: created.id,
+        openingMessage: bundle.opening,
+      );
+      return created;
+    }
+    ref
+        .read(tutorOpeningHandoffProvider.notifier)
+        .state = TutorSessionOpenResult(
+      conversationId: opened.conversationId,
+      openingMessage: bundle.opening,
+      resumed: opened.resumed,
+    );
+    ref.invalidateSelf();
+    return AiConversation(
+      id: opened.conversationId,
+      title: 'Buổi học cùng AI Tutor',
+      courseId: resolvedCourseId,
+      classId: resolvedClassId,
+    );
   }
 
   Future<void> deleteConversation(String id) async {
@@ -86,6 +309,10 @@ final conversationsControllerProvider =
       ConversationsController,
       List<AiConversation>
     >(ConversationsController.new);
+
+final tutorOpeningHandoffProvider = StateProvider<TutorSessionOpenResult?>(
+  (ref) => null,
+);
 
 /// `true` khi đang chờ phản hồi AI cho conversation tương ứng.
 final chatPendingProvider = StateProvider.autoDispose.family<bool, String>(
@@ -110,10 +337,44 @@ class ChatController
         conversationId: conversationId,
         userId: userId,
       );
-      return _mergePinnedState(messages, pinned);
+      return _hydrateUnderstandingKeys(
+        await _ensureFirstVisitWelcome(
+          _mergeOpeningHandoff(
+            conversationId,
+            _mergePinnedState(messages, pinned),
+          ),
+        ),
+      );
     } catch (_) {
-      return messages;
+      return _hydrateUnderstandingKeys(
+        await _ensureFirstVisitWelcome(
+          _mergeOpeningHandoff(conversationId, messages),
+        ),
+      );
     }
+  }
+
+  Future<List<AiMessage>> _hydrateUnderstandingKeys(
+    List<AiMessage> messages,
+  ) async {
+    final storage = ref.read(secureStorageProvider);
+    final next = <AiMessage>[];
+    for (final message in messages) {
+      if (message.isUser ||
+          normalizeUnderstandingSelectedKey(
+            message.understandingSelectedKey,
+          ).isNotEmpty) {
+        next.add(message);
+        continue;
+      }
+      final stored = await loadUnderstandingSelectedKey(storage, message.id);
+      next.add(
+        stored.isEmpty
+            ? message
+            : message.copyWith(understandingSelectedKey: stored),
+      );
+    }
+    return next;
   }
 
   static List<AiMessage> _mergePinnedState(
@@ -122,16 +383,11 @@ class ChatController
   ) {
     if (pinned.isEmpty) return messages;
     final pinnedById = {for (final m in pinned) m.id: m};
-    return messages
-        .map((m) {
-          final pin = pinnedById[m.id];
-          if (pin == null) return m;
-          return m.copyWith(
-            pinned: true,
-            pinnedAt: pin.pinnedAt ?? m.pinnedAt,
-          );
-        })
-        .toList();
+    return messages.map((m) {
+      final pin = pinnedById[m.id];
+      if (pin == null) return m;
+      return m.copyWith(pinned: true, pinnedAt: pin.pinnedAt ?? m.pinnedAt);
+    }).toList();
   }
 
   void cancelPendingRequest() {
@@ -143,6 +399,9 @@ class ChatController
     required String message,
     required String courseId,
     String? classId,
+    String? displayMessage,
+    String? interactionType,
+    String? codeSnippet,
   }) async {
     _activeCancelToken?.cancel();
     final cancelToken = CancelToken();
@@ -152,11 +411,17 @@ class ChatController
     final session = ref.read(authControllerProvider).valueOrNull;
     final repo = ref.read(aiTutorRepositoryProvider);
 
+    final visibleQuestion =
+        (displayMessage != null && displayMessage.trim().isNotEmpty)
+        ? displayMessage.trim()
+        : message;
+    final snippet = codeSnippet?.trim() ?? '';
     final optimistic = AiMessage(
       id: 'local-${DateTime.now().millisecondsSinceEpoch}',
-      content: message,
+      content: visibleQuestion,
       isUser: true,
       createdAt: DateTime.now(),
+      codeSnippet: snippet.isEmpty ? null : snippet,
     );
 
     final previous = state.valueOrNull ?? [];
@@ -173,13 +438,16 @@ class ChatController
         studentName: session?.fullName,
         studentEmail: session?.email,
         authToken: session?.token,
+        interactionType: interactionType,
+        codeSnippet: snippet.isEmpty ? null : snippet,
         cancelToken: cancelToken,
       );
 
       if (cancelToken.isCancelled) return conversationId;
 
       var suggestions = answer.nextImproveSuggestions;
-      if (suggestions.isEmpty && !answer.escalated) {
+      final hasLessonPath = answerHasLessonPathSuggestions(answer.answer);
+      if (suggestions.isEmpty && !hasLessonPath && !answer.escalated) {
         try {
           suggestions = await ref
               .read(improvePlanRepositoryProvider)
@@ -200,8 +468,11 @@ class ChatController
           : conversationId;
       final switchedConversation = effectiveConversationId != conversationId;
 
+      final assistantId = answer.assistantMessageId?.trim() ?? '';
       final aiMessage = AiMessage(
-        id: 'ai-${DateTime.now().millisecondsSinceEpoch}',
+        id: assistantId.isNotEmpty
+            ? assistantId
+            : 'ai-${DateTime.now().millisecondsSinceEpoch}',
         content: sanitizeAiChatContent(answer.answer),
         isUser: false,
         mode: answer.mode,
@@ -213,9 +484,17 @@ class ChatController
         questionEscalationId: answer.questionEscalationId,
         improveSuggestions: suggestions,
         createdAt: DateTime.now(),
+        conversationId: effectiveConversationId,
+        understandingCheck: answer.understandingCheck,
       );
 
       if (switchedConversation) {
+        ref
+            .read(chatTurnLimitNoticeProvider.notifier)
+            .state = ChatTurnLimitNotice(
+          previousSessionId: conversationId,
+          currentSessionId: effectiveConversationId,
+        );
         ref.invalidate(conversationsControllerProvider);
         return effectiveConversationId;
       }
@@ -238,14 +517,21 @@ class ChatController
           mergedMessages = _mergePinnedState(messages, pinned);
         } catch (_) {}
         if (mergedMessages.length >= previous.length + 2) {
+          final latestAi = (state.valueOrNull ?? const <AiMessage>[]).lastWhere(
+            (m) => !m.isUser,
+            orElse: () => aiMessage,
+          );
           state = AsyncData(
             _mergeQueryAnswerIntoHistory(
               messages: _preserveImproveSuggestions(
-                previous: [...previous, optimistic, aiMessage],
-                fetched: mergedMessages,
+                previous: [...previous, optimistic, latestAi],
+                fetched: _preserveUserCodeSnippets(
+                  previous: [...previous, optimistic],
+                  fetched: mergedMessages,
+                ),
               ),
               answer: answer,
-              fallbackAi: aiMessage,
+              fallbackAi: latestAi,
               suggestions: suggestions,
             ),
           );
@@ -257,10 +543,11 @@ class ChatController
       ref.invalidate(conversationsControllerProvider);
       ref.invalidate(pinnedMessagesControllerProvider(conversationId));
       ref.invalidate(allPinnedMessagesProvider);
+      _syncDailyQuota(courseId: courseId, fromAnswer: answer.dailyQuota);
       return effectiveConversationId;
     } on ApiBusinessException catch (e) {
       if (e.isDailyQuestionLimitReached) {
-        ref.read(studentDailyQuestionBlockedProvider.notifier).state = true;
+        _markDailyQuotaExhausted(courseId, resetAt: e.resetAt);
       }
       state = AsyncData([
         ...previous,
@@ -274,6 +561,10 @@ class ChatController
       ]);
     } on DioException catch (e) {
       if (CancelToken.isCancel(e)) return conversationId;
+      final business = apiBusinessExceptionFromDio(e);
+      if (business?.isDailyQuestionLimitReached == true) {
+        _markDailyQuotaExhausted(courseId, resetAt: business!.resetAt);
+      }
       state = AsyncData([
         ...previous,
         optimistic,
@@ -304,6 +595,31 @@ class ChatController
     return conversationId;
   }
 
+  void _syncDailyQuota({
+    required String courseId,
+    DailyQuestionQuota? fromAnswer,
+  }) {
+    final quota = ref.read(dailyQuestionQuotaProvider(courseId).notifier);
+    if (fromAnswer != null) {
+      quota.apply(fromAnswer);
+    } else {
+      unawaited(quota.refresh());
+    }
+    final next = ref.read(dailyQuestionQuotaProvider(courseId));
+    ref.read(studentDailyQuestionBlockedProvider.notifier).state =
+        next.exhausted;
+    if (next.resetAt != null) {
+      ref.read(studentDailyQuestionResetAtProvider.notifier).state =
+          next.resetAt;
+    }
+  }
+
+  void _markDailyQuotaExhausted(String courseId, {DateTime? resetAt}) {
+    ref.read(dailyQuestionQuotaProvider(courseId).notifier).markExhausted();
+    ref.read(studentDailyQuestionBlockedProvider.notifier).state = true;
+    ref.read(studentDailyQuestionResetAtProvider.notifier).state = resetAt;
+  }
+
   Future<String?> submitReview({
     required String conversationId,
     required AiMessage aiMessage,
@@ -319,7 +635,9 @@ class ChatController
   }) async {
     final userId = ref.read(currentUserIdProvider);
     final session = ref.read(authControllerProvider).valueOrNull;
-    final data = await ref.read(aiTutorRepositoryProvider).reviewAnswer(
+    final data = await ref
+        .read(aiTutorRepositoryProvider)
+        .reviewAnswer(
           studentId: userId,
           courseId: courseId,
           classId: classId,
@@ -343,11 +661,119 @@ class ChatController
             accurate: accurate,
           ),
         );
-    ref.read(reviewedMessageIdsProvider(conversationId).notifier).update(
-          (ids) => {...ids, aiMessage.id},
-        );
+    ref
+        .read(reviewedMessageIdsProvider(conversationId).notifier)
+        .update((ids) => {...ids, aiMessage.id});
+    await persistReviewedMessageIds(
+      ref.read(secureStorageProvider),
+      conversationId: conversationId,
+      ids: ref.read(reviewedMessageIdsProvider(conversationId)),
+    );
     final status = data['status'];
     return status is String && status.isNotEmpty ? status : null;
+  }
+
+  Future<String> requestMentorReview({
+    required String conversationId,
+    required AiMessage aiMessage,
+    required String userQuestion,
+    required String courseId,
+    String? classId,
+  }) async {
+    final session = ref.read(authControllerProvider).valueOrNull;
+    if (session == null) {
+      throw StateError('User not authenticated');
+    }
+
+    final escalationId = await ref
+        .read(escalationRepositoryProvider)
+        .createMentorReviewRequest(
+          studentId: session.userId,
+          studentName: session.fullName,
+          studentEmail: session.email ?? '',
+          courseId: courseId,
+          classId: classId,
+          conversationId: conversationId,
+          question: userQuestion,
+          aiResponse: sanitizeAiChatContent(aiMessage.content),
+        );
+
+    final current = state.valueOrNull;
+    if (current != null) {
+      state = AsyncData(
+        current
+            .map(
+              (message) => message.id == aiMessage.id
+                  ? message.copyWith(
+                      escalated: true,
+                      questionEscalationId: escalationId,
+                    )
+                  : message,
+            )
+            .toList(),
+      );
+    }
+    return escalationId;
+  }
+
+  List<AiMessage> _mergeOpeningHandoff(
+    String conversationId,
+    List<AiMessage> messages,
+  ) {
+    final handoff = ref.read(tutorOpeningHandoffProvider);
+    if (handoff == null || handoff.conversationId != conversationId) {
+      return messages;
+    }
+    return seedOpeningMessage(messages, handoff.openingMessage);
+  }
+
+  /// Cuộc trống + môn đang chọn chưa từng hỏi → lời chào / lộ trình (mọi môn).
+  Future<List<AiMessage>> _ensureFirstVisitWelcome(
+    List<AiMessage> messages,
+  ) async {
+    if (messages.isNotEmpty) return messages;
+    final active = _activeCourseForChat(ref);
+    final courseCode = (active?.code ?? '').trim();
+    final classId = resolveTutorClassId(
+      classId: active?.classId,
+      className: active?.className,
+    );
+    final userId = ref.read(currentUserIdProvider);
+    final repo = ref.read(aiTutorRepositoryProvider);
+    if (courseCode.isNotEmpty || (active?.id ?? '').trim().isNotEmpty) {
+      final history = await _historyForCourse(
+        repo: repo,
+        userId: userId,
+        courseId: active?.id,
+        courseCode: courseCode,
+      );
+      if (hasStudentChattedCourse(
+        history,
+        courseId: active?.id,
+        courseCode: courseCode,
+      )) {
+        return messages;
+      }
+    }
+
+    final bundle = await _resolveFirstVisitOpeningBundle(
+      repo: repo,
+      userId: userId,
+      course: active,
+      courseCode: courseCode,
+      classId: classId,
+    );
+    final opened = bundle.session;
+    if (opened != null && opened.conversationId.isNotEmpty) {
+      ref
+          .read(tutorOpeningHandoffProvider.notifier)
+          .state = TutorSessionOpenResult(
+        conversationId: opened.conversationId,
+        openingMessage: bundle.opening,
+        resumed: opened.resumed,
+      );
+    }
+    return seedOpeningMessage(messages, bundle.opening);
   }
 
   /// Câu hỏi user ngay trước câu trả lời AI (theo thứ tự trong history).
@@ -365,6 +791,52 @@ class ChatController
     return !messageId.startsWith('local-') &&
         !messageId.startsWith('ai-') &&
         !messageId.startsWith('err-');
+  }
+
+  Future<void> lockUnderstandingAnswer({
+    required String conversationId,
+    required AiMessage message,
+    required String selectedKey,
+  }) async {
+    final key = normalizeUnderstandingSelectedKey(selectedKey);
+    if (key.isEmpty) return;
+    final messageId = message.id.trim();
+    if (messageId.isEmpty || message.isUser) return;
+    if (normalizeUnderstandingSelectedKey(
+      message.understandingSelectedKey,
+    ).isNotEmpty) {
+      return;
+    }
+
+    final current = state.valueOrNull ?? const <AiMessage>[];
+    state = AsyncData([
+      for (final item in current)
+        item.id == messageId
+            ? item.copyWith(understandingSelectedKey: key)
+            : item,
+    ]);
+
+    await persistUnderstandingSelectedKey(
+      ref.read(secureStorageProvider),
+      messageId: messageId,
+      selectedKey: key,
+    );
+
+    if (!_isPersistedMessageId(messageId)) return;
+    try {
+      await ref
+          .read(aiTutorRepositoryProvider)
+          .recordUnderstandingCheck(
+            conversationId: message.conversationId?.trim().isNotEmpty == true
+                ? message.conversationId!
+                : conversationId,
+            messageId: messageId,
+            userId: ref.read(currentUserIdProvider),
+            selectedKey: key,
+          );
+    } catch (_) {
+      // Giữ khóa local giống web khi lưu server thất bại.
+    }
   }
 
   Future<void> learnFromSuggestionInChat({
@@ -389,14 +861,12 @@ class ChatController
         suggestionKey: suggestion.key,
       );
 
-      ref.read(consumedSuggestionKeysProvider(conversationId).notifier).update(
-        (keys) => {...keys, suggestion.key},
-      );
+      ref
+          .read(consumedSuggestionKeysProvider(conversationId).notifier)
+          .update((keys) => {...keys, suggestion.key});
 
       final nextSuggestions = result.nextImproveSuggestions.isNotEmpty
-          ? ImproveSuggestionItem.actionableChips(
-              result.nextImproveSuggestions,
-            )
+          ? ImproveSuggestionItem.actionableChips(result.nextImproveSuggestions)
           : <ImproveSuggestionItem>[];
 
       try {
@@ -417,14 +887,16 @@ class ChatController
       } catch (_) {
         final previous = state.valueOrNull ?? [];
         final userMsg = AiMessage(
-          id: result.userMessageId ??
+          id:
+              result.userMessageId ??
               'local-${DateTime.now().millisecondsSinceEpoch}',
           content: suggestion.effectiveText,
           isUser: true,
           createdAt: DateTime.now(),
         );
         final aiMsg = AiMessage(
-          id: result.assistantMessageId ??
+          id:
+              result.assistantMessageId ??
               'ai-${DateTime.now().millisecondsSinceEpoch}',
           content: sanitizeAiChatContent(result.answer ?? ''),
           isUser: false,
@@ -437,14 +909,33 @@ class ChatController
       ref.invalidate(conversationsControllerProvider);
     } on DioException catch (e) {
       if (e.response?.statusCode == 409) {
-        ref.read(consumedSuggestionKeysProvider(conversationId).notifier).update(
-          (keys) => {...keys, suggestion.key},
-        );
+        ref
+            .read(consumedSuggestionKeysProvider(conversationId).notifier)
+            .update((keys) => {...keys, suggestion.key});
       }
       rethrow;
     } finally {
       ref.read(chatPendingProvider(conversationId).notifier).state = false;
     }
+  }
+
+  static List<AiMessage> _preserveUserCodeSnippets({
+    required List<AiMessage> previous,
+    required List<AiMessage> fetched,
+  }) {
+    final codes = [
+      for (final message in previous)
+        if (message.isUser) message.codeSnippet,
+    ];
+    var userIndex = 0;
+    return fetched.map((message) {
+      if (!message.isUser) return message;
+      final previousCode = userIndex < codes.length ? codes[userIndex] : null;
+      userIndex += 1;
+      if ((message.codeSnippet ?? '').trim().isNotEmpty) return message;
+      if (previousCode == null || previousCode.trim().isEmpty) return message;
+      return message.copyWith(codeSnippet: previousCode);
+    }).toList();
   }
 
   static List<AiMessage> _preserveImproveSuggestions({
@@ -453,7 +944,8 @@ class ChatController
   }) {
     final suggestionsById = {
       for (final m in previous)
-        if (!m.isUser && m.improveSuggestions.isNotEmpty) m.id: m.improveSuggestions,
+        if (!m.isUser && m.improveSuggestions.isNotEmpty)
+          m.id: m.improveSuggestions,
     };
     return fetched
         .map(
@@ -526,9 +1018,20 @@ class ChatController
       pinned: serverAi.pinned,
       pinnedAt: serverAi.pinnedAt,
       createdAt: serverAi.createdAt ?? fallbackAi.createdAt,
+      conversationId: serverAi.conversationId ?? fallbackAi.conversationId,
       improveSuggestions: suggestions.isNotEmpty
           ? suggestions
           : fallbackAi.improveSuggestions,
+      understandingCheck:
+          answer.understandingCheck ??
+          serverAi.understandingCheck ??
+          fallbackAi.understandingCheck,
+      understandingSelectedKey:
+          normalizeUnderstandingSelectedKey(
+            serverAi.understandingSelectedKey,
+          ).isNotEmpty
+          ? serverAi.understandingSelectedKey
+          : fallbackAi.understandingSelectedKey,
     );
     return merged;
   }
@@ -618,7 +1121,9 @@ final pinnedMessagesControllerProvider =
 final allPinnedMessagesProvider =
     FutureProvider.autoDispose<List<PinnedMessageEntry>>((ref) async {
       final userId = ref.watch(currentUserIdProvider);
-      final conversations = await ref.watch(conversationsControllerProvider.future);
+      final conversations = await ref.watch(
+        conversationsControllerProvider.future,
+      );
       if (conversations.isEmpty) return const [];
 
       final titles = {for (final c in conversations) c.id: c.title};
@@ -758,9 +1263,11 @@ final chatMessageSearchProvider = FutureProvider.autoDispose
       final courses = ref.watch(coursesControllerProvider).valueOrNull;
       final activeCourse = course ?? courses?.firstOrNull;
 
-      return ref.read(aiTutorRepositoryProvider).searchMessages(
-        userId: userId,
-        keyword: trimmed,
-        courseId: activeCourse?.id,
-      );
+      return ref
+          .read(aiTutorRepositoryProvider)
+          .searchMessages(
+            userId: userId,
+            keyword: trimmed,
+            courseId: activeCourse?.id,
+          );
     });

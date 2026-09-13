@@ -22,10 +22,15 @@ class Course {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is Course && other.id == id;
+      other is Course &&
+          other.id == id &&
+          (other.classId ?? '') == (classId ?? '');
 
   @override
-  int get hashCode => id.hashCode;
+  int get hashCode => Object.hash(id, classId ?? '');
+
+  /// Khóa duy nhất cho dropdown / selection (một môn có thể học nhiều lớp).
+  String get selectionKey => '$id|${classId ?? ''}';
 
   factory Course.fromJson(Map<String, dynamic> json) {
     return Course(
@@ -43,8 +48,17 @@ class Course {
       name: readString(json, 'name', fallback: readString(json, 'courseName')),
       className:
           json['className']?.toString() ?? json['classSectionName']?.toString(),
+      // Khớp web `getClassCodeValue`: backend authorization nhận mã lớp
+      // enrollment trước, rồi mới fallback sang id của class section.
       classId:
-          json['classId']?.toString() ?? json['classSectionId']?.toString(),
+          json['classCode']?.toString() ??
+          (json['classSection'] is Map
+              ? (json['classSection'] as Map)['classCode']?.toString()
+              : null) ??
+          json['classSectionCode']?.toString() ??
+          json['classId']?.toString() ??
+          json['sectionId']?.toString() ??
+          json['classSectionId']?.toString(),
       semester:
           json['semester']?.toString() ?? json['semesterName']?.toString(),
       status: readString(json, 'status', fallback: 'ACTIVE'),

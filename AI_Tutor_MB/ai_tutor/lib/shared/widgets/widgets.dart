@@ -11,6 +11,7 @@ export 'confidence_bar.dart';
 export 'course_tile.dart';
 export 'empty_state.dart';
 export 'error_state.dart';
+export 'fpt_logo.dart';
 export 'fpt_app_bar.dart';
 export 'fpt_button.dart';
 export 'fpt_card.dart';

@@ -7,6 +7,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_tokens.dart';
 import '../../core/utils/ai_chat_content.dart';
+import '../../core/utils/code_mentor_mode.dart';
 import '../models/rag_source_evidence.dart';
 import '../models/rag_visual_evidence.dart';
 import 'ai_markdown_body.dart';
@@ -29,6 +30,9 @@ class ChatBubble extends StatelessWidget {
     this.pinned = false,
     this.pinnedLabel,
     this.onStudyTipTap,
+    this.afterContent,
+    this.betweenContent,
+    this.codeSnippet,
   });
 
   final bool isUser;
@@ -44,6 +48,9 @@ class ChatBubble extends StatelessWidget {
   final bool pinned;
   final String? pinnedLabel;
   final ValueChanged<String>? onStudyTipTap;
+  final String? afterContent;
+  final Widget? betweenContent;
+  final String? codeSnippet;
 
   List<RagVisualEvidence> get _legacyVisualOnly {
     if (sourceEvidence.isNotEmpty) return const [];
@@ -112,12 +119,27 @@ class ChatBubble extends StatelessWidget {
                         ],
                       ),
                     ),
-                  if (!isUser && useMarkdown)
-                    AiMarkdownBody(
-                      data: prepareAiChatMarkdown(content),
-                      onStudyTipTap: onStudyTipTap,
-                    )
-                  else
+                  if (!isUser && isCodeMentorMode(mode)) ...[
+                    _CodeModeBanner(label: codeModeLabel),
+                    const Gap(Insets.sm),
+                  ],
+                  if (isUser && (codeSnippet ?? '').trim().isNotEmpty) ...[
+                    _UserCodePreview(code: codeSnippet!.trim()),
+                    if (content.trim().isNotEmpty) const Gap(Insets.sm),
+                  ],
+                  if (!isUser && useMarkdown) ...[
+                    if (content.trim().isNotEmpty)
+                      AiMarkdownBody(
+                        data: prepareAiChatMarkdown(content),
+                        onStudyTipTap: onStudyTipTap,
+                      ),
+                    if (betweenContent != null) betweenContent!,
+                    if ((afterContent ?? '').trim().isNotEmpty)
+                      AiMarkdownBody(
+                        data: prepareAiChatMarkdown(afterContent!),
+                        onStudyTipTap: onStudyTipTap,
+                      ),
+                  ] else
                     Text(
                       isUser ? content : sanitizeAiChatContent(content),
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
@@ -131,12 +153,20 @@ class ChatBubble extends StatelessWidget {
                   ],
                   if (!isUser && sourceEvidence.isNotEmpty)
                     RagSourceEvidencePanel(items: sourceEvidence),
-                  if (!isUser &&
-                      sourceEvidence.isEmpty &&
-                      sources.isNotEmpty)
+                  if (!isUser && sourceEvidence.isEmpty && sources.isNotEmpty)
                     _SourceChipRow(sources: sources),
                   if (!isUser && _legacyVisualOnly.isNotEmpty)
                     RagVisualEvidenceStrip(items: _legacyVisualOnly),
+                  if (!isUser && isCodeMentorMode(mode)) ...[
+                    const Gap(Insets.sm),
+                    Text(
+                      codeModeDisclaimer,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppColors.textSecondary,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
                   if (trailing != null) ...[const Gap(Insets.sm), trailing!],
                 ],
               ),
@@ -146,6 +176,55 @@ class ChatBubble extends StatelessWidget {
         .animate()
         .fadeIn(duration: Motion.base)
         .slideY(begin: 0.15, end: 0, curve: Curves.easeOutCubic);
+  }
+}
+
+class _CodeModeBanner extends StatelessWidget {
+  const _CodeModeBanner({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        const Icon(LucideIcons.code, size: 14, color: AppColors.primaryTint),
+        const Gap(Insets.xs),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+            color: AppColors.primaryTint,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _UserCodePreview extends StatelessWidget {
+  const _UserCodePreview({required this.code});
+
+  final String code;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(Insets.sm),
+      decoration: BoxDecoration(
+        color: AppColors.primaryDark,
+        borderRadius: BorderRadius.circular(Radii.sm),
+      ),
+      child: Text(
+        code,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          fontFamily: 'monospace',
+          height: 1.4,
+          color: AppColors.onOrange,
+        ),
+      ),
+    );
   }
 }
 
@@ -164,9 +243,9 @@ class _SourceChipRow extends StatelessWidget {
         Text(
           'Nguồn tham khảo',
           style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: AppColors.textSecondary,
-                fontWeight: FontWeight.w600,
-              ),
+            color: AppColors.textSecondary,
+            fontWeight: FontWeight.w600,
+          ),
         ),
         const Gap(Insets.sm),
         Wrap(
@@ -176,10 +255,7 @@ class _SourceChipRow extends StatelessWidget {
               .map(
                 (s) => Chip(
                   visualDensity: VisualDensity.compact,
-                  label: Text(
-                    s,
-                    style: Theme.of(context).textTheme.labelSmall,
-                  ),
+                  label: Text(s, style: Theme.of(context).textTheme.labelSmall),
                   avatar: const Icon(LucideIcons.bookOpen, size: 14),
                 ),
               )
@@ -207,11 +283,7 @@ class _AiMetaRow extends StatelessWidget {
         const Gap(Insets.sm),
         Row(
           children: [
-            Icon(
-              LucideIcons.checkCircle2,
-              size: 14,
-              color: AppColors.success,
-            ),
+            Icon(LucideIcons.checkCircle2, size: 14, color: AppColors.success),
             const Gap(Insets.xs),
             Text(
               '$pct%',

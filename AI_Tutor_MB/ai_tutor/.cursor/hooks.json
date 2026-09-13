@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "command": "node .agents/hooks/runtime.mjs cursor session",
+        "timeout": 10,
+        "failClosed": false
+      }
+    ],
+    "preToolUse": [
+      {
+        "command": "node .agents/hooks/runtime.mjs cursor pre",
+        "timeout": 10,
+        "failClosed": false
+      }
+    ],
+    "postToolUse": [
+      {
+        "command": "node .agents/hooks/runtime.mjs cursor post",
+        "timeout": 10,
+        "failClosed": false
+      }
+    ]
+  }
+}

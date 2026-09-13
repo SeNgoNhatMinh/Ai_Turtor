@@ -22,7 +22,7 @@ class NotificationsScreen extends ConsumerWidget {
     final notifications = ref.watch(notificationsControllerProvider);
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.canvas,
       appBar: FptAppBar(title: l10n.notificationsTitle),
       body: notifications.when(
         loading: () => const LoadingSkeleton(),

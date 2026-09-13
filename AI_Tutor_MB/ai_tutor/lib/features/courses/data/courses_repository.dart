@@ -62,55 +62,6 @@ class CoursesRepository {
     return '$base/api/courses/$courseId/materials/$materialId/pages/$pageNumber/image';
   }
 
-  Future<CourseMaterial> uploadMaterial({
-    required String courseId,
-    required String teacherId,
-    required String title,
-    required String filePath,
-    String? classId,
-    String? uploaderRole,
-  }) async {
-    final formData = FormData.fromMap({
-      'file': await MultipartFile.fromFile(filePath),
-      'title': title,
-      'teacherId': teacherId,
-      if (classId != null) 'classId': classId,
-      if (uploaderRole != null && uploaderRole.isNotEmpty)
-        'uploaderRole': uploaderRole,
-    });
-    final response = await _dio.post<Map<String, dynamic>>(
-      '/api/courses/$courseId/materials/upload',
-      data: formData,
-      options: Options(
-        receiveTimeout: const Duration(minutes: 5),
-        sendTimeout: const Duration(minutes: 5),
-        validateStatus: (status) => status != null && status >= 200 && status < 300,
-      ),
-    );
-    final body = response.data ?? {};
-    return CourseMaterial.fromJson({
-      ...body,
-      'id': body['materialId'] ?? body['documentId'] ?? body['id'],
-      'title': body['title'] ?? title,
-    });
-  }
-
-  /// Admin upload tài liệu chung cho cả course (không gắn classId).
-  Future<CourseMaterial> uploadAdminMaterial({
-    required String courseId,
-    required String adminId,
-    required String title,
-    required String filePath,
-  }) async {
-    return uploadMaterial(
-      courseId: courseId,
-      teacherId: adminId,
-      title: title,
-      filePath: filePath,
-      uploaderRole: 'ADMIN',
-    );
-  }
-
   Future<void> deleteMaterial({
     required String courseId,
     required String materialId,

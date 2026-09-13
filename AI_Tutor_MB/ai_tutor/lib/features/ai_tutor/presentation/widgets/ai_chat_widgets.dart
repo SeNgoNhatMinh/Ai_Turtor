@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:gap/gap.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -11,6 +14,7 @@ import '../../../../core/theme/app_tokens.dart';
 import '../../../../core/utils/vietnamese_text_input.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../shared/widgets/widgets.dart';
+import '../../data/daily_question_quota.dart';
 
 enum AnswerReviewFeedbackKind { wrong, reportSource }
 
@@ -56,10 +60,10 @@ class AiLanguageHintButton extends StatelessWidget {
             child: Text(
               '?!',
               style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.warning,
-                    height: 1,
-                  ),
+                fontWeight: FontWeight.w800,
+                color: AppColors.warning,
+                height: 1,
+              ),
             ),
           ),
         ),
@@ -69,10 +73,7 @@ class AiLanguageHintButton extends StatelessWidget {
 }
 
 class AnswerReviewFeedbackResult {
-  const AnswerReviewFeedbackResult({
-    this.feedback,
-    this.suggestedCorrection,
-  });
+  const AnswerReviewFeedbackResult({this.feedback, this.suggestedCorrection});
 
   final String? feedback;
   final String? suggestedCorrection;
@@ -131,7 +132,8 @@ class _AnswerReviewFeedbackSheet extends StatefulWidget {
       _AnswerReviewFeedbackSheetState();
 }
 
-class _AnswerReviewFeedbackSheetState extends State<_AnswerReviewFeedbackSheet> {
+class _AnswerReviewFeedbackSheetState
+    extends State<_AnswerReviewFeedbackSheet> {
   final _feedbackController = TextEditingController();
   final _correctionController = TextEditingController();
   String? _errorText;
@@ -155,8 +157,8 @@ class _AnswerReviewFeedbackSheetState extends State<_AnswerReviewFeedbackSheet> 
         feedback: feedback.isEmpty ? null : feedback,
         suggestedCorrection: widget.showCorrection
             ? _correctionController.text.trim().isEmpty
-                ? null
-                : _correctionController.text.trim()
+                  ? null
+                  : _correctionController.text.trim()
             : null,
       ),
     );
@@ -176,10 +178,7 @@ class _AnswerReviewFeedbackSheetState extends State<_AnswerReviewFeedbackSheet> 
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              widget.title,
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
+            Text(widget.title, style: Theme.of(context).textTheme.titleMedium),
             const Gap(Insets.lg),
             FptTextField(
               controller: _feedbackController,
@@ -212,136 +211,547 @@ class AiChatAppBar extends StatelessWidget implements PreferredSizeWidget {
   const AiChatAppBar({
     super.key,
     required this.courseCode,
+    this.classLabel,
     this.onCourseTap,
     this.onHistoryTap,
+    this.onSearchTap,
+    this.questionCount,
+    this.questionLimit = 10,
+    this.maxTurnsReached = false,
   });
 
   final String courseCode;
+  final String? classLabel;
   final VoidCallback? onCourseTap;
   final VoidCallback? onHistoryTap;
+  final VoidCallback? onSearchTap;
+  final int? questionCount;
+  final int questionLimit;
+  final bool maxTurnsReached;
+
+  static String formatClassLabel({String? className, String? classId}) {
+    final name = className?.trim() ?? '';
+    if (name.isNotEmpty) return name;
+    return classId?.trim() ?? '';
+  }
 
   @override
-  Size get preferredSize => const Size.fromHeight(64);
+  Size get preferredSize => const Size.fromHeight(84);
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
+    final historyTap = onHistoryTap;
+    final searchTap = onSearchTap;
+
+    final resolvedClass = (classLabel ?? '').trim();
+    final hasClass = resolvedClass.isNotEmpty;
 
     return AppBar(
+      toolbarHeight: 84,
       backgroundColor: AppColors.card,
+      surfaceTintColor: Colors.transparent,
       elevation: 0,
       scrolledUnderElevation: 0,
-      // Không có nút back: giống ChatGPT, đây là màn hình chính của tab —
-      // muốn xem đoạn chat khác thì mở sidebar (icon panelLeft bên dưới).
       automaticallyImplyLeading: false,
-      titleSpacing: Insets.screenH,
+      shape: const Border(),
+      titleSpacing: 0,
       title: Row(
         children: [
-          Container(
-            width: 42,
-            height: 42,
-            padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              color: AppColors.primaryWash,
-              borderRadius: BorderRadius.circular(Radii.md),
-            ),
-            child: Image.asset(
-              AppAssets.cocVangLogo,
-              fit: BoxFit.contain,
-              errorBuilder: (_, __, ___) => const Icon(
-                Icons.school_rounded,
-                size: 24,
-                color: AppColors.primary,
+          if (historyTap != null)
+            Padding(
+              padding: const EdgeInsets.only(left: Insets.sm),
+              child: _ChatAppBarIconButton(
+                tooltip: 'Lịch sử hội thoại',
+                onPressed: historyTap,
+                child: const FaIcon(
+                  FontAwesomeIcons.bars,
+                  size: 16,
+                  color: AppColors.peacockBlue,
+                ),
               ),
-            ),
-          ),
-          const Gap(Insets.xs),
-          AiLanguageHintButton(tooltip: l10n.aiLanguageHintTooltip),
+            )
+          else
+            const Gap(Insets.screenH),
           const Gap(Insets.sm),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  l10n.aiTutorName,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.splashNavy,
-                    fontSize: 16,
-                  ),
-                ),
-                Row(
-                  children: [
-                    Container(
-                      width: 7,
-                      height: 7,
-                      decoration: const BoxDecoration(
-                        color: AppColors.leafGreen,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const Gap(Insets.xs),
-                    Text(
-                      'Trực tuyến',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.textTertiary,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+            child: Text(
+              AppLocalizations.of(context)!.aiTutorName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w800,
+                color: AppColors.splashNavy,
+                fontSize: 16,
+              ),
             ),
           ),
         ],
       ),
       actions: [
-        if (onHistoryTap != null)
-          IconButton(
-            tooltip: 'Lịch sử hội thoại',
-            onPressed: onHistoryTap,
-            icon: const Icon(
-              LucideIcons.panelLeft,
-              color: AppColors.textSecondary,
-            ),
-          ),
-        GestureDetector(
-          onTap: onCourseTap,
-          child: Container(
-            margin: const EdgeInsets.only(right: Insets.lg),
-            padding: const EdgeInsets.symmetric(
-              horizontal: Insets.md,
-              vertical: 7,
-            ),
-            decoration: BoxDecoration(
-              color: AppColors.raised,
-              borderRadius: BorderRadius.circular(Radii.full),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  courseCode,
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+        if (questionCount != null)
+          Padding(
+            padding: const EdgeInsets.only(right: Insets.xs),
+            child: Center(
+              child: Tooltip(
+                message: maxTurnsReached
+                    ? 'Bạn đã dùng hết $questionLimit câu hỏi hôm nay cho môn này'
+                    : 'Số câu hỏi hôm nay cho môn này',
+                child: Text(
+                  'Câu hỏi $questionCount/$questionLimit',
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
                     fontWeight: FontWeight.w700,
-                    color: AppColors.peacockBlue,
-                    fontSize: 13,
+                    color:
+                        maxTurnsReached ||
+                            (questionCount ?? 0) >= (questionLimit - 2)
+                        ? AppColors.error
+                        : AppColors.peacockBlue,
                   ),
                 ),
-                const Gap(Insets.xs),
-                const Icon(
-                  LucideIcons.chevronDown,
-                  size: 14,
-                  color: AppColors.textTertiary,
+              ),
+            ),
+          ),
+        if (searchTap != null)
+          _ChatAppBarIconButton(
+            tooltip: 'Tìm trong đoạn chat',
+            onPressed: searchTap,
+            child: const Icon(
+              LucideIcons.search,
+              size: 18,
+              color: AppColors.peacockBlue,
+            ),
+          ),
+        const Gap(Insets.xs),
+        Padding(
+          padding: const EdgeInsets.only(right: Insets.lg),
+          child: IntrinsicWidth(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                GestureDetector(
+                  onTap: onCourseTap,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: Insets.md,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.raised,
+                      borderRadius: BorderRadius.circular(Radii.full),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          courseCode,
+                          style: Theme.of(context).textTheme.labelLarge
+                              ?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.peacockBlue,
+                                fontSize: 13,
+                              ),
+                        ),
+                        const Gap(Insets.xs),
+                        const Icon(
+                          LucideIcons.chevronDown,
+                          size: 14,
+                          color: AppColors.textTertiary,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const Gap(4),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: Insets.md,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: hasClass
+                        ? AppColors.raised
+                        : const Color(0xFFFFF7ED),
+                    borderRadius: BorderRadius.circular(Radii.full),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    hasClass ? 'Lớp $resolvedClass' : 'Chưa xếp lớp',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: hasClass
+                          ? AppColors.textSecondary
+                          : const Color(0xFF92400E),
+                      fontSize: 12,
+                    ),
+                  ),
                 ),
               ],
             ),
           ),
         ),
       ],
-      bottom: const PreferredSize(
-        preferredSize: Size.fromHeight(1),
-        child: Divider(height: 1, color: AppColors.borderHairline),
+    );
+  }
+}
+
+class _ChatAppBarIconButton extends StatelessWidget {
+  const _ChatAppBarIconButton({
+    required this.tooltip,
+    required this.onPressed,
+    required this.child,
+  });
+
+  final String tooltip;
+  final VoidCallback onPressed;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: AppColors.raised,
+        borderRadius: BorderRadius.circular(Radii.full),
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(Radii.full),
+          child: SizedBox(width: 36, height: 36, child: Center(child: child)),
+        ),
+      ),
+    );
+  }
+}
+
+class AiChatTurnLimitBanner extends StatelessWidget {
+  const AiChatTurnLimitBanner({
+    super.key,
+    required this.message,
+    required this.onOpenPrevious,
+    required this.onDismiss,
+  });
+
+  final String message;
+  final VoidCallback onOpenPrevious;
+  final VoidCallback onDismiss;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.primaryWash,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          Insets.screenH,
+          Insets.sm,
+          Insets.sm,
+          Insets.sm,
+        ),
+        child: Row(
+          children: [
+            const Icon(LucideIcons.info, size: 16, color: AppColors.primary),
+            const Gap(Insets.sm),
+            Expanded(
+              child: Text(
+                message,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: onOpenPrevious,
+              child: const Text('Quay lại'),
+            ),
+            IconButton(
+              tooltip: 'Đóng',
+              onPressed: onDismiss,
+              icon: const Icon(LucideIcons.x, size: 16),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class AiChatDailyQuotaBanner extends StatelessWidget {
+  const AiChatDailyQuotaBanner({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.accentWash,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          Insets.screenH,
+          Insets.md,
+          Insets.screenH,
+          Insets.md,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              dailySessionCompleteTitle,
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w800,
+                color: AppColors.accentDark,
+              ),
+            ),
+            const Gap(Insets.xs),
+            Text(
+              dailySessionCompleteMessage,
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: AppColors.textPrimary),
+            ),
+            const Gap(Insets.xs),
+            Text(
+              dailySessionCompleteHint,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: AppColors.textSecondary,
+                height: 1.4,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+enum TutorMascotSize { sm, lg }
+
+class TutorMascot extends StatelessWidget {
+  const TutorMascot({super.key, this.size = TutorMascotSize.lg});
+
+  final TutorMascotSize size;
+
+  @override
+  Widget build(BuildContext context) {
+    final (width, height, radius) = switch (size) {
+      TutorMascotSize.sm => (46.0, 46.0, 23.0),
+      TutorMascotSize.lg => (172.0, 172.0, 40.0),
+    };
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(radius),
+        gradient: const RadialGradient(
+          center: Alignment(0, -0.7),
+          radius: 1.05,
+          colors: [Color(0xFFFFFFFF), Color(0xFFF4F8FF), Color(0xFFE8F1FB)],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF062D63).withValues(alpha: 0.14),
+            blurRadius: size == TutorMascotSize.lg ? 46 : 16,
+            offset: Offset(0, size == TutorMascotSize.lg ? 20 : 6),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Image.asset(
+        AppAssets.tutorMascot,
+        fit: BoxFit.contain,
+        filterQuality: FilterQuality.high,
+        errorBuilder: (_, __, ___) => Icon(
+          Icons.school_rounded,
+          size: size == TutorMascotSize.lg ? 72 : 22,
+          color: AppColors.primary,
+        ),
+      ),
+    );
+  }
+}
+
+/// Placeholder khi môn mới đang mở buổi chào — không dùng [LoadingSkeleton]
+/// trong ListView (sẽ unbounded height, màn hình trắng).
+class AiChatOpeningPlaceholder extends StatelessWidget {
+  const AiChatOpeningPlaceholder({super.key});
+
+  static const title = 'Đang chuẩn bị buổi học...';
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(0, Insets.xl, 0, Insets.md),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const TutorMascot(size: TutorMascotSize.lg),
+          const Gap(Insets.lg),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: AppColors.splashNavy,
+            ),
+          ),
+          const Gap(Insets.md),
+          const SizedBox(
+            width: 28,
+            height: 28,
+            child: CircularProgressIndicator(strokeWidth: 2.6),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class AiChatPromptStarters extends StatelessWidget {
+  const AiChatPromptStarters({
+    super.key,
+    required this.onSelect,
+    this.enabled = true,
+  });
+
+  final ValueChanged<String> onSelect;
+  final bool enabled;
+
+  static const title = 'Hôm nay bạn muốn học gì?';
+  static const keywordTipTitle = 'Mẹo đặt câu hỏi hiệu quả';
+  static const keywordTip = AiChatInputBar.keywordTip;
+
+  static const prompts = [
+    (
+      title: 'Giải thích khái niệm',
+      prompt:
+          'Dựa trên tài liệu môn học, hãy chọn một khái niệm nền tảng quan trọng và giải thích bằng một ví dụ đơn giản.',
+      icon: LucideIcons.bookOpen,
+    ),
+    (
+      title: 'Kiểm tra mã nguồn',
+      prompt:
+          'Dựa trên tài liệu môn học, hãy đưa ra một ví dụ mã nguồn tiêu biểu, sau đó phân tích cách hoạt động và những điểm có thể cải thiện.',
+      icon: LucideIcons.code,
+    ),
+    (
+      title: 'Tóm tắt bài học',
+      prompt:
+          'Dựa trên tài liệu môn học, hãy tóm tắt những nội dung quan trọng tôi cần ghi nhớ và gợi ý thứ tự ôn tập.',
+      icon: LucideIcons.graduationCap,
+    ),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(0, Insets.xl, 0, Insets.md),
+      child: Column(
+        children: [
+          const TutorMascot(size: TutorMascotSize.lg),
+          const Gap(Insets.lg),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: AppColors.splashNavy,
+            ),
+          ),
+          const Gap(Insets.md),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(
+              Insets.md,
+              Insets.sm,
+              Insets.md,
+              Insets.md,
+            ),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFF8EF),
+              borderRadius: BorderRadius.circular(Radii.lg),
+              border: Border.all(color: const Color(0xFFFDE7C8)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  keywordTipTitle,
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: const Color(0xFF9A3412),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const Gap(4),
+                Text(
+                  keywordTip,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: const Color(0xFF7C4A12),
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Gap(Insets.lg),
+          for (final item in prompts) ...[
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: enabled ? () => onSelect(item.prompt) : null,
+                icon: Icon(item.icon, size: 16),
+                label: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(item.title),
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.peacockBlue,
+                  side: const BorderSide(color: AppColors.borderHairline),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: Insets.md,
+                    vertical: Insets.md,
+                  ),
+                ),
+              ),
+            ),
+            const Gap(Insets.sm),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class AiUserMessageActions extends StatelessWidget {
+  const AiUserMessageActions({
+    super.key,
+    required this.canResend,
+    required this.onCopy,
+    required this.onEdit,
+  });
+
+  final bool canResend;
+  final VoidCallback onCopy;
+  final VoidCallback onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: Insets.sm),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          IconButton(
+            tooltip: 'Sao chép',
+            visualDensity: VisualDensity.compact,
+            onPressed: onCopy,
+            icon: const Icon(LucideIcons.copy, size: 16),
+          ),
+          IconButton(
+            tooltip: 'Sửa và gửi lại',
+            visualDensity: VisualDensity.compact,
+            onPressed: canResend ? onEdit : null,
+            icon: const Icon(LucideIcons.pencil, size: 16),
+          ),
+        ],
       ),
     );
   }
@@ -387,15 +797,42 @@ class AiChatInputBar extends StatelessWidget {
     required this.onSend,
     required this.onStop,
     required this.stopLabel,
+    this.focusNode,
+    this.onAttach,
+    this.onAttachImages,
+    this.onMic,
+    this.isListening = false,
+    this.showComposerTips = false,
+    this.attachmentNames = const [],
+    this.onRemoveAttachment,
+    this.codeController,
+    this.codeExpanded = false,
+    this.onToggleCode,
   });
 
   final TextEditingController controller;
+  final FocusNode? focusNode;
   final String hint;
   final bool enabled;
   final bool isPending;
   final VoidCallback onSend;
   final VoidCallback onStop;
   final String stopLabel;
+  final VoidCallback? onAttach;
+  final VoidCallback? onAttachImages;
+  final VoidCallback? onMic;
+  final bool isListening;
+  final bool showComposerTips;
+  final List<String> attachmentNames;
+  final ValueChanged<String>? onRemoveAttachment;
+  final TextEditingController? codeController;
+  final bool codeExpanded;
+  final VoidCallback? onToggleCode;
+
+  static const keywordTip =
+      'Hãy dùng đúng từ khóa học thuật của môn (ví dụ: servlet, inheritance, JSP lifecycle, SQL join). AI Tutor tìm tài liệu theo keyword — càng cụ thể thì câu trả lời càng chính xác.';
+  static const disclaimer =
+      'AI Tutor có thể trả lời sai. Hãy kiểm tra lại thông tin quan trọng.';
 
   @override
   Widget build(BuildContext context) {
@@ -403,91 +840,618 @@ class AiChatInputBar extends StatelessWidget {
     return Padding(
       padding: EdgeInsets.only(bottom: bottomInset),
       child: Container(
-      padding: const EdgeInsets.fromLTRB(
-        Insets.screenH,
-        Insets.sm,
-        Insets.screenH,
-        Insets.lg,
-      ),
-      decoration: const BoxDecoration(
+        padding: const EdgeInsets.fromLTRB(
+          Insets.screenH,
+          Insets.lg,
+          Insets.screenH,
+          Insets.xxl,
+        ),
         color: AppColors.card,
-        border: Border(top: BorderSide(color: AppColors.borderHairline)),
-        boxShadow: [
-          BoxShadow(
-            color: Color(0x08000000),
-            blurRadius: 8,
-            offset: Offset(0, -2),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (attachmentNames.isNotEmpty) ...[
+              Wrap(
+                spacing: Insets.xs,
+                runSpacing: Insets.xs,
+                children: [
+                  for (final name in attachmentNames)
+                    InputChip(
+                      label: Text(name, overflow: TextOverflow.ellipsis),
+                      visualDensity: VisualDensity.compact,
+                      onDeleted: onRemoveAttachment == null
+                          ? null
+                          : () => onRemoveAttachment!(name),
+                    ),
+                ],
+              ),
+              const Gap(Insets.sm),
+            ],
+            if (showComposerTips) ...[
+              Text(
+                keywordTip,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: AppColors.textTertiary,
+                  height: 1.35,
+                ),
+              ),
+              const Gap(4),
+              Text(
+                disclaimer,
+                style: Theme.of(
+                  context,
+                ).textTheme.labelSmall?.copyWith(color: AppColors.textTertiary),
+              ),
+              const Gap(Insets.sm),
+            ],
+            if (isListening)
+              Padding(
+                padding: const EdgeInsets.only(
+                  bottom: Insets.xs,
+                  left: Insets.md,
+                ),
+                child: Text(
+                  'Đang nghe...',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.peacockBlue,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            if (codeController != null && codeExpanded) ...[
+              TextField(
+                controller: codeController,
+                enabled: enabled && !isPending,
+                maxLines: 8,
+                minLines: 4,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  fontFamily: 'monospace',
+                  color: AppColors.textPrimary,
+                  height: 1.4,
+                ),
+                decoration: InputDecoration(
+                  hintText: 'Dán mã nguồn hoặc log lỗi...',
+                  filled: true,
+                  fillColor: AppColors.raised,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(Radii.md),
+                    borderSide: const BorderSide(
+                      color: AppColors.borderHairline,
+                    ),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(Radii.md),
+                    borderSide: const BorderSide(
+                      color: AppColors.borderHairline,
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(Radii.md),
+                    borderSide: const BorderSide(color: AppColors.primaryTint),
+                  ),
+                  isDense: true,
+                  contentPadding: const EdgeInsets.all(Insets.md),
+                ),
+              ),
+              const Gap(Insets.sm),
+            ],
+            ListenableBuilder(
+              listenable: Listenable.merge([
+                controller,
+                if (codeController != null) codeController!,
+              ]),
+              builder: (context, _) {
+                final hasText = controller.text.trim().isNotEmpty;
+                final hasCode =
+                    (codeController?.text.trim().isNotEmpty ?? false);
+                final showSend =
+                    !isPending &&
+                    (hasText || hasCode || attachmentNames.isNotEmpty);
+                return Container(
+                  constraints: const BoxConstraints(
+                    minHeight: 72,
+                    maxHeight: 148,
+                  ),
+                  padding: const EdgeInsets.fromLTRB(6, 8, 6, 8),
+                  decoration: BoxDecoration(
+                    color: AppColors.raised,
+                    borderRadius: BorderRadius.circular(Radii.full),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      if (onAttach != null || onAttachImages != null)
+                        _AttachPlusButton(
+                          enabled: enabled && !isPending,
+                          onPickFiles: onAttach,
+                          onPickImages: onAttachImages,
+                        ),
+                      Expanded(
+                        child: TextField(
+                          controller: controller,
+                          focusNode: focusNode,
+                          enabled: enabled,
+                          keyboardType: TextInputType.multiline,
+                          textInputAction: TextInputAction.newline,
+                          maxLines: 4,
+                          minLines: 1,
+                          autocorrect: VietnameseTextInput.autocorrect,
+                          enableSuggestions:
+                              VietnameseTextInput.enableSuggestions,
+                          enableIMEPersonalizedLearning:
+                              VietnameseTextInput.enableIMEPersonalizedLearning,
+                          textCapitalization: TextCapitalization.none,
+                          smartDashesType: VietnameseTextInput.smartDashesType,
+                          smartQuotesType: VietnameseTextInput.smartQuotesType,
+                          style: Theme.of(context).textTheme.bodyLarge
+                              ?.copyWith(
+                                color: AppColors.textPrimary,
+                                fontWeight: FontWeight.w500,
+                              ),
+                          decoration: InputDecoration(
+                            hintText: hint,
+                            hintStyle: Theme.of(context).textTheme.bodyLarge
+                                ?.copyWith(
+                                  color: AppColors.textTertiary,
+                                  fontWeight: FontWeight.w400,
+                                ),
+                            filled: false,
+                            border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                            disabledBorder: InputBorder.none,
+                            isDense: true,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: Insets.sm,
+                              vertical: 16,
+                            ),
+                          ),
+                        ),
+                      ),
+                      if (onToggleCode != null)
+                        _ComposerCircleButton(
+                          tooltip: codeExpanded
+                              ? 'Ẩn ô dán mã nguồn'
+                              : 'Dán mã nguồn',
+                          icon: LucideIcons.code,
+                          iconColor: codeExpanded || hasCode
+                              ? AppColors.primaryTint
+                              : AppColors.peacockBlue,
+                          onTap: enabled && !isPending ? onToggleCode : null,
+                          filled: codeExpanded || hasCode,
+                        ),
+                      if (onMic != null)
+                        _ComposerCircleButton(
+                          tooltip: isListening
+                              ? 'Dừng nhập giọng nói'
+                              : 'Nhập bằng giọng nói',
+                          icon: isListening
+                              ? LucideIcons.micOff
+                              : LucideIcons.mic,
+                          iconColor: isListening
+                              ? AppColors.error
+                              : AppColors.peacockBlue,
+                          onTap: enabled && !isPending ? onMic : null,
+                          filled: false,
+                        ),
+                      if (isPending)
+                        _ChatInputActionPill(
+                          label: stopLabel,
+                          icon: LucideIcons.square,
+                          backgroundColor: AppColors.card,
+                          foregroundColor: AppColors.textPrimary,
+                          onTap: onStop,
+                        )
+                      else if (showSend)
+                        _SendCircleButton(
+                          enabled: enabled,
+                          onTap: enabled ? onSend : null,
+                        ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class AiChatLoadingSteps extends StatefulWidget {
+  const AiChatLoadingSteps({super.key});
+
+  static const steps = [
+    'Đang đọc câu hỏi',
+    'Đang tìm trong tài liệu môn học',
+    'Đang soạn câu trả lời',
+  ];
+  static const takingLonger =
+      'Yêu cầu đang mất thêm thời gian để truy xuất và kiểm tra tài liệu môn học.';
+  static const preparing = 'AI Tutor đang chuẩn bị câu trả lời.';
+
+  @override
+  State<AiChatLoadingSteps> createState() => _AiChatLoadingStepsState();
+}
+
+class _AiChatLoadingStepsState extends State<AiChatLoadingSteps> {
+  var _stepIndex = 0;
+  var _takingLonger = false;
+  Timer? _stepTimer;
+  Timer? _fallbackTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _stepTimer = Timer.periodic(const Duration(milliseconds: 2200), (_) {
+      if (!mounted) return;
+      setState(() {
+        _stepIndex = (_stepIndex + 1).clamp(
+          0,
+          AiChatLoadingSteps.steps.length - 1,
+        );
+      });
+    });
+    _fallbackTimer = Timer(const Duration(seconds: 10), () {
+      if (!mounted) return;
+      setState(() => _takingLonger = true);
+    });
+  }
+
+  @override
+  void dispose() {
+    _stepTimer?.cancel();
+    _fallbackTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: Insets.sm),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              const Gap(Insets.sm),
+              Expanded(
+                child: Text(
+                  AiChatLoadingSteps.steps[_stepIndex],
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.textSecondary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
           ),
+          const Gap(Insets.xs),
+          Text(
+            _takingLonger
+                ? AiChatLoadingSteps.takingLonger
+                : AiChatLoadingSteps.preparing,
+            style: Theme.of(
+              context,
+            ).textTheme.labelSmall?.copyWith(color: AppColors.textTertiary),
+          ),
+          const Gap(Insets.sm),
+          _MarkdownSkeleton(),
         ],
       ),
+    );
+  }
+}
+
+class _MarkdownSkeleton extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _skeletonLine(0.92),
+        const Gap(6),
+        _skeletonLine(0.74),
+        const Gap(6),
+        _skeletonLine(0.48),
+      ],
+    );
+  }
+
+  Widget _skeletonLine(double widthFactor) {
+    return FractionallySizedBox(
+      widthFactor: widthFactor,
       child: Container(
-        constraints: const BoxConstraints(minHeight: 52, maxHeight: 120),
-        padding: const EdgeInsets.all(Insets.xs),
+        height: 8,
         decoration: BoxDecoration(
           color: AppColors.raised,
           borderRadius: BorderRadius.circular(Radii.full),
-          border: Border.all(color: AppColors.borderHairline),
         ),
-        child: Row(
+      ),
+    );
+  }
+}
+
+class _AttachPlusButton extends StatefulWidget {
+  const _AttachPlusButton({
+    required this.enabled,
+    this.onPickFiles,
+    this.onPickImages,
+  });
+
+  final bool enabled;
+  final VoidCallback? onPickFiles;
+  final VoidCallback? onPickImages;
+
+  @override
+  State<_AttachPlusButton> createState() => _AttachPlusButtonState();
+}
+
+class _AttachPlusButtonState extends State<_AttachPlusButton> {
+  final _layerLink = LayerLink();
+  OverlayEntry? _entry;
+
+  @override
+  void dispose() {
+    _removeMenu();
+    super.dispose();
+  }
+
+  void _removeMenu() {
+    _entry?.remove();
+    _entry = null;
+  }
+
+  void _toggleMenu() {
+    if (_entry != null) {
+      _removeMenu();
+      return;
+    }
+
+    final overlay = Overlay.of(context, rootOverlay: true);
+    _entry = OverlayEntry(
+      builder: (overlayContext) {
+        return Stack(
           children: [
-            Expanded(
-              child: TextField(
-                controller: controller,
-                enabled: enabled,
-                keyboardType: TextInputType.multiline,
-                textInputAction: TextInputAction.newline,
-                maxLines: 4,
-                minLines: 1,
-                autocorrect: VietnameseTextInput.autocorrect,
-                enableSuggestions: VietnameseTextInput.enableSuggestions,
-                enableIMEPersonalizedLearning:
-                    VietnameseTextInput.enableIMEPersonalizedLearning,
-                textCapitalization: TextCapitalization.none,
-                smartDashesType: VietnameseTextInput.smartDashesType,
-                smartQuotesType: VietnameseTextInput.smartQuotesType,
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.w500,
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: _removeMenu,
+              ),
+            ),
+            CompositedTransformFollower(
+              link: _layerLink,
+              showWhenUnlinked: false,
+              targetAnchor: Alignment.topLeft,
+              followerAnchor: Alignment.bottomLeft,
+              offset: const Offset(0, -8),
+              child: _AttachOverlayCard(
+                onCamera: widget.onPickImages,
+                onPhoto: widget.onPickImages,
+                onFile: widget.onPickFiles,
+                onSelect: _removeMenu,
+              ),
+            ),
+          ],
+        );
+      },
+    );
+    overlay.insert(_entry!);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CompositedTransformTarget(
+      link: _layerLink,
+      child: _ComposerCircleButton(
+        tooltip: 'Thêm tệp',
+        icon: LucideIcons.plus,
+        onTap: widget.enabled ? _toggleMenu : null,
+        filled: false,
+      ),
+    );
+  }
+}
+
+class _AttachOverlayCard extends StatelessWidget {
+  const _AttachOverlayCard({
+    this.onCamera,
+    this.onPhoto,
+    this.onFile,
+    required this.onSelect,
+  });
+
+  final VoidCallback? onCamera;
+  final VoidCallback? onPhoto;
+  final VoidCallback? onFile;
+  final VoidCallback onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.inverse,
+      elevation: 12,
+      shadowColor: AppColors.primaryDark.withValues(alpha: 0.4),
+      borderRadius: BorderRadius.circular(Radii.xl),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: Insets.sm,
+          vertical: Insets.sm,
+        ),
+        child: IntrinsicWidth(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (onCamera != null)
+                _AttachOverlayRow(
+                  icon: LucideIcons.camera,
+                  label: 'Camera',
+                  onTap: () {
+                    onSelect();
+                    onCamera!();
+                  },
                 ),
-                decoration: InputDecoration(
-                  hintText: hint,
-                  hintStyle: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: AppColors.textTertiary,
-                    fontWeight: FontWeight.w400,
+              if (onPhoto != null)
+                _AttachOverlayRow(
+                  icon: LucideIcons.image,
+                  label: 'Ảnh',
+                  onTap: () {
+                    onSelect();
+                    onPhoto!();
+                  },
+                ),
+              if (onFile != null)
+                _AttachOverlayRow(
+                  icon: LucideIcons.paperclip,
+                  label: 'Tệp',
+                  onTap: () {
+                    onSelect();
+                    onFile!();
+                  },
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AttachOverlayRow extends StatelessWidget {
+  const _AttachOverlayRow({
+    required this.icon,
+    required this.label,
+    this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      enabled: onTap != null,
+      label: label,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(Radii.lg),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 48),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: Insets.xs,
+              vertical: Insets.xs,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: const BoxDecoration(
+                    color: AppColors.primaryTint,
+                    shape: BoxShape.circle,
                   ),
-                  filled: false,
-                  border: InputBorder.none,
-                  enabledBorder: InputBorder.none,
-                  focusedBorder: InputBorder.none,
-                  disabledBorder: InputBorder.none,
-                  isDense: true,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: Insets.md,
-                    vertical: Insets.sm,
+                  child: Icon(icon, size: 18, color: Colors.white),
+                ),
+                const Gap(Insets.md),
+                Text(
+                  label,
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ComposerCircleButton extends StatelessWidget {
+  const _ComposerCircleButton({
+    required this.tooltip,
+    required this.icon,
+    this.onTap,
+    this.iconColor = AppColors.peacockBlue,
+    this.filled = true,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final VoidCallback? onTap;
+  final Color iconColor;
+  final bool filled;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: filled ? AppColors.raised : Colors.transparent,
+        shape: const CircleBorder(),
+        child: InkWell(
+          onTap: onTap,
+          customBorder: const CircleBorder(),
+          child: SizedBox(
+            width: 48,
+            height: 48,
+            child: Icon(icon, size: 22, color: iconColor),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SendCircleButton extends StatelessWidget {
+  const _SendCircleButton({required this.enabled, this.onTap});
+
+  final bool enabled;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      enabled: enabled,
+      label: 'Gửi',
+      child: Tooltip(
+        message: 'Gửi',
+        child: Material(
+          color: enabled ? AppColors.primary : AppColors.borderHairline,
+          shape: const CircleBorder(),
+          child: InkWell(
+            onTap: onTap,
+            customBorder: const CircleBorder(),
+            child: const SizedBox(
+              width: 48,
+              height: 48,
+              child: Center(
+                child: ExcludeSemantics(
+                  child: FaIcon(
+                    FontAwesomeIcons.solidPaperPlane,
+                    size: 16,
+                    color: Colors.white,
                   ),
                 ),
               ),
             ),
-            if (isPending)
-              _ChatInputActionPill(
-                label: stopLabel,
-                icon: LucideIcons.square,
-                backgroundColor: AppColors.card,
-                foregroundColor: AppColors.textPrimary,
-                onTap: onStop,
-              )
-            else
-              _ChatInputActionPill(
-                icon: LucideIcons.send,
-                backgroundColor:
-                    enabled ? AppColors.primary : AppColors.borderHairline,
-                foregroundColor:
-                    enabled ? AppColors.onOrange : AppColors.textDisabled,
-                onTap: enabled ? onSend : null,
-              ),
-          ],
+          ),
         ),
-      ),
       ),
     );
   }
@@ -584,9 +1548,9 @@ class AiChatReviewBar extends StatelessWidget {
             const Gap(Insets.xs),
             Text(
               reviewSubmittedLabel ?? 'Đã gửi phản hồi',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.textTertiary,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: AppColors.textTertiary),
             ),
           ],
         ),
@@ -618,9 +1582,9 @@ class AiChatReviewBar extends StatelessWidget {
                 child: Text(
                   '⚑ $reportLabel',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.textTertiary,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    color: AppColors.textTertiary,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ],
@@ -630,9 +1594,9 @@ class AiChatReviewBar extends StatelessWidget {
             children: [
               Text(
                 ratingPrompt,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.textTertiary,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: AppColors.textTertiary),
               ),
               const Gap(Insets.sm),
               ...List.generate(5, (index) {
@@ -705,28 +1669,13 @@ class AiMessageRow extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          width: 32,
-          height: 32,
-          margin: const EdgeInsets.only(right: Insets.sm, top: Insets.xs),
-          padding: const EdgeInsets.all(3),
-          decoration: BoxDecoration(
-            color: AppColors.primaryWash,
-            borderRadius: BorderRadius.circular(Radii.sm),
-          ),
-          child: Image.asset(
-            AppAssets.cocVangLogo,
-            fit: BoxFit.contain,
-            errorBuilder: (_, __, ___) => const Icon(
-              Icons.school_rounded,
-              size: 18,
-              color: AppColors.primary,
-            ),
-          ),
+        const Padding(
+          padding: EdgeInsets.only(right: Insets.sm, top: Insets.xs),
+          child: TutorMascot(size: TutorMascotSize.sm),
         ),
+        const Gap(Insets.sm),
         Expanded(child: child),
       ],
     );
   }
 }
-

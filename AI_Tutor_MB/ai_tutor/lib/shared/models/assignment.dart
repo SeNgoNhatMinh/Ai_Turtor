@@ -13,6 +13,7 @@ class Assignment {
     this.status,
     this.score,
     this.feedback,
+    this.submissionId,
   });
 
   final String id;
@@ -25,6 +26,7 @@ class Assignment {
   final String? status;
   final double? score;
   final String? feedback;
+  final String? submissionId;
 
   bool get isOverdue {
     if (dueAt == null || status == 'SUBMITTED' || status == 'REVIEWED') {
@@ -46,6 +48,7 @@ class Assignment {
           json['status']?.toString() ?? json['submissionStatus']?.toString(),
       score: _parseScore(json['score']),
       feedback: json['teacherFeedback']?.toString() ?? json['feedback']?.toString(),
+      submissionId: json['submissionId']?.toString(),
     );
   }
 

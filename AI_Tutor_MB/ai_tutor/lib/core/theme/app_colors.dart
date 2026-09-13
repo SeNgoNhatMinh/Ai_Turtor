@@ -2,6 +2,11 @@ import 'package:flutter/material.dart';
 
 /// EduNova-inspired brand tokens — KHÔNG hard-code hex ngoài file này.
 abstract final class AppColors {
+  // Official FPT wordmark (F blue · P orange · T green)
+  static const fptBlue = Color(0xFF0066B3);
+  static const fptOrange = Color(0xFFF37021);
+  static const fptGreen = Color(0xFF32A935);
+
   // Primary (navy)
   static const primary = Color(0xFF0D1B3D);
   static const primaryPressed = Color(0xFF0A152E);
@@ -9,11 +14,14 @@ abstract final class AppColors {
   static const primaryTint = Color(0xFF1E3A8A);
   static const primaryWash = Color(0xFFE8EEF7);
 
-  // Accent (orange — CTA phụ, FAB, đăng ký)
-  static const accent = Color(0xFFFF8A00);
-  static const accentPressed = Color(0xFFE67A00);
-  static const accentDark = Color(0xFFCC6D00);
-  static const accentWash = Color(0xFFFFF3E0);
+  /// Navy header login (khớp mockup ~#001C44).
+  static const loginNavy = Color(0xFF001C44);
+
+  // Accent (FPT orange — CTA)
+  static const accent = fptOrange;
+  static const accentPressed = Color(0xFFE05F12);
+  static const accentDark = Color(0xFFCC5410);
+  static const accentWash = Color(0xFFFFF1E8);
 
   // Secondary aliases (giữ tên cũ cho tương thích)
   static const leafGreen = Color(0xFF22C55E);
@@ -38,7 +46,7 @@ abstract final class AppColors {
   static const onOrange = Color(0xFFFFFFFF);
 
   // Semantic
-  static const success = Color(0xFF16A34A);
+  static const success = fptGreen;
   static const successBg = Color(0xFFDCFCE7);
   static const warning = Color(0xFFEAB308);
   static const warningBg = Color(0xFFFEF9C3);
@@ -81,7 +89,7 @@ abstract final class AppColors {
   static const homeHeroGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [primary, primaryTint],
+    colors: [fptBlue, primary],
   );
   static const homeScreenGradient = LinearGradient(
     begin: Alignment.topCenter,

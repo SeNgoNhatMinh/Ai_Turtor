@@ -10,14 +10,42 @@ class EscalationRepository {
 
   final Dio _dio;
 
+  Future<String> createMentorReviewRequest({
+    required String studentId,
+    required String studentName,
+    required String studentEmail,
+    required String courseId,
+    required String conversationId,
+    required String question,
+    required String aiResponse,
+    String? classId,
+  }) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/api/tutor/escalations',
+      data: {
+        'studentId': studentId,
+        'studentName': studentName,
+        'studentEmail': studentEmail,
+        'courseId': courseId,
+        if (classId != null && classId.isNotEmpty) 'classId': classId,
+        'conversationId': conversationId,
+        'question': question,
+        'aiResponse': aiResponse,
+        'reason': 'Student requested mentor support from AI Tutor chat.',
+      },
+    );
+    return readId(
+      unwrapMap(response.data),
+      keys: ['questionEscalationId', 'id', 'escalationId'],
+    );
+  }
+
   Future<EscalationOffer> fetchOffer(String questionEscalationId) async {
     final response = await _dio.post<Map<String, dynamic>>(
       '/api/tutor/escalations/offer',
       queryParameters: {'questionEscalationId': questionEscalationId},
     );
-    return EscalationOffer.fromJson(
-      unwrapMap(response.data, keys: ['offer']),
-    );
+    return EscalationOffer.fromJson(unwrapMap(response.data, keys: ['offer']));
   }
 
   Future<EscalationSelectResult> selectMentor({

@@ -6,6 +6,8 @@ import '../../../core/network/n8n_payload.dart';
 import '../../../core/network/network_providers.dart';
 import '../../../core/utils/json_helpers.dart';
 import '../../../shared/models/ai_conversation.dart';
+import 'daily_question_quota.dart';
+import 'tutor_session.dart';
 
 class AiTutorRepository {
   AiTutorRepository(this._spring, this._n8n);
@@ -147,6 +149,7 @@ class AiTutorRepository {
     String? authToken,
     String? codeSnippet,
     String? sessionId,
+    String? interactionType,
     CancelToken? cancelToken,
   }) async {
     final payload = withN8nContext(
@@ -160,6 +163,8 @@ class AiTutorRepository {
           'conversationId': conversationId,
         'message': message,
         'codeSnippet': codeSnippet ?? '',
+        if (interactionType != null && interactionType.isNotEmpty)
+          'interactionType': interactionType,
       },
       authToken: authToken,
       sessionId: sessionId ?? newSessionId('chat'),
@@ -174,6 +179,29 @@ class AiTutorRepository {
     final data = unwrapMap(response.data);
     ensureN8nSuccess(data);
     return AiAnswer.fromJson(data);
+  }
+
+  Future<void> recordUnderstandingCheck({
+    required String conversationId,
+    required String messageId,
+    required String userId,
+    required String selectedKey,
+  }) async {
+    await _spring.post<void>(
+      '/api/ai/conversations/$conversationId/messages/$messageId/understanding-check',
+      data: {'userId': userId, 'selectedKey': selectedKey},
+    );
+  }
+
+  Future<DailyQuestionQuota> fetchQuestionQuota({
+    required String studentId,
+    required String courseId,
+  }) async {
+    final response = await _spring.get<dynamic>(
+      '/api/tutor/students/$studentId/courses/$courseId/question-quota',
+      options: Options(extra: const {skipUnauthorizedRedirectExtra: true}),
+    );
+    return normalizeDailyQuota(response.data, courseId: courseId);
   }
 
   Future<Map<String, dynamic>> reviewAnswer({
@@ -264,6 +292,50 @@ class AiTutorRepository {
       studentName: studentName,
       studentEmail: studentEmail,
     );
+  }
+
+  Future<List<String>> fetchSuggestedChapterTitles(String courseId) async {
+    final trimmed = courseId.trim();
+    if (trimmed.isEmpty) return const [];
+    try {
+      final response = await _spring.get<dynamic>(
+        '/api/v2/expert-training/chapters/suggested',
+        queryParameters: {'courseId': trimmed},
+        options: Options(extra: const {skipUnauthorizedRedirectExtra: true}),
+      );
+      final chapters = unwrapList(response.data, ['chapters']);
+      return chapters
+          .whereType<Map>()
+          .map((item) => (item['title'] ?? '').toString().trim())
+          .where((title) => title.isNotEmpty)
+          .toList();
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  Future<TutorSessionOpenResult> openTutorSession({
+    required String studentId,
+    required String courseId,
+    String? classId,
+  }) async {
+    final response = await _spring.post<Map<String, dynamic>>(
+      '/api/tutor/sessions/open',
+      data: {
+        'studentId': studentId,
+        'courseId': courseId,
+        if (classId != null && classId.isNotEmpty) 'classId': classId,
+      },
+      options: Options(extra: const {skipUnauthorizedRedirectExtra: true}),
+    );
+    final raw = response.data is Map
+        ? Map<String, dynamic>.from(response.data as Map)
+        : <String, dynamic>{};
+    final parsed = TutorSessionOpenResult.fromJson(unwrapMap(raw));
+    if (parsed.conversationId.isNotEmpty || parsed.openingMessage != null) {
+      return parsed;
+    }
+    return TutorSessionOpenResult.fromJson(raw);
   }
 }
 

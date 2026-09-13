@@ -8,8 +8,20 @@ abstract final class AppRoutes {
   static const studentTutor = '/s/tutor';
   static const studentCodeMentor = '/s/tutor/code-mentor';
   static const studentAssignments = '/s/assignments';
+  static const studentMaterials = '/s/materials';
+  static const studentProgress = '/s/progress';
   static const studentProfile = '/s/profile';
   static const escalationHistory = '/s/profile/escalations';
+
+  static String studentSupport({String? ticketId}) {
+    final uri = Uri(
+      path: escalationHistory,
+      queryParameters: ticketId != null && ticketId.isNotEmpty
+          ? {'ticket': ticketId}
+          : null,
+    );
+    return uri.toString();
+  }
 
   static const teacherHome = '/t/home';
   static const teacherClasses = '/t/classes';
@@ -58,10 +70,6 @@ abstract final class AppRoutes {
   static const studentQuiz = '/s/quiz';
   static String studentQuizForCourse(String courseId) => '/s/quiz/$courseId';
   static const teacherQuiz = '/t/quiz';
-  static const expertTasks = '/t/expert-tasks';
-  static String expertContribute(String taskId) => '/t/expert-tasks/$taskId/contribute';
-  static const v2ExpertHub = '/t/v2';
-  static const adminV2ExpertHub = '/a/v2';
 
   // ── Admin shell routes ──────────────────────────────────────────
   static const adminHome = '/a/home';
@@ -95,11 +103,7 @@ abstract final class AppRoutes {
   static String teacherClassMaterials(String courseId, String classId) =>
       '/t/classes/$courseId/$classId/materials';
 
-  static const studentShellRoutes = [
-    studentHome,
-    studentTutor,
-    studentProfile,
-  ];
+  static const studentShellRoutes = [studentHome, studentTutor, studentProfile];
 
   static const teacherShellRoutes = [
     teacherHome,

@@ -21,9 +21,9 @@ import '../../features/courses/presentation/teacher_materials_screen.dart';
 import '../../features/dashboard/presentation/teacher_dashboard_screen.dart';
 import '../../features/escalation/presentation/escalation_offer_screen.dart';
 import '../../features/escalation/presentation/escalation_screens.dart';
-import '../../features/expert_training/presentation/expert_training_screens.dart';
-import '../../shared/models/expert_training.dart';
 import '../../features/home/presentation/student_home_screen.dart';
+import '../../features/learning/presentation/learning_progress_screen.dart';
+import '../../features/materials/presentation/student_materials_screen.dart';
 import '../../features/inbox/presentation/escalation_answer_screen.dart';
 import '../../features/inbox/presentation/teacher_inbox_screen.dart';
 import '../../features/memory/presentation/improve_plan_screen.dart';
@@ -121,8 +121,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       }
 
       if ((location.startsWith('/t/review') ||
-              location.startsWith('/t/candidates') ||
-              location.startsWith('/t/v2')) &&
+              location.startsWith('/t/candidates')) &&
           !isSeniorRole(session.role)) {
         return isTeacher ? AppRoutes.teacherHome : AppRoutes.studentHome;
       }
@@ -169,6 +168,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             builder: (_, __) => const StudentAssignmentsScreen(),
           ),
           GoRoute(
+            path: AppRoutes.studentMaterials,
+            builder: (_, __) => const StudentMaterialsScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.studentProgress,
+            builder: (_, __) => const LearningProgressScreen(),
+          ),
+          GoRoute(
             path: '/s/assignments/:assignmentId',
             builder: (_, state) => AssignmentDetailScreen(
               assignmentId: state.pathParameters['assignmentId']!,
@@ -208,12 +215,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: AppRoutes.escalationHistory,
-            builder: (_, __) => const EscalationHistoryScreen(),
+            builder: (_, state) => EscalationHistoryScreen(
+              ticketId: state.uri.queryParameters['ticket'],
+            ),
+          ),
+          GoRoute(
+            path: AppRoutes.studentQuiz,
+            builder: (_, __) => const StudentQuizScreen(),
           ),
           GoRoute(
             path: '/s/quiz/:courseId',
-            builder: (_, state) =>
-                StudentQuizScreen(courseId: state.pathParameters['courseId']!),
+            builder: (_, state) => StudentQuizScreen(
+              initialCourseId: state.pathParameters['courseId'],
+            ),
           ),
         ],
       ),
@@ -307,20 +321,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             path: AppRoutes.teacherQuiz,
             builder: (_, __) => const TeacherQuizScreen(),
           ),
-          GoRoute(
-            path: AppRoutes.expertTasks,
-            builder: (_, __) => const ExpertTaskBoardScreen(),
-          ),
-          GoRoute(
-            path: '/t/expert-tasks/:taskId/contribute',
-            builder: (_, state) => ExpertContributeScreen(
-              task: state.extra as ExpertTask,
-            ),
-          ),
-          GoRoute(
-            path: AppRoutes.v2ExpertHub,
-            builder: (_, __) => const V2ExpertHubScreen(),
-          ),
         ],
       ),
       // ── Admin shell ───────────────────────────────────────────
@@ -381,10 +381,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               candidateId: state.pathParameters['candidateId']!,
               candidate: state.extra as KnowledgeCandidateItem?,
             ),
-          ),
-          GoRoute(
-            path: AppRoutes.adminV2ExpertHub,
-            builder: (_, __) => const V2ExpertHubScreen(),
           ),
         ],
       ),

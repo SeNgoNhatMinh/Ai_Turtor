@@ -172,7 +172,8 @@ class EscalationOffer {
           json['answer']?.toString() ??
           json['aiResponse']?.toString(),
       mentors: mentors,
-      activeChatRoomId: json['activeChatRoomId']?.toString() ??
+      activeChatRoomId:
+          json['activeChatRoomId']?.toString() ??
           json['chatRoomId']?.toString(),
     );
   }
@@ -182,32 +183,134 @@ class EscalationHistoryItem {
   const EscalationHistoryItem({
     required this.id,
     required this.status,
+    this.studentVisibleStatus,
     this.originalQuestion,
+    this.questionPreview,
+    this.conversationId,
+    this.courseId,
+    this.classId,
     this.mentorName,
+    this.mentorAnswer,
+    this.aiResponse,
     this.chatRoomId,
     this.createdAt,
+    this.updatedAt,
   });
 
   final String id;
   final String status;
+  final String? studentVisibleStatus;
   final String? originalQuestion;
+  final String? questionPreview;
+  final String? conversationId;
+  final String? courseId;
+  final String? classId;
   final String? mentorName;
+  final String? mentorAnswer;
+  final String? aiResponse;
   final String? chatRoomId;
   final DateTime? createdAt;
+  final DateTime? updatedAt;
+
+  EscalationHistoryItem merge(EscalationHistoryItem? other) {
+    if (other == null) return this;
+    String? pick(String? preferred, String? fallback) {
+      final value = preferred?.trim();
+      if (value != null && value.isNotEmpty) return preferred;
+      return fallback;
+    }
+
+    return EscalationHistoryItem(
+      id: id.isNotEmpty ? id : other.id,
+      status: status.isNotEmpty ? status : other.status,
+      studentVisibleStatus: pick(
+        studentVisibleStatus,
+        other.studentVisibleStatus,
+      ),
+      originalQuestion: pick(originalQuestion, other.originalQuestion),
+      questionPreview: pick(questionPreview, other.questionPreview),
+      conversationId: pick(conversationId, other.conversationId),
+      courseId: pick(courseId, other.courseId),
+      classId: pick(classId, other.classId),
+      mentorName: pick(mentorName, other.mentorName),
+      mentorAnswer: pick(mentorAnswer, other.mentorAnswer),
+      aiResponse: pick(aiResponse, other.aiResponse),
+      chatRoomId: pick(chatRoomId, other.chatRoomId),
+      createdAt: createdAt ?? other.createdAt,
+      updatedAt: updatedAt ?? other.updatedAt,
+    );
+  }
 
   factory EscalationHistoryItem.fromJson(Map<String, dynamic> json) {
+    final mentorAnswer =
+        json['mentorAnswer']?.toString() ??
+        json['teacherAnswer']?.toString() ??
+        json['response']?.toString() ??
+        json['mentorResponse']?.toString();
     return EscalationHistoryItem(
       id: readId(json, keys: ['id', 'questionEscalationId']),
       status: readString(json, 'status', fallback: 'PENDING_OFFER'),
+      studentVisibleStatus: json['studentVisibleStatus']?.toString(),
       originalQuestion:
-          json['originalQuestion']?.toString() ?? json['question']?.toString(),
+          json['originalQuestion']?.toString() ??
+          json['question']?.toString() ??
+          json['questionPreview']?.toString(),
+      questionPreview:
+          json['questionPreview']?.toString() ??
+          json['question']?.toString() ??
+          json['originalQuestion']?.toString(),
+      conversationId: json['conversationId']?.toString(),
+      courseId: json['courseId']?.toString(),
+      classId: json['classId']?.toString(),
       mentorName:
           json['mentorName']?.toString() ??
           json['assignedMentorName']?.toString() ??
-          json['selectedMentorName']?.toString(),
+          json['selectedMentorName']?.toString() ??
+          json['teacherName']?.toString(),
+      mentorAnswer: mentorAnswer,
+      aiResponse:
+          json['aiResponse']?.toString() ??
+          json['aiAnswer']?.toString() ??
+          json['answerSnapshot']?.toString() ??
+          json['aiSnapshot']?.toString(),
       chatRoomId: json['chatRoomId']?.toString(),
-      createdAt: parseDateTime(json['createdAt'] ?? json['updatedAt']),
+      createdAt: parseDateTime(json['createdAt']),
+      updatedAt: parseDateTime(json['updatedAt'] ?? json['createdAt']),
     );
+  }
+
+  factory EscalationHistoryItem.fromDetailJson(Map<String, dynamic> json) {
+    Map<String, dynamic> detail = {};
+    for (final key in ['questionEscalation', 'escalation']) {
+      final value = json[key];
+      if (value is Map) {
+        detail = Map<String, dynamic>.from(value);
+        break;
+      }
+    }
+    if (detail.isEmpty) {
+      detail = Map<String, dynamic>.from(json);
+    }
+
+    String? mentorAnswer = detail['mentorAnswer']?.toString();
+    final latestAnswer = json['latestMentorAnswer'];
+    if (latestAnswer is String && latestAnswer.trim().isNotEmpty) {
+      mentorAnswer = latestAnswer;
+    } else if (latestAnswer is Map) {
+      mentorAnswer =
+          latestAnswer['answer']?.toString() ??
+          latestAnswer['content']?.toString() ??
+          latestAnswer['mentorAnswer']?.toString() ??
+          mentorAnswer;
+    }
+
+    return EscalationHistoryItem.fromJson({
+      ...detail,
+      if (json['studentVisibleStatus'] != null)
+        'studentVisibleStatus': json['studentVisibleStatus'],
+      if (mentorAnswer != null && mentorAnswer.trim().isNotEmpty)
+        'mentorAnswer': mentorAnswer,
+    });
   }
 }
 

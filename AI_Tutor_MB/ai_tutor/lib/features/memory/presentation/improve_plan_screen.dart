@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:gap/gap.dart';
-import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import '../../../core/constants/app_assets.dart';
 import '../../../core/network/exceptions.dart';
-import '../../../core/router/routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
@@ -16,7 +14,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../../shared/models/improve_plan.dart';
 import '../../../shared/widgets/widgets.dart';
 import '../../courses/application/courses_controller.dart';
-import '../../quiz/presentation/student_quiz_screens.dart';
+import '../../student/student_route_handoff.dart';
 import '../application/course_memory_provider.dart';
 import '../application/improve_plan_controller.dart';
 import 'widgets/improve_suggestion_widgets.dart';
@@ -59,7 +57,8 @@ class ImprovePlanScreen extends ConsumerWidget {
           );
           final steps = plan?.resolvedSteps ?? const <PlanStep>[];
           final riskPercent =
-              plan?.riskPercent ?? riskPercentForLevel(plan?.riskLevel ?? 'LOW');
+              plan?.riskPercent ??
+              riskPercentForLevel(plan?.riskLevel ?? 'LOW');
           final pinned = data.memory.pinnedSuggestions;
 
           return RefreshIndicator(
@@ -71,7 +70,9 @@ class ImprovePlanScreen extends ConsumerWidget {
                 parent: BouncingScrollPhysics(),
               ),
               slivers: [
-                SliverToBoxAdapter(child: _ImprovePlanHeader(courseCode: courseCode)),
+                SliverToBoxAdapter(
+                  child: _ImprovePlanHeader(courseCode: courseCode),
+                ),
                 SliverPadding(
                   padding: const EdgeInsets.fromLTRB(
                     Insets.screenH,
@@ -87,7 +88,9 @@ class ImprovePlanScreen extends ConsumerWidget {
                           ctaLabel: l10n.generatePlan,
                           onCta: () => ref
                               .read(
-                                improvePlanControllerProvider(courseId).notifier,
+                                improvePlanControllerProvider(
+                                  courseId,
+                                ).notifier,
                               )
                               .generateSuggestions(courseId),
                         )
@@ -95,7 +98,8 @@ class ImprovePlanScreen extends ConsumerWidget {
                         _RiskCard(
                           percent: riskPercent,
                           riskLevel: plan?.riskLevel ?? 'MEDIUM',
-                          summary: plan?.evidence ?? l10n.improvePlanDefaultSummary,
+                          summary:
+                              plan?.evidence ?? l10n.improvePlanDefaultSummary,
                         ),
                         if (pinned.isNotEmpty) ...[
                           const Gap(Insets.xl),
@@ -107,11 +111,12 @@ class ImprovePlanScreen extends ConsumerWidget {
                         const Gap(Insets.xl),
                         Text(
                           l10n.improveTopicsHeading,
-                          style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                            color: AppColors.textTertiary,
-                            letterSpacing: 0.8,
-                            fontWeight: FontWeight.w700,
-                          ),
+                          style: Theme.of(context).textTheme.labelLarge
+                              ?.copyWith(
+                                color: AppColors.textTertiary,
+                                letterSpacing: 0.8,
+                                fontWeight: FontWeight.w700,
+                              ),
                         ),
                         const Gap(Insets.md),
                         if (topics.isEmpty)
@@ -166,7 +171,9 @@ class ImprovePlanScreen extends ConsumerWidget {
                           expand: true,
                           onPressed: () => ref
                               .read(
-                                improvePlanControllerProvider(courseId).notifier,
+                                improvePlanControllerProvider(
+                                  courseId,
+                                ).notifier,
                               )
                               .generateSuggestions(courseId),
                         ),
@@ -177,8 +184,9 @@ class ImprovePlanScreen extends ConsumerWidget {
                             expand: true,
                             onPressed: () => ref
                                 .read(
-                                  improvePlanControllerProvider(courseId)
-                                      .notifier,
+                                  improvePlanControllerProvider(
+                                    courseId,
+                                  ).notifier,
                                 )
                                 .completePlan(plan.id),
                           ),
@@ -210,14 +218,9 @@ class _ImprovePlanHeader extends StatelessWidget {
         fit: StackFit.expand,
         children: [
           const DecoratedBox(
-            decoration: BoxDecoration(
-              color: AppColors.leafGreen,
-            ),
+            decoration: BoxDecoration(color: AppColors.leafGreen),
           ),
-          CustomPaint(
-            painter: _HeaderWavePainter(),
-            size: Size.infinite,
-          ),
+          CustomPaint(painter: _HeaderWavePainter(), size: Size.infinite),
           SafeArea(
             bottom: false,
             child: Padding(
@@ -229,14 +232,18 @@ class _ImprovePlanHeader extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  Image.asset(
-                    AppAssets.cocVangLogo,
-                    width: 56,
-                    height: 56,
-                    errorBuilder: (_, __, ___) => const Icon(
-                      Icons.school,
-                      color: Colors.white,
-                      size: 40,
+                  ClipOval(
+                    child: Image.asset(
+                      AppAssets.cocFptEducation,
+                      width: 56,
+                      height: 56,
+                      fit: BoxFit.cover,
+                      filterQuality: FilterQuality.high,
+                      errorBuilder: (_, __, ___) => const Icon(
+                        Icons.school,
+                        color: Colors.white,
+                        size: 40,
+                      ),
                     ),
                   ),
                   const Gap(Insets.md),
@@ -247,16 +254,18 @@ class _ImprovePlanHeader extends StatelessWidget {
                       children: [
                         Text(
                           l10n.improvePlanTitle,
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w800,
-                          ),
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w800,
+                              ),
                         ),
                         Text(
                           l10n.improvePlanSubtitle(courseCode),
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Colors.white.withValues(alpha: 0.9),
-                          ),
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                color: Colors.white.withValues(alpha: 0.9),
+                              ),
                         ),
                       ],
                     ),
@@ -397,7 +406,6 @@ class _SuggestionRow extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
     final togglingPin = useState(false);
-    final learning = useState(false);
 
     Future<void> onTogglePin() async {
       togglingPin.value = true;
@@ -408,7 +416,10 @@ class _SuggestionRow extends HookConsumerWidget {
       } catch (e) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(describeError(e)), backgroundColor: AppColors.error),
+            SnackBar(
+              content: Text(describeError(e)),
+              backgroundColor: AppColors.error,
+            ),
           );
         }
       } finally {
@@ -416,43 +427,25 @@ class _SuggestionRow extends HookConsumerWidget {
       }
     }
 
-    Future<void> onLearnNow() async {
-      learning.value = true;
-      try {
-        final conversationId = await ref
-            .read(improvePlanControllerProvider(courseId).notifier)
-            .learnFromSuggestion(courseId, label);
-        if (context.mounted && conversationId != null) {
-          context.push(AppRoutes.studentTutorChat(conversationId));
-        }
-      } catch (e) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(describeError(e)), backgroundColor: AppColors.error),
-          );
-        }
-      } finally {
-        learning.value = false;
-      }
-    }
-
     return ImproveSuggestionActionRow(
       label: label,
       pinned: pinned,
-      loadingLearn: learning.value,
+      loadingLearn: false,
       loadingPin: togglingPin.value,
       learnLabel: l10n.learnNow,
       quizLabel: 'Tạo quiz',
       pinTooltip: pinned ? l10n.unpinSuggestion : l10n.pinSuggestion,
-      onLearn: onLearnNow,
-      onCreateQuiz: () => Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => TakeQuizScreen(
-            courseId: courseId,
-            topic: label,
-            suggestionText: label,
-          ),
-        ),
+      onLearn: () => openStudyChatFromSuggestion(
+        context,
+        ref,
+        courseRouteId: courseId,
+        suggestionText: label,
+      ),
+      onCreateQuiz: () => openQuizFromSuggestion(
+        context,
+        ref,
+        courseRouteId: courseId,
+        suggestionText: label,
       ),
       onTogglePin: onTogglePin,
     );
@@ -494,8 +487,7 @@ class _PlanStepCard extends StatelessWidget {
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w700,
                     color: AppColors.splashNavy,
-                    decoration:
-                        completed ? TextDecoration.lineThrough : null,
+                    decoration: completed ? TextDecoration.lineThrough : null,
                   ),
                 ),
                 const Gap(Insets.xs),
@@ -507,9 +499,7 @@ class _PlanStepCard extends StatelessWidget {
                     PlanStepStatus.notStarted => l10n.planStepNotStarted,
                   },
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: active
-                        ? AppColors.primary
-                        : AppColors.textTertiary,
+                    color: active ? AppColors.primary : AppColors.textTertiary,
                     fontWeight: active ? FontWeight.w600 : FontWeight.w400,
                   ),
                 ),

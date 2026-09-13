@@ -6,7 +6,7 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 import 'realtime_event.dart';
 import 'ws_url.dart';
 
-/// Kết nối `/ws/events` — push indexing, assignment, expert training, grading...
+/// Kết nối `/ws/events` — push indexing, assignment, grading...
 class EventsSocketService {
   WebSocketChannel? _channel;
   StreamSubscription<dynamic>? _subscription;

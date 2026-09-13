@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -13,11 +12,10 @@ import '../../../../shared/models/course.dart';
 import '../../../../shared/widgets/widgets.dart';
 import '../../../memory/application/course_memory_provider.dart';
 import '../../../memory/presentation/widgets/improve_suggestion_widgets.dart';
-import '../../application/course_detail_controller.dart';
 import '../../application/courses_controller.dart';
 
 /// Khối chọn môn + tiến độ + hành động (Hỏi AI / Quiz / Ôn tập) — tích hợp trong Home.
-class StudentCourseHubSection extends HookConsumerWidget {
+class StudentCourseHubSection extends ConsumerWidget {
   const StudentCourseHubSection({
     super.key,
     required this.courses,
@@ -46,7 +44,13 @@ class StudentCourseHubSection extends HookConsumerWidget {
     final l10n = AppLocalizations.of(context)!;
     final selected = ref.watch(selectedCourseProvider);
 
-    if (courses.isEmpty) {
+    final uniqueCourses = <Course>[];
+    final seen = <String>{};
+    for (final c in courses) {
+      if (seen.add(c.selectionKey)) uniqueCourses.add(c);
+    }
+
+    if (uniqueCourses.isEmpty) {
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: Insets.screenH),
         child: EmptyState(
@@ -59,10 +63,10 @@ class StudentCourseHubSection extends HookConsumerWidget {
     }
 
     final hasSelection =
-        selected != null && courses.any((c) => c.id == selected.id);
+        selected != null && uniqueCourses.any((c) => c == selected);
     final active = hasSelection
-        ? courses.firstWhere((c) => c.id == selected.id)
-        : courses.first;
+        ? uniqueCourses.firstWhere((c) => c == selected)
+        : uniqueCourses.first;
 
     if (!hasSelection) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -76,7 +80,7 @@ class StudentCourseHubSection extends HookConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _CourseDropdown(
-            items: courses,
+            items: uniqueCourses,
             value: active,
             onChanged: (course) =>
                 ref.read(selectedCourseProvider.notifier).state = course,
@@ -85,11 +89,7 @@ class StudentCourseHubSection extends HookConsumerWidget {
           PlugProServiceTabs(
             selected: serviceTab,
             onSelected: onServiceTabChanged,
-            labels: (
-              primary: 'Hỏi AI',
-              secondary: 'Quiz',
-              tertiary: 'Ôn tập',
-            ),
+            labels: (primary: 'Hỏi AI', secondary: 'Quiz', tertiary: 'Ôn tập'),
           ),
           const Gap(Insets.md),
           _CourseDetailPanel(
@@ -148,10 +148,16 @@ class _CourseDropdown extends StatelessWidget {
               .map(
                 (c) => DropdownMenuItem(
                   value: c,
-                  child: Text(
-                    c.name.isNotEmpty ? '${c.code} — ${c.name}' : c.code,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                  child: Text(() {
+                    final base = c.name.isNotEmpty
+                        ? '${c.code} — ${c.name}'
+                        : c.code;
+                    final cls = c.className?.trim();
+                    if (cls != null && cls.isNotEmpty) {
+                      return '$base · $cls';
+                    }
+                    return base;
+                  }(), overflow: TextOverflow.ellipsis),
                 ),
               )
               .toList(),
@@ -164,7 +170,7 @@ class _CourseDropdown extends StatelessWidget {
   }
 }
 
-class _CourseDetailPanel extends HookConsumerWidget {
+class _CourseDetailPanel extends ConsumerWidget {
   const _CourseDetailPanel({
     required this.course,
     required this.serviceTab,
@@ -178,7 +184,6 @@ class _CourseDetailPanel extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
-    final progress = ref.watch(courseProgressControllerProvider(course));
     final memory = ref.watch(courseMemoryProvider(course.id));
 
     final actionLabel = switch (serviceTab) {
@@ -238,36 +243,6 @@ class _CourseDetailPanel extends HookConsumerWidget {
                   ),
                 ],
               ),
-              const Gap(Insets.lg),
-              progress.when(
-                loading: () => const LinearProgressIndicator(
-                  color: AppColors.navActive,
-                  backgroundColor: AppColors.homeOrangeWash,
-                ),
-                error: (_, __) => const SizedBox.shrink(),
-                data: (percent) => Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: LinearProgressIndicator(
-                        value: percent / 100,
-                        minHeight: 8,
-                        color: AppColors.navActive,
-                        backgroundColor: AppColors.homeOrangeWash,
-                      ),
-                    ),
-                    const Gap(Insets.sm),
-                    Text(
-                      l10n.courseProgressLabel(percent),
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.navActive,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
             ],
           ),
         ),
@@ -292,6 +267,30 @@ class _CourseDetailPanel extends HookConsumerWidget {
         ),
         const Gap(Insets.lg),
         FptButton(label: actionLabel, expand: true, onPressed: onAction),
+        const Gap(Insets.sm),
+        Row(
+          children: [
+            Expanded(
+              child: FptButton(
+                label: 'Tiến độ',
+                variant: FptButtonVariant.ghost,
+                size: FptButtonSize.sm,
+                icon: LucideIcons.trendingUp,
+                onPressed: () => context.push(AppRoutes.studentProgress),
+              ),
+            ),
+            const Gap(Insets.sm),
+            Expanded(
+              child: FptButton(
+                label: 'Tài liệu',
+                variant: FptButtonVariant.ghost,
+                size: FptButtonSize.sm,
+                icon: LucideIcons.bookOpen,
+                onPressed: () => context.push(AppRoutes.studentMaterials),
+              ),
+            ),
+          ],
+        ),
       ],
     );
   }

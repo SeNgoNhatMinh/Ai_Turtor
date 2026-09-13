@@ -14,11 +14,12 @@ import '../../../core/theme/app_spacing.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/models/course.dart';
 import '../../../shared/widgets/widgets.dart';
+import '../../auth/application/auth_controller.dart';
 import '../../courses/application/courses_controller.dart';
 import '../../courses/presentation/widgets/student_course_hub_section.dart';
 import '../../notifications/application/notifications_controller.dart';
-import '../../auth/application/auth_controller.dart';
 import '../application/home_controller.dart';
+import 'widgets/plan_a_home_blocks.dart';
 
 class StudentHomeScreen extends HookConsumerWidget {
   const StudentHomeScreen({super.key});
@@ -29,13 +30,8 @@ class StudentHomeScreen extends HookConsumerWidget {
     final home = ref.watch(homeControllerProvider);
     final notificationCount = ref.watch(notificationCountProvider);
 
-    final session = ref.watch(authControllerProvider).valueOrNull;
-    final displayName = (session?.fullName ?? '').trim().isNotEmpty
-        ? session!.fullName.trim()
-        : 'bạn';
     final searchController = useTextEditingController();
     final searchQuery = useState('');
-    final selectedCategory = useState('all');
     final selectedServiceTab = useState(PlugProServiceTab.primary);
     final scrollController = useScrollController();
     final courseHubKey = useMemoized(GlobalKey.new);
@@ -58,42 +54,6 @@ class StudentHomeScreen extends HookConsumerWidget {
       );
     }
 
-    final categoryPills = [
-      PlugProPill(id: 'all', label: 'Tất cả', icon: LucideIcons.layoutGrid),
-      PlugProPill(
-        id: 'tutor',
-        label: 'Hỏi AI',
-        icon: LucideIcons.sparkles,
-      ),
-      PlugProPill(id: 'quiz', label: 'Quiz', icon: LucideIcons.clipboardList),
-      PlugProPill(
-        id: 'improve',
-        label: 'Ôn tập',
-        icon: LucideIcons.trendingUp,
-      ),
-    ];
-
-    void onCategorySelected(String id) {
-      selectedCategory.value = id;
-      switch (id) {
-        case 'tutor':
-          context.go(AppRoutes.studentTutor);
-        case 'quiz':
-          selectedServiceTab.value = PlugProServiceTab.secondary;
-          scrollToCourseHub();
-        case 'improve':
-          final course = ref.read(selectedCourseProvider);
-          if (course != null) {
-            context.go(AppRoutes.studentImprovePlan(course.id));
-          } else {
-            selectedServiceTab.value = PlugProServiceTab.tertiary;
-            scrollToCourseHub();
-          }
-        case 'all':
-          break;
-      }
-    }
-
     List<Course> filterCourses(List<Course> courses) {
       final q = searchQuery.value.trim().toLowerCase();
       final enrolled = courses.where((c) => c.status != 'COMPLETED').toList();
@@ -108,19 +68,9 @@ class StudentHomeScreen extends HookConsumerWidget {
           .toList();
     }
 
-    String coursePrefix(String code) {
-      final cleaned = code.trim();
-      if (cleaned.isEmpty) return '—';
-      final match = RegExp(r'^[A-Za-z]+').firstMatch(cleaned);
-      if (match != null) return match.group(0)!.toUpperCase();
-      return cleaned.length >= 3
-          ? cleaned.substring(0, 3).toUpperCase()
-          : cleaned.toUpperCase();
-    }
-
     void onCourseCardTap(Course course) {
       ref.read(selectedCourseProvider.notifier).state = course;
-      scrollToCourseHub();
+      context.go(AppRoutes.studentTutor);
     }
 
     return home.when(
@@ -131,9 +81,15 @@ class StudentHomeScreen extends HookConsumerWidget {
       ),
       data: (data) {
         final filteredCourses = filterCourses(data.courses);
+        final enrolledCount = data.courses.isNotEmpty
+            ? data.courses.length
+            : data.dashboard.enrolledCourseCount;
+        final session = ref.read(authControllerProvider).valueOrNull;
+        final greetName = _studentGivenName(session?.fullName);
+        final heroTitle = 'Chào $greetName, hôm nay học gì nào?';
 
         return RefreshIndicator(
-          color: AppColors.primary,
+          color: AppColors.fptOrange,
           onRefresh: () => ref.refresh(homeControllerProvider.future),
           child: CustomScrollView(
             controller: scrollController,
@@ -142,73 +98,85 @@ class StudentHomeScreen extends HookConsumerWidget {
             ),
             slivers: [
               SliverToBoxAdapter(
-                child: PortalCompactHeader.greeting(
-                  eyebrow: 'Xin chào,',
-                  title: '$displayName!',
-                  actions: [
-                    PlugProIconButton(
-                      icon: LucideIcons.bell,
-                      badge: notificationCount > 0,
-                      onTap: () => context.push(AppRoutes.notifications),
-                    ),
-                  ],
-                ),
+                child:
+                    Column(
+                          children: [
+                            PlanAHomeHero(
+                              title: heroTitle,
+                              subtitle: l10n.homeHeroSubtitle,
+                              ctaLabel: 'Hỏi ngay',
+                              onCta: () => context.go(AppRoutes.studentTutor),
+                              action: _HeroBell(
+                                hasUnread: notificationCount > 0,
+                                onTap: () =>
+                                    context.push(AppRoutes.notifications),
+                              ),
+                            ),
+                            Transform.translate(
+                              offset: const Offset(0, -22),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: Insets.screenH,
+                                ),
+                                child: PlanASearchField(
+                                  hint: 'Bạn muốn học gì hôm nay?',
+                                  controller: searchController,
+                                ),
+                              ),
+                            ),
+                          ],
+                        )
+                        .animate()
+                        .fadeIn(duration: Motion.base)
+                        .slideY(
+                          begin: 0.03,
+                          end: 0,
+                          curve: Curves.easeOutCubic,
+                        ),
               ),
+              const SliverToBoxAdapter(child: Gap(Insets.sm)),
               SliverToBoxAdapter(
-                child: PlugProSearchBar(
-                  hint: 'Tìm khóa học, bài học...',
-                  controller: searchController,
-                  onFilterTap: scrollToCourseHub,
+                child: PlanAIconStats(
+                  questionsAsked: data.questionsAsked,
+                  questionsLabel: 'câu đã hỏi',
+                  courseCount: enrolledCount,
+                  coursesLabel: 'môn đang học',
+                ).animate().fadeIn(duration: Motion.base, delay: 40.ms),
+              ),
+              const SliverToBoxAdapter(child: Gap(Insets.xl)),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: Insets.screenH,
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Khóa học nổi bật',
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.w800,
+                              ),
+                        ),
+                      ),
+                      InkWell(
+                        onTap: scrollToCourseHub,
+                        child: Text(
+                          'Xem tất cả >',
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: AppColors.fptBlue,
+                                fontWeight: FontWeight.w600,
+                              ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
               const SliverToBoxAdapter(child: Gap(Insets.md)),
-              SliverToBoxAdapter(
-                child: PlugProPills(
-                  pills: categoryPills,
-                  selectedId: selectedCategory.value,
-                  onSelected: onCategorySelected,
-                ),
-              ),
-              const SliverToBoxAdapter(child: Gap(Insets.lg)),
-              SliverToBoxAdapter(
-                child: PlugProHeroCard(
-                  tag: 'Phổ biến',
-                  title: l10n.homeHeroTitle,
-                  subtitle: l10n.homeHeroSubtitle,
-                  ctaLabel: 'Hỏi ngay',
-                  onCta: () => context.go(AppRoutes.studentTutor),
-                ).animate().fadeIn(duration: Motion.base).slideY(
-                  begin: 0.05,
-                  end: 0,
-                  curve: Curves.easeOutCubic,
-                ),
-              ),
-              const SliverToBoxAdapter(child: Gap(Insets.lg)),
-              SliverToBoxAdapter(
-                child: PlugProStatsRow(
-                  leftValue: data.questionsAsked,
-                  leftLabel: l10n.questionsAskedStat,
-                  rightValue: data.courses.isNotEmpty
-                      ? data.courses.length
-                      : data.dashboard.enrolledCourseCount,
-                  rightLabel: l10n.enrolledCoursesStat,
-                ).animate().fadeIn(duration: Motion.base, delay: 40.ms),
-              ),
-              SliverToBoxAdapter(
-                child: PlugProSectionHeader(
-                  title: 'Khóa học nổi bật',
-                  trailing: filteredCourses.isNotEmpty
-                      ? Text(
-                          '${filteredCourses.length} môn',
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(
-                            color: AppColors.textTertiary,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        )
-                      : null,
-                ),
-              ),
               if (filteredCourses.isEmpty)
                 SliverToBoxAdapter(
                   child: Padding(
@@ -228,7 +196,7 @@ class StudentHomeScreen extends HookConsumerWidget {
               else
                 SliverToBoxAdapter(
                   child: SizedBox(
-                    height: 230,
+                    height: 204,
                     child: ListView.separated(
                       scrollDirection: Axis.horizontal,
                       padding: const EdgeInsets.symmetric(
@@ -238,16 +206,11 @@ class StudentHomeScreen extends HookConsumerWidget {
                       separatorBuilder: (_, __) => const Gap(Insets.md),
                       itemBuilder: (context, index) {
                         final course = filteredCourses[index];
-                        return PlugProProviderCard(
-                          title: course.name.isNotEmpty
-                              ? course.name
-                              : course.code,
-                          badge: coursePrefix(course.code),
-                          colorKey: course.id,
-                          index: index,
-                          subtitle: course.className ?? course.semester,
-                          onTap: () => onCourseCardTap(course),
-                        )
+                        return PlanACourseCard(
+                              course: course,
+                              index: index,
+                              onTap: () => onCourseCardTap(course),
+                            )
                             .animate(delay: (40 * index).clamp(0, 200).ms)
                             .fadeIn(duration: Motion.base)
                             .slideX(
@@ -259,11 +222,62 @@ class StudentHomeScreen extends HookConsumerWidget {
                     ),
                   ),
                 ),
-              const SliverToBoxAdapter(child: Gap(Insets.lg)),
+              const SliverToBoxAdapter(child: Gap(Insets.xl)),
               SliverToBoxAdapter(
-                child: PlugProSectionHeader(
-                  title: l10n.tabClasses,
-                ),
+                child: PlanAQuickActions(
+                  actions: [
+                    PlanAQuickAction(
+                      title: l10n.askAiTutor,
+                      subtitle: 'Học theo tài liệu môn học',
+                      icon: LucideIcons.sparkles,
+                      color: AppColors.peacockBlue,
+                      onTap: () => context.go(AppRoutes.studentTutor),
+                    ),
+                    PlanAQuickAction(
+                      title: 'Làm quiz',
+                      subtitle: 'Luyện tập và kiểm tra nhanh',
+                      icon: LucideIcons.clipboardList,
+                      color: AppColors.fptOrange,
+                      onTap: () {
+                        final course =
+                            ref.read(selectedCourseProvider) ??
+                            (filteredCourses.isNotEmpty
+                                ? filteredCourses.first
+                                : null);
+                        if (course != null) {
+                          ref.read(selectedCourseProvider.notifier).state =
+                              course;
+                        }
+                        context.push(AppRoutes.studentQuiz);
+                      },
+                    ),
+                    PlanAQuickAction(
+                      title: 'Tài liệu & bài tập',
+                      subtitle: 'Xem học liệu và nộp bài',
+                      icon: LucideIcons.bookOpen,
+                      color: AppColors.leafGreen,
+                      onTap: () => context.push(AppRoutes.studentMaterials),
+                    ),
+                    PlanAQuickAction(
+                      title: 'Hỗ trợ giảng viên',
+                      subtitle: 'Theo dõi yêu cầu mentor',
+                      icon: LucideIcons.lifeBuoy,
+                      color: AppColors.primary,
+                      onTap: () => context.push(AppRoutes.escalationHistory),
+                    ),
+                    PlanAQuickAction(
+                      title: 'Tiến độ học tập',
+                      subtitle: 'Chủ đề yếu và gợi ý ôn tập',
+                      icon: LucideIcons.trendingUp,
+                      color: AppColors.accent,
+                      onTap: () => context.push(AppRoutes.studentProgress),
+                    ),
+                  ],
+                ).animate().fadeIn(duration: Motion.base, delay: 20.ms),
+              ),
+              const SliverToBoxAdapter(child: Gap(Insets.xl)),
+              SliverToBoxAdapter(
+                child: PlugProSectionHeader(title: l10n.tabClasses),
               ),
               SliverToBoxAdapter(
                 child: KeyedSubtree(
@@ -283,4 +297,55 @@ class StudentHomeScreen extends HookConsumerWidget {
       },
     );
   }
+}
+
+class _HeroBell extends StatelessWidget {
+  const _HeroBell({required this.hasUnread, required this.onTap});
+
+  final bool hasUnread;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      onPressed: onTap,
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+      visualDensity: VisualDensity.compact,
+      style: IconButton.styleFrom(
+        backgroundColor: Colors.transparent,
+        highlightColor: Colors.black12,
+        elevation: 0,
+      ),
+      icon: Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.center,
+        children: [
+          const Icon(Icons.notifications, size: 26, color: Colors.black),
+          if (hasUnread)
+            const Positioned(
+              right: 1,
+              top: 1,
+              child: SizedBox(
+                width: 8,
+                height: 8,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: AppColors.fptOrange,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+String _studentGivenName(String? fullName) {
+  final parts = (fullName ?? '').trim().split(RegExp(r'\s+'));
+  parts.removeWhere((part) => part.isEmpty);
+  if (parts.isEmpty) return 'bạn';
+  return parts.last;
 }

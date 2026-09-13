@@ -64,6 +64,31 @@ class AssignmentsRepository {
     return OpenFilex.open(file.path);
   }
 
+  Future<OpenResult> downloadAndOpenSubmissionFile({
+    required String submissionId,
+    String? suggestedFileName,
+  }) async {
+    final response = await _dio.get<List<int>>(
+      '/api/submissions/$submissionId/file',
+      options: Options(responseType: ResponseType.bytes),
+    );
+
+    final bytes = response.data;
+    if (bytes == null || bytes.isEmpty) {
+      throw StateError('EMPTY_SUBMISSION_FILE');
+    }
+
+    final fileName = _fileNameFromHeaders(response.headers) ??
+        suggestedFileName ??
+        'bai-nop-$submissionId';
+    final safeName = fileName.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
+    final dir = await getTemporaryDirectory();
+    final file = File('${dir.path}/$safeName');
+    await file.writeAsBytes(bytes, flush: true);
+
+    return OpenFilex.open(file.path);
+  }
+
   String? _fileNameFromHeaders(Headers headers) {
     final disposition = headers.value('content-disposition');
     if (disposition == null) return null;

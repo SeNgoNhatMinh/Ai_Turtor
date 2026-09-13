@@ -49,6 +49,7 @@ class StudentAssignmentsData {
         status: assignment.status,
         score: assignment.score,
         feedback: assignment.feedback,
+        submissionId: assignment.submissionId,
       );
     }
     return Assignment(
@@ -62,7 +63,15 @@ class StudentAssignmentsData {
       status: submission.status,
       score: submission.score ?? assignment.score,
       feedback: submission.teacherFeedback ?? assignment.feedback,
+      submissionId: submission.id,
     );
+  }
+
+  AssignmentSubmission? submissionFor(String assignmentId) {
+    for (final item in submissions) {
+      if (item.assignmentId == assignmentId) return item;
+    }
+    return null;
   }
 }
 

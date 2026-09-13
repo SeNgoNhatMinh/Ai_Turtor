@@ -18,21 +18,6 @@ class TeacherMaterialsController
     );
   }
 
-  Future<CourseMaterial> upload({required String title, required String filePath}) async {
-    final teacherId = ref.read(currentTeacherIdProvider);
-    final material = await ref
-        .read(coursesRepositoryProvider)
-        .uploadMaterial(
-          courseId: arg.courseId,
-          classId: arg.classId,
-          teacherId: teacherId,
-          title: title,
-          filePath: filePath,
-        );
-    ref.invalidateSelf();
-    return material;
-  }
-
   Future<void> delete(String materialId) async {
     final teacherId = ref.read(currentTeacherIdProvider);
     await ref

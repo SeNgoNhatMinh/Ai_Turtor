@@ -12,10 +12,30 @@ const aiReceiveTimeout = Duration(seconds: 120);
 /// Student chat qua n8n — khớp BE `spring.mvc.async.request-timeout` (300s).
 const aiChatReceiveTimeout = Duration(seconds: 300);
 
+/// NVIDIA Magpie synthesis — khớp web `ttsApi.synthesize` timeout 180s.
+const ttsReceiveTimeout = Duration(seconds: 180);
+
 /// Đăng nhập / đăng ký — backend cold start có thể chậm.
 const authReceiveTimeout = Duration(seconds: 180);
 
 typedef UnauthorizedHandler = Future<void> Function();
+
+/// Khớp web `skipUnauthorizedRedirect`: TTS là optional, 401 không được
+/// xóa session chat / đẩy user về login.
+const skipUnauthorizedRedirectExtra = 'skipUnauthorizedRedirect';
+
+bool shouldLogoutOnUnauthorized({
+  required int? statusCode,
+  required String path,
+  Map<String, dynamic>? extra,
+}) {
+  if (statusCode != 401) return false;
+  final isAuthRoute =
+      path.contains('/api/users/login') || path.contains('/api/users/register');
+  if (isAuthRoute) return false;
+  if (extra?[skipUnauthorizedRedirectExtra] == true) return false;
+  return true;
+}
 
 String normalizeN8nWebhookBase(String value) {
   return '${value.trim().replaceAll(RegExp(r'/+$'), '')}/';
@@ -50,12 +70,12 @@ Dio buildDio(
         handler.next(options);
       },
       onError: (error, handler) async {
-        final status = error.response?.statusCode;
-        final path = error.requestOptions.path;
-        final isAuthRoute =
-            path.contains('/api/users/login') ||
-            path.contains('/api/users/register');
-        if (status == 401 && !isAuthRoute && onUnauthorized != null) {
+        if (onUnauthorized != null &&
+            shouldLogoutOnUnauthorized(
+              statusCode: error.response?.statusCode,
+              path: error.requestOptions.path,
+              extra: error.requestOptions.extra,
+            )) {
           await onUnauthorized();
         }
         handler.next(error);
@@ -72,7 +92,7 @@ Dio buildSpringDio(
   UnauthorizedHandler? onUnauthorized,
 }) => buildDio(Env.apiBaseUrl, storage, onUnauthorized: onUnauthorized);
 
-/// AI flows → n8n webhook (:5678/webhook) including V2 expert-training
+/// AI flows → n8n webhook (:5678/webhook)
 Dio buildN8nDio(
   FlutterSecureStorage storage, {
   UnauthorizedHandler? onUnauthorized,

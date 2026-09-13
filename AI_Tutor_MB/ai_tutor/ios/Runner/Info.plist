@@ -45,5 +45,9 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>AI Tutor cần micro để chuyển giọng nói thành chữ trong khung chat.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>AI Tutor dùng nhận dạng giọng nói để điền câu hỏi vào khung chat.</string>
 </dict>
 </plist>

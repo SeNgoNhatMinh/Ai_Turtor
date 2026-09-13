@@ -2,61 +2,230 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:gap/gap.dart';
+import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../core/network/exceptions.dart';
+import '../../../core/router/routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../../../core/utils/vietnamese_text_input.dart';
 import '../../../core/utils/formatters.dart';
+import '../application/quiz_hub_stats.dart';
+import '../../../shared/models/course.dart';
 import '../../../shared/models/quiz.dart';
 import '../../../shared/widgets/widgets.dart';
 import '../../courses/application/courses_controller.dart';
 import '../../memory/application/course_memory_provider.dart';
 import '../../memory/application/improve_plan_controller.dart';
+import '../../student/student_route_handoff.dart';
 import '../application/quiz_controller.dart';
+
+List<Course> _uniqueCourses(List<Course> courses) {
+  final unique = <Course>[];
+  final seen = <String>{};
+  for (final course in courses) {
+    if (seen.add(course.selectionKey)) unique.add(course);
+  }
+  return unique;
+}
+
+Course _resolveActiveCourse(List<Course> courses, Course? selected) {
+  if (selected != null &&
+      courses.any((c) => c.selectionKey == selected.selectionKey)) {
+    return courses.firstWhere((c) => c.selectionKey == selected.selectionKey);
+  }
+  return courses.first;
+}
+
+Course? _courseMatchingId(List<Course> courses, String? courseId) {
+  if (courseId == null || courseId.isEmpty) return null;
+  for (final course in courses) {
+    if (course.id == courseId ||
+        course.code == courseId ||
+        course.selectionKey == courseId) {
+      return course;
+    }
+  }
+  return null;
+}
 
 // ── Student Quiz List ────────────────────────────────────────────
 
 class StudentQuizScreen extends HookConsumerWidget {
-  const StudentQuizScreen({super.key, required this.courseId});
+  const StudentQuizScreen({super.key, this.initialCourseId});
 
-  final String courseId;
+  final String? initialCourseId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final courses = ref.watch(coursesControllerProvider);
+    final selected = ref.watch(selectedCourseProvider);
+
+    return courses.when(
+      loading: () => const Scaffold(body: LoadingSkeleton(itemCount: 4)),
+      error: (error, _) => Scaffold(
+        body: ErrorState(
+          message: describeError(error),
+          onRetry: () => ref.invalidate(coursesControllerProvider),
+        ),
+      ),
+      data: (items) {
+        final unique = _uniqueCourses(items);
+        if (unique.isEmpty) {
+          return Scaffold(
+            body: EmptyState(
+              title: 'Chưa có môn học',
+              message: 'Hãy đăng ký môn để làm quiz luyện tập.',
+              ctaLabel: 'Làm mới',
+              onCta: () => ref.invalidate(coursesControllerProvider),
+            ),
+          );
+        }
+
+        final active = _resolveActiveCourse(
+          unique,
+          _courseMatchingId(unique, initialCourseId) ?? selected,
+        );
+        if (selected == null || selected.selectionKey != active.selectionKey) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            ref.read(selectedCourseProvider.notifier).state = active;
+          });
+        }
+
+        return _StudentQuizBody(course: active, courses: unique);
+      },
+    );
+  }
+}
+
+class _StudentQuizBody extends HookConsumerWidget {
+  const _StudentQuizBody({required this.course, required this.courses});
+
+  final Course course;
+  final List<Course> courses;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tabIndex = useState(0);
-    final history = ref.watch(studentQuizHistoryProvider(courseId));
-    final assigned = ref.watch(studentQuizAssignmentsProvider(courseId));
+    final history = ref.watch(studentQuizHistoryProvider(course.id));
+    final assigned = ref.watch(studentQuizAssignmentsProvider(course.id));
+    final sessions = history.valueOrNull ?? const <QuizSession>[];
+    final assignedItems = assigned.valueOrNull ?? const <QuizAssignment>[];
+    final inProgress = sessions.where((session) => !session.isSubmitted).toList();
+    final submitted = sessions.where((session) => session.isSubmitted).toList();
+    final stats = QuizHubStats.from(
+      sessions: sessions,
+      assignedCount: assignedItems.length,
+    );
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      appBar: FptAppBar(title: 'Quiz luyện tập'),
+      appBar: FptAppBar(
+        title: 'Quiz luyện tập',
+        leading: IconButton(
+          icon: const Icon(LucideIcons.arrowLeft),
+          onPressed: () => context.canPop()
+              ? context.pop()
+              : context.go(AppRoutes.studentHome),
+        ),
+      ),
       body: Column(
         children: [
-          // ── Tab bar ─────────────────────────────────────────
           Padding(
-            padding: const EdgeInsets.fromLTRB(Insets.screenH, Insets.md, Insets.screenH, 0),
-            child: Container(
-              height: 40,
-              decoration: BoxDecoration(
-                color: AppColors.raised,
-                borderRadius: BorderRadius.circular(Radii.md),
+            padding: const EdgeInsets.fromLTRB(
+              Insets.screenH,
+              Insets.md,
+              Insets.screenH,
+              Insets.sm,
+            ),
+            child: _CoursePicker(
+              courses: courses,
+              value: course,
+              onChanged: (next) {
+                ref.read(selectedCourseProvider.notifier).state = next;
+              },
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              Insets.screenH,
+              0,
+              Insets.screenH,
+              Insets.sm,
+            ),
+            child: _QuizStatGrid(stats: stats),
+          ),
+          if (inProgress.isNotEmpty && tabIndex.value != 1)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                Insets.screenH,
+                0,
+                Insets.screenH,
+                Insets.sm,
               ),
+              child: _ContinueQuizAlert(
+                onContinue: () => tabIndex.value = 1,
+              ),
+            ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: Insets.screenH),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
               child: Row(
                 children: [
-                  _Tab(label: 'Tự luyện', selected: tabIndex.value == 0, onTap: () => tabIndex.value = 0),
-                  _Tab(label: 'Bài được giao', selected: tabIndex.value == 1, onTap: () => tabIndex.value = 1),
+                  _HubTab(
+                    label: 'Tạo quiz',
+                    selected: tabIndex.value == 0,
+                    onTap: () => tabIndex.value = 0,
+                  ),
+                  _HubTab(
+                    label: inProgress.isEmpty
+                        ? 'Đang làm'
+                        : 'Đang làm (${inProgress.length})',
+                    selected: tabIndex.value == 1,
+                    onTap: () => tabIndex.value = 1,
+                  ),
+                  _HubTab(
+                    label: assignedItems.isEmpty
+                        ? 'Được giao'
+                        : 'Được giao (${assignedItems.length})',
+                    selected: tabIndex.value == 2,
+                    onTap: () => tabIndex.value = 2,
+                  ),
+                  _HubTab(
+                    label: submitted.isEmpty
+                        ? 'Lịch sử'
+                        : 'Lịch sử (${submitted.length})',
+                    selected: tabIndex.value == 3,
+                    onTap: () => tabIndex.value = 3,
+                  ),
                 ],
               ),
             ),
           ),
           const Gap(Insets.md),
           Expanded(
-            child: tabIndex.value == 0
-                ? _SelfPracticeTab(courseId: courseId, historyAsync: history)
-                : _AssignedTab(courseId: courseId, assignedAsync: assigned),
+            child: switch (tabIndex.value) {
+              1 => _QuizSessionList(
+                courseId: course.id,
+                historyAsync: history,
+                submittedOnly: false,
+                emptyTitle: 'Chưa có quiz đang làm',
+                emptyMessage:
+                    'Hãy tạo mới hoặc tiếp tục một quiz. Quiz dở sẽ hiện ở đây.',
+              ),
+              2 => _AssignedTab(courseId: course.id, assignedAsync: assigned),
+              3 => _QuizSessionList(
+                courseId: course.id,
+                historyAsync: history,
+                submittedOnly: true,
+                emptyTitle: 'Chưa có kết quả quiz',
+                emptyMessage: 'Nộp một quiz để xem lại điểm và đáp án.',
+              ),
+              _ => _GenerateQuizTab(courseId: course.id),
+            },
           ),
         ],
       ),
@@ -64,26 +233,79 @@ class StudentQuizScreen extends HookConsumerWidget {
   }
 }
 
-class _Tab extends StatelessWidget {
-  const _Tab({required this.label, required this.selected, required this.onTap});
+class _CoursePicker extends StatelessWidget {
+  const _CoursePicker({
+    required this.courses,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final List<Course> courses;
+  final Course value;
+  final ValueChanged<Course> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: Insets.lg),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(Radii.lg),
+        border: Border.all(color: AppColors.borderHairline),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<Course>(
+          value: value,
+          isExpanded: true,
+          items: courses
+              .map(
+                (course) => DropdownMenuItem(
+                  value: course,
+                  child: Text(
+                    course.name.isNotEmpty
+                        ? '${course.code} — ${course.name}'
+                        : course.code,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              )
+              .toList(),
+          onChanged: (course) {
+            if (course != null) onChanged(course);
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _HubTab extends StatelessWidget {
+  const _HubTab({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
   final String label;
   final bool selected;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
+    return Padding(
+      padding: const EdgeInsets.only(right: Insets.xs),
       child: GestureDetector(
         onTap: onTap,
         child: AnimatedContainer(
           duration: Motion.fast,
-          margin: const EdgeInsets.all(3),
+          padding: const EdgeInsets.symmetric(
+            horizontal: Insets.md,
+            vertical: Insets.sm,
+          ),
           decoration: BoxDecoration(
-            color: selected ? AppColors.card : Colors.transparent,
-            borderRadius: BorderRadius.circular(Radii.sm),
+            color: selected ? AppColors.card : AppColors.raised,
+            borderRadius: BorderRadius.circular(Radii.full),
             boxShadow: selected ? Shadows.md : null,
           ),
-          alignment: Alignment.center,
           child: Text(
             label,
             style: Theme.of(context).textTheme.labelLarge?.copyWith(
@@ -97,69 +319,240 @@ class _Tab extends StatelessWidget {
   }
 }
 
-// ── Self-practice tab ────────────────────────────────────────────
+class _QuizStatGrid extends StatelessWidget {
+  const _QuizStatGrid({required this.stats});
+  final QuizHubStats stats;
 
-class _SelfPracticeTab extends HookConsumerWidget {
-  const _SelfPracticeTab({required this.courseId, required this.historyAsync});
+  @override
+  Widget build(BuildContext context) {
+    return GridView.count(
+      crossAxisCount: 2,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      mainAxisSpacing: Insets.sm,
+      crossAxisSpacing: Insets.sm,
+      childAspectRatio: 2.4,
+      children: [
+        _QuizStatCard(
+          icon: LucideIcons.bookOpen,
+          label: 'Được giao',
+          value: '${stats.assigned}',
+          description: 'Từ giảng viên',
+        ),
+        _QuizStatCard(
+          icon: LucideIcons.clock,
+          label: 'Đang làm',
+          value: '${stats.inProgress}',
+          description: 'Có thể tiếp tục',
+        ),
+        _QuizStatCard(
+          icon: LucideIcons.checkCircle2,
+          label: 'Đã nộp',
+          value: '${stats.submitted}',
+          description: 'Đã gửi chấm',
+        ),
+        _QuizStatCard(
+          icon: LucideIcons.trophy,
+          label: 'Hoạt động gần nhất',
+          value: stats.latest == null
+              ? '—'
+              : formatRelativeTime(stats.latest!),
+          description: stats.reviewed > 0
+              ? '${stats.reviewed} bài đã được giảng viên duyệt'
+              : 'Chưa có bài được giảng viên duyệt',
+        ),
+      ],
+    );
+  }
+}
+
+class _QuizStatCard extends StatelessWidget {
+  const _QuizStatCard({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.description,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final String description;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(Insets.sm),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(Radii.md),
+        border: Border.all(color: AppColors.borderHairline),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: AppColors.primary),
+          const Gap(Insets.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: AppColors.textTertiary,
+                  ),
+                ),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                Text(
+                  description,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: AppColors.textTertiary,
+                    fontSize: 10,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ContinueQuizAlert extends StatelessWidget {
+  const _ContinueQuizAlert({required this.onContinue});
+  final VoidCallback onContinue;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(
+        Insets.md,
+        Insets.sm,
+        Insets.sm,
+        Insets.sm,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.successBg,
+        borderRadius: BorderRadius.circular(Radii.md),
+      ),
+      child: Row(
+        children: [
+          const Icon(LucideIcons.circleCheck, color: AppColors.success, size: 18),
+          const Gap(Insets.sm),
+          Expanded(
+            child: Text(
+              'Bạn có một quiz đang làm dở',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: onContinue,
+            child: const Text('Tiếp tục làm'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GenerateQuizTab extends StatelessWidget {
+  const _GenerateQuizTab({required this.courseId});
+  final String courseId;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(
+        Insets.screenH,
+        0,
+        Insets.screenH,
+        Insets.xxxl,
+      ),
+      children: [
+        Text(
+          'Luyện tập bằng quiz theo tài liệu môn học',
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const Gap(Insets.xs),
+        Text(
+          'Tạo quiz tự ôn, làm quiz giảng viên giao và xem lại kết quả sau khi nộp.',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: AppColors.textSecondary,
+          ),
+        ),
+        const Gap(Insets.lg),
+        _GenerateQuizButton(courseId: courseId),
+      ],
+    );
+  }
+}
+
+class _QuizSessionList extends ConsumerWidget {
+  const _QuizSessionList({
+    required this.courseId,
+    required this.historyAsync,
+    required this.submittedOnly,
+    required this.emptyTitle,
+    required this.emptyMessage,
+  });
+
   final String courseId;
   final AsyncValue<List<QuizSession>> historyAsync;
+  final bool submittedOnly;
+  final String emptyTitle;
+  final String emptyMessage;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: Insets.screenH),
-          child: _GenerateQuizButton(courseId: courseId),
-        ),
-        const Gap(Insets.lg),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: Insets.screenH),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              'Lịch sử quiz',
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+    return historyAsync.when(
+      loading: () => const LoadingSkeleton(),
+      error: (e, _) => ErrorState(
+        message: describeError(e),
+        onRetry: () => ref.invalidate(studentQuizHistoryProvider(courseId)),
+      ),
+      data: (sessions) {
+        final history = sessions
+            .where((session) => session.isSubmitted == submittedOnly)
+            .toList();
+        if (history.isEmpty) {
+          return EmptyState(title: emptyTitle, message: emptyMessage);
+        }
+        return RefreshIndicator(
+          color: AppColors.primary,
+          onRefresh: () =>
+              ref.refresh(studentQuizHistoryProvider(courseId).future),
+          child: ListView.separated(
+            padding: const EdgeInsets.fromLTRB(
+              Insets.screenH,
+              0,
+              Insets.screenH,
+              Insets.xxxl,
             ),
+            itemCount: history.length,
+            separatorBuilder: (_, __) => const Gap(Insets.sm),
+            itemBuilder: (ctx, i) => _QuizHistoryCard(session: history[i])
+                .animate(delay: (40 * i).clamp(0, 280).ms)
+                .fadeIn(duration: Motion.base),
           ),
-        ),
-        const Gap(Insets.sm),
-        Expanded(
-          child: historyAsync.when(
-            loading: () => const LoadingSkeleton(),
-            error: (e, _) => ErrorState(
-              message: describeError(e),
-              onRetry: () => ref.invalidate(studentQuizHistoryProvider(courseId)),
-            ),
-            data: (sessions) {
-              final history = sessions
-                  .where(
-                    (s) =>
-                        s.quizType == 'SELF_PRACTICE' || s.assignmentId == null,
-                  )
-                  .toList();
-              if (history.isEmpty) {
-                return const EmptyState(
-                  title: 'Chưa có quiz nào',
-                  message: 'Tạo quiz tự luyện để kiểm tra kiến thức của bạn.',
-                );
-              }
-              return RefreshIndicator(
-                color: AppColors.primary,
-                onRefresh: () => ref.refresh(studentQuizHistoryProvider(courseId).future),
-                child: ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(Insets.screenH, 0, Insets.screenH, Insets.xxxl),
-                  itemCount: history.length,
-                  separatorBuilder: (_, __) => const Gap(Insets.sm),
-                  itemBuilder: (ctx, i) => _QuizHistoryCard(session: history[i])
-                      .animate(delay: (40 * i).clamp(0, 280).ms)
-                      .fadeIn(duration: Motion.base),
-                ),
-              );
-            },
-          ),
-        ),
-      ],
+        );
+      },
     );
   }
 }
@@ -170,6 +563,18 @@ class _GenerateQuizButton extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    useEffect(() {
+      final topic = ref.read(quizTopicHandoffProvider);
+      if (topic == null || topic.trim().isEmpty) return null;
+      ref.read(quizTopicHandoffProvider.notifier).state = null;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) {
+          _showGenerateDialog(context, ref, initialTopic: topic.trim());
+        }
+      });
+      return null;
+    }, const []);
+
     return Material(
       color: AppColors.primary,
       borderRadius: BorderRadius.circular(Radii.lg),
@@ -177,7 +582,10 @@ class _GenerateQuizButton extends HookConsumerWidget {
         borderRadius: BorderRadius.circular(Radii.lg),
         onTap: () => _showGenerateDialog(context, ref),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: Insets.md, horizontal: Insets.lg),
+          padding: const EdgeInsets.symmetric(
+            vertical: Insets.md,
+            horizontal: Insets.lg,
+          ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -197,8 +605,12 @@ class _GenerateQuizButton extends HookConsumerWidget {
     );
   }
 
-  Future<void> _showGenerateDialog(BuildContext context, WidgetRef ref) async {
-    final topicController = TextEditingController();
+  Future<void> _showGenerateDialog(
+    BuildContext context,
+    WidgetRef ref, {
+    String? initialTopic,
+  }) async {
+    final topicController = TextEditingController(text: initialTopic ?? '');
     final countController = TextEditingController(text: '5');
 
     final confirmed = await showDialog<bool>(
@@ -249,7 +661,10 @@ class _GenerateQuizButton extends HookConsumerWidget {
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Huỷ')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Huỷ'),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             child: Text('Tạo', style: TextStyle(color: AppColors.primary)),
@@ -265,7 +680,9 @@ class _GenerateQuizButton extends HookConsumerWidget {
       MaterialPageRoute<void>(
         builder: (_) => TakeQuizScreen(
           courseId: courseId,
-          topic: topicController.text.trim().isEmpty ? null : topicController.text.trim(),
+          topic: topicController.text.trim().isEmpty
+              ? null
+              : topicController.text.trim(),
           questionCount: count.clamp(3, 10),
         ),
       ),
@@ -298,10 +715,10 @@ class _QuizHistoryCard extends StatelessWidget {
     return FptCard(
       onTap: isSubmitted
           ? () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => QuizReviewScreen(quizSessionId: session.id),
-                ),
-              )
+              MaterialPageRoute<void>(
+                builder: (_) => QuizReviewScreen(quizSessionId: session.id),
+              ),
+            )
           : null,
       child: Row(
         children: [
@@ -313,7 +730,9 @@ class _QuizHistoryCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(Radii.sm),
             ),
             child: Icon(
-              isSubmitted ? LucideIcons.checkCircle2 : LucideIcons.clipboardList,
+              isSubmitted
+                  ? LucideIcons.checkCircle2
+                  : LucideIcons.clipboardList,
               color: isSubmitted ? AppColors.success : AppColors.textTertiary,
               size: 22,
             ),
@@ -325,7 +744,9 @@ class _QuizHistoryCard extends StatelessWidget {
               children: [
                 Text(
                   session.topic ?? 'Quiz tự luyện',
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -333,7 +754,9 @@ class _QuizHistoryCard extends StatelessWidget {
                 Text(
                   '${session.questions.length} câu'
                   '${session.createdAt != null ? ' · ${formatRelativeTime(session.createdAt!)}' : ''}',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.textTertiary),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.textTertiary,
+                  ),
                 ),
               ],
             ),
@@ -352,7 +775,8 @@ class _QuizHistoryCard extends StatelessWidget {
                 TextButton(
                   onPressed: () => Navigator.of(context).push(
                     MaterialPageRoute<void>(
-                      builder: (_) => QuizReviewScreen(quizSessionId: session.id),
+                      builder: (_) =>
+                          QuizReviewScreen(quizSessionId: session.id),
                     ),
                   ),
                   child: const Text('Xem lại'),
@@ -399,17 +823,24 @@ class _AssignedTab extends ConsumerWidget {
         }
         return RefreshIndicator(
           color: AppColors.primary,
-          onRefresh: () => ref.refresh(studentQuizAssignmentsProvider(courseId).future),
+          onRefresh: () =>
+              ref.refresh(studentQuizAssignmentsProvider(courseId).future),
           child: ListView.separated(
-            padding: const EdgeInsets.fromLTRB(Insets.screenH, 0, Insets.screenH, Insets.xxxl),
+            padding: const EdgeInsets.fromLTRB(
+              Insets.screenH,
+              0,
+              Insets.screenH,
+              Insets.xxxl,
+            ),
             itemCount: assignments.length,
             separatorBuilder: (_, __) => const Gap(Insets.sm),
-            itemBuilder: (ctx, i) => _AssignedQuizCard(
-              assignment: assignments[i],
-              courseId: courseId,
-            )
-                .animate(delay: (40 * i).clamp(0, 280).ms)
-                .fadeIn(duration: Motion.base),
+            itemBuilder: (ctx, i) =>
+                _AssignedQuizCard(
+                      assignment: assignments[i],
+                      courseId: courseId,
+                    )
+                    .animate(delay: (40 * i).clamp(0, 280).ms)
+                    .fadeIn(duration: Motion.base),
           ),
         );
       },
@@ -439,7 +870,11 @@ class _AssignedQuizCard extends ConsumerWidget {
               color: AppColors.infoBg,
               borderRadius: BorderRadius.circular(Radii.sm),
             ),
-            child: const Icon(LucideIcons.fileQuestion, color: AppColors.peacockBlue, size: 22),
+            child: const Icon(
+              LucideIcons.fileQuestion,
+              color: AppColors.peacockBlue,
+              size: 22,
+            ),
           ),
           const Gap(Insets.md),
           Expanded(
@@ -448,7 +883,9 @@ class _AssignedQuizCard extends ConsumerWidget {
               children: [
                 Text(
                   assignment.title,
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -456,12 +893,18 @@ class _AssignedQuizCard extends ConsumerWidget {
                 Text(
                   '${assignment.questions.length} câu'
                   '${assignment.publishedAt != null ? ' · ${formatRelativeTime(assignment.publishedAt!)}' : ''}',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.textTertiary),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.textTertiary,
+                  ),
                 ),
               ],
             ),
           ),
-          const Icon(LucideIcons.chevronRight, size: 16, color: AppColors.textTertiary),
+          const Icon(
+            LucideIcons.chevronRight,
+            size: 16,
+            color: AppColors.textTertiary,
+          ),
         ],
       ),
     );
@@ -489,10 +932,7 @@ class TakeQuizScreen extends HookConsumerWidget {
   final String? assignmentId;
 
   factory TakeQuizScreen.fromSession({required QuizSession session}) {
-    return TakeQuizScreen(
-      courseId: session.courseId,
-      existingSession: session,
-    );
+    return TakeQuizScreen(courseId: session.courseId, existingSession: session);
   }
 
   factory TakeQuizScreen.fromAssignment({required QuizAssignment assignment}) {
@@ -514,14 +954,22 @@ class TakeQuizScreen extends HookConsumerWidget {
           ref.read(activeQuizProvider.notifier).loadSession(existingSession!);
         });
       } else if (assignmentId != null) {
-        Future.microtask(() => ref.read(activeQuizProvider.notifier).startAssigned(assignmentId: assignmentId!));
+        Future.microtask(
+          () => ref
+              .read(activeQuizProvider.notifier)
+              .startAssigned(assignmentId: assignmentId!),
+        );
       } else {
-        Future.microtask(() => ref.read(activeQuizProvider.notifier).generate(
-          courseId: courseId,
-          topic: topic,
-          suggestionText: suggestionText,
-          questionCount: questionCount,
-        ));
+        Future.microtask(
+          () => ref
+              .read(activeQuizProvider.notifier)
+              .generate(
+                courseId: courseId,
+                topic: topic,
+                suggestionText: suggestionText,
+                questionCount: questionCount,
+              ),
+        );
       }
       return () => ref.read(activeQuizProvider.notifier).reset();
     }, const []);
@@ -531,7 +979,8 @@ class TakeQuizScreen extends HookConsumerWidget {
       appBar: FptAppBar(
         title: topic != null ? 'Quiz: $topic' : 'Quiz tự luyện',
         actions: [
-          if (quizAsync.valueOrNull != null && !quizAsync.valueOrNull!.isSubmitted)
+          if (quizAsync.valueOrNull != null &&
+              !quizAsync.valueOrNull!.isSubmitted)
             TextButton(
               onPressed: submitting.value
                   ? null
@@ -545,7 +994,9 @@ class TakeQuizScreen extends HookConsumerWidget {
               child: Text(
                 'Nộp',
                 style: TextStyle(
-                  color: submitting.value ? AppColors.textDisabled : AppColors.primary,
+                  color: submitting.value
+                      ? AppColors.textDisabled
+                      : AppColors.primary,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -565,12 +1016,14 @@ class TakeQuizScreen extends HookConsumerWidget {
         ),
         error: (e, _) => ErrorState(
           message: describeError(e),
-          onRetry: () => ref.read(activeQuizProvider.notifier).generate(
-            courseId: courseId,
-            topic: topic,
-            suggestionText: suggestionText,
-            questionCount: questionCount,
-          ),
+          onRetry: () => ref
+              .read(activeQuizProvider.notifier)
+              .generate(
+                courseId: courseId,
+                topic: topic,
+                suggestionText: suggestionText,
+                questionCount: questionCount,
+              ),
         ),
         data: (session) {
           if (session == null) return const LoadingSkeleton();
@@ -578,7 +1031,8 @@ class TakeQuizScreen extends HookConsumerWidget {
           return _QuizQuestionsView(
             session: session,
             answers: answers.value,
-            onAnswer: (qId, ans) => answers.value = {...answers.value, qId: ans},
+            onAnswer: (qId, ans) =>
+                answers.value = {...answers.value, qId: ans},
           );
         },
       ),
@@ -587,9 +1041,16 @@ class TakeQuizScreen extends HookConsumerWidget {
           if (session == null || session.isSubmitted) return null;
           return SafeArea(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(Insets.screenH, Insets.sm, Insets.screenH, Insets.md),
+              padding: const EdgeInsets.fromLTRB(
+                Insets.screenH,
+                Insets.sm,
+                Insets.screenH,
+                Insets.md,
+              ),
               child: FptButton(
-                label: submitting.value ? 'Đang nộp...' : 'Nộp bài (${answers.value.length}/${session.questions.length})',
+                label: submitting.value
+                    ? 'Đang nộp...'
+                    : 'Nộp bài (${answers.value.length}/${session.questions.length})',
                 loading: submitting.value,
                 expand: true,
                 onPressed: submitting.value
@@ -634,7 +1095,10 @@ class TakeQuizScreen extends HookConsumerWidget {
             ),
             TextButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: Text('Nộp bài', style: TextStyle(color: AppColors.primary)),
+              child: Text(
+                'Nộp bài',
+                style: TextStyle(color: AppColors.primary),
+              ),
             ),
           ],
         ),
@@ -656,7 +1120,10 @@ class TakeQuizScreen extends HookConsumerWidget {
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(describeError(e)), backgroundColor: AppColors.error),
+          SnackBar(
+            content: Text(describeError(e)),
+            backgroundColor: AppColors.error,
+          ),
         );
       }
     } finally {
@@ -666,7 +1133,11 @@ class TakeQuizScreen extends HookConsumerWidget {
 }
 
 class _QuizQuestionsView extends StatelessWidget {
-  const _QuizQuestionsView({required this.session, required this.answers, required this.onAnswer});
+  const _QuizQuestionsView({
+    required this.session,
+    required this.answers,
+    required this.onAnswer,
+  });
   final QuizSession session;
   final Map<String, String> answers;
   final void Function(String questionId, String answer) onAnswer;
@@ -674,7 +1145,12 @@ class _QuizQuestionsView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(Insets.screenH, Insets.md, Insets.screenH, 120),
+      padding: const EdgeInsets.fromLTRB(
+        Insets.screenH,
+        Insets.md,
+        Insets.screenH,
+        120,
+      ),
       itemCount: session.questions.length,
       separatorBuilder: (_, __) => const Gap(Insets.lg),
       itemBuilder: (ctx, i) => _QuestionCard(
@@ -723,14 +1199,18 @@ class _QuestionCard extends StatelessWidget {
           const Gap(Insets.xs),
           Text(
             question.questionText,
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
           ),
           const Gap(Insets.md),
-          ...options.map((opt) => _OptionTile(
-            label: opt,
-            selected: selectedAnswer == opt,
-            onTap: () => onAnswer(opt),
-          )),
+          ...options.map(
+            (opt) => _OptionTile(
+              label: opt,
+              selected: selectedAnswer == opt,
+              onTap: () => onAnswer(opt),
+            ),
+          ),
         ],
       ),
     );
@@ -738,7 +1218,11 @@ class _QuestionCard extends StatelessWidget {
 }
 
 class _OptionTile extends StatelessWidget {
-  const _OptionTile({required this.label, required this.selected, required this.onTap});
+  const _OptionTile({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
   final String label;
   final bool selected;
   final VoidCallback onTap;
@@ -750,7 +1234,10 @@ class _OptionTile extends StatelessWidget {
       child: AnimatedContainer(
         duration: Motion.fast,
         margin: const EdgeInsets.only(bottom: Insets.sm),
-        padding: const EdgeInsets.symmetric(horizontal: Insets.md, vertical: Insets.sm + 2),
+        padding: const EdgeInsets.symmetric(
+          horizontal: Insets.md,
+          vertical: Insets.sm + 2,
+        ),
         decoration: BoxDecoration(
           color: selected ? AppColors.primaryWash : AppColors.raised,
           borderRadius: BorderRadius.circular(Radii.md),
@@ -783,7 +1270,9 @@ class _OptionTile extends StatelessWidget {
                 label,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
-                  color: selected ? AppColors.peacockBlue : AppColors.textPrimary,
+                  color: selected
+                      ? AppColors.peacockBlue
+                      : AppColors.textPrimary,
                 ),
               ),
             ),
@@ -821,12 +1310,6 @@ class QuizReviewScreen extends ConsumerWidget {
               message: 'Bạn cần nộp bài trước khi xem lại đáp án.',
             );
           }
-          if (session.answers.isEmpty) {
-            return const EmptyState(
-              title: 'Chưa có chi tiết bài làm',
-              message: 'Quiz này chưa có dữ liệu chấm điểm để xem lại.',
-            );
-          }
           return _QuizResultView(session: session);
         },
       ),
@@ -849,36 +1332,50 @@ class _QuizResultView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final pct = session.percentage ?? 0;
-    final score = session.score ?? 0;
-    final max = session.maxScore ?? session.questions.length;
+    final hideAnswerKey = shouldHideQuizAnswerKey(session);
+    final awaitingReview = hideAnswerKey && session.quizType == 'ASSIGNED';
+    final score = quizDisplayScore(session);
+    final max = quizDisplayMaxScore(session);
+    final pct = max > 0 ? (score / max) * 100 : (session.percentage ?? 0);
+    final statusLabel = quizResultStatusLabel(session);
 
     Color scoreColor = AppColors.success;
-    String scoreLabel = 'Xuất sắc!';
-    if (pct < 50) {
-      scoreColor = AppColors.error;
-      scoreLabel = 'Cần ôn tập thêm';
-    } else if (pct < 80) {
+    String scoreLabel = statusLabel;
+    if (!awaitingReview) {
+      if (pct < 50) {
+        scoreColor = AppColors.error;
+        scoreLabel = 'Cần ôn tập thêm';
+      } else if (pct < 80) {
+        scoreColor = AppColors.warning;
+        scoreLabel = 'Khá tốt!';
+      } else {
+        scoreLabel = 'Xuất sắc!';
+      }
+    } else {
       scoreColor = AppColors.warning;
-      scoreLabel = 'Khá tốt!';
     }
 
     final reviewItems = session.answers.isNotEmpty
         ? session.answers
         : session.questions
-            .map(
-              (q) => QuizAnswer(
-                questionId: q.questionId,
-                selectedAnswer: null,
-                correct: null,
-                correctAnswer: q.correctAnswer,
-                explanation: q.explanation,
-              ),
-            )
-            .toList();
+              .map(
+                (q) => QuizAnswer(
+                  questionId: q.questionId,
+                  selectedAnswer: null,
+                  correct: null,
+                  correctAnswer: q.correctAnswer,
+                  explanation: q.explanation,
+                ),
+              )
+              .toList();
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(Insets.screenH, Insets.lg, Insets.screenH, Insets.xxxl),
+      padding: const EdgeInsets.fromLTRB(
+        Insets.screenH,
+        Insets.lg,
+        Insets.screenH,
+        Insets.xxxl,
+      ),
       children: [
         Container(
           padding: const EdgeInsets.all(Insets.xl),
@@ -908,23 +1405,75 @@ class _QuizResultView extends StatelessWidget {
               ),
               const Gap(Insets.sm),
               Text(
-                '$score / $max câu đúng  (${pct.round()}%)',
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: AppColors.textSecondary,
+                awaitingReview
+                    ? 'Điểm đang chờ giảng viên duyệt'
+                    : '$score / $max  (${pct.round()}%)',
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyLarge?.copyWith(color: AppColors.textSecondary),
+              ),
+              const Gap(Insets.xs),
+              Text(
+                statusLabel,
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: AppColors.textTertiary,
+                  fontWeight: FontWeight.w600,
                 ),
+              ),
+              if (session.teacherFeedback != null &&
+                  session.teacherFeedback!.trim().isNotEmpty) ...[
+                const Gap(Insets.sm),
+                Text(
+                  session.teacherFeedback!,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+              const Gap(Insets.md),
+              FptButton(
+                label: 'Tạo lại quiz từ chủ đề này',
+                icon: LucideIcons.refreshCw,
+                size: FptButtonSize.sm,
+                variant: FptButtonVariant.secondary,
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => TakeQuizScreen(
+                        courseId: session.courseId,
+                        topic: session.topic,
+                        questionCount: session.questions.length.clamp(3, 10),
+                      ),
+                    ),
+                  );
+                },
               ),
             ],
           ),
         ),
         const Gap(Insets.xl),
         Text(
-          'Chi tiết',
-          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
+          hideAnswerKey ? 'Chi tiết bài làm' : 'Chi tiết',
+          style: Theme.of(
+            context,
+          ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
         ),
+        if (hideAnswerKey) ...[
+          const Gap(Insets.xs),
+          Text(
+            'Đáp án đúng được ẩn cho đến khi giảng viên duyệt bài.',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: AppColors.textTertiary,
+            ),
+          ),
+        ],
         const Gap(Insets.sm),
-        ...reviewItems.asMap().entries.map((entry) {
+        if (reviewItems.isEmpty)
+          const EmptyState(
+            title: 'Chưa có chi tiết bài làm',
+            message: 'Quiz này chưa có dữ liệu câu hỏi để xem lại.',
+          ),
+        if (reviewItems.isNotEmpty)
+          ...reviewItems.asMap().entries.map((entry) {
           final i = entry.key;
           final ans = entry.value;
           final question = _questionFor(ans);
@@ -936,7 +1485,9 @@ class _QuizResultView extends StatelessWidget {
             margin: const EdgeInsets.only(bottom: Insets.sm),
             padding: const EdgeInsets.all(Insets.md),
             decoration: BoxDecoration(
-              color: correct ? AppColors.successBg : AppColors.errorBg,
+              color: hideAnswerKey
+                  ? AppColors.raised
+                  : (correct ? AppColors.successBg : AppColors.errorBg),
               borderRadius: BorderRadius.circular(Radii.md),
             ),
             child: Column(
@@ -946,9 +1497,15 @@ class _QuizResultView extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Icon(
-                      correct ? LucideIcons.checkCircle2 : LucideIcons.xCircle,
+                      hideAnswerKey
+                          ? LucideIcons.circleHelp
+                          : (correct
+                                ? LucideIcons.checkCircle2
+                                : LucideIcons.xCircle),
                       size: 16,
-                      color: correct ? AppColors.success : AppColors.error,
+                      color: hideAnswerKey
+                          ? AppColors.textTertiary
+                          : (correct ? AppColors.success : AppColors.error),
                     ),
                     const Gap(Insets.xs),
                     Expanded(
@@ -967,39 +1524,38 @@ class _QuizResultView extends StatelessWidget {
                     (option) => _QuizOptionReviewTile(
                       label: option,
                       isSelected: hasSelection && option == selected,
-                      isCorrect: ans.correctAnswer != null && option == ans.correctAnswer,
+                      isCorrect: hideAnswerKey
+                          ? false
+                          : ans.correctAnswer != null &&
+                                option == ans.correctAnswer,
                     ),
                   ),
                 ],
-                if (!correct) ...[
-                  const Gap(Insets.sm),
+                const Gap(Insets.sm),
+                Text(
+                  'Bạn chọn: ${hasSelection ? selected : 'Không trả lời'}',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: hideAnswerKey
+                        ? AppColors.textSecondary
+                        : (correct ? AppColors.success : AppColors.error),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (!hideAnswerKey &&
+                    !correct &&
+                    ans.correctAnswer != null) ...[
+                  const Gap(Insets.xs),
                   Text(
-                    'Bạn chọn: ${hasSelection ? selected : 'Không trả lời'}',
+                    'Đáp án đúng: ${ans.correctAnswer}',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.error,
+                      color: AppColors.success,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  if (ans.correctAnswer != null) ...[
-                    const Gap(Insets.xs),
-                    Text(
-                      'Đáp án đúng: ${ans.correctAnswer}',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.success,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ] else if (hasSelection) ...[
-                  const Gap(Insets.sm),
-                  Text(
-                    'Bạn chọn: $selected',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.success,
-                    ),
-                  ),
                 ],
-                if (ans.explanation != null && ans.explanation!.isNotEmpty) ...[
+                if (!hideAnswerKey &&
+                    ans.explanation != null &&
+                    ans.explanation!.isNotEmpty) ...[
                   const Gap(Insets.sm),
                   Text(
                     ans.explanation!,
@@ -1058,7 +1614,9 @@ class _QuizOptionReviewTile extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(color: textColor),
+        style: Theme.of(
+          context,
+        ).textTheme.bodySmall?.copyWith(color: textColor),
       ),
     );
   }

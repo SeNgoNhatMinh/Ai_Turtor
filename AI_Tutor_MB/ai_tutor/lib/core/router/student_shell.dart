@@ -22,28 +22,34 @@ class StudentShell extends StatelessWidget {
     );
     final index = currentIndex >= 0 ? currentIndex : 0;
 
+    final hideBottomNav =
+        location == AppRoutes.studentTutor ||
+        location.startsWith('${AppRoutes.studentTutor}/');
+
     return Scaffold(
       backgroundColor: AppColors.homeBgBottom,
       body: PlugProBackground(child: child),
-      bottomNavigationBar: StudentBottomNav(
-        currentIndex: index,
-        onTap: (i) => context.go(AppRoutes.studentShellRoutes[i]),
-        items: [
-          StudentBottomNavItem(
-            label: l10n.tabHome,
-            icon: LucideIcons.home,
-          ),
-          StudentBottomNavItem(
-            label: l10n.tabAskCoc,
-            icon: LucideIcons.sparkles,
-            isCenter: true,
-          ),
-          StudentBottomNavItem(
-            label: l10n.tabProfile,
-            icon: LucideIcons.user,
-          ),
-        ],
-      ),
+      bottomNavigationBar: hideBottomNav
+          ? null
+          : StudentBottomNav(
+              currentIndex: index,
+              onTap: (i) => context.go(AppRoutes.studentShellRoutes[i]),
+              items: [
+                StudentBottomNavItem(
+                  label: l10n.tabHome,
+                  icon: LucideIcons.home,
+                ),
+                StudentBottomNavItem(
+                  label: l10n.tabAskCoc,
+                  icon: LucideIcons.sparkles,
+                  isCenter: true,
+                ),
+                StudentBottomNavItem(
+                  label: l10n.tabProfile,
+                  icon: LucideIcons.user,
+                ),
+              ],
+            ),
     );
   }
 }

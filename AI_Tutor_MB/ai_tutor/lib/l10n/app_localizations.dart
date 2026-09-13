@@ -133,7 +133,7 @@ abstract class AppLocalizations {
   /// No description provided for @tabProfile.
   ///
   /// In vi, this message translates to:
-  /// **'Cá nhân'**
+  /// **'Hồ sơ'**
   String get tabProfile;
 
   /// No description provided for @tabDashboard.
@@ -1849,7 +1849,7 @@ abstract class AppLocalizations {
   /// No description provided for @emptyTeacherMaterialsMessage.
   ///
   /// In vi, this message translates to:
-  /// **'Tải tài liệu lên để AI và sinh viên sử dụng.'**
+  /// **'Chưa có tài liệu cho lớp này. Chỉ admin tải file lên; bạn có thể import từ URL nếu cần.'**
   String get emptyTeacherMaterialsMessage;
 
   /// No description provided for @viewPdf.

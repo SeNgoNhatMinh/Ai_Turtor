@@ -1,44 +1,41 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:gap/gap.dart';
-import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../../core/constants/app_flags.dart';
 import '../../../../core/network/exceptions.dart';
-import '../../../../core/router/routes.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
-import '../../../../core/utils/ai_study_tips.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../shared/models/improve_suggestion.dart';
-import '../../../../shared/widgets/widgets.dart';
-import '../../../quiz/presentation/student_quiz_screens.dart';
+import '../../../student/student_route_handoff.dart';
 import '../../application/improve_plan_controller.dart';
 
-/// Card "Tiếp tục học" — giống FE web [AnswerImproveSuggestions].
-/// Chỉ hiện khi markdown không có section "Lưu ý để học tốt hơn".
+/// Card "Tiếp tục học" trong chat — giống FE web [AnswerImproveSuggestions].
 class ImproveSuggestionsStrip extends StatelessWidget {
   const ImproveSuggestionsStrip({
     super.key,
     required this.suggestions,
-    required this.answerMarkdown,
     required this.consumedKeys,
     required this.onLearn,
     this.onCreateQuiz,
     this.loadingKey,
+    this.quizLabel = 'Ôn tập',
   });
 
   final List<ImproveSuggestionItem> suggestions;
-  final String answerMarkdown;
   final Set<String> consumedKeys;
   final ValueChanged<ImproveSuggestionItem> onLearn;
   final ValueChanged<ImproveSuggestionItem>? onCreateQuiz;
   final String? loadingKey;
+  final String quizLabel;
 
-  static List<ImproveSuggestionItem> _dedupe(List<ImproveSuggestionItem> items) {
+  static List<ImproveSuggestionItem> _dedupe(
+    List<ImproveSuggestionItem> items,
+  ) {
     final seen = <String>{};
     final result = <ImproveSuggestionItem>[];
     for (final item in items) {
@@ -46,7 +43,7 @@ class ImproveSuggestionsStrip extends StatelessWidget {
       if (key.isEmpty || seen.contains(key)) continue;
       seen.add(key);
       result.add(item);
-      if (result.length >= 4) break;
+      if (result.length >= 8) break;
     }
     return result;
   }
@@ -54,9 +51,6 @@ class ImproveSuggestionsStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (!AppFlags.showImproveSuggestions || suggestions.isEmpty) {
-      return const SizedBox.shrink();
-    }
-    if (hasStudyTipsSection(answerMarkdown)) {
       return const SizedBox.shrink();
     }
 
@@ -78,16 +72,16 @@ class ImproveSuggestionsStrip extends StatelessWidget {
           children: [
             Text(
               'Tiếp tục học',
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
             ),
             const Gap(2),
             Text(
               'Chọn nội dung bạn muốn học tiếp từ câu trả lời này.',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
             ),
             const Gap(Insets.sm),
             ...unique.map((item) {
@@ -101,6 +95,7 @@ class ImproveSuggestionsStrip extends StatelessWidget {
                   loading: loading,
                   learnLabel: l10n.learnNow,
                   onLearn: consumed ? null : () => onLearn(item),
+                  quizLabel: quizLabel,
                   onCreateQuiz: onCreateQuiz == null || consumed
                       ? null
                       : () => onCreateQuiz!(item),
@@ -120,6 +115,7 @@ class _ContinueLearningRow extends StatelessWidget {
     required this.consumed,
     required this.loading,
     required this.learnLabel,
+    this.quizLabel = 'Ôn tập',
     this.onLearn,
     this.onCreateQuiz,
   });
@@ -128,6 +124,7 @@ class _ContinueLearningRow extends StatelessWidget {
   final bool consumed;
   final bool loading;
   final String learnLabel;
+  final String quizLabel;
   final VoidCallback? onLearn;
   final VoidCallback? onCreateQuiz;
 
@@ -149,10 +146,8 @@ class _ContinueLearningRow extends StatelessWidget {
           Text(
             consumed ? '$label · Đã học' : label,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: consumed
-                      ? AppColors.textTertiary
-                      : AppColors.textPrimary,
-                ),
+              color: consumed ? AppColors.textTertiary : AppColors.textPrimary,
+            ),
           ),
           const Gap(Insets.xs),
           Wrap(
@@ -162,7 +157,7 @@ class _ContinueLearningRow extends StatelessWidget {
             children: [
               if (onCreateQuiz != null)
                 _CompactActionButton(
-                  label: 'Tạo quiz',
+                  label: quizLabel,
                   icon: LucideIcons.clipboardList,
                   onPressed: onCreateQuiz,
                 ),
@@ -267,9 +262,9 @@ class ImproveSuggestionActionRow extends HookConsumerWidget {
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w600,
-                  ),
+                color: AppColors.primary,
+                fontWeight: FontWeight.w600,
+              ),
             ),
             const Gap(Insets.xs),
             Wrap(
@@ -304,17 +299,13 @@ class ImproveSuggestionActionRow extends HookConsumerWidget {
                     onPressed: loadingPin ? null : onTogglePin,
                   ),
                 if (onCreateQuiz != null)
-                  FptButton(
+                  _CompactActionButton(
                     label: quizLabel,
-                    variant: FptButtonVariant.ghost,
-                    size: FptButtonSize.sm,
                     icon: LucideIcons.clipboardList,
                     onPressed: consumed ? null : onCreateQuiz,
                   ),
-                FptButton(
+                _CompactActionButton(
                   label: learnLabel,
-                  variant: FptButtonVariant.secondary,
-                  size: FptButtonSize.sm,
                   icon: LucideIcons.sparkles,
                   loading: loadingLearn,
                   onPressed: consumed || loadingLearn ? null : onLearn,
@@ -351,10 +342,10 @@ class PinnedImproveSuggestionsSection extends HookConsumerWidget {
         Text(
           'Đã ghim để ôn',
           style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                color: AppColors.textTertiary,
-                letterSpacing: 0.8,
-                fontWeight: FontWeight.w700,
-              ),
+            color: AppColors.textTertiary,
+            letterSpacing: 0.8,
+            fontWeight: FontWeight.w700,
+          ),
         ),
         const Gap(Insets.sm),
         ...pinnedLabels.map(
@@ -394,7 +385,6 @@ class _PinnedSuggestionTile extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final learning = useState(false);
     final unpinning = useState(false);
 
     Future<void> onUnpin() async {
@@ -405,66 +395,36 @@ class _PinnedSuggestionTile extends HookConsumerWidget {
             .togglePin(courseRouteId, label, pinned: true);
       } catch (e) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(describeError(e))),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(describeError(e))));
         }
       } finally {
         unpinning.value = false;
       }
     }
 
-    Future<void> onLearn() async {
-      learning.value = true;
-      try {
-        final conversationId = await ref
-            .read(improvePlanControllerProvider(courseRouteId).notifier)
-            .learnFromSuggestion(courseRouteId, label);
-        if (context.mounted && conversationId != null) {
-          context.push(AppRoutes.studentTutorChat(conversationId));
-        }
-      } catch (e) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(describeError(e))),
-          );
-        }
-      } finally {
-        learning.value = false;
-      }
-    }
-
     return ImproveSuggestionActionRow(
       label: label,
       pinned: true,
-      loadingLearn: learning.value,
+      loadingLearn: false,
       loadingPin: unpinning.value,
       learnLabel: learnLabel,
       quizLabel: quizLabel,
       pinTooltip: unpinTooltip,
-      onLearn: onLearn,
-      onCreateQuiz: () => onCreateQuizFromSuggestion(
+      onLearn: () => openStudyChatFromSuggestion(
         context,
+        ref,
         courseRouteId: courseRouteId,
-        label: label,
+        suggestionText: label,
+      ),
+      onCreateQuiz: () => openQuizFromSuggestion(
+        context,
+        ref,
+        courseRouteId: courseRouteId,
+        suggestionText: label,
       ),
       onTogglePin: onUnpin,
     );
   }
-}
-
-Future<void> onCreateQuizFromSuggestion(
-  BuildContext context, {
-  required String courseRouteId,
-  required String label,
-}) async {
-  await Navigator.of(context).push(
-    MaterialPageRoute<void>(
-      builder: (_) => TakeQuizScreen(
-        courseId: courseRouteId,
-        topic: label,
-        suggestionText: label,
-      ),
-    ),
-  );
 }

@@ -303,14 +303,56 @@ class AssignmentDetailScreen extends ConsumerWidget {
                   }
                 },
               ),
-              if (!submitted) ...[
+              const Gap(Insets.lg),
+              FptButton(
+                label: submitted ? 'Nộp phiên bản mới' : l10n.submitAssignment,
+                expand: true,
+                onPressed: () => context.push(
+                  AppRoutes.studentAssignmentSubmit(resolved.id),
+                ),
+              ),
+              if (resolved.submissionId != null &&
+                  resolved.submissionId!.isNotEmpty) ...[
                 const Gap(Insets.lg),
                 FptButton(
-                  label: l10n.submitAssignment,
+                  label: 'Tải bài đã nộp',
+                  variant: FptButtonVariant.secondary,
                   expand: true,
-                  onPressed: () => context.push(
-                    AppRoutes.studentAssignmentSubmit(resolved.id),
-                  ),
+                  onPressed: () async {
+                    try {
+                      final result = await ref
+                          .read(assignmentsRepositoryProvider)
+                          .downloadAndOpenSubmissionFile(
+                            submissionId: resolved.submissionId!,
+                            suggestedFileName: 'bai-nop-${resolved.title}',
+                          );
+                      if (!context.mounted) return;
+                      if (result.type == ResultType.done ||
+                          result.type == ResultType.noAppToOpen) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(l10n.assignmentDownloadSuccess),
+                            backgroundColor: AppColors.success,
+                          ),
+                        );
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(result.message),
+                            backgroundColor: AppColors.error,
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(describeError(e)),
+                          backgroundColor: AppColors.error,
+                        ),
+                      );
+                    }
+                  },
                 ),
               ],
               if (reviewed && resolved.score != null) ...[

@@ -21,7 +21,7 @@ class EditProfileScreen extends HookConsumerWidget {
     final profileAsync = ref.watch(profileControllerProvider);
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.canvas,
       appBar: FptAppBar(title: l10n.editProfileTitle),
       body: profileAsync.when(
         loading: () => const LoadingSkeleton(),

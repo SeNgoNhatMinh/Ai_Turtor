@@ -1,6 +1,8 @@
 /// Preprocess markdown study tips giống FE web (`markdownPreprocessor.enhanceStudyTips`).
 library;
 
+import 'study_suggestion_prompt.dart' as study;
+
 final _studyTipHeading = RegExp(
   r'^#{1,6}\s*lưu ý',
   caseSensitive: false,
@@ -79,4 +81,9 @@ String _studyTipLink(String label, int index) {
 
 bool isStudyTipHref(String? href) {
   return href != null && href.startsWith('#ai-study-tip-');
+}
+
+/// Prompt "Học ngay" — khớp FE web `buildStudySuggestionPrompt`.
+String buildStudySuggestionPrompt(String suggestionText) {
+  return study.buildStudySuggestionPrompt(suggestionText);
 }

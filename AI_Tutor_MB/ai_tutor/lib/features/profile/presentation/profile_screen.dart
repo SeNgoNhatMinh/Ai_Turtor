@@ -28,10 +28,8 @@ class _ProfileAvatar extends StatelessWidget {
     return Container(
       width: 88,
       height: 88,
-      padding: const EdgeInsets.all(Insets.sm),
       decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(20),
+        shape: BoxShape.circle,
         border: Border.all(
           color: AppColors.peacockBlue.withValues(alpha: 0.22),
           width: 1.5,
@@ -49,13 +47,13 @@ class _ProfileAvatar extends StatelessWidget {
           ),
         ],
       ),
-      child: Image.asset(
-        AppAssets.cocVangLogoTransparent,
-        fit: BoxFit.contain,
-        filterQuality: FilterQuality.high,
-        errorBuilder: (_, __, ___) => Image.asset(
-          AppAssets.cocVangLogo,
-          fit: BoxFit.contain,
+      child: ClipOval(
+        child: Image.asset(
+          AppAssets.cocFptEducation,
+          fit: BoxFit.cover,
+          filterQuality: FilterQuality.high,
+          errorBuilder: (_, __, ___) =>
+              Image.asset(AppAssets.askCocButton, fit: BoxFit.cover),
         ),
       ),
     );
@@ -76,6 +74,7 @@ class ProfileScreen extends ConsumerWidget {
     final chatUnread = !isTeacher
         ? ref.watch(chatUnreadProvider).valueOrNull ?? 0
         : 0;
+    final themeMode = ref.watch(themeModeControllerProvider);
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -190,6 +189,27 @@ class ProfileScreen extends ConsumerWidget {
                             ),
                             if (!isTeacher)
                               _ProfileMenuItem(
+                                icon: Icons.trending_up_outlined,
+                                title: 'Tiến độ học tập',
+                                onTap: () =>
+                                    context.push(AppRoutes.studentProgress),
+                              ),
+                            if (!isTeacher)
+                              _ProfileMenuItem(
+                                icon: Icons.menu_book_outlined,
+                                title: 'Tài liệu & bài tập',
+                                onTap: () =>
+                                    context.push(AppRoutes.studentMaterials),
+                              ),
+                            if (!isTeacher)
+                              _ProfileMenuItem(
+                                icon: Icons.quiz_outlined,
+                                title: 'Quiz luyện tập',
+                                onTap: () =>
+                                    context.push(AppRoutes.studentQuiz),
+                              ),
+                            if (!isTeacher)
+                              _ProfileMenuItem(
                                 icon: Icons.chat_bubble_outline,
                                 title: l10n.liveChatTitle,
                                 badgeCount: chatUnread,
@@ -202,6 +222,24 @@ class ProfileScreen extends ConsumerWidget {
                                 title: l10n.assignmentsTab,
                                 onTap: () =>
                                     context.go(AppRoutes.studentAssignments),
+                              ),
+                            if (!isTeacher)
+                              _ProfileMenuItem(
+                                icon: themeMode == ThemeMode.dark
+                                    ? Icons.dark_mode
+                                    : Icons.light_mode_outlined,
+                                title: l10n.appearanceTitle,
+                                onTap: () {
+                                  ref
+                                      .read(
+                                        themeModeControllerProvider.notifier,
+                                      )
+                                      .setMode(
+                                        themeMode == ThemeMode.dark
+                                            ? ThemeMode.light
+                                            : ThemeMode.dark,
+                                      );
+                                },
                               ),
                             if (!isTeacher)
                               _ProfileMenuItem(
@@ -299,14 +337,19 @@ class _ProfileStatCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Text(
-            '$value',
-            style: statStyle().copyWith(fontSize: 32, color: color),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              '$value',
+              style: statStyle().copyWith(fontSize: 22, color: color),
+            ),
           ),
           const Gap(Insets.xs),
           Text(
             label,
             textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: AppColors.textTertiary,
               fontWeight: FontWeight.w500,
@@ -362,8 +405,7 @@ class _ProfileMenuItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color =
-        isDestructive ? AppColors.error : AppColors.splashNavy;
+    final color = isDestructive ? AppColors.error : AppColors.splashNavy;
 
     return Column(
       children: [
@@ -372,6 +414,8 @@ class _ProfileMenuItem extends StatelessWidget {
           child: InkWell(
             onTap: onTap,
             borderRadius: BorderRadius.circular(Radii.lg),
+            splashColor: AppColors.primaryWash,
+            highlightColor: AppColors.primaryWash.withValues(alpha: 0.65),
             child: Padding(
               padding: const EdgeInsets.symmetric(
                 horizontal: Insets.lg,
@@ -456,11 +500,6 @@ class _TeacherExtras extends ConsumerWidget {
           onTap: () => context.push(AppRoutes.teacherQuiz),
         ),
         _ProfileMenuItem(
-          icon: Icons.task_alt_outlined,
-          title: 'Expert Tasks V2',
-          onTap: () => context.push(AppRoutes.expertTasks),
-        ),
-        _ProfileMenuItem(
           icon: Icons.dark_mode_outlined,
           title: l10n.appearanceTitle,
           onTap: () {
@@ -474,11 +513,6 @@ class _TeacherExtras extends ConsumerWidget {
           },
         ),
         if (isSenior) ...[
-          _ProfileMenuItem(
-            icon: Icons.hub_outlined,
-            title: 'Expert Co-Training V2',
-            onTap: () => context.push(AppRoutes.v2ExpertHub),
-          ),
           _ProfileMenuItem(
             icon: Icons.shield_outlined,
             title: l10n.seniorReviewQueueTitle,

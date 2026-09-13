@@ -66,7 +66,7 @@ class ChangePasswordScreen extends HookConsumerWidget {
     }
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.canvas,
       appBar: FptAppBar(title: l10n.changePasswordTitle),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(Insets.screenH),

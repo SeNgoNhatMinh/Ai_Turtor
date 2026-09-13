@@ -27,7 +27,7 @@ class AppLocalizationsVi extends AppLocalizations {
   String get tabAssignments => 'Bài tập';
 
   @override
-  String get tabProfile => 'Cá nhân';
+  String get tabProfile => 'Hồ sơ';
 
   @override
   String get tabDashboard => 'Tổng quan';
@@ -938,7 +938,7 @@ class AppLocalizationsVi extends AppLocalizations {
 
   @override
   String get emptyTeacherMaterialsMessage =>
-      'Tải tài liệu lên để AI và sinh viên sử dụng.';
+      'Chưa có tài liệu cho lớp này. Chỉ admin tải file lên; bạn có thể import từ URL nếu cần.';
 
   @override
   String get viewPdf => 'Xem PDF';

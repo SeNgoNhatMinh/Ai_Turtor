@@ -28,11 +28,6 @@ class AiMarkdownBody extends StatelessWidget {
       data: data,
       shrinkWrap: true,
       selectable: true,
-      onTapLink: (text, href, title) {
-        if (isStudyTipHref(href) && onStudyTipTap != null) {
-          onStudyTipTap!(text);
-        }
-      },
       builders: {
         'pre': _CodePreBuilder(),
         'a': _StudyTipLinkBuilder(onStudyTipTap: onStudyTipTap),
@@ -88,6 +83,11 @@ class _StudyTipLinkBuilder extends MarkdownElementBuilder {
   final ValueChanged<String>? onStudyTipTap;
 
   @override
+  bool visitElementBefore(md.Element element) {
+    return !isStudyTipHref(element.attributes['href']);
+  }
+
+  @override
   Widget? visitElementAfter(md.Element element, TextStyle? preferredStyle) {
     final href = element.attributes['href'];
     if (!isStudyTipHref(href)) return null;
@@ -103,7 +103,6 @@ class _StudyTipLinkBuilder extends MarkdownElementBuilder {
   }
 }
 
-/// Mặc định đen như câu trả lời; hover mới cam + gạch chân (giống FE web).
 class _StudyTipLink extends StatefulWidget {
   const _StudyTipLink({
     required this.label,
@@ -121,19 +120,22 @@ class _StudyTipLink extends StatefulWidget {
 
 class _StudyTipLinkState extends State<_StudyTipLink> {
   bool _hovered = false;
+  bool _pressed = false;
 
-  TextStyle _styleFor(bool active) {
-    final base = widget.baseStyle ?? const TextStyle();
-    return base.copyWith(
-      color: active ? AiMarkdownBody._studyTipColor : AppColors.textPrimary,
-      decoration: active ? TextDecoration.underline : TextDecoration.none,
-      decorationColor: active ? AiMarkdownBody._studyTipColor : null,
-      height: 1.55,
-    );
-  }
+  bool get _active => _hovered || _pressed;
 
   @override
   Widget build(BuildContext context) {
+    final base = widget.baseStyle ?? const TextStyle();
+    final activeStyle = base.copyWith(
+      color: _active
+          ? AiMarkdownBody._studyTipColor
+          : AppColors.textPrimary,
+      decoration: _active ? TextDecoration.underline : TextDecoration.none,
+      decorationColor: AiMarkdownBody._studyTipColor,
+      height: 1.55,
+    );
+
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
@@ -142,10 +144,16 @@ class _StudyTipLinkState extends State<_StudyTipLink> {
           : SystemMouseCursors.click,
       child: GestureDetector(
         onTap: widget.onTap,
-        child: Text(
-          widget.label,
-          style: _styleFor(_hovered),
-        ),
+        onTapDown: widget.onTap == null
+            ? null
+            : (_) => setState(() => _pressed = true),
+        onTapUp: widget.onTap == null
+            ? null
+            : (_) => setState(() => _pressed = false),
+        onTapCancel: widget.onTap == null
+            ? null
+            : () => setState(() => _pressed = false),
+        child: Text(widget.label, style: activeStyle),
       ),
     );
   }

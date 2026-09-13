@@ -327,13 +327,6 @@ class _QuickActionsGrid extends StatelessWidget {
         onTap: () => context.go(AppRoutes.adminKnowledgeCandidates),
       ),
       _ActionItem(
-        label: 'Expert Co-Training V2',
-        icon: LucideIcons.workflow,
-        color: AppColors.primary,
-        bg: AppColors.primaryWash,
-        onTap: () => context.go(AppRoutes.adminV2ExpertHub),
-      ),
-      _ActionItem(
         label: 'Xem xét AI',
         icon: LucideIcons.shieldCheck,
         color: AppColors.warm500,
