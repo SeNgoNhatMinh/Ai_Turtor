@@ -82,5 +82,8 @@ bool _shouldRefresh(String type, String? entityType) {
   if (type.contains('ESCALATION') || entityType == 'QUESTION_ESCALATION') {
     return true;
   }
+  if (type.contains('TUTOR_SESSION') || entityType == 'TUTOR_SESSION') {
+    return true;
+  }
   return false;
 }

@@ -11,6 +11,7 @@ import '../../core/utils/code_mentor_mode.dart';
 import '../models/rag_source_evidence.dart';
 import '../models/rag_visual_evidence.dart';
 import 'ai_markdown_body.dart';
+import 'ai_markdown_reveal.dart';
 import 'rag_source_evidence_panel.dart';
 import 'rag_visual_evidence_strip.dart';
 
@@ -33,6 +34,8 @@ class ChatBubble extends StatelessWidget {
     this.afterContent,
     this.betweenContent,
     this.codeSnippet,
+    this.revealMarkdown = false,
+    this.onDownloadSource,
   });
 
   final bool isUser;
@@ -51,6 +54,8 @@ class ChatBubble extends StatelessWidget {
   final String? afterContent;
   final Widget? betweenContent;
   final String? codeSnippet;
+  final bool revealMarkdown;
+  final void Function(String materialId, String title)? onDownloadSource;
 
   List<RagVisualEvidence> get _legacyVisualOnly {
     if (sourceEvidence.isNotEmpty) return const [];
@@ -129,10 +134,16 @@ class ChatBubble extends StatelessWidget {
                   ],
                   if (!isUser && useMarkdown) ...[
                     if (content.trim().isNotEmpty)
-                      AiMarkdownBody(
-                        data: prepareAiChatMarkdown(content),
-                        onStudyTipTap: onStudyTipTap,
-                      ),
+                      revealMarkdown
+                          ? AiMarkdownReveal(
+                              data: content,
+                              enabled: true,
+                              onStudyTipTap: onStudyTipTap,
+                            )
+                          : AiMarkdownBody(
+                              data: prepareAiChatMarkdown(content),
+                              onStudyTipTap: onStudyTipTap,
+                            ),
                     if (betweenContent != null) betweenContent!,
                     if ((afterContent ?? '').trim().isNotEmpty)
                       AiMarkdownBody(
@@ -152,7 +163,10 @@ class ChatBubble extends StatelessWidget {
                     _AiMetaRow(confidence: confidence),
                   ],
                   if (!isUser && sourceEvidence.isNotEmpty)
-                    RagSourceEvidencePanel(items: sourceEvidence),
+                    RagSourceEvidencePanel(
+                      items: sourceEvidence,
+                      onDownloadSource: onDownloadSource,
+                    ),
                   if (!isUser && sourceEvidence.isEmpty && sources.isNotEmpty)
                     _SourceChipRow(sources: sources),
                   if (!isUser && _legacyVisualOnly.isNotEmpty)

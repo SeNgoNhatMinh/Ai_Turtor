@@ -11,6 +11,7 @@ import 'package:speech_to_text/speech_to_text.dart';
 
 import '../../../core/network/exceptions.dart';
 import '../../../core/network/network_providers.dart';
+import '../../../core/utils/authenticated_file_open.dart';
 import '../../../core/router/routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_motion.dart';
@@ -32,6 +33,7 @@ import '../../../shared/widgets/chat_bubble.dart';
 import '../../../shared/widgets/widgets.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../courses/application/courses_controller.dart';
+import '../../courses/data/courses_repository.dart';
 import '../../escalation/application/escalation_controller.dart';
 import '../../memory/presentation/widgets/improve_suggestion_widgets.dart';
 import '../application/ai_tutor_controller.dart';
@@ -47,11 +49,8 @@ import 'widgets/lesson_deep_dive_cta.dart';
 import 'widgets/tts_widgets.dart';
 import 'widgets/understanding_check_quiz.dart';
 
-/// Điểm vào tab "Ask Cóc": giống ChatGPT — bấm vào là luôn bắt đầu một
-/// cuộc trò chuyện MỚI hoàn toàn, không tự mở lại đoạn chat cũ gần nhất.
-///
-/// Muốn xem/tiếp tục đoạn chat cũ thì mở [ConversationHistoryDrawer] (thanh
-/// sidebar bên trái của [ChatScreen]) để tìm và chọn lại.
+/// Điểm vào tab "Ask Cóc": mở / resume buổi học giống web
+/// (`POST /api/tutor/sessions/open`) rồi vào conversation của buổi đó.
 class TutorEntryScreen extends HookConsumerWidget {
   const TutorEntryScreen({super.key});
 
@@ -182,7 +181,7 @@ class ConversationHistoryDrawer extends HookConsumerWidget {
     Future<void> createNew() async {
       final created = await ref
           .read(conversationsControllerProvider.notifier)
-          .openTutorSessionOrCreate();
+          .createNew();
       if (!context.mounted) return;
       Navigator.of(context).pop();
       context.go(AppRoutes.studentTutorChat(created.id));
@@ -1190,6 +1189,14 @@ class ChatScreen extends HookConsumerWidget {
 
     useEffect(() {
       final opening = ref.read(tutorOpeningHandoffProvider);
+      final targetId = opening?.conversationId.trim() ?? '';
+      if (targetId.isNotEmpty && targetId != conversationId) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!context.mounted) return;
+          context.go(AppRoutes.studentTutorChat(targetId));
+        });
+        return null;
+      }
       if (opening?.conversationId == conversationId) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (ref.read(tutorOpeningHandoffProvider)?.conversationId ==
@@ -1282,6 +1289,10 @@ class ChatScreen extends HookConsumerWidget {
       messages: messages.valueOrNull ?? const [],
     );
     final composerLocked = dailyQuotaExhausted || maxTurnsReached;
+    final tutorSnapshot = ref.watch(tutorSessionControllerProvider);
+    final revealMessageId = ref.watch(
+      chatRevealMessageIdProvider(conversationId),
+    );
     final mentorRequests = ref.watch(escalationHistoryControllerProvider);
     final mentorRequestingMessageId = useState<String?>(null);
 
@@ -1351,6 +1362,49 @@ class ChatScreen extends HookConsumerWidget {
       });
       return null;
     }, [messages.valueOrNull?.length, scrollToMessageId]);
+
+    Future<void> downloadSource(String materialId, String title) async {
+      final userId = ref.read(currentUserIdProvider);
+      final course = activeCourse;
+      final classId = resolveTutorClassId(
+        classId: course?.classId,
+        className: course?.className,
+      );
+      final courseId = (course?.code ?? course?.id ?? '').trim();
+      if (userId.isEmpty ||
+          courseId.isEmpty ||
+          classId.isEmpty ||
+          materialId.trim().isEmpty) {
+        return;
+      }
+      try {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Đang tải tài liệu...')));
+        final path = ref
+            .read(coursesRepositoryProvider)
+            .studentClassMaterialPdfApiPath(
+              studentId: userId,
+              courseId: courseId,
+              classId: classId,
+              materialId: materialId.trim(),
+            );
+        await openAuthenticatedApiDownload(
+          ref.read(springDioProvider),
+          apiPath: path,
+          fileName: '${title.trim().isEmpty ? 'material' : title.trim()}.pdf',
+        );
+      } catch (_) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Không thể tải tệp. Tài liệu này có thể được nhập từ website.',
+            ),
+          ),
+        );
+      }
+    }
 
     Future<void> sendStudyPromptInChat(String prompt) async {
       if (prompt.isEmpty || activeCourse == null) return;
@@ -1843,6 +1897,23 @@ class ChatScreen extends HookConsumerWidget {
               },
             ),
           if (dailyQuotaExhausted) const AiChatDailyQuotaBanner(),
+          AiChatTutorSessionStrip(
+            dailyQuotaExhausted: dailyQuotaExhausted,
+            phase: tutorSnapshot.session?.phase,
+            supportLevel: tutorSnapshot.session?.supportLevel,
+            status: tutorSnapshot.session?.status,
+            summaryText: tutorSnapshot.summary?.summaryText,
+            loading: tutorSnapshot.loading,
+            onStartNext: () async {
+              final opened = await ref
+                  .read(tutorSessionControllerProvider.notifier)
+                  .startNext();
+              if (!context.mounted) return;
+              final nextId = opened?.conversationId.trim() ?? '';
+              if (nextId.isEmpty) return;
+              context.go(AppRoutes.studentTutorChat(nextId));
+            },
+          ),
           Expanded(
             child: messages.when(
               loading: () => const LoadingSkeleton(itemCount: 4),
@@ -1940,6 +2011,12 @@ class ChatScreen extends HookConsumerWidget {
                             isUser: message.isUser,
                             child: ChatBubble(
                               isUser: message.isUser,
+                              revealMarkdown:
+                                  !message.isUser &&
+                                  message.id == revealMessageId &&
+                                  !isWelcomeTurn &&
+                                  !isRetryableError,
+                              onDownloadSource: downloadSource,
                               codeSnippet: message.codeSnippet,
                               content: quiz == null
                                   ? message.content
@@ -2165,6 +2242,27 @@ class ChatScreen extends HookConsumerWidget {
               },
             ),
           ),
+          if (!dailyQuotaExhausted &&
+              tutorSnapshot.session?.isCompleted != true)
+            AiChatComposerTopics(
+              enabled: !isPending && !composerLocked,
+              topics: composerTopicsForSession(
+                sessionTopics:
+                    tutorSnapshot.session?.suggestedTopics ?? const [],
+                parsedLessons: lessonSuggestionsForMessage(
+                  answer: (messages.valueOrNull ?? const <AiMessage>[])
+                      .lastWhere(
+                        (item) => !item.isUser,
+                        orElse: () =>
+                            const AiMessage(id: '', content: '', isUser: false),
+                      )
+                      .content,
+                ).map((item) => item.title).toList(),
+              ),
+              onSelect: (topic) {
+                unawaited(sendStudyPromptInChat(buildLessonChatPrompt(topic)));
+              },
+            ),
           SafeArea(
             top: false,
             child: _ChatInputBar(

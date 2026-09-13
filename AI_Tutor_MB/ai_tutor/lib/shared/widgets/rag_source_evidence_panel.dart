@@ -18,9 +18,11 @@ class RagSourceEvidencePanel extends ConsumerStatefulWidget {
   const RagSourceEvidencePanel({
     super.key,
     required this.items,
+    this.onDownloadSource,
   });
 
   final List<RagSourceEvidence> items;
+  final void Function(String materialId, String title)? onDownloadSource;
 
   static const double _thumbWidth = 52;
   static const double _thumbHeight = 68;
@@ -30,7 +32,8 @@ class RagSourceEvidencePanel extends ConsumerStatefulWidget {
       _RagSourceEvidencePanelState();
 }
 
-class _RagSourceEvidencePanelState extends ConsumerState<RagSourceEvidencePanel> {
+class _RagSourceEvidencePanelState
+    extends ConsumerState<RagSourceEvidencePanel> {
   bool _expanded = false;
 
   @override
@@ -70,9 +73,9 @@ class _RagSourceEvidencePanelState extends ConsumerState<RagSourceEvidencePanel>
                         ? 'Bằng chứng tài liệu'
                         : 'Xem bằng chứng tài liệu ($count)',
                     style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.w600,
-                        ),
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ],
@@ -88,6 +91,7 @@ class _RagSourceEvidencePanelState extends ConsumerState<RagSourceEvidencePanel>
                 item: item,
                 headersAsync: headersAsync,
                 onOpenVisual: (visual) => _openVisual(context, visual),
+                onDownloadSource: widget.onDownloadSource,
               ),
             ),
           ),
@@ -107,7 +111,9 @@ class _RagSourceEvidencePanelState extends ConsumerState<RagSourceEvidencePanel>
         builder: (ctx) => _EvidenceImageDialog(
           imageUrl: imageUrl,
           title: visual.materialTitle ?? visual.caption ?? 'Minh chứng',
-          pageLabel: visual.pageNumber != null ? 'Trang ${visual.pageNumber}' : null,
+          pageLabel: visual.pageNumber != null
+              ? 'Trang ${visual.pageNumber}'
+              : null,
           headersAsync: ref.read(authHeadersProvider),
           onOpenPdf: () => _openPdf(visual),
         ),
@@ -137,22 +143,30 @@ class _EvidenceCard extends StatelessWidget {
     required this.item,
     required this.headersAsync,
     required this.onOpenVisual,
+    this.onDownloadSource,
   });
 
   final RagSourceEvidence item;
   final AsyncValue<Map<String, String>> headersAsync;
   final ValueChanged<RagVisualEvidence> onOpenVisual;
+  final void Function(String materialId, String title)? onDownloadSource;
 
   @override
   Widget build(BuildContext context) {
     final visual = item.primaryVisual;
     final excerpt = item.excerpt?.trim();
+    final materialId = item.materialId?.trim() ?? '';
+    final canDownload = materialId.isNotEmpty && onDownloadSource != null;
 
     return Material(
       color: AppColors.raised,
       borderRadius: BorderRadius.circular(Radii.md),
       child: InkWell(
-        onTap: visual != null ? () => onOpenVisual(visual) : null,
+        onTap: visual != null
+            ? () => onOpenVisual(visual)
+            : canDownload
+            ? () => onDownloadSource!(materialId, item.displayTitle)
+            : null,
         borderRadius: BorderRadius.circular(Radii.md),
         child: Container(
           padding: const EdgeInsets.all(Insets.sm),
@@ -181,16 +195,20 @@ class _EvidenceCard extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
+                        fontWeight: FontWeight.w600,
+                        color: canDownload ? AppColors.primary : null,
+                        decoration: canDownload
+                            ? TextDecoration.underline
+                            : null,
+                      ),
                     ),
                     if (item.subtitle.isNotEmpty) ...[
                       const Gap(2),
                       Text(
                         item.subtitle,
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: AppColors.textTertiary,
-                            ),
+                          color: AppColors.textTertiary,
+                        ),
                       ),
                     ],
                     if (excerpt != null && excerpt.isNotEmpty) ...[
@@ -200,10 +218,10 @@ class _EvidenceCard extends StatelessWidget {
                         maxLines: 3,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: AppColors.textSecondary,
-                              fontStyle: FontStyle.italic,
-                              height: 1.35,
-                            ),
+                          color: AppColors.textSecondary,
+                          fontStyle: FontStyle.italic,
+                          height: 1.35,
+                        ),
                       ),
                     ],
                   ],
@@ -260,9 +278,8 @@ class _EvidenceThumbnail extends StatelessWidget {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     ),
                   ),
-                  errorWidget: (_, __, ___) => const Center(
-                    child: Icon(LucideIcons.fileText, size: 16),
-                  ),
+                  errorWidget: (_, __, ___) =>
+                      const Center(child: Icon(LucideIcons.fileText, size: 16)),
                 ),
                 loading: () => const Center(
                   child: SizedBox(
@@ -294,7 +311,11 @@ class _EvidencePlaceholder extends StatelessWidget {
         borderRadius: BorderRadius.circular(Radii.sm),
       ),
       child: const Center(
-        child: Icon(LucideIcons.fileText, size: 18, color: AppColors.textTertiary),
+        child: Icon(
+          LucideIcons.fileText,
+          size: 18,
+          color: AppColors.textTertiary,
+        ),
       ),
     );
   }
@@ -328,20 +349,27 @@ class _EvidenceImageDialog extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(Insets.md, Insets.md, Insets.sm, 0),
+              padding: const EdgeInsets.fromLTRB(
+                Insets.md,
+                Insets.md,
+                Insets.sm,
+                0,
+              ),
               child: Row(
                 children: [
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(title, style: Theme.of(context).textTheme.titleSmall),
+                        Text(
+                          title,
+                          style: Theme.of(context).textTheme.titleSmall,
+                        ),
                         if (pageLabel != null)
                           Text(
                             pageLabel!,
-                            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                  color: AppColors.textTertiary,
-                                ),
+                            style: Theme.of(context).textTheme.labelSmall
+                                ?.copyWith(color: AppColors.textTertiary),
                           ),
                       ],
                     ),
@@ -362,22 +390,27 @@ class _EvidenceImageDialog extends StatelessWidget {
                       imageUrl: imageUrl,
                       httpHeaders: headers,
                       fit: BoxFit.contain,
-                      placeholder: (_, __) => const Center(
-                        child: CircularProgressIndicator(),
-                      ),
+                      placeholder: (_, __) =>
+                          const Center(child: CircularProgressIndicator()),
                       errorWidget: (_, __, ___) => const Center(
                         child: Icon(LucideIcons.imageOff, size: 32),
                       ),
                     ),
                   ),
-                  loading: () => const Center(child: CircularProgressIndicator()),
+                  loading: () =>
+                      const Center(child: CircularProgressIndicator()),
                   error: (_, __) =>
                       const Center(child: Icon(LucideIcons.imageOff, size: 32)),
                 ),
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(Insets.md, 0, Insets.md, Insets.md),
+              padding: const EdgeInsets.fromLTRB(
+                Insets.md,
+                0,
+                Insets.md,
+                Insets.md,
+              ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [

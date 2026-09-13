@@ -20,6 +20,9 @@ import '../data/daily_question_quota.dart';
 import '../data/tutor_session.dart';
 import '../data/understanding_check_store.dart';
 import 'daily_question_quota_controller.dart';
+import 'tutor_session_controller.dart';
+
+export 'tutor_session_controller.dart';
 
 String? _correctnessLevelForReview({
   required int rating,
@@ -55,7 +58,9 @@ Future<TutorSessionOpenResult?> _openTutorSessionBestEffort({
         courseId: attempt.$1,
         classId: attempt.$2,
       );
-      if (opened.openingMessage != null || opened.conversationId.isNotEmpty) {
+      if (opened.openingMessage != null ||
+          opened.conversationId.isNotEmpty ||
+          opened.session != null) {
         return opened;
       }
     } catch (_) {}
@@ -235,23 +240,6 @@ class ConversationsController
     }
 
     final repo = ref.read(aiTutorRepositoryProvider);
-    final history = await _historyForCourse(
-      repo: repo,
-      userId: userId,
-      courseId: active?.id,
-      courseCode: resolvedCourseId,
-    );
-    final chatted = hasStudentChattedCourse(
-      history,
-      courseId: active?.id,
-      courseCode: resolvedCourseId,
-    );
-    // Mọi môn: đã hỏi AI → cuộc mới trống + gợi ý.
-    // Mọi môn: chưa hỏi lần nào → mở buổi học (lời chào + lộ trình).
-    if (chatted) {
-      return createNew(courseId: resolvedCourseId, classId: resolvedClassId);
-    }
-
     final bundle = await _resolveFirstVisitOpeningBundle(
       repo: repo,
       userId: userId,
@@ -260,6 +248,7 @@ class ConversationsController
       classId: resolvedClassId,
     );
     final opened = bundle.session;
+    ref.read(tutorSessionControllerProvider.notifier).applyOpened(opened);
     if (opened == null || opened.conversationId.isEmpty) {
       final created = await createNew(
         courseId: active?.id ?? resolvedCourseId,
@@ -270,6 +259,7 @@ class ConversationsController
           .state = TutorSessionOpenResult(
         conversationId: created.id,
         openingMessage: bundle.opening,
+        session: opened?.session,
       );
       return created;
     }
@@ -279,6 +269,7 @@ class ConversationsController
       conversationId: opened.conversationId,
       openingMessage: bundle.opening,
       resumed: opened.resumed,
+      session: opened.session,
     );
     ref.invalidateSelf();
     return AiConversation(
@@ -309,10 +300,6 @@ final conversationsControllerProvider =
       ConversationsController,
       List<AiConversation>
     >(ConversationsController.new);
-
-final tutorOpeningHandoffProvider = StateProvider<TutorSessionOpenResult?>(
-  (ref) => null,
-);
 
 /// `true` khi đang chờ phản hồi AI cho conversation tương ứng.
 final chatPendingProvider = StateProvider.autoDispose.family<bool, String>(
@@ -416,6 +403,7 @@ class ChatController
         ? displayMessage.trim()
         : message;
     final snippet = codeSnippet?.trim() ?? '';
+    final tutorSession = ref.read(tutorSessionControllerProvider).session;
     final optimistic = AiMessage(
       id: 'local-${DateTime.now().millisecondsSinceEpoch}',
       content: visibleQuestion,
@@ -440,10 +428,21 @@ class ChatController
         authToken: session?.token,
         interactionType: interactionType,
         codeSnippet: snippet.isEmpty ? null : snippet,
+        tutorSessionId: tutorSession?.id,
+        sessionPhase: tutorSession?.phase,
         cancelToken: cancelToken,
       );
 
       if (cancelToken.isCancelled) return conversationId;
+
+      ref.read(tutorSessionControllerProvider.notifier).applyAnswer(answer);
+      if (answer.dailyQuota?.exhausted == true) {
+        unawaited(
+          ref
+              .read(tutorSessionControllerProvider.notifier)
+              .closeIfDailyComplete(0),
+        );
+      }
 
       var suggestions = answer.nextImproveSuggestions;
       final hasLessonPath = answerHasLessonPathSuggestions(answer.answer);
@@ -487,6 +486,10 @@ class ChatController
         conversationId: effectiveConversationId,
         understandingCheck: answer.understandingCheck,
       );
+      ref
+          .read(chatRevealMessageIdProvider(effectiveConversationId).notifier)
+          .state = aiMessage
+          .id;
 
       if (switchedConversation) {
         ref
@@ -544,10 +547,23 @@ class ChatController
       ref.invalidate(pinnedMessagesControllerProvider(conversationId));
       ref.invalidate(allPinnedMessagesProvider);
       _syncDailyQuota(courseId: courseId, fromAnswer: answer.dailyQuota);
+      final nextQuota = ref.read(dailyQuestionQuotaProvider(courseId));
+      if (nextQuota.exhausted) {
+        unawaited(
+          ref
+              .read(tutorSessionControllerProvider.notifier)
+              .closeIfDailyComplete(0),
+        );
+      }
       return effectiveConversationId;
     } on ApiBusinessException catch (e) {
       if (e.isDailyQuestionLimitReached) {
         _markDailyQuotaExhausted(courseId, resetAt: e.resetAt);
+        unawaited(
+          ref
+              .read(tutorSessionControllerProvider.notifier)
+              .closeIfDailyComplete(0),
+        );
       }
       state = AsyncData([
         ...previous,
@@ -564,6 +580,11 @@ class ChatController
       final business = apiBusinessExceptionFromDio(e);
       if (business?.isDailyQuestionLimitReached == true) {
         _markDailyQuotaExhausted(courseId, resetAt: business!.resetAt);
+        unawaited(
+          ref
+              .read(tutorSessionControllerProvider.notifier)
+              .closeIfDailyComplete(0),
+        );
       }
       state = AsyncData([
         ...previous,
@@ -764,6 +785,7 @@ class ChatController
       classId: classId,
     );
     final opened = bundle.session;
+    ref.read(tutorSessionControllerProvider.notifier).applyOpened(opened);
     if (opened != null && opened.conversationId.isNotEmpty) {
       ref
           .read(tutorOpeningHandoffProvider.notifier)
@@ -771,6 +793,7 @@ class ChatController
         conversationId: opened.conversationId,
         openingMessage: bundle.opening,
         resumed: opened.resumed,
+        session: opened.session,
       );
     }
     return seedOpeningMessage(messages, bundle.opening);
@@ -1228,6 +1251,21 @@ class CodeMentorController extends AutoDisposeAsyncNotifier<AiAnswer?> {
     state = const AsyncLoading();
     final userId = ref.read(currentUserIdProvider);
     final session = ref.read(authControllerProvider).valueOrNull;
+    final tutor = ref.read(tutorSessionControllerProvider).session;
+    final conversations = ref.read(conversationsControllerProvider).valueOrNull;
+    final conversationId = conversations
+        ?.where(
+          (item) =>
+              conversationBelongsToCourse(
+                item,
+                courseId: courseId,
+                courseCode: courseId,
+              ) ||
+              item.courseId == null,
+        )
+        .map((item) => item.id)
+        .where((id) => id.isNotEmpty)
+        .firstOrNull;
     state = await AsyncValue.guard(
       () => ref
           .read(aiTutorRepositoryProvider)
@@ -1235,6 +1273,7 @@ class CodeMentorController extends AutoDisposeAsyncNotifier<AiAnswer?> {
             studentId: userId,
             courseId: courseId,
             classId: classId,
+            conversationId: conversationId,
             question: question,
             code: code,
             language: language,
@@ -1242,6 +1281,8 @@ class CodeMentorController extends AutoDisposeAsyncNotifier<AiAnswer?> {
             authToken: session?.token,
             studentName: session?.fullName,
             studentEmail: session?.email,
+            tutorSessionId: tutor?.id,
+            sessionPhase: tutor?.phase,
           ),
     );
   }

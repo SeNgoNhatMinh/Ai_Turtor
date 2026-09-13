@@ -253,6 +253,8 @@ class AiAnswer {
     this.suggestionConsumed = false,
     this.dailyQuota,
     this.understandingCheck,
+    this.sessionPhase,
+    this.suggestedTopics = const [],
   });
 
   final String answer;
@@ -272,6 +274,8 @@ class AiAnswer {
   final bool suggestionConsumed;
   final DailyQuestionQuota? dailyQuota;
   final Map<String, dynamic>? understandingCheck;
+  final String? sessionPhase;
+  final List<String> suggestedTopics;
 
   factory AiAnswer.fromJson(Map<String, dynamic> json) {
     final questionEscalationId =
@@ -307,6 +311,8 @@ class AiAnswer {
       understandingCheck: AiMessage._parseUnderstandingCheck(
         json['understandingCheck'],
       ),
+      sessionPhase: json['sessionPhase']?.toString(),
+      suggestedTopics: parseStringList(json['suggestedTopics']),
     );
   }
 }

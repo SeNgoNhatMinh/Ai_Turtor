@@ -48,6 +48,14 @@ class CoursesRepository {
   String materialPdfApiPath(String courseId, String materialId) =>
       '/api/courses/$courseId/materials/$materialId/pdf';
 
+  String studentClassMaterialPdfApiPath({
+    required String studentId,
+    required String courseId,
+    required String classId,
+    required String materialId,
+  }) =>
+      '/api/students/$studentId/courses/$courseId/classes/$classId/materials/$materialId/pdf';
+
   String materialPdfUrl(String courseId, String materialId) {
     final base = _dio.options.baseUrl.replaceAll(RegExp(r'/$'), '');
     return '$base/api/courses/$courseId/materials/$materialId/pdf';
@@ -131,7 +139,8 @@ class CoursesRepository {
         if (classId != null) 'classId': classId,
         'teacherId': teacherId,
         'uploaderRole': uploaderRole ?? (classId != null ? 'TEACHER' : 'ADMIN'),
-        if (selectedUrls != null && selectedUrls.isNotEmpty) 'selectedUrls': selectedUrls,
+        if (selectedUrls != null && selectedUrls.isNotEmpty)
+          'selectedUrls': selectedUrls,
         'followNext': followNext,
         if (maxPages != null) 'maxPages': maxPages,
       },

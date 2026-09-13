@@ -220,4 +220,71 @@ void main() {
     );
     expect(resolveTutorClassId(className: 'CEA201-01'), 'CEA201-01');
   });
+
+  test('parses tutor session object from open payload', () {
+    final opened = TutorSessionOpenResult.fromJson({
+      'conversationId': 'conv-9',
+      'resumed': true,
+      'session': {
+        'id': 'sess-1',
+        'studentId': 'sv1',
+        'courseId': 'PRJ301',
+        'status': 'ACTIVE',
+        'phase': 'TEACH',
+        'supportLevel': 'STANDARD',
+        'suggestedTopics': ['Bài 1 Inheritance', 'Bài 2 Servlet'],
+      },
+    });
+
+    expect(opened.session?.id, 'sess-1');
+    expect(opened.session?.phase, 'TEACH');
+    expect(opened.session?.suggestedTopics, hasLength(2));
+    expect(
+      composerTopicsForSession(sessionTopics: opened.session!.suggestedTopics),
+      ['Bài 1 Inheritance', 'Bài 2 Servlet'],
+    );
+  });
+
+  test('merges later session phase and topics', () {
+    const current = TutorSessionState(
+      id: 'sess-1',
+      phase: 'OPEN',
+      supportLevel: 'STANDARD',
+    );
+    final next = current.merge(
+      const TutorSessionState(
+        id: 'sess-1',
+        phase: 'PRACTICE',
+        suggestedTopics: ['Ôn lại MVC'],
+      ),
+    );
+    expect(next.phase, 'PRACTICE');
+    expect(next.suggestedTopics, ['Ôn lại MVC']);
+  });
+
+  testWidgets('session strip shows phase and next-session action', (
+    tester,
+  ) async {
+    var started = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AiChatTutorSessionStrip(
+            dailyQuotaExhausted: false,
+            phase: 'TEACH',
+            supportLevel: 'HIGH_SUPPORT',
+            status: 'COMPLETED',
+            summaryText: 'Đã học inheritance.',
+            onStartNext: () => started = true,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text(AiChatTutorSessionStrip.companionTitle), findsOneWidget);
+    expect(find.text(AiChatTutorSessionStrip.completedHint), findsOneWidget);
+    expect(find.text('Đã học inheritance.'), findsOneWidget);
+    await tester.tap(find.text(AiChatTutorSessionStrip.startNextLabel));
+    expect(started, isTrue);
+  });
 }

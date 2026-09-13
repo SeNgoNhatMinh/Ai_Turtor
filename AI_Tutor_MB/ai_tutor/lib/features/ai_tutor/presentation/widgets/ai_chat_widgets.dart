@@ -477,6 +477,156 @@ class AiChatTurnLimitBanner extends StatelessWidget {
   }
 }
 
+class AiChatTutorSessionStrip extends StatelessWidget {
+  const AiChatTutorSessionStrip({
+    super.key,
+    required this.dailyQuotaExhausted,
+    this.phase,
+    this.supportLevel,
+    this.status,
+    this.summaryText,
+    this.loading = false,
+    this.onStartNext,
+  });
+
+  final bool dailyQuotaExhausted;
+  final String? phase;
+  final String? supportLevel;
+  final String? status;
+  final String? summaryText;
+  final bool loading;
+  final VoidCallback? onStartNext;
+
+  static const companionTitle = 'AI Tutor đang đồng hành';
+  static const completedHint = 'Đã tổng kết và gửi buổi học cho giảng viên';
+  static const startNextLabel = 'Bắt đầu buổi tiếp theo';
+
+  bool get _completed => (status ?? '').toUpperCase() == 'COMPLETED';
+
+  @override
+  Widget build(BuildContext context) {
+    final title = dailyQuotaExhausted
+        ? dailySessionCompleteTitle
+        : companionTitle;
+    final subtitle = dailyQuotaExhausted
+        ? dailySessionCompleteMessage
+        : _completed
+        ? completedHint
+        : 'Giai đoạn: ${phase?.isNotEmpty == true ? phase : 'OPEN'} · '
+              'Mức hỗ trợ: ${supportLevel?.isNotEmpty == true ? supportLevel : 'STANDARD'}';
+
+    return Material(
+      color: AppColors.canvas,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          Insets.screenH,
+          Insets.sm,
+          Insets.screenH,
+          Insets.sm,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.splashNavy,
+                        ),
+                      ),
+                      const Gap(2),
+                      Text(
+                        subtitle,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.textSecondary,
+                          height: 1.35,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (_completed && !dailyQuotaExhausted && onStartNext != null)
+                  TextButton(
+                    onPressed: loading ? null : onStartNext,
+                    child: Text(startNextLabel),
+                  ),
+              ],
+            ),
+            if (dailyQuotaExhausted) ...[
+              const Gap(Insets.xs),
+              Text(
+                dailySessionCompleteHint,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: AppColors.textSecondary,
+                  height: 1.4,
+                ),
+              ),
+            ],
+            if ((summaryText ?? '').trim().isNotEmpty) ...[
+              const Gap(Insets.xs),
+              Text(
+                summaryText!.trim(),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: AppColors.textPrimary,
+                  height: 1.4,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class AiChatComposerTopics extends StatelessWidget {
+  const AiChatComposerTopics({
+    super.key,
+    required this.topics,
+    required this.onSelect,
+    this.enabled = true,
+  });
+
+  final List<String> topics;
+  final ValueChanged<String> onSelect;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    if (topics.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        Insets.screenH,
+        0,
+        Insets.screenH,
+        Insets.sm,
+      ),
+      child: Wrap(
+        spacing: Insets.sm,
+        runSpacing: Insets.sm,
+        children: topics
+            .map(
+              (topic) => ActionChip(
+                label: Text(
+                  topic,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                onPressed: enabled ? () => onSelect(topic) : null,
+              ),
+            )
+            .toList(),
+      ),
+    );
+  }
+}
+
 class AiChatDailyQuotaBanner extends StatelessWidget {
   const AiChatDailyQuotaBanner({super.key});
 

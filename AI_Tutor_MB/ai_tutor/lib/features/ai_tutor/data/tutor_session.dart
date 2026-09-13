@@ -1,3 +1,4 @@
+import '../../../core/utils/json_helpers.dart';
 import '../../../shared/models/ai_conversation.dart';
 import '../../../shared/models/course.dart';
 
@@ -6,22 +7,148 @@ final _welcomeOpening = RegExp(
   caseSensitive: false,
 );
 
+class TutorSessionState {
+  const TutorSessionState({
+    required this.id,
+    this.studentId = '',
+    this.courseId = '',
+    this.classId = '',
+    this.status = 'ACTIVE',
+    this.phase = 'OPEN',
+    this.supportLevel = 'STANDARD',
+    this.suggestedTopics = const [],
+    this.summaryId,
+    this.conversationIds = const [],
+  });
+
+  final String id;
+  final String studentId;
+  final String courseId;
+  final String classId;
+  final String status;
+  final String phase;
+  final String supportLevel;
+  final List<String> suggestedTopics;
+  final String? summaryId;
+  final List<String> conversationIds;
+
+  bool get isCompleted => status.toUpperCase() == 'COMPLETED';
+  bool get isActive => status.toUpperCase() == 'ACTIVE';
+
+  TutorSessionState copyWith({
+    String? id,
+    String? studentId,
+    String? courseId,
+    String? classId,
+    String? status,
+    String? phase,
+    String? supportLevel,
+    List<String>? suggestedTopics,
+    String? summaryId,
+    List<String>? conversationIds,
+  }) {
+    return TutorSessionState(
+      id: id ?? this.id,
+      studentId: studentId ?? this.studentId,
+      courseId: courseId ?? this.courseId,
+      classId: classId ?? this.classId,
+      status: status ?? this.status,
+      phase: phase ?? this.phase,
+      supportLevel: supportLevel ?? this.supportLevel,
+      suggestedTopics: suggestedTopics ?? this.suggestedTopics,
+      summaryId: summaryId ?? this.summaryId,
+      conversationIds: conversationIds ?? this.conversationIds,
+    );
+  }
+
+  TutorSessionState merge(TutorSessionState next) {
+    if (id.isNotEmpty && next.id.isNotEmpty && id != next.id) return next;
+    return copyWith(
+      id: next.id.isNotEmpty ? next.id : id,
+      studentId: next.studentId.isNotEmpty ? next.studentId : studentId,
+      courseId: next.courseId.isNotEmpty ? next.courseId : courseId,
+      classId: next.classId.isNotEmpty ? next.classId : classId,
+      status: next.status.isNotEmpty ? next.status : status,
+      phase: next.phase.isNotEmpty ? next.phase : phase,
+      supportLevel: next.supportLevel.isNotEmpty
+          ? next.supportLevel
+          : supportLevel,
+      suggestedTopics: next.suggestedTopics.isNotEmpty
+          ? next.suggestedTopics
+          : suggestedTopics,
+      summaryId: next.summaryId ?? summaryId,
+      conversationIds: next.conversationIds.isNotEmpty
+          ? next.conversationIds
+          : conversationIds,
+    );
+  }
+
+  factory TutorSessionState.fromJson(Map<String, dynamic> json) {
+    return TutorSessionState(
+      id: (json['id'] ?? json['sessionId'] ?? '').toString().trim(),
+      studentId: (json['studentId'] ?? '').toString().trim(),
+      courseId: (json['courseId'] ?? '').toString().trim(),
+      classId: (json['classId'] ?? '').toString().trim(),
+      status: (json['status'] ?? 'ACTIVE').toString().trim(),
+      phase: (json['phase'] ?? 'OPEN').toString().trim(),
+      supportLevel: (json['supportLevel'] ?? 'STANDARD').toString().trim(),
+      suggestedTopics: parseStringList(json['suggestedTopics']),
+      summaryId: (json['summaryId'] ?? '').toString().trim().isEmpty
+          ? null
+          : json['summaryId'].toString().trim(),
+      conversationIds: parseStringList(json['conversationIds']),
+    );
+  }
+}
+
+class TutorSessionSummaryInfo {
+  const TutorSessionSummaryInfo({
+    required this.id,
+    this.sessionId = '',
+    this.summaryText = '',
+    this.topicsCovered = const [],
+    this.recommendedNextSteps = const [],
+  });
+
+  final String id;
+  final String sessionId;
+  final String summaryText;
+  final List<String> topicsCovered;
+  final List<String> recommendedNextSteps;
+
+  factory TutorSessionSummaryInfo.fromJson(Map<String, dynamic> json) {
+    return TutorSessionSummaryInfo(
+      id: (json['id'] ?? json['summaryId'] ?? '').toString().trim(),
+      sessionId: (json['sessionId'] ?? '').toString().trim(),
+      summaryText: (json['summaryText'] ?? '').toString().trim(),
+      topicsCovered: parseStringList(json['topicsCovered']),
+      recommendedNextSteps: parseStringList(json['recommendedNextSteps']),
+    );
+  }
+}
+
 class TutorSessionOpenResult {
   const TutorSessionOpenResult({
     required this.conversationId,
     this.openingMessage,
     this.resumed = false,
+    this.session,
   });
 
   final String conversationId;
   final AiMessage? openingMessage;
   final bool resumed;
+  final TutorSessionState? session;
 
   factory TutorSessionOpenResult.fromJson(Map<String, dynamic> json) {
+    final rawSession = json['session'];
     return TutorSessionOpenResult(
       conversationId: (json['conversationId'] ?? '').toString().trim(),
       openingMessage: parseOpeningMessage(json['openingMessage']),
       resumed: json['resumed'] == true,
+      session: rawSession is Map
+          ? TutorSessionState.fromJson(Map<String, dynamic>.from(rawSession))
+          : null,
     );
   }
 }
@@ -231,6 +358,28 @@ bool isWelcomeTutorTurn(AiMessage message, {String? precedingUserQuestion}) {
   if (message.proactive) return true;
   if ((precedingUserQuestion ?? '').trim().isNotEmpty) return false;
   return isWelcomeOpeningText(message.content);
+}
+
+final _numberedLessonTopic = RegExp(
+  r'(?:bắt đầu\s+)?(?:bài|bai)\s+\d+',
+  caseSensitive: false,
+);
+
+List<String> composerTopicsForSession({
+  required List<String> sessionTopics,
+  List<String> parsedLessons = const [],
+}) {
+  final session = sessionTopics
+      .map((item) => item.trim())
+      .where((item) => item.isNotEmpty)
+      .toList();
+  final parsed = parsedLessons
+      .map((item) => item.trim())
+      .where((item) => item.isNotEmpty)
+      .toList();
+  if (session.any(_numberedLessonTopic.hasMatch)) return session;
+  if (parsed.isNotEmpty) return parsed;
+  return session;
 }
 
 List<AiMessage> seedOpeningMessage(
