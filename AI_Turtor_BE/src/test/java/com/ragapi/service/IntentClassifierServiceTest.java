@@ -18,9 +18,12 @@ class IntentClassifierServiceTest {
     @BeforeEach
     void setUp() {
         LlmIntentClassifierService llmClassifier = mock(LlmIntentClassifierService.class);
+        SharedRedisCacheService sharedRedisCache = mock(SharedRedisCacheService.class);
         when(llmClassifier.classify(anyString(), anyString(), anyString(), anyString()))
                 .thenReturn(Optional.empty());
-        service = new IntentClassifierService(llmClassifier);
+        when(sharedRedisCache.get(anyString(), anyString(), org.mockito.ArgumentMatchers.any()))
+                .thenReturn(Optional.empty());
+        service = new IntentClassifierService(llmClassifier, sharedRedisCache);
     }
 
     @Test

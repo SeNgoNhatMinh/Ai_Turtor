@@ -20,6 +20,9 @@ class StudentQuestionNormalizationServiceTest {
     @Mock
     private OpenRouterChatService chatService;
 
+    @Mock
+    private SharedRedisCacheService sharedRedisCache;
+
     @InjectMocks
     private StudentQuestionNormalizationService service;
 

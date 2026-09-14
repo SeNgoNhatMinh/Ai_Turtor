@@ -15,6 +15,7 @@ export const appRoutes = [
   { role: 'student', tab: 'student-materials', path: '/student/materials' },
   { role: 'student', tab: 'student-assignments', path: '/student/assignments' },
   { role: 'student', tab: 'student-escalation', path: '/student/mentor-review' },
+  { role: 'student', tab: 'student-escalation', path: '/student/mentor-review/:ticketId' },
   { role: 'teacher', tab: 'teacher-classes', path: '/teacher/classes', allowedAccountRoles: ['TEACHER'] },
   { role: 'teacher', tab: 'teacher-quizzes', path: '/teacher/quizzes', allowedAccountRoles: ['TEACHER'] },
   { role: 'teacher', tab: 'teacher-materials', path: '/teacher/materials', allowedAccountRoles: ['TEACHER'] },

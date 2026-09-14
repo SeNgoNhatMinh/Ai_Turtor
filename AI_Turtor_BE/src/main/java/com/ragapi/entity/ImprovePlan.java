@@ -29,6 +29,7 @@ public class ImprovePlan {
     private String riskLevel;
     private List<String> weakTopics;
     private List<String> planItems;
+    private List<ImprovePlanItem> planItemDetails;
     private List<String> evidence;
 
     private String status;

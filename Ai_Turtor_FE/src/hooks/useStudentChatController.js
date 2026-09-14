@@ -153,6 +153,13 @@ export function useStudentChatController({
 
     try {
       let data;
+      const improvePlanPayload = requestContext.improvePlanId && requestContext.planItemId
+        ? {
+          improvePlanId: requestContext.improvePlanId,
+          planItemId: requestContext.planItemId,
+          clickedSuggestion: requestContext.clickedSuggestion || requestContext.displayQuestion || text,
+        }
+        : {};
       if (N8N_ENABLED) {
         try {
           data = await n8nService.sendStudentChat({
@@ -168,6 +175,7 @@ export function useStudentChatController({
             tutorSessionId: activeTutorSession?.id || '',
             sessionPhase: activeTutorSession?.phase || 'TEACH',
             interactionType: requestContext.interactionType || '',
+            ...improvePlanPayload,
           }, { signal: requestController.signal });
         } catch (n8nError) {
           if (requestController.signal.aborted) throw n8nError;
@@ -198,6 +206,7 @@ export function useStudentChatController({
               conversationId: previousSessionId || null,
               tutorSessionId: activeTutorSession?.id || null,
               sessionPhase: activeTutorSession?.phase || 'TEACH',
+              ...improvePlanPayload,
             }, userId, currentUser?.fullName || '', currentUser?.email || '', {
               signal: requestController.signal,
             });
@@ -213,6 +222,7 @@ export function useStudentChatController({
           conversationId: previousSessionId || null,
           tutorSessionId: activeTutorSession?.id || null,
           sessionPhase: activeTutorSession?.phase || 'TEACH',
+          ...improvePlanPayload,
         }, userId, currentUser?.fullName || '', currentUser?.email || '', {
           signal: requestController.signal,
         });

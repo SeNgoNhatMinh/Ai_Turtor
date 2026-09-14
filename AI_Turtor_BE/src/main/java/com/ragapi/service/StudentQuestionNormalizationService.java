@@ -6,8 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.time.Duration;
 
 /**
  * Uses a lightweight LLM pass so the tutor understands student typos and missing
@@ -19,10 +18,10 @@ import java.util.concurrent.ConcurrentHashMap;
 @RequiredArgsConstructor
 public class StudentQuestionNormalizationService {
 
-    private static final int MAX_CACHE_ENTRIES = 2_000;
+    private static final String NORMALIZATION_CACHE = "student-question-normalization";
 
     private final OpenRouterChatService chatService;
-    private final Map<String, String> cache = new ConcurrentHashMap<>();
+    private final SharedRedisCacheService sharedRedisCache;
 
     @Value("${app.student-question-normalization.enabled:true}")
     private boolean enabled;
@@ -32,6 +31,9 @@ public class StudentQuestionNormalizationService {
 
     @Value("${app.student-question-normalization.max-length:500}")
     private int maxLength;
+
+    @Value("${app.redis-cache.question-normalization-ttl-hours:24}")
+    private long cacheTtlHours;
 
     public String normalize(String question) {
         if (!enabled || question == null || question.isBlank()) {
@@ -56,8 +58,8 @@ public class StudentQuestionNormalizationService {
             return trimmed;
         }
 
-        String cached = cache.get(trimmed);
-        if (cached != null) {
+        String cached = sharedRedisCache.getString(NORMALIZATION_CACHE, trimmed).orElse(null);
+        if (cached != null && !cached.isBlank()) {
             return cached;
         }
 
@@ -70,10 +72,12 @@ public class StudentQuestionNormalizationService {
             log.info("AI normalized student question: '{}' -> '{}'", trimmed, corrected);
         }
 
-        if (cache.size() >= MAX_CACHE_ENTRIES) {
-            cache.clear();
-        }
-        cache.put(trimmed, corrected);
+        sharedRedisCache.putString(
+                NORMALIZATION_CACHE,
+                trimmed,
+                corrected,
+                Duration.ofHours(Math.max(1L, cacheTtlHours))
+        );
         return corrected;
     }
 

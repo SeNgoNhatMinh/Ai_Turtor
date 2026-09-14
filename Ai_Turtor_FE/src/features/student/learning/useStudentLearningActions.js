@@ -21,9 +21,18 @@ export function useStudentLearningActions({
     const text = getSuggestionText(suggestion);
     if (!text) return;
 
-    const prompt = buildStudySuggestionPrompt(text);
+    const prompt = buildStudySuggestionPrompt(text, suggestion);
+    const requestContext = suggestion?.improvePlanId && suggestion?.planItemId
+      ? {
+        interactionType: 'IMPROVE_PLAN_REVIEW',
+        displayQuestion: text,
+        improvePlanId: suggestion.improvePlanId,
+        planItemId: suggestion.planItemId,
+        clickedSuggestion: text,
+      }
+      : {};
     if (sendChatMessage) {
-      sendChatMessage(prompt);
+      sendChatMessage(prompt, requestContext);
       return;
     }
     if (setChatDraft) {

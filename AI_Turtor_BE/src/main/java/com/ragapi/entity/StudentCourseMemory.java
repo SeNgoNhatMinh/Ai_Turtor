@@ -33,6 +33,9 @@ public class StudentCourseMemory {
     private List<String> weakTopics = new ArrayList<>();
 
     @Builder.Default
+    private List<StudentWeakTopic> weakTopicDetails = new ArrayList<>();
+
+    @Builder.Default
     private List<String> learnedTopics = new ArrayList<>();
 
     @Builder.Default

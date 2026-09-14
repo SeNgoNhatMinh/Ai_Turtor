@@ -5,22 +5,38 @@ import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class EmbeddingService {
 
-    private static final int MAX_QUERY_CACHE_ENTRIES = 256;
+    private static final String QUERY_EMBEDDING_CACHE = "query-embedding";
 
     private final EmbeddingModel embeddingModel;
     private final PrivacySanitizer privacySanitizer;
-    private final ConcurrentHashMap<String, Embedding> queryEmbeddingCache = new ConcurrentHashMap<>();
+    private final SharedRedisCacheService sharedRedisCache;
+
+    @Value("${rag.embedding.provider:ollama}")
+    private String embeddingProvider;
+
+    @Value("${rag.embedding.openrouter.model:}")
+    private String openRouterEmbeddingModel;
+
+    @Value("${rag.embedding.nvidia.model:}")
+    private String nvidiaEmbeddingModel;
+
+    @Value("${ollama.embedding-model:embeddinggemma}")
+    private String ollamaEmbeddingModel;
+
+    @Value("${app.redis-cache.query-embedding-ttl-hours:168}")
+    private long queryEmbeddingTtlHours;
 
     public Embedding generateEmbedding(String text) {
         return generateQueryEmbedding(text);
@@ -64,10 +80,30 @@ public class EmbeddingService {
         if (!query) {
             return embedUncached(text, false);
         }
-        if (queryEmbeddingCache.size() >= MAX_QUERY_CACHE_ENTRIES) {
-            queryEmbeddingCache.clear();
+        String cacheKey = embeddingCacheIdentity() + "|" + text;
+        float[] cached = sharedRedisCache.get(QUERY_EMBEDDING_CACHE, cacheKey, float[].class)
+                .orElse(null);
+        if (cached != null && cached.length > 0) {
+            return Embedding.from(cached);
         }
-        return queryEmbeddingCache.computeIfAbsent(text, key -> embedUncached(key, true));
+        Embedding generated = embedUncached(text, true);
+        sharedRedisCache.put(
+                QUERY_EMBEDDING_CACHE,
+                cacheKey,
+                generated.vector(),
+                Duration.ofHours(Math.max(1L, queryEmbeddingTtlHours))
+        );
+        return generated;
+    }
+
+    private String embeddingCacheIdentity() {
+        String provider = embeddingProvider == null ? "" : embeddingProvider.trim().toLowerCase();
+        String model = switch (provider) {
+            case "openrouter" -> openRouterEmbeddingModel;
+            case "nvidia" -> nvidiaEmbeddingModel;
+            default -> ollamaEmbeddingModel;
+        };
+        return provider + "|" + (model == null ? "" : model.trim());
     }
 
     private Embedding embedUncached(String text, boolean query) {
@@ -110,7 +146,6 @@ public class EmbeddingService {
         return text;
     }
 }
-
 
 
 

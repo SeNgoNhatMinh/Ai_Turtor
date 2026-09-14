@@ -22,6 +22,7 @@ import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.HexFormat;
@@ -30,9 +31,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
 
 @Slf4j
 @Service
@@ -41,12 +39,12 @@ public class CanonicalTutorAnswerCacheService {
 
     private static final double MIN_STORE_CONFIDENCE = 0.6;
     private static final String COURSE_MATERIAL = "COURSE_MATERIAL";
-    private static final int MAX_MEMORY_ENTRIES = 2_000;
+    private static final String EXACT_RAG_CACHE = "tutor-answer-exact";
 
     private final CanonicalTutorAnswerRepository repository;
     private final EmbeddingService embeddingService;
     private final MongoTemplate mongoTemplate;
-    private final Map<String, MemoryRagAnswer> exactRagMemoryCache = new ConcurrentHashMap<>();
+    private final SharedRedisCacheService sharedRedisCache;
 
     @Value("${app.tutor-answer-cache.enabled:true}")
     private boolean enabled;
@@ -97,11 +95,9 @@ public class CanonicalTutorAnswerCacheService {
                             entry.getId(),
                             entry.getCourseId(),
                             toRagAnswer(entry),
-                            entry.getExpiresAt(),
-                            entry.getReuseCount(),
-                            entry.getLastReusedAt()
+                            entry.getExpiresAt()
                     ));
-            log.info("Preloaded {} exact tutor answers into memory cache", exactRagMemoryCache.size());
+            log.info("Prepared {} exact tutor answers for the shared Redis cache", entries.size());
         } catch (Exception error) {
             log.warn("Cannot preload exact tutor answer cache: {}", error.getMessage());
         }
@@ -124,17 +120,18 @@ public class CanonicalTutorAnswerCacheService {
     public Optional<CourseRagAnswer> lookupExactRagAnswer(String courseId, String classId, String question) {
         long lookupStartedNanos = System.nanoTime();
         String key = buildKey(courseId, classId, "RAG", question, null);
-        MemoryRagAnswer memoryEntry = exactRagMemoryCache.get(key);
-        if (memoryEntry != null) {
-            if (memoryEntry.expiresAt().isAfter(LocalDateTime.now())
-                    && hasSourceEvidence(memoryEntry.answer())
-                    && !StudentFacingMessages.isInsufficientMaterialAnswer(memoryEntry.answer().getAnswer())) {
-                log.info("In-memory exact tutor answer cache hit for courseId={}", courseId);
-                incrementReuse(key, memoryEntry);
+        Optional<CourseRagAnswer> redisAnswer = sharedRedisCache.get(
+                EXACT_RAG_CACHE, key, CourseRagAnswer.class);
+        if (redisAnswer.isPresent()) {
+            CourseRagAnswer answer = redisAnswer.get();
+            if (hasSourceEvidence(answer)
+                    && !StudentFacingMessages.isInsufficientMaterialAnswer(answer.getAnswer())) {
+                log.info("Shared Redis exact tutor answer cache hit for courseId={}", courseId);
+                incrementReuse(key);
                 return Optional.of(withHitMetadata(
-                        memoryEntry.answer(), "EXACT", key, 1.0, lookupStartedNanos, courseId, classId));
+                        answer, "EXACT", key, 1.0, lookupStartedNanos, courseId, classId));
             }
-            exactRagMemoryCache.remove(key, memoryEntry);
+            sharedRedisCache.evict(EXACT_RAG_CACHE, key);
         }
 
         Optional<CanonicalTutorAnswer> exact = lookup(key);
@@ -153,9 +150,7 @@ public class CanonicalTutorAnswerCacheService {
                 key,
                 entry.getCourseId(),
                 answer,
-                entry.getExpiresAt(),
-                entry.getReuseCount(),
-                entry.getLastReusedAt()
+                entry.getExpiresAt()
         );
         return Optional.of(withHitMetadata(
                 answer, "EXACT", key, 1.0, lookupStartedNanos, courseId, classId));
@@ -182,9 +177,7 @@ public class CanonicalTutorAnswerCacheService {
                 key,
                 courseId,
                 answer,
-                LocalDateTime.now().plusHours(Math.max(1, ttlHours)),
-                0L,
-                null
+                LocalDateTime.now().plusHours(Math.max(1, ttlHours))
         );
         save(
                 key,
@@ -210,9 +203,7 @@ public class CanonicalTutorAnswerCacheService {
                 key,
                 courseId,
                 answer,
-                LocalDateTime.now().plusHours(Math.max(1, ttlHours)),
-                0L,
-                null
+                LocalDateTime.now().plusHours(Math.max(1, ttlHours))
         );
         CompletableFuture.runAsync(() -> {
             try {
@@ -328,22 +319,20 @@ public class CanonicalTutorAnswerCacheService {
             String key,
             String courseId,
             CourseRagAnswer answer,
-            LocalDateTime expiresAt,
-            long reuseCount,
-            LocalDateTime lastReusedAt
+            LocalDateTime expiresAt
     ) {
         if (key == null || answer == null) {
             return;
         }
-        if (exactRagMemoryCache.size() >= MAX_MEMORY_ENTRIES) {
-            exactRagMemoryCache.clear();
-        }
         LocalDateTime safeExpiry = expiresAt == null
                 ? LocalDateTime.now().plusHours(Math.max(1, ttlHours))
                 : expiresAt;
-        exactRagMemoryCache.put(
+        sharedRedisCache.putGrouped(
+                EXACT_RAG_CACHE,
                 key,
-                new MemoryRagAnswer(normalizeScope(courseId), answer, safeExpiry, reuseCount, lastReusedAt)
+                normalizeScope(courseId),
+                answer,
+                Duration.between(LocalDateTime.now(), safeExpiry)
         );
     }
 
@@ -351,7 +340,7 @@ public class CanonicalTutorAnswerCacheService {
         if (cacheId == null || cacheId.isBlank()) {
             return;
         }
-        exactRagMemoryCache.remove(cacheId.trim());
+        sharedRedisCache.evict(EXACT_RAG_CACHE, cacheId.trim());
     }
 
     public long evictRagAnswersForCourse(String courseId) {
@@ -360,8 +349,7 @@ public class CanonicalTutorAnswerCacheService {
             return 0L;
         }
 
-        exactRagMemoryCache.entrySet().removeIf(entry ->
-                normalizedCourseId.equalsIgnoreCase(entry.getValue().courseId()));
+        sharedRedisCache.evictGroup(EXACT_RAG_CACHE, normalizedCourseId);
 
         try {
             long deleted = mongoTemplate.remove(
@@ -528,40 +516,6 @@ public class CanonicalTutorAnswerCacheService {
                 .build();
     }
 
-    private static final class MemoryRagAnswer {
-        private final String courseId;
-        private final CourseRagAnswer answer;
-        private final LocalDateTime expiresAt;
-        private final AtomicLong reuseCount;
-        private final AtomicReference<LocalDateTime> lastReusedAt;
-
-        private MemoryRagAnswer(
-                String courseId,
-                CourseRagAnswer answer,
-                LocalDateTime expiresAt,
-                long reuseCount,
-                LocalDateTime lastReusedAt
-        ) {
-            this.courseId = courseId;
-            this.answer = answer;
-            this.expiresAt = expiresAt;
-            this.reuseCount = new AtomicLong(reuseCount);
-            this.lastReusedAt = new AtomicReference<>(lastReusedAt);
-        }
-
-        CourseRagAnswer answer() {
-            return answer;
-        }
-
-        String courseId() {
-            return courseId;
-        }
-
-        LocalDateTime expiresAt() {
-            return expiresAt;
-        }
-    }
-
     private void save(
             String key,
             String courseId,
@@ -613,10 +567,8 @@ public class CanonicalTutorAnswerCacheService {
         persistReuseIncrementAsync(entry.getId(), reusedAt);
     }
 
-    private void incrementReuse(String cacheId, MemoryRagAnswer memoryEntry) {
+    private void incrementReuse(String cacheId) {
         LocalDateTime reusedAt = LocalDateTime.now();
-        memoryEntry.reuseCount.incrementAndGet();
-        memoryEntry.lastReusedAt.set(reusedAt);
         persistReuseIncrementAsync(cacheId, reusedAt);
     }
 
@@ -672,7 +624,9 @@ public class CanonicalTutorAnswerCacheService {
         Map<String, Object> diagnostics = new java.util.LinkedHashMap<>();
         diagnostics.put("enabled", enabled);
         diagnostics.put("semanticEnabled", semanticEnabled);
-        diagnostics.put("exactMemoryEntries", exactRagMemoryCache.size());
+        diagnostics.put("exactCacheProvider", "REDIS");
+        diagnostics.put("redisEnabled", sharedRedisCache.isEnabled());
+        diagnostics.put("redisAvailable", sharedRedisCache.isAvailable());
         diagnostics.put("semanticEarlyMinSimilarity", semanticEarlyMinSimilarity);
         diagnostics.put("semanticEarlyMinKeywordOverlap", semanticEarlyMinKeywordOverlap);
         diagnostics.put("semanticEarlyMinEvidenceCount", semanticEarlyMinEvidenceCount);

@@ -6,6 +6,7 @@ import com.ragapi.dto.CodeMentorRequest;
 import com.ragapi.dto.CourseRagAnswer;
 import com.ragapi.dto.IntentClassification;
 import com.ragapi.dto.IntentClassifyRequest;
+import com.ragapi.dto.RagQueryIntent;
 import com.ragapi.dto.SuggestionItem;
 import com.ragapi.dto.TutorIntentContext;
 import com.ragapi.entity.QuestionEscalation;
@@ -13,6 +14,7 @@ import com.ragapi.entity.TutorSession;
 import com.ragapi.service.AiConversationService;
 import com.ragapi.service.CodeMentorService;
 import com.ragapi.service.CourseRagService;
+import com.ragapi.service.ImprovePlanService;
 import com.ragapi.service.IntentClassifierService;
 import com.ragapi.service.MentorEscalationService;
 import com.ragapi.service.PedagogicalDirectiveService;
@@ -66,6 +68,7 @@ public class TutorController {
     private final StudentQuestionNormalizationService questionNormalizationService;
     private final PedagogicalDirectiveService pedagogicalDirectiveService;
     private final TutorSessionService tutorSessionService;
+    private final ImprovePlanService improvePlanService;
 
     @GetMapping("/tutor/students/{studentId}/courses/{courseId}/question-quota")
     @Operation(summary = "Get today's per-course question quota for a student")
@@ -137,6 +140,9 @@ public class TutorController {
             body.put("answerPolicy", intent.getAnswerPolicy());
             body.put("requiresCourseMaterial", intent.getRequiresCourseMaterial());
             body.put("routingStrategy", intent.getRoutingStrategy());
+            body.put("improvePlanId", request.getImprovePlanId());
+            body.put("planItemId", request.getPlanItemId());
+            body.put("clickedSuggestion", request.getClickedSuggestion());
             return ResponseEntity.ok(body);
         } catch (StudentDailyQuestionQuotaService.QuestionQuotaExceededException e) {
             String message = StudentFacingMessages.dailySessionComplete(e.getCourseId());
@@ -225,9 +231,28 @@ public class TutorController {
             if (isUnderstandingRemediation(question)) {
                 routingMode = IntentClassifierService.MODE_RAG;
             }
-            log.info("Tutor routing decision: mode={}, harnessMode={}, subIntent={}, strategy={}, confidence={}",
+            RagQueryIntent improvePlanIntent = improvePlanService.resolveReviewIntent(
+                    userId,
+                    courseId,
+                    request.getImprovePlanId(),
+                    request.getPlanItemId()
+            );
+            if (improvePlanIntent != null) {
+                routingMode = IntentClassifierService.MODE_RAG;
+                intent.setMode(IntentClassifierService.MODE_RAG);
+                intent.setSubIntent("EXPLAIN_CONCEPT");
+                intent.setRequiresCourseMaterial(true);
+                intent.setRoutingStrategy("IMPROVE_PLAN_PROVENANCE");
+                if (improvePlanIntent.getLearningObjective() != null
+                        && !improvePlanIntent.getLearningObjective().isBlank()) {
+                    question = "Ôn tập theo Improve Plan: " + improvePlanIntent.getLearningObjective();
+                }
+            }
+            log.info("Tutor routing decision: mode={}, harnessMode={}, subIntent={}, strategy={}, confidence={}, improvePlanId={}, planItemId={}",
                     routingMode, request.getHarnessMode(), intent.getSubIntent(),
-                    intent.getRoutingStrategy(), intent.getConfidence());
+                    intent.getRoutingStrategy(), intent.getConfidence(),
+                    improvePlanIntent == null ? null : improvePlanIntent.getImprovePlanId(),
+                    improvePlanIntent == null ? null : improvePlanIntent.getPlanItemId());
 
             if (IntentClassifierService.MODE_CODE.equals(routingMode)) {
                 return handleCodeMentorIntent(request, question, courseId, classId, userId, intent);
@@ -241,6 +266,9 @@ public class TutorController {
             String pedagogicalContext = pedagogicalDirectiveService.buildTutorContext(
                     userId, courseId, classId);
             String learnerContext = studentCourseMemoryService.buildTutorContext(userId, courseId);
+            if (improvePlanIntent != null) {
+                learnerContext = appendTutorContext(learnerContext, improvePlanContextBlock(improvePlanIntent));
+            }
             if (!recentHistoryContext.isBlank()) {
                 learnerContext = learnerContext.isBlank()
                         ? "- Recent session history:\n" + recentHistoryContext
@@ -292,6 +320,9 @@ public class TutorController {
                 ragAnswer = ragService.answerTutorInteraction(
                         question, courseId, intent.getSubIntent(),
                         pedagogicalContext, learnerContext, recentHistoryContext);
+            } else if (improvePlanIntent != null) {
+                ragAnswer = ragService.askWithImprovePlanContext(
+                        question, courseId, classId, pedagogicalContext, learnerContext, improvePlanIntent);
             } else {
                 ragAnswer = (pedagogicalContext.isBlank() && learnerContext.isBlank())
                         ? ragService.askWithConfidence(question, courseId, classId, teachingMode, retrievalHint)
@@ -385,6 +416,7 @@ public class TutorController {
             response.setUserMessageId(userMessageId);
             response.setAssistantMessageId(assistantMessageId);
             response.setCourseId(courseId);
+            response.setClickedSuggestion(request.getClickedSuggestion());
             response.setTutorSessionId(request.getTutorSessionId());
             response.setSessionPhase(tutorSessionState == null
                     ? (request.getSessionPhase() == null ? "TEACH" : request.getSessionPhase())
@@ -420,6 +452,8 @@ public class TutorController {
             ));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
         } catch (IOException e) {
             log.error("Course material search failed during AI query", e);
             AiQueryResponse response = new AiQueryResponse();
@@ -509,6 +543,34 @@ public class TutorController {
         response.setAnswerPolicy(intent.getAnswerPolicy());
         response.setRequiresCourseMaterial(intent.getRequiresCourseMaterial());
         response.setRoutingStrategy(intent.getRoutingStrategy());
+    }
+
+    private String appendTutorContext(String base, String extra) {
+        if (extra == null || extra.isBlank()) {
+            return base == null ? "" : base;
+        }
+        if (base == null || base.isBlank()) {
+            return extra;
+        }
+        return base + "\n" + extra;
+    }
+
+    private String improvePlanContextBlock(RagQueryIntent intent) {
+        return """
+                - Improve Plan review context:
+                  learningObjective: %s
+                  retrievalTerms: %s
+                  sourceTerms: %s
+                  sourceMaterialCount: %d
+                  sourceChunkCount: %d
+                  Use the source terms and linked chunks as the factual anchor. Do not search using tutoring meta-language.
+                """.formatted(
+                intent.getLearningObjective() == null ? "" : intent.getLearningObjective(),
+                intent.getRetrievalTerms() == null ? List.of() : intent.getRetrievalTerms(),
+                intent.getSourceTerms() == null ? List.of() : intent.getSourceTerms(),
+                intent.getSourceMaterialIds() == null ? 0 : intent.getSourceMaterialIds().size(),
+                intent.getSourceChunkIds() == null ? 0 : intent.getSourceChunkIds().size()
+        ).stripTrailing();
     }
 
     private IntentClassification buildHarnessIntent(AiQueryRequest request, String mode) {

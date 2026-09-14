@@ -1,10 +1,11 @@
 import MentorSupport from './MentorSupport';
-import { useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { useStudentSupport } from '../../../hooks/useStudentSupport';
 
 export default function MentorReviewPage({ currentUser, studentId }) {
+  const { ticketId } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
-  const selectedEscalationId = searchParams.get('ticket');
+  const selectedEscalationId = searchParams.get('ticket') || ticketId || '';
   const support = useStudentSupport({
     activeTab: 'student-escalation',
     userId: currentUser?.userId || currentUser?.id || studentId,

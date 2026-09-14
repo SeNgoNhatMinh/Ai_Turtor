@@ -69,6 +69,13 @@ spring:
   data:
     mongodb:
       uri: ${SPRING_DATA_MONGODB_URI:mongodb://localhost:27017/tutor_db}
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+      connect-timeout: ${SPRING_DATA_REDIS_CONNECT_TIMEOUT:2s}
+      timeout: ${SPRING_DATA_REDIS_TIMEOUT:2s}
+      repositories:
+        enabled: false
   elasticsearch:
     uris: http://${ELASTICSEARCH_HOST:localhost}:${ELASTICSEARCH_PORT:9200}
 
@@ -175,6 +182,13 @@ security:
 
 app:
   timezone: ${APP_TIMEZONE:Asia/Bangkok}
+  redis-cache:
+    enabled: ${REDIS_CACHE_ENABLED:true}
+    key-prefix: ${REDIS_CACHE_KEY_PREFIX:ai-tutor}
+    failure-cooldown-seconds: ${REDIS_CACHE_FAILURE_COOLDOWN_SECONDS:5}
+    query-translation-ttl-hours: ${REDIS_QUERY_TRANSLATION_TTL_HOURS:24}
+    question-normalization-ttl-hours: ${REDIS_QUESTION_NORMALIZATION_TTL_HOURS:24}
+    query-embedding-ttl-hours: ${REDIS_QUERY_EMBEDDING_TTL_HOURS:168}
   student-question-quota:
     daily-limit: ${STUDENT_DAILY_QUESTION_LIMIT:10}
   student-question-normalization:

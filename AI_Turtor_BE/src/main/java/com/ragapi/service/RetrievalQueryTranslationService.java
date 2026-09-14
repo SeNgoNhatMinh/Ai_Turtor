@@ -7,9 +7,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.util.Locale;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Rewrites a learner query into the language commonly used by course material.
@@ -21,10 +20,10 @@ import java.util.concurrent.ConcurrentHashMap;
 @RequiredArgsConstructor
 public class RetrievalQueryTranslationService {
 
-    private static final int MAX_CACHE_ENTRIES = 2_000;
+    private static final String TRANSLATION_CACHE = "retrieval-query-translation";
 
     private final OpenRouterChatService chatService;
-    private final Map<String, String> cache = new ConcurrentHashMap<>();
+    private final SharedRedisCacheService sharedRedisCache;
 
     @Value("${rag.retrieval.query-translation.enabled:true}")
     private boolean enabled;
@@ -34,6 +33,9 @@ public class RetrievalQueryTranslationService {
 
     @Value("${rag.retrieval.query-translation.target-language:English}")
     private String targetLanguage;
+
+    @Value("${app.redis-cache.query-translation-ttl-hours:24}")
+    private long cacheTtlHours;
 
     public String expandForRetrieval(String question, String courseId) {
         return expandForRetrieval(question, courseId, false);
@@ -49,8 +51,8 @@ public class RetrievalQueryTranslationService {
         }
 
         String cacheKey = normalize(courseId) + "|" + normalize(question);
-        String cached = cache.get(cacheKey);
-        if (cached != null) {
+        String cached = sharedRedisCache.getString(TRANSLATION_CACHE, cacheKey).orElse(null);
+        if (cached != null && !cached.isBlank()) {
             return combine(question, cached);
         }
 
@@ -59,10 +61,12 @@ public class RetrievalQueryTranslationService {
             if (rewritten == null || rewritten.isBlank() || rewritten.equalsIgnoreCase(question.trim())) {
                 return question;
             }
-            if (cache.size() >= MAX_CACHE_ENTRIES) {
-                cache.clear();
-            }
-            cache.put(cacheKey, rewritten);
+            sharedRedisCache.putString(
+                    TRANSLATION_CACHE,
+                    cacheKey,
+                    rewritten,
+                    Duration.ofHours(Math.max(1L, cacheTtlHours))
+            );
             log.info("Generated cross-language retrieval query for courseId={}", courseId);
             return combine(question, rewritten);
         } catch (Exception error) {

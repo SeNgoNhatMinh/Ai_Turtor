@@ -4,6 +4,7 @@ import com.ragapi.dto.UpdateCaseMemoryRequest;
 import com.ragapi.dto.UpdateStudentCourseMemoryRequest;
 import com.ragapi.dto.UpdateUserMemoryRequest;
 import com.ragapi.entity.CaseMemory;
+import com.ragapi.entity.StudentWeakTopic;
 import com.ragapi.entity.StudentCourseMemory;
 import com.ragapi.entity.UserMemory;
 import com.ragapi.repository.CaseMemoryRepository;
@@ -66,6 +67,15 @@ public class StudentCourseMemoryService {
         }
         if (request.getWeakTopics() != null) {
             memory.setWeakTopics(cleanList(request.getWeakTopics()));
+        }
+        if (request.getWeakTopicDetails() != null) {
+            memory.setWeakTopicDetails(cleanWeakTopicDetails(request.getWeakTopicDetails()));
+            if (request.getWeakTopics() == null) {
+                memory.setWeakTopics(memory.getWeakTopicDetails().stream()
+                        .map(StudentWeakTopic::getTopic)
+                        .filter(value -> value != null && !value.isBlank())
+                        .toList());
+            }
         }
         if (request.getLearnedTopics() != null) {
             memory.setLearnedTopics(cleanList(request.getLearnedTopics()));
@@ -485,11 +495,47 @@ public class StudentCourseMemoryService {
             memory.setSummary(cleanSummary);
             changed = true;
         }
+        List<StudentWeakTopic> cleanWeakDetails = cleanWeakTopicDetails(memory.getWeakTopicDetails());
+        if (!cleanWeakDetails.equals(memory.getWeakTopicDetails())) {
+            memory.setWeakTopicDetails(cleanWeakDetails);
+            changed = true;
+        }
         if (changed) {
             memory.setUpdatedAt(LocalDateTime.now());
             return repository.save(memory);
         }
         return memory;
+    }
+
+    private List<StudentWeakTopic> cleanWeakTopicDetails(List<StudentWeakTopic> values) {
+        if (values == null) {
+            return new ArrayList<>();
+        }
+        List<StudentWeakTopic> cleaned = new ArrayList<>();
+        for (StudentWeakTopic value : values) {
+            if (value == null) {
+                continue;
+            }
+            String topic = normalize(value.getTopic());
+            if (topic == null) {
+                continue;
+            }
+            boolean exists = cleaned.stream().anyMatch(item -> topic.equalsIgnoreCase(item.getTopic()));
+            if (exists) {
+                continue;
+            }
+            cleaned.add(StudentWeakTopic.builder()
+                    .topic(topic)
+                    .canonicalTopic(normalize(value.getCanonicalTopic()))
+                    .sourceTerms(cleanList(value.getSourceTerms()))
+                    .sourceChunkIds(cleanList(value.getSourceChunkIds()))
+                    .sourceMaterialIds(cleanList(value.getSourceMaterialIds()))
+                    .origin(normalize(value.getOrigin()))
+                    .confidence(value.getConfidence())
+                    .updatedAt(value.getUpdatedAt() == null ? LocalDateTime.now() : value.getUpdatedAt())
+                    .build());
+        }
+        return cleaned;
     }
 
     private void addNormalized(List<String> target, String value) {
@@ -582,7 +628,6 @@ public class StudentCourseMemoryService {
         }
     }
 }
-
 
 
 

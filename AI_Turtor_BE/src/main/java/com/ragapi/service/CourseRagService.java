@@ -1,6 +1,7 @@
 package com.ragapi.service;
 
 import com.ragapi.dto.CourseRagAnswer;
+import com.ragapi.dto.RagQueryIntent;
 import com.ragapi.dto.RagSourceEvidence;
 import com.ragapi.entity.CourseMaterial;
 import com.ragapi.entity.MaterialTocEntry;
@@ -62,6 +63,7 @@ public class CourseRagService {
     private final RagContextBudgetService contextBudgetService;
     private final ApprovedKnowledgeRetrievalService approvedKnowledgeRetrievalService;
     private final ParentChildRetrievalService parentChildRetrievalService;
+    private final CourseMaterialChunkingService chunkingService;
 
     public String ask(String question) throws IOException {
         return ask(question, null, null);
@@ -184,6 +186,23 @@ public class CourseRagService {
         return askWithConfidenceInternal(
                 question, courseId, classId, false, null, null, null,
                 pedagogicalContext, learnerMemoryContext, teachingMode, retrievalHint);
+    }
+
+    public CourseRagAnswer askWithImprovePlanContext(
+            String question,
+            String courseId,
+            String classId,
+            String pedagogicalContext,
+            String learnerMemoryContext,
+            RagQueryIntent ragQueryIntent
+    ) throws IOException {
+        String teachingMode = ragQueryIntent == null || ragQueryIntent.getTeachingMode() == null
+                ? "EXPLAIN_CONCEPT"
+                : ragQueryIntent.getTeachingMode();
+        String retrievalHint = ragQueryIntent == null ? null : ragQueryIntent.getRetrievalQuery();
+        return askWithConfidenceInternal(
+                question, courseId, classId, false, null, null, null,
+                pedagogicalContext, learnerMemoryContext, teachingMode, retrievalHint, ragQueryIntent);
     }
 
     public CourseRagAnswer askWithConfidenceFromTextbook(
@@ -318,6 +337,26 @@ public class CourseRagService {
             String teachingMode,
             String retrievalHint
     ) throws IOException {
+        return askWithConfidenceInternal(
+                question, courseId, classId, textbookOnly, draftChapter, draftTeachingNote,
+                baselineDraftAnswer, pedagogicalContext, learnerMemoryContext,
+                teachingMode, retrievalHint, null);
+    }
+
+    private CourseRagAnswer askWithConfidenceInternal(
+            String question,
+            String courseId,
+            String classId,
+            boolean textbookOnly,
+            String draftChapter,
+            String draftTeachingNote,
+            String baselineDraftAnswer,
+            String pedagogicalContext,
+            String learnerMemoryContext,
+            String teachingMode,
+            String retrievalHint,
+            RagQueryIntent ragQueryIntent
+    ) throws IOException {
         long backendStartedNanos = System.nanoTime();
         String safeQuestion = requireMaxLength(question, "question", STUDENT_QUESTION_MAX_LENGTH);
         String safeCourseId = requireText(courseId, "courseId");
@@ -378,7 +417,10 @@ public class CourseRagService {
                 classId
         );
 
-        String retrievalFocus = LearningPathParser.retrievalFocus(safeQuestion, retrievalHint);
+        String retrievalFocus = ragQueryIntent != null && ragQueryIntent.getRetrievalQuery() != null
+                && !ragQueryIntent.getRetrievalQuery().isBlank()
+                ? ragQueryIntent.getRetrievalQuery().trim()
+                : LearningPathParser.retrievalFocus(safeQuestion, retrievalHint);
         String retrievalQuestion = retrievalQueryTranslationService.expandForRetrieval(
                 retrievalFocus,
                 safeCourseId,
@@ -419,8 +461,14 @@ public class CourseRagService {
                 classId,
                 8
         );
+        List<ElasticVectorService.SearchChunk> improvePlanChunks = retrieveImprovePlanChunks(
+                ragQueryIntent,
+                safeCourseId,
+                classId
+        );
         List<ElasticVectorService.SearchChunk> chunks = TextbookChunkAlignment.merge(
                 retrievalFocus,
+                improvePlanChunks,
                 vectorChunks,
                 keywordChunks,
                 lexicalChunks
@@ -437,6 +485,20 @@ public class CourseRagService {
         chunks = TextbookChunkAlignment.excludeNavigation(chunks);
         chunks = TextbookChunkAlignment.rank(retrievalFocus, chunks);
         chunks = TextbookChunkAlignment.diversifyByCoverage(retrievalFocus, chunks, 8);
+        chunks = pinImprovePlanChunks(improvePlanChunks, chunks);
+        if (ragQueryIntent != null) {
+            log.info(
+                    "Improve plan RAG retrieval (improvePlanId={}, planItemId={}, courseId={}, sourceMaterialCount={}, sourceChunkCount={}, retrievalQuery={}, linkedChunks={}, selectedChunks={})",
+                    ragQueryIntent.getImprovePlanId(),
+                    ragQueryIntent.getPlanItemId(),
+                    safeCourseId,
+                    ragQueryIntent.getSourceMaterialIds() == null ? 0 : ragQueryIntent.getSourceMaterialIds().size(),
+                    ragQueryIntent.getSourceChunkIds() == null ? 0 : ragQueryIntent.getSourceChunkIds().size(),
+                    retrievalQuestion,
+                    improvePlanChunks.size(),
+                    chunks.size()
+            );
+        }
         List<ElasticVectorService.SearchChunk> approvedChunks = List.of();
         if (textbookOnly) {
             chunks = contextBudgetService.applyBudget(chunks);
@@ -899,6 +961,166 @@ public class CourseRagService {
         Map<String, CourseMaterial> result = new LinkedHashMap<>();
         materialRepository.findAllById(materialIds).forEach(material -> result.put(material.getId(), material));
         return result;
+    }
+
+    private List<ElasticVectorService.SearchChunk> retrieveImprovePlanChunks(
+            RagQueryIntent ragQueryIntent,
+            String courseId,
+            String classId
+    ) {
+        if (ragQueryIntent == null || ragQueryIntent.getSourceMaterialIds() == null
+                || ragQueryIntent.getSourceMaterialIds().isEmpty()) {
+            return List.of();
+        }
+        Set<String> materialIds = ragQueryIntent.getSourceMaterialIds().stream()
+                .filter(Objects::nonNull)
+                .map(String::trim)
+                .filter(id -> !id.isBlank())
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        if (materialIds.isEmpty()) {
+            return List.of();
+        }
+        Set<String> chunkIds = ragQueryIntent.getSourceChunkIds() == null
+                ? Set.of()
+                : ragQueryIntent.getSourceChunkIds().stream()
+                        .filter(Objects::nonNull)
+                        .map(String::trim)
+                        .filter(id -> !id.isBlank())
+                        .collect(Collectors.toCollection(LinkedHashSet::new));
+        List<String> terms = mergeRetrievalTerms(ragQueryIntent);
+        List<ElasticVectorService.SearchChunk> result = new ArrayList<>();
+
+        for (CourseMaterial material : materialRepository.findAllById(materialIds)) {
+            if (material == null || !courseId.equalsIgnoreCase(Objects.toString(material.getCourseId(), ""))
+                    || !isMaterialVisibleForClass(material, classId)
+                    || isNonTextbookMaterial(material)
+                    || material.getContent() == null
+                    || material.getContent().isBlank()) {
+                continue;
+            }
+            List<CourseMaterialChunkingService.HierarchicalChunk> chunks = chunkingService.chunkHierarchically(material);
+            for (CourseMaterialChunkingService.HierarchicalChunk chunk : chunks) {
+                boolean exactChunk = !chunkIds.isEmpty() && chunkIds.contains(chunk.chunkId());
+                boolean termMatch = chunkIds.isEmpty() && containsAnyTerm(chunk.parentContent() + "\n" + chunk.content(), terms);
+                if (!exactChunk && !termMatch) {
+                    continue;
+                }
+                result.add(new ElasticVectorService.SearchChunk(
+                        chunk.parentContent(),
+                        exactChunk ? 0.99 : 0.88,
+                        material.getId(),
+                        material.getCourseId(),
+                        material.getClassId(),
+                        material.getTeacherId(),
+                        material.getMaterialScope(),
+                        material.getSourceType(),
+                        chunk.documentId(),
+                        chunk.chapterId(),
+                        chunk.chapterTitle(),
+                        chunk.sectionId(),
+                        chunk.sectionTitle(),
+                        chunk.chunkId(),
+                        chunk.chunkIndex(),
+                        "SECTION"
+                ));
+                if (result.size() >= 6) {
+                    break;
+                }
+            }
+            if (result.size() >= 6) {
+                break;
+            }
+            if (result.isEmpty() && chunks.size() > 0) {
+                CourseMaterialChunkingService.HierarchicalChunk chunk = chunks.get(0);
+                result.add(new ElasticVectorService.SearchChunk(
+                        chunk.parentContent(),
+                        0.72,
+                        material.getId(),
+                        material.getCourseId(),
+                        material.getClassId(),
+                        material.getTeacherId(),
+                        material.getMaterialScope(),
+                        material.getSourceType(),
+                        chunk.documentId(),
+                        chunk.chapterId(),
+                        chunk.chapterTitle(),
+                        chunk.sectionId(),
+                        chunk.sectionTitle(),
+                        chunk.chunkId(),
+                        chunk.chunkIndex(),
+                        "SECTION"
+                ));
+            }
+        }
+        return result;
+    }
+
+    private List<ElasticVectorService.SearchChunk> pinImprovePlanChunks(
+            List<ElasticVectorService.SearchChunk> pinned,
+            List<ElasticVectorService.SearchChunk> ranked
+    ) {
+        if (pinned == null || pinned.isEmpty()) {
+            return ranked == null ? List.of() : ranked;
+        }
+        LinkedHashMap<String, ElasticVectorService.SearchChunk> result = new LinkedHashMap<>();
+        for (ElasticVectorService.SearchChunk chunk : pinned) {
+            result.putIfAbsent(chunkIdentity(chunk), chunk);
+        }
+        if (ranked != null) {
+            for (ElasticVectorService.SearchChunk chunk : ranked) {
+                result.putIfAbsent(chunkIdentity(chunk), chunk);
+            }
+        }
+        return new ArrayList<>(result.values());
+    }
+
+    private List<String> mergeRetrievalTerms(RagQueryIntent ragQueryIntent) {
+        LinkedHashSet<String> terms = new LinkedHashSet<>();
+        if (ragQueryIntent.getSourceTerms() != null) {
+            ragQueryIntent.getSourceTerms().stream()
+                    .filter(Objects::nonNull)
+                    .map(String::trim)
+                    .filter(value -> !value.isBlank())
+                    .forEach(terms::add);
+        }
+        if (ragQueryIntent.getRetrievalTerms() != null) {
+            ragQueryIntent.getRetrievalTerms().stream()
+                    .filter(Objects::nonNull)
+                    .map(String::trim)
+                    .filter(value -> !value.isBlank())
+                    .forEach(terms::add);
+        }
+        if (ragQueryIntent.getRetrievalQuery() != null && !ragQueryIntent.getRetrievalQuery().isBlank()) {
+            terms.add(ragQueryIntent.getRetrievalQuery().trim());
+        }
+        return new ArrayList<>(terms);
+    }
+
+    private boolean containsAnyTerm(String content, List<String> terms) {
+        String normalizedContent = normalizeForMatch(content);
+        if (normalizedContent.isBlank()) {
+            return false;
+        }
+        return terms != null && terms.stream()
+                .filter(Objects::nonNull)
+                .map(this::normalizeForMatch)
+                .filter(term -> term.length() >= 3)
+                .anyMatch(normalizedContent::contains);
+    }
+
+    private boolean isMaterialVisibleForClass(CourseMaterial material, String requestedClassId) {
+        String materialClassId = material.getClassId();
+        if (materialClassId == null || materialClassId.isBlank() || "null".equalsIgnoreCase(materialClassId)) {
+            return true;
+        }
+        return requestedClassId != null && materialClassId.equalsIgnoreCase(requestedClassId.trim());
+    }
+
+    private boolean isNonTextbookMaterial(CourseMaterial material) {
+        return material != null
+                && ("KNOWLEDGE_CANDIDATE".equalsIgnoreCase(material.getSourceType())
+                || "GOLD_QA".equalsIgnoreCase(material.getSourceType())
+                || "senior-approved-knowledge".equalsIgnoreCase(material.getCategory()));
     }
 
     private List<String> buildSourceLabels(

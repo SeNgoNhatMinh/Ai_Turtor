@@ -58,7 +58,8 @@ class CourseRagServiceTextbookTest {
                 cacheHitAuditService,
                 contextBudgetService,
                 approvedKnowledgeRetrievalService,
-                parentChildRetrievalService
+                parentChildRetrievalService,
+                new CourseMaterialChunkingService()
         );
     }
 

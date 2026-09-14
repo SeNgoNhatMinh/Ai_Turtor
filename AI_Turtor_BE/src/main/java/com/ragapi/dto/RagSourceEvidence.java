@@ -2,11 +2,15 @@ package com.ragapi.dto;
 
 import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
 
 import java.util.List;
 
 @Data
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class RagSourceEvidence {
     private String courseId;
     private String courseName;

@@ -29,6 +29,15 @@ public class AiQueryRequest {
     @Schema(description = "Existing conversation ID. Omit this field for the first message; reuse the returned conversationId to continue the chat.", example = "uuid-conversation-id")
     private String conversationId;
 
+    @Schema(description = "Improve Plan ID when the student reviews a persisted plan item")
+    private String improvePlanId;
+
+    @Schema(description = "Improve Plan item ID when the student reviews a persisted plan item")
+    private String planItemId;
+
+    @Schema(description = "Display label of the clicked suggestion")
+    private String clickedSuggestion;
+
     @Schema(description = "Active proactive tutor session ID")
     private String tutorSessionId;
 

@@ -42,6 +42,9 @@ class SemanticTutorAnswerCacheServiceTest {
     @Mock
     private MongoTemplate mongoTemplate;
 
+    @Mock
+    private SharedRedisCacheService sharedRedisCache;
+
     @InjectMocks
     private CanonicalTutorAnswerCacheService cacheService;
 

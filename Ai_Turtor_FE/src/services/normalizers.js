@@ -487,6 +487,33 @@ export const normalizeStudentDashboard = (data) => {
   // Extract from improvePlans
   const plansList = asArray(data?.improvePlans || data?.plans || data?.improvePlan);
   const planSuggestions = plansList.flatMap((plan) => {
+    const planId = plan?.id || plan?.planId || '';
+    const structuredItems = asArray(plan?.planItemDetails || plan?.itemDetails);
+    if (structuredItems.length > 0) {
+      return structuredItems
+        .map((item) => {
+          const title = item?.title || item?.instruction || item?.sourceTopic || '';
+          const instruction = item?.instruction || title;
+          if (!instruction) return null;
+          return {
+            priority: String(plan?.riskLevel || '').toLowerCase() === 'high' ? 'high' : 'medium',
+            title,
+            content: instruction,
+            suggestionText: instruction,
+            text: instruction,
+            persistence: 'IMPROVE_PLAN',
+            deletable: false,
+            improvePlanId: planId,
+            planItemId: item?.id || '',
+            groundingStatus: item?.groundingStatus || '',
+            groundingConfidence: item?.groundingConfidence,
+            sourceTopic: item?.sourceTopic || '',
+            sourceTerms: asArray(item?.sourceTerms),
+            retrievalTerms: asArray(item?.retrievalTerms),
+          };
+        })
+        .filter(Boolean);
+    }
     const embeddedEnvelope = findEmbeddedSuggestionEnvelope(plan.planItems);
     if (embeddedEnvelope) {
       return normalizeSuggestions(embeddedEnvelope).map((suggestion) => ({
@@ -495,15 +522,20 @@ export const normalizeStudentDashboard = (data) => {
         deletable: false,
       }));
     }
-    return [{
-      priority: String(plan.riskLevel || '').toLowerCase() === 'high' ? 'high' : 'medium',
-      title: plan.weakTopics?.length
-        ? `Improvement Plan: ${plan.weakTopics.join(', ')}`
-        : 'AI Learning Improvement Plan',
-      content: asArray(plan.planItems).join('\n') || 'Practice and review focus areas.',
-      persistence: 'IMPROVE_PLAN',
-      deletable: false,
-    }];
+    const legacyItems = asArray(plan.planItems);
+    if (legacyItems.length > 0) {
+      return legacyItems.map((item, index) => ({
+        priority: String(plan.riskLevel || '').toLowerCase() === 'high' ? 'high' : 'medium',
+        title: String(item || '').trim(),
+        content: String(item || '').trim(),
+        suggestionText: String(item || '').trim(),
+        persistence: 'IMPROVE_PLAN',
+        deletable: false,
+        improvePlanId: planId,
+        planItemId: `legacy-${index}`,
+      })).filter((item) => item.title);
+    }
+    return [];
   });
 
   // Extract from memory suggestions
@@ -649,6 +681,7 @@ export const normalizeQuizAssignment = (assignment) => ({
 
 export const normalizeImprovePlan = (plan) => {
   const planItems = asArray(plan?.planItems || plan?.items);
+  const planItemDetails = asArray(plan?.planItemDetails || plan?.itemDetails);
   const embeddedEnvelope = findEmbeddedSuggestionEnvelope(planItems);
 
   return {
@@ -659,6 +692,7 @@ export const normalizeImprovePlan = (plan) => {
     status: plan?.status || 'ACTIVE',
     weakTopics: asArray(plan?.weakTopics),
     planItems,
+    planItemDetails,
     structuredSuggestions: embeddedEnvelope ? normalizeSuggestions(embeddedEnvelope) : [],
     evidence: asArray(plan?.evidence),
     generatedAt: plan?.generatedAt || plan?.createdAt || '',

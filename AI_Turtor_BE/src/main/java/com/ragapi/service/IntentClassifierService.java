@@ -9,10 +9,8 @@ import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
-import java.time.Instant;
+import java.time.Duration;
 import java.util.HexFormat;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 
 import static com.ragapi.util.TechnicalIntentDetector.containsCodeSyntax;
@@ -28,14 +26,14 @@ import static com.ragapi.util.TechnicalIntentDetector.normalize;
 public class IntentClassifierService {
 
     private static final long SEMANTIC_CACHE_TTL_SECONDS = 60;
-    private static final int SEMANTIC_CACHE_MAX_ENTRIES = 2_000;
+    private static final String INTENT_CACHE = "intent-classification";
 
     public static final String MODE_RAG = "RAG";
     public static final String MODE_CODE = "CODE";
     public static final String MODE_ESCALATE = "ESCALATE";
 
     private final LlmIntentClassifierService llmIntentClassifierService;
-    private final Map<String, CachedIntent> semanticCache = new ConcurrentHashMap<>();
+    private final SharedRedisCacheService sharedRedisCache;
 
     public IntentClassification classify(String message, String codeSnippet, String courseId) {
         return classify(message, codeSnippet, courseId, TutorIntentContext.none());
@@ -317,28 +315,16 @@ public class IntentClassifierService {
     }
 
     private IntentClassification getCachedSemanticIntent(String key) {
-        CachedIntent cached = semanticCache.get(key);
-        if (cached == null) {
-            return null;
-        }
-        if (cached.expiresAt().isBefore(Instant.now())) {
-            semanticCache.remove(key, cached);
-            return null;
-        }
-        return cached.intent();
+        return sharedRedisCache.get(INTENT_CACHE, key, IntentClassification.class).orElse(null);
     }
 
     private void cacheSemanticIntent(String key, IntentClassification intent) {
-        if (semanticCache.size() >= SEMANTIC_CACHE_MAX_ENTRIES) {
-            semanticCache.entrySet().removeIf(entry -> entry.getValue().expiresAt().isBefore(Instant.now()));
-            if (semanticCache.size() >= SEMANTIC_CACHE_MAX_ENTRIES) {
-                semanticCache.clear();
-            }
-        }
-        semanticCache.put(key, new CachedIntent(
+        sharedRedisCache.put(
+                INTENT_CACHE,
+                key,
                 intent,
-                Instant.now().plusSeconds(SEMANTIC_CACHE_TTL_SECONDS)
-        ));
+                Duration.ofSeconds(SEMANTIC_CACHE_TTL_SECONDS)
+        );
     }
 
     private String semanticCacheKey(
@@ -352,9 +338,6 @@ public class IntentClassifierService {
         } catch (Exception error) {
             return Integer.toHexString(input.hashCode());
         }
-    }
-
-    private record CachedIntent(IntentClassification intent, Instant expiresAt) {
     }
 
     private String safe(String value) {

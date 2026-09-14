@@ -8,10 +8,19 @@ services:
     depends_on:
       elasticsearch:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     ports:
       - "${AI_TUTOR_API_PORT:-8085}:8085"
     environment:
       SPRING_DATA_MONGODB_URI: ${SPRING_DATA_MONGODB_URI:?SPRING_DATA_MONGODB_URI is required}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SPRING_DATA_REDIS_CONNECT_TIMEOUT: ${SPRING_DATA_REDIS_CONNECT_TIMEOUT:-2s}
+      SPRING_DATA_REDIS_TIMEOUT: ${SPRING_DATA_REDIS_TIMEOUT:-2s}
+      REDIS_CACHE_ENABLED: ${REDIS_CACHE_ENABLED:-true}
+      REDIS_CACHE_KEY_PREFIX: ${REDIS_CACHE_KEY_PREFIX:-ai-tutor}
+      REDIS_CACHE_FAILURE_COOLDOWN_SECONDS: ${REDIS_CACHE_FAILURE_COOLDOWN_SECONDS:-5}
       ELASTICSEARCH_HOST: elasticsearch
       ELASTICSEARCH_PORT: 9200
       ELASTICSEARCH_INDEX: ${ELASTICSEARCH_INDEX:-course_material_vectors_nemotron_2048}
@@ -134,6 +143,30 @@ services:
       - "${MONGO_PORT:-27017}:27017"
     volumes:
       - ai_tutor_mongo_data:/data/db
+    networks:
+      - ai-tutor-net
+
+  redis:
+    image: redis:7.4-alpine
+    container_name: ai-tutor-redis
+    restart: unless-stopped
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --maxmemory
+      - ${REDIS_MAXMEMORY:-256mb}
+      - --maxmemory-policy
+      - allkeys-lru
+    ports:
+      - "127.0.0.1:${REDIS_PORT_PUBLIC:-6379}:6379"
+    volumes:
+      - ai_tutor_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
     networks:
       - ai-tutor-net
 
@@ -297,6 +330,7 @@ services:
 
 volumes:
   ai_tutor_mongo_data:
+  ai_tutor_redis_data:
   ai_tutor_elasticsearch_data:
   ai_tutor_n8n_data:
   ai_tutor_ollama_data:
