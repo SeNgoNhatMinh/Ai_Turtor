@@ -1,5 +1,7 @@
 package com.ragapi.service;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -10,6 +12,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
+@Slf4j
 final class LlmProviderChain {
 
     @FunctionalInterface
@@ -72,22 +75,32 @@ final class LlmProviderChain {
 
     Result generate(String prompt) throws Exception {
         Exception lastFailure = null;
-        Instant now = clock.instant();
-        List<Provider> attemptOrder = orderedProviders(now);
+        List<Provider> attemptOrder = orderedProviders(clock.instant());
         for (Provider provider : attemptOrder) {
             ProviderMetrics providerMetrics = metrics.get(provider.name());
             providerMetrics.attempts.incrementAndGet();
+            long startedNanos = System.nanoTime();
             try {
                 String text = provider.generator().generate(prompt);
+                long elapsedMs = elapsedMillis(startedNanos);
+                Instant completedAt = clock.instant();
                 unavailableUntil.remove(provider.name());
                 providerMetrics.successes.incrementAndGet();
-                providerMetrics.lastSuccessAt = now;
+                providerMetrics.lastSuccessAt = completedAt;
+                providerMetrics.recordLatency(elapsedMs);
+                log.info("LLM provider attempt succeeded: provider={}, model={}, elapsedMs={}",
+                        provider.name(), provider.model(), elapsedMs);
                 return new Result(text, provider.name(), provider.model());
             } catch (Exception error) {
+                long elapsedMs = elapsedMillis(startedNanos);
+                Instant completedAt = clock.instant();
                 FailureKind failureKind = classifyFailure(error);
                 providerMetrics.failures.incrementAndGet();
-                providerMetrics.lastFailureAt = now;
+                providerMetrics.lastFailureAt = completedAt;
                 providerMetrics.lastFailureKind = failureKind.name();
+                providerMetrics.recordLatency(elapsedMs);
+                log.warn("LLM provider attempt failed: provider={}, model={}, elapsedMs={}, kind={}, error={}",
+                        provider.name(), provider.model(), elapsedMs, failureKind, summarize(error));
                 if (failureKind == FailureKind.FATAL_REQUEST) {
                     throw error;
                 }
@@ -98,15 +111,15 @@ final class LlmProviderChain {
                     if (reorderOnQuota) {
                         moveProviderToEnd(provider);
                     }
-                    applyCooldown(provider.name(), now, cooldownFor(error, failureKind, strikes));
+                    applyCooldown(provider.name(), completedAt, cooldownFor(error, failureKind, strikes));
                 } else if (failureKind == FailureKind.AUTH) {
                     providerMetrics.authFailures.incrementAndGet();
-                    applyCooldown(provider.name(), now, dailyQuotaCooldown);
+                    applyCooldown(provider.name(), completedAt, dailyQuotaCooldown);
                     if (reorderOnQuota) {
                         moveProviderToEnd(provider);
                     }
                 } else {
-                    applyCooldown(provider.name(), now, cooldown);
+                    applyCooldown(provider.name(), completedAt, cooldown);
                 }
                 if (lastFailure != null) {
                     error.addSuppressed(lastFailure);
@@ -224,6 +237,9 @@ final class LlmProviderChain {
                 row.put("quotaStrikes", quotaStrikes.getOrDefault(provider.name(), new AtomicLong()).get());
                 row.put("authFailures", value.authFailures.get());
                 row.put("skippedDuringCooldown", value.skipped.get());
+                row.put("lastLatencyMs", value.lastLatencyMs.get());
+                row.put("averageLatencyMs", value.averageLatencyMs());
+                row.put("maxLatencyMs", value.maxLatencyMs.get());
                 row.put("coolingDown", blockedUntil != null && now.isBefore(blockedUntil));
                 row.put("cooldownUntil", blockedUntil);
                 row.put("lastFailureKind", value.lastFailureKind);
@@ -243,10 +259,30 @@ final class LlmProviderChain {
         private final AtomicLong quotaFailures = new AtomicLong();
         private final AtomicLong authFailures = new AtomicLong();
         private final AtomicLong skipped = new AtomicLong();
+        private final AtomicLong completedAttempts = new AtomicLong();
+        private final AtomicLong totalLatencyMs = new AtomicLong();
+        private final AtomicLong lastLatencyMs = new AtomicLong();
+        private final AtomicLong maxLatencyMs = new AtomicLong();
         private volatile String lastFailureKind;
         private volatile Instant lastFailureAt;
         private volatile Instant lastSuccessAt;
         private ProviderMetrics(String ignoredModel) {}
+
+        private void recordLatency(long elapsedMs) {
+            lastLatencyMs.set(elapsedMs);
+            totalLatencyMs.addAndGet(elapsedMs);
+            maxLatencyMs.accumulateAndGet(elapsedMs, Math::max);
+            completedAttempts.incrementAndGet();
+        }
+
+        private long averageLatencyMs() {
+            long completedCount = completedAttempts.get();
+            return completedCount == 0 ? 0 : totalLatencyMs.get() / completedCount;
+        }
+    }
+
+    private static long elapsedMillis(long startedNanos) {
+        return Duration.ofNanos(System.nanoTime() - startedNanos).toMillis();
     }
 
     static String summarize(Throwable error) {

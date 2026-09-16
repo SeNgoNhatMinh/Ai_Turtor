@@ -8,9 +8,15 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.util.Optional;
+
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class RetrievalQueryTranslationServiceTest {
@@ -50,5 +56,22 @@ class RetrievalQueryTranslationServiceTest {
 
         assertThat(result).isEqualTo(question);
         verify(chatService, never()).generateUtility(org.mockito.ArgumentMatchers.anyString());
+    }
+
+    @Test
+    void cacheKeyIgnoresCasePunctuationWhitespaceAndVietnameseAccents() {
+        when(sharedRedisCache.getString(eq("retrieval-query-translation"), anyString()))
+                .thenReturn(Optional.empty());
+
+        service.expandForRetrieval("JSP hoạt động thế nào?", "PRJ301", false);
+        service.expandForRetrieval("  jsp HOAT DONG THE NAO!!! ", "prj301", false);
+
+        var keyCaptor = org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(sharedRedisCache, times(2))
+                .getString(eq("retrieval-query-translation"), keyCaptor.capture());
+        assertThat(keyCaptor.getAllValues()).containsExactly(
+                "prj301|jsp hoat dong the nao",
+                "prj301|jsp hoat dong the nao"
+        );
     }
 }

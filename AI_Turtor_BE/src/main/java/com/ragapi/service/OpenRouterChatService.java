@@ -51,7 +51,7 @@ public class OpenRouterChatService {
     @Value("${llm.skip-diacritics-for-ollama:true}")
     private boolean skipDiacriticsForOllama;
 
-    @Value("${llm.cloud-failover-timeout-seconds:20}")
+    @Value("${llm.cloud-failover-timeout-seconds:15}")
     private int cloudFailoverTimeoutSeconds;
 
     @Value("${ollama.chat.temperature:0.2}")
@@ -60,7 +60,7 @@ public class OpenRouterChatService {
     @Value("${ollama.chat.top-k:40}")
     private int ollamaTopK;
 
-    @Value("${ollama.chat.num-predict:512}")
+    @Value("${ollama.chat.num-predict:768}")
     private int ollamaNumPredict;
 
     @Value("${ollama.chat.num-ctx:4096}")
@@ -131,7 +131,7 @@ public class OpenRouterChatService {
             wrapped = VietnameseOutputEnforcer.wrapOllamaCompleteness(wrapped);
         }
         try {
-            LlmProviderChain.Result result = generateInternalResult(wrapped);
+            LlmProviderChain.Result result = generateInternalResult(wrapped, "answer");
             if (ollamaOnlyActive) {
                 String raw = result.text() == null ? "" : result.text();
                 log.info("Ollama generation size: promptChars={}, answerChars={}",
@@ -157,7 +157,7 @@ public class OpenRouterChatService {
      */
     public String generateUtility(String prompt) {
         try {
-            String answer = generateInternalResult(prompt).text();
+            String answer = generateInternalResult(prompt, "utility").text();
             return answer == null ? null : answer.trim();
         } catch (Exception error) {
             log.warn("Utility generation failed: {}", summarize(error));
@@ -188,7 +188,8 @@ public class OpenRouterChatService {
         log.info("LLM answer missing Vietnamese diacritics — running correction pass");
         try {
             String correctionPrompt = VietnameseOutputEnforcer.buildCorrectionPrompt(answer);
-            String corrected = TextSanitizer.cleanForStudentAnswer(generateInternalResult(correctionPrompt).text());
+            String corrected = TextSanitizer.cleanForStudentAnswer(
+                    generateInternalResult(correctionPrompt, "diacritics-correction").text());
             if (corrected == null || corrected.isBlank()) {
                 return answer;
             }
@@ -204,20 +205,27 @@ public class OpenRouterChatService {
         return answer;
     }
 
-    private LlmProviderChain.Result generateInternalResult(String prompt) throws Exception {
+    private LlmProviderChain.Result generateInternalResult(String prompt, String operation) throws Exception {
         String safePrompt = privacySanitizer.sanitize(prompt);
         LlmProviderChain chain = providerChain;
         if (chain == null) {
             throw new IllegalStateException("LLM provider chain is not initialized");
         }
+        long startedNanos = System.nanoTime();
         try {
             LlmProviderChain.Result result = chain.generate(safePrompt);
-            log.info("LLM generation succeeded: provider={}, model={}", result.provider(), result.model());
+            log.info("LLM generation succeeded: operation={}, provider={}, model={}, elapsedMs={}",
+                    operation, result.provider(), result.model(), elapsedMillis(startedNanos));
             return result;
         } catch (Exception error) {
-            log.error("All eligible LLM providers failed: {}", summarize(error));
+            log.error("All eligible LLM providers failed: operation={}, elapsedMs={}, error={}",
+                    operation, elapsedMillis(startedNanos), summarize(error));
             throw error;
         }
+    }
+
+    private long elapsedMillis(long startedNanos) {
+        return Duration.ofNanos(System.nanoTime() - startedNanos).toMillis();
     }
 
     private List<LlmProviderChain.Provider> buildProviders(List<LlmRuntimeSlot> slots) {

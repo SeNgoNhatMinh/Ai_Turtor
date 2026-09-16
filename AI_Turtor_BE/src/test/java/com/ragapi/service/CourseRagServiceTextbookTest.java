@@ -39,6 +39,7 @@ class CourseRagServiceTextbookTest {
     @Mock TutorCacheHitAuditService cacheHitAuditService;
     @Mock RagContextBudgetService contextBudgetService;
     @Mock ApprovedKnowledgeRetrievalService approvedKnowledgeRetrievalService;
+    @Mock ChapterOutlineService chapterOutlineService;
     private final ParentChildRetrievalService parentChildRetrievalService =
             new ParentChildRetrievalService(new CourseMaterialChunkingService());
 
@@ -59,7 +60,8 @@ class CourseRagServiceTextbookTest {
                 contextBudgetService,
                 approvedKnowledgeRetrievalService,
                 parentChildRetrievalService,
-                new CourseMaterialChunkingService()
+                new CourseMaterialChunkingService(),
+                chapterOutlineService
         );
     }
 

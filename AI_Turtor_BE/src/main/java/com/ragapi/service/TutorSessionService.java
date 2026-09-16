@@ -5,8 +5,10 @@ import com.ragapi.dto.CourseCurriculumOverview;
 import com.ragapi.dto.OpenTutorSessionRequest;
 import com.ragapi.dto.SuggestionItem;
 import com.ragapi.dto.UpdateTutorSessionRequest;
+import com.ragapi.dto.cotraining.ChapterOutlineView;
 import com.ragapi.entity.*;
 import com.ragapi.repository.*;
+import com.ragapi.util.ChapterHeadingUtils;
 import com.ragapi.util.LearningPathParser;
 import com.ragapi.util.TutorStudySuggestionUtils;
 import lombok.RequiredArgsConstructor;
@@ -289,6 +291,16 @@ public class TutorSessionService {
         List<String> recentQuestions = memory
                 .map(StudentCourseMemory::getRecentQuestions)
                 .orElse(List.of());
+        List<TutorStudySuggestionUtils.RankedTitle> chapters = materialBackedChapters(courseId);
+        List<String> fromOutline = TutorStudySuggestionUtils.openingSuggestions(
+                courseId, weakTopics, recentQuestions, chapters);
+        if (!chapters.isEmpty()
+                && (TutorStudySuggestionUtils.askedTopicChips(recentQuestions).isEmpty()
+                || fromOutline.stream().anyMatch(TutorStudySuggestionUtils::looksNumberedLesson)
+                || fromOutline.stream().anyMatch(ChapterHeadingUtils::isStudyUnitTitle))) {
+            return fromOutline;
+        }
+
         List<String> curriculum = List.of();
         try {
             curriculum = curriculumOverviewService.forCourse(courseId).unitTitles();
@@ -306,25 +318,32 @@ public class TutorSessionService {
             curriculum.forEach(result::add);
             return result.stream().limit(6).toList();
         }
-        List<TutorStudySuggestionUtils.RankedTitle> chapters = List.of();
-        try {
-            chapters = chapterOutlineService.suggestChapters(courseId).stream()
-                    .filter(Objects::nonNull)
-                    .map(view -> new TutorStudySuggestionUtils.RankedTitle(
-                            view.getTitle(),
-                            view.getPageStart(),
-                            view.getTocLevel()))
-                    .toList();
-        } catch (Exception ignored) {
-            // Opening still greets; chips fall back to new-course starters.
-        }
-        List<String> fromOutline = TutorStudySuggestionUtils.openingSuggestions(
-                courseId, weakTopics, recentQuestions, chapters);
         if (!TutorStudySuggestionUtils.askedTopicChips(recentQuestions).isEmpty()
                 || fromOutline.stream().anyMatch(TutorStudySuggestionUtils::looksNumberedLesson)) {
             return fromOutline;
         }
         return fromOutline;
+    }
+
+    private List<TutorStudySuggestionUtils.RankedTitle> materialBackedChapters(String courseId) {
+        try {
+            return chapterOutlineService.suggestChapters(courseId).stream()
+                    .filter(Objects::nonNull)
+                    .filter(view -> !"NO_MATERIAL".equalsIgnoreCase(view.getMaterialHealth()))
+                    .filter(view -> view.getChunkCount() > 0 || view.getApproxChars() > 0)
+                    .map(TutorSessionService::rankedTitle)
+                    .toList();
+        } catch (Exception ignored) {
+            // Opening still greets; chips can fall back to official syllabus/new-course starters.
+            return List.of();
+        }
+    }
+
+    private static TutorStudySuggestionUtils.RankedTitle rankedTitle(ChapterOutlineView view) {
+        return new TutorStudySuggestionUtils.RankedTitle(
+                view.getTitle(),
+                view.getPageStart(),
+                view.getTocLevel());
     }
 
     private AiConversationSummary ensureTutorConversation(

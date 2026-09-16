@@ -140,7 +140,6 @@ function StudentLiveAnswer({
         <AnswerEvidence
           message={evidenceMessage}
           sourceMap={materialSourceMap}
-          onDownloadSource={onDownloadSource}
         />
       )}
       {done && !message.canceled && offerLessonContinuations && !isWelcomeTurn && (

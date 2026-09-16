@@ -1,5 +1,8 @@
 package com.ragapi.util;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ragapi.dto.AiQueryResponse;
+import com.ragapi.dto.CourseRagAnswer;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -51,8 +54,8 @@ class TextSanitizerTest {
 
     @Test
     void normalizeAccentInsensitiveMatchesWithAndWithoutDiacritics() {
-        String withDiacritics = TextSanitizer.normalizeAccentInsensitive("máy ảo Java");
-        String withoutDiacritics = TextSanitizer.normalizeAccentInsensitive("may ao Java");
+        String withDiacritics = TextSanitizer.normalizeAccentInsensitive("Máy ảo Java hoạt động?");
+        String withoutDiacritics = TextSanitizer.normalizeAccentInsensitive("may ao java HOAT DONG!!!");
         assertEquals(withDiacritics, withoutDiacritics);
     }
 
@@ -76,5 +79,96 @@ class TextSanitizerTest {
         String answer = "<think>Here's a thinking process: [Output Generation] draft only";
 
         assertEquals("", TextSanitizer.cleanForStudentAnswer(answer));
+    }
+
+    @Test
+    void convertsEscapedMarkdownLineBreaksToActualNewlines() {
+        String escaped = "## Giải thích\\n\\nCon trỏ lưu địa chỉ của biến.\\n\\n## Bài tiếp theo\\n\\n- Con trỏ và mảng";
+
+        String cleaned = TextSanitizer.cleanForStudentAnswer(escaped);
+
+        assertTrue(cleaned.contains("\n"));
+        assertFalse(cleaned.contains("\\n"));
+        assertTrue(cleaned.contains("## Giải thích\n\nCon trỏ lưu địa chỉ của biến."));
+        assertTrue(cleaned.contains("## Bài tiếp theo\n\n- Con trỏ và mảng"));
+    }
+
+    @Test
+    void unwrapsDoubleStringifiedMarkdownAnswer() {
+        String doubleStringified = "\"## Giải thích\\n\\nCon trỏ lưu địa chỉ của biến.\"";
+
+        String cleaned = TextSanitizer.cleanForStudentAnswer(doubleStringified);
+
+        assertEquals("## Giải thích\n\nCon trỏ lưu địa chỉ của biến.", cleaned);
+        assertFalse(cleaned.startsWith("\""));
+        assertFalse(cleaned.endsWith("\""));
+    }
+
+    @Test
+    void preservesMarkdownStructuresAndVietnameseUnicode() {
+        String markdown = """
+                ## Giải thích
+
+                Con trỏ lưu địa chỉ của biến tiếng Việt.
+
+                - Con trỏ và mảng
+
+                ```c
+                int *p = &x;
+                printf("xin chào\\n");
+                ```
+
+                | Chủ đề | Mô tả |
+                | --- | --- |
+                | `int *p` | Con trỏ |
+                """;
+
+        String cleaned = TextSanitizer.cleanForStudentAnswer(markdown);
+
+        assertTrue(cleaned.contains("tiếng Việt"));
+        assertTrue(cleaned.contains("- Con trỏ và mảng"));
+        assertTrue(cleaned.contains("```c\nint *p = &x;\nprintf(\"xin chào\\n\");\n```"));
+        assertTrue(cleaned.contains("| Chủ đề | Mô tả |\n| --- | --- |"));
+        assertFalse(cleaned.contains("\\n| --- |"));
+    }
+
+    @Test
+    void preservesStreamingChunkNewlineCharacters() {
+        String chunk = "\\n- Con trỏ và mảng";
+
+        String cleaned = TextSanitizer.cleanStreamingAnswerChunk(chunk);
+
+        assertEquals("\n- Con trỏ và mảng", cleaned);
+        assertFalse(cleaned.contains("\\n"));
+    }
+
+    @Test
+    void serializedDtoDeserializesToAnswerWithActualNewlines() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        AiQueryResponse response = new AiQueryResponse();
+        response.setAnswer("## Giải thích\\n\\nCon trỏ lưu địa chỉ của biến.\\n\\n## Bài tiếp theo\\n\\n- Con trỏ và mảng");
+
+        String json = mapper.writeValueAsString(response);
+        AiQueryResponse roundTrip = mapper.readValue(json, AiQueryResponse.class);
+
+        assertTrue(roundTrip.getAnswer().contains("\n"));
+        assertFalse(roundTrip.getAnswer().contains("\\n"));
+        assertTrue(roundTrip.getAnswer().contains("## Bài tiếp theo\n\n- Con trỏ và mảng"));
+    }
+
+    @Test
+    void courseRagAnswerFieldContainsActualNewlinesAfterJsonDeserialization() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        CourseRagAnswer answer = CourseRagAnswer.builder()
+                .answer("## Giải thích\\n\\nCon trỏ lưu địa chỉ của biến.\\n\\n## Bài tiếp theo\\n\\n- Con trỏ và mảng")
+                .confidence(0.9)
+                .build();
+
+        String json = mapper.writeValueAsString(answer);
+        CourseRagAnswer roundTrip = mapper.readValue(json, CourseRagAnswer.class);
+
+        assertTrue(roundTrip.getAnswer().contains("\n"));
+        assertFalse(roundTrip.getAnswer().contains("\\n"));
+        assertTrue(roundTrip.getAnswer().contains("## Giải thích\n\nCon trỏ lưu địa chỉ của biến."));
     }
 }

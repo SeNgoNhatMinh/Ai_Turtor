@@ -3,6 +3,8 @@ package com.ragapi.service;
 import com.ragapi.dto.CourseRagAnswer;
 import com.ragapi.dto.RagQueryIntent;
 import com.ragapi.dto.RagSourceEvidence;
+import com.ragapi.dto.cotraining.ChapterPreviewView;
+import com.ragapi.dto.cotraining.ChapterSourceMaterialView;
 import com.ragapi.entity.CourseMaterial;
 import com.ragapi.entity.MaterialTocEntry;
 import com.ragapi.repository.CourseMaterialRepository;
@@ -21,6 +23,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -44,6 +47,9 @@ public class CourseRagService {
 
     public static final String DEFAULT_LEARNING_DETAIL = "learning-detailed";
     private static final double MIN_GROUNDED_CONFIDENCE = 0.6;
+    private static final Pattern NUMBERED_LESSON_TITLE = Pattern.compile(
+            "(?iu)(?:bắt đầu\\s+|bat dau\\s+|đào sâu\\s+|dao sau\\s+)?(?:bài|bai)\\s+\\d+\\s*[:：.\\-–—]\\s*(.+)"
+    );
     private static final Set<String> STOP_WORDS = Set.of(
             "la", "gi", "gì", "cua", "của", "cho", "em", "anh", "chi", "chị",
             "the", "thế", "nao", "nào", "hay", "giai", "giải", "thich", "thích",
@@ -64,6 +70,7 @@ public class CourseRagService {
     private final ApprovedKnowledgeRetrievalService approvedKnowledgeRetrievalService;
     private final ParentChildRetrievalService parentChildRetrievalService;
     private final CourseMaterialChunkingService chunkingService;
+    private final ChapterOutlineService chapterOutlineService;
 
     public String ask(String question) throws IOException {
         return ask(question, null, null);
@@ -421,6 +428,7 @@ public class CourseRagService {
                 && !ragQueryIntent.getRetrievalQuery().isBlank()
                 ? ragQueryIntent.getRetrievalQuery().trim()
                 : LearningPathParser.retrievalFocus(safeQuestion, retrievalHint);
+        retrievalFocus = augmentCrossLanguageRetrievalFocus(retrievalFocus);
         String retrievalQuestion = retrievalQueryTranslationService.expandForRetrieval(
                 retrievalFocus,
                 safeCourseId,
@@ -486,6 +494,8 @@ public class CourseRagService {
         chunks = TextbookChunkAlignment.rank(retrievalFocus, chunks);
         chunks = TextbookChunkAlignment.diversifyByCoverage(retrievalFocus, chunks, 8);
         chunks = pinImprovePlanChunks(improvePlanChunks, chunks);
+        ChapterPreviewView lessonPreview = resolveLessonPreview(safeQuestion, safeCourseId);
+        chunks = pinLessonPreviewChunk(lessonPreview, chunks);
         if (ragQueryIntent != null) {
             log.info(
                     "Improve plan RAG retrieval (improvePlanId={}, planItemId={}, courseId={}, sourceMaterialCount={}, sourceChunkCount={}, retrievalQuery={}, linkedChunks={}, selectedChunks={})",
@@ -568,7 +578,10 @@ public class CourseRagService {
         List<String> sourceLabels = buildSourceLabels(chunks, materialsById);
         List<RagSourceEvidence> sourceEvidence = buildSourceEvidence(chunks, safeCourseId, materialsById);
         double confidence = calculateConfidence(chunks);
-        boolean grounded = hasGroundedContext(safeQuestion, context) || hasGroundedContext(retrievalQuestion, context);
+        boolean hasLessonPreviewContext = hasUsableLessonPreview(lessonPreview);
+        boolean grounded = hasGroundedContext(safeQuestion, context)
+                || hasGroundedContext(retrievalQuestion, context)
+                || hasLessonPreviewContext;
         boolean hasApprovedKnowledge = chunks.stream().anyMatch(chunk ->
                 "KNOWLEDGE_CANDIDATE".equalsIgnoreCase(chunk.sourceType())
                         || (chunk.content() != null && chunk.content().contains("KIẾN THỨC BỔ SUNG")));
@@ -576,6 +589,9 @@ public class CourseRagService {
             grounded = true;
         }
         confidence = adjustConfidenceForGroundedContext(retrievalQuestion, context, chunks, confidence, grounded);
+        if (hasLessonPreviewContext) {
+            confidence = Math.max(confidence, MIN_GROUNDED_CONFIDENCE + 0.10);
+        }
         if (hasApprovedKnowledge) {
             confidence = Math.max(confidence, MIN_GROUNDED_CONFIDENCE + 0.05);
         }
@@ -717,6 +733,58 @@ public class CourseRagService {
                 .escalationRecommended(true)
                 .escalationReason(reason)
                 .build();
+    }
+
+    private String augmentCrossLanguageRetrievalFocus(String focus) {
+        if (focus == null || focus.isBlank()) {
+            return focus;
+        }
+        String normalized = normalizeForMatch(focus);
+        LinkedHashSet<String> additions = new LinkedHashSet<>();
+        if (containsAny(normalized, "con tro", "pointer", "dia chi", "địa chỉ")) {
+            additions.add("pointer");
+            additions.add("pointers");
+            additions.add("memory address");
+            additions.add("address");
+        }
+        if (containsAny(normalized, "ham", "hàm", "function", "subroutine")) {
+            additions.add("function");
+            additions.add("functions");
+            additions.add("subroutine");
+        }
+        if (containsAny(normalized, "tham so", "tham chieu", "truyen tham so", "parameter", "argument")) {
+            additions.add("parameter");
+            additions.add("parameters");
+            additions.add("argument");
+            additions.add("pass by reference");
+            additions.add("parameter passing");
+        }
+        if (containsAny(normalized, "tra ve", "trả về", "return")) {
+            additions.add("return");
+            additions.add("returns");
+            additions.add("return value");
+        }
+        if (additions.isEmpty()) {
+            return focus;
+        }
+        String lowerFocus = focus.toLowerCase(Locale.ROOT);
+        additions.removeIf(term -> lowerFocus.contains(term.toLowerCase(Locale.ROOT)));
+        if (additions.isEmpty()) {
+            return focus;
+        }
+        return focus.trim() + " " + String.join(" ", additions);
+    }
+
+    private boolean containsAny(String value, String... needles) {
+        if (value == null || value.isBlank()) {
+            return false;
+        }
+        for (String needle : needles) {
+            if (needle != null && !needle.isBlank() && value.contains(normalizeForMatch(needle))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private CourseRagAnswer tryBuildSensitiveInternalAnswer(String question) {
@@ -1072,6 +1140,118 @@ public class CourseRagService {
             }
         }
         return new ArrayList<>(result.values());
+    }
+
+    private ChapterPreviewView resolveLessonPreview(String question, String courseId) {
+        String lessonTitle = extractLessonTitle(question);
+        if (lessonTitle == null || lessonTitle.isBlank()) {
+            return null;
+        }
+        try {
+            ChapterPreviewView preview = chapterOutlineService.previewChapterByTitle(courseId, lessonTitle, true);
+            if (hasUsableLessonPreview(preview)) {
+                log.info(
+                        "Pinned chapter preview context for lesson title '{}' (courseId={}, chapterKey={}, chars={})",
+                        lessonTitle,
+                        courseId,
+                        preview.getChapterKey(),
+                        preview.getExcerpt() == null ? 0 : preview.getExcerpt().length()
+                );
+                return preview;
+            }
+        } catch (Exception exception) {
+            log.debug("Could not resolve chapter preview for lesson '{}': {}", lessonTitle, exception.getMessage());
+        }
+        return null;
+    }
+
+    private String extractLessonTitle(String question) {
+        if (question == null || question.isBlank()) {
+            return null;
+        }
+        Matcher matcher = NUMBERED_LESSON_TITLE.matcher(question.trim());
+        if (!matcher.find()) {
+            return null;
+        }
+        String title = matcher.group(1);
+        if (title == null) {
+            return null;
+        }
+        return title
+                .replaceAll("[*_`]+", "")
+                .replaceAll("\\s+", " ")
+                .trim();
+    }
+
+    private boolean hasUsableLessonPreview(ChapterPreviewView preview) {
+        return preview != null
+                && preview.isHasMaterialContent()
+                && preview.getExcerpt() != null
+                && !preview.getExcerpt().isBlank();
+    }
+
+    private List<ElasticVectorService.SearchChunk> pinLessonPreviewChunk(
+            ChapterPreviewView preview,
+            List<ElasticVectorService.SearchChunk> ranked
+    ) {
+        if (!hasUsableLessonPreview(preview)) {
+            return ranked == null ? List.of() : ranked;
+        }
+        String materialId = resolvePreviewMaterialId(preview);
+        if (materialId == null || materialId.isBlank()) {
+            return ranked == null ? List.of() : ranked;
+        }
+        CourseMaterial material = materialRepository.findById(materialId).orElse(null);
+        if (material == null || material.getCourseId() == null
+                || !material.getCourseId().equalsIgnoreCase(preview.getCourseId())) {
+            return ranked == null ? List.of() : ranked;
+        }
+        ElasticVectorService.SearchChunk previewChunk = new ElasticVectorService.SearchChunk(
+                "Chapter: " + preview.getTitle() + "\n" + preview.getExcerpt(),
+                0.99,
+                material.getId(),
+                material.getCourseId(),
+                material.getClassId(),
+                material.getTeacherId(),
+                material.getMaterialScope(),
+                material.getSourceType(),
+                material.getId(),
+                preview.getChapterKey(),
+                preview.getTitle(),
+                preview.getChapterKey(),
+                preview.getTitle(),
+                preview.getChapterKey(),
+                0,
+                "SECTION"
+        );
+
+        LinkedHashMap<String, ElasticVectorService.SearchChunk> merged = new LinkedHashMap<>();
+        merged.put(chunkIdentity(previewChunk), previewChunk);
+        if (ranked != null) {
+            for (ElasticVectorService.SearchChunk chunk : ranked) {
+                merged.putIfAbsent(chunkIdentity(chunk), chunk);
+            }
+        }
+        return new ArrayList<>(merged.values());
+    }
+
+    private String resolvePreviewMaterialId(ChapterPreviewView preview) {
+        if (preview == null) {
+            return null;
+        }
+        if (preview.getPrimarySourceMaterialId() != null && !preview.getPrimarySourceMaterialId().isBlank()) {
+            return preview.getPrimarySourceMaterialId().trim();
+        }
+        List<ChapterSourceMaterialView> sources = preview.getSourceMaterials();
+        if (sources == null || sources.isEmpty()) {
+            return null;
+        }
+        return sources.stream()
+                .filter(Objects::nonNull)
+                .map(ChapterSourceMaterialView::getId)
+                .filter(id -> id != null && !id.isBlank())
+                .findFirst()
+                .orElse(null);
     }
 
     private List<String> mergeRetrievalTerms(RagQueryIntent ragQueryIntent) {
@@ -1492,6 +1672,8 @@ public class CourseRagService {
 
                 CHATGPT-LIKE READABILITY:
                 - Write clean GitHub-flavored Markdown, not one dense wall of text.
+                - Return Markdown content directly, not JSON and not a quoted/escaped Markdown string.
+                - Use actual newline characters for layout. Never write literal "\\n" or "\\r\\n" in the answer.
                 - Start with a direct answer of at most 1-2 sentences.
                 - Keep each paragraph to 2-3 sentences and put a blank line between paragraphs.
                 - When the answer covers multiple distinct concepts, give each concept a short `###` subheading.
@@ -1957,6 +2139,23 @@ public class CourseRagService {
         }
         if ((normalizedQuestion.contains("virtual machine") || normalizedQuestion.contains("may ao") || normalizedQuestion.contains("máy ảo"))
                 && normalizedContext.contains("virtual machine")) {
+            return true;
+        }
+        if ((normalizedQuestion.contains("con tro") || normalizedQuestion.contains("pointer"))
+                && (normalizedContext.contains("pointer") || normalizedContext.contains("pointers")
+                || normalizedContext.contains("memory address") || normalizedContext.contains("address"))) {
+            return true;
+        }
+        if ((normalizedQuestion.contains("tham so") || normalizedQuestion.contains("parameter")
+                || normalizedQuestion.contains("argument") || normalizedQuestion.contains("truyen tham so"))
+                && (normalizedContext.contains("parameter") || normalizedContext.contains("parameters")
+                || normalizedContext.contains("argument") || normalizedContext.contains("arguments")
+                || normalizedContext.contains("pass by reference") || normalizedContext.contains("parameter passing"))) {
+            return true;
+        }
+        if ((normalizedQuestion.contains("ham") || normalizedQuestion.contains("function") || normalizedQuestion.contains("subroutine"))
+                && (normalizedContext.contains("function") || normalizedContext.contains("functions")
+                || normalizedContext.contains("subroutine") || normalizedContext.contains("subroutines"))) {
             return true;
         }
         return false;

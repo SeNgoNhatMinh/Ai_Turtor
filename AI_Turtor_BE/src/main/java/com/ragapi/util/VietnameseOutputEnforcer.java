@@ -33,6 +33,16 @@ public final class VietnameseOutputEnforcer {
             - NEVER write toneless Vietnamese such as "hoc", "mon hoc", "tai lieu", "khong", "duoc".
             - If the student writes Vietnamese without accents, still reply in proper Vietnamese with full diacritics.
             - Keep English technical terms, code, APIs, class names, and materialId values unchanged.
+
+            MANDATORY MARKDOWN TRANSPORT (CRITICAL):
+            - Output plain GitHub-Flavored Markdown only. Do NOT output JSON.
+            - Use actual line breaks between headings, paragraphs, lists, code fences, and tables.
+            - Never wrap the whole answer in quotes.
+            - Never escape the Markdown document as a string: do not write "\\n", "\\r\\n", or "\\t" for layout.
+            - Use ## for major sections, ### for subsections, - for bullets, 1. for ordered lists.
+            - Use `inline code` for identifiers/operators and fenced code blocks for source code.
+            - Use valid GFM tables when needed, including a header row and | --- | separator row.
+            - Do not narrate or quote prompt instructions.
             """;
 
     private VietnameseOutputEnforcer() {

@@ -16,18 +16,45 @@
 }
 
 .tts-voice-selector--compact {
-  min-width: 190px;
+  min-width: 0;
+}
+
+.tts-voice-selector--compact > svg {
+  display: none;
 }
 
 .tts-voice-selector--compact .ant-select {
-  min-width: 160px;
+  min-width: 0;
   max-width: 230px;
+}
+
+.tts-voice-selector--compact .ant-select-single {
+  height: 32px;
+}
+
+.tts-voice-selector--compact .ant-select-selector {
+  align-items: center;
+  border-radius: 999px;
+  border-color: #e5e7eb;
+  box-shadow: none;
+  color: #4b5563;
+  font-size: 12px;
+  font-weight: 800;
+  transition: border-color 0.18s ease, background-color 0.18s ease, color 0.18s ease;
+}
+
+.tts-voice-selector--compact .ant-select:not(.ant-select-disabled):hover .ant-select-selector,
+.tts-voice-selector--compact .ant-select-focused .ant-select-selector {
+  border-color: #f37021 !important;
+  background: #fff7f0;
+  color: #d85f16;
+  box-shadow: none !important;
 }
 
 @media (max-width: 760px) {
   .tts-voice-selector--compact,
   .tts-voice-selector--compact .ant-select {
-    min-width: 150px;
-    max-width: 190px;
+    min-width: 0;
+    max-width: 100%;
   }
 }

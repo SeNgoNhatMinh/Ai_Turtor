@@ -5,13 +5,16 @@ import org.junit.jupiter.api.Test;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -187,6 +190,56 @@ class LlmProviderChainTest {
         assertEquals(1, groqCalls.get());
         assertEquals(2, nvidiaCalls.get());
         assertTrue(chain.isCoolingDown("groq"));
+    }
+
+    @Test
+    void startsCooldownWhenTheFailedAttemptCompletes() throws Exception {
+        AtomicReference<Instant> now = new AtomicReference<>(Instant.parse("2026-07-28T00:00:00Z"));
+        Clock advancingClock = new Clock() {
+            @Override
+            public ZoneId getZone() {
+                return ZoneOffset.UTC;
+            }
+
+            @Override
+            public Clock withZone(ZoneId zone) {
+                return this;
+            }
+
+            @Override
+            public Instant instant() {
+                return now.get();
+            }
+        };
+        LlmProviderChain chain = new LlmProviderChain(
+                List.of(
+                        provider("slow", prompt -> {
+                            now.set(now.get().plusSeconds(90));
+                            throw new RuntimeException("request timed out");
+                        }),
+                        provider("fallback", prompt -> "answer")
+                ),
+                Duration.ofSeconds(60),
+                advancingClock
+        );
+
+        assertEquals("fallback", chain.generate("question").provider());
+        assertTrue(chain.isCoolingDown("slow"));
+    }
+
+    @Test
+    void exposesProviderLatencyMetrics() throws Exception {
+        LlmProviderChain chain = chain(provider("groq", prompt -> "answer"));
+
+        chain.generate("question");
+
+        Map<String, Object> metrics = chain.snapshot().get(0);
+        assertTrue(metrics.containsKey("lastLatencyMs"));
+        assertTrue(metrics.containsKey("averageLatencyMs"));
+        assertTrue(metrics.containsKey("maxLatencyMs"));
+        assertTrue((long) metrics.get("lastLatencyMs") >= 0L);
+        assertTrue((long) metrics.get("averageLatencyMs") >= 0L);
+        assertTrue((long) metrics.get("maxLatencyMs") >= 0L);
     }
 
     private LlmProviderChain chain(LlmProviderChain.Provider... providers) {

@@ -66,7 +66,7 @@ public final class PromptLeakFilter {
             }
             kept.append(line);
         }
-        return dropBrokenNextLesson(kept.toString().replaceAll("\\n{3,}", "\n\n").trim());
+        return dropEmptyNextLesson(kept.toString().replaceAll("\\n{3,}", "\n\n").trim());
     }
 
     public static boolean hasValidNextLesson(String answer) {
@@ -80,6 +80,15 @@ public final class PromptLeakFilter {
             return answer;
         }
         if (VALID_NEXT_BULLET.matcher(section.body).find()) {
+            return answer;
+        }
+        String without = answer.substring(0, section.headingStart) + answer.substring(section.end);
+        return without.replaceAll("\\n{3,}", "\n\n").trim();
+    }
+
+    public static String dropEmptyNextLesson(String answer) {
+        Section section = findNextLessonSection(answer);
+        if (section == null || !section.body.strip().isBlank()) {
             return answer;
         }
         String without = answer.substring(0, section.headingStart) + answer.substring(section.end);

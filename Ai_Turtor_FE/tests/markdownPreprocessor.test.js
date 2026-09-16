@@ -271,3 +271,32 @@ test('normal concept answers do not keep a numbered Bài 1-2-3 follow-up', () =>
   assert.doesNotMatch(output, /Bài 1: Tổng quan OOP/);
   assert.match(output, /Ôn encapsulation/);
 });
+
+test('splits long plain prose answers into readable paragraphs', () => {
+  const input = [
+    '## Giải thích',
+    '',
+    'Bài học này mở rộng nền tảng về subroutine đã được nêu trong tài liệu, khi sinh viên đã học cách viết các hàm thực hiện thao tác dữ liệu và điều khiển luồng chương trình. Việc truyền tham số bằng con trỏ cho phép hàm truy cập trực tiếp vào vùng nhớ của biến gốc, thay vì làm việc trên một bản sao, điều này mở rộng khả năng thao tác dữ liệu mà trước đây chỉ được giới hạn ở việc truyền giá trị. Khi hàm nhận con trỏ làm tham số, nó có thể thay đổi giá trị của biến mà gọi hàm đã truyền vào, vì con trỏ giữ địa chỉ bộ nhớ thực tế của biến đó. Điều này phù hợp với nguyên tắc data manipulation được nhấn mạnh trong phần giới thiệu, nơi sinh viên được khuyến khích hiểu sâu về cách dữ liệu được lưu trữ và truy cập trong máy tính. Các hàm trả về con trỏ cung cấp một cách để cấp phát và trả về địa chỉ của dữ liệu được tạo bên trong hàm, cho phép các hàm khác tiếp tục sử dụng dữ liệu đó mà không cần sao chép toàn bộ cấu trúc.',
+  ].join('\n');
+
+  const output = normalizeAiMarkdown(input);
+
+  assert.match(output, /## Giải thích/);
+  assert.match(output, /vùng nhớ của biến gốc[\s\S]*\n\nKhi hàm nhận con trỏ làm tham số/);
+  assert.match(output, /truy cập trong máy tính\.[\s\S]*\n\nCác hàm trả về con trỏ/);
+});
+
+test('does not split long markdown structures that are sensitive to line breaks', () => {
+  const row = 'Đây là phần mô tả khá dài để bảo đảm bảng vượt qua ngưỡng văn xuôi nhưng vẫn phải giữ nguyên cấu trúc markdown của bảng.';
+  const input = [
+    '| Chủ đề | Mô tả |',
+    '| --- | --- |',
+    `| Con trỏ | ${row} ${row} ${row} |`,
+  ].join('\n');
+
+  const output = normalizeAiMarkdown(input);
+
+  assert.match(output, /^\| Chủ đề \| Mô tả \|$/m);
+  assert.match(output, /^\| --- \| --- \|$/m);
+  assert.doesNotMatch(output, /\n\n\| Con trỏ/);
+});

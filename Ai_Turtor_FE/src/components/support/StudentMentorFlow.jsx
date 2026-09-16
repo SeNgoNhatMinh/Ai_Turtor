@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Alert, Avatar, Empty, Radio, Spin, Tag } from 'antd';
 import { GraduationCap, Search, Star } from 'lucide-react';
@@ -26,6 +26,7 @@ function StudentMentorFlow({ escalation, currentUser, compact = false, onEscalat
   const [hasLoadedOffer, setHasLoadedOffer] = useState(false);
   const [routeMessage, setRouteMessage] = useState('');
   const [actionError, setActionError] = useState('');
+  const autoOfferEscalationIdRef = useRef('');
 
   const escalationId = escalation?.id || escalation?.questionEscalationId || '';
   const userId = currentUser?.userId || currentUser?.id || currentUser?._id || '';
@@ -46,7 +47,7 @@ function StudentMentorFlow({ escalation, currentUser, compact = false, onEscalat
       ? offeredMentors
       : Array.isArray(detail?.suggestedMentors) ? detail.suggestedMentors : []
   ), [detail, offeredMentors]);
-  const effectiveMentorId = selectedMentorId || (mentors.length === 1 ? mentors[0].id : '');
+  const effectiveMentorId = selectedMentorId || mentors[0]?.id || '';
   const selectedMentor = useMemo(
     () => mentors.find((mentor) => mentor.id === effectiveMentorId),
     [effectiveMentorId, mentors],
@@ -83,7 +84,7 @@ function StudentMentorFlow({ escalation, currentUser, compact = false, onEscalat
       const suggestions = Array.isArray(offer?.suggestedMentors) ? offer.suggestedMentors : [];
       setHasLoadedOffer(true);
       setOfferedMentors(suggestions);
-      setSelectedMentorId(suggestions.length === 1 ? suggestions[0].id : '');
+      setSelectedMentorId(suggestions[0]?.id || '');
       setRouteMessage(offer?.message || 'Hãy chọn một giáo viên để tiếp tục trao đổi câu hỏi này.');
       updateEscalationCache({
         ...detail,
@@ -121,8 +122,24 @@ function StudentMentorFlow({ escalation, currentUser, compact = false, onEscalat
 
   const findMentors = () => {
     if (!escalationId || offerMutation.isPending) return;
+    autoOfferEscalationIdRef.current = escalationId;
     offerMutation.mutate();
   };
+
+  useEffect(() => {
+    if (
+      !escalationId
+      || chatRoomId
+      || hasLoadedOffer
+      || autoOfferEscalationIdRef.current === escalationId
+      || offerMutation.isPending
+      || mentors.length > 0
+    ) {
+      return;
+    }
+    autoOfferEscalationIdRef.current = escalationId;
+    offerMutation.mutate();
+  }, [chatRoomId, escalationId, hasLoadedOffer, mentors.length, offerMutation]);
 
   const chooseMentor = () => {
     if (!escalationId || !userId || !effectiveMentorId || selectMutation.isPending) return;

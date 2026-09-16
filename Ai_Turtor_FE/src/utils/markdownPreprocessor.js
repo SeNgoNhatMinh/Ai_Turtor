@@ -737,6 +737,79 @@ function enhanceStudyTips(text) {
   return output.join('\n');
 }
 
+/* =========================================================
+ * 8C. LONG PROSE FORMATTING
+ * =========================================================
+ * Course-RAG answers sometimes arrive as one huge paragraph
+ * even when the content is explanatory prose. Markdown renders
+ * that faithfully, but the chat UI becomes a wall of text.
+ *
+ * We split only plain prose blocks. Markdown structures that are
+ * sensitive to line breaks (code, tables, headings, lists, quotes,
+ * links and source sections) are left untouched.
+ * ========================================================= */
+
+const LONG_PROSE_MIN_CHARS = 520;
+const LONG_PROSE_MIN_SENTENCES = 4;
+const LONG_PROSE_TARGET_CHARS = 430;
+
+function splitSentences(text) {
+  const matches = String(text || '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .match(/[^.!?。！？]+[.!?。！？]+(?:["”')\]]+)?|[^.!?。！？]+$/gu);
+
+  return (matches || [])
+    .map((sentence) => sentence.trim())
+    .filter(Boolean);
+}
+
+function isPlainProseBlock(block) {
+  const lines = String(block || '').split('\n');
+  const trimmed = block.trim();
+  if (trimmed.length < LONG_PROSE_MIN_CHARS) return false;
+  if (hasMarkdownLink(trimmed)) return false;
+
+  return lines.every((line) => {
+    const value = line.trim();
+    return value
+      && !isHeadingLine(value)
+      && !isListLine(value)
+      && !isTableLine(value)
+      && !isFenceLine(value)
+      && !value.startsWith('>')
+      && !isSourceHeading(value);
+  });
+}
+
+function splitLongProseParagraphs(text) {
+  return String(text || '')
+    .split(/\n{2,}/)
+    .map((block) => {
+      if (!isPlainProseBlock(block)) return block;
+
+      const sentences = splitSentences(block);
+      if (sentences.length < LONG_PROSE_MIN_SENTENCES) return block;
+
+      const paragraphs = [];
+      let current = '';
+
+      sentences.forEach((sentence) => {
+        const next = current ? `${current} ${sentence}` : sentence;
+        if (current && next.length > LONG_PROSE_TARGET_CHARS) {
+          paragraphs.push(current);
+          current = sentence;
+        } else {
+          current = next;
+        }
+      });
+
+      if (current) paragraphs.push(current);
+      return paragraphs.length > 1 ? paragraphs.join('\n\n') : block;
+    })
+    .join('\n\n');
+}
+
 function normalizeSourceSection(text) {
   const lines = text.split('\n');
   const output = [];
@@ -862,14 +935,15 @@ export function normalizeAiMarkdown(input = '') {
   /* 10 */ text = inferHeadings(text);
   /* 11 */ text = normalizeSourceSection(text);
   /* 12 */ text = enhanceStudyTips(text);
-  /* 13 */ text = normalizeBlockquotes(text);
-  /* 14 */ text = sanitizeLinks(text);
+  /* 13 */ text = splitLongProseParagraphs(text);
+  /* 14 */ text = normalizeBlockquotes(text);
+  /* 15 */ text = sanitizeLinks(text);
 
-  /* 15 Restore protected blocks in reverse nesting order. */
+  /* 16 Restore protected blocks in reverse nesting order. */
   text = restoreBlocks(text, normalizedMathBlocks.vault);
   text = restoreBlocks(text, originalBlocks.vault);
 
-  /* 16 */ text = collapseBlankLines(text);
+  /* 17 */ text = collapseBlankLines(text);
 
   return text;
 }

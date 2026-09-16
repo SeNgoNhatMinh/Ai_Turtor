@@ -42,7 +42,7 @@ const deduplicateEvidence = (items = []) => {
   return [...merged.values()];
 };
 
-function AnswerEvidence({ message, sourceMap = {}, onDownloadSource }) {
+function AnswerEvidence({ message, sourceMap = {} }) {
   const [expanded, setExpanded] = useState(false);
   const sources = formatSourceItems(Array.isArray(message?.sources) ? message.sources : [], sourceMap);
   const confidenceClass = getConfidenceClass(message?.confidence);
@@ -113,21 +113,9 @@ function AnswerEvidence({ message, sourceMap = {}, onDownloadSource }) {
       {sources.length > 0 && (
         <div className="answer-evidence-sources">
           <FileText size={14} aria-hidden="true" />
-          {sources.map((source, index) => {
-            if (source.id && onDownloadSource) {
-              return (
-                <button
-                  type="button"
-                  key={`${source.id}-${index}`}
-                  className="source-link"
-                  onClick={() => onDownloadSource(source.id, source.label)}
-                >
-                  {source.label}
-                </button>
-              );
-            }
-            return <span key={`${source.label}-${index}`}>{source.label}</span>;
-          })}
+          {sources.map((source, index) => (
+            <span key={`${source.id || source.label}-${index}`}>{source.label}</span>
+          ))}
         </div>
       )}
       {evidence.length > 0 && (
@@ -138,15 +126,7 @@ function AnswerEvidence({ message, sourceMap = {}, onDownloadSource }) {
               <span><b>Môn học:</b> {item.courseName || item.courseId || 'Chưa xác định'}</span>
               <span>
                 <b>Tài liệu:</b>{' '}
-                {item.materialId && onDownloadSource ? (
-                  <button
-                    type="button"
-                    className="source-link answer-evidence-material-link"
-                    onClick={() => onDownloadSource(item.materialId, item.materialTitle)}
-                  >
-                    {item.materialTitle || item.materialId}
-                  </button>
-                ) : (item.materialTitle || item.materialId || 'Chưa xác định')}
+                {item.materialTitle || item.materialId || 'Chưa xác định'}
               </span>
               {item.chapter && <span><b>Chương/phần:</b> {item.chapter}</span>}
               {item.pageStart != null && (

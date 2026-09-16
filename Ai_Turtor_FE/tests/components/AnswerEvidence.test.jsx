@@ -6,7 +6,7 @@ import { getCanonicalMessageSources } from '../../src/features/student/chat/chat
 import { buildMaterialSourceMap } from '../../src/utils/sourceLabels';
 
 describe('AnswerEvidence', () => {
-  it('renders one canonical material name and keeps its download id', () => {
+  it('renders one canonical material name without making it downloadable', () => {
     const onDownloadSource = vi.fn();
     const materialId = '6a3d56a6ad3e666fbe4566ee';
     const sourceMap = buildMaterialSourceMap([{
@@ -33,9 +33,8 @@ describe('AnswerEvidence', () => {
     const source = screen.getByText('Professional_Java.pdf');
     expect(source).toBeVisible();
     expect(screen.getAllByText('Professional_Java.pdf')).toHaveLength(1);
-
-    fireEvent.click(source);
-    expect(onDownloadSource).toHaveBeenCalledWith(materialId, 'Professional_Java.pdf');
+    expect(source.tagName).toBe('SPAN');
+    expect(onDownloadSource).not.toHaveBeenCalled();
   });
 
   it('renders the source only once across persisted Markdown and evidence metadata', () => {
@@ -135,5 +134,33 @@ describe('AnswerEvidence', () => {
 
     expect(screen.queryByRole('button', { name: /bằng chứng|nguồn tài liệu/i })).not.toBeInTheDocument();
     expect(screen.queryByText('clas')).not.toBeInTheDocument();
+  });
+
+  it('shows evidence material titles as plain text even when a material id exists', () => {
+    const onDownloadSource = vi.fn();
+
+    render(
+      <AnswerEvidence
+        message={{
+          mode: 'RAG',
+          groundingType: 'COURSE_MATERIAL',
+          sourceEvidence: [{
+            courseId: 'PRJ301',
+            materialId: 'main-material-id',
+            materialTitle: 'Main Material',
+            excerpt: 'Servlet requests are handled through lifecycle methods including init service and destroy.',
+          }],
+        }}
+        onDownloadSource={onDownloadSource}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /bằng chứng tài liệu \(1\)/i }));
+
+    const materialTitle = screen.getByText('Main Material');
+    expect(materialTitle).toBeVisible();
+    expect(materialTitle.tagName).toBe('SPAN');
+    expect(screen.queryByRole('button', { name: 'Main Material' })).not.toBeInTheDocument();
+    expect(onDownloadSource).not.toHaveBeenCalled();
   });
 });

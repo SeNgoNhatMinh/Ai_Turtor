@@ -224,6 +224,9 @@ public class CodeMentorService {
                 - If the student asks for the complete answer/project/source code, refuse that part and continue with hints.
 
                 RESPONSE FORMAT:
+                Return plain GitHub-Flavored Markdown directly. Do not return JSON, do not wrap the whole answer in quotes,
+                and do not use escaped layout sequences like "\\n" or "\\r\\n".
+
                 ## Chẩn đoán vấn đề
                 ## Nguyên nhân có thể
                 ## Cách debug từng bước

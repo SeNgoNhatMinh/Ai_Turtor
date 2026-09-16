@@ -1,5 +1,7 @@
 package com.ragapi.util;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.text.Normalizer;
@@ -13,6 +15,7 @@ import java.util.regex.Pattern;
 public final class TextSanitizer {
 
     private static final Charset WINDOWS_1252 = Charset.forName("windows-1252");
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final Pattern TOKEN_OR_SPACE = Pattern.compile("\\S+|\\s+");
     private static final Pattern COMPLETE_REASONING_BLOCK = Pattern.compile(
             "(?is)<(?:think|analysis|reasoning)>.*?</(?:think|analysis|reasoning)>"
@@ -20,6 +23,9 @@ public final class TextSanitizer {
     private static final Pattern REASONING_TAG = Pattern.compile(
             "(?is)</?(?:think|analysis|reasoning)>"
     );
+    private static final Pattern TRAILING_LINE_WHITESPACE = Pattern.compile("[ \\t]+$", Pattern.MULTILINE);
+    private static final Pattern EXCESSIVE_BLANK_LINES = Pattern.compile("\\n{3,}");
+    private static final Pattern MARKDOWN_HEADING = Pattern.compile("(?m)^#{1,6}\\s+\\S");
 
     private TextSanitizer() {
     }
@@ -45,7 +51,10 @@ public final class TextSanitizer {
     }
 
     public static String cleanForStudentAnswer(String value) {
-        String cleaned = clean(value);
+        if (value == null) {
+            return null;
+        }
+        String cleaned = cleanMarkdownAnswerTransport(value);
         if (cleaned == null || cleaned.isBlank()) {
             return cleaned;
         }
@@ -55,7 +64,21 @@ public final class TextSanitizer {
         }
         cleaned = stripUnexpectedScripts(cleaned);
         cleaned = PromptLeakFilter.strip(cleaned);
-        return cleaned.replaceAll("[ \\t]{2,}", " ").trim();
+        return finalizeMarkdownWhitespace(cleaned);
+    }
+
+    /**
+     * Normalize a streamed student-answer chunk without converting it into a full
+     * answer. This preserves real newline characters and only decodes transport
+     * escaping when a provider accidentally emits literal "\\n" sequences.
+     */
+    public static String cleanStreamingAnswerChunk(String value) {
+        if (value == null) {
+            return null;
+        }
+        String result = unwrapJsonStringAnswer(value);
+        result = decodeEscapedMarkdownLineBreaks(result);
+        return result.replace("\r\n", "\n").replace('\r', '\n');
     }
 
     private static String stripReasoningEnvelope(String value) {
@@ -71,6 +94,106 @@ public final class TextSanitizer {
         return withoutCompleteBlocks;
     }
 
+    private static String cleanMarkdownAnswerTransport(String value) {
+        String result = value;
+        for (int i = 0; i < 4; i++) {
+            String repaired = repairMojibakeOnce(result);
+            if (repaired.equals(result)) {
+                break;
+            }
+            result = repaired;
+        }
+        result = result
+                .replace('\u00a0', ' ')
+                .replace('\uFFFD', ' ');
+        result = normalizeMarkdownTransport(result);
+        return finalizeMarkdownWhitespace(result);
+    }
+
+    private static String normalizeMarkdownTransport(String value) {
+        String result = value == null ? null : value.trim();
+        if (result == null || result.isBlank()) {
+            return result;
+        }
+
+        result = unwrapJsonStringAnswer(result);
+        result = decodeEscapedMarkdownLineBreaks(result);
+        result = result.replace("\r\n", "\n").replace('\r', '\n');
+        return result;
+    }
+
+    private static String unwrapJsonStringAnswer(String value) {
+        if (!looksLikeJsonString(value)) {
+            return value;
+        }
+        try {
+            String parsed = OBJECT_MAPPER.readValue(value, String.class);
+            if (parsed != null && looksLikeStudentMarkdownOrEscapedAnswer(parsed)) {
+                return parsed;
+            }
+        } catch (Exception ignored) {
+            // Fall through: a malformed quoted answer should not break student chat.
+        }
+        return value;
+    }
+
+    private static boolean looksLikeJsonString(String value) {
+        return value != null
+                && value.length() >= 2
+                && value.startsWith("\"")
+                && value.endsWith("\"")
+                && (value.contains("\\n")
+                || value.contains("\\r")
+                || value.contains("\\\"")
+                || value.contains("\\t")
+                || value.contains("##"));
+    }
+
+    private static boolean looksLikeStudentMarkdownOrEscapedAnswer(String value) {
+        if (value == null || value.isBlank()) {
+            return false;
+        }
+        return MARKDOWN_HEADING.matcher(value).find()
+                || shouldDecodeEscapedMarkdownLineBreaks(value)
+                || value.contains("```")
+                || value.contains("| --- |")
+                || value.contains("Đáp án:")
+                || value.contains("Giải thích:");
+    }
+
+    private static String decodeEscapedMarkdownLineBreaks(String value) {
+        if (!shouldDecodeEscapedMarkdownLineBreaks(value)) {
+            return value;
+        }
+        return value
+                .replace("\\r\\n", "\n")
+                .replace("\\n", "\n")
+                .replace("\\r", "\n");
+    }
+
+    private static boolean shouldDecodeEscapedMarkdownLineBreaks(String value) {
+        if (value == null || !value.contains("\\n")) {
+            return false;
+        }
+        return Pattern.compile("(?s).*#{1,6}\\s+[^\\\\n]+\\\\n.*").matcher(value).matches()
+                || Pattern.compile("(?s).*\\\\n\\s*#{1,6}\\s+.*").matcher(value).matches()
+                || Pattern.compile("(?s).*\\\\n\\s*(?:[-*+]\\s+|\\d+[.)]\\s+).*").matcher(value).matches()
+                || value.contains("\\n```")
+                || value.contains("```\\n")
+                || value.contains("\\n|")
+                || value.contains("|\\n");
+    }
+
+    private static String finalizeMarkdownWhitespace(String value) {
+        if (value == null) {
+            return null;
+        }
+        String result = value.replace("\r\n", "\n").replace('\r', '\n');
+        result = TRAILING_LINE_WHITESPACE.matcher(result).replaceAll("");
+        result = EXCESSIVE_BLANK_LINES.matcher(result).replaceAll("\n\n");
+        return result.trim();
+    }
+
     /** Lowercase, strip diacritics, keep letters/digits for cross-accent search/matching. */
     public static String normalizeAccentInsensitive(String value) {
         if (value == null || value.isBlank()) {
@@ -79,6 +202,7 @@ public final class TextSanitizer {
         String decomposed = Normalizer.normalize(value.toLowerCase(Locale.ROOT), Normalizer.Form.NFD);
         return decomposed
                 .replaceAll("\\p{InCombiningDiacriticalMarks}+", "")
+                .replace('đ', 'd')
                 .replaceAll("[^\\p{L}\\p{N}+#]+", " ")
                 .trim();
     }

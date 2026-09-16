@@ -131,9 +131,9 @@
 
 .chat-ai-action-row {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 10px;
   margin-top: 10px;
 }
 
@@ -146,15 +146,15 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 10px;
 }
 
 .tts-message-actions .tts-voice-selector--compact {
-  min-width: 190px;
+  min-width: 0;
 }
 
 .tts-message-actions .tts-voice-selector--compact .ant-select {
-  width: 180px;
+  width: clamp(168px, 22vw, 230px);
 }
 
 .tts-message-button,
@@ -172,6 +172,21 @@
   font: inherit;
   font-size: 12px;
   font-weight: 800;
+}
+
+@media (max-width: 640px) {
+  .chat-ai-action-row,
+  .tts-message-actions {
+    gap: 8px;
+  }
+
+  .tts-message-actions .tts-voice-selector--compact {
+    flex: 1 1 170px;
+  }
+
+  .tts-message-actions .tts-voice-selector--compact .ant-select {
+    width: 100%;
+  }
 }
 
 .tts-message-button:hover,

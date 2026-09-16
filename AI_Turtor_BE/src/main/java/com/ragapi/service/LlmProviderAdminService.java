@@ -53,7 +53,7 @@ public class LlmProviderAdminService {
     private String primaryBaseUrl;
     @Value("${openrouter.model:}")
     private String primaryModelName;
-    @Value("${openrouter.timeout-seconds:60}")
+    @Value("${openrouter.timeout-seconds:15}")
     private int primaryTimeoutSeconds;
     @Value("${openrouter.max-retries:0}")
     private int primaryMaxRetries;
@@ -70,7 +70,7 @@ public class LlmProviderAdminService {
     private String groqModelNames;
     @Value("${llm.groq.disabled-models:}")
     private String groqDisabledModelNames;
-    @Value("${llm.groq.timeout-seconds:60}")
+    @Value("${llm.groq.timeout-seconds:15}")
     private int groqTimeoutSeconds;
 
     @Value("${llm.nvidia.enabled:true}")
@@ -81,7 +81,7 @@ public class LlmProviderAdminService {
     private String nvidiaBaseUrl;
     @Value("${llm.nvidia.models:}")
     private String nvidiaModelNames;
-    @Value("${llm.nvidia.timeout-seconds:90}")
+    @Value("${llm.nvidia.timeout-seconds:15}")
     private int nvidiaTimeoutSeconds;
 
     @Value("${openrouter.fallback.enabled:true}")
@@ -92,7 +92,7 @@ public class LlmProviderAdminService {
     private String fallbackBaseUrl;
     @Value("${openrouter.fallback.model:}")
     private String fallbackModelName;
-    @Value("${openrouter.fallback.timeout-seconds:60}")
+    @Value("${openrouter.fallback.timeout-seconds:15}")
     private int fallbackTimeoutSeconds;
     @Value("${openrouter.fallback.max-retries:0}")
     private int fallbackMaxRetries;

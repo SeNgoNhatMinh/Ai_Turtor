@@ -8,6 +8,7 @@ import com.ragapi.entity.ClassSection;
 import com.ragapi.entity.Mentor;
 import com.ragapi.entity.QuestionEscalation;
 import com.ragapi.repository.ChatRoomRepository;
+import com.ragapi.repository.ClassSectionRepository;
 import com.ragapi.repository.MentorRepository;
 import com.ragapi.repository.QuestionEscalationRepository;
 import lombok.AllArgsConstructor;
@@ -16,7 +17,9 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -34,6 +37,7 @@ public class MentorEscalationService {
     private final ChatRoomRepository chatRoomRepository;
     private final MentorMatchingService matchingService;
     private final AcademicRoutingService academicRoutingService;
+    private final ClassSectionRepository classSectionRepository;
 
     public QuestionEscalation createQuestionEscalation(
             String userId,
@@ -114,10 +118,10 @@ public class MentorEscalationService {
 
         if (route.routeToClassTeacher()) {
             routeName = ROUTE_CLASS_TEACHER;
-            suggestions = buildClassTeacherSuggestion(route.classSection());
+            suggestions = buildCourseTeacherSuggestions(request.getCourseId(), route.classSection());
             message = suggestions.isEmpty()
-                    ? "Class teacher is configured for this course/class, but the teacher profile was not found."
-                    : "This course is active. Your question will be routed to the teacher of your class.";
+                    ? "Môn học đang hoạt động nhưng chưa tìm thấy hồ sơ giáo viên đang hoạt động."
+                    : "Giáo viên của lớp bạn được chọn mặc định. Bạn cũng có thể chọn giáo viên khác đang dạy môn này.";
         } else {
             routeName = ROUTE_MENTOR_MATCHING;
             suggestions = findMentorSuggestions(request);
@@ -285,6 +289,24 @@ public class MentorEscalationService {
                 .orElseGet(Collections::emptyList);
     }
 
+    private List<MentorSuggestionDTO> buildCourseTeacherSuggestions(String courseId, ClassSection defaultClassSection) {
+        Map<String, MentorSuggestionDTO> suggestions = new LinkedHashMap<>();
+
+        for (MentorSuggestionDTO suggestion : buildClassTeacherSuggestion(defaultClassSection)) {
+            suggestions.put(suggestion.getId(), suggestion);
+        }
+
+        if (!isBlank(courseId)) {
+            for (ClassSection section : classSectionRepository.findByCourseId(courseId.trim())) {
+                resolveClassTeacher(section)
+                        .map(teacher -> mapTeacherToSuggestion(teacher, section, isSameClass(section, defaultClassSection)))
+                        .ifPresent(suggestion -> suggestions.putIfAbsent(suggestion.getId(), suggestion));
+            }
+        }
+
+        return List.copyOf(suggestions.values());
+    }
+
     private Optional<Mentor> resolveClassTeacher(ClassSection classSection) {
         if (classSection == null || isBlank(classSection.getTeacherId())) {
             return Optional.empty();
@@ -298,6 +320,16 @@ public class MentorEscalationService {
     }
 
     private MentorSuggestionDTO mapTeacherToSuggestion(Mentor teacher, ClassSection classSection) {
+        return mapTeacherToSuggestion(teacher, classSection, true);
+    }
+
+    private MentorSuggestionDTO mapTeacherToSuggestion(Mentor teacher, ClassSection classSection, boolean defaultTeacher) {
+        String classLabel = classSection == null || isBlank(classSection.getClassId())
+                ? "môn học này"
+                : "lớp " + classSection.getClassId();
+        String courseLabel = classSection == null || isBlank(classSection.getCourseId())
+                ? "môn học"
+                : "môn " + classSection.getCourseId();
         return MentorSuggestionDTO.builder()
                 .id(teacher.getId())
                 .mentorName(teacher.getMentorName())
@@ -305,8 +337,10 @@ public class MentorEscalationService {
                 .averageRating(teacher.getAverageRating())
                 .completedMentorSessions(teacher.getCompletedMentorSessions())
                 .description(teacher.getDescription())
-                .matchScore(100.0)
-                .matchReason("Teacher for class " + classSection.getClassId() + " in course " + classSection.getCourseId())
+                .matchScore(defaultTeacher ? 100.0 : 85.0)
+                .matchReason(defaultTeacher
+                        ? "Mặc định: giáo viên phụ trách " + classLabel + " trong " + courseLabel
+                        : "Giáo viên phụ trách " + classLabel + " trong " + courseLabel)
                 .responseTimeMinutes(teacher.getResponseTimeMinutes())
                 .specializations(teacher.getSpecializations())
                 .build();
@@ -346,13 +380,33 @@ public class MentorEscalationService {
                 request.getClassId()
         );
 
-        ClassSection classSection = route.classSection();
-        Mentor teacher = resolveClassTeacher(classSection)
-                .orElseThrow(() -> new RuntimeException("Class teacher route is configured but no teacher is available"));
-
-        if (!teacher.getId().equals(selectedMentorId)) {
-            throw new RuntimeException("Active course escalation must be assigned to the class teacher");
+        if (isBlank(request.getCourseId())) {
+            throw new RuntimeException("Active course escalation is missing courseId");
         }
+
+        boolean selectedCourseTeacher = classSectionRepository.findByCourseId(request.getCourseId().trim()).stream()
+                .map(this::resolveClassTeacher)
+                .flatMap(Optional::stream)
+                .anyMatch(teacher -> teacher.getId().equals(selectedMentorId));
+
+        if (!selectedCourseTeacher) {
+            throw new RuntimeException("Active course escalation must be assigned to a teacher of this course");
+        }
+    }
+
+    private boolean isSameClass(ClassSection left, ClassSection right) {
+        if (left == null || right == null) {
+            return false;
+        }
+        return equalsIgnoreCase(left.getCourseId(), right.getCourseId())
+                && equalsIgnoreCase(left.getClassId(), right.getClassId());
+    }
+
+    private boolean equalsIgnoreCase(String left, String right) {
+        if (left == null || right == null) {
+            return false;
+        }
+        return left.trim().equalsIgnoreCase(right.trim());
     }
 
     private String extractTopic(String question) {

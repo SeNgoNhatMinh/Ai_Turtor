@@ -97,14 +97,14 @@ openrouter:
   api-key: ${OPENROUTER_API_KEY:missing-openrouter-api-key}
   base-url: ${OPENROUTER_BASE_URL:https://openrouter.ai/api/v1}
   model: ${OPENROUTER_MODEL:nvidia/nemotron-3-super-120b-a12b:free}
-  timeout-seconds: 60
+  timeout-seconds: ${OPENROUTER_TIMEOUT_SECONDS:15}
   max-retries: 0
   fallback:
     enabled: ${OPENROUTER_FALLBACK_ENABLED:true}
     api-key: ${OPENROUTER_FALLBACK_API_KEY:}
     base-url: ${OPENROUTER_FALLBACK_BASE_URL:https://openrouter.ai/api/v1}
     model: ${OPENROUTER_FALLBACK_MODEL:nvidia/nemotron-3-ultra-550b-a55b:free}
-    timeout-seconds: ${OPENROUTER_FALLBACK_TIMEOUT_SECONDS:60}
+    timeout-seconds: ${OPENROUTER_FALLBACK_TIMEOUT_SECONDS:15}
     max-retries: ${OPENROUTER_FALLBACK_MAX_RETRIES:0}
   # Last hosted fallback: automatically routes to an available free model.
   free-router:
@@ -124,7 +124,7 @@ llm:
   # Local Ollama answers already cost time; skip the second correction LLM pass.
   skip-diacritics-for-ollama: ${LLM_SKIP_DIACRITICS_FOR_OLLAMA:true}
   # When Ollama is in the chain, fail cloud providers faster so local fallback is reached.
-  cloud-failover-timeout-seconds: ${LLM_CLOUD_FAILOVER_TIMEOUT_SECONDS:20}
+  cloud-failover-timeout-seconds: ${LLM_CLOUD_FAILOVER_TIMEOUT_SECONDS:15}
   groq:
     enabled: ${GROQ_ENABLED:true}
     api-key: ${GROQ_API_KEY:}
@@ -134,13 +134,13 @@ llm:
     # their original slot IDs. Disabled models are never exposed or called.
     models: ${GROQ_MODELS:openai/gpt-oss-120b,qwen/qwen3.6-27b,llama-3.3-70b-versatile,openai/gpt-oss-20b,llama-3.1-8b-instant}
     disabled-models: ${GROQ_DISABLED_MODELS:llama-3.3-70b-versatile,llama-3.1-8b-instant}
-    timeout-seconds: ${GROQ_TIMEOUT_SECONDS:60}
+    timeout-seconds: ${GROQ_TIMEOUT_SECONDS:15}
   nvidia:
     enabled: ${NVIDIA_NIM_ENABLED:true}
     api-key: ${NVIDIA_NIM_API_KEY:}
     base-url: ${NVIDIA_NIM_BASE_URL:https://integrate.api.nvidia.com/v1}
     models: ${NVIDIA_NIM_MODELS:nvidia/nemotron-3-super-120b-a12b}
-    timeout-seconds: ${NVIDIA_NIM_TIMEOUT_SECONDS:90}
+    timeout-seconds: ${NVIDIA_NIM_TIMEOUT_SECONDS:15}
 ollama:
   base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
   embedding-model: ${OLLAMA_EMBEDDING_MODEL:embeddinggemma}
@@ -150,12 +150,12 @@ ollama:
   chat:
     enabled: ${OLLAMA_CHAT_ENABLED:false}
     model: ${OLLAMA_CHAT_MODEL:}
-    timeout-seconds: ${OLLAMA_CHAT_TIMEOUT_SECONDS:300}
+    timeout-seconds: ${OLLAMA_CHAT_TIMEOUT_SECONDS:120}
     temperature: ${OLLAMA_CHAT_TEMPERATURE:0.2}
     top-k: ${OLLAMA_CHAT_TOP_K:40}
     # Conservative fallback profile for 4 GB GPUs. Cloud providers remain first
     # in the chain; local generation should not exhaust RAM/VRAM during failover.
-    num-predict: ${OLLAMA_CHAT_NUM_PREDICT:1024}
+    num-predict: ${OLLAMA_CHAT_NUM_PREDICT:768}
     num-ctx: ${OLLAMA_CHAT_NUM_CTX:8192}
     max-retries: ${OLLAMA_CHAT_MAX_RETRIES:0}
 
