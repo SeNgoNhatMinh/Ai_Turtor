@@ -5,18 +5,53 @@ const REVEALED_ANSWER = /(?:^|\s)\s*[-*+]?\s*chọn đáp án đúng\s*[:：-]\s
 const ANSWER_PROMPT_MARKER = /(?:^|\s)\s*[-*+]?\s*chọn đáp án đúng\s*[:：-]\s*(?:[-*+]\s*)?/i;
 const LEAKED_ANSWER = /nếu bạn chọn(?:\s+đáp án)?\s+([A-Da-d])\b/i;
 const CHOOSE_ANSWER = /(?:chọn|choose|pick)\s+(?:đáp án\s+)?([A-Da-d])\b/i;
-const LONE_KEY = /(?:^|\n)\s*([A-Da-d])\s*[.)]?\s*$/;
+const LONE_KEY = /(?:^|\n)[\t ]*([A-Da-d])[\t ]*[.)]?[\t ]*(?:\n|$)/;
 const EXPLAIN_MARKER = /(?:^|\s)(?:giải thích|giai thich|explanation|lý do|ly do)\s*[:：]\s*/ig;
 const QUESTION_PREFIX = /^(?:câu hỏi|cau hoi|question)\s*[:：]\s*/im;
 
-function stripDecorations(value) {
+function stripMarkdownWrappers(value) {
   return String(value || '')
+    .replace(/(`+)([^\n]*?)\1/g, '$2')
+    .replace(/(\*\*|__)(?=\S)(.*?\S?)\1/g, '$2')
+    .replace(/(?<!\*)\*(?=\S)([^*\n]*?\S)\*(?!\*)/g, '$1')
+    .replace(/(?<!_)_(?=\S)([^_\n]*?\S)_(?!_)/g, '$1');
+}
+
+function stripDecorations(value) {
+  return stripMarkdownWrappers(value)
     .replace(/^\s*[-*+]\s+/gm, '')
-    .replace(/[*_`]+/g, '')
     .replace(/\s+-{2,}\s*$/g, '')
     .replace(/^\s*-{3,}\s*$/gm, '')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+function parseLineOptions(value) {
+  const lines = String(value || '').split(/\r?\n/);
+  const options = [];
+  const questionLines = [];
+  let currentOption = null;
+
+  lines.forEach((line) => {
+    const optionMatch = line.match(/^\s*(?:[-*+]\s+)?(?:\(([A-Da-d])\)|([A-Da-d])[.)])\s+(.+?)\s*$/);
+    if (optionMatch) {
+      currentOption = {
+        key: (optionMatch[1] || optionMatch[2]).toUpperCase(),
+        text: optionMatch[3],
+      };
+      options.push(currentOption);
+      return;
+    }
+
+    if (currentOption) {
+      if (line.trim()) currentOption.text += `\n${line.trim()}`;
+      return;
+    }
+    questionLines.push(line);
+  });
+
+  if (options.length < 2) return null;
+  return { questionText: questionLines.join('\n'), options };
 }
 
 function nextSectionBreak(text) {
@@ -81,9 +116,7 @@ export function normalizeStructuredUnderstandingQuiz(value) {
 }
 
 export function parseUnderstandingQuiz(sectionBody) {
-  const raw = String(sectionBody || '')
-    .replace(/[*_`]+/g, '')
-    .trim();
+  const raw = stripMarkdownWrappers(sectionBody).trim();
   if (!raw) return null;
 
   const canonicalMatch = raw.match(CANONICAL_ANSWER);
@@ -124,33 +157,40 @@ export function parseUnderstandingQuiz(sectionBody) {
       .slice(0, Math.min(...metadataIndexes))
       .replace(/(?:^|\n)\s*[-+]\s*$/, '');
   }
-  else if (!leakedMatch && !chooseMatch && loneMatch) working = working.replace(loneMatch[0], '\n');
+  else if (!leakedMatch && !chooseMatch && loneMatch) {
+    working = `${working.slice(0, loneMatch.index)}\n${working.slice(loneMatch.index + loneMatch[0].length)}`;
+  }
   working = working.replace(QUESTION_PREFIX, '').trim();
 
+  const lineParsed = parseLineOptions(working);
   const marks = [];
-  OPTION_MARK.lastIndex = 0;
-  let match = OPTION_MARK.exec(working);
-  while (match) {
-    marks.push({
-      key: (match[1] || match[2]).toUpperCase(),
-      start: match.index,
-      textStart: match.index + match[0].length,
-    });
-    match = OPTION_MARK.exec(working);
+  if (!lineParsed) {
+    OPTION_MARK.lastIndex = 0;
+    let match = OPTION_MARK.exec(working);
+    while (match) {
+      marks.push({
+        key: (match[1] || match[2]).toUpperCase(),
+        start: match.index,
+        textStart: match.index + match[0].length,
+      });
+      match = OPTION_MARK.exec(working);
+    }
+    if (marks.length < 2) return null;
   }
-  if (marks.length < 2) return null;
 
-  const question = stripDecorations(working.slice(0, marks[0].start))
-    .replace(/[?\s]+$/, '');
+  const question = stripDecorations(
+    lineParsed ? lineParsed.questionText : working.slice(0, marks[0].start),
+  ).replace(/[?\s]+$/, '');
   if (!question) return null;
 
-  const options = marks.map((item, index) => {
+  const rawOptions = lineParsed?.options || marks.map((item, index) => {
     const end = index + 1 < marks.length ? marks[index + 1].start : working.length;
-    return {
-      key: item.key,
-      text: stripDecorations(working.slice(item.textStart, end)).replace(/[;|]+$/, ''),
-    };
-  }).filter((item) => item.text);
+    return { key: item.key, text: working.slice(item.textStart, end) };
+  });
+  const options = rawOptions.map((item) => ({
+    key: item.key,
+    text: stripDecorations(item.text).replace(/[;|]+$/, ''),
+  })).filter((item) => item.text);
 
   if (options.length < 2) return null;
 

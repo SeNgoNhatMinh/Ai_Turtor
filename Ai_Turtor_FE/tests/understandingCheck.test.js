@@ -61,6 +61,56 @@ test('parses an inline A/B/C understanding check', () => {
   assert.equal(quiz.correctKey, '');
 });
 
+test('preserves technical option text wrapped as Markdown code', () => {
+  const quiz = parseUnderstandingQuiz(`
+Câu hỏi: Toán tử nào được dùng để lấy địa chỉ của một biến?
+A. \`*\`
+B. \`&\`
+C. \`=\`
+Đáp án: B
+Giải thích: Toán tử \`&\` lấy địa chỉ của biến.
+`);
+
+  assert.ok(quiz);
+  assert.deepEqual(
+    new Set(quiz.options.map((option) => option.text)),
+    new Set(['*', '&', '=']),
+  );
+  assert.equal(quiz.options.find((option) => option.key === quiz.correctKey)?.text, '&');
+  assert.equal(quiz.explanation, 'Toán tử & lấy địa chỉ của biến.');
+});
+
+test('preserves punctuation in technical answers while removing only wrappers', () => {
+  const quiz = parseUnderstandingQuiz(`
+Question: Which declaration is valid?
+A. \`int *p\`
+B. \`!=\`
+C. \`_value\`
+D. \`a[i]\`
+Answer: A
+`);
+
+  assert.ok(quiz);
+  assert.deepEqual(
+    new Set(quiz.options.map((option) => option.text)),
+    new Set(['int *p', '!=', '_value', 'a[i]']),
+  );
+  assert.equal(quiz.options.find((option) => option.key === quiz.correctKey)?.text, 'int *p');
+});
+
+test('keeps the correct answer mapped to its option after deterministic shuffle', () => {
+  const quiz = parseUnderstandingQuiz(`
+Question: Which operator takes an address?
+A. \`*\`
+B. \`&\`
+C. \`=\`
+Answer: B
+`);
+
+  const correctOption = quiz.options.find((option) => option.key === quiz.correctKey);
+  assert.deepEqual(correctOption, { key: quiz.correctKey, text: '&' });
+});
+
 test('drops a trailing markdown rule from the last option', () => {
   const quiz = parseUnderstandingQuiz(
     "Khi dùng vòng lặp for, biến lặp lần hai là gì? A. 'apple' B. 'banana' C. 'cherry' ---",
@@ -88,9 +138,12 @@ Giải thích: Index 1 là banana.
   assert.match(extracted.before, /for duyệt từng phần tử/);
   assert.doesNotMatch(extracted.before, /Đáp án/);
   assert.match(extracted.after, /Bài 2: Biến lặp/);
-  assert.equal(extracted.quiz.correctKey, 'B');
+  assert.equal(
+    extracted.quiz.options.find((option) => option.key === extracted.quiz.correctKey)?.text,
+    'banana',
+  );
   assert.equal(extracted.quiz.explanation, 'Index 1 là banana.');
-  assert.equal(extracted.quiz.options[1].text, 'banana');
+  assert.ok(extracted.quiz.options.some((option) => option.text === 'banana'));
 });
 
 test('hides an inline answer and explanation leaked into the last option', () => {
@@ -102,7 +155,10 @@ B. init() thiết lập tài nguyên cần thiết
 C. destroy() giải phóng tài nguyên. **Giải thích:** init() được gọi ngay sau khi Servlet được khởi tạo. **Đáp án:** B **Giải thích:** init() chuẩn bị tài nguyên.
 `);
 
-  assert.equal(extracted.quiz.correctKey, 'B');
+  assert.match(
+    extracted.quiz.options.find((option) => option.key === extracted.quiz.correctKey)?.text || '',
+    /^init\(\)/,
+  );
   assert.equal(extracted.quiz.options[2].text, 'destroy() giải phóng tài nguyên.');
   assert.equal(extracted.quiz.explanation, 'init() được gọi ngay sau khi Servlet được khởi tạo.');
   assert.doesNotMatch(extracted.quiz.explanation, /Đáp án|Giải thích/);
@@ -121,7 +177,10 @@ C. destroy()
 Đáp án: B Giải thích: init() chạy một lần khi khởi tạo.
 `);
 
-  assert.equal(extracted.quiz.correctKey, 'B');
+  assert.equal(
+    extracted.quiz.options.find((option) => option.key === extracted.quiz.correctKey)?.text,
+    'init()',
+  );
   assert.equal(extracted.quiz.options[2].text, 'destroy()');
   assert.equal(extracted.quiz.explanation, 'init() chạy một lần khi khởi tạo.');
   assert.equal(extracted.after, '');
@@ -148,8 +207,7 @@ B. banana
 C. cherry
 The correct answer is B
 `);
-  assert.equal(quiz.correctKey, 'B');
-  assert.equal(quiz.options[1].text, 'banana');
+  assert.equal(quiz.options.find((option) => option.key === quiz.correctKey)?.text, 'banana');
 });
 
 test('parses a trailing lone letter after the options', () => {
@@ -160,7 +218,7 @@ B. banana
 C. cherry
 B
 `);
-  assert.equal(quiz.correctKey, 'B');
+  assert.equal(quiz.options.find((option) => option.key === quiz.correctKey)?.text, 'banana');
 });
 
 test('grades leaked answer text without calling the tutor', () => {
