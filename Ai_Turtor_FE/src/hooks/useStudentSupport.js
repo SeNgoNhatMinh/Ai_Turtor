@@ -47,7 +47,7 @@ export function useStudentSupport({ activeTab, userId, selectedEscalationId = nu
     staleTime: 30_000,
   });
   const escalations = useMemo(() => historyQuery.data || [], [historyQuery.data]);
-  const effectiveSelectedId = selectedEscalationId ?? escalations[0]?.id ?? '';
+  const effectiveSelectedId = selectedEscalationId || escalations[0]?.id || '';
 
   const selectedSummary = useMemo(
     () => escalations.find((item) => item.id === effectiveSelectedId) || null,

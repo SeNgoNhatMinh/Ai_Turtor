@@ -164,7 +164,7 @@ Giải thích: JSP được biên dịch thành servlet và chạy trên server.
     });
     expect(screen.getByRole('button', { name: '← Quay lại bài đã học' })).toBeVisible();
     expect(screen.queryByText('Câu hỏi gần đây')).not.toBeInTheDocument();
-    expect(screen.getByText('Em hỏi về JSP')).toBeVisible();
+    expect(await screen.findByText('Em hỏi về JSP')).toBeVisible();
     expect(screen.getByLabelText('Kiểm tra hiểu')).toBeVisible();
     expect(screen.getByText('JSP chạy ở đâu?')).toBeVisible();
     expect(screen.getByText(/Sinh viên chưa trả lời/)).toBeVisible();
@@ -225,7 +225,7 @@ Giải thích: JSP được biên dịch thành servlet và chạy trên server.
       expect(screen.getByText('Hội thoại')).toBeVisible();
     });
 
-    expect(screen.getByText(/Sinh viên đã chọn A/)).toBeVisible();
+    expect(await screen.findByText(/Sinh viên đã chọn A/)).toBeVisible();
     expect(screen.getByText('Chưa đúng.')).toBeVisible();
     expect(screen.getByText(/Sinh viên chọn A/)).toBeVisible();
     expect(screen.getByRole('button', { name: /Máy chủ/ })).toBeDisabled();

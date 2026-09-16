@@ -33,7 +33,7 @@ describe('student enrollment navigation', () => {
     await act(async () => {
       await first.result.current.loadStudentEnrollments();
     });
-    expect(first.result.current.hasStudentEnrollments).toBe(true);
+    await waitFor(() => expect(first.result.current.hasStudentEnrollments).toBe(true));
     first.unmount();
 
     const setCourseId = vi.fn();

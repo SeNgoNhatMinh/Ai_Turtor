@@ -1,8 +1,34 @@
 import '@testing-library/jest-dom/vitest';
+import React from 'react';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, vi } from 'vitest';
 import { cleanup } from '@testing-library/react';
+import { appQueryClient } from '../src/app/queryClient.js';
 
-afterEach(() => cleanup());
+vi.mock('@testing-library/react', async (importOriginal) => {
+  const actual = await importOriginal();
+
+  const withQueryClient = (options = {}) => {
+    const UserWrapper = options.wrapper;
+    const QueryWrapper = ({ children }) => React.createElement(
+      QueryClientProvider,
+      { client: appQueryClient },
+      UserWrapper ? React.createElement(UserWrapper, null, children) : children,
+    );
+    return { ...options, wrapper: QueryWrapper };
+  };
+
+  return {
+    ...actual,
+    render: (ui, options) => actual.render(ui, withQueryClient(options)),
+    renderHook: (callback, options) => actual.renderHook(callback, withQueryClient(options)),
+  };
+});
+
+afterEach(() => {
+  cleanup();
+  appQueryClient.clear();
+});
 
 Object.defineProperty(window, 'matchMedia', {
   writable: true,

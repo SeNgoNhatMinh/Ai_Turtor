@@ -120,7 +120,12 @@ describe('QuizAssignments publish flow', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Xuất bản' }));
     const dialog = await screen.findByRole('dialog');
 
-    expect(teacherApi.getClassStudents).toHaveBeenCalledWith('PRO192', 'SE1833', 'teacher-1');
+    expect(teacherApi.getClassStudents).toHaveBeenCalledWith(
+      'PRO192',
+      'SE1833',
+      'teacher-1',
+      expect.objectContaining({ signal: expect.anything() }),
+    );
     fireEvent.mouseDown(within(dialog).getByRole('combobox'));
     fireEvent.click(await screen.findByText('Sinh viên được chọn'));
 
@@ -191,6 +196,7 @@ describe('QuizAssignments publish flow', () => {
 
     expect(await screen.findByText('OOP Review')).toBeInTheDocument();
     expect(screen.queryByText('AI Foundations')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Chỉnh sửa' }));
     fireEvent.click(screen.getByRole('button', { name: 'Mark draft dirty' }));
 
     fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Lớp học phần' }));

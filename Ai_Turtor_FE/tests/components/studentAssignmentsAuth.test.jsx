@@ -23,6 +23,7 @@ describe('student assignment list authentication', () => {
   });
 
   it('keeps the current session when the materials page loads assignment data', async () => {
+    assignmentApi.getStudentAssignments.mockResolvedValue([{ id: 'assignment-1' }]);
     const { result } = renderHook(() => useStudentAssignmentsController({
       studentId: 'student-1',
       courseId: 'PRJ301',

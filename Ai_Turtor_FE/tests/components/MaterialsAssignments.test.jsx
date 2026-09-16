@@ -45,7 +45,7 @@ describe('MaterialsAssignments course context', () => {
     expect(await screen.findByText('test 1')).toBeVisible();
     expect(screen.getByText('AI101-01')).toBeVisible();
 
-    const courseSelect = screen.getByRole('combobox', { name: 'Môn học của bài tập' });
+    const courseSelect = screen.getByRole('combobox', { name: 'Môn học của tài liệu' });
     fireEvent.mouseDown(courseSelect);
     fireEvent.click(await screen.findByText('OOP - Object-Oriented Programming'));
 

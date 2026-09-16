@@ -1,4 +1,4 @@
-import { appQueryClient } from '../app/queryClient';
+import { appQueryClient } from '../app/queryClient.js';
 
 const DEFAULT_STALE_TIME_MS = 15_000;
 

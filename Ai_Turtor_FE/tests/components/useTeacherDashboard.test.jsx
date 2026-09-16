@@ -1,4 +1,4 @@
-import { act, renderHook } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useTeacherDashboard } from '../../src/features/teacher/dashboard/useTeacherDashboard';
 import { teacherApi } from '../../src/services/teacherApi';
@@ -31,14 +31,17 @@ describe('useTeacherDashboard class assignment loading', () => {
 
     await act(async () => result.current.loadTeacherDashboard());
 
-    expect(teacherApi.getClassSections).toHaveBeenCalledWith('teacher-1');
-    expect(result.current.classesList).toEqual(expect.arrayContaining([
+    expect(teacherApi.getClassSections).toHaveBeenCalledWith(
+      'teacher-1',
+      expect.objectContaining({ signal: expect.anything() }),
+    );
+    await waitFor(() => expect(result.current.classesList).toEqual(expect.arrayContaining([
       expect.objectContaining({
         courseId: 'AI101',
         classId: 'AI101-01',
         name: 'Lớp AI101-01',
       }),
-    ]));
+    ])));
   });
 
   it('uses the teacher-authorized class endpoint when dashboard loading fails', async () => {
@@ -55,7 +58,10 @@ describe('useTeacherDashboard class assignment loading', () => {
 
     await act(async () => result.current.loadTeacherDashboard());
 
-    expect(teacherApi.getClassSections).toHaveBeenCalledWith('teacher-1');
+    expect(teacherApi.getClassSections).toHaveBeenCalledWith(
+      'teacher-1',
+      expect.objectContaining({ signal: expect.anything() }),
+    );
     expect(result.current.classesList[0]).toEqual(expect.objectContaining({
       courseId: 'PRO192',
       classId: 'SE1833',
@@ -80,12 +86,17 @@ describe('useTeacherDashboard class assignment loading', () => {
 
     await act(async () => result.current.loadTeacherDashboard());
 
-    expect(teacherApi.getClassStudents).toHaveBeenCalledWith('PRO192', 'SE1833');
-    expect(result.current.teacherStudents[0]).toEqual(expect.objectContaining({
+    expect(teacherApi.getClassStudents).toHaveBeenCalledWith(
+      'PRO192',
+      'SE1833',
+      '',
+      expect.objectContaining({ signal: expect.anything() }),
+    );
+    await waitFor(() => expect(result.current.teacherStudents[0]).toEqual(expect.objectContaining({
       name: 'An Nguyen',
       email: 'an@fpt.edu.vn',
       status: 'ACTIVE',
-    }));
+    })));
     expect(result.current.classesList[0].details).toBe('1 sinh viên');
   });
 });

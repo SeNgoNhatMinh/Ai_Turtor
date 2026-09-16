@@ -61,7 +61,11 @@ describe('UI action safety', () => {
       />,
     );
 
-    await waitFor(() => expect(teacherApi.getCourseMemories).toHaveBeenCalledWith('PRO192', 'SE1833'));
+    await waitFor(() => expect(teacherApi.getCourseMemories).toHaveBeenCalledWith(
+      'PRO192',
+      'SE1833',
+      expect.objectContaining({ signal: expect.anything() }),
+    ));
     expect(screen.queryByRole('button', { name: 'Support' })).not.toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: /Làm mới/i })).toHaveLength(1);
 
