@@ -1,4 +1,3 @@
-import 'package:ai_tutor/core/theme/app_colors.dart';
 import 'package:ai_tutor/features/ai_tutor/presentation/widgets/ai_chat_widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -78,7 +77,7 @@ void main() {
     controller.dispose();
   });
 
-  testWidgets('shows keyword tip and disclaimer under the composer', (
+  testWidgets('hides keyword tip and disclaimer under the composer', (
     tester,
   ) async {
     final controller = TextEditingController();
@@ -99,17 +98,32 @@ void main() {
       ),
     );
 
-    expect(find.text(AiChatInputBar.keywordTip), findsOneWidget);
-    expect(find.text(AiChatInputBar.disclaimer), findsOneWidget);
+    expect(find.text(AiChatInputBar.keywordTip), findsNothing);
+    expect(find.text(AiChatInputBar.disclaimer), findsNothing);
+    controller.dispose();
+  });
 
-    final tip = tester.widget<Text>(find.text(AiChatInputBar.keywordTip));
-    expect(tip.textAlign, TextAlign.center);
-    expect(tip.style?.color, AppColors.composerKeywordTip);
-    final disclaimer = tester.widget<Text>(
-      find.text(AiChatInputBar.disclaimer),
+  testWidgets('keeps a locked composer empty', (tester) async {
+    final controller = TextEditingController();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AiChatInputBar(
+            controller: controller,
+            hint: '',
+            enabled: false,
+            isPending: false,
+            onSend: () {},
+            onStop: () {},
+            stopLabel: 'Dừng',
+          ),
+        ),
+      ),
     );
-    expect(disclaimer.textAlign, TextAlign.center);
-    expect(disclaimer.style?.color, AppColors.composerMeta);
+
+    final input = tester.widget<TextField>(find.byType(TextField));
+    expect(input.enabled, isFalse);
+    expect(input.decoration?.hintText, isEmpty);
     controller.dispose();
   });
 

@@ -438,7 +438,6 @@ String buildIncorrectAnswerRemediationPrompt(
   final question = quiz.question.trim();
   final selectedKey = selected.key.trim().toUpperCase();
   final correctKey = quiz.correctKey.trim().toUpperCase();
-  final correctOption = quiz.optionFor(correctKey);
   if (question.isEmpty ||
       selectedKey.isEmpty ||
       correctKey.isEmpty ||
@@ -447,13 +446,7 @@ String buildIncorrectAnswerRemediationPrompt(
   }
   return [
     'Ôn lại sau câu trả lời chưa đúng.',
-    'Câu vừa làm: $question',
-    'Em đã chọn: $selectedKey. ${selected.text}',
-    'Đáp án đúng: $correctKey. ${correctOption?.text.trim() ?? ''}',
-    if (quiz.explanation.trim().isNotEmpty)
-      'Lý do trong bài: ${quiz.explanation.trim()}',
-    'Hãy tự động giảng lại đúng kiến thức này bằng cách dễ hiểu hơn, dùng cả Giải thích khái niệm (Conceptual Explanation) và Minh họa trực quan (Visual Representation).',
-    'Sau đó cho em làm lại một câu trắc nghiệm dễ hơn về cùng kiến thức, nhưng phải paraphrase câu hỏi và các lựa chọn; không lặp nguyên văn câu cũ và không chuyển sang chủ đề mới.',
+    'Câu hỏi trọng tâm: $question',
   ].join('\n');
 }
 

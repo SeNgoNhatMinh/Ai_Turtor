@@ -72,18 +72,12 @@ class ChatBubble extends StatelessWidget {
       bottomRight: Radius.circular(isUser ? Radii.sm : Radii.lg),
     );
 
-    final bgColor = escalated && !isUser
-        ? AppColors.infoBg
-        : isUser
-        ? AppColors.primary
-        : AppColors.card;
+    final bgColor = isUser ? AppColors.primary : AppColors.card;
 
     final decoration = BoxDecoration(
       color: bgColor,
       borderRadius: radius,
-      border: isUser || escalated
-          ? null
-          : Border.all(color: AppColors.borderHairline),
+      border: isUser ? null : Border.all(color: AppColors.borderHairline),
     );
 
     return Align(

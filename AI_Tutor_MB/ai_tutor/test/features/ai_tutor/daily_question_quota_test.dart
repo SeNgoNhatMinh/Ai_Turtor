@@ -62,12 +62,20 @@ void main() {
     );
   });
 
-  testWidgets('shows the web daily-complete copy', (tester) async {
+  testWidgets('shows the daily-complete copy for about 30 seconds', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       const MaterialApp(home: Scaffold(body: AiChatDailyQuotaBanner())),
     );
     expect(find.text(dailySessionCompleteTitle), findsOneWidget);
     expect(find.text(dailySessionCompleteMessage), findsOneWidget);
     expect(find.text(dailySessionCompleteHint), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 29));
+    expect(find.text(dailySessionCompleteTitle), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.text(dailySessionCompleteTitle), findsNothing);
   });
 }

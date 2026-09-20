@@ -1416,7 +1416,8 @@ class ChatScreen extends HookConsumerWidget {
       String? clickedSuggestion,
     }) async {
       if (prompt.isEmpty || activeCourse == null) return;
-      if (isPending || composerLocked) {
+      if (composerLocked) return;
+      if (isPending) {
         chatInputKey.currentState?.setDraft(prompt);
         ScaffoldMessenger.of(
           context,
@@ -1511,7 +1512,7 @@ class ChatScreen extends HookConsumerWidget {
           .sendMessage(
             conversationId: conversationId,
             message: prompt,
-            displayMessage: quiz.question,
+            displayMessage: 'Giải thích lại: ${quiz.question}',
             interactionType: 'UNDERSTANDING_REMEDIATION',
             courseId: activeCourse.code,
             classId: activeCourse.classId,
@@ -1924,24 +1925,26 @@ class ChatScreen extends HookConsumerWidget {
                 ref.read(chatTurnLimitNoticeProvider.notifier).state = null;
               },
             ),
-          if (dailyQuotaExhausted) const AiChatDailyQuotaBanner(),
-          AiChatTutorSessionStrip(
-            dailyQuotaExhausted: dailyQuotaExhausted,
-            phase: tutorSnapshot.session?.phase,
-            supportLevel: tutorSnapshot.session?.supportLevel,
-            status: tutorSnapshot.session?.status,
-            summaryText: tutorSnapshot.summary?.summaryText,
-            loading: tutorSnapshot.loading,
-            onStartNext: () async {
-              final opened = await ref
-                  .read(tutorSessionControllerProvider.notifier)
-                  .startNext();
-              if (!context.mounted) return;
-              final nextId = opened?.conversationId.trim() ?? '';
-              if (nextId.isEmpty) return;
-              context.go(AppRoutes.studentTutorChat(nextId));
-            },
-          ),
+          if (dailyQuotaExhausted)
+            AiChatDailyQuotaBanner(key: ValueKey(quotaCourseId)),
+          if (!dailyQuotaExhausted)
+            AiChatTutorSessionStrip(
+              dailyQuotaExhausted: false,
+              phase: tutorSnapshot.session?.phase,
+              supportLevel: tutorSnapshot.session?.supportLevel,
+              status: tutorSnapshot.session?.status,
+              summaryText: tutorSnapshot.summary?.summaryText,
+              loading: tutorSnapshot.loading,
+              onStartNext: () async {
+                final opened = await ref
+                    .read(tutorSessionControllerProvider.notifier)
+                    .startNext();
+                if (!context.mounted) return;
+                final nextId = opened?.conversationId.trim() ?? '';
+                if (nextId.isEmpty) return;
+                context.go(AppRoutes.studentTutorChat(nextId));
+              },
+            ),
           Expanded(
             child: messages.when(
               loading: () => const LoadingSkeleton(itemCount: 4),
@@ -2084,7 +2087,7 @@ class ChatScreen extends HookConsumerWidget {
                                   effectiveEscalationId != null,
                               pinned: message.pinned,
                               pinnedLabel: l10n.pinnedLabel,
-                              onStudyTipTap: message.isUser
+                              onStudyTipTap: message.isUser || composerLocked
                                   ? null
                                   : (tip) => handleStudyTipTap(
                                       tip,
@@ -2252,6 +2255,7 @@ class ChatScreen extends HookConsumerWidget {
                             ImproveSuggestionsStrip(
                               suggestions: pathSuggestions,
                               consumedKeys: consumedKeys,
+                              enabled: !isPending && !composerLocked,
                               onLearn: handleLearnSuggestion,
                               onCreateQuiz: handleQuizFromSuggestion,
                             ),
@@ -2275,27 +2279,6 @@ class ChatScreen extends HookConsumerWidget {
               },
             ),
           ),
-          if (!dailyQuotaExhausted &&
-              tutorSnapshot.session?.isCompleted != true)
-            AiChatComposerTopics(
-              enabled: !isPending && !composerLocked,
-              topics: composerTopicsForSession(
-                sessionTopics:
-                    tutorSnapshot.session?.suggestedTopics ?? const [],
-                parsedLessons: lessonSuggestionsForMessage(
-                  answer: (messages.valueOrNull ?? const <AiMessage>[])
-                      .lastWhere(
-                        (item) => !item.isUser,
-                        orElse: () =>
-                            const AiMessage(id: '', content: '', isUser: false),
-                      )
-                      .content,
-                ).map((item) => item.title).toList(),
-              ),
-              onSelect: (topic) {
-                unawaited(sendStudyPromptInChat(buildLessonChatPrompt(topic)));
-              },
-            ),
           SafeArea(
             top: false,
             child: _ChatInputBar(
@@ -2507,19 +2490,7 @@ class _ChatInputBarState extends ConsumerState<_ChatInputBar> {
     return AiChatInputBar(
       controller: _messageController,
       focusNode: _focusNode,
-      hint: dailyBlocked
-          ? describeDailyQuestionLimit(
-              dailyQuota.resetAt == null
-                  ? null
-                  : ApiBusinessException(
-                      message: '',
-                      code: dailyQuestionLimitCode,
-                      resetAt: dailyQuota.resetAt,
-                    ),
-            )
-          : maxTurnsReached
-          ? 'Cuộc trò chuyện đã đủ 10 câu hỏi. Hãy tạo cuộc trò chuyện mới.'
-          : l10n.chatInputHint,
+      hint: dailyBlocked || maxTurnsReached ? '' : l10n.chatInputHint,
       enabled: canSend,
       isPending: isPending,
       isListening: _listening,

@@ -105,6 +105,36 @@ void main() {
     expect(find.text('Học ngay'), findsOneWidget);
   });
 
+  testWidgets('keeps old suggestions visible but disables new chat actions', (
+    tester,
+  ) async {
+    var learned = false;
+    var createdQuiz = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('vi'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: ImproveSuggestionsStrip(
+            suggestions: [ImproveSuggestionItem.fromLabel('Ôn IoC và DI')],
+            consumedKeys: const {},
+            enabled: false,
+            onLearn: (_) => learned = true,
+            onCreateQuiz: (_) => createdQuiz = true,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Ôn IoC và DI'), findsOneWidget);
+    final actions = tester.widgetList<TextButton>(find.byType(TextButton));
+    expect(actions, hasLength(2));
+    expect(actions.every((button) => button.onPressed == null), isTrue);
+    expect(learned, isFalse);
+    expect(createdQuiz, isFalse);
+  });
+
   testWidgets('does not render raw suggestion JSON as a chip title', (
     tester,
   ) async {

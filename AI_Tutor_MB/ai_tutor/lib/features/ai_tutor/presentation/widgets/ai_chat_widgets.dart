@@ -767,46 +767,92 @@ class AiChatComposerTopics extends StatelessWidget {
   }
 }
 
-class AiChatDailyQuotaBanner extends StatelessWidget {
-  const AiChatDailyQuotaBanner({super.key});
+class AiChatDailyQuotaBanner extends StatefulWidget {
+  const AiChatDailyQuotaBanner({
+    super.key,
+    this.displayDuration = const Duration(seconds: 30),
+  });
+
+  final Duration displayDuration;
+
+  @override
+  State<AiChatDailyQuotaBanner> createState() => _AiChatDailyQuotaBannerState();
+}
+
+class _AiChatDailyQuotaBannerState extends State<AiChatDailyQuotaBanner> {
+  Timer? _hideTimer;
+  var _visible = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _scheduleHide();
+  }
+
+  @override
+  void didUpdateWidget(covariant AiChatDailyQuotaBanner oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.displayDuration != widget.displayDuration) {
+      _visible = true;
+      _scheduleHide();
+    }
+  }
+
+  void _scheduleHide() {
+    _hideTimer?.cancel();
+    _hideTimer = Timer(widget.displayDuration, () {
+      if (mounted) setState(() => _visible = false);
+    });
+  }
+
+  @override
+  void dispose() {
+    _hideTimer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (!_visible) return const SizedBox.shrink();
+
     return Material(
       color: AppColors.accentWash,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(
-          Insets.screenH,
-          Insets.md,
-          Insets.screenH,
-          Insets.md,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              dailySessionCompleteTitle,
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w800,
-                color: AppColors.accentDark,
+      child: Semantics(
+        liveRegion: true,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            Insets.screenH,
+            Insets.md,
+            Insets.screenH,
+            Insets.md,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                dailySessionCompleteTitle,
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.accentDark,
+                ),
               ),
-            ),
-            const Gap(Insets.xs),
-            Text(
-              dailySessionCompleteMessage,
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(color: AppColors.textPrimary),
-            ),
-            const Gap(Insets.xs),
-            Text(
-              dailySessionCompleteHint,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: AppColors.textSecondary,
-                height: 1.4,
+              const Gap(Insets.xs),
+              Text(
+                dailySessionCompleteMessage,
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(color: AppColors.textPrimary),
               ),
-            ),
-          ],
+              const Gap(Insets.xs),
+              Text(
+                dailySessionCompleteHint,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: AppColors.textSecondary,
+                  height: 1.4,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1326,26 +1372,6 @@ class AiChatInputBar extends StatelessWidget {
                 );
               },
             ),
-            if (showComposerTips) ...[
-              const Gap(Insets.sm),
-              Text(
-                keywordTip,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: AppColors.composerKeywordTip,
-                  height: 1.35,
-                ),
-              ),
-              const Gap(4),
-              Text(
-                disclaimer,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: AppColors.composerMeta,
-                  height: 1.35,
-                ),
-              ),
-            ],
           ],
         ),
       ),

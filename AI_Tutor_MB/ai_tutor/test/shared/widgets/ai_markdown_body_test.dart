@@ -66,6 +66,82 @@ Chọn một gợi ý ở trên để bắt đầu học, hoặc nhập chủ đ
     expect(tapped, ['Ôn lại vòng lặp for']);
   });
 
+  testWidgets('next lesson choices are tappable', (tester) async {
+    final tapped = <String>[];
+    const markdown = '''
+## Bài tiếp theo
+- Bài 2: Tham số và giá trị trả về – Nói về truyền tham số và return.
+''';
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AiMarkdownBody(data: markdown, onStudyTipTap: tapped.add),
+        ),
+      ),
+    );
+
+    const lesson =
+        'Bài 2: Tham số và giá trị trả về – Nói về truyền tham số và return.';
+    await tester.tap(find.text(lesson));
+    expect(tapped, [lesson]);
+  });
+
+  testWidgets('study continuation choices work across course content', (
+    tester,
+  ) async {
+    final tapped = <String>[];
+    const topics = [
+      'Thêm action mới vào switch của Servlet',
+      'So sánh INNER JOIN và LEFT JOIN',
+      'Quản lý state bằng Riverpod',
+    ];
+
+    for (final topic in topics) {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: AiMarkdownBody(
+              data: '## Học tiếp phần này\n- $topic',
+              onStudyTipTap: tapped.add,
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text(topic));
+    }
+
+    expect(tapped, topics);
+  });
+
+  testWidgets('horizontal rules do not paint black separator lines', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: AiMarkdownBody(data: 'Nội dung trước\n\n---\n\nVí dụ nhỏ'),
+        ),
+      ),
+    );
+
+    final decorations = tester
+        .widgetList<Container>(find.byType(Container))
+        .map((container) => container.decoration)
+        .whereType<BoxDecoration>();
+    expect(
+      decorations.any((decoration) => decoration.color == Colors.transparent),
+      isTrue,
+    );
+    expect(
+      decorations.any(
+        (decoration) => decoration.border?.top.color == Colors.black,
+      ),
+      isFalse,
+    );
+  });
+
   testWidgets('missing markdown images do not expand into a red error box', (
     tester,
   ) async {

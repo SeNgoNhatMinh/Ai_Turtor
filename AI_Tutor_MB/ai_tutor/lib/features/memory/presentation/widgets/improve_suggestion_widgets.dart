@@ -25,6 +25,7 @@ class ImproveSuggestionsStrip extends StatelessWidget {
     this.onCreateQuiz,
     this.loadingKey,
     this.quizLabel = 'Ôn tập',
+    this.enabled = true,
   });
 
   final List<ImproveSuggestionItem> suggestions;
@@ -33,6 +34,7 @@ class ImproveSuggestionsStrip extends StatelessWidget {
   final ValueChanged<ImproveSuggestionItem>? onCreateQuiz;
   final String? loadingKey;
   final String quizLabel;
+  final bool enabled;
 
   static List<ImproveSuggestionItem> _dedupe(
     List<ImproveSuggestionItem> items,
@@ -96,9 +98,9 @@ class ImproveSuggestionsStrip extends StatelessWidget {
                   consumed: consumed,
                   loading: loading,
                   learnLabel: l10n.learnNow,
-                  onLearn: consumed ? null : () => onLearn(item),
+                  onLearn: consumed || !enabled ? null : () => onLearn(item),
                   quizLabel: quizLabel,
-                  onCreateQuiz: onCreateQuiz == null || consumed
+                  onCreateQuiz: onCreateQuiz == null || consumed || !enabled
                       ? null
                       : () => onCreateQuiz!(item),
                 ),

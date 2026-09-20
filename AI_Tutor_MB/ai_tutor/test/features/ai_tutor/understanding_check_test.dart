@@ -328,4 +328,37 @@ B. two
     await tester.pump();
     expect(locked, 'A');
   });
+
+  test('builds a focused remediation prompt for an incorrect answer', () {
+    const quiz = UnderstandingQuiz(
+      question: 'Trong vòng lặp for, biến lặp được cập nhật như thế nào?',
+      options: [
+        UnderstandingOption(
+          key: 'A',
+          text: 'Chỉ được khởi tạo một lần trước vòng lặp',
+        ),
+        UnderstandingOption(
+          key: 'B',
+          text: 'Được thay đổi tự động cho mỗi phần tử trong tập hợp',
+        ),
+      ],
+      correctKey: 'B',
+      explanation:
+          'Biến lặp tự động nhận từng phần tử trong tập hợp được lặp qua.',
+    );
+
+    final prompt = buildIncorrectAnswerRemediationPrompt(
+      quiz,
+      quiz.optionFor('A')!,
+    );
+
+    expect(
+      prompt,
+      'Ôn lại sau câu trả lời chưa đúng.\n'
+      'Câu hỏi trọng tâm: ${quiz.question}',
+    );
+    expect(prompt, isNot(contains(quiz.optionFor('A')!.text)));
+    expect(prompt, isNot(contains(quiz.optionFor('B')!.text)));
+    expect(prompt, isNot(contains(quiz.explanation)));
+  });
 }

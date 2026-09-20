@@ -119,7 +119,7 @@ class StudentHomeScreen extends HookConsumerWidget {
                                   horizontal: Insets.screenH,
                                 ),
                                 child: PlanASearchField(
-                                  hint: 'Bạn muốn học gì hôm nay?',
+                                  hint: 'Tìm kiếm môn học',
                                   controller: searchController,
                                 ),
                               ),

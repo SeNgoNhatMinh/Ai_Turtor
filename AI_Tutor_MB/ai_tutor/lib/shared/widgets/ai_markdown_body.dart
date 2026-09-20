@@ -60,7 +60,10 @@ class _AiMarkdownBodyState extends State<AiMarkdownBody>
     _disposeRecognizers();
     _failed = false;
     _children = null;
-    final markdown = stabilizeAiMarkdown(widget.data);
+    final interactiveMarkdown = widget.onStudyTipTap == null
+        ? widget.data
+        : _enhanceInteractiveStudyLinks(widget.data);
+    final markdown = stabilizeAiMarkdown(interactiveMarkdown);
     _plain = markdown;
     try {
       final document = md.Document(
@@ -138,6 +141,7 @@ class _AiMarkdownBodyState extends State<AiMarkdownBody>
       ),
       codeblockPadding: EdgeInsets.zero,
       codeblockDecoration: const BoxDecoration(color: Colors.transparent),
+      horizontalRuleDecoration: const BoxDecoration(color: Colors.transparent),
     );
   }
 
@@ -181,6 +185,64 @@ class _AiMarkdownBodyState extends State<AiMarkdownBody>
       children: children,
     );
   }
+}
+
+final _interactiveStudyHeading = RegExp(
+  r'^(?:bài(?: tập)? tiếp theo|bài kế tiếp|học tiếp phần này|học chuyên sâu)\s*:?[\s]*$',
+  caseSensitive: false,
+  unicode: true,
+);
+
+final _markdownSectionHeading = RegExp(r'^#{1,6}\s+(.+)$');
+
+/// Biến các lựa chọn học tiếp thành link nội bộ để dùng lại callback học
+/// theo môn đang được chọn của màn chat.
+String _enhanceInteractiveStudyLinks(String input) {
+  final lines = input.replaceAll('\r\n', '\n').split('\n');
+  final output = <String>[];
+  var inInteractiveSection = false;
+  var linkIndex = 1;
+
+  for (final line in lines) {
+    final trimmed = line.trim();
+    final heading = _markdownSectionHeading.firstMatch(trimmed);
+    if (heading != null) {
+      inInteractiveSection = _interactiveStudyHeading.hasMatch(
+        heading.group(1)!.trim(),
+      );
+      output.add(line);
+      continue;
+    }
+
+    if (!inInteractiveSection || trimmed.isEmpty || _hasMarkdownLink(trimmed)) {
+      output.add(line);
+      continue;
+    }
+
+    final bullet = RegExp(r'^(\s*[-*+]\s+)(.+)$').firstMatch(line);
+    final ordered = RegExp(r'^(\s*\d+[.)]\s+)(.+)$').firstMatch(line);
+    final match = bullet ?? ordered;
+    if (match == null) {
+      output.add(line);
+      continue;
+    }
+
+    final label = match.group(2)!.trim();
+    if (label.isEmpty) {
+      output.add(line);
+      continue;
+    }
+    final escaped = label.replaceAll('[', r'\[').replaceAll(']', r'\]');
+    output.add(
+      '${match.group(1)}[$escaped](#ai-study-tip-section-${linkIndex++})',
+    );
+  }
+
+  return output.join('\n');
+}
+
+bool _hasMarkdownLink(String text) {
+  return RegExp(r'\[[^\]]+\]\([^)]+\)').hasMatch(text);
 }
 
 /// Cắt markdown theo index reveal mà không để dở `**`, link hay fence.
