@@ -186,6 +186,39 @@ class CourseRagServiceTextbookTest {
     }
 
     @Test
+    void blocksNamedFunctionWhenRetrievedMaterialDoesNotMentionIt() throws Exception {
+        String question = "Sử dụng isinstance() để kiểm tra kiểu dữ liệu";
+        ElasticVectorService.SearchChunk typeChunk = new ElasticVectorService.SearchChunk(
+                "Python has int, float and str values. The type() function returns a value's type.",
+                0.95,
+                "python-textbook",
+                "PFP191",
+                null,
+                "teacher-1",
+                "COURSE_SHARED",
+                "PDF"
+        );
+        when(retrievalQueryTranslationService.expandForRetrieval(anyString(), eq("PFP191"), eq(false)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(vectorService.searchTextbookWithScores(anyString(), eq("PFP191"), isNull()))
+                .thenReturn(List.of(typeChunk));
+        when(vectorService.searchGoldQaTeachingNotesWithScores(anyString(), eq("PFP191"), isNull(), eq(2)))
+                .thenReturn(List.of());
+        when(approvedKnowledgeRetrievalService.retrieveRelevant(anyString(), eq("PFP191"), isNull()))
+                .thenReturn(List.of());
+        when(rerankService.rerank(anyString(), any())).thenAnswer(invocation -> invocation.getArgument(1));
+        when(contextBudgetService.applyBudget(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(materialRepository.findAllById(any())).thenReturn(List.of());
+        when(courseRepository.findByCourseId("PFP191")).thenReturn(Optional.empty());
+
+        CourseRagAnswer answer = service.askWithConfidence(question, "PFP191", null);
+
+        assertTrue(answer.getEscalationRecommended());
+        assertTrue(answer.getAnswer().contains("isinstance()"));
+        verifyNoInteractions(chatService);
+    }
+
+    @Test
     void hybridRetrievalKeepsExactLexicalEvidenceWhenVectorCandidateIsOffTopic() throws Exception {
         String question = "What is write-through allocation?";
         ElasticVectorService.SearchChunk vectorChunk = new ElasticVectorService.SearchChunk(

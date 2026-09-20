@@ -27,6 +27,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import com.ragapi.util.GroundedContentGuard;
 import com.ragapi.util.LearningPathParser;
 import com.ragapi.util.LessonExplanationCompleter;
 import com.ragapi.util.PromptLeakFilter;
@@ -395,27 +396,8 @@ public class CourseRagService {
             }
         }
 
-        if (!skipAnswerCache) {
-            Optional<CourseRagAnswer> exactCachedAnswer = answerCacheService.lookupExactRagAnswer(
-                    safeCourseId,
-                    classId,
-                    safeQuestion
-            );
-            if (exactCachedAnswer.isPresent()) {
-                log.info("Returning early exact cached tutor answer for courseId={}", safeCourseId);
-                return cacheHitAuditService.completeHit(exactCachedAnswer.get(), backendStartedNanos);
-            }
-
-            Optional<CourseRagAnswer> earlySemanticCachedAnswer = answerCacheService.lookupEarlySemanticRagAnswer(
-                    safeCourseId,
-                    classId,
-                    safeQuestion
-            );
-            if (earlySemanticCachedAnswer.isPresent()) {
-                log.info("Returning early semantic cached tutor answer for courseId={}", safeCourseId);
-                return cacheHitAuditService.completeHit(earlySemanticCachedAnswer.get(), backendStartedNanos);
-            }
-        }
+        // Do not return a cache entry before loading the current evidence. Optional
+        // quiz/tip sections must be revalidated against today's indexed material.
 
         log.info(
                 "Retrieving course learning context for question: {} (courseId: {}, currentClassId: {})",
@@ -605,6 +587,24 @@ public class CourseRagService {
             );
         }
 
+        Set<String> unsupportedCallReferences = GroundedContentGuard.unsupportedCallReferences(
+                safeQuestion,
+                context
+        );
+        if (!unsupportedCallReferences.isEmpty()) {
+            String unsupported = String.join(", ", unsupportedCallReferences);
+            log.warn("RAG answer blocked because explicit technical references are absent from course material: {}",
+                    unsupported);
+            return blockedRagAnswer(
+                    "Tài liệu hiện có của môn " + safeCourseId + " không đề cập đến " + unsupported
+                            + ", nên AI Tutor không tạo phần giải thích, kiểm tra hiểu hoặc gợi ý học thêm để tránh tự suy đoán. "
+                            + "Câu hỏi sẽ được chuyển cho giáo viên/mentor phụ trách.",
+                    Math.min(confidence, 0.45),
+                    sourceLabels,
+                    "Explicit technical reference is absent from course material: " + unsupported
+            );
+        }
+
         if (asksForUnsupportedExpansion(safeQuestion, context)) {
             log.warn("RAG answer blocked because the student asks beyond available course material scope (question={})", safeQuestion);
             return blockedRagAnswer(
@@ -634,18 +634,28 @@ public class CourseRagService {
         }
 
         if (!skipAnswerCache) {
-            Optional<CourseRagAnswer> cachedAnswer = answerCacheService.lookupSemanticRagAnswer(
-                    safeCourseId,
-                    classId,
-                    safeQuestion,
-                    confidence,
-                    sourceLabels
-            );
+            Optional<CourseRagAnswer> cachedAnswer = answerCacheService.lookupExactRagAnswer(
+                    safeCourseId, classId, safeQuestion);
+            if (cachedAnswer.isEmpty()) {
+                cachedAnswer = answerCacheService.lookupEarlySemanticRagAnswer(
+                        safeCourseId, classId, safeQuestion);
+            }
+            if (cachedAnswer.isEmpty()) {
+                cachedAnswer = answerCacheService.lookupSemanticRagAnswer(
+                        safeCourseId,
+                        classId,
+                        safeQuestion,
+                        confidence,
+                        sourceLabels
+                );
+            }
             if (cachedAnswer.isPresent()) {
                 log.info("Returning cached tutor answer for courseId={}", safeCourseId);
                 CourseRagAnswer hit = cachedAnswer.get();
+                String validatedCachedAnswer = GroundedContentGuard.stripUnsupportedOptionalSections(
+                        hit.getAnswer(), context);
                 CourseRagAnswer enrichedHit = CourseRagAnswer.builder()
-                        .answer(hit.getAnswer())
+                        .answer(validatedCachedAnswer)
                         .confidence(confidence)
                         .sources(sourceLabels)
                         .sourceEvidence(sourceEvidence)
@@ -690,6 +700,7 @@ public class CourseRagService {
             } else if (!"LEARNING_PATH".equalsIgnoreCase(teachingMode)) {
                 answer = PromptLeakFilter.stripNumberedCurriculum(answer);
             }
+            answer = GroundedContentGuard.stripUnsupportedOptionalSections(answer, context);
 
             log.info("Received grounded answer from AI (length: {})", answer.length());
             CourseRagAnswer generated = CourseRagAnswer.builder()
@@ -1843,8 +1854,9 @@ public class CourseRagService {
                   | --- | --- |
                   | `code` | giải thích |
                   Never emit a caption row named TABLE. Never use ASCII underline rows without pipes.
-                - Every item under "Lưu ý để học tốt hơn" must be a follow-up on THIS student question
-                  (review, a closely related concept, or a practice check). Terms must appear in the context.
+                - Include "Lưu ý để học tốt hơn" only when COURSE MATERIAL CONTEXT itself explicitly contains
+                  a study tip, exercise, practice task, or review recommendation. Faithfully paraphrase that item;
+                  never invent a new activity, example, or recommendation from general knowledge.
                 - Never output "## Lộ trình học", "## Bài tiếp theo", or numbered "Bài 1 / Bài 2 / Bài 3"
                   unless the student started a topic path. Normal Q&A stays on the current concept.
                 - Do not recommend reading a named section, tool, framework, API, or exercise unless that exact
@@ -1978,8 +1990,9 @@ public class CourseRagService {
                 Provide a small example only when directly supported by the material.
 
                 ## Lưu ý để học tốt hơn
-                1-3 short bullets the student can ask next, all about THIS question's topic:
-                ôn the current concept, a closely related concept from the material, or a practice check.
+                OPTIONAL. Include only when the source context explicitly gives a study tip, exercise,
+                practice task, or review recommendation. Faithfully paraphrase 1-3 such source items.
+                If the context contains no explicit recommendation, omit this entire heading.
                 Never write Bài 1/Bài 2/Bài 3, ## Lộ trình học, or ## Bài tiếp theo.
 
                 ## Nguồn tài liệu đã dùng
