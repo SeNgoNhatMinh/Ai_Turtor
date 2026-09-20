@@ -11,6 +11,7 @@ import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../shared/models/improve_suggestion.dart';
+import '../../../../shared/widgets/ai_suggestion_json.dart';
 import '../../../student/student_route_handoff.dart';
 import '../../application/improve_plan_controller.dart';
 
@@ -36,9 +37,10 @@ class ImproveSuggestionsStrip extends StatelessWidget {
   static List<ImproveSuggestionItem> _dedupe(
     List<ImproveSuggestionItem> items,
   ) {
+    final expanded = expandImproveSuggestions(items);
     final seen = <String>{};
     final result = <ImproveSuggestionItem>[];
-    for (final item in items) {
+    for (final item in expanded) {
       final key = item.title.trim().toLowerCase();
       if (key.isEmpty || seen.contains(key)) continue;
       seen.add(key);

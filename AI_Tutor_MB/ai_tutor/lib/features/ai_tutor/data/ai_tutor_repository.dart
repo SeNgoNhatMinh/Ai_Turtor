@@ -155,6 +155,9 @@ class AiTutorRepository {
     String? interactionType,
     String? tutorSessionId,
     String? sessionPhase,
+    String? improvePlanId,
+    String? planItemId,
+    String? clickedSuggestion,
     CancelToken? cancelToken,
   }) async {
     try {
@@ -172,6 +175,9 @@ class AiTutorRepository {
         interactionType: interactionType,
         tutorSessionId: tutorSessionId,
         sessionPhase: sessionPhase,
+        improvePlanId: improvePlanId,
+        planItemId: planItemId,
+        clickedSuggestion: clickedSuggestion,
         cancelToken: cancelToken,
       );
       if (answer.answer.trim().isNotEmpty) return answer;
@@ -211,6 +217,10 @@ class AiTutorRepository {
           codeSnippet: codeSnippet,
           tutorSessionId: tutorSessionId,
           sessionPhase: sessionPhase,
+          interactionType: interactionType,
+          improvePlanId: improvePlanId,
+          planItemId: planItemId,
+          clickedSuggestion: clickedSuggestion,
           cancelToken: cancelToken,
         );
       } catch (fallbackError) {
@@ -241,6 +251,9 @@ class AiTutorRepository {
     String? interactionType,
     String? tutorSessionId,
     String? sessionPhase,
+    String? improvePlanId,
+    String? planItemId,
+    String? clickedSuggestion,
     CancelToken? cancelToken,
   }) async {
     final payload = withN8nContext(
@@ -262,6 +275,12 @@ class AiTutorRepository {
         'sessionPhase': (sessionPhase == null || sessionPhase.isEmpty)
             ? 'TEACH'
             : sessionPhase,
+        if (improvePlanId != null && improvePlanId.isNotEmpty)
+          'improvePlanId': improvePlanId,
+        if (planItemId != null && planItemId.isNotEmpty)
+          'planItemId': planItemId,
+        if (clickedSuggestion != null && clickedSuggestion.isNotEmpty)
+          'clickedSuggestion': clickedSuggestion,
       },
       authToken: authToken,
       sessionId: sessionId ?? newSessionId('chat'),
@@ -289,6 +308,10 @@ class AiTutorRepository {
     String? codeSnippet,
     String? tutorSessionId,
     String? sessionPhase,
+    String? interactionType,
+    String? improvePlanId,
+    String? planItemId,
+    String? clickedSuggestion,
     CancelToken? cancelToken,
   }) async {
     final response = await _spring.post<Map<String, dynamic>>(
@@ -313,6 +336,14 @@ class AiTutorRepository {
         'sessionPhase': (sessionPhase == null || sessionPhase.isEmpty)
             ? 'TEACH'
             : sessionPhase,
+        if (interactionType != null && interactionType.isNotEmpty)
+          'interactionType': interactionType,
+        if (improvePlanId != null && improvePlanId.isNotEmpty)
+          'improvePlanId': improvePlanId,
+        if (planItemId != null && planItemId.isNotEmpty)
+          'planItemId': planItemId,
+        if (clickedSuggestion != null && clickedSuggestion.isNotEmpty)
+          'clickedSuggestion': clickedSuggestion,
       },
       cancelToken: cancelToken,
       options: Options(receiveTimeout: aiReceiveTimeout),

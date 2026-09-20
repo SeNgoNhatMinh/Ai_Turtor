@@ -45,6 +45,12 @@ abstract final class AppColors {
   static const textDisabled = Color(0xFFCBD5E1);
   static const onOrange = Color(0xFFFFFFFF);
 
+  /// Gợi ý keyword dưới khung chat — khớp web `#9a3412`.
+  static const composerKeywordTip = Color(0xFF9A3412);
+
+  /// Disclaimer composer — khớp web `#777`.
+  static const composerMeta = Color(0xFF777777);
+
   // Semantic
   static const success = fptGreen;
   static const successBg = Color(0xFFDCFCE7);

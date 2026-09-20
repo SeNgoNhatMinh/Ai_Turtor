@@ -4,14 +4,29 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('builds the visible student chat message for an improve suggestion', () {
-    expect(
-      buildStudySuggestionPrompt('Nắm vững các khái niệm IoC và DI'),
-      'Em muốn ôn tập phần "Nắm vững các khái niệm IoC và DI" từ improve plan. '
-      'Hãy hướng dẫn em từng bước trong đoạn chat này, giải thích dễ hiểu, '
-      'có ví dụ nhỏ và gợi ý em nên tự kiểm tra gì tiếp theo.',
-    );
-  });
+  test(
+    'builds the visible student chat message for a generic study suggestion',
+    () {
+      expect(
+        buildStudySuggestionPrompt('Nắm vững các khái niệm IoC và DI'),
+        'Ôn tập phần "Nắm vững các khái niệm IoC và DI"',
+      );
+    },
+  );
+
+  test(
+    'uses the grounded review prompt for an identified improve-plan item',
+    () {
+      expect(
+        buildStudySuggestionPrompt(
+          'Nắm vững IoC và DI',
+          improvePlanId: 'plan-1',
+          planItemId: 'item-1',
+        ),
+        'Ôn tập theo Improve Plan: Nắm vững IoC và DI',
+      );
+    },
+  );
 
   test('does not build a chat message for an empty suggestion', () {
     expect(buildStudySuggestionPrompt('   '), '');

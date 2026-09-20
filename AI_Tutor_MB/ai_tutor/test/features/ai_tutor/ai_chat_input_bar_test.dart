@@ -1,3 +1,4 @@
+import 'package:ai_tutor/core/theme/app_colors.dart';
 import 'package:ai_tutor/features/ai_tutor/presentation/widgets/ai_chat_widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -100,6 +101,15 @@ void main() {
 
     expect(find.text(AiChatInputBar.keywordTip), findsOneWidget);
     expect(find.text(AiChatInputBar.disclaimer), findsOneWidget);
+
+    final tip = tester.widget<Text>(find.text(AiChatInputBar.keywordTip));
+    expect(tip.textAlign, TextAlign.center);
+    expect(tip.style?.color, AppColors.composerKeywordTip);
+    final disclaimer = tester.widget<Text>(
+      find.text(AiChatInputBar.disclaimer),
+    );
+    expect(disclaimer.textAlign, TextAlign.center);
+    expect(disclaimer.style?.color, AppColors.composerMeta);
     controller.dispose();
   });
 
@@ -115,5 +125,80 @@ void main() {
     await tester.pump(const Duration(seconds: 11));
     expect(find.text(AiChatLoadingSteps.takingLonger), findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('collapses lesson chips into a dropdown picker', (tester) async {
+    final selected = <String>[];
+    const topics = [
+      'Bắt đầu bài 1: Giới thiệu Java Platform, Enterprise Edition',
+      'Bắt đầu bài 2: Sử dụng Web Containers',
+    ];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AiChatComposerTopics(topics: topics, onSelect: selected.add),
+        ),
+      ),
+    );
+
+    expect(find.text(AiChatComposerTopics.pickerLabel), findsOneWidget);
+    expect(find.text('2 bài'), findsOneWidget);
+    expect(find.byType(ActionChip), findsNothing);
+    expect(find.text(topics.first), findsNothing);
+
+    await tester.tap(find.text(AiChatComposerTopics.pickerLabel));
+    await tester.pumpAndSettle();
+
+    expect(find.text(AiChatComposerTopics.sheetTitle), findsOneWidget);
+    expect(find.text(topics.first), findsOneWidget);
+    expect(find.text(topics.last), findsOneWidget);
+
+    await tester.tap(find.text(topics.last));
+    await tester.pumpAndSettle();
+    expect(selected, [topics.last]);
+  });
+
+  testWidgets('does not open the lesson picker when disabled', (tester) async {
+    var selected = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AiChatComposerTopics(
+            enabled: false,
+            topics: const ['Bắt đầu bài 1: Servlet'],
+            onSelect: (_) => selected += 1,
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text(AiChatComposerTopics.pickerLabel));
+    await tester.pumpAndSettle();
+
+    expect(find.text(AiChatComposerTopics.sheetTitle), findsNothing);
+    expect(selected, 0);
+  });
+
+  testWidgets('hides JSON payloads from the lesson picker', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AiChatComposerTopics(
+            topics: const [
+              'Bắt đầu bài 1: Servlet',
+              '{"suggestions":[{"title":"OOP","reason":"Thiếu"}]}',
+            ],
+            onSelect: (_) {},
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('1 bài'), findsOneWidget);
+    await tester.tap(find.text(AiChatComposerTopics.pickerLabel));
+    await tester.pumpAndSettle();
+    expect(find.text('Bắt đầu bài 1: Servlet'), findsOneWidget);
+    expect(find.textContaining('"suggestions"'), findsNothing);
   });
 }

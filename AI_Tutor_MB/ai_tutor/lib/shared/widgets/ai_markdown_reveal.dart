@@ -78,7 +78,7 @@ class _AiMarkdownRevealState extends State<AiMarkdownReveal> {
   @override
   Widget build(BuildContext context) {
     final visible = widget.enabled && _index < widget.data.length
-        ? widget.data.substring(0, _index)
+        ? sliceMarkdownForReveal(widget.data, _index)
         : widget.data;
     return AiMarkdownBody(
       data: prepareAiChatMarkdown(visible),

@@ -16,7 +16,7 @@ void main() {
     expect(items.map((item) => item.title), ['Ôn IoC và DI']);
     expect(
       buildStudySuggestionPrompt(items.first.title),
-      contains('đoạn chat này'),
+      'Ôn tập phần "Ôn IoC và DI"',
     );
   });
 
@@ -44,7 +44,7 @@ void main() {
   test('Học ngay stays a chat prompt, not an improve-plan page', () {
     expect(
       buildStudySuggestionPrompt('Ôn IoC và DI'),
-      contains('từ improve plan'),
+      'Ôn tập phần "Ôn IoC và DI"',
     );
     expect(
       buildStudySuggestionPrompt('Bài 1: Servlet là gì?'),
@@ -103,5 +103,33 @@ void main() {
 
     expect(find.text('Ôn IoC và DI'), findsOneWidget);
     expect(find.text('Học ngay'), findsOneWidget);
+  });
+
+  testWidgets('does not render raw suggestion JSON as a chip title', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('vi'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: ImproveSuggestionsStrip(
+            suggestions: [
+              ImproveSuggestionItem.fromLabel(
+                '{"suggestions":[{"title":"Tìm hiểu khái niệm OOP","reason":"Thiếu OOP","nextSteps":["Ôn class và object","Ôn inheritance"]}]}',
+              ),
+            ],
+            consumedKeys: const {},
+            onLearn: (_) {},
+            onCreateQuiz: (_) {},
+          ),
+        ),
+      ),
+    );
+
+    expect(find.textContaining('"suggestions"'), findsNothing);
+    expect(find.text('Ôn class và object'), findsOneWidget);
+    expect(find.text('Ôn inheritance'), findsOneWidget);
   });
 }

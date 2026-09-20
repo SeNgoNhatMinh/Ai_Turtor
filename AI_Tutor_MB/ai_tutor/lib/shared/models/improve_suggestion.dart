@@ -10,6 +10,9 @@ class ImproveSuggestionItem {
     this.suggestionText,
     this.source,
     this.nextSteps = const [],
+    this.improvePlanId,
+    this.planItemId,
+    this.groundingStatus,
   });
 
   final String key;
@@ -19,6 +22,14 @@ class ImproveSuggestionItem {
   final String? suggestionText;
   final String? source;
   final List<String> nextSteps;
+  final String? improvePlanId;
+  final String? planItemId;
+  final String? groundingStatus;
+
+  bool get hasImprovePlanGrounding {
+    return (improvePlanId ?? '').trim().isNotEmpty &&
+        (planItemId ?? '').trim().isNotEmpty;
+  }
 
   String get effectiveTopic => learnTopic ?? title;
 
@@ -34,6 +45,24 @@ class ImproveSuggestionItem {
     );
   }
 
+  factory ImproveSuggestionItem.reviewItem({
+    required String title,
+    required String text,
+    String? improvePlanId,
+    String? planItemId,
+    String? groundingStatus,
+  }) {
+    return ImproveSuggestionItem(
+      key: _slug(text),
+      title: title.trim().isEmpty ? text : title,
+      learnTopic: text,
+      suggestionText: text,
+      improvePlanId: improvePlanId,
+      planItemId: planItemId,
+      groundingStatus: groundingStatus,
+    );
+  }
+
   factory ImproveSuggestionItem.fromJson(Map<String, dynamic> json) {
     final title = readString(json, 'title');
     final nextSteps = parseStringList(json['nextSteps']);
@@ -43,9 +72,16 @@ class ImproveSuggestionItem {
       title: title,
       reason: json['reason']?.toString(),
       learnTopic: learnTopic,
-      suggestionText: title,
+      suggestionText:
+          json['suggestionText']?.toString() ??
+          json['instruction']?.toString() ??
+          json['content']?.toString() ??
+          title,
       source: json['source']?.toString(),
       nextSteps: nextSteps,
+      improvePlanId: json['improvePlanId']?.toString(),
+      planItemId: json['planItemId']?.toString(),
+      groundingStatus: json['groundingStatus']?.toString(),
     );
   }
 

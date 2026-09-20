@@ -287,4 +287,23 @@ void main() {
     await tester.tap(find.text(AiChatTutorSessionStrip.startNextLabel));
     expect(started, isTrue);
   });
+
+  testWidgets('hides the idle companion strip during an open session', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: AiChatTutorSessionStrip(
+            dailyQuotaExhausted: false,
+            phase: 'OPEN',
+            supportLevel: 'STANDARD',
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text(AiChatTutorSessionStrip.companionTitle), findsNothing);
+    expect(find.textContaining('Giai đoạn: OPEN'), findsNothing);
+  });
 }

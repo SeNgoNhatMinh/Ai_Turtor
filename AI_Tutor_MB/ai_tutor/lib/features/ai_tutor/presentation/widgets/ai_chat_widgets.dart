@@ -13,6 +13,7 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_tokens.dart';
 import '../../../../core/utils/vietnamese_text_input.dart';
 import '../../../../l10n/app_localizations.dart';
+import '../../../../shared/widgets/ai_suggestion_json.dart';
 import '../../../../shared/widgets/widgets.dart';
 import '../../data/daily_question_quota.dart';
 
@@ -515,6 +516,11 @@ class AiChatTutorSessionStrip extends StatelessWidget {
         : 'Giai đoạn: ${phase?.isNotEmpty == true ? phase : 'OPEN'} · '
               'Mức hỗ trợ: ${supportLevel?.isNotEmpty == true ? supportLevel : 'STANDARD'}';
 
+    final hasSummary = (summaryText ?? '').trim().isNotEmpty;
+    if (!dailyQuotaExhausted && !_completed && !hasSummary) {
+      return const SizedBox.shrink();
+    }
+
     return Material(
       color: AppColors.canvas,
       child: Padding(
@@ -597,9 +603,24 @@ class AiChatComposerTopics extends StatelessWidget {
   final ValueChanged<String> onSelect;
   final bool enabled;
 
+  static const pickerLabel = 'Chọn bài học';
+  static const sheetTitle = 'Bắt đầu bài nào?';
+  static const sheetHint = 'Chọn một bài để gửi vào khung chat.';
+
+  List<String> get _visibleTopics => [
+    for (final topic in topics)
+      if (topic.trim().isNotEmpty && !looksLikeSuggestionJson(topic))
+        topic.trim(),
+  ];
+
   @override
   Widget build(BuildContext context) {
-    if (topics.isEmpty) return const SizedBox.shrink();
+    final visibleTopics = _visibleTopics;
+    if (visibleTopics.isEmpty) return const SizedBox.shrink();
+    final labelStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(
+      fontWeight: FontWeight.w600,
+      color: enabled ? AppColors.textPrimary : AppColors.textDisabled,
+    );
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         Insets.screenH,
@@ -607,23 +628,142 @@ class AiChatComposerTopics extends StatelessWidget {
         Insets.screenH,
         Insets.sm,
       ),
-      child: Wrap(
-        spacing: Insets.sm,
-        runSpacing: Insets.sm,
-        children: topics
-            .map(
-              (topic) => ActionChip(
-                label: Text(
-                  topic,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                onPressed: enabled ? () => onSelect(topic) : null,
+      child: Semantics(
+        button: true,
+        enabled: enabled,
+        label: pickerLabel,
+        child: Material(
+          color: AppColors.card,
+          borderRadius: BorderRadius.circular(Radii.lg),
+          child: InkWell(
+            onTap: enabled ? () => _openPicker(context) : null,
+            borderRadius: BorderRadius.circular(Radii.lg),
+            child: Ink(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(Radii.lg),
+                border: Border.all(color: AppColors.borderHairline),
               ),
-            )
-            .toList(),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 48),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: Insets.lg,
+                    vertical: Insets.sm,
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        LucideIcons.bookOpen,
+                        size: 18,
+                        color: enabled
+                            ? AppColors.primaryTint
+                            : AppColors.textDisabled,
+                      ),
+                      const Gap(Insets.sm),
+                      Expanded(child: Text(pickerLabel, style: labelStyle)),
+                      Text(
+                        '${visibleTopics.length} bài',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: enabled
+                              ? AppColors.textSecondary
+                              : AppColors.textDisabled,
+                        ),
+                      ),
+                      const Gap(Insets.xs),
+                      Icon(
+                        LucideIcons.chevronDown,
+                        size: 18,
+                        color: enabled
+                            ? AppColors.textSecondary
+                            : AppColors.textDisabled,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
+  }
+
+  Future<void> _openPicker(BuildContext context) async {
+    final topics = _visibleTopics;
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: AppColors.card,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(Radii.xl)),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+              Insets.screenH,
+              Insets.lg,
+              Insets.screenH,
+              Insets.lg,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  sheetTitle,
+                  style: Theme.of(sheetContext).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const Gap(Insets.xs),
+                Text(
+                  sheetHint,
+                  style: Theme.of(sheetContext).textTheme.bodySmall?.copyWith(
+                    color: AppColors.textSecondary,
+                    height: 1.35,
+                  ),
+                ),
+                const Gap(Insets.md),
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.5,
+                  ),
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: topics.length,
+                    separatorBuilder: (_, __) => const Divider(
+                      height: 1,
+                      color: AppColors.borderHairline,
+                    ),
+                    itemBuilder: (_, index) {
+                      final topic = topics[index];
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        minVerticalPadding: Insets.md,
+                        title: Text(
+                          topic,
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        trailing: const Icon(
+                          LucideIcons.chevronRight,
+                          size: 18,
+                          color: AppColors.textTertiary,
+                        ),
+                        onTap: () => Navigator.of(sheetContext).pop(topic),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+    if (!context.mounted || selected == null) return;
+    onSelect(selected);
   }
 }
 
@@ -826,7 +966,7 @@ class AiChatPromptStarters extends StatelessWidget {
                 Text(
                   keywordTipTitle,
                   style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: const Color(0xFF9A3412),
+                    color: AppColors.composerKeywordTip,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -1018,23 +1158,6 @@ class AiChatInputBar extends StatelessWidget {
               ),
               const Gap(Insets.sm),
             ],
-            if (showComposerTips) ...[
-              Text(
-                keywordTip,
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: AppColors.textTertiary,
-                  height: 1.35,
-                ),
-              ),
-              const Gap(4),
-              Text(
-                disclaimer,
-                style: Theme.of(
-                  context,
-                ).textTheme.labelSmall?.copyWith(color: AppColors.textTertiary),
-              ),
-              const Gap(Insets.sm),
-            ],
             if (isListening)
               Padding(
                 padding: const EdgeInsets.only(
@@ -1203,6 +1326,26 @@ class AiChatInputBar extends StatelessWidget {
                 );
               },
             ),
+            if (showComposerTips) ...[
+              const Gap(Insets.sm),
+              Text(
+                keywordTip,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: AppColors.composerKeywordTip,
+                  height: 1.35,
+                ),
+              ),
+              const Gap(4),
+              Text(
+                disclaimer,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: AppColors.composerMeta,
+                  height: 1.35,
+                ),
+              ),
+            ],
           ],
         ),
       ),

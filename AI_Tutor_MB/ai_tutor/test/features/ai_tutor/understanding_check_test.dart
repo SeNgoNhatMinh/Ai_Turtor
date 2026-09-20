@@ -37,6 +37,61 @@ void main() {
     expect(quiz.options[2].text, contains('chuẩn bị dữ liệu cho View'));
   });
 
+  test('preserves technical option text wrapped as Markdown code', () {
+    final quiz = parseUnderstandingQuiz('''
+Câu hỏi: Toán tử nào được dùng để lấy địa chỉ của một biến?
+A. `*`
+B. `&`
+C. `=`
+Đáp án: B
+Giải thích: Toán tử `&` lấy địa chỉ của biến.
+''');
+
+    expect(quiz, isNotNull);
+    expect(quiz!.options.map((item) => item.text).toSet(), {'*', '&', '='});
+    expect(quiz.optionFor(quiz.correctKey)?.text, '&');
+    expect(quiz.explanation, 'Toán tử & lấy địa chỉ của biến.');
+  });
+
+  test(
+    'preserves punctuation in technical answers while removing only wrappers',
+    () {
+      final quiz = parseUnderstandingQuiz('''
+Question: Which declaration is valid?
+A. `int *p`
+B. `!=`
+C. `_value`
+D. `a[i]`
+Answer: A
+''');
+
+      expect(quiz, isNotNull);
+      expect(quiz!.options.map((item) => item.text).toSet(), {
+        'int *p',
+        '!=',
+        '_value',
+        'a[i]',
+      });
+      expect(quiz.optionFor(quiz.correctKey)?.text, 'int *p');
+    },
+  );
+
+  test(
+    'keeps the correct answer mapped to its option after deterministic shuffle',
+    () {
+      final quiz = parseUnderstandingQuiz('''
+Question: Which operator takes an address?
+A. `*`
+B. `&`
+C. `=`
+Answer: B
+''');
+
+      expect(quiz, isNotNull);
+      expect(quiz!.optionFor(quiz.correctKey)?.text, '&');
+    },
+  );
+
   test('treats Understanding Check as the quiz heading', () {
     final extracted = extractUnderstandingCheck('''
 ## Giải thích
@@ -136,8 +191,8 @@ C. destroy()
 Đáp án: B Giải thích: init() chạy một lần khi khởi tạo.
 ''');
 
-    expect(extracted.quiz!.correctKey, 'A');
-    expect(extracted.quiz!.options[2].text, 'destroy()');
+      expect(extracted.quiz!.correctKey, 'A');
+      expect(extracted.quiz!.options[2].text, 'destroy()');
       expect(extracted.quiz!.explanation, 'init() chạy một lần khi khởi tạo.');
       expect(extracted.after, '');
     },
@@ -168,7 +223,7 @@ The correct answer is B
     expect(quiz.optionFor('A')!.text, 'banana');
   });
 
-  test('does not treat a trailing lone letter as a reliable answer key', () {
+  test('parses a trailing lone letter after the options', () {
     final quiz = parseUnderstandingQuiz('''
 Câu hỏi: Lần lặp thứ hai lấy giá trị nào?
 A. apple
@@ -177,7 +232,7 @@ C. cherry
 B
 ''');
     expect(quiz, isNotNull);
-    expect(quiz!.correctKey, '');
+    expect(quiz!.optionFor(quiz.correctKey)?.text, 'banana');
   });
 
   test('grades leaked answer text without calling the tutor', () {

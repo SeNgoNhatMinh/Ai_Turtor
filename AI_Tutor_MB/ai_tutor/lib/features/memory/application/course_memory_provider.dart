@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../shared/models/course.dart';
 import '../../../shared/models/improve_plan.dart';
+import '../../../shared/models/improve_suggestion.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../courses/application/courses_controller.dart';
 import '../data/improve_plan_repository.dart';
@@ -68,4 +69,31 @@ List<String> mergeImproveTopics({
   addAll(planWeakTopics);
   addAll(memory.weakTopics);
   return merged;
+}
+
+/// Gợi ý "Học ngay": ưu tiên planItemDetails (có improvePlanId/planItemId) như FE web.
+List<ImproveSuggestionItem> mergeImproveReviewItems({
+  required StudentMemory memory,
+  ImprovePlan? plan,
+}) {
+  final seen = <String>{};
+  final items = <ImproveSuggestionItem>[];
+
+  void add(ImproveSuggestionItem item) {
+    final key = item.effectiveText.trim().toLowerCase();
+    if (key.isEmpty || !seen.add(key)) return;
+    items.add(item);
+  }
+
+  for (final item
+      in plan?.reviewSuggestions ?? const <ImproveSuggestionItem>[]) {
+    add(item);
+  }
+  for (final topic in mergeImproveTopics(
+    memory: memory,
+    planWeakTopics: plan?.weakTopics ?? const [],
+  )) {
+    add(ImproveSuggestionItem.fromLabel(topic));
+  }
+  return items;
 }

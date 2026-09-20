@@ -343,9 +343,9 @@ class _KnowledgeTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
-    final topics = mergeImproveTopics(
+    final topics = mergeImproveReviewItems(
       memory: data.memory,
-      planWeakTopics: data.plan?.weakTopics ?? const [],
+      plan: data.plan,
     );
 
     return ListView(
@@ -449,7 +449,9 @@ class _KnowledgeTab extends ConsumerWidget {
                 (topic) => Padding(
                   padding: const EdgeInsets.only(bottom: Insets.sm),
                   child: ImproveSuggestionActionRow(
-                    label: topic,
+                    label: topic.effectiveText.trim().isNotEmpty
+                        ? topic.effectiveText
+                        : topic.title,
                     pinned: false,
                     learnLabel: l10n.learnNow,
                     quizLabel: 'Tạo quiz',
@@ -458,13 +460,18 @@ class _KnowledgeTab extends ConsumerWidget {
                       context,
                       ref,
                       courseRouteId: course.id,
-                      suggestionText: topic,
+                      suggestionText: topic.effectiveText.trim().isNotEmpty
+                          ? topic.effectiveText
+                          : topic.title,
+                      suggestion: topic,
                     ),
                     onCreateQuiz: () => openQuizFromSuggestion(
                       context,
                       ref,
                       courseRouteId: course.id,
-                      suggestionText: topic,
+                      suggestionText: topic.effectiveText.trim().isNotEmpty
+                          ? topic.effectiveText
+                          : topic.title,
                     ),
                   ),
                 ),

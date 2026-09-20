@@ -15,6 +15,7 @@ import '../../auth/application/auth_controller.dart';
 import '../../courses/application/courses_controller.dart';
 import '../../escalation/data/escalation_repository.dart';
 import '../../memory/data/improve_plan_repository.dart';
+import '../../student/student_route_handoff.dart';
 import '../data/ai_tutor_repository.dart';
 import '../data/daily_question_quota.dart';
 import '../data/tutor_session.dart';
@@ -389,18 +390,48 @@ class ChatController
     String? displayMessage,
     String? interactionType,
     String? codeSnippet,
+    String? improvePlanId,
+    String? planItemId,
+    String? clickedSuggestion,
   }) async {
     _activeCancelToken?.cancel();
     final cancelToken = CancelToken();
     _activeCancelToken = cancelToken;
 
+    final pending = ref.read(pendingTutorRequestContextProvider);
+    final callerHasContext =
+        (interactionType ?? '').trim().isNotEmpty ||
+        (improvePlanId ?? '').trim().isNotEmpty;
+    final pendingPrompt = pending?.prompt?.trim() ?? '';
+    final usePending =
+        pending != null &&
+        !callerHasContext &&
+        pendingPrompt.isNotEmpty &&
+        message.trim() == pendingPrompt;
+    final activePending = usePending ? pending : null;
+    final resolvedImprovePlanId =
+        (improvePlanId ?? activePending?.improvePlanId)?.trim() ?? '';
+    final resolvedPlanItemId =
+        (planItemId ?? activePending?.planItemId)?.trim() ?? '';
+    final resolvedInteractionType =
+        (interactionType ?? activePending?.interactionType)?.trim() ?? '';
+    final resolvedClicked =
+        (clickedSuggestion ?? activePending?.clickedSuggestion)?.trim() ?? '';
+    final resolvedDisplay =
+        (displayMessage ?? activePending?.displayQuestion)?.trim() ?? '';
+    if (usePending ||
+        (pending != null &&
+            ((improvePlanId ?? '').trim().isNotEmpty ||
+                (interactionType ?? '').trim() == 'IMPROVE_PLAN_REVIEW'))) {
+      ref.read(pendingTutorRequestContextProvider.notifier).state = null;
+    }
+
     final userId = ref.read(currentUserIdProvider);
     final session = ref.read(authControllerProvider).valueOrNull;
     final repo = ref.read(aiTutorRepositoryProvider);
 
-    final visibleQuestion =
-        (displayMessage != null && displayMessage.trim().isNotEmpty)
-        ? displayMessage.trim()
+    final visibleQuestion = resolvedDisplay.isNotEmpty
+        ? resolvedDisplay
         : message;
     final snippet = codeSnippet?.trim() ?? '';
     final tutorSession = ref.read(tutorSessionControllerProvider).session;
@@ -426,10 +457,17 @@ class ChatController
         studentName: session?.fullName,
         studentEmail: session?.email,
         authToken: session?.token,
-        interactionType: interactionType,
+        interactionType: resolvedInteractionType.isEmpty
+            ? null
+            : resolvedInteractionType,
         codeSnippet: snippet.isEmpty ? null : snippet,
         tutorSessionId: tutorSession?.id,
         sessionPhase: tutorSession?.phase,
+        improvePlanId: resolvedImprovePlanId.isEmpty
+            ? null
+            : resolvedImprovePlanId,
+        planItemId: resolvedPlanItemId.isEmpty ? null : resolvedPlanItemId,
+        clickedSuggestion: resolvedClicked.isEmpty ? null : resolvedClicked,
         cancelToken: cancelToken,
       );
 

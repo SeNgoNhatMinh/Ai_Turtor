@@ -12,6 +12,7 @@ import '../models/rag_source_evidence.dart';
 import '../models/rag_visual_evidence.dart';
 import 'ai_markdown_body.dart';
 import 'ai_markdown_reveal.dart';
+import 'ai_suggestion_json.dart';
 import 'rag_source_evidence_panel.dart';
 import 'rag_visual_evidence_strip.dart';
 
@@ -136,23 +137,31 @@ class ChatBubble extends StatelessWidget {
                     if (content.trim().isNotEmpty)
                       revealMarkdown
                           ? AiMarkdownReveal(
-                              data: content,
+                              data: rewriteSuggestionJson(content),
                               enabled: true,
                               onStudyTipTap: onStudyTipTap,
                             )
                           : AiMarkdownBody(
-                              data: prepareAiChatMarkdown(content),
+                              data: prepareAiChatMarkdown(
+                                rewriteSuggestionJson(content),
+                              ),
                               onStudyTipTap: onStudyTipTap,
                             ),
                     if (betweenContent != null) betweenContent!,
                     if ((afterContent ?? '').trim().isNotEmpty)
                       AiMarkdownBody(
-                        data: prepareAiChatMarkdown(afterContent!),
+                        data: prepareAiChatMarkdown(
+                          rewriteSuggestionJson(afterContent!),
+                        ),
                         onStudyTipTap: onStudyTipTap,
                       ),
                   ] else
                     Text(
-                      isUser ? content : sanitizeAiChatContent(content),
+                      isUser
+                          ? content
+                          : sanitizeAiChatContent(
+                              rewriteSuggestionJson(content),
+                            ),
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                         color: isUser
                             ? AppColors.onOrange

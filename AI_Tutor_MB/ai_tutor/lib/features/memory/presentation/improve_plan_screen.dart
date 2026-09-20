@@ -12,6 +12,7 @@ import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/models/improve_plan.dart';
+import '../../../shared/models/improve_suggestion.dart';
 import '../../../shared/widgets/widgets.dart';
 import '../../courses/application/courses_controller.dart';
 import '../../student/student_route_handoff.dart';
@@ -51,9 +52,9 @@ class ImprovePlanScreen extends ConsumerWidget {
         ),
         data: (data) {
           final plan = data.plan;
-          final topics = mergeImproveTopics(
+          final topics = mergeImproveReviewItems(
             memory: data.memory,
-            planWeakTopics: plan?.weakTopics ?? const [],
+            plan: plan,
           );
           final steps = plan?.resolvedSteps ?? const <PlanStep>[];
           final riskPercent =
@@ -135,8 +136,12 @@ class ImprovePlanScreen extends ConsumerWidget {
                                     ),
                                     child: _SuggestionRow(
                                       courseId: courseId,
-                                      label: topic,
-                                      pinned: pinned.contains(topic),
+                                      suggestion: topic,
+                                      pinned:
+                                          pinned.contains(
+                                            topic.effectiveText,
+                                          ) ||
+                                          pinned.contains(topic.title),
                                     ),
                                   ),
                                 )
@@ -394,18 +399,21 @@ class _RiskCard extends StatelessWidget {
 class _SuggestionRow extends HookConsumerWidget {
   const _SuggestionRow({
     required this.courseId,
-    required this.label,
+    required this.suggestion,
     required this.pinned,
   });
 
   final String courseId;
-  final String label;
+  final ImproveSuggestionItem suggestion;
   final bool pinned;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
     final togglingPin = useState(false);
+    final label = suggestion.effectiveText.trim().isNotEmpty
+        ? suggestion.effectiveText
+        : suggestion.title;
 
     Future<void> onTogglePin() async {
       togglingPin.value = true;
@@ -440,6 +448,7 @@ class _SuggestionRow extends HookConsumerWidget {
         ref,
         courseRouteId: courseId,
         suggestionText: label,
+        suggestion: suggestion,
       ),
       onCreateQuiz: () => openQuizFromSuggestion(
         context,

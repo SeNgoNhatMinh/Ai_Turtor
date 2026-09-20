@@ -91,7 +91,10 @@ final _chooseAnswer = RegExp(
   r'(?:chọn|choose|pick)\s+(?:đáp án\s+)?([A-Da-d])\b',
   caseSensitive: false,
 );
-final _loneKey = RegExp(r'(?:^|\n)\s*([A-Da-d])\s*[.)]?\s*$');
+final _loneKey = RegExp(r'(?:^|\n)[\t ]*([A-Da-d])[\t ]*[.)]?[\t ]*(?:\n|$)');
+final _lineOption = RegExp(
+  r'^\s*(?:[-*+]\s+)?(?:\(([A-Da-d])\)|([A-Da-d])[.)])\s+(.+?)\s*$',
+);
 final _explainMarker = RegExp(
   r'(?:^|\s)(?:giải thích|giai thich|explanation|lý do|ly do)\s*[:：]\s*',
   caseSensitive: false,
@@ -141,14 +144,69 @@ shuffleCorrectAnswerPosition(
   return (options: relabeled, correctKey: shuffledCorrectKey);
 }
 
+String stripMarkdownWrappers(String value) {
+  var text = value;
+  text = text.replaceAllMapped(
+    RegExp(r'(`+)([^\n]*?)\1'),
+    (match) => match[2] ?? '',
+  );
+  text = text.replaceAllMapped(
+    RegExp(r'(\*\*|__)(?=\S)(.*?\S?)\1'),
+    (match) => match[2] ?? '',
+  );
+  text = text.replaceAllMapped(
+    RegExp(r'(?<!\*)\*(?=\S)([^*\n]*?\S)\*(?!\*)'),
+    (match) => match[1] ?? '',
+  );
+  text = text.replaceAllMapped(
+    RegExp(r'(?<!_)_(?=\S)([^_\n]*?\S)_(?!_)'),
+    (match) => match[1] ?? '',
+  );
+  return text;
+}
+
 String stripDecorations(String value) {
-  return value
+  return stripMarkdownWrappers(value)
       .replaceAll(RegExp(r'^\s*[-*+]\s+', multiLine: true), '')
-      .replaceAll(RegExp(r'[*_`]+'), '')
       .replaceAll(RegExp(r'\s+-{2,}\s*$'), '')
       .replaceAll(RegExp(r'^\s*-{3,}\s*$', multiLine: true), '')
       .replaceAll(RegExp(r'\s+'), ' ')
       .trim();
+}
+
+({String questionText, List<UnderstandingOption> options})? parseLineOptions(
+  String value,
+) {
+  final lines = value.split(RegExp(r'\r?\n'));
+  final options = <UnderstandingOption>[];
+  final questionLines = <String>[];
+  UnderstandingOption? current;
+
+  for (final line in lines) {
+    final optionMatch = _lineOption.firstMatch(line);
+    if (optionMatch != null) {
+      current = UnderstandingOption(
+        key: (optionMatch[1] ?? optionMatch[2] ?? '').toUpperCase(),
+        text: optionMatch[3] ?? '',
+      );
+      options.add(current);
+      continue;
+    }
+    if (current != null) {
+      if (line.trim().isNotEmpty) {
+        current = UnderstandingOption(
+          key: current.key,
+          text: '${current.text}\n${line.trim()}',
+        );
+        options[options.length - 1] = current;
+      }
+      continue;
+    }
+    questionLines.add(line);
+  }
+
+  if (options.length < 2) return null;
+  return (questionText: questionLines.join('\n'), options: options);
 }
 
 int nextSectionBreak(String text) {
@@ -192,7 +250,7 @@ UnderstandingQuiz? normalizeStructuredUnderstandingQuiz(dynamic value) {
 }
 
 UnderstandingQuiz? parseUnderstandingQuiz(String sectionBody) {
-  var raw = sectionBody.replaceAll(RegExp(r'[*_`]+'), '').trim();
+  var raw = stripMarkdownWrappers(sectionBody).trim();
   if (raw.isEmpty) return null;
 
   final canonicalMatch = _canonicalAnswer.firstMatch(raw);
@@ -245,36 +303,48 @@ UnderstandingQuiz? parseUnderstandingQuiz(String sectionBody) {
         .substring(0, cut)
         .replaceFirst(RegExp(r'(?:^|\n)\s*[-+]\s*$'), '');
   } else if (leakedMatch == null && chooseMatch == null && loneMatch != null) {
-    working = working.replaceFirst(loneMatch[0]!, '\n');
+    working =
+        '${working.substring(0, loneMatch.start)}\n${working.substring(loneMatch.end)}';
   }
   working = working.replaceFirst(_questionPrefix, '').trim();
 
+  final lineParsed = parseLineOptions(working);
   final marks = <({String key, int start, int textStart})>[];
-  for (final match in _optionMark.allMatches(working)) {
-    final key = (match[1] ?? match[2] ?? '').toUpperCase();
-    marks.add((
-      key: key,
-      start: match.start,
-      textStart: match.start + match[0]!.length,
-    ));
+  if (lineParsed == null) {
+    for (final match in _optionMark.allMatches(working)) {
+      final key = (match[1] ?? match[2] ?? '').toUpperCase();
+      marks.add((
+        key: key,
+        start: match.start,
+        textStart: match.start + match[0]!.length,
+      ));
+    }
+    if (marks.length < 2) return null;
   }
-  if (marks.length < 2) return null;
 
   final question = stripDecorations(
-    working.substring(0, marks.first.start),
+    lineParsed != null
+        ? lineParsed.questionText
+        : working.substring(0, marks.first.start),
   ).replaceFirst(RegExp(r'[?\s]+$'), '');
   if (question.isEmpty) return null;
 
+  final rawOptions = lineParsed?.options ??
+      [
+        for (var index = 0; index < marks.length; index++)
+          UnderstandingOption(
+            key: marks[index].key,
+            text: working.substring(
+              marks[index].textStart,
+              index + 1 < marks.length ? marks[index + 1].start : working.length,
+            ),
+          ),
+      ];
   final options = <UnderstandingOption>[];
-  for (var index = 0; index < marks.length; index++) {
-    final end = index + 1 < marks.length
-        ? marks[index + 1].start
-        : working.length;
-    final text = stripDecorations(
-      working.substring(marks[index].textStart, end),
-    ).replaceFirst(RegExp(r'[;|]+$'), '');
+  for (final item in rawOptions) {
+    final text = stripDecorations(item.text).replaceFirst(RegExp(r'[;|]+$'), '');
     if (text.isNotEmpty) {
-      options.add(UnderstandingOption(key: marks[index].key, text: text));
+      options.add(UnderstandingOption(key: item.key, text: text));
     }
   }
   if (options.length < 2) return null;

@@ -30,6 +30,7 @@ import '../../../shared/models/ai_conversation.dart';
 import '../../../shared/models/course.dart';
 import '../../../shared/models/escalation.dart';
 import '../../../shared/widgets/chat_bubble.dart';
+import '../../../shared/widgets/ai_suggestion_json.dart';
 import '../../../shared/widgets/widgets.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../courses/application/courses_controller.dart';
@@ -1406,7 +1407,14 @@ class ChatScreen extends HookConsumerWidget {
       }
     }
 
-    Future<void> sendStudyPromptInChat(String prompt) async {
+    Future<void> sendStudyPromptInChat(
+      String prompt, {
+      String? displayMessage,
+      String? interactionType,
+      String? improvePlanId,
+      String? planItemId,
+      String? clickedSuggestion,
+    }) async {
       if (prompt.isEmpty || activeCourse == null) return;
       if (isPending || composerLocked) {
         chatInputKey.currentState?.setDraft(prompt);
@@ -1422,6 +1430,11 @@ class ChatScreen extends HookConsumerWidget {
             message: prompt,
             courseId: activeCourse.code,
             classId: activeCourse.classId,
+            displayMessage: displayMessage,
+            interactionType: interactionType,
+            improvePlanId: improvePlanId,
+            planItemId: planItemId,
+            clickedSuggestion: clickedSuggestion,
           );
       if (!context.mounted) return;
       if (effectiveId != conversationId) {
@@ -1433,7 +1446,22 @@ class ChatScreen extends HookConsumerWidget {
       final text = item.effectiveText.trim().isNotEmpty
           ? item.effectiveText
           : item.title;
-      unawaited(sendStudyPromptInChat(buildStudySuggestionPrompt(text)));
+      unawaited(
+        sendStudyPromptInChat(
+          buildStudySuggestionPrompt(
+            text,
+            improvePlanId: item.improvePlanId,
+            planItemId: item.planItemId,
+          ),
+          displayMessage: text,
+          interactionType: item.hasImprovePlanGrounding
+              ? 'IMPROVE_PLAN_REVIEW'
+              : null,
+          improvePlanId: item.improvePlanId,
+          planItemId: item.planItemId,
+          clickedSuggestion: text,
+        ),
+      );
     }
 
     void handleStudyTipTap(String tipText, {String currentQuestion = ''}) {
@@ -1998,10 +2026,15 @@ class ChatScreen extends HookConsumerWidget {
                     final pathSuggestions =
                         message.isUser || isRetryableError || isWelcomeTurn
                         ? const <ImproveSuggestionItem>[]
-                        : chatImproveSuggestionsForMessage(
-                            answer: message.content,
-                            apiSuggestions: message.improveSuggestions,
-                          );
+                        : () {
+                            return expandImproveSuggestions(
+                              chatImproveSuggestionsForMessage(
+                                answer: message.content,
+                                apiSuggestions: message.improveSuggestions,
+                              ),
+                              answer: message.content,
+                            );
+                          }();
                     return KeyedSubtree(
                       key: messageKey,
                       child: Column(

@@ -17,6 +17,55 @@ class PlanStep {
   final double? progressValue;
 }
 
+class ImprovePlanItemDetail {
+  const ImprovePlanItemDetail({
+    required this.id,
+    required this.title,
+    this.instruction = '',
+    this.sourceTopic = '',
+    this.groundingStatus = '',
+    this.groundingConfidence,
+    this.sourceTerms = const [],
+    this.retrievalTerms = const [],
+  });
+
+  final String id;
+  final String title;
+  final String instruction;
+  final String sourceTopic;
+  final String groundingStatus;
+  final double? groundingConfidence;
+  final List<String> sourceTerms;
+  final List<String> retrievalTerms;
+
+  String get reviewText {
+    final instructionText = instruction.trim();
+    if (instructionText.isNotEmpty) return instructionText;
+    return title.trim();
+  }
+
+  factory ImprovePlanItemDetail.fromJson(Map<String, dynamic> json) {
+    return ImprovePlanItemDetail(
+      id: readString(json, 'id'),
+      title: readString(
+        json,
+        'title',
+        fallback: readString(json, 'instruction'),
+      ),
+      instruction: readString(
+        json,
+        'instruction',
+        fallback: readString(json, 'title'),
+      ),
+      sourceTopic: readString(json, 'sourceTopic'),
+      groundingStatus: readString(json, 'groundingStatus'),
+      groundingConfidence: (json['groundingConfidence'] as num?)?.toDouble(),
+      sourceTerms: parseStringList(json['sourceTerms']),
+      retrievalTerms: parseStringList(json['retrievalTerms']),
+    );
+  }
+}
+
 class ImprovePlan {
   const ImprovePlan({
     required this.id,
@@ -24,6 +73,7 @@ class ImprovePlan {
     this.riskPercent,
     this.weakTopics = const [],
     this.planItems = const [],
+    this.planItemDetails = const [],
     this.steps = const [],
     this.evidence,
     this.completed = false,
@@ -34,15 +84,19 @@ class ImprovePlan {
   final int? riskPercent;
   final List<String> weakTopics;
   final List<String> planItems;
+  final List<ImprovePlanItemDetail> planItemDetails;
   final List<PlanStep> steps;
   final String? evidence;
   final bool completed;
 
   List<PlanStep> get resolvedSteps {
     if (steps.isNotEmpty) return steps;
-    if (planItems.isEmpty) return const [];
-    final firstOpen = completed ? planItems.length : 0;
-    return planItems.asMap().entries.map((entry) {
+    final titles = planItemDetails.isNotEmpty
+        ? planItemDetails.map((item) => item.reviewText).toList()
+        : planItems;
+    if (titles.isEmpty) return const [];
+    final firstOpen = completed ? titles.length : 0;
+    return titles.asMap().entries.map((entry) {
       final index = entry.key;
       final title = entry.value;
       if (completed || index < firstOpen) {
@@ -69,10 +123,39 @@ class ImprovePlan {
           ?.toInt(),
       weakTopics: parseStringList(json['weakTopics']),
       planItems: _parsePlanItems(rawItems),
+      planItemDetails: _parsePlanItemDetails(json),
       steps: steps,
       evidence: _parseEvidence(json['evidence']) ?? json['summary']?.toString(),
       completed: json['completed'] == true || json['status'] == 'COMPLETED',
     );
+  }
+
+  List<ImproveSuggestionItem> get reviewSuggestions {
+    if (planItemDetails.isNotEmpty) {
+      return planItemDetails
+          .where((item) => item.reviewText.isNotEmpty)
+          .map(
+            (item) => ImproveSuggestionItem.reviewItem(
+              title: item.title,
+              text: item.reviewText,
+              improvePlanId: id,
+              planItemId: item.id,
+              groundingStatus: item.groundingStatus,
+            ),
+          )
+          .toList();
+    }
+    return planItems.asMap().entries
+        .where((entry) => entry.value.trim().isNotEmpty)
+        .map(
+          (entry) => ImproveSuggestionItem.reviewItem(
+            title: entry.value.trim(),
+            text: entry.value.trim(),
+            improvePlanId: id,
+            planItemId: 'legacy-${entry.key}',
+          ),
+        )
+        .toList();
   }
 
   static String _readPlanId(Map<String, dynamic> json) {
@@ -103,6 +186,18 @@ class ImprovePlan {
           .toList();
     }
     return parseStringList(raw);
+  }
+
+  static List<ImprovePlanItemDetail> _parsePlanItemDetails(
+    Map<String, dynamic> json,
+  ) {
+    final raw = json['planItemDetails'] ?? json['itemDetails'];
+    if (raw is! List) return const [];
+    return raw
+        .whereType<Map>()
+        .map((item) => ImprovePlanItemDetail.fromJson(Map<String, dynamic>.from(item)))
+        .where((item) => item.reviewText.isNotEmpty)
+        .toList();
   }
 
   static String? _parseEvidence(dynamic value) {

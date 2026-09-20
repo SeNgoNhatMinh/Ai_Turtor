@@ -264,15 +264,21 @@ List<StudyPathSuggestion> lessonSuggestionsForMessage({
 }
 
 /// Prompt "Học ngay" — khớp FE web `buildStudySuggestionPrompt`.
-String buildStudySuggestionPrompt(String suggestionText) {
+String buildStudySuggestionPrompt(
+  String suggestionText, {
+  String? improvePlanId,
+  String? planItemId,
+}) {
   final topic = suggestionText.trim();
   if (topic.isEmpty) return '';
+  if ((improvePlanId ?? '').trim().isNotEmpty &&
+      (planItemId ?? '').trim().isNotEmpty) {
+    return 'Ôn tập theo Improve Plan: $topic';
+  }
   if (isDeepDiveListPrompt(topic) || isDeepDiveTopicPrompt(topic)) {
     return topic;
   }
   final lesson = normalizeLessonStart(topic);
   if (lesson.isNotEmpty) return lesson;
-  return 'Em muốn ôn tập phần "$topic" từ improve plan. '
-      'Hãy hướng dẫn em từng bước trong đoạn chat này, giải thích dễ hiểu, '
-      'có ví dụ nhỏ và gợi ý em nên tự kiểm tra gì tiếp theo.';
+  return 'Ôn tập phần "$topic"';
 }
