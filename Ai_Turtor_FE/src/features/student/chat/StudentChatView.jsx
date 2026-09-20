@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import ChatSessionsPanel from './components/ChatSessionsPanel';
 import ChatWorkspace from './components/ChatWorkspace';
 import { isMobileViewport } from '../../../hooks/useResponsiveViewport';
@@ -59,10 +60,17 @@ function StudentChatView({
   onOpenMentorReview,
   onMentorRequestCreated,
   tutorSession,
-  tutorSessionSummary,
-  isTutorSessionLoading,
-  onStartNextTutorSession,
 }) {
+  const [pendingCourseId, setPendingCourseId] = useState('');
+  const pendingCourseLabel = courseOptions.find((item) => item.value === pendingCourseId)?.label;
+  const handleCourseSelect = (nextCourseId) => {
+    if (!nextCourseId || nextCourseId === courseId) return;
+    if (!courseId) {
+      onCourseChange(nextCourseId, { confirmed: true });
+      return;
+    }
+    setPendingCourseId(nextCourseId);
+  };
   const closeHistoryOnMobile = () => {
     if (isMobileViewport()) setIsHistoryDrawerOpen(false);
   };
@@ -99,6 +107,21 @@ function StudentChatView({
             setEditingSessionId={setEditingSessionId}
             setEditingSessionTitle={setEditingSessionTitle}
             onSaveRename={onSaveRename}
+            isHistoryOpen={isHistoryDrawerOpen}
+            onToggleHistory={() => setIsHistoryDrawerOpen((open) => !open)}
+            courseOptions={courseOptions}
+            selectedCourseValue={courseId}
+            isStudentEnrollmentsLoading={isStudentEnrollmentsLoading}
+            isDarkMode={isDarkMode}
+            onCourseSelect={handleCourseSelect}
+            pendingCourseId={pendingCourseId}
+            pendingCourseLabel={pendingCourseLabel}
+            onConfirmCourseSwitch={() => {
+              onCourseChange(pendingCourseId, { confirmed: true });
+              setPendingCourseId('');
+            }}
+            onCancelCourseSwitch={() => setPendingCourseId('')}
+            tutorSession={tutorSession}
             style={{ height: '100%' }}
           />
         </div>
@@ -106,16 +129,13 @@ function StudentChatView({
           <ChatWorkspace
             activeSessionTitle={activeSessionTitle}
             isHistoryOpen={isHistoryDrawerOpen}
-            onToggleHistory={() => setIsHistoryDrawerOpen((open) => !open)}
             courseId={courseId}
-            onCourseChange={onCourseChange}
             classId={classId}
             courseOptions={courseOptions}
             classOptions={classOptions}
             isStudentEnrollmentsLoading={isStudentEnrollmentsLoading}
             hasLoadedStudentEnrollments={hasLoadedStudentEnrollments}
             hasStudentEnrollments={hasStudentEnrollments}
-            isDarkMode={isDarkMode}
             messages={messages}
             chatInput={chatInput}
             setChatInput={setChatInput}
@@ -149,9 +169,6 @@ function StudentChatView({
             onOpenMentorReview={onOpenMentorReview}
             onMentorRequestCreated={onMentorRequestCreated}
             tutorSession={tutorSession}
-            tutorSessionSummary={tutorSessionSummary}
-            isTutorSessionLoading={isTutorSessionLoading}
-            onStartNextTutorSession={onStartNextTutorSession}
           />
         </div>
       </div>

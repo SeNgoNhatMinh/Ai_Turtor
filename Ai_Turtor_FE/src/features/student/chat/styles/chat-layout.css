@@ -30,22 +30,45 @@
   gap: 12px;
 }
 
-.chat-header-controls {
-  display: grid;
-  flex: 0 1 350px;
-  grid-template-columns: minmax(120px, 150px) minmax(165px, 190px);
+.chat-header-settings-button.ant-btn {
+  display: inline-flex;
+  flex: 0 0 auto;
   align-items: center;
-  justify-content: end;
-  gap: 8px;
-  min-width: 0;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border-radius: 8px;
+  color: #565869;
 }
 
-.chat-header-course-select.ant-select,
-.chat-header-controls .chat-class-readonly-pill {
+.chat-header-settings-button.ant-btn:hover {
+  background: #f4f4f4 !important;
+  color: #202123 !important;
+}
+
+.chat-session-settings {
+  display: grid;
+  gap: 8px;
+}
+
+.chat-session-settings__label {
+  color: #4b5563;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.chat-session-settings .chat-header-course-select.ant-select,
+.chat-session-settings .chat-class-readonly-pill {
   width: 100%;
   min-width: 0;
   max-width: none;
   box-sizing: border-box;
+}
+
+.chat-session-settings .chat-header-course-select .ant-select-selector {
+  min-height: 38px !important;
+  padding-top: 2px !important;
 }
 
 .chat-workspace-header h4.ant-typography {
@@ -63,18 +86,22 @@
   color: #0d0d0d !important;
 }
 
-.chat-workspace-header .ant-select-selector {
+.chat-workspace-header .ant-select-selector,
+.chat-session-settings .ant-select-selector {
   background-color: #f4f4f4 !important;
   border: 1px solid #ececec !important;
   color: #0d0d0d !important;
 }
 
 .chat-workspace-header .ant-select-selection-item,
-.chat-workspace-header .ant-select-selection-placeholder {
+.chat-workspace-header .ant-select-selection-placeholder,
+.chat-session-settings .ant-select-selection-item,
+.chat-session-settings .ant-select-selection-placeholder {
   color: #0d0d0d !important;
 }
 
-.chat-workspace-header .ant-select-arrow {
+.chat-workspace-header .ant-select-arrow,
+.chat-session-settings .ant-select-arrow {
   color: #0d0d0d !important;
 }
 

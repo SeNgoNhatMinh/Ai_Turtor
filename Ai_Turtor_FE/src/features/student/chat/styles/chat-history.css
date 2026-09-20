@@ -105,6 +105,65 @@
   min-width: 0;
 }
 
+.chat-history-settings {
+  display: grid;
+  flex: 0 0 auto;
+  gap: 8px;
+  padding: 12px;
+  border-top: 1px solid #ececec;
+  background: #fafafa;
+}
+
+.chat-history-settings .chat-header-course-select.ant-select,
+.chat-history-settings .chat-support-level {
+  width: 100%;
+  max-width: none;
+}
+
+.chat-support-level {
+  min-height: 34px;
+  padding: 8px 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #1f2937;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.chat-history-settings__switch {
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  border-radius: 6px;
+  background: #f1f5f9;
+  color: #334155;
+  font-size: 12px;
+}
+
+.chat-history-settings__switch > div {
+  display: flex;
+  gap: 6px;
+}
+
+.chat-history-settings__switch button {
+  min-height: 28px;
+  padding: 0 9px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #1f2937;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.chat-history-settings__switch button:last-child {
+  border-color: #202123;
+  background: #202123;
+  color: #ffffff;
+}
+
 .chat-history-heading {
   min-width: 0;
 }

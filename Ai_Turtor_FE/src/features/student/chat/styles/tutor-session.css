@@ -5,6 +5,18 @@
   padding: 0.4rem 1rem 0.5rem;
 }
 
+.tutor-session-strip--settings {
+  margin-top: 24px;
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 8px;
+}
+
+.tutor-session-strip--history {
+  margin: 4px 0 0;
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 6px;
+}
+
 .tutor-session-strip__heading {
   align-items: center;
   display: flex;

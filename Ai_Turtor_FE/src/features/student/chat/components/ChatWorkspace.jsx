@@ -10,7 +10,6 @@ import PinnedMessagesBar from './PinnedMessagesBar';
 import { useAnswerFeedback } from '../useAnswerFeedback';
 import { usePinnedChatMessages } from '../usePinnedChatMessages';
 import { buildLessonChatPrompt, lessonSuggestionsForMessage } from '../../learning/studySuggestionPrompt';
-import { uiCopy } from '../../../../constants/uiCopy';
 import { getUserFacingError } from '../../../../services/apiClient';
 import { ttsApi } from '../../../../services/ttsApi';
 import '../ChatWorkspace.css';
@@ -23,9 +22,7 @@ const normalizeTtsVoices = (response) => (
 function ChatWorkspace({
   activeSessionTitle,
   isHistoryOpen = false,
-  onToggleHistory,
   courseId,
-  onCourseChange,
   classId,
   courseOptions = [],
   classOptions = [],
@@ -55,7 +52,6 @@ function ChatWorkspace({
   turnLimitNotice,
   onTurnLimitBack,
   onDismissTurnLimitNotice,
-  isDarkMode = false,
   triggerToast,
   courseMaterials = [],
   mentorRequests = [],
@@ -65,11 +61,7 @@ function ChatWorkspace({
   onOpenMentorReview,
   onMentorRequestCreated,
   tutorSession,
-  tutorSessionSummary,
-  isTutorSessionLoading = false,
-  onStartNextTutorSession,
 }) {
-  const [pendingCourseId, setPendingCourseId] = useState('');
   const [ttsVoiceId, setTtsVoiceId] = useState('');
 
   const voiceStorageKey = useMemo(() => (
@@ -155,8 +147,6 @@ function ChatWorkspace({
     || classIdMatches(item.value, classId)
     || (Array.isArray(item.aliases) && item.aliases.some((alias) => classIdMatches(alias, classId)))
   ));
-  const shouldShowCourseSwitchBanner = Boolean(pendingCourseId && pendingCourseId !== courseId);
-  const pendingCourseOption = safeCourseOptions.find((item) => item.value === pendingCourseId);
   const selectedClassValue = selectedClassOption?.value;
   const hasCourseSelection = Boolean(selectedCourseValue);
   const hasClassSelection = Boolean(selectedClassValue);
@@ -197,74 +187,22 @@ function ChatWorkspace({
     if (parsedLessons.length > 0) return parsedLessons;
     return sessionTopics;
   }, [safeMessages, suggestedTopics]);
-  const handleCourseSelect = (nextCourseId) => {
-    if (!nextCourseId || nextCourseId === courseId) return;
-    if (!courseId) {
-      onCourseChange?.(nextCourseId, { confirmed: true });
-      return;
-    }
-    setPendingCourseId(nextCourseId);
-  };
-  const confirmCourseSwitch = () => {
-    if (!pendingCourseId) return;
-    const nextCourseId = pendingCourseId;
-    setPendingCourseId('');
-    onCourseChange?.(nextCourseId, { confirmed: true });
-  };
-
   return (
     <div className="chat-workspace-dark" style={style}>
       <ChatWorkspaceHeader
-        activeSessionMaxTurnsReached={dailyQuotaExhausted}
         activeSessionTitle={activeSessionTitle}
         isHistoryOpen={isHistoryOpen}
         canChat={canChatWithCurrentContext}
         chatContextMessage={chatContextMessage}
-        courseOptions={safeCourseOptions}
         hasLoadedStudentEnrollments={hasLoadedStudentEnrollments}
         hasStudentEnrollments={hasStudentEnrollments}
-        isDarkMode={isDarkMode}
         isNearTurnLimit={isNearTurnLimit}
         isStudentEnrollmentsLoading={isStudentEnrollmentsLoading}
-        onCancelCourseSwitch={() => setPendingCourseId('')}
-        onConfirmCourseSwitch={confirmCourseSwitch}
-        onCourseSelect={handleCourseSelect}
-        onToggleHistory={onToggleHistory}
         onDismissTurnLimitNotice={onDismissTurnLimitNotice}
         onTurnLimitBack={onTurnLimitBack}
-        pendingCourseId={shouldShowCourseSwitchBanner ? pendingCourseId : ''}
-        pendingCourseLabel={pendingCourseOption?.label}
         questionCount={questionCount}
-        selectedClassLabel={selectedClassOption?.label || selectedClassValue}
-        selectedCourseValue={selectedCourseValue}
         turnLimitNotice={turnLimitNotice}
       />
-
-      <section className="tutor-session-strip" aria-label="Lộ trình buổi học">
-        <div className="tutor-session-strip__heading">
-          <div>
-            <strong>{dailyQuotaExhausted ? uiCopy.student.chat.sessionCompleteTitle : 'AI Tutor đang đồng hành'}</strong>
-            <span>
-              {dailyQuotaExhausted
-                ? uiCopy.student.chat.sessionComplete
-                : tutorSession?.status === 'COMPLETED'
-                  ? 'Đã tổng kết và gửi buổi học cho giảng viên'
-                  : `Giai đoạn: ${tutorSession?.phase || 'OPEN'} · Mức hỗ trợ: ${tutorSession?.supportLevel || 'STANDARD'}`}
-            </span>
-          </div>
-          {tutorSession?.status === 'COMPLETED' && !dailyQuotaExhausted && (
-            <button type="button" onClick={onStartNextTutorSession} disabled={isTutorSessionLoading}>
-              Bắt đầu buổi tiếp theo
-            </button>
-          )}
-        </div>
-        {dailyQuotaExhausted && (
-          <p className="tutor-session-strip__summary">{uiCopy.student.chat.sessionCompleteHint}</p>
-        )}
-        {tutorSessionSummary?.summaryText && (
-          <p className="tutor-session-strip__summary">{tutorSessionSummary.summaryText}</p>
-        )}
-      </section>
 
       <PinnedMessagesBar
         messages={pinnedMessages}

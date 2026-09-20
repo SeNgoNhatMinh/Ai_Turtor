@@ -40,14 +40,14 @@
 }
 
 .student-chat-history-pane {
-    flex: 0 0 0;
-    width: 0;
-    min-width: 0;
-    max-width: 0;
+    flex: 0 0 54px;
+    width: 54px;
+    min-width: 54px;
+    max-width: 54px;
     min-height: 0;
-    overflow: hidden;
-    opacity: 0;
-    pointer-events: none;
+    overflow: visible;
+    opacity: 1;
+    pointer-events: auto;
     transition: flex-basis 0.2s ease, width 0.2s ease, max-width 0.2s ease, opacity 0.16s ease;
 }
 
@@ -57,6 +57,46 @@
     max-width: 260px;
     opacity: 1;
     pointer-events: auto;
+}
+
+.student-chat-history-pane:not(.is-open) .chat-history-header {
+    justify-content: center;
+    padding: 12px 6px 8px;
+}
+
+.student-chat-history-pane:not(.is-open) .chat-history-heading,
+.student-chat-history-pane:not(.is-open) .conversation-search,
+.student-chat-history-pane:not(.is-open) .conversation-list,
+.student-chat-history-pane:not(.is-open) .chat-history-settings {
+    display: none;
+}
+
+.student-chat-history-pane:not(.is-open) .chat-history-actions {
+    display: grid;
+    justify-items: center;
+    gap: 4px;
+}
+
+@media (max-width: 1100px) {
+    .student-chat-history-pane:not(.is-open) {
+        flex-basis: 54px;
+        width: 54px;
+        min-width: 54px;
+        max-width: 54px;
+    }
+}
+
+@media (max-width: 767px), (hover: none) and (pointer: coarse) {
+    .student-chat-history-pane:not(.is-open) {
+        transform: translateX(calc(-100% + 54px));
+    }
+
+    .student-chat-history-pane:not(.is-open) .chat-history-header {
+        position: absolute;
+        top: max(8px, env(safe-area-inset-top));
+        right: 0;
+        width: 54px;
+    }
 }
 
 .student-chat-history-backdrop {

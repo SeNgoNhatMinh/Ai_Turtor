@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
-import { Button, Card, Tooltip } from 'antd';
-import { Plus } from 'lucide-react';
+import { Button, Card, Select, Tooltip } from 'antd';
+import { PanelLeft, Plus } from 'lucide-react';
 import { useDebouncedValue } from '../../../../hooks/useDebouncedValue';
 import { confirmDanger } from '../../../../components/common/confirmDialog';
 import ConversationGroup from '../conversations/ConversationGroup';
@@ -29,6 +29,18 @@ function ChatSessionsPanel({
   setEditingSessionId,
   setEditingSessionTitle,
   onSaveRename,
+  isHistoryOpen,
+  onToggleHistory,
+  courseOptions = [],
+  selectedCourseValue,
+  isStudentEnrollmentsLoading = false,
+  isDarkMode = false,
+  onCourseSelect,
+  pendingCourseId,
+  pendingCourseLabel,
+  onConfirmCourseSwitch,
+  onCancelCourseSwitch,
+  tutorSession,
   style,
 }) {
   const [searchText, setSearchText] = useState('');
@@ -85,6 +97,16 @@ function ChatSessionsPanel({
           <div className="chat-history-subtitle">Mới nhất trước</div>
         </div>
         <div className="chat-history-actions">
+          <Tooltip title={isHistoryOpen ? 'Ẩn lịch sử trò chuyện' : 'Hiện lịch sử trò chuyện'}>
+            <Button
+              type="text"
+              size="small"
+              icon={<PanelLeft size={17} />}
+              onClick={onToggleHistory}
+              className="chat-history-icon-button"
+              aria-label={isHistoryOpen ? 'Ẩn lịch sử trò chuyện' : 'Hiện lịch sử trò chuyện'}
+            />
+          </Tooltip>
           <Tooltip title="Tạo cuộc trò chuyện mới">
             <Button
               type="text"
@@ -133,6 +155,38 @@ function ChatSessionsPanel({
           </>
         )}
       </div>
+
+      <section className="chat-history-settings" aria-label="Ngữ cảnh buổi học">
+          <label className="chat-session-settings__label" htmlFor="history-course-select">Môn học</label>
+          <Select
+            id="history-course-select"
+            value={selectedCourseValue}
+            onChange={onCourseSelect}
+            placeholder="Chọn môn học"
+            aria-label="Chọn môn học"
+            disabled={isStudentEnrollmentsLoading || courseOptions.length === 0}
+            className="chat-header-course-select"
+            classNames={{
+              popup: {
+                root: `chat-course-select-popup ${isDarkMode ? 'chat-course-select-popup--dark' : ''}`,
+              },
+            }}
+            options={courseOptions}
+          />
+          <div className="chat-session-settings__label">Mức hỗ trợ</div>
+          <div className="chat-support-level" aria-label="Mức hỗ trợ hiện tại">
+            {tutorSession?.supportLevel || 'STANDARD'}
+          </div>
+          {pendingCourseId && (
+            <div className="chat-history-settings__switch" role="status">
+              <span>Chuyển sang {pendingCourseLabel || pendingCourseId}?</span>
+              <div>
+                <button type="button" onClick={onCancelCourseSwitch}>Hủy</button>
+                <button type="button" onClick={onConfirmCourseSwitch}>Đổi môn</button>
+              </div>
+            </div>
+          )}
+      </section>
     </Card>
   );
 }
