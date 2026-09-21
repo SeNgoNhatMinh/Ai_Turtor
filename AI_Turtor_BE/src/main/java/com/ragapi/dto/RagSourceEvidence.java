@@ -15,6 +15,7 @@ public class RagSourceEvidence {
     private String courseId;
     private String courseName;
     private String materialId;
+    private String chunkId;
     private String materialTitle;
     private String chapter;
     private Integer pageStart;

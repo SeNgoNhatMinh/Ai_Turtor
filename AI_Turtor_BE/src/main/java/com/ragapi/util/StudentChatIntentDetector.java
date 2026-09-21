@@ -71,6 +71,8 @@ public final class StudentChatIntentDetector {
                     + "|giai thich them"
                     + "|noi ro hon"
                     + "|chi tiet hon"
+                    + "|tung\s+phuong\s+phap"
+                    + "|ca\s+hai\s+(?:cach|phuong\s+phap)"
                     + "|hieu roi"
                     + "|sang bai"
                     + "|bai tiep"

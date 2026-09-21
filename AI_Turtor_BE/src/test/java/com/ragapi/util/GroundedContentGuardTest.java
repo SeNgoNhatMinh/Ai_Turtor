@@ -61,6 +61,24 @@ class GroundedContentGuardTest {
     }
 
     @Test
+    void removesWholeTipWhenItAddsAnUnsupportedDetail() {
+        String answer = """
+                ## Lưu ý để học tốt hơn
+                - Khi gặp khó khăn, hãy nghỉ ngơi, uống cà phê hoặc ăn nhẹ.
+                - Ôn lại tài liệu trước đó và làm lại bài tập.
+                """;
+        String context = """
+                Nếu điều gì đó có vẻ đặc biệt khó khăn, hãy nghỉ ngơi, chợp mắt, ăn nhẹ.
+                Xem lại tài liệu trước đó và làm lại các bài tập trước.
+                """;
+
+        String filtered = GroundedContentGuard.stripUnsupportedOptionalSections(answer, context);
+
+        assertThat(filtered).doesNotContain("cà phê", "Khi gặp khó khăn");
+        assertThat(filtered).contains("Ôn lại tài liệu", "làm lại bài tập");
+    }
+
+    @Test
     void removesQuizWhoseFunctionIsAbsentFromMaterial() {
         String answer = """
                 ## Kiểm tra hiểu

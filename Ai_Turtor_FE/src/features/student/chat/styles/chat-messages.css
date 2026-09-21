@@ -495,6 +495,25 @@
   position: relative;
 }
 
+.chat-composer-mode-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin: 0 8px 7px;
+}
+
+.chat-composer-mode-row label {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.chat-composer-mode-select.ant-select {
+  width: 220px;
+  max-width: 65%;
+}
+
 .chat-gpt-input-wrapper {
   gap: 4px;
   background-color: #f7f7f7;

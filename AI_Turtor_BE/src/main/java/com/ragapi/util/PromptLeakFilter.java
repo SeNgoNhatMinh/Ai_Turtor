@@ -33,6 +33,12 @@ public final class PromptLeakFilter {
     private static final Pattern VALID_NEXT_BULLET = Pattern.compile(
             "(?im)^\\s*[-*+]?\\s*(?:bài|bai)\\s+\\d+\\s*[:：.\\-\u2013\u2014]"
     );
+    private static final Pattern INTERNAL_SOURCE_FIELD = Pattern.compile(
+            "(?i)\\b(?:materialId|approvedKnowledgeId|SOURCE MATERIAL IDS)\\b"
+    );
+    private static final Pattern SOURCE_ID_ONLY = Pattern.compile(
+            "(?i)^\\s*[-*+]?\\s*(?:materialId|approvedKnowledgeId)\\s*=\\s*[^\\s,;]+(?:\\s*[,;]\\s*(?:materialId|approvedKnowledgeId)\\s*=\\s*[^\\s,;]+)*\\s*$"
+    );
 
     private PromptLeakFilter() {
     }
@@ -46,6 +52,10 @@ public final class PromptLeakFilter {
             return false;
         }
         if (LEAK_LINE.matcher(trimmed).find()) {
+            return true;
+        }
+        if (INTERNAL_SOURCE_FIELD.matcher(trimmed).find()
+                && !SOURCE_ID_ONLY.matcher(trimmed).matches()) {
             return true;
         }
         return QUOTED_HEADING.matcher(trimmed).find();

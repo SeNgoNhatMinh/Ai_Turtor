@@ -127,6 +127,17 @@ function StudentLiveAnswer({
           onStudyTipStudy={done ? (text) => onStudySuggestion?.({
             text: resolveChatStudyTip(message.question, text),
             sourceMode: message.mode,
+            interactionType: 'SOURCE_BACKED_STUDY_TIP',
+            sourceMaterialIds: [...new Set(
+              (Array.isArray(message.sourceEvidence) ? message.sourceEvidence : [])
+                .map((item) => String(item?.materialId || '').trim())
+                .filter(Boolean),
+            )],
+            sourceChunkIds: [...new Set(
+              (Array.isArray(message.sourceEvidence) ? message.sourceEvidence : [])
+                .map((item) => String(item?.chunkId || '').trim())
+                .filter(Boolean),
+            )],
           }) : undefined}
           onLockAnswer={done ? (key, attempt) => (
             onLockUnderstandingAnswer?.(message, key, attempt)

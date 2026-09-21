@@ -225,6 +225,11 @@ public class TutorController {
                 );
                 routingMode = intent.getMode();
             }
+            String requestedMode = normalizeStudentRequestedMode(request.getRequestedMode());
+            if (requestedMode != null && !IntentClassifierService.MODE_ESCALATE.equals(routingMode)) {
+                routingMode = requestedMode;
+                applyStudentRequestedMode(intent, requestedMode);
+            }
             if (!persistTurn) {
                 routingMode = IntentClassifierService.MODE_RAG;
             }
@@ -237,13 +242,18 @@ public class TutorController {
                     request.getImprovePlanId(),
                     request.getPlanItemId()
             );
-            if (improvePlanIntent != null) {
+            RagQueryIntent sourceBackedIntent = buildSourceBackedIntent(request, question);
+            RagQueryIntent provenanceIntent = improvePlanIntent != null ? improvePlanIntent : sourceBackedIntent;
+            if (provenanceIntent != null) {
                 routingMode = IntentClassifierService.MODE_RAG;
                 intent.setMode(IntentClassifierService.MODE_RAG);
                 intent.setSubIntent("EXPLAIN_CONCEPT");
                 intent.setRequiresCourseMaterial(true);
-                intent.setRoutingStrategy("IMPROVE_PLAN_PROVENANCE");
-                if (improvePlanIntent.getLearningObjective() != null
+                intent.setRoutingStrategy(improvePlanIntent != null
+                        ? "IMPROVE_PLAN_PROVENANCE"
+                        : "SOURCE_BACKED_STUDY_TIP");
+                if (improvePlanIntent != null
+                        && improvePlanIntent.getLearningObjective() != null
                         && !improvePlanIntent.getLearningObjective().isBlank()) {
                     question = "Ôn tập theo Improve Plan: " + improvePlanIntent.getLearningObjective();
                 }
@@ -320,9 +330,9 @@ public class TutorController {
                 ragAnswer = ragService.answerTutorInteraction(
                         question, courseId, intent.getSubIntent(),
                         pedagogicalContext, learnerContext, recentHistoryContext);
-            } else if (improvePlanIntent != null) {
+            } else if (provenanceIntent != null) {
                 ragAnswer = ragService.askWithImprovePlanContext(
-                        question, courseId, classId, pedagogicalContext, learnerContext, improvePlanIntent);
+                        question, courseId, classId, pedagogicalContext, learnerContext, provenanceIntent);
             } else {
                 ragAnswer = (pedagogicalContext.isBlank() && learnerContext.isBlank())
                         ? ragService.askWithConfidence(question, courseId, classId, teachingMode, retrievalHint)
@@ -543,6 +553,34 @@ public class TutorController {
         response.setAnswerPolicy(intent.getAnswerPolicy());
         response.setRequiresCourseMaterial(intent.getRequiresCourseMaterial());
         response.setRoutingStrategy(intent.getRoutingStrategy());
+    }
+
+    private String normalizeStudentRequestedMode(String value) {
+        String mode = HarnessRouting.normalizeMode(value);
+        if (IntentClassifierService.MODE_RAG.equals(mode) || IntentClassifierService.MODE_CODE.equals(mode)) {
+            return mode;
+        }
+        return null;
+    }
+
+    private void applyStudentRequestedMode(IntentClassification intent, String mode) {
+        intent.setMode(mode);
+        intent.setRoutingStrategy("STUDENT_SELECTED_MODE");
+        if (IntentClassifierService.MODE_CODE.equals(mode)) {
+            if (intent.getSubIntent() == null
+                    || !intent.getSubIntent().matches("DEBUG_CODE|EXPLAIN_ERROR|CODE_REVIEW|ALGORITHM_HINT|DATA_STRUCTURE_ADVICE|SQL_REVIEW|ARCHITECTURE_REVIEW|REVIEW_LOGIC|GUIDE_SOLUTION|TECHNICAL_MENTORING")) {
+                intent.setSubIntent("TECHNICAL_MENTORING");
+            }
+            intent.setRequiresCourseMaterial(false);
+            intent.setAnswerPolicy("Guide, explain, review, or debug without completing assessed work.");
+            return;
+        }
+        if (intent.getSubIntent() == null
+                || intent.getSubIntent().matches("DEBUG_CODE|EXPLAIN_ERROR|CODE_REVIEW|ALGORITHM_HINT|DATA_STRUCTURE_ADVICE|SQL_REVIEW|ARCHITECTURE_REVIEW|REVIEW_LOGIC|GUIDE_SOLUTION|TECHNICAL_MENTORING")) {
+            intent.setSubIntent("EXPLAIN_CONCEPT");
+        }
+        intent.setRequiresCourseMaterial(true);
+        intent.setAnswerPolicy("Answer only from the currently selected course material; escalate when evidence is insufficient.");
     }
 
     private String appendTutorContext(String base, String extra) {
@@ -775,6 +813,42 @@ public class TutorController {
 
     private String normalizeStudentQuestion(String question) {
         return questionNormalizationService.normalize(question);
+    }
+
+    private RagQueryIntent buildSourceBackedIntent(AiQueryRequest request, String question) {
+        if (request == null
+                || !"SOURCE_BACKED_STUDY_TIP".equalsIgnoreCase(request.getInteractionType())) {
+            return null;
+        }
+        List<String> materialIds = cleanProvenanceIds(request.getSourceMaterialIds());
+        if (materialIds.isEmpty()) {
+            return null;
+        }
+        String clickedSuggestion = request.getClickedSuggestion() == null
+                ? question
+                : request.getClickedSuggestion().trim();
+        return RagQueryIntent.builder()
+                .learningObjective(clickedSuggestion)
+                .retrievalQuery(clickedSuggestion)
+                .retrievalTerms(List.of(clickedSuggestion))
+                .teachingMode("EXPLAIN_CONCEPT")
+                .sourceMaterialIds(materialIds)
+                .sourceChunkIds(cleanProvenanceIds(request.getSourceChunkIds()))
+                .sourceTerms(List.of(clickedSuggestion))
+                .build();
+    }
+
+    private List<String> cleanProvenanceIds(List<String> values) {
+        if (values == null) {
+            return List.of();
+        }
+        return values.stream()
+                .filter(value -> value != null && !value.isBlank())
+                .map(String::trim)
+                .filter(value -> value.length() <= 200)
+                .distinct()
+                .limit(12)
+                .toList();
     }
 
     private boolean isUnderstandingRemediation(String question) {

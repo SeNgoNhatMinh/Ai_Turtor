@@ -22,6 +22,21 @@ const normalizeEvidenceText = (value) => String(value || '')
   .trim()
   .slice(0, 320);
 
+const reportsInsufficientMaterial = (message) => {
+  const text = normalizeEvidenceText(message?.answer || message?.content || message?.text);
+  const mentionsMaterial = text.includes('tài liệu')
+    || text.includes('tai lieu')
+    || text.includes('material');
+  const saysInsufficient = text.includes('không đủ')
+    || text.includes('khong du')
+    || text.includes('không đề cập')
+    || text.includes('khong de cap')
+    || text.includes('not enough')
+    || text.includes('does not mention')
+    || text.includes('insufficient');
+  return mentionsMaterial && saysInsufficient;
+};
+
 const deduplicateEvidence = (items = []) => {
   const merged = new Map();
   items.forEach((item) => {
@@ -61,7 +76,8 @@ function AnswerEvidence({ message, sourceMap = {} }) {
             : 'AI tự phân tích bằng kiến thức chung';
   const isCodeMode = message?.mode === 'CODE' || message?.mode === 'CODE_MENTOR';
   const evidence = deduplicateEvidence(Array.isArray(message?.sourceEvidence) ? message.sourceEvidence : []);
-  const hasMaterialEvidence = sources.length > 0 || evidence.length > 0;
+  const hasMaterialEvidence = !reportsInsufficientMaterial(message)
+    && (sources.length > 0 || evidence.length > 0);
   const hasAnswerEvidence = hasMaterialEvidence || isCodeMode;
   const hasSupportRecord = Boolean(message?.questionEscalationId);
   const primaryEvidence = evidence[0] || null;
@@ -69,7 +85,9 @@ function AnswerEvidence({ message, sourceMap = {} }) {
     ? [
         primaryEvidence.materialTitle,
         primaryEvidence.chapter,
-        primaryEvidence.pageStart != null ? `Trang ${primaryEvidence.pageStart}` : null,
+        primaryEvidence.pageStart != null && !primaryEvidence.pageEstimated
+          ? `Trang ${primaryEvidence.pageStart}`
+          : null,
       ].filter(Boolean).join(' · ')
     : '';
 
@@ -108,7 +126,7 @@ function AnswerEvidence({ message, sourceMap = {} }) {
       </div>}
       {hasMaterialEvidence && <div className={`answer-evidence-pill confidence-${confidenceClass}`}>
         <ShieldCheck size={14} aria-hidden="true" />
-        <span>Mức độ phù hợp với tài liệu: {confidenceText}</span>
+        <span>Độ khớp của nguồn với câu hỏi: {confidenceText}</span>
       </div>}
       {sources.length > 0 && (
         <div className="answer-evidence-sources">
@@ -129,12 +147,15 @@ function AnswerEvidence({ message, sourceMap = {} }) {
                 {item.materialTitle || item.materialId || 'Chưa xác định'}
               </span>
               {item.chapter && <span><b>Chương/phần:</b> {item.chapter}</span>}
-              {item.pageStart != null && (
+              {item.pageStart != null && !item.pageEstimated && (
                 <span>
-                  <b>Trang trích dẫn:</b> {item.pageStart}
+                  <b>Vị trí chính xác:</b> Trang PDF {item.pageStart}
                   {item.pageEnd && item.pageEnd !== item.pageStart ? `–${item.pageEnd}` : ''}
-                  {item.pageEstimated ? ' · Trang được hệ thống ước tính' : ' · Trang xác định từ tài liệu'}
+                  {item.chapter ? ` · ${item.chapter}` : ''}
                 </span>
+              )}
+              {item.pageEstimated && (
+                <span><b>Vị trí chính xác:</b> Chưa đối chiếu được với trang PDF gốc</span>
               )}
               {item.excerpt && (
                 <div className="answer-evidence-quote">

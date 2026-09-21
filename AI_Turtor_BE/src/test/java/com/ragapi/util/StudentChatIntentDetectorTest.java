@@ -116,6 +116,9 @@ class StudentChatIntentDetectorTest {
         assertTrue(StudentChatIntentDetector.isDependentFollowUp("cho ví dụ"));
         assertTrue(StudentChatIntentDetector.isDependentFollowUp("giải thích thêm"));
         assertTrue(StudentChatIntentDetector.isDependentFollowUp("chưa hiểu chỗ Tomcat"));
+        assertTrue(StudentChatIntentDetector.isDependentFollowUp(
+                "So sánh ưu điểm, nhược điểm và trường hợp nên sử dụng từng phương pháp."));
+        assertTrue(StudentChatIntentDetector.isDependentFollowUp("Khi nào nên dùng cả hai cách?"));
         assertFalse(StudentChatIntentDetector.isDependentFollowUp("mai mấy giờ học"));
         assertFalse(StudentChatIntentDetector.isDependentFollowUp("xin chào"));
         assertFalse(StudentChatIntentDetector.isDependentFollowUp("Nay mình học JDBC"));

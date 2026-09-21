@@ -40,6 +40,7 @@ export function useStudentChatTabController({
   triggerToast,
 }) {
   const [chatInput, setChatInput] = useState('');
+  const [chatMode, setChatMode] = useState('RAG');
   const [editingSessionId, setEditingSessionId] = useState(null);
   const [editingSessionTitle, setEditingSessionTitle] = useState('');
   const [isAiLoading, setIsAiLoading] = useState(false);
@@ -87,6 +88,7 @@ export function useStudentChatTabController({
     if (!nextCourseId || nextCourseId === courseId) return;
     dismissTurnLimitNotice?.();
     resetChat?.();
+    setChatMode('RAG');
     setCourseId(nextCourseId);
   };
 
@@ -157,13 +159,17 @@ export function useStudentChatTabController({
     const textToSend = validation.value;
     setChatInput('');
     setIsAiLoading(true);
-    handleSendQuery(textToSend, '', () => {}, requestContext).finally(() => {
+    const effectiveRequestContext = {
+      ...requestContext,
+      requestedMode: requestContext.requestedMode || chatMode,
+    };
+    handleSendQuery(textToSend, '', () => {}, effectiveRequestContext).finally(() => {
       setIsAiLoading(false);
     });
   };
 
   const handlePromptStarter = (prompt) => {
-    sendText(buildLessonChatPrompt(prompt) || prompt);
+    sendText(buildLessonChatPrompt(prompt) || prompt, { requestedMode: 'RAG' });
   };
 
   const handleUnderstandingCheckAnswer = async (answerMessage, selectedKey, attempt = {}) => {
@@ -280,6 +286,8 @@ export function useStudentChatTabController({
   return {
     chatInput,
     setChatInput,
+    chatMode,
+    setChatMode,
     editingSessionId,
     editingSessionTitle,
     setEditingSessionId,

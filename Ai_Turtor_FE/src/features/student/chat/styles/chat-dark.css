@@ -466,6 +466,10 @@
   border: 1px solid rgba(255,255,255,0.1) !important;
 }
 
+.app-container.dark .chat-composer-mode-row label {
+  color: #a3a3a3;
+}
+
 .app-container.dark .chat-gpt-input-wrapper textarea {
   color: #ececec !important;
 }

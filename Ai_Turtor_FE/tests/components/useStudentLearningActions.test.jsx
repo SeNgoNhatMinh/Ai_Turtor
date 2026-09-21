@@ -36,4 +36,25 @@ describe('useStudentLearningActions', () => {
     expect(sendChatMessage.mock.calls[0][0]).toContain('Ôn lại class và object');
     expect(sendChatMessage.mock.calls[0][0]).not.toContain('[object Object]');
   });
+
+  it('keeps document provenance when a student opens a source-backed study tip', () => {
+    const sendChatMessage = vi.fn();
+    const { result } = renderHook(() => useStudentLearningActions({ sendChatMessage }));
+
+    act(() => result.current.handleStudySuggestion({
+      text: 'Đọc lại ví dụ brontosaurus để thấy lợi ích của get',
+      interactionType: 'SOURCE_BACKED_STUDY_TIP',
+      sourceMaterialIds: ['pythonlearn'],
+      sourceChunkIds: ['pythonlearn-section-9-chunk-2'],
+    }));
+
+    expect(sendChatMessage).toHaveBeenCalledWith(
+      expect.stringContaining('brontosaurus'),
+      expect.objectContaining({
+        interactionType: 'SOURCE_BACKED_STUDY_TIP',
+        sourceMaterialIds: ['pythonlearn'],
+        sourceChunkIds: ['pythonlearn-section-9-chunk-2'],
+      }),
+    );
+  });
 });

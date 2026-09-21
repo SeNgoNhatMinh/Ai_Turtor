@@ -32,6 +32,8 @@ function StudentChatView({
   messages,
   chatInput,
   setChatInput,
+  chatMode,
+  setChatMode,
   onSendQuery,
   onResendMessage,
   onStopQuery,
@@ -139,6 +141,8 @@ function StudentChatView({
             messages={messages}
             chatInput={chatInput}
             setChatInput={setChatInput}
+            chatMode={chatMode}
+            setChatMode={setChatMode}
             onSendQuery={onSendQuery}
             onResendMessage={onResendMessage}
             onStopQuery={onStopQuery}

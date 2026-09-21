@@ -32,6 +32,8 @@ function ChatWorkspace({
   messages,
   chatInput,
   setChatInput,
+  chatMode,
+  setChatMode,
   onSendQuery,
   onResendMessage,
   onStopQuery,
@@ -265,10 +267,12 @@ function ChatWorkspace({
         canChat={canChatWithCurrentContext}
         chatContextMessage={chatContextMessage}
         chatInput={chatInput}
+        chatMode={chatMode}
         isAiLoading={isAiLoading}
         onSend={onSendQuery}
         onStop={onStopQuery}
         setChatInput={setChatInput}
+        setChatMode={setChatMode}
         triggerToast={triggerToast}
       />
     </div>

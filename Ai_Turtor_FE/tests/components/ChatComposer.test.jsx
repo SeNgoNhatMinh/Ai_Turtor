@@ -31,16 +31,19 @@ class MockSpeechRecognition {
 
 function ComposerHarness({ onSend = vi.fn(), triggerToast = vi.fn() }) {
   const [value, setValue] = useState('Nội dung cũ');
+  const [mode, setMode] = useState('RAG');
   return (
     <ChatComposer
       activeSessionMaxTurnsReached={false}
       canChat
       chatContextMessage=""
       chatInput={value}
+      chatMode={mode}
       isAiLoading={false}
       onSend={onSend}
       onStop={vi.fn()}
       setChatInput={setValue}
+      setChatMode={setMode}
       triggerToast={triggerToast}
     />
   );
@@ -74,6 +77,18 @@ describe('ChatComposer speech input', () => {
     expect(screen.getByRole('button', { name: 'Trình duyệt không hỗ trợ nhập bằng giọng nói' }))
       .toBeDisabled();
     expect(screen.getByRole('textbox', { name: 'Câu hỏi cho AI Tutor' })).toBeEnabled();
+  });
+
+  it('switches support mode directly above the chat input', () => {
+    render(<ComposerHarness />);
+
+    const modeSelect = screen.getByRole('combobox', { name: 'Chọn chế độ hỗ trợ' });
+    const chatInput = screen.getByRole('textbox', { name: 'Câu hỏi cho AI Tutor' });
+    expect(modeSelect.compareDocumentPosition(chatInput) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    fireEvent.mouseDown(modeSelect);
+    fireEvent.click(screen.getByText('Hỗ trợ về code'));
+    expect(modeSelect.closest('.ant-select')).toHaveTextContent('Hỗ trợ về code');
   });
 });
 

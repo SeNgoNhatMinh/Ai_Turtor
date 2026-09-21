@@ -118,4 +118,22 @@ class PromptLeakFilterTest {
         assertTrue(cleaned.contains("OOP gom dữ liệu"));
         assertTrue(cleaned.contains("Ôn encapsulation"));
     }
+
+    @Test
+    void stripsInternalSourceFieldNarrationButKeepsMachineSourceIds() {
+        String raw = """
+                ## Theo tài liệu môn học
+                Từ điển có phương thức get để trả về giá trị mặc định.
+                Không có nguồn tài liệu được cung cấp (materialId hoặc approvedKnowledgeId).
+
+                ## Nguồn tài liệu đã dùng
+                - materialId=pythonlearn
+                """;
+
+        String cleaned = PromptLeakFilter.strip(raw);
+
+        assertTrue(cleaned.contains("phương thức get"));
+        assertFalse(cleaned.contains("Không có nguồn"));
+        assertTrue(cleaned.contains("materialId=pythonlearn"));
+    }
 }

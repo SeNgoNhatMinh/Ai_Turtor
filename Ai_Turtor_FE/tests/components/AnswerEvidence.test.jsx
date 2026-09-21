@@ -114,6 +114,44 @@ describe('AnswerEvidence', () => {
     expect(screen.queryByText(/mức độ phù hợp với tài liệu/i)).not.toBeInTheDocument();
   });
 
+  it('labels confidence as retrieval-source matching rather than answer confidence', () => {
+    render(
+      <AnswerEvidence
+        message={{
+          mode: 'RAG',
+          groundingType: 'COURSE_MATERIAL',
+          confidence: 0.72,
+          sources: ['material-1'],
+          sourceEvidence: [],
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /xem nguồn tài liệu/i }));
+    expect(screen.getByText('Độ khớp của nguồn với câu hỏi: 72%')).toBeVisible();
+  });
+
+  it('hides stale confidence and evidence when a stored answer says material is insufficient', () => {
+    render(
+      <AnswerEvidence
+        message={{
+          answer: 'Material không đủ để trả lời câu hỏi.',
+          mode: 'RAG',
+          groundingType: 'COURSE_MATERIAL_WITH_APPROVED_KNOWLEDGE',
+          confidence: 0.72,
+          sources: ['material-1'],
+          sourceEvidence: [{
+            materialTitle: 'Senior-approved knowledge',
+            excerpt: 'Fibonacci recursion repeats the same calculations and has poor performance.',
+          }],
+        }}
+      />,
+    );
+
+    expect(screen.queryByRole('button', { name: /bằng chứng|nguồn tài liệu/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/72%/)).not.toBeInTheDocument();
+  });
+
   it('does not present a truncated context tail as academic evidence', () => {
     render(
       <AnswerEvidence
@@ -134,6 +172,55 @@ describe('AnswerEvidence', () => {
 
     expect(screen.queryByRole('button', { name: /bằng chứng|nguồn tài liệu/i })).not.toBeInTheDocument();
     expect(screen.queryByText('clas')).not.toBeInTheDocument();
+  });
+
+  it('does not present an estimated page as an exact citation', () => {
+    render(
+      <AnswerEvidence
+        message={{
+          mode: 'RAG',
+          groundingType: 'COURSE_MATERIAL',
+          sourceEvidence: [{
+            courseId: 'PFP191',
+            materialTitle: 'Main Material VN',
+            pageStart: 16,
+            pageEstimated: true,
+            excerpt: 'Nếu điều gì đó có vẻ đặc biệt khó khăn thì hãy nghỉ ngơi và quay lại với cái nhìn mới mẻ.',
+          }],
+        }}
+      />,
+    );
+
+    expect(screen.queryByText(/Main Material VN · Trang 16/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /bằng chứng tài liệu/i }));
+    expect(screen.getByText('Chưa đối chiếu được với trang PDF gốc')).toBeVisible();
+    expect(screen.queryByText(/Vị trí chính xác:\s*Trang PDF 16/)).not.toBeInTheDocument();
+  });
+
+  it('shows an exact page only after the excerpt was matched against the original PDF', () => {
+    render(
+      <AnswerEvidence
+        message={{
+          mode: 'RAG',
+          groundingType: 'COURSE_MATERIAL',
+          sourceEvidence: [{
+            courseId: 'PFP191',
+            materialTitle: 'Main Material VN',
+            chapter: 'Dictionaries',
+            pageStart: 112,
+            pageEnd: 112,
+            pageEstimated: false,
+            excerpt: 'Dictionaries have a method called get that takes a key and a default value.',
+          }],
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /bằng chứng tài liệu/i }));
+    expect(screen.getByText((_, element) => (
+      element?.tagName === 'SPAN'
+      && element.textContent.includes('Vị trí chính xác: Trang PDF 112 · Dictionaries')
+    ))).toBeVisible();
   });
 
   it('shows evidence material titles as plain text even when a material id exists', () => {

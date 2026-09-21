@@ -5,6 +5,8 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -19,6 +21,10 @@ public class AiQueryRequest {
 
     @Schema(description = "Optional code snippet or error log. When present, intent classifier may route to CODE mode.")
     private String codeSnippet;
+
+    @Schema(description = "Student-selected answer mode. RAG uses only the current course material; CODE uses Code Mentor.",
+            allowableValues = {"RAG", "CODE"}, example = "RAG")
+    private String requestedMode;
 
     @Schema(description = "Course ID for course-scoped RAG search", example = "PRJ301")
     private String courseId;
@@ -37,6 +43,15 @@ public class AiQueryRequest {
 
     @Schema(description = "Display label of the clicked suggestion")
     private String clickedSuggestion;
+
+    @Schema(description = "Interaction initiated from a source-backed study tip")
+    private String interactionType;
+
+    @Schema(description = "Material IDs from the answer that produced the clicked study tip")
+    private List<String> sourceMaterialIds;
+
+    @Schema(description = "Exact chunk IDs from the answer that produced the clicked study tip")
+    private List<String> sourceChunkIds;
 
     @Schema(description = "Active proactive tutor session ID")
     private String tutorSessionId;

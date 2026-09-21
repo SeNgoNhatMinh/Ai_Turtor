@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { SendOutlined, StopOutlined } from '@ant-design/icons';
+import { Select } from 'antd';
 import { Mic, MicOff } from 'lucide-react';
 import { LIMITS, validateChatInput } from '../../../../utils/validators';
 import { uiCopy } from '../../../../constants/uiCopy';
@@ -11,10 +12,12 @@ function ChatComposer({
   canChat,
   chatContextMessage,
   chatInput,
+  chatMode = 'RAG',
   isAiLoading,
   onSend,
   onStop,
   setChatInput,
+  setChatMode,
   triggerToast,
 }) {
   const textareaRef = useRef(null);
@@ -97,6 +100,20 @@ function ChatComposer({
   return (
     <div className="chat-workspace-input-area">
       <div className="chat-workspace-input-inner">
+        <div className="chat-composer-mode-row">
+          <label htmlFor="chat-composer-mode-select">Chế độ hỗ trợ</label>
+          <Select
+            id="chat-composer-mode-select"
+            className="chat-composer-mode-select"
+            value={chatMode}
+            onChange={setChatMode}
+            aria-label="Chọn chế độ hỗ trợ"
+            options={[
+              { value: 'RAG', label: 'Hỗ trợ theo tài liệu môn học' },
+              { value: 'CODE', label: 'Hỗ trợ về code' },
+            ]}
+          />
+        </div>
         <div className="chat-gpt-input-wrapper">
           <textarea
             ref={textareaRef}

@@ -22,12 +22,24 @@ export function useStudentLearningActions({
     if (!text) return;
 
     const prompt = buildStudySuggestionPrompt(text, suggestion);
-    const requestContext = suggestion?.improvePlanId && suggestion?.planItemId
+    const hasImprovePlanProvenance = suggestion?.improvePlanId && suggestion?.planItemId;
+    const sourceMaterialIds = Array.isArray(suggestion?.sourceMaterialIds)
+      ? suggestion.sourceMaterialIds.filter(Boolean)
+      : [];
+    const sourceChunkIds = Array.isArray(suggestion?.sourceChunkIds)
+      ? suggestion.sourceChunkIds.filter(Boolean)
+      : [];
+    const hasSourceProvenance = sourceMaterialIds.length > 0;
+    const requestContext = hasImprovePlanProvenance || hasSourceProvenance
       ? {
-        interactionType: 'IMPROVE_PLAN_REVIEW',
+        interactionType: hasImprovePlanProvenance
+          ? 'IMPROVE_PLAN_REVIEW'
+          : (suggestion?.interactionType || 'SOURCE_BACKED_STUDY_TIP'),
         displayQuestion: text,
-        improvePlanId: suggestion.improvePlanId,
-        planItemId: suggestion.planItemId,
+        improvePlanId: suggestion?.improvePlanId || '',
+        planItemId: suggestion?.planItemId || '',
+        sourceMaterialIds,
+        sourceChunkIds,
         clickedSuggestion: text,
       }
       : {};

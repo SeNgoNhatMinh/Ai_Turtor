@@ -1,6 +1,8 @@
 package com.ragapi.util;
 
 import java.util.LinkedHashSet;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.Locale;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -28,6 +30,18 @@ public final class GroundedContentGuard {
             "(?iu)\\b(?:thực hành|bài tập|ôn tập|luyện tập|hãy thử|lưu ý|"
                     + "practice|exercise|review|study tip|try to|remember to)\\b"
     );
+    private static final Pattern VIETNAMESE_TEXT = Pattern.compile(
+            "(?iu)[ăâđêôơưàáảãạằắẳẵặầấẩẫậèéẻẽẹềếểễệìíỉĩịòóỏõọồốổỗộờớởỡợùúủũụừứửữựỳýỷỹỵ]"
+    );
+    private static final Pattern STUDY_TIP_ITEM = Pattern.compile(
+            "^(\\s*(?:[-*+] |\\d+[.)]\\s+))(.*)$"
+    );
+    private static final Set<String> STUDY_TIP_STOP_WORDS = new HashSet<>(Arrays.asList(
+            "ban", "hay", "nen", "khi", "voi", "cua", "cho", "mot", "nhung", "cac", "nay",
+            "kia", "do", "de", "duoc", "trong", "ngoai", "sau", "truoc", "hon", "roi", "lai",
+            "va", "hoac", "neu", "thi", "ma", "rat", "giup", "tot", "hieu", "phan", "viec",
+            "the", "vao", "ra", "tu", "den", "theo", "qua", "can", "cam", "thay", "dang"
+    ));
 
     private GroundedContentGuard() {
     }
@@ -59,9 +73,56 @@ public final class GroundedContentGuard {
         String result = answer;
         if (!EXPLICIT_STUDY_ADVICE.matcher(context == null ? "" : context).find()) {
             result = dropSections(result, STUDY_TIPS_HEADING, false, context);
+        } else if (VIETNAMESE_TEXT.matcher(context == null ? "" : context).find()) {
+            result = keepOnlyLexicallyGroundedStudyTips(result, context);
         }
         result = dropSections(result, OPTIONAL_PEDAGOGY_HEADING, true, context);
         return result.replaceAll("\\n{3,}", "\n\n").trim();
+    }
+
+    private static String keepOnlyLexicallyGroundedStudyTips(String answer, String context) {
+        String result = answer;
+        int searchFrom = 0;
+        while (true) {
+            if (searchFrom > result.length()) return result;
+            Matcher heading = STUDY_TIPS_HEADING.matcher(result);
+            if (!heading.find(searchFrom)) return result;
+            int bodyStart = heading.end();
+            Matcher next = HEADING.matcher(result.substring(bodyStart));
+            int end = next.find() ? bodyStart + next.start() : result.length();
+            String[] lines = result.substring(bodyStart, end).split("\\R", -1);
+            StringBuilder kept = new StringBuilder();
+            int keptItems = 0;
+            for (String line : lines) {
+                Matcher item = STUDY_TIP_ITEM.matcher(line);
+                if (!item.matches()) continue;
+                if (isLexicallyGrounded(item.group(2), context)) {
+                    kept.append('\n').append(item.group(1)).append(item.group(2).trim());
+                    keptItems++;
+                }
+            }
+            if (keptItems == 0) {
+                result = result.substring(0, heading.start()) + result.substring(end);
+                searchFrom = Math.max(0, heading.start());
+            } else {
+                String replacement = result.substring(heading.start(), heading.end()) + kept + "\n";
+                result = result.substring(0, heading.start()) + replacement + result.substring(end);
+                searchFrom = heading.start() + replacement.length();
+            }
+            result = result.replaceAll("\\n{3,}", "\n\n").trim();
+        }
+    }
+
+    private static boolean isLexicallyGrounded(String tip, String context) {
+        String normalizedContext = TextSanitizer.normalizeAccentInsensitive(context);
+        String normalizedTip = TextSanitizer.normalizeAccentInsensitive(tip);
+        for (String token : normalizedTip.split("\\s+")) {
+            if (token.length() < 3 || STUDY_TIP_STOP_WORDS.contains(token) || token.chars().allMatch(Character::isDigit)) {
+                continue;
+            }
+            if (!containsWholeToken(normalizedContext, token)) return false;
+        }
+        return true;
     }
 
     private static String dropSections(

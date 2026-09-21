@@ -1,6 +1,8 @@
 package com.ragapi.service;
 
 import com.ragapi.dto.CourseRagAnswer;
+import com.ragapi.dto.RagQueryIntent;
+import com.ragapi.entity.CourseMaterial;
 import com.ragapi.repository.CourseMaterialRepository;
 import com.ragapi.repository.CourseRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -18,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
@@ -40,6 +43,7 @@ class CourseRagServiceTextbookTest {
     @Mock RagContextBudgetService contextBudgetService;
     @Mock ApprovedKnowledgeRetrievalService approvedKnowledgeRetrievalService;
     @Mock ChapterOutlineService chapterOutlineService;
+    @Mock PdfEvidenceLocatorService pdfEvidenceLocatorService;
     private final ParentChildRetrievalService parentChildRetrievalService =
             new ParentChildRetrievalService(new CourseMaterialChunkingService());
 
@@ -61,7 +65,8 @@ class CourseRagServiceTextbookTest {
                 approvedKnowledgeRetrievalService,
                 parentChildRetrievalService,
                 new CourseMaterialChunkingService(),
-                chapterOutlineService
+                chapterOutlineService,
+                pdfEvidenceLocatorService
         );
     }
 
@@ -98,6 +103,38 @@ class CourseRagServiceTextbookTest {
     }
 
     @Test
+    void generatedInsufficientMaterialAnswerDoesNotKeepRetrievalConfidenceOrEvidence() throws Exception {
+        ElasticVectorService.SearchChunk textbookChunk = new ElasticVectorService.SearchChunk(
+                "So sánh hai phương pháp dùng dictionary: get và if/in.",
+                0.95,
+                "material-1",
+                "PFP191",
+                null,
+                "teacher-1",
+                "COURSE_SHARED"
+        );
+        when(retrievalQueryTranslationService.expandForRetrieval(anyString(), eq("PFP191"), any(Boolean.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(vectorService.searchTextbookWithScores(anyString(), eq("PFP191"), isNull()))
+                .thenReturn(List.of(textbookChunk));
+        when(rerankService.rerank(anyString(), any())).thenAnswer(invocation -> invocation.getArgument(1));
+        when(contextBudgetService.applyBudget(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(materialRepository.findAllById(any())).thenReturn(List.of());
+        when(chatService.generate(anyString(), eq("So sánh hai phương pháp")))
+                .thenReturn("Material không đủ để trả lời câu hỏi.");
+
+        CourseRagAnswer answer = service.askWithConfidenceFromTextbook(
+                "So sánh hai phương pháp", "PFP191", null);
+
+        assertEquals(0.0, answer.getConfidence());
+        assertEquals("NONE", answer.getGroundingType());
+        assertTrue(answer.getSources().isEmpty());
+        assertTrue(answer.getSourceEvidence().isEmpty());
+        assertTrue(answer.getEscalationRecommended());
+        assertTrue(answer.getAnswer().contains("chưa đủ nội dung"));
+    }
+
+    @Test
     void studentAskRetrievesTextbooksFirstAndNeverUsesUnfilteredSearch() throws Exception {
         ElasticVectorService.SearchChunk textbookChunk = new ElasticVectorService.SearchChunk(
                 "Java EE builds on Java SE and adds enterprise APIs.",
@@ -120,7 +157,6 @@ class CourseRagServiceTextbookTest {
         when(rerankService.rerank(anyString(), any())).thenAnswer(invocation -> invocation.getArgument(1));
         when(contextBudgetService.applyBudget(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(materialRepository.findAllById(any())).thenReturn(List.of());
-        when(courseRepository.findByCourseId("PRJ301")).thenReturn(Optional.empty());
         when(answerCacheService.lookupExactRagAnswer(eq("PRJ301"), isNull(), anyString())).thenReturn(Optional.empty());
         when(answerCacheService.lookupEarlySemanticRagAnswer(eq("PRJ301"), isNull(), anyString())).thenReturn(Optional.empty());
         when(answerCacheService.lookupSemanticRagAnswer(eq("PRJ301"), isNull(), anyString(), any(Double.class), any()))
@@ -209,7 +245,6 @@ class CourseRagServiceTextbookTest {
         when(rerankService.rerank(anyString(), any())).thenAnswer(invocation -> invocation.getArgument(1));
         when(contextBudgetService.applyBudget(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(materialRepository.findAllById(any())).thenReturn(List.of());
-        when(courseRepository.findByCourseId("PFP191")).thenReturn(Optional.empty());
 
         CourseRagAnswer answer = service.askWithConfidence(question, "PFP191", null);
 
@@ -253,7 +288,13 @@ class CourseRagServiceTextbookTest {
                 .thenReturn(List.of());
         when(rerankService.rerank(eq(question), any())).thenAnswer(invocation -> invocation.getArgument(1));
         when(contextBudgetService.applyBudget(any())).thenAnswer(invocation -> invocation.getArgument(0));
-        when(materialRepository.findAllById(any())).thenReturn(List.of());
+        CourseMaterial material = new CourseMaterial();
+        material.setId("textbook");
+        material.setTitle("Computer Architecture");
+        material.setCourseId("CEA201");
+        material.setSourceType("PDF");
+        material.setContent(vectorChunk.content() + "\n\n" + lexicalChunk.content());
+        when(materialRepository.findAllById(any())).thenReturn(List.of(material));
         when(courseRepository.findByCourseId("CEA201")).thenReturn(Optional.empty());
         when(answerCacheService.lookupExactRagAnswer("CEA201", null, question)).thenReturn(Optional.empty());
         when(answerCacheService.lookupEarlySemanticRagAnswer("CEA201", null, question)).thenReturn(Optional.empty());
@@ -261,12 +302,19 @@ class CourseRagServiceTextbookTest {
                 .thenReturn(Optional.empty());
         when(chatService.generate(anyString(), eq(question)))
                 .thenReturn("Write-through updates cache and main memory on each write.");
+        when(pdfEvidenceLocatorService.locate(eq(material), contains("Write-through")))
+                .thenReturn(new PdfEvidenceLocatorService.PageLocation(42, 42));
 
-        service.askWithConfidence(question, "CEA201", null);
+        CourseRagAnswer answer = service.askWithConfidence(question, "CEA201", null);
 
         ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
         verify(chatService).generate(promptCaptor.capture(), eq(question));
         assertTrue(promptCaptor.getValue().contains(lexicalChunk.content()));
+        assertEquals(1, answer.getSourceEvidence().size());
+        assertTrue(answer.getSourceEvidence().get(0).getExcerpt().contains("Write-through"));
+        assertFalse(answer.getSourceEvidence().get(0).getExcerpt().contains("cluster middleware"));
+        assertEquals(42, answer.getSourceEvidence().get(0).getPageStart());
+        assertFalse(answer.getSourceEvidence().get(0).getPageEstimated());
     }
 
     @Test
@@ -317,6 +365,77 @@ class CourseRagServiceTextbookTest {
         assertTrue(promptCaptor.getValue().contains(specChunk.content()));
         verify(vectorService).searchTextbookWithScores(eq(retrievalFocus), eq("PRJ301"), isNull());
         verify(fallbackSearchService).searchTextbook(eq(retrievalFocus), eq("PRJ301"), isNull(), eq(8));
+        verifyNoInteractions(answerCacheService, cacheHitAuditService);
+    }
+
+    @Test
+    void sourceBackedStudyTipPinsTheOriginalBrontosaurusChunk() throws Exception {
+        String question = "Ôn tập phần \"Đọc lại ví dụ brontosaurus để thấy lợi ích của get\"";
+        CourseMaterial material = new CourseMaterial();
+        material.setId("pythonlearn");
+        material.setTitle("Main Material VN");
+        material.setCourseId("PFP191");
+        material.setMaterialScope("COURSE_SHARED");
+        material.setSourceType("PDF");
+        material.setContent("""
+                CHAPTER 1 INTRODUCTION
+                This opening chapter explains how programs are executed and contains unrelated material.
+
+                CHAPTER 9 DICTIONARIES
+                Dictionaries have a method called get that takes a key and a default value.
+                We can use get to write the histogram loop more concisely.
+                word = 'brontosaurus'
+                d = dict()
+                for c in word:
+                    d[c] = d.get(c, 0) + 1
+                print(d)
+                The get method handles a missing key by returning the supplied default value.
+                """);
+        CourseMaterialChunkingService chunker = new CourseMaterialChunkingService();
+        String sourceChunkId = chunker.chunkHierarchically(material).stream()
+                .filter(chunk -> chunk.content().contains("brontosaurus"))
+                .findFirst()
+                .orElseThrow()
+                .chunkId();
+        RagQueryIntent sourceIntent = RagQueryIntent.builder()
+                .learningObjective("brontosaurus get")
+                .retrievalQuery("brontosaurus get")
+                .retrievalTerms(List.of("brontosaurus", "get"))
+                .teachingMode("EXPLAIN_CONCEPT")
+                .sourceMaterialIds(List.of("pythonlearn"))
+                .sourceChunkIds(List.of(sourceChunkId))
+                .sourceTerms(List.of("brontosaurus", "get"))
+                .build();
+
+        when(retrievalQueryTranslationService.expandForRetrieval("brontosaurus get", "PFP191", false))
+                .thenReturn("brontosaurus get");
+        when(vectorService.searchTextbookWithScores("brontosaurus get", "PFP191", null))
+                .thenReturn(List.of());
+        when(vectorService.searchTextbookKeywordWithScores("brontosaurus get", "PFP191", null, 12))
+                .thenReturn(List.of());
+        when(fallbackSearchService.searchTextbook("brontosaurus get", "PFP191", null, 8))
+                .thenReturn(List.of());
+        when(vectorService.searchGoldQaTeachingNotesWithScores("brontosaurus get", "PFP191", null, 2))
+                .thenReturn(List.of());
+        when(approvedKnowledgeRetrievalService.retrieveRelevant("brontosaurus get", "PFP191", null))
+                .thenReturn(List.of());
+        when(materialRepository.findAllById(any())).thenReturn(List.of(material));
+        when(rerankService.rerank(eq("brontosaurus get"), any()))
+                .thenAnswer(invocation -> invocation.getArgument(1));
+        when(contextBudgetService.applyBudget(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(courseRepository.findByCourseId("PFP191")).thenReturn(Optional.empty());
+        when(chatService.generate(anyString(), eq(question)))
+                .thenReturn("get(key, 0) trả về 0 khi ký tự chưa có trong từ điển.");
+
+        CourseRagAnswer answer = service.askWithImprovePlanContext(
+                question, "PFP191", null, "", "", sourceIntent);
+
+        ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
+        verify(chatService).generate(promptCaptor.capture(), eq(question));
+        assertTrue(promptCaptor.getValue().contains("word = 'brontosaurus'"));
+        assertTrue(promptCaptor.getValue().contains("d.get(c, 0) + 1"));
+        assertTrue(answer.getSourceEvidence().stream()
+                .anyMatch(evidence -> sourceChunkId.equals(evidence.getChunkId())));
         verifyNoInteractions(answerCacheService, cacheHitAuditService);
     }
 }

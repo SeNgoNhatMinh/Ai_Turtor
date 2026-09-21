@@ -47,11 +47,16 @@ public final class StudentFacingMessages {
         String normalized = normalize(value);
         boolean mentionsMaterial = normalized.contains("tai lieu")
                 || normalized.contains("course material")
+                || normalized.startsWith("material ")
+                || normalized.contains(" material ")
                 || normalized.contains("materialid");
         boolean saysMissing = normalized.contains("khong de cap")
                 || normalized.contains("khong nhac")
+                || normalized.contains("khong du")
                 || normalized.contains("does not mention")
-                || normalized.contains("not mentioned");
+                || normalized.contains("not mentioned")
+                || normalized.contains("not enough")
+                || normalized.contains("insufficient");
         return mentionsMaterial && saysMissing;
     }
 

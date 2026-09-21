@@ -117,6 +117,7 @@ export function useStudentChatController({
 
   const handleSendQuery = async (chatInput, codeSnippet, setAvatarEmotion, requestContext = {}) => {
     const text = chatInput.trim();
+    const requestedMode = requestContext.requestedMode === 'CODE' ? 'CODE' : 'RAG';
     const userId = getStudentUserId();
     if (!userId) {
       triggerToast('Vui lòng đăng nhập trước khi gửi tin nhắn.');
@@ -149,6 +150,7 @@ export function useStudentChatController({
       requestId,
       interactionType: requestContext.interactionType || '',
       displayQuestion: requestContext.displayQuestion || '',
+      requestedMode,
     }]);
 
     try {
@@ -160,7 +162,21 @@ export function useStudentChatController({
           clickedSuggestion: requestContext.clickedSuggestion || requestContext.displayQuestion || text,
         }
         : {};
-      if (N8N_ENABLED) {
+      const sourceProvenancePayload = Array.isArray(requestContext.sourceMaterialIds)
+        && requestContext.sourceMaterialIds.length > 0
+        ? {
+          interactionType: requestContext.interactionType || 'SOURCE_BACKED_STUDY_TIP',
+          sourceMaterialIds: requestContext.sourceMaterialIds,
+          sourceChunkIds: Array.isArray(requestContext.sourceChunkIds)
+            ? requestContext.sourceChunkIds
+            : [],
+          clickedSuggestion: requestContext.clickedSuggestion || requestContext.displayQuestion || text,
+        }
+        : {};
+      const requiresDirectBackendRoute = Object.keys(improvePlanPayload).length > 0
+        || Object.keys(sourceProvenancePayload).length > 0
+        || Boolean(requestedMode);
+      if (N8N_ENABLED && !requiresDirectBackendRoute) {
         try {
           data = await n8nService.sendStudentChat({
             studentId: userId,
@@ -201,12 +217,14 @@ export function useStudentChatController({
               question: text,
               message: text,
               codeSnippet: codeSnippet || null,
+              requestedMode,
               courseId,
               classId,
               conversationId: previousSessionId || null,
               tutorSessionId: activeTutorSession?.id || null,
               sessionPhase: activeTutorSession?.phase || 'TEACH',
               ...improvePlanPayload,
+              ...sourceProvenancePayload,
             }, userId, currentUser?.fullName || '', currentUser?.email || '', {
               signal: requestController.signal,
             });
@@ -217,12 +235,14 @@ export function useStudentChatController({
           question: text,
           message: text,
           codeSnippet: codeSnippet || null,
+          requestedMode,
           courseId,
           classId,
           conversationId: previousSessionId || null,
           tutorSessionId: activeTutorSession?.id || null,
           sessionPhase: activeTutorSession?.phase || 'TEACH',
           ...improvePlanPayload,
+          ...sourceProvenancePayload,
         }, userId, currentUser?.fullName || '', currentUser?.email || '', {
           signal: requestController.signal,
         });
@@ -348,6 +368,7 @@ export function useStudentChatController({
           question: text,
           interactionType: requestContext.interactionType || '',
           displayQuestion: requestContext.displayQuestion || '',
+          requestedMode,
           answer: answerText,
           rawAnswer: answerText,
           understandingCheck: data.understandingCheck || null,
