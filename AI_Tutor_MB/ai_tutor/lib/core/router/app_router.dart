@@ -137,8 +137,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/chat/:chatRoomId',
-        builder: (_, state) =>
-            LiveChatScreen(chatRoomId: state.pathParameters['chatRoomId']!),
+        builder: (_, state) => LiveChatScreen(
+          chatRoomId: state.pathParameters['chatRoomId']!,
+          mentorId: state.uri.queryParameters['mentorId'],
+          initialMentorOnline:
+              switch (state.uri.queryParameters['mentorOnline']) {
+                'true' => true,
+                'false' => false,
+                _ => null,
+              },
+        ),
       ),
       GoRoute(
         path: AppRoutes.notifications,

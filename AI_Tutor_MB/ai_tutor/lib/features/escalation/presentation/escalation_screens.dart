@@ -24,9 +24,16 @@ import '../application/escalation_controller.dart';
 import '../data/mentor_support.dart';
 
 class LiveChatScreen extends HookConsumerWidget {
-  const LiveChatScreen({super.key, required this.chatRoomId});
+  const LiveChatScreen({
+    super.key,
+    required this.chatRoomId,
+    this.mentorId,
+    this.initialMentorOnline,
+  });
 
   final String chatRoomId;
+  final String? mentorId;
+  final bool? initialMentorOnline;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -35,7 +42,12 @@ class LiveChatScreen extends HookConsumerWidget {
     final contextExpanded = useState(false);
     final sending = useState(false);
     final scrollController = useScrollController();
-    final chat = ref.watch(liveChatControllerProvider(chatRoomId));
+    final chatRequest = (
+      chatRoomId: chatRoomId,
+      mentorId: mentorId,
+      mentorOnline: initialMentorOnline,
+    );
+    final chat = ref.watch(liveChatControllerProvider(chatRequest));
     final session = ref.watch(authControllerProvider).valueOrNull;
 
     void leaveLiveChat() {
@@ -60,13 +72,13 @@ class LiveChatScreen extends HookConsumerWidget {
 
     useEffect(() {
       void onResume() {
-        ref.read(liveChatControllerProvider(chatRoomId).notifier).reload();
+        ref.read(liveChatControllerProvider(chatRequest).notifier).reload();
       }
 
       final observer = _LiveChatLifecycleObserver(onResume: onResume);
       WidgetsBinding.instance.addObserver(observer);
       return () => WidgetsBinding.instance.removeObserver(observer);
-    }, [chatRoomId]);
+    }, [chatRequest]);
 
     Future<void> handleSend() async {
       final text = messageController.text.trim();
@@ -75,7 +87,7 @@ class LiveChatScreen extends HookConsumerWidget {
       sending.value = true;
       try {
         await ref
-            .read(liveChatControllerProvider(chatRoomId).notifier)
+            .read(liveChatControllerProvider(chatRequest).notifier)
             .sendMessage(text);
       } catch (error) {
         if (context.mounted) {
@@ -99,15 +111,15 @@ class LiveChatScreen extends HookConsumerWidget {
           data: (data) => _LiveChatAppBar(
             mentorName: data.detail.mentorName ?? l10n.liveChatTitle,
             mentorAvatarUrl: data.detail.mentorAvatarUrl,
-            onlineLabel: data.socketConnected ? 'Trực tiếp' : 'Đang đồng bộ',
-            isLive: data.socketConnected,
+            onlineLabel: mentorPresenceLabel(data.mentorOnline),
+            isLive: data.mentorOnline == true,
             onBack: leaveLiveChat,
             onClose: data.detail.isReadOnly
                 ? null
                 : () => _showCloseSheet(
                     context,
                     ref,
-                    chatRoomId,
+                    chatRequest,
                     role: session?.role,
                   ),
           ),
@@ -123,7 +135,7 @@ class LiveChatScreen extends HookConsumerWidget {
           error: (error, _) => ErrorState(
             message: describeError(error),
             onRetry: () =>
-                ref.invalidate(liveChatControllerProvider(chatRoomId)),
+                ref.invalidate(liveChatControllerProvider(chatRequest)),
           ),
           data: (data) {
             final readOnly = data.detail.isReadOnly;
@@ -222,7 +234,7 @@ class LiveChatScreen extends HookConsumerWidget {
   Future<void> _showCloseSheet(
     BuildContext screenContext,
     WidgetRef ref,
-    String chatRoomId, {
+    LiveChatRequest chatRequest, {
     String? role,
   }) async {
     final l10n = AppLocalizations.of(screenContext)!;
@@ -279,7 +291,9 @@ class LiveChatScreen extends HookConsumerWidget {
                     expand: true,
                     onPressed: () async {
                       await ref
-                          .read(liveChatControllerProvider(chatRoomId).notifier)
+                          .read(
+                            liveChatControllerProvider(chatRequest).notifier,
+                          )
                           .closeRoom(
                             rating: rating,
                             feedback: feedbackController.text.trim().isEmpty
@@ -314,6 +328,14 @@ class _LiveChatLifecycleObserver with WidgetsBindingObserver {
       onResume();
     }
   }
+}
+
+String mentorPresenceLabel(bool? online) {
+  return switch (online) {
+    true => 'Online',
+    false => 'Offline',
+    null => 'Chưa rõ trạng thái',
+  };
 }
 
 class _LiveChatAppBar extends StatelessWidget implements PreferredSizeWidget {
@@ -386,7 +408,9 @@ class _LiveChatAppBar extends StatelessWidget implements PreferredSizeWidget {
                       width: 7,
                       height: 7,
                       decoration: BoxDecoration(
-                        color: isLive ? AppColors.leafGreen : AppColors.warning,
+                        color: isLive
+                            ? AppColors.leafGreen
+                            : AppColors.textTertiary,
                         shape: BoxShape.circle,
                       ),
                     ),

@@ -47,7 +47,19 @@ abstract final class AppRoutes {
       '/s/profile/improve/$courseId';
   static String escalationOffer(String escalationId) =>
       '/s/escalation/$escalationId/offer';
-  static String liveChat(String chatRoomId) => '/chat/$chatRoomId';
+  static String liveChat(
+    String chatRoomId, {
+    String? mentorId,
+    bool? mentorOnline,
+  }) {
+    return Uri(
+      path: '/chat/$chatRoomId',
+      queryParameters: {
+        if (mentorId != null && mentorId.isNotEmpty) 'mentorId': mentorId,
+        if (mentorOnline != null) 'mentorOnline': mentorOnline.toString(),
+      },
+    ).toString();
+  }
 
   static String teacherClassRoster(String courseId, String classId) =>
       '/t/classes/$courseId/$classId/students';

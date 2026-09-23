@@ -2117,6 +2117,7 @@ class ChatScreen extends HookConsumerWidget {
                               sources: message.sources,
                               sourceEvidence: message.sourceEvidence,
                               visualEvidence: message.visualEvidence,
+                              showSourceReferences: false,
                               escalated:
                                   message.escalated ||
                                   effectiveEscalationId != null,
@@ -2543,9 +2544,6 @@ class _ChatInputBarState extends ConsumerState<_ChatInputBar> {
       attachmentNames: List.unmodifiable(_attachments),
       codeController: _codeController,
       codeExpanded: _codeExpanded,
-      onToggleCode: () {
-        setState(() => _codeExpanded = !_codeExpanded);
-      },
       onMic: _toggleMic,
       onRemoveAttachment: (name) {
         setState(() => _attachments.remove(name));
@@ -2715,6 +2713,7 @@ class CodeMentorScreen extends HookConsumerWidget {
                     sources: answer.sources,
                     sourceEvidence: answer.sourceEvidence,
                     visualEvidence: answer.visualEvidence,
+                    showSourceReferences: false,
                   ),
                   if (answer.weakTopics.isNotEmpty) ...[
                     const Gap(Insets.md),

@@ -12,6 +12,34 @@ void main() {
     expect(AiChatAppBar.formatClassLabel(), isEmpty);
   });
 
+  testWidgets('shows the FPT brand with the question count underneath', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          appBar: AiChatAppBar(
+            courseCode: 'PRJ301',
+            classLabel: 'SE1833',
+            questionCount: 3,
+          ),
+        ),
+      ),
+    );
+
+    final brand = find.text(AiChatAppBar.brandName);
+    final questionCount = find.text('Câu hỏi 3/10');
+
+    expect(brand, findsOneWidget);
+    expect(questionCount, findsOneWidget);
+    expect(find.text('Cóc Vàng AI'), findsNothing);
+    expect(find.byType(Image), findsOneWidget);
+    expect(
+      tester.getTopLeft(questionCount).dy,
+      greaterThan(tester.getTopLeft(brand).dy),
+    );
+  });
+
   testWidgets('prompt starters expose the three web study prompts', (
     tester,
   ) async {
@@ -63,6 +91,7 @@ void main() {
     expect(find.byTooltip('Gửi'), findsNothing);
     expect(find.byTooltip('Thêm tệp'), findsNothing);
     expect(find.byTooltip('Nhập bằng giọng nói'), findsOneWidget);
+    expect(find.byTooltip('Dán mã nguồn'), findsNothing);
 
     await tester.tap(find.byTooltip('Nhập bằng giọng nói'));
     expect(micTapped, 1);

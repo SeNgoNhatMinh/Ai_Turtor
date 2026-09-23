@@ -254,13 +254,37 @@ List<StudyPathSuggestion> lessonSuggestionsForMessage({
   required String answer,
   List<String> apiSuggestionTitles = const [],
 }) {
+  final parsedLessons = parseLessonSuggestionsFromAnswer(answer);
   final fromApi = apiSuggestionTitles
       .map((title) => title.trim())
-      .where((title) => title.isNotEmpty)
+      .where(isActionableStudySuggestionText)
       .map((title) => StudyPathSuggestion(title: title, suggestionText: title))
       .toList();
   if (fromApi.isNotEmpty) return fromApi;
-  return parseLessonSuggestionsFromAnswer(answer);
+  return parsedLessons;
+}
+
+bool isActionableStudySuggestionText(String text) {
+  final topic = text.trim();
+  if (topic.isEmpty) return false;
+  final normalized = topic
+      .toLowerCase()
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .replaceAll(RegExp(r'[.!?]+$'), '')
+      .trim();
+  if (RegExp(
+    r'^(?:hãy\s+)?chọn\s+(?:bài|nội dung|mục)\s+này\s+để\s+ai\s*tutor\s+hướng\s+dẫn',
+    caseSensitive: false,
+  ).hasMatch(normalized)) {
+    return false;
+  }
+  if (RegExp(
+    r'^chọn\s+nội\s+dung\s+bạn\s+muốn\s+học\s+tiếp',
+    caseSensitive: false,
+  ).hasMatch(normalized)) {
+    return false;
+  }
+  return true;
 }
 
 /// Prompt "Học ngay" — khớp FE web `buildStudySuggestionPrompt`.

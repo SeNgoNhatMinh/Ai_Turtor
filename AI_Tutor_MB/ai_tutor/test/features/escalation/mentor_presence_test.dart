@@ -1,6 +1,9 @@
 import 'package:ai_tutor/core/network/realtime_event.dart';
+import 'package:ai_tutor/core/router/routes.dart';
 import 'package:ai_tutor/features/escalation/application/escalation_controller.dart';
+import 'package:ai_tutor/features/escalation/presentation/escalation_screens.dart';
 import 'package:ai_tutor/shared/models/escalation.dart';
+import 'package:ai_tutor/shared/models/live_chat.dart';
 import 'package:ai_tutor/shared/widgets/mentor_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -48,6 +51,29 @@ void main() {
       ),
       same(updated),
     );
+  });
+
+  test('keeps offline mentor status when opening live chat', () {
+    final route = Uri.parse(
+      AppRoutes.liveChat('room-1', mentorId: 'teacher-1', mentorOnline: false),
+    );
+
+    expect(route.path, '/chat/room-1');
+    expect(route.queryParameters['mentorId'], 'teacher-1');
+    expect(route.queryParameters['mentorOnline'], 'false');
+    expect(mentorPresenceLabel(false), 'Offline');
+    expect(mentorPresenceLabel(true), 'Online');
+    expect(mentorPresenceLabel(null), 'Chưa rõ trạng thái');
+  });
+
+  test('parses mentor id from chat detail for realtime presence matching', () {
+    final detail = ChatRoomDetail.fromJson({
+      'chatRoomId': 'room-1',
+      'status': 'ACTIVE',
+      'mentorId': 'teacher-1',
+    });
+
+    expect(detail.mentorId, 'teacher-1');
   });
 
   testWidgets('shows presence-aware mentor action and keeps card selectable', (

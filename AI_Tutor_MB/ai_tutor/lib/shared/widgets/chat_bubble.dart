@@ -54,6 +54,7 @@ class ChatBubble extends StatelessWidget {
     this.codeSnippet,
     this.revealMarkdown = false,
     this.onDownloadSource,
+    this.showSourceReferences = true,
   });
 
   final bool isUser;
@@ -74,21 +75,25 @@ class ChatBubble extends StatelessWidget {
   final String? codeSnippet;
   final bool revealMarkdown;
   final void Function(String materialId, String title)? onDownloadSource;
+  final bool showSourceReferences;
 
   @override
   Widget build(BuildContext context) {
     final insufficientMaterial = reportsInsufficientCourseMaterial(content);
-    final visibleSourceEvidence = insufficientMaterial
+    final visibleSourceEvidence = insufficientMaterial || !showSourceReferences
         ? const <RagSourceEvidence>[]
         : sourceEvidence;
-    final visibleSources = insufficientMaterial ? const <String>[] : sources;
+    final visibleSources = insufficientMaterial || !showSourceReferences
+        ? const <String>[]
+        : sources;
     final visibleLegacyVisuals = insufficientMaterial
         ? const <RagVisualEvidence>[]
         : visibleSourceEvidence.isNotEmpty
         ? const <RagVisualEvidence>[]
         : visualEvidence;
     final hasMaterialEvidence =
-        visibleSourceEvidence.isNotEmpty || visibleSources.isNotEmpty;
+        !insufficientMaterial &&
+        (sourceEvidence.isNotEmpty || sources.isNotEmpty);
     final radius = BorderRadius.only(
       topLeft: const Radius.circular(Radii.lg),
       topRight: const Radius.circular(Radii.lg),

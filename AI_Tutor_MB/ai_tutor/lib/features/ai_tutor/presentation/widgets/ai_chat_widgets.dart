@@ -230,6 +230,8 @@ class AiChatAppBar extends StatelessWidget implements PreferredSizeWidget {
   final int questionLimit;
   final bool maxTurnsReached;
 
+  static const brandName = 'University AI Tutor';
+
   static String formatClassLabel({String? className, String? classId}) {
     final name = className?.trim() ?? '';
     if (name.isNotEmpty) return name;
@@ -275,42 +277,56 @@ class AiChatAppBar extends StatelessWidget implements PreferredSizeWidget {
             const Gap(Insets.screenH),
           const Gap(Insets.sm),
           Expanded(
-            child: Text(
-              AppLocalizations.of(context)!.aiTutorName,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w800,
-                color: AppColors.splashNavy,
-                fontSize: 16,
-              ),
+            child: Row(
+              children: [
+                const FptLogo(height: 30, semanticLabel: 'Biểu trưng FPT'),
+                const Gap(Insets.sm),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        brandName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.splashNavy,
+                              fontSize: 15,
+                            ),
+                      ),
+                      if (questionCount != null) ...[
+                        const Gap(2),
+                        Tooltip(
+                          message: maxTurnsReached
+                              ? 'Bạn đã dùng hết $questionLimit câu hỏi hôm nay cho môn này'
+                              : 'Số câu hỏi hôm nay cho môn này',
+                          child: Text(
+                            'Câu hỏi $questionCount/$questionLimit',
+                            style: Theme.of(context).textTheme.labelMedium
+                                ?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  color:
+                                      maxTurnsReached ||
+                                          (questionCount ?? 0) >=
+                                              (questionLimit - 2)
+                                      ? AppColors.error
+                                      : AppColors.peacockBlue,
+                                ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
         ],
       ),
       actions: [
-        if (questionCount != null)
-          Padding(
-            padding: const EdgeInsets.only(right: Insets.xs),
-            child: Center(
-              child: Tooltip(
-                message: maxTurnsReached
-                    ? 'Bạn đã dùng hết $questionLimit câu hỏi hôm nay cho môn này'
-                    : 'Số câu hỏi hôm nay cho môn này',
-                child: Text(
-                  'Câu hỏi $questionCount/$questionLimit',
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color:
-                        maxTurnsReached ||
-                            (questionCount ?? 0) >= (questionLimit - 2)
-                        ? AppColors.error
-                        : AppColors.peacockBlue,
-                  ),
-                ),
-              ),
-            ),
-          ),
         if (searchTap != null)
           _ChatAppBarIconButton(
             tooltip: 'Tìm trong đoạn chat',

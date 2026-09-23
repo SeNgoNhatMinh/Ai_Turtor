@@ -68,8 +68,8 @@ class EscalationOfferScreen extends HookConsumerWidget {
                         onPressed: selecting.value
                             ? null
                             : () => context.push(
-                                  AppRoutes.liveChat(data.activeChatRoomId!),
-                                ),
+                                AppRoutes.liveChat(data.activeChatRoomId!),
+                              ),
                       ),
                     ],
                   ),
@@ -152,7 +152,13 @@ class EscalationOfferScreen extends HookConsumerWidget {
                                     );
                                     return;
                                   }
-                                  context.push(AppRoutes.liveChat(roomId));
+                                  context.push(
+                                    AppRoutes.liveChat(
+                                      roomId,
+                                      mentorId: mentor.id,
+                                      mentorOnline: mentor.online,
+                                    ),
+                                  );
                                 } catch (error) {
                                   if (context.mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(

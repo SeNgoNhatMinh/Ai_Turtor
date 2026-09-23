@@ -57,6 +57,44 @@ void main() {
     );
   });
 
+  test('replaces meaningless API action with clickable roadmap lessons', () {
+    final items = chatImproveSuggestionsForMessage(
+      answer: '''
+## Lộ trình học
+1. Bài 1: Tại sao nên học viết chương trình?
+2. Bài 2: Vai trò của máy tính như trợ lý cá nhân
+''',
+      apiSuggestions: [
+        ImproveSuggestionItem.fromLabel(
+          'Chọn bài này để AI Tutor hướng dẫn từng bước.',
+        ),
+      ],
+    );
+
+    expect(items.map((item) => item.title).toList(), [
+      'Bắt đầu bài 1: Tại sao nên học viết chương trình?',
+      'Bắt đầu bài 2: Vai trò của máy tính như trợ lý cá nhân',
+    ]);
+    expect(
+      buildStudySuggestionPrompt(items.first.effectiveText),
+      'Bắt đầu bài 1: Tại sao nên học viết chương trình?',
+    );
+  });
+
+  test('composer topics follow web priority for numbered lessons', () {
+    final topics = chatComposerTopicsForMessage(
+      answer: '1. Bài 1: Biến\n2. Bài 2: Vòng lặp',
+      apiSuggestions: [
+        ImproveSuggestionItem.fromLabel(
+          'Chọn bài này để AI Tutor hướng dẫn từng bước.',
+        ),
+      ],
+      sessionTopics: const ['Khái niệm chung'],
+    );
+
+    expect(topics, ['Bắt đầu bài 1: Biến', 'Bắt đầu bài 2: Vòng lặp']);
+  });
+
   test('Học ngay stays a chat prompt, not an improve-plan page', () {
     expect(
       buildStudySuggestionPrompt('Ôn IoC và DI'),
@@ -144,7 +182,9 @@ void main() {
     );
 
     expect(find.text('Ôn IoC và DI'), findsOneWidget);
-    final actions = tester.widgetList<TextButton>(find.byType(TextButton));
+    final actions = tester.widgetList<TextButton>(
+      find.byWidgetPredicate((widget) => widget is TextButton),
+    );
     expect(actions, hasLength(2));
     expect(actions.every((button) => button.onPressed == null), isTrue);
     expect(learned, isFalse);

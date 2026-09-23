@@ -98,4 +98,30 @@ void main() {
 
     expect(find.text('Độ khớp của nguồn với câu hỏi: 86%'), findsOneWidget);
   });
+
+  testWidgets('can hide source references while keeping confidence', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const ProviderScope(
+        child: MaterialApp(
+          home: Scaffold(
+            body: ChatBubble(
+              isUser: false,
+              content: 'Nội dung trả lời theo tài liệu.',
+              confidence: 0.45,
+              sources: ['materialId=material-1'],
+              showSourceReferences: false,
+              useMarkdown: false,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Độ khớp của nguồn với câu hỏi: 45%'), findsOneWidget);
+    expect(find.text('Nguồn tham khảo'), findsNothing);
+    expect(find.text('materialId=material-1'), findsNothing);
+  });
 }

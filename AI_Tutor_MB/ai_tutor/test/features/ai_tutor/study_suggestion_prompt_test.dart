@@ -97,6 +97,31 @@ Bạn muốn bắt đầu với bài nào? Gợi ý: **Bắt đầu bài 1: Gi�
     },
   );
 
+  test('prefers roadmap lessons over an instruction-only API suggestion', () {
+    final parsed = lessonSuggestionsForMessage(
+      answer: '''
+## Lộ trình học
+1. Bài 1: Tại sao nên học viết chương trình?
+2. Bài 2: Vai trò của máy tính như trợ lý cá nhân
+''',
+      apiSuggestionTitles: const [
+        'Chọn bài này để AI Tutor hướng dẫn từng bước.',
+      ],
+    );
+
+    expect(isActionableStudySuggestionText(parsed.first.title), isTrue);
+    expect(parsed.map((item) => item.title).toList(), [
+      'Bắt đầu bài 1: Tại sao nên học viết chương trình?',
+      'Bắt đầu bài 2: Vai trò của máy tính như trợ lý cá nhân',
+    ]);
+    expect(
+      isActionableStudySuggestionText(
+        'Chọn bài này để AI Tutor hướng dẫn từng bước.',
+      ),
+      isFalse,
+    );
+  });
+
   test('asks AI for deeper angles of the current numbered lesson', () {
     expect(
       buildDeepDiveListPrompt('Bắt đầu bài 3: Cache'),

@@ -99,6 +99,7 @@ class ImproveSuggestionsStrip extends StatelessWidget {
                   loading: loading,
                   learnLabel: l10n.learnNow,
                   onLearn: consumed || !enabled ? null : () => onLearn(item),
+                  showCreateQuiz: onCreateQuiz != null,
                   quizLabel: quizLabel,
                   onCreateQuiz: onCreateQuiz == null || consumed || !enabled
                       ? null
@@ -119,6 +120,7 @@ class _ContinueLearningRow extends StatelessWidget {
     required this.consumed,
     required this.loading,
     required this.learnLabel,
+    required this.showCreateQuiz,
     this.quizLabel = 'Ôn tập',
     this.onLearn,
     this.onCreateQuiz,
@@ -128,6 +130,7 @@ class _ContinueLearningRow extends StatelessWidget {
   final bool consumed;
   final bool loading;
   final String learnLabel;
+  final bool showCreateQuiz;
   final String quizLabel;
   final VoidCallback? onLearn;
   final VoidCallback? onCreateQuiz;
@@ -159,7 +162,7 @@ class _ContinueLearningRow extends StatelessWidget {
             spacing: Insets.xs,
             runSpacing: Insets.xs,
             children: [
-              if (onCreateQuiz != null)
+              if (showCreateQuiz)
                 _CompactActionButton(
                   label: quizLabel,
                   icon: LucideIcons.clipboardList,

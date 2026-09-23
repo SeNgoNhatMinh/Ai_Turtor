@@ -159,35 +159,52 @@ class LiveChatData {
     required this.detail,
     required this.messages,
     this.socketConnected = false,
+    this.mentorOnline,
   });
 
   final ChatRoomDetail detail;
   final List<LiveChatMessage> messages;
   final bool socketConnected;
+  final bool? mentorOnline;
 
   LiveChatData copyWith({
     ChatRoomDetail? detail,
     List<LiveChatMessage>? messages,
     bool? socketConnected,
+    bool? mentorOnline,
   }) {
     return LiveChatData(
       detail: detail ?? this.detail,
       messages: messages ?? this.messages,
       socketConnected: socketConnected ?? this.socketConnected,
+      mentorOnline: mentorOnline ?? this.mentorOnline,
     );
   }
 }
 
+typedef LiveChatRequest = ({
+  String chatRoomId,
+  String? mentorId,
+  bool? mentorOnline,
+});
+
 class LiveChatController
-    extends AutoDisposeFamilyAsyncNotifier<LiveChatData, String> {
+    extends AutoDisposeFamilyAsyncNotifier<LiveChatData, LiveChatRequest> {
   Timer? _poll;
   StreamSubscription<bool>? _wsConnectionSub;
   late String _roomId;
+  String? _mentorId;
+  bool? _mentorOnline;
   bool _wsConnected = false;
 
   @override
-  Future<LiveChatData> build(String chatRoomId) async {
-    _roomId = chatRoomId;
+  Future<LiveChatData> build(LiveChatRequest request) async {
+    _roomId = request.chatRoomId;
+    _mentorId = request.mentorId;
+    _mentorOnline = request.mentorOnline;
+    ref.listen(realtimeEventsProvider, (_, next) {
+      next.whenData(_onPresenceEvent);
+    });
     _setupWebSocket();
     _poll = Timer.periodic(const Duration(seconds: 15), (_) {
       if (!_wsConnected) {
@@ -202,13 +219,34 @@ class LiveChatController
   Future<LiveChatData> _loadRoom() async {
     final repo = ref.read(chatRepositoryProvider);
     final detail = await repo.fetchDetail(_roomId);
+    _mentorId ??= detail.mentorId;
     final messages = await repo.fetchHistory(chatRoomId: _roomId);
     await _markRead(_roomId);
     return LiveChatData(
       detail: detail,
       messages: messages,
       socketConnected: _wsConnected,
+      mentorOnline: _mentorOnline,
     );
+  }
+
+  void _onPresenceEvent(RealtimeEvent event) {
+    if (event.type.toUpperCase() != 'TEACHER_PRESENCE_CHANGED') return;
+    final teacherId = (event.data['teacherId'] ?? event.entityId)
+        ?.toString()
+        .trim();
+    if (teacherId == null || teacherId.isEmpty || teacherId != _mentorId) {
+      return;
+    }
+
+    final rawOnline = event.data['online'];
+    _mentorOnline = rawOnline is bool
+        ? rawOnline
+        : event.status?.toUpperCase() == 'ONLINE';
+    final current = state.valueOrNull;
+    if (current != null && current.mentorOnline != _mentorOnline) {
+      state = AsyncData(current.copyWith(mentorOnline: _mentorOnline));
+    }
   }
 
   void _setupWebSocket() {
@@ -254,6 +292,7 @@ class LiveChatController
         detail: current.detail,
         messages: merged,
         socketConnected: _wsConnected,
+        mentorOnline: current.mentorOnline,
       ),
     );
     _markRead(_roomId);
@@ -294,6 +333,7 @@ class LiveChatController
           detail: detail,
           messages: messages,
           socketConnected: _wsConnected,
+          mentorOnline: _mentorOnline,
         ),
       );
     } catch (_) {}
@@ -319,6 +359,7 @@ class LiveChatController
         detail: previous.detail,
         messages: [...previous.messages, optimistic],
         socketConnected: _wsConnected,
+        mentorOnline: previous.mentorOnline,
       ),
     );
 
@@ -372,7 +413,7 @@ final liveChatControllerProvider =
     AutoDisposeAsyncNotifierProviderFamily<
       LiveChatController,
       LiveChatData,
-      String
+      LiveChatRequest
     >(LiveChatController.new);
 
 final chatUnreadProvider = FutureProvider.autoDispose<int>((ref) async {

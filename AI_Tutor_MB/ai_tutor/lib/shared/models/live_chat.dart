@@ -4,6 +4,7 @@ class ChatRoomDetail {
   const ChatRoomDetail({
     required this.id,
     required this.status,
+    this.mentorId,
     this.mentorName,
     this.mentorAvatarUrl,
     this.originalQuestion,
@@ -13,6 +14,7 @@ class ChatRoomDetail {
 
   final String id;
   final String status;
+  final String? mentorId;
   final String? mentorName;
   final String? mentorAvatarUrl;
   final String? originalQuestion;
@@ -23,15 +25,18 @@ class ChatRoomDetail {
     return ChatRoomDetail(
       id: readId(json, keys: ['id', 'chatRoomId']),
       status: readString(json, 'status', fallback: 'ACTIVE'),
+      mentorId: json['mentorId']?.toString(),
       mentorName:
           json['mentorName']?.toString() ?? json['mentorFullName']?.toString(),
       mentorAvatarUrl: json['mentorAvatarUrl']?.toString(),
       originalQuestion:
           json['originalQuestion']?.toString() ?? json['question']?.toString(),
-      aiAnswer: json['aiAnswer']?.toString() ??
+      aiAnswer:
+          json['aiAnswer']?.toString() ??
           json['answer']?.toString() ??
           json['aiResponse']?.toString(),
-      studentName: json['studentName']?.toString() ?? json['userName']?.toString(),
+      studentName:
+          json['studentName']?.toString() ?? json['userName']?.toString(),
     );
   }
 
