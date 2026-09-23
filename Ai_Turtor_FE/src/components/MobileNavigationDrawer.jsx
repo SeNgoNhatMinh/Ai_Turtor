@@ -41,7 +41,7 @@ function MobileNavigationDrawer({
   return (
     <Drawer
       className="mobile-navigation-drawer"
-      rootClassName="mobile-navigation-drawer-root"
+      rootClassName={`mobile-navigation-drawer-root role-${activeRole}`}
       placement="left"
       size={360}
       open={open}

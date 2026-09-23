@@ -1,5 +1,6 @@
 package com.ragapi.service;
 
+import com.ragapi.service.course.indexing.CourseMaterialIndexManagementService;
 import com.ragapi.entity.Course;
 import com.ragapi.entity.CourseMaterial;
 import com.ragapi.repository.CourseMaterialRepository;
@@ -26,7 +27,7 @@ public class CourseDeletionService {
     private final MongoTemplate mongoTemplate;
     private final CourseRepository courseRepository;
     private final CourseMaterialRepository materialRepository;
-    private final CourseMaterialLifecycleService materialLifecycleService;
+    private final CourseMaterialIndexManagementService materialLifecycleService;
 
     public Map<String, Long> findDependencies(String courseId) {
         Query courseQuery = Query.query(Criteria.where("courseId").is(courseId));

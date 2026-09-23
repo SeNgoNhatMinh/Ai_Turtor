@@ -13,7 +13,7 @@ import com.ragapi.dto.SubmitQuizRequest;
 import com.ragapi.dto.TeacherReviewQuizRequest;
 import com.ragapi.dto.UpdateQuizAssignmentRequest;
 import com.ragapi.service.AiConversationService;
-import com.ragapi.service.CourseRagService;
+import com.ragapi.service.course.gateway.CourseAnswerGateway;
 import com.ragapi.service.ImproveSuggestionService;
 import com.ragapi.service.QuizService;
 import com.ragapi.service.StudentCourseMemoryService;
@@ -49,7 +49,7 @@ import static com.ragapi.util.ValidationUtils.requireText;
 public class QuizController {
 
     private final QuizService quizService;
-    private final CourseRagService courseRagService;
+    private final CourseAnswerGateway courseAnswerService;
     private final StudentCourseMemoryService memoryService;
     private final AiConversationService aiConversationService;
     private final ImproveSuggestionService improveSuggestionService;
@@ -79,7 +79,7 @@ public class QuizController {
                 ));
             }
 
-            CourseRagAnswer answer = courseRagService.askWithConfidence(question, courseId, classId);
+            CourseRagAnswer answer = courseAnswerService.askWithConfidence(question, courseId, classId);
             memoryService.recordInteraction(studentId, courseId, classId, question, answer.getAnswer());
 
             var savedExchange = aiConversationService.saveExchangeWithMessages(

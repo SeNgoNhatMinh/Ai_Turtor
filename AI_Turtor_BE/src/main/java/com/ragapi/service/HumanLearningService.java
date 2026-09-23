@@ -1,5 +1,6 @@
 package com.ragapi.service;
 
+import com.ragapi.service.course.gateway.CourseMaterialIndexGateway;
 import com.ragapi.dto.KnowledgeCandidateReviewRequest;
 import com.ragapi.dto.MentorAnswerRequest;
 import com.ragapi.dto.ExistingAcademicKnowledge;
@@ -51,7 +52,7 @@ public class HumanLearningService {
     private final KnowledgeCandidateRepository knowledgeCandidateRepository;
     private final CourseMaterialRepository courseMaterialRepository;
     private final CourseMaterialChunkingService chunkingService;
-    private final ElasticVectorService vectorService;
+    private final CourseMaterialIndexGateway vectorService;
     private final KnowledgeImageStorageService knowledgeImageStorageService;
     private final CanonicalTutorAnswerCacheService answerCacheService;
 

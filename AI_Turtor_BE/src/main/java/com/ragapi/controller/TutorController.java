@@ -13,7 +13,7 @@ import com.ragapi.entity.QuestionEscalation;
 import com.ragapi.entity.TutorSession;
 import com.ragapi.service.AiConversationService;
 import com.ragapi.service.CodeMentorService;
-import com.ragapi.service.CourseRagService;
+import com.ragapi.service.course.gateway.CourseAnswerGateway;
 import com.ragapi.service.ImprovePlanService;
 import com.ragapi.service.IntentClassifierService;
 import com.ragapi.service.MentorEscalationService;
@@ -58,7 +58,7 @@ import static com.ragapi.util.ValidationUtils.requireText;
 @Tag(name = "Tutor", description = "AI tutor query, intent routing and diagnostics APIs")
 public class TutorController {
 
-    private final CourseRagService ragService;
+    private final CourseAnswerGateway courseAnswerService;
     private final MentorEscalationService mentorEscalationService;
     private final AiConversationService aiConversationService;
     private final StudentCourseMemoryService studentCourseMemoryService;
@@ -327,16 +327,16 @@ public class TutorController {
             }
             CourseRagAnswer ragAnswer;
             if (conversationalInteraction) {
-                ragAnswer = ragService.answerTutorInteraction(
+                ragAnswer = courseAnswerService.answerTutorInteraction(
                         question, courseId, intent.getSubIntent(),
                         pedagogicalContext, learnerContext, recentHistoryContext);
             } else if (provenanceIntent != null) {
-                ragAnswer = ragService.askWithImprovePlanContext(
+                ragAnswer = courseAnswerService.askWithImprovePlanContext(
                         question, courseId, classId, pedagogicalContext, learnerContext, provenanceIntent);
             } else {
                 ragAnswer = (pedagogicalContext.isBlank() && learnerContext.isBlank())
-                        ? ragService.askWithConfidence(question, courseId, classId, teachingMode, retrievalHint)
-                        : ragService.askWithPersonalizedTutorContext(
+                        ? courseAnswerService.askWithConfidence(question, courseId, classId, teachingMode, retrievalHint)
+                        : courseAnswerService.askWithPersonalizedTutorContext(
                                 question, courseId, classId, pedagogicalContext, learnerContext,
                                 teachingMode, retrievalHint);
             }

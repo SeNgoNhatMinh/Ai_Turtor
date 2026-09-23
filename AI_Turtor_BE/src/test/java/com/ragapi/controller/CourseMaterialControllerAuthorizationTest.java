@@ -7,8 +7,8 @@ import com.ragapi.service.AccessGuardService;
 import com.ragapi.service.CourseMaterialAccessPolicy;
 import com.ragapi.service.CourseCurriculumOverviewService;
 import com.ragapi.service.CourseMaterialHtmlImportService;
-import com.ragapi.service.CourseMaterialIngestionService;
-import com.ragapi.service.CourseMaterialLifecycleService;
+import com.ragapi.service.course.indexing.CourseMaterialIndexingService;
+import com.ragapi.service.course.indexing.CourseMaterialIndexManagementService;
 import com.ragapi.service.CourseMaterialQueryService;
 import com.ragapi.service.PdfPageRenderService;
 import org.junit.jupiter.api.BeforeEach;
@@ -32,14 +32,14 @@ import static org.mockito.Mockito.when;
 
 class CourseMaterialControllerAuthorizationTest {
 
-    private CourseMaterialIngestionService ingestionService;
+    private CourseMaterialIndexingService ingestionService;
     private CourseMaterialRepository repository;
     private AccessGuardService accessGuardService;
     private CourseMaterialController controller;
 
     @BeforeEach
     void setUp() {
-        ingestionService = mock(CourseMaterialIngestionService.class);
+        ingestionService = mock(CourseMaterialIndexingService.class);
         repository = mock(CourseMaterialRepository.class);
         accessGuardService = mock(AccessGuardService.class);
         controller = new CourseMaterialController(
@@ -47,7 +47,7 @@ class CourseMaterialControllerAuthorizationTest {
                 mock(CourseMaterialHtmlImportService.class),
                 repository,
                 mock(PdfPageRenderService.class),
-                mock(CourseMaterialLifecycleService.class),
+                mock(CourseMaterialIndexManagementService.class),
                 mock(CourseMaterialQueryService.class),
                 new CourseMaterialAccessPolicy(),
                 accessGuardService,

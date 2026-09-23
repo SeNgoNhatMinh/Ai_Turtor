@@ -22,28 +22,11 @@ public class RealtimeEventService {
     private final Set<WebSocketSession> sessions = ConcurrentHashMap.newKeySet();
 
     public void register(WebSocketSession session) {
-        String userId = attribute(session, "userId");
-        boolean wasOnline = isUserOnline(userId);
         sessions.add(session);
-        if (!wasOnline && isTeacherRole(attribute(session, "role"))) {
-            publishTeacherPresence(userId, true);
-        }
     }
 
     public void unregister(WebSocketSession session) {
-        String userId = attribute(session, "userId");
-        String role = attribute(session, "role");
-        boolean removed = sessions.remove(session);
-        if (removed && isTeacherRole(role) && !isUserOnline(userId)) {
-            publishTeacherPresence(userId, false);
-        }
-    }
-
-    public boolean isUserOnline(String userId) {
-        if (userId == null || userId.isBlank()) return false;
-        return sessions.stream()
-                .filter(WebSocketSession::isOpen)
-                .anyMatch(session -> userId.equals(attribute(session, "userId")));
+        sessions.remove(session);
     }
 
     public void publishToUser(String userId, String eventType, String entityType,
@@ -83,7 +66,7 @@ public class RealtimeEventService {
                 "role", String.valueOf(session.getAttributes().get("role"))));
     }
 
-    private void publishTeacherPresence(String teacherId, boolean online) {
+    public void publishTeacherPresence(String teacherId, boolean online) {
         if (teacherId == null || teacherId.isBlank()) return;
         publishToRoles(
                 List.of("STUDENT", "ADMIN"),
@@ -93,18 +76,6 @@ public class RealtimeEventService {
                 online ? "ONLINE" : "OFFLINE",
                 Map.of("teacherId", teacherId, "online", online)
         );
-    }
-
-    private boolean isTeacherRole(String role) {
-        return "TEACHER".equalsIgnoreCase(role)
-                || "MENTOR".equalsIgnoreCase(role)
-                || "SENIOR_MENTOR".equalsIgnoreCase(role);
-    }
-
-    private String attribute(WebSocketSession session, String name) {
-        if (session == null || session.getAttributes() == null) return "";
-        Object value = session.getAttributes().get(name);
-        return value == null ? "" : String.valueOf(value);
     }
 
     private Map<String, Object> event(String type, String entityType, String entityId,

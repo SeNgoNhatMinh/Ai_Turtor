@@ -8,6 +8,7 @@ import com.ragapi.repository.ChatRoomRepository;
 import com.ragapi.repository.ClassSectionRepository;
 import com.ragapi.repository.MentorRepository;
 import com.ragapi.repository.QuestionEscalationRepository;
+import com.ragapi.service.presence.TeacherPresenceQueryService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -31,7 +32,7 @@ class MentorEscalationServiceTest {
     @Mock MentorMatchingService matchingService;
     @Mock AcademicRoutingService academicRoutingService;
     @Mock ClassSectionRepository classSectionRepository;
-    @Mock RealtimeEventService realtimeEventService;
+    @Mock TeacherPresenceQueryService teacherPresenceQueryService;
 
     @InjectMocks MentorEscalationService service;
 
@@ -58,7 +59,7 @@ class MentorEscalationServiceTest {
                 .thenReturn(new AcademicRoutingService.EscalationRoute(true, classSection, "active class"));
         when(classSectionRepository.findByCourseId("PRJ301")).thenReturn(List.of(classSection));
         when(mentorRepository.findById("teacher-1")).thenReturn(Optional.of(teacher));
-        when(realtimeEventService.isUserOnline("teacher-1")).thenReturn(false);
+        when(teacherPresenceQueryService.isOnline("teacher-1")).thenReturn(false);
         when(escalationRepository.save(any(QuestionEscalation.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 

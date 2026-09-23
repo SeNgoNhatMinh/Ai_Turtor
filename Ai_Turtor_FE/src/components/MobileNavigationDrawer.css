@@ -39,7 +39,7 @@
     width: 42px;
     height: 42px;
     border-radius: 50%;
-    background: #202123;
+    background: var(--role-accent, #202123);
     color: #fff;
     font-size: 0.78rem;
     font-weight: 800;
@@ -92,8 +92,8 @@
   }
 
   .mobile-navigation-drawer__search:focus-within {
-    border-color: #0a56a0;
-    box-shadow: 0 0 0 3px rgba(10, 86, 160, 0.11);
+    border-color: var(--role-accent, #0a56a0);
+    box-shadow: 0 0 0 3px var(--color-focus-ring, rgba(10, 86, 160, 0.11));
   }
 
   .mobile-navigation-drawer__search input {
@@ -152,8 +152,8 @@
   }
 
   .mobile-navigation-drawer__menu .ant-menu-item-selected {
-    background: #ececec;
-    color: #202123;
+    background: var(--role-soft, #ececec);
+    color: var(--role-accent-hover, #202123);
     font-weight: 750;
   }
 
@@ -218,5 +218,11 @@
 
   body:has(.app-container.dark) .mobile-navigation-drawer__footer {
     border-color: #2f2f2f;
+  }
+
+  body:has(.app-container.dark) .mobile-navigation-drawer-root:is(.role-teacher, .role-senior, .role-admin)
+    .mobile-navigation-drawer__menu .ant-menu-item-selected {
+    background: color-mix(in srgb, var(--role-accent) 24%, #171717);
+    color: color-mix(in srgb, var(--role-soft) 88%, #ffffff);
   }
 }

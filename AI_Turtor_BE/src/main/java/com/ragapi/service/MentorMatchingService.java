@@ -3,6 +3,7 @@ package com.ragapi.service;
 import com.ragapi.dto.MentorSuggestionDTO;
 import com.ragapi.entity.Mentor;
 import com.ragapi.repository.MentorRepository;
+import com.ragapi.service.presence.TeacherPresenceQueryService;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -20,7 +21,7 @@ import java.util.stream.Collectors;
 public class MentorMatchingService {
     
     private MentorRepository mentorRepository;
-    private RealtimeEventService realtimeEventService;
+    private TeacherPresenceQueryService teacherPresenceQueryService;
     
     /**
      * TÃ¬m top 5 mentor phÃ¹ há»£p vï¿½>i question
@@ -215,7 +216,7 @@ public class MentorMatchingService {
                 .matchReason(generateMatchReason(mentor))
                 .responseTimeMinutes(mentor.getResponseTimeMinutes())
                 .specializations(mentor.getSpecializations())
-                .online(realtimeEventService.isUserOnline(mentor.getId()))
+                .online(teacherPresenceQueryService.isOnline(mentor.getId()))
                 .build();
     }
     

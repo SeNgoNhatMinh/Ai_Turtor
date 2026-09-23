@@ -1,5 +1,8 @@
 package com.ragapi.service;
 
+import com.ragapi.service.course.gateway.CourseKnowledgeSearchGateway;
+import com.ragapi.service.course.search.CourseMaterialTextSearchService;
+import com.ragapi.service.course.search.CourseSearchResultRankingService;
 import com.ragapi.dto.SubmitQuizRequest;
 import com.ragapi.dto.TeacherReviewQuizRequest;
 import com.ragapi.entity.QuizSession;
@@ -26,9 +29,9 @@ class QuizServiceTest {
 
     @Mock QuizSessionRepository sessionRepository;
     @Mock QuizAssignmentRepository assignmentRepository;
-    @Mock ElasticVectorService vectorService;
-    @Mock CourseMaterialFallbackSearchService fallbackSearchService;
-    @Mock RerankService rerankService;
+    @Mock CourseKnowledgeSearchGateway vectorService;
+    @Mock CourseMaterialTextSearchService fallbackSearchService;
+    @Mock CourseSearchResultRankingService rerankService;
     @Mock OpenRouterChatService chatService;
     @Mock StudentCourseMemoryService memoryService;
 

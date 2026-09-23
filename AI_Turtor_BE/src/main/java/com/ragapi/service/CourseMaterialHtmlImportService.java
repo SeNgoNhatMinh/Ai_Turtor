@@ -1,5 +1,6 @@
 package com.ragapi.service;
 
+import com.ragapi.service.course.indexing.CourseMaterialIndexingService;
 import com.ragapi.dto.ImportCourseMaterialUrlRequest;
 import lombok.RequiredArgsConstructor;
 import org.jsoup.Jsoup;
@@ -29,7 +30,7 @@ public class CourseMaterialHtmlImportService {
     private static final int CONNECT_TIMEOUT_MS = (int) Duration.ofSeconds(20).toMillis();
     private static final Pattern TOC_NUMBER_PATTERN = Pattern.compile("^(\\d+(?:\\.\\d+)*)\\.?.*");
 
-    private final CourseMaterialIngestionService ingestionService;
+    private final CourseMaterialIndexingService ingestionService;
 
     public TableOfContentsResult previewTableOfContents(String rawUrl) throws IOException {
         URI sourceUri = validateHttpUrl(rawUrl);

@@ -181,6 +181,8 @@ security:
     password: ${SWAGGER_PASSWORD:}
 
 app:
+  teacher-presence:
+    ttl-seconds: ${TEACHER_PRESENCE_TTL_SECONDS:45}
   timezone: ${APP_TIMEZONE:Asia/Bangkok}
   redis-cache:
     enabled: ${REDIS_CACHE_ENABLED:true}
@@ -224,6 +226,15 @@ admin:
 
 
 rag:
+  indexing:
+    worker:
+      enabled: ${RAG_INDEXING_WORKER_ENABLED:true}
+      poll-delay-ms: ${RAG_INDEXING_WORKER_POLL_DELAY_MS:1000}
+      max-retries: ${RAG_INDEXING_WORKER_MAX_RETRIES:3}
+      lock-timeout-seconds: ${RAG_INDEXING_WORKER_LOCK_TIMEOUT_SECONDS:900}
+      batch-size: ${RAG_INDEXING_WORKER_BATCH_SIZE:4}
+      heartbeat-interval-seconds: ${RAG_INDEXING_WORKER_HEARTBEAT_INTERVAL_SECONDS:30}
+      completed-retention-days: ${RAG_INDEXING_COMPLETED_RETENTION_DAYS:14}
   preview:
     cache-dir: ${RAG_PREVIEW_CACHE_DIR:/app/data/pdf-preview-cache}
   visual:

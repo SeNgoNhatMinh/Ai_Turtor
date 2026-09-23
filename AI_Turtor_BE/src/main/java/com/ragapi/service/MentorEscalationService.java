@@ -11,6 +11,7 @@ import com.ragapi.repository.ChatRoomRepository;
 import com.ragapi.repository.ClassSectionRepository;
 import com.ragapi.repository.MentorRepository;
 import com.ragapi.repository.QuestionEscalationRepository;
+import com.ragapi.service.presence.TeacherPresenceQueryService;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -38,7 +39,7 @@ public class MentorEscalationService {
     private final MentorMatchingService matchingService;
     private final AcademicRoutingService academicRoutingService;
     private final ClassSectionRepository classSectionRepository;
-    private final RealtimeEventService realtimeEventService;
+    private final TeacherPresenceQueryService teacherPresenceQueryService;
 
     public QuestionEscalation createQuestionEscalation(
             String userId,
@@ -219,7 +220,7 @@ public class MentorEscalationService {
         mentorRepository.save(mentor);
 
         log.info("Chat room created: {} between user {} and mentor {}", chatRoom.getId(), userId, selectedMentorId);
-        boolean mentorOnline = realtimeEventService.isUserOnline(mentor.getId());
+        boolean mentorOnline = teacherPresenceQueryService.isOnline(mentor.getId());
 
         return MentorSelectionResponse.builder()
                 .chatRoomId(chatRoom.getId())
@@ -265,7 +266,7 @@ public class MentorEscalationService {
                         .matchReason("Active chat already exists for this escalation")
                         .responseTimeMinutes(mentor.getResponseTimeMinutes())
                         .specializations(mentor.getSpecializations())
-                        .online(realtimeEventService.isUserOnline(mentor.getId()))
+                        .online(teacherPresenceQueryService.isOnline(mentor.getId()))
                         .build());
 
         return MentorEscalationOfferResponse.builder()
@@ -348,7 +349,7 @@ public class MentorEscalationService {
                         : "Giáo viên phụ trách " + classLabel + " trong " + courseLabel)
                 .responseTimeMinutes(teacher.getResponseTimeMinutes())
                 .specializations(teacher.getSpecializations())
-                .online(realtimeEventService.isUserOnline(teacher.getId()))
+                .online(teacherPresenceQueryService.isOnline(teacher.getId()))
                 .build();
     }
 
@@ -371,7 +372,7 @@ public class MentorEscalationService {
                         .matchReason("Fallback: active mentor")
                         .responseTimeMinutes(mentor.getResponseTimeMinutes())
                         .specializations(mentor.getSpecializations())
-                        .online(realtimeEventService.isUserOnline(mentor.getId()))
+                        .online(teacherPresenceQueryService.isOnline(mentor.getId()))
                         .build())
                 .collect(Collectors.toList());
     }

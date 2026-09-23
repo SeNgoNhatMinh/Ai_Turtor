@@ -23,11 +23,12 @@ function usePrefersReducedMotion() {
 
 export default function ThemedAuthedLayout({ isDarkMode, children, ...layoutProps }) {
   const prefersReducedMotion = usePrefersReducedMotion();
+  const activeRole = layoutProps.activeRole || 'student';
 
   return (
     <ConfigProvider
       locale={viVN}
-      theme={getFptTheme(isDarkMode, prefersReducedMotion)}
+      theme={getFptTheme(isDarkMode, prefersReducedMotion, activeRole)}
     >
       <AuthedLayout {...layoutProps} isDarkMode={isDarkMode}>
         {children}

@@ -1,5 +1,9 @@
 package com.ragapi.service;
 
+import com.ragapi.service.course.model.RetrievedCourseChunk;
+import com.ragapi.service.course.gateway.CourseKnowledgeSearchGateway;
+import com.ragapi.service.course.search.CourseMaterialTextSearchService;
+import com.ragapi.service.course.search.CourseSearchResultRankingService;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ragapi.dto.GenerateQuizAssignmentRequest;
@@ -52,9 +56,9 @@ public class QuizService {
 
     private final QuizSessionRepository quizSessionRepository;
     private final QuizAssignmentRepository quizAssignmentRepository;
-    private final ElasticVectorService vectorService;
-    private final CourseMaterialFallbackSearchService fallbackSearchService;
-    private final RerankService rerankService;
+    private final CourseKnowledgeSearchGateway vectorService;
+    private final CourseMaterialTextSearchService fallbackSearchService;
+    private final CourseSearchResultRankingService rerankService;
     private final OpenRouterChatService chatService;
     private final StudentCourseMemoryService memoryService;
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -69,7 +73,7 @@ public class QuizService {
         String suggestionText = normalize(request == null ? null : request.getSuggestionText());
         String retrievalQuestion = "Kien thuc hoc thuat ve chu de: " + topic
                 + (suggestionText == null ? "" : " " + suggestionText);
-        List<ElasticVectorService.SearchChunk> chunks;
+        List<RetrievedCourseChunk> chunks;
         try {
             chunks = vectorService.searchWithScores(retrievalQuestion, safeCourseId, classId);
         } catch (Exception exception) {
@@ -87,13 +91,13 @@ public class QuizService {
         }
 
         String context = sanitizeMaterialContextForQuiz(chunks.stream()
-                .map(ElasticVectorService.SearchChunk::content)
+                .map(RetrievedCourseChunk::content)
                 .collect(Collectors.joining("\n")));
         if (context.isBlank()) {
             throw new IllegalArgumentException("Chưa có tài liệu môn học đủ nội dung để tạo quiz cho chủ đề này");
         }
         List<String> sourceIds = chunks.stream()
-                .map(ElasticVectorService.SearchChunk::materialId)
+                .map(RetrievedCourseChunk::materialId)
                 .filter(id -> id != null && !id.isBlank())
                 .distinct()
                 .toList();

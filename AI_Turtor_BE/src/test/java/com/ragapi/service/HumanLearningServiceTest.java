@@ -1,5 +1,6 @@
 package com.ragapi.service;
 
+import com.ragapi.service.course.gateway.CourseMaterialIndexGateway;
 import com.ragapi.dto.KnowledgeCandidateReviewRequest;
 import com.ragapi.dto.MentorAnswerRequest;
 import com.ragapi.entity.CourseMaterial;
@@ -33,7 +34,7 @@ class HumanLearningServiceTest {
         KnowledgeCandidateRepository candidateRepository = mock(KnowledgeCandidateRepository.class);
         CourseMaterialRepository materialRepository = mock(CourseMaterialRepository.class);
         CourseMaterialChunkingService chunkingService = mock(CourseMaterialChunkingService.class);
-        ElasticVectorService vectorService = mock(ElasticVectorService.class);
+        CourseMaterialIndexGateway vectorService = mock(CourseMaterialIndexGateway.class);
         CanonicalTutorAnswerCacheService answerCacheService = mock(CanonicalTutorAnswerCacheService.class);
         HumanLearningService service = new HumanLearningService(
                 escalationRepository,
@@ -100,7 +101,7 @@ class HumanLearningServiceTest {
         KnowledgeCandidateRepository candidateRepository = mock(KnowledgeCandidateRepository.class);
         CourseMaterialRepository materialRepository = mock(CourseMaterialRepository.class);
         CourseMaterialChunkingService chunkingService = mock(CourseMaterialChunkingService.class);
-        ElasticVectorService vectorService = mock(ElasticVectorService.class);
+        CourseMaterialIndexGateway vectorService = mock(CourseMaterialIndexGateway.class);
         CanonicalTutorAnswerCacheService answerCacheService = mock(CanonicalTutorAnswerCacheService.class);
         HumanLearningService service = new HumanLearningService(
                 escalationRepository,
@@ -164,7 +165,7 @@ class HumanLearningServiceTest {
                 candidateRepository,
                 mock(CourseMaterialRepository.class),
                 mock(CourseMaterialChunkingService.class),
-                mock(ElasticVectorService.class),
+                mock(CourseMaterialIndexGateway.class),
                 mock(KnowledgeImageStorageService.class),
                 mock(CanonicalTutorAnswerCacheService.class)
         );
@@ -204,7 +205,7 @@ class HumanLearningServiceTest {
                 mock(KnowledgeCandidateRepository.class),
                 mock(CourseMaterialRepository.class),
                 mock(CourseMaterialChunkingService.class),
-                mock(ElasticVectorService.class),
+                mock(CourseMaterialIndexGateway.class),
                 imageStorageService,
                 mock(CanonicalTutorAnswerCacheService.class)
         );
@@ -234,7 +235,7 @@ class HumanLearningServiceTest {
                 mock(KnowledgeCandidateRepository.class),
                 mock(CourseMaterialRepository.class),
                 mock(CourseMaterialChunkingService.class),
-                mock(ElasticVectorService.class),
+                mock(CourseMaterialIndexGateway.class),
                 mock(KnowledgeImageStorageService.class),
                 mock(CanonicalTutorAnswerCacheService.class)
         );
@@ -265,7 +266,7 @@ class HumanLearningServiceTest {
                 mock(KnowledgeCandidateRepository.class),
                 mock(CourseMaterialRepository.class),
                 mock(CourseMaterialChunkingService.class),
-                mock(ElasticVectorService.class),
+                mock(CourseMaterialIndexGateway.class),
                 mock(KnowledgeImageStorageService.class),
                 mock(CanonicalTutorAnswerCacheService.class)
         );
@@ -298,7 +299,7 @@ class HumanLearningServiceTest {
                 candidateRepository,
                 mock(CourseMaterialRepository.class),
                 mock(CourseMaterialChunkingService.class),
-                mock(ElasticVectorService.class),
+                mock(CourseMaterialIndexGateway.class),
                 mock(KnowledgeImageStorageService.class),
                 mock(CanonicalTutorAnswerCacheService.class)
         );

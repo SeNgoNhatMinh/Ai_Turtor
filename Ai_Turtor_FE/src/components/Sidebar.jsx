@@ -1,16 +1,26 @@
 import { memo, useMemo, useState } from 'react';
 import { Menu, Tooltip } from 'antd';
-import { ArrowRight, BookOpen, MessageSquareText, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import {
+  ArrowRight,
+  BookOpen,
+  GraduationCap,
+  MessageSquareText,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Settings2,
+  ShieldCheck,
+} from 'lucide-react';
 import { getNavigationForRole } from '../config/navigation';
 
 function Sidebar({ accountRole, activeRole, activeTab, switchTab, courseId, classId, compactByDefault = false }) {
   const [collapsed, setCollapsed] = useState(compactByDefault);
   const workspaceCards = {
-    teacher: { eyebrow: 'Không gian giảng dạy', title: 'Quản lý lớp học', detail: 'Theo dõi lớp, quiz và bài nộp', button: 'Xem lớp học', tab: 'teacher-classes' },
-    senior: { eyebrow: 'Kiểm duyệt chuyên môn', title: 'Senior Mentor', detail: 'Rà soát phản hồi và tri thức AI', button: 'Mở hàng đợi', tab: 'senior-review' },
-    admin: { eyebrow: 'Điều hành hệ thống', title: 'Administrator', detail: 'Quản trị người dùng và AI Tutor', button: 'Xem tổng quan', tab: 'admin-dashboard' },
+    teacher: { eyebrow: 'Không gian giảng dạy', title: 'Quản lý lớp học', detail: 'Theo dõi lớp, quiz và bài nộp', button: 'Xem lớp học', tab: 'teacher-classes', icon: GraduationCap },
+    senior: { eyebrow: 'Kiểm duyệt chuyên môn', title: 'Senior Mentor', detail: 'Rà soát phản hồi và tri thức AI', button: 'Mở hàng đợi', tab: 'senior-review', icon: ShieldCheck },
+    admin: { eyebrow: 'Điều hành hệ thống', title: 'Administrator', detail: 'Quản trị người dùng và AI Tutor', button: 'Xem tổng quan', tab: 'admin-dashboard', icon: Settings2 },
   };
   const workspaceCard = workspaceCards[activeRole];
+  const WorkspaceIcon = workspaceCard?.icon;
 
   const items = useMemo(() => getNavigationForRole(accountRole || activeRole).map((item) => {
     const Icon = item.icon;
@@ -84,7 +94,7 @@ function Sidebar({ accountRole, activeRole, activeTab, switchTab, courseId, clas
       )}
       {workspaceCard && (
         <div className={`sidebar-learning-card sidebar-role-card sidebar-role-card--${activeRole}`}>
-          <div className="sidebar-learning-card__icon"><BookOpen size={19} /></div>
+          <div className="sidebar-learning-card__icon"><WorkspaceIcon size={19} aria-hidden="true" /></div>
           <div className="sidebar-learning-card__content">
             <small>{workspaceCard.eyebrow}</small>
             <strong>{workspaceCard.title}</strong>

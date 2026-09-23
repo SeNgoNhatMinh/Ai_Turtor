@@ -1,5 +1,8 @@
 package com.ragapi.service;
 
+import com.ragapi.service.course.answer.CourseAnswerService;
+import com.ragapi.service.course.gateway.CourseMaterialIndexGateway;
+import com.ragapi.service.cotraining.*;
 import com.ragapi.dto.CourseRagAnswer;
 import com.ragapi.dto.cotraining.*;
 import com.ragapi.entity.*;
@@ -31,8 +34,8 @@ class ExpertCoTrainingServiceTest {
     @Mock EvalResultRepository results;
     @Mock CourseMaterialRepository materials;
     @Mock ChapterOutlineService chapterOutlines;
-    @Mock ElasticVectorService vectors;
-    @Mock CourseRagService rag;
+    @Mock CourseMaterialIndexGateway vectors;
+    @Mock CourseAnswerService rag;
     @Mock CanonicalTutorAnswerCacheService answerCache;
     @Mock RealtimeEventService realtimeEvents;
     @Mock MongoTemplate mongoTemplate;
@@ -40,21 +43,20 @@ class ExpertCoTrainingServiceTest {
 
     @BeforeEach
     void setUp() {
+        ExpertTaskContributionService taskContributions =
+                new ExpertTaskContributionService(tasks, gold);
+        ExpertTeachingNoteService teachingNotes = new ExpertTeachingNoteService(
+                gold, materials, vectors, answerCache, taskContributions);
+        ExpertEvaluationService evaluations = new ExpertEvaluationService(
+                gold, runs, results, rag, realtimeEvents);
+        ExpertTaskService taskService = new ExpertTaskService(
+                tasks, gold, rubrics, gaps, chapterOutlines, realtimeEvents, mongoTemplate);
+        ExpertCoverageService coverageService = new ExpertCoverageService(
+                gold, gaps, materials, chapterOutlines, taskService);
+        ExpertContributionService contributionService = new ExpertContributionService(
+                gold, rubrics, realtimeEvents, taskContributions, teachingNotes, evaluations);
         service = new ExpertCoTrainingService(
-                tasks,
-                gold,
-                rubrics,
-                gaps,
-                runs,
-                results,
-                materials,
-                chapterOutlines,
-                vectors,
-                rag,
-                answerCache,
-                realtimeEvents,
-                mongoTemplate
-        );
+                coverageService, taskService, contributionService, teachingNotes, evaluations);
     }
 
     @Test

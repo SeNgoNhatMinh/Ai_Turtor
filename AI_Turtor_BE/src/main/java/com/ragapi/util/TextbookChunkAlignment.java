@@ -1,6 +1,6 @@
 package com.ragapi.util;
 
-import com.ragapi.service.ElasticVectorService.SearchChunk;
+import com.ragapi.service.course.model.RetrievedCourseChunk;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -35,16 +35,16 @@ public final class TextbookChunkAlignment {
     }
 
     @SafeVarargs
-    public static List<SearchChunk> merge(String question, List<SearchChunk>... lists) {
-        LinkedHashMap<String, SearchChunk> unique = new LinkedHashMap<>();
+    public static List<RetrievedCourseChunk> merge(String question, List<RetrievedCourseChunk>... lists) {
+        LinkedHashMap<String, RetrievedCourseChunk> unique = new LinkedHashMap<>();
         if (lists == null) {
             return List.of();
         }
-        for (List<SearchChunk> list : lists) {
+        for (List<RetrievedCourseChunk> list : lists) {
             if (list == null) {
                 continue;
             }
-            for (SearchChunk chunk : list) {
+            for (RetrievedCourseChunk chunk : list) {
                 if (chunk == null || chunk.content() == null || chunk.content().isBlank()) {
                     continue;
                 }
@@ -54,7 +54,7 @@ public final class TextbookChunkAlignment {
         return rank(question, excludeNavigation(new ArrayList<>(unique.values())));
     }
 
-    public static List<SearchChunk> rank(String question, List<SearchChunk> chunks) {
+    public static List<RetrievedCourseChunk> rank(String question, List<RetrievedCourseChunk> chunks) {
         if (chunks == null || chunks.size() <= 1) {
             return chunks == null ? List.of() : chunks;
         }
@@ -62,23 +62,23 @@ public final class TextbookChunkAlignment {
         boolean definition = isDefinitionQuestion(question);
         return chunks.stream()
                 .sorted(Comparator
-                        .comparing((SearchChunk chunk) -> alignmentScore(question, chunk, tokens, definition))
+                        .comparing((RetrievedCourseChunk chunk) -> alignmentScore(question, chunk, tokens, definition))
                         .reversed()
                         .thenComparing(chunk -> normalizedRetrievalScore(chunk.score()), Comparator.reverseOrder()))
                 .toList();
     }
 
-    public static List<SearchChunk> excludeNavigation(List<SearchChunk> chunks) {
+    public static List<RetrievedCourseChunk> excludeNavigation(List<RetrievedCourseChunk> chunks) {
         if (chunks == null || chunks.size() <= 1) {
             return chunks == null ? List.of() : chunks;
         }
-        List<SearchChunk> learningChunks = chunks.stream()
+        List<RetrievedCourseChunk> learningChunks = chunks.stream()
                 .filter(chunk -> !isLikelyNavigationChunk(chunk))
                 .toList();
         return learningChunks.isEmpty() ? chunks : learningChunks;
     }
 
-    public static boolean isLikelyNavigationChunk(SearchChunk chunk) {
+    public static boolean isLikelyNavigationChunk(RetrievedCourseChunk chunk) {
         if (chunk == null) {
             return false;
         }
@@ -95,7 +95,7 @@ public final class TextbookChunkAlignment {
                 && normalizedContent.matches("(?s).*\\b\\d{1,3}\\b.*\\b\\d{1,3}\\b.*\\b\\d{1,3}\\b.*");
     }
 
-    public static List<SearchChunk> diversifyByCoverage(String question, List<SearchChunk> chunks, int maxPromoted) {
+    public static List<RetrievedCourseChunk> diversifyByCoverage(String question, List<RetrievedCourseChunk> chunks, int maxPromoted) {
         if (chunks == null || chunks.size() <= 1) {
             return chunks == null ? List.of() : chunks;
         }
@@ -104,16 +104,16 @@ public final class TextbookChunkAlignment {
             return chunks;
         }
 
-        List<SearchChunk> remaining = new ArrayList<>(chunks);
-        List<SearchChunk> promoted = new ArrayList<>();
+        List<RetrievedCourseChunk> remaining = new ArrayList<>(chunks);
+        List<RetrievedCourseChunk> promoted = new ArrayList<>();
         Set<String> covered = new java.util.LinkedHashSet<>();
         int promotionLimit = Math.min(Math.max(1, maxPromoted), chunks.size());
 
         while (promoted.size() < promotionLimit && covered.size() < tokens.size()) {
-            SearchChunk best = null;
+            RetrievedCourseChunk best = null;
             int bestNewHits = 0;
             double bestScore = Double.NEGATIVE_INFINITY;
-            for (SearchChunk chunk : remaining) {
+            for (RetrievedCourseChunk chunk : remaining) {
                 Set<String> hits = hitTokens(chunk.content(), tokens);
                 hits.removeAll(covered);
                 int newHits = hits.size();
@@ -135,8 +135,8 @@ public final class TextbookChunkAlignment {
         if (promoted.isEmpty()) {
             return chunks;
         }
-        List<SearchChunk> result = new ArrayList<>(promoted);
-        for (SearchChunk chunk : chunks) {
+        List<RetrievedCourseChunk> result = new ArrayList<>(promoted);
+        for (RetrievedCourseChunk chunk : chunks) {
             if (!promoted.contains(chunk)) {
                 result.add(chunk);
             }
@@ -144,7 +144,7 @@ public final class TextbookChunkAlignment {
         return result;
     }
 
-    public static boolean topChunksCoverQuestion(String question, List<SearchChunk> chunks, int inspect) {
+    public static boolean topChunksCoverQuestion(String question, List<RetrievedCourseChunk> chunks, int inspect) {
         if (chunks == null || chunks.isEmpty()) {
             return false;
         }
@@ -157,7 +157,7 @@ public final class TextbookChunkAlignment {
         boolean anyHit = false;
         boolean anyDefinition = false;
         for (int i = 0; i < limit; i++) {
-            SearchChunk chunk = chunks.get(i);
+            RetrievedCourseChunk chunk = chunks.get(i);
             if (hitCount(chunk.content(), tokens) > 0) {
                 anyHit = true;
             }
@@ -175,7 +175,7 @@ public final class TextbookChunkAlignment {
      * Conservative gate for optional sources such as Gold Q&A teaching notes.
      * A semantic score alone must not attach an unrelated teacher note to the answer.
      */
-    public static boolean hasDistinctiveOverlap(String question, SearchChunk chunk, int minimumHits) {
+    public static boolean hasDistinctiveOverlap(String question, RetrievedCourseChunk chunk, int minimumHits) {
         if (chunk == null || chunk.content() == null || chunk.content().isBlank()) {
             return false;
         }
@@ -188,7 +188,7 @@ public final class TextbookChunkAlignment {
 
     static double alignmentScore(
             String question,
-            SearchChunk chunk,
+            RetrievedCourseChunk chunk,
             List<String> tokens,
             boolean definition
     ) {
@@ -299,7 +299,7 @@ public final class TextbookChunkAlignment {
         return false;
     }
 
-    private static String dedupeKey(SearchChunk chunk) {
+    private static String dedupeKey(RetrievedCourseChunk chunk) {
         String material = chunk.materialId() == null ? "" : chunk.materialId();
         String content = chunk.content().replaceAll("\\s+", " ").trim();
         String prefix = content.length() <= 96 ? content : content.substring(0, 96);

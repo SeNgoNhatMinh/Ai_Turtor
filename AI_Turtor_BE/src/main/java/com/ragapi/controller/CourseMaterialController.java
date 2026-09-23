@@ -11,8 +11,8 @@ import com.ragapi.service.CourseMaterialAccessPolicy;
 import com.ragapi.service.CourseCurriculumOverviewService;
 import com.ragapi.service.CourseMaterialQueryService;
 import com.ragapi.service.CourseMaterialHtmlImportService;
-import com.ragapi.service.CourseMaterialIngestionService;
-import com.ragapi.service.CourseMaterialLifecycleService;
+import com.ragapi.service.course.indexing.CourseMaterialIndexingService;
+import com.ragapi.service.course.indexing.CourseMaterialIndexManagementService;
 import com.ragapi.service.PdfPageRenderService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -59,11 +59,11 @@ import static com.ragapi.util.ValidationUtils.validateFile;
 @Tag(name = "Course Materials", description = "Upload, store and index course materials for RAG")
 public class CourseMaterialController {
 
-    private final CourseMaterialIngestionService ingestionService;
+    private final CourseMaterialIndexingService ingestionService;
     private final CourseMaterialHtmlImportService htmlImportService;
     private final CourseMaterialRepository courseMaterialRepository;
     private final PdfPageRenderService pdfPageRenderService;
-    private final CourseMaterialLifecycleService lifecycleService;
+    private final CourseMaterialIndexManagementService lifecycleService;
     private final CourseMaterialQueryService queryService;
     private final CourseMaterialAccessPolicy materialAccessPolicy;
     private final AccessGuardService accessGuardService;
