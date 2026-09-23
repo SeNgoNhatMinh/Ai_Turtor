@@ -12,6 +12,7 @@ class MentorCandidate {
     this.responseTimeMinutes,
     this.specializations = const [],
     this.isClassTeacher = false,
+    this.online = false,
   });
 
   final String id;
@@ -24,6 +25,23 @@ class MentorCandidate {
   final int? responseTimeMinutes;
   final List<String> specializations;
   final bool isClassTeacher;
+  final bool online;
+
+  MentorCandidate copyWith({bool? online}) {
+    return MentorCandidate(
+      id: id,
+      fullName: fullName,
+      avatarUrl: avatarUrl,
+      rating: rating,
+      sessionsCount: sessionsCount,
+      matchScore: matchScore,
+      matchReason: matchReason,
+      responseTimeMinutes: responseTimeMinutes,
+      specializations: specializations,
+      isClassTeacher: isClassTeacher,
+      online: online ?? this.online,
+    );
+  }
 
   factory MentorCandidate.fromJson(Map<String, dynamic> json) {
     return MentorCandidate(
@@ -56,6 +74,7 @@ class MentorCandidate {
       ),
       isClassTeacher:
           json['isClassTeacher'] == true || json['classTeacher'] == true,
+      online: json['online'] == true,
     );
   }
 
@@ -95,6 +114,7 @@ class EscalationOffer {
     String? activeChatRoomId,
     String? originalQuestion,
     String? aiAnswer,
+    List<MentorCandidate>? mentors,
   }) {
     return EscalationOffer(
       questionEscalationId: questionEscalationId,
@@ -102,7 +122,7 @@ class EscalationOffer {
       status: status ?? this.status,
       originalQuestion: originalQuestion ?? this.originalQuestion,
       aiAnswer: aiAnswer ?? this.aiAnswer,
-      mentors: mentors,
+      mentors: mentors ?? this.mentors,
       activeChatRoomId: activeChatRoomId ?? this.activeChatRoomId,
     );
   }
@@ -151,6 +171,7 @@ class EscalationOffer {
               responseTimeMinutes: m.responseTimeMinutes,
               specializations: m.specializations,
               isClassTeacher: true,
+              online: m.online,
             ),
           )
           .toList();

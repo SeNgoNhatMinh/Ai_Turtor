@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/network/realtime_event.dart';
 import '../../../core/network/realtime_providers.dart';
 import '../../../core/utils/json_helpers.dart';
 import '../../../shared/models/escalation.dart';
@@ -18,6 +19,16 @@ class EscalationOfferController
   @override
   Future<EscalationOffer> build(String questionEscalationId) async {
     _escalationId = questionEscalationId;
+    ref.listen(realtimeEventsProvider, (_, next) {
+      next.whenData((event) {
+        final current = state.valueOrNull;
+        if (current == null) return;
+        final updated = applyTeacherPresenceEvent(current, event);
+        if (!identical(updated, current)) {
+          state = AsyncData(updated);
+        }
+      });
+    });
     final repo = ref.read(escalationRepositoryProvider);
 
     String? activeChatRoomId;
@@ -79,6 +90,33 @@ final escalationOfferControllerProvider =
       EscalationOffer,
       String
     >(EscalationOfferController.new);
+
+EscalationOffer applyTeacherPresenceEvent(
+  EscalationOffer offer,
+  RealtimeEvent event,
+) {
+  if (event.type.toUpperCase() != 'TEACHER_PRESENCE_CHANGED') return offer;
+
+  final teacherId = (event.data['teacherId'] ?? event.entityId)
+      ?.toString()
+      .trim();
+  if (teacherId == null || teacherId.isEmpty) return offer;
+
+  final rawOnline = event.data['online'];
+  final online = rawOnline is bool
+      ? rawOnline
+      : event.status?.toUpperCase() == 'ONLINE';
+  var changed = false;
+  final mentors = offer.mentors
+      .map((mentor) {
+        if (mentor.id != teacherId || mentor.online == online) return mentor;
+        changed = true;
+        return mentor.copyWith(online: online);
+      })
+      .toList(growable: false);
+
+  return changed ? offer.copyWith(mentors: mentors) : offer;
+}
 
 class EscalationHistoryController
     extends AutoDisposeAsyncNotifier<List<EscalationHistoryItem>> {

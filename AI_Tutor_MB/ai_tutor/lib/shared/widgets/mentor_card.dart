@@ -54,6 +54,36 @@ class MentorCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(mentor.fullName, style: textTheme.titleMedium),
+                    const Gap(Insets.xs),
+                    Semantics(
+                      excludeSemantics: true,
+                      label:
+                          'Trạng thái giảng viên: ${mentor.online ? 'Online' : 'Offline'}',
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            mentor.online
+                                ? LucideIcons.circleCheck
+                                : LucideIcons.circleMinus,
+                            size: 14,
+                            color: mentor.online
+                                ? AppColors.success
+                                : AppColors.textTertiary,
+                          ),
+                          const Gap(Insets.xs),
+                          Text(
+                            mentor.online ? 'Online' : 'Offline',
+                            style: textTheme.bodySmall?.copyWith(
+                              color: mentor.online
+                                  ? AppColors.success
+                                  : AppColors.textTertiary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                     if (mentor.isClassTeacher)
                       Padding(
                         padding: const EdgeInsets.only(top: Insets.xs),
@@ -140,6 +170,32 @@ class MentorCard extends StatelessWidget {
                   .toList(),
             ),
           ],
+          if (!mentor.online) ...[
+            const Gap(Insets.md),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(Insets.sm),
+              decoration: BoxDecoration(
+                color: AppColors.infoBg,
+                borderRadius: BorderRadius.circular(Radii.sm),
+              ),
+              child: Text(
+                'Giảng viên đang offline. Yêu cầu vẫn được gửi và giảng viên có thể phản hồi khi quay lại.',
+                style: textTheme.bodySmall,
+              ),
+            ),
+          ],
+          const Gap(Insets.md),
+          Align(
+            alignment: Alignment.centerRight,
+            child: Text(
+              mentor.online ? 'Bắt đầu trao đổi' : 'Gửi yêu cầu đến giảng viên',
+              style: textTheme.labelLarge?.copyWith(
+                color: AppColors.primary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
         ],
       ),
     );

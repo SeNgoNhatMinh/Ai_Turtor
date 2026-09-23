@@ -34,6 +34,14 @@ abstract final class AppColors {
   static const sunken = Color(0xFFE2E8F0);
   static const inverse = Color(0xFF0D1B3D);
 
+  // Student workspace bridge — mirrors the web student's light palette.
+  static const studentCanvas = Color(0xFFF4F7FC);
+  static const studentSurface = Color(0xFFFFFFFF);
+  static const studentBorder = Color(0xFFE1E9F3);
+  static const studentText = Color(0xFF10243E);
+  static const studentMuted = Color(0xFF6B7D91);
+  static const studentBlue = Color(0xFF0A56A0);
+
   // Borders
   static const borderHairline = Color(0xFFE5E7EB);
   static const borderStrong = Color(0xFFCBD5E1);
