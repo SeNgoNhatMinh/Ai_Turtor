@@ -418,6 +418,32 @@ body.theme-dark .support-chat-room__hint {
   display: block;
 }
 
+.mentor-selection-option__copy .mentor-presence {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  width: fit-content;
+  margin-top: 3px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.mentor-presence > i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 2px color-mix(in srgb, currentColor 16%, transparent);
+}
+
+.mentor-presence--online {
+  color: #15803d !important;
+}
+
+.mentor-presence--offline {
+  color: #71717a !important;
+}
+
 .mentor-selection-option__copy span,
 .mentor-selection-option__copy small {
   margin-top: 2px;

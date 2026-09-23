@@ -13,6 +13,8 @@ class ImproveSuggestionItem {
     this.improvePlanId,
     this.planItemId,
     this.groundingStatus,
+    this.sourceMaterialIds = const [],
+    this.sourceChunkIds = const [],
   });
 
   final String key;
@@ -25,6 +27,8 @@ class ImproveSuggestionItem {
   final String? improvePlanId;
   final String? planItemId;
   final String? groundingStatus;
+  final List<String> sourceMaterialIds;
+  final List<String> sourceChunkIds;
 
   bool get hasImprovePlanGrounding {
     return (improvePlanId ?? '').trim().isNotEmpty &&
@@ -51,6 +55,8 @@ class ImproveSuggestionItem {
     String? improvePlanId,
     String? planItemId,
     String? groundingStatus,
+    List<String> sourceMaterialIds = const [],
+    List<String> sourceChunkIds = const [],
   }) {
     return ImproveSuggestionItem(
       key: _slug(text),
@@ -60,6 +66,8 @@ class ImproveSuggestionItem {
       improvePlanId: improvePlanId,
       planItemId: planItemId,
       groundingStatus: groundingStatus,
+      sourceMaterialIds: sourceMaterialIds,
+      sourceChunkIds: sourceChunkIds,
     );
   }
 
@@ -82,6 +90,8 @@ class ImproveSuggestionItem {
       improvePlanId: json['improvePlanId']?.toString(),
       planItemId: json['planItemId']?.toString(),
       groundingStatus: json['groundingStatus']?.toString(),
+      sourceMaterialIds: parseStringList(json['sourceMaterialIds']),
+      sourceChunkIds: parseStringList(json['sourceChunkIds']),
     );
   }
 
@@ -102,6 +112,8 @@ class ImproveSuggestionItem {
               learnTopic: trimmed,
               suggestionText: trimmed,
               source: item.source,
+              sourceMaterialIds: item.sourceMaterialIds,
+              sourceChunkIds: item.sourceChunkIds,
             ),
           );
         }

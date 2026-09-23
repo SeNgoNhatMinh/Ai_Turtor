@@ -15,12 +15,16 @@ class StudyChatHandoff {
     this.suggestionText,
     this.improvePlanId,
     this.planItemId,
+    this.sourceMaterialIds = const [],
+    this.sourceChunkIds = const [],
   });
 
   final String prompt;
   final String? suggestionText;
   final String? improvePlanId;
   final String? planItemId;
+  final List<String> sourceMaterialIds;
+  final List<String> sourceChunkIds;
 }
 
 class PendingTutorRequestContext {
@@ -31,6 +35,8 @@ class PendingTutorRequestContext {
     this.improvePlanId,
     this.planItemId,
     this.clickedSuggestion,
+    this.sourceMaterialIds = const [],
+    this.sourceChunkIds = const [],
   });
 
   final String? prompt;
@@ -39,6 +45,8 @@ class PendingTutorRequestContext {
   final String? improvePlanId;
   final String? planItemId;
   final String? clickedSuggestion;
+  final List<String> sourceMaterialIds;
+  final List<String> sourceChunkIds;
 
   bool get hasImprovePlanGrounding {
     return (improvePlanId ?? '').trim().isNotEmpty &&
@@ -87,17 +95,24 @@ void queueStudyChatHandoff(
     suggestionText: suggestionText,
     improvePlanId: suggestion?.improvePlanId,
     planItemId: suggestion?.planItemId,
+    sourceMaterialIds: suggestion?.sourceMaterialIds ?? const [],
+    sourceChunkIds: suggestion?.sourceChunkIds ?? const [],
   );
-  if (suggestion?.hasImprovePlanGrounding == true) {
+  final hasSourceProvenance = suggestion?.sourceMaterialIds.isNotEmpty == true;
+  if (suggestion?.hasImprovePlanGrounding == true || hasSourceProvenance) {
     ref
         .read(pendingTutorRequestContextProvider.notifier)
         .state = PendingTutorRequestContext(
       prompt: prompt,
-      interactionType: 'IMPROVE_PLAN_REVIEW',
+      interactionType: suggestion?.hasImprovePlanGrounding == true
+          ? 'IMPROVE_PLAN_REVIEW'
+          : 'SOURCE_BACKED_STUDY_TIP',
       displayQuestion: suggestionText,
       improvePlanId: suggestion!.improvePlanId,
       planItemId: suggestion.planItemId,
       clickedSuggestion: suggestionText,
+      sourceMaterialIds: suggestion.sourceMaterialIds,
+      sourceChunkIds: suggestion.sourceChunkIds,
     );
   }
 }

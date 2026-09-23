@@ -16,6 +16,23 @@ import 'ai_suggestion_json.dart';
 import 'rag_source_evidence_panel.dart';
 import 'rag_visual_evidence_strip.dart';
 
+bool reportsInsufficientCourseMaterial(String content) {
+  final text = content.toLowerCase().replaceAll(RegExp(r'\s+'), ' ').trim();
+  final mentionsMaterial =
+      text.contains('tài liệu') ||
+      text.contains('tai lieu') ||
+      text.contains('material');
+  final saysInsufficient =
+      text.contains('không đủ') ||
+      text.contains('khong du') ||
+      text.contains('không đề cập') ||
+      text.contains('khong de cap') ||
+      text.contains('not enough') ||
+      text.contains('does not mention') ||
+      text.contains('insufficient');
+  return mentionsMaterial && saysInsufficient;
+}
+
 class ChatBubble extends StatelessWidget {
   const ChatBubble({
     super.key,
@@ -58,13 +75,20 @@ class ChatBubble extends StatelessWidget {
   final bool revealMarkdown;
   final void Function(String materialId, String title)? onDownloadSource;
 
-  List<RagVisualEvidence> get _legacyVisualOnly {
-    if (sourceEvidence.isNotEmpty) return const [];
-    return visualEvidence;
-  }
-
   @override
   Widget build(BuildContext context) {
+    final insufficientMaterial = reportsInsufficientCourseMaterial(content);
+    final visibleSourceEvidence = insufficientMaterial
+        ? const <RagSourceEvidence>[]
+        : sourceEvidence;
+    final visibleSources = insufficientMaterial ? const <String>[] : sources;
+    final visibleLegacyVisuals = insufficientMaterial
+        ? const <RagVisualEvidence>[]
+        : visibleSourceEvidence.isNotEmpty
+        ? const <RagVisualEvidence>[]
+        : visualEvidence;
+    final hasMaterialEvidence =
+        visibleSourceEvidence.isNotEmpty || visibleSources.isNotEmpty;
     final radius = BorderRadius.only(
       topLeft: const Radius.circular(Radii.lg),
       topRight: const Radius.circular(Radii.lg),
@@ -162,18 +186,20 @@ class ChatBubble extends StatelessWidget {
                             : AppColors.textPrimary,
                       ),
                     ),
-                  if (!isUser && confidence != null) ...[
+                  if (!isUser && confidence != null && hasMaterialEvidence) ...[
                     _AiMetaRow(confidence: confidence),
                   ],
-                  if (!isUser && sourceEvidence.isNotEmpty)
+                  if (!isUser && visibleSourceEvidence.isNotEmpty)
                     RagSourceEvidencePanel(
-                      items: sourceEvidence,
+                      items: visibleSourceEvidence,
                       onDownloadSource: onDownloadSource,
                     ),
-                  if (!isUser && sourceEvidence.isEmpty && sources.isNotEmpty)
-                    _SourceChipRow(sources: sources),
-                  if (!isUser && _legacyVisualOnly.isNotEmpty)
-                    RagVisualEvidenceStrip(items: _legacyVisualOnly),
+                  if (!isUser &&
+                      visibleSourceEvidence.isEmpty &&
+                      visibleSources.isNotEmpty)
+                    _SourceChipRow(sources: visibleSources),
+                  if (!isUser && visibleLegacyVisuals.isNotEmpty)
+                    RagVisualEvidenceStrip(items: visibleLegacyVisuals),
                   if (!isUser && isCodeMentorMode(mode)) ...[
                     const Gap(Insets.sm),
                     Text(
@@ -303,19 +329,11 @@ class _AiMetaRow extends StatelessWidget {
             Icon(LucideIcons.checkCircle2, size: 14, color: AppColors.success),
             const Gap(Insets.xs),
             Text(
-              '$pct%',
+              'Độ khớp của nguồn với câu hỏi: $pct%',
               style: GoogleFonts.spaceGrotesk(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
                 color: AppColors.success,
-              ),
-            ),
-            const Gap(Insets.xs),
-            Text(
-              'tin cậy',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                fontSize: 11,
-                color: AppColors.textTertiary,
               ),
             ),
           ],

@@ -26,6 +26,7 @@ import '../../../core/utils/reviewed_message_ids.dart';
 import '../../student/student_route_handoff.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/models/improve_suggestion.dart';
+import '../../../shared/models/rag_source_evidence.dart';
 import '../../../shared/models/ai_conversation.dart';
 import '../../../shared/models/course.dart';
 import '../../../shared/models/escalation.dart';
@@ -1414,6 +1415,8 @@ class ChatScreen extends HookConsumerWidget {
       String? improvePlanId,
       String? planItemId,
       String? clickedSuggestion,
+      List<String> sourceMaterialIds = const [],
+      List<String> sourceChunkIds = const [],
     }) async {
       if (prompt.isEmpty || activeCourse == null) return;
       if (composerLocked) return;
@@ -1436,6 +1439,9 @@ class ChatScreen extends HookConsumerWidget {
             improvePlanId: improvePlanId,
             planItemId: planItemId,
             clickedSuggestion: clickedSuggestion,
+            requestedMode: 'RAG',
+            sourceMaterialIds: sourceMaterialIds,
+            sourceChunkIds: sourceChunkIds,
           );
       if (!context.mounted) return;
       if (effectiveId != conversationId) {
@@ -1457,17 +1463,46 @@ class ChatScreen extends HookConsumerWidget {
           displayMessage: text,
           interactionType: item.hasImprovePlanGrounding
               ? 'IMPROVE_PLAN_REVIEW'
+              : item.sourceMaterialIds.isNotEmpty
+              ? 'SOURCE_BACKED_STUDY_TIP'
               : null,
           improvePlanId: item.improvePlanId,
           planItemId: item.planItemId,
           clickedSuggestion: text,
+          sourceMaterialIds: item.sourceMaterialIds,
+          sourceChunkIds: item.sourceChunkIds,
         ),
       );
     }
 
-    void handleStudyTipTap(String tipText, {String currentQuestion = ''}) {
+    void handleStudyTipTap(
+      String tipText, {
+      String currentQuestion = '',
+      List<RagSourceEvidence> sourceEvidence = const [],
+    }) {
       final resolved = resolveChatStudyTip(currentQuestion, tipText);
-      unawaited(sendStudyPromptInChat(buildStudySuggestionPrompt(resolved)));
+      final materialIds = sourceEvidence
+          .map((item) => item.materialId?.trim() ?? '')
+          .where((id) => id.isNotEmpty)
+          .toSet()
+          .toList();
+      final chunkIds = sourceEvidence
+          .map((item) => item.chunkId?.trim() ?? '')
+          .where((id) => id.isNotEmpty)
+          .toSet()
+          .toList();
+      unawaited(
+        sendStudyPromptInChat(
+          buildStudySuggestionPrompt(resolved),
+          displayMessage: resolved,
+          interactionType: materialIds.isNotEmpty
+              ? 'SOURCE_BACKED_STUDY_TIP'
+              : null,
+          clickedSuggestion: resolved,
+          sourceMaterialIds: materialIds,
+          sourceChunkIds: chunkIds,
+        ),
+      );
     }
 
     Future<void> handleDeepDiveStudy(String prompt) {
@@ -2092,6 +2127,7 @@ class ChatScreen extends HookConsumerWidget {
                                   : (tip) => handleStudyTipTap(
                                       tip,
                                       currentQuestion: userQuestion ?? '',
+                                      sourceEvidence: message.sourceEvidence,
                                     ),
                             ),
                           ),
@@ -2311,6 +2347,7 @@ class _ChatInputBarState extends ConsumerState<_ChatInputBar> {
   var _listening = false;
   var _speechReady = false;
   var _speechBaseText = '';
+  var _requestedMode = 'RAG';
 
   void setDraft(String text) {
     _messageController
@@ -2397,6 +2434,7 @@ class _ChatInputBarState extends ConsumerState<_ChatInputBar> {
           courseId: course.code,
           classId: course.classId,
           codeSnippet: codeCheck.value.isEmpty ? null : codeCheck.value,
+          requestedMode: _requestedMode,
         );
     if (!mounted) return;
     if (effectiveId != widget.conversationId) {
@@ -2495,6 +2533,13 @@ class _ChatInputBarState extends ConsumerState<_ChatInputBar> {
       isPending: isPending,
       isListening: _listening,
       showComposerTips: true,
+      chatMode: _requestedMode,
+      onChatModeChanged: (mode) {
+        setState(() {
+          _requestedMode = mode == 'CODE' ? 'CODE' : 'RAG';
+          if (_requestedMode == 'CODE') _codeExpanded = true;
+        });
+      },
       attachmentNames: List.unmodifiable(_attachments),
       codeController: _codeController,
       codeExpanded: _codeExpanded,

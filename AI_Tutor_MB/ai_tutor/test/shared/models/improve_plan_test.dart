@@ -11,6 +11,8 @@ void main() {
           'title': 'IoC',
           'instruction': 'Nắm vững các khái niệm IoC và DI',
           'groundingStatus': 'GROUNDED',
+          'sourceMaterialIds': ['material-1'],
+          'sourceChunkIds': ['chunk-1'],
         },
       ],
     });
@@ -21,6 +23,8 @@ void main() {
     expect(item.planItemId, 'item-1');
     expect(item.suggestionText, 'Nắm vững các khái niệm IoC và DI');
     expect(item.hasImprovePlanGrounding, isTrue);
+    expect(item.sourceMaterialIds, ['material-1']);
+    expect(item.sourceChunkIds, ['chunk-1']);
   });
 
   test('legacy planItems still produce review ids', () {

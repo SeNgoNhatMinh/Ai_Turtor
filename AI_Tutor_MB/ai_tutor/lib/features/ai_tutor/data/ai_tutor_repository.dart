@@ -158,8 +158,40 @@ class AiTutorRepository {
     String? improvePlanId,
     String? planItemId,
     String? clickedSuggestion,
+    String? requestedMode,
+    List<String> sourceMaterialIds = const [],
+    List<String> sourceChunkIds = const [],
     CancelToken? cancelToken,
   }) async {
+    final normalizedRequestedMode = requestedMode == 'CODE' ? 'CODE' : 'RAG';
+    final requiresDirectBackendRoute =
+        requestedMode != null ||
+        sourceMaterialIds.isNotEmpty ||
+        sourceChunkIds.isNotEmpty ||
+        (improvePlanId ?? '').trim().isNotEmpty ||
+        (planItemId ?? '').trim().isNotEmpty;
+    if (requiresDirectBackendRoute) {
+      return _askSpring(
+        userId: userId,
+        courseId: courseId,
+        message: message,
+        classId: classId,
+        conversationId: conversationId,
+        studentName: studentName,
+        studentEmail: studentEmail,
+        codeSnippet: codeSnippet,
+        tutorSessionId: tutorSessionId,
+        sessionPhase: sessionPhase,
+        interactionType: interactionType,
+        improvePlanId: improvePlanId,
+        planItemId: planItemId,
+        clickedSuggestion: clickedSuggestion,
+        requestedMode: normalizedRequestedMode,
+        sourceMaterialIds: sourceMaterialIds,
+        sourceChunkIds: sourceChunkIds,
+        cancelToken: cancelToken,
+      );
+    }
     try {
       final answer = await _askN8n(
         userId: userId,
@@ -221,6 +253,9 @@ class AiTutorRepository {
           improvePlanId: improvePlanId,
           planItemId: planItemId,
           clickedSuggestion: clickedSuggestion,
+          requestedMode: normalizedRequestedMode,
+          sourceMaterialIds: sourceMaterialIds,
+          sourceChunkIds: sourceChunkIds,
           cancelToken: cancelToken,
         );
       } catch (fallbackError) {
@@ -312,6 +347,9 @@ class AiTutorRepository {
     String? improvePlanId,
     String? planItemId,
     String? clickedSuggestion,
+    String? requestedMode,
+    List<String> sourceMaterialIds = const [],
+    List<String> sourceChunkIds = const [],
     CancelToken? cancelToken,
   }) async {
     final response = await _spring.post<Map<String, dynamic>>(
@@ -344,6 +382,11 @@ class AiTutorRepository {
           'planItemId': planItemId,
         if (clickedSuggestion != null && clickedSuggestion.isNotEmpty)
           'clickedSuggestion': clickedSuggestion,
+        if (requestedMode != null && requestedMode.isNotEmpty)
+          'requestedMode': requestedMode,
+        if (sourceMaterialIds.isNotEmpty)
+          'sourceMaterialIds': sourceMaterialIds,
+        if (sourceChunkIds.isNotEmpty) 'sourceChunkIds': sourceChunkIds,
       },
       cancelToken: cancelToken,
       options: Options(receiveTimeout: aiReceiveTimeout),
@@ -529,6 +572,7 @@ class AiTutorRepository {
       studentEmail: studentEmail,
       tutorSessionId: tutorSessionId,
       sessionPhase: sessionPhase,
+      requestedMode: 'CODE',
     );
   }
 

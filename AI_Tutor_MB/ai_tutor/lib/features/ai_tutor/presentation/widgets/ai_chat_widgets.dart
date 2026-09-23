@@ -1144,6 +1144,8 @@ class AiChatInputBar extends StatelessWidget {
     this.codeController,
     this.codeExpanded = false,
     this.onToggleCode,
+    this.chatMode = 'RAG',
+    this.onChatModeChanged,
   });
 
   final TextEditingController controller;
@@ -1164,6 +1166,11 @@ class AiChatInputBar extends StatelessWidget {
   final TextEditingController? codeController;
   final bool codeExpanded;
   final VoidCallback? onToggleCode;
+  final String chatMode;
+  final ValueChanged<String>? onChatModeChanged;
+
+  static const ragModeLabel = 'Theo tài liệu môn học';
+  static const codeModeLabel = 'Hỗ trợ về code';
 
   static const keywordTip =
       'Hãy dùng đúng từ khóa học thuật của môn (ví dụ: servlet, inheritance, JSP lifecycle, SQL join). AI Tutor tìm tài liệu theo keyword — càng cụ thể thì câu trả lời càng chính xác.';
@@ -1187,6 +1194,58 @@ class AiChatInputBar extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            if (onChatModeChanged != null) ...[
+              Row(
+                children: [
+                  Text(
+                    'Chế độ hỗ trợ',
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: AppColors.textSecondary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const Gap(Insets.sm),
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      key: const ValueKey('ai-chat-mode-selector'),
+                      initialValue: chatMode == 'CODE' ? 'CODE' : 'RAG',
+                      isExpanded: true,
+                      decoration: InputDecoration(
+                        isDense: true,
+                        filled: true,
+                        fillColor: AppColors.raised,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: Insets.sm,
+                          vertical: Insets.xs,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(Radii.md),
+                          borderSide: const BorderSide(
+                            color: AppColors.borderHairline,
+                          ),
+                        ),
+                      ),
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'RAG',
+                          child: Text(ragModeLabel),
+                        ),
+                        DropdownMenuItem(
+                          value: 'CODE',
+                          child: Text(codeModeLabel),
+                        ),
+                      ],
+                      onChanged: enabled && !isPending
+                          ? (value) {
+                              if (value != null) onChatModeChanged!(value);
+                            }
+                          : null,
+                    ),
+                  ),
+                ],
+              ),
+              const Gap(Insets.sm),
+            ],
             if (attachmentNames.isNotEmpty) ...[
               Wrap(
                 spacing: Insets.xs,

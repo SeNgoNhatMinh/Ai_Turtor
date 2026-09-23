@@ -38,6 +38,7 @@ public class MentorEscalationService {
     private final MentorMatchingService matchingService;
     private final AcademicRoutingService academicRoutingService;
     private final ClassSectionRepository classSectionRepository;
+    private final RealtimeEventService realtimeEventService;
 
     public QuestionEscalation createQuestionEscalation(
             String userId,
@@ -120,8 +121,8 @@ public class MentorEscalationService {
             routeName = ROUTE_CLASS_TEACHER;
             suggestions = buildCourseTeacherSuggestions(request.getCourseId(), route.classSection());
             message = suggestions.isEmpty()
-                    ? "Môn học đang hoạt động nhưng chưa tìm thấy hồ sơ giáo viên đang hoạt động."
-                    : "Giáo viên của lớp bạn được chọn mặc định. Bạn cũng có thể chọn giáo viên khác đang dạy môn này.";
+                    ? "Môn học đang hoạt động nhưng chưa tìm thấy hồ sơ giáo viên được kích hoạt."
+                    : "Giáo viên của lớp bạn được chọn mặc định. Bạn vẫn có thể chọn giáo viên khác đang dạy môn này, kể cả khi họ đang offline.";
         } else {
             routeName = ROUTE_MENTOR_MATCHING;
             suggestions = findMentorSuggestions(request);
@@ -218,12 +219,15 @@ public class MentorEscalationService {
         mentorRepository.save(mentor);
 
         log.info("Chat room created: {} between user {} and mentor {}", chatRoom.getId(), userId, selectedMentorId);
+        boolean mentorOnline = realtimeEventService.isUserOnline(mentor.getId());
 
         return MentorSelectionResponse.builder()
                 .chatRoomId(chatRoom.getId())
                 .mentorName(mentor.getMentorName())
                 .mentorEmail(mentor.getEmail())
-                .message("You are now connected with " + mentor.getMentorName())
+                .message(mentorOnline
+                        ? "You are now connected with " + mentor.getMentorName()
+                        : "Your request was sent to " + mentor.getMentorName() + ", who can reply when back online")
                 .build();
     }
 
@@ -261,6 +265,7 @@ public class MentorEscalationService {
                         .matchReason("Active chat already exists for this escalation")
                         .responseTimeMinutes(mentor.getResponseTimeMinutes())
                         .specializations(mentor.getSpecializations())
+                        .online(realtimeEventService.isUserOnline(mentor.getId()))
                         .build());
 
         return MentorEscalationOfferResponse.builder()
@@ -343,6 +348,7 @@ public class MentorEscalationService {
                         : "Giáo viên phụ trách " + classLabel + " trong " + courseLabel)
                 .responseTimeMinutes(teacher.getResponseTimeMinutes())
                 .specializations(teacher.getSpecializations())
+                .online(realtimeEventService.isUserOnline(teacher.getId()))
                 .build();
     }
 
@@ -365,6 +371,7 @@ public class MentorEscalationService {
                         .matchReason("Fallback: active mentor")
                         .responseTimeMinutes(mentor.getResponseTimeMinutes())
                         .specializations(mentor.getSpecializations())
+                        .online(realtimeEventService.isUserOnline(mentor.getId()))
                         .build())
                 .collect(Collectors.toList());
     }

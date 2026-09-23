@@ -20,6 +20,22 @@ void main() {
     );
   });
 
+  test('keeps source provenance on API study suggestions', () {
+    final items = chatImproveSuggestionsForMessage(
+      answer: '1. Bài 1: Servlet',
+      apiSuggestions: [
+        ImproveSuggestionItem.fromJson({
+          'title': 'Ôn Servlet lifecycle',
+          'sourceMaterialIds': ['material-1'],
+          'sourceChunkIds': ['chunk-1'],
+        }),
+      ],
+    );
+
+    expect(items.single.sourceMaterialIds, ['material-1']);
+    expect(items.single.sourceChunkIds, ['chunk-1']);
+  });
+
   test('parses Bài N from the answer when the API sent no chips', () {
     final items = chatImproveSuggestionsForMessage(
       answer: '''

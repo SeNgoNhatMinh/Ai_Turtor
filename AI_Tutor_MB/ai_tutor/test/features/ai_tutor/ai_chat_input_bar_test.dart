@@ -103,6 +103,41 @@ void main() {
     controller.dispose();
   });
 
+  testWidgets('lets the student choose RAG or CODE support mode', (
+    tester,
+  ) async {
+    final controller = TextEditingController();
+    var selectedMode = 'RAG';
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AiChatInputBar(
+            controller: controller,
+            hint: 'Nhắn cho Cóc...',
+            enabled: true,
+            isPending: false,
+            onSend: () {},
+            onStop: () {},
+            stopLabel: 'Dừng',
+            chatMode: selectedMode,
+            onChatModeChanged: (value) => selectedMode = value,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Chế độ hỗ trợ'), findsOneWidget);
+    expect(find.text(AiChatInputBar.ragModeLabel), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('ai-chat-mode-selector')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(AiChatInputBar.codeModeLabel).last);
+    await tester.pumpAndSettle();
+
+    expect(selectedMode, 'CODE');
+    controller.dispose();
+  });
+
   testWidgets('keeps a locked composer empty', (tester) async {
     final controller = TextEditingController();
     await tester.pumpWidget(

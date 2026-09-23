@@ -25,6 +25,12 @@ public class MentorSuggestionDTO {
     private String matchReason;
     private Integer responseTimeMinutes;
     private List<String> specializations;
+    /**
+     * Live presence from the authenticated realtime WebSocket connection.
+     * This is informational only: an offline teacher can still be selected so
+     * the request remains assigned to the student's preferred teacher.
+     */
+    private Boolean online;
 }
 
 

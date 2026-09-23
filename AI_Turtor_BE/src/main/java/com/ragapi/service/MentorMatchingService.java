@@ -20,6 +20,7 @@ import java.util.stream.Collectors;
 public class MentorMatchingService {
     
     private MentorRepository mentorRepository;
+    private RealtimeEventService realtimeEventService;
     
     /**
      * TÃ¬m top 5 mentor phÃ¹ há»£p vï¿½>i question
@@ -214,6 +215,7 @@ public class MentorMatchingService {
                 .matchReason(generateMatchReason(mentor))
                 .responseTimeMinutes(mentor.getResponseTimeMinutes())
                 .specializations(mentor.getSpecializations())
+                .online(realtimeEventService.isUserOnline(mentor.getId()))
                 .build();
     }
     

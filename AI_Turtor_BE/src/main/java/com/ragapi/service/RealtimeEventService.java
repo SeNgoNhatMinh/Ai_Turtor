@@ -9,6 +9,7 @@ import org.springframework.web.socket.WebSocketSession;
 
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -20,8 +21,30 @@ public class RealtimeEventService {
     private final ObjectMapper objectMapper;
     private final Set<WebSocketSession> sessions = ConcurrentHashMap.newKeySet();
 
-    public void register(WebSocketSession session) { sessions.add(session); }
-    public void unregister(WebSocketSession session) { sessions.remove(session); }
+    public void register(WebSocketSession session) {
+        String userId = attribute(session, "userId");
+        boolean wasOnline = isUserOnline(userId);
+        sessions.add(session);
+        if (!wasOnline && isTeacherRole(attribute(session, "role"))) {
+            publishTeacherPresence(userId, true);
+        }
+    }
+
+    public void unregister(WebSocketSession session) {
+        String userId = attribute(session, "userId");
+        String role = attribute(session, "role");
+        boolean removed = sessions.remove(session);
+        if (removed && isTeacherRole(role) && !isUserOnline(userId)) {
+            publishTeacherPresence(userId, false);
+        }
+    }
+
+    public boolean isUserOnline(String userId) {
+        if (userId == null || userId.isBlank()) return false;
+        return sessions.stream()
+                .filter(WebSocketSession::isOpen)
+                .anyMatch(session -> userId.equals(attribute(session, "userId")));
+    }
 
     public void publishToUser(String userId, String eventType, String entityType,
                               String entityId, String status, Map<String, ?> data) {
@@ -58,6 +81,30 @@ public class RealtimeEventService {
         return event("CONNECTED", "WEBSOCKET", session.getId(), "READY", Map.of(
                 "userId", String.valueOf(session.getAttributes().get("userId")),
                 "role", String.valueOf(session.getAttributes().get("role"))));
+    }
+
+    private void publishTeacherPresence(String teacherId, boolean online) {
+        if (teacherId == null || teacherId.isBlank()) return;
+        publishToRoles(
+                List.of("STUDENT", "ADMIN"),
+                "TEACHER_PRESENCE_CHANGED",
+                "TEACHER_PRESENCE",
+                teacherId,
+                online ? "ONLINE" : "OFFLINE",
+                Map.of("teacherId", teacherId, "online", online)
+        );
+    }
+
+    private boolean isTeacherRole(String role) {
+        return "TEACHER".equalsIgnoreCase(role)
+                || "MENTOR".equalsIgnoreCase(role)
+                || "SENIOR_MENTOR".equalsIgnoreCase(role);
+    }
+
+    private String attribute(WebSocketSession session, String name) {
+        if (session == null || session.getAttributes() == null) return "";
+        Object value = session.getAttributes().get(name);
+        return value == null ? "" : String.valueOf(value);
     }
 
     private Map<String, Object> event(String type, String entityType, String entityId,

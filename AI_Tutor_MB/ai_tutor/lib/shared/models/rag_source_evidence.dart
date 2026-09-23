@@ -6,6 +6,7 @@ class RagSourceEvidence {
     this.courseId,
     this.courseName,
     this.materialId,
+    this.chunkId,
     this.materialTitle,
     this.chapter,
     this.pageStart,
@@ -18,6 +19,7 @@ class RagSourceEvidence {
   final String? courseId;
   final String? courseName;
   final String? materialId;
+  final String? chunkId;
   final String? materialTitle;
   final String? chapter;
   final int? pageStart;
@@ -29,23 +31,26 @@ class RagSourceEvidence {
   String get displayTitle {
     final title = materialTitle?.trim();
     if (title != null && title.isNotEmpty) return title;
-    return courseName?.trim().isNotEmpty == true ? courseName! : 'Tài liệu môn học';
+    return courseName?.trim().isNotEmpty == true
+        ? courseName!
+        : 'Tài liệu môn học';
   }
 
   String? get pageLabel {
+    if (pageEstimated) return 'Chưa đối chiếu được với trang PDF gốc';
     if (pageStart == null && pageEnd == null) return null;
     if (pageStart != null && pageEnd != null && pageStart != pageEnd) {
-      return 'Trang $pageStart–$pageEnd';
+      return 'Trang PDF $pageStart–$pageEnd';
     }
     final page = pageStart ?? pageEnd;
     if (page == null) return null;
-    return pageEstimated ? 'Trang ~$page' : 'Trang $page';
+    return 'Trang PDF $page';
   }
 
   String get subtitle {
     final parts = <String>[
       if (chapter != null && chapter!.trim().isNotEmpty) chapter!.trim(),
-      if (pageLabel != null) pageLabel!,
+      if (pageLabel != null) 'Vị trí chính xác: $pageLabel',
     ];
     return parts.join(' · ');
   }
@@ -71,6 +76,7 @@ class RagSourceEvidence {
       courseId: json['courseId']?.toString(),
       courseName: json['courseName']?.toString(),
       materialId: json['materialId']?.toString(),
+      chunkId: json['chunkId']?.toString(),
       materialTitle: title,
       chapter: json['chapter']?.toString(),
       pageStart: (json['pageStart'] as num?)?.toInt(),
@@ -83,7 +89,9 @@ class RagSourceEvidence {
               imageUrl: v.imageUrl,
               documentUrl: v.documentUrl,
               caption: v.caption,
-              pageNumber: v.pageNumber ?? (json['pageStart'] as num?)?.toInt(),
+              pageNumber: json['pageEstimated'] == true
+                  ? null
+                  : v.pageNumber ?? (json['pageStart'] as num?)?.toInt(),
               materialTitle: title ?? v.materialTitle,
             ),
           )

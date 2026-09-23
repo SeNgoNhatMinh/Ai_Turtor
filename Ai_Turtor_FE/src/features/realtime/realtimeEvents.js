@@ -21,6 +21,7 @@ export const REALTIME_EVENT_TYPES = Object.freeze({
   ],
   expertEvaluation: ['EVAL_RUN_COMPLETED', 'EVAL_RUN_FAILED'],
   answerReview: ['ANSWER_REVIEW_NEEDS_MENTOR', 'ANSWER_REVIEW_NEEDS_SENIOR'],
+  teacherPresence: ['TEACHER_PRESENCE_CHANGED'],
   tutorV2: [
     'EXPERT_TASK_CREATED',
     'EXPERT_TASK_ASSIGNED',

@@ -27,6 +27,8 @@ class ImprovePlanItemDetail {
     this.groundingConfidence,
     this.sourceTerms = const [],
     this.retrievalTerms = const [],
+    this.sourceMaterialIds = const [],
+    this.sourceChunkIds = const [],
   });
 
   final String id;
@@ -37,6 +39,8 @@ class ImprovePlanItemDetail {
   final double? groundingConfidence;
   final List<String> sourceTerms;
   final List<String> retrievalTerms;
+  final List<String> sourceMaterialIds;
+  final List<String> sourceChunkIds;
 
   String get reviewText {
     final instructionText = instruction.trim();
@@ -62,6 +66,8 @@ class ImprovePlanItemDetail {
       groundingConfidence: (json['groundingConfidence'] as num?)?.toDouble(),
       sourceTerms: parseStringList(json['sourceTerms']),
       retrievalTerms: parseStringList(json['retrievalTerms']),
+      sourceMaterialIds: parseStringList(json['sourceMaterialIds']),
+      sourceChunkIds: parseStringList(json['sourceChunkIds']),
     );
   }
 }
@@ -141,11 +147,15 @@ class ImprovePlan {
               improvePlanId: id,
               planItemId: item.id,
               groundingStatus: item.groundingStatus,
+              sourceMaterialIds: item.sourceMaterialIds,
+              sourceChunkIds: item.sourceChunkIds,
             ),
           )
           .toList();
     }
-    return planItems.asMap().entries
+    return planItems
+        .asMap()
+        .entries
         .where((entry) => entry.value.trim().isNotEmpty)
         .map(
           (entry) => ImproveSuggestionItem.reviewItem(
@@ -195,7 +205,10 @@ class ImprovePlan {
     if (raw is! List) return const [];
     return raw
         .whereType<Map>()
-        .map((item) => ImprovePlanItemDetail.fromJson(Map<String, dynamic>.from(item)))
+        .map(
+          (item) =>
+              ImprovePlanItemDetail.fromJson(Map<String, dynamic>.from(item)),
+        )
         .where((item) => item.reviewText.isNotEmpty)
         .toList();
   }

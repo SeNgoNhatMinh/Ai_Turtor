@@ -393,6 +393,9 @@ class ChatController
     String? improvePlanId,
     String? planItemId,
     String? clickedSuggestion,
+    String requestedMode = 'RAG',
+    List<String> sourceMaterialIds = const [],
+    List<String> sourceChunkIds = const [],
   }) async {
     _activeCancelToken?.cancel();
     final cancelToken = CancelToken();
@@ -401,7 +404,8 @@ class ChatController
     final pending = ref.read(pendingTutorRequestContextProvider);
     final callerHasContext =
         (interactionType ?? '').trim().isNotEmpty ||
-        (improvePlanId ?? '').trim().isNotEmpty;
+        (improvePlanId ?? '').trim().isNotEmpty ||
+        sourceMaterialIds.isNotEmpty;
     final pendingPrompt = pending?.prompt?.trim() ?? '';
     final usePending =
         pending != null &&
@@ -417,12 +421,15 @@ class ChatController
         (interactionType ?? activePending?.interactionType)?.trim() ?? '';
     final resolvedClicked =
         (clickedSuggestion ?? activePending?.clickedSuggestion)?.trim() ?? '';
+    final resolvedSourceMaterialIds = sourceMaterialIds.isNotEmpty
+        ? sourceMaterialIds
+        : activePending?.sourceMaterialIds ?? const <String>[];
+    final resolvedSourceChunkIds = sourceChunkIds.isNotEmpty
+        ? sourceChunkIds
+        : activePending?.sourceChunkIds ?? const <String>[];
     final resolvedDisplay =
         (displayMessage ?? activePending?.displayQuestion)?.trim() ?? '';
-    if (usePending ||
-        (pending != null &&
-            ((improvePlanId ?? '').trim().isNotEmpty ||
-                (interactionType ?? '').trim() == 'IMPROVE_PLAN_REVIEW'))) {
+    if (usePending || (pending != null && callerHasContext)) {
       ref.read(pendingTutorRequestContextProvider.notifier).state = null;
     }
 
@@ -468,6 +475,9 @@ class ChatController
             : resolvedImprovePlanId,
         planItemId: resolvedPlanItemId.isEmpty ? null : resolvedPlanItemId,
         clickedSuggestion: resolvedClicked.isEmpty ? null : resolvedClicked,
+        requestedMode: requestedMode == 'CODE' ? 'CODE' : 'RAG',
+        sourceMaterialIds: resolvedSourceMaterialIds,
+        sourceChunkIds: resolvedSourceChunkIds,
         cancelToken: cancelToken,
       );
 
