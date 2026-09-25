@@ -24,6 +24,17 @@ export const N8N_TUTOR_V2_FLOW_TIMEOUT_MS = env.n8nTutorV2FlowTimeoutMs;
 export const N8N_TUTOR_V2_APPROVAL_TIMEOUT_MS = env.n8nTutorV2ApprovalTimeoutMs;
 export const N8N_TUTOR_V2_EVALUATION_TIMEOUT_MS = env.n8nTutorV2EvaluationTimeoutMs;
 
+export function shouldRouteStudentChatThroughN8n({
+  improvePlan = false,
+  sourceProvenance = false,
+  requestedMode = '',
+} = {}) {
+  return N8N_ENABLED
+    && String(requestedMode || '').toUpperCase() !== 'CODE'
+    && !improvePlan
+    && !sourceProvenance;
+}
+
 function createN8nError(userMessage = 'Luồng AI đang tạm thời gián đoạn.', details = null) {
   const error = new Error(userMessage);
   error.name = 'N8nError';

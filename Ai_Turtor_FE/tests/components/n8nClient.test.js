@@ -21,7 +21,7 @@ vi.mock('../../src/features/auth/services/tokenStorage', () => ({
   getAuthToken: () => 'student-jwt',
 }));
 
-import { postN8n } from '../../src/services/n8nClient';
+import { postN8n, shouldRouteStudentChatThroughN8n } from '../../src/services/n8nClient';
 
 describe('n8n HTTP client education contract', () => {
   beforeEach(() => {
@@ -92,6 +92,14 @@ describe('n8n HTTP client education contract', () => {
     expect(body.authToken).toBeUndefined();
     expect(body.courseId).toBe('PRO192');
     expect(body.traceId).toBeTruthy();
+  });
+
+  it('routes ordinary student chat through n8n and skips only provenance-backed turns', () => {
+    expect(shouldRouteStudentChatThroughN8n()).toBe(true);
+    expect(shouldRouteStudentChatThroughN8n({ requestedMode: 'RAG' })).toBe(true);
+    expect(shouldRouteStudentChatThroughN8n({ requestedMode: 'CODE' })).toBe(false);
+    expect(shouldRouteStudentChatThroughN8n({ improvePlan: true })).toBe(false);
+    expect(shouldRouteStudentChatThroughN8n({ sourceProvenance: true })).toBe(false);
   });
 
   it('only includes a body token when an explicit legacy compatibility call requests it', async () => {

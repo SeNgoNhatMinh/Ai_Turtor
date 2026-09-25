@@ -4,6 +4,10 @@ import com.ragapi.entity.AiConversation;
 import com.ragapi.entity.AiMessage;
 import com.ragapi.repository.AiConversationRepository;
 import com.ragapi.repository.AiMessageRepository;
+import com.ragapi.util.LessonExplanationCompleter;
+import com.ragapi.util.LessonUnderstandingCheckCompleter;
+import com.ragapi.util.StudentFacingMessages;
+import com.ragapi.util.TextSanitizer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -12,6 +16,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -50,7 +55,7 @@ public class AdminAiLogService {
                 row.put("classId", conversation.getClassId());
                 row.put("question", question.getContent());
                 row.put("answer", answer == null ? "" : answer.getContent());
-                row.put("status", answer == null ? "IN_PROGRESS" : "COMPLETED");
+                row.put("status", resolveStatus(question, answer));
                 row.put("inputTokensEstimated", inputTokens);
                 row.put("outputTokensEstimated", outputTokens);
                 row.put("totalTokensEstimated", inputTokens + outputTokens);
@@ -68,7 +73,32 @@ public class AdminAiLogService {
         long tokens = logs.stream().mapToLong(row -> ((Number) row.get("totalTokensEstimated")).longValue()).sum();
         return Map.of("requestCount", logs.size(), "estimatedTokenCount", tokens,
                 "completedCount", logs.stream().filter(row -> "COMPLETED".equals(row.get("status"))).count(),
-                "inProgressCount", logs.stream().filter(row -> "IN_PROGRESS".equals(row.get("status"))).count());
+                "inProgressCount", logs.stream().filter(row -> "IN_PROGRESS".equals(row.get("status"))).count(),
+                "failedCount", logs.stream().filter(row -> List.of("FAILED", "INCOMPLETE")
+                        .contains(row.get("status"))).count());
+    }
+
+    private String resolveStatus(AiMessage question, AiMessage answer) {
+        if (answer == null) {
+            return "IN_PROGRESS";
+        }
+        if (StudentFacingMessages.isUnavailableMessage(answer.getContent())) {
+            return "FAILED";
+        }
+        if (isLessonStart(question == null ? null : question.getContent())
+                && (LessonExplanationCompleter.missingLessonBody(answer.getContent())
+                || !LessonUnderstandingCheckCompleter.hasUsableCheck(answer.getContent()))) {
+            return "INCOMPLETE";
+        }
+        return "COMPLETED";
+    }
+
+    private boolean isLessonStart(String question) {
+        if (question == null || question.isBlank()) return false;
+        String normalized = TextSanitizer.normalizeAccentInsensitive(question)
+                .toLowerCase(Locale.ROOT)
+                .trim();
+        return normalized.startsWith("bat dau bai ");
     }
 
     private int estimateTokens(String text) { return text == null ? 0 : (int) Math.ceil(text.length() / 4.0); }

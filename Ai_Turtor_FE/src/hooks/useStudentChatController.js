@@ -3,7 +3,7 @@ import { aiTutorApi } from '../services/aiTutorApi';
 import { conversationApi } from '../services/conversationApi';
 import { getUserFacingError } from '../services/apiClient';
 import { asArray, pairMessages } from '../services/normalizers';
-import { N8N_ENABLED, N8N_STRICT } from '../services/n8nClient';
+import { N8N_STRICT, shouldRouteStudentChatThroughN8n } from '../services/n8nClient';
 import { n8nService } from '../services/n8nService';
 import {
   buildAiServiceErrorMessage,
@@ -173,10 +173,9 @@ export function useStudentChatController({
           clickedSuggestion: requestContext.clickedSuggestion || requestContext.displayQuestion || text,
         }
         : {};
-      const requiresDirectBackendRoute = Object.keys(improvePlanPayload).length > 0
-        || Object.keys(sourceProvenancePayload).length > 0
-        || Boolean(requestedMode);
-      if (N8N_ENABLED && !requiresDirectBackendRoute) {
+      const improvePlan = Object.keys(improvePlanPayload).length > 0;
+      const sourceProvenance = Object.keys(sourceProvenancePayload).length > 0;
+      if (shouldRouteStudentChatThroughN8n({ improvePlan, sourceProvenance, requestedMode })) {
         try {
           data = await n8nService.sendStudentChat({
             studentId: userId,
@@ -191,6 +190,7 @@ export function useStudentChatController({
             tutorSessionId: activeTutorSession?.id || '',
             sessionPhase: activeTutorSession?.phase || 'TEACH',
             interactionType: requestContext.interactionType || '',
+            requestedMode: requestedMode === 'CODE' ? 'CODE' : undefined,
             ...improvePlanPayload,
           }, { signal: requestController.signal });
         } catch (n8nError) {

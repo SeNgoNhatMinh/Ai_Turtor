@@ -21,13 +21,14 @@ const COLUMNS = [
     title: 'Trạng thái',
     dataIndex: 'status',
     width: 120,
-    render: (value) => (
-      <Tag color={value === 'COMPLETED' ? 'success' : 'processing'}>
-        {value === 'COMPLETED' ? 'Hoàn tất' : 'Đang xử lý'}
-      </Tag>
-    ),
+    render: (value) => {
+      if (value === 'COMPLETED') return <Tag color="success">Hoàn tất</Tag>;
+      if (value === 'FAILED') return <Tag color="error">Không trả lời</Tag>;
+      if (value === 'INCOMPLETE') return <Tag color="warning">Trả lời thiếu</Tag>;
+      return <Tag color="processing">Đang xử lý</Tag>;
+    },
   },
-  { title: 'Token (ước tính)', dataIndex: 'totalTokensEstimated', width: 140 },
+  { title: 'Token đã dùng (ước tính)', dataIndex: 'totalTokensEstimated', width: 175 },
   { title: 'Chi phí thực', dataIndex: 'actualCost', width: 110, render: (value) => value == null ? 'Chưa có' : value },
 ];
 
@@ -35,6 +36,10 @@ const renderExpandedLog = (row) => (
   <Space orientation="vertical" className="admin-ai-log-answer">
     <Text strong>Câu trả lời</Text>
     <Paragraph>{row.answer || 'Chưa có câu trả lời.'}</Paragraph>
+    <Text type="secondary">
+      Ước tính đầu vào: {row.inputTokensEstimated || 0} · đầu ra: {row.outputTokensEstimated || 0} token.
+      Đây là lượng đã dùng, không phải hạn mức trả lời.
+    </Text>
     {row.costNote && <Text type="secondary">{row.costNote}</Text>}
   </Space>
 );

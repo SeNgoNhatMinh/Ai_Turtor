@@ -165,7 +165,7 @@ class AiTutorRepository {
   }) async {
     final normalizedRequestedMode = requestedMode == 'CODE' ? 'CODE' : 'RAG';
     final requiresDirectBackendRoute =
-        requestedMode != null ||
+        normalizedRequestedMode == 'CODE' ||
         sourceMaterialIds.isNotEmpty ||
         sourceChunkIds.isNotEmpty ||
         (improvePlanId ?? '').trim().isNotEmpty ||

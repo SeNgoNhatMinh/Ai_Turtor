@@ -9,6 +9,8 @@ import com.ragapi.service.course.answer.grounding.CourseAnswerEvidenceService;
 import com.ragapi.service.course.model.CourseAnswerRequest;
 import com.ragapi.service.course.model.RetrievedCourseChunk;
 import com.ragapi.util.GroundedContentGuard;
+import com.ragapi.util.LessonExplanationCompleter;
+import com.ragapi.util.LessonUnderstandingCheckCompleter;
 import com.ragapi.util.StudentAnswerCompletenessGuard;
 import com.ragapi.util.StudentFacingMessages;
 import lombok.RequiredArgsConstructor;
@@ -48,13 +50,7 @@ public class CourseAnswerGenerationStageService {
         try {
             log.debug("Context size: {} bytes, question length: {}",
                     prepared.context().length(), prepared.question().length());
-            String answer = generationService.generateGroundedAnswer(
-                    prompt,
-                    prepared.question(),
-                    request.teachingMode(),
-                    prepared.context(),
-                    request.learnerMemoryContext()
-            );
+            String answer = generateUsableAnswer(prepared, prompt, request);
             if (!hasText(answer) || StudentFacingMessages.isUnavailableMessage(answer)) {
                 log.warn("Grounded tutor generation returned no usable answer");
                 return resultService.softUnavailable(StudentFacingMessages.GENERATION_BUSY, prepared.sourceLabels());
@@ -64,8 +60,19 @@ public class CourseAnswerGenerationStageService {
                 log.warn("Removed an abbreviated example output containing an ellipsis placeholder");
                 answer = StudentAnswerCompletenessGuard.removeAbbreviatedExampleOutputs(answer);
             }
-            if (StudentAnswerCompletenessGuard.isClearlyIncomplete(answer)) {
-                log.warn("Grounded tutor generation ended with an incomplete Markdown structure or sentence");
+            if (StudentAnswerCompletenessGuard.isClearlyIncomplete(answer)
+                    || isIncompleteLesson(request, answer)) {
+                log.warn("Retrying grounded tutor generation after an incomplete student answer");
+                answer = generateUsableAnswer(prepared, prompt, request);
+                answer = GroundedContentGuard.stripUnsupportedOptionalSections(answer, prepared.context());
+                if (StudentAnswerCompletenessGuard.containsAbbreviatedExampleOutput(answer)) {
+                    answer = StudentAnswerCompletenessGuard.removeAbbreviatedExampleOutputs(answer);
+                }
+            }
+            if (!hasText(answer) || StudentFacingMessages.isUnavailableMessage(answer)
+                    || StudentAnswerCompletenessGuard.isClearlyIncomplete(answer)
+                    || isIncompleteLesson(request, answer)) {
+                log.warn("Grounded tutor generation ended with an incomplete student answer");
                 return resultService.softUnavailable(StudentFacingMessages.GENERATION_BUSY, prepared.sourceLabels());
             }
             if (StudentFacingMessages.isInsufficientMaterialAnswer(answer)) {
@@ -107,7 +114,43 @@ public class CourseAnswerGenerationStageService {
         }
     }
 
+    private String generateUsableAnswer(
+            CourseAnswerPreparation prepared,
+            String prompt,
+            CourseAnswerRequest request
+    ) {
+        try {
+            String answer = generationService.generateGroundedAnswer(
+                    prompt,
+                    prepared.question(),
+                    request.teachingMode(),
+                    prepared.context(),
+                    request.learnerMemoryContext()
+            );
+            if (hasText(answer) && !StudentFacingMessages.isUnavailableMessage(answer)) {
+                return answer;
+            }
+        } catch (RuntimeException firstAttempt) {
+            log.warn("First grounded tutor generation failed: {}", firstAttempt.getMessage());
+        }
+        log.warn("Retrying grounded tutor generation after an empty, unavailable, or failed answer");
+        return generationService.generateGroundedAnswer(
+                prompt,
+                prepared.question(),
+                request.teachingMode(),
+                prepared.context(),
+                request.learnerMemoryContext()
+        );
+    }
+
     private boolean hasText(String value) {
         return value != null && !value.isBlank();
+    }
+
+    private boolean isIncompleteLesson(CourseAnswerRequest request, String answer) {
+        return request != null
+                && "LESSON_TEACH".equalsIgnoreCase(request.teachingMode())
+                && (LessonExplanationCompleter.missingLessonBody(answer)
+                || !LessonUnderstandingCheckCompleter.hasUsableCheck(answer));
     }
 }
