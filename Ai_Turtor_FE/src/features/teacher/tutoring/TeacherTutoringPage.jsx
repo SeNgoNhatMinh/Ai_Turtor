@@ -404,7 +404,7 @@ export default function TeacherTutoringPage({
           <div className="teacher-session-feed__header">
             <div className="teacher-roster-heading">
               {activeScope && <button type="button" className="teacher-tutoring-btn is-secondary" onClick={() => selectClass('')}>← Tất cả lớp</button>}
-              <h2>{activeScope ? activeScope.label : 'Các lớp đang phụ trách'}</h2>
+              <h2>{activeScope ? 'Danh sách sinh viên' : 'Các lớp đang phụ trách'}</h2>
             </div>
             <p className="teacher-session-feed__hint">
               {activeScope
@@ -417,25 +417,10 @@ export default function TeacherTutoringPage({
                   <button type="button" key={scope.key} className="teacher-tutoring-class-card" onClick={() => selectClass(scope.key)}>
                     <span className="teacher-tutoring-class-card__course">{scope.courseId}</span>
                     <strong>{scope.className || scope.classId}</strong>
-                    <span className="teacher-tutoring-class-card__meta">Mã lớp: {scope.classId}</span>
+                    {scope.className
+                      && ![scope.classId, `Lớp ${scope.classId}`].includes(scope.className.trim())
+                      && <span className="teacher-tutoring-class-card__meta">Mã lớp: {scope.classId}</span>}
                     <span className="teacher-tutoring-class-card__action">Mở danh sách sinh viên <span aria-hidden="true">→</span></span>
-                  </button>
-                ))}
-              </div>
-            )}
-            {activeScope && (
-              <div className="teacher-class-tabs" role="tablist" aria-label="Lọc theo lớp">
-                {classScopes.map((scope) => (
-                  <button
-                    key={scope.key}
-                    type="button"
-                    role="tab"
-                    aria-selected={effectiveActiveClassKey === scope.key}
-                    className={effectiveActiveClassKey === scope.key ? 'is-active' : ''}
-                    onClick={() => selectClass(scope.key)}
-                  >
-                    {scope.label}
-                    <em>{scope.key === effectiveActiveClassKey ? (tutoringQuery.data?.rosterMeta?.totalElements ?? studentRows.length) : '›'}</em>
                   </button>
                 ))}
               </div>
@@ -460,10 +445,6 @@ export default function TeacherTutoringPage({
           {activeScope && <div className="teacher-student-list">
             {visibleGroups.map((group) => (
               <section key={group.key} className="teacher-class-group">
-                <header className="teacher-class-group__header">
-                  <h3>{group.label}</h3>
-                  <span>{group.students.length} sinh viên</span>
-                </header>
                 {group.students.map((student) => (
                   <article key={`${student.classKey}-${student.studentId || student.id}`} className="teacher-student-card">
                     <div className="teacher-student-card__identity">

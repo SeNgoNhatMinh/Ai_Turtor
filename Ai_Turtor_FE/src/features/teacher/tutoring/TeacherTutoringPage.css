@@ -9,6 +9,7 @@
   --tutor-border: #dbe4ef;
   --tutor-muted: #64748b;
   --tutor-ink: #13213a;
+  --teacher-list-label-size: 0.8rem;
 }
 
 .teacher-tutoring-page {
@@ -432,7 +433,6 @@
   border-radius: 999px;
   background: var(--tutor-navy-soft);
   color: var(--tutor-navy);
-  font-size: 0.72rem;
   font-style: normal;
   font-weight: 750;
   text-align: right;
@@ -445,7 +445,6 @@
 
 .teacher-topic-list span {
   color: var(--tutor-muted);
-  font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -466,10 +465,16 @@
   border-radius: 999px;
   background: #f1f5f9;
   color: #334155;
-  font-size: 0.78rem;
   padding: 3px 9px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.teacher-student-status,
+.teacher-topic-list span,
+.teacher-topic-list li {
+  font-size: var(--teacher-list-label-size);
+  line-height: 1.25;
 }
 
 .teacher-topic-list.is-weak li {
