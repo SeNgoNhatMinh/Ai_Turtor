@@ -29,8 +29,8 @@ public final class StudentChatIntentDetector {
      * Requires a start phrase plus "học", and must not be a definition question.
      */
     private static final Pattern TOPIC_STUDY_START = Pattern.compile(
-            "(?:^|\\s)(?:nay|hom nay)(?:\\s+minh|\\s+em)?(?:\\s+muon)?\\s+hoc(?!\\s+(?:gi|cham|khong|voi)\\b)"
-                    + "|(?:^|\\s)(?:minh|em)\\s+muon\\s+hoc\\b"
+            "(?:^|\\s)(?:nay|hom nay)(?:\\s+(?:minh|em|toi|to))?(?:\\s+muon)?\\s+hoc(?!\\s+(?:gi|cham|khong|voi)\\b)"
+                    + "|(?:^|\\s)(?:minh|em|toi|to)\\s+muon\\s+hoc\\b"
                     + "|(?:^|\\s)bat dau\\s+hoc\\b"
                     + "|(?:^|\\s)hoc\\s+(?:ve|phan|chuong|bai)\\b"
     );

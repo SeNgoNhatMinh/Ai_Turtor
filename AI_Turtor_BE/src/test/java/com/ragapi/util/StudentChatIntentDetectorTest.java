@@ -53,6 +53,8 @@ class StudentChatIntentDetectorTest {
     void topicStudyStartIsNotADefinitionDump() {
         assertTrue(StudentChatIntentDetector.isTopicStudyStart("Nay mình học Java Servlet"));
         assertTrue(StudentChatIntentDetector.isTopicStudyStart("Hôm nay mình học Servlet"));
+        assertTrue(StudentChatIntentDetector.isTopicStudyStart(
+                "H\u00f4m nay t\u00f4i mu\u1ed1n h\u1ecdc v\u1ec1 t\u00ednh \u0111a h\u00ecnh"));
         assertTrue(StudentChatIntentDetector.isTopicStudyStart("Mình muốn học JSP"));
         assertTrue(StudentChatIntentDetector.isTopicStudyStart("Nay mình học Alternative execution"));
         assertTrue(StudentChatIntentDetector.isTopicStudyStart("Học bài lập trình hướng đối tượng"));

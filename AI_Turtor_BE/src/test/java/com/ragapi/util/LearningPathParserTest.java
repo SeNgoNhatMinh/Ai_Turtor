@@ -42,8 +42,13 @@ class LearningPathParserTest {
                 LearningPathParser.retrievalFocus("Bắt đầu bài 1: Servlet là gì?")
         );
         assertEquals(
-                "Nay mình học Java Servlet",
+                "Java Servlet",
                 LearningPathParser.retrievalFocus("Nay mình học Java Servlet")
+        );
+        assertEquals(
+                "t\u00ednh \u0111a h\u00ecnh",
+                LearningPathParser.retrievalFocus(
+                        "H\u00f4m nay t\u00f4i mu\u1ed1n h\u1ecdc v\u1ec1 t\u00ednh \u0111a h\u00ecnh")
         );
     }
 
@@ -61,7 +66,7 @@ class LearningPathParserTest {
                 LearningPathParser.retrievalFocus("còn response thì sao?", "Java Servlet")
         );
         assertEquals(
-                "Nay mình học JDBC",
+                "JDBC",
                 LearningPathParser.retrievalFocus("Nay mình học JDBC", "Java Servlet")
         );
         assertEquals(

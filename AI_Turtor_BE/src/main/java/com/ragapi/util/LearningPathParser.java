@@ -24,6 +24,12 @@ public final class LearningPathParser {
     private static final Pattern LESSON_FOCUS = Pattern.compile(
             "(?iu)(?:bài|bai)\\s+\\d+\\s*[:：.\\-]\\s*(.+)"
     );
+    private static final Pattern TOPIC_STUDY_FOCUS = Pattern.compile(
+            "(?iu)^\\s*(?:(?:(?:hôm|hom)\\s+nay|nay)\\s+)?"
+                    + "(?:(?:mình|minh|em|tôi|toi|tớ|to)\\s+)?"
+                    + "(?:(?:muốn|muon)\\s+)?(?:bắt\\s+đầu\\s+|bat\\s+dau\\s+)?"
+                    + "(?:học|hoc)\\s+(?:(?:về|ve|bài|bai|phần|phan|chương|chuong)\\s+)?"
+    );
     private static final int MAX_LESSONS = 8;
 
     private LearningPathParser() {
@@ -178,6 +184,16 @@ public final class LearningPathParser {
             String lessonTitle = stripMarkdown(matcher.group(1));
             if (!lessonTitle.isBlank()) {
                 focus = lessonTitle;
+            }
+        } else if (StudentChatIntentDetector.isTopicStudyStart(question)) {
+            Matcher topicMatcher = TOPIC_STUDY_FOCUS.matcher(focus);
+            if (topicMatcher.find()) {
+                String topic = stripMarkdown(focus.substring(topicMatcher.end()))
+                        .replaceFirst("[?!.]+$", "")
+                        .trim();
+                if (!topic.isBlank()) {
+                    focus = topic;
+                }
             }
         }
         if (sessionTopic == null || sessionTopic.isBlank()) {

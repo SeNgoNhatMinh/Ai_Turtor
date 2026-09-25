@@ -74,6 +74,20 @@ class IntentClassifierServiceTest {
     }
 
     @Test
+    void firstPersonTopicStudyStart_routesToLearningPath() {
+        var result = service.classify(
+                "H\u00f4m nay t\u00f4i mu\u1ed1n h\u1ecdc v\u1ec1 t\u00ednh \u0111a h\u00ecnh",
+                "",
+                "PRO192"
+        );
+
+        assertEquals(IntentClassifierService.MODE_RAG, result.getMode());
+        assertEquals("LEARNING_PATH", result.getSubIntent());
+        assertTrue(result.getRequiresCourseMaterial());
+        assertEquals("RULE", result.getRoutingStrategy());
+    }
+
+    @Test
     void whatToStudyNext_staysOnCurrentTopicNotNumberedPath() {
         var result = service.classify("Mình nên ôn gì tiếp?", "", "PRO192");
 

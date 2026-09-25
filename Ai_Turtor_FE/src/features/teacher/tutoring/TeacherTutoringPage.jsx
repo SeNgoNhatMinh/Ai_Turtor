@@ -96,7 +96,6 @@ export default function TeacherTutoringPage({
   const [form, setForm] = useState({
     classKey: '',
     studentId: '',
-    topic: '',
     instruction: '',
     supportLevel: 'STANDARD',
   });
@@ -244,12 +243,11 @@ export default function TeacherTutoringPage({
     setSelectedSummary(null);
   };
 
-  const applyDirectiveToStudent = (student, topic = '') => {
+  const applyDirectiveToStudent = (student) => {
     setForm((value) => ({
       ...value,
       classKey: student.classKey || value.classKey,
       studentId: student.studentId || '',
-      topic: topic || value.topic,
     }));
     if (student.classKey) setActiveClassKey(student.classKey);
     window.document.querySelector('.teacher-directive-form textarea')?.focus();
@@ -271,14 +269,14 @@ export default function TeacherTutoringPage({
     try {
       const draft = await tutorSessionApi.createDirective(teacherId, {
         studentId: form.studentId.trim() || null,
-        topic: form.topic.trim() || null,
+        topic: null,
         instruction: form.instruction.trim(),
         supportLevel: form.supportLevel,
         courseId: scope.courseId,
         classId: scope.classId,
       });
       await tutorSessionApi.confirmDirective(teacherId, draft.id);
-      setForm({ classKey: form.classKey || scope.key, studentId: '', topic: '', instruction: '', supportLevel: 'STANDARD' });
+      setForm({ classKey: form.classKey || scope.key, studentId: '', instruction: '', supportLevel: 'STANDARD' });
       triggerToast?.('Đã xác nhận chỉ dẫn. AI Tutor sẽ áp dụng từ lượt học tiếp theo.');
       await queryClient.invalidateQueries({ queryKey: tutoringQueryKey, exact: true });
     } catch (error) {
@@ -366,14 +364,6 @@ export default function TeacherTutoringPage({
               </select>
             </label>
             <label className="teacher-directive-field">
-              <span>Chủ đề áp dụng</span>
-              <input
-                value={form.topic}
-                onChange={(event) => setForm((value) => ({ ...value, topic: event.target.value }))}
-                placeholder="Ví dụ: Cache L2/L3"
-              />
-            </label>
-            <label className="teacher-directive-field">
               <span>Mức hỗ trợ</span>
               <select
                 value={form.supportLevel}
@@ -385,11 +375,11 @@ export default function TeacherTutoringPage({
               </select>
             </label>
             <label className="teacher-directive-field">
-              <span>Nhận xét / chỉ dẫn</span>
+              <span>Nhận xét / chỉ dẫn cho toàn môn</span>
               <textarea
                 value={form.instruction}
                 onChange={(event) => setForm((value) => ({ ...value, instruction: event.target.value }))}
-                placeholder="Nhận xét/chỉ dẫn của giảng viên..."
+                placeholder="Ví dụ: Giải thích chậm hơn, dùng ví dụ đơn giản và thường xuyên kiểm tra mức độ hiểu của sinh viên."
                 rows={4}
                 required
               />
@@ -503,7 +493,7 @@ export default function TeacherTutoringPage({
                       <button
                         type="button"
                         className="teacher-tutoring-btn is-secondary"
-                        onClick={() => applyDirectiveToStudent(student, student.studiedTopics[0] || '')}
+                        onClick={() => applyDirectiveToStudent(student)}
                       >
                         Gửi chỉ dẫn
                       </button>
