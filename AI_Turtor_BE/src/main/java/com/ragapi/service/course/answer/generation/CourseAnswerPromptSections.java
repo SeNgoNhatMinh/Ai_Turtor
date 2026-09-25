@@ -96,7 +96,7 @@ public class CourseAnswerPromptSections {
                   (example, clarification), stay on that topic. Do not switch chapters.
                 - Do not invent APIs, class names, files, or steps that are not in the context.
                 - Cover the lesson in Vietnamese prose before any quiz. A quiz-only answer is invalid.
-                - After the explanation, one short understanding check is allowed.
+                - After the explanation, one short understanding check is REQUIRED for every taught lesson.
                 - After the quiz of a NEW numbered lesson ("Bắt đầu bài N"), list 3-5 deeper angles
                   under ## Học chuyên sâu. Do not fully teach them. Do not number them as Bài 1/2/3.
                 - After "Đào sâu bài N: title", teach that angle, then list 3-5 NARROWER follow-ups
@@ -218,7 +218,7 @@ public class CourseAnswerPromptSections {
                 Include a small grounded example only when the student asked for one and the material supports it.
 
                 ## Kiểm tra hiểu
-                Only AFTER the explanation. One short multiple-choice check.
+                REQUIRED, only AFTER the explanation. Always include one short multiple-choice check.
                 The UI hides Đáp án and Giải thích until they pick an option.
                 Write Đáp án and Giải thích immediately after C. If you run out of space,
                 skip the next-lesson heading — never omit the explanation or Đáp án.

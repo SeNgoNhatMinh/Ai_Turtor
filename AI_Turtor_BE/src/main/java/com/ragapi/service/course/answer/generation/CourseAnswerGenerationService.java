@@ -4,6 +4,7 @@ import com.ragapi.dto.CourseRagAnswer;
 import com.ragapi.service.course.gateway.CourseAnswerModelGateway;
 import com.ragapi.util.LearningPathParser;
 import com.ragapi.util.LessonExplanationCompleter;
+import com.ragapi.util.LessonUnderstandingCheckCompleter;
 import com.ragapi.util.PromptLeakFilter;
 import com.ragapi.util.UnderstandingCheckKeyCompleter;
 import lombok.RequiredArgsConstructor;
@@ -78,14 +79,17 @@ public class CourseAnswerGenerationService {
             return answer;
         }
 
-        answer = completeUnderstandingCheckKey(answer);
         if ("LESSON_TEACH".equalsIgnoreCase(teachingMode)) {
             answer = completeLessonExplanation(answer, question, courseContext);
+            answer = completeLessonUnderstandingCheck(answer, question, courseContext);
+            answer = completeUnderstandingCheckKey(answer);
             answer = restoreNextLesson(answer, question, learnerMemoryContext);
         } else if ("LESSON_DEEP_PATH".equalsIgnoreCase(teachingMode)) {
+            answer = completeUnderstandingCheckKey(answer);
             answer = PromptLeakFilter.stripNumberedCurriculum(answer);
             answer = restoreNextLesson(answer, question, learnerMemoryContext);
         } else if (!"LEARNING_PATH".equalsIgnoreCase(teachingMode)) {
+            answer = completeUnderstandingCheckKey(answer);
             answer = PromptLeakFilter.stripNumberedCurriculum(answer);
         }
         return answer;
@@ -137,6 +141,26 @@ public class CourseAnswerGenerationService {
             return filled;
         } catch (Exception error) {
             log.warn("Could not complete lesson explanation: {}", error.getMessage());
+            return answer;
+        }
+    }
+
+    private String completeLessonUnderstandingCheck(String answer, String question, String courseContext) {
+        if (LessonUnderstandingCheckCompleter.hasUsableCheck(answer)) {
+            return answer;
+        }
+        try {
+            String generated = chatService.generateUtility(
+                    LessonUnderstandingCheckCompleter.generationPrompt(question, courseContext));
+            String completed = LessonUnderstandingCheckCompleter.insert(answer, generated);
+            if (!LessonUnderstandingCheckCompleter.hasUsableCheck(completed)) {
+                log.warn("Lesson is still missing a usable understanding check after completion pass");
+            } else {
+                log.info("Filled missing lesson understanding check from grounded course context");
+            }
+            return completed;
+        } catch (Exception error) {
+            log.warn("Could not complete lesson understanding check: {}", error.getMessage());
             return answer;
         }
     }

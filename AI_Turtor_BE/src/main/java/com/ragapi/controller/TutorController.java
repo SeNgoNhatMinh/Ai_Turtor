@@ -44,6 +44,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import static com.ragapi.util.ValidationUtils.STUDENT_QUESTION_MAX_LENGTH;
@@ -195,6 +196,7 @@ public class TutorController {
             }
             String sessionTopic = null;
             String sessionPhase = request.getSessionPhase();
+            String sessionSupportLevel = "STANDARD";
             List<String> sessionSuggestedTopics = List.of();
             if (request.getTutorSessionId() != null && !request.getTutorSessionId().isBlank()) {
                 try {
@@ -202,6 +204,9 @@ public class TutorController {
                     sessionTopic = activeSession.getTopic();
                     if (activeSession.getPhase() != null && !activeSession.getPhase().isBlank()) {
                         sessionPhase = activeSession.getPhase();
+                    }
+                    if (activeSession.getSupportLevel() != null && !activeSession.getSupportLevel().isBlank()) {
+                        sessionSupportLevel = activeSession.getSupportLevel();
                     }
                     if (activeSession.getSuggestedTopics() != null) {
                         sessionSuggestedTopics = activeSession.getSuggestedTopics();
@@ -302,6 +307,13 @@ public class TutorController {
                     && ("CONVERSATIONAL".equals(intent.getSubIntent())
                     || "OFF_TOPIC".equals(intent.getSubIntent()));
             String teachingMode = persistTurn ? intent.getSubIntent() : "EXPLAIN_CONCEPT";
+            if ("LESSON_TEACH".equalsIgnoreCase(teachingMode)
+                    || "LESSON_DEEP_PATH".equalsIgnoreCase(teachingMode)) {
+                pedagogicalContext = appendTutorContext(
+                        pedagogicalContext,
+                        supportLevelTutorContext(sessionSupportLevel)
+                );
+            }
             String pathContext = LearningPathParser.activePathContext(sessionSuggestedTopics);
             if (!pathContext.isBlank()
                     && ("LESSON_TEACH".equalsIgnoreCase(teachingMode)
@@ -591,6 +603,27 @@ public class TutorController {
             return extra;
         }
         return base + "\n" + extra;
+    }
+
+    private String supportLevelTutorContext(String supportLevel) {
+        String normalized = supportLevel == null ? "STANDARD" : supportLevel.trim().toUpperCase(Locale.ROOT);
+        return switch (normalized) {
+            case "HIGH_SUPPORT" -> """
+                    - Active support level: HIGH_SUPPORT.
+                      Teach in smaller steps, use simpler wording, and make the required understanding check
+                      a direct recognition question with clearly distinct choices.
+                    """.stripTrailing();
+            case "CHALLENGE" -> """
+                    - Active support level: CHALLENGE.
+                      Reduce scaffolding, ask the student to reason from the material, and make the required
+                      understanding check an application or comparison question without adding outside facts.
+                    """.stripTrailing();
+            default -> """
+                    - Active support level: STANDARD.
+                      Balance explanation and learner effort. Make the required understanding check a direct
+                      application of the lesson, using only the supplied course material.
+                    """.stripTrailing();
+        };
     }
 
     private String improvePlanContextBlock(RagQueryIntent intent) {
