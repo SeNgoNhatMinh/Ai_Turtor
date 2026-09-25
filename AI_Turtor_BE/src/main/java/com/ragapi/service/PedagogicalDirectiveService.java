@@ -15,6 +15,7 @@ import static com.ragapi.util.ValidationUtils.requireText;
 @Service
 @RequiredArgsConstructor
 public class PedagogicalDirectiveService {
+    public static final String DEFAULT_SUPPORT_LEVEL = "STANDARD";
     private static final Set<String> SUPPORT_LEVELS =
             Set.of("HIGH_SUPPORT", "STANDARD", "CHALLENGE");
 
@@ -84,27 +85,97 @@ public class PedagogicalDirectiveService {
     }
 
     public String buildTutorContext(String studentId, String courseId, String classId) {
-        if (studentId == null || studentId.isBlank() || courseId == null || courseId.isBlank()) return "";
-        List<PedagogicalDirective> directives = new ArrayList<>(
-                repository.findByStudentIdAndCourseIdAndStatusOrderByPriorityDescUpdatedAtDesc(
-                        studentId, courseId, "CONFIRMED"));
-        if (classId != null && !classId.isBlank()) {
-            directives.addAll(repository.findByCourseIdAndClassIdAndStatusOrderByPriorityDescUpdatedAtDesc(
-                    courseId, classId, "CONFIRMED"));
-        }
-        LocalDateTime now = LocalDateTime.now();
-        return directives.stream()
-                .filter(directive -> directive.getEffectiveFrom() == null || !directive.getEffectiveFrom().isAfter(now))
-                .filter(directive -> directive.getEffectiveUntil() == null || directive.getEffectiveUntil().isAfter(now))
-                .sorted(Comparator.comparing(
-                        PedagogicalDirective::getPriority,
-                        Comparator.nullsLast(Comparator.reverseOrder())))
+        List<PedagogicalDirective> directives = activeDirectives(studentId, courseId, classId);
+        if (directives.isEmpty()) return "";
+
+        StringBuilder context = new StringBuilder()
+                .append("- ACTIVE SUPPORT LEVEL: ")
+                .append(resolveSupportLevel(directives))
+                .append("\n")
+                .append("- This level was explicitly selected by a teacher. Apply it immediately; ")
+                .append("the student does not need to answer incorrectly first.");
+        directives.stream()
                 .limit(5)
-                .map(directive -> "- [" + nullSafe(directive.getSupportLevel()) + "] "
-                        + (directive.getTopic() == null ? "" : directive.getTopic() + ": ")
-                        + directive.getInstruction())
-                .reduce((left, right) -> left + "\n" + right)
-                .orElse("");
+                .forEach(directive -> context.append("\n- Teacher guidance: ")
+                        .append(directive.getTopic() == null ? "" : directive.getTopic() + ": ")
+                        .append(directive.getInstruction()));
+        return context.toString();
+    }
+
+    /**
+     * The support level is teacher-controlled. Learning memory and quiz mistakes must never
+     * promote a student automatically; without an active confirmed directive the level is STANDARD.
+     */
+    public String resolveSupportLevel(String studentId, String courseId, String classId) {
+        return resolveSupportLevel(activeDirectives(studentId, courseId, classId));
+    }
+
+    public boolean hasActiveDirective(String studentId, String courseId, String classId) {
+        return !activeDirectives(studentId, courseId, classId).isEmpty();
+    }
+
+    private String resolveSupportLevel(List<PedagogicalDirective> directives) {
+        return directives.stream()
+                .map(PedagogicalDirective::getSupportLevel)
+                .filter(Objects::nonNull)
+                .map(level -> level.trim().toUpperCase(Locale.ROOT))
+                .filter(SUPPORT_LEVELS::contains)
+                .findFirst()
+                .orElse(DEFAULT_SUPPORT_LEVEL);
+    }
+
+    private List<PedagogicalDirective> activeDirectives(String studentId, String courseId, String classId) {
+        if (studentId == null || studentId.isBlank() || courseId == null || courseId.isBlank()) {
+            return List.of();
+        }
+        String safeStudentId = studentId.trim();
+        String safeCourseId = courseId.trim();
+        String safeClassId = trimToNull(classId);
+        LocalDateTime now = LocalDateTime.now();
+
+        // Student-specific guidance always wins over class-wide guidance at the same course.
+        List<PedagogicalDirective> studentDirectives = repository
+                .findByStudentIdAndCourseIdAndStatusOrderByPriorityDescUpdatedAtDesc(
+                        safeStudentId, safeCourseId, "CONFIRMED")
+                .stream()
+                .filter(directive -> safeClassId == null
+                        || directive.getClassId() == null
+                        || safeClassId.equals(directive.getClassId()))
+                .filter(directive -> isEffective(directive, now))
+                .sorted(directiveOrder())
+                .toList();
+
+        List<PedagogicalDirective> classDirectives = safeClassId == null
+                ? List.of()
+                : repository.findByCourseIdAndClassIdAndStatusOrderByPriorityDescUpdatedAtDesc(
+                                safeCourseId, safeClassId, "CONFIRMED")
+                        .stream()
+                        // The repository query also returns student-scoped rows in the class.
+                        // Never leak one student's teacher guidance into another student's prompt.
+                        .filter(directive -> directive.getStudentId() == null
+                                || directive.getStudentId().isBlank()
+                                || "CLASS".equalsIgnoreCase(directive.getScope()))
+                        .filter(directive -> isEffective(directive, now))
+                        .sorted(directiveOrder())
+                        .toList();
+
+        List<PedagogicalDirective> result = new ArrayList<>(studentDirectives.size() + classDirectives.size());
+        result.addAll(studentDirectives);
+        result.addAll(classDirectives);
+        return result;
+    }
+
+    private Comparator<PedagogicalDirective> directiveOrder() {
+        return Comparator
+                .comparing(PedagogicalDirective::getPriority,
+                        Comparator.nullsLast(Comparator.reverseOrder()))
+                .thenComparing(PedagogicalDirective::getUpdatedAt,
+                        Comparator.nullsLast(Comparator.reverseOrder()));
+    }
+
+    private boolean isEffective(PedagogicalDirective directive, LocalDateTime now) {
+        return (directive.getEffectiveFrom() == null || !directive.getEffectiveFrom().isAfter(now))
+                && (directive.getEffectiveUntil() == null || directive.getEffectiveUntil().isAfter(now));
     }
 
     private PedagogicalDirective requireOwned(String id, String teacherId) {
@@ -138,7 +209,4 @@ public class PedagogicalDirectiveService {
         return value == null || value.isBlank() ? null : value.trim();
     }
 
-    private String nullSafe(String value) {
-        return value == null ? "STANDARD" : value;
-    }
 }

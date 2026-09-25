@@ -53,6 +53,31 @@ public class TutorSessionController {
         }
     }
 
+    @GetMapping("/students/{studentId}/courses/{courseId}/support-profile")
+    public ResponseEntity<?> studentSupportProfile(
+            @PathVariable String studentId,
+            @PathVariable String courseId,
+            @RequestParam(required = false) String classId,
+            Authentication authentication
+    ) {
+        try {
+            accessGuard.allowStudentSelfOrAdmin(
+                    requesterId(authentication), requesterRole(authentication), studentId);
+            String supportLevel = directiveService.resolveSupportLevel(studentId, courseId, classId);
+            Map<String, Object> response = new java.util.LinkedHashMap<>();
+            response.put("studentId", studentId);
+            response.put("courseId", courseId);
+            response.put("classId", classId == null ? "" : classId);
+            response.put("supportLevel", supportLevel);
+            response.put("teacherControlled", true);
+            response.put("hasActiveTeacherDirective",
+                    directiveService.hasActiveDirective(studentId, courseId, classId));
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException error) {
+            return ResponseEntity.badRequest().body(Map.of("error", error.getMessage()));
+        }
+    }
+
     @PatchMapping("/sessions/{sessionId}")
     public ResponseEntity<?> update(
             @PathVariable String sessionId,

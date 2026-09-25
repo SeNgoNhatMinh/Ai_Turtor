@@ -438,6 +438,7 @@ public class TutorController {
             response.setUserMessageId(userMessageId);
             response.setAssistantMessageId(assistantMessageId);
             response.setCourseId(courseId);
+            response.setSupportLevel(pedagogicalDirectiveService.resolveSupportLevel(userId, courseId, classId));
             response.setClickedSuggestion(request.getClickedSuggestion());
             response.setTutorSessionId(request.getTutorSessionId());
             response.setSessionPhase(tutorSessionState == null
@@ -728,6 +729,7 @@ public class TutorController {
         response.setSourceEvidence(List.of());
         response.setGroundingType(codeResponse.getGroundingType());
         response.setCourseId(courseId);
+        response.setSupportLevel(codeResponse.getSupportLevel());
         attachTutorSessionContext(
                 response,
                 request,
@@ -777,6 +779,7 @@ public class TutorController {
         response.setSourceEvidence(List.of());
         response.setGroundingType("NONE");
         response.setCourseId(courseId);
+        response.setSupportLevel(pedagogicalDirectiveService.resolveSupportLevel(userId, courseId, classId));
         if (userId != null && !userId.isBlank()) {
             var savedExchange = aiConversationService.saveExchangeWithMessages(
                     userId,
@@ -830,7 +833,8 @@ public class TutorController {
         }
         response.setTutorSessionId(sessionId);
         response.setSessionPhase(session.getPhase() == null ? phase : session.getPhase());
-        response.setSupportLevel(session.getSupportLevel());
+        response.setSupportLevel(pedagogicalDirectiveService.resolveSupportLevel(
+                session.getStudentId(), request.getCourseId(), request.getClassId()));
     }
 
     private String resolveQuestion(AiQueryRequest request) {

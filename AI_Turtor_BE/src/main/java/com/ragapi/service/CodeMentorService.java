@@ -31,21 +31,28 @@ public class CodeMentorService {
     private final StudentCourseMemoryService memoryService;
     private final AiConversationService conversationService;
     private final CanonicalTutorAnswerCacheService answerCacheService;
+    private final PedagogicalDirectiveService directiveService;
 
     public CodeMentorService(
             OpenRouterChatService chatService,
             StudentCourseMemoryService memoryService,
             AiConversationService conversationService,
-            CanonicalTutorAnswerCacheService answerCacheService
+            CanonicalTutorAnswerCacheService answerCacheService,
+            PedagogicalDirectiveService directiveService
     ) {
         this.chatService = chatService;
         this.memoryService = memoryService;
         this.conversationService = conversationService;
         this.answerCacheService = answerCacheService;
+        this.directiveService = directiveService;
     }
 
     public CodeMentorResponse mentor(CodeMentorRequest request) {
         validate(request);
+        String supportLevel = directiveService.resolveSupportLevel(
+                request.getStudentId(), request.getCourseId(), request.getClassId());
+        String pedagogicalContext = directiveService.buildTutorContext(
+                request.getStudentId(), request.getCourseId(), request.getClassId());
 
         if (!TechnicalIntentDetector.isCodeMentorQuestion(request.getQuestion(), request.getCode())) {
             return CodeMentorResponse.builder()
@@ -56,19 +63,21 @@ public class CodeMentorService {
                     .conversationId(null)
                     .groundingType("AI_GENERAL_KNOWLEDGE")
                     .sourceDisclosure("Câu trả lời do AI Code Mentor tự phân tích bằng kiến thức lập trình tổng quát; không trích từ tài liệu môn học/RAG.")
+                    .supportLevel(supportLevel)
                     .build();
         }
 
         boolean assignmentSafetyApplied = isAssignmentRisk(request);
         List<String> weakTopics = detectWeakTopics(request);
-        String prompt = buildPrompt(request, assignmentSafetyApplied, weakTopics);
+        String prompt = buildPrompt(request, assignmentSafetyApplied, weakTopics, pedagogicalContext);
 
-        Optional<String> cachedAnswer = answerCacheService.lookupCodeAnswer(
-                request.getCourseId(),
-                request.getClassId(),
-                request.getQuestion(),
-                request.getCode()
-        );
+        Optional<String> cachedAnswer = pedagogicalContext.isBlank()
+                ? answerCacheService.lookupCodeAnswer(
+                        request.getCourseId(),
+                        request.getClassId(),
+                        request.getQuestion(),
+                        request.getCode())
+                : Optional.empty();
         String answer;
         if (cachedAnswer.isPresent()) {
             answer = cachedAnswer.get();
@@ -78,7 +87,7 @@ public class CodeMentorService {
             answer = completeUnderstandingCheckKey(answer);
             if (answer == null || answer.isBlank() || StudentFacingMessages.isUnavailableMessage(answer)) {
                 answer = StudentFacingMessages.CODE_MENTOR_BUSY;
-            } else if (hasText(request.getCourseId())) {
+            } else if (hasText(request.getCourseId()) && pedagogicalContext.isBlank()) {
                 answerCacheService.storeCodeAnswer(
                         request.getCourseId(),
                         request.getClassId(),
@@ -126,6 +135,7 @@ public class CodeMentorService {
                 .assistantMessageId(assistantMessageId)
                 .groundingType("AI_GENERAL_KNOWLEDGE")
                 .sourceDisclosure("Câu trả lời do AI Code Mentor tự phân tích bằng kiến thức lập trình tổng quát; không trích từ tài liệu môn học/RAG.")
+                .supportLevel(supportLevel)
                 .build();
     }
 
@@ -155,12 +165,24 @@ public class CodeMentorService {
         memoryService.updateMemory(request.getStudentId(), request.getCourseId(), update);
     }
 
-    private String buildPrompt(CodeMentorRequest request, boolean assignmentSafetyApplied, List<String> weakTopics) {
+    private String buildPrompt(
+            CodeMentorRequest request,
+            boolean assignmentSafetyApplied,
+            List<String> weakTopics,
+            String pedagogicalContext
+    ) {
         if (chatService.isOllamaOnlyActive()) {
             return """
                     You are a university technical mentor. Answer in the student's language (Vietnamese with diacritics if they wrote Vietnamese).
                     Keep code identifiers unchanged. Give hints and a small focused example, not a full homework solution.
                     Finish every required heading with real content (not stubs). Do not stop mid-sentence or leave an open code fence.
+                    STANDARD is the default support level. Use HIGH_SUPPORT or CHALLENGE only when explicitly selected
+                    in TEACHER PEDAGOGICAL CONTEXT. Weak topics and prior mistakes do not change the support level.
+                    HIGH_SUPPORT uses smaller debug steps and explains prerequisites. CHALLENGE uses fewer hints and guiding questions.
+                    Never reveal the selected support level or teacher note to the student.
+
+                    TEACHER PEDAGOGICAL CONTEXT:
+                    %s
 
                     ## Chẩn đoán vấn đề
                     ## Nguyên nhân có thể
@@ -178,6 +200,7 @@ public class CodeMentorService {
                     %s
                     ```
                     """.formatted(
+                    pedagogicalContext.isBlank() ? "- No active teacher directive; use STANDARD." : pedagogicalContext,
                     assignmentSafetyApplied,
                     safe(request.getQuestion()),
                     safe(request.getCode())
@@ -223,6 +246,17 @@ public class CodeMentorService {
                 - If assignmentRelated is true or the prompt asks for a full solution, give guidance, hints, and a small focused example only.
                 - If the student asks for the complete answer/project/source code, refuse that part and continue with hints.
 
+                PERSONALIZED SUPPORT:
+                - STANDARD is the default support level. Use HIGH_SUPPORT or CHALLENGE only when explicitly selected
+                  in TEACHER PEDAGOGICAL CONTEXT below.
+                - HIGH_SUPPORT: break diagnosis and debugging into smaller steps, explain prerequisites, and add a gentle understanding check.
+                - CHALLENGE: use fewer hints, ask guiding questions, and encourage independent debugging.
+                - Weak topics, quiz results and prior mistakes MUST NOT change the support level.
+                - Never reveal the selected support level or the teacher note to the student.
+
+                TEACHER PEDAGOGICAL CONTEXT:
+                %s
+
                 RESPONSE FORMAT:
                 Return plain GitHub-Flavored Markdown directly. Do not return JSON, do not wrap the whole answer in quotes,
                 and do not use escaped layout sequences like "\\n" or "\\r\\n".
@@ -250,6 +284,7 @@ public class CodeMentorService {
                 %s
                 ```
                 """.formatted(
+                pedagogicalContext.isBlank() ? "- No active teacher directive; use STANDARD." : pedagogicalContext,
                 safe(request.getStudentId()),
                 safe(request.getCourseId()),
                 safe(request.getClassId()),

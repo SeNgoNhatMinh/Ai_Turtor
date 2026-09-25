@@ -24,12 +24,8 @@ import static com.ragapi.util.ValidationUtils.requireText;
 public class TutorSessionService {
     private static final Set<String> PHASES =
             Set.of("OPEN", "DIAGNOSTIC", "TEACH", "PRACTICE", "REFLECT", "CLOSED");
-    private static final Set<String> SUPPORT_LEVELS =
-            Set.of("HIGH_SUPPORT", "STANDARD", "CHALLENGE");
-
     private final TutorSessionRepository sessionRepository;
     private final TutorSessionSummaryRepository summaryRepository;
-    private final PedagogicalDirectiveRepository directiveRepository;
     private final StudentCourseMemoryRepository memoryRepository;
     private final AiMessageRepository messageRepository;
     private final AiConversationService conversationService;
@@ -37,6 +33,7 @@ public class TutorSessionService {
     private final CourseCurriculumOverviewService curriculumOverviewService;
     private final RealtimeEventService realtimeEvents;
     private final ClassRosterService classRosterService;
+    private final PedagogicalDirectiveService directiveService;
 
     public Map<String, Object> openOrResume(OpenTutorSessionRequest request) {
         if (request == null) throw new IllegalArgumentException("request is required");
@@ -46,6 +43,7 @@ public class TutorSessionService {
                 .findFirstByStudentIdAndCourseIdAndStatusOrderByUpdatedAtDesc(studentId, courseId, "ACTIVE");
         if (active.isPresent()) {
             TutorSession session = active.get();
+            refreshTeacherControlledSupport(session, request.getClassId());
             boolean suggestionsChanged = refreshOpeningSuggestions(session);
             AiConversationSummary conversation = ensureTutorConversation(
                     session, studentId, courseId, request.getClassId());
@@ -93,10 +91,8 @@ public class TutorSessionService {
             if (!PHASES.contains(phase)) throw new IllegalArgumentException("Unsupported tutor phase");
             session.setPhase(phase);
         }
-        if (request.getSupportLevel() != null && !request.getSupportLevel().isBlank()) {
-            String level = request.getSupportLevel().trim().toUpperCase(Locale.ROOT);
-            if (!SUPPORT_LEVELS.contains(level)) throw new IllegalArgumentException("Unsupported support level");
-            session.setSupportLevel(level);
+        if (request.getSupportLevel() != null) {
+            throw new IllegalArgumentException("supportLevel is teacher-controlled and cannot be changed by a student session");
         }
         session.setUpdatedAt(LocalDateTime.now());
         return sessionRepository.save(session);
@@ -204,6 +200,7 @@ public class TutorSessionService {
 
     public TutorSession recordStudentTurn(String sessionId, String conversationId) {
         TutorSession session = registerConversation(sessionId, conversationId);
+        refreshTeacherControlledSupport(session, session.getClassId());
         long studentTurns = session.getConversationIds().stream()
                 .filter(Objects::nonNull)
                 .distinct()
@@ -492,25 +489,25 @@ public class TutorSessionService {
     }
 
     private String resolveSupportLevel(String studentId, String courseId, String classId) {
-        List<PedagogicalDirective> directives = new ArrayList<>(
-                directiveRepository.findByStudentIdAndCourseIdAndStatusOrderByPriorityDescUpdatedAtDesc(
-                        studentId, courseId, "CONFIRMED"));
-        if (classId != null && !classId.isBlank()) {
-            directives.addAll(directiveRepository
-                    .findByCourseIdAndClassIdAndStatusOrderByPriorityDescUpdatedAtDesc(
-                            courseId, classId, "CONFIRMED"));
+        return directiveService.resolveSupportLevel(studentId, courseId, classId);
+    }
+
+    private void refreshTeacherControlledSupport(TutorSession session, String requestedClassId) {
+        String classId = trimToNull(requestedClassId);
+        if (classId == null) {
+            classId = trimToNull(session.getClassId());
         }
-        Optional<String> directiveLevel = directives.stream()
-                .filter(this::isEffective)
-                .map(PedagogicalDirective::getSupportLevel)
-                .filter(Objects::nonNull)
-                .filter(SUPPORT_LEVELS::contains)
-                .findFirst();
-        if (directiveLevel.isPresent()) return directiveLevel.get();
-        return memoryRepository.findByStudentIdAndCourseId(studentId, courseId)
-                .filter(memory -> memory.getWeakTopics() != null && !memory.getWeakTopics().isEmpty())
-                .map(memory -> "HIGH_SUPPORT")
-                .orElse("STANDARD");
+        String currentLevel = resolveSupportLevel(session.getStudentId(), session.getCourseId(), classId);
+        boolean changed = !Objects.equals(currentLevel, session.getSupportLevel());
+        if (classId != null && !Objects.equals(classId, session.getClassId())) {
+            session.setClassId(classId);
+            changed = true;
+        }
+        if (changed) {
+            session.setSupportLevel(currentLevel);
+            session.setUpdatedAt(LocalDateTime.now());
+            sessionRepository.save(session);
+        }
     }
 
     private String buildOpening(TutorSession session) {
@@ -581,12 +578,6 @@ public class TutorSessionService {
     private TutorSession requireSession(String id) {
         return sessionRepository.findById(requireText(id, "sessionId"))
                 .orElseThrow(() -> new IllegalArgumentException("Tutor session not found"));
-    }
-
-    private boolean isEffective(PedagogicalDirective directive) {
-        LocalDateTime now = LocalDateTime.now();
-        return (directive.getEffectiveFrom() == null || !directive.getEffectiveFrom().isAfter(now))
-                && (directive.getEffectiveUntil() == null || directive.getEffectiveUntil().isAfter(now));
     }
 
     private List<String> firstNonEmpty(List<String> first, List<String> second, int size) {

@@ -29,6 +29,8 @@ class CodeMentorServiceTest {
     private AiConversationService conversationService;
     @Mock
     private CanonicalTutorAnswerCacheService answerCacheService;
+    @Mock
+    private PedagogicalDirectiveService directiveService;
 
     @Test
     void storesVietnameseQuestionTogetherWithCodeSnippet() {
@@ -42,6 +44,10 @@ class CodeMentorServiceTest {
         StudentCourseMemory memory = new StudentCourseMemory();
         memory.setWeakTopics(new ArrayList<>());
         when(chatService.generate(any())).thenReturn("Biến int không thể nhận trực tiếp một String.");
+        when(directiveService.resolveSupportLevel("student-1", "PRO192", "SE1840"))
+                .thenReturn("STANDARD");
+        when(directiveService.buildTutorContext("student-1", "PRO192", "SE1840"))
+                .thenReturn("");
         when(memoryService.getOrCreateMemory("student-1", "PRO192")).thenReturn(memory);
         when(conversationService.saveExchangeWithMessages(
                 eq("student-1"), any(), eq("PRO192"), eq("SE1840"), any(), any(), any()))
@@ -49,7 +55,7 @@ class CodeMentorServiceTest {
                         "conversation-1", "user-message-1", "assistant-message-1"));
 
         CodeMentorResponse response = new CodeMentorService(
-                chatService, memoryService, conversationService, answerCacheService).mentor(request);
+                chatService, memoryService, conversationService, answerCacheService, directiveService).mentor(request);
 
         ArgumentCaptor<String> storedQuestion = ArgumentCaptor.forClass(String.class);
         verify(memoryService).recordInteraction(
@@ -68,5 +74,6 @@ class CodeMentorServiceTest {
         assertEquals("conversation-1", response.getConversationId());
         assertEquals("user-message-1", response.getUserMessageId());
         assertEquals("assistant-message-1", response.getAssistantMessageId());
+        assertEquals("STANDARD", response.getSupportLevel());
     }
 }

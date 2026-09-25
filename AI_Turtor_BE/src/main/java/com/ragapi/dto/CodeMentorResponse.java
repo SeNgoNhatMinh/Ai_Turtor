@@ -21,6 +21,7 @@ public class CodeMentorResponse {
     private String assistantMessageId;
     private String groundingType;
     private String sourceDisclosure;
+    private String supportLevel;
 
     @Builder
     public CodeMentorResponse(
@@ -32,7 +33,8 @@ public class CodeMentorResponse {
             String userMessageId,
             String assistantMessageId,
             String groundingType,
-            String sourceDisclosure
+            String sourceDisclosure,
+            String supportLevel
     ) {
         setAnswer(answer);
         this.mode = mode;
@@ -43,6 +45,7 @@ public class CodeMentorResponse {
         this.assistantMessageId = assistantMessageId;
         this.groundingType = groundingType;
         this.sourceDisclosure = sourceDisclosure;
+        this.supportLevel = supportLevel;
     }
 
     public void setAnswer(String answer) {
