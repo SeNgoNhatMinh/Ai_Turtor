@@ -17,7 +17,6 @@ import {
   sessionHeadline,
   sessionStatusLabel,
   studentInitials,
-  studentSearchText,
   supportLevelLabel,
   uniqueClassScopes,
 } from './teacherTutoringStudents';
@@ -44,20 +43,27 @@ const settledValue = (results, index, fallback) => (
   results[index]?.status === 'fulfilled' ? results[index].value : fallback
 );
 
-async function loadClassBundle(teacherId, scope, signal) {
+async function loadClassBundle(teacherId, scope, signal, page = 0, size = 50, query = '') {
   const results = await Promise.allSettled([
     tutorSessionApi.listTeacherSummaries(teacherId, scope.courseId, scope.classId, { signal }),
     tutorSessionApi.listTeacherSessions(teacherId, scope.courseId, scope.classId, { signal }),
     tutorSessionApi.listDirectives(teacherId, scope.courseId, scope.classId, { signal }),
-    teacherApi.getClassStudents(scope.courseId, scope.classId, teacherId, { signal }),
+    teacherApi.getClassStudents(scope.courseId, scope.classId, teacherId, { signal, page, size, query }),
     teacherApi.getCourseMemories(scope.courseId, scope.classId, { signal }),
   ]);
   if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
   if (results.every((result) => result.status === 'rejected')) {
     throw results[0].reason || new Error('Không thể tải dữ liệu lớp.');
   }
-  const roster = asArray(settledValue(results, 3, {}), 'students', 'items', 'content');
+  const rosterResponse = settledValue(results, 3, {});
+  const roster = asArray(rosterResponse, 'students', 'items', 'content');
   return {
+    rosterMeta: {
+      totalElements: Number(rosterResponse?.totalElements ?? rosterResponse?.count ?? roster.length),
+      totalPages: Number(rosterResponse?.totalPages ?? 1),
+      page: Number(rosterResponse?.page ?? page),
+      size: Number(rosterResponse?.size ?? size),
+    },
     students: buildClassStudentRows({
       roster,
       memories: asArray(settledValue(results, 4, {}), 'memories', 'items', 'content'),
@@ -81,18 +87,18 @@ async function loadClassBundle(teacherId, scope, signal) {
 
 export default function TeacherTutoringPage({
   teacherId,
-  courseId,
-  classId,
   setCourseId,
   setClassId,
   triggerToast,
 }) {
   const queryClient = useQueryClient();
-  const [activeClassKey, setActiveClassKey] = useState('ALL');
+  const [activeClassKey, setActiveClassKey] = useState('');
+  const [studentPage, setStudentPage] = useState(0);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [selectedSummary, setSelectedSummary] = useState(null);
   const [saving, setSaving] = useState(false);
   const [query, setQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
   const [form, setForm] = useState({
     classKey: '',
     studentId: '',
@@ -111,40 +117,35 @@ export default function TeacherTutoringPage({
     enabled: Boolean(teacherId),
     staleTime: 60_000,
   });
-  const classScopes = useMemo(() => uniqueClassScopes(
-    classesQuery.data || EMPTY_LIST,
-    { courseId, classId },
-  ), [classId, classesQuery.data, courseId]);
-  const scopeKeys = useMemo(() => classScopes.map((scope) => scope.key), [classScopes]);
+  const classScopes = useMemo(() => uniqueClassScopes(classesQuery.data || EMPTY_LIST), [classesQuery.data]);
+  const effectiveActiveClassKey = useMemo(() => {
+    if (classScopes.some((scope) => scope.key === activeClassKey)) return activeClassKey;
+    return '';
+  }, [activeClassKey, classScopes]);
+  const activeScope = classScopes.find((scope) => scope.key === effectiveActiveClassKey);
+  const scopeKeys = useMemo(() => activeScope ? [activeScope.key, studentPage, debouncedQuery] : [], [activeScope, debouncedQuery, studentPage]);
   const tutoringQueryKey = queryKeys.teacherTutoringBundle(teacherId, scopeKeys);
   const tutoringQuery = useQuery({
     queryKey: tutoringQueryKey,
     queryFn: async ({ signal }) => {
-      const bundles = await Promise.all(
-        classScopes.map((scope) => loadClassBundle(teacherId, scope, signal)),
-      );
-      return {
-        students: bundles.flatMap((bundle) => bundle.students),
-        directives: bundles.flatMap((bundle) => bundle.directives),
-      };
+      return loadClassBundle(teacherId, activeScope, signal, studentPage, 50, debouncedQuery);
     },
-    enabled: Boolean(teacherId && classScopes.length),
+    enabled: Boolean(teacherId && activeScope),
     staleTime: 30_000,
   });
   const studentRows = tutoringQuery.data?.students || EMPTY_LIST;
   const directives = tutoringQuery.data?.directives || EMPTY_LIST;
   const loading = Boolean(teacherId)
     && (classesQuery.isPending || classesQuery.isFetching
-      || (classScopes.length > 0 && (tutoringQuery.isPending || tutoringQuery.isFetching)));
-  const effectiveActiveClassKey = useMemo(() => {
-    if (activeClassKey === 'ALL' && classScopes.length > 1) return 'ALL';
-    if (classScopes.some((scope) => scope.key === activeClassKey)) return activeClassKey;
-    const preferred = classScopes.find((scope) => (
-      String(scope.courseId).toUpperCase() === String(courseId || '').toUpperCase()
-      && String(scope.classId).toUpperCase() === String(classId || '').toUpperCase()
-    ));
-    return preferred?.key || (classScopes.length === 1 ? classScopes[0].key : 'ALL');
-  }, [activeClassKey, classId, classScopes, courseId]);
+      || (Boolean(activeScope) && (tutoringQuery.isPending || tutoringQuery.isFetching)));
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setDebouncedQuery(query.trim());
+      setStudentPage(0);
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [query]);
 
   useEffect(() => {
     const error = classesQuery.error || tutoringQuery.error;
@@ -172,39 +173,28 @@ export default function TeacherTutoringPage({
     triggerToast?.(getUserFacingError(transcriptQuery.error, 'Không thể tải toàn bộ hội thoại.'));
   }, [transcriptQuery.error, triggerToast]);
 
-  const scopedRows = useMemo(() => {
-    if (effectiveActiveClassKey === 'ALL') return studentRows;
-    return studentRows.filter((student) => student.classKey === effectiveActiveClassKey);
-  }, [effectiveActiveClassKey, studentRows]);
-
-  const visibleGroups = useMemo(() => {
-    const keyword = query.trim().toLowerCase();
-    const rows = keyword
-      ? scopedRows.filter((student) => studentSearchText(student).includes(keyword))
-      : scopedRows;
-    return groupRowsByClass(rows);
-  }, [query, scopedRows]);
+  const scopedRows = studentRows;
+  const visibleGroups = useMemo(() => groupRowsByClass(scopedRows), [scopedRows]);
 
   const visibleDirectives = useMemo(() => {
     const confirmed = directives.filter((item) => item.status === 'CONFIRMED');
-    if (effectiveActiveClassKey === 'ALL') return confirmed;
     return confirmed.filter((item) => item.classKey === effectiveActiveClassKey);
   }, [directives, effectiveActiveClassKey]);
 
   const formStudents = useMemo(() => {
-    const key = form.classKey || (effectiveActiveClassKey === 'ALL' ? '' : effectiveActiveClassKey);
+    const key = form.classKey || effectiveActiveClassKey;
     if (!key) return studentRows;
     return studentRows.filter((student) => student.classKey === key);
   }, [effectiveActiveClassKey, form.classKey, studentRows]);
 
   const studiedCount = scopedRows.filter((student) => student.hasActivity).length;
   const weakCount = scopedRows.filter((student) => student.weakTopics.length > 0).length;
-  const activeScope = classScopes.find((scope) => scope.key === effectiveActiveClassKey)
-    || classScopes.find((scope) => scope.key === form.classKey)
-    || classScopes[0];
-
   const selectClass = (key) => {
     setActiveClassKey(key);
+    setStudentPage(0);
+    setQuery('');
+    setSelectedStudent(null);
+    closeTranscript();
     const scope = classScopes.find((item) => item.key === key);
     if (scope) {
       setCourseId?.(scope.courseId);
@@ -212,7 +202,7 @@ export default function TeacherTutoringPage({
     }
     setForm((value) => ({
       ...value,
-      classKey: key === 'ALL' ? '' : key,
+      classKey: key,
       studentId: '',
     }));
   };
@@ -310,16 +300,16 @@ export default function TeacherTutoringPage({
               <span>Lớp</span>
             </div>
             <div>
-              <strong>{scopedRows.length}</strong>
+              <strong>{activeScope ? (tutoringQuery.data?.rosterMeta?.totalElements ?? scopedRows.length) : '—'}</strong>
               <span>Sinh viên</span>
             </div>
             <div>
-              <strong>{studiedCount}</strong>
-              <span>Đã học</span>
+              <strong>{activeScope ? studiedCount : '—'}</strong>
+              <span>Đã học · trang hiện tại</span>
             </div>
             <div>
-              <strong>{weakCount}</strong>
-              <span>Cần củng cố</span>
+              <strong>{activeScope ? weakCount : '—'}</strong>
+              <span>Cần củng cố · trang hiện tại</span>
             </div>
           </div>
         )}
@@ -333,7 +323,7 @@ export default function TeacherTutoringPage({
               <label className="teacher-directive-field">
                 <span>Lớp áp dụng</span>
                 <select
-                  value={form.classKey || (effectiveActiveClassKey === 'ALL' ? '' : effectiveActiveClassKey)}
+                  value={form.classKey || effectiveActiveClassKey}
                   onChange={(event) => setForm((value) => ({
                     ...value,
                     classKey: event.target.value,
@@ -410,29 +400,31 @@ export default function TeacherTutoringPage({
           </div>
         </section>
 
-        <section className="teacher-tutoring-card teacher-session-feed">
+        <section className={`teacher-tutoring-card teacher-session-feed${activeScope ? ' is-roster-view' : ' is-class-view'}`}>
           <div className="teacher-session-feed__header">
-            <h2>Danh sách sinh viên theo lớp</h2>
+            <div className="teacher-roster-heading">
+              {activeScope && <button type="button" className="teacher-tutoring-btn is-secondary" onClick={() => selectClass('')}>← Tất cả lớp</button>}
+              <h2>{activeScope ? activeScope.label : 'Các lớp đang phụ trách'}</h2>
+            </div>
             <p className="teacher-session-feed__hint">
-              {classScopes.length > 1
-                ? `${classScopes.length} lớp phụ trách · ${scopedRows.length} sinh viên${effectiveActiveClassKey === 'ALL' ? '' : ` · ${activeScope?.label || ''}`}`
-                : `${activeScope?.label || 'Lớp hiện tại'} · ${scopedRows.length} sinh viên`}
-              . Bấm một thẻ để xem bài đã học.
+              {activeScope
+                ? `${tutoringQuery.data?.rosterMeta?.totalElements ?? scopedRows.length} sinh viên trong lớp · Chọn sinh viên để xem các đoạn chat.`
+                : `${classScopes.length} lớp của bạn · Chọn lớp để xem sinh viên và lịch sử trò chuyện.`}
             </p>
-            {classScopes.length > 0 && (
-              <div className="teacher-class-tabs" role="tablist" aria-label="Lọc theo lớp">
-                {classScopes.length > 1 && (
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={effectiveActiveClassKey === 'ALL'}
-                    className={effectiveActiveClassKey === 'ALL' ? 'is-active' : ''}
-                    onClick={() => selectClass('ALL')}
-                  >
-                    Tất cả lớp
-                    <em>{studentRows.length}</em>
+            {!activeScope && classScopes.length > 0 && (
+              <div className="teacher-tutoring-class-cards">
+                {classScopes.map((scope) => (
+                  <button type="button" key={scope.key} className="teacher-tutoring-class-card" onClick={() => selectClass(scope.key)}>
+                    <span className="teacher-tutoring-class-card__course">{scope.courseId}</span>
+                    <strong>{scope.className || scope.classId}</strong>
+                    <span className="teacher-tutoring-class-card__meta">Mã lớp: {scope.classId}</span>
+                    <span className="teacher-tutoring-class-card__action">Mở danh sách sinh viên <span aria-hidden="true">→</span></span>
                   </button>
-                )}
+                ))}
+              </div>
+            )}
+            {activeScope && (
+              <div className="teacher-class-tabs" role="tablist" aria-label="Lọc theo lớp">
                 {classScopes.map((scope) => (
                   <button
                     key={scope.key}
@@ -443,29 +435,29 @@ export default function TeacherTutoringPage({
                     onClick={() => selectClass(scope.key)}
                   >
                     {scope.label}
-                    <em>{studentRows.filter((student) => student.classKey === scope.key).length}</em>
+                    <em>{scope.key === effectiveActiveClassKey ? (tutoringQuery.data?.rosterMeta?.totalElements ?? studentRows.length) : '›'}</em>
                   </button>
                 ))}
               </div>
             )}
-            <input
+            {activeScope && <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Tìm theo tên, mã SV hoặc chủ đề đã học"
+              placeholder="Tìm theo tên, mã sinh viên hoặc email"
               aria-label="Tìm sinh viên"
-            />
+            />}
           </div>
           {loading && <p className="teacher-tutoring-empty">Đang tải...</p>}
           {!loading && classScopes.length === 0 && (
             <p className="teacher-tutoring-empty">Bạn chưa được phân công lớp nào.</p>
           )}
-          {!loading && classScopes.length > 0 && scopedRows.length === 0 && (
+          {!loading && activeScope && scopedRows.length === 0 && (
             <p className="teacher-tutoring-empty">Lớp này chưa có sinh viên được ghi danh.</p>
           )}
-          {!loading && scopedRows.length > 0 && visibleGroups.length === 0 && (
+          {!loading && activeScope && scopedRows.length > 0 && visibleGroups.length === 0 && (
             <p className="teacher-tutoring-empty">Không tìm thấy sinh viên khớp với từ khóa.</p>
           )}
-          <div className="teacher-student-list">
+          {activeScope && <div className="teacher-student-list">
             {visibleGroups.map((group) => (
               <section key={group.key} className="teacher-class-group">
                 <header className="teacher-class-group__header">
@@ -488,7 +480,7 @@ export default function TeacherTutoringPage({
                     <TopicList label="Cần củng cố" items={student.weakTopics} tone="weak" />
                     <div className="teacher-session-actions">
                       <button type="button" className="teacher-tutoring-btn" onClick={() => openStudent(student)}>
-                        Xem bài đã học
+                        Xem {student.sessions.length + student.summaries.length} đoạn chat
                       </button>
                       <button
                         type="button"
@@ -502,7 +494,16 @@ export default function TeacherTutoringPage({
                 ))}
               </section>
             ))}
-          </div>
+          </div>}
+          {activeScope && tutoringQuery.data?.rosterMeta?.totalPages > 1 && (
+            <nav className="teacher-roster-pagination" aria-label="Phân trang sinh viên">
+              <span>Trang {studentPage + 1} / {tutoringQuery.data.rosterMeta.totalPages}</span>
+              <div>
+                <button type="button" className="teacher-tutoring-btn is-secondary" disabled={studentPage === 0 || loading} onClick={() => setStudentPage((page) => page - 1)}>Trước</button>
+                <button type="button" className="teacher-tutoring-btn is-secondary" disabled={studentPage + 1 >= tutoringQuery.data.rosterMeta.totalPages || loading} onClick={() => setStudentPage((page) => page + 1)}>Tiếp</button>
+              </div>
+            </nav>
+          )}
         </section>
       </div>
 
