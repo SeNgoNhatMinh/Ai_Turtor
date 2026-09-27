@@ -60,9 +60,11 @@ public class CourseAnswerGenerationStageService {
                 log.warn("Removed an abbreviated example output containing an ellipsis placeholder");
                 answer = StudentAnswerCompletenessGuard.removeAbbreviatedExampleOutputs(answer);
             }
+            boolean initialInsufficientMaterialAnswer =
+                    StudentFacingMessages.isInsufficientMaterialAnswer(answer);
             if (StudentAnswerCompletenessGuard.isClearlyIncomplete(answer)
                     || isIncompleteLesson(request, answer)
-                    || StudentFacingMessages.isInsufficientMaterialAnswer(answer)) {
+                    || initialInsufficientMaterialAnswer) {
                 log.warn("Retrying grounded tutor generation after an incomplete answer or an unsupported model refusal");
                 answer = generationService.generateGroundedQualityFallbackAnswer(
                         recoveryPrompt(prompt),
@@ -76,24 +78,21 @@ public class CourseAnswerGenerationStageService {
                     answer = StudentAnswerCompletenessGuard.removeAbbreviatedExampleOutputs(answer);
                 }
             }
+            if (StudentFacingMessages.isInsufficientMaterialAnswer(answer)
+                    || (initialInsufficientMaterialAnswer
+                    && (!hasText(answer)
+                    || StudentFacingMessages.isUnavailableMessage(answer)
+                    || StudentAnswerCompletenessGuard.isClearlyIncomplete(answer)
+                    || isIncompleteLesson(request, answer)))) {
+                log.warn("Grounded tutor declined despite retrying with deterministic grounding context");
+                return insufficientMaterial(prepared);
+            }
             if (!hasText(answer) || StudentFacingMessages.isUnavailableMessage(answer)
                     || StudentAnswerCompletenessGuard.isClearlyIncomplete(answer)
                     || isIncompleteLesson(request, answer)) {
                 log.warn("Grounded tutor generation ended with an incomplete student answer");
                 return resultService.softUnavailable(StudentFacingMessages.GENERATION_BUSY, prepared.sourceLabels());
             }
-            if (StudentFacingMessages.isInsufficientMaterialAnswer(answer)) {
-                log.warn("Grounded tutor declined twice despite passing deterministic grounding checks");
-                return resultService.blocked(
-                        "Tài liệu hiện có của môn " + prepared.courseId()
-                                + " chưa đủ nội dung để trả lời chắc chắn. "
-                                + "Câu hỏi sẽ được chuyển cho giáo viên/mentor phụ trách.",
-                        0.0,
-                        List.of(),
-                        "Generated answer reports insufficient course material"
-                );
-            }
-
             log.info("Received grounded answer from AI (length: {})", answer.length());
             List<RetrievedCourseChunk> alignedChunks = evidenceService.selectAnswerEvidenceChunks(
                     prepared.chunks(), prepared.question(), answer);
@@ -162,6 +161,17 @@ public class CourseAnswerGenerationStageService {
                 relevant enough to answer. Re-read those excerpts and answer only from them. Do not claim the course
                 material is missing merely because the wording of the question differs from a chapter heading.
                 """;
+    }
+
+    private CourseRagAnswer insufficientMaterial(CourseAnswerPreparation prepared) {
+        return resultService.blocked(
+                "Tài liệu hiện có của môn " + prepared.courseId()
+                        + " chưa đủ nội dung để trả lời chắc chắn. "
+                        + "Câu hỏi sẽ được chuyển cho giáo viên/mentor phụ trách.",
+                0.0,
+                List.of(),
+                "Generated answer reports insufficient course material"
+        );
     }
 
     private boolean isIncompleteLesson(CourseAnswerRequest request, String answer) {

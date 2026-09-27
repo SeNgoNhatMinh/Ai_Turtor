@@ -28,6 +28,16 @@ vi.mock('../../src/services/tutorSessionApi', () => ({
 const studentId = '7bd7d121-b1b4-4b47-b077-a1d617a98219';
 const idleStudentId = '860aa103-2f5c-48a3-bcf2-9ec2a12a8c40';
 
+async function openClassRoster(classId = 'SE1840') {
+  const classCard = await screen.findByRole('button', { name: new RegExp(classId) });
+  fireEvent.click(classCard);
+}
+
+async function openFirstStudentStudy() {
+  const buttons = await screen.findAllByRole('button', { name: /^Xem \d+/ });
+  fireEvent.click(buttons[0]);
+}
+
 describe('TeacherTutoringPage student identity', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -116,13 +126,15 @@ Giải thích: JSP được biên dịch thành servlet và chạy trên server.
       />,
     );
 
+    await openClassRoster();
+
     await waitFor(() => {
       expect(screen.getAllByText('Nguyen Van A · SE1840001').length).toBeGreaterThan(0);
     });
     expect(screen.getAllByText('Tran Thi B · SE1840002').length).toBeGreaterThan(0);
     expect(screen.getByText('jsp')).toBeVisible();
     expect(screen.getByText('Chưa học với AI Tutor')).toBeVisible();
-    expect(screen.getByText('Danh sách sinh viên theo lớp')).toBeVisible();
+    expect(screen.getByText('Danh sách sinh viên')).toBeVisible();
     expect(screen.getAllByText('PRJ301 · SE1840').length).toBeGreaterThan(0);
     expect(screen.queryByText('Tóm tắt các câu hỏi gần đây')).not.toBeInTheDocument();
     expect(screen.queryByText('Chưa có buổi học đủ 10 lượt để tổng kết.')).not.toBeInTheDocument();
@@ -138,11 +150,8 @@ Giải thích: JSP được biên dịch thành servlet và chạy trên server.
       />,
     );
 
-    await waitFor(() => {
-      expect(screen.getAllByRole('button', { name: 'Xem bài đã học' }).length).toBeGreaterThan(0);
-    });
-
-    fireEvent.click(screen.getAllByRole('button', { name: 'Xem bài đã học' })[0]);
+    await openClassRoster();
+    await openFirstStudentStudy();
 
     await waitFor(() => {
       expect(screen.getAllByText('Nguyen Van A · SE1840001').length).toBeGreaterThan(1);
@@ -213,10 +222,8 @@ Giải thích: JSP được biên dịch thành servlet và chạy trên server.
       />,
     );
 
-    await waitFor(() => {
-      expect(screen.getAllByRole('button', { name: 'Xem bài đã học' }).length).toBeGreaterThan(0);
-    });
-    fireEvent.click(screen.getAllByRole('button', { name: 'Xem bài đã học' })[0]);
+    await openClassRoster();
+    await openFirstStudentStudy();
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Xem hội thoại' })).toBeVisible();
     });
@@ -270,15 +277,17 @@ Giải thích: JSP được biên dịch thành servlet và chạy trên server.
     );
 
     await waitFor(() => {
-      expect(screen.getByRole('tab', { name: /Tất cả lớp/ })).toBeVisible();
+      expect(screen.getByRole('button', { name: /SE1840/ })).toBeVisible();
+      expect(screen.getByRole('button', { name: /SE1833/ })).toBeVisible();
     });
-    expect(screen.getByRole('tab', { name: /PRJ301 · SE1840/ })).toBeVisible();
-    expect(screen.getByRole('tab', { name: /PRJ301 · SE1833/ })).toBeVisible();
-    expect(screen.getByText('Nguyen Van A · SE1840001')).toBeVisible();
-    expect(screen.getByText('Tran Thi B · SE1840002')).toBeVisible();
 
-    fireEvent.click(screen.getByRole('tab', { name: /PRJ301 · SE1833/ }));
+    await openClassRoster('SE1840');
+    expect(await screen.findByText('Nguyen Van A · SE1840001')).toBeVisible();
+    expect(screen.queryByText('Tran Thi B · SE1840002')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Tất cả lớp/ }));
+    await openClassRoster('SE1833');
+    expect(await screen.findByText('Tran Thi B · SE1840002')).toBeVisible();
     expect(screen.queryByText('Nguyen Van A · SE1840001')).not.toBeInTheDocument();
-    expect(screen.getByText('Tran Thi B · SE1840002')).toBeVisible();
   });
 });
