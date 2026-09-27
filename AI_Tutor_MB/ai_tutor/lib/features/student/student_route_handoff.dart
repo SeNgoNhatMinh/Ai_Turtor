@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/router/routes.dart';
 import '../../core/utils/ai_study_tips.dart';
+import '../../core/utils/study_suggestion_prompt.dart'
+    show isGuidedLessonPrompt;
 import '../../shared/models/course.dart';
 import '../../shared/models/improve_suggestion.dart';
 import '../courses/application/courses_controller.dart';
@@ -15,6 +17,9 @@ class StudyChatHandoff {
     this.suggestionText,
     this.improvePlanId,
     this.planItemId,
+    this.interactionType,
+    this.chapterKey,
+    this.chapterTitle,
     this.sourceMaterialIds = const [],
     this.sourceChunkIds = const [],
   });
@@ -23,6 +28,9 @@ class StudyChatHandoff {
   final String? suggestionText;
   final String? improvePlanId;
   final String? planItemId;
+  final String? interactionType;
+  final String? chapterKey;
+  final String? chapterTitle;
   final List<String> sourceMaterialIds;
   final List<String> sourceChunkIds;
 }
@@ -35,6 +43,8 @@ class PendingTutorRequestContext {
     this.improvePlanId,
     this.planItemId,
     this.clickedSuggestion,
+    this.chapterKey,
+    this.chapterTitle,
     this.sourceMaterialIds = const [],
     this.sourceChunkIds = const [],
   });
@@ -45,6 +55,8 @@ class PendingTutorRequestContext {
   final String? improvePlanId;
   final String? planItemId;
   final String? clickedSuggestion;
+  final String? chapterKey;
+  final String? chapterTitle;
   final List<String> sourceMaterialIds;
   final List<String> sourceChunkIds;
 
@@ -95,24 +107,33 @@ void queueStudyChatHandoff(
     suggestionText: suggestionText,
     improvePlanId: suggestion?.improvePlanId,
     planItemId: suggestion?.planItemId,
+    interactionType: suggestion?.interactionType,
+    chapterKey: suggestion?.chapterKey,
+    chapterTitle: suggestion?.chapterTitle,
     sourceMaterialIds: suggestion?.sourceMaterialIds ?? const [],
     sourceChunkIds: suggestion?.sourceChunkIds ?? const [],
   );
   final hasSourceProvenance = suggestion?.sourceMaterialIds.isNotEmpty == true;
-  if (suggestion?.hasImprovePlanGrounding == true || hasSourceProvenance) {
+  final guidedLesson = isGuidedLessonPrompt(prompt);
+  if (suggestion?.hasImprovePlanGrounding == true ||
+      hasSourceProvenance ||
+      guidedLesson) {
     ref
         .read(pendingTutorRequestContextProvider.notifier)
         .state = PendingTutorRequestContext(
       prompt: prompt,
       interactionType: suggestion?.hasImprovePlanGrounding == true
           ? 'IMPROVE_PLAN_REVIEW'
-          : 'SOURCE_BACKED_STUDY_TIP',
+          : suggestion?.interactionType ??
+                (guidedLesson ? 'GUIDED_LESSON' : 'SOURCE_BACKED_STUDY_TIP'),
       displayQuestion: suggestionText,
-      improvePlanId: suggestion!.improvePlanId,
-      planItemId: suggestion.planItemId,
+      improvePlanId: suggestion?.improvePlanId,
+      planItemId: suggestion?.planItemId,
       clickedSuggestion: suggestionText,
-      sourceMaterialIds: suggestion.sourceMaterialIds,
-      sourceChunkIds: suggestion.sourceChunkIds,
+      chapterKey: suggestion?.chapterKey,
+      chapterTitle: suggestion?.chapterTitle,
+      sourceMaterialIds: suggestion?.sourceMaterialIds ?? const [],
+      sourceChunkIds: suggestion?.sourceChunkIds ?? const [],
     );
   }
 }

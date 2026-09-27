@@ -13,6 +13,9 @@ class ImproveSuggestionItem {
     this.improvePlanId,
     this.planItemId,
     this.groundingStatus,
+    this.interactionType,
+    this.chapterKey,
+    this.chapterTitle,
     this.sourceMaterialIds = const [],
     this.sourceChunkIds = const [],
   });
@@ -27,6 +30,9 @@ class ImproveSuggestionItem {
   final String? improvePlanId;
   final String? planItemId;
   final String? groundingStatus;
+  final String? interactionType;
+  final String? chapterKey;
+  final String? chapterTitle;
   final List<String> sourceMaterialIds;
   final List<String> sourceChunkIds;
 
@@ -38,6 +44,30 @@ class ImproveSuggestionItem {
   String get effectiveTopic => learnTopic ?? title;
 
   String get effectiveText => suggestionText ?? title;
+
+  ImproveSuggestionItem copyWith({
+    String? interactionType,
+    String? chapterKey,
+    String? chapterTitle,
+  }) {
+    return ImproveSuggestionItem(
+      key: key,
+      title: title,
+      reason: reason,
+      learnTopic: learnTopic,
+      suggestionText: suggestionText,
+      source: source,
+      nextSteps: nextSteps,
+      improvePlanId: improvePlanId,
+      planItemId: planItemId,
+      groundingStatus: groundingStatus,
+      interactionType: interactionType ?? this.interactionType,
+      chapterKey: chapterKey ?? this.chapterKey,
+      chapterTitle: chapterTitle ?? this.chapterTitle,
+      sourceMaterialIds: sourceMaterialIds,
+      sourceChunkIds: sourceChunkIds,
+    );
+  }
 
   factory ImproveSuggestionItem.fromLabel(String label) {
     final trimmed = label.trim();
@@ -90,6 +120,9 @@ class ImproveSuggestionItem {
       improvePlanId: json['improvePlanId']?.toString(),
       planItemId: json['planItemId']?.toString(),
       groundingStatus: json['groundingStatus']?.toString(),
+      interactionType: json['interactionType']?.toString(),
+      chapterKey: json['chapterKey']?.toString(),
+      chapterTitle: json['chapterTitle']?.toString(),
       sourceMaterialIds: parseStringList(json['sourceMaterialIds']),
       sourceChunkIds: parseStringList(json['sourceChunkIds']),
     );
@@ -112,6 +145,9 @@ class ImproveSuggestionItem {
               learnTopic: trimmed,
               suggestionText: trimmed,
               source: item.source,
+              interactionType: item.interactionType,
+              chapterKey: item.chapterKey,
+              chapterTitle: item.chapterTitle,
               sourceMaterialIds: item.sourceMaterialIds,
               sourceChunkIds: item.sourceChunkIds,
             ),

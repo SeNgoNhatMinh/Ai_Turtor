@@ -1415,6 +1415,8 @@ class ChatScreen extends HookConsumerWidget {
       String? improvePlanId,
       String? planItemId,
       String? clickedSuggestion,
+      String? chapterKey,
+      String? chapterTitle,
       List<String> sourceMaterialIds = const [],
       List<String> sourceChunkIds = const [],
     }) async {
@@ -1439,6 +1441,8 @@ class ChatScreen extends HookConsumerWidget {
             improvePlanId: improvePlanId,
             planItemId: planItemId,
             clickedSuggestion: clickedSuggestion,
+            chapterKey: chapterKey,
+            chapterTitle: chapterTitle,
             requestedMode: 'RAG',
             sourceMaterialIds: sourceMaterialIds,
             sourceChunkIds: sourceChunkIds,
@@ -1453,22 +1457,28 @@ class ChatScreen extends HookConsumerWidget {
       final text = item.effectiveText.trim().isNotEmpty
           ? item.effectiveText
           : item.title;
+      final prompt = buildStudySuggestionPrompt(
+        text,
+        improvePlanId: item.improvePlanId,
+        planItemId: item.planItemId,
+      );
       unawaited(
         sendStudyPromptInChat(
-          buildStudySuggestionPrompt(
-            text,
-            improvePlanId: item.improvePlanId,
-            planItemId: item.planItemId,
-          ),
+          prompt,
           displayMessage: text,
           interactionType: item.hasImprovePlanGrounding
               ? 'IMPROVE_PLAN_REVIEW'
-              : item.sourceMaterialIds.isNotEmpty
-              ? 'SOURCE_BACKED_STUDY_TIP'
-              : null,
+              : item.interactionType ??
+                    (isGuidedLessonPrompt(prompt)
+                        ? 'GUIDED_LESSON'
+                        : item.sourceMaterialIds.isNotEmpty
+                        ? 'SOURCE_BACKED_STUDY_TIP'
+                        : null),
           improvePlanId: item.improvePlanId,
           planItemId: item.planItemId,
           clickedSuggestion: text,
+          chapterKey: item.chapterKey,
+          chapterTitle: item.chapterTitle,
           sourceMaterialIds: item.sourceMaterialIds,
           sourceChunkIds: item.sourceChunkIds,
         ),
@@ -2033,8 +2043,16 @@ class ChatScreen extends HookConsumerWidget {
                     }
 
                     final message = items[msgIndex];
+                    final hasUsableAssistantContent =
+                        message.isUser ||
+                        hasMeaningfulAiChatContent(message.content);
                     final isRetryableError =
-                        !message.isUser && message.id.startsWith('err-');
+                        !message.isUser &&
+                        (message.id.startsWith('err-') ||
+                            !hasUsableAssistantContent);
+                    final visibleMessageContent = hasUsableAssistantContent
+                        ? message.content
+                        : 'AI Tutor chưa trả về nội dung đầy đủ. Vui lòng thử lại.';
                     final userQuestion = message.isUser
                         ? null
                         : ChatController.precedingUserQuestion(items, msgIndex);
@@ -2069,6 +2087,8 @@ class ChatScreen extends HookConsumerWidget {
                               chatImproveSuggestionsForMessage(
                                 answer: message.content,
                                 apiSuggestions: message.improveSuggestions,
+                                apiSuggestionsProvided:
+                                    message.hasNextImproveSuggestionsPayload,
                               ),
                               answer: message.content,
                             );
@@ -2090,7 +2110,7 @@ class ChatScreen extends HookConsumerWidget {
                               onDownloadSource: downloadSource,
                               codeSnippet: message.codeSnippet,
                               content: quiz == null
-                                  ? message.content
+                                  ? visibleMessageContent
                                   : extracted.before,
                               afterContent: quiz == null
                                   ? null
@@ -2113,10 +2133,18 @@ class ChatScreen extends HookConsumerWidget {
                                       },
                                     ),
                               mode: message.mode,
-                              confidence: message.confidence,
-                              sources: message.sources,
-                              sourceEvidence: message.sourceEvidence,
-                              visualEvidence: message.visualEvidence,
+                              confidence: hasUsableAssistantContent
+                                  ? message.confidence
+                                  : null,
+                              sources: hasUsableAssistantContent
+                                  ? message.sources
+                                  : const [],
+                              sourceEvidence: hasUsableAssistantContent
+                                  ? message.sourceEvidence
+                                  : const [],
+                              visualEvidence: hasUsableAssistantContent
+                                  ? message.visualEvidence
+                                  : const [],
                               showSourceReferences: false,
                               escalated:
                                   message.escalated ||

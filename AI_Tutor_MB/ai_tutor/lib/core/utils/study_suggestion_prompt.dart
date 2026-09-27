@@ -99,6 +99,10 @@ String teacherStudentPathLabel(String text) {
   return '';
 }
 
+bool isGuidedLessonPrompt(String text) {
+  return parseNumberedLesson(text)?.kind == 'lesson';
+}
+
 bool isDeepDiveListPrompt(String text) {
   return parseNumberedLesson(text)?.kind == 'deep-list';
 }

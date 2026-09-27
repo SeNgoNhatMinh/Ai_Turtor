@@ -393,6 +393,8 @@ class ChatController
     String? improvePlanId,
     String? planItemId,
     String? clickedSuggestion,
+    String? chapterKey,
+    String? chapterTitle,
     String requestedMode = 'RAG',
     List<String> sourceMaterialIds = const [],
     List<String> sourceChunkIds = const [],
@@ -405,7 +407,8 @@ class ChatController
     final callerHasContext =
         (interactionType ?? '').trim().isNotEmpty ||
         (improvePlanId ?? '').trim().isNotEmpty ||
-        sourceMaterialIds.isNotEmpty;
+        sourceMaterialIds.isNotEmpty ||
+        (chapterKey ?? '').trim().isNotEmpty;
     final pendingPrompt = pending?.prompt?.trim() ?? '';
     final usePending =
         pending != null &&
@@ -421,6 +424,10 @@ class ChatController
         (interactionType ?? activePending?.interactionType)?.trim() ?? '';
     final resolvedClicked =
         (clickedSuggestion ?? activePending?.clickedSuggestion)?.trim() ?? '';
+    final resolvedChapterKey =
+        (chapterKey ?? activePending?.chapterKey)?.trim() ?? '';
+    final resolvedChapterTitle =
+        (chapterTitle ?? activePending?.chapterTitle)?.trim() ?? '';
     final resolvedSourceMaterialIds = sourceMaterialIds.isNotEmpty
         ? sourceMaterialIds
         : activePending?.sourceMaterialIds ?? const <String>[];
@@ -475,6 +482,10 @@ class ChatController
             : resolvedImprovePlanId,
         planItemId: resolvedPlanItemId.isEmpty ? null : resolvedPlanItemId,
         clickedSuggestion: resolvedClicked.isEmpty ? null : resolvedClicked,
+        chapterKey: resolvedChapterKey.isEmpty ? null : resolvedChapterKey,
+        chapterTitle: resolvedChapterTitle.isEmpty
+            ? null
+            : resolvedChapterTitle,
         requestedMode: requestedMode == 'CODE' ? 'CODE' : 'RAG',
         sourceMaterialIds: resolvedSourceMaterialIds,
         sourceChunkIds: resolvedSourceChunkIds,
@@ -530,6 +541,8 @@ class ChatController
         escalated: answer.escalated,
         questionEscalationId: answer.questionEscalationId,
         improveSuggestions: suggestions,
+        hasNextImproveSuggestionsPayload:
+            answer.hasNextImproveSuggestionsPayload || suggestions.isNotEmpty,
         createdAt: DateTime.now(),
         conversationId: effectiveConversationId,
         understandingCheck: answer.understandingCheck,
@@ -1013,20 +1026,22 @@ class ChatController
     required List<AiMessage> previous,
     required List<AiMessage> fetched,
   }) {
-    final suggestionsById = {
+    final previousById = {
       for (final m in previous)
-        if (!m.isUser && m.improveSuggestions.isNotEmpty)
-          m.id: m.improveSuggestions,
+        if (!m.isUser) m.id: m,
     };
-    return fetched
-        .map(
-          (m) => m.isUser || m.improveSuggestions.isNotEmpty
-              ? m
-              : m.copyWith(
-                  improveSuggestions: suggestionsById[m.id] ?? const [],
-                ),
-        )
-        .toList();
+    return fetched.map((message) {
+      if (message.isUser || message.hasNextImproveSuggestionsPayload) {
+        return message;
+      }
+      final previousMessage = previousById[message.id];
+      if (previousMessage == null) return message;
+      return message.copyWith(
+        improveSuggestions: previousMessage.improveSuggestions,
+        hasNextImproveSuggestionsPayload:
+            previousMessage.hasNextImproveSuggestionsPayload,
+      );
+    }).toList();
   }
 
   static List<AiMessage> _attachSuggestionsToLastAi(
@@ -1045,6 +1060,7 @@ class ChatController
           ? sanitizeAiChatContent(answerFallback)
           : current.content,
       improveSuggestions: suggestions,
+      hasNextImproveSuggestionsPayload: true,
     );
     return merged;
   }
@@ -1093,6 +1109,10 @@ class ChatController
       improveSuggestions: suggestions.isNotEmpty
           ? suggestions
           : fallbackAi.improveSuggestions,
+      hasNextImproveSuggestionsPayload:
+          answer.hasNextImproveSuggestionsPayload ||
+          serverAi.hasNextImproveSuggestionsPayload ||
+          fallbackAi.hasNextImproveSuggestionsPayload,
       understandingCheck:
           answer.understandingCheck ??
           serverAi.understandingCheck ??

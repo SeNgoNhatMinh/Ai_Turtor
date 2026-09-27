@@ -6,6 +6,24 @@ String sanitizeAiChatContent(String content) {
   return _stripSourceSection(content).trimRight();
 }
 
+/// Một phản hồi chỉ gồm heading (ví dụ `## Theo tài liệu môn học`) không phải
+/// là câu trả lời có thể hiển thị. Dùng guard này trước khi tạo bubble/triggers.
+bool hasMeaningfulAiChatContent(String content) {
+  final sanitized = sanitizeAiChatContent(content);
+  if (sanitized.trim().isEmpty) return false;
+
+  for (final rawLine in sanitized.split('\n')) {
+    final line = rawLine.trim();
+    if (line.isEmpty || _isHeadingLine(line) || _isDividerLine(line)) continue;
+    final visible = line
+        .replaceAll(RegExp(r'^[-*+>]\s*'), '')
+        .replaceAll(RegExp(r'[`*_~]'), '')
+        .trim();
+    if (RegExp(r'[\p{L}\p{N}]', unicode: true).hasMatch(visible)) return true;
+  }
+  return false;
+}
+
 /// Markdown hiển thị chat: bỏ nguồn, giữ "Lưu ý..." và biến bullet thành link bấm được.
 String prepareAiChatMarkdown(String content) {
   final enhanced = enhanceStudyTips(sanitizeAiChatContent(content));
@@ -30,19 +48,30 @@ String sanitizeEscalationAiPreview(String content) {
 
 String _stripSourceSection(String content) {
   final lines = content.split('\n');
-  for (var i = 0; i < lines.length; i++) {
-    if (_isSourceSectionHeaderLine(lines[i])) {
-      return lines.sublist(0, i).join('\n').trimRight();
-    }
-  }
+  final kept = <String>[];
+  var insideSourceSection = false;
 
-  // Phòng trường hợp backend trả materialId rời không kèm header.
-  final filtered = lines
-      .where((line) => !_isSourceSectionHeaderLine(line))
-      .where((line) => !_looksLikeMaterialIdLine(_normalizeSourceLine(line)))
-      .where((line) => !_looksLikeRawMaterialId(line.trim()))
-      .toList();
-  return filtered.join('\n').trimRight();
+  for (final line in lines) {
+    if (_isSourceSectionHeaderLine(line)) {
+      insideSourceSection = true;
+      continue;
+    }
+    if (insideSourceSection) {
+      // Nguồn theo contract nằm cuối câu trả lời. Tuy nhiên một số model đặt
+      // mục này ở giữa; khi gặp heading tiếp theo, giữ lại phần nội dung sau nó.
+      if (_isHeadingLine(line)) {
+        insideSourceSection = false;
+        kept.add(line);
+      }
+      continue;
+    }
+    if (_looksLikeMaterialIdLine(_normalizeSourceLine(line)) ||
+        _looksLikeRawMaterialId(line.trim())) {
+      continue;
+    }
+    kept.add(line);
+  }
+  return kept.join('\n').trimRight();
 }
 
 bool _isSourceSectionHeaderLine(String line) {
@@ -139,6 +168,9 @@ bool _isPlainProseBlock(String block) {
 }
 
 bool _isHeadingLine(String line) => RegExp(r'^#{1,6}\s+').hasMatch(line.trim());
+
+bool _isDividerLine(String line) =>
+    RegExp(r'^\s*(?:-{3,}|_{3,}|\*{3,})\s*$').hasMatch(line);
 
 bool _isListLine(String line) =>
     RegExp(r'^\s*(?:[-*+]\s+|\d+[.)]\s+)').hasMatch(line);

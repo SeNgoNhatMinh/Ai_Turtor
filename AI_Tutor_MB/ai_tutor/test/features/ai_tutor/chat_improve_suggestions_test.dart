@@ -28,13 +28,30 @@ void main() {
           'title': 'Ôn Servlet lifecycle',
           'sourceMaterialIds': ['material-1'],
           'sourceChunkIds': ['chunk-1'],
+          'chapterKey': 'chapter-1',
+          'chapterTitle': 'Servlet lifecycle',
         }),
       ],
     );
 
     expect(items.single.sourceMaterialIds, ['material-1']);
     expect(items.single.sourceChunkIds, ['chunk-1']);
+    expect(items.single.chapterKey, 'chapter-1');
+    expect(items.single.chapterTitle, 'Servlet lifecycle');
+    expect(items.single.interactionType, 'GUIDED_LESSON');
   });
+
+  test(
+    'does not parse ungrounded lessons when API explicitly returns none',
+    () {
+      final items = chatImproveSuggestionsForMessage(
+        answer: '1. Bài 1: Nội dung không có trong giáo trình',
+        apiSuggestionsProvided: true,
+      );
+
+      expect(items, isEmpty);
+    },
+  );
 
   test('parses Bài N from the answer when the API sent no chips', () {
     final items = chatImproveSuggestionsForMessage(

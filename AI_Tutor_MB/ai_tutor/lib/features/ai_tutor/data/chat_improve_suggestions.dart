@@ -8,6 +8,7 @@ import '../../../shared/models/improve_suggestion.dart';
 List<ImproveSuggestionItem> chatImproveSuggestionsForMessage({
   required String answer,
   List<ImproveSuggestionItem> apiSuggestions = const [],
+  bool apiSuggestionsProvided = false,
 }) {
   final actionableApi = apiSuggestions
       .where(
@@ -17,7 +18,13 @@ List<ImproveSuggestionItem> chatImproveSuggestionsForMessage({
               : item.title,
         ),
       )
+      .map(
+        (item) => item.copyWith(
+          interactionType: item.interactionType ?? 'GUIDED_LESSON',
+        ),
+      )
       .toList();
+  if (apiSuggestionsProvided && actionableApi.isEmpty) return const [];
   final path = lessonSuggestionsForMessage(
     answer: answer,
     apiSuggestionTitles: [
@@ -47,7 +54,9 @@ List<ImproveSuggestionItem> chatImproveSuggestionsForMessage({
   }
   return [
     for (final item in path)
-      ImproveSuggestionItem.fromLabel(item.suggestionText),
+      ImproveSuggestionItem.fromLabel(
+        item.suggestionText,
+      ).copyWith(interactionType: 'GUIDED_LESSON'),
   ];
 }
 
@@ -58,6 +67,7 @@ bool answerHasLessonPathSuggestions(String? answer) {
 List<String> chatComposerTopicsForMessage({
   required String answer,
   List<ImproveSuggestionItem> apiSuggestions = const [],
+  bool apiSuggestionsProvided = false,
   List<String> sessionTopics = const [],
 }) {
   List<String> clean(Iterable<String> values) {
@@ -78,13 +88,10 @@ List<String> chatComposerTopicsForMessage({
     chatImproveSuggestionsForMessage(
       answer: answer,
       apiSuggestions: apiSuggestions,
+      apiSuggestionsProvided: apiSuggestionsProvided,
     ).map((item) => item.effectiveText),
   );
-  final sessionHasLessons = session.any(
-    (topic) => parseNumberedLesson(topic)?.kind == 'lesson',
-  );
-  if (sessionHasLessons) return session;
-  if (parsedLessons.isNotEmpty) return parsedLessons;
   if (message.isNotEmpty) return message;
+  if (parsedLessons.isNotEmpty) return parsedLessons;
   return session;
 }

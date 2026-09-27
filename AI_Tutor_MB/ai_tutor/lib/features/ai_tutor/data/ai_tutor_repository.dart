@@ -5,7 +5,9 @@ import '../../../core/network/dio_client.dart';
 import '../../../core/network/exceptions.dart';
 import '../../../core/network/n8n_payload.dart';
 import '../../../core/network/network_providers.dart';
+import '../../../core/utils/ai_chat_content.dart';
 import '../../../core/utils/json_helpers.dart';
+import '../../../core/utils/study_suggestion_prompt.dart';
 import '../../../shared/models/ai_conversation.dart';
 import 'chat_answer_recovery.dart';
 import 'daily_question_quota.dart';
@@ -139,8 +141,9 @@ class AiTutorRepository {
     );
   }
 
-  /// Student chat via n8n `student-chat` webhook (RAG / CODE / ESCALATE).
-  /// Timeout → poll history; n8n fail khác quota → fallback Spring `/api/ai/query`.
+  /// Student chat always enters the n8n Harness (RAG / CODE / ESCALATE).
+  /// A timeout may recover the in-flight answer, but never starts a second
+  /// untraced request through Spring.
   Future<AiAnswer> ask({
     required String userId,
     required String courseId,
@@ -158,40 +161,13 @@ class AiTutorRepository {
     String? improvePlanId,
     String? planItemId,
     String? clickedSuggestion,
+    String? chapterKey,
+    String? chapterTitle,
     String? requestedMode,
     List<String> sourceMaterialIds = const [],
     List<String> sourceChunkIds = const [],
     CancelToken? cancelToken,
   }) async {
-    final normalizedRequestedMode = requestedMode == 'CODE' ? 'CODE' : 'RAG';
-    final requiresDirectBackendRoute =
-        normalizedRequestedMode == 'CODE' ||
-        sourceMaterialIds.isNotEmpty ||
-        sourceChunkIds.isNotEmpty ||
-        (improvePlanId ?? '').trim().isNotEmpty ||
-        (planItemId ?? '').trim().isNotEmpty;
-    if (requiresDirectBackendRoute) {
-      return _askSpring(
-        userId: userId,
-        courseId: courseId,
-        message: message,
-        classId: classId,
-        conversationId: conversationId,
-        studentName: studentName,
-        studentEmail: studentEmail,
-        codeSnippet: codeSnippet,
-        tutorSessionId: tutorSessionId,
-        sessionPhase: sessionPhase,
-        interactionType: interactionType,
-        improvePlanId: improvePlanId,
-        planItemId: planItemId,
-        clickedSuggestion: clickedSuggestion,
-        requestedMode: normalizedRequestedMode,
-        sourceMaterialIds: sourceMaterialIds,
-        sourceChunkIds: sourceChunkIds,
-        cancelToken: cancelToken,
-      );
-    }
     try {
       final answer = await _askN8n(
         userId: userId,
@@ -210,17 +186,25 @@ class AiTutorRepository {
         improvePlanId: improvePlanId,
         planItemId: planItemId,
         clickedSuggestion: clickedSuggestion,
+        chapterKey: chapterKey,
+        chapterTitle: chapterTitle,
+        requestedMode: requestedMode == 'CODE' ? 'CODE' : 'RAG',
+        sourceMaterialIds: sourceMaterialIds,
+        sourceChunkIds: sourceChunkIds,
         cancelToken: cancelToken,
       );
-      if (answer.answer.trim().isNotEmpty) return answer;
+      if (hasMeaningfulAiChatContent(answer.answer)) return answer;
       final recovered = await recoverCanonicalAnswer(
         userId: userId,
         conversationId: conversationId,
         question: message,
         cancelToken: cancelToken,
       );
-      if (recovered != null) return recovered;
-      return answer;
+      if (recovered != null &&
+          hasMeaningfulAiChatContent(recovered.answer)) {
+        return recovered;
+      }
+      throw const FormatException('AI Tutor returned an incomplete answer');
     } on ApiBusinessException {
       rethrow;
     } catch (error) {
@@ -237,38 +221,7 @@ class AiTutorRepository {
         if (recovered != null) return recovered;
       }
 
-      try {
-        return await _askSpring(
-          userId: userId,
-          courseId: courseId,
-          message: message,
-          classId: classId,
-          conversationId: conversationId,
-          studentName: studentName,
-          studentEmail: studentEmail,
-          codeSnippet: codeSnippet,
-          tutorSessionId: tutorSessionId,
-          sessionPhase: sessionPhase,
-          interactionType: interactionType,
-          improvePlanId: improvePlanId,
-          planItemId: planItemId,
-          clickedSuggestion: clickedSuggestion,
-          requestedMode: normalizedRequestedMode,
-          sourceMaterialIds: sourceMaterialIds,
-          sourceChunkIds: sourceChunkIds,
-          cancelToken: cancelToken,
-        );
-      } catch (fallbackError) {
-        if (isCanceledChatError(fallbackError)) rethrow;
-        final recovered = await recoverCanonicalAnswer(
-          userId: userId,
-          conversationId: conversationId,
-          question: message,
-          cancelToken: cancelToken,
-        );
-        if (recovered != null) return recovered;
-        throw error;
-      }
+      rethrow;
     }
   }
 
@@ -289,8 +242,19 @@ class AiTutorRepository {
     String? improvePlanId,
     String? planItemId,
     String? clickedSuggestion,
+    String? chapterKey,
+    String? chapterTitle,
+    String? requestedMode,
+    List<String> sourceMaterialIds = const [],
+    List<String> sourceChunkIds = const [],
     CancelToken? cancelToken,
   }) async {
+    final normalizedInteractionType = (interactionType ?? '').trim();
+    final effectiveInteractionType = normalizedInteractionType.isNotEmpty
+        ? normalizedInteractionType
+        : isGuidedLessonPrompt(message)
+        ? 'GUIDED_LESSON'
+        : null;
     final payload = withN8nContext(
       {
         'studentId': userId,
@@ -303,8 +267,10 @@ class AiTutorRepository {
         'message': message,
         'question': message,
         'codeSnippet': codeSnippet ?? '',
-        if (interactionType != null && interactionType.isNotEmpty)
-          'interactionType': interactionType,
+        if (requestedMode != null && requestedMode.isNotEmpty)
+          'requestedMode': requestedMode,
+        if (effectiveInteractionType != null)
+          'interactionType': effectiveInteractionType,
         if (tutorSessionId != null && tutorSessionId.isNotEmpty)
           'tutorSessionId': tutorSessionId,
         'sessionPhase': (sessionPhase == null || sessionPhase.isEmpty)
@@ -316,6 +282,13 @@ class AiTutorRepository {
           'planItemId': planItemId,
         if (clickedSuggestion != null && clickedSuggestion.isNotEmpty)
           'clickedSuggestion': clickedSuggestion,
+        if (sourceMaterialIds.isNotEmpty)
+          'sourceMaterialIds': sourceMaterialIds,
+        if (sourceChunkIds.isNotEmpty) 'sourceChunkIds': sourceChunkIds,
+        if (chapterKey != null && chapterKey.isNotEmpty)
+          'chapterKey': chapterKey,
+        if (chapterTitle != null && chapterTitle.isNotEmpty)
+          'chapterTitle': chapterTitle,
       },
       authToken: authToken,
       sessionId: sessionId ?? newSessionId('chat'),
@@ -330,68 +303,6 @@ class AiTutorRepository {
     final data = unwrapMap(response.data);
     ensureN8nSuccess(data);
     return AiAnswer.fromJson(data);
-  }
-
-  Future<AiAnswer> _askSpring({
-    required String userId,
-    required String courseId,
-    required String message,
-    String? classId,
-    String? conversationId,
-    String? studentName,
-    String? studentEmail,
-    String? codeSnippet,
-    String? tutorSessionId,
-    String? sessionPhase,
-    String? interactionType,
-    String? improvePlanId,
-    String? planItemId,
-    String? clickedSuggestion,
-    String? requestedMode,
-    List<String> sourceMaterialIds = const [],
-    List<String> sourceChunkIds = const [],
-    CancelToken? cancelToken,
-  }) async {
-    final response = await _spring.post<Map<String, dynamic>>(
-      '/api/ai/query',
-      queryParameters: {
-        'userId': userId,
-        if (studentName != null && studentName.isNotEmpty)
-          'userName': studentName,
-        if (studentEmail != null && studentEmail.isNotEmpty)
-          'userEmail': studentEmail,
-      },
-      data: {
-        'question': message,
-        'message': message,
-        'codeSnippet': codeSnippet,
-        'courseId': courseId,
-        if (classId != null && classId.isNotEmpty) 'classId': classId,
-        if (conversationId != null && conversationId.isNotEmpty)
-          'conversationId': conversationId,
-        if (tutorSessionId != null && tutorSessionId.isNotEmpty)
-          'tutorSessionId': tutorSessionId,
-        'sessionPhase': (sessionPhase == null || sessionPhase.isEmpty)
-            ? 'TEACH'
-            : sessionPhase,
-        if (interactionType != null && interactionType.isNotEmpty)
-          'interactionType': interactionType,
-        if (improvePlanId != null && improvePlanId.isNotEmpty)
-          'improvePlanId': improvePlanId,
-        if (planItemId != null && planItemId.isNotEmpty)
-          'planItemId': planItemId,
-        if (clickedSuggestion != null && clickedSuggestion.isNotEmpty)
-          'clickedSuggestion': clickedSuggestion,
-        if (requestedMode != null && requestedMode.isNotEmpty)
-          'requestedMode': requestedMode,
-        if (sourceMaterialIds.isNotEmpty)
-          'sourceMaterialIds': sourceMaterialIds,
-        if (sourceChunkIds.isNotEmpty) 'sourceChunkIds': sourceChunkIds,
-      },
-      cancelToken: cancelToken,
-      options: Options(receiveTimeout: aiReceiveTimeout),
-    );
-    return AiAnswer.fromJson(unwrapMap(response.data));
   }
 
   Future<AiAnswer?> recoverCanonicalAnswer({
@@ -620,6 +531,23 @@ class AiTutorRepository {
       return parsed;
     }
     return TutorSessionOpenResult.fromJson(raw);
+  }
+
+  Future<TutorSupportProfile> fetchStudentSupportProfile({
+    required String studentId,
+    required String courseId,
+    String? classId,
+  }) async {
+    final response = await _spring.get<Map<String, dynamic>>(
+      '/api/tutor/students/${Uri.encodeComponent(studentId)}'
+      '/courses/${Uri.encodeComponent(courseId)}/support-profile',
+      queryParameters: {
+        if (classId != null && classId.trim().isNotEmpty)
+          'classId': classId.trim(),
+      },
+      options: Options(extra: const {skipUnauthorizedRedirectExtra: true}),
+    );
+    return TutorSupportProfile.fromJson(unwrapMap(response.data));
   }
 
   Future<TutorSessionSummaryInfo> closeTutorSession(String sessionId) async {

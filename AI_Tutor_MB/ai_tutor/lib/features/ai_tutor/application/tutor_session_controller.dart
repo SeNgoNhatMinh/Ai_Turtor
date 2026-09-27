@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/realtime_event.dart';
@@ -35,11 +37,20 @@ class ActiveTutorSessionSnapshot {
 }
 
 class TutorSessionController extends Notifier<ActiveTutorSessionSnapshot> {
+  Timer? _supportRefreshTimer;
+  Future<TutorSupportProfile?>? _supportRefreshInFlight;
+  String? _supportRefreshScopeKey;
+
   @override
   ActiveTutorSessionSnapshot build() {
     ref.listen(realtimeEventsProvider, (_, next) {
       next.whenData(_onRealtime);
     });
+    _supportRefreshTimer?.cancel();
+    _supportRefreshTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      unawaited(refreshSupportProfile());
+    });
+    ref.onDispose(() => _supportRefreshTimer?.cancel());
     return const ActiveTutorSessionSnapshot();
   }
 
@@ -54,6 +65,7 @@ class TutorSessionController extends Notifier<ActiveTutorSessionSnapshot> {
     if (opened.session!.isActive) {
       state = state.copyWith(clearSummary: true);
     }
+    unawaited(refreshSupportProfile());
   }
 
   void mergeSession(TutorSessionState session) {
@@ -116,6 +128,7 @@ class TutorSessionController extends Notifier<ActiveTutorSessionSnapshot> {
             ),
           );
       applyOpened(opened);
+      await refreshSupportProfile();
       return opened;
     } catch (_) {
       return null;
@@ -124,21 +137,106 @@ class TutorSessionController extends Notifier<ActiveTutorSessionSnapshot> {
     }
   }
 
+  Future<TutorSupportProfile?> refreshSupportProfile() async {
+    final userId = ref.read(currentUserIdProvider).trim();
+    final course = _activeCourse;
+    final courseId = (course?.code ?? '').trim();
+    final classId = resolveTutorClassId(
+      classId: course?.classId,
+      className: course?.className,
+    );
+    if (userId.isEmpty || courseId.isEmpty || state.session == null) {
+      return null;
+    }
+
+    final scopeKey = '$userId|$courseId|$classId';
+    if (_supportRefreshScopeKey == scopeKey &&
+        _supportRefreshInFlight != null) {
+      return _supportRefreshInFlight;
+    }
+
+    final future = ref
+        .read(aiTutorRepositoryProvider)
+        .fetchStudentSupportProfile(
+          studentId: userId,
+          courseId: courseId,
+          classId: classId,
+        );
+    _supportRefreshScopeKey = scopeKey;
+    _supportRefreshInFlight = future;
+    try {
+      final profile = await future;
+      final activeCourse = _activeCourse;
+      final activeScopeKey = [
+        ref.read(currentUserIdProvider).trim(),
+        (activeCourse?.code ?? '').trim(),
+        resolveTutorClassId(
+          classId: activeCourse?.classId,
+          className: activeCourse?.className,
+        ),
+      ].join('|');
+      if (activeScopeKey != scopeKey || state.session == null) return profile;
+      state = state.copyWith(
+        session: state.session!.copyWith(
+          supportLevel: profile.supportLevel,
+          teacherControlled: profile.teacherControlled,
+          hasActiveTeacherDirective: profile.hasActiveTeacherDirective,
+        ),
+      );
+      return profile;
+    } catch (_) {
+      return null;
+    } finally {
+      if (identical(_supportRefreshInFlight, future)) {
+        _supportRefreshInFlight = null;
+        _supportRefreshScopeKey = null;
+      }
+    }
+  }
+
   void _onRealtime(RealtimeEvent event) {
     final type = event.type.toUpperCase();
-    if (type != 'TUTOR_SESSION_OPENED' && type != 'TUTOR_SESSION_UPDATED') {
+    final isTutorSession =
+        type == 'TUTOR_SESSION_OPENED' || type == 'TUTOR_SESSION_UPDATED';
+    final isDirective = const {
+      'PEDAGOGICAL_DIRECTIVE_CONFIRMED',
+      'PEDAGOGICAL_DIRECTIVE_ARCHIVED',
+      'TUTOR_DIRECTIVE_CONFIRMED',
+      'TUTOR_DIRECTIVE_ARCHIVED',
+      'DIRECTIVE_CONFIRMED',
+      'DIRECTIVE_ARCHIVED',
+    }.contains(type);
+    if (!isTutorSession && !isDirective) {
       return;
     }
     final payload = event.data;
-    final rawSession = payload['session'];
+    final userId = ref.read(currentUserIdProvider);
+    final course = _activeCourse;
+    final classId = resolveTutorClassId(
+      classId: course?.classId,
+      className: course?.className,
+    );
+    if (!_eventTargetsTutorStudent(
+      payload,
+      studentId: userId,
+      courseIds: {
+        if ((course?.id ?? '').trim().isNotEmpty) course!.id,
+        if ((course?.code ?? '').trim().isNotEmpty) course!.code,
+      },
+      classId: classId,
+    )) {
+      return;
+    }
+    unawaited(refreshSupportProfile());
+    if (!isTutorSession) return;
+
+    final rawSession = payload['session'] ?? payload['tutorSession'];
     if (rawSession is! Map) return;
     final session = TutorSessionState.fromJson(
       Map<String, dynamic>.from(rawSession),
     );
     if (session.id.isEmpty) return;
 
-    final userId = ref.read(currentUserIdProvider);
-    final course = _activeCourse;
     final courseKeys = <String>{
       if ((course?.id ?? '').trim().isNotEmpty) course!.id.trim().toUpperCase(),
       if ((course?.code ?? '').trim().isNotEmpty)
@@ -179,6 +277,48 @@ class TutorSessionController extends Notifier<ActiveTutorSessionSnapshot> {
       session: session,
     );
   }
+}
+
+bool _eventTargetsTutorStudent(
+  Map<String, dynamic> payload, {
+  required String studentId,
+  required Set<String> courseIds,
+  required String classId,
+}) {
+  final nested =
+      payload['session'] ??
+      payload['directive'] ??
+      payload['tutorSession'] ??
+      payload['pedagogicalDirective'];
+  final resource = nested is Map ? Map<String, dynamic>.from(nested) : payload;
+  String normalized(Object? value) =>
+      (value ?? '').toString().trim().toUpperCase();
+
+  final eventStudent = normalized(
+    resource['studentId'] ?? payload['studentId'],
+  );
+  final eventCourse = normalized(resource['courseId'] ?? payload['courseId']);
+  final eventClass = normalized(resource['classId'] ?? payload['classId']);
+  final activeStudent = normalized(studentId);
+  final activeCourses = courseIds.map(normalized).where((id) => id.isNotEmpty);
+  final activeClass = normalized(classId);
+
+  if (eventStudent.isNotEmpty &&
+      activeStudent.isNotEmpty &&
+      eventStudent != activeStudent) {
+    return false;
+  }
+  if (eventCourse.isNotEmpty &&
+      activeCourses.isNotEmpty &&
+      !activeCourses.contains(eventCourse)) {
+    return false;
+  }
+  if (eventClass.isNotEmpty &&
+      activeClass.isNotEmpty &&
+      eventClass != activeClass) {
+    return false;
+  }
+  return true;
 }
 
 final tutorSessionControllerProvider =

@@ -85,5 +85,8 @@ bool _shouldRefresh(String type, String? entityType) {
   if (type.contains('TUTOR_SESSION') || entityType == 'TUTOR_SESSION') {
     return true;
   }
+  if (type.contains('DIRECTIVE') || entityType == 'PEDAGOGICAL_DIRECTIVE') {
+    return true;
+  }
   return false;
 }

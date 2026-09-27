@@ -7,6 +7,42 @@ final _welcomeOpening = RegExp(
   caseSensitive: false,
 );
 
+const _tutorSupportLevels = {'HIGH_SUPPORT', 'STANDARD', 'CHALLENGE'};
+
+String normalizeTutorSupportLevel(Object? value) {
+  final normalized = (value ?? '').toString().trim().toUpperCase();
+  return _tutorSupportLevels.contains(normalized) ? normalized : 'STANDARD';
+}
+
+class TutorSupportProfile {
+  const TutorSupportProfile({
+    required this.studentId,
+    required this.courseId,
+    required this.classId,
+    required this.supportLevel,
+    required this.teacherControlled,
+    required this.hasActiveTeacherDirective,
+  });
+
+  final String studentId;
+  final String courseId;
+  final String classId;
+  final String supportLevel;
+  final bool teacherControlled;
+  final bool hasActiveTeacherDirective;
+
+  factory TutorSupportProfile.fromJson(Map<String, dynamic> json) {
+    return TutorSupportProfile(
+      studentId: (json['studentId'] ?? '').toString().trim(),
+      courseId: (json['courseId'] ?? '').toString().trim(),
+      classId: (json['classId'] ?? '').toString().trim(),
+      supportLevel: normalizeTutorSupportLevel(json['supportLevel']),
+      teacherControlled: json['teacherControlled'] != false,
+      hasActiveTeacherDirective: json['hasActiveTeacherDirective'] == true,
+    );
+  }
+}
+
 class TutorSessionState {
   const TutorSessionState({
     required this.id,
@@ -16,6 +52,8 @@ class TutorSessionState {
     this.status = 'ACTIVE',
     this.phase = 'OPEN',
     this.supportLevel = 'STANDARD',
+    this.teacherControlled = false,
+    this.hasActiveTeacherDirective = false,
     this.suggestedTopics = const [],
     this.summaryId,
     this.conversationIds = const [],
@@ -28,6 +66,8 @@ class TutorSessionState {
   final String status;
   final String phase;
   final String supportLevel;
+  final bool teacherControlled;
+  final bool hasActiveTeacherDirective;
   final List<String> suggestedTopics;
   final String? summaryId;
   final List<String> conversationIds;
@@ -43,6 +83,8 @@ class TutorSessionState {
     String? status,
     String? phase,
     String? supportLevel,
+    bool? teacherControlled,
+    bool? hasActiveTeacherDirective,
     List<String>? suggestedTopics,
     String? summaryId,
     List<String>? conversationIds,
@@ -54,7 +96,12 @@ class TutorSessionState {
       classId: classId ?? this.classId,
       status: status ?? this.status,
       phase: phase ?? this.phase,
-      supportLevel: supportLevel ?? this.supportLevel,
+      supportLevel: normalizeTutorSupportLevel(
+        supportLevel ?? this.supportLevel,
+      ),
+      teacherControlled: teacherControlled ?? this.teacherControlled,
+      hasActiveTeacherDirective:
+          hasActiveTeacherDirective ?? this.hasActiveTeacherDirective,
       suggestedTopics: suggestedTopics ?? this.suggestedTopics,
       summaryId: summaryId ?? this.summaryId,
       conversationIds: conversationIds ?? this.conversationIds,
@@ -73,6 +120,9 @@ class TutorSessionState {
       supportLevel: next.supportLevel.isNotEmpty
           ? next.supportLevel
           : supportLevel,
+      teacherControlled: next.teacherControlled || teacherControlled,
+      hasActiveTeacherDirective:
+          next.hasActiveTeacherDirective || hasActiveTeacherDirective,
       suggestedTopics: next.suggestedTopics.isNotEmpty
           ? next.suggestedTopics
           : suggestedTopics,
@@ -91,7 +141,9 @@ class TutorSessionState {
       classId: (json['classId'] ?? '').toString().trim(),
       status: (json['status'] ?? 'ACTIVE').toString().trim(),
       phase: (json['phase'] ?? 'OPEN').toString().trim(),
-      supportLevel: (json['supportLevel'] ?? 'STANDARD').toString().trim(),
+      supportLevel: normalizeTutorSupportLevel(json['supportLevel']),
+      teacherControlled: json['teacherControlled'] == true,
+      hasActiveTeacherDirective: json['hasActiveTeacherDirective'] == true,
       suggestedTopics: parseStringList(json['suggestedTopics']),
       summaryId: (json['summaryId'] ?? '').toString().trim().isEmpty
           ? null
@@ -360,11 +412,6 @@ bool isWelcomeTutorTurn(AiMessage message, {String? precedingUserQuestion}) {
   return isWelcomeOpeningText(message.content);
 }
 
-final _numberedLessonTopic = RegExp(
-  r'(?:bắt đầu\s+)?(?:bài|bai)\s+\d+',
-  caseSensitive: false,
-);
-
 List<String> composerTopicsForSession({
   required List<String> sessionTopics,
   List<String> parsedLessons = const [],
@@ -377,7 +424,6 @@ List<String> composerTopicsForSession({
       .map((item) => item.trim())
       .where((item) => item.isNotEmpty)
       .toList();
-  if (session.any(_numberedLessonTopic.hasMatch)) return session;
   if (parsed.isNotEmpty) return parsed;
   return session;
 }

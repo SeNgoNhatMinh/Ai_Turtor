@@ -70,6 +70,12 @@ void main() {
     );
   });
 
+  test('recognizes only numbered lesson starts as guided lessons', () {
+    expect(isGuidedLessonPrompt('Bắt đầu bài 2: Request và Response'), isTrue);
+    expect(isGuidedLessonPrompt('Bài 3: JSP lifecycle'), isTrue);
+    expect(isGuidedLessonPrompt('Ôn tập phần Servlet'), isFalse);
+  });
+
   test('parses numbered Bài lines from a learning-path answer', () {
     final items = parseLessonSuggestionsFromAnswer('''
 ## Lộ trình học

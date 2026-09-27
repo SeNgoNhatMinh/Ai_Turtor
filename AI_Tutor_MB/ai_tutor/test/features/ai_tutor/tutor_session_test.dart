@@ -245,6 +245,16 @@ void main() {
     );
   });
 
+  test('grounded message lessons take priority over stale session topics', () {
+    expect(
+      composerTopicsForSession(
+        sessionTopics: const ['Bài 1: Chủ đề cũ'],
+        parsedLessons: const ['Bài 2: Chương đã được grounding'],
+      ),
+      ['Bài 2: Chương đã được grounding'],
+    );
+  });
+
   test('merges later session phase and topics', () {
     const current = TutorSessionState(
       id: 'sess-1',
@@ -260,6 +270,22 @@ void main() {
     );
     expect(next.phase, 'PRACTICE');
     expect(next.suggestedTopics, ['Ôn lại MVC']);
+  });
+
+  test('normalizes the teacher-controlled support profile', () {
+    final profile = TutorSupportProfile.fromJson({
+      'studentId': 'sv1',
+      'courseId': 'PRJ301',
+      'classId': 'SE1801',
+      'supportLevel': 'high_support',
+      'teacherControlled': true,
+      'hasActiveTeacherDirective': true,
+    });
+
+    expect(profile.supportLevel, 'HIGH_SUPPORT');
+    expect(profile.teacherControlled, isTrue);
+    expect(profile.hasActiveTeacherDirective, isTrue);
+    expect(normalizeTutorSupportLevel('unsupported'), 'STANDARD');
   });
 
   testWidgets('session strip shows phase and next-session action', (

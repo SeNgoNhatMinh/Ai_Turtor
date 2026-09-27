@@ -58,6 +58,7 @@ class AiMessage {
     this.conversationId,
     this.createdAt,
     this.improveSuggestions = const [],
+    this.hasNextImproveSuggestionsPayload = false,
     this.understandingCheck,
     this.understandingSelectedKey,
     this.codeSnippet,
@@ -79,6 +80,7 @@ class AiMessage {
   final String? conversationId;
   final DateTime? createdAt;
   final List<ImproveSuggestionItem> improveSuggestions;
+  final bool hasNextImproveSuggestionsPayload;
   final Map<String, dynamic>? understandingCheck;
   final String? understandingSelectedKey;
   final String? codeSnippet;
@@ -89,6 +91,7 @@ class AiMessage {
     bool? escalated,
     DateTime? pinnedAt,
     List<ImproveSuggestionItem>? improveSuggestions,
+    bool? hasNextImproveSuggestionsPayload,
     String? content,
     String? conversationId,
     String? questionEscalationId,
@@ -113,6 +116,9 @@ class AiMessage {
       conversationId: conversationId ?? this.conversationId,
       createdAt: createdAt,
       improveSuggestions: improveSuggestions ?? this.improveSuggestions,
+      hasNextImproveSuggestionsPayload:
+          hasNextImproveSuggestionsPayload ??
+          this.hasNextImproveSuggestionsPayload,
       understandingCheck: understandingCheck ?? this.understandingCheck,
       understandingSelectedKey:
           understandingSelectedKey ?? this.understandingSelectedKey,
@@ -165,6 +171,9 @@ class AiMessage {
       createdAt: parseDateTime(json['createdAt'] ?? json['timestamp']),
       improveSuggestions: _parseImproveSuggestions(
         json['nextImproveSuggestions'],
+      ),
+      hasNextImproveSuggestionsPayload: json.containsKey(
+        'nextImproveSuggestions',
       ),
       understandingCheck: _parseUnderstandingCheck(json['understandingCheck']),
       understandingSelectedKey: _parseUnderstandingSelectedKey(
@@ -248,6 +257,7 @@ class AiAnswer {
     this.assignmentSafetyApplied = false,
     this.weakTopics = const [],
     this.nextImproveSuggestions = const [],
+    this.hasNextImproveSuggestionsPayload = false,
     this.userMessageId,
     this.assistantMessageId,
     this.suggestionConsumed = false,
@@ -269,6 +279,7 @@ class AiAnswer {
   final bool assignmentSafetyApplied;
   final List<String> weakTopics;
   final List<ImproveSuggestionItem> nextImproveSuggestions;
+  final bool hasNextImproveSuggestionsPayload;
   final String? userMessageId;
   final String? assistantMessageId;
   final bool suggestionConsumed;
@@ -303,6 +314,9 @@ class AiAnswer {
       weakTopics: parseStringList(json['weakTopics']),
       nextImproveSuggestions: AiMessage._parseImproveSuggestions(
         json['nextImproveSuggestions'],
+      ),
+      hasNextImproveSuggestionsPayload: json.containsKey(
+        'nextImproveSuggestions',
       ),
       userMessageId: json['userMessageId']?.toString(),
       assistantMessageId: json['assistantMessageId']?.toString(),
