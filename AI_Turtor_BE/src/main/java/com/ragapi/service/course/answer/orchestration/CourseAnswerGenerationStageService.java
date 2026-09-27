@@ -61,9 +61,16 @@ public class CourseAnswerGenerationStageService {
                 answer = StudentAnswerCompletenessGuard.removeAbbreviatedExampleOutputs(answer);
             }
             if (StudentAnswerCompletenessGuard.isClearlyIncomplete(answer)
-                    || isIncompleteLesson(request, answer)) {
-                log.warn("Retrying grounded tutor generation after an incomplete student answer");
-                answer = generateUsableAnswer(prepared, prompt, request);
+                    || isIncompleteLesson(request, answer)
+                    || StudentFacingMessages.isInsufficientMaterialAnswer(answer)) {
+                log.warn("Retrying grounded tutor generation after an incomplete answer or an unsupported model refusal");
+                answer = generationService.generateGroundedQualityFallbackAnswer(
+                        recoveryPrompt(prompt),
+                        prepared.question(),
+                        request.teachingMode(),
+                        prepared.context(),
+                        request.learnerMemoryContext()
+                );
                 answer = GroundedContentGuard.stripUnsupportedOptionalSections(answer, prepared.context());
                 if (StudentAnswerCompletenessGuard.containsAbbreviatedExampleOutput(answer)) {
                     answer = StudentAnswerCompletenessGuard.removeAbbreviatedExampleOutputs(answer);
@@ -76,7 +83,7 @@ public class CourseAnswerGenerationStageService {
                 return resultService.softUnavailable(StudentFacingMessages.GENERATION_BUSY, prepared.sourceLabels());
             }
             if (StudentFacingMessages.isInsufficientMaterialAnswer(answer)) {
-                log.warn("Grounded tutor declined because it considered the supplied context insufficient");
+                log.warn("Grounded tutor declined twice despite passing deterministic grounding checks");
                 return resultService.blocked(
                         "Tài liệu hiện có của môn " + prepared.courseId()
                                 + " chưa đủ nội dung để trả lời chắc chắn. "
@@ -145,6 +152,16 @@ public class CourseAnswerGenerationStageService {
 
     private boolean hasText(String value) {
         return value != null && !value.isBlank();
+    }
+
+    private String recoveryPrompt(String prompt) {
+        return prompt + """
+
+                RECOVERY INSTRUCTION:
+                Deterministic retrieval and grounding checks already verified that the supplied course excerpts are
+                relevant enough to answer. Re-read those excerpts and answer only from them. Do not claim the course
+                material is missing merely because the wording of the question differs from a chapter heading.
+                """;
     }
 
     private boolean isIncompleteLesson(CourseAnswerRequest request, String answer) {

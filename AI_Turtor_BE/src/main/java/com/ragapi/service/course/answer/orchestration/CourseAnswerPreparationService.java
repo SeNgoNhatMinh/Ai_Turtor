@@ -96,7 +96,8 @@ public class CourseAnswerPreparationService {
                 improvePlanChunks
         );
         List<RetrievedCourseChunk> chunks = new ArrayList<>(retrieval.chunks());
-        ChapterPreviewView lessonPreview = lessonContextService.resolveLessonPreview(safeQuestion, safeCourseId);
+        ChapterPreviewView lessonPreview = lessonContextService.resolveLessonPreview(
+                safeQuestion, safeCourseId, ragQueryIntent);
         chunks = lessonContextService.pinLessonPreviewChunk(lessonPreview, chunks);
         logImprovePlanRetrieval(ragQueryIntent, safeCourseId, retrieval.retrievalQuestion(), improvePlanChunks, chunks);
 

@@ -79,6 +79,27 @@ public class CourseAnswerGenerationService {
             String learnerMemoryContext
     ) {
         String answer = chatService.generate(prompt, question);
+        return finalizeGroundedAnswer(answer, question, teachingMode, courseContext, learnerMemoryContext);
+    }
+
+    public String generateGroundedQualityFallbackAnswer(
+            String prompt,
+            String question,
+            String teachingMode,
+            String courseContext,
+            String learnerMemoryContext
+    ) {
+        String answer = chatService.generateQualityFallback(prompt, question);
+        return finalizeGroundedAnswer(answer, question, teachingMode, courseContext, learnerMemoryContext);
+    }
+
+    private String finalizeGroundedAnswer(
+            String answer,
+            String question,
+            String teachingMode,
+            String courseContext,
+            String learnerMemoryContext
+    ) {
         if (answer == null || answer.isBlank()) {
             return answer;
         }

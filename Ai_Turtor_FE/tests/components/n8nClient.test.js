@@ -94,12 +94,13 @@ describe('n8n HTTP client education contract', () => {
     expect(body.traceId).toBeTruthy();
   });
 
-  it('routes ordinary student chat through n8n and skips only provenance-backed turns', () => {
+  it('routes every student chat capability through the mandatory n8n Harness', () => {
     expect(shouldRouteStudentChatThroughN8n()).toBe(true);
     expect(shouldRouteStudentChatThroughN8n({ requestedMode: 'RAG' })).toBe(true);
-    expect(shouldRouteStudentChatThroughN8n({ requestedMode: 'CODE' })).toBe(false);
-    expect(shouldRouteStudentChatThroughN8n({ improvePlan: true })).toBe(false);
-    expect(shouldRouteStudentChatThroughN8n({ sourceProvenance: true })).toBe(false);
+    expect(shouldRouteStudentChatThroughN8n({ requestedMode: 'CODE' })).toBe(true);
+    expect(shouldRouteStudentChatThroughN8n({ improvePlan: true })).toBe(true);
+    expect(shouldRouteStudentChatThroughN8n({ sourceProvenance: true })).toBe(true);
+    expect(shouldRouteStudentChatThroughN8n({ guidedLesson: true })).toBe(true);
   });
 
   it('only includes a body token when an explicit legacy compatibility call requests it', async () => {

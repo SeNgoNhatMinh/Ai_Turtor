@@ -5,6 +5,8 @@ public interface CourseAnswerModelGateway {
 
     String generate(String prompt, String userMessage);
 
+    String generateQualityFallback(String prompt, String userMessage);
+
     String generateUtility(String prompt);
 
     boolean isOllamaOnlyActive();

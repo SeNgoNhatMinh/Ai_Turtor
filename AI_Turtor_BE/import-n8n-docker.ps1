@@ -32,6 +32,7 @@ function Wait-HttpOk {
 Write-Host 'Preparing docker-ready n8n workflow files...'
 New-Item -ItemType Directory -Force -Path $readyDir | Out-Null
 $base = $BackendBaseUrl.TrimEnd('/')
+$workflowIds = @()
 foreach ($file in $files) {
     $source = Join-Path $importDir $file
     if (-not (Test-Path $source)) {
@@ -39,6 +40,12 @@ foreach ($file in $files) {
     }
     $target = Join-Path $readyDir $file
     $json = Get-Content -Raw -Encoding UTF8 $source
+    $workflowDefinitions = $json | ConvertFrom-Json
+    @($workflowDefinitions) | ForEach-Object {
+        if ($_.id) {
+            $workflowIds += [string]$_.id
+        }
+    }
     $json = $json.Replace('http://host.docker.internal:8085', $base)
     [System.IO.File]::WriteAllText($target, $json, [System.Text.UTF8Encoding]::new($false))
     Write-Host "  -> $target"
@@ -57,13 +64,9 @@ foreach ($file in $files) {
 }
 
 Write-Host 'Publishing imported workflows...'
-$workflowList = docker exec ai-tutor-n8n n8n list:workflow 2>&1
-$workflowList | ForEach-Object {
-    if ($_ -match '^([^|]+)\|') {
-        $id = $Matches[1]
-        Write-Host "Publishing $id ..."
-        docker exec ai-tutor-n8n n8n publish:workflow --id=$id | Write-Host
-    }
+foreach ($id in ($workflowIds | Select-Object -Unique)) {
+    Write-Host "Publishing $id ..."
+    docker exec ai-tutor-n8n n8n publish:workflow --id=$id | Write-Host
 }
 
 Write-Host 'Restarting n8n to apply published workflows...'

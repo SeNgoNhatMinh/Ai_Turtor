@@ -29,6 +29,9 @@ export const n8nService = {
 
     const response = await postN8n('/student-chat', payload, {
       timeoutMs: N8N_CHAT_TIMEOUT_MS,
+      // Student Chat is the core Harness and must never be disabled by a
+      // missing/stale optional feature flag in a local or cached FE build.
+      allowWhenDisabled: true,
       ...options,
     });
     return normalizeN8nChatResponse(response, {

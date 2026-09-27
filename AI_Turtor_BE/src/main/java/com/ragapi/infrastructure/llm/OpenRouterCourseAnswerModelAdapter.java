@@ -18,6 +18,11 @@ public class OpenRouterCourseAnswerModelAdapter implements CourseAnswerModelGate
     }
 
     @Override
+    public String generateQualityFallback(String prompt, String userMessage) {
+        return chatService.generateQualityFallback(prompt, userMessage);
+    }
+
+    @Override
     public String generateUtility(String prompt) {
         return chatService.generateUtility(prompt);
     }

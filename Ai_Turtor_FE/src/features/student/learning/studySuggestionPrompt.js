@@ -33,6 +33,10 @@ export function teacherStudentPathLabel(text) {
   return '';
 }
 
+export function isGuidedLessonPrompt(text) {
+  return parseNumberedLesson(text)?.kind === 'lesson';
+}
+
 function isDeepDiveListPrompt(text) {
   return parseNumberedLesson(text)?.kind === 'deep-list';
 }
@@ -178,9 +182,24 @@ export function parseLessonSuggestionsFromAnswer(answer) {
 }
 
 export function lessonSuggestionsForMessage(message) {
-  const fromApi = Array.isArray(message?.nextImproveSuggestions) ? message.nextImproveSuggestions : [];
-  if (fromApi.length > 0) return fromApi;
-  return parseLessonSuggestionsFromAnswer(message?.answer || message?.content || '');
+  const hasApiSuggestions = Array.isArray(message?.nextImproveSuggestions);
+  const suggestions = hasApiSuggestions
+    ? message.nextImproveSuggestions
+    : parseLessonSuggestionsFromAnswer(message?.answer || message?.content || '');
+  if (suggestions.length === 0) return [];
+
+  return suggestions.map((suggestion) => ({
+    ...(typeof suggestion === 'object' && suggestion !== null
+      ? suggestion
+      : { title: String(suggestion || '').trim() }),
+    interactionType: 'GUIDED_LESSON',
+    sourceMaterialIds: Array.isArray(suggestion?.sourceMaterialIds)
+      ? suggestion.sourceMaterialIds
+      : [],
+    sourceChunkIds: Array.isArray(suggestion?.sourceChunkIds)
+      ? suggestion.sourceChunkIds
+      : [],
+  }));
 }
 
 export function buildStudySuggestionPrompt(suggestionText, suggestion = null) {

@@ -187,6 +187,19 @@ public class TutorSessionService {
         return requireSession(sessionId);
     }
 
+    /**
+     * Applies the authoritative level resolved for this request before its tutor prompt is built.
+     */
+    public TutorSession synchronizeTeacherControlledSupport(
+            String sessionId,
+            String requestedClassId,
+            String canonicalSupportLevel
+    ) {
+        TutorSession session = requireSession(sessionId);
+        synchronizeTeacherControlledSupport(session, requestedClassId, canonicalSupportLevel);
+        return session;
+    }
+
     public TutorSession registerConversation(String sessionId, String conversationId) {
         TutorSession session = requireSession(sessionId);
         if (conversationId != null && !conversationId.isBlank()
@@ -498,6 +511,21 @@ public class TutorSessionService {
             classId = trimToNull(session.getClassId());
         }
         String currentLevel = resolveSupportLevel(session.getStudentId(), session.getCourseId(), classId);
+        synchronizeTeacherControlledSupport(session, classId, currentLevel);
+    }
+
+    private void synchronizeTeacherControlledSupport(
+            TutorSession session,
+            String requestedClassId,
+            String canonicalSupportLevel
+    ) {
+        String classId = trimToNull(requestedClassId);
+        if (classId == null) {
+            classId = trimToNull(session.getClassId());
+        }
+        String currentLevel = canonicalSupportLevel == null || canonicalSupportLevel.isBlank()
+                ? PedagogicalDirectiveService.DEFAULT_SUPPORT_LEVEL
+                : canonicalSupportLevel.trim().toUpperCase(Locale.ROOT);
         boolean changed = !Objects.equals(currentLevel, session.getSupportLevel());
         if (classId != null && !Objects.equals(classId, session.getClassId())) {
             session.setClassId(classId);

@@ -24,15 +24,12 @@ export const N8N_TUTOR_V2_FLOW_TIMEOUT_MS = env.n8nTutorV2FlowTimeoutMs;
 export const N8N_TUTOR_V2_APPROVAL_TIMEOUT_MS = env.n8nTutorV2ApprovalTimeoutMs;
 export const N8N_TUTOR_V2_EVALUATION_TIMEOUT_MS = env.n8nTutorV2EvaluationTimeoutMs;
 
-export function shouldRouteStudentChatThroughN8n({
-  improvePlan = false,
-  sourceProvenance = false,
-  requestedMode = '',
-} = {}) {
-  return N8N_ENABLED
-    && String(requestedMode || '').toUpperCase() !== 'CODE'
-    && !improvePlan
-    && !sourceProvenance;
+// Student chat is a Harness capability: every interaction (RAG, CODE,
+// improve-plan and source-backed lesson turns) must enter through n8n. The
+// n8n client itself reports N8N_DISABLED when the Harness is not configured;
+// callers must never silently bypass it by invoking the backend directly.
+export function shouldRouteStudentChatThroughN8n() {
+  return true;
 }
 
 function createN8nError(userMessage = 'Luồng AI đang tạm thời gián đoạn.', details = null) {
@@ -67,8 +64,9 @@ export async function postN8n(path, body, {
   signal,
   timeoutMs = N8N_TIMEOUT_MS,
   includeAuthTokenInBody = false,
+  allowWhenDisabled = false,
 } = {}) {
-  if (!N8N_ENABLED) {
+  if (!N8N_ENABLED && !allowWhenDisabled) {
     throw createN8nError('Luồng AI hiện chưa được bật.', { code: 'N8N_DISABLED' });
   }
   const url = n8nUrl(path);

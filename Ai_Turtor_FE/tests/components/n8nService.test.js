@@ -35,7 +35,10 @@ describe('n8n education workflow service', () => {
       courseId: 'PRO192',
       classId: 'SE1833',
       message: 'OOP là gì?',
-    }, { timeoutMs: 180_000 });
+    }, {
+      timeoutMs: 180_000,
+      allowWhenDisabled: true,
+    });
 
     postN8n.mockResolvedValue({ success: true, status: 'SUBMITTED' });
     await n8nService.submitAnswerReview({ mode: 'RAG_TUTOR' });

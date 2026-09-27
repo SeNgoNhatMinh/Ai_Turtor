@@ -85,12 +85,22 @@ public class PedagogicalDirectiveService {
     }
 
     public String buildTutorContext(String studentId, String courseId, String classId) {
+        return resolveTutorGuidance(studentId, courseId, classId).tutorContext();
+    }
+
+    /**
+     * Resolves the teacher-controlled support level and its prompt context from the same
+     * directive snapshot. Reusing this snapshot for a whole tutor turn prevents a concurrent
+     * directive update from mixing an old session level with new prompt guidance.
+     */
+    public TutorGuidanceSnapshot resolveTutorGuidance(String studentId, String courseId, String classId) {
         List<PedagogicalDirective> directives = activeDirectives(studentId, courseId, classId);
-        if (directives.isEmpty()) return "";
+        String supportLevel = resolveSupportLevel(directives);
+        if (directives.isEmpty()) return new TutorGuidanceSnapshot(supportLevel, "");
 
         StringBuilder context = new StringBuilder()
                 .append("- ACTIVE SUPPORT LEVEL: ")
-                .append(resolveSupportLevel(directives))
+                .append(supportLevel)
                 .append("\n")
                 .append("- This level was explicitly selected by a teacher. Apply it immediately; ")
                 .append("the student does not need to answer incorrectly first.");
@@ -99,8 +109,10 @@ public class PedagogicalDirectiveService {
                 .forEach(directive -> context.append("\n- Teacher guidance: ")
                         .append(directive.getTopic() == null ? "" : directive.getTopic() + ": ")
                         .append(directive.getInstruction()));
-        return context.toString();
+        return new TutorGuidanceSnapshot(supportLevel, context.toString());
     }
+
+    public record TutorGuidanceSnapshot(String supportLevel, String tutorContext) {}
 
     /**
      * The support level is teacher-controlled. Learning memory and quiz mistakes must never

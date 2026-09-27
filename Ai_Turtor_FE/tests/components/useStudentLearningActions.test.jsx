@@ -57,4 +57,42 @@ describe('useStudentLearningActions', () => {
       }),
     );
   });
+
+  it('marks a roadmap lesson as guided even when an older session has no provenance', () => {
+    const sendChatMessage = vi.fn();
+    const { result } = renderHook(() => useStudentLearningActions({ sendChatMessage }));
+
+    act(() => result.current.handleStudySuggestion('Bắt đầu bài 2: Sử dụng continue trong vòng lặp while'));
+
+    expect(sendChatMessage).toHaveBeenCalledWith(
+      'Bắt đầu bài 2: Sử dụng continue trong vòng lặp while',
+      expect.objectContaining({
+        interactionType: 'GUIDED_LESSON',
+        clickedSuggestion: 'Bắt đầu bài 2: Sử dụng continue trong vòng lặp while',
+      }),
+    );
+  });
+
+  it('passes the exact chapter identity for a grounded guided lesson', () => {
+    const sendChatMessage = vi.fn();
+    const { result } = renderHook(() => useStudentLearningActions({ sendChatMessage }));
+
+    act(() => result.current.handleStudySuggestion({
+      title: 'Bai 2: Dictionary debugging',
+      interactionType: 'GUIDED_LESSON',
+      chapterKey: 'dictionary-debugging',
+      chapterTitle: 'Dictionary debugging',
+      sourceMaterialIds: ['python-book'],
+    }));
+
+    expect(sendChatMessage).toHaveBeenCalledWith(
+      expect.stringContaining('Dictionary debugging'),
+      expect.objectContaining({
+        interactionType: 'GUIDED_LESSON',
+        chapterKey: 'dictionary-debugging',
+        chapterTitle: 'Dictionary debugging',
+        sourceMaterialIds: ['python-book'],
+      }),
+    );
+  });
 });

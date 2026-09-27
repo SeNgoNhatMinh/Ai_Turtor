@@ -126,12 +126,24 @@ public class OpenRouterChatService {
     }
 
     public String generate(String prompt, String studentQuestion) {
+        return generate(prompt, studentQuestion, false);
+    }
+
+    public String generateQualityFallback(String prompt, String studentQuestion) {
+        return generate(prompt, studentQuestion, true);
+    }
+
+    private String generate(String prompt, String studentQuestion, boolean qualityFallback) {
         String wrapped = VietnameseOutputEnforcer.wrapPrompt(prompt);
         if (ollamaOnlyActive) {
             wrapped = VietnameseOutputEnforcer.wrapOllamaCompleteness(wrapped);
         }
         try {
-            LlmProviderChain.Result result = generateInternalResult(wrapped, "answer");
+            LlmProviderChain.Result result = generateInternalResult(
+                    wrapped,
+                    qualityFallback ? "answer-quality-fallback" : "answer",
+                    qualityFallback
+            );
             if (ollamaOnlyActive) {
                 String raw = result.text() == null ? "" : result.text();
                 log.info("Ollama generation size: promptChars={}, answerChars={}",
@@ -206,6 +218,14 @@ public class OpenRouterChatService {
     }
 
     private LlmProviderChain.Result generateInternalResult(String prompt, String operation) throws Exception {
+        return generateInternalResult(prompt, operation, false);
+    }
+
+    private LlmProviderChain.Result generateInternalResult(
+            String prompt,
+            String operation,
+            boolean qualityFallback
+    ) throws Exception {
         String safePrompt = privacySanitizer.sanitize(prompt);
         LlmProviderChain chain = providerChain;
         if (chain == null) {
@@ -213,7 +233,9 @@ public class OpenRouterChatService {
         }
         long startedNanos = System.nanoTime();
         try {
-            LlmProviderChain.Result result = chain.generate(safePrompt);
+            LlmProviderChain.Result result = qualityFallback
+                    ? chain.generateQualityFallback(safePrompt, this::isAcceptableQualityFallback)
+                    : chain.generate(safePrompt);
             log.info("LLM generation succeeded: operation={}, provider={}, model={}, elapsedMs={}",
                     operation, result.provider(), result.model(), elapsedMillis(startedNanos));
             return result;
@@ -226,6 +248,14 @@ public class OpenRouterChatService {
 
     private long elapsedMillis(long startedNanos) {
         return Duration.ofNanos(System.nanoTime() - startedNanos).toMillis();
+    }
+
+    private boolean isAcceptableQualityFallback(String rawAnswer) {
+        String answer = TextSanitizer.cleanForStudentAnswer(rawAnswer);
+        return answer != null
+                && !answer.isBlank()
+                && !StudentFacingMessages.isUnavailableMessage(answer)
+                && !StudentFacingMessages.isInsufficientMaterialAnswer(answer);
     }
 
     private List<LlmProviderChain.Provider> buildProviders(List<LlmRuntimeSlot> slots) {

@@ -1,8 +1,22 @@
-import { useEffect, useRef, useState } from 'react';
-import { REALTIME_EVENT_TYPES } from '../../realtime/realtimeEvents';
-import { useRealtimeEvent, useRealtimeReconnect } from '../../realtime/realtimeContext';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  eventTargetsTutorStudent,
+  REALTIME_EVENT_TYPES,
+} from '../../realtime/realtimeEvents';
+import {
+  useCanonicalPolling,
+  useRealtimeEvent,
+  useRealtimeReconnect,
+} from '../../realtime/realtimeContext';
 import { getUserFacingError } from '../../../services/apiClient';
 import { tutorSessionApi } from '../../../services/tutorSessionApi';
+
+const SUPPORT_LEVELS = new Set(['HIGH_SUPPORT', 'STANDARD', 'CHALLENGE']);
+
+const normalizeSupportLevel = (level) => {
+  const normalized = String(level || '').trim().toUpperCase();
+  return SUPPORT_LEVELS.has(normalized) ? normalized : 'STANDARD';
+};
 
 const getOpeningContent = (openingMessage) => String(openingMessage?.content || '').trim();
 
@@ -37,6 +51,7 @@ export function useTutorSessionController({
   const courseIdRef = useRef(courseId);
   const userIdRef = useRef(userId);
   const classIdRef = useRef(classId);
+  const supportRefreshInFlightRef = useRef(null);
 
   useEffect(() => {
     activeSessionIdRef.current = activeSessionId;
@@ -78,6 +93,49 @@ export function useTutorSessionController({
     ));
   };
 
+  const refreshTutorSupport = useCallback(async () => {
+    const scope = {
+      studentId: userIdRef.current,
+      courseId: courseIdRef.current,
+      classId: classIdRef.current,
+    };
+    if (!scope.studentId || !scope.courseId) return null;
+    const scopeKey = [scope.studentId, scope.courseId, scope.classId].map(String).join('|');
+    if (supportRefreshInFlightRef.current?.scopeKey === scopeKey) {
+      return supportRefreshInFlightRef.current.promise;
+    }
+
+    const refreshPromise = tutorSessionApi.getStudentSupportProfile(
+      scope.studentId,
+      scope.courseId,
+      scope.classId,
+      { skipUnauthorizedRedirect: true },
+    ).then((profile) => {
+      if (
+        String(scope.studentId) !== String(userIdRef.current || '')
+        || String(scope.courseId) !== String(courseIdRef.current || '')
+        || String(scope.classId || '') !== String(classIdRef.current || '')
+      ) {
+        return profile;
+      }
+      const supportLevel = normalizeSupportLevel(profile?.supportLevel);
+      setActiveTutorSession((session) => session ? {
+        ...session,
+        supportLevel,
+        teacherControlled: profile?.teacherControlled !== false,
+        hasActiveTeacherDirective: Boolean(profile?.hasActiveTeacherDirective),
+      } : session);
+      return profile;
+    }).finally(() => {
+      if (supportRefreshInFlightRef.current?.promise === refreshPromise) {
+        supportRefreshInFlightRef.current = null;
+      }
+    });
+
+    supportRefreshInFlightRef.current = { scopeKey, promise: refreshPromise };
+    return refreshPromise;
+  }, []);
+
   const openTutorSession = async () => {
     if (!userId || !courseId || !classId || isTutorSessionLoading || tutorOpenInFlightRef.current) {
       return null;
@@ -92,8 +150,12 @@ export function useTutorSessionController({
         classId,
       }, { skipUnauthorizedRedirect: true });
       const session = data?.session || null;
-      mergeTutorSession(session);
+      mergeTutorSession(session ? {
+        ...session,
+        supportLevel: normalizeSupportLevel(session.supportLevel),
+      } : session);
       setTutorSessionSummary(null);
+      await refreshTutorSupport().catch(() => null);
 
       const conversationId = data?.conversationId;
       await loadChatSessions({ silent: true });
@@ -118,10 +180,15 @@ export function useTutorSessionController({
 
   useRealtimeEvent(REALTIME_EVENT_TYPES.tutorSession, (event) => {
     const payload = event?.data || {};
-    const session = payload.session;
+    const session = payload.session || payload.tutorSession;
+    if (!eventTargetsTutorStudent(event, {
+      studentId: userIdRef.current,
+      courseId: courseIdRef.current,
+      classId: classIdRef.current,
+    })) return;
+
+    refreshTutorSupport().catch(() => {});
     if (!session?.id) return;
-    if (String(session.courseId || payload.courseId || '') !== String(courseIdRef.current || '')) return;
-    if (session.studentId && String(session.studentId) !== String(userIdRef.current || '')) return;
 
     mergeTutorSession(session);
     if (event.type !== 'TUTOR_SESSION_OPENED') return;
@@ -140,9 +207,24 @@ export function useTutorSessionController({
     seedOpeningMessage(payload.openingMessage);
   });
 
+  useRealtimeEvent(REALTIME_EVENT_TYPES.pedagogicalDirective, (event) => {
+    if (!eventTargetsTutorStudent(event, {
+      studentId: userIdRef.current,
+      courseId: courseIdRef.current,
+      classId: classIdRef.current,
+    })) return;
+    refreshTutorSupport().catch(() => {});
+  });
+
   useRealtimeReconnect(() => {
     if (!userIdRef.current || !courseIdRef.current || !classIdRef.current) return;
-    openTutorSession();
+    refreshTutorSupport().catch(() => {});
+  });
+
+  useCanonicalPolling(refreshTutorSupport, {
+    enabled: Boolean(userId && courseId && classId),
+    intervalMs: 5000,
+    refreshOnFocus: true,
   });
 
   const closeTutorSessionIfDailyComplete = async (remaining) => {

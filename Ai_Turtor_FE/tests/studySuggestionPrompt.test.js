@@ -88,12 +88,51 @@ Bạn muốn bắt đầu với bài nào? Gợi ý: **Bắt đầu bài 1: Gi�
   ]);
 });
 
-test('uses parsed lessons when the API did not send nextImproveSuggestions', () => {
+test('uses parsed lessons only for historical messages without the API field', () => {
   const parsed = lessonSuggestionsForMessage({
     answer: '1. Bài 1: Servlet là gì?\n2. Bài 2: Request',
-    nextImproveSuggestions: [],
   });
   assert.equal(parsed[0].title, 'Bắt đầu bài 1: Servlet là gì?');
+});
+
+test('does not expose unverified lessons when the API returns no grounded chapters', () => {
+  const parsed = lessonSuggestionsForMessage({
+    answer: '1. Bai 1: Invented topic\n2. Bai 2: Another invented topic',
+    nextImproveSuggestions: [],
+  });
+  assert.deepEqual(parsed, []);
+});
+
+test('does not copy generic roadmap evidence into guided lessons', () => {
+  const parsed = lessonSuggestionsForMessage({
+    answer: '1. Bai 1: Vong lap while\n2. Bai 2: Lenh continue',
+    sourceEvidence: [
+      { materialId: 'python-book', chunkId: 'loops-1' },
+      { materialId: 'python-book', chunkId: 'loops-2' },
+    ],
+  });
+
+  assert.equal(parsed[0].interactionType, 'GUIDED_LESSON');
+  assert.deepEqual(parsed[0].sourceMaterialIds, []);
+  assert.deepEqual(parsed[0].sourceChunkIds, []);
+});
+
+test('keeps chapter-bound provenance supplied for each guided lesson', () => {
+  const parsed = lessonSuggestionsForMessage({
+    nextImproveSuggestions: [{
+      title: 'Bai 2: Dictionary debugging',
+      chapterKey: 'dictionary-debugging',
+      chapterTitle: 'Dictionary debugging',
+      sourceMaterialIds: ['python-book'],
+      sourceChunkIds: ['dictionary-2'],
+    }],
+    sourceEvidence: [{ materialId: 'wrong-material', chunkId: 'copyright-page' }],
+  });
+
+  assert.equal(parsed[0].chapterKey, 'dictionary-debugging');
+  assert.equal(parsed[0].chapterTitle, 'Dictionary debugging');
+  assert.deepEqual(parsed[0].sourceMaterialIds, ['python-book']);
+  assert.deepEqual(parsed[0].sourceChunkIds, ['dictionary-2']);
 });
 
 test('asks AI for deeper angles of the current numbered lesson', () => {

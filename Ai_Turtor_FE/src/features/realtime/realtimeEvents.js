@@ -5,6 +5,15 @@ const WS_PROTOCOL = {
 
 export const REALTIME_EVENT_TYPES = Object.freeze({
   tutorSession: ['TUTOR_SESSION_OPENED', 'TUTOR_SESSION_UPDATED'],
+  pedagogicalDirective: [
+    'PEDAGOGICAL_DIRECTIVE_CONFIRMED',
+    'PEDAGOGICAL_DIRECTIVE_ARCHIVED',
+    // Keep compatibility with early backend event names.
+    'TUTOR_DIRECTIVE_CONFIRMED',
+    'TUTOR_DIRECTIVE_ARCHIVED',
+    'DIRECTIVE_CONFIRMED',
+    'DIRECTIVE_ARCHIVED',
+  ],
   material: ['MATERIAL_INDEXING', 'MATERIAL_INDEXED', 'MATERIAL_INDEXING_FAILED'],
   studentAssignment: ['ASSIGNMENT_ASSIGNED', 'ASSIGNMENT_REVIEWED'],
   teacherAssignment: ['ASSIGNMENT_SUBMITTED'],
@@ -82,4 +91,24 @@ export function normalizeRealtimeEvent(value) {
 export function eventMatchesCourse(event, courseId) {
   const eventCourseId = String(event?.data?.courseId || '').trim();
   return !courseId || !eventCourseId || eventCourseId.toUpperCase() === String(courseId).trim().toUpperCase();
+}
+
+function normalizedId(value) {
+  return String(value || '').trim().toUpperCase();
+}
+
+export function eventTargetsTutorStudent(event, { studentId, courseId, classId } = {}) {
+  const data = event?.data || {};
+  const resource = data.session || data.directive || data.tutorSession || data.pedagogicalDirective || data;
+  const eventStudentId = normalizedId(resource.studentId || data.studentId);
+  const eventCourseId = normalizedId(resource.courseId || data.courseId);
+  const eventClassId = normalizedId(resource.classId || data.classId);
+  const currentStudentId = normalizedId(studentId);
+  const currentCourseId = normalizedId(courseId);
+  const currentClassId = normalizedId(classId);
+
+  if (eventStudentId && currentStudentId && eventStudentId !== currentStudentId) return false;
+  if (eventCourseId && currentCourseId && eventCourseId !== currentCourseId) return false;
+  if (eventClassId && currentClassId && eventClassId !== currentClassId) return false;
+  return true;
 }

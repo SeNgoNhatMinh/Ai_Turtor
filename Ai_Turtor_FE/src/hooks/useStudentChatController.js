@@ -1,9 +1,7 @@
 import { useEffect, useRef } from 'react';
-import { aiTutorApi } from '../services/aiTutorApi';
 import { conversationApi } from '../services/conversationApi';
 import { getUserFacingError } from '../services/apiClient';
 import { asArray, pairMessages } from '../services/normalizers';
-import { N8N_STRICT, shouldRouteStudentChatThroughN8n } from '../services/n8nClient';
 import { n8nService } from '../services/n8nService';
 import {
   buildAiServiceErrorMessage,
@@ -25,6 +23,7 @@ import {
 } from '../features/student/chat/chatAnswerRecovery';
 import { useDailyQuestionQuota } from '../features/student/chat/useDailyQuestionQuota';
 import { useTutorSessionController } from '../features/student/chat/useTutorSessionController';
+import { isGuidedLessonPrompt } from '../features/student/learning/studySuggestionPrompt';
 
 const getSafeConversationTitle = (value, courseId) => {
   const repairedTitle = repairMojibake(value).trim();
@@ -173,79 +172,64 @@ export function useStudentChatController({
           clickedSuggestion: requestContext.clickedSuggestion || requestContext.displayQuestion || text,
         }
         : {};
-      const improvePlan = Object.keys(improvePlanPayload).length > 0;
-      const sourceProvenance = Object.keys(sourceProvenancePayload).length > 0;
-      if (shouldRouteStudentChatThroughN8n({ improvePlan, sourceProvenance, requestedMode })) {
-        try {
-          data = await n8nService.sendStudentChat({
-            studentId: userId,
-            studentName: currentUser?.fullName || '',
-            studentEmail: currentUser?.email || '',
-            courseId,
-            classId,
-            message: text,
-            question: text,
-            codeSnippet: codeSnippet || '',
-            conversationId: previousSessionId || '',
-            tutorSessionId: activeTutorSession?.id || '',
-            sessionPhase: activeTutorSession?.phase || 'TEACH',
-            interactionType: requestContext.interactionType || '',
-            requestedMode: requestedMode === 'CODE' ? 'CODE' : undefined,
-            ...improvePlanPayload,
-          }, { signal: requestController.signal });
-        } catch (n8nError) {
-          if (requestController.signal.aborted) throw n8nError;
-          if (isDailyCourseQuotaError(n8nError)) throw n8nError;
-          if (isN8nTimeoutError(n8nError)) {
-            console.warn('n8n timed out; waiting for the in-flight answer instead of generating again');
-            const recovered = await recoverInFlightAnswer({
-              conversationId: previousSessionId || '',
-              userId,
-              question: text,
-              signal: requestController.signal,
-              loadSessions: (opts) => loadChatSessions(opts),
-            });
-            if (recovered) {
-              data = recovered;
-            } else {
-              throw n8nError;
-            }
-          } else {
-            if (N8N_STRICT) throw n8nError;
-            console.warn('n8n request failed, trying backend API fallback:', n8nError);
-            data = await aiTutorApi.sendQuery({
-              question: text,
-              message: text,
-              codeSnippet: codeSnippet || null,
-              requestedMode,
-              courseId,
-              classId,
-              conversationId: previousSessionId || null,
-              tutorSessionId: activeTutorSession?.id || null,
-              sessionPhase: activeTutorSession?.phase || 'TEACH',
-              ...improvePlanPayload,
-              ...sourceProvenancePayload,
-            }, userId, currentUser?.fullName || '', currentUser?.email || '', {
-              signal: requestController.signal,
-            });
-          }
+      const guidedLesson = requestContext.interactionType === 'GUIDED_LESSON'
+        || isGuidedLessonPrompt(text);
+      const effectiveInteractionType = requestContext.interactionType
+        || (guidedLesson ? 'GUIDED_LESSON' : '');
+      const interactionPayload = effectiveInteractionType
+        ? {
+          interactionType: effectiveInteractionType,
+          clickedSuggestion: requestContext.clickedSuggestion || requestContext.displayQuestion || text,
         }
-      } else {
-        data = await aiTutorApi.sendQuery({
-          question: text,
-          message: text,
-          codeSnippet: codeSnippet || null,
-          requestedMode,
+        : {};
+      const lessonProvenancePayload = requestContext.interactionType === 'GUIDED_LESSON'
+        ? {
+          chapterKey: requestContext.chapterKey || '',
+          chapterTitle: requestContext.chapterTitle || '',
+        }
+        : {};
+      try {
+        data = await n8nService.sendStudentChat({
+          studentId: userId,
+          studentName: currentUser?.fullName || '',
+          studentEmail: currentUser?.email || '',
           courseId,
           classId,
-          conversationId: previousSessionId || null,
-          tutorSessionId: activeTutorSession?.id || null,
+          message: text,
+          question: text,
+          codeSnippet: codeSnippet || '',
+          requestedMode,
+          conversationId: previousSessionId || '',
+          tutorSessionId: activeTutorSession?.id || '',
           sessionPhase: activeTutorSession?.phase || 'TEACH',
           ...improvePlanPayload,
+          ...interactionPayload,
           ...sourceProvenancePayload,
-        }, userId, currentUser?.fullName || '', currentUser?.email || '', {
-          signal: requestController.signal,
-        });
+          ...lessonProvenancePayload,
+        }, { signal: requestController.signal });
+      } catch (n8nError) {
+        if (requestController.signal.aborted) throw n8nError;
+        if (isDailyCourseQuotaError(n8nError)) throw n8nError;
+        if (isN8nTimeoutError(n8nError)) {
+          console.warn('n8n timed out; waiting for the in-flight answer instead of generating again');
+          const recovered = await recoverInFlightAnswer({
+            conversationId: previousSessionId || '',
+            userId,
+            question: text,
+            signal: requestController.signal,
+            loadSessions: (opts) => loadChatSessions(opts),
+          });
+          if (recovered) {
+            data = recovered;
+          } else {
+            throw n8nError;
+          }
+        } else {
+          // Harness is mandatory. Do not create a second, untraced backend RAG
+          // request when n8n fails because that loses workflow context and can
+          // duplicate the student's quota/conversation turn.
+          throw n8nError;
+        }
       }
 
       const responseConversationId = data.conversationId || previousSessionId;

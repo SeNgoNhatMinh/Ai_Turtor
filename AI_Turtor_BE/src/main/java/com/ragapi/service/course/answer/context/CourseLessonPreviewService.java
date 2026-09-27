@@ -2,6 +2,7 @@ package com.ragapi.service.course.answer.context;
 
 import com.ragapi.dto.cotraining.ChapterPreviewView;
 import com.ragapi.dto.cotraining.ChapterSourceMaterialView;
+import com.ragapi.dto.RagQueryIntent;
 import com.ragapi.entity.CourseMaterial;
 import com.ragapi.service.course.gateway.CourseMaterialStoreGateway;
 import com.ragapi.service.ChapterOutlineService;
@@ -31,6 +32,14 @@ public class CourseLessonPreviewService {
     private final ChapterOutlineService chapterOutlineService;
 
     public ChapterPreviewView resolve(String question, String courseId) {
+        return resolve(question, courseId, null);
+    }
+
+    public ChapterPreviewView resolve(String question, String courseId, RagQueryIntent intent) {
+        ChapterPreviewView exactPreview = resolveExactChapter(courseId, intent);
+        if (isUsable(exactPreview)) {
+            return exactPreview;
+        }
         String lessonTitle = extractLessonTitle(question);
         if (lessonTitle == null || lessonTitle.isBlank()) {
             return null;
@@ -51,6 +60,40 @@ public class CourseLessonPreviewService {
             log.debug("Could not resolve chapter preview for lesson '{}': {}", lessonTitle, exception.getMessage());
         }
         return null;
+    }
+
+    private ChapterPreviewView resolveExactChapter(String courseId, RagQueryIntent intent) {
+        if (intent == null) {
+            return null;
+        }
+        try {
+            ChapterPreviewView preview = null;
+            if (intent.getChapterKey() != null && !intent.getChapterKey().isBlank()) {
+                preview = chapterOutlineService.previewChapter(courseId, intent.getChapterKey().trim(), true);
+            } else if (intent.getChapterTitle() != null && !intent.getChapterTitle().isBlank()) {
+                preview = chapterOutlineService.previewChapterByTitle(
+                        courseId, intent.getChapterTitle().trim(), true);
+            }
+            if (isUsable(preview)) {
+                log.info(
+                        "Pinned exact guided-lesson chapter (courseId={}, chapterKey={}, title={}, chars={})",
+                        courseId,
+                        preview.getChapterKey(),
+                        preview.getTitle(),
+                        preview.getExcerpt() == null ? 0 : preview.getExcerpt().length()
+                );
+            }
+            return preview;
+        } catch (Exception exception) {
+            log.warn(
+                    "Could not resolve exact guided-lesson chapter (courseId={}, chapterKey={}, chapterTitle={}): {}",
+                    courseId,
+                    intent.getChapterKey(),
+                    intent.getChapterTitle(),
+                    exception.getMessage()
+            );
+            return null;
+        }
     }
 
     public boolean isUsable(ChapterPreviewView preview) {

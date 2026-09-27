@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   buildRealtimeSocketUrl,
   eventMatchesCourse,
+  eventTargetsTutorStudent,
   getRealtimeEventDedupeKey,
   normalizeRealtimeEvent,
   REALTIME_EVENT_TYPES,
@@ -37,6 +38,7 @@ test('filters scoped events without dropping envelopes that omit course data', (
 test('covers Tutor V2 event names and creates an idempotency key', () => {
   assert.equal(REALTIME_EVENT_TYPES.tutorV2.includes('GOLD_QA_SUBMITTED'), true);
   assert.equal(REALTIME_EVENT_TYPES.tutorSession.includes('TUTOR_SESSION_OPENED'), true);
+  assert.equal(REALTIME_EVENT_TYPES.pedagogicalDirective.includes('PEDAGOGICAL_DIRECTIVE_CONFIRMED'), true);
   assert.equal(REALTIME_EVENT_TYPES.teacherPresence.includes('TEACHER_PRESENCE_CHANGED'), true);
   assert.equal(REALTIME_EVENT_TYPES.tutorV2.includes('EVAL_RUN_COMPLETED'), true);
   assert.equal(getRealtimeEventDedupeKey({
@@ -46,4 +48,20 @@ test('covers Tutor V2 event names and creates an idempotency key', () => {
     status: 'PENDING_REVIEW',
   }), 'GOLD_QA_SUBMITTED|GOLD_QA|gold-1|PENDING_REVIEW');
   assert.equal(getRealtimeEventDedupeKey({ type: 'CONNECTED' }), '');
+});
+
+test('matches tutor events for a student and accepts class-wide directives', () => {
+  const scope = { studentId: 'student-1', courseId: 'PRJ301', classId: 'SE1840' };
+  assert.equal(eventTargetsTutorStudent({
+    data: { directive: { studentId: 'student-1', courseId: 'prj301', classId: 'se1840' } },
+  }, scope), true);
+  assert.equal(eventTargetsTutorStudent({
+    data: { directive: { studentId: '', courseId: 'PRJ301', classId: 'SE1840' } },
+  }, scope), true);
+  assert.equal(eventTargetsTutorStudent({
+    data: { directive: { studentId: 'student-2', courseId: 'PRJ301', classId: 'SE1840' } },
+  }, scope), false);
+  assert.equal(eventTargetsTutorStudent({
+    data: { session: { studentId: 'student-1', courseId: 'OSG202', classId: 'SE1840' } },
+  }, scope), false);
 });

@@ -1,5 +1,5 @@
 import { writeQuizTopicHandoff } from '../studentRouteHandoff';
-import { buildStudySuggestionPrompt } from './studySuggestionPrompt';
+import { buildStudySuggestionPrompt, isGuidedLessonPrompt } from './studySuggestionPrompt';
 
 const getSuggestionText = (suggestion) => String(
   suggestion?.suggestionText
@@ -29,17 +29,23 @@ export function useStudentLearningActions({
     const sourceChunkIds = Array.isArray(suggestion?.sourceChunkIds)
       ? suggestion.sourceChunkIds.filter(Boolean)
       : [];
+    const chapterKey = String(suggestion?.chapterKey || '').trim();
+    const chapterTitle = String(suggestion?.chapterTitle || '').trim();
     const hasSourceProvenance = sourceMaterialIds.length > 0;
-    const requestContext = hasImprovePlanProvenance || hasSourceProvenance
+    const isGuidedLesson = isGuidedLessonPrompt(prompt);
+    const requestContext = hasImprovePlanProvenance || hasSourceProvenance || isGuidedLesson
       ? {
         interactionType: hasImprovePlanProvenance
           ? 'IMPROVE_PLAN_REVIEW'
-          : (suggestion?.interactionType || 'SOURCE_BACKED_STUDY_TIP'),
+          : (suggestion?.interactionType
+            || (isGuidedLesson ? 'GUIDED_LESSON' : 'SOURCE_BACKED_STUDY_TIP')),
         displayQuestion: text,
         improvePlanId: suggestion?.improvePlanId || '',
         planItemId: suggestion?.planItemId || '',
         sourceMaterialIds,
         sourceChunkIds,
+        chapterKey,
+        chapterTitle,
         clickedSuggestion: text,
       }
       : {};

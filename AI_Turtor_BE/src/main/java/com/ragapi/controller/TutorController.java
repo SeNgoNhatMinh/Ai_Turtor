@@ -16,6 +16,7 @@ import com.ragapi.service.CodeMentorService;
 import com.ragapi.service.course.gateway.CourseAnswerGateway;
 import com.ragapi.service.ImprovePlanService;
 import com.ragapi.service.IntentClassifierService;
+import com.ragapi.service.LearningPathGroundingService;
 import com.ragapi.service.MentorEscalationService;
 import com.ragapi.service.PedagogicalDirectiveService;
 import com.ragapi.service.StudentCourseMemoryService;
@@ -70,6 +71,7 @@ public class TutorController {
     private final PedagogicalDirectiveService pedagogicalDirectiveService;
     private final TutorSessionService tutorSessionService;
     private final ImprovePlanService improvePlanService;
+    private final LearningPathGroundingService learningPathGroundingService;
 
     @GetMapping("/tutor/students/{studentId}/courses/{courseId}/question-quota")
     @Operation(summary = "Get today's per-course question quota for a student")
@@ -183,6 +185,9 @@ public class TutorController {
             String codeSnippet = optionalCodeSnippet(request.getCodeSnippet(), "codeSnippet");
             String courseId = requireText(request.getCourseId(), "courseId");
             String classId = normalizeScopeValue(request.getClassId());
+            PedagogicalDirectiveService.TutorGuidanceSnapshot tutorGuidance =
+                    pedagogicalDirectiveService.resolveTutorGuidance(userId, courseId, classId);
+            String canonicalSupportLevel = tutorGuidance.supportLevel();
             boolean persistTurn = !Boolean.FALSE.equals(request.getPersist());
             if (isStudent(authentication) && persistTurn && !Boolean.TRUE.equals(request.getQuotaConsumed())) {
                 questionQuotaService.consume(authentication.getName(), courseId);
@@ -196,17 +201,15 @@ public class TutorController {
             }
             String sessionTopic = null;
             String sessionPhase = request.getSessionPhase();
-            String sessionSupportLevel = "STANDARD";
+            String sessionSupportLevel = canonicalSupportLevel;
             List<String> sessionSuggestedTopics = List.of();
             if (request.getTutorSessionId() != null && !request.getTutorSessionId().isBlank()) {
                 try {
-                    TutorSession activeSession = tutorSessionService.getSession(request.getTutorSessionId());
+                    TutorSession activeSession = tutorSessionService.synchronizeTeacherControlledSupport(
+                            request.getTutorSessionId(), classId, canonicalSupportLevel);
                     sessionTopic = activeSession.getTopic();
                     if (activeSession.getPhase() != null && !activeSession.getPhase().isBlank()) {
                         sessionPhase = activeSession.getPhase();
-                    }
-                    if (activeSession.getSupportLevel() != null && !activeSession.getSupportLevel().isBlank()) {
-                        sessionSupportLevel = activeSession.getSupportLevel();
                     }
                     if (activeSession.getSuggestedTopics() != null) {
                         sessionSuggestedTopics = activeSession.getSuggestedTopics();
@@ -241,6 +244,15 @@ public class TutorController {
             if (isUnderstandingRemediation(question)) {
                 routingMode = IntentClassifierService.MODE_RAG;
             }
+            boolean guidedLesson = request != null
+                    && "GUIDED_LESSON".equalsIgnoreCase(request.getInteractionType());
+            if (guidedLesson) {
+                routingMode = IntentClassifierService.MODE_RAG;
+                intent.setMode(IntentClassifierService.MODE_RAG);
+                intent.setSubIntent("LESSON_TEACH");
+                intent.setRequiresCourseMaterial(true);
+                intent.setRoutingStrategy("GUIDED_LESSON");
+            }
             RagQueryIntent improvePlanIntent = improvePlanService.resolveReviewIntent(
                     userId,
                     courseId,
@@ -252,11 +264,11 @@ public class TutorController {
             if (provenanceIntent != null) {
                 routingMode = IntentClassifierService.MODE_RAG;
                 intent.setMode(IntentClassifierService.MODE_RAG);
-                intent.setSubIntent("EXPLAIN_CONCEPT");
+                intent.setSubIntent(guidedLesson ? "LESSON_TEACH" : "EXPLAIN_CONCEPT");
                 intent.setRequiresCourseMaterial(true);
                 intent.setRoutingStrategy(improvePlanIntent != null
                         ? "IMPROVE_PLAN_PROVENANCE"
-                        : "SOURCE_BACKED_STUDY_TIP");
+                        : (guidedLesson ? "GUIDED_LESSON_PROVENANCE" : "SOURCE_BACKED_STUDY_TIP"));
                 if (improvePlanIntent != null
                         && improvePlanIntent.getLearningObjective() != null
                         && !improvePlanIntent.getLearningObjective().isBlank()) {
@@ -278,8 +290,7 @@ public class TutorController {
                         request, question, courseId, classId, userId, userName, userEmail, intent);
             }
 
-            String pedagogicalContext = pedagogicalDirectiveService.buildTutorContext(
-                    userId, courseId, classId);
+            String pedagogicalContext = tutorGuidance.tutorContext();
             String learnerContext = studentCourseMemoryService.buildTutorContext(userId, courseId);
             if (improvePlanIntent != null) {
                 learnerContext = appendTutorContext(learnerContext, improvePlanContextBlock(improvePlanIntent));
@@ -312,6 +323,15 @@ public class TutorController {
                 pedagogicalContext = appendTutorContext(
                         pedagogicalContext,
                         supportLevelTutorContext(sessionSupportLevel)
+                );
+            }
+            if (guidedLesson) {
+                pedagogicalContext = appendTutorContext(
+                        pedagogicalContext,
+                        "- Act as the student's responsible course teacher and personal tutor. "
+                                + "Open the selected source chapter, explain its main idea step by step, "
+                                + "use an example supported by that chapter, and check understanding. "
+                                + "Do not replace the selected chapter with a merely similar search result."
                 );
             }
             String pathContext = LearningPathParser.activePathContext(sessionSuggestedTopics);
@@ -354,6 +374,9 @@ public class TutorController {
             }
             String answer = ragAnswer.getAnswer();
             List<SuggestionItem> lessonSuggestions = LearningPathParser.parseLessonSuggestions(answer);
+            if ("LEARNING_PATH".equalsIgnoreCase(intent.getSubIntent())) {
+                lessonSuggestions = learningPathGroundingService.ground(courseId, question, lessonSuggestions);
+            }
 
             QuestionEscalation questionEscalation = null;
             String conversationId = null;
@@ -438,22 +461,16 @@ public class TutorController {
             response.setUserMessageId(userMessageId);
             response.setAssistantMessageId(assistantMessageId);
             response.setCourseId(courseId);
-            response.setSupportLevel(pedagogicalDirectiveService.resolveSupportLevel(userId, courseId, classId));
+            response.setSupportLevel(canonicalSupportLevel);
             response.setClickedSuggestion(request.getClickedSuggestion());
             response.setTutorSessionId(request.getTutorSessionId());
             response.setSessionPhase(tutorSessionState == null
                     ? (request.getSessionPhase() == null ? "TEACH" : request.getSessionPhase())
                     : tutorSessionState.getPhase());
-            if (request.getTutorSessionId() != null && !request.getTutorSessionId().isBlank()) {
-                response.setSupportLevel((tutorSessionState == null
-                        ? tutorSessionService.getSession(request.getTutorSessionId())
-                        : tutorSessionState).getSupportLevel());
-            }
             if (questionEscalation != null) {
                 response.setQuestionEscalationId(questionEscalation.getId());
             }
-            if (persistTurn && !lessonSuggestions.isEmpty()
-                    && "LEARNING_PATH".equalsIgnoreCase(intent.getSubIntent())) {
+            if (persistTurn && "LEARNING_PATH".equalsIgnoreCase(intent.getSubIntent())) {
                 response.setNextImproveSuggestions(lessonSuggestions);
             }
             if (tutorSessionState != null && tutorSessionState.getSuggestedTopics() != null) {
@@ -853,12 +870,18 @@ public class TutorController {
     }
 
     private RagQueryIntent buildSourceBackedIntent(AiQueryRequest request, String question) {
-        if (request == null
-                || !"SOURCE_BACKED_STUDY_TIP".equalsIgnoreCase(request.getInteractionType())) {
+        if (request == null) {
+            return null;
+        }
+        boolean guidedLesson = "GUIDED_LESSON".equalsIgnoreCase(request.getInteractionType());
+        if (!guidedLesson
+                && !"SOURCE_BACKED_STUDY_TIP".equalsIgnoreCase(request.getInteractionType())) {
             return null;
         }
         List<String> materialIds = cleanProvenanceIds(request.getSourceMaterialIds());
-        if (materialIds.isEmpty()) {
+        String chapterKey = normalizeScopeValue(request.getChapterKey());
+        String chapterTitle = normalizeScopeValue(request.getChapterTitle());
+        if (materialIds.isEmpty() && chapterKey == null) {
             return null;
         }
         String clickedSuggestion = request.getClickedSuggestion() == null
@@ -868,7 +891,9 @@ public class TutorController {
                 .learningObjective(clickedSuggestion)
                 .retrievalQuery(clickedSuggestion)
                 .retrievalTerms(List.of(clickedSuggestion))
-                .teachingMode("EXPLAIN_CONCEPT")
+                .teachingMode(guidedLesson ? "LESSON_TEACH" : "EXPLAIN_CONCEPT")
+                .chapterKey(chapterKey)
+                .chapterTitle(chapterTitle)
                 .sourceMaterialIds(materialIds)
                 .sourceChunkIds(cleanProvenanceIds(request.getSourceChunkIds()))
                 .sourceTerms(List.of(clickedSuggestion))

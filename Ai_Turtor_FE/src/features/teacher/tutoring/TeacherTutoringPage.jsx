@@ -1,13 +1,13 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Drawer } from 'antd';
-import { queryKeys } from '../../../app/queryKeys';
-import PageHeader from '../../../components/common/PageHeader';
-import { getUserFacingError } from '../../../services/apiClient';
-import { asArray } from '../../../services/normalizers';
-import { teacherApi } from '../../../services/teacherApi';
-import { tutorSessionApi } from '../../../services/tutorSessionApi';
-import { getPersonEmail } from '../../../utils/displayNames';
+import { useEffect, useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Drawer } from "antd";
+import { queryKeys } from "../../../app/queryKeys";
+import PageHeader from "../../../components/common/PageHeader";
+import { getUserFacingError } from "../../../services/apiClient";
+import { asArray } from "../../../services/normalizers";
+import { teacherApi } from "../../../services/teacherApi";
+import { tutorSessionApi } from "../../../services/tutorSessionApi";
+import { getPersonEmail } from "../../../utils/displayNames";
 import {
   buildClassStudentRows,
   formatTeacherStudentLabel,
@@ -19,14 +19,14 @@ import {
   studentInitials,
   supportLevelLabel,
   uniqueClassScopes,
-} from './teacherTutoringStudents';
-import TeacherTranscriptThread from './TeacherTranscriptThread';
-import './TeacherTutoringPage.css';
+} from "./teacherTutoringStudents";
+import TeacherTranscriptThread from "./TeacherTranscriptThread";
+import "./TeacherTutoringPage.css";
 
-function TopicList({ label, items, tone = 'default', wrap = false }) {
+function TopicList({ label, items, tone = "default", wrap = false }) {
   if (!items?.length) return null;
   return (
-    <div className={`teacher-topic-list${tone === 'weak' ? ' is-weak' : ''}${wrap ? ' is-wrap' : ''}`}>
+    <div className={`teacher-topic-list${tone === "weak" ? " is-weak" : ""}${wrap ? " is-wrap" : ""}`}>
       {label ? <span>{label}</span> : null}
       <ul>
         {items.slice(0, wrap ? 12 : 6).map((item) => (
@@ -39,11 +39,10 @@ function TopicList({ label, items, tone = 'default', wrap = false }) {
 
 const EMPTY_LIST = [];
 
-const settledValue = (results, index, fallback) => (
-  results[index]?.status === 'fulfilled' ? results[index].value : fallback
-);
+const settledValue = (results, index, fallback) =>
+  results[index]?.status === "fulfilled" ? results[index].value : fallback;
 
-async function loadClassBundle(teacherId, scope, signal, page = 0, size = 50, query = '') {
+async function loadClassBundle(teacherId, scope, signal, page = 0, size = 50, query = "") {
   const results = await Promise.allSettled([
     tutorSessionApi.listTeacherSummaries(teacherId, scope.courseId, scope.classId, { signal }),
     tutorSessionApi.listTeacherSessions(teacherId, scope.courseId, scope.classId, { signal }),
@@ -51,12 +50,12 @@ async function loadClassBundle(teacherId, scope, signal, page = 0, size = 50, qu
     teacherApi.getClassStudents(scope.courseId, scope.classId, teacherId, { signal, page, size, query }),
     teacherApi.getCourseMemories(scope.courseId, scope.classId, { signal }),
   ]);
-  if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
-  if (results.every((result) => result.status === 'rejected')) {
-    throw results[0].reason || new Error('Không thể tải dữ liệu lớp.');
+  if (signal.aborted) throw new DOMException("Aborted", "AbortError");
+  if (results.every((result) => result.status === "rejected")) {
+    throw results[0].reason || new Error("Không thể tải dữ liệu lớp.");
   }
   const rosterResponse = settledValue(results, 3, {});
-  const roster = asArray(rosterResponse, 'students', 'items', 'content');
+  const roster = asArray(rosterResponse, "students", "items", "content");
   return {
     rosterMeta: {
       totalElements: Number(rosterResponse?.totalElements ?? rosterResponse?.count ?? roster.length),
@@ -66,16 +65,18 @@ async function loadClassBundle(teacherId, scope, signal, page = 0, size = 50, qu
     },
     students: buildClassStudentRows({
       roster,
-      memories: asArray(settledValue(results, 4, {}), 'memories', 'items', 'content'),
-      sessions: asArray(settledValue(results, 1, {}), 'sessions', 'items', 'content')
-        .map((item) => mergeRosterIdentity(item, roster)),
-      summaries: asArray(settledValue(results, 0, {}), 'summaries', 'items', 'content')
-        .map((item) => mergeRosterIdentity(item, roster)),
+      memories: asArray(settledValue(results, 4, {}), "memories", "items", "content"),
+      sessions: asArray(settledValue(results, 1, {}), "sessions", "items", "content").map((item) =>
+        mergeRosterIdentity(item, roster),
+      ),
+      summaries: asArray(settledValue(results, 0, {}), "summaries", "items", "content").map((item) =>
+        mergeRosterIdentity(item, roster),
+      ),
       courseId: scope.courseId,
       classId: scope.classId,
       classLabel: scope.label,
     }),
-    directives: asArray(settledValue(results, 2, {}), 'directives', 'items', 'content').map((item) => ({
+    directives: asArray(settledValue(results, 2, {}), "directives", "items", "content").map((item) => ({
       ...mergeRosterIdentity(item, roster),
       courseId: scope.courseId,
       classId: scope.classId,
@@ -85,45 +86,39 @@ async function loadClassBundle(teacherId, scope, signal, page = 0, size = 50, qu
   };
 }
 
-export default function TeacherTutoringPage({
-  teacherId,
-  setCourseId,
-  setClassId,
-  triggerToast,
-}) {
+export default function TeacherTutoringPage({ teacherId, setCourseId, setClassId, triggerToast }) {
   const queryClient = useQueryClient();
-  const [activeClassKey, setActiveClassKey] = useState('');
+  const [activeClassKey, setActiveClassKey] = useState("");
   const [studentPage, setStudentPage] = useState(0);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [selectedSummary, setSelectedSummary] = useState(null);
   const [saving, setSaving] = useState(false);
-  const [query, setQuery] = useState('');
-  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [form, setForm] = useState({
-    classKey: '',
-    studentId: '',
-    instruction: '',
-    supportLevel: 'STANDARD',
+    classKey: "",
+    studentId: "",
+    instruction: "",
+    supportLevel: "STANDARD",
   });
 
   const classesQuery = useQuery({
     queryKey: queryKeys.teacherClasses(teacherId),
-    queryFn: async ({ signal }) => asArray(
-      await teacherApi.getClassSections(teacherId, { signal }),
-      'classes',
-      'classSections',
-      'content',
-    ),
+    queryFn: async ({ signal }) =>
+      asArray(await teacherApi.getClassSections(teacherId, { signal }), "classes", "classSections", "content"),
     enabled: Boolean(teacherId),
     staleTime: 60_000,
   });
   const classScopes = useMemo(() => uniqueClassScopes(classesQuery.data || EMPTY_LIST), [classesQuery.data]);
   const effectiveActiveClassKey = useMemo(() => {
     if (classScopes.some((scope) => scope.key === activeClassKey)) return activeClassKey;
-    return '';
+    return "";
   }, [activeClassKey, classScopes]);
   const activeScope = classScopes.find((scope) => scope.key === effectiveActiveClassKey);
-  const scopeKeys = useMemo(() => activeScope ? [activeScope.key, studentPage, debouncedQuery] : [], [activeScope, debouncedQuery, studentPage]);
+  const scopeKeys = useMemo(
+    () => (activeScope ? [activeScope.key, studentPage, debouncedQuery] : []),
+    [activeScope, debouncedQuery, studentPage],
+  );
   const tutoringQueryKey = queryKeys.teacherTutoringBundle(teacherId, scopeKeys);
   const tutoringQuery = useQuery({
     queryKey: tutoringQueryKey,
@@ -135,9 +130,11 @@ export default function TeacherTutoringPage({
   });
   const studentRows = tutoringQuery.data?.students || EMPTY_LIST;
   const directives = tutoringQuery.data?.directives || EMPTY_LIST;
-  const loading = Boolean(teacherId)
-    && (classesQuery.isPending || classesQuery.isFetching
-      || (Boolean(activeScope) && (tutoringQuery.isPending || tutoringQuery.isFetching)));
+  const loading =
+    Boolean(teacherId) &&
+    (classesQuery.isPending ||
+      classesQuery.isFetching ||
+      (Boolean(activeScope) && (tutoringQuery.isPending || tutoringQuery.isFetching)));
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -150,18 +147,19 @@ export default function TeacherTutoringPage({
   useEffect(() => {
     const error = classesQuery.error || tutoringQuery.error;
     if (!error) return;
-    triggerToast?.(getUserFacingError(error, 'Không thể tải dữ liệu gia sư của lớp.'));
+    triggerToast?.(getUserFacingError(error, "Không thể tải dữ liệu gia sư của lớp."));
   }, [classesQuery.error, triggerToast, tutoringQuery.error]);
 
-  const transcriptKind = selectedSummary?._transcriptKind || '';
-  const transcriptId = selectedSummary?.id || '';
+  const transcriptKind = selectedSummary?._transcriptKind || "";
+  const transcriptId = selectedSummary?.id || "";
   const transcriptQuery = useQuery({
     queryKey: queryKeys.teacherTutorTranscript(teacherId, transcriptKind, transcriptId),
     queryFn: async ({ signal }) => {
-      const data = transcriptKind === 'session'
-        ? await tutorSessionApi.getSessionTranscript(teacherId, transcriptId, { signal })
-        : await tutorSessionApi.getTranscript(teacherId, transcriptId, { signal });
-      return asArray(data, 'messages', 'content', 'items');
+      const data =
+        transcriptKind === "session"
+          ? await tutorSessionApi.getSessionTranscript(teacherId, transcriptId, { signal })
+          : await tutorSessionApi.getTranscript(teacherId, transcriptId, { signal });
+      return asArray(data, "messages", "content", "items");
     },
     enabled: Boolean(teacherId && transcriptKind && transcriptId),
     staleTime: 60_000,
@@ -170,14 +168,14 @@ export default function TeacherTutoringPage({
 
   useEffect(() => {
     if (!transcriptQuery.error) return;
-    triggerToast?.(getUserFacingError(transcriptQuery.error, 'Không thể tải toàn bộ hội thoại.'));
+    triggerToast?.(getUserFacingError(transcriptQuery.error, "Không thể tải toàn bộ hội thoại."));
   }, [transcriptQuery.error, triggerToast]);
 
   const scopedRows = studentRows;
   const visibleGroups = useMemo(() => groupRowsByClass(scopedRows), [scopedRows]);
 
   const visibleDirectives = useMemo(() => {
-    const confirmed = directives.filter((item) => item.status === 'CONFIRMED');
+    const confirmed = directives.filter((item) => item.status === "CONFIRMED");
     return confirmed.filter((item) => item.classKey === effectiveActiveClassKey);
   }, [directives, effectiveActiveClassKey]);
 
@@ -192,7 +190,7 @@ export default function TeacherTutoringPage({
   const selectClass = (key) => {
     setActiveClassKey(key);
     setStudentPage(0);
-    setQuery('');
+    setQuery("");
     setSelectedStudent(null);
     closeTranscript();
     const scope = classScopes.find((item) => item.key === key);
@@ -203,7 +201,7 @@ export default function TeacherTutoringPage({
     setForm((value) => ({
       ...value,
       classKey: key,
-      studentId: '',
+      studentId: "",
     }));
   };
 
@@ -213,19 +211,19 @@ export default function TeacherTutoringPage({
     setForm((value) => ({
       ...value,
       classKey: student.classKey || value.classKey,
-      studentId: student.studentId || '',
+      studentId: student.studentId || "",
     }));
   };
 
   const openTranscript = (summary) => {
-    setSelectedSummary({ ...summary, _transcriptKind: 'summary' });
+    setSelectedSummary({ ...summary, _transcriptKind: "summary" });
   };
 
   const openSessionTranscript = (session) => {
     setSelectedSummary({
       ...session,
-      topic: session.topic || 'Học tự do',
-      _transcriptKind: 'session',
+      topic: session.topic || "Học tự do",
+      _transcriptKind: "session",
     });
   };
 
@@ -237,22 +235,22 @@ export default function TeacherTutoringPage({
     setForm((value) => ({
       ...value,
       classKey: student.classKey || value.classKey,
-      studentId: student.studentId || '',
+      studentId: student.studentId || "",
     }));
     if (student.classKey) setActiveClassKey(student.classKey);
-    window.document.querySelector('.teacher-directive-form textarea')?.focus();
+    window.document.querySelector(".teacher-directive-form textarea")?.focus();
   };
 
   const createDirective = async (event) => {
     event.preventDefault();
     if (!form.instruction.trim()) return;
     const selectedStudentScope = studentRows.find((student) => student.studentId === form.studentId);
-    const scope = classScopes.find((item) => item.key === (
-      form.classKey || selectedStudentScope?.classKey || effectiveActiveClassKey
-    ))
-      || activeScope;
+    const scope =
+      classScopes.find(
+        (item) => item.key === (form.classKey || selectedStudentScope?.classKey || effectiveActiveClassKey),
+      ) || activeScope;
     if (!scope?.courseId || !scope?.classId) {
-      triggerToast?.('Hãy chọn lớp trước khi gửi chỉ dẫn.');
+      triggerToast?.("Hãy chọn lớp trước khi gửi chỉ dẫn.");
       return;
     }
     setSaving(true);
@@ -266,11 +264,11 @@ export default function TeacherTutoringPage({
         classId: scope.classId,
       });
       await tutorSessionApi.confirmDirective(teacherId, draft.id);
-      setForm({ classKey: form.classKey || scope.key, studentId: '', instruction: '', supportLevel: 'STANDARD' });
-      triggerToast?.('Đã xác nhận chỉ dẫn. AI Tutor sẽ áp dụng từ lượt học tiếp theo.');
+      setForm({ classKey: form.classKey || scope.key, studentId: "", instruction: "", supportLevel: "STANDARD" });
+      triggerToast?.("Đã xác nhận chỉ dẫn. AI Tutor sẽ áp dụng từ lượt học tiếp theo.");
       await queryClient.invalidateQueries({ queryKey: tutoringQueryKey, exact: true });
     } catch (error) {
-      triggerToast?.(getUserFacingError(error, 'Không thể lưu chỉ dẫn sư phạm.'));
+      triggerToast?.(getUserFacingError(error, "Không thể lưu chỉ dẫn sư phạm."));
     } finally {
       setSaving(false);
     }
@@ -281,11 +279,11 @@ export default function TeacherTutoringPage({
       await tutorSessionApi.archiveDirective(teacherId, directiveId);
       await queryClient.invalidateQueries({ queryKey: tutoringQueryKey, exact: true });
     } catch (error) {
-      triggerToast?.(getUserFacingError(error, 'Không thể ngừng áp dụng chỉ dẫn.'));
+      triggerToast?.(getUserFacingError(error, "Không thể ngừng áp dụng chỉ dẫn."));
     }
   };
 
-  const selectedStudentLabel = formatTeacherStudentLabel(selectedStudent || selectedSummary, 'sinh viên');
+  const selectedStudentLabel = formatTeacherStudentLabel(selectedStudent || selectedSummary, "sinh viên");
 
   return (
     <div className="portal-section teacher-tutoring-page">
@@ -293,26 +291,28 @@ export default function TeacherTutoringPage({
         eyebrow="AI Tutor"
         title="Theo dõi AI Tutor theo từng lớp"
         description="Chọn lớp bạn phụ trách, xem bài đã học của từng sinh viên và gửi chỉ dẫn sư phạm cho AI Tutor."
-        actions={(
+        actions={
           <div className="teacher-tutoring-stats">
             <div>
               <strong>{classScopes.length}</strong>
               <span>Lớp</span>
             </div>
             <div>
-              <strong>{activeScope ? (tutoringQuery.data?.rosterMeta?.totalElements ?? scopedRows.length) : '—'}</strong>
+              <strong>
+                {activeScope ? (tutoringQuery.data?.rosterMeta?.totalElements ?? scopedRows.length) : "—"}
+              </strong>
               <span>Sinh viên</span>
             </div>
             <div>
-              <strong>{activeScope ? studiedCount : '—'}</strong>
+              <strong>{activeScope ? studiedCount : "—"}</strong>
               <span>Đã học · trang hiện tại</span>
             </div>
             <div>
-              <strong>{activeScope ? weakCount : '—'}</strong>
+              <strong>{activeScope ? weakCount : "—"}</strong>
               <span>Cần củng cố · trang hiện tại</span>
             </div>
           </div>
-        )}
+        }
       />
 
       <div className="teacher-tutoring-grid">
@@ -324,15 +324,19 @@ export default function TeacherTutoringPage({
                 <span>Lớp áp dụng</span>
                 <select
                   value={form.classKey || effectiveActiveClassKey}
-                  onChange={(event) => setForm((value) => ({
-                    ...value,
-                    classKey: event.target.value,
-                    studentId: '',
-                  }))}
+                  onChange={(event) =>
+                    setForm((value) => ({
+                      ...value,
+                      classKey: event.target.value,
+                      studentId: "",
+                    }))
+                  }
                 >
                   {classScopes.length > 1 && <option value="">Chọn lớp</option>}
                   {classScopes.map((scope) => (
-                    <option key={scope.key} value={scope.key}>{scope.label}</option>
+                    <option key={scope.key} value={scope.key}>
+                      {scope.label}
+                    </option>
                   ))}
                 </select>
               </label>
@@ -345,7 +349,10 @@ export default function TeacherTutoringPage({
               >
                 <option value="">Cả lớp</option>
                 {formStudents.map((student) => (
-                  <option key={`${student.classKey}-${student.studentId || student.id}`} value={student.studentId || student.id}>
+                  <option
+                    key={`${student.classKey}-${student.studentId || student.id}`}
+                    value={student.studentId || student.id}
+                  >
                     {classScopes.length > 1
                       ? `${student.classId} · ${formatTeacherStudentLabel(student)}`
                       : formatTeacherStudentLabel(student)}
@@ -375,16 +382,16 @@ export default function TeacherTutoringPage({
               />
             </label>
             <button type="submit" className="teacher-tutoring-btn" disabled={saving}>
-              {saving ? 'Đang lưu...' : 'Xác nhận và áp dụng'}
+              {saving ? "Đang lưu..." : "Xác nhận và áp dụng"}
             </button>
           </form>
           <div className="teacher-directive-list">
             {visibleDirectives.map((item) => (
               <article key={item.id} className="teacher-directive-item">
                 <strong>
-                  {item.classLabel ? `${item.classLabel} · ` : ''}
-                  {item.studentId ? formatTeacherStudentLabel(item, 'Sinh viên') : 'Cả lớp'}
-                  {' · '}
+                  {item.classLabel ? `${item.classLabel} · ` : ""}
+                  {item.studentId ? formatTeacherStudentLabel(item, "Sinh viên") : "Cả lớp"}
+                  {" · "}
                   {supportLevelLabel(item.supportLevel)}
                 </strong>
                 <p>{item.instruction}</p>
@@ -400,11 +407,17 @@ export default function TeacherTutoringPage({
           </div>
         </section>
 
-        <section className={`teacher-tutoring-card teacher-session-feed${activeScope ? ' is-roster-view' : ' is-class-view'}`}>
+        <section
+          className={`teacher-tutoring-card teacher-session-feed${activeScope ? " is-roster-view" : " is-class-view"}`}
+        >
           <div className="teacher-session-feed__header">
             <div className="teacher-roster-heading">
-              {activeScope && <button type="button" className="teacher-tutoring-btn is-secondary" onClick={() => selectClass('')}>← Tất cả lớp</button>}
-              <h2>{activeScope ? 'Danh sách sinh viên' : 'Các lớp đang phụ trách'}</h2>
+              {activeScope && (
+                <button type="button" className="teacher-tutoring-btn is-secondary" onClick={() => selectClass("")}>
+                  ← Tất cả lớp
+                </button>
+              )}
+              <h2>{activeScope ? "Danh sách sinh viên" : "Các lớp đang phụ trách"}</h2>
             </div>
             <p className="teacher-session-feed__hint">
               {activeScope
@@ -414,23 +427,32 @@ export default function TeacherTutoringPage({
             {!activeScope && classScopes.length > 0 && (
               <div className="teacher-tutoring-class-cards">
                 {classScopes.map((scope) => (
-                  <button type="button" key={scope.key} className="teacher-tutoring-class-card" onClick={() => selectClass(scope.key)}>
+                  <button
+                    type="button"
+                    key={scope.key}
+                    className="teacher-tutoring-class-card"
+                    onClick={() => selectClass(scope.key)}
+                  >
                     <span className="teacher-tutoring-class-card__course">{scope.courseId}</span>
                     <strong>{scope.className || scope.classId}</strong>
-                    {scope.className
-                      && ![scope.classId, `Lớp ${scope.classId}`].includes(scope.className.trim())
-                      && <span className="teacher-tutoring-class-card__meta">Mã lớp: {scope.classId}</span>}
-                    <span className="teacher-tutoring-class-card__action">Mở danh sách sinh viên <span aria-hidden="true">→</span></span>
+                    {scope.className && ![scope.classId, `Lớp ${scope.classId}`].includes(scope.className.trim()) && (
+                      <span className="teacher-tutoring-class-card__meta">Mã lớp: {scope.classId}</span>
+                    )}
+                    <span className="teacher-tutoring-class-card__action">
+                      Mở danh sách sinh viên <span aria-hidden="true">→</span>
+                    </span>
                   </button>
                 ))}
               </div>
             )}
-            {activeScope && <input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Tìm theo tên, mã sinh viên hoặc email"
-              aria-label="Tìm sinh viên"
-            />}
+            {activeScope && (
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Tìm theo tên, mã sinh viên hoặc email"
+                aria-label="Tìm sinh viên"
+              />
+            )}
           </div>
           {loading && <p className="teacher-tutoring-empty">Đang tải...</p>}
           {!loading && classScopes.length === 0 && (
@@ -442,46 +464,67 @@ export default function TeacherTutoringPage({
           {!loading && activeScope && scopedRows.length > 0 && visibleGroups.length === 0 && (
             <p className="teacher-tutoring-empty">Không tìm thấy sinh viên khớp với từ khóa.</p>
           )}
-          {activeScope && <div className="teacher-student-list">
-            {visibleGroups.map((group) => (
-              <section key={group.key} className="teacher-class-group">
-                {group.students.map((student) => (
-                  <article key={`${student.classKey}-${student.studentId || student.id}`} className="teacher-student-card">
-                    <div className="teacher-student-card__identity">
-                      <span className="teacher-student-card__avatar">{studentInitials(student)}</span>
-                      <div className="teacher-student-card__copy">
-                        <strong>{formatTeacherStudentLabel(student)}</strong>
-                        <span>{getPersonEmail(student) || 'Chưa có email'}</span>
+          {activeScope && (
+            <div className="teacher-student-list">
+              {visibleGroups.map((group) => (
+                <section key={group.key} className="teacher-class-group">
+                  {group.students.map((student) => (
+                    <article
+                      key={`${student.classKey}-${student.studentId || student.id}`}
+                      className="teacher-student-card"
+                    >
+                      <div className="teacher-student-card__identity">
+                        <span className="teacher-student-card__avatar">{studentInitials(student)}</span>
+                        <div className="teacher-student-card__copy">
+                          <strong>{formatTeacherStudentLabel(student)}</strong>
+                          <span>{getPersonEmail(student) || "Chưa có email"}</span>
+                        </div>
+                        <em className={`teacher-student-status${student.hasActivity ? "" : " is-idle"}`}>
+                          {student.activityLabel}
+                        </em>
                       </div>
-                      <em className={`teacher-student-status${student.hasActivity ? '' : ' is-idle'}`}>
-                        {student.activityLabel}
-                      </em>
-                    </div>
-                    <TopicList label="Đã học" items={student.studiedTopics} />
-                    <TopicList label="Cần củng cố" items={student.weakTopics} tone="weak" />
-                    <div className="teacher-session-actions">
-                      <button type="button" className="teacher-tutoring-btn" onClick={() => openStudent(student)}>
-                        Xem {student.sessions.length + student.summaries.length} đoạn chat
-                      </button>
-                      <button
-                        type="button"
-                        className="teacher-tutoring-btn is-secondary"
-                        onClick={() => applyDirectiveToStudent(student)}
-                      >
-                        Gửi chỉ dẫn
-                      </button>
-                    </div>
-                  </article>
-                ))}
-              </section>
-            ))}
-          </div>}
+                      <TopicList label="Đã học" items={student.studiedTopics} />
+                      <TopicList label="Cần củng cố" items={student.weakTopics} tone="weak" />
+                      <div className="teacher-session-actions">
+                        <button type="button" className="teacher-tutoring-btn" onClick={() => openStudent(student)}>
+                          Xem {student.sessions.length + student.summaries.length} đoạn chat
+                        </button>
+                        <button
+                          type="button"
+                          className="teacher-tutoring-btn is-secondary"
+                          onClick={() => applyDirectiveToStudent(student)}
+                        >
+                          Gửi chỉ dẫn
+                        </button>
+                      </div>
+                    </article>
+                  ))}
+                </section>
+              ))}
+            </div>
+          )}
           {activeScope && tutoringQuery.data?.rosterMeta?.totalPages > 1 && (
             <nav className="teacher-roster-pagination" aria-label="Phân trang sinh viên">
-              <span>Trang {studentPage + 1} / {tutoringQuery.data.rosterMeta.totalPages}</span>
+              <span>
+                Trang {studentPage + 1} / {tutoringQuery.data.rosterMeta.totalPages}
+              </span>
               <div>
-                <button type="button" className="teacher-tutoring-btn is-secondary" disabled={studentPage === 0 || loading} onClick={() => setStudentPage((page) => page - 1)}>Trước</button>
-                <button type="button" className="teacher-tutoring-btn is-secondary" disabled={studentPage + 1 >= tutoringQuery.data.rosterMeta.totalPages || loading} onClick={() => setStudentPage((page) => page + 1)}>Tiếp</button>
+                <button
+                  type="button"
+                  className="teacher-tutoring-btn is-secondary"
+                  disabled={studentPage === 0 || loading}
+                  onClick={() => setStudentPage((page) => page - 1)}
+                >
+                  Trước
+                </button>
+                <button
+                  type="button"
+                  className="teacher-tutoring-btn is-secondary"
+                  disabled={studentPage + 1 >= tutoringQuery.data.rosterMeta.totalPages || loading}
+                  onClick={() => setStudentPage((page) => page + 1)}
+                >
+                  Tiếp
+                </button>
               </div>
             </nav>
           )}
@@ -489,7 +532,7 @@ export default function TeacherTutoringPage({
       </div>
 
       <Drawer
-        title={selectedSummary ? 'Hội thoại' : 'Bài đã học'}
+        title={selectedSummary ? "Hội thoại" : "Bài đã học"}
         width={760}
         className="teacher-transcript-drawer"
         rootClassName="teacher-transcript-drawer"
@@ -506,8 +549,8 @@ export default function TeacherTutoringPage({
               <div>
                 <strong>{selectedStudentLabel}</strong>
                 <span>
-                  {selectedStudent.classLabel ? `${selectedStudent.classLabel} · ` : ''}
-                  {getPersonEmail(selectedStudent) || 'Chưa có email'}
+                  {selectedStudent.classLabel ? `${selectedStudent.classLabel} · ` : ""}
+                  {getPersonEmail(selectedStudent) || "Chưa có email"}
                 </span>
               </div>
             </header>
@@ -553,11 +596,11 @@ export default function TeacherTutoringPage({
                         <strong>{sessionHeadline(session, selectedStudent.studiedTopics)}</strong>
                         <span>
                           {sessionStatusLabel(session.status)}
-                          {' · '}
+                          {" · "}
                           {session.studentTurnCount || 0} lượt
                           {formatTutorWhen(session.updatedAt || session.startedAt)
                             ? ` · ${formatTutorWhen(session.updatedAt || session.startedAt)}`
-                            : ''}
+                            : ""}
                         </span>
                       </div>
                       <button
@@ -583,19 +626,15 @@ export default function TeacherTutoringPage({
                         <strong>{sessionHeadline(summary, selectedStudent.studiedTopics)}</strong>
                         <span>
                           {summary.studentTurnCount || 0} lượt
-                          {' · '}
+                          {" · "}
                           {supportLevelLabel(summary.supportLevel)}
                           {formatTutorWhen(summary.createdAt || summary.sharedWithTeacherAt)
                             ? ` · ${formatTutorWhen(summary.createdAt || summary.sharedWithTeacherAt)}`
-                            : ''}
+                            : ""}
                         </span>
                       </div>
                       {summary.summaryText ? <p>{summary.summaryText}</p> : null}
-                      <button
-                        type="button"
-                        className="teacher-tutoring-btn"
-                        onClick={() => openTranscript(summary)}
-                      >
+                      <button type="button" className="teacher-tutoring-btn" onClick={() => openTranscript(summary)}>
                         Xem hội thoại đầy đủ
                       </button>
                     </article>

@@ -91,4 +91,24 @@ class TutorSessionServiceSupportTest {
                 .hasMessageContaining("teacher-controlled");
         assertThat(session.getSupportLevel()).isEqualTo("STANDARD");
     }
+
+    @Test
+    void synchronizesCanonicalTeacherSupportBeforeTutorGeneration() {
+        TutorSession session = TutorSession.builder()
+                .id("session-1")
+                .studentId("student-1")
+                .courseId("PRJ301")
+                .classId("SE1840")
+                .supportLevel("STANDARD")
+                .build();
+        when(sessionRepository.findById("session-1")).thenReturn(Optional.of(session));
+        when(sessionRepository.save(any(TutorSession.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        TutorSession synchronizedSession = service.synchronizeTeacherControlledSupport(
+                "session-1", "SE1840", "HIGH_SUPPORT");
+
+        assertThat(synchronizedSession.getSupportLevel()).isEqualTo("HIGH_SUPPORT");
+        verify(sessionRepository).save(session);
+    }
 }

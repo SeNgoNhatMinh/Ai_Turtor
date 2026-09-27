@@ -11,6 +11,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Predicate;
 
 @Slf4j
 final class LlmProviderChain {
@@ -74,9 +75,31 @@ final class LlmProviderChain {
     }
 
     Result generate(String prompt) throws Exception {
+        return generate(prompt, 0, ignored -> true);
+    }
+
+    /**
+     * Runs a quality fallback on a different provider/model than the provider
+     * that would currently be selected first. This is intentionally separate
+     * from transport fallback: a provider may return HTTP 200 while producing
+     * an unusable refusal.
+     */
+    Result generateQualityFallback(String prompt) throws Exception {
+        return generateQualityFallback(prompt, ignored -> true);
+    }
+
+    Result generateQualityFallback(String prompt, Predicate<String> acceptableAnswer) throws Exception {
+        return generate(prompt, 1, acceptableAnswer == null ? ignored -> true : acceptableAnswer);
+    }
+
+    private Result generate(String prompt, int providersToSkip, Predicate<String> acceptableAnswer) throws Exception {
         Exception lastFailure = null;
         List<Provider> attemptOrder = orderedProviders(clock.instant());
-        for (Provider provider : attemptOrder) {
+        if (providersToSkip >= attemptOrder.size()) {
+            throw new IllegalStateException("No alternate LLM provider is configured for quality fallback");
+        }
+        for (int index = Math.max(0, providersToSkip); index < attemptOrder.size(); index++) {
+            Provider provider = attemptOrder.get(index);
             ProviderMetrics providerMetrics = metrics.get(provider.name());
             providerMetrics.attempts.incrementAndGet();
             long startedNanos = System.nanoTime();
@@ -84,6 +107,17 @@ final class LlmProviderChain {
                 String text = provider.generator().generate(prompt);
                 long elapsedMs = elapsedMillis(startedNanos);
                 Instant completedAt = clock.instant();
+                if (!acceptableAnswer.test(text)) {
+                    providerMetrics.qualityRejections.incrementAndGet();
+                    providerMetrics.lastFailureAt = completedAt;
+                    providerMetrics.lastFailureKind = "QUALITY_REJECTED";
+                    providerMetrics.recordLatency(elapsedMs);
+                    lastFailure = new IllegalStateException(
+                            "Provider returned an answer rejected by the quality gate: " + provider.name());
+                    log.warn("LLM provider answer rejected by quality gate: provider={}, model={}, elapsedMs={}",
+                            provider.name(), provider.model(), elapsedMs);
+                    continue;
+                }
                 unavailableUntil.remove(provider.name());
                 providerMetrics.successes.incrementAndGet();
                 providerMetrics.lastSuccessAt = completedAt;
@@ -236,6 +270,7 @@ final class LlmProviderChain {
                 row.put("quotaFailures", value.quotaFailures.get());
                 row.put("quotaStrikes", quotaStrikes.getOrDefault(provider.name(), new AtomicLong()).get());
                 row.put("authFailures", value.authFailures.get());
+                row.put("qualityRejections", value.qualityRejections.get());
                 row.put("skippedDuringCooldown", value.skipped.get());
                 row.put("lastLatencyMs", value.lastLatencyMs.get());
                 row.put("averageLatencyMs", value.averageLatencyMs());
@@ -258,6 +293,7 @@ final class LlmProviderChain {
         private final AtomicLong failures = new AtomicLong();
         private final AtomicLong quotaFailures = new AtomicLong();
         private final AtomicLong authFailures = new AtomicLong();
+        private final AtomicLong qualityRejections = new AtomicLong();
         private final AtomicLong skipped = new AtomicLong();
         private final AtomicLong completedAttempts = new AtomicLong();
         private final AtomicLong totalLatencyMs = new AtomicLong();

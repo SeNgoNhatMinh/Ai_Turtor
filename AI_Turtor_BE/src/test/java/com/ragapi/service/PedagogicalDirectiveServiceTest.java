@@ -73,6 +73,37 @@ class PedagogicalDirectiveServiceTest {
     }
 
     @Test
+    void resolvesSupportLevelAndPromptContextFromOneSnapshot() {
+        PedagogicalDirectiveRepository repository = mock(PedagogicalDirectiveRepository.class);
+        PedagogicalDirectiveService service = new PedagogicalDirectiveService(
+                repository, mock(ClassRosterService.class));
+        PedagogicalDirective directive = PedagogicalDirective.builder()
+                .studentId("student-1")
+                .courseId("PRJ301")
+                .classId("SE1840")
+                .scope("STUDENT")
+                .status("CONFIRMED")
+                .supportLevel("HIGH_SUPPORT")
+                .instruction("Explain step by step.")
+                .priority(10)
+                .effectiveFrom(LocalDateTime.now().minusDays(1))
+                .updatedAt(LocalDateTime.now())
+                .build();
+        when(repository.findByStudentIdAndCourseIdAndStatusOrderByPriorityDescUpdatedAtDesc(
+                "student-1", "PRJ301", "CONFIRMED")).thenReturn(List.of(directive));
+        when(repository.findByCourseIdAndClassIdAndStatusOrderByPriorityDescUpdatedAtDesc(
+                "PRJ301", "SE1840", "CONFIRMED")).thenReturn(List.of());
+
+        PedagogicalDirectiveService.TutorGuidanceSnapshot snapshot =
+                service.resolveTutorGuidance("student-1", "PRJ301", "SE1840");
+
+        assertThat(snapshot.supportLevel()).isEqualTo("HIGH_SUPPORT");
+        assertThat(snapshot.tutorContext())
+                .contains("ACTIVE SUPPORT LEVEL: HIGH_SUPPORT")
+                .contains("Explain step by step.");
+    }
+
+    @Test
     void neverAppliesAnotherStudentsDirectiveFromTheSameClass() {
         PedagogicalDirectiveRepository repository = mock(PedagogicalDirectiveRepository.class);
         PedagogicalDirectiveService service = new PedagogicalDirectiveService(repository, mock(ClassRosterService.class));

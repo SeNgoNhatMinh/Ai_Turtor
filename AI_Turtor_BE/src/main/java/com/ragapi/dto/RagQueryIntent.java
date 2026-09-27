@@ -22,6 +22,10 @@ public class RagQueryIntent {
 
     private String teachingMode;
 
+    private String chapterKey;
+
+    private String chapterTitle;
+
     @Builder.Default
     private List<String> outputConstraints = new ArrayList<>();
 

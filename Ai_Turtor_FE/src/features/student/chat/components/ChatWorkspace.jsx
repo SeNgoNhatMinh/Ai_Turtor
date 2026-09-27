@@ -179,14 +179,19 @@ function ChatWorkspace({
   const suggestedTopics = tutorSession?.suggestedTopics;
   const composerTopics = useMemo(() => {
     const sessionTopics = (Array.isArray(suggestedTopics) ? suggestedTopics : [])
-      .map((topic) => String(topic || '').trim())
-      .filter(Boolean);
+      .map((topic) => ({
+        title: String(topic || '').trim(),
+        suggestionText: String(topic || '').trim(),
+        interactionType: 'GUIDED_LESSON',
+      }))
+      .filter((topic) => topic.title);
     const parsedLessons = lessonSuggestionsForMessage(safeMessages[safeMessages.length - 1])
-      .map((item) => String(item?.title || item?.suggestionText || item || '').trim())
-      .filter(Boolean);
-    const looksLikeLessons = (topics) => topics.some((topic) => /(?:bắt đầu\s+)?(?:bài|bai)\s+\d+/i.test(topic));
-    if (looksLikeLessons(sessionTopics)) return sessionTopics;
+      .filter((item) => String(item?.title || item?.suggestionText || '').trim());
+    const looksLikeLessons = (topics) => topics.some((topic) => (
+      /(?:bắt đầu\s+)?(?:bài|bai)\s+\d+/i.test(String(topic?.title || topic?.suggestionText || ''))
+    ));
     if (parsedLessons.length > 0) return parsedLessons;
+    if (looksLikeLessons(sessionTopics)) return sessionTopics;
     return sessionTopics;
   }, [safeMessages, suggestedTopics]);
   return (
@@ -253,10 +258,16 @@ function ChatWorkspace({
           {composerTopics.map((topic) => (
             <button
               type="button"
-              key={topic}
-              onClick={() => onPromptStarter?.(buildLessonChatPrompt(topic))}
+              key={String(topic?.title || topic?.suggestionText || topic)}
+              onClick={() => {
+                if (onStudySuggestion) {
+                  onStudySuggestion(topic);
+                  return;
+                }
+                onPromptStarter?.(buildLessonChatPrompt(topic?.title || topic?.suggestionText || topic));
+              }}
             >
-              {topic}
+              {String(topic?.title || topic?.suggestionText || topic)}
             </button>
           ))}
         </div>

@@ -92,6 +92,50 @@ class LlmProviderChainTest {
     }
 
     @Test
+    void qualityFallbackSkipsTheProviderThatReturnedAnUnusableSuccess() throws Exception {
+        AtomicInteger primaryCalls = new AtomicInteger();
+        AtomicInteger fallbackCalls = new AtomicInteger();
+        LlmProviderChain chain = chain(
+                provider("primary", prompt -> {
+                    primaryCalls.incrementAndGet();
+                    return "material is insufficient";
+                }),
+                provider("fallback", prompt -> {
+                    fallbackCalls.incrementAndGet();
+                    return "grounded answer";
+                })
+        );
+
+        assertEquals("primary", chain.generate("question").provider());
+        LlmProviderChain.Result recovered = chain.generateQualityFallback("recovery question");
+
+        assertEquals("fallback", recovered.provider());
+        assertEquals("grounded answer", recovered.text());
+        assertEquals(1, primaryCalls.get());
+        assertEquals(1, fallbackCalls.get());
+    }
+
+    @Test
+    void qualityFallbackContinuesAcrossModelsUntilTheAnswerPassesTheQualityGate() throws Exception {
+        LlmProviderChain chain = chain(
+                provider("primary", prompt -> "initial refusal"),
+                provider("fallback-1", prompt -> "another refusal"),
+                provider("fallback-2", prompt -> "grounded answer")
+        );
+
+        LlmProviderChain.Result recovered = chain.generateQualityFallback(
+                "recovery question",
+                answer -> !answer.contains("refusal")
+        );
+
+        assertEquals("fallback-2", recovered.provider());
+        assertEquals("grounded answer", recovered.text());
+        assertEquals(1L, chain.snapshot().stream()
+                .filter(row -> "fallback-1".equals(row.get("provider")))
+                .findFirst().orElseThrow().get("qualityRejections"));
+    }
+
+    @Test
     void fallsBackToLocalWhenHostedProvidersAreOutOfQuota() throws Exception {
         LlmProviderChain chain = chain(
                 provider("groq", prompt -> { throw new RuntimeException("HTTP 429 tokens per day quota exceeded"); }),

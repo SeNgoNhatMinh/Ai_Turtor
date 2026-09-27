@@ -53,6 +53,12 @@ public class AiQueryRequest {
     @Schema(description = "Exact chunk IDs from the answer that produced the clicked study tip")
     private List<String> sourceChunkIds;
 
+    @Schema(description = "Stable chapter key selected from the indexed course outline")
+    private String chapterKey;
+
+    @Schema(description = "Exact source chapter title selected from the indexed course outline")
+    private String chapterTitle;
+
     @Schema(description = "Active proactive tutor session ID")
     private String tutorSessionId;
 

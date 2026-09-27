@@ -25,8 +25,12 @@ public class CourseLessonContextService {
         return improvePlanContextService.retrieve(ragQueryIntent, courseId, classId);
     }
 
-    public ChapterPreviewView resolveLessonPreview(String question, String courseId) {
-        return lessonPreviewService.resolve(question, courseId);
+    public ChapterPreviewView resolveLessonPreview(
+            String question,
+            String courseId,
+            RagQueryIntent ragQueryIntent
+    ) {
+        return lessonPreviewService.resolve(question, courseId, ragQueryIntent);
     }
 
     public boolean hasUsableLessonPreview(ChapterPreviewView preview) {

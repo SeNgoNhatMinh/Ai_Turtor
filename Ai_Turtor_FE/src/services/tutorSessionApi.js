@@ -28,6 +28,20 @@ export const tutorSessionApi = {
     );
   },
 
+  getStudentSupportProfile(studentId, courseId, classId, options = {}) {
+    const query = new URLSearchParams();
+    if (classId) query.set('classId', classId);
+    const queryString = query.toString();
+    return request(
+      `${API_BASE_URL}/tutor/students/${encodeURIComponent(studentId)}`
+      + `/courses/${encodeURIComponent(courseId)}/support-profile${queryString ? `?${queryString}` : ''}`,
+      {
+        signal: options.signal,
+        skipUnauthorizedRedirect: options.skipUnauthorizedRedirect,
+      },
+    );
+  },
+
   listTeacherSummaries(teacherId, courseId, classId, options = {}) {
     return request(
       `${API_BASE_URL}/tutor/teachers/${encodeURIComponent(teacherId)}/courses/${encodeURIComponent(courseId)}`

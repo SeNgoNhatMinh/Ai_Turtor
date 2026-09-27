@@ -174,7 +174,11 @@ function ChatSessionsPanel({
             options={courseOptions}
           />
           <div className="chat-session-settings__label">Mức hỗ trợ</div>
-          <div className="chat-support-level" aria-label="Mức hỗ trợ hiện tại">
+          <div
+            className="chat-support-level"
+            aria-label="Mức hỗ trợ hiện tại"
+            data-support-level={tutorSession?.supportLevel || 'STANDARD'}
+          >
             {tutorSession?.supportLevel || 'STANDARD'}
           </div>
           {pendingCourseId && (

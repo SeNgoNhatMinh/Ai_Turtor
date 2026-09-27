@@ -18,8 +18,11 @@ export const env = {
   chatSocketUrl: trimTrailingSlash(import.meta.env.VITE_CHAT_SOCKET_URL || ''),
   realtimeSocketUrl: trimTrailingSlash(import.meta.env.VITE_REALTIME_SOCKET_URL || ''),
   realtimeEnabled: parseBoolean(import.meta.env.VITE_REALTIME_ENABLED, true),
-  n8nEnabled: parseBoolean(import.meta.env.VITE_N8N_ENABLED, false),
-  n8nStrict: parseBoolean(import.meta.env.VITE_N8N_STRICT, false),
+  // Student Chat is a mandatory Harness flow. Keep n8n enabled/strict when a
+  // local dev server has no .env file; optional n8n capabilities still retain
+  // their own feature flags below.
+  n8nEnabled: parseBoolean(import.meta.env.VITE_N8N_ENABLED, true),
+  n8nStrict: parseBoolean(import.meta.env.VITE_N8N_STRICT, true),
   n8nBaseUrl: trimTrailingSlash(import.meta.env.VITE_N8N_BASE_URL || 'http://localhost:5678'),
   n8nWebhookMode: import.meta.env.VITE_N8N_WEBHOOK_MODE || 'production',
   n8nTimeoutMs: parseNumber(import.meta.env.VITE_N8N_TIMEOUT_MS, 60000),
