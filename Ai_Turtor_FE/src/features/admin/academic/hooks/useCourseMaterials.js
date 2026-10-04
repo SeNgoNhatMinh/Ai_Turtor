@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../../../../app/queryKeys';
 import { API_BASE_URL, getUserFacingError } from '../../../../services/apiClient';
@@ -28,7 +28,7 @@ export function useCourseMaterials({
   const [materialFile, setMaterialFile] = useState(null);
   const [websiteImportOpen, setWebsiteImportOpen] = useState(false);
   const [reconciling, setReconciling] = useState(false);
-  const [activeImportJobId, setActiveImportJobId] = useState('');
+  const [selectedImportJob, setSelectedImportJob] = useState(null);
   const queryKey = queryKeys.adminCourseMaterials(materialCourseId);
 
   const materialsQuery = useQuery({
@@ -49,12 +49,15 @@ export function useCourseMaterials({
     enabled: Boolean(materialCourseId),
     staleTime: 5_000,
   });
-  useEffect(() => {
-    const latestJob = Array.isArray(importJobsQuery.data) ? importJobsQuery.data[0] : null;
-    if (latestJob?.id && latestJob.courseId === materialCourseId) {
-      setActiveImportJobId(String(latestJob.id));
-    }
-  }, [importJobsQuery.data, materialCourseId]);
+  const latestImportJob = Array.isArray(importJobsQuery.data) ? importJobsQuery.data[0] : null;
+  const activeImportJobId = selectedImportJob?.courseId === materialCourseId
+    ? selectedImportJob.id
+    : latestImportJob?.courseId === materialCourseId && latestImportJob?.id
+      ? String(latestImportJob.id)
+      : '';
+  const selectActiveImportJob = (jobId) => {
+    if (jobId) setSelectedImportJob({ id: String(jobId), courseId: materialCourseId });
+  };
   const importJobQuery = useQuery({
     queryKey: ['admin', 'material-import-job', activeImportJobId || 'none'],
     queryFn: ({ signal }) => materialsApi.getImportJob(activeImportJobId, { signal }),
@@ -162,7 +165,7 @@ export function useCourseMaterials({
     const previousCount = courseMaterials.length;
     try {
       const receipt = await materialsApi.uploadMaterial(materialCourseId, formData);
-      if (receipt?.jobId) setActiveImportJobId(String(receipt.jobId));
+      selectActiveImportJob(receipt?.jobId);
       const appeared = await refreshCourseMaterialsWithRetry(materialCourseId, previousCount, values.title);
       formMaterial.resetFields(['title']);
       setMaterialFile(null);
@@ -198,7 +201,7 @@ export function useCourseMaterials({
 
   const handleWebsiteMaterialImported = async (response) => {
     const expectedTitle = response?.title || 'Tài liệu website';
-    if (response?.jobId) setActiveImportJobId(String(response.jobId));
+    selectActiveImportJob(response?.jobId);
     await refreshCourseMaterialsWithRetry(materialCourseId, courseMaterials.length, expectedTitle);
     await onCourseSyllabusUpdated?.();
   };
