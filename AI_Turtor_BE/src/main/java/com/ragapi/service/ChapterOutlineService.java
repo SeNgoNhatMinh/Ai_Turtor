@@ -785,16 +785,112 @@ public class ChapterOutlineService {
         if (content == null || content.isBlank() || title == null || title.isBlank()) {
             return "";
         }
-        int index = indexOfIgnoreCase(content, title);
-        if (index < 0) {
+        List<TitleHit> hits = locateTitleHits(content, title.trim());
+        if (hits.isEmpty()) {
             return "";
         }
-        int start = Math.max(0, index);
-        int nextHeading = findNextSectionStart(content, start + title.length());
-        if (nextHeading > start) {
-            return content.substring(start, nextHeading).trim();
+        TitleHit best = hits.get(0);
+        int bestScore = Integer.MIN_VALUE;
+        for (TitleHit hit : hits) {
+            int score = scoreTitleHit(content, hit);
+            if (score > bestScore) {
+                bestScore = score;
+                best = hit;
+            }
         }
-        return content.substring(start).trim();
+        boolean subsection = title.trim().matches("(?i)^\\d+(?:\\.\\d+)+\\b.*");
+        int nextHeading = findNextSectionStart(content, best.end(), subsection, chapterNumberBefore(content, best.start()));
+        String section = nextHeading > best.start()
+                ? content.substring(best.start(), nextHeading).trim()
+                : content.substring(best.start()).trim();
+        if (section.length() > MENTOR_EXCERPT_LIMIT) {
+            return section.substring(0, MENTOR_EXCERPT_LIMIT).trim();
+        }
+        return section;
+    }
+
+    private record TitleHit(int start, int end) {
+    }
+
+    private static List<TitleHit> locateTitleHits(String content, String title) {
+        StringBuilder normalized = new StringBuilder(content.length());
+        int[] origin = new int[content.length() + 1];
+        boolean pendingSpace = false;
+        for (int index = 0; index < content.length(); index++) {
+            char character = content.charAt(index);
+            if (Character.isWhitespace(character)) {
+                pendingSpace = !normalized.isEmpty();
+                continue;
+            }
+            if (pendingSpace) {
+                origin[normalized.length()] = index;
+                normalized.append(' ');
+                pendingSpace = false;
+            }
+            origin[normalized.length()] = index;
+            normalized.append(Character.toLowerCase(character));
+        }
+        String haystack = normalized.toString();
+        String needle = title.toLowerCase(java.util.Locale.ROOT).replaceAll("\\s+", " ").trim();
+        if (needle.isEmpty()) {
+            return List.of();
+        }
+        List<TitleHit> hits = new ArrayList<>();
+        int from = 0;
+        while (from <= haystack.length() - needle.length()) {
+            int found = haystack.indexOf(needle, from);
+            if (found < 0) {
+                break;
+            }
+            int last = found + needle.length() - 1;
+            hits.add(new TitleHit(origin[found], origin[last] + 1));
+            from = found + needle.length();
+        }
+        return hits;
+    }
+
+    private static int scoreTitleHit(String content, TitleHit hit) {
+        int lineStart = content.lastIndexOf('\n', Math.max(0, hit.start() - 1)) + 1;
+        String beforeOnLine = content.substring(lineStart, hit.start());
+        String lookback = content.substring(Math.max(0, hit.start() - 80), hit.start())
+                .replaceAll("\\s+", " ")
+                .toLowerCase(java.util.Locale.ROOT);
+        int score = 0;
+        if (lookback.matches(".*chapter\\s+\\d+\\s*")) {
+            score += 300;
+        }
+        if (beforeOnLine.isBlank() || beforeOnLine.matches("(?i)[\\d\\s.:-]*")) {
+            score += 80;
+        }
+        if (hit.start() > 0 && Character.isLetter(content.charAt(hit.start() - 1))) {
+            score -= 150;
+        }
+        if (trailingPageNumber(content, hit)) {
+            score -= 50;
+        }
+        return score;
+    }
+
+    private static boolean trailingPageNumber(String content, TitleHit hit) {
+        int lineEnd = content.indexOf('\n', hit.start());
+        if (lineEnd < 0) {
+            lineEnd = content.length();
+        }
+        if (hit.end() > lineEnd) {
+            return false;
+        }
+        String after = content.substring(hit.end(), lineEnd).trim();
+        return after.matches("[.|\\u2026\\s]*\\d{1,4}");
+    }
+
+    private static Integer chapterNumberBefore(String content, int index) {
+        String lookback = content.substring(Math.max(0, index - 120), Math.min(content.length(), index));
+        Matcher matcher = Pattern.compile("(?i)chapter\\s+(\\d+)\\b").matcher(lookback);
+        Integer number = null;
+        while (matcher.find()) {
+            number = Integer.parseInt(matcher.group(1));
+        }
+        return number;
     }
 
     private static int indexOfIgnoreCase(String content, String title) {
@@ -803,18 +899,38 @@ public class ChapterOutlineService {
         return lowerContent.indexOf(lowerTitle);
     }
 
-    private static int findNextSectionStart(String content, int fromIndex) {
+    private static int findNextSectionStart(
+            String content,
+            int fromIndex,
+            boolean stopAtSubsections,
+            Integer currentChapter
+    ) {
         if (fromIndex >= content.length()) {
             return content.length();
         }
         String tail = content.substring(fromIndex);
-        java.util.regex.Matcher matcher = java.util.regex.Pattern
-                .compile("(?m)^(?:Chapter\\s+\\d+|\\d+(?:\\.\\d+)+\\s+\\p{L}).{0,80}$")
+        Matcher chapter = Pattern
+                .compile("(?im)^[ \\t]*(?:\\d{1,4}[ \\t]+)?chapter[ \\t]+(\\d+)\\b")
                 .matcher(tail);
-        if (matcher.find()) {
-            return fromIndex + matcher.start();
+        int chapterEnd = content.length();
+        while (chapter.find()) {
+            int number = Integer.parseInt(chapter.group(1));
+            if (currentChapter != null && number == currentChapter) {
+                continue;
+            }
+            chapterEnd = fromIndex + chapter.start();
+            break;
         }
-        return content.length();
+        if (!stopAtSubsections) {
+            return chapterEnd;
+        }
+        Matcher subsection = Pattern
+                .compile("(?m)^[ \\t]*\\d+(?:\\.\\d+)+[ \\t]+\\p{L}")
+                .matcher(tail);
+        if (subsection.find()) {
+            return Math.min(chapterEnd, fromIndex + subsection.start());
+        }
+        return chapterEnd;
     }
 
     private void appendExcerptText(StringBuilder excerpt, String text, int excerptLimit, boolean fullSectionRequested) {

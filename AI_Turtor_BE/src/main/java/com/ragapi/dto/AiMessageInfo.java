@@ -28,7 +28,9 @@ public class AiMessageInfo {
     private Boolean proactive;
     private Boolean pinned;
     private LocalDateTime pinnedAt;
+    private String understandingAttemptId;
     private String understandingSelectedKey;
+    private Boolean understandingCorrect;
     private LocalDateTime understandingAnsweredAt;
     private UnderstandingCheckPayload understandingCheck;
     private LocalDateTime createdAt;

@@ -312,7 +312,7 @@ export default function ImportWebsiteModal({
       const response = await materialApi.importCourseMaterialUrl(courseId, payload);
 
       triggerToast?.('Đã bắt đầu import. Hệ thống đang lập chỉ mục trong nền.');
-      await onUploaded?.(response?.title || title || 'Tài liệu website');
+      await onUploaded?.(response);
       onClose();
     } catch (error) {
       triggerToast?.(getUserFacingError(error, error?.message || 'Không thể bắt đầu import website.'));

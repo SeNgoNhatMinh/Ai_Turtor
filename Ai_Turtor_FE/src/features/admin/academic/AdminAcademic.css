@@ -287,3 +287,17 @@ body.theme-dark .admin-material-loading,
   margin-top: -8px;
   margin-bottom: 14px;
 }
+.admin-import-progress {
+  margin-top: 16px;
+}
+
+.admin-import-progress .ant-steps {
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+@media (max-width: 575px) {
+  .admin-import-progress .ant-card-body {
+    padding: 12px;
+  }
+}

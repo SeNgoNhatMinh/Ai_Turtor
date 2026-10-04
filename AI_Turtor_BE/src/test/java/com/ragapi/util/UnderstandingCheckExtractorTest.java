@@ -34,4 +34,29 @@ class UnderstandingCheckExtractorTest {
     void returnsNullForOrdinaryAnswer() {
         assertThat(UnderstandingCheckExtractor.extract("Giải thích vòng đời Servlet.")).isNull();
     }
+
+    @Test
+    void hidesAnswerMetadataUntilTheStudentSubmits() {
+        String answer = """
+                ## Kiểm tra hiểu
+                Câu hỏi: Spring dùng thành phần nào?
+                A. Filter
+                B. ViewResolver
+                C. Listener
+                Đáp án: B
+                Giải thích: ViewResolver phân giải tên view.
+
+                ## Học chuyên sâu
+                - MVC
+                """;
+
+        UnderstandingCheckPayload stored = UnderstandingCheckExtractor.extract(answer);
+        UnderstandingCheckPayload student = UnderstandingCheckExtractor.studentView(stored, false);
+        String visible = UnderstandingCheckExtractor.stripHiddenAnswerMetadata(answer);
+
+        assertThat(student.getCorrectKey()).isEmpty();
+        assertThat(student.getExplanation()).isEmpty();
+        assertThat(visible).doesNotContain("Đáp án:", "Giải thích:");
+        assertThat(visible).contains("## Học chuyên sâu");
+    }
 }

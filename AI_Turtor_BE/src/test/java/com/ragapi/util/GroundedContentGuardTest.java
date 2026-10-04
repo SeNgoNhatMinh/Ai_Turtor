@@ -15,6 +15,20 @@ class GroundedContentGuardTest {
     }
 
     @Test
+    void ignoresAVietnameseParentheticalAside() {
+        String question = """
+                Ôn lại sau câu trả lời chưa đúng.
+                Câu vừa làm: Khi bạn muốn đếm số lần xuất hiện của một từ trong một đoạn văn bản, việc sử dụng một function hay một object trong Python sẽ?
+                Hãy giảng lại bằng Giải thích khái niệm (Conceptual Explanation) và Minh họa trực quan (Visual Representation).
+                """;
+
+        assertThat(GroundedContentGuard.unsupportedCallReferences(
+                question,
+                "A function counts each word. An object can store the count and the word."
+        )).isEmpty();
+    }
+
+    @Test
     void acceptsFunctionMentionWhenMaterialContainsIt() {
         assertThat(GroundedContentGuard.unsupportedCallReferences(
                 "isinstance() dùng để làm gì?",

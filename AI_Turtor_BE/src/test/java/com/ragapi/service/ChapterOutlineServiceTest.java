@@ -187,6 +187,37 @@ class ChapterOutlineServiceTest {
     }
 
     @Test
+    void extractSectionByTitleSkipsPrefaceAndContentsForTheChapterBody() {
+        String content = """
+                The later chapters cover object-oriented programming, using web services.
+                1.1 Early topic
+                Early details.
+
+                14 Object-oriented programming 167
+
+                Chapter 14
+                Object-oriented
+                programming
+                14.1 Managing larger programs
+                A program can be split into objects.
+                class PartyAnimal:
+                    x = 0
+                168 CHAPTER 14. OBJECT-ORIENTED PROGRAMMING
+                14.2 Getting started
+                Objects bundle code and data.
+
+                Chapter 15
+                Databases
+                SQL here.
+                """;
+        String section = ChapterOutlineService.extractSectionByTitle(content, "Object-oriented programming");
+        assertTrue(section.contains("class PartyAnimal"));
+        assertTrue(section.contains("Objects bundle code and data"));
+        assertFalse(section.contains("The later chapters"));
+        assertFalse(section.contains("SQL here"));
+    }
+
+    @Test
     void confirmChaptersMarksSelectedAsConfirmed() {
         CourseChapterOutline a = CourseChapterOutline.builder()
                 .id("O1").courseId("PRJ301").chapterKey("jsp").title("JSP").status("SUGGESTED").build();

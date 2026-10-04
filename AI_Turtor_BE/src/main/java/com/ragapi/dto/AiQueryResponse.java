@@ -51,6 +51,9 @@ public class AiQueryResponse {
     @Schema(description = "Whether the question was escalated to a teacher or mentor")
     private Boolean escalated;
 
+    @Schema(description = "Stable workflow outcome: ANSWERED, NEEDS_MENTOR, AI_UNAVAILABLE, or QUOTA_REACHED")
+    private String outcome;
+
     @Schema(description = "Reason for escalation when escalated is true")
     private String escalationReason;
 
@@ -107,8 +110,12 @@ public class AiQueryResponse {
     private Integer dailyQuestionRemaining;
 
     public void setAnswer(String answer) {
-        this.answer = TextSanitizer.cleanForStudentAnswer(answer);
-        this.understandingCheck = UnderstandingCheckExtractor.extract(this.answer);
+        String cleaned = TextSanitizer.cleanForStudentAnswer(answer);
+        this.understandingCheck = UnderstandingCheckExtractor.studentView(
+                UnderstandingCheckExtractor.extract(cleaned),
+                false
+        );
+        this.answer = UnderstandingCheckExtractor.stripHiddenAnswerMetadata(cleaned);
     }
 
     public void setIntentReason(String intentReason) {

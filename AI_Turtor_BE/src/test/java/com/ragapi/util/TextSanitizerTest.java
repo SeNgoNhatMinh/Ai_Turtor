@@ -53,6 +53,12 @@ class TextSanitizerTest {
     }
 
     @Test
+    void keepsATextbookLessonThatMentionsApiKeys() {
+        assertFalse(TextSanitizer.isSystemFailureOrEscalationAnswer(
+                "Tài liệu cho biết API key thường được đưa vào dữ liệu POST hoặc tham số URL."));
+    }
+
+    @Test
     void normalizeAccentInsensitiveMatchesWithAndWithoutDiacritics() {
         String withDiacritics = TextSanitizer.normalizeAccentInsensitive("Máy ảo Java hoạt động?");
         String withoutDiacritics = TextSanitizer.normalizeAccentInsensitive("may ao java HOAT DONG!!!");

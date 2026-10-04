@@ -7,6 +7,7 @@ import com.ragapi.service.CourseMaterialChunkingService;
 import com.ragapi.service.course.model.RetrievedCourseChunk;
 import com.ragapi.util.TextSanitizer;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -20,6 +21,7 @@ import java.util.stream.Collectors;
 /** Retrieves textbook chunks explicitly linked to an improve-plan item. */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class CourseImprovePlanContextService {
 
     private static final Set<String> STOP_WORDS = Set.of(
@@ -57,14 +59,21 @@ public class CourseImprovePlanContextService {
                         .filter(id -> !id.isBlank())
                         .collect(Collectors.toCollection(LinkedHashSet::new));
         List<String> terms = mergeRetrievalTerms(ragQueryIntent);
-        List<RetrievedCourseChunk> result = new ArrayList<>();
+        List<CourseMaterial> materials = materialRepository.findAllById(materialIds);
+        boolean staleMaterialProvenance = materials.stream()
+                .noneMatch(material -> isUsableTextbook(material, courseId, classId));
+        if (staleMaterialProvenance) {
+            log.warn(
+                    "Source material provenance is stale; falling back to ranked course retrieval "
+                            + "(courseId={}, staleMaterialIds={})",
+                    courseId,
+                    materialIds);
+            return List.of();
+        }
 
-        for (CourseMaterial material : materialRepository.findAllById(materialIds)) {
-            if (material == null || !courseId.equalsIgnoreCase(Objects.toString(material.getCourseId(), ""))
-                    || !isMaterialVisibleForClass(material, classId)
-                    || isNonTextbookMaterial(material)
-                    || material.getContent() == null
-                    || material.getContent().isBlank()) {
+        List<RetrievedCourseChunk> result = new ArrayList<>();
+        for (CourseMaterial material : materials) {
+            if (!isUsableTextbook(material, courseId, classId)) {
                 continue;
             }
             List<CourseMaterialChunkingService.HierarchicalChunk> chunks = chunkingService.chunkHierarchically(material);
@@ -76,7 +85,7 @@ public class CourseImprovePlanContextService {
                     continue;
                 }
                 result.add(new RetrievedCourseChunk(
-                        chunk.parentContent(),
+                        groundedChunkContent(chunk),
                         exactChunk ? 0.99 : Math.min(0.97, 0.82 + (termMatchScore / 100.0)),
                         material.getId(),
                         material.getCourseId(),
@@ -101,6 +110,27 @@ public class CourseImprovePlanContextService {
                         Objects.requireNonNullElse(left.score(), 0.0)))
                 .limit(6)
                 .toList();
+    }
+
+    private String groundedChunkContent(CourseMaterialChunkingService.HierarchicalChunk chunk) {
+        String parent = Objects.toString(chunk.parentContent(), "").trim();
+        String content = Objects.toString(chunk.content(), "").trim();
+        if (parent.isBlank() || parent.equals(content)) {
+            return content;
+        }
+        if (content.isBlank() || parent.contains(content)) {
+            return parent;
+        }
+        return parent + "\n\n" + content;
+    }
+
+    private boolean isUsableTextbook(CourseMaterial material, String courseId, String classId) {
+        return material != null
+                && courseId.equalsIgnoreCase(Objects.toString(material.getCourseId(), ""))
+                && isMaterialVisibleForClass(material, classId)
+                && !isNonTextbookMaterial(material)
+                && material.getContent() != null
+                && !material.getContent().isBlank();
     }
 
     private List<String> mergeRetrievalTerms(RagQueryIntent ragQueryIntent) {
@@ -168,7 +198,7 @@ public class CourseImprovePlanContextService {
     private List<String> extractSignificantTokens(String text) {
         String normalized = normalizeForMatch(text);
         List<String> tokens = new ArrayList<>();
-        for (String raw : normalized.split("\\s+")) {
+        for (String raw : normalized.split("[^\\p{L}\\p{N}_.]+")) {
             String token = raw.trim();
             if (token.length() < 3 || STOP_WORDS.contains(token)) {
                 continue;

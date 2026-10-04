@@ -3,6 +3,7 @@ package com.ragapi.service.course.search;
 import com.ragapi.service.course.model.RetrievedCourseChunk;
 import com.ragapi.service.*;
 import com.ragapi.entity.CourseMaterial;
+import com.ragapi.util.RagStageTimer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -32,6 +33,9 @@ public class CourseSectionExpansionService {
             List<RetrievedCourseChunk> rankedChildren,
             Map<String, CourseMaterial> materialsById
     ) {
+        long started = RagStageTimer.start();
+        int beforeChars = totalChars(rankedChildren);
+        try {
         if (rankedChildren == null || rankedChildren.isEmpty() || materialsById == null || materialsById.isEmpty()) {
             return rankedChildren == null ? List.of() : rankedChildren;
         }
@@ -52,8 +56,11 @@ public class CourseSectionExpansionService {
             CourseMaterialChunkingService.HierarchicalChunk matched = findChild(child, material, hierarchyCache);
             if (matched == null || matched.parentContent() == null || matched.parentContent().isBlank()) continue;
 
+            RetrievedCourseChunk parentChunk = toParentChunk(child, matched);
+            if (parentChunk == null || !containsText(parentChunk.content(), child.content())) continue;
+
             String parentKey = material.getId() + '|' + matched.sectionId();
-            parents.putIfAbsent(parentKey, toParentChunk(child, matched));
+            parents.putIfAbsent(parentKey, parentChunk);
         }
 
         if (parents.isEmpty()) return rankedChildren;
@@ -65,17 +72,34 @@ public class CourseSectionExpansionService {
         }
         log.info("Parent-child retrieval expanded {} child hits into {} parent sections ({} total candidates)",
                 rankedChildren.size(), parents.size(), expanded.size());
+        log.info("Section expansion context chars before={} after={} added={}",
+                beforeChars, totalChars(expanded), Math.max(0, totalChars(expanded) - beforeChars));
         return expanded;
+        } finally {
+            RagStageTimer.record("T9_SECTION_EXPANSION", started);
+        }
+    }
+
+    public boolean requiresExpansion(List<RetrievedCourseChunk> chunks) {
+        return chunks != null && chunks.stream().anyMatch(chunk -> chunk != null
+                && !"SECTION".equalsIgnoreCase(chunk.nodeType()));
+    }
+
+    private int totalChars(List<RetrievedCourseChunk> chunks) {
+        if (chunks == null) return 0;
+        return chunks.stream().filter(Objects::nonNull).map(RetrievedCourseChunk::content)
+                .filter(Objects::nonNull).mapToInt(String::length).sum();
     }
 
     private boolean isCovered(
             RetrievedCourseChunk parent, RetrievedCourseChunk child) {
         if (!Objects.equals(parent.materialId(), child.materialId())) return false;
-        if (parent.sectionId() != null && child.sectionId() != null) {
-            return parent.sectionId().equals(child.sectionId());
-        }
-        return parent.content() != null && child.content() != null
-                && normalize(parent.content()).contains(normalize(child.content()));
+        return containsText(parent.content(), child.content());
+    }
+
+    private boolean containsText(String parent, String child) {
+        if (parent == null || child == null || child.isBlank()) return false;
+        return normalize(parent).contains(normalize(child));
     }
 
     private CourseMaterialChunkingService.HierarchicalChunk findChild(
@@ -108,6 +132,7 @@ public class CourseSectionExpansionService {
             CourseMaterialChunkingService.HierarchicalChunk matched
     ) {
         String parentContent = parentWindow(matched.parentContent(), child.content(), MAX_PARENT_CHARS);
+        if (parentContent == null || parentContent.isBlank()) return null;
         return new RetrievedCourseChunk(
                 parentContent,
                 child.score(),
@@ -136,8 +161,10 @@ public class CourseSectionExpansionService {
     }
 
     private String parentWindow(String value, String childContent, int maxChars) {
-        if (value == null || value.length() <= maxChars) return value;
-        int childPosition = childContent == null ? 0 : value.indexOf(childContent);
+        if (value == null || value.isBlank()) return null;
+        if (value.length() <= maxChars) return value;
+        if (childContent == null || childContent.isBlank() || value.indexOf(childContent) < 0) return null;
+        int childPosition = value.indexOf(childContent);
         int start = Math.max(0, childPosition - 800);
         if (start > 0) {
             int nextSpace = value.indexOf(' ', start);

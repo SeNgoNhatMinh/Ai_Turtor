@@ -101,9 +101,8 @@ public class CourseMaterialTextSearchService {
                     continue;
                 }
                 double relevance = relevance(queryTokens, query, chunk);
-                String parentContent = parentWindow(hierarchicalChunk.parentContent(), chunk, 3_600);
                 RetrievedCourseChunk searchChunk = new RetrievedCourseChunk(
-                        parentContent,
+                        chunk,
                         relevance > 0 ? RELEVANT_BASE_SCORE + Math.min(0.25, relevance * 0.25) : FALLBACK_BASE_SCORE,
                         material.getId(),
                         material.getCourseId(),
@@ -118,7 +117,7 @@ public class CourseMaterialTextSearchService {
                         null,
                         hierarchicalChunk.chunkId(),
                         hierarchicalChunk.chunkIndex(),
-                        "SECTION"
+                        "CHUNK"
                 );
                 if (!capturedFirstChunk) {
                     firstAvailable.add(searchChunk);
@@ -147,14 +146,6 @@ public class CourseMaterialTextSearchService {
             );
         }
         return result;
-    }
-
-    private String parentWindow(String parent, String child, int maxChars) {
-        if (parent == null || parent.length() <= maxChars) return parent == null ? child.trim() : parent.trim();
-        int position = child == null ? 0 : parent.indexOf(child);
-        int start = Math.max(0, position - 800);
-        int end = Math.min(parent.length(), start + maxChars);
-        return parent.substring(start, end).trim();
     }
 
     private boolean isTextbookMaterial(CourseMaterial material) {

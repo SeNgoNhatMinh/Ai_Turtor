@@ -15,9 +15,13 @@ import com.ragapi.util.StudentAnswerCompletenessGuard;
 import com.ragapi.util.StudentFacingMessages;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Locale;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /** Builds the prompt, invokes the model, validates its output, and records the result. */
 @Slf4j
@@ -30,6 +34,9 @@ public class CourseAnswerGenerationStageService {
     private final CourseAnswerEvidenceService evidenceService;
     private final CanonicalTutorAnswerCacheService answerCacheService;
     private final CourseAnswerResultService resultService;
+
+    @Value("${rag.generation.quality-fallback-enabled:false}")
+    private boolean qualityFallbackEnabled;
 
     public CourseRagAnswer generate(CourseAnswerPreparation prepared) {
         CourseAnswerRequest request = prepared.request();
@@ -53,6 +60,14 @@ public class CourseAnswerGenerationStageService {
             String answer = generateUsableAnswer(prepared, prompt, request);
             if (!hasText(answer) || StudentFacingMessages.isUnavailableMessage(answer)) {
                 log.warn("Grounded tutor generation returned no usable answer");
+                if (prepared.understandingRemediation()) {
+                    return resultService.blocked(
+                            StudentFacingMessages.GENERATION_BUSY,
+                            0.0,
+                            prepared.sourceLabels(),
+                            "All eligible LLM providers failed during understanding remediation"
+                    );
+                }
                 return resultService.softUnavailable(StudentFacingMessages.GENERATION_BUSY, prepared.sourceLabels());
             }
             answer = GroundedContentGuard.stripUnsupportedOptionalSections(answer, prepared.context());
@@ -60,36 +75,61 @@ public class CourseAnswerGenerationStageService {
                 log.warn("Removed an abbreviated example output containing an ellipsis placeholder");
                 answer = StudentAnswerCompletenessGuard.removeAbbreviatedExampleOutputs(answer);
             }
+            String firstAnswer = answer;
             boolean initialInsufficientMaterialAnswer =
-                    StudentFacingMessages.isInsufficientMaterialAnswer(answer);
-            if (StudentAnswerCompletenessGuard.isClearlyIncomplete(answer)
+                    StudentFacingMessages.isInsufficientMaterialAnswer(answer)
+                            && !hasTeachableLesson(answer);
+            boolean highSupport = isHighSupport(request);
+            boolean droppedWorkedExample = highSupportDroppedWorkedExample(
+                    highSupport, prepared.context(), answer);
+            boolean recoveryNeeded = StudentAnswerCompletenessGuard.isClearlyIncomplete(answer)
                     || isIncompleteLesson(request, answer)
-                    || initialInsufficientMaterialAnswer) {
+                    || initialInsufficientMaterialAnswer
+                    || droppedWorkedExample;
+            boolean shouldUseQualityFallback = qualityFallbackEnabled
+                    || prepared.understandingRemediation()
+                    || contextContainsRequestedMethod(prepared.question(), prepared.context())
+                    || droppedWorkedExample;
+            if (recoveryNeeded && shouldUseQualityFallback) {
                 log.warn("Retrying grounded tutor generation after an incomplete answer or an unsupported model refusal");
-                answer = generationService.generateGroundedQualityFallbackAnswer(
-                        recoveryPrompt(prompt),
+                String retried = generationService.generateGroundedQualityFallbackAnswer(
+                        recoveryPrompt(prompt, highSupport),
                         prepared.question(),
                         request.teachingMode(),
                         prepared.context(),
                         request.learnerMemoryContext()
                 );
-                answer = GroundedContentGuard.stripUnsupportedOptionalSections(answer, prepared.context());
-                if (StudentAnswerCompletenessGuard.containsAbbreviatedExampleOutput(answer)) {
-                    answer = StudentAnswerCompletenessGuard.removeAbbreviatedExampleOutputs(answer);
+                retried = GroundedContentGuard.stripUnsupportedOptionalSections(retried, prepared.context());
+                if (StudentAnswerCompletenessGuard.containsAbbreviatedExampleOutput(retried)) {
+                    retried = StudentAnswerCompletenessGuard.removeAbbreviatedExampleOutputs(retried);
                 }
+                if (isDeliverableLesson(retried)) {
+                    answer = retried;
+                } else if (hasTeachableLesson(firstAnswer)) {
+                    log.warn("Keeping the first grounded lesson because the retry did not return a usable answer");
+                    answer = firstAnswer;
+                } else {
+                    answer = retried;
+                }
+            } else if (recoveryNeeded && !initialInsufficientMaterialAnswer) {
+                // A usable first answer is preferable to starting another complete provider
+                // chain that can outlive the synchronous n8n request deadline.
+                log.warn("Accepting usable single-pass answer; quality fallback is disabled");
             }
-            if (StudentFacingMessages.isInsufficientMaterialAnswer(answer)
+            if ((StudentFacingMessages.isInsufficientMaterialAnswer(answer) && !hasTeachableLesson(answer))
                     || (initialInsufficientMaterialAnswer
                     && (!hasText(answer)
                     || StudentFacingMessages.isUnavailableMessage(answer)
                     || StudentAnswerCompletenessGuard.isClearlyIncomplete(answer)
                     || isIncompleteLesson(request, answer)))) {
-                log.warn("Grounded tutor declined despite retrying with deterministic grounding context");
+                log.warn(shouldUseQualityFallback
+                        ? "Grounded tutor declined despite retrying with deterministic grounding context"
+                        : "Grounded tutor declined with insufficient material; quality fallback is disabled");
                 return insufficientMaterial(prepared);
             }
             if (!hasText(answer) || StudentFacingMessages.isUnavailableMessage(answer)
-                    || StudentAnswerCompletenessGuard.isClearlyIncomplete(answer)
-                    || isIncompleteLesson(request, answer)) {
+                    || (qualityFallbackEnabled && (StudentAnswerCompletenessGuard.isClearlyIncomplete(answer)
+                    || isIncompleteLesson(request, answer)))) {
                 log.warn("Grounded tutor generation ended with an incomplete student answer");
                 return resultService.softUnavailable(StudentFacingMessages.GENERATION_BUSY, prepared.sourceLabels());
             }
@@ -126,41 +166,107 @@ public class CourseAnswerGenerationStageService {
             CourseAnswerRequest request
     ) {
         try {
-            String answer = generationService.generateGroundedAnswer(
+            return generationService.generateGroundedAnswer(
                     prompt,
                     prepared.question(),
                     request.teachingMode(),
                     prepared.context(),
                     request.learnerMemoryContext()
             );
-            if (hasText(answer) && !StudentFacingMessages.isUnavailableMessage(answer)) {
-                return answer;
-            }
         } catch (RuntimeException firstAttempt) {
             log.warn("First grounded tutor generation failed: {}", firstAttempt.getMessage());
+            return StudentFacingMessages.GENERATION_UNAVAILABLE;
         }
-        log.warn("Retrying grounded tutor generation after an empty, unavailable, or failed answer");
-        return generationService.generateGroundedAnswer(
-                prompt,
-                prepared.question(),
-                request.teachingMode(),
-                prepared.context(),
-                request.learnerMemoryContext()
-        );
+    }
+
+    private boolean contextContainsRequestedMethod(String question, String context) {
+        String evidence = context == null ? "" : context.toLowerCase(Locale.ROOT);
+        Matcher matcher = Pattern.compile(
+                "(?iu)(?<![\\p{L}\\p{N}_])([a-z_][a-z0-9_]{3,})(?![\\p{L}\\p{N}_])"
+        ).matcher(question == null ? "" : question.toLowerCase(Locale.ROOT));
+        while (matcher.find()) {
+            String identifier = matcher.group(1);
+            if (evidence.contains("." + identifier + "(") || evidence.contains(identifier + "(")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean hasText(String value) {
         return value != null && !value.isBlank();
     }
 
-    private String recoveryPrompt(String prompt) {
-        return prompt + """
+    private String recoveryPrompt(String prompt, boolean highSupport) {
+        String recovery = prompt + """
 
                 RECOVERY INSTRUCTION:
                 Deterministic retrieval and grounding checks already verified that the supplied course excerpts are
                 relevant enough to answer. Re-read those excerpts and answer only from them. Do not claim the course
                 material is missing merely because the wording of the question differs from a chapter heading.
                 """;
+        if (!highSupport) {
+            return recovery;
+        }
+        return recovery + """
+
+                HIGH_SUPPORT RECOVERY:
+                This student needs one short textbook example for each concept the excerpts explain. Explain every
+                shown line in simple Vietnamese. Do not copy every >>> prompt in the chapter, do not invent an
+                example, and do not claim the course material is missing when the excerpts already answer.
+                """;
+    }
+
+    private boolean isHighSupport(CourseAnswerRequest request) {
+        String context = request == null ? null : request.pedagogicalContext();
+        return context != null && context.toUpperCase(Locale.ROOT).contains("HIGH_SUPPORT");
+    }
+
+    /**
+     * Retry only when the textbook shows an interactive example and the answer shows none.
+     * A chapter full of >>> prompts must not force a second provider chain after one example.
+     */
+    private boolean highSupportDroppedWorkedExample(boolean highSupport, String context, String answer) {
+        if (!highSupport || countOccurrences(context, ">>>") < 1) {
+            return false;
+        }
+        String text = answer == null ? "" : answer;
+        return countOccurrences(text, "```") / 2 < 1 && !text.contains(">>>");
+    }
+
+    private boolean isDeliverableLesson(String value) {
+        return hasText(value)
+                && !StudentFacingMessages.isUnavailableMessage(value)
+                && !(StudentFacingMessages.isInsufficientMaterialAnswer(value) && !hasTeachableLesson(value));
+    }
+
+    private boolean hasTeachableLesson(String value) {
+        if (!hasText(value) || value.length() < 350 || StudentFacingMessages.isUnavailableMessage(value)) {
+            return false;
+        }
+        String lower = value.toLowerCase(Locale.ROOT);
+        return lower.contains("```")
+                || lower.contains(">>>")
+                || lower.contains("list")
+                || lower.contains("tuple")
+                || lower.contains("dict");
+    }
+
+    private int countOccurrences(String value, String needle) {
+        if (value == null || value.isBlank() || needle == null || needle.isEmpty()) {
+            return 0;
+        }
+        int count = 0;
+        int from = 0;
+        while (from < value.length()) {
+            int found = value.indexOf(needle, from);
+            if (found < 0) {
+                return count;
+            }
+            count++;
+            from = found + needle.length();
+        }
+        return count;
     }
 
     private CourseRagAnswer insufficientMaterial(CourseAnswerPreparation prepared) {

@@ -16,7 +16,9 @@ public record RetrievedCourseChunk(
         String sectionTitle,
         String chunkId,
         Integer chunkIndex,
-        String nodeType
+        String nodeType,
+        String language,
+        java.util.List<String> technicalTerms
 ) {
     public RetrievedCourseChunk withScore(Double updatedScore) {
         return new RetrievedCourseChunk(
@@ -35,8 +37,21 @@ public record RetrievedCourseChunk(
                 sectionTitle,
                 chunkId,
                 chunkIndex,
-                nodeType
+                nodeType,
+                language,
+                technicalTerms
         );
+    }
+
+    public RetrievedCourseChunk(
+            String content, Double score, String materialId, String courseId, String classId,
+            String teacherId, String materialScope, String sourceType, String documentId,
+            String chapterId, String chapterTitle, String sectionId, String sectionTitle,
+            String chunkId, Integer chunkIndex, String nodeType
+    ) {
+        this(content, score, materialId, courseId, classId, teacherId, materialScope, sourceType,
+                documentId, chapterId, chapterTitle, sectionId, sectionTitle, chunkId, chunkIndex,
+                nodeType, null, java.util.List.of());
     }
 
     public RetrievedCourseChunk(
@@ -49,7 +64,7 @@ public record RetrievedCourseChunk(
             String materialScope
     ) {
         this(content, score, materialId, courseId, classId, teacherId, materialScope, null,
-                materialId, null, null, null, null, null, null, "CHUNK");
+                materialId, null, null, null, null, null, null, "CHUNK", null, java.util.List.of());
     }
 
     public RetrievedCourseChunk(
@@ -63,6 +78,6 @@ public record RetrievedCourseChunk(
             String sourceType
     ) {
         this(content, score, materialId, courseId, classId, teacherId, materialScope, sourceType,
-                materialId, null, null, null, null, null, null, "CHUNK");
+                materialId, null, null, null, null, null, null, "CHUNK", null, java.util.List.of());
     }
 }

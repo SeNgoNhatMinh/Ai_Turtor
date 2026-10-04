@@ -2,6 +2,8 @@ package com.ragapi.service.course.search;
 
 import com.ragapi.service.course.gateway.CourseKnowledgeSearchGateway;
 import com.ragapi.service.course.model.RetrievedCourseChunk;
+import com.ragapi.util.RagStageTimer;
+import dev.langchain4j.data.embedding.Embedding;
 import com.ragapi.service.*;
 import com.ragapi.util.QuestionOverlapUtil;
 import lombok.RequiredArgsConstructor;
@@ -11,7 +13,6 @@ import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -42,15 +43,34 @@ public class ApprovedKnowledgeSearchService {
             String courseId,
             String classId
     ) {
+        Embedding prepared = null;
+        if (vectorService.supportsPreparedQueryEmbedding()) {
+            try {
+                prepared = vectorService.prepareQueryEmbedding(question);
+            } catch (RuntimeException error) {
+                log.debug("Approved knowledge embedding unavailable; using lexical retrieval: {}", error.getMessage());
+            }
+        }
+        return retrieveRelevant(question, courseId, classId, prepared);
+    }
+
+    public List<RetrievedCourseChunk> retrieveRelevant(
+            String question,
+            String courseId,
+            String classId,
+            Embedding queryEmbedding
+    ) {
+        long started = RagStageTimer.start();
+        try {
         int candidateCount = Math.max(maxChunks, maxChunks * 4);
         List<RetrievedCourseChunk> semanticCandidates;
         try {
-            semanticCandidates = vectorService.searchApprovedKnowledgeWithScores(
-                    question,
-                    courseId,
-                    classId,
-                    candidateCount
-            );
+            semanticCandidates = queryEmbedding == null && vectorService.supportsPreparedQueryEmbedding()
+                    ? List.of()
+                    : queryEmbedding == null
+                    ? vectorService.searchApprovedKnowledgeWithScores(question, courseId, classId, candidateCount)
+                    : vectorService.searchApprovedKnowledgeWithScores(
+                            question, courseId, classId, candidateCount, queryEmbedding);
         } catch (IOException error) {
             log.warn("Semantic approved knowledge retrieval unavailable for courseId={}: {}",
                     courseId, error.getMessage());
@@ -77,9 +97,6 @@ public class ApprovedKnowledgeSearchService {
         List<RetrievedCourseChunk> candidates = new ArrayList<>(candidatesByKey.values());
         List<RetrievedCourseChunk> matches = candidates.stream()
                 .filter(chunk -> isRelevant(question, chunk))
-                .sorted(Comparator.comparing(
-                        (RetrievedCourseChunk chunk) -> chunk.score() == null ? 0.0 : chunk.score(),
-                        Comparator.reverseOrder()))
                 .toList();
         List<RetrievedCourseChunk> limited = collapseDuplicateQuestions(matches).stream()
                 .limit(Math.max(1, maxChunks))
@@ -96,6 +113,9 @@ public class ApprovedKnowledgeSearchService {
             );
         }
         return limited;
+        } finally {
+            RagStageTimer.record("T10_APPROVED_KNOWLEDGE", started);
+        }
     }
 
     private String chunkKey(RetrievedCourseChunk chunk) {
@@ -122,16 +142,7 @@ public class ApprovedKnowledgeSearchService {
         Map<String, RetrievedCourseChunk> byQuestion = new LinkedHashMap<>();
         for (RetrievedCourseChunk chunk : byMaterial.values()) {
             String questionKey = extractQuestionKey(chunk.content());
-            RetrievedCourseChunk existing = byQuestion.get(questionKey);
-            if (existing == null) {
-                byQuestion.put(questionKey, chunk);
-                continue;
-            }
-            double existingScore = existing.score() == null ? 0.0 : existing.score();
-            double nextScore = chunk.score() == null ? 0.0 : chunk.score();
-            if (nextScore > existingScore) {
-                byQuestion.put(questionKey, chunk);
-            }
+            byQuestion.putIfAbsent(questionKey, chunk);
         }
         return new ArrayList<>(byQuestion.values());
     }

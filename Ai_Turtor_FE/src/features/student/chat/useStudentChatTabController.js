@@ -173,33 +173,48 @@ export function useStudentChatTabController({
   };
 
   const handleUnderstandingCheckAnswer = async (answerMessage, selectedKey, attempt = {}) => {
-    await handleLockUnderstandingAnswer?.(answerMessage, selectedKey);
-    if (!attempt.quiz?.correctKey) {
+    const grade = await handleLockUnderstandingAnswer?.(answerMessage, selectedKey);
+    if (!grade) {
+      triggerToast?.('Không thể lưu lần trả lời. Vui lòng thử lại.');
+      return;
+    }
+    if (grade.correct) return grade;
+
+    const remediationContext = {
+      interactionType: 'UNDERSTANDING_REMEDIATION',
+      displayQuestion: attempt.quiz?.question || '',
+      originAssistantMessageId: grade.messageId
+        || answerMessage?.assistantMessageId
+        || answerMessage?.messageId
+        || answerMessage?.id
+        || '',
+      understandingAttemptId: grade.attemptId || '',
+      originalQuestion: attempt.quiz?.question || '',
+    };
+    if (!grade.correctKey && !attempt.quiz?.correctKey) {
       const missingKeyPrompt = buildMissingAnswerKeyRemediationPrompt(
         attempt.quiz,
         attempt.selected,
       );
       if (!missingKeyPrompt) return;
       triggerToast?.('AI Tutor đang kiểm tra đáp án và giảng lại ngay.');
-      sendText(missingKeyPrompt, {
-        interactionType: 'UNDERSTANDING_REMEDIATION',
-        displayQuestion: attempt.quiz?.question || '',
-      });
-      return;
+      sendText(missingKeyPrompt, remediationContext);
+      return grade;
     }
-    if (attempt.isCorrect !== false) return;
 
     const remediationPrompt = buildIncorrectAnswerRemediationPrompt(
-      attempt.quiz,
+      {
+        ...attempt.quiz,
+        correctKey: grade.correctKey || attempt.quiz?.correctKey,
+        explanation: grade.explanation || attempt.quiz?.explanation,
+      },
       attempt.selected,
     );
-    if (!remediationPrompt) return;
+    if (!remediationPrompt) return grade;
 
     triggerToast?.('AI Tutor đang giảng lại theo cách dễ hiểu hơn.');
-    sendText(remediationPrompt, {
-      interactionType: 'UNDERSTANDING_REMEDIATION',
-      displayQuestion: attempt.quiz?.question || '',
-    });
+    sendText(remediationPrompt, remediationContext);
+    return grade;
   };
 
   const setChatDraft = (text) => {

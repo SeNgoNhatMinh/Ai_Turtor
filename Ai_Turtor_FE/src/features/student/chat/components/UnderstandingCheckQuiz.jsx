@@ -57,6 +57,7 @@ function UnderstandingCheckQuiz({
     key: readStoredKey(attemptId, reviewer),
   }));
   const [checkingMissingKey, setCheckingMissingKey] = useState(false);
+  const [gradeResult, setGradeResult] = useState(null);
   const selectedKey = studentKey || (
     localSelection.scope === selectionScope
       ? localSelection.key
@@ -70,12 +71,14 @@ function UnderstandingCheckQuiz({
   const locked = Boolean(selectedKey);
   const fromStudent = Boolean(studentKey);
   const selected = quiz.options.find((item) => item.key === selectedKey);
-  const hasKey = Boolean(quiz.correctKey);
-  const isCorrect = hasKey && selectedKey === quiz.correctKey;
-  const correctOption = quiz.options.find((item) => item.key === quiz.correctKey);
+  const correctKey = String(gradeResult?.correctKey || quiz.correctKey || '').toUpperCase();
+  const explanation = gradeResult?.explanation || quiz.explanation || '';
+  const hasKey = Boolean(correctKey);
+  const isCorrect = hasKey && selectedKey === correctKey;
+  const correctOption = quiz.options.find((item) => item.key === correctKey);
   const actor = reviewer && fromStudent ? 'Sinh viên' : 'Bạn';
 
-  const lockAnswer = (key) => {
+  const lockAnswer = async (key) => {
     if (locked) return;
     const nextKey = String(key || '').trim().toUpperCase();
     if (!nextKey) return;
@@ -83,11 +86,13 @@ function UnderstandingCheckQuiz({
     writeStoredKey(attemptId, reviewer, nextKey);
     if (!reviewer) {
       if (!quiz.correctKey) setCheckingMissingKey(true);
-      onLockAnswer?.(nextKey, {
+      const result = await onLockAnswer?.(nextKey, {
         quiz,
         selected: quiz.options.find((option) => option.key === nextKey),
         isCorrect: Boolean(quiz.correctKey) && nextKey === quiz.correctKey,
       });
+      if (result) setGradeResult(result);
+      setCheckingMissingKey(false);
     }
   };
 
@@ -108,7 +113,7 @@ function UnderstandingCheckQuiz({
         {quiz.options.map((option) => {
           const isSelected = selectedKey === option.key;
           const showGrade = locked && hasKey;
-          const isRightChoice = option.key === quiz.correctKey;
+          const isRightChoice = option.key === correctKey;
           const className = [
             'understanding-check__option',
             isSelected ? 'is-selected' : '',
@@ -137,31 +142,15 @@ function UnderstandingCheckQuiz({
               <p>
                 {isCorrect
                   ? `${actor} chọn ${selected.key}: ${selected.text}`
-                  : `${actor} chọn ${selected.key}. Đáp án đúng là ${quiz.correctKey}${correctOption ? `: ${correctOption.text}` : ''}.`}
+                  : `${actor} chọn ${selected.key}. Đáp án đúng là ${correctKey}${correctOption ? `: ${correctOption.text}` : ''}.`}
               </p>
-              {quiz.explanation ? <p>{quiz.explanation}</p> : null}
+              {explanation ? <p>{explanation}</p> : null}
             </>
           ) : (
             <>
               <strong>{actor} chọn {selected.key}.</strong>
               <p>AI Tutor đang kiểm tra đáp án và sẽ giảng lại ngay bên dưới.</p>
-              {!reviewer ? (
-                <button
-                  type="button"
-                  className="understanding-check__ask"
-                  disabled={checkingMissingKey}
-                  onClick={() => {
-                    setCheckingMissingKey(true);
-                    onLockAnswer?.(selected.key, {
-                      quiz,
-                      selected,
-                      isCorrect: false,
-                    });
-                  }}
-                >
-                  {checkingMissingKey ? 'Đang kiểm tra…' : 'Kiểm tra đáp án'}
-                </button>
-              ) : null}
+              {!reviewer && checkingMissingKey ? <span>Đang kiểm tra…</span> : null}
             </>
           )}
         </div>

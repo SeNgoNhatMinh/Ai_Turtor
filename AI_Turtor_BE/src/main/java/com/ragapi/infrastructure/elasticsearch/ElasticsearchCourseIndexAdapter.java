@@ -3,6 +3,7 @@ package com.ragapi.infrastructure.elasticsearch;
 import com.ragapi.service.CourseMaterialChunkingService;
 import com.ragapi.service.EmbeddingService;
 import com.ragapi.service.course.gateway.CourseMaterialIndexGateway;
+import com.ragapi.service.course.search.LocalRetrievalQueryProcessor;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._types.query_dsl.TermQuery;
 import co.elastic.clients.elasticsearch.core.BulkRequest;
@@ -27,6 +28,7 @@ public class ElasticsearchCourseIndexAdapter implements CourseMaterialIndexGatew
 
     private final ElasticsearchClient elasticsearchClient;
     private final EmbeddingService embeddingService;
+    private final LocalRetrievalQueryProcessor localQueryProcessor;
 
     @Value("${elasticsearch.index}")
     private String index;
@@ -89,6 +91,7 @@ public class ElasticsearchCourseIndexAdapter implements CourseMaterialIndexGatew
         data.put("sourceUrl", sourceUrl);
         data.put("sourceDomain", sourceDomain);
         data.put("content", content);
+        putLanguageMetadata(data, content);
         data.put("vector", embedding.vector());
 
         IndexRequest<Map<String, Object>> request =
@@ -133,6 +136,7 @@ public class ElasticsearchCourseIndexAdapter implements CourseMaterialIndexGatew
             data.put("sourceUrl", sourceUrl);
             data.put("sourceDomain", sourceDomain);
             data.put("content", contents.get(i));
+            putLanguageMetadata(data, contents.get(i));
             data.put("vector", embeddings.get(i).vector());
             bulk.operations(op -> op.index(idx -> idx.index(index).document(data)));
         }
@@ -153,6 +157,23 @@ public class ElasticsearchCourseIndexAdapter implements CourseMaterialIndexGatew
             String sourceUrl,
             String sourceDomain,
             List<CourseMaterialChunkingService.HierarchicalChunk> chunks
+    ) throws IOException {
+        indexHierarchicalChunks(courseId, classId, teacherId, materialId, materialScope,
+                sourceType, sourceUrl, sourceDomain, chunks, null);
+    }
+
+    @Override
+    public void indexHierarchicalChunks(
+            String courseId,
+            String classId,
+            String teacherId,
+            String materialId,
+            String materialScope,
+            String sourceType,
+            String sourceUrl,
+            String sourceDomain,
+            List<CourseMaterialChunkingService.HierarchicalChunk> chunks,
+            String language
     ) throws IOException {
         if (chunks == null || chunks.isEmpty()) return;
         List<String> contents = chunks.stream().map(CourseMaterialChunkingService.HierarchicalChunk::content).toList();
@@ -182,6 +203,7 @@ public class ElasticsearchCourseIndexAdapter implements CourseMaterialIndexGatew
             data.put("nodeType", "CHUNK");
             data.put("parentContent", parentWindow(chunk.parentContent(), chunk.content(), 3_600));
             data.put("content", chunk.content());
+            putLanguageMetadata(data, chunk.content(), language);
             data.put("vector", embeddings.get(i).vector());
             bulk.operations(op -> op.index(idx -> idx
                     .index(index)
@@ -207,6 +229,27 @@ public class ElasticsearchCourseIndexAdapter implements CourseMaterialIndexGatew
             if (boundary > start) end = boundary;
         }
         return parent.substring(start, end).trim();
+    }
+
+    private void putLanguageMetadata(Map<String, Object> data, String content) {
+        putLanguageMetadata(data, content, null);
+    }
+
+    private void putLanguageMetadata(Map<String, Object> data, String content, String explicitLanguage) {
+        LocalRetrievalQueryProcessor.ProcessedQuery processed = localQueryProcessor.process(content);
+        String detected = "mixed".equals(processed.language()) ? "en" : processed.language();
+        data.put("language", explicitLanguage == null || explicitLanguage.isBlank()
+                ? detected
+                : explicitLanguage.trim().toLowerCase(java.util.Locale.ROOT));
+        data.put("technicalTerms", processed.technicalTerms());
+        String chunkId = java.util.Objects.toString(data.get("chunkId"), "");
+        if ("vi".equalsIgnoreCase(explicitLanguage) && chunkId.endsWith("-vi")) {
+            String sourceChunkId = chunkId.substring(0, chunkId.length() - 3);
+            data.put("sourceChunkId", sourceChunkId);
+            data.put("translationOfChunkId", sourceChunkId);
+        } else if (!chunkId.isBlank()) {
+            data.put("sourceChunkId", chunkId);
+        }
     }
 
     public long deleteChunksByMaterialId(String materialId) throws IOException {

@@ -73,29 +73,13 @@ class CourseMaterialControllerAuthorizationTest {
     }
 
     @Test
-    void teacherUploadCannotSpoofAdminOrAnotherTeacherIdentity() throws Exception {
+    void teacherCannotUploadCourseMaterial() throws Exception {
         MockMultipartFile pdf = new MockMultipartFile(
                 "file",
                 "teacher-note.pdf",
                 "application/pdf",
                 "%PDF-1.4 test".getBytes()
         );
-        CourseMaterial stored = material("material-1", "PRJ301", "teacher-1", "TEACHER", "CLASS_SECTION");
-        stored.setClassId("PRJ301-01");
-        stored.setTitle("Teacher note");
-        stored.setSourceFileName("teacher-note.pdf");
-        stored.setIndexingStatus("PROCESSING");
-        when(ingestionService.ingestPdfAsync(
-                eq(pdf),
-                eq("Teacher note"),
-                eq("course-material"),
-                eq("PRJ301"),
-                eq("PRJ301-01"),
-                eq("teacher-1"),
-                eq("CLASS_SECTION"),
-                eq("TEACHER")
-        )).thenReturn(stored);
-
         var response = controller.uploadCourseMaterial(
                 "PRJ301",
                 "PRJ301-01",
@@ -107,19 +91,12 @@ class CourseMaterialControllerAuthorizationTest {
                 authentication("teacher-1", "TEACHER")
         );
 
-        assertEquals(HttpStatus.ACCEPTED, response.getStatusCode());
-        verify(accessGuardService).allowTeacherForClassOrAdmin(
-                "teacher-1", "TEACHER", "PRJ301", "PRJ301-01");
-        verify(ingestionService).ingestPdfAsync(
-                pdf,
-                "Teacher note",
-                "course-material",
-                "PRJ301",
-                "PRJ301-01",
-                "teacher-1",
-                "CLASS_SECTION",
-                "TEACHER"
-        );
+        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
+        verify(ingestionService, never()).ingestPdfAsync(
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
     }
 
     private Authentication authentication(String userId, String role) {

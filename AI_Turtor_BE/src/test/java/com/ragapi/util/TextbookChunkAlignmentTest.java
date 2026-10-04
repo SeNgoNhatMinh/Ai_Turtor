@@ -10,6 +10,53 @@ import static org.assertj.core.api.Assertions.assertThat;
 class TextbookChunkAlignmentTest {
 
     @Test
+    void ranksFunctionCallEvidenceAheadOfGenericIdiomContent() {
+        RetrievedCourseChunk generic = chunk(
+                "Pick an idiom and stick with it when working with mutable lists.",
+                0.95,
+                "generic"
+        );
+        RetrievedCourseChunk append = chunk(
+                "The append method adds an element to a list: t.append('d').",
+                0.60,
+                "append"
+        );
+
+        List<RetrievedCourseChunk> ranked = TextbookChunkAlignment.rank(
+                "Thực hành các idiom như t.append(x)",
+                List.of(generic, append)
+        );
+
+        assertThat(ranked.get(0).materialId()).isEqualTo("append");
+    }
+
+    @Test
+    void ranksActualListAppendComparisonAheadOfRegexAndMethodCatalog() {
+        RetrievedCourseChunk regex = chunk(
+                "The plus and asterisk characters are pushy. When we append [a-zA-Z] to a search string, they match one or more characters.",
+                11.93,
+                "regex"
+        );
+        RetrievedCourseChunk catalog = chunk(
+                "'__getitem__', '__setitem__', 'append', 'extend', 'pop', 'sort'",
+                8.54,
+                "catalog"
+        );
+        RetrievedCourseChunk lesson = chunk(
+                "The append method modifies a list, but the + operator creates a new list: t1.append(3); t3 = t1 + [3].",
+                9.54,
+                "lesson"
+        );
+
+        List<RetrievedCourseChunk> ranked = TextbookChunkAlignment.rank(
+                "So sánh toán tử danh sách + vs append để biết khi nào tạo đối tượng mới",
+                List.of(regex, catalog, lesson)
+        );
+
+        assertThat(ranked.get(0).materialId()).isEqualTo("lesson");
+    }
+
+    @Test
     void ranksJspDefinitionAheadOfTagHandlerPage() {
         RetrievedCourseChunk tagHandler = chunk(
                 "Creating a More Useful Date Formatting Tag Handler for JSP custom tags.",
@@ -211,6 +258,37 @@ class TextbookChunkAlignmentTest {
         );
 
         assertThat(ranked).extracting(RetrievedCourseChunk::materialId).containsExactly("lifecycle");
+    }
+
+    @Test
+    void bilingualDedupKeepsAllChunksFromPreferredRepresentation() {
+        RetrievedCourseChunk en = bilingualChunk("English source", 0.9, "chunk-en", "en");
+        RetrievedCourseChunk vi1 = bilingualChunk("Bản dịch phần một", 0.8, "chunk-vi-1", "vi");
+        RetrievedCourseChunk vi2 = bilingualChunk("Bản dịch phần hai", 0.7, "chunk-vi-2", "vi");
+
+        List<RetrievedCourseChunk> selected = TextbookChunkAlignment.mergeDeduplicated(
+                "vi", List.of(en, vi1, vi2));
+
+        assertThat(selected).extracting(RetrievedCourseChunk::chunkId)
+                .containsExactly("chunk-vi-1", "chunk-vi-2");
+    }
+
+    @Test
+    void bilingualDedupPrefersEnglishForEnglishQuestion() {
+        RetrievedCourseChunk en = bilingualChunk("English source", 0.7, "chunk-en", "en");
+        RetrievedCourseChunk vi = bilingualChunk("Bản dịch", 0.9, "chunk-vi", "vi");
+
+        List<RetrievedCourseChunk> selected = TextbookChunkAlignment.mergeDeduplicated(
+                "en", List.of(vi, en));
+
+        assertThat(selected).extracting(RetrievedCourseChunk::chunkId).containsExactly("chunk-en");
+    }
+
+    private RetrievedCourseChunk bilingualChunk(String content, double score, String chunkId, String language) {
+        return new RetrievedCourseChunk(
+                content, score, "material-1", "PRJ301", null, "t1", "COURSE_SHARED", "PDF",
+                "material-1", "chapter-1", "Chapter", "section-1", "Section", chunkId, 0,
+                "CHUNK", language, List.of());
     }
 
     private RetrievedCourseChunk chunk(String content, double score, String materialId) {

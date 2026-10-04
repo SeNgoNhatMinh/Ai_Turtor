@@ -30,6 +30,7 @@ final class LlmProviderChain {
     private final Duration quotaSoftCooldown;
     private final Duration quotaCooldown;
     private final Duration dailyQuotaCooldown;
+    private final Duration generationDeadline;
     private final boolean reorderOnQuota;
     private final Clock clock;
     private final Map<String, Instant> unavailableUntil = new ConcurrentHashMap<>();
@@ -58,6 +59,20 @@ final class LlmProviderChain {
             boolean reorderOnQuota,
             Clock clock
     ) {
+        this(providers, cooldown, quotaSoftCooldown, quotaCooldown, dailyQuotaCooldown,
+                reorderOnQuota, Duration.ZERO, clock);
+    }
+
+    LlmProviderChain(
+            List<Provider> providers,
+            Duration cooldown,
+            Duration quotaSoftCooldown,
+            Duration quotaCooldown,
+            Duration dailyQuotaCooldown,
+            boolean reorderOnQuota,
+            Duration generationDeadline,
+            Clock clock
+    ) {
         if (providers == null || providers.isEmpty()) {
             throw new IllegalArgumentException("At least one LLM provider must be configured");
         }
@@ -66,6 +81,9 @@ final class LlmProviderChain {
         this.quotaSoftCooldown = quotaSoftCooldown == null || quotaSoftCooldown.isNegative() ? Duration.ZERO : quotaSoftCooldown;
         this.quotaCooldown = quotaCooldown == null || quotaCooldown.isNegative() ? Duration.ZERO : quotaCooldown;
         this.dailyQuotaCooldown = dailyQuotaCooldown == null || dailyQuotaCooldown.isNegative() ? Duration.ZERO : dailyQuotaCooldown;
+        this.generationDeadline = generationDeadline == null || generationDeadline.isNegative()
+                ? Duration.ZERO
+                : generationDeadline;
         this.reorderOnQuota = reorderOnQuota;
         this.clock = clock;
         providers.forEach(provider -> {
@@ -94,11 +112,18 @@ final class LlmProviderChain {
 
     private Result generate(String prompt, int providersToSkip, Predicate<String> acceptableAnswer) throws Exception {
         Exception lastFailure = null;
+        long generationStartedNanos = System.nanoTime();
         List<Provider> attemptOrder = orderedProviders(clock.instant());
         if (providersToSkip >= attemptOrder.size()) {
             throw new IllegalStateException("No alternate LLM provider is configured for quality fallback");
         }
         for (int index = Math.max(0, providersToSkip); index < attemptOrder.size(); index++) {
+            if (!generationDeadline.isZero()
+                    && Duration.ofNanos(System.nanoTime() - generationStartedNanos).compareTo(generationDeadline) >= 0) {
+                lastFailure = new java.util.concurrent.TimeoutException(
+                        "LLM generation deadline exceeded after " + generationDeadline.toSeconds() + " seconds");
+                break;
+            }
             Provider provider = attemptOrder.get(index);
             ProviderMetrics providerMetrics = metrics.get(provider.name());
             providerMetrics.attempts.incrementAndGet();

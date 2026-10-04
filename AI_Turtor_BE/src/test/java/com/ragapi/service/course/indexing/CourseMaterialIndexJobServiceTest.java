@@ -55,7 +55,7 @@ class CourseMaterialIndexJobServiceTest {
         assertThat(job.getIdempotencyKey()).isEqualTo("material-1:1:abc123");
         assertThat(job.getMaterialId()).isEqualTo("material-1");
         assertThat(job.getCourseId()).isEqualTo("PRJ301");
-        assertThat(job.getStatus()).isEqualTo(CourseMaterialIndexJob.PENDING);
+        assertThat(job.getStatus()).isEqualTo(CourseMaterialIndexJob.QUEUED);
         assertThat(job.getRetryCount()).isZero();
         assertThat(job.getMaxRetries()).isEqualTo(3);
         assertThat(job.getNextAttemptAt()).isNotNull();

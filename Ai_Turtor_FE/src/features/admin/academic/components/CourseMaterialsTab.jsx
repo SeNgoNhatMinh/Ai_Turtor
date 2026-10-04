@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Col, Form, Input, Row, Select, Space, Tag, Upload } from 'antd';
+import { Alert, Button, Card, Col, Descriptions, Form, Input, Progress, Row, Select, Space, Steps, Tag, Upload } from 'antd';
 import { DownloadOutlined, GlobalOutlined, UploadOutlined } from '@ant-design/icons';
 import { Database, Eye, Pencil, RefreshCw, Trash2 } from 'lucide-react';
 import EntityActionMenu from '../../../../components/common/EntityActionMenu';
@@ -13,6 +13,71 @@ import StatusLabel from '../../../../components/common/StatusLabel';
 
 const { Dragger } = Upload;
 
+const IMPORT_STAGES = [
+  ['UPLOADING', 'Uploading'],
+  ['PARSING', 'Parsing'],
+  ['CHUNKING', 'Chunking'],
+  ['EXTRACTING_TERMS', 'Extracting technical terms'],
+  ['TRANSLATING', 'Translating EN → VI'],
+  ['VALIDATING', 'Validating'],
+  ['EMBEDDING', 'Embedding'],
+  ['INDEXING', 'Indexing'],
+  ['COMPLETED', 'Completed'],
+];
+
+function ImportProgressCard({ job, loading, onRetry, onCancel }) {
+  if (!job) return null;
+  const stage = String(job.stage || job.status || 'QUEUED').toUpperCase();
+  const status = String(job.status || '').toUpperCase();
+  const current = Math.max(0, IMPORT_STAGES.findIndex(([key]) => key === stage));
+  const failed = status === 'FAILED';
+  const cancelled = status === 'CANCELLED';
+  return (
+    <Card className="admin-import-progress" title="Admin Material Import" size="small">
+      <Space orientation="vertical" size={14} style={{ width: '100%' }}>
+        <Space wrap>
+          <strong>{job.materialId || 'Material import'}</strong>
+          <StatusLabel status={status || stage} />
+        </Space>
+        <Progress
+          percent={Number(job.progressPercent || 0)}
+          status={failed ? 'exception' : status === 'COMPLETED' ? 'success' : 'active'}
+          aria-label={`Tiến độ import ${Number(job.progressPercent || 0)} phần trăm`}
+        />
+        <Steps
+          direction="vertical"
+          size="small"
+          current={current}
+          status={failed ? 'error' : 'process'}
+          items={IMPORT_STAGES.map(([, title], index) => ({
+            title,
+            status: failed && index === current ? 'error' : undefined,
+          }))}
+        />
+        <Descriptions size="small" column={{ xs: 1, sm: 2 }}>
+          <Descriptions.Item label="Current">
+            {job.currentChapter || '—'}{job.currentChunk != null ? ` · Chunk ${job.currentChunk} / ${job.totalChunks || '—'}` : ''}
+          </Descriptions.Item>
+          <Descriptions.Item label="Chapters">{job.completedChapters || 0} / {job.totalChapters || '—'}</Descriptions.Item>
+          <Descriptions.Item label="Chunks">{job.completedChunks || 0} / {job.totalChunks || '—'}</Descriptions.Item>
+          <Descriptions.Item label="Vietnamese translations">{job.translatedChunks || 0}</Descriptions.Item>
+          <Descriptions.Item label="Technical terms preserved">{job.technicalTermsPreserved || 0}</Descriptions.Item>
+          <Descriptions.Item label="Failed chunks">{job.failedChunks || 0}</Descriptions.Item>
+          <Descriptions.Item label="Translation model">NVIDIABuild-Autogen-17</Descriptions.Item>
+        </Descriptions>
+        {job.errorMessage && <Alert type="error" showIcon title={job.errorMessage} />}
+        <Space wrap>
+          {failed && <Button onClick={onRetry} loading={loading}>Retry failed import</Button>}
+          {['QUEUED', 'PENDING', 'RETRY'].includes(status) && (
+            <Button danger onClick={onCancel} loading={loading}>Cancel</Button>
+          )}
+          {cancelled && <span>Import đã được hủy trước khi worker xử lý.</span>}
+        </Space>
+      </Space>
+    </Card>
+  );
+}
+
 function CourseMaterialsTab({
   form,
   courses,
@@ -21,12 +86,16 @@ function CourseMaterialsTab({
   materialUploadBusy,
   courseMaterials,
   materialsLoading,
+  activeImportJob,
+  importJobLoading,
   onCourseChange,
   onFileChange,
   onFileRemove,
   onUpload,
   onOpenWebsiteImport,
   onReload,
+  onRetryImportJob,
+  onCancelImportJob,
   onMaterialAction,
 }) {
   const courseOptions = getCourseSelectOptions(courses);
@@ -88,13 +157,13 @@ function CourseMaterialsTab({
               }}
               fileList={materialFile ? [materialFile] : []}
               onRemove={onFileRemove}
-              accept=".pdf"
+              accept=".pdf,.md,.markdown"
               maxCount={1}
               style={{ marginBottom: 16 }}
             >
               <p className="ant-upload-drag-icon"><UploadOutlined /></p>
               <p className="ant-upload-text">Chọn tệp học liệu môn học</p>
-              <p className="ant-upload-hint">Chỉ PDF. Học liệu áp dụng toàn môn và không gửi mã lớp.</p>
+              <p className="ant-upload-hint">PDF hoặc Markdown. Học liệu áp dụng toàn môn và không gửi mã lớp.</p>
             </Dragger>
             <Button
               type="primary"
@@ -117,6 +186,12 @@ function CourseMaterialsTab({
             </Button>
           </Form>
         </Card>
+        <ImportProgressCard
+          job={activeImportJob}
+          loading={importJobLoading}
+          onRetry={onRetryImportJob}
+          onCancel={onCancelImportJob}
+        />
       </Col>
       <Col xs={24} lg={15} style={{ minWidth: 0 }}>
         <Card

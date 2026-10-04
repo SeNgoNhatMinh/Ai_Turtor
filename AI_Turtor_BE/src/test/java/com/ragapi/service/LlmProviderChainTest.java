@@ -286,6 +286,33 @@ class LlmProviderChainTest {
         assertTrue((long) metrics.get("maxLatencyMs") >= 0L);
     }
 
+    @Test
+    void stopsStartingNewProvidersAfterTheGenerationDeadline() {
+        AtomicInteger fallbackCalls = new AtomicInteger();
+        LlmProviderChain chain = new LlmProviderChain(
+                List.of(
+                        provider("slow", prompt -> {
+                            Thread.sleep(20);
+                            throw new RuntimeException("request timed out");
+                        }),
+                        provider("fallback", prompt -> {
+                            fallbackCalls.incrementAndGet();
+                            return "too-late";
+                        })
+                ),
+                Duration.ZERO,
+                Duration.ZERO,
+                Duration.ZERO,
+                Duration.ZERO,
+                true,
+                Duration.ofMillis(5),
+                FIXED_CLOCK
+        );
+
+        assertThrows(java.util.concurrent.TimeoutException.class, () -> chain.generate("question"));
+        assertEquals(0, fallbackCalls.get());
+    }
+
     private LlmProviderChain chain(LlmProviderChain.Provider... providers) {
         return new LlmProviderChain(List.of(providers), Duration.ofSeconds(60), FIXED_CLOCK);
     }

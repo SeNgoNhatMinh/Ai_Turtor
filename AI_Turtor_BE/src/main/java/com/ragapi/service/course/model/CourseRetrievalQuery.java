@@ -1,5 +1,16 @@
 package com.ragapi.service.course.model;
 
-/** Search focus before translation and the expanded query sent to retrieval backends. */
-public record CourseRetrievalQuery(String focus, String expandedQuestion) {
+import java.util.List;
+
+/** Local query representation shared by vector, keyword, and lexical retrieval. */
+public record CourseRetrievalQuery(
+        String focus,
+        String expandedQuestion,
+        String language,
+        List<String> technicalTerms,
+        String keywordQuery
+) {
+    public CourseRetrievalQuery(String focus, String expandedQuestion) {
+        this(focus, expandedQuestion, "en", List.of(), focus);
+    }
 }

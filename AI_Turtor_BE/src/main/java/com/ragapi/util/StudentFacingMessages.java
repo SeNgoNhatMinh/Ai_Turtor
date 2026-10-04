@@ -53,6 +53,7 @@ public final class StudentFacingMessages {
         boolean saysMissing = normalized.contains("khong de cap")
                 || normalized.contains("khong nhac")
                 || normalized.contains("khong du")
+                || normalized.contains("khong cung cap du")
                 || normalized.contains("does not mention")
                 || normalized.contains("not mentioned")
                 || normalized.contains("not enough")

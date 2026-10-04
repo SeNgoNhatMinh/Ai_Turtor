@@ -4,8 +4,11 @@ import com.ragapi.dto.AiConversationHistoryResponse;
 import com.ragapi.dto.AiConversationListResponse;
 import com.ragapi.dto.AiConversationSummary;
 import com.ragapi.dto.AiMessageInfo;
+import com.ragapi.dto.UnderstandingCheckPayload;
+import com.ragapi.dto.UnderstandingCheckResultResponse;
 import com.ragapi.util.UnderstandingCheckExtractor;
 import com.ragapi.dto.RagSourceEvidence;
+import com.ragapi.dto.RagQueryIntent;
 import com.ragapi.entity.AiConversation;
 import com.ragapi.entity.AiMessage;
 import com.ragapi.repository.AiConversationRepository;
@@ -310,6 +313,7 @@ public class AiConversationService {
                 .createdAt(now)
                 .build());
 
+        UnderstandingCheckPayload understandingCheck = UnderstandingCheckExtractor.extract(answer);
         AiMessage assistantMessage = messageRepository.save(AiMessage.builder()
                 .id(UUID.randomUUID().toString())
                 .conversationId(conversation.getId())
@@ -322,6 +326,8 @@ public class AiConversationService {
                 .sourceEvidence(sourceEvidence == null ? List.of() : sourceEvidence)
                 .groundingType(groundingType)
                 .questionEscalationId(questionEscalationId)
+                .understandingCheck(understandingCheck)
+                .understandingAttemptId(understandingCheck == null ? null : UUID.randomUUID().toString())
                 .pinned(false)
                 .createdAt(now.plusNanos(1))
                 .build());
@@ -398,7 +404,12 @@ public class AiConversationService {
         return toMessageInfo(messageRepository.save(message));
     }
 
-    public AiMessageInfo recordUnderstandingCheck(String conversationId, String messageId, String userId, String selectedKey) {
+    public UnderstandingCheckResultResponse recordUnderstandingCheck(
+            String conversationId,
+            String messageId,
+            String userId,
+            String selectedKey
+    ) {
         requireConversation(conversationId, userId);
         String key = selectedKey == null ? "" : selectedKey.trim().toUpperCase();
         if (!key.matches("[A-D]")) {
@@ -410,12 +421,98 @@ public class AiConversationService {
         if (!"ASSISTANT".equals(role)) {
             throw new IllegalArgumentException("Chỉ lưu đáp án trên câu trả lời của AI Tutor");
         }
+        UnderstandingCheckPayload check = message.getUnderstandingCheck();
+        if (check == null) {
+            check = UnderstandingCheckExtractor.extract(message.getContent());
+            message.setUnderstandingCheck(check);
+        }
+        if (check == null || check.getCorrectKey() == null || check.getCorrectKey().isBlank()) {
+            throw new IllegalArgumentException("Câu kiểm tra hiểu chưa có đáp án hợp lệ");
+        }
+        if (message.getUnderstandingAttemptId() == null || message.getUnderstandingAttemptId().isBlank()) {
+            message.setUnderstandingAttemptId(UUID.randomUUID().toString());
+        }
         if (message.getUnderstandingSelectedKey() == null || message.getUnderstandingSelectedKey().isBlank()) {
             message.setUnderstandingSelectedKey(key);
+            message.setUnderstandingCorrect(key.equalsIgnoreCase(check.getCorrectKey()));
             message.setUnderstandingAnsweredAt(LocalDateTime.now());
-            return toMessageInfo(messageRepository.save(message));
+            message = messageRepository.save(message);
         }
-        return toMessageInfo(message);
+        String correctKey = check.getCorrectKey().trim().toUpperCase();
+        String correctOptionText = check.getOptions() == null ? "" : check.getOptions().stream()
+                .filter(option -> correctKey.equalsIgnoreCase(option.getKey()))
+                .map(UnderstandingCheckPayload.Option::getText)
+                .findFirst()
+                .orElse("");
+        return UnderstandingCheckResultResponse.builder()
+                .status(Boolean.TRUE.equals(message.getUnderstandingCorrect()) ? "CORRECT" : "INCORRECT")
+                .attemptId(message.getUnderstandingAttemptId())
+                .messageId(message.getId())
+                .selectedKey(message.getUnderstandingSelectedKey())
+                .correct(Boolean.TRUE.equals(message.getUnderstandingCorrect()))
+                .correctKey(correctKey)
+                .correctOptionText(correctOptionText)
+                .explanation(check.getExplanation())
+                .answeredAt(message.getUnderstandingAnsweredAt())
+                .build();
+    }
+
+    public RagQueryIntent buildUnderstandingRemediationIntent(
+            String messageId,
+            String attemptId,
+            String userId,
+            String fallbackQuestion
+    ) {
+        String safeMessageId = trimToNull(messageId);
+        String safeAttemptId = trimToNull(attemptId);
+        String safeUserId = trimToNull(userId);
+        if (safeMessageId == null || safeAttemptId == null || safeUserId == null) {
+            throw new IllegalArgumentException("Thiếu ngữ cảnh lần kiểm tra hiểu");
+        }
+        AiMessage message = messageRepository.findById(safeMessageId)
+                .filter(value -> safeUserId.equals(value.getUserId()))
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy tin nhắn kiểm tra hiểu"));
+        if (!safeAttemptId.equals(message.getUnderstandingAttemptId())
+                || !Boolean.FALSE.equals(message.getUnderstandingCorrect())) {
+            throw new IllegalArgumentException("Lần kiểm tra hiểu không hợp lệ hoặc không cần giảng lại");
+        }
+
+        UnderstandingCheckPayload check = message.getUnderstandingCheck();
+        if (check == null) {
+            check = UnderstandingCheckExtractor.extract(message.getContent());
+        }
+        String retrievalQuestion = check != null && check.getQuestion() != null && !check.getQuestion().isBlank()
+                ? check.getQuestion().trim()
+                : fallbackQuestion;
+        List<RagSourceEvidence> evidence = message.getSourceEvidence() == null
+                ? List.of()
+                : message.getSourceEvidence();
+        List<String> materialIds = evidence.stream()
+                .map(RagSourceEvidence::getMaterialId)
+                .filter(value -> value != null && !value.isBlank())
+                .map(String::trim)
+                .distinct()
+                .limit(12)
+                .toList();
+        List<String> chunkIds = evidence.stream()
+                .map(RagSourceEvidence::getChunkId)
+                .filter(value -> value != null && !value.isBlank())
+                .map(String::trim)
+                .distinct()
+                .limit(12)
+                .toList();
+        log.info(
+                "Understanding remediation context resolved: originMessageId={}, attemptId={}, materialCount={}, chunkCount={}",
+                safeMessageId, safeAttemptId, materialIds.size(), chunkIds.size());
+        return RagQueryIntent.builder()
+                .learningObjective(retrievalQuestion)
+                .retrievalQuery(retrievalQuestion)
+                .retrievalTerms(List.of(retrievalQuestion))
+                .teachingMode("EXPLAIN_CONCEPT")
+                .sourceMaterialIds(materialIds)
+                .sourceChunkIds(chunkIds)
+                .sourceTerms(List.of(retrievalQuestion))
+                .build();
     }
 
     public AiMessageInfo unpinMessage(String conversationId, String messageId, String userId) {
@@ -542,10 +639,17 @@ public class AiConversationService {
     }
 
     private AiMessageInfo toMessageInfo(AiMessage message) {
+        UnderstandingCheckPayload storedCheck = message.getUnderstandingCheck() == null
+                ? UnderstandingCheckExtractor.extract(message.getContent())
+                : message.getUnderstandingCheck();
+        boolean revealUnderstandingResult = message.getUnderstandingSelectedKey() != null
+                && !message.getUnderstandingSelectedKey().isBlank();
         return AiMessageInfo.builder()
                 .messageId(message.getId())
                 .role(message.getRole())
-                .content(message.getContent())
+                .content(revealUnderstandingResult
+                        ? message.getContent()
+                        : UnderstandingCheckExtractor.stripHiddenAnswerMetadata(message.getContent()))
                 .mode(message.getMode())
                 .confidence(message.getConfidence())
                 .sources(message.getSources())
@@ -557,9 +661,14 @@ public class AiConversationService {
                 .proactive(message.getProactive())
                 .pinned(Boolean.TRUE.equals(message.getPinned()))
                 .pinnedAt(message.getPinnedAt())
+                .understandingAttemptId(message.getUnderstandingAttemptId())
                 .understandingSelectedKey(message.getUnderstandingSelectedKey())
+                .understandingCorrect(message.getUnderstandingCorrect())
                 .understandingAnsweredAt(message.getUnderstandingAnsweredAt())
-                .understandingCheck(UnderstandingCheckExtractor.extract(message.getContent()))
+                .understandingCheck(UnderstandingCheckExtractor.studentView(
+                        storedCheck,
+                        revealUnderstandingResult
+                ))
                 .createdAt(message.getCreatedAt())
                 .build();
     }

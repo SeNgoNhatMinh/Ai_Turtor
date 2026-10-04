@@ -35,7 +35,11 @@ const getMessageSources = (message = {}) => {
 };
 
 const getMessageQuizAttempt = (message = {}) => ({
+  understandingAttemptId: String(message.understandingAttemptId || '').trim(),
   understandingSelectedKey: String(message.understandingSelectedKey || '').trim(),
+  understandingCorrect: typeof message.understandingCorrect === 'boolean'
+    ? message.understandingCorrect
+    : null,
   understandingAnsweredAt: message.understandingAnsweredAt || null,
 });
 
@@ -77,7 +81,7 @@ export const normalizeSession = (session = {}) => {
 export const pairMessages = (messages) => {
   const arr = Array.isArray(messages) ? messages : [];
   const paired = [];
-  
+
   for (let i = 0; i < arr.length; i++) {
     const msg = arr[i];
     const role = String(msg.role || '').toUpperCase();

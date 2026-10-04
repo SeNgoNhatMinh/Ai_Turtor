@@ -65,6 +65,32 @@ export const materialsApi = {
     );
   },
 
+  async getImportJob(jobId, options = {}) {
+    return request(`${API_BASE_URL}/admin/material-import-jobs/${encodePath(jobId)}`, {
+      signal: options.signal,
+      skipUnauthorizedRedirect: options.skipUnauthorizedRedirect,
+    });
+  },
+
+  async listImportJobs(courseId, options = {}) {
+    return request(`${API_BASE_URL}/admin/courses/${encodePath(courseId)}/material-import-jobs`, {
+      signal: options.signal,
+      skipUnauthorizedRedirect: options.skipUnauthorizedRedirect,
+    });
+  },
+
+  async retryImportJob(jobId) {
+    return request(`${API_BASE_URL}/admin/material-import-jobs/${encodePath(jobId)}/retry`, {
+      method: 'POST',
+    });
+  },
+
+  async cancelImportJob(jobId) {
+    return request(`${API_BASE_URL}/admin/material-import-jobs/${encodePath(jobId)}/cancel`, {
+      method: 'POST',
+    });
+  },
+
   async getStudentClassMaterials(studentId, courseId, classId, options = {}) {
     const params = new URLSearchParams();
     if (options.page != null) params.set('page', String(options.page));

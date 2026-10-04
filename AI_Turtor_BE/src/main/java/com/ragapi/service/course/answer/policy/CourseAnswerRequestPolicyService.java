@@ -32,15 +32,17 @@ public class CourseAnswerRequestPolicyService {
                 || normalized.contains("cau hinh"))
                 && internalTarget
                 && !StudentChatIntentDetector.isLessonStart(question);
-        boolean credentialRequest = normalized.contains("api key")
+        boolean namesCredential = normalized.contains("api key")
                 || normalized.contains("apikey")
                 || normalized.contains("password")
                 || normalized.contains("mat khau")
                 || normalized.contains("database uri")
                 || normalized.contains("mongodb uri")
-                || ((normalized.contains("token")
+                || normalized.contains("token")
                 || normalized.contains("secret")
-                || normalized.contains("openrouter")) && internalTarget);
+                || normalized.contains("openrouter");
+        boolean credentialRequest = namesCredential
+                && (internalTarget || asksToObtainSecret(normalized));
 
         if (!credentialRequest && !internalSourceRequest && !internalConfigRequest) {
             return null;
@@ -198,6 +200,24 @@ public class CourseAnswerRequestPolicyService {
                 || value.contains("su dung nhu the nao") || value.contains("sử dụng như thế nào")
                 || value.contains("toi nen hoi gi") || value.contains("tôi nên hỏi gì")
                 || value.contains("minh nen hoi gi") || value.contains("mình nên hỏi gì");
+    }
+
+    private boolean asksToObtainSecret(String normalized) {
+        return normalized.contains("cho minh")
+                || normalized.contains("cho toi")
+                || normalized.contains("gui cho")
+                || normalized.contains("cua ban")
+                || normalized.contains("cua he thong")
+                || normalized.contains("trong env")
+                || normalized.contains("file env")
+                || normalized.contains("reveal")
+                || normalized.contains("show me")
+                || normalized.contains("in ra")
+                || normalized.contains("lay key")
+                || normalized.contains("dua key")
+                || normalized.contains("cung cap key")
+                || normalized.contains("key that")
+                || normalized.contains("real api");
     }
 
     private String normalizeForMatch(String text) {

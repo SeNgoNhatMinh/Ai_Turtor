@@ -14,6 +14,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.any;
 
 class CourseMaterialIndexingServiceTest {
 
@@ -33,7 +34,8 @@ class CourseMaterialIndexingServiceTest {
                 repository,
                 storageService,
                 indexExecutor,
-                jobService
+                jobService,
+                mock(com.ragapi.service.RealtimeEventService.class)
         );
     }
 
@@ -69,14 +71,34 @@ class CourseMaterialIndexingServiceTest {
     }
 
     @Test
+    void asynchronousMarkdownUploadUsesSamePersistedImportJobPipeline() throws IOException {
+        MultipartFile file = mock(MultipartFile.class);
+        when(file.getOriginalFilename()).thenReturn("spring-reference.md");
+        CourseMaterial material = material();
+        when(storageService.storeMarkdownMaterial(
+                file, "Spring", "course-material", "PRJ301", null,
+                "admin-1", "COURSE_SHARED", "ADMIN")).thenReturn(material);
+
+        CourseMaterial result = service.ingestPdfAsync(
+                file, "Spring", "course-material", "PRJ301", null,
+                "admin-1", "COURSE_SHARED", "ADMIN");
+
+        assertThat(result).isSameAs(material);
+        verify(storageService).storeMarkdownMaterial(
+                file, "Spring", "course-material", "PRJ301", null,
+                "admin-1", "COURSE_SHARED", "ADMIN");
+        verify(jobService).enqueue(material);
+    }
+
+    @Test
     void queuedJobLoadsMaterialAndRunsExecutor() throws IOException {
         CourseMaterial material = material();
         when(repository.findById("material-1")).thenReturn(Optional.of(material));
 
-        service.processQueuedIndex("material-1");
+        service.processQueuedIndex("material-1", "job-1");
 
         verify(indexExecutor).markProcessing(material);
-        verify(indexExecutor).indexAndMark(material);
+        verify(indexExecutor).indexAndMark(org.mockito.ArgumentMatchers.eq(material), any());
     }
 
     @Test

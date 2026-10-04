@@ -17,7 +17,7 @@ public class CourseSearchContextLimitService {
 
     private final OpenRouterChatService chatService;
 
-    @Value("${rag.generation.max-context-chars:12000}")
+    @Value("${rag.generation.max-context-chars:8000}")
     private int maxContextChars;
 
     @Value("${rag.generation.ollama-max-context-chars:6000}")

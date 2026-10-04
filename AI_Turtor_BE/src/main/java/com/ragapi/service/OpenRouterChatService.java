@@ -3,6 +3,7 @@ package com.ragapi.service;
 import com.ragapi.util.StudentFacingMessages;
 import com.ragapi.util.TextSanitizer;
 import com.ragapi.util.VietnameseOutputEnforcer;
+import com.ragapi.util.RagStageTimer;
 import dev.langchain4j.model.openai.OpenAiChatModel;
 import dev.langchain4j.model.ollama.OllamaChatModel;
 import jakarta.annotation.PostConstruct;
@@ -51,8 +52,14 @@ public class OpenRouterChatService {
     @Value("${llm.skip-diacritics-for-ollama:true}")
     private boolean skipDiacriticsForOllama;
 
-    @Value("${llm.cloud-failover-timeout-seconds:15}")
+    @Value("${llm.cloud-failover-timeout-seconds:12}")
     private int cloudFailoverTimeoutSeconds;
+
+    @Value("${llm.max-provider-attempts:5}")
+    private int maxProviderAttempts;
+
+    @Value("${llm.generation-deadline-seconds:180}")
+    private int generationDeadlineSeconds;
 
     @Value("${ollama.chat.temperature:0.2}")
     private double ollamaTemperature;
@@ -84,7 +91,12 @@ public class OpenRouterChatService {
     }
 
     private synchronized void reloadProviderChain(boolean failIfEmpty) {
-        List<LlmRuntimeSlot> slots = providerAdminService.activeRuntimeSlots();
+        List<LlmRuntimeSlot> availableSlots = providerAdminService.activeRuntimeSlots();
+        List<LlmRuntimeSlot> slots = selectRuntimeSlots(availableSlots, maxProviderAttempts);
+        if (availableSlots.size() > slots.size()) {
+            log.warn("Provider chain capped at {} attempts; {} lower-priority slots are excluded",
+                    slots.size(), availableSlots.size() - slots.size());
+        }
         ollamaActive = slots.stream().anyMatch(slot -> slot.kind() == LlmRuntimeSlot.LlmRuntimeSlotKind.OLLAMA);
         ollamaOnlyActive = ollamaActive && slots.stream()
                 .allMatch(slot -> slot.kind() == LlmRuntimeSlot.LlmRuntimeSlotKind.OLLAMA);
@@ -103,10 +115,33 @@ public class OpenRouterChatService {
                 Duration.ofSeconds(Math.max(0, quotaCooldownSeconds)),
                 Duration.ofSeconds(Math.max(0, dailyQuotaCooldownSeconds)),
                 providerReorderOnQuota,
+                Duration.ofSeconds(Math.max(1, generationDeadlineSeconds)),
                 java.time.Clock.systemUTC());
         log.info("LLM provider chain reloaded: ollamaOnly={}, providers={}",
                 ollamaOnlyActive,
                 providers.stream().map(provider -> provider.name() + "/" + provider.model()).toList());
+    }
+
+    static List<LlmRuntimeSlot> selectRuntimeSlots(List<LlmRuntimeSlot> availableSlots, int maxProviderAttempts) {
+        int limit = Math.max(1, maxProviderAttempts);
+        if (availableSlots.size() <= limit) {
+            return List.copyOf(availableSlots);
+        }
+
+        LlmRuntimeSlot localFallback = availableSlots.stream()
+                .filter(slot -> slot.kind() == LlmRuntimeSlot.LlmRuntimeSlotKind.OLLAMA)
+                .findFirst()
+                .orElse(null);
+        if (localFallback == null) {
+            return availableSlots.stream().limit(limit).toList();
+        }
+
+        List<LlmRuntimeSlot> selected = availableSlots.stream()
+                .filter(slot -> slot.kind() != LlmRuntimeSlot.LlmRuntimeSlotKind.OLLAMA)
+                .limit(Math.max(0, limit - 1L))
+                .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
+        selected.add(localFallback);
+        return List.copyOf(selected);
     }
 
     public boolean isOllamaOnlyActive() {
@@ -243,6 +278,10 @@ public class OpenRouterChatService {
             log.error("All eligible LLM providers failed: operation={}, elapsedMs={}, error={}",
                     operation, elapsedMillis(startedNanos), summarize(error));
             throw error;
+        } finally {
+            if (operation.startsWith("answer")) {
+                RagStageTimer.record("T11_FINAL_GENERATION", startedNanos);
+            }
         }
     }
 

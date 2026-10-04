@@ -5,6 +5,8 @@ import com.ragapi.service.course.gateway.CourseMaterialStoreGateway;
 import com.ragapi.service.course.model.CourseRetrievalQuery;
 import com.ragapi.service.course.model.RetrievedCourseChunk;
 import com.ragapi.util.TextbookChunkAlignment;
+import com.ragapi.util.RagStageTimer;
+import dev.langchain4j.data.embedding.Embedding;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -18,18 +20,27 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-/** Ranks, expands, deduplicates, and budgets retrieval candidates. */
+/** Deterministically expands, deduplicates, and budgets retrieval candidates. */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class CourseRetrievalMergeService {
 
-    private final CourseSearchResultRankingService resultRanking;
+    /** Kept as a constructor-compatible dependency; ranking is not invoked by the runtime pipeline. */
     private final CourseMaterialStoreGateway materialRepository;
     private final CourseSearchContextLimitService contextLimit;
     private final ApprovedKnowledgeSearchService approvedKnowledgeSearch;
     private final CourseSectionExpansionService sectionExpansion;
     private final CourseRetrievalCandidateService candidateService;
+
+    @org.springframework.beans.factory.annotation.Value("${rag.retrieval.conditional-approved-knowledge.enabled:true}")
+    private boolean conditionalApprovedKnowledgeEnabled;
+
+    @org.springframework.beans.factory.annotation.Value("${rag.retrieval.primary-sufficient.min-chunks:2}")
+    private int primarySufficientMinChunks;
+
+    @org.springframework.beans.factory.annotation.Value("${rag.retrieval.primary-sufficient.min-context-chars:900}")
+    private int primarySufficientMinContextChars;
 
     public List<RetrievedCourseChunk> merge(
             CourseRetrievalQuery query,
@@ -37,22 +48,31 @@ public class CourseRetrievalMergeService {
             String classId,
             boolean textbookOnly,
             List<RetrievedCourseChunk> priorityChunks,
-            List<RetrievedCourseChunk> candidates
+            List<RetrievedCourseChunk> candidates,
+            Embedding queryEmbedding
     ) {
+        long started = RagStageTimer.start();
+        try {
         List<RetrievedCourseChunk> pinned = priorityChunks == null ? List.of() : priorityChunks;
-        List<RetrievedCourseChunk> chunks = resultRanking.rerank(query.focus(), candidates);
-        chunks = TextbookChunkAlignment.rank(query.focus(), chunks);
-        chunks = TextbookChunkAlignment.diversifyByCoverage(query.focus(), chunks, 12);
-        chunks = sectionExpansion.expand(chunks, loadMaterials(chunks));
+        List<RetrievedCourseChunk> chunks = TextbookChunkAlignment.mergeDeduplicated(
+                query.language(), candidates);
+        if (sectionExpansion.requiresExpansion(chunks)) {
+            chunks = sectionExpansion.expand(chunks, loadMaterials(chunks));
+        }
         chunks = TextbookChunkAlignment.excludeNavigation(chunks);
-        chunks = TextbookChunkAlignment.rank(query.focus(), chunks);
-        chunks = TextbookChunkAlignment.diversifyByCoverage(query.focus(), chunks, 8);
         chunks = pinPriorityChunks(pinned, chunks);
 
         if (textbookOnly) {
             return contextLimit.applyBudget(chunks);
         }
-        return mergeAdditionalKnowledge(query, courseId, classId, chunks);
+        if (conditionalApprovedKnowledgeEnabled && hasSufficientPrimaryContext(chunks)) {
+            log.info("Skipping supplemental knowledge because primary course context is sufficient");
+            return contextLimit.applyBudget(chunks);
+        }
+        return mergeAdditionalKnowledge(query, courseId, classId, chunks, queryEmbedding);
+        } finally {
+            RagStageTimer.record("T9_MERGE_DEDUP_CONTEXT", started);
+        }
     }
 
     public Map<String, CourseMaterial> loadMaterials(List<RetrievedCourseChunk> chunks) {
@@ -77,12 +97,15 @@ public class CourseRetrievalMergeService {
             CourseRetrievalQuery query,
             String courseId,
             String classId,
-            List<RetrievedCourseChunk> textbookChunks
+            List<RetrievedCourseChunk> textbookChunks,
+            Embedding queryEmbedding
     ) {
-        List<RetrievedCourseChunk> teachingNotes = candidateService.retrieveTeachingNotes(query, courseId, classId);
+        List<RetrievedCourseChunk> teachingNotes = candidateService.retrieveTeachingNotes(
+                query, courseId, classId, queryEmbedding);
         List<RetrievedCourseChunk> approvedChunks;
         try {
-            approvedChunks = approvedKnowledgeSearch.retrieveRelevant(query.focus(), courseId, classId);
+            approvedChunks = approvedKnowledgeSearch.retrieveRelevant(
+                    query.focus(), courseId, classId, queryEmbedding);
         } catch (Exception exception) {
             log.debug("Approved knowledge retrieval skipped: {}", exception.getMessage());
             approvedChunks = List.of();
@@ -122,19 +145,29 @@ public class CourseRetrievalMergeService {
         return merged;
     }
 
+    private boolean hasSufficientPrimaryContext(List<RetrievedCourseChunk> chunks) {
+        if (chunks == null || chunks.size() < Math.max(1, primarySufficientMinChunks)) return false;
+        int chars = chunks.stream()
+                .map(RetrievedCourseChunk::content)
+                .filter(Objects::nonNull)
+                .mapToInt(String::length)
+                .sum();
+        return chars >= Math.max(200, primarySufficientMinContextChars);
+    }
+
     private List<RetrievedCourseChunk> pinPriorityChunks(
             List<RetrievedCourseChunk> pinned,
-            List<RetrievedCourseChunk> ranked
+            List<RetrievedCourseChunk> retrieved
     ) {
         if (pinned == null || pinned.isEmpty()) {
-            return ranked == null ? List.of() : ranked;
+            return retrieved == null ? List.of() : retrieved;
         }
         LinkedHashMap<String, RetrievedCourseChunk> result = new LinkedHashMap<>();
         for (RetrievedCourseChunk chunk : pinned) {
             result.putIfAbsent(chunkIdentity(chunk), chunk);
         }
-        if (ranked != null) {
-            for (RetrievedCourseChunk chunk : ranked) {
+        if (retrieved != null) {
+            for (RetrievedCourseChunk chunk : retrieved) {
                 result.putIfAbsent(chunkIdentity(chunk), chunk);
             }
         }

@@ -72,8 +72,9 @@ public class CourseMaterialIndexJobWorker {
                     Math.max(5, heartbeatIntervalSeconds),
                     TimeUnit.SECONDS
             );
-            indexingService.processQueuedIndex(job.getMaterialId());
+            indexingService.processQueuedIndex(job.getMaterialId(), job.getId());
             jobService.markCompleted(job.getId());
+            indexingService.publishJobCompleted(job.getMaterialId(), job.getId());
         } catch (Exception failure) {
             log.error(
                     "Course material indexing job failed (jobId={}, materialId={}, attempt={})",
@@ -83,6 +84,11 @@ public class CourseMaterialIndexJobWorker {
                     failure
             );
             jobService.retryOrFail(job, failure);
+            int nextRetryCount = java.util.Objects.requireNonNullElse(job.getRetryCount(), 0) + 1;
+            int maxRetries = Math.max(1, java.util.Objects.requireNonNullElse(job.getMaxRetries(), 3));
+            indexingService.publishJobOutcome(job.getMaterialId(), job.getId(),
+                    nextRetryCount >= maxRetries ? CourseMaterialIndexJob.FAILED : CourseMaterialIndexJob.RETRY,
+                    failure.getMessage());
         } finally {
             if (heartbeat != null) {
                 heartbeat.cancel(false);

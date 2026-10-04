@@ -182,6 +182,13 @@ export function useStudentChatController({
           clickedSuggestion: requestContext.clickedSuggestion || requestContext.displayQuestion || text,
         }
         : {};
+      const remediationPayload = effectiveInteractionType === 'UNDERSTANDING_REMEDIATION'
+        ? {
+          originAssistantMessageId: requestContext.originAssistantMessageId || '',
+          understandingAttemptId: requestContext.understandingAttemptId || '',
+          originalQuestion: requestContext.originalQuestion || requestContext.displayQuestion || '',
+        }
+        : {};
       const lessonProvenancePayload = requestContext.interactionType === 'GUIDED_LESSON'
         ? {
           chapterKey: requestContext.chapterKey || '',
@@ -204,6 +211,7 @@ export function useStudentChatController({
           sessionPhase: activeTutorSession?.phase || 'TEACH',
           ...improvePlanPayload,
           ...interactionPayload,
+          ...remediationPayload,
           ...sourceProvenancePayload,
           ...lessonProvenancePayload,
         }, { signal: requestController.signal });
@@ -347,7 +355,8 @@ export function useStudentChatController({
       setMessages((prev) => {
         const updated = [...prev];
         const answerText = String(data.answer || '');
-        const isAiServiceError = isAiServiceErrorText(answerText);
+        const outcome = String(data.outcome || '').toUpperCase();
+        const isAiServiceError = outcome === 'AI_UNAVAILABLE' || isAiServiceErrorText(answerText);
         updated[updated.length - 1] = {
           question: text,
           interactionType: requestContext.interactionType || '',
@@ -368,6 +377,7 @@ export function useStudentChatController({
           groundingType: data.groundingType || null,
           nextImproveSuggestions: data.nextImproveSuggestions || [],
           questionEscalationId: data.questionEscalationId || data.escalationId || null,
+          outcome: outcome || (data.escalated ? 'NEEDS_MENTOR' : 'ANSWERED'),
           aiServiceError: isAiServiceError,
           retryable: isAiServiceError,
           pending: false,
@@ -492,9 +502,25 @@ export function useStudentChatController({
     }));
 
     try {
-      await conversationApi.recordUnderstandingCheck(conversationId, messageId, studentId, key);
+      const result = await conversationApi.recordUnderstandingCheck(
+        conversationId,
+        messageId,
+        studentId,
+        key,
+      );
+      setMessages((prev) => prev.map((item) => {
+        const itemId = item?.assistantMessageId || item?.messageId || item?.id;
+        if (itemId !== messageId) return item;
+        return {
+          ...item,
+          understandingAttemptId: result?.attemptId || item.understandingAttemptId || '',
+          understandingCorrect: result?.correct,
+        };
+      }));
+      return result;
     } catch {
       // The attempt stays locked locally so the student cannot change it after a save failure.
+      return null;
     }
   };
 

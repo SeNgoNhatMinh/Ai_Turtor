@@ -32,6 +32,11 @@ public class CourseAnswerResultService {
             ));
         }
 
+        if (hasTrustedRemediationProvenance(prepared)) {
+            log.info("Grounding accepted from the originating understanding-check sources");
+            return Optional.empty();
+        }
+
         Set<String> unsupportedCallReferences = GroundedContentGuard.unsupportedCallReferences(
                 prepared.question(),
                 prepared.context()
@@ -80,6 +85,14 @@ public class CourseAnswerResultService {
             ));
         }
         return Optional.empty();
+    }
+
+    private boolean hasTrustedRemediationProvenance(CourseAnswerPreparation prepared) {
+        if (!prepared.understandingRemediation() || prepared.request().ragQueryIntent() == null) {
+            return false;
+        }
+        List<String> materialIds = prepared.request().ragQueryIntent().getSourceMaterialIds();
+        return materialIds != null && !materialIds.isEmpty() && !prepared.chunks().isEmpty();
     }
 
     public CourseRagAnswer softUnavailable(String answer, List<String> sources) {

@@ -15,8 +15,9 @@ import java.util.regex.Pattern;
  */
 public final class GroundedContentGuard {
 
+    /** A real call is an ASCII name glued to "(", such as isinstance(). A phrase like "trực quan (Visual...)" is not. */
     private static final Pattern CALL_REFERENCE = Pattern.compile(
-            "(?iu)(?<![\\p{L}\\p{N}_])([a-z_][a-z0-9_]{2,})\\s*\\("
+            "(?<![A-Za-z0-9_])([A-Za-z_][A-Za-z0-9_]{2,})\\("
     );
     private static final Pattern HEADING = Pattern.compile("(?m)^#{1,6}\\s+\\S");
     private static final Pattern STUDY_TIPS_HEADING = Pattern.compile(

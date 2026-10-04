@@ -8,6 +8,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
@@ -29,6 +30,12 @@ public final class TextbookChunkAlignment {
     private static final Set<String> GENERIC_TOKENS = Set.of(
             "java", "web", "page", "code", "data", "file", "system", "application",
             "programming", "computer", "software", "class", "method"
+    );
+    private static final Pattern FUNCTION_CALL = Pattern.compile(
+            "(?<![a-z0-9_])(?:[a-z_][a-z0-9_]*\\.)?([a-z_][a-z0-9_]{2,})\\("
+    );
+    private static final Pattern CODE_IDENTIFIER = Pattern.compile(
+            "(?iu)(?<![\\p{L}\\p{N}_])([a-z_][a-z0-9_]{2,})(?![\\p{L}\\p{N}_])"
     );
 
     private TextbookChunkAlignment() {
@@ -52,6 +59,78 @@ public final class TextbookChunkAlignment {
             }
         }
         return rank(question, excludeNavigation(new ArrayList<>(unique.values())));
+    }
+
+    /** Stable merge for the no-ranking pipeline: preserve branch order and only remove duplicates/navigation. */
+    @SafeVarargs
+    public static List<RetrievedCourseChunk> mergeDeduplicated(List<RetrievedCourseChunk>... lists) {
+        LinkedHashMap<String, RetrievedCourseChunk> unique = new LinkedHashMap<>();
+        if (lists == null) return List.of();
+        for (List<RetrievedCourseChunk> list : lists) {
+            if (list == null) continue;
+            for (RetrievedCourseChunk chunk : list) {
+                if (chunk == null || chunk.content() == null || chunk.content().isBlank()) continue;
+                unique.putIfAbsent(dedupeKey(chunk), chunk);
+            }
+        }
+        return excludeNavigation(new ArrayList<>(unique.values()));
+    }
+
+    /** Removes EN/VI duplicate sections while retaining a stable, query-language-aware representation. */
+    @SafeVarargs
+    public static List<RetrievedCourseChunk> mergeDeduplicated(
+            String preferredLanguage,
+            List<RetrievedCourseChunk>... lists
+    ) {
+        List<RetrievedCourseChunk> exact = mergeDeduplicated(lists);
+        LinkedHashMap<String, RetrievedCourseChunk> selectedRepresentation = new LinkedHashMap<>();
+        for (RetrievedCourseChunk chunk : exact) {
+            String scope = semanticScope(chunk);
+            if (scope == null || chunk.language() == null || chunk.language().isBlank()) {
+                continue;
+            }
+            RetrievedCourseChunk current = selectedRepresentation.get(scope);
+            if (current == null || preferRepresentation(chunk, current, preferredLanguage)) {
+                selectedRepresentation.put(scope, chunk);
+            }
+        }
+        List<RetrievedCourseChunk> result = new ArrayList<>();
+        for (RetrievedCourseChunk chunk : exact) {
+            String scope = semanticScope(chunk);
+            if (scope == null || chunk.language() == null || chunk.language().isBlank()) {
+                result.add(chunk);
+                continue;
+            }
+            RetrievedCourseChunk selected = selectedRepresentation.get(scope);
+            if (selected != null && selected.language().equalsIgnoreCase(chunk.language())) {
+                result.add(chunk);
+            }
+        }
+        return result;
+    }
+
+    private static boolean preferRepresentation(
+            RetrievedCourseChunk candidate,
+            RetrievedCourseChunk current,
+            String preferredLanguage
+    ) {
+        String preferred = preferredLanguage == null ? "" : preferredLanguage.toLowerCase(Locale.ROOT);
+        String next = candidate.language().toLowerCase(Locale.ROOT);
+        String existing = current.language() == null ? "" : current.language().toLowerCase(Locale.ROOT);
+        if ("vi".equals(preferred) && !next.equals(existing)) return "vi".equals(next);
+        if ("en".equals(preferred) && !next.equals(existing)) return "en".equals(next);
+        double nextScore = normalizedRetrievalScore(candidate.score());
+        double existingScore = normalizedRetrievalScore(current.score());
+        if (nextScore != existingScore) return nextScore > existingScore;
+        return "en".equals(next) && !"en".equals(existing);
+    }
+
+    private static String semanticScope(RetrievedCourseChunk chunk) {
+        if (chunk.materialId() == null || chunk.materialId().isBlank()) return null;
+        if (chunk.sectionId() != null && !chunk.sectionId().isBlank()) {
+            return "scope|" + chunk.materialId() + '|' + blankToEmpty(chunk.chapterId()) + '|' + chunk.sectionId();
+        }
+        return null;
     }
 
     public static List<RetrievedCourseChunk> rank(String question, List<RetrievedCourseChunk> chunks) {
@@ -198,6 +277,8 @@ public final class TextbookChunkAlignment {
         String leadingContent = normalized.substring(0, Math.min(normalized.length(), 500));
         int leadingHits = hitCount(leadingContent, tokens);
         double score = hits * 3.0 + leadingHits * 2.0;
+        score += functionCallHitCount(question, normalized) * 8.0;
+        score += methodEvidenceAdjustment(question, content);
         if (definition && looksLikeDefinition(normalized, tokens)) {
             score += 4.0;
         }
@@ -206,6 +287,70 @@ public final class TextbookChunkAlignment {
             score -= 20.0;
         }
         return score;
+    }
+
+    /**
+     * A named method must be backed by an actual call such as {@code t.append(x)}.
+     * A regex note or a quoted method catalog can contain the same word without
+     * explaining the operation the student asked about.
+     */
+    private static double methodEvidenceAdjustment(String question, String content) {
+        List<String> identifiers = codeIdentifiers(question);
+        if (identifiers.isEmpty() || content == null || content.isBlank()) {
+            return 0;
+        }
+        String lower = content.toLowerCase(Locale.ROOT);
+        double adjustment = 0;
+        boolean hasMethodCall = false;
+        for (String identifier : identifiers) {
+            boolean methodCall = lower.contains("." + identifier + "(") || lower.contains(identifier + "(");
+            hasMethodCall = hasMethodCall || methodCall;
+            if (methodCall) {
+                adjustment += 16;
+            } else if (lower.contains("'" + identifier + "'") || lower.contains("\"" + identifier + "\"")) {
+                adjustment -= 8;
+            }
+        }
+        boolean regexExplanation = lower.contains("asterisk")
+                || lower.contains("plus sign")
+                || lower.contains("regular expression");
+        if (regexExplanation && !hasMethodCall) {
+            adjustment -= 12;
+        }
+        int dunderCount = lower.split("__", -1).length - 1;
+        if (dunderCount >= 8 && !hasMethodCall) {
+            adjustment -= 10;
+        }
+        return adjustment;
+    }
+
+    private static List<String> codeIdentifiers(String question) {
+        List<String> identifiers = new ArrayList<>();
+        Matcher matcher = CODE_IDENTIFIER.matcher(question == null ? "" : question.toLowerCase(Locale.ROOT));
+        while (matcher.find()) {
+            String identifier = matcher.group(1);
+            if (identifier.length() < 3
+                    || STOP_WORDS.contains(identifier)
+                    || GENERIC_TOKENS.contains(identifier)
+                    || identifiers.contains(identifier)) {
+                continue;
+            }
+            identifiers.add(identifier);
+        }
+        return identifiers;
+    }
+
+    private static int functionCallHitCount(String question, String normalizedContent) {
+        int hits = 0;
+        Matcher matcher = FUNCTION_CALL.matcher(
+                question == null ? "" : question.toLowerCase(Locale.ROOT)
+        );
+        while (matcher.find()) {
+            if (normalizedContent.contains(matcher.group(1))) {
+                hits++;
+            }
+        }
+        return hits;
     }
 
     static boolean isDefinitionQuestion(String question) {
@@ -224,6 +369,17 @@ public final class TextbookChunkAlignment {
     static List<String> distinctiveTokens(String question) {
         String normalized = TextSanitizer.normalizeAccentInsensitive(question).toLowerCase(Locale.ROOT);
         List<String> tokens = new ArrayList<>();
+        Matcher functionCall = FUNCTION_CALL.matcher(
+                question == null ? "" : question.toLowerCase(Locale.ROOT)
+        );
+        while (functionCall.find()) {
+            String functionName = functionCall.group(1);
+            if (!STOP_WORDS.contains(functionName)
+                    && !GENERIC_TOKENS.contains(functionName)
+                    && !tokens.contains(functionName)) {
+                tokens.add(functionName);
+            }
+        }
         for (String raw : normalized.split("\\s+")) {
             String token = raw.trim().replaceAll("[^a-z0-9]+", "");
             if (token.length() < 3 || STOP_WORDS.contains(token) || GENERIC_TOKENS.contains(token)) {

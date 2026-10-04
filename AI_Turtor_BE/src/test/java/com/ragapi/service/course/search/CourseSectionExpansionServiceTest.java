@@ -42,4 +42,38 @@ class CourseSectionExpansionServiceTest {
         assertTrue(expanded.get(0).content().contains("init starts the servlet"));
         assertTrue(!expanded.get(0).content().contains("JSP is a view technology"));
     }
+
+    @Test
+    void keepsALaterPassageWhenTheWholeDocumentSharesOneSection() {
+        String content = "Chapter 1 Lists\nALPHA_MARKER explains t1.append(3) and t3 = t1 + [3].\n"
+                + "padding ".repeat(900)
+                + "\nBETA_MARKER lists methods through dir() and __getitem__.\n";
+        CourseMaterial material = new CourseMaterial();
+        material.setId("m1");
+        material.setContent(content);
+        material.setSourceType("PDF");
+
+        List<CourseMaterialChunkingService.HierarchicalChunk> chunks = chunking.chunkHierarchically("m1", content);
+        CourseMaterialChunkingService.HierarchicalChunk alpha = chunks.stream()
+                .filter(chunk -> chunk.content().contains("ALPHA_MARKER"))
+                .findFirst().orElseThrow();
+        CourseMaterialChunkingService.HierarchicalChunk beta = chunks.stream()
+                .filter(chunk -> chunk.content().contains("BETA_MARKER"))
+                .findFirst().orElseThrow();
+
+        RetrievedCourseChunk first = hit(alpha);
+        RetrievedCourseChunk second = hit(beta);
+        List<RetrievedCourseChunk> expanded = service.expand(List.of(first, second), Map.of("m1", material));
+        String combined = expanded.stream().map(RetrievedCourseChunk::content).reduce("", (a, b) -> a + "\n" + b);
+
+        assertTrue(combined.contains("ALPHA_MARKER"));
+        assertTrue(combined.contains("BETA_MARKER"));
+    }
+
+    private RetrievedCourseChunk hit(CourseMaterialChunkingService.HierarchicalChunk child) {
+        return new RetrievedCourseChunk(
+                child.content(), 0.9, "m1", "PFP191", null, null, "COURSE_SHARED", "PDF",
+                child.documentId(), child.chapterId(), child.chapterTitle(), child.sectionId(),
+                child.sectionTitle(), child.chunkId(), child.chunkIndex(), "CHUNK");
+    }
 }

@@ -31,6 +31,10 @@ public final class UnderstandingCheckExtractor {
                     + "\\s*[:：-]\\s*(?:[-*+]\\s*)?");
     private static final Pattern EXPLANATION = Pattern.compile(
             "(?iu)(?:^|\\s)(?:giải thích|giai thich|explanation|lý do|ly do)\\s*[:：]\\s*");
+    private static final Pattern ANSWER_LINE = Pattern.compile(
+            "(?ium)^\\s*(?:đáp án|dap an|(?:the\\s+)?(?:correct\\s+)?answer).*$\\R?");
+    private static final Pattern EXPLANATION_LINE = Pattern.compile(
+            "(?ium)^\\s*(?:giải thích|giai thich|explanation|lý do|ly do)\\s*[:：].*$\\R?");
     private static final Pattern DECORATION = Pattern.compile("[*_`]+");
 
     private UnderstandingCheckExtractor() {
@@ -103,6 +107,30 @@ public final class UnderstandingCheckExtractor {
                 shuffled.correctKey(),
                 explanation
         );
+    }
+
+    public static UnderstandingCheckPayload studentView(UnderstandingCheckPayload payload, boolean revealResult) {
+        if (payload == null) return null;
+        return new UnderstandingCheckPayload(
+                payload.getQuestion(),
+                payload.getOptions() == null ? List.of() : List.copyOf(payload.getOptions()),
+                revealResult ? payload.getCorrectKey() : "",
+                revealResult ? payload.getExplanation() : ""
+        );
+    }
+
+    public static String stripHiddenAnswerMetadata(String answer) {
+        if (answer == null || answer.isBlank()) return answer;
+        Matcher heading = CHECK_HEADING.matcher(answer);
+        if (!heading.find()) return answer;
+        int bodyStart = heading.end();
+        String rest = answer.substring(bodyStart);
+        Matcher next = NEXT_HEADING.matcher(rest);
+        int bodyEnd = next.find() ? bodyStart + next.start() : answer.length();
+        String body = answer.substring(bodyStart, bodyEnd);
+        body = ANSWER_LINE.matcher(body).replaceAll("");
+        body = EXPLANATION_LINE.matcher(body).replaceAll("");
+        return answer.substring(0, bodyStart) + body + answer.substring(bodyEnd);
     }
 
     /**

@@ -126,12 +126,16 @@ export default function AdminAcademicTabs({
             materialUploadBusy={materials.materialUploadBusy}
             courseMaterials={materials.courseMaterials}
             materialsLoading={materials.materialsLoading}
+            activeImportJob={materials.activeImportJob}
+            importJobLoading={materials.importJobLoading}
             onCourseChange={materials.handleCourseChange}
             onFileChange={materials.setMaterialFile}
             onFileRemove={() => materials.setMaterialFile(null)}
             onUpload={materials.handleUploadMaterial}
             onOpenWebsiteImport={() => materials.setWebsiteImportOpen(true)}
             onReload={() => materials.loadCourseMaterials()}
+            onRetryImportJob={materials.retryImportJob}
+            onCancelImportJob={materials.cancelImportJob}
             onMaterialAction={(key, record, materialId) => {
               if (key === 'view' || key === 'edit') {
                 const courseId = record.courseId || materials.materialCourseId;

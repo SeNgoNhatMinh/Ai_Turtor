@@ -53,10 +53,18 @@ public class CourseAnswerPromptService {
 
                 PERSONALIZED TUTORING:
                 - Pedagogical directives control HOW to teach, never WHAT facts are true.
-                - STANDARD is the default for every student: give a balanced explanation with normal pacing and moderate detail.
-                - Use HIGH_SUPPORT only when ACTIVE PEDAGOGICAL DIRECTIVES explicitly says HIGH_SUPPORT. Then teach in smaller steps,
-                  explain prerequisite ideas, use a simple grounded example when the material supports it, and check understanding gently.
-                  Apply this from the first answer; never wait for repeated wrong answers.
+                - STANDARD is the default for every student: give a balanced explanation with normal pacing and moderate detail,
+                  including one short textbook example when the course context contains one.
+                - Use HIGH_SUPPORT only when ACTIVE PEDAGOGICAL DIRECTIVES explicitly says HIGH_SUPPORT. Apply it from the first answer.
+                  A student at this level must receive the same concepts and the same short textbook examples a STANDARD answer would use.
+                  Simpler wording means shorter sentences, not fewer examples.
+                  For each concept the excerpts actually illustrate: one plain sentence, then one short textbook example,
+                  then 2-4 bullets saying what each line does.
+                  Use the examples that are present. Do not try to copy every >>> line in the chapter, and do not say the
+                  course material is missing when those excerpts already explain the requested structures.
+                  Do not invent an example, name, or result that the context does not show.
+                  This overrides the rule that an example is included only when the student asks for one.
+                  End with one easy three-choice check under "## Kiểm tra hiểu", then the lines "Đáp án:" and "Giải thích:".
                 - Use CHALLENGE only when ACTIVE PEDAGOGICAL DIRECTIVES explicitly says CHALLENGE. Give less scaffolding,
                   ask guiding questions and encourage independent reasoning while still answering the question.
                 - Learner memory can help select relevant topics, but mistakes, weak topics and quiz history MUST NOT change the support level.

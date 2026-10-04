@@ -141,6 +141,45 @@ public class CourseMaterialStorageService {
         return material;
     }
 
+    public CourseMaterial storeMarkdownMaterial(
+            MultipartFile file,
+            String title,
+            String category,
+            String courseId,
+            String classId,
+            String uploaderId,
+            String materialScope,
+            String uploadedByRole
+    ) throws IOException {
+        if (title == null || title.isBlank()) throw new IllegalArgumentException("title must not be blank");
+        byte[] bytes = file.getBytes();
+        String content = new String(bytes, StandardCharsets.UTF_8).replace("\u0000", "").trim();
+        if (content.isBlank()) throw new IllegalArgumentException("Markdown material must contain text");
+        String normalizedCourseId = normalizeScopeValue(courseId);
+        String contentHash = sha256(bytes);
+        CourseMaterial duplicate = repository.findFirstByCourseIdAndContentHash(normalizedCourseId, contentHash)
+                .orElse(null);
+        if (duplicate != null) return duplicate;
+
+        CourseMaterial material = new CourseMaterial();
+        material.setTitle(title.trim());
+        material.setCategory(category != null && !category.isBlank() ? category.trim() : "course-material");
+        material.setCourseId(normalizedCourseId);
+        material.setClassId(normalizeScopeValue(classId));
+        material.setTeacherId(normalizeScopeValue(uploaderId));
+        material.setMaterialScope(normalizeScopeValue(materialScope) != null ? normalizeScopeValue(materialScope) : "COURSE_SHARED");
+        material.setUploadedByRole(normalizeScopeValue(uploadedByRole));
+        material.setContent(content);
+        material.setSourceFileName(file.getOriginalFilename());
+        material.setSourceType("MARKDOWN");
+        material.setPdfFileSize((long) bytes.length);
+        material.setContentHash(contentHash);
+        material.setIndexingStatus(CourseMaterialIndexStatus.PROCESSING);
+        repository.save(material);
+        publishMaterialEvent(material, "MATERIAL_INDEXING", CourseMaterialIndexStatus.PROCESSING);
+        return material;
+    }
+
     private CourseMaterial findLegacyDuplicate(String courseId, String fileName, long fileSize) {
         String normalizedFileName = fileName == null ? "" : fileName.trim();
         return repository.findByCourseId(courseId).stream()

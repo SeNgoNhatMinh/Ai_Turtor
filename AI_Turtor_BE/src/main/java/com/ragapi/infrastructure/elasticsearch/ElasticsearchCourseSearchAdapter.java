@@ -26,6 +26,14 @@ import static com.ragapi.util.ValidationUtils.requireText;
 @RequiredArgsConstructor
 public class ElasticsearchCourseSearchAdapter implements CourseKnowledgeSearchGateway {
 
+    private volatile Boolean cachedIndexExists;
+    private volatile long cachedIndexExistsUntilNanos;
+
+    @Override
+    public boolean supportsPreparedQueryEmbedding() {
+        return true;
+    }
+
     private static final Set<String> NON_TEXTBOOK_SOURCE_TYPES = Set.of(
             "GOLD_QA",
             "KNOWLEDGE_CANDIDATE"
@@ -42,6 +50,12 @@ public class ElasticsearchCourseSearchAdapter implements CourseKnowledgeSearchGa
 
     @Value("${rag.retrieval.num-candidates:80}")
     private int retrievalNumCandidates;
+
+    @Override
+    public Embedding prepareQueryEmbedding(String question) {
+        return embeddingService.generateQueryEmbedding(
+                requireMaxLength(question, "question", DEFAULT_TEXT_MAX_LENGTH));
+    }
 
     public List<String> search(String question)
             throws IOException {
@@ -76,6 +90,14 @@ public class ElasticsearchCourseSearchAdapter implements CourseKnowledgeSearchGa
         );
     }
 
+    @Override
+    public List<RetrievedCourseChunk> searchApprovedKnowledgeWithScores(
+            String question, String courseId, String classId, int maxChunks, Embedding queryEmbedding
+    ) throws IOException {
+        return searchWithScores(question, courseId, classId, "KNOWLEDGE_CANDIDATE", Set.of(),
+                Math.max(1, maxChunks), queryEmbedding);
+    }
+
     public List<RetrievedCourseChunk> searchTextbookWithScores(
             String question,
             String courseId,
@@ -89,6 +111,14 @@ public class ElasticsearchCourseSearchAdapter implements CourseKnowledgeSearchGa
                 NON_TEXTBOOK_SOURCE_TYPES,
                 retrievalTopK
         );
+    }
+
+    @Override
+    public List<RetrievedCourseChunk> searchTextbookWithScores(
+            String question, String courseId, String classId, Embedding queryEmbedding
+    ) throws IOException {
+        return searchWithScores(question, courseId, classId, null, NON_TEXTBOOK_SOURCE_TYPES,
+                retrievalTopK, queryEmbedding);
     }
 
     public List<RetrievedCourseChunk> searchTextbookKeywordWithScores(
@@ -166,6 +196,15 @@ public class ElasticsearchCourseSearchAdapter implements CourseKnowledgeSearchGa
         );
     }
 
+    @Override
+    public List<RetrievedCourseChunk> searchGoldQaTeachingNotesWithScores(
+            String question, String courseId, String classId, int maxChunks, Embedding queryEmbedding
+    ) throws IOException {
+        if (maxChunks <= 0) return List.of();
+        return searchWithScores(question, courseId, classId, "GOLD_QA", Set.of(),
+                Math.max(1, Math.min(maxChunks, 3)), queryEmbedding);
+    }
+
     private List<RetrievedCourseChunk> searchWithScores(
             String question,
             String courseId,
@@ -173,7 +212,7 @@ public class ElasticsearchCourseSearchAdapter implements CourseKnowledgeSearchGa
             String sourceType,
             int topK
     ) throws IOException {
-        return searchWithScores(question, courseId, classId, sourceType, Set.of(), topK);
+        return searchWithScores(question, courseId, classId, sourceType, Set.of(), topK, null);
     }
 
     private List<RetrievedCourseChunk> searchWithScores(
@@ -184,14 +223,27 @@ public class ElasticsearchCourseSearchAdapter implements CourseKnowledgeSearchGa
             Set<String> excludedSourceTypes,
             int topK
     ) throws IOException {
+        return searchWithScores(question, courseId, classId, sourceType, excludedSourceTypes, topK, null);
+    }
+
+    private List<RetrievedCourseChunk> searchWithScores(
+            String question,
+            String courseId,
+            String classId,
+            String sourceType,
+            Set<String> excludedSourceTypes,
+            int topK,
+            Embedding preparedQueryEmbedding
+    ) throws IOException {
 
         String safeQuestion = requireMaxLength(question, "question", DEFAULT_TEXT_MAX_LENGTH);
         String safeCourseId = requireText(courseId, "courseId");
 
         log.debug("Generating embedding for question");
 
-        Embedding queryEmbedding =
-                embeddingService.generateQueryEmbedding(safeQuestion);
+        Embedding queryEmbedding = preparedQueryEmbedding == null
+                ? embeddingService.generateQueryEmbedding(safeQuestion)
+                : preparedQueryEmbedding;
 
         List<Float> queryVector = new ArrayList<>();
         for (float f : queryEmbedding.vector()) {
@@ -250,7 +302,8 @@ public class ElasticsearchCourseSearchAdapter implements CourseKnowledgeSearchGa
     private RetrievedCourseChunk toSearchChunk(Map source, Double score) {
         Object childContent = source.get("content");
         Object parentContent = source.get("parentContent");
-        Object content = parentContent != null ? parentContent : childContent;
+        boolean childHasText = childContent != null && !childContent.toString().isBlank();
+        Object content = childHasText ? childContent : parentContent;
         if (content == null) {
             return null;
         }
@@ -270,7 +323,13 @@ public class ElasticsearchCourseSearchAdapter implements CourseKnowledgeSearchGa
                 Objects.toString(source.get("sectionTitle"), null),
                 Objects.toString(source.get("chunkId"), null),
                 source.get("chunkIndex") instanceof Number number ? number.intValue() : null,
-                parentContent != null ? "SECTION" : Objects.toString(source.get("nodeType"), null)
+                childHasText
+                        ? Objects.toString(source.get("nodeType"), "CHUNK")
+                        : "SECTION",
+                Objects.toString(source.get("language"), null),
+                source.get("technicalTerms") instanceof List<?> terms
+                        ? terms.stream().map(String::valueOf).toList()
+                        : List.of()
         );
     }
 
@@ -283,9 +342,17 @@ public class ElasticsearchCourseSearchAdapter implements CourseKnowledgeSearchGa
     }
 
     private boolean indexExists() throws IOException {
-        return elasticsearchClient.indices()
+        long now = System.nanoTime();
+        Boolean cached = cachedIndexExists;
+        if (cached != null && now < cachedIndexExistsUntilNanos) {
+            return cached;
+        }
+        boolean exists = elasticsearchClient.indices()
                 .exists(ExistsRequest.of(e -> e.index(index)))
                 .value();
+        cachedIndexExists = exists;
+        cachedIndexExistsUntilNanos = now + java.time.Duration.ofSeconds(exists ? 300 : 2).toNanos();
+        return exists;
     }
     private List<Query> buildScopeFilters(
             String courseId,

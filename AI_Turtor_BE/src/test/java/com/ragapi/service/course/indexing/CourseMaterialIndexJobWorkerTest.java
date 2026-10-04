@@ -37,7 +37,7 @@ class CourseMaterialIndexJobWorkerTest {
 
         worker.processNextJob();
 
-        verify(indexingService).processQueuedIndex("material-1");
+        verify(indexingService).processQueuedIndex("material-1", "job-1");
         verify(jobService).markCompleted("job-1");
         verify(jobService, never()).retryOrFail(job, null);
     }
@@ -48,7 +48,7 @@ class CourseMaterialIndexJobWorkerTest {
         IOException failure = new IOException("Elasticsearch unavailable");
         when(jobService.claimNext(anyString())).thenReturn(Optional.of(job));
         org.mockito.Mockito.doThrow(failure)
-                .when(indexingService).processQueuedIndex("material-1");
+                .when(indexingService).processQueuedIndex("material-1", "job-1");
 
         worker.processNextJob();
 

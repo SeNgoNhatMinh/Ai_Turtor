@@ -4,6 +4,7 @@ import com.ragapi.entity.CourseMaterial;
 import com.ragapi.service.course.gateway.CourseMaterialStoreGateway;
 import com.ragapi.service.ChapterOutlineService;
 import com.ragapi.service.CourseMaterialChunkingService;
+import com.ragapi.service.CourseMaterialBilingualIndexService;
 import com.ragapi.service.PdfExtractionService;
 import com.ragapi.service.PdfStorageService;
 import com.ragapi.service.RealtimeEventService;
@@ -17,6 +18,7 @@ import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 
 @Slf4j
 @Service
@@ -33,6 +35,7 @@ public class CourseMaterialIndexExecutor {
     private final RealtimeEventService realtimeEvents;
     private final ChapterOutlineService chapterOutlineService;
     private final VisualVectorService visualVectorService;
+    private final CourseMaterialBilingualIndexService bilingualIndexService;
 
     public void markProcessing(CourseMaterial material) {
         material.setIndexingStatus(CourseMaterialIndexStatus.PROCESSING);
@@ -43,8 +46,12 @@ public class CourseMaterialIndexExecutor {
     }
 
     public IndexResult indexAndMark(CourseMaterial material) throws IOException {
+        return indexAndMark(material, ignored -> { });
+    }
+
+    public IndexResult indexAndMark(CourseMaterial material, Consumer<IndexProgress> progress) throws IOException {
         try {
-            int indexedChunks = indexContent(material);
+            int indexedChunks = indexContent(material, progress == null ? ignored -> { } : progress);
             int indexedVisualPages = indexVisualEvidence(material);
             material.setIndexingStatus(CourseMaterialIndexStatus.INDEXED);
             material.setIndexedAt(LocalDateTime.now());
@@ -118,7 +125,7 @@ public class CourseMaterialIndexExecutor {
         }
     }
 
-    private int indexContent(CourseMaterial material) throws IOException {
+    private int indexContent(CourseMaterial material, Consumer<IndexProgress> progress) throws IOException {
         if (material.getContent() == null || material.getContent().isBlank()) {
             throw new IllegalArgumentException("Course material has no extracted text to index");
         }
@@ -129,9 +136,28 @@ public class CourseMaterialIndexExecutor {
         }
         log.info("Course material chunked into {} hierarchical child chunks", chunks.size());
 
+        int technicalTerms = bilingualIndexService.countTechnicalTerms(chunks);
+        progress.accept(new IndexProgress("EXTRACTING_TERMS", chunks.size(), 0, 0, 0, 0, 0,
+                technicalTerms, null, 0, List.of()));
+        progress.accept(new IndexProgress("TRANSLATING", chunks.size(), 0, 0, 0, 0, 0,
+                technicalTerms, null, 0, List.of()));
+        List<CourseMaterialChunkingService.HierarchicalChunk> vietnameseChunks =
+                bilingualIndexService.createVietnameseRepresentations(chunks);
+        int failedTranslations = Math.max(0,
+                bilingualIndexService.countEnglishChunks(chunks) - vietnameseChunks.size());
+        List<String> failedChunkIds = bilingualIndexService.failedEnglishChunkIds(chunks, vietnameseChunks);
+        progress.accept(new IndexProgress("VALIDATING", chunks.size(), vietnameseChunks.size(),
+                failedTranslations, vietnameseChunks.size(), 0, 0, technicalTerms,
+                null, vietnameseChunks.size(), failedChunkIds));
+
+        int embedded = 0;
+        int indexed = 0;
         for (int start = 0; start < chunks.size(); start += EMBEDDING_BATCH_SIZE) {
             List<CourseMaterialChunkingService.HierarchicalChunk> batch =
                     chunks.subList(start, Math.min(start + EMBEDDING_BATCH_SIZE, chunks.size()));
+            progress.accept(new IndexProgress("EMBEDDING", chunks.size() + vietnameseChunks.size(), indexed,
+                    failedTranslations, vietnameseChunks.size(), embedded, indexed, technicalTerms,
+                    null, indexed, failedChunkIds));
             vectorService.indexHierarchicalChunks(
                     material.getCourseId(),
                     material.getClassId(),
@@ -143,10 +169,33 @@ public class CourseMaterialIndexExecutor {
                     material.getSourceDomain(),
                     batch
             );
+            embedded += batch.size();
+            indexed += batch.size();
+            progress.accept(new IndexProgress("INDEXING", chunks.size() + vietnameseChunks.size(), indexed,
+                    failedTranslations, vietnameseChunks.size(), embedded, indexed, technicalTerms,
+                    null, indexed, failedChunkIds));
         }
 
-        log.info("All hierarchical course material chunks indexed to Elasticsearch");
-        return chunks.size();
+        for (int start = 0; start < vietnameseChunks.size(); start += EMBEDDING_BATCH_SIZE) {
+            List<CourseMaterialChunkingService.HierarchicalChunk> batch = vietnameseChunks.subList(
+                    start, Math.min(start + EMBEDDING_BATCH_SIZE, vietnameseChunks.size()));
+            progress.accept(new IndexProgress("EMBEDDING", chunks.size() + vietnameseChunks.size(), indexed,
+                    failedTranslations, vietnameseChunks.size(), embedded, indexed, technicalTerms,
+                    null, indexed, List.of()));
+            vectorService.indexHierarchicalChunks(
+                    material.getCourseId(), material.getClassId(), material.getTeacherId(), material.getId(),
+                    material.getMaterialScope(), material.getSourceType(), material.getSourceUrl(),
+                    material.getSourceDomain(), batch, "vi");
+            embedded += batch.size();
+            indexed += batch.size();
+            progress.accept(new IndexProgress("INDEXING", chunks.size() + vietnameseChunks.size(), indexed,
+                    failedTranslations, vietnameseChunks.size(), embedded, indexed, technicalTerms,
+                    null, indexed, List.of()));
+        }
+
+        log.info("All hierarchical course material representations indexed: sourceChunks={}, viChunks={}",
+                chunks.size(), vietnameseChunks.size());
+        return chunks.size() + vietnameseChunks.size();
     }
 
     private List<CourseMaterialChunkingService.HierarchicalChunk> prepareHierarchicalChunks(
@@ -198,6 +247,12 @@ public class CourseMaterialIndexExecutor {
     }
 
     public record IndexResult(int indexedChunks, int indexedVisualPages) {
+    }
+
+    public record IndexProgress(String stage, int totalChunks, int completedChunks, int failedChunks,
+                                int translatedChunks, int embeddedChunks, int indexedChunks,
+                                int technicalTermsPreserved, String currentChapter, Integer currentChunk,
+                                List<String> failedChunkIds) {
     }
 
     public record ReindexResult(

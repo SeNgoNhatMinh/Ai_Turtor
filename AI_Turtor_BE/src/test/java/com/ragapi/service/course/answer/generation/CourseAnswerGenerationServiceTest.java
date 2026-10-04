@@ -13,7 +13,7 @@ import static org.mockito.Mockito.when;
 class CourseAnswerGenerationServiceTest {
 
     @Test
-    void lessonTeachAddsMissingUnderstandingCheckFromCourseContext() {
+    void lessonTeachDoesNotAddMissingUnderstandingCheckWithUtilityLlmCall() {
         CourseAnswerModelGateway model = mock(CourseAnswerModelGateway.class);
         when(model.generate("prompt", "Bắt đầu bài 1: print và input"))
                 .thenReturn("""
@@ -32,16 +32,6 @@ class CourseAnswerGenerationServiceTest {
                         ## Nguồn tài liệu đã dùng
                         material-1
                         """);
-        when(model.generateUtility(contains("Create exactly one short Vietnamese multiple-choice")))
-                .thenReturn("""
-                        ## Kiểm tra hiểu
-                        Câu hỏi: Hàm nào nhận dữ liệu do người dùng nhập?
-                        A. print()
-                        B. input()
-                        C. type()
-                        Đáp án: B
-                        Giải thích: `input()` nhận dữ liệu nhập từ người dùng.
-                        """);
         CourseAnswerGenerationService service = new CourseAnswerGenerationService(model);
 
         String answer = service.generateGroundedAnswer(
@@ -52,9 +42,8 @@ class CourseAnswerGenerationServiceTest {
                 ""
         );
 
-        assertTrue(answer.contains("## Kiểm tra hiểu"));
-        assertTrue(answer.contains("Đáp án: B"));
-        assertTrue(answer.indexOf("## Kiểm tra hiểu") < answer.indexOf("## Học chuyên sâu"));
+        assertTrue(answer.contains("## Giải thích"));
+        verify(model, never()).generateUtility(contains("Create exactly one short Vietnamese multiple-choice"));
     }
 
     @Test
@@ -88,5 +77,43 @@ class CourseAnswerGenerationServiceTest {
 
         assertTrue(answer.contains("## Kiểm tra hiểu"));
         verify(model, never()).generateUtility(contains("Create exactly one short Vietnamese multiple-choice"));
+    }
+
+    @Test
+    void remediationAddsParaphrasedCheckWhenTheReteachOmitsIt() {
+        CourseAnswerModelGateway model = mock(CourseAnswerModelGateway.class);
+        String question = """
+                Ôn lại sau câu trả lời chưa đúng.
+                Câu vừa làm: Vì sao tuple sắp xếp theo giá trị phải là (val, key)?
+                """;
+        when(model.generate("prompt", question)).thenReturn("""
+                ## Giảng lại dễ hiểu
+                Khi sort so sánh từ trái sang phải, value phải đứng trước.
+
+                ### Minh họa trực quan (Visual Representation)
+                `l.append((val, key))` đưa value lên đầu tuple.
+                """);
+        when(model.generateUtility(contains("Paraphrase the question"))).thenReturn("""
+                ## Kiểm tra hiểu
+                Câu hỏi: Muốn sort giảm dần theo value thì tuple phải xếp thế nào?
+                A. (key, val)
+                B. (val, key)
+                C. chỉ có key
+                Đáp án: B
+                Giải thích: Phần tử đầu tiên được so sánh trước.
+                """);
+        CourseAnswerGenerationService service = new CourseAnswerGenerationService(model);
+
+        String answer = service.generateGroundedAnswer(
+                "prompt",
+                question,
+                "EXPLAIN_CONCEPT",
+                "sort so sánh từ trái sang phải; append((val, key)) đưa value lên đầu.",
+                ""
+        );
+
+        assertTrue(answer.contains("## Giảng lại dễ hiểu"));
+        assertTrue(answer.contains("Muốn sort giảm dần theo value"));
+        assertTrue(answer.contains("Đáp án: B"));
     }
 }

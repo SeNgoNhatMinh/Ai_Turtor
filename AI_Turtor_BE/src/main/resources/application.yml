@@ -120,20 +120,22 @@ llm:
   daily-quota-cooldown-seconds: ${LLM_DAILY_QUOTA_COOLDOWN_SECONDS:86400}
   provider-reorder-on-quota: ${LLM_PROVIDER_REORDER_ON_QUOTA:true}
   skip-diacritics-for-english-questions: ${LLM_SKIP_DIACRITICS_FOR_ENGLISH_QUESTIONS:true}
-  diacritics-correction-enabled: ${LLM_DIACRITICS_CORRECTION_ENABLED:true}
+  diacritics-correction-enabled: ${LLM_DIACRITICS_CORRECTION_ENABLED:false}
   # Local Ollama answers already cost time; skip the second correction LLM pass.
   skip-diacritics-for-ollama: ${LLM_SKIP_DIACRITICS_FOR_OLLAMA:true}
   # When Ollama is in the chain, fail cloud providers faster so local fallback is reached.
-  cloud-failover-timeout-seconds: ${LLM_CLOUD_FAILOVER_TIMEOUT_SECONDS:15}
+  cloud-failover-timeout-seconds: ${LLM_CLOUD_FAILOVER_TIMEOUT_SECONDS:12}
+  # Hard upper bound for provider attempts inside one logical generation call.
+  max-provider-attempts: ${LLM_MAX_PROVIDER_ATTEMPTS:8}
+  # Must stay below the n8n Course RAG Query timeout (300 seconds).
+  generation-deadline-seconds: ${LLM_GENERATION_DEADLINE_SECONDS:180}
   groq:
     enabled: ${GROQ_ENABLED:true}
     api-key: ${GROQ_API_KEY:}
     base-url: ${GROQ_BASE_URL:https://api.groq.com/openai/v1}
     model: ${GROQ_MODEL:openai/gpt-oss-120b}
-    # Keep deprecated entries in GROQ_MODELS so persisted groq-N overrides retain
-    # their original slot IDs. Disabled models are never exposed or called.
-    models: ${GROQ_MODELS:openai/gpt-oss-120b,qwen/qwen3.6-27b,llama-3.3-70b-versatile,openai/gpt-oss-20b,llama-3.1-8b-instant}
-    disabled-models: ${GROQ_DISABLED_MODELS:llama-3.3-70b-versatile,llama-3.1-8b-instant}
+    models: ${GROQ_MODELS:openai/gpt-oss-120b,openai/gpt-oss-20b,qwen/qwen3.8-27b}
+    disabled-models: ${GROQ_DISABLED_MODELS:}
     timeout-seconds: ${GROQ_TIMEOUT_SECONDS:15}
   nvidia:
     enabled: ${NVIDIA_NIM_ENABLED:true}
@@ -195,7 +197,7 @@ app:
     daily-limit: ${STUDENT_DAILY_QUESTION_LIMIT:10}
   student-question-normalization:
     enabled: ${STUDENT_QUESTION_NORMALIZATION_ENABLED:true}
-    llm-enabled: ${STUDENT_QUESTION_NORMALIZATION_LLM_ENABLED:true}
+    llm-enabled: ${STUDENT_QUESTION_NORMALIZATION_LLM_ENABLED:false}
     max-length: ${STUDENT_QUESTION_NORMALIZATION_MAX_LENGTH:500}
   answer-review:
     # Số học sinh khác nhau (cùng câu trả lời AI) trước khi đưa vào hàng mentor/senior.
@@ -235,6 +237,13 @@ rag:
       batch-size: ${RAG_INDEXING_WORKER_BATCH_SIZE:4}
       heartbeat-interval-seconds: ${RAG_INDEXING_WORKER_HEARTBEAT_INTERVAL_SECONDS:30}
       completed-retention-days: ${RAG_INDEXING_COMPLETED_RETENTION_DAYS:14}
+    bilingual:
+      # Import-time only. The final-answer provider/model is configured separately under llm.*.
+      enabled: ${RAG_BILINGUAL_INDEXING_ENABLED:false}
+      api-key: ${NVIDIA_API_KEY:}
+      base-url: ${NVIDIA_TRANSLATION_BASE_URL:https://integrate.api.nvidia.com/v1}
+      translation-model: ${RAG_BILINGUAL_TRANSLATION_MODEL:NVIDIABuild-Autogen-17}
+      timeout-seconds: ${RAG_BILINGUAL_TRANSLATION_TIMEOUT_SECONDS:120}
   preview:
     cache-dir: ${RAG_PREVIEW_CACHE_DIR:/app/data/pdf-preview-cache}
   visual:
@@ -269,8 +278,21 @@ rag:
   retrieval:
     top-k: 20
     num-candidates: 80
+    parallel:
+      # Enable only after comparing ES/Mongo saturation with the sequential baseline.
+      enabled: ${RAG_RETRIEVAL_PARALLEL_ENABLED:true}
+      timeout-ms: ${RAG_RETRIEVAL_BRANCH_TIMEOUT_MS:5000}
+      core-pool-size: ${RAG_RETRIEVAL_CORE_POOL_SIZE:3}
+      max-pool-size: ${RAG_RETRIEVAL_MAX_POOL_SIZE:6}
+      queue-capacity: ${RAG_RETRIEVAL_QUEUE_CAPACITY:64}
+    conditional-approved-knowledge:
+      enabled: ${RAG_CONDITIONAL_APPROVED_KNOWLEDGE_ENABLED:true}
+    primary-sufficient:
+      min-chunks: ${RAG_PRIMARY_SUFFICIENT_MIN_CHUNKS:2}
+      min-context-chars: ${RAG_PRIMARY_SUFFICIENT_MIN_CONTEXT_CHARS:900}
     query-translation:
-      enabled: ${RAG_QUERY_TRANSLATION_ENABLED:true}
+      # Retained only for rollback compatibility; runtime retrieval no longer calls it.
+      enabled: ${RAG_QUERY_TRANSLATION_ENABLED:false}
       # Extra LLM hop is expensive for local gemma; skip when cloud chat is off.
       skip-when-ollama-only: ${RAG_QUERY_TRANSLATION_SKIP_WHEN_OLLAMA_ONLY:true}
       target-language: English
@@ -280,8 +302,9 @@ rag:
     strong-semantic-score: ${RAG_APPROVED_KNOWLEDGE_STRONG_SCORE:0.82}
     min-keyword-overlap: ${RAG_APPROVED_KNOWLEDGE_MIN_KEYWORD_OVERLAP:0.12}
   generation:
-    max-context-chars: ${RAG_GENERATION_MAX_CONTEXT_CHARS:12000}
+    max-context-chars: ${RAG_GENERATION_MAX_CONTEXT_CHARS:8000}
     ollama-max-context-chars: ${RAG_GENERATION_OLLAMA_MAX_CONTEXT_CHARS:6000}
+    quality-fallback-enabled: ${RAG_GENERATION_QUALITY_FALLBACK_ENABLED:false}
   rerank:
     enabled: ${RAG_RERANK_ENABLED:false}
     api-key: ${OPENROUTER_RERANK_API_KEY:${OPENROUTER_API_KEY:missing-openrouter-api-key}}

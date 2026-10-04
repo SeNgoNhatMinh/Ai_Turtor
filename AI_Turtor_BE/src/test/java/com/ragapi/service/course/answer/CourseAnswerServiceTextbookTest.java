@@ -84,7 +84,6 @@ class CourseAnswerServiceTextbookTest {
         CourseRetrievalCandidateService candidateService = new CourseRetrievalCandidateService(
                 vectorService, fallbackSearchService);
         CourseRetrievalMergeService mergeService = new CourseRetrievalMergeService(
-                rerankService,
                 materialRepository,
                 contextBudgetService,
                 approvedKnowledgeRetrievalService,
@@ -109,7 +108,8 @@ class CourseAnswerServiceTextbookTest {
         CourseLessonContextService lessonContextService = new CourseLessonContextService(
                 new CourseImprovePlanContextService(materialRepository, chunkingService),
                 new CourseLessonPreviewService(materialRepository, chapterOutlineService),
-                new CourseDraftTeachingNoteService()
+                new CourseDraftTeachingNoteService(),
+                contextBudgetService
         );
         CourseAnswerGroundingService groundingService = new CourseAnswerGroundingService();
         CourseAnswerEvidenceService evidenceService = new CourseAnswerEvidenceService(sourceService, evidenceSelector);
@@ -146,11 +146,8 @@ class CourseAnswerServiceTextbookTest {
                 "teacher-1",
                 "COURSE_SHARED"
         );
-        when(retrievalQueryTranslationService.expandForRetrieval(anyString(), eq("PRJ301"), any(Boolean.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
         when(vectorService.searchTextbookWithScores(anyString(), eq("PRJ301"), isNull()))
                 .thenReturn(List.of(textbookChunk));
-        when(rerankService.rerank(anyString(), any())).thenAnswer(invocation -> invocation.getArgument(1));
         when(contextBudgetService.applyBudget(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(materialRepository.findAllById(any())).thenReturn(List.of());
         when(courseRepository.findByCourseId("PRJ301")).thenReturn(Optional.empty());
@@ -178,11 +175,8 @@ class CourseAnswerServiceTextbookTest {
                 "teacher-1",
                 "COURSE_SHARED"
         );
-        when(retrievalQueryTranslationService.expandForRetrieval(anyString(), eq("PFP191"), any(Boolean.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
         when(vectorService.searchTextbookWithScores(anyString(), eq("PFP191"), isNull()))
                 .thenReturn(List.of(textbookChunk));
-        when(rerankService.rerank(anyString(), any())).thenAnswer(invocation -> invocation.getArgument(1));
         when(contextBudgetService.applyBudget(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(materialRepository.findAllById(any())).thenReturn(List.of());
         when(chatService.generate(anyString(), eq("So sánh hai phương pháp")))
@@ -211,15 +205,12 @@ class CourseAnswerServiceTextbookTest {
                 "COURSE_SHARED",
                 "PDF"
         );
-        when(retrievalQueryTranslationService.expandForRetrieval(anyString(), eq("PRJ301"), any(Boolean.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
         when(vectorService.searchTextbookWithScores(anyString(), eq("PRJ301"), isNull()))
                 .thenReturn(List.of(textbookChunk));
         when(vectorService.searchGoldQaTeachingNotesWithScores(anyString(), eq("PRJ301"), isNull(), eq(2)))
                 .thenReturn(List.of());
         when(approvedKnowledgeRetrievalService.retrieveRelevant(anyString(), eq("PRJ301"), isNull()))
                 .thenReturn(List.of());
-        when(rerankService.rerank(anyString(), any())).thenAnswer(invocation -> invocation.getArgument(1));
         when(contextBudgetService.applyBudget(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(materialRepository.findAllById(any())).thenReturn(List.of());
         when(answerCacheService.lookupExactRagAnswer(eq("PRJ301"), isNull(), anyString())).thenReturn(Optional.empty());
@@ -259,15 +250,12 @@ class CourseAnswerServiceTextbookTest {
                 "COURSE_SHARED",
                 "PDF"
         );
-        when(retrievalQueryTranslationService.expandForRetrieval(anyString(), eq("CEA201"), any(Boolean.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
         when(vectorService.searchTextbookWithScores(anyString(), eq("CEA201"), isNull()))
                 .thenReturn(List.of(definitionChunk, missChunk));
         when(vectorService.searchGoldQaTeachingNotesWithScores(anyString(), eq("CEA201"), isNull(), eq(2)))
                 .thenReturn(List.of());
         when(approvedKnowledgeRetrievalService.retrieveRelevant(anyString(), eq("CEA201"), isNull()))
                 .thenReturn(List.of());
-        when(rerankService.rerank(anyString(), any())).thenAnswer(invocation -> invocation.getArgument(1));
         when(contextBudgetService.applyBudget(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(materialRepository.findAllById(any())).thenReturn(List.of());
         when(courseRepository.findByCourseId("CEA201")).thenReturn(Optional.empty());
@@ -299,15 +287,12 @@ class CourseAnswerServiceTextbookTest {
                 "COURSE_SHARED",
                 "PDF"
         );
-        when(retrievalQueryTranslationService.expandForRetrieval(anyString(), eq("PFP191"), eq(false)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
         when(vectorService.searchTextbookWithScores(anyString(), eq("PFP191"), isNull()))
                 .thenReturn(List.of(typeChunk));
         when(vectorService.searchGoldQaTeachingNotesWithScores(anyString(), eq("PFP191"), isNull(), eq(2)))
                 .thenReturn(List.of());
         when(approvedKnowledgeRetrievalService.retrieveRelevant(anyString(), eq("PFP191"), isNull()))
                 .thenReturn(List.of());
-        when(rerankService.rerank(anyString(), any())).thenAnswer(invocation -> invocation.getArgument(1));
         when(contextBudgetService.applyBudget(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(materialRepository.findAllById(any())).thenReturn(List.of());
 
@@ -341,8 +326,6 @@ class CourseAnswerServiceTextbookTest {
                 "COURSE_SHARED",
                 "PDF"
         );
-        when(retrievalQueryTranslationService.expandForRetrieval(eq(question), eq("CEA201"), eq(false)))
-                .thenReturn(question);
         when(vectorService.searchTextbookWithScores(question, "CEA201", null))
                 .thenReturn(List.of(vectorChunk));
         when(fallbackSearchService.searchTextbook(question, "CEA201", null, 8))
@@ -351,7 +334,6 @@ class CourseAnswerServiceTextbookTest {
                 .thenReturn(List.of());
         when(approvedKnowledgeRetrievalService.retrieveRelevant(question, "CEA201", null))
                 .thenReturn(List.of());
-        when(rerankService.rerank(eq(question), any())).thenAnswer(invocation -> invocation.getArgument(1));
         when(contextBudgetService.applyBudget(any())).thenAnswer(invocation -> invocation.getArgument(0));
         CourseMaterial material = new CourseMaterial();
         material.setId("textbook");
@@ -407,8 +389,6 @@ class CourseAnswerServiceTextbookTest {
                 "COURSE_SHARED",
                 "PDF"
         );
-        when(retrievalQueryTranslationService.expandForRetrieval(eq(retrievalFocus), eq("PRJ301"), eq(false)))
-                .thenReturn(retrievalFocus);
         when(vectorService.searchTextbookWithScores(eq(retrievalFocus), eq("PRJ301"), isNull()))
                 .thenReturn(List.of(jspxChunk, specChunk));
         when(fallbackSearchService.searchTextbook(eq(retrievalFocus), eq("PRJ301"), isNull(), eq(8)))
@@ -417,7 +397,6 @@ class CourseAnswerServiceTextbookTest {
                 .thenReturn(List.of());
         when(approvedKnowledgeRetrievalService.retrieveRelevant(eq(retrievalFocus), eq("PRJ301"), isNull()))
                 .thenReturn(List.of());
-        when(rerankService.rerank(eq(retrievalFocus), any())).thenAnswer(invocation -> invocation.getArgument(1));
         when(contextBudgetService.applyBudget(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(chatService.generate(anyString(), eq(followUp)))
                 .thenReturn("Servlet Specification quy định init, service, destroy.");
@@ -472,8 +451,6 @@ class CourseAnswerServiceTextbookTest {
                 .sourceTerms(List.of("brontosaurus", "get"))
                 .build();
 
-        when(retrievalQueryTranslationService.expandForRetrieval("brontosaurus get", "PFP191", false))
-                .thenReturn("brontosaurus get");
         when(vectorService.searchTextbookWithScores("brontosaurus get", "PFP191", null))
                 .thenReturn(List.of());
         when(vectorService.searchTextbookKeywordWithScores("brontosaurus get", "PFP191", null, 12))
@@ -485,8 +462,6 @@ class CourseAnswerServiceTextbookTest {
         when(approvedKnowledgeRetrievalService.retrieveRelevant("brontosaurus get", "PFP191", null))
                 .thenReturn(List.of());
         when(materialRepository.findAllById(any())).thenReturn(List.of(material));
-        when(rerankService.rerank(eq("brontosaurus get"), any()))
-                .thenAnswer(invocation -> invocation.getArgument(1));
         when(contextBudgetService.applyBudget(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(courseRepository.findByCourseId("PFP191")).thenReturn(Optional.empty());
         when(chatService.generate(anyString(), eq(question)))

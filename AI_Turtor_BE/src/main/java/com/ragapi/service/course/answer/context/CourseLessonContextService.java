@@ -3,6 +3,7 @@ package com.ragapi.service.course.answer.context;
 import com.ragapi.dto.RagQueryIntent;
 import com.ragapi.dto.cotraining.ChapterPreviewView;
 import com.ragapi.service.course.model.RetrievedCourseChunk;
+import com.ragapi.service.course.search.CourseSearchContextLimitService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -16,6 +17,7 @@ public class CourseLessonContextService {
     private final CourseImprovePlanContextService improvePlanContextService;
     private final CourseLessonPreviewService lessonPreviewService;
     private final CourseDraftTeachingNoteService draftTeachingNoteService;
+    private final CourseSearchContextLimitService contextLimitService;
 
     public List<RetrievedCourseChunk> retrieveImprovePlanChunks(
             RagQueryIntent ragQueryIntent,
@@ -41,7 +43,9 @@ public class CourseLessonContextService {
             ChapterPreviewView preview,
             List<RetrievedCourseChunk> ranked
     ) {
-        return lessonPreviewService.pin(preview, ranked);
+        // Retrieval applies its budget before lesson-specific preview pinning. Apply it
+        // again afterwards so a full chapter preview cannot bypass the final prompt cap.
+        return contextLimitService.applyBudget(lessonPreviewService.pin(preview, ranked));
     }
 
     public String prependDraftTeachingNote(

@@ -124,6 +124,8 @@ public class CourseAnswerPromptSections {
                 - Do not include pseudocode or a worked example unless the student explicitly asks for an example
                   (including short asks such as "có ví dụ ko?", "ví dụ đi","ví dụ" , "ví dụ nhỏ" ).
                   For a definition/theory question, omit the example section or state briefly that no example was requested.
+                  This limit does not apply when ACTIVE PEDAGOGICAL DIRECTIVES says HIGH_SUPPORT: include the textbook
+                  examples and explain each line.
                 - Comparison tables MUST be GitHub-flavored markdown:
                   | Cột A | Cột B |
                   | --- | --- |

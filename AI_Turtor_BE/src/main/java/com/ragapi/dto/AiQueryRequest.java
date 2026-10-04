@@ -47,6 +47,15 @@ public class AiQueryRequest {
     @Schema(description = "Interaction initiated from a source-backed study tip")
     private String interactionType;
 
+    @Schema(description = "Assistant message that produced an incorrect understanding check")
+    private String originAssistantMessageId;
+
+    @Schema(description = "Server-issued idempotency ID for the understanding-check attempt")
+    private String understandingAttemptId;
+
+    @Schema(description = "Original understanding-check question used only as a retrieval hint")
+    private String originalQuestion;
+
     @Schema(description = "Material IDs from the answer that produced the clicked study tip")
     private List<String> sourceMaterialIds;
 

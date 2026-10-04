@@ -642,7 +642,10 @@ public class CanonicalTutorAnswerCacheService {
             return List.of();
         }
         try {
-            Embedding embedding = embeddingService.generateQueryEmbedding(question);
+            Optional<Embedding> memoized = embeddingService.findRequestQueryEmbedding(question);
+            Embedding embedding = memoized != null && memoized.isPresent()
+                    ? memoized.get()
+                    : embeddingService.generateQueryEmbedding(question);
             return EmbeddingSimilarityUtil.toFloatList(embedding.vector());
         } catch (Exception error) {
             log.warn("Failed to embed question for semantic tutor cache: {}", error.getMessage());

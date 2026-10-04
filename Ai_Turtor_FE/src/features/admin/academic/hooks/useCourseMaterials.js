@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../../../../app/queryKeys';
 import { API_BASE_URL, getUserFacingError } from '../../../../services/apiClient';
@@ -28,6 +28,7 @@ export function useCourseMaterials({
   const [materialFile, setMaterialFile] = useState(null);
   const [websiteImportOpen, setWebsiteImportOpen] = useState(false);
   const [reconciling, setReconciling] = useState(false);
+  const [activeImportJobId, setActiveImportJobId] = useState('');
   const queryKey = queryKeys.adminCourseMaterials(materialCourseId);
 
   const materialsQuery = useQuery({
@@ -42,6 +43,28 @@ export function useCourseMaterials({
     ),
   });
   const courseMaterials = materialCourseId ? materialsQuery.data || EMPTY_LIST : EMPTY_LIST;
+  const importJobsQuery = useQuery({
+    queryKey: ['admin', 'material-import-jobs', materialCourseId || 'none'],
+    queryFn: ({ signal }) => materialsApi.listImportJobs(materialCourseId, { signal }),
+    enabled: Boolean(materialCourseId),
+    staleTime: 5_000,
+  });
+  useEffect(() => {
+    const latestJob = Array.isArray(importJobsQuery.data) ? importJobsQuery.data[0] : null;
+    if (latestJob?.id && latestJob.courseId === materialCourseId) {
+      setActiveImportJobId(String(latestJob.id));
+    }
+  }, [importJobsQuery.data, materialCourseId]);
+  const importJobQuery = useQuery({
+    queryKey: ['admin', 'material-import-job', activeImportJobId || 'none'],
+    queryFn: ({ signal }) => materialsApi.getImportJob(activeImportJobId, { signal }),
+    enabled: Boolean(activeImportJobId),
+    refetchInterval: (query) => {
+      const status = String(query.state.data?.status || '').toUpperCase();
+      if (['COMPLETED', 'FAILED', 'CANCELLED'].includes(status)) return false;
+      return realtimeState === 'CONNECTED' ? false : 2000;
+    },
+  });
 
   const loadCourseMaterials = useCallback(async (courseId = materialCourseId, options = {}) => {
     const normalizedCourseId = String(courseId || '').trim();
@@ -59,11 +82,30 @@ export function useCourseMaterials({
 
   useRealtimeEvent(REALTIME_EVENT_TYPES.material, (event) => {
     if (!materialCourseId || !eventMatchesCourse(event, materialCourseId)) return;
+    if (event.type === 'MATERIAL_IMPORT_PROGRESS' && event.entityId === activeImportJobId) {
+      queryClient.setQueryData(['admin', 'material-import-job', activeImportJobId], (current) => ({
+        ...current,
+        ...event.data,
+        status: ['COMPLETED', 'FAILED', 'CANCELLED', 'RETRY'].includes(event.status)
+          ? event.status
+          : current?.status || 'PROCESSING',
+      }));
+      queryClient.invalidateQueries({
+        queryKey: ['admin', 'material-import-job', activeImportJobId],
+        exact: true,
+      });
+    }
     queryClient.invalidateQueries({ queryKey, exact: true });
   });
 
   useRealtimeReconnect(() => {
     if (materialCourseId) queryClient.invalidateQueries({ queryKey, exact: true });
+    if (activeImportJobId) {
+      queryClient.invalidateQueries({
+        queryKey: ['admin', 'material-import-job', activeImportJobId],
+        exact: true,
+      });
+    }
   });
 
   const refreshCourseMaterialsWithRetry = async (courseId, previousCount = 0, expectedTitle = '') => {
@@ -119,7 +161,8 @@ export function useCourseMaterials({
     const releaseUploadButton = () => window.setTimeout(() => setMaterialUploadBusy(false), 2500);
     const previousCount = courseMaterials.length;
     try {
-      await materialsApi.uploadMaterial(materialCourseId, formData);
+      const receipt = await materialsApi.uploadMaterial(materialCourseId, formData);
+      if (receipt?.jobId) setActiveImportJobId(String(receipt.jobId));
       const appeared = await refreshCourseMaterialsWithRetry(materialCourseId, previousCount, values.title);
       formMaterial.resetFields(['title']);
       setMaterialFile(null);
@@ -141,7 +184,21 @@ export function useCourseMaterials({
     }
   };
 
-  const handleWebsiteMaterialImported = async (expectedTitle) => {
+  const handleRetryImportJob = async () => {
+    if (!activeImportJobId) return;
+    await materialsApi.retryImportJob(activeImportJobId);
+    await importJobQuery.refetch();
+  };
+
+  const handleCancelImportJob = async () => {
+    if (!activeImportJobId) return;
+    await materialsApi.cancelImportJob(activeImportJobId);
+    await importJobQuery.refetch();
+  };
+
+  const handleWebsiteMaterialImported = async (response) => {
+    const expectedTitle = response?.title || 'Tài liệu website';
+    if (response?.jobId) setActiveImportJobId(String(response.jobId));
     await refreshCourseMaterialsWithRetry(materialCourseId, courseMaterials.length, expectedTitle);
     await onCourseSyllabusUpdated?.();
   };
@@ -225,6 +282,10 @@ export function useCourseMaterials({
     materialUploadBusy,
     materialFile,
     websiteImportOpen,
+    activeImportJob: importJobQuery.data || null,
+    importJobLoading: importJobQuery.isPending || importJobQuery.isFetching,
+    retryImportJob: handleRetryImportJob,
+    cancelImportJob: handleCancelImportJob,
     setMaterialFile,
     setWebsiteImportOpen,
     loadCourseMaterials,

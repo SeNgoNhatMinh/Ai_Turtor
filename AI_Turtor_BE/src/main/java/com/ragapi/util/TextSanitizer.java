@@ -242,7 +242,7 @@ public final class TextSanitizer {
                 || (lower.contains("mentor phu trach") && lower.contains("tranh ai"))
                 || lower.contains("question escalation created")
                 || lower.contains("khong the cung cap ma nguon")
-                || lower.contains("api key")
+                || (lower.contains("api key") && lower.contains("thong tin nhay cam"))
                 || (lower.contains("token") && lower.contains("thong tin nhay cam"))
                 || (lower.contains("minh la ai tutor cua mon") && lower.contains("paste code"));
     }

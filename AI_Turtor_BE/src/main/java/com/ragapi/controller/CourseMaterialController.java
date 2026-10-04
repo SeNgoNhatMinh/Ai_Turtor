@@ -13,6 +13,7 @@ import com.ragapi.service.CourseMaterialQueryService;
 import com.ragapi.service.CourseMaterialHtmlImportService;
 import com.ragapi.service.course.indexing.CourseMaterialIndexingService;
 import com.ragapi.service.course.indexing.CourseMaterialIndexManagementService;
+import com.ragapi.service.course.indexing.CourseMaterialIndexJobService;
 import com.ragapi.service.PdfPageRenderService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -26,6 +27,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -69,11 +71,15 @@ public class CourseMaterialController {
     private final AccessGuardService accessGuardService;
     private final CourseCurriculumOverviewService curriculumOverviewService;
 
+    @Autowired(required = false)
+    private CourseMaterialIndexJobService indexJobService;
+
     @Value("${upload.pdf.max-size-mb:50}")
     private long maxMaterialUploadMb;
 
-    private static final Set<String> MATERIAL_EXTENSIONS = Set.of("pdf");
-    private static final Set<String> MATERIAL_CONTENT_TYPES = Set.of("application/pdf", "application/x-pdf");
+    private static final Set<String> MATERIAL_EXTENSIONS = Set.of("pdf", "md", "markdown");
+    private static final Set<String> MATERIAL_CONTENT_TYPES = Set.of(
+            "application/pdf", "application/x-pdf", "text/markdown", "text/plain", "application/octet-stream");
     private static final long DOWNLOAD_TICKET_TTL_SECONDS = 60;
     private final Map<String, MaterialDownloadTicket> materialDownloadTickets = new ConcurrentHashMap<>();
 
@@ -129,6 +135,10 @@ public class CourseMaterialController {
             response.put("syllabusUpdated", "COURSE_SHARED".equals(uploadScope.materialScope()));
             response.put("indexedAt", material.getIndexedAt());
             response.put("indexingError", material.getIndexingError());
+            if (indexJobService != null) {
+                indexJobService.findLatestByMaterialId(material.getId())
+                        .ifPresent(job -> response.put("jobId", job.getId()));
+            }
             return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
         } catch (SecurityException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
@@ -151,9 +161,11 @@ public class CourseMaterialController {
     @Operation(summary = "Preview table of contents from an HTML documentation URL")
     public ResponseEntity<?> previewHtmlTableOfContents(
             @PathVariable String courseId,
-            @RequestBody HtmlTableOfContentsRequest request
+            @RequestBody HtmlTableOfContentsRequest request,
+            Authentication authentication
     ) {
         try {
+            requireAdmin(authentication);
             validateScope(courseId);
             if (request == null) {
                 return ResponseEntity.badRequest().body(Map.of("error", "Request body is required"));
@@ -166,6 +178,8 @@ public class CourseMaterialController {
             response.put("items", result.items());
             response.put("itemCount", result.items().size());
             return ResponseEntity.ok(response);
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (IOException e) {
@@ -214,6 +228,10 @@ public class CourseMaterialController {
             response.put("importedUrls", result.importedUrls());
             response.put("importedPageCount", result.importedUrls().size());
             response.put("indexingStatus", result.indexingStatus());
+            if (indexJobService != null) {
+                indexJobService.findLatestByMaterialId(result.materialId())
+                        .ifPresent(job -> response.put("jobId", job.getId()));
+            }
             response.put("syllabusUpdated", "COURSE_SHARED".equals(uploadScope.materialScope()));
             return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
         } catch (SecurityException e) {
@@ -669,22 +687,58 @@ public class CourseMaterialController {
     ) {
         String requesterId = authenticatedUserId(authentication);
         String requesterRole = authenticatedRole(authentication);
-        String safeClassId = normalizeOptionalFormValue(optionalMaxLength(classId, "classId", SHORT_TEXT_MAX_LENGTH));
-        if (materialAccessPolicy.isPrivileged(requesterRole)) {
-            return new MaterialUploadScope(null, requesterId, "COURSE_SHARED", "ADMIN");
+        requireAdmin(authentication);
+        return new MaterialUploadScope(null, requesterId, "COURSE_SHARED", "ADMIN");
+    }
+
+    @GetMapping("/admin/material-import-jobs/{jobId}")
+    @Operation(summary = "Get persisted Admin material import progress")
+    public ResponseEntity<?> getMaterialImportJob(@PathVariable String jobId, Authentication authentication) {
+        if (!isAdmin(authentication)) return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        if (indexJobService == null) return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
+        return indexJobService.findById(jobId)
+                .<ResponseEntity<?>>map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/admin/courses/{courseId}/material-import-jobs")
+    @Operation(summary = "List persisted Admin material import jobs for a course")
+    public ResponseEntity<?> listMaterialImportJobs(@PathVariable String courseId, Authentication authentication) {
+        if (!isAdmin(authentication)) return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        validateScope(courseId);
+        return ResponseEntity.ok(indexJobService == null ? java.util.List.of() : indexJobService.findByCourseId(courseId));
+    }
+
+    @PostMapping("/admin/material-import-jobs/{jobId}/retry")
+    @Operation(summary = "Retry a failed Admin material import job")
+    public ResponseEntity<?> retryMaterialImportJob(@PathVariable String jobId, Authentication authentication) {
+        if (!isAdmin(authentication)) return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        boolean retried = indexJobService != null && indexJobService.retryFailed(jobId);
+        return retried ? ResponseEntity.accepted().body(Map.of("jobId", jobId, "status", "RETRY"))
+                : ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", "Only a failed job can be retried"));
+    }
+
+    @PostMapping("/admin/material-import-jobs/{jobId}/cancel")
+    @Operation(summary = "Cancel a queued Admin material import job")
+    public ResponseEntity<?> cancelMaterialImportJob(@PathVariable String jobId, Authentication authentication) {
+        if (!isAdmin(authentication)) return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        boolean cancelled = indexJobService != null && indexJobService.cancel(jobId);
+        return cancelled ? ResponseEntity.ok(Map.of("jobId", jobId, "status", "CANCELLED"))
+                : ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", "Only a queued job can be cancelled safely"));
+    }
+
+    private void requireAdmin(Authentication authentication) {
+        if (!"ADMIN".equalsIgnoreCase(authenticatedRole(authentication))) {
+            throw new SecurityException("Only administrators can upload or import course materials");
         }
-        if (!materialAccessPolicy.isTeacher(requesterRole)) {
-            throw new SecurityException("Only teachers, senior mentors or administrators can upload course materials");
-        }
-        if (safeClassId == null) {
-            throw new IllegalArgumentException("classId is required when a teacher uploads class material");
-        }
+    }
+
+    private boolean isAdmin(Authentication authentication) {
         try {
-            accessGuardService.allowTeacherForClassOrAdmin(requesterId, requesterRole, courseId, safeClassId);
-        } catch (IllegalArgumentException error) {
-            throw new SecurityException(error.getMessage());
+            return "ADMIN".equalsIgnoreCase(authenticatedRole(authentication));
+        } catch (SecurityException ignored) {
+            return false;
         }
-        return new MaterialUploadScope(safeClassId, requesterId, "CLASS_SECTION", "TEACHER");
     }
 
     private String authenticatedUserId(Authentication authentication) {

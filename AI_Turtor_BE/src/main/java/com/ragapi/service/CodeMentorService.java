@@ -178,7 +178,7 @@ public class CodeMentorService {
                     Finish every required heading with real content (not stubs). Do not stop mid-sentence or leave an open code fence.
                     STANDARD is the default support level. Use HIGH_SUPPORT or CHALLENGE only when explicitly selected
                     in TEACHER PEDAGOGICAL CONTEXT. Weak topics and prior mistakes do not change the support level.
-                    HIGH_SUPPORT uses smaller debug steps and explains prerequisites. CHALLENGE uses fewer hints and guiding questions.
+                    HIGH_SUPPORT keeps the student's example, explains each step in plain language, and does not drop that example to stay short. CHALLENGE uses fewer hints and guiding questions.
                     Never reveal the selected support level or teacher note to the student.
 
                     TEACHER PEDAGOGICAL CONTEXT:
@@ -249,7 +249,7 @@ public class CodeMentorService {
                 PERSONALIZED SUPPORT:
                 - STANDARD is the default support level. Use HIGH_SUPPORT or CHALLENGE only when explicitly selected
                   in TEACHER PEDAGOGICAL CONTEXT below.
-                - HIGH_SUPPORT: break diagnosis and debugging into smaller steps, explain prerequisites, and add a gentle understanding check.
+                - HIGH_SUPPORT: keep the failing example, explain each debug step in plain language, and add a gentle understanding check. Do not delete the example to stay short.
                 - CHALLENGE: use fewer hints, ask guiding questions, and encourage independent debugging.
                 - Weak topics, quiz results and prior mistakes MUST NOT change the support level.
                 - Never reveal the selected support level or the teacher note to the student.

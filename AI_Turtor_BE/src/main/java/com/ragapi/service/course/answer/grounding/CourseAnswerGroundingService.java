@@ -7,11 +7,17 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service
 public class CourseAnswerGroundingService {
 
+    private static final Pattern CODE_IDENTIFIER = Pattern.compile(
+            "(?iu)(?<![\\p{L}\\p{N}_])([a-z_][a-z0-9_]{3,})(?![\\p{L}\\p{N}_])"
+    );
     private static final double MIN_GROUNDED_CONFIDENCE = 0.6;
     private static final Set<String> STOP_WORDS = Set.of(
             "la", "gi", "gì", "cua", "của", "cho", "em", "anh", "chi", "chị",
@@ -100,7 +106,8 @@ public class CourseAnswerGroundingService {
         }
         String normalizedQuestion = normalize(question);
         String normalizedContext = normalize(context);
-        if (hasCrossLanguageConceptSupport(normalizedQuestion, normalizedContext)) {
+        if (hasCrossLanguageConceptSupport(normalizedQuestion, normalizedContext)
+                || hasMethodCallSupport(question, context)) {
             return true;
         }
         List<String> tokens = significantTokens(question);
@@ -109,6 +116,21 @@ public class CourseAnswerGroundingService {
         }
         long matchedTokens = tokens.stream().filter(normalizedContext::contains).count();
         return matchedTokens >= Math.min(2, tokens.size());
+    }
+
+    private boolean hasMethodCallSupport(String question, String context) {
+        String evidence = context == null ? "" : context.toLowerCase(Locale.ROOT);
+        Matcher matcher = CODE_IDENTIFIER.matcher(question == null ? "" : question.toLowerCase(Locale.ROOT));
+        while (matcher.find()) {
+            String identifier = matcher.group(1);
+            if (STOP_WORDS.contains(identifier)) {
+                continue;
+            }
+            if (evidence.contains("." + identifier + "(") || evidence.contains(identifier + "(")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean hasCrossLanguageConceptSupport(String question, String context) {

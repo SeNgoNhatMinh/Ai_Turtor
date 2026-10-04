@@ -3,6 +3,7 @@ package com.ragapi.service.course.search;
 import com.ragapi.dto.RagQueryIntent;
 import com.ragapi.entity.CourseMaterial;
 import com.ragapi.service.course.model.CourseContextRetrievalResult;
+import com.ragapi.service.course.model.CourseRetrievalCandidates;
 import com.ragapi.service.course.model.CourseRetrievalQuery;
 import com.ragapi.service.course.model.RetrievedCourseChunk;
 import lombok.RequiredArgsConstructor;
@@ -31,7 +32,7 @@ public class CourseContextRetrievalService {
     ) {
         CourseRetrievalQuery query = queryService.resolve(
                 question, courseId, retrievalHint, ragQueryIntent);
-        List<RetrievedCourseChunk> candidates = candidateService.retrievePrimary(
+        CourseRetrievalCandidates candidates = candidateService.retrievePrimary(
                 query, courseId, classId, priorityChunks);
         List<RetrievedCourseChunk> chunks = mergeService.merge(
                 query,
@@ -39,7 +40,8 @@ public class CourseContextRetrievalService {
                 classId,
                 textbookOnly,
                 priorityChunks,
-                candidates
+                candidates.chunks(),
+                candidates.queryEmbedding()
         );
         return new CourseContextRetrievalResult(
                 query.focus(),

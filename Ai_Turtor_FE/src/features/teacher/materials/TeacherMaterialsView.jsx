@@ -1,12 +1,7 @@
-import { Suspense, lazy, useState } from 'react';
 import AssignmentEditModal from './AssignmentEditModal';
 import AssignmentPublishCard from './AssignmentPublishCard';
-import TeacherMaterialUploadCard from './TeacherMaterialUploadCard';
-import TeacherMaterialEditModal from './TeacherMaterialEditModal';
 import TeacherResourceTables from './TeacherResourceTables';
 import { useTeacherResourceColumns } from './useTeacherResourceColumns';
-
-const ImportWebsiteModal = lazy(() => import('../../../components/importWebsite/ImportWebsiteModal'));
 
 export default function TeacherMaterialsView({
   scope,
@@ -16,11 +11,7 @@ export default function TeacherMaterialsView({
   courseMaterials = [],
   onReloadCourseMaterials,
   onDownloadMaterial,
-  materialApi,
-  triggerToast,
-  currentUser,
 }) {
-  const [websiteImportOpen, setWebsiteImportOpen] = useState(false);
   const { assignmentColumns, materialColumns } = useTeacherResourceColumns({
     assignmentActions: {
       onDownload: assignments.download,
@@ -29,32 +20,13 @@ export default function TeacherMaterialsView({
     },
     materialActions: {
       onDownload: onDownloadMaterial,
-      onEdit: materials.edit,
-      onDelete: materials.remove,
-      canManage: materials.canManage,
+      canManage: () => false,
       pendingId: materials.actionId,
     },
   });
 
   return (
     <div className="teacher-materials-grid">
-      <TeacherMaterialUploadCard
-        courseId={scope.courseId}
-        classId={scope.classId}
-        classesList={scope.classesList}
-        classesLoading={scope.classesLoading}
-        onClassChange={scope.onClassChange}
-        materialTitle={materials.title}
-        setMaterialTitle={materials.setTitle}
-        materialFile={materials.file}
-        setMaterialFile={materials.setFile}
-        isUploading={materials.uploading}
-        pendingUpload={materials.pendingUpload}
-        onClearUpload={materials.clearUploadDraft}
-        onUpload={materials.upload}
-        onOpenWebsiteImport={() => setWebsiteImportOpen(true)}
-      />
-
       <AssignmentPublishCard
         classesList={scope.classesList}
         classesLoading={scope.classesLoading}
@@ -83,29 +55,6 @@ export default function TeacherMaterialsView({
         onSave={assignments.update}
       />
 
-      <TeacherMaterialEditModal
-        material={materials.editing}
-        open={Boolean(materials.editing)}
-        saving={materials.updating}
-        onCancel={() => materials.setEditing(null)}
-        onSave={materials.update}
-      />
-
-      {websiteImportOpen && (
-        <Suspense fallback={null}>
-          <ImportWebsiteModal
-            open={websiteImportOpen}
-            onClose={() => setWebsiteImportOpen(false)}
-            courseId={scope.courseId}
-            classId={scope.classId}
-            currentUser={currentUser}
-            materialApi={materialApi}
-            triggerToast={triggerToast}
-            onUploaded={onReloadCourseMaterials}
-            isAdmin={false}
-          />
-        </Suspense>
-      )}
     </div>
   );
 }

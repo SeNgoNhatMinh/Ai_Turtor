@@ -28,6 +28,7 @@ import com.ragapi.util.HarnessRouting;
 import com.ragapi.util.LearningPathParser;
 import com.ragapi.util.StudentChatIntentDetector;
 import com.ragapi.util.StudentFacingMessages;
+import com.ragapi.util.RagStageTimer;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -123,7 +124,7 @@ public class TutorController {
                     userId
             );
 
-            IntentClassification intent = intentClassifierService.classify(
+            IntentClassification intent = classifyStudentIntent(
                     question,
                     codeSnippet,
                     courseId,
@@ -225,7 +226,7 @@ public class TutorController {
             } else {
                 String classifierHistory = aiConversationService.buildRecentTutorContextForClassifier(
                         request.getConversationId(), userId);
-                intent = intentClassifierService.classify(
+                intent = classifyStudentIntent(
                         question,
                         codeSnippet,
                         courseId,
@@ -259,7 +260,10 @@ public class TutorController {
                     request.getImprovePlanId(),
                     request.getPlanItemId()
             );
-            RagQueryIntent sourceBackedIntent = buildSourceBackedIntent(request, question);
+            RagQueryIntent remediationIntent = buildUnderstandingRemediationIntent(request, userId, question);
+            RagQueryIntent sourceBackedIntent = remediationIntent != null
+                    ? remediationIntent
+                    : buildSourceBackedIntent(request, question);
             RagQueryIntent provenanceIntent = improvePlanIntent != null ? improvePlanIntent : sourceBackedIntent;
             if (provenanceIntent != null) {
                 routingMode = IntentClassifierService.MODE_RAG;
@@ -319,7 +323,8 @@ public class TutorController {
                     || "OFF_TOPIC".equals(intent.getSubIntent()));
             String teachingMode = persistTurn ? intent.getSubIntent() : "EXPLAIN_CONCEPT";
             if ("LESSON_TEACH".equalsIgnoreCase(teachingMode)
-                    || "LESSON_DEEP_PATH".equalsIgnoreCase(teachingMode)) {
+                    || "LESSON_DEEP_PATH".equalsIgnoreCase(teachingMode)
+                    || !"STANDARD".equalsIgnoreCase(sessionSupportLevel)) {
                 pedagogicalContext = appendTutorContext(
                         pedagogicalContext,
                         supportLevelTutorContext(sessionSupportLevel)
@@ -454,6 +459,12 @@ public class TutorController {
             response.setSourceEvidence(ragAnswer.getSourceEvidence());
             response.setGroundingType(ragAnswer.getGroundingType());
             response.setEscalated(escalated);
+            boolean aiUnavailableEscalation = escalated
+                    && ragAnswer.getEscalationReason() != null
+                    && ragAnswer.getEscalationReason().startsWith("All eligible LLM providers failed");
+            response.setOutcome(escalated
+                    ? (aiUnavailableEscalation ? "AI_UNAVAILABLE" : "NEEDS_MENTOR")
+                    : (StudentFacingMessages.isUnavailableMessage(answer) ? "AI_UNAVAILABLE" : "ANSWERED"));
             response.setEscalationReason(escalated ? ragAnswer.getEscalationReason() : null);
             response.setConversationId(conversationId != null && !conversationId.isBlank()
                     ? conversationId
@@ -502,6 +513,7 @@ public class TutorController {
             response.setConfidence(0.0);
             response.setSources(List.of());
             response.setEscalated(true);
+            response.setOutcome("NEEDS_MENTOR");
             response.setEscalationReason("Course material search unavailable");
             response.setConversationId(request != null ? request.getConversationId() : null);
 
@@ -628,8 +640,11 @@ public class TutorController {
         return switch (normalized) {
             case "HIGH_SUPPORT" -> """
                     - Active support level: HIGH_SUPPORT.
-                      Teach in smaller steps, use simpler wording, and make the required understanding check
-                      a direct recognition question with clearly distinct choices.
+                      Keep every concept the excerpts explain, plus one short textbook example for each.
+                      Teach in small steps and simple Vietnamese: one idea, then the example, then what each line does.
+                      Do not say the material is missing when the excerpts already cover the question.
+                      Do not drop that example to make the answer shorter, and do not invent an example.
+                      End with one easy recognition question whose choices are clearly different.
                     """.stripTrailing();
             case "CHALLENGE" -> """
                     - Active support level: CHALLENGE.
@@ -737,6 +752,8 @@ public class TutorController {
         response.setIntentConfidence(intent.getConfidence());
         applyIntentMetadata(response, intent);
         response.setAnswer(codeResponse.getAnswer());
+        response.setOutcome(StudentFacingMessages.isUnavailableMessage(codeResponse.getAnswer())
+                ? "AI_UNAVAILABLE" : "ANSWERED");
         response.setConfidence(intent.getConfidence());
         response.setEscalated(false);
         response.setConversationId(codeResponse.getConversationId());
@@ -782,6 +799,7 @@ public class TutorController {
 
         AiQueryResponse response = new AiQueryResponse();
         response.setMode(IntentClassifierService.MODE_ESCALATE);
+        response.setOutcome("NEEDS_MENTOR");
         response.setIntentReason(intent.getReason());
         response.setIntentConfidence(intent.getConfidence());
         applyIntentMetadata(response, intent);
@@ -866,7 +884,26 @@ public class TutorController {
     }
 
     private String normalizeStudentQuestion(String question) {
-        return questionNormalizationService.normalize(question);
+        long started = RagStageTimer.start();
+        try {
+            return questionNormalizationService.normalize(question);
+        } finally {
+            RagStageTimer.record("T2_NORMALIZATION", started);
+        }
+    }
+
+    private IntentClassification classifyStudentIntent(
+            String question,
+            String codeSnippet,
+            String courseId,
+            TutorIntentContext context
+    ) {
+        long started = RagStageTimer.start();
+        try {
+            return intentClassifierService.classify(question, codeSnippet, courseId, context);
+        } finally {
+            RagStageTimer.record("T3_INTENT_CLASSIFICATION", started);
+        }
     }
 
     private RagQueryIntent buildSourceBackedIntent(AiQueryRequest request, String question) {
@@ -898,6 +935,27 @@ public class TutorController {
                 .sourceChunkIds(cleanProvenanceIds(request.getSourceChunkIds()))
                 .sourceTerms(List.of(clickedSuggestion))
                 .build();
+    }
+
+    private RagQueryIntent buildUnderstandingRemediationIntent(
+            AiQueryRequest request,
+            String userId,
+            String question
+    ) {
+        if (request == null
+                || !"UNDERSTANDING_REMEDIATION".equalsIgnoreCase(request.getInteractionType())
+                || request.getOriginAssistantMessageId() == null
+                || request.getOriginAssistantMessageId().isBlank()
+                || request.getUnderstandingAttemptId() == null
+                || request.getUnderstandingAttemptId().isBlank()) {
+            return null;
+        }
+        return aiConversationService.buildUnderstandingRemediationIntent(
+                request.getOriginAssistantMessageId(),
+                request.getUnderstandingAttemptId(),
+                userId,
+                request.getOriginalQuestion() == null ? question : request.getOriginalQuestion()
+        );
     }
 
     private List<String> cleanProvenanceIds(List<String> values) {

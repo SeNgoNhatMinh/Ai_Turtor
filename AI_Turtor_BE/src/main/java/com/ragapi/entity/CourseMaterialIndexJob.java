@@ -10,6 +10,7 @@ import org.springframework.data.mongodb.core.index.CompoundIndexes;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Document(collection = "course_material_index_jobs")
 @CompoundIndexes({
@@ -22,6 +23,8 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class CourseMaterialIndexJob {
 
+    public static final String QUEUED = "QUEUED";
+    /** Legacy alias retained so queued jobs created by older deployments remain claimable. */
     public static final String PENDING = "PENDING";
     public static final String PROCESSING = "PROCESSING";
     public static final String RETRY = "RETRY";
@@ -36,6 +39,20 @@ public class CourseMaterialIndexJob {
     private String contentHash;
     private Long materialVersion;
     private String status;
+    private String stage;
+    private Integer totalChapters;
+    private Integer completedChapters;
+    private Integer totalChunks;
+    private Integer completedChunks;
+    private String currentChapter;
+    private Integer currentChunk;
+    private Integer progressPercent;
+    private Integer failedChunks;
+    private Integer translatedChunks;
+    private Integer embeddedChunks;
+    private Integer indexedChunks;
+    private Integer technicalTermsPreserved;
+    private List<String> failedChunkIds;
     private Integer retryCount;
     private Integer maxRetries;
     private LocalDateTime nextAttemptAt;
@@ -43,6 +60,8 @@ public class CourseMaterialIndexJob {
     private LocalDateTime heartbeatAt;
     private String workerId;
     private String lastError;
+    private String errorMessage;
+    private LocalDateTime startedAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private LocalDateTime completedAt;

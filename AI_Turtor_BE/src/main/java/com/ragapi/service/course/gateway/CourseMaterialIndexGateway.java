@@ -43,5 +43,21 @@ public interface CourseMaterialIndexGateway {
             List<CourseMaterialChunkingService.HierarchicalChunk> chunks
     ) throws IOException;
 
+    default void indexHierarchicalChunks(
+            String courseId,
+            String classId,
+            String teacherId,
+            String materialId,
+            String materialScope,
+            String sourceType,
+            String sourceUrl,
+            String sourceDomain,
+            List<CourseMaterialChunkingService.HierarchicalChunk> chunks,
+            String language
+    ) throws IOException {
+        indexHierarchicalChunks(courseId, classId, teacherId, materialId, materialScope,
+                sourceType, sourceUrl, sourceDomain, chunks);
+    }
+
     long deleteChunksByMaterialId(String materialId) throws IOException;
 }
