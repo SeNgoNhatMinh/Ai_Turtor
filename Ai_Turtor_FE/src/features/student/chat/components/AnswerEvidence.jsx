@@ -64,9 +64,9 @@ function AnswerEvidence({ message, sourceMap = {} }) {
   const confidenceText = message?.confidence == null ? 'Chưa xác định' : `${Math.round(message.confidence * 100)}%`;
   const grounding = message?.groundingType || (sources.length > 0 ? 'COURSE_MATERIAL' : 'NONE');
   const groundingLabel = grounding === 'SENIOR_APPROVED_KNOWLEDGE'
-    ? 'Dựa trên kiến thức bổ sung đã được Senior duyệt'
+    ? 'Dựa trên kiến thức bổ sung của môn học'
     : grounding === 'COURSE_MATERIAL_WITH_APPROVED_KNOWLEDGE'
-      ? 'Dựa trên tài liệu môn học và kiến thức Senior duyệt'
+      ? 'Dựa trên tài liệu môn học và kiến thức bổ sung'
       : grounding === 'COURSE_MATERIAL_WITH_TEACHING_NOTE'
         ? 'Dựa trên tài liệu môn học (có ghi chú giảng dạy)'
         : grounding === 'GOLD_QA_TEACHING_NOTE'

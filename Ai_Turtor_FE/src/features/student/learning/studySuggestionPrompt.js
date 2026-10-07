@@ -181,25 +181,45 @@ export function parseLessonSuggestionsFromAnswer(answer) {
   return items;
 }
 
+const INTERNAL_LESSON_TITLE = /senior-approved|gold\s+q\s*&\s*a|gold\s+qa/i;
+
+function withoutInternalLessonLabel(value) {
+  return String(value || '')
+    .replace(/senior-approved(?:\s+knowledge|\s+v2(?:\s+gold\s+q&a)?)?\s*:\s*/ig, '')
+    .replace(/gold\s+q&a\s*:\s*/ig, '')
+    .trim();
+}
+
 export function lessonSuggestionsForMessage(message) {
   const hasApiSuggestions = Array.isArray(message?.nextImproveSuggestions);
-  const suggestions = hasApiSuggestions
+  const suggestions = (hasApiSuggestions
     ? message.nextImproveSuggestions
-    : parseLessonSuggestionsFromAnswer(message?.answer || message?.content || '');
+    : parseLessonSuggestionsFromAnswer(message?.answer || message?.content || ''))
+    .filter((suggestion) => !INTERNAL_LESSON_TITLE.test(
+      typeof suggestion === 'object' && suggestion !== null
+        ? suggestion.title || suggestion.suggestionText || ''
+        : suggestion,
+    ));
   if (suggestions.length === 0) return [];
 
-  return suggestions.map((suggestion) => ({
-    ...(typeof suggestion === 'object' && suggestion !== null
+  return suggestions.map((suggestion) => {
+    const objectSuggestion = typeof suggestion === 'object' && suggestion !== null
       ? suggestion
-      : { title: String(suggestion || '').trim() }),
-    interactionType: 'GUIDED_LESSON',
+      : { title: String(suggestion || '').trim() };
+    const title = withoutInternalLessonLabel(objectSuggestion.title);
+    return {
+      ...objectSuggestion,
+      title,
+      suggestionText: withoutInternalLessonLabel(objectSuggestion.suggestionText || title),
+      interactionType: 'GUIDED_LESSON',
     sourceMaterialIds: Array.isArray(suggestion?.sourceMaterialIds)
       ? suggestion.sourceMaterialIds
       : [],
     sourceChunkIds: Array.isArray(suggestion?.sourceChunkIds)
       ? suggestion.sourceChunkIds
       : [],
-  }));
+    };
+  });
 }
 
 export function buildStudySuggestionPrompt(suggestionText, suggestion = null) {

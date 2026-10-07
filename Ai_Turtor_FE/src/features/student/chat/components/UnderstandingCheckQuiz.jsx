@@ -27,7 +27,7 @@ function writeStoredKey(attemptId, reviewer, key) {
   }
 }
 
-function hintText({ reviewer, locked, fromStudent, selectedKey }) {
+function hintText({ reviewer, locked, fromStudent, selectedKey, attemptId }) {
   if (reviewer) {
     if (fromStudent) {
       return `Sinh viên đã chọn ${selectedKey}. Kết quả được giữ để bạn gửi chỉ dẫn cho AI Tutor lần sau.`;
@@ -36,6 +36,9 @@ function hintText({ reviewer, locked, fromStudent, selectedKey }) {
       return 'Bạn đã thử câu này. Sinh viên chưa nộp đáp án trên hệ thống.';
     }
     return 'Sinh viên chưa trả lời. Chọn 1 lần để tự thử; kết quả và giải thích được khóa, không ghi đè bài làm của sinh viên.';
+  }
+  if (locked && !String(attemptId || '').trim()) {
+    return 'Đã khóa đáp án. Nếu chưa đúng, phần giảng lại hiện ngay bên dưới.';
   }
   if (locked) {
     return 'Đã khóa đáp án. Giáo viên xem được kết quả này để gửi chỉ dẫn cho lần học sau.';
@@ -105,7 +108,7 @@ function UnderstandingCheckQuiz({
         <CircleHelp size={16} aria-hidden="true" />
         <div>
           <strong>Kiểm tra hiểu</strong>
-          <span>{hintText({ reviewer, locked, fromStudent, selectedKey })}</span>
+          <span>{hintText({ reviewer, locked, fromStudent, selectedKey, attemptId })}</span>
         </div>
       </div>
       <p className="understanding-check__question">{quiz.question}</p>

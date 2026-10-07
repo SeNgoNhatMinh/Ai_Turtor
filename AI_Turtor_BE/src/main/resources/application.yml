@@ -291,7 +291,7 @@ rag:
       min-chunks: ${RAG_PRIMARY_SUFFICIENT_MIN_CHUNKS:2}
       min-context-chars: ${RAG_PRIMARY_SUFFICIENT_MIN_CONTEXT_CHARS:900}
     query-translation:
-      # Retained only for rollback compatibility; runtime retrieval no longer calls it.
+      # Rewrites a Vietnamese question into textbook language. No term dictionary.
       enabled: ${RAG_QUERY_TRANSLATION_ENABLED:false}
       # Extra LLM hop is expensive for local gemma; skip when cloud chat is off.
       skip-when-ollama-only: ${RAG_QUERY_TRANSLATION_SKIP_WHEN_OLLAMA_ONLY:true}

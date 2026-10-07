@@ -64,6 +64,20 @@ class StudentChatIntentDetectorTest {
     }
 
     @Test
+    void topiclessStudyStartAsksForGuidanceInsteadOfASubject() {
+        assertTrue(StudentChatIntentDetector.isTopiclessStudyRequest("Hôm nay mình muốn học"));
+        assertTrue(StudentChatIntentDetector.isTopiclessStudyRequest("Mình muốn học"));
+        assertTrue(StudentChatIntentDetector.isTopiclessStudyRequest("Học đi"));
+        assertTrue(StudentChatIntentDetector.isTopiclessStudyRequest("Ôn bài"));
+        assertTrue(StudentChatIntentDetector.isTopiclessStudyRequest("Dạy mình"));
+        assertFalse(StudentChatIntentDetector.isTopiclessStudyRequest("Tôi muốn học về cách tạo object"));
+        assertFalse(StudentChatIntentDetector.isTopiclessStudyRequest("Mình muốn học JSP"));
+        assertFalse(StudentChatIntentDetector.isTopiclessStudyRequest("Bắt đầu bài 1: Object-oriented programming"));
+        assertFalse(StudentChatIntentDetector.isTopiclessStudyRequest("object là gì?"));
+        assertFalse(StudentChatIntentDetector.isTopiclessStudyRequest("mai mấy giờ học"));
+    }
+
+    @Test
     void academicDetectionUsesQuestionShapeNotDomainTerms() {
         assertTrue(StudentChatIntentDetector.looksLikeAcademicQuestion("Servlet là gì?"));
         assertTrue(StudentChatIntentDetector.looksLikeAcademicQuestion(

@@ -15,7 +15,7 @@ class LocalRetrievalQueryProcessorTest {
         assertThat(result.semanticQuery()).isEqualTo("Spring Boot dependency injection là gì?");
         assertThat(result.language()).isEqualTo("mixed");
         assertThat(result.technicalTerms()).containsExactly("Dependency Injection", "Spring Boot");
-        assertThat(result.keywordQuery()).isEqualTo("Dependency Injection Spring Boot");
+        assertThat(result.keywordQuery()).isEqualTo("Spring Boot dependency injection là gì?");
     }
 
     @Test
@@ -33,9 +33,21 @@ class LocalRetrievalQueryProcessorTest {
 
     @Test
     void detectsVietnameseWithoutDiacriticsAndPreservesTechnicalTerm() {
-        var result = processor.process("Pointer la gi?");
+        var result = processor.process("Spring Boot la gi?");
 
         assertThat(result.language()).isEqualTo("mixed");
-        assertThat(result.technicalTerms()).containsExactly("Pointer");
+        assertThat(result.technicalTerms()).containsExactly("Spring Boot");
+        assertThat(result.keywordQuery()).isEqualTo("Spring Boot la gi?");
+    }
+
+    @Test
+    void keepsEachParaphraseInsteadOfRewritingItToADictionaryLabel() {
+        var named = processor.process("Con trỏ trong C là gì?");
+        var paraphrased = processor.process("Biến tham chiếu này hoạt động thế nào?");
+
+        assertThat(named.keywordQuery()).isEqualTo("Con trỏ trong C là gì?");
+        assertThat(paraphrased.keywordQuery()).isEqualTo("Biến tham chiếu này hoạt động thế nào?");
+        assertThat(named.technicalTerms()).isEmpty();
+        assertThat(paraphrased.technicalTerms()).isEmpty();
     }
 }

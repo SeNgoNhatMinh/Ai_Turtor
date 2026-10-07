@@ -41,7 +41,7 @@ public class CourseAnswerGenerationStageService {
     public CourseRagAnswer generate(CourseAnswerPreparation prepared) {
         CourseAnswerRequest request = prepared.request();
         String prompt = promptService.buildPrompt(
-                prepared.question(),
+                questionWithTextbookWording(prepared),
                 prepared.context(),
                 prepared.sourceLabels(),
                 prepared.courseId(),
@@ -86,10 +86,12 @@ public class CourseAnswerGenerationStageService {
                     || isIncompleteLesson(request, answer)
                     || initialInsufficientMaterialAnswer
                     || droppedWorkedExample;
+            boolean substantialContext = prepared.context() != null && prepared.context().length() >= 1500;
             boolean shouldUseQualityFallback = qualityFallbackEnabled
                     || prepared.understandingRemediation()
                     || contextContainsRequestedMethod(prepared.question(), prepared.context())
-                    || droppedWorkedExample;
+                    || droppedWorkedExample
+                    || (initialInsufficientMaterialAnswer && substantialContext);
             if (recoveryNeeded && shouldUseQualityFallback) {
                 log.warn("Retrying grounded tutor generation after an incomplete answer or an unsupported model refusal");
                 String retried = generationService.generateGroundedQualityFallbackAnswer(
@@ -278,6 +280,27 @@ public class CourseAnswerGenerationStageService {
                 List.of(),
                 "Generated answer reports insufficient course material"
         );
+    }
+
+    /**
+     * The textbook search line is the same question in material wording.
+     * The model should answer when the excerpt matches that line, even if the
+     * student's sentence uses different words.
+     */
+    private String questionWithTextbookWording(CourseAnswerPreparation prepared) {
+        String question = prepared.question() == null ? "" : prepared.question();
+        String retrieval = prepared.retrievalQuestion();
+        if (retrieval == null || retrieval.isBlank() || retrieval.equals(question)) {
+            return question;
+        }
+        return question + """
+
+                TEXTBOOK SEARCH LINE:
+                %s
+                This line is the same question rewritten into textbook wording.
+                If COURSE MATERIAL CONTEXT explains this line, answer the student.
+                Do not refuse only because the student's words differ from the excerpt.
+                """.formatted(retrieval);
     }
 
     private boolean isIncompleteLesson(CourseAnswerRequest request, String answer) {

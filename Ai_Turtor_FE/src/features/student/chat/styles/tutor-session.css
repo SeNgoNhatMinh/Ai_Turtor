@@ -149,3 +149,44 @@
     max-width: min(78vw, 280px);
   }
 }
+
+.chat-workspace-dark--own-llm .chat-workspace-messages-container {
+  padding-bottom: 196px;
+}
+
+.student-own-llm-banner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 0 8px 8px;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid #fdba74;
+  border-radius: 12px;
+  background: #fff7ed;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+}
+
+.student-own-llm-banner p {
+  flex: 1 1 220px;
+  margin: 0;
+  color: #9a3412;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.student-own-llm-banner button {
+  border: 0;
+  border-radius: 8px;
+  background: #ea580c;
+  color: #fff;
+  padding: 8px 14px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.student-own-llm-banner__secondary {
+  background: #fff !important;
+  color: #9a3412 !important;
+  border: 1px solid #fdba74 !important;
+}

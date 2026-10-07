@@ -79,7 +79,7 @@ export default function StudentChatPage({
     handleStopAiGeneration: chat.handleStopAiGeneration,
     switchTab,
     onOpenMentorReview: openMentorReview,
-    userId: currentUser?.userId || currentUser?.id || studentId,
+    userId: studentId || currentUser?.userId || currentUser?.id,
     studentDashboard: learning.studentDashboard,
     triggerToast,
   });

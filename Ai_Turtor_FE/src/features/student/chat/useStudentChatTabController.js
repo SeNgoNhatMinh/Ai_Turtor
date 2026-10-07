@@ -9,6 +9,7 @@ import { LIMITS, validateChatInput } from '../../../utils/validators';
 import { isMobileViewport } from '../../../hooks/useResponsiveViewport';
 import { buildLessonChatPrompt } from '../learning/studySuggestionPrompt';
 import { uiCopy } from '../../../constants/uiCopy';
+import { readStudentOwnLlm } from './studentOwnLlm';
 import {
   buildIncorrectAnswerRemediationPrompt,
   buildMissingAnswerKeyRemediationPrompt,
@@ -145,7 +146,7 @@ export function useStudentChatTabController({
       return;
     }
 
-    if (courseDailyQuotaExhausted) {
+    if (courseDailyQuotaExhausted && !readStudentOwnLlm(userId)) {
       triggerToast?.(uiCopy.student.chat.full);
       return;
     }
@@ -173,7 +174,7 @@ export function useStudentChatTabController({
   };
 
   const handleUnderstandingCheckAnswer = async (answerMessage, selectedKey, attempt = {}) => {
-    const grade = await handleLockUnderstandingAnswer?.(answerMessage, selectedKey);
+    const grade = await handleLockUnderstandingAnswer?.(answerMessage, selectedKey, attempt);
     if (!grade) {
       triggerToast?.('Không thể lưu lần trả lời. Vui lòng thử lại.');
       return;

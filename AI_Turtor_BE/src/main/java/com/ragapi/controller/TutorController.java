@@ -7,6 +7,7 @@ import com.ragapi.dto.CourseRagAnswer;
 import com.ragapi.dto.IntentClassification;
 import com.ragapi.dto.IntentClassifyRequest;
 import com.ragapi.dto.RagQueryIntent;
+import com.ragapi.dto.RagSourceEvidence;
 import com.ragapi.dto.SuggestionItem;
 import com.ragapi.dto.TutorIntentContext;
 import com.ragapi.entity.QuestionEscalation;
@@ -23,6 +24,7 @@ import com.ragapi.service.StudentCourseMemoryService;
 import com.ragapi.service.StudentDailyQuestionQuotaService;
 import com.ragapi.service.StudentQuestionNormalizationService;
 import com.ragapi.service.TutorSessionService;
+import com.ragapi.util.ChapterHeadingUtils;
 import com.ragapi.util.ConversationFocus;
 import com.ragapi.util.HarnessRouting;
 import com.ragapi.util.LearningPathParser;
@@ -45,9 +47,11 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.io.IOException;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 import static com.ragapi.util.ValidationUtils.STUDENT_QUESTION_MAX_LENGTH;
 import static com.ragapi.util.ValidationUtils.optionalCodeSnippet;
@@ -379,8 +383,11 @@ public class TutorController {
             }
             String answer = ragAnswer.getAnswer();
             List<SuggestionItem> lessonSuggestions = LearningPathParser.parseLessonSuggestions(answer);
-            if ("LEARNING_PATH".equalsIgnoreCase(intent.getSubIntent())) {
+            if ("LEARNING_PATH".equalsIgnoreCase(intent.getSubIntent())
+                    || StudentChatIntentDetector.isTopiclessStudyRequest(question)) {
                 lessonSuggestions = learningPathGroundingService.ground(courseId, question, lessonSuggestions);
+                applyGroundedLearningPath(ragAnswer, lessonSuggestions);
+                answer = ragAnswer.getAnswer();
             }
 
             QuestionEscalation questionEscalation = null;
@@ -481,7 +488,9 @@ public class TutorController {
             if (questionEscalation != null) {
                 response.setQuestionEscalationId(questionEscalation.getId());
             }
-            if (persistTurn && "LEARNING_PATH".equalsIgnoreCase(intent.getSubIntent())) {
+            if (!lessonSuggestions.isEmpty()
+                    && ("LEARNING_PATH".equalsIgnoreCase(intent.getSubIntent())
+                    || StudentChatIntentDetector.isTopiclessStudyRequest(question))) {
                 response.setNextImproveSuggestions(lessonSuggestions);
             }
             if (tutorSessionState != null && tutorSessionState.getSuggestedTopics() != null) {
@@ -541,6 +550,55 @@ public class TutorController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Server error: " + e.getMessage()));
         }
+    }
+
+    private void applyGroundedLearningPath(CourseRagAnswer ragAnswer, List<SuggestionItem> lessons) {
+        if (lessons == null || lessons.isEmpty()) {
+            ragAnswer.setAnswer(StudentFacingMessages.noMatchingStudyUnit());
+            ragAnswer.setSources(List.of());
+            ragAnswer.setSourceEvidence(List.of());
+            ragAnswer.setGroundingType("NONE");
+            return;
+        }
+        ragAnswer.setAnswer(learningPathGroundingService.pathAnswer(lessons));
+        Set<String> materialIds = new LinkedHashSet<>();
+        for (SuggestionItem lesson : lessons) {
+            if (lesson.getSourceMaterialIds() != null) {
+                materialIds.addAll(lesson.getSourceMaterialIds());
+            }
+        }
+        List<RagSourceEvidence> evidence = ragAnswer.getSourceEvidence() == null
+                ? List.of()
+                : ragAnswer.getSourceEvidence().stream()
+                .filter(item -> item.getMaterialId() != null && materialIds.contains(item.getMaterialId()))
+                .map(TutorController::withoutInternalKnowledgeLabel)
+                .toList();
+        ragAnswer.setSourceEvidence(evidence);
+        if (evidence.isEmpty()) {
+            ragAnswer.setSources(lessons.stream()
+                    .map(SuggestionItem::getChapterTitle)
+                    .filter(title -> title != null && !title.isBlank())
+                    .map(ChapterHeadingUtils::studentFacingTitle)
+                    .distinct()
+                    .toList());
+            return;
+        }
+        ragAnswer.setSources(evidence.stream()
+                .map(item -> {
+                    String title = item.getMaterialTitle() == null || item.getMaterialTitle().isBlank()
+                            ? item.getChapter()
+                            : item.getMaterialTitle();
+                    return ChapterHeadingUtils.studentFacingTitle(title);
+                })
+                .filter(title -> title != null && !title.isBlank())
+                .distinct()
+                .toList());
+    }
+
+    private static RagSourceEvidence withoutInternalKnowledgeLabel(RagSourceEvidence item) {
+        item.setMaterialTitle(ChapterHeadingUtils.studentFacingTitle(item.getMaterialTitle()));
+        item.setChapter(ChapterHeadingUtils.studentFacingTitle(item.getChapter()));
+        return item;
     }
 
     private void applyDailyQuota(AiQueryResponse response, String studentId, String courseId) {

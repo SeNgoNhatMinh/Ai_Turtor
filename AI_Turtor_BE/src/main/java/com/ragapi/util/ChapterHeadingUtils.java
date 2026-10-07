@@ -10,6 +10,9 @@ public final class ChapterHeadingUtils {
 
     private static final Pattern HAS_SUBSTANTIVE_WORD = Pattern.compile("\\p{L}{4,}");
     private static final Pattern STARTS_WITH_LETTER = Pattern.compile("^(?:\\d{1,2}(?:\\.\\d+)*\\s+)?\\p{L}.*");
+    private static final Pattern INTERNAL_KNOWLEDGE_LABEL = Pattern.compile(
+            "(?i)(?:senior-approved(?:\\s+knowledge|\\s+v2(?:\\s+gold\\s+q&a)?)?|gold\\s+q&a)\\s*:\\s*"
+    );
 
     private ChapterHeadingUtils() {
     }
@@ -148,6 +151,31 @@ public final class ChapterHeadingUtils {
                 || lower.contains("nen hoc gi truoc")
                 || lower.contains("tóm tắt lộ trình môn")
                 || lower.contains("tom tat lo trinh mon");
+    }
+
+    /** Titles the review workflow writes onto indexed notes. They are not textbook chapters. */
+    public static boolean isInternalKnowledgeTitle(String title) {
+        if (title == null || title.isBlank()) {
+            return false;
+        }
+        String lower = title.trim().toLowerCase(Locale.ROOT);
+        return lower.startsWith("senior-approved")
+                || lower.startsWith("gold q&a")
+                || lower.startsWith("gold qa");
+    }
+
+    /** Removes the review-workflow label. A blank remainder becomes a neutral supplement label. */
+    public static String studentFacingTitle(String title) {
+        if (title == null || title.isBlank()) {
+            return "";
+        }
+        String stripped = INTERNAL_KNOWLEDGE_LABEL.matcher(title).replaceAll("")
+                .replaceAll("\\s{2,}", " ")
+                .trim();
+        if (stripped.isBlank() || isInternalKnowledgeTitle(stripped)) {
+            return "Kiến thức bổ sung";
+        }
+        return stripped;
     }
 
     /** Clickable tutor opening chip: a real unit to start studying, not TOC noise. */

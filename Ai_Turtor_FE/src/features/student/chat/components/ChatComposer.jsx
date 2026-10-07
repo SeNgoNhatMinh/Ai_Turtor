@@ -14,8 +14,12 @@ function ChatComposer({
   chatInput,
   chatMode = 'RAG',
   isAiLoading,
+  onClearOwnLlm,
+  onOpenOwnLlm,
   onSend,
   onStop,
+  ownLlmReady = false,
+  quotaExhausted = false,
   setChatInput,
   setChatMode,
   triggerToast,
@@ -93,13 +97,32 @@ function ChatComposer({
     ? chatContextMessage
     : isAiLoading
       ? 'AI Tutor đang trả lời...'
-      : activeSessionMaxTurnsReached
-        ? fullMessage
-        : 'Nhập câu hỏi cho AI Tutor...';
+      : quotaExhausted && !ownLlmReady
+        ? 'Gắn API LLM của bạn để hỏi tiếp bằng tài liệu nhà trường.'
+        : activeSessionMaxTurnsReached
+          ? fullMessage
+          : 'Nhập câu hỏi cho AI Tutor...';
 
   return (
     <div className="chat-workspace-input-area">
       <div className="chat-workspace-input-inner">
+        {quotaExhausted && (
+          <div className="student-own-llm-banner" role="status">
+            <p>
+              {ownLlmReady
+                ? 'Câu tiếp theo được trả lời từ tài liệu nhà trường bằng API LLM của bạn.'
+                : 'Hết 10 câu của hệ thống. Gắn API LLM của bạn để học tiếp với đúng bộ tài liệu nhà trường.'}
+            </p>
+            <button type="button" onClick={onOpenOwnLlm}>
+              {ownLlmReady ? 'Đổi API' : 'Gắn API LLM'}
+            </button>
+            {ownLlmReady && (
+              <button type="button" className="student-own-llm-banner__secondary" onClick={onClearOwnLlm}>
+                Gỡ API
+              </button>
+            )}
+          </div>
+        )}
         <div className="chat-composer-mode-row">
           <label htmlFor="chat-composer-mode-select">Chế độ hỗ trợ</label>
           <Select

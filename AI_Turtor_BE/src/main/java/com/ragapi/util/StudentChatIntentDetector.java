@@ -1,6 +1,8 @@
 package com.ragapi.util;
 
 import java.util.Locale;
+import java.util.Set;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
@@ -33,6 +35,33 @@ public final class StudentChatIntentDetector {
                     + "|(?:^|\\s)(?:minh|em|toi|to)\\s+muon\\s+hoc\\b"
                     + "|(?:^|\\s)bat dau\\s+hoc\\b"
                     + "|(?:^|\\s)hoc\\s+(?:ve|phan|chuong|bai)\\b"
+    );
+
+    /**
+     * Lead-in of a study request that still needs a subject. Longer phrases come first.
+     */
+    private static final Pattern TOPICLESS_STUDY_LEAD = Pattern.compile(
+            "^(?:(?:hom nay|nay)(?: minh| em| toi| to)?(?: muon)? hoc"
+                    + "|(?:minh|em|toi|to) muon hoc"
+                    + "|(?:minh|em|toi|to) muon on"
+                    + "|bat dau hoc"
+                    + "|bat dau phien hoc"
+                    + "|hoc ve"
+                    + "|hoc phan"
+                    + "|hoc chuong"
+                    + "|hoc bai"
+                    + "|hoc di"
+                    + "|day minh"
+                    + "|day em"
+                    + "|giang bai"
+                    + "|on bai"
+                    + "|cho minh hoc"
+                    + "|cho em hoc)\\b"
+    );
+    private static final Set<String> STUDY_TOPIC_FILLERS = Set.of(
+            "ve", "phan", "chuong", "bai", "mot", "chut", "cai", "gi", "do", "nay",
+            "nhe", "voi", "minh", "em", "toi", "di", "nao", "giup", "cach", "tao",
+            "hom", "muon", "hoc", "ban", "oi", "thoi", "tiep", "cho"
     );
 
     private static final Pattern LESSON_START = Pattern.compile(
@@ -134,6 +163,29 @@ public final class StudentChatIntentDetector {
             return false;
         }
         return TOPIC_STUDY_START.matcher(normalized).find();
+    }
+
+    /**
+     * A study-start with no subject, such as "Hôm nay mình muốn học".
+     * This is not a missing-material case and must not be escalated to a mentor.
+     */
+    public static boolean isTopiclessStudyRequest(String question) {
+        String normalized = normalize(question);
+        if (normalized.isBlank() || normalized.length() > 80) {
+            return false;
+        }
+        if (isLessonStart(normalized)
+                || isLessonDeepPath(normalized)
+                || isLessonDeepTeach(normalized)
+                || hasDefinitionAsk(normalized)
+                || isOffTopicNonAcademic(question)) {
+            return false;
+        }
+        Matcher lead = TOPICLESS_STUDY_LEAD.matcher(normalized);
+        if (!lead.lookingAt()) {
+            return false;
+        }
+        return !hasStudyTopic(normalized.substring(lead.end()));
     }
 
     /**
@@ -284,6 +336,19 @@ public final class StudentChatIntentDetector {
                 || normalized.contains("su dung nhu the nao")
                 || normalized.contains("toi nen hoi gi")
                 || normalized.contains("minh nen hoi gi");
+    }
+
+    private static boolean hasStudyTopic(String remainder) {
+        if (remainder == null || remainder.isBlank()) {
+            return false;
+        }
+        for (String token : remainder.trim().split("\\s+")) {
+            String word = token.replaceAll("^[^a-z0-9]+|[^a-z0-9]+$", "");
+            if (word.length() >= 3 && !STUDY_TOPIC_FILLERS.contains(word)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static boolean hasDefinitionAsk(String normalized) {

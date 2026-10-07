@@ -105,6 +105,13 @@ public class CourseAnswerRequestPolicyService {
         return null;
     }
 
+    public CourseRagAnswer buildStudyStartGuidance(String answer) {
+        if (answer == null || answer.isBlank()) {
+            return null;
+        }
+        return safeConversationAnswer(answer);
+    }
+
     public CourseRagAnswer buildOffTopicRedirect(String question, String courseId) {
         if (!StudentChatIntentDetector.isOffTopicNonAcademic(question)) {
             return null;

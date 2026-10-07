@@ -2,7 +2,9 @@ import { useEffect, useRef } from 'react';
 import { conversationApi } from '../services/conversationApi';
 import { getUserFacingError } from '../services/apiClient';
 import { asArray, pairMessages } from '../services/normalizers';
+import { aiTutorApi } from '../services/aiTutorApi';
 import { n8nService } from '../services/n8nService';
+import { readStudentOwnLlm } from '../features/student/chat/studentOwnLlm';
 import {
   buildAiServiceErrorMessage,
   isAiServiceErrorText,
@@ -147,12 +149,66 @@ export function useStudentChatController({
       answer: null,
       pending: true,
       requestId,
+      clientMessageId: `local-${requestId}`,
       interactionType: requestContext.interactionType || '',
       displayQuestion: requestContext.displayQuestion || '',
       requestedMode,
     }]);
 
     try {
+      if (dailyQuota.remaining <= 0) {
+        const ownLlm = readStudentOwnLlm(userId);
+        if (!ownLlm) {
+          setMessages((prev) => {
+            const updated = [...prev];
+            updated[updated.length - 1] = {
+              question: text,
+              answer: 'Hết 10 câu của hệ thống cho môn này. Gắn API LLM của bạn để học tiếp bằng tài liệu nhà trường.',
+              rawAnswer: 'Hết 10 câu của hệ thống cho môn này. Gắn API LLM của bạn để học tiếp bằng tài liệu nhà trường.',
+              confidence: 1,
+              sources: [],
+              pending: false,
+              revealAnswer: true,
+            };
+            return updated;
+          });
+          setAvatarEmotion('idle');
+          return;
+        }
+        const schoolAnswer = await aiTutorApi.answerFromSchoolMaterials({
+          courseId,
+          classId,
+          question: text,
+          provider: ownLlm.provider,
+          model: ownLlm.model,
+        }, ownLlm.apiKey, { signal: requestController.signal });
+        if (canceledAiRequestIdsRef.current.has(requestId)) {
+          canceledAiRequestIdsRef.current.delete(requestId);
+          return;
+        }
+        const answerText = String(schoolAnswer?.answer || '');
+        setMessages((prev) => {
+          const updated = [...prev];
+          const current = updated[updated.length - 1] || {};
+          updated[updated.length - 1] = {
+            ...current,
+            question: text,
+            answer: answerText,
+            rawAnswer: answerText,
+            confidence: schoolAnswer?.grounded ? 0.9 : 0,
+            sources: schoolAnswer?.grounded ? ['Tài liệu nhà trường'] : [],
+            pending: false,
+            revealAnswer: true,
+            personalLlm: true,
+            nextImproveSuggestions: Array.isArray(schoolAnswer?.nextImproveSuggestions)
+              ? schoolAnswer.nextImproveSuggestions
+              : current.nextImproveSuggestions,
+          };
+          return updated;
+        });
+        setAvatarEmotion(schoolAnswer?.grounded ? 'success' : 'idle');
+        return;
+      }
       let data;
       const improvePlanPayload = requestContext.improvePlanId && requestContext.planItemId
         ? {
@@ -483,13 +539,41 @@ export function useStudentChatController({
     }
   };
 
-  const handleLockUnderstandingAnswer = async (message, selectedKey) => {
+  const handleLockUnderstandingAnswer = async (message, selectedKey, attempt = {}) => {
     const key = String(selectedKey || '').trim().toUpperCase();
     if (!/^[A-D]$/.test(key)) return;
     const conversationId = message?.conversationId || activeSessionId;
     const messageId = message?.assistantMessageId || message?.messageId || message?.id;
     const studentId = getStudentUserId();
-    if (!conversationId || !messageId || !studentId) return;
+    const quiz = attempt?.quiz || {};
+    const localGrade = () => {
+      const correctKey = String(quiz.correctKey || '').trim().toUpperCase();
+      if (!correctKey) return null;
+      return {
+        correct: key === correctKey,
+        correctKey,
+        explanation: quiz.explanation || '',
+        messageId: messageId || '',
+        attemptId: '',
+      };
+    };
+    const markSelected = () => {
+      setMessages((prev) => prev.map((item) => {
+        const itemId = item?.assistantMessageId || item?.messageId || item?.id;
+        const sameSaved = messageId && itemId === messageId;
+        const sameLocal = message?.clientMessageId && item?.clientMessageId === message.clientMessageId;
+        if ((!sameSaved && !sameLocal) || item?.understandingSelectedKey) return item;
+        return {
+          ...item,
+          understandingSelectedKey: key,
+          understandingAnsweredAt: new Date().toISOString(),
+        };
+      }));
+    };
+    if (!conversationId || !messageId || !studentId || message?.personalLlm) {
+      markSelected();
+      return localGrade();
+    }
 
     setMessages((prev) => prev.map((item) => {
       const itemId = item?.assistantMessageId || item?.messageId || item?.id;
@@ -519,8 +603,8 @@ export function useStudentChatController({
       }));
       return result;
     } catch {
-      // The attempt stays locked locally so the student cannot change it after a save failure.
-      return null;
+      markSelected();
+      return localGrade();
     }
   };
 

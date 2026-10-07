@@ -15,6 +15,10 @@ class StudentFacingMessagesTest {
                 "The course material is not enough to answer this question."));
         assertTrue(StudentFacingMessages.isInsufficientMaterialAnswer(
                 "Tài liệu hiện có không cung cấp đủ thông tin chi tiết để giảng giải."));
+        assertTrue(StudentFacingMessages.isInsufficientMaterialAnswer(
+                "Tài liệu hiện có không cung cấp định nghĩa về con trỏ."));
+        assertTrue(StudentFacingMessages.isInsufficientMaterialAnswer(
+                "Tài liệu cung cấp không có phần giải thích khái niệm con trỏ."));
         assertFalse(StudentFacingMessages.isInsufficientMaterialAnswer(
                 "Tài liệu giải thích cách dùng get trong dictionary."));
     }

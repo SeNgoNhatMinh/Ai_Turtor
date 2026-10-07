@@ -135,6 +135,18 @@ test('keeps chapter-bound provenance supplied for each guided lesson', () => {
   assert.deepEqual(parsed[0].sourceChunkIds, ['dictionary-2']);
 });
 
+test('drops review-workflow titles from lesson chips', () => {
+  const parsed = lessonSuggestionsForMessage({
+    nextImproveSuggestions: [{
+      title: 'Bắt đầu bài 1: Senior-approved knowledge: Đào sâu bài 3: Quy tắc ưu tiên',
+      chapterTitle: 'Senior-approved knowledge: Đào sâu bài 3: Quy tắc ưu tiên',
+    }],
+    answer: '1. Bài 1: Kiểu dữ liệu\n2. Bài 2: Con trỏ',
+  });
+
+  assert.deepEqual(parsed, []);
+});
+
 test('asks AI for deeper angles of the current numbered lesson', () => {
   assert.equal(
     buildDeepDiveListPrompt('Bắt đầu bài 3: Cache'),

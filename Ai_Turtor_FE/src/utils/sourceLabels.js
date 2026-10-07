@@ -25,6 +25,8 @@ export function normalizeSourceDisplayName(value) {
     .replace(/^[*_`]+/, '')
     .replace(/[*_`]+$/, '')
     .replace(REPEATED_SOURCE_FILE_EXT_RE, '$1')
+    .replace(/senior-approved(?:\s+knowledge|\s+v2(?:\s+gold\s+q&a)?)?\s*:\s*/ig, '')
+    .replace(/gold\s+q&a\s*:\s*/ig, '')
     .trim();
 }
 

@@ -19,6 +19,11 @@ public final class StudentFacingMessages {
     public static final String CODE_MENTOR_BUSY =
             "Mình chưa phân tích xong phần này. Bạn thử gửi lại đoạn code hoặc lỗi cụ thể hơn, hoặc thử lại sau vài giây nhé.";
 
+    public static String noMatchingStudyUnit() {
+        return "Tài liệu môn chưa có chương khớp với phần bạn muốn học. "
+                + "Hãy hỏi đúng tên khái niệm trong sách, hoặc chọn một chương từ mục lục môn.";
+    }
+
     public static String dailySessionComplete(String courseId) {
         String course = courseId == null || courseId.isBlank() ? "môn này" : "môn " + courseId.trim();
         return "Phiên học hôm nay của " + course
@@ -53,7 +58,12 @@ public final class StudentFacingMessages {
         boolean saysMissing = normalized.contains("khong de cap")
                 || normalized.contains("khong nhac")
                 || normalized.contains("khong du")
-                || normalized.contains("khong cung cap du")
+                || normalized.contains("khong cung cap")
+                || normalized.contains("khong co thong tin")
+                || normalized.contains("khong co noi dung")
+                || normalized.contains("khong co phan")
+                || normalized.contains("khong the tra loi")
+                || normalized.contains("khong mo ta")
                 || normalized.contains("does not mention")
                 || normalized.contains("not mentioned")
                 || normalized.contains("not enough")

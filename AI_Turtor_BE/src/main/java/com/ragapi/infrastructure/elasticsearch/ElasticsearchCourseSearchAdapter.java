@@ -333,6 +333,40 @@ public class ElasticsearchCourseSearchAdapter implements CourseKnowledgeSearchGa
         );
     }
 
+    public List<String> listChapterTitles(String courseId) {
+        if (courseId == null || courseId.isBlank()) {
+            return List.of();
+        }
+        try {
+            if (!indexExists()) {
+                return List.of();
+            }
+            SearchResponse<Void> response = elasticsearchClient.search(request -> request
+                            .index(index)
+                            .size(0)
+                            .query(query -> query.term(term -> term
+                                    .field("courseId.keyword")
+                                    .value(courseId.trim())))
+                            .aggregations("chapters", aggregation -> aggregation.terms(terms -> terms
+                                    .field("chapterTitle.keyword")
+                                    .size(200))),
+                    Void.class);
+            if (response.aggregations() == null || response.aggregations().get("chapters") == null) {
+                return List.of();
+            }
+            List<String> titles = new ArrayList<>();
+            response.aggregations().get("chapters").sterms().buckets().array().forEach(bucket -> {
+                if (bucket.key() != null && !bucket.key().stringValue().isBlank()) {
+                    titles.add(bucket.key().stringValue());
+                }
+            });
+            return titles;
+        } catch (Exception exception) {
+            log.warn("Could not list indexed chapter titles for courseId={}: {}", courseId, exception.getMessage());
+            return List.of();
+        }
+    }
+
     private boolean isVisibleForClass(RetrievedCourseChunk chunk, String requestedClassId) {
         String chunkClassId = chunk.classId();
         if (chunkClassId == null || chunkClassId.isBlank() || "null".equalsIgnoreCase(chunkClassId)) {

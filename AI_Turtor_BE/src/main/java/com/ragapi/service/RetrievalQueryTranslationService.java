@@ -113,10 +113,15 @@ public class RetrievalQueryTranslationService {
                 - Output exactly one compact search-query line and nothing else.
                 - Start with a faithful, literal academic translation of the complete
                   concept in the question. Do not simplify it to a broader topic.
-                - After the literal translation, add 2-4 textbook aliases or closely
-                  equivalent terms separated by semicolons to improve search recall.
+                - After the literal translation, add 2-4 textbook aliases for the same
+                  idea, separated by semicolons. Include the standard textbook name
+                  when the learner used a paraphrase.
+                - Keep every alias in the same subject as the course. Do not switch
+                  the concept to a feature of a different programming language.
                 - Preserve every mathematical symbol, formula, variable and expression exactly.
-                - Use canonical academic terminology appropriate to course %s.
+                - Use canonical academic terminology for this course only: %s.
+                - Do not rename the concept into a feature of a different language
+                  or subject than that course.
                 - For mathematics, distinguish the requested object from its surrounding
                   branch of mathematics; never replace a specific concept with only a
                   broader field name. Never invent a definition or answer the question.

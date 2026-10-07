@@ -1,10 +1,12 @@
-import { useState, useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '../../../../app/queryKeys';
 import ChatMessageList from './ChatMessageList';
 import { buildMaterialSourceMap } from '../../../../utils/sourceLabels';
 import { classIdMatches } from '../../../../utils/academicIds';
 import ChatComposer from './ChatComposer';
+import StudentOwnLlmDialog from './StudentOwnLlmDialog';
+import { clearStudentOwnLlm, readStudentOwnLlm } from '../studentOwnLlm';
 import ChatWorkspaceHeader from './ChatWorkspaceHeader';
 import PinnedMessagesBar from './PinnedMessagesBar';
 import { useAnswerFeedback } from '../useAnswerFeedback';
@@ -65,6 +67,8 @@ function ChatWorkspace({
   tutorSession,
 }) {
   const [ttsVoiceId, setTtsVoiceId] = useState('');
+  const [ownLlmOpen, setOwnLlmOpen] = useState(false);
+  const [ownLlmVersion, setOwnLlmVersion] = useState(0);
 
   const voiceStorageKey = useMemo(() => (
     `ai-tutor:student-tts-voice:${String(userId || currentUser?.id || 'current')}:${courseId || 'none'}:${classId || 'none'}`
@@ -175,6 +179,11 @@ function ChatWorkspace({
     Number(courseDailyQuota?.used ?? activeSessionQuestionCount) || 0,
   ));
   const dailyQuotaExhausted = Boolean(courseDailyQuotaExhausted || courseDailyQuota?.remaining <= 0);
+  const ownLlmReady = useMemo(
+    () => Boolean(readStudentOwnLlm(userId)),
+    [ownLlmVersion, userId],
+  );
+  const platformLocked = dailyQuotaExhausted && !ownLlmReady;
   const isNearTurnLimit = questionCount >= 8 && !dailyQuotaExhausted;
   const suggestedTopics = tutorSession?.suggestedTopics;
   const composerTopics = useMemo(() => {
@@ -195,7 +204,7 @@ function ChatWorkspace({
     return sessionTopics;
   }, [safeMessages, suggestedTopics]);
   return (
-    <div className="chat-workspace-dark" style={style}>
+    <div className={`chat-workspace-dark${dailyQuotaExhausted ? ' chat-workspace-dark--own-llm' : ''}`} style={style}>
       <ChatWorkspaceHeader
         activeSessionTitle={activeSessionTitle}
         isHistoryOpen={isHistoryOpen}
@@ -219,7 +228,7 @@ function ChatWorkspace({
 
       <ChatMessageList
         activeSessionId={activeSessionId}
-        activeSessionMaxTurnsReached={dailyQuotaExhausted}
+        activeSessionMaxTurnsReached={platformLocked}
         canChat={canChatWithCurrentContext}
         classId={classId}
         courseId={courseId}
@@ -273,15 +282,29 @@ function ChatWorkspace({
         </div>
       )}
 
+      <StudentOwnLlmDialog
+        open={ownLlmOpen}
+        userId={userId}
+        onClose={() => setOwnLlmOpen(false)}
+        onSaved={() => setOwnLlmVersion((version) => version + 1)}
+      />
+
       <ChatComposer
-        activeSessionMaxTurnsReached={dailyQuotaExhausted}
+        activeSessionMaxTurnsReached={platformLocked}
         canChat={canChatWithCurrentContext}
         chatContextMessage={chatContextMessage}
         chatInput={chatInput}
         chatMode={chatMode}
         isAiLoading={isAiLoading}
+        onClearOwnLlm={() => {
+          clearStudentOwnLlm(userId);
+          setOwnLlmVersion((version) => version + 1);
+        }}
+        onOpenOwnLlm={() => setOwnLlmOpen(true)}
         onSend={onSendQuery}
         onStop={onStopQuery}
+        ownLlmReady={ownLlmReady}
+        quotaExhausted={dailyQuotaExhausted}
         setChatInput={setChatInput}
         setChatMode={setChatMode}
         triggerToast={triggerToast}

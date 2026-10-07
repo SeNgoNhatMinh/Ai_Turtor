@@ -32,8 +32,7 @@ public class LocalRetrievalQueryProcessor {
                 || VI_MARKER.matcher(semanticQuery).find()
                 || VI_ASCII_MARKER.matcher(normalized).find();
         String language = vietnamese ? (terms.isEmpty() ? "vi" : "mixed") : "en";
-        String keywordQuery = terms.isEmpty() ? semanticQuery : String.join(" ", terms);
-        return new ProcessedQuery(semanticQuery, language, List.copyOf(terms), keywordQuery);
+        return new ProcessedQuery(semanticQuery, language, List.copyOf(terms), semanticQuery);
     }
 
     private boolean containsPhrase(String query, String phrase) {
@@ -52,14 +51,6 @@ public class LocalRetrievalQueryProcessor {
         terms.put("jpa", "JPA");
         terms.put("bean", "Bean");
         terms.put("thread", "Thread");
-        terms.put("pointer", "Pointer");
-        terms.put("con tro", "Pointer");
-        terms.put("function", "Function");
-        terms.put("ham", "Function");
-        terms.put("parameter", "Parameter");
-        terms.put("tham so", "Parameter");
-        terms.put("return", "Return");
-        terms.put("tra ve", "Return");
         return Collections.unmodifiableMap(terms);
     }
 

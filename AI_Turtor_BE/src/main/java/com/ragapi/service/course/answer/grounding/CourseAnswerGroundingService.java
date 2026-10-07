@@ -19,6 +19,12 @@ public class CourseAnswerGroundingService {
             "(?iu)(?<![\\p{L}\\p{N}_])([a-z_][a-z0-9_]{3,})(?![\\p{L}\\p{N}_])"
     );
     private static final double MIN_GROUNDED_CONFIDENCE = 0.6;
+    /**
+     * Lexical search marks a real hit at 0.65 and a filler hit at 0.55.
+     * Vector and keyword scores for a selected passage are at least this high.
+     * The score is the semantic match; this class does not keep a synonym list.
+     */
+    private static final double SEMANTIC_RETRIEVAL_SCORE = 0.65;
     private static final Set<String> STOP_WORDS = Set.of(
             "la", "gi", "gì", "cua", "của", "cho", "em", "anh", "chi", "chị",
             "the", "thế", "nao", "nào", "hay", "giai", "giải", "thich", "thích",
@@ -39,6 +45,7 @@ public class CourseAnswerGroundingService {
         double confidence = calculateConfidence(chunks);
         boolean grounded = hasGroundedContext(question, context)
                 || hasGroundedContext(retrievalQuestion, context)
+                || hasSemanticRetrievalSupport(chunks)
                 || hasLessonPreviewContext;
         boolean hasApprovedKnowledge = chunks != null && chunks.stream().anyMatch(chunk ->
                 "KNOWLEDGE_CANDIDATE".equalsIgnoreCase(chunk.sourceType())
@@ -88,13 +95,11 @@ public class CourseAnswerGroundingService {
         if (!grounded || chunks == null || chunks.isEmpty()) {
             return currentConfidence;
         }
-        String normalizedQuestion = normalize(question);
         String normalizedContext = normalize(context);
-        boolean conceptSupported = hasCrossLanguageConceptSupport(normalizedQuestion, normalizedContext);
         long matchedTokens = significantTokens(question).stream()
                 .filter(normalizedContext::contains)
                 .count();
-        if (conceptSupported || matchedTokens >= 1) {
+        if (hasSemanticRetrievalSupport(chunks) || matchedTokens >= 1) {
             return Math.max(currentConfidence, MIN_GROUNDED_CONFIDENCE + 0.08);
         }
         if (chunks.size() >= 3 && context != null && context.length() >= 250) {
@@ -109,8 +114,7 @@ public class CourseAnswerGroundingService {
         }
         String normalizedQuestion = normalize(question);
         String normalizedContext = normalize(context);
-        if (hasCrossLanguageConceptSupport(normalizedQuestion, normalizedContext)
-                || hasMethodCallSupport(question, context)) {
+        if (hasMethodCallSupport(question, context)) {
             return true;
         }
         List<String> tokens = significantTokens(question);
@@ -136,47 +140,18 @@ public class CourseAnswerGroundingService {
         return false;
     }
 
-    private boolean hasCrossLanguageConceptSupport(String question, String context) {
-        if (question == null || context == null) {
+    /** True when retrieval already selected this passage for the question. */
+    private boolean hasSemanticRetrievalSupport(List<RetrievedCourseChunk> chunks) {
+        if (chunks == null) {
             return false;
         }
-        if ((question.contains("oop") || question.contains("object oriented"))
-                && (context.contains("oop") || context.contains("object oriented"))) {
-            return true;
+        for (RetrievedCourseChunk chunk : chunks) {
+            Double score = chunk.score();
+            if (score != null && !score.isNaN() && score >= SEMANTIC_RETRIEVAL_SCORE) {
+                return true;
+            }
         }
-        if ((question.contains("jvm") || question.contains("may ao java"))
-                && context.contains("java virtual machine")) {
-            return true;
-        }
-        if ((question.contains("bytecode") || question.contains("ma byte"))
-                && context.contains("bytecode")) {
-            return true;
-        }
-        if ((question.contains("class file") || question.contains("file class"))
-                && context.contains("class file")) {
-            return true;
-        }
-        if ((question.contains("runtime data") || question.contains("vung du lieu runtime"))
-                && context.contains("runtime data")) {
-            return true;
-        }
-        if ((question.contains("virtual machine") || question.contains("may ao"))
-                && context.contains("virtual machine")) {
-            return true;
-        }
-        if ((question.contains("con tro") || question.contains("pointer"))
-                && (context.contains("pointer") || context.contains("memory address")
-                || context.contains("address"))) {
-            return true;
-        }
-        if ((question.contains("tham so") || question.contains("parameter")
-                || question.contains("argument") || question.contains("truyen tham so"))
-                && (context.contains("parameter") || context.contains("argument")
-                || context.contains("pass by reference") || context.contains("parameter passing"))) {
-            return true;
-        }
-        return (question.contains("ham") || question.contains("function") || question.contains("subroutine"))
-                && (context.contains("function") || context.contains("subroutine"));
+        return false;
     }
 
     private List<String> significantTokens(String text) {

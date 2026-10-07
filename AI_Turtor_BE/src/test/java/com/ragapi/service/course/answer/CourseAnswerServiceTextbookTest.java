@@ -118,6 +118,7 @@ class CourseAnswerServiceTextbookTest {
                 new CourseAnswerPreparationService(
                         contextRetrievalService,
                         requestPolicyService,
+                        new LearningPathGroundingService(chapterOutlineService, null),
                         lessonContextService,
                         groundingService,
                         evidenceService

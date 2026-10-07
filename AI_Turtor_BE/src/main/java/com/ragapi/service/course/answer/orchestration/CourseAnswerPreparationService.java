@@ -7,6 +7,7 @@ import com.ragapi.entity.CourseMaterial;
 import com.ragapi.service.course.answer.context.CourseLessonContextService;
 import com.ragapi.service.course.answer.grounding.CourseAnswerEvidenceService;
 import com.ragapi.service.course.answer.grounding.CourseAnswerGroundingService;
+import com.ragapi.service.LearningPathGroundingService;
 import com.ragapi.service.course.answer.policy.CourseAnswerRequestPolicyService;
 import com.ragapi.service.course.model.CourseAnswerRequest;
 import com.ragapi.service.course.model.CourseContextRetrievalResult;
@@ -34,6 +35,7 @@ public class CourseAnswerPreparationService {
 
     private final CourseContextRetrievalService contextRetrievalService;
     private final CourseAnswerRequestPolicyService requestPolicyService;
+    private final LearningPathGroundingService learningPathGroundingService;
     private final CourseLessonContextService lessonContextService;
     private final CourseAnswerGroundingService groundingService;
     private final CourseAnswerEvidenceService evidenceService;
@@ -61,6 +63,11 @@ public class CourseAnswerPreparationService {
                             safeCourseId, safeQuestion);
                 }
             }
+        }
+        if (immediateAnswer == null && StudentChatIntentDetector.isTopiclessStudyRequest(safeQuestion)) {
+            immediateAnswer = requestPolicyService.buildStudyStartGuidance(
+                    learningPathGroundingService.guidanceAnswer(safeCourseId));
+            log.info("Guided a topicless study start without mentor escalation (courseId={})", safeCourseId);
         }
         if (immediateAnswer != null) {
             return emptyPreparation(

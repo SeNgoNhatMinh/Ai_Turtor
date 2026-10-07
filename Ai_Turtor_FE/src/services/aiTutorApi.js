@@ -46,6 +46,26 @@ export const aiTutorApi = {
     return normalizeAiQueryResponse(response);
   },
 
+  async answerFromSchoolMaterials(payload, studentLlmKey, options = {}) {
+    requireValidTutorPayload(payload);
+    return request(`${API_BASE_URL}/ai/school-answer`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Student-Llm-Key': studentLlmKey,
+      },
+      body: JSON.stringify({
+        courseId: payload.courseId,
+        classId: payload.classId || '',
+        question: payload.question || payload.message,
+        provider: payload.provider,
+        model: payload.model,
+      }),
+      timeoutMs: API_TIMEOUTS.ai,
+      signal: options.signal,
+    });
+  },
+
   async getQuestionQuota(studentId, courseId, options = {}) {
     const safeStudentId = encodeURIComponent(String(studentId || '').trim());
     const safeCourseId = encodeURIComponent(String(courseId || '').trim());
