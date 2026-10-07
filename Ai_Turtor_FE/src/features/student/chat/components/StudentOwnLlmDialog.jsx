@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Input, Modal, Select } from 'antd';
 import {
   STUDENT_LLM_PROVIDERS,
@@ -6,25 +6,17 @@ import {
   saveStudentOwnLlm,
 } from '../studentOwnLlm';
 
-function StudentOwnLlmDialog({ open, userId, onClose, onSaved }) {
-  const [provider, setProvider] = useState('openrouter');
-  const [model, setModel] = useState('');
-  const [apiKey, setApiKey] = useState('');
-
-  useEffect(() => {
-    if (!open) return;
-    const current = readStudentOwnLlm(userId);
-    setProvider(current?.provider || 'openrouter');
-    setModel(current?.model || '');
-    setApiKey(current?.apiKey || '');
-  }, [open, userId]);
-
+function StudentOwnLlmForm({ userId, onClose, onSaved }) {
+  const saved = readStudentOwnLlm(userId);
+  const [provider, setProvider] = useState(saved?.provider || 'openrouter');
+  const [model, setModel] = useState(saved?.model || '');
+  const [apiKey, setApiKey] = useState(saved?.apiKey || '');
   const canSave = Boolean(provider && model.trim() && apiKey.trim());
 
   return (
     <Modal
       title="Học tiếp bằng API của bạn"
-      open={open}
+      open
       okText="Dùng API này"
       cancelText="Đóng"
       okButtonProps={{ disabled: !canSave }}
@@ -58,6 +50,11 @@ function StudentOwnLlmDialog({ open, userId, onClose, onSaved }) {
       />
     </Modal>
   );
+}
+
+function StudentOwnLlmDialog({ open, userId, onClose, onSaved }) {
+  if (!open) return null;
+  return <StudentOwnLlmForm key={String(userId || '')} userId={userId} onClose={onClose} onSaved={onSaved} />;
 }
 
 export default StudentOwnLlmDialog;

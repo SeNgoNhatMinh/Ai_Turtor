@@ -179,10 +179,7 @@ function ChatWorkspace({
     Number(courseDailyQuota?.used ?? activeSessionQuestionCount) || 0,
   ));
   const dailyQuotaExhausted = Boolean(courseDailyQuotaExhausted || courseDailyQuota?.remaining <= 0);
-  const ownLlmReady = useMemo(
-    () => Boolean(readStudentOwnLlm(userId)),
-    [ownLlmVersion, userId],
-  );
+  const ownLlmReady = ownLlmVersion >= 0 && Boolean(readStudentOwnLlm(userId));
   const platformLocked = dailyQuotaExhausted && !ownLlmReady;
   const isNearTurnLimit = questionCount >= 8 && !dailyQuotaExhausted;
   const suggestedTopics = tutorSession?.suggestedTopics;
