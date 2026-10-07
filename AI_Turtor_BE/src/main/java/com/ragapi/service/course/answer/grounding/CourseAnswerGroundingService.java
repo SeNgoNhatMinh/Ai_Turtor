@@ -23,7 +23,10 @@ public class CourseAnswerGroundingService {
             "la", "gi", "gì", "cua", "của", "cho", "em", "anh", "chi", "chị",
             "the", "thế", "nao", "nào", "hay", "giai", "giải", "thich", "thích",
             "explain", "what", "is", "a", "an", "and", "or", "in", "on",
-            "of", "to", "with", "about", "please", "help"
+            "of", "to", "with", "about", "please", "help",
+            "toi", "minh", "muon", "hoc", "cach", "tao", "hom", "nay", "ban",
+            "bai", "ngay", "mot", "giup", "noi", "voi", "trong", "khi", "lam",
+            "duoc", "khong", "can", "biet", "hieu"
     );
 
     public CourseGroundingAssessment assess(
