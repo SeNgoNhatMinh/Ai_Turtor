@@ -385,7 +385,12 @@ public class TutorController {
             List<SuggestionItem> lessonSuggestions = LearningPathParser.parseLessonSuggestions(answer);
             if ("LEARNING_PATH".equalsIgnoreCase(intent.getSubIntent())
                     || StudentChatIntentDetector.isTopiclessStudyRequest(question)) {
-                lessonSuggestions = learningPathGroundingService.ground(courseId, question, lessonSuggestions);
+                lessonSuggestions = learningPathGroundingService.ground(
+                        courseId,
+                        question,
+                        lessonSuggestions,
+                        ragAnswer.getSourceEvidence()
+                );
                 applyGroundedLearningPath(ragAnswer, lessonSuggestions);
                 answer = ragAnswer.getAnswer();
             }

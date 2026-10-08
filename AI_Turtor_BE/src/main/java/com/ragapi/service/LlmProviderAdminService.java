@@ -349,12 +349,15 @@ public class LlmProviderAdminService {
         if (!slot.envEnabled()) {
             return false;
         }
-        if (override != null && override.getEnabled() != null) {
-            return override.getEnabled();
+        if (override != null && Boolean.FALSE.equals(override.getEnabled())) {
+            return false;
         }
         if (slot.kind() == LlmRuntimeSlot.LlmRuntimeSlotKind.OLLAMA) {
             return hasText(effectiveModel(slot, override));
         }
+        // A stale DB override may say enabled=true after an API key was removed
+        // or rotated. Never pass such a cloud slot to the model builder because
+        // one empty key would prevent the entire application from starting.
         return hasUsableApiKey(slot.apiKey()) && hasText(slot.baseUrl()) && hasText(effectiveModel(slot, override));
     }
 

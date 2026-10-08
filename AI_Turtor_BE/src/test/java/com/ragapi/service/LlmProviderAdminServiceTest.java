@@ -123,6 +123,25 @@ class LlmProviderAdminServiceTest {
     }
 
     @Test
+    void enabledOverrideCannotActivateCloudProviderWithoutApiKey() {
+        ReflectionTestUtils.setField(service, "groqApiKey", "");
+        overrides.add(LlmProviderOverride.builder()
+                .providerId("groq-1")
+                .enabled(true)
+                .build());
+
+        assertThat(service.activeRuntimeSlots())
+                .noneMatch(slot -> slot.providerId().equals("groq-1"));
+        assertThat(service.listProviderConfigs())
+                .filteredOn(view -> view.getProviderId().equals("groq-1"))
+                .singleElement()
+                .satisfies(view -> {
+                    assertThat(view.isApiKeyConfigured()).isFalse();
+                    assertThat(view.isEffectiveEnabled()).isFalse();
+                });
+    }
+
+    @Test
     void restoreProvider_clearsDeletedFlag() {
         LlmProviderOverride existing = LlmProviderOverride.builder()
                 .providerId("groq-1")

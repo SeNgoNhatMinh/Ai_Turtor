@@ -1,6 +1,7 @@
 package com.ragapi.service;
 
 import com.ragapi.dto.SuggestionItem;
+import com.ragapi.dto.RagSourceEvidence;
 import com.ragapi.dto.cotraining.ChapterOutlineView;
 import com.ragapi.infrastructure.elasticsearch.ElasticsearchCourseSearchAdapter;
 import org.junit.jupiter.api.Test;
@@ -83,6 +84,60 @@ class LearningPathGroundingServiceTest {
                 "Debugging dictionaries",
                 List.of(new SuggestionItem("Bài 1: Dictionary", "", List.of(), "AI"))
         )).isEmpty();
+    }
+
+    @Test
+    void vietnameseStudyTopicUsesVerifiedEnglishRetrievalEvidence() {
+        when(chapterOutlineService.suggestChapters("DBI202")).thenReturn(List.of(
+                chapter("intro", "Introduction to Database Systems", 10, "db-textbook"),
+                chapter("normalization", "Relational Database Design and Normalization", 120, "db-textbook")
+        ));
+        RagSourceEvidence evidence = RagSourceEvidence.builder()
+                .materialId("db-textbook")
+                .chunkId("chunk-intro")
+                .chapter("Introduction to Database Systems")
+                .excerpt("A database is a shared collection of logically related data and its description.")
+                .sourceKind("COURSE_MATERIAL")
+                .excerptVerified(true)
+                .build();
+
+        List<SuggestionItem> result = service.ground(
+                "DBI202",
+                "Tôi muốn học về cơ sở dữ liệu",
+                List.of(),
+                List.of(evidence)
+        );
+
+        assertThat(result).isNotEmpty();
+        assertThat(result.get(0).getChapterTitle()).isEqualTo("Introduction to Database Systems");
+        assertThat(result.get(0).getSourceMaterialIds()).containsExactly("db-textbook");
+    }
+
+    @Test
+    void verifiedEvidenceIsSafeFallbackWhenOutlineHasOnlyWholeBook() {
+        when(chapterOutlineService.suggestChapters("DBI202")).thenReturn(List.of(
+                chapter("main", "Main Material", 1, "db-textbook")
+        ));
+        RagSourceEvidence evidence = RagSourceEvidence.builder()
+                .materialId("db-textbook")
+                .chunkId("chunk-sql")
+                .chapter("SQL Data Definition")
+                .excerpt("SQL data definition includes statements that create and alter database schemas.")
+                .sourceKind("COURSE_MATERIAL")
+                .excerptVerified(true)
+                .build();
+
+        List<SuggestionItem> result = service.ground(
+                "DBI202",
+                "Tôi muốn học về cơ sở dữ liệu SQL",
+                List.of(),
+                List.of(evidence)
+        );
+
+        assertThat(result).extracting(SuggestionItem::getChapterTitle)
+                .containsExactly("SQL Data Definition");
+        assertThat(result.get(0).getSourceChunkIds()).containsExactly("chunk-sql");
+        assertThat(result.get(0).getSource()).isEqualTo("RETRIEVED_EVIDENCE");
     }
 
     @Test

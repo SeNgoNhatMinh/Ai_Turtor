@@ -1,6 +1,7 @@
 package com.ragapi.service;
 
 import com.ragapi.dto.SuggestionItem;
+import com.ragapi.dto.RagSourceEvidence;
 import com.ragapi.dto.cotraining.ChapterOutlineView;
 import com.ragapi.infrastructure.elasticsearch.ElasticsearchCourseSearchAdapter;
 import com.ragapi.util.ChapterHeadingUtils;
@@ -41,6 +42,21 @@ public class LearningPathGroundingService {
             String studentQuestion,
             List<SuggestionItem> proposedLessons
     ) {
+        return ground(courseId, studentQuestion, proposedLessons, List.of());
+    }
+
+    /**
+     * Grounds an LLM learning path against both the material outline and the
+     * verified evidence already retrieved for this request. Evidence matters for
+     * bilingual questions: a Vietnamese request can retrieve an English textbook
+     * chapter even when the literal tokens in the question and heading differ.
+     */
+    public List<SuggestionItem> ground(
+            String courseId,
+            String studentQuestion,
+            List<SuggestionItem> proposedLessons,
+            List<RagSourceEvidence> retrievedEvidence
+    ) {
         if (courseId == null || courseId.isBlank()) {
             return List.of();
         }
@@ -50,7 +66,14 @@ public class LearningPathGroundingService {
         List<ChapterOutlineView> available = chapterOutlineService.suggestChapters(courseId).stream()
                 .filter(this::isStudentLessonChapter)
                 .toList();
+        int requestedCount = proposedLessons == null || proposedLessons.isEmpty()
+                ? DEFAULT_LESSON_COUNT
+                : Math.min(MAX_LESSON_COUNT, proposedLessons.size());
         if (available.isEmpty()) {
+            List<SuggestionItem> evidenceLessons = evidenceBackedLessons(retrievedEvidence, requestedCount);
+            if (!evidenceLessons.isEmpty()) {
+                return evidenceLessons;
+            }
             if (StudentChatIntentDetector.isTopicStudyStart(studentQuestion)) {
                 return openingLessons(courseId, DEFAULT_LESSON_COUNT);
             }
@@ -58,13 +81,20 @@ public class LearningPathGroundingService {
         }
 
         Set<String> focusTokens = tokens(studentQuestion);
-        int requestedCount = proposedLessons == null || proposedLessons.isEmpty()
-                ? DEFAULT_LESSON_COUNT
-                : Math.min(MAX_LESSON_COUNT, proposedLessons.size());
+        Set<String> proposedLessonTokens = proposedLessonTokens(proposedLessons);
+        Set<String> evidenceTokens = evidenceTokens(retrievedEvidence);
+        Set<String> evidenceMaterialIds = evidenceMaterialIds(retrievedEvidence);
 
         List<RankedChapter> ranked = available.stream()
-                .map(chapter -> new RankedChapter(chapter, relevance(chapter.getTitle(), focusTokens)))
-                .filter(item -> focusTokens.isEmpty() || item.score() > 0)
+                .filter(chapter -> relevance(chapter.getTitle(), focusTokens) > 0
+                        || relevance(chapter.getTitle(), evidenceTokens) > 0)
+                .map(chapter -> new RankedChapter(
+                        chapter,
+                        (4 * relevance(chapter.getTitle(), focusTokens))
+                                + (4 * relevance(chapter.getTitle(), evidenceTokens))
+                                + relevance(chapter.getTitle(), proposedLessonTokens)
+                                + (sharesMaterial(chapter, evidenceMaterialIds) ? 1 : 0)
+                ))
                 .sorted(Comparator.comparingInt(RankedChapter::score).reversed()
                         .thenComparingInt(item -> normalizedPage(item.chapter())))
                 .limit(requestedCount)
@@ -72,7 +102,7 @@ public class LearningPathGroundingService {
                 .toList();
 
         if (ranked.isEmpty()) {
-            return List.of();
+            return evidenceBackedLessons(retrievedEvidence, requestedCount);
         }
 
         List<SuggestionItem> grounded = new ArrayList<>();
@@ -90,6 +120,106 @@ public class LearningPathGroundingService {
             ));
         }
         return List.copyOf(grounded);
+    }
+
+    private Set<String> proposedLessonTokens(List<SuggestionItem> proposedLessons) {
+        LinkedHashSet<String> result = new LinkedHashSet<>();
+        if (proposedLessons != null) {
+            for (SuggestionItem lesson : proposedLessons) {
+                if (lesson != null) {
+                    result.addAll(tokens(lesson.getTitle()));
+                    result.addAll(tokens(lesson.getChapterTitle()));
+                }
+            }
+        }
+        return Set.copyOf(result);
+    }
+
+    private Set<String> evidenceTokens(List<RagSourceEvidence> retrievedEvidence) {
+        LinkedHashSet<String> result = new LinkedHashSet<>();
+        if (retrievedEvidence != null) {
+            for (RagSourceEvidence evidence : retrievedEvidence) {
+                if (isCourseMaterialEvidence(evidence)) {
+                    result.addAll(tokens(evidence.getChapter()));
+                    result.addAll(tokens(evidence.getExcerpt()));
+                }
+            }
+        }
+        return Set.copyOf(result);
+    }
+
+    private Set<String> evidenceMaterialIds(List<RagSourceEvidence> retrievedEvidence) {
+        LinkedHashSet<String> result = new LinkedHashSet<>();
+        if (retrievedEvidence != null) {
+            for (RagSourceEvidence evidence : retrievedEvidence) {
+                if (isCourseMaterialEvidence(evidence)
+                        && evidence.getMaterialId() != null
+                        && !evidence.getMaterialId().isBlank()) {
+                    result.add(evidence.getMaterialId().trim());
+                }
+            }
+        }
+        return Set.copyOf(result);
+    }
+
+    private boolean sharesMaterial(ChapterOutlineView chapter, Set<String> materialIds) {
+        if (chapter == null || materialIds.isEmpty() || chapter.getSourceMaterialIds() == null) {
+            return false;
+        }
+        return chapter.getSourceMaterialIds().stream()
+                .filter(value -> value != null && !value.isBlank())
+                .map(String::trim)
+                .anyMatch(materialIds::contains);
+    }
+
+    private List<SuggestionItem> evidenceBackedLessons(
+            List<RagSourceEvidence> retrievedEvidence,
+            int limit
+    ) {
+        if (retrievedEvidence == null || retrievedEvidence.isEmpty() || limit <= 0) {
+            return List.of();
+        }
+        List<SuggestionItem> lessons = new ArrayList<>();
+        LinkedHashSet<String> seenTitles = new LinkedHashSet<>();
+        for (RagSourceEvidence evidence : retrievedEvidence) {
+            if (!isCourseMaterialEvidence(evidence)) {
+                continue;
+            }
+            String title = evidence.getChapter() == null ? "" : evidence.getChapter().trim();
+            if (title.isBlank()
+                    || ChapterHeadingUtils.isInternalKnowledgeTitle(title)
+                    || !ChapterHeadingUtils.isStudyUnitTitle(title)
+                    || !seenTitles.add(normalize(title))) {
+                continue;
+            }
+            int lessonNumber = lessons.size() + 1;
+            String chunkId = evidence.getChunkId() == null ? "" : evidence.getChunkId().trim();
+            lessons.add(new SuggestionItem(
+                    "Bắt đầu bài " + lessonNumber + ": " + title,
+                    "Bài học được liên kết với bằng chứng đã truy xuất từ tài liệu môn học",
+                    List.of("AI Tutor mở đúng phần tài liệu liên quan và hướng dẫn từng bước."),
+                    "RETRIEVED_EVIDENCE",
+                    chunkId.isBlank() ? "evidence-lesson-" + lessonNumber : chunkId,
+                    title,
+                    evidence.getMaterialId() == null
+                            ? List.of()
+                            : clean(List.of(evidence.getMaterialId())),
+                    evidence.getChunkId() == null
+                            ? List.of()
+                            : clean(List.of(evidence.getChunkId()))
+            ));
+            if (lessons.size() >= limit) {
+                break;
+            }
+        }
+        return List.copyOf(lessons);
+    }
+
+    private boolean isCourseMaterialEvidence(RagSourceEvidence evidence) {
+        return evidence != null
+                && (evidence.getSourceKind() == null
+                || evidence.getSourceKind().isBlank()
+                || "COURSE_MATERIAL".equalsIgnoreCase(evidence.getSourceKind()));
     }
 
     public List<SuggestionItem> openingLessons(String courseId, int limit) {
@@ -227,7 +357,7 @@ public class LearningPathGroundingService {
 
     private int relevance(String title, Set<String> focusTokens) {
         if (focusTokens.isEmpty()) {
-            return 1;
+            return 0;
         }
         Set<String> titleTokens = tokens(title);
         int score = 0;

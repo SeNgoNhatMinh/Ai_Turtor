@@ -292,7 +292,7 @@ rag:
       min-context-chars: ${RAG_PRIMARY_SUFFICIENT_MIN_CONTEXT_CHARS:900}
     query-translation:
       # Rewrites a Vietnamese question into textbook language. No term dictionary.
-      enabled: ${RAG_QUERY_TRANSLATION_ENABLED:false}
+      enabled: ${RAG_QUERY_TRANSLATION_ENABLED:true}
       # Extra LLM hop is expensive for local gemma; skip when cloud chat is off.
       skip-when-ollama-only: ${RAG_QUERY_TRANSLATION_SKIP_WHEN_OLLAMA_ONLY:true}
       target-language: English

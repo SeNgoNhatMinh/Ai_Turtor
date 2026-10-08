@@ -13,3 +13,4 @@ dist/
 .vite/
 playwright-report/
 test-results/
+*.zip
