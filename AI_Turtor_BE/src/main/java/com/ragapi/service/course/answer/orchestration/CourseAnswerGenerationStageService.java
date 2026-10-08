@@ -144,8 +144,9 @@ public class CourseAnswerGenerationStageService {
                 return resultService.softUnavailable(StudentFacingMessages.GENERATION_BUSY, prepared.sourceLabels());
             }
             if (qualityFallbackEnabled
-                    && StudentAnswerCompletenessGuard.isClearlyIncomplete(answer)
-                    && !hasTeachableLesson(answer)) {
+                    && (StudentAnswerCompletenessGuard.isClearlyIncomplete(answer)
+                    || isIncompleteLesson(request, answer))
+                    && !(pinnedLesson(request, prepared) && hasTeachableLesson(answer))) {
                 log.warn("Grounded tutor generation ended with an incomplete student answer");
                 return resultService.softUnavailable(StudentFacingMessages.GENERATION_BUSY, prepared.sourceLabels());
             }
@@ -268,7 +269,15 @@ public class CourseAnswerGenerationStageService {
         if (!hasText(value) || value.length() < 350 || StudentFacingMessages.isUnavailableMessage(value)) {
             return false;
         }
-        return !StudentFacingMessages.isInsufficientMaterialAnswer(value);
+        if (!StudentFacingMessages.isInsufficientMaterialAnswer(value)) {
+            return true;
+        }
+        String lower = value.toLowerCase(Locale.ROOT);
+        return lower.contains("```")
+                || lower.contains(">>>")
+                || lower.contains("list")
+                || lower.contains("tuple")
+                || lower.contains("dict");
     }
 
     private int countOccurrences(String value, String needle) {
