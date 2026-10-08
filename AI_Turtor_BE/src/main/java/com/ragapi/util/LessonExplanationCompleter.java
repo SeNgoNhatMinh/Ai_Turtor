@@ -32,6 +32,10 @@ public final class LessonExplanationCompleter {
                 Teach this one lesson in Vietnamese. Output ONLY the explanation.
                 Start with heading ## Giải thích.
                 Write at least 4 short paragraphs grounded in COURSE MATERIAL CONTEXT.
+                If the lesson title names several parts, separated by commas or by "and"/"và",
+                give each named part its own paragraphs, in that order.
+                Do not spend the whole explanation on the first part.
+                If the context has nothing about a later part, say so in one sentence.
                 Do not invent APIs, files, classes, or steps that are not in the context.
                 If the context is thin, explain only what is there and say what is missing.
                 Do not write a quiz, A/B/C options, Đáp án, ## Kiểm tra hiểu, or ## Bài tiếp theo.

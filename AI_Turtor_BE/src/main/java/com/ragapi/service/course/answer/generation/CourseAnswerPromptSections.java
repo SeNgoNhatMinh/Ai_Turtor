@@ -215,6 +215,10 @@ public class CourseAnswerPromptSections {
                 REQUIRED. Teach this lesson like a tutor using only COURSE MATERIAL CONTEXT.
                 At least 4 short paragraphs. Do not invent facts, APIs, or files missing from the context.
                 Never start with a quiz. A quiz-only answer is invalid.
+                If the lesson title names several parts, separated by commas or by "and"/"và",
+                give each named part its own paragraphs, in that order.
+                Do not spend the whole explanation on the first part.
+                If the context has nothing about a later part, say so in one sentence.
 
                 ## Ví dụ nhỏ
                 Include a small grounded example only when the student asked for one and the material supports it.

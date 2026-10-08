@@ -148,11 +148,29 @@ public class CourseAnswerGenerationService {
     }
 
     private String completeLessonExplanation(String answer, String question, String courseContext) {
-        if (!LessonExplanationCompleter.missingLessonBody(answer)) {
+        if (courseContext == null || courseContext.isBlank()) {
             return answer;
         }
-        log.warn("Lesson explanation remains incomplete after local post-processing");
-        return answer;
+        boolean refusal = com.ragapi.util.StudentFacingMessages.isInsufficientMaterialAnswer(answer);
+        if (!LessonExplanationCompleter.missingLessonBody(answer) && !refusal) {
+            return answer;
+        }
+        try {
+            String generated = chatService.generateUtility(
+                    LessonExplanationCompleter.lessonBodyPrompt(question, courseContext));
+            String explanation = LessonExplanationCompleter.prependExplanation("", generated);
+            if (explanation == null || explanation.isBlank() || LessonExplanationCompleter.missingLessonBody(explanation)) {
+                log.warn("Lesson explanation remains incomplete after the chapter rewrite");
+                return answer;
+            }
+            if (refusal || LessonExplanationCompleter.missingLessonBody(answer)) {
+                return explanation;
+            }
+            return LessonExplanationCompleter.prependExplanation(answer, generated);
+        } catch (RuntimeException error) {
+            log.warn("Lesson explanation was not generated from the pinned chapter: {}", error.getMessage());
+            return answer;
+        }
     }
 
     private String completeRemediationUnderstandingCheck(String answer, String question, String courseContext) {
@@ -202,8 +220,18 @@ public class CourseAnswerGenerationService {
         if (LessonUnderstandingCheckCompleter.hasUsableCheck(answer)) {
             return answer;
         }
-        log.warn("Lesson understanding check is incomplete; no utility LLM pass was run");
-        return answer;
+        if (courseContext == null || courseContext.isBlank()) {
+            log.warn("Lesson understanding check is incomplete; course context is empty");
+            return answer;
+        }
+        try {
+            String generated = chatService.generateUtility(
+                    LessonUnderstandingCheckCompleter.generationPrompt(question, courseContext));
+            return LessonUnderstandingCheckCompleter.insert(answer, generated);
+        } catch (RuntimeException error) {
+            log.warn("Lesson understanding check was not generated from the pinned chapter: {}", error.getMessage());
+            return answer;
+        }
     }
 
     private String restoreNextLesson(String answer, String question, String learnerMemoryContext) {

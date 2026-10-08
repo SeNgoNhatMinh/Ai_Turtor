@@ -798,8 +798,14 @@ public class ChapterOutlineService {
                 best = hit;
             }
         }
-        boolean subsection = title.trim().matches("(?i)^\\d+(?:\\.\\d+)+\\b.*");
-        int nextHeading = findNextSectionStart(content, best.end(), subsection, chapterNumberBefore(content, best.start()));
+        boolean numberedSection = sectionNumber(title) != null;
+        int nextHeading = findNextSectionStart(
+                content,
+                best.end(),
+                numberedSection,
+                chapterNumberBefore(content, best.start()),
+                sectionNumber(title)
+        );
         String section = nextHeading > best.start()
                 ? content.substring(best.start(), nextHeading).trim()
                 : content.substring(best.start()).trim();
@@ -899,11 +905,26 @@ public class ChapterOutlineService {
         return lowerContent.indexOf(lowerTitle);
     }
 
+    private static String sectionNumber(String title) {
+        if (title == null) {
+            return null;
+        }
+        Matcher matcher = Pattern.compile("^(\\d+(?:\\.\\d+)*)\\b").matcher(title.trim());
+        return matcher.find() ? matcher.group(1) : null;
+    }
+
+    private static boolean isDescendantSection(String parentNumber, String childNumber) {
+        return parentNumber != null
+                && childNumber != null
+                && childNumber.startsWith(parentNumber + ".");
+    }
+
     private static int findNextSectionStart(
             String content,
             int fromIndex,
             boolean stopAtSubsections,
-            Integer currentChapter
+            Integer currentChapter,
+            String sectionNumber
     ) {
         if (fromIndex >= content.length()) {
             return content.length();
@@ -925,9 +946,12 @@ public class ChapterOutlineService {
             return chapterEnd;
         }
         Matcher subsection = Pattern
-                .compile("(?m)^[ \\t]*\\d+(?:\\.\\d+)+[ \\t]+\\p{L}")
+                .compile("(?m)^[ \\t]*(\\d+(?:\\.\\d+)+)[ \\t]+\\p{L}")
                 .matcher(tail);
-        if (subsection.find()) {
+        while (subsection.find()) {
+            if (isDescendantSection(sectionNumber, subsection.group(1))) {
+                continue;
+            }
             return Math.min(chapterEnd, fromIndex + subsection.start());
         }
         return chapterEnd;

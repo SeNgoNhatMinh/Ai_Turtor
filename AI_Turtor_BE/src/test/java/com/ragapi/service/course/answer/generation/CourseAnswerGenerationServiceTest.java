@@ -13,7 +13,7 @@ import static org.mockito.Mockito.when;
 class CourseAnswerGenerationServiceTest {
 
     @Test
-    void lessonTeachDoesNotAddMissingUnderstandingCheckWithUtilityLlmCall() {
+    void lessonTeachFillsAMissingCheckFromThePinnedChapter() {
         CourseAnswerModelGateway model = mock(CourseAnswerModelGateway.class);
         when(model.generate("prompt", "Bắt đầu bài 1: print và input"))
                 .thenReturn("""
@@ -28,10 +28,16 @@ class CourseAnswerGenerationServiceTest {
 
                         ## Học chuyên sâu
                         - Dữ liệu trả về từ input
-
-                        ## Nguồn tài liệu đã dùng
-                        material-1
                         """);
+        when(model.generateUtility(contains("Create exactly one short Vietnamese multiple-choice"))).thenReturn("""
+                ## Kiểm tra hiểu
+                Câu hỏi: Lệnh nào nhận dữ liệu người dùng nhập?
+                A. print()
+                B. input()
+                C. len()
+                Đáp án: B
+                Giải thích: input() nhận dữ liệu từ người dùng.
+                """);
         CourseAnswerGenerationService service = new CourseAnswerGenerationService(model);
 
         String answer = service.generateGroundedAnswer(
@@ -43,7 +49,8 @@ class CourseAnswerGenerationServiceTest {
         );
 
         assertTrue(answer.contains("## Giải thích"));
-        verify(model, never()).generateUtility(contains("Create exactly one short Vietnamese multiple-choice"));
+        assertTrue(answer.contains("## Kiểm tra hiểu"));
+        assertTrue(answer.contains("Đáp án: B"));
     }
 
     @Test

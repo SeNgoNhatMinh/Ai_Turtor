@@ -283,6 +283,16 @@ public class TutorController {
                     question = "Ôn tập theo Improve Plan: " + improvePlanIntent.getLearningObjective();
                 }
             }
+            if (StudentChatIntentDetector.isLessonStart(question)) {
+                routingMode = IntentClassifierService.MODE_RAG;
+                intent.setMode(IntentClassifierService.MODE_RAG);
+                intent.setSubIntent("LESSON_TEACH");
+                intent.setRequiresCourseMaterial(true);
+                if (!"GUIDED_LESSON".equals(intent.getRoutingStrategy())
+                        && !"GUIDED_LESSON_PROVENANCE".equals(intent.getRoutingStrategy())) {
+                    intent.setRoutingStrategy("GUIDED_LESSON");
+                }
+            }
             log.info("Tutor routing decision: mode={}, harnessMode={}, subIntent={}, strategy={}, confidence={}, improvePlanId={}, planItemId={}",
                     routingMode, request.getHarnessMode(), intent.getSubIntent(),
                     intent.getRoutingStrategy(), intent.getConfidence(),

@@ -124,14 +124,28 @@ public class CourseAnswerGenerationStageService {
                     || StudentFacingMessages.isUnavailableMessage(answer)
                     || StudentAnswerCompletenessGuard.isClearlyIncomplete(answer)
                     || isIncompleteLesson(request, answer)))) {
-                log.warn(shouldUseQualityFallback
-                        ? "Grounded tutor declined despite retrying with deterministic grounding context"
-                        : "Grounded tutor declined with insufficient material; quality fallback is disabled");
-                return insufficientMaterial(prepared);
+                if (pinnedLesson(request, prepared)) {
+                    log.warn("Pinned lesson stays with the tutor instead of a mentor escalation");
+                    if (hasTeachableLesson(firstAnswer)) {
+                        answer = firstAnswer;
+                    } else {
+                        return resultService.softUnavailable(
+                                StudentFacingMessages.GENERATION_BUSY, prepared.sourceLabels());
+                    }
+                } else {
+                    log.warn(shouldUseQualityFallback
+                            ? "Grounded tutor declined despite retrying with deterministic grounding context"
+                            : "Grounded tutor declined with insufficient material; quality fallback is disabled");
+                    return insufficientMaterial(prepared);
+                }
             }
-            if (!hasText(answer) || StudentFacingMessages.isUnavailableMessage(answer)
-                    || (qualityFallbackEnabled && (StudentAnswerCompletenessGuard.isClearlyIncomplete(answer)
-                    || isIncompleteLesson(request, answer)))) {
+            if (!hasText(answer) || StudentFacingMessages.isUnavailableMessage(answer)) {
+                log.warn("Grounded tutor generation ended with an incomplete student answer");
+                return resultService.softUnavailable(StudentFacingMessages.GENERATION_BUSY, prepared.sourceLabels());
+            }
+            if (qualityFallbackEnabled
+                    && StudentAnswerCompletenessGuard.isClearlyIncomplete(answer)
+                    && !hasTeachableLesson(answer)) {
                 log.warn("Grounded tutor generation ended with an incomplete student answer");
                 return resultService.softUnavailable(StudentFacingMessages.GENERATION_BUSY, prepared.sourceLabels());
             }
@@ -242,16 +256,19 @@ public class CourseAnswerGenerationStageService {
                 && !(StudentFacingMessages.isInsufficientMaterialAnswer(value) && !hasTeachableLesson(value));
     }
 
+    private boolean pinnedLesson(CourseAnswerRequest request, CourseAnswerPreparation prepared) {
+        return request != null
+                && "LESSON_TEACH".equalsIgnoreCase(request.teachingMode())
+                && prepared != null
+                && prepared.context() != null
+                && prepared.context().length() >= 400;
+    }
+
     private boolean hasTeachableLesson(String value) {
         if (!hasText(value) || value.length() < 350 || StudentFacingMessages.isUnavailableMessage(value)) {
             return false;
         }
-        String lower = value.toLowerCase(Locale.ROOT);
-        return lower.contains("```")
-                || lower.contains(">>>")
-                || lower.contains("list")
-                || lower.contains("tuple")
-                || lower.contains("dict");
+        return !StudentFacingMessages.isInsufficientMaterialAnswer(value);
     }
 
     private int countOccurrences(String value, String needle) {

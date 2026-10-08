@@ -187,6 +187,32 @@ class ChapterOutlineServiceTest {
     }
 
     @Test
+    void parentSectionKeepsChildSubsectionsUntilTheNextSibling() {
+        String content = """
+                1.2 Objects in Python
+                Python objects are values.
+
+                1.2.1 Identifiers
+                An identifier names an object.
+
+                1.2.2 Values and types
+                Every object has a type.
+
+                1.3 Next topic
+                This is a different section.
+                """;
+
+        String parent = ChapterOutlineService.extractSectionByTitle(content, "1.2 Objects in Python");
+        String child = ChapterOutlineService.extractSectionByTitle(content, "1.2.1 Identifiers");
+
+        assertTrue(parent.contains("An identifier names an object"));
+        assertTrue(parent.contains("Every object has a type"));
+        assertFalse(parent.contains("different section"));
+        assertTrue(child.contains("An identifier names an object"));
+        assertFalse(child.contains("Every object has a type"));
+    }
+
+    @Test
     void extractSectionByTitleSkipsPrefaceAndContentsForTheChapterBody() {
         String content = """
                 The later chapters cover object-oriented programming, using web services.
