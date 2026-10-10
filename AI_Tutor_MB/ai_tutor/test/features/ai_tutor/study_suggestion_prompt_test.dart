@@ -223,6 +223,19 @@ Bạn muốn bắt đầu với bài nào? Gợi ý: **Bắt đầu bài 1: Gi�
 ''').map((item) => item.suggestionText).toList(),
       ['Bài 4: File system'],
     );
+    expect(
+      parseNextLessonSuggestionsFromAnswer('''
+## Bài tiếp theo
+- Bài 6: Parameters and arguments 7. Bắt đầu
+''').map((item) => item.suggestionText).toList(),
+      ['Bài 6: Parameters and arguments'],
+    );
+    expect(
+      buildStudySuggestionPrompt(
+        'Bài 6: Parameters and arguments 7. Bắt đầu',
+      ),
+      'Bắt đầu bài 6: Parameters and arguments',
+    );
   });
 
   testWidgets('shows the deep-dive CTA and sends the list prompt', (

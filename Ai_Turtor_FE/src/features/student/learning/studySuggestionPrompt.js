@@ -1,5 +1,25 @@
+const LESSON_HEADING_PREFIX = /^(.*?(?:bài|bai)\s+\d+\s*[:：.\-–—]\s*)([\s\S]*)$/i;
+const TITLE_LESSON_TAIL = /\s+(?:\d+[.)]\s+(?:bắt đầu|bat dau|bài|bai)\b|(?:bắt đầu\s+|bat dau\s+)?(?:bài|bai)\s+\d+\s*[:：.\-–—])/i;
+const INLINE_LESSON_SPLIT = /(?<=\S)\s+(?=\d+[.)]\s*(?:bắt đầu|bat dau|bài|bai)\b)/gi;
+const LESSON_START_FRAGMENT = /^(?:bắt đầu|bat dau)(?:\s+(?:bài|bai))?\s*$/i;
+
+export function stripConcatenatedLessonTail(title) {
+  const text = String(title || '').replace(/\s+/g, ' ').trim();
+  if (!text) return '';
+  const headed = text.match(LESSON_HEADING_PREFIX);
+  const prefix = headed ? headed[1] : '';
+  const body = headed ? headed[2] : text;
+  const cut = body.search(TITLE_LESSON_TAIL);
+  const cleaned = (cut < 0 ? body : body.slice(0, cut)).trim();
+  return `${prefix}${cleaned}`.trim();
+}
+
+function expandInlineLessonLines(text) {
+  return String(text || '').replace(INLINE_LESSON_SPLIT, '\n').split(/\r?\n/);
+}
+
 function parseNumberedLesson(text) {
-  const topic = String(text || '').trim();
+  const topic = stripConcatenatedLessonTail(text);
   if (!topic) return null;
 
   const deepList = topic.match(
@@ -83,12 +103,14 @@ export function resolveChatStudyTip(question, tipText) {
 }
 
 function normalizeLessonStart(suggestionText) {
-  const topic = String(suggestionText || '').trim();
+  const topic = stripConcatenatedLessonTail(suggestionText);
   if (!topic) return '';
 
   const numbered = topic.match(/^(?:bắt đầu\s+)?(?:bài|bai)\s+(\d+)\s*[:：.\-–—]\s*(.+)$/i);
   if (numbered) {
-    return `Bắt đầu bài ${numbered[1]}: ${numbered[2].trim()}`;
+    const title = stripConcatenatedLessonTail(numbered[2]);
+    if (!title || LESSON_START_FRAGMENT.test(title)) return '';
+    return `Bắt đầu bài ${numbered[1]}: ${title}`;
   }
   if (/bắt đầu bài\s+\d+/i.test(topic) || /bat dau bai\s+\d+/i.test(topic)) {
     return topic;
@@ -128,14 +150,14 @@ function parseBulletsUnderHeadings(answer, headingPattern) {
       continue;
     }
     if (!inSection) continue;
-    const line = trimmed
+    const line = stripConcatenatedLessonTail(trimmed
       .replace(/^[-*+]\s+/, '')
       .replace(/^\d+[.)]\s+/, '')
       .replace(/^\[([^\]]+)\]\([^)]+\)$/, '$1')
       .replace(/[*_`]+/g, '')
       .replace(/\s+/g, ' ')
-      .trim();
-    if (!line || /^[\s–—_*+.·•…-]+$/u.test(line)) continue;
+      .trim());
+    if (!line || LESSON_START_FRAGMENT.test(line) || /^[\s–—_*+.·•…-]+$/u.test(line)) continue;
     const key = line.toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);
@@ -162,7 +184,7 @@ export function parseLessonSuggestionsFromAnswer(answer) {
   const linePattern = /^(?:\d+[.)]\s*)?(?:bắt đầu\s+|bat dau\s+)?(?:bài|bai)\s+(\d+)\s*[:：.-]\s*(.+)$/i;
   const seen = new Set();
   const items = [];
-  for (const raw of text.split(/\r?\n/)) {
+  for (const raw of expandInlineLessonLines(text)) {
     const line = String(raw || '')
       .replace(/^[\s>*-]+/, '')
       .replace(/[*_`]+/g, '')
@@ -170,8 +192,8 @@ export function parseLessonSuggestionsFromAnswer(answer) {
       .trim();
     const match = line.match(linePattern);
     if (!match || seen.has(match[1])) continue;
-    const title = String(match[2] || '').trim();
-    if (!title) continue;
+    const title = stripConcatenatedLessonTail(match[2]);
+    if (!title || LESSON_START_FRAGMENT.test(title)) continue;
     seen.add(match[1]);
     const prompt = `Bắt đầu bài ${match[1]}: ${title}`;
     items.push({ title: prompt, suggestionText: prompt });
@@ -206,20 +228,24 @@ export function lessonSuggestionsForMessage(message) {
     const objectSuggestion = typeof suggestion === 'object' && suggestion !== null
       ? suggestion
       : { title: String(suggestion || '').trim() };
-    const title = withoutInternalLessonLabel(objectSuggestion.title);
+    const title = stripConcatenatedLessonTail(withoutInternalLessonLabel(objectSuggestion.title));
+    const suggestionText = stripConcatenatedLessonTail(
+      withoutInternalLessonLabel(objectSuggestion.suggestionText || title),
+    );
+    if (!title || LESSON_START_FRAGMENT.test(title)) return null;
     return {
       ...objectSuggestion,
       title,
-      suggestionText: withoutInternalLessonLabel(objectSuggestion.suggestionText || title),
+      suggestionText,
       interactionType: 'GUIDED_LESSON',
-    sourceMaterialIds: Array.isArray(suggestion?.sourceMaterialIds)
-      ? suggestion.sourceMaterialIds
-      : [],
-    sourceChunkIds: Array.isArray(suggestion?.sourceChunkIds)
-      ? suggestion.sourceChunkIds
-      : [],
+      sourceMaterialIds: Array.isArray(suggestion?.sourceMaterialIds)
+        ? suggestion.sourceMaterialIds
+        : [],
+      sourceChunkIds: Array.isArray(suggestion?.sourceChunkIds)
+        ? suggestion.sourceChunkIds
+        : [],
     };
-  });
+  }).filter(Boolean);
 }
 
 export function buildStudySuggestionPrompt(suggestionText, suggestion = null) {

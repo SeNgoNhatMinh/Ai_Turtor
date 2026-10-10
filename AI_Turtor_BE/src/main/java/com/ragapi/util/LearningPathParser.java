@@ -17,6 +17,16 @@ public final class LearningPathParser {
     private static final Pattern BAI_LINE = Pattern.compile(
             "(?i)^(?:\\d+[.)]\\s*)?(?:bắt đầu\\s+|bat dau\\s+)?(?:bài|bai)\\s+(\\d+)\\s*[:：.\\-]\\s*(.+)$"
     );
+    private static final Pattern LESSON_HEADING_PREFIX = Pattern.compile(
+            "(?iu)^(.*?(?:bài|bai)\\s+\\d+\\s*[:：.\\-]\\s*)([\\s\\S]*)$"
+    );
+    private static final Pattern TITLE_LESSON_TAIL = Pattern.compile(
+            "(?iu)\\s+(?:\\d+[.)]\\s+(?:bắt\\s+đầu|bat\\s+dau|bài|bai)\\b"
+                    + "|(?:bắt\\s+đầu\\s+|bat\\s+dau\\s+)?(?:bài|bai)\\s+\\d+\\s*[:：.\\-])"
+    );
+    private static final Pattern LESSON_START_FRAGMENT = Pattern.compile(
+            "(?iu)^(?:bắt\\s+đầu|bat\\s+dau)(?:\\s+(?:bài|bai))?\\s*$"
+    );
     private static final Pattern CURRENT_LESSON = Pattern.compile(
             "(?:goi y hoc chuyen sau bai|hoc chuyen sau bai|dao sau bai|"
                     + "bat dau bai|hoc ngay bai)\\s+(\\d+)"
@@ -47,8 +57,8 @@ public final class LearningPathParser {
                 continue;
             }
             String number = matcher.group(1);
-            String title = stripMarkdown(matcher.group(2));
-            if (title.isBlank()) {
+            String title = stripConcatenatedLessonTail(stripMarkdown(matcher.group(2)));
+            if (title.isBlank() || LESSON_START_FRAGMENT.matcher(title).matches()) {
                 continue;
             }
             if (!seen.add(number)) {
@@ -130,8 +140,8 @@ public final class LearningPathParser {
             if (!matcher.matches()) {
                 continue;
             }
-            String title = stripMarkdown(matcher.group(2));
-            if (title.isBlank()) {
+            String title = stripConcatenatedLessonTail(stripMarkdown(matcher.group(2)));
+            if (title.isBlank() || LESSON_START_FRAGMENT.matcher(title).matches()) {
                 continue;
             }
             block.append("  Bài ").append(matcher.group(1)).append(": ").append(title).append('\n');
@@ -161,8 +171,8 @@ public final class LearningPathParser {
             if (Integer.parseInt(matcher.group(1)) != wanted) {
                 continue;
             }
-            String title = stripMarkdown(matcher.group(2));
-            if (title.isBlank()) {
+            String title = stripConcatenatedLessonTail(stripMarkdown(matcher.group(2)));
+            if (title.isBlank() || LESSON_START_FRAGMENT.matcher(title).matches()) {
                 continue;
             }
             return "- Bài " + wanted + ": " + title;
@@ -181,8 +191,8 @@ public final class LearningPathParser {
         String focus = question.trim();
         Matcher matcher = LESSON_FOCUS.matcher(focus);
         if (matcher.find()) {
-            String lessonTitle = stripMarkdown(matcher.group(1));
-            if (!lessonTitle.isBlank()) {
+            String lessonTitle = stripConcatenatedLessonTail(stripMarkdown(matcher.group(1)));
+            if (!lessonTitle.isBlank() && !LESSON_START_FRAGMENT.matcher(lessonTitle).matches()) {
                 focus = lessonTitle;
             }
         } else if (StudentChatIntentDetector.isTopicStudyStart(question)) {
@@ -214,14 +224,31 @@ public final class LearningPathParser {
 
     private static String[] splitLessonLines(String answer) {
         String expanded = answer.replaceAll(
-                "(?i)(?<=\\S)\\s+(?=\\d+[.)]\\s*(?:bài|bai)\\s+\\d+)",
+                "(?iu)(?<=\\S)\\s+(?=\\d+[.)]\\s*(?:bắt\\s+đầu|bat\\s+dau|bài|bai)\\b)",
                 "\n"
         );
         expanded = expanded.replaceAll(
-                "(?i)(?<=\\S)\\s+(?:[-*+]\\s+)?(?=(?:bài|bai)\\s+\\d+\\s*[:：.\\-])",
+                "(?iu)(?<=\\S)\\s+(?:[-*+]\\s+)?(?=(?:bắt\\s+đầu\\s+|bat\\s+dau\\s+)?(?:bài|bai)\\s+\\d+\\s*[:：.\\-])",
                 "\n"
         );
         return expanded.split("\\R");
+    }
+
+    static String stripConcatenatedLessonTail(String title) {
+        if (title == null || title.isBlank()) {
+            return "";
+        }
+        String normalized = title.replaceAll("\\s+", " ").trim();
+        Matcher headed = LESSON_HEADING_PREFIX.matcher(normalized);
+        String prefix = "";
+        String body = normalized;
+        if (headed.matches()) {
+            prefix = headed.group(1);
+            body = headed.group(2);
+        }
+        Matcher tail = TITLE_LESSON_TAIL.matcher(body);
+        String cleaned = tail.find() ? body.substring(0, tail.start()).trim() : body.trim();
+        return (prefix + cleaned).trim();
     }
 
     private static String normalizeLessonLine(String line) {

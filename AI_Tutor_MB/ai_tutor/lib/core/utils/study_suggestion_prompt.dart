@@ -55,13 +55,44 @@ final _lessonLine = RegExp(
   r'^(?:\d+[.)]\s*)?(?:bắt đầu\s+|bat dau\s+)?(?:bài|bai)\s+(\d+)\s*[:：.-]\s*(.+)$',
   caseSensitive: false,
 );
+final _lessonHeadingPrefix = RegExp(
+  r'^(.*?(?:bài|bai)\s+\d+\s*[:：.\-–—]\s*)([\s\S]*)$',
+  caseSensitive: false,
+);
+final _titleLessonTail = RegExp(
+  r'\s+(?:\d+[.)]\s+(?:bắt đầu|bat dau|bài|bai)\b|(?:bắt đầu\s+|bat dau\s+)?(?:bài|bai)\s+\d+\s*[:：.\-–—])',
+  caseSensitive: false,
+);
+final _inlineLessonSplit = RegExp(
+  r'(?<=\S)\s+(?=\d+[.)]\s*(?:bắt đầu|bat dau|bài|bai)\b)',
+  caseSensitive: false,
+);
+final _lessonStartFragment = RegExp(
+  r'^(?:bắt đầu|bat dau)(?:\s+(?:bài|bai))?\s*$',
+  caseSensitive: false,
+);
 final _topicStudyAlready = RegExp(
   r'^(?:nay|hôm nay)\s+(?:mình|em)\s+học\b|^(?:mình|em)\s+muốn\s+học\b|^bắt đầu\s+học\b',
   caseSensitive: false,
 );
 
+String stripConcatenatedLessonTail(String? title) {
+  final text = (title ?? '').replaceAll(RegExp(r'\s+'), ' ').trim();
+  if (text.isEmpty) return '';
+  final headed = _lessonHeadingPrefix.firstMatch(text);
+  final prefix = headed?[1] ?? '';
+  final body = headed?[2] ?? text;
+  final tail = _titleLessonTail.firstMatch(body);
+  final cleaned = tail == null ? body.trim() : body.substring(0, tail.start).trim();
+  return '$prefix$cleaned'.trim();
+}
+
+bool isLessonStartFragment(String text) {
+  return _lessonStartFragment.hasMatch(text.trim());
+}
+
 NumberedLesson? parseNumberedLesson(String? text) {
-  final topic = (text ?? '').trim();
+  final topic = stripConcatenatedLessonTail(text);
   if (topic.isEmpty) return null;
 
   final deepList = _deepListLesson.firstMatch(topic);
@@ -123,11 +154,13 @@ String buildDeepDiveListPrompt(String? lessonText, [String answerText = '']) {
 }
 
 String normalizeLessonStart(String? suggestionText) {
-  final topic = (suggestionText ?? '').trim();
+  final topic = stripConcatenatedLessonTail(suggestionText);
   if (topic.isEmpty) return '';
   final numbered = _normalizeLesson.firstMatch(topic);
   if (numbered != null) {
-    return 'Bắt đầu bài ${numbered[1]}: ${numbered[2]!.trim()}';
+    final title = stripConcatenatedLessonTail(numbered[2]);
+    if (title.isEmpty || isLessonStartFragment(title)) return '';
+    return 'Bắt đầu bài ${numbered[1]}: $title';
   }
   if (_alreadyLessonStart.hasMatch(topic)) return topic;
   return '';
@@ -193,17 +226,23 @@ List<StudyPathSuggestion> parseBulletsUnderHeadings(
       continue;
     }
     if (!inSection) continue;
-    final line = trimmed
-        .replaceFirst(RegExp(r'^[-*+]\s+'), '')
-        .replaceFirst(RegExp(r'^\d+[.)]\s+'), '')
-        .replaceFirstMapped(
-          RegExp(r'^\[([^\]]+)\]\([^)]+\)$'),
-          (match) => match[1] ?? '',
-        )
-        .replaceAll(RegExp(r'[*_`]+'), '')
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .trim();
-    if (line.isEmpty || _emptyBullet.hasMatch(line)) continue;
+    final line = stripConcatenatedLessonTail(
+      trimmed
+          .replaceFirst(RegExp(r'^[-*+]\s+'), '')
+          .replaceFirst(RegExp(r'^\d+[.)]\s+'), '')
+          .replaceFirstMapped(
+            RegExp(r'^\[([^\]]+)\]\([^)]+\)$'),
+            (match) => match[1] ?? '',
+          )
+          .replaceAll(RegExp(r'[*_`]+'), '')
+          .replaceAll(RegExp(r'\s+'), ' ')
+          .trim(),
+    );
+    if (line.isEmpty ||
+        isLessonStartFragment(line) ||
+        _emptyBullet.hasMatch(line)) {
+      continue;
+    }
     final key = line.toLowerCase();
     if (seen.contains(key)) continue;
     seen.add(key);
@@ -226,7 +265,7 @@ List<StudyPathSuggestion> parseLessonSuggestionsFromAnswer(String? answer) {
 
   final seen = <String>{};
   final items = <StudyPathSuggestion>[];
-  for (final raw in text.split(RegExp(r'\r?\n'))) {
+  for (final raw in text.replaceAll(_inlineLessonSplit, '\n').split(RegExp(r'\r?\n'))) {
     final line = raw
         .replaceFirst(RegExp(r'^[\s>*-]+'), '')
         .replaceAll(RegExp(r'[*_`]+'), '')
@@ -234,8 +273,8 @@ List<StudyPathSuggestion> parseLessonSuggestionsFromAnswer(String? answer) {
         .trim();
     final match = _lessonLine.firstMatch(line);
     if (match == null || seen.contains(match[1])) continue;
-    final title = (match[2] ?? '').trim();
-    if (title.isEmpty) continue;
+    final title = stripConcatenatedLessonTail(match[2]);
+    if (title.isEmpty || isLessonStartFragment(title)) continue;
     seen.add(match[1]!);
     final prompt = 'Bắt đầu bài ${match[1]}: $title';
     items.add(StudyPathSuggestion(title: prompt, suggestionText: prompt));

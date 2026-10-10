@@ -187,6 +187,20 @@ test('keeps course-material answers that mention a PDF in prose', () => {
   assert.doesNotMatch(visible, /Nguồn tài liệu đã dùng/);
 });
 
+test('strips leftover start text from a Bài tiếp theo chip', () => {
+  const output = normalizeAiMarkdown([
+    '## Giải thích',
+    'Hàm nhận tham số.',
+    '',
+    '## Bài tiếp theo',
+    '',
+    '- Bài 6: Parameters and arguments 7. Bắt đầu',
+  ].join('\n'));
+
+  assert.match(output, /\[Bài 6: Parameters and arguments\]\(#ai-study-tip-1\)/);
+  assert.doesNotMatch(output, /7\. Bắt đầu/);
+});
+
 test('turns Bài tiếp theo into a clickable study-tip link', () => {
   const output = normalizeAiMarkdown([
     '## Bài tiếp theo',

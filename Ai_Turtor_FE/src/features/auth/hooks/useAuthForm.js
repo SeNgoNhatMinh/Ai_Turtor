@@ -6,10 +6,8 @@ import { validateAuthForm } from '../../../utils/validators';
 const SUBMIT_COOLDOWN_MS = 900;
 
 export function useAuthForm({ onLoginSuccess, triggerToast }) {
-  const [isLoginView, setIsLoginView] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [fullName, setFullName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const lastSubmitAtRef = useRef(0);
 
@@ -19,7 +17,7 @@ export function useAuthForm({ onLoginSuccess, triggerToast }) {
     const now = Date.now();
     if (isLoading || now - lastSubmitAtRef.current < SUBMIT_COOLDOWN_MS) return;
 
-    const validation = validateAuthForm({ email, password, fullName, isLoginView });
+    const validation = validateAuthForm({ email, password, isLoginView: true });
     if (!validation.ok) {
       triggerToast?.(validation.message);
       return;
@@ -29,16 +27,9 @@ export function useAuthForm({ onLoginSuccess, triggerToast }) {
     setIsLoading(true);
 
     try {
-      if (isLoginView) {
-        const user = await authApi.login(validation.value.email, validation.value.password);
-        triggerToast?.('Đăng nhập thành công.');
-        onLoginSuccess?.(user);
-        return;
-      }
-
-      await authApi.register(validation.value);
-      triggerToast?.('Đã tạo tài khoản. Vui lòng đăng nhập.');
-      setIsLoginView(true);
+      const user = await authApi.login(validation.value.email, validation.value.password);
+      triggerToast?.('Đăng nhập thành công.');
+      onLoginSuccess?.(user);
     } catch (error) {
       triggerToast?.(getUserFacingError(error, 'Đã xảy ra lỗi. Vui lòng thử lại.'));
     } finally {
@@ -48,14 +39,10 @@ export function useAuthForm({ onLoginSuccess, triggerToast }) {
 
   return {
     email,
-    fullName,
     handleSubmit,
     isLoading,
-    isLoginView,
     password,
     setEmail,
-    setFullName,
-    setIsLoginView,
     setPassword,
   };
 }

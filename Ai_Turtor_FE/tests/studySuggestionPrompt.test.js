@@ -10,6 +10,7 @@ import {
   parseLessonSuggestionsFromAnswer,
   parseNextLessonSuggestionsFromAnswer,
   resolveChatStudyTip,
+  stripConcatenatedLessonTail,
   teacherStudentPathLabel,
 } from '../src/features/student/learning/studySuggestionPrompt.js';
 
@@ -227,5 +228,34 @@ test('extracts deep-dive bullets for the teacher transcript review', () => {
 - Bài 4: File system
 `).map((item) => item.suggestionText),
     ['Bài 4: File system'],
+  );
+});
+
+test('strips leftover numbered start text from Bài tiếp theo for every course', () => {
+  assert.equal(
+    stripConcatenatedLessonTail('Bài 6: Parameters and arguments 7. Bắt đầu'),
+    'Bài 6: Parameters and arguments',
+  );
+  assert.equal(
+    buildStudySuggestionPrompt('Bài 6: Parameters and arguments 7. Bắt đầu'),
+    'Bắt đầu bài 6: Parameters and arguments',
+  );
+  assert.deepEqual(
+    parseNextLessonSuggestionsFromAnswer(`
+## Bài tiếp theo
+- Bài 6: Parameters and arguments 7. Bắt đầu
+`).map((item) => item.suggestionText),
+    ['Bài 6: Parameters and arguments'],
+  );
+  assert.deepEqual(
+    parseLessonSuggestionsFromAnswer(`
+1. Bài 6: Parameters and arguments 7. Bắt đầu bài 7: Fruitful functions
+2. Bài 8: Return values
+`).map((item) => item.title),
+    [
+      'Bắt đầu bài 6: Parameters and arguments',
+      'Bắt đầu bài 7: Fruitful functions',
+      'Bắt đầu bài 8: Return values',
+    ],
   );
 });

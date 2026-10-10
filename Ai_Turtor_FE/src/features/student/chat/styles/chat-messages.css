@@ -573,6 +573,18 @@
   opacity: 0.8;
 }
 
+.chat-gpt-send-btn--stop {
+  padding: 0;
+}
+
+.chat-gpt-stop-icon {
+  display: block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2.5px;
+  background: currentColor;
+}
+
 .chat-gpt-tool-btn {
   display: inline-flex;
   align-items: center;

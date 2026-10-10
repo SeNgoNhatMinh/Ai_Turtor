@@ -2,6 +2,7 @@ import React from 'react';
 import { sanitizeLinkUrl } from './markdownSecurity.js';
 import { extractSourceFileLabels, isMaterialSourceText } from './sourceLabels.js';
 import { normalizeUnicodeText } from './textEncoding.js';
+import { stripConcatenatedLessonTail } from '../features/student/learning/studySuggestionPrompt.js';
 
 /**
  * =========================================================
@@ -678,6 +679,19 @@ function makeStudyTipLink(text, index) {
   return `[${escapeMarkdownLabel(text)}](#ai-study-tip-${index})`;
 }
 
+function isNextLessonStudyHeading(line) {
+  const body = String(line || '').trim().replace(/^#{1,6}\s*/, '');
+  const key = toVietnameseSectionKey(unwrapSimpleMarkdownDecoration(body));
+  return key === 'bai tiep theo' || key === 'bai ke tiep';
+}
+
+function sanitizeStudyTipLabel(text, nextLessonSection) {
+  const raw = unwrapSimpleMarkdownDecoration(String(text || '').trim());
+  if (!nextLessonSection) return raw;
+  const cleaned = stripConcatenatedLessonTail(raw);
+  return /^(?:bắt đầu|bat dau)(?:\s+(?:bài|bai))?\s*$/i.test(cleaned) ? '' : cleaned;
+}
+
 function isEmptyStudyTipPlaceholder(text) {
   const plain = unwrapSimpleMarkdownDecoration(String(text || '').trim());
   return !plain || /^[\s–—_*+.·•…-]+$/u.test(plain);
@@ -687,6 +701,7 @@ function enhanceStudyTips(text) {
   const lines = text.split('\n');
   const output = [];
   let inStudyTips = false;
+  let inNextLesson = false;
   let tipIndex = 1;
 
   for (const line of lines) {
@@ -694,12 +709,14 @@ function enhanceStudyTips(text) {
 
     if (isStudyTipHeading(line)) {
       inStudyTips = true;
+      inNextLesson = isNextLessonStudyHeading(line);
       output.push(line);
       continue;
     }
 
     if (inStudyTips && isSectionHeading(line)) {
       inStudyTips = false;
+      inNextLesson = false;
       output.push(line);
       continue;
     }
@@ -718,20 +735,23 @@ function enhanceStudyTips(text) {
 
     const bullet = line.match(/^(\s*[-*+]\s+)(.+)$/);
     if (bullet) {
-      if (isEmptyStudyTipPlaceholder(bullet[2])) continue;
-      output.push(`${bullet[1]}${makeStudyTipLink(bullet[2].trim(), tipIndex++)}`);
+      const label = sanitizeStudyTipLabel(bullet[2], inNextLesson);
+      if (!label || isEmptyStudyTipPlaceholder(label)) continue;
+      output.push(`${bullet[1]}${makeStudyTipLink(label, tipIndex++)}`);
       continue;
     }
 
     const ordered = line.match(/^(\s*\d+[.)]\s+)(.+)$/);
     if (ordered) {
-      if (isEmptyStudyTipPlaceholder(ordered[2])) continue;
-      output.push(`${ordered[1]}${makeStudyTipLink(ordered[2].trim(), tipIndex++)}`);
+      const label = sanitizeStudyTipLabel(ordered[2], inNextLesson);
+      if (!label || isEmptyStudyTipPlaceholder(label)) continue;
+      output.push(`${ordered[1]}${makeStudyTipLink(label, tipIndex++)}`);
       continue;
     }
 
-    if (isEmptyStudyTipPlaceholder(trimmed)) continue;
-    output.push(`- ${makeStudyTipLink(trimmed, tipIndex++)}`);
+    const plain = sanitizeStudyTipLabel(trimmed, inNextLesson);
+    if (!plain || isEmptyStudyTipPlaceholder(plain)) continue;
+    output.push(`- ${makeStudyTipLink(plain, tipIndex++)}`);
   }
 
   return output.join('\n');

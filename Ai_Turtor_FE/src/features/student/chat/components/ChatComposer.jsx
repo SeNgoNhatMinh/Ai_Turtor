@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { SendOutlined, StopOutlined } from '@ant-design/icons';
+import { SendOutlined } from '@ant-design/icons';
 import { Select } from 'antd';
 import { Mic, MicOff } from 'lucide-react';
 import { LIMITS, validateChatInput } from '../../../../utils/validators';
@@ -166,8 +166,14 @@ function ChatComposer({
             {isListening ? <MicOff size={17} /> : <Mic size={17} />}
           </button>
           {isAiLoading ? (
-            <button className="chat-gpt-send-btn" onClick={onStop} title="Dừng tạo câu trả lời" type="button">
-              <StopOutlined />
+            <button
+              className="chat-gpt-send-btn chat-gpt-send-btn--stop"
+              onClick={onStop}
+              title="Dừng tạo câu trả lời"
+              aria-label="Dừng tạo câu trả lời"
+              type="button"
+            >
+              <span className="chat-gpt-stop-icon" aria-hidden="true" />
             </button>
           ) : (
             <button

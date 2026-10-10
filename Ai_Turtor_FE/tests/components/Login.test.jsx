@@ -9,15 +9,20 @@ describe('Login', () => {
 
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'student@example.com' } });
     fireEvent.change(screen.getByLabelText('Mật khẩu'), { target: { value: '1' } });
-    fireEvent.click(screen.getAllByRole('button', { name: /^Đăng nhập/ }).at(-1));
+    fireEvent.click(screen.getByRole('button', { name: /^Đăng nhập$/ }));
 
     expect(triggerToast).toHaveBeenCalledWith('Mật khẩu phải có ít nhất 6 ký tự.');
   });
 
-  it('shows registration fields through the segmented control', () => {
+  it('shows only the login form', () => {
     render(<LoginPage onLoginSuccess={vi.fn()} triggerToast={vi.fn()} />);
-    fireEvent.click(screen.getByRole('tab', { name: 'Tạo tài khoản' }));
-    expect(screen.getByLabelText('Họ và tên')).toBeInTheDocument();
-    expect(screen.getByText('Mật khẩu phải có ít nhất 6 ký tự.')).toBeInTheDocument();
+
+    expect(screen.getByRole('heading', { name: 'Chào mừng bạn quay lại' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Email')).toBeInTheDocument();
+    expect(screen.getByLabelText('Mật khẩu')).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Tạo tài khoản' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Chưa có tài khoản? Đăng ký')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Họ và tên')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Đăng nhập bằng Google' })).toBeInTheDocument();
   });
 });

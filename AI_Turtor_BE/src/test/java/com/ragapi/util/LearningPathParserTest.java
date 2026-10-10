@@ -173,6 +173,32 @@ class LearningPathParserTest {
     }
 
     @Test
+    void stripsConcatenatedStartFragmentFromNextLessonTitle() {
+        String path = """
+                1. Bài 5: Fruitful functions
+                2. Bài 6: Parameters and arguments 7. Bắt đầu
+                """;
+        assertEquals(
+                "- Bài 6: Parameters and arguments",
+                LearningPathParser.nextLessonBullet(
+                        "Bắt đầu bài 5: Fruitful functions",
+                        path
+                )
+        );
+        assertEquals(
+                "Parameters and arguments",
+                LearningPathParser.retrievalFocus(
+                        "Bắt đầu bài 6: Parameters and arguments 7. Bắt đầu")
+        );
+        assertEquals(
+                "Bắt đầu bài 6: Parameters and arguments",
+                LearningPathParser.parseLessonSuggestions(
+                        "- Bài 6: Parameters and arguments 7. Bắt đầu bài 7: Fruitful functions"
+                ).get(0).getTitle()
+        );
+    }
+
+    @Test
     void ignoresAnswersWithoutBaiLessons() {
         assertTrue(LearningPathParser.parseLessonSuggestions(
                 "## Theo tài liệu môn học\nServlet là chương trình Java chạy trên web server."
