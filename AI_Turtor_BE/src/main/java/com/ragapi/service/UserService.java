@@ -9,6 +9,7 @@ import com.ragapi.entity.Mentor;
 import com.ragapi.entity.User;
 import com.ragapi.repository.MentorRepository;
 import com.ragapi.repository.UserRepository;
+import com.ragapi.util.StudentCodeAllocator;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -57,6 +58,7 @@ public class UserService {
                 .isActive(true)
                 .isEmailVerified(false)
                 .role("STUDENT")
+                .studentCode(nextStudentCode())
                 .createdAt(now)
                 .updatedAt(now)
                 .build();
@@ -112,6 +114,7 @@ public class UserService {
 
         user.setLastLoginAt(LocalDateTime.now());
         user.setUpdatedAt(LocalDateTime.now());
+        assignStudentCodeIfNeeded(user);
         userRepository.save(user);
         log.info("User logged in: {}", user.getEmail());
 
@@ -201,6 +204,16 @@ public class UserService {
 
     private String trimToNull(String value) {
         return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    private void assignStudentCodeIfNeeded(User user) {
+        if (user == null || !"STUDENT".equalsIgnoreCase(user.getRole())) return;
+        if (StudentCodeAllocator.isStudentCode(user.getStudentCode())) return;
+        user.setStudentCode(nextStudentCode());
+    }
+
+    private String nextStudentCode() {
+        return StudentCodeAllocator.allocate(userRepository::existsByStudentCode);
     }
 }
 

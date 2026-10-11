@@ -52,7 +52,7 @@ export const aiTutorApi = {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Student-Llm-Key': studentLlmKey,
+        ...(studentLlmKey ? { 'X-Student-Llm-Key': studentLlmKey } : {}),
       },
       body: JSON.stringify({
         courseId: payload.courseId,
@@ -63,6 +63,36 @@ export const aiTutorApi = {
       }),
       timeoutMs: API_TIMEOUTS.ai,
       signal: options.signal,
+    });
+  },
+
+  async getStudentLlm(options = {}) {
+    return request(`${API_BASE_URL}/ai/student-llm`, {
+      signal: options.signal,
+      skipUnauthorizedRedirect: true,
+    });
+  },
+
+  async saveStudentLlm(payload) {
+    return request(`${API_BASE_URL}/ai/student-llm`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      skipUnauthorizedRedirect: true,
+    });
+  },
+
+  async deleteStudentLlm() {
+    return request(`${API_BASE_URL}/ai/student-llm`, {
+      method: 'DELETE',
+      skipUnauthorizedRedirect: true,
+    });
+  },
+
+  async getStudentLlmUsage(options = {}) {
+    return request(`${API_BASE_URL}/ai/student-llm/usage`, {
+      signal: options.signal,
+      skipUnauthorizedRedirect: true,
     });
   },
 

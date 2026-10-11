@@ -1,9 +1,11 @@
 package com.ragapi.controller;
 
+import com.ragapi.dto.StudentLlmKeyRequest;
 import com.ragapi.dto.StudentSchoolAnswerRequest;
 import com.ragapi.dto.StudentSchoolExcerpt;
 import com.ragapi.dto.SuggestionItem;
 import com.ragapi.service.LearningPathGroundingService;
+import com.ragapi.service.StudentLlmCredentialService;
 import com.ragapi.service.PedagogicalDirectiveService;
 import com.ragapi.service.StudentDailyQuestionQuotaService;
 import com.ragapi.service.StudentOwnedLlmService;
@@ -15,7 +17,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -27,7 +32,7 @@ import java.util.Map;
 
 /**
  * After the platform question quota is used up, answer from school RAG
- * with the student's own LLM key. The key is not stored.
+ * with the student's own LLM key. Stored keys stay encrypted and are not returned.
  */
 @RestController
 @RequestMapping("/api/ai")
@@ -41,6 +46,41 @@ public class StudentSchoolAnswerController {
     private final StudentDailyQuestionQuotaService questionQuotaService;
     private final PedagogicalDirectiveService pedagogicalDirectiveService;
     private final LearningPathGroundingService learningPathGroundingService;
+    private final StudentLlmCredentialService studentLlmCredentialService;
+
+    @GetMapping("/student-llm")
+    public ResponseEntity<?> studentLlmStatus(Authentication authentication) {
+        if (!isStudent(authentication)) return forbiddenStudent();
+        return ResponseEntity.ok(studentLlmCredentialService.status(authentication.getName()));
+    }
+
+    @PutMapping("/student-llm")
+    public ResponseEntity<?> saveStudentLlm(@RequestBody StudentLlmKeyRequest request, Authentication authentication) {
+        if (!isStudent(authentication)) return forbiddenStudent();
+        try {
+            return ResponseEntity.ok(studentLlmCredentialService.save(
+                    authentication.getName(),
+                    request == null ? null : request.getProvider(),
+                    request == null ? null : request.getModel(),
+                    request == null ? null : request.getApiKey()
+            ));
+        } catch (IllegalArgumentException error) {
+            return ResponseEntity.badRequest().body(Map.of("error", error.getMessage()));
+        }
+    }
+
+    @DeleteMapping("/student-llm")
+    public ResponseEntity<?> deleteStudentLlm(Authentication authentication) {
+        if (!isStudent(authentication)) return forbiddenStudent();
+        studentLlmCredentialService.delete(authentication.getName());
+        return ResponseEntity.ok(Map.of("configured", false));
+    }
+
+    @GetMapping("/student-llm/usage")
+    public ResponseEntity<?> studentLlmUsage(Authentication authentication) {
+        if (!isStudent(authentication)) return forbiddenStudent();
+        return ResponseEntity.ok(Map.of("usage", studentLlmCredentialService.usage(authentication.getName())));
+    }
 
     @PostMapping("/school-answer")
     public ResponseEntity<?> answerWithSchoolMaterial(
@@ -108,11 +148,12 @@ public class StudentSchoolAnswerController {
             String answer = studentOwnedLlmService.answer(
                     request.getProvider(),
                     request.getModel(),
-                    studentLlmKey,
+                    studentLlmCredentialService.resolveKey(studentId, studentLlmKey),
                     question,
                     supportLevel,
                     excerpts
             );
+            studentLlmCredentialService.recordUsage(studentId, request.getProvider(), request.getModel(), "COMPLETED");
             return ResponseEntity.ok(Map.of(
                     "answer", answer,
                     "grounded", true,
@@ -126,10 +167,21 @@ public class StudentSchoolAnswerController {
         } catch (IllegalArgumentException error) {
             return ResponseEntity.badRequest().body(Map.of("error", error.getMessage()));
         } catch (IllegalStateException error) {
+            if (authentication != null && request != null) {
+                studentLlmCredentialService.recordUsage(
+                        authentication.getName(), request.getProvider(), request.getModel(), "FAILED");
+            }
             return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(Map.of(
                     "error", "API LLM của bạn không trả lời được lúc này. Kiểm tra key, model, rồi thử lại."
             ));
         }
+    }
+
+    private ResponseEntity<Map<String, String>> forbiddenStudent() {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
+                "code", "SCHOOL_MATERIAL_FORBIDDEN",
+                "error", "Only an enrolled student can manage a personal LLM key"
+        ));
     }
 
     private boolean isStudent(Authentication authentication) {

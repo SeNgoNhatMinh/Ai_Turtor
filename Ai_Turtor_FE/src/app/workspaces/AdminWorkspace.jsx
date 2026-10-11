@@ -6,6 +6,9 @@ const adminPages = {
   'admin-users': lazy(() => import('../../features/admin/users/AdminUsersPage')),
   'admin-academic': lazy(() => import('../../features/admin/academic/AdminAcademicPage')),
   'admin-ai-logs': lazy(() => import('../../features/admin/ai-logs/AdminAiLogsPage')),
+  'admin-ai-logs-providers': lazy(() => import('../../features/admin/ai-logs/AdminAiLogsPage')),
+  'admin-ai-logs-stats': lazy(() => import('../../features/admin/ai-logs/AdminAiLogsPage')),
+  'admin-ai-logs-history': lazy(() => import('../../features/admin/ai-logs/AdminAiLogsPage')),
   'admin-answer-cache': lazy(() => import('../../features/admin/answer-cache/AdminAnswerCachePage')),
   'admin-reindex': lazy(() => import('../../features/admin/reindex/AdminReindexPage')),
   'admin-indexed-notes': lazy(() => import('../../features/admin/indexed-teaching-notes/AdminIndexedTeachingNotesPage')),
@@ -24,10 +27,17 @@ export default function AdminWorkspace({
 }) {
   const Page = adminPages[activeTab];
   if (!Page) return null;
+  const aiLogSection = {
+    'admin-ai-logs': 'providers',
+    'admin-ai-logs-providers': 'providers',
+    'admin-ai-logs-stats': 'runtime',
+    'admin-ai-logs-history': 'history',
+  }[activeTab];
 
   return (
     <Suspense fallback={<AdminPageFallback />}>
       <Page
+        section={aiLogSection}
         currentUser={currentUser}
         teacherId={currentUser?.userId || currentUser?.id || ''}
         courseId={courseId}

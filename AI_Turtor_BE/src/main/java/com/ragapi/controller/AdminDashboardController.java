@@ -39,9 +39,23 @@ public class AdminDashboardController {
             @RequestParam(value = "courseId", required = false) String courseId,
             @RequestParam(value = "q", required = false) String query,
             @RequestParam(value = "from", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
-            @RequestParam(value = "to", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to) {
+            @RequestParam(value = "to", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false) Integer size) {
         var logs = adminAiLogService.list(studentId, courseId, query, from, to);
-        return ResponseEntity.ok(Map.of("count", logs.size(), "summary", adminAiLogService.summary(logs), "logs", logs));
+        int safeSize = size == null ? logs.size() : Math.min(Math.max(size, 1), 100);
+        int lastPage = logs.isEmpty() || safeSize == 0 ? 0 : (logs.size() - 1) / safeSize;
+        int safePage = page == null ? 0 : Math.min(Math.max(page, 0), lastPage);
+        int fromIndex = Math.min(safePage * safeSize, logs.size());
+        int toIndex = size == null ? logs.size() : Math.min(fromIndex + safeSize, logs.size());
+        Map<String, Object> body = new java.util.LinkedHashMap<>();
+        body.put("count", logs.size());
+        body.put("totalElements", logs.size());
+        body.put("page", safePage);
+        body.put("size", size == null ? logs.size() : safeSize);
+        body.put("summary", adminAiLogService.summary(logs));
+        body.put("logs", new java.util.ArrayList<>(logs.subList(fromIndex, toIndex)));
+        return ResponseEntity.ok(body);
     }
 
     @GetMapping("/dashboard/stats")
@@ -59,8 +73,18 @@ public class AdminDashboardController {
     public ResponseEntity<?> listUsers(
             @RequestParam(value = "q", required = false) String query,
             @RequestParam(value = "role", required = false) String role,
-            @RequestParam(value = "active", required = false) Boolean active) {
+            @RequestParam(value = "active", required = false) Boolean active,
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false) Integer size) {
         try {
+            if (page != null || size != null) {
+                return ResponseEntity.ok(adminDashboardService.pageUsers(
+                        query,
+                        role,
+                        active,
+                        page == null ? 0 : page,
+                        size == null ? 20 : size));
+            }
             List<User> users = adminDashboardService.filterUsers(query, role, active);
             return ResponseEntity.ok(Map.of("count", users.size(), "users", users));
         } catch (Exception e) {

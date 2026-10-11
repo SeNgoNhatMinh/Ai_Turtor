@@ -4,7 +4,7 @@ import MobileNavigationDrawer from '../../components/MobileNavigationDrawer';
 import Sidebar from '../../components/Sidebar';
 import Toast from '../../components/Toast';
 import { closeActiveConfirm } from '../../components/common/confirmDialog';
-import { getNavigationForRole } from '../../config/navigation';
+import { findNavigationItem, getNavigationForRole } from '../../config/navigation';
 import useResponsiveViewport from '../../hooks/useResponsiveViewport';
 import './AuthedLayout.css';
 
@@ -31,7 +31,7 @@ export default function AuthedLayout({
     () => getNavigationForRole(currentUser?.originalRole || currentUser?.role || activeRole),
     [activeRole, currentUser?.originalRole, currentUser?.role],
   );
-  const activePageLabel = navigationItems.find((item) => item.key === activeTab)?.label || 'AI Tutor';
+  const activePageLabel = findNavigationItem(navigationItems, activeTab)?.label || 'AI Tutor';
   const openMobileNavigation = useCallback(() => setIsMobileNavigationOpen(true), []);
   const closeMobileNavigation = useCallback(() => setIsMobileNavigationOpen(false), []);
   const navigateHome = useCallback(() => {

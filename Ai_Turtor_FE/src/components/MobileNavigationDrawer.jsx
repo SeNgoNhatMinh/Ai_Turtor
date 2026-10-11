@@ -25,12 +25,25 @@ function MobileNavigationDrawer({
   const roleLabel = getAccountRoleLabel(normalizedRole);
   const items = useMemo(() => {
     return getNavigationForRole(normalizedRole)
-      .filter((item) => includesSearchText(`${item.label} ${item.description}`, searchQuery))
-      .map((item) => ({
-        key: item.key,
-        icon: <item.icon size={20} aria-hidden="true" />,
-        label: item.label,
-      }));
+      .map((item) => {
+        const children = (item.children || []).filter((child) => (
+          includesSearchText(`${item.label} ${child.label} ${child.description}`, searchQuery)
+        ));
+        const selfMatch = includesSearchText(`${item.label} ${item.description}`, searchQuery);
+        if (searchQuery && !selfMatch && children.length === 0) return null;
+        return {
+          key: item.key,
+          icon: <item.icon size={20} aria-hidden="true" />,
+          label: item.label,
+          children: item.children
+            ? (searchQuery && !selfMatch ? children : item.children).map((child) => ({
+              key: child.key,
+              label: child.label,
+            }))
+            : undefined,
+        };
+      })
+      .filter(Boolean);
   }, [normalizedRole, searchQuery]);
 
   const navigate = ({ key }) => {
@@ -87,7 +100,8 @@ function MobileNavigationDrawer({
         {items.length ? (
           <Menu
             mode="inline"
-            selectedKeys={[activeTab]}
+            selectedKeys={[activeTab === 'admin-ai-logs' ? 'admin-ai-logs-providers' : activeTab]}
+            defaultOpenKeys={String(activeTab).startsWith('admin-ai-logs') ? ['admin-ai-logs'] : []}
             items={items}
             onClick={navigate}
           />

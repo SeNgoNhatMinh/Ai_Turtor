@@ -17,6 +17,8 @@ public interface UserRepository extends MongoRepository<User, String> {
      * Check xem email �'ã t�"n tại hay chưa
      */
     boolean existsByEmail(String email);
+
+    boolean existsByStudentCode(String studentCode);
     
     /**
      * Tìm user active theo email

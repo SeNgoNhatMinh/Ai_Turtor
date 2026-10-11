@@ -252,6 +252,8 @@ export default function LlmProviderManagementTable({
           dataSource={providers}
           loading={loading}
           pagination={false}
+          searchKeys={['providerId', 'label', 'effectiveModel', 'family', 'adminDeleted']}
+          searchPlaceholder="Tìm theo tên provider, model hoặc trạng thái"
           scroll={{ x: 1180 }}
           columns={columns}
           rowClassName={(provider) => provider.adminDeleted ? 'admin-provider-row--deleted' : ''}

@@ -203,9 +203,26 @@ const navigationItems = [
     key: 'admin-ai-logs',
     workspace: 'admin',
     group: 'Giám sát AI',
-    label: 'Nhật ký hỏi đáp AI',
-    description: 'Theo dõi câu hỏi, câu trả lời, tiến trình và token ước tính.',
+    label: 'Nhật ký trả lời AI',
+    description: 'Quản lý provider, thống kê runtime và lịch sử yêu cầu.',
     icon: FileText,
+    children: [
+      {
+        key: 'admin-ai-logs-providers',
+        label: 'Quản lý LLM Provider Chain',
+        description: 'Thứ tự ưu tiên, model và thao tác bật tắt provider.',
+      },
+      {
+        key: 'admin-ai-logs-stats',
+        label: 'Thống kê runtime theo provider',
+        description: 'Số lần gọi, thành công và cooldown của từng provider.',
+      },
+      {
+        key: 'admin-ai-logs-history',
+        label: 'Lịch sử yêu cầu',
+        description: 'Nhật ký câu hỏi, câu trả lời và trạng thái xử lý.',
+      },
+    ],
   },
   {
     key: 'admin-answer-cache',
@@ -231,3 +248,12 @@ export const getNavigationForRole = (role) => {
   }
   return items;
 };
+
+export function findNavigationItem(items, key) {
+  for (const item of items || []) {
+    if (item.key === key) return item;
+    const child = (item.children || []).find((entry) => entry.key === key);
+    if (child) return child;
+  }
+  return null;
+}

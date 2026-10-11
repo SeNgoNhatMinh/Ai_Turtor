@@ -15,6 +15,7 @@ function SearchableTable({
   sticky = true,
   serverPagination,
   onServerSearch,
+  externalQuery,
   ...tableProps
 }) {
   const [query, setQuery] = useState('');
@@ -34,6 +35,13 @@ function SearchableTable({
       ? safeData.filter((record) => matchesCollectionQuery(record, deferredQuery, stableSearchKeys))
       : safeData
   ), [deferredQuery, safeData, stableSearchKeys, usesServerPagination]);
+
+  const externalQueryRef = useRef(externalQuery);
+  useEffect(() => {
+    if (externalQuery === undefined || externalQuery === externalQueryRef.current) return;
+    externalQueryRef.current = externalQuery;
+    setQuery(externalQuery);
+  }, [externalQuery]);
 
   useEffect(() => {
     if (!usesServerPagination || lastServerQueryRef.current === debouncedServerQuery) return;

@@ -113,6 +113,8 @@ export const queryKeys = {
     'users',
     String(filters.search || '').trim(),
     filters.role || 'all',
+    filters.page ?? 0,
+    filters.size ?? 20,
   ],
   adminMentors: () => ['admin', 'mentors'],
   adminEscalations: () => ['admin', 'mentor-escalations'],
