@@ -133,7 +133,7 @@ class CourseAnswerServiceTextbookTest {
                         resultService
                 )
         );
-        service = new CourseAnswerService(generationService, pipelineService);
+        service = new CourseAnswerService(generationService, pipelineService, requestPolicyService);
     }
 
     @Test

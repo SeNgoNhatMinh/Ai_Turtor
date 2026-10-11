@@ -36,7 +36,7 @@ if [ ! -f "$WORKFLOW_MARKER" ]; then
   done
 
   for workflow_id in \
-    bdFmRV9u8BFGBfpL \
+    uGR95kYN1WImLDJt \
     AI_TUTOR_TEACHER_AI_GRADING \
     AI_TUTOR_V2_PROACTIVE; do
     echo "AI Tutor n8n Railway entrypoint: publishing $workflow_id"
