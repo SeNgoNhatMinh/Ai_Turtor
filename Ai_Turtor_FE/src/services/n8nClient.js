@@ -2,7 +2,7 @@ import { env } from '../config/env';
 import { getAuthToken } from '../features/auth/services/tokenStorage';
 import { createHarnessEnvelope } from '../features/ai-harness/trace';
 
-const RAILWAY_FRONTEND_HOST = 'ai-turtor.up.railway.app';
+const RAILWAY_FRONTEND_HOST = 'fpt-ai-turtor.up.railway.app';
 const RAILWAY_N8N_BASE_URL = 'https://n8n-production-1b35.up.railway.app';
 const isRailwayProduction = typeof window !== 'undefined'
   && window.location.hostname === RAILWAY_FRONTEND_HOST;
