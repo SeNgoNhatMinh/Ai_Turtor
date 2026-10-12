@@ -352,7 +352,7 @@ public class LearningPathGroundingService {
         return List.of();
     }
 
-    static int lessonCountForSupportLevel(String supportLevel) {
+    public static int lessonCountForSupportLevel(String supportLevel) {
         String normalized = supportLevel == null ? "" : supportLevel.trim().toUpperCase(Locale.ROOT);
         int count = switch (normalized) {
             case "HIGH_SUPPORT" -> HIGH_SUPPORT_LESSON_COUNT;
@@ -403,11 +403,34 @@ public class LearningPathGroundingService {
         Set<String> titleTokens = tokens(title);
         int score = 0;
         for (String token : titleTokens) {
-            if (focusTokens.contains(token)) {
+            if (matchesFocus(token, focusTokens)) {
                 score += token.length() >= 7 ? 3 : 1;
             }
         }
         return score;
+    }
+
+    /** "loop" and "loops" name the same chapter topic. */
+    private static boolean matchesFocus(String token, Set<String> focusTokens) {
+        for (String focus : focusTokens) {
+            if (sameWord(token, focus)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean sameWord(String left, String right) {
+        if (left.equals(right)) {
+            return true;
+        }
+        String shorter = left.length() <= right.length() ? left : right;
+        String longer = shorter == left ? right : left;
+        if (shorter.length() < 4 || !longer.startsWith(shorter)) {
+            return false;
+        }
+        String suffix = longer.substring(shorter.length());
+        return suffix.equals("s") || suffix.equals("es");
     }
 
     private static Set<String> tokens(String value) {
