@@ -7,20 +7,40 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('keeps API improve chips in the current chat turn', () {
+  test('puts the answer lesson list into Học ngay / Ôn tập', () {
     final items = chatImproveSuggestionsForMessage(
-      answer: '1. Bài 1: Servlet\n2. Bài 2: JSP',
-      apiSuggestions: [ImproveSuggestionItem.fromLabel('Ôn IoC và DI')],
+      answer: '''
+Các bài dưới đây là chương có trong tài liệu môn học.
+1. Bắt đầu bài 1: Chapter 2: Using Web Containers
+2. Bắt đầu bài 2: Deploying and Undeploying Applications
+''',
+      apiSuggestions: [
+        ImproveSuggestionItem.fromLabel(
+          'AI Tutor mở đúng chương và hướng dẫn từng bước như một gia sư.',
+        ),
+      ],
+      apiSuggestionsProvided: true,
     );
 
-    expect(items.map((item) => item.title), ['Ôn IoC và DI']);
-    expect(
-      buildStudySuggestionPrompt(items.first.title),
-      'Ôn tập phần "Ôn IoC và DI"',
-    );
+    expect(items.map((item) => item.title).toList(), [
+      'Bắt đầu bài 1: Chapter 2: Using Web Containers',
+      'Bắt đầu bài 2: Deploying and Undeploying Applications',
+    ]);
   });
 
-  test('keeps source provenance on API study suggestions', () {
+  test('hides Tiếp tục học after a regular answer', () {
+    final items = chatImproveSuggestionsForMessage(
+      answer: 'Servlet xử lý một request.',
+      apiSuggestions: [
+        ImproveSuggestionItem.fromLabel('Nhóm các câu hỏi gần đây theo chủ đề'),
+        ImproveSuggestionItem.fromLabel('Ôn IoC và DI'),
+      ],
+    );
+
+    expect(items, isEmpty);
+  });
+
+  test('does not turn a single Bài line into the Học ngay card', () {
     final items = chatImproveSuggestionsForMessage(
       answer: '1. Bài 1: Servlet',
       apiSuggestions: [
@@ -34,11 +54,7 @@ void main() {
       ],
     );
 
-    expect(items.single.sourceMaterialIds, ['material-1']);
-    expect(items.single.sourceChunkIds, ['chunk-1']);
-    expect(items.single.chapterKey, 'chapter-1');
-    expect(items.single.chapterTitle, 'Servlet lifecycle');
-    expect(items.single.interactionType, 'GUIDED_LESSON');
+    expect(items, isEmpty);
   });
 
   test(

@@ -58,6 +58,7 @@ AiAnswer answerFromRecoveredMessage(
     answer: message.content,
     mode: message.mode,
     confidence: message.confidence,
+    groundingType: message.groundingType,
     escalated: message.escalated,
     conversationId: conversationId ?? message.conversationId,
     questionEscalationId: message.questionEscalationId,

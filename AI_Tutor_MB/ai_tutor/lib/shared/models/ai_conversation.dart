@@ -48,6 +48,7 @@ class AiMessage {
     required this.isUser,
     this.mode,
     this.confidence,
+    this.groundingType,
     this.sources = const [],
     this.sourceEvidence = const [],
     this.visualEvidence = const [],
@@ -70,6 +71,7 @@ class AiMessage {
   final bool isUser;
   final String? mode;
   final double? confidence;
+  final String? groundingType;
   final List<String> sources;
   final List<RagSourceEvidence> sourceEvidence;
   final List<RagVisualEvidence> visualEvidence;
@@ -106,6 +108,7 @@ class AiMessage {
       isUser: isUser,
       mode: mode,
       confidence: confidence,
+      groundingType: groundingType ?? this.groundingType,
       sources: sources,
       sourceEvidence: sourceEvidence,
       visualEvidence: visualEvidence,
@@ -160,6 +163,7 @@ class AiMessage {
       confidence: _parseConfidence(
         json['confidence'] ?? json['intentConfidence'],
       ),
+      groundingType: json['groundingType']?.toString(),
       sources: _parseSources(json['sources'], json['sourceEvidence']),
       sourceEvidence: RagSourceEvidence.fromAiPayload(json),
       visualEvidence: RagVisualEvidence.fromAiPayload(json),
@@ -248,6 +252,7 @@ class AiAnswer {
     required this.answer,
     this.mode,
     this.confidence,
+    this.groundingType,
     this.escalated = false,
     this.conversationId,
     this.questionEscalationId,
@@ -270,6 +275,7 @@ class AiAnswer {
   final String answer;
   final String? mode;
   final double? confidence;
+  final String? groundingType;
   final bool escalated;
   final String? conversationId;
   final String? questionEscalationId;
@@ -304,6 +310,7 @@ class AiAnswer {
       confidence: AiMessage._parseConfidence(
         json['confidence'] ?? json['intentConfidence'],
       ),
+      groundingType: json['groundingType']?.toString(),
       escalated: escalated,
       conversationId: json['conversationId']?.toString(),
       questionEscalationId: questionEscalationId,

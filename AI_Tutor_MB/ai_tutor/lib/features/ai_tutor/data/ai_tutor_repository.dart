@@ -200,8 +200,7 @@ class AiTutorRepository {
         question: message,
         cancelToken: cancelToken,
       );
-      if (recovered != null &&
-          hasMeaningfulAiChatContent(recovered.answer)) {
+      if (recovered != null && hasMeaningfulAiChatContent(recovered.answer)) {
         return recovered;
       }
       throw const FormatException('AI Tutor returned an incomplete answer');
@@ -557,6 +556,45 @@ class AiTutorRepository {
       options: Options(extra: const {skipUnauthorizedRedirectExtra: true}),
     );
     return TutorSessionSummaryInfo.fromJson(unwrapMap(response.data));
+  }
+
+  /// After platform quota is exhausted, answer from school RAG with the
+  /// student's own LLM key. The key is sent only as a request header.
+  Future<AiAnswer> answerFromSchoolMaterials({
+    required String courseId,
+    required String question,
+    required String provider,
+    required String model,
+    required String studentLlmKey,
+    String? classId,
+    CancelToken? cancelToken,
+  }) async {
+    final response = await _spring.post<Map<String, dynamic>>(
+      '/api/ai/school-answer',
+      data: {
+        'courseId': courseId,
+        'classId': classId ?? '',
+        'question': question,
+        'provider': provider,
+        'model': model,
+      },
+      cancelToken: cancelToken,
+      options: Options(
+        receiveTimeout: aiReceiveTimeout,
+        headers: {'X-Student-Llm-Key': studentLlmKey},
+      ),
+    );
+    final data = unwrapMap(response.data);
+    final grounded = data['grounded'] == true;
+    return AiAnswer.fromJson({
+      ...data,
+      'confidence': data['confidence'] ?? (grounded ? 0.9 : 0),
+      'sources':
+          data['sources'] ??
+          (grounded ? <String>['Tài liệu nhà trường'] : const <String>[]),
+      'groundingType':
+          data['groundingType'] ?? (grounded ? 'COURSE_MATERIAL' : null),
+    });
   }
 }
 

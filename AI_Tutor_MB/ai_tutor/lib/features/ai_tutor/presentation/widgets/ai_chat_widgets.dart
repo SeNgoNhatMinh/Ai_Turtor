@@ -783,54 +783,64 @@ class AiChatComposerTopics extends StatelessWidget {
   }
 }
 
-class AiChatDailyQuotaBanner extends StatefulWidget {
-  const AiChatDailyQuotaBanner({
+class AiChatNearQuotaBanner extends StatelessWidget {
+  const AiChatNearQuotaBanner({
     super.key,
-    this.displayDuration = const Duration(seconds: 30),
+    required this.used,
+    required this.limit,
   });
 
-  final Duration displayDuration;
+  final int used;
+  final int limit;
 
-  @override
-  State<AiChatDailyQuotaBanner> createState() => _AiChatDailyQuotaBannerState();
-}
-
-class _AiChatDailyQuotaBannerState extends State<AiChatDailyQuotaBanner> {
-  Timer? _hideTimer;
-  var _visible = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _scheduleHide();
-  }
-
-  @override
-  void didUpdateWidget(covariant AiChatDailyQuotaBanner oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.displayDuration != widget.displayDuration) {
-      _visible = true;
-      _scheduleHide();
-    }
-  }
-
-  void _scheduleHide() {
-    _hideTimer?.cancel();
-    _hideTimer = Timer(widget.displayDuration, () {
-      if (mounted) setState(() => _visible = false);
-    });
-  }
-
-  @override
-  void dispose() {
-    _hideTimer?.cancel();
-    super.dispose();
+  static bool shouldShow({required int used, required int limit}) {
+    return used > 0 && used >= limit - 2 && used < limit;
   }
 
   @override
   Widget build(BuildContext context) {
-    if (!_visible) return const SizedBox.shrink();
+    final remaining = (limit - used).clamp(0, limit);
+    return Material(
+      color: AppColors.accentWash,
+      child: Semantics(
+        liveRegion: true,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            Insets.screenH,
+            Insets.sm,
+            Insets.screenH,
+            Insets.sm,
+          ),
+          child: Text(
+            remaining == 1
+                ? 'Còn 1 câu hỏi hôm nay cho môn này.'
+                : 'Còn $remaining câu hỏi hôm nay cho môn này.',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: AppColors.accentDark,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
 
+class AiChatDailyQuotaBanner extends StatelessWidget {
+  const AiChatDailyQuotaBanner({
+    super.key,
+    this.ownLlmReady = false,
+    this.onAttachLlm,
+    this.onClearLlm,
+  });
+
+  final bool ownLlmReady;
+  final VoidCallback? onAttachLlm;
+  final VoidCallback? onClearLlm;
+
+  @override
+  Widget build(BuildContext context) {
+    final attachLabel = ownLlmReady ? 'Đổi API' : 'Gắn API LLM';
     return Material(
       color: AppColors.accentWash,
       child: Semantics(
@@ -846,7 +856,9 @@ class _AiChatDailyQuotaBannerState extends State<AiChatDailyQuotaBanner> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                dailySessionCompleteTitle,
+                ownLlmReady
+                    ? 'Học tiếp bằng API của bạn'
+                    : dailySessionCompleteTitle,
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.w800,
                   color: AppColors.accentDark,
@@ -854,7 +866,11 @@ class _AiChatDailyQuotaBannerState extends State<AiChatDailyQuotaBanner> {
               ),
               const Gap(Insets.xs),
               Text(
-                dailySessionCompleteMessage,
+                ownLlmReady
+                    ? 'Câu tiếp theo được trả lời từ tài liệu nhà trường bằng API LLM của bạn.'
+                    : onAttachLlm == null
+                    ? dailySessionCompleteMessage
+                    : 'Hết 10 câu của hệ thống. Gắn API LLM của bạn để học tiếp với đúng bộ tài liệu nhà trường.',
                 style: Theme.of(
                   context,
                 ).textTheme.bodyMedium?.copyWith(color: AppColors.textPrimary),
@@ -867,6 +883,23 @@ class _AiChatDailyQuotaBannerState extends State<AiChatDailyQuotaBanner> {
                   height: 1.4,
                 ),
               ),
+              if (onAttachLlm != null) ...[
+                const Gap(Insets.sm),
+                Wrap(
+                  spacing: Insets.sm,
+                  children: [
+                    TextButton(
+                      onPressed: onAttachLlm,
+                      child: Text(attachLabel),
+                    ),
+                    if (ownLlmReady && onClearLlm != null)
+                      TextButton(
+                        onPressed: onClearLlm,
+                        child: const Text('Gỡ API'),
+                      ),
+                  ],
+                ),
+              ],
             ],
           ),
         ),

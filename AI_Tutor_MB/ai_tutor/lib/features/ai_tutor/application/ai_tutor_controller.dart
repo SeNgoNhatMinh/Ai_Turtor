@@ -18,6 +18,7 @@ import '../../memory/data/improve_plan_repository.dart';
 import '../../student/student_route_handoff.dart';
 import '../data/ai_tutor_repository.dart';
 import '../data/daily_question_quota.dart';
+import '../data/student_own_llm.dart';
 import '../data/tutor_session.dart';
 import '../data/understanding_check_store.dart';
 import 'daily_question_quota_controller.dart';
@@ -310,22 +311,34 @@ final chatPendingProvider = StateProvider.autoDispose.family<bool, String>(
 class ChatController
     extends AutoDisposeFamilyAsyncNotifier<List<AiMessage>, String> {
   CancelToken? _activeCancelToken;
+  var _messageWriteGeneration = 0;
 
   @override
   Future<List<AiMessage>> build(String conversationId) async {
     ref.onDispose(() => _activeCancelToken?.cancel());
-    final userId = ref.watch(currentUserIdProvider);
+    final seeded = takeChatMessagesHandoff(
+      ref.read(chatMessagesHandoffProvider),
+      conversationId,
+    );
+    if (seeded != null) {
+      ref.read(chatMessagesHandoffProvider.notifier).state = null;
+      return seeded;
+    }
+
+    final loadGeneration = _messageWriteGeneration;
+    final userId = ref.read(currentUserIdProvider);
     final repo = ref.read(aiTutorRepositoryProvider);
     final messages = await repo.fetchMessages(
       conversationId: conversationId,
       userId: userId,
     );
+    late final List<AiMessage> resolved;
     try {
       final pinned = await repo.fetchPinnedMessages(
         conversationId: conversationId,
         userId: userId,
       );
-      return _hydrateUnderstandingKeys(
+      resolved = await _hydrateUnderstandingKeys(
         await _ensureFirstVisitWelcome(
           _mergeOpeningHandoff(
             conversationId,
@@ -334,12 +347,16 @@ class ChatController
         ),
       );
     } catch (_) {
-      return _hydrateUnderstandingKeys(
+      resolved = await _hydrateUnderstandingKeys(
         await _ensureFirstVisitWelcome(
           _mergeOpeningHandoff(conversationId, messages),
         ),
       );
     }
+    if (_messageWriteGeneration != loadGeneration) {
+      return state.valueOrNull ?? resolved;
+    }
+    return resolved;
   }
 
   Future<List<AiMessage>> _hydrateUnderstandingKeys(
@@ -457,55 +474,92 @@ class ChatController
       codeSnippet: snippet.isEmpty ? null : snippet,
     );
 
+    _messageWriteGeneration++;
     final previous = state.valueOrNull ?? [];
     state = AsyncData([...previous, optimistic]);
     ref.read(chatPendingProvider(conversationId).notifier).state = true;
 
     try {
-      final answer = await repo.ask(
-        userId: userId,
-        courseId: courseId,
-        classId: classId,
-        conversationId: conversationId,
-        message: message,
-        studentName: session?.fullName,
-        studentEmail: session?.email,
-        authToken: session?.token,
-        interactionType: resolvedInteractionType.isEmpty
-            ? null
-            : resolvedInteractionType,
-        codeSnippet: snippet.isEmpty ? null : snippet,
-        tutorSessionId: tutorSession?.id,
-        sessionPhase: tutorSession?.phase,
-        improvePlanId: resolvedImprovePlanId.isEmpty
-            ? null
-            : resolvedImprovePlanId,
-        planItemId: resolvedPlanItemId.isEmpty ? null : resolvedPlanItemId,
-        clickedSuggestion: resolvedClicked.isEmpty ? null : resolvedClicked,
-        chapterKey: resolvedChapterKey.isEmpty ? null : resolvedChapterKey,
-        chapterTitle: resolvedChapterTitle.isEmpty
-            ? null
-            : resolvedChapterTitle,
-        requestedMode: requestedMode == 'CODE' ? 'CODE' : 'RAG',
-        sourceMaterialIds: resolvedSourceMaterialIds,
-        sourceChunkIds: resolvedSourceChunkIds,
-        cancelToken: cancelToken,
-      );
+      final quota = ref.read(dailyQuestionQuotaProvider(courseId));
+      final ownLlm = ref.read(studentOwnLlmProvider.notifier).forUser(userId);
+      final useOwnLlm = quota.exhausted;
+      late final AiAnswer answer;
+      if (useOwnLlm) {
+        if (ownLlm == null) {
+          state = AsyncData([
+            ...previous,
+            optimistic,
+            AiMessage(
+              id: 'own-llm-${DateTime.now().millisecondsSinceEpoch}',
+              content:
+                  'Hết 10 câu của hệ thống cho môn này. Gắn API LLM của bạn để học tiếp bằng tài liệu nhà trường.',
+              isUser: false,
+              createdAt: DateTime.now(),
+              conversationId: conversationId,
+            ),
+          ]);
+          return conversationId;
+        }
+        answer = await repo.answerFromSchoolMaterials(
+          courseId: courseId,
+          classId: classId,
+          question: message,
+          provider: ownLlm.provider,
+          model: ownLlm.model,
+          studentLlmKey: ownLlm.apiKey,
+          cancelToken: cancelToken,
+        );
+      } else {
+        answer = await repo.ask(
+          userId: userId,
+          courseId: courseId,
+          classId: classId,
+          conversationId: conversationId,
+          message: message,
+          studentName: session?.fullName,
+          studentEmail: session?.email,
+          authToken: session?.token,
+          interactionType: resolvedInteractionType.isEmpty
+              ? null
+              : resolvedInteractionType,
+          codeSnippet: snippet.isEmpty ? null : snippet,
+          tutorSessionId: tutorSession?.id,
+          sessionPhase: tutorSession?.phase,
+          improvePlanId: resolvedImprovePlanId.isEmpty
+              ? null
+              : resolvedImprovePlanId,
+          planItemId: resolvedPlanItemId.isEmpty ? null : resolvedPlanItemId,
+          clickedSuggestion: resolvedClicked.isEmpty ? null : resolvedClicked,
+          chapterKey: resolvedChapterKey.isEmpty ? null : resolvedChapterKey,
+          chapterTitle: resolvedChapterTitle.isEmpty
+              ? null
+              : resolvedChapterTitle,
+          requestedMode: requestedMode == 'CODE' ? 'CODE' : 'RAG',
+          sourceMaterialIds: resolvedSourceMaterialIds,
+          sourceChunkIds: resolvedSourceChunkIds,
+          cancelToken: cancelToken,
+        );
+      }
 
       if (cancelToken.isCancelled) return conversationId;
 
-      ref.read(tutorSessionControllerProvider.notifier).applyAnswer(answer);
-      if (answer.dailyQuota?.exhausted == true) {
-        unawaited(
-          ref
-              .read(tutorSessionControllerProvider.notifier)
-              .closeIfDailyComplete(0),
-        );
+      if (!useOwnLlm) {
+        ref.read(tutorSessionControllerProvider.notifier).applyAnswer(answer);
+        if (answer.dailyQuota?.exhausted == true) {
+          unawaited(
+            ref
+                .read(tutorSessionControllerProvider.notifier)
+                .closeIfDailyComplete(0),
+          );
+        }
       }
 
       var suggestions = answer.nextImproveSuggestions;
       final hasLessonPath = answerHasLessonPathSuggestions(answer.answer);
-      if (suggestions.isEmpty && !hasLessonPath && !answer.escalated) {
+      if (!useOwnLlm &&
+          suggestions.isEmpty &&
+          !hasLessonPath &&
+          !answer.escalated) {
         try {
           suggestions = await ref
               .read(improvePlanRepositoryProvider)
@@ -535,6 +589,7 @@ class ChatController
         isUser: false,
         mode: answer.mode,
         confidence: answer.confidence,
+        groundingType: answer.groundingType,
         sources: answer.sources,
         sourceEvidence: answer.sourceEvidence,
         visualEvidence: answer.visualEvidence,
@@ -553,6 +608,14 @@ class ChatController
           .id;
 
       if (switchedConversation) {
+        final seeded = [...previous, optimistic, aiMessage];
+        state = AsyncData(seeded);
+        ref
+            .read(chatMessagesHandoffProvider.notifier)
+            .state = ChatMessagesHandoff(
+          conversationId: effectiveConversationId,
+          messages: seeded,
+        );
         ref
             .read(chatTurnLimitNoticeProvider.notifier)
             .state = ChatTurnLimitNotice(
@@ -560,11 +623,16 @@ class ChatController
           currentSessionId: effectiveConversationId,
         );
         ref.invalidate(conversationsControllerProvider);
+        _syncDailyQuota(courseId: courseId, fromAnswer: answer.dailyQuota);
         return effectiveConversationId;
       }
 
       // Hiển thị ngay câu trả lời từ /api/ai/query (backend Swagger trả về đúng).
       state = AsyncData([...previous, optimistic, aiMessage]);
+
+      if (useOwnLlm) {
+        return effectiveConversationId;
+      }
 
       // Đồng bộ id tin nhắn từ server nhưng giữ nội dung từ response query.
       try {
@@ -1088,6 +1156,7 @@ class ChatController
       isUser: false,
       mode: answer.mode ?? serverAi.mode,
       confidence: answer.confidence ?? serverAi.confidence,
+      groundingType: answer.groundingType ?? serverAi.groundingType,
       sources: answer.sources.isNotEmpty ? answer.sources : serverAi.sources,
       sourceEvidence: answer.sourceEvidence.isNotEmpty
           ? answer.sourceEvidence

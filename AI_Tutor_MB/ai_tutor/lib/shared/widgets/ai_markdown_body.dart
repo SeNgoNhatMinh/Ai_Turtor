@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
@@ -9,6 +10,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/utils/ai_study_tips.dart';
+import 'ai_study_path_widgets.dart';
 import 'ai_suggestion_json.dart';
 
 final _aiMarkdownExtensions = md.ExtensionSet(
@@ -23,7 +25,7 @@ class AiMarkdownBody extends StatefulWidget {
   final String data;
   final ValueChanged<String>? onStudyTipTap;
 
-  static const Color _studyTipColor = Color(0xFFB94F12);
+  static const Color _studyTipColor = AppColors.studyTipLink;
 
   @override
   State<AiMarkdownBody> createState() => _AiMarkdownBodyState();
@@ -45,7 +47,8 @@ class _AiMarkdownBodyState extends State<AiMarkdownBody>
   @override
   void didUpdateWidget(covariant AiMarkdownBody oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.data != widget.data) {
+    if (oldWidget.data != widget.data ||
+        (oldWidget.onStudyTipTap == null) != (widget.onStudyTipTap == null)) {
       _parse();
     }
   }
@@ -60,38 +63,57 @@ class _AiMarkdownBodyState extends State<AiMarkdownBody>
     _disposeRecognizers();
     _failed = false;
     _children = null;
-    final interactiveMarkdown = widget.onStudyTipTap == null
-        ? widget.data
-        : _enhanceInteractiveStudyLinks(widget.data);
-    final markdown = stabilizeAiMarkdown(interactiveMarkdown);
-    _plain = markdown;
+    final segments = splitStudyPathSegments(widget.data);
+    _plain = widget.data;
     try {
-      final document = md.Document(
-        extensionSet: _aiMarkdownExtensions,
-        encodeHtml: false,
-      );
-      final nodes = document.parseLines(const LineSplitter().convert(markdown));
-      final styleSheet = MarkdownStyleSheet.fromTheme(
-        Theme.of(context),
-      ).merge(_styleSheet(Theme.of(context)));
-      final builder = MarkdownBuilder(
-        delegate: this,
-        selectable: false,
-        styleSheet: styleSheet,
-        imageDirectory: null,
-        sizedImageBuilder: (config) => _SafeMarkdownImage(config: config),
-        checkboxBuilder: null,
-        bulletBuilder: null,
-        builders: const {},
-        paddingBuilders: const {},
-        fitContent: true,
-        listItemCrossAxisAlignment: MarkdownListItemCrossAxisAlignment.start,
-      );
-      _children = builder.build(nodes);
+      final children = <Widget>[];
+      for (final segment in segments) {
+        if (segment.isStudy) {
+          if (segment.isNextLessonHeading) continue;
+          children.add(
+            AiStudyPathBlock(
+              heading: segment.heading,
+              tips: segment.tips,
+              isNextLessonHeading: segment.isNextLessonHeading,
+              onStudyTipTap: widget.onStudyTipTap,
+            ),
+          );
+          continue;
+        }
+        children.addAll(_parseMarkdown(segment.markdown));
+      }
+      _children = children;
     } catch (_) {
       _failed = true;
       _children = null;
     }
+  }
+
+  List<Widget> _parseMarkdown(String raw) {
+    final markdown = stabilizeAiMarkdown(_enhanceInteractiveStudyLinks(raw));
+    if (markdown.trim().isEmpty) return const [];
+    final document = md.Document(
+      extensionSet: _aiMarkdownExtensions,
+      encodeHtml: false,
+    );
+    final nodes = document.parseLines(const LineSplitter().convert(markdown));
+    final styleSheet = MarkdownStyleSheet.fromTheme(
+      Theme.of(context),
+    ).merge(_styleSheet(Theme.of(context)));
+    final builder = MarkdownBuilder(
+      delegate: this,
+      selectable: false,
+      styleSheet: styleSheet,
+      imageDirectory: null,
+      sizedImageBuilder: (config) => _SafeMarkdownImage(config: config),
+      checkboxBuilder: null,
+      bulletBuilder: null,
+      builders: const {},
+      paddingBuilders: const {},
+      fitContent: true,
+      listItemCrossAxisAlignment: MarkdownListItemCrossAxisAlignment.start,
+    );
+    return builder.build(nodes);
   }
 
   void _disposeRecognizers() {
@@ -187,16 +209,171 @@ class _AiMarkdownBodyState extends State<AiMarkdownBody>
   }
 }
 
-final _interactiveStudyHeading = RegExp(
-  r'^(?:bài(?: tập)? tiếp theo|bài kế tiếp|học tiếp phần này|học chuyên sâu)\s*:?[\s]*$',
-  caseSensitive: false,
-  unicode: true,
-);
+const _interactiveStudyHeadings = <String>{
+  'lưu ý',
+  'lưu ý để học tốt hơn',
+  'bài tiếp theo',
+  'bài tập tiếp theo',
+  'bài kế tiếp',
+  'học tiếp phần này',
+  'học chuyên sâu',
+};
 
-final _markdownSectionHeading = RegExp(r'^#{1,6}\s+(.+)$');
+const _extractedStudyHeadings = <String>{
+  'bài tiếp theo',
+  'bài tập tiếp theo',
+  'bài kế tiếp',
+  'học tiếp phần này',
+  'học chuyên sâu',
+};
+
+const _nextLessonHeadings = <String>{
+  'bài tiếp theo',
+  'bài tập tiếp theo',
+  'bài kế tiếp',
+};
+
+class StudyPathSegment {
+  const StudyPathSegment.markdown(this.markdown)
+    : heading = '',
+      tips = const [],
+      isNextLessonHeading = false;
+
+  const StudyPathSegment.study({
+    required this.heading,
+    required this.tips,
+    required this.isNextLessonHeading,
+  }) : markdown = '';
+
+  final String markdown;
+  final String heading;
+  final List<String> tips;
+  final bool isNextLessonHeading;
+
+  bool get isStudy => heading.isNotEmpty;
+}
+
+final _markdownSectionHeading = RegExp(r'^#{1,6}\s+\S');
+
+String _unwrapStudyHeading(String line) {
+  var body = line.trim().replaceFirst(RegExp(r'^#{1,6}\s*'), '');
+  body = body
+      .replaceFirstMapped(RegExp(r'^\*\*(.+)\*\*$'), (match) => match[1] ?? '')
+      .replaceFirstMapped(RegExp(r'^__(.+)__$'), (match) => match[1] ?? '')
+      .replaceFirstMapped(RegExp(r'^`(.+)`$'), (match) => match[1] ?? '')
+      .replaceFirst(RegExp(r'\s*[:：]\s*$'), '')
+      .trim();
+  return body;
+}
+
+bool _isInteractiveStudyHeadingLine(String line) {
+  final plain = _unwrapStudyHeading(line).toLowerCase();
+  return plain.isNotEmpty &&
+      plain.length <= 90 &&
+      (_interactiveStudyHeadings.contains(plain) || plain.startsWith('lưu ý'));
+}
+
+bool _isExtractedStudyHeadingLine(String line) {
+  final plain = _unwrapStudyHeading(line).toLowerCase();
+  return _extractedStudyHeadings.contains(plain);
+}
+
+String _unwrapStudyTipLabel(String raw) {
+  var label = raw.trim();
+  label = label
+      .replaceFirst(RegExp(r'^[-*+]\s+'), '')
+      .replaceFirst(RegExp(r'^\d+[.)]\s+'), '')
+      .replaceFirstMapped(
+        RegExp(r'^\[([^\]]+)\]\([^)]+\)$'),
+        (match) => match[1] ?? '',
+      )
+      .replaceAll(RegExp(r'[*_`]+'), '')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
+  return label;
+}
+
+@visibleForTesting
+List<StudyPathSegment> splitStudyPathSegments(String input) {
+  final lines = input.replaceAll('\r\n', '\n').split('\n');
+  final segments = <StudyPathSegment>[];
+  final markdown = <String>[];
+  var heading = '';
+  var isNextLesson = false;
+  final tips = <String>[];
+
+  void flushMarkdown() {
+    final text = markdown.join('\n').trimRight();
+    if (text.trim().isNotEmpty) {
+      segments.add(StudyPathSegment.markdown(text));
+    }
+    markdown.clear();
+  }
+
+  void flushStudy() {
+    if (heading.isNotEmpty && tips.isNotEmpty) {
+      segments.add(
+        StudyPathSegment.study(
+          heading: heading,
+          tips: List<String>.from(tips),
+          isNextLessonHeading: isNextLesson,
+        ),
+      );
+    }
+    heading = '';
+    isNextLesson = false;
+    tips.clear();
+  }
+
+  for (final line in lines) {
+    final trimmed = line.trim();
+    if (_isExtractedStudyHeadingLine(trimmed)) {
+      flushMarkdown();
+      flushStudy();
+      heading = _unwrapStudyHeading(trimmed);
+      isNextLesson = _nextLessonHeadings.contains(heading.toLowerCase());
+      continue;
+    }
+    if (heading.isNotEmpty && _markdownSectionHeading.hasMatch(trimmed)) {
+      flushStudy();
+      markdown.add(line);
+      continue;
+    }
+    if (heading.isNotEmpty) {
+      if (trimmed.isEmpty) continue;
+      final label = _unwrapStudyTipLabel(trimmed);
+      if (label.isEmpty) continue;
+      tips.add(label);
+      continue;
+    }
+    markdown.add(line);
+  }
+  flushMarkdown();
+  flushStudy();
+  if (segments.isEmpty && input.trim().isNotEmpty) {
+    return [StudyPathSegment.markdown(input)];
+  }
+  return segments;
+}
+
+List<String> nextLessonTipsForAnswer(String? answer) {
+  for (final segment in splitStudyPathSegments(answer ?? '')) {
+    if (!segment.isNextLessonHeading) continue;
+    for (final tip in segment.tips) {
+      if (tip.trim().isEmpty) continue;
+      return [tip.trim()];
+    }
+  }
+  return const [];
+}
 
 /// Biến các lựa chọn học tiếp thành link nội bộ để dùng lại callback học
 /// theo môn đang được chọn của màn chat.
+@visibleForTesting
+String enhanceInteractiveStudyLinks(String input) {
+  return _enhanceInteractiveStudyLinks(input);
+}
+
 String _enhanceInteractiveStudyLinks(String input) {
   final lines = input.replaceAll('\r\n', '\n').split('\n');
   final output = <String>[];
@@ -205,11 +382,14 @@ String _enhanceInteractiveStudyLinks(String input) {
 
   for (final line in lines) {
     final trimmed = line.trim();
-    final heading = _markdownSectionHeading.firstMatch(trimmed);
-    if (heading != null) {
-      inInteractiveSection = _interactiveStudyHeading.hasMatch(
-        heading.group(1)!.trim(),
-      );
+    if (_isInteractiveStudyHeadingLine(trimmed)) {
+      inInteractiveSection = true;
+      output.add(line);
+      continue;
+    }
+
+    if (inInteractiveSection && _markdownSectionHeading.hasMatch(trimmed)) {
+      inInteractiveSection = false;
       output.add(line);
       continue;
     }
@@ -222,20 +402,14 @@ String _enhanceInteractiveStudyLinks(String input) {
     final bullet = RegExp(r'^(\s*[-*+]\s+)(.+)$').firstMatch(line);
     final ordered = RegExp(r'^(\s*\d+[.)]\s+)(.+)$').firstMatch(line);
     final match = bullet ?? ordered;
-    if (match == null) {
-      output.add(line);
-      continue;
-    }
-
-    final label = match.group(2)!.trim();
+    final label = (match?.group(2) ?? trimmed).trim();
     if (label.isEmpty) {
-      output.add(line);
+      if (match != null) output.add(line);
       continue;
     }
     final escaped = label.replaceAll('[', r'\[').replaceAll(']', r'\]');
-    output.add(
-      '${match.group(1)}[$escaped](#ai-study-tip-section-${linkIndex++})',
-    );
+    final link = '[$escaped](#ai-study-tip-section-${linkIndex++})';
+    output.add(match == null ? '- $link' : '${match.group(1)}$link');
   }
 
   return output.join('\n');

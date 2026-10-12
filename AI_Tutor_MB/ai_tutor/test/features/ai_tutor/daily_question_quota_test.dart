@@ -62,7 +62,7 @@ void main() {
     );
   });
 
-  testWidgets('shows the daily-complete copy for about 30 seconds', (
+  testWidgets('keeps the daily-complete banner visible like web', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -72,10 +72,19 @@ void main() {
     expect(find.text(dailySessionCompleteMessage), findsOneWidget);
     expect(find.text(dailySessionCompleteHint), findsOneWidget);
 
-    await tester.pump(const Duration(seconds: 29));
+    await tester.pump(const Duration(seconds: 30));
     expect(find.text(dailySessionCompleteTitle), findsOneWidget);
+  });
 
-    await tester.pump(const Duration(seconds: 1));
-    expect(find.text(dailySessionCompleteTitle), findsNothing);
+  testWidgets('warns when the student is near the daily quota', (tester) async {
+    expect(AiChatNearQuotaBanner.shouldShow(used: 8, limit: 10), isTrue);
+    expect(AiChatNearQuotaBanner.shouldShow(used: 10, limit: 10), isFalse);
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(body: AiChatNearQuotaBanner(used: 8, limit: 10)),
+      ),
+    );
+    expect(find.text('Còn 2 câu hỏi hôm nay cho môn này.'), findsOneWidget);
   });
 }

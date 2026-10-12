@@ -16,6 +16,27 @@ import 'ai_suggestion_json.dart';
 import 'rag_source_evidence_panel.dart';
 import 'rag_visual_evidence_strip.dart';
 
+String groundingTypeLabel(String? groundingType, {bool hasSources = false}) {
+  final resolved = (groundingType ?? '').trim().toUpperCase();
+  final type = resolved.isNotEmpty
+      ? resolved
+      : (hasSources ? 'COURSE_MATERIAL' : 'NONE');
+  switch (type) {
+    case 'SENIOR_APPROVED_KNOWLEDGE':
+      return 'Dựa trên kiến thức bổ sung của môn học';
+    case 'COURSE_MATERIAL_WITH_APPROVED_KNOWLEDGE':
+      return 'Dựa trên tài liệu môn học và kiến thức bổ sung';
+    case 'COURSE_MATERIAL_WITH_TEACHING_NOTE':
+      return 'Dựa trên tài liệu môn học (có ghi chú giảng dạy)';
+    case 'GOLD_QA_TEACHING_NOTE':
+      return 'Dựa trên ghi chú giảng dạy (thiếu đoạn giáo trình khớp)';
+    case 'COURSE_MATERIAL':
+      return 'Dựa trên tài liệu môn học';
+    default:
+      return 'AI tự phân tích bằng kiến thức chung';
+  }
+}
+
 bool reportsInsufficientCourseMaterial(String content) {
   final text = content.toLowerCase().replaceAll(RegExp(r'\s+'), ' ').trim();
   final mentionsMaterial =
@@ -40,6 +61,7 @@ class ChatBubble extends StatelessWidget {
     required this.content,
     this.mode,
     this.confidence,
+    this.groundingType,
     this.sources = const [],
     this.sourceEvidence = const [],
     this.visualEvidence = const [],
@@ -61,6 +83,7 @@ class ChatBubble extends StatelessWidget {
   final String content;
   final String? mode;
   final double? confidence;
+  final String? groundingType;
   final List<String> sources;
   final List<RagSourceEvidence> sourceEvidence;
   final List<RagVisualEvidence> visualEvidence;
@@ -80,9 +103,9 @@ class ChatBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final insufficientMaterial = reportsInsufficientCourseMaterial(content);
-    final visibleSourceEvidence = insufficientMaterial || !showSourceReferences
+    final visibleSourceEvidence = insufficientMaterial
         ? const <RagSourceEvidence>[]
-        : sourceEvidence;
+        : filterShortSourceEvidence(sourceEvidence);
     final visibleSources = insufficientMaterial || !showSourceReferences
         ? const <String>[]
         : sources;
@@ -93,7 +116,9 @@ class ChatBubble extends StatelessWidget {
         : visualEvidence;
     final hasMaterialEvidence =
         !insufficientMaterial &&
-        (sourceEvidence.isNotEmpty || sources.isNotEmpty);
+        (visibleSourceEvidence.isNotEmpty ||
+            sources.isNotEmpty ||
+            (groundingType ?? '').trim().isNotEmpty);
     final radius = BorderRadius.only(
       topLeft: const Radius.circular(Radii.lg),
       topRight: const Radius.circular(Radii.lg),
@@ -191,8 +216,19 @@ class ChatBubble extends StatelessWidget {
                             : AppColors.textPrimary,
                       ),
                     ),
-                  if (!isUser && confidence != null && hasMaterialEvidence) ...[
-                    _AiMetaRow(confidence: confidence),
+                  if (!isUser &&
+                      !insufficientMaterial &&
+                      hasMaterialEvidence) ...[
+                    _GroundingRow(
+                      label: groundingTypeLabel(
+                        groundingType,
+                        hasSources:
+                            visibleSourceEvidence.isNotEmpty ||
+                            sources.isNotEmpty,
+                      ),
+                    ),
+                    if (confidence != null)
+                      _AiMetaRow(confidence: confidence, showDivider: false),
                   ],
                   if (!isUser && visibleSourceEvidence.isNotEmpty)
                     RagSourceEvidencePanel(
@@ -314,10 +350,37 @@ class _SourceChipRow extends StatelessWidget {
   }
 }
 
+class _GroundingRow extends StatelessWidget {
+  const _GroundingRow({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Divider(height: 1, thickness: 1, color: AppColors.borderHairline),
+        const Gap(Insets.sm),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: AppColors.textSecondary,
+            fontWeight: FontWeight.w600,
+            height: 1.35,
+          ),
+        ),
+        const Gap(Insets.xs),
+      ],
+    );
+  }
+}
+
 class _AiMetaRow extends StatelessWidget {
-  const _AiMetaRow({required this.confidence});
+  const _AiMetaRow({required this.confidence, this.showDivider = true});
 
   final double? confidence;
+  final bool showDivider;
 
   @override
   Widget build(BuildContext context) {
@@ -327,8 +390,14 @@ class _AiMetaRow extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Divider(height: 1, thickness: 1, color: AppColors.borderHairline),
-        const Gap(Insets.sm),
+        if (showDivider) ...[
+          const Divider(
+            height: 1,
+            thickness: 1,
+            color: AppColors.borderHairline,
+          ),
+          const Gap(Insets.sm),
+        ],
         Row(
           children: [
             Icon(LucideIcons.checkCircle2, size: 14, color: AppColors.success),

@@ -1,5 +1,6 @@
 import 'package:ai_tutor/core/utils/ai_chat_content.dart';
 import 'package:ai_tutor/shared/widgets/ai_markdown_body.dart';
+import 'package:ai_tutor/shared/widgets/ai_study_path_widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -66,23 +67,127 @@ Chọn một gợi ý ở trên để bắt đầu học, hoặc nhập chủ đ
     expect(tapped, ['Ôn lại vòng lặp for']);
   });
 
-  testWidgets('next lesson choices are tappable', (tester) async {
+  testWidgets('deep-dive choices stay tappable like web', (tester) async {
     final tapped = <String>[];
-    const markdown = '''
-## Bài tiếp theo
-- Bài 2: Tham số và giá trị trả về – Nói về truyền tham số và return.
-''';
+    const topic = 'So sánh O, Ω, và Θ trong các đường hợp thức';
 
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: AiMarkdownBody(data: markdown, onStudyTipTap: tapped.add),
+          body: AiMarkdownBody(
+            data: '## **Học chuyên sâu**\n- $topic',
+            onStudyTipTap: tapped.add,
+          ),
         ),
       ),
     );
 
-    const lesson =
-        'Bài 2: Tham số và giá trị trả về – Nói về truyền tham số và return.';
+    await tester.tap(find.text(topic));
+    expect(tapped, [topic]);
+  });
+
+  testWidgets('plain Học chuyên sâu headings still become study links', (
+    tester,
+  ) async {
+    final tapped = <String>[];
+    const topic = 'Phân tích độ phức tạp trung bình';
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AiMarkdownBody(
+            data: 'Học chuyên sâu\n- $topic',
+            onStudyTipTap: tapped.add,
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text(topic));
+    expect(tapped, [topic]);
+  });
+
+  test('extracts Bài tiếp theo chips the same way web calls them', () {
+    final segments = splitStudyPathSegments('''
+## Học chuyên sâu
+- So sánh O và Θ
+
+## Bài tiếp theo
+- Bài 3: Chapter 5: Recursion
+''');
+
+    expect(segments, hasLength(2));
+    expect(segments[0].heading, 'Học chuyên sâu');
+    expect(segments[0].tips, ['So sánh O và Θ']);
+    expect(segments[0].isNextLessonHeading, isFalse);
+    expect(segments[1].heading, 'Bài tiếp theo');
+    expect(segments[1].tips, ['Bài 3: Chapter 5: Recursion']);
+    expect(segments[1].isNextLessonHeading, isTrue);
+    expect(isNextLessonStudyTip('Bài 3: Chapter 5: Recursion'), isTrue);
+  });
+
+  test(
+    'does not turn the in-answer lesson roadmap into Bài tiếp theo chips',
+    () {
+      expect(
+        nextLessonTipsForAnswer('''
+Các bài dưới đây là chương có trong tài liệu môn học.
+1. Bắt đầu bài 1: Type conversion functions
+2. Bắt đầu bài 2: Adding new functions
+3. Bắt đầu bài 3: Built-in functions
+'''),
+        isEmpty,
+      );
+    },
+  );
+
+  test('sends only the first Bài tiếp theo like web', () {
+    expect(
+      nextLessonTipsForAnswer('''
+## Bài tiếp theo
+- Bài 3: Chapter 5: Recursion
+- Bài 4: File I/O
+- Bài 5: Recursion review
+'''),
+      ['Bài 3: Chapter 5: Recursion'],
+    );
+  });
+
+  test('prefers Bài tiếp theo bullets over API-style ôn tập titles', () {
+    expect(
+      nextLessonTipsForAnswer('''
+## Học chuyên sâu
+- Cache miss
+
+## Bài tiếp theo
+- Bài 3: Chapter 5: Recursion
+'''),
+      ['Bài 3: Chapter 5: Recursion'],
+    );
+  });
+
+  testWidgets('renders Bài tiếp theo as web chips under the chat answer', (
+    tester,
+  ) async {
+    final tapped = <String>[];
+    const lesson = 'Bài 3: Chapter 5: Recursion';
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AiStudyPathBlock(
+            heading: 'Bài tiếp theo',
+            tips: nextLessonTipsForAnswer('## Bài tiếp theo\n- $lesson'),
+            isNextLessonHeading: true,
+            onStudyTipTap: tapped.add,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Tiếp tục học'), findsNothing);
+    expect(find.text('Ôn tập'), findsNothing);
+    expect(find.byType(AiNextLessonChip), findsOneWidget);
     await tester.tap(find.text(lesson));
     expect(tapped, [lesson]);
   });

@@ -332,3 +332,30 @@ final tutorOpeningHandoffProvider = StateProvider<TutorSessionOpenResult?>(
 
 final chatRevealMessageIdProvider = StateProvider.autoDispose
     .family<String?, String>((ref, conversationId) => null);
+
+/// Tin nhắn vừa gửi/trả lời, đưa sang cuộc trò chuyện mới để tránh màn hình trắng.
+class ChatMessagesHandoff {
+  const ChatMessagesHandoff({
+    required this.conversationId,
+    required this.messages,
+  });
+
+  final String conversationId;
+  final List<AiMessage> messages;
+}
+
+final chatMessagesHandoffProvider = StateProvider<ChatMessagesHandoff?>(
+  (ref) => null,
+);
+
+List<AiMessage>? takeChatMessagesHandoff(
+  ChatMessagesHandoff? handoff,
+  String conversationId,
+) {
+  if (handoff == null ||
+      handoff.conversationId != conversationId ||
+      handoff.messages.isEmpty) {
+    return null;
+  }
+  return List<AiMessage>.from(handoff.messages);
+}

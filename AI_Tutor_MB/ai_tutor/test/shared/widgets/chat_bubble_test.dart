@@ -85,7 +85,8 @@ void main() {
                 RagSourceEvidence(
                   materialId: 'material-1',
                   materialTitle: 'Giáo trình Java',
-                  excerpt: 'Servlet handles a request.',
+                  excerpt:
+                      'Servlet handles an incoming request and writes the matching response.',
                 ),
               ],
               useMarkdown: false,
@@ -123,5 +124,46 @@ void main() {
     expect(find.text('Độ khớp của nguồn với câu hỏi: 45%'), findsOneWidget);
     expect(find.text('Nguồn tham khảo'), findsNothing);
     expect(find.text('materialId=material-1'), findsNothing);
+  });
+
+  testWidgets('labels course-material grounding and hides tiny excerpts', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const ProviderScope(
+        child: MaterialApp(
+          home: Scaffold(
+            body: ChatBubble(
+              isUser: false,
+              content: 'Servlet xử lý request và response.',
+              groundingType: 'COURSE_MATERIAL',
+              confidence: 0.8,
+              sourceEvidence: [
+                RagSourceEvidence(
+                  materialId: 'material-1',
+                  materialTitle: 'Giáo trình Java',
+                  excerpt: 'quá ngắn',
+                ),
+                RagSourceEvidence(
+                  materialId: 'material-2',
+                  materialTitle: 'Giáo trình Java nâng cao',
+                  excerpt:
+                      'Servlet nhận request từ client rồi trả response tương ứng.',
+                ),
+              ],
+              useMarkdown: false,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Dựa trên tài liệu môn học'), findsOneWidget);
+    expect(find.textContaining('Xem bằng chứng tài liệu (1)'), findsOneWidget);
+    await tester.tap(find.textContaining('Xem bằng chứng tài liệu (1)'));
+    await tester.pumpAndSettle();
+    expect(find.text('Giáo trình Java'), findsNothing);
+    expect(find.text('Giáo trình Java nâng cao'), findsOneWidget);
   });
 }

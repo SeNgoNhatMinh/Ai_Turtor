@@ -19,6 +19,16 @@ import '../application/auth_controller.dart';
 import 'widgets/auth_form_widgets.dart';
 import 'widgets/login_splash_header.dart';
 
+const loginSubmitCooldown = Duration(milliseconds: 900);
+
+bool isLoginSubmitCoolingDown({
+  required int lastSubmitAtMs,
+  required int nowMs,
+  Duration cooldown = loginSubmitCooldown,
+}) {
+  return nowMs - lastSubmitAtMs < cooldown.inMilliseconds;
+}
+
 class LoginScreen extends HookConsumerWidget {
   const LoginScreen({super.key});
 
@@ -46,6 +56,7 @@ class LoginScreen extends HookConsumerWidget {
     final passwordController = useTextEditingController();
     final obscure = useState(true);
     final shake = useState(false);
+    final lastSubmitAtMs = useRef(0);
     final auth = ref.watch(authControllerProvider);
     final screenH = MediaQuery.sizeOf(context).height;
     final topPad = MediaQuery.paddingOf(context).top;
@@ -59,6 +70,14 @@ class LoginScreen extends HookConsumerWidget {
     });
 
     Future<void> submit() async {
+      final now = DateTime.now().millisecondsSinceEpoch;
+      if (auth.isLoading ||
+          isLoginSubmitCoolingDown(
+            lastSubmitAtMs: lastSubmitAtMs.value,
+            nowMs: now,
+          )) {
+        return;
+      }
       shake.value = false;
       final emailError = Validators.email(emailController.text);
       final passwordError = Validators.password(passwordController.text);
@@ -66,6 +85,7 @@ class LoginScreen extends HookConsumerWidget {
         shake.value = true;
         return;
       }
+      lastSubmitAtMs.value = now;
       await ref
           .read(authControllerProvider.notifier)
           .login(emailController.text.trim(), passwordController.text);
@@ -119,9 +139,7 @@ class LoginScreen extends HookConsumerWidget {
                           children: [
                             Text(
                               l10n.loginWelcomeBack,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .headlineMedium
+                              style: Theme.of(context).textTheme.headlineMedium
                                   ?.copyWith(
                                     fontWeight: FontWeight.w800,
                                     color: AppColors.loginNavy,
@@ -131,9 +149,7 @@ class LoginScreen extends HookConsumerWidget {
                             const Gap(Insets.xs),
                             Text(
                               l10n.loginSubtitle,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodyMedium
+                              style: Theme.of(context).textTheme.bodyMedium
                                   ?.copyWith(
                                     color: AppColors.textTertiary,
                                     height: 1.35,
@@ -226,9 +242,7 @@ class LoginScreen extends HookConsumerWidget {
                                 ),
                                 child: Text(
                                   l10n.forgotPassword,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodyMedium
+                                  style: Theme.of(context).textTheme.bodyMedium
                                       ?.copyWith(
                                         color: AppColors.fptBlue,
                                         fontWeight: FontWeight.w600,
@@ -251,9 +265,7 @@ class LoginScreen extends HookConsumerWidget {
                               onPressed: () {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
-                                    content: Text(
-                                      l10n.googleSignInComingSoon,
-                                    ),
+                                    content: Text(l10n.googleSignInComingSoon),
                                   ),
                                 );
                               },
@@ -360,9 +372,7 @@ class RegisterScreen extends HookConsumerWidget {
       );
       final emailError = Validators.email(emailController.text);
       final passwordError = Validators.password(passwordController.text);
-      if (nameError != null ||
-          emailError != null ||
-          passwordError != null) {
+      if (nameError != null || emailError != null || passwordError != null) {
         return;
       }
       await ref
@@ -433,9 +443,7 @@ class RegisterScreen extends HookConsumerWidget {
                         children: [
                           Text(
                             l10n.registerTitle,
-                            style: Theme.of(context)
-                                .textTheme
-                                .headlineMedium
+                            style: Theme.of(context).textTheme.headlineMedium
                                 ?.copyWith(
                                   fontWeight: FontWeight.w800,
                                   color: AppColors.textPrimary,
@@ -499,9 +507,7 @@ class RegisterScreen extends HookConsumerWidget {
                             const Gap(Insets.md),
                             Text(
                               describeAuthError(auth.error!),
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall
+                              style: Theme.of(context).textTheme.bodySmall
                                   ?.copyWith(
                                     color: AppColors.error,
                                     height: 1.4,
@@ -520,9 +526,7 @@ class RegisterScreen extends HookConsumerWidget {
                             child: Text.rich(
                               TextSpan(
                                 text: l10n.termsAgreementPrefix,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodyMedium
+                                style: Theme.of(context).textTheme.bodyMedium
                                     ?.copyWith(
                                       color: AppColors.textSecondary,
                                       height: 1.4,
@@ -562,9 +566,7 @@ class RegisterScreen extends HookConsumerWidget {
                               child: Text.rich(
                                 TextSpan(
                                   text: '${l10n.hasAccount} ',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodyMedium
+                                  style: Theme.of(context).textTheme.bodyMedium
                                       ?.copyWith(
                                         color: AppColors.textSecondary,
                                       ),

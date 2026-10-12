@@ -109,29 +109,32 @@ void main() {
     },
   );
 
-  test('rejects a source-only response instead of returning a blank answer', () async {
-    final springAdapter = _RecordingAdapter(body: '[]');
-    final n8nAdapter = _RecordingAdapter(
-      body:
-          '{"answer":"## Theo tài liệu môn học\\n\\n'
-          '## Nguồn tài liệu đã dùng\\nmaterialId=material-1",'
-          '"confidence":0.8,"sources":["material-1"]}',
-    );
-    final spring = Dio(BaseOptions(baseUrl: 'https://spring.example'))
-      ..httpClientAdapter = springAdapter;
-    final n8n = Dio(BaseOptions(baseUrl: 'https://n8n.example'))
-      ..httpClientAdapter = n8nAdapter;
-    final repository = AiTutorRepository(spring, n8n);
+  test(
+    'rejects a source-only response instead of returning a blank answer',
+    () async {
+      final springAdapter = _RecordingAdapter(body: '[]');
+      final n8nAdapter = _RecordingAdapter(
+        body:
+            '{"answer":"## Theo tài liệu môn học\\n\\n'
+            '## Nguồn tài liệu đã dùng\\nmaterialId=material-1",'
+            '"confidence":0.8,"sources":["material-1"]}',
+      );
+      final spring = Dio(BaseOptions(baseUrl: 'https://spring.example'))
+        ..httpClientAdapter = springAdapter;
+      final n8n = Dio(BaseOptions(baseUrl: 'https://n8n.example'))
+        ..httpClientAdapter = n8nAdapter;
+      final repository = AiTutorRepository(spring, n8n);
 
-    await expectLater(
-      repository.ask(
-        userId: 'student-1',
-        courseId: 'PFP191',
-        message: 'Bắt đầu bài 2: A list is a sequence',
-      ),
-      throwsA(isA<FormatException>()),
-    );
-  });
+      await expectLater(
+        repository.ask(
+          userId: 'student-1',
+          courseId: 'PFP191',
+          message: 'Bắt đầu bài 2: A list is a sequence',
+        ),
+        throwsA(isA<FormatException>()),
+      );
+    },
+  );
 
   test('explicit CODE mode also stays inside the n8n Harness', () async {
     final springAdapter = _RecordingAdapter();
@@ -199,5 +202,45 @@ void main() {
     expect(springAdapter.lastRequest?.queryParameters['classId'], 'SE1801');
     expect(profile.supportLevel, 'HIGH_SUPPORT');
     expect(profile.hasActiveTeacherDirective, isTrue);
+  });
+
+  test('posts school-answer to Spring with the student LLM header', () async {
+    final springAdapter = _RecordingAdapter(
+      body: '{"answer":"Theo slide 3.","grounded":true,"source":"RAG"}',
+    );
+    final n8nAdapter = _RecordingAdapter();
+    final spring = Dio(BaseOptions(baseUrl: 'https://spring.example'))
+      ..httpClientAdapter = springAdapter;
+    final n8n = Dio(BaseOptions(baseUrl: 'https://n8n.example'))
+      ..httpClientAdapter = n8nAdapter;
+    final repository = AiTutorRepository(spring, n8n);
+
+    final answer = await repository.answerFromSchoolMaterials(
+      courseId: 'PRJ301',
+      classId: 'SE1801',
+      question: 'Servlet là gì?',
+      provider: 'openrouter',
+      model: 'openai/gpt-oss-20b',
+      studentLlmKey: 'sk-test-key',
+    );
+
+    expect(n8nAdapter.lastRequest, isNull);
+    expect(springAdapter.lastRequest?.path, '/api/ai/school-answer');
+    expect(springAdapter.lastRequest?.method, 'POST');
+    expect(
+      springAdapter.lastRequest?.headers['X-Student-Llm-Key'],
+      'sk-test-key',
+    );
+    final payload = springAdapter.lastRequest?.data as Map<String, dynamic>;
+    expect(payload['courseId'], 'PRJ301');
+    expect(payload['classId'], 'SE1801');
+    expect(payload['question'], 'Servlet là gì?');
+    expect(payload['provider'], 'openrouter');
+    expect(payload['model'], 'openai/gpt-oss-20b');
+    expect(payload.containsKey('apiKey'), isFalse);
+    expect(answer.answer, 'Theo slide 3.');
+    expect(answer.groundingType, 'COURSE_MATERIAL');
+    expect(answer.sources, ['Tài liệu nhà trường']);
+    expect(answer.confidence, 0.9);
   });
 }

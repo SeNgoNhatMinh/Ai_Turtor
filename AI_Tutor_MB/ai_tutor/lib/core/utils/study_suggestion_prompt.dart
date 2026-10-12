@@ -327,6 +327,13 @@ bool isActionableStudySuggestionText(String text) {
   ).hasMatch(normalized)) {
     return false;
   }
+  if (RegExp(
+    r'ai\s*tutor.*(?:mở đúng chương|hướng dẫn từng bước|như một gia sư)|'
+    r'^(?:ai\s*tutor\s+)?mở đúng chương',
+    caseSensitive: false,
+  ).hasMatch(normalized)) {
+    return false;
+  }
   return true;
 }
 

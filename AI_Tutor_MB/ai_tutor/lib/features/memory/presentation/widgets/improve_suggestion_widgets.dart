@@ -24,6 +24,7 @@ class ImproveSuggestionsStrip extends StatelessWidget {
     required this.onLearn,
     this.onCreateQuiz,
     this.loadingKey,
+    this.heading = 'Tiếp tục học',
     this.quizLabel = 'Ôn tập',
     this.enabled = true,
   });
@@ -33,6 +34,7 @@ class ImproveSuggestionsStrip extends StatelessWidget {
   final ValueChanged<ImproveSuggestionItem> onLearn;
   final ValueChanged<ImproveSuggestionItem>? onCreateQuiz;
   final String? loadingKey;
+  final String heading;
   final String quizLabel;
   final bool enabled;
 
@@ -75,7 +77,7 @@ class ImproveSuggestionsStrip extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              'Tiếp tục học',
+              heading,
               style: Theme.of(
                 context,
               ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),

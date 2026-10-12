@@ -59,6 +59,14 @@ abstract final class AppColors {
   /// Disclaimer composer — khớp web `#777`.
   static const composerMeta = Color(0xFF777777);
 
+  /// Chip "Bài tiếp theo" — khớp web `.ai-answer-study-tip--lesson`.
+  static const nextLessonChipFill = Color(0xFFEEF2FF);
+  static const nextLessonChipBorder = Color(0xFFC7D2FE);
+  static const nextLessonChipText = Color(0xFF1E293B);
+
+  /// Link học chuyên sâu — khớp web `.ai-answer-study-tip`.
+  static const studyTipLink = Color(0xFFB94F12);
+
   // Semantic
   static const success = fptGreen;
   static const successBg = Color(0xFFDCFCE7);

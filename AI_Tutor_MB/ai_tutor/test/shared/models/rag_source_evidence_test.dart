@@ -1,4 +1,5 @@
 import 'package:ai_tutor/shared/models/rag_source_evidence.dart';
+import 'package:ai_tutor/shared/widgets/rag_source_evidence_panel.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -24,5 +25,17 @@ void main() {
     expect(verified.pageLabel, 'Trang PDF 12–13');
     expect(verified.subtitle, 'Servlet · Vị trí chính xác: Trang PDF 12–13');
     expect(estimated.pageLabel, 'Chưa đối chiếu được với trang PDF gốc');
+  });
+
+  test('drops short excerpts the way the web evidence panel does', () {
+    final kept = filterShortSourceEvidence([
+      const RagSourceEvidence(materialTitle: 'Ngắn', excerpt: 'quá ngắn'),
+      const RagSourceEvidence(
+        materialTitle: 'Servlet',
+        excerpt:
+            'Servlet nhận request từ client rồi trả response tương ứng cho trình duyệt.',
+      ),
+    ]);
+    expect(kept.map((item) => item.materialTitle), ['Servlet']);
   });
 }

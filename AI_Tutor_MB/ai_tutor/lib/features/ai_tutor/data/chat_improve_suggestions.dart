@@ -1,59 +1,19 @@
 import '../../../core/utils/study_suggestion_prompt.dart';
 import '../../../shared/models/improve_suggestion.dart';
 
-/// Gợi ý "Tiếp tục học" trong chat — khớp FE web `lessonSuggestionsForMessage`.
+/// Gợi ý "Tiếp tục học" trong chat.
 ///
-/// Ưu tiên `nextImproveSuggestions` từ câu trả lời AI; nếu trống thì parse
-/// các dòng "Bài N" trong markdown. Không mở màn Improve Plan.
+/// Chỉ hiện khi câu trả lời là lộ trình (`Bài N` từ 2 bài trở lên).
+/// Câu trả lời thường không lấy chip API generic.
 List<ImproveSuggestionItem> chatImproveSuggestionsForMessage({
   required String answer,
   List<ImproveSuggestionItem> apiSuggestions = const [],
   bool apiSuggestionsProvided = false,
 }) {
-  final actionableApi = apiSuggestions
-      .where(
-        (item) => isActionableStudySuggestionText(
-          item.effectiveText.trim().isNotEmpty
-              ? item.effectiveText
-              : item.title,
-        ),
-      )
-      .map(
-        (item) => item.copyWith(
-          interactionType: item.interactionType ?? 'GUIDED_LESSON',
-        ),
-      )
-      .toList();
-  if (apiSuggestionsProvided && actionableApi.isEmpty) return const [];
-  final path = lessonSuggestionsForMessage(
-    answer: answer,
-    apiSuggestionTitles: [
-      for (final item in actionableApi)
-        if (item.effectiveText.trim().isNotEmpty)
-          item.effectiveText.trim()
-        else if (item.title.trim().isNotEmpty)
-          item.title.trim(),
-    ],
-  );
-  if (path.isEmpty) return const [];
-  final pathKeys = path
-      .map((item) => item.suggestionText.trim().toLowerCase())
-      .toSet();
-  final apiKeys = actionableApi
-      .map(
-        (item) =>
-            (item.effectiveText.trim().isNotEmpty
-                    ? item.effectiveText
-                    : item.title)
-                .trim()
-                .toLowerCase(),
-      )
-      .toSet();
-  if (actionableApi.isNotEmpty && pathKeys.every(apiKeys.contains)) {
-    return actionableApi;
-  }
+  final parsedLessons = parseLessonSuggestionsFromAnswer(answer);
+  if (parsedLessons.isEmpty) return const [];
   return [
-    for (final item in path)
+    for (final item in parsedLessons)
       ImproveSuggestionItem.fromLabel(
         item.suggestionText,
       ).copyWith(interactionType: 'GUIDED_LESSON'),

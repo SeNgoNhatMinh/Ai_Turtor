@@ -13,6 +13,31 @@ import '../../core/utils/authenticated_file_open.dart';
 import '../models/rag_source_evidence.dart';
 import '../models/rag_visual_evidence.dart';
 
+List<RagSourceEvidence> filterShortSourceEvidence(
+  List<RagSourceEvidence> items,
+) {
+  final merged = <String, RagSourceEvidence>{};
+  for (final item in items) {
+    final excerpt = (item.excerpt ?? '').replaceAll(RegExp(r'\s+'), ' ').trim();
+    final words = excerpt
+        .split(RegExp(r'[^\p{L}\p{N}_-]+', unicode: true))
+        .where((word) => word.length >= 2)
+        .length;
+    if (excerpt.isNotEmpty && (excerpt.length < 40 || words < 5)) {
+      continue;
+    }
+    final key = excerpt.isNotEmpty
+        ? '${item.courseId ?? item.courseName ?? ''}|text:${excerpt.toLowerCase()}'
+        : '${item.courseId ?? item.courseName ?? ''}|${item.materialId ?? item.materialTitle ?? ''}|${item.pageStart ?? ''}';
+    final existing = merged[key];
+    if (existing == null ||
+        ((existing.excerpt ?? '').isEmpty && excerpt.isNotEmpty)) {
+      merged[key] = item;
+    }
+  }
+  return merged.values.toList();
+}
+
 /// Thẻ minh chứng RAG — mặc định ẩn, bấm nút mới mở rộng.
 class RagSourceEvidencePanel extends ConsumerStatefulWidget {
   const RagSourceEvidencePanel({
@@ -38,10 +63,11 @@ class _RagSourceEvidencePanelState
 
   @override
   Widget build(BuildContext context) {
-    if (widget.items.isEmpty) return const SizedBox.shrink();
+    final items = filterShortSourceEvidence(widget.items);
+    if (items.isEmpty) return const SizedBox.shrink();
 
     final headersAsync = ref.watch(authHeadersProvider);
-    final count = widget.items.length;
+    final count = items.length;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -84,7 +110,7 @@ class _RagSourceEvidencePanelState
         ),
         if (_expanded) ...[
           const Gap(Insets.sm),
-          ...widget.items.map(
+          ...items.map(
             (item) => Padding(
               padding: const EdgeInsets.only(bottom: Insets.sm),
               child: _EvidenceCard(
