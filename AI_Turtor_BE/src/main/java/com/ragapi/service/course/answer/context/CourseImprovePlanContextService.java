@@ -13,9 +13,9 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /** Retrieves textbook chunks explicitly linked to an improve-plan item. */
@@ -23,6 +23,10 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class CourseImprovePlanContextService {
+
+    private static final int LARGE_MATERIAL_CHARS = 24_000;
+    private static final int EXCERPT_RADIUS = 700;
+    private static final int MAX_GROUNDED_CHARS = 2_000;
 
     private static final Set<String> STOP_WORDS = Set.of(
             "la", "gi", "gì", "cua", "của", "cho", "em", "anh", "chi", "chị",
@@ -72,15 +76,28 @@ public class CourseImprovePlanContextService {
         }
 
         List<RetrievedCourseChunk> result = new ArrayList<>();
+        List<String> searchTerms = searchTerms(terms);
         for (CourseMaterial material : materials) {
             if (!isUsableTextbook(material, courseId, classId)) {
+                continue;
+            }
+            // Rebuilding every section of a full textbook and comparing each child
+            // against that section blocked the live answer for several minutes.
+            if (chunkIds.isEmpty() && material.getContent().length() > LARGE_MATERIAL_CHARS) {
+                long startedNanos = System.nanoTime();
+                List<RetrievedCourseChunk> excerpts = excerptMatches(material, excerptNeedles(terms));
+                log.info("Large source material excerpted in {} ms (materialId={}, chars={}, excerpts={})",
+                        (System.nanoTime() - startedNanos) / 1_000_000,
+                        material.getId(),
+                        material.getContent().length(),
+                        excerpts.size());
+                result.addAll(excerpts);
                 continue;
             }
             List<CourseMaterialChunkingService.HierarchicalChunk> chunks = chunkingService.chunkHierarchically(material);
             for (CourseMaterialChunkingService.HierarchicalChunk chunk : chunks) {
                 boolean exactChunk = !chunkIds.isEmpty() && chunkIds.contains(chunk.chunkId());
-                int termMatchScore = provenanceMatchScore(
-                        chunk.parentContent() + "\n" + chunk.content(), terms);
+                int termMatchScore = provenanceMatchScore(chunk.content(), searchTerms);
                 if (!exactChunk && termMatchScore == 0) {
                     continue;
                 }
@@ -119,9 +136,94 @@ public class CourseImprovePlanContextService {
             return content;
         }
         if (content.isBlank() || parent.contains(content)) {
-            return parent;
+            return capGroundedText(parent, content);
         }
-        return parent + "\n\n" + content;
+        return capGroundedText(parent + "\n\n" + content, content);
+    }
+
+    private List<RetrievedCourseChunk> excerptMatches(CourseMaterial material, List<String> searchTerms) {
+        String content = material.getContent();
+        String lower = content.toLowerCase(Locale.ROOT);
+        List<RetrievedCourseChunk> excerpts = new ArrayList<>();
+        for (String term : searchTerms) {
+            if (excerpts.size() >= 6) {
+                break;
+            }
+            int at = lower.indexOf(term);
+            if (at < 0) {
+                continue;
+            }
+            int start = Math.max(0, at - EXCERPT_RADIUS);
+            int end = Math.min(content.length(), at + term.length() + EXCERPT_RADIUS);
+            String excerpt = content.substring(start, end).trim();
+            if (excerpt.isBlank() || excerpts.stream().anyMatch(existing -> overlaps(existing.content(), excerpt))) {
+                continue;
+            }
+            excerpts.add(new RetrievedCourseChunk(
+                    excerpt,
+                    0.9,
+                    material.getId(),
+                    material.getCourseId(),
+                    material.getClassId(),
+                    material.getTeacherId(),
+                    material.getMaterialScope(),
+                    material.getSourceType(),
+                    material.getId(),
+                    null,
+                    "Document",
+                    material.getId() + ":excerpt:" + start,
+                    "Document",
+                    material.getId() + ":excerpt:" + start,
+                    excerpts.size(),
+                    "SECTION"
+            ));
+        }
+        if (excerpts.isEmpty()) {
+            log.info("Large source material had no direct term match; using ranked retrieval (materialId={}, chars={})",
+                    material.getId(), content.length());
+        }
+        return excerpts;
+    }
+
+    private boolean overlaps(String left, String right) {
+        return left.contains(right) || right.contains(left);
+    }
+
+    private String capGroundedText(String candidate, String child) {
+        if (candidate.length() <= MAX_GROUNDED_CHARS) {
+            return candidate;
+        }
+        return child.length() <= MAX_GROUNDED_CHARS ? child : child.substring(0, MAX_GROUNDED_CHARS);
+    }
+
+    private List<String> excerptNeedles(List<String> terms) {
+        LinkedHashSet<String> needles = new LinkedHashSet<>();
+        for (String term : terms) {
+            String lower = term == null ? "" : term.toLowerCase(Locale.ROOT).trim();
+            if (lower.length() >= 4) {
+                needles.add(lower);
+            }
+            for (String raw : lower.split("[^\\p{L}\\p{N}_.]+")) {
+                if (raw.length() >= 4 && !STOP_WORDS.contains(raw)) {
+                    needles.add(raw);
+                }
+            }
+        }
+        return new ArrayList<>(needles);
+    }
+
+    private List<String> searchTerms(List<String> terms) {
+        LinkedHashSet<String> needles = new LinkedHashSet<>();
+        for (String term : terms) {
+            String normalized = normalizeForMatch(term);
+            if (normalized.length() >= 4) {
+                needles.add(normalized);
+            }
+            extractSignificantTokens(term).stream()
+                    .filter(token -> token.length() >= 4)
+                    .forEach(needles::add);
+        }
+        return new ArrayList<>(needles);
     }
 
     private boolean isUsableTextbook(CourseMaterial material, String courseId, String classId) {
@@ -155,27 +257,15 @@ public class CourseImprovePlanContextService {
         return new ArrayList<>(terms);
     }
 
-    private int provenanceMatchScore(String content, List<String> terms) {
+    private int provenanceMatchScore(String content, List<String> searchTerms) {
         String normalizedContent = normalizeForMatch(content);
-        if (normalizedContent.isBlank() || terms == null) {
+        if (normalizedContent.isBlank() || searchTerms == null || searchTerms.isEmpty()) {
             return 0;
         }
         int score = 0;
-        for (String value : terms) {
-            if (value == null || value.isBlank()) {
-                continue;
-            }
-            String normalizedTerm = normalizeForMatch(value);
-            if (normalizedTerm.length() >= 3 && normalizedContent.contains(normalizedTerm)) {
-                score += 50;
-            }
-            for (String token : extractSignificantTokens(value)) {
-                if (Pattern.compile(
-                        "(?<![\\p{L}\\p{N}_])" + Pattern.quote(token) + "(?![\\p{L}\\p{N}_])",
-                        Pattern.UNICODE_CHARACTER_CLASS
-                ).matcher(normalizedContent).find()) {
-                    score += token.length() >= 8 ? 20 : token.length() >= 5 ? 5 : 1;
-                }
+        for (String term : searchTerms) {
+            if (term.length() >= 4 && normalizedContent.contains(term)) {
+                score += term.length() >= 8 ? 20 : 5;
             }
         }
         return score;
