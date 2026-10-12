@@ -85,6 +85,30 @@ void main() {
   });
 
   test(
+    'lesson-start prompts are tagged GUIDED_LESSON like the web composer',
+    () async {
+      final springAdapter = _RecordingAdapter();
+      final n8nAdapter = _RecordingAdapter();
+      final spring = Dio(BaseOptions(baseUrl: 'https://spring.example'))
+        ..httpClientAdapter = springAdapter;
+      final n8n = Dio(BaseOptions(baseUrl: 'https://n8n.example'))
+        ..httpClientAdapter = n8nAdapter;
+      final repository = AiTutorRepository(spring, n8n);
+
+      await repository.ask(
+        userId: 'student-1',
+        courseId: 'PFP191',
+        message: 'Bắt đầu bài 3: Counting and summing loops',
+        requestedMode: 'RAG',
+      );
+
+      final payload = n8nAdapter.lastRequest?.data as Map<String, dynamic>;
+      expect(payload['interactionType'], 'GUIDED_LESSON');
+      expect(payload['message'], 'Bắt đầu bài 3: Counting and summing loops');
+    },
+  );
+
+  test(
     'ordinary RAG chat goes through n8n even when requestedMode is RAG',
     () async {
       final springAdapter = _RecordingAdapter();

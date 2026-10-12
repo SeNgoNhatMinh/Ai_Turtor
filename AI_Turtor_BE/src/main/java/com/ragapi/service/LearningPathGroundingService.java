@@ -28,6 +28,8 @@ import java.util.Set;
 public class LearningPathGroundingService {
 
     private static final int DEFAULT_LESSON_COUNT = 5;
+    private static final int HIGH_SUPPORT_LESSON_COUNT = 6;
+    private static final int CHALLENGE_LESSON_COUNT = 3;
     private static final int MAX_LESSON_COUNT = 8;
     private static final Set<String> STOP_WORDS = Set.of(
             "bat", "dau", "bai", "hoc", "ve", "phan", "chuong", "muon", "hom", "nay",
@@ -42,7 +44,7 @@ public class LearningPathGroundingService {
             String studentQuestion,
             List<SuggestionItem> proposedLessons
     ) {
-        return ground(courseId, studentQuestion, proposedLessons, List.of());
+        return ground(courseId, studentQuestion, proposedLessons, List.of(), null);
     }
 
     /**
@@ -57,25 +59,39 @@ public class LearningPathGroundingService {
             List<SuggestionItem> proposedLessons,
             List<RagSourceEvidence> retrievedEvidence
     ) {
+        return ground(courseId, studentQuestion, proposedLessons, retrievedEvidence, null);
+    }
+
+    /**
+     * Same real course chapters for every student at a support level. The model
+     * may propose a path, but only indexed chapters with material become lessons,
+     * and the count is fixed by support level instead of by that proposal.
+     */
+    public List<SuggestionItem> ground(
+            String courseId,
+            String studentQuestion,
+            List<SuggestionItem> proposedLessons,
+            List<RagSourceEvidence> retrievedEvidence,
+            String supportLevel
+    ) {
         if (courseId == null || courseId.isBlank()) {
             return List.of();
         }
+        int lessonCount = lessonCountForSupportLevel(supportLevel);
         if (StudentChatIntentDetector.isTopiclessStudyRequest(studentQuestion)) {
-            return openingLessons(courseId, DEFAULT_LESSON_COUNT);
+            return openingLessons(courseId, lessonCount);
         }
         List<ChapterOutlineView> available = chapterOutlineService.suggestChapters(courseId).stream()
                 .filter(this::isStudentLessonChapter)
                 .toList();
-        int requestedCount = proposedLessons == null || proposedLessons.isEmpty()
-                ? DEFAULT_LESSON_COUNT
-                : Math.min(MAX_LESSON_COUNT, proposedLessons.size());
+        int requestedCount = lessonCount;
         if (available.isEmpty()) {
             List<SuggestionItem> evidenceLessons = evidenceBackedLessons(retrievedEvidence, requestedCount);
             if (!evidenceLessons.isEmpty()) {
                 return evidenceLessons;
             }
             if (StudentChatIntentDetector.isTopicStudyStart(studentQuestion)) {
-                return openingLessons(courseId, DEFAULT_LESSON_COUNT);
+                return openingLessons(courseId, lessonCount);
             }
             return List.of();
         }
@@ -257,8 +273,12 @@ public class LearningPathGroundingService {
     }
 
     public String pathAnswer(List<SuggestionItem> lessons) {
+        return pathAnswer(lessons, null);
+    }
+
+    public String pathAnswer(List<SuggestionItem> lessons, String supportLevel) {
         StringBuilder message = new StringBuilder();
-        message.append("Các bài dưới đây là chương có trong tài liệu môn học.\n");
+        message.append(pathIntro(supportLevel)).append('\n');
         if (lessons != null) {
             for (int index = 0; index < lessons.size(); index++) {
                 SuggestionItem lesson = lessons.get(index);
@@ -330,6 +350,27 @@ public class LearningPathGroundingService {
             }
         }
         return List.of();
+    }
+
+    static int lessonCountForSupportLevel(String supportLevel) {
+        String normalized = supportLevel == null ? "" : supportLevel.trim().toUpperCase(Locale.ROOT);
+        int count = switch (normalized) {
+            case "HIGH_SUPPORT" -> HIGH_SUPPORT_LESSON_COUNT;
+            case "CHALLENGE" -> CHALLENGE_LESSON_COUNT;
+            default -> DEFAULT_LESSON_COUNT;
+        };
+        return Math.min(MAX_LESSON_COUNT, count);
+    }
+
+    private static String pathIntro(String supportLevel) {
+        String normalized = supportLevel == null ? "" : supportLevel.trim().toUpperCase(Locale.ROOT);
+        return switch (normalized) {
+            case "HIGH_SUPPORT" ->
+                    "Các bài dưới đây là chương có trong tài liệu. Mình chia nhỏ để học lần lượt, từng chương một.";
+            case "CHALLENGE" ->
+                    "Các bài dưới đây là chương có trong tài liệu. Mình giữ ít bài hơn để bạn tự suy luận từ đúng chương đó.";
+            default -> "Các bài dưới đây là chương có trong tài liệu môn học.";
+        };
     }
 
     private boolean isStudentLessonChapter(ChapterOutlineView chapter) {

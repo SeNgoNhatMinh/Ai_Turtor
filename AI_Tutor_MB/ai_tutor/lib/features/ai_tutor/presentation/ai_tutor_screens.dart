@@ -143,6 +143,7 @@ class ConversationHistoryDrawer extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
     final conversations = ref.watch(conversationsControllerProvider);
+    final tutorSession = ref.watch(tutorSessionControllerProvider).session;
     final searchQuery = useState('');
     final debouncedQuery = useState('');
     final activeId = activeConversationId;
@@ -417,6 +418,10 @@ class ConversationHistoryDrawer extends HookConsumerWidget {
                       style: TextButton.styleFrom(
                         foregroundColor: AppColors.textSecondary,
                       ),
+                    ),
+                    const Gap(Insets.sm),
+                    AiSupportLevelFooter(
+                      supportLevel: tutorSession?.supportLevel,
                     ),
                   ],
                 ),
@@ -1010,6 +1015,18 @@ class _ConversationItem extends StatelessWidget {
                   color: AppColors.primary,
                 ),
               ],
+              IconButton(
+                tooltip: 'Tùy chọn hội thoại',
+                visualDensity: VisualDensity.compact,
+                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                padding: EdgeInsets.zero,
+                icon: const Icon(
+                  LucideIcons.moreHorizontal,
+                  size: 18,
+                  color: AppColors.textTertiary,
+                ),
+                onPressed: () => _showOptions(context),
+              ),
             ],
           ),
         ),
@@ -2545,14 +2562,18 @@ class _ChatInputBarState extends ConsumerState<_ChatInputBar> {
       _attachments.clear();
       _codeExpanded = false;
     });
+    final outgoing = text.isEmpty ? codeOnlyQuestion : text;
+    final guidedLesson = isGuidedLessonPrompt(outgoing);
     final effectiveId = await ref
         .read(chatControllerProvider(widget.conversationId).notifier)
         .sendMessage(
           conversationId: widget.conversationId,
-          message: text.isEmpty ? codeOnlyQuestion : text,
+          message: outgoing,
           courseId: course.code,
           classId: course.classId,
           codeSnippet: codeCheck.value.isEmpty ? null : codeCheck.value,
+          interactionType: guidedLesson ? 'GUIDED_LESSON' : null,
+          clickedSuggestion: guidedLesson ? outgoing : null,
           requestedMode: _requestedMode,
         );
     if (!mounted) return;

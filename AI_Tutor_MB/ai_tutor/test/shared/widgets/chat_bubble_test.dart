@@ -35,8 +35,8 @@ void main() {
     );
     final decoration = bubble.decoration! as BoxDecoration;
 
-    expect(decoration.color, AppColors.card);
-    expect(decoration.border?.top.color, AppColors.borderHairline);
+    expect(decoration.color, isNull);
+    expect(decoration.border, isNull);
     expect(decoration.color, isNot(AppColors.infoBg));
   });
 

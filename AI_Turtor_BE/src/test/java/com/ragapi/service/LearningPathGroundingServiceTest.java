@@ -189,6 +189,45 @@ class LearningPathGroundingServiceTest {
         assertThat(service.pathAnswer(result)).contains("Chapter 1. Introduction").doesNotContain("Senior-approved");
     }
 
+    @Test
+    void supportLevelKeepsOnlyRealChaptersAndChangesHowManyLessonsAppear() {
+        when(chapterOutlineService.suggestChapters("PFP191")).thenReturn(List.of(
+                chapter("c1", "Counting and summing loops", 10, "textbook"),
+                chapter("c2", "Nested loops", 20, "textbook"),
+                chapter("c3", "Loop patterns", 30, "textbook"),
+                chapter("c4", "Iteration loops", 40, "textbook"),
+                chapter("c5", "While loops", 50, "textbook"),
+                chapter("c6", "Files and loops", 60, "textbook"),
+                chapter("other", "Dictionaries", 70, "textbook")
+        ));
+        List<SuggestionItem> proposed = List.of(
+                new SuggestionItem("Bài 1: Invented topic", "", List.of(), "AI")
+        );
+
+        List<SuggestionItem> high = service.ground(
+                "PFP191", "Hôm nay mình muốn học loops", proposed, List.of(), "HIGH_SUPPORT");
+        List<SuggestionItem> standard = service.ground(
+                "PFP191", "Hôm nay mình muốn học loops", proposed, List.of(), "STANDARD");
+        List<SuggestionItem> challenge = service.ground(
+                "PFP191", "Hôm nay mình muốn học loops", proposed, List.of(), "CHALLENGE");
+
+        assertThat(high).extracting(SuggestionItem::getChapterTitle)
+                .containsExactly(
+                        "Counting and summing loops",
+                        "Nested loops",
+                        "Loop patterns",
+                        "Iteration loops",
+                        "While loops",
+                        "Files and loops"
+                );
+        assertThat(standard).hasSize(5);
+        assertThat(challenge).extracting(SuggestionItem::getChapterTitle)
+                .containsExactly("Counting and summing loops", "Nested loops", "Loop patterns");
+        assertThat(high).extracting(SuggestionItem::getChapterTitle).doesNotContain("Dictionaries", "Invented topic");
+        assertThat(service.pathAnswer(high, "HIGH_SUPPORT")).contains("chia nhỏ");
+        assertThat(service.pathAnswer(challenge, "CHALLENGE")).contains("ít bài hơn");
+    }
+
     private static ChapterOutlineView chapter(String key, String title, int page, String materialId) {
         return ChapterOutlineView.builder()
                 .chapterKey(key)

@@ -336,6 +336,12 @@ public class TutorController {
                     && ("CONVERSATIONAL".equals(intent.getSubIntent())
                     || "OFF_TOPIC".equals(intent.getSubIntent()));
             String teachingMode = persistTurn ? intent.getSubIntent() : "EXPLAIN_CONCEPT";
+            if ("LEARNING_PATH".equalsIgnoreCase(teachingMode)) {
+                pedagogicalContext = appendTutorContext(
+                        pedagogicalContext,
+                        learningPathSupportContext(sessionSupportLevel)
+                );
+            }
             if ("LESSON_TEACH".equalsIgnoreCase(teachingMode)
                     || "LESSON_DEEP_PATH".equalsIgnoreCase(teachingMode)
                     || !"STANDARD".equalsIgnoreCase(sessionSupportLevel)) {
@@ -399,9 +405,10 @@ public class TutorController {
                         courseId,
                         question,
                         lessonSuggestions,
-                        ragAnswer.getSourceEvidence()
+                        ragAnswer.getSourceEvidence(),
+                        sessionSupportLevel
                 );
-                applyGroundedLearningPath(ragAnswer, lessonSuggestions);
+                applyGroundedLearningPath(ragAnswer, lessonSuggestions, sessionSupportLevel);
                 answer = ragAnswer.getAnswer();
             }
 
@@ -567,7 +574,11 @@ public class TutorController {
         }
     }
 
-    private void applyGroundedLearningPath(CourseRagAnswer ragAnswer, List<SuggestionItem> lessons) {
+    private void applyGroundedLearningPath(
+            CourseRagAnswer ragAnswer,
+            List<SuggestionItem> lessons,
+            String supportLevel
+    ) {
         if (lessons == null || lessons.isEmpty()) {
             ragAnswer.setAnswer(StudentFacingMessages.noMatchingStudyUnit());
             ragAnswer.setSources(List.of());
@@ -575,7 +586,7 @@ public class TutorController {
             ragAnswer.setGroundingType("NONE");
             return;
         }
-        ragAnswer.setAnswer(learningPathGroundingService.pathAnswer(lessons));
+        ragAnswer.setAnswer(learningPathGroundingService.pathAnswer(lessons, supportLevel));
         Set<String> materialIds = new LinkedHashSet<>();
         for (SuggestionItem lesson : lessons) {
             if (lesson.getSourceMaterialIds() != null) {
@@ -706,6 +717,25 @@ public class TutorController {
             return extra;
         }
         return base + "\n" + extra;
+    }
+
+    private String learningPathSupportContext(String supportLevel) {
+        String normalized = supportLevel == null ? "STANDARD" : supportLevel.trim().toUpperCase(Locale.ROOT);
+        int count = LearningPathGroundingService.lessonCountForSupportLevel(normalized);
+        return switch (normalized) {
+            case "HIGH_SUPPORT" -> """
+                    - Learning path for HIGH_SUPPORT: use at most %d real chapter titles from COURSE MATERIAL CONTEXT, in textbook order.
+                      Split the topic into small steps. Do not invent a chapter that is not in the material.
+                    """.formatted(count).stripTrailing();
+            case "CHALLENGE" -> """
+                    - Learning path for CHALLENGE: use at most %d real chapter titles that best match the question.
+                      Do not add easier filler chapters. Do not invent a chapter that is not in the material.
+                    """.formatted(count).stripTrailing();
+            default -> """
+                    - Learning path for STANDARD: use at most %d real chapter titles from the course material, in textbook order.
+                      Do not invent a chapter that is not in the material.
+                    """.formatted(count).stripTrailing();
+        };
     }
 
     private String supportLevelTutorContext(String supportLevel) {

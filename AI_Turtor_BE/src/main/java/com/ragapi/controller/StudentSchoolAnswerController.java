@@ -111,7 +111,16 @@ public class StudentSchoolAnswerController {
             schoolMaterialContextService.requireOpenEnrollment(studentId, courseId);
             if (StudentChatIntentDetector.isTopicStudyStart(question)
                     || StudentChatIntentDetector.isTopiclessStudyRequest(question)) {
-                List<SuggestionItem> lessons = learningPathGroundingService.ground(courseId, question, List.of());
+                String supportLevel = pedagogicalDirectiveService
+                        .resolveTutorGuidance(studentId, courseId, request.getClassId())
+                        .supportLevel();
+                List<SuggestionItem> lessons = learningPathGroundingService.ground(
+                        courseId,
+                        question,
+                        List.of(),
+                        List.of(),
+                        supportLevel
+                );
                 if (lessons.isEmpty()) {
                     return ResponseEntity.ok(Map.of(
                             "answer", StudentFacingMessages.noMatchingStudyUnit(),
@@ -121,7 +130,7 @@ public class StudentSchoolAnswerController {
                     ));
                 }
                 Map<String, Object> path = new LinkedHashMap<>();
-                path.put("answer", learningPathGroundingService.pathAnswer(lessons));
+                path.put("answer", learningPathGroundingService.pathAnswer(lessons, supportLevel));
                 path.put("grounded", true);
                 path.put("source", "SCHOOL_MATERIAL");
                 path.put("nextImproveSuggestions", lessons);

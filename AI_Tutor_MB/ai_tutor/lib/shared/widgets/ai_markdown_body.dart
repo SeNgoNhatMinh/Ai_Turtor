@@ -12,6 +12,7 @@ import '../../core/theme/app_typography.dart';
 import '../../core/utils/ai_study_tips.dart';
 import 'ai_study_path_widgets.dart';
 import 'ai_suggestion_json.dart';
+import 'markdown_code_block.dart';
 
 final _aiMarkdownExtensions = md.ExtensionSet(
   const [md.FencedCodeBlockSyntax(), md.TableSyntax()],
@@ -108,7 +109,7 @@ class _AiMarkdownBodyState extends State<AiMarkdownBody>
       sizedImageBuilder: (config) => _SafeMarkdownImage(config: config),
       checkboxBuilder: null,
       bulletBuilder: null,
-      builders: const {},
+      builders: {'pre': _ChatGptCodeBlockBuilder()},
       paddingBuilders: const {},
       fitContent: true,
       listItemCrossAxisAlignment: MarkdownListItemCrossAxisAlignment.start,
@@ -124,46 +125,72 @@ class _AiMarkdownBodyState extends State<AiMarkdownBody>
   }
 
   MarkdownStyleSheet _styleSheet(ThemeData theme) {
+    final prose = theme.textTheme.bodyLarge?.copyWith(
+      color: AppColors.textPrimary,
+      fontSize: 15.5,
+      height: 1.75,
+    );
     return MarkdownStyleSheet(
-      p: theme.textTheme.bodyLarge?.copyWith(
-        color: AppColors.textPrimary,
-        height: 1.55,
-      ),
-      h1: theme.textTheme.titleLarge?.copyWith(
-        fontWeight: FontWeight.w700,
+      p: prose,
+      pPadding: const EdgeInsets.only(bottom: 2),
+      h1: theme.textTheme.titleMedium?.copyWith(
+        fontSize: 18,
+        fontWeight: FontWeight.w800,
+        height: 1.35,
+        letterSpacing: -0.2,
         color: AppColors.textPrimary,
       ),
       h2: theme.textTheme.titleMedium?.copyWith(
-        fontWeight: FontWeight.w700,
-        color: AppColors.splashNavy,
+        fontSize: 17,
+        fontWeight: FontWeight.w800,
+        height: 1.4,
+        letterSpacing: -0.15,
+        color: AppColors.textPrimary,
       ),
       h3: theme.textTheme.titleSmall?.copyWith(
-        fontWeight: FontWeight.w600,
+        fontSize: 15.5,
+        fontWeight: FontWeight.w800,
+        height: 1.4,
         color: AppColors.textPrimary,
       ),
-      h1Padding: const EdgeInsets.only(top: Insets.sm, bottom: Insets.xs),
-      h2Padding: const EdgeInsets.only(top: Insets.md, bottom: Insets.xs),
-      h3Padding: const EdgeInsets.only(top: Insets.sm, bottom: Insets.xs),
-      listBullet: theme.textTheme.bodyLarge?.copyWith(color: AppColors.primary),
-      listIndent: 20,
-      blockSpacing: Insets.sm,
-      strong: theme.textTheme.bodyLarge?.copyWith(
+      h1Padding: const EdgeInsets.only(top: 16, bottom: 2),
+      h2Padding: const EdgeInsets.only(top: 16, bottom: 2),
+      h3Padding: const EdgeInsets.only(top: 12, bottom: 2),
+      listBullet: prose?.copyWith(
+        color: AppColors.primary,
         fontWeight: FontWeight.w700,
+      ),
+      listIndent: 25,
+      listBulletPadding: const EdgeInsets.only(right: 8),
+      blockSpacing: 10,
+      strong: prose?.copyWith(
+        fontWeight: FontWeight.w800,
         color: AppColors.textPrimary,
       ),
-      a: theme.textTheme.bodyLarge?.copyWith(
+      em: prose?.copyWith(color: AppColors.textSecondary),
+      a: prose?.copyWith(
         color: AiMarkdownBody._studyTipColor,
+        fontWeight: FontWeight.w700,
         decoration: TextDecoration.underline,
         decorationColor: AiMarkdownBody._studyTipColor,
       ),
       code: codeStyle().copyWith(
-        fontSize: 13,
-        color: AppColors.peacockBlue,
-        backgroundColor: AppColors.raised,
+        fontSize: 13.5,
+        height: 1.45,
+        color: const Color(0xFFB54708),
+        backgroundColor: const Color(0xFFF7F7F5),
       ),
       codeblockPadding: EdgeInsets.zero,
       codeblockDecoration: const BoxDecoration(color: Colors.transparent),
-      horizontalRuleDecoration: const BoxDecoration(color: Colors.transparent),
+      blockquote: prose?.copyWith(color: AppColors.textSecondary, height: 1.6),
+      blockquotePadding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+      blockquoteDecoration: const BoxDecoration(
+        color: AppColors.raised,
+        border: Border(left: BorderSide(color: AppColors.primary, width: 3)),
+      ),
+      horizontalRuleDecoration: const BoxDecoration(
+        border: Border(top: BorderSide(color: AppColors.borderHairline)),
+      ),
     );
   }
 
@@ -205,6 +232,29 @@ class _AiMarkdownBodyState extends State<AiMarkdownBody>
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: children,
+    );
+  }
+}
+
+class _ChatGptCodeBlockBuilder extends MarkdownElementBuilder {
+  @override
+  Widget? visitElementAfter(md.Element element, TextStyle? preferredStyle) {
+    md.Element? codeElement;
+    for (final child in element.children ?? const []) {
+      if (child is md.Element && child.tag == 'code') {
+        codeElement = child;
+        break;
+      }
+    }
+    final source = codeElement ?? element;
+    final language = (source.attributes['class'] ?? '')
+        .replaceFirst(RegExp(r'^language-'), '')
+        .trim();
+    final code = source.textContent;
+    if (code.trim().isEmpty) return const SizedBox.shrink();
+    return MarkdownCodeBlock(
+      code: code,
+      language: language.isEmpty ? null : language,
     );
   }
 }

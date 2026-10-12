@@ -494,6 +494,74 @@ class AiChatTurnLimitBanner extends StatelessWidget {
   }
 }
 
+/// Mức hỗ trợ của buổi học, chỉ đọc. Nhãn khớp web student chat.
+class AiSupportLevelFooter extends StatelessWidget {
+  const AiSupportLevelFooter({super.key, this.supportLevel});
+
+  final String? supportLevel;
+
+  static const title = 'Mức hỗ trợ';
+
+  static String labelFor(String? supportLevel) {
+    return switch ((supportLevel ?? '').trim().toUpperCase()) {
+      'HIGH_SUPPORT' => 'High Support',
+      'CHALLENGE' => 'Challenge',
+      _ => 'Standard',
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final label = labelFor(supportLevel);
+    final theme = Theme.of(context).textTheme;
+
+    return Semantics(
+      container: true,
+      label: '$title: $label',
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: AppColors.raised,
+          borderRadius: BorderRadius.circular(Radii.md),
+          border: Border.all(color: AppColors.borderHairline),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: Insets.md,
+            vertical: Insets.sm,
+          ),
+          child: Row(
+            children: [
+              const Icon(
+                LucideIcons.lifeBuoy,
+                size: 16,
+                color: AppColors.textSecondary,
+              ),
+              const Gap(Insets.sm),
+              Expanded(
+                child: Text(
+                  title,
+                  style: theme.labelMedium?.copyWith(
+                    color: AppColors.textSecondary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              const Gap(Insets.sm),
+              Text(
+                label,
+                style: theme.titleSmall?.copyWith(
+                  color: AppColors.splashNavy,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class AiChatTutorSessionStrip extends StatelessWidget {
   const AiChatTutorSessionStrip({
     super.key,

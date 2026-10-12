@@ -69,9 +69,9 @@ public class CourseAnswerPromptSections {
                 - The student wants a lesson ROADMAP for a topic, not a full definition dump.
                 - Build the path only from COURSE MATERIAL CONTEXT and chapter titles in learner memory.
                 - Number lessons as "Bài 1", "Bài 2", ... Never use "Buổi".
-                - 4 to 8 lessons. Each lesson is one line: title plus a short reason from the material.
+                - Lesson count follows the active support level: HIGH_SUPPORT up to 6, STANDARD up to 5, CHALLENGE up to 3.
+                - Every lesson title must be a real chapter in COURSE MATERIAL CONTEXT. Do not invent lessons.
                 - Do not fully teach Bài 1 yet. Invite the student to pick a lesson.
-                - Do not invent lessons the context cannot support. Do not use a hardcoded curriculum.
                 - Do not provide complete assignment/project solutions.
                 """;
         }

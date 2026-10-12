@@ -30,6 +30,14 @@ android {
         versionName = flutter.versionName
     }
 
+    packaging {
+        jniLibs {
+            // BlueStacks (Android 9) cannot install APKs whose native libraries
+            // are stored uncompressed and aligned to 16 KB pages.
+            useLegacyPackaging = true
+        }
+    }
+
     buildTypes {
         release {
             // TODO: Add your own signing config for the release build.

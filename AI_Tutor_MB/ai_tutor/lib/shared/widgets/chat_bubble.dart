@@ -119,20 +119,11 @@ class ChatBubble extends StatelessWidget {
         (visibleSourceEvidence.isNotEmpty ||
             sources.isNotEmpty ||
             (groundingType ?? '').trim().isNotEmpty);
-    final radius = BorderRadius.only(
-      topLeft: const Radius.circular(Radii.lg),
-      topRight: const Radius.circular(Radii.lg),
-      bottomLeft: Radius.circular(isUser ? Radii.lg : Radii.sm),
-      bottomRight: Radius.circular(isUser ? Radii.sm : Radii.lg),
-    );
+    final radius = BorderRadius.circular(22);
 
-    final bgColor = isUser ? AppColors.primary : AppColors.card;
-
-    final decoration = BoxDecoration(
-      color: bgColor,
-      borderRadius: radius,
-      border: isUser ? null : Border.all(color: AppColors.borderHairline),
-    );
+    final decoration = isUser
+        ? BoxDecoration(color: AppColors.primary, borderRadius: radius)
+        : const BoxDecoration();
 
     return Align(
           alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
@@ -143,8 +134,15 @@ class ChatBubble extends StatelessWidget {
                   : double.infinity,
             ),
             child: Container(
-              margin: const EdgeInsets.symmetric(vertical: Insets.xs),
-              padding: const EdgeInsets.all(Insets.md),
+              margin: EdgeInsets.symmetric(
+                vertical: isUser ? Insets.xs : Insets.sm,
+              ),
+              padding: isUser
+                  ? const EdgeInsets.symmetric(
+                      horizontal: Insets.lg,
+                      vertical: 10,
+                    )
+                  : const EdgeInsets.only(top: 2, bottom: Insets.xs),
               decoration: decoration,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
