@@ -113,12 +113,20 @@ public class CourseAnswerRequestPolicyService {
     }
 
     public CourseRagAnswer buildOffTopicRedirect(String question, String courseId) {
-        if (!StudentChatIntentDetector.isOffTopicNonAcademic(question)) {
+        if (!StudentChatIntentDetector.shouldBlockExternalLlm(question)) {
             return null;
+        }
+        if (StudentChatIntentDetector.isIncompleteOrMeaningless(question)) {
+            return safeConversationAnswer(
+                    "Câu hỏi của bạn chưa hoàn chỉnh hoặc chưa có nội dung học tập cụ thể. "
+                            + "Hãy nhập đầy đủ chủ đề hoặc câu hỏi trong môn " + courseId
+                            + ", ví dụ: \"Giải thích khái niệm ...\" hoặc \"... hoạt động như thế nào?\""
+            );
         }
         return safeConversationAnswer(
                 "Mình là AI Tutor môn " + courseId + ", chỉ hỗ trợ câu hỏi học thuật và nội dung tài liệu môn học. "
-                        + "Câu hỏi về lịch học, giờ học, phòng học, điểm số hoặc thông tin hành chính bạn nên xem trên hệ thống lớp hoặc hỏi giáo viên/mentor phụ trách."
+                        + "Mình không sử dụng API AI bên ngoài cho câu hỏi ngoài phạm vi học tập. "
+                        + "Với lịch học, phòng học, điểm số hoặc thông tin lớp, bạn hãy xem trên hệ thống lớp hoặc hỏi giáo viên/mentor phụ trách."
         );
     }
 

@@ -23,7 +23,21 @@ public final class StudentChatIntentDetector {
     private static final Pattern ADMIN_OR_PERSONAL = Pattern.compile(
             "(?i)\\b(?:diem\\s*bao\\s*nhieu|co\\s*diem\\s*chua|ket\\s*qua\\s*thi|diem\\s*cuoi\\s*ky|"
                     + "thoi\\s*tiet|an\\s*gi|xem\\s*phim|nghe\\s*nhac|bong\\s*da|"
+                    + "nau\\s*an|mon\\s*an|cong\\s*thuc\\s*nau|du\\s*lich|khach\\s*san|"
+                    + "xo\\s*so|ca\\s*cuoc|chung\\s*khoan|gia\\s*vang|gia\\s*coin|"
+                    + "viet\\b.{0,30}\\btho|sang\\s*tac|ke\\s*chuyen|choi\\s*game|"
                     + "bao\\s*nhieu\\s*tuoi|co\\s*nguoi\\s*yeu|yeu\\s*ai|dat\\s*lich\\s*hen|hen\\s*ho)\\b"
+    );
+
+    private static final Pattern INCOMPLETE_REQUEST = Pattern.compile(
+            "^(?:(?:hom nay|bay gio|luc nay)\\s+)?"
+                    + "(?:(?:minh|em|toi|to)\\s+)?"
+                    + "(?:muon|can|dinh|dang muon|co the)\\s*"
+                    + "(?:nhe|a|ah|thoi|\\.\\.\\.)?$"
+    );
+
+    private static final Pattern OBVIOUS_NOISE = Pattern.compile(
+            "^(?:a+s+d+f+|q+w+e+r+t+y+|x+y+z+|a+b+c+|test|testing|123+|[a-z]?\\d{1,2})$"
     );
 
     /**
@@ -278,13 +292,48 @@ public final class StudentChatIntentDetector {
         if (isAllowedInteraction(normalized)) {
             return false;
         }
-        if (looksLikeAcademicQuestion(normalized)) {
-            return false;
-        }
-        return CLASS_TIME_QUESTION.matcher(normalized).find()
+        boolean explicitlyNonAcademic = CLASS_TIME_QUESTION.matcher(normalized).find()
                 || CLASS_LOGISTICS.matcher(normalized).find()
                 || ADMIN_OR_PERSONAL.matcher(normalized).find()
                 || isLikelyClassScheduleQuestion(normalized);
+        if (explicitlyNonAcademic && !hasTechnicalQualifier(normalized)) {
+            return true;
+        }
+        if (looksLikeAcademicQuestion(normalized)) {
+            return false;
+        }
+        return explicitlyNonAcademic;
+    }
+
+    /**
+     * Rejects input that has no usable learning intent before any hosted LLM is called.
+     * Keep this conservative: short course terms such as "JSP" or "SQL" are valid.
+     */
+    public static boolean isIncompleteOrMeaningless(String question) {
+        String normalized = normalize(question)
+                .replaceAll("[!?.,;:]+$", "")
+                .trim();
+        if (normalized.isBlank()) {
+            return true;
+        }
+        if (INCOMPLETE_REQUEST.matcher(normalized).matches()
+                || OBVIOUS_NOISE.matcher(normalized.replaceAll("\\s+", "")).matches()) {
+            return true;
+        }
+        return normalized.matches(".*([a-z0-9])\\1{5,}.*");
+    }
+
+    public static boolean shouldBlockExternalLlm(String question) {
+        return isIncompleteOrMeaningless(question) || isOffTopicNonAcademic(question);
+    }
+
+    private static boolean hasTechnicalQualifier(String normalized) {
+        return containsAnyWholePhrase(
+                normalized,
+                "api", "code", "sql", "database", "algorithm", "thuat toan",
+                "java", "javascript", "python", "servlet", "jsp", "http", "json",
+                "machine learning", "du lieu", "data", "lap trinh"
+        );
     }
 
     /**

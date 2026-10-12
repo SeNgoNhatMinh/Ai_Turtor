@@ -30,6 +30,7 @@ export default function UserAccountsTab({ users }) {
   };
 
   const columns = [
+    { title: 'Mã sinh viên', dataIndex: 'studentCode', key: 'studentCode', width: 140, render: (value, record) => record.role === 'STUDENT' ? (value || '—') : '—' },
     { title: 'Email', dataIndex: 'email', key: 'email', ellipsis: true },
     { title: 'Họ tên', dataIndex: 'fullName', key: 'fullName', render: (value) => value || '—' },
     {
@@ -80,8 +81,8 @@ export default function UserAccountsTab({ users }) {
           query={users.search}
           onQueryChange={users.setSearch}
           filteredCount={users.list.length}
-          totalCount={users.list.length}
-          placeholder="Tìm theo email hoặc họ tên..."
+          totalCount={users.total}
+          placeholder="Tìm theo mã sinh viên, email, họ tên hoặc vai trò"
           onSubmit={users.reload}
         >
           <Select
@@ -101,7 +102,16 @@ export default function UserAccountsTab({ users }) {
           columns={columns}
           rowKey="id"
           loading={users.loading}
-          pagination={{ pageSize: 8 }}
+          pagination={{
+            current: users.page + 1,
+            pageSize: users.pageSize,
+            total: users.total,
+            showSizeChanger: true,
+            pageSizeOptions: ['10', '20', '50', '100'],
+            showTotal: (total, range) => `${range[0]}–${range[1]} / ${total}`,
+            onChange: (nextPage, nextSize) => users.setPage(nextPage - 1, nextSize),
+          }}
+          locale={{ emptyText: users.loading ? 'Đang tải tài khoản...' : 'Không tìm thấy tài khoản' }}
           size="middle"
         />
       </Card>

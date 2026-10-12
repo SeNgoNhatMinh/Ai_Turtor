@@ -123,8 +123,14 @@ textarea.ant-input:focus::placeholder {
 .app-container.light .main-sidebar .ant-menu-light .ant-menu-item,
 .app-container.light .main-sidebar .ant-menu-light .ant-menu-item .ant-menu-title-content,
 .app-container.light .main-sidebar .ant-menu-light .ant-menu-item .ant-menu-item-icon,
-.app-container.light .main-sidebar .ant-menu-light .ant-menu-item svg {
-    color: #EAF3FF !important;
+.app-container.light .main-sidebar .ant-menu-light .ant-menu-item svg,
+.app-container.light .main-sidebar .ant-menu-light .ant-menu-submenu-title,
+.app-container.light .main-sidebar .ant-menu-light .ant-menu-submenu-title .ant-menu-title-content,
+.app-container.light .main-sidebar .ant-menu-light .ant-menu-submenu-title .ant-menu-title-content span,
+.app-container.light .main-sidebar .ant-menu-light .ant-menu-submenu-title .ant-menu-item-icon,
+.app-container.light .main-sidebar .ant-menu-light .ant-menu-submenu-title svg,
+.app-container.light .main-sidebar .ant-menu-light .ant-menu-submenu-arrow {
+    color: #FFFFFF !important;
 }
 
 .app-container.light .main-sidebar .ant-menu-light .ant-menu-item-selected,

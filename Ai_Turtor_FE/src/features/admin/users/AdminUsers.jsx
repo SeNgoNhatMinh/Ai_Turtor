@@ -19,7 +19,7 @@ function AdminUsers({ triggerToast, handleAdminImport }) {
   const items = [
     {
       key: 'users',
-      label: <TabLabel icon={UsersIcon}>Tài khoản ({controller.users.list.length})</TabLabel>,
+      label: <TabLabel icon={UsersIcon}>Tài khoản ({controller.users.total})</TabLabel>,
       children: <UserAccountsTab users={controller.users} />,
     },
     {

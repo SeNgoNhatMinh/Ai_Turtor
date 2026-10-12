@@ -13,9 +13,6 @@ export default function AiLogFilters({ loading, onApply, onReset }) {
     <Card className="admin-ai-logs-filter-card">
       <Form form={form} layout="vertical" onFinish={onApply} className="admin-ai-logs-filter-form">
         <div className="admin-ai-logs-filter-grid">
-          <Form.Item name="q" label="Nội dung">
-            <Input allowClear prefix={<Search size={15} />} placeholder="Tìm trong câu hỏi hoặc câu trả lời" />
-          </Form.Item>
           <Form.Item name="studentId" label="Sinh viên">
             <Input allowClear placeholder="Nhập mã sinh viên" />
           </Form.Item>

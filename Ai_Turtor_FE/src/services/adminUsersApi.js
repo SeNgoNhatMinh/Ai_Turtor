@@ -12,10 +12,20 @@ export const adminUsersApi = {
     if (q) params.append('q', q);
     if (role) params.append('role', role);
     if (active !== '') params.append('active', active);
+    const paged = options.page !== undefined || Boolean(options.size);
+    if (options.page !== undefined && options.page !== null) params.append('page', String(options.page));
+    if (options.size) params.append('size', String(options.size));
     const qs = params.toString();
-    return asArray(await request(`${API_BASE_URL}/admin/users${qs ? `?${qs}` : ''}`, {
+    const data = await request(`${API_BASE_URL}/admin/users${qs ? `?${qs}` : ''}`, {
       signal: options.signal,
-    }), 'users', 'content');
+    });
+    if (!paged) return asArray(data, 'users', 'content');
+    return {
+      users: asArray(data, 'users', 'content'),
+      totalElements: Number(data?.totalElements ?? data?.count ?? 0),
+      page: Number(data?.page ?? options.page ?? 0),
+      size: Number(data?.size ?? options.size ?? 20),
+    };
   },
 
   async updateAdminUser(userId, payload) {

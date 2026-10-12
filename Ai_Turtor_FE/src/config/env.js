@@ -10,13 +10,28 @@ const parseNumber = (value, fallback) => {
 
 const trimTrailingSlash = (value) => String(value || '').replace(/\/+$/, '');
 const tutorV2TimeoutFallback = parseNumber(import.meta.env.VITE_N8N_TUTOR_V2_TIMEOUT_MS, 300000);
+const RAILWAY_FRONTEND_HOST = 'fpt-ai-turtor.up.railway.app';
+const isRailwayProduction = typeof window !== 'undefined'
+  && window.location.hostname === RAILWAY_FRONTEND_HOST;
+
+// A Railway build can still contain the local .env API address. On the
+// deployed site, keep browser calls on the same origin so Caddy can proxy them.
+const configuredApiBaseUrl = trimTrailingSlash(import.meta.env.VITE_API_BASE_URL || '/api');
+const apiBaseUrl = isRailwayProduction ? '/api' : configuredApiBaseUrl;
+
+const socketUrl = (value) => {
+  const trimmed = trimTrailingSlash(value || '');
+  if (!isRailwayProduction) return trimmed;
+  if (!trimmed || /localhost|127\.0\.0\.1/i.test(trimmed)) return '';
+  return trimmed;
+};
 
 export const env = {
-  apiBaseUrl: trimTrailingSlash(import.meta.env.VITE_API_BASE_URL || '/api'),
+  apiBaseUrl,
   apiTimeoutMs: parseNumber(import.meta.env.VITE_API_TIMEOUT_MS, 60000),
   apiWithCredentials: parseBoolean(import.meta.env.VITE_API_WITH_CREDENTIALS, false),
-  chatSocketUrl: trimTrailingSlash(import.meta.env.VITE_CHAT_SOCKET_URL || ''),
-  realtimeSocketUrl: trimTrailingSlash(import.meta.env.VITE_REALTIME_SOCKET_URL || ''),
+  chatSocketUrl: socketUrl(import.meta.env.VITE_CHAT_SOCKET_URL),
+  realtimeSocketUrl: socketUrl(import.meta.env.VITE_REALTIME_SOCKET_URL),
   realtimeEnabled: parseBoolean(import.meta.env.VITE_REALTIME_ENABLED, true),
   // Student Chat is a mandatory Harness flow. Keep n8n enabled/strict when a
   // local dev server has no .env file; optional n8n capabilities still retain

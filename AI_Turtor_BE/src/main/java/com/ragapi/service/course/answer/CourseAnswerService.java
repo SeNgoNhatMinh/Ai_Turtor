@@ -4,6 +4,7 @@ import com.ragapi.dto.CourseRagAnswer;
 import com.ragapi.dto.RagQueryIntent;
 import com.ragapi.service.course.answer.generation.CourseAnswerGenerationService;
 import com.ragapi.service.course.answer.orchestration.CourseAnswerPipelineService;
+import com.ragapi.service.course.answer.policy.CourseAnswerRequestPolicyService;
 import com.ragapi.service.course.gateway.CourseAnswerGateway;
 import com.ragapi.service.course.model.CourseAnswerRequest;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +20,7 @@ public class CourseAnswerService implements CourseAnswerGateway {
 
     private final CourseAnswerGenerationService generationService;
     private final CourseAnswerPipelineService pipelineService;
+    private final CourseAnswerRequestPolicyService requestPolicyService;
 
     public String ask(String question) throws IOException {
         return ask(question, null, null);
@@ -72,6 +74,16 @@ public class CourseAnswerService implements CourseAnswerGateway {
             String learnerContext,
             String recentHistoryContext
     ) {
+        CourseRagAnswer localAnswer = requestPolicyService.buildSensitiveInternalAnswer(question);
+        if (localAnswer == null) {
+            localAnswer = requestPolicyService.buildConversationalAnswer(question, courseId);
+        }
+        if (localAnswer == null) {
+            localAnswer = requestPolicyService.buildOffTopicRedirect(question, courseId);
+        }
+        if (localAnswer != null) {
+            return localAnswer;
+        }
         return generationService.generateTutorInteraction(
                 question,
                 courseId,

@@ -9,7 +9,13 @@ const formatDateTime = (value) => (
 
 const COLUMNS = [
   { title: 'Thời gian', dataIndex: 'createdAt', width: 170, render: formatDateTime },
-  { title: 'Sinh viên', dataIndex: 'studentId', width: 130 },
+  {
+    title: 'Mã sinh viên',
+    dataIndex: 'studentCode',
+    key: 'studentCode',
+    width: 140,
+    render: (value) => value || '—',
+  },
   {
     title: 'Môn/lớp',
     key: 'scope',
@@ -44,15 +50,19 @@ const renderExpandedLog = (row) => (
   </Space>
 );
 
-export default function AiRequestLogsTable({ logs, loading }) {
+export default function AiRequestLogsTable({ logs, loading, pagination, query, onSearch }) {
   return (
     <Card className="admin-ai-logs-section-card" title="Lịch sử yêu cầu">
       <SearchableTable
         rowKey={(row, index) => `${row.conversationId}-${row.createdAt}-${index}`}
         dataSource={logs}
         loading={loading}
-        pagination={{ pageSize: 10, showSizeChanger: true }}
-        scroll={{ x: 1000 }}
+        searchPlaceholder="Tìm theo sinh viên, câu hỏi hoặc câu trả lời"
+        serverPagination={pagination}
+        externalQuery={query}
+        onServerSearch={onSearch}
+        locale={{ emptyText: loading ? 'Đang tải nhật ký...' : 'Không có yêu cầu phù hợp' }}
+        scroll={{ x: 980 }}
         expandable={{ expandedRowRender: renderExpandedLog }}
         columns={COLUMNS}
       />

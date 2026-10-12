@@ -56,12 +56,13 @@ export function useAcademicRecords({
   const enrollmentsQuery = useQuery({
     queryKey: queryKeys.adminStudentEnrollments(submittedEnrollmentSearch),
     queryFn: async ({ signal }) => {
-      const users = await adminUsersApi.getAdminUsers(
+      const userPage = await adminUsersApi.getAdminUsers(
         submittedEnrollmentSearch,
         'STUDENT',
         '',
-        { signal },
+        { signal, page: 0, size: 20 },
       );
+      const users = userPage.users || [];
       const normalizedSearch = submittedEnrollmentSearch.toLowerCase();
       const student = users.find((user) => {
         const candidates = [
@@ -175,7 +176,8 @@ export function useAcademicRecords({
 
   const handleCreateEnrollment = async (values) => {
     try {
-      const users = await adminUsersApi.getAdminUsers(values.studentId, 'STUDENT');
+      const userPage = await adminUsersApi.getAdminUsers(values.studentId, 'STUDENT', '', { page: 0, size: 20 });
+      const users = userPage.users || [];
       const normalized = String(values.studentId || '').trim().toLowerCase();
       const student = users.find((user) => [
         user.id,

@@ -9,15 +9,17 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 class IntentClassifierServiceTest {
 
     private IntentClassifierService service;
+    private LlmIntentClassifierService llmClassifier;
 
     @BeforeEach
     void setUp() {
-        LlmIntentClassifierService llmClassifier = mock(LlmIntentClassifierService.class);
+        llmClassifier = mock(LlmIntentClassifierService.class);
         SharedRedisCacheService sharedRedisCache = mock(SharedRedisCacheService.class);
         when(llmClassifier.classify(anyString(), anyString(), anyString(), anyString()))
                 .thenReturn(Optional.empty());
@@ -207,6 +209,27 @@ class IntentClassifierServiceTest {
         assertEquals(IntentClassifierService.MODE_RAG, result.getMode());
         assertEquals("CONVERSATIONAL", result.getSubIntent());
         assertFalse(result.getRequiresCourseMaterial());
+    }
+
+    @Test
+    void incompleteInput_isRejectedWithoutCallingHostedLlm() {
+        var result = service.classify("hôm nay tôi muốn...", "", "DBI202");
+
+        assertEquals(IntentClassifierService.MODE_RAG, result.getMode());
+        assertEquals("OFF_TOPIC", result.getSubIntent());
+        assertFalse(result.getRequiresCourseMaterial());
+        assertEquals("LOCAL_VALIDATION", result.getRoutingStrategy());
+        verifyNoInteractions(llmClassifier);
+    }
+
+    @Test
+    void obviousNonAcademicQuestion_isRejectedWithoutCallingHostedLlm() {
+        var result = service.classify("viết cho mình một bài thơ", "", "DBI202");
+
+        assertEquals("OFF_TOPIC", result.getSubIntent());
+        assertFalse(result.getRequiresCourseMaterial());
+        assertEquals("RULE", result.getRoutingStrategy());
+        verifyNoInteractions(llmClassifier);
     }
 
     @Test

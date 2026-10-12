@@ -20,6 +20,19 @@ class StudentChatIntentDetectorTest {
         assertTrue(StudentChatIntentDetector.isOffTopicNonAcademic("mai maays giowf hoc"));
         assertTrue(StudentChatIntentDetector.isOffTopicNonAcademic("hôm nay có học không"));
         assertTrue(StudentChatIntentDetector.isOffTopicNonAcademic("lịch học tuần này"));
+        assertTrue(StudentChatIntentDetector.isOffTopicNonAcademic("thời tiết hôm nay như thế nào?"));
+        assertTrue(StudentChatIntentDetector.isOffTopicNonAcademic("bóng đá là gì?"));
+        assertTrue(StudentChatIntentDetector.isOffTopicNonAcademic("viết cho mình một bài thơ"));
+        assertFalse(StudentChatIntentDetector.isOffTopicNonAcademic("Weather API hoạt động như thế nào?"));
+    }
+
+    @Test
+    void blocksIncompleteAndMeaninglessInputBeforeHostedLlm() {
+        assertTrue(StudentChatIntentDetector.isIncompleteOrMeaningless("hôm nay tôi muốn..."));
+        assertTrue(StudentChatIntentDetector.isIncompleteOrMeaningless("qwerty"));
+        assertTrue(StudentChatIntentDetector.isIncompleteOrMeaningless("aaaaaaa"));
+        assertFalse(StudentChatIntentDetector.isIncompleteOrMeaningless("JSP"));
+        assertFalse(StudentChatIntentDetector.isIncompleteOrMeaningless("Java Servlet"));
     }
 
     @Test

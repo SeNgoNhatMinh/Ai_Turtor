@@ -4,6 +4,7 @@ import { queryKeys } from '../../../app/queryKeys';
 import { adminUsersApi } from '../../../services/adminUsersApi';
 import { getUserFacingError } from '../../../services/apiClient';
 import { ACCOUNT_ROLES } from '../../../constants/roles';
+import { useDebouncedValue } from '../../../hooks/useDebouncedValue';
 
 const EMPTY_LIST = [];
 
@@ -11,18 +12,25 @@ export function useAdminUsersController({ triggerToast, handleAdminImport }) {
   const queryClient = useQueryClient();
   const [userSearchQ, setUserSearchQ] = useState('');
   const [userFilterRole, setUserFilterRole] = useState('');
-  const [appliedUserFilters, setAppliedUserFilters] = useState({ search: '', role: '' });
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(20);
+  const debouncedSearch = useDebouncedValue(userSearchQ, 300);
   const [editUser, setEditUser] = useState(null);
   const [updatingTeacherRoleId, setUpdatingTeacherRoleId] = useState('');
   const [adminImportLog, setAdminImportLog] = useState(null);
 
   const usersQuery = useQuery({
-    queryKey: queryKeys.adminUsers(appliedUserFilters),
+    queryKey: queryKeys.adminUsers({
+      search: debouncedSearch.trim(),
+      role: userFilterRole,
+      page,
+      size: pageSize,
+    }),
     queryFn: ({ signal }) => adminUsersApi.getAdminUsers(
-      appliedUserFilters.search,
-      appliedUserFilters.role,
+      debouncedSearch.trim(),
+      userFilterRole,
       '',
-      { signal },
+      { signal, page, size: pageSize },
     ),
     staleTime: 30_000,
   });
@@ -37,7 +45,8 @@ export function useAdminUsersController({ triggerToast, handleAdminImport }) {
     staleTime: 15_000,
   });
 
-  const usersList = usersQuery.data || EMPTY_LIST;
+  const usersPage = usersQuery.data || { users: EMPTY_LIST, totalElements: 0, page: 0, size: pageSize };
+  const usersList = usersPage.users || EMPTY_LIST;
   const mentorsList = mentorsQuery.data || EMPTY_LIST;
   const escalationsList = escalationsQuery.data || EMPTY_LIST;
 
@@ -47,17 +56,13 @@ export function useAdminUsersController({ triggerToast, handleAdminImport }) {
     triggerToast(getUserFacingError(error, 'Không thể tải đầy đủ dữ liệu quản trị tài khoản.'));
   }, [escalationsQuery.error, mentorsQuery.error, triggerToast, usersQuery.error]);
 
+  useEffect(() => {
+    setPage(0);
+  }, [debouncedSearch, userFilterRole]);
+
   const loadUsers = useCallback(async () => {
-    const nextFilters = { search: userSearchQ.trim(), role: userFilterRole };
-    if (
-      nextFilters.search === appliedUserFilters.search
-      && nextFilters.role === appliedUserFilters.role
-    ) {
-      await usersQuery.refetch();
-      return;
-    }
-    setAppliedUserFilters(nextFilters);
-  }, [appliedUserFilters, userFilterRole, userSearchQ, usersQuery]);
+    await usersQuery.refetch();
+  }, [usersQuery]);
 
   const loadMentors = useCallback(() => mentorsQuery.refetch(), [mentorsQuery]);
   const loadEscalations = useCallback(() => escalationsQuery.refetch(), [escalationsQuery]);
@@ -66,7 +71,13 @@ export function useAdminUsersController({ triggerToast, handleAdminImport }) {
     try {
       await adminUsersApi.deleteAdminUser(userId);
       queryClient.setQueriesData({ queryKey: ['admin', 'users'] }, (current) => (
-        Array.isArray(current) ? current.filter((user) => user.id !== userId) : current
+        current && Array.isArray(current.users)
+          ? {
+            ...current,
+            users: current.users.filter((user) => user.id !== userId),
+            totalElements: Math.max(0, Number(current.totalElements || 0) - 1),
+          }
+          : current
       ));
       triggerToast('Đã xóa tài khoản.');
     } catch (error) {
@@ -138,13 +149,16 @@ export function useAdminUsersController({ triggerToast, handleAdminImport }) {
           : current
       ));
       queryClient.setQueriesData({ queryKey: ['admin', 'users'] }, (current) => (
-        Array.isArray(current)
-          ? current.map((user) => (
-            user.id === mentor.id
-            || String(user.email || '').toLowerCase() === String(mentor.email || '').toLowerCase()
-              ? { ...user, role: resolvedRole }
-              : user
-          ))
+        current && Array.isArray(current.users)
+          ? {
+            ...current,
+            users: current.users.map((user) => (
+              user.id === mentor.id
+              || String(user.email || '').toLowerCase() === String(mentor.email || '').toLowerCase()
+                ? { ...user, role: resolvedRole }
+                : user
+            )),
+          }
           : current
       ));
       triggerToast(response?.message || 'Đã cập nhật vai trò. Giảng viên cần đăng nhập lại.');
@@ -187,6 +201,13 @@ export function useAdminUsersController({ triggerToast, handleAdminImport }) {
       error: usersQuery.error,
       search: userSearchQ,
       role: userFilterRole,
+      page,
+      pageSize,
+      total: Number(usersPage.totalElements || 0),
+      setPage: (nextPage, nextSize) => {
+        setPage(nextSize === pageSize ? nextPage : 0);
+        if (nextSize) setPageSize(nextSize);
+      },
       editUser,
       setSearch: setUserSearchQ,
       setRole: setUserFilterRole,

@@ -8,26 +8,44 @@ import ProviderStatusTable from './components/ProviderStatusTable';
 import { useAdminAiLogs } from './hooks/useAdminAiLogs';
 import './AdminAiLogsPage.css';
 
-export default function AdminAiLogsPage() {
-  const controller = useAdminAiLogs();
+const SECTIONS = {
+  providers: {
+    title: 'Quản lý LLM Provider Chain',
+    description: 'Xem thứ tự ưu tiên, model và các thao tác bật, tắt, khôi phục provider đang có.',
+  },
+  runtime: {
+    title: 'Thống kê runtime theo provider',
+    description: 'Số liệu từ lần khởi động backend gần nhất. Công thức thống kê giữ nguyên.',
+  },
+  history: {
+    title: 'Lịch sử yêu cầu',
+    description: 'Nhật ký từng yêu cầu trả lời AI. Nội dung dài được rút gọn trên bảng và xem đầy đủ khi mở dòng.',
+  },
+};
+
+export default function AdminAiLogsPage({ section = 'providers' }) {
+  const controller = useAdminAiLogs(section);
+  const page = SECTIONS[section] || SECTIONS.providers;
 
   return (
     <div className="portal-section admin-route-page admin-ai-logs-page">
       <PageHeader
-        eyebrow="Giám sát AI"
-        title="Nhật ký hỏi đáp AI"
-        description="Theo dõi câu hỏi, câu trả lời, tiến trình và mức sử dụng ước tính của sinh viên."
+        eyebrow="Nhật ký trả lời AI"
+        title={page.title}
+        description={page.description}
       />
-      <AiLogMetrics summary={controller.summary} />
-      <AiLogFilters
-        loading={controller.loading}
-        onApply={controller.applyFilters}
-        onReset={controller.refreshAll}
-      />
-      {controller.error && (
+      {section === 'history' && <AiLogMetrics summary={controller.summary} />}
+      {section === 'history' && (
+        <AiLogFilters
+          loading={controller.loading}
+          onApply={controller.applyFilters}
+          onReset={controller.refreshAll}
+        />
+      )}
+      {section === 'history' && controller.error && (
         <Alert className="admin-ai-logs-alert" type="error" showIcon title={controller.error} />
       )}
-      {controller.providerError && (
+      {section === 'providers' && controller.providerError && (
         <Alert
           className="admin-ai-logs-alert"
           type="error"
@@ -36,7 +54,7 @@ export default function AdminAiLogsPage() {
           title={controller.providerError}
         />
       )}
-      {controller.providerNotice && (
+      {section === 'providers' && controller.providerNotice && (
         <Alert
           className="admin-ai-logs-alert"
           type="success"
@@ -45,18 +63,33 @@ export default function AdminAiLogsPage() {
           title={controller.providerNotice}
         />
       )}
-      <LlmProviderManagementTable
-        providers={controller.providerConfigs}
-        loading={controller.providerConfigLoading}
-        mutationKey={controller.providerMutationKey}
-        onUpdate={controller.updateProvider}
-        onSetEnabled={controller.setProviderEnabled}
-        onDelete={controller.deleteProvider}
-        onRestore={controller.restoreProvider}
-        onReload={controller.reloadProviderChain}
-      />
-      <ProviderStatusTable providers={controller.providerStats} loading={controller.providerLoading} />
-      <AiRequestLogsTable logs={controller.logs} loading={controller.loading} />
+      {section === 'runtime' && controller.providerError && (
+        <Alert className="admin-ai-logs-alert" type="error" showIcon title={controller.providerError} />
+      )}
+      {section === 'providers' && (
+        <LlmProviderManagementTable
+          providers={controller.providerConfigs}
+          loading={controller.providerConfigLoading}
+          mutationKey={controller.providerMutationKey}
+          onUpdate={controller.updateProvider}
+          onSetEnabled={controller.setProviderEnabled}
+          onDelete={controller.deleteProvider}
+          onRestore={controller.restoreProvider}
+          onReload={controller.reloadProviderChain}
+        />
+      )}
+      {section === 'runtime' && (
+        <ProviderStatusTable providers={controller.providerStats} loading={controller.providerLoading} />
+      )}
+      {section === 'history' && (
+        <AiRequestLogsTable
+          logs={controller.logs}
+          loading={controller.loading}
+          pagination={controller.logPagination}
+          query={controller.logQuery}
+          onSearch={controller.searchLogs}
+        />
+      )}
     </div>
   );
 }

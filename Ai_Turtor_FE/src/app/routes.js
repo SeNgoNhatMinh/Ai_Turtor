@@ -59,7 +59,10 @@ export const appRoutes = [
   { role: 'admin', tab: 'admin-dashboard', path: '/admin/dashboard' },
   { role: 'admin', tab: 'admin-users', path: '/admin/users' },
   { role: 'admin', tab: 'admin-academic', path: '/admin/academic' },
-  { role: 'admin', tab: 'admin-ai-logs', path: '/admin/ai-logs' },
+  { role: 'admin', tab: 'admin-ai-logs-providers', path: '/admin/ai-logs/providers', navigationPath: true },
+  { role: 'admin', tab: 'admin-ai-logs-stats', path: '/admin/ai-logs/runtime', navigationPath: true },
+  { role: 'admin', tab: 'admin-ai-logs-history', path: '/admin/ai-logs/history', navigationPath: true },
+  { role: 'admin', tab: 'admin-ai-logs', path: '/admin/ai-logs', navigationPath: true },
   {
     role: 'admin',
     tab: 'admin-answer-cache',

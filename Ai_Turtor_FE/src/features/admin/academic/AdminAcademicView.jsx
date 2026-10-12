@@ -57,12 +57,15 @@ function AdminAcademic({ triggerToast, currentUser }) {
   });
   const studentOptionsQuery = useQuery({
     queryKey: queryKeys.adminStudentSearch(debouncedStudentSearch),
-    queryFn: ({ signal }) => adminUsersApi.getAdminUsers(
-      debouncedStudentSearch,
-      'STUDENT',
-      true,
-      { signal },
-    ),
+    queryFn: async ({ signal }) => {
+      const data = await adminUsersApi.getAdminUsers(
+        debouncedStudentSearch,
+        'STUDENT',
+        true,
+        { signal, page: 0, size: 20 },
+      );
+      return data.users || [];
+    },
     enabled: debouncedStudentSearch.length >= 2,
     staleTime: 60_000,
   });

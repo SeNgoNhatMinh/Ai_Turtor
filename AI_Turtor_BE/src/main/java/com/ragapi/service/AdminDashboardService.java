@@ -13,14 +13,21 @@ import com.ragapi.repository.QuestionEscalationRepository;
 import com.ragapi.repository.SubscriptionPlanRepository;
 import com.ragapi.repository.UserRepository;
 import com.ragapi.repository.UserSubscriptionRepository;
+import com.ragapi.util.StudentCodeAllocator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Service
@@ -31,6 +38,7 @@ public class AdminDashboardService {
     private final QuestionEscalationRepository questionEscalationRepository;
     private final SubscriptionPlanRepository subscriptionPlanRepository;
     private final UserSubscriptionRepository userSubscriptionRepository;
+    private final MongoTemplate mongoTemplate;
 
     @Value("${admin.account.email:admin@system.local}")
     private String systemAdminEmail;
@@ -64,6 +72,46 @@ public class AdminDashboardService {
                 .collect(Collectors.toList());
     }
 
+    public Map<String, Object> pageUsers(String query, String role, Boolean active, int page, int size) {
+        int safeSize = Math.min(Math.max(size, 1), 100);
+        Query mongoQuery = userFilterQuery(query, role, active);
+        long total = mongoTemplate.count(mongoQuery, User.class);
+        int lastPage = total == 0 ? 0 : (int) ((total - 1) / safeSize);
+        int safePage = Math.min(Math.max(page, 0), lastPage);
+        mongoQuery.with(Sort.by(Sort.Direction.DESC, "createdAt"));
+        mongoQuery.skip((long) safePage * safeSize);
+        mongoQuery.limit(safeSize);
+        List<User> users = mongoTemplate.find(mongoQuery, User.class);
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("users", users);
+        body.put("totalElements", total);
+        body.put("page", safePage);
+        body.put("size", safeSize);
+        body.put("count", users.size());
+        return body;
+    }
+
+    private Query userFilterQuery(String query, String role, Boolean active) {
+        Query mongoQuery = new Query();
+        if (role != null && !role.isBlank()) {
+            mongoQuery.addCriteria(Criteria.where("role").regex("^" + Pattern.quote(role.trim()) + "$", "i"));
+        }
+        if (active != null) {
+            mongoQuery.addCriteria(Criteria.where("isActive").is(active));
+        }
+        if (query != null && !query.isBlank()) {
+            String pattern = ".*" + Pattern.quote(query.trim()) + ".*";
+            mongoQuery.addCriteria(new Criteria().orOperator(
+                    Criteria.where("email").regex(pattern, "i"),
+                    Criteria.where("fullName").regex(pattern, "i"),
+                    Criteria.where("phone").regex(pattern, "i"),
+                    Criteria.where("studentCode").regex(pattern, "i"),
+                    Criteria.where("role").regex(pattern, "i")
+            ));
+        }
+        return mongoQuery;
+    }
+
     public void deleteUser(String userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
@@ -82,6 +130,9 @@ public class AdminDashboardService {
         }
         if (request.getRole() != null && !request.getRole().isBlank()) {
             user.setRole(request.getRole());
+        }
+        if ("STUDENT".equalsIgnoreCase(user.getRole()) && !StudentCodeAllocator.isStudentCode(user.getStudentCode())) {
+            user.setStudentCode(StudentCodeAllocator.allocate(userRepository::existsByStudentCode));
         }
         user.setUpdatedAt(LocalDateTime.now());
 
@@ -215,7 +266,9 @@ public class AdminDashboardService {
         String needle = query.toLowerCase(Locale.ROOT);
         return safe(user.getEmail()).contains(needle)
                 || safe(user.getFullName()).contains(needle)
-                || safe(user.getPhone()).contains(needle);
+                || safe(user.getPhone()).contains(needle)
+                || safe(user.getStudentCode()).contains(needle)
+                || safe(user.getRole()).contains(needle);
     }
 
     private boolean matchesMentorQuery(Mentor mentor, String query) {

@@ -64,6 +64,15 @@
 .app-container:not(.dark) .main-sidebar .ant-menu-item .ant-menu-title-content,
 .app-container:not(.dark) .main-sidebar .ant-menu-item .anticon,
 .app-container:not(.dark) .main-sidebar .ant-menu-item svg { color: inherit !important; opacity: 1 !important; }
+.app-container:not(.dark) .main-sidebar .ant-menu-submenu-title,
+.app-container:not(.dark) .main-sidebar .ant-menu-submenu-selected > .ant-menu-submenu-title,
+.app-container:not(.dark) .main-sidebar .ant-menu-submenu-title .ant-menu-title-content,
+.app-container:not(.dark) .main-sidebar .ant-menu-submenu-title .ant-menu-title-content span,
+.app-container:not(.dark) .main-sidebar .ant-menu-submenu-title svg,
+.app-container:not(.dark) .main-sidebar .ant-menu-submenu-arrow {
+    color: #FFFFFF !important;
+    opacity: 1 !important;
+}
 .app-container:not(.dark) .main-sidebar .ant-menu-item:hover { color: #fff !important; background: rgba(255,255,255,.12) !important; }
 .app-container:not(.dark) .main-sidebar .ant-menu-item-selected {
     color: #001b3d !important;

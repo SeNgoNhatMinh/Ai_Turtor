@@ -38,6 +38,8 @@ export default function ProviderStatusTable({ providers, loading }) {
         dataSource={providers}
         loading={loading}
         pagination={false}
+        searchKeys={['provider', 'model']}
+        searchPlaceholder="Tìm theo provider hoặc model"
         scroll={{ x: 900 }}
         columns={COLUMNS}
       />

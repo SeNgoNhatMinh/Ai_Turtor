@@ -2,8 +2,10 @@ package com.ragapi.service;
 
 import com.ragapi.entity.AiConversation;
 import com.ragapi.entity.AiMessage;
+import com.ragapi.entity.User;
 import com.ragapi.repository.AiConversationRepository;
 import com.ragapi.repository.AiMessageRepository;
+import com.ragapi.repository.UserRepository;
 import com.ragapi.util.LessonExplanationCompleter;
 import com.ragapi.util.LessonUnderstandingCheckCompleter;
 import com.ragapi.util.StudentFacingMessages;
@@ -26,9 +28,12 @@ import java.util.stream.Collectors;
 public class AdminAiLogService {
     private final AiConversationRepository conversationRepository;
     private final AiMessageRepository messageRepository;
+    private final UserRepository userRepository;
 
     public List<Map<String, Object>> list(String studentId, String courseId, String query,
                                            LocalDateTime from, LocalDateTime to) {
+        Map<String, User> usersById = userRepository.findAll().stream()
+                .collect(Collectors.toMap(User::getId, Function.identity(), (a, b) -> a));
         Map<String, AiConversation> conversations = conversationRepository.findAll().stream()
                 .collect(Collectors.toMap(AiConversation::getId, Function.identity(), (a, b) -> a));
         Map<String, List<AiMessage>> grouped = messageRepository.findAll().stream()
@@ -37,20 +42,26 @@ public class AdminAiLogService {
         List<Map<String, Object>> logs = new ArrayList<>();
         grouped.forEach((conversationId, messages) -> {
             AiConversation conversation = conversations.get(conversationId);
-            if (conversation == null || !matches(conversation.getUserId(), studentId)
+            if (conversation == null || !matchesStudent(conversation.getUserId(), studentId, usersById)
                     || !matches(conversation.getCourseId(), courseId)) return;
             for (int i = 0; i < messages.size(); i++) {
                 AiMessage question = messages.get(i);
                 if (!"STUDENT".equalsIgnoreCase(question.getRole())) continue;
                 AiMessage answer = i + 1 < messages.size() && "ASSISTANT".equalsIgnoreCase(messages.get(i + 1).getRole())
                         ? messages.get(i + 1) : null;
+                User student = usersById.get(conversation.getUserId());
+                String studentCode = student == null ? "" : student.getStudentCode();
+                String studentName = student == null ? "" : student.getFullName();
                 if (!within(question.getCreatedAt(), from, to)
-                        || !contains(query, question.getContent(), answer == null ? null : answer.getContent())) continue;
+                        || !contains(query, question.getContent(), answer == null ? null : answer.getContent(),
+                        studentCode, studentName, student == null ? null : student.getEmail())) continue;
                 int inputTokens = estimateTokens(question.getContent());
                 int outputTokens = estimateTokens(answer == null ? null : answer.getContent());
                 Map<String, Object> row = new LinkedHashMap<>();
                 row.put("conversationId", conversationId);
                 row.put("studentId", conversation.getUserId());
+                row.put("studentCode", studentCode == null ? "" : studentCode);
+                row.put("studentName", studentName == null ? "" : studentName);
                 row.put("courseId", conversation.getCourseId());
                 row.put("classId", conversation.getClassId());
                 row.put("question", question.getContent());
@@ -103,6 +114,13 @@ public class AdminAiLogService {
 
     private int estimateTokens(String text) { return text == null ? 0 : (int) Math.ceil(text.length() / 4.0); }
     private boolean matches(String actual, String expected) { return expected == null || expected.isBlank() || expected.equals(actual); }
+    private boolean matchesStudent(String userId, String expected, Map<String, User> usersById) {
+        if (expected == null || expected.isBlank()) return true;
+        if (expected.equals(userId)) return true;
+        User user = usersById.get(userId);
+        if (user == null) return false;
+        return contains(expected, user.getStudentCode(), user.getFullName(), user.getEmail());
+    }
     private boolean within(LocalDateTime value, LocalDateTime from, LocalDateTime to) {
         return value != null && (from == null || !value.isBefore(from)) && (to == null || !value.isAfter(to));
     }

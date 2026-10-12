@@ -1,10 +1,12 @@
 package com.ragapi.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 import java.time.LocalDateTime;
 
@@ -24,8 +26,11 @@ public class User {
     
     // Authentication
     private String email;  // Unique
+    @JsonIgnore
     private String password;  // Hashed password
     private String phone;  // Optional
+    @Indexed(unique = true, sparse = true)
+    private String studentCode;
     
     // User Info
     private String fullName;

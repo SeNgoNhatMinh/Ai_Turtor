@@ -1,4 +1,4 @@
-import { memo, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import { Menu, Tooltip } from 'antd';
 import {
   ArrowRight,
@@ -22,22 +22,35 @@ function Sidebar({ accountRole, activeRole, activeTab, switchTab, courseId, clas
   const workspaceCard = workspaceCards[activeRole];
   const WorkspaceIcon = workspaceCard?.icon;
 
+  const selectedKey = activeTab === 'admin-ai-logs' ? 'admin-ai-logs-providers' : activeTab;
+  const [openKeys, setOpenKeys] = useState(() => (
+    String(selectedKey).startsWith('admin-ai-logs') ? ['admin-ai-logs'] : []
+  ));
+  useEffect(() => {
+    if (!String(selectedKey).startsWith('admin-ai-logs')) return;
+    setOpenKeys((keys) => (keys.includes('admin-ai-logs') ? keys : [...keys, 'admin-ai-logs']));
+  }, [selectedKey]);
   const items = useMemo(() => getNavigationForRole(accountRole || activeRole).map((item) => {
     const Icon = item.icon;
+    const label = (text, description) => (
+      <Tooltip
+        placement="right"
+        title={<span className="sidebar-tooltip-text">{description}</span>}
+        color="#FFFFFF"
+        classNames={{ root: 'sidebar-nav-tooltip' }}
+        rootClassName="sidebar-nav-tooltip"
+      >
+        <span>{text}</span>
+      </Tooltip>
+    );
     return {
       key: item.key,
       icon: <Icon size={18} />,
-      label: (
-        <Tooltip
-          placement="right"
-          title={<span className="sidebar-tooltip-text">{item.description}</span>}
-          color="#FFFFFF"
-          classNames={{ root: 'sidebar-nav-tooltip' }}
-          rootClassName="sidebar-nav-tooltip"
-        >
-          <span>{item.label}</span>
-        </Tooltip>
-      ),
+      label: label(item.label, item.description),
+      children: item.children?.map((child) => ({
+        key: child.key,
+        label: label(child.label, child.description),
+      })),
     };
   }), [accountRole, activeRole]);
 
@@ -72,7 +85,9 @@ function Sidebar({ accountRole, activeRole, activeTab, switchTab, courseId, clas
         <Menu
           mode="inline"
           inlineCollapsed={collapsed}
-          selectedKeys={[activeTab]}
+          selectedKeys={[selectedKey]}
+          openKeys={collapsed ? undefined : openKeys}
+          onOpenChange={setOpenKeys}
           onClick={(e) => switchTab(e.key)}
           items={items}
           style={{ background: 'transparent', borderRight: 'none' }}

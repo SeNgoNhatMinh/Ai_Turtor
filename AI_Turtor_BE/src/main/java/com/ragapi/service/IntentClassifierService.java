@@ -127,6 +127,16 @@ public class IntentClassifierService {
                     false, "RULE");
         }
 
+        if (!hasText(codeSnippet) && StudentChatIntentDetector.isIncompleteOrMeaningless(message)) {
+            return base(MODE_RAG,
+                    "Incomplete or meaningless student input",
+                    0.99,
+                    "OFF_TOPIC",
+                    domain,
+                    "Ask the student to provide a complete learning question. Do not call an external LLM.",
+                    false, "LOCAL_VALIDATION");
+        }
+
         if (context.hasTeachContext()
                 && StudentChatIntentDetector.isDependentFollowUp(message)
                 && !hasText(codeSnippet)

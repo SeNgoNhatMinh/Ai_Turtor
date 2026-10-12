@@ -23,25 +23,30 @@ const providerErrorMessage = (reason, fallback) => (
     : getUserFacingError(reason, fallback)
 );
 
-export function useAdminAiLogs() {
+export function useAdminAiLogs(section = 'history') {
   const queryClient = useQueryClient();
   const [filters, setFilters] = useState(() => buildLogFilters());
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(20);
   const [providerNotice, setProviderNotice] = useState('');
   const [providerMutationError, setProviderMutationError] = useState('');
 
   const logsQuery = useQuery({
-    queryKey: queryKeys.adminAiLogs(filters),
-    queryFn: ({ signal }) => adminAiLogsApi.getLogs(filters, { signal }),
+    queryKey: queryKeys.adminAiLogs({ ...filters, page, size: pageSize }),
+    queryFn: ({ signal }) => adminAiLogsApi.getLogs({ ...filters, page, size: pageSize }, { signal }),
+    enabled: section === 'history',
     staleTime: 15_000,
   });
   const providerConfigsQuery = useQuery({
     queryKey: queryKeys.adminLlmProviders(),
     queryFn: ({ signal }) => adminAiLogsApi.getProviders({ signal }),
+    enabled: section === 'providers',
     staleTime: 30_000,
   });
   const providerStatsQuery = useQuery({
     queryKey: queryKeys.adminLlmProviderStats(),
     queryFn: ({ signal }) => adminAiLogsApi.getProviderStats({ signal }),
+    enabled: section === 'runtime',
     staleTime: 15_000,
   });
 
@@ -56,11 +61,12 @@ export function useAdminAiLogs() {
   });
 
   const applyFilters = useCallback(async (values = {}) => {
-    const nextFilters = buildLogFilters(values);
+    const nextFilters = { ...buildLogFilters(values), q: filters.q || '' };
     if (JSON.stringify(nextFilters) === JSON.stringify(filters)) {
       await logsQuery.refetch();
       return;
     }
+    setPage(0);
     setFilters(nextFilters);
   }, [filters, logsQuery]);
 
@@ -74,6 +80,7 @@ export function useAdminAiLogs() {
     if (JSON.stringify(filters) === JSON.stringify(emptyFilters)) {
       tasks.push(logsQuery.refetch());
     } else {
+      setPage(0);
       setFilters(emptyFilters);
     }
     await Promise.all(tasks);
@@ -154,6 +161,21 @@ export function useAdminAiLogs() {
         : getUserFacingError(logsQuery.error, logPermissionMessage))
       : '',
     applyFilters,
+    logQuery: filters.q || '',
+    searchLogs: (q) => {
+      setPage(0);
+      setFilters((current) => ({ ...current, q: String(q || '').trim() }));
+    },
+    logPagination: {
+      page: Number(logsPayload.page ?? page),
+      pageSize: Number(logsPayload.size || pageSize),
+      totalElements: Number(logsPayload.totalElements ?? logsPayload.count ?? 0),
+      pageSizeOptions: ['10', '20', '50', '100'],
+      onChange: (nextPage, nextSize) => {
+        setPage(nextSize === pageSize ? nextPage : 0);
+        setPageSize(nextSize);
+      },
+    },
     refreshAll,
     updateProvider,
     setProviderEnabled,

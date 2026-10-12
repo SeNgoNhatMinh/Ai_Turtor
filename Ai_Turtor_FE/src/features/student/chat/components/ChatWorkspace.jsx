@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '../../../../app/queryKeys';
 import ChatMessageList from './ChatMessageList';
@@ -6,7 +6,8 @@ import { buildMaterialSourceMap } from '../../../../utils/sourceLabels';
 import { classIdMatches } from '../../../../utils/academicIds';
 import ChatComposer from './ChatComposer';
 import StudentOwnLlmDialog from './StudentOwnLlmDialog';
-import { clearStudentOwnLlm, readStudentOwnLlm } from '../studentOwnLlm';
+import { clearStudentOwnLlm, readStudentOwnLlm, saveStudentOwnLlm } from '../studentOwnLlm';
+import { aiTutorApi } from '../../../../services/aiTutorApi';
 import ChatWorkspaceHeader from './ChatWorkspaceHeader';
 import PinnedMessagesBar from './PinnedMessagesBar';
 import { useAnswerFeedback } from '../useAnswerFeedback';
@@ -69,6 +70,17 @@ function ChatWorkspace({
   const [ttsVoiceId, setTtsVoiceId] = useState('');
   const [ownLlmOpen, setOwnLlmOpen] = useState(false);
   const [ownLlmVersion, setOwnLlmVersion] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    aiTutorApi.getStudentLlm().then((status) => {
+      if (cancelled || !status?.configured) return;
+      saveStudentOwnLlm(userId, { provider: status.provider, model: status.model });
+      setOwnLlmVersion((version) => version + 1);
+    }).catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
 
   const voiceStorageKey = useMemo(() => (
     `ai-tutor:student-tts-voice:${String(userId || currentUser?.id || 'current')}:${courseId || 'none'}:${classId || 'none'}`
@@ -295,6 +307,7 @@ function ChatWorkspace({
         isAiLoading={isAiLoading}
         onClearOwnLlm={() => {
           clearStudentOwnLlm(userId);
+          aiTutorApi.deleteStudentLlm().catch(() => {});
           setOwnLlmVersion((version) => version + 1);
         }}
         onOpenOwnLlm={() => setOwnLlmOpen(true)}

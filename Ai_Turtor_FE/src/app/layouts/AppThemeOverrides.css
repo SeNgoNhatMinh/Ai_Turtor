@@ -96,7 +96,11 @@
     padding-inline: 0 !important;
 }
 
-.app-container.dark .main-sidebar .ant-menu-light .ant-menu-item {
+.app-container.dark .main-sidebar .ant-menu-light .ant-menu-item,
+.app-container.dark .main-sidebar .ant-menu-light .ant-menu-submenu-title,
+.app-container.dark .main-sidebar .ant-menu-light .ant-menu-submenu-title .ant-menu-title-content,
+.app-container.dark .main-sidebar .ant-menu-light .ant-menu-submenu-title span,
+.app-container.dark .main-sidebar .ant-menu-light .ant-menu-submenu-arrow {
     color: #ECECEC !important;
 }
 
