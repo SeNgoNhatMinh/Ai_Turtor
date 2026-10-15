@@ -261,6 +261,58 @@ class TextbookChunkAlignmentTest {
     }
 
     @Test
+    void jdbcSectionOutranksJpaSummaryThatOnlyMentionsTheTerm() {
+        RetrievedCourseChunk summary = new RetrievedCourseChunk(
+                "Summary. Hibernate and the Java Persistence API map entities. JDBC is only the lower-level API underneath.",
+                0.96,
+                "summary",
+                "PRJ301",
+                null,
+                "t1",
+                "COURSE_SHARED",
+                "PDF",
+                "book",
+                "chapter-19",
+                "Chapter 19: Introducing Java Persistence API and Hibernate ORM",
+                "summary",
+                "Summary",
+                "chunk-summary",
+                1,
+                "SECTION"
+        );
+        RetrievedCourseChunk jdbc = new RetrievedCourseChunk(
+                "JDBC connects a Java application to a database using DriverManager, Connection, and PreparedStatement.",
+                0.42,
+                "jdbc",
+                "PRJ301",
+                null,
+                "t1",
+                "COURSE_SHARED",
+                "PDF",
+                "book",
+                "chapter-12",
+                "JDBC Database Access",
+                "jdbc-section",
+                "JDBC statements",
+                "chunk-jdbc",
+                2,
+                "SECTION"
+        );
+
+        List<RetrievedCourseChunk> ranked = TextbookChunkAlignment.rank(
+                "Hôm nay mình muốn học về kết nối cơ sở dữ liệu JDBC",
+                List.of(summary, jdbc)
+        );
+        List<RetrievedCourseChunk> kept = TextbookChunkAlignment.merge(
+                "Hôm nay mình muốn học về kết nối cơ sở dữ liệu JDBC",
+                List.of(summary, jdbc)
+        );
+
+        assertThat(ranked.get(0).materialId()).isEqualTo("jdbc");
+        assertThat(kept).extracting(RetrievedCourseChunk::materialId).containsExactly("jdbc");
+    }
+
+    @Test
     void bilingualDedupKeepsAllChunksFromPreferredRepresentation() {
         RetrievedCourseChunk en = bilingualChunk("English source", 0.9, "chunk-en", "en");
         RetrievedCourseChunk vi1 = bilingualChunk("Bản dịch phần một", 0.8, "chunk-vi-1", "vi");

@@ -228,6 +228,91 @@ class LearningPathGroundingServiceTest {
         assertThat(service.pathAnswer(challenge, "CHALLENGE")).contains("ít bài hơn");
     }
 
+    @Test
+    void jdbcQuestionDoesNotBecomeJpaChaptersFromANearbySummary() {
+        when(chapterOutlineService.suggestChapters("PRJ301")).thenReturn(List.of(
+                chapter("jdbc", "Chapter 12: JDBC Database Access", 240, "book"),
+                chapter("jpa", "Chapter 19: Introducing Java Persistence API and Hibernate ORM", 560, "book"),
+                chapter("mapping", "Chapter 20: Mapping Entities to Tables with JPA Annotations", 580, "book"),
+                chapter("repo", "Chapter 21: Using JPA in Spring Framework Repositories", 600, "book")
+        ));
+        RagSourceEvidence summary = RagSourceEvidence.builder()
+                .materialId("book")
+                .chunkId("chunk-summary")
+                .chapter("Summary")
+                .pageStart(601)
+                .excerpt("This summary reviews the Java Persistence API, Hibernate ORM, JPA annotations, and Spring repositories.")
+                .sourceKind("COURSE_MATERIAL")
+                .excerptVerified(true)
+                .build();
+
+        List<SuggestionItem> result = service.ground(
+                "PRJ301",
+                "Hôm nay mình muốn học về kết nối cơ sở dữ liệu JDBC",
+                List.of(),
+                List.of(summary),
+                "CHALLENGE"
+        );
+
+        assertThat(result).extracting(SuggestionItem::getChapterTitle)
+                .containsExactly("Chapter 12: JDBC Database Access");
+        assertThat(service.citedEvidence(result, List.of(summary))).isEmpty();
+    }
+
+    @Test
+    void jdbcQuestionStaysEmptyWhenTheBookOnlyHasJpaChapters() {
+        when(chapterOutlineService.suggestChapters("PRJ301")).thenReturn(List.of(
+                chapter("jpa", "Chapter 19: Introducing Java Persistence API and Hibernate ORM", 560, "book"),
+                chapter("mapping", "Chapter 20: Mapping Entities to Tables with JPA Annotations", 580, "book"),
+                chapter("repo", "Chapter 21: Using JPA in Spring Framework Repositories", 600, "book")
+        ));
+        RagSourceEvidence summary = RagSourceEvidence.builder()
+                .materialId("book")
+                .chapter("Summary")
+                .pageStart(601)
+                .excerpt("JDBC is the lower-level API. This chapter then introduces Hibernate and the Java Persistence API.")
+                .sourceKind("COURSE_MATERIAL")
+                .excerptVerified(true)
+                .build();
+
+        assertThat(service.ground(
+                "PRJ301",
+                "Hôm nay mình muốn học về kết nối cơ sở dữ liệu JDBC",
+                List.of(),
+                List.of(summary),
+                "CHALLENGE"
+        )).isEmpty();
+    }
+
+    @Test
+    void jdbcEvidenceCanSelectTheChapterThatActuallyContainsIt() {
+        when(chapterOutlineService.suggestChapters("PRJ301")).thenReturn(List.of(
+                chapter("access", "Connecting Applications to a Database", 240, "book"),
+                chapter("jpa", "Chapter 19: Introducing Java Persistence API and Hibernate ORM", 560, "book")
+        ));
+        RagSourceEvidence jdbc = RagSourceEvidence.builder()
+                .materialId("book")
+                .chunkId("chunk-jdbc")
+                .chapter("Connecting Applications to a Database")
+                .excerpt("JDBC connects a Java application to a database with DriverManager, Connection, and PreparedStatement.")
+                .sourceKind("COURSE_MATERIAL")
+                .excerptVerified(true)
+                .build();
+
+        List<SuggestionItem> result = service.ground(
+                "PRJ301",
+                "Hôm nay mình muốn học về kết nối cơ sở dữ liệu JDBC",
+                List.of(),
+                List.of(jdbc),
+                "CHALLENGE"
+        );
+
+        assertThat(result).extracting(SuggestionItem::getChapterTitle)
+                .containsExactly("Connecting Applications to a Database");
+        assertThat(service.citedEvidence(result, List.of(jdbc))).extracting(RagSourceEvidence::getChunkId)
+                .containsExactly("chunk-jdbc");
+    }
+
     private static ChapterOutlineView chapter(String key, String title, int page, String materialId) {
         return ChapterOutlineView.builder()
                 .chapterKey(key)

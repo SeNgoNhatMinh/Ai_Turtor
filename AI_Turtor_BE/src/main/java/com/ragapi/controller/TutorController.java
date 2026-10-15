@@ -597,9 +597,10 @@ public class TutorController {
                 materialIds.addAll(lesson.getSourceMaterialIds());
             }
         }
-        List<RagSourceEvidence> evidence = ragAnswer.getSourceEvidence() == null
-                ? List.of()
-                : ragAnswer.getSourceEvidence().stream()
+        List<RagSourceEvidence> evidence = learningPathGroundingService.citedEvidence(
+                        lessons,
+                        ragAnswer.getSourceEvidence()
+                ).stream()
                 .filter(item -> item.getMaterialId() != null && materialIds.contains(item.getMaterialId()))
                 .map(TutorController::withoutInternalKnowledgeLabel)
                 .toList();

@@ -126,6 +126,8 @@ public class RetrievalQueryTranslationService {
                   branch of mathematics; never replace a specific concept with only a
                   broader field name. Never invent a definition or answer the question.
                 - Keep acronyms, code identifiers and proper names unchanged.
+                - Never replace a named technology with a neighboring one.
+                  JDBC stays JDBC, not JPA or Hibernate. JSP stays JSP, not Servlet.
                 - Do not include markdown, labels, quotation marks or explanations.
 
                 LEARNER QUESTION:

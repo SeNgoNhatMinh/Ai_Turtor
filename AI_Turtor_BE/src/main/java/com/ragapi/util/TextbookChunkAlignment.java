@@ -161,6 +161,9 @@ public final class TextbookChunkAlignment {
         if (chunk == null) {
             return false;
         }
+        if (isRecapHeading(chunk.sectionTitle()) || isRecapHeading(chunk.chapterTitle())) {
+            return true;
+        }
         String title = (blankToEmpty(chunk.chapterTitle()) + " " + blankToEmpty(chunk.sectionTitle())).trim();
         String normalizedTitle = TextSanitizer.normalizeAccentInsensitive(title).toLowerCase(Locale.ROOT);
         if (normalizedTitle.matches("^(contents?|table of contents|index)$")) {
@@ -282,7 +285,11 @@ public final class TextbookChunkAlignment {
         if (definition && looksLikeDefinition(normalized, tokens)) {
             score += 4.0;
         }
+        score += headingHitCount(chunk, tokens) * 6.0;
         score += normalizedRetrievalScore(chunk.score());
+        if (isRecapHeading(chunk.sectionTitle()) || isRecapHeading(chunk.chapterTitle())) {
+            score -= 12.0;
+        }
         if (isLikelyNavigationChunk(chunk)) {
             score -= 20.0;
         }
@@ -338,6 +345,21 @@ public final class TextbookChunkAlignment {
             identifiers.add(identifier);
         }
         return identifiers;
+    }
+
+    private static int headingHitCount(RetrievedCourseChunk chunk, List<String> tokens) {
+        String heading = (blankToEmpty(chunk.chapterTitle()) + " " + blankToEmpty(chunk.sectionTitle())).trim();
+        if (heading.isBlank() || tokens == null || tokens.isEmpty()) {
+            return 0;
+        }
+        return hitCount(heading, tokens);
+    }
+
+    static boolean isRecapHeading(String heading) {
+        String normalized = TextSanitizer.normalizeAccentInsensitive(heading == null ? "" : heading)
+                .toLowerCase(Locale.ROOT)
+                .trim();
+        return normalized.matches("summar(?:y|ies)|abstract|review questions|exercises|problems|key terms");
     }
 
     private static int functionCallHitCount(String question, String normalizedContent) {

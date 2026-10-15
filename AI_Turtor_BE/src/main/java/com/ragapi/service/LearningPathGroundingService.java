@@ -17,6 +17,8 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Converts an LLM-proposed learning path into source-backed lessons. The model may
@@ -34,6 +36,10 @@ public class LearningPathGroundingService {
     private static final Set<String> STOP_WORDS = Set.of(
             "bat", "dau", "bai", "hoc", "ve", "phan", "chuong", "muon", "hom", "nay",
             "start", "lesson", "learn", "about", "the", "and", "with", "from", "course"
+    );
+    /** A Latin term the student actually typed, such as JDBC. Vietnamese words stay out. */
+    private static final Pattern LATIN_TERM = Pattern.compile(
+            "(?<![\\p{L}\\p{N}])([A-Za-z][A-Za-z0-9]{2,})(?![\\p{L}\\p{N}])"
     );
 
     private final ChapterOutlineService chapterOutlineService;
@@ -86,7 +92,13 @@ public class LearningPathGroundingService {
                 .toList();
         int requestedCount = lessonCount;
         if (available.isEmpty()) {
-            List<SuggestionItem> evidenceLessons = evidenceBackedLessons(retrievedEvidence, requestedCount);
+            Set<String> anchors = topicAnchors(studentQuestion);
+            List<RagSourceEvidence> fallbackEvidence = anchors.isEmpty()
+                    ? retrievedEvidence
+                    : evidenceContainingAnchor(retrievedEvidence, anchors).stream()
+                    .filter(item -> !isGenericSection(item.getChapter()))
+                    .toList();
+            List<SuggestionItem> evidenceLessons = evidenceBackedLessons(fallbackEvidence, requestedCount);
             if (!evidenceLessons.isEmpty()) {
                 return evidenceLessons;
             }
@@ -97,13 +109,17 @@ public class LearningPathGroundingService {
         }
 
         Set<String> focusTokens = tokens(studentQuestion);
+        Set<String> anchors = topicAnchors(studentQuestion);
         Set<String> proposedLessonTokens = proposedLessonTokens(proposedLessons);
-        Set<String> evidenceTokens = evidenceTokens(retrievedEvidence);
-        Set<String> evidenceMaterialIds = evidenceMaterialIds(retrievedEvidence);
+        List<RagSourceEvidence> votingEvidence = anchors.isEmpty()
+                ? retrievedEvidence
+                : evidenceContainingAnchor(retrievedEvidence, anchors);
+        Set<String> evidenceTokens = evidenceTokens(votingEvidence);
+        Set<String> evidenceMaterialIds = evidenceMaterialIds(votingEvidence);
 
         List<RankedChapter> ranked = available.stream()
-                .filter(chapter -> relevance(chapter.getTitle(), focusTokens) > 0
-                        || relevance(chapter.getTitle(), evidenceTokens) > 0)
+                .filter(chapter -> chapterMatchesQuestion(
+                        chapter, focusTokens, anchors, evidenceTokens, votingEvidence))
                 .map(chapter -> new RankedChapter(
                         chapter,
                         (4 * relevance(chapter.getTitle(), focusTokens))
@@ -118,7 +134,12 @@ public class LearningPathGroundingService {
                 .toList();
 
         if (ranked.isEmpty()) {
-            return evidenceBackedLessons(retrievedEvidence, requestedCount);
+            List<RagSourceEvidence> fallback = anchors.isEmpty()
+                    ? retrievedEvidence
+                    : evidenceContainingAnchor(retrievedEvidence, anchors).stream()
+                    .filter(item -> !isGenericSection(item.getChapter()))
+                    .toList();
+            return evidenceBackedLessons(fallback, requestedCount);
         }
 
         List<SuggestionItem> grounded = new ArrayList<>();
@@ -203,6 +224,7 @@ public class LearningPathGroundingService {
             }
             String title = evidence.getChapter() == null ? "" : evidence.getChapter().trim();
             if (title.isBlank()
+                    || isGenericSection(title)
                     || ChapterHeadingUtils.isInternalKnowledgeTitle(title)
                     || !ChapterHeadingUtils.isStudyUnitTitle(title)
                     || !seenTitles.add(normalize(title))) {
@@ -394,6 +416,108 @@ public class LearningPathGroundingService {
                 && !chapter.getTitle().isBlank()
                 && !"NO_MATERIAL".equalsIgnoreCase(chapter.getMaterialHealth())
                 && (chapter.getChunkCount() > 0 || chapter.getApproxChars() > 0);
+    }
+
+    /**
+     * Evidence shown next to a learning path. A summary page from the same file
+     * must not be cited for a different chapter.
+     */
+    public List<RagSourceEvidence> citedEvidence(
+            List<SuggestionItem> lessons,
+            List<RagSourceEvidence> evidence
+    ) {
+        if (lessons == null || lessons.isEmpty() || evidence == null || evidence.isEmpty()) {
+            return List.of();
+        }
+        return evidence.stream()
+                .filter(this::isCourseMaterialEvidence)
+                .filter(item -> !isGenericSection(item.getChapter()))
+                .filter(item -> lessons.stream().anyMatch(lesson ->
+                        headingsMatch(lesson.getChapterTitle(), item.getChapter())))
+                .toList();
+    }
+
+    private boolean chapterMatchesQuestion(
+            ChapterOutlineView chapter,
+            Set<String> focusTokens,
+            Set<String> anchors,
+            Set<String> evidenceTokens,
+            List<RagSourceEvidence> votingEvidence
+    ) {
+        if (anchors.isEmpty()) {
+            return relevance(chapter.getTitle(), focusTokens) > 0
+                    || relevance(chapter.getTitle(), evidenceTokens) > 0;
+        }
+        if (relevance(chapter.getTitle(), anchors) > 0) {
+            return true;
+        }
+        return evidenceNamesAnchoredChapter(chapter, votingEvidence, anchors);
+    }
+
+    private List<RagSourceEvidence> evidenceContainingAnchor(
+            List<RagSourceEvidence> evidence,
+            Set<String> anchors
+    ) {
+        if (evidence == null || evidence.isEmpty() || anchors.isEmpty()) {
+            return List.of();
+        }
+        return evidence.stream()
+                .filter(item -> containsAnchor(item, anchors))
+                .toList();
+    }
+
+    private boolean evidenceNamesAnchoredChapter(
+            ChapterOutlineView chapter,
+            List<RagSourceEvidence> evidence,
+            Set<String> anchors
+    ) {
+        if (chapter == null || evidence == null) {
+            return false;
+        }
+        for (RagSourceEvidence item : evidence) {
+            if (item == null || isGenericSection(item.getChapter()) || !containsAnchor(item, anchors)) {
+                continue;
+            }
+            if (headingsMatch(chapter.getTitle(), item.getChapter())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean containsAnchor(RagSourceEvidence evidence, Set<String> anchors) {
+        return evidence != null
+                && (relevance(evidence.getChapter(), anchors) > 0
+                || relevance(evidence.getExcerpt(), anchors) > 0);
+    }
+
+    private static boolean headingsMatch(String lessonTitle, String evidenceChapter) {
+        String left = normalize(lessonTitle);
+        String right = normalize(evidenceChapter);
+        if (left.isBlank() || right.isBlank() || isGenericSection(right)) {
+            return false;
+        }
+        return left.equals(right) || left.contains(right) || right.contains(left);
+    }
+
+    static boolean isGenericSection(String heading) {
+        String normalized = normalize(heading);
+        return normalized.matches("summary|summaries|abstract|review questions|exercises|problems|key terms");
+    }
+
+    static Set<String> topicAnchors(String question) {
+        if (question == null || question.isBlank()) {
+            return Set.of();
+        }
+        LinkedHashSet<String> anchors = new LinkedHashSet<>();
+        Matcher matcher = LATIN_TERM.matcher(question);
+        while (matcher.find()) {
+            String token = normalize(matcher.group(1));
+            if (token.length() >= 3 && !STOP_WORDS.contains(token)) {
+                anchors.add(token);
+            }
+        }
+        return Set.copyOf(anchors);
     }
 
     private int relevance(String title, Set<String> focusTokens) {
