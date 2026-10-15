@@ -229,6 +229,31 @@ class LearningPathGroundingServiceTest {
     }
 
     @Test
+    void duplicatePartHeadingDoesNotConsumeASecondLesson() {
+        when(chapterOutlineService.suggestChapters("PRJ301")).thenReturn(List.of(
+                chapter("part-roman", "Part III: Persisting Data with JPA and Hibernate ORM", 540, "book"),
+                chapter("part-digit", "Part 3: Persisting Data with JPA and Hibernate ORM", 541, "book"),
+                chapter("jpa", "Chapter 19: Introducing Java Persistence API and Hibernate ORM", 560, "book"),
+                chapter("mapping", "Chapter 20: Mapping Entities to Tables with JPA Annotations", 580, "book")
+        ));
+
+        List<SuggestionItem> result = service.ground(
+                "PRJ301",
+                "Hôm nay mình muốn học về kết nối cơ sở dữ liệu JDBC",
+                List.of(),
+                List.of(),
+                "CHALLENGE"
+        );
+
+        assertThat(result).extracting(SuggestionItem::getChapterTitle)
+                .containsExactly(
+                        "Part III: Persisting Data with JPA and Hibernate ORM",
+                        "Chapter 19: Introducing Java Persistence API and Hibernate ORM",
+                        "Chapter 20: Mapping Entities to Tables with JPA Annotations"
+                );
+    }
+
+    @Test
     void jdbcQuestionKeepsTheDatabaseChaptersAndSkipsUnrelatedOnes() {
         when(chapterOutlineService.suggestChapters("PRJ301")).thenReturn(List.of(
                 chapter("intro", "Chapter 1: Introducing Java Platform, Enterprise Edition", 20, "book"),

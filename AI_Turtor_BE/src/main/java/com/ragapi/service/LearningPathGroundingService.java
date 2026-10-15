@@ -123,7 +123,7 @@ public class LearningPathGroundingService {
         Set<String> evidenceTokens = evidenceTokens(votingEvidence);
         Set<String> evidenceMaterialIds = evidenceMaterialIds(votingEvidence);
 
-        List<RankedChapter> ranked = available.stream()
+        List<RankedChapter> ranked = selectLessons(available.stream()
                 .filter(chapter -> chapterMatchesQuestion(
                         chapter, focusTokens, anchors, evidenceTokens, votingEvidence, databaseStudy))
                 .map(chapter -> new RankedChapter(
@@ -138,9 +138,7 @@ public class LearningPathGroundingService {
                 ))
                 .sorted(Comparator.comparingInt(RankedChapter::score).reversed()
                         .thenComparingInt(item -> normalizedPage(item.chapter())))
-                .limit(requestedCount)
-                .sorted(Comparator.comparingInt(item -> normalizedPage(item.chapter())))
-                .toList();
+                .toList(), requestedCount);
 
         if (ranked.isEmpty()) {
             List<SuggestionItem> evidenceLessons = evidenceLessonsFor(
@@ -219,7 +217,7 @@ public class LearningPathGroundingService {
         LinkedHashSet<String> seen = new LinkedHashSet<>();
         List<String> materialIds = List.of();
         for (SuggestionItem lesson : lessons) {
-            seen.add(normalize(lesson.getChapterTitle()));
+            seen.add(canonicalHeading(lesson.getChapterTitle()));
             if (materialIds.isEmpty() && lesson.getSourceMaterialIds() != null) {
                 materialIds = lesson.getSourceMaterialIds();
             }
@@ -231,7 +229,7 @@ public class LearningPathGroundingService {
             String title = raw == null ? "" : raw.trim().replaceAll("\\s+", " ");
             if (databaseTitleScore(title, Set.of()) <= 0
                     || !ChapterHeadingUtils.isStudyUnitTitle(title)
-                    || !seen.add(normalize(title))) {
+                    || !seen.add(canonicalHeading(title))) {
                 continue;
             }
             lessons.add(new SuggestionItem(
@@ -341,7 +339,7 @@ public class LearningPathGroundingService {
                     || isGenericSection(title)
                     || ChapterHeadingUtils.isInternalKnowledgeTitle(title)
                     || !ChapterHeadingUtils.isStudyUnitTitle(title)
-                    || !seenTitles.add(normalize(title))) {
+                    || !seenTitles.add(canonicalHeading(title))) {
                 continue;
             }
             int lessonNumber = lessons.size() + 1;
@@ -571,6 +569,43 @@ public class LearningPathGroundingService {
             return true;
         }
         return evidenceNamesAnchoredChapter(chapter, votingEvidence, anchors);
+    }
+
+    /**
+     * "Part III" and "Part 3" are the same bookmark written two ways. Keeping both
+     * used up the lesson count and hid the next real chapter.
+     */
+    static String canonicalHeading(String title) {
+        String normalized = normalize(title);
+        String[][] numerals = {
+                {"xiii", "13"}, {"xii", "12"}, {"xi", "11"}, {"viii", "8"}, {"vii", "7"},
+                {"iii", "3"}, {"ii", "2"}, {"ix", "9"}, {"iv", "4"}, {"vi", "6"},
+                {"x", "10"}, {"v", "5"}, {"i", "1"}
+        };
+        for (String[] pair : numerals) {
+            normalized = normalized.replaceAll("\\b" + pair[0] + "\\b", pair[1]);
+        }
+        return normalized.replaceAll("\\s+", " ").trim();
+    }
+
+    private static List<RankedChapter> selectLessons(List<RankedChapter> ranked, int limit) {
+        if (ranked == null || ranked.isEmpty() || limit <= 0) {
+            return List.of();
+        }
+        LinkedHashSet<String> seen = new LinkedHashSet<>();
+        List<RankedChapter> unique = new ArrayList<>();
+        for (RankedChapter item : ranked) {
+            String key = canonicalHeading(item.chapter().getTitle());
+            if (key.isBlank() || !seen.add(key)) {
+                continue;
+            }
+            unique.add(item);
+            if (unique.size() >= limit) {
+                break;
+            }
+        }
+        unique.sort(Comparator.comparingInt(item -> normalizedPage(item.chapter())));
+        return List.copyOf(unique);
     }
 
     static boolean isDatabaseStudyQuestion(String question) {
