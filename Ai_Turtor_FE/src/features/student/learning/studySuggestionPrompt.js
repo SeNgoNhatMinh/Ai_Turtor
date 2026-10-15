@@ -213,11 +213,9 @@ function withoutInternalLessonLabel(value) {
 }
 
 export function lessonSuggestionsForMessage(message) {
-  const apiSuggestions = Array.isArray(message?.nextImproveSuggestions)
+  const hasApiSuggestions = Array.isArray(message?.nextImproveSuggestions);
+  const suggestions = (hasApiSuggestions
     ? message.nextImproveSuggestions
-    : [];
-  const suggestions = (apiSuggestions.length > 0
-    ? apiSuggestions
     : parseLessonSuggestionsFromAnswer(message?.answer || message?.content || ''))
     .filter((suggestion) => !INTERNAL_LESSON_TITLE.test(
       typeof suggestion === 'object' && suggestion !== null

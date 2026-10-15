@@ -56,10 +56,6 @@ export function useAdminUsersController({ triggerToast, handleAdminImport }) {
     triggerToast(getUserFacingError(error, 'Không thể tải đầy đủ dữ liệu quản trị tài khoản.'));
   }, [escalationsQuery.error, mentorsQuery.error, triggerToast, usersQuery.error]);
 
-  useEffect(() => {
-    setPage(0);
-  }, [debouncedSearch, userFilterRole]);
-
   const loadUsers = useCallback(async () => {
     await usersQuery.refetch();
   }, [usersQuery]);
@@ -209,8 +205,14 @@ export function useAdminUsersController({ triggerToast, handleAdminImport }) {
         if (nextSize) setPageSize(nextSize);
       },
       editUser,
-      setSearch: setUserSearchQ,
-      setRole: setUserFilterRole,
+      setSearch: (value) => {
+        setUserSearchQ(value);
+        setPage(0);
+      },
+      setRole: (value) => {
+        setUserFilterRole(value);
+        setPage(0);
+      },
       openEdit: setEditUser,
       closeEdit: () => setEditUser(null),
       reload: loadUsers,

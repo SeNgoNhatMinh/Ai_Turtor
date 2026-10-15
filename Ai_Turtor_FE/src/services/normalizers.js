@@ -23,6 +23,10 @@ const storedSuggestions = (message = {}) => {
   return Array.isArray(value) ? value : undefined;
 };
 
+const getMessageContent = (message = {}) => (
+  message.content || message.answer || message.response || ''
+);
+
 const getMessageSources = (message = {}) => {
   const explicitSources = [
     ...asArray(message.sources),

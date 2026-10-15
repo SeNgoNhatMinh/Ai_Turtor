@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 import { Menu, Tooltip } from 'antd';
 import {
   ArrowRight,
@@ -23,13 +23,10 @@ function Sidebar({ accountRole, activeRole, activeTab, switchTab, courseId, clas
   const WorkspaceIcon = workspaceCard?.icon;
 
   const selectedKey = activeTab === 'admin-ai-logs' ? 'admin-ai-logs-providers' : activeTab;
-  const [openKeys, setOpenKeys] = useState(() => (
-    String(selectedKey).startsWith('admin-ai-logs') ? ['admin-ai-logs'] : []
-  ));
-  useEffect(() => {
-    if (!String(selectedKey).startsWith('admin-ai-logs')) return;
-    setOpenKeys((keys) => (keys.includes('admin-ai-logs') ? keys : [...keys, 'admin-ai-logs']));
-  }, [selectedKey]);
+  const [openKeys, setOpenKeys] = useState([]);
+  const menuOpenKeys = String(selectedKey).startsWith('admin-ai-logs') && !openKeys.includes('admin-ai-logs')
+    ? [...openKeys, 'admin-ai-logs']
+    : openKeys;
   const items = useMemo(() => getNavigationForRole(accountRole || activeRole).map((item) => {
     const Icon = item.icon;
     const label = (text, description) => (
@@ -86,7 +83,7 @@ function Sidebar({ accountRole, activeRole, activeTab, switchTab, courseId, clas
           mode="inline"
           inlineCollapsed={collapsed}
           selectedKeys={[selectedKey]}
-          openKeys={collapsed ? undefined : openKeys}
+          openKeys={collapsed ? undefined : menuOpenKeys}
           onOpenChange={setOpenKeys}
           onClick={(e) => switchTab(e.key)}
           items={items}
