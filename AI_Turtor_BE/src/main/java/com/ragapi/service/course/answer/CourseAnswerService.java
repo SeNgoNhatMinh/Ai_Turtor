@@ -137,6 +137,25 @@ public class CourseAnswerService implements CourseAnswerGateway {
                 .build());
     }
 
+    public CourseRagAnswer retrieveLearningPath(
+            String question,
+            String courseId,
+            String classId,
+            String pedagogicalContext,
+            String learnerMemoryContext,
+            String retrievalHint
+    ) throws IOException {
+        return pipelineService.retrieveLearningPath(CourseAnswerRequest.builder()
+                .question(question)
+                .courseId(courseId)
+                .classId(classId)
+                .teachingMode("LEARNING_PATH")
+                .retrievalHint(retrievalHint)
+                .pedagogicalContext(pedagogicalContext)
+                .learnerMemoryContext(learnerMemoryContext)
+                .build());
+    }
+
     public CourseRagAnswer askWithImprovePlanContext(
             String question,
             String courseId,

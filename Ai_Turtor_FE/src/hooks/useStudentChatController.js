@@ -431,7 +431,9 @@ export function useStudentChatController({
           sources: data.sources || [],
           sourceEvidence: asArray(data.sourceEvidence),
           groundingType: data.groundingType || null,
-          nextImproveSuggestions: data.nextImproveSuggestions || [],
+          nextImproveSuggestions: Array.isArray(data.nextImproveSuggestions)
+            ? data.nextImproveSuggestions
+            : undefined,
           questionEscalationId: data.questionEscalationId || data.escalationId || null,
           outcome: outcome || (data.escalated ? 'NEEDS_MENTOR' : 'ANSWERED'),
           aiServiceError: isAiServiceError,
@@ -455,7 +457,14 @@ export function useStudentChatController({
               const next = [...historyPairs];
               const last = next[next.length - 1];
               if (last && String(last.answer || '') === String(prevLast.answer || '')) {
-                next[next.length - 1] = { ...last, revealAnswer: true };
+                next[next.length - 1] = {
+                  ...last,
+                  revealAnswer: true,
+                  nextImproveSuggestions: Array.isArray(last.nextImproveSuggestions)
+                    && last.nextImproveSuggestions.length > 0
+                    ? last.nextImproveSuggestions
+                    : prevLast.nextImproveSuggestions,
+                };
               }
               return next;
             });

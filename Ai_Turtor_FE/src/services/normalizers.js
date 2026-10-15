@@ -18,9 +18,10 @@ const toFiniteNumber = (value, fallback = 0) => {
   return Number.isFinite(numberValue) ? numberValue : fallback;
 };
 
-const getMessageContent = (message = {}) => (
-  message.content || message.answer || message.response || ''
-);
+const storedSuggestions = (message = {}) => {
+  const value = message.nextImproveSuggestions || message.improveSuggestions || message.suggestions;
+  return Array.isArray(value) ? value : undefined;
+};
 
 const getMessageSources = (message = {}) => {
   const explicitSources = [
@@ -99,9 +100,7 @@ export const pairMessages = (messages) => {
           sources: getMessageSources(nextMsg),
           sourceEvidence: getMessageSourceEvidence(nextMsg),
           groundingType: getMessageGroundingType(nextMsg),
-          nextImproveSuggestions: asArray(
-            nextMsg.nextImproveSuggestions || nextMsg.improveSuggestions || nextMsg.suggestions,
-          ),
+          nextImproveSuggestions: storedSuggestions(nextMsg),
           questionEscalationId: nextMsg.questionEscalationId || null,
           understandingCheck: nextMsg.understandingCheck || null,
           ...getMessageQuizAttempt(nextMsg),
@@ -126,9 +125,7 @@ export const pairMessages = (messages) => {
         sources: getMessageSources(msg),
         sourceEvidence: getMessageSourceEvidence(msg),
         groundingType: getMessageGroundingType(msg),
-        nextImproveSuggestions: asArray(
-          msg.nextImproveSuggestions || msg.improveSuggestions || msg.suggestions,
-        ),
+        nextImproveSuggestions: storedSuggestions(msg),
         questionEscalationId: msg.questionEscalationId || null,
         understandingCheck: msg.understandingCheck || null,
         ...getMessageQuizAttempt(msg),
@@ -144,9 +141,7 @@ export const pairMessages = (messages) => {
         sources: getMessageSources(msg),
         sourceEvidence: getMessageSourceEvidence(msg),
         groundingType: getMessageGroundingType(msg),
-        nextImproveSuggestions: asArray(
-          msg.nextImproveSuggestions || msg.improveSuggestions || msg.suggestions,
-        ),
+        nextImproveSuggestions: storedSuggestions(msg),
         questionEscalationId: msg.questionEscalationId || null,
         understandingCheck: msg.understandingCheck || null,
         ...getMessageQuizAttempt(msg),

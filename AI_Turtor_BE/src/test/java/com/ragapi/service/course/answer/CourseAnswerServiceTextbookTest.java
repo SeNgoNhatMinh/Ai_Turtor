@@ -131,7 +131,8 @@ class CourseAnswerServiceTextbookTest {
                         evidenceService,
                         answerCacheService,
                         resultService
-                )
+                ),
+                evidenceService
         );
         service = new CourseAnswerService(generationService, pipelineService, requestPolicyService);
     }

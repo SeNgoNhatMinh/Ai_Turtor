@@ -390,6 +390,10 @@ public class TutorController {
             } else if (provenanceIntent != null) {
                 ragAnswer = courseAnswerService.askWithImprovePlanContext(
                         question, courseId, classId, pedagogicalContext, learnerContext, provenanceIntent);
+            } else if ("LEARNING_PATH".equalsIgnoreCase(teachingMode)
+                    || StudentChatIntentDetector.isTopiclessStudyRequest(question)) {
+                ragAnswer = courseAnswerService.retrieveLearningPath(
+                        question, courseId, classId, pedagogicalContext, learnerContext, retrievalHint);
             } else {
                 ragAnswer = (pedagogicalContext.isBlank() && learnerContext.isBlank())
                         ? courseAnswerService.askWithConfidence(question, courseId, classId, teachingMode, retrievalHint)

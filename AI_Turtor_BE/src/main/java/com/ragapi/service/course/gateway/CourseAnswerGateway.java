@@ -36,6 +36,15 @@ public interface CourseAnswerGateway {
             String retrievalHint
     ) throws IOException;
 
+    CourseRagAnswer retrieveLearningPath(
+            String question,
+            String courseId,
+            String classId,
+            String pedagogicalContext,
+            String learnerMemoryContext,
+            String retrievalHint
+    ) throws IOException;
+
     CourseRagAnswer askWithImprovePlanContext(
             String question,
             String courseId,
