@@ -41,6 +41,13 @@ public class LearningPathGroundingService {
     private static final Pattern LATIN_TERM = Pattern.compile(
             "(?<![\\p{L}\\p{N}])([A-Za-z][A-Za-z0-9]{2,})(?![\\p{L}\\p{N}])"
     );
+    /**
+     * Textbook words for the same study goal. A JDBC question should still open the
+     * persistence and database chapters, not only the one heading that spells JDBC.
+     */
+    private static final Set<String> DATABASE_FAMILY = Set.of(
+            "jdbc", "database", "persistence", "sql", "jpa", "orm", "hibernate", "datasource"
+    );
 
     private final ChapterOutlineService chapterOutlineService;
     private final ElasticsearchCourseSearchAdapter courseSearchAdapter;
@@ -91,14 +98,14 @@ public class LearningPathGroundingService {
                 .filter(this::isStudentLessonChapter)
                 .toList();
         int requestedCount = lessonCount;
+        boolean databaseStudy = isDatabaseStudyQuestion(studentQuestion);
+        Set<String> anchors = topicAnchors(studentQuestion);
         if (available.isEmpty()) {
-            Set<String> anchors = topicAnchors(studentQuestion);
-            List<RagSourceEvidence> fallbackEvidence = anchors.isEmpty()
-                    ? retrievedEvidence
-                    : evidenceContainingAnchor(retrievedEvidence, anchors).stream()
-                    .filter(item -> !isGenericSection(item.getChapter()))
-                    .toList();
-            List<SuggestionItem> evidenceLessons = evidenceBackedLessons(fallbackEvidence, requestedCount);
+            List<SuggestionItem> evidenceLessons = evidenceLessonsFor(
+                    retrievedEvidence, anchors, databaseStudy, requestedCount);
+            if (databaseStudy) {
+                evidenceLessons = supplementIndexedDatabaseLessons(courseId, evidenceLessons, requestedCount);
+            }
             if (!evidenceLessons.isEmpty()) {
                 return evidenceLessons;
             }
@@ -109,20 +116,22 @@ public class LearningPathGroundingService {
         }
 
         Set<String> focusTokens = tokens(studentQuestion);
-        Set<String> anchors = topicAnchors(studentQuestion);
         Set<String> proposedLessonTokens = proposedLessonTokens(proposedLessons);
         List<RagSourceEvidence> votingEvidence = anchors.isEmpty()
                 ? retrievedEvidence
-                : evidenceContainingAnchor(retrievedEvidence, anchors);
+                : evidenceContainingAnchor(retrievedEvidence, databaseStudy ? databaseMatchTerms(anchors) : anchors);
         Set<String> evidenceTokens = evidenceTokens(votingEvidence);
         Set<String> evidenceMaterialIds = evidenceMaterialIds(votingEvidence);
 
         List<RankedChapter> ranked = available.stream()
                 .filter(chapter -> chapterMatchesQuestion(
-                        chapter, focusTokens, anchors, evidenceTokens, votingEvidence))
+                        chapter, focusTokens, anchors, evidenceTokens, votingEvidence, databaseStudy))
                 .map(chapter -> new RankedChapter(
                         chapter,
-                        (4 * relevance(chapter.getTitle(), focusTokens))
+                        databaseStudy
+                                ? databaseTitleScore(chapter.getTitle(), anchors)
+                                + (evidenceNamesAnchoredChapter(chapter, votingEvidence, anchors) ? 6 : 0)
+                                : (4 * relevance(chapter.getTitle(), focusTokens))
                                 + (4 * relevance(chapter.getTitle(), evidenceTokens))
                                 + relevance(chapter.getTitle(), proposedLessonTokens)
                                 + (sharesMaterial(chapter, evidenceMaterialIds) ? 1 : 0)
@@ -134,12 +143,12 @@ public class LearningPathGroundingService {
                 .toList();
 
         if (ranked.isEmpty()) {
-            List<RagSourceEvidence> fallback = anchors.isEmpty()
-                    ? retrievedEvidence
-                    : evidenceContainingAnchor(retrievedEvidence, anchors).stream()
-                    .filter(item -> !isGenericSection(item.getChapter()))
-                    .toList();
-            return evidenceBackedLessons(fallback, requestedCount);
+            List<SuggestionItem> evidenceLessons = evidenceLessonsFor(
+                    retrievedEvidence, anchors, databaseStudy, requestedCount);
+            if (databaseStudy) {
+                return supplementIndexedDatabaseLessons(courseId, evidenceLessons, requestedCount);
+            }
+            return evidenceLessons;
         }
 
         List<SuggestionItem> grounded = new ArrayList<>();
@@ -156,7 +165,112 @@ public class LearningPathGroundingService {
                     List.of()
             ));
         }
+        if (databaseStudy && grounded.size() < requestedCount) {
+            return supplementIndexedDatabaseLessons(courseId, grounded, requestedCount);
+        }
         return List.copyOf(grounded);
+    }
+
+    private List<SuggestionItem> evidenceLessonsFor(
+            List<RagSourceEvidence> retrievedEvidence,
+            Set<String> anchors,
+            boolean databaseStudy,
+            int limit
+    ) {
+        Set<String> evidenceTerms = databaseStudy ? databaseMatchTerms(anchors) : anchors;
+        List<RagSourceEvidence> fallback = evidenceTerms.isEmpty()
+                ? retrievedEvidence
+                : evidenceContainingAnchor(retrievedEvidence, evidenceTerms);
+        if (fallback == null || fallback.isEmpty()) {
+            return List.of();
+        }
+        List<RagSourceEvidence> usable = fallback.stream()
+                .filter(item -> !isGenericSection(item.getChapter()))
+                .filter(item -> !isFrontMatterHeading(item.getChapter()))
+                .filter(item -> !databaseStudy
+                        || databaseTitleScore(item.getChapter(), anchors) > 0
+                        || relevance(item.getChapter(), anchors) > 0)
+                .toList();
+        return evidenceBackedLessons(usable, limit);
+    }
+
+    /**
+     * Outline or retrieval sometimes names only the section that spells the keyword.
+     * Indexed chapter headings from the same book fill the rest of the support-level count.
+     */
+    private List<SuggestionItem> supplementIndexedDatabaseLessons(
+            String courseId,
+            List<SuggestionItem> current,
+            int limit
+    ) {
+        List<SuggestionItem> lessons = current == null ? new ArrayList<>() : new ArrayList<>(current);
+        if (lessons.size() >= limit || courseSearchAdapter == null || courseId == null || courseId.isBlank()) {
+            return renumber(lessons);
+        }
+        List<String> indexed;
+        try {
+            indexed = courseSearchAdapter.listChapterTitles(courseId);
+        } catch (RuntimeException ignored) {
+            return renumber(lessons);
+        }
+        if (indexed == null || indexed.isEmpty()) {
+            return renumber(lessons);
+        }
+        LinkedHashSet<String> seen = new LinkedHashSet<>();
+        List<String> materialIds = List.of();
+        for (SuggestionItem lesson : lessons) {
+            seen.add(normalize(lesson.getChapterTitle()));
+            if (materialIds.isEmpty() && lesson.getSourceMaterialIds() != null) {
+                materialIds = lesson.getSourceMaterialIds();
+            }
+        }
+        for (String raw : indexed) {
+            if (lessons.size() >= limit) {
+                break;
+            }
+            String title = raw == null ? "" : raw.trim().replaceAll("\\s+", " ");
+            if (databaseTitleScore(title, Set.of()) <= 0
+                    || !ChapterHeadingUtils.isStudyUnitTitle(title)
+                    || !seen.add(normalize(title))) {
+                continue;
+            }
+            lessons.add(new SuggestionItem(
+                    title,
+                    "Bài học được liên kết trực tiếp với tiêu đề trong tài liệu môn học",
+                    List.of("AI Tutor mở đúng chương và hướng dẫn từng bước như một gia sư."),
+                    "MATERIAL_OUTLINE",
+                    "indexed-database-" + (lessons.size() + 1),
+                    title,
+                    materialIds,
+                    List.of()
+            ));
+        }
+        return renumber(lessons);
+    }
+
+    private static List<SuggestionItem> renumber(List<SuggestionItem> lessons) {
+        if (lessons == null || lessons.isEmpty()) {
+            return List.of();
+        }
+        List<SuggestionItem> numbered = new ArrayList<>();
+        for (int index = 0; index < lessons.size(); index++) {
+            SuggestionItem lesson = lessons.get(index);
+            String chapterTitle = lesson.getChapterTitle();
+            if (chapterTitle == null || chapterTitle.isBlank()) {
+                chapterTitle = lesson.getTitle() == null ? "" : lesson.getTitle().trim();
+            }
+            numbered.add(new SuggestionItem(
+                    "Bắt đầu bài " + (index + 1) + ": " + chapterTitle,
+                    lesson.getReason(),
+                    lesson.getNextSteps() == null ? List.of() : lesson.getNextSteps(),
+                    lesson.getSource(),
+                    lesson.getChapterKey(),
+                    chapterTitle,
+                    lesson.getSourceMaterialIds() == null ? List.of() : lesson.getSourceMaterialIds(),
+                    lesson.getSourceChunkIds() == null ? List.of() : lesson.getSourceChunkIds()
+            ));
+        }
+        return List.copyOf(numbered);
     }
 
     private Set<String> proposedLessonTokens(List<SuggestionItem> proposedLessons) {
@@ -442,8 +556,13 @@ public class LearningPathGroundingService {
             Set<String> focusTokens,
             Set<String> anchors,
             Set<String> evidenceTokens,
-            List<RagSourceEvidence> votingEvidence
+            List<RagSourceEvidence> votingEvidence,
+            boolean databaseStudy
     ) {
+        if (databaseStudy) {
+            return databaseTitleScore(chapter.getTitle(), anchors) > 0
+                    || evidenceNamesAnchoredChapter(chapter, votingEvidence, anchors);
+        }
         if (anchors.isEmpty()) {
             return relevance(chapter.getTitle(), focusTokens) > 0
                     || relevance(chapter.getTitle(), evidenceTokens) > 0;
@@ -452,6 +571,66 @@ public class LearningPathGroundingService {
             return true;
         }
         return evidenceNamesAnchoredChapter(chapter, votingEvidence, anchors);
+    }
+
+    static boolean isDatabaseStudyQuestion(String question) {
+        String normalized = normalize(question);
+        if (normalized.contains("co so du lieu")
+                || normalized.contains("csdl")
+                || normalized.contains("ket noi co so")
+                || normalized.contains("database")
+                || normalized.contains("persistence")
+                || normalized.contains("jdbc")
+                || normalized.contains("hibernate")
+                || normalized.contains("datasource")) {
+            return true;
+        }
+        return topicAnchors(question).stream().anyMatch(DATABASE_FAMILY::contains);
+    }
+
+    private static Set<String> databaseMatchTerms(Set<String> explicitAnchors) {
+        LinkedHashSet<String> terms = new LinkedHashSet<>(DATABASE_FAMILY);
+        if (explicitAnchors != null) {
+            terms.addAll(explicitAnchors);
+        }
+        return Set.copyOf(terms);
+    }
+
+    /**
+     * Hibernate Validator is bean validation, not the persistence ORM.
+     * A database path must not treat that chapter as a JDBC lesson.
+     */
+    static int databaseTitleScore(String title, Set<String> explicitAnchors) {
+        if (title == null || title.isBlank()
+                || isGenericSection(title)
+                || ChapterHeadingUtils.isBookFrontMatterTitle(title)
+                || ChapterHeadingUtils.isInternalKnowledgeTitle(title)) {
+            return 0;
+        }
+        String normalized = normalize(title);
+        boolean hibernateValidator = normalized.contains("hibernate")
+                && normalized.contains("validator")
+                && !normalized.contains("persistence")
+                && !normalized.contains("jdbc");
+        Set<String> titleTokens = tokens(title);
+        int score = 0;
+        for (String term : DATABASE_FAMILY) {
+            if ("hibernate".equals(term) && hibernateValidator) {
+                continue;
+            }
+            if (titleTokens.stream().anyMatch(token -> sameWord(token, term))) {
+                score += 3;
+            }
+        }
+        if (explicitAnchors != null) {
+            for (String anchor : explicitAnchors) {
+                if (DATABASE_FAMILY.contains(anchor)
+                        && titleTokens.stream().anyMatch(token -> sameWord(token, anchor))) {
+                    score += 10;
+                }
+            }
+        }
+        return score;
     }
 
     private List<RagSourceEvidence> evidenceContainingAnchor(
