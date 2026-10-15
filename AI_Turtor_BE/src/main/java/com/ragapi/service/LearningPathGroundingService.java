@@ -133,7 +133,7 @@ public class LearningPathGroundingService {
         for (int index = 0; index < ranked.size(); index++) {
             ChapterOutlineView chapter = ranked.get(index).chapter();
             grounded.add(new SuggestionItem(
-                    "Bắt đầu bài " + (index + 1) + ": " + chapter.getTitle(),
+                    lessonPrompt(index + 1, chapter.getTitle()),
                     "Bài học được liên kết trực tiếp với tiêu đề trong tài liệu môn học",
                     List.of("AI Tutor mở đúng chương và hướng dẫn từng bước như một gia sư."),
                     "MATERIAL_OUTLINE",
@@ -238,7 +238,7 @@ public class LearningPathGroundingService {
             int lessonNumber = lessons.size() + 1;
             String chunkId = evidence.getChunkId() == null ? "" : evidence.getChunkId().trim();
             lessons.add(new SuggestionItem(
-                    "Bắt đầu bài " + lessonNumber + ": " + title,
+                    lessonPrompt(lessonNumber, title),
                     "Bài học được liên kết với bằng chứng đã truy xuất từ tài liệu môn học",
                     List.of("AI Tutor mở đúng phần tài liệu liên quan và hướng dẫn từng bước."),
                     "RETRIEVED_EVIDENCE",
@@ -312,11 +312,33 @@ public class LearningPathGroundingService {
                 String title = lesson == null ? "" : lesson.getTitle();
                 if (title != null && !title.isBlank()) {
                     message.append('\n').append(index + 1).append(". ").append(title.trim());
+                    String sourceHeading = lesson.getChapterTitle();
+                    if (sourceHeading != null && !sourceHeading.isBlank()
+                            && !sameHeading(sourceHeading, title)) {
+                        message.append("\n   Mục trong tài liệu: ").append(sourceHeading.trim());
+                    }
                 }
             }
         }
         message.append("\n\nBạn muốn học bài nào, hãy gửi đúng dòng bài đó.");
         return message.toString().trim();
+    }
+
+    private static String lessonPrompt(int number, String rawHeading) {
+        String subject = ChapterHeadingUtils.plainStudyTitle(rawHeading);
+        if (subject.isBlank()) {
+            subject = rawHeading == null ? "" : rawHeading.trim();
+        }
+        return "Bắt đầu bài " + number + ": " + subject;
+    }
+
+    private static boolean sameHeading(String sourceHeading, String lessonTitle) {
+        String source = sourceHeading.trim();
+        if (ChapterHeadingUtils.plainStudyTitle(source).equalsIgnoreCase(source)) {
+            return true;
+        }
+        String subject = lessonTitle.replaceFirst("(?iu)^.*?bài\\s+\\d+\\s*[:：.\\-]\\s*", "").trim();
+        return subject.equalsIgnoreCase(source);
     }
 
     private List<SuggestionItem> indexedOpeningLessons(String courseId, int limit, List<String> materialIds) {
@@ -332,7 +354,7 @@ public class LearningPathGroundingService {
         for (int index = 0; index < count; index++) {
             String title = units.get(index);
             lessons.add(new SuggestionItem(
-                    "Bắt đầu bài " + (index + 1) + ": " + title,
+                    lessonPrompt(index + 1, title),
                     "Bài học được liên kết trực tiếp với tiêu đề trong tài liệu môn học",
                     List.of("Bấm bài này để AI Tutor giảng từ đúng chương, không cần gõ lại câu hỏi."),
                     "MATERIAL_OUTLINE",
@@ -350,7 +372,7 @@ public class LearningPathGroundingService {
         for (int index = 0; index < chapters.size(); index++) {
             ChapterOutlineView chapter = chapters.get(index);
             lessons.add(new SuggestionItem(
-                    "Bắt đầu bài " + (index + 1) + ": " + chapter.getTitle(),
+                    lessonPrompt(index + 1, chapter.getTitle()),
                     "Bài học được liên kết trực tiếp với tiêu đề trong tài liệu môn học",
                     List.of("Bấm bài này để AI Tutor giảng từ đúng chương, không cần gõ lại câu hỏi."),
                     "MATERIAL_OUTLINE",

@@ -2,6 +2,7 @@ package com.ragapi.util;
 
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -22,6 +23,33 @@ class ChapterHeadingUtilsTest {
         assertFalse(ChapterHeadingUtils.isPlausibleChapterTitle("0 1 2 1 3 0"));
         assertFalse(ChapterHeadingUtils.isPlausibleChapterTitle("0 2 Read only 1 0 1"));
         assertFalse(ChapterHeadingUtils.isPlausibleChapterTitle("11 Free blocks 0 0 1 0 1 0 0 0 0 1 1 0 0 0 11 Free blocks"));
+    }
+
+    @Test
+    void plainStudyTitleDropsChapterNumbersAndLeadInPhrases() {
+        assertEquals(
+                "Data Persistence",
+                ChapterHeadingUtils.plainStudyTitle("What Is Data Persistence?")
+        );
+        assertEquals(
+                "Java Persistence API and Hibernate ORM",
+                ChapterHeadingUtils.plainStudyTitle(
+                        "Chapter 19: Introducing Java Persistence API and Hibernate ORM")
+        );
+        assertEquals(
+                "Persisting Data with JPA and Hibernate ORM",
+                ChapterHeadingUtils.plainStudyTitle(
+                        "Part III: Persisting Data with JPA and Hibernate ORM")
+        );
+        assertEquals("Introduction", ChapterHeadingUtils.plainStudyTitle("Chapter 1. Introduction"));
+        assertEquals(
+                "Database Systems",
+                ChapterHeadingUtils.plainStudyTitle("Introduction to Database Systems")
+        );
+        assertEquals(
+                "Variables, expressions, and statements",
+                ChapterHeadingUtils.plainStudyTitle("Variables, expressions, and statements")
+        );
     }
 
     @Test

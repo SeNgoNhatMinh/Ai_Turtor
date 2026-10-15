@@ -13,6 +13,17 @@ public final class ChapterHeadingUtils {
     private static final Pattern INTERNAL_KNOWLEDGE_LABEL = Pattern.compile(
             "(?i)(?:senior-approved(?:\\s+knowledge|\\s+v2(?:\\s+gold\\s+q&a)?)?|gold\\s+q&a)\\s*:\\s*"
     );
+    private static final Pattern STRUCTURAL_PREFIX = Pattern.compile(
+            "(?i)^(?:chapter|chương|chuong|part|phần|phan|section|mục|muc)\\s+"
+                    + "(?:\\d+(?:\\.\\d+)*|[ivxlcdm]+)\\s*[:.\\-–—]\\s*"
+    );
+    private static final Pattern OUTLINE_NUMBER_PREFIX = Pattern.compile(
+            "^\\d+(?:\\.\\d+)*\\s+(?=\\p{L})"
+    );
+    private static final Pattern LEADING_FILLER = Pattern.compile(
+            "(?i)^(?:what(?:'s| is| are)|an introduction to|introduction to|introducing|"
+                    + "understanding|overview of|a guide to|guide to|using)\\s+"
+    );
 
     private ChapterHeadingUtils() {
     }
@@ -179,6 +190,37 @@ public final class ChapterHeadingUtils {
             return "Kiến thức bổ sung";
         }
         return stripped;
+    }
+
+    /**
+     * Book-index heading rewritten as the subject a student can read.
+     * "Chapter 19: Introducing Java Persistence API and Hibernate ORM"
+     * becomes "Java Persistence API and Hibernate ORM".
+     * The original heading stays on the lesson for retrieval.
+     */
+    public static String plainStudyTitle(String title) {
+        if (title == null || title.isBlank()) {
+            return "";
+        }
+        String current = studentFacingTitle(title);
+        if ("Kiến thức bổ sung".equals(current)) {
+            return current;
+        }
+        String previous;
+        do {
+            previous = current;
+            current = STRUCTURAL_PREFIX.matcher(current).replaceFirst("").trim();
+        } while (!current.equals(previous) && !current.isBlank());
+        current = OUTLINE_NUMBER_PREFIX.matcher(current).replaceFirst("").trim();
+        String withoutFiller = LEADING_FILLER.matcher(current).replaceFirst("").trim();
+        if (withoutFiller.length() >= 3 && withoutFiller.codePoints().anyMatch(Character::isLetter)) {
+            current = withoutFiller;
+        }
+        current = current.replaceAll("[?？]\\s*$", "").replaceAll("\\s{2,}", " ").trim();
+        if (current.length() < 3) {
+            return title.trim();
+        }
+        return current;
     }
 
     /** Clickable tutor opening chip: a real unit to start studying, not TOC noise. */

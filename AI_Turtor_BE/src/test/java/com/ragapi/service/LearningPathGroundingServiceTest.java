@@ -250,6 +250,13 @@ class LearningPathGroundingServiceTest {
                         "Part III: Persisting Data with JPA and Hibernate ORM",
                         "Chapter 19: Introducing Java Persistence API and Hibernate ORM"
                 );
+        assertThat(result).extracting(SuggestionItem::getTitle)
+                .containsExactly(
+                        "Bắt đầu bài 1: Persisting Data with JPA and Hibernate ORM",
+                        "Bắt đầu bài 2: Java Persistence API and Hibernate ORM"
+                );
+        assertThat(service.pathAnswer(result))
+                .contains("Mục trong tài liệu: Chapter 19: Introducing Java Persistence API and Hibernate ORM");
     }
 
     @Test
