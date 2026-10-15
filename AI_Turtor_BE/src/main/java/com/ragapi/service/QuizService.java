@@ -30,6 +30,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -38,8 +39,9 @@ import static com.ragapi.util.ValidationUtils.SHORT_TEXT_MAX_LENGTH;
 import static com.ragapi.util.ValidationUtils.requireMaxLength;
 import static com.ragapi.util.ValidationUtils.requireText;
 import static com.ragapi.util.QuizContentFilter.isAcademicQuizQuestion;
-import static com.ragapi.util.QuizContentFilter.sanitizeMaterialContextForQuiz;
 import com.ragapi.util.QuizJsonParser;
+import com.ragapi.util.QuizMaterialGrounding;
+import com.ragapi.util.QuizMaterialGrounding.QuizPassage;
 
 @Slf4j
 @Service
@@ -71,71 +73,55 @@ public class QuizService {
         int questionCount = clampQuestionCount(request == null ? null : request.getQuestionCount());
 
         String suggestionText = normalize(request == null ? null : request.getSuggestionText());
-        String retrievalQuestion = "Kien thuc hoc thuat ve chu de: " + topic
-                + (suggestionText == null ? "" : " " + suggestionText);
-        List<RetrievedCourseChunk> chunks;
-        try {
-            chunks = vectorService.searchWithScores(retrievalQuestion, safeCourseId, classId);
-        } catch (Exception exception) {
-            log.warn("Vector retrieval unavailable while generating quiz; using Mongo material fallback "
-                            + "(courseId={}, classId={}): {}",
-                    safeCourseId, classId, exception.getMessage());
-            chunks = List.of();
+        String retrievalQuestion = QuizMaterialGrounding.retrievalQuery(topic, suggestionText);
+        List<QuizPassage> passages = retrieveQuizPassages(retrievalQuestion, safeCourseId, classId);
+        if (passages.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "Tài liệu môn chưa có đoạn khớp chủ đề này, nên mình không tạo quiz ngoài tài liệu");
         }
-        if (chunks == null || chunks.isEmpty()) {
-            chunks = fallbackSearchService.search(retrievalQuestion, safeCourseId, classId, 8);
-        }
-        chunks = rerankService.rerank(retrievalQuestion, chunks);
-        if (chunks.isEmpty()) {
-            throw new IllegalArgumentException("Chưa có tài liệu môn học đủ nội dung để tạo quiz cho chủ đề này");
-        }
+        log.info("Quiz passages selected (courseId={}, passages={})", safeCourseId, passages.size());
 
-        String context = sanitizeMaterialContextForQuiz(chunks.stream()
-                .map(RetrievedCourseChunk::content)
-                .collect(Collectors.joining("\n")));
-        if (context.isBlank()) {
-            throw new IllegalArgumentException("Chưa có tài liệu môn học đủ nội dung để tạo quiz cho chủ đề này");
-        }
-        List<String> sourceIds = chunks.stream()
-                .map(RetrievedCourseChunk::materialId)
-                .filter(id -> id != null && !id.isBlank())
-                .distinct()
-                .toList();
+        String prompt = buildQuizPrompt(
+                safeCourseId,
+                classId,
+                topic,
+                questionCount,
+                QuizMaterialGrounding.formatPassages(passages)
+        );
+        List<QuizSession.QuizQuestion> questions = List.of();
+        for (int attempt = 0; attempt < 2 && questions.size() < questionCount; attempt++) {
+            String generationPrompt = attempt == 0
+                    ? prompt
+                    : prompt + """
 
-        String prompt = buildQuizPrompt(safeCourseId, classId, topic, questionCount, sourceIds, context);
-        QuizPayload payload = null;
-        IOException lastParseError = null;
-        for (int attempt = 0; attempt < 2; attempt++) {
+                    RETRY:
+                    - The previous quiz was rejected because evidenceQuote was not copied verbatim from a PASSAGE, or correctAnswer did not match an option.
+                    - Copy evidenceQuote exactly from one PASSAGE body. Do not translate or paraphrase it.
+                    - correctAnswer must be the full text of one option.
+                    - Return fewer questions instead of inventing one.
+                    - Return strictly valid JSON only. Put a comma between every field and between every object in questions.
+                    """;
+            String raw = chatService.generateUtility(generationPrompt);
+            if (raw == null || raw.isBlank()) {
+                log.warn("Quiz generation returned empty text on attempt {}", attempt + 1);
+                continue;
+            }
             try {
-                String generationPrompt = attempt == 0
-                        ? prompt
-                        : prompt + """
-
-                        JSON FORMAT REMINDER:
-                        - Return strictly valid JSON.
-                        - Put a comma between every field.
-                        - Escape double quotes inside strings as \\".
-                        - Do not omit commas between objects in the questions array.
-                        """;
-                String raw = chatService.generate(generationPrompt);
-                payload = parseQuizPayload(raw);
-                lastParseError = null;
-                break;
-            } catch (IOException e) {
-                lastParseError = e;
-                log.warn("Quiz JSON parse failed on attempt {}: {}", attempt + 1, e.getMessage());
-            } catch (Exception e) {
-                throw new IOException("Failed to generate quiz from AI", e);
+                List<QuizSession.QuizQuestion> parsed = normalizeQuestions(
+                        parseQuizPayload(raw),
+                        questionCount,
+                        passages
+                );
+                if (parsed.size() > questions.size()) {
+                    questions = parsed;
+                }
+            } catch (IOException parseError) {
+                log.warn("Quiz JSON parse failed on attempt {}: {}", attempt + 1, parseError.getMessage());
             }
         }
-        if (payload == null) {
-            throw lastParseError != null
-                    ? lastParseError
-                    : new IOException("Failed to generate quiz from AI");
-        }
-        List<QuizSession.QuizQuestion> questions = normalizeQuestions(payload, questionCount, sourceIds);
         if (questions.isEmpty()) {
-            throw new IllegalArgumentException("AI chưa tạo được quiz hợp lệ từ tài liệu môn học");
+            throw new IllegalArgumentException(
+                    "AI chưa tạo được quiz hợp lệ từ tài liệu môn học. Hãy thử lại với đúng thuật ngữ có trong tài liệu");
         }
 
         LocalDateTime now = LocalDateTime.now();
@@ -573,6 +559,73 @@ public class QuizService {
                         .build())
                 .toList();
     }
+    private List<QuizPassage> retrieveQuizPassages(String query, String courseId, String classId) {
+        LinkedHashSet<String> seen = new LinkedHashSet<>();
+        List<RetrievedCourseChunk> merged = new ArrayList<>();
+        addQuizChunks(merged, seen, searchQuizVectors(query, courseId, classId));
+        addQuizChunks(merged, seen, searchQuizKeywords(query, courseId, classId));
+        if (merged.isEmpty()) {
+            addQuizChunks(merged, seen, fallbackSearchService.search(query, courseId, classId, 8));
+        }
+        List<RetrievedCourseChunk> onTopic = merged.stream()
+                .filter(chunk -> QuizMaterialGrounding.chunkMatchesTopic(query, chunk.chapterTitle(), chunk.content()))
+                .toList();
+        if (onTopic.isEmpty()) {
+            return List.of();
+        }
+        List<RetrievedCourseChunk> ranked = rerankService.rerank(query, onTopic);
+        return QuizMaterialGrounding.toPassages(query, ranked.stream()
+                .map(chunk -> new QuizMaterialGrounding.SourceChunk(
+                        chunk.content(),
+                        chunk.materialId(),
+                        chunk.chapterTitle(),
+                        chunk.score()))
+                .toList());
+    }
+
+    private List<RetrievedCourseChunk> searchQuizVectors(String query, String courseId, String classId) {
+        try {
+            List<RetrievedCourseChunk> found = vectorService.searchWithScores(query, courseId, classId);
+            return found == null ? List.of() : found;
+        } catch (Exception exception) {
+            log.warn("Vector retrieval unavailable while generating quiz (courseId={}, classId={}): {}",
+                    courseId, classId, exception.getMessage());
+            return List.of();
+        }
+    }
+
+    private List<RetrievedCourseChunk> searchQuizKeywords(String query, String courseId, String classId) {
+        try {
+            List<RetrievedCourseChunk> found = vectorService.searchTextbookKeywordWithScores(query, courseId, classId, 8);
+            return found == null ? List.of() : found;
+        } catch (Exception exception) {
+            log.warn("Keyword retrieval unavailable while generating quiz (courseId={}, classId={}): {}",
+                    courseId, classId, exception.getMessage());
+            return List.of();
+        }
+    }
+
+    private void addQuizChunks(
+            List<RetrievedCourseChunk> merged,
+            Set<String> seen,
+            List<RetrievedCourseChunk> chunks
+    ) {
+        if (chunks == null) {
+            return;
+        }
+        for (RetrievedCourseChunk chunk : chunks) {
+            if (chunk == null || chunk.content() == null || chunk.content().isBlank()) {
+                continue;
+            }
+            String key = chunk.chunkId() != null && !chunk.chunkId().isBlank()
+                    ? chunk.chunkId()
+                    : Integer.toHexString(chunk.content().trim().hashCode());
+            if (seen.add(key)) {
+                merged.add(chunk);
+            }
+        }
+    }
+
     private String resolveTopic(GenerateQuizRequest request) {
         String topic = normalize(request == null ? null : request.getTopic());
         if (topic != null) {
@@ -595,37 +648,27 @@ public class QuizService {
             String classId,
             String topic,
             int questionCount,
-            List<String> sourceIds,
             String context
     ) {
         return """
                 You are an AI Tutor quiz generator for university students.
 
                 STRICT RULES:
-                - Generate quiz questions only from COURSE MATERIAL CONTEXT.
-                - Test ACADEMIC UNDERSTANDING: definitions, concepts, relationships, use cases, comparisons, true/false facts about the subject.
-                - Do NOT ask about document structure or metadata: page numbers, chapters/pages in the book, table of contents, "trong tài liệu", "ở trang", source URLs, materialId, where a class/topic is mentioned.
-                - Ignore index/TOC lines such as "Ticket class, 65" — they are navigation metadata, not learning content.
-                - Do not use outside knowledge.
-                - If a fact is not in context, do not include it.
-                - Use clean, natural Vietnamese with diacritics.
-                - Do not mix Chinese, Japanese, Korean, Cyrillic, or unrelated scripts into Vietnamese quiz text.
-                - Do not output mojibake or corrupted text. If a technical term is uncertain, keep the original English term.
+                - Use ONLY the PASSAGE blocks below. Do not use outside knowledge.
+                - Write at most questionCount questions. If the passages do not support that many distinct facts, return fewer. Never invent a question to fill the count.
+                - Every question must be answerable from exactly one PASSAGE.
+                - evidenceQuote must be copied verbatim from that PASSAGE body, at least 8 consecutive words. Do not translate it. Do not paraphrase it. Do not quote the Chapter label.
+                - sourcePassage must be the passage id, such as P1.
+                - Test academic understanding: definitions, relationships, use cases, comparisons, and true/false facts written in the passage.
+                - Do NOT ask about document structure or metadata: page numbers, table of contents, "trong tài liệu", "ở trang", source URLs, materialId, or where a name is mentioned.
+                - Use clean, natural Vietnamese with diacritics for questionText, options, and explanation.
+                - Keep English technical terms as they appear in the passage.
                 - Only create MULTIPLE_CHOICE and TRUE_FALSE questions.
-                - Prefer a mix of question types when questionCount >= 4.
-                - correctAnswer must exactly match one option string.
-                - Keep explanations short, grounded in the concept (not "trong tài liệu có ghi...").
-
-                BAD examples (never generate):
-                - "Lớp Ticket được tham chiếu ở trang 65 trong tài liệu."
-                - "Contact xuất hiện ở trang 165-166."
-
-                GOOD examples:
-                - "Kế thừa trong OOP cho phép lớp con tái sử dụng thuộc tính của lớp cha."
-                - "Interface Java có thể khai báo phương thức default từ Java 8."
+                - correctAnswer must be the full text of one option, not a letter.
+                - Keep explanations short. Do not write "trong tài liệu có ghi".
 
                 Return valid JSON only. No markdown. No comments.
-                - Escape any double quote inside questionText/options/explanation as \\".
+                - Escape any double quote inside strings as \\".
                 - Every field in an object must be separated by a comma.
                 - Every object in questions[] must be separated by a comma.
 
@@ -637,7 +680,9 @@ public class QuizService {
                       "questionText": "...",
                       "options": ["...", "...", "...", "..."],
                       "correctAnswer": "...",
-                      "explanation": "..."
+                      "explanation": "...",
+                      "evidenceQuote": "verbatim words copied from one passage",
+                      "sourcePassage": "P1"
                     }
                   ]
                 }
@@ -646,16 +691,14 @@ public class QuizService {
                 classId: %s
                 topic: %s
                 questionCount: %d
-                sourceMaterialIds: %s
 
-                COURSE MATERIAL CONTEXT:
+                PASSAGES:
                 %s
                 """.formatted(
                 courseId,
                 classId == null ? "" : classId,
                 topic,
                 questionCount,
-                String.join(", ", sourceIds),
                 truncateContext(context)
         );
     }
@@ -664,12 +707,17 @@ public class QuizService {
         return QuizJsonParser.readValue(raw, objectMapper, QuizPayload.class);
     }
 
-    private List<QuizSession.QuizQuestion> normalizeQuestions(QuizPayload payload, int limit, List<String> sourceIds) {
+    private List<QuizSession.QuizQuestion> normalizeQuestions(
+            QuizPayload payload,
+            int limit,
+            List<QuizPassage> passages
+    ) {
         if (payload == null || payload.getQuestions() == null) {
             return List.of();
         }
 
         List<QuizSession.QuizQuestion> questions = new ArrayList<>();
+        LinkedHashSet<String> seenQuestions = new LinkedHashSet<>();
         for (QuizQuestionPayload item : payload.getQuestions()) {
             if (questions.size() >= limit) {
                 break;
@@ -679,17 +727,33 @@ public class QuizService {
             List<String> options = cleanOptions(item.getOptions(), type);
             String correctAnswer = sanitizeQuizText(normalize(item.getCorrectAnswer()));
             String explanation = sanitizeQuizText(normalize(item.getExplanation()));
-            if (questionText == null || options.isEmpty() || correctAnswer == null) {
+            if (questionText == null || options.size() < 2 || correctAnswer == null) {
+                continue;
+            }
+            if (!seenQuestions.add(normalizeForCompare(questionText))) {
                 continue;
             }
             if (!isAcademicQuizQuestion(questionText, explanation)) {
                 log.warn("Skipping metadata-style quiz question: {}", questionText);
                 continue;
             }
-            String matchedAnswer = findMatchingOption(correctAnswer, options);
-            if (matchedAnswer == null) {
+            QuizPassage support = QuizMaterialGrounding.supportingPassage(
+                    item.getEvidenceQuote(),
+                    item.getSourcePassage(),
+                    passages
+            );
+            if (support == null) {
+                log.warn("Skipping quiz question without a verbatim passage quote: {}", questionText);
                 continue;
             }
+            String matchedAnswer = QuizMaterialGrounding.matchOption(correctAnswer, options);
+            if (matchedAnswer == null) {
+                log.warn("Skipping quiz question whose answer does not match an option: {}", questionText);
+                continue;
+            }
+            List<String> sourceIds = support.materialId() == null || support.materialId().isBlank()
+                    ? List.of()
+                    : List.of(support.materialId());
 
             questions.add(QuizSession.QuizQuestion.builder()
                     .questionId(UUID.randomUUID().toString())
@@ -698,7 +762,7 @@ public class QuizService {
                     .options(options)
                     .correctAnswer(matchedAnswer)
                     .explanation(explanation)
-                    .sourceMaterialIds(sourceIds == null ? List.of() : sourceIds)
+                    .sourceMaterialIds(sourceIds)
                     .build());
         }
         return questions;
@@ -726,21 +790,6 @@ public class QuizService {
             }
         }
         return new ArrayList<>(cleaned);
-    }
-
-    private String findMatchingOption(String answer, List<String> options) {
-        String normalizedAnswer = normalizeForCompare(answer);
-        if ("true".equals(normalizedAnswer) || "dung".equals(normalizedAnswer) || "đúng".equals(normalizedAnswer)) {
-            answer = "Đúng";
-        } else if ("false".equals(normalizedAnswer) || "sai".equals(normalizedAnswer)) {
-            answer = "Sai";
-        }
-        for (String option : options) {
-            if (normalizeForCompare(option).equals(normalizeForCompare(answer))) {
-                return option;
-            }
-        }
-        return null;
     }
 
     private boolean isCorrect(String selectedAnswer, String correctAnswer) {
@@ -845,5 +894,9 @@ public class QuizService {
         @com.fasterxml.jackson.annotation.JsonAlias({"answer", "correct", "correctOption", "answerKey"})
         private String correctAnswer;
         private String explanation;
+        @com.fasterxml.jackson.annotation.JsonAlias({"evidence", "quote", "citation", "sourceQuote"})
+        private String evidenceQuote;
+        @com.fasterxml.jackson.annotation.JsonAlias({"passage", "passageId", "sourceId"})
+        private String sourcePassage;
     }
 }
