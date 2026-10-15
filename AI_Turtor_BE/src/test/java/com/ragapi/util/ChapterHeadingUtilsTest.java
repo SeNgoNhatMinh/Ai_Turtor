@@ -36,6 +36,8 @@ class ChapterHeadingUtilsTest {
         assertFalse(ChapterHeadingUtils.isStudyUnitTitle("0.1 Outline of the Book"));
         assertTrue(ChapterHeadingUtils.isStudySuggestionTitle("A Note about JSP Documents (JSPX)"));
         assertFalse(ChapterHeadingUtils.isStudySuggestionTitle("About the Author"));
+        assertTrue(ChapterHeadingUtils.isBookFrontMatterTitle("Conventions Used in This Book"));
+        assertFalse(ChapterHeadingUtils.isStudyUnitTitle("Conventions Used in This Book"));
         assertTrue(ChapterHeadingUtils.isSentenceLikeHeading("A string is a sequence"));
         assertFalse(ChapterHeadingUtils.isStudyUnitTitle("A string is a sequence"));
         assertTrue(ChapterHeadingUtils.isStudyUnitTitle("Alternative execution"));

@@ -313,6 +313,35 @@ class LearningPathGroundingServiceTest {
                 .containsExactly("chunk-jdbc");
     }
 
+    @Test
+    void jdbcMentionInsideBookConventionsIsNotALesson() {
+        when(chapterOutlineService.suggestChapters("PRJ301")).thenReturn(List.of(
+                chapter("conventions", "Conventions Used in This Book", 45, "book"),
+                chapter("jdbc", "Chapter 12: JDBC Database Access", 240, "book")
+        ));
+        RagSourceEvidence conventions = RagSourceEvidence.builder()
+                .materialId("book")
+                .chunkId("chunk-conventions")
+                .chapter("Conventions Used in This Book")
+                .pageStart(45)
+                .excerpt("Code listings use a monospace font. The examples mention JDBC, JPA, and servlet names.")
+                .sourceKind("COURSE_MATERIAL")
+                .excerptVerified(true)
+                .build();
+
+        List<SuggestionItem> result = service.ground(
+                "PRJ301",
+                "Hôm nay mình muốn học về kết nối cơ sở dữ liệu JDBC",
+                List.of(),
+                List.of(conventions),
+                "CHALLENGE"
+        );
+
+        assertThat(result).extracting(SuggestionItem::getChapterTitle)
+                .containsExactly("Chapter 12: JDBC Database Access");
+        assertThat(service.citedEvidence(result, List.of(conventions))).isEmpty();
+    }
+
     private static ChapterOutlineView chapter(String key, String title, int page, String materialId) {
         return ChapterOutlineView.builder()
                 .chapterKey(key)

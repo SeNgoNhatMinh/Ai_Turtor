@@ -119,7 +119,10 @@ public final class ChapterHeadingUtils {
                 || stripped.startsWith("organization of this book")
                 || stripped.startsWith("to the student")
                 || stripped.startsWith("to the instructor")
-                || stripped.equals("who this book is for")) {
+                || stripped.equals("who this book is for")
+                || stripped.contains("used in this book")
+                || stripped.contains("typographical convention")
+                || stripped.matches("conventions?")) {
             return true;
         }
         return false;

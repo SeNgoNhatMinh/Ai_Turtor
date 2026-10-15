@@ -313,6 +313,55 @@ class TextbookChunkAlignmentTest {
     }
 
     @Test
+    void bookConventionsPageDoesNotOutrankAJdbcChapter() {
+        RetrievedCourseChunk conventions = new RetrievedCourseChunk(
+                "Conventions Used in This Book. Code font is used for class names. One example mentions JDBC.",
+                0.97,
+                "conventions",
+                "PRJ301",
+                null,
+                "t1",
+                "COURSE_SHARED",
+                "PDF",
+                "book",
+                "front",
+                "Conventions Used in This Book",
+                "conventions",
+                "Conventions Used in This Book",
+                "chunk-conventions",
+                1,
+                "SECTION"
+        );
+        RetrievedCourseChunk jdbc = new RetrievedCourseChunk(
+                "JDBC opens a connection, then JDBC sends a statement. JDBC reads rows with a ResultSet. "
+                        + "A JDBC driver registers itself before DriverManager.getConnection.",
+                0.40,
+                "jdbc",
+                "PRJ301",
+                null,
+                "t1",
+                "COURSE_SHARED",
+                "PDF",
+                "book",
+                "chapter-12",
+                "JDBC Database Access",
+                "jdbc-section",
+                "Opening a JDBC connection",
+                "chunk-jdbc",
+                2,
+                "SECTION"
+        );
+
+        List<RetrievedCourseChunk> ranked = TextbookChunkAlignment.rank(
+                "Hôm nay mình muốn học về kết nối cơ sở dữ liệu JDBC",
+                List.of(conventions, jdbc)
+        );
+
+        assertThat(ranked.get(0).materialId()).isEqualTo("jdbc");
+        assertThat(TextbookChunkAlignment.isLikelyNavigationChunk(conventions)).isTrue();
+    }
+
+    @Test
     void bilingualDedupKeepsAllChunksFromPreferredRepresentation() {
         RetrievedCourseChunk en = bilingualChunk("English source", 0.9, "chunk-en", "en");
         RetrievedCourseChunk vi1 = bilingualChunk("Bản dịch phần một", 0.8, "chunk-vi-1", "vi");

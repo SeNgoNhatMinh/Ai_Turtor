@@ -164,6 +164,9 @@ public final class TextbookChunkAlignment {
         if (isRecapHeading(chunk.sectionTitle()) || isRecapHeading(chunk.chapterTitle())) {
             return true;
         }
+        if (isFrontMatterHeading(chunk.sectionTitle()) || isFrontMatterHeading(chunk.chapterTitle())) {
+            return true;
+        }
         String title = (blankToEmpty(chunk.chapterTitle()) + " " + blankToEmpty(chunk.sectionTitle())).trim();
         String normalizedTitle = TextSanitizer.normalizeAccentInsensitive(title).toLowerCase(Locale.ROOT);
         if (normalizedTitle.matches("^(contents?|table of contents|index)$")) {
@@ -279,7 +282,7 @@ public final class TextbookChunkAlignment {
         int hits = hitCount(content, tokens);
         String leadingContent = normalized.substring(0, Math.min(normalized.length(), 500));
         int leadingHits = hitCount(leadingContent, tokens);
-        double score = hits * 3.0 + leadingHits * 2.0;
+        double score = hits * 3.0 + leadingHits * 2.0 + repeatedTermScore(normalized, tokens);
         score += functionCallHitCount(question, normalized) * 8.0;
         score += methodEvidenceAdjustment(question, content);
         if (definition && looksLikeDefinition(normalized, tokens)) {
@@ -353,6 +356,43 @@ public final class TextbookChunkAlignment {
             return 0;
         }
         return hitCount(heading, tokens);
+    }
+
+    /**
+     * One passing mention scores the same as a chapter that keeps using the term.
+     * Extra occurrences, capped, let a real JDBC section beat a front-matter aside.
+     */
+    private static double repeatedTermScore(String normalizedContent, List<String> tokens) {
+        if (normalizedContent == null || normalizedContent.isBlank() || tokens == null || tokens.isEmpty()) {
+            return 0;
+        }
+        double score = 0;
+        for (String token : tokens) {
+            if (token.length() < 4) {
+                continue;
+            }
+            int extra = Math.max(0, occurrenceCount(normalizedContent, token) - 1);
+            score += Math.min(4, extra) * 2.0;
+        }
+        return score;
+    }
+
+    private static int occurrenceCount(String normalizedContent, String token) {
+        Matcher matcher = Pattern.compile(
+                "(?<![\\p{L}\\p{N}])" + Pattern.quote(token) + "(?![\\p{L}\\p{N}])",
+                Pattern.UNICODE_CHARACTER_CLASS
+        ).matcher(normalizedContent);
+        int count = 0;
+        while (matcher.find() && count < 8) {
+            count++;
+        }
+        return count;
+    }
+
+    private static boolean isFrontMatterHeading(String heading) {
+        return heading != null
+                && !heading.isBlank()
+                && ChapterHeadingUtils.isBookFrontMatterTitle(heading);
     }
 
     static boolean isRecapHeading(String heading) {

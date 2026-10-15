@@ -475,7 +475,10 @@ public class LearningPathGroundingService {
             return false;
         }
         for (RagSourceEvidence item : evidence) {
-            if (item == null || isGenericSection(item.getChapter()) || !containsAnchor(item, anchors)) {
+            if (item == null
+                    || isGenericSection(item.getChapter())
+                    || isFrontMatterHeading(item.getChapter())
+                    || !containsAnchor(item, anchors)) {
                 continue;
             }
             if (headingsMatch(chapter.getTitle(), item.getChapter())) {
@@ -498,6 +501,12 @@ public class LearningPathGroundingService {
             return false;
         }
         return left.equals(right) || left.contains(right) || right.contains(left);
+    }
+
+    private static boolean isFrontMatterHeading(String heading) {
+        return heading != null
+                && !heading.isBlank()
+                && ChapterHeadingUtils.isBookFrontMatterTitle(heading);
     }
 
     static boolean isGenericSection(String heading) {
