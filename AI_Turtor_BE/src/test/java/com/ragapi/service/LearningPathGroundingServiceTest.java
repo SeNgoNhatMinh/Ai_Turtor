@@ -239,7 +239,7 @@ class LearningPathGroundingServiceTest {
 
         List<SuggestionItem> result = service.ground(
                 "PRJ301",
-                "Hôm nay mình muốn học persistence",
+                "Hôm nay mình muốn học Hibernate",
                 List.of(),
                 List.of(),
                 "CHALLENGE"
