@@ -239,7 +239,7 @@ class LearningPathGroundingServiceTest {
 
         List<SuggestionItem> result = service.ground(
                 "PRJ301",
-                "Hôm nay mình muốn học về kết nối cơ sở dữ liệu JDBC",
+                "Hôm nay mình muốn học persistence",
                 List.of(),
                 List.of(),
                 "CHALLENGE"
@@ -248,8 +248,7 @@ class LearningPathGroundingServiceTest {
         assertThat(result).extracting(SuggestionItem::getChapterTitle)
                 .containsExactly(
                         "Part III: Persisting Data with JPA and Hibernate ORM",
-                        "Chapter 19: Introducing Java Persistence API and Hibernate ORM",
-                        "Chapter 20: Mapping Entities to Tables with JPA Annotations"
+                        "Chapter 19: Introducing Java Persistence API and Hibernate ORM"
                 );
     }
 
@@ -282,16 +281,12 @@ class LearningPathGroundingServiceTest {
         );
 
         assertThat(result).extracting(SuggestionItem::getChapterTitle)
-                .containsExactly(
-                        "Chapter 12: JDBC Database Access",
-                        "Chapter 19: Introducing Java Persistence API and Hibernate ORM",
-                        "Chapter 20: Mapping Entities to Tables with JPA Annotations"
-                );
+                .containsExactly("Chapter 12: JDBC Database Access");
         assertThat(service.citedEvidence(result, List.of(summary))).isEmpty();
     }
 
     @Test
-    void jdbcQuestionUsesThePersistenceChaptersWhenTheBookTeachesDatabasesThatWay() {
+    void jdbcQuestionStaysEmptyWhenTheBookOnlyHasJpaChapters() {
         when(chapterOutlineService.suggestChapters("PRJ301")).thenReturn(List.of(
                 chapter("jpa", "Chapter 19: Introducing Java Persistence API and Hibernate ORM", 560, "book"),
                 chapter("mapping", "Chapter 20: Mapping Entities to Tables with JPA Annotations", 580, "book"),
@@ -312,20 +307,6 @@ class LearningPathGroundingServiceTest {
                 List.of(),
                 List.of(summary),
                 "CHALLENGE"
-        )).extracting(SuggestionItem::getChapterTitle).containsExactly(
-                "Chapter 19: Introducing Java Persistence API and Hibernate ORM",
-                "Chapter 20: Mapping Entities to Tables with JPA Annotations",
-                "Chapter 21: Using JPA in Spring Framework Repositories"
-        );
-        assertThat(service.citedEvidence(
-                service.ground(
-                        "PRJ301",
-                        "Hôm nay mình muốn học về kết nối cơ sở dữ liệu JDBC",
-                        List.of(),
-                        List.of(summary),
-                        "CHALLENGE"
-                ),
-                List.of(summary)
         )).isEmpty();
     }
 
@@ -353,10 +334,7 @@ class LearningPathGroundingServiceTest {
         );
 
         assertThat(result).extracting(SuggestionItem::getChapterTitle)
-                .containsExactly(
-                        "Connecting Applications to a Database",
-                        "Chapter 19: Introducing Java Persistence API and Hibernate ORM"
-                );
+                .containsExactly("Connecting Applications to a Database");
         assertThat(service.citedEvidence(result, List.of(jdbc))).extracting(RagSourceEvidence::getChunkId)
                 .containsExactly("chunk-jdbc");
     }
