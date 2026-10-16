@@ -1,37 +1,34 @@
-# AI Worker rollout plan (in-process Spring Boot)
+# AI worker rollout and operations
 
-## Current architecture assessment
+## Production flow
 
-The existing course-answer path is already staged:
+1. `CourseAnswerPreparationService` prepares the request and retrieves course chunks/context once.
+2. `CourseAnswerCacheStageService` checks for a cached answer. Cache hits can bypass generation.
+3. `CourseAnswerGenerationStageService` builds the primary grounded-answer prompt and submits three independent generation tasks to `AiWorkerOrchestrator`.
+4. Worker 1 generates the primary answer; Worker 2 generates a quiz; Worker 3 generates deep-study material. Each receives the original question and shared retrieved course context, not sibling worker output.
+5. Existing grounding/completeness and recovery logic applies to Worker 1's answer only. Backend code then appends successful optional sections without an extra LLM synthesis call.
+6. `CourseAnswerGenerationService` performs existing post-generation completion behavior. Learning Path remains retrieval-only and must not invoke this generation fan-out.
 
-1. `CourseAnswerPreparationService` prepares the request and retrieves course chunks/context.
-2. `CourseAnswerCacheStageService` checks for a cached answer.
-3. `CourseAnswerGenerationStageService` builds the prompt, calls the current provider chain, applies grounding/completeness guards, and returns the result.
-4. `CourseAnswerGenerationService` owns post-generation completion, including the mandatory remediation headings.
+## Worker execution and failure handling
 
-The Learning Path path is intentionally retrieval-only. Do not add generation workers to `retrieveLearningPath`: it must not generate an answer that is discarded.
+- Bounded executor defaults: core pool 3, max pool 6, queue capacity 24.
+- Per-worker orchestrator wait timeout: 60 seconds in the current generation stage.
+- Worker 1 is required for a usable answer. Quiz and deep-study outputs are optional; if either optional task fails, times out, or is rejected, its section is omitted while other available sections are retained.
+- Cache hits, policy short-circuits, and retrieval-only Learning Path requests may skip worker execution. Do not interpret absence of worker events for those requests as a pipeline failure.
+- A timeout bounds how long the orchestrator waits but does not guarantee cancellation of a provider call already running. Configure HTTP connect/read/call deadlines at the provider client.
+- Avoid retries across all workers when only one task fails. Track provider limits, queue rejections, and end-to-end latency before raising concurrency.
 
-## Phase 1 implemented here
+## Observability
 
-- Add a bounded `aiWorkerExecutor` isolated from the MVC request executor.
-- Add a generic `AiWorkerOrchestrator` for independent tasks with timeout and partial-success results.
-- Return explicit `SUCCESS`, `FAILED`, `TIMED_OUT`, or `REJECTED` status for each worker.
-- Do not change RAG retrieval, prompt construction, response DTOs, provider routing, cache keys, persistence, or student-facing behavior.
-- No provider API keys or secrets are stored in source control.
+MongoDB collection `ai_worker_trace_events` stores lifecycle events with a shared trace ID, worker ID/name, stage, status, duration, and sanitized details. Successful output previews are stored as separate `OUTPUT` events, capped at 1,200 characters. Admin API: `GET /api/admin/ai-worker-traces?limit=150`.
 
-This is a safe foundation, not yet a change that fans out the production answer path. It deliberately avoids adding extra LLM calls to every student question before the actual latency bottleneck and cost are measured.
+The admin panel at `/admin/ai-logs/history` polls every five seconds. It shows execution status independently from output-preview events. Output previews are truncated and basic secret-like patterns are redacted; treat them as potentially sensitive and restrict the endpoint to authorized administrators.
 
-## Suggested first integration
+## Rollout checklist
 
-For a future lesson-generation use case, pass the already-retrieved course context to independent tasks. Keep the primary explanation as the required result; examples or practice questions may be optional results. Merge only validated outputs and retain successful parts if an optional task fails. Do not retrieve RAG context separately in each worker.
-
-For remediation, keep both `Conceptual Explanation` and `Visual Representation` mandatory. If either section is absent, run the existing completion/validation path; never treat a partial worker result as a complete remediation answer.
-
-## Limits and operations
-
-Defaults: core pool 3, max pool 6, queue capacity 24, per-worker timeout 25 seconds. Tune these using observed LLM latency and provider rate limits. A timeout bounds how long the orchestrator waits; it does not guarantee cancellation of an already-running network call, so provider-level HTTP deadlines remain required.
-
-- Monitor worker status, duration, rejection count, and end-to-end RAG stages.
-- Keep retries limited and per-task; do not retry every worker when only one fails.
-- Do not use Llama Prompt Guard as a content-generation model. If later enabled, use it only for input-risk classification and fail safely on classifier errors.
-- Run backend tests and compare p50/p95 latency and LLM request/cost counts before enabling any production fan-out.
+1. Merge backend PR #11 and deploy the backend before relying on the frontend panel in PR #12.
+2. Run backend tests and the frontend production build.
+3. Ask a normal, uncached grounded course question that passes policy.
+4. Confirm Worker 1, Worker 2, and Worker 3 have events under the same trace ID, with separate answer/quiz/deep-study output previews.
+5. Test partial failure, timeouts, and queue saturation; confirm the main answer and available optional sections behave as expected.
+6. Monitor p50/p95 latency, provider usage, answer grounding, quiz correctness, and required lesson/remediation structure before enabling broadly.
