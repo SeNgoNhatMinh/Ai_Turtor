@@ -43,6 +43,10 @@ public class CourseAnswerPreparationService {
     private final PromptGuardService promptGuardService;
 
     public CourseAnswerPreparation prepare(CourseAnswerRequest request, long backendStartedNanos) {
+        return prepare(request, backendStartedNanos, true);
+    }
+
+    public CourseAnswerPreparation prepare(CourseAnswerRequest request, long backendStartedNanos, boolean runPromptGuard) {
         String safeQuestion = requireMaxLength(request.question(), "question", STUDENT_QUESTION_MAX_LENGTH);
         String safeCourseId = requireText(request.courseId(), "courseId");
         boolean guidedLessonMode = requestPolicyService.isGuidedLessonMode(request.teachingMode());
@@ -83,7 +87,7 @@ public class CourseAnswerPreparationService {
             );
         }
 
-        if (promptGuardService.isPromptAttack(safeQuestion)) {
+        if (runPromptGuard && promptGuardService.isPromptAttack(safeQuestion)) {
             log.warn("Prompt Guard blocked a likely prompt-injection attempt (courseId={})", safeCourseId);
             CourseRagAnswer blockedAnswer = CourseRagAnswer.builder()
                     .answer("Câu hỏi có dấu hiệu cố gắng ghi đè hướng dẫn hoặc vượt qua cơ chế an toàn nên mình chưa thể xử lý. "
