@@ -50,6 +50,33 @@ public class AiWorkerTraceService {
         }
     }
 
+    /** Persist a bounded output excerpt so admins can inspect what each worker generated. */
+    public void recordOutput(String traceId, String workerId, String workerName, String stage,
+                             String output, Long durationMs) {
+        if (traceId == null || traceId.isBlank() || output == null || output.isBlank()) return;
+        try {
+            mongoTemplate.save(AiWorkerTraceEvent.builder()
+                    .traceId(traceId)
+                    .workerId(workerId)
+                    .workerName(workerName)
+                    .stage(stage)
+                    .status("OUTPUT")
+                    .model("active-provider-chain")
+                    .durationMs(durationMs)
+                    .detail("Generated output excerpt; truncated for admin observability")
+                    .outputPreview(safeOutputPreview(output))
+                    .createdAt(LocalDateTime.now())
+                    .build());
+        } catch (Exception exception) {
+            log.warn("Could not persist AI worker output preview (worker={}, type={})",
+                    workerId, exception.getClass().getSimpleName());
+        }
+    }
+
+    private String safeOutputPreview(String output) {
+        String normalized = output.replaceAll("(?i)(api[_ -]?key|authorization|bearer)\\s*[:=]?\\s*\\S+", "$1=[REDACTED]");
+        return normalized.length() > 1200 ? normalized.substring(0, 1200) + "… [truncated]" : normalized;
+    }
     public List<AiWorkerTraceEvent> recent(int limit) {
         Query query = new Query().with(Sort.by(Sort.Direction.DESC, "createdAt"))
                 .limit(Math.max(1, Math.min(limit, 500)));
