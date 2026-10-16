@@ -99,7 +99,7 @@ public class PromptGuardService {
             log.warn("{} has no configured model", workerName);
             return Verdict.UNKNOWN;
         }
-        List<String> segments = splitIntoSegments(text, 1_200);
+        List<String> segments = splitIntoSegments(text, 600);
         boolean unknown = false;
         for (String segment : segments) {
             Verdict verdict = classify(segment, model, workerName);
