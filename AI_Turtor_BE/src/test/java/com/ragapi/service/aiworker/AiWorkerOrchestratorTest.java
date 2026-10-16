@@ -8,10 +8,11 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.mockito.Mockito.mock;
 
 class AiWorkerOrchestratorTest {
 
-    private final AiWorkerOrchestrator orchestrator = new AiWorkerOrchestrator(Runnable::run);
+    private final AiWorkerOrchestrator orchestrator = new AiWorkerOrchestrator(Runnable::run, mock(AiWorkerTraceService.class));
 
     @Test
     void preservesSuccessfulWorkerWhenSiblingFails() {
