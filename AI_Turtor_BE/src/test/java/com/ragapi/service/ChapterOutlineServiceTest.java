@@ -453,6 +453,8 @@ class ChapterOutlineServiceTest {
         when(outlineRepository.findByCourseIdOrderByTitleAsc("PRO192")).thenReturn(List.of(outline));
         when(goldQaRepository.findByCourseIdOrderByCreatedAtDesc("PRO192")).thenReturn(List.of());
         when(materialRepository.countByCourseIdAndIndexingStatus("PRO192", "INDEXED")).thenReturn(1L);
+        // This fixture would trigger the old HTML under-splitting rebuild heuristic.
+        lenient().when(materialRepository.findByCourseId("PRO192")).thenReturn(List.of(material));
 
         var chapters = service.suggestChapters("PRO192");
 
