@@ -13,6 +13,8 @@ import com.ragapi.util.LessonExplanationCompleter;
 import com.ragapi.util.LessonUnderstandingCheckCompleter;
 import com.ragapi.util.StudentAnswerCompletenessGuard;
 import com.ragapi.util.StudentFacingMessages;
+import com.ragapi.service.aiworker.AiWorkerTraceService;
+import org.slf4j.MDC;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -34,6 +36,7 @@ public class CourseAnswerGenerationStageService {
     private final CourseAnswerEvidenceService evidenceService;
     private final CanonicalTutorAnswerCacheService answerCacheService;
     private final CourseAnswerResultService resultService;
+    private final AiWorkerTraceService traceService;
 
     @Value("${rag.generation.quality-fallback-enabled:false}")
     private boolean qualityFallbackEnabled;
@@ -58,6 +61,7 @@ public class CourseAnswerGenerationStageService {
             log.debug("Context size: {} bytes, question length: {}",
                     prepared.context().length(), prepared.question().length());
             String answer = generateUsableAnswer(prepared, prompt, request);
+            answer = runVerificationAndRefinement(prepared, prompt, answer);
             if (!hasText(answer) || StudentFacingMessages.isUnavailableMessage(answer)) {
                 log.warn("Grounded tutor generation returned no usable answer");
                 if (prepared.understandingRemediation()) {
@@ -177,6 +181,82 @@ public class CourseAnswerGenerationStageService {
         }
     }
 
+    private String runVerificationAndRefinement(CourseAnswerPreparation prepared, String originalPrompt, String draft) {
+        if (!hasText(draft)) return draft;
+        String traceId = MDC.get("aiTraceId");
+        String review = "Verification worker did not return a review.";
+        long verifyStarted = System.nanoTime();
+        traceService.record(traceId, "worker-2", "Grounding & Accuracy Reviewer", "VERIFY", "STARTED",
+                "active-provider-chain/utility", 0L, "Reviewing draft against retrieved course context");
+        try {
+            review = generationService.generateWorkerUtilityAnswer("""
+                    You are Worker 2, a strict academic answer verifier. Do not write the final answer.
+                    Compare the DRAFT ANSWER against COURSE MATERIAL CONTEXT and STUDENT QUESTION.
+                    Report only: VERDICT (PASS or REVISE), unsupported factual claims, missing essential points,
+                    and any contradiction with the context. If the draft is grounded and complete, output PASS.
+                    Never invent facts. Keep the report concise, in Vietnamese.
+
+                    STUDENT QUESTION:
+                    %s
+
+                    COURSE MATERIAL CONTEXT:
+                    %s
+
+                    DRAFT ANSWER:
+                    %s
+                    """.formatted(prepared.question(), prepared.context(), draft));
+            traceService.record(traceId, "worker-2", "Grounding & Accuracy Reviewer", "VERIFY", "SUCCESS",
+                    "active-provider-chain/utility", java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - verifyStarted),
+                    "Verification report generated");
+        } catch (RuntimeException exception) {
+            traceService.record(traceId, "worker-2", "Grounding & Accuracy Reviewer", "VERIFY", "FAILED",
+                    "active-provider-chain/utility", java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - verifyStarted),
+                    exception.getClass().getSimpleName());
+            log.warn("Answer verification worker failed; preserving draft ({})", exception.getClass().getSimpleName());
+        }
+
+        long refineStarted = System.nanoTime();
+        traceService.record(traceId, "worker-3", "Final Answer Refiner", "REFINE", "STARTED",
+                "active-provider-chain/utility", 0L, "Refining answer using verifier report");
+        try {
+            String refined = generationService.generateWorkerUtilityAnswer("""
+                    You are Worker 3, the final answer editor for a university AI Tutor.
+                    Produce the final student-facing answer in the same language as the question.
+                    Use the draft as the base and apply the verifier report. Correct unsupported claims,
+                    preserve useful grounded details and code, and do not add facts absent from the course context.
+                    Keep all required headings and understanding-check answer keys already required by the draft.
+                    Return only the final answer in clean Markdown; no commentary about workers or verification.
+
+                    STUDENT QUESTION:
+                    %s
+
+                    COURSE MATERIAL CONTEXT:
+                    %s
+
+                    WORKER 1 DRAFT:
+                    %s
+
+                    WORKER 2 VERIFICATION REPORT:
+                    %s
+                    """.formatted(prepared.question(), prepared.context(), draft, review));
+            if (!hasText(refined)) {
+                traceService.record(traceId, "worker-3", "Final Answer Refiner", "REFINE", "FAILED",
+                        "active-provider-chain/utility", java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - refineStarted),
+                        "Empty final answer; retained Worker 1 draft");
+                return draft;
+            }
+            traceService.record(traceId, "worker-3", "Final Answer Refiner", "REFINE", "SUCCESS",
+                    "active-provider-chain/utility", java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - refineStarted),
+                    "Final answer refined");
+            return refined;
+        } catch (RuntimeException exception) {
+            traceService.record(traceId, "worker-3", "Final Answer Refiner", "REFINE", "FAILED",
+                    "active-provider-chain/utility", java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - refineStarted),
+                    exception.getClass().getSimpleName());
+            log.warn("Answer refinement worker failed; preserving best available answer ({})", exception.getClass().getSimpleName());
+            return draft;
+        }
+    }
     private String generateUsableAnswer(
             CourseAnswerPreparation prepared,
             String prompt,
