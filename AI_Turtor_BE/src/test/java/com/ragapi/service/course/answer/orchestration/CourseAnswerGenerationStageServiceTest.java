@@ -6,17 +6,23 @@ import com.ragapi.service.course.answer.generation.CourseAnswerGenerationService
 import com.ragapi.service.course.answer.generation.CourseAnswerPromptService;
 import com.ragapi.service.course.answer.grounding.CourseAnswerEvidenceService;
 import com.ragapi.service.aiworker.AiWorkerTraceService;
+import com.ragapi.service.aiworker.AiWorkerOrchestrator;
+import com.ragapi.service.aiworker.AiWorkerResult;
 import com.ragapi.service.course.model.CourseAnswerRequest;
 import com.ragapi.util.StudentFacingMessages;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.Duration;
+import java.util.LinkedHashMap;
+import java.util.function.Supplier;
 import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
@@ -28,6 +34,25 @@ import static org.mockito.Mockito.when;
 
 class CourseAnswerGenerationStageServiceTest {
 
+    private AiWorkerOrchestrator inlineWorkerOrchestrator() {
+        AiWorkerOrchestrator orchestrator = mock(AiWorkerOrchestrator.class);
+        when(orchestrator.executeParallel(anyMap(), org.mockito.ArgumentMatchers.any(Duration.class)))
+                .thenAnswer(invocation -> {
+                    Map<String, Supplier<String>> workers = invocation.getArgument(0);
+                    Map<String, AiWorkerResult<String>> results = new LinkedHashMap<>();
+                    workers.forEach((id, task) -> {
+                        try {
+                            results.put(id, AiWorkerResult.success(task.get(), 0L));
+                        } catch (RuntimeException failure) {
+                            results.put(id, AiWorkerResult.failed(failure.getClass().getSimpleName(), 0L));
+                        }
+                    });
+                    return results;
+                });
+        return orchestrator;
+    }
+
+
     @Test
     void retriesModelInsufficientMaterialClaimAfterGroundingAlreadyPassed() {
         CourseAnswerGenerationService generationService = mock(CourseAnswerGenerationService.class);
@@ -36,7 +61,7 @@ class CourseAnswerGenerationStageServiceTest {
         CanonicalTutorAnswerCacheService cacheService = mock(CanonicalTutorAnswerCacheService.class);
         CourseAnswerResultService resultService = mock(CourseAnswerResultService.class);
         CourseAnswerGenerationStageService service = new CourseAnswerGenerationStageService(
-                generationService, promptService, evidenceService, cacheService, resultService, mock(AiWorkerTraceService.class));
+                generationService, promptService, evidenceService, cacheService, resultService, mock(AiWorkerTraceService.class), inlineWorkerOrchestrator());
         ReflectionTestUtils.setField(service, "qualityFallbackEnabled", true);
 
         CourseAnswerRequest request = CourseAnswerRequest.builder()
@@ -99,7 +124,7 @@ class CourseAnswerGenerationStageServiceTest {
         CanonicalTutorAnswerCacheService cacheService = mock(CanonicalTutorAnswerCacheService.class);
         CourseAnswerResultService resultService = mock(CourseAnswerResultService.class);
         CourseAnswerGenerationStageService service = new CourseAnswerGenerationStageService(
-                generationService, promptService, evidenceService, cacheService, resultService);
+                generationService, promptService, evidenceService, cacheService, resultService, mock(AiWorkerTraceService.class), inlineWorkerOrchestrator());
         ReflectionTestUtils.setField(service, "qualityFallbackEnabled", true);
 
         CourseAnswerRequest request = CourseAnswerRequest.builder()
