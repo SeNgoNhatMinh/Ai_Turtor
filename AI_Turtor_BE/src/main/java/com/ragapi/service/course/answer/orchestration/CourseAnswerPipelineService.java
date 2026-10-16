@@ -49,6 +49,10 @@ public class CourseAnswerPipelineService {
                 .build();
     }
 
+    private void recordDownstreamWorkersSkipped(String traceId, String reason) {
+        traceService.record(traceId, "worker-2", "Grounding & Accuracy Reviewer", "VERIFY", "SKIPPED", null, null, reason);
+        traceService.record(traceId, "worker-3", "Final Answer Refiner", "REFINE", "SKIPPED", null, null, reason);
+    }
     public CourseRagAnswer answer(CourseAnswerRequest request) throws IOException {
         String previousTraceId = MDC.get("aiTraceId");
         String traceId = previousTraceId == null || previousTraceId.isBlank() ? traceService.newTraceId() : previousTraceId;
@@ -65,19 +69,22 @@ public class CourseAnswerPipelineService {
     private CourseRagAnswer answerWithTrace(CourseAnswerRequest request, long startedNanos, String traceId) throws IOException {
         CourseAnswerPreparation prepared = preparationService.prepare(request, startedNanos);
         if (prepared.hasImmediateAnswer()) {
-            traceService.record(traceId, "worker-1", "Answer Generation", "REQUEST", "SKIPPED", null, null, "Request returned an immediate policy or Prompt Guard response");
+            traceService.record(traceId, "worker-1", "Answer Generation", "REQUEST", "SKIPPED", null, null, "Request returned an immediate policy response");
+            recordDownstreamWorkersSkipped(traceId, "Immediate policy response; no answer generation needed");
             return prepared.immediateAnswer();
         }
 
         Optional<CourseRagAnswer> blockedAnswer = resultService.validateGrounding(prepared);
         if (blockedAnswer.isPresent()) {
             traceService.record(traceId, "worker-1", "Answer Generation", "REQUEST", "SKIPPED", null, null, "Grounding policy blocked generation");
+            recordDownstreamWorkersSkipped(traceId, "Grounding policy blocked generation");
             return blockedAnswer.get();
         }
 
         Optional<CourseRagAnswer> cachedAnswer = cacheStageService.find(prepared);
         if (cachedAnswer.isPresent()) {
             traceService.record(traceId, "worker-1", "Answer Generation", "REQUEST", "CACHED", null, null, "Answer returned from cache");
+            recordDownstreamWorkersSkipped(traceId, "Cache hit; no generation needed");
             return cachedAnswer.get();
         }
 
