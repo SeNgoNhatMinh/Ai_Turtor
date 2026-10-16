@@ -9,7 +9,7 @@ const formatDate = (value) => value ? new Date(value).toLocaleString('vi-VN') : 
 export default function AiWorkerTracePanel() {
   const query = useQuery({ queryKey: ['admin-ai-worker-traces'], queryFn: ({ signal }) => adminAiLogsApi.getWorkerTraces({ signal }), refetchInterval: 5000, refetchIntervalInBackground: false, staleTime: 0 });
   const rows = Array.isArray(query.data) ? query.data : [];
-  const workers = ['worker-1', 'worker-2', 'worker-3'].map((id) => ({ id, latest: rows.find((event) => event.workerId === id) || null, count: rows.filter((event) => event.workerId === id).length }));
+  const workers = ['worker-1', 'worker-2', 'worker-3'].map((id) => ({ id, latest: rows.find((event) => event.workerId === id && String(event.status || '').toUpperCase() !== 'OUTPUT') || rows.find((event) => event.workerId === id) || null, count: rows.filter((event) => event.workerId === id && String(event.status || '').toUpperCase() !== 'OUTPUT').length }));
   const columns = [
     { title: 'Thời điểm', dataIndex: 'createdAt', width: 180, render: formatDate },
     { title: 'Trace ID', dataIndex: 'traceId', width: 250, render: (value) => <Text copyable={{ text: value }}>{value || '—'}</Text> },
