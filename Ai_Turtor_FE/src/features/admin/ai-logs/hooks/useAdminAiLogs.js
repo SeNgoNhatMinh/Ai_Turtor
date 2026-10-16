@@ -28,6 +28,7 @@ export function useAdminAiLogs(section = 'history') {
   const [filters, setFilters] = useState(() => buildLogFilters());
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(20);
+  const [autoRefresh, setAutoRefresh] = useState(true);
   const [providerNotice, setProviderNotice] = useState('');
   const [providerMutationError, setProviderMutationError] = useState('');
 
@@ -35,7 +36,9 @@ export function useAdminAiLogs(section = 'history') {
     queryKey: queryKeys.adminAiLogs({ ...filters, page, size: pageSize }),
     queryFn: ({ signal }) => adminAiLogsApi.getLogs({ ...filters, page, size: pageSize }, { signal }),
     enabled: section === 'history',
-    staleTime: 15_000,
+    staleTime: 0,
+    refetchInterval: section === 'history' && autoRefresh ? 15_000 : false,
+    refetchIntervalInBackground: false,
   });
   const providerConfigsQuery = useQuery({
     queryKey: queryKeys.adminLlmProviders(),
@@ -146,6 +149,8 @@ export function useAdminAiLogs(section = 'history') {
       ? providerStatsQuery.data.providers
       : EMPTY_LIST,
     loading: logsQuery.isPending || logsQuery.isFetching,
+    autoRefresh,
+    setAutoRefresh,
     providerConfigLoading: providerConfigsQuery.isPending || providerConfigsQuery.isFetching,
     providerLoading: providerStatsQuery.isPending || providerStatsQuery.isFetching,
     providerMutationKey: providerMutation.isPending
