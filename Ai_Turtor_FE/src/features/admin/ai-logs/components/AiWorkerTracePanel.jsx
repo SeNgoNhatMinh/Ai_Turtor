@@ -22,7 +22,7 @@ export default function AiWorkerTracePanel() {
   ];
   return (
     <Card title="Giám sát 3 Worker" extra={<Text type="secondary">Tự làm mới mỗi 5 giây</Text>} style={{ marginBottom: 16 }}>
-      <Alert type="info" showIcon style={{ marginBottom: 16 }} message="Nhật ký thực từ backend" description="Worker 1 sinh câu trả lời chính; Worker 2 sinh quiz; Worker 3 sinh phần học chuyên sâu. Ba tác vụ chạy độc lập song song khi request đủ điều kiện. Yêu cầu bị policy chặn hoặc trả từ cache có thể bỏ qua cả pipeline; bảng ghi trạng thái thực tế thay vì giả lập thành công." />
+      <Alert type="info" showIcon style={{ marginBottom: 16 }} message="Nhật ký thực từ backend" description="Worker 1 sinh câu trả lời chính; Worker 2 sinh quiz; Worker 3 sinh phần học chuyên sâu. Ba tác vụ chạy độc lập song song khi request đủ điều kiện. Mở rộng dòng có trạng thái 'Đã ghi output' để xem đoạn nội dung worker đã sinh. Yêu cầu bị policy chặn hoặc trả từ cache có thể bỏ qua cả pipeline; bảng ghi trạng thái thực tế thay vì giả lập thành công." />
       <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
         {workers.map(({ id, latest, count }) => <Col xs={24} md={8} key={id}><Card size="small"><Space direction="vertical" size={4} style={{ width: '100%' }}><Text strong>{id === 'worker-1' ? 'Worker 1 · Answer Generator' : id === 'worker-2' ? 'Worker 2 · Quiz Generator' : 'Worker 3 · Deep Learning Generator'}</Text><Statistic title="Sự kiện đã ghi" value={count} /><Text type="secondary">Trạng thái mới nhất: {latest ? (STATUS[String(latest.status || '').toUpperCase()]?.label || latest.status) : 'Chưa có event'}</Text><Text type="secondary">Cập nhật: {formatDate(latest?.createdAt)}</Text></Space></Card></Col>)}
       </Row>
