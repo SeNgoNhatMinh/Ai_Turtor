@@ -237,12 +237,12 @@ public class CourseAnswerGenerationStageService {
         }
         StringBuilder combined = new StringBuilder(answer.trim());
         if (hasText(quiz)) {
-            combined.append("\\n\\n## Quiz tự luyện\\n\\n").append(quiz.trim());
+            combined.append("\n\n## Quiz tự luyện\n\n").append(quiz.trim());
         } else {
             log.warn("Worker 2 did not produce a quiz; main answer will still be returned");
         }
         if (hasText(deepStudy)) {
-            combined.append("\\n\\n## Học chuyên sâu\\n\\n").append(deepStudy.trim());
+            combined.append("\n\n## Học chuyên sâu\n\n").append(deepStudy.trim());
         } else {
             log.warn("Worker 3 did not produce deep-learning material; main answer will still be returned");
         }
