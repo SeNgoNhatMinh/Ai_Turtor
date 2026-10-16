@@ -2,6 +2,7 @@ package com.ragapi.service.course.answer;
 
 import com.ragapi.service.course.search.CourseSearchContextLimitService;
 import com.ragapi.service.aiworker.AiWorkerTraceService;
+import com.ragapi.service.aiworker.AiWorkerOrchestrator;
 import com.ragapi.service.course.answer.context.CourseLessonContextService;
 import com.ragapi.service.course.answer.context.CourseDraftTeachingNoteService;
 import com.ragapi.service.course.answer.context.CourseImprovePlanContextService;
@@ -113,6 +114,7 @@ class CourseAnswerServiceTextbookTest {
                 contextBudgetService
         );
         CourseAnswerGroundingService groundingService = new CourseAnswerGroundingService();
+        AiWorkerTraceService workerTraceService = org.mockito.Mockito.mock(AiWorkerTraceService.class);
         CourseAnswerEvidenceService evidenceService = new CourseAnswerEvidenceService(sourceService, evidenceSelector);
         CourseAnswerResultService resultService = new CourseAnswerResultService(requestPolicyService);
         CourseAnswerPipelineService pipelineService = new CourseAnswerPipelineService(
@@ -131,10 +133,12 @@ class CourseAnswerServiceTextbookTest {
                         new CourseAnswerPromptService(generationService, new CourseAnswerPromptSections()),
                         evidenceService,
                         answerCacheService,
-                        resultService
+                        resultService,
+                        workerTraceService,
+                        new AiWorkerOrchestrator(Runnable::run, workerTraceService)
                 ),
                 evidenceService,
-                org.mockito.Mockito.mock(AiWorkerTraceService.class)
+                workerTraceService
         );
         service = new CourseAnswerService(generationService, pipelineService, requestPolicyService);
     }
