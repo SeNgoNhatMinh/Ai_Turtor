@@ -67,7 +67,8 @@ public class CourseAnswerGenerationStageService {
         try {
             log.debug("Context size: {} bytes, question length: {}",
                     prepared.context().length(), prepared.question().length());
-            String answer = runThreeWorkerLearningPipeline(prepared, prompt, request);
+            WorkerOutputs workerOutputs = runThreeWorkerLearningPipeline(prepared, prompt, request);
+            String answer = workerOutputs.answer();
             if (!hasText(answer) || StudentFacingMessages.isUnavailableMessage(answer)) {
                 log.warn("Grounded tutor generation returned no usable answer");
                 if (prepared.understandingRemediation()) {
@@ -160,6 +161,15 @@ public class CourseAnswerGenerationStageService {
                 log.warn("Grounded tutor generation ended with an incomplete student answer");
                 return resultService.softUnavailable(StudentFacingMessages.GENERATION_BUSY, prepared.sourceLabels());
             }
+            // Apply answer-only guards before appending independent optional worker outputs.
+            StringBuilder finalContent = new StringBuilder(answer.trim());
+            if (hasText(workerOutputs.quiz())) {
+                finalContent.append("\\n\\n## Quiz tự luyện\\n\\n").append(workerOutputs.quiz().trim());
+            }
+            if (hasText(workerOutputs.deepStudy())) {
+                finalContent.append("\\n\\n## Học chuyên sâu\\n\\n").append(workerOutputs.deepStudy().trim());
+            }
+            answer = finalContent.toString();
             log.info("Received grounded answer from AI (length: {})", answer.length());
             List<RetrievedCourseChunk> alignedChunks = evidenceService.selectAnswerEvidenceChunks(
                     prepared.chunks(), prepared.question(), answer);
@@ -188,7 +198,7 @@ public class CourseAnswerGenerationStageService {
     }
 
     /** Worker 1 answers the question, Worker 2 creates a quiz, and Worker 3 creates deeper learning material. */
-    private String runThreeWorkerLearningPipeline(CourseAnswerPreparation prepared, String answerPrompt, CourseAnswerRequest request) {
+    private WorkerOutputs runThreeWorkerLearningPipeline(CourseAnswerPreparation prepared, String answerPrompt, CourseAnswerRequest request) {
         String traceId = MDC.get("aiTraceId");
         String context = prepared.context() == null ? "" : prepared.context();
         String question = prepared.question() == null ? "" : prepared.question();
@@ -238,19 +248,16 @@ public class CourseAnswerGenerationStageService {
             log.warn("Worker 1 failed to generate the main answer");
             answer = StudentFacingMessages.GENERATION_UNAVAILABLE;
         }
-        StringBuilder combined = new StringBuilder(answer.trim());
-        if (hasText(quiz)) {
-            combined.append("\n\n## Quiz tự luyện\n\n").append(quiz.trim());
-        } else {
+        if (!hasText(quiz)) {
             log.warn("Worker 2 did not produce a quiz; main answer will still be returned");
         }
-        if (hasText(deepStudy)) {
-            combined.append("\n\n## Học chuyên sâu\n\n").append(deepStudy.trim());
-        } else {
+        if (!hasText(deepStudy)) {
             log.warn("Worker 3 did not produce deep-learning material; main answer will still be returned");
         }
-        return combined.toString();
+        return new WorkerOutputs(answer, quiz, deepStudy);
     }
+
+    private record WorkerOutputs(String answer, String quiz, String deepStudy) {}
 
     private void recordWorkerOutput(String traceId, String workerId, String workerName, String stage,
                                     String output, AiWorkerResult<String> result) {
