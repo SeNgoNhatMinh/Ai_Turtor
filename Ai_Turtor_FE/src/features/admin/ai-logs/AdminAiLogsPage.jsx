@@ -97,7 +97,7 @@ export default function AdminAiLogsPage({ section = 'providers' }) {
           pagination={controller.logPagination}
           query={controller.logQuery}
           onSearch={controller.searchLogs}
-          onRefresh={controller.refreshAll}
+          onRefresh={controller.refreshLogs}
           autoRefresh={controller.autoRefresh}
           onAutoRefreshChange={controller.setAutoRefresh}
         />
