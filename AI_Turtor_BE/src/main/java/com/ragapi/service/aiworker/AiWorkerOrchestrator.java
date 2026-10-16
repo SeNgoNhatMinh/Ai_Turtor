@@ -49,7 +49,7 @@ public class AiWorkerOrchestrator {
             Supplier<T> task = entry.getValue();
             long started = System.nanoTime();
             String traceId = traceService.currentTraceId();
-            traceService.record(traceId, workerName, workerName, "STARTED", "RUNNING", null, 0L, "Worker started");
+            traceService.record(traceId, workerName, displayName(workerName), stageName(workerName), "STARTED", "RUNNING", null, 0L, "Worker started");
 
             try {
                 CompletableFuture<AiWorkerResult<T>> future = CompletableFuture
@@ -58,23 +58,23 @@ public class AiWorkerOrchestrator {
                         .handle((value, failure) -> {
                             long elapsedMs = elapsedMs(started);
                             if (failure == null) {
-                                traceService.record(traceId, workerName, workerName, "FINISHED", "SUCCESS", null, elapsedMs, "Worker completed");
+                                traceService.record(traceId, workerName, displayName(workerName), stageName(workerName), "FINISHED", "SUCCESS", null, elapsedMs, "Worker completed");
                                 return AiWorkerResult.success(value, elapsedMs);
                             }
                             Throwable cause = unwrap(failure);
                             if (cause instanceof TimeoutException) {
                                 log.warn("AI worker {} timed out after {} ms", workerName, elapsedMs);
-                                traceService.record(traceId, workerName, workerName, "FINISHED", "TIMED_OUT", null, elapsedMs, "Worker timed out");
+                                traceService.record(traceId, workerName, displayName(workerName), stageName(workerName), "FINISHED", "TIMED_OUT", null, elapsedMs, "Worker timed out");
                                 return AiWorkerResult.timedOut(elapsedMs);
                             }
                             log.warn("AI worker {} failed: {}", workerName, cause.getClass().getSimpleName());
-                            traceService.record(traceId, workerName, workerName, "FINISHED", "FAILED", null, elapsedMs, cause.getClass().getSimpleName());
+                            traceService.record(traceId, workerName, displayName(workerName), stageName(workerName), "FINISHED", "FAILED", null, elapsedMs, cause.getClass().getSimpleName());
                             return AiWorkerResult.failed(cause.getClass().getSimpleName(), elapsedMs);
                         });
                 futures.put(workerName, future);
             } catch (RejectedExecutionException rejected) {
                 log.warn("AI worker {} rejected because the bounded pool is saturated", workerName);
-                traceService.record(traceId, workerName, workerName, "FINISHED", "REJECTED", null, elapsedMs(started), "Worker pool is saturated");
+                traceService.record(traceId, workerName, displayName(workerName), stageName(workerName), "FINISHED", "REJECTED", null, elapsedMs(started), "Worker pool is saturated");
                 futures.put(workerName, CompletableFuture.completedFuture(
                         AiWorkerResult.rejected("AI worker pool is saturated")));
             }
@@ -85,6 +85,23 @@ public class AiWorkerOrchestrator {
         return results;
     }
 
+    private static String displayName(String workerId) {
+        return switch (workerId) {
+            case "worker-1" -> "Worker 1 · Answer Generator";
+            case "worker-2" -> "Worker 2 · Quiz Generator";
+            case "worker-3" -> "Worker 3 · Deep Learning Generator";
+            default -> workerId;
+        };
+    }
+
+    private static String stageName(String workerId) {
+        return switch (workerId) {
+            case "worker-1" -> "GENERATE_ANSWER";
+            case "worker-2" -> "GENERATE_QUIZ";
+            case "worker-3" -> "GENERATE_DEEP_STUDY";
+            default -> "WORKER_TASK";
+        };
+    }
     private static long elapsedMs(long startedNanos) {
         return TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedNanos);
     }
