@@ -128,6 +128,11 @@ public class CourseAnswerGenerationService {
         }
     }
 
+    /** Utility-model pass used by the answer verification and refinement workers. */
+    public String generateWorkerUtilityAnswer(String prompt) {
+        return chatService.generateUtility(prompt);
+    }
+
     public boolean isOllamaOnlyActive() {
         return chatService.isOllamaOnlyActive();
     }
