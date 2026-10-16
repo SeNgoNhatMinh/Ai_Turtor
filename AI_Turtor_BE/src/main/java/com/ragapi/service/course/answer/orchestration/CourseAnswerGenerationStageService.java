@@ -231,6 +231,9 @@ public class CourseAnswerGenerationStageService {
         String answer = successfulOutput(results.get("worker-1"));
         String quiz = successfulOutput(results.get("worker-2"));
         String deepStudy = successfulOutput(results.get("worker-3"));
+        recordWorkerOutput(traceId, "worker-1", "Worker 1 · Answer Generator", "GENERATE_ANSWER", answer, results.get("worker-1"));
+        recordWorkerOutput(traceId, "worker-2", "Worker 2 · Quiz Generator", "GENERATE_QUIZ", quiz, results.get("worker-2"));
+        recordWorkerOutput(traceId, "worker-3", "Worker 3 · Deep Learning Generator", "GENERATE_DEEP_STUDY", deepStudy, results.get("worker-3"));
         if (!hasText(answer)) {
             log.warn("Worker 1 failed to generate the main answer");
             answer = StudentFacingMessages.GENERATION_UNAVAILABLE;
@@ -249,6 +252,11 @@ public class CourseAnswerGenerationStageService {
         return combined.toString();
     }
 
+    private void recordWorkerOutput(String traceId, String workerId, String workerName, String stage,
+                                    String output, AiWorkerResult<String> result) {
+        if (!hasText(output) || result == null || result.status() != AiWorkerResult.Status.SUCCESS) return;
+        traceService.recordOutput(traceId, workerId, workerName, stage, output, result.durationMs());
+    }
     private String successfulOutput(AiWorkerResult<String> result) {
         return result != null && result.status() == AiWorkerResult.Status.SUCCESS ? result.value() : null;
     }
