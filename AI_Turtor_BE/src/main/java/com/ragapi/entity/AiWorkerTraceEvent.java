@@ -25,5 +25,6 @@ public class AiWorkerTraceEvent {
     private String model;
     private Long durationMs;
     private String detail;
+    private String outputPreview;
     private LocalDateTime createdAt;
 }
