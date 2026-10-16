@@ -5,6 +5,7 @@ import com.ragapi.service.CanonicalTutorAnswerCacheService;
 import com.ragapi.service.course.answer.generation.CourseAnswerGenerationService;
 import com.ragapi.service.course.answer.generation.CourseAnswerPromptService;
 import com.ragapi.service.course.answer.grounding.CourseAnswerEvidenceService;
+import com.ragapi.service.aiworker.AiWorkerTraceService;
 import com.ragapi.service.course.model.CourseAnswerRequest;
 import com.ragapi.util.StudentFacingMessages;
 import org.junit.jupiter.api.Test;
@@ -35,7 +36,7 @@ class CourseAnswerGenerationStageServiceTest {
         CanonicalTutorAnswerCacheService cacheService = mock(CanonicalTutorAnswerCacheService.class);
         CourseAnswerResultService resultService = mock(CourseAnswerResultService.class);
         CourseAnswerGenerationStageService service = new CourseAnswerGenerationStageService(
-                generationService, promptService, evidenceService, cacheService, resultService);
+                generationService, promptService, evidenceService, cacheService, resultService, mock(AiWorkerTraceService.class));
         ReflectionTestUtils.setField(service, "qualityFallbackEnabled", true);
 
         CourseAnswerRequest request = CourseAnswerRequest.builder()
