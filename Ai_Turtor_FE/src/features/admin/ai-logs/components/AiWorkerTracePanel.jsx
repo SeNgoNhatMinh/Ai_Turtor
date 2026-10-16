@@ -16,7 +16,7 @@ export default function AiWorkerTracePanel() {
     { title: 'Worker', dataIndex: 'workerName', width: 190, render: (value, row) => value || row.workerId },
     { title: 'Bước', dataIndex: 'stage', width: 130 },
     { title: 'Trạng thái', dataIndex: 'status', width: 140, render: (value) => { const s = STATUS[String(value || '').toUpperCase()] || { color: 'default', label: value || 'Chưa rõ' }; return <Tag color={s.color}>{s.label}</Tag>; } },
-    { title: 'Model', dataIndex: 'model', width: 260, render: (value) => value || 'Chưa ghi nhận' },
+    { title: 'Model/route', dataIndex: 'model', width: 260, render: (value) => value || 'Chưa ghi nhận' },
     { title: 'Thời gian', dataIndex: 'durationMs', width: 110, render: (value) => value == null ? '—' : `${value} ms` },
     { title: 'Chi tiết', dataIndex: 'detail', render: (value) => value || '—' },
   ];
