@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Alert, Button, Card, Select, Space, Tag, Typography } from 'antd';
+import { Alert, Button, Card, Select, Space, Switch, Tag, Typography } from 'antd';
 import { Download, RefreshCw } from 'lucide-react';
 import SearchableTable from '../../../../components/common/SearchableTable';
 
@@ -157,6 +157,15 @@ export default function AiRequestLogsTable({
       title="Lịch sử yêu cầu"
       extra={(
         <Space wrap>
+          <Space size={6}>
+            <Text>Live</Text>
+            <Switch
+              checked={autoRefresh}
+              onChange={onAutoRefreshChange}
+              size="small"
+              aria-label="Bật tự làm mới nhật ký"
+            />
+          </Space>
           <Select
             aria-label="Lọc trạng thái nhật ký"
             value={statusFilter}
