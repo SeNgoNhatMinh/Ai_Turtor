@@ -117,6 +117,7 @@ public class CourseAnswerGenerationService {
             answer = PromptLeakFilter.stripNumberedCurriculum(answer);
             answer = restoreNextLesson(answer, question, learnerMemoryContext);
         } else if (!"LEARNING_PATH".equalsIgnoreCase(teachingMode)) {
+            answer = completeRemediationSections(answer, question, courseContext);
             answer = completeRemediationUnderstandingCheck(answer, question, courseContext);
             answer = completeUnderstandingCheckKey(answer);
             answer = PromptLeakFilter.stripNumberedCurriculum(answer);
@@ -171,6 +172,115 @@ public class CourseAnswerGenerationService {
             log.warn("Lesson explanation was not generated from the pinned chapter: {}", error.getMessage());
             return answer;
         }
+    }
+
+    private String completeRemediationSections(String answer, String question, String courseContext) {
+        if (question == null || !question.stripLeading().startsWith("Ôn lại sau câu ")) {
+            return answer;
+        }
+        boolean missingConcept = !containsHeading(answer, "Giải thích khái niệm (Conceptual Explanation)");
+        boolean missingVisual = !containsHeading(answer, "Minh họa trực quan (Visual Representation)");
+        if (!missingConcept && !missingVisual) {
+            return answer;
+        }
+        if (courseContext == null || courseContext.isBlank()) {
+            log.warn("Remediation sections are incomplete; course context is empty");
+            return answer;
+        }
+
+        String requiredSections = (missingConcept
+                ? "### Giải thích khái niệm (Conceptual Explanation)\nExplain the same concept in simpler Vietnamese and correct the likely misconception.\n\n"
+                : "")
+                + (missingVisual
+                ? "### Minh họa trực quan (Visual Representation)\nGive one compact grounded diagram, flow, comparison table, or concrete mental model.\n"
+                : "");
+        try {
+            String generated = chatService.generateUtility("""
+                    The student answered a learning check incorrectly. Generate ONLY the missing remediation section(s)
+                    listed below in Vietnamese, grounded strictly in COURSE MATERIAL CONTEXT.
+                    Do not repeat existing sections, do not create a quiz, and do not add unsupported facts.
+                    Return the requested Markdown headings exactly.
+
+                    MISSING SECTION(S):
+                    %s
+
+                    STUDENT QUESTION:
+                    %s
+
+                    EXISTING ANSWER (for context; do not repeat it):
+                    %s
+
+                    COURSE MATERIAL CONTEXT:
+                    %s
+                    """.formatted(
+                    requiredSections,
+                    question,
+                    answer == null ? "" : answer,
+                    courseContext.substring(0, Math.min(courseContext.length(), 4_000))
+            ));
+            return insertMissingRemediationSections(answer, generated, missingConcept, missingVisual);
+        } catch (RuntimeException error) {
+            log.warn("Missing remediation sections were not generated from course context: {}", error.getMessage());
+            return answer;
+        }
+    }
+
+    private boolean containsHeading(String answer, String heading) {
+        if (answer == null) {
+            return false;
+        }
+        return answer.toLowerCase(java.util.Locale.ROOT)
+                .contains(heading.toLowerCase(java.util.Locale.ROOT));
+    }
+
+    private String insertMissingRemediationSections(
+            String answer, String generated, boolean missingConcept, boolean missingVisual
+    ) {
+        if (answer == null || generated == null || generated.isBlank()) {
+            return answer;
+        }
+        StringBuilder additions = new StringBuilder();
+        appendGeneratedSection(additions, generated, "Giải thích khái niệm (Conceptual Explanation)",
+                missingConcept);
+        appendGeneratedSection(additions, generated, "Minh họa trực quan (Visual Representation)",
+                missingVisual);
+        if (additions.isEmpty()) {
+            return answer;
+        }
+        java.util.regex.Matcher quiz = java.util.regex.Pattern.compile(
+                "(?im)^#{1,6}\\s*(?:kiểm tra hiểu|understanding check)\\s*$").matcher(answer);
+        if (quiz.find()) {
+            return (answer.substring(0, quiz.start()).stripTrailing() + "\n\n"
+                    + additions.toString().trim() + "\n\n" + answer.substring(quiz.start()).stripLeading())
+                    .replaceAll("\\n{3,}", "\\n\\n").trim();
+        }
+        return (answer.stripTrailing() + "\n\n" + additions.toString().trim())
+                .replaceAll("\\n{3,}", "\\n\\n").trim();
+    }
+
+    private void appendGeneratedSection(
+            StringBuilder additions, String generated, String heading, boolean required
+    ) {
+        if (!required) {
+            return;
+        }
+        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(
+                "(?im)^#{1,6}\\s*" + java.util.regex.Pattern.quote(heading) + "\\s*$");
+        java.util.regex.Matcher matcher = pattern.matcher(generated);
+        if (!matcher.find()) {
+            return;
+        }
+        int start = matcher.start();
+        int end = generated.length();
+        java.util.regex.Matcher next = java.util.regex.Pattern.compile("(?m)^#{1,6}\\s+.+$")
+                .matcher(generated);
+        if (next.find(matcher.end())) {
+            end = next.start();
+        }
+        if (additions.length() > 0) {
+            additions.append("\n\n");
+        }
+        additions.append(generated.substring(start, end).trim());
     }
 
     private String completeRemediationUnderstandingCheck(String answer, String question, String courseContext) {
