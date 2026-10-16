@@ -2,7 +2,6 @@ package com.ragapi.service.course.answer;
 
 import com.ragapi.service.course.search.CourseSearchContextLimitService;
 import com.ragapi.service.aiworker.AiWorkerTraceService;
-import com.ragapi.service.aiworker.PromptGuardService;
 import com.ragapi.service.course.answer.context.CourseLessonContextService;
 import com.ragapi.service.course.answer.context.CourseDraftTeachingNoteService;
 import com.ragapi.service.course.answer.context.CourseImprovePlanContextService;
@@ -123,8 +122,7 @@ class CourseAnswerServiceTextbookTest {
                         new LearningPathGroundingService(chapterOutlineService, null),
                         lessonContextService,
                         groundingService,
-                        evidenceService,
-                        org.mockito.Mockito.mock(PromptGuardService.class)
+                        evidenceService
                 ),
                 resultService,
                 new CourseAnswerCacheStageService(answerCacheService, cacheHitAuditService, evidenceService),
