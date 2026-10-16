@@ -326,7 +326,6 @@ class ChapterOutlineServiceTest {
         material.setImportedPageCount(2);
         material.setContent(content);
 
-        when(materialRepository.findByCourseId("PRO192")).thenReturn(List.of(material));
         when(chunkingService.chunk(anyString())).thenAnswer(inv -> {
             String text = inv.getArgument(0);
             int parts = Math.max(1, text.length() / 40);
@@ -454,7 +453,6 @@ class ChapterOutlineServiceTest {
         when(goldQaRepository.findByCourseIdOrderByCreatedAtDesc("PRO192")).thenReturn(List.of());
         when(materialRepository.countByCourseIdAndIndexingStatus("PRO192", "INDEXED")).thenReturn(1L);
         when(materialRepository.findByCourseId("PRO192")).thenReturn(List.of(material));
-        when(chunkingService.chunk(anyString())).thenReturn(List.of("chunk"));
 
         var chapters = service.suggestChapters("PRO192");
 
