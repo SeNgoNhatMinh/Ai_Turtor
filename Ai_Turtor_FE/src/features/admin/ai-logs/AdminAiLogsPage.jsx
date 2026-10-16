@@ -2,6 +2,7 @@ import { Alert } from 'antd';
 import PageHeader from '../../../components/common/PageHeader';
 import AiLogFilters from './components/AiLogFilters';
 import AiLogMetrics from './components/AiLogMetrics';
+import AiWorkerTracePanel from './components/AiWorkerTracePanel';
 import AiRequestLogsTable from './components/AiRequestLogsTable';
 import LlmProviderManagementTable from './components/LlmProviderManagementTable';
 import ProviderStatusTable from './components/ProviderStatusTable';
@@ -35,6 +36,7 @@ export default function AdminAiLogsPage({ section = 'providers' }) {
         description={page.description}
       />
       {section === 'history' && <AiLogMetrics summary={controller.summary} />}
+      {section === 'history' && <AiWorkerTracePanel />
       {section === 'history' && (
         <AiLogFilters
           loading={controller.loading}
