@@ -414,4 +414,55 @@ class ChapterOutlineServiceTest {
         verify(chunkingService, never()).chunk(anyString());
         verify(outlineRepository, never()).save(any());
     }
+    @Test
+    void suggestChaptersDoesNotRebuildPersistedHtmlOutlineDuringChat() {
+        String content = """
+                Source URL: https://docs.example.com/pro/intro
+                Page title: Introduction to PRO
+
+                Intro section content.
+
+                ---
+
+                Source URL: https://docs.example.com/pro/chapter
+                Page title: Chapter 1
+
+                Chapter section content.
+                """;
+        CourseMaterial material = new CourseMaterial();
+        material.setId("M-HTML");
+        material.setCourseId("PRO192");
+        material.setTitle("PRO docs");
+        material.setSourceType("HTML_URL");
+        material.setIndexingStatus("INDEXED");
+        material.setImportedPageCount(12);
+        material.setContent(content);
+
+        CourseChapterOutline outline = CourseChapterOutline.builder()
+                .id("O-HTML")
+                .courseId("PRO192")
+                .chapterKey("introduction-to-pro")
+                .title("Introduction to PRO")
+                .status("SUGGESTED")
+                .detectedFrom("HTML_SECTION")
+                .sourceMaterialIds(List.of("M-HTML"))
+                .chunkCount(4)
+                .approxChars(2000L)
+                .build();
+
+        when(outlineRepository.findByCourseIdOrderByTitleAsc("PRO192")).thenReturn(List.of(outline));
+        when(goldQaRepository.findByCourseIdOrderByCreatedAtDesc("PRO192")).thenReturn(List.of());
+        when(materialRepository.countByCourseIdAndIndexingStatus("PRO192", "INDEXED")).thenReturn(1L);
+        when(materialRepository.findByCourseId("PRO192")).thenReturn(List.of(material));
+        when(chunkingService.chunk(anyString())).thenReturn(List.of("chunk"));
+
+        var chapters = service.suggestChapters("PRO192");
+
+        assertEquals(1, chapters.size());
+        assertEquals("Introduction to PRO", chapters.get(0).getTitle());
+        verify(materialRepository, never()).findByCourseId("PRO192");
+        verify(chunkingService, never()).chunk(anyString());
+        verify(outlineRepository, never()).save(any());
+    }
+
 }
