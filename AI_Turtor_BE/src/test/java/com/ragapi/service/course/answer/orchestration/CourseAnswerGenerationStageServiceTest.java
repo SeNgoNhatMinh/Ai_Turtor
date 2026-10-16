@@ -184,7 +184,7 @@ class CourseAnswerGenerationStageServiceTest {
         CanonicalTutorAnswerCacheService cacheService = mock(CanonicalTutorAnswerCacheService.class);
         CourseAnswerResultService resultService = mock(CourseAnswerResultService.class);
         CourseAnswerGenerationStageService service = new CourseAnswerGenerationStageService(
-                generationService, promptService, evidenceService, cacheService, resultService);
+                generationService, promptService, evidenceService, cacheService, resultService, mock(AiWorkerTraceService.class), inlineWorkerOrchestrator());
 
         CourseAnswerRequest request = CourseAnswerRequest.builder()
                 .question("Start lesson 3")
@@ -239,7 +239,7 @@ class CourseAnswerGenerationStageServiceTest {
         CanonicalTutorAnswerCacheService cacheService = mock(CanonicalTutorAnswerCacheService.class);
         CourseAnswerResultService resultService = mock(CourseAnswerResultService.class);
         CourseAnswerGenerationStageService service = new CourseAnswerGenerationStageService(
-                generationService, promptService, evidenceService, cacheService, resultService);
+                generationService, promptService, evidenceService, cacheService, resultService, mock(AiWorkerTraceService.class), inlineWorkerOrchestrator());
 
         String guidance = "ACTIVE SUPPORT LEVEL: HIGH_SUPPORT";
         CourseAnswerRequest request = CourseAnswerRequest.builder()
@@ -312,7 +312,7 @@ class CourseAnswerGenerationStageServiceTest {
         CanonicalTutorAnswerCacheService cacheService = mock(CanonicalTutorAnswerCacheService.class);
         CourseAnswerResultService resultService = mock(CourseAnswerResultService.class);
         CourseAnswerGenerationStageService service = new CourseAnswerGenerationStageService(
-                generationService, promptService, evidenceService, cacheService, resultService);
+                generationService, promptService, evidenceService, cacheService, resultService, mock(AiWorkerTraceService.class), inlineWorkerOrchestrator());
 
         String guidance = "ACTIVE SUPPORT LEVEL: HIGH_SUPPORT";
         CourseAnswerRequest request = CourseAnswerRequest.builder()
