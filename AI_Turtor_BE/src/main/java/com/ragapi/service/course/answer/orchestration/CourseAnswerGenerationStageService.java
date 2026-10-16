@@ -164,10 +164,10 @@ public class CourseAnswerGenerationStageService {
             // Apply answer-only guards before appending independent optional worker outputs.
             StringBuilder finalContent = new StringBuilder(answer.trim());
             if (hasText(workerOutputs.quiz())) {
-                finalContent.append("\\n\\n## Quiz tự luyện\\n\\n").append(workerOutputs.quiz().trim());
+                finalContent.append("\n\n## Quiz tự luyện\n\n").append(workerOutputs.quiz().trim());
             }
             if (hasText(workerOutputs.deepStudy())) {
-                finalContent.append("\\n\\n## Học chuyên sâu\\n\\n").append(workerOutputs.deepStudy().trim());
+                finalContent.append("\n\n## Học chuyên sâu\n\n").append(workerOutputs.deepStudy().trim());
             }
             answer = finalContent.toString();
             log.info("Received grounded answer from AI (length: {})", answer.length());
