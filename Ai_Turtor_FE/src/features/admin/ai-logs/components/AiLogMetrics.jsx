@@ -12,7 +12,7 @@ export default function AiLogMetrics({ summary = {} }) {
   return (
     <Row gutter={[16, 16]} className="admin-ai-logs-metrics">
       {METRICS.map((metric) => (
-        <Col key={metric.key} xs={24} sm={12} lg={metric.key === 'estimatedTokenCount' ? 8 : 6}>
+        <Col key={metric.key} xs={24} sm={12} lg={8}>
           <Card className={`admin-ai-logs-metric ${metric.key === 'failedCount' ? 'admin-ai-logs-metric--errors' : ''}`}>
             <Statistic
               title={metric.label}
