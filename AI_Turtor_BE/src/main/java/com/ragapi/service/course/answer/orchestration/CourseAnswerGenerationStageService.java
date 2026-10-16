@@ -14,6 +14,12 @@ import com.ragapi.util.LessonUnderstandingCheckCompleter;
 import com.ragapi.util.StudentAnswerCompletenessGuard;
 import com.ragapi.util.StudentFacingMessages;
 import com.ragapi.service.aiworker.AiWorkerTraceService;
+import com.ragapi.service.aiworker.AiWorkerOrchestrator;
+import com.ragapi.service.aiworker.AiWorkerResult;
+import java.time.Duration;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.function.Supplier;
 import org.slf4j.MDC;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -37,6 +43,7 @@ public class CourseAnswerGenerationStageService {
     private final CanonicalTutorAnswerCacheService answerCacheService;
     private final CourseAnswerResultService resultService;
     private final AiWorkerTraceService traceService;
+    private final AiWorkerOrchestrator workerOrchestrator;
 
     @Value("${rag.generation.quality-fallback-enabled:false}")
     private boolean qualityFallbackEnabled;
@@ -60,8 +67,7 @@ public class CourseAnswerGenerationStageService {
         try {
             log.debug("Context size: {} bytes, question length: {}",
                     prepared.context().length(), prepared.question().length());
-            String answer = generateUsableAnswer(prepared, prompt, request);
-            answer = runVerificationAndRefinement(prepared, prompt, answer);
+            String answer = runThreeWorkerLearningPipeline(prepared, prompt, request);
             if (!hasText(answer) || StudentFacingMessages.isUnavailableMessage(answer)) {
                 log.warn("Grounded tutor generation returned no usable answer");
                 if (prepared.understandingRemediation()) {
@@ -181,95 +187,76 @@ public class CourseAnswerGenerationStageService {
         }
     }
 
-    private String runVerificationAndRefinement(CourseAnswerPreparation prepared, String originalPrompt, String draft) {
-        if (!hasText(draft) || StudentFacingMessages.isUnavailableMessage(draft)) {
-            String traceId = MDC.get("aiTraceId");
-            traceService.record(traceId, "worker-2", "Grounding & Accuracy Reviewer", "VERIFY", "SKIPPED",
-                    "active-provider-chain/utility", null, "No usable Worker 1 draft to verify");
-            traceService.record(traceId, "worker-3", "Final Answer Refiner", "REFINE", "SKIPPED",
-                    "active-provider-chain/utility", null, "No usable Worker 1 draft to refine");
-            return draft;
-        }
+    /** Worker 1 answers the question, Worker 2 creates a quiz, and Worker 3 creates deeper learning material. */
+    private String runThreeWorkerLearningPipeline(CourseAnswerPreparation prepared, String answerPrompt, CourseAnswerRequest request) {
         String traceId = MDC.get("aiTraceId");
-        String review = "Verification worker did not return a review.";
-        long verifyStarted = System.nanoTime();
-        traceService.record(traceId, "worker-2", "Grounding & Accuracy Reviewer", "VERIFY", "STARTED",
-                "active-provider-chain/utility", 0L, "Reviewing draft against retrieved course context");
-        try {
-            review = generationService.generateWorkerUtilityAnswer("""
-                    You are Worker 2, a strict academic answer verifier. Do not write the final answer.
-                    Compare the DRAFT ANSWER against COURSE MATERIAL CONTEXT and STUDENT QUESTION.
-                    Report only: VERDICT (PASS or REVISE), unsupported factual claims, missing essential points,
-                    and any contradiction with the context. If the draft is grounded and complete, output PASS.
-                    Never invent facts. Keep the report concise, in Vietnamese.
+        String context = prepared.context() == null ? "" : prepared.context();
+        String question = prepared.question() == null ? "" : prepared.question();
+        String quizPrompt = """
+                You are Worker 2: an independent quiz author for a university course.
+                Generate a useful quiz for the student's question based only on COURSE MATERIAL CONTEXT.
+                Do not answer the question as a tutor and do not review another worker's answer.
+                Write 5 multiple-choice questions, each with exactly 4 options (A-D), one correct answer,
+                and a concise explanation for the answer. Vary difficulty from basic to applied.
+                Use Vietnamese unless the student asked in another language. Do not invent facts outside context.
+                Format each item clearly as Q1, options A-D, 'Đáp án đúng:', and 'Giải thích:'.
 
-                    STUDENT QUESTION:
-                    %s
+                STUDENT QUESTION:
+                %s
 
-                    COURSE MATERIAL CONTEXT:
-                    %s
+                COURSE MATERIAL CONTEXT:
+                %s
+                """.formatted(question, limitWorkerContext(context));
+        String deepStudyPrompt = """
+                You are Worker 3: a deep-learning content author for a university AI Tutor.
+                Independently create a substantive 'Học chuyên sâu' section about the student's question.
+                Do not verify or rewrite another worker's answer and do not generate a quiz.
+                Include: deeper intuition, how/why it works, important details or trade-offs, a worked example,
+                common mistakes, and one practical challenge for further study. Use code or a diagram only when relevant.
+                Ground course-specific claims in COURSE MATERIAL CONTEXT; state limitations if context is insufficient.
+                Write in Vietnamese unless the student asks otherwise, with useful Markdown headings.
 
-                    DRAFT ANSWER:
-                    %s
-                    """.formatted(prepared.question(), prepared.context(), draft));
-            if (hasText(review)) {
-                traceService.record(traceId, "worker-2", "Grounding & Accuracy Reviewer", "VERIFY", "SUCCESS",
-                        "active-provider-chain/utility", java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - verifyStarted),
-                        "Verification report generated");
-            } else {
-                review = "Verification worker returned an empty report; preserve the original grounded draft.";
-                traceService.record(traceId, "worker-2", "Grounding & Accuracy Reviewer", "VERIFY", "FAILED",
-                        "active-provider-chain/utility", java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - verifyStarted),
-                        "Empty verification report");
-            }
-        } catch (RuntimeException exception) {
-            traceService.record(traceId, "worker-2", "Grounding & Accuracy Reviewer", "VERIFY", "FAILED",
-                    "active-provider-chain/utility", java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - verifyStarted),
-                    exception.getClass().getSimpleName());
-            log.warn("Answer verification worker failed; preserving draft ({})", exception.getClass().getSimpleName());
+                STUDENT QUESTION:
+                %s
+
+                COURSE MATERIAL CONTEXT:
+                %s
+                """.formatted(question, limitWorkerContext(context));
+        Map<String, Supplier<String>> workers = new LinkedHashMap<>();
+        workers.put("worker-1", () -> generationService.generateGroundedAnswer(
+                answerPrompt, question, request.teachingMode(), context, request.learnerMemoryContext()));
+        workers.put("worker-2", () -> generationService.generateWorkerUtilityAnswer(quizPrompt));
+        workers.put("worker-3", () -> generationService.generateWorkerUtilityAnswer(deepStudyPrompt));
+        Map<String, AiWorkerResult<String>> results = workerOrchestrator.executeParallel(workers, Duration.ofSeconds(60));
+        String answer = successfulOutput(results.get("worker-1"));
+        String quiz = successfulOutput(results.get("worker-2"));
+        String deepStudy = successfulOutput(results.get("worker-3"));
+        if (!hasText(answer)) {
+            log.warn("Worker 1 failed to generate the main answer");
+            answer = StudentFacingMessages.GENERATION_UNAVAILABLE;
         }
-
-        long refineStarted = System.nanoTime();
-        traceService.record(traceId, "worker-3", "Final Answer Refiner", "REFINE", "STARTED",
-                "active-provider-chain/utility", 0L, "Refining answer using verifier report");
-        try {
-            String refined = generationService.generateWorkerUtilityAnswer("""
-                    You are Worker 3, the final answer editor for a university AI Tutor.
-                    Produce the final student-facing answer in the same language as the question.
-                    Use the draft as the base and apply the verifier report. Correct unsupported claims,
-                    preserve useful grounded details and code, and do not add facts absent from the course context.
-                    Keep all required headings and understanding-check answer keys already required by the draft.
-                    Return only the final answer in clean Markdown; no commentary about workers or verification.
-
-                    STUDENT QUESTION:
-                    %s
-
-                    COURSE MATERIAL CONTEXT:
-                    %s
-
-                    WORKER 1 DRAFT:
-                    %s
-
-                    WORKER 2 VERIFICATION REPORT:
-                    %s
-                    """.formatted(prepared.question(), prepared.context(), draft, review));
-            if (!hasText(refined)) {
-                traceService.record(traceId, "worker-3", "Final Answer Refiner", "REFINE", "FAILED",
-                        "active-provider-chain/utility", java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - refineStarted),
-                        "Empty final answer; retained Worker 1 draft");
-                return draft;
-            }
-            traceService.record(traceId, "worker-3", "Final Answer Refiner", "REFINE", "SUCCESS",
-                    "active-provider-chain/utility", java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - refineStarted),
-                    "Final answer refined");
-            return refined;
-        } catch (RuntimeException exception) {
-            traceService.record(traceId, "worker-3", "Final Answer Refiner", "REFINE", "FAILED",
-                    "active-provider-chain/utility", java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - refineStarted),
-                    exception.getClass().getSimpleName());
-            log.warn("Answer refinement worker failed; preserving best available answer ({})", exception.getClass().getSimpleName());
-            return draft;
+        StringBuilder combined = new StringBuilder(answer.trim());
+        if (hasText(quiz)) {
+            combined.append("\\n\\n## Quiz tự luyện\\n\\n").append(quiz.trim());
+        } else {
+            log.warn("Worker 2 did not produce a quiz; main answer will still be returned");
         }
+        if (hasText(deepStudy)) {
+            combined.append("\\n\\n## Học chuyên sâu\\n\\n").append(deepStudy.trim());
+        } else {
+            log.warn("Worker 3 did not produce deep-learning material; main answer will still be returned");
+        }
+        return combined.toString();
+    }
+
+    private String successfulOutput(AiWorkerResult<String> result) {
+        return result != null && result.status() == AiWorkerResult.Status.SUCCESS ? result.value() : null;
+    }
+
+    private String limitWorkerContext(String context) {
+        if (context == null || context.isBlank()) return "(No course context was retrieved.)";
+        int max = 8_000;
+        return context.length() <= max ? context : context.substring(0, max);
     }
     private String generateUsableAnswer(
             CourseAnswerPreparation prepared,
