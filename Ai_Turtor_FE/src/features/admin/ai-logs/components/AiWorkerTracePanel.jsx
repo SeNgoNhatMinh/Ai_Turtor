@@ -3,7 +3,7 @@ import { Alert, Card, Col, Row, Space, Statistic, Table, Tag, Typography } from 
 import { adminAiLogsApi } from '../../../../services/adminAiLogsApi';
 
 const { Text } = Typography;
-const STATUS = { STARTED: { color: 'processing', label: 'Đang chạy' }, RUNNING: { color: 'processing', label: 'Đang chạy' }, SUCCESS: { color: 'success', label: 'Thành công' }, FAILED: { color: 'error', label: 'Lỗi' }, TIMED_OUT: { color: 'warning', label: 'Timeout' }, REJECTED: { color: 'error', label: 'Bị từ chối' }, SKIPPED: { color: 'default', label: 'Đã bỏ qua' }, CACHED: { color: 'cyan', label: 'Dùng cache' } };
+const STATUS = { STARTED: { color: 'processing', label: 'Đang chạy' }, RUNNING: { color: 'processing', label: 'Đang chạy' }, SUCCESS: { color: 'success', label: 'Thành công' }, FAILED: { color: 'error', label: 'Lỗi' }, TIMED_OUT: { color: 'warning', label: 'Timeout' }, REJECTED: { color: 'error', label: 'Bị từ chối' }, SKIPPED: { color: 'default', label: 'Đã bỏ qua' }, CACHED: { color: 'cyan', label: 'Dùng cache' }, OUTPUT: { color: 'purple', label: 'Đã ghi output' } };
 const formatDate = (value) => value ? new Date(value).toLocaleString('vi-VN') : '—';
 
 export default function AiWorkerTracePanel() {
@@ -27,7 +27,7 @@ export default function AiWorkerTracePanel() {
         {workers.map(({ id, latest, count }) => <Col xs={24} md={8} key={id}><Card size="small"><Space direction="vertical" size={4} style={{ width: '100%' }}><Text strong>{id === 'worker-1' ? 'Worker 1 · Answer Generator' : id === 'worker-2' ? 'Worker 2 · Quiz Generator' : 'Worker 3 · Deep Learning Generator'}</Text><Statistic title="Sự kiện đã ghi" value={count} /><Text type="secondary">Trạng thái mới nhất: {latest ? (STATUS[String(latest.status || '').toUpperCase()]?.label || latest.status) : 'Chưa có event'}</Text><Text type="secondary">Cập nhật: {formatDate(latest?.createdAt)}</Text></Space></Card></Col>)}
       </Row>
       {query.isError && <Alert type="error" showIcon message="Không tải được worker traces" description="Kiểm tra backend đã deploy endpoint /api/admin/ai-worker-traces và tài khoản hiện tại có quyền Admin." style={{ marginBottom: 12 }} />}
-      <Table rowKey={(row) => row.id || `${row.traceId}-${row.workerId}-${row.createdAt}-${row.stage}`} size="small" loading={query.isPending} columns={columns} dataSource={rows} scroll={{ x: 1450 }} pagination={{ pageSize: 15, showSizeChanger: true, pageSizeOptions: [15, 30, 50] }} />
+      <Table rowKey={(row) => row.id || `${row.traceId}-${row.workerId}-${row.createdAt}-${row.stage}`} size="small" loading={query.isPending} columns={columns} dataSource={rows} expandable={{ expandedRowRender: (row) => row.outputPreview ? <pre style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere", maxHeight: 360, overflow: "auto", padding: 12, margin: 0, borderRadius: 8, background: "var(--color-card-bg)" }}>{row.outputPreview}</pre> : <Text type="secondary">Sự kiện này không chứa nội dung output.</Text>, rowExpandable: (row) => Boolean(row.outputPreview) }} scroll={{ x: 1450 }} pagination={{ pageSize: 15, showSizeChanger: true, pageSizeOptions: [15, 30, 50] }} />
     </Card>
   );
 }
