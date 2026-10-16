@@ -79,8 +79,20 @@ public class CourseAnswerGenerationService {
             String courseContext,
             String learnerMemoryContext
     ) {
+        return generateGroundedAnswer(prompt, question, teachingMode, courseContext, learnerMemoryContext, true);
+    }
+
+    public String generateGroundedAnswer(
+            String prompt,
+            String question,
+            String teachingMode,
+            String courseContext,
+            String learnerMemoryContext,
+            boolean allowUnderstandingCheck
+    ) {
         String answer = chatService.generate(prompt, question);
-        return finalizeGroundedAnswer(answer, question, teachingMode, courseContext, learnerMemoryContext);
+        return finalizeGroundedAnswer(
+                answer, question, teachingMode, courseContext, learnerMemoryContext, allowUnderstandingCheck);
     }
 
     public String generateGroundedQualityFallbackAnswer(
@@ -90,8 +102,21 @@ public class CourseAnswerGenerationService {
             String courseContext,
             String learnerMemoryContext
     ) {
+        return generateGroundedQualityFallbackAnswer(
+                prompt, question, teachingMode, courseContext, learnerMemoryContext, true);
+    }
+
+    public String generateGroundedQualityFallbackAnswer(
+            String prompt,
+            String question,
+            String teachingMode,
+            String courseContext,
+            String learnerMemoryContext,
+            boolean allowUnderstandingCheck
+    ) {
         String answer = chatService.generateQualityFallback(prompt, question);
-        return finalizeGroundedAnswer(answer, question, teachingMode, courseContext, learnerMemoryContext);
+        return finalizeGroundedAnswer(
+                answer, question, teachingMode, courseContext, learnerMemoryContext, allowUnderstandingCheck);
     }
 
     private String finalizeGroundedAnswer(
@@ -99,7 +124,8 @@ public class CourseAnswerGenerationService {
             String question,
             String teachingMode,
             String courseContext,
-            String learnerMemoryContext
+            String learnerMemoryContext,
+            boolean allowUnderstandingCheck
     ) {
         long started = RagStageTimer.start();
         try {
@@ -109,17 +135,23 @@ public class CourseAnswerGenerationService {
 
         if ("LESSON_TEACH".equalsIgnoreCase(teachingMode)) {
             answer = completeLessonExplanation(answer, question, courseContext);
-            answer = completeLessonUnderstandingCheck(answer, question, courseContext);
-            answer = completeUnderstandingCheckKey(answer);
+            if (allowUnderstandingCheck) {
+                answer = completeLessonUnderstandingCheck(answer, question, courseContext);
+                answer = completeUnderstandingCheckKey(answer);
+            }
             answer = restoreNextLesson(answer, question, learnerMemoryContext);
         } else if ("LESSON_DEEP_PATH".equalsIgnoreCase(teachingMode)) {
-            answer = completeUnderstandingCheckKey(answer);
+            if (allowUnderstandingCheck) {
+                answer = completeUnderstandingCheckKey(answer);
+            }
             answer = PromptLeakFilter.stripNumberedCurriculum(answer);
             answer = restoreNextLesson(answer, question, learnerMemoryContext);
         } else if (!"LEARNING_PATH".equalsIgnoreCase(teachingMode)) {
             answer = completeRemediationSections(answer, question, courseContext);
-            answer = completeRemediationUnderstandingCheck(answer, question, courseContext);
-            answer = completeUnderstandingCheckKey(answer);
+            if (allowUnderstandingCheck) {
+                answer = completeRemediationUnderstandingCheck(answer, question, courseContext);
+                answer = completeUnderstandingCheckKey(answer);
+            }
             answer = PromptLeakFilter.stripNumberedCurriculum(answer);
         }
         return answer;

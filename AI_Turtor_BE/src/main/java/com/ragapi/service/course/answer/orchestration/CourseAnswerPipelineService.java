@@ -12,7 +12,6 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 import org.slf4j.MDC;
-import java.util.UUID;
 import com.ragapi.service.aiworker.AiWorkerTraceService;
 
 /** Coordinates the answer stages while keeping each stage independently replaceable. */
@@ -50,8 +49,8 @@ public class CourseAnswerPipelineService {
     }
 
     private void recordDownstreamWorkersSkipped(String traceId, String reason) {
-        traceService.record(traceId, "worker-2", "Grounding & Accuracy Reviewer", "VERIFY", "SKIPPED", null, null, reason);
-        traceService.record(traceId, "worker-3", "Final Answer Refiner", "REFINE", "SKIPPED", null, null, reason);
+        traceService.record(traceId, "worker-2", "Worker 2 · Quiz Generator", "GENERATE_QUIZ", "SKIPPED", null, null, reason);
+        traceService.record(traceId, "worker-3", "Worker 3 · Deep Study Titles", "GENERATE_DEEP_STUDY", "SKIPPED", null, null, reason);
     }
     public CourseRagAnswer answer(CourseAnswerRequest request) throws IOException {
         String previousTraceId = MDC.get("aiTraceId");
@@ -93,7 +92,7 @@ public class CourseAnswerPipelineService {
             traceService.record(traceId, "worker-1", "Answer Generation", "REQUEST", "SUCCESS", null,
                     java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedNanos), "Answer generation pipeline completed");
             return answer;
-        } catch (IOException | RuntimeException exception) {
+        } catch (RuntimeException exception) {
             traceService.record(traceId, "worker-1", "Answer Generation", "REQUEST", "FAILED", null,
                     java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedNanos), exception.getClass().getSimpleName());
             throw exception;

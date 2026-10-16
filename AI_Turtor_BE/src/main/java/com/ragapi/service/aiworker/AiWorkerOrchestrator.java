@@ -89,7 +89,7 @@ public class AiWorkerOrchestrator {
         return switch (workerId) {
             case "worker-1" -> "Worker 1 · Answer Generator";
             case "worker-2" -> "Worker 2 · Quiz Generator";
-            case "worker-3" -> "Worker 3 · Deep Learning Generator";
+            case "worker-3" -> "Worker 3 · Deep Study Titles";
             default -> workerId;
         };
     }

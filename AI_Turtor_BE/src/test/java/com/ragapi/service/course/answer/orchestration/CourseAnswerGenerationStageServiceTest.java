@@ -93,10 +93,10 @@ class CourseAnswerGenerationStageServiceTest {
                 anyBoolean(), eq(null), eq(null), eq("EXPLAIN_CONCEPT"), anyBoolean()))
                 .thenReturn("prompt");
         when(generationService.generateGroundedAnswer(
-                anyString(), eq(request.question()), eq("EXPLAIN_CONCEPT"), anyString(), eq(null)))
+                anyString(), eq(request.question()), eq("EXPLAIN_CONCEPT"), anyString(), eq(null), anyBoolean()))
                 .thenReturn("Tài liệu hiện có không đủ nội dung để trả lời.");
         when(generationService.generateGroundedQualityFallbackAnswer(
-                anyString(), eq(request.question()), eq("EXPLAIN_CONCEPT"), anyString(), eq(null)))
+                anyString(), eq(request.question()), eq("EXPLAIN_CONCEPT"), anyString(), eq(null), anyBoolean()))
                 .thenReturn("Lệnh continue bỏ qua phần còn lại của lần lặp hiện tại và chuyển sang lần lặp kế tiếp.");
         when(evidenceService.selectAnswerEvidenceChunks(List.of(), request.question(),
                 "Lệnh continue bỏ qua phần còn lại của lần lặp hiện tại và chuyển sang lần lặp kế tiếp."))
@@ -111,9 +111,9 @@ class CourseAnswerGenerationStageServiceTest {
         assertEquals("Lệnh continue bỏ qua phần còn lại của lần lặp hiện tại và chuyển sang lần lặp kế tiếp.",
                 result.getAnswer());
         verify(generationService, times(1)).generateGroundedAnswer(
-                anyString(), eq(request.question()), eq("EXPLAIN_CONCEPT"), anyString(), eq(null));
+                anyString(), eq(request.question()), eq("EXPLAIN_CONCEPT"), anyString(), eq(null), anyBoolean());
         verify(generationService, times(1)).generateGroundedQualityFallbackAnswer(
-                anyString(), eq(request.question()), eq("EXPLAIN_CONCEPT"), anyString(), eq(null));
+                anyString(), eq(request.question()), eq("EXPLAIN_CONCEPT"), anyString(), eq(null), anyBoolean());
     }
 
     @Test
@@ -159,10 +159,10 @@ class CourseAnswerGenerationStageServiceTest {
                 anyBoolean(), eq(null), eq(null), eq("LESSON_TEACH"), anyBoolean()))
                 .thenReturn("prompt");
         when(generationService.generateGroundedAnswer(
-                anyString(), eq(request.question()), eq("LESSON_TEACH"), anyString(), eq(null)))
+                anyString(), eq(request.question()), eq("LESSON_TEACH"), anyString(), eq(null), anyBoolean()))
                 .thenReturn("## Giải thích\nNội dung quá ngắn.");
         when(generationService.generateGroundedQualityFallbackAnswer(
-                anyString(), eq(request.question()), eq("LESSON_TEACH"), anyString(), eq(null)))
+                anyString(), eq(request.question()), eq("LESSON_TEACH"), anyString(), eq(null), anyBoolean()))
                 .thenReturn("## Giải thích\nNội dung vẫn quá ngắn.");
         when(resultService.softUnavailable(StudentFacingMessages.GENERATION_BUSY, List.of("Main Material")))
                 .thenReturn(unavailable);
@@ -171,9 +171,9 @@ class CourseAnswerGenerationStageServiceTest {
 
         assertSame(unavailable, result);
         verify(generationService, times(1)).generateGroundedAnswer(
-                anyString(), eq(request.question()), eq("LESSON_TEACH"), anyString(), eq(null));
+                anyString(), eq(request.question()), eq("LESSON_TEACH"), anyString(), eq(null), anyBoolean());
         verify(generationService, times(1)).generateGroundedQualityFallbackAnswer(
-                anyString(), eq(request.question()), eq("LESSON_TEACH"), anyString(), eq(null));
+                anyString(), eq(request.question()), eq("LESSON_TEACH"), anyString(), eq(null), anyBoolean());
     }
 
     @Test
@@ -216,7 +216,7 @@ class CourseAnswerGenerationStageServiceTest {
                 anyBoolean(), eq(null), eq(null), eq("LESSON_TEACH"), anyBoolean()))
                 .thenReturn("prompt");
         when(generationService.generateGroundedAnswer(
-                anyString(), eq(request.question()), eq("LESSON_TEACH"), anyString(), eq(null)))
+                anyString(), eq(request.question()), eq("LESSON_TEACH"), anyString(), eq(null), anyBoolean()))
                 .thenReturn(firstAnswer);
         when(evidenceService.selectAnswerEvidenceChunks(List.of(), request.question(), firstAnswer))
                 .thenReturn(List.of());
@@ -228,7 +228,7 @@ class CourseAnswerGenerationStageServiceTest {
 
         assertEquals(firstAnswer, result.getAnswer());
         verify(generationService, never()).generateGroundedQualityFallbackAnswer(
-                anyString(), anyString(), anyString(), anyString(), anyString());
+                anyString(), anyString(), anyString(), anyString(), anyString(), anyBoolean());
     }
 
     @Test
@@ -288,7 +288,7 @@ class CourseAnswerGenerationStageServiceTest {
                 anyBoolean(), eq(guidance), eq(null), eq("EXPLAIN_CONCEPT"), anyBoolean()))
                 .thenReturn("prompt");
         when(generationService.generateGroundedAnswer(
-                anyString(), eq(request.question()), eq("EXPLAIN_CONCEPT"), anyString(), eq(null)))
+                anyString(), eq(request.question()), eq("EXPLAIN_CONCEPT"), anyString(), eq(null), anyBoolean()))
                 .thenReturn(taught);
         when(evidenceService.selectAnswerEvidenceChunks(List.of(), request.question(), taught))
                 .thenReturn(List.of());
@@ -301,7 +301,7 @@ class CourseAnswerGenerationStageServiceTest {
         assertEquals(false, result.getEscalationRecommended());
         assertEquals(true, result.getAnswer().contains("lst.append"));
         verify(generationService, never()).generateGroundedQualityFallbackAnswer(
-                anyString(), anyString(), anyString(), anyString(), anyString());
+                anyString(), anyString(), anyString(), anyString(), anyString(), anyBoolean());
     }
 
     @Test
@@ -351,10 +351,10 @@ class CourseAnswerGenerationStageServiceTest {
                 anyBoolean(), eq(guidance), eq(null), eq("EXPLAIN_CONCEPT"), anyBoolean()))
                 .thenReturn("prompt");
         when(generationService.generateGroundedAnswer(
-                anyString(), eq(request.question()), eq("EXPLAIN_CONCEPT"), anyString(), eq(null)))
+                anyString(), eq(request.question()), eq("EXPLAIN_CONCEPT"), anyString(), eq(null), anyBoolean()))
                 .thenReturn(firstLesson);
         when(generationService.generateGroundedQualityFallbackAnswer(
-                contains("HIGH_SUPPORT RECOVERY"), eq(request.question()), eq("EXPLAIN_CONCEPT"), anyString(), eq(null)))
+                contains("HIGH_SUPPORT RECOVERY"), eq(request.question()), eq("EXPLAIN_CONCEPT"), anyString(), eq(null), anyBoolean()))
                 .thenReturn(StudentFacingMessages.GENERATION_UNAVAILABLE);
         when(evidenceService.selectAnswerEvidenceChunks(List.of(), request.question(), firstLesson))
                 .thenReturn(List.of());
@@ -367,6 +367,6 @@ class CourseAnswerGenerationStageServiceTest {
         assertEquals(false, result.getEscalationRecommended());
         assertEquals(true, result.getAnswer().contains("Tuple giữ nguyên"));
         verify(generationService, times(1)).generateGroundedQualityFallbackAnswer(
-                contains("HIGH_SUPPORT RECOVERY"), eq(request.question()), eq("EXPLAIN_CONCEPT"), anyString(), eq(null));
+                contains("HIGH_SUPPORT RECOVERY"), eq(request.question()), eq("EXPLAIN_CONCEPT"), anyString(), eq(null), anyBoolean());
     }
 }

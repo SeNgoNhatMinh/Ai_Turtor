@@ -50,6 +50,53 @@ Bạn có thể giải thích vai trò của Controller không? (A) Chỉ View (
   assert.doesNotMatch(extracted.before, /Understanding Check/);
 });
 
+test('turns Worker Quiz tự luyện into interactive forms without leaking answers', () => {
+  const extracted = extractUnderstandingCheck(`
+## Theo tài liệu
+Servlet xử lý HTTP.
+
+## Quiz tự luyện
+
+**Q1.**
+Khi nào nên override doPost?
+A. Khi chỉ xử lý GET
+B. Khi nhận POST từ form
+C. Khi deploy WAR
+D. Khi dùng JSP
+
+**Đáp án đúng:** B
+**Giải thích:** POST cần doPost.
+
+---
+
+**Q2.**
+HTTP 405 nghĩa là gì?
+A. Not Found
+B. Forbidden
+C. Method Not Allowed
+D. Server Error
+
+**Đáp án đúng:** C
+**Giải thích:** Method không được hỗ trợ.
+
+## Học chuyên sâu
+Chi tiết sâu hơn.
+`);
+
+  assert.equal(extracted.quizzes.length, 2);
+  assert.equal(
+    extracted.quizzes[0].options.find((option) => option.key === extracted.quizzes[0].correctKey)?.text,
+    'Khi nhận POST từ form',
+  );
+  assert.equal(
+    extracted.quizzes[1].options.find((option) => option.key === extracted.quizzes[1].correctKey)?.text,
+    'Method Not Allowed',
+  );
+  assert.doesNotMatch(extracted.before, /Quiz tự luyện|Đáp án đúng/);
+  assert.doesNotMatch(extracted.after, /Đáp án đúng|Q1|Q2/);
+  assert.match(extracted.after, /Học chuyên sâu/);
+});
+
 test('parses an inline A/B/C understanding check', () => {
   const quiz = parseUnderstandingQuiz(
     "Khi dùng vòng lặp for để duyệt danh sách fruits, biến lặp sẽ có giá trị nào ở lần lặp thứ hai? A. 'apple' B. 'banana' C. 'cherry'",

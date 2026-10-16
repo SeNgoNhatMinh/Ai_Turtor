@@ -5,7 +5,7 @@
 1. `CourseAnswerPreparationService` prepares the request and retrieves course chunks/context once.
 2. `CourseAnswerCacheStageService` checks for a cached answer. Cache hits can bypass generation.
 3. `CourseAnswerGenerationStageService` builds the primary grounded-answer prompt and submits three independent generation tasks to `AiWorkerOrchestrator`.
-4. Worker 1 generates the primary answer; Worker 2 generates a quiz; Worker 3 generates deep-study material. Each receives the original question and shared retrieved course context, not sibling worker output.
+4. Worker 1 generates the primary answer; Worker 2 generates a quiz; Worker 3 lists short clickable deep-study titles only. Each receives the original question and shared retrieved course context, not sibling worker output.
 5. Existing grounding/completeness and recovery logic applies to Worker 1's answer only. Backend code then appends successful optional sections without an extra LLM synthesis call.
 6. `CourseAnswerGenerationService` performs existing post-generation completion behavior. Learning Path remains retrieval-only and must not invoke this generation fan-out.
 

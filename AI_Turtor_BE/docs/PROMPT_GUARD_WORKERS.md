@@ -4,7 +4,7 @@
 
 - **Worker 1 — Answer Generator:** produces the primary grounded answer using the student's question and the already-retrieved course RAG context.
 - **Worker 2 — Quiz Generator:** independently creates five multiple-choice questions, four options per question, the correct answer, and a concise explanation.
-- **Worker 3 — Deep Learning Generator:** independently creates deeper intuition, how/why explanations, relevant worked examples, common mistakes, and a further-study challenge.
+- **Worker 3 — Deep Study Titles:** independently lists 3–5 short clickable deep-study topic titles grounded in the retrieved course context. It does not write a long essay.
 
 These are separate generation tasks, not a reviewer/refiner chain. Worker 2 and Worker 3 do not receive or revise Worker 1's output. All three receive the original question and shared retrieved course context.
 

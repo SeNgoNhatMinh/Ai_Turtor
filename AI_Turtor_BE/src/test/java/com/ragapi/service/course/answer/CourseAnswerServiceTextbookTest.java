@@ -124,7 +124,8 @@ class CourseAnswerServiceTextbookTest {
                         new LearningPathGroundingService(chapterOutlineService, null),
                         lessonContextService,
                         groundingService,
-                        evidenceService
+                        evidenceService,
+                        org.mockito.Mockito.mock(com.ragapi.service.aiworker.PromptGuardService.class)
                 ),
                 resultService,
                 new CourseAnswerCacheStageService(answerCacheService, cacheHitAuditService, evidenceService),

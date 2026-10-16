@@ -10,7 +10,6 @@ import com.ragapi.service.course.model.CourseAnswerRequest;
 import com.ragapi.service.course.model.RetrievedCourseChunk;
 import com.ragapi.util.GroundedContentGuard;
 import com.ragapi.util.LessonExplanationCompleter;
-import com.ragapi.util.LessonUnderstandingCheckCompleter;
 import com.ragapi.util.StudentAnswerCompletenessGuard;
 import com.ragapi.util.StudentFacingMessages;
 import com.ragapi.service.aiworker.AiWorkerTraceService;
@@ -110,7 +109,8 @@ public class CourseAnswerGenerationStageService {
                         prepared.question(),
                         request.teachingMode(),
                         prepared.context(),
-                        request.learnerMemoryContext()
+                        request.learnerMemoryContext(),
+                        false
                 );
                 retried = GroundedContentGuard.stripUnsupportedOptionalSections(retried, prepared.context());
                 if (StudentAnswerCompletenessGuard.containsAbbreviatedExampleOutput(retried)) {
@@ -162,12 +162,20 @@ public class CourseAnswerGenerationStageService {
                 return resultService.softUnavailable(StudentFacingMessages.GENERATION_BUSY, prepared.sourceLabels());
             }
             // Apply answer-only guards before appending independent optional worker outputs.
-            StringBuilder finalContent = new StringBuilder(answer.trim());
+            // Worker 2 owns quizzes and Worker 3 owns deep-study titles — strip W1 copies first.
+            String answerBody = stripSection(answer.trim(), "học chuyên sâu");
+            answerBody = stripSection(answerBody, "kiểm tra hiểu");
+            answerBody = stripSection(answerBody, "understanding check");
+            answerBody = stripSection(answerBody, "quiz tự luyện");
+            StringBuilder finalContent = new StringBuilder(answerBody.trim());
             if (hasText(workerOutputs.quiz())) {
-                finalContent.append("\n\n## Quiz tự luyện\n\n").append(workerOutputs.quiz().trim());
+                String quizHeading = prepared.understandingRemediation() ? "Kiểm tra hiểu" : "Quiz tự luyện";
+                finalContent.append("\n\n## ").append(quizHeading).append("\n\n")
+                        .append(workerOutputs.quiz().trim());
             }
-            if (hasText(workerOutputs.deepStudy())) {
-                finalContent.append("\n\n## Học chuyên sâu\n\n").append(workerOutputs.deepStudy().trim());
+            String deepStudyTitles = normalizeDeepStudyTitles(workerOutputs.deepStudy());
+            if (hasText(deepStudyTitles)) {
+                finalContent.append("\n\n## Học chuyên sâu\n\n").append(deepStudyTitles);
             }
             answer = finalContent.toString();
             log.info("Received grounded answer from AI (length: {})", answer.length());
@@ -197,12 +205,36 @@ public class CourseAnswerGenerationStageService {
         }
     }
 
-    /** Worker 1 answers the question, Worker 2 creates a quiz, and Worker 3 creates deeper learning material. */
+    /** Worker 1 answers, Worker 2 creates a quiz, Worker 3 lists clickable deep-study titles only. */
     private WorkerOutputs runThreeWorkerLearningPipeline(CourseAnswerPreparation prepared, String answerPrompt, CourseAnswerRequest request) {
         String traceId = MDC.get("aiTraceId");
         String context = prepared.context() == null ? "" : prepared.context();
         String question = prepared.question() == null ? "" : prepared.question();
-        String quizPrompt = """
+        boolean remediation = prepared.understandingRemediation();
+        String quizPrompt = remediation
+                ? """
+                You are Worker 2: an independent re-check quiz author after a wrong student answer.
+                Create ONE easier multiple-choice question about the SAME concept in STUDENT QUESTION.
+                Paraphrase the question and every choice. Do not copy the previous item.
+                Do not re-teach the lesson and do not diagnose the prior wrong choice.
+                Keep 'Giải thích' to one short sentence; do not repeat Worker 1's re-teach.
+                Use only COURSE MATERIAL CONTEXT. Vietnamese unless the student used another language.
+                Return ONLY this block (no heading):
+
+                Câu hỏi: <paraphrased easier question>
+                A. <choice>
+                B. <choice>
+                C. <choice>
+                Đáp án: <A or B or C>
+                Giải thích: <one short sentence>
+
+                STUDENT QUESTION:
+                %s
+
+                COURSE MATERIAL CONTEXT:
+                %s
+                """.formatted(question, limitWorkerContext(context))
+                : """
                 You are Worker 2: an independent quiz author for a university course.
                 Generate a useful quiz for the student's question based only on COURSE MATERIAL CONTEXT.
                 Do not answer the question as a tutor and do not review another worker's answer.
@@ -218,13 +250,19 @@ public class CourseAnswerGenerationStageService {
                 %s
                 """.formatted(question, limitWorkerContext(context));
         String deepStudyPrompt = """
-                You are Worker 3: a deep-learning content author for a university AI Tutor.
-                Independently create a substantive 'Học chuyên sâu' section about the student's question.
-                Do not verify or rewrite another worker's answer and do not generate a quiz.
-                Include: deeper intuition, how/why it works, important details or trade-offs, a worked example,
-                common mistakes, and one practical challenge for further study. Use code or a diagram only when relevant.
-                Ground course-specific claims in COURSE MATERIAL CONTEXT; state limitations if context is insufficient.
-                Write in Vietnamese unless the student asks otherwise, with useful Markdown headings.
+                You are Worker 3: a deep-study topic suggester for a university AI Tutor.
+                Independently propose short clickable titles for further study about the student's question.
+                Do NOT write an essay, explanation, example, table, code, or challenge.
+                Do NOT generate a quiz and do NOT rewrite another worker's answer.
+                Output ONLY 3 to 5 Markdown bullets. Each bullet is one short topic title (max ~12 words)
+                that a student can click to learn next. Ground titles in COURSE MATERIAL CONTEXT;
+                omit a title if the context cannot support it. No intro, no closing, no headings.
+                Use Vietnamese unless the student asked otherwise.
+
+                Example shape:
+                - So sánh nested conditionals với chained conditionals
+                - Khi nào nên tránh lồng điều kiện quá sâu
+                - Refactor nested if thành hàm riêng
 
                 STUDENT QUESTION:
                 %s
@@ -232,9 +270,28 @@ public class CourseAnswerGenerationStageService {
                 COURSE MATERIAL CONTEXT:
                 %s
                 """.formatted(question, limitWorkerContext(context));
+        String worker1Prompt = answerPrompt
+                + (remediation
+                ? """
+
+                WORKER-1 SCOPE (remediation / giảng lại):
+                - Include "## Chẩn đoán lỗi sai" using the chosen option named in STUDENT QUESTION.
+                - Then re-teach once under "## Giảng lại dễ hiểu" with conceptual + one visual section.
+                - Do NOT include "## Kiểm tra hiểu", "## Quiz tự luyện", or any A/B/C quiz.
+                - Do NOT include "## Học chuyên sâu". Worker 3 owns clickable deep-study titles.
+                - Do not repeat the same explanation twice.
+                """
+                : """
+
+                WORKER-1 SCOPE (three-worker pipeline):
+                - Write only the grounded answer (explanation / example / sources as required).
+                - Do NOT include "## Kiểm tra hiểu", "Understanding Check", or any multiple-choice quiz.
+                - Do NOT include "## Quiz tự luyện". Worker 2 owns all quiz content.
+                - Do NOT include "## Học chuyên sâu". Worker 3 owns clickable deep-study titles.
+                """);
         Map<String, Supplier<String>> workers = new LinkedHashMap<>();
         workers.put("worker-1", () -> generationService.generateGroundedAnswer(
-                answerPrompt, question, request.teachingMode(), context, request.learnerMemoryContext()));
+                worker1Prompt, question, request.teachingMode(), context, request.learnerMemoryContext(), false));
         workers.put("worker-2", () -> generationService.generateWorkerUtilityAnswer(quizPrompt));
         workers.put("worker-3", () -> generationService.generateWorkerUtilityAnswer(deepStudyPrompt));
         Map<String, AiWorkerResult<String>> results = workerOrchestrator.executeParallel(workers, Duration.ofSeconds(60));
@@ -243,7 +300,7 @@ public class CourseAnswerGenerationStageService {
         String deepStudy = successfulOutput(results.get("worker-3"));
         recordWorkerOutput(traceId, "worker-1", "Worker 1 · Answer Generator", "GENERATE_ANSWER", answer, results.get("worker-1"));
         recordWorkerOutput(traceId, "worker-2", "Worker 2 · Quiz Generator", "GENERATE_QUIZ", quiz, results.get("worker-2"));
-        recordWorkerOutput(traceId, "worker-3", "Worker 3 · Deep Learning Generator", "GENERATE_DEEP_STUDY", deepStudy, results.get("worker-3"));
+        recordWorkerOutput(traceId, "worker-3", "Worker 3 · Deep Study Titles", "GENERATE_DEEP_STUDY", deepStudy, results.get("worker-3"));
         if (!hasText(answer)) {
             log.warn("Worker 1 failed to generate the main answer");
             answer = StudentFacingMessages.GENERATION_UNAVAILABLE;
@@ -251,8 +308,8 @@ public class CourseAnswerGenerationStageService {
         if (!hasText(quiz)) {
             log.warn("Worker 2 did not produce a quiz; main answer will still be returned");
         }
-        if (!hasText(deepStudy)) {
-            log.warn("Worker 3 did not produce deep-learning material; main answer will still be returned");
+        if (!hasText(normalizeDeepStudyTitles(deepStudy))) {
+            log.warn("Worker 3 did not produce deep-study titles; main answer will still be returned");
         }
         return new WorkerOutputs(answer, quiz, deepStudy);
     }
@@ -272,6 +329,55 @@ public class CourseAnswerGenerationStageService {
         if (context == null || context.isBlank()) return "(No course context was retrieved.)";
         int max = 8_000;
         return context.length() <= max ? context : context.substring(0, max);
+    }
+
+    /** Removes a markdown section so Worker 3 can own the deep-study title list. */
+    private String stripSection(String markdown, String headingKey) {
+        if (!hasText(markdown) || !hasText(headingKey)) {
+            return markdown == null ? "" : markdown;
+        }
+        Pattern section = Pattern.compile(
+                "(?im)^#{1,6}\\s*" + Pattern.quote(headingKey.trim()) + "\\s*$\\n?[\\s\\S]*?(?=^#{1,6}\\s+\\S|\\z)");
+        return section.matcher(markdown).replaceAll("").replaceAll("\\n{3,}", "\n\n").trim();
+    }
+
+    /** Keeps only short bullet titles; drops essay-like Worker 3 output. */
+    private String normalizeDeepStudyTitles(String deepStudy) {
+        if (!hasText(deepStudy)) {
+            return "";
+        }
+        StringBuilder titles = new StringBuilder();
+        int count = 0;
+        for (String rawLine : deepStudy.split("\\R")) {
+            String line = rawLine == null ? "" : rawLine.trim();
+            if (line.isEmpty() || line.startsWith("#")) {
+                continue;
+            }
+            Matcher bullet = Pattern.compile("^[-*+]\\s+(.+)$").matcher(line);
+            Matcher numbered = Pattern.compile("^\\d+[.)]\\s+(.+)$").matcher(line);
+            String title = null;
+            if (bullet.matches()) {
+                title = bullet.group(1).trim();
+            } else if (numbered.matches()) {
+                title = numbered.group(1).trim();
+            }
+            if (!hasText(title)) {
+                continue;
+            }
+            title = title.replaceAll("[*_`]+", "").replaceAll("\\s+", " ").trim();
+            if (title.length() < 8 || title.length() > 120) {
+                continue;
+            }
+            if (titles.length() > 0) {
+                titles.append('\n');
+            }
+            titles.append("- ").append(title);
+            count += 1;
+            if (count >= 5) {
+                break;
+            }
+        }
+        return titles.toString();
     }
     private String generateUsableAnswer(
             CourseAnswerPreparation prepared,
@@ -426,9 +532,9 @@ public class CourseAnswerGenerationStageService {
     }
 
     private boolean isIncompleteLesson(CourseAnswerRequest request, String answer) {
+        // Understanding-check quizzes belong to Worker 2; Worker 1 is incomplete only without the lesson body.
         return request != null
                 && "LESSON_TEACH".equalsIgnoreCase(request.teachingMode())
-                && (LessonExplanationCompleter.missingLessonBody(answer)
-                || !LessonUnderstandingCheckCompleter.hasUsableCheck(answer));
+                && LessonExplanationCompleter.missingLessonBody(answer);
     }
 }
