@@ -5,12 +5,17 @@
 .admin-ai-logs-metrics,
 .admin-ai-logs-filter-card,
 .admin-ai-logs-alert,
-.admin-ai-logs-section-card {
+.admin-ai-logs-section-card,
+.admin-ai-logs-observability-note {
   margin-bottom: 16px;
 }
 
 .admin-ai-logs-metric {
   height: 100%;
+}
+
+.admin-ai-logs-metric--errors {
+  border-color: color-mix(in srgb, var(--color-card-border) 45%, #dc2626 55%);
 }
 
 .admin-ai-logs-filter-card .ant-card-body {
@@ -60,53 +65,14 @@
   min-width: 0;
 }
 
-.admin-provider-management-card .ant-card-head-wrapper {
-  gap: 16px;
+.admin-ai-logs-live-hint {
+  margin-bottom: 14px;
 }
 
-.admin-provider-guidance {
-  margin-bottom: 16px;
-}
-
-.admin-provider-id,
-.admin-provider-base-url {
-  display: block;
-  max-width: 170px;
-  font-size: 0.78rem;
-}
-
-.admin-provider-family-tag {
-  width: fit-content;
-  margin-inline-end: 0;
-}
-
-.admin-provider-model-cell {
-  width: 100%;
-  min-width: 0;
-}
-
-.admin-provider-model-cell > .ant-typography {
-  max-width: 260px;
-}
-
-.admin-provider-row--deleted > td {
-  background: color-mix(in srgb, var(--color-card-bg) 86%, #94a3b8 14%) !important;
-}
-
-.admin-provider-row--deleted .ant-typography,
-.admin-provider-row--deleted .ant-tag {
-  opacity: 0.72;
-}
-
-.admin-provider-reset-hint {
-  margin-top: -8px;
-}
-
-.admin-provider-modal-actions {
-  display: flex;
-  justify-content: flex-end;
-  width: 100%;
-  margin-top: 8px;
+.admin-ai-logs-filter-note {
+  margin-bottom: 12px;
+  color: var(--color-text-secondary, #64748b);
+  font-size: 0.85rem;
 }
 
 .admin-ai-log-answer {
@@ -117,6 +83,51 @@
   margin-bottom: 0;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+.admin-ai-log-process {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--color-card-border);
+  border-radius: 12px;
+  background: var(--color-card-bg);
+}
+
+.admin-ai-log-process-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+}
+
+.admin-ai-log-process-step > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.admin-ai-log-process-dot {
+  flex: 0 0 10px;
+  width: 10px;
+  height: 10px;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: #94a3b8;
+}
+
+.admin-ai-log-process-step--done .admin-ai-log-process-dot {
+  background: #16a34a;
+}
+
+.admin-ai-log-process-step--pending .admin-ai-log-process-dot {
+  background: #d97706;
+}
+
+.admin-ai-logs-observability-note .ant-alert-description {
+  line-height: 1.65;
 }
 
 @media (max-width: 1180px) {
@@ -143,14 +154,23 @@
     width: 100%;
   }
 
-  .admin-provider-management-card .ant-card-head-wrapper {
+  .admin-ai-logs-section-card .ant-card-head-wrapper {
     align-items: flex-start;
     flex-direction: column;
     padding-block: 12px;
   }
 
-  .admin-provider-management-card .ant-card-extra,
-  .admin-provider-management-card .ant-card-extra .ant-btn {
+  .admin-ai-logs-section-card .ant-card-extra,
+  .admin-ai-logs-section-card .ant-card-extra .ant-space {
     width: 100%;
+  }
+
+  .admin-ai-logs-section-card .ant-card-extra .ant-select,
+  .admin-ai-logs-section-card .ant-card-extra .ant-btn {
+    max-width: 100%;
+  }
+
+  .admin-ai-log-process {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
