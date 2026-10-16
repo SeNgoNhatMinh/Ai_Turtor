@@ -7,7 +7,6 @@ import com.ragapi.entity.CourseMaterial;
 import com.ragapi.service.course.answer.context.CourseLessonContextService;
 import com.ragapi.service.course.answer.grounding.CourseAnswerEvidenceService;
 import com.ragapi.service.course.answer.grounding.CourseAnswerGroundingService;
-import com.ragapi.service.aiworker.PromptGuardService;
 import com.ragapi.service.LearningPathGroundingService;
 import com.ragapi.service.course.answer.policy.CourseAnswerRequestPolicyService;
 import com.ragapi.service.course.model.CourseAnswerRequest;
@@ -40,7 +39,6 @@ public class CourseAnswerPreparationService {
     private final CourseLessonContextService lessonContextService;
     private final CourseAnswerGroundingService groundingService;
     private final CourseAnswerEvidenceService evidenceService;
-    private final PromptGuardService promptGuardService;
 
     public CourseAnswerPreparation prepare(CourseAnswerRequest request, long backendStartedNanos) {
         return prepare(request, backendStartedNanos, true);
@@ -84,29 +82,6 @@ public class CourseAnswerPreparationService {
                     skipAnswerCache,
                     understandingRemediation,
                     immediateAnswer
-            );
-        }
-
-        if (runPromptGuard && promptGuardService.isPromptAttack(safeQuestion)) {
-            log.warn("Prompt Guard blocked a likely prompt-injection attempt (courseId={})", safeCourseId);
-            CourseRagAnswer blockedAnswer = CourseRagAnswer.builder()
-                    .answer("Câu hỏi có dấu hiệu cố gắng ghi đè hướng dẫn hoặc vượt qua cơ chế an toàn nên mình chưa thể xử lý. "
-                            + "Bạn hãy gửi câu hỏi học tập cụ thể trong phạm vi môn học nhé.")
-                    .confidence(0.0)
-                    .sources(List.of())
-                    .sourceEvidence(List.of())
-                    .groundingType("NONE")
-                    .escalationRecommended(false)
-                    .escalationReason(null)
-                    .build();
-            return emptyPreparation(
-                    request,
-                    backendStartedNanos,
-                    safeQuestion,
-                    safeCourseId,
-                    skipAnswerCache,
-                    understandingRemediation,
-                    blockedAnswer
             );
         }
 
