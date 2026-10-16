@@ -182,7 +182,14 @@ public class CourseAnswerGenerationStageService {
     }
 
     private String runVerificationAndRefinement(CourseAnswerPreparation prepared, String originalPrompt, String draft) {
-        if (!hasText(draft)) return draft;
+        if (!hasText(draft) || StudentFacingMessages.isUnavailableMessage(draft)) {
+            String traceId = MDC.get("aiTraceId");
+            traceService.record(traceId, "worker-2", "Grounding & Accuracy Reviewer", "VERIFY", "SKIPPED",
+                    "active-provider-chain/utility", null, "No usable Worker 1 draft to verify");
+            traceService.record(traceId, "worker-3", "Final Answer Refiner", "REFINE", "SKIPPED",
+                    "active-provider-chain/utility", null, "No usable Worker 1 draft to refine");
+            return draft;
+        }
         String traceId = MDC.get("aiTraceId");
         String review = "Verification worker did not return a review.";
         long verifyStarted = System.nanoTime();
@@ -205,9 +212,16 @@ public class CourseAnswerGenerationStageService {
                     DRAFT ANSWER:
                     %s
                     """.formatted(prepared.question(), prepared.context(), draft));
-            traceService.record(traceId, "worker-2", "Grounding & Accuracy Reviewer", "VERIFY", "SUCCESS",
-                    "active-provider-chain/utility", java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - verifyStarted),
-                    "Verification report generated");
+            if (hasText(review)) {
+                traceService.record(traceId, "worker-2", "Grounding & Accuracy Reviewer", "VERIFY", "SUCCESS",
+                        "active-provider-chain/utility", java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - verifyStarted),
+                        "Verification report generated");
+            } else {
+                review = "Verification worker returned an empty report; preserve the original grounded draft.";
+                traceService.record(traceId, "worker-2", "Grounding & Accuracy Reviewer", "VERIFY", "FAILED",
+                        "active-provider-chain/utility", java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - verifyStarted),
+                        "Empty verification report");
+            }
         } catch (RuntimeException exception) {
             traceService.record(traceId, "worker-2", "Grounding & Accuracy Reviewer", "VERIFY", "FAILED",
                     "active-provider-chain/utility", java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - verifyStarted),
