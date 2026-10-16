@@ -73,6 +73,8 @@ export function useAdminAiLogs(section = 'history') {
     setFilters(nextFilters);
   }, [filters, logsQuery]);
 
+  const refreshLogs = useCallback(() => logsQuery.refetch(), [logsQuery]);
+
   const refreshAll = useCallback(async () => {
     setProviderMutationError('');
     const emptyFilters = buildLogFilters();
@@ -182,6 +184,7 @@ export function useAdminAiLogs(section = 'history') {
       },
     },
     refreshAll,
+    refreshLogs,
     updateProvider,
     setProviderEnabled,
     deleteProvider,
