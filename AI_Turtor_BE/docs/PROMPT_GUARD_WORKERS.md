@@ -1,28 +1,32 @@
-# Three-worker answer pipeline
+# Three-worker learning content pipeline
 
-## Roles
+## Worker responsibilities
 
-- Worker 1 — Answer Generator: creates the first grounded draft using the existing course RAG context and provider chain.
-- Worker 2 — Grounding & Accuracy Reviewer: checks the draft against the same retrieved context and reports unsupported claims, contradictions, and missing key points.
-- Worker 3 — Final Answer Refiner: revises the draft using the review report while preserving course-grounded facts and required response structure.
+- **Worker 1 — Answer Generator:** produces the primary grounded answer using the student's question and the already-retrieved course RAG context.
+- **Worker 2 — Quiz Generator:** independently creates five multiple-choice questions, four options per question, the correct answer, and a concise explanation.
+- **Worker 3 — Deep Learning Generator:** independently creates deeper intuition, how/why explanations, relevant worked examples, common mistakes, and a further-study challenge.
+
+These are separate generation tasks, not a reviewer/refiner chain. Worker 2 and Worker 3 do not receive or revise Worker 1's output. All three receive the original question and shared retrieved course context.
 
 ## Runtime behavior
 
-Worker 2 and Worker 3 run after Worker 1 because they depend on its draft and review result. This is a sequential three-stage pipeline, not three parallel generators. It adds two utility-model calls to normal generated answers, so measure end-to-end p50/p95 latency and provider usage before enabling broadly.
+The three tasks run concurrently through `AiWorkerOrchestrator`. Backend code applies answer grounding/completeness checks to Worker 1's answer before appending the optional quiz and deep-study sections. It then combines the validated answer and available optional sections deterministically; it does not call another LLM to rewrite or synthesize their content.
 
-Workers 2 and 3 use the existing server-side provider utility-generation route; no additional API key is needed. They do not run when an existing policy returns an immediate response, grounding blocks generation, a cached answer is returned, or a retrieval-only Learning Path request is handled. Trace events mark these paths as skipped/cached instead of claiming all workers ran.
+Worker 1's answer is required for a usable response. If Worker 2 or Worker 3 fails, times out, or is rejected, its section is omitted and successful sections are retained. Cached answers, policy short-circuits, and retrieval-only Learning Path requests may skip the pipeline, so not every incoming request should be expected to execute all three workers.
+
+The three tasks use the existing server-side provider chain; no separate worker API keys are required. Orchestrator timeout bounds the wait but does not guarantee cancellation of an already-running provider HTTP call, so provider-level deadlines are still required.
 
 ## Observability
 
-Every regular answer request receives an `aiTraceId`. MongoDB collection `ai_worker_trace_events` stores sanitized lifecycle events with worker ID, stage, status, model route, duration, and short detail. Admin API: `GET /api/admin/ai-worker-traces?limit=150`.
+MongoDB collection `ai_worker_trace_events` records lifecycle events for each worker under a shared `aiTraceId`. Successful output excerpts are separately stored as `OUTPUT` events and truncated for admin inspection. Admin endpoint: `GET /api/admin/ai-worker-traces?limit=150`.
 
-Admin UI route: `/admin/ai-logs/history`; the live three-worker panel refreshes every five seconds.
+The frontend panel at `/admin/ai-logs/history` polls the trace endpoint every five seconds. Expand an output event to inspect that worker's generated excerpt. The worker cards report execution status separately from output-preview events.
 
 ## Rollout checklist
 
-1. Merge the backend PR and frontend PR, or deploy a release containing both changes.
-2. Rebuild/redeploy the backend container and frontend image.
-3. Ask a normal grounded course question that is not cached.
-4. Open Admin → AI Logs → History and confirm Worker 1, Worker 2, Worker 3 all have events under the same trace ID.
-5. Check statuses, durations, and errors; verify the final student answer remains grounded and retains required lesson/remediation sections.
-6. Monitor latency, provider usage, and false changes in answer quality before keeping the pipeline enabled broadly.
+1. Merge and deploy backend PR #11, then deploy frontend PR #12 (or release both together).
+2. Send a normal, uncached course question that passes policy and retrieval.
+3. Open Admin → AI Logs → History and confirm all three workers have events with the same trace ID.
+4. Expand each output event and verify that the answer, quiz, and deep-study content have distinct responsibilities.
+5. Test partial failure, provider timeout, and pool saturation; confirm the UI never reports a missing output as success.
+6. Run backend tests and frontend build, then monitor p50/p95 latency, provider usage, grounding, quiz correctness, and lesson/remediation formatting before broad production enablement.
