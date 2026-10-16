@@ -49,7 +49,7 @@ public class AiWorkerOrchestrator {
             Supplier<T> task = entry.getValue();
             long started = System.nanoTime();
             String traceId = traceService.currentTraceId();
-            traceService.record(traceId, workerName, displayName(workerName), stageName(workerName), "STARTED", "RUNNING", null, 0L, "Worker started");
+            traceService.record(traceId, workerName, displayName(workerName), stageName(workerName), "STARTED", null, 0L, "Worker started");
 
             try {
                 CompletableFuture<AiWorkerResult<T>> future = CompletableFuture
@@ -58,23 +58,23 @@ public class AiWorkerOrchestrator {
                         .handle((value, failure) -> {
                             long elapsedMs = elapsedMs(started);
                             if (failure == null) {
-                                traceService.record(traceId, workerName, displayName(workerName), stageName(workerName), "FINISHED", "SUCCESS", null, elapsedMs, "Worker completed");
+                                traceService.record(traceId, workerName, displayName(workerName), stageName(workerName), "SUCCESS", null, elapsedMs, "Worker completed");
                                 return AiWorkerResult.success(value, elapsedMs);
                             }
                             Throwable cause = unwrap(failure);
                             if (cause instanceof TimeoutException) {
                                 log.warn("AI worker {} timed out after {} ms", workerName, elapsedMs);
-                                traceService.record(traceId, workerName, displayName(workerName), stageName(workerName), "FINISHED", "TIMED_OUT", null, elapsedMs, "Worker timed out");
+                                traceService.record(traceId, workerName, displayName(workerName), stageName(workerName), "TIMED_OUT", null, elapsedMs, "Worker timed out");
                                 return AiWorkerResult.timedOut(elapsedMs);
                             }
                             log.warn("AI worker {} failed: {}", workerName, cause.getClass().getSimpleName());
-                            traceService.record(traceId, workerName, displayName(workerName), stageName(workerName), "FINISHED", "FAILED", null, elapsedMs, cause.getClass().getSimpleName());
+                            traceService.record(traceId, workerName, displayName(workerName), stageName(workerName), "FAILED", null, elapsedMs, cause.getClass().getSimpleName());
                             return AiWorkerResult.failed(cause.getClass().getSimpleName(), elapsedMs);
                         });
                 futures.put(workerName, future);
             } catch (RejectedExecutionException rejected) {
                 log.warn("AI worker {} rejected because the bounded pool is saturated", workerName);
-                traceService.record(traceId, workerName, displayName(workerName), stageName(workerName), "FINISHED", "REJECTED", null, elapsedMs(started), "Worker pool is saturated");
+                traceService.record(traceId, workerName, displayName(workerName), stageName(workerName), "REJECTED", null, elapsedMs(started), "Worker pool is saturated");
                 futures.put(workerName, CompletableFuture.completedFuture(
                         AiWorkerResult.rejected("AI worker pool is saturated")));
             }
