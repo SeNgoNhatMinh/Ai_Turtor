@@ -97,6 +97,38 @@ Chi tiết sâu hơn.
   assert.match(extracted.after, /Học chuyên sâu/);
 });
 
+test('parses deploy-mangled Quiz tự luyện with Q1.* and Đáp án đúng:*', () => {
+  const extracted = extractUnderstandingCheck(`
+## Giải thích
+Session cookie lưu JSESSIONID.
+
+Quiz tự luyện
+Câu hỏi trắc nghiệm*
+Q1.* Thuộc tính nào của cookie xác định ngày-giờ hết hạn tuyệt đối? A. Max-Age B. Secure C. Expires D. Path
+Đáp án đúng:* C
+Giải thích:* Thuộc tính Expires đặt ngày-giờ cụ thể khi cookie sẽ hết hạn.
+Q2.* Khi muốn mã hoá URL trong thẻ a, phương thức nào? A. encodeRedirectURL B. encodeURL C. sendRedirect D. setHeader
+Đáp án đúng:* B
+Giải thích:* encodeURL trả về URL đã chèn Session-ID.
+
+## Học chuyên sâu
+Hiểu nguyên tắc session cookie
+`);
+
+  assert.equal(extracted.quizzes.length, 2);
+  assert.match(extracted.quizzes[0].question, /hết hạn tuyệt đối/i);
+  assert.equal(
+    extracted.quizzes[0].options.find((option) => option.key === extracted.quizzes[0].correctKey)?.text,
+    'Expires',
+  );
+  assert.equal(
+    extracted.quizzes[1].options.find((option) => option.key === extracted.quizzes[1].correctKey)?.text,
+    'encodeURL',
+  );
+  assert.doesNotMatch(extracted.before, /Đáp án đúng|Q1/);
+  assert.match(extracted.after, /Học chuyên sâu/);
+});
+
 test('parses an inline A/B/C understanding check', () => {
   const quiz = parseUnderstandingQuiz(
     "Khi dùng vòng lặp for để duyệt danh sách fruits, biến lặp sẽ có giá trị nào ở lần lặp thứ hai? A. 'apple' B. 'banana' C. 'cherry'",

@@ -1,13 +1,16 @@
-const CHECK_HEADING = /^(#{1,6})\s*(?:kiểm tra hiểu|understanding check|quiz tự luyện|câu(?:\s+hỏi)?\s+trắc nghiệm mới(?:\s*\((?:(?:được|đã)\s+)?paraphrase\))?|câu hỏi ôn tập)\s*$/im;
+// Heading may be "## Quiz tự luyện" or a bare line when markdown gets stripped on deploy.
+const CHECK_HEADING = /^(?:#{1,6}\s*)?(?:kiểm tra hiểu|understanding check|quiz tự luyện|câu(?:\s+hỏi)?\s+trắc nghiệm mới(?:\s*\((?:(?:được|đã)\s+)?paraphrase\))?|câu hỏi ôn tập)\s*$/im;
 const OPTION_MARK = /(?:^|\s)(?:\(([A-Da-d])\)|([A-Da-d])\.)\s+/g;
-const CANONICAL_ANSWER = /(?:^|\s)(?<!chọn\s)(?<!choose\s)(?<!pick\s)(?:đáp án|dap an|(?:the\s+)?(?:correct\s+)?answer)(?:\s+đúng)?\s*(?:là|is|:|：|-)?\s*([A-Da-d])\b[^\n]*/i;
-const REVEALED_ANSWER = /(?:^|\s)\s*[-*+]?\s*chọn đáp án đúng\s*[:：-]\s*(?:\n\s*[-*+]?\s*)?([A-Da-d])\s*[.)]?\s*[^\n]*/i;
+// Models often emit "Đáp án đúng:* C" when bold markers are half-stripped.
+const CANONICAL_ANSWER = /(?:^|\s)(?<!chọn\s)(?<!choose\s)(?<!pick\s)(?:đáp án|dap an|(?:the\s+)?(?:correct\s+)?answer)(?:\s+đúng)?\s*(?:là|is|:|：|-)?\s*\**\s*([A-Da-d])\b[^\n]*/i;
+const REVEALED_ANSWER = /(?:^|\s)\s*[-*+]?\s*chọn đáp án đúng\s*[:：-]\s*\**\s*(?:\n\s*[-*+]?\s*)?([A-Da-d])\s*[.)]?\s*[^\n]*/i;
 const ANSWER_PROMPT_MARKER = /(?:^|\s)\s*[-*+]?\s*chọn đáp án đúng\s*[:：-]\s*(?:[-*+]\s*)?/i;
 const LEAKED_ANSWER = /nếu bạn chọn(?:\s+đáp án)?\s+([A-Da-d])\b/i;
 const CHOOSE_ANSWER = /(?:chọn|choose|pick)\s+(?:đáp án\s+)?([A-Da-d])\b/i;
 const LONE_KEY = /(?:^|\n)[\t ]*([A-Da-d])[\t ]*[.)]?[\t ]*(?:\n|$)/;
-const EXPLAIN_MARKER = /(?:^|\s)(?:giải thích|giai thich|explanation|lý do|ly do)\s*[:：]\s*/ig;
-const QUESTION_PREFIX = /^(?:(?:\*{0,2}Q\d+\.?\*{0,2})|(?:câu hỏi|cau hoi|question))\s*[:：.]?\s*/im;
+const EXPLAIN_MARKER = /(?:^|\s)(?:giải thích|giai thich|explanation|lý do|ly do)\s*[:：]\s*\**\s*/ig;
+const QUESTION_PREFIX = /^(?:(?:\*{0,2}Q\d+\.?\*{0,2})|(?:câu hỏi(?:\s+trắc nghiệm)?|cau hoi(?:\s+trac nghiem)?|question))\s*[:：.*]?\s*/im;
+const QUIZ_ITEM_SPLIT = /(?=^\s*\*{0,2}Q\d+\.?\*{0,2}(?:\s+|\s*$))/im;
 
 function stripMarkdownWrappers(value) {
   return String(value || '')
@@ -116,12 +119,14 @@ export function normalizeStructuredUnderstandingQuiz(value) {
 }
 
 function splitQuizItems(sectionBody) {
-  const text = String(sectionBody || '').trim();
+  const text = String(sectionBody || '')
+    .replace(/^\s*câu hỏi trắc nghiệm\s*[*:.：-]?\s*/i, '')
+    .trim();
   if (!text) return [];
-  // Worker 2 emits numbered items like **Q1.** / **Q2.**; keep --- answers in the same item.
+  // Worker 2 emits **Q1.** alone or "Q1.* question…" on one line; keep --- answers in the same item.
   if (!/\*{0,2}Q\d+\.?\*{0,2}/i.test(text)) return [text];
   return text
-    .split(/(?=^\s*\*{0,2}Q\d+\.?\*{0,2}\s*$)/im)
+    .split(QUIZ_ITEM_SPLIT)
     .map((chunk) => chunk.trim())
     .filter(Boolean);
 }

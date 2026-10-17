@@ -248,7 +248,16 @@ public class CourseAnswerGenerationStageService {
                 Each question must have exactly 4 options (A-D), one correct answer,
                 and a concise explanation for the answer. Vary difficulty from basic to applied when writing more than one item.
                 Use Vietnamese unless the student asked in another language. Do not invent facts outside context.
-                Format each item clearly as Q1 (then Q2...), options A-D, 'Đáp án đúng:', and 'Giải thích:'.
+                Format each item exactly like this (plain text, no bold asterisks around labels):
+                Q1.
+                <question>
+                A. <choice>
+                B. <choice>
+                C. <choice>
+                D. <choice>
+                Đáp án đúng: <A|B|C|D>
+                Giải thích: <one short sentence>
+                Put Q1. / Q2. on its own line. Do not write "Đáp án đúng:*" or "Q1.*".
                 For a single-question quiz, still use the Q1 format.
 
                 STUDENT QUESTION:
