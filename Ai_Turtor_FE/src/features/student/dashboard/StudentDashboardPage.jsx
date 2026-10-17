@@ -13,6 +13,7 @@ import {
   X,
 } from 'lucide-react';
 import { includesSearchText } from '../../../utils/searchText';
+import TutorMascot from '../../../components/common/TutorMascot';
 import './StudentDashboardPage.css';
 
 const EMPTY_ENROLLMENTS = [];
@@ -105,20 +106,18 @@ function CourseSearch({ query, onChange }) {
   );
 }
 
-function CourseCard({ course, current, disabled, onOpen }) {
+function CourseCard({ course, index, disabled, onOpen }) {
   return (
-    <article className={`student-course-card${current ? ' is-current' : ''}`}>
-      <div className="student-course-icon" aria-hidden="true"><BookOpen size={18} /></div>
-      <div className="student-course-body">
-        <div className="student-course-top">
-          <span>{course.id}</span>
-          {current ? <small>Đang chọn</small> : <small>Đang học</small>}
-        </div>
-        <h3>{course.name}</h3>
-        <p>{course.classes.length ? `Lớp ${course.classes.join(', ')}` : 'Đã ghi danh vào môn học'}</p>
+    <article className={`student-course-card course-tone-${index % 4}`}>
+      <div className="student-course-top">
+        <span>{course.id}</span>
+        <small>Đang học</small>
       </div>
+      <div className="student-course-icon"><BookOpen size={25} aria-hidden="true" /></div>
+      <h3>{course.name}</h3>
+      <p>{course.classes.length ? `Lớp ${course.classes.join(', ')}` : 'Đã ghi danh vào môn học'}</p>
       <button type="button" disabled={disabled} onClick={() => onOpen(course.enrollment)}>
-        Vào môn học <ArrowRight size={16} aria-hidden="true" />
+        Vào môn học <ArrowRight size={17} aria-hidden="true" />
       </button>
     </article>
   );
@@ -146,8 +145,6 @@ export default function StudentDashboardPage({ currentUser, courseId, switchTab,
   const [pendingTab, setPendingTab] = useState('');
   const [courseQuery, setCourseQuery] = useState('');
   const name = currentUser?.fullName || currentUser?.name || currentUser?.username || 'bạn';
-  const firstName = String(name).trim().split(/\s+/)[0] || 'bạn';
-  const selectedCourseId = String(courseId || '').trim().toUpperCase();
 
   const courses = useMemo(() => buildCourseSummaries(enrollments), [enrollments]);
   const filteredCourses = useMemo(() => courses.filter((course) => (
@@ -182,11 +179,11 @@ export default function StudentDashboardPage({ currentUser, courseId, switchTab,
     if (filteredCourses.length) {
       return (
         <div className="student-course-grid">
-          {filteredCourses.map((course) => (
+          {filteredCourses.map((course, index) => (
             <CourseCard
               key={course.id}
               course={course}
-              current={String(course.id).trim().toUpperCase() === selectedCourseId}
+              index={index}
               disabled={isNavigating}
               onOpen={(item) => openDestination('student-chat', item)}
             />
@@ -215,15 +212,10 @@ export default function StudentDashboardPage({ currentUser, courseId, switchTab,
   return (
     <main className="student-dashboard">
       <section className="student-dashboard-hero">
-        <div className="student-dashboard-hero-copy">
+        <div>
           <span className="student-dashboard-eyebrow"><Sparkles size={15} /> Không gian học tập của bạn</span>
-          <h1>Chào {firstName}, hôm nay mình học gì?</h1>
-          <p>Chọn một môn bên dưới để hỏi AI Tutor theo đúng tài liệu của lớp.</p>
-        </div>
-        <aside className="student-dashboard-continue">
-          <span>Môn đang mở</span>
-          <strong>{courseId || 'Chưa chọn môn'}</strong>
-          <p>{courses.length} môn · {classCount} lớp</p>
+          <h1>Chào {name}, hôm nay mình học gì?</h1>
+          <p>Theo dõi các môn đang tham gia và tiếp tục buổi học chỉ trong một chạm.</p>
           <button
             type="button"
             disabled={isNavigating}
@@ -232,13 +224,18 @@ export default function StudentDashboardPage({ currentUser, courseId, switchTab,
           >
             Bắt đầu học với AI <ArrowRight size={18} />
           </button>
-        </aside>
+        </div>
+        <TutorMascot
+          size="hero"
+          className="student-dashboard-mascot"
+          alt="Linh vật FPT University AI Tutor"
+        />
       </section>
 
       <section className="student-dashboard-stats" aria-label="Tổng quan học tập">
-        <article><span><GraduationCap size={18} /></span><div><strong>{courses.length}</strong><small>Môn đang học</small></div></article>
-        <article><span><Layers3 size={18} /></span><div><strong>{classCount}</strong><small>Lớp đang tham gia</small></div></article>
-        <article><span><BookOpen size={18} /></span><div><strong>{courseId || '—'}</strong><small>Môn đang chọn</small></div></article>
+        <article><span><GraduationCap size={21} /></span><div><strong>{courses.length}</strong><small>Môn đang học</small></div></article>
+        <article><span><Layers3 size={21} /></span><div><strong>{classCount}</strong><small>Lớp đang tham gia</small></div></article>
+        <article><span><BookOpen size={21} /></span><div><strong>{courseId || '—'}</strong><small>Môn đang chọn</small></div></article>
       </section>
 
       <div className="student-dashboard-content-grid">

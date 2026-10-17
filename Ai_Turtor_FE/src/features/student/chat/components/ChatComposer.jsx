@@ -3,6 +3,7 @@ import { SendOutlined } from '@ant-design/icons';
 import { Select } from 'antd';
 import { Mic, MicOff } from 'lucide-react';
 import { LIMITS, validateChatInput } from '../../../../utils/validators';
+import { uiCopy } from '../../../../constants/uiCopy';
 import { DAILY_SESSION_COMPLETE_MESSAGE } from '../../../../constants/sessionQuota';
 import { useSpeechToText } from '../useSpeechToText';
 
@@ -122,23 +123,21 @@ function ChatComposer({
             )}
           </div>
         )}
+        <div className="chat-composer-mode-row">
+          <label htmlFor="chat-composer-mode-select">Chế độ hỗ trợ</label>
+          <Select
+            id="chat-composer-mode-select"
+            className="chat-composer-mode-select"
+            value={chatMode}
+            onChange={setChatMode}
+            aria-label="Chọn chế độ hỗ trợ"
+            options={[
+              { value: 'RAG', label: 'Hỗ trợ theo tài liệu môn học' },
+              { value: 'CODE', label: 'Hỗ trợ về code' },
+            ]}
+          />
+        </div>
         <div className="chat-gpt-input-wrapper">
-          <div className="chat-composer-mode-row">
-            <label htmlFor="chat-composer-mode-select">Chế độ hỗ trợ</label>
-            <Select
-              id="chat-composer-mode-select"
-              className="chat-composer-mode-select"
-              value={chatMode}
-              onChange={setChatMode}
-              aria-label="Chọn chế độ hỗ trợ"
-              popupMatchSelectWidth={false}
-              options={[
-                { value: 'RAG', label: 'Hỗ trợ theo tài liệu môn học' },
-                { value: 'CODE', label: 'Hỗ trợ về code' },
-              ]}
-            />
-          </div>
-          <div className="chat-composer-field">
           <textarea
             ref={textareaRef}
             data-chat-composer-input="true"
@@ -187,10 +186,12 @@ function ChatComposer({
               <SendOutlined />
             </button>
           )}
-          </div>
         </div>
         <div className="chat-composer-meta" aria-live="polite">
           {isListening && <span className="chat-speech-status">Đang nghe...</span>}
+          {canChat && (
+            <span className="chat-composer-keyword-tip">{uiCopy.student.chat.keywordTip}</span>
+          )}
           <span>AI Tutor có thể trả lời sai. Hãy kiểm tra lại thông tin quan trọng.</span>
         </div>
       </div>
