@@ -86,7 +86,7 @@
     }
 }
 
-@media (max-width: 767px), (hover: none) and (pointer: coarse) {
+@media (max-width: 767px), (max-width: 1023px) and (hover: none) and (pointer: coarse) {
     .student-chat-history-pane:not(.is-open) {
         transform: translateX(calc(-100% + 54px));
     }

@@ -177,7 +177,7 @@
     padding: 14px 8px;
 }
 
-@media (max-width: 767px), (hover: none) and (pointer: coarse) {
+@media (max-width: 767px), (max-width: 1023px) and (hover: none) and (pointer: coarse) {
     .top-nav {
         display: grid;
         grid-template-columns: 44px minmax(0, 1fr) auto;

@@ -353,7 +353,7 @@ body.theme-dark .support-chat-room__hint {
   padding-inline: 18px;
 }
 
-@media (max-width: 767px), (hover: none) and (pointer: coarse) {
+@media (max-width: 767px), (max-width: 1023px) and (hover: none) and (pointer: coarse) {
   .mentor-selection-flow {
     gap: 12px;
     padding: 13px;
