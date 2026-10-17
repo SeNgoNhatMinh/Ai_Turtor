@@ -156,7 +156,7 @@
   padding: 0 24px 24px;
 }
 
-@media (max-width: 767px), (hover: none) and (pointer: coarse) {
+@media (max-width: 767px), (max-width: 1023px) and (hover: none) and (pointer: coarse) {
   .app-container {
     width: 100%;
     height: var(--app-viewport-height, 100dvh);

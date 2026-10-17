@@ -11,7 +11,7 @@
 @media(max-width:1150px){.student-dashboard-content-grid{grid-template-columns:1fr}.student-dashboard-actions .student-quick-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:720px){.student-dashboard{padding:14px}.student-dashboard-hero{min-height:auto;padding:26px 22px}.student-dashboard-stats{margin:-10px 10px 20px}.student-dashboard-section{padding:18px}.student-dashboard-courses .student-course-grid,.student-dashboard-actions .student-quick-grid{grid-template-columns:1fr}}
 
-@media (hover: none) and (pointer: coarse) {
+@media (max-width: 1023px) and (hover: none) and (pointer: coarse) {
   .app-container--mobile .student-dashboard { padding: 14px; }
   .app-container--mobile .student-dashboard-hero { min-height: auto; padding: 26px 22px; }
   .app-container--mobile .student-dashboard-hero img { display: none; }

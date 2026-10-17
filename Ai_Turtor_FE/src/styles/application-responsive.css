@@ -267,7 +267,7 @@
     }
 }
 
-@media (max-width: 767px), (hover: none) and (pointer: coarse) {
+@media (max-width: 767px), (max-width: 1023px) and (hover: none) and (pointer: coarse) {
     html,
     body,
     #root {
@@ -435,7 +435,7 @@
 
 /* Canonical mobile web shell. Keep this block last so older feature-specific
    breakpoints cannot reintroduce document scrolling or the horizontal sidebar. */
-@media (max-width: 767px), (hover: none) and (pointer: coarse) {
+@media (max-width: 767px), (max-width: 1023px) and (hover: none) and (pointer: coarse) {
     html,
     body,
     #root {

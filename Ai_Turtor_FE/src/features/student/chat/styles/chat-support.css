@@ -325,7 +325,7 @@ body.theme-dark .inline-mentor-card {
   color: #ffffff;
 }
 
-@media (max-width: 767px), (hover: none) and (pointer: coarse) {
+@media (max-width: 767px), (max-width: 1023px) and (hover: none) and (pointer: coarse) {
   .inline-mentor-card {
     gap: 10px;
     margin-top: 12px;

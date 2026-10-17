@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 
-// Mobile Safari can expose a desktop-like layout viewport when the page was
-// previously zoomed or opened in "Request Desktop Website" mode. Pointer
-// capability keeps the app shell on the mobile navigation in that case.
-const MOBILE_QUERY = '(max-width: 767px), (hover: none) and (pointer: coarse)';
+// A phone that asks for the desktop site can report a layout wider than 767px
+// while still using a coarse pointer. Cap that exception so a wide touchscreen
+// laptop keeps the website layout.
+const MOBILE_QUERY = '(max-width: 767px), (max-width: 1023px) and (hover: none) and (pointer: coarse)';
 
 export function isMobileViewport() {
   return typeof window !== 'undefined' && window.matchMedia(MOBILE_QUERY).matches;

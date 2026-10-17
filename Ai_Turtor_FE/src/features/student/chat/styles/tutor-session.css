@@ -130,7 +130,7 @@
   color: #ffffff;
 }
 
-@media (max-width: 767px), (hover: none) and (pointer: coarse) {
+@media (max-width: 767px), (max-width: 1023px) and (hover: none) and (pointer: coarse) {
   .tutor-session-strip {
     padding-inline: 0.75rem;
   }

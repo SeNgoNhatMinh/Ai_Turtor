@@ -242,7 +242,7 @@
   transition: border-color 0.15s ease, background-color 0.15s ease;
 }
 
-@media (max-width: 767px), (hover: none) and (pointer: coarse) {
+@media (max-width: 767px), (max-width: 1023px) and (hover: none) and (pointer: coarse) {
   .mentor-review-page {
     gap: 12px;
   }
