@@ -169,12 +169,10 @@ public class CourseAnswerGenerationStageService {
             answerBody = stripSection(answerBody, "quiz tự luyện");
             StringBuilder finalContent = new StringBuilder(answerBody.trim());
             if (hasText(workerOutputs.quiz())) {
-                // Single-item checks use the interactive Kiểm tra hiểu heading; multi-item stays Quiz tự luyện.
-                boolean singleCheck = prepared.understandingRemediation()
-                        || resolveSupportLevel(request) == SupportLevel.STANDARD;
-                String quizHeading = singleCheck ? "Kiểm tra hiểu" : "Quiz tự luyện";
-                finalContent.append("\n\n## ").append(quizHeading).append("\n\n")
-                        .append(workerOutputs.quiz().trim());
+                // Always use Kiểm tra hiểu so FE (including older deploys) can turn the block into forms.
+                // Worker 2 may still emit Q1/Q2…; FE splits those into multiple interactive items.
+                finalContent.append("\n\n## Kiểm tra hiểu\n\n")
+                        .append(normalizeWorkerQuizMarkdown(workerOutputs.quiz()));
             }
             String deepStudyTitles = normalizeDeepStudyTitles(workerOutputs.deepStudy());
             if (hasText(deepStudyTitles)) {
@@ -350,6 +348,28 @@ public class CourseAnswerGenerationStageService {
         if (context == null || context.isBlank()) return "(No course context was retrieved.)";
         int max = 8_000;
         return context.length() <= max ? context : context.substring(0, max);
+    }
+
+    /**
+     * Forces each option / answer / next Q onto its own line. Models often emit one long
+     * paragraph ("Q1. …? A. … B. … Đáp án đúng: B"), which FE then shows as plain text.
+     */
+    static String normalizeWorkerQuizMarkdown(String quiz) {
+        if (quiz == null || quiz.isBlank()) {
+            return "";
+        }
+        String text = quiz.trim()
+                .replace("\\r\\n", "\n")
+                .replace("\\n", "\n")
+                .replace("\r\n", "\n")
+                .replace('\r', '\n');
+        text = text.replaceAll("(?im)^\\s*câu hỏi trắc nghiệm\\s*[*:.：-]*\\s*", "");
+        text = text.replaceAll("(?im)\\s*\\*{0,2}(Q\\d+)\\.\\*?\\s*", "\n\n$1.\n");
+        text = text.replaceAll("(?<!\\n)\\s+([A-D])\\.\\s+", "\n$1. ");
+        text = text.replaceAll("(?im)\\s*\\*{0,2}Đáp án đúng\\*{0,2}\\s*[:：*]\\s*", "\nĐáp án đúng: ");
+        text = text.replaceAll("(?im)\\s*\\*{0,2}Đáp án\\*{0,2}\\s*[:：*]\\s*", "\nĐáp án: ");
+        text = text.replaceAll("(?im)\\s*\\*{0,2}Giải thích\\*{0,2}\\s*[:：*]\\s*", "\nGiải thích: ");
+        return text.replaceAll("\\n{3,}", "\n\n").trim();
     }
 
     /** Removes a markdown section so Worker 3 can own the deep-study title list. */

@@ -237,8 +237,23 @@ export function parseUnderstandingQuiz(sectionBody) {
   };
 }
 
+/** Repair JSON that stored literal "\\n" instead of real newlines. */
+function normalizeQuizNewlines(markdown) {
+  const raw = String(markdown || '');
+  if (!raw.includes('\\n')) return raw;
+  // Only rewrite when real newlines are missing around quiz markers.
+  if (/\n\s*#{1,6}\s*(?:kiểm tra hiểu|quiz tự luyện)/i.test(raw)
+      || /\n\s*Q\d+\./i.test(raw)) {
+    return raw;
+  }
+  return raw
+    .replace(/\\r\\n/g, '\n')
+    .replace(/\\n/g, '\n')
+    .replace(/\\t/g, '\t');
+}
+
 export function extractUnderstandingCheck(markdown) {
-  const text = String(markdown || '');
+  const text = normalizeQuizNewlines(markdown);
   const heading = CHECK_HEADING.exec(text);
   if (!heading) {
     return { before: text, after: '', quiz: null, quizzes: [] };

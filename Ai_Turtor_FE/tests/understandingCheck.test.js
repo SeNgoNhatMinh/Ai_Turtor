@@ -97,6 +97,55 @@ Chi tiết sâu hơn.
   assert.match(extracted.after, /Học chuyên sâu/);
 });
 
+test('parses Kiểm tra hiểu multi-item block used by Worker 2', () => {
+  const extracted = extractUnderstandingCheck(`
+## Giải thích
+encodeURL vs encodeRedirectURL.
+
+## Kiểm tra hiểu
+
+Q1. Khi nào nên dùng encodeURL thay vì encodeRedirectURL?
+A. Khi gửi redirect tới trình duyệt
+B. Khi chuyển tiếp (forward) yêu cầu trong cùng một máy chủ
+C. Khi ghi dữ liệu vào body của response
+D. Khi đặt cookie
+Đáp án đúng: B
+Giải thích: encodeURL thêm ID session khi forward nội bộ.
+
+Q2. encodeRedirectURL thường được sử dụng trong trường hợp nào?
+A. Khi chuyển tiếp nội bộ (forward)
+B. Khi gửi redirect tới client
+C. Khi mã hoá tiêu đề HTTP
+D. Khi mã hoá tham số truy vấn
+Đáp án đúng: B
+Giải thích: encodeRedirectURL thêm ID session khi redirect.
+
+## Học chuyên sâu
+- Sự khác biệt giữa encodeURL và encodeRedirectURL
+`);
+
+  assert.equal(extracted.quizzes.length, 2);
+  assert.equal(
+    extracted.quizzes[0].options.find((option) => option.key === extracted.quizzes[0].correctKey)?.text,
+    'Khi chuyển tiếp (forward) yêu cầu trong cùng một máy chủ',
+  );
+  assert.equal(
+    extracted.quizzes[1].options.find((option) => option.key === extracted.quizzes[1].correctKey)?.text,
+    'Khi gửi redirect tới client',
+  );
+});
+
+test('repairs literal backslash-n quiz payloads from JSON', () => {
+  const extracted = extractUnderstandingCheck(
+    '## Kiểm tra hiểu\\n\\nQ1. hỏi?\\nA. một\\nB. hai\\nC. ba\\nD. bốn\\nĐáp án đúng: B\\nGiải thích: ok\\n\\n## Học chuyên sâu\\n- tip',
+  );
+  assert.equal(extracted.quizzes.length, 1);
+  assert.equal(
+    extracted.quizzes[0].options.find((option) => option.key === extracted.quizzes[0].correctKey)?.text,
+    'hai',
+  );
+});
+
 test('parses deploy-mangled Quiz tự luyện with Q1.* and Đáp án đúng:*', () => {
   const extracted = extractUnderstandingCheck(`
 ## Giải thích
