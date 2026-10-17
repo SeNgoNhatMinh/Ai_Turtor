@@ -271,26 +271,6 @@ function ChatWorkspace({
         userId={userId}
       />
 
-      {tutorSession?.status !== 'COMPLETED' && !dailyQuotaExhausted && composerTopics.length > 0 && (
-        <div className="tutor-session-strip__topics tutor-session-strip__topics--composer" role="list">
-          {composerTopics.map((topic) => (
-            <button
-              type="button"
-              key={String(topic?.title || topic?.suggestionText || topic)}
-              onClick={() => {
-                if (onStudySuggestion) {
-                  onStudySuggestion(topic);
-                  return;
-                }
-                onPromptStarter?.(buildLessonChatPrompt(topic?.title || topic?.suggestionText || topic));
-              }}
-            >
-              {String(topic?.title || topic?.suggestionText || topic)}
-            </button>
-          ))}
-        </div>
-      )}
-
       <StudentOwnLlmDialog
         open={ownLlmOpen}
         userId={userId}
@@ -298,6 +278,26 @@ function ChatWorkspace({
         onSaved={() => setOwnLlmVersion((version) => version + 1)}
       />
 
+      <div className="chat-bottom-dock">
+        {tutorSession?.status !== 'COMPLETED' && !dailyQuotaExhausted && composerTopics.length > 0 && (
+          <div className="tutor-session-strip__topics tutor-session-strip__topics--composer" role="list">
+            {composerTopics.map((topic) => (
+              <button
+                type="button"
+                key={String(topic?.title || topic?.suggestionText || topic)}
+                onClick={() => {
+                  if (onStudySuggestion) {
+                    onStudySuggestion(topic);
+                    return;
+                  }
+                  onPromptStarter?.(buildLessonChatPrompt(topic?.title || topic?.suggestionText || topic));
+                }}
+              >
+                {String(topic?.title || topic?.suggestionText || topic)}
+              </button>
+            ))}
+          </div>
+        )}
       <ChatComposer
         activeSessionMaxTurnsReached={platformLocked}
         canChat={canChatWithCurrentContext}
@@ -319,6 +319,7 @@ function ChatWorkspace({
         setChatMode={setChatMode}
         triggerToast={triggerToast}
       />
+      </div>
     </div>
   );
 }
