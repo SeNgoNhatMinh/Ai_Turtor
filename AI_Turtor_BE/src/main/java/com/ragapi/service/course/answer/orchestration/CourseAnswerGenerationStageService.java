@@ -169,7 +169,10 @@ public class CourseAnswerGenerationStageService {
             answerBody = stripSection(answerBody, "quiz tự luyện");
             StringBuilder finalContent = new StringBuilder(answerBody.trim());
             if (hasText(workerOutputs.quiz())) {
-                String quizHeading = prepared.understandingRemediation() ? "Kiểm tra hiểu" : "Quiz tự luyện";
+                // Single-item checks use the interactive Kiểm tra hiểu heading; multi-item stays Quiz tự luyện.
+                boolean singleCheck = prepared.understandingRemediation()
+                        || resolveSupportLevel(request) == SupportLevel.STANDARD;
+                String quizHeading = singleCheck ? "Kiểm tra hiểu" : "Quiz tự luyện";
                 finalContent.append("\n\n## ").append(quizHeading).append("\n\n")
                         .append(workerOutputs.quiz().trim());
             }
@@ -211,6 +214,8 @@ public class CourseAnswerGenerationStageService {
         String context = prepared.context() == null ? "" : prepared.context();
         String question = prepared.question() == null ? "" : prepared.question();
         boolean remediation = prepared.understandingRemediation();
+        SupportLevel supportLevel = resolveSupportLevel(request);
+        String quizCountInstruction = quizCountInstruction(supportLevel);
         String quizPrompt = remediation
                 ? """
                 You are Worker 2: an independent re-check quiz author after a wrong student answer.
@@ -238,17 +243,24 @@ public class CourseAnswerGenerationStageService {
                 You are Worker 2: an independent quiz author for a university course.
                 Generate a useful quiz for the student's question based only on COURSE MATERIAL CONTEXT.
                 Do not answer the question as a tutor and do not review another worker's answer.
-                Write 5 multiple-choice questions, each with exactly 4 options (A-D), one correct answer,
-                and a concise explanation for the answer. Vary difficulty from basic to applied.
+                Active support level: %s.
+                %s
+                Each question must have exactly 4 options (A-D), one correct answer,
+                and a concise explanation for the answer. Vary difficulty from basic to applied when writing more than one item.
                 Use Vietnamese unless the student asked in another language. Do not invent facts outside context.
-                Format each item clearly as Q1, options A-D, 'Đáp án đúng:', and 'Giải thích:'.
+                Format each item clearly as Q1 (then Q2...), options A-D, 'Đáp án đúng:', and 'Giải thích:'.
+                For a single-question quiz, still use the Q1 format.
 
                 STUDENT QUESTION:
                 %s
 
                 COURSE MATERIAL CONTEXT:
                 %s
-                """.formatted(question, limitWorkerContext(context));
+                """.formatted(
+                        supportLevel.name(),
+                        quizCountInstruction,
+                        question,
+                        limitWorkerContext(context));
         String deepStudyPrompt = """
                 You are Worker 3: a deep-study topic suggester for a university AI Tutor.
                 Independently propose short clickable titles for further study about the student's question.
@@ -436,9 +448,37 @@ public class CourseAnswerGenerationStageService {
                 """;
     }
 
-    private boolean isHighSupport(CourseAnswerRequest request) {
+    private enum SupportLevel {
+        STANDARD,
+        HIGH_SUPPORT,
+        CHALLENGE
+    }
+
+    private SupportLevel resolveSupportLevel(CourseAnswerRequest request) {
         String context = request == null ? null : request.pedagogicalContext();
-        return context != null && context.toUpperCase(Locale.ROOT).contains("HIGH_SUPPORT");
+        if (context == null || context.isBlank()) {
+            return SupportLevel.STANDARD;
+        }
+        String upper = context.toUpperCase(Locale.ROOT);
+        if (upper.contains("CHALLENGE")) {
+            return SupportLevel.CHALLENGE;
+        }
+        if (upper.contains("HIGH_SUPPORT")) {
+            return SupportLevel.HIGH_SUPPORT;
+        }
+        return SupportLevel.STANDARD;
+    }
+
+    private String quizCountInstruction(SupportLevel supportLevel) {
+        return switch (supportLevel) {
+            case HIGH_SUPPORT -> "Write 2 to 3 multiple-choice questions (no fewer than 2, no more than 3).";
+            case CHALLENGE -> "Write 3 to 5 multiple-choice questions (no fewer than 3, no more than 5).";
+            case STANDARD -> "Write exactly 1 multiple-choice question.";
+        };
+    }
+
+    private boolean isHighSupport(CourseAnswerRequest request) {
+        return resolveSupportLevel(request) == SupportLevel.HIGH_SUPPORT;
     }
 
     /**
