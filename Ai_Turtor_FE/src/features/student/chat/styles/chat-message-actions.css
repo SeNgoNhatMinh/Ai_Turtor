@@ -358,31 +358,3 @@
   border-radius: 8px;
   border: 1px solid rgba(245, 158, 11, 0.2);
 }
-
-
-.chat-show-syllabus-action {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 36px;
-  margin: 10px 0 4px;
-  padding: 0 13px;
-  border: 1px solid var(--color-border, #dbe4ef);
-  border-radius: 10px;
-  background: var(--color-surface, #fff);
-  color: var(--color-text, #183153);
-  font: inherit;
-  font-size: 0.84rem;
-  font-weight: 650;
-  cursor: pointer;
-}
-
-.chat-show-syllabus-action:hover {
-  border-color: var(--color-action-primary, #4f7fc5);
-  background: var(--color-surface-subtle, #f5f8fc);
-}
-
-.chat-show-syllabus-action:focus-visible {
-  outline: 2px solid var(--color-action-primary, #4f7fc5);
-  outline-offset: 2px;
-}

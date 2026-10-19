@@ -30,4 +30,21 @@ class CourseCurriculumOverviewServiceTest {
         assertTrue(overview.units().get(0).detail().contains("Biến"));
         assertTrue(overview.summary().contains("nhà trường"));
     }
+
+    @Test
+    void parsesBulletSyllabusWithoutColonSeparators() {
+        CourseCurriculumOverview overview = CourseCurriculumOverviewService.parseSyllabus(
+                "PFP191",
+                "Programming Fundamentals with Python",
+                """
+                - Knowledge about programming language has become an essential part of an education.
+                - In recent years, python has emerged as a popular language for AI and Data Science.
+                - This course covers fundamental concepts and object-oriented programming (OOP).
+                """
+        );
+
+        assertEquals(3, overview.units().size());
+        assertTrue(overview.unitTitles().get(0).contains("Knowledge about programming"));
+        assertTrue(overview.unitTitles().get(2).contains("object-oriented programming"));
+    }
 }

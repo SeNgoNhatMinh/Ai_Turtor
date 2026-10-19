@@ -62,7 +62,7 @@ public class CourseCurriculumOverviewService {
 
     /** Official syllabus block shown in chat when a student starts or requests it. */
     public String studentSyllabusMarkdown(CourseCurriculumOverview overview) {
-        if (overview == null || !overview.hasUnits()) {
+        if (overview == null) {
             return "## Nội dung chính trong chương trình học\n\n"
                     + "Môn này chưa có syllabus chính thức trên hệ thống. "
                     + "Bạn có thể hỏi một chủ đề cụ thể hoặc chọn gợi ý bài học.";
@@ -72,16 +72,27 @@ public class CourseCurriculumOverviewService {
             markdown.append("**").append(overview.courseName()).append("** (`")
                     .append(overview.courseId()).append("`)\n\n");
         }
-        if (overview.summary() != null && !overview.summary().isBlank()) {
-            markdown.append(overview.summary()).append("\n\n");
-        }
-        overview.units().forEach(unit -> {
-            markdown.append("- **").append(unit.title()).append("**");
-            if (unit.detail() != null && !unit.detail().isBlank()) {
-                markdown.append(": ").append(unit.detail());
+        if (overview.hasUnits()) {
+            if (overview.summary() != null && !overview.summary().isBlank()
+                    && !overview.summary().startsWith("Chương trình học chính thức")) {
+                markdown.append(overview.summary()).append("\n\n");
             }
-            markdown.append('\n');
-        });
+            overview.units().forEach(unit -> {
+                markdown.append("- **").append(unit.title()).append("**");
+                if (unit.detail() != null && !unit.detail().isBlank()) {
+                    markdown.append(": ").append(unit.detail());
+                }
+                markdown.append('\n');
+            });
+            return markdown.toString().trim();
+        }
+        if (overview.summary() != null && !overview.summary().isBlank()
+                && !overview.summary().startsWith("Chương trình học chính thức")) {
+            markdown.append(overview.summary());
+            return markdown.toString().trim();
+        }
+        markdown.append("Môn này chưa có syllabus chính thức trên hệ thống. ")
+                .append("Bạn có thể hỏi một chủ đề cụ thể hoặc chọn gợi ý bài học.");
         return markdown.toString().trim();
     }
 
@@ -133,17 +144,10 @@ public class CourseCurriculumOverviewService {
                 "syllabusDescription",
                 DEFAULT_TEXT_MAX_LENGTH
         );
-        CourseCurriculumOverview parsed = parseSyllabus(
-                "",
-                "",
-                safeSyllabus
-        );
-        if (!parsed.hasUnits()) {
-            throw new IllegalArgumentException(
-                    "Syllabus phải có ít nhất một dòng theo định dạng \"Chủ đề: mô tả\""
-            );
+        if (safeSyllabus == null || safeSyllabus.isBlank()) {
+            throw new IllegalArgumentException("Syllabus không được để trống");
         }
-        return safeSyllabus;
+        return safeSyllabus.trim();
     }
 
     private String displaySyllabus(Course course) {
@@ -172,7 +176,7 @@ public class CourseCurriculumOverviewService {
                 Yêu cầu bắt buộc:
                 - Chỉ dịch ngôn ngữ; không thêm, bớt, gộp, suy luận hay giải thích nội dung.
                 - Giữ nguyên thứ tự và số dòng nội dung.
-                - Giữ nguyên dấu đầu dòng, số thứ tự và dấu hai chấm phân cách chủ đề.
+                - Giữ nguyên dấu đầu dòng, số thứ tự và mọi dấu phân cách nếu có.
                 - Giữ nguyên tên công nghệ, từ viết tắt và mã như Java, JSP, Servlet, MVC, JPA, AI.
                 - Chỉ trả về bản dịch, không dùng khung mã Markdown.
 
@@ -251,6 +255,7 @@ public class CourseCurriculumOverviewService {
             }
 
             Matcher separatorMatcher = TOPIC_SEPARATOR.matcher(line);
+            // "Topic: detail" is optional. Bullet/numbered lines without ":" still count as topics.
             if (separatorMatcher.find() && separatorMatcher.start() > 0) {
                 String title = cleanMarkdown(line.substring(0, separatorMatcher.start()));
                 String detail = cleanMarkdown(line.substring(separatorMatcher.end()));

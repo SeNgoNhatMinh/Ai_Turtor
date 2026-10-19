@@ -28,16 +28,7 @@ function CoursesTab({ form, courses, onCreate, onReload, onAction }) {
               className="syllabus-form-item"
               name="description"
               label="Syllabus chính thức"
-              extra="Mỗi dòng theo định dạng: Chủ đề: mô tả. Syllabus sẽ bắt buộc khi Admin tải học liệu."
-              rules={[
-                {
-                  validator: (_, value) => (
-                    !value || String(value).split(/\r?\n/).some((line) => line.includes(':'))
-                      ? Promise.resolve()
-                      : Promise.reject(new Error('Syllabus cần có ít nhất một dòng "Chủ đề: mô tả"'))
-                  ),
-                },
-              ]}
+              extra="Nội dung nhà trường cung cấp. Không bắt buộc dấu hai chấm. Syllabus sẽ bắt buộc khi Admin tải học liệu."
             >
               <Input.TextArea rows={6} maxLength={20000} showCount />
             </Form.Item>
