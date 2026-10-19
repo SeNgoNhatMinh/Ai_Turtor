@@ -200,12 +200,17 @@ export function useTutorSessionController({
 
     mergeTutorSession(session);
     if (event.type !== 'TUTOR_SESSION_OPENED') return;
+    const conversationId = payload.conversationId;
     if (tutorOpenInFlightRef.current) {
-      seedOpeningMessage(payload.openingMessage);
+      // Do not attach an automatic welcome message to a different chat created
+      // while openSession is still in flight.
+      if (!activeSessionIdRef.current || activeSessionIdRef.current === conversationId) {
+        seedOpeningMessage(payload.openingMessage);
+      }
       return;
     }
 
-    const conversationId = payload.conversationId;
+
     // Realtime events may refresh tutor state, but should not navigate away from
     // a conversation the student has already opened or explicitly created.
     if (conversationId && !activeSessionIdRef.current) {
