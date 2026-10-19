@@ -547,7 +547,6 @@ public class TutorSessionService {
         } catch (Exception ignored) {
             overview = CourseCurriculumOverview.empty(session.getCourseId());
         }
-        boolean hasLessons = !overview.hasUnits() && hasNumberedLessonPath(session);
         StringBuilder opening = new StringBuilder("## Chào mừng bạn đến với môn ")
                 .append(session.getCourseId());
         if (overview.courseName() != null && !overview.courseName().isBlank()) {
@@ -563,29 +562,19 @@ public class TutorSessionService {
         if (hasTopic) {
             opening.append("Hôm nay chúng ta bắt đầu với **").append(session.getTopic()).append("**.\n\n");
         }
-        if (!hasLessons && overview.hasUnits()) {
-            opening.append("### Nội dung chính trong chương trình học\n");
-            overview.units().forEach(unit -> {
-                opening.append("- **").append(unit.title()).append("**");
-                if (!unit.detail().isBlank()) {
-                    opening.append(": ").append(unit.detail());
-                }
-                opening.append("\n");
-            });
-            opening.append("\nChọn một phần ở thanh gợi ý để bắt đầu học — giống khi bạn nói *hôm nay mình học* chủ đề đó.");
-            return opening.toString();
-        }
         if (!suggestions.isEmpty()) {
             boolean personalPath = memoryRepository.findByStudentIdAndCourseId(
                             session.getStudentId(), session.getCourseId())
                     .map(memory -> (memory.getRecentQuestions() != null && !memory.getRecentQuestions().isEmpty())
                             || (memory.getWeakTopics() != null && !memory.getWeakTopics().isEmpty()))
                     .orElse(false);
-            opening.append(personalPath ? "### Gợi ý từ lộ trình của bạn\n" : "### Bắt đầu học một phần của môn\n");
+            opening.append(personalPath ? "### Gợi ý từ lộ trình của bạn\n" : "### Chủ đề gợi ý của môn học\n");
             suggestions.forEach(topic -> opening.append("- ").append(topic).append("\n"));
             opening.append(personalPath
-                    ? "\nChọn một chủ đề bạn đã hỏi để ôn lại, hoặc nhập câu hỏi mới."
-                    : "\nChọn một gợi ý ở trên để bắt đầu học, hoặc nhập chủ đề khác.");
+                    ? "\nChọn một chủ đề để ôn lại, hoặc nhập câu hỏi mới."
+                    : "\nChọn một chủ đề để bắt đầu học. Muốn xem toàn bộ syllabus, hãy dùng thao tác **Xem syllabus**.");
+        } else {
+            opening.append("Bạn có thể nhập chủ đề muốn học. Muốn xem toàn bộ syllabus, hãy dùng thao tác **Xem syllabus**.");
         }
         return opening.toString();
     }
