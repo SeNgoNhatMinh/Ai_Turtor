@@ -562,6 +562,19 @@ public class TutorSessionService {
         if (hasTopic) {
             opening.append("Hôm nay chúng ta bắt đầu với **").append(session.getTopic()).append("**.\n\n");
         }
+        if (overview.hasUnits()) {
+            opening.append(curriculumOverviewService.studentSyllabusMarkdown(overview)).append("\n\n");
+            List<String> keywords = overview.unitTitles().stream()
+                    .map(String::trim)
+                    .filter(title -> !title.isBlank())
+                    .limit(8)
+                    .toList();
+            if (!keywords.isEmpty()) {
+                opening.append("### Gợi ý từ khóa theo môn\n");
+                keywords.forEach(keyword -> opening.append("- `").append(keyword).append("`\n"));
+                opening.append("\nDùng các từ khóa này khi hỏi để AI Tutor tìm đúng tài liệu.\n\n");
+            }
+        }
         if (!suggestions.isEmpty()) {
             boolean personalPath = memoryRepository.findByStudentIdAndCourseId(
                             session.getStudentId(), session.getCourseId())
@@ -572,9 +585,9 @@ public class TutorSessionService {
             suggestions.forEach(topic -> opening.append("- ").append(topic).append("\n"));
             opening.append(personalPath
                     ? "\nChọn một chủ đề để ôn lại, hoặc nhập câu hỏi mới."
-                    : "\nChọn một chủ đề để bắt đầu học. Muốn xem toàn bộ syllabus, hãy dùng thao tác **Xem syllabus**.");
-        } else {
-            opening.append("Bạn có thể nhập chủ đề muốn học. Muốn xem toàn bộ syllabus, hãy dùng thao tác **Xem syllabus**.");
+                    : "\nChọn một chủ đề ở trên hoặc nhập câu hỏi mới để bắt đầu học.");
+        } else if (!overview.hasUnits()) {
+            opening.append("Bạn có thể nhập chủ đề muốn học để bắt đầu.");
         }
         return opening.toString();
     }

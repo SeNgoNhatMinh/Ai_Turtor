@@ -38,6 +38,7 @@ public class AiConversationService {
 
     private final AiConversationRepository conversationRepository;
     private final AiMessageRepository messageRepository;
+    private final CourseCurriculumOverviewService curriculumOverviewService;
 
     public AiConversationListResponse listConversations(String userId, int page, int size) {
         return listConversations(userId, null, page, size);
@@ -69,6 +70,23 @@ public class AiConversationService {
 
     public AiConversationSummary createConversation(String userId, String courseId, String classId) {
         AiConversation conversation = createConversationEntity(userId, UUID.randomUUID().toString(), courseId, classId);
+        if (courseId != null && !courseId.isBlank()) {
+            try {
+                String welcome = curriculumOverviewService.newChatWelcomeMarkdown(courseId.trim());
+                if (welcome != null && !welcome.isBlank()) {
+                    appendProactiveAssistantMessage(
+                            conversation.getId(),
+                            userId,
+                            null,
+                            "OPEN",
+                            welcome
+                    );
+                }
+            } catch (Exception error) {
+                log.warn("Could not seed syllabus welcome for new chat {}: {}",
+                        conversation.getId(), error.getMessage());
+            }
+        }
         return toSummary(conversation);
     }
 
@@ -125,8 +143,10 @@ public class AiConversationService {
                 .pinned(false)
                 .createdAt(now)
                 .build());
-        conversation.setTutorSessionId(trimToNull(tutorSessionId));
-        conversation.setSessionType("LESSON");
+        if (trimToNull(tutorSessionId) != null) {
+            conversation.setTutorSessionId(tutorSessionId.trim());
+            conversation.setSessionType("LESSON");
+        }
         conversation.setMessageCount((conversation.getMessageCount() == null ? 0 : conversation.getMessageCount()) + 1);
         conversation.setLastMessageAt(now);
         conversation.setUpdatedAt(now);

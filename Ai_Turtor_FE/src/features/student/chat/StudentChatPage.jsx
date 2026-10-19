@@ -122,10 +122,10 @@ export default function StudentChatPage({
   ]);
 
   useEffect(() => {
-    if (!studentId || !courseId) return;
+    if (!studentId || !courseId || !classId) return;
 
-    chat.openTutorSession();
-    // Tutor session is an explicit workflow action; learning data loads declaratively.
+    // Warm tutor session state only — do not jump the student into a new chat.
+    chat.openTutorSession({ selectConversation: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [studentId, courseId, classId]);
 

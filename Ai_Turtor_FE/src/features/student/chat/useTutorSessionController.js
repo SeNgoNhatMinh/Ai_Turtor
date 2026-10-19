@@ -136,7 +136,8 @@ export function useTutorSessionController({
     return refreshPromise;
   }, []);
 
-  const openTutorSession = async () => {
+  const openTutorSession = async (options = {}) => {
+    const selectConversation = options?.selectConversation !== false;
     if (!userId || !courseId || !classId || isTutorSessionLoading || tutorOpenInFlightRef.current) {
       return null;
     }
@@ -161,11 +162,22 @@ export function useTutorSessionController({
       const conversationId = data?.conversationId;
       await loadChatSessions({ silent: true });
 
-      // A student may create/select another chat while the automatic tutor-session
-      // request is in flight. Never steal focus from that explicit navigation.
-      const activeSessionChanged = activeSessionIdRef.current
-        && activeSessionIdRef.current !== activeSessionIdAtStart;
-      if (activeSessionChanged) return data;
+      // Background bootstrap must never steal the active chat.
+      if (!selectConversation) {
+        if (conversationId && conversationId === activeSessionIdRef.current) {
+          seedOpeningMessage(data?.openingMessage);
+        }
+        return data;
+      }
+
+      // Never steal focus from a chat the student already opened or created.
+      const currentActiveId = activeSessionIdRef.current;
+      const studentChoseAnotherChat = Boolean(
+        currentActiveId
+        && currentActiveId !== activeSessionIdAtStart
+        && currentActiveId !== conversationId,
+      );
+      if (studentChoseAnotherChat) return data;
 
       if (conversationId) {
         bumpConversationActivity({
@@ -173,8 +185,13 @@ export function useTutorSessionController({
           title: 'Buổi học cùng AI Tutor',
           messageCountIncrement: getOpeningContent(data?.openingMessage) ? 1 : 0,
         });
-        await handleSelectSession(conversationId, 'Buổi học cùng AI Tutor', { silent: true });
-        seedOpeningMessage(data?.openingMessage);
+        // Explicit start: open tutor chat only when nothing else is selected.
+        if (!currentActiveId) {
+          await handleSelectSession(conversationId, 'Buổi học cùng AI Tutor', { silent: true });
+          seedOpeningMessage(data?.openingMessage);
+        } else if (currentActiveId === conversationId) {
+          seedOpeningMessage(data?.openingMessage);
+        }
       }
       return data;
     } catch (error) {
@@ -211,14 +228,7 @@ export function useTutorSessionController({
     }
 
 
-    // Realtime events may refresh tutor state, but should not navigate away from
-    // a conversation the student has already opened or explicitly created.
-    if (conversationId && !activeSessionIdRef.current) {
-      handleSelectSession(conversationId, 'Buổi học cùng AI Tutor', { silent: true }).then(() => {
-        seedOpeningMessage(payload.openingMessage);
-      });
-      return;
-    }
+    // Realtime must not jump the student to another conversation.
     if (conversationId && conversationId === activeSessionIdRef.current) {
       seedOpeningMessage(payload.openingMessage);
     }

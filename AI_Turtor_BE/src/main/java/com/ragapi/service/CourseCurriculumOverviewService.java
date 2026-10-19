@@ -60,6 +60,61 @@ public class CourseCurriculumOverviewService {
         );
     }
 
+    /** Official syllabus block shown in chat when a student starts or requests it. */
+    public String studentSyllabusMarkdown(CourseCurriculumOverview overview) {
+        if (overview == null || !overview.hasUnits()) {
+            return "## Nội dung chính trong chương trình học\n\n"
+                    + "Môn này chưa có syllabus chính thức trên hệ thống. "
+                    + "Bạn có thể hỏi một chủ đề cụ thể hoặc chọn gợi ý bài học.";
+        }
+        StringBuilder markdown = new StringBuilder("## Nội dung chính trong chương trình học\n\n");
+        if (overview.courseName() != null && !overview.courseName().isBlank()) {
+            markdown.append("**").append(overview.courseName()).append("** (`")
+                    .append(overview.courseId()).append("`)\n\n");
+        }
+        if (overview.summary() != null && !overview.summary().isBlank()) {
+            markdown.append(overview.summary()).append("\n\n");
+        }
+        overview.units().forEach(unit -> {
+            markdown.append("- **").append(unit.title()).append("**");
+            if (unit.detail() != null && !unit.detail().isBlank()) {
+                markdown.append(": ").append(unit.detail());
+            }
+            markdown.append('\n');
+        });
+        return markdown.toString().trim();
+    }
+
+    /**
+     * Welcome for a brand-new student chat: syllabus + keyword tips.
+     */
+    public String newChatWelcomeMarkdown(String courseId) {
+        CourseCurriculumOverview overview = forCourse(courseId);
+        StringBuilder opening = new StringBuilder("## Chào mừng bạn đến với môn ");
+        opening.append(overview.courseId().isBlank() ? "học" : overview.courseId());
+        if (overview.courseName() != null && !overview.courseName().isBlank()) {
+            opening.append(" (").append(overview.courseName()).append(")");
+        }
+        opening.append("\n\n");
+        if (overview.summary() != null && !overview.summary().isBlank()) {
+            opening.append(overview.summary()).append("\n\n");
+        } else {
+            opening.append("Mình sẽ đồng hành như gia sư theo chương trình học chính thức của môn.\n\n");
+        }
+        opening.append(studentSyllabusMarkdown(overview)).append("\n\n");
+        List<String> keywords = overview.unitTitles().stream()
+                .map(String::trim)
+                .filter(title -> !title.isBlank())
+                .limit(8)
+                .toList();
+        if (!keywords.isEmpty()) {
+            opening.append("### Gợi ý từ khóa theo môn\n");
+            keywords.forEach(keyword -> opening.append("- `").append(keyword).append("`\n"));
+            opening.append("\nDùng các từ khóa này khi hỏi để AI Tutor tìm đúng tài liệu.");
+        }
+        return opening.toString().trim();
+    }
+
     public void saveOfficialSyllabus(String courseId, String syllabusDescription) {
         String safeCourseId = requireMaxLength(courseId, "courseId", SHORT_TEXT_MAX_LENGTH);
         String safeSyllabus = validateOfficialSyllabus(syllabusDescription);
