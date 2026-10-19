@@ -86,6 +86,7 @@ function StudentLiveAnswer({
   onLockUnderstandingAnswer,
   onMentorRequestCreated,
   onOpenMentorReview,
+  onPromptStarter,
   onStudySuggestion,
   openSupportCards,
   pathSuggestions,
@@ -146,6 +147,19 @@ function StudentLiveAnswer({
           hideSourceSection
         />
       </Suspense>
+
+      {done && isWelcomeTurn && (
+        <button
+          type="button"
+          className="chat-show-syllabus-action"
+          onClick={() => onPromptStarter?.(
+            'Hãy hiển thị syllabus chính thức của môn học hiện tại. Chỉ sử dụng syllabus chính thức đã lưu; không tự suy luận hoặc tự tạo thêm chương.',
+          )}
+        >
+          <span aria-hidden="true">▤</span>
+          Xem syllabus
+        </button>
+      )}
 
       {done && (
         <AnswerEvidence
@@ -420,6 +434,7 @@ function ChatMessageList({
                             onLockUnderstandingAnswer={onLockUnderstandingAnswer}
                             onMentorRequestCreated={onMentorRequestCreated}
                             onOpenMentorReview={onOpenMentorReview}
+                            onPromptStarter={onPromptStarter}
                             onStudySuggestion={onStudySuggestion}
                             openSupportCards={openSupportCards}
                             pathSuggestions={pathSuggestions}
