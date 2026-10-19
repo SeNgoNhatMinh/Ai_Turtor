@@ -148,7 +148,7 @@ function StudentLiveAnswer({
         />
       </Suspense>
 
-      {done && isWelcomeTurn && (
+      {!message.pending && isWelcomeTurn && !tutorTurnFailed && (
         <button
           type="button"
           className="chat-show-syllabus-action"
