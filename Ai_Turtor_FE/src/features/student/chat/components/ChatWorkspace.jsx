@@ -272,7 +272,9 @@ function ChatWorkspace({
       />
 
       {tutorSession?.status !== 'COMPLETED' && !dailyQuotaExhausted && composerTopics.length > 0 && (
-        <div className="tutor-session-strip__topics tutor-session-strip__topics--composer" role="list">
+        <section className="tutor-session-keywords" aria-label="Từ khóa và chủ đề của môn học">
+          <span className="tutor-session-keywords__label">Từ khóa / chủ đề gợi ý của môn {courseId}</span>
+          <div className="tutor-session-strip__topics tutor-session-strip__topics--composer" role="list">
           {composerTopics.map((topic) => (
             <button
               type="button"
@@ -288,7 +290,8 @@ function ChatWorkspace({
               {String(topic?.title || topic?.suggestionText || topic)}
             </button>
           ))}
-        </div>
+          </div>
+        </section>
       )}
 
       <StudentOwnLlmDialog
