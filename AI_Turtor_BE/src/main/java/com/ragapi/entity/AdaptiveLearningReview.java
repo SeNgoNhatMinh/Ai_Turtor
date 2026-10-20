@@ -30,7 +30,6 @@ public class AdaptiveLearningReview {
     private String studentCode;
     @Transient
     private String studentEmail;
-    private String studentName;
     private String courseId;
     private String classId;
     private Integer completedSessionCount;
