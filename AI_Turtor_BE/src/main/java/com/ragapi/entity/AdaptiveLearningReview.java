@@ -12,10 +12,10 @@ import org.springframework.data.mongodb.core.mapping.Document;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @Document(collection = "adaptive_learning_reviews")
-@CompoundIndex(name = "adaptive_review_window_idx",
-        def = "{'studentId':1,'courseId':1,'classId':1,'windowNumber':1}")
+@CompoundIndex(name = "adaptive_review_cycle_unique", def = "{'studentId':1,'courseId':1,'completedSessionCount':1}", unique = true)
 @Data
 @Builder
 @NoArgsConstructor
@@ -28,51 +28,31 @@ public class AdaptiveLearningReview {
     private String studentName;
     @Transient
     private String studentCode;
+    @Transient
+    private String studentEmail;
     private String courseId;
     private String classId;
-    private Integer windowNumber;
-    @Builder.Default
-    private List<String> sessionIds = new ArrayList<>();
-    @Builder.Default
-    private List<String> conversationIds = new ArrayList<>();
     private Integer completedSessionCount;
-    private Integer studentMessageCount;
-    private Integer evidenceCoveragePercent;
-    private Integer overallUnderstandingPercent;
+    private List<String> sessionIds;
+    private String status;
+    private String currentSupportLevel;
+    private String suggestedSupportLevel;
+    private Integer overallPercent;
     private Integer knowledgePercent;
     private Integer practicePercent;
     private Integer independencePercent;
-    private Integer assessmentConfidencePercent;
-    private String suggestedSupportLevel;
-    private String appliedSupportLevel;
-    private Boolean autoApplied;
-    private String recommendation;
-    @Builder.Default
-    private List<String> strengths = new ArrayList<>();
-    @Builder.Default
-    private List<String> knowledgeGaps = new ArrayList<>();
-    @Builder.Default
-    private List<EvidenceLog> evidenceLogs = new ArrayList<>();
-    /** PENDING, APPROVED, MODIFIED, REJECTED, FAILED. */
-    private String status;
+    private Integer confidencePercent;
+    private String summary;
+    private List<String> strengths;
+    private List<String> knowledgeGaps;
+    private List<String> teachingRecommendations;
+    private List<Map<String, Object>> evidence;
+    private String teacherId;
     private String teacherFeedback;
-    private String reviewedBy;
-    private LocalDateTime reviewedAt;
+    private String teacherDecision;
+    private String appliedDirectiveId;
     private String evaluationError;
     private LocalDateTime createdAt;
+    private LocalDateTime reviewedAt;
     private LocalDateTime updatedAt;
-
-    @Data
-    @Builder
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class EvidenceLog {
-        private String sessionId;
-        private String conversationId;
-        private String role;
-        private String content;
-        private String topic;
-        private String phase;
-        private LocalDateTime createdAt;
-    }
 }

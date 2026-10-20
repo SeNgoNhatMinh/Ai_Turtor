@@ -32,6 +32,7 @@ public class TutorSessionService {
     private final RealtimeEventService realtimeEvents;
     private final ClassRosterService classRosterService;
     private final PedagogicalDirectiveService directiveService;
+    private final AdaptiveLearningReviewService adaptiveLearningReviewService;
 
     public Map<String, Object> openOrResume(OpenTutorSessionRequest request) {
         if (request == null) throw new IllegalArgumentException("request is required");
@@ -150,6 +151,7 @@ public class TutorSessionService {
         session.setCompletedAt(LocalDateTime.now());
         session.setUpdatedAt(LocalDateTime.now());
         sessionRepository.save(session);
+        adaptiveLearningReviewService.onSessionCompleted(session);
         return summary;
     }
 
@@ -476,7 +478,13 @@ public class TutorSessionService {
     }
 
     private String resolveSupportLevel(String studentId, String courseId, String classId) {
-        return directiveService.resolveSupportLevel(studentId, courseId, classId);
+        // Explicit teacher directives always win. Otherwise, apply a sufficiently supported
+        // adaptive recommendation from the latest 10-session review.
+        if (directiveService.hasActiveDirective(studentId, courseId, classId)) {
+            return directiveService.resolveSupportLevel(studentId, courseId, classId);
+        }
+        return adaptiveLearningReviewService.adaptiveSupportLevel(studentId, courseId, classId)
+                .orElseGet(() -> directiveService.resolveSupportLevel(studentId, courseId, classId));
     }
 
     private void refreshTeacherControlledSupport(TutorSession session, String requestedClassId) {
