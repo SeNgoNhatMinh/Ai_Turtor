@@ -31,6 +31,7 @@ public class AdaptiveLearningReviewService {
 
     private final AdaptiveLearningReviewRepository reviewRepository;
     private final ClassSectionRepository classSectionRepository;
+    private final ClassRosterService classRosterService;
     private final RealtimeEventService realtimeEvents;
     private final TutorSessionRepository sessionRepository;
     private final AiMessageRepository messageRepository;
@@ -192,12 +193,16 @@ public class AdaptiveLearningReviewService {
     public List<AdaptiveLearningReview> listForTeacher(String courseId, String classId) {
         String safeCourse = requireText(courseId, "courseId");
         String safeClass = requireText(classId, "classId");
-        return reviewRepository.findByCourseIdAndClassIdOrderByCreatedAtDesc(safeCourse, safeClass);
+        List<AdaptiveLearningReview> reviews = reviewRepository.findByCourseIdAndClassIdOrderByCreatedAtDesc(safeCourse, safeClass);
+        reviews.forEach(this::attachStudentIdentity);
+        return reviews;
     }
 
     public AdaptiveLearningReview get(String reviewId) {
-        return reviewRepository.findById(requireText(reviewId, "reviewId"))
+        AdaptiveLearningReview review = reviewRepository.findById(requireText(reviewId, "reviewId"))
                 .orElseThrow(() -> new IllegalArgumentException("Adaptive learning review not found"));
+        attachStudentIdentity(review);
+        return review;
     }
 
     public AdaptiveLearningReview decide(
@@ -241,6 +246,16 @@ public class AdaptiveLearningReviewService {
         review.setSuggestedSupportLevel(selectedLevel);
         review.setStatus("APPROVED");
         return reviewRepository.save(review);
+    }
+
+    private void attachStudentIdentity(AdaptiveLearningReview review) {
+        if (review == null || review.getStudentId() == null) return;
+        var identity = classRosterService.resolveStudent(
+                review.getStudentId(), review.getCourseId(), review.getClassId());
+        if (identity == null) return;
+        review.setStudentName(identity.getStudentName());
+        review.setStudentCode(identity.getStudentCode());
+        review.setStudentEmail(identity.getStudentEmail());
     }
 
     private String buildTeacherInstruction(AdaptiveLearningReview review, String feedback) {
