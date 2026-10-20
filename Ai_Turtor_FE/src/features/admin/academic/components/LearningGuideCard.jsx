@@ -31,8 +31,24 @@ function LearningGuideCard({ courseId }) {
   }, [courseId]);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    let cancelled = false;
+    if (!courseId) return undefined;
+
+    adminAcademicApi.getLearningGuide(courseId)
+      .then((nextGuide) => {
+        if (cancelled) return;
+        setError('');
+        setGuide(nextGuide);
+      })
+      .catch((loadError) => {
+        if (cancelled) return;
+        setError(loadError?.message || 'Không tải được hướng dẫn học tập.');
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [courseId]);
 
   const run = async (action) => {
     setBusy(true);
