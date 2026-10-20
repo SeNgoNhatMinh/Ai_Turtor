@@ -504,7 +504,13 @@ public class TutorSessionService {
     }
 
     private String resolveSupportLevel(String studentId, String courseId, String classId) {
-        return directiveService.resolveSupportLevel(studentId, courseId, classId);
+        // Explicit teacher directives always win. Otherwise, apply a sufficiently supported
+        // adaptive recommendation from the latest 10-session review.
+        if (directiveService.hasActiveDirective(studentId, courseId, classId)) {
+            return directiveService.resolveSupportLevel(studentId, courseId, classId);
+        }
+        return adaptiveLearningReviewService.adaptiveSupportLevel(studentId, courseId)
+                .orElseGet(() -> directiveService.resolveSupportLevel(studentId, courseId, classId));
     }
 
     private void refreshTeacherControlledSupport(TutorSession session, String requestedClassId) {
