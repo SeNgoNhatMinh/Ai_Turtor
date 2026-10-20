@@ -250,7 +250,7 @@ public class AdaptiveLearningReviewService {
         if (raw == null || raw.isBlank()) throw new IllegalArgumentException("Empty LLM response");
         String cleaned = raw.trim().replaceFirst("^\uFEFF", "");
         if (cleaned.startsWith("```")) {
-            cleaned = cleaned.replaceFirst("^\`\`\`(?:json)?\\s*", "").replaceFirst("\\s*\`\`\`$", "");
+            cleaned = cleaned.replaceFirst("^```(?:json)?\\s*", "").replaceFirst("\\s*```$", "");
         }
         int start = cleaned.indexOf('{');
         int end = cleaned.lastIndexOf('}');
