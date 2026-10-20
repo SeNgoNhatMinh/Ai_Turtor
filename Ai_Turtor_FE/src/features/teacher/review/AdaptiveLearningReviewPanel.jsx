@@ -58,9 +58,8 @@ export default function AdaptiveLearningReviewPanel({ courseId, classId, trigger
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState('');
   const [decision, setDecision] = useState('APPROVE');
-  const [supportLevel, setSupportLevel] = useState('HIGH_SUPPORT');
+  const [supportLevel, setSupportLevel] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
-  const selectedIdRef = useRef('');
   const triggerToastRef = useRef(triggerToast);
   useEffect(() => { triggerToastRef.current = triggerToast; }, [triggerToast]);
 
@@ -96,7 +95,7 @@ export default function AdaptiveLearningReviewPanel({ courseId, classId, trigger
       const updated = await teacherReviewApi.decideAdaptiveLearningReview(selected.id, {
         decision,
         teacherFeedback: feedback.trim(),
-        supportLevel: decision === 'MODIFY' ? supportLevel : selected.suggestedSupportLevel,
+        supportLevel: decision === 'MODIFY' ? (supportLevel || selected.suggestedSupportLevel) : selected.suggestedSupportLevel,
       });
       queryClient.setQueryData(queryKey, (current = []) => current.map((item) => item.id === selected.id ? updated : item));
       triggerToastRef.current?.('Đã lưu quyết định và nhận xét của giảng viên.');
@@ -152,7 +151,7 @@ export default function AdaptiveLearningReviewPanel({ courseId, classId, trigger
             <div className="adaptive-review-list__items">
               {filteredReviews.map((item) => (
                 <button type="button" key={item.id} className={`adaptive-review-list__item ${selected?.id === item.id ? 'is-selected' : ''}`}
-                  onClick={() => { selectedIdRef.current = item.id; setSelectedId(item.id); setFeedback(item.teacherFeedback || ''); setDecision('APPROVE'); setSupportLevel(item.suggestedSupportLevel || 'STANDARD'); }}>
+                  onClick={() => { setSelectedId(item.id); setFeedback(item.teacherFeedback || ''); setDecision('APPROVE'); setSupportLevel(item.suggestedSupportLevel || 'STANDARD'); }}>
                   <span className="adaptive-review-list__avatar">{String(item.studentName || item.studentId || 'SV').slice(0, 2).toUpperCase()}</span>
                   <span className="adaptive-review-list__copy">
                     <strong>{item.studentName || `Sinh viên ${item.studentId || ''}`}</strong>
@@ -234,7 +233,7 @@ export default function AdaptiveLearningReviewPanel({ courseId, classId, trigger
                     ]} />
                   </label>
                   {decision === 'MODIFY' && <label>Mức hỗ trợ
-                    <Select value={supportLevel} onChange={setSupportLevel} options={Object.entries(LEVEL_LABELS).map(([value, label]) => ({ value, label }))} />
+                    <Select value={supportLevel || selected.suggestedSupportLevel || 'STANDARD'} onChange={setSupportLevel} options={Object.entries(LEVEL_LABELS).map(([value, label]) => ({ value, label }))} />
                   </label>}
                 </div>
                 <Tooltip title="Chỉ dẫn đã duyệt sẽ được lưu thành chỉ dẫn sư phạm và dùng trong các phiên tiếp theo.">
