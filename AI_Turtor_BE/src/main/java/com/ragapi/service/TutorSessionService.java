@@ -34,6 +34,7 @@ public class TutorSessionService {
     private final RealtimeEventService realtimeEvents;
     private final ClassRosterService classRosterService;
     private final PedagogicalDirectiveService directiveService;
+    private final AdaptiveLearningReviewService adaptiveLearningReviewService;
 
     public Map<String, Object> openOrResume(OpenTutorSessionRequest request) {
         if (request == null) throw new IllegalArgumentException("request is required");
@@ -152,6 +153,7 @@ public class TutorSessionService {
         session.setCompletedAt(LocalDateTime.now());
         session.setUpdatedAt(LocalDateTime.now());
         sessionRepository.save(session);
+        adaptiveLearningReviewService.onSessionCompleted(session);
         return summary;
     }
 
