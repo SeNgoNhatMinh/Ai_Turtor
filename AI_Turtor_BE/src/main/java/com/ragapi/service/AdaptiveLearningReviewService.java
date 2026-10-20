@@ -15,6 +15,7 @@ import com.ragapi.repository.TutorSessionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.scheduling.annotation.Async;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -43,6 +44,7 @@ public class AdaptiveLearningReviewService {
      * Called after a tutor session is durably marked COMPLETED. Reviews are idempotent per
      * student/course/completed-session count; a failed LLM assessment never rolls back the session.
      */
+    @Async("adaptiveReviewExecutor")
     public void onSessionCompleted(TutorSession completedSession) {
         if (completedSession == null || !"COMPLETED".equalsIgnoreCase(completedSession.getStatus())) return;
         try {
