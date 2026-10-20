@@ -509,7 +509,7 @@ public class TutorSessionService {
         if (directiveService.hasActiveDirective(studentId, courseId, classId)) {
             return directiveService.resolveSupportLevel(studentId, courseId, classId);
         }
-        return adaptiveLearningReviewService.adaptiveSupportLevel(studentId, courseId)
+        return adaptiveLearningReviewService.adaptiveSupportLevel(studentId, courseId, classId)
                 .orElseGet(() -> directiveService.resolveSupportLevel(studentId, courseId, classId));
     }
 
