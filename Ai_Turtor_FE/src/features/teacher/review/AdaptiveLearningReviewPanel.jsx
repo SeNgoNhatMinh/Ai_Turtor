@@ -61,6 +61,7 @@ export default function AdaptiveLearningReviewPanel({ courseId, classId, trigger
   const [decision, setDecision] = useState('APPROVE');
   const [supportLevel, setSupportLevel] = useState('HIGH_SUPPORT');
   const [statusFilter, setStatusFilter] = useState('ALL');
+  const selectedIdRef = useRef('');
   const triggerToastRef = useRef(triggerToast);
   useEffect(() => { triggerToastRef.current = triggerToast; }, [triggerToast]);
 
@@ -71,7 +72,8 @@ export default function AdaptiveLearningReviewPanel({ courseId, classId, trigger
       const data = await teacherReviewApi.getAdaptiveLearningReviews(courseId, classId);
       const ordered = [...data].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
       setReviews(ordered);
-      const nextSelected = ordered.find((item) => item.id === selectedId) || ordered[0] || null;
+      const nextSelected = ordered.find((item) => item.id === selectedIdRef.current) || ordered[0] || null;
+      selectedIdRef.current = nextSelected?.id || '';
       setSelectedId(nextSelected?.id || '');
       setFeedback(nextSelected?.teacherFeedback || '');
       setDecision('APPROVE');
@@ -81,7 +83,7 @@ export default function AdaptiveLearningReviewPanel({ courseId, classId, trigger
     } finally {
       setLoading(false);
     }
-  }, [courseId, classId, selectedId]);
+  }, [courseId, classId]);
 
   useEffect(() => { load(); }, [load]);
   useRealtimeEvent(['ADAPTIVE_LEARNING_REVIEW_CREATED'], (event) => {
@@ -168,7 +170,7 @@ export default function AdaptiveLearningReviewPanel({ courseId, classId, trigger
             <div className="adaptive-review-list__items">
               {filteredReviews.map((item) => (
                 <button type="button" key={item.id} className={`adaptive-review-list__item ${selected?.id === item.id ? 'is-selected' : ''}`}
-                  onClick={() => { setSelectedId(item.id); setFeedback(item.teacherFeedback || ''); setDecision('APPROVE'); setSupportLevel(item.suggestedSupportLevel || 'STANDARD'); }}>
+                  onClick={() => { selectedIdRef.current = item.id; setSelectedId(item.id); setFeedback(item.teacherFeedback || ''); setDecision('APPROVE'); setSupportLevel(item.suggestedSupportLevel || 'STANDARD'); }}>
                   <span className="adaptive-review-list__avatar">{String(item.studentName || item.studentId || 'SV').slice(0, 2).toUpperCase()}</span>
                   <span className="adaptive-review-list__copy">
                     <strong>{item.studentName || `Sinh viên ${item.studentId || ''}`}</strong>
