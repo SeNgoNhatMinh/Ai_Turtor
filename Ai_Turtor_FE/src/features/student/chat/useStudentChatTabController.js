@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { message } from 'antd';
 import { confirmAction } from '../../../components/common/confirmDialog';
 import { materialsApi } from '../../../services/materialsApi';
@@ -47,6 +47,20 @@ export function useStudentChatTabController({
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [isHistoryDrawerOpen, setIsHistoryDrawerOpen] = useState(() => !isMobileViewport());
   const messagesEndRef = useRef(null);
+
+  // Switching to a phone viewport (resize / device toolbar) closes the
+  // history pane completely instead of leaving it open over the chat.
+  useEffect(() => {
+    const mediaQuery = window.matchMedia(
+      '(max-width: 767px), (max-width: 1023px) and (hover: none) and (pointer: coarse)',
+    );
+    const closeOnMobile = (event) => {
+      if (event.matches) setIsHistoryDrawerOpen(false);
+    };
+    if (mediaQuery.matches) setIsHistoryDrawerOpen(false);
+    mediaQuery.addEventListener('change', closeOnMobile);
+    return () => mediaQuery.removeEventListener('change', closeOnMobile);
+  }, []);
   const previousMessageCountRef = useRef(0);
   const previousSessionIdRef = useRef('');
 

@@ -9,14 +9,3 @@
 @import url("./styles/understanding-check.css");
 
 
-.tutor-session-keywords {
-  display: grid;
-  gap: 5px;
-  padding: 0 16px 6px;
-}
-
-.tutor-session-keywords__label {
-  color: var(--color-text-muted, #64748b);
-  font-size: 0.75rem;
-  font-weight: 650;
-}

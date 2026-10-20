@@ -6,13 +6,20 @@ public record CourseCurriculumOverview(
         String courseId,
         String courseName,
         String summary,
-        List<Unit> units
+        List<Unit> units,
+        List<String> objectives
 ) {
     public CourseCurriculumOverview {
         courseId = courseId == null ? "" : courseId.trim();
         courseName = courseName == null ? "" : courseName.trim();
         summary = summary == null ? "" : summary.trim();
         units = units == null ? List.of() : List.copyOf(units);
+        objectives = objectives == null ? List.of() : List.copyOf(objectives);
+    }
+
+    /** Backward-compatible constructor for callers that only know syllabus units. */
+    public CourseCurriculumOverview(String courseId, String courseName, String summary, List<Unit> units) {
+        this(courseId, courseName, summary, units, List.of());
     }
 
     public record Unit(String title, String detail) {
@@ -32,6 +39,10 @@ public record CourseCurriculumOverview(
 
     public boolean hasUnits() {
         return !units.isEmpty();
+    }
+
+    public boolean hasObjectives() {
+        return !objectives.isEmpty();
     }
 
     public List<String> unitTitles() {

@@ -60,70 +60,149 @@ public class CourseCurriculumOverviewService {
         );
     }
 
-    /** Official syllabus block shown in chat when a student starts or requests it. */
+    /** Syllabus-only block (objectives + units). Kept for callers that need just this section. */
     public String studentSyllabusMarkdown(CourseCurriculumOverview overview) {
-        if (overview == null) {
-            return "## Nội dung chính trong chương trình học\n\n"
-                    + "Môn này chưa có syllabus chính thức trên hệ thống. "
-                    + "Bạn có thể hỏi một chủ đề cụ thể hoặc chọn gợi ý bài học.";
+        if (overview == null || (!overview.hasUnits() && !overview.hasObjectives()
+                && (overview.summary() == null || overview.summary().isBlank()))) {
+            return missingSyllabusMarkdown();
         }
-        StringBuilder markdown = new StringBuilder("## Nội dung chính trong chương trình học\n\n");
-        if (overview.courseName() != null && !overview.courseName().isBlank()) {
-            markdown.append("**").append(overview.courseName()).append("** (`")
-                    .append(overview.courseId()).append("`)\n\n");
+        StringBuilder markdown = new StringBuilder();
+        appendObjectives(markdown, overview);
+        appendUnits(markdown, overview);
+        if (markdown.isEmpty()
+                && overview.summary() != null && !overview.summary().isBlank()) {
+            markdown.append("### Nội dung chính trong chương trình học\n\n")
+                    .append(overview.summary());
         }
-        if (overview.hasUnits()) {
-            if (overview.summary() != null && !overview.summary().isBlank()
-                    && !overview.summary().startsWith("Chương trình học chính thức")) {
-                markdown.append(overview.summary()).append("\n\n");
-            }
-            overview.units().forEach(unit -> {
-                markdown.append("- **").append(unit.title()).append("**");
-                if (unit.detail() != null && !unit.detail().isBlank()) {
-                    markdown.append(": ").append(unit.detail());
-                }
-                markdown.append('\n');
-            });
-            return markdown.toString().trim();
-        }
-        if (overview.summary() != null && !overview.summary().isBlank()
-                && !overview.summary().startsWith("Chương trình học chính thức")) {
-            markdown.append(overview.summary());
-            return markdown.toString().trim();
-        }
-        markdown.append("Môn này chưa có syllabus chính thức trên hệ thống. ")
-                .append("Bạn có thể hỏi một chủ đề cụ thể hoặc chọn gợi ý bài học.");
         return markdown.toString().trim();
     }
 
     /**
-     * Welcome for a brand-new student chat: syllabus + keyword tips.
+     * The single welcome template for every course, used by both a brand-new
+     * chat and a tutor session. Content is generated only from the official
+     * syllabus: name, intro, objectives and units that are actually present.
+     * Sections without syllabus data are omitted, except the syllabus section
+     * itself which states explicitly that no information is available.
+     * Prompt suggestions are rendered once by the client from
+     * {@link #promptSuggestions(CourseCurriculumOverview)} topics, so they are
+     * not repeated here as a keyword list.
      */
-    public String newChatWelcomeMarkdown(String courseId) {
-        CourseCurriculumOverview overview = forCourse(courseId);
+    public String welcomeMarkdown(CourseCurriculumOverview overview, String currentTopic) {
+        CourseCurriculumOverview safe = overview == null
+                ? CourseCurriculumOverview.empty("")
+                : overview;
         StringBuilder opening = new StringBuilder("## Chào mừng bạn đến với môn ");
-        opening.append(overview.courseId().isBlank() ? "học" : overview.courseId());
-        if (overview.courseName() != null && !overview.courseName().isBlank()) {
-            opening.append(" (").append(overview.courseName()).append(")");
+        opening.append(safe.courseId().isBlank() ? "học" : safe.courseId());
+        if (!safe.courseName().isBlank()) {
+            opening.append(" (").append(safe.courseName()).append(")");
         }
         opening.append("\n\n");
-        if (overview.summary() != null && !overview.summary().isBlank()) {
-            opening.append(overview.summary()).append("\n\n");
-        } else {
-            opening.append("Mình sẽ đồng hành như gia sư theo chương trình học chính thức của môn.\n\n");
+        if (!safe.summary().isBlank() && !duplicatesAny(safe.summary(), safe)) {
+            opening.append(safe.summary()).append("\n\n");
         }
-        opening.append(studentSyllabusMarkdown(overview)).append("\n\n");
-        List<String> keywords = overview.unitTitles().stream()
-                .map(String::trim)
-                .filter(title -> !title.isBlank())
-                .limit(8)
-                .toList();
-        if (!keywords.isEmpty()) {
-            opening.append("### Gợi ý từ khóa theo môn\n");
-            keywords.forEach(keyword -> opening.append("- `").append(keyword).append("`\n"));
-            opening.append("\nDùng các từ khóa này khi hỏi để AI Tutor tìm đúng tài liệu.");
+        if (currentTopic != null && !currentTopic.isBlank()) {
+            opening.append("Hôm nay chúng ta bắt đầu với **")
+                    .append(currentTopic.trim()).append("**.\n\n");
         }
+        opening.append(studentSyllabusMarkdown(safe));
         return opening.toString().trim();
+    }
+
+    /** Welcome for a brand-new student chat, through the shared template. */
+    public String newChatWelcomeMarkdown(String courseId) {
+        return welcomeMarkdown(forCourse(courseId), null);
+    }
+
+    /**
+     * Dynamic starter topics derived from the syllabus only: personal weak /
+     * recent topics first (supplied by the caller), then syllabus units.
+     * RAG material headings are never used here — materials are evidence for
+     * answers, not the learning orientation. Duplicates of objectives or
+     * units are removed.
+     */
+    public static List<String> promptSuggestions(
+            CourseCurriculumOverview overview, List<String> personalTopics) {
+        java.util.LinkedHashSet<String> seen = new java.util.LinkedHashSet<>();
+        List<String> result = new ArrayList<>();
+        List<String> candidates = new ArrayList<>();
+        if (personalTopics != null) {
+            candidates.addAll(personalTopics);
+        }
+        if (overview != null) {
+            candidates.addAll(overview.unitTitles());
+        }
+        java.util.Set<String> objectiveKeys = new java.util.HashSet<>();
+        if (overview != null) {
+            overview.objectives().forEach(objective -> objectiveKeys.add(normalizeKey(objective)));
+        }
+        for (String candidate : candidates) {
+            if (candidate == null || candidate.isBlank()) {
+                continue;
+            }
+            String topic = candidate.trim();
+            String key = normalizeKey(topic);
+            if (key.isBlank() || objectiveKeys.contains(key) || !seen.add(key)) {
+                continue;
+            }
+            result.add(topic);
+            if (result.size() >= 6) {
+                break;
+            }
+        }
+        return List.copyOf(result);
+    }
+
+    private String missingSyllabusMarkdown() {
+        return "### Nội dung chính trong chương trình học\n\n"
+                + "Chưa có thông tin syllabus chính thức cho môn này trên hệ thống. "
+                + "Bạn vẫn có thể đặt câu hỏi; AI Tutor sẽ trả lời dựa trên tài liệu môn học đã được cung cấp.";
+    }
+
+    private void appendObjectives(StringBuilder markdown, CourseCurriculumOverview overview) {
+        if (!overview.hasObjectives()) {
+            return;
+        }
+        markdown.append("### Mục tiêu học tập\n\n");
+        overview.objectives().forEach(objective -> markdown.append("- ").append(objective).append('\n'));
+        markdown.append('\n');
+    }
+
+    private void appendUnits(StringBuilder markdown, CourseCurriculumOverview overview) {
+        markdown.append("### Nội dung chính trong chương trình học\n\n");
+        if (!overview.hasUnits()) {
+            markdown.append("Chưa có thông tin syllabus chính thức cho môn này trên hệ thống. ")
+                    .append("Bạn vẫn có thể đặt câu hỏi; AI Tutor sẽ trả lời dựa trên tài liệu môn học đã được cung cấp.");
+            return;
+        }
+        overview.units().forEach(unit -> {
+            markdown.append("- **").append(unit.title()).append("**");
+            if (unit.detail() != null && !unit.detail().isBlank()) {
+                markdown.append(": ").append(unit.detail());
+            }
+            markdown.append('\n');
+        });
+    }
+
+    private static boolean duplicatesAny(String text, CourseCurriculumOverview overview) {
+        String key = normalizeKey(text);
+        if (key.isBlank()) {
+            return true;
+        }
+        if (overview.objectives().stream().anyMatch(item -> normalizeKey(item).equals(key))) {
+            return true;
+        }
+        return overview.units().stream().anyMatch(unit ->
+                normalizeKey(unit.title()).equals(key) || normalizeKey(unit.detail()).equals(key));
+    }
+
+    static String normalizeKey(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.toLowerCase(Locale.ROOT)
+                .replaceAll("[^\\p{L}\\p{N}]+", " ")
+                .replaceAll("\\s+", " ")
+                .trim();
     }
 
     public void saveOfficialSyllabus(String courseId, String syllabusDescription) {
@@ -240,40 +319,67 @@ public class CourseCurriculumOverviewService {
 
         List<String> summaryLines = new ArrayList<>();
         List<CourseCurriculumOverview.Unit> units = new ArrayList<>();
+        List<String> objectives = new ArrayList<>();
+        Section section = Section.INTRO;
         for (String rawLine : syllabusDescription.split("\\R")) {
             String line = rawLine == null ? "" : rawLine.trim();
-            if (line.isBlank() || isSyllabusHeading(line)) {
+            if (line.isBlank()) {
                 continue;
             }
             Matcher prefixMatcher = LIST_PREFIX.matcher(line);
             boolean listItem = prefixMatcher.find() && prefixMatcher.end() > 0;
-            if (listItem) {
-                line = line.substring(prefixMatcher.end()).trim();
-            }
-            if (line.isBlank()) {
+            String contentLine = listItem ? line.substring(prefixMatcher.end()).trim() : line;
+            if (contentLine.isBlank()) {
                 continue;
             }
 
-            Matcher separatorMatcher = TOPIC_SEPARATOR.matcher(line);
+            // Headings only switch sections; they never become invented content.
+            Section heading = sectionHeading(contentLine, line);
+            if (heading != null) {
+                section = heading;
+                String inline = inlineHeadingContent(contentLine);
+                if (inline.isBlank()) {
+                    continue;
+                }
+                contentLine = inline;
+                listItem = true;
+            } else if (section == Section.INTRO && isSyllabusHeading(contentLine)) {
+                section = Section.CONTENT;
+                continue;
+            }
+
+            if (section == Section.OBJECTIVES) {
+                String objective = cleanMarkdown(contentLine);
+                if (!objective.isBlank() && objectives.size() < MAX_UNITS) {
+                    objectives.add(objective);
+                }
+                continue;
+            }
+            if (section == Section.OTHER) {
+                summaryLines.add(cleanMarkdown(contentLine));
+                continue;
+            }
+
+            Matcher separatorMatcher = TOPIC_SEPARATOR.matcher(contentLine);
             // "Topic: detail" is optional. Bullet/numbered lines without ":" still count as topics.
             if (separatorMatcher.find() && separatorMatcher.start() > 0) {
-                String title = cleanMarkdown(line.substring(0, separatorMatcher.start()));
-                String detail = cleanMarkdown(line.substring(separatorMatcher.end()));
+                String title = cleanMarkdown(contentLine.substring(0, separatorMatcher.start()));
+                String detail = cleanMarkdown(contentLine.substring(separatorMatcher.end()));
                 if (!title.isBlank()) {
                     units.add(new CourseCurriculumOverview.Unit(title, detail));
                 }
             } else if (listItem) {
-                String title = cleanMarkdown(line);
+                String title = cleanMarkdown(contentLine);
                 if (!title.isBlank()) {
                     units.add(new CourseCurriculumOverview.Unit(title, ""));
                 }
             } else if (units.isEmpty()) {
-                summaryLines.add(cleanMarkdown(line));
+                summaryLines.add(cleanMarkdown(contentLine));
             } else {
                 CourseCurriculumOverview.Unit previous = units.remove(units.size() - 1);
                 String detail = previous.detail().isBlank()
-                        ? cleanMarkdown(line)
-                        : previous.detail() + " " + cleanMarkdown(line);
+                        ? cleanMarkdown(contentLine)
+                        : previous.detail() + " " + cleanMarkdown(contentLine);
                 units.add(new CourseCurriculumOverview.Unit(previous.title(), detail));
             }
 
@@ -282,11 +388,63 @@ public class CourseCurriculumOverviewService {
             }
         }
 
+        // No fabricated summary: without intro lines from the school, summary stays empty.
         String summary = summaryLines.stream()
                 .filter(value -> value != null && !value.isBlank())
                 .reduce((left, right) -> left + " " + right)
-                .orElseGet(() -> officialSummary(safeCourseId, safeCourseName));
-        return new CourseCurriculumOverview(safeCourseId, safeCourseName, summary, units);
+                .orElse("");
+        // Objectives that merely repeat a unit are shown once, as that unit.
+        java.util.Set<String> unitKeys = new java.util.HashSet<>();
+        units.forEach(unit -> {
+            unitKeys.add(normalizeKey(unit.title()));
+            unitKeys.add(normalizeKey(unit.title() + " " + unit.detail()));
+        });
+        List<String> dedupedObjectives = objectives.stream()
+                .filter(objective -> !unitKeys.contains(normalizeKey(objective)))
+                .distinct()
+                .toList();
+        return new CourseCurriculumOverview(safeCourseId, safeCourseName, summary, units, dedupedObjectives);
+    }
+
+    private enum Section { INTRO, OBJECTIVES, CONTENT, OTHER }
+
+    private static Section sectionHeading(String contentLine, String rawLine) {
+        String cleaned = cleanMarkdown(contentLine);
+        String lower = cleaned.toLowerCase(Locale.ROOT);
+        boolean headingShape = rawLine.trim().startsWith("#")
+                || cleaned.endsWith(":")
+                || lower.matches("^(mục tiêu|learning objectives?|learning outcomes?|course objectives?|chuẩn đầu ra|kết quả học tập|nội dung|topics?|curriculum|course content|chủ đề|lộ trình|roadmap|đánh giá|assessment|tài liệu.*|references?)(\\s|:|$).*")
+                && cleaned.length() <= 90;
+        if (!headingShape || cleaned.length() > 120) {
+            return null;
+        }
+        if (lower.contains("mục tiêu") || lower.contains("learning objective")
+                || lower.contains("learning outcome") || lower.contains("course objective")
+                || lower.contains("chuẩn đầu ra") || lower.contains("kết quả học tập")
+                || lower.contains("kỹ năng đạt được")) {
+            return Section.OBJECTIVES;
+        }
+        if (isSyllabusHeading(cleaned) || lower.contains("nội dung")
+                || lower.equals("topics") || lower.equals("topic")
+                || lower.contains("curriculum") || lower.contains("course content")
+                || lower.contains("chủ đề") || lower.contains("các chương")) {
+            return Section.CONTENT;
+        }
+        if (cleaned.endsWith(":") && !cleaned.contains(".")) {
+            return Section.OTHER;
+        }
+        return null;
+    }
+
+    /** "Mục tiêu: hiểu ..." keeps the text after the heading as an objective. */
+    private static String inlineHeadingContent(String contentLine) {
+        String cleaned = cleanMarkdown(contentLine);
+        Matcher separatorMatcher = TOPIC_SEPARATOR.matcher(cleaned);
+        if (separatorMatcher.find() && separatorMatcher.start() > 0
+                && !cleaned.endsWith(":")) {
+            return cleaned.substring(separatorMatcher.end()).trim();
+        }
+        return "";
     }
 
     private static boolean isSyllabusHeading(String value) {
@@ -309,14 +467,5 @@ public class CourseCurriculumOverviewService {
                 .replaceAll("^\\*\\*(.*?)\\*\\*$", "$1")
                 .replace("**", "")
                 .trim();
-    }
-
-    private static String officialSummary(String courseId, String courseName) {
-        String label = courseName == null || courseName.isBlank()
-                ? courseId
-                : courseId + " (" + courseName + ")";
-        return label == null || label.isBlank()
-                ? "Chương trình học chính thức do nhà trường cung cấp."
-                : "Chương trình học chính thức của môn " + label + " do nhà trường cung cấp.";
     }
 }

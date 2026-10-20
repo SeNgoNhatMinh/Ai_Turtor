@@ -5,10 +5,8 @@ import com.ragapi.dto.CourseCurriculumOverview;
 import com.ragapi.dto.OpenTutorSessionRequest;
 import com.ragapi.dto.SuggestionItem;
 import com.ragapi.dto.UpdateTutorSessionRequest;
-import com.ragapi.dto.cotraining.ChapterOutlineView;
 import com.ragapi.entity.*;
 import com.ragapi.repository.*;
-import com.ragapi.util.ChapterHeadingUtils;
 import com.ragapi.util.LearningPathParser;
 import com.ragapi.util.TutorStudySuggestionUtils;
 import lombok.RequiredArgsConstructor;
@@ -293,6 +291,11 @@ public class TutorSessionService {
         return transcriptForConversations(session.getConversationIds());
     }
 
+    /**
+     * Starter topics are learning orientation, so they come from the official
+     * syllabus (plus this student's own weak/recent topics) — never from RAG
+     * material headings. Materials only ground the answers themselves.
+     */
     private List<String> suggestedTopics(String studentId, String courseId) {
         Optional<StudentCourseMemory> memory = memoryRepository.findByStudentIdAndCourseId(studentId, courseId);
         List<String> weakTopics = memory
@@ -301,59 +304,21 @@ public class TutorSessionService {
         List<String> recentQuestions = memory
                 .map(StudentCourseMemory::getRecentQuestions)
                 .orElse(List.of());
-        List<TutorStudySuggestionUtils.RankedTitle> chapters = materialBackedChapters(courseId);
-        List<String> fromOutline = TutorStudySuggestionUtils.openingSuggestions(
-                courseId, weakTopics, recentQuestions, chapters);
-        if (!chapters.isEmpty()
-                && (TutorStudySuggestionUtils.askedTopicChips(recentQuestions).isEmpty()
-                || fromOutline.stream().anyMatch(TutorStudySuggestionUtils::looksNumberedLesson)
-                || fromOutline.stream().anyMatch(ChapterHeadingUtils::isStudyUnitTitle))) {
-            return fromOutline;
-        }
+        List<String> personal = new ArrayList<>();
+        personal.addAll(TutorStudySuggestionUtils.askedTopicChips(recentQuestions));
+        weakTopics.stream()
+                .filter(Objects::nonNull)
+                .map(String::trim)
+                .filter(topic -> !topic.isBlank())
+                .forEach(personal::add);
 
-        List<String> curriculum = List.of();
+        CourseCurriculumOverview overview = CourseCurriculumOverview.empty(courseId);
         try {
-            curriculum = curriculumOverviewService.forCourse(courseId).unitTitles();
+            overview = curriculumOverviewService.forCourse(courseId);
         } catch (Exception ignored) {
-            // Courses created before syllabus support can still use indexed chapter titles.
+            // Without a syllabus there are no invented starters; personal topics still apply.
         }
-        if (!curriculum.isEmpty()) {
-            LinkedHashSet<String> result = new LinkedHashSet<>();
-            weakTopics.stream()
-                    .filter(Objects::nonNull)
-                    .map(String::trim)
-                    .filter(topic -> !topic.isBlank())
-                    .limit(2)
-                    .forEach(result::add);
-            curriculum.forEach(result::add);
-            return result.stream().limit(6).toList();
-        }
-        if (!TutorStudySuggestionUtils.askedTopicChips(recentQuestions).isEmpty()
-                || fromOutline.stream().anyMatch(TutorStudySuggestionUtils::looksNumberedLesson)) {
-            return fromOutline;
-        }
-        return fromOutline;
-    }
-
-    private List<TutorStudySuggestionUtils.RankedTitle> materialBackedChapters(String courseId) {
-        try {
-            return chapterOutlineService.suggestChapters(courseId).stream()
-                    .filter(Objects::nonNull)
-                    .filter(view -> !"NO_MATERIAL".equalsIgnoreCase(view.getMaterialHealth()))
-                    .filter(view -> view.getChunkCount() > 0 || view.getApproxChars() > 0)
-                    .map(TutorSessionService::rankedTitle)
-                    .toList();
-        } catch (Exception ignored) {
-            // Opening still greets; chips can fall back to official syllabus/new-course starters.
-            return List.of();
-        }
-    }
-
-    private static TutorStudySuggestionUtils.RankedTitle rankedTitle(ChapterOutlineView view) {
-        return new TutorStudySuggestionUtils.RankedTitle(
-                view.getTitle(),
-                view.getPageStart(),
-                view.getTocLevel());
+        return CourseCurriculumOverviewService.promptSuggestions(overview, personal);
     }
 
     private AiConversationSummary ensureTutorConversation(
@@ -434,6 +399,15 @@ public class TutorSessionService {
                 || lower.contains("outline of the book")
                 || lower.contains("roadmap for readers")
                 || lower.contains("internet and web resources")) {
+            return true;
+        }
+        // Openings written by older templates: duplicated keyword list, repeated
+        // suggestion list, or invented roadmap/summary lines.
+        if (lower.contains("gợi ý từ khóa")
+                || lower.contains("chủ đề gợi ý của môn học")
+                || lower.contains("gợi ý từ lộ trình của bạn")
+                || lower.contains("mình sẽ đồng hành")
+                || lower.contains("chương trình học chính thức của môn")) {
             return true;
         }
         if (hasNumberedLessonPath(session)) {
@@ -539,57 +513,15 @@ public class TutorSessionService {
     }
 
     private String buildOpening(TutorSession session) {
-        List<String> suggestions = session.getSuggestedTopics() == null ? List.of() : session.getSuggestedTopics();
-        boolean hasTopic = session.getTopic() != null && !session.getTopic().isBlank();
         CourseCurriculumOverview overview = CourseCurriculumOverview.empty(session.getCourseId());
         try {
             overview = curriculumOverviewService.forCourse(session.getCourseId());
         } catch (Exception ignored) {
             overview = CourseCurriculumOverview.empty(session.getCourseId());
         }
-        StringBuilder opening = new StringBuilder("## Chào mừng bạn đến với môn ")
-                .append(session.getCourseId());
-        if (overview.courseName() != null && !overview.courseName().isBlank()) {
-            opening.append(" (").append(overview.courseName()).append(")");
-        }
-        opening.append("\n\n");
-        if (!overview.summary().isBlank()) {
-            opening.append(overview.summary()).append("\n\n");
-        } else {
-            opening.append("Mình sẽ đồng hành như gia sư: cùng xem môn này dạy những gì, ")
-                    .append("rồi học từng phần theo lộ trình.\n\n");
-        }
-        if (hasTopic) {
-            opening.append("Hôm nay chúng ta bắt đầu với **").append(session.getTopic()).append("**.\n\n");
-        }
-        if (overview.hasUnits()) {
-            opening.append(curriculumOverviewService.studentSyllabusMarkdown(overview)).append("\n\n");
-            List<String> keywords = overview.unitTitles().stream()
-                    .map(String::trim)
-                    .filter(title -> !title.isBlank())
-                    .limit(8)
-                    .toList();
-            if (!keywords.isEmpty()) {
-                opening.append("### Gợi ý từ khóa theo môn\n");
-                keywords.forEach(keyword -> opening.append("- `").append(keyword).append("`\n"));
-                opening.append("\nDùng các từ khóa này khi hỏi để AI Tutor tìm đúng tài liệu.\n\n");
-            }
-        }
-        if (!suggestions.isEmpty()) {
-            boolean personalPath = memoryRepository.findByStudentIdAndCourseId(
-                            session.getStudentId(), session.getCourseId())
-                    .map(memory -> (memory.getRecentQuestions() != null && !memory.getRecentQuestions().isEmpty())
-                            || (memory.getWeakTopics() != null && !memory.getWeakTopics().isEmpty()))
-                    .orElse(false);
-            opening.append(personalPath ? "### Gợi ý từ lộ trình của bạn\n" : "### Chủ đề gợi ý của môn học\n");
-            suggestions.forEach(topic -> opening.append("- ").append(topic).append("\n"));
-            opening.append(personalPath
-                    ? "\nChọn một chủ đề để ôn lại, hoặc nhập câu hỏi mới."
-                    : "\nChọn một chủ đề ở trên hoặc nhập câu hỏi mới để bắt đầu học.");
-        } else if (!overview.hasUnits()) {
-            opening.append("Bạn có thể nhập chủ đề muốn học để bắt đầu.");
-        }
-        return opening.toString();
+        // One shared template for every course; suggested topics are shown
+        // once as clickable starters, not repeated inside this message.
+        return curriculumOverviewService.welcomeMarkdown(overview, session.getTopic());
     }
 
     private Map<String, Object> response(
