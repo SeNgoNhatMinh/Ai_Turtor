@@ -199,7 +199,7 @@ function ChatWorkspace({
     (Array.isArray(tutorSession?.suggestedTopics) ? tutorSession.suggestedTopics : [])
       .map((topic) => String(topic || '').trim())
       .filter(Boolean)
-  ), [tutorSession?.suggestedTopics]);
+  ), [tutorSession]);
   return (
     <div className={`chat-workspace-dark${dailyQuotaExhausted ? ' chat-workspace-dark--own-llm' : ''}`} style={style}>
       <ChatWorkspaceHeader
