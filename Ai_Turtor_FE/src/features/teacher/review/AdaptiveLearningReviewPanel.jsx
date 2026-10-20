@@ -65,23 +65,23 @@ export default function AdaptiveLearningReviewPanel({ courseId, classId, trigger
   useEffect(() => { triggerToastRef.current = triggerToast; }, [triggerToast]);
 
   const load = useCallback(async () => {
-    if (!courseId || !classId) {
-      setReviews([]);
-      setSelectedId('');
-      return;
-    }
+    if (!courseId || !classId) return;
     setLoading(true);
     try {
       const data = await teacherReviewApi.getAdaptiveLearningReviews(courseId, classId);
       const ordered = [...data].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
       setReviews(ordered);
-      setSelectedId((current) => ordered.some((item) => item.id === current) ? current : (ordered[0]?.id || ''));
+      const nextSelected = ordered.find((item) => item.id === selectedId) || ordered[0] || null;
+      setSelectedId(nextSelected?.id || '');
+      setFeedback(nextSelected?.teacherFeedback || '');
+      setDecision('APPROVE');
+      setSupportLevel(nextSelected?.suggestedSupportLevel || 'STANDARD');
     } catch (error) {
       triggerToastRef.current?.(error?.message || 'Không tải được đánh giá học tập.');
     } finally {
       setLoading(false);
     }
-  }, [courseId, classId]);
+  }, [courseId, classId, selectedId]);
 
   useEffect(() => { load(); }, [load]);
   useRealtimeEvent(['ADAPTIVE_LEARNING_REVIEW_CREATED'], (event) => {
@@ -100,13 +100,7 @@ export default function AdaptiveLearningReviewPanel({ courseId, classId, trigger
   const approvedCount = reviews.filter((item) => item.status === 'APPROVED').length;
   const rejectedCount = reviews.filter((item) => item.status === 'REJECTED').length;
 
-  useEffect(() => {
-    if (!selected) return;
-    setFeedback(selected.teacherFeedback || '');
-    setDecision('APPROVE');
-    setSupportLevel(selected.suggestedSupportLevel || 'STANDARD');
-  }, [selectedId]); // reset form when switching review
-
+ 
   const submitDecision = async () => {
     if (!selected || saving) return;
     if (decision !== 'REJECT' && !feedback.trim()) {
@@ -174,12 +168,12 @@ export default function AdaptiveLearningReviewPanel({ courseId, classId, trigger
             <div className="adaptive-review-list__items">
               {filteredReviews.map((item) => (
                 <button type="button" key={item.id} className={`adaptive-review-list__item ${selected?.id === item.id ? 'is-selected' : ''}`}
-                  onClick={() => setSelectedId(item.id)}>
+                  onClick={() => { setSelectedId(item.id); setFeedback(item.teacherFeedback || ''); setDecision('APPROVE'); setSupportLevel(item.suggestedSupportLevel || 'STANDARD'); }}>
                   <span className="adaptive-review-list__avatar">{String(item.studentName || item.studentId || 'SV').slice(0, 2).toUpperCase()}</span>
                   <span className="adaptive-review-list__copy">
                     <strong>{item.studentName || `Sinh viên ${item.studentId || ''}`}</strong>
                     <small>{item.courseId} · Chu kỳ {item.completedSessionCount || 0} phiên</small>
-                    <span>{new Date(item.createdAt || Date.now()).toLocaleString('vi-VN')}</span>
+                    <span>{item.createdAt ? new Date(item.createdAt).toLocaleString('vi-VN') : '—'}</span>
                   </span>
                   <Tag color={item.status === 'PENDING' ? 'gold' : item.status === 'APPROVED' ? 'green' : 'default'}>
                     {STATUS_LABELS[item.status] || item.status}
