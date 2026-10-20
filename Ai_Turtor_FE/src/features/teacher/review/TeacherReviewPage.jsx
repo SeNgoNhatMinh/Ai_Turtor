@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CheckCircle2, LifeBuoy, ShieldAlert } from 'lucide-react';
+import { Activity, CheckCircle2, LifeBuoy, ShieldAlert } from 'lucide-react';
 import PageHeader from '../../../components/common/PageHeader';
 import AppTabs from '../../../components/common/AppTabs';
 import { uiCopy } from '../../../constants/uiCopy';
@@ -7,6 +7,7 @@ import { ACADEMIC_CANDIDATE_TYPES } from '../../../constants/knowledgeFlow';
 import { useTeacherReviewQueue } from './useTeacherReviewQueue';
 import AnswerReviewWorkspace from './AnswerReviewWorkspace';
 import TeacherSupportInbox from './TeacherSupportInbox';
+import AdaptiveLearningReviewPanel from './AdaptiveLearningReviewPanel';
 import './TeacherReviewPage.css';
 
 const HISTORY_STATUSES = new Set(['COMPLETED', 'CLOSED', 'CANCELLED']);
@@ -20,6 +21,7 @@ export default function TeacherReviewPage({
   currentUser,
   teacherId,
   courseId,
+  classId,
   triggerToast,
 }) {
   const review = useTeacherReviewQueue({
