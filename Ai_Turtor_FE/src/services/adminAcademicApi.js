@@ -142,6 +142,28 @@ export const adminAcademicApi = {
     return response;
   },
 
+  async getLearningGuide(courseId) {
+    return request(`${API_BASE_URL}/admin/courses/${encodePath(courseId)}/learning-guide`);
+  },
+
+  async regenerateLearningGuide(courseId) {
+    return request(`${API_BASE_URL}/admin/courses/${encodePath(courseId)}/learning-guide/regenerate`, {
+      method: 'POST',
+    });
+  },
+
+  async approveLearningGuide(courseId) {
+    return request(`${API_BASE_URL}/admin/courses/${encodePath(courseId)}/learning-guide/approve`, {
+      method: 'POST',
+    });
+  },
+
+  async rejectLearningGuide(courseId) {
+    return request(`${API_BASE_URL}/admin/courses/${encodePath(courseId)}/learning-guide/reject`, {
+      method: 'POST',
+    });
+  },
+
   async downloadStudentImportTemplate() {
     return blobRequest(`${API_BASE_URL}/admin/class-sections/students/import/template.xlsx`);
   },
