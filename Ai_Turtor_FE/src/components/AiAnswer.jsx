@@ -23,13 +23,18 @@ function AiAnswer({
     () => extractUnderstandingCheck(markdown),
     [markdown],
   );
-  const quiz = useMemo(
-    () => normalizeStructuredUnderstandingQuiz(understandingCheck) || extracted.quiz,
-    [understandingCheck, extracted.quiz],
+  const structuredQuiz = useMemo(
+    () => normalizeStructuredUnderstandingQuiz(understandingCheck),
+    [understandingCheck],
   );
+  const quizzes = useMemo(() => {
+    if (structuredQuiz) return [structuredQuiz];
+    if (Array.isArray(extracted.quizzes) && extracted.quizzes.length) return extracted.quizzes;
+    return extracted.quiz ? [extracted.quiz] : [];
+  }, [structuredQuiz, extracted.quizzes, extracted.quiz]);
   const { before, after } = extracted;
 
-  if (!quiz) {
+  if (!quizzes.length) {
     return (
       <MarkdownRenderer
         markdown={markdown}
@@ -54,13 +59,16 @@ function AiAnswer({
           hideSourceSection={hideSourceSection}
         />
       ) : null}
-      <UnderstandingCheckQuiz
-        quiz={quiz}
-        reviewer={reviewer}
-        lockedKey={understandingSelectedKey}
-        attemptId={attemptId}
-        onLockAnswer={onLockAnswer}
-      />
+      {quizzes.map((quiz, index) => (
+        <UnderstandingCheckQuiz
+          key={`${quiz.question}-${index}`}
+          quiz={quiz}
+          reviewer={reviewer}
+          lockedKey={index === 0 ? understandingSelectedKey : ''}
+          attemptId={attemptId ? `${attemptId}:${index + 1}` : `inline-quiz-${index + 1}`}
+          onLockAnswer={index === 0 ? onLockAnswer : undefined}
+        />
+      ))}
       {after ? (
         <MarkdownRenderer
           markdown={after}

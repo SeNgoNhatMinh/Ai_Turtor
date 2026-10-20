@@ -43,6 +43,12 @@ const jsonOptions = (method, body) => ({
 const preserveAdminSession = { skipUnauthorizedRedirect: true };
 
 export const adminAiLogsApi = {
+  async getWorkerTraces(options = {}) {
+    return request(`${API_BASE_URL}/admin/ai-worker-traces?limit=150`, {
+      ...preserveAdminSession,
+      signal: options.signal,
+    });
+  },
   async getLogs(filters = {}, options = {}) {
     const params = new URLSearchParams();
     Object.entries(filters).forEach(([key, value]) => {

@@ -37,6 +37,15 @@ public class LearningPathGroundingService {
             "bat", "dau", "bai", "hoc", "ve", "phan", "chuong", "muon", "hom", "nay",
             "start", "lesson", "learn", "about", "the", "and", "with", "from", "course"
     );
+    /**
+     * Short / language tokens that alone must not promote a chapter into the path
+     * (for example "List" matching "Contributor List for Python").
+     */
+    private static final Set<String> WEAK_TOPIC_TOKENS = Set.of(
+            "list", "lists", "set", "sets", "map", "maps", "data", "code", "type", "types",
+            "file", "files", "path", "name", "text", "book", "page", "part", "item", "items",
+            "python", "java", "html", "css", "sql", "web", "app", "api"
+    );
     /** A Latin term the student actually typed, such as JDBC. Vietnamese words stay out. */
     private static final Pattern LATIN_TERM = Pattern.compile(
             "(?<![\\p{L}\\p{N}])([A-Za-z][A-Za-z0-9]{2,})(?![\\p{L}\\p{N}])"
@@ -114,13 +123,15 @@ public class LearningPathGroundingService {
         List<RankedChapter> ranked = selectLessons(available.stream()
                 .filter(chapter -> chapterMatchesQuestion(
                         chapter, focusTokens, anchors, evidenceTokens, votingEvidence))
-                .map(chapter -> new RankedChapter(
-                        chapter,
-                        (4 * relevance(chapter.getTitle(), focusTokens))
-                                + (4 * relevance(chapter.getTitle(), evidenceTokens))
-                                + relevance(chapter.getTitle(), proposedLessonTokens)
-                                + (sharesMaterial(chapter, evidenceMaterialIds) ? 1 : 0)
-                ))
+                .map(chapter -> {
+                    Set<String> titleHits = matchedAnchors(chapter.getTitle(), anchors);
+                    int score = (4 * relevance(chapter.getTitle(), focusTokens))
+                            + (4 * relevance(chapter.getTitle(), evidenceTokens))
+                            + relevance(chapter.getTitle(), proposedLessonTokens)
+                            + (sharesMaterial(chapter, evidenceMaterialIds) ? 1 : 0)
+                            + (8 * strongAnchorScore(titleHits));
+                    return new RankedChapter(chapter, score);
+                })
                 .sorted(Comparator.comparingInt(RankedChapter::score).reversed()
                         .thenComparingInt(item -> normalizedPage(item.chapter())))
                 .toList(), requestedCount);
@@ -432,7 +443,7 @@ public class LearningPathGroundingService {
         if (!isStudentLessonChapter(chapter) || chapter.getTocLevel() > 0) {
             return false;
         }
-        return !chapter.getTitle().trim().equalsIgnoreCase("contributions");
+        return !ChapterHeadingUtils.isBookFrontMatterTitle(chapter.getTitle());
     }
 
     private boolean hasMaterial(ChapterOutlineView chapter) {
@@ -471,14 +482,77 @@ public class LearningPathGroundingService {
             Set<String> evidenceTokens,
             List<RagSourceEvidence> votingEvidence
     ) {
+        if (chapter == null || ChapterHeadingUtils.isBookFrontMatterTitle(chapter.getTitle())) {
+            return false;
+        }
         if (anchors.isEmpty()) {
             return relevance(chapter.getTitle(), focusTokens) > 0
                     || relevance(chapter.getTitle(), evidenceTokens) > 0;
         }
-        if (relevance(chapter.getTitle(), anchors) > 0) {
+        Set<String> titleHits = matchedAnchors(chapter.getTitle(), anchors);
+        if (hasStrongTopicHit(titleHits) || titleIsPrimarilyAbout(chapter.getTitle(), titleHits)) {
             return true;
         }
         return evidenceNamesAnchoredChapter(chapter, votingEvidence, anchors);
+    }
+
+    private static Set<String> matchedAnchors(String title, Set<String> anchors) {
+        LinkedHashSet<String> hits = new LinkedHashSet<>();
+        if (title == null || anchors == null || anchors.isEmpty()) {
+            return Set.of();
+        }
+        Set<String> titleTokens = tokens(title);
+        for (String titleToken : titleTokens) {
+            for (String anchor : anchors) {
+                if (sameWord(titleToken, anchor)) {
+                    hits.add(anchor);
+                }
+            }
+        }
+        return Set.copyOf(hits);
+    }
+
+    private static boolean hasStrongTopicHit(Set<String> matchedAnchors) {
+        return strongAnchorScore(matchedAnchors) > 0;
+    }
+
+    private static int strongAnchorScore(Set<String> matchedAnchors) {
+        if (matchedAnchors == null || matchedAnchors.isEmpty()) {
+            return 0;
+        }
+        int score = 0;
+        for (String hit : matchedAnchors) {
+            if (hit != null
+                    && hit.length() >= 4
+                    && !WEAK_TOPIC_TOKENS.contains(hit)) {
+                score += hit.length() >= 7 ? 3 : 2;
+            }
+        }
+        return score;
+    }
+
+    /**
+     * Weak tokens like "list" may name a real chapter ("Lists") but must not promote
+     * a long meta title that merely contains the word.
+     */
+    private static boolean titleIsPrimarilyAbout(String title, Set<String> matchedAnchors) {
+        if (matchedAnchors == null || matchedAnchors.isEmpty()) {
+            return false;
+        }
+        Set<String> titleTokens = tokens(title);
+        if (titleTokens.isEmpty()) {
+            return false;
+        }
+        int matched = 0;
+        for (String titleToken : titleTokens) {
+            for (String anchor : matchedAnchors) {
+                if (sameWord(titleToken, anchor)) {
+                    matched++;
+                    break;
+                }
+            }
+        }
+        return matched > 0 && matched * 2 >= titleTokens.size();
     }
 
     /**
@@ -621,13 +695,26 @@ public class LearningPathGroundingService {
         if (left.equals(right)) {
             return true;
         }
+        if (yToIesPlural(left, right) || yToIesPlural(right, left)) {
+            return true;
+        }
         String shorter = left.length() <= right.length() ? left : right;
         String longer = shorter == left ? right : left;
-        if (shorter.length() < 4 || !longer.startsWith(shorter)) {
+        // Allow short stems such as set/sets and map/maps for collection chapters.
+        if (shorter.length() < 3 || !longer.startsWith(shorter)) {
             return false;
         }
         String suffix = longer.substring(shorter.length());
         return suffix.equals("s") || suffix.equals("es");
+    }
+
+    /** dictionary ↔ dictionaries */
+    private static boolean yToIesPlural(String singular, String plural) {
+        return singular != null
+                && plural != null
+                && singular.length() >= 4
+                && singular.endsWith("y")
+                && plural.equals(singular.substring(0, singular.length() - 1) + "ies");
     }
 
     private static Set<String> tokens(String value) {

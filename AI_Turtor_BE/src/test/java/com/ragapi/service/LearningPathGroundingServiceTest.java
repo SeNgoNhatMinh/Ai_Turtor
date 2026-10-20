@@ -347,6 +347,51 @@ class LearningPathGroundingServiceTest {
     }
 
     @Test
+    void listTuplePathSkipsContributorListAndKeepsRealCollectionChapters() {
+        when(chapterOutlineService.suggestChapters("PFP191")).thenReturn(List.of(
+                chapter("contributors", "Contributor List for Python Cookbook", 3, "textbook"),
+                chapter("preface", "Preface", 5, "textbook"),
+                chapter("lists", "Lists", 90, "textbook"),
+                chapter("tuples", "Tuples", 110, "textbook"),
+                chapter("dicts", "Dictionaries", 130, "textbook"),
+                chapter("sets", "Sets", 150, "textbook"),
+                chapter("files", "Files", 200, "textbook")
+        ));
+
+        List<SuggestionItem> result = service.ground(
+                "PFP191",
+                "Hôm nay mình muốn học List, Tuple, Dictionary, Set trong Python",
+                List.of(),
+                List.of(),
+                "STANDARD"
+        );
+
+        assertThat(result).extracting(SuggestionItem::getChapterTitle)
+                .containsExactly("Lists", "Tuples", "Dictionaries", "Sets");
+        assertThat(result).extracting(SuggestionItem::getChapterTitle)
+                .doesNotContain("Contributor List for Python Cookbook", "Preface", "Files");
+    }
+
+    @Test
+    void weakListTokenAloneStillGroundsAListsChapter() {
+        when(chapterOutlineService.suggestChapters("PFP191")).thenReturn(List.of(
+                chapter("contributors", "Contributor List for Python Cookbook", 3, "textbook"),
+                chapter("lists", "Lists", 90, "textbook"),
+                chapter("files", "Files", 200, "textbook")
+        ));
+
+        List<SuggestionItem> result = service.ground(
+                "PFP191",
+                "Hôm nay mình muốn học list",
+                List.of(),
+                List.of(),
+                "CHALLENGE"
+        );
+
+        assertThat(result).extracting(SuggestionItem::getChapterTitle).containsExactly("Lists");
+    }
+
+    @Test
     void jdbcMentionInsideBookConventionsIsNotALesson() {
         when(chapterOutlineService.suggestChapters("PRJ301")).thenReturn(List.of(
                 chapter("conventions", "Conventions Used in This Book", 45, "book"),

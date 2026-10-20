@@ -109,6 +109,23 @@ public final class ChapterHeadingUtils {
         if (stripped.matches("lời nói đầu|loi noi dau|lời giới thiệu|loi gioi thieu|lời cảm ơn|loi cam on")) {
             return true;
         }
+        if (stripped.equals("contributions")
+                || stripped.equals("contributors")
+                || stripped.startsWith("contributor list")
+                || stripped.startsWith("contributors list")
+                || stripped.startsWith("contribution list")
+                || stripped.startsWith("list of contributors")
+                || stripped.startsWith("list of contribution")
+                || stripped.contains("contributor list")
+                || stripped.contains("contributors list")
+                || stripped.contains("list of contributors")
+                || stripped.contains("contributors for python")
+                || stripped.matches("(?:[a-z]\\.)?\\d+(?:\\.\\d+)*\\s+contributor.*")
+                || stripped.matches("appendix\\s+[a-z0-9.]*\\s*contributor.*")
+                || stripped.matches("phụ lục\\s*.*contributor.*")
+                || stripped.matches("phu luc\\s*.*contributor.*")) {
+            return true;
+        }
         if (stripped.startsWith("copyright ")
                 || stripped.startsWith("about the author")
                 || stripped.startsWith("about the editor")

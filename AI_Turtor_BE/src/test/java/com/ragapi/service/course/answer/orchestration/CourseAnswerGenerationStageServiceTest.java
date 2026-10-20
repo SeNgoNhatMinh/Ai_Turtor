@@ -5,17 +5,24 @@ import com.ragapi.service.CanonicalTutorAnswerCacheService;
 import com.ragapi.service.course.answer.generation.CourseAnswerGenerationService;
 import com.ragapi.service.course.answer.generation.CourseAnswerPromptService;
 import com.ragapi.service.course.answer.grounding.CourseAnswerEvidenceService;
+import com.ragapi.service.aiworker.AiWorkerTraceService;
+import com.ragapi.service.aiworker.AiWorkerOrchestrator;
+import com.ragapi.service.aiworker.AiWorkerResult;
 import com.ragapi.service.course.model.CourseAnswerRequest;
 import com.ragapi.util.StudentFacingMessages;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.Duration;
+import java.util.LinkedHashMap;
+import java.util.function.Supplier;
 import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
@@ -27,6 +34,25 @@ import static org.mockito.Mockito.when;
 
 class CourseAnswerGenerationStageServiceTest {
 
+    private AiWorkerOrchestrator inlineWorkerOrchestrator() {
+        AiWorkerOrchestrator orchestrator = mock(AiWorkerOrchestrator.class);
+        when(orchestrator.executeParallel(anyMap(), org.mockito.ArgumentMatchers.any(Duration.class)))
+                .thenAnswer(invocation -> {
+                    Map<String, Supplier<String>> workers = invocation.getArgument(0);
+                    Map<String, AiWorkerResult<String>> results = new LinkedHashMap<>();
+                    workers.forEach((id, task) -> {
+                        try {
+                            results.put(id, AiWorkerResult.success(task.get(), 0L));
+                        } catch (RuntimeException failure) {
+                            results.put(id, AiWorkerResult.failed(failure.getClass().getSimpleName(), 0L));
+                        }
+                    });
+                    return results;
+                });
+        return orchestrator;
+    }
+
+
     @Test
     void retriesModelInsufficientMaterialClaimAfterGroundingAlreadyPassed() {
         CourseAnswerGenerationService generationService = mock(CourseAnswerGenerationService.class);
@@ -35,7 +61,7 @@ class CourseAnswerGenerationStageServiceTest {
         CanonicalTutorAnswerCacheService cacheService = mock(CanonicalTutorAnswerCacheService.class);
         CourseAnswerResultService resultService = mock(CourseAnswerResultService.class);
         CourseAnswerGenerationStageService service = new CourseAnswerGenerationStageService(
-                generationService, promptService, evidenceService, cacheService, resultService);
+                generationService, promptService, evidenceService, cacheService, resultService, mock(AiWorkerTraceService.class), inlineWorkerOrchestrator());
         ReflectionTestUtils.setField(service, "qualityFallbackEnabled", true);
 
         CourseAnswerRequest request = CourseAnswerRequest.builder()
@@ -67,10 +93,10 @@ class CourseAnswerGenerationStageServiceTest {
                 anyBoolean(), eq(null), eq(null), eq("EXPLAIN_CONCEPT"), anyBoolean()))
                 .thenReturn("prompt");
         when(generationService.generateGroundedAnswer(
-                anyString(), eq(request.question()), eq("EXPLAIN_CONCEPT"), anyString(), eq(null)))
+                anyString(), eq(request.question()), eq("EXPLAIN_CONCEPT"), anyString(), eq(null), anyBoolean()))
                 .thenReturn("Tài liệu hiện có không đủ nội dung để trả lời.");
         when(generationService.generateGroundedQualityFallbackAnswer(
-                anyString(), eq(request.question()), eq("EXPLAIN_CONCEPT"), anyString(), eq(null)))
+                anyString(), eq(request.question()), eq("EXPLAIN_CONCEPT"), anyString(), eq(null), anyBoolean()))
                 .thenReturn("Lệnh continue bỏ qua phần còn lại của lần lặp hiện tại và chuyển sang lần lặp kế tiếp.");
         when(evidenceService.selectAnswerEvidenceChunks(List.of(), request.question(),
                 "Lệnh continue bỏ qua phần còn lại của lần lặp hiện tại và chuyển sang lần lặp kế tiếp."))
@@ -85,9 +111,9 @@ class CourseAnswerGenerationStageServiceTest {
         assertEquals("Lệnh continue bỏ qua phần còn lại của lần lặp hiện tại và chuyển sang lần lặp kế tiếp.",
                 result.getAnswer());
         verify(generationService, times(1)).generateGroundedAnswer(
-                anyString(), eq(request.question()), eq("EXPLAIN_CONCEPT"), anyString(), eq(null));
+                anyString(), eq(request.question()), eq("EXPLAIN_CONCEPT"), anyString(), eq(null), anyBoolean());
         verify(generationService, times(1)).generateGroundedQualityFallbackAnswer(
-                anyString(), eq(request.question()), eq("EXPLAIN_CONCEPT"), anyString(), eq(null));
+                anyString(), eq(request.question()), eq("EXPLAIN_CONCEPT"), anyString(), eq(null), anyBoolean());
     }
 
     @Test
@@ -98,7 +124,7 @@ class CourseAnswerGenerationStageServiceTest {
         CanonicalTutorAnswerCacheService cacheService = mock(CanonicalTutorAnswerCacheService.class);
         CourseAnswerResultService resultService = mock(CourseAnswerResultService.class);
         CourseAnswerGenerationStageService service = new CourseAnswerGenerationStageService(
-                generationService, promptService, evidenceService, cacheService, resultService);
+                generationService, promptService, evidenceService, cacheService, resultService, mock(AiWorkerTraceService.class), inlineWorkerOrchestrator());
         ReflectionTestUtils.setField(service, "qualityFallbackEnabled", true);
 
         CourseAnswerRequest request = CourseAnswerRequest.builder()
@@ -133,10 +159,10 @@ class CourseAnswerGenerationStageServiceTest {
                 anyBoolean(), eq(null), eq(null), eq("LESSON_TEACH"), anyBoolean()))
                 .thenReturn("prompt");
         when(generationService.generateGroundedAnswer(
-                anyString(), eq(request.question()), eq("LESSON_TEACH"), anyString(), eq(null)))
+                anyString(), eq(request.question()), eq("LESSON_TEACH"), anyString(), eq(null), anyBoolean()))
                 .thenReturn("## Giải thích\nNội dung quá ngắn.");
         when(generationService.generateGroundedQualityFallbackAnswer(
-                anyString(), eq(request.question()), eq("LESSON_TEACH"), anyString(), eq(null)))
+                anyString(), eq(request.question()), eq("LESSON_TEACH"), anyString(), eq(null), anyBoolean()))
                 .thenReturn("## Giải thích\nNội dung vẫn quá ngắn.");
         when(resultService.softUnavailable(StudentFacingMessages.GENERATION_BUSY, List.of("Main Material")))
                 .thenReturn(unavailable);
@@ -145,9 +171,9 @@ class CourseAnswerGenerationStageServiceTest {
 
         assertSame(unavailable, result);
         verify(generationService, times(1)).generateGroundedAnswer(
-                anyString(), eq(request.question()), eq("LESSON_TEACH"), anyString(), eq(null));
+                anyString(), eq(request.question()), eq("LESSON_TEACH"), anyString(), eq(null), anyBoolean());
         verify(generationService, times(1)).generateGroundedQualityFallbackAnswer(
-                anyString(), eq(request.question()), eq("LESSON_TEACH"), anyString(), eq(null));
+                anyString(), eq(request.question()), eq("LESSON_TEACH"), anyString(), eq(null), anyBoolean());
     }
 
     @Test
@@ -158,7 +184,7 @@ class CourseAnswerGenerationStageServiceTest {
         CanonicalTutorAnswerCacheService cacheService = mock(CanonicalTutorAnswerCacheService.class);
         CourseAnswerResultService resultService = mock(CourseAnswerResultService.class);
         CourseAnswerGenerationStageService service = new CourseAnswerGenerationStageService(
-                generationService, promptService, evidenceService, cacheService, resultService);
+                generationService, promptService, evidenceService, cacheService, resultService, mock(AiWorkerTraceService.class), inlineWorkerOrchestrator());
 
         CourseAnswerRequest request = CourseAnswerRequest.builder()
                 .question("Start lesson 3")
@@ -190,7 +216,7 @@ class CourseAnswerGenerationStageServiceTest {
                 anyBoolean(), eq(null), eq(null), eq("LESSON_TEACH"), anyBoolean()))
                 .thenReturn("prompt");
         when(generationService.generateGroundedAnswer(
-                anyString(), eq(request.question()), eq("LESSON_TEACH"), anyString(), eq(null)))
+                anyString(), eq(request.question()), eq("LESSON_TEACH"), anyString(), eq(null), anyBoolean()))
                 .thenReturn(firstAnswer);
         when(evidenceService.selectAnswerEvidenceChunks(List.of(), request.question(), firstAnswer))
                 .thenReturn(List.of());
@@ -202,7 +228,7 @@ class CourseAnswerGenerationStageServiceTest {
 
         assertEquals(firstAnswer, result.getAnswer());
         verify(generationService, never()).generateGroundedQualityFallbackAnswer(
-                anyString(), anyString(), anyString(), anyString(), anyString());
+                anyString(), anyString(), anyString(), anyString(), anyString(), anyBoolean());
     }
 
     @Test
@@ -213,7 +239,7 @@ class CourseAnswerGenerationStageServiceTest {
         CanonicalTutorAnswerCacheService cacheService = mock(CanonicalTutorAnswerCacheService.class);
         CourseAnswerResultService resultService = mock(CourseAnswerResultService.class);
         CourseAnswerGenerationStageService service = new CourseAnswerGenerationStageService(
-                generationService, promptService, evidenceService, cacheService, resultService);
+                generationService, promptService, evidenceService, cacheService, resultService, mock(AiWorkerTraceService.class), inlineWorkerOrchestrator());
 
         String guidance = "ACTIVE SUPPORT LEVEL: HIGH_SUPPORT";
         CourseAnswerRequest request = CourseAnswerRequest.builder()
@@ -262,7 +288,7 @@ class CourseAnswerGenerationStageServiceTest {
                 anyBoolean(), eq(guidance), eq(null), eq("EXPLAIN_CONCEPT"), anyBoolean()))
                 .thenReturn("prompt");
         when(generationService.generateGroundedAnswer(
-                anyString(), eq(request.question()), eq("EXPLAIN_CONCEPT"), anyString(), eq(null)))
+                anyString(), eq(request.question()), eq("EXPLAIN_CONCEPT"), anyString(), eq(null), anyBoolean()))
                 .thenReturn(taught);
         when(evidenceService.selectAnswerEvidenceChunks(List.of(), request.question(), taught))
                 .thenReturn(List.of());
@@ -275,7 +301,7 @@ class CourseAnswerGenerationStageServiceTest {
         assertEquals(false, result.getEscalationRecommended());
         assertEquals(true, result.getAnswer().contains("lst.append"));
         verify(generationService, never()).generateGroundedQualityFallbackAnswer(
-                anyString(), anyString(), anyString(), anyString(), anyString());
+                anyString(), anyString(), anyString(), anyString(), anyString(), anyBoolean());
     }
 
     @Test
@@ -286,7 +312,7 @@ class CourseAnswerGenerationStageServiceTest {
         CanonicalTutorAnswerCacheService cacheService = mock(CanonicalTutorAnswerCacheService.class);
         CourseAnswerResultService resultService = mock(CourseAnswerResultService.class);
         CourseAnswerGenerationStageService service = new CourseAnswerGenerationStageService(
-                generationService, promptService, evidenceService, cacheService, resultService);
+                generationService, promptService, evidenceService, cacheService, resultService, mock(AiWorkerTraceService.class), inlineWorkerOrchestrator());
 
         String guidance = "ACTIVE SUPPORT LEVEL: HIGH_SUPPORT";
         CourseAnswerRequest request = CourseAnswerRequest.builder()
@@ -325,10 +351,10 @@ class CourseAnswerGenerationStageServiceTest {
                 anyBoolean(), eq(guidance), eq(null), eq("EXPLAIN_CONCEPT"), anyBoolean()))
                 .thenReturn("prompt");
         when(generationService.generateGroundedAnswer(
-                anyString(), eq(request.question()), eq("EXPLAIN_CONCEPT"), anyString(), eq(null)))
+                anyString(), eq(request.question()), eq("EXPLAIN_CONCEPT"), anyString(), eq(null), anyBoolean()))
                 .thenReturn(firstLesson);
         when(generationService.generateGroundedQualityFallbackAnswer(
-                contains("HIGH_SUPPORT RECOVERY"), eq(request.question()), eq("EXPLAIN_CONCEPT"), anyString(), eq(null)))
+                contains("HIGH_SUPPORT RECOVERY"), eq(request.question()), eq("EXPLAIN_CONCEPT"), anyString(), eq(null), anyBoolean()))
                 .thenReturn(StudentFacingMessages.GENERATION_UNAVAILABLE);
         when(evidenceService.selectAnswerEvidenceChunks(List.of(), request.question(), firstLesson))
                 .thenReturn(List.of());
@@ -341,6 +367,6 @@ class CourseAnswerGenerationStageServiceTest {
         assertEquals(false, result.getEscalationRecommended());
         assertEquals(true, result.getAnswer().contains("Tuple giữ nguyên"));
         verify(generationService, times(1)).generateGroundedQualityFallbackAnswer(
-                contains("HIGH_SUPPORT RECOVERY"), eq(request.question()), eq("EXPLAIN_CONCEPT"), anyString(), eq(null));
+                contains("HIGH_SUPPORT RECOVERY"), eq(request.question()), eq("EXPLAIN_CONCEPT"), anyString(), eq(null), anyBoolean());
     }
 }

@@ -15,7 +15,7 @@ import java.util.regex.Pattern;
 public final class UnderstandingCheckExtractor {
 
     private static final Pattern CHECK_HEADING = Pattern.compile(
-            "(?ium)^#{1,6}\\s*(?:kiểm tra hiểu|understanding check|"
+            "(?ium)^#{1,6}\\s*(?:kiểm tra hiểu|understanding check|quiz tự luyện|"
                     + "câu(?:\\s+hỏi)?\\s+trắc nghiệm mới"
                     + "(?:\\s*\\((?:(?:được|đã)\\s+)?paraphrase\\))?|câu hỏi ôn tập)\\s*$");
     private static final Pattern NEXT_HEADING = Pattern.compile("(?m)^#{1,6}\\s+\\S");

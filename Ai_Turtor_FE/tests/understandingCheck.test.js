@@ -50,6 +50,134 @@ Bạn có thể giải thích vai trò của Controller không? (A) Chỉ View (
   assert.doesNotMatch(extracted.before, /Understanding Check/);
 });
 
+test('turns Worker Quiz tự luyện into interactive forms without leaking answers', () => {
+  const extracted = extractUnderstandingCheck(`
+## Theo tài liệu
+Servlet xử lý HTTP.
+
+## Quiz tự luyện
+
+**Q1.**
+Khi nào nên override doPost?
+A. Khi chỉ xử lý GET
+B. Khi nhận POST từ form
+C. Khi deploy WAR
+D. Khi dùng JSP
+
+**Đáp án đúng:** B
+**Giải thích:** POST cần doPost.
+
+---
+
+**Q2.**
+HTTP 405 nghĩa là gì?
+A. Not Found
+B. Forbidden
+C. Method Not Allowed
+D. Server Error
+
+**Đáp án đúng:** C
+**Giải thích:** Method không được hỗ trợ.
+
+## Học chuyên sâu
+Chi tiết sâu hơn.
+`);
+
+  assert.equal(extracted.quizzes.length, 2);
+  assert.equal(
+    extracted.quizzes[0].options.find((option) => option.key === extracted.quizzes[0].correctKey)?.text,
+    'Khi nhận POST từ form',
+  );
+  assert.equal(
+    extracted.quizzes[1].options.find((option) => option.key === extracted.quizzes[1].correctKey)?.text,
+    'Method Not Allowed',
+  );
+  assert.doesNotMatch(extracted.before, /Quiz tự luyện|Đáp án đúng/);
+  assert.doesNotMatch(extracted.after, /Đáp án đúng|Q1|Q2/);
+  assert.match(extracted.after, /Học chuyên sâu/);
+});
+
+test('parses Kiểm tra hiểu multi-item block used by Worker 2', () => {
+  const extracted = extractUnderstandingCheck(`
+## Giải thích
+encodeURL vs encodeRedirectURL.
+
+## Kiểm tra hiểu
+
+Q1. Khi nào nên dùng encodeURL thay vì encodeRedirectURL?
+A. Khi gửi redirect tới trình duyệt
+B. Khi chuyển tiếp (forward) yêu cầu trong cùng một máy chủ
+C. Khi ghi dữ liệu vào body của response
+D. Khi đặt cookie
+Đáp án đúng: B
+Giải thích: encodeURL thêm ID session khi forward nội bộ.
+
+Q2. encodeRedirectURL thường được sử dụng trong trường hợp nào?
+A. Khi chuyển tiếp nội bộ (forward)
+B. Khi gửi redirect tới client
+C. Khi mã hoá tiêu đề HTTP
+D. Khi mã hoá tham số truy vấn
+Đáp án đúng: B
+Giải thích: encodeRedirectURL thêm ID session khi redirect.
+
+## Học chuyên sâu
+- Sự khác biệt giữa encodeURL và encodeRedirectURL
+`);
+
+  assert.equal(extracted.quizzes.length, 2);
+  assert.equal(
+    extracted.quizzes[0].options.find((option) => option.key === extracted.quizzes[0].correctKey)?.text,
+    'Khi chuyển tiếp (forward) yêu cầu trong cùng một máy chủ',
+  );
+  assert.equal(
+    extracted.quizzes[1].options.find((option) => option.key === extracted.quizzes[1].correctKey)?.text,
+    'Khi gửi redirect tới client',
+  );
+});
+
+test('repairs literal backslash-n quiz payloads from JSON', () => {
+  const extracted = extractUnderstandingCheck(
+    '## Kiểm tra hiểu\\n\\nQ1. hỏi?\\nA. một\\nB. hai\\nC. ba\\nD. bốn\\nĐáp án đúng: B\\nGiải thích: ok\\n\\n## Học chuyên sâu\\n- tip',
+  );
+  assert.equal(extracted.quizzes.length, 1);
+  assert.equal(
+    extracted.quizzes[0].options.find((option) => option.key === extracted.quizzes[0].correctKey)?.text,
+    'hai',
+  );
+});
+
+test('parses deploy-mangled Quiz tự luyện with Q1.* and Đáp án đúng:*', () => {
+  const extracted = extractUnderstandingCheck(`
+## Giải thích
+Session cookie lưu JSESSIONID.
+
+Quiz tự luyện
+Câu hỏi trắc nghiệm*
+Q1.* Thuộc tính nào của cookie xác định ngày-giờ hết hạn tuyệt đối? A. Max-Age B. Secure C. Expires D. Path
+Đáp án đúng:* C
+Giải thích:* Thuộc tính Expires đặt ngày-giờ cụ thể khi cookie sẽ hết hạn.
+Q2.* Khi muốn mã hoá URL trong thẻ a, phương thức nào? A. encodeRedirectURL B. encodeURL C. sendRedirect D. setHeader
+Đáp án đúng:* B
+Giải thích:* encodeURL trả về URL đã chèn Session-ID.
+
+## Học chuyên sâu
+Hiểu nguyên tắc session cookie
+`);
+
+  assert.equal(extracted.quizzes.length, 2);
+  assert.match(extracted.quizzes[0].question, /hết hạn tuyệt đối/i);
+  assert.equal(
+    extracted.quizzes[0].options.find((option) => option.key === extracted.quizzes[0].correctKey)?.text,
+    'Expires',
+  );
+  assert.equal(
+    extracted.quizzes[1].options.find((option) => option.key === extracted.quizzes[1].correctKey)?.text,
+    'encodeURL',
+  );
+  assert.doesNotMatch(extracted.before, /Đáp án đúng|Q1/);
+  assert.match(extracted.after, /Học chuyên sâu/);
+});
+
 test('parses an inline A/B/C understanding check', () => {
   const quiz = parseUnderstandingQuiz(
     "Khi dùng vòng lặp for để duyệt danh sách fruits, biến lặp sẽ có giá trị nào ở lần lặp thứ hai? A. 'apple' B. 'banana' C. 'cherry'",
