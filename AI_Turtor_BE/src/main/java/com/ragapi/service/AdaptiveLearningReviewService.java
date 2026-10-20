@@ -104,7 +104,7 @@ public class AdaptiveLearningReviewService {
             assessment = fallbackAssessment(current.getSupportLevel());
         }
 
-        String suggested = normalizeLevel(assessment.get("suggestedSupportLevel"), current.getSupportLevel());
+        String suggested = chooseSupportLevel(assessment, current.getSupportLevel());
         AdaptiveLearningReview review = AdaptiveLearningReview.builder()
                 .id(UUID.randomUUID().toString())
                 .studentId(current.getStudentId())
@@ -282,6 +282,23 @@ public class AdaptiveLearningReviewService {
         }
         if (string(map.get("summary"), "").isBlank()) throw new IllegalArgumentException("Missing summary");
         normalizeLevel(map.get("suggestedSupportLevel"), "STANDARD");
+    }
+
+    private String chooseSupportLevel(Map<String, Object> assessment, String currentLevel) {
+        String current = normalizeLevel(currentLevel, "STANDARD");
+        int confidence = number(assessment.get("confidencePercent"), 0);
+        int overall = number(assessment.get("overallPercent"), 0);
+        int knowledge = number(assessment.get("knowledgePercent"), 0);
+        int practice = number(assessment.get("practicePercent"), 0);
+        int independence = number(assessment.get("independencePercent"), 0);
+
+        // Do not change the level automatically when the evidence is too weak.
+        if (confidence < 65) return current;
+        if (overall <= 50 || knowledge <= 45) return "HIGH_SUPPORT";
+        if (overall >= 85 && practice >= 80 && independence >= 80) return "CHALLENGE";
+        if (overall >= 70 && independence >= 65 && "HIGH_SUPPORT".equals(current)) return "STANDARD";
+        if ("CHALLENGE".equals(current) && (overall < 75 || independence < 65)) return "STANDARD";
+        return normalizeLevel(assessment.get("suggestedSupportLevel"), current);
     }
 
     private Map<String, Object> fallbackAssessment(String currentLevel) {
