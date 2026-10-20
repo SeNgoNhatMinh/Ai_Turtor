@@ -159,7 +159,7 @@ public class AdaptiveLearningReviewService {
         return reviewRepository.findByStudentIdAndCourseIdAndClassIdOrderByCreatedAtDesc(studentId, courseId, classId)
                 .stream()
                 .filter(review -> review.getEvaluationError() == null || review.getEvaluationError().isBlank())
-                .filter(review -> review.getConfidencePercent() != null && review.getConfidencePercent() >= 65)
+                .filter(review -> review.getConfidencePercent() != null && review.getConfidencePercent() >= 75)
                 .filter(review -> Set.of("PENDING", "APPROVED").contains(
                         review.getStatus() == null ? "" : review.getStatus().toUpperCase(Locale.ROOT)))
                 .map(review -> normalizeLevel(review.getSuggestedSupportLevel(), "STANDARD"))
@@ -309,7 +309,7 @@ public class AdaptiveLearningReviewService {
         int independence = number(assessment.get("independencePercent"), 0);
 
         // Do not change the level automatically when the evidence is too weak.
-        if (confidence < 65) return current;
+        if (confidence < 75) return current;
         if (overall <= 50 || knowledge <= 45) return "HIGH_SUPPORT";
         if (overall >= 85 && practice >= 80 && independence >= 80) return "CHALLENGE";
         if (overall >= 70 && independence >= 65 && "HIGH_SUPPORT".equals(current)) return "STANDARD";
