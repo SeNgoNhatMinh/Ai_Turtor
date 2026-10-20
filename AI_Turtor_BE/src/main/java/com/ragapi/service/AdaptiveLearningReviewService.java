@@ -152,8 +152,8 @@ public class AdaptiveLearningReviewService {
                         )));
     }
 
-    public Optional<String> adaptiveSupportLevel(String studentId, String courseId) {
-        return reviewRepository.findByStudentIdAndCourseIdOrderByCreatedAtDesc(studentId, courseId)
+    public Optional<String> adaptiveSupportLevel(String studentId, String courseId, String classId) {
+        return reviewRepository.findByStudentIdAndCourseIdAndClassIdOrderByCreatedAtDesc(studentId, courseId, classId)
                 .stream()
                 .filter(review -> review.getEvaluationError() == null || review.getEvaluationError().isBlank())
                 .filter(review -> review.getConfidencePercent() != null && review.getConfidencePercent() >= 65)
