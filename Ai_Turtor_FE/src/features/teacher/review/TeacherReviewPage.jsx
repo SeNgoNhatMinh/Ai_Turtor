@@ -134,6 +134,24 @@ export default function TeacherReviewPage({
             ),
           },
           {
+            key: 'adaptive-learning',
+            label: (
+              <span className="teacher-review-tab">
+                <Activity size={15} />
+                Đánh giá tiến bộ
+              </span>
+            ),
+            children: (
+              <AdaptiveLearningReviewPanel
+                currentUser={currentUser}
+                teacherId={teacherId}
+                courseId={courseId}
+                classId={classId}
+                triggerToast={triggerToast}
+              />
+            ),
+          },
+          {
             key: 'answer-reviews',
             label: (
               <span className="teacher-review-tab">
