@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Alert, Button, Empty, Input, Progress, Select, Spin, Tag, Tooltip } from 'antd';
 import { Activity, BookOpenCheck, CheckCircle2, ChevronRight, ClipboardList, RefreshCw, ShieldAlert } from 'lucide-react';
@@ -7,6 +7,7 @@ import { useRealtimeEvent } from '../../realtime/realtimeContext';
 import './AdaptiveLearningReviewPanel.css';
 
 const { TextArea } = Input;
+const EMPTY_REVIEWS = [];
 const LEVEL_LABELS = {
   HIGH_SUPPORT: 'Hỗ trợ cao',
   STANDARD: 'Tiêu chuẩn',
@@ -71,9 +72,17 @@ export default function AdaptiveLearningReviewPanel({ courseId, classId, trigger
     enabled: Boolean(courseId && classId),
     staleTime: 15_000,
   });
-  const reviews = reviewsQuery.data || [];
+  const reviews = reviewsQuery.data ?? EMPTY_REVIEWS;
   const loading = reviewsQuery.isFetching;
-  const load = useCallback(() => reviewsQuery.refetch(), [reviewsQuery.refetch]);
+  const load = () => reviewsQuery.refetch();
+
+  useRealtimeEvent(['ADAPTIVE_LEARNING_REVIEW_CREATED'], (event) => {
+    const data = event?.data || {};
+    if ((!data.courseId || data.courseId === courseId) && (!data.classId || data.classId === classId)) {
+      reviewsQuery.refetch();
+      triggerToastRef.current?.('Có đánh giá tiến bộ học tập mới cần nhận xét.');
+    }
+  });
 
   const filteredReviews = useMemo(() => statusFilter === 'ALL'
     ? reviews
