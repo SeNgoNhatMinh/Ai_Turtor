@@ -52,7 +52,7 @@ function EvidenceItem({ item, index }) {
   );
 }
 
-export default function AdaptiveLearningReviewPanel({ courseId, classId, teacherId, triggerToast }) {
+export default function AdaptiveLearningReviewPanel({ courseId, classId, triggerToast }) {
   const [reviews, setReviews] = useState([]);
   const [selectedId, setSelectedId] = useState('');
   const [loading, setLoading] = useState(false);
