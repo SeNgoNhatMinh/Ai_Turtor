@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Button, Empty, Input, Progress, Select, Spin, Tag, Tooltip } from 'antd';
 import { Activity, BookOpenCheck, CheckCircle2, ChevronRight, ClipboardList, RefreshCw, ShieldAlert } from 'lucide-react';
 import { teacherReviewApi } from '../../../services/teacherReviewApi';
+import { useRealtimeEvent } from '../../realtime/realtimeContext';
 import './AdaptiveLearningReviewPanel.css';
 
 const { TextArea } = Input;
@@ -81,6 +82,13 @@ export default function AdaptiveLearningReviewPanel({ courseId, classId, teacher
   }, [courseId, classId, triggerToast]);
 
   useEffect(() => { load(); }, [load]);
+  useRealtimeEvent(['ADAPTIVE_LEARNING_REVIEW_CREATED'], (event) => {
+    const data = event?.data || {};
+    if ((!data.courseId || data.courseId === courseId) && (!data.classId || data.classId === classId)) {
+      load();
+      triggerToast?.('Có đánh giá tiến bộ học tập mới cần nhận xét.');
+    }
+  });
 
   const filteredReviews = useMemo(() => statusFilter === 'ALL'
     ? reviews
