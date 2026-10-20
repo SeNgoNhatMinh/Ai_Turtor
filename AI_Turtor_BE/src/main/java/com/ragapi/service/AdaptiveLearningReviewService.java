@@ -10,6 +10,7 @@ import com.ragapi.entity.PedagogicalDirective;
 import com.ragapi.entity.TutorSession;
 import com.ragapi.repository.AdaptiveLearningReviewRepository;
 import com.ragapi.repository.AiMessageRepository;
+import com.ragapi.repository.ClassSectionRepository;
 import com.ragapi.repository.TutorSessionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,6 +30,8 @@ public class AdaptiveLearningReviewService {
     private static final Set<String> DECISIONS = Set.of("APPROVE", "MODIFY", "REJECT");
 
     private final AdaptiveLearningReviewRepository reviewRepository;
+    private final ClassSectionRepository classSectionRepository;
+    private final RealtimeEventService realtimeEvents;
     private final TutorSessionRepository sessionRepository;
     private final AiMessageRepository messageRepository;
     private final OpenRouterChatService chatService;
@@ -123,7 +126,40 @@ public class AdaptiveLearningReviewService {
                 .createdAt(now)
                 .updatedAt(now)
                 .build();
-        reviewRepository.save(review);
+        AdaptiveLearningReview saved = reviewRepository.save(review);
+        publishReviewCreated(saved);
+    }
+
+    private void publishReviewCreated(AdaptiveLearningReview review) {
+        if (review.getClassId() == null || review.getClassId().isBlank()) return;
+        classSectionRepository.findByCourseIdAndClassId(review.getCourseId(), review.getClassId())
+                .map(section -> section.getTeacherId())
+                .filter(teacherId -> teacherId != null && !teacherId.isBlank())
+                .ifPresent(teacherId -> realtimeEvents.publishToUser(
+                        teacherId,
+                        "ADAPTIVE_LEARNING_REVIEW_CREATED",
+                        "ADAPTIVE_LEARNING_REVIEW",
+                        review.getId(),
+                        review.getStatus(),
+                        Map.of(
+                                "reviewId", review.getId(),
+                                "courseId", review.getCourseId(),
+                                "classId", review.getClassId(),
+                                "studentId", review.getStudentId(),
+                                "overallPercent", review.getOverallPercent(),
+                                "status", review.getStatus()
+                        )));
+    }
+
+    public Optional<String> adaptiveSupportLevel(String studentId, String courseId) {
+        return reviewRepository.findByStudentIdAndCourseIdOrderByCreatedAtDesc(studentId, courseId)
+                .stream()
+                .filter(review -> review.getEvaluationError() == null || review.getEvaluationError().isBlank())
+                .filter(review -> review.getConfidencePercent() != null && review.getConfidencePercent() >= 65)
+                .filter(review -> Set.of("PENDING", "APPROVED").contains(
+                        review.getStatus() == null ? "" : review.getStatus().toUpperCase(Locale.ROOT)))
+                .map(review -> normalizeLevel(review.getSuggestedSupportLevel(), "STANDARD"))
+                .findFirst();
     }
 
     private List<Map<String, Object>> buildEvidence(List<TutorSession> sessions) {
