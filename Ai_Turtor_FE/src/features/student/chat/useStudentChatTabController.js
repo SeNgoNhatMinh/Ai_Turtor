@@ -57,7 +57,6 @@ export function useStudentChatTabController({
     const closeOnMobile = (event) => {
       if (event.matches) setIsHistoryDrawerOpen(false);
     };
-    if (mediaQuery.matches) setIsHistoryDrawerOpen(false);
     mediaQuery.addEventListener('change', closeOnMobile);
     return () => mediaQuery.removeEventListener('change', closeOnMobile);
   }, []);
