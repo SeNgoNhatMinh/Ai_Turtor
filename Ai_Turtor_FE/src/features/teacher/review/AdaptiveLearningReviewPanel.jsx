@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Button, Empty, Input, Progress, Select, Spin, Tag, Tooltip } from 'antd';
 import { Activity, BookOpenCheck, CheckCircle2, ChevronRight, ClipboardList, RefreshCw, ShieldAlert } from 'lucide-react';
 import { teacherReviewApi } from '../../../services/teacherReviewApi';
@@ -61,6 +61,8 @@ export default function AdaptiveLearningReviewPanel({ courseId, classId, teacher
   const [decision, setDecision] = useState('APPROVE');
   const [supportLevel, setSupportLevel] = useState('HIGH_SUPPORT');
   const [statusFilter, setStatusFilter] = useState('ALL');
+  const triggerToastRef = useRef(triggerToast);
+  useEffect(() => { triggerToastRef.current = triggerToast; }, [triggerToast]);
 
   const load = useCallback(async () => {
     if (!courseId || !classId) {
@@ -75,18 +77,18 @@ export default function AdaptiveLearningReviewPanel({ courseId, classId, teacher
       setReviews(ordered);
       setSelectedId((current) => ordered.some((item) => item.id === current) ? current : (ordered[0]?.id || ''));
     } catch (error) {
-      triggerToast?.(error?.message || 'Không tải được đánh giá học tập.');
+      triggerToastRef.current?.(error?.message || 'Không tải được đánh giá học tập.');
     } finally {
       setLoading(false);
     }
-  }, [courseId, classId, triggerToast]);
+  }, [courseId, classId]);
 
   useEffect(() => { load(); }, [load]);
   useRealtimeEvent(['ADAPTIVE_LEARNING_REVIEW_CREATED'], (event) => {
     const data = event?.data || {};
     if ((!data.courseId || data.courseId === courseId) && (!data.classId || data.classId === classId)) {
       load();
-      triggerToast?.('Có đánh giá tiến bộ học tập mới cần nhận xét.');
+      triggerToastRef.current?.('Có đánh giá tiến bộ học tập mới cần nhận xét.');
     }
   });
 
@@ -108,7 +110,7 @@ export default function AdaptiveLearningReviewPanel({ courseId, classId, teacher
   const submitDecision = async () => {
     if (!selected || saving) return;
     if (decision !== 'REJECT' && !feedback.trim()) {
-      triggerToast?.('Hãy nhập nhận xét hoặc chỉ dẫn giảng dạy trước khi duyệt.');
+      triggerToastRef.current?.('Hãy nhập nhận xét hoặc chỉ dẫn giảng dạy trước khi duyệt.');
       return;
     }
     setSaving(true);
@@ -119,10 +121,10 @@ export default function AdaptiveLearningReviewPanel({ courseId, classId, teacher
         supportLevel: decision === 'MODIFY' ? supportLevel : selected.suggestedSupportLevel,
       });
       setReviews((current) => current.map((item) => item.id === selected.id ? updated : item));
-      triggerToast?.('Đã lưu quyết định và nhận xét của giảng viên.');
+      triggerToastRef.current?.('Đã lưu quyết định và nhận xét của giảng viên.');
       await load();
     } catch (error) {
-      triggerToast?.(error?.message || 'Không lưu được nhận xét.');
+      triggerToastRef.current?.(error?.message || 'Không lưu được nhận xét.');
     } finally {
       setSaving(false);
     }
