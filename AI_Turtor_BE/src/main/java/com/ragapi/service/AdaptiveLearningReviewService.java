@@ -104,6 +104,7 @@ public class AdaptiveLearningReviewService {
             assessment = fallbackAssessment(current.getSupportLevel());
         }
 
+        if (failure == null) assessment.put("confidencePercent", evidenceCompletenessPercent(evidence, cycle));
         String suggested = chooseSupportLevel(assessment, current.getSupportLevel());
         AdaptiveLearningReview review = AdaptiveLearningReview.builder()
                 .id(UUID.randomUUID().toString())
@@ -282,6 +283,21 @@ public class AdaptiveLearningReviewService {
         }
         if (string(map.get("summary"), "").isBlank()) throw new IllegalArgumentException("Missing summary");
         normalizeLevel(map.get("suggestedSupportLevel"), "STANDARD");
+    }
+
+    private int evidenceCompletenessPercent(List<Map<String, Object>> evidence, List<TutorSession> cycle) {
+        Set<String> sessionsWithStudentResponse = new HashSet<>();
+        int studentResponses = 0;
+        for (Map<String, Object> item : evidence) {
+            if (!"STUDENT".equals(item.get("role"))) continue;
+            studentResponses++;
+            Object sessionId = item.get("sessionId");
+            if (sessionId != null) sessionsWithStudentResponse.add(String.valueOf(sessionId));
+        }
+        int sessionCoverage = cycle.isEmpty() ? 0
+                : (int) Math.round(50.0 * sessionsWithStudentResponse.size() / cycle.size());
+        int responseCoverage = (int) Math.round(2.0 * Math.min(studentResponses, 25));
+        return Math.max(0, Math.min(100, sessionCoverage + responseCoverage));
     }
 
     private String chooseSupportLevel(Map<String, Object> assessment, String currentLevel) {
