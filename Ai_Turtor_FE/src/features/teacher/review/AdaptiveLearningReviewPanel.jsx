@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Alert, Button, Empty, Input, Progress, Select, Spin, Tag, Tooltip } from 'antd';
 import { Activity, BookOpenCheck, CheckCircle2, ChevronRight, ClipboardList, RefreshCw, ShieldAlert } from 'lucide-react';
 import { teacherReviewApi } from '../../../services/teacherReviewApi';
@@ -53,9 +54,7 @@ function EvidenceItem({ item, index }) {
 }
 
 export default function AdaptiveLearningReviewPanel({ courseId, classId, triggerToast }) {
-  const [reviews, setReviews] = useState([]);
   const [selectedId, setSelectedId] = useState('');
-  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState('');
   const [decision, setDecision] = useState('APPROVE');
@@ -65,34 +64,17 @@ export default function AdaptiveLearningReviewPanel({ courseId, classId, trigger
   const triggerToastRef = useRef(triggerToast);
   useEffect(() => { triggerToastRef.current = triggerToast; }, [triggerToast]);
 
-  const load = useCallback(async () => {
-    if (!courseId || !classId) return;
-    setLoading(true);
-    try {
-      const data = await teacherReviewApi.getAdaptiveLearningReviews(courseId, classId);
-      const ordered = [...data].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
-      setReviews(ordered);
-      const nextSelected = ordered.find((item) => item.id === selectedIdRef.current) || ordered[0] || null;
-      selectedIdRef.current = nextSelected?.id || '';
-      setSelectedId(nextSelected?.id || '');
-      setFeedback(nextSelected?.teacherFeedback || '');
-      setDecision('APPROVE');
-      setSupportLevel(nextSelected?.suggestedSupportLevel || 'STANDARD');
-    } catch (error) {
-      triggerToastRef.current?.(error?.message || 'Không tải được đánh giá học tập.');
-    } finally {
-      setLoading(false);
-    }
-  }, [courseId, classId]);
-
-  useEffect(() => { load(); }, [load]);
-  useRealtimeEvent(['ADAPTIVE_LEARNING_REVIEW_CREATED'], (event) => {
-    const data = event?.data || {};
-    if ((!data.courseId || data.courseId === courseId) && (!data.classId || data.classId === classId)) {
-      load();
-      triggerToastRef.current?.('Có đánh giá tiến bộ học tập mới cần nhận xét.');
-    }
+  const queryClient = useQueryClient();
+  const queryKey = ['teacher', 'adaptive-learning-reviews', courseId, classId];
+  const reviewsQuery = useQuery({
+    queryKey,
+    queryFn: ({ signal }) => teacherReviewApi.getAdaptiveLearningReviews(courseId, classId, { signal }),
+    enabled: Boolean(courseId && classId),
+    staleTime: 15_000,
   });
+  const reviews = reviewsQuery.data || [];
+  const loading = reviewsQuery.isFetching;
+  const load = useCallback(() => reviewsQuery.refetch(), [reviewsQuery.refetch]);
 
   const filteredReviews = useMemo(() => statusFilter === 'ALL'
     ? reviews
@@ -116,7 +98,7 @@ export default function AdaptiveLearningReviewPanel({ courseId, classId, trigger
         teacherFeedback: feedback.trim(),
         supportLevel: decision === 'MODIFY' ? supportLevel : selected.suggestedSupportLevel,
       });
-      setReviews((current) => current.map((item) => item.id === selected.id ? updated : item));
+      queryClient.setQueryData(queryKey, (current = []) => current.map((item) => item.id === selected.id ? updated : item));
       triggerToastRef.current?.('Đã lưu quyết định và nhận xét của giảng viên.');
       await load();
     } catch (error) {
