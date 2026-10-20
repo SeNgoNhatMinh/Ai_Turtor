@@ -208,13 +208,13 @@ export default function AdaptiveLearningReviewPanel({ courseId, classId, teacher
               <div className="adaptive-review-score__overall">
                 <Progress type="circle" percent={selected.overallPercent || 0} size={112} strokeColor="#6558f5" />
                 <strong>Mức tổng hợp</strong>
-                <small>Ước lượng AI, không phải điểm thi</small>
+                <small>Ước lượng AI; xem kèm bằng chứng</small>
               </div>
               <div className="adaptive-review-score__metrics">
                 <PercentMetric label="Hiểu kiến thức" value={selected.knowledgePercent} color="#10b981" />
                 <PercentMetric label="Kỹ năng thực hành" value={selected.practicePercent} color="#3b82f6" />
                 <PercentMetric label="Mức độ độc lập" value={selected.independencePercent} color="#f59e0b" />
-                <PercentMetric label="Độ tin cậy đánh giá" value={selected.confidencePercent} color="#8b5cf6" />
+                <PercentMetric label="Độ đầy đủ bằng chứng" value={selected.confidencePercent} color="#8b5cf6" />
               </div>
             </div>
 
