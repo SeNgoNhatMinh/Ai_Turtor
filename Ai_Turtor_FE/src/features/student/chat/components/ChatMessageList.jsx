@@ -283,6 +283,7 @@ function ChatMessageList({
   onStudySuggestion,
   pinnedMessageIdSet,
   pinningMessageId,
+  promptTopics = [],
   studentName,
   togglePinnedMessage,
   triggerToast,
@@ -323,7 +324,7 @@ function ChatMessageList({
               <strong>{uiCopy.student.chat.keywordTipTitle}</strong>
               <p>{uiCopy.student.chat.keywordTip}</p>
             </div>
-            <PromptStarters disabled={!canChat || isAiLoading} onSelect={onPromptStarter} />
+            <PromptStarters disabled={!canChat || isAiLoading} onSelect={onPromptStarter} topics={promptTopics} />
           </div>
         ) : (
           messages.map((message, index) => {

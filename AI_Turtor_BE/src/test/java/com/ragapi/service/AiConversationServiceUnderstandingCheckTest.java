@@ -23,13 +23,19 @@ class AiConversationServiceUnderstandingCheckTest {
 
     private AiConversationRepository conversationRepository;
     private AiMessageRepository messageRepository;
+    private CourseCurriculumOverviewService curriculumOverviewService;
     private AiConversationService service;
 
     @BeforeEach
     void setUp() {
         conversationRepository = mock(AiConversationRepository.class);
         messageRepository = mock(AiMessageRepository.class);
-        service = new AiConversationService(conversationRepository, messageRepository);
+        curriculumOverviewService = mock(CourseCurriculumOverviewService.class);
+        service = new AiConversationService(
+                conversationRepository,
+                messageRepository,
+                curriculumOverviewService
+        );
         when(conversationRepository.findByIdAndUserId("conversation-1", "student-1"))
                 .thenReturn(Optional.of(AiConversation.builder()
                         .id("conversation-1")

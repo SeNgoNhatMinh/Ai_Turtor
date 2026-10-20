@@ -358,42 +358,6 @@
         border-bottom-color: #1F1F1F !important;
     }
 
-    .main-sidebar {
-        width: 100%;
-        min-height: auto;
-        padding: 8px 12px;
-        border-right: none;
-        border-bottom: 1px solid #F3D2BC;
-    }
-
-    .main-sidebar--collapsed {
-        width: 100%;
-        padding: 8px 12px;
-    }
-
-    .main-sidebar--collapsed .sidebar-topbar {
-        justify-content: flex-start;
-    }
-
-    .main-sidebar .ant-menu {
-        display: flex;
-        overflow-x: auto;
-        gap: 4px;
-    }
-
-    .main-sidebar .ant-menu-item {
-        min-width: max-content;
-    }
-
-    .main-sidebar--collapsed .ant-menu-inline-collapsed {
-        width: 100%;
-    }
-
-    .main-sidebar--collapsed .ant-menu-light .ant-menu-item {
-        width: 44px;
-        min-width: 44px;
-    }
-
     .content-wrapper {
         height: auto;
         min-height: calc(100vh - 170px);
@@ -460,8 +424,15 @@
         overflow: hidden;
     }
 
-    .main-sidebar {
-        display: none;
+    /* The desktop sidebar must disappear completely on phones (it is
+       replaced by the navigation drawer) — no rail or strip may remain. */
+    .main-sidebar,
+    .app-container--mobile .main-sidebar {
+        display: none !important;
+        flex: 0 0 0 !important;
+        width: 0 !important;
+        min-width: 0 !important;
+        max-width: 0 !important;
     }
 
     .content-wrapper {
@@ -503,6 +474,12 @@
         max-height: var(--app-viewport-height, 100dvh);
         padding-top: env(safe-area-inset-top);
         padding-bottom: env(safe-area-inset-bottom);
+    }
+
+    .student-chat-history-pane:not(.is-open) {
+        transform: translateX(-105%) !important;
+        visibility: hidden;
+        pointer-events: none;
     }
 
     .student-chat-layout--chatgpt .chat-sessions-card.ant-card {

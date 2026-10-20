@@ -3,6 +3,7 @@ import { conversationApi } from '../services/conversationApi';
 import { getUserFacingError } from '../services/apiClient';
 import { asArray, pairMessages } from '../services/normalizers';
 import { aiTutorApi } from '../services/aiTutorApi';
+import { supportChatApi } from '../services/supportChatApi';
 import { n8nService } from '../services/n8nService';
 import { readStudentOwnLlm } from '../features/student/chat/studentOwnLlm';
 import {
@@ -489,6 +490,24 @@ export function useStudentChatController({
       }
 
       const quotaReached = isDailyCourseQuotaError(error);
+      let timeoutEscalation = null;
+      if (isN8nTimeoutError(error) && userId && courseId && classId) {
+        try {
+          timeoutEscalation = await supportChatApi.createEscalation({
+            studentId: userId,
+            studentName: currentUser?.fullName || currentUser?.name || '',
+            studentEmail: currentUser?.email || '',
+            courseId,
+            classId,
+            conversationId: previousSessionId || '',
+            question: text,
+            aiResponse: 'AI Tutor bị timeout khi xử lý câu hỏi; chưa có câu trả lời hoàn chỉnh.',
+            reason: 'AI Tutor timeout khi xử lý yêu cầu học tập. Cần giảng viên xem xét và hỗ trợ sinh viên.',
+          });
+        } catch (escalationError) {
+          console.warn('Could not escalate AI Tutor timeout to teacher:', escalationError);
+        }
+      }
       if (quotaReached) {
         markDailyQuotaExhausted();
         await closeTutorSessionIfDailyComplete(0);
@@ -525,6 +544,10 @@ export function useStudentChatController({
           sources: [],
           aiServiceError: true,
           retryable: !quotaReached,
+          questionEscalationId: timeoutEscalation?.questionEscalationId
+            || timeoutEscalation?.id
+            || timeoutEscalation?.escalationId
+            || null,
           pending: false
         };
         return updated;

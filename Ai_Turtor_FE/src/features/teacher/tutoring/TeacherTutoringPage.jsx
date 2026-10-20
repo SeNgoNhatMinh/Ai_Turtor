@@ -373,10 +373,14 @@ export default function TeacherTutoringPage({ teacherId, setCourseId, setClassId
             </label>
             <label className="teacher-directive-field">
               <span>Nhận xét / chỉ dẫn cho toàn môn</span>
+              <p className="teacher-directive-field__description">
+                Định hướng chung để AI điều chỉnh cách giải thích, ví dụ, độ khó và cách kiểm tra mức độ hiểu;
+                ưu tiên syllabus và tài liệu chính thức của môn học.
+              </p>
               <textarea
                 value={form.instruction}
                 onChange={(event) => setForm((value) => ({ ...value, instruction: event.target.value }))}
-                placeholder="Ví dụ: Giải thích chậm hơn, dùng ví dụ đơn giản và thường xuyên kiểm tra mức độ hiểu của sinh viên."
+                placeholder="Ví dụ: Giải thích từng bước, dùng ví dụ gần thực tế, nhắc lại thuật ngữ quan trọng và kiểm tra mức độ hiểu sau mỗi phần."
                 rows={4}
                 required
               />

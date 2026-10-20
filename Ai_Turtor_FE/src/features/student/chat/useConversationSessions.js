@@ -266,7 +266,14 @@ export function useConversationSessions({
           session,
           ...(Array.isArray(current) ? current.filter((item) => item.id !== session.id) : []),
         ]));
-        queryClient.setQueryData(queryKeys.conversationMessages(session.id, userId), []);
+        // Load the BE-seeded syllabus + keyword welcome instead of an empty thread.
+        const seededMessages = await loadConversationMessages(session.id, userId, {
+          skipUnauthorizedRedirect: true,
+        });
+        queryClient.setQueryData(
+          queryKeys.conversationMessages(session.id, userId),
+          Array.isArray(seededMessages) ? seededMessages : [],
+        );
         triggerToast('Đã tạo cuộc trò chuyện mới.');
       });
     } catch (error) {

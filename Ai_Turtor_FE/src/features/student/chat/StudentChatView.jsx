@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { PanelLeft } from 'lucide-react';
 import ChatSessionsPanel from './components/ChatSessionsPanel';
 import ChatWorkspace from './components/ChatWorkspace';
 import { isMobileViewport } from '../../../hooks/useResponsiveViewport';
@@ -128,6 +129,18 @@ function StudentChatView({
           />
         </div>
         <div className="student-chat-main-pane">
+          {!isHistoryDrawerOpen && (
+            <button
+              type="button"
+              className="chat-history-open-button"
+              onClick={() => setIsHistoryDrawerOpen(true)}
+              aria-label="Mở lịch sử chat"
+              aria-expanded={isHistoryDrawerOpen}
+            >
+              <PanelLeft size={18} aria-hidden="true" />
+              <span>Lịch sử chat</span>
+            </button>
+          )}
           <ChatWorkspace
             activeSessionTitle={activeSessionTitle}
             isHistoryOpen={isHistoryDrawerOpen}

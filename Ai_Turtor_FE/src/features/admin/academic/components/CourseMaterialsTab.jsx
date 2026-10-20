@@ -10,6 +10,7 @@ import {
   isWebsiteMaterial,
 } from '../adminAcademicUtils';
 import StatusLabel from '../../../../components/common/StatusLabel';
+import LearningGuideCard from './LearningGuideCard';
 
 const { Dragger } = Upload;
 
@@ -128,23 +129,20 @@ function CourseMaterialsTab({
               className="syllabus-form-item"
               name="syllabusDescription"
               label="Nội dung chính trong chương trình học (syllabus)"
-              extra="Nội dung này do nhà trường cung cấp và sẽ được AI Tutor hiển thị trực tiếp, không tự suy luận từ tài liệu."
+              extra="Đang hiển thị syllabus đã lưu của môn. Không chỉnh sửa tại đây — cập nhật syllabus ở chỉnh sửa chi tiết."
               rules={[
-                { required: true, whitespace: true, message: 'Nhập syllabus chính thức của môn học' },
                 {
-                  validator: (_, value) => (
-                    !value || String(value).split(/\r?\n/).some((line) => line.includes(':'))
-                      ? Promise.resolve()
-                      : Promise.reject(new Error('Mỗi chủ đề cần theo định dạng "Chủ đề: mô tả"'))
-                  ),
+                  required: true,
+                  whitespace: true,
+                  message: 'Môn học chưa có syllabus. Hãy cập nhật ở tab Môn học trước khi tải học liệu.',
                 },
               ]}
             >
               <Input.TextArea
                 rows={8}
-                maxLength={20000}
-                showCount
-                placeholder={'Cú pháp Python: Quy tắc viết câu lệnh, biểu thức và comment\nNhập xuất & tương tác: Nhận dữ liệu người dùng và in kết quả\nCấu trúc điều khiển: if/else, vòng lặp và rẽ nhánh'}
+                readOnly
+                placeholder="Chọn môn học để xem syllabus đã có"
+                style={{ background: 'var(--ant-color-fill-quaternary, #f5f5f5)', cursor: 'default' }}
               />
             </Form.Item>
             <Form.Item name="title" label="Tên học liệu" rules={[{ required: true, message: 'Nhập tên học liệu' }]}>
@@ -194,6 +192,7 @@ function CourseMaterialsTab({
         />
       </Col>
       <Col xs={24} lg={15} style={{ minWidth: 0 }}>
+        <LearningGuideCard courseId={materialCourseId} />
         <Card
           className="admin-materials-table-card"
           title="Học liệu dùng chung"

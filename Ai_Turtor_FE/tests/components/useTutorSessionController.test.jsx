@@ -93,6 +93,71 @@ describe('useTutorSessionController realtime support level', () => {
     );
   });
 
+
+  it('does not steal focus from a manually created chat while auto-open is pending', async () => {
+    let resolveOpen;
+    tutorSessionApi.openSession.mockReturnValue(new Promise((resolve) => {
+      resolveOpen = resolve;
+    }));
+    const { result, rerender } = renderHook(
+      ({ activeSessionId }) => useTutorSessionController({ ...props, activeSessionId }),
+      { initialProps: { activeSessionId: null } },
+    );
+
+    let openPromise;
+    act(() => {
+      openPromise = result.current.openTutorSession();
+    });
+
+    rerender({ activeSessionId: 'manual-chat-1' });
+    await act(async () => {
+      resolveOpen({
+        session: {
+          id: 'tutor-session-1',
+          studentId: 'student-1',
+          courseId: 'PRJ301',
+          classId: 'SE1840',
+          supportLevel: 'STANDARD',
+        },
+        conversationId: 'auto-chat-1',
+      });
+      await openPromise;
+    });
+
+    expect(props.handleSelectSession).not.toHaveBeenCalledWith(
+      'auto-chat-1',
+      'Buổi học cùng AI Tutor',
+      expect.anything(),
+    );
+  });
+
+  it('does not navigate to a realtime tutor chat when another chat is active', async () => {
+    const { rerender } = renderHook(
+      ({ activeSessionId }) => useTutorSessionController({ ...props, activeSessionId }),
+      { initialProps: { activeSessionId: 'manual-chat-1' } },
+    );
+    const openedHandler = [...realtimeHandlers.entries()]
+      .find(([types]) => types.includes('TUTOR_SESSION_OPENED'))?.[1];
+
+    act(() => {
+      openedHandler({
+        type: 'TUTOR_SESSION_OPENED',
+        data: {
+          session: { id: 'tutor-session-1', studentId: 'student-1', courseId: 'PRJ301', classId: 'SE1840' },
+          conversationId: 'auto-chat-1',
+          openingMessage: { id: 'opening-1', content: 'Welcome' },
+        },
+      });
+    });
+
+    expect(props.handleSelectSession).not.toHaveBeenCalledWith(
+      'auto-chat-1',
+      'Buổi học cùng AI Tutor',
+      expect.anything(),
+    );
+    rerender({ activeSessionId: 'manual-chat-1' });
+  });
+
   it('ignores a directive intended for another student', async () => {
     const { result } = renderHook(() => useTutorSessionController(props));
     await act(async () => {

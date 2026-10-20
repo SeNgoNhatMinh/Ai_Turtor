@@ -1,4 +1,4 @@
-import { memo, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { Menu, Tooltip } from 'antd';
 import {
   ArrowRight,
@@ -14,6 +14,17 @@ import { getNavigationForRole } from '../config/navigation';
 
 function Sidebar({ accountRole, activeRole, activeTab, switchTab, courseId, classId, compactByDefault = false }) {
   const [collapsed, setCollapsed] = useState(compactByDefault);
+  const compactByDefaultRef = useRef(compactByDefault);
+
+  // Shrinking the window (desktop -> tablet/phone widths) must collapse the
+  // rail fully instead of leaving the expanded sidebar mounted at mount-time state.
+  useEffect(() => {
+    const wasCompact = compactByDefaultRef.current;
+    compactByDefaultRef.current = compactByDefault;
+    if (compactByDefault && !wasCompact) {
+      setCollapsed(true);
+    }
+  }, [compactByDefault]);
   const workspaceCards = {
     teacher: { eyebrow: 'Không gian giảng dạy', title: 'Quản lý lớp học', detail: 'Theo dõi lớp, quiz và bài nộp', button: 'Xem lớp học', tab: 'teacher-classes', icon: GraduationCap },
     senior: { eyebrow: 'Kiểm duyệt chuyên môn', title: 'Senior Mentor', detail: 'Rà soát phản hồi và tri thức AI', button: 'Mở hàng đợi', tab: 'senior-review', icon: ShieldCheck },

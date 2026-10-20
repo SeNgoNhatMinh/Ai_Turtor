@@ -85,16 +85,7 @@ function EntityRecordModal({
               className="syllabus-form-item"
               name="description"
               label="Syllabus chính thức"
-              extra="Mỗi dòng: Chủ đề: mô tả"
-              rules={[
-                {
-                  validator: (_, value) => (
-                    !value || String(value).split(/\r?\n/).some((line) => line.includes(':'))
-                      ? Promise.resolve()
-                      : Promise.reject(new Error('Syllabus cần có ít nhất một dòng "Chủ đề: mô tả"'))
-                  ),
-                },
-              ]}
+              extra="Nhập nội dung nhà trường cung cấp. Có thể dùng gạch đầu dòng hoặc đoạn văn; không bắt buộc dấu hai chấm."
             >
               <Input.TextArea rows={8} maxLength={20000} showCount />
             </Form.Item>
@@ -197,23 +188,16 @@ function EntityRecordModal({
                 className="syllabus-form-item"
                 name="syllabusDescription"
                 label="Nội dung chính trong chương trình học (syllabus)"
-                extra="Syllabus dùng chung cho toàn môn học. AI Tutor sẽ hiển thị trực tiếp nội dung này; không cần tải lại hoặc lập chỉ mục lại tài liệu."
+                extra="Syllabus dùng chung cho toàn môn học. AI Tutor hiển thị trực tiếp; không bắt buộc định dạng 'Chủ đề: mô tả'."
                 rules={[
                   { required: !isViewMode, whitespace: true, message: 'Nhập syllabus chính thức của môn học' },
-                  {
-                    validator: (_, value) => (
-                      !value || String(value).split(/\r?\n/).some((line) => line.includes(':'))
-                        ? Promise.resolve()
-                        : Promise.reject(new Error('Syllabus cần có ít nhất một dòng "Chủ đề: mô tả"'))
-                    ),
-                  },
                 ]}
               >
                 <Input.TextArea
                   rows={10}
                   maxLength={20000}
                   showCount
-                  placeholder={'Cú pháp Python: Các quy tắc viết câu lệnh và biểu thức\nCấu trúc điều khiển: if/else, for và while'}
+                  placeholder={'- Cú pháp Python và kiểu dữ liệu\n- Cấu trúc điều khiển if/else, for và while'}
                 />
               </Form.Item>
             )}

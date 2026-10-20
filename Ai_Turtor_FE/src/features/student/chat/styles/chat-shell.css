@@ -87,15 +87,16 @@
 }
 
 @media (max-width: 767px), (max-width: 1023px) and (hover: none) and (pointer: coarse) {
+    /* On phones the closed history pane leaves the viewport entirely — no 54px peek rail. */
     .student-chat-history-pane:not(.is-open) {
-        transform: translateX(calc(-100% + 54px));
+        transform: translateX(-105%);
+        visibility: hidden;
+        pointer-events: none;
     }
 
-    .student-chat-history-pane:not(.is-open) .chat-history-header {
-        position: absolute;
-        top: max(8px, env(safe-area-inset-top));
-        right: 0;
-        width: 54px;
+    .student-chat-history-pane.is-open {
+        visibility: visible;
+        pointer-events: auto;
     }
 }
 
@@ -104,10 +105,51 @@
 }
 
 .student-chat-main-pane {
+    position: relative;
     flex: 1 1 auto;
     min-width: 0;
     min-height: 0;
     overflow: hidden;
+}
+
+/* Desktop keeps the history toggle in the collapsed rail; this entry point
+   only appears on phones, where the closed pane is fully off-canvas. */
+.chat-history-open-button {
+    display: none;
+}
+
+@media (max-width: 767px), (max-width: 1023px) and (hover: none) and (pointer: coarse) {
+    .chat-history-open-button {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        position: absolute;
+        top: max(10px, env(safe-area-inset-top));
+        left: 10px;
+        z-index: 25;
+        min-height: 44px;
+        padding: 0 13px;
+        border: 1px solid var(--color-border, #dbe4ef);
+        border-radius: 999px;
+        background: var(--color-surface, #ffffff);
+        color: var(--color-text, #183153);
+        box-shadow: 0 8px 22px rgba(15, 23, 42, 0.14);
+        font: inherit;
+        font-size: 0.84rem;
+        font-weight: 700;
+        cursor: pointer;
+    }
+
+    .chat-history-open-button:active {
+        background: var(--color-surface-subtle, #f5f8fc);
+    }
+
+    .app-container.dark .chat-history-open-button {
+        border-color: #2f2f2f;
+        background: #171717;
+        color: #f9fafb;
+        box-shadow: 0 8px 22px rgba(0, 0, 0, 0.42);
+    }
 }
 
 .student-chat-layout--chatgpt .ant-splitter {

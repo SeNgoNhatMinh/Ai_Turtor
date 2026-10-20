@@ -94,6 +94,13 @@
   font-weight: 700;
 }
 
+.teacher-directive-field__description {
+  margin: -2px 0 0;
+  color: var(--tutor-muted);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
 .teacher-directive-form input,
 .teacher-directive-form select,
 .teacher-directive-form textarea,

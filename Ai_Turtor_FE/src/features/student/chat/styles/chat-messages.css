@@ -9,7 +9,7 @@
   max-width: 100%;
   display: flex;
   flex-direction: column;
-  padding-bottom: 108px;
+  padding-bottom: 130px;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
   touch-action: pan-y;
