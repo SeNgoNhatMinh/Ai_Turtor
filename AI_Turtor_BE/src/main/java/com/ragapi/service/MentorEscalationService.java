@@ -40,6 +40,48 @@ public class MentorEscalationService {
     private final AcademicRoutingService academicRoutingService;
     private final ClassSectionRepository classSectionRepository;
     private final TeacherPresenceQueryService teacherPresenceQueryService;
+    private final RealtimeEventService realtimeEvents;
+
+    /**
+     * Pushes escalation lifecycle changes to the class teacher (teacher
+     * support inbox) and the owning student so open pages refresh instantly
+     * instead of waiting for a manual reload.
+     */
+    private void publishEscalationEvent(QuestionEscalation request, String eventType) {
+        if (request == null || request.getId() == null) return;
+        try {
+            Map<String, Object> data = new LinkedHashMap<>();
+            data.put("questionEscalationId", request.getId());
+            data.put("studentId", request.getUserId() == null ? "" : request.getUserId());
+            data.put("courseId", request.getCourseId() == null ? "" : request.getCourseId());
+            data.put("classId", request.getClassId() == null ? "" : request.getClassId());
+            data.put("status", request.getStatus() == null ? "" : request.getStatus());
+            String status = request.getStatus() == null ? "" : request.getStatus();
+
+            String teacherId = null;
+            if (request.getCourseId() != null && request.getClassId() != null) {
+                teacherId = classSectionRepository
+                        .findByCourseIdAndClassId(request.getCourseId(), request.getClassId())
+                        .map(ClassSection::getTeacherId)
+                        .filter(id -> id != null && !id.isBlank())
+                        .orElse(null);
+            }
+            if (teacherId != null) {
+                realtimeEvents.publishToUser(teacherId, eventType,
+                        "QUESTION_ESCALATION", request.getId(), status, data);
+            } else {
+                realtimeEvents.publishToRoles(List.of("TEACHER", "ADMIN"), eventType,
+                        "QUESTION_ESCALATION", request.getId(), status, data);
+            }
+            if (request.getUserId() != null && !request.getUserId().isBlank()) {
+                realtimeEvents.publishToUser(request.getUserId(), eventType,
+                        "QUESTION_ESCALATION", request.getId(), status, data);
+            }
+        } catch (Exception error) {
+            log.warn("Could not publish realtime event {} for escalation {}: {}",
+                    eventType, request.getId(), error.getMessage());
+        }
+    }
 
     public QuestionEscalation createQuestionEscalation(
             String userId,
@@ -90,7 +132,9 @@ public class MentorEscalationService {
                 .updatedAt(now)
                 .build();
 
-        return questionEscalationRepository.save(request);
+        QuestionEscalation saved = questionEscalationRepository.save(request);
+        publishEscalationEvent(saved, "SUPPORT_ESCALATION_CREATED");
+        return saved;
     }
 
     public MentorEscalationOfferResponse offerMentorHelp(String questionEscalationId, String userId) {
@@ -136,6 +180,7 @@ public class MentorEscalationService {
         request.setMentorHelpOfferedAt(LocalDateTime.now());
         request.setUpdatedAt(LocalDateTime.now());
         questionEscalationRepository.save(request);
+        publishEscalationEvent(request, "SUPPORT_ESCALATION_UPDATED");
 
         log.info(
                 "Escalation offer prepared: request={}, route={}, suggestions={}",
@@ -212,6 +257,7 @@ public class MentorEscalationService {
         request.setMentorAssignedAt(LocalDateTime.now());
         request.setUpdatedAt(LocalDateTime.now());
         questionEscalationRepository.save(request);
+        publishEscalationEvent(request, "SUPPORT_ESCALATION_UPDATED");
 
         mentor.setCurrentActiveChatSessions(
                 (mentor.getCurrentActiveChatSessions() != null ? mentor.getCurrentActiveChatSessions() : 0) + 1
@@ -239,6 +285,7 @@ public class MentorEscalationService {
             request.setCancelReason(reason);
             request.setUpdatedAt(LocalDateTime.now());
             questionEscalationRepository.save(request);
+            publishEscalationEvent(request, "SUPPORT_ESCALATION_UPDATED");
             log.info("Mentor help offer cancelled: {} - reason={}", questionEscalationId, reason);
         });
     }

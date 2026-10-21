@@ -30,6 +30,14 @@ export const REALTIME_EVENT_TYPES = Object.freeze({
   ],
   expertEvaluation: ['EVAL_RUN_COMPLETED', 'EVAL_RUN_FAILED'],
   answerReview: ['ANSWER_REVIEW_NEEDS_MENTOR', 'ANSWER_REVIEW_NEEDS_SENIOR'],
+  supportEscalation: [
+    'SUPPORT_ESCALATION_CREATED',
+    'SUPPORT_ESCALATION_UPDATED',
+    'SUPPORT_ESCALATION_ANSWERED',
+  ],
+  studentQuestion: ['STUDENT_QUESTION_ANSWERED'],
+  aiRequestLog: ['AI_REQUEST_LOGGED'],
+  supportLevel: ['SUPPORT_LEVEL_CHANGED'],
   teacherPresence: ['TEACHER_PRESENCE_CHANGED'],
   tutorV2: [
     'EXPERT_TASK_CREATED',

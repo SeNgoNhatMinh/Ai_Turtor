@@ -808,3 +808,58 @@
     width: 100%;
   }
 }
+
+/* ===== Dark mode — đồng bộ với trang admin (Ant Design darkAlgorithm) ===== */
+.app-container.dark .teacher-support-workspace {
+  --support-navy: #93c5fd;
+  --support-navy-soft: #182131;
+  --support-border: #344054;
+  --support-muted: #94a3b8;
+}
+
+.app-container.dark .teacher-support-workspace > .teacher-support-workspace__heading,
+.app-container.dark .teacher-support-layout,
+.app-container.dark .teacher-support-detail,
+.app-container.dark .teacher-support-ticket {
+  background: #111827;
+  box-shadow: none;
+}
+
+.app-container.dark .teacher-support-workspace > .teacher-support-workspace__heading h2 {
+  color: #f8fafc;
+}
+
+.app-container.dark .teacher-support-master {
+  background: #0d1522;
+}
+
+.app-container.dark .teacher-support-ticket {
+  border-color: #344054;
+  color: #f8fafc;
+}
+
+.app-container.dark .teacher-support-ticket:hover,
+.app-container.dark .teacher-support-ticket:focus-within {
+  border-color: #3b82f6;
+}
+
+.app-container.dark .teacher-support-ticket.is-selected {
+  border-color: #3b82f6;
+  background: #182131;
+}
+
+.app-container.dark .teacher-support-ticket.is-selected .teacher-support-ticket__icon {
+  background: #1d4ed8;
+  color: #fff;
+}
+
+.app-container.dark .teacher-support-ticket-list__more {
+  border-color: #344054;
+  background: #111827;
+}
+
+.app-container.dark .teacher-support-ticket-list__more:hover,
+.app-container.dark .teacher-support-ticket-list__more:focus-visible {
+  border-color: #3b82f6;
+  background: #182131;
+}

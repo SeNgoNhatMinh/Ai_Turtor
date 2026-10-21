@@ -19,6 +19,21 @@ public class AdaptiveLearningReviewController {
     private final AdaptiveLearningReviewService reviewService;
     private final AccessGuardService accessGuard;
 
+    /** Whole-class roster with each student's latest AI label (or 0% when unlabeled). */
+    @GetMapping("/roster")
+    public ResponseEntity<?> roster(
+            @RequestParam String courseId,
+            @RequestParam String classId,
+            Authentication authentication) {
+        try {
+            accessGuard.allowTeacherForClassOrAdmin(
+                    requesterId(authentication), requesterRole(authentication), courseId, classId);
+            return ResponseEntity.ok(Map.of("students", reviewService.listStudentLabels(courseId, classId)));
+        } catch (IllegalArgumentException error) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", error.getMessage()));
+        }
+    }
+
     @GetMapping
     public ResponseEntity<?> list(
             @RequestParam String courseId,

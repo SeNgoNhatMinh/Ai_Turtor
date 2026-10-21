@@ -151,7 +151,6 @@ public class TutorSessionService {
         session.setCompletedAt(LocalDateTime.now());
         session.setUpdatedAt(LocalDateTime.now());
         sessionRepository.save(session);
-        adaptiveLearningReviewService.onSessionCompleted(session);
         return summary;
     }
 
@@ -415,7 +414,9 @@ public class TutorSessionService {
         if (hasNumberedLessonPath(session)) {
             return false;
         }
-        return !lower.contains("nội dung chính trong chương trình học");
+        return !lower.contains("các chủ đề trọng tâm")
+                && !lower.contains("nội dung chính trong chương trình học")
+                && !lower.contains("chưa có thông tin syllabus");
     }
 
     private boolean hasNumberedLessonPath(TutorSession session) {
@@ -529,7 +530,7 @@ public class TutorSessionService {
         }
         // One shared template for every course; suggested topics are shown
         // once as clickable starters, not repeated inside this message.
-        return curriculumOverviewService.welcomeMarkdown(overview, session.getTopic());
+        return curriculumOverviewService.welcomeMarkdown(overview);
     }
 
     private Map<String, Object> response(

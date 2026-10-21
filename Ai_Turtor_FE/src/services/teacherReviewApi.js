@@ -137,6 +137,14 @@ export const teacherReviewApi = {
     });
   },
 
+  async getAdaptiveStudentRoster(courseId, classId, options = {}) {
+    const params = new URLSearchParams({ courseId, classId });
+    const data = await request(`${API_BASE_URL}/teacher/ai-support/learning-reviews/roster?${params.toString()}`, {
+      signal: options.signal,
+    });
+    return asArray(data, 'students', 'items', 'content');
+  },
+
   async getAdaptiveLearningReviews(courseId, classId, options = {}) {
     const params = new URLSearchParams({ courseId, classId });
     const data = await request(`${API_BASE_URL}/teacher/ai-support/learning-reviews?${params.toString()}`, {

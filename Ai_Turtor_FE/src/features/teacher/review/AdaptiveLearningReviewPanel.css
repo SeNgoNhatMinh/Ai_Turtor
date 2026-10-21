@@ -118,6 +118,72 @@
   .adaptive-review-layout { grid-template-columns: minmax(230px, .75fr) minmax(0, 1.25fr); }
   .adaptive-review-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+/* ===== Dark mode — đồng bộ với trang admin (Ant Design darkAlgorithm) ===== */
+.app-container.dark .adaptive-review-panel { color: #f8fafc; }
+.app-container.dark .adaptive-review-panel__header {
+  border-color: #344054;
+  background: linear-gradient(135deg, #111827 0%, #182131 100%);
+}
+.app-container.dark .adaptive-review-panel__header p,
+.app-container.dark .adaptive-review-stats small,
+.app-container.dark .adaptive-review-list__copy small,
+.app-container.dark .adaptive-review-list__copy span,
+.app-container.dark .adaptive-review-detail__student p,
+.app-container.dark .adaptive-review-score__overall small,
+.app-container.dark .adaptive-review-section-heading p,
+.app-container.dark .adaptive-review-levels small { color: #94a3b8; }
+.app-container.dark .adaptive-review-eyebrow { color: #a5b4fc; }
+.app-container.dark .adaptive-review-stats > div,
+.app-container.dark .adaptive-review-list,
+.app-container.dark .adaptive-review-detail {
+  border-color: #344054;
+  background: #111827;
+}
+.app-container.dark .adaptive-review-stats > div > span { color: #a5b4fc; background: rgba(99, 102, 241, .18); }
+.app-container.dark .adaptive-review-stats > div > span.is-pending { color: #fbbf24; background: rgba(245, 158, 11, .16); }
+.app-container.dark .adaptive-review-stats > div > span.is-approved { color: #4ade80; background: rgba(34, 197, 94, .16); }
+.app-container.dark .adaptive-review-stats > div > span.is-rejected { color: #fca5a5; background: rgba(239, 68, 68, .16); }
+.app-container.dark .adaptive-review-list__item {
+  border-color: #344054;
+  background: #111827;
+}
+.app-container.dark .adaptive-review-list__item:hover { border-color: #6366f1; background: #182131; }
+.app-container.dark .adaptive-review-list__item.is-selected {
+  border-color: #818cf8;
+  background: #182131;
+  box-shadow: inset 3px 0 #818cf8;
+}
+.app-container.dark .adaptive-review-list__avatar { background: rgba(99, 102, 241, .2); color: #a5b4fc; }
+.app-container.dark .adaptive-review-list__copy strong { color: #f8fafc; }
+.app-container.dark .adaptive-review-score {
+  border-color: #344054;
+  background: #182131;
+}
+.app-container.dark .adaptive-review-summary { border-color: #344054; }
+.app-container.dark .adaptive-review-summary p,
+.app-container.dark .adaptive-review-summary ul,
+.app-container.dark .adaptive-review-metric__label span { color: #cbd5e1; }
+.app-container.dark .adaptive-review-metric__label strong { color: #f8fafc; }
+.app-container.dark .adaptive-review-summary__columns > div,
+.app-container.dark .adaptive-review-levels > div { background: #182131; }
+.app-container.dark .adaptive-review-levels strong.is-suggested { color: #fbbf24; }
+.app-container.dark .adaptive-review-evidence { border-color: #344054; }
+.app-container.dark .adaptive-review-evidence > button { background: #111827; color: #f8fafc; }
+.app-container.dark .adaptive-review-evidence > button:hover { background: #182131; }
+.app-container.dark .adaptive-review-evidence__body small { color: #94a3b8; }
+.app-container.dark .adaptive-review-evidence__body > span { color: #cbd5e1; }
+.app-container.dark .adaptive-review-evidence__detail {
+  border-top-color: #344054;
+  background: #182131;
+}
+.app-container.dark .adaptive-review-evidence__detail p { color: #e2e8f0; }
+.app-container.dark .adaptive-review-evidence__detail small { color: #94a3b8; }
+.app-container.dark .adaptive-review-decision {
+  border-color: #4c4a8a;
+  background: #151a2e;
+}
+.app-container.dark .adaptive-review-decision__choices label { color: #cbd5e1; }
+
 @media (max-width: 760px) {
   .adaptive-review-panel__header { flex-direction: column; padding: 17px; }
   .adaptive-review-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }

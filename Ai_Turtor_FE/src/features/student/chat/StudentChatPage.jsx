@@ -121,13 +121,9 @@ export default function StudentChatPage({
     studentId,
   ]);
 
-  useEffect(() => {
-    if (!studentId || !courseId || !classId) return;
-
-    // Warm tutor session state only — do not jump the student into a new chat.
-    chat.openTutorSession({ selectConversation: false });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [studentId, courseId, classId]);
+  // No background tutor-session bootstrap: opening a tutor session (which
+  // auto-creates "Buổi học cùng AI Tutor" conversations) happens only when
+  // the student explicitly starts one via "Hỏi AI Tutor".
 
   const studentDisplayName = learning.studentDashboard?.studentName
     || learning.studentDashboard?.fullName
@@ -170,7 +166,6 @@ export default function StudentChatPage({
       onSendQuery={chatController.onSendQuery}
       onResendMessage={chatController.sendText}
       onStopQuery={chatController.onStopQuery}
-      onPromptStarter={chatController.handlePromptStarter}
       onLockUnderstandingAnswer={chatController.handleUnderstandingCheckAnswer}
       onAnswerAction={chatController.handleAnswerAction}
       isAiLoading={chatController.isAiLoading}
@@ -195,6 +190,7 @@ export default function StudentChatPage({
       onOpenMentorReview={openMentorReview}
       onMentorRequestCreated={mentorRequests.refreshMentorRequests}
       tutorSession={chat.activeTutorSession}
+      supportLevel={chat.studentSupportLevel}
       tutorSessionSummary={chat.tutorSessionSummary}
       isTutorSessionLoading={chat.isTutorSessionLoading}
       onStartNextTutorSession={chat.openTutorSession}

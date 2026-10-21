@@ -8,6 +8,7 @@ import com.ragapi.repository.ClassSectionRepository;
 import com.ragapi.repository.CourseEnrollmentRepository;
 import com.ragapi.repository.CourseRepository;
 import com.ragapi.repository.SemesterRepository;
+import com.ragapi.service.CourseCurriculumOverviewService;
 import com.ragapi.service.CourseDeletionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -44,6 +45,7 @@ public class CourseController {
     private final ClassSectionRepository classSectionRepository;
     private final CourseEnrollmentRepository enrollmentRepository;
     private final CourseDeletionService courseDeletionService;
+    private final CourseCurriculumOverviewService curriculumOverviewService;
 
     @PostMapping({"/academic/semesters", "/admin/semesters"})
     @Operation(summary = "Create or update a semester")
@@ -133,7 +135,10 @@ public class CourseController {
         course.setCourseId(request.getCourseId().trim());
         course.setCourseName(trimToNull(request.getCourseName()));
         String description = trimToNull(request.getDescription());
-        if (!Objects.equals(course.getDescription(), description)) {
+        boolean syllabusChanged = !Objects.equals(course.getDescription(), description);
+        if (syllabusChanged) {
+            // No automatic translation: clear any legacy auto-translated
+            // rendering so students see the syllabus exactly as written.
             course.setSyllabusVietnamese(null);
         }
         course.setDescription(description);
@@ -141,7 +146,13 @@ public class CourseController {
         course.setStatus(defaultStatus(request.getStatus()));
         course.setUpdatedAt(LocalDateTime.now());
 
-        return ResponseEntity.ok(courseRepository.save(course));
+        Course saved = courseRepository.save(course);
+        // Editing the syllabus in course details re-extracts the learning
+        // guide once for the new version; students see it after approval rules.
+        if (syllabusChanged && description != null && curriculumOverviewService != null) {
+            curriculumOverviewService.refreshLearningGuide(saved);
+        }
+        return ResponseEntity.ok(saved);
     }
 
     @GetMapping({"/academic/courses", "/courses", "/admin/courses"})

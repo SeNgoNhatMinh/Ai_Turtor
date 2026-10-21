@@ -7,7 +7,6 @@ import { getUserFacingError } from '../../../services/apiClient';
 import { classIdMatches } from '../../../utils/academicIds';
 import { LIMITS, validateChatInput } from '../../../utils/validators';
 import { isMobileViewport } from '../../../hooks/useResponsiveViewport';
-import { buildLessonChatPrompt } from '../learning/studySuggestionPrompt';
 import { uiCopy } from '../../../constants/uiCopy';
 import { readStudentOwnLlm } from './studentOwnLlm';
 import {
@@ -182,10 +181,6 @@ export function useStudentChatTabController({
     });
   };
 
-  const handlePromptStarter = (prompt) => {
-    sendText(buildLessonChatPrompt(prompt) || prompt, { requestedMode: 'RAG' });
-  };
-
   const handleUnderstandingCheckAnswer = async (answerMessage, selectedKey, attempt = {}) => {
     const grade = await handleLockUnderstandingAnswer?.(answerMessage, selectedKey, attempt);
     if (!grade) {
@@ -332,7 +327,6 @@ export function useStudentChatTabController({
     setChatDraft,
     onSendQuery,
     onStopQuery,
-    handlePromptStarter,
     handleUnderstandingCheckAnswer,
     handleAnswerAction,
     handleDownloadSource,

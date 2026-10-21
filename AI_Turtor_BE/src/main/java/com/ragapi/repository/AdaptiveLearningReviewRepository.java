@@ -9,6 +9,8 @@ import java.util.Optional;
 public interface AdaptiveLearningReviewRepository extends MongoRepository<AdaptiveLearningReview, String> {
     Optional<AdaptiveLearningReview> findByStudentIdAndCourseIdAndCompletedSessionCount(
             String studentId, String courseId, Integer completedSessionCount);
+    Optional<AdaptiveLearningReview> findByStudentIdAndCourseIdAndQuestionCount(
+            String studentId, String courseId, Integer questionCount);
     List<AdaptiveLearningReview> findByCourseIdAndClassIdOrderByCreatedAtDesc(String courseId, String classId);
     List<AdaptiveLearningReview> findByCourseIdOrderByCreatedAtDesc(String courseId);
     List<AdaptiveLearningReview> findByStudentIdAndCourseIdOrderByCreatedAtDesc(String studentId, String courseId);

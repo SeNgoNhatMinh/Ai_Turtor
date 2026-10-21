@@ -17,6 +17,10 @@ public interface AiMessageRepository extends MongoRepository<AiMessage, String> 
 
     long countByConversationIdAndRole(String conversationId, String role);
 
+    long countByConversationIdInAndRole(List<String> conversationIds, String role);
+
+    List<AiMessage> findByConversationIdInOrderByCreatedAtAsc(List<String> conversationIds);
+
     Optional<AiMessage> findByIdAndConversationIdAndUserId(String id, String conversationId, String userId);
 
     List<AiMessage> findByConversationIdAndPinnedTrueOrderByPinnedAtDesc(String conversationId);

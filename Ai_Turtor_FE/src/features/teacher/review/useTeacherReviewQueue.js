@@ -180,6 +180,10 @@ export function useTeacherReviewQueue({
   useRealtimeEvent(REALTIME_EVENT_TYPES.answerReview, (event) => {
     if (eventMatchesCourse(event, courseId)) invalidateReviewData();
   });
+  // New/updated student support requests appear in the inbox immediately.
+  useRealtimeEvent(REALTIME_EVENT_TYPES.supportEscalation, (event) => {
+    if (eventMatchesCourse(event, courseId)) invalidateReviewData();
+  });
   useRealtimeReconnect(invalidateReviewData);
 
   const answerEscalationThroughBackend = (escalationId, payload) => (

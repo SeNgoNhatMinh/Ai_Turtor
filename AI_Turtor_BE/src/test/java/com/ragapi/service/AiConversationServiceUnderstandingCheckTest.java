@@ -7,16 +7,23 @@ import com.ragapi.entity.AiConversation;
 import com.ragapi.entity.AiMessage;
 import com.ragapi.repository.AiConversationRepository;
 import com.ragapi.repository.AiMessageRepository;
+import com.ragapi.repository.ClassSectionRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.List;
 import java.util.Optional;
+
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class AiConversationServiceUnderstandingCheckTest {
@@ -34,7 +41,10 @@ class AiConversationServiceUnderstandingCheckTest {
         service = new AiConversationService(
                 conversationRepository,
                 messageRepository,
-                curriculumOverviewService
+                curriculumOverviewService,
+                mock(AdaptiveLearningReviewService.class),
+                mock(ClassSectionRepository.class),
+                mock(RealtimeEventService.class)
         );
         when(conversationRepository.findByIdAndUserId("conversation-1", "student-1"))
                 .thenReturn(Optional.of(AiConversation.builder()
@@ -43,6 +53,29 @@ class AiConversationServiceUnderstandingCheckTest {
                         .build()));
         when(messageRepository.save(any(AiMessage.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
+    }
+
+    @Test
+    void openingWelcomeIsRefreshedToCurrentCurriculumOnRead() {
+        AiConversation conversation = AiConversation.builder()
+                .id("conversation-1").userId("student-1").courseId("CEA201").build();
+        when(conversationRepository.findByIdAndUserId("conversation-1", "student-1"))
+                .thenReturn(Optional.of(conversation));
+        AiMessage staleOpening = AiMessage.builder()
+                .id("opening-1").conversationId("conversation-1").userId("student-1")
+                .role("ASSISTANT").proactive(true)
+                .content("Lời chào cũ: đoạn syllabus thô, thiếu mục chủ đề")
+                .build();
+        when(messageRepository.findByConversationIdOrderByCreatedAtAsc("conversation-1"))
+                .thenReturn(List.of(staleOpening));
+        when(curriculumOverviewService.newChatWelcomeMarkdown("CEA201")).thenReturn("Lời chào mới theo curriculum");
+        when(messageRepository.findByConversationId(eq("conversation-1"), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(staleOpening)));
+
+        service.getMessages("conversation-1", "student-1", 0, 20);
+
+        assertEquals("Lời chào mới theo curriculum", staleOpening.getContent());
+        verify(messageRepository).save(staleOpening);
     }
 
     @Test

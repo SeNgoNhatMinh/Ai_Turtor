@@ -260,6 +260,11 @@ public class CourseAnswerPromptSections {
         return """
                 ## Theo tài liệu môn học
                 Answer only what is supported by the course material context.
+                TEACH FIRST: whatever the student asked — learn about a topic, an explanation,
+                a guided walkthrough, practice exercises, a knowledge check or a quiz — always
+                explain the concept first in clear teaching paragraphs (with a small example
+                when the material supports one). Never answer with only questions or exercises;
+                the quiz is appended after this explanation by the system.
 
                 ## Kiến thức bổ sung
                 Include this section only when an approvedKnowledgeId source is used. Use exactly this heading — do not add "Senior đã duyệt" or any review status.

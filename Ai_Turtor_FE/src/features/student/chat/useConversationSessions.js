@@ -105,26 +105,21 @@ export function useConversationSessions({
     const previousSessionId = activeSessionIdRef.current;
     const nextSessionId = typeof value === 'function' ? value(previousSessionId) : value;
 
-    if (nextSessionId && previousSessionId !== nextSessionId) {
-      const previousKey = queryKeys.conversationMessages(previousSessionId, userId);
-      const nextKey = queryKeys.conversationMessages(nextSessionId, userId);
-      const previousMessages = queryClient.getQueryData(previousKey);
-      const nextMessages = queryClient.getQueryData(nextKey);
-      const hasPendingTurn = Array.isArray(previousMessages)
-        && previousMessages.some((message) => message?.pending);
-
-      if (hasPendingTurn && !Array.isArray(nextMessages)) {
-        queryClient.setQueryData(nextKey, previousMessages);
-        queryClient.setQueryData(
-          previousKey,
-          previousMessages.filter((message) => !message?.pending),
-        );
-      }
-    }
-
+    // Switching conversations must never move a pending turn along: a reply
+    // belongs to the conversation where its question was asked.
     activeSessionIdRef.current = nextSessionId || null;
     setActiveSessionIdState(nextSessionId || null);
+  }, []);
+
+  const setMessagesForConversation = useCallback((conversationId, updater) => {
+    if (!conversationId) return;
+    const key = queryKeys.conversationMessages(conversationId, userId);
+    queryClient.setQueryData(key, (current = []) => (
+      typeof updater === 'function' ? updater(current) : updater
+    ));
   }, [queryClient, userId]);
+
+  const getActiveSessionId = useCallback(() => activeSessionIdRef.current, []);
 
   const resetChat = useCallback(() => {
     setActiveSessionId(null);
@@ -202,7 +197,10 @@ export function useConversationSessions({
         userQuestionCount: nextQuestionCount,
         maxTurnsReached: Boolean(maxTurnsReached ?? existing?.maxTurnsReached ?? nextQuestionCount >= CHAT_TURN_LIMIT),
       };
-      return sortSessionsByActivity([nextSession, ...list.filter((session) => session.id !== conversationId)]);
+      // Update in place: re-sorting on every activity made list items jump
+      // to the top while the student was reading another conversation.
+      if (!existing) return [nextSession, ...list];
+      return list.map((session) => (session.id === conversationId ? nextSession : session));
     });
   }, [activeSessionTitle, classId, courseId, setSessions]);
 
@@ -359,6 +357,8 @@ export function useConversationSessions({
     setActiveSessionId,
     setActiveSessionTitle,
     setMessages,
+    setMessagesForConversation,
+    getActiveSessionId,
     setTurnLimitNotice,
     bumpConversationActivity,
     dismissTurnLimitNotice: () => setTurnLimitNotice(null),

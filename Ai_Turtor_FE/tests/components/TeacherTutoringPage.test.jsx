@@ -141,6 +141,22 @@ Giải thích: JSP được biên dịch thành servlet và chạy trên server.
     expect(screen.queryByText(studentId)).not.toBeInTheDocument();
   });
 
+  it('shows every assigned class with all its students before choosing a class', async () => {
+    render(
+      <TeacherTutoringPage
+        teacherId="teacher-1"
+        courseId="PRJ301"
+        classId="SE1840"
+      />,
+    );
+
+    expect(await screen.findByText('Tất cả lớp bạn đang đứng lớp')).toBeVisible();
+    // Students are listed under their class without opening the class first.
+    expect((await screen.findAllByText('Nguyen Van A · SE1840001')).length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Tran Thi B · SE1840002').length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/1 lớp · 2 sinh viên/).length).toBeGreaterThan(0);
+  });
+
   it('opens a structured student study drawer instead of overflowing topic pills', async () => {
     render(
       <TeacherTutoringPage

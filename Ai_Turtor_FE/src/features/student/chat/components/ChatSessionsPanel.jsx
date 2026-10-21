@@ -41,6 +41,7 @@ function ChatSessionsPanel({
   onConfirmCourseSwitch,
   onCancelCourseSwitch,
   tutorSession,
+  supportLevel,
   style,
 }) {
   const [searchText, setSearchText] = useState('');
@@ -177,9 +178,9 @@ function ChatSessionsPanel({
           <div
             className="chat-support-level"
             aria-label="Mức hỗ trợ hiện tại"
-            data-support-level={tutorSession?.supportLevel || 'STANDARD'}
+            data-support-level={supportLevel || tutorSession?.supportLevel || 'STANDARD'}
           >
-            {tutorSession?.supportLevel || 'STANDARD'}
+            {supportLevel || tutorSession?.supportLevel || 'STANDARD'}
           </div>
           {pendingCourseId && (
             <div className="chat-history-settings__switch" role="status">

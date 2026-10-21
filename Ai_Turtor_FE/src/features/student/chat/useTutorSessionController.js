@@ -44,6 +44,9 @@ export function useTutorSessionController({
   handleSelectSession,
 }) {
   const [activeTutorSession, setActiveTutorSession] = useState(null);
+  // Effective support level from the live profile, independent of whether a
+  // tutor session is open, so the UI never falls back to a stale STANDARD.
+  const [liveSupportLevel, setLiveSupportLevel] = useState('');
   const [tutorSessionSummary, setTutorSessionSummary] = useState(null);
   const [isTutorSessionLoading, setIsTutorSessionLoading] = useState(false);
   const tutorOpenInFlightRef = useRef(false);
@@ -59,6 +62,11 @@ export function useTutorSessionController({
     userIdRef.current = userId;
     classIdRef.current = classId;
   }, [activeSessionId, classId, courseId, userId]);
+
+  // Never show the previous course's level while the new profile loads.
+  useEffect(() => {
+    setLiveSupportLevel('');
+  }, [courseId, classId, userId]);
 
   const seedOpeningMessage = (openingMessage) => {
     const turn = toOpeningTurn(openingMessage);
@@ -119,6 +127,7 @@ export function useTutorSessionController({
         return profile;
       }
       const supportLevel = normalizeSupportLevel(profile?.supportLevel);
+      setLiveSupportLevel(supportLevel);
       setActiveTutorSession((session) => session ? {
         ...session,
         supportLevel,
@@ -135,6 +144,11 @@ export function useTutorSessionController({
     supportRefreshInFlightRef.current = { scopeKey, promise: refreshPromise };
     return refreshPromise;
   }, []);
+
+  // Load the effective level immediately on mount, then keep polling.
+  useEffect(() => {
+    refreshTutorSupport().catch(() => {});
+  }, [refreshTutorSupport]);
 
   const openTutorSession = async (options = {}) => {
     const selectConversation = options?.selectConversation !== false;
@@ -202,6 +216,19 @@ export function useTutorSessionController({
       setIsTutorSessionLoading(false);
     }
   };
+
+  // The AI (or a teacher decision) changed this student's support level:
+  // update the displayed level instantly and re-sync with the server profile.
+  useRealtimeEvent(REALTIME_EVENT_TYPES.supportLevel, (event) => {
+    if (!eventTargetsTutorStudent(event, {
+      studentId: userIdRef.current,
+      courseId: courseIdRef.current,
+      classId: classIdRef.current,
+    })) return;
+    const level = event?.data?.supportLevel || event?.status;
+    if (level) setLiveSupportLevel(normalizeSupportLevel(level));
+    refreshTutorSupport().catch(() => {});
+  });
 
   useRealtimeEvent(REALTIME_EVENT_TYPES.tutorSession, (event) => {
     const payload = event?.data || {};
@@ -284,6 +311,7 @@ export function useTutorSessionController({
 
   return {
     activeTutorSession,
+    liveSupportLevel,
     tutorSessionSummary,
     isTutorSessionLoading,
     openTutorSession,

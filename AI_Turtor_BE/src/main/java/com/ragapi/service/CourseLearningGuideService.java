@@ -3,6 +3,7 @@ package com.ragapi.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ragapi.dto.CourseCurriculumOverview;
+import com.ragapi.dto.UpdateLearningGuideRequest;
 import com.ragapi.entity.Course;
 import com.ragapi.entity.CourseLearningGuide;
 import com.ragapi.repository.CourseLearningGuideRepository;
@@ -22,6 +23,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -33,6 +35,15 @@ import java.util.UUID;
  * Clean extractions are auto-approved; anything with warnings waits for a
  * human review. Course reads never call an LLM — they use the latest
  * approved guide, or a deterministic syllabus parse as fallback.
+ *
+ * <p>Grounding is strict: an extracted item is kept only when every content
+ * word of it appears in the school-provided source (the official syllabus,
+ * exactly as written — nothing is auto-translated). Partial paraphrases and
+ * outside terminology are dropped, so students only ever see topics,
+ * objectives and keywords that exist in the school documents. Approved
+ * guides are re-validated at read time and ignored when the syllabus has
+ * changed since extraction. Admins fix wording (including language) through
+ * manual curriculum edits, which are then shown to students as written.
  */
 @Service
 @RequiredArgsConstructor
@@ -158,6 +169,87 @@ public class CourseLearningGuideService {
                 courseId.trim(), CourseLearningGuide.STATUS_APPROVED);
     }
 
+    /**
+     * Saves admin-edited curriculum content (the "Chỉnh sửa Curriculum AI
+     * Tutor Guide" tab) as the approved guide for the course's current
+     * syllabus, creating the guide from scratch when none exists yet.
+     * Keywords are derived from the topic titles; the overview is limited
+     * to 1–2 lines like every syllabus summary. Read-time grounding still
+     * applies, so only content traceable to the school documents is shown.
+     */
+    public CourseLearningGuide updateGuideContent(
+            String courseId, UpdateLearningGuideRequest request, String editedBy) {
+        String safeCourseId = courseId == null ? "" : courseId.trim();
+        Course course = courseRepository.findByCourseId(safeCourseId)
+                .orElseThrow(() -> new IllegalArgumentException("Course " + safeCourseId + " does not exist"));
+        if (course.getDescription() == null || course.getDescription().isBlank()) {
+            throw new IllegalStateException("Môn " + safeCourseId + " chưa có syllabus để xây dựng curriculum.");
+        }
+        if (request == null) {
+            throw new IllegalArgumentException("Thiếu nội dung curriculum cần lưu.");
+        }
+        // No automatic translation: the admin's edited wording is stored and
+        // shown to students exactly as written.
+        LocalDateTime now = LocalDateTime.now();
+        String hash = syllabusHash(course.getDescription());
+        CourseLearningGuide guide = latestGuide(safeCourseId).orElseGet(() ->
+                CourseLearningGuide.builder()
+                        .id(UUID.randomUUID().toString())
+                        .courseId(safeCourseId)
+                        .createdAt(now)
+                        .build());
+
+        List<CourseLearningGuide.Topic> topics = new ArrayList<>();
+        Set<String> topicKeys = new LinkedHashSet<>();
+        if (request.topics() != null) {
+            for (UpdateLearningGuideRequest.Topic topic : request.topics()) {
+                if (topics.size() >= MAX_TOPICS) {
+                    break;
+                }
+                String title = cap(topic == null || topic.title() == null ? "" : topic.title().trim(),
+                        MAX_ITEM_LENGTH);
+                if (title.isBlank() || !topicKeys.add(fold(title))) {
+                    continue;
+                }
+                String detail = cap(topic == null || topic.detail() == null ? "" : topic.detail().trim(),
+                        MAX_ITEM_LENGTH);
+                topics.add(CourseLearningGuide.Topic.builder().title(title).detail(detail).build());
+            }
+        }
+
+        guide.setOverview(CourseCurriculumOverviewService.limitSummary(
+                cap(request.overview() == null ? "" : request.overview().trim(), MAX_OVERVIEW_LENGTH)));
+        guide.setKnowledgeObjectives(cleanItems(request.knowledgeObjectives(), MAX_OBJECTIVES));
+        guide.setSkillObjectives(cleanItems(request.skillObjectives(), MAX_OBJECTIVES));
+        guide.setTopics(topics);
+        guide.setKeywords(topics.stream().map(CourseLearningGuide.Topic::getTitle).toList());
+        guide.setSyllabusHash(hash);
+        guide.setSyllabusVersion(hash.substring(0, Math.min(12, hash.length())));
+        guide.setValidationWarnings(new ArrayList<>());
+        guide.setErrorMessage(null);
+        guide.setStatus(CourseLearningGuide.STATUS_APPROVED);
+        guide.setReviewedBy(editedBy);
+        guide.setReviewedAt(now);
+        guide.setUpdatedAt(now);
+        return guideRepository.save(guide);
+    }
+
+    private static List<String> cleanItems(List<String> items, int maxItems) {
+        LinkedHashMap<String, String> deduped = new LinkedHashMap<>();
+        if (items != null) {
+            for (String item : items) {
+                if (deduped.size() >= maxItems) {
+                    break;
+                }
+                String value = cap(item == null ? "" : item.trim(), MAX_ITEM_LENGTH);
+                if (!value.isBlank()) {
+                    deduped.putIfAbsent(fold(value), value);
+                }
+            }
+        }
+        return new ArrayList<>(deduped.values());
+    }
+
     public CourseLearningGuide approveLatest(String courseId, String reviewedBy) {
         CourseLearningGuide guide = latestGuide(courseId)
                 .orElseThrow(() -> new IllegalArgumentException("Chưa có bản hướng dẫn nào cho môn " + courseId));
@@ -190,32 +282,92 @@ public class CourseLearningGuideService {
         return refreshGuide(course, true);
     }
 
+    /**
+     * Re-extracts the learning guide of every course that has a syllabus, so
+     * all curricula are rebuilt from the current school documents with the
+     * current grounding rules. Returns a status histogram; a failure for one
+     * course never stops the others (students keep the deterministic parse).
+     */
+    public Map<String, Integer> regenerateAll() {
+        Map<String, Integer> counts = new LinkedHashMap<>();
+        for (Course course : courseRepository.findAll()) {
+            if (course.getDescription() == null || course.getDescription().isBlank()) {
+                counts.merge("NO_SYLLABUS", 1, Integer::sum);
+                continue;
+            }
+            CourseLearningGuide guide = refreshGuide(course, true);
+            counts.merge(guide == null ? "EXTRACTION_FAILED" : guide.getStatus(), 1, Integer::sum);
+        }
+        log.info("Learning guide bulk regeneration finished: {}", counts);
+        return counts;
+    }
+
     // ------------------------------------------------------------------
     // Read path (no LLM)
     // ------------------------------------------------------------------
 
-    /** Overview backed by the latest approved guide, when one exists. */
+    /**
+     * Overview backed by the latest approved guide, when one exists for the
+     * course's current syllabus. A guide extracted from an older syllabus
+     * version is never served. Once an admin has reviewed and approved (or
+     * directly edited and saved) a guide, students see that content exactly
+     * as the admin wrote it — no read-time re-filtering, so admin wording,
+     * translations and formatting are never silently dropped. Grounding
+     * checks still apply to unreviewed LLM extractions before approval.
+     */
     public Optional<CourseCurriculumOverview> approvedOverview(Course course) {
         if (course == null || course.getDescription() == null || course.getDescription().isBlank()) {
             return Optional.empty();
         }
-        return latestApprovedGuide(course.getCourseId()).map(guide -> {
-            List<String> objectives = new ArrayList<>();
-            if (guide.getKnowledgeObjectives() != null) {
-                objectives.addAll(guide.getKnowledgeObjectives());
+        String currentHash = syllabusHash(course.getDescription());
+        return latestApprovedGuide(course.getCourseId())
+                .filter(guide -> currentHash.equals(guide.getSyllabusHash()))
+                .map(guide -> toOverview(course, guide))
+                .filter(overview -> overview.hasUnits() || overview.hasObjectives()
+                        || overview.hasSkillObjectives());
+    }
+
+    private CourseCurriculumOverview toOverview(Course course, CourseLearningGuide guide) {
+        List<CourseCurriculumOverview.Unit> topics = new ArrayList<>();
+        List<CourseLearningGuide.Topic> storedTopics = guide.getTopics() == null
+                ? List.of() : guide.getTopics();
+        for (CourseLearningGuide.Topic topic : storedTopics) {
+            String title = topic.getTitle() == null ? "" : topic.getTitle().trim();
+            if (title.isBlank()) {
+                continue;
             }
-            if (guide.getSkillObjectives() != null) {
-                objectives.addAll(guide.getSkillObjectives());
-            }
-            return new CourseCurriculumOverview(
-                    course.getCourseId(),
-                    course.getCourseName() == null ? "" : course.getCourseName(),
-                    guide.getOverview() == null ? "" : guide.getOverview(),
-                    guide.getTopics().stream()
-                            .map(topic -> new CourseCurriculumOverview.Unit(topic.getTitle(), topic.getDetail()))
-                            .toList(),
-                    objectives);
-        });
+            String detail = topic.getDetail() == null ? "" : topic.getDetail().trim();
+            topics.add(new CourseCurriculumOverview.Unit(title, detail));
+        }
+        String overview = guide.getOverview() == null ? "" : guide.getOverview().trim();
+        // Stored summaries may predate the 1–2 line rule; enforce it at read time.
+        overview = CourseCurriculumOverviewService.limitSummary(overview);
+        // Keywords always mirror the chapter/topic titles, even for guides
+        // stored before this rule existed.
+        List<String> keywords = topics.stream()
+                .map(CourseCurriculumOverview.Unit::title)
+                .filter(title -> !title.isBlank())
+                .distinct()
+                .limit(MAX_KEYWORDS)
+                .toList();
+        return new CourseCurriculumOverview(
+                course.getCourseId(),
+                course.getCourseName() == null ? "" : course.getCourseName(),
+                overview,
+                topics,
+                storedItems(guide.getKnowledgeObjectives()),
+                storedItems(guide.getSkillObjectives()),
+                keywords);
+    }
+
+    private static List<String> storedItems(List<String> items) {
+        if (items == null) {
+            return List.of();
+        }
+        return items.stream()
+                .map(item -> item == null ? "" : item.trim())
+                .filter(item -> !item.isBlank())
+                .toList();
     }
 
     // ------------------------------------------------------------------
@@ -226,7 +378,12 @@ public class CourseLearningGuideService {
         return """
                 Bạn là hệ thống trích xuất syllabus. Chỉ trích xuất thông tin CÓ TRONG syllabus bên dưới,
                 tuyệt đối không bịa thêm môn học, chủ đề hay mục tiêu không xuất hiện trong nguồn.
-                Dịch sang tiếng Việt nếu nguồn là tiếng Anh, giữ nguyên thuật ngữ kỹ thuật tiếng Anh.
+                Quy tắc bắt buộc:
+                - Không dùng bất kỳ kiến thức nào ngoài syllabus cho mọi trường dữ liệu.
+                - Mọi từ nội dung trong overview, objectives và topics phải xuất hiện trong syllabus;
+                  chép nguyên văn từ syllabus, giữ nguyên ngôn ngữ gốc (không tự dịch — admin sẽ tự chỉnh sửa ngôn ngữ khi duyệt), giữ nguyên thuật ngữ kỹ thuật tiếng Anh.
+                - "keywords" không cần sáng tác: hệ thống tự lấy keyword từ danh sách chủ đề (topics),
+                  nên hãy để keywords là bản sao đúng các title đã liệt kê trong topics.
                 Chỉ trả về JSON hợp lệ (không Markdown, không giải thích) đúng schema:
                 {
                   "courseCode": "mã môn",
@@ -268,7 +425,8 @@ public class CourseLearningGuideService {
             throw new IllegalArgumentException("LLM trả về JSON không hợp lệ: " + error.getMessage());
         }
         List<String> warnings = new ArrayList<>();
-        String foldedSource = fold(source);
+        // Grounding corpus: the school syllabus exactly as written.
+        String foldedSource = fold(source == null ? "" : source);
         Set<String> sourceTokens = new LinkedHashSet<>(List.of(foldedSource.split(" ")));
 
         String extractedCode = root.path("courseCode").asText("").trim();
@@ -277,7 +435,9 @@ public class CourseLearningGuideService {
             warnings.add("Mã môn LLM trả về (" + extractedCode + ") khác mã môn hệ thống, đã dùng mã hệ thống.");
         }
 
-        String overview = cap(root.path("overview").asText("").trim(), MAX_OVERVIEW_LENGTH);
+        // The syllabus contributes only a 1–2 line summary to the overview.
+        String overview = CourseCurriculumOverviewService.limitSummary(
+                cap(root.path("overview").asText("").trim(), MAX_OVERVIEW_LENGTH));
         if (!overview.isBlank() && !grounded(overview, sourceTokens, foldedSource)) {
             warnings.add("Tổng quan không có căn cứ rõ trong syllabus, đã loại bỏ.");
             overview = "";
@@ -339,9 +499,15 @@ public class CourseLearningGuideService {
             warnings.add("LLM không trích xuất được chủ đề, đã dùng danh sách chủ đề từ syllabus.");
         }
 
-        List<String> keywords = validateItems(
-                stringList(root.path("keywords")), sourceTokens, foldedSource,
-                MAX_KEYWORDS, "Từ khóa", warnings);
+        // Keywords are taken from the chapter/topic list itself, never from a
+        // free-form LLM keyword list: each keyword is a validated topic title,
+        // so it always appears verbatim in the school document.
+        List<String> keywords = topics.stream()
+                .map(CourseCurriculumOverview.Unit::title)
+                .filter(title -> title != null && !title.isBlank())
+                .distinct()
+                .limit(MAX_KEYWORDS)
+                .toList();
 
         return new Extraction(overview, knowledge, skills, List.copyOf(topics), keywords,
                 List.copyOf(warnings));
@@ -372,25 +538,26 @@ public class CourseLearningGuideService {
         return result;
     }
 
+    /**
+     * Strict grounding: the candidate is accepted only when it appears
+     * verbatim in the source, or when every content word of it appears in
+     * the source. Partial-overlap paraphrases are rejected — topics,
+     * objectives and keywords may only reuse words the school document
+     * actually contains, never outside terminology.
+     */
     static boolean grounded(String text, Set<String> sourceTokens, String foldedSource) {
-        String folded = fold(text);
+        // Admin rich-text edits are stored as Markdown; grounding verifies the
+        // content words only — formatting markers, link URLs and list/heading
+        // prefixes are presentation, not curriculum content.
+        String folded = fold(stripMarkdown(text));
         if (folded.isBlank()) {
             return false;
         }
         if (foldedSource.contains(folded)) {
             return true;
         }
-        return tokenOverlap(folded, String.join(" ", sourceTokens)) >= GROUNDING_THRESHOLD
-                || overlapAgainstTokens(folded, sourceTokens) >= GROUNDING_THRESHOLD;
-    }
-
-    private static double overlapAgainstTokens(String foldedText, Set<String> sourceTokens) {
-        Set<String> tokens = significantTokens(foldedText);
-        if (tokens.isEmpty()) {
-            return 0;
-        }
-        long present = tokens.stream().filter(sourceTokens::contains).count();
-        return (double) present / tokens.size();
+        Set<String> tokens = significantTokens(folded);
+        return !tokens.isEmpty() && sourceTokens.containsAll(tokens);
     }
 
     static double tokenOverlap(String left, String right) {
@@ -401,6 +568,25 @@ public class CourseLearningGuideService {
         }
         long shared = a.stream().filter(b::contains).count();
         return (double) shared / Math.min(a.size(), b.size());
+    }
+
+    /** Removes Markdown presentation so grounding checks content words only. */
+    static String stripMarkdown(String text) {
+        if (text == null) {
+            return "";
+        }
+        String stripped = text
+                .replaceAll("\\[([^\\]]+)\\]\\([^)]*\\)", "$1")
+                .replaceAll("(?m)^#{1,6}\\s+", "")
+                .replaceAll("(?m)^>\\s?", "")
+                .replaceAll("(?m)^[-*+]\\s+", "")
+                .replaceAll("(?m)^\\d+[.)]\\s+", "")
+                .replaceAll("\\*\\*([^*]+)\\*\\*", "$1")
+                .replaceAll("\\*([^*]+)\\*", "$1")
+                .replaceAll("~~([^~]+)~~", "$1")
+                .replaceAll("`([^`]+)`", "$1")
+                .replaceAll("</?u>", "");
+        return stripped;
     }
 
     private static Set<String> significantTokens(String folded) {

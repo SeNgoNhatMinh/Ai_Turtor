@@ -10,7 +10,6 @@ import {
   isWebsiteMaterial,
 } from '../adminAcademicUtils';
 import StatusLabel from '../../../../components/common/StatusLabel';
-import LearningGuideCard from './LearningGuideCard';
 
 const { Dragger } = Upload;
 
@@ -192,7 +191,6 @@ function CourseMaterialsTab({
         />
       </Col>
       <Col xs={24} lg={15} style={{ minWidth: 0 }}>
-        <LearningGuideCard courseId={materialCourseId} />
         <Card
           className="admin-materials-table-card"
           title="Học liệu dùng chung"

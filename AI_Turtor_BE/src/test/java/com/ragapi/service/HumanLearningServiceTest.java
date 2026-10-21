@@ -11,6 +11,7 @@ import com.ragapi.repository.CourseMaterialRepository;
 import com.ragapi.repository.KnowledgeCandidateRepository;
 import com.ragapi.repository.MentorRepository;
 import com.ragapi.repository.MentorAnswerRepository;
+import com.ragapi.repository.ClassSectionRepository;
 import com.ragapi.repository.QuestionEscalationRepository;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -45,7 +46,9 @@ class HumanLearningServiceTest {
                 chunkingService,
                 vectorService,
                 mock(KnowledgeImageStorageService.class),
-                answerCacheService
+                answerCacheService,
+                mock(ClassSectionRepository.class),
+                mock(RealtimeEventService.class)
         );
         KnowledgeCandidate candidate = KnowledgeCandidate.builder()
                 .id("candidate-1")
@@ -112,7 +115,9 @@ class HumanLearningServiceTest {
                 chunkingService,
                 vectorService,
                 mock(KnowledgeImageStorageService.class),
-                answerCacheService
+                answerCacheService,
+                mock(ClassSectionRepository.class),
+                mock(RealtimeEventService.class)
         );
         KnowledgeCandidate prior = KnowledgeCandidate.builder()
                 .id("old-candidate")
@@ -167,7 +172,9 @@ class HumanLearningServiceTest {
                 mock(CourseMaterialChunkingService.class),
                 mock(CourseMaterialIndexGateway.class),
                 mock(KnowledgeImageStorageService.class),
-                mock(CanonicalTutorAnswerCacheService.class)
+                mock(CanonicalTutorAnswerCacheService.class),
+                mock(ClassSectionRepository.class),
+                mock(RealtimeEventService.class)
         );
         KnowledgeCandidate pending = KnowledgeCandidate.builder()
                 .id("pending-1")
@@ -207,7 +214,9 @@ class HumanLearningServiceTest {
                 mock(CourseMaterialChunkingService.class),
                 mock(CourseMaterialIndexGateway.class),
                 imageStorageService,
-                mock(CanonicalTutorAnswerCacheService.class)
+                mock(CanonicalTutorAnswerCacheService.class),
+                mock(ClassSectionRepository.class),
+                mock(RealtimeEventService.class)
         );
         QuestionEscalation escalation = QuestionEscalation.builder()
                 .id("escalation-1")
@@ -237,7 +246,9 @@ class HumanLearningServiceTest {
                 mock(CourseMaterialChunkingService.class),
                 mock(CourseMaterialIndexGateway.class),
                 mock(KnowledgeImageStorageService.class),
-                mock(CanonicalTutorAnswerCacheService.class)
+                mock(CanonicalTutorAnswerCacheService.class),
+                mock(ClassSectionRepository.class),
+                mock(RealtimeEventService.class)
         );
         QuestionEscalation escalation = QuestionEscalation.builder()
                 .id("escalation-1")
@@ -268,7 +279,9 @@ class HumanLearningServiceTest {
                 mock(CourseMaterialChunkingService.class),
                 mock(CourseMaterialIndexGateway.class),
                 mock(KnowledgeImageStorageService.class),
-                mock(CanonicalTutorAnswerCacheService.class)
+                mock(CanonicalTutorAnswerCacheService.class),
+                mock(ClassSectionRepository.class),
+                mock(RealtimeEventService.class)
         );
         Mentor mentor = Mentor.builder().id("mentor-db-id").mentorCode("GV001").build();
         QuestionEscalation escalation = QuestionEscalation.builder()
@@ -301,7 +314,9 @@ class HumanLearningServiceTest {
                 mock(CourseMaterialChunkingService.class),
                 mock(CourseMaterialIndexGateway.class),
                 mock(KnowledgeImageStorageService.class),
-                mock(CanonicalTutorAnswerCacheService.class)
+                mock(CanonicalTutorAnswerCacheService.class),
+                mock(ClassSectionRepository.class),
+                mock(RealtimeEventService.class)
         );
         QuestionEscalation escalation = QuestionEscalation.builder()
                 .id("escalation-1")

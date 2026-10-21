@@ -11,8 +11,10 @@ import com.ragapi.dto.RagSourceEvidence;
 import com.ragapi.dto.RagQueryIntent;
 import com.ragapi.entity.AiConversation;
 import com.ragapi.entity.AiMessage;
+import com.ragapi.entity.ClassSection;
 import com.ragapi.repository.AiConversationRepository;
 import com.ragapi.repository.AiMessageRepository;
+import com.ragapi.repository.ClassSectionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -39,6 +41,41 @@ public class AiConversationService {
     private final AiConversationRepository conversationRepository;
     private final AiMessageRepository messageRepository;
     private final CourseCurriculumOverviewService curriculumOverviewService;
+    private final AdaptiveLearningReviewService adaptiveLearningReviewService;
+    private final ClassSectionRepository classSectionRepository;
+    private final RealtimeEventService realtimeEvents;
+
+    /**
+     * Live signals for every persisted student Q&A exchange: admins watching
+     * the AI answer log and the class teacher watching learning progress
+     * (x/10 questions, upcoming AI label) refresh immediately.
+     */
+    private void publishExchangeSaved(AiConversation conversation, String studentId, AiMessage assistantMessage) {
+        try {
+            String courseId = trimToNull(conversation.getCourseId());
+            String classId = trimToNull(conversation.getClassId());
+            java.util.Map<String, Object> data = new java.util.LinkedHashMap<>();
+            data.put("studentId", studentId == null ? "" : studentId);
+            data.put("courseId", courseId == null ? "" : courseId);
+            data.put("classId", classId == null ? "" : classId);
+            data.put("conversationId", conversation.getId());
+
+            realtimeEvents.publishToRoles(List.of("ADMIN"), "AI_REQUEST_LOGGED",
+                    "AI_MESSAGE", assistantMessage.getId(), "CREATED", data);
+
+            if (courseId != null && classId != null) {
+                classSectionRepository.findByCourseIdAndClassId(courseId, classId)
+                        .map(ClassSection::getTeacherId)
+                        .filter(id -> id != null && !id.isBlank())
+                        .ifPresent(teacherId -> realtimeEvents.publishToUser(
+                                teacherId, "STUDENT_QUESTION_ANSWERED",
+                                "AI_CONVERSATION", conversation.getId(), "ANSWERED", data));
+            }
+        } catch (Exception error) {
+            log.warn("Could not publish realtime events for conversation {}: {}",
+                    conversation.getId(), error.getMessage());
+        }
+    }
 
     public AiConversationListResponse listConversations(String userId, int page, int size) {
         return listConversations(userId, null, page, size);
@@ -181,6 +218,7 @@ public class AiConversationService {
 
     public AiConversationHistoryResponse getMessages(String conversationId, String userId, int page, int size) {
         AiConversation conversation = requireConversation(conversationId, userId);
+        refreshOpeningIfStale(conversation);
 
         Page<AiMessage> messagesPage = messageRepository.findByConversationId(
                 conversationId,
@@ -199,6 +237,41 @@ public class AiConversationService {
                 .pageSize(size)
                 .messages(messages)
                 .build();
+    }
+
+    /**
+     * The seeded welcome is a system banner, not student content: keep it in
+     * sync with the course's current curriculum. Conversations opened before
+     * an admin edited the guide (or before template fixes) would otherwise
+     * show the old welcome — raw syllabus paragraphs, missing sections —
+     * forever.
+     */
+    private void refreshOpeningIfStale(AiConversation conversation) {
+        String courseId = trimToNull(conversation.getCourseId());
+        if (courseId == null) {
+            return;
+        }
+        try {
+            List<AiMessage> existing = messageRepository.findByConversationIdOrderByCreatedAtAsc(conversation.getId());
+            if (existing.isEmpty()) {
+                return;
+            }
+            AiMessage first = existing.get(0);
+            boolean isSystemOpening = "ASSISTANT".equalsIgnoreCase(first.getRole())
+                    && Boolean.TRUE.equals(first.getProactive());
+            if (!isSystemOpening) {
+                return;
+            }
+            String currentWelcome = curriculumOverviewService.newChatWelcomeMarkdown(courseId);
+            if (currentWelcome != null && !currentWelcome.isBlank()
+                    && !currentWelcome.equals(first.getContent())) {
+                first.setContent(currentWelcome);
+                messageRepository.save(first);
+            }
+        } catch (Exception error) {
+            log.warn("Could not refresh syllabus welcome for chat {}: {}",
+                    conversation.getId(), error.getMessage());
+        }
     }
 
     public AiConversationHistoryResponse searchMessages(String userId, String keyword, int page, int size) {
@@ -365,6 +438,14 @@ public class AiConversationService {
 
         conversationRepository.save(conversation);
         log.info("Saved AI exchange in conversation {} ({} messages)", conversation.getId(), newCount);
+        publishExchangeSaved(conversation, userId, assistantMessage);
+        // Every 10 questions within one course triggers an adaptive review for
+        // that student in that course (async, never blocks the chat response).
+        String effectiveCourseId = trimToNull(conversation.getCourseId());
+        if (effectiveCourseId != null) {
+            adaptiveLearningReviewService.onStudentQuestionAnswered(
+                    userId, effectiveCourseId, trimToNull(conversation.getClassId()));
+        }
         return new SavedExchange(conversation.getId(), userMessage.getId(), assistantMessage.getId());
     }
 
@@ -430,7 +511,7 @@ public class AiConversationService {
             String userId,
             String selectedKey
     ) {
-        requireConversation(conversationId, userId);
+        AiConversation conversation = requireConversation(conversationId, userId);
         String key = selectedKey == null ? "" : selectedKey.trim().toUpperCase();
         if (!key.matches("[A-D]")) {
             throw new IllegalArgumentException("Đáp án kiểm tra hiểu phải là A, B, C hoặc D");
@@ -457,6 +538,12 @@ public class AiConversationService {
             message.setUnderstandingCorrect(key.equalsIgnoreCase(check.getCorrectKey()));
             message.setUnderstandingAnsweredAt(LocalDateTime.now());
             message = messageRepository.save(message);
+            // Event-based detection: repeated mistakes may trigger an early
+            // adaptive review before the 10-question cycle completes (async).
+            adaptiveLearningReviewService.onUnderstandingCheckRecorded(
+                    userId,
+                    trimToNull(conversation.getCourseId()),
+                    trimToNull(conversation.getClassId()));
         }
         String correctKey = check.getCorrectKey().trim().toUpperCase();
         String correctOptionText = check.getOptions() == null ? "" : check.getOptions().stream()

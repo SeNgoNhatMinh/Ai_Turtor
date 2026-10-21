@@ -36,7 +36,6 @@ export default function AdminAiLogsPage({ section = 'providers' }) {
         description={page.description}
       />
       {section === 'history' && <AiLogMetrics summary={controller.summary} />}
-      {section === 'history' && <AiWorkerTracePanel />}
       {section === 'history' && (
         <AiLogFilters
           loading={controller.loading}
@@ -90,7 +89,16 @@ export default function AdminAiLogsPage({ section = 'providers' }) {
         />
       )}
       {section === 'runtime' && (
-        <ProviderStatusTable providers={controller.providerStats} loading={controller.providerLoading} />
+        <>
+          <ProviderStatusTable
+            providers={controller.providerStats}
+            providerConfigs={controller.providerConfigs}
+            loading={controller.providerLoading}
+          />
+          <div style={{ marginTop: 16 }}>
+            <AiWorkerTracePanel />
+          </div>
+        </>
       )}
       {section === 'history' && (
         <AiRequestLogsTable

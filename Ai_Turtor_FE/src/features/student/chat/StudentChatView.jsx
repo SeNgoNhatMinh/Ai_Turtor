@@ -38,7 +38,6 @@ function StudentChatView({
   onSendQuery,
   onResendMessage,
   onStopQuery,
-  onPromptStarter,
   onLockUnderstandingAnswer,
   onAnswerAction,
   isAiLoading,
@@ -63,6 +62,7 @@ function StudentChatView({
   onOpenMentorReview,
   onMentorRequestCreated,
   tutorSession,
+  supportLevel,
 }) {
   const [pendingCourseId, setPendingCourseId] = useState('');
   const pendingCourseLabel = courseOptions.find((item) => item.value === pendingCourseId)?.label;
@@ -125,6 +125,7 @@ function StudentChatView({
             }}
             onCancelCourseSwitch={() => setPendingCourseId('')}
             tutorSession={tutorSession}
+            supportLevel={supportLevel}
             style={{ height: '100%' }}
           />
         </div>
@@ -159,7 +160,6 @@ function StudentChatView({
             onSendQuery={onSendQuery}
             onResendMessage={onResendMessage}
             onStopQuery={onStopQuery}
-            onPromptStarter={onPromptStarter}
             onLockUnderstandingAnswer={onLockUnderstandingAnswer}
             onAnswerAction={onAnswerAction}
             isAiLoading={isAiLoading}

@@ -142,6 +142,11 @@ class CourseAnswerServiceTextbookTest {
                 workerTraceService
         );
         service = new CourseAnswerService(generationService, pipelineService, requestPolicyService);
+        // Worker 1 now enters through generateWorker1Answer; delegate it to the
+        // per-question generate(...) stubs each test already declares.
+        org.mockito.Mockito.lenient().when(chatService.generateWorker1Answer(anyString(), anyString()))
+                .thenAnswer(invocation -> chatService.generate(
+                        invocation.getArgument(0), invocation.getArgument(1)));
     }
 
     @Test

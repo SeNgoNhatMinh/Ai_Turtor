@@ -106,3 +106,9 @@
     padding: 14px;
   }
 }
+
+/* ===== Dark mode — đồng bộ với trang admin (Ant Design darkAlgorithm) ===== */
+.app-container.dark .teacher-support-workspace__heading h2,
+.app-container.dark .knowledge-review-section h2 {
+  color: #93c5fd;
+}

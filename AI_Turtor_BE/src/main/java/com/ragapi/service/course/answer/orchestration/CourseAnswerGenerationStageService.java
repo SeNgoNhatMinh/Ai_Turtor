@@ -25,6 +25,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.text.Normalizer;
 import java.util.List;
 import java.util.Locale;
 import java.util.regex.Matcher;
@@ -92,15 +93,27 @@ public class CourseAnswerGenerationStageService {
             boolean highSupport = isHighSupport(request);
             boolean droppedWorkedExample = highSupportDroppedWorkedExample(
                     highSupport, prepared.context(), answer);
+            // A headings-only skeleton from Worker 1 must be retried even in single-pass
+            // mode; otherwise the student receives Worker 2's quiz with no lesson at all.
+            boolean missingTeachableBody = !hasTeachableBody(answer);
+            // Study/practice requests (the welcome suggestions: tìm hiểu, giải
+            // thích, hướng dẫn, bài tập, kiểm tra kiến thức…) must always be
+            // taught first and only then quizzed — never exercises/quiz alone.
+            boolean missingExplanation = requiresExplanationFirst(request, prepared)
+                    && !hasExplanationBeforeQuiz(answer);
             boolean recoveryNeeded = StudentAnswerCompletenessGuard.isClearlyIncomplete(answer)
                     || isIncompleteLesson(request, answer)
                     || initialInsufficientMaterialAnswer
-                    || droppedWorkedExample;
+                    || droppedWorkedExample
+                    || missingTeachableBody
+                    || missingExplanation;
             boolean substantialContext = prepared.context() != null && prepared.context().length() >= 1500;
             boolean shouldUseQualityFallback = qualityFallbackEnabled
                     || prepared.understandingRemediation()
                     || contextContainsRequestedMethod(prepared.question(), prepared.context())
                     || droppedWorkedExample
+                    || missingTeachableBody
+                    || missingExplanation
                     || (initialInsufficientMaterialAnswer && substantialContext);
             if (recoveryNeeded && shouldUseQualityFallback) {
                 log.warn("Retrying grounded tutor generation after an incomplete answer or an unsupported model refusal");
@@ -167,6 +180,17 @@ public class CourseAnswerGenerationStageService {
             answerBody = stripSection(answerBody, "kiểm tra hiểu");
             answerBody = stripSection(answerBody, "understanding check");
             answerBody = stripSection(answerBody, "quiz tự luyện");
+            if (!hasTeachableBody(answerBody)) {
+                // Never deliver a quiz-only answer: Worker 1 produced no lesson to check.
+                log.warn("Worker 1 produced headings without a teachable body; refusing to deliver a quiz-only answer");
+                return resultService.softUnavailable(StudentFacingMessages.GENERATION_BUSY, prepared.sourceLabels());
+            }
+            if (requiresExplanationFirst(request, prepared) && !hasExplanationBeforeQuiz(answerBody)) {
+                // Study/practice suggestions must be explained before any quiz:
+                // an exercises/questions-only reply is not a lesson.
+                log.warn("Study request answered without an explanation; refusing to deliver quiz/exercises only");
+                return resultService.softUnavailable(StudentFacingMessages.GENERATION_BUSY, prepared.sourceLabels());
+            }
             StringBuilder finalContent = new StringBuilder(answerBody.trim());
             if (hasText(workerOutputs.quiz())) {
                 // Always use Kiểm tra hiểu so FE (including older deploys) can turn the block into forms.
@@ -304,12 +328,17 @@ public class CourseAnswerGenerationStageService {
 
                 WORKER-1 SCOPE (three-worker pipeline):
                 - Write only the grounded answer (explanation / example / sources as required).
+                - TEACH FIRST, ALWAYS: even when the student asks for practice, exercises,
+                  a knowledge check or a quiz ("bài tập", "kiểm tra kiến thức", "ôn tập"…),
+                  first explain the concept in clear teaching paragraphs (with a small
+                  example when supported). Worker 2 appends the quiz AFTER your explanation.
+                  An answer made only of questions or exercises is invalid.
                 - Do NOT include "## Kiểm tra hiểu", "Understanding Check", or any multiple-choice quiz.
                 - Do NOT include "## Quiz tự luyện". Worker 2 owns all quiz content.
                 - Do NOT include "## Học chuyên sâu". Worker 3 owns clickable deep-study titles.
                 """);
         Map<String, Supplier<String>> workers = new LinkedHashMap<>();
-        workers.put("worker-1", () -> generationService.generateGroundedAnswer(
+        workers.put("worker-1", () -> generationService.generateWorker1GroundedAnswer(
                 worker1Prompt, question, request.teachingMode(), context, request.learnerMemoryContext(), false));
         workers.put("worker-2", () -> generationService.generateWorkerUtilityAnswer(quizPrompt));
         workers.put("worker-3", () -> generationService.generateWorkerUtilityAnswer(deepStudyPrompt));
@@ -520,6 +549,116 @@ public class CourseAnswerGenerationStageService {
         }
         String text = answer == null ? "" : answer;
         return countOccurrences(text, "```") / 2 < 1 && !text.contains(">>>");
+    }
+
+    /**
+     * True only when Worker 1 left real prose. A skeleton of headings plus a
+     * source-reference block (the observed quiz-only failure) is not teachable.
+     * Quiz and deep-study sections are stripped before measuring so a Worker 1
+     * reply consisting solely of its own quiz also counts as missing.
+     */
+    private boolean hasTeachableBody(String answer) {
+        if (!hasText(answer)) {
+            return false;
+        }
+        String body = stripSection(answer, "học chuyên sâu");
+        body = stripSection(body, "kiểm tra hiểu");
+        body = stripSection(body, "understanding check");
+        body = stripSection(body, "quiz tự luyện");
+        body = stripSection(body, "nguồn tài liệu đã dùng");
+        body = stripSection(body, "nguồn tài liệu");
+        String prose = body
+                .replaceAll("(?im)^#{1,6}\\s+.*$", " ")
+                .replaceAll("(?i)materialId\\s*=\\s*\\S+", " ")
+                .replaceAll("[\\s*_`>#\\-]+", " ")
+                .trim();
+        return prose.length() >= 40;
+    }
+
+    /**
+     * The welcome study suggestions ("Tôi muốn tìm hiểu…", "Giải thích…",
+     * "Hướng dẫn tôi thực hành…", "Cho tôi bài tập…", "Kiểm tra kiến thức…")
+     * and every similar study/practice ask must be taught before any quiz.
+     * Learning-path listings and wrong-answer remediation follow their own
+     * flows and are excluded.
+     */
+    private boolean requiresExplanationFirst(CourseAnswerRequest request, CourseAnswerPreparation prepared) {
+        if (request == null || prepared == null || prepared.understandingRemediation()) {
+            return false;
+        }
+        String mode = request.teachingMode();
+        if ("LEARNING_PATH".equalsIgnoreCase(mode)) {
+            return false;
+        }
+        String text = foldAccents(prepared.question());
+        if (text.isBlank()) {
+            return false;
+        }
+        String[] markers = {
+                "tim hieu", "muon hoc", "hoc bai", "giai thich", "huong dan",
+                "thuc hanh", "bai tap", "luyen tap", "kiem tra kien thuc",
+                "kiem tra hieu", "on tap", "hoc ve", "day toi", "day minh",
+                "learn", "explain", "practice", "exercise", "test me",
+                "quiz me", "check my understanding", "teach me"
+        };
+        for (String marker : markers) {
+            if (text.contains(marker)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * True when the Worker 1 body contains a real explanation (declarative
+     * teaching prose), not just questions/exercises. Quiz, deep-study and
+     * source sections are stripped before measuring, exactly like
+     * {@link #hasTeachableBody}.
+     */
+    private boolean hasExplanationBeforeQuiz(String answer) {
+        if (!hasText(answer)) {
+            return false;
+        }
+        String body = stripSection(answer, "học chuyên sâu");
+        body = stripSection(body, "kiểm tra hiểu");
+        body = stripSection(body, "understanding check");
+        body = stripSection(body, "quiz tự luyện");
+        body = stripSection(body, "nguồn tài liệu đã dùng");
+        body = stripSection(body, "nguồn tài liệu");
+        int explanationChars = 0;
+        int longestLine = 0;
+        for (String rawLine : body.split("\n")) {
+            String line = rawLine.trim()
+                    .replaceAll("^#{1,6}\\s+", "")
+                    .replaceAll("^[\\-*•]\\s+", "")
+                    .replaceAll("^\\d+[.)]\\s+", "")
+                    .trim();
+            if (line.length() < 40 || line.endsWith("?")) {
+                continue;
+            }
+            // Quiz/exercise scaffolding lines are not explanation prose.
+            if (line.matches("(?i)^(câu hỏi|question|q\\d+|bài tập|bài \\d+|đáp án|answer|giải thích đáp án)\\b.*")) {
+                continue;
+            }
+            if (line.matches("^[A-Da-d][.)]\\s+.*")) {
+                continue;
+            }
+            explanationChars += line.length();
+            longestLine = Math.max(longestLine, line.length());
+        }
+        // One real teaching sentence is enough (short concept/review answers
+        // stay valid); a questions/options-only body accumulates zero here.
+        return longestLine >= 40 && explanationChars >= 40;
+    }
+
+    private static String foldAccents(String value) {
+        if (value == null) {
+            return "";
+        }
+        String decomposed = Normalizer.normalize(value.toLowerCase(Locale.ROOT), Normalizer.Form.NFD)
+                .replaceAll("\\p{M}+", "")
+                .replace('đ', 'd');
+        return decomposed.replaceAll("\\s+", " ").trim();
     }
 
     private boolean isDeliverableLesson(String value) {

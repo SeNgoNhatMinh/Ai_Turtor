@@ -146,6 +146,20 @@ export const adminAcademicApi = {
     return request(`${API_BASE_URL}/admin/courses/${encodePath(courseId)}/learning-guide`);
   },
 
+  async getStudentLearningGuide(courseId) {
+    return request(`${API_BASE_URL}/courses/${encodePath(courseId)}/learning-guide`);
+  },
+
+  async updateLearningGuide(courseId, payload) {
+    const response = await request(`${API_BASE_URL}/admin/courses/${encodePath(courseId)}/learning-guide`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    invalidateServerQueries(['courses']);
+    return response;
+  },
+
   async regenerateLearningGuide(courseId) {
     return request(`${API_BASE_URL}/admin/courses/${encodePath(courseId)}/learning-guide/regenerate`, {
       method: 'POST',

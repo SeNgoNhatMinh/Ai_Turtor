@@ -95,6 +95,20 @@ public class CourseAnswerGenerationService {
                 answer, question, teachingMode, courseContext, learnerMemoryContext, allowUnderstandingCheck);
     }
 
+    /** Worker 1 entry point: main grounded answer on the Worker 1 model preference. */
+    public String generateWorker1GroundedAnswer(
+            String prompt,
+            String question,
+            String teachingMode,
+            String courseContext,
+            String learnerMemoryContext,
+            boolean allowUnderstandingCheck
+    ) {
+        String answer = chatService.generateWorker1(prompt, question);
+        return finalizeGroundedAnswer(
+                answer, question, teachingMode, courseContext, learnerMemoryContext, allowUnderstandingCheck);
+    }
+
     public String generateGroundedQualityFallbackAnswer(
             String prompt,
             String question,

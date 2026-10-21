@@ -20,7 +20,6 @@ import AnswerImproveSuggestions from './AnswerImproveSuggestions';
 import LessonDeepDiveCta from './LessonDeepDiveCta';
 import ChatLoadingSteps from './ChatLoadingSteps';
 import InlineMentorSupport from './InlineMentorSupport';
-import PromptStarters from './PromptStarters';
 import StudentMessageBubble from './StudentMessageBubble';
 import RemediationRequestCard from './RemediationRequestCard';
 import { uiCopy } from '../../../../constants/uiCopy';
@@ -277,13 +276,11 @@ function ChatMessageList({
   onDownloadSource,
   onOpenMentorReview,
   onMentorRequestCreated,
-  onPromptStarter,
   onLockUnderstandingAnswer,
   onResendMessage,
   onStudySuggestion,
   pinnedMessageIdSet,
   pinningMessageId,
-  promptTopics = [],
   studentName,
   togglePinnedMessage,
   triggerToast,
@@ -324,7 +321,6 @@ function ChatMessageList({
               <strong>{uiCopy.student.chat.keywordTipTitle}</strong>
               <p>{uiCopy.student.chat.keywordTip}</p>
             </div>
-            <PromptStarters disabled={!canChat || isAiLoading} onSelect={onPromptStarter} topics={promptTopics} />
           </div>
         ) : (
           messages.map((message, index) => {

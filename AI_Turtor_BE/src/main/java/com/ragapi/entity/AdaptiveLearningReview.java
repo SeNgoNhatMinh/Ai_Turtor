@@ -15,7 +15,7 @@ import java.util.List;
 import java.util.Map;
 
 @Document(collection = "adaptive_learning_reviews")
-@CompoundIndex(name = "adaptive_review_cycle_unique", def = "{'studentId':1,'courseId':1,'completedSessionCount':1}", unique = true)
+@CompoundIndex(name = "adaptive_review_question_cycle_unique", def = "{'studentId':1,'courseId':1,'questionCount':1}", unique = true)
 @Data
 @Builder
 @NoArgsConstructor
@@ -32,6 +32,11 @@ public class AdaptiveLearningReview {
     private String studentEmail;
     private String courseId;
     private String classId;
+    /** CYCLE_10 for a completed 10-question cycle, EARLY_REPEATED_MISTAKES for an early rule-triggered review. */
+    private String triggerType;
+    /** Total student questions asked in this course when this review cycle triggered. */
+    private Integer questionCount;
+    /** Legacy session-based cycle counter, kept for reviews created before question-based cycles. */
     private Integer completedSessionCount;
     private List<String> sessionIds;
     private String status;

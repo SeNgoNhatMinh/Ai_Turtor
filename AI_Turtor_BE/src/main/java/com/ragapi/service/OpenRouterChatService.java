@@ -61,6 +61,10 @@ public class OpenRouterChatService {
     @Value("${llm.generation-deadline-seconds:180}")
     private int generationDeadlineSeconds;
 
+    /** Preferred models for Worker 1 (main answer), in order, before the rest of the chain. */
+    @Value("${ai.worker.worker-1.models:openai/gpt-oss-120b,nvidia/nemotron-3-ultra-550b-a55b:free}")
+    private String worker1ModelNames;
+
     @Value("${ollama.chat.temperature:0.2}")
     private double ollamaTemperature;
 
@@ -166,6 +170,50 @@ public class OpenRouterChatService {
 
     public String generateQualityFallback(String prompt, String studentQuestion) {
         return generate(prompt, studentQuestion, true);
+    }
+
+    /**
+     * Worker 1 (main answer generator): tries the configured Worker 1 models
+     * first (dedicated Groq key with llama-3.3-70b-versatile, then Nemotron
+     * Ultra free, then GPT-OSS 120B) before the rest of the provider chain.
+     */
+    public String generateWorker1Answer(String prompt, String studentQuestion) {
+        String wrapped = VietnameseOutputEnforcer.wrapPrompt(prompt);
+        if (ollamaOnlyActive) {
+            wrapped = VietnameseOutputEnforcer.wrapOllamaCompleteness(wrapped);
+        }
+        try {
+            LlmProviderChain chain = providerChain;
+            if (chain == null) {
+                throw new IllegalStateException("LLM provider chain is not initialized");
+            }
+            String safePrompt = privacySanitizer.sanitize(wrapped);
+            long startedNanos = System.nanoTime();
+            LlmProviderChain.Result result = chain.generatePreferringModels(safePrompt, worker1Models());
+            log.info("LLM generation succeeded: operation=worker-1-answer, provider={}, model={}, elapsedMs={}",
+                    result.provider(), result.model(), elapsedMillis(startedNanos));
+            String answer = TextSanitizer.cleanForStudentAnswer(result.text());
+            answer = enforceVietnameseDiacritics(answer, studentQuestion, result.provider());
+            if (StudentFacingMessages.isUnavailableMessage(answer)) {
+                return answer;
+            }
+            return answer == null || answer.isBlank()
+                    ? StudentFacingMessages.GENERATION_UNAVAILABLE
+                    : answer;
+        } catch (Exception error) {
+            log.error("Worker 1 generation failed after provider chain: {}", summarize(error));
+            return StudentFacingMessages.GENERATION_UNAVAILABLE;
+        }
+    }
+
+    private List<String> worker1Models() {
+        if (worker1ModelNames == null || worker1ModelNames.isBlank()) {
+            return List.of();
+        }
+        return java.util.Arrays.stream(worker1ModelNames.split(","))
+                .map(String::trim)
+                .filter(model -> !model.isEmpty())
+                .toList();
     }
 
     private String generate(String prompt, String studentQuestion, boolean qualityFallback) {

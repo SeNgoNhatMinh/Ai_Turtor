@@ -110,10 +110,46 @@ final class LlmProviderChain {
         return generate(prompt, 1, acceptableAnswer == null ? ignored -> true : acceptableAnswer);
     }
 
+    /**
+     * Tries providers whose model matches the preferred model list first, in
+     * the given order; the remaining providers keep their normal chain order
+     * as a safety net. Used by Worker 1 (main answer generation).
+     */
+    Result generatePreferringModels(String prompt, List<String> preferredModels) throws Exception {
+        List<Provider> ordered = orderedProviders(clock.instant());
+        if (preferredModels == null || preferredModels.isEmpty()) {
+            return generateFromOrder(prompt, ordered, 0, ignored -> true);
+        }
+        List<Provider> attemptOrder = new ArrayList<>();
+        for (String preferred : preferredModels) {
+            if (preferred == null || preferred.isBlank()) {
+                continue;
+            }
+            String wanted = preferred.trim().toLowerCase(Locale.ROOT);
+            ordered.stream()
+                    .filter(provider -> provider.model() != null
+                            && provider.model().trim().toLowerCase(Locale.ROOT).equals(wanted))
+                    .filter(provider -> !attemptOrder.contains(provider))
+                    .forEach(attemptOrder::add);
+        }
+        ordered.stream()
+                .filter(provider -> !attemptOrder.contains(provider))
+                .forEach(attemptOrder::add);
+        return generateFromOrder(prompt, attemptOrder, 0, ignored -> true);
+    }
+
     private Result generate(String prompt, int providersToSkip, Predicate<String> acceptableAnswer) throws Exception {
+        return generateFromOrder(prompt, orderedProviders(clock.instant()), providersToSkip, acceptableAnswer);
+    }
+
+    private Result generateFromOrder(
+            String prompt,
+            List<Provider> attemptOrder,
+            int providersToSkip,
+            Predicate<String> acceptableAnswer
+    ) throws Exception {
         Exception lastFailure = null;
         long generationStartedNanos = System.nanoTime();
-        List<Provider> attemptOrder = orderedProviders(clock.instant());
         if (providersToSkip >= attemptOrder.size()) {
             throw new IllegalStateException("No alternate LLM provider is configured for quality fallback");
         }

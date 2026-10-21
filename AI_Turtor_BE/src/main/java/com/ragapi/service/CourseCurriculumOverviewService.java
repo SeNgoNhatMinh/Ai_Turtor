@@ -20,8 +20,9 @@ import static com.ragapi.util.ValidationUtils.requireMaxLength;
 
 /**
  * Reads the official curriculum from Course.description. Material headings and
- * language models never create syllabus topics; a language model may only
- * translate the school's source text to Vietnamese while preserving structure.
+ * language models never create syllabus topics, and nothing is auto-translated:
+ * students see the syllabus exactly as written, with wording corrections made
+ * through manual admin edits of the curriculum guide.
  */
 @Service
 @RequiredArgsConstructor
@@ -33,16 +34,8 @@ public class CourseCurriculumOverviewService {
             "^\\s*(?:[-*\u2022\u25aa\u25e6]+|\\d+(?:\\.\\d+)*[.)-]?)\\s*"
     );
     private static final Pattern TOPIC_SEPARATOR = Pattern.compile("\\s*(?::|\uff1a|\\||\\s[\u2013\u2014-]\\s)\\s*");
-    private static final Pattern VIETNAMESE_DIACRITICS = Pattern.compile(
-            "[\u00e0\u00e1\u1ea3\u00e3\u1ea1\u0103\u1eb1\u1eaf\u1eb3\u1eb5\u1eb7\u00e2\u1ea7\u1ea5\u1ea9\u1eab\u1ead"
-                    + "\u00e8\u00e9\u1ebb\u1ebd\u1eb9\u00ea\u1ec1\u1ebf\u1ec3\u1ec5\u1ec7\u00ec\u00ed\u1ec9\u0129\u1ecb"
-                    + "\u00f2\u00f3\u1ecf\u00f5\u1ecd\u00f4\u1ed3\u1ed1\u1ed5\u1ed7\u1ed9\u01a1\u1edd\u1edb\u1edf\u1ee1\u1ee3"
-                    + "\u00f9\u00fa\u1ee7\u0169\u1ee5\u01b0\u1eeb\u1ee9\u1eed\u1eef\u1ef1\u1ef3\u00fd\u1ef7\u1ef9\u1ef5\u0111]",
-            Pattern.CASE_INSENSITIVE
-    );
-
     private final CourseRepository courseRepository;
-    private final OpenRouterChatService chatService;
+    private final CourseLearningGuideService learningGuideService;
 
     public CourseCurriculumOverview forCourse(String courseId) {
         if (courseId == null || courseId.isBlank()) {
@@ -53,6 +46,13 @@ public class CourseCurriculumOverviewService {
         if (course == null) {
             return CourseCurriculumOverview.empty(safeCourseId);
         }
+        // Stored, approved learning guide first — reading a course never calls an LLM.
+        if (learningGuideService != null) {
+            var approved = learningGuideService.approvedOverview(course);
+            if (approved.isPresent()) {
+                return approved.get();
+            }
+        }
         return parseSyllabus(
                 safeCourseId,
                 course.getCourseName(),
@@ -60,9 +60,10 @@ public class CourseCurriculumOverviewService {
         );
     }
 
-    /** Syllabus-only block (objectives + units). Kept for callers that need just this section. */
+    /** Syllabus-only block (objectives + topics). Kept for callers that need just this section. */
     public String studentSyllabusMarkdown(CourseCurriculumOverview overview) {
         if (overview == null || (!overview.hasUnits() && !overview.hasObjectives()
+                && !overview.hasSkillObjectives()
                 && (overview.summary() == null || overview.summary().isBlank()))) {
             return missingSyllabusMarkdown();
         }
@@ -71,7 +72,7 @@ public class CourseCurriculumOverviewService {
         appendUnits(markdown, overview);
         if (markdown.isEmpty()
                 && overview.summary() != null && !overview.summary().isBlank()) {
-            markdown.append("### Nội dung chính trong chương trình học\n\n")
+            markdown.append("### Các chủ đề trọng tâm\n\n")
                     .append(overview.summary());
         }
         return markdown.toString().trim();
@@ -79,38 +80,121 @@ public class CourseCurriculumOverviewService {
 
     /**
      * The single welcome template for every course, used by both a brand-new
-     * chat and a tutor session. Content is generated only from the official
-     * syllabus: name, intro, objectives and units that are actually present.
-     * Sections without syllabus data are omitted, except the syllabus section
-     * itself which states explicitly that no information is available.
-     * Prompt suggestions are rendered once by the client from
-     * {@link #promptSuggestions(CourseCurriculumOverview)} topics, so they are
-     * not repeated here as a keyword list.
+     * chat and a tutor session. It is filled only from the stored learning
+     * guide extracted once from the official syllabus (deterministic parse as
+     * fallback): sections without data are omitted and numbering adapts, so
+     * nothing is invented. Study suggestions reference short topic titles
+     * only, never long objective sentences.
      */
-    public String welcomeMarkdown(CourseCurriculumOverview overview, String currentTopic) {
+    public String welcomeMarkdown(CourseCurriculumOverview overview) {
         CourseCurriculumOverview safe = overview == null
                 ? CourseCurriculumOverview.empty("")
                 : overview;
-        StringBuilder opening = new StringBuilder("## Chào mừng bạn đến với môn ");
-        opening.append(safe.courseId().isBlank() ? "học" : safe.courseId());
-        if (!safe.courseName().isBlank()) {
-            opening.append(" (").append(safe.courseName()).append(")");
+        String label = courseLabel(safe);
+        boolean hasSyllabus = safe.hasUnits() || safe.hasObjectives() || safe.hasSkillObjectives()
+                || !safe.summary().isBlank();
+        StringBuilder opening = new StringBuilder("# Chào mừng bạn đến với môn ")
+                .append(label)
+                .append("\n\n");
+        if (hasSyllabus) {
+            opening.append("Đây là chương trình học của môn **").append(label)
+                    .append("**, được xây dựng dựa trên syllabus và tài liệu học tập do nhà trường cung cấp.\n\n");
+        } else {
+            opening.append("Chưa có thông tin syllabus chính thức cho môn **").append(label)
+                    .append("** trên hệ thống.\n\n");
         }
-        opening.append("\n\n");
-        if (!safe.summary().isBlank() && !duplicatesAny(safe.summary(), safe)) {
-            opening.append(safe.summary()).append("\n\n");
+        int section = 1;
+        boolean hasOverview = (!safe.summary().isBlank() && !duplicatesAny(safe.summary(), safe))
+                || safe.hasObjectives() || safe.hasSkillObjectives();
+        if (hasOverview) {
+            opening.append("## ").append(section++).append(". Tổng quan môn học\n\n");
+            if (!safe.summary().isBlank() && !duplicatesAny(safe.summary(), safe)) {
+                opening.append(safe.summary()).append("\n\n");
+            }
+            if (safe.hasObjectives()) {
+                opening.append("### Mục tiêu kiến thức\n\n")
+                        .append("Sau khi hoàn thành môn học, sinh viên có thể:\n\n");
+                safe.objectives().forEach(objective -> opening.append("- ").append(objective).append('\n'));
+                opening.append('\n');
+            }
+            if (safe.hasSkillObjectives()) {
+                opening.append("### Mục tiêu kỹ năng\n\n");
+                safe.skillObjectives().forEach(objective -> opening.append("- ").append(objective).append('\n'));
+                opening.append('\n');
+            }
         }
-        if (currentTopic != null && !currentTopic.isBlank()) {
-            opening.append("Hôm nay chúng ta bắt đầu với **")
-                    .append(currentTopic.trim()).append("**.\n\n");
+
+        opening.append("## ").append(section++).append(". Các chủ đề trọng tâm\n\n");
+        if (safe.hasUnits()) {
+            safe.units().forEach(unit -> {
+                opening.append("- **").append(unit.title()).append("**");
+                if (unit.detail() != null && !unit.detail().isBlank()) {
+                    opening.append(": ").append(unit.detail());
+                }
+                opening.append('\n');
+            });
+            opening.append('\n');
+        } else {
+            opening.append("Chưa có thông tin về các chủ đề trọng tâm trong syllabus của môn này.\n\n");
         }
-        opening.append(studentSyllabusMarkdown(safe));
+
+        if (safe.hasKeywords()) {
+            opening.append("## ").append(section++).append(". Từ khóa\n\n");
+            safe.keywords().stream()
+                    .filter(keyword -> keyword != null && !keyword.isBlank())
+                    .limit(12)
+                    .forEach(keyword -> opening.append('`').append(keyword.trim()).append("` "));
+            opening.append("\n\n");
+        }
+
+        opening.append("## ").append(section).append(". Gợi ý học tập\n\n")
+                .append("Bạn có thể bắt đầu bằng cách hỏi AI Tutor:\n\n");
+        appendStudySuggestions(opening, safe);
+        opening.append("\n**Mẹo:** Hãy chọn một chủ đề cụ thể để AI Tutor tìm kiếm tài liệu liên quan và hỗ trợ bạn học tập theo nội dung của môn học.");
         return opening.toString().trim();
+    }
+
+    private static String courseLabel(CourseCurriculumOverview overview) {
+        String id = overview.courseId() == null ? "" : overview.courseId().trim();
+        String name = overview.courseName() == null ? "" : overview.courseName().trim();
+        if (!id.isBlank() && !name.isBlank()) {
+            return id + " – " + name;
+        }
+        if (!id.isBlank()) {
+            return id;
+        }
+        return name.isBlank() ? "học" : name;
+    }
+
+    /**
+     * Study prompts built from short topic titles only. Long sentence-like
+     * titles (for example objective statements misparsed as topics) are
+     * skipped so suggestions never read as full paragraphs.
+     */
+    private void appendStudySuggestions(StringBuilder opening, CourseCurriculumOverview overview) {
+        List<String> topics = overview.unitTitles().stream()
+                .filter(title -> title != null && title.length() <= 80)
+                .limit(4)
+                .toList();
+        if (topics.isEmpty()) {
+            opening.append("- Cho tôi biết môn học này gồm những nội dung nào theo syllabus chính thức.\n");
+            opening.append("- Tôi muốn tìm hiểu về một chủ đề trong môn học này.\n");
+            opening.append("- Kiểm tra kiến thức của tôi về môn học này.\n");
+            return;
+        }
+        String first = topics.get(0);
+        String second = topics.size() > 1 ? topics.get(1) : first;
+        String third = topics.size() > 2 ? topics.get(2) : first;
+        opening.append("- Tôi muốn tìm hiểu về ").append(first).append(".\n");
+        opening.append("- Giải thích ").append(second).append(" bằng ví dụ đơn giản.\n");
+        opening.append("- Hướng dẫn tôi thực hành ").append(third).append(".\n");
+        opening.append("- Cho tôi bài tập luyện tập về ").append(first).append(".\n");
+        opening.append("- Kiểm tra kiến thức của tôi về ").append(second).append(".\n");
     }
 
     /** Welcome for a brand-new student chat, through the shared template. */
     public String newChatWelcomeMarkdown(String courseId) {
-        return welcomeMarkdown(forCourse(courseId), null);
+        return welcomeMarkdown(forCourse(courseId));
     }
 
     /**
@@ -153,22 +237,27 @@ public class CourseCurriculumOverviewService {
     }
 
     private String missingSyllabusMarkdown() {
-        return "### Nội dung chính trong chương trình học\n\n"
+        return "### Các chủ đề trọng tâm\n\n"
                 + "Chưa có thông tin syllabus chính thức cho môn này trên hệ thống. "
                 + "Bạn vẫn có thể đặt câu hỏi; AI Tutor sẽ trả lời dựa trên tài liệu môn học đã được cung cấp.";
     }
 
     private void appendObjectives(StringBuilder markdown, CourseCurriculumOverview overview) {
-        if (!overview.hasObjectives()) {
-            return;
+        if (overview.hasObjectives()) {
+            markdown.append("### Mục tiêu kiến thức\n\n")
+                    .append("Sau khi hoàn thành môn học, sinh viên có thể:\n\n");
+            overview.objectives().forEach(objective -> markdown.append("- ").append(objective).append('\n'));
+            markdown.append('\n');
         }
-        markdown.append("### Mục tiêu học tập\n\n");
-        overview.objectives().forEach(objective -> markdown.append("- ").append(objective).append('\n'));
-        markdown.append('\n');
+        if (overview.hasSkillObjectives()) {
+            markdown.append("### Mục tiêu kỹ năng\n\n");
+            overview.skillObjectives().forEach(objective -> markdown.append("- ").append(objective).append('\n'));
+            markdown.append('\n');
+        }
     }
 
     private void appendUnits(StringBuilder markdown, CourseCurriculumOverview overview) {
-        markdown.append("### Nội dung chính trong chương trình học\n\n");
+        markdown.append("### Các chủ đề trọng tâm\n\n");
         if (!overview.hasUnits()) {
             markdown.append("Chưa có thông tin syllabus chính thức cho môn này trên hệ thống. ")
                     .append("Bạn vẫn có thể đặt câu hỏi; AI Tutor sẽ trả lời dựa trên tài liệu môn học đã được cung cấp.");
@@ -188,7 +277,8 @@ public class CourseCurriculumOverviewService {
         if (key.isBlank()) {
             return true;
         }
-        if (overview.objectives().stream().anyMatch(item -> normalizeKey(item).equals(key))) {
+        if (overview.objectives().stream().anyMatch(item -> normalizeKey(item).equals(key))
+                || overview.skillObjectives().stream().anyMatch(item -> normalizeKey(item).equals(key))) {
             return true;
         }
         return overview.units().stream().anyMatch(unit ->
@@ -211,10 +301,27 @@ public class CourseCurriculumOverviewService {
         Course course = courseRepository.findByCourseId(safeCourseId)
                 .orElseThrow(() -> new IllegalArgumentException("Course " + safeCourseId + " does not exist"));
         course.setDescription(safeSyllabus);
-        String translated = translateToVietnamese(safeSyllabus);
-        course.setSyllabusVietnamese(shouldCacheTranslation(safeSyllabus, translated) ? translated : null);
+        // No automatic translation anymore: the syllabus text an admin saves
+        // is exactly what students see (legacy auto-translations are cleared).
+        course.setSyllabusVietnamese(null);
         course.setUpdatedAt(LocalDateTime.now());
         courseRepository.save(course);
+        // Every syllabus save (course edit form or any material upload) extracts
+        // the structured learning guide once for this syllabus version.
+        refreshLearningGuide(course);
+    }
+
+    /** One-time LLM extraction hook; a failure never breaks the syllabus save. */
+    public void refreshLearningGuide(Course course) {
+        if (learningGuideService == null || course == null) {
+            return;
+        }
+        try {
+            learningGuideService.refreshGuide(course, false);
+        } catch (Exception error) {
+            log.warn("Learning guide refresh failed for {}: {}",
+                    course.getCourseId(), error.getMessage());
+        }
     }
 
     public String validateOfficialSyllabus(String syllabusDescription) {
@@ -230,80 +337,12 @@ public class CourseCurriculumOverviewService {
     }
 
     private String displaySyllabus(Course course) {
-        String source = course.getDescription();
-        if (source == null || source.isBlank()) {
+        // No automatic translation: students see the syllabus exactly as the
+        // admin wrote it; curriculum wording is fixed by manual admin edits.
+        if (course == null || course.getDescription() == null) {
             return "";
         }
-        if (course.getSyllabusVietnamese() != null && !course.getSyllabusVietnamese().isBlank()) {
-            return course.getSyllabusVietnamese();
-        }
-        String translated = translateToVietnamese(source);
-        if (shouldCacheTranslation(source, translated)) {
-            course.setSyllabusVietnamese(translated);
-            course.setUpdatedAt(LocalDateTime.now());
-            courseRepository.save(course);
-        }
-        return translated;
-    }
-
-    private String translateToVietnamese(String source) {
-        if (source == null || source.isBlank() || looksVietnamese(source)) {
-            return source == null ? "" : source.trim();
-        }
-        String prompt = """
-                Dịch syllabus chính thức sau sang tiếng Việt.
-                Yêu cầu bắt buộc:
-                - Chỉ dịch ngôn ngữ; không thêm, bớt, gộp, suy luận hay giải thích nội dung.
-                - Giữ nguyên thứ tự và số dòng nội dung.
-                - Giữ nguyên dấu đầu dòng, số thứ tự và mọi dấu phân cách nếu có.
-                - Giữ nguyên tên công nghệ, từ viết tắt và mã như Java, JSP, Servlet, MVC, JPA, AI.
-                - Chỉ trả về bản dịch, không dùng khung mã Markdown.
-
-                Syllabus:
-                %s
-                """.formatted(source.trim());
-        try {
-            String translated = stripCodeFence(chatService.generateUtility(prompt));
-            if (translated.isBlank() || !looksVietnamese(translated)) {
-                return source.trim();
-            }
-            int sourceUnits = parseSyllabus("", "", source).units().size();
-            int translatedUnits = parseSyllabus("", "", translated).units().size();
-            if (sourceUnits > 0 && translatedUnits != sourceUnits) {
-                log.warn("Rejected syllabus translation because unit count changed: {} -> {}", sourceUnits, translatedUnits);
-                return source.trim();
-            }
-            return translated;
-        } catch (Exception error) {
-            log.warn("Could not translate official syllabus to Vietnamese: {}", error.getMessage());
-            return source.trim();
-        }
-    }
-
-    private boolean shouldCacheTranslation(String source, String translated) {
-        return translated != null
-                && !translated.isBlank()
-                && (looksVietnamese(source) || !translated.trim().equals(source.trim()));
-    }
-
-    private boolean looksVietnamese(String value) {
-        return value != null && VIETNAMESE_DIACRITICS.matcher(value).find();
-    }
-
-    private String stripCodeFence(String value) {
-        if (value == null) {
-            return "";
-        }
-        String trimmed = value.trim();
-        if (!trimmed.startsWith("```")) {
-            return trimmed;
-        }
-        int firstLineEnd = trimmed.indexOf('\n');
-        int lastFence = trimmed.lastIndexOf("```");
-        if (firstLineEnd >= 0 && lastFence > firstLineEnd) {
-            return trimmed.substring(firstLineEnd + 1, lastFence).trim();
-        }
-        return trimmed.replace("```", "").trim();
+        return course.getDescription();
     }
 
     static CourseCurriculumOverview parseSyllabus(
@@ -320,6 +359,8 @@ public class CourseCurriculumOverviewService {
         List<String> summaryLines = new ArrayList<>();
         List<CourseCurriculumOverview.Unit> units = new ArrayList<>();
         List<String> objectives = new ArrayList<>();
+        List<String> skillObjectives = new ArrayList<>();
+        boolean skillMode = false;
         Section section = Section.INTRO;
         for (String rawLine : syllabusDescription.split("\\R")) {
             String line = rawLine == null ? "" : rawLine.trim();
@@ -334,9 +375,18 @@ public class CourseCurriculumOverviewService {
             }
 
             // Headings only switch sections; they never become invented content.
+            // Inside the objectives section, an ordinary line that merely ends
+            // with ":" (e.g. "Hiểu các công nghệ cốt lõi của lập trình web
+            // Java:") is an objective, not a new miscellaneous section.
             Section heading = sectionHeading(contentLine, line);
+            if (heading == Section.OTHER && section == Section.OBJECTIVES) {
+                heading = null;
+            }
             if (heading != null) {
                 section = heading;
+                if (heading == Section.OBJECTIVES) {
+                    skillMode = isSkillHeading(contentLine);
+                }
                 String inline = inlineHeadingContent(contentLine);
                 if (inline.isBlank()) {
                     continue;
@@ -349,9 +399,27 @@ public class CourseCurriculumOverviewService {
             }
 
             if (section == Section.OBJECTIVES) {
+                // Sub-headings split knowledge objectives from skill objectives.
+                if (isHeadingShape(contentLine, line) && isSkillHeading(contentLine)) {
+                    skillMode = true;
+                    String inline = inlineHeadingContent(contentLine);
+                    if (!inline.isBlank() && skillObjectives.size() < MAX_UNITS) {
+                        skillObjectives.add(cleanMarkdown(inline));
+                    }
+                    continue;
+                }
+                if (isHeadingShape(contentLine, line) && isKnowledgeHeading(contentLine)) {
+                    skillMode = false;
+                    String inline = inlineHeadingContent(contentLine);
+                    if (!inline.isBlank() && objectives.size() < MAX_UNITS) {
+                        objectives.add(cleanMarkdown(inline));
+                    }
+                    continue;
+                }
                 String objective = cleanMarkdown(contentLine);
-                if (!objective.isBlank() && objectives.size() < MAX_UNITS) {
-                    objectives.add(objective);
+                List<String> target = skillMode ? skillObjectives : objectives;
+                if (!objective.isBlank() && target.size() < MAX_UNITS) {
+                    target.add(objective);
                 }
                 continue;
             }
@@ -388,11 +456,13 @@ public class CourseCurriculumOverviewService {
             }
         }
 
-        // No fabricated summary: without intro lines from the school, summary stays empty.
-        String summary = summaryLines.stream()
+        // No fabricated summary: without intro lines from the school, summary
+        // stays empty. The syllabus only contributes a 1–2 line summary; the
+        // curriculum itself is the chapter/topic list below.
+        String summary = limitSummary(summaryLines.stream()
                 .filter(value -> value != null && !value.isBlank())
                 .reduce((left, right) -> left + " " + right)
-                .orElse("");
+                .orElse(""));
         // Objectives that merely repeat a unit are shown once, as that unit.
         java.util.Set<String> unitKeys = new java.util.HashSet<>();
         units.forEach(unit -> {
@@ -403,7 +473,64 @@ public class CourseCurriculumOverviewService {
                 .filter(objective -> !unitKeys.contains(normalizeKey(objective)))
                 .distinct()
                 .toList();
-        return new CourseCurriculumOverview(safeCourseId, safeCourseName, summary, units, dedupedObjectives);
+        java.util.Set<String> knowledgeKeys = new java.util.HashSet<>();
+        dedupedObjectives.forEach(objective -> knowledgeKeys.add(normalizeKey(objective)));
+        List<String> dedupedSkills = skillObjectives.stream()
+                .filter(objective -> !unitKeys.contains(normalizeKey(objective)))
+                .filter(objective -> !knowledgeKeys.contains(normalizeKey(objective)))
+                .distinct()
+                .toList();
+        // Keywords are the chapter/topic titles themselves: every keyword is
+        // guaranteed to appear in the school document because it is copied
+        // from its topic list, never invented separately.
+        List<String> keywords = units.stream()
+                .map(CourseCurriculumOverview.Unit::title)
+                .filter(title -> title != null && !title.isBlank())
+                .distinct()
+                .limit(MAX_UNITS)
+                .toList();
+        return new CourseCurriculumOverview(
+                safeCourseId, safeCourseName, summary, units, dedupedObjectives, dedupedSkills, keywords);
+    }
+
+    /**
+     * Keeps at most the first two sentences (the syllabus contributes only a
+     * 1–2 line summary to the curriculum overview), capped in length.
+     */
+    public static String limitSummary(String value) {
+        if (value == null || value.isBlank()) {
+            return "";
+        }
+        String text = value.replaceAll("\\s+", " ").trim();
+        String[] sentences = text.split("(?<=[.!?])\\s+");
+        StringBuilder limited = new StringBuilder();
+        for (int index = 0; index < Math.min(2, sentences.length); index++) {
+            if (!limited.isEmpty()) {
+                limited.append(' ');
+            }
+            limited.append(sentences[index].trim());
+        }
+        String result = limited.toString().trim();
+        if (result.length() > 320) {
+            result = result.substring(0, 320).trim();
+        }
+        return result;
+    }
+
+    private static boolean isSkillHeading(String value) {
+        String lower = value == null ? "" : value.toLowerCase(Locale.ROOT);
+        return lower.contains("kỹ năng") || lower.contains("kĩ năng")
+                || lower.contains("skill") || lower.contains("thực hành");
+    }
+
+    private static boolean isKnowledgeHeading(String value) {
+        String lower = value == null ? "" : value.toLowerCase(Locale.ROOT);
+        return lower.contains("kiến thức") || lower.contains("knowledge");
+    }
+
+    private static boolean isHeadingShape(String contentLine, String rawLine) {
+        String cleaned = cleanMarkdown(contentLine);
+        return rawLine.trim().startsWith("#") || cleaned.endsWith(":") || cleaned.length() <= 60;
     }
 
     private enum Section { INTRO, OBJECTIVES, CONTENT, OTHER }
@@ -411,6 +538,20 @@ public class CourseCurriculumOverviewService {
     private static Section sectionHeading(String contentLine, String rawLine) {
         String cleaned = cleanMarkdown(contentLine);
         String lower = cleaned.toLowerCase(Locale.ROOT);
+        // Objective labels also appear as "a) Knowledge: (…)" / "b) Skills: (…)"
+        // or an intro such as "By the end of this course Students will be able
+        // to:". Short label-like lines switch to the objectives section even
+        // though they do not start with "Mục tiêu".
+        boolean objectivesLabel = lower.contains("mục tiêu") || lower.contains("learning objective")
+                || lower.contains("learning outcome") || lower.contains("course objective")
+                || lower.contains("chuẩn đầu ra") || lower.contains("kết quả học tập")
+                || lower.contains("kỹ năng đạt được")
+                || lower.contains("students will be able") || lower.contains("sinh viên sẽ")
+                || isSkillHeading(cleaned) || isKnowledgeHeading(cleaned);
+        if (objectivesLabel && cleaned.length() <= 70
+                && (cleaned.contains(":") || cleaned.contains("：") || rawLine.trim().startsWith("#"))) {
+            return Section.OBJECTIVES;
+        }
         boolean headingShape = rawLine.trim().startsWith("#")
                 || cleaned.endsWith(":")
                 || lower.matches("^(mục tiêu|learning objectives?|learning outcomes?|course objectives?|chuẩn đầu ra|kết quả học tập|nội dung|topics?|curriculum|course content|chủ đề|lộ trình|roadmap|đánh giá|assessment|tài liệu.*|references?)(\\s|:|$).*")
@@ -421,7 +562,9 @@ public class CourseCurriculumOverviewService {
         if (lower.contains("mục tiêu") || lower.contains("learning objective")
                 || lower.contains("learning outcome") || lower.contains("course objective")
                 || lower.contains("chuẩn đầu ra") || lower.contains("kết quả học tập")
-                || lower.contains("kỹ năng đạt được")) {
+                || lower.contains("kỹ năng đạt được")
+                || lower.startsWith("kỹ năng") || lower.startsWith("kĩ năng") || lower.startsWith("skill")
+                || isKnowledgeHeading(cleaned)) {
             return Section.OBJECTIVES;
         }
         if (isSyllabusHeading(cleaned) || lower.contains("nội dung")
@@ -442,7 +585,9 @@ public class CourseCurriculumOverviewService {
         Matcher separatorMatcher = TOPIC_SEPARATOR.matcher(cleaned);
         if (separatorMatcher.find() && separatorMatcher.start() > 0
                 && !cleaned.endsWith(":")) {
-            return cleaned.substring(separatorMatcher.end()).trim();
+            String inline = cleaned.substring(separatorMatcher.end()).trim();
+            // "(what will students know?)" is a label clarification, not content.
+            return inline.startsWith("(") ? "" : inline;
         }
         return "";
     }

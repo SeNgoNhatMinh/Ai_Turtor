@@ -39,7 +39,6 @@ function ChatWorkspace({
   onSendQuery,
   onResendMessage,
   onStopQuery,
-  onPromptStarter,
   onLockUnderstandingAnswer,
   onAnswerAction,
   isAiLoading = false,
@@ -193,13 +192,6 @@ function ChatWorkspace({
   const ownLlmReady = ownLlmVersion >= 0 && Boolean(readStudentOwnLlm(userId));
   const platformLocked = dailyQuotaExhausted && !ownLlmReady;
   const isNearTurnLimit = questionCount >= 8 && !dailyQuotaExhausted;
-  // Syllabus-derived starter topics, shown once via PromptStarters in the
-  // empty state. They are not repeated as a keyword strip under the composer.
-  const promptTopics = useMemo(() => (
-    (Array.isArray(tutorSession?.suggestedTopics) ? tutorSession.suggestedTopics : [])
-      .map((topic) => String(topic || '').trim())
-      .filter(Boolean)
-  ), [tutorSession]);
   return (
     <div className={`chat-workspace-dark${dailyQuotaExhausted ? ' chat-workspace-dark--own-llm' : ''}`} style={style}>
       <ChatWorkspaceHeader
@@ -242,8 +234,6 @@ function ChatWorkspace({
         onDownloadSource={onDownloadSource}
         onOpenMentorReview={onOpenMentorReview}
         onMentorRequestCreated={onMentorRequestCreated}
-        onPromptStarter={onPromptStarter}
-        promptTopics={promptTopics}
         onLockUnderstandingAnswer={onLockUnderstandingAnswer}
         onResendMessage={onResendMessage}
         onStudySuggestion={onStudySuggestion}

@@ -195,6 +195,16 @@ public class PromptGuardService {
                 return Verdict.UNKNOWN;
             }
             String label = content.asText().trim().toLowerCase(java.util.Locale.ROOT);
+            // Groq-hosted Prompt Guard 2 returns a malicious-probability score
+            // (benign ~0.0, jailbreak ~1.0) instead of a text label.
+            try {
+                double maliciousScore = Double.parseDouble(label);
+                if (maliciousScore >= 0.0 && maliciousScore <= 1.0) {
+                    return maliciousScore >= 0.5 ? Verdict.ATTACK : Verdict.SAFE;
+                }
+            } catch (NumberFormatException ignored) {
+                // Fall through to text-label parsing.
+            }
             if (label.matches("(?s)^(malicious|unsafe|attack)(\\b|\\s|[.:]).*")) {
                 return Verdict.ATTACK;
             }

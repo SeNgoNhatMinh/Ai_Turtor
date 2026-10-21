@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Drawer } from "antd";
+import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Button, Card, Drawer, Empty, Input, Select, Spin, Tag } from "antd";
+import { ArrowRight, BookOpenCheck, GraduationCap, MessageSquareText, Search, Send, TriangleAlert, Users } from "lucide-react";
 import { queryKeys } from "../../../app/queryKeys";
 import PageHeader from "../../../components/common/PageHeader";
 import { getUserFacingError } from "../../../services/apiClient";
@@ -130,6 +131,26 @@ export default function TeacherTutoringPage({ teacherId, setCourseId, setClassId
   });
   const studentRows = tutoringQuery.data?.students || EMPTY_LIST;
   const directives = tutoringQuery.data?.directives || EMPTY_LIST;
+
+  // "Tất cả lớp" overview: load every assigned class so the teacher sees all
+  // of their classes together with all of their students without drilling in.
+  const overviewQueries = useQueries({
+    queries: classScopes.map((scope) => ({
+      queryKey: queryKeys.teacherTutoringBundle(teacherId, [scope.key, 0, ""]),
+      queryFn: async ({ signal }) => loadClassBundle(teacherId, scope, signal, 0, 100, ""),
+      enabled: Boolean(teacherId && !activeScope),
+      staleTime: 30_000,
+    })),
+  });
+  const overviewBundles = classScopes.map((scope, index) => ({
+    scope,
+    query: overviewQueries[index],
+    students: overviewQueries[index]?.data?.students || EMPTY_LIST,
+    total: overviewQueries[index]?.data?.rosterMeta?.totalElements ?? 0,
+  }));
+  const overviewTotalStudents = overviewBundles.reduce((sum, item) => sum + item.total, 0);
+  const overviewLoading = Boolean(teacherId && !activeScope
+    && overviewQueries.some((query) => query?.isPending || query?.isFetching));
   const loading =
     Boolean(teacherId) &&
     (classesQuery.isPending ||
@@ -283,6 +304,54 @@ export default function TeacherTutoringPage({ teacherId, setCourseId, setClassId
     }
   };
 
+
+  const renderStudentRow = (student) => {
+    const chatCount = student.sessions.length + student.summaries.length;
+    return (
+      <article key={`${student.classKey}-${student.studentId || student.id}`} className="tt-student">
+        <div className="tt-student__main">
+          <span className="tt-avatar">{studentInitials(student)}</span>
+          <div className="tt-student__copy">
+            <div className="tt-student__name-row">
+              <strong>{formatTeacherStudentLabel(student)}</strong>
+              {student.hasActivity
+                ? <Tag color="success">Đã học với AI</Tag>
+                : <Tag>Chưa học</Tag>}
+            </div>
+            <span className="tt-student__email">{getPersonEmail(student) || "Chưa có email"}</span>
+            <span className="tt-student__activity">{student.activityLabel}</span>
+            {(student.studiedTopics?.length > 0 || student.weakTopics?.length > 0) && (
+              <div className="tt-student__topics">
+                {student.studiedTopics?.slice(0, 4).map((topic) => (
+                  <span key={`ok-${topic}`} className="tt-chip">{topic}</span>
+                ))}
+                {student.studiedTopics?.length > 4 && (
+                  <span className="tt-chip tt-chip--more">+{student.studiedTopics.length - 4}</span>
+                )}
+                {student.weakTopics?.slice(0, 3).map((topic) => (
+                  <span key={`weak-${topic}`} className="tt-chip tt-chip--weak">{topic}</span>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="tt-student__actions">
+          <Button
+            type="primary"
+            size="small"
+            icon={<MessageSquareText size={13} />}
+            onClick={() => openStudent(student)}
+          >
+            Xem {chatCount} đoạn chat
+          </Button>
+          <Button size="small" icon={<Send size={13} />} onClick={() => applyDirectiveToStudent(student)}>
+            Gửi chỉ dẫn
+          </Button>
+        </div>
+      </article>
+    );
+  };
+
   const selectedStudentLabel = formatTeacherStudentLabel(selectedStudent || selectedSummary, "sinh viên");
 
   return (
@@ -299,7 +368,7 @@ export default function TeacherTutoringPage({ teacherId, setCourseId, setClassId
             </div>
             <div>
               <strong>
-                {activeScope ? (tutoringQuery.data?.rosterMeta?.totalElements ?? scopedRows.length) : "—"}
+                {activeScope ? (tutoringQuery.data?.rosterMeta?.totalElements ?? scopedRows.length) : (overviewTotalStudents || "—")}
               </strong>
               <span>Sinh viên</span>
             </div>
@@ -315,225 +384,254 @@ export default function TeacherTutoringPage({ teacherId, setCourseId, setClassId
         }
       />
 
-      <div className="teacher-tutoring-grid">
-        <section className="teacher-tutoring-card">
-          <h2>Chỉ dẫn đang áp dụng</h2>
-          <form className="teacher-directive-form" onSubmit={createDirective}>
-            {classScopes.length > 0 && (
-              <label className="teacher-directive-field">
-                <span>Lớp áp dụng</span>
-                <select
-                  value={form.classKey || effectiveActiveClassKey}
-                  onChange={(event) =>
-                    setForm((value) => ({
-                      ...value,
-                      classKey: event.target.value,
-                      studentId: "",
-                    }))
-                  }
-                >
-                  {classScopes.length > 1 && <option value="">Chọn lớp</option>}
-                  {classScopes.map((scope) => (
-                    <option key={scope.key} value={scope.key}>
-                      {scope.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            )}
-            <label className="teacher-directive-field">
-              <span>Sinh viên</span>
-              <select
-                value={form.studentId}
-                onChange={(event) => setForm((value) => ({ ...value, studentId: event.target.value }))}
-              >
-                <option value="">Cả lớp</option>
-                {formStudents.map((student) => (
-                  <option
-                    key={`${student.classKey}-${student.studentId || student.id}`}
-                    value={student.studentId || student.id}
-                  >
-                    {classScopes.length > 1
-                      ? `${student.classId} · ${formatTeacherStudentLabel(student)}`
-                      : formatTeacherStudentLabel(student)}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="teacher-directive-field">
-              <span>Mức hỗ trợ</span>
-              <select
-                value={form.supportLevel}
-                onChange={(event) => setForm((value) => ({ ...value, supportLevel: event.target.value }))}
-              >
-                <option value="HIGH_SUPPORT">Hướng dẫn kỹ, từng bước</option>
-                <option value="STANDARD">Cân bằng giải thích và thực hành</option>
-                <option value="CHALLENGE">Tăng thử thách, giảm gợi ý</option>
-              </select>
-            </label>
-            <label className="teacher-directive-field">
-              <span>Nhận xét / chỉ dẫn cho toàn môn</span>
-              <p className="teacher-directive-field__description">
-                Định hướng chung để AI điều chỉnh cách giải thích, ví dụ, độ khó và cách kiểm tra mức độ hiểu;
-                ưu tiên syllabus và tài liệu chính thức của môn học.
-              </p>
-              <textarea
-                value={form.instruction}
-                onChange={(event) => setForm((value) => ({ ...value, instruction: event.target.value }))}
-                placeholder="Ví dụ: Giải thích từng bước, dùng ví dụ gần thực tế, nhắc lại thuật ngữ quan trọng và kiểm tra mức độ hiểu sau mỗi phần."
-                rows={4}
-                required
-              />
-            </label>
-            <button type="submit" className="teacher-tutoring-btn" disabled={saving}>
-              {saving ? "Đang lưu..." : "Xác nhận và áp dụng"}
-            </button>
-          </form>
-          <div className="teacher-directive-list">
-            {visibleDirectives.map((item) => (
-              <article key={item.id} className="teacher-directive-item">
-                <strong>
-                  {item.classLabel ? `${item.classLabel} · ` : ""}
-                  {item.studentId ? formatTeacherStudentLabel(item, "Sinh viên") : "Cả lớp"}
-                  {" · "}
-                  {supportLevelLabel(item.supportLevel)}
-                </strong>
-                <p>{item.instruction}</p>
-                <button
-                  type="button"
-                  className="teacher-tutoring-btn teacher-tutoring-btn--danger"
-                  onClick={() => archiveDirective(item.id)}
-                >
-                  Ngừng áp dụng
-                </button>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <section
-          className={`teacher-tutoring-card teacher-session-feed${activeScope ? " is-roster-view" : " is-class-view"}`}
-        >
-          <div className="teacher-session-feed__header">
-            <div className="teacher-roster-heading">
-              {activeScope && (
-                <button type="button" className="teacher-tutoring-btn is-secondary" onClick={() => selectClass("")}>
-                  ← Tất cả lớp
-                </button>
-              )}
-              <h2>{activeScope ? "Danh sách sinh viên" : "Các lớp đang phụ trách"}</h2>
-            </div>
-            <p className="teacher-session-feed__hint">
-              {activeScope
-                ? `${tutoringQuery.data?.rosterMeta?.totalElements ?? scopedRows.length} sinh viên trong lớp · Chọn sinh viên để xem các đoạn chat.`
-                : `${classScopes.length} lớp của bạn · Chọn lớp để xem sinh viên và lịch sử trò chuyện.`}
-            </p>
-            {!activeScope && classScopes.length > 0 && (
-              <div className="teacher-tutoring-class-cards">
-                {classScopes.map((scope) => (
-                  <button
-                    type="button"
-                    key={scope.key}
-                    className="teacher-tutoring-class-card"
-                    onClick={() => selectClass(scope.key)}
-                  >
-                    <span className="teacher-tutoring-class-card__course">{scope.courseId}</span>
-                    <strong>{scope.className || scope.classId}</strong>
-                    {scope.className && ![scope.classId, `Lớp ${scope.classId}`].includes(scope.className.trim()) && (
-                      <span className="teacher-tutoring-class-card__meta">Mã lớp: {scope.classId}</span>
-                    )}
-                    <span className="teacher-tutoring-class-card__action">
-                      Mở danh sách sinh viên <span aria-hidden="true">→</span>
-                    </span>
-                  </button>
-                ))}
-              </div>
-            )}
-            {activeScope && (
-              <input
+      <Card className="tt-toolbar" variant="borderless">
+        <div className="tt-toolbar__row">
+          <label className="tt-field tt-field--class">
+            <span><GraduationCap size={14} /> Lớp học của bạn</span>
+            <Select
+              value={effectiveActiveClassKey || undefined}
+              placeholder="Chọn lớp để xem sinh viên"
+              loading={classesQuery.isFetching}
+              options={classScopes.map((scope) => ({ value: scope.key, label: scope.label }))}
+              onChange={(key) => selectClass(key)}
+            />
+          </label>
+          {activeScope && (
+            <label className="tt-field tt-field--search">
+              <span><Search size={14} /> Tìm sinh viên</span>
+              <Input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="Tìm theo tên, mã sinh viên hoặc email"
                 aria-label="Tìm sinh viên"
+                allowClear
               />
+            </label>
+          )}
+          <div className="tt-toolbar__meta">
+            {activeScope ? (
+              <>
+                <strong>{tutoringQuery.data?.rosterMeta?.totalElements ?? scopedRows.length} sinh viên</strong>
+                <span>trong {activeScope.label} · chọn sinh viên để xem đoạn chat và gửi chỉ dẫn</span>
+              </>
+            ) : (
+              <>
+                <strong>{classScopes.length} lớp · {overviewTotalStudents} sinh viên</strong>
+                <span>tất cả lớp bạn đứng lớp và sinh viên thuộc từng lớp ở bên dưới</span>
+              </>
             )}
           </div>
-          {loading && <p className="teacher-tutoring-empty">Đang tải...</p>}
-          {!loading && classScopes.length === 0 && (
-            <p className="teacher-tutoring-empty">Bạn chưa được phân công lớp nào.</p>
+        </div>
+      </Card>
+
+      {loading && classScopes.length === 0 && (
+        <Card className="tt-state" variant="borderless"><Spin /> <span>Đang tải danh sách lớp...</span></Card>
+      )}
+      {!loading && classScopes.length === 0 && (
+        <Card className="tt-state" variant="borderless">
+          <Empty description="Bạn chưa được phân công lớp nào. Liên hệ quản trị viên để được gán lớp học phần." />
+        </Card>
+      )}
+
+      {!activeScope && classScopes.length > 0 && (
+        <div className="tt-overview">
+          <div className="tt-overview__head">
+            <h2>Tất cả lớp bạn đang đứng lớp</h2>
+            <p>
+              {classScopes.length} lớp · {overviewTotalStudents} sinh viên.
+              Bấm vào từng sinh viên để xem đoạn chat, hoặc mở riêng một lớp để tìm kiếm và lọc chi tiết.
+            </p>
+          </div>
+          {overviewBundles.map(({ scope, query, students, total }) => {
+            const studied = students.filter((student) => student.hasActivity).length;
+            const weak = students.filter((student) => student.weakTopics?.length > 0).length;
+            return (
+              <Card
+                key={scope.key}
+                className="tt-class-section"
+                variant="borderless"
+                title={(
+                  <span className="tt-card-title">
+                    <span className="tt-class-section__course">{scope.courseId}</span>
+                    {scope.className || scope.classId}
+                    <Tag color="blue">{total} sinh viên</Tag>
+                    {studied > 0 && <Tag color="success">{studied} đã học</Tag>}
+                    {weak > 0 && <Tag color="error">{weak} cần củng cố</Tag>}
+                  </span>
+                )}
+                extra={(
+                  <Button type="primary" size="small" onClick={() => selectClass(scope.key)}>
+                    Mở lớp {scope.label} <ArrowRight size={13} />
+                  </Button>
+                )}
+              >
+                {query?.isPending || query?.isFetching ? (
+                  <div className="tt-state"><Spin /> <span>Đang tải sinh viên của lớp...</span></div>
+                ) : students.length === 0 ? (
+                  <Empty description="Lớp này chưa có sinh viên được ghi danh." />
+                ) : (
+                  <div className="tt-student-list">
+                    {students.map((student) => renderStudentRow(student))}
+                  </div>
+                )}
+              </Card>
+            );
+          })}
+          {overviewLoading && (
+            <p className="tt-overview__loading">Đang tải sinh viên của tất cả các lớp...</p>
           )}
-          {!loading && activeScope && scopedRows.length === 0 && (
-            <p className="teacher-tutoring-empty">Lớp này chưa có sinh viên được ghi danh.</p>
-          )}
-          {!loading && activeScope && scopedRows.length > 0 && visibleGroups.length === 0 && (
-            <p className="teacher-tutoring-empty">Không tìm thấy sinh viên khớp với từ khóa.</p>
-          )}
-          {activeScope && (
-            <div className="teacher-student-list">
-              {visibleGroups.map((group) => (
-                <section key={group.key} className="teacher-class-group">
-                  {group.students.map((student) => (
-                    <article
-                      key={`${student.classKey}-${student.studentId || student.id}`}
-                      className="teacher-student-card"
-                    >
-                      <div className="teacher-student-card__identity">
-                        <span className="teacher-student-card__avatar">{studentInitials(student)}</span>
-                        <div className="teacher-student-card__copy">
-                          <strong>{formatTeacherStudentLabel(student)}</strong>
-                          <span>{getPersonEmail(student) || "Chưa có email"}</span>
-                        </div>
-                        <em className={`teacher-student-status${student.hasActivity ? "" : " is-idle"}`}>
-                          {student.activityLabel}
-                        </em>
-                      </div>
-                      <TopicList label="Đã học" items={student.studiedTopics} />
-                      <TopicList label="Cần củng cố" items={student.weakTopics} tone="weak" />
-                      <div className="teacher-session-actions">
-                        <button type="button" className="teacher-tutoring-btn" onClick={() => openStudent(student)}>
-                          Xem {student.sessions.length + student.summaries.length} đoạn chat
-                        </button>
-                        <button
-                          type="button"
-                          className="teacher-tutoring-btn is-secondary"
-                          onClick={() => applyDirectiveToStudent(student)}
-                        >
-                          Gửi chỉ dẫn
-                        </button>
-                      </div>
-                    </article>
-                  ))}
-                </section>
-              ))}
-            </div>
-          )}
-          {activeScope && tutoringQuery.data?.rosterMeta?.totalPages > 1 && (
-            <nav className="teacher-roster-pagination" aria-label="Phân trang sinh viên">
-              <span>
-                Trang {studentPage + 1} / {tutoringQuery.data.rosterMeta.totalPages}
+        </div>
+      )}
+
+      {activeScope && (
+        <div className="tt-layout">
+          <Card
+            className="tt-roster"
+            variant="borderless"
+            title={(
+              <span className="tt-card-title">
+                <Users size={16} /> Danh sách sinh viên
+                <Tag color="blue">{tutoringQuery.data?.rosterMeta?.totalElements ?? scopedRows.length}</Tag>
               </span>
-              <div>
-                <button
-                  type="button"
-                  className="teacher-tutoring-btn is-secondary"
-                  disabled={studentPage === 0 || loading}
-                  onClick={() => setStudentPage((page) => page - 1)}
-                >
-                  Trước
-                </button>
-                <button
-                  type="button"
-                  className="teacher-tutoring-btn is-secondary"
-                  disabled={studentPage + 1 >= tutoringQuery.data.rosterMeta.totalPages || loading}
-                  onClick={() => setStudentPage((page) => page + 1)}
-                >
-                  Tiếp
-                </button>
+            )}
+            extra={(
+              <Button size="small" onClick={() => selectClass("")}>← Tất cả lớp</Button>
+            )}
+          >
+            {loading && <div className="tt-state"><Spin /> <span>Đang tải sinh viên...</span></div>}
+            {!loading && scopedRows.length === 0 && (
+              <Empty description="Lớp này chưa có sinh viên được ghi danh." />
+            )}
+            {!loading && scopedRows.length > 0 && visibleGroups.length === 0 && (
+              <Empty description="Không tìm thấy sinh viên khớp với từ khóa." />
+            )}
+            {!loading && visibleGroups.map((group) => (
+              <div key={group.key} className="tt-student-list">
+                {group.students.map((student) => renderStudentRow(student))}
               </div>
-            </nav>
-          )}
-        </section>
-      </div>
+            ))}
+            {tutoringQuery.data?.rosterMeta?.totalPages > 1 && (
+              <nav className="tt-pagination" aria-label="Phân trang sinh viên">
+                <span>Trang {studentPage + 1} / {tutoringQuery.data.rosterMeta.totalPages}</span>
+                <div>
+                  <Button size="small" disabled={studentPage === 0 || loading} onClick={() => setStudentPage((page) => page - 1)}>
+                    Trước
+                  </Button>
+                  <Button
+                    size="small"
+                    disabled={studentPage + 1 >= tutoringQuery.data.rosterMeta.totalPages || loading}
+                    onClick={() => setStudentPage((page) => page + 1)}
+                  >
+                    Tiếp
+                  </Button>
+                </div>
+              </nav>
+            )}
+          </Card>
+
+          <div className="tt-side">
+            <Card
+              className="tt-directive"
+              variant="borderless"
+              title={(
+                <span className="tt-card-title">
+                  <BookOpenCheck size={16} /> Chỉ dẫn sư phạm cho AI Tutor
+                </span>
+              )}
+            >
+              <form className="teacher-directive-form tt-form" onSubmit={createDirective}>
+                <label className="tt-field">
+                  <span>Lớp áp dụng</span>
+                  <Select
+                    value={form.classKey || effectiveActiveClassKey || undefined}
+                    placeholder="Chọn lớp"
+                    options={classScopes.map((scope) => ({ value: scope.key, label: scope.label }))}
+                    onChange={(key) => setForm((value) => ({ ...value, classKey: key, studentId: "" }))}
+                  />
+                </label>
+                <label className="tt-field">
+                  <span>Sinh viên</span>
+                  <Select
+                    value={form.studentId || ""}
+                    options={[
+                      { value: "", label: "Cả lớp" },
+                      ...formStudents.map((student) => ({
+                        value: student.studentId || "",
+                        label: classScopes.length > 1
+                          ? `${student.classId} · ${formatTeacherStudentLabel(student)}`
+                          : formatTeacherStudentLabel(student),
+                      })),
+                    ]}
+                    onChange={(value) => setForm((current) => ({ ...current, studentId: value }))}
+                  />
+                </label>
+                <label className="tt-field">
+                  <span>Mức hỗ trợ</span>
+                  <Select
+                    value={form.supportLevel}
+                    options={[
+                      { value: "HIGH_SUPPORT", label: "Hướng dẫn kỹ, từng bước" },
+                      { value: "STANDARD", label: "Cân bằng giải thích và thực hành" },
+                      { value: "CHALLENGE", label: "Tăng thử thách, giảm gợi ý" },
+                    ]}
+                    onChange={(value) => setForm((current) => ({ ...current, supportLevel: value }))}
+                  />
+                </label>
+                <label className="tt-field">
+                  <span>Nhận xét / chỉ dẫn cho AI Tutor</span>
+                  <Input.TextArea
+                    value={form.instruction}
+                    onChange={(event) => setForm((value) => ({ ...value, instruction: event.target.value }))}
+                    placeholder="Ví dụ: Giải thích từng bước, dùng ví dụ gần thực tế, nhắc lại thuật ngữ quan trọng và kiểm tra mức độ hiểu sau mỗi phần."
+                    rows={4}
+                    required
+                  />
+                  <small className="tt-field__hint">
+                    Định hướng cách giải thích, ví dụ, độ khó và cách kiểm tra hiểu; AI vẫn ưu tiên syllabus và tài liệu chính thức của môn.
+                  </small>
+                </label>
+                <Button type="primary" htmlType="submit" block loading={saving}>
+                  Xác nhận và áp dụng
+                </Button>
+              </form>
+
+              <div className="tt-directive-list">
+                <h3>Đang áp dụng tại lớp này</h3>
+                {visibleDirectives.length === 0 && (
+                  <p className="tt-directive-empty">Chưa có chỉ dẫn nào đang áp dụng.</p>
+                )}
+                {visibleDirectives.map((item) => (
+                  <article key={item.id} className="tt-directive-item">
+                    <div className="tt-directive-item__head">
+                      <strong>
+                        {item.classLabel ? `${item.classLabel} · ` : ""}
+                        {item.studentId ? formatTeacherStudentLabel(item, "Sinh viên") : "Cả lớp"}
+                      </strong>
+                      <Tag color={item.supportLevel === "HIGH_SUPPORT" ? "orange" : item.supportLevel === "CHALLENGE" ? "purple" : "blue"}>
+                        {supportLevelLabel(item.supportLevel)}
+                      </Tag>
+                    </div>
+                    <p>{item.instruction}</p>
+                    <Button danger size="small" onClick={() => archiveDirective(item.id)}>
+                      Ngừng áp dụng
+                    </Button>
+                  </article>
+                ))}
+              </div>
+            </Card>
+
+            <Card className="tt-side-note" variant="borderless">
+              <div className="tt-side-note__row">
+                <TriangleAlert size={15} />
+                <p>
+                  <strong>{weakCount} sinh viên cần củng cố</strong> ở trang hiện tại. Mở hồ sơ sinh viên để xem
+                  chủ đề yếu, câu hỏi gần đây và toàn bộ đoạn chat trước khi gửi chỉ dẫn riêng.
+                </p>
+              </div>
+            </Card>
+          </div>
+        </div>
+      )}
 
       <Drawer
         title={selectedSummary ? "Hội thoại" : "Bài đã học"}

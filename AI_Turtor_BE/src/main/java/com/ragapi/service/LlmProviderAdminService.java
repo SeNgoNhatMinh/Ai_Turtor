@@ -73,6 +73,18 @@ public class LlmProviderAdminService {
     @Value("${llm.groq.timeout-seconds:15}")
     private int groqTimeoutSeconds;
 
+    /** Dedicated Groq account reserved for Worker 1 (main answer generation). */
+    @Value("${llm.groq-worker1.enabled:true}")
+    private boolean groqWorker1Enabled;
+    @Value("${llm.groq-worker1.api-key:}")
+    private String groqWorker1ApiKey;
+    @Value("${llm.groq-worker1.base-url:https://api.groq.com/openai/v1}")
+    private String groqWorker1BaseUrl;
+    @Value("${llm.groq-worker1.model:openai/gpt-oss-120b}")
+    private String groqWorker1Model;
+    @Value("${llm.groq-worker1.timeout-seconds:15}")
+    private int groqWorker1TimeoutSeconds;
+
     @Value("${llm.nvidia.enabled:true}")
     private boolean nvidiaEnabled;
     @Value("${llm.nvidia.api-key:}")
@@ -211,6 +223,22 @@ public class LlmProviderAdminService {
 
     private List<EnvSlot> discoverSlots() {
         List<EnvSlot> slots = new ArrayList<>();
+        // Worker 1's dedicated Groq slot comes first so the main answer
+        // generator gets the fresh account before shared/limited providers.
+        if (groqWorker1Enabled && hasText(groqWorker1ApiKey) && hasText(groqWorker1Model)) {
+            slots.add(new EnvSlot(
+                    "groq-worker1",
+                    "groq",
+                    "Groq Worker 1 (dedicated)",
+                    true,
+                    groqWorker1Model.trim(),
+                    groqWorker1BaseUrl,
+                    groqWorker1ApiKey,
+                    groqWorker1TimeoutSeconds,
+                    0,
+                    LlmRuntimeSlot.LlmRuntimeSlotKind.OPENAI_COMPAT
+            ));
+        }
         List<String> groqModels = parseModels(groqModelNames);
         if (groqModels.isEmpty() && hasText(groqModelName)) {
             groqModels = List.of(groqModelName.trim());
