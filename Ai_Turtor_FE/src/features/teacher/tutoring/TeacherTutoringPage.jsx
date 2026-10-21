@@ -40,6 +40,23 @@ function TopicList({ label, items, tone = "default", wrap = false }) {
 
 const EMPTY_LIST = [];
 
+// Keep long lists bounded so the page stays usable with tens of thousands
+// of students: the applied-directives panel lives in a fixed-height scroll
+// box (rendered in batches) so it can never stretch the page, and the
+// all-classes overview only previews a few students per class.
+const DIRECTIVE_BATCH_SIZE = 20;
+
+// Deterministic accent colour per course so class cards are easy to scan.
+const CLASS_ACCENTS = ["#2563eb", "#ea580c", "#059669", "#7c3aed", "#0891b2", "#db2777"];
+function classAccent(courseId) {
+  const text = String(courseId || "");
+  let hash = 0;
+  for (let index = 0; index < text.length; index += 1) {
+    hash = (hash * 31 + text.charCodeAt(index)) % 997;
+  }
+  return CLASS_ACCENTS[hash % CLASS_ACCENTS.length];
+}
+
 const settledValue = (results, index, fallback) =>
   results[index]?.status === "fulfilled" ? results[index].value : fallback;
 
@@ -96,6 +113,10 @@ export default function TeacherTutoringPage({ teacherId, setCourseId, setClassId
   const [saving, setSaving] = useState(false);
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [classQuery, setClassQuery] = useState("");
+  const [directiveQuery, setDirectiveQuery] = useState("");
+  const [directiveVisibleCount, setDirectiveVisibleCount] = useState(DIRECTIVE_BATCH_SIZE);
+  const [expandedDirectiveIds, setExpandedDirectiveIds] = useState(() => new Set());
   const [form, setForm] = useState({
     classKey: "",
     studentId: "",
@@ -132,23 +153,34 @@ export default function TeacherTutoringPage({ teacherId, setCourseId, setClassId
   const studentRows = tutoringQuery.data?.students || EMPTY_LIST;
   const directives = tutoringQuery.data?.directives || EMPTY_LIST;
 
-  // "Tất cả lớp" overview: load every assigned class so the teacher sees all
-  // of their classes together with all of their students without drilling in.
+  // "Tất cả lớp" overview: teachers first see the classes they teach and
+  // only open one class to reveal its students. The overview therefore
+  // loads just a lightweight student count per class, never the rosters.
   const overviewQueries = useQueries({
     queries: classScopes.map((scope) => ({
-      queryKey: queryKeys.teacherTutoringBundle(teacherId, [scope.key, 0, ""]),
-      queryFn: async ({ signal }) => loadClassBundle(teacherId, scope, signal, 0, 100, ""),
+      queryKey: ["teacher", "tutoring", "class-student-count", teacherId, scope.key],
+      queryFn: async ({ signal }) =>
+        teacherApi.getClassStudents(scope.courseId, scope.classId, teacherId, { signal, page: 0, size: 1 }),
       enabled: Boolean(teacherId && !activeScope),
-      staleTime: 30_000,
+      staleTime: 60_000,
     })),
   });
   const overviewBundles = classScopes.map((scope, index) => ({
     scope,
     query: overviewQueries[index],
-    students: overviewQueries[index]?.data?.students || EMPTY_LIST,
-    total: overviewQueries[index]?.data?.rosterMeta?.totalElements ?? 0,
+    total: Number(
+      overviewQueries[index]?.data?.totalElements ?? overviewQueries[index]?.data?.count ?? 0,
+    ),
   }));
   const overviewTotalStudents = overviewBundles.reduce((sum, item) => sum + item.total, 0);
+  const filteredOverviewBundles = useMemo(() => {
+    const keyword = classQuery.trim().toLowerCase();
+    if (!keyword) return overviewBundles;
+    return overviewBundles.filter(({ scope }) =>
+      [scope.courseId, scope.classId, scope.className, scope.label]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(keyword)));
+  }, [classQuery, overviewBundles]);
   const overviewLoading = Boolean(teacherId && !activeScope
     && overviewQueries.some((query) => query?.isPending || query?.isFetching));
   const loading =
@@ -199,6 +231,30 @@ export default function TeacherTutoringPage({ teacherId, setCourseId, setClassId
     const confirmed = directives.filter((item) => item.status === "CONFIRMED");
     return confirmed.filter((item) => item.classKey === effectiveActiveClassKey);
   }, [directives, effectiveActiveClassKey]);
+
+  const filteredDirectives = useMemo(() => {
+    const keyword = directiveQuery.trim().toLowerCase();
+    if (!keyword) return visibleDirectives;
+    return visibleDirectives.filter((item) => {
+      const owner = item.studentId ? formatTeacherStudentLabel(item, "") : "Cả lớp";
+      return owner.toLowerCase().includes(keyword)
+        || String(item.instruction || "").toLowerCase().includes(keyword);
+    });
+  }, [directiveQuery, visibleDirectives]);
+  const renderedDirectives = filteredDirectives.slice(0, directiveVisibleCount);
+
+  useEffect(() => {
+    setDirectiveVisibleCount(DIRECTIVE_BATCH_SIZE);
+  }, [directiveQuery, effectiveActiveClassKey]);
+
+  const toggleDirectiveExpanded = (directiveId) => {
+    setExpandedDirectiveIds((current) => {
+      const next = new Set(current);
+      if (next.has(directiveId)) next.delete(directiveId);
+      else next.add(directiveId);
+      return next;
+    });
+  };
 
   const formStudents = useMemo(() => {
     const key = form.classKey || effectiveActiveClassKey;
@@ -368,59 +424,73 @@ export default function TeacherTutoringPage({ teacherId, setCourseId, setClassId
             </div>
             <div>
               <strong>
-                {activeScope ? (tutoringQuery.data?.rosterMeta?.totalElements ?? scopedRows.length) : (overviewTotalStudents || "—")}
+                {activeScope ? (tutoringQuery.data?.rosterMeta?.totalElements ?? scopedRows.length) : overviewTotalStudents}
               </strong>
               <span>Sinh viên</span>
             </div>
-            <div>
-              <strong>{activeScope ? studiedCount : "—"}</strong>
-              <span>Đã học · trang hiện tại</span>
-            </div>
-            <div>
-              <strong>{activeScope ? weakCount : "—"}</strong>
-              <span>Cần củng cố · trang hiện tại</span>
-            </div>
+            {activeScope && (
+              <>
+                <div>
+                  <strong>{studiedCount}</strong>
+                  <span>Đã học · trang hiện tại</span>
+                </div>
+                <div>
+                  <strong>{weakCount}</strong>
+                  <span>Cần củng cố · trang hiện tại</span>
+                </div>
+              </>
+            )}
           </div>
         }
       />
 
       <Card className="tt-toolbar" variant="borderless">
         <div className="tt-toolbar__row">
-          <label className="tt-field tt-field--class">
-            <span><GraduationCap size={14} /> Lớp học của bạn</span>
-            <Select
-              value={effectiveActiveClassKey || undefined}
-              placeholder="Chọn lớp để xem sinh viên"
-              loading={classesQuery.isFetching}
-              options={classScopes.map((scope) => ({ value: scope.key, label: scope.label }))}
-              onChange={(key) => selectClass(key)}
-            />
-          </label>
-          {activeScope && (
-            <label className="tt-field tt-field--search">
-              <span><Search size={14} /> Tìm sinh viên</span>
-              <Input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Tìm theo tên, mã sinh viên hoặc email"
-                aria-label="Tìm sinh viên"
-                allowClear
-              />
-            </label>
-          )}
-          <div className="tt-toolbar__meta">
-            {activeScope ? (
-              <>
+          {activeScope ? (
+            <>
+              <label className="tt-field tt-field--class">
+                <span><GraduationCap size={14} /> Lớp học của bạn</span>
+                <Select
+                  value={effectiveActiveClassKey || undefined}
+                  placeholder="Chọn lớp để xem sinh viên"
+                  loading={classesQuery.isFetching}
+                  options={classScopes.map((scope) => ({ value: scope.key, label: scope.label }))}
+                  onChange={(key) => selectClass(key)}
+                />
+              </label>
+              <label className="tt-field tt-field--search">
+                <span><Search size={14} /> Tìm sinh viên</span>
+                <Input
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="Tìm theo tên, mã sinh viên hoặc email"
+                  aria-label="Tìm sinh viên"
+                  allowClear
+                />
+              </label>
+              <div className="tt-toolbar__meta">
                 <strong>{tutoringQuery.data?.rosterMeta?.totalElements ?? scopedRows.length} sinh viên</strong>
                 <span>trong {activeScope.label} · chọn sinh viên để xem đoạn chat và gửi chỉ dẫn</span>
-              </>
-            ) : (
-              <>
+              </div>
+            </>
+          ) : (
+            <>
+              <label className="tt-field tt-field--search">
+                <span><Search size={14} /> Tìm lớp</span>
+                <Input
+                  value={classQuery}
+                  onChange={(event) => setClassQuery(event.target.value)}
+                  placeholder="Tìm theo mã môn hoặc mã lớp"
+                  aria-label="Tìm lớp"
+                  allowClear
+                />
+              </label>
+              <div className="tt-toolbar__meta">
                 <strong>{classScopes.length} lớp · {overviewTotalStudents} sinh viên</strong>
-                <span>tất cả lớp bạn đứng lớp và sinh viên thuộc từng lớp ở bên dưới</span>
-              </>
-            )}
-          </div>
+                <span>bạn được phân công đứng lớp · chọn một lớp ở bên dưới để xem chi tiết</span>
+              </div>
+            </>
+          )}
         </div>
       </Card>
 
@@ -436,49 +506,59 @@ export default function TeacherTutoringPage({ teacherId, setCourseId, setClassId
       {!activeScope && classScopes.length > 0 && (
         <div className="tt-overview">
           <div className="tt-overview__head">
-            <h2>Tất cả lớp bạn đang đứng lớp</h2>
+            <h2>Các lớp bạn đang đứng lớp</h2>
             <p>
               {classScopes.length} lớp · {overviewTotalStudents} sinh viên.
-              Bấm vào từng sinh viên để xem đoạn chat, hoặc mở riêng một lớp để tìm kiếm và lọc chi tiết.
+              Chọn một lớp để xem danh sách sinh viên, đoạn chat và chỉ dẫn đang áp dụng.
             </p>
           </div>
-          {overviewBundles.map(({ scope, query, students, total }) => {
-            const studied = students.filter((student) => student.hasActivity).length;
-            const weak = students.filter((student) => student.weakTopics?.length > 0).length;
-            return (
-              <Card
+          {filteredOverviewBundles.length === 0 ? (
+            <Empty description="Không tìm thấy lớp nào khớp với từ khóa." />
+          ) : (
+            <div className="tt-class-grid">
+              {filteredOverviewBundles.map(({ scope, query, total }) => (
+                <Card
                 key={scope.key}
-                className="tt-class-section"
+                className="tt-class-section tt-class-card"
                 variant="borderless"
-                title={(
-                  <span className="tt-card-title">
-                    <span className="tt-class-section__course">{scope.courseId}</span>
-                    {scope.className || scope.classId}
-                    <Tag color="blue">{total} sinh viên</Tag>
-                    {studied > 0 && <Tag color="success">{studied} đã học</Tag>}
-                    {weak > 0 && <Tag color="error">{weak} cần củng cố</Tag>}
-                  </span>
-                )}
-                extra={(
-                  <Button type="primary" size="small" onClick={() => selectClass(scope.key)}>
-                    Mở lớp {scope.label} <ArrowRight size={13} />
-                  </Button>
-                )}
+                style={{ "--class-accent": classAccent(scope.courseId) }}
               >
-                {query?.isPending || query?.isFetching ? (
-                  <div className="tt-state"><Spin /> <span>Đang tải sinh viên của lớp...</span></div>
-                ) : students.length === 0 ? (
-                  <Empty description="Lớp này chưa có sinh viên được ghi danh." />
-                ) : (
-                  <div className="tt-student-list">
-                    {students.map((student) => renderStudentRow(student))}
-                  </div>
-                )}
-              </Card>
-            );
-          })}
+                  <button
+                    type="button"
+                    className="tt-class-card__button"
+                    aria-label={`Mở lớp ${scope.label}`}
+                    onClick={() => selectClass(scope.key)}
+                  >
+                    <span className="tt-class-card__top">
+                      <span className="tt-class-card__icon"><GraduationCap size={20} /></span>
+                      <span className="tt-class-card__open">
+                        Mở lớp <ArrowRight size={14} />
+                      </span>
+                    </span>
+                    <span className="tt-class-card__course-line">
+                      <span className="tt-class-section__course">{scope.courseId}</span>
+                      <span className="tt-class-card__meta">
+                        <Users size={14} />
+                        {query?.isPending || query?.isFetching
+                          ? "Đang đếm sinh viên…"
+                          : total > 0
+                            ? `${total} sinh viên`
+                            : "Chưa có sinh viên ghi danh"}
+                      </span>
+                    </span>
+                    <strong className="tt-class-card__name">{scope.className || scope.classId}</strong>
+                    <span className="tt-class-card__features">
+                      <span><Users size={12} /> Sinh viên</span>
+                      <span><MessageSquareText size={12} /> Đoạn chat</span>
+                      <span><BookOpenCheck size={12} /> Chỉ dẫn AI</span>
+                    </span>
+                  </button>
+                </Card>
+              ))}
+            </div>
+          )}
           {overviewLoading && (
-            <p className="tt-overview__loading">Đang tải sinh viên của tất cả các lớp...</p>
+            <p className="tt-overview__loading">Đang tải số sinh viên của các lớp...</p>
           )}
         </div>
       )}
@@ -553,6 +633,9 @@ export default function TeacherTutoringPage({ teacherId, setCourseId, setClassId
                   <span>Sinh viên</span>
                   <Select
                     value={form.studentId || ""}
+                    showSearch
+                    optionFilterProp="label"
+                    placeholder="Chọn sinh viên (gõ để tìm trong danh sách đã tải)"
                     options={[
                       { value: "", label: "Cả lớp" },
                       ...formStudents.map((student) => ({
@@ -596,27 +679,68 @@ export default function TeacherTutoringPage({ teacherId, setCourseId, setClassId
               </form>
 
               <div className="tt-directive-list">
-                <h3>Đang áp dụng tại lớp này</h3>
+                <div className="tt-directive-list__head">
+                  <h3>Đang áp dụng tại lớp này</h3>
+                  {visibleDirectives.length > 0 && <Tag color="blue">{visibleDirectives.length}</Tag>}
+                </div>
+                {visibleDirectives.length > 0 && (
+                  <Input
+                    className="tt-directive-search"
+                    value={directiveQuery}
+                    onChange={(event) => setDirectiveQuery(event.target.value)}
+                    placeholder="Tìm chỉ dẫn theo sinh viên hoặc nội dung"
+                    aria-label="Tìm chỉ dẫn đang áp dụng"
+                    allowClear
+                  />
+                )}
                 {visibleDirectives.length === 0 && (
                   <p className="tt-directive-empty">Chưa có chỉ dẫn nào đang áp dụng.</p>
                 )}
-                {visibleDirectives.map((item) => (
-                  <article key={item.id} className="tt-directive-item">
-                    <div className="tt-directive-item__head">
-                      <strong>
-                        {item.classLabel ? `${item.classLabel} · ` : ""}
-                        {item.studentId ? formatTeacherStudentLabel(item, "Sinh viên") : "Cả lớp"}
-                      </strong>
-                      <Tag color={item.supportLevel === "HIGH_SUPPORT" ? "orange" : item.supportLevel === "CHALLENGE" ? "purple" : "blue"}>
-                        {supportLevelLabel(item.supportLevel)}
-                      </Tag>
-                    </div>
-                    <p>{item.instruction}</p>
-                    <Button danger size="small" onClick={() => archiveDirective(item.id)}>
-                      Ngừng áp dụng
-                    </Button>
-                  </article>
-                ))}
+                {visibleDirectives.length > 0 && filteredDirectives.length === 0 && (
+                  <p className="tt-directive-empty">Không có chỉ dẫn nào khớp với từ khóa.</p>
+                )}
+                {renderedDirectives.length > 0 && (
+                <div className="tt-directive-scroll">
+                {renderedDirectives.map((item) => {
+                  const isLongInstruction = String(item.instruction || "").length > 220;
+                  const isExpanded = expandedDirectiveIds.has(item.id);
+                  return (
+                    <article key={item.id} className="tt-directive-item">
+                      <div className="tt-directive-item__head">
+                        <strong>
+                          {item.classLabel ? `${item.classLabel} · ` : ""}
+                          {item.studentId ? formatTeacherStudentLabel(item, "Sinh viên") : "Cả lớp"}
+                        </strong>
+                        <Tag color={item.supportLevel === "HIGH_SUPPORT" ? "orange" : item.supportLevel === "CHALLENGE" ? "purple" : "blue"}>
+                          {supportLevelLabel(item.supportLevel)}
+                        </Tag>
+                      </div>
+                      <p className={isLongInstruction && !isExpanded ? "tt-directive-item__clamp" : undefined}>
+                        {item.instruction}
+                      </p>
+                      <div className="tt-directive-item__actions">
+                        {isLongInstruction && (
+                          <Button type="link" size="small" onClick={() => toggleDirectiveExpanded(item.id)}>
+                            {isExpanded ? "Thu gọn" : "Xem đầy đủ"}
+                          </Button>
+                        )}
+                        <Button danger size="small" onClick={() => archiveDirective(item.id)}>
+                          Ngừng áp dụng
+                        </Button>
+                      </div>
+                    </article>
+                  );
+                })}
+                {filteredDirectives.length > renderedDirectives.length && (
+                  <Button
+                    block
+                    onClick={() => setDirectiveVisibleCount((count) => count + DIRECTIVE_BATCH_SIZE)}
+                  >
+                    Hiển thị thêm (còn {filteredDirectives.length - renderedDirectives.length} chỉ dẫn)
+                  </Button>
+                )}
+                </div>
+                )}
               </div>
             </Card>
 

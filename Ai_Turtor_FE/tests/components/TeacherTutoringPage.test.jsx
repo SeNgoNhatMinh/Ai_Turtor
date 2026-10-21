@@ -100,6 +100,9 @@ Giải thích: JSP được biên dịch thành servlet và chạy trên server.
       classes: [{ courseId: 'PRJ301', classId: 'SE1840', name: 'SE1840' }],
     });
     teacherApi.getClassStudents.mockResolvedValue({
+      count: 2,
+      totalElements: 2,
+      totalPages: 1,
       students: [
         {
           studentId,
@@ -141,7 +144,7 @@ Giải thích: JSP được biên dịch thành servlet và chạy trên server.
     expect(screen.queryByText(studentId)).not.toBeInTheDocument();
   });
 
-  it('shows every assigned class with all its students before choosing a class', async () => {
+  it('shows assigned classes first and reveals students only after opening a class', async () => {
     render(
       <TeacherTutoringPage
         teacherId="teacher-1"
@@ -150,11 +153,15 @@ Giải thích: JSP được biên dịch thành servlet và chạy trên server.
       />,
     );
 
-    expect(await screen.findByText('Tất cả lớp bạn đang đứng lớp')).toBeVisible();
-    // Students are listed under their class without opening the class first.
+    expect(await screen.findByText('Các lớp bạn đang đứng lớp')).toBeVisible();
+    expect(screen.getAllByText(/1 lớp · 2 sinh viên/).length).toBeGreaterThan(0);
+    // No student roster is rendered (or fetched in full) on the overview.
+    expect(screen.queryByText('Nguyen Van A · SE1840001')).not.toBeInTheDocument();
+    expect(screen.queryByText('Tran Thi B · SE1840002')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Mở lớp.*SE1840/ }));
     expect((await screen.findAllByText('Nguyen Van A · SE1840001')).length).toBeGreaterThan(0);
     expect(screen.getAllByText('Tran Thi B · SE1840002').length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/1 lớp · 2 sinh viên/).length).toBeGreaterThan(0);
   });
 
   it('opens a structured student study drawer instead of overflowing topic pills', async () => {
@@ -254,6 +261,46 @@ Giải thích: JSP được biên dịch thành servlet và chạy trên server.
     expect(screen.getByRole('button', { name: /Máy chủ/ })).toBeDisabled();
     fireEvent.click(screen.getByRole('button', { name: /Máy chủ/ }));
     expect(screen.queryByText('Đúng rồi.')).not.toBeInTheDocument();
+  });
+
+  it('keeps applied directives in a bounded scroll box with batch loading and search', async () => {
+    tutorSessionApi.listDirectives.mockResolvedValue({
+      directives: Array.from({ length: 25 }, (_, index) => ({
+        id: `directive-${index + 1}`,
+        studentId: null,
+        instruction: `Chỉ dẫn số ${index + 1} cho cả lớp`,
+        supportLevel: 'STANDARD',
+        status: 'CONFIRMED',
+      })),
+    });
+
+    render(
+      <TeacherTutoringPage
+        teacherId="teacher-1"
+        courseId="PRJ301"
+        classId="SE1840"
+      />,
+    );
+
+    await openClassRoster();
+
+    expect(await screen.findByText('Chỉ dẫn số 1 cho cả lớp')).toBeVisible();
+    expect(screen.getByText('Đang áp dụng tại lớp này')).toBeVisible();
+    const heading = screen.getByText('Đang áp dụng tại lớp này');
+    const scrollBox = heading.closest('.tt-directive-list').querySelector('.tt-directive-scroll');
+    expect(scrollBox).not.toBeNull();
+    expect(screen.getByText('Chỉ dẫn số 20 cho cả lớp')).toBeVisible();
+    expect(screen.queryByText('Chỉ dẫn số 21 cho cả lớp')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Hiển thị thêm/ }));
+    expect(screen.getByText('Chỉ dẫn số 21 cho cả lớp')).toBeVisible();
+    expect(screen.getByText('Chỉ dẫn số 25 cho cả lớp')).toBeVisible();
+
+    fireEvent.change(screen.getByLabelText('Tìm chỉ dẫn đang áp dụng'), {
+      target: { value: 'số 11' },
+    });
+    expect(screen.getByText('Chỉ dẫn số 11 cho cả lớp')).toBeVisible();
+    expect(screen.queryByText('Chỉ dẫn số 21 cho cả lớp')).not.toBeInTheDocument();
   });
 
   it('groups students by assigned class and filters from class tabs', async () => {

@@ -376,6 +376,54 @@
   font-weight: 750;
 }
 
+.tt-directive-list__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+/* The applied-directives box never grows the page: it scrolls internally. */
+.tt-directive-scroll {
+  display: grid;
+  gap: 10px;
+  max-height: 480px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 4px;
+  scrollbar-width: thin;
+}
+
+.tt-directive-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.tt-directive-scroll::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: var(--tutor-border);
+}
+
+.tt-directive-item__clamp {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.tt-directive-item__actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.tt-overview__more {
+  margin: 12px 0 0;
+  color: var(--tutor-muted);
+  font-size: 0.84rem;
+  line-height: 1.55;
+}
+
 .tt-directive-empty {
   margin: 0;
   color: var(--tutor-muted);
@@ -815,6 +863,141 @@
   color: var(--tutor-muted);
   font-size: 0.84rem;
   text-align: center;
+}
+
+/* Class picker: one compact card per class; students appear after opening. */
+.tt-class-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 18px;
+}
+
+.tt-class-card {
+  position: relative;
+  overflow: hidden;
+  transition: border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+}
+
+.tt-class-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 4px;
+  background: linear-gradient(90deg, var(--class-accent, #2563eb), transparent 85%);
+}
+
+.tt-class-card:hover {
+  border-color: #c5d6ea;
+  box-shadow: 0 14px 30px rgba(15, 45, 82, 0.12);
+  transform: translateY(-2px);
+}
+
+.tt-class-card .ant-card-body {
+  padding: 20px;
+}
+
+.tt-class-card__button {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+  padding: 2px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tt-class-card__button:focus-visible {
+  outline: 2px solid #f97316;
+  outline-offset: 4px;
+  border-radius: 10px;
+}
+
+.tt-class-card__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.tt-class-card__icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 13px;
+  background: var(--class-accent, #2563eb);
+  color: #ffffff;
+  box-shadow: 0 8px 16px rgba(15, 45, 82, 0.18);
+}
+
+.tt-class-card__open {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  background: #fff4ec;
+  color: #ea580c;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.tt-class-card__course-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.tt-class-card__name {
+  color: var(--tutor-navy);
+  font-size: 1.45rem;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+.tt-class-card__meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--tutor-ink);
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.tt-class-card__features {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--tutor-border);
+}
+
+.tt-class-card__features > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: #f1f6fd;
+  color: #33507c;
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+.app-container.dark .tt-class-card__features > span {
+  background: #182131;
+  color: #a9c3e8;
+}
+
+.app-container.dark .tt-class-card__open {
+  background: #2a1c10;
+  color: #fdba74;
 }
 
 .tt-class-section {
