@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ragapi.dto.AdaptiveLearningReviewDecisionRequest;
 import com.ragapi.dto.AdaptiveStudentLabelOverview;
 import com.ragapi.dto.PedagogicalDirectiveRequest;
+import com.ragapi.dto.StudentCourseLearningSummary;
 import com.ragapi.entity.AdaptiveLearningReview;
 import com.ragapi.entity.AiConversation;
 import com.ragapi.entity.AiMessage;
@@ -72,8 +73,13 @@ public class AdaptiveLearningReviewService {
             if (conversationIds.isEmpty()) return;
 
             long totalQuestions = messageRepository.countByConversationIdInAndRole(conversationIds, "STUDENT");
-            if (totalQuestions == 0 || totalQuestions % CYCLE_SIZE != 0) return;
-            int questionCount = (int) totalQuestions;
+            if (totalQuestions == 0) return;
+            // Evaluate the latest completed 10-question milestone. If the exact
+            // milestone event was missed (deploy gap, async failure), the next
+            // question catches up instead of losing that cycle forever — the
+            // support level must be able to move both ways at every milestone.
+            int questionCount = (int) (totalQuestions - (totalQuestions % CYCLE_SIZE));
+            if (questionCount == 0) return;
             if (reviewRepository.findByStudentIdAndCourseIdAndQuestionCount(
                     safeStudentId, safeCourseId, questionCount).isPresent()) return;
             // Legacy session-based reviews may already cover the same numeric cycle.
@@ -124,22 +130,40 @@ public class AdaptiveLearningReviewService {
             if (totalQuestions == 0 || totalQuestions % CYCLE_SIZE == 0) return;
             long openCycleStart = totalQuestions - (totalQuestions % CYCLE_SIZE);
 
-            boolean alreadyReviewedInOpenCycle = reviewRepository
+            List<AiMessage> window = currentCycleWindowMessages(conversationIds, totalQuestions);
+            // A previous early review in this cycle must not silence the rest
+            // of the cycle: re-evaluate when at least 2 new wrong answers were
+            // recorded after it. Without new mistakes, stay quiet.
+            var latestCycleReview = reviewRepository
                     .findByStudentIdAndCourseIdOrderByCreatedAtDesc(safeStudentId, safeCourseId)
                     .stream()
-                    .anyMatch(review -> review.getQuestionCount() != null
+                    .filter(review -> review.getQuestionCount() != null
                             && review.getQuestionCount() > openCycleStart
-                            && review.getQuestionCount() <= totalQuestions);
-            if (alreadyReviewedInOpenCycle) return;
+                            && review.getQuestionCount() <= totalQuestions)
+                    .findFirst();
+            if (latestCycleReview.isPresent()) {
+                LocalDateTime reviewedAt = latestCycleReview.get().getCreatedAt();
+                long newWrong = 0;
+                for (AiMessage message : window) {
+                    for (var attempt : answeredAttempts(message)) {
+                        if (Boolean.FALSE.equals(attempt.getCorrect())
+                                && (reviewedAt == null || attempt.getAnsweredAt() == null
+                                        || attempt.getAnsweredAt().isAfter(reviewedAt))) {
+                            newWrong++;
+                        }
+                    }
+                }
+                if (newWrong < 2) return;
+            }
 
-            List<AiMessage> window = currentCycleWindowMessages(conversationIds, totalQuestions);
             Map<String, Long> wrongByConcept = new LinkedHashMap<>();
             long totalWrong = 0;
             for (AiMessage message : window) {
-                if (message.getUnderstandingCheck() == null) continue;
-                if (!Boolean.FALSE.equals(message.getUnderstandingCorrect())) continue;
-                totalWrong++;
-                wrongByConcept.merge(normalizeConceptKey(message), 1L, Long::sum);
+                for (var attempt : answeredAttempts(message)) {
+                    if (!Boolean.FALSE.equals(attempt.getCorrect())) continue;
+                    totalWrong++;
+                    wrongByConcept.merge(normalizeConceptKey(attempt), 1L, Long::sum);
+                }
             }
             boolean repeatedSameConcept = wrongByConcept.values().stream()
                     .anyMatch(count -> count >= EARLY_SAME_CONCEPT_WRONG_THRESHOLD);
@@ -162,13 +186,53 @@ public class AdaptiveLearningReviewService {
     }
 
     /** Concept key for grouping repeated mistakes: the normalized quiz question text. */
-    private String normalizeConceptKey(AiMessage message) {
-        String question = message.getUnderstandingCheck() == null
-                ? "" : String.valueOf(message.getUnderstandingCheck().getQuestion());
-        String normalized = question.toLowerCase(Locale.ROOT)
+    private String normalizeConceptKey(com.ragapi.dto.UnderstandingCheckAttempt attempt) {
+        String question = attempt.getCheck() == null
+                ? "" : String.valueOf(attempt.getCheck().getQuestion());
+        return normalizeConceptText(question, "attempt:" + attempt.getAttemptId());
+    }
+
+    private String normalizeConceptText(String question, String fallback) {
+        String normalized = String.valueOf(question == null ? "" : question).toLowerCase(Locale.ROOT)
                 .replaceAll("[^\\p{L}\\p{N}]+", " ")
                 .trim().replaceAll("\\s+", " ");
-        return normalized.isBlank() ? "message:" + message.getId() : normalized;
+        return normalized.isBlank() ? fallback : normalized;
+    }
+
+    /**
+     * Every quiz attempt the student actually answered on this message.
+     * New messages store one attempt per quiz item; legacy messages only
+     * have the singular first-item fields, which map to attempt 0.
+     */
+    static List<com.ragapi.dto.UnderstandingCheckAttempt> answeredAttempts(AiMessage message) {
+        return allAttempts(message).stream()
+                .filter(attempt -> attempt.getSelectedKey() != null && !attempt.getSelectedKey().isBlank())
+                .toList();
+    }
+
+    /**
+     * Every quiz item attached to this message, answered or not. An item the
+     * student never answered is a recorded "skipped" attempt (no selection),
+     * which is evidence of non-completion — never of a wrong answer. Legacy
+     * messages only carry the singular first-item payload, which maps to
+     * attempt 0 whether it was answered or skipped.
+     */
+    static List<com.ragapi.dto.UnderstandingCheckAttempt> allAttempts(AiMessage message) {
+        List<com.ragapi.dto.UnderstandingCheckAttempt> attempts = message.getUnderstandingCheckAttempts();
+        if (attempts != null && !attempts.isEmpty()) {
+            return attempts;
+        }
+        if (message.getUnderstandingCheck() != null) {
+            var legacy = new com.ragapi.dto.UnderstandingCheckAttempt();
+            legacy.setQuizIndex(0);
+            legacy.setAttemptId(message.getUnderstandingAttemptId());
+            legacy.setCheck(message.getUnderstandingCheck());
+            legacy.setSelectedKey(message.getUnderstandingSelectedKey());
+            legacy.setCorrect(message.getUnderstandingCorrect());
+            legacy.setAnsweredAt(message.getUnderstandingAnsweredAt());
+            return List.of(legacy);
+        }
+        return List.of();
     }
 
     /** Messages of the current (possibly incomplete) cycle, after the last completed milestone. */
@@ -240,11 +304,15 @@ public class AdaptiveLearningReviewService {
         List<Map<String, Object>> evidence = buildEvidence(cycleMessages);
         String transcriptForModel = evidence.stream().limit(36).map(item -> {
             if ("STUDENT_ANSWER".equals(item.get("kind"))) {
-                boolean correct = Boolean.TRUE.equals(item.get("correct"));
+                Object correct = item.get("correct");
+                if (correct == null) {
+                    return "[Kiểm tra hiểu bài: \"" + item.get("quizQuestion") + "\""
+                            + " | Kết quả: BỎ QUA (sinh viên không trả lời)]";
+                }
                 return "[Đáp án sinh viên - Kiểm tra hiểu bài: \"" + item.get("quizQuestion") + "\""
                         + " | Sinh viên chọn: " + item.getOrDefault("selectedKey", "")
                         + " | Đáp án đúng: " + item.getOrDefault("correctKey", "")
-                        + " | Kết quả: " + (correct ? "ĐÚNG" : "SAI") + "]";
+                        + " | Kết quả: " + (Boolean.TRUE.equals(correct) ? "ĐÚNG" : "SAI") + "]";
             }
             return item.get("role") + ": " + item.get("content");
         }).reduce((a, b) -> a + "\n" + b).orElse("");
@@ -352,6 +420,12 @@ public class AdaptiveLearningReviewService {
 
                 A correct quiz answer is evidence of performance on that question.
                 It does not prove complete mastery of the entire topic.
+
+                Lines marked "Kết quả: BỎ QUA" mean the student never answered
+                that quiz item. A skipped quiz is missing evidence, NOT a wrong
+                answer: never count it as incorrect, never put its topic in
+                knowledgeGaps for that reason alone. Frequent skipping may be
+                mentioned neutrally in the summary.
 
                 3.4. Independent student work
 
@@ -722,7 +796,7 @@ public class AdaptiveLearningReviewService {
         AdaptiveLearningReview previousReview = reviewRepository
                 .findByStudentIdAndCourseIdOrderByCreatedAtDesc(studentId, courseId)
                 .stream().findFirst().orElse(null);
-        String suggested = decideTargetLevel(assessment, currentSupportLevel, previousReview);
+        String suggested = decideTargetLevel(assessment, currentSupportLevel, previousReview, evidence);
         AdaptiveLearningReview review = AdaptiveLearningReview.builder()
                 .id(UUID.randomUUID().toString())
                 .studentId(studentId)
@@ -889,11 +963,12 @@ public class AdaptiveLearningReviewService {
     }
 
     /**
-     * Evidence records exactly three things, nothing else: the questions the
-     * student asked in chat (STUDENT_QUESTION), the answers the student gave
-     * to understanding-check quizzes (STUDENT_ANSWER, with the chosen option
-     * and the correct one), and the AI's answers (AI_ANSWER). Proactive
-     * system messages (welcome/opening) are not evidence and are skipped.
+     * Evidence records only what the student did, nothing else: the questions
+     * the student asked in chat (STUDENT_QUESTION) and one STUDENT_ANSWER per
+     * quiz item the student answered (chosen option, correct option, right or
+     * wrong). Full AI answers are not evidence of student learning and only
+     * made this list noisy, so they are no longer stored here. Proactive
+     * system messages (welcome/opening) are skipped as well.
      */
     private List<Map<String, Object>> buildEvidence(List<AiMessage> cycleMessages) {
         List<Map<String, Object>> result = new ArrayList<>();
@@ -910,23 +985,24 @@ public class AdaptiveLearningReviewService {
             }
             if (!"ASSISTANT".equals(role)) continue;
 
-            Map<String, Object> item = baseEvidenceItem(message, role);
-            item.put("kind", "AI_ANSWER");
-            item.put("content", truncate(message.getContent(), 1200));
-            item.put("understandingCorrect", message.getUnderstandingCorrect());
-            result.add(item);
-
-            // The student's own quiz answer becomes its own evidence item so
-            // the teacher sees exactly what the student picked, right or wrong.
-            var quiz = message.getUnderstandingCheck();
-            boolean answered = quiz != null
-                    && message.getUnderstandingSelectedKey() != null
-                    && !message.getUnderstandingSelectedKey().isBlank();
-            if (answered) {
+            for (var attempt : allAttempts(message)) {
+                var quiz = attempt.getCheck();
+                if (quiz == null) continue;
+                boolean skipped = attempt.getSelectedKey() == null || attempt.getSelectedKey().isBlank();
                 Map<String, Object> answer = baseEvidenceItem(message, "STUDENT");
                 answer.put("kind", "STUDENT_ANSWER");
-                answer.put("content", "Sinh viên chọn " + message.getUnderstandingSelectedKey()
-                        + " cho câu: " + quiz.getQuestion());
+                answer.put("quizIndex", attempt.getQuizIndex());
+                answer.put("attemptId", attempt.getAttemptId() == null ? "" : attempt.getAttemptId());
+                answer.put("skipped", skipped);
+                answer.put("content", skipped
+                        ? "Câu kiểm tra " + (attempt.getQuizIndex() + 1)
+                                + ": " + (quiz.getQuestion() == null ? "" : quiz.getQuestion())
+                                + " — sinh viên bỏ qua (không trả lời)"
+                        : "Câu kiểm tra " + (attempt.getQuizIndex() + 1)
+                                + ": " + (quiz.getQuestion() == null ? "" : quiz.getQuestion())
+                                + " — sinh viên chọn " + attempt.getSelectedKey()
+                                + ", đáp án đúng " + (quiz.getCorrectKey() == null ? "" : quiz.getCorrectKey())
+                                + " → " + (Boolean.TRUE.equals(attempt.getCorrect()) ? "ĐÚNG" : "SAI"));
                 answer.put("quizQuestion", quiz.getQuestion() == null ? "" : quiz.getQuestion());
                 answer.put("quizOptions", quiz.getOptions() == null ? List.of() : quiz.getOptions().stream()
                         .map(option -> Map.of(
@@ -934,10 +1010,14 @@ public class AdaptiveLearningReviewService {
                                 "text", option.getText() == null ? "" : option.getText()))
                         .toList());
                 answer.put("correctKey", quiz.getCorrectKey() == null ? "" : quiz.getCorrectKey());
-                answer.put("selectedKey", message.getUnderstandingSelectedKey());
-                answer.put("correct", Boolean.TRUE.equals(message.getUnderstandingCorrect()));
+                answer.put("selectedKey", skipped ? "" : attempt.getSelectedKey());
+                // Keep null for skipped attempts: null means "not answered",
+                // false would wrongly count the item as a wrong answer.
+                answer.put("correct", skipped ? null : attempt.getCorrect());
                 answer.put("quizExplanation", quiz.getExplanation() == null ? "" : quiz.getExplanation());
-                answer.put("understandingCorrect", message.getUnderstandingCorrect());
+                answer.put("understandingCorrect", attempt.getCorrect());
+                answer.put("answeredAt", attempt.getAnsweredAt() == null
+                        ? null : attempt.getAnsweredAt().toString());
                 result.add(answer);
             }
         }
@@ -1057,6 +1137,200 @@ public class AdaptiveLearningReviewService {
                 .thenComparing(item -> item.getStudentName() == null ? "" : item.getStudentName(),
                         String.CASE_INSENSITIVE_ORDER));
         return result;
+    }
+
+    /**
+     * Whole-history overview for one student in one course, generated on
+     * demand for the teacher: deterministic chat/quiz statistics over every
+     * conversation in the course (correct, wrong and skipped quizzes kept
+     * separate), the support-level change history, and an AI narrative that
+     * reads the full history. The narrative never changes the support level
+     * by itself — level moves only happen in the 10-question cycle reviews
+     * (or the early repeated-mistakes review), which can move one step in
+     * either direction at every milestone.
+     */
+    public StudentCourseLearningSummary summarizeStudentCourse(String studentId, String courseId, String classId) {
+        String safeStudentId = requireText(studentId, "studentId");
+        String safeCourseId = requireText(courseId, "courseId");
+        String safeClassId = (classId == null || classId.isBlank()) ? null : classId.trim();
+
+        List<AiConversation> conversations =
+                conversationRepository.findByUserIdAndCourseId(safeStudentId, safeCourseId);
+        List<String> conversationIds = conversations.stream()
+                .map(AiConversation::getId)
+                .filter(id -> id != null && !id.isBlank())
+                .toList();
+        List<AiMessage> messages = conversationIds.isEmpty()
+                ? List.of() : sortedCourseMessages(conversationIds);
+
+        long totalQuestions = 0;
+        long quizGiven = 0, quizAnswered = 0, quizCorrect = 0, quizWrong = 0, quizSkipped = 0;
+        Map<String, long[]> conceptStats = new LinkedHashMap<>();
+        List<String> recentQuestions = new ArrayList<>();
+        List<String> historyLines = new ArrayList<>();
+        for (AiMessage message : messages) {
+            String role = message.getRole() == null ? "" : message.getRole().toUpperCase(Locale.ROOT);
+            if ("STUDENT".equals(role)) {
+                totalQuestions++;
+                recentQuestions.add(truncate(message.getContent(), 200));
+                historyLines.add("SV hỏi: " + truncate(message.getContent(), 300));
+                continue;
+            }
+            if (!"ASSISTANT".equals(role) || Boolean.TRUE.equals(message.getProactive())) continue;
+            for (var attempt : allAttempts(message)) {
+                var quiz = attempt.getCheck();
+                if (quiz == null || quiz.getQuestion() == null) continue;
+                quizGiven++;
+                boolean skipped = attempt.getSelectedKey() == null || attempt.getSelectedKey().isBlank();
+                long[] stats = conceptStats.computeIfAbsent(quiz.getQuestion().trim(), key -> new long[2]);
+                if (skipped) {
+                    quizSkipped++;
+                    stats[1]++;
+                    historyLines.add("Kiểm tra \"" + truncate(quiz.getQuestion(), 150) + "\": BỎ QUA");
+                } else if (Boolean.TRUE.equals(attempt.getCorrect())) {
+                    quizAnswered++;
+                    quizCorrect++;
+                    historyLines.add("Kiểm tra \"" + truncate(quiz.getQuestion(), 150)
+                            + "\": ĐÚNG (chọn " + attempt.getSelectedKey() + ")");
+                } else {
+                    quizAnswered++;
+                    quizWrong++;
+                    stats[0]++;
+                    historyLines.add("Kiểm tra \"" + truncate(quiz.getQuestion(), 150)
+                            + "\": SAI (chọn " + attempt.getSelectedKey()
+                            + ", đúng " + (quiz.getCorrectKey() == null ? "" : quiz.getCorrectKey()) + ")");
+                }
+            }
+        }
+        if (recentQuestions.size() > 12) {
+            recentQuestions = recentQuestions.subList(recentQuestions.size() - 12, recentQuestions.size());
+        }
+        List<Map<String, Object>> difficultConcepts = conceptStats.entrySet().stream()
+                .filter(entry -> entry.getValue()[0] > 0 || entry.getValue()[1] > 0)
+                .sorted((a, b) -> Long.compare(b.getValue()[0] + b.getValue()[1], a.getValue()[0] + a.getValue()[1]))
+                .limit(8)
+                .map(entry -> {
+                    Map<String, Object> item = new LinkedHashMap<>();
+                    item.put("concept", entry.getKey());
+                    item.put("wrongCount", entry.getValue()[0]);
+                    item.put("skippedCount", entry.getValue()[1]);
+                    return item;
+                })
+                .toList();
+
+        List<AdaptiveLearningReview> reviews = reviewRepository
+                .findByStudentIdAndCourseIdOrderByCreatedAtDesc(safeStudentId, safeCourseId)
+                .stream()
+                .filter(review -> safeClassId == null || safeClassId.equals(review.getClassId()))
+                .sorted(Comparator.comparing(AdaptiveLearningReview::getCreatedAt,
+                        Comparator.nullsLast(Comparator.naturalOrder())))
+                .toList();
+        List<Map<String, Object>> levelHistory = reviews.stream().map(review -> {
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("reviewId", review.getId());
+            item.put("questionCount", review.getQuestionCount() != null
+                    ? review.getQuestionCount() : review.getCompletedSessionCount());
+            item.put("triggerType", review.getTriggerType());
+            item.put("fromLevel", review.getCurrentSupportLevel());
+            item.put("toLevel", review.getSuggestedSupportLevel());
+            item.put("status", review.getStatus());
+            item.put("overallPercent", review.getOverallPercent());
+            item.put("createdAt", review.getCreatedAt() == null ? null : review.getCreatedAt().toString());
+            return item;
+        }).toList();
+
+        String currentLevel = directiveService.resolveSupportLevel(safeStudentId, safeCourseId, safeClassId);
+        int correctPercent = quizAnswered == 0 ? 0 : (int) Math.round(100.0 * quizCorrect / quizAnswered);
+
+        // The model reads the whole course history (most recent 90 evidence
+        // lines when very long) plus the deterministic statistics above.
+        List<String> modelLines = historyLines.size() > 90
+                ? historyLines.subList(historyLines.size() - 90, historyLines.size()) : historyLines;
+        String prompt = """
+                Bạn là trợ lý phân tích học tập cho giảng viên. Hãy đọc TOÀN BỘ lịch sử
+                học của một sinh viên trong một môn học và tóm tắt để giảng viên theo dõi.
+
+                Trả về DUY NHẤT một JSON hợp lệ với đúng 5 khóa:
+                summary (chuỗi tiếng Việt, 3-5 câu), strengths (mảng chuỗi tiếng Việt),
+                knowledgeGaps (mảng chuỗi tiếng Việt), teachingRecommendations
+                (mảng chuỗi tiếng Việt), trajectory (chuỗi tiếng Việt mô tả tiến bộ
+                theo thời gian: đầu kỳ thế nào, gần đây thế nào).
+
+                Quy tắc:
+                - Chỉ dùng dữ kiện được cung cấp, không bịa số liệu hay sự kiện.
+                - Câu kiểm tra "BỎ QUA" nghĩa là sinh viên không trả lời: KHÔNG tính
+                  là trả lời sai, không suy ra lỗ hổng kiến thức từ việc bỏ qua; chỉ
+                  nêu trung tính nếu sinh viên bỏ qua thường xuyên.
+                - Câu trả lời/giải thích của AI Tutor không phải bằng chứng sinh viên
+                  đã hiểu; chỉ câu hỏi, câu trả lời kiểm tra và việc sinh viên tự làm
+                  mới là bằng chứng.
+                - Không đề xuất đổi mức hỗ trợ trong bản tóm tắt này; mức hỗ trợ do
+                  chu kỳ đánh giá 10 câu hỏi quyết định.
+
+                Môn học: %s
+                Tổng số câu hỏi sinh viên đã hỏi trong môn: %d
+                Kiểm tra hiểu bài: đã ra %d câu, sinh viên trả lời %d (đúng %d, sai %d), bỏ qua %d câu.
+                Mức hỗ trợ hiện tại: %s
+
+                Lịch sử học (theo thứ tự thời gian):
+                %s
+                """.formatted(safeCourseId, totalQuestions, quizGiven, quizAnswered,
+                quizCorrect, quizWrong, quizSkipped, currentLevel,
+                modelLines.isEmpty() ? "(chưa có dữ liệu)" : String.join("\n", modelLines));
+
+        String aiSummary;
+        List<String> strengths = List.of();
+        List<String> knowledgeGaps = List.of();
+        List<String> recommendations = List.of();
+        boolean modelGenerated = true;
+        try {
+            String raw = chatService.generateUtility(prompt);
+            Map<String, Object> parsed = objectMapper.readValue(extractJson(raw), new TypeReference<>() {});
+            String summary = string(parsed.get("summary"), "").trim();
+            String trajectory = string(parsed.get("trajectory"), "").trim();
+            aiSummary = trajectory.isBlank() ? summary
+                    : (summary.isBlank() ? trajectory : summary + " " + trajectory);
+            if (aiSummary.isBlank()) throw new IllegalArgumentException("Empty summary");
+            strengths = strings(parsed.get("strengths"));
+            knowledgeGaps = strings(parsed.get("knowledgeGaps"));
+            recommendations = strings(parsed.get("teachingRecommendations"));
+        } catch (Exception error) {
+            modelGenerated = false;
+            aiSummary = "Sinh viên đã hỏi " + totalQuestions + " câu trong môn " + safeCourseId
+                    + ". Trong " + quizGiven + " câu kiểm tra hiểu bài, sinh viên đã trả lời "
+                    + quizAnswered + " câu (đúng " + quizCorrect + ", sai " + quizWrong
+                    + ") và bỏ qua " + quizSkipped + " câu. Mức hỗ trợ hiện tại: "
+                    + currentLevel + ". (Bản tóm tắt tự động bằng AI tạm thời không khả dụng"
+                    + " nên đây là tóm tắt theo số liệu thô.)";
+            log.warn("Course learning summary fallback for student {} in {}: {}",
+                    safeStudentId, safeCourseId, safeMessage(error));
+        }
+
+        return StudentCourseLearningSummary.builder()
+                .studentId(safeStudentId)
+                .courseId(safeCourseId)
+                .classId(safeClassId)
+                .totalQuestions(totalQuestions)
+                .totalConversations(conversations.size())
+                .questionsInCurrentCycle((int) (totalQuestions % CYCLE_SIZE))
+                .cycleSize(CYCLE_SIZE)
+                .quizGiven(quizGiven)
+                .quizAnswered(quizAnswered)
+                .quizCorrect(quizCorrect)
+                .quizWrong(quizWrong)
+                .quizSkipped(quizSkipped)
+                .quizCorrectPercent(correctPercent)
+                .difficultConcepts(difficultConcepts)
+                .recentQuestions(recentQuestions)
+                .currentSupportLevel(currentLevel)
+                .levelHistory(levelHistory)
+                .aiSummary(aiSummary)
+                .strengths(strengths)
+                .knowledgeGaps(knowledgeGaps)
+                .teachingRecommendations(recommendations)
+                .modelGenerated(modelGenerated)
+                .generatedAt(LocalDateTime.now())
+                .build();
     }
 
     private int percentOrZero(Integer value) {
@@ -1189,8 +1463,33 @@ public class AdaptiveLearningReviewService {
      * - One-step transitions: never jump HIGH_SUPPORT &harr; CHALLENGE directly.
      */
     private String decideTargetLevel(Map<String, Object> assessment, String currentLevelRaw,
-                                     AdaptiveLearningReview previousReview) {
+                                     AdaptiveLearningReview previousReview,
+                                     List<Map<String, Object>> evidence) {
         String current = normalizeLevel(currentLevelRaw, "STANDARD");
+
+        // Direct repeated-mistake evidence is decisive on its own: at least 3
+        // wrong quiz answers, or 2 wrong on the same concept, in this cycle.
+        // The generic weak-evidence and anti-flapping gates below measure how
+        // much the student wrote in chat, so early in a cycle they kept the
+        // level unchanged even while the student kept answering incorrectly.
+        // One-step clamping still applies (CHALLENGE steps down to STANDARD).
+        long totalWrong = 0;
+        Map<String, Long> wrongByConcept = new LinkedHashMap<>();
+        for (Map<String, Object> item : evidence == null ? List.<Map<String, Object>>of() : evidence) {
+            if (!"STUDENT_ANSWER".equals(item.get("kind")) || !Boolean.FALSE.equals(item.get("correct"))) {
+                continue;
+            }
+            totalWrong++;
+            wrongByConcept.merge(
+                    normalizeConceptText(String.valueOf(item.getOrDefault("quizQuestion", "")), "unknown"),
+                    1L, Long::sum);
+        }
+        boolean repeatedMistakes = totalWrong >= EARLY_TOTAL_WRONG_THRESHOLD
+                || wrongByConcept.values().stream().anyMatch(count -> count >= EARLY_SAME_CONCEPT_WRONG_THRESHOLD);
+        if (repeatedMistakes && !"HIGH_SUPPORT".equals(current)) {
+            return clampToOneStep(current, "HIGH_SUPPORT");
+        }
+
         String target = chooseSupportLevel(assessment, current);
         if (target.equals(current)) return current;
 

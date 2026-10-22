@@ -48,6 +48,28 @@ public class AdaptiveLearningReviewController {
         }
     }
 
+    /** AI summary of one student's whole chat history in one course. */
+    @GetMapping("/students/{studentId}/course-summary")
+    public ResponseEntity<?> courseSummary(
+            @PathVariable String studentId,
+            @RequestParam String courseId,
+            @RequestParam(required = false) String classId,
+            Authentication authentication) {
+        try {
+            if (classId != null && !classId.isBlank()) {
+                accessGuard.allowTeacherForStudentTranscript(
+                        requesterId(authentication), requesterRole(authentication),
+                        studentId, courseId, classId);
+            } else {
+                accessGuard.allowTeacherForClassOrAdmin(
+                        requesterId(authentication), requesterRole(authentication), courseId, classId);
+            }
+            return ResponseEntity.ok(reviewService.summarizeStudentCourse(studentId, courseId, classId));
+        } catch (IllegalArgumentException error) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", error.getMessage()));
+        }
+    }
+
     @GetMapping("/{reviewId}")
     public ResponseEntity<?> detail(@PathVariable String reviewId, Authentication authentication) {
         try {

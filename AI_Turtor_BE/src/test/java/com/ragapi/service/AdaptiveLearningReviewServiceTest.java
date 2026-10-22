@@ -252,7 +252,8 @@ class AdaptiveLearningReviewServiceTest {
         assertThat(wrong.get("selectedKey")).isEqualTo("B");
         assertThat(wrong.get("correctKey")).isEqualTo("A");
         assertThat(wrong.get("correct")).isEqualTo(false);
-        assertThat(evidence.stream().anyMatch(item -> "AI_ANSWER".equals(item.get("kind")))).isTrue();
+        // Full AI answers are not student evidence and must not be stored here.
+        assertThat(evidence.stream().anyMatch(item -> "AI_ANSWER".equals(item.get("kind")))).isFalse();
         assertThat(evidence.stream().filter(item -> "STUDENT_QUESTION".equals(item.get("kind"))).count())
                 .isEqualTo(10);
     }
@@ -306,6 +307,115 @@ class AdaptiveLearningReviewServiceTest {
                 .filter(item -> "STUDENT_ANSWER".equals(item.get("kind"))
                         && Boolean.FALSE.equals(item.get("correct"))).count();
         assertThat(wrongKinds).isEqualTo(2);
+    }
+
+    @Test
+    void earlyRepeatedWrongAnswersForceHighSupportDespiteWeakChatEvidence() {
+        stubCourseConversations(COURSE, conversations(COURSE, 2));
+        List<AiMessage> messages = cycleMessages(3, "ok");
+        // Three wrong quiz answers in the first three turns of the cycle.
+        markQuizWrong(messages.get(1), "Đóng gói trong Java là gì?");
+        markQuizWrong(messages.get(3), "Kế thừa trong Java là gì?");
+        markQuizWrong(messages.get(5), "Đa hình trong Java là gì?");
+        stubQuestionCycle(3, messages);
+        // The LLM still suggests keeping STANDARD; the repeated-mistake rule wins.
+        when(chatService.generateUtility(anyString()))
+                .thenReturn(assessmentJson(80, 80, 80, 80, "STANDARD"));
+
+        service.onUnderstandingCheckRecorded(STUDENT, COURSE, CLASS);
+
+        ArgumentCaptor<AdaptiveLearningReview> captor = ArgumentCaptor.forClass(AdaptiveLearningReview.class);
+        verify(reviewRepository, org.mockito.Mockito.atLeastOnce()).save(captor.capture());
+        AdaptiveLearningReview review = captor.getValue();
+        assertThat(review.getTriggerType()).isEqualTo(AdaptiveLearningReviewService.TRIGGER_EARLY_REPEATED_MISTAKES);
+        assertThat(review.getSuggestedSupportLevel()).isEqualTo("HIGH_SUPPORT");
+        assertThat(review.getEvidence().stream()
+                .filter(item -> "STUDENT_ANSWER".equals(item.get("kind"))
+                        && Boolean.FALSE.equals(item.get("correct"))).count()).isEqualTo(3);
+    }
+
+    private com.ragapi.dto.UnderstandingCheckAttempt quizAttempt(
+            int index, String question, String selected, Boolean correct) {
+        var check = new UnderstandingCheckPayload(
+                question,
+                List.of(new UnderstandingCheckPayload.Option("A", "Đáp án đúng"),
+                        new UnderstandingCheckPayload.Option("B", "Đáp án sai")),
+                "A", "Giải thích đáp án đúng.");
+        return com.ragapi.dto.UnderstandingCheckAttempt.builder()
+                .quizIndex(index)
+                .attemptId("att-" + index + "-" + question.hashCode())
+                .check(check)
+                .selectedKey(selected)
+                .correct(correct)
+                .answeredAt(selected == null ? null : LocalDateTime.of(2026, 10, 2, 10, 0))
+                .build();
+    }
+
+    @Test
+    void skippedQuizIsRecordedAsSkippedNeverAsWrong() {
+        stubCourseConversations(COURSE, conversations(COURSE, 2));
+        List<AiMessage> messages = cycleMessages(10, SUBSTANTIVE_ANSWER);
+        messages.get(1).setUnderstandingCheckAttempts(List.of(
+                quizAttempt(0, "Đóng gói trong Java là gì?", "A", true),
+                quizAttempt(1, "Kế thừa trong Java là gì?", null, null)));
+        stubQuestionCycle(10, messages);
+        when(chatService.generateUtility(anyString()))
+                .thenReturn(assessmentJson(80, 80, 80, 80, "STANDARD"));
+
+        service.onStudentQuestionAnswered(STUDENT, COURSE, CLASS);
+
+        ArgumentCaptor<AdaptiveLearningReview> captor = ArgumentCaptor.forClass(AdaptiveLearningReview.class);
+        verify(reviewRepository, org.mockito.Mockito.atLeastOnce()).save(captor.capture());
+        AdaptiveLearningReview review = captor.getValue();
+        var answers = review.getEvidence().stream()
+                .filter(item -> "STUDENT_ANSWER".equals(item.get("kind"))).toList();
+        assertThat(answers).hasSize(2);
+        assertThat(answers.stream().filter(item -> Boolean.TRUE.equals(item.get("skipped")))).hasSize(1);
+        assertThat(answers.stream().filter(item -> Boolean.FALSE.equals(item.get("correct")))).isEmpty();
+    }
+
+    @Test
+    void missedMilestoneIsCaughtUpOnNextQuestion() {
+        stubCourseConversations(COURSE, conversations(COURSE, 2));
+        stubQuestionCycle(93, cycleMessages(10, SUBSTANTIVE_ANSWER));
+        when(chatService.generateUtility(anyString()))
+                .thenReturn(assessmentJson(80, 80, 80, 80, "STANDARD"));
+
+        service.onStudentQuestionAnswered(STUDENT, COURSE, CLASS);
+
+        ArgumentCaptor<AdaptiveLearningReview> captor = ArgumentCaptor.forClass(AdaptiveLearningReview.class);
+        verify(reviewRepository, org.mockito.Mockito.atLeastOnce()).save(captor.capture());
+        assertThat(captor.getValue().getQuestionCount()).isEqualTo(90);
+    }
+
+    @Test
+    void courseSummaryCountsCorrectWrongAndSkippedSeparately() {
+        stubCourseConversations(COURSE, conversations(COURSE, 1));
+        List<AiMessage> messages = cycleMessages(3, SUBSTANTIVE_ANSWER);
+        messages.get(1).setUnderstandingCheckAttempts(List.of(
+                quizAttempt(0, "Đóng gói trong Java là gì?", "A", true),
+                quizAttempt(1, "Kế thừa trong Java là gì?", null, null)));
+        messages.get(3).setUnderstandingCheckAttempts(List.of(
+                quizAttempt(0, "Đa hình trong Java là gì?", "B", false)));
+        when(messageRepository.findByConversationIdInOrderByCreatedAtAsc(anyList())).thenReturn(messages);
+        when(directiveService.resolveSupportLevel(STUDENT, COURSE, CLASS)).thenReturn("STANDARD");
+        when(chatService.generateUtility(anyString())).thenReturn("""
+                {"summary":"Sinh viên nắm được đóng gói nhưng còn yếu đa hình.",
+                 "strengths":["Đóng gói"],"knowledgeGaps":["Đa hình"],
+                 "teachingRecommendations":["Ôn lại đa hình"],"trajectory":"Đang tiến bộ."}
+                """);
+
+        var summary = service.summarizeStudentCourse(STUDENT, COURSE, CLASS);
+
+        assertThat(summary.getTotalQuestions()).isEqualTo(3);
+        assertThat(summary.getQuizGiven()).isEqualTo(3);
+        assertThat(summary.getQuizAnswered()).isEqualTo(2);
+        assertThat(summary.getQuizCorrect()).isEqualTo(1);
+        assertThat(summary.getQuizWrong()).isEqualTo(1);
+        assertThat(summary.getQuizSkipped()).isEqualTo(1);
+        assertThat(summary.getQuizCorrectPercent()).isEqualTo(50);
+        assertThat(summary.isModelGenerated()).isTrue();
+        assertThat(summary.getAiSummary()).contains("đóng gói");
     }
 
     @Test

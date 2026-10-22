@@ -1806,7 +1806,7 @@
                 },
                 "conditions": [
                   {
-                    "leftValue": "={{ String($node[\"Set - Trace Context\"].json.interactionType || '').trim().toUpperCase() === 'UNDERSTANDING_REMEDIATION' ? 'RAG' : String($json.mode || $json.body?.mode || '').trim().toUpperCase() }}",
+                    "leftValue": "={{ String($node[\"Set - Trace Context\"].json.interactionType || '').trim().toUpperCase() === 'UNDERSTANDING_REMEDIATION' ? 'RAG' : (String($node[\"Set - Trace Context\"].json.requestedMode || '').trim().toUpperCase() || String($json.mode || $json.body?.mode || '').trim().toUpperCase()) }}",
                     "rightValue": "CODE",
                     "operator": {
                       "type": "string",
@@ -1831,7 +1831,7 @@
                 "conditions": [
                   {
                     "id": "cfce8e7b-0fd1-4d23-ab89-407173c73bf2",
-                    "leftValue": "={{ String($node[\"Set - Trace Context\"].json.interactionType || '').trim().toUpperCase() === 'UNDERSTANDING_REMEDIATION' ? 'RAG' : String($json.mode || $json.body?.mode || '').trim().toUpperCase() }}",
+                    "leftValue": "={{ String($node[\"Set - Trace Context\"].json.interactionType || '').trim().toUpperCase() === 'UNDERSTANDING_REMEDIATION' ? 'RAG' : (String($node[\"Set - Trace Context\"].json.requestedMode || '').trim().toUpperCase() || String($json.mode || $json.body?.mode || '').trim().toUpperCase()) }}",
                     "rightValue": "ESCALATE",
                     "operator": {
                       "type": "string",
@@ -1856,7 +1856,7 @@
                 "conditions": [
                   {
                     "id": "e65ab694-68cf-41bf-98cd-57812912b08a",
-                    "leftValue": "={{ String($node[\"Set - Trace Context\"].json.interactionType || '').trim().toUpperCase() === 'UNDERSTANDING_REMEDIATION' ? 'RAG' : String($json.mode || $json.body?.mode || '').trim().toUpperCase() }}",
+                    "leftValue": "={{ String($node[\"Set - Trace Context\"].json.interactionType || '').trim().toUpperCase() === 'UNDERSTANDING_REMEDIATION' ? 'RAG' : (String($node[\"Set - Trace Context\"].json.requestedMode || '').trim().toUpperCase() || String($json.mode || $json.body?.mode || '').trim().toUpperCase()) }}",
                     "rightValue": "RAG",
                     "operator": {
                       "type": "string",

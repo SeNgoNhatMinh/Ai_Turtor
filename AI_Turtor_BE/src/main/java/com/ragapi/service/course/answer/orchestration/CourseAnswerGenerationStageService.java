@@ -269,7 +269,8 @@ public class CourseAnswerGenerationStageService {
                 %s
                 Each question must have exactly 4 options (A-D), one correct answer,
                 and a concise explanation for the answer. Vary difficulty from basic to applied when writing more than one item.
-                Use Vietnamese unless the student asked in another language. Do not invent facts outside context.
+                ALWAYS write every question, option, and explanation in Vietnamese, even when the course material is in English. Translate technical terms naturally.
+                Do not invent facts outside context.
                 Format each item exactly like this (plain text, no bold asterisks around labels):
                 Q1.
                 <question>
@@ -300,12 +301,15 @@ public class CourseAnswerGenerationStageService {
                 Output ONLY 3 to 5 Markdown bullets. Each bullet is one short topic title (max ~12 words)
                 that a student can click to learn next. Ground titles in COURSE MATERIAL CONTEXT;
                 omit a title if the context cannot support it. No intro, no closing, no headings.
-                Use Vietnamese unless the student asked otherwise.
+                ALWAYS write every title in Vietnamese, even when the course material is in English.
+                Translate technical terms naturally; do not leave entire titles in English.
 
                 Example shape:
                 - So sánh nested conditionals với chained conditionals
                 - Khi nào nên tránh lồng điều kiện quá sâu
                 - Refactor nested if thành hàm riêng
+                - Vòng đời của Servlet: init, service, destroy
+                - So sánh doGet và doPost khi xử lý form HTML
 
                 STUDENT QUESTION:
                 %s
@@ -313,6 +317,7 @@ public class CourseAnswerGenerationStageService {
                 COURSE MATERIAL CONTEXT:
                 %s
                 """.formatted(question, limitWorkerContext(context));
+
         String worker1Prompt = answerPrompt
                 + (remediation
                 ? """

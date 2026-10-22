@@ -186,7 +186,8 @@ public class AiConversationController {
             String userId = request == null ? "" : request.getUserId();
             accessGuard.allowStudentSelfOrAdmin(authentication.getName(), role(authentication), userId);
             return ResponseEntity.ok(aiConversationService.recordUnderstandingCheck(
-                    conversationId, messageId, userId, request == null ? "" : request.getSelectedKey()));
+                    conversationId, messageId, userId, request == null ? "" : request.getSelectedKey(),
+                    request == null || request.getQuizIndex() == null ? 0 : request.getQuizIndex()));
         } catch (IllegalArgumentException e) {
             String message = e.getMessage() == null ? "" : e.getMessage();
             HttpStatus status = message.contains("Không tìm thấy") ? HttpStatus.NOT_FOUND : HttpStatus.BAD_REQUEST;

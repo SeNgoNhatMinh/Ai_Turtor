@@ -153,6 +153,14 @@ export const teacherReviewApi = {
     return asArray(data, 'reviews', 'items', 'content');
   },
 
+  async getStudentCourseSummary(studentId, courseId, classId, options = {}) {
+    const params = new URLSearchParams({ courseId });
+    if (classId) params.set('classId', classId);
+    return request(`${API_BASE_URL}/teacher/ai-support/learning-reviews/students/${encodePath(studentId)}/course-summary?${params.toString()}`, {
+      signal: options.signal,
+    });
+  },
+
   async decideAdaptiveLearningReview(reviewId, payload) {
     return request(`${API_BASE_URL}/teacher/ai-support/learning-reviews/${encodePath(reviewId)}/decision`, {
       method: 'POST',

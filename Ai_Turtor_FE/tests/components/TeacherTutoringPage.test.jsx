@@ -12,6 +12,15 @@ vi.mock('../../src/services/teacherApi', () => ({
   },
 }));
 
+vi.mock('../../src/services/teacherReviewApi', () => ({
+  teacherReviewApi: {
+    getAdaptiveLearningReviews: vi.fn(async () => []),
+    getAdaptiveStudentRoster: vi.fn(async () => []),
+    decideAdaptiveLearningReview: vi.fn(),
+    getStudentCourseSummary: vi.fn(async () => null),
+  },
+}));
+
 vi.mock('../../src/services/tutorSessionApi', () => ({
   tutorSessionApi: {
     listTeacherSummaries: vi.fn(),

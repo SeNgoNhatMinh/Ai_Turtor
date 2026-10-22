@@ -514,6 +514,7 @@ export function useStudentChatController({
     const messageId = message?.assistantMessageId || message?.messageId || message?.id;
     const studentId = getStudentUserId();
     const quiz = attempt?.quiz || {};
+    const quizIndex = Number.isInteger(attempt?.quizIndex) ? attempt.quizIndex : 0;
     const localGrade = () => {
       const correctKey = String(quiz.correctKey || '').trim().toUpperCase();
       if (!correctKey) return null;
@@ -530,11 +531,26 @@ export function useStudentChatController({
         const itemId = item?.assistantMessageId || item?.messageId || item?.id;
         const sameSaved = messageId && itemId === messageId;
         const sameLocal = message?.clientMessageId && item?.clientMessageId === message.clientMessageId;
-        if ((!sameSaved && !sameLocal) || item?.understandingSelectedKey) return item;
+        if (!sameSaved && !sameLocal) return item;
+        const attempts = Array.isArray(item?.understandingCheckAttempts)
+          ? [...item.understandingCheckAttempts] : [];
+        const position = attempts.findIndex((entry) => Number(entry?.quizIndex ?? -1) === quizIndex);
+        if (position >= 0 && attempts[position]?.selectedKey) return item;
+        if (quizIndex === 0 && item?.understandingSelectedKey) return item;
+        const entry = {
+          quizIndex,
+          selectedKey: key,
+          answeredAt: new Date().toISOString(),
+        };
+        if (position >= 0) attempts[position] = { ...attempts[position], ...entry };
+        else attempts.push(entry);
         return {
           ...item,
-          understandingSelectedKey: key,
-          understandingAnsweredAt: new Date().toISOString(),
+          understandingCheckAttempts: attempts,
+          ...(quizIndex === 0 ? {
+            understandingSelectedKey: key,
+            understandingAnsweredAt: entry.answeredAt,
+          } : {}),
         };
       }));
     };
@@ -543,15 +559,7 @@ export function useStudentChatController({
       return localGrade();
     }
 
-    setMessages((prev) => prev.map((item) => {
-      const itemId = item?.assistantMessageId || item?.messageId || item?.id;
-      if (itemId !== messageId || item?.understandingSelectedKey) return item;
-      return {
-        ...item,
-        understandingSelectedKey: key,
-        understandingAnsweredAt: new Date().toISOString(),
-      };
-    }));
+    markSelected();
 
     try {
       const result = await conversationApi.recordUnderstandingCheck(
@@ -559,14 +567,23 @@ export function useStudentChatController({
         messageId,
         studentId,
         key,
+        quizIndex,
       );
       setMessages((prev) => prev.map((item) => {
         const itemId = item?.assistantMessageId || item?.messageId || item?.id;
         if (itemId !== messageId) return item;
+        const attempts = (Array.isArray(item?.understandingCheckAttempts)
+          ? item.understandingCheckAttempts : [])
+          .map((entry) => (Number(entry?.quizIndex ?? -1) === quizIndex
+            ? { ...entry, correct: result?.correct, attemptId: result?.attemptId || entry.attemptId || '' }
+            : entry));
         return {
           ...item,
-          understandingAttemptId: result?.attemptId || item.understandingAttemptId || '',
-          understandingCorrect: result?.correct,
+          understandingCheckAttempts: attempts,
+          ...(quizIndex === 0 ? {
+            understandingAttemptId: result?.attemptId || item.understandingAttemptId || '',
+            understandingCorrect: result?.correct,
+          } : {}),
         };
       }));
       return result;

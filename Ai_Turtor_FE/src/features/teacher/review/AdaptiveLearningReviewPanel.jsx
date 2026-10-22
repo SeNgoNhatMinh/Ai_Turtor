@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Alert, Button, Empty, Input, Progress, Select, Spin, Tag, Tooltip } from 'antd';
-import { Activity, BookOpenCheck, CheckCircle2, ChevronRight, ClipboardList, RefreshCw, ShieldAlert } from 'lucide-react';
+import { Activity, BookOpenCheck, CheckCircle2, ChevronRight, ClipboardList, RefreshCw, ShieldAlert, Sparkles } from 'lucide-react';
 import { teacherReviewApi } from '../../../services/teacherReviewApi';
 import { useRealtimeEvent } from '../../realtime/realtimeContext';
 import './AdaptiveLearningReviewPanel.css';
@@ -38,6 +38,8 @@ function EvidenceItem({ item, index }) {
   const isStudentAnswer = kind === 'STUDENT_ANSWER' || kind.startsWith('QUIZ');
   const quizWrong = kind === 'QUIZ_WRONG' || (kind === 'STUDENT_ANSWER' && item?.correct === false);
   const quizCorrect = kind === 'QUIZ_CORRECT' || (kind === 'STUDENT_ANSWER' && item?.correct === true);
+  const quizSkipped = isStudentAnswer && !quizWrong && !quizCorrect
+    && (item?.skipped === true || item?.correct == null || !item?.selectedKey);
   const title = isStudentAnswer
     ? 'Đáp án của sinh viên'
     : student ? 'Câu hỏi của sinh viên' : 'Câu trả lời của AI';
@@ -46,23 +48,27 @@ function EvidenceItem({ item, index }) {
       <button type="button" onClick={() => setExpanded((value) => !value)} aria-expanded={expanded}>
         <span className={`adaptive-review-evidence__dot ${student ? 'is-student' : 'is-ai'}`} />
         <span className="adaptive-review-evidence__body">
-          <strong>{title} · Bằng chứng {index + 1}</strong>
+          <strong>{title}{isStudentAnswer && item?.quizIndex != null ? ` · Câu kiểm tra ${Number(item.quizIndex) + 1}` : ''} · Bằng chứng {index + 1}</strong>
           <small>{item?.topic || 'Chủ đề chưa xác định'}{item?.createdAt ? ` · ${new Date(item.createdAt).toLocaleString('vi-VN')}` : ''}</small>
           {isStudentAnswer ? (
-            <span>
-              {item?.quizQuestion || ''}
-              {' — Sinh viên chọn '}
-              <b>{item?.selectedKey || '—'}</b>
-              {', đáp án đúng '}
-              <b>{item?.correctKey || '—'}</b>
-            </span>
+            quizSkipped ? (
+              <span>{item?.quizQuestion || ''}{' — Sinh viên bỏ qua, không trả lời câu này'}</span>
+            ) : (
+              <span>
+                {item?.quizQuestion || ''}
+                {' — Sinh viên chọn '}
+                <b>{item?.selectedKey || '—'}</b>
+                {', đáp án đúng '}
+                <b>{item?.correctKey || '—'}</b>
+              </span>
+            )
           ) : (
             <span>{String(item?.content || '').slice(0, 150)}{String(item?.content || '').length > 150 ? '…' : ''}</span>
           )}
         </span>
         {isStudentAnswer && (
-          <Tag color={quizWrong ? 'red' : quizCorrect ? 'green' : 'default'}>
-            {quizWrong ? 'Trả lời sai' : quizCorrect ? 'Trả lời đúng' : 'Chưa trả lời'}
+          <Tag color={quizWrong ? 'red' : quizCorrect ? 'green' : 'gold'}>
+            {quizWrong ? 'Trả lời sai' : quizCorrect ? 'Trả lời đúng' : 'Bỏ qua'}
           </Tag>
         )}
         <ChevronRight size={16} className={expanded ? 'is-expanded' : ''} />
@@ -94,7 +100,100 @@ function EvidenceItem({ item, index }) {
 
 const EMPTY_ROSTER = [];
 
-export default function AdaptiveLearningReviewPanel({ courseId, classId, triggerToast }) {
+/**
+ * On-demand AI reading of the student's ENTIRE chat history in this course:
+ * quiz outcomes (correct / wrong / skipped kept separate), difficult concepts
+ * and the support-level change history, so the teacher can observe progress
+ * without opening every conversation. Generating it never changes the level.
+ */
+function StudentCourseSummary({ studentId, courseId, classId }) {
+  const [requested, setRequested] = useState(false);
+  const summaryQuery = useQuery({
+    queryKey: ['teacher', 'student-course-summary', studentId, courseId, classId],
+    queryFn: ({ signal }) => teacherReviewApi.getStudentCourseSummary(studentId, courseId, classId, { signal }),
+    enabled: requested && Boolean(studentId && courseId),
+    staleTime: 60_000,
+  });
+  const data = summaryQuery.data;
+  const levelLabel = (level) => LEVEL_LABELS[level] || level || 'Tiêu chuẩn';
+  return (
+    <section className="adaptive-course-summary">
+      <div className="adaptive-review-section-heading">
+        <div>
+          <h4><Sparkles size={15} /> Tóm tắt toàn bộ lịch sử học trong môn</h4>
+          <p>AI đọc toàn bộ lịch sử chat của sinh viên trong môn này (mọi buổi học): đã hỏi gì, làm câu kiểm tra đúng/sai/bỏ qua ra sao, tiến bộ thế nào và mức hỗ trợ đã thay đổi qua các chu kỳ. Bản tóm tắt chỉ để giảng viên quan sát — mức hỗ trợ vẫn do chu kỳ đánh giá 10 câu hỏi (hoặc đánh giá sớm khi sai nhiều) quyết định và có thể chuyển lên/xuống linh hoạt ở mỗi mốc.</p>
+        </div>
+        <Button
+          size="small"
+          loading={summaryQuery.isFetching}
+          onClick={() => { if (data) summaryQuery.refetch(); else setRequested(true); }}
+        >
+          {data ? 'Tạo lại tóm tắt' : 'AI tóm tắt toàn bộ lịch sử'}
+        </Button>
+      </div>
+      {summaryQuery.isError && (
+        <Alert type="error" showIcon message="Không tạo được tóm tắt"
+          description={summaryQuery.error?.message || 'Thử lại sau ít phút.'} />
+      )}
+      {data && (
+        <>
+          <div className="adaptive-course-summary__stats">
+            <span><strong>{data.totalQuestions ?? 0}</strong> câu hỏi đã hỏi</span>
+            <span><strong>{data.quizAnswered ?? 0}</strong> câu kiểm tra đã trả lời
+              {' '}(đúng {data.quizCorrect ?? 0} · sai {data.quizWrong ?? 0})</span>
+            <span><strong>{data.quizSkipped ?? 0}</strong> câu kiểm tra bỏ qua</span>
+            <span>Tỉ lệ đúng <strong>{data.quizCorrectPercent ?? 0}%</strong></span>
+            <span>Mức hỗ trợ hiện tại <strong>{levelLabel(data.currentSupportLevel)}</strong>
+              {' '}· đang ở {data.questionsInCurrentCycle ?? 0}/{data.cycleSize ?? 10} của chu kỳ</span>
+          </div>
+          <p className="adaptive-course-summary__text">{data.aiSummary}</p>
+          {!data.modelGenerated && (
+            <Alert type="warning" showIcon message="Đây là tóm tắt theo số liệu thô vì AI tạm thời không khả dụng." />
+          )}
+          {(data.strengths?.length > 0 || data.knowledgeGaps?.length > 0 || data.teachingRecommendations?.length > 0) && (
+            <div className="adaptive-review-summary__columns">
+              {data.strengths?.length > 0 && (
+                <div><h5>Điểm mạnh</h5><ul>{data.strengths.map((item) => <li key={item}>{item}</li>)}</ul></div>
+              )}
+              {data.knowledgeGaps?.length > 0 && (
+                <div><h5>Cần củng cố</h5><ul>{data.knowledgeGaps.map((item) => <li key={item}>{item}</li>)}</ul></div>
+              )}
+              {data.teachingRecommendations?.length > 0 && (
+                <div><h5>Gợi ý cho giảng viên</h5><ul>{data.teachingRecommendations.map((item) => <li key={item}>{item}</li>)}</ul></div>
+              )}
+            </div>
+          )}
+          {data.difficultConcepts?.length > 0 && (
+            <div className="adaptive-course-summary__concepts">
+              <h5>Khái niệm hay sai / hay bỏ qua</h5>
+              {data.difficultConcepts.map((concept) => (
+                <p key={concept.concept}>
+                  <strong>{concept.concept}</strong>
+                  {concept.wrongCount > 0 ? ` — sai ${concept.wrongCount} lần` : ''}
+                  {concept.skippedCount > 0 ? ` — bỏ qua ${concept.skippedCount} lần` : ''}
+                </p>
+              ))}
+            </div>
+          )}
+          {data.levelHistory?.length > 0 && (
+            <div className="adaptive-course-summary__history">
+              <h5>Lịch sử đổi mức hỗ trợ</h5>
+              {data.levelHistory.map((entry) => (
+                <p key={entry.reviewId}>
+                  Sau {entry.questionCount ?? 0} câu hỏi: {levelLabel(entry.fromLevel)} → <strong>{levelLabel(entry.toLevel)}</strong>
+                  {entry.triggerType === 'EARLY_REPEATED_MISTAKES' ? ' (đánh giá sớm do sai lặp lại)' : ' (đánh giá chu kỳ 10 câu)'}
+                  {entry.createdAt ? ` · ${new Date(entry.createdAt).toLocaleString('vi-VN')}` : ''}
+                </p>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+    </section>
+  );
+}
+
+export default function AdaptiveLearningReviewPanel({ courseId, classId, triggerToast, embedded = false, forcedStudentId = '' }) {
   const [selectedId, setSelectedId] = useState('');
   const [selectedStudentId, setSelectedStudentId] = useState('');
   const [saving, setSaving] = useState(false);
@@ -141,13 +240,24 @@ export default function AdaptiveLearningReviewPanel({ courseId, classId, trigger
     if (statusFilter === 'UNLABELED') return roster.filter((item) => !item.labeled);
     return roster.filter((item) => item.labeled && item.reviewStatus === statusFilter);
   }, [roster, statusFilter]);
-  const selectedStudent = roster.find((item) => item.studentId === selectedStudentId)
-    || filteredRoster[0] || null;
+  const selectedStudent = (forcedStudentId
+    ? roster.find((item) => item.studentId === forcedStudentId) : null)
+    || roster.find((item) => item.studentId === selectedStudentId)
+    || (embedded ? null : filteredRoster[0])
+    || null;
   const selected = selectedStudent?.latestReviewId
     ? (reviews.find((item) => item.id === selectedStudent.latestReviewId)
       || reviews.find((item) => item.id === selectedId)
       || null)
     : null;
+  useEffect(() => {
+    if (!selected) return;
+    setSelectedId(selected.id);
+    setFeedback(selected.teacherFeedback || '');
+    setSupportLevel(selected.suggestedSupportLevel || 'STANDARD');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected?.id]);
+
   const pendingCount = reviews.filter((item) => item.status === 'PENDING').length;
   const approvedCount = reviews.filter((item) => item.status === 'APPROVED').length;
   const unlabeledCount = roster.filter((item) => !item.labeled).length;
@@ -199,24 +309,29 @@ export default function AdaptiveLearningReviewPanel({ courseId, classId, trigger
   }
 
   return (
-    <section className="adaptive-review-panel">
-      <header className="adaptive-review-panel__header">
-        <div>
-          <span className="adaptive-review-eyebrow"><Activity size={14} /> HỌC TẬP THÍCH ỨNG</span>
-          <h2>Đánh giá tiến bộ của AI</h2>
-          <p>AI tổng hợp 10 câu hỏi học gần nhất của từng sinh viên trong môn này, tự đổi mức hỗ trợ ngay và đính kèm bằng chứng (các câu sinh viên đã hỏi, câu kiểm tra trả lời sai) để giảng viên xem lại, chỉnh sửa hoặc thu hồi.</p>
-        </div>
-        <Button icon={<RefreshCw size={15} />} onClick={load} loading={loading}>Làm mới</Button>
-      </header>
+    <section className={`adaptive-review-panel${embedded ? ' adaptive-review-panel--embedded' : ''}`}>
+      {!embedded && (
+        <>
+          <header className="adaptive-review-panel__header">
+            <div>
+              <span className="adaptive-review-eyebrow"><Activity size={14} /> HỌC TẬP THÍCH ỨNG</span>
+              <h2>Đánh giá tiến bộ của AI</h2>
+              <p>AI tổng hợp quá trình học của từng sinh viên trong môn này (đánh giá định kỳ sau mỗi 10 câu hỏi, hoặc sớm hơn khi sai nhiều câu kiểm tra liên tiếp), tự đổi mức hỗ trợ và đính kèm bằng chứng gồm câu hỏi của sinh viên cùng từng câu kiểm tra đã làm đúng/sai để giảng viên xem lại, chỉnh sửa hoặc thu hồi.</p>
+            </div>
+            <Button icon={<RefreshCw size={15} />} onClick={load} loading={loading}>Làm mới</Button>
+          </header>
 
-      <div className="adaptive-review-stats">
-        <div><span><ClipboardList size={17} /></span><strong>{roster.length}</strong><small>Sinh viên trong lớp</small></div>
-        <div><span className="is-pending"><ShieldAlert size={17} /></span><strong>{pendingCount}</strong><small>Chờ nhận xét</small></div>
-        <div><span className="is-approved"><CheckCircle2 size={17} /></span><strong>{approvedCount}</strong><small>Đã duyệt</small></div>
-        <div><span className="is-rejected"><BookOpenCheck size={17} /></span><strong>{unlabeledCount}</strong><small>Chưa đánh giá</small></div>
-      </div>
+          <div className="adaptive-review-stats">
+            <div><span><ClipboardList size={17} /></span><strong>{roster.length}</strong><small>Sinh viên trong lớp</small></div>
+            <div><span className="is-pending"><ShieldAlert size={17} /></span><strong>{pendingCount}</strong><small>Chờ nhận xét</small></div>
+            <div><span className="is-approved"><CheckCircle2 size={17} /></span><strong>{approvedCount}</strong><small>Đã duyệt</small></div>
+            <div><span className="is-rejected"><BookOpenCheck size={17} /></span><strong>{unlabeledCount}</strong><small>Chưa đánh giá</small></div>
+          </div>
+        </>
+      )}
 
-      <div className="adaptive-review-layout">
+      <div className={`adaptive-review-layout${embedded ? ' adaptive-review-layout--embedded' : ''}`}>
+        {!embedded && (
         <aside className="adaptive-review-list">
           <div className="adaptive-review-list__toolbar">
             <h3>Sinh viên trong lớp</h3>
@@ -255,6 +370,7 @@ export default function AdaptiveLearningReviewPanel({ courseId, classId, trigger
             </div>
           )}
         </aside>
+        )}
 
         {selected ? (
           <main className="adaptive-review-detail">
@@ -313,7 +429,7 @@ export default function AdaptiveLearningReviewPanel({ courseId, classId, trigger
 
             <section className="adaptive-review-logs">
               <div className="adaptive-review-section-heading">
-                <div><h4>Bằng chứng từ log trò chuyện</h4><p>{(selected.evidence || []).length} mục — chỉ gồm câu hỏi của sinh viên, đáp án sinh viên chọn và câu trả lời của AI</p></div>
+                <div><h4>Bằng chứng từ log trò chuyện</h4><p>{(selected.evidence || []).length} mục — câu hỏi của sinh viên và từng câu kiểm tra đã trả lời (ghi rõ đúng/sai, đáp án đã chọn và đáp án đúng)</p></div>
               </div>
               {(selected.evidence || []).length ? selected.evidence.map((item, i) => <EvidenceItem key={item.messageId || i} item={item} index={i} />)
                 : <Empty description="Không có log bằng chứng" />}
@@ -371,8 +487,8 @@ export default function AdaptiveLearningReviewPanel({ courseId, classId, trigger
             <Alert
               type="info"
               showIcon
-              message="AI sẽ tự đánh giá khi sinh viên hỏi đủ 10 câu trong môn"
-              description={`Sinh viên đã hỏi ${selectedStudent.totalQuestions ?? 0} câu trong môn này, trong đó ${selectedStudent.questionsInCurrentCycle ?? 0}/${selectedStudent.cycleSize ?? 10} câu thuộc chu kỳ hiện tại. Đủ ${selectedStudent.cycleSize ?? 10} câu, AI sẽ tự tổng hợp bằng chứng và tự đổi mức hỗ trợ ngay; giảng viên xem lại tại màn hình này và có thể sửa hoặc thu hồi.`}
+              message="AI đánh giá sau mỗi 10 câu hỏi, hoặc sớm hơn khi sai nhiều câu kiểm tra"
+              description={`Sinh viên đã hỏi ${selectedStudent.totalQuestions ?? 0} câu trong môn này, trong đó ${selectedStudent.questionsInCurrentCycle ?? 0}/${selectedStudent.cycleSize ?? 10} câu thuộc chu kỳ hiện tại. Đủ ${selectedStudent.cycleSize ?? 10} câu — hoặc sai từ 3 câu kiểm tra (hay 2 câu cùng một khái niệm) — AI sẽ tự tổng hợp bằng chứng và đổi mức hỗ trợ ngay; giảng viên xem lại tại đây và có thể sửa hoặc thu hồi.`}
             />
             <div className="adaptive-review-levels">
               <div><small>Mức hỗ trợ hiện tại</small><strong>{LEVEL_LABELS[selectedStudent.currentSupportLevel] || selectedStudent.currentSupportLevel || 'Tiêu chuẩn'}</strong></div>
@@ -380,9 +496,16 @@ export default function AdaptiveLearningReviewPanel({ courseId, classId, trigger
             </div>
           </main>
         ) : (
-          <main className="adaptive-review-detail"><Empty description="Chọn một sinh viên để xem đánh giá và log trò chuyện" /></main>
+          <main className="adaptive-review-detail"><Empty description={embedded ? 'Sinh viên này chưa có đánh giá tiến bộ của AI' : 'Chọn một sinh viên để xem đánh giá và log trò chuyện'} /></main>
         )}
       </div>
+      {selectedStudent && (
+        <StudentCourseSummary
+          studentId={selectedStudent.studentId}
+          courseId={courseId}
+          classId={classId}
+        />
+      )}
     </section>
   );
 }

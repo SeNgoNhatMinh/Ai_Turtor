@@ -376,3 +376,128 @@ test('builds an in-place grading prompt instead of a new study-start chat', () =
   assert.match(prompt, /không phải chủ đề mới/);
   assert.doesNotMatch(prompt, /Nay mình học/);
 });
+
+test('splits "Câu N:" Vietnamese-drift format into multiple quiz items', () => {
+  const extracted = extractUnderstandingCheck(`
+## Kiểm tra hiểu
+
+Câu 1: Khi nào nên dùng encodeURL?
+A. Khi redirect tới browser
+B. Khi forward nội bộ
+C. Khi set cookie
+D. Khi ghi body
+Đáp án đúng: B
+Giải thích: encodeURL thêm session ID khi forward nội bộ.
+
+Câu 2: HTTP 405 có nghĩa là gì?
+A. Not Found
+B. Forbidden
+C. Method Not Allowed
+D. Server Error
+Đáp án đúng: C
+Giải thích: Method không được hỗ trợ.
+
+## Học chuyên sâu
+- Tìm hiểu thêm
+`);
+
+  assert.equal(extracted.quizzes.length, 2);
+  assert.match(extracted.quizzes[0].question, /encodeURL/i);
+  assert.equal(
+    extracted.quizzes[0].options.find((o) => o.key === extracted.quizzes[0].correctKey)?.text,
+    'Khi forward nội bộ',
+  );
+  assert.equal(
+    extracted.quizzes[1].options.find((o) => o.key === extracted.quizzes[1].correctKey)?.text,
+    'Method Not Allowed',
+  );
+  assert.match(extracted.after, /Học chuyên sâu/);
+});
+
+test('splits "Câu hỏi N:" full Vietnamese-drift format', () => {
+  const extracted = extractUnderstandingCheck(`
+## Quiz tự luyện
+
+Câu hỏi 1: Servlet gọi phương thức nào trước?
+A. service()
+B. init()
+C. destroy()
+D. doGet()
+Đáp án đúng: B
+Giải thích: init() chạy một lần khi khởi tạo.
+
+Câu hỏi 2: doPost xử lý phương thức HTTP nào?
+A. GET
+B. PUT
+C. POST
+D. DELETE
+Đáp án đúng: C
+Giải thích: doPost nhận POST request.
+`);
+
+  assert.equal(extracted.quizzes.length, 2);
+  assert.equal(
+    extracted.quizzes[0].options.find((o) => o.key === extracted.quizzes[0].correctKey)?.text,
+    'init()',
+  );
+  assert.equal(
+    extracted.quizzes[1].options.find((o) => o.key === extracted.quizzes[1].correctKey)?.text,
+    'POST',
+  );
+});
+
+test('splits plain numbered list "1." "2." format into multiple quiz items', () => {
+  const extracted = extractUnderstandingCheck(`
+## Kiểm tra hiểu
+
+1. Khi nào nên dùng encodeURL?
+A. Khi redirect
+B. Khi forward nội bộ
+C. Khi set cookie
+D. Khi ghi body
+Đáp án đúng: B
+Giải thích: ok.
+
+2. HTTP 405?
+A. Not Found
+B. Forbidden
+C. Method Not Allowed
+D. Server Error
+Đáp án đúng: C
+Giải thích: ok.
+`);
+
+  assert.equal(extracted.quizzes.length, 2);
+  assert.equal(
+    extracted.quizzes[0].options.find((o) => o.key === extracted.quizzes[0].correctKey)?.text,
+    'Khi forward nội bộ',
+  );
+  assert.equal(
+    extracted.quizzes[1].options.find((o) => o.key === extracted.quizzes[1].correctKey)?.text,
+    'Method Not Allowed',
+  );
+});
+
+test('single-question body with numbered A/B/C/D options is NOT split by numbered-list rule', () => {
+  // Options "A." "B." etc are NOT numbered items — but if body has only 1 quiz
+  // with "1." as its own prefix, it should stay as one quiz, not be fragmented.
+  const extracted = extractUnderstandingCheck(`
+## Kiểm tra hiểu
+
+Q1.
+Servlet callback đầu tiên là gì?
+A. service()
+B. init()
+C. destroy()
+D. doGet()
+Đáp án đúng: B
+Giải thích: init() chạy một lần.
+`);
+
+  assert.equal(extracted.quizzes.length, 1);
+  assert.equal(
+    extracted.quizzes[0].options.find((o) => o.key === extracted.quizzes[0].correctKey)?.text,
+    'init()',
+  );
+});
+

@@ -9,6 +9,7 @@ import {
 function AiAnswer({
   markdown,
   understandingCheck,
+  understandingAttempts = [],
   streaming = false,
   sourceMap = {},
   onStudyTipStudy,
@@ -28,6 +29,11 @@ function AiAnswer({
     [understandingCheck],
   );
   const quizzes = useMemo(() => {
+    // The API payload is singular (the first item, used for grading), while
+    // Worker 2 may write Q1/Q2/Q3 into the markdown for HIGH_SUPPORT and
+    // CHALLENGE. Prefer the markdown items when more than one is present so
+    // the extra questions are not hidden behind the singular payload.
+    if (Array.isArray(extracted.quizzes) && extracted.quizzes.length > 1) return extracted.quizzes;
     if (structuredQuiz) return [structuredQuiz];
     if (Array.isArray(extracted.quizzes) && extracted.quizzes.length) return extracted.quizzes;
     return extracted.quiz ? [extracted.quiz] : [];
@@ -59,16 +65,22 @@ function AiAnswer({
           hideSourceSection={hideSourceSection}
         />
       ) : null}
-      {quizzes.map((quiz, index) => (
-        <UnderstandingCheckQuiz
-          key={`${quiz.question}-${index}`}
-          quiz={quiz}
-          reviewer={reviewer}
-          lockedKey={index === 0 ? understandingSelectedKey : ''}
-          attemptId={attemptId ? `${attemptId}:${index + 1}` : `inline-quiz-${index + 1}`}
-          onLockAnswer={index === 0 ? onLockAnswer : undefined}
-        />
-      ))}
+      {quizzes.map((quiz, index) => {
+        const savedAttempt = (Array.isArray(understandingAttempts) ? understandingAttempts : [])
+          .find((attempt) => Number(attempt?.quizIndex ?? -1) === index);
+        return (
+          <UnderstandingCheckQuiz
+            key={`${quiz.question}-${index}`}
+            quiz={quiz}
+            reviewer={reviewer}
+            lockedKey={savedAttempt?.selectedKey || (index === 0 ? understandingSelectedKey : '')}
+            attemptId={attemptId ? `${attemptId}:${index + 1}` : `inline-quiz-${index + 1}`}
+            onLockAnswer={onLockAnswer
+              ? (key, attempt) => onLockAnswer(key, { ...attempt, quizIndex: index })
+              : undefined}
+          />
+        );
+      })}
       {after ? (
         <MarkdownRenderer
           markdown={after}

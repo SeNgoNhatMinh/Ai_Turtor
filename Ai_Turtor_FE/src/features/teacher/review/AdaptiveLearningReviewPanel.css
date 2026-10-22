@@ -41,6 +41,25 @@
   display: grid; grid-template-columns: minmax(280px, .82fr) minmax(0, 1.6fr);
   gap: 14px; align-items: start;
 }
+.adaptive-course-summary {
+  border: 1px solid #dfe7f2; border-radius: 16px; background: #fff; padding: 16px;
+  display: grid; gap: 12px; min-width: 0;
+}
+.adaptive-course-summary h4 { display: flex; align-items: center; gap: 6px; margin: 0; }
+.adaptive-course-summary h5 { margin: 0 0 6px; font-size: .85rem; }
+.adaptive-course-summary__stats {
+  display: flex; flex-wrap: wrap; gap: 8px 18px;
+  padding: 10px 12px; border-radius: 12px; background: #f1f5f9; font-size: .85rem;
+}
+.adaptive-course-summary__text { margin: 0; line-height: 1.65; }
+.adaptive-course-summary__concepts p,
+.adaptive-course-summary__history p { margin: 4px 0; font-size: .88rem; }
+.app-container.dark .adaptive-course-summary { background: #111827; border-color: #344054; }
+.app-container.dark .adaptive-course-summary__stats { background: #1f2937; }
+
+.adaptive-review-layout--embedded { grid-template-columns: minmax(0, 1fr); }
+.adaptive-review-panel--embedded { gap: 0; }
+.adaptive-review-panel--embedded .adaptive-review-detail { border: 0; padding: 4px 0 0; background: transparent; }
 .adaptive-review-list, .adaptive-review-detail {
   min-width: 0; border: 1px solid #dfe7f2; border-radius: 16px; background: #fff; padding: 16px;
 }

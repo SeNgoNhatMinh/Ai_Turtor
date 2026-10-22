@@ -130,6 +130,19 @@ describe('MarkdownRenderer Vietnamese text', () => {
     expect(onStudyTipStudy).toHaveBeenCalledWith('Ôn lại vòng đời Servlet');
   });
 
+  it('turns curriculum lessons in Lộ trình học into clickable lesson chips', () => {
+    const onStudyTipStudy = vi.fn();
+    render(
+      <MarkdownRenderer
+        markdown={'## Lộ trình học\n\n1. Bài 1: Tổng quan về Java\n2. Bài 2: Biến và kiểu dữ liệu'}
+        onStudyTipStudy={onStudyTipStudy}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Bài 1: Tổng quan về Java/ }));
+    expect(onStudyTipStudy).toHaveBeenCalledWith('Bài 1: Tổng quan về Java');
+  });
+
   it('turns the next-lesson line into a clickable lesson chip', () => {
     const onStudyTipStudy = vi.fn();
     render(

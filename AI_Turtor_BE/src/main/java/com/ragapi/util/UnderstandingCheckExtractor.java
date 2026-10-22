@@ -40,12 +40,57 @@ public final class UnderstandingCheckExtractor {
     private UnderstandingCheckExtractor() {
     }
 
+    private static final Pattern QUIZ_ITEM_START = Pattern.compile(
+            "(?im)^\\s*\\*{0,2}Q\\d+\\.?\\*{0,2}(?=\\s|$)");
+
     public static UnderstandingCheckPayload extract(String answer) {
         String body = findBody(answer);
         if (body == null || body.isBlank()) {
             return null;
         }
+        return parseBody(body);
+    }
 
+    /**
+     * Every quiz item in the understanding-check section, in order. Worker 2
+     * writes Q1/Q2/Q3 items for HIGH_SUPPORT and CHALLENGE; the singular
+     * {@link #extract(String)} only ever returns the first one.
+     */
+    public static List<UnderstandingCheckPayload> extractAll(String answer) {
+        String body = findBody(answer);
+        if (body == null || body.isBlank()) {
+            return List.of();
+        }
+        List<String> chunks = new ArrayList<>();
+        Matcher starts = QUIZ_ITEM_START.matcher(body);
+        List<Integer> indexes = new ArrayList<>();
+        while (starts.find()) {
+            indexes.add(starts.start());
+        }
+        if (indexes.size() <= 1) {
+            UnderstandingCheckPayload single = parseBody(body);
+            return single == null ? List.of() : List.of(single);
+        }
+        for (int index = 0; index < indexes.size(); index++) {
+            int start = indexes.get(index);
+            int end = index + 1 < indexes.size() ? indexes.get(index + 1) : body.length();
+            chunks.add(body.substring(start, end));
+        }
+        List<UnderstandingCheckPayload> result = new ArrayList<>();
+        for (String chunk : chunks) {
+            UnderstandingCheckPayload payload = parseBody(chunk);
+            if (payload != null) {
+                result.add(payload);
+            }
+        }
+        if (result.isEmpty()) {
+            UnderstandingCheckPayload single = parseBody(body);
+            return single == null ? List.of() : List.of(single);
+        }
+        return result;
+    }
+
+    private static UnderstandingCheckPayload parseBody(String body) {
         String raw = DECORATION.matcher(body).replaceAll("").trim();
         Matcher answerMatcher = ANSWER.matcher(raw);
         boolean hasAnswer = answerMatcher.find();
@@ -74,7 +119,9 @@ public final class UnderstandingCheckExtractor {
         }
 
         String question = clean(visible.substring(0, marks.get(0).start()));
-        question = QUESTION_PREFIX.matcher(question).replaceFirst("").replaceAll("[?\\s]+$", "").trim();
+        question = QUESTION_PREFIX.matcher(question).replaceFirst("")
+                .replaceFirst("(?i)^Q\\d+\\.?\\s*", "")
+                .replaceAll("[?\\s]+$", "").trim();
         if (question.isBlank()) {
             return null;
         }

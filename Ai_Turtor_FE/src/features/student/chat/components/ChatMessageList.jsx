@@ -23,7 +23,7 @@ import InlineMentorSupport from './InlineMentorSupport';
 import StudentMessageBubble from './StudentMessageBubble';
 import RemediationRequestCard from './RemediationRequestCard';
 import { uiCopy } from '../../../../constants/uiCopy';
-import { lessonSuggestionsForMessage, resolveChatStudyTip } from '../../learning/studySuggestionPrompt';
+import { lessonSuggestionsForMessage, parseCurriculumStarterSuggestions, resolveChatStudyTip } from '../../learning/studySuggestionPrompt';
 import { isAiServiceErrorText, shouldOfferLessonContinuations } from '../../../../utils/errorMessages';
 import TutorMascot from '../../../../components/common/TutorMascot';
 import { useMarkdownReveal } from '../useMarkdownReveal';
@@ -103,6 +103,7 @@ function StudentLiveAnswer({
   voiceId,
 }) {
   const fullMarkdown = withoutLegacyEvidenceAppendix(message.answer, evidenceMessage);
+  const starterSuggestions = parseCurriculumStarterSuggestions(fullMarkdown);
   const reveal = Boolean(message.revealAnswer) && !tutorTurnFailed && !message.canceled;
   const { text: revealedMarkdown, done } = useMarkdownReveal(fullMarkdown, reveal);
   const showTtsAction = ttsEnabled && !message.canceled && Boolean(fullMarkdown.trim());
@@ -119,6 +120,7 @@ function StudentLiveAnswer({
         <AiAnswer
           markdown={revealedMarkdown}
           understandingCheck={done ? message.understandingCheck : null}
+          understandingAttempts={done ? message.understandingCheckAttempts : []}
           understandingSelectedKey={done ? message.understandingSelectedKey : ''}
           attemptId={message.assistantMessageId || message.messageId || message.id}
           streaming={reveal && !done}
@@ -150,6 +152,15 @@ function StudentLiveAnswer({
         <AnswerEvidence
           message={evidenceMessage}
           sourceMap={materialSourceMap}
+        />
+      )}
+      {done && !message.canceled && starterSuggestions.length > 0 && (
+        <AnswerImproveSuggestions
+          suggestions={starterSuggestions}
+          onStudy={onStudySuggestion}
+          sourceMode={message.mode}
+          heading="Gợi ý học tập"
+          hint="Nhấn vào một gợi ý để hỏi AI Tutor ngay nội dung đó."
         />
       )}
       {done && !message.canceled && offerLessonContinuations && !isWelcomeTurn && (

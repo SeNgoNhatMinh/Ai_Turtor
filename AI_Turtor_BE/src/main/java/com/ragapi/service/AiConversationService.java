@@ -4,6 +4,7 @@ import com.ragapi.dto.AiConversationHistoryResponse;
 import com.ragapi.dto.AiConversationListResponse;
 import com.ragapi.dto.AiConversationSummary;
 import com.ragapi.dto.AiMessageInfo;
+import com.ragapi.dto.UnderstandingCheckAttempt;
 import com.ragapi.dto.UnderstandingCheckPayload;
 import com.ragapi.dto.UnderstandingCheckResultResponse;
 import com.ragapi.util.UnderstandingCheckExtractor;
@@ -407,8 +408,19 @@ public class AiConversationService {
                 .build());
 
         UnderstandingCheckPayload understandingCheck = UnderstandingCheckExtractor.extract(answer);
+        List<UnderstandingCheckPayload> allChecks = UnderstandingCheckExtractor.extractAll(answer);
+        String assistantMessageId = UUID.randomUUID().toString();
+        String firstAttemptId = understandingCheck == null ? null : UUID.randomUUID().toString();
+        List<UnderstandingCheckAttempt> checkAttempts = new java.util.ArrayList<>();
+        for (int index = 0; index < allChecks.size(); index++) {
+            checkAttempts.add(UnderstandingCheckAttempt.builder()
+                    .quizIndex(index)
+                    .attemptId(index == 0 ? firstAttemptId : UUID.randomUUID().toString())
+                    .check(allChecks.get(index))
+                    .build());
+        }
         AiMessage assistantMessage = messageRepository.save(AiMessage.builder()
-                .id(UUID.randomUUID().toString())
+                .id(assistantMessageId)
                 .conversationId(conversation.getId())
                 .userId(userId)
                 .role("ASSISTANT")
@@ -420,7 +432,8 @@ public class AiConversationService {
                 .groundingType(groundingType)
                 .questionEscalationId(questionEscalationId)
                 .understandingCheck(understandingCheck)
-                .understandingAttemptId(understandingCheck == null ? null : UUID.randomUUID().toString())
+                .understandingCheckAttempts(checkAttempts)
+                .understandingAttemptId(firstAttemptId)
                 .pinned(false)
                 .createdAt(now.plusNanos(1))
                 .build());
@@ -505,11 +518,51 @@ public class AiConversationService {
         return toMessageInfo(messageRepository.save(message));
     }
 
+    /** Builds the per-item attempt list for legacy messages that only stored the first quiz. */
+    private List<UnderstandingCheckAttempt> ensureCheckAttempts(AiMessage message) {
+        List<UnderstandingCheckAttempt> attempts = message.getUnderstandingCheckAttempts();
+        if (attempts != null && !attempts.isEmpty()) {
+            return attempts;
+        }
+        List<UnderstandingCheckPayload> checks = UnderstandingCheckExtractor.extractAll(message.getContent());
+        if (checks.isEmpty() && message.getUnderstandingCheck() != null) {
+            checks = List.of(message.getUnderstandingCheck());
+        }
+        List<UnderstandingCheckAttempt> built = new java.util.ArrayList<>();
+        for (int index = 0; index < checks.size(); index++) {
+            UnderstandingCheckAttempt attempt = UnderstandingCheckAttempt.builder()
+                    .quizIndex(index)
+                    .attemptId(index == 0 && message.getUnderstandingAttemptId() != null
+                            ? message.getUnderstandingAttemptId() : UUID.randomUUID().toString())
+                    .check(checks.get(index))
+                    .build();
+            if (index == 0 && message.getUnderstandingSelectedKey() != null
+                    && !message.getUnderstandingSelectedKey().isBlank()) {
+                attempt.setSelectedKey(message.getUnderstandingSelectedKey());
+                attempt.setCorrect(message.getUnderstandingCorrect());
+                attempt.setAnsweredAt(message.getUnderstandingAnsweredAt());
+            }
+            built.add(attempt);
+        }
+        message.setUnderstandingCheckAttempts(built);
+        return built;
+    }
+
     public UnderstandingCheckResultResponse recordUnderstandingCheck(
             String conversationId,
             String messageId,
             String userId,
             String selectedKey
+    ) {
+        return recordUnderstandingCheck(conversationId, messageId, userId, selectedKey, 0);
+    }
+
+    public UnderstandingCheckResultResponse recordUnderstandingCheck(
+            String conversationId,
+            String messageId,
+            String userId,
+            String selectedKey,
+            int quizIndex
     ) {
         AiConversation conversation = requireConversation(conversationId, userId);
         String key = selectedKey == null ? "" : selectedKey.trim().toUpperCase();
@@ -522,24 +575,33 @@ public class AiConversationService {
         if (!"ASSISTANT".equals(role)) {
             throw new IllegalArgumentException("Chỉ lưu đáp án trên câu trả lời của AI Tutor");
         }
-        UnderstandingCheckPayload check = message.getUnderstandingCheck();
-        if (check == null) {
-            check = UnderstandingCheckExtractor.extract(message.getContent());
-            message.setUnderstandingCheck(check);
+        List<UnderstandingCheckAttempt> attempts = ensureCheckAttempts(message);
+        if (quizIndex < 0 || quizIndex >= attempts.size()) {
+            throw new IllegalArgumentException("Câu kiểm tra hiểu không tồn tại");
         }
+        UnderstandingCheckAttempt attempt = attempts.get(quizIndex);
+        UnderstandingCheckPayload check = attempt.getCheck();
         if (check == null || check.getCorrectKey() == null || check.getCorrectKey().isBlank()) {
             throw new IllegalArgumentException("Câu kiểm tra hiểu chưa có đáp án hợp lệ");
         }
-        if (message.getUnderstandingAttemptId() == null || message.getUnderstandingAttemptId().isBlank()) {
-            message.setUnderstandingAttemptId(UUID.randomUUID().toString());
+        if (message.getUnderstandingCheck() == null) {
+            message.setUnderstandingCheck(attempts.get(0).getCheck());
         }
-        if (message.getUnderstandingSelectedKey() == null || message.getUnderstandingSelectedKey().isBlank()) {
-            message.setUnderstandingSelectedKey(key);
-            message.setUnderstandingCorrect(key.equalsIgnoreCase(check.getCorrectKey()));
-            message.setUnderstandingAnsweredAt(LocalDateTime.now());
+        boolean newlyAnswered = attempt.getSelectedKey() == null || attempt.getSelectedKey().isBlank();
+        if (newlyAnswered) {
+            attempt.setSelectedKey(key);
+            attempt.setCorrect(key.equalsIgnoreCase(check.getCorrectKey()));
+            attempt.setAnsweredAt(LocalDateTime.now());
+            if (quizIndex == 0) {
+                // Legacy singular fields stay in sync with the first item.
+                message.setUnderstandingAttemptId(attempt.getAttemptId());
+                message.setUnderstandingSelectedKey(key);
+                message.setUnderstandingCorrect(attempt.getCorrect());
+                message.setUnderstandingAnsweredAt(attempt.getAnsweredAt());
+            }
             message = messageRepository.save(message);
-            // Event-based detection: repeated mistakes may trigger an early
-            // adaptive review before the 10-question cycle completes (async).
+            // Event-based detection: every newly recorded quiz answer may
+            // complete a repeated-mistake pattern (async, never blocks chat).
             adaptiveLearningReviewService.onUnderstandingCheckRecorded(
                     userId,
                     trimToNull(conversation.getCourseId()),
@@ -552,15 +614,16 @@ public class AiConversationService {
                 .findFirst()
                 .orElse("");
         return UnderstandingCheckResultResponse.builder()
-                .status(Boolean.TRUE.equals(message.getUnderstandingCorrect()) ? "CORRECT" : "INCORRECT")
-                .attemptId(message.getUnderstandingAttemptId())
+                .status(Boolean.TRUE.equals(attempt.getCorrect()) ? "CORRECT" : "INCORRECT")
+                .attemptId(attempt.getAttemptId())
                 .messageId(message.getId())
-                .selectedKey(message.getUnderstandingSelectedKey())
-                .correct(Boolean.TRUE.equals(message.getUnderstandingCorrect()))
+                .quizIndex(quizIndex)
+                .selectedKey(attempt.getSelectedKey())
+                .correct(Boolean.TRUE.equals(attempt.getCorrect()))
                 .correctKey(correctKey)
                 .correctOptionText(correctOptionText)
                 .explanation(check.getExplanation())
-                .answeredAt(message.getUnderstandingAnsweredAt())
+                .answeredAt(attempt.getAnsweredAt())
                 .build();
     }
 
@@ -776,6 +839,19 @@ public class AiConversationService {
                         storedCheck,
                         revealUnderstandingResult
                 ))
+                .understandingCheckAttempts(ensureCheckAttempts(message).stream()
+                        .map(attempt -> UnderstandingCheckAttempt.builder()
+                                .quizIndex(attempt.getQuizIndex())
+                                .attemptId(attempt.getAttemptId())
+                                .check(UnderstandingCheckExtractor.studentView(
+                                        attempt.getCheck(),
+                                        attempt.getSelectedKey() != null
+                                                && !attempt.getSelectedKey().isBlank()))
+                                .selectedKey(attempt.getSelectedKey())
+                                .correct(attempt.getCorrect())
+                                .answeredAt(attempt.getAnsweredAt())
+                                .build())
+                        .toList())
                 .createdAt(message.getCreatedAt())
                 .build();
     }

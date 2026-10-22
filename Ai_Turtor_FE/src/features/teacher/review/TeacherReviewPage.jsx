@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Alert, Select } from 'antd';
-import { Activity, CheckCircle2, LifeBuoy, ShieldAlert } from 'lucide-react';
+import { CheckCircle2, LifeBuoy, ShieldAlert } from 'lucide-react';
 import PageHeader from '../../../components/common/PageHeader';
 import AppTabs from '../../../components/common/AppTabs';
 import { queryKeys } from '../../../app/queryKeys';
@@ -13,7 +13,6 @@ import { uniqueClassScopes } from '../tutoring/teacherTutoringStudents';
 import { useTeacherReviewQueue } from './useTeacherReviewQueue';
 import AnswerReviewWorkspace from './AnswerReviewWorkspace';
 import TeacherSupportInbox from './TeacherSupportInbox';
-import AdaptiveLearningReviewPanel from './AdaptiveLearningReviewPanel';
 import './TeacherReviewPage.css';
 
 const HISTORY_STATUSES = new Set(['COMPLETED', 'CLOSED', 'CANCELLED']);
@@ -196,24 +195,6 @@ export default function TeacherReviewPage({
                 onCreateKnowledgeCandidateChange={setCreateKnowledgeCandidate}
                 candidateType={candidateType}
                 onCandidateTypeChange={setCandidateType}
-              />
-            ),
-          },
-          {
-            key: 'adaptive-learning',
-            label: (
-              <span className="teacher-review-tab">
-                <Activity size={15} />
-                Đánh giá tiến bộ
-              </span>
-            ),
-            children: (
-              <AdaptiveLearningReviewPanel
-                currentUser={currentUser}
-                teacherId={teacherId}
-                courseId={courseId}
-                classId={classId}
-                triggerToast={triggerToast}
               />
             ),
           },

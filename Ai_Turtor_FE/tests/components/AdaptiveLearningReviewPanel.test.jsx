@@ -8,6 +8,7 @@ vi.mock('../../src/services/teacherReviewApi', () => ({
     getAdaptiveLearningReviews: vi.fn(),
     getAdaptiveStudentRoster: vi.fn(),
     decideAdaptiveLearningReview: vi.fn(),
+    getStudentCourseSummary: vi.fn(),
   },
 }));
 
@@ -104,7 +105,7 @@ describe('AdaptiveLearningReviewPanel', () => {
     expect(screen.getByText('90%')).toBeInTheDocument();
     expect(screen.getByText('Thử thách')).toBeInTheDocument();
     expect(screen.getByText('Sinh viên hiểu tốt OOP và tự làm được bài tập.')).toBeInTheDocument();
-    expect(screen.getByText('1 mục — chỉ gồm câu hỏi của sinh viên, đáp án sinh viên chọn và câu trả lời của AI')).toBeInTheDocument();
+    expect(screen.getByText(/1 mục — câu hỏi của sinh viên và từng câu kiểm tra đã trả lời/)).toBeInTheDocument();
     expect(teacherReviewApi.getAdaptiveLearningReviews).toHaveBeenCalledWith(
       'PRO192', 'SE1833', expect.objectContaining({ signal: expect.anything() }),
     );
@@ -128,7 +129,7 @@ describe('AdaptiveLearningReviewPanel', () => {
     expect((await screen.findAllByText('Tran Thi B')).length).toBeGreaterThan(0);
     expect(screen.getByText(/Đã hỏi 3\/10 câu tới chu kỳ đánh giá · 0%/)).toBeInTheDocument();
     expect(screen.getAllByText('Chưa đánh giá').length).toBeGreaterThan(0);
-    expect(screen.getByText('AI sẽ tự đánh giá khi sinh viên hỏi đủ 10 câu trong môn')).toBeInTheDocument();
+    expect(screen.getByText('AI đánh giá sau mỗi 10 câu hỏi, hoặc sớm hơn khi sai nhiều câu kiểm tra')).toBeInTheDocument();
   });
 
   it('requires teacher feedback before approving', async () => {
@@ -175,6 +176,68 @@ describe('AdaptiveLearningReviewPanel', () => {
     await waitFor(() => expect(triggerToast).toHaveBeenCalledWith(
       'Đã lưu quyết định và nhận xét của giảng viên.',
     ));
+  });
+
+  it('embedded mode shows only the forced student review without header or roster', async () => {
+    teacherReviewApi.getAdaptiveLearningReviews.mockResolvedValue([pendingReview]);
+    teacherReviewApi.getAdaptiveStudentRoster.mockResolvedValue([labeledStudent, unlabeledStudent]);
+
+    render(
+      <AdaptiveLearningReviewPanel
+        embedded
+        forcedStudentId="student-1"
+        courseId="PRO192"
+        classId="SE1833"
+        triggerToast={vi.fn()}
+      />,
+    );
+
+    expect((await screen.findAllByText('Nguyen Van A')).length).toBeGreaterThan(0);
+    expect(screen.queryByText('Sinh viên trong lớp')).not.toBeInTheDocument();
+    expect(screen.queryByText('Tran Thi B')).not.toBeInTheDocument();
+    expect(screen.getByText('Sinh viên hiểu tốt OOP và tự làm được bài tập.')).toBeInTheDocument();
+  });
+
+  it('generates the whole-history AI course summary with quiz stats and skipped count', async () => {
+    teacherReviewApi.getAdaptiveLearningReviews.mockResolvedValue([pendingReview]);
+    teacherReviewApi.getAdaptiveStudentRoster.mockResolvedValue([labeledStudent]);
+    teacherReviewApi.getStudentCourseSummary.mockResolvedValue({
+      studentId: 'student-1',
+      courseId: 'PRO192',
+      classId: 'SE1833',
+      totalQuestions: 93,
+      questionsInCurrentCycle: 3,
+      cycleSize: 10,
+      quizGiven: 30,
+      quizAnswered: 25,
+      quizCorrect: 18,
+      quizWrong: 7,
+      quizSkipped: 5,
+      quizCorrectPercent: 72,
+      currentSupportLevel: 'HIGH_SUPPORT',
+      aiSummary: 'Sinh viên hỏi nhiều về OOP, gần đây tiến bộ rõ ở đa hình.',
+      strengths: ['Tự viết được ví dụ đóng gói'],
+      knowledgeGaps: ['Đa hình'],
+      teachingRecommendations: ['Cho bài tập đa hình nhỏ'],
+      difficultConcepts: [{ concept: 'Đa hình là gì?', wrongCount: 3, skippedCount: 1 }],
+      levelHistory: [{
+        reviewId: 'rev-1', questionCount: 90, triggerType: 'CYCLE_10',
+        fromLevel: 'STANDARD', toLevel: 'HIGH_SUPPORT', status: 'PENDING',
+        createdAt: '2026-10-20T09:30:00',
+      }],
+      modelGenerated: true,
+    });
+
+    renderPanel();
+    await screen.findAllByText('Nguyen Van A');
+    fireEvent.click(screen.getByRole('button', { name: 'AI tóm tắt toàn bộ lịch sử' }));
+
+    expect(await screen.findByText(/Sinh viên hỏi nhiều về OOP/)).toBeInTheDocument();
+    expect(screen.getByText(/câu kiểm tra bỏ qua/)).toBeInTheDocument();
+    expect(screen.getByText(/Sau 90 câu hỏi/)).toBeInTheDocument();
+    expect(teacherReviewApi.getStudentCourseSummary).toHaveBeenCalledWith(
+      'student-1', 'PRO192', 'SE1833', expect.objectContaining({ signal: expect.anything() }),
+    );
   });
 
   it('asks for course and class when they are not selected', () => {

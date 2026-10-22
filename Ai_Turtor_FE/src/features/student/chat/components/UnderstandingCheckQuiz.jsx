@@ -110,6 +110,16 @@ function UnderstandingCheckQuiz({
           <strong>Kiểm tra hiểu</strong>
           <span>{hintText({ reviewer, locked, fromStudent, selectedKey, attemptId })}</span>
         </div>
+        {reviewer && (
+          <span className={`understanding-check__status ${fromStudent
+            ? (hasKey ? (isCorrect ? 'is-correct' : 'is-wrong') : 'is-answered')
+            : 'is-skipped'}`}
+          >
+            {fromStudent
+              ? (hasKey ? (isCorrect ? 'Sinh viên: Đúng' : 'Sinh viên: Sai') : 'Sinh viên đã trả lời')
+              : 'Sinh viên: Bỏ qua'}
+          </span>
+        )}
       </div>
       <p className="understanding-check__question">{quiz.question}</p>
       <div className="understanding-check__options">

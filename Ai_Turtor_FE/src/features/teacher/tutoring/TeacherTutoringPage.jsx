@@ -22,6 +22,7 @@ import {
   uniqueClassScopes,
 } from "./teacherTutoringStudents";
 import TeacherTranscriptThread from "./TeacherTranscriptThread";
+import AdaptiveLearningReviewPanel from "../review/AdaptiveLearningReviewPanel";
 import "./TeacherTutoringPage.css";
 
 function TopicList({ label, items, tone = "default", wrap = false }) {
@@ -796,6 +797,17 @@ export default function TeacherTutoringPage({ teacherId, setCourseId, setClassId
                 <TopicList items={selectedStudent.weakTopics} tone="weak" wrap />
               </section>
             )}
+            <section className="teacher-detail-section">
+              <h3>Đánh giá tiến bộ của AI</h3>
+              <AdaptiveLearningReviewPanel
+                embedded
+                forcedStudentId={selectedStudent.studentId || selectedStudent.id || ""}
+                courseId={selectedStudent.courseId || activeScope?.courseId || ""}
+                classId={selectedStudent.classId || activeScope?.classId || ""}
+                triggerToast={triggerToast}
+              />
+            </section>
+
 
             {selectedStudent.recentQuestions?.length > 0 && (
               <section className="teacher-detail-section">

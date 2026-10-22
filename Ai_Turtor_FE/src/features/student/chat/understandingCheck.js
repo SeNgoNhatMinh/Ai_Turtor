@@ -10,7 +10,13 @@ const CHOOSE_ANSWER = /(?:chọn|choose|pick)\s+(?:đáp án\s+)?([A-Da-d])\b/i;
 const LONE_KEY = /(?:^|\n)[\t ]*([A-Da-d])[\t ]*[.)]?[\t ]*(?:\n|$)/;
 const EXPLAIN_MARKER = /(?:^|\s)(?:giải thích|giai thich|explanation|lý do|ly do)\s*[:：]\s*\**\s*/ig;
 const QUESTION_PREFIX = /^(?:(?:\*{0,2}Q\d+\.?\*{0,2})|(?:câu hỏi(?:\s+trắc nghiệm)?|cau hoi(?:\s+trac nghiem)?|question))\s*[:：.*]?\s*/im;
-const QUIZ_ITEM_SPLIT = /(?=^\s*\*{0,2}Q\d+\.?\*{0,2}(?:\s+|\s*$))/im;
+// Q-prefix: **Q1.** / Q1. / Q1.* — the canonical Worker-2 format.
+const QUIZ_ITEM_SPLIT_Q = /(?=^\s*\*{0,2}Q\d+\.?\*{0,2}(?:\s+|\s*$))/im;
+// "Câu 1:" / "Câu 1." — Vietnamese drift used by some model variants.
+const QUIZ_ITEM_SPLIT_CAU = /(?=^\s*(?:câu(?:\s+hỏi)?\s+)?\d+\s*[:.：])/im;
+// Plain numbered list "1." / "2." — only split here when the block already
+// has at least two such markers to avoid splitting a single numbered answer.
+const QUIZ_ITEM_SPLIT_NUM = /(?=^\s*\d+\.\s)/im;
 
 function stripMarkdownWrappers(value) {
   return String(value || '')
@@ -123,12 +129,36 @@ function splitQuizItems(sectionBody) {
     .replace(/^\s*câu hỏi trắc nghiệm\s*[*:.：-]?\s*/i, '')
     .trim();
   if (!text) return [];
-  // Worker 2 emits **Q1.** alone or "Q1.* question…" on one line; keep --- answers in the same item.
-  if (!/\*{0,2}Q\d+\.?\*{0,2}/i.test(text)) return [text];
-  return text
-    .split(QUIZ_ITEM_SPLIT)
-    .map((chunk) => chunk.trim())
-    .filter(Boolean);
+
+  // 1. Canonical Worker-2 format: **Q1.** / Q1. / Q1.* on its own line.
+  if (/\*{0,2}Q\d+\.?\*{0,2}/i.test(text)) {
+    return text
+      .split(QUIZ_ITEM_SPLIT_Q)
+      .map((chunk) => chunk.trim())
+      .filter(Boolean);
+  }
+
+  // 2. Vietnamese drift: "Câu 1:" / "Câu hỏi 1:" / "Câu 1."
+  if (/(?:^|\n)\s*(?:câu(?:\s+hỏi)?\s+)?\d+\s*[:.：]/i.test(text)) {
+    const chunks = text
+      .split(QUIZ_ITEM_SPLIT_CAU)
+      .map((chunk) => chunk.trim())
+      .filter(Boolean);
+    if (chunks.length > 1) return chunks;
+  }
+
+  // 3. Plain numbered list: "1." / "2." — only when 2+ markers exist so a
+  //    single-question body with a numbered option list is not fragmented.
+  const numMarkers = text.match(/(?:^|\n)\s*\d+\.\s/g);
+  if (numMarkers && numMarkers.length >= 2) {
+    const chunks = text
+      .split(QUIZ_ITEM_SPLIT_NUM)
+      .map((chunk) => chunk.trim())
+      .filter(Boolean);
+    if (chunks.length > 1) return chunks;
+  }
+
+  return [text];
 }
 
 export function parseUnderstandingQuiz(sectionBody) {

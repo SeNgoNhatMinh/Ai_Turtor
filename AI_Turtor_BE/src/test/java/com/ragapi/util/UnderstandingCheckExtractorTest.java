@@ -31,6 +31,46 @@ class UnderstandingCheckExtractorTest {
     }
 
     @Test
+    void extractAllReturnsEveryQuizItemInOrder() {
+        String answer = """
+                ## Giải thích
+                Nội dung bài học.
+
+                ## Kiểm tra hiểu
+
+                Q1.
+                Câu một là gì?
+                A. Một
+                B. Hai
+                Đáp án đúng: B
+                Giải thích: Vì hai.
+
+                Q2.
+                Câu hai là gì?
+                A. Một
+                B. Hai
+                Đáp án đúng: A
+                Giải thích: Vì một.
+
+                Q3.
+                Câu ba là gì?
+                A. Một
+                B. Hai
+                Đáp án đúng: B
+                Giải thích: Vì hai.
+                """;
+
+        var checks = UnderstandingCheckExtractor.extractAll(answer);
+
+        assertThat(checks).hasSize(3);
+        assertThat(checks.get(0).getQuestion()).isEqualTo("Câu một là gì?");
+        assertThat(checks.get(1).getQuestion()).isEqualTo("Câu hai là gì?");
+        assertThat(checks.get(2).getQuestion()).isEqualTo("Câu ba là gì?");
+        // The singular extractor still returns only the first item.
+        assertThat(UnderstandingCheckExtractor.extract(answer).getQuestion()).isEqualTo("Câu một là gì?");
+    }
+
+    @Test
     void returnsNullForOrdinaryAnswer() {
         assertThat(UnderstandingCheckExtractor.extract("Giải thích vòng đời Servlet.")).isNull();
     }

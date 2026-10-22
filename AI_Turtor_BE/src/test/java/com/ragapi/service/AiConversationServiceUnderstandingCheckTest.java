@@ -98,6 +98,50 @@ class AiConversationServiceUnderstandingCheckTest {
     }
 
     @Test
+    void recordsEachQuizItemSeparately() {
+        AiMessage message = AiMessage.builder()
+                .id("assistant-1")
+                .conversationId("conversation-1")
+                .userId("student-1")
+                .role("ASSISTANT")
+                .content("""
+                        ## Kiểm tra hiểu
+
+                        Q1.
+                        Câu một là gì?
+                        A. Một
+                        B. Hai
+                        Đáp án đúng: B
+                        Giải thích: Vì hai.
+
+                        Q2.
+                        Câu hai là gì?
+                        A. Một
+                        B. Hai
+                        Đáp án đúng: A
+                        Giải thích: Vì một.
+                        """)
+                .build();
+        when(messageRepository.findByIdAndConversationIdAndUserId(
+                "assistant-1", "conversation-1", "student-1"))
+                .thenReturn(Optional.of(message));
+
+        UnderstandingCheckResultResponse second = service.recordUnderstandingCheck(
+                "conversation-1", "assistant-1", "student-1", "B", 1);
+
+        assertEquals(1, second.getQuizIndex());
+        assertEquals("INCORRECT", second.getStatus());
+        assertEquals("B", second.getSelectedKey());
+        // Item 2 is stored on its own attempt; item 1 stays unanswered and the
+        // legacy singular fields (item 1) are untouched.
+        assertEquals(2, message.getUnderstandingCheckAttempts().size());
+        assertEquals(null, message.getUnderstandingCheckAttempts().get(0).getSelectedKey());
+        assertEquals("B", message.getUnderstandingCheckAttempts().get(1).getSelectedKey());
+        assertEquals(false, message.getUnderstandingCheckAttempts().get(1).getCorrect());
+        assertEquals(null, message.getUnderstandingSelectedKey());
+    }
+
+    @Test
     void buildsRemediationIntentFromTheOriginatingEvidence() {
         AiMessage message = understandingMessage();
         message.setUnderstandingAttemptId("attempt-1");
