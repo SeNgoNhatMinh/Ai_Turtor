@@ -642,12 +642,15 @@ public class AiConversationService {
         AiMessage message = messageRepository.findById(safeMessageId)
                 .filter(value -> safeUserId.equals(value.getUserId()))
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy tin nhắn kiểm tra hiểu"));
-        if (!safeAttemptId.equals(message.getUnderstandingAttemptId())
-                || !Boolean.FALSE.equals(message.getUnderstandingCorrect())) {
+        UnderstandingCheckAttempt attempt = ensureCheckAttempts(message).stream()
+                .filter(value -> safeAttemptId.equals(value.getAttemptId()))
+                .findFirst()
+                .orElse(null);
+        if (attempt == null || !Boolean.FALSE.equals(attempt.getCorrect())) {
             throw new IllegalArgumentException("Lần kiểm tra hiểu không hợp lệ hoặc không cần giảng lại");
         }
 
-        UnderstandingCheckPayload check = message.getUnderstandingCheck();
+        UnderstandingCheckPayload check = attempt.getCheck();
         if (check == null) {
             check = UnderstandingCheckExtractor.extract(message.getContent());
         }

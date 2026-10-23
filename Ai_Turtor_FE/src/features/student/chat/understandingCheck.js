@@ -349,6 +349,42 @@ export function buildIncorrectAnswerRemediationPrompt(quiz, selected) {
   ].filter(Boolean).join('\n');
 }
 
+export function buildIncorrectAnswersRemediationPrompt(attempts) {
+  const incorrectAttempts = (Array.isArray(attempts) ? attempts : [])
+    .filter((attempt) => attempt?.quiz?.question && attempt?.selected?.key)
+    .sort((left, right) => Number(left.quizIndex || 0) - Number(right.quizIndex || 0));
+  if (!incorrectAttempts.length) return '';
+
+  const questionSections = incorrectAttempts.map((attempt) => {
+    const { quiz, selected, quizIndex } = attempt;
+    const correctKey = String(quiz.correctKey || '').trim().toUpperCase();
+    const correctOption = (Array.isArray(quiz.options) ? quiz.options : [])
+      .find((option) => option.key === correctKey);
+    const options = (Array.isArray(quiz.options) ? quiz.options : [])
+      .map((option) => `${option.key}. ${option.text}`)
+      .join('\n');
+
+    return [
+      `Câu ${Number(quizIndex || 0) + 1}: ${String(quiz.question).trim()}`,
+      options ? `Các lựa chọn:\n${options}` : '',
+      `Em đã chọn: ${selected.key}. ${String(selected.text || '').trim()}`,
+      correctKey
+        ? `Đáp án đúng: ${correctKey}. ${String(correctOption?.text || '').trim()}`
+        : 'Đáp án đúng chưa được xác định; hãy xác định từ tài liệu trước khi giảng.',
+      quiz.explanation ? `Lý do trong bài: ${String(quiz.explanation).trim()}` : '',
+    ].filter(Boolean).join('\n');
+  });
+
+  return [
+    'Ôn lại sau câu trả lời chưa đúng.',
+    `Học sinh đã hoàn thành quiz và có ${incorrectAttempts.length} câu trả lời chưa đúng:`,
+    ...questionSections,
+    'Với từng câu, hãy chẩn đoán vì sao lựa chọn sai và học sinh đang hiểu nhầm gì, rồi giảng lại kiến thức bằng Giải thích khái niệm và Minh họa trực quan.',
+    'Không chuyển sang chủ đề mới và không lặp lại cùng một ý giữa các phần giảng.',
+    'Phần câu trắc nghiệm kiểm tra lại sẽ do worker quiz tạo riêng: một câu dễ hơn, paraphrase hoàn toàn, để học sinh tự chọn trước khi hiện đáp án.',
+  ].join('\n');
+}
+
 export function buildMissingAnswerKeyRemediationPrompt(quiz, selected) {
   const question = String(quiz?.question || '').trim();
   const selectedKey = String(selected?.key || '').trim().toUpperCase();

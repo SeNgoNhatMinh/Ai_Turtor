@@ -6,6 +6,8 @@ import com.ragapi.dto.AdaptiveLearningReviewDecisionRequest;
 import com.ragapi.dto.AdaptiveStudentLabelOverview;
 import com.ragapi.dto.PedagogicalDirectiveRequest;
 import com.ragapi.dto.StudentCourseLearningSummary;
+import com.ragapi.dto.UnderstandingCheckAttempt;
+import com.ragapi.dto.UnderstandingCheckPayload;
 import com.ragapi.entity.AdaptiveLearningReview;
 import com.ragapi.entity.AiConversation;
 import com.ragapi.entity.AiMessage;
@@ -305,13 +307,21 @@ public class AdaptiveLearningReviewService {
         String transcriptForModel = evidence.stream().limit(36).map(item -> {
             if ("STUDENT_ANSWER".equals(item.get("kind"))) {
                 Object correct = item.get("correct");
+                String topic = String.valueOf(item.getOrDefault("topic", ""));
+                String questionContext = String.valueOf(item.getOrDefault("studentQuestion", ""));
                 if (correct == null) {
-                    return "[Kiểm tra hiểu bài: \"" + item.get("quizQuestion") + "\""
+                    return "[Kiểm tra hiểu bài | Chủ đề/ngữ cảnh: " + topic
+                            + " | Sinh viên hỏi: \"" + questionContext + "\""
+                            + " | Câu kiểm tra: \"" + item.get("quizQuestion") + "\""
                             + " | Kết quả: BỎ QUA (sinh viên không trả lời)]";
                 }
-                return "[Đáp án sinh viên - Kiểm tra hiểu bài: \"" + item.get("quizQuestion") + "\""
+                return "[Đáp án sinh viên - Kiểm tra hiểu bài | Chủ đề/ngữ cảnh: " + topic
+                        + " | Sinh viên hỏi: \"" + questionContext + "\""
+                        + " | Câu kiểm tra: \"" + item.get("quizQuestion") + "\""
                         + " | Sinh viên chọn: " + item.getOrDefault("selectedKey", "")
+                        + " (" + item.getOrDefault("selectedText", "") + ")"
                         + " | Đáp án đúng: " + item.getOrDefault("correctKey", "")
+                        + " (" + item.getOrDefault("correctText", "") + ")"
                         + " | Kết quả: " + (Boolean.TRUE.equals(correct) ? "ĐÚNG" : "SAI") + "]";
             }
             return item.get("role") + ": " + item.get("content");
@@ -963,37 +973,48 @@ public class AdaptiveLearningReviewService {
     }
 
     /**
-     * Evidence records only what the student did, nothing else: the questions
-     * the student asked in chat (STUDENT_QUESTION) and one STUDENT_ANSWER per
-     * quiz item the student answered (chosen option, correct option, right or
-     * wrong). Full AI answers are not evidence of student learning and only
-     * made this list noisy, so they are no longer stored here. Proactive
-     * system messages (welcome/opening) are skipped as well.
+     * Keep student questions and per-item quiz outcomes as evidence. Quiz
+     * answers include the preceding chat question, relevant source/topic,
+     * selected answer, and a concise AI grading assessment so teachers can
+     * inspect the context without treating assistant prose as student work.
      */
     private List<Map<String, Object>> buildEvidence(List<AiMessage> cycleMessages) {
         List<Map<String, Object>> result = new ArrayList<>();
+        Map<String, String> latestStudentQuestionByConversation = new HashMap<>();
+        Map<String, Map<String, Object>> latestStudentEvidenceByConversation = new HashMap<>();
         for (AiMessage message : cycleMessages) {
             String role = message.getRole() == null ? "UNKNOWN" : message.getRole().toUpperCase(Locale.ROOT);
             if (Boolean.TRUE.equals(message.getProactive())) continue;
+            String conversationId = message.getConversationId() == null ? "" : message.getConversationId();
 
             if ("STUDENT".equals(role)) {
                 Map<String, Object> item = baseEvidenceItem(message, role);
                 item.put("kind", "STUDENT_QUESTION");
                 item.put("content", truncate(message.getContent(), 1200));
+                item.put("topic", truncate(message.getContent(), 120));
+                item.put("aiAssessment", "AI lưu câu hỏi này làm ngữ cảnh học tập; việc đặt câu hỏi tự nó không phải bằng chứng sinh viên yếu kiến thức.");
                 result.add(item);
+                latestStudentQuestionByConversation.put(conversationId, message.getContent());
+                latestStudentEvidenceByConversation.put(conversationId, item);
                 continue;
             }
             if (!"ASSISTANT".equals(role)) continue;
 
+            String studentQuestion = latestStudentQuestionByConversation.getOrDefault(conversationId, "");
             for (var attempt : allAttempts(message)) {
                 var quiz = attempt.getCheck();
                 if (quiz == null) continue;
                 boolean skipped = attempt.getSelectedKey() == null || attempt.getSelectedKey().isBlank();
+                String topic = resolveEvidenceTopic(message, studentQuestion, quiz.getQuestion());
+                Map<String, Object> relatedQuestion = latestStudentEvidenceByConversation.get(conversationId);
+                if (relatedQuestion != null && !topic.isBlank()) relatedQuestion.put("topic", topic);
                 Map<String, Object> answer = baseEvidenceItem(message, "STUDENT");
                 answer.put("kind", "STUDENT_ANSWER");
                 answer.put("quizIndex", attempt.getQuizIndex());
                 answer.put("attemptId", attempt.getAttemptId() == null ? "" : attempt.getAttemptId());
                 answer.put("skipped", skipped);
+                answer.put("topic", topic);
+                answer.put("studentQuestion", truncate(studentQuestion, 1200));
                 answer.put("content", skipped
                         ? "Câu kiểm tra " + (attempt.getQuizIndex() + 1)
                                 + ": " + (quiz.getQuestion() == null ? "" : quiz.getQuestion())
@@ -1002,7 +1023,8 @@ public class AdaptiveLearningReviewService {
                                 + ": " + (quiz.getQuestion() == null ? "" : quiz.getQuestion())
                                 + " — sinh viên chọn " + attempt.getSelectedKey()
                                 + ", đáp án đúng " + (quiz.getCorrectKey() == null ? "" : quiz.getCorrectKey())
-                                + " → " + (Boolean.TRUE.equals(attempt.getCorrect()) ? "ĐÚNG" : "SAI"));
+                                + " → " + (Boolean.TRUE.equals(attempt.getCorrect()) ? "ĐÚNG"
+                                        : Boolean.FALSE.equals(attempt.getCorrect()) ? "SAI" : "CHƯA CHẤM"));
                 answer.put("quizQuestion", quiz.getQuestion() == null ? "" : quiz.getQuestion());
                 answer.put("quizOptions", quiz.getOptions() == null ? List.of() : quiz.getOptions().stream()
                         .map(option -> Map.of(
@@ -1011,13 +1033,19 @@ public class AdaptiveLearningReviewService {
                         .toList());
                 answer.put("correctKey", quiz.getCorrectKey() == null ? "" : quiz.getCorrectKey());
                 answer.put("selectedKey", skipped ? "" : attempt.getSelectedKey());
+                answer.put("selectedText", skipped ? "" : optionText(quiz, attempt.getSelectedKey()));
+                answer.put("correctText", optionText(quiz, quiz.getCorrectKey()));
                 // Keep null for skipped attempts: null means "not answered",
                 // false would wrongly count the item as a wrong answer.
                 answer.put("correct", skipped ? null : attempt.getCorrect());
                 answer.put("quizExplanation", quiz.getExplanation() == null ? "" : quiz.getExplanation());
+                answer.put("aiAssessment", buildQuizEvidenceAssessment(attempt, quiz, skipped));
                 answer.put("understandingCorrect", attempt.getCorrect());
                 answer.put("answeredAt", attempt.getAnsweredAt() == null
                         ? null : attempt.getAnsweredAt().toString());
+                answer.put("eventAt", attempt.getAnsweredAt() == null
+                        ? (message.getCreatedAt() == null ? null : message.getCreatedAt().toString())
+                        : attempt.getAnsweredAt().toString());
                 result.add(answer);
             }
         }
@@ -1033,6 +1061,63 @@ public class AdaptiveLearningReviewService {
         item.put("topic", "");
         item.put("createdAt", message.getCreatedAt() == null ? null : message.getCreatedAt().toString());
         return item;
+    }
+
+    private String resolveEvidenceTopic(AiMessage message, String studentQuestion, String quizQuestion) {
+        LinkedHashSet<String> labels = new LinkedHashSet<>();
+        if (message.getSourceEvidence() != null) {
+            message.getSourceEvidence().stream()
+                    .filter(Objects::nonNull)
+                    .map(source -> {
+                        String chapter = trimToNull(source.getChapter());
+                        String title = trimToNull(source.getMaterialTitle());
+                        if (chapter != null && title != null && !chapter.equalsIgnoreCase(title)) {
+                            return chapter + " · " + title;
+                        }
+                        return chapter != null ? chapter : title;
+                    })
+                    .filter(Objects::nonNull)
+                    .limit(2)
+                    .forEach(labels::add);
+        }
+        if (!labels.isEmpty()) return String.join(" · ", labels);
+        String context = trimToNull(studentQuestion);
+        if (context != null) return truncate(context, 120);
+        return truncate(quizQuestion, 120);
+    }
+
+    private String optionText(UnderstandingCheckPayload quiz, String key) {
+        if (quiz == null || key == null || quiz.getOptions() == null) return "";
+        return quiz.getOptions().stream()
+                .filter(option -> key.equalsIgnoreCase(option.getKey()))
+                .map(option -> option.getText() == null ? "" : option.getText())
+                .findFirst()
+                .orElse("");
+    }
+
+    private String buildQuizEvidenceAssessment(
+            UnderstandingCheckAttempt attempt,
+            UnderstandingCheckPayload quiz,
+            boolean skipped
+    ) {
+        if (skipped) {
+            return "AI chưa chấm mục này vì sinh viên chưa chọn đáp án; không tính là trả lời sai.";
+        }
+        String selectedKey = attempt.getSelectedKey() == null ? "" : attempt.getSelectedKey().trim().toUpperCase(Locale.ROOT);
+        String correctKey = quiz.getCorrectKey() == null ? "" : quiz.getCorrectKey().trim().toUpperCase(Locale.ROOT);
+        if (Boolean.TRUE.equals(attempt.getCorrect())) {
+            return "AI chấm đúng: sinh viên chọn " + selectedKey + ". Đây là bằng chứng trả lời đúng câu kiểm tra này, chưa đủ để kết luận đã làm chủ toàn bộ chủ đề.";
+        }
+        if (!Boolean.FALSE.equals(attempt.getCorrect())) {
+            return "AI chưa xác định kết quả chấm cho lựa chọn này; giảng viên có thể đối chiếu đáp án và tài liệu liên quan.";
+        }
+        return "AI chấm sai: sinh viên chọn " + selectedKey + ", đáp án đúng là " + correctKey
+                + ". Đây là dấu hiệu cần củng cố nội dung được kiểm tra; một lần sai riêng lẻ chưa đủ kết luận sinh viên có lỗ hổng lặp lại.";
+    }
+
+    private String trimToNull(String value) {
+        if (value == null || value.isBlank()) return null;
+        return value.trim();
     }
 
     public List<AdaptiveLearningReview> listForTeacher(String courseId, String classId) {

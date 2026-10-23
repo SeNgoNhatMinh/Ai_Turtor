@@ -10,8 +10,10 @@ import { isMobileViewport } from '../../../hooks/useResponsiveViewport';
 import { uiCopy } from '../../../constants/uiCopy';
 import { readStudentOwnLlm } from './studentOwnLlm';
 import {
+  buildIncorrectAnswersRemediationPrompt,
   buildIncorrectAnswerRemediationPrompt,
   buildMissingAnswerKeyRemediationPrompt,
+  extractUnderstandingCheck,
 } from './understandingCheck';
 
 export function useStudentChatTabController({
@@ -45,6 +47,9 @@ export function useStudentChatTabController({
   const [editingSessionTitle, setEditingSessionTitle] = useState('');
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [isHistoryDrawerOpen, setIsHistoryDrawerOpen] = useState(() => !isMobileViewport());
+  const isAiLoadingRef = useRef(false);
+  const pendingRemediationRef = useRef([]);
+  const understandingCheckProgressRef = useRef(new Map());
   const messagesEndRef = useRef(null);
 
   // Switching to a phone viewport (resize / device toolbar) closes the
@@ -134,7 +139,7 @@ export function useStudentChatTabController({
   };
 
   const sendText = (text, requestContext = {}) => {
-    if (isAiLoading) return;
+    if (isAiLoadingRef.current) return;
     if (!userId) {
       triggerToast?.('Vui lòng đăng nhập trước khi gửi tin nhắn.');
       return;
@@ -171,15 +176,23 @@ export function useStudentChatTabController({
 
     const textToSend = validation.value;
     setChatInput('');
+    isAiLoadingRef.current = true;
     setIsAiLoading(true);
     const effectiveRequestContext = {
       ...requestContext,
       requestedMode: requestContext.requestedMode || chatMode,
     };
     handleSendQuery(textToSend, '', () => {}, effectiveRequestContext).finally(() => {
+      isAiLoadingRef.current = false;
       setIsAiLoading(false);
     });
   };
+
+  useEffect(() => {
+    if (isAiLoading || isAiLoadingRef.current) return;
+    const nextRemediation = pendingRemediationRef.current.shift();
+    if (nextRemediation) sendText(nextRemediation.prompt, nextRemediation.context);
+  }, [isAiLoading, sendText]);
 
   const handleUnderstandingCheckAnswer = async (answerMessage, selectedKey, attempt = {}) => {
     const grade = await handleLockUnderstandingAnswer?.(answerMessage, selectedKey, attempt);
@@ -187,42 +200,108 @@ export function useStudentChatTabController({
       triggerToast?.('Không thể lưu lần trả lời. Vui lòng thử lại.');
       return;
     }
-    if (grade.correct) return grade;
-
-    const remediationContext = {
-      interactionType: 'UNDERSTANDING_REMEDIATION',
-      displayQuestion: attempt.quiz?.question || '',
-      originAssistantMessageId: grade.messageId
-        || answerMessage?.assistantMessageId
-        || answerMessage?.messageId
-        || answerMessage?.id
-        || '',
-      understandingAttemptId: grade.attemptId || '',
-      originalQuestion: attempt.quiz?.question || '',
-    };
-    if (!grade.correctKey && !attempt.quiz?.correctKey) {
-      const missingKeyPrompt = buildMissingAnswerKeyRemediationPrompt(
-        attempt.quiz,
-        attempt.selected,
-      );
-      if (!missingKeyPrompt) return;
-      triggerToast?.('AI Tutor đang kiểm tra đáp án và giảng lại ngay.');
-      sendText(missingKeyPrompt, remediationContext);
-      return grade;
-    }
-
-    const remediationPrompt = buildIncorrectAnswerRemediationPrompt(
-      {
-        ...attempt.quiz,
-        correctKey: grade.correctKey || attempt.quiz?.correctKey,
-        explanation: grade.explanation || attempt.quiz?.explanation,
-      },
-      attempt.selected,
+    const quizIndex = Number.isInteger(attempt.quizIndex) ? attempt.quizIndex : 0;
+    const messageId = grade.messageId
+      || answerMessage?.assistantMessageId
+      || answerMessage?.messageId
+      || answerMessage?.id
+      || answerMessage?.clientMessageId
+      || '';
+    const progressKey = String(messageId || `understanding-check-${attempt.quiz?.question || ''}`);
+    const answerMarkdown = answerMessage?.answer || answerMessage?.rawAnswer || answerMessage?.content || '';
+    const extractedQuizzes = extractUnderstandingCheck(answerMarkdown).quizzes;
+    const savedAttempts = Array.isArray(answerMessage?.understandingCheckAttempts)
+      ? answerMessage.understandingCheckAttempts : [];
+    const expectedCount = Math.max(
+      extractedQuizzes.length,
+      savedAttempts.length,
+      quizIndex + 1,
+      1,
     );
+    const progress = understandingCheckProgressRef.current.get(progressKey) || {
+      expectedCount,
+      answers: new Map(),
+      remediationStarted: false,
+    };
+    progress.expectedCount = Math.max(progress.expectedCount, expectedCount);
+
+    savedAttempts.forEach((savedAttempt) => {
+      const savedIndex = Number(savedAttempt?.quizIndex ?? -1);
+      const savedKey = String(savedAttempt?.selectedKey || '').trim().toUpperCase();
+      if (savedIndex < 0 || !savedKey || progress.answers.has(savedIndex)) return;
+      const quiz = extractedQuizzes[savedIndex]
+        || savedAttempt?.check
+        || (savedIndex === 0 ? answerMessage?.understandingCheck : null);
+      const selected = (Array.isArray(quiz?.options) ? quiz.options : [])
+        .find((option) => String(option?.key || '').toUpperCase() === savedKey);
+      if (!quiz?.question || !selected) return;
+      const correctKey = String(quiz.correctKey || '').trim().toUpperCase();
+      const correct = typeof savedAttempt?.correct === 'boolean'
+        ? savedAttempt.correct
+        : (correctKey ? savedKey === correctKey : undefined);
+      progress.answers.set(savedIndex, {
+        quizIndex: savedIndex,
+        quiz: { ...quiz, correctKey, explanation: quiz.explanation || '' },
+        selected,
+        grade: {
+          correct,
+          correctKey,
+          explanation: quiz.explanation || '',
+          messageId,
+          attemptId: savedAttempt?.attemptId || '',
+        },
+      });
+    });
+
+    const quiz = {
+      ...(attempt.quiz || {}),
+      correctKey: grade.correctKey || attempt.quiz?.correctKey || '',
+      explanation: grade.explanation || attempt.quiz?.explanation || '',
+    };
+    progress.answers.set(quizIndex, {
+      quizIndex,
+      quiz,
+      selected: attempt.selected,
+      grade: { ...grade, messageId },
+    });
+    understandingCheckProgressRef.current.set(progressKey, progress);
+
+    if (progress.remediationStarted || progress.answers.size < progress.expectedCount) return grade;
+    progress.remediationStarted = true;
+
+    const incorrectAnswers = [...progress.answers.values()]
+      .filter((entry) => {
+        const correctKey = String(entry.grade?.correctKey || entry.quiz.correctKey || '').toUpperCase();
+        return entry.grade?.correct === false
+          || (correctKey && String(entry.selected?.key || '').toUpperCase() !== correctKey)
+          || !correctKey;
+      })
+      .sort((left, right) => left.quizIndex - right.quizIndex);
+    if (!incorrectAnswers.length) return grade;
+
+    const remediationPrompt = incorrectAnswers.length === 1
+      ? (incorrectAnswers[0].quiz.correctKey
+        ? buildIncorrectAnswerRemediationPrompt(incorrectAnswers[0].quiz, incorrectAnswers[0].selected)
+        : buildMissingAnswerKeyRemediationPrompt(incorrectAnswers[0].quiz, incorrectAnswers[0].selected))
+      : buildIncorrectAnswersRemediationPrompt(incorrectAnswers);
     if (!remediationPrompt) return grade;
 
-    triggerToast?.('AI Tutor đang giảng lại theo cách dễ hiểu hơn.');
-    sendText(remediationPrompt, remediationContext);
+    const firstIncorrect = incorrectAnswers[0];
+    const remediationContext = {
+      interactionType: 'UNDERSTANDING_REMEDIATION',
+      displayQuestion: incorrectAnswers.length === 1
+        ? firstIncorrect.quiz.question
+        : `Giảng lại ${incorrectAnswers.length} câu trả lời chưa đúng trong quiz`,
+      originAssistantMessageId: firstIncorrect.grade.messageId || messageId,
+      understandingAttemptId: firstIncorrect.grade.attemptId || '',
+      originalQuestion: firstIncorrect.quiz.question || '',
+    };
+    triggerToast?.('AI Tutor đang giảng lại các câu sai trong quiz.');
+    if (isAiLoadingRef.current) {
+      pendingRemediationRef.current.push({ prompt: remediationPrompt, context: remediationContext });
+    } else {
+      sendText(remediationPrompt, remediationContext);
+    }
     return grade;
   };
 
@@ -281,6 +360,7 @@ export function useStudentChatTabController({
 
   const onStopQuery = () => {
     handleStopAiGeneration?.();
+    isAiLoadingRef.current = false;
     setIsAiLoading(false);
   };
 

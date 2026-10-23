@@ -19,6 +19,53 @@ const STATUS_LABELS = {
   REJECTED: 'Đã từ chối',
 };
 
+function formatEvidenceDate(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return new Intl.DateTimeFormat('vi-VN', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(date);
+}
+
+function previewText(value, limit = 160) {
+  const text = String(value || '');
+  return text.length > limit ? `${text.slice(0, limit)}…` : text;
+}
+
+function enrichEvidence(evidence) {
+  const latestQuestionByConversation = new Map();
+  return (Array.isArray(evidence) ? evidence : []).map((item) => {
+    const kind = String(item?.kind || '').toUpperCase();
+    const conversationId = String(item?.conversationId || '');
+    if (kind === 'STUDENT_QUESTION') {
+      const question = String(item?.content || '');
+      latestQuestionByConversation.set(conversationId, question);
+      return {
+        ...item,
+        topic: item?.topic || previewText(question, 120),
+        aiAssessment: item?.aiAssessment
+          || 'AI lưu câu hỏi làm ngữ cảnh học tập; việc đặt câu hỏi tự nó không phải bằng chứng sinh viên yếu kiến thức.',
+      };
+    }
+    if (kind !== 'STUDENT_ANSWER' && !kind.startsWith('QUIZ')) return item;
+
+    const studentQuestion = item?.studentQuestion || latestQuestionByConversation.get(conversationId) || '';
+    const quizQuestion = String(item?.quizQuestion || '');
+    const topic = item?.topic || studentQuestion || quizQuestion;
+    const knownResult = kind === 'QUIZ_WRONG' || kind === 'QUIZ_CORRECT'
+      || typeof item?.correct === 'boolean';
+    const skipped = item?.skipped === true || (!knownResult && item?.correct == null) || !item?.selectedKey;
+    const aiAssessment = item?.aiAssessment || (skipped
+      ? 'AI chưa chấm mục này vì sinh viên chưa chọn đáp án; không tính là trả lời sai.'
+      : item?.correct === true || kind === 'QUIZ_CORRECT'
+        ? `AI ghi nhận sinh viên trả lời đúng câu kiểm tra này (${item?.selectedKey}). Đây chưa phải bằng chứng làm chủ toàn bộ chủ đề.`
+        : `AI ghi nhận sinh viên trả lời sai: chọn ${item?.selectedKey}, đáp án đúng ${item?.correctKey || 'chưa có dữ liệu'}. Một lần sai riêng lẻ chưa đủ kết luận lỗ hổng lặp lại.`);
+    return { ...item, studentQuestion, topic, aiAssessment };
+  });
+}
+
 function PercentMetric({ label, value, color }) {
   const safeValue = Math.max(0, Math.min(100, Number(value) || 0));
   return (
@@ -29,42 +76,46 @@ function PercentMetric({ label, value, color }) {
   );
 }
 
-function EvidenceItem({ item, index }) {
+function EvidenceItem({ item, index, studentName }) {
   const [expanded, setExpanded] = useState(false);
   const role = String(item?.role || '').toUpperCase();
   const student = role === 'STUDENT';
   const kind = String(item?.kind || '').toUpperCase();
-  // New evidence has exactly 3 kinds; legacy QUIZ_* kinds still render.
   const isStudentAnswer = kind === 'STUDENT_ANSWER' || kind.startsWith('QUIZ');
   const quizWrong = kind === 'QUIZ_WRONG' || (kind === 'STUDENT_ANSWER' && item?.correct === false);
   const quizCorrect = kind === 'QUIZ_CORRECT' || (kind === 'STUDENT_ANSWER' && item?.correct === true);
   const quizSkipped = isStudentAnswer && !quizWrong && !quizCorrect
     && (item?.skipped === true || item?.correct == null || !item?.selectedKey);
   const title = isStudentAnswer
-    ? 'Đáp án của sinh viên'
+    ? (quizWrong ? 'Câu trả lời sai' : 'Kết quả kiểm tra')
     : student ? 'Câu hỏi của sinh viên' : 'Câu trả lời của AI';
+  const evidenceDate = formatEvidenceDate(isStudentAnswer
+    ? item?.eventAt || item?.answeredAt || item?.createdAt
+    : item?.createdAt);
+  const selectedAnswer = [item?.selectedKey, item?.selectedText].filter(Boolean).join('. ');
+  const correctAnswer = [item?.correctKey, item?.correctText].filter(Boolean).join('. ');
+  const summaryText = isStudentAnswer
+    ? (quizSkipped
+      ? `${item?.quizQuestion || 'Câu kiểm tra'} — sinh viên chưa trả lời.`
+      : `${item?.quizQuestion || 'Câu kiểm tra'} — sinh viên chọn ${selectedAnswer || '—'}; đáp án đúng ${correctAnswer || '—'}.`)
+    : String(item?.content || '').slice(0, 160);
   return (
-    <article className="adaptive-review-evidence">
+    <article className={`adaptive-review-evidence${quizWrong ? ' is-wrong' : ''}`}>
       <button type="button" onClick={() => setExpanded((value) => !value)} aria-expanded={expanded}>
         <span className={`adaptive-review-evidence__dot ${student ? 'is-student' : 'is-ai'}`} />
         <span className="adaptive-review-evidence__body">
           <strong>{title}{isStudentAnswer && item?.quizIndex != null ? ` · Câu kiểm tra ${Number(item.quizIndex) + 1}` : ''} · Bằng chứng {index + 1}</strong>
-          <small>{item?.topic || 'Chủ đề chưa xác định'}{item?.createdAt ? ` · ${new Date(item.createdAt).toLocaleString('vi-VN')}` : ''}</small>
-          {isStudentAnswer ? (
-            quizSkipped ? (
-              <span>{item?.quizQuestion || ''}{' — Sinh viên bỏ qua, không trả lời câu này'}</span>
-            ) : (
-              <span>
-                {item?.quizQuestion || ''}
-                {' — Sinh viên chọn '}
-                <b>{item?.selectedKey || '—'}</b>
-                {', đáp án đúng '}
-                <b>{item?.correctKey || '—'}</b>
-              </span>
-            )
-          ) : (
-            <span>{String(item?.content || '').slice(0, 150)}{String(item?.content || '').length > 150 ? '…' : ''}</span>
-          )}
+          <small>
+            {studentName || 'Sinh viên'}
+            {evidenceDate ? ` · ${evidenceDate}` : ''}
+            {item?.topic ? ` · ${item.topic}` : ' · Chủ đề chưa xác định'}
+          </small>
+          <span className="adaptive-review-evidence__preview">
+            {isStudentAnswer && item?.studentQuestion ? (
+              <em>Câu hỏi liên quan: {previewText(item.studentQuestion, 130)}</em>
+            ) : null}
+            <span>{previewText(summaryText)}</span>
+          </span>
         </span>
         {isStudentAnswer && (
           <Tag color={quizWrong ? 'red' : quizCorrect ? 'green' : 'gold'}>
@@ -75,21 +126,47 @@ function EvidenceItem({ item, index }) {
       </button>
       {expanded && (
         <div className="adaptive-review-evidence__detail">
+          <div className="adaptive-review-evidence__meta">
+            <span><small>Sinh viên</small><strong>{studentName || '—'}</strong></span>
+            <span><small>Thời điểm</small><strong>{evidenceDate || '—'}</strong></span>
+            <span><small>Chủ đề / ngữ cảnh</small><strong>{item?.topic || 'Chưa xác định'}</strong></span>
+          </div>
           {isStudentAnswer ? (
             <>
-              <p><strong>Câu hỏi kiểm tra:</strong> {item?.quizQuestion || '—'}</p>
-              {(item?.quizOptions || []).map((option) => (
-                <p key={option.key}>
-                  <strong>{option.key}.</strong> {option.text}
-                  {option.key === item?.correctKey ? ' ✓ đáp án đúng' : ''}
-                  {option.key === item?.selectedKey ? ' ← sinh viên chọn' : ''}
-                </p>
-              ))}
-              {item?.quizExplanation ? <p><strong>Giải thích:</strong> {item.quizExplanation}</p> : null}
-              <p>{item?.content || ''}</p>
+              {item?.studentQuestion ? <p><strong>Câu hỏi trong chat:</strong> {item.studentQuestion}</p> : null}
+              <p><strong>Câu kiểm tra:</strong> {item?.quizQuestion || '—'}</p>
+              <p><strong>Sinh viên trả lời:</strong> {quizSkipped ? 'Chưa trả lời' : selectedAnswer || '—'}</p>
+              {!quizSkipped ? <p><strong>Đáp án đúng:</strong> {correctAnswer || '—'}</p> : null}
+              {item?.aiAssessment ? (
+                <div className="adaptive-review-evidence__assessment">
+                  <strong>AI đánh giá</strong>
+                  <p>{item.aiAssessment}</p>
+                </div>
+              ) : null}
+              {item?.quizExplanation ? <p><strong>Giải thích đáp án:</strong> {item.quizExplanation}</p> : null}
+              {(item?.quizOptions || []).length > 0 && (
+                <details className="adaptive-review-evidence__options">
+                  <summary>Xem các lựa chọn</summary>
+                  {(item.quizOptions || []).map((option) => (
+                    <p key={option.key}>
+                      <strong>{option.key}.</strong> {option.text}
+                      {option.key === item?.correctKey ? ' ✓ đáp án đúng' : ''}
+                      {option.key === item?.selectedKey ? ' ← sinh viên chọn' : ''}
+                    </p>
+                  ))}
+                </details>
+              )}
             </>
           ) : (
-            <p>{item?.content || 'Không có nội dung log.'}</p>
+            <>
+              <p><strong>Câu hỏi của sinh viên:</strong> {item?.content || 'Không có nội dung log.'}</p>
+              {item?.aiAssessment ? (
+                <div className="adaptive-review-evidence__assessment">
+                  <strong>AI đánh giá</strong>
+                  <p>{item.aiAssessment}</p>
+                </div>
+              ) : null}
+            </>
           )}
           <small>Message ID: {item?.messageId || '—'} · Session ID: {item?.sessionId || '—'}</small>
         </div>
@@ -250,6 +327,11 @@ export default function AdaptiveLearningReviewPanel({ courseId, classId, trigger
       || reviews.find((item) => item.id === selectedId)
       || null)
     : null;
+  const selectedEvidence = enrichEvidence(selected?.evidence || EMPTY_REVIEWS);
+  const wrongEvidenceCount = selectedEvidence.filter((item) => (
+    item?.kind === 'QUIZ_WRONG'
+    || (item?.kind === 'STUDENT_ANSWER' && item?.correct === false)
+  )).length;
   useEffect(() => {
     if (!selected) return;
     setSelectedId(selected.id);
@@ -429,9 +511,19 @@ export default function AdaptiveLearningReviewPanel({ courseId, classId, trigger
 
             <section className="adaptive-review-logs">
               <div className="adaptive-review-section-heading">
-                <div><h4>Bằng chứng từ log trò chuyện</h4><p>{(selected.evidence || []).length} mục — câu hỏi của sinh viên và từng câu kiểm tra đã trả lời (ghi rõ đúng/sai, đáp án đã chọn và đáp án đúng)</p></div>
+                <div>
+                  <h4>Bằng chứng từ log trò chuyện</h4>
+                  <p>{selectedEvidence.length} mục · {wrongEvidenceCount} câu trả lời sai · Có câu hỏi liên quan, chủ đề, thời điểm và đánh giá của AI</p>
+                </div>
               </div>
-              {(selected.evidence || []).length ? selected.evidence.map((item, i) => <EvidenceItem key={item.messageId || i} item={item} index={i} />)
+              {selectedEvidence.length ? selectedEvidence.map((item, i) => (
+                <EvidenceItem
+                  key={`${item.messageId || i}-${item.kind || 'evidence'}-${item.quizIndex ?? i}`}
+                  item={item}
+                  index={i}
+                  studentName={selected.studentName || selectedStudent?.studentName}
+                />
+              ))
                 : <Empty description="Không có log bằng chứng" />}
             </section>
 
