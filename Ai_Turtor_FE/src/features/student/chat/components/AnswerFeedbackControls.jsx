@@ -1,10 +1,8 @@
-import { Button, Dropdown, Input, Rate } from 'antd';
+import { Button, Input, Rate } from 'antd';
 import {
   LikeOutlined,
   PushpinOutlined,
   StarOutlined,
-  DownOutlined,
-  WarningOutlined,
 } from '@ant-design/icons';
 
 const STAR_TOOLTIPS = ['Sai nghiêm trọng (1 sao)', 'Chưa chính xác', 'Chưa đủ tốt', 'Cần chi tiết hơn', 'Hữu ích'];
@@ -31,21 +29,6 @@ function AnswerFeedbackControls({
   const panelOpen = feedbackOpenIndex === index;
   const starsOpen = panelOpen && feedbackPanelMode === 'stars';
   const formOpen = panelOpen && feedbackPanelMode === 'form';
-
-  const reportMenu = {
-    items: [
-      {
-        key: 'sourceConflict',
-        label: 'Mâu thuẫn nguồn',
-        onClick: () => onOpenFeedback(index, 'sourceConflict'),
-      },
-      {
-        key: 'missingMaterial',
-        label: 'Thiếu tài liệu',
-        onClick: () => onOpenFeedback(index, 'missingMaterial'),
-      },
-    ],
-  };
 
   return (
     <>
@@ -80,11 +63,6 @@ function AnswerFeedbackControls({
         >
           Đánh giá
         </Button>
-        <Dropdown menu={reportMenu} trigger={['click']} disabled={isFeedbackSubmitting}>
-          <Button type="text" size="small" icon={<WarningOutlined />} disabled={isFeedbackSubmitting}>
-            Báo lỗi <DownOutlined style={{ fontSize: 10, marginInlineStart: 2 }} />
-          </Button>
-        </Dropdown>
       </div>
 
       {starsOpen && (
