@@ -1,5 +1,8 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
+import { queryKeys } from '../../../app/queryKeys';
+import { adminAcademicApi } from '../../../services/adminAcademicApi';
 import { getStudentSupportPath } from '../../../app/routes';
 import StudentChatView from './StudentChatView';
 import { useCourseMaterialsController } from '../../../hooks/useCourseMaterialsController';
@@ -121,6 +124,27 @@ export default function StudentChatPage({
     studentId,
   ]);
 
+  // Default screen of a course chat: the curriculum overview (with its
+  // starter suggestions) instead of a generic "what do you want to learn".
+  const curriculumQuery = useQuery({
+    queryKey: queryKeys.studentLearningGuide(courseId),
+    queryFn: () => adminAcademicApi.getStudentLearningGuide(courseId),
+    enabled: Boolean(courseId),
+    staleTime: 5 * 60_000,
+    retry: 1,
+  });
+  const curriculumWelcome = String(curriculumQuery.data?.welcomeMarkdown || '').trim();
+  const displayMessages = useMemo(() => {
+    if (chat.activeSessionId || !curriculumWelcome) return chat.messages;
+    return [{
+      id: `curriculum-${courseId}`,
+      question: '',
+      answer: curriculumWelcome,
+      proactive: true,
+      mode: 'RAG',
+    }, ...chat.messages];
+  }, [chat.activeSessionId, chat.messages, courseId, curriculumWelcome]);
+
   // No background tutor-session bootstrap: opening a tutor session (which
   // auto-creates "Buổi học cùng AI Tutor" conversations) happens only when
   // the student explicitly starts one via "Hỏi AI Tutor".
@@ -158,7 +182,7 @@ export default function StudentChatPage({
       hasLoadedStudentEnrollments={hasLoadedStudentEnrollments}
       hasStudentEnrollments={hasStudentEnrollments}
       isDarkMode={isDarkMode}
-      messages={chat.messages}
+      messages={displayMessages}
       chatInput={chatController.chatInput}
       setChatInput={chatController.setChatInput}
       chatMode={chatController.chatMode}

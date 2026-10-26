@@ -23,7 +23,12 @@ import InlineMentorSupport from './InlineMentorSupport';
 import StudentMessageBubble from './StudentMessageBubble';
 import RemediationRequestCard from './RemediationRequestCard';
 import { uiCopy } from '../../../../constants/uiCopy';
-import { lessonSuggestionsForMessage, parseCurriculumStarterSuggestions, resolveChatStudyTip } from '../../learning/studySuggestionPrompt';
+import {
+  lessonSuggestionsForMessage,
+  parseCurriculumStarterSuggestions,
+  resolveChatStudyTip,
+  stripCurriculumStarterSection,
+} from '../../learning/studySuggestionPrompt';
 import { isAiServiceErrorText, shouldOfferLessonContinuations } from '../../../../utils/errorMessages';
 import TutorMascot from '../../../../components/common/TutorMascot';
 import { useMarkdownReveal } from '../useMarkdownReveal';
@@ -104,8 +109,12 @@ function StudentLiveAnswer({
 }) {
   const fullMarkdown = withoutLegacyEvidenceAppendix(message.answer, evidenceMessage);
   const starterSuggestions = parseCurriculumStarterSuggestions(fullMarkdown);
+  // Starters render as clickable suggestions below; drop their text copy.
+  const displayMarkdown = starterSuggestions.length > 0
+    ? stripCurriculumStarterSection(fullMarkdown)
+    : fullMarkdown;
   const reveal = Boolean(message.revealAnswer) && !tutorTurnFailed && !message.canceled;
-  const { text: revealedMarkdown, done } = useMarkdownReveal(fullMarkdown, reveal);
+  const { text: revealedMarkdown, done } = useMarkdownReveal(displayMarkdown, reveal);
   const showTtsAction = ttsEnabled && !message.canceled && Boolean(fullMarkdown.trim());
   const showGeneralActions = !message.canceled && !message.sessionComplete && !isWelcomeTurn;
 

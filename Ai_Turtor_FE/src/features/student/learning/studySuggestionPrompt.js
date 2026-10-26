@@ -186,6 +186,25 @@ export function parseCurriculumStarterSuggestions(answer) {
     .map((item) => ({ ...item, curriculumStarter: true }));
 }
 
+/**
+ * The curriculum "Gợi ý học tập" section rendered as text. When its starters
+ * are shown as clickable suggestions, the plain list is a duplicate.
+ */
+export function stripCurriculumStarterSection(answer) {
+  const lines = String(answer || '').split(/\r?\n/);
+  const kept = [];
+  let skipping = false;
+  for (const raw of lines) {
+    const trimmed = String(raw || '').trim();
+    if (/^#{1,6}\s+\S/.test(trimmed)) {
+      skipping = /gợi ý học tập\s*$/i.test(trimmed.replace(/^#{1,6}\s*/, ''));
+      if (skipping) continue;
+    }
+    if (!skipping) kept.push(raw);
+  }
+  return kept.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
 export function parseNextLessonSuggestionsFromAnswer(answer) {
   const fromHeading = parseBulletsUnderHeadings(answer, /^(?:bài tiếp theo|bài kế tiếp)\s*$/i);
   if (fromHeading.length > 0) return fromHeading;

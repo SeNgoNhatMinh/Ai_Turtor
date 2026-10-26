@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../../../app/queryKeys';
 import { conversationApi } from '../../../services/conversationApi';
@@ -109,7 +109,25 @@ export function useConversationSessions({
     // belongs to the conversation where its question was asked.
     activeSessionIdRef.current = nextSessionId || null;
     setActiveSessionIdState(nextSessionId || null);
-  }, []);
+    // The new-chat screen caches its turns under the "none" key. Once a
+    // conversation is adopted or the student returns to an empty chat, that
+    // cache is stale and would resurface old turns (e.g. after deleting all
+    // history and coming back from the dashboard).
+    if (!nextSessionId || !previousSessionId) {
+      queryClient.removeQueries({
+        queryKey: queryKeys.conversationMessages(null, userId),
+        exact: true,
+      });
+    }
+  }, [queryClient, userId]);
+
+  // Entering the chat always starts on a clean new-chat screen.
+  useEffect(() => {
+    queryClient.removeQueries({
+      queryKey: queryKeys.conversationMessages(null, userId),
+      exact: true,
+    });
+  }, [queryClient, userId, courseId]);
 
   const setMessagesForConversation = useCallback((conversationId, updater) => {
     if (!conversationId) return;
