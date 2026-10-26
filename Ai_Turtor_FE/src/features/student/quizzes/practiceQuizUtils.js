@@ -75,3 +75,29 @@ export function sortQuizHistory(history) {
       - new Date(a.updatedAt || a.submittedAt || a.createdAt || 0)
   ));
 }
+
+// Score / feedback notes stored as "suggestions" are not quiz topics.
+const NON_TOPIC_SUGGESTION = /^(?:assignment score|teacher feedback|điểm|nhận xét)\b|:\s*\d+(?:[.,]\d+)?\s*$/i;
+
+const topicText = (item) => String(
+  typeof item === 'string' ? item : item?.topic || item?.title || item?.name || '',
+).replace(/\s+/g, ' ').trim();
+
+/**
+ * Quiz topics worth suggesting: the student's weak topics first, then the
+ * course syllabus units, so every suggestion is a real topic of the course.
+ */
+export const buildQuizTopicSuggestions = (weakTopics = [], curriculumTopics = []) => {
+  const seen = new Set();
+  const result = [];
+  [...(Array.isArray(weakTopics) ? weakTopics : []), ...(Array.isArray(curriculumTopics) ? curriculumTopics : [])]
+    .map(topicText)
+    .filter((topic) => topic && !NON_TOPIC_SUGGESTION.test(topic))
+    .forEach((topic) => {
+      const key = topic.toLocaleLowerCase('vi-VN');
+      if (seen.has(key)) return;
+      seen.add(key);
+      result.push(topic);
+    });
+  return result;
+};
