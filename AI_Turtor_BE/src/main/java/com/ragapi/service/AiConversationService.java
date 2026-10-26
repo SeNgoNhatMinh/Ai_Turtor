@@ -317,6 +317,32 @@ public class AiConversationService {
     }
 
     /**
+     * Latest graded understanding-check answers in this conversation, oldest
+     * first, so the tutor can adapt its tone to how the student is doing right
+     * now. Skipped items are left out: they are not evidence either way.
+     */
+    public String buildRecentUnderstandingSignals(String conversationId, String userId) {
+        String safeConversationId = trimToNull(conversationId);
+        String safeUserId = trimToNull(userId);
+        if (safeConversationId == null || safeUserId == null) return "";
+        List<String> lines = new java.util.ArrayList<>();
+        for (AiMessage message : messageRepository.findByConversationIdOrderByCreatedAtAsc(safeConversationId)) {
+            if (!"ASSISTANT".equalsIgnoreCase(message.getRole()) || !safeUserId.equals(message.getUserId())) continue;
+            for (UnderstandingCheckAttempt attempt : ensureCheckAttempts(message)) {
+                if (attempt.getSelectedKey() == null || attempt.getSelectedKey().isBlank()
+                        || attempt.getCorrect() == null) {
+                    continue;
+                }
+                String question = attempt.getCheck() == null || attempt.getCheck().getQuestion() == null
+                        ? "" : attempt.getCheck().getQuestion().trim().replaceAll("\\s+", " ");
+                if (question.length() > 160) question = question.substring(0, 160) + "...";
+                lines.add("- " + (attempt.getCorrect() ? "Correct" : "Wrong") + ": " + question);
+            }
+        }
+        return String.join("\n", lines.subList(Math.max(0, lines.size() - 6), lines.size()));
+    }
+
+    /**
      * Compact history for intent routing. Never throws: missing conversation yields "".
      */
     public String buildRecentTutorContextForClassifier(String conversationId, String userId) {

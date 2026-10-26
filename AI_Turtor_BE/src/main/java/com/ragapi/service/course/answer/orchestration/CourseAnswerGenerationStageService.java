@@ -536,7 +536,7 @@ public class CourseAnswerGenerationStageService {
         return switch (supportLevel) {
             case HIGH_SUPPORT -> "Write 2 to 3 multiple-choice questions (no fewer than 2, no more than 3).";
             case CHALLENGE -> "Write 3 to 5 multiple-choice questions (no fewer than 3, no more than 5).";
-            case STANDARD -> "Write exactly 1 multiple-choice question.";
+            case STANDARD -> "Write exactly 3 multiple-choice questions.";
         };
     }
 
