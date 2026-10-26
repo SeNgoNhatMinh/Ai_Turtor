@@ -657,6 +657,18 @@ public class AiConversationService {
         String retrievalQuestion = check != null && check.getQuestion() != null && !check.getQuestion().isBlank()
                 ? check.getQuestion().trim()
                 : fallbackQuestion;
+        // The student re-learns every wrong item of the quiz in one turn, so
+        // retrieval must cover all of them, not only the first one.
+        List<String> retrievalTerms = new java.util.ArrayList<>();
+        retrievalTerms.add(retrievalQuestion);
+        ensureCheckAttempts(message).stream()
+                .filter(value -> Boolean.FALSE.equals(value.getCorrect()))
+                .map(UnderstandingCheckAttempt::getCheck)
+                .filter(value -> value != null && value.getQuestion() != null && !value.getQuestion().isBlank())
+                .map(value -> value.getQuestion().trim())
+                .filter(value -> !retrievalTerms.contains(value))
+                .limit(4)
+                .forEach(retrievalTerms::add);
         List<RagSourceEvidence> evidence = message.getSourceEvidence() == null
                 ? List.of()
                 : message.getSourceEvidence();
@@ -675,16 +687,16 @@ public class AiConversationService {
                 .limit(12)
                 .toList();
         log.info(
-                "Understanding remediation context resolved: originMessageId={}, attemptId={}, materialCount={}, chunkCount={}",
-                safeMessageId, safeAttemptId, materialIds.size(), chunkIds.size());
+                "Understanding remediation context resolved: originMessageId={}, attemptId={}, materialCount={}, chunkCount={}, wrongItems={}",
+                safeMessageId, safeAttemptId, materialIds.size(), chunkIds.size(), retrievalTerms.size());
         return RagQueryIntent.builder()
                 .learningObjective(retrievalQuestion)
-                .retrievalQuery(retrievalQuestion)
-                .retrievalTerms(List.of(retrievalQuestion))
+                .retrievalQuery(String.join("\n", retrievalTerms))
+                .retrievalTerms(List.copyOf(retrievalTerms))
                 .teachingMode("EXPLAIN_CONCEPT")
                 .sourceMaterialIds(materialIds)
                 .sourceChunkIds(chunkIds)
-                .sourceTerms(List.of(retrievalQuestion))
+                .sourceTerms(List.copyOf(retrievalTerms))
                 .build();
     }
 
