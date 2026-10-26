@@ -271,6 +271,19 @@ export function useConversationSessions({
       triggerToast('Tài khoản chưa được ghi danh vào lớp. Vui lòng liên hệ Admin hoặc giáo viên.');
       return false;
     }
+    // Reuse an unused conversation instead of piling up empty ones.
+    const unusedSession = sessions.find((session) => (
+      getSessionQuestionCount(session) === 0 && !session.maxTurnsReached
+    ));
+    if (unusedSession) {
+      if (unusedSession.id === activeSessionIdRef.current) {
+        triggerToast('Bạn đang ở cuộc trò chuyện mới. Hãy đặt câu hỏi đầu tiên nhé.');
+        return false;
+      }
+      const opened = await handleSelectSession(unusedSession.id, unusedSession.title);
+      if (opened) triggerToast('Đã mở cuộc trò chuyện mới chưa dùng.');
+      return opened;
+    }
     try {
       return await runSessionMutation('create', async () => {
         const session = normalizeSession(await createMutation.mutateAsync());
@@ -296,7 +309,7 @@ export function useConversationSessions({
       triggerToast(getUserFacingError(error, 'Không thể tạo cuộc trò chuyện mới.'));
       return false;
     }
-  }, [classId, courseId, createMutation, queryClient, runSessionMutation, setActiveSessionId, setSessions, triggerToast, userId]);
+  }, [classId, courseId, createMutation, handleSelectSession, queryClient, runSessionMutation, sessions, setActiveSessionId, setSessions, triggerToast, userId]);
 
   const handleDeleteSession = useCallback(async (sessionId) => {
     if (!userId) {
