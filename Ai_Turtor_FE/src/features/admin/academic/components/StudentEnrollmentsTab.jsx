@@ -1,19 +1,10 @@
-import { Button, Card, Col, Form, Input, Row, Select } from 'antd';
-import { Eye, Pencil, Plus, Search, UserMinus } from 'lucide-react';
-import EntityActionMenu from '../../../../components/common/EntityActionMenu';
-import { DataTable } from '../../../../components/common/DataTable';
+import { Button, Card, Col, Form, Row, Select } from 'antd';
+import { Plus } from 'lucide-react';
 import { getClassCode, getCourseSelectOptions } from '../adminAcademicUtils';
 import { getPersonDisplayName, getPersonEmail, getPersonId } from '../../../../utils/displayNames';
-import StatusLabel from '../../../../components/common/StatusLabel';
+import EnrollmentLookupCard from './EnrollmentLookupCard';
 
 const { Option } = Select;
-
-const enrollmentActionItems = [
-  { key: 'view', icon: <Eye size={14} />, label: 'Xem chi tiết' },
-  { key: 'edit', icon: <Pencil size={14} />, label: 'Chỉnh sửa' },
-  { type: 'divider' },
-  { key: 'remove', icon: <UserMinus size={14} />, label: 'Xóa khỏi lớp', danger: true },
-];
 
 function StudentEnrollmentsTab({
   form,
@@ -21,14 +12,9 @@ function StudentEnrollmentsTab({
   classSections,
   studentOptions = [],
   studentsLoading = false,
-  enrollmentSearchId,
-  setEnrollmentSearchId,
-  studentEnrollments,
-  enrollmentsLoading,
   onCreate,
   onCourseSelect,
   onStudentSearch,
-  onSearch,
   onAction,
 }) {
   const courseOptions = getCourseSelectOptions(courses);
@@ -87,70 +73,7 @@ function StudentEnrollmentsTab({
         </Card>
       </Col>
       <Col xs={24} xl={14} style={{ minWidth: 0 }}>
-        <Card title="Tra cứu ghi danh" hoverable>
-          <div className="admin-academic-search-row">
-            <Input
-              placeholder="Tìm theo họ tên, email hoặc mã sinh viên"
-              value={enrollmentSearchId}
-              onChange={(event) => setEnrollmentSearchId(event.target.value)}
-              onPressEnter={onSearch}
-              allowClear
-            />
-            <Button
-              type="primary"
-              icon={<Search size={14} />}
-              onClick={onSearch}
-              loading={enrollmentsLoading}
-              disabled={!enrollmentSearchId.trim() || enrollmentsLoading}
-            >
-              Tìm kiếm
-            </Button>
-          </div>
-          <DataTable
-            data={studentEnrollments || []}
-            loading={enrollmentsLoading}
-            pageSize={10}
-            maxBodyHeight={560}
-            emptyText="Chưa có dữ liệu. Hãy tìm sinh viên theo họ tên, email hoặc mã sinh viên."
-            columns={[
-              {
-                accessorKey: 'studentName',
-                header: 'Sinh viên',
-                cell: ({ row }) => {
-                  const record = row.original;
-                  const email = getPersonEmail(record);
-                  return (
-                    <div className="entity-name-cell">
-                      <strong>{getPersonDisplayName(record, 'Sinh viên')}</strong>
-                      {email && <span>{email}</span>}
-                    </div>
-                  );
-                },
-              },
-              { accessorKey: 'courseId', header: 'Mã môn' },
-              { accessorKey: 'classId', header: 'Mã lớp' },
-              {
-                accessorKey: 'status',
-                header: 'Trạng thái',
-                cell: ({ row }) => {
-                  const value = row.getValue('status');
-                  return <StatusLabel status={value || 'ACTIVE'} />;
-                },
-              },
-              {
-                id: 'actions',
-                header: '',
-                cell: ({ row }) => (
-                  <EntityActionMenu
-                    items={enrollmentActionItems}
-                    onAction={(key) => onAction('enrollment', row.original, key)}
-                    ariaLabel="Thao tác ghi danh"
-                  />
-                ),
-              },
-            ]}
-          />
-        </Card>
+        <EnrollmentLookupCard courses={courses} onAction={onAction} />
       </Col>
     </Row>
   );

@@ -77,7 +77,6 @@ function AdminAcademic({ triggerToast, currentUser }) {
     triggerToast,
     courses: academic.courses,
     formStudentImport,
-    enrollmentSearchId: academic.enrollmentSearchId,
     loadStudentEnrollments: academic.loadStudentEnrollments,
   });
 

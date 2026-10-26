@@ -76,14 +76,9 @@ export default function AdminAcademicTabs({
             classSections={academic.classSections}
             studentOptions={studentOptions}
             studentsLoading={studentsLoading}
-            enrollmentSearchId={academic.enrollmentSearchId}
-            setEnrollmentSearchId={academic.setEnrollmentSearchId}
-            studentEnrollments={academic.studentEnrollments}
-            enrollmentsLoading={academic.enrollmentsLoading}
             onCreate={academic.handleCreateEnrollment}
             onCourseSelect={academic.handleCourseSelect}
             onStudentSearch={onStudentSearch}
-            onSearch={academic.loadStudentEnrollments}
             onAction={onAcademicAction}
           />
         </Suspense>

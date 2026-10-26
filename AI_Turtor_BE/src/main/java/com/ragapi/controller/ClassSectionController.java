@@ -34,6 +34,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -382,6 +383,52 @@ public class ClassSectionController {
                 "classId", classId
         ));
     }
+    @GetMapping({"/admin/enrollments", "/academic/enrollments"})
+    @Operation(summary = "Admin lookup of enrollments, optionally filtered by course, class, status or student text")
+    public ResponseEntity<List<CourseEnrollment>> listEnrollments(
+            @RequestParam(value = "courseId", required = false) String courseId,
+            @RequestParam(value = "classId", required = false) String classId,
+            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "query", required = false) String query
+    ) {
+        String safeCourseId = trimToNull(courseId);
+        String safeClassId = trimToNull(classId);
+        List<CourseEnrollment> enrollments;
+        if (safeCourseId != null && safeClassId != null) {
+            enrollments = courseEnrollmentRepository.findByCourseIdAndClassId(safeCourseId, safeClassId);
+        } else if (safeCourseId != null) {
+            enrollments = courseEnrollmentRepository.findByCourseId(safeCourseId);
+        } else {
+            enrollments = courseEnrollmentRepository.findAll();
+        }
+
+        String safeStatus = trimToNull(status);
+        String safeQuery = normalizeAccentInsensitive(optionalMaxLength(query, "query", SHORT_TEXT_MAX_LENGTH));
+        List<CourseEnrollment> result = enrollments.stream()
+                .filter(item -> safeClassId == null || safeClassId.equalsIgnoreCase(item.getClassId()))
+                .filter(item -> safeStatus == null || safeStatus.equalsIgnoreCase(isBlank(item.getStatus()) ? "ACTIVE" : item.getStatus().trim()))
+                .peek(item -> {
+                    // Older rows can miss the student's display identity.
+                    if (isBlank(item.getStudentName()) || isBlank(item.getStudentEmail())) {
+                        classRosterService.copyProfileOnto(item);
+                    }
+                })
+                .filter(item -> safeQuery.isBlank() || Stream.of(
+                                item.getStudentId(),
+                                item.getStudentCode(),
+                                item.getStudentName(),
+                                item.getStudentEmail()
+                        )
+                        .filter(value -> value != null && !value.isBlank())
+                        .anyMatch(value -> normalizeAccentInsensitive(value).contains(safeQuery)))
+                .sorted(Comparator
+                        .comparing((CourseEnrollment item) -> String.valueOf(item.getStudentName()).toLowerCase())
+                        .thenComparing(item -> String.valueOf(item.getCourseId()))
+                        .thenComparing(item -> String.valueOf(item.getClassId())))
+                .toList();
+        return ResponseEntity.ok(result);
+    }
+
     @GetMapping({"/academic/students/{studentId}/enrollments", "/students/{studentId}/enrollments", "/students/{studentId}/courses"})
     @Operation(summary = "List courses and class sections enrolled by one student")
     public ResponseEntity<List<CourseEnrollment>> listStudentEnrollments(@PathVariable String studentId) {

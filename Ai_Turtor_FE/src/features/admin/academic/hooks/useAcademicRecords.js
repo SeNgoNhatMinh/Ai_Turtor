@@ -15,16 +15,6 @@ import { getPersonDisplayName, getPersonEmail, getPersonId } from '../../../../u
 
 const EMPTY_LIST = [];
 
-const normalizeEnrollments = (data) => (
-  Array.isArray(data)
-    ? data
-    : Array.isArray(data?.content)
-      ? data.content
-      : Array.isArray(data?.enrollments)
-        ? data.enrollments
-        : []
-);
-
 export function useAcademicRecords({
   triggerToast,
   formSemester,
@@ -34,8 +24,6 @@ export function useAcademicRecords({
 }) {
   const queryClient = useQueryClient();
   const [selectedCourseId, setSelectedCourseId] = useState('');
-  const [enrollmentSearchId, setEnrollmentSearchId] = useState('');
-  const [submittedEnrollmentSearch, setSubmittedEnrollmentSearch] = useState('');
 
   const semestersQuery = useQuery({
     queryKey: queryKeys.adminSemesters(),
@@ -53,52 +41,11 @@ export function useAcademicRecords({
     enabled: Boolean(selectedCourseId),
     staleTime: 30_000,
   });
-  const enrollmentsQuery = useQuery({
-    queryKey: queryKeys.adminStudentEnrollments(submittedEnrollmentSearch),
-    queryFn: async ({ signal }) => {
-      const userPage = await adminUsersApi.getAdminUsers(
-        submittedEnrollmentSearch,
-        'STUDENT',
-        '',
-        { signal, page: 0, size: 20 },
-      );
-      const users = userPage.users || [];
-      const normalizedSearch = submittedEnrollmentSearch.toLowerCase();
-      const student = users.find((user) => {
-        const candidates = [
-          user.id,
-          user._id,
-          user.userId,
-          user.studentId,
-          user.studentCode,
-          user.email,
-          user.fullName,
-          user.name,
-        ].filter(Boolean).map((item) => String(item).toLowerCase());
-        return candidates.includes(normalizedSearch);
-      }) || users[0] || null;
-      const searchId = getPersonId(student) || submittedEnrollmentSearch;
-      const data = await adminAcademicApi.getStudentEnrollments(searchId, { signal });
-      return normalizeEnrollments(data).map((enrollment) => ({
-        ...enrollment,
-        studentName: enrollment.studentName || getPersonDisplayName(student, 'Sinh viên'),
-        studentEmail: enrollment.studentEmail || getPersonEmail(student),
-      }));
-    },
-    enabled: Boolean(submittedEnrollmentSearch),
-    staleTime: 15_000,
-  });
-
   useEffect(() => {
     const error = semestersQuery.error || coursesQuery.error || classSectionsQuery.error;
     if (!error) return;
     triggerToast(getUserFacingError(error, 'Không thể tải đầy đủ dữ liệu học vụ.'));
   }, [classSectionsQuery.error, coursesQuery.error, semestersQuery.error, triggerToast]);
-
-  useEffect(() => {
-    if (!enrollmentsQuery.error) return;
-    triggerToast(getUserFacingError(enrollmentsQuery.error, 'Không thể tải dữ liệu ghi danh.'));
-  }, [enrollmentsQuery.error, triggerToast]);
 
   const loadSemesters = useCallback(() => queryClient.invalidateQueries({
     queryKey: queryKeys.adminSemesters(),
@@ -124,21 +71,10 @@ export function useAcademicRecords({
     setSelectedCourseId(courseId || '');
   }, []);
 
-  const loadStudentEnrollments = useCallback(async () => {
-    const rawSearch = String(enrollmentSearchId || '').trim();
-    if (!rawSearch) {
-      triggerToast('Nhập mã sinh viên, email hoặc mã tài khoản để tìm kiếm.');
-      return;
-    }
-    if (rawSearch === submittedEnrollmentSearch) {
-      const result = await enrollmentsQuery.refetch();
-      if (!result.error && result.data?.length === 0) {
-        triggerToast('Không tìm thấy ghi danh của sinh viên này.');
-      }
-      return;
-    }
-    setSubmittedEnrollmentSearch(rawSearch);
-  }, [enrollmentSearchId, enrollmentsQuery, submittedEnrollmentSearch, triggerToast]);
+  // Refreshes every admin enrollment list (by student, class and course).
+  const loadStudentEnrollments = useCallback(() => queryClient.invalidateQueries({
+    queryKey: ['admin', 'academic', 'enrollments'],
+  }), [queryClient]);
 
   const handleCreateSemester = async (values) => {
     await adminAcademicApi.createSemester({ semesterCode: values.semesterCode, name: values.name, status: 'ACTIVE' });
@@ -198,9 +134,7 @@ export function useAcademicRecords({
       });
       triggerToast('Đã ghi danh sinh viên vào lớp.');
       formEnroll.resetFields();
-      if (enrollmentSearchId === values.studentId || enrollmentSearchId === resolvedStudentId) {
-        await loadStudentEnrollments();
-      }
+      await loadStudentEnrollments();
     } catch {
       triggerToast('Không thể ghi danh sinh viên.');
     }
@@ -300,11 +234,6 @@ export function useAcademicRecords({
     academicLoading: Boolean(selectedCourseId)
       && (classSectionsQuery.isPending || classSectionsQuery.isFetching),
     referenceDataLoading: semestersQuery.isPending || coursesQuery.isPending,
-    enrollmentSearchId,
-    studentEnrollments: enrollmentsQuery.data || EMPTY_LIST,
-    enrollmentsLoading: Boolean(submittedEnrollmentSearch)
-      && (enrollmentsQuery.isPending || enrollmentsQuery.isFetching),
-    setEnrollmentSearchId,
     loadSemesters,
     loadCourses,
     loadClassSections,
