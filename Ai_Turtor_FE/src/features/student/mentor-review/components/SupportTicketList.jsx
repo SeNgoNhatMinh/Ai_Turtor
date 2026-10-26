@@ -8,7 +8,7 @@ import { uiCopy } from '../../../../constants/uiCopy';
 import { matchesCollectionQuery } from '../../../../hooks/useCollectionView';
 import {
   formatSupportDateTime,
-  getQuestionText,
+  describeSupportQuestion,
   getSupportTicketStatus,
   isAnsweredTicket,
   isProcessingTicket,
@@ -29,8 +29,7 @@ const TICKET_SEARCH_KEYS = Object.freeze([
 ]);
 
 function TicketPreview({ ticket, isActive, onSelect }) {
-  const question = getQuestionText(ticket);
-  const preview = ticket?.questionPreview || ticket?.question || question;
+  const preview = describeSupportQuestion(ticket).title;
   const answered = isAnsweredTicket(ticket);
   const meta = [
     ticket?.courseId && `Môn ${ticket.courseId}`,
