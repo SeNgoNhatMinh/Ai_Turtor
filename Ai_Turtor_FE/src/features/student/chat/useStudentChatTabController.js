@@ -85,10 +85,12 @@ export function useStudentChatTabController({
       return;
     }
 
-    scrollContainer(
-      container.scrollHeight,
-      sessionChanged || previousMessageCountRef.current === 0 ? 'auto' : 'smooth',
-    );
+    const firstLoad = sessionChanged || previousMessageCountRef.current === 0;
+    // In-place updates (grading a quiz answer, pinning, feedback) keep the
+    // count: leave the student where they are reading.
+    if (firstLoad || messageCount > previousMessageCountRef.current) {
+      scrollContainer(container.scrollHeight, firstLoad ? 'auto' : 'smooth');
+    }
     previousMessageCountRef.current = messageCount;
     previousSessionIdRef.current = activeSessionId;
   }, [activeSessionId, messages]);

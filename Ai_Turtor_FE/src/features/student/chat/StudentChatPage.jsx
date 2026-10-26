@@ -135,7 +135,10 @@ export default function StudentChatPage({
   });
   const curriculumWelcome = String(curriculumQuery.data?.welcomeMarkdown || '').trim();
   const displayMessages = useMemo(() => {
-    if (chat.activeSessionId || !curriculumWelcome) return chat.messages;
+    if (!curriculumWelcome || chat.isMessagesLoading) return chat.messages;
+    // An opened conversation with history shows only its own messages; an
+    // empty one (or the new-chat screen) opens on the curriculum overview.
+    if (chat.activeSessionId && chat.messages.length > 0) return chat.messages;
     return [{
       id: `curriculum-${courseId}`,
       question: '',
@@ -143,7 +146,7 @@ export default function StudentChatPage({
       proactive: true,
       mode: 'RAG',
     }, ...chat.messages];
-  }, [chat.activeSessionId, chat.messages, courseId, curriculumWelcome]);
+  }, [chat.activeSessionId, chat.isMessagesLoading, chat.messages, courseId, curriculumWelcome]);
 
   // No background tutor-session bootstrap: opening a tutor session (which
   // auto-creates "Buổi học cùng AI Tutor" conversations) happens only when
@@ -183,6 +186,7 @@ export default function StudentChatPage({
       hasStudentEnrollments={hasStudentEnrollments}
       isDarkMode={isDarkMode}
       messages={displayMessages}
+      isMessagesLoading={chat.isMessagesLoading}
       chatInput={chatController.chatInput}
       setChatInput={chatController.setChatInput}
       chatMode={chatController.chatMode}

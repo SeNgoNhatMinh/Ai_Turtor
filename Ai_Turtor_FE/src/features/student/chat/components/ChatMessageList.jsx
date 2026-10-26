@@ -290,6 +290,7 @@ function ChatMessageList({
   materialSourceMap,
   mentorRequests = [],
   messages,
+  isMessagesLoading = false,
   messagesEndRef,
   onAnswerAction,
   onCreateQuizFromSuggestion,
@@ -334,13 +335,9 @@ function ChatMessageList({
     <div className={`chat-workspace-messages-container ${messages.length === 0 ? 'chat-workspace-messages-container--empty' : ''}`}>
       <div className={`chat-workspace-messages-inner ${messages.length === 0 ? 'chat-workspace-messages-inner--empty' : ''}`}>
         {messages.length === 0 ? (
-          <div className="chat-empty-state">
-            <TutorMascot size="lg" className="chat-empty-mascot" />
-            <div className="chat-keyword-tip" role="note">
-              <strong>{uiCopy.student.chat.keywordTipTitle}</strong>
-              <p>{uiCopy.student.chat.keywordTip}</p>
-            </div>
-          </div>
+          isMessagesLoading ? (
+            <div className="chat-answer-loading" role="status">Đang tải cuộc trò chuyện...</div>
+          ) : null
         ) : (
           messages.map((message, index) => {
             const messageKey = getMessageKey(message, index);

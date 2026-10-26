@@ -32,6 +32,7 @@ function ChatWorkspace({
   hasLoadedStudentEnrollments = true,
   hasStudentEnrollments = true,
   messages,
+  isMessagesLoading = false,
   chatInput,
   setChatInput,
   chatMode,
@@ -228,6 +229,7 @@ function ChatWorkspace({
         materialSourceMap={materialSourceMap}
         mentorRequests={mentorRequests}
         messages={safeMessages}
+        isMessagesLoading={isMessagesLoading}
         messagesEndRef={messagesEndRef}
         onAnswerAction={onAnswerAction}
         onCreateQuizFromSuggestion={onCreateQuizFromSuggestion}

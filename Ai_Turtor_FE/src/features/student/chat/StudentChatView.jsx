@@ -31,6 +31,7 @@ function StudentChatView({
   hasStudentEnrollments,
   isDarkMode,
   messages,
+  isMessagesLoading = false,
   chatInput,
   setChatInput,
   chatMode,
@@ -153,6 +154,7 @@ function StudentChatView({
             hasLoadedStudentEnrollments={hasLoadedStudentEnrollments}
             hasStudentEnrollments={hasStudentEnrollments}
             messages={messages}
+            isMessagesLoading={isMessagesLoading}
             chatInput={chatInput}
             setChatInput={setChatInput}
             chatMode={chatMode}
