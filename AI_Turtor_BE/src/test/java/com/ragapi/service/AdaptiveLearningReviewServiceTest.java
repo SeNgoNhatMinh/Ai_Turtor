@@ -99,6 +99,18 @@ class AdaptiveLearningReviewServiceTest {
         return messages;
     }
 
+    /** Marks the last {@code count} AI answers of the cycle as correctly answered quizzes. */
+    private List<AiMessage> withCorrectAnswers(List<AiMessage> messages, int count) {
+        int marked = 0;
+        for (int index = messages.size() - 1; index >= 0 && marked < count; index--) {
+            AiMessage message = messages.get(index);
+            if (!"ASSISTANT".equals(message.getRole())) continue;
+            message.setUnderstandingCheckAttempts(List.of(quizAttempt(0, "Khái niệm " + index, "A", true)));
+            marked++;
+        }
+        return messages;
+    }
+
     private void stubCourseConversations(String courseId, List<AiConversation> conversations) {
         when(conversationRepository.findByUserIdAndCourseId(STUDENT, courseId)).thenReturn(conversations);
     }
@@ -128,9 +140,9 @@ class AdaptiveLearningReviewServiceTest {
     }
 
     @Test
-    void doesNotCreateReviewBeforeTenthQuestionInTheCourse() {
+    void doesNotCreateReviewBeforeFifthQuestionInTheCourse() {
         stubCourseConversations(COURSE, conversations(COURSE, 1));
-        when(messageRepository.countByConversationIdInAndRole(anyList(), eq("STUDENT"))).thenReturn(9L);
+        when(messageRepository.countByConversationIdInAndRole(anyList(), eq("STUDENT"))).thenReturn(4L);
 
         service.onStudentQuestionAnswered(STUDENT, COURSE, CLASS);
 
@@ -139,9 +151,9 @@ class AdaptiveLearningReviewServiceTest {
     }
 
     @Test
-    void createsPendingReviewAtTenthQuestionInCourseAndNotifiesTeacher() {
+    void createsPendingReviewAtCycleMilestoneAndNotifiesTeacher() {
         stubCourseConversations(COURSE, conversations(COURSE, 2));
-        stubQuestionCycle(10, cycleMessages(10, SUBSTANTIVE_ANSWER));
+        stubQuestionCycle(10, withCorrectAnswers(cycleMessages(10, SUBSTANTIVE_ANSWER), 5));
         when(chatService.generateUtility(anyString()))
                 .thenReturn(assessmentJson(90, 88, 85, 92, "CHALLENGE"));
         ClassSection section = new ClassSection();
@@ -161,8 +173,8 @@ class AdaptiveLearningReviewServiceTest {
         assertThat(review.getQuestionCount()).isEqualTo(10);
         assertThat(review.getSessionIds()).containsExactlyInAnyOrder(
                 COURSE.toLowerCase() + "-conv-1", COURSE.toLowerCase() + "-conv-2");
-        // Evidence completeness is computed by the backend from the student's
-        // own messages (10 substantive questions), not the LLM's self-reported 10.
+        // Confidence is computed by the backend from graded quiz answers
+        // (5 correct in this cycle), not the LLM's self-reported 10.
         assertThat(review.getConfidencePercent()).isGreaterThanOrEqualTo(90);
         assertThat(review.getSuggestedSupportLevel()).isEqualTo("CHALLENGE");
         // overallPercent is derived by the backend: (90 + 88 + 85) / 3 rounded.
@@ -175,7 +187,7 @@ class AdaptiveLearningReviewServiceTest {
     @Test
     void autoAppliesSuggestedLevelImmediatelyWhenItChanges() {
         stubCourseConversations(COURSE, conversations(COURSE, 2));
-        stubQuestionCycle(10, cycleMessages(10, SUBSTANTIVE_ANSWER));
+        stubQuestionCycle(10, withCorrectAnswers(cycleMessages(10, SUBSTANTIVE_ANSWER), 4));
         when(chatService.generateUtility(anyString()))
                 .thenReturn(assessmentJson(90, 88, 85, 92, "CHALLENGE"));
         PedagogicalDirective directive = new PedagogicalDirective();
@@ -204,7 +216,7 @@ class AdaptiveLearningReviewServiceTest {
     @Test
     void autoApplyRunsEvenWhenTeacherDirectiveExists() {
         stubCourseConversations(COURSE, conversations(COURSE, 2));
-        stubQuestionCycle(10, cycleMessages(10, SUBSTANTIVE_ANSWER));
+        stubQuestionCycle(10, withCorrectAnswers(cycleMessages(10, SUBSTANTIVE_ANSWER), 4));
         when(chatService.generateUtility(anyString()))
                 .thenReturn(assessmentJson(90, 88, 85, 92, "CHALLENGE"));
         PedagogicalDirective directive = new PedagogicalDirective();
@@ -227,7 +239,8 @@ class AdaptiveLearningReviewServiceTest {
     void evidenceCapturesStudentQuestionsAndWrongQuizAnswers() {
         stubCourseConversations(COURSE, conversations(COURSE, 2));
         List<AiMessage> messages = cycleMessages(10, SUBSTANTIVE_ANSWER);
-        AiMessage quizMessage = messages.get(1);
+        // The last AI answer belongs to the latest 5-question cycle.
+        AiMessage quizMessage = messages.get(19);
         quizMessage.setUnderstandingCheck(new UnderstandingCheckPayload(
                 "Tính đóng gói trong Java là gì?",
                 List.of(new UnderstandingCheckPayload.Option("A", "Che giấu dữ liệu bên trong lớp"),
@@ -255,7 +268,7 @@ class AdaptiveLearningReviewServiceTest {
         // Full AI answers are not student evidence and must not be stored here.
         assertThat(evidence.stream().anyMatch(item -> "AI_ANSWER".equals(item.get("kind")))).isFalse();
         assertThat(evidence.stream().filter(item -> "STUDENT_QUESTION".equals(item.get("kind"))).count())
-                .isEqualTo(10);
+                .isEqualTo(5);
     }
 
     @Test
@@ -310,7 +323,7 @@ class AdaptiveLearningReviewServiceTest {
     }
 
     @Test
-    void earlyRepeatedWrongAnswersForceHighSupportDespiteWeakChatEvidence() {
+    void llmProposalThatContradictsRepeatedWrongAnswersIsOverruled() {
         stubCourseConversations(COURSE, conversations(COURSE, 2));
         List<AiMessage> messages = cycleMessages(3, "ok");
         // Three wrong quiz answers in the first three turns of the cycle.
@@ -318,7 +331,8 @@ class AdaptiveLearningReviewServiceTest {
         markQuizWrong(messages.get(3), "Kế thừa trong Java là gì?");
         markQuizWrong(messages.get(5), "Đa hình trong Java là gì?");
         stubQuestionCycle(3, messages);
-        // The LLM still suggests keeping STANDARD; the repeated-mistake rule wins.
+        // The LLM suggests keeping STANDARD although every graded answer is wrong:
+        // the verified quiz facts overrule a contradicting proposal.
         when(chatService.generateUtility(anyString()))
                 .thenReturn(assessmentJson(80, 80, 80, 80, "STANDARD"));
 
@@ -355,7 +369,7 @@ class AdaptiveLearningReviewServiceTest {
     void skippedQuizIsRecordedAsSkippedNeverAsWrong() {
         stubCourseConversations(COURSE, conversations(COURSE, 2));
         List<AiMessage> messages = cycleMessages(10, SUBSTANTIVE_ANSWER);
-        messages.get(1).setUnderstandingCheckAttempts(List.of(
+        messages.get(19).setUnderstandingCheckAttempts(List.of(
                 quizAttempt(0, "Đóng gói trong Java là gì?", "A", true),
                 quizAttempt(1, "Kế thừa trong Java là gì?", null, null)));
         stubQuestionCycle(10, messages);
@@ -438,7 +452,7 @@ class AdaptiveLearningReviewServiceTest {
         stubCourseConversations(COURSE, conversations(COURSE, 1));
         when(messageRepository.countByConversationIdInAndRole(anyList(), eq("STUDENT"))).thenReturn(10L);
         when(messageRepository.findByConversationIdInOrderByCreatedAtAsc(anyList()))
-                .thenReturn(cycleMessages(10, SUBSTANTIVE_ANSWER));
+                .thenReturn(withCorrectAnswers(cycleMessages(10, SUBSTANTIVE_ANSWER), 4));
         when(directiveService.resolveSupportLevel(STUDENT, COURSE, CLASS)).thenReturn("HIGH_SUPPORT");
         when(reviewRepository.save(any(AdaptiveLearningReview.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
@@ -454,14 +468,16 @@ class AdaptiveLearningReviewServiceTest {
     }
 
     @Test
-    void antiFlappingKeepsLevelWhenPreviousReviewJustChangedIt() {
+    void antiFlappingKeepsLevelWhenAReviewWouldReverseThePreviousChange() {
         stubCourseConversations(COURSE, conversations(COURSE, 1));
         when(messageRepository.countByConversationIdInAndRole(anyList(), eq("STUDENT"))).thenReturn(10L);
+        // Three correct answers: enough to consider less support, not enough to reverse a fresh change.
         when(messageRepository.findByConversationIdInOrderByCreatedAtAsc(anyList()))
-                .thenReturn(cycleMessages(10, "a".repeat(120)));
+                .thenReturn(withCorrectAnswers(cycleMessages(10, SUBSTANTIVE_ANSWER), 3));
         when(directiveService.resolveSupportLevel(STUDENT, COURSE, CLASS)).thenReturn("STANDARD");
         when(reviewRepository.save(any(AdaptiveLearningReview.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
+        // The previous review just moved the student towards MORE support.
         AdaptiveLearningReview previous = pendingReview();
         previous.setAppliedDirectiveId("dir-old");
         when(reviewRepository.findByStudentIdAndCourseIdOrderByCreatedAtDesc(STUDENT, COURSE))
@@ -473,10 +489,58 @@ class AdaptiveLearningReviewServiceTest {
 
         ArgumentCaptor<AdaptiveLearningReview> captor = ArgumentCaptor.forClass(AdaptiveLearningReview.class);
         verify(reviewRepository).save(captor.capture());
-        // Backend evidence confidence is ~80 (< 85) right after a level change: keep STANDARD.
         assertThat(captor.getValue().getConfidencePercent()).isLessThan(85);
         assertThat(captor.getValue().getSuggestedSupportLevel()).isEqualTo("STANDARD");
         verify(directiveService, never()).createDraft(any(), anyString(), anyString());
+    }
+
+    @Test
+    void lessSupportNeedsDemonstratedQuizSuccess() {
+        stubCourseConversations(COURSE, conversations(COURSE, 1));
+        // Long, confident-sounding chat but no graded answer at all.
+        stubQuestionCycle(10, cycleMessages(10, SUBSTANTIVE_ANSWER));
+        when(chatService.generateUtility(anyString()))
+                .thenReturn(assessmentJson(90, 88, 85, 92, "CHALLENGE"));
+
+        service.onStudentQuestionAnswered(STUDENT, COURSE, CLASS);
+
+        ArgumentCaptor<AdaptiveLearningReview> captor = ArgumentCaptor.forClass(AdaptiveLearningReview.class);
+        verify(reviewRepository).save(captor.capture());
+        assertThat(captor.getValue().getSuggestedSupportLevel()).isEqualTo("STANDARD");
+    }
+
+    @Test
+    void earlyReviewTriggersOnConsistentSuccessBeforeCycleEnd() {
+        stubCourseConversations(COURSE, conversations(COURSE, 2));
+        // Questions 11-14 are the open cycle; each answer has a correct quiz.
+        stubQuestionCycle(14, withCorrectAnswers(cycleMessages(14, SUBSTANTIVE_ANSWER), 4));
+        when(chatService.generateUtility(anyString()))
+                .thenReturn(assessmentJson(88, 85, 82, 85, "CHALLENGE"));
+
+        service.onUnderstandingCheckRecorded(STUDENT, COURSE, CLASS);
+
+        ArgumentCaptor<AdaptiveLearningReview> captor = ArgumentCaptor.forClass(AdaptiveLearningReview.class);
+        verify(reviewRepository, org.mockito.Mockito.atLeastOnce()).save(captor.capture());
+        AdaptiveLearningReview review = captor.getAllValues().get(0);
+        assertThat(review.getTriggerType()).isEqualTo(AdaptiveLearningReviewService.TRIGGER_EARLY_CONSISTENT_SUCCESS);
+        assertThat(review.getSuggestedSupportLevel()).isEqualTo("CHALLENGE");
+    }
+
+    @Test
+    void wrongRecheckAfterReteachIsNotCountedAsANewMistake() {
+        stubCourseConversations(COURSE, conversations(COURSE, 2));
+        List<AiMessage> messages = cycleMessages(13, SUBSTANTIVE_ANSWER);
+        markQuizWrong(messages.get(21), "Tính đóng gói trong Java là gì?");
+        // The next turn is the re-teach of that mistake; its easier re-check is also wrong.
+        messages.get(22).setContent("Ôn lại sau câu trả lời chưa đúng.\nCâu vừa làm: Tính đóng gói trong Java là gì?");
+        markQuizWrong(messages.get(23), "Đóng gói giúp gì cho lớp Student?");
+        when(messageRepository.countByConversationIdInAndRole(anyList(), eq("STUDENT"))).thenReturn(13L);
+        when(messageRepository.findByConversationIdInOrderByCreatedAtAsc(anyList())).thenReturn(messages);
+
+        service.onUnderstandingCheckRecorded(STUDENT, COURSE, CLASS);
+
+        verify(reviewRepository, never()).save(any());
+        verify(chatService, never()).generateUtility(anyString());
     }
 
     @Test
@@ -486,18 +550,18 @@ class AdaptiveLearningReviewServiceTest {
         when(messageRepository.countByConversationIdInAndRole(anyList(), eq("STUDENT")))
                 .thenAnswer(invocation -> {
                     List<String> ids = invocation.getArgument(0);
-                    return ids.contains(OTHER_COURSE.toLowerCase() + "-conv-1") ? 7L : 10L;
+                    return ids.contains(OTHER_COURSE.toLowerCase() + "-conv-1") ? 4L : 10L;
                 });
         when(messageRepository.findByConversationIdInOrderByCreatedAtAsc(anyList()))
                 .thenReturn(cycleMessages(10, SUBSTANTIVE_ANSWER));
         when(reviewRepository.save(any(AdaptiveLearningReview.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        // 7 questions in DBI202: below the per-course cycle, no review.
+        // 4 questions in DBI202: below the per-course cycle, no review.
         service.onStudentQuestionAnswered(STUDENT, OTHER_COURSE, CLASS);
         verify(reviewRepository, never()).save(any());
 
-        // The 10th question in PRO192 triggers a review for PRO192 only.
+        // The 10th question (a cycle milestone) in PRO192 triggers a review for PRO192 only.
         service.onStudentQuestionAnswered(STUDENT, COURSE, CLASS);
         ArgumentCaptor<AdaptiveLearningReview> captor = ArgumentCaptor.forClass(AdaptiveLearningReview.class);
         verify(reviewRepository).save(captor.capture());

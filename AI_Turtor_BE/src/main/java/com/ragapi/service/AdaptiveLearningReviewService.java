@@ -32,13 +32,19 @@ import static com.ragapi.util.ValidationUtils.requireText;
 @Service
 @RequiredArgsConstructor
 public class AdaptiveLearningReviewService {
-    private static final int CYCLE_SIZE = 10;
+    private static final int CYCLE_SIZE = 5;
+    /** Stored trigger label; kept for existing reviews and the teacher UI. */
     public static final String TRIGGER_CYCLE = "CYCLE_10";
     public static final String TRIGGER_EARLY_REPEATED_MISTAKES = "EARLY_REPEATED_MISTAKES";
+    public static final String TRIGGER_EARLY_CONSISTENT_SUCCESS = "EARLY_CONSISTENT_SUCCESS";
     /** Wrong answers on the same concept that justify an early (pre-cycle) review. */
     private static final int EARLY_SAME_CONCEPT_WRONG_THRESHOLD = 2;
     /** Total wrong answers in the open cycle that justify an early review. */
     private static final int EARLY_TOTAL_WRONG_THRESHOLD = 3;
+    /** Correct answers without any mistake that justify an early review towards less support. */
+    private static final int EARLY_CORRECT_STREAK_THRESHOLD = 4;
+    /** Remediation turns are sent by the FE with this prefix; their quiz is an easier re-check. */
+    private static final String RECHECK_QUESTION_PREFIX = "Ôn lại sau câu ";
     private static final Set<String> LEVELS = Set.of("HIGH_SUPPORT", "STANDARD", "CHALLENGE");
     private static final Set<String> DECISIONS = Set.of("APPROVE", "MODIFY", "REJECT");
 
@@ -133,9 +139,8 @@ public class AdaptiveLearningReviewService {
             long openCycleStart = totalQuestions - (totalQuestions % CYCLE_SIZE);
 
             List<AiMessage> window = currentCycleWindowMessages(conversationIds, totalQuestions);
-            // A previous early review in this cycle must not silence the rest
-            // of the cycle: re-evaluate when at least 2 new wrong answers were
-            // recorded after it. Without new mistakes, stay quiet.
+            // After an earlier review in this cycle, only answers recorded since
+            // then count, so one burst of mistakes cannot re-trigger forever.
             var latestCycleReview = reviewRepository
                     .findByStudentIdAndCourseIdOrderByCreatedAtDesc(safeStudentId, safeCourseId)
                     .stream()
@@ -143,44 +148,47 @@ public class AdaptiveLearningReviewService {
                             && review.getQuestionCount() > openCycleStart
                             && review.getQuestionCount() <= totalQuestions)
                     .findFirst();
-            if (latestCycleReview.isPresent()) {
-                LocalDateTime reviewedAt = latestCycleReview.get().getCreatedAt();
-                long newWrong = 0;
-                for (AiMessage message : window) {
-                    for (var attempt : answeredAttempts(message)) {
-                        if (Boolean.FALSE.equals(attempt.getCorrect())
-                                && (reviewedAt == null || attempt.getAnsweredAt() == null
-                                        || attempt.getAnsweredAt().isAfter(reviewedAt))) {
-                            newWrong++;
-                        }
-                    }
-                }
-                if (newWrong < 2) return;
-            }
+            LocalDateTime reviewedAt = latestCycleReview.map(AdaptiveLearningReview::getCreatedAt).orElse(null);
+            boolean reviewedInCycle = latestCycleReview.isPresent();
 
             Map<String, Long> wrongByConcept = new LinkedHashMap<>();
             long totalWrong = 0;
-            for (AiMessage message : window) {
-                for (var attempt : answeredAttempts(message)) {
-                    if (!Boolean.FALSE.equals(attempt.getCorrect())) continue;
+            long totalCorrect = 0;
+            for (GradedAttempt graded : gradedAttempts(window)) {
+                // An easier re-check after a re-teach is the same gap, not a new one.
+                if (graded.recheck()) continue;
+                var attempt = graded.attempt();
+                if (reviewedInCycle && (reviewedAt == null || attempt.getAnsweredAt() == null
+                        || !attempt.getAnsweredAt().isAfter(reviewedAt))) {
+                    continue;
+                }
+                if (Boolean.TRUE.equals(attempt.getCorrect())) {
+                    totalCorrect++;
+                } else if (Boolean.FALSE.equals(attempt.getCorrect())) {
                     totalWrong++;
                     wrongByConcept.merge(normalizeConceptKey(attempt), 1L, Long::sum);
                 }
             }
             boolean repeatedSameConcept = wrongByConcept.values().stream()
                     .anyMatch(count -> count >= EARLY_SAME_CONCEPT_WRONG_THRESHOLD);
-            if (!repeatedSameConcept && totalWrong < EARLY_TOTAL_WRONG_THRESHOLD) return;
+            long wrongThreshold = reviewedInCycle ? EARLY_SAME_CONCEPT_WRONG_THRESHOLD : EARLY_TOTAL_WRONG_THRESHOLD;
+            boolean struggling = repeatedSameConcept || totalWrong >= wrongThreshold;
+            boolean consistentSuccess = totalWrong == 0 && totalCorrect >= EARLY_CORRECT_STREAK_THRESHOLD;
+            if (!struggling && !consistentSuccess) return;
 
             String effectiveClassId = (classId != null && !classId.isBlank())
                     ? classId.trim()
                     : latestClassId(conversations);
             String currentLevel = directiveService.resolveSupportLevel(
                     safeStudentId, safeCourseId, effectiveClassId);
-            log.info("Early adaptive review triggered for student {} in course {}: "
-                            + "wrongAnswers={}, byConcept={}, totalQuestions={}",
-                    safeStudentId, safeCourseId, totalWrong, wrongByConcept, totalQuestions);
+            // Nothing to raise when the student is already at the top level.
+            if (!struggling && "CHALLENGE".equals(normalizeLevel(currentLevel, "STANDARD"))) return;
+            String trigger = struggling ? TRIGGER_EARLY_REPEATED_MISTAKES : TRIGGER_EARLY_CONSISTENT_SUCCESS;
+            log.info("Early adaptive review triggered for student {} in course {}: trigger={}, "
+                            + "correctAnswers={}, wrongAnswers={}, byConcept={}, totalQuestions={}",
+                    safeStudentId, safeCourseId, trigger, totalCorrect, totalWrong, wrongByConcept, totalQuestions);
             createReview(safeStudentId, safeCourseId, effectiveClassId, (int) totalQuestions,
-                    window, currentLevel, TRIGGER_EARLY_REPEATED_MISTAKES);
+                    window, currentLevel, trigger);
         } catch (Exception error) {
             log.error("Early adaptive review detection failed for student {} in course {}: {}",
                     safeStudentId, safeCourseId, error.getMessage(), error);
@@ -199,6 +207,30 @@ public class AdaptiveLearningReviewService {
                 .replaceAll("[^\\p{L}\\p{N}]+", " ")
                 .trim().replaceAll("\\s+", " ");
         return normalized.isBlank() ? fallback : normalized;
+    }
+
+    private record GradedAttempt(com.ragapi.dto.UnderstandingCheckAttempt attempt, boolean recheck) {}
+
+    /** Answered quiz items in order, flagged when they re-check a concept after a re-teach. */
+    private List<GradedAttempt> gradedAttempts(List<AiMessage> messages) {
+        List<GradedAttempt> result = new ArrayList<>();
+        Map<String, String> latestStudentQuestion = new HashMap<>();
+        for (AiMessage message : messages) {
+            String conversationId = message.getConversationId() == null ? "" : message.getConversationId();
+            if ("STUDENT".equalsIgnoreCase(message.getRole())) {
+                latestStudentQuestion.put(conversationId, message.getContent());
+                continue;
+            }
+            boolean recheck = isRecheckQuestion(latestStudentQuestion.get(conversationId));
+            for (var attempt : answeredAttempts(message)) {
+                result.add(new GradedAttempt(attempt, recheck));
+            }
+        }
+        return result;
+    }
+
+    private static boolean isRecheckQuestion(String studentQuestion) {
+        return studentQuestion != null && studentQuestion.stripLeading().startsWith(RECHECK_QUESTION_PREFIX);
     }
 
     /**
@@ -309,13 +341,15 @@ public class AdaptiveLearningReviewService {
                 Object correct = item.get("correct");
                 String topic = String.valueOf(item.getOrDefault("topic", ""));
                 String questionContext = String.valueOf(item.getOrDefault("studentQuestion", ""));
+                String label = Boolean.TRUE.equals(item.get("recheck"))
+                        ? "Câu kiểm tra LẠI sau khi giảng lại" : "Kiểm tra hiểu bài";
                 if (correct == null) {
-                    return "[Kiểm tra hiểu bài | Chủ đề/ngữ cảnh: " + topic
+                    return "[" + label + " | Chủ đề/ngữ cảnh: " + topic
                             + " | Sinh viên hỏi: \"" + questionContext + "\""
                             + " | Câu kiểm tra: \"" + item.get("quizQuestion") + "\""
                             + " | Kết quả: BỎ QUA (sinh viên không trả lời)]";
                 }
-                return "[Đáp án sinh viên - Kiểm tra hiểu bài | Chủ đề/ngữ cảnh: " + topic
+                return "[Đáp án sinh viên - " + label + " | Chủ đề/ngữ cảnh: " + topic
                         + " | Sinh viên hỏi: \"" + questionContext + "\""
                         + " | Câu kiểm tra: \"" + item.get("quizQuestion") + "\""
                         + " | Sinh viên chọn: " + item.getOrDefault("selectedKey", "")
@@ -326,6 +360,7 @@ public class AdaptiveLearningReviewService {
             }
             return item.get("role") + ": " + item.get("content");
         }).reduce((a, b) -> a + "\n" + b).orElse("");
+        EvidenceFacts facts = evidenceFacts(evidence);
         String prompt = """
                 You are an evidence-based learning progress reviewer and adaptive
                 support-level decision engine for an AI Tutor.
@@ -378,8 +413,20 @@ public class AdaptiveLearningReviewService {
                 Course: %s
                 Current support level: %s
                 Student questions in this cycle (this course only): %d
+                Backend-verified quiz facts for this cycle (re-check items excluded): %s
                 Evidence excerpts:
                 %s
+
+                Read the WHOLE excerpt, not only the quiz lines. The student's own
+                words are evidence too: repeated "em không hiểu", asking the same
+                thing again, or giving up signal a need for more support; correct
+                self-explanations, deeper "why/what if" questions and independent
+                code signal readiness for less support.
+
+                Lines marked "Câu kiểm tra LẠI sau khi giảng lại" are an easier
+                re-check after a re-teach of a concept already answered wrongly. A
+                wrong re-check is the SAME gap, not a new one; a correct re-check
+                shows recovery.
 
                 The input may contain student questions, student answers, quiz results,
                 code attempts, corrections, assistant explanations and previous learning
@@ -784,7 +831,7 @@ public class AdaptiveLearningReviewService {
                 - No text appears outside the JSON object.
 
                 Return ONLY the JSON object.
-                """.formatted(courseId, currentSupportLevel, CYCLE_SIZE, transcriptForModel);
+                """.formatted(courseId, currentSupportLevel, CYCLE_SIZE, facts.describe(), transcriptForModel);
         Map<String, Object> assessment;
         String failure = null;
         try {
@@ -796,7 +843,7 @@ public class AdaptiveLearningReviewService {
             assessment = fallbackAssessment(currentSupportLevel);
         }
 
-        if (failure == null) assessment.put("confidencePercent", evidenceCompletenessPercent(evidence));
+        if (failure == null) assessment.put("confidencePercent", facts.confidencePercent());
         // The prompt contract has no overallPercent: the backend derives it
         // from the three learning dimensions so the UI keeps one summary score.
         assessment.put("overallPercent", Math.round(
@@ -806,7 +853,9 @@ public class AdaptiveLearningReviewService {
         AdaptiveLearningReview previousReview = reviewRepository
                 .findByStudentIdAndCourseIdOrderByCreatedAtDesc(studentId, courseId)
                 .stream().findFirst().orElse(null);
-        String suggested = decideTargetLevel(assessment, currentSupportLevel, previousReview, evidence);
+        String suggested = failure == null
+                ? decideTargetLevel(assessment, currentSupportLevel, previousReview, facts)
+                : normalizeLevel(currentSupportLevel, "STANDARD");
         AdaptiveLearningReview review = AdaptiveLearningReview.builder()
                 .id(UUID.randomUUID().toString())
                 .studentId(studentId)
@@ -848,7 +897,7 @@ public class AdaptiveLearningReviewService {
     /**
      * The AI applies its suggested support level immediately (no waiting for
      * teacher approval) by confirming a system directive for the student.
-     * The safety gate already ran in {@link #chooseSupportLevel}: weak
+     * The guardrails already ran in {@link #decideTargetLevel}: weak
      * evidence keeps the current level, so an unchanged level applies
      * nothing. Previous AI-applied directives are archived first so exactly
      * one AI directive is active; a teacher decision later supersedes or
@@ -1013,6 +1062,7 @@ public class AdaptiveLearningReviewService {
                 answer.put("quizIndex", attempt.getQuizIndex());
                 answer.put("attemptId", attempt.getAttemptId() == null ? "" : attempt.getAttemptId());
                 answer.put("skipped", skipped);
+                answer.put("recheck", isRecheckQuestion(studentQuestion));
                 answer.put("topic", topic);
                 answer.put("studentQuestion", truncate(studentQuestion, 1200));
                 answer.put("content", skipped
@@ -1519,70 +1569,117 @@ public class AdaptiveLearningReviewService {
     }
 
     /**
-     * Backend-owned confidence: half from how many of the cycle's questions are
-     * present, half from how substantive the student's own messages are. Short
-     * acknowledgements ("ok", "vâng") therefore keep confidence below the
-     * auto-apply threshold even when the cycle is full.
+     * What the backend can verify about the cycle without an LLM. Re-check
+     * items (easier questions after a re-teach) are counted separately so one
+     * misunderstanding is never counted twice.
      */
-    private int evidenceCompletenessPercent(List<Map<String, Object>> evidence) {
-        int studentMessages = 0;
-        long studentChars = 0;
-        for (Map<String, Object> item : evidence) {
-            if (!"STUDENT".equals(item.get("role"))) continue;
-            studentMessages++;
-            studentChars += String.valueOf(item.get("content")).length();
+    record EvidenceFacts(int studentMessages, int graded, int correct, int wrong, int skipped,
+                         int recheckCorrect, int recheckWrong, long maxWrongSameConcept) {
+
+        int accuracyPercent() {
+            return graded == 0 ? -1 : Math.round(100f * correct / graded);
         }
-        if (studentMessages == 0) return 0;
-        int volumeScore = (int) Math.round(50.0 * Math.min(studentMessages, CYCLE_SIZE) / CYCLE_SIZE);
-        double averageLength = (double) studentChars / studentMessages;
-        int depthScore = (int) Math.round(50.0 * Math.min(averageLength, 200.0) / 200.0);
-        return Math.max(0, Math.min(100, volumeScore + depthScore));
+
+        /**
+         * Reliability of this review: driven by graded quiz answers (direct
+         * evidence), with a small share from how many questions the student
+         * asked. Message length is deliberately ignored.
+         */
+        int confidencePercent() {
+            if (graded == 0 && studentMessages == 0) return 0;
+            return Math.min(95, 20 + 15 * graded + 2 * Math.min(studentMessages, CYCLE_SIZE));
+        }
+
+        String describe() {
+            return "graded=" + graded + ", correct=" + correct + ", wrong=" + wrong
+                    + ", skipped=" + skipped + ", accuracy="
+                    + (graded == 0 ? "n/a" : accuracyPercent() + "%")
+                    + ", maxWrongOnOneConcept=" + maxWrongSameConcept
+                    + ", recheckCorrect=" + recheckCorrect + ", recheckWrong=" + recheckWrong
+                    + ", studentQuestions=" + studentMessages;
+        }
+    }
+
+    EvidenceFacts evidenceFacts(List<Map<String, Object>> evidence) {
+        int studentMessages = 0;
+        int correct = 0;
+        int wrong = 0;
+        int skipped = 0;
+        int recheckCorrect = 0;
+        int recheckWrong = 0;
+        Map<String, Long> wrongByConcept = new LinkedHashMap<>();
+        for (Map<String, Object> item : evidence == null ? List.<Map<String, Object>>of() : evidence) {
+            Object kind = item.get("kind");
+            if ("STUDENT_QUESTION".equals(kind)) {
+                studentMessages++;
+                continue;
+            }
+            if (!"STUDENT_ANSWER".equals(kind)) continue;
+            Object result = item.get("correct");
+            boolean recheck = Boolean.TRUE.equals(item.get("recheck"));
+            if (result == null) {
+                if (!recheck) skipped++;
+            } else if (Boolean.TRUE.equals(result)) {
+                if (recheck) recheckCorrect++; else correct++;
+            } else if (Boolean.FALSE.equals(result)) {
+                if (recheck) {
+                    recheckWrong++;
+                } else {
+                    wrong++;
+                    wrongByConcept.merge(
+                            normalizeConceptText(String.valueOf(item.getOrDefault("quizQuestion", "")), "unknown"),
+                            1L, Long::sum);
+                }
+            }
+        }
+        long maxWrongSameConcept = wrongByConcept.values().stream().mapToLong(Long::longValue).max().orElse(0);
+        return new EvidenceFacts(studentMessages, correct + wrong, correct, wrong, skipped,
+                recheckCorrect, recheckWrong, maxWrongSameConcept);
     }
 
     /**
-     * Layer 3 (support-level controller): turns the AI recommendation into the
-     * target level that may be applied, with stability rules on top of the
-     * score-based suggestion:
-     * - Anti-flapping: if the previous review already changed the level, this
-     *   review needs strong backend evidence confidence (&ge; 85) to change again.
-     * - One-step transitions: never jump HIGH_SUPPORT &harr; CHALLENGE directly.
+     * Layer 3 (support-level controller). The LLM reads the conversation and
+     * proposes the level; the backend only enforces guardrails:
+     * - more support needs at least one graded quiz answer; LESS support
+     *   needs demonstrated quiz success (at least 3 graded, 70%+ correct);
+     * - a proposal that contradicts the verified quiz facts is overruled
+     *   (asking for more support at 85%+ accuracy, or keeping/reducing
+     *   support at 34% or lower);
+     * - anti-flapping: reversing the previous review's change needs 85+
+     *   confidence;
+     * - one-step transitions: never jump HIGH_SUPPORT &harr; CHALLENGE directly.
      */
     private String decideTargetLevel(Map<String, Object> assessment, String currentLevelRaw,
-                                     AdaptiveLearningReview previousReview,
-                                     List<Map<String, Object>> evidence) {
+                                     AdaptiveLearningReview previousReview, EvidenceFacts facts) {
         String current = normalizeLevel(currentLevelRaw, "STANDARD");
+        String target = normalizeLevel(assessment.get("suggestedSupportLevel"), current);
+        int confidence = number(assessment.get("confidencePercent"), 0);
+        int accuracy = facts.accuracyPercent();
 
-        // Direct repeated-mistake evidence is decisive on its own: at least 3
-        // wrong quiz answers, or 2 wrong on the same concept, in this cycle.
-        // The generic weak-evidence and anti-flapping gates below measure how
-        // much the student wrote in chat, so early in a cycle they kept the
-        // level unchanged even while the student kept answering incorrectly.
-        // One-step clamping still applies (CHALLENGE steps down to STANDARD).
-        long totalWrong = 0;
-        Map<String, Long> wrongByConcept = new LinkedHashMap<>();
-        for (Map<String, Object> item : evidence == null ? List.<Map<String, Object>>of() : evidence) {
-            if (!"STUDENT_ANSWER".equals(item.get("kind")) || !Boolean.FALSE.equals(item.get("correct"))) {
-                continue;
-            }
-            totalWrong++;
-            wrongByConcept.merge(
-                    normalizeConceptText(String.valueOf(item.getOrDefault("quizQuestion", "")), "unknown"),
-                    1L, Long::sum);
+        boolean clearlyStruggling = facts.graded() >= 3 && accuracy <= 34;
+        if (clearlyStruggling && supportNeedRank(target) <= supportNeedRank(current)
+                && !"HIGH_SUPPORT".equals(current)) {
+            target = "HIGH_SUPPORT";
         }
-        boolean repeatedMistakes = totalWrong >= EARLY_TOTAL_WRONG_THRESHOLD
-                || wrongByConcept.values().stream().anyMatch(count -> count >= EARLY_SAME_CONCEPT_WRONG_THRESHOLD);
-        if (repeatedMistakes && !"HIGH_SUPPORT".equals(current)) {
-            return clampToOneStep(current, "HIGH_SUPPORT");
-        }
-
-        String target = chooseSupportLevel(assessment, current);
         if (target.equals(current)) return current;
 
-        boolean previousChangedLevel = previousReview != null
-                && previousReview.getAppliedDirectiveId() != null
-                && !previousReview.getAppliedDirectiveId().isBlank();
-        if (previousChangedLevel && number(assessment.get("confidencePercent"), 0) < 85) {
-            return current;
+        int direction = Integer.signum(supportNeedRank(target) - supportNeedRank(current));
+        if (direction > 0) {
+            // Chat alone ("ok ạ") is not enough to add support: at least one graded answer.
+            if (facts.graded() == 0) return current;
+            if (facts.graded() >= 3 && accuracy >= 85) return current;
+        } else {
+            if (facts.graded() < 3 || accuracy < 70 || confidence < 70) return current;
+        }
+
+        if (previousReview != null && previousReview.getAppliedDirectiveId() != null
+                && !previousReview.getAppliedDirectiveId().isBlank()) {
+            int previousDirection = Integer.signum(
+                    supportNeedRank(previousReview.getSuggestedSupportLevel())
+                            - supportNeedRank(previousReview.getCurrentSupportLevel()));
+            if (previousDirection != 0 && direction == -previousDirection && confidence < 85) {
+                return current;
+            }
         }
         return clampToOneStep(current, target);
     }
@@ -1605,23 +1702,6 @@ public class AdaptiveLearningReviewService {
             case 0 -> "CHALLENGE";
             default -> "STANDARD";
         };
-    }
-
-    private String chooseSupportLevel(Map<String, Object> assessment, String currentLevel) {
-        String current = normalizeLevel(currentLevel, "STANDARD");
-        int confidence = number(assessment.get("confidencePercent"), 0);
-        int overall = number(assessment.get("overallPercent"), 0);
-        int knowledge = number(assessment.get("knowledgePercent"), 0);
-        int practice = number(assessment.get("practicePercent"), 0);
-        int independence = number(assessment.get("independencePercent"), 0);
-
-        // Do not change the level automatically when the evidence is too weak.
-        if (confidence < 75) return current;
-        if (overall <= 50 || knowledge <= 45) return "HIGH_SUPPORT";
-        if (overall >= 85 && practice >= 80 && independence >= 80) return "CHALLENGE";
-        if (overall >= 70 && independence >= 65 && "HIGH_SUPPORT".equals(current)) return "STANDARD";
-        if ("CHALLENGE".equals(current) && (overall < 75 || independence < 65)) return "STANDARD";
-        return normalizeLevel(assessment.get("suggestedSupportLevel"), current);
     }
 
     private Map<String, Object> fallbackAssessment(String currentLevel) {

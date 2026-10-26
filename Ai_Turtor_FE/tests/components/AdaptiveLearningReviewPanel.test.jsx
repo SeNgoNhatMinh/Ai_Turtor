@@ -37,7 +37,7 @@ const unlabeledStudent = {
   classId: 'SE1833',
   totalQuestions: 3,
   questionsInCurrentCycle: 3,
-  cycleSize: 10,
+  cycleSize: 5,
   labeled: false,
   latestReviewId: null,
   reviewStatus: null,
@@ -127,9 +127,9 @@ describe('AdaptiveLearningReviewPanel', () => {
     renderPanel();
 
     expect((await screen.findAllByText('Tran Thi B')).length).toBeGreaterThan(0);
-    expect(screen.getByText(/Đã hỏi 3\/10 câu tới chu kỳ đánh giá · 0%/)).toBeInTheDocument();
+    expect(screen.getByText(/Đã hỏi 3\/5 câu tới chu kỳ đánh giá · 0%/)).toBeInTheDocument();
     expect(screen.getAllByText('Chưa đánh giá').length).toBeGreaterThan(0);
-    expect(screen.getByText('AI đánh giá sau mỗi 10 câu hỏi, hoặc sớm hơn khi sai nhiều câu kiểm tra')).toBeInTheDocument();
+    expect(screen.getByText('AI đánh giá sau mỗi 5 câu hỏi, hoặc sớm hơn khi sai lặp lại hay làm đúng liên tục')).toBeInTheDocument();
   });
 
   it('requires teacher feedback before approving', async () => {

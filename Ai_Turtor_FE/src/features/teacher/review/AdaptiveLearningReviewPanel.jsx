@@ -13,6 +13,11 @@ const LEVEL_LABELS = {
   STANDARD: 'Tiêu chuẩn',
   CHALLENGE: 'Thử thách',
 };
+const TRIGGER_HISTORY_LABELS = {
+  EARLY_REPEATED_MISTAKES: ' (đánh giá sớm do sai lặp lại)',
+  EARLY_CONSISTENT_SUCCESS: ' (đánh giá sớm do làm đúng liên tục)',
+};
+
 const STATUS_LABELS = {
   PENDING: 'Chờ nhận xét',
   APPROVED: 'Đã duyệt',
@@ -198,7 +203,7 @@ function StudentCourseSummary({ studentId, courseId, classId }) {
       <div className="adaptive-review-section-heading">
         <div>
           <h4><Sparkles size={15} /> Tóm tắt toàn bộ lịch sử học trong môn</h4>
-          <p>AI đọc toàn bộ lịch sử chat của sinh viên trong môn này (mọi buổi học): đã hỏi gì, làm câu kiểm tra đúng/sai/bỏ qua ra sao, tiến bộ thế nào và mức hỗ trợ đã thay đổi qua các chu kỳ. Bản tóm tắt chỉ để giảng viên quan sát — mức hỗ trợ vẫn do chu kỳ đánh giá 10 câu hỏi (hoặc đánh giá sớm khi sai nhiều) quyết định và có thể chuyển lên/xuống linh hoạt ở mỗi mốc.</p>
+          <p>AI đọc toàn bộ lịch sử chat của sinh viên trong môn này (mọi buổi học): đã hỏi gì, làm câu kiểm tra đúng/sai/bỏ qua ra sao, tiến bộ thế nào và mức hỗ trợ đã thay đổi qua các chu kỳ. Bản tóm tắt chỉ để giảng viên quan sát — mức hỗ trợ do đánh giá định kỳ mỗi 5 câu hỏi (hoặc đánh giá sớm khi sai lặp lại / làm đúng liên tục) quyết định và có thể chuyển lên/xuống ở mỗi mốc.</p>
         </div>
         <Button
           size="small"
@@ -221,7 +226,7 @@ function StudentCourseSummary({ studentId, courseId, classId }) {
             <span><strong>{data.quizSkipped ?? 0}</strong> câu kiểm tra bỏ qua</span>
             <span>Tỉ lệ đúng <strong>{data.quizCorrectPercent ?? 0}%</strong></span>
             <span>Mức hỗ trợ hiện tại <strong>{levelLabel(data.currentSupportLevel)}</strong>
-              {' '}· đang ở {data.questionsInCurrentCycle ?? 0}/{data.cycleSize ?? 10} của chu kỳ</span>
+              {' '}· đang ở {data.questionsInCurrentCycle ?? 0}/{data.cycleSize ?? 5} của chu kỳ</span>
           </div>
           <p className="adaptive-course-summary__text">{data.aiSummary}</p>
           {!data.modelGenerated && (
@@ -258,7 +263,7 @@ function StudentCourseSummary({ studentId, courseId, classId }) {
               {data.levelHistory.map((entry) => (
                 <p key={entry.reviewId}>
                   Sau {entry.questionCount ?? 0} câu hỏi: {levelLabel(entry.fromLevel)} → <strong>{levelLabel(entry.toLevel)}</strong>
-                  {entry.triggerType === 'EARLY_REPEATED_MISTAKES' ? ' (đánh giá sớm do sai lặp lại)' : ' (đánh giá chu kỳ 10 câu)'}
+                  {TRIGGER_HISTORY_LABELS[entry.triggerType] || ' (đánh giá theo chu kỳ)'}
                   {entry.createdAt ? ` · ${new Date(entry.createdAt).toLocaleString('vi-VN')}` : ''}
                 </p>
               ))}
@@ -385,7 +390,7 @@ export default function AdaptiveLearningReviewPanel({ courseId, classId, trigger
         type="info"
         showIcon
         message="Chọn môn học và lớp"
-        description="Chọn đúng môn học và lớp đang phụ trách để xem các đánh giá tiến bộ sau mỗi 10 câu hỏi học trong môn."
+        description="Chọn đúng môn học và lớp đang phụ trách để xem các đánh giá tiến bộ sau mỗi 5 câu hỏi học trong môn."
       />
     );
   }
@@ -398,7 +403,7 @@ export default function AdaptiveLearningReviewPanel({ courseId, classId, trigger
             <div>
               <span className="adaptive-review-eyebrow"><Activity size={14} /> HỌC TẬP THÍCH ỨNG</span>
               <h2>Đánh giá tiến bộ của AI</h2>
-              <p>AI tổng hợp quá trình học của từng sinh viên trong môn này (đánh giá định kỳ sau mỗi 10 câu hỏi, hoặc sớm hơn khi sai nhiều câu kiểm tra liên tiếp), tự đổi mức hỗ trợ và đính kèm bằng chứng gồm câu hỏi của sinh viên cùng từng câu kiểm tra đã làm đúng/sai để giảng viên xem lại, chỉnh sửa hoặc thu hồi.</p>
+              <p>AI tổng hợp quá trình học của từng sinh viên trong môn này (đánh giá định kỳ sau mỗi 5 câu hỏi, hoặc sớm hơn khi sai lặp lại hay làm đúng liên tục), tự đổi mức hỗ trợ và đính kèm bằng chứng gồm câu hỏi của sinh viên cùng từng câu kiểm tra đã làm đúng/sai để giảng viên xem lại, chỉnh sửa hoặc thu hồi.</p>
             </div>
             <Button icon={<RefreshCw size={15} />} onClick={load} loading={loading}>Làm mới</Button>
           </header>
@@ -436,7 +441,7 @@ export default function AdaptiveLearningReviewPanel({ courseId, classId, trigger
                     <small>
                       {item.labeled
                         ? `${item.courseId} · Sau ${item.reviewQuestionCount ?? 0} câu hỏi · ${item.overallPercent ?? 0}%`
-                        : `${item.courseId} · Đã hỏi ${item.questionsInCurrentCycle ?? 0}/${item.cycleSize ?? 10} câu tới chu kỳ đánh giá · 0%`}
+                        : `${item.courseId} · Đã hỏi ${item.questionsInCurrentCycle ?? 0}/${item.cycleSize ?? 5} câu tới chu kỳ đánh giá · 0%`}
                     </small>
                     <span>{item.labeled && item.reviewCreatedAt ? new Date(item.reviewCreatedAt).toLocaleString('vi-VN') : 'Chưa có đánh giá của AI'}</span>
                   </span>
@@ -467,6 +472,9 @@ export default function AdaptiveLearningReviewPanel({ courseId, classId, trigger
               </Tag>
               {selected.triggerType === 'EARLY_REPEATED_MISTAKES' && (
                 <Tag color="red">Đánh giá sớm · lỗi lặp lại</Tag>
+              )}
+              {selected.triggerType === 'EARLY_CONSISTENT_SUCCESS' && (
+                <Tag color="green">Đánh giá sớm · làm đúng liên tục</Tag>
               )}
             </div>
 
@@ -579,8 +587,8 @@ export default function AdaptiveLearningReviewPanel({ courseId, classId, trigger
             <Alert
               type="info"
               showIcon
-              message="AI đánh giá sau mỗi 10 câu hỏi, hoặc sớm hơn khi sai nhiều câu kiểm tra"
-              description={`Sinh viên đã hỏi ${selectedStudent.totalQuestions ?? 0} câu trong môn này, trong đó ${selectedStudent.questionsInCurrentCycle ?? 0}/${selectedStudent.cycleSize ?? 10} câu thuộc chu kỳ hiện tại. Đủ ${selectedStudent.cycleSize ?? 10} câu — hoặc sai từ 3 câu kiểm tra (hay 2 câu cùng một khái niệm) — AI sẽ tự tổng hợp bằng chứng và đổi mức hỗ trợ ngay; giảng viên xem lại tại đây và có thể sửa hoặc thu hồi.`}
+              message={`AI đánh giá sau mỗi ${selectedStudent.cycleSize ?? 5} câu hỏi, hoặc sớm hơn khi sai lặp lại hay làm đúng liên tục`}
+              description={`Sinh viên đã hỏi ${selectedStudent.totalQuestions ?? 0} câu trong môn này, trong đó ${selectedStudent.questionsInCurrentCycle ?? 0}/${selectedStudent.cycleSize ?? 5} câu thuộc chu kỳ hiện tại. AI đọc lại cuộc trò chuyện và kết quả câu kiểm tra để đề xuất mức hỗ trợ: tăng hỗ trợ khi sai lặp lại (từ 3 câu, hoặc 2 câu cùng khái niệm), giảm hỗ trợ khi làm đúng liên tục (ít nhất 3 câu được chấm, đúng từ 70%). Mức mới được áp ngay, mỗi lần đổi 1 bậc; giảng viên xem lại tại đây và có thể sửa hoặc thu hồi.`}
             />
             <div className="adaptive-review-levels">
               <div><small>Mức hỗ trợ hiện tại</small><strong>{LEVEL_LABELS[selectedStudent.currentSupportLevel] || selectedStudent.currentSupportLevel || 'Tiêu chuẩn'}</strong></div>
