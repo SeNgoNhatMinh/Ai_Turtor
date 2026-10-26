@@ -36,6 +36,9 @@ public class PromptGuardService {
     @Value("${AI_WORKER_PROMPT_GUARD_ENABLED:false}")
     private boolean enabled;
 
+    @Value("${AI_WORKER_PROMPT_GUARD_WORKER_1_ENABLED:false}")
+    private boolean worker1Enabled;
+
     @Value("${AI_WORKER_PROMPT_GUARD_WORKER_2_ENABLED:false}")
     private boolean worker2Enabled;
 
@@ -44,6 +47,9 @@ public class PromptGuardService {
 
     @Value("${GROQ_API_KEY:}")
     private String sharedApiKey;
+
+    @Value("${AI_WORKER_PROMPT_GUARD_WORKER_1_API_KEY:}")
+    private String worker1ApiKey;
 
     @Value("${AI_WORKER_PROMPT_GUARD_WORKER_2_API_KEY:}")
     private String worker2ApiKey;
@@ -54,11 +60,17 @@ public class PromptGuardService {
     @Value("${AI_WORKER_PROMPT_GUARD_BASE_URL:https://api.groq.com/openai/v1}")
     private String sharedBaseUrl;
 
+    @Value("${AI_WORKER_PROMPT_GUARD_WORKER_1_BASE_URL:}")
+    private String worker1BaseUrl;
+
     @Value("${AI_WORKER_PROMPT_GUARD_WORKER_2_BASE_URL:}")
     private String worker2BaseUrl;
 
     @Value("${AI_WORKER_PROMPT_GUARD_WORKER_3_BASE_URL:}")
     private String worker3BaseUrl;
+
+    @Value("${AI_WORKER_PROMPT_GUARD_WORKER_1_MODEL:meta-llama/llama-prompt-guard-2-86m}")
+    private String worker1Model;
 
     @Value("${AI_WORKER_PROMPT_GUARD_WORKER_2_MODEL:meta-llama/llama-prompt-guard-2-22m}")
     private String worker2Model;
@@ -84,6 +96,14 @@ public class PromptGuardService {
         }
 
         Map<String, Supplier<Verdict>> workers = new LinkedHashMap<>();
+        if (worker1Enabled) {
+            workers.put("prompt-guard-worker-1", () -> classifySegments(
+                    text,
+                    worker1Model,
+                    resolveKey(worker1ApiKey),
+                    resolveBaseUrl(worker1BaseUrl),
+                    "worker-1"));
+        }
         if (worker2Enabled) {
             workers.put("prompt-guard-worker-2", () -> classifySegments(
                     text,
@@ -101,7 +121,7 @@ public class PromptGuardService {
                     "worker-3"));
         }
         if (workers.isEmpty()) {
-            log.warn("Prompt Guard master switch is on but worker-2 and worker-3 are disabled; screening skipped");
+            log.warn("Prompt Guard master switch is on but worker-1, worker-2 and worker-3 are disabled; screening skipped");
             return false;
         }
 
