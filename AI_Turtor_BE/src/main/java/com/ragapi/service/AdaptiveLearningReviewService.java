@@ -6,8 +6,6 @@ import com.ragapi.dto.AdaptiveLearningReviewDecisionRequest;
 import com.ragapi.dto.AdaptiveStudentLabelOverview;
 import com.ragapi.dto.PedagogicalDirectiveRequest;
 import com.ragapi.dto.StudentCourseLearningSummary;
-import com.ragapi.dto.UnderstandingCheckAttempt;
-import com.ragapi.dto.UnderstandingCheckPayload;
 import com.ragapi.entity.AdaptiveLearningReview;
 import com.ragapi.entity.AiConversation;
 import com.ragapi.entity.AiMessage;
@@ -18,6 +16,10 @@ import com.ragapi.repository.AiConversationRepository;
 import com.ragapi.repository.AiMessageRepository;
 import com.ragapi.repository.ClassSectionRepository;
 import com.ragapi.repository.CourseEnrollmentRepository;
+import com.ragapi.service.adaptive.AdaptiveReviewEvidence.EvidenceFacts;
+import com.ragapi.service.adaptive.AdaptiveReviewEvidence.GradedAttempt;
+import com.ragapi.service.adaptive.AdaptiveReviewPrompts;
+import com.ragapi.service.adaptive.CourseLearningHistory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -27,25 +29,20 @@ import java.time.LocalDateTime;
 import java.util.*;
 
 import static com.ragapi.util.ValidationUtils.requireText;
+import static com.ragapi.service.adaptive.AdaptiveCycleWindows.*;
+import static com.ragapi.service.adaptive.AdaptiveDirectiveTexts.*;
+import static com.ragapi.service.adaptive.AdaptiveReviewEvidence.*;
+import static com.ragapi.service.adaptive.AdaptiveReviewPolicy.*;
+import static com.ragapi.service.adaptive.AdaptiveReviewValues.*;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class AdaptiveLearningReviewService {
-    private static final int CYCLE_SIZE = 5;
     /** Stored trigger label; kept for existing reviews and the teacher UI. */
     public static final String TRIGGER_CYCLE = "CYCLE_10";
     public static final String TRIGGER_EARLY_REPEATED_MISTAKES = "EARLY_REPEATED_MISTAKES";
     public static final String TRIGGER_EARLY_CONSISTENT_SUCCESS = "EARLY_CONSISTENT_SUCCESS";
-    /** Wrong answers on the same concept that justify an early (pre-cycle) review. */
-    private static final int EARLY_SAME_CONCEPT_WRONG_THRESHOLD = 2;
-    /** Total wrong answers in the open cycle that justify an early review. */
-    private static final int EARLY_TOTAL_WRONG_THRESHOLD = 3;
-    /** Correct answers without any mistake that justify an early review towards less support. */
-    private static final int EARLY_CORRECT_STREAK_THRESHOLD = 4;
-    /** Remediation turns are sent by the FE with this prefix; their quiz is an easier re-check. */
-    private static final String RECHECK_QUESTION_PREFIX = "Ôn lại sau câu ";
-    private static final Set<String> LEVELS = Set.of("HIGH_SUPPORT", "STANDARD", "CHALLENGE");
     private static final Set<String> DECISIONS = Set.of("APPROVE", "MODIFY", "REJECT");
 
     private final AdaptiveLearningReviewRepository reviewRepository;
@@ -99,7 +96,7 @@ public class AdaptiveLearningReviewService {
                     : latestClassId(conversations);
             String currentLevel = directiveService.resolveSupportLevel(
                     safeStudentId, safeCourseId, effectiveClassId);
-            List<AiMessage> cycleMessages = latestQuestionCycleMessages(conversationIds);
+            List<AiMessage> cycleMessages = latestCycle(sortedCourseMessages(conversationIds));
             createReview(safeStudentId, safeCourseId, effectiveClassId, questionCount,
                     cycleMessages, currentLevel, TRIGGER_CYCLE);
         } catch (Exception error) {
@@ -138,7 +135,7 @@ public class AdaptiveLearningReviewService {
             if (totalQuestions == 0 || totalQuestions % CYCLE_SIZE == 0) return;
             long openCycleStart = totalQuestions - (totalQuestions % CYCLE_SIZE);
 
-            List<AiMessage> window = currentCycleWindowMessages(conversationIds, totalQuestions);
+            List<AiMessage> window = openCycle(sortedCourseMessages(conversationIds), totalQuestions);
             // After an earlier review in this cycle, only answers recorded since
             // then count, so one burst of mistakes cannot re-trigger forever.
             var latestCycleReview = reviewRepository
@@ -195,643 +192,16 @@ public class AdaptiveLearningReviewService {
         }
     }
 
-    /** Concept key for grouping repeated mistakes: the normalized quiz question text. */
-    private String normalizeConceptKey(com.ragapi.dto.UnderstandingCheckAttempt attempt) {
-        String question = attempt.getCheck() == null
-                ? "" : String.valueOf(attempt.getCheck().getQuestion());
-        return normalizeConceptText(question, "attempt:" + attempt.getAttemptId());
-    }
-
-    private String normalizeConceptText(String question, String fallback) {
-        String normalized = String.valueOf(question == null ? "" : question).toLowerCase(Locale.ROOT)
-                .replaceAll("[^\\p{L}\\p{N}]+", " ")
-                .trim().replaceAll("\\s+", " ");
-        return normalized.isBlank() ? fallback : normalized;
-    }
-
-    private record GradedAttempt(com.ragapi.dto.UnderstandingCheckAttempt attempt, boolean recheck) {}
-
-    /** Answered quiz items in order, flagged when they re-check a concept after a re-teach. */
-    private List<GradedAttempt> gradedAttempts(List<AiMessage> messages) {
-        List<GradedAttempt> result = new ArrayList<>();
-        Map<String, String> latestStudentQuestion = new HashMap<>();
-        for (AiMessage message : messages) {
-            String conversationId = message.getConversationId() == null ? "" : message.getConversationId();
-            if ("STUDENT".equalsIgnoreCase(message.getRole())) {
-                latestStudentQuestion.put(conversationId, message.getContent());
-                continue;
-            }
-            boolean recheck = isRecheckQuestion(latestStudentQuestion.get(conversationId));
-            for (var attempt : answeredAttempts(message)) {
-                result.add(new GradedAttempt(attempt, recheck));
-            }
-        }
-        return result;
-    }
-
-    private static boolean isRecheckQuestion(String studentQuestion) {
-        return studentQuestion != null && studentQuestion.stripLeading().startsWith(RECHECK_QUESTION_PREFIX);
-    }
-
-    /**
-     * Every quiz attempt the student actually answered on this message.
-     * New messages store one attempt per quiz item; legacy messages only
-     * have the singular first-item fields, which map to attempt 0.
-     */
-    static List<com.ragapi.dto.UnderstandingCheckAttempt> answeredAttempts(AiMessage message) {
-        return allAttempts(message).stream()
-                .filter(attempt -> attempt.getSelectedKey() != null && !attempt.getSelectedKey().isBlank())
-                .toList();
-    }
-
-    /**
-     * Every quiz item attached to this message, answered or not. An item the
-     * student never answered is a recorded "skipped" attempt (no selection),
-     * which is evidence of non-completion — never of a wrong answer. Legacy
-     * messages only carry the singular first-item payload, which maps to
-     * attempt 0 whether it was answered or skipped.
-     */
-    static List<com.ragapi.dto.UnderstandingCheckAttempt> allAttempts(AiMessage message) {
-        List<com.ragapi.dto.UnderstandingCheckAttempt> attempts = message.getUnderstandingCheckAttempts();
-        if (attempts != null && !attempts.isEmpty()) {
-            return attempts;
-        }
-        if (message.getUnderstandingCheck() != null) {
-            var legacy = new com.ragapi.dto.UnderstandingCheckAttempt();
-            legacy.setQuizIndex(0);
-            legacy.setAttemptId(message.getUnderstandingAttemptId());
-            legacy.setCheck(message.getUnderstandingCheck());
-            legacy.setSelectedKey(message.getUnderstandingSelectedKey());
-            legacy.setCorrect(message.getUnderstandingCorrect());
-            legacy.setAnsweredAt(message.getUnderstandingAnsweredAt());
-            return List.of(legacy);
-        }
-        return List.of();
-    }
-
-    /** Messages of the current (possibly incomplete) cycle, after the last completed milestone. */
-    private List<AiMessage> currentCycleWindowMessages(List<String> conversationIds, long totalQuestions) {
-        List<AiMessage> messages = sortedCourseMessages(conversationIds);
-        long skipQuestions = totalQuestions - (totalQuestions % CYCLE_SIZE);
-        if (skipQuestions <= 0) return messages;
-        int studentSeen = 0;
-        int start = 0;
-        for (int index = 0; index < messages.size(); index++) {
-            if (!"STUDENT".equalsIgnoreCase(messages.get(index).getRole())) continue;
-            studentSeen++;
-            if (studentSeen == skipQuestions + 1) {
-                start = index;
-                break;
-            }
-        }
-        return messages.subList(start, messages.size());
-    }
-
     private List<AiMessage> sortedCourseMessages(List<String> conversationIds) {
-        return messageRepository
-                .findByConversationIdInOrderByCreatedAtAsc(conversationIds)
-                .stream()
-                .filter(message -> message.getContent() != null && !message.getContent().isBlank())
-                .filter(message -> Set.of("STUDENT", "ASSISTANT").contains(
-                        message.getRole() == null ? "" : message.getRole().toUpperCase(Locale.ROOT)))
-                .sorted(Comparator.comparing(AiMessage::getCreatedAt,
-                        Comparator.nullsLast(Comparator.naturalOrder())))
-                .toList();
-    }
-
-    private String latestClassId(List<AiConversation> conversations) {
-        return conversations.stream()
-                .filter(conversation -> conversation.getClassId() != null && !conversation.getClassId().isBlank())
-                .max(Comparator.comparing(
-                        AiConversation::getUpdatedAt, Comparator.nullsLast(Comparator.naturalOrder())))
-                .map(conversation -> conversation.getClassId().trim())
-                .orElse(null);
-    }
-
-    /** Messages from the start of the latest block of {@link #CYCLE_SIZE} student questions. */
-    private List<AiMessage> latestQuestionCycleMessages(List<String> conversationIds) {
-        List<AiMessage> messages = messageRepository
-                .findByConversationIdInOrderByCreatedAtAsc(conversationIds)
-                .stream()
-                .filter(message -> message.getContent() != null && !message.getContent().isBlank())
-                .filter(message -> Set.of("STUDENT", "ASSISTANT").contains(
-                        message.getRole() == null ? "" : message.getRole().toUpperCase(Locale.ROOT)))
-                .sorted(Comparator.comparing(AiMessage::getCreatedAt,
-                        Comparator.nullsLast(Comparator.naturalOrder())))
-                .toList();
-        int studentSeen = 0;
-        int cycleStart = 0;
-        for (int index = messages.size() - 1; index >= 0; index--) {
-            if (!"STUDENT".equalsIgnoreCase(messages.get(index).getRole())) continue;
-            studentSeen++;
-            if (studentSeen == CYCLE_SIZE) {
-                cycleStart = index;
-                break;
-            }
-        }
-        return messages.subList(cycleStart, messages.size());
+        return chronologicalChat(messageRepository.findByConversationIdInOrderByCreatedAtAsc(conversationIds));
     }
 
     private void createReview(String studentId, String courseId, String classId, int questionCount,
                               List<AiMessage> cycleMessages, String currentSupportLevel, String triggerType) {
         LocalDateTime now = LocalDateTime.now();
         List<Map<String, Object>> evidence = buildEvidence(cycleMessages);
-        String transcriptForModel = evidence.stream().limit(36).map(item -> {
-            if ("STUDENT_ANSWER".equals(item.get("kind"))) {
-                Object correct = item.get("correct");
-                String topic = String.valueOf(item.getOrDefault("topic", ""));
-                String questionContext = String.valueOf(item.getOrDefault("studentQuestion", ""));
-                String label = Boolean.TRUE.equals(item.get("recheck"))
-                        ? "Câu kiểm tra LẠI sau khi giảng lại" : "Kiểm tra hiểu bài";
-                if (correct == null) {
-                    return "[" + label + " | Chủ đề/ngữ cảnh: " + topic
-                            + " | Sinh viên hỏi: \"" + questionContext + "\""
-                            + " | Câu kiểm tra: \"" + item.get("quizQuestion") + "\""
-                            + " | Kết quả: BỎ QUA (sinh viên không trả lời)]";
-                }
-                return "[Đáp án sinh viên - " + label + " | Chủ đề/ngữ cảnh: " + topic
-                        + " | Sinh viên hỏi: \"" + questionContext + "\""
-                        + " | Câu kiểm tra: \"" + item.get("quizQuestion") + "\""
-                        + " | Sinh viên chọn: " + item.getOrDefault("selectedKey", "")
-                        + " (" + item.getOrDefault("selectedText", "") + ")"
-                        + " | Đáp án đúng: " + item.getOrDefault("correctKey", "")
-                        + " (" + item.getOrDefault("correctText", "") + ")"
-                        + " | Kết quả: " + (Boolean.TRUE.equals(correct) ? "ĐÚNG" : "SAI") + "]";
-            }
-            return item.get("role") + ": " + item.get("content");
-        }).reduce((a, b) -> a + "\n" + b).orElse("");
         EvidenceFacts facts = evidenceFacts(evidence);
-        String prompt = """
-                You are an evidence-based learning progress reviewer and adaptive
-                support-level decision engine for an AI Tutor.
-
-                Your task is to evaluate the student's demonstrated learning from the
-                provided conversation evidence and determine the most appropriate
-                support level for the next learning cycle.
-
-                You must use evidence-based reasoning, avoid unsupported conclusions,
-                and produce a valid JSON response that the backend can parse reliably.
-
-                ==================================================
-                1. OUTPUT CONTRACT
-                ==================================================
-
-                Return ONLY one valid JSON object with exactly these 9 keys:
-
-                knowledgePercent
-                practicePercent
-                independencePercent
-                confidencePercent
-                summary
-                strengths
-                knowledgeGaps
-                teachingRecommendations
-                suggestedSupportLevel
-
-                The required output schema consists of exactly these 9 keys.
-                Do not add overallPercent or other keys.
-
-                Data types:
-                - knowledgePercent: integer from 0 to 100.
-                - practicePercent: integer from 0 to 100.
-                - independencePercent: integer from 0 to 100.
-                - confidencePercent: integer from 0 to 100.
-                - summary: short Vietnamese string.
-                - strengths: array of short Vietnamese strings.
-                - knowledgeGaps: array of short Vietnamese strings.
-                - teachingRecommendations: array of actionable Vietnamese strings.
-                - suggestedSupportLevel: exactly one of HIGH_SUPPORT, STANDARD, CHALLENGE.
-
-                All explanatory text and array items must be in Vietnamese.
-                Do not return Markdown, code fences, comments, or text outside JSON.
-                Ensure valid JSON syntax, proper escaping and correct data types.
-
-                ==================================================
-                2. INPUT CONTEXT
-                ==================================================
-
-                Course: %s
-                Current support level: %s
-                Student questions in this cycle (this course only): %d
-                Backend-verified quiz facts for this cycle (re-check items excluded): %s
-                Evidence excerpts:
-                %s
-
-                Read the WHOLE excerpt, not only the quiz lines. The student's own
-                words are evidence too: repeated "em không hiểu", asking the same
-                thing again, or giving up signal a need for more support; correct
-                self-explanations, deeper "why/what if" questions and independent
-                code signal readiness for less support.
-
-                Lines marked "Câu kiểm tra LẠI sau khi giảng lại" are an easier
-                re-check after a re-teach of a concept already answered wrongly. A
-                wrong re-check is the SAME gap, not a new one; a correct re-check
-                shows recovery.
-
-                The input may contain student questions, student answers, quiz results,
-                code attempts, corrections, assistant explanations and previous learning
-                activities.
-
-                Use only the evidence actually provided.
-                Do not assume that omitted data exists.
-
-                ==================================================
-                3. EVIDENCE RULES
-                ==================================================
-
-                3.1. Student questions
-
-                Asking questions, requesting explanations, requesting examples or asking
-                for help does not by itself demonstrate poor mastery.
-
-                A student may ask questions because they are curious, exploring advanced
-                concepts or checking their understanding.
-
-                Never use question count alone to lower a learning percentage or increase
-                the level of support.
-
-                3.2. Assistant explanations
-
-                Assistant-generated explanations, code, examples and solutions are not
-                evidence that the student understood or independently mastered the topic.
-
-                Do not award mastery simply because the assistant gave a correct answer.
-
-                Look for subsequent student explanations, independent solutions,
-                corrections, quiz answers or practical applications.
-
-                3.3. Understanding-check quizzes
-
-                Lines marked [Kiểm tra hiểu bài ...] represent understanding-check quizzes.
-
-                Treat the result marked "Kết quả: SAI" as direct evidence that the student
-                answered that particular question incorrectly.
-
-                When a quiz answer is incorrect:
-                - Identify the specific topic or concept tested.
-                - Record the relevant topic in knowledgeGaps.
-                - Consider the difficulty and relevance of the question.
-                - Check for other evidence that supports or contradicts the apparent gap.
-                - Do not automatically conclude that the student has a persistent gap
-                  from one isolated mistake.
-
-                A correct quiz answer is evidence of performance on that question.
-                It does not prove complete mastery of the entire topic.
-
-                Lines marked "Kết quả: BỎ QUA" mean the student never answered
-                that quiz item. A skipped quiz is missing evidence, NOT a wrong
-                answer: never count it as incorrect, never put its topic in
-                knowledgeGaps for that reason alone. Frequent skipping may be
-                mentioned neutrally in the summary.
-
-                3.4. Independent student work
-
-                Give greater weight to evidence such as:
-                - Correct explanations written by the student.
-                - Independent problem-solving.
-                - Student-authored code and debugging attempts.
-                - Successful practical applications.
-                - Corrected mistakes followed by successful independent attempts.
-                - Consistent understanding across different learning activities.
-
-                Distinguish independent work from work completed after the assistant
-                provided the answer or walked the student through the solution.
-
-                3.5. Evidence relevance
-
-                Use evidence related to the specified course only.
-
-                Do not treat unrelated conversations as evidence of mastery or difficulty
-                in this course.
-
-                Do not fabricate grades, quiz results, events, student attempts,
-                learning history, mastery trends or supporting evidence.
-
-                3.6. Conflicting or insufficient evidence
-
-                When evidence is sparse, contradictory or unrepresentative, acknowledge
-                the limitation in summary.
-
-                Do not interpret missing evidence as evidence of failure.
-
-                Do not interpret the absence of recorded mistakes as evidence of mastery.
-
-                When evidence is insufficient to justify a change, prefer the current
-                support level if it is valid and appropriate. If the current level is
-                unavailable or invalid, use STANDARD.
-
-                ==================================================
-                4. LEARNING ASSESSMENT
-                ==================================================
-
-                A. knowledgePercent
-
-                Estimate demonstrated conceptual understanding of the course topics.
-
-                Consider:
-                - Accuracy of the student's own explanations.
-                - Ability to distinguish related concepts.
-                - Correct answers to understanding-check quizzes.
-                - Repeated conceptual misunderstandings.
-                - Consistency of understanding across relevant activities.
-
-                Do not award mastery merely because the assistant explained a concept.
-
-                B. practicePercent
-
-                Estimate the student's demonstrated ability to apply knowledge.
-
-                Consider:
-                - Student-authored code.
-                - Independent problem-solving.
-                - Practical task completion.
-                - Ability to debug and correct errors.
-                - Successful application of concepts to relevant problems.
-
-                A request for code or an assistant-provided solution is not a successful
-                student practice attempt.
-
-                C. independencePercent
-
-                Estimate the student's demonstrated ability to reason, solve problems
-                and correct mistakes without direct answer-giving from the assistant.
-
-                Consider:
-                - Independent reasoning.
-                - Ability to choose an appropriate solution.
-                - Ability to explain why a solution works.
-                - Successful application to a new but relevant problem.
-                - Ability to recover from mistakes without receiving the complete answer.
-
-                Do not assume dependence simply because the student asks questions.
-
-                D. confidencePercent
-
-                Estimate confidence in the reliability of THIS REVIEW, not the student's
-                self-confidence or learning mastery.
-
-                Consider:
-                - Amount of relevant evidence.
-                - Directness of student-generated evidence.
-                - Evidence quality and representativeness.
-                - Consistency across activities.
-                - Availability of quiz results and independent attempts.
-                - Presence of contradictory evidence.
-
-                Confidence should generally increase when multiple independent and
-                relevant observations support the same conclusion.
-
-                Confidence should decrease when evidence is sparse, indirect,
-                contradictory or dominated by assistant-generated content.
-
-                Do not assign high confidence solely because many conversation messages
-                are present.
-
-                E. Percentage calibration
-
-                All four percentages must be integers between 0 and 100.
-
-                Use conservative estimates that reflect the available evidence.
-
-                Do not imply that these percentages are calibrated probabilities or
-                official grades.
-
-                When evidence is insufficient, avoid false precision. Explain the
-                limitation in summary and reduce confidencePercent appropriately.
-
-                Do not calculate learning percentages from question count alone.
-
-                Do not include confidencePercent in any calculation of learning mastery
-                or support-level selection.
-
-                ==================================================
-                5. AUTOMATIC SUPPORT-LEVEL ADAPTATION
-                ==================================================
-
-                The system must automatically determine the most appropriate target
-                support level for the next learning cycle.
-
-                Available levels:
-
-                HIGH_SUPPORT:
-                Structured explanations, step-by-step guidance, additional examples,
-                smaller learning steps and frequent understanding checks.
-
-                STANDARD:
-                Balanced explanations, guided practice, normal levels of assistance
-                and opportunities for independent reasoning.
-
-                CHALLENGE:
-                More complex problems, fewer direct hints, greater independence and
-                opportunities to apply concepts in unfamiliar but relevant contexts.
-
-                5.1. HIGH_SUPPORT decision
-
-                Recommend HIGH_SUPPORT when relevant direct evidence indicates that the
-                student needs more structured guidance.
-
-                Examples:
-                - Repeated incorrect understanding-check answers on important concepts.
-                - Repeated conceptual misunderstandings across relevant activities.
-                - Difficulty applying basic concepts despite appropriate opportunities.
-                - Repeated inability to solve relevant problems without substantial help.
-
-                Do not recommend HIGH_SUPPORT solely because:
-                - The student asks many questions.
-                - The student requests an example.
-                - The student makes one isolated mistake.
-                - The assistant's explanation is long.
-                - There is insufficient evidence of mastery.
-
-                5.2. STANDARD decision
-
-                Recommend STANDARD when:
-                - The student demonstrates reasonable understanding with ordinary help.
-                - Evidence is mixed or inconsistent.
-                - The student has some gaps but not enough evidence to justify intensive
-                support.
-                - The evidence is insufficient to confidently justify HIGH_SUPPORT
-                or CHALLENGE.
-                - The student is already learning effectively at STANDARD.
-
-                STANDARD is the default when evidence is insufficient.
-
-                However, do not automatically replace a valid current level with STANDARD
-                when there is no sufficient evidence to justify changing that level.
-
-                5.3. CHALLENGE decision
-
-                Recommend CHALLENGE only when multiple relevant pieces of evidence
-                demonstrate:
-                - Reliable conceptual understanding.
-                - Successful application of knowledge.
-                - Independent reasoning and problem-solving.
-                - Consistent performance across relevant activities.
-
-                The absence of mistakes alone is not sufficient.
-
-                A high knowledgePercent alone is not sufficient if practicePercent or
-                independencePercent indicates substantial difficulty.
-
-                Do not recommend CHALLENGE based only on assistant-generated solutions,
-                the number of questions asked or one successful answer.
-
-                5.4. Use all learning dimensions
-
-                Consider knowledgePercent, practicePercent and independencePercent
-                together with the underlying evidence.
-
-                Do not use a single percentage as the sole decision criterion.
-
-                Do not use confidencePercent as a measure of student ability.
-
-                When evidence supports a learning gap, teachingRecommendations should
-                describe an appropriate intervention for that gap.
-
-                When evidence supports greater independence, teachingRecommendations
-                should propose more demanding practice rather than merely reducing
-                explanations.
-
-                5.5. Current-level comparison and stability
-
-                Compare the selected target level with the supplied current support level.
-
-                If the evidence supports retaining the current level, return that level.
-
-                Do not change support levels in response to a single isolated mistake,
-                one unusually successful answer or a temporary performance fluctuation.
-
-                Prefer consistent evidence across multiple relevant learning activities.
-
-                Do not force a support-level change after every review cycle.
-
-                When evidence does not justify a change, preserve the current valid level.
-
-                If the current level is invalid or unavailable, return STANDARD unless
-                the evidence clearly justifies another level.
-
-                5.6. Avoid unsupported transitions
-
-                HIGH_SUPPORT to STANDARD:
-                Require evidence of improved understanding or practice sufficient to
-                show that intensive guidance may no longer be necessary.
-
-                STANDARD to CHALLENGE:
-                Require evidence of reliable knowledge, successful application and
-                independent reasoning.
-
-                CHALLENGE to STANDARD:
-                Recommend when evidence indicates that the student benefits from more
-                balanced guidance or cannot consistently handle the current challenge.
-
-                STANDARD to HIGH_SUPPORT:
-                Recommend when direct evidence indicates persistent or significant
-                learning difficulties requiring more structured guidance.
-
-                HIGH_SUPPORT to CHALLENGE:
-                Require clear and consistent evidence that the student can learn and
-                solve relevant problems independently. Do not skip the evidence review
-                merely because a single score is high.
-
-                CHALLENGE to HIGH_SUPPORT:
-                Recommend when multiple relevant observations demonstrate significant
-                difficulty that makes more structured support appropriate.
-
-                These transitions are evidence-based recommendations, not rigid rules
-                that override the actual evidence.
-
-                ==================================================
-                6. TEACHER AUTHORITY AND AUTOMATION SAFETY
-                ==================================================
-
-                The AI produces a support-level recommendation. The backend is responsible
-                for determining whether the recommendation may be applied automatically.
-
-                An active teacher-defined support level or pedagogical directive takes
-                precedence over the AI recommendation.
-
-                Never overwrite a teacher-controlled setting.
-
-                Never claim that the support level has changed unless the backend confirms
-                that the change has been persisted successfully.
-
-                The backend must distinguish between:
-                - AI-recommended target level.
-                - Current effective support level.
-                - Teacher-controlled support level or directive.
-                - Actual support level applied to future tutoring sessions.
-
-                If teacher approval is required by the system's policy, return the
-                recommendation for teacher review instead of applying it automatically.
-
-                If automatic adaptation is permitted and no higher-priority teacher
-                setting blocks it, the backend may apply the recommended target level.
-
-                The backend should record the previous level, target level, review time,
-                evidence reference, reason for the decision and whether the change was
-                applied, rejected or overridden by a teacher.
-
-                ==================================================
-                7. SUMMARY AND RECOMMENDATIONS
-                ==================================================
-
-                summary:
-                Provide a concise Vietnamese explanation of the student's demonstrated
-                learning, the most important evidence and any significant limitations.
-
-                strengths:
-                List only strengths supported by direct evidence.
-
-                knowledgeGaps:
-                List specific concepts or skills that the student has not demonstrated
-                reliably or answered incorrectly in the provided evidence.
-
-                Do not invent gaps from unanswered questions or missing evidence.
-
-                If no specific gap can be established, return an empty array.
-
-                teachingRecommendations:
-                Provide actionable Vietnamese recommendations linked to the observed
-                strengths or gaps.
-
-                Recommendations may include:
-                - Revisiting a specific concept.
-                - Giving a smaller worked example.
-                - Providing a targeted understanding-check question.
-                - Assigning an independent practice task.
-                - Increasing problem difficulty when mastery is demonstrated.
-
-                Do not recommend a quiz result, activity or intervention as if it has
-                already happened.
-
-                suggestedSupportLevel:
-                Return exactly one of HIGH_SUPPORT, STANDARD or CHALLENGE.
-
-                It represents the target support level recommended for the next learning
-                cycle after considering the evidence and the current support level.
-
-                It does not claim that the backend has applied the change.
-
-                ==================================================
-                8. FINAL VALIDATION
-                ==================================================
-
-                Before returning the response, verify internally that:
-                - The output is valid JSON.
-                - All required keys are present exactly once.
-                - No additional keys are present.
-                - All four percentages are integers from 0 to 100.
-                - All arrays contain short Vietnamese strings.
-                - suggestedSupportLevel is one of the three permitted values.
-                - All claims are supported by the provided evidence.
-                - Assistant-generated explanations are not treated as student mastery.
-                - Incorrect understanding-check quiz results are considered appropriately.
-                - Insufficient evidence does not produce an unjustified support change.
-                - Teacher authority is respected.
-                - No text appears outside the JSON object.
-
-                Return ONLY the JSON object.
-                """.formatted(courseId, currentSupportLevel, CYCLE_SIZE, facts.describe(), transcriptForModel);
+        String prompt = AdaptiveReviewPrompts.assessmentPrompt(courseId, currentSupportLevel, facts, evidence);
         Map<String, Object> assessment;
         String failure = null;
         try {
@@ -917,7 +287,7 @@ public class AdaptiveLearningReviewService {
             directiveRequest.setCourseId(review.getCourseId());
             directiveRequest.setClassId(review.getClassId());
             directiveRequest.setTopic(String.join(", ", safeList(review.getKnowledgeGaps())));
-            directiveRequest.setInstruction(buildAutoAppliedInstruction(review, suggested));
+            directiveRequest.setInstruction(autoAppliedInstruction(review, suggested));
             directiveRequest.setSupportLevel(suggested);
             directiveRequest.setPriority(85);
             PedagogicalDirective draft = directiveService.createDraft(
@@ -934,26 +304,6 @@ public class AdaptiveLearningReviewService {
             log.warn("Could not auto-apply support level for review {}: {}",
                     review.getId(), error.getMessage());
         }
-    }
-
-    private String buildAutoAppliedInstruction(AdaptiveLearningReview review, String suggested) {
-        StringBuilder text = new StringBuilder("AI Tutor tự đổi mức hỗ trợ sang ")
-                .append(suggested)
-                .append(" sau ").append(review.getQuestionCount() != null
-                        ? review.getQuestionCount()
-                        : review.getCompletedSessionCount())
-                .append(" câu hỏi trong môn (điểm tổng hợp ")
-                .append(percentOrZero(review.getOverallPercent()))
-                .append("%, độ đầy đủ bằng chứng ")
-                .append(percentOrZero(review.getConfidencePercent()))
-                .append("%). Đề xuất giảng dạy: ")
-                .append(String.join("; ", safeList(review.getTeachingRecommendations())));
-        if (!safeList(review.getKnowledgeGaps()).isEmpty()) {
-            text.append(". Lỗ hổng cần củng cố: ").append(String.join(", ", review.getKnowledgeGaps()));
-        }
-        text.append(". Giảng viên có thể sửa mức hoặc từ chối đánh giá này tại màn hình Đánh giá tiến bộ; ")
-                .append("quyết định của giảng viên sẽ thay thế chỉ dẫn tự động này.");
-        return text.toString();
     }
 
     /** Pushes the new effective support level to the student's open pages. */
@@ -1019,155 +369,6 @@ public class AdaptiveLearningReviewService {
                         review.getStatus() == null ? "" : review.getStatus().toUpperCase(Locale.ROOT)))
                 .map(review -> normalizeLevel(review.getSuggestedSupportLevel(), "STANDARD"))
                 .findFirst();
-    }
-
-    /**
-     * Keep student questions and per-item quiz outcomes as evidence. Quiz
-     * answers include the preceding chat question, relevant source/topic,
-     * selected answer, and a concise AI grading assessment so teachers can
-     * inspect the context without treating assistant prose as student work.
-     */
-    private List<Map<String, Object>> buildEvidence(List<AiMessage> cycleMessages) {
-        List<Map<String, Object>> result = new ArrayList<>();
-        Map<String, String> latestStudentQuestionByConversation = new HashMap<>();
-        Map<String, Map<String, Object>> latestStudentEvidenceByConversation = new HashMap<>();
-        for (AiMessage message : cycleMessages) {
-            String role = message.getRole() == null ? "UNKNOWN" : message.getRole().toUpperCase(Locale.ROOT);
-            if (Boolean.TRUE.equals(message.getProactive())) continue;
-            String conversationId = message.getConversationId() == null ? "" : message.getConversationId();
-
-            if ("STUDENT".equals(role)) {
-                Map<String, Object> item = baseEvidenceItem(message, role);
-                item.put("kind", "STUDENT_QUESTION");
-                item.put("content", truncate(message.getContent(), 1200));
-                item.put("topic", truncate(message.getContent(), 120));
-                item.put("aiAssessment", "AI lưu câu hỏi này làm ngữ cảnh học tập; việc đặt câu hỏi tự nó không phải bằng chứng sinh viên yếu kiến thức.");
-                result.add(item);
-                latestStudentQuestionByConversation.put(conversationId, message.getContent());
-                latestStudentEvidenceByConversation.put(conversationId, item);
-                continue;
-            }
-            if (!"ASSISTANT".equals(role)) continue;
-
-            String studentQuestion = latestStudentQuestionByConversation.getOrDefault(conversationId, "");
-            for (var attempt : allAttempts(message)) {
-                var quiz = attempt.getCheck();
-                if (quiz == null) continue;
-                boolean skipped = attempt.getSelectedKey() == null || attempt.getSelectedKey().isBlank();
-                String topic = resolveEvidenceTopic(message, studentQuestion, quiz.getQuestion());
-                Map<String, Object> relatedQuestion = latestStudentEvidenceByConversation.get(conversationId);
-                if (relatedQuestion != null && !topic.isBlank()) relatedQuestion.put("topic", topic);
-                Map<String, Object> answer = baseEvidenceItem(message, "STUDENT");
-                answer.put("kind", "STUDENT_ANSWER");
-                answer.put("quizIndex", attempt.getQuizIndex());
-                answer.put("attemptId", attempt.getAttemptId() == null ? "" : attempt.getAttemptId());
-                answer.put("skipped", skipped);
-                answer.put("recheck", isRecheckQuestion(studentQuestion));
-                answer.put("topic", topic);
-                answer.put("studentQuestion", truncate(studentQuestion, 1200));
-                answer.put("content", skipped
-                        ? "Câu kiểm tra " + (attempt.getQuizIndex() + 1)
-                                + ": " + (quiz.getQuestion() == null ? "" : quiz.getQuestion())
-                                + " — sinh viên bỏ qua (không trả lời)"
-                        : "Câu kiểm tra " + (attempt.getQuizIndex() + 1)
-                                + ": " + (quiz.getQuestion() == null ? "" : quiz.getQuestion())
-                                + " — sinh viên chọn " + attempt.getSelectedKey()
-                                + ", đáp án đúng " + (quiz.getCorrectKey() == null ? "" : quiz.getCorrectKey())
-                                + " → " + (Boolean.TRUE.equals(attempt.getCorrect()) ? "ĐÚNG"
-                                        : Boolean.FALSE.equals(attempt.getCorrect()) ? "SAI" : "CHƯA CHẤM"));
-                answer.put("quizQuestion", quiz.getQuestion() == null ? "" : quiz.getQuestion());
-                answer.put("quizOptions", quiz.getOptions() == null ? List.of() : quiz.getOptions().stream()
-                        .map(option -> Map.of(
-                                "key", option.getKey() == null ? "" : option.getKey(),
-                                "text", option.getText() == null ? "" : option.getText()))
-                        .toList());
-                answer.put("correctKey", quiz.getCorrectKey() == null ? "" : quiz.getCorrectKey());
-                answer.put("selectedKey", skipped ? "" : attempt.getSelectedKey());
-                answer.put("selectedText", skipped ? "" : optionText(quiz, attempt.getSelectedKey()));
-                answer.put("correctText", optionText(quiz, quiz.getCorrectKey()));
-                // Keep null for skipped attempts: null means "not answered",
-                // false would wrongly count the item as a wrong answer.
-                answer.put("correct", skipped ? null : attempt.getCorrect());
-                answer.put("quizExplanation", quiz.getExplanation() == null ? "" : quiz.getExplanation());
-                answer.put("aiAssessment", buildQuizEvidenceAssessment(attempt, quiz, skipped));
-                answer.put("understandingCorrect", attempt.getCorrect());
-                answer.put("answeredAt", attempt.getAnsweredAt() == null
-                        ? null : attempt.getAnsweredAt().toString());
-                answer.put("eventAt", attempt.getAnsweredAt() == null
-                        ? (message.getCreatedAt() == null ? null : message.getCreatedAt().toString())
-                        : attempt.getAnsweredAt().toString());
-                result.add(answer);
-            }
-        }
-        return result;
-    }
-
-    private Map<String, Object> baseEvidenceItem(AiMessage message, String role) {
-        Map<String, Object> item = new LinkedHashMap<>();
-        item.put("messageId", message.getId());
-        item.put("sessionId", message.getTutorSessionId() == null ? "" : message.getTutorSessionId());
-        item.put("conversationId", message.getConversationId());
-        item.put("role", role);
-        item.put("topic", "");
-        item.put("createdAt", message.getCreatedAt() == null ? null : message.getCreatedAt().toString());
-        return item;
-    }
-
-    private String resolveEvidenceTopic(AiMessage message, String studentQuestion, String quizQuestion) {
-        LinkedHashSet<String> labels = new LinkedHashSet<>();
-        if (message.getSourceEvidence() != null) {
-            message.getSourceEvidence().stream()
-                    .filter(Objects::nonNull)
-                    .map(source -> {
-                        String chapter = trimToNull(source.getChapter());
-                        String title = trimToNull(source.getMaterialTitle());
-                        if (chapter != null && title != null && !chapter.equalsIgnoreCase(title)) {
-                            return chapter + " · " + title;
-                        }
-                        return chapter != null ? chapter : title;
-                    })
-                    .filter(Objects::nonNull)
-                    .limit(2)
-                    .forEach(labels::add);
-        }
-        if (!labels.isEmpty()) return String.join(" · ", labels);
-        String context = trimToNull(studentQuestion);
-        if (context != null) return truncate(context, 120);
-        return truncate(quizQuestion, 120);
-    }
-
-    private String optionText(UnderstandingCheckPayload quiz, String key) {
-        if (quiz == null || key == null || quiz.getOptions() == null) return "";
-        return quiz.getOptions().stream()
-                .filter(option -> key.equalsIgnoreCase(option.getKey()))
-                .map(option -> option.getText() == null ? "" : option.getText())
-                .findFirst()
-                .orElse("");
-    }
-
-    private String buildQuizEvidenceAssessment(
-            UnderstandingCheckAttempt attempt,
-            UnderstandingCheckPayload quiz,
-            boolean skipped
-    ) {
-        if (skipped) {
-            return "AI chưa chấm mục này vì sinh viên chưa chọn đáp án; không tính là trả lời sai.";
-        }
-        String selectedKey = attempt.getSelectedKey() == null ? "" : attempt.getSelectedKey().trim().toUpperCase(Locale.ROOT);
-        String correctKey = quiz.getCorrectKey() == null ? "" : quiz.getCorrectKey().trim().toUpperCase(Locale.ROOT);
-        if (Boolean.TRUE.equals(attempt.getCorrect())) {
-            return "AI chấm đúng: sinh viên chọn " + selectedKey + ". Đây là bằng chứng trả lời đúng câu kiểm tra này, chưa đủ để kết luận đã làm chủ toàn bộ chủ đề.";
-        }
-        if (!Boolean.FALSE.equals(attempt.getCorrect())) {
-            return "AI chưa xác định kết quả chấm cho lựa chọn này; giảng viên có thể đối chiếu đáp án và tài liệu liên quan.";
-        }
-        return "AI chấm sai: sinh viên chọn " + selectedKey + ", đáp án đúng là " + correctKey
-                + ". Đây là dấu hiệu cần củng cố nội dung được kiểm tra; một lần sai riêng lẻ chưa đủ kết luận sinh viên có lỗ hổng lặp lại.";
-    }
-
-    private String trimToNull(String value) {
-        if (value == null || value.isBlank()) return null;
-        return value.trim();
     }
 
     public List<AdaptiveLearningReview> listForTeacher(String courseId, String classId) {
@@ -1280,9 +481,8 @@ public class AdaptiveLearningReviewService {
      * conversation in the course (correct, wrong and skipped quizzes kept
      * separate), the support-level change history, and an AI narrative that
      * reads the full history. The narrative never changes the support level
-     * by itself — level moves only happen in the 10-question cycle reviews
-     * (or the early repeated-mistakes review), which can move one step in
-     * either direction at every milestone.
+     * by itself — level moves only happen in the cycle reviews (or the early
+     * reviews), which can move one step in either direction.
      */
     public StudentCourseLearningSummary summarizeStudentCourse(String studentId, String courseId, String classId) {
         String safeStudentId = requireText(studentId, "studentId");
@@ -1298,120 +498,14 @@ public class AdaptiveLearningReviewService {
         List<AiMessage> messages = conversationIds.isEmpty()
                 ? List.of() : sortedCourseMessages(conversationIds);
 
-        long totalQuestions = 0;
-        long quizGiven = 0, quizAnswered = 0, quizCorrect = 0, quizWrong = 0, quizSkipped = 0;
-        Map<String, long[]> conceptStats = new LinkedHashMap<>();
-        List<String> recentQuestions = new ArrayList<>();
-        List<String> historyLines = new ArrayList<>();
-        for (AiMessage message : messages) {
-            String role = message.getRole() == null ? "" : message.getRole().toUpperCase(Locale.ROOT);
-            if ("STUDENT".equals(role)) {
-                totalQuestions++;
-                recentQuestions.add(truncate(message.getContent(), 200));
-                historyLines.add("SV hỏi: " + truncate(message.getContent(), 300));
-                continue;
-            }
-            if (!"ASSISTANT".equals(role) || Boolean.TRUE.equals(message.getProactive())) continue;
-            for (var attempt : allAttempts(message)) {
-                var quiz = attempt.getCheck();
-                if (quiz == null || quiz.getQuestion() == null) continue;
-                quizGiven++;
-                boolean skipped = attempt.getSelectedKey() == null || attempt.getSelectedKey().isBlank();
-                long[] stats = conceptStats.computeIfAbsent(quiz.getQuestion().trim(), key -> new long[2]);
-                if (skipped) {
-                    quizSkipped++;
-                    stats[1]++;
-                    historyLines.add("Kiểm tra \"" + truncate(quiz.getQuestion(), 150) + "\": BỎ QUA");
-                } else if (Boolean.TRUE.equals(attempt.getCorrect())) {
-                    quizAnswered++;
-                    quizCorrect++;
-                    historyLines.add("Kiểm tra \"" + truncate(quiz.getQuestion(), 150)
-                            + "\": ĐÚNG (chọn " + attempt.getSelectedKey() + ")");
-                } else {
-                    quizAnswered++;
-                    quizWrong++;
-                    stats[0]++;
-                    historyLines.add("Kiểm tra \"" + truncate(quiz.getQuestion(), 150)
-                            + "\": SAI (chọn " + attempt.getSelectedKey()
-                            + ", đúng " + (quiz.getCorrectKey() == null ? "" : quiz.getCorrectKey()) + ")");
-                }
-            }
-        }
-        if (recentQuestions.size() > 12) {
-            recentQuestions = recentQuestions.subList(recentQuestions.size() - 12, recentQuestions.size());
-        }
-        List<Map<String, Object>> difficultConcepts = conceptStats.entrySet().stream()
-                .filter(entry -> entry.getValue()[0] > 0 || entry.getValue()[1] > 0)
-                .sorted((a, b) -> Long.compare(b.getValue()[0] + b.getValue()[1], a.getValue()[0] + a.getValue()[1]))
-                .limit(8)
-                .map(entry -> {
-                    Map<String, Object> item = new LinkedHashMap<>();
-                    item.put("concept", entry.getKey());
-                    item.put("wrongCount", entry.getValue()[0]);
-                    item.put("skippedCount", entry.getValue()[1]);
-                    return item;
-                })
-                .toList();
-
+        CourseLearningHistory history = CourseLearningHistory.of(messages);
         List<AdaptiveLearningReview> reviews = reviewRepository
                 .findByStudentIdAndCourseIdOrderByCreatedAtDesc(safeStudentId, safeCourseId)
                 .stream()
                 .filter(review -> safeClassId == null || safeClassId.equals(review.getClassId()))
-                .sorted(Comparator.comparing(AdaptiveLearningReview::getCreatedAt,
-                        Comparator.nullsLast(Comparator.naturalOrder())))
                 .toList();
-        List<Map<String, Object>> levelHistory = reviews.stream().map(review -> {
-            Map<String, Object> item = new LinkedHashMap<>();
-            item.put("reviewId", review.getId());
-            item.put("questionCount", review.getQuestionCount() != null
-                    ? review.getQuestionCount() : review.getCompletedSessionCount());
-            item.put("triggerType", review.getTriggerType());
-            item.put("fromLevel", review.getCurrentSupportLevel());
-            item.put("toLevel", review.getSuggestedSupportLevel());
-            item.put("status", review.getStatus());
-            item.put("overallPercent", review.getOverallPercent());
-            item.put("createdAt", review.getCreatedAt() == null ? null : review.getCreatedAt().toString());
-            return item;
-        }).toList();
-
         String currentLevel = directiveService.resolveSupportLevel(safeStudentId, safeCourseId, safeClassId);
-        int correctPercent = quizAnswered == 0 ? 0 : (int) Math.round(100.0 * quizCorrect / quizAnswered);
-
-        // The model reads the whole course history (most recent 90 evidence
-        // lines when very long) plus the deterministic statistics above.
-        List<String> modelLines = historyLines.size() > 90
-                ? historyLines.subList(historyLines.size() - 90, historyLines.size()) : historyLines;
-        String prompt = """
-                Bạn là trợ lý phân tích học tập cho giảng viên. Hãy đọc TOÀN BỘ lịch sử
-                học của một sinh viên trong một môn học và tóm tắt để giảng viên theo dõi.
-
-                Trả về DUY NHẤT một JSON hợp lệ với đúng 5 khóa:
-                summary (chuỗi tiếng Việt, 3-5 câu), strengths (mảng chuỗi tiếng Việt),
-                knowledgeGaps (mảng chuỗi tiếng Việt), teachingRecommendations
-                (mảng chuỗi tiếng Việt), trajectory (chuỗi tiếng Việt mô tả tiến bộ
-                theo thời gian: đầu kỳ thế nào, gần đây thế nào).
-
-                Quy tắc:
-                - Chỉ dùng dữ kiện được cung cấp, không bịa số liệu hay sự kiện.
-                - Câu kiểm tra "BỎ QUA" nghĩa là sinh viên không trả lời: KHÔNG tính
-                  là trả lời sai, không suy ra lỗ hổng kiến thức từ việc bỏ qua; chỉ
-                  nêu trung tính nếu sinh viên bỏ qua thường xuyên.
-                - Câu trả lời/giải thích của AI Tutor không phải bằng chứng sinh viên
-                  đã hiểu; chỉ câu hỏi, câu trả lời kiểm tra và việc sinh viên tự làm
-                  mới là bằng chứng.
-                - Không đề xuất đổi mức hỗ trợ trong bản tóm tắt này; mức hỗ trợ do
-                  chu kỳ đánh giá 10 câu hỏi quyết định.
-
-                Môn học: %s
-                Tổng số câu hỏi sinh viên đã hỏi trong môn: %d
-                Kiểm tra hiểu bài: đã ra %d câu, sinh viên trả lời %d (đúng %d, sai %d), bỏ qua %d câu.
-                Mức hỗ trợ hiện tại: %s
-
-                Lịch sử học (theo thứ tự thời gian):
-                %s
-                """.formatted(safeCourseId, totalQuestions, quizGiven, quizAnswered,
-                quizCorrect, quizWrong, quizSkipped, currentLevel,
-                modelLines.isEmpty() ? "(chưa có dữ liệu)" : String.join("\n", modelLines));
+        String prompt = AdaptiveReviewPrompts.courseSummaryPrompt(safeCourseId, history, currentLevel);
 
         String aiSummary;
         List<String> strengths = List.of();
@@ -1431,12 +525,7 @@ public class AdaptiveLearningReviewService {
             recommendations = strings(parsed.get("teachingRecommendations"));
         } catch (Exception error) {
             modelGenerated = false;
-            aiSummary = "Sinh viên đã hỏi " + totalQuestions + " câu trong môn " + safeCourseId
-                    + ". Trong " + quizGiven + " câu kiểm tra hiểu bài, sinh viên đã trả lời "
-                    + quizAnswered + " câu (đúng " + quizCorrect + ", sai " + quizWrong
-                    + ") và bỏ qua " + quizSkipped + " câu. Mức hỗ trợ hiện tại: "
-                    + currentLevel + ". (Bản tóm tắt tự động bằng AI tạm thời không khả dụng"
-                    + " nên đây là tóm tắt theo số liệu thô.)";
+            aiSummary = AdaptiveReviewPrompts.fallbackCourseSummary(safeCourseId, history, currentLevel);
             log.warn("Course learning summary fallback for student {} in {}: {}",
                     safeStudentId, safeCourseId, safeMessage(error));
         }
@@ -1445,20 +534,20 @@ public class AdaptiveLearningReviewService {
                 .studentId(safeStudentId)
                 .courseId(safeCourseId)
                 .classId(safeClassId)
-                .totalQuestions(totalQuestions)
+                .totalQuestions(history.totalQuestions())
                 .totalConversations(conversations.size())
-                .questionsInCurrentCycle((int) (totalQuestions % CYCLE_SIZE))
+                .questionsInCurrentCycle((int) (history.totalQuestions() % CYCLE_SIZE))
                 .cycleSize(CYCLE_SIZE)
-                .quizGiven(quizGiven)
-                .quizAnswered(quizAnswered)
-                .quizCorrect(quizCorrect)
-                .quizWrong(quizWrong)
-                .quizSkipped(quizSkipped)
-                .quizCorrectPercent(correctPercent)
-                .difficultConcepts(difficultConcepts)
-                .recentQuestions(recentQuestions)
+                .quizGiven(history.quizGiven())
+                .quizAnswered(history.quizAnswered())
+                .quizCorrect(history.quizCorrect())
+                .quizWrong(history.quizWrong())
+                .quizSkipped(history.quizSkipped())
+                .quizCorrectPercent(history.correctPercent())
+                .difficultConcepts(history.difficultConcepts())
+                .recentQuestions(history.recentQuestions())
                 .currentSupportLevel(currentLevel)
-                .levelHistory(levelHistory)
+                .levelHistory(CourseLearningHistory.levelHistory(reviews))
                 .aiSummary(aiSummary)
                 .strengths(strengths)
                 .knowledgeGaps(knowledgeGaps)
@@ -1466,10 +555,6 @@ public class AdaptiveLearningReviewService {
                 .modelGenerated(modelGenerated)
                 .generatedAt(LocalDateTime.now())
                 .build();
-    }
-
-    private int percentOrZero(Integer value) {
-        return value == null ? 0 : Math.max(0, Math.min(100, value));
     }
 
     public AdaptiveLearningReview get(String reviewId) {
@@ -1512,7 +597,7 @@ public class AdaptiveLearningReviewService {
         String selectedLevel = "MODIFY".equals(decision)
                 ? normalizeLevel(request.getSupportLevel(), review.getSuggestedSupportLevel())
                 : review.getSuggestedSupportLevel();
-        String instruction = buildTeacherInstruction(review, feedback);
+        String instruction = teacherInstruction(review, feedback);
         PedagogicalDirectiveRequest directiveRequest = new PedagogicalDirectiveRequest();
         directiveRequest.setStudentId(review.getStudentId());
         directiveRequest.setCourseId(review.getCourseId());
@@ -1539,230 +624,5 @@ public class AdaptiveLearningReviewService {
         review.setStudentName(identity.getStudentName());
         review.setStudentCode(identity.getStudentCode());
         review.setStudentEmail(identity.getStudentEmail());
-    }
-
-    private String buildTeacherInstruction(AdaptiveLearningReview review, String feedback) {
-        StringBuilder text = new StringBuilder("Adaptive review after ")
-                .append(review.getQuestionCount() != null
-                        ? review.getQuestionCount()
-                        : review.getCompletedSessionCount())
-                .append(" student questions in this course. Teaching recommendations: ")
-                .append(String.join("; ", safeList(review.getTeachingRecommendations())));
-        if (!safeList(review.getKnowledgeGaps()).isEmpty()) {
-            text.append(". Focus on knowledge gaps: ").append(String.join("; ", review.getKnowledgeGaps()));
-        }
-        if (!feedback.isBlank()) text.append(". Teacher-approved guidance: ").append(feedback);
-        text.append(". Treat this as pedagogical guidance, not as a replacement for course-source facts. ")
-                .append("Check understanding with a fresh task before reducing support.");
-        return text.toString();
-    }
-
-    private void validateAssessment(Map<String, Object> map) {
-        // Exactly the 9-key prompt contract (no overallPercent; backend derives it).
-        for (String key : List.of("knowledgePercent", "practicePercent",
-                "independencePercent", "confidencePercent")) {
-            int value = number(map.get(key), -1);
-            if (value < 0 || value > 100) throw new IllegalArgumentException("Invalid percentage: " + key);
-        }
-        if (string(map.get("summary"), "").isBlank()) throw new IllegalArgumentException("Missing summary");
-        normalizeLevel(map.get("suggestedSupportLevel"), "STANDARD");
-    }
-
-    /**
-     * What the backend can verify about the cycle without an LLM. Re-check
-     * items (easier questions after a re-teach) are counted separately so one
-     * misunderstanding is never counted twice.
-     */
-    record EvidenceFacts(int studentMessages, int graded, int correct, int wrong, int skipped,
-                         int recheckCorrect, int recheckWrong, long maxWrongSameConcept) {
-
-        int accuracyPercent() {
-            return graded == 0 ? -1 : Math.round(100f * correct / graded);
-        }
-
-        /**
-         * Reliability of this review: driven by graded quiz answers (direct
-         * evidence), with a small share from how many questions the student
-         * asked. Message length is deliberately ignored.
-         */
-        int confidencePercent() {
-            if (graded == 0 && studentMessages == 0) return 0;
-            return Math.min(95, 20 + 15 * graded + 2 * Math.min(studentMessages, CYCLE_SIZE));
-        }
-
-        String describe() {
-            return "graded=" + graded + ", correct=" + correct + ", wrong=" + wrong
-                    + ", skipped=" + skipped + ", accuracy="
-                    + (graded == 0 ? "n/a" : accuracyPercent() + "%")
-                    + ", maxWrongOnOneConcept=" + maxWrongSameConcept
-                    + ", recheckCorrect=" + recheckCorrect + ", recheckWrong=" + recheckWrong
-                    + ", studentQuestions=" + studentMessages;
-        }
-    }
-
-    EvidenceFacts evidenceFacts(List<Map<String, Object>> evidence) {
-        int studentMessages = 0;
-        int correct = 0;
-        int wrong = 0;
-        int skipped = 0;
-        int recheckCorrect = 0;
-        int recheckWrong = 0;
-        Map<String, Long> wrongByConcept = new LinkedHashMap<>();
-        for (Map<String, Object> item : evidence == null ? List.<Map<String, Object>>of() : evidence) {
-            Object kind = item.get("kind");
-            if ("STUDENT_QUESTION".equals(kind)) {
-                studentMessages++;
-                continue;
-            }
-            if (!"STUDENT_ANSWER".equals(kind)) continue;
-            Object result = item.get("correct");
-            boolean recheck = Boolean.TRUE.equals(item.get("recheck"));
-            if (result == null) {
-                if (!recheck) skipped++;
-            } else if (Boolean.TRUE.equals(result)) {
-                if (recheck) recheckCorrect++; else correct++;
-            } else if (Boolean.FALSE.equals(result)) {
-                if (recheck) {
-                    recheckWrong++;
-                } else {
-                    wrong++;
-                    wrongByConcept.merge(
-                            normalizeConceptText(String.valueOf(item.getOrDefault("quizQuestion", "")), "unknown"),
-                            1L, Long::sum);
-                }
-            }
-        }
-        long maxWrongSameConcept = wrongByConcept.values().stream().mapToLong(Long::longValue).max().orElse(0);
-        return new EvidenceFacts(studentMessages, correct + wrong, correct, wrong, skipped,
-                recheckCorrect, recheckWrong, maxWrongSameConcept);
-    }
-
-    /**
-     * Layer 3 (support-level controller). The LLM reads the conversation and
-     * proposes the level; the backend only enforces guardrails:
-     * - more support needs at least one graded quiz answer; LESS support
-     *   needs demonstrated quiz success (at least 3 graded, 70%+ correct);
-     * - a proposal that contradicts the verified quiz facts is overruled
-     *   (asking for more support at 85%+ accuracy, or keeping/reducing
-     *   support at 34% or lower);
-     * - anti-flapping: reversing the previous review's change needs 85+
-     *   confidence;
-     * - one-step transitions: never jump HIGH_SUPPORT &harr; CHALLENGE directly.
-     */
-    private String decideTargetLevel(Map<String, Object> assessment, String currentLevelRaw,
-                                     AdaptiveLearningReview previousReview, EvidenceFacts facts) {
-        String current = normalizeLevel(currentLevelRaw, "STANDARD");
-        String target = normalizeLevel(assessment.get("suggestedSupportLevel"), current);
-        int confidence = number(assessment.get("confidencePercent"), 0);
-        int accuracy = facts.accuracyPercent();
-
-        boolean clearlyStruggling = facts.graded() >= 3 && accuracy <= 34;
-        if (clearlyStruggling && supportNeedRank(target) <= supportNeedRank(current)
-                && !"HIGH_SUPPORT".equals(current)) {
-            target = "HIGH_SUPPORT";
-        }
-        if (target.equals(current)) return current;
-
-        int direction = Integer.signum(supportNeedRank(target) - supportNeedRank(current));
-        if (direction > 0) {
-            // Chat alone ("ok ạ") is not enough to add support: at least one graded answer.
-            if (facts.graded() == 0) return current;
-            if (facts.graded() >= 3 && accuracy >= 85) return current;
-        } else {
-            if (facts.graded() < 3 || accuracy < 70 || confidence < 70) return current;
-        }
-
-        if (previousReview != null && previousReview.getAppliedDirectiveId() != null
-                && !previousReview.getAppliedDirectiveId().isBlank()) {
-            int previousDirection = Integer.signum(
-                    supportNeedRank(previousReview.getSuggestedSupportLevel())
-                            - supportNeedRank(previousReview.getCurrentSupportLevel()));
-            if (previousDirection != 0 && direction == -previousDirection && confidence < 85) {
-                return current;
-            }
-        }
-        return clampToOneStep(current, target);
-    }
-
-    private int supportNeedRank(String level) {
-        return switch (normalizeLevel(level, "STANDARD")) {
-            case "HIGH_SUPPORT" -> 2;
-            case "CHALLENGE" -> 0;
-            default -> 1;
-        };
-    }
-
-    private String clampToOneStep(String current, String target) {
-        int currentRank = supportNeedRank(current);
-        int targetRank = supportNeedRank(target);
-        if (Math.abs(targetRank - currentRank) <= 1) return target;
-        int steppedRank = currentRank + Integer.signum(targetRank - currentRank);
-        return switch (steppedRank) {
-            case 2 -> "HIGH_SUPPORT";
-            case 0 -> "CHALLENGE";
-            default -> "STANDARD";
-        };
-    }
-
-    private Map<String, Object> fallbackAssessment(String currentLevel) {
-        Map<String, Object> map = new LinkedHashMap<>();
-        map.put("knowledgePercent", 0);
-        map.put("practicePercent", 0);
-        map.put("independencePercent", 0);
-        map.put("confidencePercent", 0);
-        map.put("summary", "Chưa đủ dữ liệu đáng tin cậy để kết luận; giảng viên cần xem bằng chứng trước khi điều chỉnh.");
-        map.put("strengths", List.of());
-        map.put("knowledgeGaps", List.of());
-        map.put("teachingRecommendations", List.of("Xem lại log hội thoại và yêu cầu sinh viên làm một bài kiểm tra mới."));
-        map.put("suggestedSupportLevel", normalizeLevel(currentLevel, "STANDARD"));
-        return map;
-    }
-
-    private String extractJson(String raw) {
-        if (raw == null || raw.isBlank()) throw new IllegalArgumentException("Empty LLM response");
-        String cleaned = raw.trim().replaceFirst("^\uFEFF", "");
-        if (cleaned.startsWith("```")) {
-            cleaned = cleaned.replaceFirst("^```(?:json)?\\s*", "").replaceFirst("\\s*```$", "");
-        }
-        int start = cleaned.indexOf('{');
-        int end = cleaned.lastIndexOf('}');
-        if (start < 0 || end <= start) throw new IllegalArgumentException("LLM did not return JSON");
-        return cleaned.substring(start, end + 1);
-    }
-
-    private String normalizeLevel(Object value, String fallback) {
-        String level = value == null ? "" : value.toString().trim().toUpperCase(Locale.ROOT);
-        if (LEVELS.contains(level)) return level;
-        String safeFallback = fallback == null ? "STANDARD" : fallback.trim().toUpperCase(Locale.ROOT);
-        return LEVELS.contains(safeFallback) ? safeFallback : "STANDARD";
-    }
-
-    private int number(Object value, int fallback) {
-        if (value instanceof Number n) return n.intValue();
-        try { return Integer.parseInt(String.valueOf(value)); }
-        catch (Exception ignored) { return fallback; }
-    }
-
-    private String string(Object value, String fallback) {
-        return value == null ? fallback : String.valueOf(value);
-    }
-
-    private List<String> strings(Object value) {
-        if (!(value instanceof Collection<?> collection)) return List.of();
-        return collection.stream().filter(Objects::nonNull).map(String::valueOf)
-                .map(String::trim).filter(item -> !item.isBlank()).limit(12).toList();
-    }
-
-    private List<String> safeList(List<String> value) {
-        return value == null ? List.of() : value;
-    }
-
-    private String truncate(String value, int max) {
-        if (value == null) return "";
-        return value.length() <= max ? value : value.substring(0, max) + "…";
-    }
-
-    private String safeMessage(Exception error) {
-        return error.getMessage() == null ? error.getClass().getSimpleName() : truncate(error.getMessage(), 250);
     }
 }
