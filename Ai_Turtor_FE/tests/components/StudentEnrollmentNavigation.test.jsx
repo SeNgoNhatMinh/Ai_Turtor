@@ -79,7 +79,7 @@ describe('student enrollment navigation', () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /Bắt đầu học với AI/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Học với AI/i }));
 
     await waitFor(() => {
       expect(ensureEnrollmentContext).toHaveBeenCalledWith('');
@@ -131,7 +131,7 @@ describe('student enrollment navigation', () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /Bắt đầu học với AI/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Học với AI/i }));
 
     await waitFor(() => {
       expect(triggerToast).toHaveBeenCalled();

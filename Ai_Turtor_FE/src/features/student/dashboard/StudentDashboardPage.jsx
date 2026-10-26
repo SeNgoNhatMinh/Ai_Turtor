@@ -9,7 +9,6 @@ import {
   Layers3,
   MessageCircle,
   Search,
-  Sparkles,
   X,
 } from 'lucide-react';
 import { includesSearchText } from '../../../utils/searchText';
@@ -17,12 +16,13 @@ import TutorMascot from '../../../components/common/TutorMascot';
 import './StudentDashboardPage.css';
 
 const EMPTY_ENROLLMENTS = [];
+const VISIBLE_COURSE_LIMIT = 8;
 const QUICK_ACTIONS = [
-  { icon: Bot, title: 'Hỏi AI Tutor', description: 'Học theo tài liệu môn học', tab: 'student-chat', tone: 'blue' },
-  { icon: ClipboardCheck, title: 'Làm quiz', description: 'Luyện tập và kiểm tra nhanh', tab: 'student-quizzes', tone: 'orange' },
-  { icon: BookOpen, title: 'Xem học liệu', description: 'Tài liệu do giảng viên chia sẻ', tab: 'student-materials', tone: 'green' },
-  { icon: FileCheck2, title: 'Làm bài tập', description: 'Xem đề và nộp bài theo hạn', tab: 'student-assignments', tone: 'orange' },
-  { icon: MessageCircle, title: 'Hỏi giảng viên', description: 'Theo dõi yêu cầu hỗ trợ', tab: 'student-escalation', tone: 'purple' },
+  { icon: Bot, title: 'Hỏi AI Tutor', description: 'Học theo tài liệu môn học', tab: 'student-chat' },
+  { icon: ClipboardCheck, title: 'Làm quiz', description: 'Luyện tập và kiểm tra nhanh', tab: 'student-quizzes' },
+  { icon: BookOpen, title: 'Xem học liệu', description: 'Tài liệu do giảng viên chia sẻ', tab: 'student-materials' },
+  { icon: FileCheck2, title: 'Làm bài tập', description: 'Xem đề và nộp bài theo hạn', tab: 'student-assignments' },
+  { icon: MessageCircle, title: 'Hỏi giảng viên', description: 'Theo dõi yêu cầu hỗ trợ', tab: 'student-escalation' },
 ];
 
 const getCourseCode = (item) => item?.courseId
@@ -106,20 +106,26 @@ function CourseSearch({ query, onChange }) {
   );
 }
 
-function CourseCard({ course, index, disabled, onOpen }) {
+function CourseCard({ course, isSelected, disabled, onOpen }) {
   return (
-    <article className={`student-course-card course-tone-${index % 4}`}>
-      <div className="student-course-top">
-        <span>{course.id}</span>
-        <small>Đang học</small>
-      </div>
-      <div className="student-course-icon"><BookOpen size={25} aria-hidden="true" /></div>
-      <h3>{course.name}</h3>
-      <p>{course.classes.length ? `Lớp ${course.classes.join(', ')}` : 'Đã ghi danh vào môn học'}</p>
-      <button type="button" disabled={disabled} onClick={() => onOpen(course.enrollment)}>
-        Vào môn học <ArrowRight size={17} aria-hidden="true" />
-      </button>
-    </article>
+    <button
+      type="button"
+      className={`student-course-card ${isSelected ? 'is-selected' : ''}`}
+      disabled={disabled}
+      onClick={() => onOpen(course.enrollment)}
+      aria-current={isSelected ? 'true' : undefined}
+      aria-label={`Vào môn ${course.id} - ${course.name}`}
+    >
+      <span className="student-course-top">
+        <span className="student-course-code">{course.id}</span>
+        {isSelected && <span className="student-course-badge">Đang chọn</span>}
+      </span>
+      <strong className="student-course-name">{course.name}</strong>
+      <span className="student-course-footer">
+        <span>{course.classes.length ? `Lớp ${course.classes.join(', ')}` : 'Đã ghi danh'}</span>
+        <ArrowRight size={16} aria-hidden="true" />
+      </span>
+    </button>
   );
 }
 
@@ -130,12 +136,12 @@ function QuickAction({ action, disabled, isPending, onOpen }) {
       type="button"
       disabled={disabled}
       aria-busy={isPending}
-      className={`student-quick-card ${action.tone}`}
+      className="student-quick-card"
       onClick={() => onOpen(action.tab)}
+      title={action.description}
     >
-      <span><Icon size={21} aria-hidden="true" /></span>
-      <div><strong>{action.title}</strong><small>{action.description}</small></div>
-      <ArrowRight size={17} aria-hidden="true" />
+      <span><Icon size={19} aria-hidden="true" /></span>
+      <strong>{action.title}</strong>
     </button>
   );
 }
@@ -144,6 +150,7 @@ export default function StudentDashboardPage({ currentUser, courseId, switchTab,
   const enrollments = enrollment?.studentEnrollments || EMPTY_ENROLLMENTS;
   const [pendingTab, setPendingTab] = useState('');
   const [courseQuery, setCourseQuery] = useState('');
+  const [showAllCourses, setShowAllCourses] = useState(false);
   const name = currentUser?.fullName || currentUser?.name || currentUser?.username || 'bạn';
 
   const courses = useMemo(() => buildCourseSummaries(enrollments), [enrollments]);
@@ -177,18 +184,32 @@ export default function StudentDashboardPage({ currentUser, courseId, switchTab,
       return <DashboardEmptyState title="Đang tải danh sách môn học..." />;
     }
     if (filteredCourses.length) {
+      const hiddenCount = Math.max(0, filteredCourses.length - VISIBLE_COURSE_LIMIT);
+      const visibleCourses = showAllCourses ? filteredCourses : filteredCourses.slice(0, VISIBLE_COURSE_LIMIT);
       return (
-        <div className="student-course-grid">
-          {filteredCourses.map((course, index) => (
-            <CourseCard
-              key={course.id}
-              course={course}
-              index={index}
-              disabled={isNavigating}
-              onOpen={(item) => openDestination('student-chat', item)}
-            />
-          ))}
-        </div>
+        <>
+          <div className="student-course-grid">
+            {visibleCourses.map((course) => (
+              <CourseCard
+                key={course.id}
+                course={course}
+                isSelected={course.id === courseId}
+                disabled={isNavigating}
+                onOpen={(item) => openDestination('student-chat', item)}
+              />
+            ))}
+          </div>
+          {hiddenCount > 0 && (
+            <button
+              type="button"
+              className="student-course-more"
+              onClick={() => setShowAllCourses((value) => !value)}
+              aria-expanded={showAllCourses}
+            >
+              {showAllCourses ? 'Thu gọn' : `Xem thêm ${hiddenCount} môn`}
+            </button>
+          )}
+        </>
       );
     }
     if (courses.length) {
@@ -211,62 +232,50 @@ export default function StudentDashboardPage({ currentUser, courseId, switchTab,
 
   return (
     <main className="student-dashboard">
-      <section className="student-dashboard-hero">
+      <section className="student-dashboard-hero" aria-label="Tổng quan học tập">
         <div>
-          <span className="student-dashboard-eyebrow"><Sparkles size={15} /> Không gian học tập của bạn</span>
-          <h1>Chào {name}, hôm nay mình học gì?</h1>
-          <p>Theo dõi các môn đang tham gia và tiếp tục buổi học chỉ trong một chạm.</p>
+          <h1>Chào {name}</h1>
+          <p>Chọn môn và tiếp tục học cùng AI Tutor.</p>
+          <ul className="student-dashboard-stats">
+            <li><GraduationCap size={15} aria-hidden="true" /><strong>{courses.length}</strong> môn</li>
+            <li><Layers3 size={15} aria-hidden="true" /><strong>{classCount}</strong> lớp</li>
+            <li><BookOpen size={15} aria-hidden="true" />Đang chọn <strong>{courseId || '—'}</strong></li>
+          </ul>
+        </div>
+        <div className="student-dashboard-hero__side">
+          <TutorMascot size="md" className="student-dashboard-mascot" alt="Linh vật FPT University AI Tutor" />
           <button
             type="button"
             disabled={isNavigating}
             aria-busy={pendingTab === 'student-chat'}
             onClick={() => openDestination('student-chat')}
           >
-            Bắt đầu học với AI <ArrowRight size={18} />
+            Học với AI <ArrowRight size={18} />
           </button>
         </div>
-        <TutorMascot
-          size="hero"
-          className="student-dashboard-mascot"
-          alt="Linh vật FPT University AI Tutor"
-        />
       </section>
 
-      <section className="student-dashboard-stats" aria-label="Tổng quan học tập">
-        <article><span><GraduationCap size={21} /></span><div><strong>{courses.length}</strong><small>Môn đang học</small></div></article>
-        <article><span><Layers3 size={21} /></span><div><strong>{classCount}</strong><small>Lớp đang tham gia</small></div></article>
-        <article><span><BookOpen size={21} /></span><div><strong>{courseId || '—'}</strong><small>Môn đang chọn</small></div></article>
+      <nav className="student-quick-grid" aria-label="Truy cập nhanh">
+        {QUICK_ACTIONS.map((action) => (
+          <QuickAction
+            key={action.tab}
+            action={action}
+            disabled={isNavigating}
+            isPending={pendingTab === action.tab}
+            onOpen={openDestination}
+          />
+        ))}
+      </nav>
+
+      <section className="student-dashboard-section student-dashboard-courses">
+        <header className="student-dashboard-heading">
+          <h2>Môn học của tôi{courses.length > 0 ? ` (${courses.length})` : ''}</h2>
+          {courses.length > VISIBLE_COURSE_LIMIT / 2 && (
+            <CourseSearch query={courseQuery} onChange={setCourseQuery} />
+          )}
+        </header>
+        {renderCourses()}
       </section>
-
-      <div className="student-dashboard-content-grid">
-        <section className="student-dashboard-section student-dashboard-courses">
-          <header className="student-dashboard-heading">
-            <div><span>Môn học của tôi</span><h2>Tiếp tục hành trình học tập</h2></div>
-            <button type="button" onClick={() => switchTab?.('student-materials')}>
-              Xem học liệu <ArrowRight size={16} />
-            </button>
-          </header>
-          {courses.length > 0 && <CourseSearch query={courseQuery} onChange={setCourseQuery} />}
-          {renderCourses()}
-        </section>
-
-        <section className="student-dashboard-section student-dashboard-actions">
-          <header className="student-dashboard-heading">
-            <div><span>Truy cập nhanh</span><h2>Bạn muốn làm gì tiếp theo?</h2></div>
-          </header>
-          <div className="student-quick-grid">
-            {QUICK_ACTIONS.map((action) => (
-              <QuickAction
-                key={action.tab}
-                action={action}
-                disabled={isNavigating}
-                isPending={pendingTab === action.tab}
-                onOpen={openDestination}
-              />
-            ))}
-          </div>
-        </section>
-      </div>
     </main>
   );
 }
