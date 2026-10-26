@@ -191,10 +191,6 @@
   color: #ffb077 !important;
 }
 
-.app-container.dark .chat-empty-title {
-  color: #ececec !important;
-}
-
 .app-container.dark .chat-keyword-tip {
   border-color: rgba(243, 112, 33, 0.35);
   background: rgba(243, 112, 33, 0.12);

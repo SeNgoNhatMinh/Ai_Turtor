@@ -58,12 +58,6 @@
   margin-bottom: 2px;
 }
 
-.chat-empty-title {
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: #0d0d0d;
-}
-
 .chat-keyword-tip {
   width: min(560px, 100%);
   padding: 12px 14px;

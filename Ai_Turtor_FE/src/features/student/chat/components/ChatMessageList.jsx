@@ -336,7 +336,6 @@ function ChatMessageList({
         {messages.length === 0 ? (
           <div className="chat-empty-state">
             <TutorMascot size="lg" className="chat-empty-mascot" />
-            <div className="chat-empty-title">Hôm nay bạn muốn học gì?</div>
             <div className="chat-keyword-tip" role="note">
               <strong>{uiCopy.student.chat.keywordTipTitle}</strong>
               <p>{uiCopy.student.chat.keywordTip}</p>
