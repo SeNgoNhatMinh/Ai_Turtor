@@ -145,6 +145,8 @@ class AiConversationServiceUnderstandingCheckTest {
     void buildsRemediationIntentFromTheOriginatingEvidence() {
         AiMessage message = understandingMessage();
         message.setUnderstandingAttemptId("attempt-1");
+        // A graded wrong answer always records the chosen option (B is correct).
+        message.setUnderstandingSelectedKey("A");
         message.setUnderstandingCorrect(false);
         message.setSourceEvidence(List.of(RagSourceEvidence.builder()
                 .materialId("material-1")
