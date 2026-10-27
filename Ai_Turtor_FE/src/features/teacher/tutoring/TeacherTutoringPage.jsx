@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Button, Card, Drawer, Empty, Input, Select, Spin, Tag } from "antd";
+import { Button, Card, Drawer, Empty, Input, Select, Skeleton, Tag } from "antd";
 import { ArrowRight, BookOpenCheck, GraduationCap, MessageSquareText, Search, Send, TriangleAlert, Users } from "lucide-react";
 import { queryKeys } from "../../../app/queryKeys";
 import PageHeader from "../../../components/common/PageHeader";
@@ -496,7 +496,7 @@ export default function TeacherTutoringPage({ teacherId, setCourseId, setClassId
       </Card>
 
       {loading && classScopes.length === 0 && (
-        <Card className="tt-state" variant="borderless"><Spin /> <span>Đang tải danh sách lớp...</span></Card>
+        <Card className="tt-state" variant="borderless"><Skeleton active paragraph={{ rows: 3 }} /></Card>
       )}
       {!loading && classScopes.length === 0 && (
         <Card className="tt-state" variant="borderless">
@@ -579,7 +579,7 @@ export default function TeacherTutoringPage({ teacherId, setCourseId, setClassId
               <Button size="small" onClick={() => selectClass("")}>← Tất cả lớp</Button>
             )}
           >
-            {loading && <div className="tt-state"><Spin /> <span>Đang tải sinh viên...</span></div>}
+            {loading && <div className="tt-state"><Skeleton active avatar paragraph={{ rows: 2 }} /><Skeleton active avatar paragraph={{ rows: 2 }} /></div>}
             {!loading && scopedRows.length === 0 && (
               <Empty description="Lớp này chưa có sinh viên được ghi danh." />
             )}

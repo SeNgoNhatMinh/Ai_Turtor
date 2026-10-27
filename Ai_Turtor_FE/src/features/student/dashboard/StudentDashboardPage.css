@@ -426,3 +426,31 @@
   border-color: #4b5563;
   background: #1d1d1d;
 }
+
+/* Skeleton placeholder cards */
+.student-course-card--skeleton {
+  pointer-events: none;
+  cursor: default;
+}
+
+.skeleton-line {
+  display: block;
+  border-radius: 6px;
+  background: linear-gradient(90deg, #e5e7eb 25%, #f3f4f6 50%, #e5e7eb 75%);
+  background-size: 200% 100%;
+  animation: skeletonShimmer 1.5s ease infinite;
+}
+
+.app-container.dark .skeleton-line {
+  background: linear-gradient(90deg, #374151 25%, #4b5563 50%, #374151 75%);
+  background-size: 200% 100%;
+}
+
+@keyframes skeletonShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-line { animation: none; }
+}

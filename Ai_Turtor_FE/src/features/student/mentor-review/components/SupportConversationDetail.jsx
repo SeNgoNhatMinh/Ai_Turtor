@@ -1,4 +1,4 @@
-import { Alert, Spin } from 'antd';
+import { Alert, Skeleton } from 'antd';
 import { Bot, Clock3, GraduationCap, MessageSquareText, ShieldCheck } from 'lucide-react';
 import AsyncState from '../../../../components/common/AsyncState';
 import StatusTag from '../../../../components/common/StatusTag';
@@ -102,8 +102,7 @@ function SupportConversationDetail({
           )}
           {isLoading && (
             <div className="mentor-review-detail-loading">
-              <Spin size="small" />
-              <span className="mentor-review-state-hint">Đang tải nội dung đầy đủ...</span>
+              <Skeleton active paragraph={{ rows: 3 }} />
             </div>
           )}
 

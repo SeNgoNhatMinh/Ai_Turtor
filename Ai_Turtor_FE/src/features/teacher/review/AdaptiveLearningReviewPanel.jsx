@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Alert, Button, Empty, Input, Progress, Select, Spin, Tag, Tooltip } from 'antd';
+import { Alert, Button, Empty, Input, Progress, Select, Skeleton, Tag, Tooltip } from 'antd';
 import { Activity, BookOpenCheck, CheckCircle2, ChevronRight, ClipboardList, RefreshCw, ShieldAlert, Sparkles } from 'lucide-react';
 import { teacherReviewApi } from '../../../services/teacherReviewApi';
 import { useRealtimeEvent } from '../../realtime/realtimeContext';
@@ -430,7 +430,7 @@ export default function AdaptiveLearningReviewPanel({ courseId, classId, trigger
               { value: 'UNLABELED', label: 'Chưa đánh giá' },
             ]} size="small" />
           </div>
-          {loading ? <Spin /> : filteredRoster.length === 0 ? <Empty description="Lớp chưa có sinh viên" /> : (
+          {loading ? <div style={{ padding: '8px 0' }}><Skeleton active avatar paragraph={{ rows: 1 }} /><Skeleton active avatar paragraph={{ rows: 1 }} /><Skeleton active avatar paragraph={{ rows: 1 }} /></div> : filteredRoster.length === 0 ? <Empty description="Lớp chưa có sinh viên" /> : (
             <div className="adaptive-review-list__items">
               {filteredRoster.map((item) => (
                 <button type="button" key={item.studentId} className={`adaptive-review-list__item ${selectedStudent?.studentId === item.studentId ? 'is-selected' : ''}`}

@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { Alert, Button, Empty, Space, Spin, Tag } from 'antd';
+import { Alert, Button, Empty, Skeleton, Space, Tag } from 'antd';
 import {
   BookOutlined,
   CheckCircleOutlined,
@@ -175,8 +175,9 @@ function PracticeQuizzesView({
       <AppTabs activeKey={quiz.activeTab} onChange={quiz.setActiveTab} className="quiz-tabs" items={tabs} />
 
       {quiz.loadingKey === 'generate' && (
-        <div className="quiz-loading-inline">
-          <Spin description={uiCopy.student.quizzes.preparing} />
+        <div className="quiz-loading-inline" role="status" aria-live="polite">
+          <Skeleton active title={{ width: '60%' }} paragraph={{ rows: 3, width: ['100%', '80%', '45%'] }} />
+          <p className="quiz-loading-inline__label">{uiCopy.student.quizzes.preparing}</p>
         </div>
       )}
     </div>

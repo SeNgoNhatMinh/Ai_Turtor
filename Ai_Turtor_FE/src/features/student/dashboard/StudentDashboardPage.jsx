@@ -181,7 +181,17 @@ export default function StudentDashboardPage({ currentUser, courseId, switchTab,
 
   const renderCourses = () => {
     if (enrollment?.isStudentEnrollmentsLoading) {
-      return <DashboardEmptyState title="Đang tải danh sách môn học..." />;
+      return (
+        <div className="student-course-grid">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="student-course-card student-course-card--skeleton" aria-hidden="true">
+              <span className="skeleton-line" style={{ width: '40%', height: 14 }} />
+              <span className="skeleton-line" style={{ width: '80%', height: 18 }} />
+              <span className="skeleton-line" style={{ width: '55%', height: 13 }} />
+            </div>
+          ))}
+        </div>
+      );
     }
     if (filteredCourses.length) {
       const hiddenCount = Math.max(0, filteredCourses.length - VISIBLE_COURSE_LIMIT);

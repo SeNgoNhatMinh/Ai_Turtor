@@ -76,8 +76,8 @@ export function sortQuizHistory(history) {
   ));
 }
 
-// Score / feedback notes stored as "suggestions" are not quiz topics.
-const NON_TOPIC_SUGGESTION = /^(?:assignment score|teacher feedback|điểm|nhận xét)\b|:\s*\d+(?:[.,]\d+)?\s*$/i;
+// Meta-labels, plan names, and vague entries the AI sometimes injects are not quiz topics.
+const NON_TOPIC_SUGGESTION = /^(?:assignment score|teacher feedback|điểm|nhận xét|ai learning|improvement plan|learning plan|code debugging|tóm tắt|cải thiện|review|summary|recent questions)\b|:\s*\d+(?:[.,]\d+)?\s*$/i;
 
 const topicText = (item) => String(
   typeof item === 'string' ? item : item?.topic || item?.title || item?.name || '',
