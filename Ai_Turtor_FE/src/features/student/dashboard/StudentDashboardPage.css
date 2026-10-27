@@ -408,9 +408,73 @@
   .student-course-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
-@media (max-width: 640px) {
-  .student-course-grid { grid-template-columns: 1fr; }
-  .student-quick-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 767px) {
+  .student-dashboard {
+    padding: 16px 14px 28px;
+  }
+
+  .student-dashboard-hero {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 18px 16px;
+    gap: 16px;
+  }
+
+  .student-dashboard-hero h1 {
+    font-size: 1.35rem;
+  }
+
+  .student-dashboard-hero__side {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .student-dashboard-hero__side button {
+    padding: 10px 16px;
+    font-size: 0.9rem;
+  }
+
+  .student-quick-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .student-quick-card strong {
+    font-size: 0.82rem;
+  }
+
+  .student-course-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .student-course-card {
+    min-height: 110px;
+    padding: 14px;
+  }
+
+  .student-dashboard-section {
+    padding: 14px 14px 16px;
+  }
+
+  .student-dashboard-heading {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .student-dashboard-course-search {
+    width: 100%;
+  }
+
+  .student-dashboard-stats {
+    gap: 6px;
+  }
+
+  .student-dashboard-stats li {
+    padding: 4px 10px;
+    font-size: 0.78rem;
+  }
 }
 
 /* Dark theme */
