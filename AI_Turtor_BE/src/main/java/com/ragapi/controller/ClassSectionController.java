@@ -9,6 +9,7 @@ import com.ragapi.entity.CourseEnrollment;
 import com.ragapi.repository.ClassSectionRepository;
 import com.ragapi.repository.CourseEnrollmentRepository;
 import com.ragapi.service.ClassRosterService;
+import com.ragapi.service.RealtimeEventService;
 import com.ragapi.service.StudentEnrollmentImportService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -59,6 +60,7 @@ public class ClassSectionController {
     private final CourseEnrollmentRepository courseEnrollmentRepository;
     private final StudentEnrollmentImportService studentEnrollmentImportService;
     private final ClassRosterService classRosterService;
+    private final RealtimeEventService realtimeEvents;
 
     @PostMapping({"/academic/class-sections", "/admin/class-sections"})
     @Operation(summary = "Create or update a class section for one teacher")
@@ -295,6 +297,12 @@ public class ClassSectionController {
                 status,
                 dryRun
         );
+        if (Boolean.TRUE.equals(response.getSuccess())
+                && !dryRun
+                && response.getSuccessCount() != null
+                && response.getSuccessCount() > 0) {
+            publishEnrollmentImport(courseId, classId, response.getSuccessCount());
+        }
         return Boolean.TRUE.equals(response.getSuccess())
                 ? ResponseEntity.ok(response)
                 : ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
@@ -354,7 +362,9 @@ public class ClassSectionController {
         CourseEnrollment enrollment = courseEnrollmentRepository.findById(enrollmentId)
                 .orElseThrow(() -> new IllegalArgumentException("Enrollment not found"));
         applyEnrollmentUpdate(enrollment, request);
-        return ResponseEntity.ok(courseEnrollmentRepository.save(enrollment));
+        CourseEnrollment saved = courseEnrollmentRepository.save(enrollment);
+        publishEnrollmentEvent("ENROLLMENT_UPDATED", saved);
+        return ResponseEntity.ok(saved);
     }
 
     @DeleteMapping({"/academic/enrollments/{enrollmentId}", "/admin/enrollments/{enrollmentId}"})
@@ -363,6 +373,7 @@ public class ClassSectionController {
         CourseEnrollment enrollment = courseEnrollmentRepository.findById(enrollmentId)
                 .orElseThrow(() -> new IllegalArgumentException("Enrollment not found"));
         courseEnrollmentRepository.delete(enrollment);
+        publishEnrollmentEvent("ENROLLMENT_DELETED", enrollment);
         return ResponseEntity.ok(Map.of("status", "DELETED", "enrollmentId", enrollmentId));
     }
 
@@ -376,6 +387,7 @@ public class ClassSectionController {
         CourseEnrollment enrollment = courseEnrollmentRepository.findByStudentIdAndCourseIdAndClassId(studentId, courseId, classId)
                 .orElseThrow(() -> new IllegalArgumentException("Enrollment not found"));
         courseEnrollmentRepository.delete(enrollment);
+        publishEnrollmentEvent("ENROLLMENT_DELETED", enrollment);
         return ResponseEntity.ok(Map.of(
                 "status", "DELETED",
                 "studentId", studentId,
@@ -459,13 +471,12 @@ public class ClassSectionController {
     }
 
     private CourseEnrollment saveEnrollmentEntity(CourseEnrollment request) {
-        CourseEnrollment enrollment = courseEnrollmentRepository
-                .findByStudentIdAndCourseIdAndClassId(
-                        request.getStudentId().trim(),
-                        request.getCourseId().trim(),
-                        request.getClassId().trim()
-                )
-                .orElseGet(() -> CourseEnrollment.builder()
+        var existing = courseEnrollmentRepository.findByStudentIdAndCourseIdAndClassId(
+                request.getStudentId().trim(),
+                request.getCourseId().trim(),
+                request.getClassId().trim()
+        );
+        CourseEnrollment enrollment = existing.orElseGet(() -> CourseEnrollment.builder()
                         .id(UUID.randomUUID().toString())
                         .createdAt(LocalDateTime.now())
                         .enrolledAt(LocalDateTime.now())
@@ -486,7 +497,44 @@ public class ClassSectionController {
         enrollment.setStatus(defaultStatus(request.getStatus()));
         enrollment.setCompletedAt(request.getCompletedAt());
         enrollment.setUpdatedAt(LocalDateTime.now());
-        return courseEnrollmentRepository.save(enrollment);
+        CourseEnrollment saved = courseEnrollmentRepository.save(enrollment);
+        publishEnrollmentEvent(existing.isPresent() ? "ENROLLMENT_UPDATED" : "ENROLLMENT_CREATED", saved);
+        return saved;
+    }
+
+    private void publishEnrollmentEvent(String eventType, CourseEnrollment enrollment) {
+        if (enrollment == null) return;
+        Map<String, Object> data = new LinkedHashMap<>();
+        putIfPresent(data, "studentId", enrollment.getStudentId());
+        putIfPresent(data, "courseId", enrollment.getCourseId());
+        putIfPresent(data, "classId", enrollment.getClassId());
+        realtimeEvents.publishToRoles(
+                List.of("ADMIN"),
+                eventType,
+                "ENROLLMENT",
+                enrollment.getId(),
+                enrollment.getStatus(),
+                data
+        );
+    }
+
+    private void publishEnrollmentImport(String courseId, String classId, int count) {
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("courseId", courseId);
+        data.put("classId", classId);
+        data.put("count", count);
+        realtimeEvents.publishToRoles(
+                List.of("ADMIN"),
+                "ENROLLMENT_CREATED",
+                "ENROLLMENT_IMPORT",
+                UUID.randomUUID().toString(),
+                "IMPORTED",
+                data
+        );
+    }
+
+    private void putIfPresent(Map<String, Object> data, String key, String value) {
+        if (value != null && !value.isBlank()) data.put(key, value);
     }
 
 

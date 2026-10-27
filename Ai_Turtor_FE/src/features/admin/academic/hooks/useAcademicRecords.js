@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../../../../app/queryKeys';
 import { adminAcademicApi } from '../../../../services/adminAcademicApi';
-import { adminUsersApi } from '../../../../services/adminUsersApi';
 import { getUserFacingError } from '../../../../services/apiClient';
 import { confirmDanger } from '../../../../components/common/confirmDialog';
 import {
@@ -16,7 +15,6 @@ import {
   getEnrollmentId,
   getSemesterCode,
 } from '../adminAcademicUtils';
-import { getPersonDisplayName, getPersonEmail, getPersonId } from '../../../../utils/displayNames';
 
 const EMPTY_LIST = [];
 
@@ -129,22 +127,8 @@ export function useAcademicRecords({
 
   const handleCreateEnrollment = async (values) => {
     try {
-      const userPage = await adminUsersApi.getAdminUsers(values.studentId, 'STUDENT', '', { page: 0, size: 20 });
-      const users = userPage.users || [];
-      const normalized = String(values.studentId || '').trim().toLowerCase();
-      const student = users.find((user) => [
-        user.id,
-        user._id,
-        user.userId,
-        user.studentId,
-        user.studentCode,
-        user.email,
-      ].filter(Boolean).some((item) => String(item).toLowerCase() === normalized)) || users[0] || null;
-      const resolvedStudentId = getPersonId(student) || values.studentId;
       await adminAcademicApi.createEnrollment({
-        studentId: resolvedStudentId,
-        studentName: student ? getPersonDisplayName(student, '') : undefined,
-        studentEmail: getPersonEmail(student) || undefined,
+        studentId: values.studentId,
         courseId: values.courseId,
         classId: values.classId,
         status: 'ACTIVE',

@@ -68,13 +68,23 @@ export function useAdminUsersController({ triggerToast, handleAdminImport }) {
   const deleteUser = async (userId) => {
     try {
       await adminUsersApi.deleteAdminUser(userId);
+      const deletedUser = usersList.find((user) => String(user.id) === String(userId));
+      const deletedEmail = String(deletedUser?.email || '').trim().toLowerCase();
       queryClient.setQueriesData({ queryKey: ['admin', 'users'] }, (current) => (
         current && Array.isArray(current.users)
           ? {
             ...current,
-            users: current.users.filter((user) => user.id !== userId),
+            users: current.users.filter((user) => String(user.id) !== String(userId)),
             totalElements: Math.max(0, Number(current.totalElements || 0) - 1),
           }
+          : current
+      ));
+      queryClient.setQueryData(queryKeys.adminMentors(), (current) => (
+        Array.isArray(current)
+          ? current.filter((mentor) => (
+            String(mentor.id) !== String(userId)
+            && (!deletedEmail || String(mentor.email || '').trim().toLowerCase() !== deletedEmail)
+          ))
           : current
       ));
       triggerToast('Đã xóa tài khoản.');

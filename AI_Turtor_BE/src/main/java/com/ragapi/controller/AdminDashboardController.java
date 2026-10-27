@@ -13,6 +13,7 @@ import com.ragapi.entity.User;
 import com.ragapi.entity.UserSubscription;
 import com.ragapi.service.AdminDashboardService;
 import com.ragapi.service.AdminAiLogService;
+import com.ragapi.service.RealtimeEventService;
 import com.ragapi.service.SubscriptionService;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,6 +34,7 @@ public class AdminDashboardController {
     private final AdminDashboardService adminDashboardService;
     private final SubscriptionService subscriptionService;
     private final AdminAiLogService adminAiLogService;
+    private final RealtimeEventService realtimeEvents;
 
     @GetMapping("/ai-logs")
     public ResponseEntity<?> listAiLogs(@RequestParam(value = "studentId", required = false) String studentId,
@@ -98,6 +100,14 @@ public class AdminDashboardController {
     public ResponseEntity<?> deleteUser(@PathVariable String userId) {
         try {
             adminDashboardService.deleteUser(userId);
+            realtimeEvents.publishToRoles(
+                    List.of("ADMIN"),
+                    "USER_DELETED",
+                    "USER",
+                    userId,
+                    "DELETED",
+                    Map.of()
+            );
             return ResponseEntity.ok(Map.of("status", "DELETED", "userId", userId));
         } catch (Exception e) {
             log.error("Error deleting user", e);

@@ -118,6 +118,14 @@ public class AdminDashboardService {
         if (isProtectedSystemAdmin(user)) {
             throw new IllegalArgumentException("System admin account cannot be deleted.");
         }
+
+        mentorRepository.findById(user.getId()).ifPresent(mentorRepository::delete);
+        String email = user.getEmail() == null ? "" : user.getEmail().trim();
+        if (!email.isBlank()) {
+            mentorRepository.findByEmail(email)
+                    .filter(mentor -> !user.getId().equals(mentor.getId()))
+                    .ifPresent(mentorRepository::delete);
+        }
         userRepository.delete(user);
     }
 

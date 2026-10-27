@@ -73,11 +73,9 @@ export default function AdminAcademicTabs({
           <StudentEnrollmentsTab
             form={forms.enrollment}
             courses={academic.courses}
-            classSections={academic.classSections}
             studentOptions={studentOptions}
             studentsLoading={studentsLoading}
             onCreate={academic.handleCreateEnrollment}
-            onCourseSelect={academic.handleCourseSelect}
             onStudentSearch={onStudentSearch}
             onAction={onAcademicAction}
           />
