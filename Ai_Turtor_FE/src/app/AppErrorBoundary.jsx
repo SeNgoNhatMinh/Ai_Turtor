@@ -1,4 +1,5 @@
 import { Component, createRef } from 'react';
+import LogRocket from 'logrocket';
 import { createErrorReference, reportFrontendError } from '../utils/errorReporting';
 import './AppErrorBoundary.css';
 
@@ -17,6 +18,10 @@ class AppErrorBoundary extends Component {
     reportFrontendError(error, {
       reference: this.state.reference,
       componentStack: errorInfo?.componentStack || '',
+    });
+    LogRocket.captureException(error, {
+      tags: { errorBoundary: 'AppErrorBoundary' },
+      extra: { reference: this.state.reference, componentStack: errorInfo?.componentStack || '' },
     });
     window.requestAnimationFrame(() => this.headingRef.current?.focus());
   }

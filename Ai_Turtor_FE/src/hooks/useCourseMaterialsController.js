@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
+import LogRocket from 'logrocket';
 import { queryKeys } from '../app/queryKeys';
 import { assignmentApi } from '../services/assignmentApi';
 import { materialsApi } from '../services/materialsApi';
@@ -243,6 +244,7 @@ export function useCourseMaterialsController({
         triggerToast('Đã xuất bản bài tập mới.');
       } else {
         await materialsApi.uploadMaterial(courseId, formData);
+        LogRocket.track('MaterialUploaded', { courseId });
         triggerToast('Đã tải học liệu môn học.');
         await queryClient.invalidateQueries({ queryKey: ['materials', courseId] });
       }

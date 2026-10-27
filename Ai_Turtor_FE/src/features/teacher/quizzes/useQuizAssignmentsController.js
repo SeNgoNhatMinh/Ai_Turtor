@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Form } from 'antd';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import LogRocket from 'logrocket';
 import { queryKeys } from '../../../app/queryKeys';
 import { getUserFacingError } from '../../../services/apiClient';
 import { quizApi } from '../../../services/quizApi';
@@ -17,6 +18,8 @@ import {
 import { classIdMatches } from '../../../utils/academicIds';
 import { validateQuizDraft } from './quizDraftUtils';
 import { getQuizAssignmentId, isQuizDraft } from './quizAssignmentUtils';
+import { useRealtimeEvent, useRealtimeReconnect } from '../../realtime/realtimeContext';
+import { REALTIME_EVENT_TYPES } from '../../realtime/realtimeEvents';
 
 const EMPTY_LIST = [];
 
@@ -114,6 +117,11 @@ export function useQuizAssignmentsController({
     () => assignmentsQuery.refetch(),
     [assignmentsQuery],
   );
+
+  useRealtimeEvent(REALTIME_EVENT_TYPES.quizAssignment, () => {
+    if (teacherId) assignmentsQuery.refetch();
+  });
+  useRealtimeReconnect(() => { if (teacherId) assignmentsQuery.refetch(); });
 
   useEffect(() => {
     form.setFieldValue('classId', classId || undefined);
@@ -307,6 +315,7 @@ export function useQuizAssignmentsController({
       setDraft(null);
       setDraftEditorState({ dirty: false, valid: true });
       await loadAssignments();
+      LogRocket.track('QuizPublished', { courseId: draft?.courseId, classId: draft?.classId });
       triggerToast?.('Đã xuất bản quiz.');
     } catch (error) {
       triggerToast?.(getUserFacingError(error, 'Không thể xuất bản quiz.'), 'error');

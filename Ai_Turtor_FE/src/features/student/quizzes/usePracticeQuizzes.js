@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import LogRocket from 'logrocket';
 import { queryKeys } from '../../../app/queryKeys';
 import { quizApi } from '../../../services/quizApi';
 import { getUserFacingError } from '../../../services/apiClient';
@@ -13,6 +14,8 @@ import {
   sortQuizHistory,
 } from './practiceQuizUtils';
 import { useMutationLock } from '../../../hooks/useMutationLock';
+import { useRealtimeEvent, useRealtimeReconnect } from '../../realtime/realtimeContext';
+import { REALTIME_EVENT_TYPES } from '../../realtime/realtimeEvents';
 
 const EMPTY_LIST = [];
 
@@ -115,6 +118,17 @@ export function usePracticeQuizzes({
 
   const refetchHistory = historyQuery.refetch;
   const refetchAssigned = assignedQuery.refetch;
+
+  useRealtimeEvent(REALTIME_EVENT_TYPES.quizHistory, () => {
+    if (hasContext) { refetchHistory(); refetchAssigned(); }
+  });
+  useRealtimeEvent(REALTIME_EVENT_TYPES.quizAssignment, () => {
+    if (hasContext) refetchAssigned();
+  });
+  useRealtimeReconnect(() => {
+    if (hasContext) { refetchHistory(); refetchAssigned(); }
+  });
+
   const loadQuizzes = useCallback(async () => {
     if (!hasContext) return [];
     setLoadingKey('refresh');
@@ -218,6 +232,7 @@ export function usePracticeQuizzes({
         setActiveTab('result');
         await loadQuizzes();
         onAfterQuizSubmit?.();
+        LogRocket.track('QuizSubmitted', { courseId, classId });
         triggerToast?.('Đã nộp quiz.');
       } catch (requestError) {
         triggerToast?.(getUserFacingError(requestError, 'Không thể nộp quiz.'), 'error');

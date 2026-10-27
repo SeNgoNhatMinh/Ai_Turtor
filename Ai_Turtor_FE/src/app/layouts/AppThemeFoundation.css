@@ -3,9 +3,11 @@
 }
 
 .app-container.dark {
+    --color-text: #F9FAFB;
     --color-text-main: #F9FAFB;
     --color-text-secondary: #D1D5DB;
     --color-text-muted: #A3A3A3;
+    --color-text-dark: #D1D5DB;
     background: #000000;
 }
 

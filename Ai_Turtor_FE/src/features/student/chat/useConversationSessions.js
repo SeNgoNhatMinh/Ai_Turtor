@@ -5,6 +5,8 @@ import { conversationApi } from '../../../services/conversationApi';
 import { getUserFacingError } from '../../../services/apiClient';
 import { asArray, normalizeSession, pairMessages } from '../../../services/normalizers';
 import { hasBrokenTextEncoding, repairMojibake } from '../../../utils/textEncoding';
+import { useRealtimeEvent, useRealtimeReconnect } from '../../realtime/realtimeContext';
+import { REALTIME_EVENT_TYPES } from '../../realtime/realtimeEvents';
 import {
   CHAT_TURN_LIMIT,
   getSessionQuestionCount,
@@ -86,6 +88,14 @@ export function useConversationSessions({
 
   const sessions = sessionsQuery.data || EMPTY_LIST;
   const messages = messagesQuery.data || EMPTY_LIST;
+
+  useRealtimeEvent(REALTIME_EVENT_TYPES.chatSession, () => {
+    if (userId && courseId) sessionsQuery.refetch();
+  });
+  useRealtimeReconnect(() => {
+    if (userId && courseId) sessionsQuery.refetch();
+    if (userId && activeSessionIdState) messagesQuery.refetch();
+  });
 
   const setSessions = useCallback((updater) => {
     queryClient.setQueryData(sessionsQueryKey, (current = []) => (

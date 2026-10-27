@@ -4,6 +4,8 @@ import { queryKeys } from '../../../app/queryKeys';
 import { diagnosticsApi } from '../../../services/diagnosticsApi';
 import { adminAcademicApi } from '../../../services/adminAcademicApi';
 import { getUserFacingError } from '../../../services/apiClient';
+import { useRealtimeEvent, useRealtimeReconnect } from '../../realtime/realtimeContext';
+import { REALTIME_EVENT_TYPES } from '../../realtime/realtimeEvents';
 
 export function useAdminDashboardController({ triggerToast }) {
   const statsQuery = useQuery({
@@ -28,6 +30,13 @@ export function useAdminDashboardController({ triggerToast }) {
   }, [statsQuery.error, triggerToast]);
 
   const loadAdminStats = useCallback(() => statsQuery.refetch(), [statsQuery]);
+
+  useRealtimeEvent([
+    ...REALTIME_EVENT_TYPES.adminUser,
+    ...REALTIME_EVENT_TYPES.academicEntity,
+    ...REALTIME_EVENT_TYPES.material,
+  ], loadAdminStats);
+  useRealtimeReconnect(loadAdminStats);
 
   const runDiagnostics = useCallback(async () => {
     if (diagnosticsMutation.isPending) return;

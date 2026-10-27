@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import LogRocket from 'logrocket';
 import { queryKeys } from '../../../app/queryKeys';
 import { assignmentApi } from '../../../services/assignmentApi';
 import { getUserFacingError } from '../../../services/apiClient';
@@ -7,6 +8,8 @@ import { normalizeAssignment } from '../../../services/normalizers';
 import { useMutationLock } from '../../../hooks/useMutationLock';
 import { validateAssignmentFile } from '../../../utils/assignmentFiles';
 import { getRecordId } from '../shared/teacherUtils';
+import { useRealtimeEvent, useRealtimeReconnect } from '../../realtime/realtimeContext';
+import { REALTIME_EVENT_TYPES } from '../../realtime/realtimeEvents';
 
 const EMPTY_LIST = [];
 
@@ -63,6 +66,16 @@ export function useTeacherAssignmentsController({
     }
     return result.data || [];
   }, [classId, courseId, refetchAssignments, teacherUserId, triggerToast]);
+
+  useRealtimeEvent(REALTIME_EVENT_TYPES.assignmentCrud, (event) => {
+    const eventCourseId = String(event.data?.courseId || '').trim().toUpperCase();
+    const currentCourse = String(courseId || '').trim().toUpperCase();
+    if (!currentCourse || !eventCourseId || eventCourseId === currentCourse) {
+      refetchAssignments();
+    }
+  });
+  useRealtimeEvent(REALTIME_EVENT_TYPES.assignmentAiGrading, () => refetchAssignments());
+  useRealtimeReconnect(() => { if (courseId && classId && teacherUserId) refetchAssignments(); });
 
   const setFile = useCallback((nextFile) => {
     if (!nextFile) {
@@ -136,6 +149,7 @@ export function useTeacherAssignmentsController({
       setPublishing(true);
       try {
         await assignmentApi.uploadAssignment(courseId, classId, formData);
+        LogRocket.track('AssignmentPublished', { courseId, classId });
         triggerToast('Đã xuất bản bài tập.');
         resetDraft();
         await load();

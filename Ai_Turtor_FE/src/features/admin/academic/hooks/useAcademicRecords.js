@@ -6,6 +6,11 @@ import { adminUsersApi } from '../../../../services/adminUsersApi';
 import { getUserFacingError } from '../../../../services/apiClient';
 import { confirmDanger } from '../../../../components/common/confirmDialog';
 import {
+  useRealtimeEvent,
+  useRealtimeReconnect,
+} from '../../../realtime/realtimeContext';
+import { REALTIME_EVENT_TYPES } from '../../../realtime/realtimeEvents';
+import {
   getClassCode,
   getCourseCode,
   getEnrollmentId,
@@ -209,6 +214,25 @@ export function useAcademicRecords({
       },
     });
   };
+
+  const invalidateAll = useCallback(() => {
+    loadSemesters();
+    loadCourses();
+    if (selectedCourseId) loadClassSections(selectedCourseId);
+    loadStudentEnrollments();
+  }, [loadClassSections, loadCourses, loadSemesters, loadStudentEnrollments, selectedCourseId]);
+
+  useRealtimeEvent(REALTIME_EVENT_TYPES.academicEntity, (event) => {
+    const type = event.type || '';
+    if (type.startsWith('SEMESTER_')) loadSemesters();
+    else if (type.startsWith('COURSE_')) loadCourses();
+    else if (type.startsWith('CLASS_SECTION_')) {
+      const eventCourseId = event.data?.courseId;
+      if (eventCourseId && selectedCourseId) loadClassSections(selectedCourseId);
+    } else if (type.startsWith('ENROLLMENT_')) loadStudentEnrollments();
+  });
+
+  useRealtimeReconnect(invalidateAll);
 
   const handleDeleteEnrollment = (record) => {
     const enrollmentId = getEnrollmentId(record);

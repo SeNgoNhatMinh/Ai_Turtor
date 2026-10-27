@@ -13,6 +13,8 @@ import {
   readAnalyzedSuggestions,
   writeAnalyzedSuggestions,
 } from '../../../utils/storage';
+import { useRealtimeEvent, useRealtimeReconnect } from '../../realtime/realtimeContext';
+import { REALTIME_EVENT_TYPES } from '../../realtime/realtimeEvents';
 
 const EMPTY_DASHBOARD = Object.freeze({
   learnedTopics: [],
@@ -115,6 +117,11 @@ export function useStudentLearningController({
     const result = await refetchLearning();
     return result.data?.dashboard || null;
   }, [courseId, refetchLearning, studentId]);
+
+  useRealtimeEvent(REALTIME_EVENT_TYPES.studentLearning, () => {
+    if (studentId && courseId) refetchLearning();
+  });
+  useRealtimeReconnect(() => { if (studentId && courseId) refetchLearning(); });
 
   const reviewMutation = useMutation({
     mutationFn: async (reviewPayload) => {

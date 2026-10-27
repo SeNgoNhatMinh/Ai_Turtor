@@ -64,9 +64,11 @@ body.theme-dark {
     --color-card-border: #344054;
     --color-card-hover-bg: #182131;
     --color-card-hover-border: #475467;
+    --color-text: #F8FAFC;
     --color-text-main: #F8FAFC;
     --color-text-secondary: #CBD5E1;
     --color-text-muted: #94A3B8;
+    --color-text-dark: #CBD5E1;
     --color-surface-subtle: #182131;
     --color-navigation-soft: #93C5FD;
     --color-primary: #93C5FD;

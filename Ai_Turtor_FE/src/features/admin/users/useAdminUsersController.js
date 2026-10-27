@@ -5,6 +5,8 @@ import { adminUsersApi } from '../../../services/adminUsersApi';
 import { getUserFacingError } from '../../../services/apiClient';
 import { ACCOUNT_ROLES } from '../../../constants/roles';
 import { useDebouncedValue } from '../../../hooks/useDebouncedValue';
+import { useRealtimeEvent, useRealtimeReconnect } from '../../realtime/realtimeContext';
+import { REALTIME_EVENT_TYPES } from '../../realtime/realtimeEvents';
 
 const EMPTY_LIST = [];
 
@@ -176,6 +178,16 @@ export function useAdminUsersController({ triggerToast, handleAdminImport }) {
       triggerToast(getUserFacingError(error, 'Không thể xóa yêu cầu hỗ trợ.'), 'error');
     }
   };
+
+  const invalidateAllUsers = useCallback(() => {
+    loadUsers();
+    loadMentors();
+    loadEscalations();
+  }, [loadEscalations, loadMentors, loadUsers]);
+
+  useRealtimeEvent(REALTIME_EVENT_TYPES.adminUser, invalidateAllUsers);
+  useRealtimeEvent(REALTIME_EVENT_TYPES.supportEscalation, loadEscalations);
+  useRealtimeReconnect(invalidateAllUsers);
 
   const importMentors = (file) => {
     Promise.resolve(handleAdminImport?.(file))

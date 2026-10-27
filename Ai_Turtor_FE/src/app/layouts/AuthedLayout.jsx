@@ -56,7 +56,6 @@ export default function AuthedLayout({
 
   return (
     <div className={`app-container role-${activeRole} ${isDarkMode ? 'dark' : 'light'} ${isMobile ? 'app-container--mobile' : ''} ${isFocusedStudentChat ? 'app-container--focused-chat' : ''}`}>
-      <a className="skip-link" href="#main-content">Chuyển đến nội dung chính</a>
       <Header
         activeRole={activeRole}
         activePageLabel={activePageLabel}
