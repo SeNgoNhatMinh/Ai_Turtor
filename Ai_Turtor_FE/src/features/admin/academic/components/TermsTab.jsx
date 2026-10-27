@@ -17,11 +17,11 @@ function TermsTab({ form, semesters, onCreate, onReload, onAction }) {
       <Col xs={24} xl={10}>
         <Card title="Tạo học kỳ mới" hoverable>
           <Form form={form} layout="vertical" onFinish={onCreate}>
-            <Form.Item name="semesterCode" label="Mã học kỳ" rules={[{ required: true, message: 'Nhập mã học kỳ' }]}>
-              <Input placeholder="Ví dụ: SEM5, SUMMER2026" />
+            <Form.Item name="semesterCode" label="Mã học kỳ" rules={[{ required: true, message: 'Nhập mã học kỳ.' }, { max: 50, message: 'Mã học kỳ tối đa 50 ký tự.' }]}>
+              <Input placeholder="Ví dụ: SEM5, SUMMER2026" maxLength={50} />
             </Form.Item>
-            <Form.Item name="name" label="Tên học kỳ" rules={[{ required: true, message: 'Nhập tên học kỳ' }]}>
-              <Input placeholder="Summer 2026" />
+            <Form.Item name="name" label="Tên học kỳ" rules={[{ required: true, message: 'Nhập tên học kỳ.' }, { max: 200, message: 'Tên học kỳ tối đa 200 ký tự.' }]}>
+              <Input placeholder="Summer 2026" maxLength={200} />
             </Form.Item>
             <Button type="primary" htmlType="submit" block icon={<Plus size={14} />}>Thêm học kỳ</Button>
           </Form>

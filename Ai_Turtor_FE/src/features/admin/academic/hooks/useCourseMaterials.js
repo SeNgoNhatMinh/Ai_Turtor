@@ -78,7 +78,7 @@ export function useCourseMaterials({
     }
     const result = await materialsQuery.refetch();
     if (result.error && !options.suppressError) {
-      triggerToast(getUserFacingError(result.error, 'Không thể tải học liệu môn học.'));
+      triggerToast(getUserFacingError(result.error, 'Không thể tải học liệu môn học.'), 'error');
     }
     return result.data || [];
   }, [materialCourseId, materialsQuery, queryClient, triggerToast]);
@@ -130,7 +130,7 @@ export function useCourseMaterials({
           if (items.length > previousCount || hasExpectedTitle) return true;
         } catch (error) {
           if (delay === delays[delays.length - 1]) {
-            triggerToast(getUserFacingError(error, 'Không thể cập nhật danh sách học liệu.'));
+            triggerToast(getUserFacingError(error, 'Không thể cập nhật danh sách học liệu.'), 'error');
           }
         }
       }
@@ -180,7 +180,7 @@ export function useCourseMaterials({
         await onCourseSyllabusUpdated?.();
         triggerToast('Đã tải học liệu dùng chung.');
       } else {
-        triggerToast(getUserFacingError(error, 'Không thể tải học liệu. Hãy thử lại.'));
+        triggerToast(getUserFacingError(error, 'Không thể tải học liệu. Hãy thử lại.'), 'error');
       }
     } finally {
       releaseUploadButton();
@@ -235,7 +235,7 @@ export function useCourseMaterials({
       anchor.remove();
       triggerToast('Đã bắt đầu tải tệp PDF.');
     } catch (error) {
-      triggerToast(getUserFacingError(error, 'Không thể tải học liệu.'));
+      triggerToast(getUserFacingError(error, 'Không thể tải học liệu.'), 'error');
     }
   };
 
@@ -249,7 +249,7 @@ export function useCourseMaterials({
       await queryClient.invalidateQueries({ queryKey, exact: true });
       triggerToast('Đã yêu cầu lập chỉ mục lại học liệu.');
     } catch (error) {
-      triggerToast(getUserFacingError(error, 'Không thể lập chỉ mục lại học liệu.'));
+      triggerToast(getUserFacingError(error, 'Không thể lập chỉ mục lại học liệu.'), 'error');
     }
   };
 
@@ -268,7 +268,7 @@ export function useCourseMaterials({
           await queryClient.invalidateQueries({ queryKey, exact: true });
           triggerToast('Đã xóa học liệu môn học.');
         } catch (error) {
-          triggerToast(getUserFacingError(error, 'Không thể xóa học liệu môn học.'));
+          triggerToast(getUserFacingError(error, 'Không thể xóa học liệu môn học.'), 'error');
         }
       },
     });

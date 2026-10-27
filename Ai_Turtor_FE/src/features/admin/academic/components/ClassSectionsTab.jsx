@@ -58,10 +58,10 @@ function ClassSectionsTab({
       <Col xs={24} xl={10}>
         <Card title="Tạo lớp học phần" hoverable>
           <Form form={form} layout="vertical" onFinish={onCreate}>
-            <Form.Item name="courseId" label="Môn học" rules={[{ required: true }]}>
+            <Form.Item name="courseId" label="Môn học" rules={[{ required: true, message: 'Chọn môn học.' }]}>
               <Select placeholder="Chọn môn học" options={courseOptions} onChange={handleCourseChange} />
             </Form.Item>
-            <Form.Item name="classCode" label="Mã lớp" rules={[{ required: true }]}>
+            <Form.Item name="classCode" label="Mã lớp" rules={[{ required: true, message: 'Nhập mã lớp.' }, { max: 50, message: 'Mã lớp tối đa 50 ký tự.' }]}>
               <Input placeholder="Ví dụ: SE1840" />
             </Form.Item>
             <div className="admin-field-hint admin-field-hint--after-control">

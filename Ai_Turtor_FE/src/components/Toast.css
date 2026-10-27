@@ -21,8 +21,17 @@
 .toast-icon {
     width: 20px;
     height: 20px;
+    flex-shrink: 0;
     color: var(--color-secondary);
 }
+
+.toast-notification--error .toast-icon { color: #ef4444; }
+.toast-notification--warning .toast-icon { color: #f59e0b; }
+.toast-notification--info .toast-icon { color: #3b82f6; }
+
+.toast-notification--error { border-color: rgba(239, 68, 68, 0.4); }
+.toast-notification--warning { border-color: rgba(245, 158, 11, 0.4); }
+.toast-notification--info { border-color: rgba(59, 130, 246, 0.4); }
 
 .toast-text {
     font-size: 0.8rem;

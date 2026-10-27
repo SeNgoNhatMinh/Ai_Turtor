@@ -156,7 +156,7 @@ export function useAcademicEntityController({
       }
       closeEntityModal();
     } catch (error) {
-      triggerToast(getUserFacingError(error, 'Không thể lưu thay đổi.'));
+      triggerToast(getUserFacingError(error, 'Không thể lưu thay đổi.'), 'error');
     } finally {
       setEntitySaving(false);
     }
@@ -176,7 +176,7 @@ export function useAcademicEntityController({
           await loadCourses();
           if (selectedCourseId === courseId) await loadClassSections(courseId);
         } catch (error) {
-          triggerToast(getUserFacingError(error, 'Không thể đánh dấu môn học hoàn tất.'));
+          triggerToast(getUserFacingError(error, 'Không thể đánh dấu môn học hoàn tất.'), 'error');
         }
       },
     });
@@ -196,7 +196,7 @@ export function useAcademicEntityController({
           triggerToast('Đã đánh dấu lớp học phần hoàn tất.');
           await loadClassSections(courseId);
         } catch (error) {
-          triggerToast(getUserFacingError(error, 'Không thể đánh dấu lớp học phần hoàn tất.'));
+          triggerToast(getUserFacingError(error, 'Không thể đánh dấu lớp học phần hoàn tất.'), 'error');
         }
       },
     });

@@ -15,6 +15,7 @@ function GoogleMark() {
 
 function LoginAuthCard({
   email,
+  fieldErrors = {},
   handleSubmit,
   isLoading,
   password,
@@ -40,10 +41,14 @@ function LoginAuthCard({
         <p>Đăng nhập để tiếp tục phiên học của bạn.</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="login-form">
+      {fieldErrors.form && (
+        <p className="login-form-error" role="alert">{fieldErrors.form}</p>
+      )}
+
+      <form onSubmit={handleSubmit} className="login-form" noValidate>
         <label className="login-field">
           <span>Email</span>
-          <div className="login-input-wrap">
+          <div className={`login-input-wrap${fieldErrors.email ? ' login-input-wrap--error' : ''}`}>
             <Mail size={18} aria-hidden="true" />
             <input
               type="email"
@@ -51,14 +56,21 @@ function LoginAuthCard({
               required
               value={email}
               maxLength={254}
+              aria-invalid={Boolean(fieldErrors.email)}
+              aria-describedby={fieldErrors.email ? 'login-email-error' : undefined}
               onChange={(event) => setEmail(event.target.value)}
             />
           </div>
+          {fieldErrors.email && (
+            <span id="login-email-error" className="login-field-error" role="alert">
+              {fieldErrors.email}
+            </span>
+          )}
         </label>
 
         <label className="login-field">
           <span>Mật khẩu</span>
-          <div className="login-input-wrap">
+          <div className={`login-input-wrap${fieldErrors.password ? ' login-input-wrap--error' : ''}`}>
             <Lock size={18} aria-hidden="true" />
             <input
               type="password"
@@ -66,9 +78,16 @@ function LoginAuthCard({
               required
               value={password}
               maxLength={128}
+              aria-invalid={Boolean(fieldErrors.password)}
+              aria-describedby={fieldErrors.password ? 'login-password-error' : undefined}
               onChange={(event) => setPassword(event.target.value)}
             />
           </div>
+          {fieldErrors.password && (
+            <span id="login-password-error" className="login-field-error" role="alert">
+              {fieldErrors.password}
+            </span>
+          )}
         </label>
 
         <button type="submit" className="login-submit btn btn-primary" disabled={isLoading}>

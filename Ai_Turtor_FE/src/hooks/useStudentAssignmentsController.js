@@ -186,7 +186,7 @@ export function useStudentAssignmentsController({
       return true;
     } catch (error) {
       console.error('Error submitting assignment:', error);
-      triggerToast(getUserFacingError(error, 'Không thể nộp bài.'));
+      triggerToast(getUserFacingError(error, 'Không thể nộp bài.'), 'error');
       return false;
     }
   }, [submitMutation, triggerToast]);
@@ -210,7 +210,7 @@ export function useStudentAssignmentsController({
       window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Error downloading assignment:', error);
-      triggerToast(getUserFacingError(error, 'Không thể tải tệp bài tập.'));
+      triggerToast(getUserFacingError(error, 'Không thể tải tệp bài tập.'), 'error');
     }
   }, [skipUnauthorizedRedirect, triggerToast]);
 
@@ -233,7 +233,7 @@ export function useStudentAssignmentsController({
       anchor.remove();
       window.URL.revokeObjectURL(url);
     } catch (error) {
-      triggerToast(getUserFacingError(error, 'Không thể tải tệp bạn đã nộp.'));
+      triggerToast(getUserFacingError(error, 'Không thể tải tệp bạn đã nộp.'), 'error');
     }
   }, [skipUnauthorizedRedirect, triggerToast]);
 

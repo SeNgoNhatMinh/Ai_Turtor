@@ -49,14 +49,14 @@ function StudentEnrollmentsTab({
                 })}
               />
             </Form.Item>
-            <Form.Item name="courseId" label="Môn học" rules={[{ required: true }]}>
+            <Form.Item name="courseId" label="Môn học" rules={[{ required: true, message: 'Chọn môn học.' }]}>
               <Select
                 placeholder="Chọn môn học"
                 onChange={onCourseSelect}
                 options={courseOptions}
               />
             </Form.Item>
-            <Form.Item name="classId" label="Lớp học phần" rules={[{ required: true }]}>
+            <Form.Item name="classId" label="Lớp học phần" rules={[{ required: true, message: 'Chọn lớp học phần.' }]}>
               <Select placeholder="Chọn lớp học phần">
                 {classSections.map((classSection) => {
                   const classCode = getClassCode(classSection);

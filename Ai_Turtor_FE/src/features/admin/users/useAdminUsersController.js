@@ -53,7 +53,7 @@ export function useAdminUsersController({ triggerToast, handleAdminImport }) {
   useEffect(() => {
     const error = usersQuery.error || mentorsQuery.error || escalationsQuery.error;
     if (!error) return;
-    triggerToast(getUserFacingError(error, 'Không thể tải đầy đủ dữ liệu quản trị tài khoản.'));
+    triggerToast(getUserFacingError(error, 'Không thể tải đầy đủ dữ liệu quản trị tài khoản.'), 'error');
   }, [escalationsQuery.error, mentorsQuery.error, triggerToast, usersQuery.error]);
 
   const loadUsers = useCallback(async () => {
@@ -77,7 +77,7 @@ export function useAdminUsersController({ triggerToast, handleAdminImport }) {
       ));
       triggerToast('Đã xóa tài khoản.');
     } catch (error) {
-      triggerToast(getUserFacingError(error, 'Không thể xóa tài khoản.'));
+      triggerToast(getUserFacingError(error, 'Không thể xóa tài khoản.'), 'error');
     }
   };
 
@@ -90,7 +90,7 @@ export function useAdminUsersController({ triggerToast, handleAdminImport }) {
       triggerToast('Đã cập nhật tài khoản.');
       return true;
     } catch (error) {
-      triggerToast(getUserFacingError(error, 'Không thể cập nhật tài khoản.'));
+      triggerToast(getUserFacingError(error, 'Không thể cập nhật tài khoản.'), 'error');
       return false;
     }
   };
@@ -103,7 +103,7 @@ export function useAdminUsersController({ triggerToast, handleAdminImport }) {
       ));
       triggerToast('Đã xóa hồ sơ giảng viên.');
     } catch (error) {
-      triggerToast(getUserFacingError(error, 'Không thể xóa hồ sơ giảng viên.'));
+      triggerToast(getUserFacingError(error, 'Không thể xóa hồ sơ giảng viên.'), 'error');
     }
   };
 
@@ -117,7 +117,7 @@ export function useAdminUsersController({ triggerToast, handleAdminImport }) {
       ));
       triggerToast('Đã cập nhật trạng thái giảng viên.');
     } catch (error) {
-      triggerToast(getUserFacingError(error, 'Không thể cập nhật trạng thái giảng viên.'));
+      triggerToast(getUserFacingError(error, 'Không thể cập nhật trạng thái giảng viên.'), 'error');
     }
   };
 
@@ -159,7 +159,7 @@ export function useAdminUsersController({ triggerToast, handleAdminImport }) {
       ));
       triggerToast(response?.message || 'Đã cập nhật vai trò. Giảng viên cần đăng nhập lại.');
     } catch (error) {
-      triggerToast(getUserFacingError(error, 'Không thể cập nhật vai trò giảng viên.'));
+      triggerToast(getUserFacingError(error, 'Không thể cập nhật vai trò giảng viên.'), 'error');
     } finally {
       setUpdatingTeacherRoleId('');
     }
@@ -173,7 +173,7 @@ export function useAdminUsersController({ triggerToast, handleAdminImport }) {
       ));
       triggerToast('Đã xóa yêu cầu hỗ trợ.');
     } catch (error) {
-      triggerToast(getUserFacingError(error, 'Không thể xóa yêu cầu hỗ trợ.'));
+      triggerToast(getUserFacingError(error, 'Không thể xóa yêu cầu hỗ trợ.'), 'error');
     }
   };
 
@@ -186,7 +186,7 @@ export function useAdminUsersController({ triggerToast, handleAdminImport }) {
           queryClient.invalidateQueries({ queryKey: ['admin', 'users'] }),
         ]);
       })
-      .catch((error) => triggerToast(getUserFacingError(error, 'Không thể import giảng viên.')));
+      .catch((error) => triggerToast(getUserFacingError(error, 'Không thể import giảng viên.'), 'error'));
     return false;
   };
 

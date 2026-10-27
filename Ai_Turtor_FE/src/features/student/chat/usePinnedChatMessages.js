@@ -87,7 +87,7 @@ export function usePinnedChatMessages({ userId, sessionId, messages, triggerToas
     onError: (error, { isPinned }) => triggerToast?.(getUserFacingError(
       error,
       isPinned ? 'Không thể bỏ ghim tin nhắn.' : 'Không thể ghim tin nhắn.',
-    )),
+    ), 'error'),
   });
 
   const togglePinnedMessage = useCallback(async (message) => {

@@ -103,7 +103,7 @@ export function useTeacherMaterialController({
         triggerToast('Backend đã nhận học liệu của lớp và đang lập chỉ mục trong nền.');
         await onReload?.();
       } catch (error) {
-        triggerToast(getUserFacingError(error, 'Không thể tải học liệu của lớp.'));
+        triggerToast(getUserFacingError(error, 'Không thể tải học liệu của lớp.'), 'error');
       } finally {
         cooldownTimerRef.current = window.setTimeout(() => {
           setUploading(false);
@@ -161,7 +161,7 @@ export function useTeacherMaterialController({
         triggerToast('Đã cập nhật thông tin tài liệu.');
         await onReload?.();
       } catch (error) {
-        triggerToast(getUserFacingError(error, 'Không thể cập nhật tài liệu.'));
+        triggerToast(getUserFacingError(error, 'Không thể cập nhật tài liệu.'), 'error');
       } finally {
         setUpdating(false);
       }
@@ -191,7 +191,7 @@ export function useTeacherMaterialController({
           triggerToast('Đã xóa tài liệu.');
           await onReload?.();
         } catch (error) {
-          triggerToast(getUserFacingError(error, 'Không thể xóa tài liệu.'));
+          triggerToast(getUserFacingError(error, 'Không thể xóa tài liệu.'), 'error');
         } finally {
           setActionId('');
         }

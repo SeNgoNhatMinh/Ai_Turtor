@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, FileText, Globe, Upload, X } from 'lucide-react';
 import { Button, Card, Input, Select, Tag } from 'antd';
 import StatusLabel from '../../../components/common/StatusLabel';
 import { findTeacherClass, getClassOptionLabel, getClassOptionValue } from '../shared/teacherUtils';
+import { LIMITS } from '../../../utils/validators';
 
 export default function TeacherMaterialUploadCard({
   courseId,
@@ -21,6 +22,7 @@ export default function TeacherMaterialUploadCard({
   onOpenWebsiteImport,
 }) {
   const fileInputRef = useRef(null);
+  const [fileError, setFileError] = useState('');
   const classOptions = useMemo(() => classesList
     .map((item) => {
       const value = getClassOptionValue(item);
@@ -112,11 +114,24 @@ export default function TeacherMaterialUploadCard({
             id="materialFile"
             type="file"
             accept=".pdf,application/pdf"
-            onChange={(event) => setMaterialFile(event.target.files[0] || null)}
+            onChange={(event) => {
+              const file = event.target.files[0] || null;
+              if (file && file.size > LIMITS.uploadMaxBytes) {
+                setFileError('Tệp quá lớn. Dung lượng tối đa là 25 MB.');
+                event.target.value = '';
+                return;
+              }
+              setFileError('');
+              setMaterialFile(file);
+            }}
             className="teacher-file-input"
             disabled={isUploading}
           />
         </label>
+
+        {fileError && (
+          <p className="teacher-form-help teacher-form-help--warning" role="alert">{fileError}</p>
+        )}
 
         {materialFile ? (
           <div className="teacher-material-file" role="status">

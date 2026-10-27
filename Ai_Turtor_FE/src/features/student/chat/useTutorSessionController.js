@@ -209,7 +209,7 @@ export function useTutorSessionController({
       }
       return data;
     } catch (error) {
-      triggerToast(getUserFacingError(error, 'Không thể mở buổi học cùng AI Tutor.'));
+      triggerToast(getUserFacingError(error, 'Không thể mở buổi học cùng AI Tutor.'), 'error');
       return null;
     } finally {
       tutorOpenInFlightRef.current = false;

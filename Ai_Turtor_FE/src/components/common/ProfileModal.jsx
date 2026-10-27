@@ -64,16 +64,20 @@ export default function ProfileModal({ isOpen, onClose, userId, onProfileUpdated
                 <Form.Item
                   name="fullName"
                   label="Họ và tên"
-                  rules={[{ required: true, message: 'Hãy nhập họ và tên' }]}
+                  rules={[
+                    { required: true, message: 'Hãy nhập họ và tên.' },
+                    { min: 2, message: 'Họ và tên phải có ít nhất 2 ký tự.' },
+                    { max: 80, message: 'Họ và tên tối đa 80 ký tự.' },
+                  ]}
                 >
-                  <Input placeholder="John Doe" />
+                  <Input placeholder="John Doe" maxLength={80} />
                 </Form.Item>
                 <Form.Item
                   name="email"
                   label="Email"
                   rules={[
-                    { required: true, message: 'Hãy nhập email' },
-                    { type: 'email', message: 'Email không hợp lệ' }
+                    { required: true, message: 'Hãy nhập email.' },
+                    { type: 'email', message: 'Email không hợp lệ.' },
                   ]}
                 >
                   <Input placeholder="john@example.com" disabled />
@@ -104,7 +108,7 @@ export default function ProfileModal({ isOpen, onClose, userId, onProfileUpdated
                 <Form.Item
                   name="oldPassword"
                   label="Mật khẩu hiện tại"
-                  rules={[{ required: true, message: 'Hãy nhập mật khẩu hiện tại' }]}
+                  rules={[{ required: true, message: 'Hãy nhập mật khẩu hiện tại.' }]}
                 >
                   <Input.Password placeholder="••••••••" />
                 </Form.Item>
@@ -112,24 +116,25 @@ export default function ProfileModal({ isOpen, onClose, userId, onProfileUpdated
                   name="newPassword"
                   label="Mật khẩu mới"
                   rules={[
-                    { required: true, message: 'Hãy nhập mật khẩu mới' },
-                    { min: 6, message: 'Mật khẩu phải có ít nhất 6 ký tự' }
+                    { required: true, message: 'Hãy nhập mật khẩu mới.' },
+                    { min: 6, message: 'Mật khẩu phải có ít nhất 6 ký tự.' },
+                    { max: 128, message: 'Mật khẩu tối đa 128 ký tự.' },
                   ]}
                 >
-                  <Input.Password placeholder="••••••••" />
+                  <Input.Password placeholder="••••••••" maxLength={128} />
                 </Form.Item>
                 <Form.Item
                   name="confirmPassword"
                   label="Xác nhận mật khẩu mới"
                   dependencies={['newPassword']}
                   rules={[
-                    { required: true, message: 'Hãy xác nhận mật khẩu mới' },
+                    { required: true, message: 'Hãy xác nhận mật khẩu mới.' },
                     ({ getFieldValue }) => ({
                       validator(_, value) {
                         if (!value || getFieldValue('newPassword') === value) {
                           return Promise.resolve();
                         }
-                        return Promise.reject(new Error('Mật khẩu xác nhận không khớp'));
+                        return Promise.reject(new Error('Mật khẩu xác nhận không khớp.'));
                       },
                     }),
                   ]}

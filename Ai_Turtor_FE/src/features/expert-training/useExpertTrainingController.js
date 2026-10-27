@@ -53,7 +53,7 @@ export function useExpertTrainingController({
       await refresh?.();
       return result;
     } catch (error) {
-      triggerToast?.(getUserFacingError(error, 'Không thể hoàn tất thao tác.'));
+      triggerToast?.(getUserFacingError(error, 'Không thể hoàn tất thao tác.'), 'error');
       return null;
     } finally {
       pendingActionRef.current = '';

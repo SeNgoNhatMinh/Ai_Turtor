@@ -18,10 +18,10 @@ function CoursesTab({ form, courses, onCreate, onReload, onAction }) {
       <Col xs={24} xl={10}>
         <Card title="Tạo môn học mới" hoverable>
           <Form form={form} layout="vertical" onFinish={onCreate}>
-            <Form.Item name="courseId" label="Mã môn học" rules={[{ required: true }]}>
-              <Input placeholder="PRJ301" />
+            <Form.Item name="courseId" label="Mã môn học" rules={[{ required: true, message: 'Nhập mã môn học.' }, { max: 50, message: 'Mã môn học tối đa 50 ký tự.' }]}>
+              <Input placeholder="PRJ301" maxLength={50} />
             </Form.Item>
-            <Form.Item name="courseName" label="Tên môn học" rules={[{ required: true }]}>
+            <Form.Item name="courseName" label="Tên môn học" rules={[{ required: true, message: 'Nhập tên môn học.' }, { max: 200, message: 'Tên môn học tối đa 200 ký tự.' }]}>
               <Input placeholder="Java Web Application" />
             </Form.Item>
             <Form.Item

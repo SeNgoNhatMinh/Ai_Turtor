@@ -181,7 +181,7 @@ export default function ImportWebsiteModal({
         triggerToast?.(`Đã tìm thấy ${normalized.items.length} chương hoặc mục.`);
       }
     } catch (error) {
-      triggerToast?.(getUserFacingError(error, error?.message || 'Không thể phân tích URL tài liệu.'));
+      triggerToast?.(getUserFacingError(error, error?.message || 'Không thể phân tích URL tài liệu.'), 'error');
     } finally {
       setIsAnalyzing(false);
     }
@@ -315,7 +315,7 @@ export default function ImportWebsiteModal({
       await onUploaded?.(response);
       onClose();
     } catch (error) {
-      triggerToast?.(getUserFacingError(error, error?.message || 'Không thể bắt đầu import website.'));
+      triggerToast?.(getUserFacingError(error, error?.message || 'Không thể bắt đầu import website.'), 'error');
     } finally {
       setIsImporting(false);
     }

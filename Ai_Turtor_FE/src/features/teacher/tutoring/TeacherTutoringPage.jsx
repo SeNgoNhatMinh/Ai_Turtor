@@ -201,7 +201,7 @@ export default function TeacherTutoringPage({ teacherId, setCourseId, setClassId
   useEffect(() => {
     const error = classesQuery.error || tutoringQuery.error;
     if (!error) return;
-    triggerToast?.(getUserFacingError(error, "Không thể tải dữ liệu gia sư của lớp."));
+    triggerToast?.(getUserFacingError(error, "Không thể tải dữ liệu gia sư của lớp."), 'error');
   }, [classesQuery.error, triggerToast, tutoringQuery.error]);
 
   const transcriptKind = selectedSummary?._transcriptKind || "";
@@ -222,7 +222,7 @@ export default function TeacherTutoringPage({ teacherId, setCourseId, setClassId
 
   useEffect(() => {
     if (!transcriptQuery.error) return;
-    triggerToast?.(getUserFacingError(transcriptQuery.error, "Không thể tải toàn bộ hội thoại."));
+    triggerToast?.(getUserFacingError(transcriptQuery.error, "Không thể tải toàn bộ hội thoại."), 'error');
   }, [transcriptQuery.error, triggerToast]);
 
   const scopedRows = studentRows;
@@ -346,7 +346,7 @@ export default function TeacherTutoringPage({ teacherId, setCourseId, setClassId
       triggerToast?.("Đã xác nhận chỉ dẫn. AI Tutor sẽ áp dụng từ lượt học tiếp theo.");
       await queryClient.invalidateQueries({ queryKey: tutoringQueryKey, exact: true });
     } catch (error) {
-      triggerToast?.(getUserFacingError(error, "Không thể lưu chỉ dẫn sư phạm."));
+      triggerToast?.(getUserFacingError(error, "Không thể lưu chỉ dẫn sư phạm."), 'error');
     } finally {
       setSaving(false);
     }
@@ -357,7 +357,7 @@ export default function TeacherTutoringPage({ teacherId, setCourseId, setClassId
       await tutorSessionApi.archiveDirective(teacherId, directiveId);
       await queryClient.invalidateQueries({ queryKey: tutoringQueryKey, exact: true });
     } catch (error) {
-      triggerToast?.(getUserFacingError(error, "Không thể ngừng áp dụng chỉ dẫn."));
+      triggerToast?.(getUserFacingError(error, "Không thể ngừng áp dụng chỉ dẫn."), 'error');
     }
   };
 

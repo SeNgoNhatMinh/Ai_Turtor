@@ -199,7 +199,7 @@ export function useStudentChatTabController({
   const handleUnderstandingCheckAnswer = async (answerMessage, selectedKey, attempt = {}) => {
     const grade = await handleLockUnderstandingAnswer?.(answerMessage, selectedKey, attempt);
     if (!grade) {
-      triggerToast?.('Không thể lưu lần trả lời. Vui lòng thử lại.');
+      triggerToast?.('Không thể lưu lần trả lời. Vui lòng thử lại.', 'error');
       return;
     }
     const quizIndex = Number.isInteger(attempt.quizIndex) ? attempt.quizIndex : 0;
@@ -348,7 +348,7 @@ export function useStudentChatTabController({
           switchTab?.('student-escalation');
         }
       } catch (error) {
-        triggerToast?.(getUserFacingError(error, 'Không thể tạo yêu cầu hỗ trợ.'));
+        triggerToast?.(getUserFacingError(error, 'Không thể tạo yêu cầu hỗ trợ.'), 'error');
       }
       return;
     }

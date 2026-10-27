@@ -491,7 +491,7 @@ export function useStudentChatController({
       }));
       setAvatarEmotion('idle');
       if (!quotaReached) {
-        triggerToast(getUserFacingError(error, 'Mình chưa soạn xong lượt này. Thử lại giúp mình nhé.'));
+        triggerToast(getUserFacingError(error, 'Mình chưa soạn xong lượt này. Thử lại giúp mình nhé.'), 'error');
         try {
           const nextQuota = await refreshDailyQuota();
           if (nextQuota?.remaining <= 0) {

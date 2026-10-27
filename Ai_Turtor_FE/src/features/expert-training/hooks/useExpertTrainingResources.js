@@ -204,7 +204,7 @@ export function useExpertTrainingResources({
       triggerToast?.(`Đã làm mới mục lục: ${items?.length || 0} chương.`);
       return items;
     } catch (error) {
-      triggerToast?.(getUserFacingError(error, 'Không thể làm mới mục lục.'));
+      triggerToast?.(getUserFacingError(error, 'Không thể làm mới mục lục.'), 'error');
       return [];
     }
   }, [courseId, queryClient, triggerToast]);
@@ -323,7 +323,7 @@ export function useExpertTrainingResources({
       if (!opened) triggerToast?.('Trình duyệt chặn cửa sổ mới. Cho phép popup rồi thử lại.');
       window.setTimeout(() => window.URL.revokeObjectURL(url), 120000);
     } catch (error) {
-      triggerToast?.(getUserFacingError(error, 'Không thể mở tài liệu nguồn.'));
+      triggerToast?.(getUserFacingError(error, 'Không thể mở tài liệu nguồn.'), 'error');
     }
   }, [courseId, triggerToast]);
 
@@ -337,7 +337,7 @@ export function useExpertTrainingResources({
         staleTime: 60_000,
       });
     } catch (error) {
-      triggerToast?.(getUserFacingError(error, 'Không thể tải chi tiết Evaluation.'));
+      triggerToast?.(getUserFacingError(error, 'Không thể tải chi tiết Evaluation.'), 'error');
       return null;
     }
   }, [queryClient, triggerToast]);

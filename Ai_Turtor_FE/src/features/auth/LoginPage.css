@@ -205,6 +205,29 @@
     font-weight: 600;
 }
 
+.login-input-wrap--error {
+    border-color: #ef4444 !important;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12) !important;
+}
+
+.login-field-error {
+    color: #ef4444;
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-top: -2px;
+}
+
+.login-form-error {
+    margin: 0 0 8px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: rgba(239, 68, 68, 0.08);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    color: #dc2626;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
 .login-submit {
     display: inline-flex !important;
     align-items: center;

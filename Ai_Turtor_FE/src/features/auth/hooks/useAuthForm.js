@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { authApi } from '../../../services/authApi';
 import { getUserFacingError } from '../../../services/apiClient';
-import { validateAuthForm } from '../../../utils/validators';
+import { validateAuthForm, validateEmail } from '../../../utils/validators';
 
 const SUBMIT_COOLDOWN_MS = 900;
 
@@ -9,7 +9,27 @@ export function useAuthForm({ onLoginSuccess, triggerToast }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState({});
   const lastSubmitAtRef = useRef(0);
+
+  const clearFieldError = (field) => {
+    setFieldErrors((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  };
+
+  const handleEmailChange = (value) => {
+    setEmail(value);
+    clearFieldError('email');
+  };
+
+  const handlePasswordChange = (value) => {
+    setPassword(value);
+    clearFieldError('password');
+  };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -19,10 +39,17 @@ export function useAuthForm({ onLoginSuccess, triggerToast }) {
 
     const validation = validateAuthForm({ email, password, isLoginView: true });
     if (!validation.ok) {
-      triggerToast?.(validation.message);
+      const emailCheck = validateEmail(email);
+      if (!emailCheck.ok) {
+        setFieldErrors({ email: emailCheck.message });
+      } else {
+        setFieldErrors({ password: validation.message });
+      }
+      triggerToast?.(validation.message, 'error');
       return;
     }
 
+    setFieldErrors({});
     lastSubmitAtRef.current = now;
     setIsLoading(true);
 
@@ -31,7 +58,9 @@ export function useAuthForm({ onLoginSuccess, triggerToast }) {
       triggerToast?.('Đăng nhập thành công.');
       onLoginSuccess?.(user);
     } catch (error) {
-      triggerToast?.(getUserFacingError(error, 'Đã xảy ra lỗi. Vui lòng thử lại.'));
+      const message = getUserFacingError(error, 'Đã xảy ra lỗi. Vui lòng thử lại.');
+      setFieldErrors({ form: message });
+      triggerToast?.(message, 'error');
     } finally {
       setIsLoading(false);
     }
@@ -39,10 +68,11 @@ export function useAuthForm({ onLoginSuccess, triggerToast }) {
 
   return {
     email,
+    fieldErrors,
     handleSubmit,
     isLoading,
     password,
-    setEmail,
-    setPassword,
+    setEmail: handleEmailChange,
+    setPassword: handlePasswordChange,
   };
 }

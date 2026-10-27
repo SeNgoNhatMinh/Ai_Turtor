@@ -105,7 +105,7 @@ describe('AdaptiveLearningReviewPanel', () => {
     expect(screen.getByText('90%')).toBeInTheDocument();
     expect(screen.getByText('Thử thách')).toBeInTheDocument();
     expect(screen.getByText('Sinh viên hiểu tốt OOP và tự làm được bài tập.')).toBeInTheDocument();
-    expect(screen.getByText(/1 mục — câu hỏi của sinh viên và từng câu kiểm tra đã trả lời/)).toBeInTheDocument();
+    expect(screen.getByText(/1 mục · \d+ câu trả lời sai/)).toBeInTheDocument();
     expect(teacherReviewApi.getAdaptiveLearningReviews).toHaveBeenCalledWith(
       'PRO192', 'SE1833', expect.objectContaining({ signal: expect.anything() }),
     );

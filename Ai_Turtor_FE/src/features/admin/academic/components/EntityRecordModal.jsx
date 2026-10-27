@@ -60,8 +60,8 @@ function EntityRecordModal({
             <Form.Item name="semesterCode" label="Mã học kỳ">
               <Input disabled />
             </Form.Item>
-            <Form.Item name="name" label="Tên học kỳ" rules={[{ required: !isViewMode, message: 'Nhập tên học kỳ' }]}>
-              <Input />
+            <Form.Item name="name" label="Tên học kỳ" rules={[{ required: !isViewMode, message: 'Nhập tên học kỳ.' }, { max: 200, message: 'Tên học kỳ tối đa 200 ký tự.' }]}>
+              <Input maxLength={200} />
             </Form.Item>
             <Form.Item name="status" label="Trạng thái">
               <Select>
@@ -78,8 +78,8 @@ function EntityRecordModal({
             <Form.Item name="courseId" label="Mã môn học">
               <Input disabled />
             </Form.Item>
-            <Form.Item name="courseName" label="Tên môn học" rules={[{ required: !isViewMode, message: 'Nhập tên môn học' }]}>
-              <Input />
+            <Form.Item name="courseName" label="Tên môn học" rules={[{ required: !isViewMode, message: 'Nhập tên môn học.' }, { max: 200, message: 'Tên môn học tối đa 200 ký tự.' }]}>
+              <Input maxLength={200} />
             </Form.Item>
             <Form.Item
               className="syllabus-form-item"
@@ -110,7 +110,7 @@ function EntityRecordModal({
             <Form.Item name="classId" label="Mã lớp">
               <Input disabled />
             </Form.Item>
-            <Form.Item name="teacherId" label="Giảng viên phụ trách" rules={[{ required: !isViewMode, message: 'Chọn giảng viên phụ trách lớp' }]}>
+            <Form.Item name="teacherId" label="Giảng viên phụ trách" rules={[{ required: !isViewMode, message: 'Chọn giảng viên phụ trách lớp.' }]}>
               <Select
                 showSearch
                 placeholder="Chọn giảng viên đang hoạt động"
@@ -177,8 +177,8 @@ function EntityRecordModal({
 
         {entityModal.type === 'material' && (
           <>
-            <Form.Item name="title" label="Tên học liệu" rules={[{ required: !isViewMode, message: 'Nhập tên học liệu' }]}>
-              <Input />
+            <Form.Item name="title" label="Tên học liệu" rules={[{ required: !isViewMode, message: 'Nhập tên học liệu.' }, { max: 200, message: 'Tên học liệu tối đa 200 ký tự.' }]}>
+              <Input maxLength={200} />
             </Form.Item>
             <Form.Item name="category" label="Danh mục">
               <Input placeholder="Không bắt buộc" />

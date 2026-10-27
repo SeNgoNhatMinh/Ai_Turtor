@@ -122,7 +122,7 @@ export default function TeacherOnlineQuizForm({
         onFinish={createQuiz}
         disabled={disabled || creating}
       >
-        <Form.Item name="title" label="Tên quiz" rules={[{ required: true, message: 'Nhập tên quiz' }]}>
+        <Form.Item name="title" label="Tên quiz" rules={[{ required: true, message: 'Nhập tên quiz.' }, { max: 200, message: 'Tên quiz tối đa 200 ký tự.' }]}>
           <Input placeholder="Ví dụ: Ôn tập giữa kỳ OOP" />
         </Form.Item>
         <Form.Item name="topic" label="Chủ đề">

@@ -138,7 +138,7 @@ export function useStudentLearningController({
       return response;
     } catch (error) {
       console.error('Error submitting feedback:', error);
-      triggerToast(getUserFacingError(error, 'Không thể gửi phản hồi. Vui lòng thử lại.'));
+      triggerToast(getUserFacingError(error, 'Không thể gửi phản hồi. Vui lòng thử lại.'), 'error');
       return null;
     }
   }, [reviewMutation, triggerToast]);

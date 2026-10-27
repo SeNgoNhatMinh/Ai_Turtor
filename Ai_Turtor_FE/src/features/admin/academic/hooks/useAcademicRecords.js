@@ -44,7 +44,7 @@ export function useAcademicRecords({
   useEffect(() => {
     const error = semestersQuery.error || coursesQuery.error || classSectionsQuery.error;
     if (!error) return;
-    triggerToast(getUserFacingError(error, 'Không thể tải đầy đủ dữ liệu học vụ.'));
+    triggerToast(getUserFacingError(error, 'Không thể tải đầy đủ dữ liệu học vụ.'), 'error');
   }, [classSectionsQuery.error, coursesQuery.error, semestersQuery.error, triggerToast]);
 
   const loadSemesters = useCallback(() => queryClient.invalidateQueries({
@@ -77,37 +77,49 @@ export function useAcademicRecords({
   }), [queryClient]);
 
   const handleCreateSemester = async (values) => {
-    await adminAcademicApi.createSemester({ semesterCode: values.semesterCode, name: values.name, status: 'ACTIVE' });
-    triggerToast('Đã tạo học kỳ mới.');
-    formSemester.resetFields();
-    await loadSemesters();
+    try {
+      await adminAcademicApi.createSemester({ semesterCode: values.semesterCode, name: values.name, status: 'ACTIVE' });
+      triggerToast('Đã tạo học kỳ mới.');
+      formSemester.resetFields();
+      await loadSemesters();
+    } catch (error) {
+      triggerToast(getUserFacingError(error, 'Không thể tạo học kỳ.'), 'error');
+    }
   };
 
   const handleCreateCourse = async (values) => {
-    await adminAcademicApi.createCourse({
-      courseId: values.courseId,
-      courseName: values.courseName,
-      description: values.description,
-      credits: values.credits,
-      status: 'ACTIVE',
-    });
-    triggerToast('Đã tạo môn học mới.');
-    formCourse.resetFields();
-    await loadCourses();
+    try {
+      await adminAcademicApi.createCourse({
+        courseId: values.courseId,
+        courseName: values.courseName,
+        description: values.description,
+        credits: values.credits,
+        status: 'ACTIVE',
+      });
+      triggerToast('Đã tạo môn học mới.');
+      formCourse.resetFields();
+      await loadCourses();
+    } catch (error) {
+      triggerToast(getUserFacingError(error, 'Không thể tạo môn học.'), 'error');
+    }
   };
 
   const handleCreateClass = async (values) => {
-    await adminAcademicApi.createClassSection({
-      courseId: values.courseId,
-      classId: values.classCode,
-      teacherId: values.teacherId,
-      teacherName: values.teacherName,
-      teacherEmail: values.teacherEmail,
-      status: 'ACTIVE',
-    });
-    triggerToast('Đã tạo lớp học phần mới.');
-    formClass.resetFields();
-    if (selectedCourseId) await loadClassSections(selectedCourseId);
+    try {
+      await adminAcademicApi.createClassSection({
+        courseId: values.courseId,
+        classId: values.classCode,
+        teacherId: values.teacherId,
+        teacherName: values.teacherName,
+        teacherEmail: values.teacherEmail,
+        status: 'ACTIVE',
+      });
+      triggerToast('Đã tạo lớp học phần mới.');
+      formClass.resetFields();
+      if (selectedCourseId) await loadClassSections(selectedCourseId);
+    } catch (error) {
+      triggerToast(getUserFacingError(error, 'Không thể tạo lớp học phần.'), 'error');
+    }
   };
 
   const handleCreateEnrollment = async (values) => {
@@ -135,8 +147,8 @@ export function useAcademicRecords({
       triggerToast('Đã ghi danh sinh viên vào lớp.');
       formEnroll.resetFields();
       await loadStudentEnrollments();
-    } catch {
-      triggerToast('Không thể ghi danh sinh viên.');
+    } catch (error) {
+      triggerToast(getUserFacingError(error, 'Không thể ghi danh sinh viên.'), 'error');
     }
   };
 
@@ -152,7 +164,7 @@ export function useAcademicRecords({
           triggerToast('Đã xóa học kỳ.');
           await loadSemesters();
         } catch (error) {
-          triggerToast(getUserFacingError(error, 'Không thể xóa học kỳ.'));
+          triggerToast(getUserFacingError(error, 'Không thể xóa học kỳ.'), 'error');
         }
       },
     });
@@ -160,7 +172,7 @@ export function useAcademicRecords({
 
   const handleDeleteCourse = (record) => {
     const courseId = getCourseCode(record);
-    if (!courseId) return triggerToast('Môn học này thiếu mã định danh.');
+    if (!courseId) return triggerToast('Môn học này thiếu mã định danh.', 'error');
     confirmDanger({
       title: `Xóa toàn bộ môn ${courseId}?`,
       content: 'Tất cả lớp học phần, ghi danh, học liệu, bài tập, quiz và lịch sử học thuộc môn này sẽ bị xóa vĩnh viễn.',
@@ -173,7 +185,7 @@ export function useAcademicRecords({
           queryClient.removeQueries({ queryKey: queryKeys.adminClassSections(courseId), exact: true });
           if (selectedCourseId === courseId) setSelectedCourseId('');
         } catch (error) {
-          triggerToast(getUserFacingError(error, 'Không thể xóa môn học.'));
+          triggerToast(getUserFacingError(error, 'Không thể xóa môn học.'), 'error');
         }
       },
     });
@@ -182,7 +194,7 @@ export function useAcademicRecords({
   const handleDeleteClassSection = (record) => {
     const courseId = record.courseId || selectedCourseId;
     const classId = getClassCode(record);
-    if (!courseId || !classId) return triggerToast('Lớp học phần thiếu mã môn hoặc mã lớp.');
+    if (!courseId || !classId) return triggerToast('Lớp học phần thiếu mã môn hoặc mã lớp.', 'error');
     confirmDanger({
       title: 'Xóa lớp học phần?',
       content: `Lớp ${classId} của môn ${courseId} sẽ bị xóa.`,
@@ -192,7 +204,7 @@ export function useAcademicRecords({
           triggerToast('Đã xóa lớp học phần.');
           await loadClassSections(courseId);
         } catch (error) {
-          triggerToast(getUserFacingError(error, 'Không thể xóa lớp học phần.'));
+          triggerToast(getUserFacingError(error, 'Không thể xóa lớp học phần.'), 'error');
         }
       },
     });
@@ -204,7 +216,7 @@ export function useAcademicRecords({
     const classId = record.classId;
     const studentId = record.studentId || record.userId;
     if (!enrollmentId && (!courseId || !classId || !studentId)) {
-      return triggerToast('Bản ghi thiếu mã cần thiết để xóa ghi danh.');
+      return triggerToast('Bản ghi thiếu mã cần thiết để xóa ghi danh.', 'error');
     }
     confirmDanger({
       title: 'Xóa ghi danh?',
@@ -220,7 +232,7 @@ export function useAcademicRecords({
           triggerToast('Đã xóa sinh viên khỏi lớp.');
           await loadStudentEnrollments();
         } catch (error) {
-          triggerToast(getUserFacingError(error, 'Không thể xóa ghi danh.'));
+          triggerToast(getUserFacingError(error, 'Không thể xóa ghi danh.'), 'error');
         }
       },
     });

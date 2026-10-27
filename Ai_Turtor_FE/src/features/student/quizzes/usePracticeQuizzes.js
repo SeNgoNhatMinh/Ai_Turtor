@@ -220,7 +220,7 @@ export function usePracticeQuizzes({
         onAfterQuizSubmit?.();
         triggerToast?.('Đã nộp quiz.');
       } catch (requestError) {
-        triggerToast?.(getUserFacingError(requestError, 'Không thể nộp quiz.'));
+        triggerToast?.(getUserFacingError(requestError, 'Không thể nộp quiz.'), 'error');
       } finally {
         setSubmitting(false);
       }

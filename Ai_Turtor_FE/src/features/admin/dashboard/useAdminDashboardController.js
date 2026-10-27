@@ -24,7 +24,7 @@ export function useAdminDashboardController({ triggerToast }) {
 
   useEffect(() => {
     if (!statsQuery.error) return;
-    triggerToast?.(getUserFacingError(statsQuery.error, 'Không thể tải số liệu tổng quan.'));
+    triggerToast?.(getUserFacingError(statsQuery.error, 'Không thể tải số liệu tổng quan.'), 'error');
   }, [statsQuery.error, triggerToast]);
 
   const loadAdminStats = useCallback(() => statsQuery.refetch(), [statsQuery]);
@@ -36,7 +36,7 @@ export function useAdminDashboardController({ triggerToast }) {
       await diagnosticsMutation.mutateAsync();
       triggerToast?.('Đã hoàn tất kiểm tra hệ thống.');
     } catch (error) {
-      triggerToast?.(getUserFacingError(error, 'Không thể chạy kiểm tra hệ thống.'));
+      triggerToast?.(getUserFacingError(error, 'Không thể chạy kiểm tra hệ thống.'), 'error');
     }
   }, [diagnosticsMutation, triggerToast]);
 

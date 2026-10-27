@@ -242,7 +242,7 @@ export function useConversationSessions({
       return true;
     } catch (error) {
       if (!options.silent) {
-        triggerToast(getUserFacingError(error, 'Không thể mở cuộc trò chuyện này.'));
+        triggerToast(getUserFacingError(error, 'Không thể mở cuộc trò chuyện này.'), 'error');
       }
       return false;
     }
@@ -306,7 +306,7 @@ export function useConversationSessions({
         triggerToast('Đã tạo cuộc trò chuyện mới.');
       });
     } catch (error) {
-      triggerToast(getUserFacingError(error, 'Không thể tạo cuộc trò chuyện mới.'));
+      triggerToast(getUserFacingError(error, 'Không thể tạo cuộc trò chuyện mới.'), 'error');
       return false;
     }
   }, [classId, courseId, createMutation, handleSelectSession, queryClient, runSessionMutation, sessions, setActiveSessionId, setSessions, triggerToast, userId]);
@@ -338,7 +338,7 @@ export function useConversationSessions({
         triggerToast('Đã xóa cuộc trò chuyện.');
       });
     } catch (error) {
-      triggerToast(getUserFacingError(error, 'Không thể xóa cuộc trò chuyện.'));
+      triggerToast(getUserFacingError(error, 'Không thể xóa cuộc trò chuyện.'), 'error');
       return false;
     }
   }, [deleteMutation, queryClient, runSessionMutation, setActiveSessionId, setSessions, triggerToast, userId]);
@@ -358,7 +358,7 @@ export function useConversationSessions({
         triggerToast('Đã đổi tên cuộc trò chuyện.');
       });
     } catch (error) {
-      triggerToast(getUserFacingError(error, 'Không thể đổi tên cuộc trò chuyện.'));
+      triggerToast(getUserFacingError(error, 'Không thể đổi tên cuộc trò chuyện.'), 'error');
       return false;
     }
   }, [renameMutation, runSessionMutation, setSessions, triggerToast, userId]);
