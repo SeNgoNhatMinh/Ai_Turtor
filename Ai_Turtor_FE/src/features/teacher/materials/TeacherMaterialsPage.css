@@ -256,3 +256,23 @@ body.theme-dark .teacher-file-input {
     gap: 8px;
   }
 }
+
+/* ===== Dark mode — đồng bộ với trang admin (Ant Design darkAlgorithm) ===== */
+.app-container.dark .teacher-material-processing-card {
+  border-color: #1d4ed8;
+  background: rgba(59, 130, 246, 0.12);
+}
+
+.app-container.dark .teacher-material-processing-card--failed {
+  border-color: #7f1d1d;
+  background: rgba(239, 68, 68, 0.12);
+}
+
+.app-container.dark .teacher-form-status.is-ready {
+  color: #4ade80;
+}
+
+.app-container.dark .teacher-file-input::file-selector-button {
+  background: rgba(243, 112, 33, 0.2);
+  color: #fdba74;
+}

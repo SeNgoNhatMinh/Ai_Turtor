@@ -133,7 +133,7 @@ export function useTeacherReviewQueue({
       || candidatesQuery.error
       || candidateHistoryQuery.error;
     if (!error) return;
-    triggerToast(getUserFacingError(error, 'Không thể tải dữ liệu kiểm duyệt.'));
+    triggerToast(getUserFacingError(error, 'Không thể tải dữ liệu kiểm duyệt.'), 'error');
   }, [
     answerQueueQuery.error,
     candidateHistoryQuery.error,
@@ -178,6 +178,10 @@ export function useTeacherReviewQueue({
     queryClient.invalidateQueries({ queryKey: ['teacher', 'review'], refetchType: 'active' });
   }, [queryClient, teacherId]);
   useRealtimeEvent(REALTIME_EVENT_TYPES.answerReview, (event) => {
+    if (eventMatchesCourse(event, courseId)) invalidateReviewData();
+  });
+  // New/updated student support requests appear in the inbox immediately.
+  useRealtimeEvent(REALTIME_EVENT_TYPES.supportEscalation, (event) => {
     if (eventMatchesCourse(event, courseId)) invalidateReviewData();
   });
   useRealtimeReconnect(invalidateReviewData);
@@ -236,7 +240,7 @@ export function useTeacherReviewQueue({
       return true;
     } catch (error) {
       console.error('Error sending answer:', error);
-      triggerToast(getUserFacingError(error, 'Không thể gửi câu trả lời. Vui lòng thử lại.'));
+      triggerToast(getUserFacingError(error, 'Không thể gửi câu trả lời. Vui lòng thử lại.'), 'error');
       await Promise.allSettled([
         queryClient.invalidateQueries({ queryKey: inboxQueryKey, exact: true }),
         createKnowledgeCandidate
@@ -262,7 +266,7 @@ export function useTeacherReviewQueue({
       triggerToast('Đã xoá ticket khỏi hộp thư của bạn. Sinh viên vẫn xem được lịch sử này.');
       return true;
     } catch (error) {
-      triggerToast(getUserFacingError(error, 'Không thể xoá ticket khỏi hộp thư.'));
+      triggerToast(getUserFacingError(error, 'Không thể xoá ticket khỏi hộp thư.'), 'error');
       return false;
     } finally {
       deletingEscalationIdsRef.current.delete(escalationId);
@@ -315,7 +319,7 @@ export function useTeacherReviewQueue({
       return true;
     } catch (error) {
       console.error('Error resolving senior review:', error);
-      triggerToast(getUserFacingError(error, 'Không thể hoàn tất kiểm duyệt cấp cao.'));
+      triggerToast(getUserFacingError(error, 'Không thể hoàn tất kiểm duyệt cấp cao.'), 'error');
       await Promise.allSettled([
         queryClient.invalidateQueries({ queryKey: answerQueueQueryKey, exact: true }),
         queryClient.invalidateQueries({ queryKey: candidatesQueryKey, exact: true }),
@@ -386,7 +390,7 @@ export function useTeacherReviewQueue({
         decision === 'APPROVE'
           ? 'Không thể phê duyệt tri thức đề xuất.'
           : 'Không thể từ chối tri thức đề xuất.',
-      ));
+      ), 'error');
       await Promise.allSettled([
         queryClient.invalidateQueries({ queryKey: candidatesQueryKey, exact: true }),
         queryClient.invalidateQueries({ queryKey: candidateHistoryQueryKey, exact: true }),

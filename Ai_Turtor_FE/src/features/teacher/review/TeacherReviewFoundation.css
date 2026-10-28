@@ -329,4 +329,17 @@ body.theme-dark .candidate-card-item__review .ant-input-data-count {
     }
 }
 
+/* ===== Dark mode — đồng bộ với trang admin (Ant Design darkAlgorithm) ===== */
+.app-container.dark .compare-box {
+    background: #111827;
+}
+
+.app-container.dark .compare-qa.teacher-a {
+    background: #182131;
+}
+
+.app-container.dark .candidate-history-meta {
+    background: #182131;
+}
+
 

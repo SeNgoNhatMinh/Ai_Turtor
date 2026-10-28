@@ -114,8 +114,10 @@ public class LlmIntentClassifierService {
                 Rules:
                 - Natural wording such as "giúp mình hiểu", follow-up questions, or a bare concept name
                   is normally RAG, not conversational and not CODE.
-                - "Nay mình học X" / "học bài X" / wanting to start studying a topic → LEARNING_PATH
-                  (propose a numbered lesson path; do not dump a full definition).
+                - "Nay mình học X" / "học bài X" / wanting to start studying a topic → EXPLAIN_CONCEPT
+                  (teach that topic directly: explanation first, then a check; never answer with
+                  a numbered lesson-path list). Use LEARNING_PATH only when the student explicitly
+                  asks for a lộ trình / roadmap / thứ tự học.
                 - "Bắt đầu bài N: ..." → LESSON_TEACH (teach that one lesson as a tutor).
                 - "Gợi ý học chuyên sâu bài N: ..." → LESSON_DEEP_PATH (deeper angles of THIS lesson only).
                 - "Đào sâu bài N: ..." → LESSON_TEACH (teach that deeper angle; next Bài stays N+1).
@@ -125,8 +127,8 @@ public class LlmIntentClassifierService {
                   follow-up ("có ví dụ ko?", "ví dụ đi", "còn response thì sao?", "chưa hiểu"),
                   stay on THAT previous question. Do not jump to a different chapter.
                   Use LESSON_TEACH only when a numbered lesson is active; otherwise EXPLAIN_CONCEPT.
-                - An explicit new topic ("Nay mình học JDBC") is LEARNING_PATH even if the previous
-                  topic was different.
+                - An explicit new topic ("Nay mình học JDBC") is EXPLAIN_CONCEPT even if the previous
+                  topic was different (teach it directly, do not switch to a lesson path).
                 - Use CONVERSATIONAL only when no substantive course knowledge is requested.
                 - Grades, class time, and attendance stay ESCALATE or OFF_TOPIC even if history exists.
                 - When uncertain, choose RAG with an academic subIntent.

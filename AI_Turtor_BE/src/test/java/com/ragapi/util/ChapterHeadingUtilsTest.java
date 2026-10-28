@@ -66,6 +66,12 @@ class ChapterHeadingUtilsTest {
         assertFalse(ChapterHeadingUtils.isStudySuggestionTitle("About the Author"));
         assertTrue(ChapterHeadingUtils.isBookFrontMatterTitle("Conventions Used in This Book"));
         assertFalse(ChapterHeadingUtils.isStudyUnitTitle("Conventions Used in This Book"));
+        assertTrue(ChapterHeadingUtils.isBookFrontMatterTitle("Contributor List for Python Cookbook"));
+        assertTrue(ChapterHeadingUtils.isBookFrontMatterTitle("List of Contributors"));
+        assertTrue(ChapterHeadingUtils.isBookFrontMatterTitle("A.1 Contributor List for Python"));
+        assertFalse(ChapterHeadingUtils.isStudyUnitTitle("Contributor List for Python Cookbook"));
+        assertTrue(ChapterHeadingUtils.isStudyUnitTitle("Lists"));
+        assertTrue(ChapterHeadingUtils.isStudyUnitTitle("Dictionaries and sets"));
         assertTrue(ChapterHeadingUtils.isSentenceLikeHeading("A string is a sequence"));
         assertFalse(ChapterHeadingUtils.isStudyUnitTitle("A string is a sequence"));
         assertTrue(ChapterHeadingUtils.isStudyUnitTitle("Alternative execution"));

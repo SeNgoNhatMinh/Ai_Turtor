@@ -171,6 +171,40 @@ export function parseDeepDiveSuggestionsFromAnswer(answer) {
   return parseBulletsUnderHeadings(answer, /^(?:học chuyên sâu|học tiếp phần này)\s*$/i);
 }
 
+const CURRICULUM_STARTER_NOISE = /^(?:bạn có thể bắt đầu|mẹo\b)/i;
+
+/**
+ * Starter prompts listed under the curriculum overview's "Gợi ý học tập"
+ * section (the welcome message of a new course chat). They are complete
+ * questions the student can ask as-is, so they render as clickable chips —
+ * same as the deep-dive suggestions — instead of dead text.
+ */
+export function parseCurriculumStarterSuggestions(answer) {
+  return parseBulletsUnderHeadings(answer, /gợi ý học tập\s*$/i)
+    .filter((item) => !CURRICULUM_STARTER_NOISE.test(item.title) && !/:$/.test(item.title))
+    .slice(0, 5)
+    .map((item) => ({ ...item, curriculumStarter: true }));
+}
+
+/**
+ * The curriculum "Gợi ý học tập" section rendered as text. When its starters
+ * are shown as clickable suggestions, the plain list is a duplicate.
+ */
+export function stripCurriculumStarterSection(answer) {
+  const lines = String(answer || '').split(/\r?\n/);
+  const kept = [];
+  let skipping = false;
+  for (const raw of lines) {
+    const trimmed = String(raw || '').trim();
+    if (/^#{1,6}\s+\S/.test(trimmed)) {
+      skipping = /gợi ý học tập\s*$/i.test(trimmed.replace(/^#{1,6}\s*/, ''));
+      if (skipping) continue;
+    }
+    if (!skipping) kept.push(raw);
+  }
+  return kept.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
 export function parseNextLessonSuggestionsFromAnswer(answer) {
   const fromHeading = parseBulletsUnderHeadings(answer, /^(?:bài tiếp theo|bài kế tiếp)\s*$/i);
   if (fromHeading.length > 0) return fromHeading;
@@ -255,6 +289,12 @@ export function buildStudySuggestionPrompt(suggestionText, suggestion = null) {
     return `Ôn tập theo Improve Plan: ${topic}`;
   }
   if (isDeepDiveListPrompt(topic) || isDeepDiveTopicPrompt(topic)) {
+    return topic;
+  }
+  // Curriculum starters are already complete questions ("Tôi muốn tìm hiểu
+  // về …", "Kiểm tra kiến thức của tôi về …"): send them verbatim instead of
+  // wrapping them into an "Ôn tập phần …" review prompt.
+  if (suggestion?.curriculumStarter) {
     return topic;
   }
 

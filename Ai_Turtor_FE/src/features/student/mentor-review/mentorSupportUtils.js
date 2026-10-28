@@ -89,3 +89,56 @@ export const isProcessingTicket = (ticket) => {
   if (isAnsweredTicket(ticket)) return false;
   return PROCESSING_STATUSES.has(getSupportTicketStatus(ticket));
 };
+
+const REMEDIATION_PREFIX = /^Ôn lại sau câu /;
+const SHORT_TITLE_LENGTH = 160;
+
+const shorten = (text, max = SHORT_TITLE_LENGTH) => (
+  text.length <= max ? text : `${text.slice(0, max - 1).trimEnd()}…`
+);
+
+/**
+ * Splits the raw question of a support ticket into what the student should
+ * see. Quiz re-teach tickets carry the tutor's internal remediation prompt;
+ * only the quiz items (question, chosen and correct answer) are shown, never
+ * the instructions written for the AI.
+ */
+export const describeSupportQuestion = (ticket) => {
+  const raw = String(getQuestionText(ticket) || '').trim();
+  if (!REMEDIATION_PREFIX.test(raw)) {
+    const firstLine = raw.split(/\r?\n/).find((line) => line.trim()) || raw;
+    const title = shorten(firstLine.trim());
+    return { title, body: title === raw ? '' : raw, quizItems: [] };
+  }
+
+  const quizItems = [];
+  let current = null;
+  let inOptions = false;
+  for (const line of raw.split(/\r?\n/).map((item) => item.trim()).filter(Boolean)) {
+    const start = line.match(/^(?:Câu vừa làm|Câu \d+):\s*(.*)$/);
+    if (start) {
+      current = { question: start[1], options: [], chosen: '', correct: '', reason: '' };
+      quizItems.push(current);
+      inOptions = false;
+      continue;
+    }
+    if (!current) continue;
+    if (/^Các lựa chọn:?$/.test(line)) {
+      inOptions = true;
+      continue;
+    }
+    const field = line.match(/^(Em đã chọn|Đáp án đúng|Lý do trong bài):\s*(.*)$/);
+    if (field) {
+      inOptions = false;
+      const key = { 'Em đã chọn': 'chosen', 'Đáp án đúng': 'correct', 'Lý do trong bài': 'reason' }[field[1]];
+      current[key] = field[2];
+      continue;
+    }
+    if (inOptions && /^[A-F][.)]\s/.test(line)) current.options.push(line);
+  }
+
+  const title = quizItems.length > 1
+    ? `Ôn lại ${quizItems.length} câu kiểm tra làm sai`
+    : `Ôn lại câu kiểm tra: ${shorten(quizItems[0]?.question || 'câu làm sai', 120)}`;
+  return { title, body: '', quizItems };
+};

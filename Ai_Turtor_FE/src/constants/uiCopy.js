@@ -33,7 +33,7 @@ export const uiCopy = {
       previousConversation: "Quay lại cuộc trò chuyện trước",
       keywordTipTitle: "Mẹo đặt câu hỏi hiệu quả",
       keywordTip:
-        "Hãy dùng đúng từ khóa học thuật của môn (ví dụ: servlet, inheritance, JSP lifecycle, SQL join). AI Tutor tìm tài liệu theo keyword — càng cụ thể thì câu trả lời càng chính xác.",
+        "Hãy nhắc đúng tên chủ đề như trong syllabus của môn. Chủ đề càng cụ thể thì AI Tutor càng dễ tìm đúng phần tài liệu để giải thích.",
     },
     codeReview: {
       title: "Kiểm tra mã nguồn",

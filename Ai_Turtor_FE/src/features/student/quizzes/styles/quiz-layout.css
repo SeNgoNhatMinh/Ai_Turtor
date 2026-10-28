@@ -321,6 +321,17 @@
 
 .quiz-loading-inline {
   display: flex;
-  justify-content: center;
-  padding: 14px 0;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px 16px;
+  background: var(--color-bg-subtle, #f8fafc);
+  border-radius: 10px;
+  animation: fadeIn 0.3s ease;
+}
+
+.quiz-loading-inline__label {
+  text-align: center;
+  color: var(--color-text-muted, #64748b);
+  font-size: 0.9rem;
+  margin: 0;
 }

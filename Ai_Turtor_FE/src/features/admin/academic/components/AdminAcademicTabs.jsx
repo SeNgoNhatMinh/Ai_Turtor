@@ -4,6 +4,7 @@ import AppTabs from '../../../../components/common/AppTabs';
 
 const ClassSectionsTab = lazy(() => import('./ClassSectionsTab'));
 const CourseMaterialsTab = lazy(() => import('./CourseMaterialsTab'));
+const CurriculumGuideTab = lazy(() => import('./CurriculumGuideTab'));
 const CoursesTab = lazy(() => import('./CoursesTab'));
 const StudentEnrollmentsTab = lazy(() => import('./StudentEnrollmentsTab'));
 const StudentImportTab = lazy(() => import('./StudentImportTab'));
@@ -72,17 +73,10 @@ export default function AdminAcademicTabs({
           <StudentEnrollmentsTab
             form={forms.enrollment}
             courses={academic.courses}
-            classSections={academic.classSections}
             studentOptions={studentOptions}
             studentsLoading={studentsLoading}
-            enrollmentSearchId={academic.enrollmentSearchId}
-            setEnrollmentSearchId={academic.setEnrollmentSearchId}
-            studentEnrollments={academic.studentEnrollments}
-            enrollmentsLoading={academic.enrollmentsLoading}
             onCreate={academic.handleCreateEnrollment}
-            onCourseSelect={academic.handleCourseSelect}
             onStudentSearch={onStudentSearch}
-            onSearch={academic.loadStudentEnrollments}
             onAction={onAcademicAction}
           />
         </Suspense>
@@ -152,6 +146,15 @@ export default function AdminAcademicTabs({
               if (key === 'delete') materials.handleDeleteMaterial(materialId);
             }}
           />
+        </Suspense>
+      ),
+    },
+    {
+      key: 'curriculum-guide',
+      label: 'Chỉnh sửa Curriculum AI Tutor Guide',
+      children: (
+        <Suspense fallback={<TabFallback />}>
+          <CurriculumGuideTab courses={academic.courses} triggerToast={triggerToast} />
         </Suspense>
       ),
     },

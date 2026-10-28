@@ -13,6 +13,8 @@ import {
   readAnalyzedSuggestions,
   writeAnalyzedSuggestions,
 } from '../../../utils/storage';
+import { useRealtimeEvent, useRealtimeReconnect } from '../../realtime/realtimeContext';
+import { REALTIME_EVENT_TYPES } from '../../realtime/realtimeEvents';
 
 const EMPTY_DASHBOARD = Object.freeze({
   learnedTopics: [],
@@ -116,6 +118,11 @@ export function useStudentLearningController({
     return result.data?.dashboard || null;
   }, [courseId, refetchLearning, studentId]);
 
+  useRealtimeEvent(REALTIME_EVENT_TYPES.studentLearning, () => {
+    if (studentId && courseId) refetchLearning();
+  });
+  useRealtimeReconnect(() => { if (studentId && courseId) refetchLearning(); });
+
   const reviewMutation = useMutation({
     mutationFn: async (reviewPayload) => {
       if (N8N_ENABLED) {
@@ -138,7 +145,7 @@ export function useStudentLearningController({
       return response;
     } catch (error) {
       console.error('Error submitting feedback:', error);
-      triggerToast(getUserFacingError(error, 'Không thể gửi phản hồi. Vui lòng thử lại.'));
+      triggerToast(getUserFacingError(error, 'Không thể gửi phản hồi. Vui lòng thử lại.'), 'error');
       return null;
     }
   }, [reviewMutation, triggerToast]);

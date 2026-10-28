@@ -2,6 +2,7 @@ import { Alert } from 'antd';
 import PageHeader from '../../../components/common/PageHeader';
 import AiLogFilters from './components/AiLogFilters';
 import AiLogMetrics from './components/AiLogMetrics';
+import AiWorkerTracePanel from './components/AiWorkerTracePanel';
 import AiRequestLogsTable from './components/AiRequestLogsTable';
 import LlmProviderManagementTable from './components/LlmProviderManagementTable';
 import ProviderStatusTable from './components/ProviderStatusTable';
@@ -18,8 +19,8 @@ const SECTIONS = {
     description: 'Số liệu từ lần khởi động backend gần nhất. Công thức thống kê giữ nguyên.',
   },
   history: {
-    title: 'Lịch sử yêu cầu',
-    description: 'Nhật ký từng yêu cầu trả lời AI. Nội dung dài được rút gọn trên bảng và xem đầy đủ khi mở dòng.',
+    title: 'Theo dõi tiến trình & lỗi AI',
+    description: 'Theo dõi trạng thái yêu cầu, lọc lỗi và xem chi tiết câu hỏi/phản hồi. Nhật ký tự làm mới định kỳ.',
   },
 };
 
@@ -40,6 +41,15 @@ export default function AdminAiLogsPage({ section = 'providers' }) {
           loading={controller.loading}
           onApply={controller.applyFilters}
           onReset={controller.refreshAll}
+        />
+      )}
+      {section === 'history' && (
+        <Alert
+          className="admin-ai-logs-observability-note"
+          type="info"
+          showIcon
+          message="Mức quan sát hiện tại"
+          description="FE hiển thị trạng thái từ lịch sử hội thoại. Để xem từng bước như retrieval, rerank, prompt, provider/model, retry, timeout và stack trace, backend cần phát sinh trace ID cùng event logs cho từng bước."
         />
       )}
       {section === 'history' && controller.error && (
@@ -79,7 +89,16 @@ export default function AdminAiLogsPage({ section = 'providers' }) {
         />
       )}
       {section === 'runtime' && (
-        <ProviderStatusTable providers={controller.providerStats} loading={controller.providerLoading} />
+        <>
+          <ProviderStatusTable
+            providers={controller.providerStats}
+            providerConfigs={controller.providerConfigs}
+            loading={controller.providerLoading}
+          />
+          <div style={{ marginTop: 16 }}>
+            <AiWorkerTracePanel />
+          </div>
+        </>
       )}
       {section === 'history' && (
         <AiRequestLogsTable
@@ -88,6 +107,9 @@ export default function AdminAiLogsPage({ section = 'providers' }) {
           pagination={controller.logPagination}
           query={controller.logQuery}
           onSearch={controller.searchLogs}
+          onRefresh={controller.refreshLogs}
+          autoRefresh={controller.autoRefresh}
+          onAutoRefreshChange={controller.setAutoRefresh}
         />
       )}
     </div>

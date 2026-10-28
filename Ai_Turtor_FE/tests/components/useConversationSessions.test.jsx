@@ -1,99 +1,104 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { queryKeys } from '../../src/app/queryKeys';
 import { useConversationSessions } from '../../src/features/student/chat/useConversationSessions';
 import { conversationApi } from '../../src/services/conversationApi';
 
 vi.mock('../../src/services/conversationApi', () => ({
   conversationApi: {
+    getConversations: vi.fn().mockResolvedValue({ conversations: [] }),
+    getMessages: vi.fn().mockResolvedValue({ messages: [] }),
     createConversation: vi.fn(),
     deleteConversation: vi.fn(),
     renameConversation: vi.fn(),
-    getConversations: vi.fn(),
-    getMessages: vi.fn(),
   },
 }));
 
-const deferred = () => {
-  let resolve;
-  let reject;
-  const promise = new Promise((resolvePromise, rejectPromise) => {
-    resolve = resolvePromise;
-    reject = rejectPromise;
+const USER_ID = 'student-1';
+
+function setup() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
   });
-  return { promise, resolve, reject };
-};
+  const wrapper = ({ children }) => (
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  );
+  const { result } = renderHook(() => useConversationSessions({
+    currentUser: { userId: USER_ID },
+    studentId: USER_ID,
+    courseId: 'CEA201',
+    classId: 'CEA201-01',
+    triggerToast: vi.fn(),
+  }), { wrapper });
+  return { queryClient, result };
+}
 
-describe('useConversationSessions mutations', () => {
-  beforeEach(() => vi.clearAllMocks());
+describe('useConversationSessions reply routing', () => {
+  it('keeps a pending turn in its own conversation when switching away', () => {
+    const { queryClient, result } = setup();
+    const keyA = queryKeys.conversationMessages('conv-a', USER_ID);
+    const pendingTurn = { question: 'Cấu trúc CPU là gì?', answer: null, pending: true, requestId: 7 };
 
-  it('locks duplicate New Chat requests until the canonical API settles', async () => {
-    const request = deferred();
-    conversationApi.createConversation.mockReturnValue(request.promise);
-    const triggerToast = vi.fn();
-    const { result } = renderHook(() => useConversationSessions({
-      currentUser: { id: 'student-1' },
-      studentId: 'student-1',
-      courseId: 'PRO192',
-      classId: 'SE1833',
-      triggerToast,
-    }));
-
-    let first;
-    let second;
-    await act(async () => {
-      first = result.current.handleCreateSession();
-      second = result.current.handleCreateSession();
-      request.resolve({ id: 'conversation-1', title: 'New OOP chat' });
-      await Promise.all([first, second]);
+    act(() => {
+      result.current.setActiveSessionId('conv-a');
+      queryClient.setQueryData(keyA, [pendingTurn]);
+    });
+    act(() => {
+      result.current.setActiveSessionId('conv-b');
     });
 
-    expect(conversationApi.createConversation).toHaveBeenCalledTimes(1);
-    expect(result.current.activeSessionId).toBe('conversation-1');
-    expect(result.current.isCreatingSession).toBe(false);
-    expect(triggerToast).toHaveBeenCalledWith('Đã tạo cuộc trò chuyện mới.');
+    // The pending turn stays in conv-a and is not dragged into conv-b.
+    expect(queryClient.getQueryData(keyA)).toEqual([pendingTurn]);
+    expect(queryClient.getQueryData(queryKeys.conversationMessages('conv-b', USER_ID))).toBeUndefined();
+    expect(result.current.getActiveSessionId()).toBe('conv-b');
   });
 
-  it('returns failure and keeps canonical session state when rename fails', async () => {
-    conversationApi.renameConversation.mockRejectedValue(new Error('n8n request failed'));
-    const triggerToast = vi.fn();
-    const { result } = renderHook(() => useConversationSessions({
-      currentUser: { id: 'student-1' },
-      studentId: 'student-1',
-      courseId: 'PRO192',
-      classId: 'SE1833',
-      triggerToast,
-    }));
+  it('updates conversation activity in place without reordering the list', () => {
+    const { queryClient, result } = setup();
+    const sessionsKey = queryKeys.conversations(USER_ID, 'CEA201');
+    const sessionA = { id: 'conv-a', title: 'A', messageCount: 1, userQuestionCount: 1 };
+    const sessionB = { id: 'conv-b', title: 'B', messageCount: 3, userQuestionCount: 2 };
 
-    let succeeded;
-    await act(async () => {
-      succeeded = await result.current.handleRenameSession('conversation-1', 'Renamed');
+    act(() => {
+      queryClient.setQueryData(sessionsKey, [sessionA, sessionB]);
+    });
+    act(() => {
+      result.current.bumpConversationActivity({
+        conversationId: 'conv-a',
+        title: 'A',
+        messageCountIncrement: 1,
+        questionCountIncrement: 1,
+      });
     });
 
-    expect(succeeded).toBe(false);
-    expect(result.current.sessions).toEqual([]);
-    expect(triggerToast).toHaveBeenCalledWith(expect.stringContaining('Không thể đổi tên'));
+    const sessions = queryClient.getQueryData(sessionsKey);
+    // Order is stable: conv-a stays first instead of jumping around.
+    expect(sessions.map((session) => session.id)).toEqual(['conv-a', 'conv-b']);
+    expect(sessions[0].messageCount).toBe(2);
   });
 
-  it('does not turn a silent background history failure into a global logout', async () => {
-    conversationApi.getMessages.mockRejectedValue(Object.assign(new Error('Unauthorized'), { status: 401 }));
-    const triggerToast = vi.fn();
-    const { result } = renderHook(() => useConversationSessions({
-      currentUser: { id: 'student-1' },
-      studentId: 'student-1',
-      courseId: 'PRO192',
-      classId: 'SE1833',
-      triggerToast,
-    }));
+  it('writes a finished reply only to the conversation it belongs to', () => {
+    const { queryClient, result } = setup();
+    const keyA = queryKeys.conversationMessages('conv-a', USER_ID);
+    const keyB = queryKeys.conversationMessages('conv-b', USER_ID);
 
-    await act(async () => {
-      await result.current.handleSelectSession('conversation-1', 'Buổi học cùng AI Tutor', { silent: true });
+    act(() => {
+      result.current.setActiveSessionId('conv-b');
+      queryClient.setQueryData(keyA, [{ question: 'Cấu trúc CPU là gì?', answer: null, pending: true, requestId: 7 }]);
+      queryClient.setQueryData(keyB, [{ question: 'Câu khác', answer: 'Đã trả lời', pending: false }]);
+    });
+    act(() => {
+      result.current.setMessagesForConversation('conv-a', (list) => list.map((item) => (
+        item.requestId === 7 ? { ...item, answer: 'CPU gồm ALU và CU.', pending: false } : item
+      )));
     });
 
-    expect(conversationApi.getMessages).toHaveBeenCalledWith(
-      'conversation-1',
-      'student-1',
-      expect.objectContaining({ skipUnauthorizedRedirect: true }),
-    );
-    expect(triggerToast).not.toHaveBeenCalled();
+    expect(queryClient.getQueryData(keyA)).toEqual([
+      { question: 'Cấu trúc CPU là gì?', answer: 'CPU gồm ALU và CU.', pending: false, requestId: 7 },
+    ]);
+    expect(queryClient.getQueryData(keyB)).toEqual([
+      { question: 'Câu khác', answer: 'Đã trả lời', pending: false },
+    ]);
   });
 });

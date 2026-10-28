@@ -12,16 +12,23 @@ export function useToastMessage(durationMs = 3500) {
     setToastMessage(null);
   }, []);
 
-  const triggerToast = useCallback((message) => {
+  const triggerToast = useCallback((message, type = 'success') => {
     if (timeoutRef.current) {
       window.clearTimeout(timeoutRef.current);
     }
-    setToastMessage(message);
+    const payload = typeof message === 'object' && message !== null
+      ? message
+      : { text: message, type };
+    setToastMessage(payload);
     timeoutRef.current = window.setTimeout(() => {
       setToastMessage(null);
       timeoutRef.current = null;
     }, durationMs);
   }, [durationMs]);
+
+  const triggerErrorToast = useCallback((message) => {
+    triggerToast(message, 'error');
+  }, [triggerToast]);
 
   useEffect(() => () => {
     if (timeoutRef.current) window.clearTimeout(timeoutRef.current);
@@ -31,6 +38,7 @@ export function useToastMessage(durationMs = 3500) {
     toastMessage,
     setToastMessage,
     triggerToast,
+    triggerErrorToast,
     clearToast,
   };
 }

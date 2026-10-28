@@ -87,6 +87,49 @@ class CourseAnswerGenerationServiceTest {
     }
 
     @Test
+    void remediationGeneratesMissingConceptualAndVisualSections() {
+        CourseAnswerModelGateway model = mock(CourseAnswerModelGateway.class);
+        String question = """
+                Ôn lại sau câu trả lời chưa đúng.
+                Câu vừa làm: JDBC dùng để làm gì?
+                """;
+        when(model.generate("prompt", question)).thenReturn("""
+                ## Giảng lại dễ hiểu
+                JDBC giúp Java làm việc với cơ sở dữ liệu.
+                """);
+        when(model.generateUtility(contains("MISSING SECTION(S):"))).thenReturn("""
+                ### Giải thích khái niệm (Conceptual Explanation)
+                JDBC là giao diện giúp chương trình Java gửi thao tác đến cơ sở dữ liệu.
+
+                ### Minh họa trực quan (Visual Representation)
+                Java → JDBC API → Driver → Database
+                """);
+        when(model.generateUtility(contains("Paraphrase the question"))).thenReturn("""
+                ## Kiểm tra hiểu
+                Câu hỏi: JDBC giúp Java làm việc với thành phần nào?
+                A. Cơ sở dữ liệu
+                B. Trình duyệt
+                C. Bàn phím
+                Đáp án: A
+                Giải thích: JDBC hỗ trợ kết nối và thao tác với cơ sở dữ liệu.
+                """);
+        CourseAnswerGenerationService service = new CourseAnswerGenerationService(model);
+
+        String answer = service.generateGroundedAnswer(
+                "prompt",
+                question,
+                "EXPLAIN_CONCEPT",
+                "JDBC là API để Java kết nối và thao tác với cơ sở dữ liệu.",
+                ""
+        );
+
+        assertTrue(answer.contains("### Giải thích khái niệm (Conceptual Explanation)"));
+        assertTrue(answer.contains("### Minh họa trực quan (Visual Representation)"));
+        assertTrue(answer.indexOf("### Giải thích khái niệm") < answer.indexOf("## Kiểm tra hiểu"));
+        assertTrue(answer.indexOf("### Minh họa trực quan") < answer.indexOf("## Kiểm tra hiểu"));
+    }
+
+    @Test
     void remediationAddsParaphrasedCheckWhenTheReteachOmitsIt() {
         CourseAnswerModelGateway model = mock(CourseAnswerModelGateway.class);
         String question = """

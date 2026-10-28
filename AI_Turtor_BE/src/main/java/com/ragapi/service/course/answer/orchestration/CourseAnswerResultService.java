@@ -37,10 +37,11 @@ public class CourseAnswerResultService {
             return Optional.empty();
         }
 
-        Set<String> unsupportedCallReferences = GroundedContentGuard.unsupportedCallReferences(
-                prepared.question(),
-                prepared.context()
-        );
+        // A remediation turn quotes the quiz the tutor itself generated from the
+        // course material; its code (e.g. rstrip()) is not a student-invented API.
+        Set<String> unsupportedCallReferences = prepared.understandingRemediation()
+                ? Set.of()
+                : GroundedContentGuard.unsupportedCallReferences(prepared.question(), prepared.context());
         if (!unsupportedCallReferences.isEmpty()) {
             String unsupported = String.join(", ", unsupportedCallReferences);
             log.warn("RAG answer blocked because explicit technical references are absent from course material: {}",

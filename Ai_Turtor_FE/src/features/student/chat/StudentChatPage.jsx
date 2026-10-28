@@ -1,5 +1,8 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
+import { queryKeys } from '../../../app/queryKeys';
+import { adminAcademicApi } from '../../../services/adminAcademicApi';
 import { getStudentSupportPath } from '../../../app/routes';
 import StudentChatView from './StudentChatView';
 import { useCourseMaterialsController } from '../../../hooks/useCourseMaterialsController';
@@ -121,13 +124,33 @@ export default function StudentChatPage({
     studentId,
   ]);
 
-  useEffect(() => {
-    if (!studentId || !courseId) return;
+  // Default screen of a course chat: the curriculum overview (with its
+  // starter suggestions) instead of a generic "what do you want to learn".
+  const curriculumQuery = useQuery({
+    queryKey: queryKeys.studentLearningGuide(courseId),
+    queryFn: () => adminAcademicApi.getStudentLearningGuide(courseId),
+    enabled: Boolean(courseId),
+    staleTime: 5 * 60_000,
+    retry: 1,
+  });
+  const curriculumWelcome = String(curriculumQuery.data?.welcomeMarkdown || '').trim();
+  const displayMessages = useMemo(() => {
+    if (!curriculumWelcome || chat.isMessagesLoading) return chat.messages;
+    // An opened conversation with history shows only its own messages; an
+    // empty one (or the new-chat screen) opens on the curriculum overview.
+    if (chat.activeSessionId && chat.messages.length > 0) return chat.messages;
+    return [{
+      id: `curriculum-${courseId}`,
+      question: '',
+      answer: curriculumWelcome,
+      proactive: true,
+      mode: 'RAG',
+    }, ...chat.messages];
+  }, [chat.activeSessionId, chat.isMessagesLoading, chat.messages, courseId, curriculumWelcome]);
 
-    chat.openTutorSession();
-    // Tutor session is an explicit workflow action; learning data loads declaratively.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [studentId, courseId, classId]);
+  // No background tutor-session bootstrap: opening a tutor session (which
+  // auto-creates "Buổi học cùng AI Tutor" conversations) happens only when
+  // the student explicitly starts one via "Hỏi AI Tutor".
 
   const studentDisplayName = learning.studentDashboard?.studentName
     || learning.studentDashboard?.fullName
@@ -162,7 +185,8 @@ export default function StudentChatPage({
       hasLoadedStudentEnrollments={hasLoadedStudentEnrollments}
       hasStudentEnrollments={hasStudentEnrollments}
       isDarkMode={isDarkMode}
-      messages={chat.messages}
+      messages={displayMessages}
+      isMessagesLoading={chat.isMessagesLoading}
       chatInput={chatController.chatInput}
       setChatInput={chatController.setChatInput}
       chatMode={chatController.chatMode}
@@ -170,7 +194,6 @@ export default function StudentChatPage({
       onSendQuery={chatController.onSendQuery}
       onResendMessage={chatController.sendText}
       onStopQuery={chatController.onStopQuery}
-      onPromptStarter={chatController.handlePromptStarter}
       onLockUnderstandingAnswer={chatController.handleUnderstandingCheckAnswer}
       onAnswerAction={chatController.handleAnswerAction}
       isAiLoading={chatController.isAiLoading}
@@ -195,6 +218,7 @@ export default function StudentChatPage({
       onOpenMentorReview={openMentorReview}
       onMentorRequestCreated={mentorRequests.refreshMentorRequests}
       tutorSession={chat.activeTutorSession}
+      supportLevel={chat.studentSupportLevel}
       tutorSessionSummary={chat.tutorSessionSummary}
       isTutorSessionLoading={chat.isTutorSessionLoading}
       onStartNextTutorSession={chat.openTutorSession}

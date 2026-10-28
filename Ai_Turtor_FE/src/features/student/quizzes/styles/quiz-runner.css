@@ -204,18 +204,19 @@
 }
 
 .quiz-runner-submitting .ant-card-body {
-  display: grid;
-  justify-items: center;
-  min-height: 220px;
-  align-content: center;
+  display: flex;
+  flex-direction: column;
   gap: 12px;
-  color: var(--color-text-muted, #64748b);
-  text-align: center;
+  min-height: 180px;
+  justify-content: center;
+  padding: 24px;
 }
 
-.quiz-runner-submitting strong {
-  color: var(--color-text, #111827);
-  font-size: 1.05rem;
+.quiz-runner-submitting__label {
+  text-align: center;
+  color: var(--color-text-muted, #64748b);
+  font-size: 0.9rem;
+  margin: 4px 0 0;
 }
 
 .app-container.dark .quiz-runner-options .ant-radio-wrapper:hover,

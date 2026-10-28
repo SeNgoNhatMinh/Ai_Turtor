@@ -9,6 +9,7 @@ import com.ragapi.entity.CourseEnrollment;
 import com.ragapi.repository.ClassSectionRepository;
 import com.ragapi.repository.CourseEnrollmentRepository;
 import com.ragapi.service.ClassRosterService;
+import com.ragapi.service.RealtimeEventService;
 import com.ragapi.service.StudentEnrollmentImportService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -34,6 +35,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -58,6 +60,7 @@ public class ClassSectionController {
     private final CourseEnrollmentRepository courseEnrollmentRepository;
     private final StudentEnrollmentImportService studentEnrollmentImportService;
     private final ClassRosterService classRosterService;
+    private final RealtimeEventService realtimeEvents;
 
     @PostMapping({"/academic/class-sections", "/admin/class-sections"})
     @Operation(summary = "Create or update a class section for one teacher")
@@ -294,6 +297,12 @@ public class ClassSectionController {
                 status,
                 dryRun
         );
+        if (Boolean.TRUE.equals(response.getSuccess())
+                && !dryRun
+                && response.getSuccessCount() != null
+                && response.getSuccessCount() > 0) {
+            publishEnrollmentImport(courseId, classId, response.getSuccessCount());
+        }
         return Boolean.TRUE.equals(response.getSuccess())
                 ? ResponseEntity.ok(response)
                 : ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
@@ -353,7 +362,9 @@ public class ClassSectionController {
         CourseEnrollment enrollment = courseEnrollmentRepository.findById(enrollmentId)
                 .orElseThrow(() -> new IllegalArgumentException("Enrollment not found"));
         applyEnrollmentUpdate(enrollment, request);
-        return ResponseEntity.ok(courseEnrollmentRepository.save(enrollment));
+        CourseEnrollment saved = courseEnrollmentRepository.save(enrollment);
+        publishEnrollmentEvent("ENROLLMENT_UPDATED", saved);
+        return ResponseEntity.ok(saved);
     }
 
     @DeleteMapping({"/academic/enrollments/{enrollmentId}", "/admin/enrollments/{enrollmentId}"})
@@ -362,6 +373,7 @@ public class ClassSectionController {
         CourseEnrollment enrollment = courseEnrollmentRepository.findById(enrollmentId)
                 .orElseThrow(() -> new IllegalArgumentException("Enrollment not found"));
         courseEnrollmentRepository.delete(enrollment);
+        publishEnrollmentEvent("ENROLLMENT_DELETED", enrollment);
         return ResponseEntity.ok(Map.of("status", "DELETED", "enrollmentId", enrollmentId));
     }
 
@@ -375,6 +387,7 @@ public class ClassSectionController {
         CourseEnrollment enrollment = courseEnrollmentRepository.findByStudentIdAndCourseIdAndClassId(studentId, courseId, classId)
                 .orElseThrow(() -> new IllegalArgumentException("Enrollment not found"));
         courseEnrollmentRepository.delete(enrollment);
+        publishEnrollmentEvent("ENROLLMENT_DELETED", enrollment);
         return ResponseEntity.ok(Map.of(
                 "status", "DELETED",
                 "studentId", studentId,
@@ -382,6 +395,52 @@ public class ClassSectionController {
                 "classId", classId
         ));
     }
+    @GetMapping({"/admin/enrollments", "/academic/enrollments"})
+    @Operation(summary = "Admin lookup of enrollments, optionally filtered by course, class, status or student text")
+    public ResponseEntity<List<CourseEnrollment>> listEnrollments(
+            @RequestParam(value = "courseId", required = false) String courseId,
+            @RequestParam(value = "classId", required = false) String classId,
+            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "query", required = false) String query
+    ) {
+        String safeCourseId = trimToNull(courseId);
+        String safeClassId = trimToNull(classId);
+        List<CourseEnrollment> enrollments;
+        if (safeCourseId != null && safeClassId != null) {
+            enrollments = courseEnrollmentRepository.findByCourseIdAndClassId(safeCourseId, safeClassId);
+        } else if (safeCourseId != null) {
+            enrollments = courseEnrollmentRepository.findByCourseId(safeCourseId);
+        } else {
+            enrollments = courseEnrollmentRepository.findAll();
+        }
+
+        String safeStatus = trimToNull(status);
+        String safeQuery = normalizeAccentInsensitive(optionalMaxLength(query, "query", SHORT_TEXT_MAX_LENGTH));
+        List<CourseEnrollment> result = enrollments.stream()
+                .filter(item -> safeClassId == null || safeClassId.equalsIgnoreCase(item.getClassId()))
+                .filter(item -> safeStatus == null || safeStatus.equalsIgnoreCase(isBlank(item.getStatus()) ? "ACTIVE" : item.getStatus().trim()))
+                .peek(item -> {
+                    // Older rows can miss the student's display identity.
+                    if (isBlank(item.getStudentName()) || isBlank(item.getStudentEmail())) {
+                        classRosterService.copyProfileOnto(item);
+                    }
+                })
+                .filter(item -> safeQuery.isBlank() || Stream.of(
+                                item.getStudentId(),
+                                item.getStudentCode(),
+                                item.getStudentName(),
+                                item.getStudentEmail()
+                        )
+                        .filter(value -> value != null && !value.isBlank())
+                        .anyMatch(value -> normalizeAccentInsensitive(value).contains(safeQuery)))
+                .sorted(Comparator
+                        .comparing((CourseEnrollment item) -> String.valueOf(item.getStudentName()).toLowerCase())
+                        .thenComparing(item -> String.valueOf(item.getCourseId()))
+                        .thenComparing(item -> String.valueOf(item.getClassId())))
+                .toList();
+        return ResponseEntity.ok(result);
+    }
+
     @GetMapping({"/academic/students/{studentId}/enrollments", "/students/{studentId}/enrollments", "/students/{studentId}/courses"})
     @Operation(summary = "List courses and class sections enrolled by one student")
     public ResponseEntity<List<CourseEnrollment>> listStudentEnrollments(@PathVariable String studentId) {
@@ -412,13 +471,12 @@ public class ClassSectionController {
     }
 
     private CourseEnrollment saveEnrollmentEntity(CourseEnrollment request) {
-        CourseEnrollment enrollment = courseEnrollmentRepository
-                .findByStudentIdAndCourseIdAndClassId(
-                        request.getStudentId().trim(),
-                        request.getCourseId().trim(),
-                        request.getClassId().trim()
-                )
-                .orElseGet(() -> CourseEnrollment.builder()
+        var existing = courseEnrollmentRepository.findByStudentIdAndCourseIdAndClassId(
+                request.getStudentId().trim(),
+                request.getCourseId().trim(),
+                request.getClassId().trim()
+        );
+        CourseEnrollment enrollment = existing.orElseGet(() -> CourseEnrollment.builder()
                         .id(UUID.randomUUID().toString())
                         .createdAt(LocalDateTime.now())
                         .enrolledAt(LocalDateTime.now())
@@ -439,7 +497,44 @@ public class ClassSectionController {
         enrollment.setStatus(defaultStatus(request.getStatus()));
         enrollment.setCompletedAt(request.getCompletedAt());
         enrollment.setUpdatedAt(LocalDateTime.now());
-        return courseEnrollmentRepository.save(enrollment);
+        CourseEnrollment saved = courseEnrollmentRepository.save(enrollment);
+        publishEnrollmentEvent(existing.isPresent() ? "ENROLLMENT_UPDATED" : "ENROLLMENT_CREATED", saved);
+        return saved;
+    }
+
+    private void publishEnrollmentEvent(String eventType, CourseEnrollment enrollment) {
+        if (enrollment == null) return;
+        Map<String, Object> data = new LinkedHashMap<>();
+        putIfPresent(data, "studentId", enrollment.getStudentId());
+        putIfPresent(data, "courseId", enrollment.getCourseId());
+        putIfPresent(data, "classId", enrollment.getClassId());
+        realtimeEvents.publishToRoles(
+                List.of("ADMIN"),
+                eventType,
+                "ENROLLMENT",
+                enrollment.getId(),
+                enrollment.getStatus(),
+                data
+        );
+    }
+
+    private void publishEnrollmentImport(String courseId, String classId, int count) {
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("courseId", courseId);
+        data.put("classId", classId);
+        data.put("count", count);
+        realtimeEvents.publishToRoles(
+                List.of("ADMIN"),
+                "ENROLLMENT_CREATED",
+                "ENROLLMENT_IMPORT",
+                UUID.randomUUID().toString(),
+                "IMPORTED",
+                data
+        );
+    }
+
+    private void putIfPresent(Map<String, Object> data, String key, String value) {
+        if (value != null && !value.isBlank()) data.put(key, value);
     }
 
 

@@ -125,7 +125,7 @@ export default function UserAccountsTab({ users }) {
       >
         <Form form={form} layout="vertical" onFinish={users.update}>
           <Form.Item label="Email"><Input disabled value={users.editUser?.email} /></Form.Item>
-          <Form.Item name="role" label="Vai trò" rules={[{ required: true }]}>
+          <Form.Item name="role" label="Vai trò" rules={[{ required: true, message: 'Chọn vai trò.' }]}>
             <Select options={roleOptions} />
           </Form.Item>
           <Form.Item name="isActive" label="Trạng thái" valuePropName="checked">

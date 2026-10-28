@@ -56,3 +56,26 @@
     --font-heading: var(--font-sans);
 }
 
+/* ===== Dark mode tokens — khớp bề mặt trang admin (Ant Design darkAlgorithm) ===== */
+body.theme-dark {
+    --color-bg-dark: #090D14;
+    --color-bg-deep: #111827;
+    --color-card-bg: #111827;
+    --color-card-border: #344054;
+    --color-card-hover-bg: #182131;
+    --color-card-hover-border: #475467;
+    --color-text: #F8FAFC;
+    --color-text-main: #F8FAFC;
+    --color-text-secondary: #CBD5E1;
+    --color-text-muted: #94A3B8;
+    --color-text-dark: #CBD5E1;
+    --color-surface-subtle: #182131;
+    --color-navigation-soft: #93C5FD;
+    --color-primary: #93C5FD;
+    --color-primary-glow: rgba(59, 130, 246, 0.22);
+    --color-info: #7DD3FC;
+    --color-success: #4ADE80;
+    --color-warning: #FBBF24;
+    --color-error: #F87171;
+}
+

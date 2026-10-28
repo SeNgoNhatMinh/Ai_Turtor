@@ -20,11 +20,15 @@ import AnswerImproveSuggestions from './AnswerImproveSuggestions';
 import LessonDeepDiveCta from './LessonDeepDiveCta';
 import ChatLoadingSteps from './ChatLoadingSteps';
 import InlineMentorSupport from './InlineMentorSupport';
-import PromptStarters from './PromptStarters';
 import StudentMessageBubble from './StudentMessageBubble';
 import RemediationRequestCard from './RemediationRequestCard';
 import { uiCopy } from '../../../../constants/uiCopy';
-import { lessonSuggestionsForMessage, resolveChatStudyTip } from '../../learning/studySuggestionPrompt';
+import {
+  lessonSuggestionsForMessage,
+  parseCurriculumStarterSuggestions,
+  resolveChatStudyTip,
+  stripCurriculumStarterSection,
+} from '../../learning/studySuggestionPrompt';
 import { isAiServiceErrorText, shouldOfferLessonContinuations } from '../../../../utils/errorMessages';
 import TutorMascot from '../../../../components/common/TutorMascot';
 import { useMarkdownReveal } from '../useMarkdownReveal';
@@ -104,8 +108,13 @@ function StudentLiveAnswer({
   voiceId,
 }) {
   const fullMarkdown = withoutLegacyEvidenceAppendix(message.answer, evidenceMessage);
+  const starterSuggestions = parseCurriculumStarterSuggestions(fullMarkdown);
+  // Starters render as clickable suggestions below; drop their text copy.
+  const displayMarkdown = starterSuggestions.length > 0
+    ? stripCurriculumStarterSection(fullMarkdown)
+    : fullMarkdown;
   const reveal = Boolean(message.revealAnswer) && !tutorTurnFailed && !message.canceled;
-  const { text: revealedMarkdown, done } = useMarkdownReveal(fullMarkdown, reveal);
+  const { text: revealedMarkdown, done } = useMarkdownReveal(displayMarkdown, reveal);
   const showTtsAction = ttsEnabled && !message.canceled && Boolean(fullMarkdown.trim());
   const showGeneralActions = !message.canceled && !message.sessionComplete && !isWelcomeTurn;
 
@@ -120,6 +129,7 @@ function StudentLiveAnswer({
         <AiAnswer
           markdown={revealedMarkdown}
           understandingCheck={done ? message.understandingCheck : null}
+          understandingAttempts={done ? message.understandingCheckAttempts : []}
           understandingSelectedKey={done ? message.understandingSelectedKey : ''}
           attemptId={message.assistantMessageId || message.messageId || message.id}
           streaming={reveal && !done}
@@ -151,6 +161,15 @@ function StudentLiveAnswer({
         <AnswerEvidence
           message={evidenceMessage}
           sourceMap={materialSourceMap}
+        />
+      )}
+      {done && !message.canceled && starterSuggestions.length > 0 && (
+        <AnswerImproveSuggestions
+          suggestions={starterSuggestions}
+          onStudy={onStudySuggestion}
+          sourceMode={message.mode}
+          heading="Gợi ý học tập"
+          hint="Nhấn vào một gợi ý để hỏi AI Tutor ngay nội dung đó."
         />
       )}
       {done && !message.canceled && offerLessonContinuations && !isWelcomeTurn && (
@@ -271,13 +290,13 @@ function ChatMessageList({
   materialSourceMap,
   mentorRequests = [],
   messages,
+  isMessagesLoading = false,
   messagesEndRef,
   onAnswerAction,
   onCreateQuizFromSuggestion,
   onDownloadSource,
   onOpenMentorReview,
   onMentorRequestCreated,
-  onPromptStarter,
   onLockUnderstandingAnswer,
   onResendMessage,
   onStudySuggestion,
@@ -316,15 +335,9 @@ function ChatMessageList({
     <div className={`chat-workspace-messages-container ${messages.length === 0 ? 'chat-workspace-messages-container--empty' : ''}`}>
       <div className={`chat-workspace-messages-inner ${messages.length === 0 ? 'chat-workspace-messages-inner--empty' : ''}`}>
         {messages.length === 0 ? (
-          <div className="chat-empty-state">
-            <TutorMascot size="lg" className="chat-empty-mascot" />
-            <div className="chat-empty-title">Hôm nay bạn muốn học gì?</div>
-            <div className="chat-keyword-tip" role="note">
-              <strong>{uiCopy.student.chat.keywordTipTitle}</strong>
-              <p>{uiCopy.student.chat.keywordTip}</p>
-            </div>
-            <PromptStarters disabled={!canChat || isAiLoading} onSelect={onPromptStarter} />
-          </div>
+          isMessagesLoading ? (
+            <div className="chat-answer-loading" role="status">Đang tải cuộc trò chuyện...</div>
+          ) : null
         ) : (
           messages.map((message, index) => {
             const messageKey = getMessageKey(message, index);

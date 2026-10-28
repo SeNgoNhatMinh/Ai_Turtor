@@ -15,7 +15,7 @@ export function useMentorImport({ triggerToast }) {
       triggerToast?.('Đã hoàn tất import giảng viên.');
       return response?.log || response?.message || null;
     } catch (error) {
-      triggerToast?.(getUserFacingError(error, 'Không thể import giảng viên.'));
+      triggerToast?.(getUserFacingError(error, 'Không thể import giảng viên.'), 'error');
       return null;
     }
   });

@@ -44,6 +44,9 @@ export function useTutorSessionController({
   handleSelectSession,
 }) {
   const [activeTutorSession, setActiveTutorSession] = useState(null);
+  // Effective support level from the live profile, independent of whether a
+  // tutor session is open, so the UI never falls back to a stale STANDARD.
+  const [liveSupportLevel, setLiveSupportLevel] = useState('');
   const [tutorSessionSummary, setTutorSessionSummary] = useState(null);
   const [isTutorSessionLoading, setIsTutorSessionLoading] = useState(false);
   const tutorOpenInFlightRef = useRef(false);
@@ -59,6 +62,11 @@ export function useTutorSessionController({
     userIdRef.current = userId;
     classIdRef.current = classId;
   }, [activeSessionId, classId, courseId, userId]);
+
+  // Never show the previous course's level while the new profile loads.
+  useEffect(() => {
+    setLiveSupportLevel('');
+  }, [courseId, classId, userId]);
 
   const seedOpeningMessage = (openingMessage) => {
     const turn = toOpeningTurn(openingMessage);
@@ -119,6 +127,7 @@ export function useTutorSessionController({
         return profile;
       }
       const supportLevel = normalizeSupportLevel(profile?.supportLevel);
+      setLiveSupportLevel(supportLevel);
       setActiveTutorSession((session) => session ? {
         ...session,
         supportLevel,
@@ -136,11 +145,18 @@ export function useTutorSessionController({
     return refreshPromise;
   }, []);
 
-  const openTutorSession = async () => {
+  // Load the effective level immediately on mount, then keep polling.
+  useEffect(() => {
+    refreshTutorSupport().catch(() => {});
+  }, [refreshTutorSupport]);
+
+  const openTutorSession = async (options = {}) => {
+    const selectConversation = options?.selectConversation !== false;
     if (!userId || !courseId || !classId || isTutorSessionLoading || tutorOpenInFlightRef.current) {
       return null;
     }
 
+    const activeSessionIdAtStart = activeSessionIdRef.current;
     tutorOpenInFlightRef.current = true;
     setIsTutorSessionLoading(true);
     try {
@@ -159,24 +175,60 @@ export function useTutorSessionController({
 
       const conversationId = data?.conversationId;
       await loadChatSessions({ silent: true });
+
+      // Background bootstrap must never steal the active chat.
+      if (!selectConversation) {
+        if (conversationId && conversationId === activeSessionIdRef.current) {
+          seedOpeningMessage(data?.openingMessage);
+        }
+        return data;
+      }
+
+      // Never steal focus from a chat the student already opened or created.
+      const currentActiveId = activeSessionIdRef.current;
+      const studentChoseAnotherChat = Boolean(
+        currentActiveId
+        && currentActiveId !== activeSessionIdAtStart
+        && currentActiveId !== conversationId,
+      );
+      if (studentChoseAnotherChat) return data;
+
       if (conversationId) {
         bumpConversationActivity({
           conversationId,
           title: 'Buổi học cùng AI Tutor',
           messageCountIncrement: getOpeningContent(data?.openingMessage) ? 1 : 0,
         });
-        await handleSelectSession(conversationId, 'Buổi học cùng AI Tutor', { silent: true });
-        seedOpeningMessage(data?.openingMessage);
+        // Explicit start: open tutor chat only when nothing else is selected.
+        if (!currentActiveId) {
+          await handleSelectSession(conversationId, 'Buổi học cùng AI Tutor', { silent: true });
+          seedOpeningMessage(data?.openingMessage);
+        } else if (currentActiveId === conversationId) {
+          seedOpeningMessage(data?.openingMessage);
+        }
       }
       return data;
     } catch (error) {
-      triggerToast(getUserFacingError(error, 'Không thể mở buổi học cùng AI Tutor.'));
+      triggerToast(getUserFacingError(error, 'Không thể mở buổi học cùng AI Tutor.'), 'error');
       return null;
     } finally {
       tutorOpenInFlightRef.current = false;
       setIsTutorSessionLoading(false);
     }
   };
+
+  // The AI (or a teacher decision) changed this student's support level:
+  // update the displayed level instantly and re-sync with the server profile.
+  useRealtimeEvent(REALTIME_EVENT_TYPES.supportLevel, (event) => {
+    if (!eventTargetsTutorStudent(event, {
+      studentId: userIdRef.current,
+      courseId: courseIdRef.current,
+      classId: classIdRef.current,
+    })) return;
+    const level = event?.data?.supportLevel || event?.status;
+    if (level) setLiveSupportLevel(normalizeSupportLevel(level));
+    refreshTutorSupport().catch(() => {});
+  });
 
   useRealtimeEvent(REALTIME_EVENT_TYPES.tutorSession, (event) => {
     const payload = event?.data || {};
@@ -192,19 +244,21 @@ export function useTutorSessionController({
 
     mergeTutorSession(session);
     if (event.type !== 'TUTOR_SESSION_OPENED') return;
+    const conversationId = payload.conversationId;
     if (tutorOpenInFlightRef.current) {
-      seedOpeningMessage(payload.openingMessage);
+      // Do not attach an automatic welcome message to a different chat created
+      // while openSession is still in flight.
+      if (!activeSessionIdRef.current || activeSessionIdRef.current === conversationId) {
+        seedOpeningMessage(payload.openingMessage);
+      }
       return;
     }
 
-    const conversationId = payload.conversationId;
-    if (conversationId && conversationId !== activeSessionIdRef.current) {
-      handleSelectSession(conversationId, 'Buổi học cùng AI Tutor', { silent: true }).then(() => {
-        seedOpeningMessage(payload.openingMessage);
-      });
-      return;
+
+    // Realtime must not jump the student to another conversation.
+    if (conversationId && conversationId === activeSessionIdRef.current) {
+      seedOpeningMessage(payload.openingMessage);
     }
-    seedOpeningMessage(payload.openingMessage);
   });
 
   useRealtimeEvent(REALTIME_EVENT_TYPES.pedagogicalDirective, (event) => {
@@ -257,6 +311,7 @@ export function useTutorSessionController({
 
   return {
     activeTutorSession,
+    liveSupportLevel,
     tutorSessionSummary,
     isTutorSessionLoading,
     openTutorSession,

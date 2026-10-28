@@ -22,6 +22,7 @@ export const queryKeys = {
     courseId || 'none',
     classId || 'none',
   ],
+  studentLearningGuide: (courseId) => ['student', 'learning-guide', courseId || 'none'],
   profile: (userId) => ['account', 'profile', userId],
   studentEnrollments: (identityKey) => ['student', 'enrollments', identityKey],
   studentQuestionQuota: (studentId, courseId) => [
@@ -127,11 +128,12 @@ export const queryKeys = {
   adminSemesters: () => ['admin', 'academic', 'semesters'],
   adminCourses: () => ['admin', 'academic', 'courses'],
   adminClassSections: (courseId) => ['admin', 'academic', 'class-sections', courseId || 'none'],
-  adminStudentEnrollments: (search) => [
+  adminEnrollments: (courseId, classId) => [
     'admin',
     'academic',
-    'student-enrollments',
-    String(search || '').trim(),
+    'enrollments',
+    courseId || 'all',
+    classId || 'all',
   ],
   adminStudentSearch: (search) => ['admin', 'student-search', String(search || '').trim()],
   adminMentorOptions: () => ['admin', 'academic', 'mentor-options'],

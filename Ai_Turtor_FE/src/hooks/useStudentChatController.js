@@ -1,8 +1,9 @@
 import { useEffect, useRef } from 'react';
 import { conversationApi } from '../services/conversationApi';
 import { getUserFacingError } from '../services/apiClient';
-import { asArray, pairMessages } from '../services/normalizers';
+import { asArray } from '../services/normalizers';
 import { aiTutorApi } from '../services/aiTutorApi';
+import { supportChatApi } from '../services/supportChatApi';
 import { n8nService } from '../services/n8nService';
 import { readStudentOwnLlm } from '../features/student/chat/studentOwnLlm';
 import {
@@ -15,8 +16,6 @@ import {
   DAILY_SESSION_COMPLETE_MESSAGE,
   isDailyCourseQuotaError,
 } from '../constants/sessionQuota';
-import { uiCopy } from '../constants/uiCopy';
-import { resolveCanonicalConversation } from '../features/student/chat/conversations/sessionUtils';
 import {
   createMissingChatAnswerError,
   isN8nTimeoutError,
@@ -34,10 +33,6 @@ const getSafeConversationTitle = (value, courseId) => {
   }
   return repairedTitle;
 };
-
-const waitForConversationPersistence = () => new Promise((resolve) => {
-  globalThis.setTimeout(resolve, 450);
-});
 
 export function useStudentChatController({
   currentUser,
@@ -61,6 +56,7 @@ export function useStudentChatController({
     sessions,
     messages,
     isSessionsLoading,
+    isMessagesLoading,
     sessionMutationKey,
     isCreatingSession,
     turnLimitNotice,
@@ -69,6 +65,8 @@ export function useStudentChatController({
     setActiveSessionId,
     setActiveSessionTitle,
     setMessages,
+    setMessagesForConversation,
+    getActiveSessionId,
     setTurnLimitNotice,
     bumpConversationActivity,
     dismissTurnLimitNotice,
@@ -80,6 +78,7 @@ export function useStudentChatController({
     handleRenameSession,
   } = conversation;
   const activeAiRequestIdRef = useRef(0);
+  const activeRequestOriginRef = useRef(null);
   const canceledAiRequestIdsRef = useRef(new Set());
   const activeAiAbortControllerRef = useRef(null);
   const userIdRef = useRef(userId);
@@ -93,6 +92,7 @@ export function useStudentChatController({
   } = useDailyQuestionQuota({ userId, studentId, courseId });
   const {
     activeTutorSession,
+    liveSupportLevel,
     tutorSessionSummary,
     isTutorSessionLoading,
     openTutorSession,
@@ -130,9 +130,9 @@ export function useStudentChatController({
     }
     const previousSessionId = activeSessionId;
     const previousSessionTitle = activeSessionTitle;
-    const sessionsBeforeRequest = Array.isArray(sessions) ? sessions : [];
     const requestId = activeAiRequestIdRef.current + 1;
     activeAiRequestIdRef.current = requestId;
+    activeRequestOriginRef.current = { requestId, conversationId: previousSessionId || null };
     activeAiAbortControllerRef.current?.abort();
     const requestController = new AbortController();
     activeAiAbortControllerRef.current = requestController;
@@ -155,23 +155,46 @@ export function useStudentChatController({
       requestedMode,
     }]);
 
+    // The reply must land in the conversation where the question was asked
+    // (previousSessionId), even if the student opens another conversation
+    // while the AI is composing. Never write into the currently open one.
+    const applyToTargetTurn = (transform) => {
+      const apply = (list) => {
+        const items = Array.isArray(list) ? [...list] : [];
+        const index = items.findIndex((item) => (
+          item?.requestId === requestId || item?.clientMessageId === `local-${requestId}`
+        ));
+        // The pending turn can vanish if the origin conversation refetches
+        // from the server mid-flight; append the finished turn instead of
+        // overwriting whatever exchange happens to be last.
+        if (index < 0) return [...items, transform({})];
+        items[index] = transform(items[index] || {});
+        return items;
+      };
+      if (previousSessionId) {
+        setMessagesForConversation(previousSessionId, apply);
+      } else if (!getActiveSessionId()) {
+        // Asked from the new-chat screen and the student is still there.
+        setMessages(apply);
+      }
+      // Asked from the new-chat screen but the student has since opened
+      // another conversation: write nothing anywhere. The answer is
+      // persisted server-side and loads with its own conversation.
+    };
+
     try {
       if (dailyQuota.remaining <= 0) {
         const ownLlm = readStudentOwnLlm(userId);
         if (!ownLlm) {
-          setMessages((prev) => {
-            const updated = [...prev];
-            updated[updated.length - 1] = {
-              question: text,
-              answer: 'Hết 10 câu của hệ thống cho môn này. Gắn API LLM của bạn để học tiếp bằng tài liệu nhà trường.',
-              rawAnswer: 'Hết 10 câu của hệ thống cho môn này. Gắn API LLM của bạn để học tiếp bằng tài liệu nhà trường.',
-              confidence: 1,
-              sources: [],
-              pending: false,
-              revealAnswer: true,
-            };
-            return updated;
-          });
+          applyToTargetTurn(() => ({
+            question: text,
+            answer: 'Hết 10 câu của hệ thống cho môn này. Gắn API LLM của bạn để học tiếp bằng tài liệu nhà trường.',
+            rawAnswer: 'Hết 10 câu của hệ thống cho môn này. Gắn API LLM của bạn để học tiếp bằng tài liệu nhà trường.',
+            confidence: 1,
+            sources: [],
+            pending: false,
+            revealAnswer: true,
+          }));
           setAvatarEmotion('idle');
           return;
         }
@@ -187,25 +210,20 @@ export function useStudentChatController({
           return;
         }
         const answerText = String(schoolAnswer?.answer || '');
-        setMessages((prev) => {
-          const updated = [...prev];
-          const current = updated[updated.length - 1] || {};
-          updated[updated.length - 1] = {
-            ...current,
-            question: text,
-            answer: answerText,
-            rawAnswer: answerText,
-            confidence: schoolAnswer?.grounded ? 0.9 : 0,
-            sources: schoolAnswer?.grounded ? ['Tài liệu nhà trường'] : [],
-            pending: false,
-            revealAnswer: true,
-            personalLlm: true,
-            nextImproveSuggestions: Array.isArray(schoolAnswer?.nextImproveSuggestions)
-              ? schoolAnswer.nextImproveSuggestions
-              : current.nextImproveSuggestions,
-          };
-          return updated;
-        });
+        applyToTargetTurn((current) => ({
+          ...current,
+          question: text,
+          answer: answerText,
+          rawAnswer: answerText,
+          confidence: schoolAnswer?.grounded ? 0.9 : 0,
+          sources: schoolAnswer?.grounded ? ['Tài liệu nhà trường'] : [],
+          pending: false,
+          revealAnswer: true,
+          personalLlm: true,
+          nextImproveSuggestions: Array.isArray(schoolAnswer?.nextImproveSuggestions)
+            ? schoolAnswer.nextImproveSuggestions
+            : current.nextImproveSuggestions,
+        }));
         setAvatarEmotion(schoolAnswer?.grounded ? 'success' : 'idle');
         return;
       }
@@ -314,51 +332,19 @@ export function useStudentChatController({
         data.conversationTitle || data.title || previousSessionTitle,
         courseId,
       );
-      const staysInCurrentConversation = Boolean(
-        previousSessionId
-        && responseConversationId
-        && responseConversationId === previousSessionId
-        && !data.maxTurnsReached
-      );
-      let canonicalSession = staysInCurrentConversation
-        ? sessionsBeforeRequest.find((session) => session.id === previousSessionId) || null
-        : null;
-
-      if (!staysInCurrentConversation) {
-        let refreshedSessions = await loadChatSessions({ silent: true });
-        canonicalSession = resolveCanonicalConversation({
-          responseConversationId,
-          previousSessionId,
-          sessionsBefore: sessionsBeforeRequest,
-          sessionsAfter: refreshedSessions,
-        });
-
-        if (!canonicalSession && responseConversationId) {
-          await waitForConversationPersistence();
-          refreshedSessions = await loadChatSessions({ silent: true });
-          canonicalSession = resolveCanonicalConversation({
-            responseConversationId,
-            previousSessionId,
-            sessionsBefore: sessionsBeforeRequest,
-            sessionsAfter: refreshedSessions,
-          });
-        }
-      }
-
-      const canonicalConversationId = canonicalSession?.id || responseConversationId;
-      const canonicalConversationTitle = getSafeConversationTitle(
-        canonicalSession?.title || responseConversationTitle,
+      // No canonical guessing: the reply is completed in the conversation
+      // where the question was asked (previousSessionId), whatever id the
+      // backend reports back. Only a question sent with no conversation yet
+      // adopts the conversation the backend created for it.
+      const displayConversationId = previousSessionId || responseConversationId;
+      const displayConversationTitle = getSafeConversationTitle(
+        responseConversationTitle,
         courseId,
       );
-      const didStartNewConversation = Boolean(
-        previousSessionId
-        && canonicalConversationId
-        && canonicalConversationId !== previousSessionId
-      );
 
-      if (!String(data.answer || '').trim() && canonicalConversationId) {
+      if (!String(data.answer || '').trim() && responseConversationId) {
         const canonicalExchange = await recoverCanonicalAnswer({
-          conversationId: canonicalConversationId,
+          conversationId: responseConversationId,
           userId,
           question: text,
           signal: requestController.signal,
@@ -368,7 +354,7 @@ export function useStudentChatController({
             ...data,
             ...canonicalExchange,
             answer: canonicalExchange.answer,
-            conversationId: canonicalConversationId,
+            conversationId: responseConversationId,
           };
         }
       }
@@ -377,102 +363,68 @@ export function useStudentChatController({
         throw createMissingChatAnswerError();
       }
 
-      if (canonicalConversationId && canonicalConversationId !== previousSessionId) {
-        setActiveSessionId(canonicalConversationId);
-        setActiveSessionTitle(canonicalConversationTitle);
-      }
-
-      if (didStartNewConversation && nextQuota?.remaining <= 0) {
-        setTurnLimitNotice({
-          type: 'turn-limit',
-          previousSessionId,
-          currentSessionId: canonicalConversationId,
-          message: uiCopy.student.chat.rolloverMessage,
-        });
-      }
-
-      if (!canonicalSession) {
-        bumpConversationActivity({
-          conversationId: canonicalConversationId,
-          title: canonicalConversationTitle,
-          lastMessageAt: data.lastMessageAt || data.updatedAt || new Date().toISOString(),
-          messageCountIncrement: canonicalConversationId === previousSessionId ? 0 : 1,
-          questionCountIncrement: canonicalConversationId === previousSessionId ? 0 : 1,
-          questionCount: data.userQuestionCount ?? data.questionCount,
-          maxTurnsReached: data.maxTurnsReached,
-        });
-      }
-
       if (canceledAiRequestIdsRef.current.has(requestId)) {
         canceledAiRequestIdsRef.current.delete(requestId);
         return;
       }
 
-      setMessages((prev) => {
-        const updated = [...prev];
-        const answerText = String(data.answer || '');
-        const outcome = String(data.outcome || '').toUpperCase();
-        const isAiServiceError = outcome === 'AI_UNAVAILABLE' || isAiServiceErrorText(answerText);
-        updated[updated.length - 1] = {
-          question: text,
-          interactionType: requestContext.interactionType || '',
-          displayQuestion: requestContext.displayQuestion || '',
-          requestedMode,
-          answer: answerText,
-          rawAnswer: answerText,
-          understandingCheck: data.understandingCheck || null,
-          id: data.assistantMessageId || data.messageId || data.aiMessageId || data.responseMessageId,
-          messageId: data.assistantMessageId || data.messageId || data.aiMessageId || data.responseMessageId,
-          assistantMessageId: data.assistantMessageId || data.messageId || data.aiMessageId || data.responseMessageId,
-          userMessageId: data.userMessageId,
-          conversationId: canonicalConversationId,
-          mode: data.mode || 'RAG',
-          confidence: data.confidence,
-          sources: data.sources || [],
-          sourceEvidence: asArray(data.sourceEvidence),
-          groundingType: data.groundingType || null,
-          nextImproveSuggestions: Array.isArray(data.nextImproveSuggestions)
-            ? data.nextImproveSuggestions
-            : undefined,
-          questionEscalationId: data.questionEscalationId || data.escalationId || null,
-          outcome: outcome || (data.escalated ? 'NEEDS_MENTOR' : 'ANSWERED'),
-          aiServiceError: isAiServiceError,
-          retryable: isAiServiceError,
-          pending: false,
-          revealAnswer: !isAiServiceError,
-        };
-        return updated;
-      });
-
-      if (didStartNewConversation && canonicalConversationId) {
-        try {
-          const chatMsgs = await conversationApi.getMessages(canonicalConversationId, userId, {
-            skipUnauthorizedRedirect: true,
-          });
-          const historyPairs = pairMessages(asArray(chatMsgs, 'content', 'messages'));
-          if (historyPairs.length > 0) {
-            setMessages((prev) => {
-              const prevLast = prev[prev.length - 1];
-              if (!prevLast?.revealAnswer) return historyPairs;
-              const next = [...historyPairs];
-              const last = next[next.length - 1];
-              if (last && String(last.answer || '') === String(prevLast.answer || '')) {
-                next[next.length - 1] = {
-                  ...last,
-                  revealAnswer: true,
-                  nextImproveSuggestions: Array.isArray(last.nextImproveSuggestions)
-                    && last.nextImproveSuggestions.length > 0
-                    ? last.nextImproveSuggestions
-                    : prevLast.nextImproveSuggestions,
-                };
-              }
-              return next;
-            });
-          }
-        } catch {
-          // Keep the just-submitted exchange visible if history reload is not ready yet.
-        }
+      // Adopt the backend-created conversation only if the student is
+      // still on the new-chat screen; never yank them out of a
+      // conversation they opened while waiting.
+      if (!previousSessionId && responseConversationId && !getActiveSessionId()) {
+        setActiveSessionId(responseConversationId);
+        setActiveSessionTitle(displayConversationTitle);
       }
+
+      const reportedQuestionCount = data.userQuestionCount ?? data.questionCount;
+      const hasReportedQuestionCount = reportedQuestionCount != null && reportedQuestionCount !== '';
+      bumpConversationActivity({
+        conversationId: displayConversationId,
+        title: displayConversationTitle,
+        lastMessageAt: data.lastMessageAt || data.updatedAt || new Date().toISOString(),
+        messageCountIncrement: 0,
+        // A new conversation is not incremented on send. n8n does not return
+        // userQuestionCount, so count that first turn here; later turns were
+        // already incremented when the student pressed send.
+        questionCountIncrement: hasReportedQuestionCount || previousSessionId ? 0 : 1,
+        questionCount: hasReportedQuestionCount ? reportedQuestionCount : undefined,
+        maxTurnsReached: data.maxTurnsReached,
+      });
+      loadChatSessions({ silent: true }).catch(() => {});
+
+      const answerText = String(data.answer || '');
+      const outcome = String(data.outcome || '').toUpperCase();
+      const isAiServiceError = outcome === 'AI_UNAVAILABLE' || isAiServiceErrorText(answerText);
+      const finalTurn = {
+        question: text,
+        interactionType: requestContext.interactionType || '',
+        displayQuestion: requestContext.displayQuestion || '',
+        requestedMode,
+        answer: answerText,
+        rawAnswer: answerText,
+        understandingCheck: data.understandingCheck || null,
+        id: data.assistantMessageId || data.messageId || data.aiMessageId || data.responseMessageId,
+        messageId: data.assistantMessageId || data.messageId || data.aiMessageId || data.responseMessageId,
+        assistantMessageId: data.assistantMessageId || data.messageId || data.aiMessageId || data.responseMessageId,
+        userMessageId: data.userMessageId,
+        conversationId: displayConversationId,
+        mode: data.mode || 'RAG',
+        confidence: data.confidence,
+        sources: data.sources || [],
+        sourceEvidence: asArray(data.sourceEvidence),
+        groundingType: data.groundingType || null,
+        nextImproveSuggestions: Array.isArray(data.nextImproveSuggestions)
+          ? data.nextImproveSuggestions
+          : undefined,
+        questionEscalationId: data.questionEscalationId || data.escalationId || null,
+        outcome: outcome || (data.escalated ? 'NEEDS_MENTOR' : 'ANSWERED'),
+        aiServiceError: isAiServiceError,
+        retryable: isAiServiceError,
+        pending: false,
+        revealAnswer: !isAiServiceError,
+      };
+
+      applyToTargetTurn(() => finalTurn);
 
       if (data.mode === 'CODE' || data.mode === 'CODE_MENTOR') {
         setCodeMentorDiagnostics?.(data.answer);
@@ -489,49 +441,63 @@ export function useStudentChatController({
       }
 
       const quotaReached = isDailyCourseQuotaError(error);
+      let timeoutEscalation = null;
+      if (isN8nTimeoutError(error) && userId && courseId && classId) {
+        try {
+          timeoutEscalation = await supportChatApi.createEscalation({
+            studentId: userId,
+            studentName: currentUser?.fullName || currentUser?.name || '',
+            studentEmail: currentUser?.email || '',
+            courseId,
+            classId,
+            conversationId: previousSessionId || '',
+            question: text,
+            aiResponse: 'AI Tutor bị timeout khi xử lý câu hỏi; chưa có câu trả lời hoàn chỉnh.',
+            reason: 'AI Tutor timeout khi xử lý yêu cầu học tập. Cần giảng viên xem xét và hỗ trợ sinh viên.',
+          });
+        } catch (escalationError) {
+          console.warn('Could not escalate AI Tutor timeout to teacher:', escalationError);
+        }
+      }
       if (quotaReached) {
         markDailyQuotaExhausted();
         await closeTutorSessionIfDailyComplete(0);
       }
 
       if (isDailyCourseQuotaError(error)) {
-        setMessages((prev) => {
-          const updated = [...prev];
-          updated[updated.length - 1] = {
-            question: text,
-            answer: DAILY_SESSION_COMPLETE_MESSAGE,
-            rawAnswer: DAILY_SESSION_COMPLETE_MESSAGE,
-            confidence: 1,
-            sources: [],
-            sessionComplete: true,
-            aiServiceError: false,
-            retryable: false,
-            pending: false,
-          };
-          return updated;
-        });
+        applyToTargetTurn(() => ({
+          question: text,
+          answer: DAILY_SESSION_COMPLETE_MESSAGE,
+          rawAnswer: DAILY_SESSION_COMPLETE_MESSAGE,
+          confidence: 1,
+          sources: [],
+          sessionComplete: true,
+          aiServiceError: false,
+          retryable: false,
+          pending: false,
+        }));
         setAvatarEmotion('idle');
         return;
       }
 
-      setMessages((prev) => {
-        const updated = [...prev];
-        const friendlyError = getUserFacingError(error, 'Mình chưa soạn xong lượt này. Thử lại giúp mình nhé.');
-        updated[updated.length - 1] = {
-          question: text,
-          answer: buildAiServiceErrorMessage(friendlyError),
-          rawAnswer: friendlyError,
-          confidence: 0,
-          sources: [],
-          aiServiceError: true,
-          retryable: !quotaReached,
-          pending: false
-        };
-        return updated;
-      });
+      const friendlyError = getUserFacingError(error, 'Mình chưa soạn xong lượt này. Thử lại giúp mình nhé.');
+      applyToTargetTurn(() => ({
+        question: text,
+        answer: buildAiServiceErrorMessage(friendlyError),
+        rawAnswer: friendlyError,
+        confidence: 0,
+        sources: [],
+        aiServiceError: true,
+        retryable: !quotaReached,
+        questionEscalationId: timeoutEscalation?.questionEscalationId
+          || timeoutEscalation?.id
+          || timeoutEscalation?.escalationId
+          || null,
+        pending: false
+      }));
       setAvatarEmotion('idle');
       if (!quotaReached) {
-        triggerToast(getUserFacingError(error, 'Mình chưa soạn xong lượt này. Thử lại giúp mình nhé.'));
+        triggerToast(getUserFacingError(error, 'Mình chưa soạn xong lượt này. Thử lại giúp mình nhé.'), 'error');
         try {
           const nextQuota = await refreshDailyQuota();
           if (nextQuota?.remaining <= 0) {
@@ -555,6 +521,7 @@ export function useStudentChatController({
     const messageId = message?.assistantMessageId || message?.messageId || message?.id;
     const studentId = getStudentUserId();
     const quiz = attempt?.quiz || {};
+    const quizIndex = Number.isInteger(attempt?.quizIndex) ? attempt.quizIndex : 0;
     const localGrade = () => {
       const correctKey = String(quiz.correctKey || '').trim().toUpperCase();
       if (!correctKey) return null;
@@ -571,11 +538,26 @@ export function useStudentChatController({
         const itemId = item?.assistantMessageId || item?.messageId || item?.id;
         const sameSaved = messageId && itemId === messageId;
         const sameLocal = message?.clientMessageId && item?.clientMessageId === message.clientMessageId;
-        if ((!sameSaved && !sameLocal) || item?.understandingSelectedKey) return item;
+        if (!sameSaved && !sameLocal) return item;
+        const attempts = Array.isArray(item?.understandingCheckAttempts)
+          ? [...item.understandingCheckAttempts] : [];
+        const position = attempts.findIndex((entry) => Number(entry?.quizIndex ?? -1) === quizIndex);
+        if (position >= 0 && attempts[position]?.selectedKey) return item;
+        if (quizIndex === 0 && item?.understandingSelectedKey) return item;
+        const entry = {
+          quizIndex,
+          selectedKey: key,
+          answeredAt: new Date().toISOString(),
+        };
+        if (position >= 0) attempts[position] = { ...attempts[position], ...entry };
+        else attempts.push(entry);
         return {
           ...item,
-          understandingSelectedKey: key,
-          understandingAnsweredAt: new Date().toISOString(),
+          understandingCheckAttempts: attempts,
+          ...(quizIndex === 0 ? {
+            understandingSelectedKey: key,
+            understandingAnsweredAt: entry.answeredAt,
+          } : {}),
         };
       }));
     };
@@ -584,15 +566,7 @@ export function useStudentChatController({
       return localGrade();
     }
 
-    setMessages((prev) => prev.map((item) => {
-      const itemId = item?.assistantMessageId || item?.messageId || item?.id;
-      if (itemId !== messageId || item?.understandingSelectedKey) return item;
-      return {
-        ...item,
-        understandingSelectedKey: key,
-        understandingAnsweredAt: new Date().toISOString(),
-      };
-    }));
+    markSelected();
 
     try {
       const result = await conversationApi.recordUnderstandingCheck(
@@ -600,14 +574,23 @@ export function useStudentChatController({
         messageId,
         studentId,
         key,
+        quizIndex,
       );
       setMessages((prev) => prev.map((item) => {
         const itemId = item?.assistantMessageId || item?.messageId || item?.id;
         if (itemId !== messageId) return item;
+        const attempts = (Array.isArray(item?.understandingCheckAttempts)
+          ? item.understandingCheckAttempts : [])
+          .map((entry) => (Number(entry?.quizIndex ?? -1) === quizIndex
+            ? { ...entry, correct: result?.correct, attemptId: result?.attemptId || entry.attemptId || '' }
+            : entry));
         return {
           ...item,
-          understandingAttemptId: result?.attemptId || item.understandingAttemptId || '',
-          understandingCorrect: result?.correct,
+          understandingCheckAttempts: attempts,
+          ...(quizIndex === 0 ? {
+            understandingAttemptId: result?.attemptId || item.understandingAttemptId || '',
+            understandingCorrect: result?.correct,
+          } : {}),
         };
       }));
       return result;
@@ -621,8 +604,11 @@ export function useStudentChatController({
     const requestId = activeAiRequestIdRef.current;
     if (requestId) canceledAiRequestIdsRef.current.add(requestId);
     activeAiAbortControllerRef.current?.abort();
-    setMessages((prev) => {
-      const updated = [...prev];
+    // Mark the canceled turn in the conversation it belongs to, which is
+    // not necessarily the one currently on screen.
+    const origin = activeRequestOriginRef.current;
+    const markCanceled = (prev) => {
+      const updated = [...(Array.isArray(prev) ? prev : [])];
       let index = -1;
       for (let i = updated.length - 1; i >= 0; i -= 1) {
         if (updated[i]?.pending) {
@@ -639,7 +625,12 @@ export function useStudentChatController({
         };
       }
       return updated;
-    });
+    };
+    if (origin?.requestId === requestId && origin.conversationId) {
+      setMessagesForConversation(origin.conversationId, markCanceled);
+    } else {
+      setMessages(markCanceled);
+    }
   };
 
   return {
@@ -647,6 +638,7 @@ export function useStudentChatController({
     activeSessionTitle,
     sessions,
     isSessionsLoading,
+    isMessagesLoading,
     sessionMutationKey,
     isCreatingSession,
     messages,
@@ -666,6 +658,7 @@ export function useStudentChatController({
     handleLockUnderstandingAnswer,
     handleStopAiGeneration,
     activeTutorSession,
+    studentSupportLevel: liveSupportLevel,
     tutorSessionSummary,
     isTutorSessionLoading,
     openTutorSession,

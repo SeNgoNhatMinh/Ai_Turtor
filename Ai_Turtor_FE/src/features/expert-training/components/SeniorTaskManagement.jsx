@@ -158,7 +158,7 @@ export default function SeniorTaskManagement({
       await queryClient.invalidateQueries({ queryKey: queryKeys.expertTasks(courseId) });
     } catch (saveError) {
       if (saveError?.errorFields) return;
-      triggerToast?.(getUserFacingError(saveError, 'Không thể lưu task.'));
+      triggerToast?.(getUserFacingError(saveError, 'Không thể lưu task.'), 'error');
     } finally {
       setSaving(false);
     }
@@ -183,7 +183,7 @@ export default function SeniorTaskManagement({
           });
           await queryClient.invalidateQueries({ queryKey: queryKeys.expertTasks(courseId) });
         } catch (deleteError) {
-          triggerToast?.(getUserFacingError(deleteError, 'Không thể xóa task.'));
+          triggerToast?.(getUserFacingError(deleteError, 'Không thể xóa task.'), 'error');
         }
       },
     });

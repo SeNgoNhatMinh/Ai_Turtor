@@ -59,6 +59,8 @@ export function DataTable({
   searchPlaceholder = 'Tìm trong danh sách',
   maxBodyHeight = 'min(58vh, 640px)',
   mobileCompact = true,
+  onRowClick,
+  rowAriaLabel,
 }) {
   const safeData = Array.isArray(data) ? data : [];
   const safeColumns = Array.isArray(columns) ? columns : [];
@@ -116,7 +118,22 @@ export function DataTable({
                 ))
               ) : visibleRows.length ? (
                 visibleRows.map((record, rowIndex) => (
-                  <tr key={getRowKey(record, collection.pageIndex * collection.pageSize + rowIndex)}>
+                  <tr
+                    key={getRowKey(record, collection.pageIndex * collection.pageSize + rowIndex)}
+                    className={onRowClick ? 'data-table-row--clickable' : undefined}
+                    {...(onRowClick ? {
+                      tabIndex: 0,
+                      role: 'button',
+                      'aria-label': rowAriaLabel?.(record),
+                      onClick: () => onRowClick(record),
+                      onKeyDown: (event) => {
+                        if (event.target !== event.currentTarget) return;
+                        if (event.key !== 'Enter' && event.key !== ' ') return;
+                        event.preventDefault();
+                        onRowClick(record);
+                      },
+                    } : {})}
+                  >
                     {safeColumns.map((column, columnIndex) => (
                       <td
                         key={getColumnId(column, columnIndex)}

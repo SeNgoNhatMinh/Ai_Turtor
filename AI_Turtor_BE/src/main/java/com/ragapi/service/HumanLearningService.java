@@ -4,11 +4,13 @@ import com.ragapi.service.course.gateway.CourseMaterialIndexGateway;
 import com.ragapi.dto.KnowledgeCandidateReviewRequest;
 import com.ragapi.dto.MentorAnswerRequest;
 import com.ragapi.dto.ExistingAcademicKnowledge;
+import com.ragapi.entity.ClassSection;
 import com.ragapi.entity.CourseMaterial;
 import com.ragapi.entity.KnowledgeCandidate;
 import com.ragapi.entity.KnowledgeImageAttachment;
 import com.ragapi.entity.MentorAnswer;
 import com.ragapi.entity.QuestionEscalation;
+import com.ragapi.repository.ClassSectionRepository;
 import com.ragapi.repository.CourseMaterialRepository;
 import com.ragapi.repository.KnowledgeCandidateRepository;
 import com.ragapi.repository.MentorRepository;
@@ -55,6 +57,42 @@ public class HumanLearningService {
     private final CourseMaterialIndexGateway vectorService;
     private final KnowledgeImageStorageService knowledgeImageStorageService;
     private final CanonicalTutorAnswerCacheService answerCacheService;
+    private final ClassSectionRepository classSectionRepository;
+    private final RealtimeEventService realtimeEvents;
+
+    /** Notifies the student and the class teacher that a support request was answered. */
+    private void publishEscalationAnswered(QuestionEscalation escalation) {
+        if (escalation == null || escalation.getId() == null) return;
+        try {
+            Map<String, Object> data = new LinkedHashMap<>();
+            data.put("questionEscalationId", escalation.getId());
+            data.put("studentId", escalation.getUserId() == null ? "" : escalation.getUserId());
+            data.put("courseId", escalation.getCourseId() == null ? "" : escalation.getCourseId());
+            data.put("classId", escalation.getClassId() == null ? "" : escalation.getClassId());
+            data.put("status", escalation.getStatus() == null ? "" : escalation.getStatus());
+            String status = escalation.getStatus() == null ? "" : escalation.getStatus();
+
+            if (escalation.getUserId() != null && !escalation.getUserId().isBlank()) {
+                realtimeEvents.publishToUser(escalation.getUserId(), "SUPPORT_ESCALATION_ANSWERED",
+                        "QUESTION_ESCALATION", escalation.getId(), status, data);
+            }
+            String teacherId = null;
+            if (escalation.getCourseId() != null && escalation.getClassId() != null) {
+                teacherId = classSectionRepository
+                        .findByCourseIdAndClassId(escalation.getCourseId(), escalation.getClassId())
+                        .map(ClassSection::getTeacherId)
+                        .filter(id -> id != null && !id.isBlank())
+                        .orElse(null);
+            }
+            if (teacherId != null) {
+                realtimeEvents.publishToUser(teacherId, "SUPPORT_ESCALATION_ANSWERED",
+                        "QUESTION_ESCALATION", escalation.getId(), status, data);
+            }
+        } catch (Exception error) {
+            log.warn("Could not publish SUPPORT_ESCALATION_ANSWERED for {}: {}",
+                    escalation.getId(), error.getMessage());
+        }
+    }
 
     public Map<String, Object> answerEscalation(String escalationId, MentorAnswerRequest request) {
         if (request == null) {
@@ -103,6 +141,7 @@ public class HumanLearningService {
         escalation.setAssignedMentorName(optionalMaxLength(request.getTeacherName(), "teacherName", SHORT_TEXT_MAX_LENGTH));
         escalation.setUpdatedAt(now);
         escalationRepository.save(escalation);
+        publishEscalationAnswered(escalation);
 
         Map<String, Object> response = new LinkedHashMap<>();
         response.put("questionEscalationId", escalation.getId());

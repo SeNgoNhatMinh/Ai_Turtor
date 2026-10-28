@@ -201,6 +201,23 @@ test('strips leftover start text from a Bài tiếp theo chip', () => {
   assert.doesNotMatch(output, /7\. Bắt đầu/);
 });
 
+test('turns Lộ trình học curriculum lessons into clickable study-tip links', () => {
+  const output = normalizeAiMarkdown([
+    '## Lộ trình học',
+    '',
+    '1. Bài 1: Tổng quan về Java',
+    '2. Bài 2: Biến và kiểu dữ liệu',
+    '',
+    '## Bắt đầu thế nào',
+    'Hãy chọn một bài để bắt đầu.',
+  ].join('\n'));
+
+  assert.match(output, /## Lộ trình học/);
+  assert.match(output, /1\. \[Bài 1: Tổng quan về Java\]\(#ai-study-tip-1\)/);
+  assert.match(output, /2\. \[Bài 2: Biến và kiểu dữ liệu\]\(#ai-study-tip-2\)/);
+  assert.doesNotMatch(output, /\[Hãy chọn một bài để bắt đầu\.\]\(#ai-study-tip-/);
+});
+
 test('turns Bài tiếp theo into a clickable study-tip link', () => {
   const output = normalizeAiMarkdown([
     '## Bài tiếp theo',

@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo } from 'react';
 import AsyncState from '../../components/common/AsyncState';
+import FeatureErrorBoundary from '../../components/common/FeatureErrorBoundary';
 import { useStudentEnrollmentOptions } from '../../hooks/useStudentEnrollmentOptions';
 
 const studentPages = {
@@ -56,20 +57,22 @@ export default function StudentWorkspace({
   if (!Page) return null;
 
   return (
-    <Suspense fallback={<StudentPageFallback />}>
-      <Page
-        currentUser={currentUser}
-        studentId={studentId}
-        courseId={courseId}
-        setCourseId={setCourseId}
-        classId={classId}
-        isDarkMode={isDarkMode}
-        switchTab={switchTab}
-        triggerToast={triggerToast}
-        enrollment={enrollment}
-        onLogout={onLogout}
-        role="student"
-      />
-    </Suspense>
+    <FeatureErrorBoundary featureName="Trang sinh viên" key={activeTab}>
+      <Suspense fallback={<StudentPageFallback />}>
+        <Page
+          currentUser={currentUser}
+          studentId={studentId}
+          courseId={courseId}
+          setCourseId={setCourseId}
+          classId={classId}
+          isDarkMode={isDarkMode}
+          switchTab={switchTab}
+          triggerToast={triggerToast}
+          enrollment={enrollment}
+          onLogout={onLogout}
+          role="student"
+        />
+      </Suspense>
+    </FeatureErrorBoundary>
   );
 }

@@ -313,6 +313,37 @@ class LlmProviderChainTest {
         assertEquals(0, fallbackCalls.get());
     }
 
+    @Test
+    void preferringModelsTriesPreferredModelFirstThenFallsBack() throws Exception {
+        LlmProviderChain chain = new LlmProviderChain(List.of(
+                new LlmProviderChain.Provider("slow-first", "model-a", prompt -> {
+                    throw new RuntimeException("HTTP 429 rate limit exceeded");
+                }),
+                new LlmProviderChain.Provider("worker1", "model-b", prompt -> "worker1-answer"),
+                new LlmProviderChain.Provider("last", "model-c", prompt -> "last-answer")
+        ), Duration.ofSeconds(60), FIXED_CLOCK);
+
+        LlmProviderChain.Result result = chain.generatePreferringModels("question", List.of("model-b", "model-c"));
+
+        assertEquals("worker1-answer", result.text());
+        assertEquals("worker1", result.provider());
+    }
+
+    @Test
+    void preferringModelsFallsBackToChainOrderWhenPreferredFails() throws Exception {
+        LlmProviderChain chain = new LlmProviderChain(List.of(
+                new LlmProviderChain.Provider("first", "model-a", prompt -> "chain-answer"),
+                new LlmProviderChain.Provider("worker1", "model-b", prompt -> {
+                    throw new RuntimeException("HTTP 429 rate limit exceeded");
+                })
+        ), Duration.ofSeconds(60), FIXED_CLOCK);
+
+        LlmProviderChain.Result result = chain.generatePreferringModels("question", List.of("model-b"));
+
+        assertEquals("chain-answer", result.text());
+        assertEquals("first", result.provider());
+    }
+
     private LlmProviderChain chain(LlmProviderChain.Provider... providers) {
         return new LlmProviderChain(List.of(providers), Duration.ofSeconds(60), FIXED_CLOCK);
     }

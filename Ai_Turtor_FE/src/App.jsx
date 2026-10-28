@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Outlet } from 'react-router-dom';
+import LogRocket from 'logrocket';
 import { useAppNavigation } from './app/useAppNavigation';
 import { getHomeRouteForRole } from './app/routes';
 import Toast from './components/Toast';
@@ -48,17 +49,27 @@ function App() {
       navigate(getHomeRouteForRole(accountRole), { replace: true });
     }
     authIdentityRef.current = identity;
-  }, [auth.currentUser?.originalRole, auth.currentUser?.role, auth.currentUserId, navigate]);
+
+    if (identity && auth.currentUserId) {
+      LogRocket.identify(auth.currentUserId, {
+        name: auth.currentUser?.fullName || auth.currentUser?.name || '',
+        email: auth.currentUser?.email || '',
+        role: accountRole,
+      });
+    }
+  }, [auth.currentUser?.email, auth.currentUser?.fullName, auth.currentUser?.name, auth.currentUser?.originalRole, auth.currentUser?.role, auth.currentUserId, navigate]);
 
   const handleLoginSuccess = (user) => {
     queryClient.clear();
     const { accountRole } = auth.completeLogin(user);
     navigation.setCourseId('');
     navigation.setClassId('');
+    LogRocket.track('Login', { role: accountRole });
     navigate(getHomeRouteForRole(accountRole), { replace: true });
   };
 
   const handleLogout = () => {
+    LogRocket.track('Logout');
     queryClient.clear();
     navigation.setCourseId('');
     navigation.setClassId('');

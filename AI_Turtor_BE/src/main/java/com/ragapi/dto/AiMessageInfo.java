@@ -33,6 +33,7 @@ public class AiMessageInfo {
     private Boolean understandingCorrect;
     private LocalDateTime understandingAnsweredAt;
     private UnderstandingCheckPayload understandingCheck;
+    private List<UnderstandingCheckAttempt> understandingCheckAttempts;
     private LocalDateTime createdAt;
 }
 

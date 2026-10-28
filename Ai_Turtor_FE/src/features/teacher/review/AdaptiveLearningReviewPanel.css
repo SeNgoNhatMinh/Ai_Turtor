@@ -1,0 +1,235 @@
+.adaptive-review-panel {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+  color: #17233d;
+}
+.adaptive-review-panel__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 22px 24px;
+  border: 1px solid #dbe5f2;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #fff 0%, #f5f8ff 100%);
+}
+.adaptive-review-panel__header h2 { margin: 6px 0; font-size: 1.5rem; }
+.adaptive-review-panel__header p { margin: 0; max-width: 760px; color: #64748b; line-height: 1.55; }
+.adaptive-review-eyebrow {
+  display: inline-flex; align-items: center; gap: 7px;
+  color: #6558f5; font-size: .7rem; font-weight: 800; letter-spacing: .08em;
+}
+.adaptive-review-stats {
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px;
+}
+.adaptive-review-stats > div {
+  display: grid; grid-template-columns: 38px 1fr; grid-template-rows: auto auto;
+  gap: 2px 10px; align-items: center; padding: 15px;
+  border: 1px solid #e0e8f3; border-radius: 14px; background: #fff;
+}
+.adaptive-review-stats > div > span {
+  grid-row: 1 / 3; display: grid; place-items: center; width: 38px; height: 38px;
+  border-radius: 12px; color: #6558f5; background: #efedff;
+}
+.adaptive-review-stats > div > span.is-pending { color: #b77905; background: #fff5d9; }
+.adaptive-review-stats > div > span.is-approved { color: #059669; background: #dff9ed; }
+.adaptive-review-stats > div > span.is-rejected { color: #dc4545; background: #ffe8e8; }
+.adaptive-review-stats strong { font-size: 1.35rem; line-height: 1.2; }
+.adaptive-review-stats small { color: #64748b; font-size: .76rem; }
+.adaptive-review-layout {
+  display: grid; grid-template-columns: minmax(280px, .82fr) minmax(0, 1.6fr);
+  gap: 14px; align-items: start;
+}
+.adaptive-course-summary {
+  border: 1px solid #dfe7f2; border-radius: 16px; background: #fff; padding: 16px;
+  display: grid; gap: 12px; min-width: 0;
+}
+.adaptive-course-summary h4 { display: flex; align-items: center; gap: 6px; margin: 0; }
+.adaptive-course-summary h5 { margin: 0 0 6px; font-size: .85rem; }
+.adaptive-course-summary__stats {
+  display: flex; flex-wrap: wrap; gap: 8px 18px;
+  padding: 10px 12px; border-radius: 12px; background: #f1f5f9; font-size: .85rem;
+}
+.adaptive-course-summary__text { margin: 0; line-height: 1.65; }
+.adaptive-course-summary__concepts p,
+.adaptive-course-summary__history p { margin: 4px 0; font-size: .88rem; }
+.app-container.dark .adaptive-course-summary { background: #111827; border-color: #344054; }
+.app-container.dark .adaptive-course-summary__stats { background: #1f2937; }
+
+.adaptive-review-layout--embedded { grid-template-columns: minmax(0, 1fr); }
+.adaptive-review-panel--embedded { gap: 0; }
+.adaptive-review-panel--embedded .adaptive-review-detail { border: 0; padding: 4px 0 0; background: transparent; }
+.adaptive-review-list, .adaptive-review-detail {
+  min-width: 0; border: 1px solid #dfe7f2; border-radius: 16px; background: #fff; padding: 16px;
+}
+.adaptive-review-list__toolbar {
+  display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 12px;
+}
+.adaptive-review-list__toolbar h3 { margin: 0; font-size: 1rem; }
+.adaptive-review-list__items { display: grid; gap: 8px; }
+.adaptive-review-list__item {
+  display: flex; width: 100%; align-items: flex-start; gap: 10px; padding: 12px;
+  border: 1px solid #e5ebf4; border-radius: 12px; background: #fff; text-align: left; cursor: pointer;
+}
+.adaptive-review-list__item:hover { border-color: #aaa3ff; background: #fafaff; }
+.adaptive-review-list__item.is-selected { border-color: #8378ff; background: #f4f3ff; box-shadow: inset 3px 0 #6558f5; }
+.adaptive-review-list__avatar {
+  flex: 0 0 34px; display: grid; place-items: center; width: 34px; height: 34px;
+  border-radius: 50%; background: #eeecff; color: #5546d8; font-size: .72rem; font-weight: 800;
+}
+.adaptive-review-list__copy { display: grid; gap: 4px; min-width: 0; flex: 1; }
+.adaptive-review-list__copy strong { color: #1e293b; font-size: .85rem; }
+.adaptive-review-list__copy small, .adaptive-review-list__copy span { color: #64748b; font-size: .72rem; overflow-wrap: anywhere; }
+.adaptive-review-list__item .ant-tag { margin: 0; font-size: .65rem; }
+.adaptive-review-detail { display: grid; gap: 16px; }
+.adaptive-review-detail__student { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.adaptive-review-detail__student h3 { margin: 5px 0 2px; font-size: 1.15rem; }
+.adaptive-review-detail__student p { margin: 0; color: #64748b; font-size: .82rem; }
+.adaptive-review-score {
+  display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 18px; align-items: center;
+  padding: 18px; border: 1px solid #e4e8f8; border-radius: 15px; background: #fbfcff;
+}
+.adaptive-review-score__overall { display: grid; justify-items: center; gap: 6px; text-align: center; }
+.adaptive-review-score__overall strong { font-size: .85rem; }
+.adaptive-review-score__overall small { max-width: 140px; color: #7c879b; font-size: .68rem; line-height: 1.4; }
+.adaptive-review-score__metrics { display: grid; gap: 12px; }
+.adaptive-review-metric__label { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 3px; font-size: .78rem; }
+.adaptive-review-metric__label span { color: #475569; }
+.adaptive-review-metric__label strong { color: #25314b; font-size: .78rem; }
+.adaptive-review-metric .ant-progress { line-height: 1; }
+.adaptive-review-summary { padding: 16px; border: 1px solid #e5eaf4; border-radius: 14px; }
+.adaptive-review-summary h4, .adaptive-review-logs h4, .adaptive-review-decision h4 { margin: 0 0 9px; font-size: .96rem; }
+.adaptive-review-summary p { margin: 0 0 12px; color: #475569; line-height: 1.6; }
+.adaptive-review-summary__columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-bottom: 12px; }
+.adaptive-review-summary__columns > div { padding: 12px; border-radius: 10px; background: #f7f9fc; }
+.adaptive-review-summary strong { font-size: .8rem; }
+.adaptive-review-summary ul { margin: 7px 0 0; padding-left: 18px; color: #526178; font-size: .82rem; line-height: 1.6; }
+.adaptive-review-levels { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.adaptive-review-levels > div { display: grid; gap: 5px; padding: 13px 15px; border-radius: 12px; background: #f4f7fb; }
+.adaptive-review-levels small { color: #64748b; font-size: .72rem; }
+.adaptive-review-levels strong { font-size: .9rem; }
+.adaptive-review-levels strong.is-suggested { color: #c56b0b; }
+.adaptive-review-logs { display: grid; gap: 8px; }
+.adaptive-review-section-heading { display: flex; justify-content: space-between; gap: 12px; }
+.adaptive-review-section-heading p { margin: -4px 0 0; color: #64748b; font-size: .76rem; }
+.adaptive-review-evidence { border: 1px solid #e2e9f3; border-radius: 11px; overflow: hidden; }
+.adaptive-review-evidence.is-wrong { border-color: #fecaca; }
+.adaptive-review-evidence > button {
+  display: flex; align-items: center; gap: 10px; width: 100%; padding: 11px 12px;
+  border: 0; background: #fff; text-align: left; cursor: pointer;
+}
+.adaptive-review-evidence > button:hover { background: #f8faff; }
+.adaptive-review-evidence.is-wrong > button { background: #fffafa; }
+.adaptive-review-evidence__dot { flex: 0 0 9px; width: 9px; height: 9px; border-radius: 50%; background: #6558f5; }
+.adaptive-review-evidence__dot.is-student { background: #f59e0b; }
+.adaptive-review-evidence__body { display: grid; gap: 3px; flex: 1; min-width: 0; }
+.adaptive-review-evidence__body strong { font-size: .8rem; }
+.adaptive-review-evidence__body small { color: #7b879b; font-size: .69rem; }
+.adaptive-review-evidence__preview { display: grid; gap: 3px; color: #536178; font-size: .76rem; overflow-wrap: anywhere; }
+.adaptive-review-evidence__preview em { color: #748198; font-size: .72rem; font-style: normal; }
+.adaptive-review-evidence svg { flex-shrink: 0; color: #94a3b8; transition: transform .15s; }
+.adaptive-review-evidence svg.is-expanded { transform: rotate(90deg); }
+.adaptive-review-evidence__detail { display: grid; gap: 9px; padding: 12px 14px; border-top: 1px solid #e7edf5; background: #f8faff; }
+.adaptive-review-evidence__detail p { margin: 0 0 8px; white-space: pre-wrap; overflow-wrap: anywhere; color: #334155; font-size: .82rem; line-height: 1.6; }
+.adaptive-review-evidence__detail small { color: #8490a3; font-size: .68rem; overflow-wrap: anywhere; }
+.adaptive-review-evidence__meta { display: flex; flex-wrap: wrap; gap: 8px; }
+.adaptive-review-evidence__meta > span { display: grid; gap: 2px; min-width: 120px; max-width: 100%; padding: 7px 9px; border: 1px solid #e3eaf3; border-radius: 8px; background: #fff; }
+.adaptive-review-evidence__meta small { color: #8490a3; font-size: .66rem; }
+.adaptive-review-evidence__meta strong { color: #334155; font-size: .74rem; overflow-wrap: anywhere; }
+.adaptive-review-evidence__assessment { padding: 10px 12px; border-left: 3px solid #6558f5; border-radius: 0 9px 9px 0; background: #f0efff; }
+.adaptive-review-evidence__assessment > strong { display: block; margin-bottom: 4px; color: #4c43c2; font-size: .76rem; }
+.adaptive-review-evidence__assessment p { margin: 0; color: #38415a; }
+.adaptive-review-evidence__options summary { margin-bottom: 7px; color: #536178; cursor: pointer; font-size: .76rem; font-weight: 700; }
+.adaptive-review-evidence__options p { padding-left: 8px; }
+.adaptive-review-decision { display: grid; gap: 12px; padding: 16px; border: 1px solid #dcd9ff; border-radius: 14px; background: #fbfaff; }
+.adaptive-review-decision__choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.adaptive-review-decision__choices label { display: grid; gap: 6px; color: #475569; font-size: .78rem; font-weight: 700; }
+@media (max-width: 1080px) {
+  .adaptive-review-layout { grid-template-columns: minmax(230px, .75fr) minmax(0, 1.25fr); }
+  .adaptive-review-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+/* ===== Dark mode — đồng bộ với trang admin (Ant Design darkAlgorithm) ===== */
+.app-container.dark .adaptive-review-panel { color: #f8fafc; }
+.app-container.dark .adaptive-review-panel__header {
+  border-color: #344054;
+  background: linear-gradient(135deg, #111827 0%, #182131 100%);
+}
+.app-container.dark .adaptive-review-panel__header p,
+.app-container.dark .adaptive-review-stats small,
+.app-container.dark .adaptive-review-list__copy small,
+.app-container.dark .adaptive-review-list__copy span,
+.app-container.dark .adaptive-review-detail__student p,
+.app-container.dark .adaptive-review-score__overall small,
+.app-container.dark .adaptive-review-section-heading p,
+.app-container.dark .adaptive-review-levels small { color: #94a3b8; }
+.app-container.dark .adaptive-review-eyebrow { color: #a5b4fc; }
+.app-container.dark .adaptive-review-stats > div,
+.app-container.dark .adaptive-review-list,
+.app-container.dark .adaptive-review-detail {
+  border-color: #344054;
+  background: #111827;
+}
+.app-container.dark .adaptive-review-stats > div > span { color: #a5b4fc; background: rgba(99, 102, 241, .18); }
+.app-container.dark .adaptive-review-stats > div > span.is-pending { color: #fbbf24; background: rgba(245, 158, 11, .16); }
+.app-container.dark .adaptive-review-stats > div > span.is-approved { color: #4ade80; background: rgba(34, 197, 94, .16); }
+.app-container.dark .adaptive-review-stats > div > span.is-rejected { color: #fca5a5; background: rgba(239, 68, 68, .16); }
+.app-container.dark .adaptive-review-list__item {
+  border-color: #344054;
+  background: #111827;
+}
+.app-container.dark .adaptive-review-list__item:hover { border-color: #6366f1; background: #182131; }
+.app-container.dark .adaptive-review-list__item.is-selected {
+  border-color: #818cf8;
+  background: #182131;
+  box-shadow: inset 3px 0 #818cf8;
+}
+.app-container.dark .adaptive-review-list__avatar { background: rgba(99, 102, 241, .2); color: #a5b4fc; }
+.app-container.dark .adaptive-review-list__copy strong { color: #f8fafc; }
+.app-container.dark .adaptive-review-score {
+  border-color: #344054;
+  background: #182131;
+}
+.app-container.dark .adaptive-review-summary { border-color: #344054; }
+.app-container.dark .adaptive-review-summary p,
+.app-container.dark .adaptive-review-summary ul,
+.app-container.dark .adaptive-review-metric__label span { color: #cbd5e1; }
+.app-container.dark .adaptive-review-metric__label strong { color: #f8fafc; }
+.app-container.dark .adaptive-review-summary__columns > div,
+.app-container.dark .adaptive-review-levels > div { background: #182131; }
+.app-container.dark .adaptive-review-levels strong.is-suggested { color: #fbbf24; }
+.app-container.dark .adaptive-review-evidence { border-color: #344054; }
+.app-container.dark .adaptive-review-evidence.is-wrong { border-color: #854545; }
+.app-container.dark .adaptive-review-evidence > button { background: #111827; color: #f8fafc; }
+.app-container.dark .adaptive-review-evidence > button:hover { background: #182131; }
+.app-container.dark .adaptive-review-evidence.is-wrong > button { background: #21191d; }
+.app-container.dark .adaptive-review-evidence__body small { color: #94a3b8; }
+.app-container.dark .adaptive-review-evidence__preview { color: #cbd5e1; }
+.app-container.dark .adaptive-review-evidence__preview em { color: #94a3b8; }
+.app-container.dark .adaptive-review-evidence__detail {
+  border-top-color: #344054;
+  background: #182131;
+}
+.app-container.dark .adaptive-review-evidence__detail p { color: #e2e8f0; }
+.app-container.dark .adaptive-review-evidence__detail small { color: #94a3b8; }
+.app-container.dark .adaptive-review-evidence__meta > span { border-color: #344054; background: #111827; }
+.app-container.dark .adaptive-review-evidence__meta small { color: #94a3b8; }
+.app-container.dark .adaptive-review-evidence__meta strong { color: #e2e8f0; }
+.app-container.dark .adaptive-review-evidence__assessment { background: #242341; }
+.app-container.dark .adaptive-review-evidence__assessment > strong { color: #b7afff; }
+.app-container.dark .adaptive-review-evidence__assessment p { color: #e2e8f0; }
+.app-container.dark .adaptive-review-evidence__options summary { color: #cbd5e1; }
+.app-container.dark .adaptive-review-decision {
+  border-color: #4c4a8a;
+  background: #151a2e;
+}
+.app-container.dark .adaptive-review-decision__choices label { color: #cbd5e1; }
+
+@media (max-width: 760px) {
+  .adaptive-review-panel__header { flex-direction: column; padding: 17px; }
+  .adaptive-review-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .adaptive-review-layout { grid-template-columns: minmax(0, 1fr); }
+  .adaptive-review-score { grid-template-columns: minmax(0, 1fr); }
+  .adaptive-review-score__overall small { max-width: none; }
+  .adaptive-review-summary__columns, .adaptive-review-levels, .adaptive-review-decision__choices { grid-template-columns: minmax(0, 1fr); }
+}

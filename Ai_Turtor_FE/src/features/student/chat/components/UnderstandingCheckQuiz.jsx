@@ -38,10 +38,10 @@ function hintText({ reviewer, locked, fromStudent, selectedKey, attemptId }) {
     return 'Sinh viên chưa trả lời. Chọn 1 lần để tự thử; kết quả và giải thích được khóa, không ghi đè bài làm của sinh viên.';
   }
   if (locked && !String(attemptId || '').trim()) {
-    return 'Đã khóa đáp án. Nếu chưa đúng, phần giảng lại hiện ngay bên dưới.';
+    return 'Đã khóa đáp án. AI Tutor sẽ giảng lại câu sai sau khi bạn hoàn thành quiz.';
   }
   if (locked) {
-    return 'Đã khóa đáp án. Giáo viên xem được kết quả này để gửi chỉ dẫn cho lần học sau.';
+    return 'Đã khóa đáp án. AI Tutor sẽ giảng lại các câu sai sau khi bạn hoàn thành toàn bộ quiz.';
   }
   return 'Chọn một lần. Kết quả đúng/sai và giải thích được giữ; không đổi được sau khi chọn.';
 }
@@ -110,6 +110,16 @@ function UnderstandingCheckQuiz({
           <strong>Kiểm tra hiểu</strong>
           <span>{hintText({ reviewer, locked, fromStudent, selectedKey, attemptId })}</span>
         </div>
+        {reviewer && (
+          <span className={`understanding-check__status ${fromStudent
+            ? (hasKey ? (isCorrect ? 'is-correct' : 'is-wrong') : 'is-answered')
+            : 'is-skipped'}`}
+          >
+            {fromStudent
+              ? (hasKey ? (isCorrect ? 'Sinh viên: Đúng' : 'Sinh viên: Sai') : 'Sinh viên đã trả lời')
+              : 'Sinh viên: Bỏ qua'}
+          </span>
+        )}
       </div>
       <p className="understanding-check__question">{quiz.question}</p>
       <div className="understanding-check__options">

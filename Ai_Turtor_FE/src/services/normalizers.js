@@ -46,6 +46,15 @@ const getMessageQuizAttempt = (message = {}) => ({
     ? message.understandingCorrect
     : null,
   understandingAnsweredAt: message.understandingAnsweredAt || null,
+  understandingCheckAttempts: (Array.isArray(message.understandingCheckAttempts)
+    ? message.understandingCheckAttempts : [])
+    .map((attempt) => ({
+      quizIndex: Number(attempt?.quizIndex ?? 0),
+      attemptId: String(attempt?.attemptId || '').trim(),
+      selectedKey: String(attempt?.selectedKey || '').trim(),
+      correct: typeof attempt?.correct === 'boolean' ? attempt.correct : null,
+      answeredAt: attempt?.answeredAt || null,
+    })),
 });
 
 const getMessageSourceEvidence = (message = {}) => asArray(

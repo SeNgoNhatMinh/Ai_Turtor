@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react';
 import { useMatch } from 'react-router-dom';
 import AsyncState from '../../components/common/AsyncState';
+import FeatureErrorBoundary from '../../components/common/FeatureErrorBoundary';
 
 const teacherPages = {
   'teacher-classes': lazy(() => import('../../features/teacher/classes/TeacherClassesPage')),
@@ -36,18 +37,20 @@ export default function TeacherWorkspace({
   if (!Page) return null;
 
   return (
-    <Suspense fallback={<TeacherPageFallback />}>
-      <Page
-        currentUser={currentUser}
-        teacherId={teacherId}
-        courseId={courseId}
-        setCourseId={setCourseId}
-        classId={classId}
-        setClassId={setClassId}
-        triggerToast={triggerToast}
-        switchTab={switchTab}
-        role="teacher"
-      />
-    </Suspense>
+    <FeatureErrorBoundary featureName="Trang giảng viên" key={activeTab}>
+      <Suspense fallback={<TeacherPageFallback />}>
+        <Page
+          currentUser={currentUser}
+          teacherId={teacherId}
+          courseId={courseId}
+          setCourseId={setCourseId}
+          classId={classId}
+          setClassId={setClassId}
+          triggerToast={triggerToast}
+          switchTab={switchTab}
+          role="teacher"
+        />
+      </Suspense>
+    </FeatureErrorBoundary>
   );
 }

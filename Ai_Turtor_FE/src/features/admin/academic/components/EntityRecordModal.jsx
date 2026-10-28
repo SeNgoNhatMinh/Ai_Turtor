@@ -60,8 +60,8 @@ function EntityRecordModal({
             <Form.Item name="semesterCode" label="Mã học kỳ">
               <Input disabled />
             </Form.Item>
-            <Form.Item name="name" label="Tên học kỳ" rules={[{ required: !isViewMode, message: 'Nhập tên học kỳ' }]}>
-              <Input />
+            <Form.Item name="name" label="Tên học kỳ" rules={[{ required: !isViewMode, message: 'Nhập tên học kỳ.' }, { max: 200, message: 'Tên học kỳ tối đa 200 ký tự.' }]}>
+              <Input maxLength={200} />
             </Form.Item>
             <Form.Item name="status" label="Trạng thái">
               <Select>
@@ -78,23 +78,14 @@ function EntityRecordModal({
             <Form.Item name="courseId" label="Mã môn học">
               <Input disabled />
             </Form.Item>
-            <Form.Item name="courseName" label="Tên môn học" rules={[{ required: !isViewMode, message: 'Nhập tên môn học' }]}>
-              <Input />
+            <Form.Item name="courseName" label="Tên môn học" rules={[{ required: !isViewMode, message: 'Nhập tên môn học.' }, { max: 200, message: 'Tên môn học tối đa 200 ký tự.' }]}>
+              <Input maxLength={200} />
             </Form.Item>
             <Form.Item
               className="syllabus-form-item"
               name="description"
               label="Syllabus chính thức"
-              extra="Mỗi dòng: Chủ đề: mô tả"
-              rules={[
-                {
-                  validator: (_, value) => (
-                    !value || String(value).split(/\r?\n/).some((line) => line.includes(':'))
-                      ? Promise.resolve()
-                      : Promise.reject(new Error('Syllabus cần có ít nhất một dòng "Chủ đề: mô tả"'))
-                  ),
-                },
-              ]}
+              extra="Nhập nội dung nhà trường cung cấp. Có thể dùng gạch đầu dòng hoặc đoạn văn; không bắt buộc dấu hai chấm."
             >
               <Input.TextArea rows={8} maxLength={20000} showCount />
             </Form.Item>
@@ -119,7 +110,7 @@ function EntityRecordModal({
             <Form.Item name="classId" label="Mã lớp">
               <Input disabled />
             </Form.Item>
-            <Form.Item name="teacherId" label="Giảng viên phụ trách" rules={[{ required: !isViewMode, message: 'Chọn giảng viên phụ trách lớp' }]}>
+            <Form.Item name="teacherId" label="Giảng viên phụ trách" rules={[{ required: !isViewMode, message: 'Chọn giảng viên phụ trách lớp.' }]}>
               <Select
                 showSearch
                 placeholder="Chọn giảng viên đang hoạt động"
@@ -186,8 +177,8 @@ function EntityRecordModal({
 
         {entityModal.type === 'material' && (
           <>
-            <Form.Item name="title" label="Tên học liệu" rules={[{ required: !isViewMode, message: 'Nhập tên học liệu' }]}>
-              <Input />
+            <Form.Item name="title" label="Tên học liệu" rules={[{ required: !isViewMode, message: 'Nhập tên học liệu.' }, { max: 200, message: 'Tên học liệu tối đa 200 ký tự.' }]}>
+              <Input maxLength={200} />
             </Form.Item>
             <Form.Item name="category" label="Danh mục">
               <Input placeholder="Không bắt buộc" />
@@ -197,23 +188,16 @@ function EntityRecordModal({
                 className="syllabus-form-item"
                 name="syllabusDescription"
                 label="Nội dung chính trong chương trình học (syllabus)"
-                extra="Syllabus dùng chung cho toàn môn học. AI Tutor sẽ hiển thị trực tiếp nội dung này; không cần tải lại hoặc lập chỉ mục lại tài liệu."
+                extra="Syllabus dùng chung cho toàn môn học. AI Tutor hiển thị trực tiếp; không bắt buộc định dạng 'Chủ đề: mô tả'."
                 rules={[
                   { required: !isViewMode, whitespace: true, message: 'Nhập syllabus chính thức của môn học' },
-                  {
-                    validator: (_, value) => (
-                      !value || String(value).split(/\r?\n/).some((line) => line.includes(':'))
-                        ? Promise.resolve()
-                        : Promise.reject(new Error('Syllabus cần có ít nhất một dòng "Chủ đề: mô tả"'))
-                    ),
-                  },
                 ]}
               >
                 <Input.TextArea
                   rows={10}
                   maxLength={20000}
                   showCount
-                  placeholder={'Cú pháp Python: Các quy tắc viết câu lệnh và biểu thức\nCấu trúc điều khiển: if/else, for và while'}
+                  placeholder={'- Cú pháp Python và kiểu dữ liệu\n- Cấu trúc điều khiển if/else, for và while'}
                 />
               </Form.Item>
             )}

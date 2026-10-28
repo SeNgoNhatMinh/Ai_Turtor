@@ -7,29 +7,45 @@ import com.ragapi.entity.AiConversation;
 import com.ragapi.entity.AiMessage;
 import com.ragapi.repository.AiConversationRepository;
 import com.ragapi.repository.AiMessageRepository;
+import com.ragapi.repository.ClassSectionRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.List;
 import java.util.Optional;
+
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class AiConversationServiceUnderstandingCheckTest {
 
     private AiConversationRepository conversationRepository;
     private AiMessageRepository messageRepository;
+    private CourseCurriculumOverviewService curriculumOverviewService;
     private AiConversationService service;
 
     @BeforeEach
     void setUp() {
         conversationRepository = mock(AiConversationRepository.class);
         messageRepository = mock(AiMessageRepository.class);
-        service = new AiConversationService(conversationRepository, messageRepository);
+        curriculumOverviewService = mock(CourseCurriculumOverviewService.class);
+        service = new AiConversationService(
+                conversationRepository,
+                messageRepository,
+                curriculumOverviewService,
+                mock(AdaptiveLearningReviewService.class),
+                mock(ClassSectionRepository.class),
+                mock(RealtimeEventService.class)
+        );
         when(conversationRepository.findByIdAndUserId("conversation-1", "student-1"))
                 .thenReturn(Optional.of(AiConversation.builder()
                         .id("conversation-1")
@@ -37,6 +53,29 @@ class AiConversationServiceUnderstandingCheckTest {
                         .build()));
         when(messageRepository.save(any(AiMessage.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
+    }
+
+    @Test
+    void openingWelcomeIsRefreshedToCurrentCurriculumOnRead() {
+        AiConversation conversation = AiConversation.builder()
+                .id("conversation-1").userId("student-1").courseId("CEA201").build();
+        when(conversationRepository.findByIdAndUserId("conversation-1", "student-1"))
+                .thenReturn(Optional.of(conversation));
+        AiMessage staleOpening = AiMessage.builder()
+                .id("opening-1").conversationId("conversation-1").userId("student-1")
+                .role("ASSISTANT").proactive(true)
+                .content("Lời chào cũ: đoạn syllabus thô, thiếu mục chủ đề")
+                .build();
+        when(messageRepository.findByConversationIdOrderByCreatedAtAsc("conversation-1"))
+                .thenReturn(List.of(staleOpening));
+        when(curriculumOverviewService.newChatWelcomeMarkdown("CEA201")).thenReturn("Lời chào mới theo curriculum");
+        when(messageRepository.findByConversationId(eq("conversation-1"), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(staleOpening)));
+
+        service.getMessages("conversation-1", "student-1", 0, 20);
+
+        assertEquals("Lời chào mới theo curriculum", staleOpening.getContent());
+        verify(messageRepository).save(staleOpening);
     }
 
     @Test
@@ -59,9 +98,55 @@ class AiConversationServiceUnderstandingCheckTest {
     }
 
     @Test
+    void recordsEachQuizItemSeparately() {
+        AiMessage message = AiMessage.builder()
+                .id("assistant-1")
+                .conversationId("conversation-1")
+                .userId("student-1")
+                .role("ASSISTANT")
+                .content("""
+                        ## Kiểm tra hiểu
+
+                        Q1.
+                        Câu một là gì?
+                        A. Một
+                        B. Hai
+                        Đáp án đúng: B
+                        Giải thích: Vì hai.
+
+                        Q2.
+                        Câu hai là gì?
+                        A. Một
+                        B. Hai
+                        Đáp án đúng: A
+                        Giải thích: Vì một.
+                        """)
+                .build();
+        when(messageRepository.findByIdAndConversationIdAndUserId(
+                "assistant-1", "conversation-1", "student-1"))
+                .thenReturn(Optional.of(message));
+
+        UnderstandingCheckResultResponse second = service.recordUnderstandingCheck(
+                "conversation-1", "assistant-1", "student-1", "B", 1);
+
+        assertEquals(1, second.getQuizIndex());
+        assertEquals("INCORRECT", second.getStatus());
+        assertEquals("B", second.getSelectedKey());
+        // Item 2 is stored on its own attempt; item 1 stays unanswered and the
+        // legacy singular fields (item 1) are untouched.
+        assertEquals(2, message.getUnderstandingCheckAttempts().size());
+        assertEquals(null, message.getUnderstandingCheckAttempts().get(0).getSelectedKey());
+        assertEquals("B", message.getUnderstandingCheckAttempts().get(1).getSelectedKey());
+        assertEquals(false, message.getUnderstandingCheckAttempts().get(1).getCorrect());
+        assertEquals(null, message.getUnderstandingSelectedKey());
+    }
+
+    @Test
     void buildsRemediationIntentFromTheOriginatingEvidence() {
         AiMessage message = understandingMessage();
         message.setUnderstandingAttemptId("attempt-1");
+        // A graded wrong answer always records the chosen option (B is correct).
+        message.setUnderstandingSelectedKey("A");
         message.setUnderstandingCorrect(false);
         message.setSourceEvidence(List.of(RagSourceEvidence.builder()
                 .materialId("material-1")

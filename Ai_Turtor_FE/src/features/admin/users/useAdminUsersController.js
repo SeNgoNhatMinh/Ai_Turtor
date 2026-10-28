@@ -5,6 +5,8 @@ import { adminUsersApi } from '../../../services/adminUsersApi';
 import { getUserFacingError } from '../../../services/apiClient';
 import { ACCOUNT_ROLES } from '../../../constants/roles';
 import { useDebouncedValue } from '../../../hooks/useDebouncedValue';
+import { useRealtimeEvent, useRealtimeReconnect } from '../../realtime/realtimeContext';
+import { REALTIME_EVENT_TYPES } from '../../realtime/realtimeEvents';
 
 const EMPTY_LIST = [];
 
@@ -53,7 +55,7 @@ export function useAdminUsersController({ triggerToast, handleAdminImport }) {
   useEffect(() => {
     const error = usersQuery.error || mentorsQuery.error || escalationsQuery.error;
     if (!error) return;
-    triggerToast(getUserFacingError(error, 'Không thể tải đầy đủ dữ liệu quản trị tài khoản.'));
+    triggerToast(getUserFacingError(error, 'Không thể tải đầy đủ dữ liệu quản trị tài khoản.'), 'error');
   }, [escalationsQuery.error, mentorsQuery.error, triggerToast, usersQuery.error]);
 
   const loadUsers = useCallback(async () => {
@@ -66,18 +68,28 @@ export function useAdminUsersController({ triggerToast, handleAdminImport }) {
   const deleteUser = async (userId) => {
     try {
       await adminUsersApi.deleteAdminUser(userId);
+      const deletedUser = usersList.find((user) => String(user.id) === String(userId));
+      const deletedEmail = String(deletedUser?.email || '').trim().toLowerCase();
       queryClient.setQueriesData({ queryKey: ['admin', 'users'] }, (current) => (
         current && Array.isArray(current.users)
           ? {
             ...current,
-            users: current.users.filter((user) => user.id !== userId),
+            users: current.users.filter((user) => String(user.id) !== String(userId)),
             totalElements: Math.max(0, Number(current.totalElements || 0) - 1),
           }
           : current
       ));
+      queryClient.setQueryData(queryKeys.adminMentors(), (current) => (
+        Array.isArray(current)
+          ? current.filter((mentor) => (
+            String(mentor.id) !== String(userId)
+            && (!deletedEmail || String(mentor.email || '').trim().toLowerCase() !== deletedEmail)
+          ))
+          : current
+      ));
       triggerToast('Đã xóa tài khoản.');
     } catch (error) {
-      triggerToast(getUserFacingError(error, 'Không thể xóa tài khoản.'));
+      triggerToast(getUserFacingError(error, 'Không thể xóa tài khoản.'), 'error');
     }
   };
 
@@ -90,7 +102,7 @@ export function useAdminUsersController({ triggerToast, handleAdminImport }) {
       triggerToast('Đã cập nhật tài khoản.');
       return true;
     } catch (error) {
-      triggerToast(getUserFacingError(error, 'Không thể cập nhật tài khoản.'));
+      triggerToast(getUserFacingError(error, 'Không thể cập nhật tài khoản.'), 'error');
       return false;
     }
   };
@@ -103,7 +115,7 @@ export function useAdminUsersController({ triggerToast, handleAdminImport }) {
       ));
       triggerToast('Đã xóa hồ sơ giảng viên.');
     } catch (error) {
-      triggerToast(getUserFacingError(error, 'Không thể xóa hồ sơ giảng viên.'));
+      triggerToast(getUserFacingError(error, 'Không thể xóa hồ sơ giảng viên.'), 'error');
     }
   };
 
@@ -117,7 +129,7 @@ export function useAdminUsersController({ triggerToast, handleAdminImport }) {
       ));
       triggerToast('Đã cập nhật trạng thái giảng viên.');
     } catch (error) {
-      triggerToast(getUserFacingError(error, 'Không thể cập nhật trạng thái giảng viên.'));
+      triggerToast(getUserFacingError(error, 'Không thể cập nhật trạng thái giảng viên.'), 'error');
     }
   };
 
@@ -159,7 +171,7 @@ export function useAdminUsersController({ triggerToast, handleAdminImport }) {
       ));
       triggerToast(response?.message || 'Đã cập nhật vai trò. Giảng viên cần đăng nhập lại.');
     } catch (error) {
-      triggerToast(getUserFacingError(error, 'Không thể cập nhật vai trò giảng viên.'));
+      triggerToast(getUserFacingError(error, 'Không thể cập nhật vai trò giảng viên.'), 'error');
     } finally {
       setUpdatingTeacherRoleId('');
     }
@@ -173,9 +185,19 @@ export function useAdminUsersController({ triggerToast, handleAdminImport }) {
       ));
       triggerToast('Đã xóa yêu cầu hỗ trợ.');
     } catch (error) {
-      triggerToast(getUserFacingError(error, 'Không thể xóa yêu cầu hỗ trợ.'));
+      triggerToast(getUserFacingError(error, 'Không thể xóa yêu cầu hỗ trợ.'), 'error');
     }
   };
+
+  const invalidateAllUsers = useCallback(() => {
+    loadUsers();
+    loadMentors();
+    loadEscalations();
+  }, [loadEscalations, loadMentors, loadUsers]);
+
+  useRealtimeEvent(REALTIME_EVENT_TYPES.adminUser, invalidateAllUsers);
+  useRealtimeEvent(REALTIME_EVENT_TYPES.supportEscalation, loadEscalations);
+  useRealtimeReconnect(invalidateAllUsers);
 
   const importMentors = (file) => {
     Promise.resolve(handleAdminImport?.(file))
@@ -186,7 +208,7 @@ export function useAdminUsersController({ triggerToast, handleAdminImport }) {
           queryClient.invalidateQueries({ queryKey: ['admin', 'users'] }),
         ]);
       })
-      .catch((error) => triggerToast(getUserFacingError(error, 'Không thể import giảng viên.')));
+      .catch((error) => triggerToast(getUserFacingError(error, 'Không thể import giảng viên.'), 'error'));
     return false;
   };
 

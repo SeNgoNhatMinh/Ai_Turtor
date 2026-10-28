@@ -3,6 +3,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../../../../app/queryKeys';
 import { adminAiLogsApi } from '../../../../services/adminAiLogsApi';
 import { getUserFacingError } from '../../../../services/apiClient';
+import { useRealtimeEvent } from '../../../realtime/realtimeContext';
+import { REALTIME_EVENT_TYPES } from '../../../realtime/realtimeEvents';
 
 const EMPTY_LIST = [];
 
@@ -28,6 +30,7 @@ export function useAdminAiLogs(section = 'history') {
   const [filters, setFilters] = useState(() => buildLogFilters());
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(20);
+  const [autoRefresh, setAutoRefresh] = useState(true);
   const [providerNotice, setProviderNotice] = useState('');
   const [providerMutationError, setProviderMutationError] = useState('');
 
@@ -35,12 +38,14 @@ export function useAdminAiLogs(section = 'history') {
     queryKey: queryKeys.adminAiLogs({ ...filters, page, size: pageSize }),
     queryFn: ({ signal }) => adminAiLogsApi.getLogs({ ...filters, page, size: pageSize }, { signal }),
     enabled: section === 'history',
-    staleTime: 15_000,
+    staleTime: 0,
+    refetchInterval: section === 'history' && autoRefresh ? 15_000 : false,
+    refetchIntervalInBackground: false,
   });
   const providerConfigsQuery = useQuery({
     queryKey: queryKeys.adminLlmProviders(),
     queryFn: ({ signal }) => adminAiLogsApi.getProviders({ signal }),
-    enabled: section === 'providers',
+    enabled: section === 'providers' || section === 'runtime',
     staleTime: 30_000,
   });
   const providerStatsQuery = useQuery({
@@ -48,6 +53,12 @@ export function useAdminAiLogs(section = 'history') {
     queryFn: ({ signal }) => adminAiLogsApi.getProviderStats({ signal }),
     enabled: section === 'runtime',
     staleTime: 15_000,
+  });
+
+  // A freshly persisted AI answer invalidates every log filter variant so
+  // the table updates instantly; the periodic auto-refresh stays as fallback.
+  useRealtimeEvent(REALTIME_EVENT_TYPES.aiRequestLog, () => {
+    queryClient.invalidateQueries({ queryKey: ['admin', 'ai-logs'] });
   });
 
   const providerMutation = useMutation({
@@ -69,6 +80,8 @@ export function useAdminAiLogs(section = 'history') {
     setPage(0);
     setFilters(nextFilters);
   }, [filters, logsQuery]);
+
+  const refreshLogs = useCallback(() => logsQuery.refetch(), [logsQuery]);
 
   const refreshAll = useCallback(async () => {
     setProviderMutationError('');
@@ -146,6 +159,8 @@ export function useAdminAiLogs(section = 'history') {
       ? providerStatsQuery.data.providers
       : EMPTY_LIST,
     loading: logsQuery.isPending || logsQuery.isFetching,
+    autoRefresh,
+    setAutoRefresh,
     providerConfigLoading: providerConfigsQuery.isPending || providerConfigsQuery.isFetching,
     providerLoading: providerStatsQuery.isPending || providerStatsQuery.isFetching,
     providerMutationKey: providerMutation.isPending
@@ -177,6 +192,7 @@ export function useAdminAiLogs(section = 'history') {
       },
     },
     refreshAll,
+    refreshLogs,
     updateProvider,
     setProviderEnabled,
     deleteProvider,

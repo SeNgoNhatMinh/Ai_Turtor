@@ -56,70 +56,427 @@
   font-weight: 750;
 }
 
-.teacher-tutoring-grid {
-  display: grid;
-  gap: 16px;
-  align-items: start;
-  grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
-}
+/* ---------- Toolbar: chọn lớp + tìm kiếm ---------- */
 
-.teacher-tutoring-card {
-  background: #fff;
+.tt-toolbar {
   border: 1px solid var(--tutor-border);
   border-radius: 18px;
   box-shadow: 0 8px 24px rgba(15, 45, 82, 0.05);
-  padding: 18px 18px 16px;
 }
 
-.teacher-tutoring-card h2 {
-  margin: 0 0 14px;
-  color: var(--tutor-navy);
-  font-size: 1.02rem;
-  font-weight: 750;
+.tt-toolbar__row {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
 }
 
-.teacher-directive-form {
-  display: grid;
-  gap: 12px;
-}
-
-.teacher-directive-field {
+.tt-field {
   display: grid;
   gap: 6px;
 }
 
-.teacher-directive-field span {
-  color: var(--tutor-muted);
-  font-size: 0.75rem;
+.tt-field > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #334155;
+  font-size: 0.78rem;
   font-weight: 700;
 }
 
-.teacher-directive-form input,
-.teacher-directive-form select,
-.teacher-directive-form textarea,
-.teacher-session-feed__header input {
-  width: 100%;
-  background: #f8fbff;
+.tt-field--class {
+  min-width: 260px;
+  flex: 0 1 320px;
+}
+
+.tt-field--search {
+  min-width: 240px;
+  flex: 1 1 280px;
+}
+
+.tt-toolbar__meta {
+  display: grid;
+  gap: 2px;
+  margin-left: auto;
+  padding-bottom: 4px;
+  text-align: right;
+}
+
+.tt-toolbar__meta strong {
+  color: var(--tutor-navy);
+  font-size: 1rem;
+}
+
+.tt-toolbar__meta span {
+  color: var(--tutor-muted);
+  font-size: 0.8rem;
+}
+
+.tt-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 28px;
   border: 1px solid var(--tutor-border);
-  border-radius: 12px;
+  border-radius: 18px;
+  color: var(--tutor-muted);
+}
+
+/* ---------- Lưới chọn lớp ---------- */
+
+.tt-class-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 14px;
+}
+
+.tt-class-card {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-height: 168px;
+  padding: 18px;
+  border: 1px solid var(--tutor-border);
+  border-radius: 18px;
+  background: linear-gradient(145deg, #ffffff, #f7faff);
   color: var(--tutor-ink);
   font: inherit;
-  padding: 0.7rem 0.85rem;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
 }
 
-.teacher-directive-form textarea {
-  min-height: 108px;
-  resize: vertical;
+.tt-class-card:hover {
+  transform: translateY(-2px);
+  border-color: #9db9dc;
+  box-shadow: 0 12px 24px rgba(15, 45, 82, 0.09);
 }
 
-.teacher-directive-form input:focus,
-.teacher-directive-form select:focus,
-.teacher-directive-form textarea:focus,
-.teacher-session-feed__header input:focus {
-  outline: none;
-  border-color: #93b4de;
-  box-shadow: 0 0 0 3px rgba(11, 59, 130, 0.08);
+.tt-class-card__course {
+  width: fit-content;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--tutor-navy-soft);
+  color: var(--tutor-navy);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
 }
+
+.tt-class-card strong {
+  font-size: 1.08rem;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.tt-class-card__meta {
+  color: var(--tutor-muted);
+  font-size: 0.78rem;
+}
+
+.tt-class-card__action {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: auto;
+  padding-top: 6px;
+  color: var(--tutor-navy);
+  font-size: 0.82rem;
+  font-weight: 750;
+}
+
+/* ---------- Layout chính: roster + cột chỉ dẫn ---------- */
+
+.tt-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  gap: 16px;
+  align-items: start;
+}
+
+.tt-roster,
+.tt-directive,
+.tt-side-note {
+  border: 1px solid var(--tutor-border);
+  border-radius: 18px;
+  box-shadow: 0 8px 24px rgba(15, 45, 82, 0.05);
+}
+
+.tt-card-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--tutor-navy);
+  font-size: 0.98rem;
+  font-weight: 750;
+}
+
+.tt-side {
+  display: grid;
+  gap: 16px;
+  position: sticky;
+  top: 16px;
+}
+
+/* ---------- Danh sách sinh viên ---------- */
+
+.tt-student-list {
+  display: grid;
+  gap: 10px;
+}
+
+.tt-student {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--tutor-border);
+  border-radius: 16px;
+  background: #ffffff;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.tt-student:hover {
+  border-color: #c5d6ea;
+  box-shadow: 0 8px 18px rgba(15, 45, 82, 0.06);
+}
+
+.tt-student__main {
+  display: flex;
+  gap: 12px;
+  min-width: 0;
+}
+
+.tt-avatar {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: var(--tutor-navy-soft);
+  color: var(--tutor-navy);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.tt-student__copy {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.tt-student__name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.tt-student__name-row strong {
+  color: var(--tutor-ink);
+  font-size: 0.95rem;
+}
+
+.tt-student__email {
+  color: var(--tutor-muted);
+  font-size: 0.78rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tt-student__activity {
+  color: #475569;
+  font-size: 0.8rem;
+}
+
+.tt-student__topics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.tt-chip {
+  max-width: 220px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: #eef6ff;
+  color: #1d4ed8;
+  font-size: 0.72rem;
+  font-weight: 650;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tt-chip--weak {
+  background: rgba(239, 68, 68, 0.09);
+  color: #b91c1c;
+}
+
+.tt-chip--more {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.tt-student__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.tt-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--tutor-border);
+  color: var(--tutor-muted);
+  font-size: 0.82rem;
+}
+
+.tt-pagination > div {
+  display: flex;
+  gap: 8px;
+}
+
+/* ---------- Form chỉ dẫn ---------- */
+
+.tt-form {
+  display: grid;
+  gap: 12px;
+}
+
+.tt-field__hint {
+  color: var(--tutor-muted);
+  font-size: 0.76rem;
+  line-height: 1.5;
+}
+
+.tt-directive-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--tutor-border);
+}
+
+.tt-directive-list h3 {
+  margin: 0;
+  color: var(--tutor-navy);
+  font-size: 0.86rem;
+  font-weight: 750;
+}
+
+.tt-directive-list__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+/* The applied-directives box never grows the page: it scrolls internally. */
+.tt-directive-scroll {
+  display: grid;
+  gap: 10px;
+  max-height: 480px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 4px;
+  scrollbar-width: thin;
+}
+
+.tt-directive-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.tt-directive-scroll::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: var(--tutor-border);
+}
+
+.tt-directive-item__clamp {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.tt-directive-item__actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.tt-overview__more {
+  margin: 12px 0 0;
+  color: var(--tutor-muted);
+  font-size: 0.84rem;
+  line-height: 1.55;
+}
+
+.tt-directive-empty {
+  margin: 0;
+  color: var(--tutor-muted);
+  font-size: 0.84rem;
+}
+
+.tt-directive-item {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--tutor-border);
+  border-radius: 14px;
+  background: #f8fbff;
+}
+
+.tt-directive-item__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.tt-directive-item p {
+  margin: 0;
+  color: var(--tutor-ink);
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+
+.tt-directive-item .ant-btn {
+  justify-self: start;
+}
+
+.tt-side-note__row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  color: #92400e;
+}
+
+.tt-side-note__row p {
+  margin: 0;
+  color: #475569;
+  font-size: 0.84rem;
+  line-height: 1.55;
+}
+
+.tt-side-note__row strong {
+  color: #92400e;
+}
+
+/* ---------- Nút dùng trong Drawer (giữ tương thích) ---------- */
 
 .teacher-tutoring-btn {
   display: inline-flex;
@@ -151,246 +508,16 @@
   opacity: 0.65;
 }
 
-.teacher-tutoring-btn.is-secondary,
-.teacher-tutoring-btn--ghost {
+.teacher-tutoring-btn.is-secondary {
   background: var(--tutor-navy-soft);
   color: var(--tutor-navy);
 }
 
-.teacher-tutoring-btn.is-secondary:hover,
-.teacher-tutoring-btn--ghost:hover {
+.teacher-tutoring-btn.is-secondary:hover {
   background: #dce8f6;
 }
 
-.teacher-tutoring-btn--danger {
-  background: rgba(239, 68, 68, 0.1);
-  color: #b91c1c;
-}
-
-.teacher-directive-form > .teacher-tutoring-btn {
-  width: 100%;
-  min-height: 42px;
-}
-
-.teacher-directive-list {
-  display: grid;
-  gap: 10px;
-  margin-top: 14px;
-}
-
-.teacher-directive-item {
-  display: grid;
-  gap: 8px;
-  padding: 12px 14px;
-  border: 1px solid var(--tutor-border);
-  border-radius: 14px;
-  background: #f8fbff;
-}
-
-.teacher-directive-item p {
-  margin: 0;
-  color: var(--tutor-ink);
-  font-size: 0.9rem;
-  line-height: 1.5;
-}
-
-.teacher-session-feed {
-  display: grid;
-  gap: 12px;
-  min-width: 0;
-}
-
-.teacher-session-feed__header {
-  display: grid;
-  gap: 8px;
-}
-
-.teacher-session-feed__hint,
-.teacher-tutoring-empty {
-  margin: 0;
-  color: var(--tutor-muted);
-  font-size: 0.86rem;
-}
-
-.teacher-roster-heading {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.teacher-roster-heading h2 {
-  margin: 0;
-}
-
-.teacher-tutoring-class-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-  gap: 12px;
-  margin-top: 6px;
-}
-
-.teacher-tutoring-class-card {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  align-content: start;
-  gap: 8px;
-  width: 100%;
-  min-width: 0;
-  min-height: 174px;
-  padding: 18px;
-  border: 1px solid var(--tutor-border);
-  border-radius: 16px;
-  background: linear-gradient(145deg, #fff, #f7faff);
-  color: var(--tutor-ink);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-  transition: border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
-}
-
-.teacher-tutoring-class-card:hover {
-  transform: translateY(-2px);
-  border-color: #9db9dc;
-  box-shadow: 0 10px 22px rgba(15, 45, 82, 0.08);
-}
-
-.teacher-tutoring-class-card__course {
-  width: fit-content;
-  padding: 4px 9px;
-  border-radius: 999px;
-  background: var(--tutor-navy-soft);
-  color: var(--tutor-navy);
-  font-size: 0.7rem;
-  font-weight: 800;
-}
-
-.teacher-tutoring-class-card strong {
-  overflow-wrap: anywhere;
-  font-size: 1.05rem;
-  line-height: 1.3;
-}
-
-.teacher-tutoring-class-card__meta {
-  color: var(--tutor-muted);
-  font-size: 0.78rem;
-  overflow-wrap: anywhere;
-}
-
-.teacher-tutoring-class-card__action {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  margin-top: 5px;
-  color: var(--tutor-navy);
-  font-size: 0.8rem;
-  font-weight: 750;
-}
-
-.teacher-roster-pagination {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding-top: 12px;
-  border-top: 1px solid var(--tutor-border);
-  color: var(--tutor-muted);
-  font-size: 0.82rem;
-}
-
-.teacher-roster-pagination > div {
-  display: flex;
-  gap: 8px;
-}
-
-.teacher-student-list {
-  display: grid;
-  gap: 18px;
-}
-
-.teacher-class-tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.teacher-class-tabs button {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 36px;
-  padding: 0 12px;
-  border: 1px solid var(--tutor-border, #dbe4ef);
-  border-radius: 999px;
-  background: #fff;
-  color: var(--tutor-ink, #13213a);
-  cursor: pointer;
-  font: inherit;
-  font-size: 0.82rem;
-  font-weight: 700;
-}
-
-.teacher-class-tabs button.is-active {
-  background: var(--tutor-navy, #0b3b82);
-  border-color: var(--tutor-navy, #0b3b82);
-  color: #fff;
-}
-
-.teacher-class-tabs em {
-  min-width: 1.4em;
-  font-style: normal;
-  font-size: 0.72rem;
-  font-weight: 800;
-  opacity: 0.78;
-}
-
-.teacher-class-group {
-  display: grid;
-  gap: 10px;
-}
-
-.teacher-class-group__header {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 2px 2px 0;
-}
-
-.teacher-class-group__header h3 {
-  margin: 0;
-  color: var(--tutor-navy, #0b3b82);
-  font-size: 0.92rem;
-  font-weight: 800;
-}
-
-.teacher-class-group__header span {
-  color: var(--tutor-muted, #64748b);
-  font-size: 0.78rem;
-  font-weight: 700;
-}
-
-.teacher-student-card {
-  display: grid;
-  gap: 10px;
-  min-width: 0;
-  padding: 14px 16px;
-  border: 1px solid var(--tutor-border);
-  border-radius: 16px;
-  background: #fff;
-}
-
-.teacher-student-card:hover {
-  border-color: #c5d6ea;
-  box-shadow: 0 8px 18px rgba(15, 45, 82, 0.06);
-}
-
-.teacher-student-card__identity {
-  display: grid;
-  grid-template-columns: 40px minmax(0, 1fr) auto;
-  gap: 12px;
-  align-items: center;
-}
+/* ---------- Drawer chi tiết sinh viên & hội thoại ---------- */
 
 .teacher-student-card__avatar {
   display: grid;
@@ -404,47 +531,9 @@
   font-weight: 800;
 }
 
-.teacher-student-card__copy {
-  min-width: 0;
-}
-
-.teacher-student-card__copy strong {
-  display: block;
-  overflow: hidden;
-  color: var(--tutor-ink);
-  font-size: 0.95rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.teacher-student-card__copy span {
-  display: block;
-  overflow: hidden;
-  color: var(--tutor-muted);
-  font-size: 0.78rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.teacher-student-status {
-  justify-self: end;
-  max-width: 220px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: var(--tutor-navy-soft);
-  color: var(--tutor-navy);
-  font-style: normal;
-  font-weight: 750;
-  text-align: right;
-}
-
-.teacher-student-status.is-idle {
-  background: #f1f5f9;
-  color: #64748b;
-}
-
 .teacher-topic-list span {
   color: var(--tutor-muted);
+  font-size: var(--teacher-list-label-size);
   font-weight: 800;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -466,15 +555,10 @@
   background: #f1f5f9;
   color: #334155;
   padding: 3px 9px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.teacher-student-status,
-.teacher-topic-list span,
-.teacher-topic-list li {
   font-size: var(--teacher-list-label-size);
   line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .teacher-topic-list.is-weak li {
@@ -489,10 +573,10 @@
   border-radius: 10px;
 }
 
-.teacher-session-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+.teacher-tutoring-empty {
+  margin: 0;
+  color: var(--tutor-muted);
+  font-size: 0.86rem;
 }
 
 .teacher-student-detail {
@@ -708,28 +792,332 @@
   white-space: nowrap;
 }
 
-@media (max-width: 980px) {
-  .teacher-tutoring-grid {
+/* ---------- Responsive ---------- */
+
+@media (max-width: 1100px) {
+  .tt-layout {
     grid-template-columns: 1fr;
   }
 
+  .tt-side {
+    position: static;
+  }
+}
+
+@media (max-width: 980px) {
   .teacher-tutoring-stats {
     min-width: 0;
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .teacher-student-status {
-    max-width: 140px;
+  .tt-toolbar__meta {
+    margin-left: 0;
+    text-align: left;
   }
 }
 
-@media (max-width: 560px) {
-  .teacher-roster-pagination {
+@media (max-width: 640px) {
+  .tt-student {
+    flex-direction: column;
+  }
+
+  .tt-student__actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .tt-pagination {
     align-items: flex-start;
     flex-direction: column;
   }
 
-  .teacher-tutoring-class-cards {
-    grid-template-columns: 1fr;
+  .tt-field--class,
+  .tt-field--search {
+    min-width: 0;
+    flex: 1 1 100%;
   }
+}
+
+/* ---------- Tổng quan tất cả lớp ---------- */
+
+.tt-overview {
+  display: grid;
+  gap: 16px;
+}
+
+.tt-overview__head h2 {
+  margin: 0 0 4px;
+  color: var(--tutor-navy);
+  font-size: 1.05rem;
+  font-weight: 750;
+}
+
+.tt-overview__head p {
+  margin: 0;
+  color: var(--tutor-muted);
+  font-size: 0.86rem;
+}
+
+.tt-overview__loading {
+  margin: 0;
+  color: var(--tutor-muted);
+  font-size: 0.84rem;
+  text-align: center;
+}
+
+/* Class picker: one compact card per class; students appear after opening. */
+.tt-class-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 18px;
+}
+
+.tt-class-card {
+  position: relative;
+  overflow: hidden;
+  transition: border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+}
+
+.tt-class-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 4px;
+  background: linear-gradient(90deg, var(--class-accent, #2563eb), transparent 85%);
+}
+
+.tt-class-card:hover {
+  border-color: #c5d6ea;
+  box-shadow: 0 14px 30px rgba(15, 45, 82, 0.12);
+  transform: translateY(-2px);
+}
+
+.tt-class-card .ant-card-body {
+  padding: 20px;
+}
+
+.tt-class-card__button {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+  padding: 2px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tt-class-card__button:focus-visible {
+  outline: 2px solid #f97316;
+  outline-offset: 4px;
+  border-radius: 10px;
+}
+
+.tt-class-card__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.tt-class-card__icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 13px;
+  background: var(--class-accent, #2563eb);
+  color: #ffffff;
+  box-shadow: 0 8px 16px rgba(15, 45, 82, 0.18);
+}
+
+.tt-class-card__open {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  background: #fff4ec;
+  color: #ea580c;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.tt-class-card__course-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.tt-class-card__name {
+  color: var(--tutor-navy);
+  font-size: 1.45rem;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+.tt-class-card__meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--tutor-ink);
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.tt-class-card__features {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--tutor-border);
+}
+
+.tt-class-card__features > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: #f1f6fd;
+  color: #33507c;
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+.app-container.dark .tt-class-card__features > span {
+  background: #182131;
+  color: #a9c3e8;
+}
+
+.app-container.dark .tt-class-card__open {
+  background: #2a1c10;
+  color: #fdba74;
+}
+
+.tt-class-section {
+  border: 1px solid var(--tutor-border);
+  border-radius: 18px;
+  box-shadow: 0 8px 24px rgba(15, 45, 82, 0.05);
+}
+
+.tt-class-section__course {
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--tutor-navy-soft);
+  color: var(--tutor-navy);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+/* ===== Dark mode — đồng bộ với trang admin (Ant Design darkAlgorithm) ===== */
+.app-container.dark .teacher-tutoring-page,
+body.theme-dark .teacher-transcript-drawer {
+  --tutor-navy: #93c5fd;
+  --tutor-navy-soft: #182131;
+  --tutor-border: #344054;
+  --tutor-muted: #94a3b8;
+  --tutor-ink: #f8fafc;
+}
+
+.app-container.dark .teacher-tutoring-page > .page-header {
+  background: linear-gradient(135deg, #111827 0%, #182131 100%);
+  box-shadow: none;
+}
+
+.app-container.dark .teacher-tutoring-stats > div {
+  border-color: #344054;
+  background: #111827;
+}
+
+.app-container.dark .tt-field > span { color: #cbd5e1; }
+
+.app-container.dark .tt-student {
+  background: #111827;
+}
+
+.app-container.dark .tt-student:hover {
+  border-color: #3b82f6;
+}
+
+.app-container.dark .tt-student__activity { color: #cbd5e1; }
+
+.app-container.dark .tt-chip {
+  background: rgba(59, 130, 246, 0.16);
+  color: #93c5fd;
+}
+
+.app-container.dark .tt-chip--weak {
+  background: rgba(239, 68, 68, 0.16);
+  color: #fca5a5;
+}
+
+.app-container.dark .tt-chip--more {
+  background: #1e293b;
+  color: #94a3b8;
+}
+
+.app-container.dark .tt-directive-item {
+  background: #182131;
+}
+
+.app-container.dark .tt-side-note__row,
+.app-container.dark .tt-side-note__row strong {
+  color: #fbbf24;
+}
+
+.app-container.dark .tt-side-note__row p { color: #cbd5e1; }
+
+.app-container.dark .teacher-detail-item,
+.app-container.dark .teacher-question-list li {
+  background: #111827;
+}
+
+.app-container.dark .teacher-topic-list li {
+  background: #1e293b;
+  color: #e2e8f0;
+}
+
+.app-container.dark .teacher-topic-list.is-weak li {
+  background: rgba(239, 68, 68, 0.16);
+  color: #fca5a5;
+}
+
+body.theme-dark .teacher-transcript-drawer .ant-drawer-body {
+  background: #090d14;
+}
+
+body.theme-dark .teacher-transcript-thread .understanding-check {
+  background: #111827;
+}
+
+body.theme-dark .teacher-transcript__empty,
+body.theme-dark .teacher-transcript__speaker {
+  color: #94a3b8;
+}
+
+/* Nút native trong Drawer — giống nút chính trang admin (role accent) */
+.teacher-tutoring-btn {
+  background: var(--role-accent, #c2410c);
+}
+
+.teacher-tutoring-btn:hover {
+  background: var(--role-accent-hover, #9a3412);
+}
+
+.app-container.dark .teacher-tutoring-btn.is-secondary,
+body.theme-dark .teacher-tutoring-btn.is-secondary {
+  background: #182131;
+  color: #93c5fd;
+}
+
+.app-container.dark .teacher-tutoring-btn.is-secondary:hover,
+body.theme-dark .teacher-tutoring-btn.is-secondary:hover {
+  background: #1e293b;
 }

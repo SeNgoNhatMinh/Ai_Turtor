@@ -1,10 +1,12 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../../../app/queryKeys';
 import { conversationApi } from '../../../services/conversationApi';
 import { getUserFacingError } from '../../../services/apiClient';
 import { asArray, normalizeSession, pairMessages } from '../../../services/normalizers';
 import { hasBrokenTextEncoding, repairMojibake } from '../../../utils/textEncoding';
+import { useRealtimeEvent, useRealtimeReconnect } from '../../realtime/realtimeContext';
+import { REALTIME_EVENT_TYPES } from '../../realtime/realtimeEvents';
 import {
   CHAT_TURN_LIMIT,
   getSessionQuestionCount,
@@ -87,6 +89,14 @@ export function useConversationSessions({
   const sessions = sessionsQuery.data || EMPTY_LIST;
   const messages = messagesQuery.data || EMPTY_LIST;
 
+  useRealtimeEvent(REALTIME_EVENT_TYPES.chatSession, () => {
+    if (userId && courseId) sessionsQuery.refetch();
+  });
+  useRealtimeReconnect(() => {
+    if (userId && courseId) sessionsQuery.refetch();
+    if (userId && activeSessionIdState) messagesQuery.refetch();
+  });
+
   const setSessions = useCallback((updater) => {
     queryClient.setQueryData(sessionsQueryKey, (current = []) => (
       typeof updater === 'function' ? updater(current) : updater
@@ -105,26 +115,39 @@ export function useConversationSessions({
     const previousSessionId = activeSessionIdRef.current;
     const nextSessionId = typeof value === 'function' ? value(previousSessionId) : value;
 
-    if (nextSessionId && previousSessionId !== nextSessionId) {
-      const previousKey = queryKeys.conversationMessages(previousSessionId, userId);
-      const nextKey = queryKeys.conversationMessages(nextSessionId, userId);
-      const previousMessages = queryClient.getQueryData(previousKey);
-      const nextMessages = queryClient.getQueryData(nextKey);
-      const hasPendingTurn = Array.isArray(previousMessages)
-        && previousMessages.some((message) => message?.pending);
-
-      if (hasPendingTurn && !Array.isArray(nextMessages)) {
-        queryClient.setQueryData(nextKey, previousMessages);
-        queryClient.setQueryData(
-          previousKey,
-          previousMessages.filter((message) => !message?.pending),
-        );
-      }
-    }
-
+    // Switching conversations must never move a pending turn along: a reply
+    // belongs to the conversation where its question was asked.
     activeSessionIdRef.current = nextSessionId || null;
     setActiveSessionIdState(nextSessionId || null);
+    // The new-chat screen caches its turns under the "none" key. Once a
+    // conversation is adopted or the student returns to an empty chat, that
+    // cache is stale and would resurface old turns (e.g. after deleting all
+    // history and coming back from the dashboard).
+    if (!nextSessionId || !previousSessionId) {
+      queryClient.removeQueries({
+        queryKey: queryKeys.conversationMessages(null, userId),
+        exact: true,
+      });
+    }
   }, [queryClient, userId]);
+
+  // Entering the chat always starts on a clean new-chat screen.
+  useEffect(() => {
+    queryClient.removeQueries({
+      queryKey: queryKeys.conversationMessages(null, userId),
+      exact: true,
+    });
+  }, [queryClient, userId, courseId]);
+
+  const setMessagesForConversation = useCallback((conversationId, updater) => {
+    if (!conversationId) return;
+    const key = queryKeys.conversationMessages(conversationId, userId);
+    queryClient.setQueryData(key, (current = []) => (
+      typeof updater === 'function' ? updater(current) : updater
+    ));
+  }, [queryClient, userId]);
+
+  const getActiveSessionId = useCallback(() => activeSessionIdRef.current, []);
 
   const resetChat = useCallback(() => {
     setActiveSessionId(null);
@@ -202,7 +225,10 @@ export function useConversationSessions({
         userQuestionCount: nextQuestionCount,
         maxTurnsReached: Boolean(maxTurnsReached ?? existing?.maxTurnsReached ?? nextQuestionCount >= CHAT_TURN_LIMIT),
       };
-      return sortSessionsByActivity([nextSession, ...list.filter((session) => session.id !== conversationId)]);
+      // Update in place: re-sorting on every activity made list items jump
+      // to the top while the student was reading another conversation.
+      if (!existing) return [nextSession, ...list];
+      return list.map((session) => (session.id === conversationId ? nextSession : session));
     });
   }, [activeSessionTitle, classId, courseId, setSessions]);
 
@@ -226,7 +252,7 @@ export function useConversationSessions({
       return true;
     } catch (error) {
       if (!options.silent) {
-        triggerToast(getUserFacingError(error, 'Không thể mở cuộc trò chuyện này.'));
+        triggerToast(getUserFacingError(error, 'Không thể mở cuộc trò chuyện này.'), 'error');
       }
       return false;
     }
@@ -255,6 +281,19 @@ export function useConversationSessions({
       triggerToast('Tài khoản chưa được ghi danh vào lớp. Vui lòng liên hệ Admin hoặc giáo viên.');
       return false;
     }
+    // Reuse an unused conversation instead of piling up empty ones.
+    const unusedSession = sessions.find((session) => (
+      getSessionQuestionCount(session) === 0 && !session.maxTurnsReached
+    ));
+    if (unusedSession) {
+      if (unusedSession.id === activeSessionIdRef.current) {
+        triggerToast('Bạn đang ở cuộc trò chuyện mới. Hãy đặt câu hỏi đầu tiên nhé.');
+        return false;
+      }
+      const opened = await handleSelectSession(unusedSession.id, unusedSession.title);
+      if (opened) triggerToast('Đã mở cuộc trò chuyện mới chưa dùng.');
+      return opened;
+    }
     try {
       return await runSessionMutation('create', async () => {
         const session = normalizeSession(await createMutation.mutateAsync());
@@ -266,14 +305,21 @@ export function useConversationSessions({
           session,
           ...(Array.isArray(current) ? current.filter((item) => item.id !== session.id) : []),
         ]));
-        queryClient.setQueryData(queryKeys.conversationMessages(session.id, userId), []);
+        // Load the BE-seeded syllabus + keyword welcome instead of an empty thread.
+        const seededMessages = await loadConversationMessages(session.id, userId, {
+          skipUnauthorizedRedirect: true,
+        });
+        queryClient.setQueryData(
+          queryKeys.conversationMessages(session.id, userId),
+          Array.isArray(seededMessages) ? seededMessages : [],
+        );
         triggerToast('Đã tạo cuộc trò chuyện mới.');
       });
     } catch (error) {
-      triggerToast(getUserFacingError(error, 'Không thể tạo cuộc trò chuyện mới.'));
+      triggerToast(getUserFacingError(error, 'Không thể tạo cuộc trò chuyện mới.'), 'error');
       return false;
     }
-  }, [classId, courseId, createMutation, queryClient, runSessionMutation, setActiveSessionId, setSessions, triggerToast, userId]);
+  }, [classId, courseId, createMutation, handleSelectSession, queryClient, runSessionMutation, sessions, setActiveSessionId, setSessions, triggerToast, userId]);
 
   const handleDeleteSession = useCallback(async (sessionId) => {
     if (!userId) {
@@ -302,7 +348,7 @@ export function useConversationSessions({
         triggerToast('Đã xóa cuộc trò chuyện.');
       });
     } catch (error) {
-      triggerToast(getUserFacingError(error, 'Không thể xóa cuộc trò chuyện.'));
+      triggerToast(getUserFacingError(error, 'Không thể xóa cuộc trò chuyện.'), 'error');
       return false;
     }
   }, [deleteMutation, queryClient, runSessionMutation, setActiveSessionId, setSessions, triggerToast, userId]);
@@ -322,7 +368,7 @@ export function useConversationSessions({
         triggerToast('Đã đổi tên cuộc trò chuyện.');
       });
     } catch (error) {
-      triggerToast(getUserFacingError(error, 'Không thể đổi tên cuộc trò chuyện.'));
+      triggerToast(getUserFacingError(error, 'Không thể đổi tên cuộc trò chuyện.'), 'error');
       return false;
     }
   }, [renameMutation, runSessionMutation, setSessions, triggerToast, userId]);
@@ -352,6 +398,8 @@ export function useConversationSessions({
     setActiveSessionId,
     setActiveSessionTitle,
     setMessages,
+    setMessagesForConversation,
+    getActiveSessionId,
     setTurnLimitNotice,
     bumpConversationActivity,
     dismissTurnLimitNotice: () => setTurnLimitNotice(null),

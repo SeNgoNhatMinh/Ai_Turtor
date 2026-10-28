@@ -43,6 +43,11 @@
   height: auto;
   min-height: 100%;
   min-width: 0;
+  animation: fadeInUp 0.3s ease both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .portal-section { animation: none; }
 }
 
 .page-header {

@@ -7,6 +7,9 @@ public interface CourseAnswerModelGateway {
 
     String generateQualityFallback(String prompt, String userMessage);
 
+    /** Worker 1 main-answer generation on its preferred model order. */
+    String generateWorker1(String prompt, String userMessage);
+
     String generateUtility(String prompt);
 
     boolean isOllamaOnlyActive();

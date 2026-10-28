@@ -136,4 +136,36 @@ export const teacherReviewApi = {
       body: JSON.stringify(payload),
     });
   },
+
+  async getAdaptiveStudentRoster(courseId, classId, options = {}) {
+    const params = new URLSearchParams({ courseId, classId });
+    const data = await request(`${API_BASE_URL}/teacher/ai-support/learning-reviews/roster?${params.toString()}`, {
+      signal: options.signal,
+    });
+    return asArray(data, 'students', 'items', 'content');
+  },
+
+  async getAdaptiveLearningReviews(courseId, classId, options = {}) {
+    const params = new URLSearchParams({ courseId, classId });
+    const data = await request(`${API_BASE_URL}/teacher/ai-support/learning-reviews?${params.toString()}`, {
+      signal: options.signal,
+    });
+    return asArray(data, 'reviews', 'items', 'content');
+  },
+
+  async getStudentCourseSummary(studentId, courseId, classId, options = {}) {
+    const params = new URLSearchParams({ courseId });
+    if (classId) params.set('classId', classId);
+    return request(`${API_BASE_URL}/teacher/ai-support/learning-reviews/students/${encodePath(studentId)}/course-summary?${params.toString()}`, {
+      signal: options.signal,
+    });
+  },
+
+  async decideAdaptiveLearningReview(reviewId, payload) {
+    return request(`${API_BASE_URL}/teacher/ai-support/learning-reviews/${encodePath(reviewId)}/decision`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  },
 };

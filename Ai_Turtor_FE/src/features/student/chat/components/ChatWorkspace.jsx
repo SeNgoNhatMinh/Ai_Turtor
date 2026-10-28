@@ -12,7 +12,6 @@ import ChatWorkspaceHeader from './ChatWorkspaceHeader';
 import PinnedMessagesBar from './PinnedMessagesBar';
 import { useAnswerFeedback } from '../useAnswerFeedback';
 import { usePinnedChatMessages } from '../usePinnedChatMessages';
-import { buildLessonChatPrompt, lessonSuggestionsForMessage } from '../../learning/studySuggestionPrompt';
 import { getUserFacingError } from '../../../../services/apiClient';
 import { ttsApi } from '../../../../services/ttsApi';
 import '../ChatWorkspace.css';
@@ -33,6 +32,7 @@ function ChatWorkspace({
   hasLoadedStudentEnrollments = true,
   hasStudentEnrollments = true,
   messages,
+  isMessagesLoading = false,
   chatInput,
   setChatInput,
   chatMode,
@@ -40,7 +40,6 @@ function ChatWorkspace({
   onSendQuery,
   onResendMessage,
   onStopQuery,
-  onPromptStarter,
   onLockUnderstandingAnswer,
   onAnswerAction,
   isAiLoading = false,
@@ -194,24 +193,6 @@ function ChatWorkspace({
   const ownLlmReady = ownLlmVersion >= 0 && Boolean(readStudentOwnLlm(userId));
   const platformLocked = dailyQuotaExhausted && !ownLlmReady;
   const isNearTurnLimit = questionCount >= 8 && !dailyQuotaExhausted;
-  const suggestedTopics = tutorSession?.suggestedTopics;
-  const composerTopics = useMemo(() => {
-    const sessionTopics = (Array.isArray(suggestedTopics) ? suggestedTopics : [])
-      .map((topic) => ({
-        title: String(topic || '').trim(),
-        suggestionText: String(topic || '').trim(),
-        interactionType: 'GUIDED_LESSON',
-      }))
-      .filter((topic) => topic.title);
-    const parsedLessons = lessonSuggestionsForMessage(safeMessages[safeMessages.length - 1])
-      .filter((item) => String(item?.title || item?.suggestionText || '').trim());
-    const looksLikeLessons = (topics) => topics.some((topic) => (
-      /(?:bắt đầu\s+)?(?:bài|bai)\s+\d+/i.test(String(topic?.title || topic?.suggestionText || ''))
-    ));
-    if (parsedLessons.length > 0) return parsedLessons;
-    if (looksLikeLessons(sessionTopics)) return sessionTopics;
-    return sessionTopics;
-  }, [safeMessages, suggestedTopics]);
   return (
     <div className={`chat-workspace-dark${dailyQuotaExhausted ? ' chat-workspace-dark--own-llm' : ''}`} style={style}>
       <ChatWorkspaceHeader
@@ -248,13 +229,13 @@ function ChatWorkspace({
         materialSourceMap={materialSourceMap}
         mentorRequests={mentorRequests}
         messages={safeMessages}
+        isMessagesLoading={isMessagesLoading}
         messagesEndRef={messagesEndRef}
         onAnswerAction={onAnswerAction}
         onCreateQuizFromSuggestion={onCreateQuizFromSuggestion}
         onDownloadSource={onDownloadSource}
         onOpenMentorReview={onOpenMentorReview}
         onMentorRequestCreated={onMentorRequestCreated}
-        onPromptStarter={onPromptStarter}
         onLockUnderstandingAnswer={onLockUnderstandingAnswer}
         onResendMessage={onResendMessage}
         onStudySuggestion={onStudySuggestion}
@@ -270,26 +251,6 @@ function ChatWorkspace({
         voiceId={selectedTtsVoiceId}
         userId={userId}
       />
-
-      {tutorSession?.status !== 'COMPLETED' && !dailyQuotaExhausted && composerTopics.length > 0 && (
-        <div className="tutor-session-strip__topics tutor-session-strip__topics--composer" role="list">
-          {composerTopics.map((topic) => (
-            <button
-              type="button"
-              key={String(topic?.title || topic?.suggestionText || topic)}
-              onClick={() => {
-                if (onStudySuggestion) {
-                  onStudySuggestion(topic);
-                  return;
-                }
-                onPromptStarter?.(buildLessonChatPrompt(topic?.title || topic?.suggestionText || topic));
-              }}
-            >
-              {String(topic?.title || topic?.suggestionText || topic)}
-            </button>
-          ))}
-        </div>
-      )}
 
       <StudentOwnLlmDialog
         open={ownLlmOpen}

@@ -111,6 +111,19 @@ openrouter:
     enabled: ${OPENROUTER_FREE_ROUTER_ENABLED:true}
     model: ${OPENROUTER_FREE_ROUTER_MODEL:openrouter/free}
 
+ai:
+  worker:
+    worker-1:
+      # Worker 1 (main answer generator): GPT-OSS 120B on the dedicated Groq
+      # key first, then Nemotron Ultra free. The rest of the provider chain
+      # remains available afterwards as a safety net.
+      models: ${AI_WORKER_1_MODELS:openai/gpt-oss-120b,nvidia/nemotron-3-ultra-550b-a55b:free}
+  # Syllabus learning guide: extracted by LLM once when a syllabus is saved
+  # (course detail edit or any material upload), validated and stored in
+  # course_learning_guides. Course reads never call an LLM.
+  learning-guide:
+    extraction-enabled: ${AI_LEARNING_GUIDE_EXTRACTION_ENABLED:true}
+
 llm:
   # A failed provider is skipped briefly so concurrent classroom requests do not
   # repeatedly hit an exhausted quota. Authentication/request errors never fallback.
@@ -137,6 +150,13 @@ llm:
     models: ${GROQ_MODELS:openai/gpt-oss-120b,openai/gpt-oss-20b,qwen/qwen3.8-27b}
     disabled-models: ${GROQ_DISABLED_MODELS:}
     timeout-seconds: ${GROQ_TIMEOUT_SECONDS:15}
+  # Dedicated Groq account for Worker 1; key lives only in env (.env.deploy).
+  groq-worker1:
+    enabled: ${GROQ_WORKER1_ENABLED:true}
+    api-key: ${GROQ_WORKER1_API_KEY:}
+    base-url: ${GROQ_WORKER1_BASE_URL:https://api.groq.com/openai/v1}
+    model: ${GROQ_WORKER1_MODEL:openai/gpt-oss-120b}
+    timeout-seconds: ${GROQ_WORKER1_TIMEOUT_SECONDS:15}
   nvidia:
     enabled: ${NVIDIA_NIM_ENABLED:true}
     api-key: ${NVIDIA_NIM_API_KEY:}

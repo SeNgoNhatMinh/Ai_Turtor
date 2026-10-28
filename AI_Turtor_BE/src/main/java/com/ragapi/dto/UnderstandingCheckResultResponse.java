@@ -16,6 +16,7 @@ public class UnderstandingCheckResultResponse {
     private String status;
     private String attemptId;
     private String messageId;
+    private int quizIndex;
     private String selectedKey;
     private boolean correct;
     private String correctKey;

@@ -72,7 +72,7 @@ export default function TeacherGradingPage({ teacherId, courseId, classId, trigg
       anchor.remove();
       window.URL.revokeObjectURL(url);
     } catch (error) {
-      triggerToast?.(getUserFacingError(error, 'Không thể tải bài nộp này.'));
+      triggerToast?.(getUserFacingError(error, 'Không thể tải bài nộp này.'), 'error');
     }
   };
 

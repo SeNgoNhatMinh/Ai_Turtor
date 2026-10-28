@@ -16,6 +16,8 @@ import static com.ragapi.util.ValidationUtils.requireText;
 @RequiredArgsConstructor
 public class PedagogicalDirectiveService {
     public static final String DEFAULT_SUPPORT_LEVEL = "STANDARD";
+    /** teacherId recorded on directives the AI applies automatically. */
+    public static final String AI_ACTOR_ID = "AI_TUTOR";
     private static final Set<String> SUPPORT_LEVELS =
             Set.of("HIGH_SUPPORT", "STANDARD", "CHALLENGE");
 
@@ -67,6 +69,36 @@ public class PedagogicalDirectiveService {
         return repository.save(directive);
     }
 
+    /** Archives every active AI-applied directive for one student in a class. */
+    public void archiveAutoAppliedDirectives(String studentId, String courseId, String classId) {
+        if (studentId == null || studentId.isBlank() || courseId == null || courseId.isBlank()) return;
+        repository.findByStudentIdAndCourseIdAndStatusOrderByPriorityDescUpdatedAtDesc(
+                        studentId.trim(), courseId.trim(), "CONFIRMED")
+                .stream()
+                .filter(directive -> directive.getTeacherId() != null
+                        && AI_ACTOR_ID.equalsIgnoreCase(directive.getTeacherId().trim()))
+                .filter(directive -> classId == null || classId.isBlank()
+                        || directive.getClassId() == null
+                        || directive.getClassId().trim().equalsIgnoreCase(classId.trim()))
+                .forEach(directive -> {
+                    directive.setStatus("ARCHIVED");
+                    directive.setUpdatedAt(LocalDateTime.now());
+                    repository.save(directive);
+                });
+    }
+
+    /** Archives a directive regardless of owner (system/AI-applied directives). */
+    public void archiveIfPresent(String id) {
+        if (id == null || id.isBlank()) return;
+        repository.findById(id).ifPresent(directive -> {
+            if (!"ARCHIVED".equalsIgnoreCase(directive.getStatus())) {
+                directive.setStatus("ARCHIVED");
+                directive.setUpdatedAt(LocalDateTime.now());
+                repository.save(directive);
+            }
+        });
+    }
+
     public List<PedagogicalDirective> listForClass(String courseId, String classId) {
         String safeCourseId = requireText(courseId, "courseId");
         String safeClassId = requireText(classId, "classId");
@@ -102,7 +134,8 @@ public class PedagogicalDirectiveService {
                 .append("- ACTIVE SUPPORT LEVEL: ")
                 .append(supportLevel)
                 .append("\n")
-                .append("- This level was explicitly selected by a teacher. Apply it immediately; ")
+                .append("- This support level is active for the student (set by a teacher or applied ")
+                .append("automatically by the AI Tutor from learning evidence). Apply it immediately; ")
                 .append("the student does not need to answer incorrectly first.");
         directives.stream()
                 .limit(5)
@@ -115,8 +148,10 @@ public class PedagogicalDirectiveService {
     public record TutorGuidanceSnapshot(String supportLevel, String tutorContext) {}
 
     /**
-     * The support level is teacher-controlled. Learning memory and quiz mistakes must never
-     * promote a student automatically; without an active confirmed directive the level is STANDARD.
+     * The active support level comes from confirmed directives only. Those are
+     * created either by a teacher decision or automatically by the adaptive
+     * learning review (AI-applied, teacher-overridable); without an active
+     * confirmed directive the level is STANDARD.
      */
     public String resolveSupportLevel(String studentId, String courseId, String classId) {
         return resolveSupportLevel(activeDirectives(studentId, courseId, classId));
@@ -124,6 +159,17 @@ public class PedagogicalDirectiveService {
 
     public boolean hasActiveDirective(String studentId, String courseId, String classId) {
         return !activeDirectives(studentId, courseId, classId).isEmpty();
+    }
+
+    /**
+     * True when a human teacher (not the AI auto-apply actor) controls the
+     * student's level through an active directive. AI recommendations must
+     * never overwrite a teacher-controlled setting.
+     */
+    public boolean hasTeacherControlledDirective(String studentId, String courseId, String classId) {
+        return activeDirectives(studentId, courseId, classId).stream()
+                .anyMatch(directive -> directive.getTeacherId() != null
+                        && !AI_ACTOR_ID.equalsIgnoreCase(directive.getTeacherId().trim()));
     }
 
     private String resolveSupportLevel(List<PedagogicalDirective> directives) {

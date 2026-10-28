@@ -49,7 +49,7 @@ export default function StudentMessageBubble({
       window.clearTimeout(copiedTimerRef.current);
       copiedTimerRef.current = window.setTimeout(() => setCopied(false), 1600);
     } catch {
-      triggerToast?.('Không thể sao chép tin nhắn.');
+      triggerToast?.('Không thể sao chép tin nhắn.', 'error');
     }
   };
 

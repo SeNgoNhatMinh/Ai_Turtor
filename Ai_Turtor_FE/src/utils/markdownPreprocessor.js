@@ -653,7 +653,25 @@ function isStudyTipHeading(line) {
     || key === 'bai tiep theo'
     || key === 'bai ke tiep'
     || key === 'hoc chuyen sau'
-    || key === 'hoc tiep phan nay';
+    || key === 'hoc tiep phan nay'
+    || isCurriculumHeading(line);
+}
+
+/**
+ * The numbered lesson path ("## Lộ trình học": 1. Bài 1: ..., 2. Bài 2: ...)
+ * is a curriculum the student picks from, so its items must be clickable
+ * exactly like the "Học chuyên sâu" bullets — clicking one starts that
+ * lesson with the AI Tutor.
+ */
+function isCurriculumHeading(line) {
+  const body = String(line || '').trim().replace(/^#{1,6}\s*/, '');
+  const key = toVietnameseSectionKey(unwrapSimpleMarkdownDecoration(body));
+  return key.startsWith('lo trinh')
+    || key === 'chuong trinh hoc'
+    || key === 'danh sach bai hoc'
+    || key === 'cac bai hoc'
+    || key === 'ke hoach hoc tap'
+    || key === 'curriculum';
 }
 
 function isSourceHeading(line) {
@@ -709,7 +727,9 @@ function enhanceStudyTips(text) {
 
     if (isStudyTipHeading(line)) {
       inStudyTips = true;
-      inNextLesson = isNextLessonStudyHeading(line);
+      // Next-lesson and curriculum (Lộ trình học) items are numbered lessons:
+      // their labels get the same concatenated-tail cleanup before linking.
+      inNextLesson = isNextLessonStudyHeading(line) || isCurriculumHeading(line);
       output.push(line);
       continue;
     }

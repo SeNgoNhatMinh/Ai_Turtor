@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import LogRocket from 'logrocket';
 import { queryKeys } from '../../../app/queryKeys';
 import { quizApi } from '../../../services/quizApi';
 import { getUserFacingError } from '../../../services/apiClient';
@@ -13,6 +14,8 @@ import {
   sortQuizHistory,
 } from './practiceQuizUtils';
 import { useMutationLock } from '../../../hooks/useMutationLock';
+import { useRealtimeEvent, useRealtimeReconnect } from '../../realtime/realtimeContext';
+import { REALTIME_EVENT_TYPES } from '../../realtime/realtimeEvents';
 
 const EMPTY_LIST = [];
 
@@ -97,6 +100,25 @@ export function usePracticeQuizzes({
   const safeAssigned = useMemo(() => asQuizArray(assigned), [assigned]);
   const sortedHistory = useMemo(() => sortQuizHistory(history), [history]);
 
+  const restoredRef = useRef(false);
+  useEffect(() => {
+    if (restoredRef.current || activeQuiz || !sortedHistory.length) return;
+    const inProgress = sortedHistory.find((item) => normalizeQuizStatus(item.status) === 'GENERATED');
+    if (!inProgress) return;
+    restoredRef.current = true;
+    const quizId = inProgress.quizSessionId || inProgress.id;
+    if (!quizId) return;
+    queryClient.fetchQuery({
+      queryKey: queryKeys.quizDetail(quizId),
+      queryFn: ({ signal }) => quizApi.getQuiz(quizId, { signal }),
+      staleTime: 15_000,
+    }).then((fullQuiz) => {
+      if (normalizeQuizStatus(fullQuiz.status) === 'GENERATED') {
+        setActiveQuiz(fullQuiz);
+      }
+    }).catch(() => {});
+  }, [activeQuiz, queryClient, sortedHistory]);
+
   const quizStats = useMemo(() => {
     const inProgress = sortedHistory.filter((item) => normalizeQuizStatus(item.status) === 'GENERATED').length;
     const submitted = sortedHistory.filter((item) => normalizeQuizStatus(item.status) === 'SUBMITTED').length;
@@ -115,6 +137,17 @@ export function usePracticeQuizzes({
 
   const refetchHistory = historyQuery.refetch;
   const refetchAssigned = assignedQuery.refetch;
+
+  useRealtimeEvent(REALTIME_EVENT_TYPES.quizHistory, () => {
+    if (hasContext) { refetchHistory(); refetchAssigned(); }
+  });
+  useRealtimeEvent(REALTIME_EVENT_TYPES.quizAssignment, () => {
+    if (hasContext) refetchAssigned();
+  });
+  useRealtimeReconnect(() => {
+    if (hasContext) { refetchHistory(); refetchAssigned(); }
+  });
+
   const loadQuizzes = useCallback(async () => {
     if (!hasContext) return [];
     setLoadingKey('refresh');
@@ -218,9 +251,10 @@ export function usePracticeQuizzes({
         setActiveTab('result');
         await loadQuizzes();
         onAfterQuizSubmit?.();
+        LogRocket.track('QuizSubmitted', { courseId, classId });
         triggerToast?.('Đã nộp quiz.');
       } catch (requestError) {
-        triggerToast?.(getUserFacingError(requestError, 'Không thể nộp quiz.'));
+        triggerToast?.(getUserFacingError(requestError, 'Không thể nộp quiz.'), 'error');
       } finally {
         setSubmitting(false);
       }

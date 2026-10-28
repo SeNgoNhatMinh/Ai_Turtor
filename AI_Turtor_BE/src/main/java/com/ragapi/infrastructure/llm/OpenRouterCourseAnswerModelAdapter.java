@@ -23,6 +23,11 @@ public class OpenRouterCourseAnswerModelAdapter implements CourseAnswerModelGate
     }
 
     @Override
+    public String generateWorker1(String prompt, String userMessage) {
+        return chatService.generateWorker1Answer(prompt, userMessage);
+    }
+
+    @Override
     public String generateUtility(String prompt) {
         return chatService.generateUtility(prompt);
     }

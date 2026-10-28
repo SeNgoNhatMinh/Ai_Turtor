@@ -32,12 +32,12 @@ export default function GoldQaContributionForm({
     >
       <Row gutter={12}>
         <Col xs={24} md={16}>
-          <Form.Item label="Chương" name="chapter" rules={[{ required: true, whitespace: true }]}>
+          <Form.Item label="Chương" name="chapter" rules={[{ required: true, whitespace: true, message: 'Chương là bắt buộc.' }]}>
             <Input readOnly maxLength={255} title="Khóa theo việc Senior đã bắt đầu" />
           </Form.Item>
         </Col>
         <Col xs={24} md={8}>
-          <Form.Item label="Độ khó" name="difficulty" rules={[{ required: true }]}>
+          <Form.Item label="Độ khó" name="difficulty" rules={[{ required: true, message: 'Chọn độ khó.' }]}>
             <Select options={[
               { value: 'EASY', label: 'Dễ' },
               { value: 'MEDIUM', label: 'Trung bình' },
@@ -50,7 +50,7 @@ export default function GoldQaContributionForm({
         label="Câu hỏi (theo chương giáo trình)"
         name="question"
         extra="Viết câu sinh viên hay hỏi trong phạm vi chương — bám mục lục/sách đã hiển thị."
-        rules={[{ required: true, whitespace: true }]}
+        rules={[{ required: true, whitespace: true, message: 'Nhập câu hỏi.' }, { max: 5000, message: 'Câu hỏi tối đa 5000 ký tự.' }]}
       >
         <Input.TextArea rows={3} maxLength={5000} showCount placeholder="Ví dụ: Vòng đời Servlet gồm những giai đoạn nào?" />
       </Form.Item>
@@ -58,7 +58,7 @@ export default function GoldQaContributionForm({
         label="Tóm tắt ý chính từ giáo trình"
         name="goldAnswer"
         extra="Mỗi ý một dòng. Chỉ liệt kê ý đã có trong sách; giáo trình là chuẩn duy nhất."
-        rules={[{ required: true, whitespace: true }]}
+        rules={[{ required: true, whitespace: true, message: 'Nhập tóm tắt ý chính.' }, { max: 5000, message: 'Tóm tắt tối đa 5000 ký tự.' }]}
       >
         <Input.TextArea
           rows={6}

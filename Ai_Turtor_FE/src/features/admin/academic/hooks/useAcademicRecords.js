@@ -2,28 +2,21 @@ import { useCallback, useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../../../../app/queryKeys';
 import { adminAcademicApi } from '../../../../services/adminAcademicApi';
-import { adminUsersApi } from '../../../../services/adminUsersApi';
 import { getUserFacingError } from '../../../../services/apiClient';
 import { confirmDanger } from '../../../../components/common/confirmDialog';
+import {
+  useRealtimeEvent,
+  useRealtimeReconnect,
+} from '../../../realtime/realtimeContext';
+import { REALTIME_EVENT_TYPES } from '../../../realtime/realtimeEvents';
 import {
   getClassCode,
   getCourseCode,
   getEnrollmentId,
   getSemesterCode,
 } from '../adminAcademicUtils';
-import { getPersonDisplayName, getPersonEmail, getPersonId } from '../../../../utils/displayNames';
 
 const EMPTY_LIST = [];
-
-const normalizeEnrollments = (data) => (
-  Array.isArray(data)
-    ? data
-    : Array.isArray(data?.content)
-      ? data.content
-      : Array.isArray(data?.enrollments)
-        ? data.enrollments
-        : []
-);
 
 export function useAcademicRecords({
   triggerToast,
@@ -34,8 +27,6 @@ export function useAcademicRecords({
 }) {
   const queryClient = useQueryClient();
   const [selectedCourseId, setSelectedCourseId] = useState('');
-  const [enrollmentSearchId, setEnrollmentSearchId] = useState('');
-  const [submittedEnrollmentSearch, setSubmittedEnrollmentSearch] = useState('');
 
   const semestersQuery = useQuery({
     queryKey: queryKeys.adminSemesters(),
@@ -53,52 +44,11 @@ export function useAcademicRecords({
     enabled: Boolean(selectedCourseId),
     staleTime: 30_000,
   });
-  const enrollmentsQuery = useQuery({
-    queryKey: queryKeys.adminStudentEnrollments(submittedEnrollmentSearch),
-    queryFn: async ({ signal }) => {
-      const userPage = await adminUsersApi.getAdminUsers(
-        submittedEnrollmentSearch,
-        'STUDENT',
-        '',
-        { signal, page: 0, size: 20 },
-      );
-      const users = userPage.users || [];
-      const normalizedSearch = submittedEnrollmentSearch.toLowerCase();
-      const student = users.find((user) => {
-        const candidates = [
-          user.id,
-          user._id,
-          user.userId,
-          user.studentId,
-          user.studentCode,
-          user.email,
-          user.fullName,
-          user.name,
-        ].filter(Boolean).map((item) => String(item).toLowerCase());
-        return candidates.includes(normalizedSearch);
-      }) || users[0] || null;
-      const searchId = getPersonId(student) || submittedEnrollmentSearch;
-      const data = await adminAcademicApi.getStudentEnrollments(searchId, { signal });
-      return normalizeEnrollments(data).map((enrollment) => ({
-        ...enrollment,
-        studentName: enrollment.studentName || getPersonDisplayName(student, 'Sinh viên'),
-        studentEmail: enrollment.studentEmail || getPersonEmail(student),
-      }));
-    },
-    enabled: Boolean(submittedEnrollmentSearch),
-    staleTime: 15_000,
-  });
-
   useEffect(() => {
     const error = semestersQuery.error || coursesQuery.error || classSectionsQuery.error;
     if (!error) return;
-    triggerToast(getUserFacingError(error, 'Không thể tải đầy đủ dữ liệu học vụ.'));
+    triggerToast(getUserFacingError(error, 'Không thể tải đầy đủ dữ liệu học vụ.'), 'error');
   }, [classSectionsQuery.error, coursesQuery.error, semestersQuery.error, triggerToast]);
-
-  useEffect(() => {
-    if (!enrollmentsQuery.error) return;
-    triggerToast(getUserFacingError(enrollmentsQuery.error, 'Không thể tải dữ liệu ghi danh.'));
-  }, [enrollmentsQuery.error, triggerToast]);
 
   const loadSemesters = useCallback(() => queryClient.invalidateQueries({
     queryKey: queryKeys.adminSemesters(),
@@ -124,85 +74,70 @@ export function useAcademicRecords({
     setSelectedCourseId(courseId || '');
   }, []);
 
-  const loadStudentEnrollments = useCallback(async () => {
-    const rawSearch = String(enrollmentSearchId || '').trim();
-    if (!rawSearch) {
-      triggerToast('Nhập mã sinh viên, email hoặc mã tài khoản để tìm kiếm.');
-      return;
-    }
-    if (rawSearch === submittedEnrollmentSearch) {
-      const result = await enrollmentsQuery.refetch();
-      if (!result.error && result.data?.length === 0) {
-        triggerToast('Không tìm thấy ghi danh của sinh viên này.');
-      }
-      return;
-    }
-    setSubmittedEnrollmentSearch(rawSearch);
-  }, [enrollmentSearchId, enrollmentsQuery, submittedEnrollmentSearch, triggerToast]);
+  // Refreshes every admin enrollment list (by student, class and course).
+  const loadStudentEnrollments = useCallback(() => queryClient.invalidateQueries({
+    queryKey: ['admin', 'academic', 'enrollments'],
+  }), [queryClient]);
 
   const handleCreateSemester = async (values) => {
-    await adminAcademicApi.createSemester({ semesterCode: values.semesterCode, name: values.name, status: 'ACTIVE' });
-    triggerToast('Đã tạo học kỳ mới.');
-    formSemester.resetFields();
-    await loadSemesters();
+    try {
+      await adminAcademicApi.createSemester({ semesterCode: values.semesterCode, name: values.name, status: 'ACTIVE' });
+      triggerToast('Đã tạo học kỳ mới.');
+      formSemester.resetFields();
+      await loadSemesters();
+    } catch (error) {
+      triggerToast(getUserFacingError(error, 'Không thể tạo học kỳ.'), 'error');
+    }
   };
 
   const handleCreateCourse = async (values) => {
-    await adminAcademicApi.createCourse({
-      courseId: values.courseId,
-      courseName: values.courseName,
-      description: values.description,
-      credits: values.credits,
-      status: 'ACTIVE',
-    });
-    triggerToast('Đã tạo môn học mới.');
-    formCourse.resetFields();
-    await loadCourses();
+    try {
+      await adminAcademicApi.createCourse({
+        courseId: values.courseId,
+        courseName: values.courseName,
+        description: values.description,
+        credits: values.credits,
+        status: 'ACTIVE',
+      });
+      triggerToast('Đã tạo môn học mới.');
+      formCourse.resetFields();
+      await loadCourses();
+    } catch (error) {
+      triggerToast(getUserFacingError(error, 'Không thể tạo môn học.'), 'error');
+    }
   };
 
   const handleCreateClass = async (values) => {
-    await adminAcademicApi.createClassSection({
-      courseId: values.courseId,
-      classId: values.classCode,
-      teacherId: values.teacherId,
-      teacherName: values.teacherName,
-      teacherEmail: values.teacherEmail,
-      status: 'ACTIVE',
-    });
-    triggerToast('Đã tạo lớp học phần mới.');
-    formClass.resetFields();
-    if (selectedCourseId) await loadClassSections(selectedCourseId);
+    try {
+      await adminAcademicApi.createClassSection({
+        courseId: values.courseId,
+        classId: values.classCode,
+        teacherId: values.teacherId,
+        teacherName: values.teacherName,
+        teacherEmail: values.teacherEmail,
+        status: 'ACTIVE',
+      });
+      triggerToast('Đã tạo lớp học phần mới.');
+      formClass.resetFields();
+      if (selectedCourseId) await loadClassSections(selectedCourseId);
+    } catch (error) {
+      triggerToast(getUserFacingError(error, 'Không thể tạo lớp học phần.'), 'error');
+    }
   };
 
   const handleCreateEnrollment = async (values) => {
     try {
-      const userPage = await adminUsersApi.getAdminUsers(values.studentId, 'STUDENT', '', { page: 0, size: 20 });
-      const users = userPage.users || [];
-      const normalized = String(values.studentId || '').trim().toLowerCase();
-      const student = users.find((user) => [
-        user.id,
-        user._id,
-        user.userId,
-        user.studentId,
-        user.studentCode,
-        user.email,
-      ].filter(Boolean).some((item) => String(item).toLowerCase() === normalized)) || users[0] || null;
-      const resolvedStudentId = getPersonId(student) || values.studentId;
       await adminAcademicApi.createEnrollment({
-        studentId: resolvedStudentId,
-        studentName: student ? getPersonDisplayName(student, '') : undefined,
-        studentEmail: getPersonEmail(student) || undefined,
+        studentId: values.studentId,
         courseId: values.courseId,
         classId: values.classId,
         status: 'ACTIVE',
       });
       triggerToast('Đã ghi danh sinh viên vào lớp.');
       formEnroll.resetFields();
-      if (enrollmentSearchId === values.studentId || enrollmentSearchId === resolvedStudentId) {
-        await loadStudentEnrollments();
-      }
-    } catch {
-      triggerToast('Không thể ghi danh sinh viên.');
+      await loadStudentEnrollments();
+    } catch (error) {
+      triggerToast(getUserFacingError(error, 'Không thể ghi danh sinh viên.'), 'error');
     }
   };
 
@@ -218,7 +153,7 @@ export function useAcademicRecords({
           triggerToast('Đã xóa học kỳ.');
           await loadSemesters();
         } catch (error) {
-          triggerToast(getUserFacingError(error, 'Không thể xóa học kỳ.'));
+          triggerToast(getUserFacingError(error, 'Không thể xóa học kỳ.'), 'error');
         }
       },
     });
@@ -226,7 +161,7 @@ export function useAcademicRecords({
 
   const handleDeleteCourse = (record) => {
     const courseId = getCourseCode(record);
-    if (!courseId) return triggerToast('Môn học này thiếu mã định danh.');
+    if (!courseId) return triggerToast('Môn học này thiếu mã định danh.', 'error');
     confirmDanger({
       title: `Xóa toàn bộ môn ${courseId}?`,
       content: 'Tất cả lớp học phần, ghi danh, học liệu, bài tập, quiz và lịch sử học thuộc môn này sẽ bị xóa vĩnh viễn.',
@@ -239,7 +174,7 @@ export function useAcademicRecords({
           queryClient.removeQueries({ queryKey: queryKeys.adminClassSections(courseId), exact: true });
           if (selectedCourseId === courseId) setSelectedCourseId('');
         } catch (error) {
-          triggerToast(getUserFacingError(error, 'Không thể xóa môn học.'));
+          triggerToast(getUserFacingError(error, 'Không thể xóa môn học.'), 'error');
         }
       },
     });
@@ -248,7 +183,7 @@ export function useAcademicRecords({
   const handleDeleteClassSection = (record) => {
     const courseId = record.courseId || selectedCourseId;
     const classId = getClassCode(record);
-    if (!courseId || !classId) return triggerToast('Lớp học phần thiếu mã môn hoặc mã lớp.');
+    if (!courseId || !classId) return triggerToast('Lớp học phần thiếu mã môn hoặc mã lớp.', 'error');
     confirmDanger({
       title: 'Xóa lớp học phần?',
       content: `Lớp ${classId} của môn ${courseId} sẽ bị xóa.`,
@@ -258,11 +193,30 @@ export function useAcademicRecords({
           triggerToast('Đã xóa lớp học phần.');
           await loadClassSections(courseId);
         } catch (error) {
-          triggerToast(getUserFacingError(error, 'Không thể xóa lớp học phần.'));
+          triggerToast(getUserFacingError(error, 'Không thể xóa lớp học phần.'), 'error');
         }
       },
     });
   };
+
+  const invalidateAll = useCallback(() => {
+    loadSemesters();
+    loadCourses();
+    if (selectedCourseId) loadClassSections(selectedCourseId);
+    loadStudentEnrollments();
+  }, [loadClassSections, loadCourses, loadSemesters, loadStudentEnrollments, selectedCourseId]);
+
+  useRealtimeEvent(REALTIME_EVENT_TYPES.academicEntity, (event) => {
+    const type = event.type || '';
+    if (type.startsWith('SEMESTER_')) loadSemesters();
+    else if (type.startsWith('COURSE_')) loadCourses();
+    else if (type.startsWith('CLASS_SECTION_')) {
+      const eventCourseId = event.data?.courseId;
+      if (eventCourseId && selectedCourseId) loadClassSections(selectedCourseId);
+    } else if (type.startsWith('ENROLLMENT_')) loadStudentEnrollments();
+  });
+
+  useRealtimeReconnect(invalidateAll);
 
   const handleDeleteEnrollment = (record) => {
     const enrollmentId = getEnrollmentId(record);
@@ -270,7 +224,7 @@ export function useAcademicRecords({
     const classId = record.classId;
     const studentId = record.studentId || record.userId;
     if (!enrollmentId && (!courseId || !classId || !studentId)) {
-      return triggerToast('Bản ghi thiếu mã cần thiết để xóa ghi danh.');
+      return triggerToast('Bản ghi thiếu mã cần thiết để xóa ghi danh.', 'error');
     }
     confirmDanger({
       title: 'Xóa ghi danh?',
@@ -286,7 +240,7 @@ export function useAcademicRecords({
           triggerToast('Đã xóa sinh viên khỏi lớp.');
           await loadStudentEnrollments();
         } catch (error) {
-          triggerToast(getUserFacingError(error, 'Không thể xóa ghi danh.'));
+          triggerToast(getUserFacingError(error, 'Không thể xóa ghi danh.'), 'error');
         }
       },
     });
@@ -300,11 +254,6 @@ export function useAcademicRecords({
     academicLoading: Boolean(selectedCourseId)
       && (classSectionsQuery.isPending || classSectionsQuery.isFetching),
     referenceDataLoading: semestersQuery.isPending || coursesQuery.isPending,
-    enrollmentSearchId,
-    studentEnrollments: enrollmentsQuery.data || EMPTY_LIST,
-    enrollmentsLoading: Boolean(submittedEnrollmentSearch)
-      && (enrollmentsQuery.isPending || enrollmentsQuery.isFetching),
-    setEnrollmentSearchId,
     loadSemesters,
     loadCourses,
     loadClassSections,

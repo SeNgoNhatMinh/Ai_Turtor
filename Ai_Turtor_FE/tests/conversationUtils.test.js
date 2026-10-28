@@ -5,7 +5,6 @@ import {
   findCanonicalExchange,
   getSessionQuestionCount,
   groupSessionsByTime,
-  resolveCanonicalConversation,
   sortSessionsByActivity,
 } from '../src/features/student/chat/conversations/sessionUtils.js';
 import { normalizeSession, pairMessages } from '../src/services/normalizers.js';
@@ -48,84 +47,6 @@ test('sorts conversations by last activity and groups them', () => {
 
   assert.deepEqual(sortSessionsByActivity(sessions).map((item) => item.id), ['new', 'old']);
   assert.deepEqual(groupSessionsByTime(sessions).map((group) => group.label), ['Hôm nay', 'Hôm qua']);
-});
-
-test('reconciles a temporary n8n conversation id with the canonical REST session', () => {
-  const previous = [
-    { id: 'existing-session', lastMessageAt: '2026-07-22T10:00:00Z', messageCount: 2 },
-  ];
-  const canonical = {
-    id: '392152c5-ce32-4746-86e9-7a16ea6d21cc',
-    lastMessageAt: '2026-07-22T10:05:00Z',
-    messageCount: 2,
-  };
-
-  assert.equal(resolveCanonicalConversation({
-    responseConversationId: 'conversation-1784735431773',
-    previousSessionId: null,
-    sessionsBefore: previous,
-    sessionsAfter: [canonical, ...previous],
-  })?.id, canonical.id);
-});
-
-test('keeps the existing canonical session when n8n responds with that id', () => {
-  const session = {
-    id: 'canonical-session',
-    lastMessageAt: '2026-07-22T10:05:00Z',
-    messageCount: 4,
-  };
-
-  assert.equal(resolveCanonicalConversation({
-    responseConversationId: session.id,
-    previousSessionId: session.id,
-    sessionsBefore: [{ ...session, messageCount: 2 }],
-    sessionsAfter: [session],
-  })?.id, session.id);
-});
-
-test('keeps the current session when n8n returns a synthetic conversation id', () => {
-  const current = {
-    id: 'canonical-session',
-    lastMessageAt: '2026-07-22T10:05:00Z',
-    messageCount: 4,
-    userQuestionCount: 2,
-  };
-  const accidentalNew = {
-    id: 'accidental-new-session',
-    lastMessageAt: '2026-07-22T10:06:00Z',
-    messageCount: 2,
-    userQuestionCount: 1,
-  };
-
-  assert.equal(resolveCanonicalConversation({
-    responseConversationId: 'conversation-1784735431773',
-    previousSessionId: current.id,
-    sessionsBefore: [{ ...current, messageCount: 2, userQuestionCount: 1 }],
-    sessionsAfter: [accidentalNew, current],
-  })?.id, current.id);
-});
-
-test('switches to the continuation session after the turn limit', () => {
-  const previous = {
-    id: 'full-session',
-    lastMessageAt: '2026-07-22T10:05:00Z',
-    messageCount: 20,
-    userQuestionCount: 10,
-    maxTurnsReached: true,
-  };
-  const continuation = {
-    id: 'continuation-session',
-    lastMessageAt: '2026-07-22T10:06:00Z',
-    messageCount: 2,
-    userQuestionCount: 1,
-  };
-
-  assert.equal(resolveCanonicalConversation({
-    responseConversationId: 'conversation-1784735431999',
-    previousSessionId: previous.id,
-    sessionsBefore: [previous],
-    sessionsAfter: [continuation, previous],
-  })?.id, continuation.id);
 });
 
 test('recovers the persisted answer for the exact submitted question', () => {

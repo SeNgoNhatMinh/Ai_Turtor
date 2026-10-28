@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Alert, Button, Card, Progress, Radio, Spin } from 'antd';
+import { Alert, Button, Card, Progress, Radio, Skeleton } from 'antd';
 import {
   getQuestionChoices,
   getQuestionId,
@@ -73,9 +73,8 @@ export default function QuizRunner({ quiz, onSubmit, submitting = false }) {
 
       {submitPending ? (
         <Card className="quiz-runner-submitting" aria-live="polite">
-          <Spin size="large" />
-          <strong>Đang nộp quiz...</strong>
-          <span>Bài làm đang được gửi tới backend.</span>
+          <Skeleton active title={{ width: '40%' }} paragraph={{ rows: 2, width: ['100%', '60%'] }} />
+          <p className="quiz-runner-submitting__label">Đang nộp quiz — bài làm đang được gửi tới backend.</p>
         </Card>
       ) : (
         <div className="quiz-runner-question-list">

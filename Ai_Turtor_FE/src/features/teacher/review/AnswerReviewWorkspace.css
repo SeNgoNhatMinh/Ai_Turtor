@@ -716,3 +716,39 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* ===== Dark mode — đồng bộ với trang admin (Ant Design darkAlgorithm) ===== */
+.app-container.dark .answer-review-tile {
+  border-color: #344054;
+  background: #111827;
+}
+
+.app-container.dark .answer-review-tile:hover,
+.app-container.dark .answer-review-tile:focus-visible {
+  border-color: #3b82f6;
+}
+
+.app-container.dark .answer-review-tile--watch {
+  border-color: #344054;
+  background: #0d1522;
+}
+
+.app-container.dark .answer-review-tile--attention {
+  border-color: #92600a;
+  background: linear-gradient(180deg, #1c1503 0%, #241a05 100%);
+}
+
+.app-container.dark .answer-review-tile--red {
+  border-color: #9f1239;
+  background: linear-gradient(180deg, #22060d 0%, #2b0a12 100%);
+}
+
+.app-container.dark .answer-review-tile--red h4,
+.app-container.dark .answer-review-tile__urgent {
+  color: #fda4af;
+}
+
+.app-container.dark .answer-review-tile__cta {
+  background: rgba(243, 112, 33, 0.2);
+  color: #fdba74;
+}

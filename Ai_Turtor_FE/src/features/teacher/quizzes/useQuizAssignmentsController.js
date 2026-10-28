@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Form } from 'antd';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import LogRocket from 'logrocket';
 import { queryKeys } from '../../../app/queryKeys';
 import { getUserFacingError } from '../../../services/apiClient';
 import { quizApi } from '../../../services/quizApi';
@@ -17,6 +18,8 @@ import {
 import { classIdMatches } from '../../../utils/academicIds';
 import { validateQuizDraft } from './quizDraftUtils';
 import { getQuizAssignmentId, isQuizDraft } from './quizAssignmentUtils';
+import { useRealtimeEvent, useRealtimeReconnect } from '../../realtime/realtimeContext';
+import { REALTIME_EVENT_TYPES } from '../../realtime/realtimeEvents';
 
 const EMPTY_LIST = [];
 
@@ -107,13 +110,18 @@ export function useQuizAssignmentsController({
 
   useEffect(() => {
     if (!assignmentsQuery.error) return;
-    triggerToast?.(getUserFacingError(assignmentsQuery.error, 'Không thể tải danh sách quiz.'));
+    triggerToast?.(getUserFacingError(assignmentsQuery.error, 'Không thể tải danh sách quiz.'), 'error');
   }, [assignmentsQuery.error, triggerToast]);
 
   const loadAssignments = useCallback(
     () => assignmentsQuery.refetch(),
     [assignmentsQuery],
   );
+
+  useRealtimeEvent(REALTIME_EVENT_TYPES.quizAssignment, () => {
+    if (teacherId) assignmentsQuery.refetch();
+  });
+  useRealtimeReconnect(() => { if (teacherId) assignmentsQuery.refetch(); });
 
   useEffect(() => {
     form.setFieldValue('classId', classId || undefined);
@@ -184,7 +192,7 @@ export function useQuizAssignmentsController({
       await loadAssignments();
       triggerToast?.('Đã tạo draft quiz. Hãy kiểm tra câu hỏi trước khi xuất bản.');
     } catch (error) {
-      triggerToast?.(getUserFacingError(error, 'Chưa đủ tài liệu đã lập chỉ mục để tạo quiz. Hãy tải lên hoặc lập chỉ mục lại tài liệu.'));
+      triggerToast?.(getUserFacingError(error, 'Chưa đủ tài liệu đã lập chỉ mục để tạo quiz. Hãy tải lên hoặc lập chỉ mục lại tài liệu.'), 'error');
     } finally {
       setLoading(false);
     }
@@ -202,7 +210,7 @@ export function useQuizAssignmentsController({
       triggerToast?.('Đã lưu draft quiz.');
       return updated;
     } catch (error) {
-      triggerToast?.(getUserFacingError(error, 'Không thể lưu draft quiz.'));
+      triggerToast?.(getUserFacingError(error, 'Không thể lưu draft quiz.'), 'error');
       return null;
     } finally {
       setSaving(false);
@@ -221,7 +229,7 @@ export function useQuizAssignmentsController({
       await loadAssignments();
       triggerToast?.('Đã xóa draft quiz.');
     } catch (error) {
-      triggerToast?.(getUserFacingError(error, 'Không thể xóa draft quiz.'));
+      triggerToast?.(getUserFacingError(error, 'Không thể xóa draft quiz.'), 'error');
     }
   };
 
@@ -280,7 +288,7 @@ export function useQuizAssignmentsController({
       setPublishStudents(roster.length ? roster : teacherStudents);
     } catch (error) {
       setPublishStudents(teacherStudents);
-      triggerToast?.(getUserFacingError(error, 'Không thể tải danh sách sinh viên của lớp.'));
+      triggerToast?.(getUserFacingError(error, 'Không thể tải danh sách sinh viên của lớp.'), 'error');
     } finally {
       setPublishStudentsLoading(false);
     }
@@ -307,9 +315,10 @@ export function useQuizAssignmentsController({
       setDraft(null);
       setDraftEditorState({ dirty: false, valid: true });
       await loadAssignments();
+      LogRocket.track('QuizPublished', { courseId: draft?.courseId, classId: draft?.classId });
       triggerToast?.('Đã xuất bản quiz.');
     } catch (error) {
-      triggerToast?.(getUserFacingError(error, 'Không thể xuất bản quiz.'));
+      triggerToast?.(getUserFacingError(error, 'Không thể xuất bản quiz.'), 'error');
     } finally {
       setPublishing(false);
     }

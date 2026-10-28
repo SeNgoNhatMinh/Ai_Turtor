@@ -3,6 +3,12 @@ import react from '@vitejs/plugin-react'
 import { visualizer } from 'rollup-plugin-visualizer'
 import path from 'path'
 import { fileURLToPath } from 'node:url'
+import { execSync } from 'node:child_process'
+
+const commitHash = (() => {
+  try { return execSync('git rev-parse --short HEAD').toString().trim(); }
+  catch { return 'unknown'; }
+})();
 
 // https://vite.dev/config/
 // Force restart
@@ -17,6 +23,9 @@ export default defineConfig({
       open: false,
     }),
   ].filter(Boolean),
+  define: {
+    __APP_COMMIT_HASH__: JSON.stringify(commitHash),
+  },
   resolve: {
     alias: {
       "@": path.resolve(fileURLToPath(new URL('.', import.meta.url)), "./src"),

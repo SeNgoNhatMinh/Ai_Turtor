@@ -108,6 +108,20 @@ export const adminAcademicApi = {
     });
   },
 
+  async getEnrollments(filters = {}, options = {}) {
+    const params = new URLSearchParams();
+    ['courseId', 'classId', 'status', 'query'].forEach((key) => {
+      const value = String(filters[key] || '').trim();
+      if (value) params.append(key, value);
+    });
+    const qs = params.toString();
+    // A failing lookup must surface as an error, never log the admin out.
+    return asArray(await request(`${API_BASE_URL}/admin/enrollments${qs ? `?${qs}` : ''}`, {
+      signal: options.signal,
+      skipUnauthorizedRedirect: true,
+    }));
+  },
+
   async createEnrollment(payload) {
     const response = await request(`${API_BASE_URL}/academic/enrollments`, {
       method: 'POST',
@@ -115,6 +129,7 @@ export const adminAcademicApi = {
       body: JSON.stringify(payload),
     });
     invalidateServerQueries(['enrollments']);
+    invalidateServerQueries(['admin', 'academic', 'enrollments']);
     return response;
   },
 
@@ -125,12 +140,14 @@ export const adminAcademicApi = {
       body: JSON.stringify(payload),
     });
     invalidateServerQueries(['enrollments']);
+    invalidateServerQueries(['admin', 'academic', 'enrollments']);
     return response;
   },
 
   async deleteEnrollment(enrollmentId) {
     const response = await request(`${API_BASE_URL}/admin/enrollments/${encodePath(enrollmentId)}`, { method: 'DELETE' });
     invalidateServerQueries(['enrollments']);
+    invalidateServerQueries(['admin', 'academic', 'enrollments']);
     return response;
   },
 
@@ -139,7 +156,44 @@ export const adminAcademicApi = {
       method: 'DELETE',
     });
     invalidateServerQueries(['enrollments']);
+    invalidateServerQueries(['admin', 'academic', 'enrollments']);
     return response;
+  },
+
+  async getLearningGuide(courseId) {
+    return request(`${API_BASE_URL}/admin/courses/${encodePath(courseId)}/learning-guide`);
+  },
+
+  async getStudentLearningGuide(courseId) {
+    return request(`${API_BASE_URL}/courses/${encodePath(courseId)}/learning-guide`);
+  },
+
+  async updateLearningGuide(courseId, payload) {
+    const response = await request(`${API_BASE_URL}/admin/courses/${encodePath(courseId)}/learning-guide`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    invalidateServerQueries(['courses']);
+    return response;
+  },
+
+  async regenerateLearningGuide(courseId) {
+    return request(`${API_BASE_URL}/admin/courses/${encodePath(courseId)}/learning-guide/regenerate`, {
+      method: 'POST',
+    });
+  },
+
+  async approveLearningGuide(courseId) {
+    return request(`${API_BASE_URL}/admin/courses/${encodePath(courseId)}/learning-guide/approve`, {
+      method: 'POST',
+    });
+  },
+
+  async rejectLearningGuide(courseId) {
+    return request(`${API_BASE_URL}/admin/courses/${encodePath(courseId)}/learning-guide/reject`, {
+      method: 'POST',
+    });
   },
 
   async downloadStudentImportTemplate() {

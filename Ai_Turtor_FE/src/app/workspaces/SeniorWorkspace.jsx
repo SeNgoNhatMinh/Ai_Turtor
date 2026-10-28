@@ -1,5 +1,6 @@
 import { lazy, Suspense } from 'react';
 import AsyncState from '../../components/common/AsyncState';
+import FeatureErrorBoundary from '../../components/common/FeatureErrorBoundary';
 
 const seniorPages = {
   'senior-review': lazy(() => import('../../features/senior/review/SeniorReviewPage')),
@@ -22,14 +23,16 @@ export default function SeniorWorkspace({
   if (!Page) return null;
 
   return (
-    <Suspense fallback={<SeniorPageFallback />}>
-      <Page
-        currentUser={currentUser}
-        teacherId={currentUser?.userId || currentUser?.id || ''}
-        courseId={courseId}
-        setCourseId={setCourseId}
-        triggerToast={triggerToast}
-      />
-    </Suspense>
+    <FeatureErrorBoundary featureName="Trang kiểm duyệt" key={activeTab}>
+      <Suspense fallback={<SeniorPageFallback />}>
+        <Page
+          currentUser={currentUser}
+          teacherId={currentUser?.userId || currentUser?.id || ''}
+          courseId={courseId}
+          setCourseId={setCourseId}
+          triggerToast={triggerToast}
+        />
+      </Suspense>
+    </FeatureErrorBoundary>
   );
 }

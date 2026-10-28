@@ -40,6 +40,7 @@ class TutorSessionServiceSupportTest {
     @Mock RealtimeEventService realtimeEvents;
     @Mock ClassRosterService classRosterService;
     @Mock PedagogicalDirectiveService directiveService;
+    @Mock AdaptiveLearningReviewService adaptiveLearningReviewService;
 
     @InjectMocks TutorSessionService service;
 
@@ -56,7 +57,8 @@ class TutorSessionServiceSupportTest {
                 "student-1", "PRJ301", "ACTIVE")).thenReturn(Optional.empty());
         when(memoryRepository.findByStudentIdAndCourseId("student-1", "PRJ301"))
                 .thenReturn(Optional.of(memory));
-        when(chapterOutlineService.suggestChapters("PRJ301")).thenReturn(List.of());
+        when(adaptiveLearningReviewService.adaptiveSupportLevel("student-1", "PRJ301", "SE1840"))
+                .thenReturn(Optional.empty());
         when(curriculumOverviewService.forCourse("PRJ301"))
                 .thenReturn(CourseCurriculumOverview.empty("PRJ301"));
         when(directiveService.resolveSupportLevel("student-1", "PRJ301", "SE1840"))

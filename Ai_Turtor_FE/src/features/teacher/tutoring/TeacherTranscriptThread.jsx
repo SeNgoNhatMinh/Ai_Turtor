@@ -93,6 +93,8 @@ export default function TeacherTranscriptThread({ messages = [], student }) {
                       markdown={answer}
                       hideSourceSection
                       reviewer
+                      understandingCheck={turn.tutor?.understandingCheck}
+                      understandingAttempts={turn.tutor?.understandingCheckAttempts}
                       understandingSelectedKey={turn.tutor?.understandingSelectedKey}
                       attemptId={turn.tutor?.id}
                     />

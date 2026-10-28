@@ -115,3 +115,16 @@
 .app-container.dark .knowledge-image-thumb {
   background: #171717;
 }
+
+/* ===== Dark mode — đồng bộ với trang admin (Ant Design darkAlgorithm) ===== */
+.app-container.dark .knowledge-answer-composer__label em {
+  color: #93c5fd;
+}
+
+.app-container.dark .knowledge-answer-composer.is-dragging .ant-input {
+  border-color: #3b82f6;
+}
+
+.app-container.dark .knowledge-image-gallery__empty {
+  color: #94a3b8;
+}

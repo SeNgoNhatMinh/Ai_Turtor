@@ -28,63 +28,6 @@ export function sortSessionsByActivity(items) {
   ));
 }
 
-const hasSessionChanged = (before, after) => (
-  before?.lastMessageAt !== after?.lastMessageAt
-  || before?.updatedAt !== after?.updatedAt
-  || Number(before?.messageCount || 0) !== Number(after?.messageCount || 0)
-  || getSessionQuestionCount(before) !== getSessionQuestionCount(after)
-);
-
-function isSyntheticConversationId(value) {
-  return /^(conversation|session|trace)-\d{10,}$/i.test(String(value || '').trim());
-}
-
-const sessionReachedTurnLimit = (session) => (
-  Boolean(session?.maxTurnsReached) || getSessionQuestionCount(session) >= CHAT_TURN_LIMIT
-);
-
-export function resolveCanonicalConversation({
-  responseConversationId,
-  previousSessionId,
-  sessionsBefore = [],
-  sessionsAfter = [],
-}) {
-  const before = Array.isArray(sessionsBefore) ? sessionsBefore : [];
-  const after = sortSessionsByActivity(sessionsAfter);
-  if (after.length === 0) return null;
-
-  const responseId = String(responseConversationId || '').trim();
-  const previousId = String(previousSessionId || '').trim();
-  const previousMatch = previousId
-    ? after.find((session) => session.id === previousId)
-    : null;
-  const directMatch = responseId && !isSyntheticConversationId(responseId)
-    ? after.find((session) => session.id === responseId)
-    : null;
-
-  if (directMatch) return directMatch;
-
-  const beforeById = new Map(before.map((session) => [session.id, session]));
-  const newlyCreated = after.find((session) => !beforeById.has(session.id));
-  const previousReachedLimit = sessionReachedTurnLimit(previousMatch);
-
-  if (previousMatch && !previousReachedLimit) {
-    return previousMatch;
-  }
-
-  if (newlyCreated && (!previousId || previousReachedLimit || !previousMatch)) {
-    return newlyCreated;
-  }
-
-  const updated = after.find((session) => {
-    const previous = beforeById.get(session.id);
-    return previous && hasSessionChanged(previous, session);
-  });
-  if (updated) return updated;
-
-  return previousMatch || null;
-}
-
 const normalizeExchangeText = (value) => String(value || '')
   .replace(/\s+/g, ' ')
   .trim();

@@ -8,7 +8,6 @@ export function useStudentImport({
   triggerToast,
   courses,
   formStudentImport,
-  enrollmentSearchId,
   loadStudentEnrollments,
 }) {
   const [studentImportCourseId, setStudentImportCourseId] = useState('');
@@ -44,7 +43,7 @@ export function useStudentImport({
       a.remove();
       window.URL.revokeObjectURL(url);
     } catch (error) {
-      triggerToast(getUserFacingError(error, 'Không thể tải tệp mẫu import sinh viên.'));
+      triggerToast(getUserFacingError(error, 'Không thể tải tệp mẫu import sinh viên.'), 'error');
     }
   };
 
@@ -67,10 +66,10 @@ export function useStudentImport({
       });
       setStudentImportResult(result);
       triggerToast(dryRun ? 'Đã kiểm tra dữ liệu import.' : 'Đã import sinh viên thành công.');
-      if (!dryRun && enrollmentSearchId) loadStudentEnrollments();
+      if (!dryRun) loadStudentEnrollments();
     } catch (error) {
       setStudentImportResult(error?.details || null);
-      triggerToast(getUserFacingError(error, 'Import sinh viên thất bại.'));
+      triggerToast(getUserFacingError(error, 'Import sinh viên thất bại.'), 'error');
     } finally {
       setStudentImportLoading(false);
     }

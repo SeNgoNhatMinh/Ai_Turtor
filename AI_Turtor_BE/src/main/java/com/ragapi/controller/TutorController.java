@@ -318,6 +318,18 @@ public class TutorController {
                         ? "- Recent session history:\n" + recentHistoryContext
                         : learnerContext + "\n- Recent session history:\n" + recentHistoryContext;
             }
+            try {
+                String understandingSignals = aiConversationService.buildRecentUnderstandingSignals(
+                        request.getConversationId(), userId);
+                if (!understandingSignals.isBlank()) {
+                    String block = "- Recent understanding-check results in this conversation (oldest first):\n"
+                            + understandingSignals;
+                    learnerContext = learnerContext.isBlank() ? block : learnerContext + "\n" + block;
+                }
+            } catch (RuntimeException signalError) {
+                log.warn("Understanding-check signals unavailable; continuing without them: {}",
+                        signalError.getMessage());
+            }
             if (!persistTurn) {
                 String checkHint = "- The student is checking their multiple-choice answer to the current lesson. "
                         + "Say whether the chosen option is correct, name the right option, and explain briefly from the material. "

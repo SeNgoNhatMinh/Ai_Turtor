@@ -137,7 +137,7 @@ export function useTeacherGrading({ teacherId, courseId, classId, teacherStudent
     triggerToast(getUserFacingError(
       quizSubmissionsQuery.error,
       'Không thể tải danh sách lượt làm quiz cần duyệt.',
-    ));
+    ), 'error');
   }, [quizSubmissionsQuery.error, triggerToast]);
 
   const loadTeacherSubmissions = useCallback(
@@ -181,7 +181,7 @@ export function useTeacherGrading({ teacherId, courseId, classId, teacherStudent
       setSelectedTeacherSub(merged);
       return merged;
     } catch (error) {
-      triggerToast(getUserFacingError(error, 'Không thể tải lượt làm quiz này.'));
+      triggerToast(getUserFacingError(error, 'Không thể tải lượt làm quiz này.'), 'error');
       return attempt;
     } finally {
       setLoadingQuizDetailId('');
@@ -230,7 +230,7 @@ export function useTeacherGrading({ teacherId, courseId, classId, teacherStudent
         }
         return true;
       } catch (error) {
-        triggerToast(getUserFacingError(error, 'Không thể lưu kết quả duyệt quiz.'));
+        triggerToast(getUserFacingError(error, 'Không thể lưu kết quả duyệt quiz.'), 'error');
         return false;
       }
     });
@@ -251,7 +251,7 @@ export function useTeacherGrading({ teacherId, courseId, classId, teacherStudent
         return true;
       } catch (error) {
         console.error('Error grading submission:', error);
-        triggerToast(getUserFacingError(error, 'Không thể lưu kết quả chấm bài.'));
+        triggerToast(getUserFacingError(error, 'Không thể lưu kết quả chấm bài.'), 'error');
         return false;
       }
     });
@@ -273,7 +273,7 @@ export function useTeacherGrading({ teacherId, courseId, classId, teacherStudent
         await loadTeacherSubmissions();
         return true;
       } catch (error) {
-        triggerToast(getUserFacingError(error, 'Không thể tải đáp án.'));
+        triggerToast(getUserFacingError(error, 'Không thể tải đáp án.'), 'error');
         return false;
       } finally {
         setAnswerKeyUploadingId('');
@@ -301,7 +301,7 @@ export function useTeacherGrading({ teacherId, courseId, classId, teacherStudent
         await loadTeacherSubmissions();
         return true;
       } catch (error) {
-        triggerToast(getUserFacingError(error, 'AI không thể hoàn tất gợi ý chấm bài. Chưa có điểm cuối nào được lưu.'));
+        triggerToast(getUserFacingError(error, 'AI không thể hoàn tất gợi ý chấm bài. Chưa có điểm cuối nào được lưu.'), 'error');
         return false;
       } finally {
         setAiGradingSubmissionId('');

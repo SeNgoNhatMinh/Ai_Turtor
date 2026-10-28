@@ -2,6 +2,7 @@ package com.ragapi.service.course.answer.orchestration;
 
 import com.ragapi.dto.CourseRagAnswer;
 import com.ragapi.service.course.answer.grounding.CourseAnswerEvidenceService;
+import com.ragapi.service.aiworker.AiWorkerTraceService;
 import com.ragapi.service.course.model.CourseAnswerRequest;
 import org.junit.jupiter.api.Test;
 
@@ -32,7 +33,8 @@ class LearningPathLatencyBenchmarkTest {
                 mock(CourseAnswerResultService.class),
                 mock(CourseAnswerCacheStageService.class),
                 generationStageService,
-                evidenceService
+                evidenceService,
+                mock(AiWorkerTraceService.class)
         );
         CourseAnswerRequest request = CourseAnswerRequest.builder()
                 .question("Hôm nay mình muốn học về kết nối cơ sở dữ liệu JDBC")
@@ -56,7 +58,7 @@ class LearningPathLatencyBenchmarkTest {
                 false,
                 null
         );
-        when(preparationService.prepare(any(), anyLong())).thenReturn(prepared);
+        when(preparationService.prepare(any(), anyLong(), org.mockito.ArgumentMatchers.eq(false))).thenReturn(prepared);
         when(evidenceService.buildSourceEvidence(anyList(), anyString(), anyMap(), anyString()))
                 .thenReturn(List.of());
         when(evidenceService.buildSourceLabels(anyList(), anyMap()))

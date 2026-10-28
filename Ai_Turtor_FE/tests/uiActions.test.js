@@ -17,8 +17,3 @@ test('mounted teacher roster has no toast-only Support command', async () => {
   assert.doesNotMatch(teacherClasses, /onClick=\{\(\) => triggerToast\?\./);
 });
 
-test('prompt starters do not create mentor tickets without question context', async () => {
-  const promptStarters = await readSource('features/student/chat/components/PromptStarters.jsx');
-  assert.equal(promptStarters.includes('Nhờ mentor hỗ trợ'), false);
-  assert.equal(promptStarters.includes('Vui lòng tạo yêu cầu mentor'), false);
-});

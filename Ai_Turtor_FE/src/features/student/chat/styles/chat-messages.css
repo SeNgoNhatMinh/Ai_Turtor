@@ -9,7 +9,7 @@
   max-width: 100%;
   display: flex;
   flex-direction: column;
-  padding-bottom: 108px;
+  padding-bottom: 130px;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
   touch-action: pan-y;
@@ -56,12 +56,6 @@
 
 .chat-empty-mascot {
   margin-bottom: 2px;
-}
-
-.chat-empty-title {
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: #0d0d0d;
 }
 
 .chat-keyword-tip {

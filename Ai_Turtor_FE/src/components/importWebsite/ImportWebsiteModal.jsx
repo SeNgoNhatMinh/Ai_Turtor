@@ -181,7 +181,7 @@ export default function ImportWebsiteModal({
         triggerToast?.(`Đã tìm thấy ${normalized.items.length} chương hoặc mục.`);
       }
     } catch (error) {
-      triggerToast?.(getUserFacingError(error, error?.message || 'Không thể phân tích URL tài liệu.'));
+      triggerToast?.(getUserFacingError(error, error?.message || 'Không thể phân tích URL tài liệu.'), 'error');
     } finally {
       setIsAnalyzing(false);
     }
@@ -315,7 +315,7 @@ export default function ImportWebsiteModal({
       await onUploaded?.(response);
       onClose();
     } catch (error) {
-      triggerToast?.(getUserFacingError(error, error?.message || 'Không thể bắt đầu import website.'));
+      triggerToast?.(getUserFacingError(error, error?.message || 'Không thể bắt đầu import website.'), 'error');
     } finally {
       setIsImporting(false);
     }
@@ -412,24 +412,20 @@ export default function ImportWebsiteModal({
                 className="syllabus-form-item"
                 name="syllabusDescription"
                 label={<Text strong>Nội dung chính trong chương trình học (syllabus)</Text>}
-                extra="AI Tutor hiển thị trực tiếp nội dung do nhà trường nhập, không tự tạo từ website."
+                extra="Đang hiển thị syllabus đã lưu của môn. Không chỉnh sửa tại đây — cập nhật syllabus ở chỉnh sửa chi tiết."
                 rules={[
-                  { required: true, whitespace: true, message: 'Nhập syllabus chính thức của môn học' },
                   {
-                    validator: (_, value) => (
-                      !value || String(value).split(/\r?\n/).some((line) => line.includes(':'))
-                        ? Promise.resolve()
-                        : Promise.reject(new Error('Mỗi chủ đề cần theo định dạng "Chủ đề: mô tả"'))
-                    ),
+                    required: true,
+                    whitespace: true,
+                    message: 'Môn học chưa có syllabus. Hãy cập nhật ở tab Môn học trước khi import.',
                   },
                 ]}
               >
                 <Input.TextArea
                   rows={6}
-                  maxLength={20000}
-                  showCount
-                  disabled={isAnalyzing || isImporting}
-                  placeholder={'Chủ đề 1: Nội dung chính\nChủ đề 2: Nội dung chính'}
+                  readOnly
+                  placeholder="Syllabus của môn sẽ hiện ở đây sau khi chọn môn học"
+                  style={{ background: 'var(--ant-color-fill-quaternary, #f5f5f5)', cursor: 'default' }}
                 />
               </Form.Item>
             )}

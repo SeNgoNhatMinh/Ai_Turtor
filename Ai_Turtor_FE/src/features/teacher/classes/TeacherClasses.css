@@ -734,3 +734,108 @@
     justify-items: start;
   }
 }
+
+/* ===== Dark mode — đồng bộ với trang admin (Ant Design darkAlgorithm) ===== */
+.app-container.dark .teacher-classes-header-stats > div {
+  border-color: #344054;
+  background: #111827;
+}
+
+.app-container.dark .teacher-classes-header-stats strong,
+.app-container.dark .teacher-action-center__heading strong,
+.app-container.dark .teacher-panel-header h3,
+.app-container.dark .teacher-classes-empty {
+  color: #93c5fd;
+}
+
+.app-container.dark .teacher-classes-header-stats span,
+.app-container.dark .teacher-action-center__heading span,
+.app-container.dark .teacher-panel-header p,
+.app-container.dark .teacher-classes-empty span,
+.app-container.dark .teacher-class-card__side em {
+  color: #94a3b8;
+}
+
+.app-container.dark .teacher-classes-page .teacher-action-center .ant-card-head {
+  border-bottom-color: #344054;
+}
+
+.app-container.dark .teacher-classes-page .teacher-action-center .action-queue__item {
+  border-bottom-color: #1f2a3d;
+}
+
+.app-container.dark .teacher-classes-page .teacher-action-center .action-queue__icon {
+  background: rgba(59, 130, 246, 0.16);
+  color: #93c5fd;
+}
+
+.app-container.dark .teacher-classes-page .teacher-action-center .action-queue__empty,
+.app-container.dark .teacher-classes-empty {
+  background: #0d1522;
+}
+
+.app-container.dark .teacher-action-center__extra em,
+.app-container.dark .teacher-class-card__side small {
+  background: rgba(243, 112, 33, 0.2);
+  color: #fdba74;
+}
+
+.app-container.dark .teacher-panel-refresh {
+  border-color: #344054;
+  background: #111827;
+  color: #93c5fd;
+}
+
+.app-container.dark .teacher-panel-refresh:hover:not(:disabled) {
+  border-color: #3b82f6;
+  background: #182131;
+}
+
+.app-container.dark .teacher-class-chip {
+  background: rgba(59, 130, 246, 0.16);
+  color: #93c5fd;
+}
+
+.app-container.dark .teacher-class-card {
+  border-color: #344054;
+  background: #111827;
+}
+
+.app-container.dark .teacher-class-card:hover:not(:disabled) {
+  border-color: #3b82f6;
+  background: #182131;
+}
+
+.app-container.dark .teacher-class-card.is-active {
+  border-color: rgba(59, 130, 246, 0.45);
+  background: linear-gradient(180deg, #182131 0%, #111827 100%);
+}
+
+.app-container.dark .teacher-class-card__icon {
+  background: rgba(59, 130, 246, 0.16);
+  color: #93c5fd;
+}
+
+.app-container.dark .teacher-class-card.is-active .teacher-class-card__icon {
+  background: #1d4ed8;
+  color: #fff;
+}
+
+.app-container.dark .teacher-class-card__body strong {
+  color: #f8fafc;
+}
+
+.app-container.dark .teacher-class-card__body em {
+  background: #1e293b;
+  color: #cbd5e1;
+}
+
+.app-container.dark .teacher-class-roster__meta span {
+  background: #182131;
+  color: #93c5fd;
+}
+
+.app-container.dark .teacher-gap-metric {
+  border-color: #344054;
+  background: #111827;
+}

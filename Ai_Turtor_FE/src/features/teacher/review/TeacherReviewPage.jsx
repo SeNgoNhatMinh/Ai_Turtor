@@ -1,9 +1,15 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { Alert, Select } from 'antd';
 import { CheckCircle2, LifeBuoy, ShieldAlert } from 'lucide-react';
 import PageHeader from '../../../components/common/PageHeader';
 import AppTabs from '../../../components/common/AppTabs';
+import { queryKeys } from '../../../app/queryKeys';
 import { uiCopy } from '../../../constants/uiCopy';
 import { ACADEMIC_CANDIDATE_TYPES } from '../../../constants/knowledgeFlow';
+import { asArray } from '../../../services/normalizers';
+import { teacherApi } from '../../../services/teacherApi';
+import { uniqueClassScopes } from '../tutoring/teacherTutoringStudents';
 import { useTeacherReviewQueue } from './useTeacherReviewQueue';
 import AnswerReviewWorkspace from './AnswerReviewWorkspace';
 import TeacherSupportInbox from './TeacherSupportInbox';
@@ -20,8 +26,43 @@ export default function TeacherReviewPage({
   currentUser,
   teacherId,
   courseId,
+  classId,
+  setCourseId,
+  setClassId,
   triggerToast,
 }) {
+  const classesQuery = useQuery({
+    queryKey: queryKeys.teacherClasses(teacherId),
+    queryFn: async ({ signal }) => asArray(
+      await teacherApi.getClassSections(teacherId, { signal }),
+      'classes', 'classSections', 'content',
+    ),
+    enabled: Boolean(teacherId),
+    staleTime: 60_000,
+  });
+  const classScopes = useMemo(
+    () => uniqueClassScopes(classesQuery.data || [], { courseId, classId }),
+    [classesQuery.data, courseId, classId],
+  );
+  const currentScope = classScopes.find(
+    (scope) => scope.courseId === courseId && scope.classId === classId,
+  );
+
+  // Default to the teacher's first assigned class so the student roster and
+  // AI labels below have a class to show immediately.
+  useEffect(() => {
+    if ((!courseId || !classId) && classScopes.length > 0) {
+      setCourseId?.(classScopes[0].courseId);
+      setClassId?.(classScopes[0].classId);
+    }
+  }, [courseId, classId, classScopes, setCourseId, setClassId]);
+
+  const handleClassChange = (key) => {
+    const scope = classScopes.find((item) => item.key === key);
+    if (!scope) return;
+    setCourseId?.(scope.courseId);
+    setClassId?.(scope.classId);
+  };
   const review = useTeacherReviewQueue({
     currentUser,
     teacherId,
@@ -84,6 +125,32 @@ export default function TeacherReviewPage({
           </div>
         )}
       />
+      <div className="teacher-review-class-picker">
+        <label className="teacher-review-class-picker__field">
+          <span>Lớp học của bạn</span>
+          <Select
+            value={currentScope?.key}
+            placeholder="Chọn lớp học"
+            loading={classesQuery.isFetching}
+            disabled={classScopes.length === 0}
+            options={classScopes.map((scope) => ({ value: scope.key, label: scope.label }))}
+            onChange={handleClassChange}
+          />
+        </label>
+        <p>
+          {classScopes.length > 0
+            ? `Bạn đang phụ trách ${classScopes.length} lớp. Chọn lớp để xem sinh viên, nhãn AI và các yêu cầu cần xử lý của lớp đó.`
+            : 'Đang tải danh sách lớp bạn phụ trách...'}
+        </p>
+      </div>
+      {!classesQuery.isFetching && classScopes.length === 0 && (
+        <Alert
+          type="warning"
+          showIcon
+          message="Bạn chưa được phân công lớp học nào"
+          description="Liên hệ quản trị viên để được gán vào lớp học phần, sau đó quay lại màn hình này để chọn lớp."
+        />
+      )}
       <AppTabs
         className="teacher-review-tabs"
         destroyOnHidden={false}

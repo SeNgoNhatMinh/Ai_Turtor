@@ -1,5 +1,6 @@
 import { lazy, Suspense } from 'react';
 import AsyncState from '../../components/common/AsyncState';
+import FeatureErrorBoundary from '../../components/common/FeatureErrorBoundary';
 
 const adminPages = {
   'admin-dashboard': lazy(() => import('../../features/admin/dashboard/AdminDashboardPage')),
@@ -35,15 +36,17 @@ export default function AdminWorkspace({
   }[activeTab];
 
   return (
-    <Suspense fallback={<AdminPageFallback />}>
-      <Page
-        section={aiLogSection}
-        currentUser={currentUser}
-        teacherId={currentUser?.userId || currentUser?.id || ''}
-        courseId={courseId}
-        setCourseId={setCourseId}
-        triggerToast={triggerToast}
-      />
-    </Suspense>
+    <FeatureErrorBoundary featureName="Trang quản trị" key={activeTab}>
+      <Suspense fallback={<AdminPageFallback />}>
+        <Page
+          section={aiLogSection}
+          currentUser={currentUser}
+          teacherId={currentUser?.userId || currentUser?.id || ''}
+          courseId={courseId}
+          setCourseId={setCourseId}
+          triggerToast={triggerToast}
+        />
+      </Suspense>
+    </FeatureErrorBoundary>
   );
 }

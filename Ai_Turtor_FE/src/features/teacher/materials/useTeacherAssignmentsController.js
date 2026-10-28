@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import LogRocket from 'logrocket';
 import { queryKeys } from '../../../app/queryKeys';
 import { assignmentApi } from '../../../services/assignmentApi';
 import { getUserFacingError } from '../../../services/apiClient';
@@ -7,6 +8,8 @@ import { normalizeAssignment } from '../../../services/normalizers';
 import { useMutationLock } from '../../../hooks/useMutationLock';
 import { validateAssignmentFile } from '../../../utils/assignmentFiles';
 import { getRecordId } from '../shared/teacherUtils';
+import { useRealtimeEvent, useRealtimeReconnect } from '../../realtime/realtimeContext';
+import { REALTIME_EVENT_TYPES } from '../../realtime/realtimeEvents';
 
 const EMPTY_LIST = [];
 
@@ -58,11 +61,21 @@ export function useTeacherAssignmentsController({
     if (!courseId || !classId || !teacherUserId) return [];
     const result = await refetchAssignments();
     if (result.error) {
-      triggerToast(getUserFacingError(result.error, 'Không thể tải bài tập của lớp.'));
+      triggerToast(getUserFacingError(result.error, 'Không thể tải bài tập của lớp.'), 'error');
       return [];
     }
     return result.data || [];
   }, [classId, courseId, refetchAssignments, teacherUserId, triggerToast]);
+
+  useRealtimeEvent(REALTIME_EVENT_TYPES.assignmentCrud, (event) => {
+    const eventCourseId = String(event.data?.courseId || '').trim().toUpperCase();
+    const currentCourse = String(courseId || '').trim().toUpperCase();
+    if (!currentCourse || !eventCourseId || eventCourseId === currentCourse) {
+      refetchAssignments();
+    }
+  });
+  useRealtimeEvent(REALTIME_EVENT_TYPES.assignmentAiGrading, () => refetchAssignments());
+  useRealtimeReconnect(() => { if (courseId && classId && teacherUserId) refetchAssignments(); });
 
   const setFile = useCallback((nextFile) => {
     if (!nextFile) {
@@ -73,7 +86,7 @@ export function useTeacherAssignmentsController({
     const validation = validateAssignmentFile(nextFile);
     if (!validation.ok) {
       setFileState(null);
-      triggerToast(validation.message);
+      triggerToast(validation.message, 'error');
       return false;
     }
 
@@ -95,27 +108,27 @@ export function useTeacherAssignmentsController({
   const create = useCallback(async (event) => {
     event.preventDefault();
     if (!courseId || !classId || !teacherUserId) {
-      triggerToast('Hãy chọn môn học và lớp trước khi xuất bản.');
+      triggerToast('Hãy chọn môn học và lớp trước khi xuất bản.', 'warning');
       return;
     }
     if (!title.trim()) {
-      triggerToast('Hãy nhập tên bài tập.');
+      triggerToast('Hãy nhập tên bài tập.', 'warning');
       return;
     }
 
     const fileValidation = validateAssignmentFile(file);
     if (!fileValidation.ok) {
-      triggerToast(fileValidation.message);
+      triggerToast(fileValidation.message, 'error');
       return;
     }
 
     const normalizedMaxScore = Number(maxScore);
     if (!Number.isFinite(normalizedMaxScore) || normalizedMaxScore <= 0 || normalizedMaxScore > 1000) {
-      triggerToast('Điểm tối đa phải lớn hơn 0 và không vượt quá 1000.');
+      triggerToast('Điểm tối đa phải lớn hơn 0 và không vượt quá 1000.', 'error');
       return;
     }
     if (targetType === 'SELECTED_STUDENTS' && !targetStudents.trim()) {
-      triggerToast('Hãy chọn ít nhất một sinh viên.');
+      triggerToast('Hãy chọn ít nhất một sinh viên.', 'warning');
       return;
     }
 
@@ -136,11 +149,12 @@ export function useTeacherAssignmentsController({
       setPublishing(true);
       try {
         await assignmentApi.uploadAssignment(courseId, classId, formData);
+        LogRocket.track('AssignmentPublished', { courseId, classId });
         triggerToast('Đã xuất bản bài tập.');
         resetDraft();
         await load();
       } catch (error) {
-        triggerToast(getUserFacingError(error, 'Không thể xuất bản bài tập.'));
+        triggerToast(getUserFacingError(error, 'Không thể xuất bản bài tập.'), 'error');
       } finally {
         setPublishing(false);
       }
@@ -182,7 +196,7 @@ export function useTeacherAssignmentsController({
       triggerToast(getUserFacingError(
         error,
         'Không thể xóa bài tập. Chỉ được xóa khi chưa có bài nộp.',
-      ));
+      ), 'error');
     }
   }, [load, queryClient, teacherUserId, triggerToast]);
 
@@ -201,7 +215,7 @@ export function useTeacherAssignmentsController({
       });
       setEditing(detail || assignment);
     } catch (error) {
-      triggerToast(getUserFacingError(error, 'Không thể tải chi tiết bài tập.'));
+      triggerToast(getUserFacingError(error, 'Không thể tải chi tiết bài tập.'), 'error');
     }
   }, [queryClient, triggerToast]);
 
@@ -226,7 +240,7 @@ export function useTeacherAssignmentsController({
       triggerToast(getUserFacingError(
         error,
         'Không thể cập nhật bài tập này. Bài tập đã có bài nộp không thể chỉnh sửa.',
-      ));
+      ), 'error');
     } finally {
       setUpdating(false);
     }
@@ -250,7 +264,7 @@ export function useTeacherAssignmentsController({
       anchor.remove();
       window.URL.revokeObjectURL(url);
     } catch (error) {
-      triggerToast(getUserFacingError(error, 'Không thể tải tệp bài tập.'));
+      triggerToast(getUserFacingError(error, 'Không thể tải tệp bài tập.'), 'error');
     }
   }, [triggerToast]);
 

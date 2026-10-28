@@ -25,6 +25,20 @@
   font-size: 0.75rem;
 }
 
+.understanding-check__header .understanding-check__status {
+  margin-left: auto;
+  flex-shrink: 0;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  background: #e2e8f0;
+  color: #475569;
+}
+.understanding-check__header .understanding-check__status.is-correct { background: #dcfce7; color: #15803d; }
+.understanding-check__header .understanding-check__status.is-wrong { background: #fee2e2; color: #b91c1c; }
+.understanding-check__header .understanding-check__status.is-skipped { background: #fef3c7; color: #92400e; }
+
 .understanding-check__question {
   margin: 0.7rem 0 0.65rem;
   color: #0f172a;

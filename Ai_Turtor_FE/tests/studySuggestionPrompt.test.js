@@ -6,6 +6,7 @@ import {
   buildLessonChatPrompt,
   buildStudySuggestionPrompt,
   lessonSuggestionsForMessage,
+  parseCurriculumStarterSuggestions,
   parseDeepDiveSuggestionsFromAnswer,
   parseLessonSuggestionsFromAnswer,
   parseNextLessonSuggestionsFromAnswer,
@@ -13,6 +14,37 @@ import {
   stripConcatenatedLessonTail,
   teacherStudentPathLabel,
 } from '../src/features/student/learning/studySuggestionPrompt.js';
+
+test('parses curriculum starter suggestions into clickable chips', () => {
+  const items = parseCurriculumStarterSuggestions(`
+## 3. Các chủ đề trọng tâm
+
+- **Tổng quan về Pascal**: giới thiệu.
+
+## 4. Gợi ý học tập
+
+Bạn có thể bắt đầu bằng cách hỏi AI Tutor:
+
+- Tôi muốn tìm hiểu về Tổng quan về Pascal.
+- Giải thích Cấu trúc rẽ nhánh & Vòng lặp bằng ví dụ đơn giản.
+- Kiểm tra kiến thức của tôi về Cấu trúc rẽ nhánh & Vòng lặp.
+
+**Mẹo:** Hãy chọn một chủ đề cụ thể để AI Tutor tìm kiếm tài liệu liên quan.
+`);
+  assert.deepEqual(items.map((item) => item.suggestionText), [
+    'Tôi muốn tìm hiểu về Tổng quan về Pascal.',
+    'Giải thích Cấu trúc rẽ nhánh & Vòng lặp bằng ví dụ đơn giản.',
+    'Kiểm tra kiến thức của tôi về Cấu trúc rẽ nhánh & Vòng lặp.',
+  ]);
+  assert.equal(items.every((item) => item.curriculumStarter), true);
+});
+
+test('sends a curriculum starter verbatim instead of wrapping it as review', () => {
+  assert.equal(
+    buildStudySuggestionPrompt('Kiểm tra kiến thức của tôi về Vòng lặp.', { curriculumStarter: true }),
+    'Kiểm tra kiến thức của tôi về Vòng lặp.',
+  );
+});
 
 test('builds the visible student chat message for a generic study suggestion', () => {
   assert.equal(

@@ -4,6 +4,7 @@ import com.ragapi.dto.AiConversationHistoryResponse;
 import com.ragapi.dto.AiConversationListResponse;
 import com.ragapi.dto.AiConversationSummary;
 import com.ragapi.dto.AiMessageInfo;
+import com.ragapi.dto.UnderstandingCheckAttempt;
 import com.ragapi.dto.UnderstandingCheckPayload;
 import com.ragapi.dto.UnderstandingCheckResultResponse;
 import com.ragapi.util.UnderstandingCheckExtractor;
@@ -11,8 +12,10 @@ import com.ragapi.dto.RagSourceEvidence;
 import com.ragapi.dto.RagQueryIntent;
 import com.ragapi.entity.AiConversation;
 import com.ragapi.entity.AiMessage;
+import com.ragapi.entity.ClassSection;
 import com.ragapi.repository.AiConversationRepository;
 import com.ragapi.repository.AiMessageRepository;
+import com.ragapi.repository.ClassSectionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -38,6 +41,49 @@ public class AiConversationService {
 
     private final AiConversationRepository conversationRepository;
     private final AiMessageRepository messageRepository;
+    private final CourseCurriculumOverviewService curriculumOverviewService;
+    private final AdaptiveLearningReviewService adaptiveLearningReviewService;
+    private final ClassSectionRepository classSectionRepository;
+    private final RealtimeEventService realtimeEvents;
+
+    /**
+     * Live signals for every persisted student Q&A exchange: the student's
+     * own session list, admins watching the AI answer log, and the class
+     * teacher watching learning progress refresh immediately.
+     */
+    private void publishExchangeSaved(AiConversation conversation, String studentId, AiMessage assistantMessage) {
+        try {
+            String courseId = trimToNull(conversation.getCourseId());
+            String classId = trimToNull(conversation.getClassId());
+            java.util.Map<String, Object> data = new java.util.LinkedHashMap<>();
+            data.put("studentId", studentId == null ? "" : studentId);
+            data.put("courseId", courseId == null ? "" : courseId);
+            data.put("classId", classId == null ? "" : classId);
+            data.put("conversationId", conversation.getId());
+            data.put("userQuestionCount", studentMessageCount(conversation.getId()));
+
+            if (studentId != null && !studentId.isBlank()) {
+                realtimeEvents.publishToUser(
+                        studentId, "CHAT_SESSION_UPDATED",
+                        "AI_CONVERSATION", conversation.getId(), "UPDATED", data);
+            }
+
+            realtimeEvents.publishToRoles(List.of("ADMIN"), "AI_REQUEST_LOGGED",
+                    "AI_MESSAGE", assistantMessage.getId(), "CREATED", data);
+
+            if (courseId != null && classId != null) {
+                classSectionRepository.findByCourseIdAndClassId(courseId, classId)
+                        .map(ClassSection::getTeacherId)
+                        .filter(id -> id != null && !id.isBlank())
+                        .ifPresent(teacherId -> realtimeEvents.publishToUser(
+                                teacherId, "STUDENT_QUESTION_ANSWERED",
+                                "AI_CONVERSATION", conversation.getId(), "ANSWERED", data));
+            }
+        } catch (Exception error) {
+            log.warn("Could not publish realtime events for conversation {}: {}",
+                    conversation.getId(), error.getMessage());
+        }
+    }
 
     public AiConversationListResponse listConversations(String userId, int page, int size) {
         return listConversations(userId, null, page, size);
@@ -69,6 +115,23 @@ public class AiConversationService {
 
     public AiConversationSummary createConversation(String userId, String courseId, String classId) {
         AiConversation conversation = createConversationEntity(userId, UUID.randomUUID().toString(), courseId, classId);
+        if (courseId != null && !courseId.isBlank()) {
+            try {
+                String welcome = curriculumOverviewService.newChatWelcomeMarkdown(courseId.trim());
+                if (welcome != null && !welcome.isBlank()) {
+                    appendProactiveAssistantMessage(
+                            conversation.getId(),
+                            userId,
+                            null,
+                            "OPEN",
+                            welcome
+                    );
+                }
+            } catch (Exception error) {
+                log.warn("Could not seed syllabus welcome for new chat {}: {}",
+                        conversation.getId(), error.getMessage());
+            }
+        }
         return toSummary(conversation);
     }
 
@@ -125,8 +188,10 @@ public class AiConversationService {
                 .pinned(false)
                 .createdAt(now)
                 .build());
-        conversation.setTutorSessionId(trimToNull(tutorSessionId));
-        conversation.setSessionType("LESSON");
+        if (trimToNull(tutorSessionId) != null) {
+            conversation.setTutorSessionId(tutorSessionId.trim());
+            conversation.setSessionType("LESSON");
+        }
         conversation.setMessageCount((conversation.getMessageCount() == null ? 0 : conversation.getMessageCount()) + 1);
         conversation.setLastMessageAt(now);
         conversation.setUpdatedAt(now);
@@ -161,6 +226,7 @@ public class AiConversationService {
 
     public AiConversationHistoryResponse getMessages(String conversationId, String userId, int page, int size) {
         AiConversation conversation = requireConversation(conversationId, userId);
+        refreshOpeningIfStale(conversation);
 
         Page<AiMessage> messagesPage = messageRepository.findByConversationId(
                 conversationId,
@@ -179,6 +245,41 @@ public class AiConversationService {
                 .pageSize(size)
                 .messages(messages)
                 .build();
+    }
+
+    /**
+     * The seeded welcome is a system banner, not student content: keep it in
+     * sync with the course's current curriculum. Conversations opened before
+     * an admin edited the guide (or before template fixes) would otherwise
+     * show the old welcome — raw syllabus paragraphs, missing sections —
+     * forever.
+     */
+    private void refreshOpeningIfStale(AiConversation conversation) {
+        String courseId = trimToNull(conversation.getCourseId());
+        if (courseId == null) {
+            return;
+        }
+        try {
+            List<AiMessage> existing = messageRepository.findByConversationIdOrderByCreatedAtAsc(conversation.getId());
+            if (existing.isEmpty()) {
+                return;
+            }
+            AiMessage first = existing.get(0);
+            boolean isSystemOpening = "ASSISTANT".equalsIgnoreCase(first.getRole())
+                    && Boolean.TRUE.equals(first.getProactive());
+            if (!isSystemOpening) {
+                return;
+            }
+            String currentWelcome = curriculumOverviewService.newChatWelcomeMarkdown(courseId);
+            if (currentWelcome != null && !currentWelcome.isBlank()
+                    && !currentWelcome.equals(first.getContent())) {
+                first.setContent(currentWelcome);
+                messageRepository.save(first);
+            }
+        } catch (Exception error) {
+            log.warn("Could not refresh syllabus welcome for chat {}: {}",
+                    conversation.getId(), error.getMessage());
+        }
     }
 
     public AiConversationHistoryResponse searchMessages(String userId, String keyword, int page, int size) {
@@ -220,6 +321,32 @@ public class AiConversationService {
 
     public String buildRecentTutorContext(String conversationId, String userId) {
         return buildRecentTutorContext(conversationId, userId, 6, 500, false);
+    }
+
+    /**
+     * Latest graded understanding-check answers in this conversation, oldest
+     * first, so the tutor can adapt its tone to how the student is doing right
+     * now. Skipped items are left out: they are not evidence either way.
+     */
+    public String buildRecentUnderstandingSignals(String conversationId, String userId) {
+        String safeConversationId = trimToNull(conversationId);
+        String safeUserId = trimToNull(userId);
+        if (safeConversationId == null || safeUserId == null) return "";
+        List<String> lines = new java.util.ArrayList<>();
+        for (AiMessage message : messageRepository.findByConversationIdOrderByCreatedAtAsc(safeConversationId)) {
+            if (!"ASSISTANT".equalsIgnoreCase(message.getRole()) || !safeUserId.equals(message.getUserId())) continue;
+            for (UnderstandingCheckAttempt attempt : ensureCheckAttempts(message)) {
+                if (attempt.getSelectedKey() == null || attempt.getSelectedKey().isBlank()
+                        || attempt.getCorrect() == null) {
+                    continue;
+                }
+                String question = attempt.getCheck() == null || attempt.getCheck().getQuestion() == null
+                        ? "" : attempt.getCheck().getQuestion().trim().replaceAll("\\s+", " ");
+                if (question.length() > 160) question = question.substring(0, 160) + "...";
+                lines.add("- " + (attempt.getCorrect() ? "Correct" : "Wrong") + ": " + question);
+            }
+        }
+        return String.join("\n", lines.subList(Math.max(0, lines.size() - 6), lines.size()));
     }
 
     /**
@@ -314,8 +441,19 @@ public class AiConversationService {
                 .build());
 
         UnderstandingCheckPayload understandingCheck = UnderstandingCheckExtractor.extract(answer);
+        List<UnderstandingCheckPayload> allChecks = UnderstandingCheckExtractor.extractAll(answer);
+        String assistantMessageId = UUID.randomUUID().toString();
+        String firstAttemptId = understandingCheck == null ? null : UUID.randomUUID().toString();
+        List<UnderstandingCheckAttempt> checkAttempts = new java.util.ArrayList<>();
+        for (int index = 0; index < allChecks.size(); index++) {
+            checkAttempts.add(UnderstandingCheckAttempt.builder()
+                    .quizIndex(index)
+                    .attemptId(index == 0 ? firstAttemptId : UUID.randomUUID().toString())
+                    .check(allChecks.get(index))
+                    .build());
+        }
         AiMessage assistantMessage = messageRepository.save(AiMessage.builder()
-                .id(UUID.randomUUID().toString())
+                .id(assistantMessageId)
                 .conversationId(conversation.getId())
                 .userId(userId)
                 .role("ASSISTANT")
@@ -327,7 +465,8 @@ public class AiConversationService {
                 .groundingType(groundingType)
                 .questionEscalationId(questionEscalationId)
                 .understandingCheck(understandingCheck)
-                .understandingAttemptId(understandingCheck == null ? null : UUID.randomUUID().toString())
+                .understandingCheckAttempts(checkAttempts)
+                .understandingAttemptId(firstAttemptId)
                 .pinned(false)
                 .createdAt(now.plusNanos(1))
                 .build());
@@ -345,6 +484,14 @@ public class AiConversationService {
 
         conversationRepository.save(conversation);
         log.info("Saved AI exchange in conversation {} ({} messages)", conversation.getId(), newCount);
+        publishExchangeSaved(conversation, userId, assistantMessage);
+        // Every 10 questions within one course triggers an adaptive review for
+        // that student in that course (async, never blocks the chat response).
+        String effectiveCourseId = trimToNull(conversation.getCourseId());
+        if (effectiveCourseId != null) {
+            adaptiveLearningReviewService.onStudentQuestionAnswered(
+                    userId, effectiveCourseId, trimToNull(conversation.getClassId()));
+        }
         return new SavedExchange(conversation.getId(), userMessage.getId(), assistantMessage.getId());
     }
 
@@ -404,13 +551,53 @@ public class AiConversationService {
         return toMessageInfo(messageRepository.save(message));
     }
 
+    /** Builds the per-item attempt list for legacy messages that only stored the first quiz. */
+    private List<UnderstandingCheckAttempt> ensureCheckAttempts(AiMessage message) {
+        List<UnderstandingCheckAttempt> attempts = message.getUnderstandingCheckAttempts();
+        if (attempts != null && !attempts.isEmpty()) {
+            return attempts;
+        }
+        List<UnderstandingCheckPayload> checks = UnderstandingCheckExtractor.extractAll(message.getContent());
+        if (checks.isEmpty() && message.getUnderstandingCheck() != null) {
+            checks = List.of(message.getUnderstandingCheck());
+        }
+        List<UnderstandingCheckAttempt> built = new java.util.ArrayList<>();
+        for (int index = 0; index < checks.size(); index++) {
+            UnderstandingCheckAttempt attempt = UnderstandingCheckAttempt.builder()
+                    .quizIndex(index)
+                    .attemptId(index == 0 && message.getUnderstandingAttemptId() != null
+                            ? message.getUnderstandingAttemptId() : UUID.randomUUID().toString())
+                    .check(checks.get(index))
+                    .build();
+            if (index == 0 && message.getUnderstandingSelectedKey() != null
+                    && !message.getUnderstandingSelectedKey().isBlank()) {
+                attempt.setSelectedKey(message.getUnderstandingSelectedKey());
+                attempt.setCorrect(message.getUnderstandingCorrect());
+                attempt.setAnsweredAt(message.getUnderstandingAnsweredAt());
+            }
+            built.add(attempt);
+        }
+        message.setUnderstandingCheckAttempts(built);
+        return built;
+    }
+
     public UnderstandingCheckResultResponse recordUnderstandingCheck(
             String conversationId,
             String messageId,
             String userId,
             String selectedKey
     ) {
-        requireConversation(conversationId, userId);
+        return recordUnderstandingCheck(conversationId, messageId, userId, selectedKey, 0);
+    }
+
+    public UnderstandingCheckResultResponse recordUnderstandingCheck(
+            String conversationId,
+            String messageId,
+            String userId,
+            String selectedKey,
+            int quizIndex
+    ) {
+        AiConversation conversation = requireConversation(conversationId, userId);
         String key = selectedKey == null ? "" : selectedKey.trim().toUpperCase();
         if (!key.matches("[A-D]")) {
             throw new IllegalArgumentException("Đáp án kiểm tra hiểu phải là A, B, C hoặc D");
@@ -421,22 +608,37 @@ public class AiConversationService {
         if (!"ASSISTANT".equals(role)) {
             throw new IllegalArgumentException("Chỉ lưu đáp án trên câu trả lời của AI Tutor");
         }
-        UnderstandingCheckPayload check = message.getUnderstandingCheck();
-        if (check == null) {
-            check = UnderstandingCheckExtractor.extract(message.getContent());
-            message.setUnderstandingCheck(check);
+        List<UnderstandingCheckAttempt> attempts = ensureCheckAttempts(message);
+        if (quizIndex < 0 || quizIndex >= attempts.size()) {
+            throw new IllegalArgumentException("Câu kiểm tra hiểu không tồn tại");
         }
+        UnderstandingCheckAttempt attempt = attempts.get(quizIndex);
+        UnderstandingCheckPayload check = attempt.getCheck();
         if (check == null || check.getCorrectKey() == null || check.getCorrectKey().isBlank()) {
             throw new IllegalArgumentException("Câu kiểm tra hiểu chưa có đáp án hợp lệ");
         }
-        if (message.getUnderstandingAttemptId() == null || message.getUnderstandingAttemptId().isBlank()) {
-            message.setUnderstandingAttemptId(UUID.randomUUID().toString());
+        if (message.getUnderstandingCheck() == null) {
+            message.setUnderstandingCheck(attempts.get(0).getCheck());
         }
-        if (message.getUnderstandingSelectedKey() == null || message.getUnderstandingSelectedKey().isBlank()) {
-            message.setUnderstandingSelectedKey(key);
-            message.setUnderstandingCorrect(key.equalsIgnoreCase(check.getCorrectKey()));
-            message.setUnderstandingAnsweredAt(LocalDateTime.now());
+        boolean newlyAnswered = attempt.getSelectedKey() == null || attempt.getSelectedKey().isBlank();
+        if (newlyAnswered) {
+            attempt.setSelectedKey(key);
+            attempt.setCorrect(key.equalsIgnoreCase(check.getCorrectKey()));
+            attempt.setAnsweredAt(LocalDateTime.now());
+            if (quizIndex == 0) {
+                // Legacy singular fields stay in sync with the first item.
+                message.setUnderstandingAttemptId(attempt.getAttemptId());
+                message.setUnderstandingSelectedKey(key);
+                message.setUnderstandingCorrect(attempt.getCorrect());
+                message.setUnderstandingAnsweredAt(attempt.getAnsweredAt());
+            }
             message = messageRepository.save(message);
+            // Event-based detection: every newly recorded quiz answer may
+            // complete a repeated-mistake pattern (async, never blocks chat).
+            adaptiveLearningReviewService.onUnderstandingCheckRecorded(
+                    userId,
+                    trimToNull(conversation.getCourseId()),
+                    trimToNull(conversation.getClassId()));
         }
         String correctKey = check.getCorrectKey().trim().toUpperCase();
         String correctOptionText = check.getOptions() == null ? "" : check.getOptions().stream()
@@ -445,15 +647,16 @@ public class AiConversationService {
                 .findFirst()
                 .orElse("");
         return UnderstandingCheckResultResponse.builder()
-                .status(Boolean.TRUE.equals(message.getUnderstandingCorrect()) ? "CORRECT" : "INCORRECT")
-                .attemptId(message.getUnderstandingAttemptId())
+                .status(Boolean.TRUE.equals(attempt.getCorrect()) ? "CORRECT" : "INCORRECT")
+                .attemptId(attempt.getAttemptId())
                 .messageId(message.getId())
-                .selectedKey(message.getUnderstandingSelectedKey())
-                .correct(Boolean.TRUE.equals(message.getUnderstandingCorrect()))
+                .quizIndex(quizIndex)
+                .selectedKey(attempt.getSelectedKey())
+                .correct(Boolean.TRUE.equals(attempt.getCorrect()))
                 .correctKey(correctKey)
                 .correctOptionText(correctOptionText)
                 .explanation(check.getExplanation())
-                .answeredAt(message.getUnderstandingAnsweredAt())
+                .answeredAt(attempt.getAnsweredAt())
                 .build();
     }
 
@@ -472,18 +675,33 @@ public class AiConversationService {
         AiMessage message = messageRepository.findById(safeMessageId)
                 .filter(value -> safeUserId.equals(value.getUserId()))
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy tin nhắn kiểm tra hiểu"));
-        if (!safeAttemptId.equals(message.getUnderstandingAttemptId())
-                || !Boolean.FALSE.equals(message.getUnderstandingCorrect())) {
+        UnderstandingCheckAttempt attempt = ensureCheckAttempts(message).stream()
+                .filter(value -> safeAttemptId.equals(value.getAttemptId()))
+                .findFirst()
+                .orElse(null);
+        if (attempt == null || !Boolean.FALSE.equals(attempt.getCorrect())) {
             throw new IllegalArgumentException("Lần kiểm tra hiểu không hợp lệ hoặc không cần giảng lại");
         }
 
-        UnderstandingCheckPayload check = message.getUnderstandingCheck();
+        UnderstandingCheckPayload check = attempt.getCheck();
         if (check == null) {
             check = UnderstandingCheckExtractor.extract(message.getContent());
         }
         String retrievalQuestion = check != null && check.getQuestion() != null && !check.getQuestion().isBlank()
                 ? check.getQuestion().trim()
                 : fallbackQuestion;
+        // The student re-learns every wrong item of the quiz in one turn, so
+        // retrieval must cover all of them, not only the first one.
+        List<String> retrievalTerms = new java.util.ArrayList<>();
+        retrievalTerms.add(retrievalQuestion);
+        ensureCheckAttempts(message).stream()
+                .filter(value -> Boolean.FALSE.equals(value.getCorrect()))
+                .map(UnderstandingCheckAttempt::getCheck)
+                .filter(value -> value != null && value.getQuestion() != null && !value.getQuestion().isBlank())
+                .map(value -> value.getQuestion().trim())
+                .filter(value -> !retrievalTerms.contains(value))
+                .limit(4)
+                .forEach(retrievalTerms::add);
         List<RagSourceEvidence> evidence = message.getSourceEvidence() == null
                 ? List.of()
                 : message.getSourceEvidence();
@@ -502,16 +720,16 @@ public class AiConversationService {
                 .limit(12)
                 .toList();
         log.info(
-                "Understanding remediation context resolved: originMessageId={}, attemptId={}, materialCount={}, chunkCount={}",
-                safeMessageId, safeAttemptId, materialIds.size(), chunkIds.size());
+                "Understanding remediation context resolved: originMessageId={}, attemptId={}, materialCount={}, chunkCount={}, wrongItems={}",
+                safeMessageId, safeAttemptId, materialIds.size(), chunkIds.size(), retrievalTerms.size());
         return RagQueryIntent.builder()
                 .learningObjective(retrievalQuestion)
-                .retrievalQuery(retrievalQuestion)
-                .retrievalTerms(List.of(retrievalQuestion))
+                .retrievalQuery(String.join("\n", retrievalTerms))
+                .retrievalTerms(List.copyOf(retrievalTerms))
                 .teachingMode("EXPLAIN_CONCEPT")
                 .sourceMaterialIds(materialIds)
                 .sourceChunkIds(chunkIds)
-                .sourceTerms(List.of(retrievalQuestion))
+                .sourceTerms(List.copyOf(retrievalTerms))
                 .build();
     }
 
@@ -669,6 +887,19 @@ public class AiConversationService {
                         storedCheck,
                         revealUnderstandingResult
                 ))
+                .understandingCheckAttempts(ensureCheckAttempts(message).stream()
+                        .map(attempt -> UnderstandingCheckAttempt.builder()
+                                .quizIndex(attempt.getQuizIndex())
+                                .attemptId(attempt.getAttemptId())
+                                .check(UnderstandingCheckExtractor.studentView(
+                                        attempt.getCheck(),
+                                        attempt.getSelectedKey() != null
+                                                && !attempt.getSelectedKey().isBlank()))
+                                .selectedKey(attempt.getSelectedKey())
+                                .correct(attempt.getCorrect())
+                                .answeredAt(attempt.getAnsweredAt())
+                                .build())
+                        .toList())
                 .createdAt(message.getCreatedAt())
                 .build();
     }

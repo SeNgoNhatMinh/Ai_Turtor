@@ -1,13 +1,22 @@
-const CHECK_HEADING = /^(#{1,6})\s*(?:kiểm tra hiểu|understanding check|câu(?:\s+hỏi)?\s+trắc nghiệm mới(?:\s*\((?:(?:được|đã)\s+)?paraphrase\))?|câu hỏi ôn tập)\s*$/im;
+// Heading may be "## Quiz tự luyện" or a bare line when markdown gets stripped on deploy.
+const CHECK_HEADING = /^(?:#{1,6}\s*)?(?:kiểm tra hiểu|understanding check|quiz tự luyện|câu(?:\s+hỏi)?\s+trắc nghiệm mới(?:\s*\((?:(?:được|đã)\s+)?paraphrase\))?|câu hỏi ôn tập)\s*$/im;
 const OPTION_MARK = /(?:^|\s)(?:\(([A-Da-d])\)|([A-Da-d])\.)\s+/g;
-const CANONICAL_ANSWER = /(?:^|\s)(?<!chọn\s)(?<!choose\s)(?<!pick\s)(?:đáp án|dap an|(?:the\s+)?(?:correct\s+)?answer)(?:\s+đúng)?\s*(?:là|is|:|：|-)?\s*([A-Da-d])\b[^\n]*/i;
-const REVEALED_ANSWER = /(?:^|\s)\s*[-*+]?\s*chọn đáp án đúng\s*[:：-]\s*(?:\n\s*[-*+]?\s*)?([A-Da-d])\s*[.)]?\s*[^\n]*/i;
+// Models often emit "Đáp án đúng:* C" when bold markers are half-stripped.
+const CANONICAL_ANSWER = /(?:^|\s)(?<!chọn\s)(?<!choose\s)(?<!pick\s)(?:đáp án|dap an|(?:the\s+)?(?:correct\s+)?answer)(?:\s+đúng)?\s*(?:là|is|:|：|-)?\s*\**\s*([A-Da-d])\b[^\n]*/i;
+const REVEALED_ANSWER = /(?:^|\s)\s*[-*+]?\s*chọn đáp án đúng\s*[:：-]\s*\**\s*(?:\n\s*[-*+]?\s*)?([A-Da-d])\s*[.)]?\s*[^\n]*/i;
 const ANSWER_PROMPT_MARKER = /(?:^|\s)\s*[-*+]?\s*chọn đáp án đúng\s*[:：-]\s*(?:[-*+]\s*)?/i;
 const LEAKED_ANSWER = /nếu bạn chọn(?:\s+đáp án)?\s+([A-Da-d])\b/i;
 const CHOOSE_ANSWER = /(?:chọn|choose|pick)\s+(?:đáp án\s+)?([A-Da-d])\b/i;
 const LONE_KEY = /(?:^|\n)[\t ]*([A-Da-d])[\t ]*[.)]?[\t ]*(?:\n|$)/;
-const EXPLAIN_MARKER = /(?:^|\s)(?:giải thích|giai thich|explanation|lý do|ly do)\s*[:：]\s*/ig;
-const QUESTION_PREFIX = /^(?:câu hỏi|cau hoi|question)\s*[:：]\s*/im;
+const EXPLAIN_MARKER = /(?:^|\s)(?:giải thích|giai thich|explanation|lý do|ly do)\s*[:：]\s*\**\s*/ig;
+const QUESTION_PREFIX = /^(?:(?:\*{0,2}Q\d+\.?\*{0,2})|(?:câu hỏi(?:\s+trắc nghiệm)?|cau hoi(?:\s+trac nghiem)?|question))\s*[:：.*]?\s*/im;
+// Q-prefix: **Q1.** / Q1. / Q1.* — the canonical Worker-2 format.
+const QUIZ_ITEM_SPLIT_Q = /(?=^\s*\*{0,2}Q\d+\.?\*{0,2}(?:\s+|\s*$))/im;
+// "Câu 1:" / "Câu 1." — Vietnamese drift used by some model variants.
+const QUIZ_ITEM_SPLIT_CAU = /(?=^\s*(?:câu(?:\s+hỏi)?\s+)?\d+\s*[:.：])/im;
+// Plain numbered list "1." / "2." — only split here when the block already
+// has at least two such markers to avoid splitting a single numbered answer.
+const QUIZ_ITEM_SPLIT_NUM = /(?=^\s*\d+\.\s)/im;
 
 function stripMarkdownWrappers(value) {
   return String(value || '')
@@ -113,6 +122,43 @@ export function normalizeStructuredUnderstandingQuiz(value) {
     correctKey,
     explanation: String(value.explanation || '').trim(),
   };
+}
+
+function splitQuizItems(sectionBody) {
+  const text = String(sectionBody || '')
+    .replace(/^\s*câu hỏi trắc nghiệm\s*[*:.：-]?\s*/i, '')
+    .trim();
+  if (!text) return [];
+
+  // 1. Canonical Worker-2 format: **Q1.** / Q1. / Q1.* on its own line.
+  if (/\*{0,2}Q\d+\.?\*{0,2}/i.test(text)) {
+    return text
+      .split(QUIZ_ITEM_SPLIT_Q)
+      .map((chunk) => chunk.trim())
+      .filter(Boolean);
+  }
+
+  // 2. Vietnamese drift: "Câu 1:" / "Câu hỏi 1:" / "Câu 1."
+  if (/(?:^|\n)\s*(?:câu(?:\s+hỏi)?\s+)?\d+\s*[:.：]/i.test(text)) {
+    const chunks = text
+      .split(QUIZ_ITEM_SPLIT_CAU)
+      .map((chunk) => chunk.trim())
+      .filter(Boolean);
+    if (chunks.length > 1) return chunks;
+  }
+
+  // 3. Plain numbered list: "1." / "2." — only when 2+ markers exist so a
+  //    single-question body with a numbered option list is not fragmented.
+  const numMarkers = text.match(/(?:^|\n)\s*\d+\.\s/g);
+  if (numMarkers && numMarkers.length >= 2) {
+    const chunks = text
+      .split(QUIZ_ITEM_SPLIT_NUM)
+      .map((chunk) => chunk.trim())
+      .filter(Boolean);
+    if (chunks.length > 1) return chunks;
+  }
+
+  return [text];
 }
 
 export function parseUnderstandingQuiz(sectionBody) {
@@ -221,20 +267,38 @@ export function parseUnderstandingQuiz(sectionBody) {
   };
 }
 
+/** Repair JSON that stored literal "\\n" instead of real newlines. */
+function normalizeQuizNewlines(markdown) {
+  const raw = String(markdown || '');
+  if (!raw.includes('\\n')) return raw;
+  // Only rewrite when real newlines are missing around quiz markers.
+  if (/\n\s*#{1,6}\s*(?:kiểm tra hiểu|quiz tự luyện)/i.test(raw)
+      || /\n\s*Q\d+\./i.test(raw)) {
+    return raw;
+  }
+  return raw
+    .replace(/\\r\\n/g, '\n')
+    .replace(/\\n/g, '\n')
+    .replace(/\\t/g, '\t');
+}
+
 export function extractUnderstandingCheck(markdown) {
-  const text = String(markdown || '');
+  const text = normalizeQuizNewlines(markdown);
   const heading = CHECK_HEADING.exec(text);
   if (!heading) {
-    return { before: text, after: '', quiz: null };
+    return { before: text, after: '', quiz: null, quizzes: [] };
   }
 
   const afterHeading = heading.index + heading[0].length;
   const rest = text.slice(afterHeading).replace(/^\s*\n/, '');
   const breakAt = nextSectionBreak(rest);
   const sectionBody = (breakAt < 0 ? rest : rest.slice(0, breakAt)).trim();
-  const quiz = parseUnderstandingQuiz(sectionBody);
+  const quizzes = splitQuizItems(sectionBody)
+    .map((item) => parseUnderstandingQuiz(item))
+    .filter(Boolean);
+  const quiz = quizzes[0] || parseUnderstandingQuiz(sectionBody);
   if (!quiz) {
-    return { before: text, after: '', quiz: null };
+    return { before: text, after: '', quiz: null, quizzes: [] };
   }
 
   const after = breakAt < 0 ? '' : rest.slice(breakAt).replace(/^\s*-{3,}\s*/, '').trim();
@@ -242,6 +306,7 @@ export function extractUnderstandingCheck(markdown) {
     before: text.slice(0, heading.index).trimEnd(),
     after,
     quiz,
+    quizzes: quizzes.length ? quizzes : [quiz],
   };
 }
 
@@ -278,9 +343,46 @@ export function buildIncorrectAnswerRemediationPrompt(quiz, selected) {
     `Em đã chọn: ${selectedKey}. ${selectedText}`,
     `Đáp án đúng: ${correctKey}. ${String(correctOption?.text || '').trim()}`,
     quiz?.explanation ? `Lý do trong bài: ${String(quiz.explanation).trim()}` : '',
-    'Hãy tự động giảng lại đúng kiến thức này bằng cách dễ hiểu hơn, dùng cả Giải thích khái niệm (Conceptual Explanation) và Minh họa trực quan (Visual Representation).',
-    'Sau đó cho em làm lại một câu trắc nghiệm dễ hơn về cùng kiến thức, nhưng phải paraphrase câu hỏi và các lựa chọn; không lặp nguyên văn câu cũ và không chuyển sang chủ đề mới.',
+    'Hãy chẩn đoán rõ vì sao lựa chọn của em sai và em đang hiểu nhầm gì, rồi giảng lại cùng kiến thức một lần bằng Giải thích khái niệm và Minh họa trực quan.',
+    'Không lặp lại cùng một ý ở phần giảng và phần quiz. Không chuyển sang chủ đề mới.',
+    'Phần câu trắc nghiệm kiểm tra lại sẽ do worker quiz tạo riêng: một câu dễ hơn, paraphrase hoàn toàn, để em tự chọn trước khi hiện đáp án.',
   ].filter(Boolean).join('\n');
+}
+
+export function buildIncorrectAnswersRemediationPrompt(attempts) {
+  const incorrectAttempts = (Array.isArray(attempts) ? attempts : [])
+    .filter((attempt) => attempt?.quiz?.question && attempt?.selected?.key)
+    .sort((left, right) => Number(left.quizIndex || 0) - Number(right.quizIndex || 0));
+  if (!incorrectAttempts.length) return '';
+
+  const questionSections = incorrectAttempts.map((attempt) => {
+    const { quiz, selected, quizIndex } = attempt;
+    const correctKey = String(quiz.correctKey || '').trim().toUpperCase();
+    const correctOption = (Array.isArray(quiz.options) ? quiz.options : [])
+      .find((option) => option.key === correctKey);
+    const options = (Array.isArray(quiz.options) ? quiz.options : [])
+      .map((option) => `${option.key}. ${option.text}`)
+      .join('\n');
+
+    return [
+      `Câu ${Number(quizIndex || 0) + 1}: ${String(quiz.question).trim()}`,
+      options ? `Các lựa chọn:\n${options}` : '',
+      `Em đã chọn: ${selected.key}. ${String(selected.text || '').trim()}`,
+      correctKey
+        ? `Đáp án đúng: ${correctKey}. ${String(correctOption?.text || '').trim()}`
+        : 'Đáp án đúng chưa được xác định; hãy xác định từ tài liệu trước khi giảng.',
+      quiz.explanation ? `Lý do trong bài: ${String(quiz.explanation).trim()}` : '',
+    ].filter(Boolean).join('\n');
+  });
+
+  return [
+    'Ôn lại sau câu trả lời chưa đúng.',
+    `Học sinh đã hoàn thành quiz và có ${incorrectAttempts.length} câu trả lời chưa đúng:`,
+    ...questionSections,
+    'Với từng câu, hãy chẩn đoán vì sao lựa chọn sai và học sinh đang hiểu nhầm gì, rồi giảng lại kiến thức bằng Giải thích khái niệm và Minh họa trực quan.',
+    'Không chuyển sang chủ đề mới và không lặp lại cùng một ý giữa các phần giảng.',
+    'Phần câu trắc nghiệm kiểm tra lại sẽ do worker quiz tạo riêng: một câu dễ hơn, paraphrase hoàn toàn, để học sinh tự chọn trước khi hiện đáp án.',
+  ].join('\n');
 }
 
 export function buildMissingAnswerKeyRemediationPrompt(quiz, selected) {
@@ -299,7 +401,7 @@ export function buildMissingAnswerKeyRemediationPrompt(quiz, selected) {
     'Các lựa chọn:',
     options,
     `Em đã chọn: ${selectedKey}. ${selectedText}`,
-    'Hãy dựa vào tài liệu môn học để xác định và chấm đáp án em đã chọn, rồi giảng lại kiến thức này bằng Giải thích khái niệm (Conceptual Explanation) và Minh họa trực quan (Visual Representation).',
-    'Sau đó cho em làm lại một câu trắc nghiệm dễ hơn về cùng kiến thức nhưng được paraphrase. Câu mới phải có các lựa chọn A, B, C và kết thúc bằng đúng hai dòng: Đáp án: <A hoặc B hoặc C>; Giải thích: <một câu ngắn>.',
+    'Hãy dựa vào tài liệu để chấm lựa chọn của em, chẩn đoán hiểu nhầm nếu sai, rồi giảng lại một lần bằng Giải thích khái niệm và Minh họa trực quan.',
+    'Không đưa quiz vào phần giảng. Câu kiểm tra lại paraphrase sẽ được tạo riêng để em tự chọn trước khi hiện đáp án.',
   ].join('\n');
 }

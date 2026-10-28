@@ -18,26 +18,17 @@ function CoursesTab({ form, courses, onCreate, onReload, onAction }) {
       <Col xs={24} xl={10}>
         <Card title="Tạo môn học mới" hoverable>
           <Form form={form} layout="vertical" onFinish={onCreate}>
-            <Form.Item name="courseId" label="Mã môn học" rules={[{ required: true }]}>
-              <Input placeholder="PRJ301" />
+            <Form.Item name="courseId" label="Mã môn học" rules={[{ required: true, message: 'Nhập mã môn học.' }, { max: 50, message: 'Mã môn học tối đa 50 ký tự.' }]}>
+              <Input placeholder="PRJ301" maxLength={50} />
             </Form.Item>
-            <Form.Item name="courseName" label="Tên môn học" rules={[{ required: true }]}>
+            <Form.Item name="courseName" label="Tên môn học" rules={[{ required: true, message: 'Nhập tên môn học.' }, { max: 200, message: 'Tên môn học tối đa 200 ký tự.' }]}>
               <Input placeholder="Java Web Application" />
             </Form.Item>
             <Form.Item
               className="syllabus-form-item"
               name="description"
               label="Syllabus chính thức"
-              extra="Mỗi dòng theo định dạng: Chủ đề: mô tả. Syllabus sẽ bắt buộc khi Admin tải học liệu."
-              rules={[
-                {
-                  validator: (_, value) => (
-                    !value || String(value).split(/\r?\n/).some((line) => line.includes(':'))
-                      ? Promise.resolve()
-                      : Promise.reject(new Error('Syllabus cần có ít nhất một dòng "Chủ đề: mô tả"'))
-                  ),
-                },
-              ]}
+              extra="Nội dung nhà trường cung cấp. Không bắt buộc dấu hai chấm. Syllabus sẽ bắt buộc khi Admin tải học liệu."
             >
               <Input.TextArea rows={6} maxLength={20000} showCount />
             </Form.Item>

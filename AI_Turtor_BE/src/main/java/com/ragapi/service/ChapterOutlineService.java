@@ -59,20 +59,19 @@ public class ChapterOutlineService {
     private final PdfStorageService pdfStorageService;
     private final HtmlSectionMediaService htmlSectionMediaService;
 
+    /**
+     * Read persisted chapter outlines for chat-time grounding.
+     *
+     * Rebuilding outlines may scan every indexed material and extract PDF bookmarks.
+     * Keep that work in the indexing/explicit-refresh flows, not on every chat turn.
+     * If there are no visible outlines, callers can fall back to indexed retrieval.
+     */
     public List<ChapterOutlineView> suggestChapters(String courseId) {
         String safeCourseId = requireText(courseId, "courseId");
         List<CourseChapterOutline> outlines = outlineRepository.findByCourseIdOrderByTitleAsc(safeCourseId);
         List<CourseChapterOutline> visible = outlines.stream()
                 .filter(o -> !"IGNORED".equalsIgnoreCase(o.getStatus()))
                 .toList();
-        // Rebuild when empty, noise-ignored, or HTML website import still collapsed to one title chapter.
-        if (outlines.isEmpty() || visible.isEmpty() || needsHtmlSectionRebuild(safeCourseId, outlines)) {
-            refreshOutlinesForCourse(safeCourseId);
-            outlines = outlineRepository.findByCourseIdOrderByTitleAsc(safeCourseId);
-            visible = outlines.stream()
-                    .filter(o -> !"IGNORED".equalsIgnoreCase(o.getStatus()))
-                    .toList();
-        }
         return toViews(safeCourseId, visible);
     }
 
@@ -120,29 +119,6 @@ public class ChapterOutlineService {
                 "courseCount", courseIds.size(),
                 "courses", results
         );
-    }
-
-    private boolean needsHtmlSectionRebuild(String courseId, List<CourseChapterOutline> outlines) {
-        List<CourseMaterial> htmlMaterials = materialRepository.findByCourseId(courseId).stream()
-                .filter(m -> "INDEXED".equalsIgnoreCase(m.getIndexingStatus()))
-                .filter(m -> isHtmlUrlMaterial(m) && hasHtmlSectionMarkers(m.getContent()))
-                .toList();
-        if (htmlMaterials.isEmpty()) {
-            return false;
-        }
-        long sectionOutlines = outlines.stream()
-                .filter(o -> DETECTED_FROM_HTML_SECTION.equalsIgnoreCase(o.getDetectedFrom()))
-                .filter(o -> !"IGNORED".equalsIgnoreCase(o.getStatus()))
-                .count();
-        if (sectionOutlines == 0) {
-            return true;
-        }
-        int importedPages = htmlMaterials.stream()
-                .mapToInt(m -> m.getImportedPageCount() == null ? 0 : Math.max(0, m.getImportedPageCount()))
-                .sum();
-        // Oracle-style docs reuse the chapter H1 for every subsection; under-split until we
-        // expand titles with URL fragments.
-        return importedPages > 1 && importedPages > sectionOutlines * 2;
     }
 
     public List<ChapterOutlineView> confirmChapters(ConfirmChaptersRequest request) {

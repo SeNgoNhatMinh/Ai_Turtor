@@ -103,7 +103,7 @@ export default function AdminIndexedTeachingNotesPage({ courseId, setCourseId, t
       setEditing(null);
       await queryClient.invalidateQueries({ queryKey: ['admin', 'indexed-teaching-notes'] });
     } catch (reason) {
-      triggerToast?.(getUserFacingError(reason, 'Không thể cập nhật index.'));
+      triggerToast?.(getUserFacingError(reason, 'Không thể cập nhật index.'), 'error');
     } finally {
       setPendingId('');
     }
@@ -116,7 +116,7 @@ export default function AdminIndexedTeachingNotesPage({ courseId, setCourseId, t
       triggerToast?.(successMessage);
       await queryClient.invalidateQueries({ queryKey: ['admin', 'indexed-teaching-notes'] });
     } catch (reason) {
-      triggerToast?.(getUserFacingError(reason, 'Thao tác thất bại.'));
+      triggerToast?.(getUserFacingError(reason, 'Thao tác thất bại.'), 'error');
     } finally {
       setPendingId('');
     }

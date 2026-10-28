@@ -11,6 +11,7 @@ function AsyncState({
   loadingLabel = 'Đang tải nội dung...',
   emptyTitle = 'Chưa có dữ liệu',
   emptyDescription = '',
+  emptyAction,
   onRetry,
   compact = false,
   children,
@@ -49,6 +50,7 @@ function AsyncState({
             <div className="async-state__empty-copy">
               <strong>{emptyTitle}</strong>
               {emptyDescription && <span>{emptyDescription}</span>}
+              {emptyAction && <div className="async-state__empty-action">{emptyAction}</div>}
             </div>
           )}
         />

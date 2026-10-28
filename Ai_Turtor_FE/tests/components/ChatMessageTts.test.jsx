@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import ChatMessageList from '../../src/features/student/chat/components/ChatMessageList';
 
@@ -58,5 +58,36 @@ describe('ChatMessageList TTS action', () => {
     );
 
     expect(screen.getAllByRole('button', { name: 'Đọc câu trả lời của AI Tutor' })).toHaveLength(1);
+  });
+
+  it('renders curriculum starter suggestions as clickable study chips', () => {
+    const onStudySuggestion = vi.fn();
+    render(
+      <ChatMessageList
+        {...baseProps}
+        onStudySuggestion={onStudySuggestion}
+        messages={[{
+          id: 'welcome-1',
+          question: '',
+          sessionComplete: true,
+          answer: `## 4. Gợi ý học tập
+
+Bạn có thể bắt đầu bằng cách hỏi AI Tutor:
+
+- Tôi muốn tìm hiểu về Tổng quan về Pascal.
+- Kiểm tra kiến thức của tôi về Cấu trúc rẽ nhánh & Vòng lặp.
+
+**Mẹo:** Hãy chọn một chủ đề cụ thể.`,
+        }]}
+      />,
+    );
+
+    const studyButtons = screen.getAllByRole('button', { name: /Học ngay/ });
+    expect(studyButtons).toHaveLength(2);
+    fireEvent.click(studyButtons[0]);
+    expect(onStudySuggestion).toHaveBeenCalledWith(expect.objectContaining({
+      text: 'Tôi muốn tìm hiểu về Tổng quan về Pascal.',
+      curriculumStarter: true,
+    }));
   });
 });

@@ -1,6 +1,7 @@
 package com.ragapi.entity;
 
 import com.ragapi.dto.RagSourceEvidence;
+import com.ragapi.dto.UnderstandingCheckAttempt;
 import com.ragapi.dto.UnderstandingCheckPayload;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -38,6 +39,7 @@ public class AiMessage {
     private Boolean pinned;
     private LocalDateTime pinnedAt;
     private UnderstandingCheckPayload understandingCheck;
+    private List<UnderstandingCheckAttempt> understandingCheckAttempts;
     private String understandingAttemptId;
     private String understandingSelectedKey;
     private Boolean understandingCorrect;

@@ -66,7 +66,7 @@ function TeacherClassesTab({
     triggerToast?.(getUserFacingError(
       courseMemoriesQuery.error,
       'Không thể tải tín hiệu bộ nhớ học tập của môn.',
-    ));
+    ), 'error');
   }, [courseMemoriesQuery.error, triggerToast]);
 
   const currentClass = findTeacherClass(classesList, classId);
