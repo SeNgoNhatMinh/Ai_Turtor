@@ -24,7 +24,8 @@
   padding: 24px;
   overflow-x: hidden;
   overflow-y: auto;
-  overscroll-behavior: contain;
+  overscroll-behavior-x: auto;
+  overscroll-behavior-y: contain;
   scrollbar-gutter: stable;
 }
 

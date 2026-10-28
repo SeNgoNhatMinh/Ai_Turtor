@@ -13,6 +13,8 @@ public interface AdaptiveLearningReviewRepository extends MongoRepository<Adapti
             String studentId, String courseId, Integer questionCount);
     List<AdaptiveLearningReview> findByCourseIdAndClassIdOrderByCreatedAtDesc(String courseId, String classId);
     List<AdaptiveLearningReview> findByCourseIdOrderByCreatedAtDesc(String courseId);
+    List<AdaptiveLearningReview> findByStudentIdOrderByCreatedAtAsc(String studentId);
+
     List<AdaptiveLearningReview> findByStudentIdAndCourseIdOrderByCreatedAtDesc(String studentId, String courseId);
     List<AdaptiveLearningReview> findByStudentIdAndCourseIdAndClassIdOrderByCreatedAtDesc(String studentId, String courseId, String classId);
     long countByStatus(String status);

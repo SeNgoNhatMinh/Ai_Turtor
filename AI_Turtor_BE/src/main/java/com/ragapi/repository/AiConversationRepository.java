@@ -12,6 +12,8 @@ public interface AiConversationRepository extends MongoRepository<AiConversation
 
     Page<AiConversation> findByUserId(String userId, Pageable pageable);
 
+    List<AiConversation> findAllByUserId(String userId);
+
     Page<AiConversation> findByUserIdAndCourseId(String userId, String courseId, Pageable pageable);
 
     List<AiConversation> findByUserIdAndCourseId(String userId, String courseId);
