@@ -376,15 +376,21 @@ export function useStudentChatController({
         setActiveSessionTitle(displayConversationTitle);
       }
 
+      const reportedQuestionCount = data.userQuestionCount ?? data.questionCount;
+      const hasReportedQuestionCount = reportedQuestionCount != null && reportedQuestionCount !== '';
       bumpConversationActivity({
         conversationId: displayConversationId,
         title: displayConversationTitle,
         lastMessageAt: data.lastMessageAt || data.updatedAt || new Date().toISOString(),
         messageCountIncrement: 0,
-        questionCountIncrement: 0,
-        questionCount: data.userQuestionCount ?? data.questionCount,
+        // A new conversation is not incremented on send. n8n does not return
+        // userQuestionCount, so count that first turn here; later turns were
+        // already incremented when the student pressed send.
+        questionCountIncrement: hasReportedQuestionCount || previousSessionId ? 0 : 1,
+        questionCount: hasReportedQuestionCount ? reportedQuestionCount : undefined,
         maxTurnsReached: data.maxTurnsReached,
       });
+      loadChatSessions({ silent: true }).catch(() => {});
 
       const answerText = String(data.answer || '');
       const outcome = String(data.outcome || '').toUpperCase();

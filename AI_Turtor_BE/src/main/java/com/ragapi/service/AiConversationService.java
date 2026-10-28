@@ -47,9 +47,9 @@ public class AiConversationService {
     private final RealtimeEventService realtimeEvents;
 
     /**
-     * Live signals for every persisted student Q&A exchange: admins watching
-     * the AI answer log and the class teacher watching learning progress
-     * (x/10 questions, upcoming AI label) refresh immediately.
+     * Live signals for every persisted student Q&A exchange: the student's
+     * own session list, admins watching the AI answer log, and the class
+     * teacher watching learning progress refresh immediately.
      */
     private void publishExchangeSaved(AiConversation conversation, String studentId, AiMessage assistantMessage) {
         try {
@@ -60,6 +60,13 @@ public class AiConversationService {
             data.put("courseId", courseId == null ? "" : courseId);
             data.put("classId", classId == null ? "" : classId);
             data.put("conversationId", conversation.getId());
+            data.put("userQuestionCount", studentMessageCount(conversation.getId()));
+
+            if (studentId != null && !studentId.isBlank()) {
+                realtimeEvents.publishToUser(
+                        studentId, "CHAT_SESSION_UPDATED",
+                        "AI_CONVERSATION", conversation.getId(), "UPDATED", data);
+            }
 
             realtimeEvents.publishToRoles(List.of("ADMIN"), "AI_REQUEST_LOGGED",
                     "AI_MESSAGE", assistantMessage.getId(), "CREATED", data);
