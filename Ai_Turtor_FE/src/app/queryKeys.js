@@ -53,6 +53,11 @@ export const queryKeys = {
     'assigned',
     classId || 'all',
   ],
+  studentOverviewStats: (studentId) => [
+    'student',
+    'overview-stats',
+    studentId || 'anonymous',
+  ],
   studentLearning: (studentId, courseId) => [
     'student',
     'learning',

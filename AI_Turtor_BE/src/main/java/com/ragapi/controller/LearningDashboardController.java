@@ -2,6 +2,7 @@ package com.ragapi.controller;
 
 import com.ragapi.service.AccessGuardService;
 import com.ragapi.service.LearningDashboardService;
+import com.ragapi.service.StudentOverviewStatsService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.AllArgsConstructor;
@@ -24,6 +25,7 @@ import java.util.Map;
 public class LearningDashboardController {
 
     private final LearningDashboardService dashboardService;
+    private final StudentOverviewStatsService overviewStatsService;
     private final AccessGuardService accessGuardService;
 
     @GetMapping({"/students/{studentId}/dashboard", "/dashboards/students/{studentId}"})
@@ -41,6 +43,27 @@ public class LearningDashboardController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             log.error("Error building student dashboard", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @GetMapping({"/students/{studentId}/overview-stats", "/dashboards/students/{studentId}/overview-stats"})
+    @Operation(summary = "Summarize a student's questions, quizzes, improvement, and study streak")
+    public ResponseEntity<?> getStudentOverviewStats(
+            @PathVariable String studentId,
+            @RequestParam(value = "requesterId", required = false) String requesterId,
+            @RequestParam(value = "requesterRole", required = false) String requesterRole
+    ) {
+        try {
+            accessGuardService.allowStudentSelfOrAdmin(requesterId, requesterRole, studentId);
+            return ResponseEntity.ok(overviewStatsService.build(studentId));
+        } catch (IllegalArgumentException e) {
+            HttpStatus status = e.getMessage() != null && e.getMessage().contains("not allowed")
+                    ? HttpStatus.FORBIDDEN
+                    : HttpStatus.BAD_REQUEST;
+            return ResponseEntity.status(status).body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Error building student overview stats", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", e.getMessage()));
         }
     }

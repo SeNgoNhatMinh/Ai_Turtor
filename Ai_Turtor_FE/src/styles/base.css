@@ -74,7 +74,8 @@ canvas {
         height: var(--app-viewport-height, 100dvh);
         min-height: 0;
         overflow: hidden;
-        overscroll-behavior: none;
+        overscroll-behavior-x: auto;
+        overscroll-behavior-y: none;
     }
 
     body {

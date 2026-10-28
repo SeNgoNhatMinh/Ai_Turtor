@@ -12,6 +12,13 @@ export const studentLearningApi = {
     });
   },
 
+  async getOverviewStats(studentId, options = {}) {
+    return request(`${API_BASE_URL}/students/${encodePath(studentId)}/overview-stats`, {
+      signal: options.signal,
+      skipUnauthorizedRedirect: options.skipUnauthorizedRedirect,
+    });
+  },
+
   async getStudentMemory(studentId, courseId, options = {}) {
     return request(`${API_BASE_URL}/tutor/students/${encodePath(studentId)}/courses/${encodePath(courseId)}/memory`, {
       signal: options.signal,
