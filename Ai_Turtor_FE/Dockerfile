@@ -58,11 +58,11 @@ RUN npm run build
 
 FROM caddy:2.11.7-alpine
 
-ENV PORT=3000 \
-    XDG_CONFIG_HOME=/tmp/caddy-config \
+ENV XDG_CONFIG_HOME=/tmp/caddy-config \
     XDG_DATA_HOME=/tmp/caddy-data
 
-RUN mkdir -p /tmp/caddy-config /tmp/caddy-data
+RUN apk add --no-cache socat \
+    && mkdir -p /tmp/caddy-config /tmp/caddy-data
 
 COPY Caddyfile /etc/caddy/Caddyfile
 COPY start-caddy.sh /start-caddy.sh
@@ -70,6 +70,6 @@ COPY --from=build /app/dist /srv
 
 RUN chmod +x /start-caddy.sh
 
-EXPOSE 80 3000
+EXPOSE 8080
 
 CMD ["/start-caddy.sh"]
