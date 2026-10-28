@@ -517,7 +517,7 @@ test('student chat recovers a persisted backend answer when n8n returns memory o
   await page.getByLabel('Câu hỏi cho AI Tutor').press('Enter');
 
   await expect(page.getByText(answer, { exact: true })).toBeVisible({ timeout: 15000 });
-  await expect(page.getByRole('button', { name: /bằng chứng tài liệu \(1\)/i })).toBeVisible();
+  await expect(page.getByRole('button', { name: /nguồn tham khảo \(1\)/i })).toBeVisible();
   await expect(page.getByText('Java Core · Servlet lifecycle · Trang 55')).toBeVisible();
   await expect(page.getByText('Student memory returned by the incorrect Respond RAG node.')).toHaveCount(0);
 });

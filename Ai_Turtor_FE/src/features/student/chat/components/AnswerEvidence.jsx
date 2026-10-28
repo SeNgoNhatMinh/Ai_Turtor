@@ -104,10 +104,10 @@ function AnswerEvidence({ message, sourceMap = {} }) {
       >
         <FileText size={15} aria-hidden="true" />
         <span>{expanded
-          ? hasMaterialEvidence ? 'Ẩn bằng chứng tài liệu' : 'Ẩn thông tin câu trả lời'
+          ? hasMaterialEvidence ? 'Ẩn nguồn tham khảo' : 'Ẩn thông tin câu trả lời'
           : evidence.length > 0
-            ? `Bằng chứng tài liệu (${evidence.length})`
-            : hasMaterialEvidence ? 'Xem nguồn tài liệu' : 'Xem thông tin câu trả lời'}</span>
+            ? `Nguồn tham khảo (${evidence.length})`
+            : hasMaterialEvidence ? 'Xem nguồn tham khảo' : 'Xem thông tin câu trả lời'}</span>
         <ChevronDown size={15} aria-hidden="true" />
       </button>
       {!expanded && evidenceLocation && (
@@ -137,10 +137,13 @@ function AnswerEvidence({ message, sourceMap = {} }) {
         </div>
       )}
       {evidence.length > 0 && (
-        <div className="answer-evidence-details" aria-label="Bằng chứng từ tài liệu môn học">
+        <div className="answer-evidence-details" aria-label="Nguồn tham khảo từ tài liệu môn học">
+          <p className="answer-evidence-disclaimer">
+            Chỉ mang tính tham khảo; hãy đối chiếu với tài liệu gốc.
+          </p>
           {evidence.map((item, index) => (
             <div className="answer-evidence-detail" key={`${item.materialId || item.materialTitle}-${index}`}>
-              <strong>{item.provenanceLabel || `Bằng chứng ${index + 1}`}</strong>
+              <strong>{item.provenanceLabel || `Nguồn ${index + 1}`}</strong>
               <span><b>Môn học:</b> {item.courseName || item.courseId || 'Chưa xác định'}</span>
               <span>
                 <b>Tài liệu:</b>{' '}

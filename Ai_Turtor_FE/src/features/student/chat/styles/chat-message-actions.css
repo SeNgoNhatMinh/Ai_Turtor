@@ -84,6 +84,13 @@
 }
 
 .answer-evidence-details { display: grid; gap: 8px; width: 100%; }
+.answer-evidence-disclaimer {
+  margin: 0;
+  color: #6b7280;
+  font-size: 12px;
+  font-style: italic;
+  line-height: 1.5;
+}
 .answer-evidence-detail { display: grid; gap: 6px; padding: 14px; border: 1px solid rgba(22,119,255,.2); border-radius: 12px; background: #fff; color: #374151; font-size: 12px; line-height: 1.55; }
 .answer-evidence-detail > strong { color: #0b5fc6; font-size: 13px; }
 .answer-evidence-detail blockquote { margin: 6px 0 0; padding: 9px 11px; border-left: 3px solid #1677ff; border-radius: 0 8px 8px 0; background: #f6f9ff; color: var(--color-text-secondary, #475467); line-height: 1.6; }

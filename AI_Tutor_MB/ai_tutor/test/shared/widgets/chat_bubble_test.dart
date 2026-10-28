@@ -66,7 +66,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('Bằng chứng tài liệu'), findsNothing);
+      expect(find.textContaining('Nguồn tham khảo'), findsNothing);
       expect(find.textContaining('Độ khớp của nguồn'), findsNothing);
       expect(find.text('Giáo trình Java'), findsNothing);
     },
@@ -160,8 +160,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Dựa trên tài liệu môn học'), findsOneWidget);
-    expect(find.textContaining('Xem bằng chứng tài liệu (1)'), findsOneWidget);
-    await tester.tap(find.textContaining('Xem bằng chứng tài liệu (1)'));
+    expect(find.textContaining('Xem nguồn tham khảo (1)'), findsOneWidget);
+    await tester.tap(find.textContaining('Xem nguồn tham khảo (1)'));
     await tester.pumpAndSettle();
     expect(find.text('Giáo trình Java'), findsNothing);
     expect(find.text('Giáo trình Java nâng cao'), findsOneWidget);

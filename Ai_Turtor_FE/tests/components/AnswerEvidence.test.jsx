@@ -29,7 +29,7 @@ describe('AnswerEvidence', () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /xem nguồn tài liệu/i }));
+    fireEvent.click(screen.getByRole('button', { name: /xem nguồn tham khảo/i }));
     const source = screen.getByText('Professional_Java.pdf');
     expect(source).toBeVisible();
     expect(screen.getAllByText('Professional_Java.pdf')).toHaveLength(1);
@@ -66,7 +66,7 @@ describe('AnswerEvidence', () => {
 
     expect(screen.getByText('Nội dung trả lời.')).toBeVisible();
     expect(screen.queryByText('Nguồn tài liệu đã dùng')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /xem nguồn tài liệu/i }));
+    fireEvent.click(screen.getByRole('button', { name: /xem nguồn tham khảo/i }));
     expect(screen.getAllByText('Professional_Java.pdf')).toHaveLength(1);
   });
 
@@ -87,11 +87,12 @@ describe('AnswerEvidence', () => {
       />,
     );
 
-    expect(screen.getByRole('button', { name: /bằng chứng tài liệu \(1\)/i })).toBeVisible();
+    expect(screen.getByRole('button', { name: /nguồn tham khảo \(1\)/i })).toBeVisible();
     expect(screen.getByText('Java Core · Choosing a Web Container · Trang 55')).toBeVisible();
 
-    fireEvent.click(screen.getByRole('button', { name: /bằng chứng tài liệu \(1\)/i }));
-    expect(screen.getByText('Bằng chứng 1')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: /nguồn tham khảo \(1\)/i }));
+    expect(screen.getByText('Nguồn 1')).toBeVisible();
+    expect(screen.getByText('Chỉ mang tính tham khảo; hãy đối chiếu với tài liệu gốc.')).toBeVisible();
     expect(screen.getByText('Starting an Application and Hitting Breakpoints')).toBeVisible();
   });
 
@@ -127,7 +128,7 @@ describe('AnswerEvidence', () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /xem nguồn tài liệu/i }));
+    fireEvent.click(screen.getByRole('button', { name: /xem nguồn tham khảo/i }));
     expect(screen.getByText('Độ khớp của nguồn với câu hỏi: 72%')).toBeVisible();
   });
 
@@ -192,7 +193,7 @@ describe('AnswerEvidence', () => {
     );
 
     expect(screen.queryByText(/Main Material VN · Trang 16/)).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /bằng chứng tài liệu/i }));
+    fireEvent.click(screen.getByRole('button', { name: /nguồn tham khảo/i }));
     expect(screen.getByText('Chưa đối chiếu được với trang PDF gốc')).toBeVisible();
     expect(screen.queryByText(/Vị trí chính xác:\s*Trang PDF 16/)).not.toBeInTheDocument();
   });
@@ -216,7 +217,7 @@ describe('AnswerEvidence', () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /bằng chứng tài liệu/i }));
+    fireEvent.click(screen.getByRole('button', { name: /nguồn tham khảo/i }));
     expect(screen.getByText((_, element) => (
       element?.tagName === 'SPAN'
       && element.textContent.includes('Vị trí chính xác: Trang PDF 112 · Dictionaries')
@@ -242,7 +243,7 @@ describe('AnswerEvidence', () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /bằng chứng tài liệu \(1\)/i }));
+    fireEvent.click(screen.getByRole('button', { name: /nguồn tham khảo \(1\)/i }));
 
     const materialTitle = screen.getByText('Main Material');
     expect(materialTitle).toBeVisible();

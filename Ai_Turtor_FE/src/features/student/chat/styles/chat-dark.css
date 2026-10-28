@@ -236,7 +236,8 @@
   color: #f4f4f5;
 }
 
-.app-container.dark .answer-evidence-preview {
+.app-container.dark .answer-evidence-preview,
+.app-container.dark .answer-evidence-disclaimer {
   color: #d1d5db;
 }
 

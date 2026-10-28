@@ -96,8 +96,8 @@ class _RagSourceEvidencePanelState
                 Expanded(
                   child: Text(
                     _expanded
-                        ? 'Bằng chứng tài liệu'
-                        : 'Xem bằng chứng tài liệu ($count)',
+                        ? 'Nguồn tham khảo'
+                        : 'Xem nguồn tham khảo ($count)',
                     style: Theme.of(context).textTheme.labelMedium?.copyWith(
                       color: AppColors.primary,
                       fontWeight: FontWeight.w600,
@@ -109,6 +109,14 @@ class _RagSourceEvidencePanelState
           ),
         ),
         if (_expanded) ...[
+          const Gap(Insets.sm),
+          Text(
+            'Chỉ mang tính tham khảo; hãy đối chiếu với tài liệu gốc.',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: AppColors.textSecondary,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
           const Gap(Insets.sm),
           ...items.map(
             (item) => Padding(
