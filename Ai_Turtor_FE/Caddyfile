@@ -4,8 +4,8 @@
 	auto_https off
 }
 
-:{$PORT:3000} {
-	bind 0.0.0.0
+{$CADDY_SITE:http://:3000} {
+	bind 0.0.0.0 [::]
 	encode zstd gzip
 	root * /srv
 

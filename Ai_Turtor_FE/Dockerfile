@@ -65,8 +65,11 @@ ENV PORT=3000 \
 RUN mkdir -p /tmp/caddy-config /tmp/caddy-data
 
 COPY Caddyfile /etc/caddy/Caddyfile
+COPY start-caddy.sh /start-caddy.sh
 COPY --from=build /app/dist /srv
 
-EXPOSE 3000
+RUN chmod +x /start-caddy.sh
 
-CMD ["caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]
+EXPOSE 80 3000
+
+CMD ["/start-caddy.sh"]
