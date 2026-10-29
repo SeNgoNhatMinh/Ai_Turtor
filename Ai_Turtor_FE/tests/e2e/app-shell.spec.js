@@ -592,12 +592,13 @@ test('admin routes load their independent feature pages', async ({ page }) => {
   await expect(page.locator('.page-header')).toHaveCSS('border-radius', '20px');
 
   await page.goto('/admin/users');
-  await expect(page.getByText(/Tài khoản \(0\)/)).toBeVisible();
+  await expect(page).toHaveURL(/\/admin\/users\/students$/);
+  await expect(page.getByRole('heading', { name: 'Tài khoản & giảng viên' })).toBeVisible();
   await expect(page.locator('.page-header')).toHaveCSS('border-radius', '20px');
 
   await page.goto('/admin/academic');
-  await expect(page.getByRole('tab', { name: 'Học kỳ' })).toBeVisible();
-  await expect(page.getByRole('tab', { name: 'Học liệu môn học' })).toBeVisible();
+  await expect(page).toHaveURL(/\/admin\/academic\/semesters$/);
+  await expect(page.getByRole('heading', { name: 'Học kỳ & lớp học' })).toBeVisible();
   await expect(page.locator('.page-header')).toHaveCSS('border-radius', '20px');
 
   await page.goto('/admin/ai-logs');
@@ -615,16 +616,10 @@ test('admin routes load their independent feature pages', async ({ page }) => {
 
 test('Ant Design academic controls remain clickable around cards and anchored confirms', async ({ page }) => {
   await signInAsAdmin(page);
-  await page.goto('/admin/academic');
-
-  const academicTabs = page.locator('.admin-academic-tabs .ant-tabs-tab');
-  await expect(academicTabs).toHaveCount(6);
-
-  const classSectionsTab = page.locator('.admin-academic-tabs').getByRole('tab', { name: 'Lớp học phần' });
-  await classSectionsTab.scrollIntoViewIfNeeded();
-  await classSectionsTab.click();
-  await expect(page.locator('.admin-academic-tabs .ant-tabs-tabpane-active')).toBeVisible({ timeout: 10000 });
-  const courseSelect = page.locator('.ant-tabs-tabpane-active .ant-select').last();
+  await page.goto('/admin/academic/classes');
+  await expect(page).toHaveURL(/\/admin\/academic\/classes$/);
+  await expect(page.locator('.admin-academic-tabs')).toBeVisible({ timeout: 10000 });
+  const courseSelect = page.locator('.admin-academic-tabs .ant-select').last();
   await courseSelect.click();
   await expect(
     page.locator('.ant-select-dropdown:visible .ant-select-item-option').filter({ hasText: 'PRO192' }),
@@ -633,7 +628,7 @@ test('Ant Design academic controls remain clickable around cards and anchored co
   await expect(page.getByText('Loading...', { exact: true })).toHaveCount(0);
 
   const classActionButton = page.locator(
-    '.ant-tabs-tabpane-active .entity-action-button',
+    '.admin-academic-tabs .entity-action-button',
   ).first();
   await expect(classActionButton).toBeVisible();
   await classActionButton.scrollIntoViewIfNeeded();
@@ -650,8 +645,8 @@ test('Ant Design academic controls remain clickable around cards and anchored co
   await expect(page.locator('.ant-dropdown:visible')).toBeVisible();
   await page.keyboard.press('Escape');
 
-  await page.getByRole('tab', { name: 'Môn học', exact: true }).click();
-  await page.locator('.entity-action-button').first().click();
+  await page.goto('/admin/academic/courses');
+  await page.locator('.admin-academic-tabs .entity-action-button').first().click();
   await page.locator('.ant-dropdown-menu-item-danger').click();
 
   const confirmOverlay = page.locator('.app-confirm-overlay');
@@ -659,7 +654,7 @@ test('Ant Design academic controls remain clickable around cards and anchored co
   await expect(confirmOverlay).toHaveCSS('pointer-events', 'none');
 
   // This click used to be intercepted by the transparent full-screen overlay.
-  await page.locator('.ant-tabs-tabpane-active .ant-card-extra .ant-btn').click();
+  await page.locator('.admin-academic-tabs .ant-card-extra .ant-btn').click();
   await expect(page.locator('.app-confirm-card')).toBeVisible();
   await page.locator('.app-confirm-card__btn').first().click();
   await expect(page.locator('.app-confirm-host')).toHaveCount(0);
@@ -668,14 +663,10 @@ test('Ant Design academic controls remain clickable around cards and anchored co
 test('Ant Design academic popups remain usable with reduced motion enabled', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await signInAsAdmin(page);
-  await page.goto('/admin/academic');
+  await page.goto('/admin/academic/classes');
+  await expect(page.locator('.admin-academic-tabs')).toBeVisible({ timeout: 10000 });
 
-  const classSectionsTab = page.locator('.admin-academic-tabs').getByRole('tab', { name: 'Lớp học phần' });
-  await classSectionsTab.scrollIntoViewIfNeeded();
-  await classSectionsTab.click();
-  await expect(page.locator('.admin-academic-tabs .ant-tabs-tabpane-active')).toBeVisible({ timeout: 10000 });
-
-  const courseSelect = page.locator('.ant-tabs-tabpane-active .ant-select').last();
+  const courseSelect = page.locator('.admin-academic-tabs .ant-select').last();
   await courseSelect.click();
 
   const dropdown = page.locator('.ant-select-dropdown:visible');
@@ -689,7 +680,7 @@ test('Ant Design academic popups remain usable with reduced motion enabled', asy
 
   await dropdown.locator('.ant-select-item-option').first().click();
   await expect(page.getByText('Loading...', { exact: true })).toHaveCount(0);
-  const classActionButton = page.locator('.ant-tabs-tabpane-active .entity-action-button').first();
+  const classActionButton = page.locator('.admin-academic-tabs .entity-action-button').first();
   await classActionButton.click();
   await expect(page.locator('.ant-dropdown:visible')).toBeVisible();
 });

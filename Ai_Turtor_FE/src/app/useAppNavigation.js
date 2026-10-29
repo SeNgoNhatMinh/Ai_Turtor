@@ -7,7 +7,7 @@ import {
   writeJsonStorage,
   writeLastPath,
 } from '../utils/storage';
-import { getHomeRouteForRole, getRouteConfig, getRouteForTab, getRouteState } from './routes';
+import { getAdminSectionRedirect, getHomeRouteForRole, getRouteConfig, getRouteForTab, getRouteState } from './routes';
 
 export function useAppNavigation({ currentUser, currentUserRole }) {
   const location = useLocation();
@@ -63,6 +63,12 @@ export function useAppNavigation({ currentUser, currentUserRole }) {
     if (routeState) return;
     navigate(getHomeRouteForRole(activeRole), { replace: true });
   }, [activeRole, currentUser, navigate, routeState]);
+
+  useEffect(() => {
+    const target = getAdminSectionRedirect(location.pathname);
+    if (!target || target === location.pathname) return;
+    navigate(target, { replace: true });
+  }, [location.pathname, navigate]);
 
   const switchTab = (tab) => {
     const route = getRouteForTab(tab);

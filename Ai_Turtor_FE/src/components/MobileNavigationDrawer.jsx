@@ -1,7 +1,12 @@
-import { memo, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import { Drawer, Menu } from 'antd';
 import { LogOut, Search, UserRound, X } from 'lucide-react';
-import { getNavigationForRole } from '../config/navigation';
+import {
+  findOpenMenuKey,
+  getNavigationForRole,
+  groupAdminNavigation,
+  resolveNavigationSelection,
+} from '../config/navigation';
 import { getAccountRoleLabel, normalizeAccountRole } from '../constants/roles';
 import { includesSearchText } from '../utils/searchText';
 import FptBrand from './common/FptBrand';
@@ -23,28 +28,47 @@ function MobileNavigationDrawer({
   const [searchQuery, setSearchQuery] = useState('');
   const normalizedRole = normalizeAccountRole(accountRole || activeRole);
   const roleLabel = getAccountRoleLabel(normalizedRole);
+  const navigation = useMemo(() => getNavigationForRole(normalizedRole), [normalizedRole]);
+  const selectedKey = resolveNavigationSelection(activeTab);
+  const openParentKey = findOpenMenuKey(navigation, selectedKey);
+  const [openKeys, setOpenKeys] = useState(() => (openParentKey ? [openParentKey] : []));
+  useEffect(() => {
+    if (!openParentKey) return;
+    setOpenKeys((keys) => (keys.includes(openParentKey) ? keys : [...keys, openParentKey]));
+  }, [openParentKey]);
   const items = useMemo(() => {
-    return getNavigationForRole(normalizedRole)
-      .map((item) => {
-        const children = (item.children || []).filter((child) => (
-          includesSearchText(`${item.label} ${child.label} ${child.description}`, searchQuery)
-        ));
-        const selfMatch = includesSearchText(`${item.label} ${item.description}`, searchQuery);
-        if (searchQuery && !selfMatch && children.length === 0) return null;
+    const filtered = navigation.flatMap((item) => {
+      const children = (item.children || []).filter((child) => (
+        includesSearchText(`${item.label} ${child.label} ${child.description}`, searchQuery)
+      ));
+      const selfMatch = includesSearchText(`${item.label} ${item.description}`, searchQuery);
+      if (searchQuery && !selfMatch && children.length === 0) return [];
+      return [{
+        ...item,
+        children: item.children ? (searchQuery && !selfMatch ? children : item.children) : undefined,
+      }];
+    });
+    const toMenuItem = (item) => {
+      if (item.type === 'group') {
         return {
+          type: 'group',
           key: item.key,
-          icon: <item.icon size={20} aria-hidden="true" />,
           label: item.label,
-          children: item.children
-            ? (searchQuery && !selfMatch ? children : item.children).map((child) => ({
-              key: child.key,
-              label: child.label,
-            }))
-            : undefined,
+          children: item.children.map(toMenuItem),
         };
-      })
-      .filter(Boolean);
-  }, [normalizedRole, searchQuery]);
+      }
+      return {
+        key: item.key,
+        icon: item.icon ? <item.icon size={20} aria-hidden="true" /> : undefined,
+        label: item.label,
+        children: item.children?.map((child) => ({
+          key: child.key,
+          label: child.label,
+        })),
+      };
+    };
+    return groupAdminNavigation(filtered).map(toMenuItem);
+  }, [navigation, searchQuery]);
 
   const navigate = ({ key }) => {
     switchTab(key);
@@ -100,8 +124,9 @@ function MobileNavigationDrawer({
         {items.length ? (
           <Menu
             mode="inline"
-            selectedKeys={[activeTab === 'admin-ai-logs' ? 'admin-ai-logs-providers' : activeTab]}
-            defaultOpenKeys={String(activeTab).startsWith('admin-ai-logs') ? ['admin-ai-logs'] : []}
+            selectedKeys={[selectedKey]}
+            openKeys={openKeys}
+            onOpenChange={setOpenKeys}
             items={items}
             onClick={navigate}
           />

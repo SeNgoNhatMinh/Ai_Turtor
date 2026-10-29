@@ -7,10 +7,14 @@ import {
   MessageSquareText,
   PanelLeftClose,
   PanelLeftOpen,
-  Settings2,
   ShieldCheck,
 } from 'lucide-react';
-import { getNavigationForRole } from '../config/navigation';
+import {
+  findOpenMenuKey,
+  getNavigationForRole,
+  groupAdminNavigation,
+  resolveNavigationSelection,
+} from '../config/navigation';
 
 function Sidebar({ accountRole, activeRole, activeTab, switchTab, courseId, classId, compactByDefault = false }) {
   const [collapsed, setCollapsed] = useState(compactByDefault);
@@ -28,18 +32,21 @@ function Sidebar({ accountRole, activeRole, activeTab, switchTab, courseId, clas
   const workspaceCards = {
     teacher: { eyebrow: 'Không gian giảng dạy', title: 'Quản lý lớp học', detail: 'Theo dõi lớp, quiz và bài nộp', button: 'Xem lớp học', tab: 'teacher-classes', icon: GraduationCap },
     senior: { eyebrow: 'Kiểm duyệt chuyên môn', title: 'Senior Mentor', detail: 'Rà soát phản hồi và tri thức AI', button: 'Mở hàng đợi', tab: 'senior-review', icon: ShieldCheck },
-    admin: { eyebrow: 'Điều hành hệ thống', title: 'Administrator', detail: 'Quản trị người dùng và AI Tutor', button: 'Xem tổng quan', tab: 'admin-dashboard', icon: Settings2 },
   };
   const workspaceCard = workspaceCards[activeRole];
   const WorkspaceIcon = workspaceCard?.icon;
 
-  const selectedKey = activeTab === 'admin-ai-logs' ? 'admin-ai-logs-providers' : activeTab;
+  const navigation = useMemo(
+    () => getNavigationForRole(accountRole || activeRole),
+    [accountRole, activeRole],
+  );
+  const selectedKey = resolveNavigationSelection(activeTab);
+  const openParentKey = findOpenMenuKey(navigation, selectedKey);
   const [openKeys, setOpenKeys] = useState([]);
-  const menuOpenKeys = String(selectedKey).startsWith('admin-ai-logs') && !openKeys.includes('admin-ai-logs')
-    ? [...openKeys, 'admin-ai-logs']
+  const menuOpenKeys = openParentKey && !openKeys.includes(openParentKey)
+    ? [...openKeys, openParentKey]
     : openKeys;
-  const items = useMemo(() => getNavigationForRole(accountRole || activeRole).map((item) => {
-    const Icon = item.icon;
+  const items = useMemo(() => {
     const label = (text, description) => (
       <Tooltip
         placement="right"
@@ -51,16 +58,28 @@ function Sidebar({ accountRole, activeRole, activeTab, switchTab, courseId, clas
         <span>{text}</span>
       </Tooltip>
     );
-    return {
-      key: item.key,
-      icon: <Icon size={18} />,
-      label: label(item.label, item.description),
-      children: item.children?.map((child) => ({
-        key: child.key,
-        label: label(child.label, child.description),
-      })),
+    const toMenuItem = (item) => {
+      if (item.type === 'group') {
+        return {
+          type: 'group',
+          key: item.key,
+          label: item.label,
+          children: item.children.map(toMenuItem),
+        };
+      }
+      const Icon = item.icon;
+      return {
+        key: item.key,
+        icon: Icon ? <Icon size={18} /> : undefined,
+        label: label(item.label, item.description),
+        children: item.children?.map((child) => ({
+          key: child.key,
+          label: label(child.label, child.description),
+        })),
+      };
     };
-  }), [accountRole, activeRole]);
+    return groupAdminNavigation(navigation).map(toMenuItem);
+  }, [navigation]);
 
   return (
     <aside

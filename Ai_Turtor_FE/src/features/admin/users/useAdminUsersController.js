@@ -16,10 +16,10 @@ const ACCOUNT_ROLE_ORDER = [
   ACCOUNT_ROLES.ADMIN,
 ];
 
-export function useAdminUsersController({ triggerToast, handleAdminImport }) {
+export function useAdminUsersController({ triggerToast, handleAdminImport, initialRole = ACCOUNT_ROLES.STUDENT }) {
   const queryClient = useQueryClient();
   const [userSearchQ, setUserSearchQ] = useState('');
-  const [userFilterRole, setUserFilterRole] = useState(ACCOUNT_ROLES.STUDENT);
+  const [userFilterRole, setUserFilterRole] = useState(initialRole);
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(20);
   const debouncedSearch = useDebouncedValue(userSearchQ, 300);

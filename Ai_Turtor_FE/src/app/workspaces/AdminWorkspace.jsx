@@ -26,7 +26,14 @@ export default function AdminWorkspace({
   setCourseId,
   triggerToast,
 }) {
-  const Page = adminPages[activeTab];
+  const pageKey = activeTab.startsWith('admin-users')
+    ? 'admin-users'
+    : activeTab.startsWith('admin-academic')
+      ? 'admin-academic'
+      : activeTab.startsWith('admin-ai-logs')
+        ? 'admin-ai-logs'
+        : activeTab;
+  const Page = adminPages[pageKey];
   if (!Page) return null;
   const aiLogSection = {
     'admin-ai-logs': 'providers',
@@ -34,12 +41,31 @@ export default function AdminWorkspace({
     'admin-ai-logs-stats': 'runtime',
     'admin-ai-logs-history': 'history',
   }[activeTab];
+  const userSection = {
+    'admin-users': 'students',
+    'admin-users-students': 'students',
+    'admin-users-teachers': 'teachers',
+    'admin-users-senior-mentors': 'senior-mentors',
+    'admin-users-admins': 'admins',
+    'admin-users-mentors': 'mentors',
+    'admin-users-escalations': 'escalations',
+  }[activeTab];
+  const academicSection = {
+    'admin-academic': 'semesters',
+    'admin-academic-semesters': 'semesters',
+    'admin-academic-courses': 'courses',
+    'admin-academic-classes': 'classes',
+    'admin-academic-enrollments': 'enrollments',
+    'admin-academic-import': 'import',
+    'admin-academic-materials': 'materials',
+    'admin-academic-curriculum': 'curriculum',
+  }[activeTab];
 
   return (
     <FeatureErrorBoundary featureName="Trang quản trị" key={activeTab}>
       <Suspense fallback={<AdminPageFallback />}>
         <Page
-          section={aiLogSection}
+          section={aiLogSection || userSection || academicSection}
           currentUser={currentUser}
           teacherId={currentUser?.userId || currentUser?.id || ''}
           courseId={courseId}

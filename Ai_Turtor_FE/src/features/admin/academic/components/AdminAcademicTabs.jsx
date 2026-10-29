@@ -1,6 +1,5 @@
 import { lazy, Suspense } from 'react';
 import AsyncState from '../../../../components/common/AsyncState';
-import AppTabs from '../../../../components/common/AppTabs';
 
 const ClassSectionsTab = lazy(() => import('./ClassSectionsTab'));
 const CourseMaterialsTab = lazy(() => import('./CourseMaterialsTab'));
@@ -14,7 +13,18 @@ function TabFallback() {
   return <AsyncState loading compact loadingLabel="Đang tải dữ liệu học vụ..." loadingRows={5} />;
 }
 
+const SECTION_ITEM_KEY = {
+  semesters: 'semesters',
+  courses: 'courses',
+  classes: 'classes',
+  enrollments: 'enrollments',
+  import: 'student-import',
+  materials: 'materials',
+  curriculum: 'curriculum-guide',
+};
+
 export default function AdminAcademicTabs({
+  section = 'semesters',
   forms,
   academic,
   materials,
@@ -160,12 +170,12 @@ export default function AdminAcademicTabs({
     },
   ];
 
+  const itemKey = SECTION_ITEM_KEY[section] || 'semesters';
+  const active = items.find((item) => item.key === itemKey) || items[0];
+
   return (
-    <AppTabs
-      defaultActiveKey="semesters"
-      className="admin-academic-tabs"
-      destroyOnHidden
-      items={items}
-    />
+    <div className="admin-academic-tabs">
+      {active.children}
+    </div>
   );
 }

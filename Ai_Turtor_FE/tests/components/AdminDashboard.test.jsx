@@ -33,7 +33,7 @@ describe('AdminDashboard canonical actions', () => {
     expect(screen.queryByText('Log service unavailable or endpoint missing.')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /Quản lý tài khoản và giảng viên/i }));
-    expect(onNavigate).toHaveBeenCalledWith('/admin/users');
+    expect(onNavigate).toHaveBeenCalledWith('/admin/users/students');
 
     await waitFor(
       () => expect(diagnosticsApi.getHarnessLogs).toHaveBeenCalledTimes(1),

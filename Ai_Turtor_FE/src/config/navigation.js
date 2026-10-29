@@ -8,6 +8,8 @@ import {
   Inbox,
   BarChart3,
   Users,
+  GraduationCap,
+  AlertTriangle,
   Library,
   MessageCircle,
   BrainCircuit,
@@ -169,17 +171,103 @@ const navigationItems = [
     key: 'admin-users',
     workspace: 'admin',
     group: 'Hệ thống',
-    label: 'Tài khoản & giảng viên',
-    description: 'Quản lý tài khoản, giảng viên và dữ liệu import.',
+    label: 'Tài khoản',
+    description: 'Xem tài khoản theo từng vai trò.',
     icon: Users,
+    children: [
+      {
+        key: 'admin-users-students',
+        label: 'Sinh viên',
+        description: 'Tài khoản sinh viên, kể cả tài khoản đã khóa.',
+      },
+      {
+        key: 'admin-users-teachers',
+        label: 'Giảng viên',
+        description: 'Tài khoản giảng viên, kể cả tài khoản đã khóa.',
+      },
+      {
+        key: 'admin-users-senior-mentors',
+        label: 'Senior Mentor',
+        description: 'Tài khoản senior mentor, kể cả tài khoản đã khóa.',
+      },
+      {
+        key: 'admin-users-admins',
+        label: 'Quản trị viên',
+        description: 'Tài khoản quản trị, kể cả tài khoản đã khóa.',
+      },
+    ],
   },
   {
-    key: 'admin-academic',
+    key: 'admin-users-mentors',
+    workspace: 'admin',
+    group: 'Hệ thống',
+    label: 'Hồ sơ giảng viên',
+    description: 'Hồ sơ giảng viên và import dữ liệu giảng viên.',
+    icon: GraduationCap,
+  },
+  {
+    key: 'admin-users-escalations',
+    workspace: 'admin',
+    group: 'Hệ thống',
+    label: 'Yêu cầu hỗ trợ',
+    description: 'Các yêu cầu hỗ trợ đang chờ xử lý.',
+    icon: AlertTriangle,
+  },
+  {
+    key: 'admin-academic-semesters',
     workspace: 'admin',
     group: 'Học vụ',
-    label: 'Học kỳ & lớp học',
-    description: 'Quản lý học kỳ, môn học và lớp học phần.',
+    label: 'Học kỳ',
+    description: 'Tạo và cập nhật học kỳ.',
     icon: Library,
+  },
+  {
+    key: 'admin-academic-courses',
+    workspace: 'admin',
+    group: 'Học vụ',
+    label: 'Môn học',
+    description: 'Quản lý môn học.',
+    icon: BookOpen,
+  },
+  {
+    key: 'admin-academic-classes',
+    workspace: 'admin',
+    group: 'Học vụ',
+    label: 'Lớp học phần',
+    description: 'Quản lý lớp học phần và giảng viên phụ trách.',
+    icon: LayoutGrid,
+  },
+  {
+    key: 'admin-academic-enrollments',
+    workspace: 'admin',
+    group: 'Học vụ',
+    label: 'Ghi danh',
+    description: 'Ghi danh sinh viên vào lớp.',
+    icon: ClipboardList,
+  },
+  {
+    key: 'admin-academic-import',
+    workspace: 'admin',
+    group: 'Học vụ',
+    label: 'Import sinh viên',
+    description: 'Nhập danh sách sinh viên từ tệp.',
+    icon: UploadCloud,
+  },
+  {
+    key: 'admin-academic-materials',
+    workspace: 'admin',
+    group: 'Học vụ',
+    label: 'Học liệu',
+    description: 'Học liệu dùng chung theo môn.',
+    icon: FileText,
+  },
+  {
+    key: 'admin-academic-curriculum',
+    workspace: 'admin',
+    group: 'Học vụ',
+    label: 'Curriculum AI',
+    description: 'Chỉnh curriculum guide cho AI Tutor.',
+    icon: BrainCircuit,
   },
   {
     key: 'admin-reindex',
@@ -248,6 +336,37 @@ export const getNavigationForRole = (role) => {
   }
   return items;
 };
+
+export function groupAdminNavigation(items) {
+  if (!items?.length || !items.every((item) => item.workspace === 'admin')) return items || [];
+  const groups = [];
+  const byLabel = new Map();
+  for (const item of items) {
+    const label = item.group || 'Khác';
+    let group = byLabel.get(label);
+    if (!group) {
+      group = { type: 'group', key: `nav-group-${label}`, label, children: [] };
+      byLabel.set(label, group);
+      groups.push(group);
+    }
+    group.children.push(item);
+  }
+  return groups;
+}
+
+export function resolveNavigationSelection(activeTab) {
+  if (activeTab === 'admin-ai-logs') return 'admin-ai-logs-providers';
+  if (activeTab === 'admin-users') return 'admin-users-students';
+  if (activeTab === 'admin-academic') return 'admin-academic-semesters';
+  return activeTab || '';
+}
+
+export function findOpenMenuKey(items, selectedKey) {
+  for (const item of items || []) {
+    if (item.children?.some((child) => child.key === selectedKey)) return item.key;
+  }
+  return '';
+}
 
 export function findNavigationItem(items, key) {
   for (const item of items || []) {

@@ -248,7 +248,14 @@ function AdminDashboard({
     <div className="portal-view">
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
         <Col xs={12} lg={6}>
-          <Card hoverable className="glass-card" style={{ borderLeft: '3px solid #F37021' }}>
+          <Card
+            hoverable
+            className="glass-card"
+            style={{ borderLeft: '3px solid #F37021', cursor: 'pointer' }}
+            onClick={() => onNavigate?.('/admin/users/students')}
+            role="link"
+            aria-label="Mở danh sách tài khoản sinh viên"
+          >
             <Statistic
               title={<Text type="secondary">Tổng tài khoản</Text>}
               value={adminStats.users ?? adminStats.totalUsers ?? 0}
@@ -258,7 +265,14 @@ function AdminDashboard({
           </Card>
         </Col>
         <Col xs={12} lg={6}>
-          <Card hoverable className="glass-card" style={{ borderLeft: '3px solid #52c41a' }}>
+          <Card
+            hoverable
+            className="glass-card"
+            style={{ borderLeft: '3px solid #52c41a', cursor: 'pointer' }}
+            onClick={() => onNavigate?.('/admin/users/teachers')}
+            role="link"
+            aria-label="Mở danh sách tài khoản giảng viên"
+          >
             <Statistic
               title={<Text type="secondary">Giảng viên</Text>}
               value={adminStats.mentors ?? 0}
@@ -278,7 +292,14 @@ function AdminDashboard({
           </Card>
         </Col>
         <Col xs={12} lg={6}>
-          <Card hoverable className="glass-card" style={{ borderLeft: '3px solid #fa8c16' }}>
+          <Card
+            hoverable
+            className="glass-card"
+            style={{ borderLeft: '3px solid #fa8c16', cursor: 'pointer' }}
+            onClick={() => onNavigate?.('/admin/users/escalations')}
+            role="link"
+            aria-label="Mở yêu cầu hỗ trợ"
+          >
             <Statistic
               title={<Text type="secondary">Tổng yêu cầu hỗ trợ</Text>}
               value={adminStats.escalations ?? 0}
@@ -299,14 +320,14 @@ function AdminDashboard({
                   title: 'Quản lý tài khoản và giảng viên',
                   description: 'Kiểm tra vai trò, trạng thái tài khoản và dữ liệu import.',
                   icon: Users,
-                  onClick: () => onNavigate?.('/admin/users'),
+                  onClick: () => onNavigate?.('/admin/users/students'),
                 },
                 {
                   key: 'academic',
                   title: 'Quản lý học kỳ, lớp và học liệu',
                   description: 'Cập nhật môn học, lớp học phần, ghi danh và tài liệu dùng chung.',
                   icon: BookOpenCheck,
-                  onClick: () => onNavigate?.('/admin/academic'),
+                  onClick: () => onNavigate?.('/admin/academic/enrollments'),
                 },
               ]}
             />

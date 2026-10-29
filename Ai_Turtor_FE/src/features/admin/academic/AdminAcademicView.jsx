@@ -16,7 +16,7 @@ import './AdminAcademic.css';
 
 const ImportWebsiteModal = lazy(() => import('../../../components/importWebsite/ImportWebsiteModal'));
 
-function AdminAcademic({ triggerToast, currentUser }) {
+function AdminAcademic({ section = 'semesters', triggerToast, currentUser }) {
   const [studentSearch, setStudentSearch] = useState('');
   const debouncedStudentSearch = useDebouncedValue(studentSearch.trim(), 300);
   const [formSemester] = Form.useForm();
@@ -110,6 +110,7 @@ function AdminAcademic({ triggerToast, currentUser }) {
   return (
     <div className="portal-view admin-academic-page">
       <AdminAcademicTabs
+        section={section}
         forms={{
           semester: formSemester,
           course: formCourse,

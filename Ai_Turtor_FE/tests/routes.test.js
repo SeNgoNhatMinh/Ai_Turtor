@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { appRoutes, getHomeRouteForRole, getRouteForTab, getRouteState } from '../src/app/routes.js';
+import { appRoutes, getAdminSectionRedirect, getHomeRouteForRole, getRouteForTab, getRouteState } from '../src/app/routes.js';
 
 test('keeps every canonical route unique', () => {
   assert.equal(new Set(appRoutes.map((route) => route.path)).size, appRoutes.length);
@@ -37,6 +37,11 @@ test('uses stable role home routes and rejects unknown routes', () => {
   assert.equal(getHomeRouteForRole('senior'), '/senior/review');
   assert.equal(getHomeRouteForRole('SENIOR_MENTOR'), '/senior/review');
   assert.equal(getHomeRouteForRole('ADMIN'), '/admin/dashboard');
+  assert.equal(getAdminSectionRedirect('/admin/users'), '/admin/users/students');
+  assert.equal(getAdminSectionRedirect('/admin/academic/'), '/admin/academic/semesters');
+  assert.equal(getAdminSectionRedirect('/admin/users/students'), '');
+  assert.equal(getRouteState('/admin/users/teachers')?.tab, 'admin-users-teachers');
+  assert.equal(getRouteState('/admin/academic/enrollments')?.tab, 'admin-academic-enrollments');
   assert.equal(getRouteState('/teacher/voice'), null);
   assert.equal(getRouteState('/unknown'), null);
 });

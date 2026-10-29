@@ -3,13 +3,14 @@ import { useMentorImport } from './useMentorImport';
 import PageHeader from '../../../components/common/PageHeader';
 import { uiCopy } from '../../../constants/uiCopy';
 
-export default function AdminUsersPage({ triggerToast }) {
+export default function AdminUsersPage({ section, triggerToast }) {
   const mentorImport = useMentorImport({ triggerToast });
 
   return (
     <div className="portal-section admin-route-page">
       <PageHeader {...uiCopy.admin.users} eyebrow="Quản trị hệ thống" />
       <AdminUsers
+        section={section}
         triggerToast={triggerToast}
         handleAdminImport={mentorImport.importMentors}
       />

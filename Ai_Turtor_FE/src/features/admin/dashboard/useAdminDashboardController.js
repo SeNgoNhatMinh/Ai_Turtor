@@ -11,10 +11,9 @@ export function useAdminDashboardController({ triggerToast }) {
   const statsQuery = useQuery({
     queryKey: queryKeys.adminDashboardStats(),
     queryFn: async ({ signal }) => {
-      const [stats, courses] = await Promise.all([
-        diagnosticsApi.getAdminStats({ signal }),
-        adminAcademicApi.getCourses({ signal }),
-      ]);
+      const stats = await diagnosticsApi.getAdminStats({ signal });
+      if (Number.isFinite(Number(stats?.academic?.courses))) return stats || {};
+      const courses = await adminAcademicApi.getCourses({ signal });
       return { ...(stats || {}), courses: Array.isArray(courses) ? courses.length : 0 };
     },
     staleTime: 30_000,

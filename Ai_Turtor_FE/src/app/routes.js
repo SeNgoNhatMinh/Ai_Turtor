@@ -58,7 +58,20 @@ export const appRoutes = [
   },
   { role: 'admin', tab: 'admin-dashboard', path: '/admin/dashboard' },
   { role: 'admin', tab: 'admin-users', path: '/admin/users' },
+  { role: 'admin', tab: 'admin-users-students', path: '/admin/users/students', navigationPath: true },
+  { role: 'admin', tab: 'admin-users-teachers', path: '/admin/users/teachers', navigationPath: true },
+  { role: 'admin', tab: 'admin-users-senior-mentors', path: '/admin/users/senior-mentors', navigationPath: true },
+  { role: 'admin', tab: 'admin-users-admins', path: '/admin/users/admins', navigationPath: true },
+  { role: 'admin', tab: 'admin-users-mentors', path: '/admin/users/mentors', navigationPath: true },
+  { role: 'admin', tab: 'admin-users-escalations', path: '/admin/users/escalations', navigationPath: true },
   { role: 'admin', tab: 'admin-academic', path: '/admin/academic' },
+  { role: 'admin', tab: 'admin-academic-semesters', path: '/admin/academic/semesters', navigationPath: true },
+  { role: 'admin', tab: 'admin-academic-courses', path: '/admin/academic/courses', navigationPath: true },
+  { role: 'admin', tab: 'admin-academic-classes', path: '/admin/academic/classes', navigationPath: true },
+  { role: 'admin', tab: 'admin-academic-enrollments', path: '/admin/academic/enrollments', navigationPath: true },
+  { role: 'admin', tab: 'admin-academic-import', path: '/admin/academic/import', navigationPath: true },
+  { role: 'admin', tab: 'admin-academic-materials', path: '/admin/academic/materials', navigationPath: true },
+  { role: 'admin', tab: 'admin-academic-curriculum', path: '/admin/academic/curriculum', navigationPath: true },
   { role: 'admin', tab: 'admin-ai-logs-providers', path: '/admin/ai-logs/providers', navigationPath: true },
   { role: 'admin', tab: 'admin-ai-logs-stats', path: '/admin/ai-logs/runtime', navigationPath: true },
   { role: 'admin', tab: 'admin-ai-logs-history', path: '/admin/ai-logs/history', navigationPath: true },
@@ -96,6 +109,16 @@ const legacyRouteStates = {
   '/admin/expert-training': { role: 'admin', tab: 'admin-expert-training' },
   '/admin/review-queue': { role: 'admin', tab: 'admin-dashboard' },
 };
+
+const adminSectionRedirects = {
+  '/admin/users': '/admin/users/students',
+  '/admin/academic': '/admin/academic/semesters',
+};
+
+export function getAdminSectionRedirect(pathname) {
+  const normalizedPath = String(pathname || '').replace(/\/+$/, '') || '/';
+  return adminSectionRedirects[normalizedPath] || '';
+}
 
 export function getRouteForTab(tab) {
   return tabRoutes[tab] || '';
