@@ -1,6 +1,7 @@
 import { API_BASE_URL, request } from './apiClient';
 import { setAuthToken } from '../features/auth/services/tokenStorage';
 import { normalizeLoginResponse } from '../features/auth/services/authResponse';
+import { revokeRefreshSession } from '../features/auth/services/tokenRefresh';
 
 export const authApi = {
   async login(email, password) {
@@ -9,6 +10,8 @@ export const authApi = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
       skipUnauthorizedRedirect: true,
+      skipAuthRefresh: true,
+      credentials: 'include',
     });
     const normalized = normalizeLoginResponse(res);
     if (normalized.token) setAuthToken(normalized.token);
@@ -19,11 +22,18 @@ export const authApi = {
     const res = await request(`${API_BASE_URL}/users/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(userData)
+      body: JSON.stringify(userData),
+      skipUnauthorizedRedirect: true,
+      skipAuthRefresh: true,
+      credentials: 'include',
     });
     if (res && res.token) {
       setAuthToken(res.token);
     }
     return res;
+  },
+
+  async logout() {
+    await revokeRefreshSession();
   },
 };

@@ -1,6 +1,7 @@
 import { env } from '../config/env';
 import { getUserFacingError, httpClient, httpRequest, ApiError } from './httpClient';
 import { clearAuthToken, getAuthToken } from '../features/auth/services/tokenStorage';
+import { refreshAccessToken } from '../features/auth/services/tokenRefresh';
 import { APP_SESSION_USER_KEY, clearLastPath, removeJsonStorage } from '../utils/storage';
 
 export const API_BASE_URL = env.apiBaseUrl;
@@ -49,6 +50,31 @@ function handleUnauthorized(error) {
   }
 }
 
+async function runWithAuthRecovery(operation, { skipUnauthorizedRedirect = false, skipAuthRefresh = false } = {}) {
+  try {
+    return await operation();
+  } catch (error) {
+    if (!(error instanceof ApiError) || error.status !== 401 || skipAuthRefresh) {
+      if (!skipUnauthorizedRedirect) handleUnauthorized(error);
+      throw error;
+    }
+
+    try {
+      await refreshAccessToken();
+    } catch {
+      if (!skipUnauthorizedRedirect) handleUnauthorized(error);
+      throw error;
+    }
+
+    try {
+      return await operation();
+    } catch (retryError) {
+      if (!skipUnauthorizedRedirect) handleUnauthorized(retryError);
+      throw retryError;
+    }
+  }
+}
+
 export async function request(url, options = {}) {
   const {
     headers,
@@ -57,6 +83,7 @@ export async function request(url, options = {}) {
     signal,
     responseType,
     skipUnauthorizedRedirect = false,
+    skipAuthRefresh = false,
     ...restOptions
   } = options;
   let parsedBody = body;
@@ -68,46 +95,47 @@ export async function request(url, options = {}) {
     }
   }
 
-  try {
-    return await httpRequest(stripBaseUrl(url), {
-      method,
-      headers: withAuthHeaders(headers),
-      body: parsedBody,
-      signal,
-      responseType,
-      ...restOptions,
-    });
-  } catch (error) {
-    if (!skipUnauthorizedRedirect) handleUnauthorized(error);
-    throw error;
-  }
+  return runWithAuthRecovery(
+    () =>
+      httpRequest(stripBaseUrl(url), {
+        method,
+        headers: withAuthHeaders(headers),
+        body: parsedBody,
+        signal,
+        responseType,
+        ...restOptions,
+      }),
+    { skipUnauthorizedRedirect, skipAuthRefresh },
+  );
 }
 
-export async function uploadRequest(url, formData, errorPrefix = "Upload failed", options = {}) {
-  const { skipUnauthorizedRedirect = false, ...uploadOptions } = options;
+export async function uploadRequest(url, formData, errorPrefix = 'Upload failed', options = {}) {
+  const { skipUnauthorizedRedirect = false, skipAuthRefresh = false, ...uploadOptions } = options;
   try {
-    return await httpClient.upload(stripBaseUrl(url), formData, {
-      ...uploadOptions,
-      headers: withAuthHeaders(uploadOptions.headers),
-    });
+    return await runWithAuthRecovery(
+      () =>
+        httpClient.upload(stripBaseUrl(url), formData, {
+          ...uploadOptions,
+          headers: withAuthHeaders(uploadOptions.headers),
+        }),
+      { skipUnauthorizedRedirect, skipAuthRefresh },
+    );
   } catch (error) {
-    if (!skipUnauthorizedRedirect) handleUnauthorized(error);
     error.message = error.message || errorPrefix;
     throw error;
   }
 }
 
 export async function blobRequest(url, options = {}) {
-  const { skipUnauthorizedRedirect = false, ...requestOptions } = options;
-  try {
-    return await httpClient.blob(stripBaseUrl(url), {
-      ...requestOptions,
-      headers: withAuthHeaders(requestOptions.headers),
-    });
-  } catch (error) {
-    if (!skipUnauthorizedRedirect) handleUnauthorized(error);
-    throw error;
-  }
+  const { skipUnauthorizedRedirect = false, skipAuthRefresh = false, ...requestOptions } = options;
+  return runWithAuthRecovery(
+    () =>
+      httpClient.blob(stripBaseUrl(url), {
+        ...requestOptions,
+        headers: withAuthHeaders(requestOptions.headers),
+      }),
+    { skipUnauthorizedRedirect, skipAuthRefresh },
+  );
 }
 
 export { getUserFacingError };

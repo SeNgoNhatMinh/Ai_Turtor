@@ -28,7 +28,7 @@ public class DevAcademicDataInitializer implements CommandLineRunner {
     private final CourseEnrollmentRepository enrollmentRepository;
     private final MentorRepository mentorRepository;
 
-    @Value("${app.dev-seed.enabled:true}")
+    @Value("${app.dev-seed.enabled:false}")
     private boolean enabled;
 
     @Override

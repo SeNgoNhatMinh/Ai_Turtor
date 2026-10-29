@@ -26,7 +26,7 @@ public class JwtService {
     public JwtService(
             ObjectMapper objectMapper,
             @Value("${security.jwt.secret}") String secret,
-            @Value("${security.jwt.expiration-minutes:1440}") long expirationMinutes
+            @Value("${security.jwt.expiration-minutes:15}") long expirationMinutes
     ) {
         if (secret == null || secret.isBlank()) {
             throw new IllegalStateException(

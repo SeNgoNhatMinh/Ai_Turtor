@@ -15,6 +15,18 @@ Backend hiện dùng JWT Bearer token.
 Authorization: Bearer <token>
 ```
 
+Access JWT mặc định hết hạn sau 15 phút. Login/register đồng thời set cookie
+`ai_tutor_refresh` với `HttpOnly`, `SameSite=Lax` và path `/api/users`; FE không được đọc hoặc
+lưu refresh token trong JavaScript.
+
+```http
+POST /api/users/refresh  # rotate cookie, trả UserLoginResponse với access token mới
+POST /api/users/logout   # revoke refresh token hiện tại và xóa cookie
+```
+
+Request refresh/logout phải gửi cookie (`credentials: include`). Nếu API nghiệp vụ trả `401`, FE
+chỉ refresh và retry request đúng một lần; refresh thất bại thì xóa access token và về màn login.
+
 Swagger: mở Swagger UI, bấm `Authorize`, dán token theo dạng `Bearer <token>`.
 
 Role chính:

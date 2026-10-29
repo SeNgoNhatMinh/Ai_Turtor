@@ -28,6 +28,7 @@ public class UserService {
     private UserRepository userRepository;
     private MentorRepository mentorRepository;
     private JwtService jwtService;
+    private RefreshTokenService refreshTokenService;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -150,6 +151,7 @@ public class UserService {
         user.setPassword(hashPassword(newPassword));
         user.setUpdatedAt(LocalDateTime.now());
         userRepository.save(user);
+        refreshTokenService.revokeAllForUser(user.getId());
         log.info("Password changed for user: {}", user.getEmail());
     }
     public User getUserById(String userId) {

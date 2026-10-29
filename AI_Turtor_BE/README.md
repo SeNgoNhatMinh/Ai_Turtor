@@ -8,7 +8,7 @@ Project này được refactor có kiểm soát từ hệ thống Legal RAG cũ 
 
 Đã có các nghiệp vụ chính:
 
-- Quản lý user, profile, login/register cơ bản để test trực tiếp, chưa bật JWT.
+- Xác thực JWT Bearer cho login/register, refresh token rotation bằng cookie HttpOnly.
 - Quản lý semester, course, class section, enrollment.
 - Import mentor/teacher bằng Excel.
 - Import học sinh vào lớp bằng Excel.
@@ -28,7 +28,7 @@ Project này được refactor có kiểm soát từ hệ thống Legal RAG cũ 
 Chưa nhấn mạnh hoặc chưa làm sâu:
 
 - Chưa có AI tự chấm assignment.
-- Chưa bật JWT vì đang ưu tiên test API trực tiếp.
+- Access JWT mặc định 15 phút; refresh token mặc định 30 ngày và được hash trong MongoDB.
 - n8n workflow cần dựng bên n8n theo tài liệu harness, backend chỉ cung cấp API.
 
 ## 2. Kiến Trúc Tổng Quan
@@ -105,6 +105,8 @@ Chỉ đưa vào brain:
 ```http
 POST /api/users/register
 POST /api/users/login
+POST /api/users/refresh
+POST /api/users/logout
 GET  /api/users/{userId}/profile
 PUT  /api/users/{userId}/profile
 ```

@@ -9,12 +9,16 @@ import com.ragapi.dto.UserRegisterResponse;
 import com.ragapi.entity.User;
 import com.ragapi.service.UserService;
 import com.ragapi.service.RealtimeEventService;
+import com.ragapi.service.RefreshTokenCookieService;
+import com.ragapi.service.RefreshTokenService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -36,13 +40,22 @@ public class UserController {
 
     private UserService userService;
     private RealtimeEventService realtimeEventService;
+    private RefreshTokenService refreshTokenService;
+    private RefreshTokenCookieService refreshTokenCookieService;
 
     @PostMapping("/register")
     @Operation(summary = "Register student account")
-    public ResponseEntity<?> register(@RequestBody UserRegisterRequest request) {
+    public ResponseEntity<?> register(
+            @RequestBody UserRegisterRequest request,
+            @CookieValue(value = RefreshTokenCookieService.COOKIE_NAME, required = false) String existingRefreshToken
+    ) {
         try {
             UserRegisterResponse response = userService.register(request);
-            return ResponseEntity.status(HttpStatus.CREATED).body(response);
+            refreshTokenService.revoke(existingRefreshToken);
+            RefreshTokenService.IssuedRefreshToken refreshToken = refreshTokenService.issue(response.getUserId());
+            return ResponseEntity.status(HttpStatus.CREATED)
+                    .header(HttpHeaders.SET_COOKIE, refreshTokenCookieService.create(refreshToken.value()).toString())
+                    .body(response);
         } catch (Exception e) {
             log.error("Error registering user", e);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
@@ -52,15 +65,57 @@ public class UserController {
 
     @PostMapping("/login")
     @Operation(summary = "Login student or mentor account")
-    public ResponseEntity<?> login(@RequestBody UserLoginRequest request) {
+    public ResponseEntity<?> login(
+            @RequestBody UserLoginRequest request,
+            @CookieValue(value = RefreshTokenCookieService.COOKIE_NAME, required = false) String existingRefreshToken
+    ) {
         try {
             UserLoginResponse response = userService.login(request);
-            return ResponseEntity.ok(response);
+            refreshTokenService.revoke(existingRefreshToken);
+            RefreshTokenService.IssuedRefreshToken refreshToken = refreshTokenService.issue(response.getUserId());
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.SET_COOKIE, refreshTokenCookieService.create(refreshToken.value()).toString())
+                    .body(response);
         } catch (Exception e) {
             log.error("Error logging in user", e);
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of("error", e.getMessage()));
         }
+    }
+
+    @PostMapping("/refresh")
+    @Operation(summary = "Rotate refresh token and issue a new access token")
+    public ResponseEntity<?> refresh(
+            @CookieValue(value = RefreshTokenCookieService.COOKIE_NAME, required = false) String refreshToken
+    ) {
+        try {
+            RefreshTokenService.RefreshedSession session = refreshTokenService.rotate(refreshToken);
+            return ResponseEntity.ok()
+                    .header(
+                            HttpHeaders.SET_COOKIE,
+                            refreshTokenCookieService.create(session.refreshToken().value()).toString()
+                    )
+                    .body(session.response());
+        } catch (Exception exception) {
+            log.warn("Refresh token rejected: {}", exception.getMessage());
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "Refresh token is invalid or expired"));
+        }
+    }
+
+    @PostMapping("/logout")
+    @Operation(summary = "Revoke the current refresh token")
+    public ResponseEntity<Void> logout(
+            @CookieValue(value = RefreshTokenCookieService.COOKIE_NAME, required = false) String refreshToken
+    ) {
+        try {
+            refreshTokenService.revoke(refreshToken);
+        } catch (Exception exception) {
+            log.warn("Could not revoke refresh token during logout: {}", exception.getMessage());
+        }
+        return ResponseEntity.noContent()
+                .header(HttpHeaders.SET_COOKIE, refreshTokenCookieService.clear().toString())
+                .build();
     }
 
 

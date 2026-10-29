@@ -1,12 +1,10 @@
-import { act, renderHook } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { act, renderHook, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useAuthSession } from '../../src/features/auth/hooks/useAuthSession';
 
 function createToken(claims) {
-  const encode = (value) => window.btoa(JSON.stringify(value))
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/g, '');
+  const encode = (value) =>
+    window.btoa(JSON.stringify(value)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
   return `${encode({ alg: 'none', typ: 'JWT' })}.${encode(claims)}.signature`;
 }
 
@@ -14,6 +12,7 @@ describe('useAuthSession role recovery', () => {
   beforeEach(() => {
     window.localStorage.clear();
     window.sessionStorage.clear();
+    vi.restoreAllMocks();
   });
 
   afterEach(() => {
@@ -23,11 +22,14 @@ describe('useAuthSession role recovery', () => {
 
   it('repairs an old STUDENT session using the role in JWT', () => {
     window.localStorage.setItem('ai_tutor_jwt', createToken({ role: 'ADMIN' }));
-    window.localStorage.setItem('ai-tutor:current-user', JSON.stringify({
-      userId: 'admin-1',
-      email: 'admin@example.com',
-      role: 'STUDENT',
-    }));
+    window.localStorage.setItem(
+      'ai-tutor:current-user',
+      JSON.stringify({
+        userId: 'admin-1',
+        email: 'admin@example.com',
+        role: 'STUDENT',
+      }),
+    );
 
     const { result } = renderHook(() => useAuthSession());
 
@@ -37,12 +39,15 @@ describe('useAuthSession role recovery', () => {
 
   it('migrates a legacy sessionStorage user into localStorage', () => {
     window.localStorage.setItem('ai_tutor_jwt', createToken({ role: 'TEACHER' }));
-    window.sessionStorage.setItem('ai-tutor:current-user', JSON.stringify({
-      userId: 'teacher-1',
-      email: 'teacher@example.com',
-      role: 'TEACHER',
-      authRoleVerified: true,
-    }));
+    window.sessionStorage.setItem(
+      'ai-tutor:current-user',
+      JSON.stringify({
+        userId: 'teacher-1',
+        email: 'teacher@example.com',
+        role: 'TEACHER',
+        authRoleVerified: true,
+      }),
+    );
 
     const { result } = renderHook(() => useAuthSession());
 
@@ -52,10 +57,13 @@ describe('useAuthSession role recovery', () => {
   });
 
   it('discards an unverified legacy session without a valid JWT role', () => {
-    window.localStorage.setItem('ai-tutor:current-user', JSON.stringify({
-      userId: 'teacher-1',
-      role: 'STUDENT',
-    }));
+    window.localStorage.setItem(
+      'ai-tutor:current-user',
+      JSON.stringify({
+        userId: 'teacher-1',
+        role: 'STUDENT',
+      }),
+    );
 
     const { result } = renderHook(() => useAuthSession());
 
@@ -77,5 +85,50 @@ describe('useAuthSession role recovery', () => {
     expect(result.current.currentUser.role).toBe('TEACHER');
     expect(result.current.currentUserRole).toBe('teacher');
     expect(window.localStorage.getItem('ai-tutor:current-user')).toContain('teacher-1');
+  });
+
+  it('restores an expired access token from the HttpOnly refresh session', async () => {
+    window.localStorage.setItem(
+      'ai_tutor_jwt',
+      createToken({
+        role: 'STUDENT',
+        exp: Math.floor(Date.now() / 1000) - 60,
+      }),
+    );
+    window.localStorage.setItem(
+      'ai-tutor:current-user',
+      JSON.stringify({
+        userId: 'student-1',
+        email: 'student@example.com',
+        role: 'STUDENT',
+        authRoleVerified: true,
+      }),
+    );
+    const freshToken = createToken({
+      role: 'STUDENT',
+      exp: Math.floor(Date.now() / 1000) + 900,
+    });
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          userId: 'student-1',
+          email: 'student@example.com',
+          fullName: 'Student One',
+          role: 'STUDENT',
+          token: freshToken,
+        }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      ),
+    );
+
+    const { result } = renderHook(() => useAuthSession());
+
+    expect(result.current.isRestoring).toBe(true);
+    await waitFor(() => expect(result.current.isRestoring).toBe(false));
+    expect(result.current.currentUser.userId).toBe('student-1');
+    expect(window.localStorage.getItem('ai_tutor_jwt')).toBe(freshToken);
   });
 });
