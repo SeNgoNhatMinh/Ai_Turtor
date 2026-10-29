@@ -24,9 +24,9 @@ public class StudentCodeBackfill {
         List<User> users = userRepository.findAll();
         Set<String> used = new HashSet<>();
         List<User> missing = users.stream()
-                .filter(user -> "STUDENT".equalsIgnoreCase(user.getRole()))
+                .filter(user -> StudentCodeAllocator.prefixForRole(user.getRole()) != null)
                 .filter(user -> {
-                    if (StudentCodeAllocator.isStudentCode(user.getStudentCode())) {
+                    if (StudentCodeAllocator.matchesRole(user.getStudentCode(), user.getRole())) {
                         used.add(user.getStudentCode());
                         return false;
                     }
@@ -34,12 +34,12 @@ public class StudentCodeBackfill {
                 })
                 .toList();
         if (missing.isEmpty()) return;
-        for (User student : missing) {
-            String code = StudentCodeAllocator.allocate(used::contains);
+        for (User account : missing) {
+            String code = StudentCodeAllocator.allocateForRole(account.getRole(), used::contains);
             used.add(code);
-            student.setStudentCode(code);
+            account.setStudentCode(code);
         }
         userRepository.saveAll(missing);
-        log.info("Assigned student codes to {} existing student accounts", missing.size());
+        log.info("Assigned account codes to {} student, teacher and senior accounts", missing.size());
     }
 }

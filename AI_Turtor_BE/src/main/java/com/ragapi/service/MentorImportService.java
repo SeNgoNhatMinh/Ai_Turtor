@@ -5,6 +5,7 @@ import com.ragapi.entity.Mentor;
 import com.ragapi.entity.User;
 import com.ragapi.repository.MentorRepository;
 import com.ragapi.repository.UserRepository;
+import com.ragapi.util.StudentCodeAllocator;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.Cell;
@@ -173,6 +174,9 @@ public class MentorImportService {
         user.setFullName(mentor.getMentorName());
         user.setPhone(mentor.getPhone());
         user.setRole("TEACHER");
+        if (!StudentCodeAllocator.matchesRole(user.getStudentCode(), user.getRole())) {
+            user.setStudentCode(StudentCodeAllocator.allocateForRole(user.getRole(), userRepository::existsByStudentCode));
+        }
         user.setIsActive(true);
         user.setIsEmailVerified(true);
         if (user.getEmailVerifiedAt() == null) {

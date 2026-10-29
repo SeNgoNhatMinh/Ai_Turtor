@@ -38,6 +38,7 @@ public class AdminDashboardService {
     private final QuestionEscalationRepository questionEscalationRepository;
     private final SubscriptionPlanRepository subscriptionPlanRepository;
     private final UserSubscriptionRepository userSubscriptionRepository;
+    private final UserOwnedRecordCleanup userOwnedRecordCleanup;
     private final MongoTemplate mongoTemplate;
 
     @Value("${admin.account.email:admin@system.local}")
@@ -126,6 +127,7 @@ public class AdminDashboardService {
                     .filter(mentor -> !user.getId().equals(mentor.getId()))
                     .ifPresent(mentorRepository::delete);
         }
+        userOwnedRecordCleanup.deleteOwnedRecords(user);
         userRepository.delete(user);
     }
 
@@ -139,8 +141,9 @@ public class AdminDashboardService {
         if (request.getRole() != null && !request.getRole().isBlank()) {
             user.setRole(request.getRole());
         }
-        if ("STUDENT".equalsIgnoreCase(user.getRole()) && !StudentCodeAllocator.isStudentCode(user.getStudentCode())) {
-            user.setStudentCode(StudentCodeAllocator.allocate(userRepository::existsByStudentCode));
+        if (StudentCodeAllocator.prefixForRole(user.getRole()) != null
+                && !StudentCodeAllocator.matchesRole(user.getStudentCode(), user.getRole())) {
+            user.setStudentCode(StudentCodeAllocator.allocateForRole(user.getRole(), userRepository::existsByStudentCode));
         }
         user.setUpdatedAt(LocalDateTime.now());
 
@@ -198,6 +201,9 @@ public class AdminDashboardService {
 
         String previousRole = user.getRole();
         user.setRole(role);
+        if (!StudentCodeAllocator.matchesRole(user.getStudentCode(), role)) {
+            user.setStudentCode(StudentCodeAllocator.allocateForRole(role, userRepository::existsByStudentCode));
+        }
         user.setUpdatedAt(LocalDateTime.now());
         userRepository.save(user);
 

@@ -4,6 +4,7 @@ import com.ragapi.entity.Mentor;
 import com.ragapi.entity.User;
 import com.ragapi.repository.MentorRepository;
 import com.ragapi.repository.UserRepository;
+import com.ragapi.util.StudentCodeAllocator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
@@ -63,6 +64,9 @@ public class MentorAccountSyncInitializer implements CommandLineRunner {
                 user.setPassword(passwordEncoder.encode(defaultPassword));
             } else if (!user.getPassword().startsWith("$2")) {
                 user.setPassword(passwordEncoder.encode(user.getPassword()));
+            }
+            if (!StudentCodeAllocator.matchesRole(user.getStudentCode(), user.getRole())) {
+                user.setStudentCode(StudentCodeAllocator.allocateForRole(user.getRole(), userRepository::existsByStudentCode));
             }
             user.setUpdatedAt(now);
             userRepository.save(user);

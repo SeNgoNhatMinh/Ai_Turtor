@@ -17,12 +17,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
 public class ClassRosterService {
 
     private static final Set<String> STAFF_ROLES = Set.of("ADMIN", "TEACHER", "SENIOR_MENTOR", "MENTOR");
+    private static final Pattern ACCOUNT_ID = Pattern.compile(
+            "^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[1-5][a-fA-F0-9]{3}-[89abAB][a-fA-F0-9]{3}-[a-fA-F0-9]{12}$"
+    );
 
     private final UserRepository userRepository;
     private final CourseEnrollmentRepository courseEnrollmentRepository;
@@ -30,6 +34,9 @@ public class ClassRosterService {
     public List<CourseEnrollment> listClassStudents(String courseId, String classId) {
         List<CourseEnrollment> roster = new ArrayList<>();
         for (CourseEnrollment enrollment : courseEnrollmentRepository.findByCourseIdAndClassId(courseId, classId)) {
+            if (removeOrphanAccountEnrollment(enrollment)) {
+                continue;
+            }
             Optional<User> account = resolveUser(enrollment);
             if (account.isPresent() && isStaffRole(account.get().getRole())) {
                 courseEnrollmentRepository.delete(enrollment);
@@ -132,20 +139,44 @@ public class ClassRosterService {
     }
 
     public CourseEnrollment hydrateFromUserAccount(CourseEnrollment enrollment) {
+        applyAccountIdentity(enrollment, true);
+        return enrollment;
+    }
+
+    public void copyProfileOnto(CourseEnrollment enrollment) {
+        applyAccountIdentity(enrollment, false);
+    }
+
+    public boolean removeOrphanAccountEnrollment(CourseEnrollment enrollment) {
+        if (enrollment == null || !looksLikeAccountId(enrollment.getStudentId())) {
+            return false;
+        }
+        if (resolveUser(enrollment).isPresent()) {
+            return false;
+        }
+        courseEnrollmentRepository.delete(enrollment);
+        return true;
+    }
+
+    private static boolean looksLikeAccountId(String value) {
+        return hasText(value) && ACCOUNT_ID.matcher(value.trim()).matches();
+    }
+
+    private boolean applyAccountIdentity(CourseEnrollment enrollment, boolean persist) {
         if (enrollment == null) {
-            return null;
+            return false;
         }
         Optional<User> account = resolveUser(enrollment);
         if (account.isEmpty()) {
-            return enrollment;
+            return false;
         }
         User user = account.get();
         boolean changed = false;
-        if (isBlank(enrollment.getStudentName()) && hasText(user.getFullName())) {
+        if (hasText(user.getFullName()) && !user.getFullName().trim().equals(trimToNull(enrollment.getStudentName()))) {
             enrollment.setStudentName(user.getFullName().trim());
             changed = true;
         }
-        if (isBlank(enrollment.getStudentEmail()) && hasText(user.getEmail())) {
+        if (hasText(user.getEmail()) && !user.getEmail().trim().equalsIgnoreCase(String.valueOf(enrollment.getStudentEmail()))) {
             enrollment.setStudentEmail(user.getEmail().trim());
             changed = true;
         }
@@ -153,45 +184,68 @@ public class ClassRosterService {
             enrollment.setStudentPhone(user.getPhone().trim());
             changed = true;
         }
-        if (changed) {
+        if (hasText(user.getStudentCode())
+                && !user.getStudentCode().trim().equals(trimToNull(enrollment.getStudentCode()))) {
+            enrollment.setStudentCode(user.getStudentCode().trim());
+            changed = true;
+        } else if (isBlank(enrollment.getStudentCode()) && hasText(enrollment.getStudentId())
+                && !looksLikeAccountId(enrollment.getStudentId())) {
+            enrollment.setStudentCode(enrollment.getStudentId().trim());
+            changed = true;
+        }
+        if (hasText(user.getId()) && !user.getId().equals(enrollment.getStudentId()) && !hasCanonicalStudentCollision(enrollment, user.getId())) {
+            enrollment.setStudentId(user.getId());
+            changed = true;
+        }
+        if (changed && persist) {
             enrollment.setUpdatedAt(LocalDateTime.now());
-            return courseEnrollmentRepository.save(enrollment);
+            courseEnrollmentRepository.save(enrollment);
         }
-        return enrollment;
+        return changed;
     }
 
-    public void copyProfileOnto(CourseEnrollment enrollment) {
+    private boolean hasCanonicalStudentCollision(CourseEnrollment enrollment, String accountId) {
+        if (isBlank(accountId) || isBlank(enrollment.getCourseId()) || isBlank(enrollment.getClassId())) {
+            return false;
+        }
+        return courseEnrollmentRepository
+                .findByStudentIdAndCourseIdAndClassId(accountId, enrollment.getCourseId(), enrollment.getClassId())
+                .filter(other -> enrollment.getId() == null || !enrollment.getId().equals(other.getId()))
+                .isPresent();
+    }
+
+    Optional<User> resolveUser(CourseEnrollment enrollment) {
         if (enrollment == null) {
-            return;
+            return Optional.empty();
         }
-        resolveUser(enrollment).ifPresent(user -> {
-            if (isBlank(enrollment.getStudentName()) && hasText(user.getFullName())) {
-                enrollment.setStudentName(user.getFullName().trim());
+        for (Optional<User> candidate : List.of(
+                findUserById(enrollment.getStudentId()),
+                findUserByEmail(enrollment.getStudentId()),
+                findUserByStudentCode(enrollment.getStudentId()),
+                findUserByEmail(enrollment.getStudentEmail()),
+                findUserByStudentCode(enrollment.getStudentCode())
+        )) {
+            if (candidate.isPresent()) {
+                return candidate;
             }
-            if (isBlank(enrollment.getStudentEmail()) && hasText(user.getEmail())) {
-                enrollment.setStudentEmail(user.getEmail().trim());
-            }
-            if (isBlank(enrollment.getStudentPhone()) && hasText(user.getPhone())) {
-                enrollment.setStudentPhone(user.getPhone().trim());
-            }
-        });
-    }
-
-    private Optional<User> resolveUser(CourseEnrollment enrollment) {
-        if (hasText(enrollment.getStudentId())) {
-            Optional<User> byId = userRepository.findById(enrollment.getStudentId().trim());
-            if (byId.isPresent()) {
-                return byId;
-            }
-            Optional<User> byIdAsEmail = userRepository.findByEmail(enrollment.getStudentId().trim());
-            if (byIdAsEmail.isPresent()) {
-                return byIdAsEmail;
-            }
-        }
-        if (hasText(enrollment.getStudentEmail())) {
-            return userRepository.findByEmail(enrollment.getStudentEmail().trim());
         }
         return Optional.empty();
+    }
+
+    private Optional<User> findUserById(String value) {
+        return hasText(value) ? emptyIfNull(userRepository.findById(value.trim())) : Optional.empty();
+    }
+
+    private Optional<User> findUserByEmail(String value) {
+        return hasText(value) ? emptyIfNull(userRepository.findByEmail(value.trim())) : Optional.empty();
+    }
+
+    private Optional<User> findUserByStudentCode(String value) {
+        return hasText(value) ? emptyIfNull(userRepository.findByStudentCode(value.trim())) : Optional.empty();
+    }
+
+    private static Optional<User> emptyIfNull(Optional<User> value) {
+        return value == null ? Optional.empty() : value;
     }
 
     private static boolean isStaffRole(String role) {

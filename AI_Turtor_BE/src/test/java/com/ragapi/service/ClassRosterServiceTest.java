@@ -114,9 +114,32 @@ class ClassRosterServiceTest {
     }
 
     @Test
+    void dropsAccountEnrollmentsWhoseUserNoLongerExists() {
+        CourseEnrollment orphan = CourseEnrollment.builder()
+                .id("e-orphan")
+                .studentId("c48453a6-d40d-428d-97d1-d65a627c941d")
+                .studentName("học ngu")
+                .studentEmail("se185018@gmail.com")
+                .courseId("PRJ301")
+                .classId("PRJ301-01")
+                .build();
+        when(enrollmentRepository.findByCourseIdAndClassId("PRJ301", "PRJ301-01"))
+                .thenReturn(List.of(orphan));
+        when(userRepository.findById("c48453a6-d40d-428d-97d1-d65a627c941d")).thenReturn(Optional.empty());
+        when(userRepository.findByEmail("c48453a6-d40d-428d-97d1-d65a627c941d")).thenReturn(Optional.empty());
+        when(userRepository.findByStudentCode("c48453a6-d40d-428d-97d1-d65a627c941d")).thenReturn(Optional.empty());
+        when(userRepository.findByEmail("se185018@gmail.com")).thenReturn(Optional.empty());
+
+        List<CourseEnrollment> roster = service.listClassStudents("PRJ301", "PRJ301-01");
+
+        assertEquals(0, roster.size());
+        verify(enrollmentRepository).delete(orphan);
+    }
+
+    @Test
     void resolvesStudentNameFromClassRosterInsteadOfRawId() {
         CourseEnrollment enrollment = CourseEnrollment.builder()
-                .studentId("7bd7d121-b1b4-4b47-b077-a1d617a98219")
+                .studentId("SE1840001")
                 .studentCode("SE1840001")
                 .studentName("Nguyen Van A")
                 .studentEmail("anvse1840001@fpt.edu.vn")
@@ -125,11 +148,14 @@ class ClassRosterServiceTest {
                 .build();
         when(enrollmentRepository.findByCourseIdAndClassId("PRJ301", "SE1840"))
                 .thenReturn(List.of(enrollment));
-        when(userRepository.findById("7bd7d121-b1b4-4b47-b077-a1d617a98219"))
-                .thenReturn(Optional.empty());
+        when(userRepository.findById("SE1840001")).thenReturn(Optional.empty());
+        when(userRepository.findByEmail("SE1840001")).thenReturn(Optional.empty());
+        when(userRepository.findByStudentCode("SE1840001")).thenReturn(Optional.empty());
+        when(userRepository.findByEmail("anvse1840001@fpt.edu.vn")).thenReturn(Optional.empty());
+        when(userRepository.findByStudentCode("SE1840001")).thenReturn(Optional.empty());
 
         CourseEnrollment resolved = service.resolveStudent(
-                "7bd7d121-b1b4-4b47-b077-a1d617a98219",
+                "SE1840001",
                 "PRJ301",
                 "SE1840",
                 service.indexClassStudents("PRJ301", "SE1840"));
@@ -155,5 +181,39 @@ class ClassRosterServiceTest {
 
         assertEquals("Le Thi D", resolved.getStudentName());
         assertEquals("d@fpt.edu.vn", resolved.getStudentEmail());
+    }
+
+    @Test
+    void overwritesStaleImportedNameFromTheRegisteredAccount() {
+        CourseEnrollment enrollment = CourseEnrollment.builder()
+                .id("e-1")
+                .studentId("SE083418")
+                .studentName("Suất Xắc")
+                .studentEmail("se185018ngonhatminh@gmail.com")
+                .courseId("PRO192")
+                .classId("SE1832")
+                .build();
+        when(userRepository.findById("SE083418")).thenReturn(Optional.empty());
+        when(userRepository.findByEmail("SE083418")).thenReturn(Optional.empty());
+        when(userRepository.findByStudentCode("SE083418")).thenReturn(Optional.empty());
+        when(userRepository.findByEmail("se185018ngonhatminh@gmail.com")).thenReturn(Optional.of(User.builder()
+                .id("7bd7d121-b1b4-4b47-b077-a1d617a98219")
+                .fullName("Nhật Minh")
+                .email("se185018ngonhatminh@gmail.com")
+                .studentCode("SE185018")
+                .role("STUDENT")
+                .build()));
+        when(enrollmentRepository.findByStudentIdAndCourseIdAndClassId(
+                "7bd7d121-b1b4-4b47-b077-a1d617a98219", "PRO192", "SE1832"))
+                .thenReturn(Optional.empty());
+        when(enrollmentRepository.save(any(CourseEnrollment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        CourseEnrollment hydrated = service.hydrateFromUserAccount(enrollment);
+
+        assertEquals("Nhật Minh", hydrated.getStudentName());
+        assertEquals("se185018ngonhatminh@gmail.com", hydrated.getStudentEmail());
+        assertEquals("7bd7d121-b1b4-4b47-b077-a1d617a98219", hydrated.getStudentId());
+        assertEquals("SE185018", hydrated.getStudentCode());
+        verify(enrollmentRepository).save(enrollment);
     }
 }

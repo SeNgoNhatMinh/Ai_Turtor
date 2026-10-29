@@ -3,7 +3,7 @@ package com.ragapi.service;
 import com.ragapi.dto.MentorImportResponse;
 import com.ragapi.entity.CourseEnrollment;
 import com.ragapi.repository.CourseEnrollmentRepository;
-import lombok.AllArgsConstructor;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
@@ -28,7 +28,7 @@ import java.util.UUID;
 
 @Slf4j
 @Service
-@AllArgsConstructor
+@RequiredArgsConstructor
 public class StudentEnrollmentImportService {
 
     private static final List<String> TEMPLATE_HEADERS = List.of(
@@ -42,6 +42,7 @@ public class StudentEnrollmentImportService {
     );
 
     private final CourseEnrollmentRepository enrollmentRepository;
+    private final ClassRosterService classRosterService;
     private final DataFormatter dataFormatter = new DataFormatter();
 
     public MentorImportResponse importStudents(
@@ -101,19 +102,28 @@ public class StudentEnrollmentImportService {
                         continue;
                     }
 
+                    CourseEnrollment probe = CourseEnrollment.builder()
+                            .studentId(studentId)
+                            .studentCode(studentId)
+                            .studentName(student.studentName().trim())
+                            .build();
+                    classRosterService.copyProfileOnto(probe);
+                    String canonicalStudentId = hasText(probe.getStudentId()) ? probe.getStudentId().trim() : studentId;
                     CourseEnrollment enrollment = enrollmentRepository
-                            .findByStudentIdAndCourseIdAndClassId(studentId, courseId.trim(), classId.trim())
+                            .findByStudentIdAndCourseIdAndClassId(canonicalStudentId, courseId.trim(), classId.trim())
+                            .or(() -> enrollmentRepository.findByStudentIdAndCourseIdAndClassId(
+                                    studentId, courseId.trim(), classId.trim()))
                             .orElseGet(() -> CourseEnrollment.builder()
                                     .id(UUID.randomUUID().toString())
                                     .createdAt(LocalDateTime.now())
                                     .enrolledAt(LocalDateTime.now())
                                     .build());
 
-                    enrollment.setStudentId(studentId);
-                    enrollment.setStudentCode(studentId);
-                    enrollment.setStudentName(student.studentName().trim());
-                    enrollment.setStudentEmail(null);
-                    enrollment.setStudentPhone(null);
+                    enrollment.setStudentId(canonicalStudentId);
+                    enrollment.setStudentCode(firstNonBlank(probe.getStudentCode(), studentId));
+                    enrollment.setStudentName(firstNonBlank(probe.getStudentName(), student.studentName().trim()));
+                    enrollment.setStudentEmail(trimToNull(probe.getStudentEmail()));
+                    enrollment.setStudentPhone(trimToNull(probe.getStudentPhone()));
                     enrollment.setSemesterId(trimToNull(semesterId));
                     enrollment.setCourseId(courseId.trim());
                     enrollment.setCourseName(trimToNull(courseName));
@@ -229,6 +239,17 @@ public class StudentEnrollmentImportService {
 
     private String trimToNull(String value) {
         return isBlank(value) ? null : value.trim();
+    }
+
+    private String firstNonBlank(String first, String second) {
+        if (!isBlank(first)) {
+            return first.trim();
+        }
+        return isBlank(second) ? null : second.trim();
+    }
+
+    private boolean hasText(String value) {
+        return !isBlank(value);
     }
 
     private boolean isBlank(String value) {

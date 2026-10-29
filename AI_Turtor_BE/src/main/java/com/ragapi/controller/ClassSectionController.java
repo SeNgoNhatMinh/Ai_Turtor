@@ -419,12 +419,8 @@ public class ClassSectionController {
         List<CourseEnrollment> result = enrollments.stream()
                 .filter(item -> safeClassId == null || safeClassId.equalsIgnoreCase(item.getClassId()))
                 .filter(item -> safeStatus == null || safeStatus.equalsIgnoreCase(isBlank(item.getStatus()) ? "ACTIVE" : item.getStatus().trim()))
-                .peek(item -> {
-                    // Older rows can miss the student's display identity.
-                    if (isBlank(item.getStudentName()) || isBlank(item.getStudentEmail())) {
-                        classRosterService.copyProfileOnto(item);
-                    }
-                })
+                .filter(item -> !classRosterService.removeOrphanAccountEnrollment(item))
+                .peek(classRosterService::hydrateFromUserAccount)
                 .filter(item -> safeQuery.isBlank() || Stream.of(
                                 item.getStudentId(),
                                 item.getStudentCode(),

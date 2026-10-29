@@ -45,13 +45,14 @@ function StudentEnrollmentsTab({
                   // to the student's user profile.
                   const id = student.id || student._id || student.userId || '';
                   const email = getPersonEmail(student);
+                  const code = String(student.studentCode || '').trim();
                   return {
                     value: id,
                     disabled: !id,
-                    searchLabel: `${getPersonDisplayName(student, 'Sinh viên')} ${email}`,
+                    searchLabel: `${code} ${getPersonDisplayName(student, 'Sinh viên')} ${email}`,
                     label: (
                       <div className="admin-mentor-select-option">
-                        <strong>{getPersonDisplayName(student, 'Sinh viên')}</strong>
+                        <strong>{code ? `${code} · ${getPersonDisplayName(student, 'Sinh viên')}` : getPersonDisplayName(student, 'Sinh viên')}</strong>
                         {email && <span>{email}</span>}
                       </div>
                     ),

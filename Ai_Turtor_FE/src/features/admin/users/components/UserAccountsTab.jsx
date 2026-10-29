@@ -30,7 +30,9 @@ export default function UserAccountsTab({ users }) {
   };
 
   const columns = [
-    { title: 'Mã sinh viên', dataIndex: 'studentCode', key: 'studentCode', width: 140, render: (value, record) => record.role === 'STUDENT' ? (value || '—') : '—' },
+    { title: 'Mã', dataIndex: 'studentCode', key: 'studentCode', width: 140, render: (value, record) => (
+      record.role === 'ADMIN' ? '—' : (value || '—')
+    ) },
     { title: 'Email', dataIndex: 'email', key: 'email', ellipsis: true },
     { title: 'Họ tên', dataIndex: 'fullName', key: 'fullName', render: (value) => value || '—' },
     {
@@ -82,7 +84,7 @@ export default function UserAccountsTab({ users }) {
           onQueryChange={users.setSearch}
           filteredCount={users.list.length}
           totalCount={users.total}
-          placeholder="Tìm theo mã sinh viên, email, họ tên hoặc vai trò"
+          placeholder="Tìm theo mã, email, họ tên hoặc vai trò"
           onSubmit={users.reload}
         >
           <Select

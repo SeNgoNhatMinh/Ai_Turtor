@@ -58,7 +58,7 @@ public class UserService {
                 .isActive(true)
                 .isEmailVerified(false)
                 .role("STUDENT")
-                .studentCode(nextStudentCode())
+                .studentCode(StudentCodeAllocator.allocateForRole("STUDENT", userRepository::existsByStudentCode))
                 .createdAt(now)
                 .updatedAt(now)
                 .build();
@@ -114,7 +114,7 @@ public class UserService {
 
         user.setLastLoginAt(LocalDateTime.now());
         user.setUpdatedAt(LocalDateTime.now());
-        assignStudentCodeIfNeeded(user);
+        assignAccountCodeIfNeeded(user);
         userRepository.save(user);
         log.info("User logged in: {}", user.getEmail());
 
@@ -206,14 +206,10 @@ public class UserService {
         return value == null || value.isBlank() ? null : value.trim();
     }
 
-    private void assignStudentCodeIfNeeded(User user) {
-        if (user == null || !"STUDENT".equalsIgnoreCase(user.getRole())) return;
-        if (StudentCodeAllocator.isStudentCode(user.getStudentCode())) return;
-        user.setStudentCode(nextStudentCode());
-    }
-
-    private String nextStudentCode() {
-        return StudentCodeAllocator.allocate(userRepository::existsByStudentCode);
+    private void assignAccountCodeIfNeeded(User user) {
+        if (user == null || StudentCodeAllocator.prefixForRole(user.getRole()) == null) return;
+        if (StudentCodeAllocator.matchesRole(user.getStudentCode(), user.getRole())) return;
+        user.setStudentCode(StudentCodeAllocator.allocateForRole(user.getRole(), userRepository::existsByStudentCode));
     }
 }
 
