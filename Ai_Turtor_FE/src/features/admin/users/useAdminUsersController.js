@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../../../app/queryKeys';
 import { adminUsersApi } from '../../../services/adminUsersApi';
 import { getUserFacingError } from '../../../services/apiClient';
@@ -9,11 +9,17 @@ import { useRealtimeEvent, useRealtimeReconnect } from '../../realtime/realtimeC
 import { REALTIME_EVENT_TYPES } from '../../realtime/realtimeEvents';
 
 const EMPTY_LIST = [];
+const ACCOUNT_ROLE_ORDER = [
+  ACCOUNT_ROLES.STUDENT,
+  ACCOUNT_ROLES.TEACHER,
+  ACCOUNT_ROLES.SENIOR_MENTOR,
+  ACCOUNT_ROLES.ADMIN,
+];
 
 export function useAdminUsersController({ triggerToast, handleAdminImport }) {
   const queryClient = useQueryClient();
   const [userSearchQ, setUserSearchQ] = useState('');
-  const [userFilterRole, setUserFilterRole] = useState('');
+  const [userFilterRole, setUserFilterRole] = useState(ACCOUNT_ROLES.STUDENT);
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(20);
   const debouncedSearch = useDebouncedValue(userSearchQ, 300);
@@ -47,8 +53,45 @@ export function useAdminUsersController({ triggerToast, handleAdminImport }) {
     staleTime: 15_000,
   });
 
+  const roleCountQueries = useQueries({
+    queries: ACCOUNT_ROLE_ORDER.map((role) => ({
+      queryKey: queryKeys.adminUsers({
+        search: debouncedSearch.trim(),
+        role,
+        page: 0,
+        size: 1,
+      }),
+      queryFn: ({ signal }) => adminUsersApi.getAdminUsers(
+        debouncedSearch.trim(),
+        role,
+        '',
+        { signal, page: 0, size: 1 },
+      ),
+      enabled: role !== userFilterRole,
+      staleTime: 30_000,
+    })),
+  });
+  const staffAccountsQuery = useQuery({
+    queryKey: ['admin', 'users', 'staff-roles'],
+    queryFn: async ({ signal }) => {
+      const [teachers, seniors] = await Promise.all([
+        adminUsersApi.getAdminUsers('', ACCOUNT_ROLES.TEACHER, '', { signal }),
+        adminUsersApi.getAdminUsers('', ACCOUNT_ROLES.SENIOR_MENTOR, '', { signal }),
+      ]);
+      return [...teachers, ...seniors];
+    },
+    staleTime: 30_000,
+  });
+
   const usersPage = usersQuery.data || { users: EMPTY_LIST, totalElements: 0, page: 0, size: pageSize };
   const usersList = usersPage.users || EMPTY_LIST;
+  const roleTotals = Object.fromEntries(ACCOUNT_ROLE_ORDER.map((role, index) => [
+    role,
+    role === userFilterRole
+      ? Number(usersPage.totalElements || 0)
+      : Number(roleCountQueries[index]?.data?.totalElements || 0),
+  ]));
+  const accountTotal = Object.values(roleTotals).reduce((sum, count) => sum + count, 0);
   const mentorsList = mentorsQuery.data || EMPTY_LIST;
   const escalationsList = escalationsQuery.data || EMPTY_LIST;
 
@@ -70,15 +113,22 @@ export function useAdminUsersController({ triggerToast, handleAdminImport }) {
       await adminUsersApi.deleteAdminUser(userId);
       const deletedUser = usersList.find((user) => String(user.id) === String(userId));
       const deletedEmail = String(deletedUser?.email || '').trim().toLowerCase();
-      queryClient.setQueriesData({ queryKey: ['admin', 'users'] }, (current) => (
-        current && Array.isArray(current.users)
-          ? {
-            ...current,
-            users: current.users.filter((user) => String(user.id) !== String(userId)),
-            totalElements: Math.max(0, Number(current.totalElements || 0) - 1),
-          }
+      queryClient.setQueriesData({ queryKey: ['admin', 'users'] }, (current) => {
+        if (!current || !Array.isArray(current.users)) return current;
+        const nextUsers = current.users.filter((user) => String(user.id) !== String(userId));
+        if (nextUsers.length === current.users.length) return current;
+        return {
+          ...current,
+          users: nextUsers,
+          totalElements: Math.max(0, Number(current.totalElements || 0) - 1),
+        };
+      });
+      queryClient.setQueryData(['admin', 'users', 'staff-roles'], (current) => (
+        Array.isArray(current)
+          ? current.filter((user) => String(user.id) !== String(userId))
           : current
       ));
+      queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
       queryClient.setQueryData(queryKeys.adminMentors(), (current) => (
         Array.isArray(current)
           ? current.filter((mentor) => (
@@ -135,7 +185,8 @@ export function useAdminUsersController({ triggerToast, handleAdminImport }) {
 
   const getMentorAccountRole = useCallback((mentor) => {
     const mentorEmail = String(mentor.email || '').trim().toLowerCase();
-    const account = usersList.find((user) => (
+    const staffAccounts = staffAccountsQuery.data || EMPTY_LIST;
+    const account = staffAccounts.find((user) => (
       user.id === mentor.id
       || (mentorEmail && String(user.email || '').trim().toLowerCase() === mentorEmail)
     ));
@@ -143,7 +194,7 @@ export function useAdminUsersController({ triggerToast, handleAdminImport }) {
     return role === ACCOUNT_ROLES.SENIOR_MENTOR
       ? ACCOUNT_ROLES.SENIOR_MENTOR
       : ACCOUNT_ROLES.TEACHER;
-  }, [usersList]);
+  }, [staffAccountsQuery.data]);
 
   const changeTeacherRole = async (mentor, nextRole) => {
     if (!mentor?.id || updatingTeacherRoleId) return;
@@ -156,19 +207,17 @@ export function useAdminUsersController({ triggerToast, handleAdminImport }) {
           ? current.map((item) => (item.id === mentor.id ? { ...item, role: resolvedRole } : item))
           : current
       ));
-      queryClient.setQueriesData({ queryKey: ['admin', 'users'] }, (current) => (
-        current && Array.isArray(current.users)
-          ? {
-            ...current,
-            users: current.users.map((user) => (
-              user.id === mentor.id
-              || String(user.email || '').toLowerCase() === String(mentor.email || '').toLowerCase()
-                ? { ...user, role: resolvedRole }
-                : user
-            )),
-          }
+      queryClient.setQueryData(['admin', 'users', 'staff-roles'], (current) => (
+        Array.isArray(current)
+          ? current.map((user) => (
+            user.id === mentor.id
+            || String(user.email || '').toLowerCase() === String(mentor.email || '').toLowerCase()
+              ? { ...user, role: resolvedRole }
+              : user
+          ))
           : current
       ));
+      await queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
       triggerToast(response?.message || 'Đã cập nhật vai trò. Giảng viên cần đăng nhập lại.');
     } catch (error) {
       triggerToast(getUserFacingError(error, 'Không thể cập nhật vai trò giảng viên.'), 'error');
@@ -222,6 +271,8 @@ export function useAdminUsersController({ triggerToast, handleAdminImport }) {
       page,
       pageSize,
       total: Number(usersPage.totalElements || 0),
+      accountTotal,
+      roleTotals,
       setPage: (nextPage, nextSize) => {
         setPage(nextSize === pageSize ? nextPage : 0);
         if (nextSize) setPageSize(nextSize);

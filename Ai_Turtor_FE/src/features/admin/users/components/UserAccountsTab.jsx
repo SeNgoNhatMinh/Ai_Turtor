@@ -14,13 +14,6 @@ const roleOptions = [
   { value: ACCOUNT_ROLES.ADMIN, label: 'Quản trị viên' },
 ];
 
-function getRoleColor(role) {
-  if (role === ACCOUNT_ROLES.ADMIN) return 'volcano';
-  if (role === ACCOUNT_ROLES.SENIOR_MENTOR) return 'purple';
-  if (role === ACCOUNT_ROLES.TEACHER) return 'geekblue';
-  return 'green';
-}
-
 export default function UserAccountsTab({ users }) {
   const [form] = Form.useForm();
 
@@ -36,18 +29,15 @@ export default function UserAccountsTab({ users }) {
     { title: 'Email', dataIndex: 'email', key: 'email', ellipsis: true },
     { title: 'Họ tên', dataIndex: 'fullName', key: 'fullName', render: (value) => value || '—' },
     {
-      title: 'Vai trò',
-      dataIndex: 'role',
-      key: 'role',
-      width: 140,
-      render: (role) => <Tag color={getRoleColor(role)}>{role || ACCOUNT_ROLES.STUDENT}</Tag>,
-    },
-    {
       title: 'Trạng thái',
       dataIndex: 'isActive',
       key: 'isActive',
-      width: 120,
-      render: (value) => <StatusLabel status={value !== false ? 'ACTIVE' : 'INACTIVE'} />,
+      width: 140,
+      render: (value) => (
+        value === false
+          ? <Tag color="red">Đã khóa</Tag>
+          : <StatusLabel status="ACTIVE" />
+      ),
     },
     {
       title: '',
@@ -84,17 +74,9 @@ export default function UserAccountsTab({ users }) {
           onQueryChange={users.setSearch}
           filteredCount={users.list.length}
           totalCount={users.total}
-          placeholder="Tìm theo mã, email, họ tên hoặc vai trò"
+          placeholder="Tìm theo mã, email hoặc họ tên"
           onSubmit={users.reload}
         >
-          <Select
-            placeholder="Lọc vai trò"
-            allowClear
-            style={{ minWidth: 150 }}
-            value={users.role || undefined}
-            onChange={(value) => users.setRole(value || '')}
-            options={roleOptions}
-          />
           <ActionButton onClick={users.reload} icon={<RefreshCw size={14} />}>Làm mới</ActionButton>
         </CollectionToolbar>
         <Table
@@ -113,7 +95,7 @@ export default function UserAccountsTab({ users }) {
             showTotal: (total, range) => `${range[0]}–${range[1]} / ${total}`,
             onChange: (nextPage, nextSize) => users.setPage(nextPage - 1, nextSize),
           }}
-          locale={{ emptyText: users.loading ? 'Đang tải tài khoản...' : 'Không tìm thấy tài khoản' }}
+          locale={{ emptyText: users.loading ? 'Đang tải tài khoản...' : 'Không có tài khoản trong vai trò này' }}
           size="middle"
         />
       </Card>
