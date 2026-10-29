@@ -67,7 +67,6 @@ export function useStudentChatController({
     setMessages,
     setMessagesForConversation,
     getActiveSessionId,
-    setTurnLimitNotice,
     bumpConversationActivity,
     dismissTurnLimitNotice,
     resetChat,
@@ -82,7 +81,10 @@ export function useStudentChatController({
   const canceledAiRequestIdsRef = useRef(new Set());
   const activeAiAbortControllerRef = useRef(null);
   const userIdRef = useRef(userId);
-  userIdRef.current = userId;
+
+  useEffect(() => {
+    userIdRef.current = userId;
+  }, [userId]);
 
   const {
     dailyQuota,

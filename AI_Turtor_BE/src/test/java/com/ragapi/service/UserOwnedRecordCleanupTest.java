@@ -31,6 +31,7 @@ class UserOwnedRecordCleanupTest {
     void personalRowsAreDeletedAndSharedAcademicRowsAreOnlyUnlinked() {
         assertTrue(UserOwnedRecordCleanup.OWNED_BY_STUDENT_ID.contains("course_enrollments"));
         assertTrue(UserOwnedRecordCleanup.OWNED_BY_USER_ID.contains("ai_conversations"));
+        assertTrue(UserOwnedRecordCleanup.OWNED_BY_USER_ID.contains("auth_refresh_tokens"));
         assertTrue(UserOwnedRecordCleanup.SHARED_USER_REFS.stream()
                 .anyMatch(ref -> ref.collection().equals("class_sections") && ref.field().equals("teacherId")));
         assertTrue(UserOwnedRecordCleanup.SHARED_USER_REFS.stream()

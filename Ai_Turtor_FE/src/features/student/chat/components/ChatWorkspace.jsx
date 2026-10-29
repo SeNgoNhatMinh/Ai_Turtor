@@ -64,7 +64,6 @@ function ChatWorkspace({
   onDownloadSource,
   onOpenMentorReview,
   onMentorRequestCreated,
-  tutorSession,
 }) {
   const [ttsVoiceId, setTtsVoiceId] = useState('');
   const [ownLlmOpen, setOwnLlmOpen] = useState(false);

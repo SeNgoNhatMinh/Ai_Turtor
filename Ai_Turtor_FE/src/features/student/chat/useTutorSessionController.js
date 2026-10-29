@@ -65,7 +65,8 @@ export function useTutorSessionController({
 
   // Never show the previous course's level while the new profile loads.
   useEffect(() => {
-    setLiveSupportLevel('');
+    const timer = window.setTimeout(() => setLiveSupportLevel(''), 0);
+    return () => window.clearTimeout(timer);
   }, [courseId, classId, userId]);
 
   const seedOpeningMessage = (openingMessage) => {

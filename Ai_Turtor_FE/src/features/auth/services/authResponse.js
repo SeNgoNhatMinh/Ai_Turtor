@@ -75,7 +75,9 @@ function findToken(layers) {
 
 function decodeBase64Url(value) {
   if (typeof globalThis.atob !== 'function') return '';
-  const normalized = String(value || '').replace(/-/g, '+').replace(/_/g, '/');
+  const normalized = String(value || '')
+    .replace(/-/g, '+')
+    .replace(/_/g, '/');
   const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=');
   const binary = globalThis.atob(padded);
   const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
@@ -97,14 +99,19 @@ export function getAccountRoleFromJwt(token) {
 }
 
 export function isJwtExpired(token, nowMs = Date.now()) {
+  const expiresAt = getJwtExpiresAtMs(token);
+  return Boolean(expiresAt) && expiresAt <= nowMs;
+}
+
+export function getJwtExpiresAtMs(token) {
   const expiresAt = Number(decodeJwtPayload(token)?.exp);
-  return Number.isFinite(expiresAt) && expiresAt * 1000 <= nowMs;
+  return Number.isFinite(expiresAt) ? expiresAt * 1000 : 0;
 }
 
 function selectUserRecord(layers) {
-  return layers.find((layer) => (
-    layer.userId || layer.id || layer._id || layer.email || layer.fullName || layer.name
-  )) || null;
+  return (
+    layers.find((layer) => layer.userId || layer.id || layer._id || layer.email || layer.fullName || layer.name) || null
+  );
 }
 
 function stripAuthTransportFields(record) {

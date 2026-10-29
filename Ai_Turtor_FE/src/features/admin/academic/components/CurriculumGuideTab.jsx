@@ -93,9 +93,9 @@ function CurriculumGuideTab({ courses, triggerToast }) {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (!courseId && courseOptions.length > 0) {
-      setCourseId(courseOptions[0].value);
-    }
+    if (courseId || courseOptions.length === 0) return undefined;
+    const timer = window.setTimeout(() => setCourseId(courseOptions[0].value), 0);
+    return () => window.clearTimeout(timer);
   }, [courseId, courseOptions]);
 
   const load = useCallback(async (targetCourseId) => {
@@ -127,7 +127,9 @@ function CurriculumGuideTab({ courses, triggerToast }) {
   }, []);
 
   useEffect(() => {
-    if (courseId) load(courseId);
+    if (!courseId) return undefined;
+    const timer = window.setTimeout(() => load(courseId), 0);
+    return () => window.clearTimeout(timer);
   }, [courseId, load]);
 
   const run = async (action, successMessage) => {

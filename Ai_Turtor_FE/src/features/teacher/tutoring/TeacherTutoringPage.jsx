@@ -245,7 +245,8 @@ export default function TeacherTutoringPage({ teacherId, setCourseId, setClassId
   const renderedDirectives = filteredDirectives.slice(0, directiveVisibleCount);
 
   useEffect(() => {
-    setDirectiveVisibleCount(DIRECTIVE_BATCH_SIZE);
+    const timer = window.setTimeout(() => setDirectiveVisibleCount(DIRECTIVE_BATCH_SIZE), 0);
+    return () => window.clearTimeout(timer);
   }, [directiveQuery, effectiveActiveClassKey]);
 
   const toggleDirectiveExpanded = (directiveId) => {

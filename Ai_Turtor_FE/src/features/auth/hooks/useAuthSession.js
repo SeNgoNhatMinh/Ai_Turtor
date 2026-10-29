@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { clearAuthToken, getAuthToken } from '../services/tokenStorage';
-import { getAccountRoleFromJwt, isJwtExpired } from '../services/authResponse';
+import { getAccountRoleFromJwt, getJwtExpiresAtMs, isJwtExpired } from '../services/authResponse';
+import { refreshAccessToken } from '../services/tokenRefresh';
 import { normalizeAccountRole } from '../../../constants/roles';
 import { normalizeAppRole } from '../../../utils/formatters';
 import {
@@ -27,38 +28,56 @@ function createMissingRoleError() {
   return error;
 }
 
+function buildSessionUser(user) {
+  const accountRole = getUserRole(user);
+  if (!accountRole) return null;
+  return {
+    ...user,
+    originalRole: accountRole,
+    role: accountRole,
+    workspaceRole: normalizeAppRole(accountRole),
+    authRoleVerified: true,
+  };
+}
+
+function readInitialSessionState() {
+  const token = getAuthToken();
+  const persisted = sanitizePersistedUser(readJsonStorage(APP_SESSION_USER_KEY, null));
+  if (!persisted) {
+    if (token && isJwtExpired(token)) clearAuthToken();
+    return { currentUser: null, isRestoring: false };
+  }
+
+  const tokenRole = getAccountRoleFromJwt(token);
+  if (!tokenRole && persisted.authRoleVerified !== true) {
+    return { currentUser: null, isRestoring: false };
+  }
+  const currentUser = buildSessionUser(persisted);
+  if (!currentUser) return { currentUser: null, isRestoring: false };
+  return {
+    currentUser,
+    isRestoring: !token || isJwtExpired(token),
+  };
+}
+
 export function useAuthSession() {
-  const [currentUser, setCurrentUser] = useState(() => {
-    const token = getAuthToken();
-    if (!token || isJwtExpired(token)) {
-      clearAuthToken();
-      removeJsonStorage(APP_SESSION_USER_KEY);
-      return null;
-    }
-    const persisted = sanitizePersistedUser(readJsonStorage(APP_SESSION_USER_KEY, null));
-    if (!persisted) return null;
-    const tokenRole = getAccountRoleFromJwt(token);
-    if (!tokenRole && persisted.authRoleVerified !== true) return null;
-    const accountRole = getUserRole(persisted);
-    if (!accountRole) return null;
-    return {
-      ...persisted,
-      originalRole: accountRole,
-      role: accountRole,
-      workspaceRole: normalizeAppRole(accountRole),
-      authRoleVerified: true,
-    };
-  });
+  const [initialState] = useState(readInitialSessionState);
+  const [currentUser, setCurrentUser] = useState(initialState.currentUser);
+  const [isRestoring, setIsRestoring] = useState(initialState.isRestoring);
 
   const currentUserId = currentUser?.userId || currentUser?.id || '';
-  const currentUserRole = useMemo(() => normalizeAppRole(
-    currentUser?.originalRole
-      || currentUser?.role
-      || currentUser?.roleKey
-      || currentUser?.authority
-      || currentUser?.userRole
-      || '',
-  ), [currentUser]);
+  const currentUserRole = useMemo(
+    () =>
+      normalizeAppRole(
+        currentUser?.originalRole ||
+          currentUser?.role ||
+          currentUser?.roleKey ||
+          currentUser?.authority ||
+          currentUser?.userRole ||
+          '',
+      ),
+    [currentUser],
+  );
 
   useEffect(() => {
     if (!currentUser) {
@@ -68,17 +87,34 @@ export function useAuthSession() {
     writeJsonStorage(APP_SESSION_USER_KEY, sanitizePersistedUser(currentUser));
   }, [currentUser]);
 
-  const completeLogin = useCallback((user) => {
-    const accountRole = getUserRole(user);
-    if (!accountRole) throw createMissingRoleError();
-    const workspaceRole = normalizeAppRole(accountRole);
-    const updatedUser = {
-      ...user,
-      originalRole: accountRole,
-      role: accountRole,
-      workspaceRole,
-      authRoleVerified: true,
+  useEffect(() => {
+    if (!initialState.isRestoring) return undefined;
+    let cancelled = false;
+    refreshAccessToken()
+      .then(({ user }) => {
+        if (!cancelled) {
+          setCurrentUser((current) => buildSessionUser({ ...current, ...(user || {}) }));
+        }
+      })
+      .catch(() => {
+        if (cancelled) return;
+        clearAuthToken();
+        removeJsonStorage(APP_SESSION_USER_KEY);
+        setCurrentUser(null);
+      })
+      .finally(() => {
+        if (!cancelled) setIsRestoring(false);
+      });
+    return () => {
+      cancelled = true;
     };
+  }, [initialState.isRestoring]);
+
+  const completeLogin = useCallback((user) => {
+    const updatedUser = buildSessionUser(user);
+    if (!updatedUser) throw createMissingRoleError();
+    const accountRole = updatedUser.originalRole;
+    const workspaceRole = updatedUser.workspaceRole;
     setCurrentUser(updatedUser);
     return { user: updatedUser, role: workspaceRole, accountRole };
   }, []);
@@ -107,10 +143,45 @@ export function useAuthSession() {
     clearAuthToken();
   }, []);
 
+  useEffect(() => {
+    if (!currentUser || isRestoring) return undefined;
+    let cancelled = false;
+    let timerId;
+
+    const scheduleRefresh = () => {
+      const expiresAt = getJwtExpiresAtMs(getAuthToken());
+      if (!expiresAt || cancelled) return;
+      const delay = Math.max(0, Math.min(expiresAt - Date.now() - 60_000, 2_147_000_000));
+      timerId = window.setTimeout(async () => {
+        try {
+          const { user } = await refreshAccessToken();
+          if (!cancelled) {
+            setCurrentUser((current) => buildSessionUser({ ...current, ...user }));
+            scheduleRefresh();
+          }
+        } catch {
+          if (cancelled) return;
+          if (isJwtExpired(getAuthToken())) {
+            logout();
+          } else {
+            timerId = window.setTimeout(scheduleRefresh, 30_000);
+          }
+        }
+      }, delay);
+    };
+
+    scheduleRefresh();
+    return () => {
+      cancelled = true;
+      if (timerId) window.clearTimeout(timerId);
+    };
+  }, [currentUser, isRestoring, logout]);
+
   return {
     currentUser,
     currentUserId,
     currentUserRole,
+    isRestoring,
     completeLogin,
     updateCurrentUser,
     logout,

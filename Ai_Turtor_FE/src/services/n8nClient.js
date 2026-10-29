@@ -1,11 +1,11 @@
 import { env } from '../config/env';
 import { getAuthToken } from '../features/auth/services/tokenStorage';
+import { ensureFreshAccessToken } from '../features/auth/services/tokenRefresh';
 import { createHarnessEnvelope } from '../features/ai-harness/trace';
 
 const RAILWAY_FRONTEND_HOST = 'fpt-ai-turtor.up.railway.app';
 const RAILWAY_N8N_BASE_URL = 'https://n8n-production-c6e3.up.railway.app';
-const isRailwayProduction = typeof window !== 'undefined'
-  && window.location.hostname === RAILWAY_FRONTEND_HOST;
+const isRailwayProduction = typeof window !== 'undefined' && window.location.hostname === RAILWAY_FRONTEND_HOST;
 
 // Vite variables are embedded at build time. Keep Railway chat on the n8n
 // production path even if a stale/missing build argument is deployed.
@@ -60,14 +60,15 @@ function parseNestedJson(value, maxDepth = 3) {
   return current;
 }
 
-export async function postN8n(path, body, {
-  signal,
-  timeoutMs = N8N_TIMEOUT_MS,
-  includeAuthTokenInBody = false,
-  allowWhenDisabled = false,
-} = {}) {
+export async function postN8n(
+  path,
+  body,
+  { signal, timeoutMs = N8N_TIMEOUT_MS, includeAuthTokenInBody = false, allowWhenDisabled = false } = {},
+) {
   if (!N8N_ENABLED && !allowWhenDisabled) {
-    throw createN8nError('Luồng AI hiện chưa được bật.', { code: 'N8N_DISABLED' });
+    throw createN8nError('Luồng AI hiện chưa được bật.', {
+      code: 'N8N_DISABLED',
+    });
   }
   const url = n8nUrl(path);
   const controller = new AbortController();
@@ -81,7 +82,12 @@ export async function postN8n(path, body, {
   }, timeoutMs);
 
   const headers = { 'Content-Type': 'application/json; charset=utf-8' };
-  const token = getAuthToken();
+  let token = getAuthToken();
+  try {
+    token = await ensureFreshAccessToken();
+  } catch {
+    // Let n8n return its canonical auth error if the refresh cookie is gone.
+  }
   const envelope = createHarnessEnvelope(body, includeAuthTokenInBody ? token : '');
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
@@ -97,14 +103,11 @@ export async function postN8n(path, body, {
     });
   } catch (error) {
     if (error?.name === 'AbortError') {
-      throw createN8nError(
-        timedOut ? 'Luồng AI đang xử lý lâu hơn bình thường.' : 'Yêu cầu tới luồng AI đã bị hủy.',
-        {
-          code: timedOut ? 'N8N_TIMEOUT' : 'N8N_ABORTED',
-          traceId: envelope.traceId,
-          cause: error,
-        },
-      );
+      throw createN8nError(timedOut ? 'Luồng AI đang xử lý lâu hơn bình thường.' : 'Yêu cầu tới luồng AI đã bị hủy.', {
+        code: timedOut ? 'N8N_TIMEOUT' : 'N8N_ABORTED',
+        traceId: envelope.traceId,
+        cause: error,
+      });
     }
     throw createN8nError('Luồng AI đang tạm thời gián đoạn.', {
       code: 'N8N_NETWORK_ERROR',
@@ -153,13 +156,10 @@ export async function postN8n(path, body, {
   }
 
   if (Array.isArray(parsed)) {
-    return parsed.map((item, index) => (
-      index === 0 && item && typeof item === 'object'
-        ? { ...item, traceId: item.traceId || envelope.traceId }
-        : item
-    ));
+    return parsed.map((item, index) =>
+      index === 0 && item && typeof item === 'object' ? { ...item, traceId: item.traceId || envelope.traceId } : item,
+    );
   }
-
 
   if (typeof parsed !== 'object') {
     throw createN8nError('Luồng AI trả về dữ liệu không hợp lệ.', {

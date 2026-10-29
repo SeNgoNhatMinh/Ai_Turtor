@@ -51,11 +51,7 @@ function normalizeError(error, response, body) {
   }
 
   const message =
-    body?.error ||
-    body?.message ||
-    (typeof body === 'string' && body) ||
-    response.statusText ||
-    'Request failed';
+    body?.error || body?.message || (typeof body === 'string' && body) || response.statusText || 'Request failed';
 
   const userMessage = (() => {
     if (response.status === 401 && String(message).trim().toLowerCase() === 'unauthorized') {
@@ -66,10 +62,7 @@ function normalizeError(error, response, body) {
     }
     if (response.status === 429) {
       if (body?.code === 'DAILY_COURSE_QUESTION_LIMIT_REACHED') {
-        return getSafeUserMessage(
-          body?.message || body?.error,
-          DAILY_SESSION_COMPLETE_MESSAGE,
-        );
+        return getSafeUserMessage(body?.message || body?.error, DAILY_SESSION_COMPLETE_MESSAGE);
       }
       return 'AI Tutor đang nhận quá nhiều yêu cầu. Hệ thống sẽ tự thử mô hình dự phòng khi có thể; vui lòng đợi một chút rồi gửi lại.';
     }
@@ -102,6 +95,7 @@ export async function httpRequest(path, options = {}) {
     responseType = 'json',
     signal,
     retries = method === 'GET' ? 4 : 0,
+    credentials = env.apiWithCredentials ? 'include' : 'same-origin',
   } = options;
 
   const controller = new AbortController();
@@ -114,7 +108,7 @@ export async function httpRequest(path, options = {}) {
     url: buildUrl(path, query),
     init: {
       method,
-      credentials: env.apiWithCredentials ? 'include' : 'same-origin',
+      credentials,
       headers: { ...headers },
       signal: controller.signal,
     },
@@ -147,10 +141,7 @@ export async function httpRequest(path, options = {}) {
       } catch (error) {
         const normalized = error instanceof ApiError ? error : normalizeError(error, response, parsedBody);
         const retryableStatus = !normalized.status || [502, 503, 504].includes(normalized.status);
-        const canRetry = method === 'GET'
-          && attempt < retries
-          && retryableStatus
-          && !controller.signal.aborted;
+        const canRetry = method === 'GET' && attempt < retries && retryableStatus && !controller.signal.aborted;
         if (!canRetry) throw normalized;
         const retryDelay = [500, 1500, 3000, 5000][attempt] || 5000;
         await new Promise((resolve) => window.setTimeout(resolve, retryDelay));

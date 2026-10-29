@@ -7,6 +7,7 @@ import { getHomeRouteForRole } from './app/routes';
 import Toast from './components/Toast';
 import { useAuthSession } from './features/auth/hooks/useAuthSession';
 import { useToastMessage } from './hooks/useToastMessage';
+import { authApi } from './services/authApi';
 
 const LoginPage = lazy(() => import('./features/auth/LoginPage'));
 const ThemedAuthedLayout = lazy(() => import('./app/layouts/ThemedAuthedLayout'));
@@ -35,9 +36,7 @@ function App() {
 
   useEffect(() => {
     const accountRole = auth.currentUser?.originalRole || auth.currentUser?.role || '';
-    const identity = auth.currentUserId && accountRole
-      ? `${auth.currentUserId}:${accountRole}`
-      : '';
+    const identity = auth.currentUserId && accountRole ? `${auth.currentUserId}:${accountRole}` : '';
 
     if (!hasInitializedAuthIdentityRef.current) {
       hasInitializedAuthIdentityRef.current = true;
@@ -57,7 +56,15 @@ function App() {
         role: accountRole,
       });
     }
-  }, [auth.currentUser?.email, auth.currentUser?.fullName, auth.currentUser?.name, auth.currentUser?.originalRole, auth.currentUser?.role, auth.currentUserId, navigate]);
+  }, [
+    auth.currentUser?.email,
+    auth.currentUser?.fullName,
+    auth.currentUser?.name,
+    auth.currentUser?.originalRole,
+    auth.currentUser?.role,
+    auth.currentUserId,
+    navigate,
+  ]);
 
   const handleLoginSuccess = (user) => {
     queryClient.clear();
@@ -68,13 +75,17 @@ function App() {
     navigate(getHomeRouteForRole(accountRole), { replace: true });
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     LogRocket.track('Logout');
     queryClient.clear();
     navigation.setCourseId('');
     navigation.setClassId('');
-    auth.logout();
-    navigate('/login', { replace: true });
+    try {
+      await authApi.logout();
+    } finally {
+      auth.logout();
+      navigate('/login', { replace: true });
+    }
   };
 
   const workspaceProps = {
@@ -89,6 +100,10 @@ function App() {
     onLogout: handleLogout,
   };
 
+  if (auth.isRestoring) {
+    return <RouteLoadingFallback />;
+  }
+
   if (!auth.currentUser) {
     return (
       <Suspense fallback={<RouteLoadingFallback />}>
@@ -100,11 +115,7 @@ function App() {
 
   return (
     <Suspense fallback={<RouteLoadingFallback />}>
-      <RealtimeEventsProvider
-        enabled
-        sessionKey={auth.currentUserId}
-        onProfileUpdated={auth.updateCurrentUser}
-      >
+      <RealtimeEventsProvider enabled sessionKey={auth.currentUserId} onProfileUpdated={auth.updateCurrentUser}>
         <ThemedAuthedLayout
           activeRole={navigation.activeRole}
           activeTab={navigation.activeTab}
@@ -119,11 +130,13 @@ function App() {
           toastMessage={toast.toastMessage}
           onCloseToast={() => toast.setToastMessage(null)}
         >
-          <Outlet context={{
-            activeRole: navigation.activeRole,
-            currentUserRole: auth.currentUserRole,
-            workspaceProps,
-          }} />
+          <Outlet
+            context={{
+              activeRole: navigation.activeRole,
+              currentUserRole: auth.currentUserRole,
+              workspaceProps,
+            }}
+          />
         </ThemedAuthedLayout>
       </RealtimeEventsProvider>
     </Suspense>

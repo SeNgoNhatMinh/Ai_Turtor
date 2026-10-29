@@ -56,6 +56,7 @@ public class UserOwnedRecordCleanup {
             "case_memories",
             "student_llm_usage",
             "student_llm_credentials",
+            "auth_refresh_tokens",
             "chat_rooms",
             "chat_messages"
     );

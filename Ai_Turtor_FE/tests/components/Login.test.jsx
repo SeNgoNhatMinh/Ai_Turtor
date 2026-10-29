@@ -7,11 +7,15 @@ describe('Login', () => {
     const triggerToast = vi.fn();
     render(<LoginPage onLoginSuccess={vi.fn()} triggerToast={triggerToast} />);
 
-    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'student@example.com' } });
-    fireEvent.change(screen.getByLabelText('Mật khẩu'), { target: { value: '1' } });
+    fireEvent.change(screen.getByLabelText('Email'), {
+      target: { value: 'student@example.com' },
+    });
+    fireEvent.change(screen.getByLabelText('Mật khẩu'), {
+      target: { value: '1' },
+    });
     fireEvent.click(screen.getByRole('button', { name: /^Đăng nhập$/ }));
 
-    expect(triggerToast).toHaveBeenCalledWith('Mật khẩu phải có ít nhất 6 ký tự.');
+    expect(triggerToast).toHaveBeenCalledWith('Mật khẩu phải có ít nhất 6 ký tự.', 'error');
   });
 
   it('shows only the login form', () => {
