@@ -12,11 +12,13 @@ class AiMarkdownReveal extends StatefulWidget {
     required this.data,
     this.enabled = false,
     this.onStudyTipTap,
+    this.onComplete,
   });
 
   final String data;
   final bool enabled;
   final ValueChanged<String>? onStudyTipTap;
+  final VoidCallback? onComplete;
 
   @override
   State<AiMarkdownReveal> createState() => _AiMarkdownRevealState();
@@ -27,6 +29,7 @@ class _AiMarkdownRevealState extends State<AiMarkdownReveal> {
   var _index = 0;
 
   var _started = false;
+  var _completionNotified = false;
 
   @override
   void didChangeDependencies() {
@@ -42,6 +45,7 @@ class _AiMarkdownRevealState extends State<AiMarkdownReveal> {
     if (oldWidget.data != widget.data || oldWidget.enabled != widget.enabled) {
       _timer?.cancel();
       _index = 0;
+      _completionNotified = false;
       _startIfNeeded();
     }
   }
@@ -60,6 +64,7 @@ class _AiMarkdownRevealState extends State<AiMarkdownReveal> {
       reducedMotion: reducedMotion,
     )) {
       _index = widget.data.length;
+      _notifyComplete();
       return;
     }
     _index = 0;
@@ -71,7 +76,18 @@ class _AiMarkdownRevealState extends State<AiMarkdownReveal> {
       }
       final next = nextRevealIndex(widget.data, _index, step);
       setState(() => _index = next);
-      if (next >= widget.data.length) timer.cancel();
+      if (next >= widget.data.length) {
+        timer.cancel();
+        _notifyComplete();
+      }
+    });
+  }
+
+  void _notifyComplete() {
+    if (_completionNotified) return;
+    _completionNotified = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) widget.onComplete?.call();
     });
   }
 

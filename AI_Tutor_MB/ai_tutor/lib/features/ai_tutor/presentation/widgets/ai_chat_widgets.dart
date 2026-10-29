@@ -19,6 +19,23 @@ import '../../data/daily_question_quota.dart';
 
 enum AnswerReviewFeedbackKind { wrong, reportSource }
 
+bool canUseMentorReviewAction({
+  required bool composerLocked,
+  required bool requestInFlight,
+  required bool hasExistingRequest,
+}) {
+  return !requestInFlight && (!composerLocked || hasExistingRequest);
+}
+
+bool isAiChatCreationLocked({
+  required bool dailyQuotaExhausted,
+  required bool ownLlmReady,
+  required bool maxTurnsReached,
+}) {
+  if (dailyQuotaExhausted) return !ownLlmReady;
+  return maxTurnsReached;
+}
+
 /// Nút ?! cạnh linh vật Cóc — giải thích ngôn ngữ hỗ trợ của RAG.
 class AiLanguageHintButton extends StatelessWidget {
   const AiLanguageHintButton({super.key, required this.tooltip});
@@ -230,7 +247,11 @@ class AiChatAppBar extends StatelessWidget implements PreferredSizeWidget {
   final int questionLimit;
   final bool maxTurnsReached;
 
-  static const brandName = 'University AI Tutor';
+  static const brandName = 'AI Tutor';
+  static const usageTopicHint =
+      'Hãy nhắc đúng tên chủ đề như trong syllabus của môn. Chủ đề càng cụ thể thì AI Tutor càng dễ tìm đúng phần tài liệu để giải thích.';
+  static const usageAccuracyWarning =
+      'AI Tutor có thể trả lời sai. Hãy kiểm tra lại thông tin quan trọng.';
 
   static String formatClassLabel({String? className, String? classId}) {
     final name = className?.trim() ?? '';
@@ -327,16 +348,32 @@ class AiChatAppBar extends StatelessWidget implements PreferredSizeWidget {
         ],
       ),
       actions: [
-        if (searchTap != null)
-          _ChatAppBarIconButton(
-            tooltip: 'Tìm trong đoạn chat',
-            onPressed: searchTap,
-            child: const Icon(
-              LucideIcons.search,
-              size: 18,
-              color: AppColors.peacockBlue,
+        Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (searchTap != null) ...[
+              _ChatAppBarIconButton(
+                tooltip: 'Tìm trong đoạn chat',
+                onPressed: searchTap,
+                child: const Icon(
+                  LucideIcons.search,
+                  size: 18,
+                  color: AppColors.peacockBlue,
+                ),
+              ),
+              const Gap(4),
+            ],
+            _ChatAppBarIconButton(
+              tooltip: 'Xem hướng dẫn sử dụng AI Tutor',
+              onPressed: () => _showUsageInfo(context),
+              child: const Icon(
+                LucideIcons.info,
+                size: 18,
+                color: AppColors.textSecondary,
+              ),
             ),
-          ),
+          ],
+        ),
         const Gap(Insets.xs),
         Padding(
           padding: const EdgeInsets.only(right: Insets.lg),
@@ -406,6 +443,75 @@ class AiChatAppBar extends StatelessWidget implements PreferredSizeWidget {
                   ),
                 ),
               ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _showUsageInfo(BuildContext context) {
+    return showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.card,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            Insets.screenH,
+            0,
+            Insets.screenH,
+            Insets.lg,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Mẹo sử dụng AI Tutor',
+                style: Theme.of(sheetContext).textTheme.titleMedium?.copyWith(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const Gap(Insets.md),
+              const _AiTutorUsageInfoRow(
+                icon: LucideIcons.bookOpen,
+                text: usageTopicHint,
+              ),
+              const Gap(Insets.md),
+              const _AiTutorUsageInfoRow(
+                icon: LucideIcons.triangleAlert,
+                text: usageAccuracyWarning,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AiTutorUsageInfoRow extends StatelessWidget {
+  const _AiTutorUsageInfoRow({required this.icon, required this.text});
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 20, color: AppColors.peacockBlue),
+        const Gap(Insets.sm),
+        Expanded(
+          child: Text(
+            text,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: AppColors.textPrimary,
+              height: 1.45,
             ),
           ),
         ),
@@ -519,6 +625,7 @@ class AiSupportLevelFooter extends StatelessWidget {
       container: true,
       label: '$title: $label',
       child: DecoratedBox(
+        key: const ValueKey('ai-support-level-chip'),
         decoration: BoxDecoration(
           color: AppColors.raised,
           borderRadius: BorderRadius.circular(Radii.md),
@@ -530,21 +637,12 @@ class AiSupportLevelFooter extends StatelessWidget {
             vertical: Insets.sm,
           ),
           child: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
               const Icon(
                 LucideIcons.lifeBuoy,
                 size: 16,
                 color: AppColors.textSecondary,
-              ),
-              const Gap(Insets.sm),
-              Expanded(
-                child: Text(
-                  title,
-                  style: theme.labelMedium?.copyWith(
-                    color: AppColors.textSecondary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
               ),
               const Gap(Insets.sm),
               Text(
@@ -862,7 +960,7 @@ class AiChatNearQuotaBanner extends StatelessWidget {
   final int limit;
 
   static bool shouldShow({required int used, required int limit}) {
-    return used > 0 && used >= limit - 2 && used < limit;
+    return limit > 1 && used == limit - 2;
   }
 
   @override
@@ -888,6 +986,162 @@ class AiChatNearQuotaBanner extends StatelessWidget {
               fontWeight: FontWeight.w600,
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class AiChatQuotaNotice extends StatefulWidget {
+  const AiChatQuotaNotice({
+    super.key,
+    required this.used,
+    required this.limit,
+    this.duration = const Duration(seconds: 2),
+  });
+
+  final int used;
+  final int limit;
+  final Duration duration;
+
+  bool get exhausted => used >= limit;
+
+  @override
+  State<AiChatQuotaNotice> createState() => _AiChatQuotaNoticeState();
+}
+
+class _AiChatQuotaNoticeState extends State<AiChatQuotaNotice> {
+  Timer? _timer;
+  var _visible = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _startDismissTimer();
+  }
+
+  @override
+  void didUpdateWidget(covariant AiChatQuotaNotice oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.used != widget.used || oldWidget.limit != widget.limit) {
+      _visible = true;
+      _startDismissTimer();
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  void _startDismissTimer() {
+    _timer?.cancel();
+    _timer = Timer(widget.duration, () {
+      if (mounted) setState(() => _visible = false);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_visible) return const SizedBox.shrink();
+    final remaining = (widget.limit - widget.used).clamp(0, widget.limit);
+    final message = widget.exhausted
+        ? 'Bạn đã dùng hết ${widget.limit} câu hỏi hôm nay cho môn này.'
+        : 'Còn $remaining câu hỏi hôm nay cho môn này.';
+
+    return Material(
+      color: AppColors.accentWash,
+      child: Semantics(
+        liveRegion: true,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            Insets.screenH,
+            Insets.sm,
+            Insets.screenH,
+            Insets.sm,
+          ),
+          child: Row(
+            children: [
+              Icon(
+                widget.exhausted
+                    ? LucideIcons.circleAlert
+                    : LucideIcons.messageCircleWarning,
+                size: 18,
+                color: AppColors.accentDark,
+              ),
+              const Gap(Insets.sm),
+              Expanded(
+                child: Text(
+                  message,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppColors.accentDark,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class AiChatOwnLlmAccessBar extends StatelessWidget {
+  const AiChatOwnLlmAccessBar({
+    super.key,
+    required this.ownLlmReady,
+    required this.onAttachLlm,
+    this.onClearLlm,
+  });
+
+  final bool ownLlmReady;
+  final VoidCallback onAttachLlm;
+  final VoidCallback? onClearLlm;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.primaryWash,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          Insets.screenH,
+          Insets.xs,
+          Insets.screenH,
+          Insets.xs,
+        ),
+        child: Row(
+          children: [
+            const Icon(
+              LucideIcons.keyRound,
+              size: 18,
+              color: AppColors.primary,
+            ),
+            const Gap(Insets.sm),
+            Expanded(
+              child: Text(
+                ownLlmReady
+                    ? 'API LLM cá nhân đã sẵn sàng'
+                    : 'Tiếp tục học bằng API LLM của bạn',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: onAttachLlm,
+              child: Text(ownLlmReady ? 'Đổi API' : 'Gắn API LLM'),
+            ),
+            if (ownLlmReady && onClearLlm != null)
+              IconButton(
+                tooltip: 'Gỡ API LLM',
+                visualDensity: VisualDensity.compact,
+                onPressed: onClearLlm,
+                icon: const Icon(LucideIcons.x, size: 18),
+              ),
+          ],
         ),
       ),
     );
@@ -1265,6 +1519,8 @@ class AiChatInputBar extends StatelessWidget {
     this.onChatModeChanged,
   });
 
+  static const defaultHint = 'Nhập câu hỏi cho AI Tutor...';
+
   final TextEditingController controller;
   final FocusNode? focusNode;
   final String hint;
@@ -1312,7 +1568,11 @@ class AiChatInputBar extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             if (onChatModeChanged != null) ...[
-              Row(
+              Wrap(
+                alignment: WrapAlignment.end,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: Insets.sm,
+                runSpacing: Insets.xs,
                 children: [
                   Text(
                     'Chế độ hỗ trợ',
@@ -1321,8 +1581,8 @@ class AiChatInputBar extends StatelessWidget {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const Gap(Insets.sm),
-                  Expanded(
+                  SizedBox(
+                    width: 220,
                     child: DropdownButtonFormField<String>(
                       key: const ValueKey('ai-chat-mode-selector'),
                       initialValue: chatMode == 'CODE' ? 'CODE' : 'RAG',
@@ -1531,11 +1791,10 @@ class AiChatInputBar extends StatelessWidget {
                           filled: false,
                         ),
                       if (isPending)
-                        _ChatInputActionPill(
-                          label: stopLabel,
+                        _ComposerCircleButton(
+                          tooltip: stopLabel,
                           icon: LucideIcons.square,
-                          backgroundColor: AppColors.card,
-                          foregroundColor: AppColors.textPrimary,
+                          iconColor: AppColors.textPrimary,
                           onTap: onStop,
                         )
                       else if (showSend)
@@ -1561,11 +1820,12 @@ class AiChatLoadingSteps extends StatefulWidget {
   static const steps = [
     'Đang đọc câu hỏi',
     'Đang tìm trong tài liệu môn học',
-    'Đang soạn câu trả lời',
+    'Đang chuẩn bị nội dung bài giảng',
   ];
   static const takingLonger =
       'Yêu cầu đang mất thêm thời gian để truy xuất và kiểm tra tài liệu môn học.';
-  static const preparing = 'AI Tutor đang chuẩn bị câu trả lời.';
+  static const preparing =
+      'AI Tutor đang chuẩn bị nội dung phù hợp với câu hỏi của bạn.';
 
   @override
   State<AiChatLoadingSteps> createState() => _AiChatLoadingStepsState();
@@ -1952,63 +2212,11 @@ class _SendCircleButton extends StatelessWidget {
   }
 }
 
-class _ChatInputActionPill extends StatelessWidget {
-  const _ChatInputActionPill({
-    this.label,
-    required this.icon,
-    required this.backgroundColor,
-    required this.foregroundColor,
-    this.onTap,
-  });
-
-  final String? label;
-  final IconData icon;
-  final Color backgroundColor;
-  final Color foregroundColor;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: backgroundColor,
-      borderRadius: BorderRadius.circular(Radii.full),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(Radii.full),
-        child: Padding(
-          padding: EdgeInsets.symmetric(
-            horizontal: label != null ? Insets.md : Insets.sm + 2,
-            vertical: Insets.sm,
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (label != null) ...[
-                Text(
-                  label!,
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: foregroundColor,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const Gap(Insets.xs),
-              ],
-              Icon(icon, size: 18, color: foregroundColor),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class AiChatReviewBar extends StatelessWidget {
   const AiChatReviewBar({
     super.key,
     required this.ratingPrompt,
-    required this.reportLabel,
     required this.onRatingSelected,
-    required this.onReport,
     this.onCopy,
     this.onPin,
     this.isPinned = false,
@@ -2018,9 +2226,7 @@ class AiChatReviewBar extends StatelessWidget {
   });
 
   final String ratingPrompt;
-  final String reportLabel;
   final ValueChanged<int>? onRatingSelected;
-  final VoidCallback? onReport;
   final VoidCallback? onCopy;
   final VoidCallback? onPin;
   final bool isPinned;
@@ -2071,17 +2277,6 @@ class AiChatReviewBar extends StatelessWidget {
                 ),
                 const Gap(Insets.xs),
               ],
-              const Spacer(),
-              GestureDetector(
-                onTap: onReport,
-                child: Text(
-                  '⚑ $reportLabel',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.textTertiary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
             ],
           ),
           const Gap(Insets.xs),

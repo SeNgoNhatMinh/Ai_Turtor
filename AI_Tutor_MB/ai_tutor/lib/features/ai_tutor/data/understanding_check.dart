@@ -27,16 +27,30 @@ class UnderstandingQuiz {
   }
 }
 
+Map<String, dynamic> understandingQuizToJson(UnderstandingQuiz quiz) {
+  return {
+    'question': quiz.question,
+    'options': [
+      for (final option in quiz.options)
+        {'key': option.key, 'text': option.text},
+    ],
+    if (quiz.correctKey.isNotEmpty) 'correctKey': quiz.correctKey,
+    if (quiz.explanation.isNotEmpty) 'explanation': quiz.explanation,
+  };
+}
+
 class UnderstandingCheckExtract {
   const UnderstandingCheckExtract({
     required this.before,
     required this.after,
-    this.quiz,
+    this.quizzes = const [],
   });
 
   final String before;
   final String after;
-  final UnderstandingQuiz? quiz;
+  final List<UnderstandingQuiz> quizzes;
+
+  UnderstandingQuiz? get quiz => quizzes.firstOrNull;
 }
 
 class UnderstandingCheckAttempt {
@@ -51,17 +65,84 @@ class UnderstandingCheckAttempt {
   final bool isCorrect;
 }
 
+class UnderstandingCheckGrade {
+  const UnderstandingCheckGrade({
+    required this.quizIndex,
+    required this.selectedKey,
+    this.correct,
+    this.correctKey = '',
+    this.correctOptionText = '',
+    this.explanation = '',
+    this.messageId = '',
+    this.attemptId = '',
+  });
+
+  final int quizIndex;
+  final String selectedKey;
+  final bool? correct;
+  final String correctKey;
+  final String correctOptionText;
+  final String explanation;
+  final String messageId;
+  final String attemptId;
+
+  factory UnderstandingCheckGrade.fromJson(Map<String, dynamic> json) {
+    return UnderstandingCheckGrade(
+      quizIndex: (json['quizIndex'] as num?)?.toInt() ?? 0,
+      selectedKey: (json['selectedKey'] ?? '').toString().trim().toUpperCase(),
+      correct: json['correct'] is bool ? json['correct'] as bool : null,
+      correctKey: (json['correctKey'] ?? '').toString().trim().toUpperCase(),
+      correctOptionText: (json['correctOptionText'] ?? '').toString().trim(),
+      explanation: (json['explanation'] ?? '').toString().trim(),
+      messageId: (json['messageId'] ?? '').toString().trim(),
+      attemptId: (json['attemptId'] ?? '').toString().trim(),
+    );
+  }
+}
+
+class UnderstandingRemediationAttempt {
+  const UnderstandingRemediationAttempt({
+    required this.quizIndex,
+    required this.quiz,
+    required this.selected,
+    required this.grade,
+  });
+
+  final int quizIndex;
+  final UnderstandingQuiz quiz;
+  final UnderstandingOption selected;
+  final UnderstandingCheckGrade grade;
+}
+
 UnderstandingCheckExtract resolveUnderstandingCheck({
   required String markdown,
   dynamic structured,
+  Iterable<dynamic> attempts = const [],
 }) {
   final extracted = extractUnderstandingCheck(markdown);
-  final quiz =
-      normalizeStructuredUnderstandingQuiz(structured) ?? extracted.quiz;
+  final quizzes = [...extracted.quizzes];
+  final structuredQuiz = normalizeStructuredUnderstandingQuiz(structured);
+  if (structuredQuiz != null) {
+    if (quizzes.isEmpty) {
+      quizzes.add(structuredQuiz);
+    } else {
+      quizzes[0] = structuredQuiz;
+    }
+  }
+  for (final raw in attempts) {
+    if (raw is! Map) continue;
+    final index = (raw['quizIndex'] as num?)?.toInt() ?? 0;
+    final quiz = normalizeStructuredUnderstandingQuiz(raw['check']);
+    if (quiz == null || index < 0) continue;
+    while (quizzes.length <= index) {
+      quizzes.add(quiz);
+    }
+    quizzes[index] = quiz;
+  }
   return UnderstandingCheckExtract(
     before: extracted.before,
     after: extracted.after,
-    quiz: quiz,
+    quizzes: quizzes,
   );
 }
 
@@ -329,20 +410,25 @@ UnderstandingQuiz? parseUnderstandingQuiz(String sectionBody) {
   ).replaceFirst(RegExp(r'[?\s]+$'), '');
   if (question.isEmpty) return null;
 
-  final rawOptions = lineParsed?.options ??
+  final rawOptions =
+      lineParsed?.options ??
       [
         for (var index = 0; index < marks.length; index++)
           UnderstandingOption(
             key: marks[index].key,
             text: working.substring(
               marks[index].textStart,
-              index + 1 < marks.length ? marks[index + 1].start : working.length,
+              index + 1 < marks.length
+                  ? marks[index + 1].start
+                  : working.length,
             ),
           ),
       ];
   final options = <UnderstandingOption>[];
   for (final item in rawOptions) {
-    final text = stripDecorations(item.text).replaceFirst(RegExp(r'[;|]+$'), '');
+    final text = stripDecorations(
+      item.text,
+    ).replaceFirst(RegExp(r'[;|]+$'), '');
     if (text.isNotEmpty) {
       options.add(UnderstandingOption(key: item.key, text: text));
     }
@@ -386,28 +472,45 @@ UnderstandingQuiz? parseUnderstandingQuiz(String sectionBody) {
 
 UnderstandingCheckExtract extractUnderstandingCheck(String markdown) {
   final text = markdown;
-  final heading = _checkHeading.firstMatch(text);
-  if (heading == null) {
-    return UnderstandingCheckExtract(before: text, after: '', quiz: null);
+  final firstHeading = _checkHeading.firstMatch(text);
+  if (firstHeading == null) {
+    return UnderstandingCheckExtract(before: text, after: '');
   }
-  final afterHeading = heading.end;
-  final rest = text.substring(afterHeading).replaceFirst(RegExp(r'^\s*\n'), '');
-  final breakAt = nextSectionBreak(rest);
-  final sectionBody = (breakAt < 0 ? rest : rest.substring(0, breakAt)).trim();
-  final quiz = parseUnderstandingQuiz(sectionBody);
-  if (quiz == null) {
-    return UnderstandingCheckExtract(before: text, after: '', quiz: null);
+
+  final quizzes = <UnderstandingQuiz>[];
+  var headingEnd = firstHeading.end;
+  var after = '';
+  while (true) {
+    final rest = text.substring(headingEnd);
+    final breakAt = nextSectionBreak(rest);
+    final sectionBody = (breakAt < 0 ? rest : rest.substring(0, breakAt))
+        .trim();
+    final quiz = parseUnderstandingQuiz(sectionBody);
+    if (quiz == null) break;
+    quizzes.add(quiz);
+    if (breakAt < 0) break;
+
+    final absoluteBreak = headingEnd + breakAt;
+    final remaining = text.substring(absoluteBreak);
+    final nextCheck = _checkHeading.firstMatch(remaining);
+    final prefix = nextCheck == null
+        ? remaining
+        : remaining.substring(0, nextCheck.start);
+    final separatorOnly = prefix.replaceAll(RegExp(r'[-*_\s]'), '').isEmpty;
+    if (nextCheck != null && separatorOnly) {
+      headingEnd = absoluteBreak + nextCheck.end;
+      continue;
+    }
+    after = remaining.replaceFirst(RegExp(r'^\s*-{3,}\s*'), '').trim();
+    break;
   }
-  final after = breakAt < 0
-      ? ''
-      : rest
-            .substring(breakAt)
-            .replaceFirst(RegExp(r'^\s*-{3,}\s*'), '')
-            .trim();
+  if (quizzes.isEmpty) {
+    return UnderstandingCheckExtract(before: text, after: '');
+  }
   return UnderstandingCheckExtract(
-    before: text.substring(0, heading.start).trimRight(),
+    before: text.substring(0, firstHeading.start).trimRight(),
     after: after,
-    quiz: quiz,
+    quizzes: quizzes,
   );
 }
 
@@ -450,6 +553,52 @@ String buildIncorrectAnswerRemediationPrompt(
   ].join('\n');
 }
 
+String buildIncorrectAnswersRemediationPrompt(
+  Iterable<UnderstandingRemediationAttempt> attempts,
+) {
+  final incorrect = attempts.toList()
+    ..sort((left, right) => left.quizIndex.compareTo(right.quizIndex));
+  if (incorrect.isEmpty) return '';
+
+  final sections = <String>[];
+  for (final attempt in incorrect) {
+    final quiz = attempt.quiz;
+    final selected = attempt.selected;
+    final correctKey = attempt.grade.correctKey.isNotEmpty
+        ? attempt.grade.correctKey
+        : quiz.correctKey;
+    final correctOption = quiz.optionFor(correctKey);
+    final options = quiz.options
+        .map((option) => '${option.key}. ${option.text}')
+        .join('\n');
+    sections.add(
+      [
+        'Câu ${attempt.quizIndex + 1}: ${quiz.question.trim()}',
+        if (options.isNotEmpty) 'Các lựa chọn:\n$options',
+        'Em đã chọn: ${selected.key}. ${selected.text.trim()}',
+        if (correctKey.isNotEmpty)
+          'Đáp án đúng: $correctKey. '
+              '${attempt.grade.correctOptionText.isNotEmpty ? attempt.grade.correctOptionText : correctOption?.text ?? ''}'
+        else
+          'Đáp án đúng chưa được xác định; hãy xác định từ tài liệu trước khi giảng.',
+        if (attempt.grade.explanation.isNotEmpty)
+          'Lý do trong bài: ${attempt.grade.explanation}'
+        else if (quiz.explanation.isNotEmpty)
+          'Lý do trong bài: ${quiz.explanation}',
+      ].join('\n'),
+    );
+  }
+
+  return [
+    'Ôn lại sau câu trả lời chưa đúng.',
+    'Học sinh đã hoàn thành quiz và có ${incorrect.length} câu trả lời chưa đúng:',
+    ...sections,
+    'Với từng câu, hãy chẩn đoán vì sao lựa chọn sai và học sinh đang hiểu nhầm gì, rồi giảng lại kiến thức bằng Giải thích khái niệm và Minh họa trực quan.',
+    'Không chuyển sang chủ đề mới và không lặp lại cùng một ý giữa các phần giảng.',
+    'Phần câu trắc nghiệm kiểm tra lại sẽ do worker quiz tạo riêng: một câu dễ hơn, paraphrase hoàn toàn, để học sinh tự chọn trước khi hiện đáp án.',
+  ].join('\n');
+}
+
 String buildMissingAnswerKeyRemediationPrompt(
   UnderstandingQuiz quiz,
   UnderstandingOption selected,
@@ -472,6 +621,7 @@ String buildMissingAnswerKeyRemediationPrompt(
   ].join('\n');
 }
 
-String understandingCheckStorageKey(String messageId) {
-  return 'understanding-check:student:${messageId.trim()}';
+String understandingCheckStorageKey(String messageId, {int quizIndex = 0}) {
+  final suffix = quizIndex <= 0 ? '' : ':$quizIndex';
+  return 'understanding-check:student:${messageId.trim()}$suffix';
 }

@@ -16,21 +16,23 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      const MaterialApp(
+      MaterialApp(
         home: Scaffold(
           appBar: AiChatAppBar(
             courseCode: 'PRJ301',
             classLabel: 'SE1833',
             questionCount: 3,
+            onSearchTap: () {},
           ),
         ),
       ),
     );
 
-    final brand = find.text(AiChatAppBar.brandName);
+    final brand = find.text('AI Tutor');
     final questionCount = find.text('Câu hỏi 3/10');
 
     expect(brand, findsOneWidget);
+    expect(find.textContaining('University'), findsNothing);
     expect(questionCount, findsOneWidget);
     expect(find.text('Cóc Vàng AI'), findsNothing);
     expect(find.byType(Image), findsOneWidget);
@@ -38,6 +40,17 @@ void main() {
       tester.getTopLeft(questionCount).dy,
       greaterThan(tester.getTopLeft(brand).dy),
     );
+    expect(
+      tester.getTopLeft(find.byTooltip('Xem hướng dẫn sử dụng AI Tutor')).dy,
+      greaterThan(tester.getTopLeft(find.byTooltip('Tìm trong đoạn chat')).dy),
+    );
+
+    await tester.tap(find.byTooltip('Xem hướng dẫn sử dụng AI Tutor'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Mẹo sử dụng AI Tutor'), findsOneWidget);
+    expect(find.text(AiChatAppBar.usageTopicHint), findsOneWidget);
+    expect(find.text(AiChatAppBar.usageAccuracyWarning), findsOneWidget);
   });
 
   testWidgets('prompt starters expose the three web study prompts', (
@@ -75,7 +88,7 @@ void main() {
             alignment: Alignment.bottomCenter,
             child: AiChatInputBar(
               controller: controller,
-              hint: 'Nhắn cho Cóc...',
+              hint: AiChatInputBar.defaultHint,
               enabled: true,
               isPending: false,
               onSend: () => sent += 1,
@@ -88,6 +101,7 @@ void main() {
       ),
     );
 
+    expect(find.text('Nhập câu hỏi cho AI Tutor...'), findsOneWidget);
     expect(find.byTooltip('Gửi'), findsNothing);
     expect(find.byTooltip('Thêm tệp'), findsNothing);
     expect(find.byTooltip('Nhập bằng giọng nói'), findsOneWidget);
@@ -135,6 +149,8 @@ void main() {
   testWidgets('lets the student choose RAG or CODE support mode', (
     tester,
   ) async {
+    await tester.binding.setSurfaceSize(const Size(360, 640));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     final controller = TextEditingController();
     var selectedMode = 'RAG';
     await tester.pumpWidget(
@@ -157,6 +173,12 @@ void main() {
 
     expect(find.text('Chế độ hỗ trợ'), findsOneWidget);
     expect(find.text(AiChatInputBar.ragModeLabel), findsOneWidget);
+    expect(
+      tester
+          .getTopRight(find.byKey(const ValueKey('ai-chat-mode-selector')))
+          .dx,
+      closeTo(344, 1),
+    );
 
     await tester.tap(find.byKey(const ValueKey('ai-chat-mode-selector')));
     await tester.pumpAndSettle();
@@ -191,6 +213,32 @@ void main() {
     controller.dispose();
   });
 
+  testWidgets('pending composer shows only the stop icon', (tester) async {
+    final controller = TextEditingController();
+    var stopped = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AiChatInputBar(
+            controller: controller,
+            hint: AiChatInputBar.defaultHint,
+            enabled: false,
+            isPending: true,
+            onSend: () {},
+            onStop: () => stopped += 1,
+            stopLabel: 'Dừng',
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Dừng'), findsNothing);
+    expect(find.byTooltip('Dừng'), findsOneWidget);
+    await tester.tap(find.byTooltip('Dừng'));
+    expect(stopped, 1);
+    controller.dispose();
+  });
+
   testWidgets('shows the first loading step while AI is thinking', (
     tester,
   ) async {
@@ -198,8 +246,13 @@ void main() {
       const MaterialApp(home: Scaffold(body: AiChatLoadingSteps())),
     );
 
-    expect(find.text(AiChatLoadingSteps.steps.first), findsOneWidget);
-    expect(find.text(AiChatLoadingSteps.preparing), findsOneWidget);
+    expect(find.text('Đang đọc câu hỏi'), findsOneWidget);
+    expect(
+      find.text('AI Tutor đang chuẩn bị nội dung phù hợp với câu hỏi của bạn.'),
+      findsOneWidget,
+    );
+    await tester.pump(const Duration(milliseconds: 4500));
+    expect(find.text('Đang chuẩn bị nội dung bài giảng'), findsOneWidget);
     await tester.pump(const Duration(seconds: 11));
     expect(find.text(AiChatLoadingSteps.takingLonger), findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());

@@ -1,5 +1,22 @@
 import '../../../shared/models/quiz.dart';
 
+QuizSession? latestInProgressQuiz(Iterable<QuizSession> sessions) {
+  final pending =
+      sessions
+          .where(
+            (session) => session.status.trim().toUpperCase() == 'GENERATED',
+          )
+          .toList()
+        ..sort((left, right) {
+          final leftAt =
+              left.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+          final rightAt =
+              right.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+          return rightAt.compareTo(leftAt);
+        });
+  return pending.firstOrNull;
+}
+
 class QuizHubStats {
   const QuizHubStats({
     required this.assigned,

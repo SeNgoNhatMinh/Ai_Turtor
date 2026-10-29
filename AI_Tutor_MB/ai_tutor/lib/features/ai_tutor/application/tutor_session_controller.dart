@@ -76,6 +76,12 @@ class TutorSessionController extends Notifier<ActiveTutorSessionSnapshot> {
     );
   }
 
+  void clear() {
+    _supportRefreshInFlight = null;
+    _supportRefreshScopeKey = null;
+    state = const ActiveTutorSessionSnapshot();
+  }
+
   void applyAnswer(AiAnswer answer) {
     final current = state.session;
     if (current == null) return;
@@ -176,8 +182,15 @@ class TutorSessionController extends Notifier<ActiveTutorSessionSnapshot> {
         ),
       ].join('|');
       if (activeScopeKey != scopeKey || state.session == null) return profile;
+      final current = state.session!;
+      if (current.supportLevel == profile.supportLevel &&
+          current.teacherControlled == profile.teacherControlled &&
+          current.hasActiveTeacherDirective ==
+              profile.hasActiveTeacherDirective) {
+        return profile;
+      }
       state = state.copyWith(
-        session: state.session!.copyWith(
+        session: current.copyWith(
           supportLevel: profile.supportLevel,
           teacherControlled: profile.teacherControlled,
           hasActiveTeacherDirective: profile.hasActiveTeacherDirective,
@@ -329,9 +342,6 @@ final tutorSessionControllerProvider =
 final tutorOpeningHandoffProvider = StateProvider<TutorSessionOpenResult?>(
   (ref) => null,
 );
-
-final chatRevealMessageIdProvider = StateProvider.autoDispose
-    .family<String?, String>((ref, conversationId) => null);
 
 /// Tin nhắn vừa gửi/trả lời, đưa sang cuộc trò chuyện mới để tránh màn hình trắng.
 class ChatMessagesHandoff {

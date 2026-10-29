@@ -10,8 +10,10 @@ import '../../../core/utils/json_helpers.dart';
 import '../../../core/utils/study_suggestion_prompt.dart';
 import '../../../shared/models/ai_conversation.dart';
 import 'chat_answer_recovery.dart';
+import 'course_learning_guide.dart';
 import 'daily_question_quota.dart';
 import 'tutor_session.dart';
+import 'understanding_check.dart';
 
 class AiTutorRepository {
   AiTutorRepository(this._spring, this._n8n);
@@ -52,6 +54,14 @@ class AiTutorRepository {
       data: title != null ? {'title': title} : null,
     );
     return AiConversation.fromJson(response.data ?? {});
+  }
+
+  Future<CourseLearningGuide> fetchCourseLearningGuide(String courseId) async {
+    final response = await _spring.get<Map<String, dynamic>>(
+      '/api/courses/${Uri.encodeComponent(courseId)}/learning-guide',
+      options: Options(extra: const {skipUnauthorizedRedirectExtra: true}),
+    );
+    return CourseLearningGuide.fromJson(unwrapMap(response.data));
   }
 
   Future<void> renameConversation(
@@ -156,6 +166,9 @@ class AiTutorRepository {
     String? codeSnippet,
     String? sessionId,
     String? interactionType,
+    String? originAssistantMessageId,
+    String? understandingAttemptId,
+    String? originalQuestion,
     String? tutorSessionId,
     String? sessionPhase,
     String? improvePlanId,
@@ -181,6 +194,9 @@ class AiTutorRepository {
         codeSnippet: codeSnippet,
         sessionId: sessionId,
         interactionType: interactionType,
+        originAssistantMessageId: originAssistantMessageId,
+        understandingAttemptId: understandingAttemptId,
+        originalQuestion: originalQuestion,
         tutorSessionId: tutorSessionId,
         sessionPhase: sessionPhase,
         improvePlanId: improvePlanId,
@@ -236,6 +252,9 @@ class AiTutorRepository {
     String? codeSnippet,
     String? sessionId,
     String? interactionType,
+    String? originAssistantMessageId,
+    String? understandingAttemptId,
+    String? originalQuestion,
     String? tutorSessionId,
     String? sessionPhase,
     String? improvePlanId,
@@ -270,6 +289,12 @@ class AiTutorRepository {
           'requestedMode': requestedMode,
         if (effectiveInteractionType != null)
           'interactionType': effectiveInteractionType,
+        if ((originAssistantMessageId ?? '').isNotEmpty)
+          'originAssistantMessageId': originAssistantMessageId,
+        if ((understandingAttemptId ?? '').isNotEmpty)
+          'understandingAttemptId': understandingAttemptId,
+        if ((originalQuestion ?? '').isNotEmpty)
+          'originalQuestion': originalQuestion,
         if (tutorSessionId != null && tutorSessionId.isNotEmpty)
           'tutorSessionId': tutorSessionId,
         'sessionPhase': (sessionPhase == null || sessionPhase.isEmpty)
@@ -368,16 +393,22 @@ class AiTutorRepository {
     return null;
   }
 
-  Future<void> recordUnderstandingCheck({
+  Future<UnderstandingCheckGrade> recordUnderstandingCheck({
     required String conversationId,
     required String messageId,
     required String userId,
     required String selectedKey,
+    required int quizIndex,
   }) async {
-    await _spring.post<void>(
+    final response = await _spring.post<Map<String, dynamic>>(
       '/api/ai/conversations/$conversationId/messages/$messageId/understanding-check',
-      data: {'userId': userId, 'selectedKey': selectedKey},
+      data: {
+        'userId': userId,
+        'selectedKey': selectedKey,
+        'quizIndex': quizIndex,
+      },
     );
+    return UnderstandingCheckGrade.fromJson(response.data ?? const {});
   }
 
   Future<DailyQuestionQuota> fetchQuestionQuota({

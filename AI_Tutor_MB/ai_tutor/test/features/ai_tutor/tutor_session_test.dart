@@ -6,6 +6,55 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test(
+    'quota lock blocks new mentor requests but keeps existing support open',
+    () {
+      expect(
+        canUseMentorReviewAction(
+          composerLocked: true,
+          requestInFlight: false,
+          hasExistingRequest: false,
+        ),
+        isFalse,
+      );
+      expect(
+        canUseMentorReviewAction(
+          composerLocked: true,
+          requestInFlight: false,
+          hasExistingRequest: true,
+        ),
+        isTrue,
+      );
+      expect(
+        canUseMentorReviewAction(
+          composerLocked: false,
+          requestInFlight: true,
+          hasExistingRequest: true,
+        ),
+        isFalse,
+      );
+    },
+  );
+
+  testWidgets('student review bar no longer shows the report button', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AiChatReviewBar(
+            ratingPrompt: 'Câu trả lời có hữu ích không?',
+            onRatingSelected: (_) {},
+          ),
+        ),
+      ),
+    );
+
+    expect(find.textContaining('Báo lỗi'), findsNothing);
+    expect(find.textContaining('⚑'), findsNothing);
+    expect(find.textContaining('Câu trả lời có hữu ích'), findsOneWidget);
+  });
+
   test('parses the tutor-session opening payload like web', () {
     final opened = TutorSessionOpenResult.fromJson({
       'conversationId': 'conv-1',

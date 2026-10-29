@@ -41,6 +41,54 @@ class AiConversation {
   }
 }
 
+class UnderstandingCheckAttemptRecord {
+  const UnderstandingCheckAttemptRecord({
+    required this.quizIndex,
+    this.attemptId,
+    this.check,
+    this.selectedKey,
+    this.correct,
+    this.answeredAt,
+  });
+
+  final int quizIndex;
+  final String? attemptId;
+  final Map<String, dynamic>? check;
+  final String? selectedKey;
+  final bool? correct;
+  final DateTime? answeredAt;
+
+  UnderstandingCheckAttemptRecord copyWith({
+    String? attemptId,
+    Map<String, dynamic>? check,
+    String? selectedKey,
+    bool? correct,
+    DateTime? answeredAt,
+  }) {
+    return UnderstandingCheckAttemptRecord(
+      quizIndex: quizIndex,
+      attemptId: attemptId ?? this.attemptId,
+      check: check ?? this.check,
+      selectedKey: selectedKey ?? this.selectedKey,
+      correct: correct ?? this.correct,
+      answeredAt: answeredAt ?? this.answeredAt,
+    );
+  }
+
+  factory UnderstandingCheckAttemptRecord.fromJson(Map<String, dynamic> json) {
+    return UnderstandingCheckAttemptRecord(
+      quizIndex: (json['quizIndex'] as num?)?.toInt() ?? 0,
+      attemptId: json['attemptId']?.toString(),
+      check: AiMessage._parseUnderstandingCheck(json['check']),
+      selectedKey: AiMessage._parseUnderstandingSelectedKey(
+        json['selectedKey'],
+      ),
+      correct: json['correct'] is bool ? json['correct'] as bool : null,
+      answeredAt: parseDateTime(json['answeredAt']),
+    );
+  }
+}
+
 class AiMessage {
   const AiMessage({
     required this.id,
@@ -62,6 +110,7 @@ class AiMessage {
     this.hasNextImproveSuggestionsPayload = false,
     this.understandingCheck,
     this.understandingSelectedKey,
+    this.understandingCheckAttempts = const [],
     this.codeSnippet,
     this.proactive = false,
   });
@@ -85,6 +134,7 @@ class AiMessage {
   final bool hasNextImproveSuggestionsPayload;
   final Map<String, dynamic>? understandingCheck;
   final String? understandingSelectedKey;
+  final List<UnderstandingCheckAttemptRecord> understandingCheckAttempts;
   final String? codeSnippet;
   final bool proactive;
 
@@ -99,6 +149,7 @@ class AiMessage {
     String? questionEscalationId,
     Map<String, dynamic>? understandingCheck,
     String? understandingSelectedKey,
+    List<UnderstandingCheckAttemptRecord>? understandingCheckAttempts,
     String? codeSnippet,
     bool? proactive,
   }) {
@@ -125,6 +176,8 @@ class AiMessage {
       understandingCheck: understandingCheck ?? this.understandingCheck,
       understandingSelectedKey:
           understandingSelectedKey ?? this.understandingSelectedKey,
+      understandingCheckAttempts:
+          understandingCheckAttempts ?? this.understandingCheckAttempts,
       codeSnippet: codeSnippet ?? this.codeSnippet,
       proactive: proactive ?? this.proactive,
     );
@@ -183,6 +236,9 @@ class AiMessage {
       understandingSelectedKey: _parseUnderstandingSelectedKey(
         json['understandingSelectedKey'],
       ),
+      understandingCheckAttempts: _parseUnderstandingCheckAttempts(
+        json['understandingCheckAttempts'],
+      ),
       codeSnippet: json['codeSnippet']?.toString(),
       proactive: json['proactive'] == true,
     );
@@ -196,6 +252,20 @@ class AiMessage {
   static String? _parseUnderstandingSelectedKey(dynamic value) {
     final key = value?.toString().trim().toUpperCase() ?? '';
     return RegExp(r'^[A-D]$').hasMatch(key) ? key : null;
+  }
+
+  static List<UnderstandingCheckAttemptRecord> _parseUnderstandingCheckAttempts(
+    dynamic value,
+  ) {
+    if (value is! List) return const [];
+    return value
+        .whereType<Map>()
+        .map(
+          (item) => UnderstandingCheckAttemptRecord.fromJson(
+            Map<String, dynamic>.from(item),
+          ),
+        )
+        .toList();
   }
 
   static List<ImproveSuggestionItem> _parseImproveSuggestions(dynamic value) {
@@ -268,6 +338,7 @@ class AiAnswer {
     this.suggestionConsumed = false,
     this.dailyQuota,
     this.understandingCheck,
+    this.understandingCheckAttempts = const [],
     this.sessionPhase,
     this.suggestedTopics = const [],
   });
@@ -291,6 +362,7 @@ class AiAnswer {
   final bool suggestionConsumed;
   final DailyQuestionQuota? dailyQuota;
   final Map<String, dynamic>? understandingCheck;
+  final List<UnderstandingCheckAttemptRecord> understandingCheckAttempts;
   final String? sessionPhase;
   final List<String> suggestedTopics;
 
@@ -331,6 +403,9 @@ class AiAnswer {
       dailyQuota: hasQuotaPayload(json) ? normalizeDailyQuota(json) : null,
       understandingCheck: AiMessage._parseUnderstandingCheck(
         json['understandingCheck'],
+      ),
+      understandingCheckAttempts: AiMessage._parseUnderstandingCheckAttempts(
+        json['understandingCheckAttempts'],
       ),
       sessionPhase: json['sessionPhase']?.toString(),
       suggestedTopics: parseStringList(json['suggestedTopics']),

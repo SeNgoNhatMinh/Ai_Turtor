@@ -8,6 +8,25 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('own LLM unlocks chat after the system quota is exhausted', () {
+    expect(
+      isAiChatCreationLocked(
+        dailyQuotaExhausted: true,
+        ownLlmReady: false,
+        maxTurnsReached: true,
+      ),
+      isTrue,
+    );
+    expect(
+      isAiChatCreationLocked(
+        dailyQuotaExhausted: true,
+        ownLlmReady: true,
+        maxTurnsReached: true,
+      ),
+      isFalse,
+    );
+  });
+
   test('lists the same student LLM providers as web', () {
     expect(studentLlmProviders.map((item) => item.id).toList(), [
       'openrouter',
@@ -93,6 +112,42 @@ void main() {
     expect(find.text('Đổi API'), findsOneWidget);
     expect(find.text('Gỡ API'), findsOneWidget);
     await tester.tap(find.text('Gỡ API'));
+    expect(cleared, 1);
+  });
+
+  testWidgets('compact own-LLM access remains available after quota notice', (
+    tester,
+  ) async {
+    var attached = 0;
+    var cleared = 0;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AiChatOwnLlmAccessBar(
+            ownLlmReady: false,
+            onAttachLlm: () => attached += 1,
+          ),
+        ),
+      ),
+    );
+    expect(find.text('Tiếp tục học bằng API LLM của bạn'), findsOneWidget);
+    await tester.tap(find.text('Gắn API LLM'));
+    expect(attached, 1);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AiChatOwnLlmAccessBar(
+            ownLlmReady: true,
+            onAttachLlm: () => attached += 1,
+            onClearLlm: () => cleared += 1,
+          ),
+        ),
+      ),
+    );
+    expect(find.text('API LLM cá nhân đã sẵn sàng'), findsOneWidget);
+    await tester.tap(find.byTooltip('Gỡ API LLM'));
     expect(cleared, 1);
   });
 
