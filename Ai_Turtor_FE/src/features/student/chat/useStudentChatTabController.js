@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { message } from 'antd';
 import LogRocket from 'logrocket';
 import { confirmAction } from '../../../components/common/confirmDialog';
@@ -141,7 +141,7 @@ export function useStudentChatTabController({
     handleSelectSession(previousSessionId, previousSession?.title || 'Cuộc trò chuyện trước');
   };
 
-  const sendText = (text, requestContext = {}) => {
+  const sendText = useCallback((text, requestContext = {}) => {
     if (isAiLoadingRef.current) return;
     if (!userId) {
       triggerToast?.('Vui lòng đăng nhập trước khi gửi tin nhắn.');
@@ -190,7 +190,17 @@ export function useStudentChatTabController({
       isAiLoadingRef.current = false;
       setIsAiLoading(false);
     });
-  };
+  }, [
+    chatMode,
+    classId,
+    classOptions,
+    courseDailyQuotaExhausted,
+    courseId,
+    courseOptions,
+    handleSendQuery,
+    triggerToast,
+    userId,
+  ]);
 
   useEffect(() => {
     if (isAiLoading || isAiLoadingRef.current) return;

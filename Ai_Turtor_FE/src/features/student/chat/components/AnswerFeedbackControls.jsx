@@ -22,7 +22,6 @@ function AnswerFeedbackControls({
   onHelpful,
   onToggleRatingPanel,
   onSelectStar,
-  onOpenFeedback,
   onCloseFeedback,
   onSubmitFeedback,
 }) {

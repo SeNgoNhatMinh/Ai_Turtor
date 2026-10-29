@@ -1,3 +1,4 @@
+/* global __APP_COMMIT_HASH__ */
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import LogRocket from 'logrocket'

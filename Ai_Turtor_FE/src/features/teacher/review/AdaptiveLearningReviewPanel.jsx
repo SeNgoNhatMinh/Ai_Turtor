@@ -338,12 +338,14 @@ export default function AdaptiveLearningReviewPanel({ courseId, classId, trigger
     || (item?.kind === 'STUDENT_ANSWER' && item?.correct === false)
   )).length;
   useEffect(() => {
-    if (!selected) return;
-    setSelectedId(selected.id);
-    setFeedback(selected.teacherFeedback || '');
-    setSupportLevel(selected.suggestedSupportLevel || 'STANDARD');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected?.id]);
+    if (!selected) return undefined;
+    const timer = window.setTimeout(() => {
+      setSelectedId(selected.id);
+      setFeedback(selected.teacherFeedback || '');
+      setSupportLevel(selected.suggestedSupportLevel || 'STANDARD');
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [selected]);
 
   const pendingCount = reviews.filter((item) => item.status === 'PENDING').length;
   const approvedCount = reviews.filter((item) => item.status === 'APPROVED').length;

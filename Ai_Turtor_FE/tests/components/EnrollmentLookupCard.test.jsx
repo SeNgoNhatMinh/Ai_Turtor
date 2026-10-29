@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { groupByStudent } from '../../src/features/admin/academic/components/EnrollmentLookupCard';
+import { groupByStudent } from '../../src/features/admin/academic/components/enrollmentLookupUtils';
 
 describe('groupByStudent', () => {
   it('merges UUID and imported student-code rows that share an email', () => {

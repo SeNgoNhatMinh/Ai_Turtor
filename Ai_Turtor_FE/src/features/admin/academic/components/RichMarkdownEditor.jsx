@@ -7,6 +7,22 @@ import {
 
 const EMOJIS = ['📚', '✅', '⭐', '💡', '📝', '🎯', '⚠️', '🔑', '🚀', '📌'];
 
+function EditorToolButton({ title, icon, onAction, disabled = false }) {
+  return (
+    <Tooltip title={title}>
+      <Button
+        size="small"
+        type="text"
+        aria-label={title}
+        icon={icon}
+        disabled={disabled}
+        onMouseDown={(event) => event.preventDefault()}
+        onClick={onAction}
+      />
+    </Tooltip>
+  );
+}
+
 /**
  * Gmail-style compose toolbar on top of a Markdown textarea: formatting is
  * stored as Markdown so the student app renders it exactly as formatted,
@@ -15,8 +31,7 @@ const EMOJIS = ['📚', '✅', '⭐', '💡', '📝', '🎯', '⚠️', '🔑', 
  */
 function RichMarkdownEditor({ value, onChange, rows = 4, placeholder, ariaLabel, compact = false }) {
   const areaRef = useRef(null);
-  const historyRef = useRef({ past: [], future: [], lastPushAt: 0 });
-  const [, setHistoryTick] = useState(0);
+  const [history, setHistory] = useState({ past: [], future: [], lastPushAt: 0 });
   const [emojiOpen, setEmojiOpen] = useState(false);
 
   const focusRange = useCallback((start, end) => {
@@ -29,11 +44,11 @@ function RichMarkdownEditor({ value, onChange, rows = 4, placeholder, ariaLabel,
   }, []);
 
   const applyChange = useCallback((next, selectionStart, selectionEnd) => {
-    const history = historyRef.current;
-    history.past.push(value);
-    if (history.past.length > 100) history.past.shift();
-    history.future = [];
-    setHistoryTick((tick) => tick + 1);
+    setHistory((current) => ({
+      past: [...current.past, value].slice(-100),
+      future: [],
+      lastPushAt: current.lastPushAt,
+    }));
     onChange(next);
     focusRange(selectionStart, selectionEnd);
   }, [focusRange, onChange, value]);
@@ -97,35 +112,38 @@ function RichMarkdownEditor({ value, onChange, rows = 4, placeholder, ariaLabel,
   };
 
   const undo = () => {
-    const history = historyRef.current;
     if (history.past.length === 0) return;
-    history.future.push(value);
-    const previous = history.past.pop();
-    setHistoryTick((tick) => tick + 1);
+    const previous = history.past.at(-1);
+    setHistory((current) => ({
+      past: current.past.slice(0, -1),
+      future: [...current.future, value],
+      lastPushAt: current.lastPushAt,
+    }));
     onChange(previous);
     focusRange(previous.length, previous.length);
   };
 
   const redo = () => {
-    const history = historyRef.current;
     if (history.future.length === 0) return;
-    history.past.push(value);
-    const next = history.future.pop();
-    setHistoryTick((tick) => tick + 1);
+    const next = history.future.at(-1);
+    setHistory((current) => ({
+      past: [...current.past, value].slice(-100),
+      future: current.future.slice(0, -1),
+      lastPushAt: current.lastPushAt,
+    }));
     onChange(next);
     focusRange(next.length, next.length);
   };
 
   const handleTyping = (event) => {
     const next = event.target.value;
-    const history = historyRef.current;
     const now = Date.now();
     if (now - history.lastPushAt > 800) {
-      history.past.push(value);
-      if (history.past.length > 100) history.past.shift();
-      history.future = [];
-      history.lastPushAt = now;
-      setHistoryTick((tick) => tick + 1);
+      setHistory((current) => ({
+        past: [...current.past, value].slice(-100),
+        future: [],
+        lastPushAt: now,
+      }));
     }
     onChange(next);
   };
@@ -140,45 +158,29 @@ function RichMarkdownEditor({ value, onChange, rows = 4, placeholder, ariaLabel,
     if (key === 'y' || (key === 'z' && event.shiftKey)) { event.preventDefault(); redo(); }
   };
 
-  const toolButton = (title, icon, action, disabled = false) => (
-    <Tooltip key={title} title={title}>
-      <Button
-        size="small"
-        type="text"
-        aria-label={title}
-        icon={icon}
-        disabled={disabled}
-        onMouseDown={(event) => event.preventDefault()}
-        onClick={action}
-      />
-    </Tooltip>
-  );
-
-  const history = historyRef.current;
-
   return (
     <div className="rich-markdown-editor">
       <div className="rich-markdown-editor__toolbar">
         <Space size={2} wrap>
-          {toolButton('Hoàn tác (Ctrl+Z)', <Undo2 size={15} />, undo, history.past.length === 0)}
-          {toolButton('Làm lại (Ctrl+Y)', <Redo2 size={15} />, redo, history.future.length === 0)}
+          <EditorToolButton title="Hoàn tác (Ctrl+Z)" icon={<Undo2 size={15} />} onAction={undo} disabled={history.past.length === 0} />
+          <EditorToolButton title="Làm lại (Ctrl+Y)" icon={<Redo2 size={15} />} onAction={redo} disabled={history.future.length === 0} />
           <span className="rich-markdown-editor__divider" />
-          {toolButton('Đậm (Ctrl+B)', <Bold size={15} />, () => wrapSelection('**'))}
-          {toolButton('Nghiêng (Ctrl+I)', <Italic size={15} />, () => wrapSelection('*'))}
-          {toolButton('Gạch dưới (Ctrl+U)', <UnderlineIcon />, () => wrapSelection('<u>', '</u>'))}
-          {toolButton('Gạch ngang', <Strikethrough size={15} />, () => wrapSelection('~~'))}
+          <EditorToolButton title="Đậm (Ctrl+B)" icon={<Bold size={15} />} onAction={() => wrapSelection('**')} />
+          <EditorToolButton title="Nghiêng (Ctrl+I)" icon={<Italic size={15} />} onAction={() => wrapSelection('*')} />
+          <EditorToolButton title="Gạch dưới (Ctrl+U)" icon={<UnderlineIcon />} onAction={() => wrapSelection('<u>', '</u>')} />
+          <EditorToolButton title="Gạch ngang" icon={<Strikethrough size={15} />} onAction={() => wrapSelection('~~')} />
           {!compact && (
             <>
               <span className="rich-markdown-editor__divider" />
-              {toolButton('Cỡ chữ lớn (tiêu đề)', <Heading2 size={15} />, () => prefixLines((line) => `## ${line.replace(/^#{1,6}\s+/, '')}`))}
-              {toolButton('Cỡ chữ vừa (tiêu đề nhỏ)', <Heading3 size={15} />, () => prefixLines((line) => `### ${line.replace(/^#{1,6}\s+/, '')}`))}
-              {toolButton('Danh sách dấu chấm', <List size={15} />, () => prefixLines((line) => (line.trim() ? `- ${line.replace(/^[-*+]\s+/, '')}` : line)))}
-              {toolButton('Danh sách số', <ListOrdered size={15} />, () => prefixLines((line, index) => (line.trim() ? `${index + 1}. ${line.replace(/^\d+[.)]\s+/, '')}` : line)))}
-              {toolButton('Trích dẫn', <Quote size={15} />, () => prefixLines((line) => (line.trim() ? `> ${line}` : line)))}
-              {toolButton('Mã code', <Code size={15} />, () => wrapSelection('`'))}
+              <EditorToolButton title="Cỡ chữ lớn (tiêu đề)" icon={<Heading2 size={15} />} onAction={() => prefixLines((line) => `## ${line.replace(/^#{1,6}\s+/, '')}`)} />
+              <EditorToolButton title="Cỡ chữ vừa (tiêu đề nhỏ)" icon={<Heading3 size={15} />} onAction={() => prefixLines((line) => `### ${line.replace(/^#{1,6}\s+/, '')}`)} />
+              <EditorToolButton title="Danh sách dấu chấm" icon={<List size={15} />} onAction={() => prefixLines((line) => (line.trim() ? `- ${line.replace(/^[-*+]\s+/, '')}` : line))} />
+              <EditorToolButton title="Danh sách số" icon={<ListOrdered size={15} />} onAction={() => prefixLines((line, index) => (line.trim() ? `${index + 1}. ${line.replace(/^\d+[.)]\s+/, '')}` : line))} />
+              <EditorToolButton title="Trích dẫn" icon={<Quote size={15} />} onAction={() => prefixLines((line) => (line.trim() ? `> ${line}` : line))} />
+              <EditorToolButton title="Mã code" icon={<Code size={15} />} onAction={() => wrapSelection('`')} />
             </>
           )}
-          {toolButton('Chèn liên kết', <Link2 size={15} />, insertLink)}
+          <EditorToolButton title="Chèn liên kết" icon={<Link2 size={15} />} onAction={insertLink} />
           <Popover
             open={emojiOpen}
             onOpenChange={setEmojiOpen}
@@ -204,7 +206,7 @@ function RichMarkdownEditor({ value, onChange, rows = 4, placeholder, ariaLabel,
             </Tooltip>
           </Popover>
           <span className="rich-markdown-editor__divider" />
-          {toolButton('Xóa định dạng', <Eraser size={15} />, clearFormatting)}
+          <EditorToolButton title="Xóa định dạng" icon={<Eraser size={15} />} onAction={clearFormatting} />
         </Space>
       </div>
       <Input.TextArea

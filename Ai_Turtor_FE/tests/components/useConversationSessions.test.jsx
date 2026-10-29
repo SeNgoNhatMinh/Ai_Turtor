@@ -3,7 +3,6 @@ import { act, renderHook } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { queryKeys } from '../../src/app/queryKeys';
 import { useConversationSessions } from '../../src/features/student/chat/useConversationSessions';
-import { conversationApi } from '../../src/services/conversationApi';
 
 vi.mock('../../src/services/conversationApi', () => ({
   conversationApi: {
