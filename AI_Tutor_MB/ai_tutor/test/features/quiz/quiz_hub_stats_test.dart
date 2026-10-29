@@ -78,4 +78,26 @@ void main() {
     expect(quizDisplayScore(reviewed), 9);
     expect(shouldHideQuizAnswerKey(reviewed), isFalse);
   });
+
+  test('restores the newest in-progress quiz like web', () {
+    final latest = latestInProgressQuiz([
+      _session(
+        id: 'older',
+        status: 'GENERATED',
+        createdAt: DateTime(2026, 9, 10),
+      ),
+      _session(
+        id: 'submitted',
+        status: 'SUBMITTED',
+        createdAt: DateTime(2026, 9, 13),
+      ),
+      _session(
+        id: 'newer',
+        status: 'GENERATED',
+        createdAt: DateTime(2026, 9, 12),
+      ),
+    ]);
+
+    expect(latest?.id, 'newer');
+  });
 }

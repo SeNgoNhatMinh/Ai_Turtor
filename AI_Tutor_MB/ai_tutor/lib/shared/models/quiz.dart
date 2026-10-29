@@ -8,15 +8,18 @@ class QuizQuestion {
     this.options = const [],
     this.correctAnswer,
     this.explanation,
+    this.sourceMaterialIds = const [],
   });
 
   final String questionId;
   final String questionText;
+
   /// MULTIPLE_CHOICE or TRUE_FALSE
   final String type;
   final List<String> options;
   final String? correctAnswer;
   final String? explanation;
+  final List<String> sourceMaterialIds;
 
   /// Options shown to the student. Backend uses `Đúng`/`Sai` for TRUE_FALSE.
   List<String> get displayOptions {
@@ -30,11 +33,16 @@ class QuizQuestion {
   factory QuizQuestion.fromJson(Map<String, dynamic> json) {
     return QuizQuestion(
       questionId: readId(json, keys: ['questionId', 'id']),
-      questionText: readString(json, 'questionText', fallback: readString(json, 'question')),
+      questionText: readString(
+        json,
+        'questionText',
+        fallback: readString(json, 'question'),
+      ),
       type: json['type']?.toString() ?? 'MULTIPLE_CHOICE',
       options: parseStringList(json['options']),
       correctAnswer: json['correctAnswer']?.toString(),
       explanation: json['explanation']?.toString(),
+      sourceMaterialIds: parseStringList(json['sourceMaterialIds']),
     );
   }
 
@@ -45,6 +53,7 @@ class QuizQuestion {
     'options': options,
     if (correctAnswer != null) 'correctAnswer': correctAnswer,
     if (explanation != null) 'explanation': explanation,
+    if (sourceMaterialIds.isNotEmpty) 'sourceMaterialIds': sourceMaterialIds,
   };
 }
 
@@ -102,8 +111,10 @@ class QuizSession {
   final String? classId;
   final String? topic;
   final String? assignmentId;
+
   /// SELF_PRACTICE or ASSIGNED
   final String quizType;
+
   /// GENERATED or SUBMITTED
   final String status;
   final int? score;
@@ -165,8 +176,10 @@ class QuizAssignment {
   final String? classId;
   final String title;
   final String? topic;
+
   /// DRAFT, PUBLISHED, CLOSED
   final String status;
+
   /// CLASS or SELECTED_STUDENTS
   final String? targetType;
   final List<String> targetStudentIds;

@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/exceptions.dart';
 import '../../../core/network/network_providers.dart';
 import '../../../core/utils/ai_chat_content.dart';
+import '../../../core/utils/chat_turn_limit.dart';
 import '../../../core/utils/reviewed_message_ids.dart';
 import '../data/chat_improve_suggestions.dart';
 import '../../../shared/models/ai_conversation.dart';
@@ -20,6 +21,7 @@ import '../data/ai_tutor_repository.dart';
 import '../data/daily_question_quota.dart';
 import '../data/student_own_llm.dart';
 import '../data/tutor_session.dart';
+import '../data/understanding_check.dart';
 import '../data/understanding_check_store.dart';
 import 'daily_question_quota_controller.dart';
 import 'tutor_session_controller.dart';
@@ -140,28 +142,6 @@ _resolveFirstVisitOpeningBundle({
   return (opening: opening, session: opened);
 }
 
-Future<List<AiConversation>> _historyForCourse({
-  required AiTutorRepository repo,
-  required String userId,
-  String? courseId,
-  String? courseCode,
-}) async {
-  final keys = <String>{
-    if ((courseCode ?? '').trim().isNotEmpty) courseCode!.trim(),
-    if ((courseId ?? '').trim().isNotEmpty) courseId!.trim(),
-  };
-  if (keys.isEmpty) return const [];
-  final seen = <String>{};
-  final merged = <AiConversation>[];
-  for (final key in keys) {
-    final items = await repo.fetchConversations(userId, courseId: key);
-    for (final item in items) {
-      if (seen.add(item.id)) merged.add(item);
-    }
-  }
-  return merged;
-}
-
 /// Các suggestion đã bấm "Học ngay" trong một cuộc trò chuyện.
 final consumedSuggestionKeysProvider = StateProvider.autoDispose
     .family<Set<String>, String>((ref, conversationId) => {});
@@ -196,6 +176,22 @@ final chatTurnLimitNoticeProvider = StateProvider<ChatTurnLimitNotice?>(
   (ref) => null,
 );
 
+bool isUnusedCourseConversation(
+  AiConversation conversation, {
+  String? courseId,
+  String? courseCode,
+}) {
+  if (conversation.maxTurnsReached || conversation.userQuestionCount > 0) {
+    return false;
+  }
+  final expected = {
+    if ((courseId ?? '').trim().isNotEmpty) courseId!.trim().toUpperCase(),
+    if ((courseCode ?? '').trim().isNotEmpty) courseCode!.trim().toUpperCase(),
+  };
+  final actual = (conversation.courseId ?? '').trim().toUpperCase();
+  return expected.isEmpty || actual.isEmpty || expected.contains(actual);
+}
+
 class ConversationsController
     extends AutoDisposeAsyncNotifier<List<AiConversation>> {
   @override
@@ -209,16 +205,49 @@ class ConversationsController
         .fetchConversations(userId, courseId: activeCourse?.id);
   }
 
-  Future<AiConversation> createNew({String? courseId, String? classId}) async {
+  Future<AiConversation> createNew({
+    String? courseId,
+    String? classId,
+    bool reuseUnused = true,
+    bool clearTutorContext = true,
+  }) async {
     final userId = ref.read(currentUserIdProvider);
     final active = _activeCourseForChat(ref);
+    final resolvedCourseId = (courseId ?? active?.id ?? '').trim();
+    final repo = ref.read(aiTutorRepositoryProvider);
+
+    if (clearTutorContext) {
+      ref.read(tutorSessionControllerProvider.notifier).clear();
+      ref.read(tutorOpeningHandoffProvider.notifier).state = null;
+      ref.read(chatMessagesHandoffProvider.notifier).state = null;
+      ref.read(chatTurnLimitNoticeProvider.notifier).state = null;
+    }
+
+    if (reuseUnused && resolvedCourseId.isNotEmpty) {
+      final loaded = state.valueOrNull;
+      final conversations =
+          loaded ??
+          await repo.fetchConversations(userId, courseId: resolvedCourseId);
+      for (final conversation in conversations) {
+        if (isUnusedCourseConversation(
+          conversation,
+          courseId: resolvedCourseId,
+          courseCode: active?.code,
+        )) {
+          ref.invalidate(chatControllerProvider(conversation.id));
+          return conversation;
+        }
+      }
+    }
+
     final conversation = await ref
         .read(aiTutorRepositoryProvider)
         .createConversation(
           userId,
-          courseId: courseId ?? active?.id,
+          courseId: resolvedCourseId.isEmpty ? null : resolvedCourseId,
           classId: classId ?? active?.classId,
         );
+    ref.invalidate(chatControllerProvider(conversation.id));
     ref.invalidateSelf();
     return conversation;
   }
@@ -238,6 +267,8 @@ class ConversationsController
       return createNew(
         courseId: courseId,
         classId: resolvedClassId.isEmpty ? classId : resolvedClassId,
+        reuseUnused: false,
+        clearTutorContext: false,
       );
     }
 
@@ -255,6 +286,8 @@ class ConversationsController
       final created = await createNew(
         courseId: active?.id ?? resolvedCourseId,
         classId: resolvedClassId,
+        reuseUnused: false,
+        clearTutorContext: false,
       );
       ref
           .read(tutorOpeningHandoffProvider.notifier)
@@ -303,10 +336,126 @@ final conversationsControllerProvider =
       List<AiConversation>
     >(ConversationsController.new);
 
+/// Chỉ phát cập nhật khi trạng thái giới hạn lượt của conversation thay đổi.
+final conversationServerMaxTurnsReachedProvider = Provider.autoDispose
+    .family<bool, String>((ref, conversationId) {
+      final conversations = ref.watch(conversationsControllerProvider);
+      final session = conversations.valueOrNull
+          ?.where((item) => item.id == conversationId)
+          .firstOrNull;
+      return sessionMaxTurnsReached(session);
+    });
+
+/// Chỉ cập nhật composer khi số lượt local thực sự chạm giới hạn.
+final conversationLocalMaxTurnsReachedProvider = Provider.autoDispose
+    .family<bool, String>((ref, conversationId) {
+      final messages = ref.watch(chatControllerProvider(conversationId));
+      return sessionMaxTurnsReached(
+        null,
+        messages: messages.valueOrNull ?? const [],
+      );
+    });
+
+typedef StudentCourseHistoryKey = ({String courseId, String courseCode});
+
+/// Thu gọn danh sách conversation thành đúng boolean màn mở đầu cần dùng.
+final studentCourseHasHistoryProvider = Provider.autoDispose
+    .family<bool, StudentCourseHistoryKey>((ref, key) {
+      final conversations = ref.watch(conversationsControllerProvider);
+      return hasStudentChattedCourse(
+        conversations.valueOrNull ?? const [],
+        courseId: key.courseId,
+        courseCode: key.courseCode,
+      );
+    });
+
 /// `true` khi đang chờ phản hồi AI cho conversation tương ứng.
 final chatPendingProvider = StateProvider.autoDispose.family<bool, String>(
   (ref, _) => false,
 );
+
+/// Tin nhắn AI mới duy nhất đang được phép chạy hiệu ứng hiện dần.
+final chatRevealMessageIdProvider = StateProvider.autoDispose
+    .family<String?, String>((ref, _) => null);
+
+List<AiMessage> preserveUnderstandingCheckState({
+  required List<AiMessage> previous,
+  required List<AiMessage> fetched,
+}) {
+  final previousById = {
+    for (final message in previous)
+      if (!message.isUser) message.id: message,
+  };
+
+  return fetched.map((message) {
+    if (message.isUser) return message;
+    final prior = previousById[message.id];
+    if (prior == null) return message;
+    final priorSelected = normalizeUnderstandingSelectedKey(
+      prior.understandingSelectedKey,
+    );
+    if (prior.understandingCheckAttempts.isEmpty &&
+        priorSelected.isEmpty &&
+        prior.understandingCheck == null) {
+      return message;
+    }
+
+    final attemptsByIndex = {
+      for (final attempt in prior.understandingCheckAttempts)
+        attempt.quizIndex: attempt,
+    };
+    for (final fetchedAttempt in message.understandingCheckAttempts) {
+      final priorAttempt = attemptsByIndex[fetchedAttempt.quizIndex];
+      if (priorAttempt == null) {
+        attemptsByIndex[fetchedAttempt.quizIndex] = fetchedAttempt;
+        continue;
+      }
+      final mergedCheck = <String, dynamic>{
+        ...?priorAttempt.check,
+        ...?fetchedAttempt.check,
+      };
+      for (final field in const ['correctKey', 'explanation']) {
+        final fetchedValue = mergedCheck[field]?.toString().trim() ?? '';
+        final priorValue = priorAttempt.check?[field]?.toString().trim() ?? '';
+        if (fetchedValue.isEmpty && priorValue.isNotEmpty) {
+          mergedCheck[field] = priorAttempt.check![field];
+        }
+      }
+      attemptsByIndex[fetchedAttempt.quizIndex] =
+          UnderstandingCheckAttemptRecord(
+            quizIndex: fetchedAttempt.quizIndex,
+            attemptId: (fetchedAttempt.attemptId ?? '').trim().isNotEmpty
+                ? fetchedAttempt.attemptId
+                : priorAttempt.attemptId,
+            check: mergedCheck.isEmpty ? null : mergedCheck,
+            selectedKey:
+                normalizeUnderstandingSelectedKey(
+                  fetchedAttempt.selectedKey,
+                ).isNotEmpty
+                ? fetchedAttempt.selectedKey
+                : priorAttempt.selectedKey,
+            correct: fetchedAttempt.correct ?? priorAttempt.correct,
+            answeredAt: fetchedAttempt.answeredAt ?? priorAttempt.answeredAt,
+          );
+    }
+    final mergedAttempts = attemptsByIndex.values.toList()
+      ..sort((a, b) => a.quizIndex.compareTo(b.quizIndex));
+    final fetchedSelected = normalizeUnderstandingSelectedKey(
+      message.understandingSelectedKey,
+    );
+
+    return message.copyWith(
+      understandingCheck: <String, dynamic>{
+        ...?prior.understandingCheck,
+        ...?message.understandingCheck,
+      },
+      understandingSelectedKey: fetchedSelected.isNotEmpty
+          ? fetchedSelected
+          : priorSelected,
+      understandingCheckAttempts: mergedAttempts,
+    );
+  }).toList();
+}
 
 class ChatController
     extends AutoDisposeFamilyAsyncNotifier<List<AiMessage>, String> {
@@ -365,18 +514,56 @@ class ChatController
     final storage = ref.read(secureStorageProvider);
     final next = <AiMessage>[];
     for (final message in messages) {
-      if (message.isUser ||
-          normalizeUnderstandingSelectedKey(
-            message.understandingSelectedKey,
-          ).isNotEmpty) {
+      if (message.isUser) {
         next.add(message);
         continue;
       }
-      final stored = await loadUnderstandingSelectedKey(storage, message.id);
+      final extracted = resolveUnderstandingCheck(
+        markdown: message.content,
+        structured: message.understandingCheck,
+        attempts: message.understandingCheckAttempts.map(
+          (attempt) => {'quizIndex': attempt.quizIndex, 'check': attempt.check},
+        ),
+      );
+      if (extracted.quizzes.isEmpty) {
+        next.add(message);
+        continue;
+      }
+
+      final attempts = [...message.understandingCheckAttempts];
+      var firstKey = normalizeUnderstandingSelectedKey(
+        message.understandingSelectedKey,
+      );
+      for (var index = 0; index < extracted.quizzes.length; index++) {
+        final saved = attempts
+            .where((attempt) => attempt.quizIndex == index)
+            .firstOrNull;
+        if (normalizeUnderstandingSelectedKey(saved?.selectedKey).isNotEmpty) {
+          if (index == 0 && firstKey.isEmpty) {
+            firstKey = normalizeUnderstandingSelectedKey(saved?.selectedKey);
+          }
+          continue;
+        }
+        final stored = await loadUnderstandingSelectedKey(
+          storage,
+          message.id,
+          quizIndex: index,
+        );
+        if (stored.isEmpty) continue;
+        attempts.add(
+          UnderstandingCheckAttemptRecord(
+            quizIndex: index,
+            selectedKey: stored,
+            check: understandingQuizToJson(extracted.quizzes[index]),
+          ),
+        );
+        if (index == 0) firstKey = stored;
+      }
       next.add(
-        stored.isEmpty
-            ? message
-            : message.copyWith(understandingSelectedKey: stored),
+        message.copyWith(
+          understandingSelectedKey: firstKey.isEmpty ? null : firstKey,
+          understandingCheckAttempts: attempts,
+        ),
       );
     }
     return next;
@@ -406,6 +593,9 @@ class ChatController
     String? classId,
     String? displayMessage,
     String? interactionType,
+    String? originAssistantMessageId,
+    String? understandingAttemptId,
+    String? originalQuestion,
     String? codeSnippet,
     String? improvePlanId,
     String? planItemId,
@@ -417,6 +607,7 @@ class ChatController
     List<String> sourceChunkIds = const [],
   }) async {
     _activeCancelToken?.cancel();
+    ref.read(chatRevealMessageIdProvider(conversationId).notifier).state = null;
     final cancelToken = CancelToken();
     _activeCancelToken = cancelToken;
 
@@ -522,6 +713,9 @@ class ChatController
           interactionType: resolvedInteractionType.isEmpty
               ? null
               : resolvedInteractionType,
+          originAssistantMessageId: originAssistantMessageId,
+          understandingAttemptId: understandingAttemptId,
+          originalQuestion: originalQuestion,
           codeSnippet: snippet.isEmpty ? null : snippet,
           tutorSessionId: tutorSession?.id,
           sessionPhase: tutorSession?.phase,
@@ -601,12 +795,12 @@ class ChatController
         createdAt: DateTime.now(),
         conversationId: effectiveConversationId,
         understandingCheck: answer.understandingCheck,
+        understandingCheckAttempts: answer.understandingCheckAttempts,
       );
       ref
           .read(chatRevealMessageIdProvider(effectiveConversationId).notifier)
           .state = aiMessage
           .id;
-
       if (switchedConversation) {
         final seeded = [...previous, optimistic, aiMessage];
         state = AsyncData(seeded);
@@ -653,13 +847,17 @@ class ChatController
             (m) => !m.isUser,
             orElse: () => aiMessage,
           );
+          final optimisticState = [...previous, optimistic, latestAi];
           state = AsyncData(
             _mergeQueryAnswerIntoHistory(
               messages: _preserveImproveSuggestions(
-                previous: [...previous, optimistic, latestAi],
-                fetched: _preserveUserCodeSnippets(
-                  previous: [...previous, optimistic],
-                  fetched: mergedMessages,
+                previous: optimisticState,
+                fetched: preserveUnderstandingCheckState(
+                  previous: optimisticState,
+                  fetched: _preserveUserCodeSnippets(
+                    previous: [...previous, optimistic],
+                    fetched: mergedMessages,
+                  ),
                 ),
               ),
               answer: answer,
@@ -877,56 +1075,12 @@ class ChatController
     return seedOpeningMessage(messages, handoff.openingMessage);
   }
 
-  /// Cuộc trống + môn đang chọn chưa từng hỏi → lời chào / lộ trình (mọi môn).
+  /// Empty conversations stay empty in state. The chat screen renders the
+  /// stored learning guide as an ephemeral welcome, matching the web client.
+  /// Opening a Tutor Session must remain an explicit student action.
   Future<List<AiMessage>> _ensureFirstVisitWelcome(
     List<AiMessage> messages,
-  ) async {
-    if (messages.isNotEmpty) return messages;
-    final active = _activeCourseForChat(ref);
-    final courseCode = (active?.code ?? '').trim();
-    final classId = resolveTutorClassId(
-      classId: active?.classId,
-      className: active?.className,
-    );
-    final userId = ref.read(currentUserIdProvider);
-    final repo = ref.read(aiTutorRepositoryProvider);
-    if (courseCode.isNotEmpty || (active?.id ?? '').trim().isNotEmpty) {
-      final history = await _historyForCourse(
-        repo: repo,
-        userId: userId,
-        courseId: active?.id,
-        courseCode: courseCode,
-      );
-      if (hasStudentChattedCourse(
-        history,
-        courseId: active?.id,
-        courseCode: courseCode,
-      )) {
-        return messages;
-      }
-    }
-
-    final bundle = await _resolveFirstVisitOpeningBundle(
-      repo: repo,
-      userId: userId,
-      course: active,
-      courseCode: courseCode,
-      classId: classId,
-    );
-    final opened = bundle.session;
-    ref.read(tutorSessionControllerProvider.notifier).applyOpened(opened);
-    if (opened != null && opened.conversationId.isNotEmpty) {
-      ref
-          .read(tutorOpeningHandoffProvider.notifier)
-          .state = TutorSessionOpenResult(
-        conversationId: opened.conversationId,
-        openingMessage: bundle.opening,
-        resumed: opened.resumed,
-        session: opened.session,
-      );
-    }
-    return seedOpeningMessage(messages, bundle.opening);
-  }
+  ) async => messages;
 
   /// Câu hỏi user ngay trước câu trả lời AI (theo thứ tự trong history).
   static String? precedingUserQuestion(
@@ -945,26 +1099,77 @@ class ChatController
         !messageId.startsWith('err-');
   }
 
-  Future<void> lockUnderstandingAnswer({
+  Future<UnderstandingCheckGrade?> lockUnderstandingAnswer({
     required String conversationId,
     required AiMessage message,
     required String selectedKey,
+    required int quizIndex,
+    required UnderstandingQuiz quiz,
   }) async {
     final key = normalizeUnderstandingSelectedKey(selectedKey);
-    if (key.isEmpty) return;
+    if (key.isEmpty || quizIndex < 0) return null;
     final messageId = message.id.trim();
-    if (messageId.isEmpty || message.isUser) return;
-    if (normalizeUnderstandingSelectedKey(
-      message.understandingSelectedKey,
-    ).isNotEmpty) {
-      return;
-    }
+    if (messageId.isEmpty || message.isUser) return null;
+
+    final selected = quiz.optionFor(key);
+    if (selected == null) return null;
+    final localGrade = UnderstandingCheckGrade(
+      quizIndex: quizIndex,
+      selectedKey: key,
+      correct: quiz.correctKey.isEmpty ? null : key == quiz.correctKey,
+      correctKey: quiz.correctKey,
+      correctOptionText: quiz.optionFor(quiz.correctKey)?.text ?? '',
+      explanation: quiz.explanation,
+      messageId: messageId,
+    );
 
     final current = state.valueOrNull ?? const <AiMessage>[];
+    final currentMessage = current
+        .where((item) => item.id == messageId)
+        .firstOrNull;
+    final sourceMessage = currentMessage ?? message;
+    final existing = sourceMessage.understandingCheckAttempts
+        .where((attempt) => attempt.quizIndex == quizIndex)
+        .firstOrNull;
+    if (normalizeUnderstandingSelectedKey(existing?.selectedKey).isNotEmpty ||
+        (quizIndex == 0 &&
+            normalizeUnderstandingSelectedKey(
+              sourceMessage.understandingSelectedKey,
+            ).isNotEmpty)) {
+      return localGrade;
+    }
+
+    final nextAttempts = [...sourceMessage.understandingCheckAttempts];
+    final attemptPosition = nextAttempts.indexWhere(
+      (attempt) => attempt.quizIndex == quizIndex,
+    );
+    final recordedAttempt = UnderstandingCheckAttemptRecord(
+      quizIndex: quizIndex,
+      selectedKey: key,
+      check: understandingQuizToJson(quiz),
+      correct: localGrade.correct,
+      answeredAt: DateTime.now(),
+    );
+    if (attemptPosition >= 0) {
+      nextAttempts[attemptPosition] = nextAttempts[attemptPosition].copyWith(
+        selectedKey: key,
+        check: recordedAttempt.check,
+        correct: localGrade.correct,
+        answeredAt: recordedAttempt.answeredAt,
+      );
+    } else {
+      nextAttempts.add(recordedAttempt);
+    }
+
     state = AsyncData([
       for (final item in current)
         item.id == messageId
-            ? item.copyWith(understandingSelectedKey: key)
+            ? item.copyWith(
+                understandingSelectedKey: quizIndex == 0
+                    ? key
+                    : item.understandingSelectedKey,
+                understandingCheckAttempts: nextAttempts,
+              )
             : item,
     ]);
 
@@ -972,11 +1177,12 @@ class ChatController
       ref.read(secureStorageProvider),
       messageId: messageId,
       selectedKey: key,
+      quizIndex: quizIndex,
     );
 
-    if (!_isPersistedMessageId(messageId)) return;
+    if (!_isPersistedMessageId(messageId)) return localGrade;
     try {
-      await ref
+      final grade = await ref
           .read(aiTutorRepositoryProvider)
           .recordUnderstandingCheck(
             conversationId: message.conversationId?.trim().isNotEmpty == true
@@ -985,9 +1191,37 @@ class ChatController
             messageId: messageId,
             userId: ref.read(currentUserIdProvider),
             selectedKey: key,
+            quizIndex: quizIndex,
           );
+      final latest = state.valueOrNull ?? const <AiMessage>[];
+      state = AsyncData([
+        for (final item in latest)
+          if (item.id != messageId)
+            item
+          else
+            item.copyWith(
+              understandingCheckAttempts: [
+                for (final attempt in item.understandingCheckAttempts)
+                  attempt.quizIndex == quizIndex
+                      ? attempt.copyWith(
+                          attemptId: grade.attemptId,
+                          check: <String, dynamic>{
+                            ...?attempt.check,
+                            if (grade.correctKey.isNotEmpty)
+                              'correctKey': grade.correctKey,
+                            if (grade.explanation.isNotEmpty)
+                              'explanation': grade.explanation,
+                          },
+                          correct: grade.correct,
+                        )
+                      : attempt,
+              ],
+            ),
+      ]);
+      return grade;
     } catch (_) {
       // Giữ khóa local giống web khi lưu server thất bại.
+      return localGrade;
     }
   }
 
@@ -1186,6 +1420,11 @@ class ChatController
           answer.understandingCheck ??
           serverAi.understandingCheck ??
           fallbackAi.understandingCheck,
+      understandingCheckAttempts: answer.understandingCheckAttempts.isNotEmpty
+          ? answer.understandingCheckAttempts
+          : serverAi.understandingCheckAttempts.isNotEmpty
+          ? serverAi.understandingCheckAttempts
+          : fallbackAi.understandingCheckAttempts,
       understandingSelectedKey:
           normalizeUnderstandingSelectedKey(
             serverAi.understandingSelectedKey,

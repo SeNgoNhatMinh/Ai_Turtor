@@ -78,6 +78,7 @@ void main() {
 
   testWidgets('warns when the student is near the daily quota', (tester) async {
     expect(AiChatNearQuotaBanner.shouldShow(used: 8, limit: 10), isTrue);
+    expect(AiChatNearQuotaBanner.shouldShow(used: 9, limit: 10), isFalse);
     expect(AiChatNearQuotaBanner.shouldShow(used: 10, limit: 10), isFalse);
 
     await tester.pumpWidget(
@@ -86,5 +87,38 @@ void main() {
       ),
     );
     expect(find.text('Còn 2 câu hỏi hôm nay cho môn này.'), findsOneWidget);
+  });
+
+  testWidgets('near-quota notice hides after two seconds', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(body: AiChatQuotaNotice(used: 8, limit: 10)),
+      ),
+    );
+
+    expect(find.text('Còn 2 câu hỏi hôm nay cho môn này.'), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 1900));
+    expect(find.text('Còn 2 câu hỏi hôm nay cho môn này.'), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 101));
+    expect(find.text('Còn 2 câu hỏi hôm nay cho môn này.'), findsNothing);
+  });
+
+  testWidgets('exhausted notice also hides after two seconds', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(body: AiChatQuotaNotice(used: 10, limit: 10)),
+      ),
+    );
+
+    expect(
+      find.text('Bạn đã dùng hết 10 câu hỏi hôm nay cho môn này.'),
+      findsOneWidget,
+    );
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pump();
+    expect(
+      find.text('Bạn đã dùng hết 10 câu hỏi hôm nay cho môn này.'),
+      findsNothing,
+    );
   });
 }

@@ -1,9 +1,92 @@
+import 'package:ai_tutor/features/ai_tutor/application/ai_tutor_controller.dart';
+import 'package:ai_tutor/core/theme/app_colors.dart';
 import 'package:ai_tutor/features/ai_tutor/data/understanding_check.dart';
 import 'package:ai_tutor/features/ai_tutor/presentation/widgets/understanding_check_quiz.dart';
+import 'package:ai_tutor/shared/models/ai_conversation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('history refresh preserves the locked quiz grade and answer key', () {
+    const previous = AiMessage(
+      id: 'assistant-1',
+      content: 'Quiz',
+      isUser: false,
+      understandingSelectedKey: 'D',
+      understandingCheckAttempts: [
+        UnderstandingCheckAttemptRecord(
+          quizIndex: 0,
+          attemptId: 'attempt-1',
+          selectedKey: 'D',
+          correct: false,
+          check: {
+            'question': 'Which interface?',
+            'correctKey': 'C',
+            'explanation': 'HttpJspPage is correct.',
+          },
+        ),
+      ],
+    );
+    const fetched = AiMessage(
+      id: 'assistant-1',
+      content: 'Quiz',
+      isUser: false,
+      understandingCheckAttempts: [
+        UnderstandingCheckAttemptRecord(
+          quizIndex: 0,
+          attemptId: 'attempt-1',
+          selectedKey: 'D',
+          correct: false,
+          check: {
+            'question': 'Which interface?',
+            'correctKey': '',
+            'explanation': '',
+          },
+        ),
+      ],
+    );
+
+    final merged = preserveUnderstandingCheckState(
+      previous: const [previous],
+      fetched: const [fetched],
+    ).single;
+
+    expect(merged.understandingSelectedKey, 'D');
+    expect(merged.understandingCheckAttempts, hasLength(1));
+    expect(merged.understandingCheckAttempts.single.check?['correctKey'], 'C');
+    expect(
+      merged.understandingCheckAttempts.single.check?['explanation'],
+      'HttpJspPage is correct.',
+    );
+  });
+
+  test('parses separately persisted attempts for every quiz index', () {
+    final message = AiMessage.fromJson({
+      'messageId': 'message-1',
+      'role': 'ASSISTANT',
+      'content': 'Quiz',
+      'understandingCheckAttempts': [
+        {
+          'quizIndex': 0,
+          'attemptId': 'attempt-1',
+          'selectedKey': 'A',
+          'correct': true,
+        },
+        {
+          'quizIndex': 1,
+          'attemptId': 'attempt-2',
+          'selectedKey': 'B',
+          'correct': false,
+        },
+      ],
+    });
+
+    expect(message.understandingCheckAttempts, hasLength(2));
+    expect(message.understandingCheckAttempts[1].quizIndex, 1);
+    expect(message.understandingCheckAttempts[1].attemptId, 'attempt-2');
+    expect(message.understandingCheckAttempts[1].correct, isFalse);
+  });
+
   test('validates a structured understanding-check payload from the API', () {
     final quiz = normalizeStructuredUnderstandingQuiz({
       'question': 'Servlet gọi phương thức nào trước?',
@@ -295,6 +378,83 @@ B. two
     expect(extracted.before.contains('Đáp án'), isFalse);
   });
 
+  test('extracts every understanding quiz from one assistant answer', () {
+    final extracted = extractUnderstandingCheck('''
+## Bài học
+Servlet có một vòng đời xác định.
+
+## Kiểm tra hiểu
+Câu hỏi: Phương thức nào chạy khi khởi tạo Servlet?
+A. init()
+B. service()
+Đáp án: A
+
+## Kiểm tra hiểu
+Câu hỏi: Phương thức nào xử lý request?
+A. destroy()
+B. service()
+Đáp án: B
+
+## Bài tiếp theo
+- Filter chain
+''');
+
+    expect(extracted.quizzes, hasLength(2));
+    expect(extracted.quizzes[0].question, contains('khởi tạo Servlet'));
+    expect(extracted.quizzes[1].question, contains('xử lý request'));
+    expect(extracted.after, contains('Bài tiếp theo'));
+  });
+
+  test('builds one remediation prompt for all incorrect quiz items', () {
+    const first = UnderstandingQuiz(
+      question: 'Servlet khởi tạo bằng phương thức nào?',
+      options: [
+        UnderstandingOption(key: 'A', text: 'service()'),
+        UnderstandingOption(key: 'B', text: 'init()'),
+      ],
+      correctKey: 'B',
+    );
+    const second = UnderstandingQuiz(
+      question: 'Servlet xử lý request bằng phương thức nào?',
+      options: [
+        UnderstandingOption(key: 'A', text: 'service()'),
+        UnderstandingOption(key: 'B', text: 'destroy()'),
+      ],
+      correctKey: 'A',
+    );
+
+    final prompt = buildIncorrectAnswersRemediationPrompt([
+      UnderstandingRemediationAttempt(
+        quizIndex: 0,
+        quiz: first,
+        selected: first.optionFor('A')!,
+        grade: const UnderstandingCheckGrade(
+          quizIndex: 0,
+          selectedKey: 'A',
+          correct: false,
+          correctKey: 'B',
+          attemptId: 'attempt-1',
+        ),
+      ),
+      UnderstandingRemediationAttempt(
+        quizIndex: 1,
+        quiz: second,
+        selected: second.optionFor('B')!,
+        grade: const UnderstandingCheckGrade(
+          quizIndex: 1,
+          selectedKey: 'B',
+          correct: false,
+          correctKey: 'A',
+          attemptId: 'attempt-2',
+        ),
+      ),
+    ]);
+
+    expect(prompt, contains('2 câu trả lời chưa đúng'));
+    expect(prompt, contains('Câu 1:'));
+    expect(prompt, contains('Câu 2:'));
+  });
+
   testWidgets('locks after one tap and shows the grade', (tester) async {
     String? locked;
     await tester.pumpWidget(
@@ -310,7 +470,16 @@ B. two
               correctKey: 'B',
               explanation: 'init() khởi tạo tài nguyên.',
             ),
-            onLockAnswer: (key, attempt) => locked = key,
+            onLockAnswer: (key, attempt) {
+              locked = key;
+              return UnderstandingCheckGrade(
+                quizIndex: 0,
+                selectedKey: key,
+                correct: attempt.isCorrect,
+                correctKey: attempt.quiz.correctKey,
+                explanation: attempt.quiz.explanation,
+              );
+            },
           ),
         ),
       ),
@@ -327,6 +496,88 @@ B. two
     await tester.tap(find.text('init()'));
     await tester.pump();
     expect(locked, 'A');
+  });
+
+  testWidgets('restored grade keeps correct and incorrect option colors', (
+    tester,
+  ) async {
+    const quiz = UnderstandingQuiz(
+      question: 'Default page variable uses which interface?',
+      options: [
+        UnderstandingOption(key: 'C', text: 'HttpJspPage'),
+        UnderstandingOption(key: 'D', text: 'java.sql.Connection'),
+      ],
+    );
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: UnderstandingCheckQuiz(
+            quiz: quiz,
+            lockedKey: 'D',
+            restoredGrade: UnderstandingCheckGrade(
+              quizIndex: 0,
+              selectedKey: 'D',
+              correct: false,
+              correctKey: 'C',
+              correctOptionText: 'HttpJspPage',
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final correctMaterial = tester.widget<Material>(
+      find
+          .ancestor(
+            of: find.text('HttpJspPage'),
+            matching: find.byType(Material),
+          )
+          .first,
+    );
+    final wrongMaterial = tester.widget<Material>(
+      find
+          .ancestor(
+            of: find.text('java.sql.Connection'),
+            matching: find.byType(Material),
+          )
+          .first,
+    );
+    expect(correctMaterial.color, AppColors.successBg);
+    expect(wrongMaterial.color, AppColors.errorBg);
+  });
+
+  testWidgets('exhausted quota keeps quiz visible but blocks new answers', (
+    tester,
+  ) async {
+    var submissions = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: UnderstandingCheckQuiz(
+            enabled: false,
+            quiz: const UnderstandingQuiz(
+              question: 'Servlet khởi tạo bằng phương thức nào?',
+              options: [
+                UnderstandingOption(key: 'A', text: 'service()'),
+                UnderstandingOption(key: 'B', text: 'init()'),
+              ],
+              correctKey: 'B',
+            ),
+            onLockAnswer: (key, attempt) {
+              submissions += 1;
+              return null;
+            },
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Servlet khởi tạo bằng phương thức nào?'), findsOneWidget);
+    expect(find.textContaining('Đã hết lượt đặt câu hỏi'), findsOneWidget);
+    await tester.tap(find.text('service()'));
+    await tester.pump();
+    expect(submissions, 0);
+    expect(find.textContaining('Bạn chọn'), findsNothing);
   });
 
   test('builds a focused remediation prompt for an incorrect answer', () {

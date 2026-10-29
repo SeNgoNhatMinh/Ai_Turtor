@@ -84,6 +84,68 @@ void main() {
     expect(payload['chapterTitle'], 'Servlet lifecycle');
   });
 
+  test('remediation sends the originating quiz evidence context', () async {
+    final springAdapter = _RecordingAdapter();
+    final n8nAdapter = _RecordingAdapter();
+    final spring = Dio(BaseOptions(baseUrl: 'https://spring.example'))
+      ..httpClientAdapter = springAdapter;
+    final n8n = Dio(BaseOptions(baseUrl: 'https://n8n.example'))
+      ..httpClientAdapter = n8nAdapter;
+    final repository = AiTutorRepository(spring, n8n);
+
+    await repository.ask(
+      userId: 'student-1',
+      courseId: 'PRJ301',
+      message: 'Ôn lại câu chưa đúng',
+      interactionType: 'UNDERSTANDING_REMEDIATION',
+      originAssistantMessageId: 'message-9',
+      understandingAttemptId: 'attempt-2',
+      originalQuestion: 'Servlet gọi phương thức nào trước?',
+      sourceMaterialIds: const ['material-1'],
+      sourceChunkIds: const ['chunk-7'],
+    );
+
+    final payload = n8nAdapter.lastRequest?.data as Map<String, dynamic>;
+    expect(payload['interactionType'], 'UNDERSTANDING_REMEDIATION');
+    expect(payload['originAssistantMessageId'], 'message-9');
+    expect(payload['understandingAttemptId'], 'attempt-2');
+    expect(payload['originalQuestion'], 'Servlet gọi phương thức nào trước?');
+    expect(payload['sourceMaterialIds'], ['material-1']);
+    expect(payload['sourceChunkIds'], ['chunk-7']);
+  });
+
+  test('records each understanding quiz with its quizIndex', () async {
+    final springAdapter = _RecordingAdapter(
+      body:
+          '{"status":"RECORDED","attemptId":"attempt-2",'
+          '"messageId":"message-9","quizIndex":1,"selectedKey":"B",'
+          '"correct":false,"correctKey":"A",'
+          '"correctOptionText":"init()","explanation":"init runs first"}',
+    );
+    final spring = Dio(BaseOptions(baseUrl: 'https://spring.example'))
+      ..httpClientAdapter = springAdapter;
+    final repository = AiTutorRepository(spring, Dio());
+
+    final result = await repository.recordUnderstandingCheck(
+      conversationId: 'conversation-1',
+      messageId: 'message-9',
+      userId: 'student-1',
+      selectedKey: 'B',
+      quizIndex: 1,
+    );
+
+    expect(
+      springAdapter.lastRequest?.path,
+      '/api/ai/conversations/conversation-1/messages/message-9/understanding-check',
+    );
+    final payload = springAdapter.lastRequest?.data as Map<String, dynamic>;
+    expect(payload['quizIndex'], 1);
+    expect(payload['selectedKey'], 'B');
+    expect(result.attemptId, 'attempt-2');
+    expect(result.correct, isFalse);
+    expect(result.correctKey, 'A');
+  });
+
   test(
     'lesson-start prompts are tagged GUIDED_LESSON like the web composer',
     () async {
@@ -226,6 +288,26 @@ void main() {
     expect(springAdapter.lastRequest?.queryParameters['classId'], 'SE1801');
     expect(profile.supportLevel, 'HIGH_SUPPORT');
     expect(profile.hasActiveTeacherDirective, isTrue);
+  });
+
+  test('loads the stored course learning guide used by web chat', () async {
+    final springAdapter = _RecordingAdapter(
+      body:
+          '{"courseId":"PRJ301","courseName":"Java Web",'
+          '"welcomeMarkdown":"# Chào mừng",'
+          '"topics":[{"title":"Servlet lifecycle"}]}',
+    );
+    final spring = Dio(BaseOptions(baseUrl: 'https://spring.example'))
+      ..httpClientAdapter = springAdapter;
+    final repository = AiTutorRepository(spring, Dio());
+
+    final guide = await repository.fetchCourseLearningGuide('PRJ301');
+
+    expect(
+      springAdapter.lastRequest?.path,
+      '/api/courses/PRJ301/learning-guide',
+    );
+    expect(guide.topicTitles, ['Servlet lifecycle']);
   });
 
   test('posts school-answer to Spring with the student LLM header', () async {

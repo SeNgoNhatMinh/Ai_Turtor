@@ -25,23 +25,24 @@ class DailyQuestionQuotaNotifier
           .read(aiTutorRepositoryProvider)
           .fetchQuestionQuota(studentId: userId, courseId: courseId);
       if (isDisposed()) return;
-      state = next;
+      if (state != next) state = next;
     } catch (_) {
       // Quota is optional. A fetch failure must not lock or clear chat.
     }
   }
 
   void apply(DailyQuestionQuota quota) {
-    state = quota;
+    if (state != quota) state = quota;
   }
 
   void applyPayload(dynamic payload) {
     if (!hasQuotaPayload(payload)) return;
-    state = normalizeDailyQuota(payload, courseId: arg);
+    final next = normalizeDailyQuota(payload, courseId: arg);
+    if (state != next) state = next;
   }
 
   void markExhausted() {
-    state = state.exhaustedCopy();
+    if (!state.exhausted) state = state.exhaustedCopy();
   }
 
   Future<void> refresh() => _hydrate(() => false);

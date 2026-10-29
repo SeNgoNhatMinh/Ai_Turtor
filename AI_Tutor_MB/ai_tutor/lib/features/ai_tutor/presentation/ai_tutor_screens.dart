@@ -40,22 +40,25 @@ import '../../courses/application/courses_controller.dart';
 import '../../courses/data/courses_repository.dart';
 import '../../escalation/application/escalation_controller.dart';
 import '../application/ai_tutor_controller.dart';
+import '../application/course_learning_guide_provider.dart';
 import '../application/daily_question_quota_controller.dart';
 import '../application/tts_controller.dart';
 import '../data/chat_improve_suggestions.dart';
 import '../data/code_mentor.dart';
+import '../data/course_learning_guide.dart';
 import '../data/tutor_session.dart';
 import '../data/tts_models.dart';
 import '../data/student_own_llm.dart';
 import '../data/understanding_check.dart';
 import 'widgets/ai_chat_widgets.dart';
+import 'widgets/curriculum_study_suggestions.dart';
 import 'widgets/lesson_deep_dive_cta.dart';
 import 'widgets/student_own_llm_dialog.dart';
 import 'widgets/tts_widgets.dart';
 import 'widgets/understanding_check_quiz.dart';
 
-/// Điểm vào tab "Ask Cóc": mở / resume buổi học giống web
-/// (`POST /api/tutor/sessions/open`) rồi vào conversation của buổi đó.
+/// Điểm vào chat sinh viên: mở curriculum trên conversation chưa dùng.
+/// Tutor Session chỉ mở khi sinh viên chủ động bắt đầu buổi học.
 class TutorEntryScreen extends HookConsumerWidget {
   const TutorEntryScreen({super.key});
 
@@ -67,15 +70,18 @@ class TutorEntryScreen extends HookConsumerWidget {
     useEffect(() {
       Future<void> resolve() async {
         try {
-          final courses = ref.read(coursesControllerProvider).valueOrNull;
+          var courses = ref.read(coursesControllerProvider).valueOrNull;
+          if (courses == null || courses.isEmpty) {
+            courses = await ref.read(coursesControllerProvider.future);
+          }
           final course =
               ref.read(selectedCourseProvider) ?? courses?.firstOrNull;
+          if (course == null) {
+            throw StateError('Không tìm thấy môn học đã ghi danh.');
+          }
           final created = await ref
               .read(conversationsControllerProvider.notifier)
-              .openTutorSessionOrCreate(
-                courseId: course?.code,
-                classId: course?.classId,
-              );
+              .createNew(courseId: course.id, classId: course.classId);
           if (context.mounted) {
             context.go(AppRoutes.studentTutorChat(created.id));
           }
@@ -143,7 +149,6 @@ class ConversationHistoryDrawer extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
     final conversations = ref.watch(conversationsControllerProvider);
-    final tutorSession = ref.watch(tutorSessionControllerProvider).session;
     final searchQuery = useState('');
     final debouncedQuery = useState('');
     final activeId = activeConversationId;
@@ -418,10 +423,6 @@ class ConversationHistoryDrawer extends HookConsumerWidget {
                       style: TextButton.styleFrom(
                         foregroundColor: AppColors.textSecondary,
                       ),
-                    ),
-                    const Gap(Insets.sm),
-                    AiSupportLevelFooter(
-                      supportLevel: tutorSession?.supportLevel,
                     ),
                   ],
                 ),
@@ -1187,6 +1188,50 @@ class _InChatSearchSheet extends HookWidget {
   }
 }
 
+class _CourseCurriculumOpening extends StatelessWidget {
+  const _CourseCurriculumOpening({
+    required this.guide,
+    required this.onSuggestionSelected,
+    this.enabled = true,
+  });
+
+  final CourseLearningGuide guide;
+  final ValueChanged<String> onSuggestionSelected;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final suggestions = parseCurriculumStudySuggestions(guide.welcomeMarkdown);
+    final displayMarkdown = suggestions.isEmpty
+        ? guide.welcomeMarkdown
+        : stripCurriculumStudySuggestionSection(guide.welcomeMarkdown);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (displayMarkdown.isNotEmpty)
+          AiMessageRow(
+            isUser: false,
+            child: ChatBubble(
+              isUser: false,
+              content: displayMarkdown,
+              mode: 'RAG',
+              showSourceReferences: false,
+            ),
+          ),
+        if (suggestions.isNotEmpty) ...[
+          const Gap(Insets.sm),
+          CurriculumStudySuggestions(
+            suggestions: suggestions,
+            enabled: enabled,
+            onSelected: onSuggestionSelected,
+          ),
+        ],
+        const Gap(Insets.md),
+      ],
+    );
+  }
+}
+
 class ChatScreen extends HookConsumerWidget {
   const ChatScreen({
     super.key,
@@ -1271,7 +1316,17 @@ class ChatScreen extends HookConsumerWidget {
 
     final courseItems = courses.valueOrNull ?? const [];
     final activeCourse = selectedCourse ?? courseItems.firstOrNull;
+    final courseHasHistory = ref.watch(
+      studentCourseHasHistoryProvider((
+        courseId: activeCourse?.id ?? '',
+        courseCode: activeCourse?.code ?? '',
+      )),
+    );
     final courseCode = activeCourse?.code ?? '—';
+    final guideCourseId = activeCourse?.id ?? activeCourse?.code ?? '';
+    final learningGuide = guideCourseId.isEmpty
+        ? null
+        : ref.watch(courseLearningGuideProvider(guideCourseId));
     final ttsScope = ttsScopeForChat(
       userId: ref.watch(authControllerProvider).valueOrNull?.userId,
       courseId: activeCourse?.id,
@@ -1294,12 +1349,10 @@ class ChatScreen extends HookConsumerWidget {
     final consumedKeys = ref.watch(
       consumedSuggestionKeysProvider(conversationId),
     );
-    final reviewedIds = ref.watch(reviewedMessageIdsProvider(conversationId));
     final turnNotice = ref.watch(chatTurnLimitNoticeProvider);
-    final conversations = ref.watch(conversationsControllerProvider);
-    final activeSession = conversations.valueOrNull
-        ?.where((item) => item.id == conversationId)
-        .firstOrNull;
+    final serverMaxTurnsReached = ref.watch(
+      conversationServerMaxTurnsReachedProvider(conversationId),
+    );
     final quotaCourseId = activeCourse?.code.trim() ?? '';
     final dailyQuota = ref.watch(dailyQuestionQuotaProvider(quotaCourseId));
     final dailyQuotaExhausted =
@@ -1309,18 +1362,34 @@ class ChatScreen extends HookConsumerWidget {
     final userId = ref.watch(currentUserIdProvider);
     final ownLlmReady =
         ref.watch(studentOwnLlmProvider)?.matches(userId) == true;
-    final platformLocked = dailyQuotaExhausted && !ownLlmReady;
-    final maxTurnsReached = sessionMaxTurnsReached(
-      activeSession,
-      messages: messages.valueOrNull ?? const [],
+    final maxTurnsReached =
+        serverMaxTurnsReached ||
+        sessionMaxTurnsReached(
+          null,
+          messages: messages.valueOrNull ?? const [],
+        );
+    final composerLocked = isAiChatCreationLocked(
+      dailyQuotaExhausted: dailyQuotaExhausted,
+      ownLlmReady: ownLlmReady,
+      maxTurnsReached: maxTurnsReached,
     );
-    final composerLocked = platformLocked || maxTurnsReached;
-    final tutorSnapshot = ref.watch(tutorSessionControllerProvider);
-    final revealMessageId = ref.watch(
-      chatRevealMessageIdProvider(conversationId),
+    final tutorView = ref.watch(
+      tutorSessionControllerProvider.select(
+        (snapshot) => (
+          phase: snapshot.session?.phase,
+          supportLevel: snapshot.session?.supportLevel,
+          status: snapshot.session?.status,
+          summaryText: snapshot.summary?.summaryText,
+          loading: snapshot.loading,
+        ),
+      ),
     );
     final mentorRequests = ref.watch(escalationHistoryControllerProvider);
     final mentorRequestingMessageId = useState<String?>(null);
+    final understandingProgress = useRef(
+      <String, Map<int, UnderstandingRemediationAttempt>>{},
+    ).value;
+    final remediationStarted = useRef(<String>{}).value;
 
     String normalizeComparableText(String? value) {
       return (value ?? '').trim().replaceAll(RegExp(r'\s+'), ' ').toLowerCase();
@@ -1562,53 +1631,144 @@ class ChatScreen extends HookConsumerWidget {
       return sendStudyPromptInChat(prompt);
     }
 
-    Future<void> handleUnderstandingCheckAnswer({
+    Future<UnderstandingCheckGrade?> handleUnderstandingCheckAnswer({
       required AiMessage message,
       required String selectedKey,
       required UnderstandingCheckAttempt attempt,
+      required int quizIndex,
+      required List<UnderstandingQuiz> quizzes,
     }) async {
-      await ref
+      final grade = await ref
           .read(chatControllerProvider(conversationId).notifier)
           .lockUnderstandingAnswer(
             conversationId: conversationId,
             message: message,
             selectedKey: selectedKey,
+            quizIndex: quizIndex,
+            quiz: attempt.quiz,
           );
-      if (!context.mounted) return;
-      if (activeCourse == null) return;
+      if (grade == null || !context.mounted || activeCourse == null) {
+        return grade;
+      }
 
-      final quiz = attempt.quiz;
-      final selected = attempt.selected;
-      final prompt = quiz.correctKey.isEmpty
-          ? buildMissingAnswerKeyRemediationPrompt(quiz, selected)
-          : attempt.isCorrect
-          ? ''
-          : buildIncorrectAnswerRemediationPrompt(quiz, selected);
-      if (prompt.isEmpty || composerLocked) return;
+      final progress = understandingProgress.putIfAbsent(
+        message.id,
+        () => <int, UnderstandingRemediationAttempt>{},
+      );
+      for (final saved in message.understandingCheckAttempts) {
+        if (saved.quizIndex < 0 || saved.quizIndex >= quizzes.length) continue;
+        final savedQuiz = quizzes[saved.quizIndex];
+        final savedKey = saved.selectedKey ?? '';
+        final savedSelected = savedQuiz.optionFor(savedKey);
+        if (savedSelected == null) continue;
+        progress.putIfAbsent(
+          saved.quizIndex,
+          () => UnderstandingRemediationAttempt(
+            quizIndex: saved.quizIndex,
+            quiz: savedQuiz,
+            selected: savedSelected,
+            grade: UnderstandingCheckGrade(
+              quizIndex: saved.quizIndex,
+              selectedKey: savedKey,
+              correct: saved.correct,
+              correctKey: savedQuiz.correctKey,
+              correctOptionText:
+                  savedQuiz.optionFor(savedQuiz.correctKey)?.text ?? '',
+              explanation: savedQuiz.explanation,
+              messageId: message.id,
+              attemptId: saved.attemptId ?? '',
+            ),
+          ),
+        );
+      }
+      progress[quizIndex] = UnderstandingRemediationAttempt(
+        quizIndex: quizIndex,
+        quiz: attempt.quiz,
+        selected: attempt.selected,
+        grade: grade,
+      );
+      if (progress.length < quizzes.length ||
+          !remediationStarted.add(message.id)) {
+        return grade;
+      }
+
+      final incorrect = progress.values.where((entry) {
+        final correctKey = entry.grade.correctKey.isNotEmpty
+            ? entry.grade.correctKey
+            : entry.quiz.correctKey;
+        return entry.grade.correct == false ||
+            correctKey.isEmpty ||
+            entry.selected.key != correctKey;
+      }).toList();
+      if (incorrect.isEmpty || composerLocked) return grade;
+
+      final firstIncorrect = incorrect.first;
+      final gradedFirstQuiz = UnderstandingQuiz(
+        question: firstIncorrect.quiz.question,
+        options: firstIncorrect.quiz.options,
+        correctKey: firstIncorrect.grade.correctKey.isNotEmpty
+            ? firstIncorrect.grade.correctKey
+            : firstIncorrect.quiz.correctKey,
+        explanation: firstIncorrect.grade.explanation.isNotEmpty
+            ? firstIncorrect.grade.explanation
+            : firstIncorrect.quiz.explanation,
+      );
+      final prompt = incorrect.length == 1
+          ? (gradedFirstQuiz.correctKey.isEmpty
+                ? buildMissingAnswerKeyRemediationPrompt(
+                    gradedFirstQuiz,
+                    firstIncorrect.selected,
+                  )
+                : buildIncorrectAnswerRemediationPrompt(
+                    gradedFirstQuiz,
+                    firstIncorrect.selected,
+                  ))
+          : buildIncorrectAnswersRemediationPrompt(incorrect);
+      if (prompt.isEmpty) return grade;
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            quiz.correctKey.isEmpty
-                ? 'AI Tutor đang kiểm tra đáp án và giảng lại ngay.'
-                : 'AI Tutor đang giảng lại theo cách dễ hiểu hơn.',
+            incorrect.length == 1
+                ? 'AI Tutor đang giảng lại theo cách dễ hiểu hơn.'
+                : 'AI Tutor đang giảng lại ${incorrect.length} câu chưa đúng.',
           ),
         ),
       );
-      final effectiveId = await ref
-          .read(chatControllerProvider(conversationId).notifier)
-          .sendMessage(
-            conversationId: conversationId,
-            message: prompt,
-            displayMessage: 'Giải thích lại: ${quiz.question}',
-            interactionType: 'UNDERSTANDING_REMEDIATION',
-            courseId: activeCourse.code,
-            classId: activeCourse.classId,
-          );
-      if (!context.mounted) return;
-      if (effectiveId != conversationId) {
-        context.go(AppRoutes.studentTutorChat(effectiveId));
-      }
+      final materialIds = message.sourceEvidence
+          .map((item) => item.materialId?.trim() ?? '')
+          .where((id) => id.isNotEmpty)
+          .toSet()
+          .toList();
+      final chunkIds = message.sourceEvidence
+          .map((item) => item.chunkId?.trim() ?? '')
+          .where((id) => id.isNotEmpty)
+          .toSet()
+          .toList();
+      unawaited(() async {
+        final effectiveId = await ref
+            .read(chatControllerProvider(conversationId).notifier)
+            .sendMessage(
+              conversationId: conversationId,
+              message: prompt,
+              displayMessage: incorrect.length == 1
+                  ? 'Giải thích lại: ${firstIncorrect.quiz.question}'
+                  : 'Giảng lại ${incorrect.length} câu chưa đúng trong quiz',
+              interactionType: 'UNDERSTANDING_REMEDIATION',
+              originAssistantMessageId: message.id,
+              understandingAttemptId: firstIncorrect.grade.attemptId,
+              originalQuestion: firstIncorrect.quiz.question,
+              courseId: activeCourse.code,
+              classId: activeCourse.classId,
+              sourceMaterialIds: materialIds,
+              sourceChunkIds: chunkIds,
+            );
+        if (!context.mounted) return;
+        if (effectiveId != conversationId) {
+          context.go(AppRoutes.studentTutorChat(effectiveId));
+        }
+      }());
+      return grade;
     }
 
     void showReviewSubmittedSnack(String? status) {
@@ -1633,7 +1793,11 @@ class ChatScreen extends HookConsumerWidget {
       String? suggestedCorrection,
     }) async {
       if (activeCourse == null) return;
-      if (reviewedIds.contains(aiMessage.id)) return;
+      if (ref
+          .read(reviewedMessageIdsProvider(conversationId))
+          .contains(aiMessage.id)) {
+        return;
+      }
       try {
         final status = await ref
             .read(chatControllerProvider(conversationId).notifier)
@@ -1707,32 +1871,13 @@ class ChatScreen extends HookConsumerWidget {
       );
     }
 
-    Future<void> handleReviewReport(
-      AiMessage aiMessage,
-      String userQuestion,
-    ) async {
-      final result = await showAnswerReviewFeedbackSheet(
-        context,
-        l10n: l10n,
-        kind: AnswerReviewFeedbackKind.reportSource,
-      );
-      if (result == null || !context.mounted) return;
-      await submitMessageReview(
-        aiMessage: aiMessage,
-        userQuestion: userQuestion,
-        reviewType: 'SOURCE_CONFLICT',
-        rating: 1,
-        accurate: false,
-        helpful: false,
-        feedback: result.feedback,
-      );
-    }
-
     Future<void> handleMentorReview(
       AiMessage aiMessage,
       String userQuestion,
     ) async {
-      if (activeCourse == null || mentorRequestingMessageId.value != null) {
+      if (composerLocked ||
+          activeCourse == null ||
+          mentorRequestingMessageId.value != null) {
         return;
       }
 
@@ -1940,8 +2085,8 @@ class ChatScreen extends HookConsumerWidget {
                             if (course.id == activeCourse?.id) return;
                             final created = await ref
                                 .read(conversationsControllerProvider.notifier)
-                                .openTutorSessionOrCreate(
-                                  courseId: course.code,
+                                .createNew(
+                                  courseId: course.id,
                                   classId: course.classId,
                                 );
                             if (!context.mounted) return;
@@ -1987,6 +2132,18 @@ class ChatScreen extends HookConsumerWidget {
       ),
       body: Column(
         children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              Insets.screenH,
+              Insets.xs,
+              Insets.screenH,
+              0,
+            ),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: AiSupportLevelFooter(supportLevel: tutorView.supportLevel),
+            ),
+          ),
           if (turnNotice != null &&
               turnNotice.currentSessionId == conversationId)
             AiChatTurnLimitBanner(
@@ -2000,9 +2157,20 @@ class ChatScreen extends HookConsumerWidget {
                 ref.read(chatTurnLimitNoticeProvider.notifier).state = null;
               },
             ),
+          if (dailyQuotaExhausted ||
+              AiChatNearQuotaBanner.shouldShow(
+                used: questionCount,
+                limit: questionLimit,
+              ))
+            AiChatQuotaNotice(
+              key: ValueKey(
+                '$quotaCourseId:$questionCount:$dailyQuotaExhausted',
+              ),
+              used: questionCount,
+              limit: questionLimit,
+            ),
           if (dailyQuotaExhausted)
-            AiChatDailyQuotaBanner(
-              key: ValueKey(quotaCourseId),
+            AiChatOwnLlmAccessBar(
               ownLlmReady: ownLlmReady,
               onAttachLlm: () {
                 unawaited(showStudentOwnLlmSheet(context, userId: userId));
@@ -2011,20 +2179,14 @@ class ChatScreen extends HookConsumerWidget {
                   ? () => ref.read(studentOwnLlmProvider.notifier).clear()
                   : null,
             ),
-          if (!dailyQuotaExhausted &&
-              AiChatNearQuotaBanner.shouldShow(
-                used: questionCount,
-                limit: questionLimit,
-              ))
-            AiChatNearQuotaBanner(used: questionCount, limit: questionLimit),
           if (!dailyQuotaExhausted)
             AiChatTutorSessionStrip(
               dailyQuotaExhausted: false,
-              phase: tutorSnapshot.session?.phase,
-              supportLevel: tutorSnapshot.session?.supportLevel,
-              status: tutorSnapshot.session?.status,
-              summaryText: tutorSnapshot.summary?.summaryText,
-              loading: tutorSnapshot.loading,
+              phase: tutorView.phase,
+              supportLevel: tutorView.supportLevel,
+              status: tutorView.status,
+              summaryText: tutorView.summaryText,
+              loading: tutorView.loading,
               onStartNext: () async {
                 final opened = await ref
                     .read(tutorSessionControllerProvider.notifier)
@@ -2064,11 +2226,26 @@ class ChatScreen extends HookConsumerWidget {
                   itemBuilder: (context, index) {
                     if (index == 0) {
                       if (items.isEmpty && !isPending) {
-                        final courseHasHistory = hasStudentChattedCourse(
-                          conversations.valueOrNull ?? const [],
-                          courseId: activeCourse?.id,
-                          courseCode: activeCourse?.code,
-                        );
+                        final guide = learningGuide?.valueOrNull;
+                        if (guide != null &&
+                            guide.welcomeMarkdown.trim().isNotEmpty) {
+                          return _CourseCurriculumOpening(
+                            guide: guide,
+                            enabled: !isPending && !composerLocked,
+                            onSuggestionSelected: (prompt) {
+                              unawaited(
+                                sendStudyPromptInChat(
+                                  prompt,
+                                  displayMessage: prompt,
+                                  clickedSuggestion: prompt,
+                                ),
+                              );
+                            },
+                          );
+                        }
+                        if (learningGuide?.isLoading == true) {
+                          return const LoadingSkeleton(itemCount: 3);
+                        }
                         if (!courseHasHistory) {
                           return const AiChatOpeningPlaceholder();
                         }
@@ -2124,12 +2301,33 @@ class ChatScreen extends HookConsumerWidget {
                         : resolveUnderstandingCheck(
                             markdown: message.content,
                             structured: message.understandingCheck,
+                            attempts: message.understandingCheckAttempts.map(
+                              (attempt) => {
+                                'quizIndex': attempt.quizIndex,
+                                'check': attempt.check,
+                              },
+                            ),
                           );
                     final quiz = extracted.quiz;
+                    final localQuizProgress =
+                        understandingProgress[message.id] ??
+                        const <int, UnderstandingRemediationAttempt>{};
                     final isWelcomeTurn = isWelcomeTutorTurn(
                       message,
                       precedingUserQuestion: userQuestion,
                     );
+                    final curriculumSuggestions =
+                        curriculumStudySuggestionsForMessage(
+                          markdown: visibleMessageContent,
+                          isUser: message.isUser,
+                          hasInteractiveQuiz: quiz != null,
+                        );
+                    final curriculumDisplayContent =
+                        curriculumSuggestions.isEmpty
+                        ? visibleMessageContent
+                        : stripCurriculumStudySuggestionSection(
+                            visibleMessageContent,
+                          );
                     final pathSuggestions =
                         message.isUser || isRetryableError || isWelcomeTurn
                         ? const <ImproveSuggestionItem>[]
@@ -2153,69 +2351,124 @@ class ChatScreen extends HookConsumerWidget {
                         children: [
                           AiMessageRow(
                             isUser: message.isUser,
-                            child: ChatBubble(
-                              isUser: message.isUser,
-                              revealMarkdown:
-                                  !message.isUser &&
-                                  message.id == revealMessageId &&
-                                  !isWelcomeTurn &&
-                                  !isRetryableError,
-                              onDownloadSource: downloadSource,
-                              codeSnippet: message.codeSnippet,
-                              content: quiz == null
-                                  ? visibleMessageContent
-                                  : extracted.before,
-                              afterContent: quiz == null
-                                  ? null
-                                  : extracted.after,
-                              betweenContent: quiz == null
-                                  ? null
-                                  : UnderstandingCheckQuiz(
-                                      quiz: quiz,
-                                      lockedKey:
-                                          message.understandingSelectedKey ??
-                                          '',
-                                      onLockAnswer: (key, attempt) {
-                                        unawaited(
-                                          handleUnderstandingCheckAnswer(
-                                            message: message,
-                                            selectedKey: key,
-                                            attempt: attempt,
-                                          ),
-                                        );
-                                      },
-                                    ),
-                              mode: message.mode,
-                              groundingType: hasUsableAssistantContent
-                                  ? message.groundingType
-                                  : null,
-                              confidence: hasUsableAssistantContent
-                                  ? message.confidence
-                                  : null,
-                              sources: hasUsableAssistantContent
-                                  ? message.sources
-                                  : const [],
-                              sourceEvidence: hasUsableAssistantContent
-                                  ? message.sourceEvidence
-                                  : const [],
-                              visualEvidence: hasUsableAssistantContent
-                                  ? message.visualEvidence
-                                  : const [],
-                              showSourceReferences: false,
-                              escalated:
-                                  message.escalated ||
-                                  effectiveEscalationId != null,
-                              pinned: message.pinned,
-                              pinnedLabel: l10n.pinnedLabel,
-                              onStudyTipTap: message.isUser
-                                  ? null
-                                  : (tip) => handleStudyTipTap(
-                                      tip,
-                                      currentQuestion: userQuestion ?? '',
-                                      sourceEvidence: message.sourceEvidence,
-                                    ),
+                            child: _ChatBubbleRevealBoundary(
+                              conversationId: conversationId,
+                              messageId: message.id,
+                              enabled: !message.isUser,
+                              builder: (revealMarkdown, onRevealComplete) => ChatBubble(
+                                isUser: message.isUser,
+                                onDownloadSource: downloadSource,
+                                codeSnippet: message.codeSnippet,
+                                revealMarkdown: revealMarkdown,
+                                onRevealComplete: onRevealComplete,
+                                content: quiz == null
+                                    ? curriculumDisplayContent
+                                    : extracted.before,
+                                afterContent: quiz == null
+                                    ? null
+                                    : extracted.after,
+                                betweenContent: quiz == null
+                                    ? null
+                                    : Column(
+                                        children: [
+                                          for (
+                                            var quizIndex = 0;
+                                            quizIndex <
+                                                extracted.quizzes.length;
+                                            quizIndex++
+                                          )
+                                            UnderstandingCheckQuiz(
+                                              key: ValueKey(
+                                                '${message.id}-$quizIndex',
+                                              ),
+                                              enabled: !composerLocked,
+                                              quiz:
+                                                  extracted.quizzes[quizIndex],
+                                              lockedKey:
+                                                  message
+                                                      .understandingCheckAttempts
+                                                      .where(
+                                                        (attempt) =>
+                                                            attempt.quizIndex ==
+                                                            quizIndex,
+                                                      )
+                                                      .firstOrNull
+                                                      ?.selectedKey ??
+                                                  (quizIndex == 0
+                                                      ? message.understandingSelectedKey ??
+                                                            ''
+                                                      : ''),
+                                              localLockedKey:
+                                                  localQuizProgress[quizIndex]
+                                                      ?.selected
+                                                      .key ??
+                                                  '',
+                                              restoredGrade:
+                                                  localQuizProgress[quizIndex]
+                                                      ?.grade,
+                                              onLockAnswer: (key, attempt) =>
+                                                  handleUnderstandingCheckAnswer(
+                                                    message: message,
+                                                    selectedKey: key,
+                                                    attempt: attempt,
+                                                    quizIndex: quizIndex,
+                                                    quizzes: extracted.quizzes,
+                                                  ),
+                                            ),
+                                        ],
+                                      ),
+                                mode: message.mode,
+                                groundingType: hasUsableAssistantContent
+                                    ? message.groundingType
+                                    : null,
+                                confidence: hasUsableAssistantContent
+                                    ? message.confidence
+                                    : null,
+                                sources: hasUsableAssistantContent
+                                    ? message.sources
+                                    : const [],
+                                sourceEvidence: hasUsableAssistantContent
+                                    ? message.sourceEvidence
+                                    : const [],
+                                visualEvidence: hasUsableAssistantContent
+                                    ? message.visualEvidence
+                                    : const [],
+                                showSourceReferences: false,
+                                escalated:
+                                    message.escalated ||
+                                    effectiveEscalationId != null,
+                                pinned: message.pinned,
+                                pinnedLabel: l10n.pinnedLabel,
+                                onStudyTipTap: message.isUser || composerLocked
+                                    ? null
+                                    : (tip) => handleStudyTipTap(
+                                        tip,
+                                        currentQuestion: userQuestion ?? '',
+                                        sourceEvidence: message.sourceEvidence,
+                                      ),
+                              ),
                             ),
                           ),
+                          if (curriculumSuggestions.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(
+                                left: 48,
+                                bottom: Insets.sm,
+                              ),
+                              child: CurriculumStudySuggestions(
+                                suggestions: curriculumSuggestions,
+                                enabled: !isPending && !composerLocked,
+                                onSelected: (prompt) {
+                                  unawaited(
+                                    sendStudyPromptInChat(
+                                      prompt,
+                                      displayMessage: prompt,
+                                      clickedSuggestion: prompt,
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
                           if (message.isUser)
                             AiUserMessageActions(
                               canResend: !isPending && !composerLocked,
@@ -2281,7 +2534,14 @@ class ChatScreen extends HookConsumerWidget {
                                       mentorRequestingMessageId.value ==
                                           message.id,
                                   onPressed:
-                                      mentorRequestingMessageId.value != null
+                                      !canUseMentorReviewAction(
+                                        composerLocked: composerLocked,
+                                        requestInFlight:
+                                            mentorRequestingMessageId.value !=
+                                            null,
+                                        hasExistingRequest:
+                                            effectiveEscalationId != null,
+                                      )
                                       ? null
                                       : () {
                                           if (effectiveEscalationId != null) {
@@ -2335,42 +2595,35 @@ class ChatScreen extends HookConsumerWidget {
                           if (!message.isUser &&
                               !isRetryableError &&
                               !isWelcomeTurn)
-                            AiChatReviewBar(
-                              ratingPrompt: l10n.reviewHelpfulPrompt,
-                              reportLabel: l10n.reviewReport,
-                              reviewSubmitted: reviewedIds.contains(message.id),
-                              reviewSubmittedLabel: l10n.reviewAlreadySubmitted,
-                              isPinned: message.pinned,
-                              canPin: _isPersistedMessageId(message.id),
-                              onCopy: () =>
-                                  _copyAiAnswer(context, message.content),
-                              onPin: () => handlePinToggle(message),
-                              onRatingSelected: reviewedIds.contains(message.id)
-                                  ? null
-                                  : (rating) {
-                                      final question =
-                                          ChatController.precedingUserQuestion(
-                                            items,
-                                            msgIndex,
-                                          );
-                                      if (question == null) return;
-                                      handleReviewRating(
-                                        message,
-                                        question,
-                                        rating,
-                                      );
-                                    },
-                              onReport: reviewedIds.contains(message.id)
-                                  ? null
-                                  : () {
-                                      final question =
-                                          ChatController.precedingUserQuestion(
-                                            items,
-                                            msgIndex,
-                                          );
-                                      if (question == null) return;
-                                      handleReviewReport(message, question);
-                                    },
+                            _ChatReviewBoundary(
+                              conversationId: conversationId,
+                              messageId: message.id,
+                              builder: (reviewed) => AiChatReviewBar(
+                                ratingPrompt: l10n.reviewHelpfulPrompt,
+                                reviewSubmitted: reviewed,
+                                reviewSubmittedLabel:
+                                    l10n.reviewAlreadySubmitted,
+                                isPinned: message.pinned,
+                                canPin: _isPersistedMessageId(message.id),
+                                onCopy: () =>
+                                    _copyAiAnswer(context, message.content),
+                                onPin: () => handlePinToggle(message),
+                                onRatingSelected: reviewed
+                                    ? null
+                                    : (rating) {
+                                        final question =
+                                            ChatController.precedingUserQuestion(
+                                              items,
+                                              msgIndex,
+                                            );
+                                        if (question == null) return;
+                                        handleReviewRating(
+                                          message,
+                                          question,
+                                          rating,
+                                        );
+                                      },
+                              ),
                             ),
                           if (pathSuggestions.isNotEmpty)
                             ImproveSuggestionsStrip(
@@ -2419,33 +2672,6 @@ class ChatScreen extends HookConsumerWidget {
               },
             ),
           ),
-          if ((!dailyQuotaExhausted || ownLlmReady) &&
-              tutorSnapshot.session?.isCompleted != true)
-            AiChatComposerTopics(
-              enabled: !isPending && !composerLocked,
-              topics: composerTopicsForSession(
-                sessionTopics:
-                    tutorSnapshot.session?.suggestedTopics ?? const [],
-                parsedLessons: lessonSuggestionsForMessage(
-                  answer: (messages.valueOrNull ?? const <AiMessage>[])
-                      .lastWhere(
-                        (item) => !item.isUser,
-                        orElse: () =>
-                            const AiMessage(id: '', content: '', isUser: false),
-                      )
-                      .content,
-                ).map((item) => item.title).toList(),
-              ),
-              onSelect: (topic) {
-                unawaited(
-                  sendStudyPromptInChat(
-                    buildLessonChatPrompt(topic),
-                    interactionType: 'GUIDED_LESSON',
-                    clickedSuggestion: topic,
-                  ),
-                );
-              },
-            ),
           SafeArea(
             top: false,
             child: _ChatInputBar(
@@ -2456,6 +2682,64 @@ class ChatScreen extends HookConsumerWidget {
         ],
       ),
     );
+  }
+}
+
+class _ChatBubbleRevealBoundary extends ConsumerWidget {
+  const _ChatBubbleRevealBoundary({
+    required this.conversationId,
+    required this.messageId,
+    required this.enabled,
+    required this.builder,
+  });
+
+  final String conversationId;
+  final String messageId;
+  final bool enabled;
+  final Widget Function(bool revealMarkdown, VoidCallback? onRevealComplete)
+  builder;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (!enabled) return builder(false, null);
+
+    final targetProvider = chatRevealMessageIdProvider(conversationId);
+    final shouldReveal = ref.watch(
+      targetProvider.select((targetId) => targetId == messageId),
+    );
+
+    return builder(
+      shouldReveal,
+      shouldReveal
+          ? () {
+              if (ref.read(targetProvider) == messageId) {
+                ref.read(targetProvider.notifier).state = null;
+              }
+            }
+          : null,
+    );
+  }
+}
+
+class _ChatReviewBoundary extends ConsumerWidget {
+  const _ChatReviewBoundary({
+    required this.conversationId,
+    required this.messageId,
+    required this.builder,
+  });
+
+  final String conversationId;
+  final String messageId;
+  final Widget Function(bool reviewed) builder;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final reviewed = ref.watch(
+      reviewedMessageIdsProvider(
+        conversationId,
+      ).select((ids) => ids.contains(messageId)),
+    );
+    return builder(reviewed);
   }
 }
 
@@ -2654,31 +2938,29 @@ class _ChatInputBarState extends ConsumerState<_ChatInputBar> {
         true;
     final dailyBlocked =
         quotaCourseId.isNotEmpty && dailyQuota.exhausted && !ownLlmReady;
-    final conversations = ref.watch(conversationsControllerProvider);
-    final messages =
-        ref.watch(chatControllerProvider(widget.conversationId)).valueOrNull ??
-        const [];
-    final activeSession = conversations.valueOrNull
-        ?.where((item) => item.id == widget.conversationId)
-        .firstOrNull;
-    final maxTurnsReached = sessionMaxTurnsReached(
-      activeSession,
-      messages: messages,
+    final serverMaxTurnsReached = ref.watch(
+      conversationServerMaxTurnsReachedProvider(widget.conversationId),
+    );
+    final localMaxTurnsReached = ref.watch(
+      conversationLocalMaxTurnsReachedProvider(widget.conversationId),
+    );
+    final maxTurnsReached = serverMaxTurnsReached || localMaxTurnsReached;
+    final creationLocked = isAiChatCreationLocked(
+      dailyQuotaExhausted: dailyQuota.exhausted,
+      ownLlmReady: ownLlmReady,
+      maxTurnsReached: maxTurnsReached,
     );
     final canSend =
-        courses?.isNotEmpty == true &&
-        !isPending &&
-        !dailyBlocked &&
-        !maxTurnsReached;
+        courses?.isNotEmpty == true && !isPending && !creationLocked;
 
     return AiChatInputBar(
       controller: _messageController,
       focusNode: _focusNode,
       hint: dailyBlocked
-          ? 'Gắn API LLM của bạn để hỏi tiếp bằng tài liệu nhà trường.'
-          : maxTurnsReached
+          ? 'Gắn API LLM của bạn để tiếp tục học.'
+          : creationLocked
           ? ''
-          : l10n.chatInputHint,
+          : AiChatInputBar.defaultHint,
       enabled: canSend,
       isPending: isPending,
       isListening: _listening,
@@ -2831,6 +3113,12 @@ class CodeMentorScreen extends HookConsumerWidget {
               final extracted = resolveUnderstandingCheck(
                 markdown: answer.answer,
                 structured: answer.understandingCheck,
+                attempts: answer.understandingCheckAttempts.map(
+                  (attempt) => {
+                    'quizIndex': attempt.quizIndex,
+                    'check': attempt.check,
+                  },
+                ),
               );
               final quiz = extracted.quiz;
               return Column(
@@ -2857,7 +3145,12 @@ class CodeMentorScreen extends HookConsumerWidget {
                     afterContent: quiz == null ? null : extracted.after,
                     betweenContent: quiz == null
                         ? null
-                        : UnderstandingCheckQuiz(quiz: quiz),
+                        : Column(
+                            children: [
+                              for (final item in extracted.quizzes)
+                                UnderstandingCheckQuiz(quiz: item),
+                            ],
+                          ),
                     groundingType: answer.groundingType,
                     confidence: answer.confidence,
                     sources: answer.sources,

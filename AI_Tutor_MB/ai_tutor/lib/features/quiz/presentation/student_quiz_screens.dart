@@ -17,10 +17,12 @@ import '../../../shared/models/course.dart';
 import '../../../shared/models/quiz.dart';
 import '../../../shared/widgets/widgets.dart';
 import '../../courses/application/courses_controller.dart';
+import '../../ai_tutor/application/course_learning_guide_provider.dart';
 import '../../memory/application/course_memory_provider.dart';
 import '../../memory/application/improve_plan_controller.dart';
 import '../../student/student_route_handoff.dart';
 import '../application/quiz_controller.dart';
+import '../application/quiz_topic_suggestions.dart';
 
 List<Course> _uniqueCourses(List<Course> courses) {
   final unique = <Course>[];
@@ -109,16 +111,42 @@ class _StudentQuizBody extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tabIndex = useState(0);
+    final restoredQuizId = useRef<String?>(null);
     final history = ref.watch(studentQuizHistoryProvider(course.id));
     final assigned = ref.watch(studentQuizAssignmentsProvider(course.id));
+    final memory = ref.watch(courseMemoryProvider(course.id));
+    final learningGuide = ref.watch(courseLearningGuideProvider(course.id));
     final sessions = history.valueOrNull ?? const <QuizSession>[];
     final assignedItems = assigned.valueOrNull ?? const <QuizAssignment>[];
-    final inProgress = sessions.where((session) => !session.isSubmitted).toList();
+    final inProgress = sessions
+        .where((session) => !session.isSubmitted)
+        .toList();
     final submitted = sessions.where((session) => session.isSubmitted).toList();
     final stats = QuizHubStats.from(
       sessions: sessions,
       assignedCount: assignedItems.length,
     );
+    final topicSuggestions = buildQuizTopicSuggestions(
+      weakTopics: memory.valueOrNull?.weakTopics ?? const [],
+      curriculumTopics: learningGuide.valueOrNull?.topicTitles ?? const [],
+    );
+
+    final quizToRestore = latestInProgressQuiz(sessions);
+    useEffect(() {
+      if (quizToRestore == null || restoredQuizId.value == quizToRestore.id) {
+        return null;
+      }
+      restoredQuizId.value = quizToRestore.id;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!context.mounted) return;
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => TakeQuizScreen.fromSession(session: quizToRestore),
+          ),
+        );
+      });
+      return null;
+    }, [quizToRestore?.id]);
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -165,9 +193,7 @@ class _StudentQuizBody extends HookConsumerWidget {
                 Insets.screenH,
                 Insets.sm,
               ),
-              child: _ContinueQuizAlert(
-                onContinue: () => tabIndex.value = 1,
-              ),
+              child: _ContinueQuizAlert(onContinue: () => tabIndex.value = 1),
             ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: Insets.screenH),
@@ -224,7 +250,10 @@ class _StudentQuizBody extends HookConsumerWidget {
                 emptyTitle: 'Chưa có kết quả quiz',
                 emptyMessage: 'Nộp một quiz để xem lại điểm và đáp án.',
               ),
-              _ => _GenerateQuizTab(courseId: course.id),
+              _ => _GenerateQuizTab(
+                courseId: course.id,
+                suggestions: topicSuggestions,
+              ),
             },
           ),
         ],
@@ -354,9 +383,7 @@ class _QuizStatGrid extends StatelessWidget {
         _QuizStatCard(
           icon: LucideIcons.trophy,
           label: 'Hoạt động gần nhất',
-          value: stats.latest == null
-              ? '—'
-              : formatRelativeTime(stats.latest!),
+          value: stats.latest == null ? '—' : formatRelativeTime(stats.latest!),
           description: stats.reviewed > 0
               ? '${stats.reviewed} bài đã được giảng viên duyệt'
               : 'Chưa có bài được giảng viên duyệt',
@@ -409,9 +436,9 @@ class _QuizStatCard extends StatelessWidget {
                   value,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
                 ),
                 Text(
                   description,
@@ -450,20 +477,21 @@ class _ContinueQuizAlert extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(LucideIcons.circleCheck, color: AppColors.success, size: 18),
+          const Icon(
+            LucideIcons.circleCheck,
+            color: AppColors.success,
+            size: 18,
+          ),
           const Gap(Insets.sm),
           Expanded(
             child: Text(
               'Bạn có một quiz đang làm dở',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
             ),
           ),
-          TextButton(
-            onPressed: onContinue,
-            child: const Text('Tiếp tục làm'),
-          ),
+          TextButton(onPressed: onContinue, child: const Text('Tiếp tục làm')),
         ],
       ),
     );
@@ -471,8 +499,9 @@ class _ContinueQuizAlert extends StatelessWidget {
 }
 
 class _GenerateQuizTab extends StatelessWidget {
-  const _GenerateQuizTab({required this.courseId});
+  const _GenerateQuizTab({required this.courseId, required this.suggestions});
   final String courseId;
+  final List<String> suggestions;
 
   @override
   Widget build(BuildContext context) {
@@ -486,19 +515,19 @@ class _GenerateQuizTab extends StatelessWidget {
       children: [
         Text(
           'Luyện tập bằng quiz theo tài liệu môn học',
-          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
+          style: Theme.of(
+            context,
+          ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
         ),
         const Gap(Insets.xs),
         Text(
           'Tạo quiz tự ôn, làm quiz giảng viên giao và xem lại kết quả sau khi nộp.',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: AppColors.textSecondary,
-          ),
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
         ),
         const Gap(Insets.lg),
-        _GenerateQuizButton(courseId: courseId),
+        _GenerateQuizButton(courseId: courseId, suggestions: suggestions),
       ],
     );
   }
@@ -558,8 +587,12 @@ class _QuizSessionList extends ConsumerWidget {
 }
 
 class _GenerateQuizButton extends HookConsumerWidget {
-  const _GenerateQuizButton({required this.courseId});
+  const _GenerateQuizButton({
+    required this.courseId,
+    required this.suggestions,
+  });
   final String courseId;
+  final List<String> suggestions;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -618,47 +651,76 @@ class _GenerateQuizButton extends HookConsumerWidget {
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.card,
         title: const Text('Tạo Quiz tự luyện'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: topicController,
-              keyboardType: TextInputType.text,
-              autocorrect: VietnameseTextInput.autocorrect,
-              enableSuggestions: VietnameseTextInput.enableSuggestions,
-              enableIMEPersonalizedLearning:
-                  VietnameseTextInput.enableIMEPersonalizedLearning,
-              textCapitalization: VietnameseTextInput.textCapitalization,
-              smartDashesType: VietnameseTextInput.smartDashesType,
-              smartQuotesType: VietnameseTextInput.smartQuotesType,
-              decoration: InputDecoration(
-                labelText: 'Chủ đề (tuỳ chọn)',
-                hintText: 'VD: Arrays, OOP, SQL...',
-                helperText:
-                    'Để trống sẽ tạo quiz tổng hợp theo tài liệu môn học',
-                filled: true,
-                fillColor: AppColors.raised,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(Radii.md),
-                  borderSide: BorderSide.none,
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (suggestions.isNotEmpty) ...[
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Gợi ý theo điểm yếu và syllabus',
+                    style: Theme.of(ctx).textTheme.labelLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                const Gap(Insets.sm),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Wrap(
+                    spacing: Insets.xs,
+                    runSpacing: Insets.xs,
+                    children: [
+                      for (final topic in suggestions.take(6))
+                        ActionChip(
+                          label: Text(topic),
+                          onPressed: () => topicController.text = topic,
+                        ),
+                    ],
+                  ),
+                ),
+                const Gap(Insets.md),
+              ],
+              TextField(
+                controller: topicController,
+                keyboardType: TextInputType.text,
+                autocorrect: VietnameseTextInput.autocorrect,
+                enableSuggestions: VietnameseTextInput.enableSuggestions,
+                enableIMEPersonalizedLearning:
+                    VietnameseTextInput.enableIMEPersonalizedLearning,
+                textCapitalization: VietnameseTextInput.textCapitalization,
+                smartDashesType: VietnameseTextInput.smartDashesType,
+                smartQuotesType: VietnameseTextInput.smartQuotesType,
+                decoration: InputDecoration(
+                  labelText: 'Chủ đề (tuỳ chọn)',
+                  hintText: 'VD: Arrays, OOP, SQL...',
+                  helperText:
+                      'Để trống sẽ tạo quiz tổng hợp theo tài liệu môn học',
+                  filled: true,
+                  fillColor: AppColors.raised,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(Radii.md),
+                    borderSide: BorderSide.none,
+                  ),
                 ),
               ),
-            ),
-            const Gap(Insets.md),
-            TextField(
-              controller: countController,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(
-                labelText: 'Số câu hỏi (3-10)',
-                filled: true,
-                fillColor: AppColors.raised,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(Radii.md),
-                  borderSide: BorderSide.none,
+              const Gap(Insets.md),
+              TextField(
+                controller: countController,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: 'Số câu hỏi (3-10)',
+                  filled: true,
+                  fillColor: AppColors.raised,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(Radii.md),
+                    borderSide: BorderSide.none,
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -1461,9 +1523,9 @@ class _QuizResultView extends StatelessWidget {
           const Gap(Insets.xs),
           Text(
             'Đáp án đúng được ẩn cho đến khi giảng viên duyệt bài.',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: AppColors.textTertiary,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: AppColors.textTertiary),
           ),
         ],
         const Gap(Insets.sm),
@@ -1474,100 +1536,100 @@ class _QuizResultView extends StatelessWidget {
           ),
         if (reviewItems.isNotEmpty)
           ...reviewItems.asMap().entries.map((entry) {
-          final i = entry.key;
-          final ans = entry.value;
-          final question = _questionFor(ans);
-          final correct = ans.correct ?? false;
-          final selected = ans.selectedAnswer?.trim();
-          final hasSelection = selected != null && selected.isNotEmpty;
+            final i = entry.key;
+            final ans = entry.value;
+            final question = _questionFor(ans);
+            final correct = ans.correct ?? false;
+            final selected = ans.selectedAnswer?.trim();
+            final hasSelection = selected != null && selected.isNotEmpty;
 
-          return Container(
-            margin: const EdgeInsets.only(bottom: Insets.sm),
-            padding: const EdgeInsets.all(Insets.md),
-            decoration: BoxDecoration(
-              color: hideAnswerKey
-                  ? AppColors.raised
-                  : (correct ? AppColors.successBg : AppColors.errorBg),
-              borderRadius: BorderRadius.circular(Radii.md),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(
-                      hideAnswerKey
-                          ? LucideIcons.circleHelp
-                          : (correct
-                                ? LucideIcons.checkCircle2
-                                : LucideIcons.xCircle),
-                      size: 16,
-                      color: hideAnswerKey
-                          ? AppColors.textTertiary
-                          : (correct ? AppColors.success : AppColors.error),
-                    ),
-                    const Gap(Insets.xs),
-                    Expanded(
-                      child: Text(
-                        question?.questionText ?? 'Câu ${i + 1}',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
+            return Container(
+              margin: const EdgeInsets.only(bottom: Insets.sm),
+              padding: const EdgeInsets.all(Insets.md),
+              decoration: BoxDecoration(
+                color: hideAnswerKey
+                    ? AppColors.raised
+                    : (correct ? AppColors.successBg : AppColors.errorBg),
+                borderRadius: BorderRadius.circular(Radii.md),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        hideAnswerKey
+                            ? LucideIcons.circleHelp
+                            : (correct
+                                  ? LucideIcons.checkCircle2
+                                  : LucideIcons.xCircle),
+                        size: 16,
+                        color: hideAnswerKey
+                            ? AppColors.textTertiary
+                            : (correct ? AppColors.success : AppColors.error),
+                      ),
+                      const Gap(Insets.xs),
+                      Expanded(
+                        child: Text(
+                          question?.questionText ?? 'Câu ${i + 1}',
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(fontWeight: FontWeight.w600),
                         ),
+                      ),
+                    ],
+                  ),
+                  if (question != null &&
+                      question.displayOptions.isNotEmpty) ...[
+                    const Gap(Insets.sm),
+                    ...question.displayOptions.map(
+                      (option) => _QuizOptionReviewTile(
+                        label: option,
+                        isSelected: hasSelection && option == selected,
+                        isCorrect: hideAnswerKey
+                            ? false
+                            : ans.correctAnswer != null &&
+                                  option == ans.correctAnswer,
                       ),
                     ),
                   ],
-                ),
-                if (question != null && question.displayOptions.isNotEmpty) ...[
                   const Gap(Insets.sm),
-                  ...question.displayOptions.map(
-                    (option) => _QuizOptionReviewTile(
-                      label: option,
-                      isSelected: hasSelection && option == selected,
-                      isCorrect: hideAnswerKey
-                          ? false
-                          : ans.correctAnswer != null &&
-                                option == ans.correctAnswer,
-                    ),
-                  ),
-                ],
-                const Gap(Insets.sm),
-                Text(
-                  'Bạn chọn: ${hasSelection ? selected : 'Không trả lời'}',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: hideAnswerKey
-                        ? AppColors.textSecondary
-                        : (correct ? AppColors.success : AppColors.error),
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                if (!hideAnswerKey &&
-                    !correct &&
-                    ans.correctAnswer != null) ...[
-                  const Gap(Insets.xs),
                   Text(
-                    'Đáp án đúng: ${ans.correctAnswer}',
+                    'Bạn chọn: ${hasSelection ? selected : 'Không trả lời'}',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.success,
+                      color: hideAnswerKey
+                          ? AppColors.textSecondary
+                          : (correct ? AppColors.success : AppColors.error),
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                ],
-                if (!hideAnswerKey &&
-                    ans.explanation != null &&
-                    ans.explanation!.isNotEmpty) ...[
-                  const Gap(Insets.sm),
-                  Text(
-                    ans.explanation!,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.textSecondary,
+                  if (!hideAnswerKey &&
+                      !correct &&
+                      ans.correctAnswer != null) ...[
+                    const Gap(Insets.xs),
+                    Text(
+                      'Đáp án đúng: ${ans.correctAnswer}',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppColors.success,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                  ),
+                  ],
+                  if (!hideAnswerKey &&
+                      ans.explanation != null &&
+                      ans.explanation!.isNotEmpty) ...[
+                    const Gap(Insets.sm),
+                    Text(
+                      ans.explanation!,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
                 ],
-              ],
-            ),
-          );
-        }),
+              ),
+            );
+          }),
       ],
     );
   }

@@ -3,21 +3,36 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('support level footer shows the web labels under home', (
+  testWidgets('support level renders as a compact current-level chip', (
     tester,
   ) async {
+    await tester.binding.setSurfaceSize(const Size(360, 640));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(
       const MaterialApp(
         home: Scaffold(
-          body: AiSupportLevelFooter(supportLevel: 'HIGH_SUPPORT'),
+          body: Padding(
+            padding: EdgeInsets.all(16),
+            child: Align(
+              alignment: Alignment.topRight,
+              child: AiSupportLevelFooter(supportLevel: 'HIGH_SUPPORT'),
+            ),
+          ),
         ),
       ),
     );
 
-    expect(find.text('Mức hỗ trợ'), findsOneWidget);
     expect(find.text('High Support'), findsOneWidget);
+    expect(find.textContaining('Mức hỗ trợ'), findsNothing);
     expect(find.text('Giảng viên đang thiết lập'), findsNothing);
     expect(find.text('Standard'), findsNothing);
+    expect(
+      tester
+          .getTopRight(find.byKey(const ValueKey('ai-support-level-chip')))
+          .dx,
+      closeTo(344, 1),
+    );
+    expect(tester.takeException(), isNull);
   });
 
   test('support level labels match the web student chat values', () {

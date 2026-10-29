@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -10,15 +12,22 @@ class UnderstandingCheckQuiz extends StatefulWidget {
   const UnderstandingCheckQuiz({
     super.key,
     required this.quiz,
+    this.enabled = true,
     this.lockedKey = '',
     this.localLockedKey = '',
+    this.restoredGrade,
     this.onLockAnswer,
   });
 
   final UnderstandingQuiz quiz;
+  final bool enabled;
   final String lockedKey;
   final String localLockedKey;
-  final void Function(String key, UnderstandingCheckAttempt attempt)?
+  final UnderstandingCheckGrade? restoredGrade;
+  final FutureOr<UnderstandingCheckGrade?> Function(
+    String key,
+    UnderstandingCheckAttempt attempt,
+  )?
   onLockAnswer;
 
   @override
@@ -28,6 +37,7 @@ class UnderstandingCheckQuiz extends StatefulWidget {
 class _UnderstandingCheckQuizState extends State<UnderstandingCheckQuiz> {
   late String _localKey;
   var _checkingMissingKey = false;
+  UnderstandingCheckGrade? _grade;
 
   @override
   void initState() {
@@ -50,8 +60,8 @@ class _UnderstandingCheckQuizState extends State<UnderstandingCheckQuiz> {
     return _localKey;
   }
 
-  void _lockAnswer(String key) {
-    if (_selectedKey.isNotEmpty) return;
+  Future<void> _lockAnswer(String key) async {
+    if (!widget.enabled || _selectedKey.isNotEmpty) return;
     final nextKey = key.trim().toUpperCase();
     final selected = widget.quiz.optionFor(nextKey);
     if (selected == null) return;
@@ -59,7 +69,7 @@ class _UnderstandingCheckQuizState extends State<UnderstandingCheckQuiz> {
       _localKey = nextKey;
       if (widget.quiz.correctKey.isEmpty) _checkingMissingKey = true;
     });
-    widget.onLockAnswer?.call(
+    final result = await widget.onLockAnswer?.call(
       nextKey,
       UnderstandingCheckAttempt(
         quiz: widget.quiz,
@@ -69,6 +79,11 @@ class _UnderstandingCheckQuizState extends State<UnderstandingCheckQuiz> {
             nextKey == widget.quiz.correctKey,
       ),
     );
+    if (!mounted) return;
+    setState(() {
+      _grade = result;
+      _checkingMissingKey = false;
+    });
   }
 
   @override
@@ -81,10 +96,20 @@ class _UnderstandingCheckQuizState extends State<UnderstandingCheckQuiz> {
     final selectedKey = _selectedKey;
     final locked = selectedKey.isNotEmpty;
     final selected = quiz.optionFor(selectedKey);
-    final hasKey = quiz.correctKey.isNotEmpty;
-    final isCorrect = hasKey && selectedKey == quiz.correctKey;
-    final correctOption = quiz.optionFor(quiz.correctKey);
-    final hint = locked
+    final effectiveGrade = _grade ?? widget.restoredGrade;
+    final correctKey = effectiveGrade?.correctKey.isNotEmpty == true
+        ? effectiveGrade!.correctKey
+        : quiz.correctKey;
+    final explanation = effectiveGrade?.explanation.isNotEmpty == true
+        ? effectiveGrade!.explanation
+        : quiz.explanation;
+    final hasKey = correctKey.isNotEmpty;
+    final isCorrect =
+        effectiveGrade?.correct ?? (hasKey && selectedKey == correctKey);
+    final correctOption = quiz.optionFor(correctKey);
+    final hint = !widget.enabled && !locked
+        ? 'Đã hết lượt đặt câu hỏi hôm nay. Bạn vẫn có thể xem lại nội dung quiz.'
+        : locked
         ? 'Đã khóa đáp án. Giáo viên xem được kết quả này để gửi chỉ dẫn cho lần học sau.'
         : 'Chọn một lần. Kết quả đúng/sai và giải thích được giữ; không đổi được sau khi chọn.';
 
@@ -153,8 +178,9 @@ class _UnderstandingCheckQuizState extends State<UnderstandingCheckQuiz> {
                   option: option,
                   selected: selectedKey == option.key,
                   showGrade: locked && hasKey,
-                  isCorrectChoice: option.key == quiz.correctKey,
+                  isCorrectChoice: option.key == correctKey,
                   locked: locked,
+                  enabled: widget.enabled,
                   onTap: () => _lockAnswer(option.key),
                 ),
               ),
@@ -164,19 +190,27 @@ class _UnderstandingCheckQuizState extends State<UnderstandingCheckQuiz> {
                 hasKey: hasKey,
                 isCorrect: isCorrect,
                 selected: selected,
-                correctKey: quiz.correctKey,
-                correctText: correctOption?.text,
-                explanation: quiz.explanation,
+                correctKey: correctKey,
+                correctText:
+                    effectiveGrade?.correctOptionText.isNotEmpty == true
+                    ? effectiveGrade!.correctOptionText
+                    : correctOption?.text,
+                explanation: explanation,
                 checkingMissingKey: _checkingMissingKey,
-                onAskAgain: !hasKey && widget.onLockAnswer != null
+                onAskAgain:
+                    widget.enabled && !hasKey && widget.onLockAnswer != null
                     ? () {
                         setState(() => _checkingMissingKey = true);
-                        widget.onLockAnswer!(
-                          selected.key,
-                          UnderstandingCheckAttempt(
-                            quiz: quiz,
-                            selected: selected,
-                            isCorrect: false,
+                        unawaited(
+                          Future.sync(
+                            () => widget.onLockAnswer!(
+                              selected.key,
+                              UnderstandingCheckAttempt(
+                                quiz: quiz,
+                                selected: selected,
+                                isCorrect: false,
+                              ),
+                            ),
                           ),
                         );
                       }
@@ -197,6 +231,7 @@ class _OptionButton extends StatelessWidget {
     required this.showGrade,
     required this.isCorrectChoice,
     required this.locked,
+    required this.enabled,
     required this.onTap,
   });
 
@@ -205,6 +240,7 @@ class _OptionButton extends StatelessWidget {
   final bool showGrade;
   final bool isCorrectChoice;
   final bool locked;
+  final bool enabled;
   final VoidCallback onTap;
 
   @override
@@ -225,52 +261,55 @@ class _OptionButton extends StatelessWidget {
       fill = AppColors.card;
     }
 
-    return Material(
-      color: fill,
-      borderRadius: BorderRadius.circular(Radii.sm),
-      child: InkWell(
-        onTap: locked ? null : onTap,
+    return Opacity(
+      opacity: enabled || locked ? 1 : 0.56,
+      child: Material(
+        color: fill,
         borderRadius: BorderRadius.circular(Radii.sm),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(Radii.sm),
-            border: Border.all(color: border),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: Insets.sm,
-              vertical: Insets.sm,
+        child: InkWell(
+          onTap: locked || !enabled ? null : onTap,
+          borderRadius: BorderRadius.circular(Radii.sm),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(Radii.sm),
+              border: Border.all(color: border),
             ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 22,
-                  height: 22,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryWash,
-                    borderRadius: BorderRadius.circular(Radii.sm),
-                  ),
-                  child: Text(
-                    option.key,
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.primary,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: Insets.sm,
+                vertical: Insets.sm,
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 22,
+                    height: 22,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryWash,
+                      borderRadius: BorderRadius.circular(Radii.sm),
+                    ),
+                    child: Text(
+                      option.key,
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.primary,
+                      ),
                     ),
                   ),
-                ),
-                const Gap(Insets.sm),
-                Expanded(
-                  child: Text(
-                    option.text,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppColors.textPrimary,
-                      height: 1.35,
+                  const Gap(Insets.sm),
+                  Expanded(
+                    child: Text(
+                      option.text,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: AppColors.textPrimary,
+                        height: 1.35,
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

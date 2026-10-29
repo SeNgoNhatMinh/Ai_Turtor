@@ -11,13 +11,16 @@ String normalizeUnderstandingSelectedKey(String? value) {
 
 Future<String> loadUnderstandingSelectedKey(
   FlutterSecureStorage storage,
-  String messageId,
-) async {
+  String messageId, {
+  int quizIndex = 0,
+}) async {
   final id = messageId.trim();
   if (id.isEmpty) return '';
   try {
     return normalizeUnderstandingSelectedKey(
-      await storage.read(key: understandingCheckStorageKey(id)),
+      await storage.read(
+        key: understandingCheckStorageKey(id, quizIndex: quizIndex),
+      ),
     );
   } catch (_) {
     return '';
@@ -28,12 +31,16 @@ Future<void> persistUnderstandingSelectedKey(
   FlutterSecureStorage storage, {
   required String messageId,
   required String selectedKey,
+  int quizIndex = 0,
 }) async {
   final id = messageId.trim();
   final key = normalizeUnderstandingSelectedKey(selectedKey);
   if (id.isEmpty || key.isEmpty) return;
   try {
-    await storage.write(key: understandingCheckStorageKey(id), value: key);
+    await storage.write(
+      key: understandingCheckStorageKey(id, quizIndex: quizIndex),
+      value: key,
+    );
   } catch (_) {
     // Private storage can fail; in-memory lock still holds.
   }
