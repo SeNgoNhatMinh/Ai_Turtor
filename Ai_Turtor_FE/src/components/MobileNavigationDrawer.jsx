@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 import { Drawer, Menu } from 'antd';
 import { LogOut, Search, UserRound, X } from 'lucide-react';
 import {
@@ -31,11 +31,6 @@ function MobileNavigationDrawer({
   const navigation = useMemo(() => getNavigationForRole(normalizedRole), [normalizedRole]);
   const selectedKey = resolveNavigationSelection(activeTab);
   const openParentKey = findOpenMenuKey(navigation, selectedKey);
-  const [openKeys, setOpenKeys] = useState(() => (openParentKey ? [openParentKey] : []));
-  useEffect(() => {
-    if (!openParentKey) return;
-    setOpenKeys((keys) => (keys.includes(openParentKey) ? keys : [...keys, openParentKey]));
-  }, [openParentKey]);
   const items = useMemo(() => {
     const filtered = navigation.flatMap((item) => {
       const children = (item.children || []).filter((child) => (
@@ -123,10 +118,10 @@ function MobileNavigationDrawer({
       <nav className="mobile-navigation-drawer__menu" aria-label={`Menu ${roleLabel}`}>
         {items.length ? (
           <Menu
+            key={`${normalizedRole}:${openParentKey || 'root'}`}
             mode="inline"
             selectedKeys={[selectedKey]}
-            openKeys={openKeys}
-            onOpenChange={setOpenKeys}
+            defaultOpenKeys={openParentKey ? [openParentKey] : []}
             items={items}
             onClick={navigate}
           />
