@@ -21,6 +21,8 @@ import { indexedTeachingNotesApi } from '../../../services/indexedTeachingNotesA
 import { getUserFacingError } from '../../../services/apiClient';
 import { getStatusLabel } from '../../../utils/statusLabels';
 import { queryKeys } from '../../../app/queryKeys';
+import { useRealtimeEvent, useRealtimeReconnect } from '../../realtime/realtimeContext';
+import { eventMatchesCourse, REALTIME_EVENT_TYPES } from '../../realtime/realtimeEvents';
 import './AdminIndexedTeachingNotesPage.css';
 
 const { Paragraph, Text } = Typography;
@@ -68,6 +70,10 @@ export default function AdminIndexedTeachingNotesPage({ courseId, setCourseId, t
     ? getUserFacingError(queryError, 'Không thể tải dữ liệu index Senior đã duyệt.')
     : '';
   const loadNotes = () => notesQuery.refetch();
+  useRealtimeEvent(REALTIME_EVENT_TYPES.knowledgeCandidate, (event) => {
+    if (eventMatchesCourse(event, courseId)) void notesQuery.refetch();
+  });
+  useRealtimeReconnect(() => notesQuery.refetch());
 
   const courseOptions = useMemo(
     () => [

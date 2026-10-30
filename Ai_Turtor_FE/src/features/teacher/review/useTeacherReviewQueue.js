@@ -184,6 +184,9 @@ export function useTeacherReviewQueue({
   useRealtimeEvent(REALTIME_EVENT_TYPES.supportEscalation, (event) => {
     if (eventMatchesCourse(event, courseId)) invalidateReviewData();
   });
+  useRealtimeEvent(REALTIME_EVENT_TYPES.knowledgeCandidate, (event) => {
+    if (eventMatchesCourse(event, courseId)) invalidateReviewData();
+  });
   useRealtimeReconnect(invalidateReviewData);
 
   const answerEscalationThroughBackend = (escalationId, payload) => (
@@ -332,38 +335,19 @@ export function useTeacherReviewQueue({
 
   const submitCandidateDecision = async (id, decision, note) => {
     const payload = {
-      decision,
-      candidateId: id,
       reviewerId: teacherId,
       reviewerRole,
       reviewerName,
       reviewNote: note,
       ...(decision === 'REJECT' ? { rejectionReason: note } : {}),
     };
-    if (N8N_ENABLED) {
-      try {
-        await n8nService.submitSeniorApproval(payload);
-        return;
-      } catch (n8nError) {
-        if (N8N_STRICT) throw n8nError;
-        console.warn('n8n candidate decision failed, falling back to backend API:', n8nError);
-      }
-    }
+    // Approval/indexing is a canonical database mutation. Call the backend
+    // directly so an Elasticsearch/backend error cannot be hidden behind an
+    // n8n workflow response that still says success.
     if (decision === 'APPROVE') {
-      await teacherReviewApi.approveCandidate(id, {
-        reviewerId: teacherId,
-        reviewerRole,
-        reviewerName,
-        reviewNote: note,
-      });
+      await teacherReviewApi.approveCandidate(id, payload);
     } else {
-      await teacherReviewApi.rejectCandidate(id, {
-        reviewerId: teacherId,
-        reviewerRole,
-        reviewerName,
-        rejectionReason: note,
-        reviewNote: note,
-      });
+      await teacherReviewApi.rejectCandidate(id, payload);
     }
   };
 

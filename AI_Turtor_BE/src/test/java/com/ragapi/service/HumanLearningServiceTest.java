@@ -23,6 +23,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -96,6 +97,60 @@ class HumanLearningServiceTest {
                 List.of("approved chunk")
         );
         verify(answerCacheService).evictRagAnswersForCourse("PRJ301");
+    }
+
+    @Test
+    void approveCandidateKeepsCandidatePendingAndMarksMaterialFailedWhenIndexingFails() throws Exception {
+        KnowledgeCandidateRepository candidateRepository = mock(KnowledgeCandidateRepository.class);
+        CourseMaterialRepository materialRepository = mock(CourseMaterialRepository.class);
+        CourseMaterialChunkingService chunkingService = mock(CourseMaterialChunkingService.class);
+        CourseMaterialIndexGateway vectorService = mock(CourseMaterialIndexGateway.class);
+        HumanLearningService service = new HumanLearningService(
+                mock(QuestionEscalationRepository.class),
+                mock(MentorRepository.class),
+                mock(MentorAnswerRepository.class),
+                candidateRepository,
+                materialRepository,
+                chunkingService,
+                vectorService,
+                mock(KnowledgeImageStorageService.class),
+                mock(CanonicalTutorAnswerCacheService.class),
+                mock(ClassSectionRepository.class),
+                mock(RealtimeEventService.class)
+        );
+        KnowledgeCandidate candidate = KnowledgeCandidate.builder()
+                .id("candidate-failed")
+                .courseId("PRJ301")
+                .teacherId("teacher-1")
+                .candidateType("ACADEMIC_KNOWLEDGE")
+                .question("Dependency injection lÃ  gÃ¬?")
+                .answer("LÃ  cÃ¡ch cung cáº¥p dependency tá»« bÃªn ngoÃ i.")
+                .status("PENDING_SENIOR_REVIEW")
+                .build();
+        when(candidateRepository.findById("candidate-failed")).thenReturn(Optional.of(candidate));
+        when(materialRepository.save(any(CourseMaterial.class))).thenAnswer(invocation -> {
+            CourseMaterial material = invocation.getArgument(0);
+            if (material.getId() == null) material.setId("material-failed");
+            return material;
+        });
+        when(chunkingService.chunk(any())).thenReturn(List.of("approved chunk"));
+        doThrow(new java.io.IOException("Elasticsearch unavailable"))
+                .when(vectorService).indexChunks(
+                        any(), any(), any(), any(), any(), any(), any(), any(), any());
+
+        KnowledgeCandidateReviewRequest request = new KnowledgeCandidateReviewRequest();
+        request.setReviewerId("senior-1");
+        request.setReviewerRole("SENIOR_MENTOR");
+
+        assertThatThrownBy(() -> service.approveCandidate("candidate-failed", request))
+                .isInstanceOf(java.io.IOException.class)
+                .hasMessageContaining("Elasticsearch unavailable");
+
+        assertThat(candidate.getStatus()).isEqualTo("PENDING_SENIOR_REVIEW");
+        ArgumentCaptor<CourseMaterial> captor = ArgumentCaptor.forClass(CourseMaterial.class);
+        verify(materialRepository, org.mockito.Mockito.atLeast(2)).save(captor.capture());
+        assertThat(captor.getValue().getIndexingStatus()).isEqualTo("FAILED");
+        assertThat(captor.getValue().getIndexingError()).contains("Elasticsearch unavailable");
     }
 
     @Test

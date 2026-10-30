@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.LocalDateTime;
@@ -20,6 +21,15 @@ public class QuestionEscalation {
     @Id
     private String id;
 
+    /**
+     * Stable key for one logical student question. Retries from n8n, the
+     * browser, or a timed-out HTTP request must resolve to the same ticket.
+     * It is cleared when the ticket reaches a terminal state so the student
+     * may ask the same question again later.
+     */
+    @Indexed(unique = true, sparse = true)
+    private String idempotencyKey;
+
     private String userId;
     private String userEmail;
     private String userName;
@@ -31,6 +41,7 @@ public class QuestionEscalation {
     private String courseId;
     private String classId;
 
+    @Indexed
     private String conversationId;
     /**
      * PENDING_OFFER -> OFFERED -> IN_CHAT -> COMPLETED -> CANCELLED
@@ -51,6 +62,7 @@ public class QuestionEscalation {
     private String escalationRoute;
     private String routeReason;
 
+    @Indexed
     private String chatRoomId;
     private List<MentorSuggestion> suggestedMentors;
 

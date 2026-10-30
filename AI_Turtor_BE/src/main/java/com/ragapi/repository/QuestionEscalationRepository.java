@@ -39,6 +39,8 @@ public interface QuestionEscalationRepository extends MongoRepository<QuestionEs
      * Tìm request theo chatRoomId
      */
     Optional<QuestionEscalation> findByChatRoomId(String chatRoomId);
+
+    Optional<QuestionEscalation> findByIdempotencyKey(String idempotencyKey);
 }
 
 

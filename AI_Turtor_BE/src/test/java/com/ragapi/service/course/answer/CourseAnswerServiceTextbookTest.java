@@ -243,6 +243,76 @@ class CourseAnswerServiceTextbookTest {
     }
 
     @Test
+    void studentAskUsesSeniorApprovedPyTorchKnowledgeAndPreservesProvenance() throws Exception {
+        String question = "PyTorch là gì?";
+        String primaryContent = "Python lists support append, pop, insert, and slicing operations.";
+        String approvedContent = """
+                Câu hỏi: pytorch là gì ? nó được dùng để làm gì ?
+                Câu trả lời: PyTorch là một thư viện học máy mã nguồn mở cho Python. Nó được dùng để xây dựng, huấn luyện và suy luận các mô hình mạng nơ-ron bằng tensor và cơ chế tự động tính gradient.
+                """;
+        RetrievedCourseChunk primaryChunk = new RetrievedCourseChunk(
+                primaryContent,
+                0.93,
+                "pfp191-main",
+                "PFP191",
+                null,
+                "teacher-1",
+                "COURSE_SHARED",
+                "PDF"
+        );
+        RetrievedCourseChunk approvedChunk = new RetrievedCourseChunk(
+                approvedContent,
+                0.96,
+                "approved-material-pytorch",
+                "PFP191",
+                null,
+                "senior-1",
+                "COURSE_SHARED",
+                "KNOWLEDGE_CANDIDATE"
+        );
+        CourseMaterial primaryMaterial = new CourseMaterial();
+        primaryMaterial.setId("pfp191-main");
+        primaryMaterial.setTitle("Main PFP191 Material");
+        primaryMaterial.setCourseId("PFP191");
+        primaryMaterial.setSourceType("PDF");
+        primaryMaterial.setContent(primaryContent);
+        CourseMaterial approvedMaterial = new CourseMaterial();
+        approvedMaterial.setId("approved-material-pytorch");
+        approvedMaterial.setTitle("Senior-approved PyTorch answer");
+        approvedMaterial.setCourseId("PFP191");
+        approvedMaterial.setSourceType("KNOWLEDGE_CANDIDATE");
+        approvedMaterial.setCategory("senior-approved-knowledge");
+        approvedMaterial.setKnowledgeCandidateId("candidate-pytorch");
+        approvedMaterial.setApprovedByName("Senior Mentor");
+        approvedMaterial.setContent(approvedContent);
+
+        when(vectorService.searchTextbookWithScores(anyString(), eq("PFP191"), isNull()))
+                .thenReturn(List.of(primaryChunk));
+        when(vectorService.searchGoldQaTeachingNotesWithScores(anyString(), eq("PFP191"), isNull(), eq(2)))
+                .thenReturn(List.of());
+        when(approvedKnowledgeRetrievalService.retrieveRelevant(
+                eq(question), eq("PFP191"), isNull(), isNull()))
+                .thenReturn(List.of(approvedChunk));
+        when(contextBudgetService.applyBudget(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(materialRepository.findAllById(any()))
+                .thenReturn(List.of(primaryMaterial, approvedMaterial));
+        when(courseRepository.findByCourseId("PFP191")).thenReturn(Optional.empty());
+        when(chatService.generate(anyString(), eq(question)))
+                .thenReturn("PyTorch là thư viện học máy mã nguồn mở dùng để xây dựng và huấn luyện mạng nơ-ron.");
+
+        CourseRagAnswer answer = service.askWithConfidence(question, "PFP191", null);
+
+        ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
+        verify(chatService).generate(promptCaptor.capture(), eq(question));
+        assertTrue(promptCaptor.getValue().contains(approvedContent));
+        assertEquals("COURSE_MATERIAL_WITH_APPROVED_KNOWLEDGE", answer.getGroundingType());
+        assertTrue(answer.getSources().contains("approvedKnowledgeId=candidate-pytorch"));
+        assertTrue(answer.getSourceEvidence().stream().anyMatch(evidence ->
+                "SENIOR_APPROVED_KNOWLEDGE".equals(evidence.getSourceKind())
+                        && "candidate-pytorch".equals(evidence.getKnowledgeCandidateId())));
+    }
+
+    @Test
     void studentAskKeepsMultipleDistinctChunksFromTheSamePdf() throws Exception {
         RetrievedCourseChunk definitionChunk = new RetrievedCourseChunk(
                 "A cache hit occurs when requested data is found in cache memory.",

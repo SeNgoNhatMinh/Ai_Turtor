@@ -192,6 +192,19 @@ public class AiAnswerReviewService {
             KnowledgeCandidate candidate = createKnowledgeCandidate(review, request, candidateType, now);
             candidate = knowledgeCandidateRepository.save(candidate);
             candidateId = candidate.getId();
+            Map<String, Object> candidateData = new LinkedHashMap<>();
+            candidateData.put("candidateId", candidate.getId());
+            candidateData.put("courseId", candidate.getCourseId() == null ? "" : candidate.getCourseId());
+            candidateData.put("classId", candidate.getClassId() == null ? "" : candidate.getClassId());
+            candidateData.put("status", candidate.getStatus());
+            realtimeEvents.publishToRoles(
+                    Set.of("SENIOR_MENTOR", "ADMIN"),
+                    "KNOWLEDGE_CANDIDATE_CREATED",
+                    "KNOWLEDGE_CANDIDATE",
+                    candidate.getId(),
+                    candidate.getStatus(),
+                    candidateData
+            );
         }
 
         AiAnswerReview representative = review;

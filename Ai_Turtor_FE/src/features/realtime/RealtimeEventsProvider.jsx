@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { env } from '../../config/env';
 import { getAuthToken } from '../auth/services/tokenStorage';
 import { RealtimeEventsContext } from './realtimeContext';
@@ -13,6 +14,7 @@ const MAX_RECONNECT_DELAY_MS = 30000;
 const EVENT_DEDUPE_WINDOW_MS = 1500;
 
 export default function RealtimeEventsProvider({ enabled, sessionKey = '', onProfileUpdated, children }) {
+  const queryClient = useQueryClient();
   const subscribersRef = useRef(new Set());
   const [connectionState, setConnectionState] = useState('DISCONNECTED');
   const [connectionVersion, setConnectionVersion] = useState(0);
@@ -31,14 +33,24 @@ export default function RealtimeEventsProvider({ enabled, sessionKey = '', onPro
     let socket = null;
     let pingTimer = null;
     let reconnectTimer = null;
+    let canonicalRefreshTimer = null;
     let reconnectAttempt = 0;
     const recentEventKeys = new Map();
 
     const clearTimers = () => {
       window.clearInterval(pingTimer);
       window.clearTimeout(reconnectTimer);
+      window.clearTimeout(canonicalRefreshTimer);
       pingTimer = null;
       reconnectTimer = null;
+      canonicalRefreshTimer = null;
+    };
+
+    const refreshActivePages = () => {
+      window.clearTimeout(canonicalRefreshTimer);
+      canonicalRefreshTimer = window.setTimeout(() => {
+        queryClient.invalidateQueries({ refetchType: 'active' });
+      }, 100);
     };
 
     const scheduleReconnect = (connect) => {
@@ -70,6 +82,9 @@ export default function RealtimeEventsProvider({ enabled, sessionKey = '', onPro
         reconnectAttempt = 0;
         setConnectionState('CONNECTED');
         setConnectionVersion((current) => current + 1);
+        // Recover every currently visible page after a disconnect, even when
+        // events were missed while the browser was offline.
+        refreshActivePages();
         window.clearInterval(pingTimer);
         pingTimer = window.setInterval(() => {
           if (socket?.readyState === WebSocket.OPEN) {
@@ -105,6 +120,10 @@ export default function RealtimeEventsProvider({ enabled, sessionKey = '', onPro
             console.warn('Realtime event subscriber failed:', error);
           }
         });
+        // Feature-specific subscribers still provide focused behaviour. This
+        // canonical invalidation is the safety net for every other page so
+        // users never need a manual browser reload to see server changes.
+        refreshActivePages();
       };
 
       socket.onerror = () => {
@@ -130,7 +149,7 @@ export default function RealtimeEventsProvider({ enabled, sessionKey = '', onPro
         socket.close();
       }
     };
-  }, [enabled, onProfileUpdated, sessionKey]);
+  }, [enabled, onProfileUpdated, queryClient, sessionKey]);
 
   const value = useMemo(
     () => ({ connectionState, connectionVersion, subscribe }),

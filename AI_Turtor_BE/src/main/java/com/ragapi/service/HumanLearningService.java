@@ -60,6 +60,42 @@ public class HumanLearningService {
     private final ClassSectionRepository classSectionRepository;
     private final RealtimeEventService realtimeEvents;
 
+    private void publishKnowledgeCandidateEvent(KnowledgeCandidate candidate, String eventType) {
+        if (candidate == null || candidate.getId() == null) return;
+        try {
+            Map<String, Object> data = new LinkedHashMap<>();
+            data.put("candidateId", candidate.getId());
+            data.put("questionEscalationId", candidate.getQuestionEscalationId() == null
+                    ? "" : candidate.getQuestionEscalationId());
+            data.put("courseId", candidate.getCourseId() == null ? "" : candidate.getCourseId());
+            data.put("classId", candidate.getClassId() == null ? "" : candidate.getClassId());
+            data.put("teacherId", candidate.getTeacherId() == null ? "" : candidate.getTeacherId());
+            data.put("materialId", candidate.getMaterialId() == null ? "" : candidate.getMaterialId());
+            data.put("status", candidate.getStatus() == null ? "" : candidate.getStatus());
+            realtimeEvents.publishToRoles(
+                    List.of("SENIOR_MENTOR", "ADMIN"),
+                    eventType,
+                    "KNOWLEDGE_CANDIDATE",
+                    candidate.getId(),
+                    candidate.getStatus(),
+                    data
+            );
+            if (candidate.getTeacherId() != null && !candidate.getTeacherId().isBlank()) {
+                realtimeEvents.publishToUser(
+                        candidate.getTeacherId(),
+                        eventType,
+                        "KNOWLEDGE_CANDIDATE",
+                        candidate.getId(),
+                        candidate.getStatus(),
+                        data
+                );
+            }
+        } catch (Exception error) {
+            log.warn("Could not publish {} for knowledge candidate {}: {}",
+                    eventType, candidate.getId(), error.getMessage());
+        }
+    }
+
     /** Notifies the student and the class teacher that a support request was answered. */
     private void publishEscalationAnswered(QuestionEscalation escalation) {
         if (escalation == null || escalation.getId() == null) return;
@@ -132,6 +168,7 @@ public class HumanLearningService {
             }
             candidate = buildCandidate(escalation, mentorAnswer, candidateType, now);
             candidate = knowledgeCandidateRepository.save(candidate);
+            publishKnowledgeCandidateEvent(candidate, "KNOWLEDGE_CANDIDATE_CREATED");
             escalation.setStatus("ANSWERED_PENDING_SENIOR_REVIEW");
         } else {
             escalation.setStatus("ANSWERED_NO_KNOWLEDGE_CANDIDATE");
@@ -139,6 +176,7 @@ public class HumanLearningService {
 
         escalation.setAssignedMentorId(teacherId);
         escalation.setAssignedMentorName(optionalMaxLength(request.getTeacherName(), "teacherName", SHORT_TEXT_MAX_LENGTH));
+        escalation.setIdempotencyKey(null);
         escalation.setUpdatedAt(now);
         escalationRepository.save(escalation);
         publishEscalationAnswered(escalation);
@@ -268,7 +306,9 @@ public class HumanLearningService {
         LocalDateTime now = LocalDateTime.now();
         KnowledgeCandidate candidate = knowledgeCandidateRepository.save(
                 buildCandidate(escalation, mentorAnswer, candidateType, now));
+        publishKnowledgeCandidateEvent(candidate, "KNOWLEDGE_CANDIDATE_CREATED");
         escalation.setStatus("ANSWERED_PENDING_SENIOR_REVIEW");
+        escalation.setIdempotencyKey(null);
         escalation.setUpdatedAt(now);
         escalationRepository.save(escalation);
 
@@ -305,9 +345,9 @@ public class HumanLearningService {
                 + KnowledgeImageStorageService.formatImageAppendix(candidate.getImages());
 
         LocalDateTime now = LocalDateTime.now();
-        supersedeIndexedDuplicates(candidate, now);
-
-        CourseMaterial material = new CourseMaterial();
+        CourseMaterial material = courseMaterialRepository
+                .findFirstByKnowledgeCandidateId(candidate.getId())
+                .orElseGet(CourseMaterial::new);
         material.setTitle("Senior-approved knowledge: " + candidate.getQuestion());
         material.setCategory("senior-approved-knowledge");
         material.setCourseId(candidate.getCourseId());
@@ -322,23 +362,39 @@ public class HumanLearningService {
         material.setApprovedByName(trimToNull(request.getReviewerName()));
         material.setApprovedAt(now);
         material.setIndexingStatus("PROCESSING");
+        material.setIndexingError(null);
         courseMaterialRepository.save(material);
 
-        List<String> chunks = chunkingService.chunk(content);
-        vectorService.indexChunks(
-                material.getCourseId(),
-                material.getClassId(),
-                material.getTeacherId(),
-                material.getId(),
-                material.getMaterialScope(),
-                "KNOWLEDGE_CANDIDATE",
-                null,
-                null,
-                chunks
-        );
-        material.setIndexingStatus("INDEXED");
-        material.setIndexedAt(now);
-        courseMaterialRepository.save(material);
+        try {
+            List<String> chunks = chunkingService.chunk(content);
+            if (chunks == null || chunks.isEmpty()) {
+                chunks = List.of(content.trim());
+            }
+            vectorService.indexChunks(
+                    material.getCourseId(),
+                    material.getClassId(),
+                    material.getTeacherId(),
+                    material.getId(),
+                    material.getMaterialScope(),
+                    "KNOWLEDGE_CANDIDATE",
+                    null,
+                    null,
+                    chunks
+            );
+            material.setIndexingStatus("INDEXED");
+            material.setIndexedAt(now);
+            material.setIndexingError(null);
+            courseMaterialRepository.save(material);
+        } catch (IOException | RuntimeException error) {
+            material.setIndexingStatus("FAILED");
+            material.setIndexingError(error.getMessage());
+            courseMaterialRepository.save(material);
+            throw error;
+        }
+
+        // Keep the previous approved answer available until the replacement
+        // has been indexed successfully.
+        supersedeIndexedDuplicates(candidate, now);
 
         candidate.setContent(content);
         candidate.setAnswer(approvedAnswer);
@@ -354,6 +410,7 @@ public class HumanLearningService {
         KnowledgeCandidate savedCandidate = knowledgeCandidateRepository.save(candidate);
         answerCacheService.evictRagAnswersForCourse(savedCandidate.getCourseId());
         markEscalationIndexed(savedCandidate);
+        publishKnowledgeCandidateEvent(savedCandidate, "KNOWLEDGE_CANDIDATE_INDEXED");
         return savedCandidate;
     }
 
@@ -376,6 +433,7 @@ public class HumanLearningService {
         candidate.setUpdatedAt(now);
         KnowledgeCandidate savedCandidate = knowledgeCandidateRepository.save(candidate);
         updateEscalationAfterCandidateRejected(savedCandidate);
+        publishKnowledgeCandidateEvent(savedCandidate, "KNOWLEDGE_CANDIDATE_REJECTED");
         return savedCandidate;
     }
 
@@ -445,6 +503,7 @@ public class HumanLearningService {
         }
         KnowledgeCandidate saved = knowledgeCandidateRepository.save(candidate);
         answerCacheService.evictRagAnswersForCourse(saved.getCourseId());
+        publishKnowledgeCandidateEvent(saved, "KNOWLEDGE_CANDIDATE_UPDATED");
         return saved;
     }
 
@@ -472,6 +531,7 @@ public class HumanLearningService {
         candidate.setUpdatedAt(LocalDateTime.now());
         KnowledgeCandidate saved = knowledgeCandidateRepository.save(candidate);
         answerCacheService.evictRagAnswersForCourse(saved.getCourseId());
+        publishKnowledgeCandidateEvent(saved, "KNOWLEDGE_CANDIDATE_INDEXED");
         return saved;
     }
 
@@ -491,6 +551,7 @@ public class HumanLearningService {
         candidate.setUpdatedAt(LocalDateTime.now());
         KnowledgeCandidate saved = knowledgeCandidateRepository.save(candidate);
         answerCacheService.evictRagAnswersForCourse(saved.getCourseId());
+        publishKnowledgeCandidateEvent(saved, "KNOWLEDGE_CANDIDATE_UNINDEXED");
         return saved;
     }
 
@@ -503,6 +564,7 @@ public class HumanLearningService {
             courseMaterialRepository.deleteById(materialId);
         }
         knowledgeCandidateRepository.deleteById(candidate.getId());
+        publishKnowledgeCandidateEvent(candidate, "KNOWLEDGE_CANDIDATE_DELETED");
         if (courseId != null && !courseId.isBlank()) {
             answerCacheService.evictRagAnswersForCourse(courseId);
         }
@@ -640,8 +702,10 @@ public class HumanLearningService {
         }
         escalationRepository.findById(escalationId).ifPresent(escalation -> {
             escalation.setStatus("RESOLVED_INDEXED");
+            escalation.setIdempotencyKey(null);
             escalation.setUpdatedAt(LocalDateTime.now());
             escalationRepository.save(escalation);
+            publishEscalationAnswered(escalation);
         });
     }
 
@@ -652,8 +716,10 @@ public class HumanLearningService {
         }
         escalationRepository.findById(escalationId).ifPresent(escalation -> {
             escalation.setStatus("ANSWERED_KNOWLEDGE_REJECTED");
+            escalation.setIdempotencyKey(null);
             escalation.setUpdatedAt(LocalDateTime.now());
             escalationRepository.save(escalation);
+            publishEscalationAnswered(escalation);
         });
     }
 

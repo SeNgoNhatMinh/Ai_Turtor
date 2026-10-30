@@ -33,15 +33,6 @@ public class CourseRetrievalMergeService {
     private final CourseSectionExpansionService sectionExpansion;
     private final CourseRetrievalCandidateService candidateService;
 
-    @org.springframework.beans.factory.annotation.Value("${rag.retrieval.conditional-approved-knowledge.enabled:true}")
-    private boolean conditionalApprovedKnowledgeEnabled;
-
-    @org.springframework.beans.factory.annotation.Value("${rag.retrieval.primary-sufficient.min-chunks:2}")
-    private int primarySufficientMinChunks;
-
-    @org.springframework.beans.factory.annotation.Value("${rag.retrieval.primary-sufficient.min-context-chars:900}")
-    private int primarySufficientMinContextChars;
-
     public List<RetrievedCourseChunk> merge(
             CourseRetrievalQuery query,
             String courseId,
@@ -65,10 +56,9 @@ public class CourseRetrievalMergeService {
         if (textbookOnly) {
             return contextLimit.applyBudget(chunks);
         }
-        if (conditionalApprovedKnowledgeEnabled && hasSufficientPrimaryContext(chunks)) {
-            log.info("Skipping supplemental knowledge because primary course context is sufficient");
-            return contextLimit.applyBudget(chunks);
-        }
+        // Senior-approved knowledge must always be checked for normal RAG requests.
+        // The approved-knowledge search owns relevance filtering; raw primary chunk
+        // count/length is not evidence that the primary material answers the question.
         return mergeAdditionalKnowledge(query, courseId, classId, chunks, queryEmbedding);
         } finally {
             RagStageTimer.record("T9_MERGE_DEDUP_CONTEXT", started);
@@ -129,7 +119,6 @@ public class CourseRetrievalMergeService {
             textbookAndNotes.add(note);
         }
 
-        List<RetrievedCourseChunk> budgeted = contextLimit.applyBudget(textbookAndNotes);
         Set<String> keptChunkKeys = new LinkedHashSet<>();
         List<RetrievedCourseChunk> merged = new ArrayList<>();
         for (RetrievedCourseChunk approved : approvedChunks) {
@@ -137,22 +126,14 @@ public class CourseRetrievalMergeService {
                 merged.add(approved);
             }
         }
-        for (RetrievedCourseChunk textbook : budgeted) {
+        for (RetrievedCourseChunk textbook : textbookAndNotes) {
             if (textbook != null && keptChunkKeys.add(chunkIdentity(textbook))) {
                 merged.add(textbook);
             }
         }
-        return merged;
-    }
-
-    private boolean hasSufficientPrimaryContext(List<RetrievedCourseChunk> chunks) {
-        if (chunks == null || chunks.size() < Math.max(1, primarySufficientMinChunks)) return false;
-        int chars = chunks.stream()
-                .map(RetrievedCourseChunk::content)
-                .filter(Objects::nonNull)
-                .mapToInt(String::length)
-                .sum();
-        return chars >= Math.max(200, primarySufficientMinContextChars);
+        // Approved chunks are deliberately first so the shared context budget keeps
+        // strong reviewed evidence and trims lower-priority textbook context instead.
+        return contextLimit.applyBudget(merged);
     }
 
     private List<RetrievedCourseChunk> pinPriorityChunks(
