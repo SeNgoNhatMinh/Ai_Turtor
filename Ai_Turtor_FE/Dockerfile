@@ -68,7 +68,8 @@ COPY Caddyfile /etc/caddy/Caddyfile
 COPY start-caddy.sh /start-caddy.sh
 COPY --from=build /app/dist /srv
 
-RUN chmod +x /start-caddy.sh
+RUN sed -i 's/\r$//' /start-caddy.sh \
+    && chmod +x /start-caddy.sh
 
 EXPOSE 8080
 

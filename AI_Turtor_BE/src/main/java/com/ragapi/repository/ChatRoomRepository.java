@@ -33,7 +33,7 @@ public interface ChatRoomRepository extends MongoRepository<ChatRoom, String> {
     /**
      * Tìm chat room theo questionEscalationId
      */
-    Optional<ChatRoom> findByQuestionEscalationId(String questionEscalationId);
+    Optional<ChatRoom> findFirstByQuestionEscalationIdOrderByCreatedAtAsc(String questionEscalationId);
     
     /**
      * Tìm chat room có tin nhắn chưa �'ọc

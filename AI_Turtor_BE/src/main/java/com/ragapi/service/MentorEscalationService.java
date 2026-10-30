@@ -14,8 +14,10 @@ import com.ragapi.repository.QuestionEscalationRepository;
 import com.ragapi.service.presence.TeacherPresenceQueryService;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -115,9 +117,34 @@ public class MentorEscalationService {
             String classId,
             String conversationId
     ) {
+        String idempotencyKey = escalationIdempotencyKey(
+                userId, courseId, classId, conversationId, question);
+        Optional<QuestionEscalation> existing = questionEscalationRepository
+                .findByIdempotencyKey(idempotencyKey);
+        if (existing.isEmpty() && userId != null && !userId.isBlank()) {
+            existing = questionEscalationRepository.findByUserId(userId).stream()
+                    .filter(this::isOpenEscalation)
+                    .filter(item -> idempotencyKey.equals(escalationIdempotencyKey(
+                            item.getUserId(),
+                            item.getCourseId(),
+                            item.getClassId(),
+                            item.getConversationId(),
+                            item.getOriginalQuestion())))
+                    .reduce(this::preferUsableEscalation);
+            existing.ifPresent(item -> {
+                item.setIdempotencyKey(idempotencyKey);
+                questionEscalationRepository.save(item);
+            });
+        }
+        if (existing.isPresent()) {
+            log.info("Reusing escalation {} for idempotent retry", existing.get().getId());
+            return existing.get();
+        }
+
         LocalDateTime now = LocalDateTime.now();
         QuestionEscalation request = QuestionEscalation.builder()
                 .id(UUID.randomUUID().toString())
+                .idempotencyKey(idempotencyKey)
                 .userId(trimToNull(userId))
                 .userEmail(trimToNull(userEmail))
                 .userName(trimToNull(userName))
@@ -132,7 +159,15 @@ public class MentorEscalationService {
                 .updatedAt(now)
                 .build();
 
-        QuestionEscalation saved = questionEscalationRepository.save(request);
+        QuestionEscalation saved;
+        try {
+            saved = questionEscalationRepository.save(request);
+        } catch (DuplicateKeyException duplicate) {
+            saved = questionEscalationRepository.findByIdempotencyKey(idempotencyKey)
+                    .orElseThrow(() -> duplicate);
+            log.info("Concurrent escalation retry resolved to existing ticket {}", saved.getId());
+            return saved;
+        }
         publishEscalationEvent(saved, "SUPPORT_ESCALATION_CREATED");
         return saved;
     }
@@ -209,6 +244,12 @@ public class MentorEscalationService {
 
         requireStudentOwner(request, userId, "select a mentor");
 
+        Optional<ChatRoom> linkedRoom = chatRoomRepository
+                .findFirstByQuestionEscalationIdOrderByCreatedAtAsc(questionEscalationId);
+        if (linkedRoom.isPresent()) {
+            return resumeLinkedChat(request, linkedRoom.get());
+        }
+
         if ("IN_CHAT".equalsIgnoreCase(request.getStatus())
                 && request.getChatRoomId() != null
                 && !request.getChatRoomId().isBlank()) {
@@ -228,7 +269,9 @@ public class MentorEscalationService {
                 .orElseThrow(() -> new RuntimeException("Mentor not found"));
 
         ChatRoom chatRoom = ChatRoom.builder()
-                .id(UUID.randomUUID().toString())
+                // A deterministic id makes concurrent/retried selections an
+                // upsert of one room instead of two independent chat boxes.
+                .id(chatRoomIdForEscalation(questionEscalationId))
                 .userId(request.getUserId())
                 .userName(request.getUserName())
                 .userEmail(request.getUserEmail())
@@ -282,6 +325,7 @@ public class MentorEscalationService {
         questionEscalationRepository.findById(questionEscalationId).ifPresent(request -> {
             requireStudentOwner(request, userId, "cancel it");
             request.setStatus("CANCELLED");
+            request.setIdempotencyKey(null);
             request.setCancelReason(reason);
             request.setUpdatedAt(LocalDateTime.now());
             questionEscalationRepository.save(request);
@@ -291,7 +335,27 @@ public class MentorEscalationService {
     }
 
     public List<QuestionEscalation> getUserMentorEscalationHistory(String userId) {
-        return questionEscalationRepository.findByUserId(userId);
+        Map<String, QuestionEscalation> canonical = new LinkedHashMap<>();
+        for (QuestionEscalation item : questionEscalationRepository.findByUserId(userId)) {
+            String key = item.getIdempotencyKey();
+            if (key == null || key.isBlank()) {
+                // Only collapse legacy tickets that are still open. A student
+                // may legitimately ask the same question again after an older
+                // ticket has already been resolved.
+                key = isOpenEscalation(item)
+                        ? escalationIdempotencyKey(
+                                item.getUserId(),
+                                item.getCourseId(),
+                                item.getClassId(),
+                                item.getConversationId(),
+                                item.getOriginalQuestion())
+                        : "ticket|" + item.getId();
+            }
+            canonical.merge(key, item, this::preferUsableEscalation);
+        }
+        return canonical.values().stream()
+                .sorted((left, right) -> compareNullableDate(right.getUpdatedAt(), left.getUpdatedAt()))
+                .toList();
     }
 
     public List<QuestionEscalation> getPendingQuestionEscalations() {
@@ -324,6 +388,76 @@ public class MentorEscalationService {
                 .escalationRoute(request.getEscalationRoute())
                 .routeReason(request.getRouteReason())
                 .build();
+    }
+
+    private MentorSelectionResponse resumeLinkedChat(QuestionEscalation request, ChatRoom room) {
+        request.setStatus("IN_CHAT");
+        request.setChatRoomId(room.getId());
+        request.setAssignedMentorId(room.getMentorId());
+        request.setAssignedMentorName(room.getMentorName());
+        request.setAssignedMentorEmail(room.getMentorEmail());
+        request.setUpdatedAt(LocalDateTime.now());
+        questionEscalationRepository.save(request);
+        return MentorSelectionResponse.builder()
+                .chatRoomId(room.getId())
+                .mentorName(room.getMentorName())
+                .mentorEmail(room.getMentorEmail())
+                .message("Resuming existing chat room")
+                .build();
+    }
+
+    private String escalationIdempotencyKey(
+            String userId,
+            String courseId,
+            String classId,
+            String conversationId,
+            String question
+    ) {
+        String source = String.join("|",
+                normalizeKeyPart(userId),
+                normalizeKeyPart(courseId),
+                normalizeKeyPart(classId),
+                normalizeKeyPart(conversationId),
+                normalizeKeyPart(question));
+        return UUID.nameUUIDFromBytes(source.getBytes(StandardCharsets.UTF_8)).toString();
+    }
+
+    private String chatRoomIdForEscalation(String escalationId) {
+        return UUID.nameUUIDFromBytes(
+                ("support-chat|" + escalationId).getBytes(StandardCharsets.UTF_8)).toString();
+    }
+
+    private String normalizeKeyPart(String value) {
+        return value == null ? "" : value.trim().toLowerCase().replaceAll("\\s+", " ");
+    }
+
+    private QuestionEscalation preferUsableEscalation(
+            QuestionEscalation left,
+            QuestionEscalation right
+    ) {
+        boolean leftHasRoom = left.getChatRoomId() != null && !left.getChatRoomId().isBlank();
+        boolean rightHasRoom = right.getChatRoomId() != null && !right.getChatRoomId().isBlank();
+        if (leftHasRoom != rightHasRoom) return leftHasRoom ? left : right;
+        int updatedComparison = compareNullableDate(left.getUpdatedAt(), right.getUpdatedAt());
+        return updatedComparison >= 0 ? left : right;
+    }
+
+    private int compareNullableDate(LocalDateTime left, LocalDateTime right) {
+        if (left == null && right == null) return 0;
+        if (left == null) return -1;
+        if (right == null) return 1;
+        return left.compareTo(right);
+    }
+
+    private boolean isOpenEscalation(QuestionEscalation item) {
+        if (item == null || item.getStatus() == null) return true;
+        String status = item.getStatus().trim().toUpperCase();
+        return !status.startsWith("ANSWERED")
+                && !status.startsWith("RESOLVED")
+                && !status.equals("COMPLETED")
+                && !status.equals("CLOSED")
+                && !status.equals("CANCELLED")
+                && !status.equals("REJECTED");
     }
 
     private void requireStudentOwner(QuestionEscalation escalation, String userId, String action) {

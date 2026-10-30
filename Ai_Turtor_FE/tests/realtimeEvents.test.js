@@ -40,6 +40,7 @@ test('covers Tutor V2 event names and creates an idempotency key', () => {
   assert.equal(REALTIME_EVENT_TYPES.tutorSession.includes('TUTOR_SESSION_OPENED'), true);
   assert.equal(REALTIME_EVENT_TYPES.pedagogicalDirective.includes('PEDAGOGICAL_DIRECTIVE_CONFIRMED'), true);
   assert.equal(REALTIME_EVENT_TYPES.teacherPresence.includes('TEACHER_PRESENCE_CHANGED'), true);
+  assert.equal(REALTIME_EVENT_TYPES.knowledgeCandidate.includes('KNOWLEDGE_CANDIDATE_INDEXED'), true);
   assert.equal(REALTIME_EVENT_TYPES.tutorV2.includes('EVAL_RUN_COMPLETED'), true);
   assert.equal(getRealtimeEventDedupeKey({
     type: 'GOLD_QA_SUBMITTED',

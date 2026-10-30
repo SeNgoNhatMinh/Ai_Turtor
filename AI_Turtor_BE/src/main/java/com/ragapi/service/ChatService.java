@@ -198,6 +198,7 @@ public class ChatService {
         var linkedEscalation = questionEscalationRepository.findByChatRoomId(chatRoomId);
         linkedEscalation.ifPresent(escalation -> {
             escalation.setStatus("COMPLETED");
+            escalation.setIdempotencyKey(null);
             escalation.setUserSatisfactionRating(userRating);
             escalation.setUserFeedback(userFeedback);
             escalation.setDurationSeconds((int) java.time.temporal.ChronoUnit.SECONDS

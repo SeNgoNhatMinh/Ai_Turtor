@@ -699,7 +699,7 @@
       "retryOnFail": true,
       "maxTries": 2,
       "waitBetweenTries": 3000,
-      "onError": "continueRegularOutput"
+      "onError": "stopWorkflow"
     },
     {
       "parameters": {
@@ -847,7 +847,7 @@
       "retryOnFail": true,
       "maxTries": 2,
       "waitBetweenTries": 3000,
-      "onError": "continueRegularOutput"
+      "onError": "stopWorkflow"
     },
     {
       "parameters": {
