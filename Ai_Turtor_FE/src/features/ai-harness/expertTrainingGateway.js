@@ -41,13 +41,23 @@ export const expertTrainingGateway = {
   },
 
   async reviewGoldQa(itemId, decision, payload) {
-    if (!isTutorV2HarnessEnabled() || decision !== 'approve') {
-      return expertTrainingApi.reviewGoldQa(itemId, decision, payload);
+    // Indexing is a database mutation. Call the API directly so an n8n
+    // workflow cannot report success while the Gold Q&A stays pending.
+    const saved = await expertTrainingApi.reviewGoldQa(itemId, decision, payload);
+    if (decision !== 'approve') return saved;
+    const status = String(saved?.status || '').toUpperCase();
+    const usage = String(saved?.usage || '').toUpperCase();
+    const expected = usage === 'EVALUATION' ? 'APPROVED' : 'INDEXED';
+    if (status !== expected) {
+      const error = new Error(
+        expected === 'INDEXED'
+          ? 'Duyệt nạp RAG chưa ghi được vào tri thức. Bài vẫn đang chờ duyệt.'
+          : 'Duyệt holdout chưa được lưu.',
+      );
+      error.userMessage = error.message;
+      throw error;
     }
-    return normalizeGoldQa(await n8nService.approveTutorV2GoldQa({
-      goldQaId: itemId,
-      ...payload,
-    }));
+    return saved;
   },
 
   async reviewRubric(itemId, decision, payload) {

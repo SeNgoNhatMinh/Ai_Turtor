@@ -179,13 +179,6 @@ Admin upload tài liệu dùng chung môn học; mentor upload tài liệu cho l
 | Courses | GET | `/api/admin/semesters/{semesterCode}` | Get semester detail | Admin học kỳ/môn |
 | Courses | PUT | `/api/admin/semesters/{semesterCode}` | Update a semester | Admin học kỳ/môn |
 | Courses | DELETE | `/api/admin/semesters/{semesterCode}` | Delete a semester when no course is attached | Admin học kỳ/môn |
-| admin-dashboard-controller | GET | `/api/admin/subscription-plans` | listPlans | API phụ/legacy |
-| admin-dashboard-controller | PUT | `/api/admin/subscription-plans/{planId}` | updatePlan | API phụ/legacy |
-| admin-dashboard-controller | DELETE | `/api/admin/subscription-plans/{planId}` | deletePlan | API phụ/legacy |
-| admin-dashboard-controller | GET | `/api/admin/subscriptions` | listSubscriptions | API phụ/legacy |
-| admin-dashboard-controller | DELETE | `/api/admin/subscriptions/{subscriptionId}` | deleteSubscription | API phụ/legacy |
-| admin-dashboard-controller | PATCH | `/api/admin/subscriptions/{subscriptionId}/status` | updateSubscriptionStatus | API phụ/legacy |
-| admin-dashboard-controller | POST | `/api/admin/subscriptions/assign` | assignSubscription | API phụ/legacy |
 | admin-dashboard-controller | GET | `/api/admin/users` | listUsers | API phụ/legacy |
 | admin-dashboard-controller | PATCH | `/api/admin/users/{userId}` | updateUser | API phụ/legacy |
 | admin-dashboard-controller | DELETE | `/api/admin/users/{userId}` | deleteUser | API phụ/legacy |

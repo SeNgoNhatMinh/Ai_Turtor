@@ -276,68 +276,6 @@ class AdminRepository {
     await _dio.delete('/api/admin/mentor-escalations/$escalationId');
   }
 
-  // ── Subscriptions ─────────────────────────────────────────────
-
-  Future<List<SubscriptionPlan>> listPlans() async {
-    final res = await _dio.get('/api/admin/subscription-plans', queryParameters: {
-      'includeInactive': true,
-    });
-    final data = res.data as Map<String, dynamic>;
-    return parseList(data['plans'], SubscriptionPlan.fromJson);
-  }
-
-  Future<List<UserSubscription>> listSubscriptions({String? userId, bool activeOnly = false}) async {
-    final res = await _dio.get('/api/admin/subscriptions', queryParameters: {
-      if (userId != null && userId.isNotEmpty) 'userId': userId,
-      if (activeOnly) 'activeOnly': true,
-    });
-    final data = res.data as Map<String, dynamic>;
-    return parseList(data['subscriptions'], UserSubscription.fromJson);
-  }
-
-  Future<UserSubscription> assignPlan({
-    required String userId,
-    required String planCode,
-  }) async {
-    final res = await _dio.post('/api/admin/subscriptions/assign', data: {
-      'userId': userId,
-      'planCode': planCode,
-    });
-    return UserSubscription.fromJson(res.data as Map<String, dynamic>);
-  }
-
-  Future<void> deleteSubscription(String subscriptionId) async {
-    await _dio.delete('/api/admin/subscriptions/$subscriptionId');
-  }
-
-  Future<UserSubscription> updateSubscriptionStatus(
-    String subscriptionId,
-    String status,
-  ) async {
-    final res = await _dio.patch(
-      '/api/admin/subscriptions/$subscriptionId/status',
-      data: {'status': status},
-    );
-    return UserSubscription.fromJson(res.data as Map<String, dynamic>);
-  }
-
-  Future<SubscriptionPlan> updatePlan(
-    String planId, {
-    String? name,
-    String? description,
-    double? price,
-    int? durationDays,
-    bool? isActive,
-  }) async {
-    final res = await _dio.put('/api/admin/subscription-plans/$planId', data: {
-      if (name != null) 'name': name,
-      if (description != null) 'description': description,
-      if (price != null) 'price': price,
-      if (durationDays != null) 'durationDays': durationDays,
-      if (isActive != null) 'isActive': isActive,
-    });
-    return SubscriptionPlan.fromJson(res.data as Map<String, dynamic>);
-  }
 }
 
 final adminRepositoryProvider = Provider<AdminRepository>((ref) {

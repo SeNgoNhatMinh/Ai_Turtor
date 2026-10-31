@@ -7,6 +7,7 @@ import com.ragapi.entity.GoldQa;
 import com.ragapi.repository.ExpertRubricRepository;
 import com.ragapi.repository.GoldQaRepository;
 import com.ragapi.service.RealtimeEventService;
+import com.ragapi.service.UserNotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -28,6 +29,7 @@ public class ExpertContributionService {
     private final ExpertTaskContributionService taskContributions;
     private final ExpertTeachingNoteService teachingNoteService;
     private final ExpertEvaluationService evaluationService;
+    private final UserNotificationService notifications;
 
     public GoldQa submitGoldQa(SubmitGoldQaRequest request) {
         if (request == null) throw new IllegalArgumentException("request is required");
@@ -149,9 +151,25 @@ public class ExpertContributionService {
         GoldQa saved = goldQaRepository.save(gold);
         ExpertTask task = taskContributions.requireOpenTask(saved.getSourceTaskId(), "GOLD_QA");
         taskContributions.refreshGoldTaskStatus(task, saved.getId());
-        realtimeEvents.publishToRoles(SENIOR_ROLES, "GOLD_QA_SUBMITTED", "GOLD_QA", saved.getId(),
-                saved.getStatus(), Map.of("courseId", saved.getCourseId(), "usage", saved.getUsage(),
-                        "authorId", saved.getAuthorId(), "examPassed", Boolean.TRUE.equals(saved.getExamPassed())));
+        Map<String, Object> baseData = new LinkedHashMap<>();
+        baseData.put("courseId", saved.getCourseId() == null ? "" : saved.getCourseId());
+        baseData.put("usage", saved.getUsage() == null ? "" : saved.getUsage());
+        baseData.put("authorId", saved.getAuthorId() == null ? "" : saved.getAuthorId());
+        baseData.put("examPassed", Boolean.TRUE.equals(saved.getExamPassed()));
+        try {
+            notifications.publishStoredOrRoles(
+                    notifications.recordGoldQaReview(saved),
+                    SENIOR_ROLES,
+                    "GOLD_QA_SUBMITTED",
+                    "GOLD_QA",
+                    saved.getId(),
+                    saved.getStatus(),
+                    baseData
+            );
+        } catch (Exception error) {
+            realtimeEvents.publishToRoles(SENIOR_ROLES, "GOLD_QA_SUBMITTED", "GOLD_QA", saved.getId(),
+                    saved.getStatus(), baseData);
+        }
         return saved;
     }
 

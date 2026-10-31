@@ -49,7 +49,8 @@ class HumanLearningServiceTest {
                 mock(KnowledgeImageStorageService.class),
                 answerCacheService,
                 mock(ClassSectionRepository.class),
-                mock(RealtimeEventService.class)
+                mock(RealtimeEventService.class),
+                mock(UserNotificationService.class)
         );
         KnowledgeCandidate candidate = KnowledgeCandidate.builder()
                 .id("candidate-1")
@@ -116,7 +117,8 @@ class HumanLearningServiceTest {
                 mock(KnowledgeImageStorageService.class),
                 mock(CanonicalTutorAnswerCacheService.class),
                 mock(ClassSectionRepository.class),
-                mock(RealtimeEventService.class)
+                mock(RealtimeEventService.class),
+                mock(UserNotificationService.class)
         );
         KnowledgeCandidate candidate = KnowledgeCandidate.builder()
                 .id("candidate-failed")
@@ -172,7 +174,8 @@ class HumanLearningServiceTest {
                 mock(KnowledgeImageStorageService.class),
                 answerCacheService,
                 mock(ClassSectionRepository.class),
-                mock(RealtimeEventService.class)
+                mock(RealtimeEventService.class),
+                mock(UserNotificationService.class)
         );
         KnowledgeCandidate prior = KnowledgeCandidate.builder()
                 .id("old-candidate")
@@ -229,7 +232,8 @@ class HumanLearningServiceTest {
                 mock(KnowledgeImageStorageService.class),
                 mock(CanonicalTutorAnswerCacheService.class),
                 mock(ClassSectionRepository.class),
-                mock(RealtimeEventService.class)
+                mock(RealtimeEventService.class),
+                mock(UserNotificationService.class)
         );
         KnowledgeCandidate pending = KnowledgeCandidate.builder()
                 .id("pending-1")
@@ -271,7 +275,8 @@ class HumanLearningServiceTest {
                 imageStorageService,
                 mock(CanonicalTutorAnswerCacheService.class),
                 mock(ClassSectionRepository.class),
-                mock(RealtimeEventService.class)
+                mock(RealtimeEventService.class),
+                mock(UserNotificationService.class)
         );
         QuestionEscalation escalation = QuestionEscalation.builder()
                 .id("escalation-1")
@@ -303,7 +308,8 @@ class HumanLearningServiceTest {
                 mock(KnowledgeImageStorageService.class),
                 mock(CanonicalTutorAnswerCacheService.class),
                 mock(ClassSectionRepository.class),
-                mock(RealtimeEventService.class)
+                mock(RealtimeEventService.class),
+                mock(UserNotificationService.class)
         );
         QuestionEscalation escalation = QuestionEscalation.builder()
                 .id("escalation-1")
@@ -336,7 +342,8 @@ class HumanLearningServiceTest {
                 mock(KnowledgeImageStorageService.class),
                 mock(CanonicalTutorAnswerCacheService.class),
                 mock(ClassSectionRepository.class),
-                mock(RealtimeEventService.class)
+                mock(RealtimeEventService.class),
+                mock(UserNotificationService.class)
         );
         Mentor mentor = Mentor.builder().id("mentor-db-id").mentorCode("GV001").build();
         QuestionEscalation escalation = QuestionEscalation.builder()
@@ -371,7 +378,8 @@ class HumanLearningServiceTest {
                 mock(KnowledgeImageStorageService.class),
                 mock(CanonicalTutorAnswerCacheService.class),
                 mock(ClassSectionRepository.class),
-                mock(RealtimeEventService.class)
+                mock(RealtimeEventService.class),
+                mock(UserNotificationService.class)
         );
         QuestionEscalation escalation = QuestionEscalation.builder()
                 .id("escalation-1")

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../../../app/queryKeys';
 import { adminUsersApi } from '../../../services/adminUsersApi';
@@ -7,6 +7,7 @@ import { ACCOUNT_ROLES } from '../../../constants/roles';
 import { useDebouncedValue } from '../../../hooks/useDebouncedValue';
 import { useRealtimeEvent, useRealtimeReconnect } from '../../realtime/realtimeContext';
 import { REALTIME_EVENT_TYPES } from '../../realtime/realtimeEvents';
+import { sortSupportRequestsNewestFirst } from '../../../utils/supportRequestOrder';
 
 const EMPTY_LIST = [];
 const ACCOUNT_ROLE_ORDER = [
@@ -93,7 +94,10 @@ export function useAdminUsersController({ triggerToast, handleAdminImport, initi
   ]));
   const accountTotal = Object.values(roleTotals).reduce((sum, count) => sum + count, 0);
   const mentorsList = mentorsQuery.data || EMPTY_LIST;
-  const escalationsList = escalationsQuery.data || EMPTY_LIST;
+  const escalationsList = useMemo(
+    () => sortSupportRequestsNewestFirst(escalationsQuery.data || EMPTY_LIST),
+    [escalationsQuery.data],
+  );
 
   useEffect(() => {
     const error = usersQuery.error || mentorsQuery.error || escalationsQuery.error;

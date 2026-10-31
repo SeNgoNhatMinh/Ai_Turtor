@@ -107,19 +107,20 @@ describe('expertTrainingGateway', () => {
     expect(n8nService.submitTutorV2GoldQa).not.toHaveBeenCalled();
   });
 
-  it('routes Senior approval through n8n but keeps rejection on the canonical API', async () => {
-    n8nService.approveTutorV2GoldQa.mockResolvedValue({
-      id: 'gold-1',
-      courseId: 'PFP191',
-      status: 'INDEXED',
-      usage: 'TRAINING',
-    });
-    expertTrainingApi.reviewGoldQa.mockResolvedValue({
-      id: 'gold-2',
-      courseId: 'PFP191',
-      status: 'REJECTED',
-      usage: 'TRAINING',
-    });
+  it('approves and rejects Gold Q&A on the canonical API', async () => {
+    expertTrainingApi.reviewGoldQa
+      .mockResolvedValueOnce({
+        id: 'gold-1',
+        courseId: 'PFP191',
+        status: 'INDEXED',
+        usage: 'TRAINING',
+      })
+      .mockResolvedValueOnce({
+        id: 'gold-2',
+        courseId: 'PFP191',
+        status: 'REJECTED',
+        usage: 'TRAINING',
+      });
 
     const approved = await expertTrainingGateway.reviewGoldQa('gold-1', 'approve', {
       reviewerId: 'senior-1',
@@ -132,14 +133,32 @@ describe('expertTrainingGateway', () => {
     });
 
     expect(approved.status).toBe('INDEXED');
-    expect(n8nService.approveTutorV2GoldQa).toHaveBeenCalledWith(expect.objectContaining({
-      goldQaId: 'gold-1',
-    }));
+    expect(n8nService.approveTutorV2GoldQa).not.toHaveBeenCalled();
     expect(rejected.status).toBe('REJECTED');
-    expect(expertTrainingApi.reviewGoldQa).toHaveBeenCalledWith(
+    expect(expertTrainingApi.reviewGoldQa).toHaveBeenNthCalledWith(
+      1,
+      'gold-1',
+      'approve',
+      expect.objectContaining({ reviewerRole: 'SENIOR_MENTOR' }),
+    );
+    expect(expertTrainingApi.reviewGoldQa).toHaveBeenNthCalledWith(
+      2,
       'gold-2',
       'reject',
       expect.objectContaining({ rejectionReason: expect.any(String) }),
     );
+  });
+
+  it('rejects an approval that does not leave the pending queue', async () => {
+    expertTrainingApi.reviewGoldQa.mockResolvedValue({
+      id: 'gold-pending',
+      status: 'PENDING_REVIEW',
+      usage: 'TRAINING',
+    });
+
+    await expect(expertTrainingGateway.reviewGoldQa('gold-pending', 'approve', {
+      reviewerId: 'senior-1',
+      reviewerRole: 'SENIOR_MENTOR',
+    })).rejects.toThrow('Duyệt nạp RAG chưa ghi được vào tri thức');
   });
 });

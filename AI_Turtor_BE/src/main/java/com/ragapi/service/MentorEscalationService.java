@@ -12,6 +12,7 @@ import com.ragapi.repository.ClassSectionRepository;
 import com.ragapi.repository.MentorRepository;
 import com.ragapi.repository.QuestionEscalationRepository;
 import com.ragapi.service.presence.TeacherPresenceQueryService;
+import com.ragapi.util.EscalationOrdering;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DuplicateKeyException;
@@ -43,6 +44,7 @@ public class MentorEscalationService {
     private final ClassSectionRepository classSectionRepository;
     private final TeacherPresenceQueryService teacherPresenceQueryService;
     private final RealtimeEventService realtimeEvents;
+    private final UserNotificationService notifications;
 
     /**
      * Pushes escalation lifecycle changes to the class teacher (teacher
@@ -61,14 +63,23 @@ public class MentorEscalationService {
             String status = request.getStatus() == null ? "" : request.getStatus();
 
             String teacherId = null;
-            if (request.getCourseId() != null && request.getClassId() != null) {
+            if (request.getAssignedMentorId() != null && !request.getAssignedMentorId().isBlank()) {
+                teacherId = request.getAssignedMentorId();
+            } else if (request.getCourseId() != null && request.getClassId() != null) {
                 teacherId = classSectionRepository
                         .findByCourseIdAndClassId(request.getCourseId(), request.getClassId())
                         .map(ClassSection::getTeacherId)
                         .filter(id -> id != null && !id.isBlank())
                         .orElse(null);
             }
-            if (teacherId != null) {
+
+            // Persist inbox alerts once the student assigns a teacher (IN_CHAT).
+            // CREATED still refreshes open inboxes over websocket without a second badge.
+            boolean shouldNotifyStaff = "SUPPORT_ESCALATION_UPDATED".equals(eventType)
+                    && "IN_CHAT".equalsIgnoreCase(status);
+            if (shouldNotifyStaff) {
+                notifyStaffAboutSupportRequest(request, teacherId, eventType, status, data);
+            } else if (teacherId != null) {
                 realtimeEvents.publishToUser(teacherId, eventType,
                         "QUESTION_ESCALATION", request.getId(), status, data);
             } else {
@@ -82,6 +93,52 @@ public class MentorEscalationService {
         } catch (Exception error) {
             log.warn("Could not publish realtime event {} for escalation {}: {}",
                     eventType, request.getId(), error.getMessage());
+        }
+    }
+
+    private void notifyStaffAboutSupportRequest(
+            QuestionEscalation request,
+            String teacherId,
+            String eventType,
+            String status,
+            Map<String, Object> baseData
+    ) {
+        if (teacherId != null && !teacherId.isBlank()) {
+            try {
+                var notification = notifications.recordSupportRequestForTeacher(request, teacherId);
+                if (notification != null) {
+                    notifications.publishStored(notification, eventType,
+                            "QUESTION_ESCALATION", request.getId(), status, baseData);
+                } else {
+                    realtimeEvents.publishToUser(teacherId, eventType,
+                            "QUESTION_ESCALATION", request.getId(), status, baseData);
+                }
+            } catch (Exception error) {
+                log.warn("Could not store teacher support notification for {}: {}",
+                        request.getId(), error.getMessage());
+                realtimeEvents.publishToUser(teacherId, eventType,
+                        "QUESTION_ESCALATION", request.getId(), status, baseData);
+            }
+        } else {
+            realtimeEvents.publishToRoles(List.of("TEACHER"), eventType,
+                    "QUESTION_ESCALATION", request.getId(), status, baseData);
+        }
+
+        try {
+            notifications.publishStoredOrRoles(
+                    notifications.recordSupportRequestForAdmins(request),
+                    List.of("ADMIN"),
+                    eventType,
+                    "QUESTION_ESCALATION",
+                    request.getId(),
+                    status,
+                    baseData
+            );
+        } catch (Exception error) {
+            log.warn("Could not store admin support notifications for {}: {}",
+                    request.getId(), error.getMessage());
+            realtimeEvents.publishToRoles(List.of("ADMIN"), eventType,
+                    "QUESTION_ESCALATION", request.getId(), status, baseData);
         }
     }
 
@@ -354,7 +411,7 @@ public class MentorEscalationService {
             canonical.merge(key, item, this::preferUsableEscalation);
         }
         return canonical.values().stream()
-                .sorted((left, right) -> compareNullableDate(right.getUpdatedAt(), left.getUpdatedAt()))
+                .sorted(EscalationOrdering.newestFirst())
                 .toList();
     }
 

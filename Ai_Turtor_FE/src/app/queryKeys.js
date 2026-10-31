@@ -287,6 +287,7 @@ export const queryKeys = {
     Number(filters.page) || 0,
     Number(filters.pageSize) || 20,
   ],
+  userNotifications: (userId) => ['notifications', userId || 'anonymous'],
   studentMentorRequests: (studentId) => ['student', 'mentor-requests', studentId],
   studentMentorRequestDetail: (escalationId) => [
     'student',

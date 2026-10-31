@@ -54,6 +54,7 @@ public class AiAnswerReviewService {
     private final RealtimeEventService realtimeEvents;
     private final TutorAnswerCacheSeniorService tutorAnswerCacheSeniorService;
     private final KnowledgeImageStorageService knowledgeImageStorageService;
+    private final UserNotificationService notifications;
 
     @Value("${app.answer-review.moderate-student-threshold:1}")
     private int moderateStudentThreshold = 1;
@@ -197,14 +198,26 @@ public class AiAnswerReviewService {
             candidateData.put("courseId", candidate.getCourseId() == null ? "" : candidate.getCourseId());
             candidateData.put("classId", candidate.getClassId() == null ? "" : candidate.getClassId());
             candidateData.put("status", candidate.getStatus());
-            realtimeEvents.publishToRoles(
-                    Set.of("SENIOR_MENTOR", "ADMIN"),
-                    "KNOWLEDGE_CANDIDATE_CREATED",
-                    "KNOWLEDGE_CANDIDATE",
-                    candidate.getId(),
-                    candidate.getStatus(),
-                    candidateData
-            );
+            try {
+                notifications.publishStoredOrRoles(
+                        notifications.recordKnowledgeReview(candidate),
+                        Set.of("SENIOR_MENTOR", "ADMIN"),
+                        "KNOWLEDGE_CANDIDATE_CREATED",
+                        "KNOWLEDGE_CANDIDATE",
+                        candidate.getId(),
+                        candidate.getStatus(),
+                        candidateData
+                );
+            } catch (Exception notifyError) {
+                realtimeEvents.publishToRoles(
+                        Set.of("SENIOR_MENTOR", "ADMIN"),
+                        "KNOWLEDGE_CANDIDATE_CREATED",
+                        "KNOWLEDGE_CANDIDATE",
+                        candidate.getId(),
+                        candidate.getStatus(),
+                        candidateData
+                );
+            }
         }
 
         AiAnswerReview representative = review;

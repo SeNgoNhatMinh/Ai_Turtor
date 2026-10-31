@@ -3,6 +3,9 @@ package com.ragapi.repository;
 import com.ragapi.entity.User;
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.stereotype.Repository;
+
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -16,7 +19,7 @@ public interface UserRepository extends MongoRepository<User, String> {
     Optional<User> findByStudentCode(String studentCode);
     
     /**
-     * Check xem email �'ã t�"n tại hay chưa
+     * Check xem email đã tồn tại hay chưa
      */
     boolean existsByEmail(String email);
 
@@ -26,6 +29,8 @@ public interface UserRepository extends MongoRepository<User, String> {
      * Tìm user active theo email
      */
     Optional<User> findByEmailAndIsActiveTrue(String email);
+
+    List<User> findByRoleInAndIsActiveTrue(Collection<String> roles);
 }
 
 

@@ -2,6 +2,7 @@ import { Alert, Button, Empty, Input, Tag } from 'antd';
 import { Check, X } from 'lucide-react';
 import { confirmAction, confirmDanger } from '../../../components/common/confirmDialog';
 import { formatKnowledgeCandidateStatus } from '../../../constants/knowledgeFlow';
+import { htmlToPlainText } from '../../../utils/richText';
 import KnowledgeImageGallery from './KnowledgeImageGallery';
 
 const CANDIDATE_TYPE_LABELS = {
@@ -58,6 +59,7 @@ function KnowledgeCandidateReviewList({
       const handler = decision === 'APPROVE' ? handleApproveCandidate : handleRejectCandidate;
       const succeeded = await handler?.(cand.id, note);
       if (succeeded) handleNoteChange?.(cand.id, '');
+      return succeeded === true;
     };
 
     const requestDecision = (decision) => {
@@ -95,11 +97,11 @@ function KnowledgeCandidateReviewList({
         <div className="compare-box">
           <div className="compare-qa">
             <span>Câu hỏi</span>
-            <p>{cand.question || '—'}</p>
+            <p>{htmlToPlainText(cand.question) || '—'}</p>
           </div>
           <div className="compare-qa teacher-a">
             <span>Tri thức đề xuất</span>
-            <p>{cand.answer || cand.content || '—'}</p>
+            <p>{htmlToPlainText(cand.answer || cand.content) || '—'}</p>
             <KnowledgeImageGallery images={cand.images} />
           </div>
         </div>

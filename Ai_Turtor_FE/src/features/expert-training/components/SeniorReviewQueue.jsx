@@ -83,7 +83,9 @@ export default function SeniorReviewQueue({
         reviewNote: decision === 'approve' ? note : '',
         rejectionReason: decision === 'reject' ? note : '',
       });
-      if (result) onSelectReview(null);
+      if (!result) return false;
+      onSelectReview(null);
+      return true;
     };
     const common = {
       onOk: execute,

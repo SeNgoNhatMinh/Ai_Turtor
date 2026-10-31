@@ -90,7 +90,6 @@ abstract final class AppRoutes {
   static String adminCourseMaterials(String courseId) =>
       '/a/academic/courses/$courseId/materials';
   static const adminImport = '/a/import';
-  static const adminSubscriptions = '/a/subscriptions';
   static const adminProfile = '/a/profile';
   static const adminMentors = '/a/mentors';
   static const adminMentorEscalations = '/a/mentor-escalations';

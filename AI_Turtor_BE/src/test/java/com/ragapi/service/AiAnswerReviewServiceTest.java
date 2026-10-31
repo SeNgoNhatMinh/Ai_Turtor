@@ -42,6 +42,8 @@ import static org.mockito.ArgumentMatchers.anyString;
 
 import static org.mockito.Mockito.atLeastOnce;
 
+import static org.mockito.Mockito.mock;
+
 import static org.mockito.Mockito.verify;
 
 import static org.mockito.Mockito.when;
@@ -95,7 +97,8 @@ class AiAnswerReviewServiceTest {
                 knowledgeCandidateRepository,
                 realtimeEvents,
                 tutorAnswerCacheSeniorService,
-                knowledgeImageStorageService);
+                knowledgeImageStorageService,
+                mock(UserNotificationService.class));
 
         stored.clear();
 

@@ -10,12 +10,14 @@ import com.ragapi.entity.KnowledgeCandidate;
 import com.ragapi.entity.KnowledgeImageAttachment;
 import com.ragapi.entity.MentorAnswer;
 import com.ragapi.entity.QuestionEscalation;
+import com.ragapi.entity.UserNotification;
 import com.ragapi.repository.ClassSectionRepository;
 import com.ragapi.repository.CourseMaterialRepository;
 import com.ragapi.repository.KnowledgeCandidateRepository;
 import com.ragapi.repository.MentorRepository;
 import com.ragapi.repository.MentorAnswerRepository;
 import com.ragapi.repository.QuestionEscalationRepository;
+import com.ragapi.util.RichTextPlainText;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -59,6 +61,7 @@ public class HumanLearningService {
     private final CanonicalTutorAnswerCacheService answerCacheService;
     private final ClassSectionRepository classSectionRepository;
     private final RealtimeEventService realtimeEvents;
+    private final UserNotificationService notifications;
 
     private void publishKnowledgeCandidateEvent(KnowledgeCandidate candidate, String eventType) {
         if (candidate == null || candidate.getId() == null) return;
@@ -72,14 +75,43 @@ public class HumanLearningService {
             data.put("teacherId", candidate.getTeacherId() == null ? "" : candidate.getTeacherId());
             data.put("materialId", candidate.getMaterialId() == null ? "" : candidate.getMaterialId());
             data.put("status", candidate.getStatus() == null ? "" : candidate.getStatus());
-            realtimeEvents.publishToRoles(
-                    List.of("SENIOR_MENTOR", "ADMIN"),
-                    eventType,
-                    "KNOWLEDGE_CANDIDATE",
-                    candidate.getId(),
-                    candidate.getStatus(),
-                    data
-            );
+
+            boolean pendingReview = "KNOWLEDGE_CANDIDATE_CREATED".equals(eventType)
+                    && (STATUS_PENDING_SENIOR_REVIEW.equalsIgnoreCase(candidate.getStatus())
+                    || STATUS_LEGACY_PENDING_REVIEW.equalsIgnoreCase(candidate.getStatus()));
+            if (pendingReview) {
+                try {
+                    notifications.publishStoredOrRoles(
+                            notifications.recordKnowledgeReview(candidate),
+                            List.of("SENIOR_MENTOR", "ADMIN"),
+                            eventType,
+                            "KNOWLEDGE_CANDIDATE",
+                            candidate.getId(),
+                            candidate.getStatus(),
+                            data
+                    );
+                } catch (Exception notifyError) {
+                    log.warn("Could not store knowledge-review notifications for {}: {}",
+                            candidate.getId(), notifyError.getMessage());
+                    realtimeEvents.publishToRoles(
+                            List.of("SENIOR_MENTOR", "ADMIN"),
+                            eventType,
+                            "KNOWLEDGE_CANDIDATE",
+                            candidate.getId(),
+                            candidate.getStatus(),
+                            data
+                    );
+                }
+            } else {
+                realtimeEvents.publishToRoles(
+                        List.of("SENIOR_MENTOR", "ADMIN"),
+                        eventType,
+                        "KNOWLEDGE_CANDIDATE",
+                        candidate.getId(),
+                        candidate.getStatus(),
+                        data
+                );
+            }
             if (candidate.getTeacherId() != null && !candidate.getTeacherId().isBlank()) {
                 realtimeEvents.publishToUser(
                         candidate.getTeacherId(),
@@ -98,6 +130,10 @@ public class HumanLearningService {
 
     /** Notifies the student and the class teacher that a support request was answered. */
     private void publishEscalationAnswered(QuestionEscalation escalation) {
+        publishEscalationAnswered(escalation, null);
+    }
+
+    private void publishEscalationAnswered(QuestionEscalation escalation, UserNotification notification) {
         if (escalation == null || escalation.getId() == null) return;
         try {
             Map<String, Object> data = new LinkedHashMap<>();
@@ -106,6 +142,9 @@ public class HumanLearningService {
             data.put("courseId", escalation.getCourseId() == null ? "" : escalation.getCourseId());
             data.put("classId", escalation.getClassId() == null ? "" : escalation.getClassId());
             data.put("status", escalation.getStatus() == null ? "" : escalation.getStatus());
+            if (notification != null) {
+                data.putAll(notifications.realtimePayload(notification));
+            }
             String status = escalation.getStatus() == null ? "" : escalation.getStatus();
 
             if (escalation.getUserId() != null && !escalation.getUserId().isBlank()) {
@@ -136,7 +175,11 @@ public class HumanLearningService {
         }
         String realEscalationId = requireText(escalationId, "questionEscalationId");
         String teacherId = requireText(request.getTeacherId(), "teacherId");
-        String answer = requireMaxLength(request.getAnswer(), "answer", DEFAULT_TEXT_MAX_LENGTH);
+        String answer = RichTextPlainText.toPlain(
+                requireMaxLength(request.getAnswer(), "answer", DEFAULT_TEXT_MAX_LENGTH));
+        if (answer == null || answer.isBlank()) {
+            throw new IllegalArgumentException("answer is required");
+        }
         List<KnowledgeImageAttachment> images = knowledgeImageStorageService.resolveAttachments(request.getImageIds());
 
         QuestionEscalation escalation = escalationRepository.findById(realEscalationId)
@@ -179,7 +222,16 @@ public class HumanLearningService {
         escalation.setIdempotencyKey(null);
         escalation.setUpdatedAt(now);
         escalationRepository.save(escalation);
-        publishEscalationAnswered(escalation);
+        UserNotification notification = null;
+        try {
+            notification = notifications.recordTeacherReply(
+                    escalation,
+                    escalation.getAssignedMentorName());
+        } catch (RuntimeException error) {
+            log.warn("Could not store support reply notification for {}: {}",
+                    escalation.getId(), error.getMessage());
+        }
+        publishEscalationAnswered(escalation, notification);
 
         Map<String, Object> response = new LinkedHashMap<>();
         response.put("questionEscalationId", escalation.getId());
@@ -332,11 +384,17 @@ public class HumanLearningService {
         validateLearnableCandidateType(normalizeCandidateType(candidate.getCandidateType()));
 
         String reviewerId = request.getReviewerId().trim();
-        String approvedAnswer = request.getContentOverride() != null && !request.getContentOverride().isBlank()
+        String approvedAnswer = RichTextPlainText.toPlain(
+                request.getContentOverride() != null && !request.getContentOverride().isBlank()
                 ? requireMaxLength(request.getContentOverride(), "contentOverride", DEFAULT_TEXT_MAX_LENGTH)
                 : (candidate.getAnswer() != null && !candidate.getAnswer().isBlank()
                         ? candidate.getAnswer()
-                        : candidate.getContent());
+                        : candidate.getContent()));
+        if (approvedAnswer == null || approvedAnswer.isBlank()) {
+            throw new IllegalArgumentException("answer is required");
+        }
+        String question = RichTextPlainText.toPlain(candidate.getQuestion());
+        candidate.setQuestion(question == null ? "" : question);
         String content = """
                 [KIẾN THỨC BỔ SUNG ĐÃ ĐƯỢC SENIOR DUYỆT]
                 Câu hỏi: %s

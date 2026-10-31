@@ -4,6 +4,7 @@ import { queryKeys } from '../app/queryKeys';
 import { getUserFacingError } from '../services/apiClient';
 import { normalizeEscalation, normalizeEscalationDetailResponse } from '../services/normalizers';
 import { supportChatApi } from '../services/supportChatApi';
+import { sortSupportRequestsNewestFirst } from '../utils/supportRequestOrder';
 
 const TERMINAL_ESCALATION_STATES = new Set([
   'ANSWERED',
@@ -21,13 +22,10 @@ const TERMINAL_ESCALATION_STATES = new Set([
 ]);
 
 const normalizeStatus = (value) => String(value || '').trim().toUpperCase();
-const sortNewestFirst = (items) => items.slice().sort(
-  (a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0),
-);
 
 const loadEscalations = async (userId, signal) => {
   const data = await supportChatApi.getEscalationHistory(userId, { signal });
-  return sortNewestFirst((Array.isArray(data) ? data : []).map(normalizeEscalation));
+  return sortSupportRequestsNewestFirst((Array.isArray(data) ? data : []).map(normalizeEscalation));
 };
 
 const loadEscalationDetail = async (escalationId, signal) => {

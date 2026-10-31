@@ -52,7 +52,6 @@ public class UserOwnedRecordCleanup {
             "ai_messages",
             "question_escalations",
             "user_memories",
-            "user_subscriptions",
             "case_memories",
             "student_llm_usage",
             "student_llm_credentials",

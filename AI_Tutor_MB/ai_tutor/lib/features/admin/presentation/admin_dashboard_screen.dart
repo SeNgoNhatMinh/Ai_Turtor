@@ -180,27 +180,6 @@ class _StatsGrid extends StatelessWidget {
         color: AppColors.warning,
         bg: AppColors.warningBg,
       ),
-      _StatItem(
-        label: 'Gói cước',
-        value: stats.subscriptionPlans,
-        icon: LucideIcons.packageOpen,
-        color: AppColors.success,
-        bg: AppColors.successBg,
-      ),
-      _StatItem(
-        label: 'Đăng ký',
-        value: stats.subscriptions,
-        icon: LucideIcons.creditCard,
-        color: AppColors.primary,
-        bg: AppColors.primaryWash,
-      ),
-      _StatItem(
-        label: 'Đang hoạt động',
-        value: stats.activeSubscriptions,
-        icon: LucideIcons.checkCircle2,
-        color: AppColors.success,
-        bg: AppColors.successBg,
-      ),
     ];
 
     return GridView.count(
@@ -311,13 +290,6 @@ class _QuickActionsGrid extends StatelessWidget {
         color: AppColors.success,
         bg: AppColors.successBg,
         onTap: () => context.go(AppRoutes.adminImport),
-      ),
-      _ActionItem(
-        label: 'Gói & Đăng ký',
-        icon: LucideIcons.creditCard,
-        color: AppColors.primary,
-        bg: AppColors.primaryWash,
-        onTap: () => context.go(AppRoutes.adminSubscriptions),
       ),
       _ActionItem(
         label: 'Duyệt Knowledge',

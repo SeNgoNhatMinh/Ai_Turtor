@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Alert, Button, Empty, Input, Rate, Spin, Tag } from 'antd';
 import { BookPlus, MessageCircle, RefreshCw, Send, XCircle } from 'lucide-react';
 import { useSupportChatRoom } from '../../hooks/useSupportChatRoom';
-import { isRichTextEmpty, looksLikeRichHtml, sanitizeRichHtml } from '../../utils/richText';
+import { htmlToPlainText, isRichTextEmpty, looksLikeRichHtml, sanitizeRichHtml } from '../../utils/richText';
 import SupportRichTextEditor from './SupportRichTextEditor';
 import './SupportChatRoom.css';
 
@@ -15,7 +15,7 @@ function SupportMessageBody({ content }) {
       />
     );
   }
-  return <p className="support-chat-message__body">{content}</p>;
+  return <p className="support-chat-message__body">{htmlToPlainText(content)}</p>;
 }
 
 function SupportChatRoom({

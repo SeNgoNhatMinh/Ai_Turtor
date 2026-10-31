@@ -38,6 +38,7 @@ class ExpertCoTrainingServiceTest {
     @Mock CourseAnswerService rag;
     @Mock CanonicalTutorAnswerCacheService answerCache;
     @Mock RealtimeEventService realtimeEvents;
+    @Mock UserNotificationService notifications;
     @Mock MongoTemplate mongoTemplate;
     ExpertCoTrainingService service;
 
@@ -54,7 +55,8 @@ class ExpertCoTrainingServiceTest {
         ExpertCoverageService coverageService = new ExpertCoverageService(
                 gold, gaps, materials, chapterOutlines, taskService);
         ExpertContributionService contributionService = new ExpertContributionService(
-                gold, rubrics, realtimeEvents, taskContributions, teachingNotes, evaluations);
+                gold, rubrics, realtimeEvents, taskContributions, teachingNotes, evaluations,
+                notifications);
         service = new ExpertCoTrainingService(
                 coverageService, taskService, contributionService, teachingNotes, evaluations);
     }

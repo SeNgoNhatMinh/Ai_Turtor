@@ -20,6 +20,7 @@ import com.ragapi.repository.KnowledgeCandidateRepository;
 import com.ragapi.repository.MentorRepository;
 import com.ragapi.repository.QuestionEscalationRepository;
 import com.ragapi.repository.StudentCourseMemoryRepository;
+import com.ragapi.util.EscalationOrdering;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -111,6 +112,7 @@ public class LearningDashboardService {
                 .filter(item -> item.getHiddenFromMentorInboxAt() == null)
                 .filter(item -> isBlank(courseId) || courseId.equals(item.getCourseId()))
                 .filter(item -> isBlank(classId) || classId.equals(item.getClassId()))
+                .sorted(EscalationOrdering.newestFirst())
                 .toList();
         List<KnowledgeCandidate> candidates = candidateRepository.findAll().stream()
                 .filter(item -> matchesTeacherId(teacherId, item.getTeacherId()))
@@ -151,6 +153,7 @@ public class LearningDashboardService {
                 .filter(item -> item.getHiddenFromMentorInboxAt() == null)
                 .filter(item -> isBlank(status) || status.equalsIgnoreCase(item.getStatus()))
                 .filter(item -> matchesEscalationQuery(item, query))
+                .sorted(EscalationOrdering.newestFirst())
                 .toList();
     }
 

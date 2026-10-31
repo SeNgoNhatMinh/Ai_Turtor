@@ -8,7 +8,6 @@ import '../../features/admin/presentation/admin_dashboard_screen.dart';
 import '../../features/admin/presentation/admin_import_screen.dart';
 import '../../features/admin/presentation/admin_mentor_escalations_screen.dart';
 import '../../features/admin/presentation/admin_mentors_screen.dart';
-import '../../features/admin/presentation/admin_subscriptions_screen.dart';
 import '../../features/admin/presentation/admin_users_screen.dart';
 import '../../features/ai_tutor/presentation/ai_tutor_screens.dart';
 import '../../features/assignments/presentation/assignments_screens.dart';
@@ -357,10 +356,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: AppRoutes.adminImport,
             builder: (_, __) => const AdminImportScreen(),
-          ),
-          GoRoute(
-            path: AppRoutes.adminSubscriptions,
-            builder: (_, __) => const AdminSubscriptionsScreen(),
           ),
           GoRoute(
             path: AppRoutes.adminMentors,

@@ -19,14 +19,44 @@ function decodeBasicEntities(value) {
     .replace(/&quot;/g, '"');
 }
 
-export function htmlToPlainText(html) {
-  return decodeBasicEntities(String(html || ''))
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/(?:p|div|li|h[1-3]|blockquote|pre|ol|ul)>/gi, '\n')
-    .replace(/<[^>]+>/g, '')
+const BLOCK_TAGS = new Set(['p', 'div', 'li', 'h1', 'h2', 'h3', 'blockquote', 'pre', 'ol', 'ul', 'tr']);
+
+function cleanupPlainText(value) {
+  return decodeBasicEntities(value)
     .replace(/\n{3,}/g, '\n\n')
     .replace(/[ \t]+\n/g, '\n')
     .trim();
+}
+
+function appendNodeText(node, parts) {
+  if (!node) return;
+  if (node.nodeType === Node.TEXT_NODE) {
+    parts.push(node.textContent || '');
+    return;
+  }
+  if (node.nodeType !== Node.ELEMENT_NODE) return;
+  const tag = node.tagName.toLowerCase();
+  if (tag === 'br') {
+    parts.push('\n');
+    return;
+  }
+  [...node.childNodes].forEach((child) => appendNodeText(child, parts));
+  if (BLOCK_TAGS.has(tag)) parts.push('\n');
+}
+
+export function htmlToPlainText(html) {
+  const raw = String(html || '').trim();
+  if (!raw) return '';
+  // Only parse real editor markup. A stored answer like "a < b" or "<%@ page %>"
+  // must stay intact; decoding entities alone is enough for "&lt;" / "&gt;".
+  if (raw.startsWith('<') && looksLikeRichHtml(raw) && typeof document !== 'undefined') {
+    const template = document.createElement('template');
+    template.innerHTML = raw;
+    const parts = [];
+    [...template.content.childNodes].forEach((node) => appendNodeText(node, parts));
+    return cleanupPlainText(parts.join(''));
+  }
+  return cleanupPlainText(raw);
 }
 
 export function isRichTextEmpty(html) {

@@ -37,6 +37,7 @@ class MentorEscalationServiceTest {
     @Mock ClassSectionRepository classSectionRepository;
     @Mock TeacherPresenceQueryService teacherPresenceQueryService;
     @Mock RealtimeEventService realtimeEventService;
+    @Mock UserNotificationService notifications;
 
     @InjectMocks MentorEscalationService service;
 

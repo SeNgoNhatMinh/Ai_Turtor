@@ -10,6 +10,7 @@ import { normalizeAccountRole } from '../../../constants/roles';
 import { canReviewKnowledge } from '../../../utils/permissions';
 import { useRealtimeEvent, useRealtimeReconnect } from '../../realtime/realtimeContext';
 import { eventMatchesCourse, REALTIME_EVENT_TYPES } from '../../realtime/realtimeEvents';
+import { sortSupportRequestsNewestFirst } from '../../../utils/supportRequestOrder';
 
 const EMPTY_LIST = [];
 const PENDING_CANDIDATE_STATUS = 'PENDING_SENIOR_REVIEW';
@@ -59,7 +60,9 @@ export function useTeacherReviewQueue({
     queryFn: async ({ signal }) => {
       const params = { ...(courseId ? { courseId } : {}), ...inboxFilters };
       const data = await teacherReviewApi.getTeacherEscalations(teacherId, params, { signal });
-      return asArray(data, 'escalations', 'inbox', 'content').map(normalizeTeacherInboxItem);
+      return sortSupportRequestsNewestFirst(
+        asArray(data, 'escalations', 'inbox', 'content').map(normalizeTeacherInboxItem),
+      );
     },
     enabled: Boolean(includeTeacherInbox && teacherId),
     staleTime: 15_000,

@@ -19,6 +19,12 @@ describe('richText', () => {
     expect(htmlToPlainText('<p>Bước 1</p><p>Bước 2</p>')).toContain('Bước 2');
   });
 
+  it('shows typed angle brackets instead of html entities', () => {
+    expect(htmlToPlainText('Directive &lt;%@ page %&gt;')).toBe('Directive <%@ page %>');
+    expect(htmlToPlainText('<p>a &lt; b &gt; c</p>')).toBe('a < b > c');
+    expect(htmlToPlainText('use <div> tag')).toBe('use <div> tag');
+  });
+
   it('recognizes teacher rich-text markup only', () => {
     expect(looksLikeRichHtml('<p><strong>Đáp án</strong></p>')).toBe(true);
     expect(looksLikeRichHtml('Dùng toán tử < 3 trong vòng lặp')).toBe(false);

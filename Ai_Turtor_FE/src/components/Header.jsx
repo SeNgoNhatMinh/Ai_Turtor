@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { Switch } from 'antd';
 import { getAccountRoleLabel, normalizeAccountRole } from '../constants/roles';
+import NotificationBell from '../features/notifications/NotificationBell';
 import FptBrand from './common/FptBrand';
 
 const ProfileModal = lazy(() => import('./common/ProfileModal'));
@@ -24,7 +25,8 @@ function Header({
   onProfileUpdated,
   profileOpenSignal = 0,
 }) {
-  const accountRole = normalizeAccountRole(currentUser?.role || activeRole);
+  const accountRole = normalizeAccountRole(currentUser?.originalRole || currentUser?.role || activeRole);
+  const studentId = currentUser?.userId || currentUser?.id;
   const roleLabel = getAccountRoleLabel(accountRole);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
@@ -78,6 +80,13 @@ function Header({
       </div>
 
       <div className="user-profile">
+        {studentId && (
+          <NotificationBell
+            userId={studentId}
+            accountRole={accountRole}
+            isDarkMode={isDarkMode}
+          />
+        )}
         <Switch 
           aria-label={isDarkMode ? 'Dùng giao diện sáng' : 'Dùng giao diện tối'}
           checkedChildren={<Moon size={14} style={{ marginTop: '4px' }} />}

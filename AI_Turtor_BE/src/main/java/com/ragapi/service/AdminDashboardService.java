@@ -5,14 +5,11 @@ import com.ragapi.dto.AdminTeacherRoleUpdateRequest;
 import com.ragapi.dto.AdminUserUpdateRequest;
 import com.ragapi.entity.Mentor;
 import com.ragapi.entity.QuestionEscalation;
-import com.ragapi.entity.SubscriptionPlan;
 import com.ragapi.entity.User;
-import com.ragapi.entity.UserSubscription;
 import com.ragapi.repository.MentorRepository;
 import com.ragapi.repository.QuestionEscalationRepository;
-import com.ragapi.repository.SubscriptionPlanRepository;
 import com.ragapi.repository.UserRepository;
-import com.ragapi.repository.UserSubscriptionRepository;
+import com.ragapi.util.EscalationOrdering;
 import com.ragapi.util.StudentCodeAllocator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -36,8 +33,6 @@ public class AdminDashboardService {
     private final UserRepository userRepository;
     private final MentorRepository mentorRepository;
     private final QuestionEscalationRepository questionEscalationRepository;
-    private final SubscriptionPlanRepository subscriptionPlanRepository;
-    private final UserSubscriptionRepository userSubscriptionRepository;
     private final UserOwnedRecordCleanup userOwnedRecordCleanup;
     private final MongoTemplate mongoTemplate;
 
@@ -45,23 +40,10 @@ public class AdminDashboardService {
     private String systemAdminEmail;
 
     public Map<String, Object> getDashboardStats() {
-        long userCount = userRepository.count();
-        long mentorCount = mentorRepository.count();
-        long escalationCount = questionEscalationRepository.count();
-        long planCount = subscriptionPlanRepository.count();
-        long subscriptionCount = userSubscriptionRepository.count();
-
-        long activeSubscriptions = userSubscriptionRepository.findByStatus("ACTIVE").stream()
-                .filter(this::isCurrentlyActive)
-                .count();
-
         return Map.of(
-                "users", userCount,
-                "mentors", mentorCount,
-                "escalations", escalationCount,
-                "subscriptionPlans", planCount,
-                "subscriptions", subscriptionCount,
-                "activeSubscriptions", activeSubscriptions
+                "users", userRepository.count(),
+                "mentors", mentorRepository.count(),
+                "escalations", questionEscalationRepository.count()
         );
     }
 
@@ -225,6 +207,7 @@ public class AdminDashboardService {
                 .filter(request -> mentorId == null || mentorId.isBlank()
                         || mentorId.equals(request.getAssignedMentorId()))
                 .filter(request -> withinRange(request.getCreatedAt(), from, to))
+                .sorted(EscalationOrdering.newestFirst())
                 .collect(Collectors.toList());
     }
 
@@ -233,35 +216,6 @@ public class AdminDashboardService {
                 .orElseThrow(() -> new RuntimeException("Escalation not found"));
         questionEscalationRepository.delete(request);
     }
-
-    public List<SubscriptionPlan> filterPlans(Boolean includeInactive) {
-        return includeInactive == null || includeInactive
-                ? subscriptionPlanRepository.findAll()
-                : subscriptionPlanRepository.findByIsActiveTrue();
-    }
-
-    public void deletePlan(String planId) {
-        SubscriptionPlan plan = subscriptionPlanRepository.findById(planId)
-                .orElseThrow(() -> new RuntimeException("Plan not found"));
-        subscriptionPlanRepository.delete(plan);
-    }
-
-    public List<UserSubscription> filterSubscriptions(String userId, String status, String planCode, Boolean activeOnly) {
-        return userSubscriptionRepository.findAll().stream()
-                .filter(subscription -> userId == null || userId.isBlank() || userId.equals(subscription.getUserId()))
-                .filter(subscription -> status == null || status.isBlank() || status.equalsIgnoreCase(subscription.getStatus()))
-                .filter(subscription -> planCode == null || planCode.isBlank()
-                        || planCode.equalsIgnoreCase(subscription.getPlanCode()))
-                .filter(subscription -> activeOnly == null || !activeOnly || isCurrentlyActive(subscription))
-                .collect(Collectors.toList());
-    }
-
-    public void deleteSubscription(String subscriptionId) {
-        UserSubscription subscription = userSubscriptionRepository.findById(subscriptionId)
-                .orElseThrow(() -> new RuntimeException("Subscription not found"));
-        userSubscriptionRepository.delete(subscription);
-    }
-
 
     private boolean isProtectedSystemAdmin(User user) {
         if (user == null) {
@@ -313,16 +267,6 @@ public class AdminDashboardService {
         return true;
     }
 
-    private boolean isCurrentlyActive(UserSubscription subscription) {
-        if (subscription == null) {
-            return false;
-        }
-        if (!"ACTIVE".equalsIgnoreCase(subscription.getStatus())) {
-            return false;
-        }
-        LocalDateTime now = LocalDateTime.now();
-        return subscription.getEndAt() == null || subscription.getEndAt().isAfter(now);
-    }
 }
 
 

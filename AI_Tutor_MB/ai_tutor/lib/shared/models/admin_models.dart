@@ -7,26 +7,17 @@ class AdminStats {
     required this.users,
     required this.mentors,
     required this.escalations,
-    required this.subscriptionPlans,
-    required this.subscriptions,
-    required this.activeSubscriptions,
   });
 
   final int users;
   final int mentors;
   final int escalations;
-  final int subscriptionPlans;
-  final int subscriptions;
-  final int activeSubscriptions;
 
   factory AdminStats.fromJson(Map<String, dynamic> json) {
     return AdminStats(
       users: (json['users'] as num?)?.toInt() ?? 0,
       mentors: (json['mentors'] as num?)?.toInt() ?? 0,
       escalations: (json['escalations'] as num?)?.toInt() ?? 0,
-      subscriptionPlans: (json['subscriptionPlans'] as num?)?.toInt() ?? 0,
-      subscriptions: (json['subscriptions'] as num?)?.toInt() ?? 0,
-      activeSubscriptions: (json['activeSubscriptions'] as num?)?.toInt() ?? 0,
     );
   }
 }
@@ -223,72 +214,3 @@ class AdminMentorEscalation {
   }
 }
 
-// ── Subscription plan ─────────────────────────────────────────────
-
-class SubscriptionPlan {
-  const SubscriptionPlan({
-    required this.id,
-    required this.planCode,
-    required this.name,
-    this.price = 0,
-    this.durationDays = 30,
-    this.isActive = true,
-    this.description,
-  });
-
-  final String id;
-  final String planCode;
-  final String name;
-  final double price;
-  final int durationDays;
-  final bool isActive;
-  final String? description;
-
-  factory SubscriptionPlan.fromJson(Map<String, dynamic> json) {
-    return SubscriptionPlan(
-      id: readId(json, keys: ['id']),
-      planCode: readString(json, 'planCode'),
-      name: readString(json, 'name'),
-      price: (json['price'] as num?)?.toDouble() ?? 0,
-      durationDays: (json['durationDays'] as num?)?.toInt() ?? 30,
-      isActive: json['isActive'] as bool? ?? true,
-      description: json['description']?.toString(),
-    );
-  }
-}
-
-// ── User subscription ─────────────────────────────────────────────
-
-class UserSubscription {
-  const UserSubscription({
-    required this.id,
-    required this.userId,
-    required this.planCode,
-    this.status = 'ACTIVE',
-    this.startAt,
-    this.endAt,
-    this.userName,
-  });
-
-  final String id;
-  final String userId;
-  final String planCode;
-  final String status;
-  final DateTime? startAt;
-  final DateTime? endAt;
-  final String? userName;
-
-  bool get isActive => status == 'ACTIVE';
-
-  factory UserSubscription.fromJson(Map<String, dynamic> json) {
-    return UserSubscription(
-      id: readId(json, keys: ['id']),
-      userId: readString(json, 'userId'),
-      planCode: readString(json, 'planCode'),
-      status: readString(json, 'status', fallback: 'ACTIVE'),
-      startAt: parseDateTime(json['startAt']),
-      endAt: parseDateTime(json['endAt']),
-      userName: json['userName']?.toString(),
-    );
-  }
-}
