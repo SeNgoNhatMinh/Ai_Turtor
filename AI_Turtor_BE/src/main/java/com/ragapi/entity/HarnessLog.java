@@ -23,6 +23,7 @@ public class HarnessLog {
     private String traceId;
     private String sessionId;
     private String conversationId;
+    private LocalDateTime conversationDeletedAt;
 
     private String studentId;
     private String courseId;

@@ -17,6 +17,9 @@ import java.util.Optional;
 
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -31,6 +34,7 @@ class AiConversationServiceUnderstandingCheckTest {
     private AiConversationRepository conversationRepository;
     private AiMessageRepository messageRepository;
     private CourseCurriculumOverviewService curriculumOverviewService;
+    private MongoTemplate mongoTemplate;
     private AiConversationService service;
 
     @BeforeEach
@@ -38,13 +42,15 @@ class AiConversationServiceUnderstandingCheckTest {
         conversationRepository = mock(AiConversationRepository.class);
         messageRepository = mock(AiMessageRepository.class);
         curriculumOverviewService = mock(CourseCurriculumOverviewService.class);
+        mongoTemplate = mock(MongoTemplate.class);
         service = new AiConversationService(
                 conversationRepository,
                 messageRepository,
                 curriculumOverviewService,
                 mock(AdaptiveLearningReviewService.class),
                 mock(ClassSectionRepository.class),
-                mock(RealtimeEventService.class)
+                mock(RealtimeEventService.class),
+                mongoTemplate
         );
         when(conversationRepository.findByIdAndUserId("conversation-1", "student-1"))
                 .thenReturn(Optional.of(AiConversation.builder()
@@ -53,6 +59,19 @@ class AiConversationServiceUnderstandingCheckTest {
                         .build()));
         when(messageRepository.save(any(AiMessage.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
+    }
+
+    @Test
+    void deletingConversationDetachesPreservedLearningRecords() {
+        service.deleteConversation("conversation-1", "student-1");
+
+        verify(messageRepository).deleteByConversationId("conversation-1");
+        verify(conversationRepository).deleteByIdAndUserId("conversation-1", "student-1");
+        verify(mongoTemplate).updateMulti(any(Query.class), any(Update.class), eq("question_escalations"));
+        verify(mongoTemplate).updateMulti(any(Query.class), any(Update.class), eq("ai_answer_reviews"));
+        verify(mongoTemplate).updateMulti(any(Query.class), any(Update.class), eq("harness_logs"));
+        verify(mongoTemplate).updateMulti(any(Query.class), any(Update.class), eq("tutor_sessions"));
+        verify(mongoTemplate).updateMulti(any(Query.class), any(Update.class), eq("tutor_session_summaries"));
     }
 
     @Test

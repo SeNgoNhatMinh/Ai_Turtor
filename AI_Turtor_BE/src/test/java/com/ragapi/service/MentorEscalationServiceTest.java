@@ -4,10 +4,12 @@ import com.ragapi.entity.ChatRoom;
 import com.ragapi.entity.ClassSection;
 import com.ragapi.entity.Mentor;
 import com.ragapi.entity.QuestionEscalation;
+import com.ragapi.entity.User;
 import com.ragapi.repository.ChatRoomRepository;
 import com.ragapi.repository.ClassSectionRepository;
 import com.ragapi.repository.MentorRepository;
 import com.ragapi.repository.QuestionEscalationRepository;
+import com.ragapi.repository.UserRepository;
 import com.ragapi.service.presence.TeacherPresenceQueryService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -38,6 +40,7 @@ class MentorEscalationServiceTest {
     @Mock TeacherPresenceQueryService teacherPresenceQueryService;
     @Mock RealtimeEventService realtimeEventService;
     @Mock UserNotificationService notifications;
+    @Mock UserRepository userRepository;
 
     @InjectMocks MentorEscalationService service;
 
@@ -53,6 +56,7 @@ class MentorEscalationServiceTest {
                 .status("PENDING_OFFER")
                 .build();
         when(escalationRepository.findByIdempotencyKey(anyString())).thenReturn(Optional.of(existing));
+        when(userRepository.findById("student-owner")).thenReturn(Optional.of(activeStudent()));
 
         QuestionEscalation result = service.createQuestionEscalation(
                 "student-owner",
@@ -67,6 +71,34 @@ class MentorEscalationServiceTest {
 
         assertThat(result.getId()).isEqualTo("escalation-existing");
         verify(escalationRepository, never()).save(any(QuestionEscalation.class));
+    }
+
+    @Test
+    void createEscalationUsesCanonicalStudentIdentityInsteadOfClientSnapshot() {
+        when(userRepository.findById("student-owner")).thenReturn(Optional.of(activeStudent()));
+        when(escalationRepository.findByIdempotencyKey(anyString())).thenReturn(Optional.empty());
+        when(escalationRepository.findByUserId("student-owner")).thenReturn(List.of());
+        when(escalationRepository.save(any(QuestionEscalation.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        QuestionEscalation result = service.createQuestionEscalation(
+                "student-owner", "spoofed@example.com", "ngu", "Question", "AI response",
+                "PRJ301", "SE1832", "conversation-1");
+
+        assertThat(result.getUserName()).isEqualTo("Current Student");
+        assertThat(result.getUserEmail()).isEqualTo("current@example.com");
+    }
+
+    @Test
+    void adminCannotCreateAStudentEscalation() {
+        User admin = User.builder().id("admin-1").email("admin@example.com")
+                .fullName("System Admin").role("ADMIN").isActive(true).build();
+        when(userRepository.findById("admin-1")).thenReturn(Optional.of(admin));
+
+        assertThatThrownBy(() -> service.createQuestionEscalation(
+                "admin-1", "admin@example.com", "System Admin", "Question", "AI response"))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("STUDENT");
     }
 
     @Test
@@ -203,6 +235,17 @@ class MentorEscalationServiceTest {
                 .courseId("PRJ301")
                 .classId("SE1832")
                 .originalQuestion("Interpreter và compiler khác nhau thế nào?")
+                .build();
+    }
+
+    private User activeStudent() {
+        return User.builder()
+                .id("student-owner")
+                .email("current@example.com")
+                .fullName("Current Student")
+                .studentCode("SE180001")
+                .role("STUDENT")
+                .isActive(true)
                 .build();
     }
 

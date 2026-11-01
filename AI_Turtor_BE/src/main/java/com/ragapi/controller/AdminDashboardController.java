@@ -14,6 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
@@ -90,18 +91,25 @@ public class AdminDashboardController {
     }
 
     @DeleteMapping("/users/{userId}")
-    public ResponseEntity<?> deleteUser(@PathVariable String userId) {
+    public ResponseEntity<?> deleteUser(@PathVariable String userId, Authentication authentication) {
         try {
-            adminDashboardService.deleteUser(userId);
+            adminDashboardService.deleteUser(userId, authentication == null ? null : authentication.getName());
             realtimeEvents.publishToRoles(
                     List.of("ADMIN"),
+                    // Keep the existing realtime event contract so open admin
+                    // pages refresh; the payload exposes the new safe semantics.
                     "USER_DELETED",
                     "USER",
                     userId,
-                    "DELETED",
-                    Map.of()
+                    "DEACTIVATED",
+                    Map.of("academicDataPreserved", true, "deletionMode", "TOMBSTONE")
             );
-            return ResponseEntity.ok(Map.of("status", "DELETED", "userId", userId));
+            return ResponseEntity.ok(Map.of(
+                    "status", "DEACTIVATED",
+                    "userId", userId,
+                    "academicDataPreserved", true,
+                    "message", "Account access and PII were revoked; learning and teaching records were preserved"
+            ));
         } catch (Exception e) {
             log.error("Error deleting user", e);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
@@ -196,10 +204,20 @@ public class AdminDashboardController {
     }
 
     @DeleteMapping("/mentor-escalations/{escalationId}")
-    public ResponseEntity<?> deleteMentorEscalation(@PathVariable String escalationId) {
+    public ResponseEntity<?> deleteMentorEscalation(
+            @PathVariable String escalationId,
+            Authentication authentication
+    ) {
         try {
-            adminDashboardService.deleteMentorEscalation(escalationId);
-            return ResponseEntity.ok(Map.of("status", "DELETED", "escalationId", escalationId));
+            adminDashboardService.archiveMentorEscalation(
+                    escalationId,
+                    authentication == null ? null : authentication.getName()
+            );
+            return ResponseEntity.ok(Map.of(
+                    "status", "ARCHIVED",
+                    "escalationId", escalationId,
+                    "linkedDataPreserved", true
+            ));
         } catch (Exception e) {
             log.error("Error deleting mentor escalation", e);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)

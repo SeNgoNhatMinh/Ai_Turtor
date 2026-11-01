@@ -23,6 +23,7 @@ public class AiAnswerReview {
     private String courseId;
     private String classId;
     private String conversationId;
+    private LocalDateTime conversationDeletedAt;
     private String questionEscalationId;
 
     private String mode;

@@ -7,10 +7,12 @@ import com.ragapi.entity.ChatRoom;
 import com.ragapi.entity.ClassSection;
 import com.ragapi.entity.Mentor;
 import com.ragapi.entity.QuestionEscalation;
+import com.ragapi.entity.User;
 import com.ragapi.repository.ChatRoomRepository;
 import com.ragapi.repository.ClassSectionRepository;
 import com.ragapi.repository.MentorRepository;
 import com.ragapi.repository.QuestionEscalationRepository;
+import com.ragapi.repository.UserRepository;
 import com.ragapi.service.presence.TeacherPresenceQueryService;
 import com.ragapi.util.EscalationOrdering;
 import lombok.AllArgsConstructor;
@@ -45,6 +47,7 @@ public class MentorEscalationService {
     private final TeacherPresenceQueryService teacherPresenceQueryService;
     private final RealtimeEventService realtimeEvents;
     private final UserNotificationService notifications;
+    private final UserRepository userRepository;
 
     /**
      * Pushes escalation lifecycle changes to the class teacher (teacher
@@ -174,6 +177,10 @@ public class MentorEscalationService {
             String classId,
             String conversationId
     ) {
+        User student = requireActiveStudent(userId);
+        userId = student.getId();
+        userEmail = trimToNull(student.getEmail());
+        userName = firstNonBlank(student.getFullName(), student.getStudentCode(), student.getId());
         String idempotencyKey = escalationIdempotencyKey(
                 userId, courseId, classId, conversationId, question);
         Optional<QuestionEscalation> existing = questionEscalationRepository
@@ -227,6 +234,35 @@ public class MentorEscalationService {
         }
         publishEscalationEvent(saved, "SUPPORT_ESCALATION_CREATED");
         return saved;
+    }
+
+    private User requireActiveStudent(String userId) {
+        String normalizedId = trimToNull(userId);
+        if (normalizedId == null) {
+            throw new IllegalArgumentException("studentId is required");
+        }
+        User student = userRepository.findById(normalizedId)
+                .orElseThrow(() -> new IllegalArgumentException("Student account not found: " + normalizedId));
+        if (!Boolean.TRUE.equals(student.getIsActive()) || student.getDeletedAt() != null) {
+            throw new SecurityException("Student account is inactive");
+        }
+        if (!"STUDENT".equalsIgnoreCase(student.getRole())) {
+            throw new SecurityException("Only an active STUDENT account can create an escalation");
+        }
+        return student;
+    }
+
+    private String firstNonBlank(String... values) {
+        if (values == null) {
+            return null;
+        }
+        for (String value : values) {
+            String normalized = trimToNull(value);
+            if (normalized != null) {
+                return normalized;
+            }
+        }
+        return null;
     }
 
     public MentorEscalationOfferResponse offerMentorHelp(String questionEscalationId, String userId) {

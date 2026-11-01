@@ -49,6 +49,7 @@ public class AdminDashboardService {
 
     public List<User> filterUsers(String query, String role, Boolean active) {
         return userRepository.findAll().stream()
+                .filter(user -> user.getDeletedAt() == null)
                 .filter(user -> matchesUserQuery(user, query))
                 .filter(user -> role == null || role.isBlank() || role.equalsIgnoreCase(user.getRole()))
                 .filter(user -> active == null || user.getIsActive() != null && user.getIsActive().equals(active))
@@ -76,6 +77,7 @@ public class AdminDashboardService {
 
     private Query userFilterQuery(String query, String role, Boolean active) {
         Query mongoQuery = new Query();
+        mongoQuery.addCriteria(Criteria.where("deletedAt").is(null));
         if (role != null && !role.isBlank()) {
             mongoQuery.addCriteria(Criteria.where("role").regex("^" + Pattern.quote(role.trim()) + "$", "i"));
         }
@@ -96,26 +98,66 @@ public class AdminDashboardService {
     }
 
     public void deleteUser(String userId) {
+        deleteUser(userId, "SYSTEM_ADMIN");
+    }
+
+    /**
+     * Deactivate and anonymize an account while preserving stable references
+     * used by enrollments, submissions, grades and teaching history.
+     */
+    public void deleteUser(String userId, String deletedBy) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
         if (isProtectedSystemAdmin(user)) {
             throw new IllegalArgumentException("System admin account cannot be deleted.");
         }
+        if (user.getDeletedAt() != null) {
+            return;
+        }
 
-        mentorRepository.findById(user.getId()).ifPresent(mentorRepository::delete);
+        mentorRepository.findById(user.getId()).ifPresent(mentor -> {
+            mentor.setIsActive(false);
+            mentor.setUpdatedAt(LocalDateTime.now());
+            mentorRepository.save(mentor);
+        });
         String email = user.getEmail() == null ? "" : user.getEmail().trim();
         if (!email.isBlank()) {
             mentorRepository.findByEmail(email)
                     .filter(mentor -> !user.getId().equals(mentor.getId()))
-                    .ifPresent(mentorRepository::delete);
+                    .ifPresent(mentor -> {
+                        mentor.setIsActive(false);
+                        mentor.setUpdatedAt(LocalDateTime.now());
+                        mentorRepository.save(mentor);
+                    });
         }
-        userOwnedRecordCleanup.deleteOwnedRecords(user);
-        userRepository.delete(user);
+        userOwnedRecordCleanup.revokeAccessRecords(user);
+
+        LocalDateTime now = LocalDateTime.now();
+        user.setIsActive(false);
+        user.setEmail("deleted+" + user.getId() + "@system.invalid");
+        user.setPassword(null);
+        user.setPhone(null);
+        user.setFullName("Deleted user");
+        user.setAvatarUrl(null);
+        user.setBio(null);
+        user.setAddress(null);
+        user.setCity(null);
+        user.setIsEmailVerified(false);
+        user.setEmailVerifiedAt(null);
+        user.setLastLoginAt(null);
+        user.setDeletedAt(now);
+        user.setDeletedBy(deletedBy == null || deletedBy.isBlank() ? "SYSTEM_ADMIN" : deletedBy);
+        user.setDeletionReason("ADMIN_ACCOUNT_DELETION");
+        user.setUpdatedAt(now);
+        userRepository.save(user);
     }
 
     public User updateUser(String userId, AdminUserUpdateRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
+        if (user.getDeletedAt() != null) {
+            throw new IllegalArgumentException("Deleted account cannot be updated or reactivated.");
+        }
 
         if (request.getIsActive() != null) {
             user.setIsActive(request.getIsActive());
@@ -201,20 +243,79 @@ public class AdminDashboardService {
 
     public List<QuestionEscalation> filterMentorEscalations(String status, String userId, String mentorId,
                                                          LocalDateTime from, LocalDateTime to) {
+        Map<String, User> currentUsers = userRepository.findAll().stream()
+                .collect(Collectors.toMap(User::getId, user -> user, (left, right) -> left));
         return questionEscalationRepository.findAll().stream()
+                .filter(request -> request.getHiddenFromAdminAt() == null)
+                .filter(request -> isVisibleStudentTicket(currentUsers.get(request.getUserId())))
                 .filter(request -> status == null || status.isBlank() || status.equalsIgnoreCase(request.getStatus()))
                 .filter(request -> userId == null || userId.isBlank() || userId.equals(request.getUserId()))
                 .filter(request -> mentorId == null || mentorId.isBlank()
                         || mentorId.equals(request.getAssignedMentorId()))
                 .filter(request -> withinRange(request.getCreatedAt(), from, to))
+                .peek(request -> refreshCurrentUserSnapshot(request, currentUsers.get(request.getUserId())))
                 .sorted(EscalationOrdering.newestFirst())
                 .collect(Collectors.toList());
     }
 
-    public void deleteMentorEscalation(String escalationId) {
+    public void archiveMentorEscalation(String escalationId, String archivedBy) {
         QuestionEscalation request = questionEscalationRepository.findById(escalationId)
                 .orElseThrow(() -> new RuntimeException("Escalation not found"));
-        questionEscalationRepository.delete(request);
+        if (request.getHiddenFromAdminAt() != null) {
+            return;
+        }
+        if ("IN_CHAT".equalsIgnoreCase(request.getStatus())
+                || (request.getChatRoomId() != null && !request.getChatRoomId().isBlank()
+                && !isTerminalEscalationStatus(request.getStatus()))) {
+            throw new IllegalArgumentException(
+                    "Active chat must be closed before the escalation can be archived.");
+        }
+        LocalDateTime now = LocalDateTime.now();
+        if (!isTerminalEscalationStatus(request.getStatus())) {
+            request.setStatus("CANCELLED");
+            request.setCancelReason("ADMIN_ARCHIVED");
+            request.setIdempotencyKey(null);
+            request.setHiddenFromMentorInboxAt(now);
+        }
+        request.setHiddenFromAdminAt(now);
+        request.setHiddenFromAdminBy(archivedBy == null || archivedBy.isBlank() ? "SYSTEM_ADMIN" : archivedBy);
+        request.setUpdatedAt(now);
+        questionEscalationRepository.save(request);
+    }
+
+    /** Backwards-compatible name; this no longer physically deletes Mongo data. */
+    public void deleteMentorEscalation(String escalationId) {
+        archiveMentorEscalation(escalationId, "SYSTEM_ADMIN");
+    }
+
+    private void refreshCurrentUserSnapshot(QuestionEscalation request, User currentUser) {
+        if (request == null || currentUser == null) {
+            return;
+        }
+        if (currentUser.getFullName() != null && !currentUser.getFullName().isBlank()) {
+            request.setUserName(currentUser.getFullName());
+        }
+        if (currentUser.getEmail() != null && !currentUser.getEmail().isBlank()) {
+            request.setUserEmail(currentUser.getEmail());
+        }
+    }
+
+    private boolean isVisibleStudentTicket(User currentUser) {
+        return currentUser != null
+                && currentUser.getDeletedAt() == null
+                && Boolean.TRUE.equals(currentUser.getIsActive())
+                && "STUDENT".equalsIgnoreCase(currentUser.getRole());
+    }
+
+    private boolean isTerminalEscalationStatus(String status) {
+        if (status == null) {
+            return false;
+        }
+        String normalized = status.trim().toUpperCase(Locale.ROOT);
+        return normalized.equals("CANCELLED")
+                || normalized.equals("COMPLETED")
+                || normalized.startsWith("RESOLVED")
+                || normalized.startsWith("ANSWERED");
     }
 
     private boolean isProtectedSystemAdmin(User user) {
