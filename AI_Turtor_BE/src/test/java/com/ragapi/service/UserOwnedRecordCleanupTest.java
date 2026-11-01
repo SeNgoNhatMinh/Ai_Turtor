@@ -29,6 +29,11 @@ class UserOwnedRecordCleanupTest {
 
     @Test
     void personalRowsAreDeletedAndSharedAcademicRowsAreOnlyUnlinked() {
+        assertTrue(UserOwnedRecordCleanup.ACCESS_RECORDS.contains("auth_refresh_tokens"));
+        assertTrue(UserOwnedRecordCleanup.ACCESS_RECORDS.contains("student_llm_credentials"));
+        assertTrue(UserOwnedRecordCleanup.ACCESS_RECORDS.stream().noneMatch(name ->
+                name.equals("course_enrollments") || name.equals("assignment_submissions")
+                        || name.equals("quiz_sessions") || name.equals("course_materials")));
         assertTrue(UserOwnedRecordCleanup.OWNED_BY_STUDENT_ID.contains("course_enrollments"));
         assertTrue(UserOwnedRecordCleanup.OWNED_BY_USER_ID.contains("ai_conversations"));
         assertTrue(UserOwnedRecordCleanup.OWNED_BY_USER_ID.contains("auth_refresh_tokens"));

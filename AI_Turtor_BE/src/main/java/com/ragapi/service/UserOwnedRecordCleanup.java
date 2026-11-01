@@ -28,6 +28,17 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class UserOwnedRecordCleanup {
 
+    /**
+     * Security-only records that must disappear as soon as an account is
+     * deactivated. Academic and teaching records are deliberately excluded.
+     */
+    static final List<String> ACCESS_RECORDS = List.of(
+            "auth_refresh_tokens",
+            "student_llm_credentials",
+            "user_notifications",
+            "user_subscriptions"
+    );
+
     /** Personal rows. studentId / userId points at users.id (or a legacy student code / email). */
     static final List<String> OWNED_BY_STUDENT_ID = List.of(
             "course_enrollments",
@@ -95,6 +106,28 @@ public class UserOwnedRecordCleanup {
     private final AiConversationRepository conversationRepository;
     private final AiMessageRepository messageRepository;
 
+    /**
+     * Revoke login/session state without removing learning evidence. This is
+     * the operation used by the normal admin Delete User endpoint.
+     */
+    public void revokeAccessRecords(User user) {
+        if (user == null) {
+            return;
+        }
+        Set<String> keys = identityKeys(user);
+        if (keys.isEmpty()) {
+            return;
+        }
+        removeByFields("auth_refresh_tokens", List.of("userId", "email"), keys);
+        removeByFields("student_llm_credentials", List.of("_id", "userId"), keys);
+        removeByFields("user_notifications", List.of("userId", "recipientId", "recipientEmail"), keys);
+        removeByFields("user_subscriptions", List.of("userId", "studentId", "email"), keys);
+    }
+
+    /**
+     * Irreversible purge retained for an explicit retention/privacy job only.
+     * Do not call this method from the regular CRUD endpoint.
+     */
     public void deleteOwnedRecords(User user) {
         if (user == null) {
             return;

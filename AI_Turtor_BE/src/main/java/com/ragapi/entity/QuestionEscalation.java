@@ -72,6 +72,16 @@ public class QuestionEscalation {
      */
     private LocalDateTime hiddenFromMentorInboxAt;
 
+    /**
+     * Admin removal is intentionally a soft delete. Linked chats, answers,
+     * reviews and approved knowledge remain valid for learning flows.
+     */
+    private LocalDateTime hiddenFromAdminAt;
+    private String hiddenFromAdminBy;
+
+    /** Set when the owning conversation is intentionally removed. */
+    private LocalDateTime conversationDeletedAt;
+
     private Integer mentorResponseTime;
     private Integer durationSeconds;
     private Double userSatisfactionRating;

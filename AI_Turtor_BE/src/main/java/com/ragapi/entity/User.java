@@ -46,6 +46,15 @@ public class User {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private LocalDateTime lastLoginAt;
+
+    /**
+     * Account deletion is a tombstone, not a physical Mongo delete. Keeping the
+     * stable id prevents enrollments, grades, submissions and teaching history
+     * from becoming orphaned while the credentials and PII are revoked.
+     */
+    private LocalDateTime deletedAt;
+    private String deletedBy;
+    private String deletionReason;
     
     // Additional
     private String bio;

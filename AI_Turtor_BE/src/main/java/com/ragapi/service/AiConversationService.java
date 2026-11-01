@@ -21,6 +21,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -45,6 +49,7 @@ public class AiConversationService {
     private final AdaptiveLearningReviewService adaptiveLearningReviewService;
     private final ClassSectionRepository classSectionRepository;
     private final RealtimeEventService realtimeEvents;
+    private final MongoTemplate mongoTemplate;
 
     /**
      * Live signals for every persisted student Q&A exchange: the student's
@@ -763,9 +768,37 @@ public class AiConversationService {
 
     public void deleteConversation(String conversationId, String userId) {
         requireConversation(conversationId, userId);
+        LocalDateTime deletedAt = LocalDateTime.now();
+
+        // Reviews, escalations and harness traces contain learning/audit
+        // snapshots. Keep them, but explicitly detach the deleted chat so no
+        // dangling reference is left behind.
+        Update detachConversation = new Update()
+                .unset("conversationId")
+                .set("conversationDeletedAt", deletedAt)
+                .set("updatedAt", deletedAt);
+        Query linkedConversation = Query.query(Criteria.where("conversationId").is(conversationId));
+        mongoTemplate.updateMulti(linkedConversation, detachConversation, "question_escalations");
+        mongoTemplate.updateMulti(linkedConversation, detachConversation, "ai_answer_reviews");
+        mongoTemplate.updateMulti(linkedConversation, detachConversation, "harness_logs");
+
+        Update pullConversation = new Update()
+                .pull("conversationIds", conversationId)
+                .set("updatedAt", deletedAt);
+        mongoTemplate.updateMulti(
+                Query.query(Criteria.where("conversationIds").is(conversationId)),
+                pullConversation,
+                "tutor_sessions"
+        );
+        mongoTemplate.updateMulti(
+                Query.query(Criteria.where("conversationIds").is(conversationId)),
+                pullConversation,
+                "tutor_session_summaries"
+        );
         messageRepository.deleteByConversationId(conversationId);
         conversationRepository.deleteByIdAndUserId(conversationId, userId);
-        log.info("Deleted AI conversation {} for user {}", conversationId, userId);
+        log.info("Deleted AI conversation {} for user {} and detached preserved learning records",
+                conversationId, userId);
     }
 
     private AiConversation resolveOrCreateConversationForNewExchange(String userId, String conversationId, String courseId, String classId) {
