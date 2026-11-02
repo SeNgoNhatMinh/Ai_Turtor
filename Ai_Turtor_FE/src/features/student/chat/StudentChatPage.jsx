@@ -12,6 +12,7 @@ import { useStudentLearningActions } from '../learning/useStudentLearningActions
 import { classIdMatches } from '../../../utils/academicIds';
 import { useChatMentorRequests } from './useChatMentorRequests';
 import { useStudentChatTabController } from './useStudentChatTabController';
+import { withCurriculumWelcome } from './curriculumWelcomeMessage';
 
 export default function StudentChatPage({
   currentUser,
@@ -134,19 +135,11 @@ export default function StudentChatPage({
     retry: 1,
   });
   const curriculumWelcome = String(curriculumQuery.data?.welcomeMarkdown || '').trim();
-  const displayMessages = useMemo(() => {
-    if (!curriculumWelcome || chat.isMessagesLoading) return chat.messages;
-    // An opened conversation with history shows only its own messages; an
-    // empty one (or the new-chat screen) opens on the curriculum overview.
-    if (chat.activeSessionId && chat.messages.length > 0) return chat.messages;
-    return [{
-      id: `curriculum-${courseId}`,
-      question: '',
-      answer: curriculumWelcome,
-      proactive: true,
-      mode: 'RAG',
-    }, ...chat.messages];
-  }, [chat.activeSessionId, chat.isMessagesLoading, chat.messages, courseId, curriculumWelcome]);
+  const displayMessages = useMemo(() => withCurriculumWelcome(chat.messages, {
+    courseId,
+    curriculumWelcome,
+    isMessagesLoading: chat.isMessagesLoading,
+  }), [chat.isMessagesLoading, chat.messages, courseId, curriculumWelcome]);
 
   // No background tutor-session bootstrap: opening a tutor session (which
   // auto-creates "Buổi học cùng AI Tutor" conversations) happens only when
