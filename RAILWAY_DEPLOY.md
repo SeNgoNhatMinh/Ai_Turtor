@@ -37,19 +37,21 @@ Không commit key thật, mật khẩu, Atlas URI, file `.env`, cấu hình loca
 
 ## 3. Triển khai Elasticsearch
 
-1. Thêm service từ Docker image `elasticsearch:8.13.0`.
-2. Đặt tên service là `elasticsearch`.
-3. Thiết lập các biến:
+1. Thêm một GitHub service từ repository này; không tạo service trực tiếp từ Docker image gốc.
+2. Đặt tên service chính xác là `elasticsearch`.
+3. Đặt `Root Directory` là `/AI_Turtor_BE/docker/elasticsearch`. Railway sẽ tự đọc `Dockerfile` và `railway.json` trong thư mục này.
+4. Trong `Variables`, chỉ cần:
 
 ```env
-discovery.type=single-node
-xpack.security.enabled=false
-ES_JAVA_OPTS=-Xms512m -Xmx512m
+PORT=9200
+ES_JAVA_OPTS=-Xms256m -Xmx256m
 ```
 
-4. Gắn Railway Volume vào `/usr/share/elasticsearch/data`.
-5. Giữ service ở chế độ private; Elasticsearch không cần public domain.
-6. Cổng nội bộ của service là `9200`.
+5. Xóa các variable `discovery.type` và `xpack.security.enabled` nếu service cũ vẫn còn. Các thiết lập này đã nằm trong `elasticsearch.yml`; không truyền variable có dấu chấm vào Railway.
+6. Gắn Railway Volume vào `/usr/share/elasticsearch/data`.
+7. Giữ service ở chế độ private; Elasticsearch không cần public domain.
+8. Cổng nội bộ và healthcheck của service là `9200`.
+9. Redeploy service. Log thành công phải có dòng `started` của Elasticsearch và request `GET /` phải trả HTTP 200.
 
 ## 4. Triển khai Backend
 
@@ -67,9 +69,9 @@ JAVA_OPTS=-Xms256m -Xmx768m
 SPRING_DATA_MONGODB_URI=<mongodb-atlas-uri>
 ELASTICSEARCH_HOST=${{elasticsearch.RAILWAY_PRIVATE_DOMAIN}}
 ELASTICSEARCH_PORT=9200
-ELASTICSEARCH_INDEX=course_material_vectors_nemotron_2048
+ELASTICSEARCH_INDEX=course_material_vectors_llama_nemotron_embed_vl_1b_v2_2048
 ELASTICSEARCH_CONNECT_TIMEOUT_MS=3000
-ELASTICSEARCH_SOCKET_TIMEOUT_MS=5000
+ELASTICSEARCH_SOCKET_TIMEOUT_MS=10000
 ELASTICSEARCH_CONNECTION_REQUEST_TIMEOUT_MS=3000
 MANAGEMENT_HEALTH_ELASTICSEARCH_ENABLED=false
 

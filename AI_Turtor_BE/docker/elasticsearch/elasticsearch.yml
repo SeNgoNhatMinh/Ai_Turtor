@@ -1,5 +1,6 @@
 cluster.name: docker-cluster
 network.host: 0.0.0.0
+http.port: 9200
 discovery.type: single-node
 xpack.security.enabled: false
 node.store.allow_mmap: false
