@@ -99,7 +99,7 @@ export default function TeacherExpertTasksPage({
     <div className="portal-section expert-training-page expert-training-page--teacher">
       <PageHeader
         eyebrow="Chất lượng AI"
-        title="Q&A huấn luyện AI theo giáo trình"
+        title="Đánh giá bài giảng của AI theo giáo trình"
         description="Nhận task do Senior mở từ mục lục, soạn câu hỏi + tóm tắt ý từ giáo trình (không soạn đáp án thay sách), rồi gửi Senior duyệt."
       />
 

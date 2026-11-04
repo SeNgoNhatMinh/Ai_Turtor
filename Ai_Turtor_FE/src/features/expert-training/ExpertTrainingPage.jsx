@@ -148,7 +148,7 @@ export default function ExpertTrainingPage({
     <div className="portal-section expert-training-page expert-training-page--reviewer">
       <PageHeader
         eyebrow={workspaceMode === 'admin' ? 'Giám sát AI' : 'Huấn luyện AI'}
-        title={workspaceMode === 'admin' ? 'Huấn luyện AI Tutor' : 'Huấn luyện AI theo giáo trình'}
+        title={workspaceMode === 'admin' ? 'Huấn luyện AI Tutor' : 'Đánh giá bài giảng của AI theo giáo trình'}
         description="Chọn chương → Teacher soạn tóm tắt + Đánh giá lại (xem trước câu SV) → Senior chỉ duyệt nạp TRAINING vào RAG."
       />
 
