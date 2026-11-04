@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import Header from '../../src/components/Header';
 import Sidebar from '../../src/components/Sidebar';
@@ -20,7 +21,9 @@ describe('UI action safety', () => {
 
   it('does not show fake service health or an account-role switch in the app chrome', () => {
     const { rerender } = render(
-      <Sidebar activeRole="student" activeTab="student-chat" switchTab={vi.fn()} />,
+      <MemoryRouter>
+        <Sidebar activeRole="student" activeTab="student-chat" switchTab={vi.fn()} />
+      </MemoryRouter>,
     );
 
     expect(screen.queryByText('Backend API Connected')).not.toBeInTheDocument();
@@ -28,13 +31,15 @@ describe('UI action safety', () => {
     expect(screen.queryByText('Elasticsearch Ready')).not.toBeInTheDocument();
 
     rerender(
-      <Header
-        activeRole="admin"
-        isDarkMode={false}
-        setIsDarkMode={vi.fn()}
-        currentUser={{ id: 'admin-1', role: 'ADMIN', fullName: 'System Admin' }}
-        onLogout={vi.fn()}
-      />,
+      <MemoryRouter>
+        <Header
+          activeRole="admin"
+          isDarkMode={false}
+          setIsDarkMode={vi.fn()}
+          currentUser={{ id: 'admin-1', role: 'ADMIN', fullName: 'System Admin' }}
+          onLogout={vi.fn()}
+        />
+      </MemoryRouter>,
     );
 
     expect(screen.getByText('Không gian: Quản trị viên')).toBeInTheDocument();
