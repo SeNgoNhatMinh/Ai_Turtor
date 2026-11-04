@@ -56,15 +56,14 @@ export const ROLE_THEMES = Object.freeze({
     rowHover: '#F7F3FF',
     focus: 'rgba(109, 40, 217, 0.24)',
   }),
-  // Same workspace palette as the student portal.
   admin: Object.freeze({
-    primary: FPT_COLORS.navySoft,
-    primaryHover: FPT_COLORS.navy,
-    primaryActive: '#00142E',
-    link: FPT_COLORS.blue,
-    soft: '#EAF2FB',
-    rowHover: '#F3F7FC',
-    focus: 'rgba(11, 59, 130, 0.24)',
+    primary: '#0F766E',
+    primaryHover: '#115E59',
+    primaryActive: '#134E4A',
+    link: '#0F6B64',
+    soft: '#CCFBF1',
+    rowHover: '#F0FDFA',
+    focus: 'rgba(15, 118, 110, 0.24)',
   }),
 });
 
