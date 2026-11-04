@@ -220,7 +220,7 @@
     border-color: #2f2f2f;
   }
 
-  body:has(.app-container.dark) .mobile-navigation-drawer-root:is(.role-teacher, .role-senior)
+  body:has(.app-container.dark) .mobile-navigation-drawer-root:is(.role-teacher, .role-senior, .role-admin)
     .mobile-navigation-drawer__menu .ant-menu-item-selected {
     background: color-mix(in srgb, var(--role-accent) 24%, #171717);
     color: color-mix(in srgb, var(--role-soft) 88%, #ffffff);
