@@ -35,6 +35,8 @@ class StudentHomeScreen extends HookConsumerWidget {
     final selectedServiceTab = useState(PlugProServiceTab.primary);
     final scrollController = useScrollController();
     final courseHubKey = useMemoized(GlobalKey.new);
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final motionDuration = reduceMotion ? Duration.zero : Motion.base;
 
     useListenable(searchController);
     useEffect(() {
@@ -86,7 +88,7 @@ class StudentHomeScreen extends HookConsumerWidget {
             : data.dashboard.enrolledCourseCount;
         final session = ref.read(authControllerProvider).valueOrNull;
         final greetName = _studentGivenName(session?.fullName);
-        final heroTitle = 'Chào $greetName, hôm nay học gì nào?';
+        final heroTitle = 'Chào $greetName,\nsẵn sàng học tiếp chưa?';
 
         return RefreshIndicator(
           color: AppColors.fptOrange,
@@ -104,7 +106,7 @@ class StudentHomeScreen extends HookConsumerWidget {
                             PlanAHomeHero(
                               title: heroTitle,
                               subtitle: l10n.homeHeroSubtitle,
-                              ctaLabel: 'Hỏi ngay',
+                              ctaLabel: 'Học với AI Tutor',
                               onCta: () => context.go(AppRoutes.studentTutor),
                               action: _HeroBell(
                                 hasUnread: notificationCount > 0,
@@ -119,7 +121,7 @@ class StudentHomeScreen extends HookConsumerWidget {
                                   horizontal: Insets.screenH,
                                 ),
                                 child: PlanASearchField(
-                                  hint: 'Tìm kiếm môn học',
+                                  hint: 'Tìm môn học hoặc lớp',
                                   controller: searchController,
                                 ),
                               ),
@@ -127,7 +129,7 @@ class StudentHomeScreen extends HookConsumerWidget {
                           ],
                         )
                         .animate()
-                        .fadeIn(duration: Motion.base)
+                        .fadeIn(duration: motionDuration)
                         .slideY(
                           begin: 0.03,
                           end: 0,
@@ -136,12 +138,16 @@ class StudentHomeScreen extends HookConsumerWidget {
               ),
               const SliverToBoxAdapter(child: Gap(Insets.sm)),
               SliverToBoxAdapter(
-                child: PlanAIconStats(
-                  questionsAsked: data.questionsAsked,
-                  questionsLabel: 'câu đã hỏi',
-                  courseCount: enrolledCount,
-                  coursesLabel: 'môn đang học',
-                ).animate().fadeIn(duration: Motion.base, delay: 40.ms),
+                child:
+                    PlanAIconStats(
+                      questionsAsked: data.questionsAsked,
+                      questionsLabel: 'Câu đã hỏi',
+                      courseCount: enrolledCount,
+                      coursesLabel: 'Môn đang học',
+                    ).animate().fadeIn(
+                      duration: motionDuration,
+                      delay: reduceMotion ? Duration.zero : 40.ms,
+                    ),
               ),
               const SliverToBoxAdapter(child: Gap(Insets.xl)),
               SliverToBoxAdapter(
@@ -153,7 +159,7 @@ class StudentHomeScreen extends HookConsumerWidget {
                     children: [
                       Expanded(
                         child: Text(
-                          'Khóa học nổi bật',
+                          'Môn đang học',
                           style: Theme.of(context).textTheme.titleMedium
                               ?.copyWith(
                                 color: AppColors.primary,
@@ -161,16 +167,18 @@ class StudentHomeScreen extends HookConsumerWidget {
                               ),
                         ),
                       ),
-                      InkWell(
-                        onTap: scrollToCourseHub,
-                        child: Text(
-                          'Xem tất cả >',
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(
-                                color: AppColors.fptBlue,
-                                fontWeight: FontWeight.w600,
-                              ),
+                      TextButton.icon(
+                        onPressed: scrollToCourseHub,
+                        style: TextButton.styleFrom(
+                          foregroundColor: AppColors.fptBlue,
+                          minimumSize: const Size(48, 48),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: Insets.sm,
+                          ),
                         ),
+                        label: const Text('Xem tất cả'),
+                        icon: const Icon(LucideIcons.arrowRight, size: 16),
+                        iconAlignment: IconAlignment.end,
                       ),
                     ],
                   ),
@@ -196,7 +204,7 @@ class StudentHomeScreen extends HookConsumerWidget {
               else
                 SliverToBoxAdapter(
                   child: SizedBox(
-                    height: 204,
+                    height: 186,
                     child: ListView.separated(
                       scrollDirection: Axis.horizontal,
                       padding: const EdgeInsets.symmetric(
@@ -211,8 +219,12 @@ class StudentHomeScreen extends HookConsumerWidget {
                               index: index,
                               onTap: () => onCourseCardTap(course),
                             )
-                            .animate(delay: (40 * index).clamp(0, 200).ms)
-                            .fadeIn(duration: Motion.base)
+                            .animate(
+                              delay: reduceMotion
+                                  ? Duration.zero
+                                  : (40 * index).clamp(0, 200).ms,
+                            )
+                            .fadeIn(duration: motionDuration)
                             .slideX(
                               begin: 0.06,
                               end: 0,
@@ -224,60 +236,65 @@ class StudentHomeScreen extends HookConsumerWidget {
                 ),
               const SliverToBoxAdapter(child: Gap(Insets.xl)),
               SliverToBoxAdapter(
-                child: PlanAQuickActions(
-                  actions: [
-                    PlanAQuickAction(
-                      title: l10n.askAiTutor,
-                      subtitle: 'Học theo tài liệu môn học',
-                      icon: LucideIcons.sparkles,
-                      color: AppColors.peacockBlue,
-                      onTap: () => context.go(AppRoutes.studentTutor),
+                child:
+                    PlanAQuickActions(
+                      actions: [
+                        PlanAQuickAction(
+                          title: 'AI Tutor',
+                          subtitle: 'Học theo tài liệu môn học',
+                          icon: LucideIcons.sparkles,
+                          color: AppColors.peacockBlue,
+                          onTap: () => context.go(AppRoutes.studentTutor),
+                        ),
+                        PlanAQuickAction(
+                          title: 'Quiz',
+                          subtitle: 'Luyện tập và kiểm tra nhanh',
+                          icon: LucideIcons.clipboardList,
+                          color: AppColors.fptOrange,
+                          onTap: () {
+                            final course =
+                                ref.read(selectedCourseProvider) ??
+                                (filteredCourses.isNotEmpty
+                                    ? filteredCourses.first
+                                    : null);
+                            if (course != null) {
+                              ref.read(selectedCourseProvider.notifier).state =
+                                  course;
+                            }
+                            context.push(AppRoutes.studentQuiz);
+                          },
+                        ),
+                        PlanAQuickAction(
+                          title: 'Tài liệu',
+                          subtitle: 'Xem học liệu và nộp bài',
+                          icon: LucideIcons.bookOpen,
+                          color: AppColors.leafGreen,
+                          onTap: () => context.push(AppRoutes.studentMaterials),
+                        ),
+                        PlanAQuickAction(
+                          title: 'Hỗ trợ',
+                          subtitle: 'Theo dõi yêu cầu mentor',
+                          icon: LucideIcons.lifeBuoy,
+                          color: AppColors.primary,
+                          onTap: () =>
+                              context.push(AppRoutes.escalationHistory),
+                        ),
+                        PlanAQuickAction(
+                          title: 'Tiến độ',
+                          subtitle: 'Chủ đề yếu và gợi ý ôn tập',
+                          icon: LucideIcons.trendingUp,
+                          color: AppColors.accent,
+                          onTap: () => context.push(AppRoutes.studentProgress),
+                        ),
+                      ],
+                    ).animate().fadeIn(
+                      duration: motionDuration,
+                      delay: reduceMotion ? Duration.zero : 20.ms,
                     ),
-                    PlanAQuickAction(
-                      title: 'Làm quiz',
-                      subtitle: 'Luyện tập và kiểm tra nhanh',
-                      icon: LucideIcons.clipboardList,
-                      color: AppColors.fptOrange,
-                      onTap: () {
-                        final course =
-                            ref.read(selectedCourseProvider) ??
-                            (filteredCourses.isNotEmpty
-                                ? filteredCourses.first
-                                : null);
-                        if (course != null) {
-                          ref.read(selectedCourseProvider.notifier).state =
-                              course;
-                        }
-                        context.push(AppRoutes.studentQuiz);
-                      },
-                    ),
-                    PlanAQuickAction(
-                      title: 'Tài liệu & bài tập',
-                      subtitle: 'Xem học liệu và nộp bài',
-                      icon: LucideIcons.bookOpen,
-                      color: AppColors.leafGreen,
-                      onTap: () => context.push(AppRoutes.studentMaterials),
-                    ),
-                    PlanAQuickAction(
-                      title: 'Hỗ trợ giảng viên',
-                      subtitle: 'Theo dõi yêu cầu mentor',
-                      icon: LucideIcons.lifeBuoy,
-                      color: AppColors.primary,
-                      onTap: () => context.push(AppRoutes.escalationHistory),
-                    ),
-                    PlanAQuickAction(
-                      title: 'Tiến độ học tập',
-                      subtitle: 'Chủ đề yếu và gợi ý ôn tập',
-                      icon: LucideIcons.trendingUp,
-                      color: AppColors.accent,
-                      onTap: () => context.push(AppRoutes.studentProgress),
-                    ),
-                  ],
-                ).animate().fadeIn(duration: Motion.base, delay: 20.ms),
               ),
               const SliverToBoxAdapter(child: Gap(Insets.xl)),
               SliverToBoxAdapter(
-                child: PlugProSectionHeader(title: l10n.tabClasses),
+                child: const PlugProSectionHeader(title: 'Học theo môn'),
               ),
               SliverToBoxAdapter(
                 child: KeyedSubtree(
@@ -309,8 +326,9 @@ class _HeroBell extends StatelessWidget {
   Widget build(BuildContext context) {
     return IconButton(
       onPressed: onTap,
+      tooltip: hasUnread ? 'Thông báo chưa đọc' : 'Thông báo',
       padding: EdgeInsets.zero,
-      constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+      constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
       visualDensity: VisualDensity.compact,
       style: IconButton.styleFrom(
         backgroundColor: Colors.transparent,
@@ -321,7 +339,7 @@ class _HeroBell extends StatelessWidget {
         clipBehavior: Clip.none,
         alignment: Alignment.center,
         children: [
-          const Icon(Icons.notifications, size: 26, color: Colors.black),
+          const Icon(LucideIcons.bell, size: 24, color: AppColors.primary),
           if (hasUnread)
             const Positioned(
               right: 1,
