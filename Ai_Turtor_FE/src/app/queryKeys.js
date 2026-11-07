@@ -1,4 +1,12 @@
 export const queryKeys = {
+  teachingBehaviors: (filters = {}) => ['teacher', 'teaching-behaviors', filters],
+  studentTeachingRag: (studentId, courseId, classId) => [
+    'teacher',
+    'student-teaching-rag',
+    studentId || 'none',
+    courseId || 'none',
+    classId || 'none',
+  ],
   conversations: (userId, courseId) => [
     'conversations',
     userId,
@@ -192,6 +200,7 @@ export const queryKeys = {
   expertTaskDetail: (taskId) => ['expert-training', 'task-detail', taskId || 'none'],
   expertContributions: (courseId) => ['expert-training', courseId || 'none', 'contributions'],
   expertEvaluations: (courseId) => ['expert-training', courseId || 'none', 'evaluations'],
+  expertHarnessCases: (courseId) => ['expert-training', courseId || 'none', 'harness-cases'],
   expertChapterPreview: (courseId, chapterKey, expanded) => [
     'expert-training',
     courseId || 'none',

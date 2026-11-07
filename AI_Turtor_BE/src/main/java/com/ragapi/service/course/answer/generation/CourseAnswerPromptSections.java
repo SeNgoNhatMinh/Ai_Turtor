@@ -1,5 +1,7 @@
 package com.ragapi.service.course.answer.generation;
 
+import com.ragapi.service.behavior.ExplanationStyles;
+
 import org.springframework.stereotype.Service;
 
 @Service
@@ -152,19 +154,16 @@ public class CourseAnswerPromptSections {
     ) {
         if (understandingRemediation) {
             return """
-                ## Chẩn đoán lỗi sai
+                ## 1. Chẩn đoán lỗi sai
                 REQUIRED. Name the option the student chose (letter + short text). Say why that choice is wrong
                 and what misconception it reveals. Mention the correct idea in one sentence. Do not dump all options again.
 
-                ## Giảng lại dễ hiểu
-                A short encouraging transition, then re-teach once. Do not repeat the diagnosis paragraph.
-
-                ### Giải thích khái niệm (Conceptual Explanation)
-                Explain the same concept in simpler Vietnamese and directly fix the misconception.
-
-                ### Minh họa trực quan (Visual Representation)
-                Use ONE compact visual aid from COURSE MATERIAL CONTEXT: a small table of loop steps, a short text diagram,
-                or a Mermaid flowchart. Keep it readable in chat. Do not restate the whole conceptual explanation.
+                ## 2. Giảng lại dễ hiểu
+                REQUIRED. Write the re-teach in THIS section, before any later heading.
+                At least two short Vietnamese paragraphs that fix the misconception. Do not repeat the diagnosis.
+                Then ONE compact markdown table or short diagram in the same section when the material supports it.
+                Never leave this heading empty. Do not open "Giải thích khái niệm" or "Minh họa trực quan"
+                as another heading; those belong inside this section.
 
                 ## Nguồn tài liệu đã dùng
                 List only materialId or approvedKnowledgeId values supplied in SOURCE MATERIAL IDS. Do not invent sources.
@@ -208,7 +207,7 @@ public class CourseAnswerPromptSections {
         }
         if (lessonTeach) {
             return """
-                ## Giải thích
+                ## 1. Giải thích
                 REQUIRED. Teach this lesson like a tutor using only COURSE MATERIAL CONTEXT.
                 At least 4 short paragraphs. Do not invent facts, APIs, or files missing from the context.
                 Never start with a quiz. A quiz-only answer is invalid.
@@ -217,8 +216,11 @@ public class CourseAnswerPromptSections {
                 Do not spend the whole explanation on the first part.
                 If the context has nothing about a later part, say so in one sentence.
 
-                ## Ví dụ nhỏ
+                ## 2. Ví dụ nhỏ
                 Include a small grounded example only when the student asked for one and the material supports it.
+                If you omit this heading, the next bold title uses 2.
+
+                EXPLANATION_STYLE_SECTIONS
 
                 ## Kiểm tra hiểu
                 REQUIRED, only AFTER the explanation. Always include one short multiple-choice check.
@@ -255,10 +257,11 @@ public class CourseAnswerPromptSections {
 
                 ## Nguồn tài liệu đã dùng
                 List only the materialId or approvedKnowledgeId values supplied in SOURCE MATERIAL IDS. Do not invent sources.
-                """.formatted(compactLocal ? ollamaQuizReminder() : "");
+                """.formatted(compactLocal ? ollamaQuizReminder() : "")
+                .replace("EXPLANATION_STYLE_SECTIONS", ExplanationStyles.answerSections());
         }
         return """
-                ## Theo tài liệu môn học
+                ## 1. Theo tài liệu môn học
                 Answer only what is supported by the course material context.
                 TEACH FIRST: whatever the student asked — learn about a topic, an explanation,
                 a guided walkthrough, practice exercises, a knowledge check or a quiz — always
@@ -266,11 +269,13 @@ public class CourseAnswerPromptSections {
                 when the material supports one). Never answer with only questions or exercises;
                 the quiz is appended after this explanation by the system.
 
-                ## Kiến thức bổ sung
-                Include this section only when an approvedKnowledgeId source is used. Use exactly this heading — do not add "Senior đã duyệt" or any review status.
+                ## 2. Kiến thức bổ sung
+                Include this section only when an approvedKnowledgeId source is used. Use this heading — do not add "Senior đã duyệt" or any review status. If you omit it, the next title uses 2.
 
-                ## Ví dụ nhỏ
-                Provide a small example only when directly supported by the material.
+                ## 3. Ví dụ nhỏ
+                Provide a small example only when directly supported by the material. If you omit it, do not leave a gap in the numbers.
+
+                EXPLANATION_STYLE_SECTIONS
 
                 ## Lưu ý để học tốt hơn
                 OPTIONAL. Include only when the source context explicitly gives a study tip, exercise,
@@ -284,7 +289,7 @@ public class CourseAnswerPromptSections {
                 If you include ## Kiểm tra hiểu, always finish it with:
                 Đáp án: <A or B or C>
                 Giải thích: <one short sentence>
-                """;
+                """.replace("EXPLANATION_STYLE_SECTIONS", ExplanationStyles.answerSections());
     }
 
     String ollamaQuizReminder() {

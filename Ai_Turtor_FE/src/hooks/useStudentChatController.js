@@ -80,6 +80,7 @@ export function useStudentChatController({
   const activeRequestOriginRef = useRef(null);
   const canceledAiRequestIdsRef = useRef(new Set());
   const activeAiAbortControllerRef = useRef(null);
+  const activeGenerationTraceIdRef = useRef('');
   const userIdRef = useRef(userId);
 
   useEffect(() => {
@@ -132,6 +133,8 @@ export function useStudentChatController({
     }
     const previousSessionId = activeSessionId;
     const previousSessionTitle = activeSessionTitle;
+    const generationTraceId = crypto.randomUUID();
+    activeGenerationTraceIdRef.current = generationTraceId;
     const requestId = activeAiRequestIdRef.current + 1;
     activeAiRequestIdRef.current = requestId;
     activeRequestOriginRef.current = { requestId, conversationId: previousSessionId || null };
@@ -285,6 +288,7 @@ export function useStudentChatController({
           conversationId: previousSessionId || '',
           tutorSessionId: activeTutorSession?.id || '',
           sessionPhase: activeTutorSession?.phase || 'TEACH',
+          traceId: generationTraceId,
           ...improvePlanPayload,
           ...interactionPayload,
           ...remediationPayload,
@@ -510,6 +514,9 @@ export function useStudentChatController({
         }
       }
     } finally {
+      if (activeGenerationTraceIdRef.current === generationTraceId) {
+        activeGenerationTraceIdRef.current = '';
+      }
       if (activeAiAbortControllerRef.current === requestController) {
         activeAiAbortControllerRef.current = null;
       }
@@ -605,7 +612,11 @@ export function useStudentChatController({
   const handleStopAiGeneration = () => {
     const requestId = activeAiRequestIdRef.current;
     if (requestId) canceledAiRequestIdsRef.current.add(requestId);
+    const traceId = activeGenerationTraceIdRef.current;
     activeAiAbortControllerRef.current?.abort();
+    if (traceId) {
+      aiTutorApi.cancelGeneration(traceId).catch(() => {});
+    }
     // Mark the canceled turn in the conversation it belongs to, which is
     // not necessarily the one currently on screen.
     const origin = activeRequestOriginRef.current;

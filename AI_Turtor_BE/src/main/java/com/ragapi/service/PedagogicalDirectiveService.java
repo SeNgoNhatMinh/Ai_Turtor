@@ -4,7 +4,9 @@ import com.ragapi.dto.PedagogicalDirectiveRequest;
 import com.ragapi.entity.CourseEnrollment;
 import com.ragapi.entity.PedagogicalDirective;
 import com.ragapi.repository.PedagogicalDirectiveRepository;
+import com.ragapi.service.behavior.TeachingBehaviorRetrievalService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -23,6 +25,7 @@ public class PedagogicalDirectiveService {
 
     private final PedagogicalDirectiveRepository repository;
     private final ClassRosterService classRosterService;
+    private TeachingBehaviorRetrievalService behaviorRetrieval;
 
     public PedagogicalDirective createDraft(
             PedagogicalDirectiveRequest request,
@@ -116,20 +119,49 @@ public class PedagogicalDirectiveService {
         return directives;
     }
 
+    /** Full tutor context including the student's profile and teaching behaviors (no question yet). */
     public String buildTutorContext(String studentId, String courseId, String classId) {
-        return resolveTutorGuidance(studentId, courseId, classId).tutorContext();
+        return resolveTutorGuidance(studentId, courseId, classId, null, null).tutorContext();
+    }
+
+    /** Directive-only snapshot, for callers that just need the support level. */
+    public TutorGuidanceSnapshot resolveTutorGuidance(String studentId, String courseId, String classId) {
+        List<PedagogicalDirective> directives = activeDirectives(studentId, courseId, classId);
+        return new TutorGuidanceSnapshot(resolveSupportLevel(directives), directiveContext(directives));
     }
 
     /**
      * Resolves the teacher-controlled support level and its prompt context from the same
-     * directive snapshot. Reusing this snapshot for a whole tutor turn prevents a concurrent
-     * directive update from mixing an old session level with new prompt guidance.
+     * directive snapshot, then "looks at the student": appends the student's learning
+     * profile and the teaching behaviors retrieved for this student and question.
+     * Reusing this snapshot for a whole tutor turn prevents a concurrent directive
+     * update from mixing an old session level with new prompt guidance.
      */
-    public TutorGuidanceSnapshot resolveTutorGuidance(String studentId, String courseId, String classId) {
+    public TutorGuidanceSnapshot resolveTutorGuidance(
+            String studentId, String courseId, String classId, String question, String domain) {
         List<PedagogicalDirective> directives = activeDirectives(studentId, courseId, classId);
         String supportLevel = resolveSupportLevel(directives);
-        if (directives.isEmpty()) return new TutorGuidanceSnapshot(supportLevel, "");
+        String context = directiveContext(directives);
+        if (behaviorRetrieval != null) {
+            String behaviorBlock = behaviorRetrieval
+                    .retrieve(studentId, courseId, classId, supportLevel, question, domain, true)
+                    .promptBlock();
+            if (!behaviorBlock.isBlank()) {
+                // Style rules go first so a long support-level note cannot push them out of the prompt.
+                context = context.isBlank() ? behaviorBlock : behaviorBlock + "\n" + context;
+            }
+        }
+        return new TutorGuidanceSnapshot(supportLevel, context);
+    }
 
+    @Autowired(required = false)
+    void setBehaviorRetrieval(TeachingBehaviorRetrievalService behaviorRetrieval) {
+        this.behaviorRetrieval = behaviorRetrieval;
+    }
+
+    private String directiveContext(List<PedagogicalDirective> directives) {
+        if (directives.isEmpty()) return "";
+        String supportLevel = resolveSupportLevel(directives);
         StringBuilder context = new StringBuilder()
                 .append("- ACTIVE SUPPORT LEVEL: ")
                 .append(supportLevel)
@@ -142,7 +174,7 @@ public class PedagogicalDirectiveService {
                 .forEach(directive -> context.append("\n- Teacher guidance: ")
                         .append(directive.getTopic() == null ? "" : directive.getTopic() + ": ")
                         .append(directive.getInstruction()));
-        return new TutorGuidanceSnapshot(supportLevel, context.toString());
+        return context.toString();
     }
 
     public record TutorGuidanceSnapshot(String supportLevel, String tutorContext) {}

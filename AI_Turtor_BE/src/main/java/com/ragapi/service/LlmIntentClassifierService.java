@@ -26,7 +26,7 @@ public class LlmIntentClassifierService {
             "SQL_REVIEW", "ARCHITECTURE_REVIEW", "REVIEW_LOGIC", "GUIDE_SOLUTION",
             "TECHNICAL_MENTORING", "TEACHER_POLICY"
     );
-    private static final Set<String> DOMAINS = Set.of(
+    public static final Set<String> DOMAINS = Set.of(
             "OOP", "WEB", "DATABASE", "DATA_STRUCTURE", "ALGORITHM",
             "OPERATING_SYSTEM", "NETWORK", "SECURITY", "AI_ML", "MOBILE", "GENERAL_STUDY"
     );

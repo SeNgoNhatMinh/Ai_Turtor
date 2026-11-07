@@ -51,6 +51,12 @@ public class AdaptiveLearningReview {
     private List<String> strengths;
     private List<String> knowledgeGaps;
     private List<String> teachingRecommendations;
+    /** How this student learns best, as observed by the reviewer. */
+    private List<String> learnsBestWith;
+    private List<String> struggleSignals;
+    /** Recommendations the teacher kept checked, plus the teacher's own "Khác" strategy. */
+    private List<String> teacherSelectedStrategies;
+    private String teacherCustomStrategy;
     private List<Map<String, Object>> evidence;
     private String teacherId;
     private String teacherFeedback;

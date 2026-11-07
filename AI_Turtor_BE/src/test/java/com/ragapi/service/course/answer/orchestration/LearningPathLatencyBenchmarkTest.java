@@ -34,7 +34,8 @@ class LearningPathLatencyBenchmarkTest {
                 mock(CourseAnswerCacheStageService.class),
                 generationStageService,
                 evidenceService,
-                mock(AiWorkerTraceService.class)
+                mock(AiWorkerTraceService.class),
+                mock(com.ragapi.service.harness.HarnessCaseService.class)
         );
         CourseAnswerRequest request = CourseAnswerRequest.builder()
                 .question("Hôm nay mình muốn học về kết nối cơ sở dữ liệu JDBC")

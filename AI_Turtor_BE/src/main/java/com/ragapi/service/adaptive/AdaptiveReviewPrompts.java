@@ -1,6 +1,7 @@
 package com.ragapi.service.adaptive;
 
 import com.ragapi.service.adaptive.AdaptiveReviewEvidence.EvidenceFacts;
+import com.ragapi.service.behavior.ExplanationStyles;
 
 import java.util.List;
 import java.util.Map;
@@ -57,7 +58,7 @@ public final class AdaptiveReviewPrompts {
                 1. OUTPUT CONTRACT
                 ==================================================
 
-                Return ONLY one valid JSON object with exactly these 9 keys:
+                Return ONLY one valid JSON object with exactly these 11 keys:
 
                 knowledgePercent
                 practicePercent
@@ -67,9 +68,11 @@ public final class AdaptiveReviewPrompts {
                 strengths
                 knowledgeGaps
                 teachingRecommendations
+                learnsBestWith
+                struggleSignals
                 suggestedSupportLevel
 
-                The required output schema consists of exactly these 9 keys.
+                The required output schema consists of exactly these 11 keys.
                 Do not add overallPercent or other keys.
 
                 Data types:
@@ -80,7 +83,9 @@ public final class AdaptiveReviewPrompts {
                 - summary: short Vietnamese string.
                 - strengths: array of short Vietnamese strings.
                 - knowledgeGaps: array of short Vietnamese strings.
-                - teachingRecommendations: array of actionable Vietnamese strings.
+                - teachingRecommendations: array of 2 to 4 Vietnamese explanation styles.
+                - learnsBestWith: array of short Vietnamese strings.
+                - struggleSignals: array of short Vietnamese strings.
                 - suggestedSupportLevel: exactly one of HIGH_SUPPORT, STANDARD, CHALLENGE.
 
                 All explanatory text and array items must be in Vietnamese.
@@ -367,11 +372,10 @@ public final class AdaptiveReviewPrompts {
                 Do not use confidencePercent as a measure of student ability.
 
                 When evidence supports a learning gap, teachingRecommendations should
-                describe an appropriate intervention for that gap.
+                pick the explanation styles that repair that gap.
 
                 When evidence supports greater independence, teachingRecommendations
-                should propose more demanding practice rather than merely reducing
-                explanations.
+                should prefer Bài tập có hướng dẫn and Tự kiểm tra over longer definitions.
 
                 5.5. Current-level comparison and stability
 
@@ -472,18 +476,22 @@ public final class AdaptiveReviewPrompts {
                 If no specific gap can be established, return an empty array.
 
                 teachingRecommendations:
-                Provide actionable Vietnamese recommendations linked to the observed
-                strengths or gaps.
+                A teacher ticks each item and the tutor applies every ticked item as a
+                section of the next answer. Never contain the student's name or student code.
+                Do not describe a quiz result or an activity as if it has already happened.
 
-                Recommendations may include:
-                - Revisiting a specific concept.
-                - Giving a smaller worked example.
-                - Providing a targeted understanding-check question.
-                - Assigning an independent practice task.
-                - Increasing problem difficulty when mastery is demonstrated.
+                EXPLANATION_STYLE_CATALOG
 
-                Do not recommend a quiz result, activity or intervention as if it has
-                already happened.
+                learnsBestWith:
+                List up to 4 short observations of what helped THIS student learn,
+                supported by the evidence (e.g. "ví dụ đời thường", "code trước rồi
+                giải thích", "bảng so sánh"). Return an empty array when the evidence
+                does not show it.
+
+                struggleSignals:
+                List up to 4 short observations of how this student struggles
+                (e.g. "lẫn interface và abstract class", "bỏ cuộc sau 2 lần sai").
+                Return an empty array when the evidence does not show it.
 
                 suggestedSupportLevel:
                 Return exactly one of HIGH_SUPPORT, STANDARD or CHALLENGE.
@@ -512,7 +520,8 @@ public final class AdaptiveReviewPrompts {
                 - No text appears outside the JSON object.
 
                 Return ONLY the JSON object.
-                """.formatted(courseId, currentSupportLevel, CYCLE_SIZE, facts.describe(), transcript(evidence));
+                """.formatted(courseId, currentSupportLevel, CYCLE_SIZE, facts.describe(), transcript(evidence))
+                .replace("EXPLANATION_STYLE_CATALOG", ExplanationStyles.reviewCatalog());
     }
 
     /** Teacher-facing narrative over the student's whole course history; never changes the level. */

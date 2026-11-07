@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Alert, Button, Empty, Input, Progress, Select, Skeleton, Tag, Tooltip } from 'antd';
+import { Alert, Button, Checkbox, Empty, Input, Progress, Select, Skeleton, Tag, Tooltip } from 'antd';
 import { Activity, BookOpenCheck, CheckCircle2, ChevronRight, ClipboardList, RefreshCw, ShieldAlert, Sparkles } from 'lucide-react';
 import { teacherReviewApi } from '../../../services/teacherReviewApi';
 import { useRealtimeEvent } from '../../realtime/realtimeContext';
+import { BEHAVIOR_DOMAINS, MAX_BEHAVIOR_LENGTH, SHARE_SCOPE_OPTIONS } from '../behaviors/behaviorConstants';
 import './AdaptiveLearningReviewPanel.css';
 
 const { TextArea } = Input;
@@ -81,7 +82,7 @@ function PercentMetric({ label, value, color }) {
   );
 }
 
-function EvidenceItem({ item, index, studentName }) {
+function EvidenceItem({ item, index }) {
   const [expanded, setExpanded] = useState(false);
   const role = String(item?.role || '').toUpperCase();
   const student = role === 'STUDENT';
@@ -91,89 +92,94 @@ function EvidenceItem({ item, index, studentName }) {
   const quizCorrect = kind === 'QUIZ_CORRECT' || (kind === 'STUDENT_ANSWER' && item?.correct === true);
   const quizSkipped = isStudentAnswer && !quizWrong && !quizCorrect
     && (item?.skipped === true || item?.correct == null || !item?.selectedKey);
-  const title = isStudentAnswer
-    ? (quizWrong ? 'Câu trả lời sai' : 'Kết quả kiểm tra')
-    : student ? 'Câu hỏi của sinh viên' : 'Câu trả lời của AI';
   const evidenceDate = formatEvidenceDate(isStudentAnswer
     ? item?.eventAt || item?.answeredAt || item?.createdAt
     : item?.createdAt);
   const selectedAnswer = [item?.selectedKey, item?.selectedText].filter(Boolean).join('. ');
   const correctAnswer = [item?.correctKey, item?.correctText].filter(Boolean).join('. ');
-  const summaryText = isStudentAnswer
+  const status = isStudentAnswer
+    ? (quizWrong ? 'Sai' : quizCorrect ? 'Đúng' : 'Bỏ qua')
+    : student ? 'Câu hỏi' : 'AI';
+  const tone = quizWrong ? 'wrong' : quizCorrect ? 'correct' : quizSkipped ? 'skipped' : student ? 'question' : 'ai';
+  const headline = isStudentAnswer
+    ? (item?.quizQuestion || 'Câu kiểm tra')
+    : (item?.content || 'Không có nội dung');
+  const quizLabel = isStudentAnswer && item?.quizIndex != null
+    ? `Kiểm tra ${Number(item.quizIndex) + 1}`
+    : null;
+  const resultLine = isStudentAnswer
     ? (quizSkipped
-      ? `${item?.quizQuestion || 'Câu kiểm tra'} — sinh viên chưa trả lời.`
-      : `${item?.quizQuestion || 'Câu kiểm tra'} — sinh viên chọn ${selectedAnswer || '—'}; đáp án đúng ${correctAnswer || '—'}.`)
-    : String(item?.content || '').slice(0, 160);
+      ? 'Sinh viên chưa chọn đáp án'
+      : `Chọn ${item?.selectedKey || '—'} · Đáp án ${item?.correctKey || '—'}`)
+    : null;
   return (
-    <article className={`adaptive-review-evidence${quizWrong ? ' is-wrong' : ''}`}>
+    <article className={`adaptive-review-evidence is-${tone}`}>
       <button type="button" onClick={() => setExpanded((value) => !value)} aria-expanded={expanded}>
-        <span className={`adaptive-review-evidence__dot ${student ? 'is-student' : 'is-ai'}`} />
+        <span className="adaptive-review-evidence__index">{index + 1}</span>
         <span className="adaptive-review-evidence__body">
-          <strong>{title}{isStudentAnswer && item?.quizIndex != null ? ` · Câu kiểm tra ${Number(item.quizIndex) + 1}` : ''} · Bằng chứng {index + 1}</strong>
-          <small>
-            {studentName || 'Sinh viên'}
-            {evidenceDate ? ` · ${evidenceDate}` : ''}
-            {item?.topic ? ` · ${item.topic}` : ' · Chủ đề chưa xác định'}
-          </small>
-          <span className="adaptive-review-evidence__preview">
-            {isStudentAnswer && item?.studentQuestion ? (
-              <em>Câu hỏi liên quan: {previewText(item.studentQuestion, 130)}</em>
-            ) : null}
-            <span>{previewText(summaryText)}</span>
+          <span className="adaptive-review-evidence__topline">
+            <span className={`adaptive-review-evidence__status is-${tone}`}>{status}</span>
+            {quizLabel ? <span className="adaptive-review-evidence__chip">{quizLabel}</span> : null}
+            {item?.recheck ? <span className="adaptive-review-evidence__chip">Kiểm tra lại</span> : null}
+            {evidenceDate ? <time>{evidenceDate}</time> : null}
           </span>
+          <strong>{previewText(headline, 180)}</strong>
+          {resultLine ? <small>{resultLine}</small> : null}
         </span>
-        {isStudentAnswer && (
-          <Tag color={quizWrong ? 'red' : quizCorrect ? 'green' : 'gold'}>
-            {quizWrong ? 'Trả lời sai' : quizCorrect ? 'Trả lời đúng' : 'Bỏ qua'}
-          </Tag>
-        )}
         <ChevronRight size={16} className={expanded ? 'is-expanded' : ''} />
       </button>
       {expanded && (
         <div className="adaptive-review-evidence__detail">
-          <div className="adaptive-review-evidence__meta">
-            <span><small>Sinh viên</small><strong>{studentName || '—'}</strong></span>
-            <span><small>Thời điểm</small><strong>{evidenceDate || '—'}</strong></span>
-            <span><small>Chủ đề / ngữ cảnh</small><strong>{item?.topic || 'Chưa xác định'}</strong></span>
-          </div>
+          {isStudentAnswer && item?.studentQuestion ? (
+            <div className="adaptive-review-evidence__block">
+              <span>Câu hỏi trong chat</span>
+              <p>{item.studentQuestion}</p>
+            </div>
+          ) : null}
           {isStudentAnswer ? (
-            <>
-              {item?.studentQuestion ? <p><strong>Câu hỏi trong chat:</strong> {item.studentQuestion}</p> : null}
-              <p><strong>Câu kiểm tra:</strong> {item?.quizQuestion || '—'}</p>
-              <p><strong>Sinh viên trả lời:</strong> {quizSkipped ? 'Chưa trả lời' : selectedAnswer || '—'}</p>
-              {!quizSkipped ? <p><strong>Đáp án đúng:</strong> {correctAnswer || '—'}</p> : null}
-              {item?.aiAssessment ? (
-                <div className="adaptive-review-evidence__assessment">
-                  <strong>AI đánh giá</strong>
-                  <p>{item.aiAssessment}</p>
-                </div>
-              ) : null}
-              {item?.quizExplanation ? <p><strong>Giải thích đáp án:</strong> {item.quizExplanation}</p> : null}
-              {(item?.quizOptions || []).length > 0 && (
-                <details className="adaptive-review-evidence__options">
-                  <summary>Xem các lựa chọn</summary>
-                  {(item.quizOptions || []).map((option) => (
-                    <p key={option.key}>
-                      <strong>{option.key}.</strong> {option.text}
-                      {option.key === item?.correctKey ? ' ✓ đáp án đúng' : ''}
-                      {option.key === item?.selectedKey ? ' ← sinh viên chọn' : ''}
-                    </p>
-                  ))}
-                </details>
-              )}
-            </>
+            <div className="adaptive-review-evidence__block">
+              <span>Câu kiểm tra</span>
+              <p>{item?.quizQuestion || '—'}</p>
+            </div>
           ) : (
-            <>
-              <p><strong>Câu hỏi của sinh viên:</strong> {item?.content || 'Không có nội dung log.'}</p>
-              {item?.aiAssessment ? (
-                <div className="adaptive-review-evidence__assessment">
-                  <strong>AI đánh giá</strong>
-                  <p>{item.aiAssessment}</p>
-                </div>
-              ) : null}
-            </>
+            <div className="adaptive-review-evidence__block">
+              <span>{student ? 'Câu hỏi của sinh viên' : 'Nội dung'}</span>
+              <p>{item?.content || 'Không có nội dung log.'}</p>
+            </div>
           )}
-          <small>Message ID: {item?.messageId || '—'} · Session ID: {item?.sessionId || '—'}</small>
+          {isStudentAnswer && (item?.quizOptions || []).length > 0 ? (
+            <ul className="adaptive-review-evidence__choices">
+              {(item.quizOptions || []).map((option) => {
+                const picked = option.key === item?.selectedKey;
+                const right = option.key === item?.correctKey;
+                return (
+                  <li key={option.key} className={`${picked ? 'is-picked' : ''} ${right ? 'is-right' : ''}`.trim()}>
+                    <b>{option.key}</b>
+                    <span>{option.text}</span>
+                    {right ? <em>Đáp án</em> : null}
+                    {picked ? <em>{quizCorrect ? 'Đã chọn' : 'Sinh viên chọn'}</em> : null}
+                  </li>
+                );
+              })}
+            </ul>
+          ) : isStudentAnswer ? (
+            <div className="adaptive-review-evidence__pair">
+              <div><span>Sinh viên chọn</span><strong>{quizSkipped ? 'Chưa trả lời' : selectedAnswer || '—'}</strong></div>
+              {!quizSkipped ? <div><span>Đáp án đúng</span><strong>{correctAnswer || '—'}</strong></div> : null}
+            </div>
+          ) : null}
+          {item?.quizExplanation ? (
+            <div className="adaptive-review-evidence__block">
+              <span>Giải thích đáp án</span>
+              <p>{item.quizExplanation}</p>
+            </div>
+          ) : null}
+          {item?.aiAssessment ? (
+            <div className="adaptive-review-evidence__assessment">
+              <strong>AI ghi nhận</strong>
+              <p>{item.aiAssessment}</p>
+            </div>
+          ) : null}
         </div>
       )}
     </article>
@@ -181,6 +187,89 @@ function EvidenceItem({ item, index, studentName }) {
 }
 
 const EMPTY_ROSTER = [];
+
+/**
+ * The AI's suggested strategies as checkboxes. While the review is PENDING the
+ * AI already teaches with all of them; the teacher keeps the checked ones,
+ * adds an own strategy under "Khác" and may share them to the library.
+ */
+function StrategyChooser({ review, value, onChange }) {
+  const recommendations = review.teachingRecommendations || [];
+  const pending = review.status === 'PENDING';
+
+  if (!pending) {
+    const applied = review.status === 'REJECTED'
+      ? []
+      : (review.teacherSelectedStrategies ?? recommendations);
+    return (
+      <div className="adaptive-review-strategies">
+        <strong>Phong cách diễn giải đề xuất</strong>
+        <ul className="adaptive-review-strategies__result">
+          {recommendations.map((item) => (
+            <li key={item} className={applied.includes(item) ? 'is-applied' : 'is-skipped'}>
+              {applied.includes(item) ? '✓' : '✕'} {item}
+            </li>
+          ))}
+          {review.status !== 'REJECTED' && review.teacherCustomStrategy && (
+            <li className="is-applied">✓ Khác: {review.teacherCustomStrategy}</li>
+          )}
+        </ul>
+        {review.status === 'REJECTED' && (
+          <Alert type="info" showIcon message="Đã về cách giảng mặc định"
+            description="Giảng viên đã từ chối nên AI không dùng các chiến lược của đánh giá này nữa." />
+        )}
+      </div>
+    );
+  }
+
+  const update = (patch) => onChange({ ...value, ...patch });
+  return (
+    <div className="adaptive-review-strategies">
+      <strong>Phong cách diễn giải đề xuất</strong>
+      <Alert type="info" showIcon className="adaptive-review-strategies__notice"
+        message="AI đang dùng các phong cách này ở câu trả lời tiếp theo"
+        description="Mỗi dòng là một cách diễn giải. Bỏ tick hoặc Từ chối nếu không muốn AI dùng tiếp." />
+      {recommendations.length > 0 ? (
+        <Checkbox.Group
+          className="adaptive-review-strategies__list"
+          value={value.selected}
+          onChange={(selected) => update({ selected })}
+          options={recommendations.map((item) => ({ value: item, label: item }))}
+        />
+      ) : <p className="adaptive-review-strategies__empty">AI chưa đề xuất chiến lược nào.</p>}
+      <Checkbox checked={value.otherEnabled} onChange={(event) => update({ otherEnabled: event.target.checked })}>
+        Khác (ghi phong cách diễn giải bạn muốn AI dùng)
+      </Checkbox>
+      {value.otherEnabled && (
+        <TextArea value={value.custom} onChange={(event) => update({ custom: event.target.value })}
+          maxLength={MAX_BEHAVIOR_LENGTH} showCount rows={2} aria-label="Chiến lược khác"
+          placeholder="Ví dụ: Ví dụ thực tế trước, rồi mới bảng so sánh hai khái niệm gần nhau" />
+      )}
+      <div className="adaptive-review-strategies__share">
+        <label>Chia sẻ lên kho RAG behavior
+          <Select value={value.shareScope} onChange={(shareScope) => update({ shareScope })}
+            options={SHARE_SCOPE_OPTIONS} aria-label="Chia sẻ lên kho" />
+        </label>
+        {value.shareScope === 'DOMAIN' && (
+          <label>Domain
+            <Select value={value.shareDomain || undefined} onChange={(shareDomain) => update({ shareDomain })}
+              options={BEHAVIOR_DOMAINS} placeholder="Chọn domain" aria-label="Domain chia sẻ" />
+          </label>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function initialStrategyChoice(review) {
+  return {
+    selected: review?.teacherSelectedStrategies ?? [...(review?.teachingRecommendations || [])],
+    otherEnabled: Boolean(review?.teacherCustomStrategy),
+    custom: review?.teacherCustomStrategy || '',
+    shareScope: '',
+    shareDomain: '',
+  };
+}
 
 /**
  * On-demand AI reading of the student's ENTIRE chat history in this course:
@@ -279,10 +368,12 @@ export default function AdaptiveLearningReviewPanel({ courseId, classId, trigger
   const [selectedId, setSelectedId] = useState('');
   const [selectedStudentId, setSelectedStudentId] = useState('');
   const [saving, setSaving] = useState(false);
+  const [retrying, setRetrying] = useState(false);
   const [feedback, setFeedback] = useState('');
   const [decision, setDecision] = useState('APPROVE');
   const [supportLevel, setSupportLevel] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
+  const [strategyChoice, setStrategyChoice] = useState(() => initialStrategyChoice(null));
   const triggerToastRef = useRef(triggerToast);
   useEffect(() => { triggerToastRef.current = triggerToast; }, [triggerToast]);
 
@@ -346,6 +437,13 @@ export default function AdaptiveLearningReviewPanel({ courseId, classId, trigger
     }, 0);
     return () => window.clearTimeout(timer);
   }, [selected]);
+  // Reset the checkboxes only when another review (or its status) is shown, not on every refetch.
+  const strategyKey = selected ? `${selected.id}:${selected.status}` : '';
+  const [strategyChoiceKey, setStrategyChoiceKey] = useState('');
+  if (strategyKey !== strategyChoiceKey) {
+    setStrategyChoiceKey(strategyKey);
+    setStrategyChoice(initialStrategyChoice(selected));
+  }
 
   const pendingCount = reviews.filter((item) => item.status === 'PENDING').length;
   const approvedCount = reviews.filter((item) => item.status === 'APPROVED').length;
@@ -363,20 +461,76 @@ export default function AdaptiveLearningReviewPanel({ courseId, classId, trigger
   };
 
  
+  const retryEvaluation = async ({ silent = false } = {}) => {
+    if (!selected?.id || retrying) return;
+    setRetrying(true);
+    try {
+      const updated = await teacherReviewApi.retryAdaptiveLearningReview(selected.id);
+      queryClient.setQueryData(queryKey, (current = []) => (
+        current.map((item) => (item.id === selected.id ? updated : item))
+      ));
+      await load();
+      if (!silent) {
+        if (updated?.evaluationError) {
+          triggerToastRef.current?.('Hệ thống vẫn đang hoàn tất đánh giá tự động. Thử lại sau ít phút.');
+        } else {
+          triggerToastRef.current?.('Đánh giá tự động đã sẵn sàng để bạn đọc và nhận xét.');
+        }
+      }
+    } catch (error) {
+      if (!silent) triggerToastRef.current?.(error?.message || 'Không chạy lại được đánh giá.');
+    } finally {
+      setRetrying(false);
+    }
+  };
+
+  // One automatic repair attempt when opening an incomplete review; background scheduler keeps trying.
+  const autoRetriedRef = useRef('');
+  useEffect(() => {
+    if (!selected?.id || selected.status !== 'PENDING' || !selected.evaluationError || retrying) return undefined;
+    if (autoRetriedRef.current === selected.id) return undefined;
+    autoRetriedRef.current = selected.id;
+    const timer = window.setTimeout(() => {
+      retryEvaluation({ silent: true });
+    }, 800);
+    return () => window.clearTimeout(timer);
+  }, [selected?.id, selected?.status, selected?.evaluationError, retrying]);
+
   const submitDecision = async () => {
     if (!selected || saving) return;
-    if (decision !== 'REJECT' && !feedback.trim()) {
-      triggerToastRef.current?.('Hãy nhập nhận xét hoặc chỉ dẫn giảng dạy trước khi duyệt.');
+    if (selected.evaluationError) {
+      triggerToastRef.current?.('Đánh giá tự động chưa xong. Hệ thống đang chạy lại — đợi kết quả rồi nhận xét.');
+      retryEvaluation({ silent: true });
       return;
+    }
+    const customStrategy = strategyChoice.otherEnabled ? strategyChoice.custom.trim() : '';
+    if (decision !== 'REJECT') {
+      if (strategyChoice.otherEnabled && !customStrategy) {
+        triggerToastRef.current?.('Hãy ghi nội dung cho mục Khác hoặc bỏ tick mục này.');
+        return;
+      }
+      if (strategyChoice.shareScope === 'DOMAIN' && !strategyChoice.shareDomain) {
+        triggerToastRef.current?.('Hãy chọn domain để chia sẻ chiến lược.');
+        return;
+      }
     }
     setSaving(true);
     try {
+      const strategyPayload = decision === 'REJECT' ? {} : {
+        selectedStrategies: strategyChoice.selected,
+        customStrategy: customStrategy || undefined,
+        shareScope: strategyChoice.shareScope || undefined,
+        shareDomain: strategyChoice.shareScope === 'DOMAIN' ? strategyChoice.shareDomain : undefined,
+      };
       const updated = await teacherReviewApi.decideAdaptiveLearningReview(selected.id, {
         decision,
         teacherFeedback: feedback.trim(),
         supportLevel: decision === 'MODIFY' ? (supportLevel || selected.suggestedSupportLevel) : selected.suggestedSupportLevel,
+        ...strategyPayload,
       });
       queryClient.setQueryData(queryKey, (current = []) => current.map((item) => item.id === selected.id ? updated : item));
+      queryClient.invalidateQueries({ queryKey: ['teacher', 'student-teaching-rag'] });
+      queryClient.invalidateQueries({ queryKey: ['teacher', 'teaching-behaviors'] });
       triggerToastRef.current?.('Đã lưu quyết định và nhận xét của giảng viên.');
       await load();
     } catch (error) {
@@ -405,7 +559,7 @@ export default function AdaptiveLearningReviewPanel({ courseId, classId, trigger
             <div>
               <span className="adaptive-review-eyebrow"><Activity size={14} /> HỌC TẬP THÍCH ỨNG</span>
               <h2>Đánh giá tiến bộ của AI</h2>
-              <p>AI tổng hợp quá trình học của từng sinh viên trong môn này (đánh giá định kỳ sau mỗi 5 câu hỏi, hoặc sớm hơn khi sai lặp lại hay làm đúng liên tục), tự đổi mức hỗ trợ và đính kèm bằng chứng gồm câu hỏi của sinh viên cùng từng câu kiểm tra đã làm đúng/sai để giảng viên xem lại, chỉnh sửa hoặc thu hồi.</p>
+              <p>AI tự đánh giá, tự đổi mức hỗ trợ và đề xuất chiến lược. Bạn chỉ cần đọc bằng chứng rồi duyệt / chỉnh / từ chối.</p>
             </div>
             <Button icon={<RefreshCw size={15} />} onClick={load} loading={loading}>Làm mới</Button>
           </header>
@@ -480,7 +634,19 @@ export default function AdaptiveLearningReviewPanel({ courseId, classId, trigger
               )}
             </div>
 
-            {selected.evaluationError && <Alert type="warning" showIcon message="Đánh giá tự động chưa hoàn tất" description={selected.evaluationError} />}
+            {selected.evaluationError && (
+              <Alert
+                type="info"
+                showIcon
+                message="Đang hoàn tất đánh giá tự động"
+                description={(
+                  <div className="adaptive-review-eval-error">
+                    <p>Hệ thống đang tự chạy lại đánh giá. Bạn chỉ cần đợi rồi đọc kết quả và nhận xét — không cần thao tác thêm.</p>
+                    {retrying && <p>Đang cập nhật…</p>}
+                  </div>
+                )}
+              />
+            )}
             <div className="adaptive-review-score">
               <div className="adaptive-review-score__overall">
                 <Progress type="circle" percent={selected.overallPercent || 0} size={112} strokeColor="#6558f5" />
@@ -502,8 +668,7 @@ export default function AdaptiveLearningReviewPanel({ courseId, classId, trigger
                 <div><strong>Điểm mạnh</strong><ul>{(selected.strengths || []).map((item, i) => <li key={i}>{item}</li>)}</ul></div>
                 <div><strong>Lỗ hổng cần củng cố</strong><ul>{(selected.knowledgeGaps || []).map((item, i) => <li key={i}>{item}</li>)}</ul></div>
               </div>
-              <strong>Chiến lược giảng dạy đề xuất</strong>
-              <ul>{(selected.teachingRecommendations || []).map((item, i) => <li key={i}>{item}</li>)}</ul>
+              <StrategyChooser review={selected} value={strategyChoice} onChange={setStrategyChoice} />
             </div>
 
             <div className="adaptive-review-levels">
@@ -522,8 +687,8 @@ export default function AdaptiveLearningReviewPanel({ courseId, classId, trigger
             <section className="adaptive-review-logs">
               <div className="adaptive-review-section-heading">
                 <div>
-                  <h4>Bằng chứng từ log trò chuyện</h4>
-                  <p>{selectedEvidence.length} mục · {wrongEvidenceCount} câu trả lời sai · Có câu hỏi liên quan, chủ đề, thời điểm và đánh giá của AI</p>
+                  <h4>Bằng chứng</h4>
+                  <p>{selectedEvidence.length} mục · {wrongEvidenceCount} câu sai. Mở từng mục để xem câu hỏi, lựa chọn và đáp án.</p>
                 </div>
               </div>
               {selectedEvidence.length ? selectedEvidence.map((item, i) => (
@@ -531,7 +696,6 @@ export default function AdaptiveLearningReviewPanel({ courseId, classId, trigger
                   key={`${item.messageId || i}-${item.kind || 'evidence'}-${item.quizIndex ?? i}`}
                   item={item}
                   index={i}
-                  studentName={selected.studentName || selectedStudent?.studentName}
                 />
               ))
                 : <Empty description="Không có log bằng chứng" />}
@@ -539,23 +703,26 @@ export default function AdaptiveLearningReviewPanel({ courseId, classId, trigger
 
             {selected.status === 'PENDING' ? (
               <section className="adaptive-review-decision">
-                <h4>Nhận xét và quyết định của giảng viên</h4>
+                <h4>Nhận xét của giảng viên</h4>
+                <p className="adaptive-review-decision__hint">AI đã tự áp dụng. Bạn đọc xong rồi duyệt, chỉnh mức, hoặc từ chối. Nhận xét là tùy chọn.</p>
                 <TextArea value={feedback} onChange={(event) => setFeedback(event.target.value)} maxLength={5000}
-                  showCount rows={4} placeholder="Nhập nhận xét, hướng dẫn cách giảng hoặc mục tiêu cần ưu tiên..." />
+                  showCount rows={3} placeholder="Ghi chú thêm (không bắt buộc)…" />
                 <div className="adaptive-review-decision__choices">
                   <label>Quyết định
                     <Select value={decision} onChange={setDecision} options={[
-                      { value: 'APPROVE', label: 'Duyệt và áp dụng chỉ dẫn' },
-                      { value: 'MODIFY', label: 'Sửa mức hỗ trợ rồi áp dụng' },
-                      { value: 'REJECT', label: 'Từ chối và thu hồi mức AI đã áp dụng' },
+                      { value: 'APPROVE', label: 'Đồng ý với AI' },
+                      { value: 'MODIFY', label: 'Chỉnh mức hỗ trợ' },
+                      { value: 'REJECT', label: 'Từ chối, về mặc định' },
                     ]} />
                   </label>
                   {decision === 'MODIFY' && <label>Mức hỗ trợ
                     <Select value={supportLevel || selected.suggestedSupportLevel || 'STANDARD'} onChange={setSupportLevel} options={Object.entries(LEVEL_LABELS).map(([value, label]) => ({ value, label }))} />
                   </label>}
                 </div>
-                <Tooltip title="Chỉ dẫn đã duyệt sẽ được lưu thành chỉ dẫn sư phạm và dùng trong các phiên tiếp theo.">
-                  <Button type="primary" block loading={saving} onClick={submitDecision}>Lưu nhận xét và quyết định</Button>
+                <Tooltip title="Xác nhận sau khi bạn đã đọc đánh giá và bằng chứng.">
+                  <Button type="primary" block loading={saving} disabled={Boolean(selected.evaluationError) || retrying} onClick={submitDecision}>
+                    {decision === 'APPROVE' ? 'Đã đọc · Đồng ý' : decision === 'MODIFY' ? 'Đã đọc · Lưu mức mới' : 'Đã đọc · Từ chối'}
+                  </Button>
                 </Tooltip>
               </section>
             ) : (

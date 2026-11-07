@@ -139,7 +139,8 @@ class CourseAnswerServiceTextbookTest {
                         new AiWorkerOrchestrator(Runnable::run, workerTraceService)
                 ),
                 evidenceService,
-                workerTraceService
+                workerTraceService,
+                org.mockito.Mockito.mock(com.ragapi.service.harness.HarnessCaseService.class)
         );
         service = new CourseAnswerService(generationService, pipelineService, requestPolicyService);
         // Worker 1 now enters through generateWorker1Answer; delegate it to the

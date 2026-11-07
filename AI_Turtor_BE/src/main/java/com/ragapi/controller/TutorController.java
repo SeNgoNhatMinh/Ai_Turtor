@@ -13,6 +13,7 @@ import com.ragapi.dto.TutorIntentContext;
 import com.ragapi.entity.QuestionEscalation;
 import com.ragapi.entity.TutorSession;
 import com.ragapi.service.AiConversationService;
+import com.ragapi.service.ChatGenerationGate;
 import com.ragapi.service.CodeMentorService;
 import com.ragapi.service.course.gateway.CourseAnswerGateway;
 import com.ragapi.service.ImprovePlanService;
@@ -46,6 +47,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import jakarta.servlet.http.HttpServletRequest;
+
 import java.io.IOException;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -77,6 +80,7 @@ public class TutorController {
     private final TutorSessionService tutorSessionService;
     private final ImprovePlanService improvePlanService;
     private final LearningPathGroundingService learningPathGroundingService;
+    private final ChatGenerationGate generationGate;
 
     @GetMapping("/tutor/students/{studentId}/courses/{courseId}/question-quota")
     @Operation(summary = "Get today's per-course question quota for a student")
@@ -168,6 +172,19 @@ public class TutorController {
         }
     }
 
+    @PostMapping("/ai/generations/cancel")
+    public ResponseEntity<?> cancelGeneration(
+            @RequestBody(required = false) Map<String, String> body,
+            Authentication authentication
+    ) {
+        if (authentication == null || authentication.getName() == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Unauthenticated"));
+        }
+        String traceId = body == null ? "" : body.getOrDefault("traceId", "");
+        boolean cancelled = generationGate.cancel(traceId, authentication.getName());
+        return ResponseEntity.ok(Map.of("cancelled", cancelled));
+    }
+
     @PostMapping("/ai/query")
     @Operation(summary = "Ask the AI tutor using intent classification")
     public ResponseEntity<?> query(
@@ -175,8 +192,11 @@ public class TutorController {
             @RequestParam(value = "userId", required = false) String userId,
             @RequestParam(value = "userName", required = false) String userName,
             @RequestParam(value = "userEmail", required = false) String userEmail,
-            Authentication authentication
+            Authentication authentication,
+            HttpServletRequest httpRequest
     ) {
+        String generationTraceId = "";
+        boolean quotaCharged = false;
         try {
             if (request == null) {
                 return ResponseEntity.badRequest().body(Map.of("error", "request body is required"));
@@ -184,6 +204,8 @@ public class TutorController {
             if (isStudent(authentication)) {
                 userId = authentication.getName();
             }
+            generationTraceId = resolveGenerationTraceId(request, httpRequest);
+            generationGate.bind(generationTraceId, userId);
             String question = normalizeStudentQuestion(
                     requireMaxLength(resolveQuestion(request), "question", STUDENT_QUESTION_MAX_LENGTH)
             );
@@ -191,11 +213,13 @@ public class TutorController {
             String courseId = requireText(request.getCourseId(), "courseId");
             String classId = normalizeScopeValue(request.getClassId());
             PedagogicalDirectiveService.TutorGuidanceSnapshot tutorGuidance =
-                    pedagogicalDirectiveService.resolveTutorGuidance(userId, courseId, classId);
+                    pedagogicalDirectiveService.resolveTutorGuidance(
+                            userId, courseId, classId, question, request.getHarnessDomain());
             String canonicalSupportLevel = tutorGuidance.supportLevel();
             boolean persistTurn = !Boolean.FALSE.equals(request.getPersist());
             if (isStudent(authentication) && persistTurn && !Boolean.TRUE.equals(request.getQuotaConsumed())) {
                 questionQuotaService.consume(authentication.getName(), courseId);
+                quotaCharged = true;
             }
             String recentHistoryContext = "";
             try {
@@ -434,6 +458,7 @@ public class TutorController {
             String assistantMessageId = null;
             TutorSession tutorSessionState = null;
 
+            generationGate.checkpoint();
             if (persistTurn && userId != null && !userId.isBlank()) {
                 if (courseId != null && !courseId.isBlank()) {
                     studentCourseMemoryService.recordInteraction(
@@ -537,6 +562,20 @@ public class TutorController {
             applyDailyQuota(response, userId, courseId);
 
             return ResponseEntity.ok(response);
+        } catch (ChatGenerationGate.GenerationCancelledException cancelled) {
+            if (quotaCharged && userId != null) {
+                try {
+                    questionQuotaService.releaseOne(userId, request == null ? null : request.getCourseId());
+                } catch (RuntimeException refundError) {
+                    log.warn("Could not refund a cancelled question: {}", refundError.getMessage());
+                }
+            }
+            log.info("Student stopped generation for trace {}", generationTraceId);
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(
+                    "cancelled", true,
+                    "answer", "",
+                    "code", "GENERATION_CANCELLED"
+            ));
         } catch (StudentDailyQuestionQuotaService.QuestionQuotaExceededException e) {
             String message = StudentFacingMessages.dailySessionComplete(e.getCourseId());
             return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(Map.of(
@@ -584,10 +623,41 @@ public class TutorController {
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {
+            if (e instanceof ChatGenerationGate.GenerationCancelledException || isCancelledCause(e)) {
+                if (quotaCharged && userId != null) {
+                    try {
+                        questionQuotaService.releaseOne(userId, request == null ? null : request.getCourseId());
+                    } catch (RuntimeException refundError) {
+                        log.warn("Could not refund a cancelled question: {}", refundError.getMessage());
+                    }
+                }
+                return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(
+                        "cancelled", true,
+                        "answer", "",
+                        "code", "GENERATION_CANCELLED"
+                ));
+            }
             log.error("Unexpected error during AI query", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Server error: " + e.getMessage()));
+        } finally {
+            generationGate.release(generationTraceId);
         }
+    }
+
+    private static String resolveGenerationTraceId(AiQueryRequest request, HttpServletRequest httpRequest) {
+        String header = httpRequest == null ? "" : httpRequest.getHeader("X-Trace-Id");
+        if (header != null && !header.isBlank()) return header.trim();
+        return "";
+    }
+
+    private static boolean isCancelledCause(Throwable error) {
+        Throwable current = error;
+        while (current != null) {
+            if (current instanceof ChatGenerationGate.GenerationCancelledException) return true;
+            current = current.getCause();
+        }
+        return false;
     }
 
     private void applyGroundedLearningPath(
@@ -864,7 +934,9 @@ public class TutorController {
         codeRequest.setCode(request.getCodeSnippet());
         codeRequest.setConversationId(request.getConversationId());
 
+        generationGate.checkpoint();
         var codeResponse = codeMentorService.mentor(codeRequest);
+        generationGate.checkpoint();
 
         AiQueryResponse response = new AiQueryResponse();
         response.setMode(IntentClassifierService.MODE_CODE);

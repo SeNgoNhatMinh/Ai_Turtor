@@ -196,6 +196,10 @@
   align-items: start;
 }
 
+.tt-layout--single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .tt-roster,
 .tt-directive,
 .tt-side-note {
@@ -624,9 +628,42 @@
   text-transform: uppercase;
 }
 
+.teacher-detail-section__heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.teacher-detail-section__hint {
+  margin: 4px 0 0;
+  color: var(--tutor-muted, #64748b);
+  font-size: 0.78rem;
+  line-height: 1.45;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 500;
+}
+
+.teacher-detail-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.teacher-detail-section--jump {
+  padding-top: 4px;
+}
+
 .teacher-detail-stack {
   display: grid;
   gap: 10px;
+}
+
+.teacher-detail-more {
+  height: 40px;
+  border-radius: 12px;
+  font-weight: 650;
 }
 
 .teacher-detail-item {

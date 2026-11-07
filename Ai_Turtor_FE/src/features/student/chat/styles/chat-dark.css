@@ -306,7 +306,7 @@
   border-color: #2a2a2a;
 }
 
-.app-container.dark .session-item-title .ant-typography {
+.app-container.dark .session-item-title .session-title-marquee {
   color: #F9FAFB;
 }
 
