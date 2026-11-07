@@ -210,6 +210,12 @@
 .adaptive-review-strategies__notice { font-size: .8rem; }
 .adaptive-review-strategies__list.ant-checkbox-group { display: grid; gap: 8px; }
 .adaptive-review-strategies__list .ant-checkbox-wrapper { margin-inline-start: 0; padding: 8px 10px; border-radius: 10px; background: #f7f9fc; color: #334155; font-size: .84rem; line-height: 1.5; }
+.adaptive-review-strategies__item {
+  display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: start;
+  padding: 10px 12px; border-radius: 10px; background: #f7f9fc; color: #334155; font-size: .84rem; line-height: 1.5;
+}
+.adaptive-review-strategies__item ul { margin: 6px 0 0; padding-left: 18px; color: #64748b; }
+.adaptive-review-strategies__reason { color: #64748b; font-weight: 400; }
 .adaptive-review-strategies__empty { margin: 0; color: #94a3b8; font-size: .82rem; }
 .adaptive-review-strategies__share { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .adaptive-review-strategies__share label { display: grid; gap: 6px; color: #475569; font-size: .78rem; font-weight: 700; }

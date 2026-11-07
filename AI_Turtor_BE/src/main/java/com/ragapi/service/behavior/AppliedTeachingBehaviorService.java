@@ -68,24 +68,48 @@ public class AppliedTeachingBehaviorService {
 
     public void recordRetrieval(String studentId, String courseId, String classId,
                                 List<RetrievalSelection> selected, List<AppliedTeachingBehavior> assignments) {
+        recordRetrieval(studentId, courseId, classId, null, selected, assignments, TeachingBehaviorExecution.APPLIED);
+    }
+
+    public void recordRetrieval(String studentId, String courseId, String classId, String sessionId,
+                                List<RetrievalSelection> selected, List<AppliedTeachingBehavior> assignments,
+                                String appliedStatus) {
         LocalDateTime now = LocalDateTime.now();
+        String status = appliedStatus == null || appliedStatus.isBlank()
+                ? TeachingBehaviorExecution.APPLIED
+                : appliedStatus;
         java.util.Set<String> usedAssignments = new java.util.HashSet<>();
         for (RetrievalSelection selection : safeSelections(selected)) {
             if (selection.appliedBehaviorId() != null) usedAssignments.add(selection.appliedBehaviorId());
-            executionRepository.save(execution(studentId, courseId, classId, selection.behaviorId(),
+            executionRepository.save(execution(studentId, courseId, classId, sessionId, selection.behaviorId(),
                     selection.behaviorVersion(), selection.appliedBehaviorId(), selection.strategy(),
-                    selection.reason(), TeachingBehaviorExecution.APPLIED, now));
+                    selection.reason(), status, now));
         }
         for (AppliedTeachingBehavior assignment : assignments == null ? List.<AppliedTeachingBehavior>of() : assignments) {
             if (assignment.getId() != null && usedAssignments.contains(assignment.getId())) continue;
-            executionRepository.save(execution(studentId, courseId, classId, assignment.getBehaviorId(),
+            executionRepository.save(execution(studentId, courseId, classId, sessionId, assignment.getBehaviorId(),
                     null, assignment.getId(), null, "Assigned but not selected for this question",
                     TeachingBehaviorExecution.SKIPPED, now));
         }
     }
 
+    public void recordCacheHit(String studentId, String courseId, String classId, String sessionId,
+                               List<RetrievalSelection> selected) {
+        LocalDateTime now = LocalDateTime.now();
+        for (RetrievalSelection selection : safeSelections(selected)) {
+            executionRepository.save(execution(studentId, courseId, classId, sessionId, selection.behaviorId(),
+                    selection.behaviorVersion(), selection.appliedBehaviorId(), selection.strategy(),
+                    selection.reason() == null ? "Answer served from cache" : selection.reason(),
+                    TeachingBehaviorExecution.CACHE_HIT, now));
+        }
+    }
+
     public void recordFailure(String studentId, String courseId, String classId, String reason) {
-        executionRepository.save(execution(studentId, courseId, classId, null, null, null, null,
+        recordFailure(studentId, courseId, classId, null, reason);
+    }
+
+    public void recordFailure(String studentId, String courseId, String classId, String sessionId, String reason) {
+        executionRepository.save(execution(studentId, courseId, classId, sessionId, null, null, null, null,
                 reason, TeachingBehaviorExecution.FAILED, LocalDateTime.now()));
     }
 
@@ -295,14 +319,15 @@ public class AppliedTeachingBehaviorService {
     }
 
     private static TeachingBehaviorExecution execution(String studentId, String courseId, String classId,
-                                                       String behaviorId, Integer version, String appliedId,
-                                                       String strategy, String reason, String status,
-                                                       LocalDateTime now) {
+                                                       String sessionId, String behaviorId, Integer version,
+                                                       String appliedId, String strategy, String reason,
+                                                       String status, LocalDateTime now) {
         return TeachingBehaviorExecution.builder()
                 .id(UUID.randomUUID().toString())
                 .studentId(studentId)
                 .courseId(courseId)
                 .classId(classId)
+                .sessionId(sessionId)
                 .behaviorId(behaviorId)
                 .behaviorVersion(version)
                 .appliedBehaviorId(appliedId)

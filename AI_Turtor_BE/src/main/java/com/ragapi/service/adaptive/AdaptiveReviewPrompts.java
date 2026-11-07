@@ -1,7 +1,7 @@
 package com.ragapi.service.adaptive;
 
 import com.ragapi.service.adaptive.AdaptiveReviewEvidence.EvidenceFacts;
-import com.ragapi.service.behavior.ExplanationStyles;
+import com.ragapi.service.behavior.TeachingStrategyCatalog;
 
 import java.util.List;
 import java.util.Map;
@@ -58,7 +58,7 @@ public final class AdaptiveReviewPrompts {
                 1. OUTPUT CONTRACT
                 ==================================================
 
-                Return ONLY one valid JSON object with exactly these 11 keys:
+                Return ONLY one valid JSON object with exactly these 12 keys:
 
                 knowledgePercent
                 practicePercent
@@ -68,11 +68,12 @@ public final class AdaptiveReviewPrompts {
                 strengths
                 knowledgeGaps
                 teachingRecommendations
+                strategyRecommendations
                 learnsBestWith
                 struggleSignals
                 suggestedSupportLevel
 
-                The required output schema consists of exactly these 11 keys.
+                The required output schema consists of exactly these 12 keys.
                 Do not add overallPercent or other keys.
 
                 Data types:
@@ -83,10 +84,17 @@ public final class AdaptiveReviewPrompts {
                 - summary: short Vietnamese string.
                 - strengths: array of short Vietnamese strings.
                 - knowledgeGaps: array of short Vietnamese strings.
-                - teachingRecommendations: array of 2 to 4 Vietnamese explanation styles.
+                - teachingRecommendations: array of short Vietnamese strings mirroring strategyRecommendations
+                  (legacy display). Prefer empty when strategyRecommendations is empty.
+                - strategyRecommendations: array of 0 to 3 objects. Each object MUST use a catalog strategyCode.
+                  Fields per item: strategyCode, reason, supportingEvidence (array of {evidenceType, referenceId, description}),
+                  targetLearningProblem, expectedOutcome, priority (HIGH|MEDIUM|LOW), confidence (0.0-1.0),
+                  suggestedDuration (e.g. NEXT_5_SESSIONS).
+                  Use ONLY real evidence from the excerpts. Never invent evidence. If evidence is weak, return [].
                 - learnsBestWith: array of short Vietnamese strings.
                 - struggleSignals: array of short Vietnamese strings.
                 - suggestedSupportLevel: exactly one of HIGH_SUPPORT, STANDARD, CHALLENGE.
+                  This is a SUGGESTION for the teacher. Do not assume it is already applied.
 
                 All explanatory text and array items must be in Vietnamese.
                 Do not return Markdown, code fences, comments, or text outside JSON.
@@ -521,7 +529,7 @@ public final class AdaptiveReviewPrompts {
 
                 Return ONLY the JSON object.
                 """.formatted(courseId, currentSupportLevel, CYCLE_SIZE, facts.describe(), transcript(evidence))
-                .replace("EXPLANATION_STYLE_CATALOG", ExplanationStyles.reviewCatalog());
+                .replace("EXPLANATION_STYLE_CATALOG", TeachingStrategyCatalog.reviewCatalogPrompt());
     }
 
     /** Teacher-facing narrative over the student's whole course history; never changes the level. */

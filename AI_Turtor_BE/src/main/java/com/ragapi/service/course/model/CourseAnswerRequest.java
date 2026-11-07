@@ -1,6 +1,7 @@
 package com.ragapi.service.course.model;
 
 import com.ragapi.dto.RagQueryIntent;
+import com.ragapi.service.behavior.plan.TeachingPlan;
 import lombok.Builder;
 
 @Builder
@@ -16,6 +17,7 @@ public record CourseAnswerRequest(
         String learnerMemoryContext,
         String teachingMode,
         String retrievalHint,
-        RagQueryIntent ragQueryIntent
+        RagQueryIntent ragQueryIntent,
+        TeachingPlan teachingPlan
 ) {
 }

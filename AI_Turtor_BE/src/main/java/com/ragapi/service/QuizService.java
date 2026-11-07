@@ -63,6 +63,7 @@ public class QuizService {
     private final CourseSearchResultRankingService rerankService;
     private final OpenRouterChatService chatService;
     private final StudentCourseMemoryService memoryService;
+    private final LearningEvidenceService learningEvidenceService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public QuizSession generateQuiz(String studentId, String courseId, GenerateQuizRequest request) throws IOException {
@@ -345,7 +346,14 @@ public class QuizService {
         session.setTeacherReviewStatus("REVIEWED");
         session.setTeacherReviewedAt(LocalDateTime.now());
         session.setUpdatedAt(LocalDateTime.now());
-        return quizSessionRepository.save(session);
+        QuizSession saved = quizSessionRepository.save(session);
+        try {
+            learningEvidenceService.recordEligibleQuizSubmission(saved);
+        } catch (Exception error) {
+            log.warn("Could not refresh learning evidence after teacher review for quiz {}: {}",
+                    saved.getId(), error.getMessage());
+        }
+        return saved;
     }
 
     public QuizAttemptPageResponse listTeacherQuizAttempts(
@@ -449,6 +457,12 @@ public class QuizService {
                 saved.getTopic(),
                 manual ? 0.0 : percentage
         );
+        try {
+            learningEvidenceService.recordEligibleQuizSubmission(saved);
+        } catch (Exception error) {
+            log.warn("Could not record learning evidence for quiz {}: {}",
+                    saved.getId(), error.getMessage());
+        }
         return saved;
     }
 

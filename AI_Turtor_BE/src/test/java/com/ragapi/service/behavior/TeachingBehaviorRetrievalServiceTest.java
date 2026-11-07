@@ -73,18 +73,29 @@ class TeachingBehaviorRetrievalServiceTest {
     }
 
     @Test
-    void pendingStudentStyleIsAppliedBeforeTeacherApproval() {
+    void pendingStudentStyleIsNotAppliedBeforeTeacherApproval() {
         personal.add(behavior("p-1", SCOPE_STUDENT, STATUS_AI_PENDING, "Giải thích đa hình bằng ví dụ con vật"));
         domain.add(behavior("d-1", SCOPE_DOMAIN, STATUS_APPROVED, "So sánh đa hình với điều khiển từ xa"));
         global.add(behavior("g-1", SCOPE_GLOBAL, STATUS_APPROVED, "Dùng bảng so sánh SQL join"));
 
         var guidance = retrieval.retrieve(STUDENT, COURSE, CLASS, "STANDARD", "đa hình là gì", "oop", true);
 
-        assertThat(guidance.behaviorIds()).containsExactly("p-1", "d-1");
+        assertThat(guidance.behaviorIds()).containsExactly("d-1");
         assertThat(guidance.promptBlock()).contains("TEACHING BEHAVIORS TO APPLY")
-                .contains("ví dụ con vật");
-        verify(behaviorService).recordUsage(List.of("p-1", "d-1"));
-        verify(profileService).recordUsage(STUDENT, COURSE, CLASS, List.of("p-1", "d-1"));
+                .contains("điều khiển từ xa")
+                .doesNotContain("ví dụ con vật");
+        verify(behaviorService).recordUsage(List.of("d-1"));
+        verify(profileService).recordUsage(STUDENT, COURSE, CLASS, List.of("d-1"));
+    }
+
+    @Test
+    void approvedStudentStyleIsAppliedInChat() {
+        personal.add(behavior("p-1", SCOPE_STUDENT, STATUS_APPROVED, "Giải thích đa hình bằng ví dụ con vật"));
+
+        var guidance = retrieval.retrieve(STUDENT, COURSE, CLASS, "STANDARD", "đa hình là gì", "oop", false);
+
+        assertThat(guidance.behaviorIds()).contains("p-1");
+        assertThat(guidance.promptBlock()).contains("ví dụ con vật");
     }
 
     @Test

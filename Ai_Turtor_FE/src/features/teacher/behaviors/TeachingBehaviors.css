@@ -168,10 +168,88 @@
 }
 
 .student-rag-panel__intro {
+  display: grid;
+  gap: 4px;
+}
+
+.student-rag-panel__intro h4 {
   margin: 0;
-  color: #64748b;
-  font-size: .84rem;
-  line-height: 1.55;
+  color: #111827;
+  font-size: 16px;
+  font-weight: 650;
+}
+
+.student-rag-panel__intro p {
+  margin: 0;
+  color: #4b5563;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.student-rag-overview {
+  display: grid;
+  gap: 10px;
+}
+
+.student-rag-overview strong {
+  display: block;
+  margin-bottom: 4px;
+  color: #1f2937;
+  font-size: 13px;
+}
+
+.student-rag-overview ul,
+.student-rag-approaches {
+  margin: 0;
+  padding-left: 18px;
+  color: #374151;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.student-rag-approaches {
+  display: grid;
+  gap: 8px;
+  padding-left: 0;
+  list-style: none;
+}
+
+.student-rag-approaches li {
+  display: grid;
+  gap: 2px;
+  padding: 9px 10px;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.student-rag-approaches span {
+  color: #4b5563;
+}
+
+.student-rag-card__hint--footer {
+  margin-top: 10px;
+}
+
+.student-rag-manage {
+  display: grid;
+  gap: 12px;
+}
+
+.student-rag-manage > summary {
+  cursor: pointer;
+  color: #1f2937;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.student-rag-manage[open] > summary {
+  margin-bottom: 4px;
+}
+
+@media (min-width: 900px) {
+  .student-rag-overview {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 .student-rag-panel__notice {
@@ -354,4 +432,21 @@
 .app-container.dark .student-rag-profile label,
 .app-container.dark .student-rag-card label {
   color: #cbd5e1;
+}
+
+
+.app-container.dark .student-rag-panel__intro h4,
+.app-container.dark .student-rag-overview strong,
+.app-container.dark .student-rag-manage > summary {
+  color: #f3f4f6;
+}
+
+.app-container.dark .student-rag-panel__intro p,
+.app-container.dark .student-rag-overview ul,
+.app-container.dark .student-rag-approaches span {
+  color: #c7c7c7;
+}
+
+.app-container.dark .student-rag-approaches li {
+  background: #212121;
 }

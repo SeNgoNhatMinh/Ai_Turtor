@@ -154,14 +154,16 @@ public class TeachingBehaviorRetrievalService {
             // Personalization must never block a tutor answer.
             log.warn("Teaching behavior retrieval failed for student {} in {}: {}",
                     safeStudent, safeCourse, error.getMessage());
-            recordFailure(safeStudent, safeCourse, classId, error.getMessage());
+            if (recordUsage) {
+                recordFailure(safeStudent, safeCourse, classId, error.getMessage());
+            }
             return TeachingGuidance.EMPTY;
         }
     }
 
     private List<TeachingBehavior> candidates(String studentId, String courseId, String domain) {
         List<TeachingBehavior> result = new ArrayList<>(repository.findByScopeAndStudentIdAndCourseIdAndStatusIn(
-                SCOPE_STUDENT, studentId, courseId, List.of(STATUS_APPROVED, STATUS_AI_PENDING)));
+                SCOPE_STUDENT, studentId, courseId, List.of(STATUS_APPROVED)));
         result.addAll(repository.findTop500ByScopeAndCourseIdAndStatus(SCOPE_COURSE, courseId, STATUS_APPROVED));
         String safeDomain = trimToNull(domain) == null ? null : domain.trim().toUpperCase(Locale.ROOT);
         if (safeDomain != null && LlmIntentClassifierService.DOMAINS.contains(safeDomain)) {
@@ -267,9 +269,8 @@ public class TeachingBehaviorRetrievalService {
 
     static boolean isActive(TeachingBehavior behavior) {
         if (behavior == null) return false;
-        if (STATUS_APPROVED.equals(behavior.getStatus())) return true;
-        // The student's own recommendation is used on the next answer, before the teacher reviews it.
-        return STATUS_AI_PENDING.equals(behavior.getStatus()) && SCOPE_STUDENT.equals(behavior.getScope());
+        // Only teacher-approved strategies enter Active Teaching Context / tutor chat.
+        return STATUS_APPROVED.equals(behavior.getStatus());
     }
 
     static boolean matchesLevel(TeachingBehavior behavior, String level) {

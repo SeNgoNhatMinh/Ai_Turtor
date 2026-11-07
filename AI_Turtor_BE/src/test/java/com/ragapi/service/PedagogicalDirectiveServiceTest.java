@@ -2,11 +2,7 @@ package com.ragapi.service;
 
 import com.ragapi.dto.PedagogicalDirectiveRequest;
 import com.ragapi.entity.PedagogicalDirective;
-import com.ragapi.entity.TeachingBehavior;
 import com.ragapi.repository.PedagogicalDirectiveRepository;
-import com.ragapi.service.behavior.TeachingBehaviorRetrievalService;
-import com.ragapi.service.behavior.TeachingBehaviorRetrievalService.ScoredBehavior;
-import com.ragapi.service.behavior.TeachingBehaviorRetrievalService.TeachingGuidance;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -14,8 +10,6 @@ import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 class PedagogicalDirectiveServiceTest {
@@ -110,30 +104,22 @@ class PedagogicalDirectiveServiceTest {
     }
 
     @Test
-    void appendsThisStudentsTeachingBehaviorsAtTheResolvedLevel() {
+    void questionAwareOverloadDoesNotRetrieveTeachingBehaviors() {
         PedagogicalDirectiveRepository repository = mock(PedagogicalDirectiveRepository.class);
         PedagogicalDirectiveService service = new PedagogicalDirectiveService(repository, mock(ClassRosterService.class));
-        TeachingBehaviorRetrievalService retrieval = mock(TeachingBehaviorRetrievalService.class);
-        service.setBehaviorRetrieval(retrieval);
         when(repository.findByStudentIdAndCourseIdAndStatusOrderByPriorityDescUpdatedAtDesc(any(), any(), any()))
                 .thenReturn(List.of());
         when(repository.findByCourseIdAndClassIdAndStatusOrderByPriorityDescUpdatedAtDesc(any(), any(), any()))
                 .thenReturn(List.of());
-        TeachingBehavior behavior = TeachingBehavior.builder().id("b-1")
-                .instruction("Dùng ví dụ con vật cho đa hình").build();
-        when(retrieval.retrieve("student-1", "PRJ301", "SE1840", "STANDARD", "đa hình?", "OOP", true))
-                .thenReturn(new TeachingGuidance(null, List.of(new ScoredBehavior(behavior, 0.8, "STUDENT"))));
-        when(retrieval.retrieve(eq("student-2"), any(), any(), any(), any(), any(), anyBoolean()))
-                .thenReturn(TeachingGuidance.EMPTY);
 
-        String first = service.resolveTutorGuidance("student-1", "PRJ301", "SE1840", "đa hình?", "OOP").tutorContext();
-        String second = service.resolveTutorGuidance("student-2", "PRJ301", "SE1840", "đa hình?", "OOP").tutorContext();
+        PedagogicalDirectiveService.TutorGuidanceSnapshot withQuestion =
+                service.resolveTutorGuidance("student-1", "PRJ301", "SE1840", "đa hình?", "OOP");
+        PedagogicalDirectiveService.TutorGuidanceSnapshot withoutQuestion =
+                service.resolveTutorGuidance("student-1", "PRJ301", "SE1840");
 
-        assertThat(first).contains("TEACHING BEHAVIORS TO APPLY").contains("1. Dùng ví dụ con vật cho đa hình");
-        assertThat(second).doesNotContain("Dùng ví dụ con vật");
-        // The directive-only snapshot never touches the behavior library.
-        service.resolveTutorGuidance("student-1", "PRJ301", "SE1840");
-        verify(retrieval, times(2)).retrieve(any(), any(), any(), any(), any(), any(), anyBoolean());
+        assertThat(withQuestion.supportLevel()).isEqualTo("STANDARD");
+        assertThat(withQuestion.tutorContext()).isEqualTo(withoutQuestion.tutorContext());
+        assertThat(withQuestion.tutorContext()).doesNotContain("TEACHING BEHAVIORS TO APPLY");
     }
 
     @Test

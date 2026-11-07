@@ -1,0 +1,135 @@
+.teaching-methods-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.teaching-methods-summary {
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #fff;
+  padding: 16px 18px;
+}
+
+.teaching-methods-summary h3 {
+  margin: 0 0 8px;
+  font-size: 1.05rem;
+}
+
+.teaching-methods-summary ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+
+.teaching-methods-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.teaching-method-card {
+  text-align: left;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #fff;
+  padding: 14px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.teaching-method-card:hover {
+  border-color: #93c5fd;
+}
+
+.teaching-method-card.is-selected {
+  border-color: #2563eb;
+  background: #eff6ff;
+  box-shadow: 0 0 0 1px #2563eb inset;
+}
+
+.teaching-method-card strong {
+  display: block;
+  margin-bottom: 6px;
+  color: #111827;
+}
+
+.teaching-method-card span {
+  color: #4b5563;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.teaching-support-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.teaching-support-card {
+  text-align: left;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #fff;
+  padding: 14px;
+  cursor: pointer;
+}
+
+.teaching-support-card.is-selected {
+  border-color: #ea580c;
+  background: #fff7ed;
+  box-shadow: 0 0 0 1px #ea580c inset;
+}
+
+.teaching-methods-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.teaching-methods-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.teaching-methods-hint {
+  color: #6b7280;
+  font-size: 0.9rem;
+  margin: 0 0 12px;
+}
+
+.app-container.dark .teaching-methods-summary,
+.app-container.dark .teaching-method-card,
+.app-container.dark .teaching-support-card {
+  background: #171717;
+  border-color: #2a2a2a;
+}
+
+.app-container.dark .teaching-method-card strong,
+.app-container.dark .teaching-support-card strong,
+.app-container.dark .teaching-methods-summary h3 {
+  color: #f9fafb;
+}
+
+.app-container.dark .teaching-method-card span,
+.app-container.dark .teaching-methods-hint {
+  color: #a3a3a3;
+}
+
+.app-container.dark .teaching-method-card.is-selected {
+  background: #172554;
+  border-color: #3b82f6;
+}
+
+.app-container.dark .teaching-support-card.is-selected {
+  background: #431407;
+  border-color: #fb923c;
+}
+
+@media (max-width: 900px) {
+  .teaching-support-grid {
+    grid-template-columns: 1fr;
+  }
+}

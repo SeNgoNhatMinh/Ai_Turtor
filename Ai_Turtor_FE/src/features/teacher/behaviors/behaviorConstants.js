@@ -27,7 +27,7 @@ export const BEHAVIOR_SCOPE_COLORS = {
 };
 
 export const BEHAVIOR_STATUS_LABELS = {
-  AI_PENDING: 'AI đang dùng · chờ duyệt',
+  AI_PENDING: 'AI đề xuất · chờ duyệt',
   APPROVED: 'Đang dùng',
   REJECTED: 'Đã từ chối',
   RETIRED: 'Đã tắt',

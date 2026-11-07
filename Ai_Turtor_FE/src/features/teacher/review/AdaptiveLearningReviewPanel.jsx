@@ -188,26 +188,46 @@ function EvidenceItem({ item, index }) {
 
 const EMPTY_ROSTER = [];
 
+function strategyOptions(review) {
+  const structured = Array.isArray(review?.strategyRecommendations) ? review.strategyRecommendations : [];
+  if (structured.length > 0) {
+    return structured.map((item) => ({
+      value: item.strategyCode,
+      label: item.strategyName || item.strategyCode,
+      reason: item.reason,
+      evidence: item.supportingEvidence || [],
+      confidence: item.confidence,
+      priority: item.priority,
+    }));
+  }
+  return (review?.teachingRecommendations || []).map((item) => ({
+    value: item,
+    label: item,
+    reason: '',
+    evidence: [],
+  }));
+}
+
 /**
- * The AI's suggested strategies as checkboxes. While the review is PENDING the
- * AI already teaches with all of them; the teacher keeps the checked ones,
- * adds an own strategy under "Khác" and may share them to the library.
+ * AI teaching-strategy recommendations as checkboxes.
+ * Pending recommendations are NOT active in chat until the teacher approves them.
  */
 function StrategyChooser({ review, value, onChange }) {
-  const recommendations = review.teachingRecommendations || [];
+  const options = strategyOptions(review);
   const pending = review.status === 'PENDING';
 
   if (!pending) {
     const applied = review.status === 'REJECTED'
       ? []
-      : (review.teacherSelectedStrategies ?? recommendations);
+      : (review.teacherSelectedStrategies ?? options.map((item) => item.value));
     return (
       <div className="adaptive-review-strategies">
-        <strong>Phong cách diễn giải đề xuất</strong>
+        <strong>AI đề xuất phương pháp giảng dạy</strong>
         <ul className="adaptive-review-strategies__result">
-          {recommendations.map((item) => (
-            <li key={item} className={applied.includes(item) ? 'is-applied' : 'is-skipped'}>
-              {applied.includes(item) ? '✓' : '✕'} {item}
+          {options.map((item) => (
+            <li key={item.value} className={applied.includes(item.value) ? 'is-applied' : 'is-skipped'}>
+              {applied.includes(item.value) ? '✓' : '✕'} {item.label}
+              {item.reason ? <span className="adaptive-review-strategies__reason"> — {item.reason}</span> : null}
             </li>
           ))}
           {review.status !== 'REJECTED' && review.teacherCustomStrategy && (
@@ -225,20 +245,36 @@ function StrategyChooser({ review, value, onChange }) {
   const update = (patch) => onChange({ ...value, ...patch });
   return (
     <div className="adaptive-review-strategies">
-      <strong>Phong cách diễn giải đề xuất</strong>
-      <Alert type="info" showIcon className="adaptive-review-strategies__notice"
-        message="AI đang dùng các phong cách này ở câu trả lời tiếp theo"
-        description="Mỗi dòng là một cách diễn giải. Bỏ tick hoặc Từ chối nếu không muốn AI dùng tiếp." />
-      {recommendations.length > 0 ? (
+      <strong>AI đề xuất phương pháp giảng dạy</strong>
+      <Alert type="warning" showIcon className="adaptive-review-strategies__notice"
+        message="Chưa áp dụng vào chat"
+        description="Tick các chiến lược rồi bấm phê duyệt. Chỉ chiến lược được duyệt mới vào câu trả lời AI tiếp theo." />
+      {options.length > 0 ? (
         <Checkbox.Group
           className="adaptive-review-strategies__list"
           value={value.selected}
           onChange={(selected) => update({ selected })}
-          options={recommendations.map((item) => ({ value: item, label: item }))}
-        />
-      ) : <p className="adaptive-review-strategies__empty">AI chưa đề xuất chiến lược nào.</p>}
+        >
+          {options.map((item) => (
+            <label key={item.value} className="adaptive-review-strategies__item">
+              <Checkbox value={item.value} />
+              <span>
+                <strong>{item.label}</strong>
+                {item.reason ? <em> — {item.reason}</em> : null}
+                {item.evidence?.length > 0 && (
+                  <ul>
+                    {item.evidence.slice(0, 3).map((evidence, index) => (
+                      <li key={`${item.value}-e-${index}`}>{evidence.description || evidence}</li>
+                    ))}
+                  </ul>
+                )}
+              </span>
+            </label>
+          ))}
+        </Checkbox.Group>
+      ) : <p className="adaptive-review-strategies__empty">AI chưa đề xuất chiến lược nào đủ căn cứ.</p>}
       <Checkbox checked={value.otherEnabled} onChange={(event) => update({ otherEnabled: event.target.checked })}>
-        Khác (ghi phong cách diễn giải bạn muốn AI dùng)
+        Khác (ghi phương pháp bạn muốn AI dùng)
       </Checkbox>
       {value.otherEnabled && (
         <TextArea value={value.custom} onChange={(event) => update({ custom: event.target.value })}
@@ -262,8 +298,11 @@ function StrategyChooser({ review, value, onChange }) {
 }
 
 function initialStrategyChoice(review) {
+  const options = strategyOptions(review);
   return {
-    selected: review?.teacherSelectedStrategies ?? [...(review?.teachingRecommendations || [])],
+    selected: review?.teacherSelectedStrategies?.length
+      ? review.teacherSelectedStrategies
+      : options.map((item) => item.value),
     otherEnabled: Boolean(review?.teacherCustomStrategy),
     custom: review?.teacherCustomStrategy || '',
     shareScope: '',
@@ -675,12 +714,13 @@ export default function AdaptiveLearningReviewPanel({ courseId, classId, trigger
               <div><small>Mức trước đánh giá</small><strong>{LEVEL_LABELS[selected.currentSupportLevel] || selected.currentSupportLevel}</strong></div>
               <div><small>AI đề xuất</small><strong className="is-suggested">{LEVEL_LABELS[selected.suggestedSupportLevel] || selected.suggestedSupportLevel}</strong></div>
             </div>
-            {selected.appliedDirectiveId && selected.status === 'PENDING' && (
+            {selected.status === 'PENDING' && selected.suggestedSupportLevel
+              && selected.suggestedSupportLevel !== selected.currentSupportLevel && (
               <Alert
                 type="info"
                 showIcon
-                message="AI đã tự áp dụng mức hỗ trợ này"
-                description="Mức hỗ trợ của sinh viên đã được đổi ngay khi AI tạo đánh giá. Nhận xét và quyết định của bạn bên dưới sẽ thay thế; chọn Từ chối sẽ thu hồi mức AI đã áp dụng."
+                message="AI đề xuất đổi mức hỗ trợ"
+                description="Mức này chỉ là gợi ý. Chat của sinh viên chưa đổi cho đến khi bạn phê duyệt (hoặc chỉnh) ở phần quyết định bên dưới."
               />
             )}
 
@@ -704,7 +744,7 @@ export default function AdaptiveLearningReviewPanel({ courseId, classId, trigger
             {selected.status === 'PENDING' ? (
               <section className="adaptive-review-decision">
                 <h4>Nhận xét của giảng viên</h4>
-                <p className="adaptive-review-decision__hint">AI đã tự áp dụng. Bạn đọc xong rồi duyệt, chỉnh mức, hoặc từ chối. Nhận xét là tùy chọn.</p>
+                <p className="adaptive-review-decision__hint">Tick chiến lược muốn áp dụng, rồi duyệt / chỉnh mức / từ chối. Chỉ sau khi phê duyệt AI mới đổi cách giảng trong chat. Nhận xét là tùy chọn.</p>
                 <TextArea value={feedback} onChange={(event) => setFeedback(event.target.value)} maxLength={5000}
                   showCount rows={3} placeholder="Ghi chú thêm (không bắt buộc)…" />
                 <div className="adaptive-review-decision__choices">

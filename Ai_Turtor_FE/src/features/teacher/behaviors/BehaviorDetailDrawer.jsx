@@ -4,7 +4,12 @@ import { Alert, Button, Drawer, Empty, Form, Input, List, Select, Space, Tag } f
 import { getUserFacingError } from '../../../services/apiClient';
 import { teachingBehaviorApi } from '../../../services/teachingBehaviorApi';
 
-const STATUS_LABEL = { APPLIED: 'Đã dùng trong câu trả lời', SKIPPED: 'Có gán nhưng không chọn', FAILED: 'Lỗi khi chọn' };
+const STATUS_LABEL = {
+  APPLIED: 'Đã dùng trong câu trả lời',
+  SKIPPED: 'Có gán nhưng không chọn',
+  FAILED: 'Lỗi khi chọn',
+  CACHE_HIT: 'Trả lời từ bộ nhớ đệm',
+};
 
 function itemsOf(data) {
   if (Array.isArray(data)) return data;

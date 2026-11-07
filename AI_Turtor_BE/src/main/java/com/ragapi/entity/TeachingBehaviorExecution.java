@@ -13,12 +13,15 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * One retrieval decision. APPLIED means the behavior was placed in the tutor
- * prompt. SKIPPED means it was assigned but not selected. FAILED means
- * retrieval could not finish.
+ * One teaching-behavior decision for a tutor turn.
+ * APPLIED = instruction survived prompt assembly and generation returned a real answer.
+ * SKIPPED = assigned but not selected for this plan.
+ * FAILED = retrieval/orchestrator/generation failed for the turn.
+ * CACHE_HIT = answer served from cache without personalized generation (never counts as APPLIED).
  */
 @Document(collection = "teaching_behavior_executions")
 @CompoundIndex(name = "behavior_execution_idx", def = "{'behaviorId':1,'timestamp':-1}")
+@CompoundIndex(name = "session_behavior_execution_idx", def = "{'sessionId':1,'behaviorId':1,'timestamp':-1}")
 @Data
 @Builder
 @NoArgsConstructor
@@ -27,6 +30,7 @@ public class TeachingBehaviorExecution {
     public static final String APPLIED = "APPLIED";
     public static final String SKIPPED = "SKIPPED";
     public static final String FAILED = "FAILED";
+    public static final String CACHE_HIT = "CACHE_HIT";
 
     @Id
     private String id;

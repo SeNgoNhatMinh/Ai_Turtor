@@ -107,6 +107,13 @@ public class StudentCourseMemoryService {
         return repository.findByCourseId(courseId.trim());
     }
 
+    public java.util.Optional<StudentCourseMemory> findMemory(String studentId, String courseId) {
+        if (studentId == null || studentId.isBlank() || courseId == null || courseId.isBlank()) {
+            return java.util.Optional.empty();
+        }
+        return repository.findByStudentIdAndCourseId(studentId.trim(), courseId.trim());
+    }
+
     public String buildTutorContext(String studentId, String courseId) {
         if (studentId == null || studentId.isBlank() || courseId == null || courseId.isBlank()) {
             return "";

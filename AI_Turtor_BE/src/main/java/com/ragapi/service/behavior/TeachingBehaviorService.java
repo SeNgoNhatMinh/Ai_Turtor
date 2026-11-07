@@ -209,12 +209,51 @@ public class TeachingBehaviorService {
                     previous.setUpdatedAt(now);
                     repository.save(previous);
                 });
-        List<String> recommendations = cleanList(review.getTeachingRecommendations(), 8, MAX_INSTRUCTION_LENGTH);
         List<String> signals = reviewSignals(review);
         List<String> levels = review.getSuggestedSupportLevel() == null
                 ? List.of() : normalizeLevels(List.of(review.getSuggestedSupportLevel()));
         List<TeachingBehavior> created = new ArrayList<>();
+        if (review.getStrategyRecommendations() != null && !review.getStrategyRecommendations().isEmpty()) {
+            for (var recommendation : review.getStrategyRecommendations()) {
+                TeachingStrategyCatalog catalog = TeachingStrategyCatalog.fromCode(recommendation.getStrategyCode())
+                        .orElse(null);
+                if (catalog == null) continue;
+                String instruction = catalog.displayName() + ": "
+                        + (recommendation.getReason() == null || recommendation.getReason().isBlank()
+                        ? catalog.shortDescription() : recommendation.getReason().trim());
+                if (instruction.length() > MAX_INSTRUCTION_LENGTH) {
+                    instruction = instruction.substring(0, MAX_INSTRUCTION_LENGTH);
+                }
+                TeachingBehavior behavior = TeachingBehavior.builder()
+                        .id(UUID.randomUUID().toString())
+                        .scope(SCOPE_STUDENT)
+                        .studentId(review.getStudentId())
+                        .courseId(review.getCourseId())
+                        .classId(trimToNull(review.getClassId()))
+                        .supportLevels(levels)
+                        .name(catalog.displayName())
+                        .strategy(catalog.displayName())
+                        .strategyCode(catalog.code())
+                        .instruction(instruction)
+                        .description(recommendation.getTargetLearningProblem())
+                        .targetSignals(signals)
+                        .version(1)
+                        .approvalStatus(APPROVAL_PENDING)
+                        .status(STATUS_AI_PENDING)
+                        .sourceReviewId(review.getId())
+                        .createdBy(PedagogicalDirectiveService.AI_ACTOR_ID)
+                        .createdByName("AI Tutor (tự động)")
+                        .createdAt(now)
+                        .updatedAt(now)
+                        .build();
+                behavior.setEmbedding(embed(embeddingText(behavior)));
+                created.add(repository.save(behavior));
+            }
+            return created;
+        }
+        List<String> recommendations = cleanList(review.getTeachingRecommendations(), 8, MAX_INSTRUCTION_LENGTH);
         for (String recommendation : recommendations) {
+            TeachingStrategyCatalog catalog = TeachingStrategyCatalog.fromLegacyLabel(recommendation).orElse(null);
             TeachingBehavior behavior = TeachingBehavior.builder()
                     .id(UUID.randomUUID().toString())
                     .scope(SCOPE_STUDENT)
@@ -222,8 +261,9 @@ public class TeachingBehaviorService {
                     .courseId(review.getCourseId())
                     .classId(trimToNull(review.getClassId()))
                     .supportLevels(levels)
-                    .name(ExplanationStyles.strategyOf(recommendation))
-                    .strategy(ExplanationStyles.strategyOf(recommendation))
+                    .name(catalog == null ? ExplanationStyles.strategyOf(recommendation) : catalog.displayName())
+                    .strategy(catalog == null ? ExplanationStyles.strategyOf(recommendation) : catalog.displayName())
+                    .strategyCode(catalog == null ? null : catalog.code())
                     .instruction(recommendation)
                     .targetSignals(signals)
                     .version(1)
@@ -252,7 +292,12 @@ public class TeachingBehaviorService {
         Set<String> selectedKeys = new HashSet<>();
         List<String> selectedTexts = selected == null
                 ? safe(review.getTeachingRecommendations()) : selected;
-        selectedTexts.forEach(text -> selectedKeys.add(normalizedKey(text)));
+        selectedTexts.forEach(text -> {
+            selectedKeys.add(normalizedKey(text));
+            if (TeachingStrategyCatalog.isKnown(text)) {
+                selectedKeys.add(text.trim().toUpperCase(Locale.ROOT));
+            }
+        });
 
         List<TeachingBehavior> approved = new ArrayList<>();
         Set<String> coveredKeys = new HashSet<>();
@@ -263,7 +308,9 @@ public class TeachingBehaviorService {
                 continue;
             }
             String key = normalizedKey(behavior.getInstruction());
-            boolean keep = selectedKeys.contains(key);
+            String code = behavior.getStrategyCode() == null
+                    ? "" : behavior.getStrategyCode().trim().toUpperCase(Locale.ROOT);
+            boolean keep = selectedKeys.contains(key) || (!code.isEmpty() && selectedKeys.contains(code));
             behavior.setStatus(keep ? STATUS_APPROVED : STATUS_REJECTED);
             behavior.setApprovalStatus(keep ? APPROVAL_APPROVED : APPROVAL_REJECTED);
             behavior.setUpdatedAt(now);
@@ -271,6 +318,7 @@ public class TeachingBehaviorService {
             if (keep) {
                 approved.add(saved);
                 coveredKeys.add(key);
+                if (!code.isEmpty()) coveredKeys.add(code);
             }
         }
         // Reviews created before the library existed have no AI_PENDING rows yet.

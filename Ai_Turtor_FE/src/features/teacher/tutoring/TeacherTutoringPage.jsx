@@ -654,12 +654,15 @@ export default function TeacherTutoringPage({ teacherId, setCourseId, setClassId
               </section>
 
               <section className="teacher-detail-section">
-                <h3>RAG behavior riêng của sinh viên</h3>
+                <h3>Cách AI hỗ trợ bạn học</h3>
                 <StudentTeachingRagPanel
                   studentId={selectedStudent.studentId || selectedStudent.id || ""}
                   courseId={selectedStudent.courseId || activeScope?.courseId || ""}
                   classId={selectedStudent.classId || activeScope?.classId || ""}
                   triggerToast={triggerToast}
+                  masteredTopics={selectedStudent.studiedTopics || selectedStudent.learnedTopics || []}
+                  improveTopics={selectedStudent.weakTopics || []}
+                  recentResults={(selectedStudent.recentQuestions || []).map((question) => `Đã hỏi: ${question}`)}
                 />
               </section>
 

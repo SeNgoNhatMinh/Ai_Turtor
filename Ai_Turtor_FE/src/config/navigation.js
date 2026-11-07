@@ -128,8 +128,8 @@ const navigationItems = [
     workspace: 'teacher',
     allowedAccountRoles: [ACCOUNT_ROLES.TEACHER],
     group: 'Hỗ trợ',
-    label: 'Kho hành vi giảng dạy',
-    description: 'Quản lý RAG behavior dùng chung theo môn, domain và toàn hệ thống.',
+    label: 'Phương pháp giảng dạy AI',
+    description: 'Thiết lập cách AI hướng dẫn sinh viên theo phương pháp của bạn.',
     icon: Library,
   },
   {

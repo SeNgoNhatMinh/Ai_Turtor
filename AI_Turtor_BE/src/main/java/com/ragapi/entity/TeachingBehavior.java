@@ -50,6 +50,8 @@ public class TeachingBehavior {
     private String description;
     /** One of the explanation styles, for example "Ví dụ thực tế". */
     private String strategy;
+    /** Stable TeachingStrategyCatalog code when known (for example STEP_BY_STEP). */
+    private String strategyCode;
     @Builder.Default
     private List<String> applicableTopics = new ArrayList<>();
     /** Free-text conditions, such as "khi sinh viên nhầm overload và override". */

@@ -22,6 +22,7 @@ import org.springframework.stereotype.Service;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -71,6 +72,7 @@ public class ChapterOutlineService {
         List<CourseChapterOutline> outlines = outlineRepository.findByCourseIdOrderByTitleAsc(safeCourseId);
         List<CourseChapterOutline> visible = outlines.stream()
                 .filter(o -> !"IGNORED".equalsIgnoreCase(o.getStatus()))
+                .sorted(DOCUMENT_ORDER)
                 .toList();
         return toViews(safeCourseId, visible);
     }
@@ -81,8 +83,57 @@ public class ChapterOutlineService {
         refreshOutlinesForCourse(safeCourseId);
         List<CourseChapterOutline> visible = outlineRepository.findByCourseIdOrderByTitleAsc(safeCourseId).stream()
                 .filter(o -> !"IGNORED".equalsIgnoreCase(o.getStatus()))
+                .sorted(DOCUMENT_ORDER)
                 .toList();
         return toViews(safeCourseId, visible);
+    }
+
+    /** Document order: page → TOC level → natural chapter title (Chapter 2 before Chapter 10). */
+    private static final Comparator<CourseChapterOutline> DOCUMENT_ORDER = Comparator
+            .comparingInt(ChapterOutlineService::orderPage)
+            .thenComparingInt(ChapterOutlineService::orderTocLevel)
+            .thenComparing(outline -> outline.getTitle() == null ? "" : outline.getTitle(),
+                    ChapterOutlineService::compareNaturalTitle);
+
+    private static int orderPage(CourseChapterOutline outline) {
+        Integer page = outline.getPageStart();
+        return page == null || page <= 0 ? Integer.MAX_VALUE : page;
+    }
+
+    private static int orderTocLevel(CourseChapterOutline outline) {
+        Integer level = outline.getTocLevel();
+        return level == null || level < 0 ? 0 : level;
+    }
+
+    static int compareNaturalTitle(String left, String right) {
+        String a = left == null ? "" : left;
+        String b = right == null ? "" : right;
+        int i = 0;
+        int j = 0;
+        while (i < a.length() && j < b.length()) {
+            char ca = a.charAt(i);
+            char cb = b.charAt(j);
+            if (Character.isDigit(ca) && Character.isDigit(cb)) {
+                int startA = i;
+                int startB = j;
+                while (i < a.length() && Character.isDigit(a.charAt(i))) i++;
+                while (j < b.length() && Character.isDigit(b.charAt(j))) j++;
+                String numA = a.substring(startA, i).replaceFirst("^0+(?!$)", "");
+                String numB = b.substring(startB, j).replaceFirst("^0+(?!$)", "");
+                int lenCmp = Integer.compare(numA.length(), numB.length());
+                if (lenCmp != 0) return lenCmp;
+                int numCmp = numA.compareTo(numB);
+                if (numCmp != 0) return numCmp;
+                continue;
+            }
+            int charCmp = Character.compare(
+                    Character.toLowerCase(ca),
+                    Character.toLowerCase(cb));
+            if (charCmp != 0) return charCmp;
+            i++;
+            j++;
+        }
+        return Integer.compare(a.length() - i, b.length() - j);
     }
 
     /**

@@ -6,6 +6,7 @@ import com.ragapi.service.CanonicalTutorAnswerCacheService;
 import com.ragapi.service.ChatGenerationGate;
 import com.ragapi.service.course.answer.generation.CourseAnswerGenerationService;
 import com.ragapi.service.course.answer.generation.CourseAnswerPromptService;
+import com.ragapi.service.course.answer.generation.SupportLevelPrompt;
 import com.ragapi.service.course.answer.grounding.CourseAnswerEvidenceService;
 import com.ragapi.service.course.model.CourseAnswerRequest;
 import com.ragapi.service.course.model.RetrievedCourseChunk;
@@ -248,7 +249,7 @@ public class CourseAnswerGenerationStageService {
         String context = prepared.context() == null ? "" : prepared.context();
         String question = prepared.question() == null ? "" : prepared.question();
         boolean remediation = prepared.understandingRemediation();
-        SupportLevel supportLevel = resolveSupportLevel(request);
+        SupportLevelPrompt supportLevel = resolveSupportLevel(request);
         String quizCountInstruction = quizCountInstruction(supportLevel);
         String quizPrompt = remediation
                 ? """
@@ -522,46 +523,26 @@ public class CourseAnswerGenerationStageService {
         if (!highSupport) {
             return recovery;
         }
-        return recovery + """
-
-                HIGH_SUPPORT RECOVERY:
-                This student needs one short textbook example for each concept the excerpts explain. Explain every
-                shown line in simple Vietnamese. Do not copy every >>> prompt in the chapter, do not invent an
-                example, and do not claim the course material is missing when the excerpts already answer.
-                """;
+        return recovery + SupportLevelPrompt.HIGH_SUPPORT.recoveryAppendix();
     }
 
-    private enum SupportLevel {
-        STANDARD,
-        HIGH_SUPPORT,
-        CHALLENGE
+    private SupportLevelPrompt resolveSupportLevel(CourseAnswerRequest request) {
+        if (request == null) {
+            return SupportLevelPrompt.STANDARD;
+        }
+        return SupportLevelPrompt.resolve(
+                request.teachingPlan(),
+                request.teachingPlan() == null ? null : request.teachingPlan().supportLevel(),
+                request.pedagogicalContext()
+        );
     }
 
-    private SupportLevel resolveSupportLevel(CourseAnswerRequest request) {
-        String context = request == null ? null : request.pedagogicalContext();
-        if (context == null || context.isBlank()) {
-            return SupportLevel.STANDARD;
-        }
-        String upper = context.toUpperCase(Locale.ROOT);
-        if (upper.contains("CHALLENGE")) {
-            return SupportLevel.CHALLENGE;
-        }
-        if (upper.contains("HIGH_SUPPORT")) {
-            return SupportLevel.HIGH_SUPPORT;
-        }
-        return SupportLevel.STANDARD;
-    }
-
-    private String quizCountInstruction(SupportLevel supportLevel) {
-        return switch (supportLevel) {
-            case HIGH_SUPPORT -> "Write 2 to 3 multiple-choice questions (no fewer than 2, no more than 3).";
-            case CHALLENGE -> "Write 3 to 5 multiple-choice questions (no fewer than 3, no more than 5).";
-            case STANDARD -> "Write exactly 3 multiple-choice questions.";
-        };
+    private String quizCountInstruction(SupportLevelPrompt supportLevel) {
+        return supportLevel.quizCountInstruction();
     }
 
     private boolean isHighSupport(CourseAnswerRequest request) {
-        return resolveSupportLevel(request) == SupportLevel.HIGH_SUPPORT;
+        return resolveSupportLevel(request).isHighSupport();
     }
 
     /**
