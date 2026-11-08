@@ -107,23 +107,23 @@ public class IntentClassifierService {
                     true, "RULE");
         }
 
-        if (StudentChatIntentDetector.isAllowedInteraction(message)) {
+        if (StudentChatIntentDetector.isGreeting(message)) {
             return base(MODE_RAG,
-                    "Conversational interaction with AI Tutor",
-                    0.97,
-                    "CONVERSATIONAL",
+                    "Greeting opens the course lesson list",
+                    0.98,
+                    "LEARNING_PATH",
                     domain,
-                    "Respond naturally without course-material RAG.",
+                    "Greet the student and show the official course curriculum, not book headings.",
                     false, "RULE");
         }
 
-        if (StudentChatIntentDetector.isOffTopicNonAcademic(message)) {
+        if (StudentChatIntentDetector.isAllowedInteraction(message)) {
             return base(MODE_RAG,
-                    "Off-topic non-academic question",
-                    0.93,
+                    "Greeting or small talk is outside the academic tutor",
+                    0.97,
                     "OFF_TOPIC",
                     domain,
-                    "Politely redirect without course-material RAG.",
+                    "Refuse non-academic chat. Ask for a course question instead.",
                     false, "RULE");
         }
 
@@ -184,23 +184,76 @@ public class IntentClassifierService {
         String cacheKey = semanticCacheKey(message, codeSnippet, courseId, context.recentHistory(), context.sessionTopic());
         IntentClassification cached = getCachedSemanticIntent(cacheKey);
         if (cached != null) {
-            return cached;
+            refuseSmallTalkDecision(cached);
+            return guardNonAcademicRoute(message, cached, resolvedDomain);
         }
 
-        IntentClassification semanticIntent = llmIntentClassifierService.classify(
+        IntentClassification agentDecision = llmIntentClassifierService.classify(
                         message, codeSnippet, courseId, context.recentHistory())
-                .orElseGet(() -> {
-                    log.info("Intent classifier using safe course-RAG fallback");
-                    return base(MODE_RAG,
-                            "Uncertain intent safely routed to course knowledge",
-                            hasText(courseId) ? 0.72 : 0.62,
-                            detectRagSubIntent(text),
-                            resolvedDomain,
-                            "Answer from course material and approved knowledge; escalate if evidence is insufficient.",
-                            true, "SAFE_RAG_FALLBACK");
-                });
-        cacheSemanticIntent(cacheKey, semanticIntent);
-        return semanticIntent;
+                .orElse(null);
+        if (agentDecision != null) {
+            agentDecision.setRoutingStrategy("HARNESS_AGENT");
+            refuseSmallTalkDecision(agentDecision);
+        }
+        IntentClassification routed = guardNonAcademicRoute(message, agentDecision, resolvedDomain);
+        if (routed != null) {
+            cacheSemanticIntent(cacheKey, routed);
+            return routed;
+        }
+        log.info("Harness agent unavailable; using safe course-RAG fallback");
+        IntentClassification fallback = base(MODE_RAG,
+                "Uncertain intent safely routed to course knowledge",
+                hasText(courseId) ? 0.72 : 0.62,
+                detectRagSubIntent(text),
+                resolvedDomain,
+                "Answer from course material and approved knowledge; escalate if evidence is insufficient.",
+                true, "SAFE_RAG_FALLBACK");
+        cacheSemanticIntent(cacheKey, fallback);
+        return fallback;
+    }
+
+    /**
+     * The harness agent chooses the worker for turns that are not already an obvious
+     * lesson, code, or academic question. A clear non-academic question cannot be
+     * sent to course RAG or a mentor ticket, even if the agent mislabels it.
+     */
+    private IntentClassification guardNonAcademicRoute(
+            String message,
+            IntentClassification agentDecision,
+            String domain
+    ) {
+        if (!StudentChatIntentDetector.isOffTopicNonAcademic(message)) {
+            return agentDecision;
+        }
+        if (agentDecision != null && isHarnessLocalDecision(agentDecision)) {
+            return agentDecision;
+        }
+        log.info("Harness guard kept a non-academic question off course RAG and mentor escalation");
+        return base(MODE_RAG,
+                "Non-academic question kept on the local tutor reply",
+                0.93,
+                "OFF_TOPIC",
+                domain,
+                "Politely redirect without course-material RAG.",
+                false,
+                agentDecision == null ? "RULE" : "HARNESS_GUARD");
+    }
+
+    private void refuseSmallTalkDecision(IntentClassification intent) {
+        if (!"CONVERSATIONAL".equals(intent.getSubIntent())) {
+            return;
+        }
+        intent.setMode(MODE_RAG);
+        intent.setSubIntent("OFF_TOPIC");
+        intent.setRequiresCourseMaterial(false);
+        intent.setAnswerPolicy("Refuse non-academic chat. Ask for a course question instead.");
+    }
+
+    private boolean isHarnessLocalDecision(IntentClassification intent) {
+        String subIntent = intent.getSubIntent() == null ? "" : intent.getSubIntent();
+        return MODE_RAG.equals(intent.getMode())
+                && "OFF_TOPIC".equals(subIntent)
+                && !Boolean.TRUE.equals(intent.getRequiresCourseMaterial());
     }
 
     private IntentClassification base(

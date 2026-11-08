@@ -14,6 +14,7 @@ import com.ragapi.entity.QuestionEscalation;
 import com.ragapi.entity.TutorSession;
 import com.ragapi.service.AiConversationService;
 import com.ragapi.service.CodeMentorService;
+import com.ragapi.service.CourseCurriculumOverviewService;
 import com.ragapi.service.course.gateway.CourseAnswerGateway;
 import com.ragapi.service.ImprovePlanService;
 import com.ragapi.service.IntentClassifierService;
@@ -77,6 +78,7 @@ public class TutorController {
     private final TutorSessionService tutorSessionService;
     private final ImprovePlanService improvePlanService;
     private final LearningPathGroundingService learningPathGroundingService;
+    private final CourseCurriculumOverviewService curriculumOverviewService;
 
     @GetMapping("/tutor/students/{studentId}/courses/{courseId}/question-quota")
     @Operation(summary = "Get today's per-course question quota for a student")
@@ -239,7 +241,9 @@ public class TutorController {
                 routingMode = intent.getMode();
             }
             String requestedMode = normalizeStudentRequestedMode(request.getRequestedMode());
-            if (requestedMode != null && !IntentClassifierService.MODE_ESCALATE.equals(routingMode)) {
+            if (requestedMode != null
+                    && !IntentClassifierService.MODE_ESCALATE.equals(routingMode)
+                    && !isHarnessLocalIntent(intent)) {
                 routingMode = requestedMode;
                 applyStudentRequestedMode(intent, requestedMode);
             }
@@ -394,8 +398,22 @@ public class TutorController {
                             : learnerContext + "\n" + followUpHint;
                 }
             }
+            boolean courseGreeting = StudentChatIntentDetector.isGreeting(question);
             CourseRagAnswer ragAnswer;
-            if (conversationalInteraction) {
+            if (courseGreeting) {
+                intent.setMode(IntentClassifierService.MODE_RAG);
+                intent.setSubIntent("LEARNING_PATH");
+                intent.setRequiresCourseMaterial(false);
+                intent.setRoutingStrategy("RULE");
+                ragAnswer = CourseRagAnswer.builder()
+                        .answer(curriculumOverviewService.newChatWelcomeMarkdown(courseId))
+                        .confidence(1.0)
+                        .sources(List.of())
+                        .sourceEvidence(List.of())
+                        .groundingType("COURSE_CURRICULUM")
+                        .escalationRecommended(false)
+                        .build();
+            } else if (conversationalInteraction) {
                 ragAnswer = courseAnswerService.answerTutorInteraction(
                         question, courseId, intent.getSubIntent(),
                         pedagogicalContext, learnerContext, recentHistoryContext);
@@ -414,9 +432,12 @@ public class TutorController {
                                 teachingMode, retrievalHint);
             }
             String answer = ragAnswer.getAnswer();
-            List<SuggestionItem> lessonSuggestions = LearningPathParser.parseLessonSuggestions(answer);
-            if ("LEARNING_PATH".equalsIgnoreCase(intent.getSubIntent())
-                    || StudentChatIntentDetector.isTopiclessStudyRequest(question)) {
+            List<SuggestionItem> lessonSuggestions = courseGreeting
+                    ? List.of()
+                    : LearningPathParser.parseLessonSuggestions(answer);
+            if (!courseGreeting
+                    && ("LEARNING_PATH".equalsIgnoreCase(intent.getSubIntent())
+                    || StudentChatIntentDetector.isTopiclessStudyRequest(question))) {
                 lessonSuggestions = learningPathGroundingService.ground(
                         courseId,
                         question,
@@ -696,6 +717,14 @@ public class TutorController {
         response.setAnswerPolicy(intent.getAnswerPolicy());
         response.setRequiresCourseMaterial(intent.getRequiresCourseMaterial());
         response.setRoutingStrategy(intent.getRoutingStrategy());
+    }
+
+    private boolean isHarnessLocalIntent(IntentClassification intent) {
+        if (intent == null || intent.getSubIntent() == null) {
+            return false;
+        }
+        return "OFF_TOPIC".equals(intent.getSubIntent())
+                || "CONVERSATIONAL".equals(intent.getSubIntent());
     }
 
     private String normalizeStudentRequestedMode(String value) {

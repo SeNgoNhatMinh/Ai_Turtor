@@ -29,6 +29,26 @@ public final class StudentChatIntentDetector {
                     + "bao\\s*nhieu\\s*tuoi|co\\s*nguoi\\s*yeu|yeu\\s*ai|dat\\s*lich\\s*hen|hen\\s*ho)\\b"
     );
 
+    /**
+     * Weather and identity small talk. These must not enter course RAG or create a mentor ticket.
+     * Kept separate from class logistics so the reply does not tell the student to ask a teacher.
+     */
+    private static final Pattern CASUAL_NON_ACADEMIC = Pattern.compile(
+            "(?i)(?:"
+                    + "thoi\\s*tiet"
+                    + "|troi\\s+co\\s+mua"
+                    + "|troi\\s+(?:mua|nang|ret|nong|lanh|dep|xau|bao)\\b"
+                    + "|\\bco\\s+mua\\b"
+                    + "|\\bmua\\s+(?:khong|ko)\\b"
+                    + "|\\bnang\\s+(?:khong|ko)\\b"
+                    + "|(?:biet|know).{0,30}(?:tao|toi|minh|em)\\s+la\\s+ai"
+                    + "|(?:^|\\s)(?:tao|toi|minh)\\s+la\\s+ai\\b"
+                    + "|who\\s+am\\s+i"
+                    + "|do\\s+you\\s+know\\s+me"
+                    + "|\\bmay\\s+biet\\s+(?:tao|toi|minh|em)\\b"
+                    + ")"
+    );
+
     private static final Pattern INCOMPLETE_REQUEST = Pattern.compile(
             "^(?:(?:hom nay|bay gio|luc nay)\\s+)?"
                     + "(?:(?:minh|em|toi|to)\\s+)?"
@@ -152,7 +172,7 @@ public final class StudentChatIntentDetector {
         if (normalized.isBlank() || normalized.length() > 160) {
             return false;
         }
-        return isGreeting(normalized)
+        return matchesGreeting(normalized)
                 || isThanks(normalized)
                 || isGoodbye(normalized)
                 || isCapabilityQuestion(normalized)
@@ -295,6 +315,7 @@ public final class StudentChatIntentDetector {
         boolean explicitlyNonAcademic = CLASS_TIME_QUESTION.matcher(normalized).find()
                 || CLASS_LOGISTICS.matcher(normalized).find()
                 || ADMIN_OR_PERSONAL.matcher(normalized).find()
+                || CASUAL_NON_ACADEMIC.matcher(normalized).find()
                 || isLikelyClassScheduleQuestion(normalized);
         if (explicitlyNonAcademic && !hasTechnicalQualifier(normalized)) {
             return true;
@@ -327,6 +348,21 @@ public final class StudentChatIntentDetector {
         return isIncompleteOrMeaningless(question) || isOffTopicNonAcademic(question);
     }
 
+    /**
+     * Weather, jokes about identity, and similar chatter. Local reply only:
+     * no retrieval, no quiz, no mentor ticket.
+     */
+    public static boolean isCasualNonAcademic(String question) {
+        String normalized = normalize(question);
+        if (normalized.isBlank() || normalized.length() > 220 || isAllowedInteraction(normalized)) {
+            return false;
+        }
+        if (hasTechnicalQualifier(normalized) || looksLikeAcademicQuestion(normalized)) {
+            return false;
+        }
+        return CASUAL_NON_ACADEMIC.matcher(normalized).find();
+    }
+
     private static boolean hasTechnicalQualifier(String normalized) {
         return containsAnyWholePhrase(
                 normalized,
@@ -357,7 +393,12 @@ public final class StudentChatIntentDetector {
         return mentionsStudySession && mentionsTimeOrSchedule;
     }
 
-    private static boolean isGreeting(String normalized) {
+    public static boolean isGreeting(String question) {
+        String normalized = normalize(question);
+        return !normalized.isBlank() && normalized.length() <= 160 && matchesGreeting(normalized);
+    }
+
+    private static boolean matchesGreeting(String normalized) {
         return equalsAny(normalized,
                 "hi", "hello", "hey", "xin chao", "chao", "chao ban", "hi ai", "hello ai");
     }

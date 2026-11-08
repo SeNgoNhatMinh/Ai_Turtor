@@ -81,8 +81,17 @@ public class CourseAnswerService implements CourseAnswerGateway {
         if (localAnswer == null) {
             localAnswer = requestPolicyService.buildOffTopicRedirect(question, courseId);
         }
+        if (localAnswer == null
+                && ("OFF_TOPIC".equalsIgnoreCase(interactionType)
+                || "CONVERSATIONAL".equalsIgnoreCase(interactionType))) {
+            localAnswer = requestPolicyService.buildCasualRedirect(courseId);
+        }
         if (localAnswer != null) {
             return localAnswer;
+        }
+        if ("OFF_TOPIC".equalsIgnoreCase(interactionType)
+                || "CONVERSATIONAL".equalsIgnoreCase(interactionType)) {
+            return requestPolicyService.buildCasualRedirect(courseId);
         }
         return generationService.generateTutorInteraction(
                 question,

@@ -24,6 +24,15 @@ class StudentChatIntentDetectorTest {
         assertTrue(StudentChatIntentDetector.isOffTopicNonAcademic("bóng đá là gì?"));
         assertTrue(StudentChatIntentDetector.isOffTopicNonAcademic("viết cho mình một bài thơ"));
         assertFalse(StudentChatIntentDetector.isOffTopicNonAcademic("Weather API hoạt động như thế nào?"));
+        assertTrue(StudentChatIntentDetector.isCasualNonAcademic("hôm nay trời có mưa ko"));
+        assertTrue(StudentChatIntentDetector.isCasualNonAcademic("mai có mưa ko"));
+        assertTrue(StudentChatIntentDetector.isCasualNonAcademic("Mày biết tao là ai ko"));
+        assertTrue(StudentChatIntentDetector.isOffTopicNonAcademic("hôm nay trời có mưa ko"));
+        assertTrue(StudentChatIntentDetector.isOffTopicNonAcademic("mai có mưa ko"));
+        assertTrue(StudentChatIntentDetector.isOffTopicNonAcademic("Mày biết tao là ai ko"));
+        assertFalse(StudentChatIntentDetector.isCasualNonAcademic("mai có đi học ko"));
+        assertFalse(StudentChatIntentDetector.isCasualNonAcademic("Servlet là gì?"));
+        assertFalse(StudentChatIntentDetector.isCasualNonAcademic("Weather API hoạt động như thế nào?"));
     }
 
     @Test
@@ -149,6 +158,8 @@ class StudentChatIntentDetectorTest {
                 "So sánh ưu điểm, nhược điểm và trường hợp nên sử dụng từng phương pháp."));
         assertTrue(StudentChatIntentDetector.isDependentFollowUp("Khi nào nên dùng cả hai cách?"));
         assertFalse(StudentChatIntentDetector.isDependentFollowUp("mai mấy giờ học"));
+        assertFalse(StudentChatIntentDetector.isDependentFollowUp("mai có mưa ko"));
+        assertFalse(StudentChatIntentDetector.isDependentFollowUp("Mày biết tao là ai ko"));
         assertFalse(StudentChatIntentDetector.isDependentFollowUp("xin chào"));
         assertFalse(StudentChatIntentDetector.isDependentFollowUp("Nay mình học JDBC"));
         assertFalse(StudentChatIntentDetector.isDependentFollowUp("Servlet là gì?"));

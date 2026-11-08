@@ -1806,6 +1806,30 @@
                 },
                 "conditions": [
                   {
+                    "id": "harness-local-route",
+                    "leftValue": "={{ ['UNDERSTANDING_REMEDIATION', 'GUIDED_LESSON'].includes(String($node[\"Set - Trace Context\"].json.interactionType || '').trim().toUpperCase()) ? 'OTHER' : (String($json.subIntent || $json.body?.subIntent || '').trim().toUpperCase() === 'OFF_TOPIC' ? 'LOCAL' : 'OTHER') }}",
+                    "rightValue": "LOCAL",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "LOCAL"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
                     "leftValue": "={{ String($node[\"Set - Trace Context\"].json.interactionType || '').trim().toUpperCase() === 'UNDERSTANDING_REMEDIATION' ? 'RAG' : (String($node[\"Set - Trace Context\"].json.requestedMode || '').trim().toUpperCase() || String($json.mode || $json.body?.mode || '').trim().toUpperCase()) }}",
                     "rightValue": "CODE",
                     "operator": {
@@ -3703,6 +3727,13 @@
     },
     "Switch2": {
       "main": [
+        [
+          {
+            "node": "Course RAG Query",
+            "type": "main",
+            "index": 0
+          }
+        ],
         [
           {
             "node": "Code Mentor Query",
