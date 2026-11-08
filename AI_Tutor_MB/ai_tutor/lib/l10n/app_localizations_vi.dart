@@ -176,7 +176,7 @@ class AppLocalizationsVi extends AppLocalizations {
   String get homeHeroTitle => 'Hôm nay học gì nào?';
 
   @override
-  String get homeHeroSubtitle => 'Hỏi Cóc về bài giảng, code, hay deadline.';
+  String get homeHeroSubtitle => 'Chọn môn và tiếp tục học cùng AI Tutor.';
 
   @override
   String get homeAskQuestion => '+ Đặt câu hỏi';
@@ -188,7 +188,7 @@ class AppLocalizationsVi extends AppLocalizations {
   String get enrolledCoursesStat => 'Môn đang học';
 
   @override
-  String get tabAskCoc => 'Hỏi Cóc';
+  String get tabAskCoc => 'Hỏi AI Tutor';
 
   @override
   String classroomSubtitle(String semester, int count) {
@@ -217,7 +217,7 @@ class AppLocalizationsVi extends AppLocalizations {
   }
 
   @override
-  String get aiTutorName => 'Cóc Vàng AI';
+  String get aiTutorName => 'AI Tutor';
 
   @override
   String get aiLanguageHintTooltip => 'Gợi ý ngôn ngữ';
@@ -241,7 +241,7 @@ class AppLocalizationsVi extends AppLocalizations {
   String get chatToday => 'Hôm nay';
 
   @override
-  String get chatInputHint => 'Nhắn cho Cóc...';
+  String get chatInputHint => 'Nhắn cho AI Tutor...';
 
   @override
   String confidenceLabel(int percent) {
@@ -316,7 +316,7 @@ class AppLocalizationsVi extends AppLocalizations {
   String get memoryTab => 'Trí nhớ học tập';
 
   @override
-  String get askAboutCourse => 'Hỏi AI về môn này';
+  String get askAboutCourse => 'Hỏi AI Tutor về môn này';
 
   @override
   String get emptyMaterialsTitle => 'Giảng viên chưa tải tài liệu';
@@ -335,7 +335,7 @@ class AppLocalizationsVi extends AppLocalizations {
   String get selectCourse => 'Chọn môn học';
 
   @override
-  String get selectCourseHint => 'AI trả lời theo tài liệu môn đã chọn';
+  String get selectCourseHint => 'AI Tutor trả lời theo tài liệu môn đã chọn';
 
   @override
   String get sendMessage => 'Gửi';
@@ -347,7 +347,7 @@ class AppLocalizationsVi extends AppLocalizations {
   String get stopGenerating => 'Dừng';
 
   @override
-  String get aiThinking => 'AI đang trả lời...';
+  String get aiThinking => 'AI Tutor đang soạn bài giảng...';
 
   @override
   String get codeMentor => 'Code Mentor';
@@ -412,15 +412,15 @@ class AppLocalizationsVi extends AppLocalizations {
 
   @override
   String get reviewSubmittedSnack =>
-      'Cảm ơn phản hồi! AI chưa cập nhật ngay từ đánh giá này.';
+      'Cảm ơn phản hồi! AI Tutor chưa cập nhật ngay từ đánh giá này.';
 
   @override
   String get reviewSubmittedSnackMentor =>
-      'Đã gửi phản hồi — mentor sẽ kiểm tra. AI chưa học từ review này.';
+      'Đã gửi phản hồi — mentor sẽ kiểm tra. AI Tutor chưa học từ review này.';
 
   @override
   String get reviewSubmittedSnackSenior =>
-      'Đã gửi báo lỗi — Senior sẽ xem xét. AI chưa học từ review này.';
+      'Đã gửi báo lỗi — Senior sẽ xem xét. AI Tutor chưa học từ review này.';
 
   @override
   String get reviewWrongDialogTitle => 'Báo câu trả lời sai';
@@ -1046,17 +1046,18 @@ class AppLocalizationsVi extends AppLocalizations {
 
   @override
   String get materialReaderHint =>
-      'Nội dung bài đọc được lấy từ tài liệu môn học. Bạn có thể mở file PDF để đọc đầy đủ hoặc hỏi Cóc về phần đang học.';
+      'Nội dung bài đọc được lấy từ tài liệu môn học. Bạn có thể mở file PDF để đọc đầy đủ hoặc hỏi AI Tutor về phần đang học.';
 
   @override
   String get openMaterialPdf => 'Mở file PDF';
 
   @override
-  String get materialHighlightHint => 'Highlight để hỏi Cóc về đoạn vừa đọc.';
+  String get materialHighlightHint =>
+      'Highlight để hỏi AI Tutor về đoạn vừa đọc.';
 
   @override
   String materialAskHint(int page) {
-    return 'Hỏi Cóc về trang $page...';
+    return 'Hỏi AI Tutor về trang $page...';
   }
 
   @override
@@ -1132,7 +1133,7 @@ class AppLocalizationsVi extends AppLocalizations {
 
   @override
   String improvePlanSubtitle(String courseCode) {
-    return '$courseCode · Cóc gợi ý cho bạn';
+    return '$courseCode · AI Tutor gợi ý cho bạn';
   }
 
   @override
