@@ -115,11 +115,12 @@ class CourseCurriculumOverviewServiceTest {
         assertTrue(welcome.contains("`Cú pháp Python`"));
         assertTrue(welcome.contains("`Cấu trúc điều khiển`"));
         assertTrue(welcome.contains("## 4. Gợi ý học tập"));
-        assertTrue(welcome.contains("Các chương trong tài liệu môn học"));
-        assertTrue(welcome.contains("- Cú pháp Python"));
-        assertTrue(welcome.contains("- Cấu trúc điều khiển"));
-        assertTrue(welcome.endsWith("**Mẹo:** Chọn một chương cụ thể để AI Tutor lấy nội dung từ tài liệu môn"
-                + " và hướng dẫn bạn học."));
+        assertTrue(welcome.contains("Chưa có chương nào được nhận từ tài liệu môn học"));
+        assertFalse(welcome.contains("- Cú pháp Python"));
+        assertFalse(welcome.contains("- Cấu trúc điều khiển"));
+        assertFalse(welcome.contains("Cho tôi biết môn học này gồm những nội dung nào"));
+        assertFalse(welcome.contains("Tôi muốn tìm hiểu về một chủ đề"));
+        assertFalse(welcome.contains("Kiểm tra kiến thức của tôi về môn học này"));
         assertFalse(welcome.contains("Gợi ý từ khóa"));
         assertFalse(welcome.contains("lộ trình"));
     }
@@ -157,7 +158,8 @@ class CourseCurriculumOverviewServiceTest {
 
         String welcome = service.welcomeMarkdown(overview);
 
-        assertTrue(welcome.contains("- Kế thừa"));
+        assertTrue(welcome.contains("**Kế thừa**"));
+        assertFalse(welcome.contains("- Kế thừa"));
         assertFalse(welcome.contains("- Môn học này giới thiệu"));
     }
 

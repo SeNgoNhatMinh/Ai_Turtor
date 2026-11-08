@@ -27,7 +27,7 @@ function writeStoredKey(attemptId, reviewer, key) {
   }
 }
 
-function hintText({ reviewer, locked, fromStudent, selectedKey, attemptId }) {
+function hintText({ reviewer, locked, fromStudent, selectedKey, revealReady }) {
   if (reviewer) {
     if (fromStudent) {
       return `Sinh viên đã chọn ${selectedKey}. Kết quả được giữ để bạn gửi chỉ dẫn cho AI Tutor lần sau.`;
@@ -37,13 +37,13 @@ function hintText({ reviewer, locked, fromStudent, selectedKey, attemptId }) {
     }
     return 'Sinh viên chưa trả lời. Chọn 1 lần để tự thử; kết quả và giải thích được khóa, không ghi đè bài làm của sinh viên.';
   }
-  if (locked && !String(attemptId || '').trim()) {
-    return 'Đã khóa đáp án. AI Tutor sẽ giảng lại câu sai sau khi bạn hoàn thành quiz.';
+  if (locked && !revealReady) {
+    return 'Đã lưu lựa chọn. Đúng/sai hiện khi bạn làm xong cả quiz và bài tập có hướng dẫn.';
   }
   if (locked) {
-    return 'Đã khóa đáp án. AI Tutor sẽ giảng lại các câu sai sau khi bạn hoàn thành toàn bộ quiz.';
+    return 'Đã khóa đáp án. Đúng/sai và giải thích hiện trên câu này, không tạo câu trả lời mới.';
   }
-  return 'Chọn một lần. Kết quả đúng/sai và giải thích được giữ; không đổi được sau khi chọn.';
+  return 'Chọn một lần. Đúng/sai hiện khi bạn làm xong cả phần, và không đổi được sau khi chọn.';
 }
 
 function UnderstandingCheckQuiz({
@@ -51,6 +51,7 @@ function UnderstandingCheckQuiz({
   reviewer = false,
   lockedKey = '',
   attemptId = '',
+  revealGrade = true,
   onLockAnswer,
 }) {
   const studentKey = String(lockedKey || '').trim().toUpperCase();
@@ -108,7 +109,7 @@ function UnderstandingCheckQuiz({
         <CircleHelp size={16} aria-hidden="true" />
         <div>
           <strong>Kiểm tra hiểu</strong>
-          <span>{hintText({ reviewer, locked, fromStudent, selectedKey, attemptId })}</span>
+          <span>{hintText({ reviewer, locked, fromStudent, selectedKey, revealReady: revealGrade })}</span>
         </div>
         {reviewer && (
           <span className={`understanding-check__status ${fromStudent
@@ -125,7 +126,7 @@ function UnderstandingCheckQuiz({
       <div className="understanding-check__options">
         {quiz.options.map((option) => {
           const isSelected = selectedKey === option.key;
-          const showGrade = locked && hasKey;
+          const showGrade = locked && hasKey && revealGrade;
           const isRightChoice = option.key === correctKey;
           const className = [
             'understanding-check__option',
@@ -147,7 +148,13 @@ function UnderstandingCheckQuiz({
           );
         })}
       </div>
-      {selected && (
+      {selected && !revealGrade && (
+        <div className="understanding-check__result">
+          <strong>Đã lưu lựa chọn {selected.key}.</strong>
+          <p>Đã lưu lựa chọn. Đúng/sai hiện khi bạn làm xong cả quiz và bài tập có hướng dẫn.</p>
+        </div>
+      )}
+      {selected && revealGrade && (
         <div className={`understanding-check__result ${hasKey ? (isCorrect ? 'is-correct' : 'is-wrong') : ''}`}>
           {hasKey ? (
             <>
@@ -162,7 +169,7 @@ function UnderstandingCheckQuiz({
           ) : (
             <>
               <strong>{actor} chọn {selected.key}.</strong>
-              <p>AI Tutor đang kiểm tra đáp án và sẽ giảng lại ngay bên dưới.</p>
+              <p>Đang giữ lựa chọn. Đúng/sai hiện ngay trên câu này, không tạo câu trả lời mới.</p>
               {!reviewer && checkingMissingKey ? <span>Đang kiểm tra…</span> : null}
             </>
           )}

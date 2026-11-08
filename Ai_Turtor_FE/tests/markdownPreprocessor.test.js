@@ -354,3 +354,13 @@ test('drops an empty numbered section and closes the number gap', () => {
   assert.doesNotMatch(output, /## 3\./);
   assert.match(output, /^## Kiểm tra hiểu$/m);
 });
+
+test('continues heading numbers when a later section is rendered on its own', () => {
+  const output = normalizeAiMarkdown([
+    '## 6. Tự thực hành',
+    '1. Viết một servlet mới.',
+  ].join('\n'), { headingStart: 5 });
+
+  assert.match(output, /^## 5\. Tự thực hành$/m);
+  assert.doesNotMatch(output, /^## 1\. Tự thực hành$/m);
+});

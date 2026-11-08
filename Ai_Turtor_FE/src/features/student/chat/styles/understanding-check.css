@@ -1,9 +1,9 @@
 .understanding-check {
   margin: 0.85rem 0 0.35rem;
   padding: 0.85rem 0.95rem 0.9rem;
-  border: 1px solid #dbe4f0;
+  border: 1px solid #e7e5e4;
   border-radius: 14px;
-  background: #f8fafc;
+  background: #fffdfb;
 }
 
 .understanding-check__header {
@@ -73,8 +73,8 @@
   min-width: 1.55rem;
   height: 1.55rem;
   border-radius: 999px;
-  background: #eef2ff;
-  color: #3730a3;
+  background: #fff7ed;
+  color: #9a3412;
   font-size: 0.78rem;
   font-weight: 700;
 }
@@ -86,8 +86,8 @@
 
 .understanding-check__option:hover,
 .understanding-check__option.is-selected {
-  border-color: #c7d2fe;
-  background: #eef2ff;
+  border-color: #fdba74;
+  background: #fff7ed;
 }
 
 .understanding-check__option:disabled {

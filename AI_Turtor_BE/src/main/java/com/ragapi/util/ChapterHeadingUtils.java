@@ -1,6 +1,9 @@
 package com.ragapi.util;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
@@ -23,6 +26,21 @@ public final class ChapterHeadingUtils {
     private static final Pattern LEADING_FILLER = Pattern.compile(
             "(?i)^(?:what(?:'s| is| are)|an introduction to|introduction to|introducing|"
                     + "understanding|overview of|a guide to|guide to|using)\\s+"
+    );
+    private static final Pattern CHAPTER_WORD_NUMBER = Pattern.compile(
+            "(?i)^(?:chapter|chương|chuong|ch\\.)\\s+(\\d+)\\b"
+    );
+    private static final Pattern CHAPTER_ROMAN_ONE = Pattern.compile(
+            "(?i)^(?:chapter|chương|chuong)\\s+i\\b"
+    );
+    private static final Pattern LEADING_OUTLINE_NUMBER = Pattern.compile(
+            "^(\\d+)(?:\\.\\d+)*\\b"
+    );
+    private static final Pattern TRAILING_BACK_MATTER = Pattern.compile(
+            "(?i)^(?:appendix|phụ lục|phu luc|apêndice)\\b.*"
+                    + "|(?i)^(?:answers?(?:\\s+to)?|solutions?(?:\\s+to)?|đáp án|dap an|lời giải|loi giai)\\b.*"
+                    + "|(?i)^(?:further reading|recommended reading|tài liệu tham khảo|tai lieu tham khao)\\b.*"
+                    + "|(?i)^(?:chapter|chương|chuong)\\s+\\d+\\b.*\\b(?:appendix|phụ lục|phu luc|glossary|bibliography|references)\\b.*"
     );
 
     private ChapterHeadingUtils() {
@@ -273,5 +291,68 @@ public final class ChapterHeadingUtils {
         return isStudySuggestionTitle(title)
                 && !isSentenceLikeHeading(title)
                 && !isCourseOverviewChip(title);
+    }
+
+    /**
+     * Study chips start at chapter 1 and stop before back matter.
+     * Titles before the first chapter numbered 1 or higher are the book opening.
+     * A trailing run of appendices, answer keys, and reference lists is dropped.
+     * When nothing is numbered, the list is kept aside from that trailing run.
+     */
+    public static List<String> studySuggestionRange(List<String> titles) {
+        if (titles == null || titles.isEmpty()) {
+            return List.of();
+        }
+        int start = 0;
+        for (int i = 0; i < titles.size(); i++) {
+            Integer number = studyChapterNumber(titles.get(i));
+            if (number != null && number >= 1) {
+                start = i;
+                break;
+            }
+        }
+        int end = titles.size();
+        while (end > start && isTrailingBackMatter(titles.get(end - 1))) {
+            end--;
+        }
+        if (start >= end) {
+            return List.of();
+        }
+        return List.copyOf(new ArrayList<>(titles.subList(start, end)));
+    }
+
+    /**
+     * Top-level chapter number from "Chapter 1", "Chương 1", "Chapter I", or "1.2 …".
+     * Returns null when the title is not numbered.
+     */
+    public static Integer studyChapterNumber(String title) {
+        if (title == null || title.isBlank()) {
+            return null;
+        }
+        String trimmed = title.trim();
+        Matcher word = CHAPTER_WORD_NUMBER.matcher(trimmed);
+        if (word.find()) {
+            return Integer.valueOf(word.group(1));
+        }
+        if (CHAPTER_ROMAN_ONE.matcher(trimmed).find()) {
+            return 1;
+        }
+        Matcher leading = LEADING_OUTLINE_NUMBER.matcher(trimmed);
+        if (leading.find()) {
+            return Integer.valueOf(leading.group(1));
+        }
+        return null;
+    }
+
+    /** Appendix, answer key, or reference list that follows the last study chapter. */
+    public static boolean isTrailingBackMatter(String title) {
+        if (title == null || title.isBlank()) {
+            return true;
+        }
+        if (isBookFrontMatterTitle(title)) {
+            return true;
+        }
+        String stripped = title.trim().toLowerCase(Locale.ROOT).replaceAll("\\s+", " ");
+        return TRAILING_BACK_MATTER.matcher(stripped).matches();
     }
 }

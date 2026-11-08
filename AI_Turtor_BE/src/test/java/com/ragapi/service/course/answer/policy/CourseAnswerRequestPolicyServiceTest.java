@@ -63,4 +63,11 @@ class CourseAnswerRequestPolicyServiceTest {
         assertTrue(schedule.getAnswer().contains("giáo viên/mentor"));
         assertNull(policy.buildOffTopicRedirect("JSP là gì trong phát triển web Java?", "PRJ301"));
     }
+
+    @Test
+    void finishedWorkReviewIsRecognizedWithoutTreatingANormalQuestionAsOne() {
+        assertTrue(CourseAnswerRequestPolicyService.isFinishedWorkReview(
+                "Học sinh đã nộp cả bài tập có hướng dẫn và quiz. Hãy sửa bài.\ndoPost()"));
+        assertFalse(CourseAnswerRequestPolicyService.isFinishedWorkReview("doPost() khác doGet() thế nào?"));
+    }
 }

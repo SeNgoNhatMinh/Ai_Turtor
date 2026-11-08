@@ -59,6 +59,15 @@ public class CourseAnswerRequestPolicyService {
                 && question.stripLeading().startsWith("Ôn lại sau câu ");
     }
 
+    /** A hidden turn that grades a saved guided practice together with its quiz. */
+    public static boolean isFinishedWorkReview(String question) {
+        if (question == null) {
+            return false;
+        }
+        String prefix = "Học sinh đã nộp cả bài tập có hướng dẫn và quiz.";
+        return question.stripLeading().regionMatches(true, 0, prefix, 0, prefix.length());
+    }
+
     public boolean isGuidedLessonMode(String teachingMode) {
         return "LEARNING_PATH".equalsIgnoreCase(teachingMode)
                 || "LESSON_TEACH".equalsIgnoreCase(teachingMode)

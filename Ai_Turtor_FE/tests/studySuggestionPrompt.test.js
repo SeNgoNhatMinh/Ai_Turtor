@@ -15,6 +15,21 @@ import {
   teacherStudentPathLabel,
 } from '../src/features/student/learning/studySuggestionPrompt.js';
 
+test('keeps a numbered chapter 1 and drops the book appendix', () => {
+  const items = parseCurriculumStarterSuggestions(`
+## 4. Gợi ý học tập
+
+- Chapter 1. Introduction to JSP
+- Chương 2. Servlet cơ bản
+- Appendix A. Installing Tomcat
+- Introduction
+`);
+  assert.deepEqual(items.map((item) => item.suggestionText), [
+    'Chapter 1. Introduction to JSP',
+    'Chương 2. Servlet cơ bản',
+  ]);
+});
+
 test('parses curriculum starter suggestions into clickable chips', () => {
   const items = parseCurriculumStarterSuggestions(`
 ## 3. Các chủ đề trọng tâm

@@ -1,5 +1,6 @@
 package com.ragapi.service.course.answer.generation;
 
+import com.ragapi.service.course.answer.policy.CourseAnswerRequestPolicyService;
 import com.ragapi.util.NumberedTitlePrompt;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -36,6 +37,7 @@ public class CourseAnswerPromptService {
         boolean learningPath = "LEARNING_PATH".equalsIgnoreCase(teachingMode);
         boolean lessonTeach = "LESSON_TEACH".equalsIgnoreCase(teachingMode);
         boolean lessonDeepPath = "LESSON_DEEP_PATH".equalsIgnoreCase(teachingMode);
+        boolean workReview = CourseAnswerRequestPolicyService.isFinishedWorkReview(question);
         boolean compactLocal = generationService.isOllamaOnlyActive();
 
         return """
@@ -116,7 +118,7 @@ public class CourseAnswerPromptService {
                 %s
                 """.formatted(
                 compactLocal ? sections.compactRagRulesBlock(synthesizeBlock) : sections.fullRagRulesBlock(synthesizeBlock),
-                sections.teachingStyleBlock(learningPath, lessonTeach, lessonDeepPath, understandingRemediation),
+                sections.teachingStyleBlock(learningPath, lessonTeach, lessonDeepPath, understandingRemediation, workReview),
                 SupportLevelPrompt.personalizationRules(),
                 pedagogicalContext == null || pedagogicalContext.isBlank()
                         ? "- No active teacher directive." : pedagogicalContext,
@@ -127,6 +129,7 @@ public class CourseAnswerPromptService {
                         lessonTeach,
                         lessonDeepPath,
                         understandingRemediation,
+                        workReview,
                         compactLocal
                 ),
                 courseId == null ? "" : courseId,

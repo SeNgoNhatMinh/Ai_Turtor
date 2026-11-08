@@ -30,6 +30,10 @@ import {
   stripCurriculumStarterSection,
 } from '../../learning/studySuggestionPrompt';
 import { isAiServiceErrorText, shouldOfferLessonContinuations } from '../../../../utils/errorMessages';
+import {
+  FINISHED_WORK_REVIEW_LABEL,
+  isFinishedWorkReviewQuestion,
+} from '../understandingCheck';
 import TutorMascot from '../../../../components/common/TutorMascot';
 import { useMarkdownReveal } from '../useMarkdownReveal';
 import TtsMessageAction from './TtsMessageAction';
@@ -48,9 +52,23 @@ function getRemediationRequest(message) {
   if (!isRemediation) return null;
 
   return {
+    title: 'Ôn lại câu vừa sai',
     question: String(message?.displayQuestion || rawQuestion.match(REMEDIATION_QUESTION)?.[1] || '')
       .trim(),
+    status: 'Lượt ôn tập',
   };
+}
+
+function getLearningEventCard(message) {
+  const rawQuestion = String(message?.question || '').trim();
+  if (message?.interactionType === 'GUIDED_PRACTICE_REVIEW' || isFinishedWorkReviewQuestion(rawQuestion)) {
+    return {
+      title: message?.displayQuestion || FINISHED_WORK_REVIEW_LABEL,
+      question: '',
+      status: '',
+    };
+  }
+  return getRemediationRequest(message);
 }
 
 function scrollChatToEnd(messagesEndRef) {
@@ -152,6 +170,10 @@ function StudentLiveAnswer({
           onLockAnswer={done ? (key, attempt) => (
             onLockUnderstandingAnswer?.(message, key, attempt)
           ) : undefined}
+          onSubmitGuidedPractice={done ? (text) => onStudySuggestion?.({
+            text,
+            guidedPracticeAttempt: true,
+          }) : undefined}
           onDownloadSource={onDownloadSource}
           hideSourceSection
         />
@@ -369,7 +391,7 @@ function ChatMessageList({
             const pathSuggestions = lessonSuggestionsForMessage(message);
             const offerLessonContinuations = shouldOfferLessonContinuations(message);
             const tutorTurnFailed = Boolean(message.aiServiceError || isAiServiceErrorText(message.answer));
-            const remediationRequest = getRemediationRequest(message);
+            const remediationRequest = getLearningEventCard(message);
 
             return (
                 <div
@@ -380,7 +402,11 @@ function ChatMessageList({
                 {String(message.question || '').trim() ? (
                   <div className={`chat-gpt-message-row ${remediationRequest ? 'learning-event' : 'user'}`}>
                     {remediationRequest ? (
-                      <RemediationRequestCard question={remediationRequest.question} />
+                      <RemediationRequestCard
+                        title={remediationRequest.title}
+                        question={remediationRequest.question}
+                        status={remediationRequest.status}
+                      />
                     ) : (
                       <StudentMessageBubble
                         canResend={canChat && !isAiLoading && !activeSessionMaxTurnsReached}

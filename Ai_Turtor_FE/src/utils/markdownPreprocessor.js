@@ -947,9 +947,10 @@ function sanitizeLinks(text) {
  * Safe to call on every render — idempotent by design.
  *
  * @param {string} input  Raw AI markdown
+ * @param {{ headingStart?: number }} [options]
  * @returns {string}      Cleaned GFM markdown
  */
-export function normalizeAiMarkdown(input = '') {
+export function normalizeAiMarkdown(input = '', options = {}) {
   let text = normalizeUnicodeText(input);
   if (!text.trim()) return '';
 
@@ -984,7 +985,7 @@ export function normalizeAiMarkdown(input = '') {
   text = restoreBlocks(text, originalBlocks.vault);
 
   /* 17 */ text = collapseBlankLines(text);
-  text = dropEmptyHeadingsAndCloseNumbers(text);
+  text = dropEmptyHeadingsAndCloseNumbers(text, options.headingStart);
 
   return text;
 }
@@ -1011,7 +1012,7 @@ function sectionKey(title) {
  * Drops a numbered section title that has no paragraph, list, or table under it,
  * then closes the gap so the next title is 2 instead of 3.
  */
-function dropEmptyHeadingsAndCloseNumbers(text) {
+function dropEmptyHeadingsAndCloseNumbers(text, headingStart = 1) {
   const lines = String(text || '').split('\n');
   const insideFence = [];
   let inFence = false;
@@ -1034,7 +1035,7 @@ function dropEmptyHeadingsAndCloseNumbers(text) {
     kept.push(lines[index]);
   }
 
-  let number = 0;
+  let number = Math.max(1, Number(headingStart) || 1) - 1;
   inFence = false;
   return kept.map((line) => {
     if (isFenceLine(line)) {

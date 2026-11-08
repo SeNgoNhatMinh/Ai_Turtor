@@ -213,11 +213,19 @@ function createMarkdownComponents({ sourceMap, onStudyTipStudy, onDownloadSource
   };
 }
 
-function MarkdownRenderer({ markdown, streaming = false, sourceMap = {}, onStudyTipStudy, onDownloadSource, hideSourceSection = false }) {
+function MarkdownRenderer({
+  markdown,
+  streaming = false,
+  sourceMap = {},
+  onStudyTipStudy,
+  onDownloadSource,
+  hideSourceSection = false,
+  headingStart = 1,
+}) {
   const content = useMemo(() => {
-    const normalized = normalizeAiMarkdown(markdown);
+    const normalized = normalizeAiMarkdown(markdown, { headingStart });
     return hideSourceSection ? stripSourceSection(normalized) : normalized;
-  }, [markdown, hideSourceSection]);
+  }, [headingStart, markdown, hideSourceSection]);
   const components = useMemo(
     () => createMarkdownComponents({ sourceMap, onStudyTipStudy, onDownloadSource }),
     [sourceMap, onStudyTipStudy, onDownloadSource],

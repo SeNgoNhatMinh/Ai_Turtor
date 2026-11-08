@@ -59,7 +59,7 @@ public final class StudentFacingMessages {
                 || normalized.contains("khong nhac")
                 || normalized.contains("khong bao gom")
                 || normalized.contains("khong chua")
-                || normalized.contains("khong du")
+                || containsPhrase(normalized, "khong du")
                 || normalized.contains("khong cung cap")
                 || normalized.contains("khong the cung cap")
                 || normalized.contains("khong co thong tin")
@@ -92,6 +92,26 @@ public final class StudentFacingMessages {
                 || text.contains("chua tao duoc cau tra loi")
                 || text.contains("chua giang duoc phan nay")
                 || text.contains("chua phan tich xong");
+    }
+
+    /** "không đủ" must stay separate from "không được" and "không đúng". */
+    private static boolean containsPhrase(String normalized, String phrase) {
+        int from = 0;
+        while (from < normalized.length()) {
+            int found = normalized.indexOf(phrase, from);
+            if (found < 0) {
+                return false;
+            }
+            int end = found + phrase.length();
+            boolean leftBoundary = found == 0 || !Character.isLetterOrDigit(normalized.charAt(found - 1));
+            boolean rightBoundary = end >= normalized.length()
+                    || !Character.isLetterOrDigit(normalized.charAt(end));
+            if (leftBoundary && rightBoundary) {
+                return true;
+            }
+            from = found + 1;
+        }
+        return false;
     }
 
     private static String normalize(String value) {

@@ -30,5 +30,9 @@ class StudentFacingMessagesTest {
                         + "hay giải thích dựa trên nội dung đã cung cấp."));
         assertFalse(StudentFacingMessages.isInsufficientMaterialAnswer(
                 "Tài liệu giải thích cách dùng get trong dictionary."));
+        assertFalse(StudentFacingMessages.isInsufficientMaterialAnswer(
+                "JSP không được trình duyệt thực thi trực tiếp.\n\n## Nguồn tài liệu đã dùng\n- materialId=abc"));
+        assertFalse(StudentFacingMessages.isInsufficientMaterialAnswer(
+                "Cách làm trong tài liệu là không đúng khi gọi service() trước init()."));
     }
 }

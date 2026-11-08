@@ -40,7 +40,7 @@ public final class ExplanationStyles {
                 - "Ví dụ thực tế:" one everyday situation that makes the same idea concrete. Do not invent APIs or results.
                 - "Minh họa trực quan:" a short flow of how the idea runs (steps or a small diagram).
                 - "Bảng so sánh:" a table that distinguishes this idea from the nearest related idea.
-                - "Bài tập có hướng dẫn:" a code skeleton with a blank, never the finished solution.
+                - "Bài tập có hướng dẫn:" a code skeleton with one or more blanks, never the finished solution.
                 - "Tự kiểm tra:" one short question the student answers or writes themselves, with no answer attached.
                 After the colon, say in at most 20 words how to use that style for this student's gap.
                 Pick only styles the evidence supports. Do not repeat a style.
@@ -80,7 +80,9 @@ public final class ExplanationStyles {
                 | --- | --- | --- |
 
                 ## 5. Bài tập có hướng dẫn
-                A short code skeleton with one blank the student can fill. Do not paste the finished solution.
+                A short fenced code skeleton. Mark every blank the student must fill as ____.
+                Use one ____ for each missing piece. Do not paste the finished solution.
+                Do not use a blank line instead of ____.
 
                 ## 6. Tự thực hành
                 One short question that asks the student to explain or try the idea. Do not give the answer here.

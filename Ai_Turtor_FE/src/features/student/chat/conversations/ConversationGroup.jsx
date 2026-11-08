@@ -1,4 +1,4 @@
-import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { memo, useLayoutEffect, useRef, useState } from 'react';
 import { Input, Typography } from 'antd';
 import EntityActionMenu from '../../../../components/common/EntityActionMenu';
 import { formatSessionTime, getSessionQuestionCount } from './sessionUtils';
@@ -15,30 +15,26 @@ function fullTitleWidth(sample, title) {
   probe.textContent = title;
   probe.style.position = 'fixed';
   probe.style.left = '-10000px';
-  probe.style.top = '0';
-  probe.style.visibility = 'hidden';
   probe.style.whiteSpace = 'nowrap';
   probe.style.font = computed.font;
   probe.style.letterSpacing = computed.letterSpacing;
   document.body.appendChild(probe);
-  const width = Math.ceil(probe.getBoundingClientRect().width);
+  const width = probe.getBoundingClientRect().width;
   probe.remove();
   return width;
 }
 
 function SessionTitleMarquee({ title }) {
   const trackRef = useRef(null);
-  const textRef = useRef(null);
-  const [overflowing, setOverflowing] = useState(false);
+  const [shift, setShift] = useState(0);
 
   useLayoutEffect(() => {
     const track = trackRef.current;
-    const text = textRef.current;
-    if (!track || !text) return undefined;
+    if (!track) return undefined;
 
     const measure = () => {
-      const extra = fullTitleWidth(text, title) - track.clientWidth;
-      setOverflowing(extra > 4);
+      const extra = Math.ceil(fullTitleWidth(track, title) - track.clientWidth);
+      setShift(extra > 4 ? extra + 8 : 0);
     };
 
     measure();
@@ -47,39 +43,18 @@ function SessionTitleMarquee({ title }) {
     return () => observer.disconnect();
   }, [title]);
 
-  useEffect(() => {
-    const track = trackRef.current;
-    const text = textRef.current;
-    const row = track?.closest('.session-item');
-    if (!track || !text || !row) return undefined;
-
-    const startScroll = () => {
-      const extra = Math.ceil(fullTitleWidth(text, title) - track.clientWidth);
-      if (extra <= 4) {
-        track.dataset.overflow = 'false';
-        return;
-      }
-      const shift = extra + 8;
-      const travelSeconds = Math.max(1.15, shift / 80);
-      track.dataset.overflow = 'true';
-      track.style.setProperty('--marquee-shift', `${shift}px`);
-      track.style.setProperty('--marquee-duration', `${(travelSeconds / 0.4).toFixed(2)}s`);
-      text.style.animation = 'none';
-      void text.offsetWidth;
-      text.style.animation = '';
-    };
-
-    row.addEventListener('mouseenter', startScroll);
-    return () => row.removeEventListener('mouseenter', startScroll);
-  }, [title]);
+  const duration = Math.max(1.2, shift / 42);
 
   return (
     <span
-      className="session-title-marquee"
+      className={`session-title-marquee${shift > 0 ? ' is-overflow' : ''}`}
       ref={trackRef}
-      data-overflow={overflowing ? 'true' : 'false'}
+      style={{
+        '--marquee-shift': `${shift}px`,
+        '--marquee-duration': `${duration.toFixed(2)}s`,
+      }}
     >
-      <span className="session-title-marquee__text" ref={textRef}>{title}</span>
+      <span className="session-title-marquee__text">{title}</span>
     </span>
   );
 }

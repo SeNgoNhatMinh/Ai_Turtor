@@ -196,8 +196,18 @@ export function isCurriculumStarterNoiseTitle(title) {
   if (/\bin this book\b/i.test(stripped)) return true;
   if (/for web applications/i.test(stripped)) return true;
   if (/®/.test(raw)) return true;
-  if (/^(?:contents|preface|foreword|acknowledg|copyright|index|errata|advertisement|introduction|summary|overview|conclusion)\b/i.test(stripped)) {
+  if (/^(?:appendix|phụ lục|phu luc)\b/i.test(stripped)) return true;
+  if (/^(?:answers?(?:\s+to)?|solutions?(?:\s+to)?|đáp án|further reading|tài liệu tham khảo)\b/i.test(stripped)) {
     return true;
+  }
+  if (/^(?:contents|preface|foreword|acknowledg|copyright|index|errata|advertisement)\b/i.test(stripped)) {
+    return true;
+  }
+  // A bare "Introduction" is book opening. "Chapter 1. Introduction …" is the first study chapter.
+  if (/^(?:introduction|summary|overview|conclusion)\b/i.test(stripped)) {
+    const numberedChapter = /^(?:chapter|chương|chuong|ch\.)\s+[1-9]\d*\b/i.test(raw)
+      || /^[1-9]\d*(?:\.\d+)*[.)]?\s+\S/.test(raw);
+    return !numberedChapter;
   }
   return false;
 }
@@ -311,6 +321,7 @@ export function lessonSuggestionsForMessage(message) {
 export function buildStudySuggestionPrompt(suggestionText, suggestion = null) {
   const topic = String(suggestionText || '').trim();
   if (!topic) return '';
+  if (suggestion?.guidedPracticeAttempt) return topic;
   if (suggestion?.improvePlanId && suggestion?.planItemId) {
     return `Ôn tập theo Improve Plan: ${topic}`;
   }

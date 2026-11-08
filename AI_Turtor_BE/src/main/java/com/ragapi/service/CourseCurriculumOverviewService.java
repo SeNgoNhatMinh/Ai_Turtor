@@ -85,8 +85,8 @@ public class CourseCurriculumOverviewService {
      * chat and a tutor session. It is filled only from the stored learning
      * guide extracted once from the official syllabus (deterministic parse as
      * fallback): sections without data are omitted and numbering adapts, so
-     * nothing is invented. Study suggestions reference short topic titles
-     * only, never long objective sentences.
+     * nothing is invented. Study suggestions list chapter titles from the
+     * indexed course materials, never syllabus topics or generated questions.
      */
     public String welcomeMarkdown(CourseCurriculumOverview overview) {
         CourseCurriculumOverview safe = overview == null
@@ -149,10 +149,8 @@ public class CourseCurriculumOverviewService {
             opening.append("\n\n");
         }
 
-        opening.append("## ").append(section).append(". Gợi ý học tập\n\n")
-                .append("Các chương trong tài liệu môn học (chọn một chương để bắt đầu):\n\n");
+        opening.append("## ").append(section).append(". Gợi ý học tập\n\n");
         appendStudySuggestions(opening, safe);
-        opening.append("\n**Mẹo:** Chọn một chương cụ thể để AI Tutor lấy nội dung từ tài liệu môn và hướng dẫn bạn học.");
         return opening.toString().trim();
     }
 
@@ -169,28 +167,21 @@ public class CourseCurriculumOverviewService {
     }
 
     /**
-     * Study starters prefer chapter titles from indexed course materials
-     * ({@link ChapterOutlineService}). Curriculum unit titles are only a
-     * fallback when no material chapters exist yet.
+     * Study starters are chapter titles from indexed course materials only.
+     * Syllabus units and the learning-guide extraction are curriculum content,
+     * not clickable study suggestions.
      */
     private void appendStudySuggestions(StringBuilder opening, CourseCurriculumOverview overview) {
         List<String> chapters = materialChapterTitles(overview.courseId());
         if (chapters.isEmpty()) {
-            chapters = overview.unitTitles().stream()
-                    .filter(title -> title != null && !title.isBlank() && title.length() <= 120)
-                    .map(String::trim)
-                    .distinct()
-                    .toList();
-        }
-        if (chapters.isEmpty()) {
-            opening.append("- Cho tôi biết môn học này gồm những nội dung nào theo syllabus chính thức.\n");
-            opening.append("- Tôi muốn tìm hiểu về một chủ đề trong môn học này.\n");
-            opening.append("- Kiểm tra kiến thức của tôi về môn học này.\n");
+            opening.append("Chưa có chương nào được nhận từ tài liệu môn học.\n");
             return;
         }
+        opening.append("Các chương trong tài liệu môn học (chọn một chương để bắt đầu):\n\n");
         for (String title : chapters) {
             opening.append("- ").append(title).append('\n');
         }
+        opening.append("\n**Mẹo:** Chọn một chương cụ thể để AI Tutor lấy nội dung từ tài liệu môn và hướng dẫn bạn học.");
     }
 
     private List<String> materialChapterTitles(String courseId) {
@@ -210,7 +201,7 @@ public class CourseCurriculumOverviewService {
                 if (titles.stream().anyMatch(existing -> existing.equalsIgnoreCase(title))) continue;
                 titles.add(title);
             }
-            return titles;
+            return ChapterHeadingUtils.studySuggestionRange(titles);
         } catch (Exception error) {
             log.debug("Could not load material chapters for course {}: {}", courseId, error.getMessage());
             return List.of();

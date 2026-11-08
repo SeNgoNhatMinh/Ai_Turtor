@@ -33,20 +33,23 @@ export function useStudentLearningActions({
     const chapterTitle = String(suggestion?.chapterTitle || '').trim();
     const hasSourceProvenance = sourceMaterialIds.length > 0;
     const isGuidedLesson = isGuidedLessonPrompt(prompt);
-    const requestContext = hasImprovePlanProvenance || hasSourceProvenance || isGuidedLesson
+    const isWorkReview = Boolean(suggestion?.guidedPracticeAttempt);
+    const requestContext = hasImprovePlanProvenance || hasSourceProvenance || isGuidedLesson || isWorkReview
       ? {
-        interactionType: hasImprovePlanProvenance
-          ? 'IMPROVE_PLAN_REVIEW'
-          : (suggestion?.interactionType
-            || (isGuidedLesson ? 'GUIDED_LESSON' : 'SOURCE_BACKED_STUDY_TIP')),
-        displayQuestion: text,
+        interactionType: isWorkReview
+          ? 'GUIDED_PRACTICE_REVIEW'
+          : (hasImprovePlanProvenance
+            ? 'IMPROVE_PLAN_REVIEW'
+            : (suggestion?.interactionType
+              || (isGuidedLesson ? 'GUIDED_LESSON' : 'SOURCE_BACKED_STUDY_TIP'))),
+        displayQuestion: isWorkReview ? 'Ôn tập lại' : text,
         improvePlanId: suggestion?.improvePlanId || '',
         planItemId: suggestion?.planItemId || '',
         sourceMaterialIds,
         sourceChunkIds,
         chapterKey,
         chapterTitle,
-        clickedSuggestion: text,
+        clickedSuggestion: isWorkReview ? 'Ôn tập lại' : text,
       }
       : {};
     if (sendChatMessage) {

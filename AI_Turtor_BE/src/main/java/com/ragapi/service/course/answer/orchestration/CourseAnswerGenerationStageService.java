@@ -5,6 +5,7 @@ import com.ragapi.dto.RagSourceEvidence;
 import com.ragapi.service.CanonicalTutorAnswerCacheService;
 import com.ragapi.service.ChatGenerationGate;
 import com.ragapi.service.course.answer.generation.CourseAnswerGenerationService;
+import com.ragapi.service.course.answer.policy.CourseAnswerRequestPolicyService;
 import com.ragapi.service.course.answer.generation.CourseAnswerPromptService;
 import com.ragapi.service.course.answer.generation.SupportLevelPrompt;
 import com.ragapi.service.course.answer.grounding.CourseAnswerEvidenceService;
@@ -145,12 +146,13 @@ public class CourseAnswerGenerationStageService {
                 // chain that can outlive the synchronous n8n request deadline.
                 log.warn("Accepting usable single-pass answer; quality fallback is disabled");
             }
-            if ((StudentFacingMessages.isInsufficientMaterialAnswer(answer) && !hasTeachableLesson(answer))
+            boolean workReview = CourseAnswerRequestPolicyService.isFinishedWorkReview(prepared.question());
+            if (!workReview && ((StudentFacingMessages.isInsufficientMaterialAnswer(answer) && !hasTeachableLesson(answer))
                     || (initialInsufficientMaterialAnswer
                     && (!hasText(answer)
                     || StudentFacingMessages.isUnavailableMessage(answer)
                     || StudentAnswerCompletenessGuard.isClearlyIncomplete(answer)
-                    || isIncompleteLesson(request, answer)))) {
+                    || isIncompleteLesson(request, answer))))) {
                 if (pinnedLesson(request, prepared)) {
                     log.warn("Pinned lesson stays with the tutor instead of a mentor escalation");
                     if (hasTeachableLesson(firstAnswer)) {
@@ -195,18 +197,17 @@ public class CourseAnswerGenerationStageService {
                 return resultService.softUnavailable(StudentFacingMessages.GENERATION_BUSY, prepared.sourceLabels());
             }
             StringBuilder finalContent = new StringBuilder(answerBody.trim());
-            // Never attach Worker 2's quiz when Worker 1 said the materials do not cover the topic.
-            if (hasText(workerOutputs.quiz())
-                    && !StudentFacingMessages.isInsufficientMaterialAnswer(answerBody)) {
-                // Always use Kiểm tra hiểu so FE (including older deploys) can turn the block into forms.
-                // Worker 2 may still emit Q1/Q2…; FE splits those into multiple interactive items.
+            // A lesson that passed validation keeps Worker 2's quiz. A phrase such as
+            // "không được" or a method name outside one excerpt must not drop it.
+            // Work review is the one turn that must not open another quiz.
+            if (!workReview && hasText(workerOutputs.quiz())) {
                 finalContent.append("\n\n## Kiểm tra hiểu\n\n")
                         .append(normalizeWorkerQuizMarkdown(workerOutputs.quiz()));
-            } else if (hasText(workerOutputs.quiz())) {
-                log.info("Skipping Worker 2 quiz because the answer reports insufficient course material");
+            } else if (workReview && hasText(workerOutputs.quiz())) {
+                log.info("Work review does not append a new quiz");
             }
             String deepStudyTitles = normalizeDeepStudyTitles(workerOutputs.deepStudy());
-            if (hasText(deepStudyTitles)
+            if (!workReview && hasText(deepStudyTitles)
                     && !StudentFacingMessages.isInsufficientMaterialAnswer(answerBody)) {
                 finalContent.append("\n\n## Học chuyên sâu\n\n").append(deepStudyTitles);
             }
@@ -249,6 +250,7 @@ public class CourseAnswerGenerationStageService {
         String context = prepared.context() == null ? "" : prepared.context();
         String question = prepared.question() == null ? "" : prepared.question();
         boolean remediation = prepared.understandingRemediation();
+        boolean workReview = CourseAnswerRequestPolicyService.isFinishedWorkReview(question);
         SupportLevelPrompt supportLevel = resolveSupportLevel(request);
         String quizCountInstruction = quizCountInstruction(supportLevel);
         String quizPrompt = remediation
@@ -332,7 +334,16 @@ public class CourseAnswerGenerationStageService {
                 """.formatted(question, limitWorkerContext(context));
 
         String worker1Prompt = answerPrompt
-                + (remediation
+                + (workReview
+                ? """
+
+                WORKER-1 SCOPE (sửa bài):
+                - Grade the filled blanks and the wrong quiz choices only.
+                - Do not reteach the chapter and do not paste the full program.
+                - Do NOT include "## Kiểm tra hiểu", "## Quiz tự luyện", "## Học chuyên sâu", or any new A/B/C quiz.
+                - If an excerpt misses a method, say that in one sentence and still mark the blank.
+                """
+                : remediation
                 ? """
 
                 WORKER-1 SCOPE (remediation / giảng lại):
@@ -366,6 +377,18 @@ public class CourseAnswerGenerationStageService {
         Map<String, Supplier<String>> workers = new LinkedHashMap<>();
         workers.put("worker-1", () -> generationService.generateWorker1GroundedAnswer(
                 worker1Prompt, question, request.teachingMode(), context, request.learnerMemoryContext(), false));
+        if (workReview) {
+            Map<String, AiWorkerResult<String>> reviewResults =
+                    workerOrchestrator.executeParallel(workers, Duration.ofSeconds(60));
+            String reviewAnswer = successfulOutput(reviewResults.get("worker-1"));
+            recordWorkerOutput(traceId, "worker-1", "Worker 1 · Answer Generator", "GENERATE_ANSWER",
+                    reviewAnswer, reviewResults.get("worker-1"));
+            if (!hasText(reviewAnswer)) {
+                log.warn("Worker 1 failed to generate the work review");
+                reviewAnswer = StudentFacingMessages.GENERATION_UNAVAILABLE;
+            }
+            return new WorkerOutputs(reviewAnswer, "", "");
+        }
         workers.put("worker-2", () -> generationService.generateWorkerUtilityAnswer(quizPrompt));
         workers.put("worker-3", () -> generationService.generateWorkerUtilityAnswer(deepStudyPrompt));
         Map<String, AiWorkerResult<String>> results = workerOrchestrator.executeParallel(workers, Duration.ofSeconds(60));
@@ -589,7 +612,8 @@ public class CourseAnswerGenerationStageService {
      * flows and are excluded.
      */
     private boolean requiresExplanationFirst(CourseAnswerRequest request, CourseAnswerPreparation prepared) {
-        if (request == null || prepared == null || prepared.understandingRemediation()) {
+        if (request == null || prepared == null || prepared.understandingRemediation()
+                || CourseAnswerRequestPolicyService.isFinishedWorkReview(prepared.question())) {
             return false;
         }
         String mode = request.teachingMode();

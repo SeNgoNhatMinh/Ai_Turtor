@@ -479,7 +479,7 @@ public class TutorController {
             boolean learningPathOnly = "LEARNING_PATH".equalsIgnoreCase(teachingMode)
                     || StudentChatIntentDetector.isTopiclessStudyRequest(question);
             TeachingPlan teachingPlan = null;
-            if (!conversationalInteraction && !learningPathOnly) {
+            if (!refuseWorker && !learningPathOnly) {
                 String domain = intent.getDomain() != null && !intent.getDomain().isBlank()
                         ? intent.getDomain()
                         : request.getHarnessDomain();
