@@ -17,11 +17,15 @@ services:
       - N8N_DIAGNOSTICS_ENABLED=false
       - N8N_PERSONALIZATION_ENABLED=false
       - N8N_SECURE_COOKIE=false
+      - N8N_BLOCK_ENV_ACCESS_IN_NODE=false
       - AI_TUTOR_API_BASE_URL=${AI_TUTOR_API_BASE_URL:-http://host.docker.internal:8085}
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
     volumes:
       - ai_tutor_n8n_data:/home/node/.n8n
+      - ./n8n-import:/import:ro
     extra_hosts:
       - "host.docker.internal:host-gateway"
+      - "ai-tutor-api:host-gateway"
 
 volumes:
   ai_tutor_n8n_data:

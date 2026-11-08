@@ -199,7 +199,7 @@ class IntentClassifierServiceTest {
     void classScheduleQuestion_isMarkedOffTopic() {
         var result = service.classify("mai mấy giờ học", "", "CEA201");
 
-        assertEquals(IntentClassifierService.MODE_RAG, result.getMode());
+        assertEquals(IntentClassifierService.MODE_REFUSE, result.getMode());
         assertEquals("OFF_TOPIC", result.getSubIntent());
         assertFalse(result.getRequiresCourseMaterial());
     }
@@ -208,8 +208,8 @@ class IntentClassifierServiceTest {
     void greeting_isMarkedConversational() {
         var result = service.classify("xin chào", "", "CEA201");
 
-        assertEquals(IntentClassifierService.MODE_RAG, result.getMode());
-        assertEquals("LEARNING_PATH", result.getSubIntent());
+        assertEquals(IntentClassifierService.MODE_CURRICULUM, result.getMode());
+        assertEquals(IntentClassifierService.MODE_CURRICULUM, result.getSubIntent());
         assertFalse(result.getRequiresCourseMaterial());
         assertEquals("RULE", result.getRoutingStrategy());
         verifyNoInteractions(llmClassifier);
@@ -219,7 +219,7 @@ class IntentClassifierServiceTest {
     void incompleteInput_isRejectedWithoutCallingHostedLlm() {
         var result = service.classify("hôm nay tôi muốn...", "", "DBI202");
 
-        assertEquals(IntentClassifierService.MODE_RAG, result.getMode());
+        assertEquals(IntentClassifierService.MODE_REFUSE, result.getMode());
         assertEquals("OFF_TOPIC", result.getSubIntent());
         assertFalse(result.getRequiresCourseMaterial());
         assertEquals("LOCAL_VALIDATION", result.getRoutingStrategy());
@@ -234,7 +234,9 @@ class IntentClassifierServiceTest {
         var weather = service.classify("hôm nay trời có mưa ko", "", "PRJ301", servletLessonContext());
         var identity = service.classify("Mày biết tao là ai ko", "", "PRJ301", servletLessonContext());
 
+        assertEquals(IntentClassifierService.MODE_REFUSE, weather.getMode());
         assertEquals("OFF_TOPIC", weather.getSubIntent());
+        assertEquals(IntentClassifierService.MODE_REFUSE, identity.getMode());
         assertEquals("OFF_TOPIC", identity.getSubIntent());
         assertFalse(weather.getRequiresCourseMaterial());
         assertEquals("HARNESS_AGENT", weather.getRoutingStrategy());
@@ -259,6 +261,7 @@ class IntentClassifierServiceTest {
 
         var result = service.classify("mai có mưa ko", "", "PRJ301", servletLessonContext());
 
+        assertEquals(IntentClassifierService.MODE_REFUSE, result.getMode());
         assertEquals("OFF_TOPIC", result.getSubIntent());
         assertFalse(result.getRequiresCourseMaterial());
         assertEquals("HARNESS_GUARD", result.getRoutingStrategy());
@@ -268,10 +271,21 @@ class IntentClassifierServiceTest {
     void obviousNonAcademicQuestion_usesLocalReplyWhenAgentIsUnavailable() {
         var result = service.classify("viết cho mình một bài thơ", "", "DBI202");
 
+        assertEquals(IntentClassifierService.MODE_REFUSE, result.getMode());
         assertEquals("OFF_TOPIC", result.getSubIntent());
         assertFalse(result.getRequiresCourseMaterial());
         assertEquals("RULE", result.getRoutingStrategy());
         verify(llmClassifier).classify(anyString(), anyString(), anyString(), anyString());
+    }
+
+    @Test
+    void ambiguousQuestion_canBeDeferredToTheN8nAgent() {
+        var result = service.classify("hôm nay trời có mưa ko", "", "PRJ301", servletLessonContext(), true);
+
+        assertEquals("AGENT", result.getMode());
+        assertEquals("NEEDS_AGENT", result.getSubIntent());
+        assertEquals("NEEDS_AGENT", result.getRoutingStrategy());
+        verifyNoInteractions(llmClassifier);
     }
 
     @Test
@@ -389,7 +403,8 @@ class IntentClassifierServiceTest {
     void greeting_staysConversationalEvenWithLessonHistory() {
         var result = service.classify("xin chào", "", "CEA201", servletLessonContext());
 
-        assertEquals("LEARNING_PATH", result.getSubIntent());
+        assertEquals(IntentClassifierService.MODE_CURRICULUM, result.getMode());
+        assertEquals(IntentClassifierService.MODE_CURRICULUM, result.getSubIntent());
         assertFalse(result.getRequiresCourseMaterial());
         assertEquals("RULE", result.getRoutingStrategy());
         verifyNoInteractions(llmClassifier);

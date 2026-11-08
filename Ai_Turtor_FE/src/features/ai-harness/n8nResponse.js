@@ -6,6 +6,8 @@ export function normalizeHarnessMode(mode) {
   const value = String(mode || '').toUpperCase();
   if (value === 'RAG_TUTOR' || value === 'COURSE_AI') return 'RAG';
   if (value === 'CODE_MENTOR') return 'CODE';
+  if (value === 'REFUSE' || value === 'LOCAL') return 'REFUSE';
+  if (value === 'CURRICULUM') return 'CURRICULUM';
   if (REVIEW_MODES.has(value)) return value;
   return value || 'RAG';
 }
