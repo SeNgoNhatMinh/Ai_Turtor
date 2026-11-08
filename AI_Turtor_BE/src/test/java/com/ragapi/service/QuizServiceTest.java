@@ -46,13 +46,14 @@ class QuizServiceTest {
     @Mock CourseSearchResultRankingService rerankService;
     @Mock OpenRouterChatService chatService;
     @Mock StudentCourseMemoryService memoryService;
+    @Mock LearningEvidenceService learningEvidenceService;
 
     private QuizService service;
 
     @BeforeEach
     void setUp() {
         service = new QuizService(sessionRepository, assignmentRepository, vectorService,
-                fallbackSearchService, rerankService, chatService, memoryService);
+                fallbackSearchService, rerankService, chatService, memoryService, learningEvidenceService);
     }
 
     @Test

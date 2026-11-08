@@ -6,11 +6,13 @@ import com.ragapi.dto.AdaptiveLearningReviewDecisionRequest;
 import com.ragapi.dto.AdaptiveStudentLabelOverview;
 import com.ragapi.dto.PedagogicalDirectiveRequest;
 import com.ragapi.dto.StudentCourseLearningSummary;
+import com.ragapi.dto.TeachingStrategyRecommendation;
 import com.ragapi.entity.AdaptiveLearningReview;
 import com.ragapi.entity.AiConversation;
 import com.ragapi.entity.AiMessage;
 import com.ragapi.entity.CourseEnrollment;
 import com.ragapi.entity.PedagogicalDirective;
+import com.ragapi.entity.TeachingBehavior;
 import com.ragapi.repository.AdaptiveLearningReviewRepository;
 import com.ragapi.repository.AiConversationRepository;
 import com.ragapi.repository.AiMessageRepository;
@@ -20,6 +22,11 @@ import com.ragapi.service.adaptive.AdaptiveReviewEvidence.EvidenceFacts;
 import com.ragapi.service.adaptive.AdaptiveReviewEvidence.GradedAttempt;
 import com.ragapi.service.adaptive.AdaptiveReviewPrompts;
 import com.ragapi.service.adaptive.CourseLearningHistory;
+import com.ragapi.service.behavior.BehaviorActor;
+import com.ragapi.service.behavior.StudentTeachingProfileService;
+import com.ragapi.service.behavior.TeachingBehaviorService;
+import com.ragapi.service.behavior.TeachingStrategyCatalog;
+import com.ragapi.service.behavior.TeachingStrategyRecommendationParser;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -55,6 +62,8 @@ public class AdaptiveLearningReviewService {
     private final OpenRouterChatService chatService;
     private final ObjectMapper objectMapper;
     private final PedagogicalDirectiveService directiveService;
+    private final TeachingBehaviorService behaviorService;
+    private final StudentTeachingProfileService profileService;
 
     /**
      * Called after a student question (and its answer) is durably saved. Every
@@ -201,17 +210,9 @@ public class AdaptiveLearningReviewService {
         LocalDateTime now = LocalDateTime.now();
         List<Map<String, Object>> evidence = buildEvidence(cycleMessages);
         EvidenceFacts facts = evidenceFacts(evidence);
-        String prompt = AdaptiveReviewPrompts.assessmentPrompt(courseId, currentSupportLevel, facts, evidence);
-        Map<String, Object> assessment;
-        String failure = null;
-        try {
-            String raw = chatService.generateUtility(prompt);
-            assessment = objectMapper.readValue(extractJson(raw), new TypeReference<>() {});
-            validateAssessment(assessment);
-        } catch (Exception error) {
-            failure = "Không thể hoàn tất đánh giá tự động: " + safeMessage(error);
-            assessment = fallbackAssessment(currentSupportLevel);
-        }
+        AssessmentParse parsed = parseAssessment(courseId, currentSupportLevel, facts, evidence);
+        Map<String, Object> assessment = parsed.assessment();
+        String failure = parsed.failure();
 
         if (failure == null) assessment.put("confidencePercent", facts.confidencePercent());
         // The prompt contract has no overallPercent: the backend derives it
@@ -249,61 +250,199 @@ public class AdaptiveLearningReviewService {
                 .summary(string(assessment.get("summary"), "Chưa có tóm tắt đánh giá."))
                 .strengths(strings(assessment.get("strengths")))
                 .knowledgeGaps(strings(assessment.get("knowledgeGaps")))
-                .teachingRecommendations(strings(assessment.get("teachingRecommendations")))
+                .teachingRecommendations(List.of())
+                .strategyRecommendations(List.of())
+                .learnsBestWith(strings(assessment.get("learnsBestWith")))
+                .struggleSignals(strings(assessment.get("struggleSignals")))
                 .evidence(evidence)
                 .evaluationError(failure)
                 .createdAt(now)
                 .updatedAt(now)
                 .build();
+        applyParsedRecommendations(review, assessment);
         AdaptiveLearningReview saved = reviewRepository.save(review);
         log.info("Adaptive learning review created: student={}, course={}, questionCount={}, "
                         + "suggestedLevel={}, confidence={}%",
                 studentId, courseId, questionCount, saved.getSuggestedSupportLevel(),
                 saved.getConfidencePercent());
+        scoreBehaviorsUsedSincePreviousReview(saved, previousReview, facts);
         applySupportLevelAutomatically(saved);
         publishReviewCreated(saved);
+        if (failure != null) {
+            // AdaptiveReviewRepairScheduler retries PENDING+evaluationError reviews automatically.
+            log.info("Adaptive review {} saved incomplete; background repair will retry the assessment",
+                    saved.getId());
+        }
     }
 
     /**
-     * The AI applies its suggested support level immediately (no waiting for
-     * teacher approval) by confirming a system directive for the student.
-     * The guardrails already ran in {@link #decideTargetLevel}: weak
-     * evidence keeps the current level, so an unchanged level applies
-     * nothing. Previous AI-applied directives are archived first so exactly
-     * one AI directive is active; a teacher decision later supersedes or
-     * reverts it.
+     * Re-run the LLM assessment for a PENDING review that failed JSON parsing
+     * (or any evaluationError). Updates the same review document in place.
+     */
+    public AdaptiveLearningReview retryEvaluation(String reviewId) {
+        AdaptiveLearningReview review = get(reviewId);
+        if (!"PENDING".equalsIgnoreCase(review.getStatus())) {
+            throw new IllegalStateException("Chỉ chạy lại được đánh giá đang chờ nhận xét");
+        }
+        List<Map<String, Object>> evidence = review.getEvidence() == null ? List.of() : review.getEvidence();
+        EvidenceFacts facts = evidenceFacts(evidence);
+        AssessmentParse parsed = parseAssessment(
+                review.getCourseId(), review.getCurrentSupportLevel(), facts, evidence);
+        Map<String, Object> assessment = parsed.assessment();
+        if (parsed.failure() == null) {
+            assessment.put("confidencePercent", facts.confidencePercent());
+        }
+        assessment.put("overallPercent", Math.round(
+                (number(assessment.get("knowledgePercent"), 0)
+                        + number(assessment.get("practicePercent"), 0)
+                        + number(assessment.get("independencePercent"), 0)) / 3.0f));
+        AdaptiveLearningReview previousReview = reviewRepository
+                .findByStudentIdAndCourseIdOrderByCreatedAtDesc(review.getStudentId(), review.getCourseId())
+                .stream()
+                .filter(item -> !Objects.equals(item.getId(), review.getId()))
+                .findFirst()
+                .orElse(null);
+        String suggested = parsed.failure() == null
+                ? decideTargetLevel(assessment, review.getCurrentSupportLevel(), previousReview, facts)
+                : normalizeLevel(review.getCurrentSupportLevel(), "STANDARD");
+
+        review.setSuggestedSupportLevel(suggested);
+        review.setOverallPercent(number(assessment.get("overallPercent"), 0));
+        review.setKnowledgePercent(number(assessment.get("knowledgePercent"), 0));
+        review.setPracticePercent(number(assessment.get("practicePercent"), 0));
+        review.setIndependencePercent(number(assessment.get("independencePercent"), 0));
+        review.setConfidencePercent(number(assessment.get("confidencePercent"), 0));
+        review.setSummary(string(assessment.get("summary"), "Chưa có tóm tắt đánh giá."));
+        review.setStrengths(strings(assessment.get("strengths")));
+        review.setKnowledgeGaps(strings(assessment.get("knowledgeGaps")));
+        applyParsedRecommendations(review, assessment);
+        review.setLearnsBestWith(strings(assessment.get("learnsBestWith")));
+        review.setStruggleSignals(strings(assessment.get("struggleSignals")));
+        review.setEvaluationError(parsed.failure());
+        review.setUpdatedAt(LocalDateTime.now());
+        AdaptiveLearningReview saved = reviewRepository.save(review);
+        if (parsed.failure() == null) {
+            applySupportLevelAutomatically(saved);
+        }
+        attachStudentIdentity(saved);
+        return saved;
+    }
+
+    private record AssessmentParse(Map<String, Object> assessment, String failure) {}
+
+    private AssessmentParse parseAssessment(
+            String courseId, String currentSupportLevel, EvidenceFacts facts, List<Map<String, Object>> evidence) {
+        String prompt = AdaptiveReviewPrompts.assessmentPrompt(courseId, currentSupportLevel, facts, evidence);
+        Exception lastError = null;
+        for (int attempt = 1; attempt <= 3; attempt++) {
+            try {
+                String attemptPrompt = attempt == 1 ? prompt : prompt + """
+
+                        CRITICAL RETRY #%d: Your previous reply was not usable.
+                        Return ONLY one raw JSON object. No markdown fences, no <think> tags,
+                        no commentary, no text before or after the JSON.
+                        """.formatted(attempt);
+                return new AssessmentParse(parseAssessmentRaw(chatService.generateUtility(attemptPrompt)), null);
+            } catch (Exception error) {
+                lastError = error;
+                log.warn("Adaptive review JSON parse failed on attempt {}/3: {}", attempt, safeMessage(error));
+                if (attempt < 3) {
+                    try {
+                        Thread.sleep(1_500L * attempt);
+                    } catch (InterruptedException interrupted) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                }
+            }
+        }
+        log.warn("Adaptive review JSON parse exhausted retries: {}", safeMessage(lastError));
+        return new AssessmentParse(
+                fallbackAssessment(currentSupportLevel),
+                "Đánh giá tự động đang được hệ thống chạy lại. Giảng viên chỉ cần đọc kết quả khi sẵn sàng.");
+    }
+
+    private Map<String, Object> parseAssessmentRaw(String raw) throws Exception {
+        if (raw == null || raw.isBlank()) {
+            throw new IllegalArgumentException("Empty LLM response");
+        }
+        String json = extractJson(raw);
+        Map<String, Object> assessment = objectMapper.readValue(json, new TypeReference<>() {});
+        validateAssessment(assessment);
+        return assessment;
+    }
+
+    /**
+     * Learning loop: behaviors the tutor applied since the previous review
+     * count as successful when understanding rose or mistakes fell.
+     */
+    private void scoreBehaviorsUsedSincePreviousReview(
+            AdaptiveLearningReview review, AdaptiveLearningReview previousReview, EvidenceFacts facts) {
+        try {
+            List<String> used = profileService.takeUsedBehaviorIds(review.getStudentId(), review.getCourseId());
+            if (used.isEmpty() || previousReview == null) return;
+            if (review.getEvaluationError() != null && !review.getEvaluationError().isBlank()) return;
+            boolean success = behaviorOutcomeSucceeded(review, previousReview, facts);
+            behaviorService.recordOutcome(used, success);
+        } catch (Exception error) {
+            log.warn("Could not score teaching behaviors for review {}: {}", review.getId(), error.getMessage());
+        }
+    }
+
+    static boolean behaviorOutcomeSucceeded(
+            AdaptiveLearningReview review, AdaptiveLearningReview previousReview, EvidenceFacts facts) {
+        int knowledgeNow = percentOrZero(review.getKnowledgePercent());
+        int knowledgeBefore = percentOrZero(previousReview.getKnowledgePercent());
+        int wrongBefore = evidenceFacts(previousReview.getEvidence()).wrong();
+        return knowledgeNow > knowledgeBefore || facts.wrong() < wrongBefore;
+    }
+
+    /**
+     * After assessment, store pending recommendations for the teacher and refresh
+     * the learning-profile hypotheses. Does <strong>not</strong> confirm AI
+     * directives or activate teaching strategies in chat — teacher approval is required.
      */
     private void applySupportLevelAutomatically(AdaptiveLearningReview review) {
         if (review.getEvaluationError() != null && !review.getEvaluationError().isBlank()) return;
-        if (review.getClassId() == null || review.getClassId().isBlank()) return;
+        applyStrategiesAutomatically(review);
         String suggested = normalizeLevel(review.getSuggestedSupportLevel(), "STANDARD");
         String current = normalizeLevel(review.getCurrentSupportLevel(), "STANDARD");
-        if (suggested.equals(current)) return;
-        try {
-            directiveService.archiveAutoAppliedDirectives(
-                    review.getStudentId(), review.getCourseId(), review.getClassId());
-            PedagogicalDirectiveRequest directiveRequest = new PedagogicalDirectiveRequest();
-            directiveRequest.setStudentId(review.getStudentId());
-            directiveRequest.setCourseId(review.getCourseId());
-            directiveRequest.setClassId(review.getClassId());
-            directiveRequest.setTopic(String.join(", ", safeList(review.getKnowledgeGaps())));
-            directiveRequest.setInstruction(autoAppliedInstruction(review, suggested));
-            directiveRequest.setSupportLevel(suggested);
-            directiveRequest.setPriority(85);
-            PedagogicalDirective draft = directiveService.createDraft(
-                    directiveRequest, PedagogicalDirectiveService.AI_ACTOR_ID, "AI Tutor (tự động)");
-            PedagogicalDirective confirmed = directiveService.confirm(
-                    draft.getId(), PedagogicalDirectiveService.AI_ACTOR_ID);
-            review.setAppliedDirectiveId(confirmed.getId());
-            review.setUpdatedAt(LocalDateTime.now());
-            reviewRepository.save(review);
-            log.info("AI auto-applied support level {} for student {} in course {} (directive {})",
-                    suggested, review.getStudentId(), review.getCourseId(), confirmed.getId());
-            publishSupportLevelChanged(review, suggested);
-        } catch (Exception error) {
-            log.warn("Could not auto-apply support level for review {}: {}",
-                    review.getId(), error.getMessage());
+        if (!suggested.equals(current)) {
+            log.info("Support level suggestion {}→{} for student {} in course {} awaits teacher approval",
+                    current, suggested, review.getStudentId(), review.getCourseId());
         }
+    }
+
+    /**
+     * Creates AI_PENDING behaviors for teacher review and merges soft profile signals.
+     * Pending behaviors are not retrieved into tutor prompts until APPROVED.
+     */
+    private void applyStrategiesAutomatically(AdaptiveLearningReview review) {
+        try {
+            profileService.mergeFromReview(review);
+        } catch (Exception error) {
+            log.warn("Could not update teaching profile from review {}: {}", review.getId(), error.getMessage());
+        }
+        try {
+            behaviorService.createPendingFromReview(review);
+        } catch (Exception error) {
+            log.warn("Could not store pending teaching strategies for review {}: {}", review.getId(), error.getMessage());
+        }
+    }
+
+    private void applyParsedRecommendations(AdaptiveLearningReview review, Map<String, Object> assessment) {
+        List<TeachingStrategyRecommendation> structured =
+                TeachingStrategyRecommendationParser.parse(assessment.get("strategyRecommendations"));
+        if (structured.isEmpty()) {
+            structured = TeachingStrategyRecommendationParser.fromLegacyTexts(
+                    strings(assessment.get("teachingRecommendations")));
+        }
+        review.setStrategyRecommendations(structured);
+        List<String> legacy = TeachingStrategyRecommendationParser.legacyDisplayTexts(structured);
+        if (legacy.isEmpty()) {
+            legacy = strings(assessment.get("teachingRecommendations"));
+        }
+        review.setTeachingRecommendations(legacy);
     }
 
     /** Pushes the new effective support level to the student's open pages. */
@@ -566,6 +705,11 @@ public class AdaptiveLearningReviewService {
 
     public AdaptiveLearningReview decide(
             String reviewId, String teacherId, AdaptiveLearningReviewDecisionRequest request) {
+        return decide(reviewId, teacherId, "TEACHER", request);
+    }
+
+    public AdaptiveLearningReview decide(
+            String reviewId, String teacherId, String teacherRole, AdaptiveLearningReviewDecisionRequest request) {
         if (request == null) throw new IllegalArgumentException("Request body is required");
         AdaptiveLearningReview review = get(reviewId);
         if (!"PENDING".equalsIgnoreCase(review.getStatus())) {
@@ -583,14 +727,18 @@ public class AdaptiveLearningReviewService {
         review.setUpdatedAt(LocalDateTime.now());
 
         if ("REJECT".equals(decision)) {
-            // Rejecting also reverts the level the AI auto-applied.
+            // Rejecting reverts everything the AI applied: the level and its strategies,
+            // so the student falls back to the default way of teaching.
             archiveAutoAppliedDirective(review);
+            behaviorService.rejectReviewBehaviors(review.getId());
+            review.setTeacherSelectedStrategies(List.of());
             review.setStatus("REJECTED");
             AdaptiveLearningReview rejected = reviewRepository.save(review);
             publishSupportLevelChanged(rejected, directiveService.resolveSupportLevel(
                     rejected.getStudentId(), rejected.getCourseId(), rejected.getClassId()));
             return rejected;
         }
+        StrategyChoice choice = validateStrategyChoice(review, request);
         // A teacher decision replaces the AI auto-applied directive.
         archiveAutoAppliedDirective(review);
 
@@ -610,10 +758,83 @@ public class AdaptiveLearningReviewService {
         PedagogicalDirective confirmed = directiveService.confirm(draft.getId(), teacherId);
         review.setAppliedDirectiveId(confirmed.getId());
         review.setSuggestedSupportLevel(selectedLevel);
+        review.setTeacherSelectedStrategies(choice.selected());
+        review.setTeacherCustomStrategy(choice.custom());
         review.setStatus("APPROVED");
         AdaptiveLearningReview approved = reviewRepository.save(review);
+        applyTeacherStrategies(approved, choice, new BehaviorActor(teacherId, teacherId, teacherRole));
         publishSupportLevelChanged(approved, selectedLevel);
         return approved;
+    }
+
+    private record StrategyChoice(List<String> selected, String custom, String shareScope, String shareDomain) {}
+
+    /** Validates the checkbox choice before anything is changed. Accepts strategy codes or legacy texts. */
+    private StrategyChoice validateStrategyChoice(
+            AdaptiveLearningReview review, AdaptiveLearningReviewDecisionRequest request) {
+        List<String> recommendations = safeList(review.getTeachingRecommendations());
+        Set<String> allowed = new HashSet<>();
+        recommendations.forEach(item -> allowed.add(item.trim()));
+        if (review.getStrategyRecommendations() != null) {
+            for (TeachingStrategyRecommendation item : review.getStrategyRecommendations()) {
+                if (item.getStrategyCode() != null) allowed.add(item.getStrategyCode());
+                String display = TeachingStrategyRecommendationParser.legacyDisplayTexts(List.of(item))
+                        .stream().findFirst().orElse(null);
+                if (display != null) allowed.add(display);
+            }
+        }
+        List<String> selected;
+        if (request.getSelectedStrategies() == null) {
+            selected = review.getStrategyRecommendations() != null && !review.getStrategyRecommendations().isEmpty()
+                    ? review.getStrategyRecommendations().stream()
+                    .map(TeachingStrategyRecommendation::getStrategyCode)
+                    .filter(Objects::nonNull)
+                    .toList()
+                    : new ArrayList<>(recommendations);
+        } else {
+            selected = new ArrayList<>();
+            for (String item : request.getSelectedStrategies()) {
+                String text = item == null ? "" : item.trim();
+                if (text.isEmpty() || selected.contains(text)) continue;
+                if (!allowed.contains(text)) {
+                    throw new IllegalArgumentException("Chiến lược được chọn không thuộc đề xuất của AI");
+                }
+                selected.add(text);
+            }
+        }
+        String custom = trimToNull(request.getCustomStrategy());
+        if (custom != null && custom.length() > TeachingBehaviorService.MAX_INSTRUCTION_LENGTH) {
+            throw new IllegalArgumentException("Chiến lược khác tối đa "
+                    + TeachingBehaviorService.MAX_INSTRUCTION_LENGTH + " ký tự");
+        }
+        String shareScope = trimToNull(request.getShareScope());
+        String shareDomain = null;
+        if (shareScope != null) {
+            shareScope = shareScope.toUpperCase(Locale.ROOT);
+            if (!Set.of("COURSE", "DOMAIN", "GLOBAL").contains(shareScope)) {
+                throw new IllegalArgumentException("Phạm vi chia sẻ không hợp lệ");
+            }
+            if ("DOMAIN".equals(shareScope)) shareDomain = TeachingBehaviorService.requireDomain(request.getShareDomain());
+        }
+        return new StrategyChoice(List.copyOf(selected), custom, shareScope, shareDomain);
+    }
+
+    /** Checked strategies (+ "Khác") become the student's approved behaviors; optionally shared wider. */
+    private void applyTeacherStrategies(AdaptiveLearningReview review, StrategyChoice choice, BehaviorActor actor) {
+        try {
+            List<TeachingBehavior> approved = behaviorService.approveReviewBehaviors(
+                    review, choice.selected(), choice.custom(), actor);
+            if (choice.shareScope() != null && !approved.isEmpty()) {
+                List<String> names = new ArrayList<>();
+                if (review.getStudentName() != null) names.add(review.getStudentName());
+                if (review.getStudentCode() != null) names.add(review.getStudentCode());
+                behaviorService.shareBehaviors(approved, choice.shareScope(), choice.shareDomain(),
+                        review.getCourseId(), names, actor);
+            }
+        } catch (Exception error) {
+            log.warn("Could not store teacher-selected strategies for review {}: {}",
+                    review.getId(), error.getMessage());
+        }
     }
 
     private void attachStudentIdentity(AdaptiveLearningReview review) {

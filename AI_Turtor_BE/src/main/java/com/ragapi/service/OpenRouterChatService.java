@@ -22,10 +22,16 @@ public class OpenRouterChatService {
 
     private final PrivacySanitizer privacySanitizer;
     private final LlmProviderAdminService providerAdminService;
+    private final ChatGenerationGate generationGate;
 
-    public OpenRouterChatService(PrivacySanitizer privacySanitizer, LlmProviderAdminService providerAdminService) {
+    public OpenRouterChatService(
+            PrivacySanitizer privacySanitizer,
+            LlmProviderAdminService providerAdminService,
+            ChatGenerationGate generationGate
+    ) {
         this.privacySanitizer = privacySanitizer;
         this.providerAdminService = providerAdminService;
+        this.generationGate = generationGate;
     }
 
     @Value("${llm.cooldown-seconds:60}")
@@ -113,7 +119,7 @@ public class OpenRouterChatService {
             log.warn("LLM provider chain reloaded with zero active providers");
             return;
         }
-        providerChain = new LlmProviderChain(providers,
+        LlmProviderChain chain = new LlmProviderChain(providers,
                 Duration.ofSeconds(Math.max(0, providerCooldownSeconds)),
                 Duration.ofSeconds(Math.max(0, quotaSoftCooldownSeconds)),
                 Duration.ofSeconds(Math.max(0, quotaCooldownSeconds)),
@@ -121,6 +127,10 @@ public class OpenRouterChatService {
                 providerReorderOnQuota,
                 Duration.ofSeconds(Math.max(1, generationDeadlineSeconds)),
                 java.time.Clock.systemUTC());
+        if (generationGate != null) {
+            chain.setCancelCheck(generationGate::checkpoint);
+        }
+        providerChain = chain;
         log.info("LLM provider chain reloaded: ollamaOnly={}, providers={}",
                 ollamaOnlyActive,
                 providers.stream().map(provider -> provider.name() + "/" + provider.model()).toList());
@@ -309,6 +319,7 @@ public class OpenRouterChatService {
             String operation,
             boolean qualityFallback
     ) throws Exception {
+        if (generationGate != null) generationGate.checkpoint();
         String safePrompt = privacySanitizer.sanitize(prompt);
         LlmProviderChain chain = providerChain;
         if (chain == null) {

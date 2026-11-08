@@ -277,4 +277,18 @@ export const expertTrainingApi = {
       signal: options.signal,
     });
   },
+
+  async getHarnessCases(courseId, options = {}) {
+    const response = await request(`${BASE_PATH}/harness/cases${createQuery({ courseId })}`, {
+      signal: options.signal,
+    });
+    return asArray(response, 'cases', 'content');
+  },
+
+  async replayHarnessCase(caseId) {
+    return request(`${BASE_PATH}/harness/cases/${encodePath(caseId)}/replay`, {
+      method: 'POST',
+      timeoutMs: API_TIMEOUTS.quizGeneration,
+    });
+  },
 };

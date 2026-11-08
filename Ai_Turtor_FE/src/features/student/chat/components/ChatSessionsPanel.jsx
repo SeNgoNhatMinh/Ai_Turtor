@@ -13,6 +13,7 @@ import {
   groupSessionsByTime,
   sortSessionsByActivity,
 } from '../conversations/sessionUtils';
+import { supportLevelPlainLabel } from '../../learning/aiSupportPresentation';
 import ConversationSearch from './ConversationSearch';
 
 function ChatSessionsPanel({
@@ -180,7 +181,8 @@ function ChatSessionsPanel({
             aria-label="Mức hỗ trợ hiện tại"
             data-support-level={supportLevel || tutorSession?.supportLevel || 'STANDARD'}
           >
-            {supportLevel || tutorSession?.supportLevel || 'STANDARD'}
+            {supportLevelPlainLabel(supportLevel || tutorSession?.supportLevel)
+              || 'Bình thường'}
           </div>
           {pendingCourseId && (
             <div className="chat-history-settings__switch" role="status">

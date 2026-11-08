@@ -1,7 +1,9 @@
 package com.ragapi.repository;
 
 import com.ragapi.entity.AdaptiveLearningReview;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.repository.MongoRepository;
+import org.springframework.data.mongodb.repository.Query;
 
 import java.util.List;
 import java.util.Optional;
@@ -18,4 +20,8 @@ public interface AdaptiveLearningReviewRepository extends MongoRepository<Adapti
     List<AdaptiveLearningReview> findByStudentIdAndCourseIdOrderByCreatedAtDesc(String studentId, String courseId);
     List<AdaptiveLearningReview> findByStudentIdAndCourseIdAndClassIdOrderByCreatedAtDesc(String studentId, String courseId, String classId);
     long countByStatus(String status);
+
+    /** PENDING reviews whose automatic LLM assessment still needs repairing. */
+    @Query("{ 'status': 'PENDING', 'evaluationError': { $type: 'string', $ne: '' } }")
+    List<AdaptiveLearningReview> findPendingWithEvaluationError(Pageable pageable);
 }

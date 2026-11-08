@@ -1,0 +1,452 @@
+.teaching-behavior-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  min-width: 0;
+}
+
+.teaching-behavior-page > .page-header {
+  width: 100%;
+}
+
+.teaching-behavior-page > .page-header .page-header__actions {
+  flex-shrink: 0;
+}
+
+.teaching-behavior-stats {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.teaching-behavior-stats article {
+  display: grid;
+  gap: 2px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+}
+
+.teaching-behavior-stats strong {
+  color: var(--tutor-navy, #0f2744);
+  font-size: 1.25rem;
+}
+
+.teaching-behavior-stats > article > span,
+.teaching-behavior-detail h4 {
+  color: #64748b;
+  font-size: 0.78rem;
+}
+
+.teaching-behavior-detail {
+  display: grid;
+  gap: 12px;
+}
+
+.teaching-behavior-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+  min-width: 0;
+  padding: 16px;
+  border-radius: 18px;
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.04);
+}
+
+.teaching-behavior-panel .ant-table-wrapper {
+  width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.teaching-behavior-filters {
+  display: grid;
+  grid-template-columns: minmax(200px, 1.6fr) repeat(4, minmax(140px, 1fr));
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+}
+
+.teaching-behavior-alert {
+  margin: 0;
+}
+
+.teaching-behavior-cell {
+  max-width: 360px;
+  min-width: 220px;
+}
+
+.teaching-behavior-cell p {
+  margin: 0;
+  color: #1e293b;
+  line-height: 1.5;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.teaching-behavior-cell small {
+  display: block;
+  margin-top: 4px;
+  color: #64748b;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.teaching-behavior-usage {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #475569;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.behavior-card-list {
+  display: grid;
+  gap: 10px;
+}
+
+.behavior-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: start;
+  padding: 14px 16px;
+  border: 1px solid #e5eaf4;
+  border-radius: 14px;
+  background: #f8fafc;
+}
+
+.behavior-card__title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.behavior-card__title strong {
+  color: #0f2744;
+  font-size: 0.95rem;
+}
+
+.behavior-card__body p {
+  margin: 6px 0 0;
+  color: #1e293b;
+  line-height: 1.55;
+}
+
+.behavior-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin-top: 8px;
+  color: #64748b;
+  font-size: 0.78rem;
+}
+
+.teaching-behavior-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.teaching-behavior-form {
+  margin-top: 8px;
+}
+
+.student-rag-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.student-rag-panel__intro {
+  display: grid;
+  gap: 4px;
+}
+
+.student-rag-panel__intro h4 {
+  margin: 0;
+  color: #111827;
+  font-size: 16px;
+  font-weight: 650;
+}
+
+.student-rag-panel__intro p {
+  margin: 0;
+  color: #4b5563;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.student-rag-overview {
+  display: grid;
+  gap: 10px;
+}
+
+.student-rag-overview strong {
+  display: block;
+  margin-bottom: 4px;
+  color: #1f2937;
+  font-size: 13px;
+}
+
+.student-rag-overview ul,
+.student-rag-approaches {
+  margin: 0;
+  padding-left: 18px;
+  color: #374151;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.student-rag-approaches {
+  display: grid;
+  gap: 8px;
+  padding-left: 0;
+  list-style: none;
+}
+
+.student-rag-approaches li {
+  display: grid;
+  gap: 2px;
+  padding: 9px 10px;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.student-rag-approaches span {
+  color: #4b5563;
+}
+
+.student-rag-card__hint--footer {
+  margin-top: 10px;
+}
+
+.student-rag-manage {
+  display: grid;
+  gap: 12px;
+}
+
+.student-rag-manage > summary {
+  cursor: pointer;
+  color: #1f2937;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.student-rag-manage[open] > summary {
+  margin-bottom: 4px;
+}
+
+@media (min-width: 900px) {
+  .student-rag-overview {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.student-rag-panel__notice {
+  margin: 0;
+}
+
+.student-rag-card {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid #e5eaf4;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.student-rag-card__title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.student-rag-card h5 {
+  margin: 0;
+  font-size: .9rem;
+}
+
+.student-rag-card__hint {
+  margin: 0;
+  color: #64748b;
+  font-size: .78rem;
+}
+
+.student-rag-profile {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.student-rag-profile label,
+.student-rag-card label {
+  display: grid;
+  gap: 6px;
+  color: #475569;
+  font-size: .78rem;
+  font-weight: 700;
+}
+
+.student-rag-profile__wide {
+  grid-column: 1 / -1;
+}
+
+.student-rag-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.student-rag-item {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #f7f9fc;
+}
+
+.student-rag-item.is-muted {
+  opacity: .65;
+}
+
+.student-rag-item.is-pending {
+  background: #fff8eb;
+  border: 1px solid #f6d89a;
+}
+
+.app-container.dark .student-rag-item.is-pending {
+  background: rgba(245, 158, 11, .12);
+  border-color: rgba(245, 158, 11, .35);
+}
+
+.student-rag-item p {
+  margin: 0;
+  color: #1e293b;
+  font-size: .85rem;
+  line-height: 1.5;
+}
+
+.student-rag-item__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.student-rag-item__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.student-rag-add {
+  display: grid;
+  gap: 8px;
+}
+
+.student-rag-preview {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 180px auto;
+  gap: 8px;
+}
+
+.student-rag-preview__block {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #0f172a;
+  color: #e2e8f0;
+  font-size: .78rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+@media (max-width: 1100px) {
+  .teaching-behavior-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .teaching-behavior-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .teaching-behavior-filters > :first-child {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 640px) {
+  .teaching-behavior-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .behavior-card { grid-template-columns: 1fr; }
+  .teaching-behavior-filters {
+    grid-template-columns: 1fr;
+  }
+
+  .teaching-behavior-filters > :first-child {
+    grid-column: auto;
+  }
+
+  .teaching-behavior-panel {
+    padding: 12px;
+  }
+
+  .student-rag-profile,
+  .student-rag-preview {
+    grid-template-columns: 1fr;
+  }
+}
+
+.app-container.dark .teaching-behavior-panel,
+.app-container.dark .teaching-behavior-stats article,
+.app-container.dark .behavior-card,
+.app-container.dark .student-rag-card {
+  background: #111827;
+  border-color: #344054;
+}
+
+.app-container.dark .behavior-card { background: #182131; }
+.app-container.dark .behavior-card__title strong,
+.app-container.dark .behavior-card__body p { color: #e2e8f0; }
+.app-container.dark .teaching-behavior-usage,
+.app-container.dark .behavior-card__meta { color: #94a3b8; }
+
+.app-container.dark .teaching-behavior-cell p,
+.app-container.dark .student-rag-item p {
+  color: #e2e8f0;
+}
+
+.app-container.dark .student-rag-item {
+  background: #1f2937;
+}
+
+.app-container.dark .student-rag-profile label,
+.app-container.dark .student-rag-card label {
+  color: #cbd5e1;
+}
+
+
+.app-container.dark .student-rag-panel__intro h4,
+.app-container.dark .student-rag-overview strong,
+.app-container.dark .student-rag-manage > summary {
+  color: #f3f4f6;
+}
+
+.app-container.dark .student-rag-panel__intro p,
+.app-container.dark .student-rag-overview ul,
+.app-container.dark .student-rag-approaches span {
+  color: #c7c7c7;
+}
+
+.app-container.dark .student-rag-approaches li {
+  background: #212121;
+}

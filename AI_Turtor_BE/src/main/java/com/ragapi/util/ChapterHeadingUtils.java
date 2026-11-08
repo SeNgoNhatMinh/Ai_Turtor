@@ -103,7 +103,13 @@ public final class ChapterHeadingUtils {
                 || stripped.equals("muc luc")) {
             return true;
         }
-        if (stripped.matches("preface|foreword|dedication|colophon|copyright|errata|index|bibliography|credits?")) {
+        if (stripped.matches("preface|foreword|dedication|colophon|copyright|errata|index|bibliography|credits?"
+                + "|glossary|references|afterword|epilogue|advertisement|cover|title page")) {
+            return true;
+        }
+        // Lone book bookends — not a study unit. Keep "Introduction to Servlets", etc.
+        if (stripped.matches("introduction|summary|overview|conclusion|giới thiệu|gioi thieu|tóm tắt|tom tat"
+                + "|kết luận|ket luan|further reading|recommended reading|resources?")) {
             return true;
         }
         if (stripped.matches("lời nói đầu|loi noi dau|lời giới thiệu|loi gioi thieu|lời cảm ơn|loi cam on")) {
@@ -148,9 +154,31 @@ public final class ChapterHeadingUtils {
                 || stripped.startsWith("to the student")
                 || stripped.startsWith("to the instructor")
                 || stripped.equals("who this book is for")
+                || stripped.equals("who this book is not for")
+                || stripped.startsWith("who this book is ")
+                || stripped.startsWith("what this book")
+                || stripped.startsWith("what you will")
+                || stripped.startsWith("what this book covers")
+                || stripped.startsWith("how this book")
                 || stripped.contains("used in this book")
+                || stripped.endsWith(" in this book")
                 || stripped.contains("typographical convention")
-                || stripped.matches("conventions?")) {
+                || stripped.matches("conventions?")
+                || stripped.startsWith("advertisement")
+                || stripped.startsWith("praise for")
+                || stripped.startsWith("also available")
+                || stripped.startsWith("other books")
+                || stripped.startsWith("related titles")
+                // Book part dividers / cover titles, not study units.
+                || stripped.matches("part\\s+(?:[ivxlcdm]+|\\d+)\\b.*")
+                || stripped.matches("phần\\s+(?:[ivxlcdm]+|\\d+)\\b.*")
+                || stripped.matches("phan\\s+(?:[ivxlcdm]+|\\d+)\\b.*")
+                || stripped.startsWith("professional:")
+                || stripped.startsWith("professional java")
+                || stripped.contains("®")
+                || stripped.matches(".*\\bfor web applications\\b.*")
+                || stripped.matches(".*\\bbeginner(?:'s)? guide\\b.*")
+                || stripped.matches(".*\\bcomplete reference\\b.*")) {
             return true;
         }
         return false;

@@ -51,7 +51,10 @@ public class CourseAnswerPreparationService {
         String safeCourseId = requireText(request.courseId(), "courseId");
         boolean guidedLessonMode = requestPolicyService.isGuidedLessonMode(request.teachingMode());
         boolean understandingRemediation = requestPolicyService.isUnderstandingRemediation(safeQuestion);
-        boolean personalizedTutor = hasText(request.pedagogicalContext()) || hasText(request.learnerMemoryContext());
+        boolean personalizedPlan = request.teachingPlan() != null && request.teachingPlan().isPersonalized();
+        boolean personalizedTutor = personalizedPlan
+                || hasText(request.pedagogicalContext())
+                || hasText(request.learnerMemoryContext());
         boolean skipAnswerCache = request.textbookOnly()
                 || personalizedTutor
                 || guidedLessonMode
@@ -213,17 +216,26 @@ public class CourseAnswerPreparationService {
         if (intent == null) {
             return;
         }
+        int requestedChunks = intent.getSourceChunkIds() == null ? 0 : intent.getSourceChunkIds().size();
         log.info(
                 "Improve plan RAG retrieval (improvePlanId={}, planItemId={}, courseId={}, sourceMaterialCount={}, sourceChunkCount={}, retrievalQuery={}, linkedChunks={}, selectedChunks={})",
                 intent.getImprovePlanId(),
                 intent.getPlanItemId(),
                 courseId,
                 intent.getSourceMaterialIds() == null ? 0 : intent.getSourceMaterialIds().size(),
-                intent.getSourceChunkIds() == null ? 0 : intent.getSourceChunkIds().size(),
+                requestedChunks,
                 retrievalQuestion,
                 linkedChunks.size(),
                 selectedChunks.size()
         );
+        if (requestedChunks > 0 && linkedChunks.isEmpty()) {
+            log.warn(
+                    "Improve-plan sourceChunkIds were ignored before semantic search "
+                            + "(improvePlanId={}, courseId={}, sourceChunkIds={})",
+                    intent.getImprovePlanId(),
+                    courseId,
+                    intent.getSourceChunkIds());
+        }
     }
 
     private boolean hasText(String value) {

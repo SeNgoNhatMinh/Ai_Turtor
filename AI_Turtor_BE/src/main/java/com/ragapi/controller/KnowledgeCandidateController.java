@@ -2,6 +2,7 @@ package com.ragapi.controller;
 
 import com.ragapi.dto.KnowledgeCandidateReviewRequest;
 import com.ragapi.service.HumanLearningService;
+import com.ragapi.service.harness.HarnessReplayRunner;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.AllArgsConstructor;
@@ -26,6 +27,7 @@ import java.util.Map;
 public class KnowledgeCandidateController {
 
     private final HumanLearningService humanLearningService;
+    private final HarnessReplayRunner harnessReplayRunner;
 
     @GetMapping
     @Operation(summary = "List knowledge candidates", description = "List AI learning candidates by status/course. Only INDEXED candidates have entered the RAG brain.")
@@ -80,7 +82,9 @@ public class KnowledgeCandidateController {
             @RequestBody(required = false) KnowledgeCandidateReviewRequest request
     ) {
         try {
-            return ResponseEntity.ok(humanLearningService.approveCandidate(id, request));
+            var saved = humanLearningService.approveCandidate(id, request);
+            harnessReplayRunner.replayCourse(saved.getCourseId());
+            return ResponseEntity.ok(saved);
         } catch (Exception e) {
             log.error("Error approving knowledge candidate", e);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
