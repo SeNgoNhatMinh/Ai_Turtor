@@ -216,8 +216,27 @@ export function isCurriculumStarterNoiseTitle(title) {
  * Material chapter titles listed under the welcome "Gợi ý học tập" section.
  * Rendered as clickable chips; UI paginates them (5 at a time).
  */
+const LESSON_SOURCE_SEPARATOR = ' || ';
+
+/** Visible Vietnamese lesson label, plus the original outline heading for retrieval. */
+export function splitLessonChip(line) {
+  const text = String(line || '').trim();
+  const at = text.indexOf(LESSON_SOURCE_SEPARATOR);
+  if (at < 0) {
+    return { title: text, suggestionText: text, chapterTitle: '' };
+  }
+  const title = text.slice(0, at).trim();
+  const chapterTitle = text.slice(at + LESSON_SOURCE_SEPARATOR.length).trim();
+  return {
+    title: title || text,
+    suggestionText: title || text,
+    chapterTitle,
+  };
+}
+
 export function parseCurriculumStarterSuggestions(answer) {
   return parseBulletsUnderHeadings(answer, /gợi ý học tập\s*$/i, Number.POSITIVE_INFINITY)
+    .map((item) => ({ ...item, ...splitLessonChip(item.title) }))
     .filter((item) => !isCurriculumStarterNoiseTitle(item.title))
     .map((item) => ({ ...item, curriculumStarter: true }));
 }

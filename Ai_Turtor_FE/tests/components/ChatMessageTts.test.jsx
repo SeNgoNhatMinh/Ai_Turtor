@@ -95,7 +95,7 @@ ${chapters.map((title) => `- ${title}`).join('\n')}
     expect(screen.getAllByRole('button', { name: /Học ngay/ })).toHaveLength(7);
     fireEvent.click(screen.getByRole('button', { name: /Ẩn bớt/ }));
     expect(screen.getAllByRole('button', { name: /Học ngay/ })).toHaveLength(5);
-    fireEvent.change(screen.getByRole('searchbox', { name: /Tìm chương/ }), {
+    fireEvent.change(screen.getByRole('searchbox', { name: /Tìm bài học/ }), {
       target: { value: 'Con trỏ' },
     });
     expect(screen.getAllByRole('button', { name: /Học ngay/ })).toHaveLength(1);

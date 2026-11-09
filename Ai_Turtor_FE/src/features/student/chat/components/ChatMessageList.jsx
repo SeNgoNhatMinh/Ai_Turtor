@@ -191,12 +191,12 @@ function StudentLiveAnswer({
           onStudy={onStudySuggestion}
           sourceMode={message.mode}
           heading="Gợi ý học tập"
-          hint="Chọn một chương trong tài liệu để bắt đầu học."
+          hint="Chọn một bài trong tài liệu để bắt đầu học."
           pageSize={5}
           showMoreLabel="Hiển thị thêm"
           collapseLabel="Ẩn bớt"
           enableSearch
-          searchPlaceholder="Tìm chương…"
+          searchPlaceholder="Tìm bài học…"
         />
       )}
       {done && !message.canceled && offerLessonContinuations && !isWelcomeTurn && (

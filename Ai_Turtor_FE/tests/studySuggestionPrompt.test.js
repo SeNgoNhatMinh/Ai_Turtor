@@ -60,6 +60,19 @@ Các chương trong tài liệu môn học (chọn một chương để bắt đ
   assert.equal(items.every((item) => item.curriculumStarter), true);
 });
 
+test('shows the Vietnamese lesson label and keeps the outline heading', () => {
+  const items = parseCurriculumStarterSuggestions(`
+## 4. Gợi ý học tập
+
+- Bài 1: Giới thiệu nền tảng Java EE || Chapter 1: Introducing Java Platform, Enterprise Edition
+- Understanding the Basic Web Application Structure
+`);
+  assert.equal(items[0].title, 'Bài 1: Giới thiệu nền tảng Java EE');
+  assert.equal(items[0].suggestionText, 'Bài 1: Giới thiệu nền tảng Java EE');
+  assert.equal(items[0].chapterTitle, 'Chapter 1: Introducing Java Platform, Enterprise Edition');
+  assert.equal(items[1].chapterTitle, '');
+});
+
 test('sends a curriculum chapter title as a study ask', () => {
   assert.equal(
     buildStudySuggestionPrompt('Tổng quan về Pascal', { curriculumStarter: true }),

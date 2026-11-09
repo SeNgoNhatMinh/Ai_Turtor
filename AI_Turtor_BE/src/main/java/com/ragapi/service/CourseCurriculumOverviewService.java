@@ -4,6 +4,7 @@ import com.ragapi.dto.CourseCurriculumOverview;
 import com.ragapi.entity.Course;
 import com.ragapi.repository.CourseRepository;
 import com.ragapi.util.ChapterHeadingUtils;
+import com.ragapi.util.StudyLessonTitles;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -177,11 +178,11 @@ public class CourseCurriculumOverviewService {
             opening.append("Chưa có chương nào được nhận từ tài liệu môn học.\n");
             return;
         }
-        opening.append("Các chương trong tài liệu môn học (chọn một chương để bắt đầu):\n\n");
+        opening.append("Các bài trong tài liệu môn học (chọn một bài để bắt đầu):\n\n");
         for (String title : chapters) {
             opening.append("- ").append(title).append('\n');
         }
-        opening.append("\n**Mẹo:** Chọn một chương cụ thể để AI Tutor lấy nội dung từ tài liệu môn và hướng dẫn bạn học.");
+        opening.append("\n**Mẹo:** Chọn một bài để AI Tutor lấy đúng phần đó trong tài liệu và hướng dẫn bạn học.");
     }
 
     private List<String> materialChapterTitles(String courseId) {
@@ -201,7 +202,7 @@ public class CourseCurriculumOverviewService {
                 if (titles.stream().anyMatch(existing -> existing.equalsIgnoreCase(title))) continue;
                 titles.add(title);
             }
-            return ChapterHeadingUtils.studySuggestionRange(titles);
+            return StudyLessonTitles.welcomeLines(titles);
         } catch (Exception error) {
             log.debug("Could not load material chapters for course {}: {}", courseId, error.getMessage());
             return List.of();
