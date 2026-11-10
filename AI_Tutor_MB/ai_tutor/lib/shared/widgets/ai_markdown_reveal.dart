@@ -13,12 +13,14 @@ class AiMarkdownReveal extends StatefulWidget {
     this.enabled = false,
     this.onStudyTipTap,
     this.onComplete,
+    this.answerAction,
   });
 
   final String data;
   final bool enabled;
   final ValueChanged<String>? onStudyTipTap;
   final VoidCallback? onComplete;
+  final Widget? answerAction;
 
   @override
   State<AiMarkdownReveal> createState() => _AiMarkdownRevealState();
@@ -99,6 +101,7 @@ class _AiMarkdownRevealState extends State<AiMarkdownReveal> {
     return AiMarkdownBody(
       data: prepareAiChatMarkdown(visible),
       onStudyTipTap: widget.onStudyTipTap,
+      answerAction: widget.answerAction,
     );
   }
 }

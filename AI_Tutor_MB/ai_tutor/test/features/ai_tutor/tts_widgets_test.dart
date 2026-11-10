@@ -148,8 +148,8 @@ void main() {
       ),
     );
 
-    expect(find.text('Long (trung tính)'), findsOneWidget);
-    await tester.tap(find.text('Long (trung tính)'));
+    expect(find.text('Giọng: Long (trung tính)'), findsOneWidget);
+    await tester.tap(find.text('Giọng: Long (trung tính)'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Mai (vui)'));
     await tester.pumpAndSettle();

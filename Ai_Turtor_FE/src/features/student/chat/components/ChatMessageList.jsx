@@ -40,6 +40,7 @@ const AiAnswer = lazy(() => import('../../../../components/AiAnswer'));
 
 const REMEDIATION_PROMPT_PREFIX = /^Ôn lại sau câu (?:trả lời chưa đúng|kiểm tra chưa có đáp án)\./i;
 const REMEDIATION_QUESTION = /^Câu vừa làm:\s*(.+)$/im;
+const COURSE_MATERIAL_HEADING = /^(?:#{1,6}\s*)?(?:Theo tài liệu môn học|Theo tai lieu mon hoc)\s*#*\s*$/imu;
 
 function getRemediationRequest(message) {
   const rawQuestion = String(message?.question || '').trim();
@@ -116,7 +117,33 @@ function StudentLiveAnswer({
   const reveal = Boolean(message.revealAnswer) && !tutorTurnFailed && !message.canceled;
   const { text: revealedMarkdown, done } = useMarkdownReveal(displayMarkdown, reveal);
   const showTtsAction = ttsEnabled && !message.canceled && Boolean(fullMarkdown.trim());
+  const placeTtsBelowCourseMaterialHeading = COURSE_MATERIAL_HEADING.test(displayMarkdown);
   const showGeneralActions = !message.canceled && !message.sessionComplete && !isWelcomeTurn;
+
+  const ttsControl = showTtsAction ? (
+    <TtsMessageAction
+      messageKey={messageKey}
+      speech={messageAudio.state}
+      onToggle={() => messageAudio.toggle({
+        messageKey,
+        messageId: message.assistantMessageId || message.messageId || message.id || messageKey,
+        courseId,
+        classId,
+        text: fullMarkdown,
+        providerVoiceId: voiceId,
+      })}
+      onStop={() => messageAudio.stop(messageKey)}
+      onSeek={(value) => messageAudio.seek(messageKey, value)}
+    >
+      <VoiceSelector
+        compact
+        value={voiceId}
+        voices={ttsVoices}
+        loading={ttsVoicesLoading}
+        onChange={onTtsVoiceChange}
+      />
+    </TtsMessageAction>
+  ) : null;
 
   useEffect(() => {
     if (!reveal || done) return;
@@ -154,6 +181,7 @@ function StudentLiveAnswer({
           ) : undefined}
           onDownloadSource={onDownloadSource}
           hideSourceSection
+          courseMaterialHeadingAddon={done && placeTtsBelowCourseMaterialHeading ? ttsControl : null}
         />
       </Suspense>
 
@@ -188,32 +216,9 @@ function StudentLiveAnswer({
           onStudy={onStudySuggestion}
         />
       )}
-      {done && (showTtsAction || showGeneralActions) && (
+      {done && ((showTtsAction && !placeTtsBelowCourseMaterialHeading) || showGeneralActions) && (
         <div className="chat-ai-action-row">
-          {showTtsAction && (
-            <TtsMessageAction
-              messageKey={messageKey}
-              speech={messageAudio.state}
-              onToggle={() => messageAudio.toggle({
-                messageKey,
-                messageId: message.assistantMessageId || message.messageId || message.id || messageKey,
-                courseId,
-                classId,
-                text: fullMarkdown,
-                providerVoiceId: voiceId,
-              })}
-              onStop={() => messageAudio.stop(messageKey)}
-              onSeek={(value) => messageAudio.seek(messageKey, value)}
-            >
-              <VoiceSelector
-                compact
-                value={voiceId}
-                voices={ttsVoices}
-                loading={ttsVoicesLoading}
-                onChange={onTtsVoiceChange}
-              />
-            </TtsMessageAction>
-          )}
+          {showTtsAction && !placeTtsBelowCourseMaterialHeading && ttsControl}
           {showGeneralActions && (
             <AnswerActionBar
               message={{

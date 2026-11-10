@@ -38,6 +38,10 @@
   letter-spacing: -0.012em;
 }
 
+.ai-answer-course-material-actions {
+  margin: 8px 0 12px;
+}
+
 .ai-answer-heading .ai-answer-heading-anchor {
   margin-left: 6px;
   color: #9ca3af;

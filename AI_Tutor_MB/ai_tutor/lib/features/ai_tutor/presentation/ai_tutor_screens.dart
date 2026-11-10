@@ -2439,6 +2439,42 @@ class ChatScreen extends HookConsumerWidget {
                                     effectiveEscalationId != null,
                                 pinned: message.pinned,
                                 pinnedLabel: l10n.pinnedLabel,
+                                answerAction:
+                                    !message.isUser &&
+                                        !isRetryableError &&
+                                        ttsEnabled &&
+                                        message.content.trim().isNotEmpty
+                                    ? TtsAnswerControls(
+                                        conversationId: conversationId,
+                                        messageKey: message.id,
+                                        messageId: message.id,
+                                        courseId: ttsScope.courseId,
+                                        classId: ttsScope.classId,
+                                        text: ttsSpeakableText(
+                                          quiz == null
+                                              ? message.content
+                                              : extracted.before,
+                                          hasEvidenceMetadata:
+                                              message
+                                                  .sourceEvidence
+                                                  .isNotEmpty ||
+                                              message.sources.isNotEmpty,
+                                        ),
+                                        voiceId: resolvedTtsVoiceId,
+                                        voices: ttsVoices,
+                                        voicesLoading: ttsVoicesAsync.isLoading,
+                                        voicesError: ttsVoicesError,
+                                        onVoiceChange: (voiceId) {
+                                          ref
+                                              .read(
+                                                ttsSelectedVoiceProvider(
+                                                  ttsScope,
+                                                ).notifier,
+                                              )
+                                              .select(voiceId);
+                                        },
+                                      )
+                                    : null,
                                 onStudyTipTap: message.isUser || composerLocked
                                     ? null
                                     : (tip) => handleStudyTipTap(
@@ -2559,38 +2595,6 @@ class ChatScreen extends HookConsumerWidget {
                                         },
                                 ),
                               ),
-                            ),
-                          if (!message.isUser &&
-                              !isRetryableError &&
-                              ttsEnabled &&
-                              message.content.trim().isNotEmpty)
-                            TtsAnswerControls(
-                              conversationId: conversationId,
-                              messageKey: message.id,
-                              messageId: message.id,
-                              courseId: ttsScope.courseId,
-                              classId: ttsScope.classId,
-                              text: ttsSpeakableText(
-                                quiz == null
-                                    ? message.content
-                                    : extracted.before,
-                                hasEvidenceMetadata:
-                                    message.sourceEvidence.isNotEmpty ||
-                                    message.sources.isNotEmpty,
-                              ),
-                              voiceId: resolvedTtsVoiceId,
-                              voices: ttsVoices,
-                              voicesLoading: ttsVoicesAsync.isLoading,
-                              voicesError: ttsVoicesError,
-                              onVoiceChange: (voiceId) {
-                                ref
-                                    .read(
-                                      ttsSelectedVoiceProvider(
-                                        ttsScope,
-                                      ).notifier,
-                                    )
-                                    .select(voiceId);
-                              },
                             ),
                           if (!message.isUser &&
                               !isRetryableError &&

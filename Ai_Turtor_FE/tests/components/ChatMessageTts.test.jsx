@@ -3,7 +3,17 @@ import { describe, expect, it, vi } from 'vitest';
 import ChatMessageList from '../../src/features/student/chat/components/ChatMessageList';
 
 vi.mock('../../src/components/AiAnswer', () => ({
-  default: ({ markdown }) => <div>{markdown}</div>,
+  default: ({ markdown, courseMaterialHeadingAddon }) => (
+    <div>
+      {String(markdown).includes('Theo tài liệu môn học') ? (
+        <>
+          <h3>Theo tài liệu môn học</h3>
+          {courseMaterialHeadingAddon}
+          <p>Nội dung bài học.</p>
+        </>
+      ) : markdown}
+    </div>
+  ),
 }));
 
 const feedback = {
@@ -57,6 +67,28 @@ describe('ChatMessageList TTS action', () => {
       />,
     );
 
+    expect(screen.getAllByRole('button', { name: 'Đọc câu trả lời của AI Tutor' })).toHaveLength(1);
+  });
+
+  it('moves the Read and voice controls below the course-material heading', () => {
+    render(
+      <ChatMessageList
+        {...baseProps}
+        voiceId="voice-long"
+        ttsVoices={[{ id: 'voice-long', name: 'Long' }]}
+        messages={[{
+          id: 'turn-1',
+          question: 'Servlet là gì?',
+          answer: 'Theo tài liệu môn học\n\n- Servlet chạy trên server.',
+          sessionComplete: true,
+        }]}
+      />,
+    );
+
+    const heading = screen.getByRole('heading', { name: 'Theo tài liệu môn học' });
+    const readButton = screen.getByRole('button', { name: 'Đọc câu trả lời của AI Tutor' });
+    expect(heading.nextElementSibling).toContainElement(readButton);
+    expect(screen.getByText('Long')).toBeVisible();
     expect(screen.getAllByRole('button', { name: 'Đọc câu trả lời của AI Tutor' })).toHaveLength(1);
   });
 
