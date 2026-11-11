@@ -10,7 +10,7 @@ import '../../application/tts_controller.dart';
 import '../../data/tts_models.dart';
 
 class TtsCopy {
-  static const read = 'Đọc';
+  static const read = 'Đọc câu trả lời';
   static const loading = 'Đang tạo giọng...';
   static const pause = 'Tạm dừng';
   static const resume = 'Tiếp tục';
@@ -73,7 +73,7 @@ class TtsMessageAction extends StatelessWidget {
     };
 
     return Padding(
-      padding: const EdgeInsets.only(left: 44, bottom: Insets.sm),
+      padding: const EdgeInsets.only(top: Insets.xs, bottom: Insets.sm),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -157,7 +157,9 @@ class TtsVoiceSelector extends StatelessWidget {
         ? TtsCopy.loadingVoices
         : voices.isEmpty
         ? TtsCopy.voicesUnavailable
-        : (selected?.name ?? TtsCopy.chooseVoice);
+        : selected == null
+        ? TtsCopy.chooseVoice
+        : 'Giọng: ${selected.name}';
 
     return Semantics(
       button: true,

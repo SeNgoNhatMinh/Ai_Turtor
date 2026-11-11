@@ -94,8 +94,14 @@ async function mockBackend(page, unexpectedRequests) {
           'Vì tài liệu không cung cấp thông tin về hướng đi của môn PRJ, hãy ôn lại các chủ đề còn yếu trước khi tạo quiz tự ôn.',
         ],
       },
+      '/api/notifications': { notifications: [] },
+      '/api/ai/student-llm': { configured: false },
       '/api/ai/conversations': { conversations: [] },
       '/api/courses/PRO192/materials': { materials: [] },
+      '/api/students/student-1/courses/PRO192/classes/SE1833/materials': { materials: [] },
+      '/api/tutor/students/student-1/courses/PRO192/support-profile': {},
+      '/api/tutor/students/student-1/courses/PRO192/question-quota': { used: 0, remaining: 10, limit: 10 },
+      '/api/tts/voices': [],
       '/api/students/student-1/assignments': {
         assignments: [{
           id: 'assignment-1',
@@ -437,6 +443,86 @@ test('empty chat keeps the robot inside the visible message viewport', async ({ 
   expect(mascotBounds).not.toBeNull();
   expect(mascotBounds.y).toBeGreaterThanOrEqual(panelBounds.y);
   expect(mascotBounds.y + mascotBounds.height).toBeLessThanOrEqual(panelBounds.y + panelBounds.height + 1);
+});
+
+test('study suggestions reset for a new chat and advance after a successful AI answer', async ({ page }) => {
+  const welcomeTitle = 'Chào mừng đến với lộ trình PRJ301';
+  const firstLesson = 'Tôi muốn tìm hiểu về Servlet và JSP.';
+  const secondLesson = 'Học tiếp Session và request scope.';
+
+  await page.route('**/api/courses/PRO192/learning-guide', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        welcomeMarkdown: `# ${welcomeTitle}\n\n## Gợi ý học tập\n- ${firstLesson}\n- Hướng dẫn tôi thực hành kiến trúc MVC.`,
+      }),
+    });
+  });
+  await page.route('**/api/ai/conversations?*', async (route) => {
+    if (route.request().method() !== 'POST') {
+      await route.fallback();
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        conversationId: 'conversation-new-study',
+        title: 'Cuộc trò chuyện mới',
+        courseId: 'PRO192',
+        classId: 'SE1833',
+        messageCount: 0,
+        userQuestionCount: 0,
+      }),
+    });
+  });
+  await page.route('**/api/ai/conversations/conversation-new-study/messages?*', async (route) => {
+    await route.fulfill({ json: { messages: [] } });
+  });
+  await page.route('**/api/ai/conversations/conversation-new-study/pinned-messages?*', async (route) => {
+    await route.fulfill({ json: { messages: [] } });
+  });
+  await page.route('**/webhook/student-chat', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        answer: 'Servlet tiếp nhận HTTP request và tạo HTTP response.',
+        mode: 'RAG',
+        outcome: 'ANSWERED',
+        confidence: 0.95,
+        used: 1,
+        remaining: 9,
+        limit: 10,
+        nextImproveSuggestions: [{
+          title: secondLesson,
+          suggestionText: secondLesson,
+        }],
+      }),
+    });
+  });
+
+  await signIn(page);
+
+  await expect(page.getByRole('heading', { name: welcomeTitle })).toBeVisible();
+  const welcomeSuggestions = page.getByRole('region', { name: 'Gợi ý học tập' });
+  await expect(welcomeSuggestions.getByText(firstLesson, { exact: true })).toBeVisible();
+  await welcomeSuggestions.getByRole('button', { name: /Học ngay/ }).first().click();
+
+  await expect(page.getByRole('heading', { name: welcomeTitle })).toHaveCount(0);
+  await expect(page.getByText('Servlet tiếp nhận HTTP request và tạo HTTP response.', { exact: true }))
+    .toBeVisible();
+
+  const nextSuggestions = page.getByRole('region', { name: 'Gợi ý học tập' });
+  await expect(nextSuggestions.getByLabel(`${firstLesson} - Đã học`)).toBeVisible();
+  await expect(nextSuggestions.getByText(secondLesson, { exact: true })).toBeVisible();
+  await expect(nextSuggestions.getByRole('button', { name: /Học ngay/ })).toHaveCount(2);
+
+  await page.getByRole('button', { name: 'Tạo cuộc trò chuyện mới' }).click();
+  await expect(page.getByRole('heading', { name: welcomeTitle })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Gợi ý học tập' })
+    .getByText(firstLesson, { exact: true })).toBeVisible();
 });
 
 test('student chat recovers a persisted backend answer when n8n returns memory only', async ({ page }) => {

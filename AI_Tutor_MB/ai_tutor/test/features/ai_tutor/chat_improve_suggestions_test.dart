@@ -28,16 +28,20 @@ Các bài dưới đây là chương có trong tài liệu môn học.
     ]);
   });
 
-  test('hides Tiếp tục học after a regular answer', () {
+  test('uses API study suggestions after a regular answer', () {
     final items = chatImproveSuggestionsForMessage(
       answer: 'Servlet xử lý một request.',
       apiSuggestions: [
         ImproveSuggestionItem.fromLabel('Nhóm các câu hỏi gần đây theo chủ đề'),
         ImproveSuggestionItem.fromLabel('Ôn IoC và DI'),
       ],
+      apiSuggestionsProvided: true,
     );
 
-    expect(items, isEmpty);
+    expect(items.map((item) => item.title).toList(), [
+      'Nhóm các câu hỏi gần đây theo chủ đề',
+      'Ôn IoC và DI',
+    ]);
   });
 
   test('does not turn a single Bài line into the Học ngay card', () {
@@ -222,6 +226,84 @@ Các bài dưới đây là chương có trong tài liệu môn học.
     expect(actions.every((button) => button.onPressed == null), isTrue);
     expect(learned, isFalse);
     expect(createdQuiz, isFalse);
+  });
+
+  testWidgets('dims a learned suggestion and exposes a non-color status', (
+    tester,
+  ) async {
+    final suggestion = ImproveSuggestionItem.fromLabel('Bài 1: Servlet');
+
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('vi'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: ImproveSuggestionsStrip(
+            suggestions: [suggestion],
+            consumedKeys: {suggestion.key},
+            onLearn: (_) {},
+            onCreateQuiz: (_) {},
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Đã học'), findsOneWidget);
+    expect(find.text('Học ngay'), findsNothing);
+    expect(find.text('Ôn tập'), findsNothing);
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Semantics &&
+            widget.properties.label == 'Bài 1: Servlet, Đã học',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .widgetList<AnimatedOpacity>(find.byType(AnimatedOpacity))
+          .any((widget) => widget.opacity == 0.52),
+      isTrue,
+    );
+  });
+
+  testWidgets('keeps study actions usable on a narrow screen at 200% text', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 760);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('vi'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: MediaQuery(
+          data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+          child: Scaffold(
+            body: SingleChildScrollView(
+              child: ImproveSuggestionsStrip(
+                suggestions: [
+                  ImproveSuggestionItem.fromLabel(
+                    'Bài tiếp theo: phân tích vòng đời Servlet và cách xử lý request dài',
+                  ),
+                ],
+                consumedKeys: const {},
+                onLearn: (_) {},
+                onCreateQuiz: (_) {},
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Học ngay'), findsOneWidget);
+    expect(find.text('Ôn tập'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('does not render raw suggestion JSON as a chip title', (

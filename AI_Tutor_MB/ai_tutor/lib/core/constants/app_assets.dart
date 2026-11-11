@@ -12,7 +12,7 @@ abstract final class AppAssets {
       'assets/images/coc_vang_tutor_transparent.png';
   static const cocHero = 'assets/images/coc_hero.png';
 
-  /// Nút Hỏi Cóc (bottom nav).
+  /// Nút Hỏi AI Tutor (bottom nav).
   static const askCocButton = 'assets/images/ask_coc_button.jpg';
 
   /// Cóc theo môn (sticker) — dùng cùng Cóc mới.

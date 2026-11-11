@@ -31,7 +31,6 @@ import '../../memory/presentation/widgets/improve_suggestion_widgets.dart';
 import '../../../shared/models/ai_conversation.dart';
 import '../../../shared/models/course.dart';
 import '../../../shared/models/escalation.dart';
-import '../../../shared/widgets/ai_study_path_widgets.dart';
 import '../../../shared/widgets/chat_bubble.dart';
 import '../../../shared/widgets/ai_suggestion_json.dart';
 import '../../../shared/widgets/widgets.dart';
@@ -1232,6 +1231,29 @@ class _CourseCurriculumOpening extends StatelessWidget {
   }
 }
 
+/// Giữ lời chào/syllabus ở trạng thái mở đầu, rồi loại khỏi lịch sử hiển thị
+/// ngay khi sinh viên đã bắt đầu đặt câu hỏi.
+List<AiMessage> visibleChatMessagesAfterCourseOpening(
+  List<AiMessage> messages,
+) {
+  final hasStarted = messages.any(
+    (message) => message.isUser && message.content.trim().isNotEmpty,
+  );
+  if (!hasStarted) return messages;
+
+  return [
+    for (var index = 0; index < messages.length; index++)
+      if (!isWelcomeTutorTurn(
+        messages[index],
+        precedingUserQuestion: ChatController.precedingUserQuestion(
+          messages,
+          index,
+        ),
+      ))
+        messages[index],
+  ];
+}
+
 class ChatScreen extends HookConsumerWidget {
   const ChatScreen({
     super.key,
@@ -1247,6 +1269,9 @@ class ChatScreen extends HookConsumerWidget {
     final l10n = AppLocalizations.of(context)!;
     final messages = ref.watch(chatControllerProvider(conversationId));
     final isPending = ref.watch(chatPendingProvider(conversationId));
+    final revealingMessageId = ref.watch(
+      chatRevealMessageIdProvider(conversationId),
+    );
     final scrollController = useScrollController();
     final messageKeys = useRef(<String, GlobalKey>{}).value;
     final courses = ref.watch(coursesControllerProvider);
@@ -1327,6 +1352,17 @@ class ChatScreen extends HookConsumerWidget {
     final learningGuide = guideCourseId.isEmpty
         ? null
         : ref.watch(courseLearningGuideProvider(guideCourseId));
+    final courseGuideSuggestions = learningGuide?.valueOrNull == null
+        ? const <ImproveSuggestionItem>[]
+        : parseCurriculumStudySuggestions(
+                learningGuide!.valueOrNull!.welcomeMarkdown,
+              )
+              .map(
+                (item) => ImproveSuggestionItem.fromLabel(
+                  item.suggestionText,
+                ).copyWith(interactionType: 'CURRICULUM_STARTER'),
+              )
+              .toList();
     final ttsScope = ttsScopeForChat(
       userId: ref.watch(authControllerProvider).valueOrNull?.userId,
       courseId: activeCourse?.id,
@@ -1508,6 +1544,7 @@ class ChatScreen extends HookConsumerWidget {
       String? improvePlanId,
       String? planItemId,
       String? clickedSuggestion,
+      String? studySuggestionKey,
       String? chapterKey,
       String? chapterTitle,
       List<String> sourceMaterialIds = const [],
@@ -1534,6 +1571,7 @@ class ChatScreen extends HookConsumerWidget {
             improvePlanId: improvePlanId,
             planItemId: planItemId,
             clickedSuggestion: clickedSuggestion,
+            studySuggestionKey: studySuggestionKey,
             chapterKey: chapterKey,
             chapterTitle: chapterTitle,
             requestedMode: 'RAG',
@@ -1550,16 +1588,21 @@ class ChatScreen extends HookConsumerWidget {
       final text = item.effectiveText.trim().isNotEmpty
           ? item.effectiveText
           : item.title;
-      final prompt = buildStudySuggestionPrompt(
-        text,
-        improvePlanId: item.improvePlanId,
-        planItemId: item.planItemId,
-      );
+      final isCurriculumStarter = item.interactionType == 'CURRICULUM_STARTER';
+      final prompt = isCurriculumStarter
+          ? text
+          : buildStudySuggestionPrompt(
+              text,
+              improvePlanId: item.improvePlanId,
+              planItemId: item.planItemId,
+            );
       unawaited(
         sendStudyPromptInChat(
           prompt,
           displayMessage: text,
-          interactionType: item.hasImprovePlanGrounding
+          interactionType: isCurriculumStarter
+              ? null
+              : item.hasImprovePlanGrounding
               ? 'IMPROVE_PLAN_REVIEW'
               : item.interactionType ??
                     (isGuidedLessonPrompt(prompt)
@@ -1570,6 +1613,7 @@ class ChatScreen extends HookConsumerWidget {
           improvePlanId: item.improvePlanId,
           planItemId: item.planItemId,
           clickedSuggestion: text,
+          studySuggestionKey: item.key,
           chapterKey: item.chapterKey,
           chapterTitle: item.chapterTitle,
           sourceMaterialIds: item.sourceMaterialIds,
@@ -2126,7 +2170,9 @@ class ChatScreen extends HookConsumerWidget {
         onHistoryTap: () => scaffoldKey.currentState?.openDrawer(),
         onSearchTap: () => _showInChatSearch(
           context,
-          messages: messages.valueOrNull ?? const [],
+          messages: visibleChatMessagesAfterCourseOpening(
+            messages.valueOrNull ?? const [],
+          ),
           onSelect: scrollToMessage,
         ),
       ),
@@ -2211,7 +2257,31 @@ class ChatScreen extends HookConsumerWidget {
                 if (loadedItems == null && !isPending) {
                   return const LoadingSkeleton(itemCount: 4);
                 }
-                final items = loadedItems ?? const <AiMessage>[];
+                final items = visibleChatMessagesAfterCourseOpening(
+                  loadedItems ?? const <AiMessage>[],
+                );
+                var latestSuggestionMessageIndex = -1;
+                if (!isPending) {
+                  for (var i = items.length - 1; i >= 0; i--) {
+                    final candidate = items[i];
+                    if (candidate.isUser ||
+                        candidate.id.startsWith('err-') ||
+                        candidate.escalated ||
+                        (candidate.questionEscalationId ?? '').isNotEmpty ||
+                        !hasMeaningfulAiChatContent(candidate.content)) {
+                      continue;
+                    }
+                    final candidateQuestion =
+                        ChatController.precedingUserQuestion(items, i);
+                    if (!isWelcomeTutorTurn(
+                      candidate,
+                      precedingUserQuestion: candidateQuestion,
+                    )) {
+                      latestSuggestionMessageIndex = i;
+                      break;
+                    }
+                  }
+                }
                 const listHeaderCount = 1;
                 return ListView.builder(
                   controller: scrollController,
@@ -2344,6 +2414,26 @@ class ChatScreen extends HookConsumerWidget {
                         message.isUser || isRetryableError || isWelcomeTurn
                         ? const <String>[]
                         : nextLessonTipsForAnswer(message.content);
+                    final showStudySuggestions =
+                        msgIndex == latestSuggestionMessageIndex &&
+                        revealingMessageId != message.id;
+                    final currentLearnedSuggestion =
+                        userQuestion == null || userQuestion.trim().isEmpty
+                        ? null
+                        : ImproveSuggestionItem.fromLabel(userQuestion);
+                    final studySuggestions = <ImproveSuggestionItem>[
+                      if (currentLearnedSuggestion != null &&
+                          consumedKeys.contains(currentLearnedSuggestion.key))
+                        currentLearnedSuggestion,
+                      ...curriculumSuggestions.map(
+                        (item) => ImproveSuggestionItem.fromLabel(
+                          item.suggestionText,
+                        ).copyWith(interactionType: 'CURRICULUM_STARTER'),
+                      ),
+                      ...pathSuggestions,
+                      ...nextLessonTips.map(ImproveSuggestionItem.fromLabel),
+                      ...courseGuideSuggestions,
+                    ];
                     return KeyedSubtree(
                       key: messageKey,
                       child: Column(
@@ -2439,6 +2529,42 @@ class ChatScreen extends HookConsumerWidget {
                                     effectiveEscalationId != null,
                                 pinned: message.pinned,
                                 pinnedLabel: l10n.pinnedLabel,
+                                answerAction:
+                                    !message.isUser &&
+                                        !isRetryableError &&
+                                        ttsEnabled &&
+                                        message.content.trim().isNotEmpty
+                                    ? TtsAnswerControls(
+                                        conversationId: conversationId,
+                                        messageKey: message.id,
+                                        messageId: message.id,
+                                        courseId: ttsScope.courseId,
+                                        classId: ttsScope.classId,
+                                        text: ttsSpeakableText(
+                                          quiz == null
+                                              ? message.content
+                                              : extracted.before,
+                                          hasEvidenceMetadata:
+                                              message
+                                                  .sourceEvidence
+                                                  .isNotEmpty ||
+                                              message.sources.isNotEmpty,
+                                        ),
+                                        voiceId: resolvedTtsVoiceId,
+                                        voices: ttsVoices,
+                                        voicesLoading: ttsVoicesAsync.isLoading,
+                                        voicesError: ttsVoicesError,
+                                        onVoiceChange: (voiceId) {
+                                          ref
+                                              .read(
+                                                ttsSelectedVoiceProvider(
+                                                  ttsScope,
+                                                ).notifier,
+                                              )
+                                              .select(voiceId);
+                                        },
+                                      )
+                                    : null,
                                 onStudyTipTap: message.isUser || composerLocked
                                     ? null
                                     : (tip) => handleStudyTipTap(
@@ -2449,7 +2575,7 @@ class ChatScreen extends HookConsumerWidget {
                               ),
                             ),
                           ),
-                          if (curriculumSuggestions.isNotEmpty)
+                          if (curriculumSuggestions.isNotEmpty && isWelcomeTurn)
                             Padding(
                               padding: const EdgeInsets.only(
                                 left: 48,
@@ -2468,6 +2594,18 @@ class ChatScreen extends HookConsumerWidget {
                                   );
                                 },
                               ),
+                            ),
+                          if (showStudySuggestions &&
+                              studySuggestions.isNotEmpty)
+                            ImproveSuggestionsStrip(
+                              suggestions: studySuggestions,
+                              consumedKeys: consumedKeys,
+                              enabled: !isPending && !composerLocked,
+                              heading: 'Gợi ý học tập',
+                              hint:
+                                  'Bài vừa học được đánh dấu; bạn có thể chọn bài hoặc chương tiếp theo.',
+                              onLearn: handleLearnSuggestion,
+                              onCreateQuiz: handleQuizFromSuggestion,
                             ),
                           if (message.isUser)
                             AiUserMessageActions(
@@ -2562,38 +2700,6 @@ class ChatScreen extends HookConsumerWidget {
                             ),
                           if (!message.isUser &&
                               !isRetryableError &&
-                              ttsEnabled &&
-                              message.content.trim().isNotEmpty)
-                            TtsAnswerControls(
-                              conversationId: conversationId,
-                              messageKey: message.id,
-                              messageId: message.id,
-                              courseId: ttsScope.courseId,
-                              classId: ttsScope.classId,
-                              text: ttsSpeakableText(
-                                quiz == null
-                                    ? message.content
-                                    : extracted.before,
-                                hasEvidenceMetadata:
-                                    message.sourceEvidence.isNotEmpty ||
-                                    message.sources.isNotEmpty,
-                              ),
-                              voiceId: resolvedTtsVoiceId,
-                              voices: ttsVoices,
-                              voicesLoading: ttsVoicesAsync.isLoading,
-                              voicesError: ttsVoicesError,
-                              onVoiceChange: (voiceId) {
-                                ref
-                                    .read(
-                                      ttsSelectedVoiceProvider(
-                                        ttsScope,
-                                      ).notifier,
-                                    )
-                                    .select(voiceId);
-                              },
-                            ),
-                          if (!message.isUser &&
-                              !isRetryableError &&
                               !isWelcomeTurn)
                             _ChatReviewBoundary(
                               conversationId: conversationId,
@@ -2625,37 +2731,11 @@ class ChatScreen extends HookConsumerWidget {
                                       },
                               ),
                             ),
-                          if (pathSuggestions.isNotEmpty)
-                            ImproveSuggestionsStrip(
-                              suggestions: pathSuggestions,
-                              consumedKeys: consumedKeys,
-                              enabled: !isPending && !composerLocked,
-                              onLearn: handleLearnSuggestion,
-                              onCreateQuiz: handleQuizFromSuggestion,
-                            ),
-                          if (nextLessonTips.isNotEmpty)
-                            Padding(
-                              padding: const EdgeInsets.only(
-                                left: 44,
-                                bottom: Insets.sm,
-                              ),
-                              child: AiStudyPathBlock(
-                                heading: 'Bài tiếp theo',
-                                tips: nextLessonTips,
-                                isNextLessonHeading: true,
-                                onStudyTipTap: composerLocked
-                                    ? null
-                                    : (tip) => handleStudyTipTap(
-                                        tip,
-                                        currentQuestion: userQuestion ?? '',
-                                        sourceEvidence: message.sourceEvidence,
-                                      ),
-                              ),
-                            ),
                           if (!isRetryableError &&
                               !message.isUser &&
+                              showStudySuggestions &&
                               (userQuestion ?? '').trim().isNotEmpty &&
-                              pathSuggestions.isEmpty)
+                              studySuggestions.isEmpty)
                             LessonDeepDiveCta(
                               question: userQuestion!,
                               answer: message.content,

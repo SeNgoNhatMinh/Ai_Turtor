@@ -262,7 +262,12 @@ export function lessonSuggestionsForMessage(message) {
     const objectSuggestion = typeof suggestion === 'object' && suggestion !== null
       ? suggestion
       : { title: String(suggestion || '').trim() };
-    const title = stripConcatenatedLessonTail(withoutInternalLessonLabel(objectSuggestion.title));
+    const title = stripConcatenatedLessonTail(withoutInternalLessonLabel(
+      objectSuggestion.title
+      || objectSuggestion.suggestionText
+      || objectSuggestion.text
+      || objectSuggestion.topic,
+    ));
     const suggestionText = stripConcatenatedLessonTail(
       withoutInternalLessonLabel(objectSuggestion.suggestionText || title),
     );

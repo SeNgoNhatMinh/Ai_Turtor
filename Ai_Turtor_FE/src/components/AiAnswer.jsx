@@ -19,6 +19,7 @@ function AiAnswer({
   reviewer = false,
   understandingSelectedKey = '',
   attemptId = '',
+  courseMaterialHeadingAddon,
 }) {
   const extracted = useMemo(
     () => extractUnderstandingCheck(markdown),
@@ -49,6 +50,7 @@ function AiAnswer({
         onStudyTipStudy={onStudyTipStudy}
         onDownloadSource={onDownloadSource}
         hideSourceSection={hideSourceSection}
+        courseMaterialHeadingAddon={courseMaterialHeadingAddon}
       />
     );
   }
@@ -63,6 +65,7 @@ function AiAnswer({
           onStudyTipStudy={onStudyTipStudy}
           onDownloadSource={onDownloadSource}
           hideSourceSection={hideSourceSection}
+          courseMaterialHeadingAddon={courseMaterialHeadingAddon}
         />
       ) : null}
       {quizzes.map((quiz, index) => {
@@ -89,6 +92,7 @@ function AiAnswer({
           onStudyTipStudy={onStudyTipStudy}
           onDownloadSource={onDownloadSource}
           hideSourceSection={hideSourceSection}
+          courseMaterialHeadingAddon={courseMaterialHeadingAddon}
         />
       ) : null}
     </>

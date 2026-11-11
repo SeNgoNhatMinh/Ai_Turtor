@@ -78,6 +78,7 @@ class ChatBubble extends StatelessWidget {
     this.onRevealComplete,
     this.onDownloadSource,
     this.showSourceReferences = true,
+    this.answerAction,
   });
 
   final bool isUser;
@@ -101,6 +102,7 @@ class ChatBubble extends StatelessWidget {
   final VoidCallback? onRevealComplete;
   final void Function(String materialId, String title)? onDownloadSource;
   final bool showSourceReferences;
+  final Widget? answerAction;
 
   @override
   Widget build(BuildContext context) {
@@ -189,12 +191,14 @@ class ChatBubble extends StatelessWidget {
                               enabled: true,
                               onStudyTipTap: onStudyTipTap,
                               onComplete: onRevealComplete,
+                              answerAction: answerAction,
                             )
                           : AiMarkdownBody(
                               data: prepareAiChatMarkdown(
                                 rewriteSuggestionJson(content),
                               ),
                               onStudyTipTap: onStudyTipTap,
+                              answerAction: answerAction,
                             ),
                     if (betweenContent != null) betweenContent!,
                     if ((afterContent ?? '').trim().isNotEmpty)

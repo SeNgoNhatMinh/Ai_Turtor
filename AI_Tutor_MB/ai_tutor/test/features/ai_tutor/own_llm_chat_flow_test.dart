@@ -59,6 +59,12 @@ void main() {
         fireImmediately: true,
       );
       addTearDown(chatSubscription.close);
+      final consumedSubscription = container.listen(
+        consumedSuggestionKeysProvider(conversationId),
+        (_, _) {},
+        fireImmediately: true,
+      );
+      addTearDown(consumedSubscription.close);
       await container.read(chatControllerProvider(conversationId).future);
 
       final effectiveConversationId = await container
@@ -68,6 +74,8 @@ void main() {
             message: 'Giải thích Servlet',
             courseId: courseId,
             classId: 'SE1832',
+            clickedSuggestion: 'Bài 1: Servlet',
+            studySuggestionKey: 'lesson-servlet',
           );
 
       expect(effectiveConversationId, conversationId);
@@ -84,6 +92,10 @@ void main() {
       expect(messages, hasLength(2));
       expect(messages.first.isUser, isTrue);
       expect(messages.last.content, 'Nội dung từ API LLM cá nhân.');
+      expect(
+        container.read(consumedSuggestionKeysProvider(conversationId)),
+        containsAll({'lesson-servlet', 'bài-1-servlet'}),
+      );
     },
   );
 }

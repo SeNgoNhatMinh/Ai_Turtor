@@ -1,15 +1,9 @@
 import { writeQuizTopicHandoff } from '../studentRouteHandoff';
 import { buildStudySuggestionPrompt, isGuidedLessonPrompt } from './studySuggestionPrompt';
-
-const getSuggestionText = (suggestion) => String(
-  suggestion?.suggestionText
-  || suggestion?.title
-  || suggestion?.topic
-  || suggestion?.content
-  || suggestion?.text
-  || suggestion
-  || '',
-).trim();
+import {
+  getStudySuggestionKey,
+  getStudySuggestionText,
+} from './studySuggestionProgress';
 
 export function useStudentLearningActions({
   switchTab,
@@ -18,7 +12,7 @@ export function useStudentLearningActions({
   triggerToast,
 }) {
   const handleStudySuggestion = (suggestion) => {
-    const text = getSuggestionText(suggestion);
+    const text = getStudySuggestionText(suggestion);
     if (!text) return;
 
     const prompt = buildStudySuggestionPrompt(text, suggestion);
@@ -33,8 +27,15 @@ export function useStudentLearningActions({
     const chapterTitle = String(suggestion?.chapterTitle || '').trim();
     const hasSourceProvenance = sourceMaterialIds.length > 0;
     const isGuidedLesson = isGuidedLessonPrompt(prompt);
+    const studySuggestionKey = getStudySuggestionKey(suggestion);
+    const studySuggestionContext = {
+      displayQuestion: text,
+      clickedSuggestion: text,
+      studySuggestionKey,
+    };
     const requestContext = hasImprovePlanProvenance || hasSourceProvenance || isGuidedLesson
       ? {
+        ...studySuggestionContext,
         interactionType: hasImprovePlanProvenance
           ? 'IMPROVE_PLAN_REVIEW'
           : (suggestion?.interactionType
@@ -46,12 +47,10 @@ export function useStudentLearningActions({
         sourceChunkIds,
         chapterKey,
         chapterTitle,
-        clickedSuggestion: text,
       }
-      : {};
+      : studySuggestionContext;
     if (sendChatMessage) {
-      sendChatMessage(prompt, requestContext);
-      return;
+      return sendChatMessage(prompt, requestContext);
     }
     if (setChatDraft) {
       setChatDraft(prompt);

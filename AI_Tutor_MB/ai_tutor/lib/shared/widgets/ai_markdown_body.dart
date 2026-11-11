@@ -1,13 +1,11 @@
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:markdown/markdown.dart' as md;
 
 import '../../core/theme/app_colors.dart';
-import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/utils/ai_study_tips.dart';
 import 'ai_study_path_widgets.dart';
@@ -21,10 +19,16 @@ final _aiMarkdownExtensions = md.ExtensionSet(
 
 /// Markdown cho câu trả lời AI — headings, lists, code blocks, link gợi ý học.
 class AiMarkdownBody extends StatefulWidget {
-  const AiMarkdownBody({super.key, required this.data, this.onStudyTipTap});
+  const AiMarkdownBody({
+    super.key,
+    required this.data,
+    this.onStudyTipTap,
+    this.answerAction,
+  });
 
   final String data;
   final ValueChanged<String>? onStudyTipTap;
+  final Widget? answerAction;
 
   static const Color _studyTipColor = AppColors.studyTipLink;
 
@@ -49,7 +53,8 @@ class _AiMarkdownBodyState extends State<AiMarkdownBody>
   void didUpdateWidget(covariant AiMarkdownBody oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.data != widget.data ||
-        (oldWidget.onStudyTipTap == null) != (widget.onStudyTipTap == null)) {
+        (oldWidget.onStudyTipTap == null) != (widget.onStudyTipTap == null) ||
+        oldWidget.answerAction != widget.answerAction) {
       _parse();
     }
   }
@@ -68,8 +73,13 @@ class _AiMarkdownBodyState extends State<AiMarkdownBody>
     _plain = widget.data;
     try {
       final children = <Widget>[];
+      var actionInserted = false;
       for (final segment in segments) {
         if (segment.isStudy) {
+          if (children.isEmpty && widget.answerAction != null) {
+            children.add(widget.answerAction!);
+            actionInserted = true;
+          }
           if (segment.isNextLessonHeading) continue;
           children.add(
             AiStudyPathBlock(
@@ -81,7 +91,20 @@ class _AiMarkdownBodyState extends State<AiMarkdownBody>
           );
           continue;
         }
-        children.addAll(_parseMarkdown(segment.markdown));
+        children.addAll(
+          _parseMarkdown(
+            segment.markdown,
+            answerAction: children.isEmpty && !actionInserted
+                ? widget.answerAction
+                : null,
+          ),
+        );
+        if (children.isNotEmpty && widget.answerAction != null) {
+          actionInserted = true;
+        }
+      }
+      if (!actionInserted && widget.answerAction != null) {
+        children.add(widget.answerAction!);
       }
       _children = children;
     } catch (_) {
@@ -90,7 +113,7 @@ class _AiMarkdownBodyState extends State<AiMarkdownBody>
     }
   }
 
-  List<Widget> _parseMarkdown(String raw) {
+  List<Widget> _parseMarkdown(String raw, {Widget? answerAction}) {
     final markdown = stabilizeAiMarkdown(_enhanceInteractiveStudyLinks(raw));
     if (markdown.trim().isEmpty) return const [];
     final document = md.Document(
@@ -114,7 +137,18 @@ class _AiMarkdownBodyState extends State<AiMarkdownBody>
       fitContent: true,
       listItemCrossAxisAlignment: MarkdownListItemCrossAxisAlignment.start,
     );
-    return builder.build(nodes);
+    final children = builder.build(nodes);
+    if (answerAction == null) return children;
+
+    final firstNode = nodes.firstOrNull;
+    final startsWithHeading =
+        firstNode is md.Element &&
+        const {'h1', 'h2', 'h3', 'h4', 'h5', 'h6'}.contains(firstNode.tag);
+    children.insert(
+      startsWithHeading && children.isNotEmpty ? 1 : 0,
+      answerAction,
+    );
+    return children;
   }
 
   void _disposeRecognizers() {

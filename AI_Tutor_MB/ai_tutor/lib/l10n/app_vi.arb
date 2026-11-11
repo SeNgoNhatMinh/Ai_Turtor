@@ -64,11 +64,11 @@
   "homeGreetingAfternoon": "Chào buổi chiều,",
   "homeGreetingEvening": "Chào buổi tối,",
   "homeHeroTitle": "Hôm nay học gì nào?",
-  "homeHeroSubtitle": "Hỏi Cóc về bài giảng, code, hay deadline.",
+  "homeHeroSubtitle": "Chọn môn và tiếp tục học cùng AI Tutor.",
   "homeAskQuestion": "+ Đặt câu hỏi",
   "questionsAskedStat": "Câu đã hỏi",
   "enrolledCoursesStat": "Môn đang học",
-  "tabAskCoc": "Hỏi Cóc",
+  "tabAskCoc": "Hỏi AI Tutor",
   "classroomSubtitle": "Học kỳ {semester} · {count} môn",
   "@classroomSubtitle": {
     "placeholders": {
@@ -90,7 +90,7 @@
   "@classroomQuestionsCount": {
     "placeholders": {"count": {"type": "int"}}
   },
-  "aiTutorName": "Cóc Vàng AI",
+  "aiTutorName": "AI Tutor",
   "aiLanguageHintTooltip": "Gợi ý ngôn ngữ",
   "aiLanguageHintTitle": "Ngôn ngữ hỗ trợ",
   "aiLanguageHintBody": "Hệ thống chỉ hỗ trợ tiếng Việt và tiếng Anh.\n\nĐể độ chính xác cao nhất (đặc biệt thuật ngữ học thuật và kỹ thuật), hãy dùng từ khóa tiếng Anh trong câu hỏi khi có thể.",
@@ -100,7 +100,7 @@
     "placeholders": {"course": {"type": "String"}}
   },
   "chatToday": "Hôm nay",
-  "chatInputHint": "Nhắn cho Cóc...",
+  "chatInputHint": "Nhắn cho AI Tutor...",
   "confidenceLabel": "Độ tin cậy {percent}%",
   "@confidenceLabel": {
     "placeholders": {"percent": {"type": "int"}}
@@ -129,17 +129,17 @@
   "materialsTab": "Tài liệu",
   "assignmentsTab": "Bài tập",
   "memoryTab": "Trí nhớ học tập",
-  "askAboutCourse": "Hỏi AI về môn này",
+  "askAboutCourse": "Hỏi AI Tutor về môn này",
   "emptyMaterialsTitle": "Giảng viên chưa tải tài liệu",
   "newConversation": "Cuộc trò chuyện mới",
   "emptyConversationsTitle": "Chưa có cuộc trò chuyện",
   "emptyConversationsMessage": "Bắt đầu hỏi AI Tutor về bài học của bạn.",
   "selectCourse": "Chọn môn học",
-  "selectCourseHint": "AI trả lời theo tài liệu môn đã chọn",
+  "selectCourseHint": "AI Tutor trả lời theo tài liệu môn đã chọn",
   "sendMessage": "Gửi",
   "messageHint": "Nhập câu hỏi...",
   "stopGenerating": "Dừng",
-  "aiThinking": "AI đang trả lời...",
+  "aiThinking": "AI Tutor đang soạn bài giảng...",
   "codeMentor": "Code Mentor",
   "codeMentorDisclaimer": "Code Mentor hướng dẫn, không làm hộ bài tập.",
   "assignmentRelated": "Liên quan bài tập?",
@@ -160,9 +160,9 @@
   "reviewWrong": "Sai",
   "reviewReport": "Báo lỗi",
   "reviewSuggest": "Góp ý",
-  "reviewSubmittedSnack": "Cảm ơn phản hồi! AI chưa cập nhật ngay từ đánh giá này.",
-  "reviewSubmittedSnackMentor": "Đã gửi phản hồi — mentor sẽ kiểm tra. AI chưa học từ review này.",
-  "reviewSubmittedSnackSenior": "Đã gửi báo lỗi — Senior sẽ xem xét. AI chưa học từ review này.",
+  "reviewSubmittedSnack": "Cảm ơn phản hồi! AI Tutor chưa cập nhật ngay từ đánh giá này.",
+  "reviewSubmittedSnackMentor": "Đã gửi phản hồi — mentor sẽ kiểm tra. AI Tutor chưa học từ review này.",
+  "reviewSubmittedSnackSenior": "Đã gửi báo lỗi — Senior sẽ xem xét. AI Tutor chưa học từ review này.",
   "reviewWrongDialogTitle": "Báo câu trả lời sai",
   "reviewReportDialogTitle": "Báo lỗi nguồn hoặc tài liệu",
   "reviewFeedbackHint": "Mô tả vấn đề (mentor/senior sẽ kiểm tra)",
@@ -407,10 +407,10 @@
   "materialSlidesUnit": "slide",
   "materialNotFound": "Không tìm thấy tài liệu",
   "materialDefaultCategory": "TÀI LIỆU",
-  "materialReaderHint": "Nội dung bài đọc được lấy từ tài liệu môn học. Bạn có thể mở file PDF để đọc đầy đủ hoặc hỏi Cóc về phần đang học.",
+  "materialReaderHint": "Nội dung bài đọc được lấy từ tài liệu môn học. Bạn có thể mở file PDF để đọc đầy đủ hoặc hỏi AI Tutor về phần đang học.",
   "openMaterialPdf": "Mở file PDF",
-  "materialHighlightHint": "Highlight để hỏi Cóc về đoạn vừa đọc.",
-  "materialAskHint": "Hỏi Cóc về trang {page}...",
+  "materialHighlightHint": "Highlight để hỏi AI Tutor về đoạn vừa đọc.",
+  "materialAskHint": "Hỏi AI Tutor về trang {page}...",
   "@materialAskHint": {
     "placeholders": {"page": {"type": "int"}}
   },
@@ -442,7 +442,7 @@
   "submitResubmitHint": "Bạn có thể nộp lại trước khi hết hạn.",
   "submitAttached": "đã đính kèm",
   "improvePlanTitle": "Kế hoạch cải thiện",
-  "improvePlanSubtitle": "{courseCode} · Cóc gợi ý cho bạn",
+  "improvePlanSubtitle": "{courseCode} · AI Tutor gợi ý cho bạn",
   "@improvePlanSubtitle": {
     "placeholders": {"courseCode": {"type": "String"}}
   },

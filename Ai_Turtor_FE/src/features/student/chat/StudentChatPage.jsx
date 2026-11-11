@@ -9,10 +9,12 @@ import { useCourseMaterialsController } from '../../../hooks/useCourseMaterialsC
 import { useStudentChatController } from '../../../hooks/useStudentChatController';
 import { useStudentLearningController } from '../learning/useStudentLearningController';
 import { useStudentLearningActions } from '../learning/useStudentLearningActions';
+import { useStudySuggestionProgress } from '../learning/studySuggestionProgress';
+import { parseCurriculumStarterSuggestions } from '../learning/studySuggestionPrompt';
 import { classIdMatches } from '../../../utils/academicIds';
 import { useChatMentorRequests } from './useChatMentorRequests';
 import { useStudentChatTabController } from './useStudentChatTabController';
-import { withCurriculumWelcome } from './curriculumWelcomeMessage';
+import { hasStartedStudySuggestion, withCurriculumWelcome } from './curriculumWelcomeMessage';
 
 export default function StudentChatPage({
   currentUser,
@@ -44,12 +46,17 @@ export default function StudentChatPage({
     classId,
     triggerToast,
   });
+  const {
+    learnedSuggestions,
+    markSuggestionLearned,
+  } = useStudySuggestionProgress({ studentId, courseId });
   const chat = useStudentChatController({
     currentUser,
     studentId,
     courseId,
     classId,
     triggerToast,
+    onStudySuggestionAnswered: markSuggestionLearned,
   });
   const materials = useCourseMaterialsController({
     courseId,
@@ -135,11 +142,23 @@ export default function StudentChatPage({
     retry: 1,
   });
   const curriculumWelcome = String(curriculumQuery.data?.welcomeMarkdown || '').trim();
+  const curriculumStudySuggestions = useMemo(
+    () => parseCurriculumStarterSuggestions(curriculumWelcome),
+    [curriculumWelcome],
+  );
+  const hasStartedCurrentChat = hasStartedStudySuggestion(chat.messages, learnedSuggestions);
   const displayMessages = useMemo(() => withCurriculumWelcome(chat.messages, {
     courseId,
     curriculumWelcome,
     isMessagesLoading: chat.isMessagesLoading,
-  }), [chat.isMessagesLoading, chat.messages, courseId, curriculumWelcome]);
+    hasStartedLearning: hasStartedCurrentChat,
+  }), [
+    chat.isMessagesLoading,
+    chat.messages,
+    courseId,
+    curriculumWelcome,
+    hasStartedCurrentChat,
+  ]);
 
   // No background tutor-session bootstrap: opening a tutor session (which
   // auto-creates "Buổi học cùng AI Tutor" conversations) happens only when
@@ -206,6 +225,8 @@ export default function StudentChatPage({
       courseMaterials={materials.courseMaterials}
       mentorRequests={mentorRequests.mentorRequests}
       onStudySuggestion={learningActions.handleStudySuggestion}
+      learnedSuggestions={learnedSuggestions}
+      fallbackStudySuggestions={curriculumStudySuggestions}
       onCreateQuizFromSuggestion={learningActions.handleCreateQuizFromSuggestion}
       onDownloadSource={chatController.handleDownloadSource}
       onOpenMentorReview={openMentorReview}

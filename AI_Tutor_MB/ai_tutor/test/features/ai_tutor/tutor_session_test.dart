@@ -1,4 +1,5 @@
 import 'package:ai_tutor/features/ai_tutor/data/tutor_session.dart';
+import 'package:ai_tutor/features/ai_tutor/presentation/ai_tutor_screens.dart';
 import 'package:ai_tutor/features/ai_tutor/presentation/widgets/ai_chat_widgets.dart';
 import 'package:ai_tutor/shared/models/ai_conversation.dart';
 import 'package:ai_tutor/shared/models/course.dart';
@@ -6,6 +7,31 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('hides the course opening after the first student question', () {
+    const welcome = AiMessage(
+      id: 'welcome-1',
+      content: '## Chào mừng bạn đến với môn PRJ301\n\n1. Tổng quan môn học',
+      isUser: false,
+      proactive: true,
+    );
+    const user = AiMessage(
+      id: 'user-1',
+      content: 'Servlet là gì?',
+      isUser: true,
+    );
+    const answer = AiMessage(
+      id: 'answer-1',
+      content: 'Servlet xử lý request phía máy chủ.',
+      isUser: false,
+    );
+
+    expect(visibleChatMessagesAfterCourseOpening(const [welcome]), [welcome]);
+    expect(
+      visibleChatMessagesAfterCourseOpening(const [welcome, user, answer]),
+      [user, answer],
+    );
+  });
+
   test(
     'quota lock blocks new mentor requests but keeps existing support open',
     () {

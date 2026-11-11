@@ -142,17 +142,17 @@ export function useStudentChatTabController({
   };
 
   const sendText = useCallback((text, requestContext = {}) => {
-    if (isAiLoadingRef.current) return;
+    if (isAiLoadingRef.current) return false;
     if (!userId) {
       triggerToast?.('Vui lòng đăng nhập trước khi gửi tin nhắn.');
-      return;
+      return false;
     }
 
     const hasCourseOptions = Array.isArray(courseOptions) && courseOptions.length > 0;
     const hasValidCourse = hasCourseOptions && courseOptions.some((item) => item?.value === courseId);
     if (!hasValidCourse) {
       triggerToast?.('Tài khoản chưa được ghi danh vào môn học. Vui lòng liên hệ Admin hoặc giáo viên.');
-      return;
+      return false;
     }
 
     const hasClassOptions = Array.isArray(classOptions) && classOptions.length > 0;
@@ -163,18 +163,18 @@ export function useStudentChatTabController({
     ));
     if (!hasValidClass) {
       triggerToast?.('Tài khoản chưa được xếp lớp cho môn này. Vui lòng liên hệ Admin hoặc giáo viên.');
-      return;
+      return false;
     }
 
     if (courseDailyQuotaExhausted && !readStudentOwnLlm(userId)) {
       triggerToast?.(uiCopy.student.chat.full);
-      return;
+      return false;
     }
 
     const validation = validateChatInput(text);
     if (!validation.ok) {
       triggerToast?.(validation.message);
-      return;
+      return false;
     }
 
     const textToSend = validation.value;
@@ -190,6 +190,7 @@ export function useStudentChatTabController({
       isAiLoadingRef.current = false;
       setIsAiLoading(false);
     });
+    return true;
   }, [
     chatMode,
     classId,
