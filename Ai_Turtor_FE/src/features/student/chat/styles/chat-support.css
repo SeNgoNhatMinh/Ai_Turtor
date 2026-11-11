@@ -276,6 +276,21 @@ body.theme-dark .inline-mentor-card {
   gap: 4px;
 }
 
+.answer-improve-suggestion__learned {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 30px;
+  padding: 5px 9px;
+  border: 1px solid #bbf7d0;
+  border-radius: 999px;
+  background: #f0fdf4;
+  color: #166534;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
 .answer-improve-suggestion__actions button {
   display: inline-flex;
   align-items: center;
@@ -316,6 +331,12 @@ body.theme-dark .inline-mentor-card {
 .app-container.dark .answer-improve-suggestions__header span,
 .app-container.dark .answer-improve-suggestion__actions button {
   color: #c7c7c7;
+}
+
+.app-container.dark .answer-improve-suggestion__learned {
+  border-color: #166534;
+  background: #14271c;
+  color: #86efac;
 }
 
 .app-container.dark .answer-improve-suggestion__actions button:hover,

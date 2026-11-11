@@ -60,6 +60,8 @@ function ChatWorkspace({
   courseMaterials = [],
   mentorRequests = [],
   onStudySuggestion,
+  learnedSuggestions = [],
+  fallbackStudySuggestions = [],
   onCreateQuizFromSuggestion,
   onDownloadSource,
   onOpenMentorReview,
@@ -238,6 +240,8 @@ function ChatWorkspace({
         onLockUnderstandingAnswer={onLockUnderstandingAnswer}
         onResendMessage={onResendMessage}
         onStudySuggestion={onStudySuggestion}
+        learnedSuggestions={learnedSuggestions}
+        fallbackStudySuggestions={fallbackStudySuggestions}
         pinnedMessageIdSet={pinnedMessageIdSet}
         pinningMessageId={pinningMessageId}
         studentName={studentName}

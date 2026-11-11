@@ -29,6 +29,7 @@ import {
   resolveChatStudyTip,
   stripCurriculumStarterSection,
 } from '../../learning/studySuggestionPrompt';
+import { getStudySuggestionKey } from '../../learning/studySuggestionProgress';
 import { isAiServiceErrorText, shouldOfferLessonContinuations } from '../../../../utils/errorMessages';
 import TutorMascot from '../../../../components/common/TutorMascot';
 import { useMarkdownReveal } from '../useMarkdownReveal';
@@ -80,6 +81,10 @@ function StudentLiveAnswer({
   isPinned,
   isPinning,
   isWelcomeTurn,
+  showStudySuggestions,
+  learnedSuggestionKeys,
+  currentLearnedSuggestion,
+  fallbackStudySuggestions,
   materialSourceMap,
   message,
   messageAudio,
@@ -119,6 +124,13 @@ function StudentLiveAnswer({
   const showTtsAction = ttsEnabled && !message.canceled && Boolean(fullMarkdown.trim());
   const placeTtsBelowCourseMaterialHeading = COURSE_MATERIAL_HEADING.test(displayMarkdown);
   const showGeneralActions = !message.canceled && !message.sessionComplete && !isWelcomeTurn;
+  const nextStudySuggestions = [
+    ...starterSuggestions,
+    ...(offerLessonContinuations ? pathSuggestions : []),
+    ...(!isWelcomeTurn && Array.isArray(fallbackStudySuggestions)
+      ? fallbackStudySuggestions
+      : []),
+  ];
 
   const ttsControl = showTtsAction ? (
     <TtsMessageAction
@@ -191,7 +203,8 @@ function StudentLiveAnswer({
           sourceMap={materialSourceMap}
         />
       )}
-      {done && !message.canceled && starterSuggestions.length > 0 && (
+      {done && showStudySuggestions && !message.canceled && isWelcomeTurn
+        && starterSuggestions.length > 0 && (
         <AnswerImproveSuggestions
           suggestions={starterSuggestions}
           onStudy={onStudySuggestion}
@@ -200,16 +213,21 @@ function StudentLiveAnswer({
           hint="Nhấn vào một gợi ý để hỏi AI Tutor ngay nội dung đó."
         />
       )}
-      {done && !message.canceled && offerLessonContinuations && !isWelcomeTurn && (
+      {done && showStudySuggestions && !message.canceled && !isWelcomeTurn
+        && (currentLearnedSuggestion || nextStudySuggestions.length > 0) && (
         <AnswerImproveSuggestions
-          suggestions={pathSuggestions}
+          suggestions={nextStudySuggestions}
           onStudy={onStudySuggestion}
           onCreateQuiz={onCreateQuizFromSuggestion}
           sourceMode={message.mode}
+          learnedSuggestionKeys={learnedSuggestionKeys}
+          currentLearnedSuggestion={currentLearnedSuggestion}
+          heading="Gợi ý học tập"
+          hint="Bài vừa học được đánh dấu; bạn có thể chọn bài hoặc chương tiếp theo."
         />
       )}
-      {done && !message.canceled && offerLessonContinuations && !isWelcomeTurn
-        && pathSuggestions.length === 0 && (
+      {done && showStudySuggestions && !message.canceled && offerLessonContinuations && !isWelcomeTurn
+        && nextStudySuggestions.length === 0 && (
         <LessonDeepDiveCta
           question={message.question}
           answer={message.answer}
@@ -305,6 +323,8 @@ function ChatMessageList({
   onLockUnderstandingAnswer,
   onResendMessage,
   onStudySuggestion,
+  learnedSuggestions = [],
+  fallbackStudySuggestions = [],
   pinnedMessageIdSet,
   pinningMessageId,
   studentName,
@@ -322,6 +342,15 @@ function ChatMessageList({
   const messageAudio = useMessageAudio(
     `${activeSessionId || ''}:${courseId || ''}:${classId || ''}:${voiceId}`,
   );
+  const latestMessage = messages[messages.length - 1];
+  const latestSuggestionTurnIndex = latestMessage
+    && !latestMessage.pending
+    && String(latestMessage.answer || '').trim()
+    ? messages.length - 1
+    : -1;
+  const learnedSuggestionKeys = learnedSuggestions
+    .map((suggestion) => getStudySuggestionKey(suggestion))
+    .filter(Boolean);
 
   const openInlineSupport = (messageKey) => {
     setOpenSupportCards((current) => ({ ...current, [messageKey]: true }));
@@ -367,8 +396,22 @@ function ChatMessageList({
             const isWelcomeTurn = Boolean(message.proactive) || !String(message.question || '').trim();
             const showMentorSupport = !isWelcomeTurn && Boolean(escalationId || openSupportCards[messageKey]);
             const pathSuggestions = lessonSuggestionsForMessage(message);
+            const messageSuggestionKey = String(message.studySuggestionKey || '').trim();
+            const currentLearnedSuggestion = isWelcomeTurn
+              ? null
+              : learnedSuggestions.find((suggestion) => (
+                getStudySuggestionKey(suggestion) === messageSuggestionKey
+              ));
             const offerLessonContinuations = shouldOfferLessonContinuations(message);
             const tutorTurnFailed = Boolean(message.aiServiceError || isAiServiceErrorText(message.answer));
+            const responseMode = String(message.mode || '').toUpperCase();
+            const responseOutcome = String(message.outcome || '').toUpperCase();
+            const tutorAnswered = !tutorTurnFailed
+              && !message.canceled
+              && !message.escalated
+              && !message.questionEscalationId
+              && responseMode !== 'ESCALATE'
+              && responseOutcome !== 'NEEDS_MENTOR';
             const remediationRequest = getRemediationRequest(message);
 
             return (
@@ -427,6 +470,11 @@ function ChatMessageList({
                             isPinned={isPinned}
                             isPinning={isPinning}
                             isWelcomeTurn={isWelcomeTurn}
+                            showStudySuggestions={isWelcomeTurn
+                              || (index === latestSuggestionTurnIndex && tutorAnswered)}
+                            learnedSuggestionKeys={learnedSuggestionKeys}
+                            currentLearnedSuggestion={currentLearnedSuggestion}
+                            fallbackStudySuggestions={fallbackStudySuggestions}
                             materialSourceMap={materialSourceMap}
                             message={message}
                             messageAudio={messageAudio}

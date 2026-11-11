@@ -25,6 +25,7 @@ import {
 import { useDailyQuestionQuota } from '../features/student/chat/useDailyQuestionQuota';
 import { useTutorSessionController } from '../features/student/chat/useTutorSessionController';
 import { isGuidedLessonPrompt } from '../features/student/learning/studySuggestionPrompt';
+import { isSuccessfulStudySuggestionAnswer } from '../features/student/learning/studySuggestionProgress';
 
 const getSafeConversationTitle = (value, courseId) => {
   const repairedTitle = repairMojibake(value).trim();
@@ -41,6 +42,7 @@ export function useStudentChatController({
   classId,
   triggerToast,
   setCodeMentorDiagnostics,
+  onStudySuggestionAnswered,
 }) {
   const conversation = useConversationSessions({
     currentUser,
@@ -154,6 +156,8 @@ export function useStudentChatController({
       clientMessageId: `local-${requestId}`,
       interactionType: requestContext.interactionType || '',
       displayQuestion: requestContext.displayQuestion || '',
+      clickedSuggestion: requestContext.clickedSuggestion || '',
+      studySuggestionKey: requestContext.studySuggestionKey || '',
       requestedMode,
     }]);
 
@@ -226,6 +230,12 @@ export function useStudentChatController({
             ? schoolAnswer.nextImproveSuggestions
             : current.nextImproveSuggestions,
         }));
+        if (requestContext.studySuggestionKey && schoolAnswer?.grounded && answerText.trim()) {
+          onStudySuggestionAnswered?.({
+            studySuggestionKey: requestContext.studySuggestionKey,
+            text: requestContext.clickedSuggestion || requestContext.displayQuestion || text,
+          });
+        }
         setAvatarEmotion(schoolAnswer?.grounded ? 'success' : 'idle');
         return;
       }
@@ -401,6 +411,8 @@ export function useStudentChatController({
         question: text,
         interactionType: requestContext.interactionType || '',
         displayQuestion: requestContext.displayQuestion || '',
+        clickedSuggestion: requestContext.clickedSuggestion || '',
+        studySuggestionKey: requestContext.studySuggestionKey || '',
         requestedMode,
         answer: answerText,
         rawAnswer: answerText,
@@ -427,6 +439,17 @@ export function useStudentChatController({
       };
 
       applyToTargetTurn(() => finalTurn);
+      const studySuggestionAnswered = isSuccessfulStudySuggestionAnswer({
+        ...finalTurn,
+        studySuggestionKey: requestContext.studySuggestionKey,
+        escalated: data.escalated,
+      });
+      if (studySuggestionAnswered) {
+        onStudySuggestionAnswered?.({
+          studySuggestionKey: requestContext.studySuggestionKey,
+          text: requestContext.clickedSuggestion || requestContext.displayQuestion || text,
+        });
+      }
 
       if (data.mode === 'CODE' || data.mode === 'CODE_MENTOR') {
         setCodeMentorDiagnostics?.(data.answer);
@@ -489,6 +512,8 @@ export function useStudentChatController({
         rawAnswer: friendlyError,
         confidence: 0,
         sources: [],
+        clickedSuggestion: requestContext.clickedSuggestion || '',
+        studySuggestionKey: requestContext.studySuggestionKey || '',
         aiServiceError: true,
         retryable: !quotaReached,
         questionEscalationId: timeoutEscalation?.questionEscalationId
