@@ -117,6 +117,21 @@ describe('MarkdownRenderer Vietnamese text', () => {
     expect(screen.queryByRole('heading', { name: 'Nguồn tài liệu đã dùng' })).not.toBeInTheDocument();
   });
 
+  it('places the supplied action immediately below the course-material heading', () => {
+    render(
+      <MarkdownRenderer
+        markdown={'## Theo tài liệu môn học\n\nNội dung bài học.\n\n## Lưu ý để học tốt hơn'}
+        courseMaterialHeadingAddon={<button type="button">Đọc</button>}
+      />,
+    );
+
+    const heading = screen.getByRole('heading', { name: 'Theo tài liệu môn học' });
+    const actions = screen.getByRole('button', { name: 'Đọc' }).parentElement;
+    expect(heading.nextElementSibling).toBe(actions);
+    expect(actions).toHaveClass('ai-answer-course-material-actions');
+    expect(screen.getAllByRole('button', { name: 'Đọc' })).toHaveLength(1);
+  });
+
   it('sends the exact selected study tip into the continue-learning flow', () => {
     const onStudyTipStudy = vi.fn();
     render(

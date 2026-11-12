@@ -1,15 +1,9 @@
 import { writeQuizTopicHandoff } from '../studentRouteHandoff';
 import { buildStudySuggestionPrompt, isGuidedLessonPrompt } from './studySuggestionPrompt';
-
-const getSuggestionText = (suggestion) => String(
-  suggestion?.suggestionText
-  || suggestion?.title
-  || suggestion?.topic
-  || suggestion?.content
-  || suggestion?.text
-  || suggestion
-  || '',
-).trim();
+import {
+  getStudySuggestionKey,
+  getStudySuggestionText,
+} from './studySuggestionProgress';
 
 export function useStudentLearningActions({
   switchTab,
@@ -18,7 +12,7 @@ export function useStudentLearningActions({
   triggerToast,
 }) {
   const handleStudySuggestion = (suggestion) => {
-    const text = getSuggestionText(suggestion);
+    const text = getStudySuggestionText(suggestion);
     if (!text) return;
 
     const prompt = buildStudySuggestionPrompt(text, suggestion);
@@ -34,27 +28,34 @@ export function useStudentLearningActions({
     const hasSourceProvenance = sourceMaterialIds.length > 0;
     const isGuidedLesson = isGuidedLessonPrompt(prompt);
     const isWorkReview = Boolean(suggestion?.guidedPracticeAttempt);
+    const studySuggestionKey = getStudySuggestionKey(suggestion);
+    const visibleQuestion = isWorkReview ? 'Ôn tập lại' : text;
+    const studySuggestionContext = {
+      displayQuestion: visibleQuestion,
+      clickedSuggestion: visibleQuestion,
+      studySuggestionKey,
+    };
     const requestContext = hasImprovePlanProvenance || hasSourceProvenance || isGuidedLesson || isWorkReview
       ? {
+        ...studySuggestionContext,
         interactionType: isWorkReview
           ? 'GUIDED_PRACTICE_REVIEW'
           : (hasImprovePlanProvenance
             ? 'IMPROVE_PLAN_REVIEW'
             : (suggestion?.interactionType
               || (isGuidedLesson ? 'GUIDED_LESSON' : 'SOURCE_BACKED_STUDY_TIP'))),
-        displayQuestion: isWorkReview ? 'Ôn tập lại' : text,
+        displayQuestion: visibleQuestion,
         improvePlanId: suggestion?.improvePlanId || '',
         planItemId: suggestion?.planItemId || '',
         sourceMaterialIds,
         sourceChunkIds,
         chapterKey,
         chapterTitle,
-        clickedSuggestion: isWorkReview ? 'Ôn tập lại' : text,
+        clickedSuggestion: visibleQuestion,
       }
-      : {};
+      : studySuggestionContext;
     if (sendChatMessage) {
-      sendChatMessage(prompt, requestContext);
-      return;
+      return sendChatMessage(prompt, requestContext);
     }
     if (setChatDraft) {
       setChatDraft(prompt);

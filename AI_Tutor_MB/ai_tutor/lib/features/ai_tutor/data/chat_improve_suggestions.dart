@@ -3,13 +3,28 @@ import '../../../shared/models/improve_suggestion.dart';
 
 /// Gợi ý "Tiếp tục học" trong chat.
 ///
-/// Chỉ hiện khi câu trả lời là lộ trình (`Bài N` từ 2 bài trở lên).
-/// Câu trả lời thường không lấy chip API generic.
+/// Ưu tiên `nextImproveSuggestions` mà API đã xác nhận. Khi payload này không
+/// tồn tại, fallback sang lộ trình `Bài N` được phân tích từ câu trả lời.
 List<ImproveSuggestionItem> chatImproveSuggestionsForMessage({
   required String answer,
   List<ImproveSuggestionItem> apiSuggestions = const [],
   bool apiSuggestionsProvided = false,
 }) {
+  if (apiSuggestionsProvided && apiSuggestions.isNotEmpty) {
+    final actionable = ImproveSuggestionItem.actionableChips(apiSuggestions)
+        .where((item) => isActionableStudySuggestionText(item.effectiveText))
+        .map(
+          (item) => item.copyWith(
+            interactionType: item.interactionType ?? 'GUIDED_LESSON',
+          ),
+        )
+        .take(8)
+        .toList();
+    if (actionable.isNotEmpty) return actionable;
+  } else if (apiSuggestionsProvided) {
+    return const [];
+  }
+
   final parsedLessons = parseLessonSuggestionsFromAnswer(answer);
   if (parsedLessons.isEmpty) return const [];
   return [

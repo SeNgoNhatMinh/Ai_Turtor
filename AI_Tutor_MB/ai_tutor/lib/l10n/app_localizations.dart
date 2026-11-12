@@ -421,7 +421,7 @@ abstract class AppLocalizations {
   /// No description provided for @homeHeroSubtitle.
   ///
   /// In vi, this message translates to:
-  /// **'Hỏi Cóc về bài giảng, code, hay deadline.'**
+  /// **'Chọn môn và tiếp tục học cùng AI Tutor.'**
   String get homeHeroSubtitle;
 
   /// No description provided for @homeAskQuestion.
@@ -445,7 +445,7 @@ abstract class AppLocalizations {
   /// No description provided for @tabAskCoc.
   ///
   /// In vi, this message translates to:
-  /// **'Hỏi Cóc'**
+  /// **'Hỏi AI Tutor'**
   String get tabAskCoc;
 
   /// No description provided for @classroomSubtitle.
@@ -487,7 +487,7 @@ abstract class AppLocalizations {
   /// No description provided for @aiTutorName.
   ///
   /// In vi, this message translates to:
-  /// **'Cóc Vàng AI'**
+  /// **'AI Tutor'**
   String get aiTutorName;
 
   /// No description provided for @aiLanguageHintTooltip.
@@ -529,7 +529,7 @@ abstract class AppLocalizations {
   /// No description provided for @chatInputHint.
   ///
   /// In vi, this message translates to:
-  /// **'Nhắn cho Cóc...'**
+  /// **'Nhắn cho AI Tutor...'**
   String get chatInputHint;
 
   /// No description provided for @confidenceLabel.
@@ -667,7 +667,7 @@ abstract class AppLocalizations {
   /// No description provided for @askAboutCourse.
   ///
   /// In vi, this message translates to:
-  /// **'Hỏi AI về môn này'**
+  /// **'Hỏi AI Tutor về môn này'**
   String get askAboutCourse;
 
   /// No description provided for @emptyMaterialsTitle.
@@ -703,7 +703,7 @@ abstract class AppLocalizations {
   /// No description provided for @selectCourseHint.
   ///
   /// In vi, this message translates to:
-  /// **'AI trả lời theo tài liệu môn đã chọn'**
+  /// **'AI Tutor trả lời theo tài liệu môn đã chọn'**
   String get selectCourseHint;
 
   /// No description provided for @sendMessage.
@@ -727,7 +727,7 @@ abstract class AppLocalizations {
   /// No description provided for @aiThinking.
   ///
   /// In vi, this message translates to:
-  /// **'AI đang trả lời...'**
+  /// **'AI Tutor đang soạn bài giảng...'**
   String get aiThinking;
 
   /// No description provided for @codeMentor.
@@ -853,19 +853,19 @@ abstract class AppLocalizations {
   /// No description provided for @reviewSubmittedSnack.
   ///
   /// In vi, this message translates to:
-  /// **'Cảm ơn phản hồi! AI chưa cập nhật ngay từ đánh giá này.'**
+  /// **'Cảm ơn phản hồi! AI Tutor chưa cập nhật ngay từ đánh giá này.'**
   String get reviewSubmittedSnack;
 
   /// No description provided for @reviewSubmittedSnackMentor.
   ///
   /// In vi, this message translates to:
-  /// **'Đã gửi phản hồi — mentor sẽ kiểm tra. AI chưa học từ review này.'**
+  /// **'Đã gửi phản hồi — mentor sẽ kiểm tra. AI Tutor chưa học từ review này.'**
   String get reviewSubmittedSnackMentor;
 
   /// No description provided for @reviewSubmittedSnackSenior.
   ///
   /// In vi, this message translates to:
-  /// **'Đã gửi báo lỗi — Senior sẽ xem xét. AI chưa học từ review này.'**
+  /// **'Đã gửi báo lỗi — Senior sẽ xem xét. AI Tutor chưa học từ review này.'**
   String get reviewSubmittedSnackSenior;
 
   /// No description provided for @reviewWrongDialogTitle.
@@ -2035,7 +2035,7 @@ abstract class AppLocalizations {
   /// No description provided for @materialReaderHint.
   ///
   /// In vi, this message translates to:
-  /// **'Nội dung bài đọc được lấy từ tài liệu môn học. Bạn có thể mở file PDF để đọc đầy đủ hoặc hỏi Cóc về phần đang học.'**
+  /// **'Nội dung bài đọc được lấy từ tài liệu môn học. Bạn có thể mở file PDF để đọc đầy đủ hoặc hỏi AI Tutor về phần đang học.'**
   String get materialReaderHint;
 
   /// No description provided for @openMaterialPdf.
@@ -2047,13 +2047,13 @@ abstract class AppLocalizations {
   /// No description provided for @materialHighlightHint.
   ///
   /// In vi, this message translates to:
-  /// **'Highlight để hỏi Cóc về đoạn vừa đọc.'**
+  /// **'Highlight để hỏi AI Tutor về đoạn vừa đọc.'**
   String get materialHighlightHint;
 
   /// No description provided for @materialAskHint.
   ///
   /// In vi, this message translates to:
-  /// **'Hỏi Cóc về trang {page}...'**
+  /// **'Hỏi AI Tutor về trang {page}...'**
   String materialAskHint(int page);
 
   /// No description provided for @assignmentFilterPending.
@@ -2191,7 +2191,7 @@ abstract class AppLocalizations {
   /// No description provided for @improvePlanSubtitle.
   ///
   /// In vi, this message translates to:
-  /// **'{courseCode} · Cóc gợi ý cho bạn'**
+  /// **'{courseCode} · AI Tutor gợi ý cho bạn'**
   String improvePlanSubtitle(String courseCode);
 
   /// No description provided for @improvePlanDefaultSummary.

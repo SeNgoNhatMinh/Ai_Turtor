@@ -21,11 +21,30 @@ const containsMath = (content) => (
   || /(^|[^\\])\$[^$\n]+\$/m.test(content)
 );
 
-function HeadingRenderer({ Tag, children, ...props }) {
+const isCourseMaterialHeading = (children) => (
+  getNodeText(children)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLocaleLowerCase('vi-VN') === 'theo tai lieu mon hoc'
+);
+
+function HeadingRenderer({ Tag, children, courseMaterialHeadingAddon, ...props }) {
+  const showCourseMaterialAddon = Boolean(
+    courseMaterialHeadingAddon && isCourseMaterialHeading(children),
+  );
+
   return (
-    <Tag {...props} className="ai-answer-heading">
-      {children}
-    </Tag>
+    <>
+      <Tag {...props} className="ai-answer-heading">
+        {children}
+      </Tag>
+      {showCourseMaterialAddon && (
+        <div className="ai-answer-course-material-actions">
+          {courseMaterialHeadingAddon}
+        </div>
+      )}
+    </>
   );
 }
 
@@ -173,14 +192,27 @@ function LinkRenderer({ href, children, onStudyTipStudy, ...props }) {
   );
 }
 
-function createMarkdownComponents({ sourceMap, onStudyTipStudy, onDownloadSource }) {
+function createMarkdownComponents({
+  sourceMap,
+  onStudyTipStudy,
+  onDownloadSource,
+  courseMaterialHeadingAddon,
+}) {
+  const heading = (Tag) => (props) => (
+    <HeadingRenderer
+      Tag={Tag}
+      courseMaterialHeadingAddon={courseMaterialHeadingAddon}
+      {...props}
+    />
+  );
+
   return {
-    h1: (props) => <HeadingRenderer Tag="h2" {...props} />,
-    h2: (props) => <HeadingRenderer Tag="h3" {...props} />,
-    h3: (props) => <HeadingRenderer Tag="h3" {...props} />,
-    h4: (props) => <HeadingRenderer Tag="h4" {...props} />,
-    h5: (props) => <HeadingRenderer Tag="h4" {...props} />,
-    h6: (props) => <HeadingRenderer Tag="h4" {...props} />,
+    h1: heading('h2'),
+    h2: heading('h3'),
+    h3: heading('h3'),
+    h4: heading('h4'),
+    h5: heading('h4'),
+    h6: heading('h4'),
     p: (props) => <ParagraphRenderer {...props} sourceMap={sourceMap} onDownloadSource={onDownloadSource} />,
     pre: ({ children }) => <>{children}</>,
     code: CodeRenderer,
@@ -221,14 +253,20 @@ function MarkdownRenderer({
   onDownloadSource,
   hideSourceSection = false,
   headingStart = 1,
+  courseMaterialHeadingAddon,
 }) {
   const content = useMemo(() => {
     const normalized = normalizeAiMarkdown(markdown, { headingStart });
     return hideSourceSection ? stripSourceSection(normalized) : normalized;
   }, [headingStart, markdown, hideSourceSection]);
   const components = useMemo(
-    () => createMarkdownComponents({ sourceMap, onStudyTipStudy, onDownloadSource }),
-    [sourceMap, onStudyTipStudy, onDownloadSource],
+    () => createMarkdownComponents({
+      sourceMap,
+      onStudyTipStudy,
+      onDownloadSource,
+      courseMaterialHeadingAddon,
+    }),
+    [sourceMap, onStudyTipStudy, onDownloadSource, courseMaterialHeadingAddon],
   );
   const hasMath = useMemo(() => containsMath(content || ''), [content]);
 

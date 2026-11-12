@@ -10,7 +10,7 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../shared/models/course.dart';
 import '../../../../shared/widgets/fpt_logo.dart';
 
-/// Hero home — banner FPTU 3D + overlay chữ / CTA.
+/// Header và hero học tập — giữ nhận diện FPT nhưng ưu tiên hành động chính.
 class PlanAHomeHero extends StatelessWidget {
   const PlanAHomeHero({
     super.key,
@@ -30,149 +30,143 @@ class PlanAHomeHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    final topPad = MediaQuery.paddingOf(context).top + Insets.md;
-    final titleParts = _splitHeadline(title);
+    final topPad = MediaQuery.paddingOf(context).top + Insets.sm;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.dark,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 340),
-        child: Stack(
-          clipBehavior: Clip.none,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(Insets.screenH, topPad, Insets.screenH, 0),
+        child: Column(
           children: [
-            Positioned.fill(
-              child: Image.asset(
-                AppAssets.homeHeroFptu,
-                fit: BoxFit.cover,
-                alignment: Alignment.centerRight,
-                filterQuality: FilterQuality.high,
-              ),
+            Row(
+              children: [
+                const FptLogo(height: 28),
+                const Spacer(),
+                if (action != null) action!,
+              ],
             ),
-            Positioned.fill(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                    colors: [
-                      Colors.white,
-                      Colors.white.withValues(alpha: 0.94),
-                      Colors.white.withValues(alpha: 0.35),
-                      Colors.transparent,
-                    ],
-                    stops: const [0.0, 0.34, 0.52, 0.78],
-                  ),
-                ),
-              ),
-            ),
-            Padding(
-              padding: EdgeInsets.fromLTRB(
-                Insets.screenH,
-                topPad,
-                Insets.screenH,
-                Insets.xl,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const FptLogo(height: 26),
-                      const Spacer(),
-                      if (action != null) action!,
-                    ],
-                  ),
-                  const Gap(Insets.lg),
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 280),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text.rich(
-                          TextSpan(
+            const Gap(Insets.sm),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(Radii.xl),
+              child: SizedBox(
+                height: 248,
+                width: double.infinity,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Image.asset(
+                      AppAssets.homeHeroFptu,
+                      fit: BoxFit.cover,
+                      alignment: Alignment.centerRight,
+                      filterQuality: FilterQuality.high,
+                    ),
+                    const DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.centerLeft,
+                          end: Alignment.centerRight,
+                          colors: [
+                            Color(0xFF0A3A73),
+                            Color(0xF20A56A0),
+                            Color(0xC20A56A0),
+                            Color(0x260A56A0),
+                          ],
+                          stops: [0.0, 0.42, 0.64, 1.0],
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(Insets.lg),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 224),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              TextSpan(
-                                text: titleParts.$1,
+                              Text(
+                                title,
+                                maxLines: 3,
+                                overflow: TextOverflow.ellipsis,
                                 style: textTheme.headlineSmall?.copyWith(
-                                  color: AppColors.primary,
+                                  color: Colors.white,
                                   fontWeight: FontWeight.w800,
-                                  height: 1.2,
-                                  fontSize: 22,
+                                  height: 1.16,
+                                  fontSize: 21,
+                                  letterSpacing: -0.35,
                                 ),
                               ),
-                              TextSpan(
-                                text: titleParts.$2,
-                                style: textTheme.headlineSmall?.copyWith(
+                              const Gap(Insets.sm),
+                              Text(
+                                subtitle,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: textTheme.bodySmall?.copyWith(
+                                  color: Colors.white.withValues(alpha: 0.9),
+                                  fontWeight: FontWeight.w500,
+                                  height: 1.35,
+                                ),
+                              ),
+                              const Gap(Insets.md),
+                              Semantics(
+                                button: true,
+                                label: ctaLabel,
+                                child: Material(
                                   color: AppColors.fptOrange,
-                                  fontWeight: FontWeight.w800,
-                                  height: 1.2,
-                                  fontSize: 22,
+                                  borderRadius: BorderRadius.circular(
+                                    Radii.full,
+                                  ),
+                                  child: InkWell(
+                                    onTap: onCta,
+                                    borderRadius: BorderRadius.circular(
+                                      Radii.full,
+                                    ),
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: Insets.lg,
+                                        vertical: Insets.md,
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Flexible(
+                                            child: Text(
+                                              ctaLabel,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: textTheme.labelLarge
+                                                  ?.copyWith(
+                                                    color: Colors.white,
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
+                                            ),
+                                          ),
+                                          const Gap(Insets.sm),
+                                          const Icon(
+                                            LucideIcons.arrowRight,
+                                            size: 16,
+                                            color: Colors.white,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
                                 ),
                               ),
                             ],
                           ),
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
                         ),
-                        const Gap(Insets.sm),
-                        Text(
-                          subtitle,
-                          style: textTheme.bodyMedium?.copyWith(
-                            color: AppColors.textSecondary,
-                            height: 1.4,
-                          ),
-                        ),
-                        const Gap(Insets.md),
-                        Material(
-                          color: AppColors.fptOrange,
-                          borderRadius: BorderRadius.circular(Radii.full),
-                          child: InkWell(
-                            onTap: onCta,
-                            borderRadius: BorderRadius.circular(Radii.full),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: Insets.xl,
-                                vertical: Insets.md,
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    ctaLabel,
-                                    style: textTheme.labelLarge?.copyWith(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                  const Gap(Insets.sm),
-                                  const Icon(
-                                    LucideIcons.arrowRight,
-                                    size: 16,
-                                    color: Colors.white,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ],
         ),
       ),
     );
-  }
-
-  /// "Hôm nay học gì nào?" → ("Hôm nay ", "học gì nào?")
-  static (String, String) _splitHeadline(String title) {
-    const marker = 'học';
-    final i = title.toLowerCase().indexOf(marker);
-    if (i <= 0) return (title, '');
-    return (title.substring(0, i), title.substring(i));
   }
 }
 
@@ -189,30 +183,42 @@ class PlanASearchField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.card,
-      elevation: 2,
-      shadowColor: const Color(0x1A000000),
-      borderRadius: BorderRadius.circular(Radii.lg),
-      child: TextField(
-        controller: controller,
-        decoration: InputDecoration(
-          hintText: hint,
-          hintStyle: Theme.of(
-            context,
-          ).textTheme.bodyMedium?.copyWith(color: AppColors.textTertiary),
-          prefixIcon: const Icon(
-            LucideIcons.search,
-            size: 20,
-            color: AppColors.textTertiary,
+    return Semantics(
+      textField: true,
+      label: hint,
+      child: Material(
+        color: AppColors.card,
+        elevation: 2,
+        shadowColor: const Color(0x1A000000),
+        borderRadius: BorderRadius.circular(Radii.lg),
+        child: TextField(
+          controller: controller,
+          textInputAction: TextInputAction.search,
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: AppColors.textTertiary),
+            prefixIcon: const Icon(
+              LucideIcons.search,
+              size: 20,
+              color: AppColors.textTertiary,
+            ),
+            suffixIcon: controller.text.isEmpty
+                ? null
+                : IconButton(
+                    tooltip: 'Xóa tìm kiếm',
+                    onPressed: controller.clear,
+                    icon: const Icon(LucideIcons.x, size: 18),
+                  ),
+            border: InputBorder.none,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: Insets.md,
+              vertical: Insets.md,
+            ),
           ),
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: Insets.md,
-            vertical: Insets.md,
-          ),
+          style: Theme.of(context).textTheme.bodyMedium,
         ),
-        style: Theme.of(context).textTheme.bodyMedium,
       ),
     );
   }
@@ -238,31 +244,42 @@ class PlanAIconStats extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: Insets.screenH),
-      child: IntrinsicHeight(
-        child: Row(
-          children: [
-            Expanded(
-              child: _StatCell(
-                icon: LucideIcons.messageCircle,
-                value: questionsAsked,
-                label: questionsLabel,
-                theme: textTheme,
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: Insets.lg,
+          vertical: Insets.md,
+        ),
+        decoration: BoxDecoration(
+          color: AppColors.card,
+          borderRadius: BorderRadius.circular(Radii.lg),
+          border: Border.all(color: AppColors.borderHairline),
+        ),
+        child: IntrinsicHeight(
+          child: Row(
+            children: [
+              Expanded(
+                child: _StatCell(
+                  icon: LucideIcons.messageCircle,
+                  value: questionsAsked,
+                  label: questionsLabel,
+                  theme: textTheme,
+                ),
               ),
-            ),
-            const VerticalDivider(
-              width: 24,
-              thickness: 1,
-              color: AppColors.borderHairline,
-            ),
-            Expanded(
-              child: _StatCell(
-                icon: LucideIcons.bookOpen,
-                value: courseCount,
-                label: coursesLabel,
-                theme: textTheme,
+              const VerticalDivider(
+                width: 24,
+                thickness: 1,
+                color: AppColors.borderHairline,
               ),
-            ),
-          ],
+              Expanded(
+                child: _StatCell(
+                  icon: LucideIcons.bookOpen,
+                  value: courseCount,
+                  label: coursesLabel,
+                  theme: textTheme,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -289,27 +306,29 @@ class _StatCell extends StatelessWidget {
         Icon(icon, size: 22, color: AppColors.fptBlue),
         const Gap(Insets.sm),
         Expanded(
-          child: Text.rich(
-            TextSpan(
-              children: [
-                TextSpan(
-                  text: '$value ',
-                  style: theme.titleMedium?.copyWith(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.w800,
-                  ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '$value',
+                style: theme.titleLarge?.copyWith(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w800,
+                  height: 1,
                 ),
-                TextSpan(
-                  text: label,
-                  style: theme.bodySmall?.copyWith(
-                    color: AppColors.textSecondary,
-                    fontWeight: FontWeight.w500,
-                  ),
+              ),
+              const Gap(2),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.bodySmall?.copyWith(
+                  color: AppColors.textSecondary,
+                  fontWeight: FontWeight.w500,
                 ),
-              ],
-            ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
+              ),
+            ],
           ),
         ),
       ],
@@ -352,86 +371,122 @@ class PlanACourseCard extends StatelessWidget {
     ),
   ];
 
-  /// Mỗi thẻ trong rail dùng bộ (màu + line-art) khác nhau.
-  static _CourseArtTheme themeFor(int index) => _themes[index % _themes.length];
-
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    final theme = themeFor(index);
+    final theme = _themes[index % _themes.length];
     final title = course.name.isNotEmpty ? course.name : course.code;
+    final cardWidth = ((MediaQuery.sizeOf(context).width - 44) / 2).clamp(
+      156.0,
+      196.0,
+    );
 
-    return SizedBox(
-      width: 196,
-      child: Material(
-        color: AppColors.card,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(Radii.lg),
-          side: const BorderSide(color: AppColors.borderHairline),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(
-                height: 108,
-                width: double.infinity,
-                child: ColoredBox(
-                  color: theme.bg,
-                  child: Stack(
-                    children: [
-                      Positioned.fill(
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(8, 28, 8, 4),
-                          child: Image.asset(
-                            theme.art,
-                            fit: BoxFit.contain,
-                            alignment: Alignment.bottomCenter,
-                            filterQuality: FilterQuality.high,
+    return Semantics(
+      button: true,
+      label: '${course.code}, $title',
+      hint: 'Mở AI Tutor cho môn học này',
+      child: SizedBox(
+        width: cardWidth,
+        child: Material(
+          color: AppColors.card,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(Radii.lg),
+            side: const BorderSide(color: AppColors.borderHairline),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onTap,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  height: 100,
+                  width: double.infinity,
+                  child: ColoredBox(
+                    color: theme.bg,
+                    child: Stack(
+                      children: [
+                        Positioned.fill(
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(8, 28, 8, 4),
+                            child: Image.asset(
+                              theme.art,
+                              fit: BoxFit.contain,
+                              alignment: Alignment.bottomCenter,
+                              filterQuality: FilterQuality.high,
+                            ),
                           ),
                         ),
-                      ),
-                      Positioned(
-                        top: 10,
-                        left: 12,
-                        child: Text(
-                          course.code,
-                          style: textTheme.labelLarge?.copyWith(
-                            color: theme.accent,
-                            fontWeight: FontWeight.w800,
+                        Positioned(
+                          top: 10,
+                          left: 12,
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: theme.accent.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(Radii.full),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: Insets.sm,
+                                vertical: Insets.xs,
+                              ),
+                              child: Text(
+                                course.code,
+                                style: textTheme.labelLarge?.copyWith(
+                                  color: theme.accent,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  Insets.md,
-                  Insets.sm,
-                  Insets.md,
-                  Insets.md,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: textTheme.titleSmall?.copyWith(
-                        color: AppColors.textPrimary,
-                        fontWeight: FontWeight.w800,
-                        height: 1.25,
-                      ),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      Insets.md,
+                      Insets.sm,
+                      Insets.sm,
+                      Insets.sm,
                     ),
-                  ],
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: textTheme.titleSmall?.copyWith(
+                              color: AppColors.textPrimary,
+                              fontWeight: FontWeight.w800,
+                              height: 1.2,
+                            ),
+                          ),
+                        ),
+                        const Gap(Insets.xs),
+                        Container(
+                          width: 32,
+                          height: 32,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: theme.accent.withValues(alpha: 0.08),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            LucideIcons.arrowRight,
+                            size: 16,
+                            color: theme.accent,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -488,69 +543,61 @@ class PlanAQuickActions extends StatelessWidget {
             ),
           ),
           const Gap(Insets.md),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: actions.length,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              mainAxisSpacing: Insets.md,
-              crossAxisSpacing: Insets.md,
-              mainAxisExtent: 168,
-            ),
-            itemBuilder: (context, index) {
-              final action = actions[index];
-              return Material(
-                color: AppColors.card,
-                borderRadius: BorderRadius.circular(Radii.lg),
-                child: InkWell(
-                  onTap: action.onTap,
-                  borderRadius: BorderRadius.circular(Radii.lg),
-                  child: Container(
-                    padding: const EdgeInsets.all(Insets.md),
-                    decoration: BoxDecoration(
+          SizedBox(
+            height: 108,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              clipBehavior: Clip.none,
+              itemCount: actions.length,
+              separatorBuilder: (_, __) => const Gap(Insets.sm),
+              itemBuilder: (context, index) {
+                final action = actions[index];
+                return Semantics(
+                  button: true,
+                  label: action.title,
+                  hint: action.subtitle,
+                  child: SizedBox(
+                    width: 98,
+                    child: Material(
+                      color: action.color.withValues(alpha: 0.07),
                       borderRadius: BorderRadius.circular(Radii.lg),
-                      border: Border.all(color: AppColors.borderHairline),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          width: 36,
-                          height: 36,
-                          alignment: Alignment.center,
+                      child: InkWell(
+                        onTap: action.onTap,
+                        borderRadius: BorderRadius.circular(Radii.lg),
+                        child: Container(
+                          padding: const EdgeInsets.all(Insets.sm),
                           decoration: BoxDecoration(
-                            color: action.color.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(Radii.md),
+                            borderRadius: BorderRadius.circular(Radii.lg),
+                            border: Border.all(
+                              color: action.color.withValues(alpha: 0.12),
+                            ),
                           ),
-                          child: Icon(
-                            action.icon,
-                            color: action.color,
-                            size: 20,
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(action.icon, color: action.color, size: 26),
+                              const Gap(Insets.sm),
+                              Text(
+                                action.title,
+                                maxLines: 2,
+                                textAlign: TextAlign.center,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.labelLarge
+                                    ?.copyWith(
+                                      color: AppColors.primary,
+                                      fontWeight: FontWeight.w700,
+                                      height: 1.15,
+                                    ),
+                              ),
+                            ],
                           ),
                         ),
-                        const Gap(Insets.md),
-                        Text(
-                          action.title,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.titleSmall
-                              ?.copyWith(fontWeight: FontWeight.w700),
-                        ),
-                        const Gap(Insets.xs),
-                        Text(
-                          action.subtitle,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: AppColors.textTertiary),
-                        ),
-                      ],
+                      ),
                     ),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
         ],
       ),

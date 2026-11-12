@@ -58,6 +58,8 @@ function StudentChatView({
   courseMaterials,
   mentorRequests,
   onStudySuggestion,
+  learnedSuggestions,
+  fallbackStudySuggestions,
   onCreateQuizFromSuggestion,
   onDownloadSource,
   onOpenMentorReview,
@@ -183,6 +185,8 @@ function StudentChatView({
             courseMaterials={courseMaterials}
             mentorRequests={mentorRequests}
             onStudySuggestion={onStudySuggestion}
+            learnedSuggestions={learnedSuggestions}
+            fallbackStudySuggestions={fallbackStudySuggestions}
             onCreateQuizFromSuggestion={onCreateQuizFromSuggestion}
             onDownloadSource={onDownloadSource}
             onOpenMentorReview={onOpenMentorReview}

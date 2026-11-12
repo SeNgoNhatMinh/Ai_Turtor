@@ -29,6 +29,7 @@ import {
   resolveChatStudyTip,
   stripCurriculumStarterSection,
 } from '../../learning/studySuggestionPrompt';
+import { getStudySuggestionKey } from '../../learning/studySuggestionProgress';
 import { isAiServiceErrorText, shouldOfferLessonContinuations } from '../../../../utils/errorMessages';
 import {
   FINISHED_WORK_REVIEW_LABEL,
@@ -44,6 +45,7 @@ const AiAnswer = lazy(() => import('../../../../components/AiAnswer'));
 
 const REMEDIATION_PROMPT_PREFIX = /^Ôn lại sau câu (?:trả lời chưa đúng|kiểm tra chưa có đáp án)\./i;
 const REMEDIATION_QUESTION = /^Câu vừa làm:\s*(.+)$/im;
+const COURSE_MATERIAL_HEADING = /^(?:#{1,6}\s*)?(?:Theo tài liệu môn học|Theo tai lieu mon hoc)\s*#*\s*$/imu;
 
 function getRemediationRequest(message) {
   const rawQuestion = String(message?.question || '').trim();
@@ -97,6 +99,10 @@ function StudentLiveAnswer({
   isPinned,
   isPinning,
   isWelcomeTurn,
+  showStudySuggestions,
+  learnedSuggestionKeys,
+  currentLearnedSuggestion,
+  fallbackStudySuggestions,
   materialSourceMap,
   message,
   messageAudio,
@@ -134,7 +140,40 @@ function StudentLiveAnswer({
   const reveal = Boolean(message.revealAnswer) && !tutorTurnFailed && !message.canceled;
   const { text: revealedMarkdown, done } = useMarkdownReveal(displayMarkdown, reveal);
   const showTtsAction = ttsEnabled && !message.canceled && Boolean(fullMarkdown.trim());
+  const placeTtsBelowCourseMaterialHeading = COURSE_MATERIAL_HEADING.test(displayMarkdown);
   const showGeneralActions = !message.canceled && !message.sessionComplete && !isWelcomeTurn;
+  const nextStudySuggestions = [
+    ...starterSuggestions,
+    ...(offerLessonContinuations ? pathSuggestions : []),
+    ...(!isWelcomeTurn && Array.isArray(fallbackStudySuggestions)
+      ? fallbackStudySuggestions
+      : []),
+  ];
+
+  const ttsControl = showTtsAction ? (
+    <TtsMessageAction
+      messageKey={messageKey}
+      speech={messageAudio.state}
+      onToggle={() => messageAudio.toggle({
+        messageKey,
+        messageId: message.assistantMessageId || message.messageId || message.id || messageKey,
+        courseId,
+        classId,
+        text: fullMarkdown,
+        providerVoiceId: voiceId,
+      })}
+      onStop={() => messageAudio.stop(messageKey)}
+      onSeek={(value) => messageAudio.seek(messageKey, value)}
+    >
+      <VoiceSelector
+        compact
+        value={voiceId}
+        voices={ttsVoices}
+        loading={ttsVoicesLoading}
+        onChange={onTtsVoiceChange}
+      />
+    </TtsMessageAction>
+  ) : null;
 
   useEffect(() => {
     if (!reveal || done) return;
@@ -176,6 +215,7 @@ function StudentLiveAnswer({
           }) : undefined}
           onDownloadSource={onDownloadSource}
           hideSourceSection
+          courseMaterialHeadingAddon={done && placeTtsBelowCourseMaterialHeading ? ttsControl : null}
         />
       </Suspense>
 
@@ -185,7 +225,8 @@ function StudentLiveAnswer({
           sourceMap={materialSourceMap}
         />
       )}
-      {done && !message.canceled && starterSuggestions.length > 0 && (
+      {done && showStudySuggestions && !message.canceled && isWelcomeTurn
+        && starterSuggestions.length > 0 && (
         <AnswerImproveSuggestions
           suggestions={starterSuggestions}
           onStudy={onStudySuggestion}
@@ -199,48 +240,30 @@ function StudentLiveAnswer({
           searchPlaceholder="Tìm bài học…"
         />
       )}
-      {done && !message.canceled && offerLessonContinuations && !isWelcomeTurn && (
+      {done && showStudySuggestions && !message.canceled && !isWelcomeTurn
+        && (currentLearnedSuggestion || nextStudySuggestions.length > 0) && (
         <AnswerImproveSuggestions
-          suggestions={pathSuggestions}
+          suggestions={nextStudySuggestions}
           onStudy={onStudySuggestion}
           onCreateQuiz={onCreateQuizFromSuggestion}
           sourceMode={message.mode}
+          learnedSuggestionKeys={learnedSuggestionKeys}
+          currentLearnedSuggestion={currentLearnedSuggestion}
+          heading="Gợi ý học tập"
+          hint="Bài vừa học được đánh dấu; bạn có thể chọn bài hoặc chương tiếp theo."
         />
       )}
-      {done && !message.canceled && offerLessonContinuations && !isWelcomeTurn
-        && pathSuggestions.length === 0 && (
+      {done && showStudySuggestions && !message.canceled && offerLessonContinuations && !isWelcomeTurn
+        && nextStudySuggestions.length === 0 && (
         <LessonDeepDiveCta
           question={message.question}
           answer={message.answer}
           onStudy={onStudySuggestion}
         />
       )}
-      {done && (showTtsAction || showGeneralActions) && (
+      {done && ((showTtsAction && !placeTtsBelowCourseMaterialHeading) || showGeneralActions) && (
         <div className="chat-ai-action-row">
-          {showTtsAction && (
-            <TtsMessageAction
-              messageKey={messageKey}
-              speech={messageAudio.state}
-              onToggle={() => messageAudio.toggle({
-                messageKey,
-                messageId: message.assistantMessageId || message.messageId || message.id || messageKey,
-                courseId,
-                classId,
-                text: fullMarkdown,
-                providerVoiceId: voiceId,
-              })}
-              onStop={() => messageAudio.stop(messageKey)}
-              onSeek={(value) => messageAudio.seek(messageKey, value)}
-            >
-              <VoiceSelector
-                compact
-                value={voiceId}
-                voices={ttsVoices}
-                loading={ttsVoicesLoading}
-                onChange={onTtsVoiceChange}
-              />
-            </TtsMessageAction>
-          )}
+          {showTtsAction && !placeTtsBelowCourseMaterialHeading && ttsControl}
           {showGeneralActions && (
             <AnswerActionBar
               message={{
@@ -327,6 +350,8 @@ function ChatMessageList({
   onLockUnderstandingAnswer,
   onResendMessage,
   onStudySuggestion,
+  learnedSuggestions = [],
+  fallbackStudySuggestions = [],
   pinnedMessageIdSet,
   pinningMessageId,
   studentName,
@@ -344,6 +369,15 @@ function ChatMessageList({
   const messageAudio = useMessageAudio(
     `${activeSessionId || ''}:${courseId || ''}:${classId || ''}:${voiceId}`,
   );
+  const latestMessage = messages[messages.length - 1];
+  const latestSuggestionTurnIndex = latestMessage
+    && !latestMessage.pending
+    && String(latestMessage.answer || '').trim()
+    ? messages.length - 1
+    : -1;
+  const learnedSuggestionKeys = learnedSuggestions
+    .map((suggestion) => getStudySuggestionKey(suggestion))
+    .filter(Boolean);
 
   const openInlineSupport = (messageKey) => {
     setOpenSupportCards((current) => ({ ...current, [messageKey]: true }));
@@ -389,8 +423,22 @@ function ChatMessageList({
             const isWelcomeTurn = Boolean(message.proactive) || !String(message.question || '').trim();
             const showMentorSupport = !isWelcomeTurn && Boolean(escalationId || openSupportCards[messageKey]);
             const pathSuggestions = lessonSuggestionsForMessage(message);
+            const messageSuggestionKey = String(message.studySuggestionKey || '').trim();
+            const currentLearnedSuggestion = isWelcomeTurn
+              ? null
+              : learnedSuggestions.find((suggestion) => (
+                getStudySuggestionKey(suggestion) === messageSuggestionKey
+              ));
             const offerLessonContinuations = shouldOfferLessonContinuations(message);
             const tutorTurnFailed = Boolean(message.aiServiceError || isAiServiceErrorText(message.answer));
+            const responseMode = String(message.mode || '').toUpperCase();
+            const responseOutcome = String(message.outcome || '').toUpperCase();
+            const tutorAnswered = !tutorTurnFailed
+              && !message.canceled
+              && !message.escalated
+              && !message.questionEscalationId
+              && responseMode !== 'ESCALATE'
+              && responseOutcome !== 'NEEDS_MENTOR';
             const remediationRequest = getLearningEventCard(message);
 
             return (
@@ -453,6 +501,11 @@ function ChatMessageList({
                             isPinned={isPinned}
                             isPinning={isPinning}
                             isWelcomeTurn={isWelcomeTurn}
+                            showStudySuggestions={isWelcomeTurn
+                              || (index === latestSuggestionTurnIndex && tutorAnswered)}
+                            learnedSuggestionKeys={learnedSuggestionKeys}
+                            currentLearnedSuggestion={currentLearnedSuggestion}
+                            fallbackStudySuggestions={fallbackStudySuggestions}
                             materialSourceMap={materialSourceMap}
                             message={message}
                             messageAudio={messageAudio}

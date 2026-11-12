@@ -1,15 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { BookOpenCheck, ClipboardList, Search, ChevronUp } from 'lucide-react';
-
-const getSuggestionText = (suggestion) => String(
-  suggestion?.suggestionText
-  || suggestion?.title
-  || suggestion?.topic
-  || suggestion?.content
-  || suggestion?.text
-  || suggestion
-  || '',
-).trim();
+import { BookOpenCheck, CheckCircle2, ClipboardList, Search, ChevronUp } from 'lucide-react';
+import {
+  getStudySuggestionKey,
+  getStudySuggestionText,
+} from '../../learning/studySuggestionProgress';
 
 function AnswerImproveSuggestions({
   suggestions = [],
@@ -17,6 +11,8 @@ function AnswerImproveSuggestions({
   onCreateQuiz,
   sourceMode,
   readOnly = false,
+  learnedSuggestionKeys = [],
+  currentLearnedSuggestion,
   heading = 'Tiếp tục học',
   hint = 'Chọn nội dung bạn muốn học tiếp từ câu trả lời này.',
   pageSize = 8,
@@ -25,11 +21,19 @@ function AnswerImproveSuggestions({
   enableSearch = false,
   searchPlaceholder = 'Tìm chương…',
 }) {
+  const learnedKeys = useMemo(() => new Set(
+    (Array.isArray(learnedSuggestionKeys) ? learnedSuggestionKeys : [])
+      .map((key) => String(key || '').trim())
+      .filter(Boolean),
+  ), [learnedSuggestionKeys]);
+  const candidates = currentLearnedSuggestion
+    ? [currentLearnedSuggestion, ...(Array.isArray(suggestions) ? suggestions : [])]
+    : suggestions;
   const uniqueSuggestions = useMemo(() => [...new Map(
-    (Array.isArray(suggestions) ? suggestions : [])
-      .map((suggestion) => [getSuggestionText(suggestion).toLowerCase(), suggestion])
+    (Array.isArray(candidates) ? candidates : [])
+      .map((suggestion) => [getStudySuggestionText(suggestion).normalize('NFKC').trim().toLowerCase(), suggestion])
       .filter(([key]) => key),
-  ).values()], [suggestions]);
+  ).values()], [candidates]);
 
   const step = Math.max(1, Number(pageSize) || 8);
   const [visibleCount, setVisibleCount] = useState(Math.min(step, uniqueSuggestions.length));
@@ -39,7 +43,7 @@ function AnswerImproveSuggestions({
     const needle = query.trim().toLowerCase();
     if (!needle) return uniqueSuggestions;
     return uniqueSuggestions.filter((suggestion) => (
-      getSuggestionText(suggestion).toLowerCase().includes(needle)
+      getStudySuggestionText(suggestion).toLowerCase().includes(needle)
     ));
   }, [query, uniqueSuggestions]);
 
@@ -77,11 +81,17 @@ function AnswerImproveSuggestions({
         {visibleSuggestions.length === 0 ? (
           <p className="answer-improve-suggestions__empty">Không tìm thấy chương phù hợp.</p>
         ) : visibleSuggestions.map((suggestion) => {
-          const text = getSuggestionText(suggestion);
+          const text = getStudySuggestionText(suggestion);
+          const suggestionKey = getStudySuggestionKey(suggestion);
+          const isLearned = learnedKeys.has(suggestionKey);
           return (
-            <article key={text.toLowerCase()} className="answer-improve-suggestion">
+            <article key={suggestionKey || text.toLowerCase()} className="answer-improve-suggestion">
               <span>{text}</span>
-              {!readOnly && (onStudy || onCreateQuiz) ? (
+              {isLearned ? (
+                <span className="answer-improve-suggestion__learned" aria-label={`${text} - Đã học`}>
+                  <CheckCircle2 size={14} aria-hidden="true" /> Đã học
+                </span>
+              ) : !readOnly && (onStudy || onCreateQuiz) ? (
                 <div className="answer-improve-suggestion__actions">
                   {onStudy && (
                     <button

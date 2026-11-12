@@ -9,6 +9,7 @@ import '../../../../core/network/exceptions.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/theme/theme_extensions.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../shared/models/improve_suggestion.dart';
 import '../../../../shared/widgets/ai_suggestion_json.dart';
@@ -25,6 +26,7 @@ class ImproveSuggestionsStrip extends StatelessWidget {
     this.onCreateQuiz,
     this.loadingKey,
     this.heading = 'Tiếp tục học',
+    this.hint = 'Chọn nội dung bạn muốn học tiếp từ câu trả lời này.',
     this.quizLabel = 'Ôn tập',
     this.enabled = true,
   });
@@ -35,6 +37,7 @@ class ImproveSuggestionsStrip extends StatelessWidget {
   final ValueChanged<ImproveSuggestionItem>? onCreateQuiz;
   final String? loadingKey;
   final String heading;
+  final String hint;
   final String quizLabel;
   final bool enabled;
 
@@ -61,6 +64,7 @@ class ImproveSuggestionsStrip extends StatelessWidget {
     }
 
     final l10n = AppLocalizations.of(context)!;
+    final colors = context.fpt;
     final unique = _dedupe(suggestions);
     if (unique.isEmpty) return const SizedBox.shrink();
 
@@ -69,7 +73,7 @@ class ImproveSuggestionsStrip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(Insets.md),
         decoration: BoxDecoration(
-          color: const Color(0xFFFAFAFA),
+          color: colors.raised,
           borderRadius: BorderRadius.circular(Radii.md),
           border: Border.all(color: AppColors.borderHairline),
         ),
@@ -84,10 +88,10 @@ class ImproveSuggestionsStrip extends StatelessWidget {
             ),
             const Gap(2),
             Text(
-              'Chọn nội dung bạn muốn học tiếp từ câu trả lời này.',
+              hint,
               style: Theme.of(
                 context,
-              ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
+              ).textTheme.bodySmall?.copyWith(color: colors.textSecondary),
             ),
             const Gap(Insets.sm),
             ...unique.map((item) {
@@ -139,46 +143,78 @@ class _ContinueLearningRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: Insets.sm,
-        vertical: Insets.xs,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(Radii.sm),
-        border: Border.all(color: AppColors.borderHairline),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            consumed ? '$label · Đã học' : label,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: consumed ? AppColors.textTertiary : AppColors.textPrimary,
-            ),
+    final colors = context.fpt;
+    return Semantics(
+      label: consumed ? '$label, Đã học' : label,
+      enabled: !consumed,
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 140),
+        opacity: consumed ? 0.52 : 1,
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: Insets.sm,
+            vertical: Insets.xs,
           ),
-          const Gap(Insets.xs),
-          Wrap(
-            alignment: WrapAlignment.end,
-            spacing: Insets.xs,
-            runSpacing: Insets.xs,
+          decoration: BoxDecoration(
+            color: consumed ? colors.sunken : colors.card,
+            borderRadius: BorderRadius.circular(Radii.sm),
+            border: Border.all(color: colors.borderHairline),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (showCreateQuiz)
-                _CompactActionButton(
-                  label: quizLabel,
-                  icon: LucideIcons.clipboardList,
-                  onPressed: onCreateQuiz,
+              Text(
+                label,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: consumed ? colors.textTertiary : colors.textPrimary,
                 ),
-              _CompactActionButton(
-                label: learnLabel,
-                icon: LucideIcons.bookOpenCheck,
-                loading: loading,
-                onPressed: loading ? null : onLearn,
               ),
+              const Gap(Insets.xs),
+              if (consumed)
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        LucideIcons.checkCircle2,
+                        size: 16,
+                        color: colors.textTertiary,
+                      ),
+                      const Gap(Insets.xs),
+                      Text(
+                        'Đã học',
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: colors.textTertiary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                Wrap(
+                  alignment: WrapAlignment.end,
+                  spacing: Insets.xs,
+                  runSpacing: Insets.xs,
+                  children: [
+                    if (showCreateQuiz)
+                      _CompactActionButton(
+                        label: quizLabel,
+                        icon: LucideIcons.clipboardList,
+                        onPressed: onCreateQuiz,
+                      ),
+                    _CompactActionButton(
+                      label: learnLabel,
+                      icon: LucideIcons.bookOpenCheck,
+                      loading: loading,
+                      onPressed: loading ? null : onLearn,
+                    ),
+                  ],
+                ),
             ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -202,9 +238,8 @@ class _CompactActionButton extends StatelessWidget {
     return TextButton.icon(
       onPressed: loading ? null : onPressed,
       style: TextButton.styleFrom(
-        minimumSize: const Size(0, 30),
+        minimumSize: const Size(48, 48),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         visualDensity: VisualDensity.compact,
         foregroundColor: AppColors.textSecondary,
       ),

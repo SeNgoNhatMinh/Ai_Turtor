@@ -30,6 +30,7 @@ function MarkdownPart({
   onDownloadSource,
   hideSourceSection,
   headingStart = 1,
+  courseMaterialHeadingAddon,
 }) {
   if (!markdown) return null;
   return (
@@ -41,6 +42,7 @@ function MarkdownPart({
       onDownloadSource={onDownloadSource}
       hideSourceSection={hideSourceSection}
       headingStart={headingStart}
+      courseMaterialHeadingAddon={courseMaterialHeadingAddon}
     />
   );
 }
@@ -60,6 +62,7 @@ function AnswerWithQuizzes({
   attemptId,
   deferGrade = false,
   headingStart = 1,
+  courseMaterialHeadingAddon,
 }) {
   const extracted = useMemo(() => extractUnderstandingCheck(markdown), [markdown]);
   const structuredQuiz = useMemo(
@@ -92,6 +95,7 @@ function AnswerWithQuizzes({
         onDownloadSource={onDownloadSource}
         hideSourceSection={hideSourceSection}
         headingStart={headingStart}
+        courseMaterialHeadingAddon={courseMaterialHeadingAddon}
       />
     );
   }
@@ -106,6 +110,7 @@ function AnswerWithQuizzes({
         onDownloadSource={onDownloadSource}
         hideSourceSection={hideSourceSection}
         headingStart={headingStart}
+        courseMaterialHeadingAddon={courseMaterialHeadingAddon}
       />
       {quizzes.map((quiz, index) => {
         const savedAttempt = (Array.isArray(understandingAttempts) ? understandingAttempts : [])
@@ -132,6 +137,7 @@ function AnswerWithQuizzes({
         onDownloadSource={onDownloadSource}
         hideSourceSection={hideSourceSection}
         headingStart={headingStart + numberedSectionCount(extracted.before)}
+        courseMaterialHeadingAddon={courseMaterialHeadingAddon}
       />
     </>
   );
@@ -151,6 +157,7 @@ function AiAnswer({
   reviewer = false,
   understandingSelectedKey = '',
   attemptId = '',
+  courseMaterialHeadingAddon,
 }) {
   const practice = useMemo(
     () => (streaming ? null : extractGuidedPractice(markdown)),
@@ -250,6 +257,7 @@ function AiAnswer({
     reviewer,
     understandingSelectedKey,
     attemptId,
+    courseMaterialHeadingAddon,
     deferGrade: Boolean(practice) && !practiceSaved && !reviewer,
   };
 

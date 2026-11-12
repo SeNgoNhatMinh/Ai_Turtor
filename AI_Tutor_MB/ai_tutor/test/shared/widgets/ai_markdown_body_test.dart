@@ -67,6 +67,34 @@ Chọn một gợi ý ở trên để bắt đầu học, hoặc nhập chủ đ
     expect(tapped, ['Ôn lại vòng lặp for']);
   });
 
+  testWidgets('places the answer action below the leading heading', (
+    tester,
+  ) async {
+    const actionKey = ValueKey('answer-action');
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: AiMarkdownBody(
+            data: '## Theo tài liệu môn học\n\nNội dung trả lời.',
+            answerAction: SizedBox(
+              key: actionKey,
+              height: 48,
+              child: Text('Đọc câu trả lời'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final headingTop = tester.getTopLeft(find.text('Theo tài liệu môn học')).dy;
+    final actionTop = tester.getTopLeft(find.byKey(actionKey)).dy;
+    final bodyTop = tester.getTopLeft(find.text('Nội dung trả lời.')).dy;
+
+    expect(actionTop, greaterThan(headingTop));
+    expect(bodyTop, greaterThan(actionTop));
+  });
+
   testWidgets('deep-dive choices stay tappable like web', (tester) async {
     final tapped = <String>[];
     const topic = 'So sánh O, Ω, và Θ trong các đường hợp thức';

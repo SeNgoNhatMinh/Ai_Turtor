@@ -600,6 +600,7 @@ class ChatController
     String? improvePlanId,
     String? planItemId,
     String? clickedSuggestion,
+    String? studySuggestionKey,
     String? chapterKey,
     String? chapterTitle,
     String requestedMode = 'RAG',
@@ -632,6 +633,7 @@ class ChatController
         (interactionType ?? activePending?.interactionType)?.trim() ?? '';
     final resolvedClicked =
         (clickedSuggestion ?? activePending?.clickedSuggestion)?.trim() ?? '';
+    final resolvedStudySuggestionKey = studySuggestionKey?.trim() ?? '';
     final resolvedChapterKey =
         (chapterKey ?? activePending?.chapterKey)?.trim() ?? '';
     final resolvedChapterTitle =
@@ -797,6 +799,27 @@ class ChatController
         understandingCheck: answer.understandingCheck,
         understandingCheckAttempts: answer.understandingCheckAttempts,
       );
+      if (!answer.escalated &&
+          answer.questionEscalationId == null &&
+          resolvedClicked.isNotEmpty &&
+          hasMeaningfulAiChatContent(answer.answer)) {
+        final normalizedTextKey = ImproveSuggestionItem.fromLabel(
+          resolvedClicked,
+        ).key;
+        final learnedKeys = <String>{
+          if (resolvedStudySuggestionKey.isNotEmpty) resolvedStudySuggestionKey,
+          if (normalizedTextKey.isNotEmpty) normalizedTextKey,
+        };
+        if (learnedKeys.isNotEmpty) {
+          ref
+              .read(
+                consumedSuggestionKeysProvider(
+                  effectiveConversationId,
+                ).notifier,
+              )
+              .update((keys) => {...keys, ...learnedKeys});
+        }
+      }
       ref
           .read(chatRevealMessageIdProvider(effectiveConversationId).notifier)
           .state = aiMessage
